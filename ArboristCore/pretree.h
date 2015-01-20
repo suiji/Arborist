@@ -1,3 +1,5 @@
+// This file is part of ArboristCore.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -6,80 +8,109 @@
 #ifndef ARBORIST_PRETREE_H
 #define ARBORIST_PRETREE_H
 
-class PTNode {
- public:
-  int depth; // Level at which this node appears.
-  int treeOff; // Offset of node from base of decision tree.
-  int id; // DIAGNOSTIC
-  class SplitNode* par; // All nodes but root have non-zero parent.
-  PTNode(class SplitNode *par, const bool isLH);
-};
-
-typedef union { double num; int fac; } SplitVal;
-
-// TODO:  deprecate 'tag' field.  For now, though, navigates offset in DecTree.
-//
-class SplitNode : public PTNode {
- public:
-  int pred; // Predictor encoded in DecTree format.
-  SplitVal sval; // Index or splitting val.
-  double Gini;
-  PTNode *rh; // Always nonzero.
-  PTNode *lh; // Always nonzero.
-  Bump bump; // Bump table entry.
- SplitNode(int _pred, SplitVal _sv, double _Gini, SplitNode *par, const bool isLH) : PTNode(par, isLH), lh(0), rh(0), pred(_pred), sval(_sv), Gini(_Gini) {}
-};
-
-class Leaf : public PTNode {
- public:
- Leaf(SplitNode *par, bool isLH) : PTNode(par, isLH) {}
-  double score; // Regression only:  sum/sCount of accumulator predecessor.
-};
-
-// "Compressed" SplitNode, flushed out by Decompress().
-//
-class DevSplit {
- public:
-  int pred;
-  int parId;
-  double Gini;
-  int rhOff;
-  int lhOff;
-  bool isLH;
-  char subset; // Taken directly from SSF.
-};
-
-
+// Serialized representation of the pre-tree, suitable for tranfer between
+// devices such as coprocessors, disks and nodes.  Left and right subnodes
+// are referenced as indices into the vector representation of the tree.
+// Leaves are distinguished as having two negative-valued subnode indices,
+// while splits have both subset indices positive.  Mixed negative and non-
+// negative subnode indices indicate an error.
+// 
 class PreTree {
- public:
-  static int rowBlock;
-  static DevSplit *devSplit;
-  static SplitNode **splitSet;
-  static Leaf **leafSet;
-  static SplitNode **parent; // Per-accumulator current parent.
-  static SplitNode **parentNext;  // Parents for next level, by accumulator.
-  static int *leafMap; // Sized for full (integer) leaf range.
+  int lhId;  // LH subnode index. Non-negative iff non-terminal.
+  int predIdx; // Split only.
+  double splitVal; // Split only.
+  double info; // Split only.
+  static int ptCount; // Allocation height of preTree[].
+  static int bitLength; // Length of bit vector recording factor-valued splits.
+  static PreTree *preTree;
+  static int levelMax;
+  static int levelOffset;
+  static int treeHeight;
+  static int levelBase;
   static int leafCount;
   static int splitCount;
-  static void Factory(int nSamp, const int _accumCount, const int rowBlock);
-  static void DeFactory();
-  static void TreeInit(const int _bagCount, const int _acccumCount);
-  static void DispatchQuantiles(const int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
-  static int bagCount;
+  static int treeBitOffset;
+  static bool *treeSplitBits;
   static int *qOff;
   static int *qRanks;
-  static double ParGini(const int liveIdx);
-  static int Produce(const int levels);
-  static SplitNode* AddSplit(const int liveIdx, int predIdx, char subset, double gini,  bool isLH);
-  static SplitNode* AddSplit(SplitNode *par, int predIdx, char subset, double gini, bool isLH);
-  static void SetParent(const int lhId, const int rhId, SplitNode *splitNode);
-  static int AddLeaf(SplitNode *par, bool _isLH);
-  static void AddLeaf(SplitNode *par, int leafId, bool _isLH);
-  static int AddLeaf(const int liveIdx, class NodeCache *tfAccum);
-  static void FlushLevel(const int countNext);
-  static void ConsumeLeaves(double scoreVec[], int predVec[]);
-  static void ConsumeSplits(double splitVec[], int predVec[], Bump bumpVec[]);
-  static int TreeOffsets(const int levels);
+  //  static int rowBlock;  // Coprocessor stride.
+  static bool IsNT(int idx) {
+    return preTree[idx].lhId > 0;
+  }
+  static int *sample2PT; // Needs to be shared with SampleReg methods.
+
+ public:
+  static int Sample2Leaf(int sIdx);
+
+  static int TreeBitOffset() {
+    return treeBitOffset;
+  }
+
+  static bool BitVal(int pos) {
+    return treeSplitBits[pos];
+  }
+
+  static inline int Sample2PT(int sIdx) {
+    return sample2PT[sIdx];
+  }
+
+  static inline void MapSample(int sIdx, int id) {
+    sample2PT[sIdx] = id;
+  }
+  static inline int TreeHeight() {
+    return treeHeight;
+  }
+
+  // Updates level base to current tree height.
+  //
+  static void NextLevel() {
+    levelBase = treeHeight;
+  }
+
+  // Returns the level-relative offset of tree index 'ptId'.
+  //
+  static int LevelOff(int ptId) {
+    return ptId - levelBase;
+  }
+
+  static int LevelSampleOff(int sIdx) {
+    return Sample2PT(sIdx) - levelBase;
+  }
+
+  static int LevelWidth() {
+    return treeHeight - levelBase;
+  }
+
+// After all SplitSigs in the tree are lowered, returns the total width of factors
+// seen as splitting values.
+//
+  static int SplitFacWidth() {
+    return treeBitOffset;
+  }
+
+  // Allocates the bit string for the current (pre)tree and initializes to
+  // false.
+  //
+  static inline bool *BitFactory(int length) {
+    bool *tsb = new bool[length];
+    for (int i = 0; i < length; i++)
+      tsb[i] = false;
+
+    return tsb;
+  }
+
+  static void TreeInit(int _levelMax, int _bagCount);
+  static void TreeClear();
+  static void TerminalOffspring(int _parId, int &ptLH, int &ptRH);
+  static void SingleBit(int pos);
+  static void NonTerminalFac(int treeId, double info, int predIdx);
+  static void NonTerminalGeneric(int _id, double _info, double _splitVal, int _predIdx);
+  static void CheckStorage(int splitNext, int leafNext);
+  static void ReBits();
+  static void ReFactory();
+  static double FacBits(const bool facBits[], int facWidth);
+  static void ConsumeNodes(int leafPred, int predVec[], double splitVec[], int bumpVec[], double scoreVec[]);
+  static void ConsumeSplitBits(int outBits[]);
 };
 
 #endif

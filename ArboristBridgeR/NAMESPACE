@@ -1,0 +1,7 @@
+useDynLib(Rborist)
+export(Rborist)
+
+S3method(predict, Rborist)
+S3method(Rborist, default)
+
+import(Rcpp)

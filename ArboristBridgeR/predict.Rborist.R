@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2014   Mark Seligman
+# Copyright (C)  2012-2015   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -30,7 +30,7 @@ PredictForest <- function(forest, x, yTest, quantVec) {
     stop("Unset split values in forest")
   if (is.null(forest$scores))
     stop("Unset scores in forest")
-  if (is.null(forest$bumpL) || is.null(forest$bumpR))
+  if (is.null(forest$bump))
     stop("Unset bump table in forest")
 
   quantiles <- !is.null(forest$quant)
@@ -40,9 +40,9 @@ PredictForest <- function(forest, x, yTest, quantVec) {
     quantVec <- DefaultQuantVec()
   
   # Checks test data for conformity with training data.
-  BlockData(x)
+  PredBlock(x)
 
-  .Call("RcppReload", forest$predictors, forest$splitValues, forest$scores, forest$bumpL, forest$bumpR, forest$origins, forest$facOff, forest$facSplits)
+  .Call("RcppReload", forest$predictors, forest$splitValues, forest$scores, forest$bump, forest$origins, forest$facOff, forest$facSplits)
   if (quantiles)
     .Call("RcppReloadQuant", forest$quant$qYRanked, forest$quant$qRankOrigin, forest$quant$qRank, forest$quant$qRankCount, forest$quant$qLeafPos, forest$quant$qLeafExtent)
   

@@ -1,10 +1,13 @@
+// This file is part of ArboristCore.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include "predictor.h"
-#include <R.h>
+#include "sample.h"
+#include "callback.h"
 
 // Testing only:
 #include <iostream>
@@ -23,10 +26,10 @@ double *Predictor::predProb = 0;
 double* Predictor::numBase = 0;
 int* Predictor::facBase = 0;
 int* Predictor::intBase = 0;
-int* Predictor::facWidth = 0;
+int* Predictor::facCard = 0;
 int* Predictor::facSum = 0;
-int  Predictor::facTot = 0; // Total count of factor levels.
-int  Predictor::maxFacWidth = 0;
+int  Predictor::nCardTot = 0; // Total count of factor levels.
+int  Predictor::maxFacCard = -1;
 
 bool Predictor::numClone = false;
 bool Predictor::intClone = false;
@@ -38,10 +41,8 @@ bool Predictor::facClone = false;
 // Numeric predictors.
 //
 void Predictor::NumericBlock(double xn[], int _nrow, int _ncol, bool doClone) {
-  Factory(_nrow);
   numClone = doClone; // Signals desctructor call at end.
   nPredNum = _ncol;
-  nPred += nPredNum;
 
   if (doClone) { // Data subject to alteration:  clone.
     int bufSize = _nrow * _ncol;
@@ -55,14 +56,12 @@ void Predictor::NumericBlock(double xn[], int _nrow, int _ncol, bool doClone) {
 
 // Ordered integer factors.
 //
-void Predictor::IntegerBlock(int xi[], int nrow, int ncol, bool doClone) {
-  Factory(nrow);
+void Predictor::IntegerBlock(int xi[], int _nrow, int ncol, bool doClone) {
   intClone = doClone;
   nPredInt = ncol;
-  nPred += nPredInt;
 
   if (doClone) { // Data subject to alteration:  clone.
-    int bufSize = nrow * ncol;
+    int bufSize = _nrow * ncol;
     intBase = new int[bufSize];
     for (int i = 0; i < bufSize; i++) {
       intBase[i] = xi[i];
@@ -79,10 +78,8 @@ void Predictor::IntegerBlock(int xi[], int nrow, int ncol, bool doClone) {
 // are always cloned.
 //
 void Predictor::FactorBlock(int xi[], int _nrow, int _ncol, int levelCount[]) {
-  Factory(_nrow);
   facClone = true;
   nPredFac = _ncol;
-  nPred += nPredFac;
 
   int bufSize = _ncol * _nrow;
   facBase = new int[bufSize];
@@ -90,41 +87,38 @@ void Predictor::FactorBlock(int xi[], int _nrow, int _ncol, int levelCount[]) {
     facBase[i] = xi[i] - 1; // Not necessary to zero-justify, but hey.
 
   facSum = new int[nPredFac];
-  facWidth = new int[nPredFac];
+  facCard = new int[nPredFac];
 
   int facOff = 0;
-  maxFacWidth = 0;
+  maxFacCard = 0;
   for (int i = 0; i < nPredFac; i++) {
     facSum[i] = facOff;
-    facWidth[i] = levelCount[i];
-    if (facWidth[i] > maxFacWidth)
-      maxFacWidth = facWidth[i];
+    facCard[i] = levelCount[i];
+    if (facCard[i] > maxFacCard)
+      maxFacCard = facCard[i];
     facOff += levelCount[i];
   }
-  facTot = facOff;
+  nCardTot = facOff;
 }
 
-// N.B. Must be called after # predictors finalized.
-//
-void Predictor::SetProbabilities(const double _predProb[]) {
-  predProb = new double[nPred];
-  for (int i = 0; i < nPred; i++)
-    predProb[i] = _predProb[i];
-}
-
-void Predictor::Factory(int _nRow) {
-  if (nRow > 0 && nRow != _nRow)
-    cout << "Conflicting predictor training values" << endl;
+void Predictor::Factory(const double _predProb[], int _nPred, int _nRow) {
+  nPred = _nPred;
   nRow = _nRow;
+  if (_predProb != 0)  {
+    SetProbabilities(_predProb);
+  }
 }
 
 void Predictor::DeFactory() {
-  nPred = nPredNum = nPredInt = nPredFac = facTot = nRow = 0;
-  delete [] predProb;
-  predProb = 0;
-  if (facWidth)
-    delete [] facWidth;
-  facWidth = 0;
+  if (predProb != 0) {
+    delete [] predProb;
+    predProb = 0;
+  }
+
+  nPred = nPredNum = nPredInt = nPredFac = nCardTot = nRow = 0;  
+  if (facCard)
+    delete [] facCard;
+  facCard = 0;
   if (facSum)
     delete [] facSum;
   facSum = 0;
@@ -162,7 +156,7 @@ void Predictor::UniqueRank(int *rank2Row) {
     // TODO:  Replace with thread-safe sort to permit parallel execution.
     // Row consistency does not appear necessary, so an unstable sort probably
     // suffices:
-    R_qsort_I(numBase + baseOff, rank2Row + rankOff, 1, nRow);
+    CallBack::QSortD(numBase + baseOff, rank2Row + rankOff, 1, nRow);
   }
 
   // Note divergence of 'baseOff' and 'rankOff':
@@ -171,7 +165,7 @@ void Predictor::UniqueRank(int *rank2Row) {
     for (int i = 0; i < nRow;i++)
       *(rank2Row + rankOff + i) = i;
     // TODO:  Replace with thread-safe sort to permit parallel execution.
-    R_qsort_int_I(facBase + baseOff, rank2Row + rankOff, 1, nRow);
+    CallBack::QSortI(facBase + baseOff, rank2Row + rankOff, 1, nRow);
   }
 }
 
@@ -186,7 +180,7 @@ void Predictor::UniqueRank(int *rank2Row) {
 //
 // Implemented here to avoid exposing iterator outside of class.
 //
-void Predictor::SetSortAndTies(const int* rank2Row, Dord *dOrd) {
+void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
   int baseOff = 0;
   int rankOff = 0;
   int predIdx;
@@ -195,7 +189,7 @@ void Predictor::SetSortAndTies(const int* rank2Row, Dord *dOrd) {
   {
     //  #pragma omp for schedule(static, 1) nowait
   for (predIdx = 0; predIdx < nPredNum; predIdx++, baseOff += nRow, rankOff += nRow) {
-      OrderByRank(numBase + baseOff, rank2Row + rankOff, dOrd + rankOff);
+      OrderByRank(numBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
 
   }
@@ -204,7 +198,7 @@ void Predictor::SetSortAndTies(const int* rank2Row, Dord *dOrd) {
   {    // Factors:
     //#pragma omp for schedule(static, 1) nowait
     for (predIdx = 0; predIdx < nPredFac; predIdx++, baseOff += nRow, rankOff += nRow) {
-      OrderByRank(facBase + baseOff, rank2Row + rankOff, dOrd + rankOff);
+      OrderByRank(facBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
   }
 }
@@ -213,11 +207,11 @@ void Predictor::SetSortAndTies(const int* rank2Row, Dord *dOrd) {
 // Orders predictor data by rank into 'dCol' vector.  Data of interest includes the row index and tie class.
 // Row index is obtained directly from r2r[].  Tie class derived by comparing 'x' values of consecutive ranks.
 //
-void Predictor::OrderByRank(const double xCol[], const int r2r[], Dord dCol[]) {
+void Predictor::OrderByRank(const double xCol[], const int r2r[], PredOrd dCol[]) {
   // Sorts the rows of 'y' in the order that this predictor increases.
   // Sorts the predictor for later identification of tie classes.
   int row =r2r[0];
-  Dord dLoc;
+  PredOrd dLoc;
   int ord = 0;
  
   dLoc.rank = ord; // Can use 'rk', provided splits are built using ranks i/o rows.
@@ -237,11 +231,11 @@ void Predictor::OrderByRank(const double xCol[], const int r2r[], Dord dCol[]) {
 // Orders predictor data by rank into 'dCol' vector.  Data of interest includes the row index and tie class.
 // Row index is obtained directly from r2r[].  Tie class derived by comparing 'x' values of consecutive ranks.
 //
-void Predictor::OrderByRank(const int xCol[], const int r2r[], Dord dCol[], bool ordinals) {
+void Predictor::OrderByRank(const int xCol[], const int r2r[], PredOrd dCol[], bool ordinals) {
   // Sorts the rows of 'y' in the order that this predictor increases.
   // Sorts the predictor for later identification of tie classes.
   int row =r2r[0];
-  Dord dLoc;
+  PredOrd dLoc;
   int ord = 0;
   dLoc.rank = ord;
   dLoc.row = row;
@@ -250,10 +244,41 @@ void Predictor::OrderByRank(const int xCol[], const int r2r[], Dord dCol[], bool
   for (int rk = 1; rk < nRow; rk++) {
     row = r2r[rk];
     int curX = xCol[rk]; // Can be looked up by rank if dummy sorted x values saved by caller.
-    ord = curX == prevX ? ord : (ordinals ? ++ord : rk);// Integer case uses 'rk' as index; factors require actual ordinals.
+    ord = curX == prevX ? ord : (ordinals ? (ord+1) : rk);// Integer case uses 'rk' as index; factors require actual ordinals.
     dLoc.rank = ord;
     dLoc.row = row;
     dCol[rk] = dLoc;
     prevX = curX;
   }
+}
+
+// Makes an internal copy of front-end probability vector.
+//
+void Predictor::SetProbabilities(const double _predProb[]) {
+  predProb = new double[nPred];
+
+  for (int i = 0; i < nPred; i++) {
+    predProb[i] = _predProb[i];
+  }
+}
+
+// N.B.:  Ordinals are rank equivalence classes and correspond to row number of
+// sorted predictor values.  The sorted values reside at 'numBase'.
+//
+double Predictor::SplitVal(int predIdx, int rkLow, int rkHigh) {
+  double *numCol = numBase + predIdx * nRow;
+  double low = numCol[rkLow];
+  double high = numCol[rkHigh];
+
+  // ASSERTIONS:
+  if (rkLow < 0 || rkLow > nRow || rkHigh <0 || rkHigh > nRow)
+    cout << "NONSENSICAL split" << rkLow << " / " << rkHigh << " : " << predIdx << endl;
+  if (rkLow == rkHigh)
+    cout << "TRIVIAL SPLIT " << rkLow << " / " << rkHigh << endl;
+  else if (low > high)
+    cout << "BAD SPLIT  (" << predIdx << ") "<<  low << " / " << high << " ords:  " << rkLow << " / " << rkHigh <<endl;
+  else if (low == high)
+    cout << "TIED SPLIT:  " << low << " / " << high << endl;
+
+  return 0.5 * (low + high);
 }

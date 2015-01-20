@@ -1,3 +1,5 @@
+// This file is part of ArboristCore.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -12,6 +14,8 @@
 #include "dectree.h"
 #include "response.h"
 
+#include <iostream>
+using namespace std;
 
 int QuantSig::qCells = 0;
 double *QuantSig::qVec = 0;
@@ -29,8 +33,8 @@ void QuantSig::DeFactory() {
 
 // Thin-layer interfaces.
 //
-void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bumpL[], int _bumpR[], int _origins[], int _facOff[], int _facSplits[]) {
-  DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _scores, _bumpL, _bumpR, _origins, _facOff, _facSplits);
+void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
+  DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _scores, _bump, _origins, _facOff, _facSplits);
 }
 
 void Predict::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
@@ -39,7 +43,7 @@ void Predict::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[],
 
 void Predict::Finish(double *predGini) {
   DecTree::ScaleGini(predGini);
-  Response::DeFactory();
+  Response::DeFactorySt();
 }
 
 void Predict::PredictOOBQuant(double *err, double *quantVec, int qCells, double *qPred, double *predGini) {

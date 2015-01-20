@@ -1,19 +1,19 @@
-# Copyright (C)  2012-2014   Mark Seligman
-##
-## This file is part of ArboristBridgeR.
-##
-## ArboristBridgeR is free software: you can redistribute it and/or modify it
-## under the terms of the GNU General Public License as published by
-## the Free Software Foundation, either version 2 of the License, or
-## (at your option) any later version.
-##
-## ArboristBridgeR is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C)  2012-2015   Mark Seligman
+//
+// This file is part of ArboristBridgeR.
+//
+// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 2 of the License, or
+// (at your option) any later version.
+//
+// ArboristBridgeR is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #include <R.h>
@@ -75,10 +75,12 @@ RcppExport SEXP RcppPredictorFac(SEXP sx, SEXP sFacLevel) {
 
   return wrap(0);
 }
+
 RcppExport SEXP RcppPredictorNum(SEXP sx, bool doClone) {
   NumericMatrix xn(sx);
 
   Predictor::NumericBlock(xn.begin(), xn.nrow(), xn.ncol(), doClone);
+
   return wrap(0);
 }
 
@@ -88,5 +90,12 @@ RcppExport SEXP RcppPredictorInt(SEXP sx) {
   IntegerMatrix xi(sx);
 
   Predictor::IntegerBlock(xi.begin(), xi.nrow(), xi.ncol(), true);
+  return wrap(0);
+}
+
+RcppExport SEXP RcppPredictorFactory(SEXP sPredProb, SEXP sNPred, SEXP sNRow) {
+  NumericVector predProb(sPredProb);
+
+  Predictor::Factory(predProb.begin(), as<int>(sNPred), as<int>(sNRow));
   return wrap(0);
 }

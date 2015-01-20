@@ -1,0 +1,17 @@
+Package: Rborist
+Type: Package
+Title: Extensible, parallelizable implementation of the Random Forest algorithm.
+Version: 0.1-0
+Date: 2015-1-19
+Author: Mark Seligman
+Maintainer: Mark Seligman <mseligman@suiji.org>
+SystemRequirements: gcc (release >= 4.5).
+Description: Scalable decision tree training and prediction.
+URL: http://suiji.org/
+License: MPL-2 | GPL (>= 2) | file LICENSE
+LazyLoad: yes
+Depends: RcppArmadillo (>= 0.4.500.0), Rcpp (>= 0.10.1), R(>= 3.1)
+LinkingTo: Rcpp, RcppArmadillo
+Repository: CRAN
+Packaged: 
+Date/Publication: 

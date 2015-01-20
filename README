@@ -1,1 +1,1 @@
-Code is currently in an intermediate state between two internal releases, and will neither execute nor compile.
+Code has been tested on multicore implementations for the R front end.

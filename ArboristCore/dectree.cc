@@ -1,3 +1,5 @@
+// This file is part of ArboristCore.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -5,7 +7,7 @@
 
 #include "predictor.h"
 #include "train.h"
-#include "level.h"
+#include "index.h"
 #include "splitsig.h"
 #include "dectree.h"
 #include "response.h"
@@ -20,7 +22,7 @@ int *DecTree::treeSizes = 0; // Internal use only.
 int **DecTree::treePreds = 0;
 double **DecTree::treeSplits = 0;
 double **DecTree::treeScores = 0;
-Bump **DecTree::treeBumps = 0;
+int **DecTree::treeBumps = 0;
 
 // Nonzero iff quantiles stipulated for training.
 int *DecTree::treeQRankWidth = 0;
@@ -48,33 +50,40 @@ int* DecTree::facSplitForest = 0; // Bits as integers:  alignment.
 int *DecTree::facOffForest = 0;
 double DecTree::recipNumTrees = 0.0;
 int DecTree::nTree = -1;
+int DecTree::nRow = -1;
+int DecTree::nPred = -1;
+int DecTree::nPredNum = -1;
+int DecTree::nPredFac = -1;
 double *DecTree::predGini = 0;
 int *DecTree::predForest = 0;
 double *DecTree::scoreForest = 0;
 double *DecTree::splitForest = 0;
-Bump *DecTree::bumpForest = 0;
+int *DecTree::bumpForest = 0;
 unsigned int *DecTree::inBag = 0;
 
 int DecTree::forestSize = -1;
 int DecTree::totBagCount = -1;
 int DecTree::totQLeafWidth = -1;  // Size of compressed quantile leaf vector.
 
-void DecTree::ForestTrain(const int _nTree) {
+void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
   nTree = _nTree;
+  nPred = _nPred;
+  nRow = _nRow;
+  nPredNum = _nPredNum;
+  nPredFac = _nPredFac;
   forestSize = 0;
   totBagCount = 0;
   treeOriginForest = new int[nTree];
   treeSizes = new int[nTree];
-  nTree = _nTree;
   recipNumTrees = 1.0 / nTree;
-  predGini = new double[Predictor::nPred];
+  predGini = new double[nPred];
   treePreds = new int*[nTree];
   treeSplits = new double*[nTree];
   treeScores = new double*[nTree];
-  treeBumps = new Bump*[nTree];
+  treeBumps = new int*[nTree];
   treeFacWidth = new int[nTree]; // Factor width counts of individual trees.
   treeFacSplits = new int* [nTree]; // Tree-based factor split values.
-  for (int i = 0; i < Predictor::nPred; i++)
+  for (int i = 0; i < nPred; i++)
     predGini[i] = 0.0;
   for (int i = 0; i < nTree; i++)
     treeFacWidth[i] = 0;
@@ -84,7 +93,7 @@ void DecTree::ForestTrain(const int _nTree) {
   // necessary, however, for per-row OOB prediction scheme employed for quantile
   // regression.
   //
-  int inBagSize = ((nTree * Predictor::nRow) + 31) >> 5;
+  int inBagSize = ((nTree * nRow) + 31) >> 5;
   inBag = new unsigned int[inBagSize];
   for (int i = 0; i < inBagSize; i++)
     inBag[i] = 0;
@@ -109,7 +118,7 @@ void DecTree::ForestTrain(const int _nTree) {
 
 // Reloads cached tree data from front end.
 //
-void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bumpL[], int _bumpR[], int _origins[], int _facOff[], int _facSplits[]) {
+void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
   nTree = _nTree;
   forestSize = _forestSize;
   predForest = _preds;
@@ -123,10 +132,9 @@ void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
   facSplitForest = _facSplits;
 
   // Populates a packed table from two distinct vectors.
-  bumpForest = new Bump[forestSize];
+  bumpForest = new int[forestSize];
   for (int i = 0; i < forestSize; i++) {
-    bumpForest[i].left = _bumpL[i];
-    bumpForest[i].right = _bumpR[i];
+    bumpForest[i] = _bump[i];
   }
 }
 
@@ -143,7 +151,7 @@ void DecTree::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[],
 }
 
 void DecTree::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
-  for (int i = 0; i < Predictor::nRow; i++)
+  for (int i = 0; i < nRow; i++)
     rQYRanked[i] = qYRankedForest[i];
 
   for (int tn = 0; tn < nTree; tn++)
@@ -240,28 +248,6 @@ void DecTree::DeForest() {
 }
 
 
-void DecTree::ConsumePretree(const bool _inBag[], const int levels, const int treeNum) {
-  SetBagRow(_inBag, treeNum);
-  int treeSize = PreTree::TreeOffsets(levels);
-  // TODO:  Consider uninitialized slots.
-  treeSizes[treeNum] = treeSize;
-  treePreds[treeNum] = new int[treeSize];
-  treeSplits[treeNum] = new double[treeSize];
-  treeScores[treeNum] = new double[treeSize];
-  treeBumps[treeNum] = new Bump[treeSize];
-  //cout << "Tree " << treeNum << ": " << treeSize << endl;
-
-  if (Train::doQuantiles)
-    QuantileRanks(treeNum, treeSize, PreTree::bagCount);
-
-  PreTree::ConsumeLeaves(treeScores[treeNum], treePreds[treeNum]);
-  ConsumeSplits(treeNum, treeSplits[treeNum], treePreds[treeNum], treeBumps[treeNum]);
-
-  totBagCount += PreTree::bagCount;
-  treeOriginForest[treeNum] = forestSize;
-  forestSize += treeSize;
-}
-
 int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
   facOffForest = new int[nTree];
 
@@ -297,8 +283,8 @@ int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
     int totQRankWidth = 0;
     totQLeafWidth = 0;
 
-    qYRankedForest = new double[Predictor::nRow];
-    qYLenForest = Predictor::nRow;
+    qYRankedForest = new double[nRow];
+    qYLenForest = nRow;
     Response::response->GetYRanked(qYRankedForest);
 
     qRankOriginForest = new int[nTree];
@@ -345,7 +331,7 @@ int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
   predForest = new int[forestSize];
   splitForest = new double[forestSize];
   scoreForest = new double[forestSize];
-  bumpForest = new Bump[forestSize];
+  bumpForest = new int[forestSize];
   //  for (int i = 0; i < forestSize; i++) // TODO:  Necessary?
 	//predForest[i] = leafPred;
 
@@ -372,25 +358,42 @@ int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
   return forestSize;
 }
 
+// Implements the handshake between pre-tree consumption and decision-tree production.
+// Tells pre-tree to blow itself away when done.
+//
+void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum) {
+  SetBagRow(_inBag, treeNum);
+  //cout << "Tree " << treeNum << ": " << treeSize << endl;
+  // TODO:  Consider uninitialized slots.
+  treeSizes[treeNum] = treeSize;
+  treePreds[treeNum] = new int[treeSize];
+  treeSplits[treeNum] = new double[treeSize];
+  treeBumps[treeNum] = new int[treeSize];
+  treeScores[treeNum] = new double[treeSize];
+
+  // Consumes pretree nodes, ranks and split bits via separate calls.
+  //
+  PreTree::ConsumeNodes(leafPred, treePreds[treeNum], treeSplits[treeNum], treeBumps[treeNum], treeScores[treeNum]);
+  if (Train::doQuantiles)
+    QuantileRanks(treeNum, treeSize, bagCount);
+  ConsumeSplitBits(treeNum, PreTree::SplitFacWidth());
+
+  totBagCount += bagCount;
+  treeOriginForest[treeNum] = forestSize;
+  forestSize += treeSize;
+}
 
 // Fills in the splitting information columns for the next tree. 'outGini' not used for training, and
 // is written for diagnostic purposes.
 //
-void DecTree::ConsumeSplits(int treeNum, double splitVec[], int predVec[], Bump bumpVec[]) { //, double *outGini) {
-  PreTree::ConsumeSplits(splitVec, predVec, bumpVec);
-  if (Predictor::nPredFac > 0) {
-    // Collects factor splitting from the various levels into single vector for the
-    // entire tree.
-    //
-    int fw = SplitSigFac::SplitFacWidth();
-    treeFacWidth[treeNum] = fw;
-    if (fw > 0) {
-      treeFacSplits[treeNum] = new int[fw];
-      SplitSigFac::ConsumeTreeSplitBits(treeFacSplits[treeNum]);
-    }
-    else
-      treeFacSplits[treeNum] = 0;
+void DecTree::ConsumeSplitBits(int treeNum, int facWidth) {
+  treeFacWidth[treeNum] = facWidth;
+  if (facWidth > 0) {
+    treeFacSplits[treeNum] = new int[facWidth];
+    PreTree::ConsumeSplitBits(treeFacSplits[treeNum]);
   }
+  else
+    treeFacSplits[treeNum] = 0;
 }
     //    cout << "Tree bits " << treeNum << endl;
     //for (int i = 0; i < fw; i++)
@@ -399,7 +402,7 @@ void DecTree::ConsumeSplits(int treeNum, double splitVec[], int predVec[], Bump 
 
 // Transfers quantile data structures from pretree to decision tree.
 // TODO:  Exit treeQLeafWidth, as size is known.
-void DecTree::QuantileRanks(const int tn, const int treeSize, const int bagCount) {
+void DecTree::QuantileRanks(int tn, int treeSize, int bagCount) {
   treeQRankWidth[tn] = bagCount;
   treeQLeafWidth[tn] = treeSize;
 
@@ -413,13 +416,13 @@ void DecTree::QuantileRanks(const int tn, const int treeSize, const int bagCount
   int *qRankCount = new int[bagCount];
   treeQRankCount[tn] = qRankCount;
 
-  PreTree::DispatchQuantiles(treeSize, qLeafPos, qLeafExtent, qRank, qRankCount);
+  Response::DispatchQuantiles(treeSize, qLeafPos, qLeafExtent, qRank, qRankCount);
 }
 
 // Sets bit for <row, tree> with tree as faster-moving index.
 //
 void DecTree::SetBagRow(const bool sampledRow[], const int treeNum) {
-  for (int row = 0; row < Predictor::nRow; row++) {
+  for (int row = 0; row < nRow; row++) {
     if (sampledRow[row]) {
       int idx = row * nTree + treeNum;
       int off = idx >> 5;
@@ -440,13 +443,13 @@ bool DecTree::InBag(int treeNum, int row) {
   return (val & (1 << bit)) > 0;
 }
 
-void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBumpL, int *rBumpR, int *rOrigins, int *rFacOff, int * rFacSplits) {
+void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
   for (int tn = 0; tn < nTree; tn++) {
     int tOrig = treeOriginForest[tn];
     int facOrigin = facOffForest[tn];
     rOrigins[tn] = tOrig;
     rFacOff[tn] = facOrigin;
-    WriteTree(tn, tOrig, facOrigin, rPreds + tOrig, rSplits + tOrig, rScores + tOrig, rBumpL + tOrig, rBumpR + tOrig, rFacSplits + facOrigin);
+    WriteTree(tn, tOrig, facOrigin, rPreds + tOrig, rSplits + tOrig, rScores + tOrig, rBump + tOrig, rFacSplits + facOrigin);
   }
   DeForest();
 }
@@ -455,11 +458,11 @@ void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *r
 // Writes the tree-specific splitting information for export.
 // Predictor indices are not written as 1-based indices.
 //
-void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, int *outPreds, double* outSplitVals, double* outScores, int *outBumpL, int *outBumpR, int *outFacSplits) {
+void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits) {
   int *preds = predForest + tOrig;
   double *splitVal = splitForest + tOrig;
   double *score = scoreForest + tOrig;
-  Bump *bump = bumpForest + tOrig;
+  int *bump = bumpForest + tOrig;
 
   for (int i = 0; i < treeSizes[treeNum]; i++) {
     outPreds[i] = preds[i]; // + 1;
@@ -470,8 +473,7 @@ void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, 
     //
     outSplitVals[i] = splitVal[i];
     outScores[i] = score[i];
-    outBumpL[i] = bump[i].left;
-    outBumpR[i] = bump[i].right;
+    outBump[i] = bump[i];
   }
 
   // Even with factor predictors these could all be zero, as in the case of mixed predictor
@@ -486,20 +488,20 @@ void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, 
 }
 
 void DecTree::ScaleGini(double *outPredGini) {
-  for (int i = 0; i < Predictor::nPred; i++)
+  for (int i = 0; i < nPred; i++)
     outPredGini[i] = predGini[i] * recipNumTrees;
 }
 
 // Returns confusion matrix for OOB categorical predictions.
 //
 void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], double error[], bool useBag) {
-  int numWrong = 0;
-  int numTried = 0;
+  //  int numWrong = 0;
+  //  int numTried = 0;
   int *rowPred = new int[ctgWidth];
   // Purely numerical predictors.
-  if (Predictor::nPredFac == 0) {
-    double *rowSlice = new double[Predictor::nPred];
-    for (int row = 0; row < Predictor::nRow; row++) {
+  if (nPredFac == 0) {
+    double *rowSlice = new double[nPred];
+    for (int row = 0; row < nRow; row++) {
       // double jitter = 1 + ResponseCtg::Jitter(row);
       PredictRowNumCtg(row, rowSlice, ctgWidth, rowPred, useBag);
       int argMax = -1;
@@ -526,9 +528,9 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
     }
     delete [] rowSlice;
   }
-  else if (Predictor::nPredNum == 0) {
-    int *rowSlice = new int[Predictor::nPred];
-    for (int row = 0; row < Predictor::nRow; row++) {
+  else if (nPredNum == 0) {
+    int *rowSlice = new int[nPred];
+    for (int row = 0; row < nRow; row++) {
       //double jitter = 1 + ResponseCtg::Jitter(row);
       PredictRowFacCtg(row, rowSlice, ctgWidth, rowPred, useBag);
       int argMax = -1;
@@ -556,9 +558,9 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
     delete [] rowSlice;
   }
   else {
-    double *rowSliceN = new double[Predictor::nPredNum];
-    int *rowSliceI = new int[Predictor::nPredFac];
-    for (int row = 0; row < Predictor::nRow; row++) {
+    double *rowSliceN = new double[nPredNum];
+    int *rowSliceI = new int[nPredFac];
+    for (int row = 0; row < nRow; row++) {
       //double jitter = 1 + ResponseCtg::Jitter(row);
       PredictRowMixedCtg(row, rowSliceN, rowSliceI, ctgWidth, rowPred, useBag);
       int argMax = -1;
@@ -607,46 +609,47 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
 //
 void DecTree::PredictAcrossReg(double outVec[], bool useBag) {
   double *prediction;
+
   if (useBag)
-    prediction = new double[Predictor::nRow];
+    prediction = new double[nRow];
   else
     prediction = outVec;
 
   // TODO:  Also catch mixed case in which no factors split, and avoid mixed case
   // in which no numericals split.
-  if (Predictor::nPredFac == 0)
+  if (nPredFac == 0)
     PredictAcrossNumReg(prediction, useBag);
-  else if (Predictor::nPredNum == 0) // Purely factor predictors.
+  else if (nPredNum == 0) // Purely factor predictors.
     PredictAcrossFacReg(prediction, useBag);
   else  // Mixed numerical and factor
     PredictAcrossMixedReg(prediction, useBag);
 
   if (useBag) {
     double SSE = 0.0;
-    for (int row = 0; row < Predictor::nRow; row++) {
+    for (int row = 0; row < nRow; row++) {
       SSE += (prediction[row] - Response::response->y[row]) * (prediction[row] - Response::response->y[row]);
     }
     // TODO:  repair assumption that every row is sampled:
     // Assumes nonzero nRow:
-    outVec[0] = SSE / Predictor::nRow;
+    outVec[0] = SSE / nRow;
 
     delete [] prediction;
   }
 }
 
 void DecTree::PredictAcrossNumReg(double prediction[], bool useBag) {
-  double *transpose = new double[Predictor::nPred * Predictor::nRow];
-  int *predictLeaves = new int[nTree * Predictor::nRow];
+  double *transpose = new double[nPred * nRow];
+  int *predictLeaves = new int[nTree * nRow];
   int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < Predictor::nRow; row++) {
+  for (row = 0; row < nRow; row++) {
     double score = 0.0;
     int treesSeen = 0;
     int *leaves = predictLeaves + row * nTree;
-    double *rowSlice = transpose + row * Predictor::nPred;
+    double *rowSlice = transpose + row * nPred;
     PredictRowNumReg(row, rowSlice, leaves, useBag);
     for (int tc = 0; tc < nTree; tc++) {
       int leafIdx = leaves[tc];
@@ -659,7 +662,7 @@ void DecTree::PredictAcrossNumReg(double prediction[], bool useBag) {
   }
   }
   if (QuantSig::qCells > 0) {
-    for (row = 0; row < Predictor::nRow; row++) {
+    for (row = 0; row < nRow; row++) {
       double *qRow = QuantSig::qPred + row * QuantSig::qCells;
       int *leaves = predictLeaves + row * nTree;
       QuantileLeaves(qRow, QuantSig::qCells, leaves);
@@ -671,8 +674,8 @@ void DecTree::PredictAcrossNumReg(double prediction[], bool useBag) {
 }
 
 void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
-  int *transpose = new int[Predictor::nPred * Predictor::nRow];
-  int *predictLeaves = new int[nTree * Predictor::nRow];
+  int *transpose = new int[nPred * nRow];
+  int *predictLeaves = new int[nTree * nRow];
   int row;
 
   /*{
@@ -683,11 +686,11 @@ void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
       cout << endl;
       }*/
 
-  for (row = 0; row < Predictor::nRow; row++) {
+  for (row = 0; row < nRow; row++) {
     double score = 0.0;
     int treesSeen = 0;
     int *leaves = predictLeaves + row * nTree;
-    int *rowSlice = transpose + row * Predictor::nPred;
+    int *rowSlice = transpose + row * nPred;
     PredictRowFacReg(row, rowSlice, leaves, useBag);
     for (int tc = 0; tc < nTree; tc++) {
       int leafIdx = leaves[tc];
@@ -699,7 +702,7 @@ void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
     prediction[row] = score / treesSeen; // Assumes >= 1 tree seen.
   }
   if (QuantSig::qCells > 0) {
-    for (row = 0; row < Predictor::nRow; row++) {
+    for (row = 0; row < nRow; row++) {
       double *qRow = QuantSig::qPred + row * QuantSig::qCells;
       int *leaves = predictLeaves + row * nTree;
       QuantileLeaves(qRow, QuantSig::qCells, leaves);
@@ -711,16 +714,16 @@ void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
 }
 
 void DecTree::PredictAcrossMixedReg(double prediction[], bool useBag) {
-  double *transposeN = new double[Predictor::nPredNum * Predictor::nRow];
-  int *transposeI = new int[Predictor::nPredFac * Predictor::nRow];
-  int *predictLeaves = new int[nTree * Predictor::nRow];
+  double *transposeN = new double[nPredNum * nRow];
+  int *transposeI = new int[nPredFac * nRow];
+  int *predictLeaves = new int[nTree * nRow];
   int row;
 
-  for (row = 0; row < Predictor::nRow; row++) {
+  for (row = 0; row < nRow; row++) {
     double score = 0.0;
     int treesSeen = 0;
-    double *rowSliceN = transposeN + row * Predictor::nPredNum;
-    int *rowSliceI = transposeI + row * Predictor::nPredFac;
+    double *rowSliceN = transposeN + row * nPredNum;
+    int *rowSliceI = transposeI + row * nPredFac;
     int *leaves = predictLeaves + row * nTree;
     PredictRowMixedReg(row, rowSliceN, rowSliceI, leaves, useBag);
     for (int tc = 0; tc < nTree; tc++) {
@@ -734,7 +737,7 @@ void DecTree::PredictAcrossMixedReg(double prediction[], bool useBag) {
   }
   
   if (QuantSig::qCells > 0) {
-    for (row = 0; row < Predictor::nRow; row++) {
+    for (row = 0; row < nRow; row++) {
       double *qRow = QuantSig::qPred + row * QuantSig::qCells;
       int *leaves = predictLeaves + row * nTree;
       QuantileLeaves(qRow, QuantSig::qCells, leaves);
@@ -750,8 +753,8 @@ void DecTree::PredictAcrossMixedReg(double prediction[], bool useBag) {
 // Returns mean prediction across all trees in which 'row' appears out-of-bag.
 //
 void DecTree::PredictRowNumReg(const int row, double rowT[], int leaves[], bool useBag) {
-  for (int i = 0; i < Predictor::nPred; i++)
-    rowT[i] = Predictor::numBase[row + i* Predictor::nRow];
+  for (int i = 0; i < nPred; i++)
+    rowT[i] = Predictor::numBase[row + i* nRow];
 
   // TODO:  Use row at rank.
   int tc;
@@ -764,12 +767,12 @@ void DecTree::PredictRowNumReg(const int row, double rowT[], int leaves[], bool 
     int tOrig = treeOriginForest[tc];
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
 
     int pred = preds[idx];
     while (pred != leafPred) {
-      Bump bump = bumps[idx];
-      idx += (rowT[pred] <= splitVal[idx] ? bump.left : bump.right);
+      int bump = bumps[idx];
+      idx += (rowT[pred] <= splitVal[idx] ? bump : bump + 1);
       pred = preds[idx];
     }
     leaves[tc] = idx;
@@ -780,8 +783,8 @@ void DecTree::PredictRowNumReg(const int row, double rowT[], int leaves[], bool 
 // Temporary clone of regression tree version.
 //
 void DecTree::PredictRowNumCtg(const int row, double rowT[], const int ctgWidth, int prd[], bool useBag) {
-  for (int i = 0; i < Predictor::nPred; i++)
-    rowT[i] = Predictor::numBase[row + i* Predictor::nRow];
+  for (int i = 0; i < nPred; i++)
+    rowT[i] = Predictor::numBase[row + i* nRow];
   for (int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
 
@@ -797,12 +800,12 @@ void DecTree::PredictRowNumCtg(const int row, double rowT[], const int ctgWidth,
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
     double *scores = scoreForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
 
     int pred = preds[idx];
     while (pred != leafPred) {
-      Bump bump = bumps[idx];
-      idx += (rowT[pred] <= splitVal[idx] ? bump.left : bump.right);
+      int bump = bumps[idx];
+      idx += (rowT[pred] <= splitVal[idx] ? bump : bump + 1);
       pred = preds[idx];
     }
     int ctgPredict = scores[idx];
@@ -813,8 +816,8 @@ void DecTree::PredictRowNumCtg(const int row, double rowT[], const int ctgWidth,
 // Temporary clone of regression tree version.
 //
 void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, int prd[], bool useBag) {
-  for (int i = 0; i < Predictor::nPred; i++)
-    rowT[i] = Predictor::facBase[row + i* Predictor::nRow];
+  for (int i = 0; i < nPred; i++)
+    rowT[i] = Predictor::facBase[row + i* nRow];
 
   for (int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
@@ -828,17 +831,17 @@ void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, in
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
     double *scores = scoreForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
     int *fs = facSplitForest + facOffForest[tc];
 
     int idx = 0;
     int pred = preds[idx];
     while (pred != leafPred) {
-      pred = -(pred+1);
-      Bump bump = bumps[idx];
+      int bump = bumps[idx];
       int facOff = int(splitVal[idx]);
+      int facId = Predictor::FacIdx(pred);
       //      cout << idx << ": " << pred << ", " << facOff << " " << facOffForest[tc] << endl;
-      idx += (fs[facOff + rowT[pred]] ? bump.left : bump.right);
+      idx += (fs[facOff + rowT[facId]] ? bump : bump + 1);
       pred = preds[idx];
     }
     int ctgPredict = scores[idx];
@@ -850,10 +853,10 @@ void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, in
 // Returns mean prediction across all trees in which 'row' appears out-of-bag.
 //
 void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], const int ctgWidth, int prd[], bool useBag) {
-  for (int i = 0; i < Predictor::nPredNum; i++)
-    rowNT[i] = Predictor::numBase[row + i * Predictor::nRow];
-  for (int i = 0; i < Predictor::nPredFac; i++)
-    rowFT[i] = Predictor::facBase[row + i * Predictor::nRow];
+  for (int i = 0; i < nPredNum; i++)
+    rowNT[i] = Predictor::numBase[row + i * nRow];
+  for (int i = 0; i < nPredFac; i++)
+    rowFT[i] = Predictor::facBase[row + i * nRow];
 
   for (int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
@@ -865,7 +868,7 @@ void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], con
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
     double *scores = scoreForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
     int *fs = facSplitForest + facOffForest[tc];
 
     int idx = 0;
@@ -876,8 +879,9 @@ void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], con
       //cout << "\tN:  " << pred << ", " << rowNT[pred] << ", " << splitVal[idx] << endl;
       //else
       //cout << "\tF:  " << -(pred+1) << ", " << facOff << ", " << rowFT[-(pred+1)] << ", " << fs[facOff+rowFT[-(pred+1)]] <<endl;
-      Bump bump = bumps[idx];
-      idx += (pred >= 0 ? (rowNT[pred] <= splitVal[idx] ?  bump.left : bump.right) : (fs[int(splitVal[idx]) + rowFT[-(pred+1)]] ? bump.left : bump.right));
+      int bump = bumps[idx];
+      int facId = Predictor::FacIdx(pred);
+      idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  bump : bump + 1) : (fs[int(splitVal[idx]) + rowFT[facId]] ? bump : bump + 1));
       pred = preds[idx];
     }
     int ctgPredict = scores[idx];
@@ -889,8 +893,8 @@ void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], con
 // Returns mean prediction across all trees in which 'row' appears out-of-bag.
 //
 void DecTree::PredictRowFacReg(const int row, int rowT[], int leaves[],  bool useBag) {
-  for (int i = 0; i < Predictor::nPredFac; i++)
-    rowT[i] = Predictor::facBase[row + i * Predictor::nRow];
+  for (int i = 0; i < nPredFac; i++)
+    rowT[i] = Predictor::facBase[row + i * nRow];
 
   int tc;
   for (tc = 0; tc < nTree; tc++) {
@@ -903,16 +907,15 @@ void DecTree::PredictRowFacReg(const int row, int rowT[], int leaves[],  bool us
     // TODO:  Pure factor trees can be made to use positive values, on writing.
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
-    double *scores = scoreForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
     int *fs = facSplitForest + facOffForest[tc];
 
     int pred = preds[idx];
     while (pred != leafPred) {
-      pred = -(pred + 1);
       int facOff = int(splitVal[idx]);
-      Bump bump = bumps[idx];
-      idx += (fs[facOff + rowT[pred]] ? bump.left : bump.right);
+      int bump = bumps[idx];
+      int facId = Predictor::FacIdx(pred);
+      idx += (fs[facOff + rowT[facId]] ? bump : bump + 1);
       pred = preds[idx];
     }
     leaves[tc] = idx;
@@ -925,10 +928,10 @@ void DecTree::PredictRowFacReg(const int row, int rowT[], int leaves[],  bool us
 // Returns mean prediction across all trees in which 'row' appears out-of-bag.
 //
 void DecTree::PredictRowMixedReg(const int row, double rowNT[], int rowFT[], int leaves[], bool useBag) {
-  for (int i = 0; i < Predictor::nPredNum; i++)
-    rowNT[i] = Predictor::numBase[row + i * Predictor::nRow];
-  for (int i = 0; i < Predictor::nPredFac; i++)
-    rowFT[i] = Predictor::facBase[row + i * Predictor::nRow];
+  for (int i = 0; i < nPredNum; i++)
+    rowNT[i] = Predictor::numBase[row + i * nRow];
+  for (int i = 0; i < nPredFac; i++)
+    rowFT[i] = Predictor::facBase[row + i * nRow];
 
   int tc;
   for (tc = 0; tc < nTree; tc++) {
@@ -939,22 +942,15 @@ void DecTree::PredictRowMixedReg(const int row, double rowNT[], int rowFT[], int
     int tOrig = treeOriginForest[tc];
     int *preds = predForest + tOrig;
     double *splitVal = splitForest + tOrig;
-    double *scores = scoreForest + tOrig;
-    Bump *bumps = bumpForest + tOrig;
+    int *bumps = bumpForest + tOrig;
     int *fs = facSplitForest + facOffForest[tc];
 
     int idx = 0;
     int pred = preds[idx];
     while (pred != leafPred) {
-      //cout << "Pred "  << pred << " idx:  " << idx << endl;
-      /*      if (pred < 0) {
-	cout << splitVal[idx] << ":  " << fs[int(splitVal[idx])] << " / " << rowFT[-(pred+1)] << ", " << fs[int(splitVal[idx]) + rowFT[-(pred+1)]] << endl;
-	for (int j = 0; j < Predictor::FacWidth(-(pred+1)); j++)
-	  cout << fs[int(splitVal[idx]) + j];
-	cout << endl;
-	}*/
-      Bump bump = bumps[idx];
-      idx += (pred >= 0 ? (rowNT[pred] <= splitVal[idx] ?  bump.left : bump.right) : (fs[int(splitVal[idx]) + rowFT[-(pred+1)]] ? bump.left : bump.right));
+      int bump = bumps[idx];
+      int facId = Predictor::FacIdx(pred);
+      idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  bump : bump + 1)  : (fs[int(splitVal[idx]) + rowFT[facId]] ? bump : bump + 1));
       pred = preds[idx];
     }
     leaves[tc] = idx;

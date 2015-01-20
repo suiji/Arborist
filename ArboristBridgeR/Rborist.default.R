@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2014   Mark Seligman
+# Copyright (C)  2012-20154   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -17,20 +17,19 @@
 
 # 'y' should be defined on entry.  Other entry points to be used for different behaviours.
 #
-# TODO:  Replace minHeight default for factors to 1 from 3.
-#
-"Rborist.default" <- function(x, y, numTrees=500, smpWithRepl = TRUE,
+"Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
                 #importance = FALSE,
                 #nPermute = ifelse(importance, 1, 0),
-                minHeight = ifelse(!is.factor(y), 6, 2),
                 predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
                 predWeight = rep(1.0, ncol(x)),
-                nSamp = ifelse(smpWithRepl, nrow(x), round((1-exp(-1))*nrow(x))),
+                nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
+                minNode = ifelse(!is.factor(y), 6, 2),
+                nLevel = 0,
+                minInfo = 0.01,
                 sampWeight = NULL,
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
-                pvtMinRatio = 0.01,
-                pvtLevels = 0, pvtBlock = 8, pvtNoPredict = FALSE) {
+                pvtBlock = 8, pvtNoPredict = FALSE) {
 
   # Argument checking:
   if (any(is.na(x)))
@@ -39,10 +38,10 @@
     stop("NA not supported in response")
 
   # Height constraints
-  if (minHeight < 2)
-    stop("Minimum splitting height must be at least 2")
-  else if (minHeight > nSamp)
-    stop("Minimum splitting height exceeds tree size")
+  if (minNode < 2)
+    stop("Minimum splitting width must be at least 2")
+  else if (minNode > nSamp)
+    stop("Minimum splitting width exceeds tree size")
 
   # Predictor weight constraints
   if (length(predWeight) != ncol(x))
@@ -65,6 +64,9 @@
     if (any(sampWeight < 0))
       stop("Negative weights not permitted")
   }
+  else {
+    sampWeight = rep(1.0, nrow(x))
+  }
   
   # Quantile constraints:  regression only
   if (quantiles && is.factor(y))
@@ -80,27 +82,32 @@
    # L'Ecuyer's CMRG has more desirable distributional properties for this application.
   saveRNG <- RNGkind()[1]
   RNGkind("L'Ecuyer-CMRG")
-  BlockData(x,y)
-  .Call("RcppTrainInit", predWeight, predProb, numTrees, nSamp, smpWithRepl, quantiles, pvtMinRatio, pvtBlock);
-  ctgWidth <- .Call("RcppTrainResponse", y)
+
+  # Normalizes vector of pointwise predictor probabilites.
+  probVec <- predWeight * ((ncol(x) * predProb) / sum(predWeight))
+  PredBlock(x, y, probVec)
   
-  if (!is.null(sampWeight))
-    unused <- .Call("RcppSampWeight", sampWeight)
+  # There is currently very little freedom in factory ordering.
+  unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampWeight, withRepl)
+
+  .Call("RcppTrainInit", nTree, quantiles, minInfo, pvtBlock);
+
+  ctgWidth <- .Call("RcppTrainResponse", y)
+
   facWidth <- integer(1)
   totBagCount <- integer(1)
   totQLeafWidth <- integer(1)
-  height <- .Call("RcppTrain", minHeight, facWidth, totBagCount, totQLeafWidth, pvtLevels)
+  height <- .Call("RcppTrain", minNode, facWidth, totBagCount, totQLeafWidth, nLevel)
   
   # The forest consists of trees specified by a splitting predictor and value, as
   # well as a Gini coefficient and subtree mean.
   predGini <- numeric(ncol(x))
-
   if (pvtNoPredict) {
     error <- -1
     confusion <- -1
   }
   else {
-    unused <- BlockData(x)
+    unused <- PredBlock(x)
     if (is.factor(y)) {
       error <- numeric(nlevels(y))
       confusion <- matrix(0L, nlevels(y), nlevels(y))
@@ -124,7 +131,7 @@
   
   if (quantiles) {
     qYRanked <- numeric(nrow(x))
-    qRankOrigin <- integer(numTrees)
+    qRankOrigin <- integer(nTree)
     qRank <- integer(totBagCount)
     qRankCount <- integer(totBagCount)
     qLeafPos <- integer(totQLeafWidth)
@@ -145,13 +152,12 @@
   preds <-  integer(height)
   splits <- numeric(height)
   leafScores <- numeric(height)
-#  splitGini <- matrix(0.0, height, numTrees)
+#  splitGini <- matrix(0.0, height, ntree)
   facSplits <- integer(as.integer(facWidth))
-  bumpL <- integer(height)
-  bumpR <- integer(height)
-  facOff <- integer(numTrees)
-  origins <- integer(numTrees)
-  unused <- .Call("RcppWriteForest", preds, splits, leafScores, bumpL, bumpR, origins, facOff, facSplits);
+  bump <- integer(height)
+  facOff <- integer(nTree)
+  origins <- integer(nTree)
+  unused <- .Call("RcppWriteForest", preds, splits, leafScores, bump, origins, facOff, facSplits);
 
 
   RNGkind(saveRNG)
@@ -161,8 +167,7 @@
                   predictors = preds,
                   splitValues = splits,
                   scores = leafScores,
-                  bumpL = bumpL,
-                  bumpR = bumpR,
+                  bump = bump,
                   origins = origins,
                   facOff = facOff,
                   facSplits = facSplits,
@@ -180,8 +185,7 @@
                   predictors = preds,
                   splitValues = splits,
                   scores = leafScores,
-                  bumpL = bumpL,
-                  bumpR = bumpR,
+                  bump = bump,
                   origins = origins,
                   facOff = facOff,
                   facSplits = facSplits,
@@ -199,11 +203,17 @@
 
 # Breaks data into blocks suitable for Rcpp methods.
 #
-BlockData <- function(x, y = NULL){#, quantiles = NULL) {
+PredBlock <- function(x, y = NULL, predProb = NULL){#, quantiles = NULL) {
   training <- ifelse(is.null(y), FALSE, TRUE)
-
+  
   # For now, turns off any special handling of Integer and Character to process as numeric:
   #
+  if (!is.null(predProb)) {
+    .Call("RcppPredictorFactory",predProb, ncol(x), nrow(x))
+  }
+  else { # TODO:  Pass null instead of zero.
+    .Call("RcppPredictorFactory",0, ncol(x), nrow(x))
+  }
   if (is.data.frame(x)) { # As with "randomForest" package
     facLevels <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))
     numCols <- as.integer(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
@@ -233,6 +243,8 @@ BlockData <- function(x, y = NULL){#, quantiles = NULL) {
   }
 }
 
+# Uses quartiles by default.
+#
 DefaultQuantVec <- function() {
   seq(0.25, 1.0, by = 0.25)
 }

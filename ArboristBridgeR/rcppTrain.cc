@@ -1,40 +1,37 @@
-# Copyright (C)  2012-2014   Mark Seligman
-##
-## This file is part of ArboristBridgeR.
-##
-## ArboristBridgeR is free software: you can redistribute it and/or modify it
-## under the terms of the GNU General Public License as published by
-## the Free Software Foundation, either version 2 of the License, or
-## (at your option) any later version.
-##
-## ArboristBridgeR is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C)  2012-2015   Mark Seligman
+//
+// This file is part of ArboristBridgeR.
+//
+// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 2 of the License, or
+// (at your option) any later version.
+//
+// ArboristBridgeR is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #include <R.h>
 #include <Rcpp.h>
-
 #include <iostream>
 
-using namespace Rcpp;
 using namespace std;
-
+using namespace Rcpp;
 #include "train.h"
 
 // Caller ensures 'sQ' is false for categorical response.
 // Returns 'ctgWidth', if categorical, else zero.
 //
 int FormResponse(SEXP sy) {
-  int ctgWidth;
+  int ctgWidth = 0;
   if (TYPEOF(sy) == REALSXP) {
     NumericVector y(sy);
     Train::ResponseReg(y.begin());
-    ctgWidth = 0;
   }
   else if (TYPEOF(sy) == INTSXP) {
     IntegerVector yOneBased(sy);
@@ -43,8 +40,11 @@ int FormResponse(SEXP sy) {
     NumericVector rn(runif(y.length()));
     ctgWidth = Train::ResponseCtg(y.begin(), rn.begin());
   }
+  else {
+    //TODO:  flag error for unanticipated response types.
+  }
+
   return ctgWidth;
-  //else   TODO:  flag error for unanticipated response types.
 }
 
 // Predictors must be partitioned, regardless whether training, predicting
@@ -73,17 +73,10 @@ RcppExport SEXP RcppTrainResponse(SEXP sy) {
   return wrap(ctgWidth);
 }
 
-RcppExport SEXP RcppSampWeight(SEXP sSampWeight) {
-  NumericVector sampWeight(sSampWeight);
-
-  Train::SampleWeights(sampWeight.begin());
+RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sQuantiles, SEXP sMinRatio, SEXP sBlockSize) {
+  Train::Factory(as<int>(sNTree), as<bool>(sQuantiles), as<double>(sMinRatio), as<int>(sBlockSize));
 
   return wrap(0);
-}
-
-RcppExport SEXP RcppTrainInit(SEXP sPredWeight, SEXP sPredProb, SEXP sNTree, SEXP sNSamp, SEXP sSmpReplace, SEXP sQuantiles, SEXP sMinRatio, SEXP sBlockSize) {
-  NumericVector predWeight(sPredWeight);
-  Train::TrainInit(predWeight.begin(), as<double>(sPredProb), as<int>(sNTree), as<int>(sNSamp), as<bool>(sSmpReplace), as<bool>(sQuantiles), as<double>(sMinRatio), as<int>(sBlockSize));
 }
 
 //
@@ -103,18 +96,17 @@ RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sFacWidth, SEXP sTotBagCount, SEXP sT
 // Calls destructors belonging to remaining objects needed for the write.
 // Returns value of mean-square error, wrapped.
 //
-RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBumpL, SEXP sBumpR, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
+RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
   IntegerVector rPreds(sPreds);
   NumericVector rSplits(sSplits);
   NumericVector rScores(sScores);
-  IntegerVector rBumpL(sBumpL);
-  IntegerVector rBumpR(sBumpR);
+  IntegerVector rBump(sBump);
   IntegerVector rOrigins(sOrigins); // Per-tree offsets of table origins.
   IntegerVector rFacOff(sFacOff); // Per-tree offsets of split bits.
   IntegerVector rFacSplits(sFacSplits);
 
   //  NumericMatrix rSplitGini(sSplitGini);
-  Train::WriteForest(rPreds.begin(), rSplits.begin(), rScores.begin(), rBumpL.begin(), rBumpR.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
+  Train::WriteForest(rPreds.begin(), rSplits.begin(), rScores.begin(), rBump.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
 
   return wrap(0);
 }

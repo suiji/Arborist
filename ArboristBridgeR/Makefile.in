@@ -1,0 +1,50 @@
+# Useful for development, debugging.  R packaging employs Makevars
+# mechanism, so this need not be included in packaged versions.
+#
+included_sources := $(wildcard *.h)
+
+#
+CC := ccache g++
+#CC := g++ # VALGRIND:  Forces recompilation
+cpp_sources := $(wildcard *.cpp)
+cpp_asms := $(patsubst %.cpp, %.s, $(cpp_sources))
+cpp_sharedobjs := $(patsubst %.cpp, %.o, $(cpp_sources))
+
+cc_sources := $(wildcard *.cc)
+cc_sharedobjs := $(patsubst %.cc,%.o, $(cc_sources))
+
+OBJS :=  $(cpp_sharedobjs) $(cc_sharedobjs)
+
+#compiler/preprocessor options
+R_CPIC = `"${R_HOME}/bin/R" CMD config CPICFLAGS`
+CMN_ARGS = $(R_CPIC)
+CC_ARGS = -O3 -march=native -pipe -fopenmp
+#CC_ARGS = -g -O1 -march=native -pipe  # VALGRIND
+
+#-mfpmath=both
+#-mmovbe -mfpmath=sse -msse2
+R_INCL = `"${R_HOME}/bin/R" CMD config --cppflags`
+RCPP_INCL = `${R_HOME}/bin/Rscript -e 'Rcpp:::CxxFlags()'`
+R_INCS := $(R_INCL) $(RCPP_INCL)
+
+#linker options
+R_LIB = `"${R_HOME}/bin/R" CMD config --ldflags`
+PKG_LIBS = `${R_HOME}/bin/Rscript -e 'Rcpp:::LdFlags()'`
+
+all : Rborist.so
+
+Rborist.so: $(OBJS)
+	$(CC) -shared -o $@ $^ $(PKG_LIBS) $(R_LIB)
+
+$(OBJS) : $(cpp_asms)
+
+%.o: %.s $(included_sources)
+	$(CC) $< -c
+
+%.o: %.cc $(included_sources)
+	$(CC) $(CMN_ARGS) $(CC_ARGS) -I . $(R_INCS) $< -c
+
+clean:
+	rm -rf *.o *.s *.so *~ Makefile
+
+.PHONY: all clean

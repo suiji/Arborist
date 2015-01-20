@@ -1,19 +1,19 @@
-# Copyright (C)  2012-2014   Mark Seligman
-##
-## This file is part of ArboristBridgeR.
-##
-## ArboristBridgeR is free software: you can redistribute it and/or modify it
-## under the terms of the GNU General Public License as published by
-## the Free Software Foundation, either version 2 of the License, or
-## (at your option) any later version.
-##
-## ArboristBridgeR is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C)  2012-2015   Mark Seligman
+//
+// This file is part of ArboristBridgeR.
+//
+// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 2 of the License, or
+// (at your option) any later version.
+//
+// ArboristBridgeR is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <Rcpp.h>
 
@@ -45,7 +45,6 @@ RcppExport SEXP RcppPredictOOB(SEXP sPredGini, SEXP sError) {
   NumericVector predGini(sPredGini);
 
   Predict::PredictOOBReg(error.begin(), predGini.begin());
-
   return wrap(0);
 }
 
@@ -63,20 +62,21 @@ RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError) {
 // The only clients are the Predict variants, hence the inclusion of the
 // reload method in this file.
 //
-RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBumpL, SEXP sBumpR, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
+RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
   IntegerVector preds(sPreds);
   NumericVector splits(sSplits);
   NumericVector scores(sScores);
-  IntegerVector bumpL(sBumpL);
-  IntegerVector bumpR(sBumpR);
+  IntegerVector bump(sBump);
   IntegerVector origins(sOrigins);
   IntegerVector facOff(sFacOff);
   IntegerVector facSplits(sFacSplits);
 
   if (facSplits.length() == 0)
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bumpL.begin(), bumpR.begin(), origins.begin(), 0, 0);
+    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bump.begin(), origins.begin(), 0, 0);
   else
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bumpL.begin(), bumpR.begin(), origins.begin(), facOff.begin(), facSplits.begin());
+    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bump.begin(), origins.begin(), facOff.begin(), facSplits.begin());
+
+  return wrap(0);
 }
 
 RcppExport SEXP RcppReloadQuant(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, SEXP sQRankCount, SEXP sQLeafPos, SEXP sQLeafExtent) {
@@ -88,6 +88,8 @@ RcppExport SEXP RcppReloadQuant(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, 
   IntegerVector qLeafExtent(sQLeafExtent);
 
   Predict::ForestReloadQuant(qYRanked.begin(), qYRanked.length(), qRankOrigin.begin(), qRank.begin(), qRankCount.begin(), qLeafPos.begin(), qLeafExtent.begin());
+
+  return wrap(0);
 }
 
 RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQPred, SEXP sY) {
@@ -96,6 +98,8 @@ RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQPred, SEXP sY) {
   NumericVector y(sY);
 
   Predict::PredictQuant(quantVec.begin(), quantVec.length(), qPred.begin(), y.begin());
+
+  return wrap(0);
 }
 
 RcppExport SEXP RcppPredictReg(SEXP sy) {
