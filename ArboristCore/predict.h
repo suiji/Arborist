@@ -5,11 +5,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file predict.h
+
+   @brief Interface for front-end entry to prediction methods.
+
+   @author Mark Seligman
+
+ */
+
 #ifndef ARBORIST_PREDICT_H
 #define ARBORIST_PREDICT_H
 
-// Quantile signature.
-//
+/**
+ @brief Quantile signature.
+*/
 class QuantSig {
  public:
   static void DeFactory();
@@ -19,8 +29,9 @@ class QuantSig {
   static double *qPred;
 };
 
-// Interface class for front end.
-//
+/**
+ @brief Interface class for front end.
+*/
 class Predict {
   static void Finish(double predGini[]);
 public:
@@ -29,7 +40,7 @@ public:
   static void PredictOOBQuant(double *err, double quantVec[], int qCells, double qPred[], double predGini[]);
   static void PredictOOBReg(double *err, double predGini[]);
   static void PredictOOBCtg(int conf[], double *error, double predGini[]);
-  static void PredictQuant(double quantVec[], const int qcells, double qPred[], double y[]);
+  static void PredictQuant(double quantVec[], int qcells, double qPred[], double y[]);
   static void PredictReg(double y[]);
   static void PredictCtg(int y[], int ctgWidth);
 };

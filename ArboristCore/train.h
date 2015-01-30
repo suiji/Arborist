@@ -5,12 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file train.h
+
+   @brief Class definitions for the training entry point.
+
+   @author Mark Seligman
+ */
+
 #ifndef ARBORIST_TRAIN_H
 #define ARBORIST_TRAIN_H
 
-// Interface class for front end.
-// Holds simulation-specific parameters of the data.
-//
+/**
+   @brief Interface class for front end. Holds simulation-specific parameters of the data.
+*/
 class Train {
   static const int accumExp = 5;
   static int reLevel; // Diagnostic:  # reallocations.
@@ -28,7 +36,6 @@ public:
   static int probResize;
   static double *sCDF;
   static int *cdfOff;
-  static void IntBlock(int xBlock[], int _nrow, int _ncol);
   static void ResponseReg(double y[]);
   static int ResponseCtg(const int y[], double yPerturb[]);
   static int Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels);

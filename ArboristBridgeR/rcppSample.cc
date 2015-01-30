@@ -15,6 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+   @file rcppSample.cc
+
+   @brief Interface to front-end methods implementing (response) sampling.
+
+   @author Mark Seligman
+ */
+
 #include "rcppSample.h"
 #include "sample.h"
 
@@ -22,10 +30,21 @@ int RcppSample::nRow = -1;
 int RcppSample::nSamp = -1;
 NumericVector RcppSample::sampleWeight = 0;
 bool RcppSample::withReplacement = true;
+/**
+  @brief R-language entry to sampling factories.
 
-// Sample weights must be retained by the call-back mechansm for sampling at
-// tree construction.
-//
+  @param sNRow is the number of rows of observations.
+
+  @param sNPred is the number of columns of observations.
+
+  @param sNSamp is the number of samples requested.
+
+  @param sSampWeight is a vector of response-element weights.
+
+  @param sWithReplacement indicates whether sampling with replacement has been requested.
+
+  @return Wrapped zero.
+*/
 RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNPred, SEXP sNSamp, SEXP sSampWeight, SEXP sWithReplacement) {
   int nRow = as<int>(sNRow);
   int nPred = as<int>(sNPred);
@@ -39,8 +58,35 @@ RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNPred, SEXP sNSamp, SEXP sSampWeigh
   return wrap(0);
 }
 
-#include <RcppArmadilloExtensions/sample.h>
+/**
+   @brief Lights off the initializations needed for sampling.
 
+   @param _nRow is the number of rows of observations.
+
+   @param _nSamp is the number of samples requested.
+
+   @param _sampleWeight weights response vector elements.
+
+   @param _withReplacement indicates sampling mode.
+
+   @return void.
+ */
+void RcppSample::Factory(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement ) {
+    nRow = _nRow;
+    nSamp = _nSamp;
+    sampleWeight = _sampleWeight;
+    withReplacement = _withReplacement;
+}
+
+
+#include <RcppArmadilloExtensions/sample.h>
+/**
+   @brief Samples row indices either with or without replacement using methods from RccpArmadillo.
+
+   @param out[] is an output vector of sampled row indices.
+
+   @return Wrapped zero, with output parameter vector.
+ */
 void RcppSample::SampleRows(int out[]) {
   RNGScope scope;
   IntegerVector rowVec(seq_len(nRow)-1); // Sequential numbering from zero to 'tot'-1.

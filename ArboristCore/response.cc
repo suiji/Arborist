@@ -5,6 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file response.cc
+
+   @brief Methods maintaining the response-specific aspects of training.
+
+   @author Mark Seligman
+
+ */
+
 #include "response.h"
 #include "callback.h"
 #include "predictor.h"
@@ -32,19 +41,37 @@ int *ResponseReg::sample2Rank = 0;
 int *ResponseReg::row2Rank = 0;
 double *ResponseReg::yRanked = 0;
 
+/**
+   @brief Regression-specific entry to factory methods.
+
+   @param yNum is the response vector.
+
+   @param levelMax is the current level-max value.
+
+   @return void.
+ */
 void Response::FactoryReg(double *yNum, int levelMax) {
   nRow = Sample::NRow();
-  // assert(nRow > 0):  Factory ordering.
   response = new ResponseReg(yNum);
   SPReg::Factory(levelMax);
 }
 
+/**
+   @base Classification-specific entry to factory methods.
+
+   @param _yCtg is the response vector
+
+   @param _perturb is a vector of numerical proxy values.
+
+   @param levelMax is the current level-max value.
+
+   @return cardinality of the response.
+ */
 // Requires an unadulterated zero-based version of the factor response as well as a
 // clone subject to reordering.
 //
 int Response::FactoryCtg(const int _yCtg[], double perturb[], int levelMax) {
   nRow = Sample::NRow();
-  // assert(nRow > 0):  Factory ordering.
 
   int ctgWidth = ResponseCtg::Factory(_yCtg, perturb, levelMax);
   SPCtg::Factory(levelMax, ctgWidth);
@@ -52,6 +79,17 @@ int Response::FactoryCtg(const int _yCtg[], double perturb[], int levelMax) {
   return ctgWidth;
 }
 
+/**
+   @base Lights off initializations specific to classification.
+
+   @paramm yCtg is the response vector.
+
+   @param perturb is a vector of proxy values.
+
+   @param levelMax is the current level-max value.
+
+   @return cardinality of response.
+*/
 int ResponseCtg::Factory(const int _yCtg[], double perturb[], int levelMax) {
   treeJitter = new double[nRow];
   sumSquares = new double[levelMax];
@@ -61,11 +99,20 @@ int ResponseCtg::Factory(const int _yCtg[], double perturb[], int levelMax) {
   return ctgWidth;
 }
 
+/**
+   @brief Base class constructor.
+
+   @param _y is the vector numerical/proxy response values.
+
+ */
 Response::Response(double _y[]) : y(_y) {
 }
 
-// TODO: sort 'y' for quantile regression.
-//
+/**
+   @brief Regression subclass constructor.
+
+   @param _y is the response vector.
+*/
 ResponseReg::ResponseReg(double _y[]) : Response(_y) {
   // The only client is quantile regression, via Sample::sample2Rank[], but it is
   // simpler to compute in all cases and copy when needed.
@@ -87,7 +134,9 @@ ResponseReg::ResponseReg(double _y[]) : Response(_y) {
   delete [] rank2Row;
 }
 
-
+/**
+   @brief Regression subclass destructor.
+*/
 ResponseReg::~ResponseReg() {
   delete [] row2Rank;
   delete [] yRanked;
@@ -95,29 +144,47 @@ ResponseReg::~ResponseReg() {
   yRanked = 0;
 }
 
-// Front end should ensure that this path is not reached.
-//
+/**
+   @brief Dummy error method to flag nonsensical categorical quantiles.
+*/
 void ResponseCtg::GetYRanked(double yRanked[]) {
   cout << "Quantile regression not supported for categorical response" << endl;
 }
 
-// Copies 'yRanked' into caller's buffer.  Quantiles is the only client.
-//
+/**
+ @brief Copies ranked response into caller's buffer.  Quantiles is the only client.
+
+ @param _yRanked outputs the ranked response.
+
+ @return void, with output vector parameter.
+*/
 void ResponseReg::GetYRanked(double _yRanked[]) {
   for (int i = 0; i < nRow; i++)
-    yRanked[i] = yRanked[i];
+    _yRanked[i] = yRanked[i];
 }
 
-// '_yCtg' is a stack temporary, so its contents must be copied and saved.
-//
+/**
+ @brief Constructor for categorical response.
+
+ @param _yCtg is a stack temporary, so its contents must be copied and saved.
+
+ @param perturb is the associated numerical proxy response.
+
+ @param _ctgWidth outputs the response cardinality.
+*/
 ResponseCtg::ResponseCtg(const int _yCtg[], double perturb[], int &_ctgWidth) : Response(CtgFreq(_yCtg, perturb, _ctgWidth)) {
   yCtg = new int[nRow];
   for (int i = 0; i < nRow; i++)
     yCtg[i] = _yCtg[i];
 }
 
-// Sets 'bagCount' for the current tree and initializes per-tree instances.
-//
+/**
+ @brief Initializes per-tree member.
+
+ @param levelMax is the current level-max value.
+
+ @return In-bag size of current tree.
+*/
 int Response::SampleRows(int levelMax) {
   int *rvRows = new int[nRow];
   CallBack::SampleRows(rvRows);
@@ -132,14 +199,35 @@ int Response::SampleRows(int levelMax) {
   return bagCount;
 }
 
+/**
+   @brief Row-sampling entry for regression tree.
+
+   @param rvRows is the vector of sampled row indices.
+
+   @return in-bag size of sampled row indices.
+*/
 int ResponseReg::SampleRows(const int rvRows[]) {
   return SampleReg::SampleRows(rvRows, y, row2Rank);
 }
 
+/**
+   @brief Row-sampling entry for classification tree.
+
+   @param rvRows is the vector of sampled row indices.
+
+   @param yCtg is the categorical response.
+
+   @param y is the proxy response vector.
+
+   @return in-bag sample size.
+*/
 int ResponseCtg::SampleRows(const int rvRows[]) {
   return SampleCtg::SampleRows(rvRows, yCtg, y);
 }
 
+/**
+   @brief Destructor for categorical response.
+ */
 ResponseCtg::~ResponseCtg() {
   delete [] y;
   delete [] yCtg;
@@ -148,9 +236,18 @@ ResponseCtg::~ResponseCtg() {
   treeJitter = 0;
 }
 
-// Returns vector of relative frequency of categories at corresponding index in
-// 'yCtgClone'.
-//
+/**
+   @brief Computes relative frequencies of the various categories.
+
+   @param yCtg is the categorical response vector.
+   
+   @param perturb is the proxy response vector.
+
+   @param _ctgWidth outputs the response cardinality.
+
+   @return Vector of corresponding frequencies, plus output parameter.
+*/
+// TODO:  Perhaps implemented more succinctly in front end.
 double *ResponseCtg::CtgFreq(const int _yCtg[], double perturb[], int &_ctgWidth) {
   // Sorts a copy of the response, retaining the permutation induced.
   //
@@ -223,35 +320,73 @@ double ResponseCtg::Jitter(int row) {
   return 0.0;//jitter[row];
 }
 
+/**
+   @brief Response entry for out-of-bag prediction.
+
+   @param conf is a dummy placeholder for a confusion matrix.
+
+   @param error outputs the prediction errors.
+
+   @return void, with output parameter vector.
+ */
 void ResponseReg::PredictOOB(int *conf, double error[]) {
   DecTree::PredictAcrossReg(error);
 }
 
+/**
+   @brief Categorical entry for out-of-bag prediction.
+
+   @param conf outputs a confusion matrix.
+
+   @param error outputs the prediction errors.
+
+   @return void, with output parameters.
+*/
 void ResponseCtg::PredictOOB(int *conf, double error[]) {
   DecTree::PredictAcrossCtg(yCtg, ctgWidth, conf, error);
 }
 
-// Returns sum of samples for tree.
-//
+/**
+   @brief Regression-specific per-tree initializations.
+
+   @return void.
+*/
 void ResponseReg::TreeInit() {
   SampleReg::Stage();
 }
 
+/**
+   @brief Regression-specific sample summation
+
+   @return sum of in-bag response values.
+*/
 double ResponseReg::Sum() {
   return SampleReg::Sum(bagCount);
 }
 
+/**
+   @brief Categorical-specifi sample summation.
+
+   @return sum of in-bag response values.
+ */
 double ResponseCtg::Sum() {
   return SampleCtg::Sum(bagCount);
 }
 
-// 'ctgSum' is allocated per-session, so must be reinitialized on tree entry.
-//
+/**
+   @brief Categorical-specific staging of sampled predictors.
+
+   @return void.
+*/
 void ResponseCtg::TreeInit() {
   SampleCtg::Stage();
-  SPCtgFac::TreeInit();
 }
 
+/**
+   @brief Static entry point for tree finalizers.
+
+   @return void.
+ */
 void Response::TreeClearSt() {
   response->TreeClear();
   IndexNode::TreeClear();
@@ -259,46 +394,72 @@ void Response::TreeClearSt() {
   bagCount = -1;
 }
 
+/**
+   @brief Regression-specific tree finalizer.
+
+   @return void.
+ */
 void ResponseReg::TreeClear() {
   SampleReg::TreeClear();
 }
 
+/**
+   @brief Categorical-specific tree finalizer.
+
+   @return void.
+*/
 void ResponseCtg::TreeClear() {
   SampleCtg::TreeClear();
 }
 
-  /* ASSERTIONS:
-  if (abs(sum - sCount) > 0.1)
-    cout << "Jitter mismatch" << endl;
-  double sumByCtg = 0.0;
-  for (int i = 0; i < LevelCtg::ctgWidth; i++) {
-    sumByCtg += sumBase[i];
-  }
-  if (abs(sumByCtg - sum) > 0.1)
-    cout << sumByCtg - sum << endl;
-  */
+/**
+   @brief Static entry for level reallocation.
 
+   @return void.
+*/
 void Response::ReFactory(int levelMax) {
   response->ReFactorySP(levelMax);
 }
 
+/**
+   @brief Static entry for finalizer.
+
+   @response void.
+ */
 void Response::DeFactorySt() {
   response->DeFactory();
   delete response;
   response = 0;
 }
 
-//
+/**
+   @brief Static entry for level reallocation.
+
+   @param levelMax is the current level-max value.
+
+   @return void.
+ */
 void ResponseReg::ReFactorySP(int levelMax) {
   SPReg::ReFactory(levelMax);
 }
 
+/**
+   @brief Finalizer for regression response.
+
+   @return void.
+ */
 void ResponseReg::DeFactory() {
-  SPReg::DeFactory(); // TODO:  Move to Index, as this caller is invoked at Predict::
+  SPReg::DeFactory();
 }
 
 
-//
+/**
+   @brief Static entry for categorical reallocation.
+
+   @param levelMax is the current level-max value.
+
+   @return void.
+ */
 void ResponseCtg::ReFactorySP(int levelMax) {
   delete [] ctgSum;
   delete [] sumSquares;
@@ -308,6 +469,11 @@ void ResponseCtg::ReFactorySP(int levelMax) {
   SPCtg::ReFactory(levelMax);
 }
 
+/**
+   @brief Finalizer for categorical response.
+
+   @return void.
+ */
 void ResponseCtg::DeFactory() {
   delete [] ctgSum;
   delete [] sumSquares;
@@ -317,17 +483,28 @@ void ResponseCtg::DeFactory() {
   ctgWidth = -1;
 }
 
+/**
+   @brief Invokes response-specific sum methods.
+
+   @return void.
+ */
 void Response::LevelSums(int splitCount) {
   response->Sums(splitCount);
 }
 
-// Initializes 'ctgSum[]' and 'sumSquares[]' values for nodes making
-// it to the next level.  These must be computed in order to set the pre-bias.
-//
-// Next level's split nodes should be in place before invocation, so that values are
-// indexable by split position.  Similarly, Replay() invocations should have taken
-// place, as well.
-//
+/**
+ @brief Initializes 'ctgSum[]' and 'sumSquares[]' values for nodes making
+ it to the next level.
+
+ These must be computed in order to set the pre-bias. Next level's split
+ nodes should be in place before invocation, so that values are
+ indexable by split position.  Similarly, Replay() invocations should have taken
+ place, as well.
+
+ @param splitCount is the number of splits in the next level.
+
+ @return void.
+*/
 void ResponseCtg::Sums(int splitCount) {
   int levelWidth = PreTree::LevelWidth();
   double *sumTemp = new double[levelWidth * ctgWidth];
@@ -364,13 +541,30 @@ void ResponseCtg::Sums(int splitCount) {
   delete [] sumTemp;
 }
 
+/**
+   @brief Dummy method for regression response.
+ */
 void ResponseReg::Sums(int splitCount) {
 }
 
+/**
+   @brief Static entry for pre-bias computation.
+
+   @param splitIdx is the split index.
+
+   @return pre-bias value for the split.
+ */
 double Response::PrebiasSt(int splitIdx) {
   return response->Prebias(splitIdx);
 }
 
+/**
+  @brief Pre-bias computation for regression response.
+
+  @param splitIdx is the split index.
+
+  @return pre-bias value.
+*/
 double ResponseReg::Prebias(int splitIdx) {
   double sum;
   int sCount;
@@ -379,7 +573,15 @@ double ResponseReg::Prebias(int splitIdx) {
 }
 
 
-//
+/**
+   @brief Pre-bias computation for categorical response.
+
+   @param splitIdx is the split index.
+
+   @see ResponseCtg::Sums
+
+   @return pre-bias value.
+ */
 double ResponseCtg::Prebias(int splitIdx) {
   double sum;
   int sCount;
@@ -387,27 +589,90 @@ double ResponseCtg::Prebias(int splitIdx) {
   return sumSquares[splitIdx] / sum;
 }
 
+/**
+   @brief Virtual entry for score computation.
+
+   @param treeHeight is the number of indices in the pretree.
+
+   @param scores outputs the computed score values.
+
+   @return void, with output parameter vector.
+ */
 void Response::ProduceScores(int treeHeight, double scores[]) {
   response->Scores(treeHeight, scores);
 }
 
+
+/**
+   @brief Regression entry for score computation.
+
+   @param treeHeight is the number of indices in the pretree.
+
+   @param scores outputs the computed score values.
+
+   @return void, with output parameter vector.
+ */
 void ResponseReg::Scores(int treeHeight, double scores[]) {
   SampleReg::Scores(bagCount, treeHeight, scores);
 }
 
+/**
+   @brief Categorical entry for score computation.
+
+   @param treeHeight is the number of indices in the pretree.
+
+   @param scores outputs the computed score values.
+
+   @return void, with output parameter vector.
+ */
 void ResponseCtg::Scores(int treeHeight, double scores[]) {
   SampleCtg::Scores(bagCount, ctgWidth, treeHeight, scores);
 }
 
+/**
+   @brief Virtual entry for quantile computation.
+
+   @param treeSize is the height of the pretree.
+
+   @param leafPos outputs the offsets of each quantile leaf.
+
+   @param leafExtent outputs the size of each quantile leaf.
+
+   @param rank outputs the ranks of the quantile leaves.
+
+   @param rankCount outputs the multiplicities of each rank.
+
+   @return void.
+ */
 void Response::DispatchQuantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
   response->Quantiles(treeSize, leafPos, leafExtent, rank, rankCount);
 }
 
+/**
+   @brief Error method indicating nonsensical categorical quantiles.
+
+   @return void.
+ */
 void ResponseCtg::Quantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
   cout << "Quantiles undefined for categorical response" << endl;
   // error()
 }
 
+/**
+   @brief Regression entry for quantile computation.
+
+   @param treeSize is the height of the pretree.
+
+   @param leafPos outputs the offsets of each quantile leaf.
+
+   @param leafExtent outputs the size of each quantile leaf.
+
+   @param rank outputs the ranks of the quantile leaves.
+
+   @param rankCount outputs the multiplicities of each rank.
+
+   @return void.
+ */
 void ResponseReg::Quantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
   SampleReg::DispatchQuantiles(treeSize, bagCount, leafPos, leafExtent, rank, rankCount);
 }

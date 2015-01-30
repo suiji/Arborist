@@ -5,6 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file dectree.cc
+
+   @brief Methods for building and walking the decision tree.
+
+   @author Mark Seligman
+
+   These methods are mostly mechanical.  Several methods are tasked
+   with populating or depopulating tree-related data structures.  The
+   tree-walking methods are clones of one another, with slight variations
+   based on response or predictor type.
+ */
+
+
 #include "predictor.h"
 #include "train.h"
 #include "index.h"
@@ -48,7 +62,6 @@ int **DecTree::treeFacSplits = 0;
 
 int* DecTree::facSplitForest = 0; // Bits as integers:  alignment.
 int *DecTree::facOffForest = 0;
-double DecTree::recipNumTrees = 0.0;
 int DecTree::nTree = -1;
 int DecTree::nRow = -1;
 int DecTree::nPred = -1;
@@ -65,6 +78,22 @@ int DecTree::forestSize = -1;
 int DecTree::totBagCount = -1;
 int DecTree::totQLeafWidth = -1;  // Size of compressed quantile leaf vector.
 
+/**
+   @brief Lights off the initializations for building decision trees.
+
+   @param _nTree is the number of trees requested.
+
+   @param _nRow is the number of samples in the response/observations.
+
+   @param _nPred is the number of predictors.
+
+   @param _nPredNum is the number of numeric predictors.
+
+   @param _nPredFac is the number of factor-valued predictors.
+
+   @return void.
+
+ */
 void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
   nTree = _nTree;
   nPred = _nPred;
@@ -75,7 +104,6 @@ void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int
   totBagCount = 0;
   treeOriginForest = new int[nTree];
   treeSizes = new int[nTree];
-  recipNumTrees = 1.0 / nTree;
   predGini = new double[nPred];
   treePreds = new int*[nTree];
   treeSplits = new double*[nTree];
@@ -116,8 +144,28 @@ void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int
   }
 }
 
-// Reloads cached tree data from front end.
-//
+/**
+   @brief Loads trained forest from front end.
+
+   @param _nTree is the number of trees in the forest.
+
+   @param _forestSize is the length of the multi-vector holding all tree parameters.
+
+   @param _preds[] are the predictors associated with tree nonterminals.
+
+   @param _splits[] are the splitting values associated with nonterminals.
+
+   @param _scores[] are the scores associated with terminals.
+
+   @param _origins[] are the offsets into the multivector denoting each individual tree vector.
+
+   @param _facOff[] are the offsets into the multi-bitvector denoting each tree's factor splitting values.
+
+   @param _facSplits[] are the factor splitting values. 
+
+   @return void.
+*/
+
 void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
   nTree = _nTree;
   forestSize = _forestSize;
@@ -138,7 +186,11 @@ void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
   }
 }
 
-// Reloads cached quantile data from front end.
+/**
+  @brief Loads quantile data stored by the front end.
+
+  @return void.
+*/
 void DecTree::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
 
   qYRankedForest = qYRanked;
@@ -150,6 +202,9 @@ void DecTree::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[],
   qLeafExtentForest= qLeafExtent;
 }
 
+/**
+   @brief Writes quantile data into storage provided by front end.
+ */
 void DecTree::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
   for (int i = 0; i < nRow; i++)
     rQYRanked[i] = qYRankedForest[i];
@@ -167,9 +222,12 @@ void DecTree::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[]
   }
 }
 
-// Most of the vectors and matrices referenced here are passed in from R and should
-// not be deleted.
-//
+/**
+  @brief Resets addresses of vectors used during prediction.  Most are allocated
+  by the front end so are not deallocated here.
+
+  @return void
+*/
 void DecTree::DeForestPredict() {
   delete [] bumpForest; // Built on reload.
   bumpForest = 0;
@@ -183,6 +241,12 @@ void DecTree::DeForestPredict() {
   qYLenForest = forestSize = totBagCount = nTree = -1;
 }
 
+
+/**
+   @brief General deallocation after train/predict combination.
+
+   @return void
+ */
 void DecTree::DeForest() {
   delete [] treeSizes;
   delete [] treeOriginForest;
@@ -226,7 +290,6 @@ void DecTree::DeForest() {
   treeSplits = 0;
   treeScores = 0;
   treeBumps = 0;
-  recipNumTrees = 0.0;
   nTree = forestSize = qYLenForest = totBagCount = -1;
   treeFacWidth = 0;
   treeFacSplits = 0;
@@ -247,7 +310,18 @@ void DecTree::DeForest() {
   qRankOriginForest = qLeafPosForest = qRankForest = 0;
 }
 
+/**
+   @brief Gathers all tree-based information and builds forest-wide data structures.
 
+   @param cumFacWidth is the sum of all widths of factor bitvectors.
+
+   @param cumBagWidth is the sum of all tree bag sizes.
+
+   @param cumQLeafWidth is the sum of all quantile leaf sizes.
+
+   @return Length of forest-wide vectors.
+
+ */
 int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
   facOffForest = new int[nTree];
 
@@ -358,13 +432,14 @@ int DecTree::AllTrees(int *cumFacWidth, int *cumBagWidth, int *cumQLeafWidth) {
   return forestSize;
 }
 
-// Implements the handshake between pre-tree consumption and decision-tree production.
-// Tells pre-tree to blow itself away when done.
-//
+/**
+  @brief Implements the handshake between pre-tree consumption and decision-tree production.
+Tells pre-tree to blow itself away when done.
+
+  @return void
+*/
 void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum) {
   SetBagRow(_inBag, treeNum);
-  //cout << "Tree " << treeNum << ": " << treeSize << endl;
-  // TODO:  Consider uninitialized slots.
   treeSizes[treeNum] = treeSize;
   treePreds[treeNum] = new int[treeSize];
   treeSplits[treeNum] = new double[treeSize];
@@ -383,9 +458,15 @@ void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, in
   forestSize += treeSize;
 }
 
-// Fills in the splitting information columns for the next tree. 'outGini' not used for training, and
-// is written for diagnostic purposes.
-//
+/**
+ @brief Consumes splitting bitvector for the current pretree.
+
+ @param treeNum is the index of the tree under constuction.
+
+ @param facWidth is the count of splitting bits to be copied.
+
+ @return void.
+*/
 void DecTree::ConsumeSplitBits(int treeNum, int facWidth) {
   treeFacWidth[treeNum] = facWidth;
   if (facWidth > 0) {
@@ -395,12 +476,18 @@ void DecTree::ConsumeSplitBits(int treeNum, int facWidth) {
   else
     treeFacSplits[treeNum] = 0;
 }
-    //    cout << "Tree bits " << treeNum << endl;
-    //for (int i = 0; i < fw; i++)
-    //cout << treeFacSplits[treeNum][i];
 
+/**
+  @brief Transfers quantile data structures from pretree to decision tree.
 
-// Transfers quantile data structures from pretree to decision tree.
+  @param tn is the index of the tree under construction.
+
+  @param treeSize is the number of pretree nodes.
+
+  @param bagCount is the size of the in-bag set.
+
+  @return void.
+*/
 // TODO:  Exit treeQLeafWidth, as size is known.
 void DecTree::QuantileRanks(int tn, int treeSize, int bagCount) {
   treeQRankWidth[tn] = bagCount;
@@ -419,9 +506,14 @@ void DecTree::QuantileRanks(int tn, int treeSize, int bagCount) {
   Response::DispatchQuantiles(treeSize, qLeafPos, qLeafExtent, qRank, qRankCount);
 }
 
-// Sets bit for <row, tree> with tree as faster-moving index.
-//
-void DecTree::SetBagRow(const bool sampledRow[], const int treeNum) {
+/**
+  @brief Sets bit for <row, tree> with tree as faster-moving index.
+
+  @param sampledRow[]
+  
+  @return void.
+*/
+void DecTree::SetBagRow(const bool sampledRow[], int treeNum) {
   for (int row = 0; row < nRow; row++) {
     if (sampledRow[row]) {
       int idx = row * nTree + treeNum;
@@ -434,6 +526,15 @@ void DecTree::SetBagRow(const bool sampledRow[], const int treeNum) {
   }
 }
 
+/**
+   @brief Determines whether a given row index is in-bag in a given tree.
+
+   @param treeNum is the index of a given tree.
+
+   @param row is the row index to be tested.
+
+   @return True iff the row is in-bag.
+ */
 bool DecTree::InBag(int treeNum, int row) {
   int idx = row * nTree + treeNum;
   int off = idx >> 5;
@@ -458,7 +559,7 @@ void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *r
 // Writes the tree-specific splitting information for export.
 // Predictor indices are not written as 1-based indices.
 //
-void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits) {
+void DecTree::WriteTree(int treeNum, int tOrig, int tFacOrig, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits) {
   int *preds = predForest + tOrig;
   double *splitVal = splitForest + tOrig;
   double *score = scoreForest + tOrig;
@@ -487,16 +588,34 @@ void DecTree::WriteTree(const int treeNum, const int tOrig, const int tFacOrig, 
   }
 }
 
-void DecTree::ScaleGini(double *outPredGini) {
+/**
+   @brief Scales the predictor Gini values by the tree count.
+
+   @param outPredGini is an output parameter vector holding the Gini values.
+
+   @return Formally void, with output parameter vector.
+ */
+void DecTree::ScaleGini(double outPredGini[]) {
   for (int i = 0; i < nPred; i++)
-    outPredGini[i] = predGini[i] * recipNumTrees;
+    outPredGini[i] = predGini[i] / nTree;
 }
 
-// Returns confusion matrix for OOB categorical predictions.
-//
-void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], double error[], bool useBag) {
-  //  int numWrong = 0;
-  //  int numTried = 0;
+/**
+   @brief Main driver for prediting categorical response.
+
+   @param yCtg contains the response, in the case of bagged prediction, otherwise the predicted response.
+
+   @param ctgWidth is the cardinality of the response.
+
+   @param confusion is an output confusion matrix.
+
+   @param error is an output vector of classification errors.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+void DecTree::PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double error[], bool useBag) {
   int *rowPred = new int[ctgWidth];
   // Purely numerical predictors.
   if (nPredFac == 0) {
@@ -512,10 +631,6 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
 	  popMax = colPop;
 	  argMax = col;
 	}
-	// Deep prediction.
-	//	confusion[off] += colPop;
-	//numWrong += rsp == col ? 0 : colPop;
-	//numTried += colPop;
       }
       if (argMax >= 0) {
 	if (useBag) {
@@ -541,10 +656,6 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
 	  popMax = colPop;
 	  argMax = col;
 	}
-	// Deep prediction.
-	//	confusion[off] += colPop;
-	//numWrong += rsp == col ? 0 : colPop;
-	//numTried += colPop;
       }
       if (argMax >= 0) {
 	if (useBag) {
@@ -571,10 +682,6 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
 	  popMax = colPop;
 	  argMax = col;
 	}
-	// Deep prediction.
-	//	confusion[off] += colPop;
-	//numWrong += rsp == col ? 0 : colPop;
-	//numTried += colPop;
       }
       if (argMax >= 0) {
 	if (useBag) {
@@ -605,8 +712,15 @@ void DecTree::PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], 
   delete [] rowPred;
 }
 
-// Parametrize by 'useBag'.  If true, 'outVec' receives OOB error, otherwise the prediction.
-//
+/**
+   @brief Main driver for prediting regression response.
+
+   @param outVec contains the predictions.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
 void DecTree::PredictAcrossReg(double outVec[], bool useBag) {
   double *prediction;
 
@@ -636,6 +750,16 @@ void DecTree::PredictAcrossReg(double outVec[], bool useBag) {
     delete [] prediction;
   }
 }
+
+/**
+   @brief Multi-row prediction for regression tree, with predictors of only numeric.
+
+   @param prediction contains the mean score across trees.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
 
 void DecTree::PredictAcrossNumReg(double prediction[], bool useBag) {
   double *transpose = new double[nPred * nRow];
@@ -673,18 +797,19 @@ void DecTree::PredictAcrossNumReg(double prediction[], bool useBag) {
   delete [] predictLeaves;
 }
 
+/**
+   @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
+
+   @param prediction contains the mean score across trees.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
 void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
   int *transpose = new int[nPred * nRow];
   int *predictLeaves = new int[nTree * nRow];
   int row;
-
-  /*{
-    for (int i = 0; i < nTree; i++) {
-      cout << "Tree bits " << i << endl;
-      for (int j = 0; j < treeFacWidth[i]; j++)
-	cout << treeFacSplits[i][j];
-      cout << endl;
-      }*/
 
   for (row = 0; row < nRow; row++) {
     double score = 0.0;
@@ -713,6 +838,15 @@ void DecTree::PredictAcrossFacReg(double prediction[], bool useBag) {
   delete [] predictLeaves;
 }
 
+/**
+   @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
+
+   @param prediction contains the mean score across trees.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
 void DecTree::PredictAcrossMixedReg(double prediction[], bool useBag) {
   double *transposeN = new double[nPredNum * nRow];
   int *transposeI = new int[nPredFac * nRow];
@@ -749,10 +883,21 @@ void DecTree::PredictAcrossMixedReg(double prediction[], bool useBag) {
   delete [] predictLeaves;
 }
 
-// Data matrix 'x'.  For passed 'row' selects predictor at lowest splitting level.
-// Returns mean prediction across all trees in which 'row' appears out-of-bag.
-//
-void DecTree::PredictRowNumReg(const int row, double rowT[], int leaves[], bool useBag) {
+/**
+   @brief Prediction for regression tree, with predictors of only numeric type.
+
+   @param row is the row of data over which a prediction is made.
+
+   @param rowT is a numeric data array section corresponding to the row.
+
+   @param leaves[] are the tree terminals predicted for each row.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+
+void DecTree::PredictRowNumReg(int row, double rowT[], int leaves[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::numBase[row + i* nRow];
 
@@ -780,9 +925,21 @@ void DecTree::PredictRowNumReg(const int row, double rowT[], int leaves[], bool 
 }
 
 
-// Temporary clone of regression tree version.
-//
-void DecTree::PredictRowNumCtg(const int row, double rowT[], const int ctgWidth, int prd[], bool useBag) {
+/**
+   @brief Prediction for classification tree, with predictors of only numeric type.
+
+   @param row is the row of data over which a prediction is made.
+
+   @param rowT is a numeric data array section corresponding to the row.
+
+   @param prd[] are the tree terminals predicted for each row.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+
+void DecTree::PredictRowNumCtg(int row, double rowT[], int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::numBase[row + i* nRow];
   for (int i = 0; i < ctgWidth; i++)
@@ -815,7 +972,7 @@ void DecTree::PredictRowNumCtg(const int row, double rowT[], const int ctgWidth,
 
 // Temporary clone of regression tree version.
 //
-void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowFacCtg(int row, int rowT[], int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::facBase[row + i* nRow];
 
@@ -840,7 +997,6 @@ void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, in
       int bump = bumps[idx];
       int facOff = int(splitVal[idx]);
       int facId = Predictor::FacIdx(pred);
-      //      cout << idx << ": " << pred << ", " << facOff << " " << facOffForest[tc] << endl;
       idx += (fs[facOff + rowT[facId]] ? bump : bump + 1);
       pred = preds[idx];
     }
@@ -849,10 +1005,24 @@ void DecTree::PredictRowFacCtg(const int row, int rowT[], const int ctgWidth, in
   }
 }
 
-// Data matrix 'x'.  For passed 'row' selects predictor at lowest splitting level.
-// Returns mean prediction across all trees in which 'row' appears out-of-bag.
-//
-void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], const int ctgWidth, int prd[], bool useBag) {
+/**
+   @brief Prediction for classification tree, with predictors of both numeric and factor type.
+
+   @param row is the row of data over which a prediction is made.
+
+   @param rowNT is a numeric data array section corresponding to the row.
+
+   @param rowFT is a factor data array section corresponding to the row.
+
+   @param ctgWidth is the cardinality of the response.
+
+   @param prd[] are the tree terminals predicted for each row.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+void DecTree::PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPredNum; i++)
     rowNT[i] = Predictor::numBase[row + i * nRow];
   for (int i = 0; i < nPredFac; i++)
@@ -874,11 +1044,6 @@ void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], con
     int idx = 0;
     int pred = preds[idx];
     while (pred != leafPred) {
-      //      cout << idx << endl;
-      //if (pred >= 0)
-      //cout << "\tN:  " << pred << ", " << rowNT[pred] << ", " << splitVal[idx] << endl;
-      //else
-      //cout << "\tF:  " << -(pred+1) << ", " << facOff << ", " << rowFT[-(pred+1)] << ", " << fs[facOff+rowFT[-(pred+1)]] <<endl;
       int bump = bumps[idx];
       int facId = Predictor::FacIdx(pred);
       idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  bump : bump + 1) : (fs[int(splitVal[idx]) + rowFT[facId]] ? bump : bump + 1));
@@ -889,10 +1054,21 @@ void DecTree::PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], con
   }
 }
 
-// Data matrix 'x'.  For passed 'row' selects predictor at lowest splitting level.
-// Returns mean prediction across all trees in which 'row' appears out-of-bag.
-//
-void DecTree::PredictRowFacReg(const int row, int rowT[], int leaves[],  bool useBag) {
+/**
+   @brief Prediction for regression tree, with factor-valued predictors only.
+
+   @param row is the row of data over which a prediction is made.
+
+   @param rowT is a factor data array section corresponding to the row.
+
+   @param leaves[] are the tree terminals predicted for each row.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+
+void DecTree::PredictRowFacReg(int row, int rowT[], int leaves[],  bool useBag) {
   for (int i = 0; i < nPredFac; i++)
     rowT[i] = Predictor::facBase[row + i * nRow];
 
@@ -924,10 +1100,22 @@ void DecTree::PredictRowFacReg(const int row, int rowT[], int leaves[],  bool us
   }
 }
 
-// Data matrix 'x'.  For passed 'row' selects predictor at lowest splitting level.
-// Returns mean prediction across all trees in which 'row' appears out-of-bag.
-//
-void DecTree::PredictRowMixedReg(const int row, double rowNT[], int rowFT[], int leaves[], bool useBag) {
+/**
+   @brief Prediction for regression tree, with predictors of both numeric and factor type.
+
+   @param row is the row of data over which a prediction is made.
+
+   @param rowNT is a numeric data array section corresponding to the row.
+
+   @param rowFT is a factor data array section corresponding to the row.
+
+   @param leaves[] are the tree terminals predicted for each row.
+
+   @param useBag indicates whether prediction is restricted to out-of-bag data.
+
+   @return Void with output vector parameter.
+ */
+void DecTree::PredictRowMixedReg(int row, double rowNT[], int rowFT[], int leaves[], bool useBag) {
   for (int i = 0; i < nPredNum; i++)
     rowNT[i] = Predictor::numBase[row + i * nRow];
   for (int i = 0; i < nPredFac; i++)
@@ -959,9 +1147,18 @@ void DecTree::PredictRowMixedReg(const int row, double rowNT[], int rowFT[], int
   // predictor fields.
 }
 
-// Each call writes one row.
-//
-void DecTree::QuantileLeaves(double *qRow, const int qCells, /*const int row,*/ const int leaves[]) {
+/**
+   @brief Writes the quantile values.
+
+   @param qRow[] is an output vector of quantile values.
+
+   @param qCells is the number of quantile cells computed.
+
+   @param leaves[] is a vector of leaves predicted for each out-of-bag row.
+
+   @return Void, with output vector parameter.
+ */
+void DecTree::QuantileLeaves(double qRow[], int qCells, const int leaves[]) {
   int *sampRanks = new int[qYLenForest];
   for (int i = 0; i < qYLenForest; i++)
     sampRanks[i] = 0;
@@ -980,14 +1177,11 @@ void DecTree::QuantileLeaves(double *qRow, const int qCells, /*const int row,*/ 
     for (int i = 0; i < leafExtent; i++) {
       int leafRank = qRankForest[leafOff+i];
       int rankCount = qRankCountForest[leafOff + i];
-      //	cout << "Invalid rank:  "   << leafRank << " row  " << row << "  tree " << tn << ", absolute leaf off: " << treeOriginForest[tn] + predLeaf + i << ", abs. rank off:  "<<  leafOff +i << endl;
       sampRanks[leafRank] += rankCount;
       totRanks += rankCount;
     }
   }
 
-  //  int qCells = QuantSig::qCells;
-  //  double *qRow = QuantSig::qPred + row * qCells;
   double *countThreshold = new double[qCells];
   for (int i = 0; i < qCells; i++) {
     countThreshold[i] = totRanks * QuantSig::qVec[i];  // Rounding properties?
@@ -998,7 +1192,6 @@ void DecTree::QuantileLeaves(double *qRow, const int qCells, /*const int row,*/ 
   for (int i = 0; i < qYLenForest && qIdx < qCells; i++) {
      ranksSeen += sampRanks[i];
      while (qIdx < qCells && ranksSeen >= countThreshold[qIdx]) {
-       //       cout << qIdx << ": " << ranksSeen << " / " << totRanks  << " , " << i << endl;
        qRow[qIdx++] = qYRankedForest[i];
      }
   }

@@ -15,6 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+   @file callback.h
+
+   @brief Exposes utility functions provided by the front end.
+
+   @author Mark Seligman
+ */
+
 #ifndef ARBORIST_CALLBACK_H
 #define ARBORIST_CALLBACK_H
 

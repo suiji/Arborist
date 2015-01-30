@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+   @file rcppPredictor.cc
+
+   @brief C++ interface to R entries for maintaining predictor data structures.
+
+   @author Mark Seligman
+ */
 
 #include <R.h>
 #include <Rcpp.h>
@@ -25,10 +32,26 @@
 using namespace Rcpp;
 using namespace std;
 
-// Assumes columns are either factor or numeric.
-//
-RcppExport SEXP RcppPredictorFrame(SEXP sx, SEXP sNRow, SEXP sNCol, SEXP sFacCol, SEXP sNumCol, SEXP sLevels) {
-  DataFrame xf(sx);
+/**
+  @brief Extracts contiguous factor and numeric blocks of observations from an R DataFrame by copying.  This can be quite slow for large predictor counts, for which DataTable may be a more suitable alternative.  Assumes columns are either factor or numeric.
+
+  @param sX is the raw data frame.
+
+  @param sNRow is the number of rows.
+
+  @param sNCol is the number of columns.
+
+  @param sFacCol is the number of factor-valued columns.
+
+  @param sNumCol is the number of numeric-valued columns.
+
+  @param sLevel is a vector of level counts for each column.
+
+  @return Wrapped zero.
+*/
+
+RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol, SEXP sNumCol, SEXP sLevels) {
+  DataFrame xf(sX);
   IntegerVector levels(sLevels);
   int nRow = as<int>(sNRow);
   int nCol = as<int>(sNCol);
@@ -65,10 +88,17 @@ RcppExport SEXP RcppPredictorFrame(SEXP sx, SEXP sNRow, SEXP sNCol, SEXP sFacCol
   return wrap(0);
 }
 
-// Already duplicated from containing data frame.
-//
-RcppExport SEXP RcppPredictorFac(SEXP sx, SEXP sFacLevel) {
-  IntegerMatrix xi(sx);
+/**
+   @brief Caches a block of factor-valued predictors.
+
+   @parameter sX is a contiguous block of factor-valued observations.
+
+   @parameter sFacLevel is a vector of level counts for each column.
+
+   @return Wrapped zero.
+ */
+RcppExport SEXP RcppPredictorFac(SEXP sX, SEXP sFacLevel) {
+  IntegerMatrix xi(sX);
   IntegerVector facLevel(sFacLevel);
 
   Predictor::FactorBlock(xi.begin(), xi.nrow(), xi.ncol(), facLevel.begin());
@@ -76,23 +106,49 @@ RcppExport SEXP RcppPredictorFac(SEXP sx, SEXP sFacLevel) {
   return wrap(0);
 }
 
-RcppExport SEXP RcppPredictorNum(SEXP sx, bool doClone) {
-  NumericMatrix xn(sx);
+/**
+   @brief Caches a block of numeric predictors.
+
+   @parameter sX is a contiguous block of numeric observations.
+
+   @parameter doClone indicates whether the block must be copied before over-writing.
+
+   @return Wrapped zero.
+ */
+RcppExport SEXP RcppPredictorNum(SEXP sX, bool doClone) {
+  NumericMatrix xn(sX);
 
   Predictor::NumericBlock(xn.begin(), xn.nrow(), xn.ncol(), doClone);
 
   return wrap(0);
 }
 
-// NYI
-//
-RcppExport SEXP RcppPredictorInt(SEXP sx) {
-  IntegerMatrix xi(sx);
+/**
+   @brief Caches a block of integer-valued predictors.
+
+   @parameter sX is a contiguous block of integer-valued observations.
+
+   @return Wrapped zero.
+ */
+
+RcppExport SEXP RcppPredictorInt(SEXP sX) {
+  IntegerMatrix xi(sX);
 
   Predictor::IntegerBlock(xi.begin(), xi.nrow(), xi.ncol(), true);
   return wrap(0);
 }
 
+/**
+   @brief Lights off the initializations used by the Predictor class.
+
+   @param sPredProb is a vector of probabilities for selecting a given predictor as a splitting candidate.
+
+   @param sNPred is the number of predictors being modelled.
+
+   @param sNRow is the row count of the observation set.
+
+   @return Wrapped zero.
+ */
 RcppExport SEXP RcppPredictorFactory(SEXP sPredProb, SEXP sNPred, SEXP sNRow) {
   NumericVector predProb(sPredProb);
 

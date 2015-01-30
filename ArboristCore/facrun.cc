@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file facrun.cc
+
+   @brief Methods for maintaining runs of factor-valued predictors during splitting.
+
+   @author Mark Seligman
+ */
+
 #include "facrun.h"
 #include "samplepred.h"
 #include "pretree.h"
@@ -20,18 +28,33 @@ FacRun *FacRun::levelFR = 0;
 int *FacRun::levelFac = 0;
 int FacRun::nCardTot = -1;
 int FacRun::nPredFac = -1;
+int FacRun::predFacFirst = -1;
 int FacRun::levelMax = 0;
 
 double *FacRunCtg::facCtgSum = 0;
 double *FacRunCtg::rvWide = 0;
+int *FacRunCtg::wideOffset = 0;
 int FacRunCtg::ctgWidth = -1;
-int *FacRunCtg::wideOffset = 0; // Set on simulation.
 int FacRunCtg::totalWide = -1; // Set on simulation.
 
-void FacRun::Factory(int _levelMax, int _nPredFac, int _cardTot) {
+/**
+   @brief Fires off initializations.
+
+   @param _levelMax is the current level size, increase of which precipitates reallocations.
+
+   @param _nPredFac is the number of factor-valued predictors.
+
+   @param _cardTot is the sum of cardinalities of all factor-valued predictors.
+
+   @param _predFacFirst is the index of the first factor-valued predictor.
+
+   @return void.
+ */
+void FacRun::Factory(int _levelMax, int _nPredFac, int _cardTot, int _predFacFirst) {
   nCardTot = _cardTot;
   nPredFac = _nPredFac;
   levelMax = _levelMax;
+  predFacFirst = _predFacFirst;
   int vacCount = levelMax * nPredFac;
   BHeap::vacant = new int[vacCount];
   for (int i = 0; i < vacCount; i++)
@@ -42,6 +65,13 @@ void FacRun::Factory(int _levelMax, int _nPredFac, int _cardTot) {
   levelFac = new int[levelMax * nCardTot];
 }
 
+/**
+   @brief Reallocates data structures dependent upon level-max value.
+
+   @param _levelMax is the current level-max value.
+
+   @return void.
+*/
 void FacRun::ReFactory(int _levelMax) {
   levelMax = _levelMax;
   delete [] BHeap::vacant;
@@ -59,6 +89,11 @@ void FacRun::ReFactory(int _levelMax) {
   levelFac = new int[levelMax * nCardTot];
 }
 
+/**
+   @brief Deallacations.
+   
+   @return void.
+*/
 void FacRun::DeFactory() {
   delete [] BHeap::vacant;
   delete [] BHeap::bhPair;
@@ -71,10 +106,15 @@ void FacRun::DeFactory() {
   levelFac = 0;
 }
 
-// Resets all fields for FacRuns potentially used in the upcoming level.
-//
-// Exposes the internals of method PairOffset() for efficient traversal.
-//
+/**
+   @brief Resets all fields for FacRuns potentially used in the upcoming level.
+
+   Exposes the internals of method PairOffset() for efficient traversal.
+
+   @param splitCount is the number of splits in the current level.
+
+   @return void.
+*/
 void FacRun::LevelReset(int splitCount) {
   for (int predIdx = Predictor::PredFacFirst(); predIdx < Predictor::PredFacSup(); predIdx++) {
     int facCard = Predictor::FacCard(predIdx);
@@ -90,92 +130,196 @@ void FacRun::LevelReset(int splitCount) {
   }
 }
 
-// Shrinks the contents of facOrd[] to specified 'height' by randomly
-// deleting elements.
-//
-// TODO:  Use Bernoulli scheme i/o sampling.  Initialize to random
-// spot in vector and walk in a circular fashion.  Stop when either
-// the entire vector has been walked or only 'height' - many remain.
-// Bernoulli has wide variance, so there may be undercounting.
-//
-int FacRunCtg::Shrink(int depth, int facOrd[]) {
-  int toGo = depth - maxWidthDirect;
-  int gone = 0;
+/**
+   @brief Resets the sum vector and replenishes 'rvWide' with new random variates.
 
-  // N.B.:  Assumes that rvWide[] has enough elements remaining to
-  // terminate without error.
-  while (gone < toGo) {
-    int idx = depth * *rvWide++;
-    if (facOrd[idx] >= 0) {
-      gone++;
+   @pram splitCount is the count of splits in the current level.
+
+   @return void.
+*/
+void FacRunCtg::LevelReset(int splitCount) {
+  FacRun::LevelReset(splitCount);
+
+  for (int i = 0; i < splitCount * nCardTot * ctgWidth; i++)
+      facCtgSum[i] = 0.0;
+  if (totalWide > 0) {
+    int levelWide = splitCount * totalWide;
+    CallBack::RUnif(levelWide, rvWide);
+  }
+}
+
+/**
+   @brief Shrinks the contents of the rank vector to 'maxWidthDirect' or less
+   by randomly deleting elements. N.B.:  caller ensures that this predictor is wide.
+
+   Uses Bernoulli scheme i/o sampling.  Initializes to random
+   spot in vector and walks in a circular fashion, so as to minimize
+   bias.  Stops when either the entire vector has been walked or when
+   'maxWidthDirect' indices are selected.  Bernoulli has wide variance,
+   so there may be undercounting.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the count of splits in the current level.
+
+   @param depth is the number of elements in the rank vector.
+
+   @param facOrd is the input and output rank vector.
+
+   @return size of rank vector, with output parameter.
+*/
+int FacRunCtg::Shrink(int splitIdx, int predIdx, int splitCount, int depth, int facOrd[]) {
+  // The first rv for this pair is used to locate an arbitrary position
+  // in [0, depth-1].  The remaining rv's are used to select up to
+  // 'maxWidthDirect'-many indices out of 'depth' to retain.
+  //
+  // The indices are walked beginning from the arbitrary position to the
+  // top, then looping around from zero, until up to 'maxWidthDirect' are
+  // selected.  Unselected indices are marked with a negative value and
+  // shrunk out in a separate pass.
+  //
+  int rvOffset = WideOffset(splitIdx, predIdx, splitCount);
+  int startIdx = rvWide[rvOffset] * (depth - 1);
+  double *rvBase = &rvWide[rvOffset + 1];
+  
+  int selected = 0;
+  double thresh = double(maxWidthDirect) / depth;
+  for (int idx = startIdx; idx < depth; idx++) { // Loop to top.
+    if (selected == maxWidthDirect)
+      break;
+    if (rvBase[idx] <= thresh)
+      selected++;
+    else
       facOrd[idx] = -1;
-    }
+  }
+  for (int idx = 0; idx < startIdx; idx++) { // Loop from bottom.
+    if (selected == maxWidthDirect)
+      break;
+    if (rvBase[idx] <= thresh)
+      selected++;
+    else
+      facOrd[idx] = -1;
   }
 
+  // Shrinks the index vector by moving only positive indices to the
+  // next unfilled postion.
+  //
   int j = 0; // Destination index of copy.
-  for (int i = 0; i < depth; i++) { // Source index of copy.
-    int slot = facOrd[i];
+  for (int idx = 0; idx < depth; idx++) { // Source index of copy.
+    int slot = facOrd[idx];
     if (slot >= 0)
       facOrd[j++] = slot;
   }
 
-  return depth - gone; // Should equal j.
+  return selected;
 }
 
-int FacRunCtg::SetWide() {
+/**
+ @brief Sets the RV offsets for the wide-cardinality factors.  Uses one slot
+ for each factor value, plus one for entry index.
+
+ @return high watermark of workspace offsets.
+*/
+int FacRunCtg::SetWideOffset() {
   int wideOff = 0;
-  for (int facIdx = 0; facIdx < nPredFac; facIdx++) {
-    int width = Predictor::FacCard(facIdx);
+  int predIdx;
+  for (predIdx = 0; predIdx < predFacFirst; predIdx++)
+    wideOffset[predIdx] = -1;
+
+  for (predIdx = predFacFirst; predIdx < predFacFirst + nPredFac; predIdx++) {
+    int width = Predictor::FacCard(predIdx);
     if (width > maxWidthDirect) {
-      wideOffset[facIdx] = wideOff;
-      wideOff += width;
+      wideOffset[predIdx] = wideOff;
+      wideOff += width + 1;
     }
     else
-      wideOffset[facIdx] = -1;
+      wideOffset[predIdx] = -1;
   }
 
   return wideOff;
 }
 
-void FacRunCtg::TreeInit() {
-  rvWide = new double[totalWide];
-  CallBack::RUnif(totalWide, rvWide);
-}
+/**
+   @brief Invokes base class factory and lights off class specific initializations.
 
-void FacRunCtg::ClearTree() {
-  delete [] rvWide;
-  rvWide = 0;
-}
+   @param _levelMax is the current level size, increase of which precipitates reallocations.
 
-void FacRunCtg::Factory(int _levelMax, int _nPredFac, int _nCardTot, int _ctgWidth) {
+   @param _nPred is the number of predictors.
+
+   @param _nPredFac is the number of factor-valued predictors.
+
+   @param _nCardTot is the sum of cardinalities of all factor-valued predictors.
+
+   @param _predFacFirst is the index of the first factor-valued predictor.
+
+   @param _ctgWidth is the response cardinality.
+
+   @return void.
+ */
+void FacRunCtg::Factory(int _levelMax, int _nPred, int _nPredFac, int _nCardTot, int _predFacFirst, int _ctgWidth) {
   ctgWidth = _ctgWidth;
-  FacRun::Factory(_levelMax, _nPredFac, _nCardTot);
+  FacRun::Factory(_levelMax, _nPredFac, _nCardTot, _predFacFirst);
   facCtgSum = new double[_levelMax * _nCardTot * ctgWidth];
-  wideOffset = new int[_nPredFac];
-  totalWide = SetWide();
+  wideOffset = new int[_nPred];
+  totalWide = SetWideOffset();
+  rvWide = new double[_levelMax * totalWide];
 }
 
+/**
+   @brief Reallocates data structures dependent on level-max.
+
+   @param _levelMax is the current level-max value.
+
+   @return void.
+ */
 void FacRunCtg::ReFactory(int _levelMax) {
   FacRun::ReFactory(_levelMax);
 
   delete [] facCtgSum;
   facCtgSum = new double[_levelMax * nCardTot * ctgWidth];
+
+  delete [] rvWide;
+  rvWide = new double[_levelMax * totalWide];
 }
 
+/**
+   @brief Deallocation of class-specific data structures as well as base class.
+
+   @return void.
+ */
 void FacRunCtg::DeFactory() {
   delete [] facCtgSum;
   delete [] wideOffset;
+  delete [] rvWide;
   facCtgSum = 0;
   wideOffset = 0;
+  rvWide = 0;
   ctgWidth = -1;
   totalWide = -1;
 
   FacRun::DeFactory();
 }
 
-// The LHS factors are recovered from the pretree, where they were set when the
-// nonterminal was registered.
-//
+/**
+   @brief The LHS factors are recovered from the pretree, where they were set when the
+   nonterminal was registered.
+
+   @param splitIdx is the split index of the pair.
+
+   @param predIdx is the predictor index of the pair.
+
+   @param level is the zero-based level number under construction.
+
+   @param bitStart is the beginning of the bit encoding for the LH subset.
+
+   @param ptLH is the pretree index of the corresponding left-hand node.
+
+   @param ptRH is the pretree index of the corresponding right-hand node.
+
+   @return sum of response values associated with the left-hand subnode.
+*/
 double FacRun::Replay(int splitIdx, int predIdx, int level, int bitStart, int ptLH, int ptRH) {
   double lhSum = 0.0;
   FacRun *base = levelFR + PairOffset(splitIdx, predIdx);
@@ -183,11 +327,9 @@ double FacRun::Replay(int splitIdx, int predIdx, int level, int bitStart, int pt
     FacRun *fRun = base + fac;
     if (PreTree::BitVal(bitStart + fac)) {
       lhSum += SamplePred::Replay(predIdx, level, fRun->start, fRun->end, ptLH);
-      //cout << "Level " << level << " true " << ptLH <<  " onto " << bitStart << " + " << fac << ":  " << fRun->start << " to " << fRun->end << endl;
     }
     else if (fRun->sCount > 0) {
       (void) SamplePred::Replay(predIdx, level, fRun->start, fRun->end, ptRH);
-      //cout << "Level " << level << " false " << ptRH << " onto " << bitStart << " + " << fac << ":  " << fRun->start << " to " << fRun->end << endl;
     }
   }
 

@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file sample.cc
+
+   @brief Methods for sampling from the response to begin training an individual tree.
+
+   @author Mark Seligman
+ */
+
 #include "sample.h"
 #include "samplepred.h"
 #include "predictor.h"
@@ -32,8 +40,17 @@ SampleReg *SampleReg::sampleReg = 0;
 
 SampleCtg *SampleCtg::sampleCtg = 0;
 
-// Assumes Predictor factory has been called.
-//
+/**
+ @brief Lights off initilizations needed for sampling.
+
+ @param _nRow is the number of response/observation rows.
+
+ @param _nSamp is the number of samples.
+
+ @param _nPred is the number of predictors.
+
+ @return void.
+*/
 void Sample::Factory(int _nRow, int _nSamp, int _nPred) {
   nRow = _nRow;
   nPred = _nPred;
@@ -59,13 +76,23 @@ void Sample::Factory(int _nRow, int _nSamp, int _nPred) {
 }
 
 
-//
+/**
+   @brief Finalizer.
+
+   @return void.
+*/
 void Sample::DeFactory() {
   delete [] predOrd;
   predOrd = 0;
 }
 
-// Private
+/**
+   @brief Counts instances of each row index in sample.
+
+   @param rvRow is the vector of sampled row indices.
+
+   @return void.
+*/
 void Sample::CountRows(const int rvRow[]) {
   TreeInit();
 
@@ -82,8 +109,11 @@ void Sample::CountRows(const int rvRow[]) {
   }
 }
 
-// Allocations for tree-based data structures.
-//
+/**
+   @brief Per-tree initializations and allocations.
+
+   @return void.
+*/
 void Sample::TreeInit() {
   sIdxRow = new int[nRow];
   inBag = new bool[nRow];
@@ -91,10 +121,17 @@ void Sample::TreeInit() {
   SamplePred::TreeInit(nPred, nSamp);
 }
 
-// Once per tree, inverts the randomly-sampled vector of rows.
-// 'rvRow' is the tree-defining ordering of sampled rows.
-// 'smpCount' enumerates each row's occurence count.
-//
+/**
+   @brief Inverts the randomly-sampled vector of rows.
+
+   @param rvRow is the tree-defining ordering of sampled rows.
+
+   @param y is the response vector.
+
+   @param row2Rank is rank of each sampled row.
+
+   @return count of in-bag samples.
+*/
 // The number of unique rows is the size of the bag.  With compression,
 // however, the resulting number of samples is smaller than the bag count.
 //
@@ -134,6 +171,17 @@ int SampleReg::SampleRows(const int rvRow[], const double y[], const int row2Ran
   return bagCount;
 }
 
+/**
+   @brief Inverts the randomly-sampled vector of rows.
+
+   @param rvRow is the tree-defining ordering of sampled rows.
+
+   @param yCtg is the response vector.
+
+   @param y is the proxy response vector.
+
+   @return count of in-bag samples.
+*/
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
@@ -169,6 +217,11 @@ int SampleCtg::SampleRows(const int rvRow[], const int yCtg[], const double y[])
   return bagCount;
 }
 
+/**
+   @brief Records ranked regression sample information per predictor.
+
+   @return void.
+ */
 void SampleReg::Stage() {
   int predIdx;
 #pragma omp parallel default(shared) private(predIdx)
@@ -181,6 +234,13 @@ void SampleReg::Stage() {
 }
 
 
+/**
+   @brief Stages the regression sample for a given predictor.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
 // For each predictor derives rank associated with sampled row and random vector index.
 // Writes predTree[] for subsequent use by Level() calls.
 // 
@@ -203,6 +263,11 @@ void SampleReg::Stage(int predIdx) {
   }
 }
 
+/**
+   @brief Records ranked categorical sample information per predictor.
+
+   @return void.
+ */
 void SampleCtg::Stage() {
   int predIdx;
 #pragma omp parallel default(shared) private(predIdx)
@@ -214,6 +279,13 @@ void SampleCtg::Stage() {
     }
 }
 
+/**
+   @brief Stages the categorical sample for a given predictor.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
 void SampleCtg::Stage(int predIdx) {
   SamplePred *samplePred = SamplePred::BufferOff(predIdx, 0);
   PredOrd *dCol = predOrd + predIdx * nRow;
@@ -231,11 +303,18 @@ void SampleCtg::Stage(int predIdx) {
     }
   }
 }
-  //  if (ptIdx != bagCount)
-  //cout << "ptIdx:  " << ptIdx << " != " << bagCount << endl;
-  // Postconds:  ptIdx == bagCount; sum(sCount) = nSamp
 
+/**
+   @brief Derives scores for regression tree.
 
+   @param bagCount is the in-bag sample count.
+
+   @param treeHeight is the number of nodes in the pretree.
+
+   @param score outputs the computed scores.
+
+   @return void, with output parameter vector.
+*/
 // Walks the sample set, accumulating value sums for the associated leaves.  Score
 // is the sample mean.  These values could also be computed by passing sums down the
 // pre-tree and pulling them from terminal nodes.
@@ -265,9 +344,20 @@ void SampleReg::Scores(int bagCount, int treeHeight, double score[]) {
   sampleReg = 0;
 }
 
-// Scores are extracted once per tree, after all leaves have been marked.
-// 'sampleCtg[]' deleted here.
-//
+/**
+   @brief Derives scores for categorical tree.
+
+   @param bagCount is the in-bag sample count.
+
+   @param ctgWidth is the response cardinality.
+
+   @param treeHeight is the number of nodes in the pretree.
+
+   @param score outputs the computed scores.
+
+   @return void, with output parameter vector.
+*/
+
 void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[]) {
   double *leafWS = new double[ctgWidth * treeHeight];
 
@@ -316,6 +406,11 @@ void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[
   sampleCtg = 0;
 }
 
+/**
+   @brief Clears per-tree information.
+
+   @return void.
+ */
 void Sample::TreeClear() {
   SamplePred::TreeClear();
 
@@ -327,18 +422,43 @@ void Sample::TreeClear() {
   inBag = 0;
 }
 
+/**
+   @brief Clears regression-specific information and calls base clear method.
+
+   @return void.
+ */
 void SampleReg::TreeClear() {
   delete [] sample2Rank;
   Sample::TreeClear();
 }
 
+/**
+   @brief Clears categorical-specific information and calls base clear method.
+
+   @return void.
+ */
 void SampleCtg::TreeClear() {
   delete [] sampleCtg;
   Sample::TreeClear();
 }
 
-// Copies leaf information into leafOff[] and ranks[].
-//
+/**
+   @brief Derives and copies quantile leaf information.
+
+   @param treeSize is the height of the pretree.
+
+   @param bagCount is the size of the in-bag sample set.
+
+   @param leafPos outputs the offsets of each quantile leaf.
+
+   @param leafExtent outputs the sizes of each quantile leaf.
+
+   @param rank outputs the ranks of each quantile leaf.
+
+   @param rankCount outputs the multiplicities of each quantile leaf rank.
+
+   @return void, with output parameter vectors.
+ */
 void SampleReg::DispatchQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
   // Must be wide enough to access all decision-tree offsets.
   int *seen = new int[treeSize];

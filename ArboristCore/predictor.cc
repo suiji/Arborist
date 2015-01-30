@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file predictor.cc
+
+   @brief Methods for maintaining predictor-specific information.
+
+   @author Mark Seligman
+ */
+
 #include "predictor.h"
 #include "sample.h"
 #include "callback.h"
@@ -38,8 +46,21 @@ bool Predictor::facClone = false;
 
 // The block routines, below, together act as "subfactories" for
 // the complete Predictor object.
-// Numeric predictors.
-//
+
+
+/**
+   @brief Copies numeric-valued observations as block, if needed.
+
+   @param xn[] contains the matrix of numeric observations.
+
+   @param _nrow is the number of rows.
+
+   @param _ncol is the number of columns.
+
+   @param doClone indicates whether copying is required.
+
+   @return void.
+ */
 void Predictor::NumericBlock(double xn[], int _nrow, int _ncol, bool doClone) {
   numClone = doClone; // Signals desctructor call at end.
   nPredNum = _ncol;
@@ -54,8 +75,19 @@ void Predictor::NumericBlock(double xn[], int _nrow, int _ncol, bool doClone) {
     numBase = xn;
 }
 
-// Ordered integer factors.
-//
+/**
+   @brief Copies integer-valued observations as block, if needed.
+
+   @param xi[] contains the matrix of integer observations.
+
+   @param _nrow is the number of rows.
+
+   @param ncol is the number of columns.
+
+   @param doClone indicates whether copying is required.
+
+   @return void.
+ */
 void Predictor::IntegerBlock(int xi[], int _nrow, int ncol, bool doClone) {
   intClone = doClone;
   nPredInt = ncol;
@@ -71,12 +103,19 @@ void Predictor::IntegerBlock(int xi[], int _nrow, int ncol, bool doClone) {
     intBase = xi;
 }
 
-// Unordered integer factors.  Space is allocated on the fly, so cloning is
-// unnecessary.
-//
-// Factor blocks are subject to alteration and come from R temporaries, so
-// are always cloned.
-//
+/**
+   @brief Enumerates and adjusts factor-valued observation block.
+
+   @param xi[] contains the matrix of factor observations.
+
+   @param _nrow is the number of rows.
+
+   @param _ncol is the number of columns.
+
+   @param levelCount enumerates the factor cardinalities.
+
+   @return void.
+*/
 void Predictor::FactorBlock(int xi[], int _nrow, int _ncol, int levelCount[]) {
   facClone = true;
   nPredFac = _ncol;
@@ -101,6 +140,17 @@ void Predictor::FactorBlock(int xi[], int _nrow, int _ncol, int levelCount[]) {
   nCardTot = facOff;
 }
 
+/**
+   @brief Light off the initializations needed by the Preditor class.
+
+   @param _predProb is the vector selection probabilities.
+
+   @param _nPred is the number of predictors.
+
+   @param _nRow is the number of observations.
+
+   @return void.
+ */
 void Predictor::Factory(const double _predProb[], int _nPred, int _nRow) {
   nPred = _nPred;
   nRow = _nRow;
@@ -109,6 +159,11 @@ void Predictor::Factory(const double _predProb[], int _nPred, int _nRow) {
   }
 }
 
+/**
+   @brief Deallocates and resets.
+
+   @return void.
+ */
 void Predictor::DeFactory() {
   if (predProb != 0) {
     delete [] predProb;
@@ -137,10 +192,13 @@ void Predictor::DeFactory() {
   intClone = false;
 }
 
-// Derives a vector of ranks via wasteful sorting.  Original predictors should
-// be cloned before using.
-// Implemented here to avoid exposing "iterator" outside of class.
-//
+/**
+ @brief Derives a vector of ranks via callback methods.
+
+ @param rank2Row outputs the permutation matrix defined by sorting individual columns.
+
+ @return void, with output vector parameter.
+*/
 void Predictor::UniqueRank(int *rank2Row) {
   int predIdx;
 
@@ -169,6 +227,15 @@ void Predictor::UniqueRank(int *rank2Row) {
   }
 }
 
+/**
+   @brief Establishes predictor orderings used by all trees.
+
+   @param rank2Row is the matrix of permutations defined by per-predictor sorting.
+
+   @param predOrd outputs the matrix of predictor-order objects.
+
+   @return void, with output parameter matrix.
+*/
 // rank2row is only read twice per predictor, early on, but reused by each tree.
 //
 // Orders 'x', columnwise, according to the ranking of the elements of predictor.
@@ -203,8 +270,15 @@ void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
   }
 }
 
+/**
+   @brief Encapsulates predictor data by rank, with index and tie class.
 
-// Orders predictor data by rank into 'dCol' vector.  Data of interest includes the row index and tie class.
+   @param r2r is the permutation vector derived from sorting.
+
+   @param dCol outputs the predictor-order object.
+   
+   @return void, with output vector parameter.
+*/
 // Row index is obtained directly from r2r[].  Tie class derived by comparing 'x' values of consecutive ranks.
 //
 void Predictor::OrderByRank(const double xCol[], const int r2r[], PredOrd dCol[]) {
@@ -228,9 +302,18 @@ void Predictor::OrderByRank(const double xCol[], const int r2r[], PredOrd dCol[]
     prevX = curX;
   }
 }
-// Orders predictor data by rank into 'dCol' vector.  Data of interest includes the row index and tie class.
-// Row index is obtained directly from r2r[].  Tie class derived by comparing 'x' values of consecutive ranks.
-//
+
+/**
+   @brief Same as above, but with option for strict ordinal rank numbering.
+
+   @param r2r is the permutation vector derived from sorting.
+
+   @param dCol outputs the predictor-order object.
+
+   @param ordinals indicates whether rank number is to be ordinal-based.
+   
+   @return void, with output vector parameter.
+*/
 void Predictor::OrderByRank(const int xCol[], const int r2r[], PredOrd dCol[], bool ordinals) {
   // Sorts the rows of 'y' in the order that this predictor increases.
   // Sorts the predictor for later identification of tie classes.
@@ -252,8 +335,13 @@ void Predictor::OrderByRank(const int xCol[], const int r2r[], PredOrd dCol[], b
   }
 }
 
-// Makes an internal copy of front-end probability vector.
-//
+/**
+ @brief Creates an internal copy of front-end probability vector.
+
+ @param _predProb is a probability vector suppled by the front end.
+
+ @return void.
+*/
 void Predictor::SetProbabilities(const double _predProb[]) {
   predProb = new double[nPred];
 
@@ -262,9 +350,18 @@ void Predictor::SetProbabilities(const double _predProb[]) {
   }
 }
 
-// N.B.:  Ordinals are rank equivalence classes and correspond to row number of
-// sorted predictor values.  The sorted values reside at 'numBase'.
-//
+/**
+   @brief Derives split values for a predictor.
+
+   @param predIdx is the preditor index.
+
+   @param rkLow is the lower rank of the split.
+
+   @param rkHigh is the higher rank of the split.
+
+   @return mean predictor value between low and high ranks.
+ */
+
 double Predictor::SplitVal(int predIdx, int rkLow, int rkHigh) {
   double *numCol = numBase + predIdx * nRow;
   double low = numCol[rkLow];

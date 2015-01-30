@@ -5,11 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file sample.h
+
+   @brief Class definitions for sample-oriented aspects of training.
+
+   @author Mark Seligman
+ */
+
 #ifndef ARBORIST_SAMPLE_H
 #define ARBORIST_SAMPLE_H
 
-//#include <cmath>
-
+/**
+   @brief Contains the predictor-specific component of the staged data.
+ */
 class PredOrd {
  public:
   int rank; // True rank, with ties identically receiving lowest applicable value.
@@ -17,9 +26,9 @@ class PredOrd {
 };
 
 
-// Run of instances of a given row obtained from sampling for
-// an individual tree.
-//
+/**
+ @brief Run of instances of a given row obtained from sampling for an individual tree.
+*/
 class Sample {
   static double *sYRow;
   static void TreeInit();
@@ -49,10 +58,20 @@ class Sample {
   static void DeFactory();
 };
 
+/**
+   @brief Regression-specific methods and members.
+*/
 class SampleReg : public Sample {
   static SampleReg *sampleReg;
   static int *sample2Rank;
  public:
+  /**
+     @brief Computes the sum of all sampled response values.
+
+     @param bagCount is the size of this tree's in-bag set.
+
+     @return sum of sampled values.
+  */
   static double Sum(int bagCount) {
     double _sum = 0.0;
     for (int i = 0; i < bagCount; i++)
@@ -68,15 +87,21 @@ class SampleReg : public Sample {
   static void TreeClear();
 };
 
-// Localizes categorical response.
-// Size of 'ctg' container is less than # of rows and may actually
-// be quite small.
-//
+/**
+ @brief Categorical-specific sampling.
+*/
 class SampleCtg : public Sample {
   static SampleCtg *sampleCtg;
  public:
   unsigned int ctg;
 
+  /**
+     @brief Computes the sum of sample values for the current tree.
+
+     @param bagCount is the number of samples drawn.
+
+     @return sum of (proxy) response values.
+  */
   static double Sum(int bagCount) {
     double _sum = 0.0;
     for (int i = 0; i < bagCount; i++)

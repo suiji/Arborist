@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file splitsig.cc
+
+   @brief Methods to construct and transmit SplitSig objects, which record the reults of predictor argmax methods.
+
+   @author Mark Seligman
+ */
+
 #include "splitsig.h"
 #include "train.h"
 #include "predictor.h"
@@ -21,11 +29,28 @@ int SplitSig::nPred = -1;
 
 // TODO:  Economize on width (nPred) here et seq.
 //
+
+/**
+   @brief Lights initializer for level workspace.
+
+   @param _levelMax is the current level-max value.
+
+   @param _nPred is the number of predictors.
+
+   @return void.
+ */
 void SplitSig::Factory(int _levelMax, int _nPred) {
   nPred = _nPred;
   levelSS = new SplitSig[_levelMax * nPred];
 }
 
+/**
+   @brief Reallocates level workspace.
+
+   @param _levelMax is the new level-max value.
+
+   @return void.
+*/
 void SplitSig::ReFactory(int _levelMax) {
   delete [] levelSS;
 
@@ -33,6 +58,10 @@ void SplitSig::ReFactory(int _levelMax) {
   TreeInit(_levelMax);
 }
 
+
+/**
+   @brief Finalizer.
+*/  
 void SplitSig::DeFactory() {
   delete [] levelSS;
   levelSS = 0;
@@ -40,9 +69,17 @@ void SplitSig::DeFactory() {
   nPred = -1;
 }
 
-// Returns SplitSig with minimal information, in a form suitable for decision
-// tree construction.
-//
+/**
+   @brief Records splitting information in pretree for numerical predictor.
+
+   @param level is the current level.
+
+   @param lhStart is the starting index of the LHS.
+
+   @param ptId is the pretree index.
+
+   @return void.
+*/
 void SplitSig::NonTerminalNum(int level, int lhStart, int ptId) {
   int rkLow, rkHigh;
   SamplePred::SplitRanks(predIdx, level, lhStart + lhIdxCount - 1, rkLow, rkHigh);
@@ -50,12 +87,17 @@ void SplitSig::NonTerminalNum(int level, int lhStart, int ptId) {
   PreTree::NonTerminalGeneric(ptId, info, splitVal, predIdx);
 }
 
-// Causes pretree to set LHS bits by unpacking dense 'facOrd' vector of bit offsets.
-// Returns starting bit offset in pretree, for later use by Replay().
-//
+/**
+   @brief Records splitting information in pretree for factor-valued predictor.
+
+   @param splitIdx is the index node index.
+
+   @param ptId is the pretree index.
+
+   @return void.
+ */
 void SplitSig::NonTerminalFac(int splitIdx, int ptId) {
   int bitOff = PreTree::TreeBitOffset();
-  //  cout << "Factor split top " << fac.lhTop << "  (" << predIdx << "):  " << lhIdxCount << " true indices to bit offset " << bitOff << ": " << endl;
   for (int slot = 0; slot <= fac.lhTop; slot++) {
     PreTree::SingleBit(FacRun::FacVal(splitIdx, predIdx, slot));
   }
@@ -64,8 +106,19 @@ void SplitSig::NonTerminalFac(int splitIdx, int ptId) {
   fac.bitOff = bitOff;
 }
 
-// Once again, replaces elegance with efficiency.
-//
+/**
+   @brief Dispatches replay method according to predictor type.
+
+   @param spiltIdx is the index node index.
+
+   @param ptLH is the pretree index of the LHS.
+
+   @param ptRH is the pretree index of the RHS.
+
+   @return sum of LHS reponse values.
+
+   Not virtual:  once again replaces elegance with efficiency.
+*/
 double SplitSig::Replay(int splitIdx, int ptLH, int ptRH) {
   if (Predictor::FacIdx(predIdx) >= 0)
     return FacRun::Replay(splitIdx, predIdx, level, fac.bitOff, ptLH, ptRH);
@@ -74,9 +127,19 @@ double SplitSig::Replay(int splitIdx, int ptLH, int ptRH) {
 }
 
 
-// Returns absolute predictor index of SplitSig with highest information
-// content greater than 'minInfo',if any.
-//
+/**
+ @brief  Walks level's split signatures to find maximal information content.
+
+ @param splitIdx is the index node index.
+
+ @param _level is the current level.
+
+ @param preBias is an information threshold derived from the index node.
+
+ @param minInfo is an additional threshold derived from the pretree.
+
+ @return SplitSig with maximal information content, if any, exceeding threshold.
+*/
 SplitSig* SplitSig::ArgMax(int splitIdx, int _level, double preBias, double minInfo) {
   SplitSig *argMax = 0;
   double maxInfo = preBias + minInfo;
@@ -99,14 +162,24 @@ SplitSig* SplitSig::ArgMax(int splitIdx, int _level, double preBias, double minI
   return argMax;
 }
 
-// TODO:  Implement internally ut avoid host calls from coprocessor.
-//
+/**
+   @brief Derives an information threshold.
+
+   @return information threshold
+
+   TODO:  Implement internally ut avoid host calls from coprocessor.
+*/
 double SplitSig::MinInfo() {
   return Train::MinInfo(info);
 }
 
-// Resets the level field for all SplitSigs and initializes 'predIdx' field.
-//
+/**
+ @brief Resets all level and predIdx fields, per tree.
+
+ @param _levelMax is the current level-max value.
+
+ @return void.
+*/
 void SplitSig::TreeInit(int _levelMax) {
   int i = 0;
   for (int splitIdx = 0; splitIdx < _levelMax; splitIdx++) {

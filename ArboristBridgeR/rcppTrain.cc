@@ -15,26 +15,37 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+   @file rcppTrain.cc
+
+   @brief C++ interface to R entry for training.
+
+   @author Mark Seligman
+ */
 
 #include <R.h>
 #include <Rcpp.h>
-#include <iostream>
 
 using namespace std;
 using namespace Rcpp;
 #include "train.h"
 
-// Caller ensures 'sQ' is false for categorical response.
-// Returns 'ctgWidth', if categorical, else zero.
-//
-int FormResponse(SEXP sy) {
+/**
+   @brief Dispatches factories for Train class, according to response type.
+
+   @param sY is the response vector.
+
+   @return Number of categories if classifying, otherwise zero.
+
+ */
+int FormResponse(SEXP sY) {
   int ctgWidth = 0;
-  if (TYPEOF(sy) == REALSXP) {
-    NumericVector y(sy);
+  if (TYPEOF(sY) == REALSXP) {
+    NumericVector y(sY);
     Train::ResponseReg(y.begin());
   }
-  else if (TYPEOF(sy) == INTSXP) {
-    IntegerVector yOneBased(sy);
+  else if (TYPEOF(sY) == INTSXP) {
+    IntegerVector yOneBased(sY);
     IntegerVector y = yOneBased - 1;
     RNGScope scope;
     NumericVector rn(runif(y.length()));
@@ -47,39 +58,53 @@ int FormResponse(SEXP sy) {
   return ctgWidth;
 }
 
-// Predictors must be partitioned, regardless whether training, predicting
-// or testing.
-//
-// For training, blocks must be cloned to provide space for sorting.  Other modes
-// can use R's allocations, as passed.  Cloning is never necessary for data frames,
-// however, as submatrices are built from data frames on the fly.
-//
+/**
+   @brief R-language interface to response caching.
 
+   @parm sY is the response vector
 
-// Training variant clones implicitly.
-//
-RcppExport SEXP RcppTrainInt(SEXP sx) {
-  IntegerMatrix xi(sx);
-
-  Train::IntBlock(xi.begin(), xi.nrow(), xi.ncol());
-
-  return wrap(0);
-}
-
-
-RcppExport SEXP RcppTrainResponse(SEXP sy) {
-  int ctgWidth = FormResponse(sy);
+   @return Wrapped count of category levels, if applicable.
+ */
+RcppExport SEXP RcppTrainResponse(SEXP sY) {
+  int ctgWidth = FormResponse(sY);
 
   return wrap(ctgWidth);
 }
 
+/**
+   @brief Lights off intializations for Train class, which drives training.
+
+   @param sNTree is the number of trees requested.
+
+   @param sQuantiles indicates whether quantiles are requested.
+
+   @param sMinRatio is a threshold ratio of information measures between an index node and its offspring, below which the node does not split.
+
+   @param sBlockSize is a block size, tuned for performance.
+
+   @return Wrapped zero.
+ */
 RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sQuantiles, SEXP sMinRatio, SEXP sBlockSize) {
   Train::Factory(as<int>(sNTree), as<bool>(sQuantiles), as<double>(sMinRatio), as<int>(sBlockSize));
 
   return wrap(0);
 }
 
-//
+/**
+   @brief Builds the forest.
+
+   @param sMinH is the smallest index node width allowed for splitting.
+
+   @param sFacWidth records the cardinalities of factor-valued predictors.
+
+   @param sTotBagCount is an output scalar giving the sum of in-bag sizes.
+
+   @param sTotQLeafWidth is an output scalar recording the sum of quantile-vectors sizes.
+
+   @param sTotLevels is an upper bound on the number of levels to construct for each tree.
+
+   @return Wrapped length of forest vector, with output parameters.
+ */
 RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotQLeafWidth, SEXP sTotLevels) {
   IntegerVector facWidth(sFacWidth);
   IntegerVector totBagCount(sTotBagCount);
@@ -90,12 +115,25 @@ RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sFacWidth, SEXP sTotBagCount, SEXP sT
   return wrap(forestHeight);
 }
 
-// Writes back trees.  Tree write-back requires memory allocated from the R caller, hence
-// is performed separately from training, which establishes the requisite array sizes.
-//
-// Calls destructors belonging to remaining objects needed for the write.
-// Returns value of mean-square error, wrapped.
-//
+/**
+   @brief Writes forest into storage provided by R.
+
+   @param sPreds are the predictors splitting each nonterminal.
+
+   @param sSplits are the splitting values for each nonterminal.
+
+   @param sScores are the score values for the terminals.
+
+   @param sBump are the left-hand index increments for each nonterminal.
+
+   @param sOrigins is a vector recording the beginning offsets of each tree.
+
+   @param sFacOff are offests into a bit vector recording splitting subsets.
+
+   @param sFacSplits are the bit values of left-hand subsets.
+
+   @return Wrapped zero, with output parameter vectors.
+ */
 RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
   IntegerVector rPreds(sPreds);
   NumericVector rSplits(sSplits);
@@ -111,6 +149,23 @@ RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sB
   return wrap(0);
 }
 
+/**
+   @brief Writes forest quantile information into storage provided by R. 
+
+   @param sQYRanked is an output vector giving the response in rank order.
+
+   @param sQRankOrigin is an output vector giving the origin of each tree's ranked information.
+
+   @param sQRank is an output vector of quantile ranks.
+
+   @param sQRankCount is an output vector of quantile rank counts.
+
+   @param sQLeafPos is an output vector recording the offset of each quantile leaf.
+
+   @param sQLeafExtent is an output vector recording the length of each quantile leaf.
+
+   @return Wrapped zero, with output parameters.
+ */
 RcppExport SEXP RcppWriteQuantile(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, SEXP sQRankCount, SEXP sQLeafPos, SEXP sQLeafExtent) {
   NumericVector rQYRanked(sQYRanked);
   IntegerVector rQRankOrigin(sQRankOrigin);

@@ -5,17 +5,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file index.h
+
+   @brief Definitions for classes maintaining the index-tree representation.
+
+   @author Mark Seligman
+
+ */
+
 #ifndef ARBORIST_INDEX_H
 #define ARBORIST_INDEX_H
 
-// Index tree node fields associated with the response, viz., invariant across
-// predictors.  IndexNodes of the index tree can be thought of as representing
-// collections of sample indices. The two subnodes of a node, moreover, can
-// be thought of as defining a bipartition of the parent's index collection.
-//
-// IndexNodes only live within a single level, with fields being reused as
-// new levels are seen.
-//
+/**
+   Index tree node fields associated with the response, viz., invariant across
+   predictors.  IndexNodes of the index tree can be thought of as representing
+   collections of sample indices. The two subnodes of a node, moreover, can
+   be thought of as defining a bipartition of the parent's index collection.
+
+
+   IndexNodes only live within a single level, with fields being reused as
+   new levels are seen.
+*/
 class IndexNode {
   static int totLevels;
   static void SplitOffsets(int splitCount);
@@ -42,17 +53,43 @@ class IndexNode {
   static void ReFactory();
   static void DeFactory();
 
+  /**
+     @brief Returns the pretree index associated with an index node.
+
+     @param splitIdx is the split index referenced.
+
+     @return pretree index.
+   */
   static inline int PTId(int splitIdx) {
     return indexNode[splitIdx].ptId;
   }
 
+  /**
+     @brief Returns the pre-bias of an index node.
+
+     @param splitIdx is the split index referenced.
+
+     @return pre-bias value.
+   */
   static inline double GetPrebias(int splitIdx) {
     return indexNode[splitIdx].preBias;
   }
 
-  // Fills in fields relevant for SplitPred methods.
-  // N.B.:  Not all methods use all fields.
-  //
+  /**
+     @brief Exposes fields relevant for SplitPred methods.   N.B.:  Not all methods use all fields.
+
+     @param _lhStart outputs the left-most index.
+
+     @param _end outputs the right-most index.
+
+     @param _sCount outputs the total sample count.
+
+     @param _sum outputs the sum.
+
+     @param _preBias outputs the pre-bias.
+
+     @return void, with output reference parameters.
+  */
   static void inline SplitFields(int splitIdx, int &_lhStart, int &_end, int &_sCount, double &_sum, double &_preBias) {
     IndexNode *idxNode = &indexNode[splitIdx];
     _lhStart = idxNode->lhStart;
@@ -62,23 +99,40 @@ class IndexNode {
     _preBias = idxNode->preBias;
   }
 
-  // Fills in those fields needed for computing pre-bias.
-  //
+  /**
+     @brief Exposes fields needed for computing pre-bias.
+
+     @param splitIdx is the split index referenced.
+
+     @param _sum outputs the sum of response values.
+
+     @param _sCount outputs the count of samples.
+
+     @return void, with output reference parameters.
+  */
   static void inline PrebiasFields(int splitIdx, double &_sum, int &_sCount) {
     IndexNode *idxNode = &indexNode[splitIdx];
     _sum = idxNode->sum;
     _sCount = idxNode->sCount;
   }
 
-  // Called from Response methods.
-  //
+  /**
+   @brief Sets pre-bias field.  Called from Response methods.
+
+   @param splitIdx is the split index referenced.
+
+   @param _preBias is the pre-bias value to set.
+
+   @return void, with field-valued side effect.
+  */
   static void inline SetPrebias(int splitIdx, double _preBias) {
     indexNode[splitIdx].preBias = _preBias; 
   }    
 };
 
-// Caches intermediate IndexNode contents during intra-level transfer.
-//
+/**
+   @brief Caches intermediate IndexNode contents during intra-level transfer.
+*/
 class NodeCache : public IndexNode {
   static NodeCache *nodeCache; // ReFactoryable.
   static int minHeight;
@@ -98,6 +152,13 @@ class NodeCache : public IndexNode {
   static void TreeInit();
   static void TreeClear();
 
+  /**
+     @brief Copies indexNode entry into corresponding nodeCache.
+
+     @param splitIdx is the index at which to copy.
+
+     @return void.
+   */
   static inline void Cache(int splitIdx) {
     IndexNode *nd = &indexNode[splitIdx];
     NodeCache *nc = &nodeCache[splitIdx];
@@ -111,6 +172,21 @@ class NodeCache : public IndexNode {
     nc->minInfo = nd->minInfo;
   }
 
+  /**
+     @brief Exposes field values relevant for restating
+
+     @param splitIdx is the reference index.
+
+     @param _ptL outputs the pretree index of the left subnode.
+
+     @param _ptR outputs the pretree index of the right subnode.
+
+     @param _lhStart outputs the position of the left-most index.
+
+     @param _endIdx outputs the position of the right-most index.
+
+     @return void, with reference parameters.
+   */
   // Returns those fields of the cached node which are relevant for restating and
   // replaying:  the PreTree indices of the left and right offspring, as well
   // as the start and end positions of the left-hand bipartition.
@@ -125,10 +201,16 @@ class NodeCache : public IndexNode {
 
   static double ReplayNum(int splitIdx, int predIdx, int level, int lhIdxCount);
 
-  // Invoked from the RHS or LHS of a split to determine whether the node persists to the next
-  // level.  Returns true if the node subsumes too few samples or is representable as a
-  // single buffer element.
-  //
+  /**
+     @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next
+
+     @param _SCount is the count of samples subsumed by the node.
+
+     @param _idxCount is the count of indices subsumed by the node.
+
+     @return true iff the node subsumes too few samples or is representable as a
+     single buffer element.
+  */
   static inline bool TerminalSize(int _SCount, int _idxCount) {
     return (_SCount < minHeight) || (_idxCount <= 1);
   }

@@ -5,6 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file index.cc
+
+   @brief Methods for maintaining the index-tree representation of splitable nodes.
+
+   @author Mark Seligman
+
+ */
+
 #include "index.h"
 #include "splitsig.h"
 #include "pretree.h"
@@ -24,13 +33,32 @@ int IndexNode::levelMax = -1;
 int NodeCache::minHeight = -1;
 NodeCache *NodeCache::nodeCache = 0;
 
-//
+/**
+   @brief Lights off the necessary initializations.
+
+   @param _minHeight is the minimum node size for splitting.
+
+   @param _totLevels is an upper bound on level count.  Zero is reserved to indicate no limit.
+
+   @return void.
+ */
 void IndexNode::Factory(int _minHeight, int _totLevels) {
   totLevels = _totLevels;
 
   NodeCache::Factory(_minHeight);
 }
 
+/**
+   @brief Per-tree initialization of various members and dependent objects.
+
+   @param _levelMax is the current level-max.
+
+   @param _bagCount is the number of in-bag samples.
+
+   @param nSamp is the number of samples from which this tree is built.
+
+   @double sum is the sum of response values among the samples.
+ */
 void IndexNode::TreeInit(int _levelMax, int bagCount, int nSamp, double sum) {
   levelMax = _levelMax;
   indexNode = new IndexNode[levelMax];
@@ -40,25 +68,44 @@ void IndexNode::TreeInit(int _levelMax, int bagCount, int nSamp, double sum) {
   NextLevel(0, 0, bagCount, nSamp, sum, 0.0);
 }
 
+/**
+   @brief Allocates nodeCache[] with the current level-max.
+
+   @return void.
+ */
 void NodeCache::TreeInit() {
   nodeCache = new NodeCache[levelMax];
 }
 
+/**
+   @brief Deallocates the nodeCache[] vector.
+
+   @return void.
+ */
 void NodeCache::TreeClear() {
   delete [] nodeCache;
   nodeCache = 0;
 }
 
+/**
+   @brief Per-tree deallocations.
+
+   @return void.
+ */
 void IndexNode::TreeClear() {
   NodeCache::TreeClear();
   delete [] indexNode;
   indexNode = 0;
 }
 
-// Updates 'levelMax' and data structures depending upon it.
-// Invokes ReFactory() methods on only those classes which must be integral
-// prior to NodeCache's consumption.
-//
+/**
+ @brief Updates 'levelMax' and data structures depending upon it.
+
+ Invokes ReFactory() methods on only those classes which must be integral
+ prior to NodeCache's consumption.
+
+ @return void.
+*/
 void IndexNode::ReFactory() {
   levelMax = Train::ReFactory();
 
@@ -69,14 +116,16 @@ void IndexNode::ReFactory() {
   RestageMap::ReFactory(levelMax);
 }
 
+/**
+  @brief Reallocation of NodeCache, as well as classes not required for consumption of
+  all instances.
 
-// Reallocation of NodeCache, as well as classes not required for consumption of
-// all instances.
-// 
-// By delaying NodeCache reallocation until after consumption, content need not
-// be copied.  This includes SplitSig references recorded directly on the cached
-// node.
-//
+  By delaying NodeCache reallocation until after consumption, content need not
+  be copied.  This includes SplitSig references recorded directly on the cached
+  node.
+
+  @return void.
+*/
 void NodeCache::ReFactory() {
   delete [] nodeCache;
   nodeCache = new NodeCache[levelMax];
@@ -94,6 +143,11 @@ void NodeCache::ReFactory() {
   SplitSig::ReFactory(levelMax);
 }
 
+/**
+   @brief Finalization for class.
+
+   @return void.
+ */
 void IndexNode::DeFactory() {
   delete [] indexNode;
   indexNode = 0;
@@ -102,18 +156,29 @@ void IndexNode::DeFactory() {
   NodeCache::DeFactory();
 }
 
+/**
+   @brief Records minimum node size.
+
+   @return void.
+ */
 void NodeCache::Factory(int _minHeight) {
   minHeight = _minHeight;
 }
 
+/**
+   @brief Class finalizer.
+
+   @return void.
+ */
 void NodeCache::DeFactory() {
   minHeight = -1;
 }
 
-// Monolith entry point for per-level splitting.
-//
-// Returns count of levels.
-//
+/**
+   @brief Monolith entry point for per-level splitting.
+
+   @return count of levels built.
+*/
 int IndexNode::Levels() {
   int splitCount = 1;// Single root node at level zero.
   for (int level = 0; splitCount > 0 && (totLevels == 0 || level < totLevels); level++) {
@@ -131,25 +196,43 @@ int IndexNode::Levels() {
   return PreTree::TreeHeight();
 }
 
-// Caches all node information from the current level into NodeCache workspace.
-// This circumvents crosstalk as the next level's nodes are populated.
-//
+/**
+ @brief Caches all indexNode[] elements from the current level into nodeCache[]
+ workspace.
+
+ By caching, the next level's index nodes can be populated without incurring crosstalk.
+
+ @param splitCount is the count of index nodes to cache.
+
+ @return void.
+*/
 void NodeCache::CacheNodes(int splitCount) {
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     Cache(splitIdx);
   }
 }
 
-// Performs the inter-level arbitration needed to initilialize split nodes for
-// the next level.
-//
-// Returns start of RH position for restage partioning, which takes place
-// just before the next level is split.
-//
-// TODO:  MUST guarantee that no zero-length "splits" have been introduced.
-// Not only are these nonsensical, but they are also dangerous, as they violate
-//  various assumptions about the integrity of the intermediate respresentation.
-//
+/**
+   @brief Performs the inter-level arbitration needed to initilialize split nodes for
+   the next level.
+
+   @param level is the current zero-based level.
+
+   @param splitCount is the number of index nodes in the current level.
+
+   @param lhSplitNext outputs the number of LH index nodes in the next level.
+
+   @param rhSplitNext outputs the number of RH index nodes in the next level.
+
+   @param leafNext outputs number of pretree terminals in the next level.
+
+   @return Start of RH position for restaging, plus output parameters.
+
+   TODO:  MUST guarantee that no zero-length "splits" have been introduced.
+   Not only are these nonsensical, but they are also dangerous, as they violate
+   various assumptions about the integrity of the intermediate respresentation.
+*/
+
 int NodeCache::InterLevel(int level, int splitCount, int &lhSplitNext, int &rhSplitNext, int &leafNext) {
   // The arg-max calls operate on distinct vectors.  Assuming that
   // # samples >> # predictors, parallelization of this loop
@@ -159,7 +242,7 @@ int NodeCache::InterLevel(int level, int splitCount, int &lhSplitNext, int &rhSp
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++)
     nodeCache[splitIdx].Splitable(level);
 
-  // Restaging is implemented as a stable partition, and is faciliated by
+  // Restaging is implemented as a stable partition, and is facilitated by
   // enumerating all left-hand subnodes before the first right-hand subnode.
   //
   lhSplitNext = 0;
@@ -172,11 +255,18 @@ int NodeCache::InterLevel(int level, int splitCount, int &lhSplitNext, int &rhSp
   return rhStart;
 }
 
-// Ensures that sufficient space is present in the index tree and PreTree to
-// accomodate the next level's nodes.
-//
-// Returns true iff IndexNode reallocation takes place.
-//
+/**
+ @brief Ensures that sufficient space is present in the index tree and PreTree to
+ accomodate the next level's nodes.
+
+ @param splitCount is the number of index nodes in the current level.
+
+ @param splitNext is the number of index nodes in the next level.
+
+ @param leafNext is the number of pretree terminals in the next level.
+
+ @return True iff IndexNode reallocation takes place.
+*/
 bool IndexNode::CheckStorage(int splitCount, int splitNext, int leafNext) {
   bool reFac;
   if (splitNext > levelMax) {
@@ -190,11 +280,20 @@ bool IndexNode::CheckStorage(int splitCount, int splitNext, int leafNext) {
   return reFac;
 }
 
-// Walks the list of cached splits from the level just concluded, adding PreTree
-// terminals and IndexNodes for the next level.
-//
-// Informs PreTree to revise level-based information.
-//
+/**
+   @brief Walks the list of cached splits from the level just concluded, adding PreTree
+   terminals and IndexNodes for the next level.
+
+   @param splitCount is the number of index nodes at this level.
+
+   @param lhSplitNext is the number of LH index nodes in the next level.
+
+   @param totLhIdx is the number of LH indices subsumed in the next level.
+
+   @param reFac indicates whether reallocation has been found necessary.
+
+   @return void.
+*/
 void NodeCache::NextLevel(int splitCount, int lhSplitNext, int totLhIdx, bool reFac) {
   PreTree::NextLevel();
   RestageMap::Commence(splitCount, totLhIdx);
@@ -213,9 +312,12 @@ void NodeCache::NextLevel(int splitCount, int lhSplitNext, int totLhIdx, bool re
     ReFactory();
 }
 
-// Checks for information content and, if found, updates the serialized
-// pre-tree with splitting information.
-//
+/**
+ @brief Finds the maximal splitting predictor for this node and marks pretree accordingly.
+ @param level is the current level number.
+
+ @return void.
+*/
 void NodeCache::Splitable(int level) {
   int splitIdx = this - nodeCache;
   splitSig = SplitSig::ArgMax(splitIdx, level, preBias, minInfo);
@@ -225,13 +327,18 @@ void NodeCache::Splitable(int level) {
     ptL = ptR = -1;  // Prevents restaging.
 }
 
+/**
+   @brief If the cached node splits, then a census is taken of the next level's
+   left and right split nodes nodes and leaves.
 
-// If the cached node splits, then a census is taken of the next level's
-// left and right split nodes nodes and its leaves.
-//
-// Returns count of indices subsumed by LH, so that caller can compute the
-// total LH extent for the next level.
-//
+   @param lhSplitNext outputs count of LH index nodes in next level.
+
+   @param rhSplitNext outputs count of RH index nodes in next level.
+
+   @param leafNext outputs count of pretree terminals in next level.
+
+   @return count of indices subsumed by LH, plus output reference parameters.
+*/
 int NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) {
   int lhIdxNext = 0;
 
@@ -257,16 +364,24 @@ int NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) {
   return lhIdxNext;
 }
 
-// LH and RH pre-tree nodes are made for all split nodes actually found to be
-// splitable during this interlevel pass.  Node indices for both sides are passed
-// to the Replay().  Terminality constraints are checked and index tree nodes
-// (IndexNode) are made for all sides not so constrained.  Split node order is
-// assigned so as to correspond with expectations of restaging, which takes place
-// at the start of the next level.
-//
-// The node should be considered dead at return, as all useful information will have
-// been extracted for use elsewhere.
-//
+/**
+   @brief Consumes all cached information for this node, following which the node should be considered dead.
+   
+   LH and RH pre-tree nodes are made for all split nodes actually found to be
+   splitable during this interlevel pass.  Node indices for both sides are passed
+   to the Replay().  Terminality constraints are checked and index tree nodes
+   (IndexNode) are made for all sides not so constrained.  Split node order is
+   assigned so as to correspond with expectations of restaging, which takes place
+   at the start of the next level.
+
+   @param lhSplitNext is the total number of LH index nodes in the next level.
+
+   @param lhSplitCount outputs the accumulated number of next-level LH index nodes.
+
+   @param rhSplitCount outputs the accumulated number of next-level RH index nodes.
+
+   @return void, plus output reference parameters.
+*/
 void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
   int lhIdxCount = 0;
   int lNext = -1;
@@ -325,15 +440,24 @@ void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
   RestageMap::ConsumeSplit(this - nodeCache, lNext, rNext, lNext >= 0 ? lhIdxCount : 0, rNext >= 0 ? idxCount - lhIdxCount : 0);
 }
 
+/**
+   @brief Transfers majority of inter-level NodeCache contents to next level's split records (IndexNodes).
+   @see LateFields
 
-// Transfers inter-level NodeCache contents to next level's split records (IndexNodes).
-// Pre-bias computation is delayed, however, until all Replay activity is completed.
-//
-// N.B.:  Data cached in NodeCache nodes continue to record the state of the previous
-// level's split nodes and remain accessible until overwritten by the next interlevel
-// pass.  In particular, the cached nodes can guide restaging of the predictor splits
-// from the previous level to the next level.
-//
+   @param _splitIdx is the index of the split referenced.
+
+   @param _ptId is the pretree node index.
+
+   @param _idxCount is the count indices represented.
+
+   @param _sCount is the count of samples represented.
+
+   @param _sum is the sum of response values at the indices represented.
+
+   @param _minInfo is the minimal information content suitable to split either child.
+
+   @return void.
+*/
 void IndexNode::NextLevel(int _splitIdx, int _ptId, int _idxCount, int _sCount, double _sum, double _minInfo) {
   IndexNode *idxNode = &indexNode[_splitIdx];
   idxNode->idxCount = _idxCount;
@@ -343,13 +467,18 @@ void IndexNode::NextLevel(int _splitIdx, int _ptId, int _idxCount, int _sCount, 
   idxNode->minInfo = _minInfo;
 }
 
-// Sets the "late" fields for use by the upcoming level.
-//
-// 'lhStart' could be set within NextLevel() but this would require maintaining
-// much more internal state. 'preBias', in the categorical case, requires the
-// level's state sums to be available, which in turn requires that all Replay()
-// calls have completed.
-//
+/**
+   @brief Sets the "late" fields for use by the upcoming level.
+
+   'lhStart' could be set within NextLevel() but this would require maintaining
+   much more internal state. 'preBias', in the categorical case, requires the
+   level's state sums to be available, which in turn requires that all Replay()
+   calls have completed.
+
+   @param splitCount is the number of index nodes in the (next) level.
+
+   @return void.
+*/
 void IndexNode::LateFields(int splitCount) {
   int start = 0;
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
@@ -360,10 +489,23 @@ void IndexNode::LateFields(int splitCount) {
   }
 }
 
-// Two-sided Replay(), called for numeric SplitSigs, for which only the left-hand
-// index count is known.  The right-hand count is derived by subtracting left-hand
-// size from cached node's overall index count, 'idxCount'.
-//
+/**
+   @brief Two-sided Replay(), called for numeric SplitSigs, for which only the left-hand
+   index count is known.
+
+  The right-hand count is derived by subtracting left-hand size from cached node's
+  overall index count, 'idxCount'.
+
+  @param splitIdx is the index of the split referenced.
+
+  @param predIdx is the index of the splitting predictor.
+
+  @param level is the current level.
+
+  @param lhIdxCount is the total number of indices referenced by the left-hand node.
+
+  @return sum of response values for the left-hand side.
+*/
 double NodeCache::ReplayNum(int splitIdx, int predIdx, int level, int lhIdxCount) {
   int ptLH, ptRH, start, end;
   RestageFields(splitIdx, ptLH, ptRH, start, end);

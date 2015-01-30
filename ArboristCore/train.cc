@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file train.cc
+
+   @brief Main entry from front end for training.
+
+   @author Mark Seligman
+ */
+
 #include "dectree.h"
 #include "sample.h"
 #include "train.h"
@@ -32,8 +40,19 @@ int Train::blockSize = -1;
 int *Train::cdfOff = 0;
 double *Train::sCDF = 0;
 
-// Singleton factory:  everything is static.
-//
+/**
+   @brief Singleton factory:  everything is static.
+
+   @param _nTree is the requested number of trees.
+
+   @param _quantiles is true iff quantiles have been requested.
+
+   @param _minRatio is a threshold ratio for determining whether to split.
+
+   @param _blockSize is a predictor-blocking heuristic for parallel implementations.
+
+   @return void.
+*/
 void Train::Factory(int _nTree, bool _quantiles, double _minRatio, int _blockSize) {
   nTree = _nTree;
   doQuantiles = _quantiles;
@@ -60,24 +79,22 @@ void Train::Factory(int _nTree, bool _quantiles, double _minRatio, int _blockSiz
   // trees.  Categorical trees may require "unlimited" depth.
   //
   levelMax = 1 << (accumExp >= (balancedDepth - 5) ? accumExp : balancedDepth - 5);
-
-  // Initial estimate.  Must be wide enough to be visited by every split/predictor
-  // combination at every level, so reallocation check is done at the end of every
-  // level.
-  //
-  //  probSize = levelMax * (balancedDepth + 1) * Predictor::NPred();
 }
 
-// Employs the old reallocation heuristic of doubling the high watermark.
-// This also happens to be safe, as there cannot be more than twice as
-// many splits in the next level.
-//
-// N.B.:  Assumes trees trained sequentially, so that newer 'levelMax' values
-// can be employed by later trees.  If trees are trained in parallel, then
-// a guard must be employed to prevent unnecessary reallocation.
-//
 int Train::reLevel = 0;
 
+/**
+   @brief Determines next level-max value.
+
+   @return next level-max value.
+   Employs the old reallocation heuristic of doubling the high watermark.
+   This also happens to be safe, as there cannot be more than twice as
+   many splits in the next level.
+
+   N.B.:  Assumes trees trained sequentially, so that newer 'levelMax' values
+   can be employed by later trees.  If trees are trained in parallel, then
+   a guard must be employed to prevent unnecessary reallocation.
+ */
 int Train::ReFactory() {
   reLevel++;
   levelMax <<= 1;
@@ -85,8 +102,10 @@ int Train::ReFactory() {
   return levelMax;
 }
 
+/**
+   @brief Finalizer.
+*/
 void Train::DeFactory() {
-  //  cout << probResize << " prob resizes, " << accumReFactory << " accum reallocations" << endl;
   if (cdfOff != 0) {
     delete [] cdfOff;
     delete [] sCDF;
@@ -97,20 +116,45 @@ void Train::DeFactory() {
 }
 
 
-void Train::IntBlock(int xBlock[], int _nrow, int _ncol) {
-  Predictor::IntegerBlock(xBlock, _nrow, _ncol);
-}
+/**
+   @brief Main entry for regression response.
 
+   @param y is the response.
+
+   @return void.
+*/
 void Train::ResponseReg(double y[]) {
   Response::FactoryReg(y, levelMax);
 }
 
+/**
+   @brief Main entry for categorical response.
+
+   @param y is the response.
+
+   @param yPerturb outputs proxy response.
+
+   @return void, with output vector parameter.
+ */
 int Train::ResponseCtg(const int y[], double yPerturb[]) {
   return Response::FactoryCtg(y, yPerturb, levelMax);
 }
 
-// 
-//
+/**
+   @brief Main entry for training after singleton factory.
+
+   @param minH is the minimal index node size on which to split.
+
+   @param facWidth outputs the sum of factor cardinalities.
+
+   @param totBagCount outputs the sum of all tree in-bag sizes.
+
+   @param totQLeafWidth outputs the sum of quantile leaf sizes.
+
+   @param totLevels, if positive, limits the number of levels to build.
+
+   @return void.
+*/
 int Train::Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels) {
   SplitSig::Factory(levelMax, Predictor::NPred());
   IndexNode::Factory(minH, totLevels);
@@ -132,11 +176,39 @@ int Train::Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidt
   return forestHeight;
 }
 
+/**
+   @brief Main entry for quantile regression.
+
+   @param _qVec.
+
+   @param _qCells.
+
+   @return void.
+ */
 void Train::Quantiles(double *_qVec, int _qCells) {
   qCells = _qCells;
   qVec = _qVec;
 }
 
+/**
+   @brief Writes decision forest to storage provided by front end.
+
+   @rPreds outputs splitting predictors.
+
+   @rSplits outputs splitting values.
+
+   @rScores outputs leaf scores.
+
+   @rBump outputs branch increments.
+
+   @rOrigins outputs offsets of individual trees.
+
+   @rFacOff outputs offsets of spitting bit vectors.
+
+   @rFacSplits outputs factor splitting bit vectors.
+
+   @return void, with output parameter vectors.
+ */
 void Train::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
   DecTree::WriteForest(rPreds, rSplits, rScores, rBump, rOrigins, rFacOff, rFacSplits);
 
@@ -148,7 +220,23 @@ void Train::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBu
   Predictor::DeFactory();
 }
 
+/**
+   @brief Writes quantile information to storage provided by front end.
 
+   @rQYRanked outputs the ranked response values.
+
+   @rQRankOrigins outputs the leaf offsets for the start of each tree.
+
+   @rQRank outputs the quantile ranks.
+
+   @rQRankCount outputs the count of quantile ranks.
+
+   @rQLeafPos outputs the quantile leaf positions.
+
+   @rQLeafExtent outputs the quantile leaf sizes.
+
+   @return void, with output parameter vectors.
+*/
 void Train::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
   DecTree::WriteQuantile(rQYRanked, rQRankOrigin, rQRank, rQRankCount, rQLeafPos, rQLeafExtent);
 }

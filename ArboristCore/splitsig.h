@@ -5,14 +5,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file splitsig.h
+
+   @brief Class definitions for split signatures, which transmit splitting results to the index-tree splitting methods.
+
+   @author Mark Seligman
+ */
+
 #ifndef ARBORIST_SPLITSIG_H
 #define ARBORIST_SPLITSIG_H
 
 #include "predictor.h"
 
-// Transfers splitting information between levels as well as to decision trees.
-// Reused from level to level, so there are only 2^levels allocated.
-//
+/**
+ @brief Split signatures transfer splitting information to inter-level mediation.
+*/
+
 class SplitSig {
   static int nPred;
   static SplitSig *levelSS; // The SplitSig records available for the current level.
@@ -21,6 +30,15 @@ class SplitSig {
   // then the vector based at 'splitIdx' is returned.
   //
  protected:
+  /**
+     @brief Looks up the SplitSig associated with a given pair.
+
+     @param splitIdx is the split index.
+
+     @param predIdx is the predictor index.
+
+     @return pointer to looked-up SplitSig.
+   */
   static inline SplitSig *Lookup(int splitIdx, int predIdx = 0) {
     return levelSS + splitIdx * nPred + predIdx;
   }
@@ -59,6 +77,23 @@ class SplitSig {
 
   double Replay(int splitIdx, int ptL, int ptR);
 
+  /**
+     @brief Sets splitting fields for a numerical predictor.
+
+     @param splitIdx is the index node index.
+
+     @param _predIdx is the predictor index.
+
+     @param _level is the current level.
+
+     @param _sCount is the count of samples in the LHS.
+
+     @param _lhIdxCount is count of indices associated with the LHS.
+
+     @param _info is the splitting information value, currently Gini.
+
+     @return void.
+   */
   static inline void WriteNum(int splitIdx, int _predIdx, int _level, int _sCount, int _lhIdxCount, double _info) {
     SplitSig *ssn = Lookup(splitIdx, _predIdx);
     ssn->level = _level;
@@ -73,6 +108,25 @@ class SplitSig {
   //
   void NonTerminalFac(int splitIdx, int ptId);
 
+  /**
+     @brief Sets splitting fields for a factor-value predictor.
+
+     @param splitIdx is the index node index.
+
+     @param _predIdx is the predictor index.
+
+     @param _level is the current level.
+
+     @param _sCount is the count of samples in the LHS.
+
+     @param _lhIdxCount is count of indices associated with the LHS.
+
+     @param _info is the splitting information value, currently Gini.
+
+     @param _lhTop is the index of the highest sorted LHS rank.
+
+     @return void.
+   */
   static inline void WriteFac(int splitIdx, int _predIdx, int _level, int _sCount, int _lhIdxCount, double _info, int _lhTop) {
     SplitSig *ssf = Lookup(splitIdx, _predIdx);
     ssf->level = _level;
@@ -82,9 +136,21 @@ class SplitSig {
     ssf->fac.lhTop = _lhTop;
   }
 
-  // Dispatches to either of two methods, depending on whether 'predIdx' is a factor.
-  // Sacrifices elegance for efficiency, as virtual calls are not supported on coprocessor.
-  //
+  /**
+     @brief Dispatches nonterminal method based on predictor type.
+
+     @param splitIdx is the index node index.
+
+     @param level is the current level.
+
+     @param ptId is the pretree index.
+
+     @param lhStart is the start index of the LHS.
+
+     @return void.
+
+     Sacrifices elegance for efficiency, as virtual calls are not supported on coprocessor.
+  */
   inline void NonTerminal(int splitIdx, int level, int ptId, int lhStart) {
     if (Predictor::FacIdx(predIdx) >= 0)
       NonTerminalFac(splitIdx, ptId);

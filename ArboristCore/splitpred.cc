@@ -5,6 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file splitpred.cc
+
+   @brief Methods to implement splitting of index-tree levels.
+
+   @author Mark Seligman
+ */
+
 #include <iostream>
 using namespace std;
 
@@ -18,14 +26,6 @@ using namespace std;
 #include "response.h"
 #include "callback.h"
 
-// Computes the number of levels, 'levels', in the tree.
-// Computes the maximum node index, 'levelMax', as a function of 'minHeight'.
-// 'minHeight' is the smallest node size for which a root node is to be split.
-// Hence nodes rooted at indices 'levelMax' or higher are not split.
-//
-// Precond: nSamp > 0; minHeight >= 3, minHeight <= nSamp.
-// Postcond:  levels > 0; stCount > 0; stCount < nSamp (weak).
-//
 SplitPred *SplitPred::splitPred = 0;
 bool *SplitPred::splitFlags = 0;
 bool *SplitPred::runFlags = 0;
@@ -39,6 +39,13 @@ int SPCtg::ctgWidth = -1;
 double *SPCtgNum::ctgSumR = 0;
 double SPCtgNum::minDenom = 1.0e-5;
 
+/**
+   @brief Lights off base class initializations.
+
+   @param _levelMax is the current level-max value.
+
+   @return void.
+ */
 void SplitPred::Factory(int _levelMax) {
   levelMax = _levelMax;
   nPred = Predictor::NPred();
@@ -53,19 +60,26 @@ void SplitPred::Factory(int _levelMax) {
   RestageMap::Factory(levelMax);
 }
 
+/**
+   @brief Local initializations and base-class factory.
+
+   @param _levelMax is the current level-max value.
+
+   @return void.
+ */
 void SPReg::Factory(int _levelMax) {
   SplitPred::Factory(_levelMax);
   splitPred = new SPReg();
-
-  // Could diminish this somewhat (~ 30%) by replacing 'nSamp' with maximum bag-count
-  // value observed over all trees.  Would require precomputation of all sample sizes, though.
-  // On a per-tree basis, however, can index in increments of local bag-count.
-  //
   SPRegFac::Factory();
 }
 
-// TODO:  Check the allocation paramaters.
-//
+/**
+   @brief Reallocation of level-based vectors.
+
+   @param _levelMax is the new level-max value.
+
+   @return void.
+ */
 void SplitPred::ReFactory(int _levelMax) {
   int lmPrev = levelMax;
   levelMax = _levelMax;
@@ -82,22 +96,48 @@ void SplitPred::ReFactory(int _levelMax) {
     runFlags[i] = false;
 }
 
+/**
+   @brief Resets the runFlags[] vector at each new tree.
+
+   @return void.
+ */
 void SplitPred::TreeInit() {
   for (int i = 0; i < 2 * levelMax * nPred; i++)
     runFlags[i] = false;
 }
 
+/**
+   @brief Caches latest level-max value and lights off subclass reallocation.
+
+   @param _levelMax is the current level-max value.
+
+   @return void.
+ */
 void SPReg::ReFactory(int _levelMax) {
   levelMax = _levelMax;
 
   SPRegFac::ReFactory();
 }
 
+/**
+   @brief Finalizer.
+
+   @return void.
+ */
 void SPReg::DeFactory() {
   SplitPred::DeFactory();
   SPRegFac::DeFactory();
 }
 
+/**
+   @brief Lights off initializers for categorical tree.
+
+   @param _levelMax is the latest level-max value.
+
+   @param _ctgWidth is the response cardinality.
+
+   @return void.
+ */
 void SPCtg::Factory(int _levelMax, int _ctgWidth) {
   SplitPred::Factory(_levelMax);
   splitPred = new SPCtg();
@@ -107,6 +147,13 @@ void SPCtg::Factory(int _levelMax, int _ctgWidth) {
   SPCtgFac::Factory();
 }
 
+/**
+   @brief Reallocation of level-based vectors.
+
+   @param _levelMax is the latest level-max value.
+
+   @return void.
+ */
 void SPCtg::ReFactory(int _levelMax) {
   levelMax = _levelMax;
 
@@ -114,6 +161,11 @@ void SPCtg::ReFactory(int _levelMax) {
   SPCtgFac::ReFactory();
 }
 
+/**
+   @brief Base class finalizer.
+
+   @return void.
+ */
 void SplitPred::DeFactory() {
   delete splitPred;
   delete [] splitFlags;
@@ -125,59 +177,79 @@ void SplitPred::DeFactory() {
   RestageMap::DeFactory();
 }
 
+/**
+   @brief Invokes base and subclass finalizers.
+
+   @return void.
+ */
 void SPCtg::DeFactory() {
   SplitPred::DeFactory();
   SPCtgNum::DeFactory();
   SPCtgFac::DeFactory();
 }
 
+/**
+   @brief Lights off FacRun initializations if factor-valued predictors present.
+
+   @return void.
+ */
 void SPRegFac::Factory() {
   if (nFacTot > 0)
-    FacRun::Factory(levelMax, nPredFac, nFacTot);
+    FacRun::Factory(levelMax, nPredFac, nFacTot, Predictor::PredFacFirst());
 }
 
-// N.B.:  Assumes 'levelMax' has been reset further upstream.
-//
+/**
+   @brief If factor predictors present, reallocates FacRun using revised level-max value.
+
+   @return void.
+ */
 void SPRegFac::ReFactory() {
   if (nFacTot > 0)
     FacRun::ReFactory(levelMax);
 }
 
+/**
+   @brief Lights off FacRunCtg initialization if factor-valued predictors present.
+
+   @return void.
+ */
 void SPCtgFac::Factory() {
   if (nPredFac > 0) {
-    FacRunCtg::Factory(levelMax, nPredFac, nFacTot, ctgWidth);
+    FacRunCtg::Factory(levelMax, nPred, nPredFac, nFacTot, Predictor::PredFacFirst(), ctgWidth);
   }
 }
 
-// N.B.  Assumes 'levelMax' has been reset further upstream.
-//
+/**
+   @brief If factor predictors present, reallocates FacRun using revised level-max value.
+
+   @return void.
+ */
 void SPCtgFac::ReFactory() {
   if (nFacTot > 0)
     FacRunCtg::ReFactory(levelMax);
 }
 
+/**
+   @brief If factor predictors, finalizes subclass.
+ */
 void SPCtgFac::DeFactory() {
   if (nFacTot > 0) {
     FacRunCtg::DeFactory();
   }  
 }
 
-void SPCtgFac::TreeInit() {
-  if (nFacTot > 0)
-    FacRunCtg::TreeInit();
-}
-
-void SPCtgFac::ClearTree() {
-  if (nFacTot > 0)
-    FacRunCtg::ClearTree();
-}
-
+/**
+   @brief Allocates summation checkerboard if numerical predictors present.
+ */
 void SPCtgNum::Factory() {
   if (nPredNum > 0) {
     ctgSumR = new double[ctgWidth * levelMax * nPredNum];
   }
 }
 
+/**
+   @brief Reallocates summation checkerboard if numerical predictors present.
+ */
 void SPCtgNum::ReFactory() {
   if (nPredNum > 0) {
     delete [] ctgSumR;
@@ -186,6 +258,9 @@ void SPCtgNum::ReFactory() {
   }
 }
 
+/**
+   @brief Finalizer.
+ */
 void SPCtgNum::DeFactory() {
   ctgWidth = -1;
   if (nPredNum > 0) {
@@ -194,14 +269,21 @@ void SPCtgNum::DeFactory() {
   }
 }
 
+/**
+   @brief Finalizer.
+ */
 void SPRegFac::DeFactory() {
   if (nFacTot > 0)
     FacRun::DeFactory();
 }
 
-// For now, invoked once per level.  Can block in larger chunks if this
-// proves too slow, but local scope is nice.
-//
+/**
+   @brief Resets per-predictor split flags at each level using PRNG call-back.
+
+   @param splitCount is the number of live index nodes.
+
+   @return void.
+ */
 void SplitPred::ProbSplitable(int splitCount) {
   int len = splitCount * nPred;
   double *ruPred = new double[len];
@@ -219,9 +301,21 @@ void SplitPred::ProbSplitable(int splitCount) {
   delete [] ruPred;
 }
 
-// Unsets the run bit for the split/pred pair at this 'level' value and resets it
-// for the progenitor pairs at the next level.
-//
+/**
+   @brief Unsets run bit for split/pred pair at current level and resets for descendents at next level.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param splitL is the LHS index in the next level.
+
+   @param splitR is the RHS index in the next level.
+
+   @param level is the zero-based level.
+
+   @return void.
+*/
 // Previous level always wiped, so final level remains dirty:  tree reset required.
 //
 void SplitPred::TransmitRun(int splitIdx, int predIdx, int splitL, int splitR, int level) {
@@ -232,35 +326,68 @@ void SplitPred::TransmitRun(int splitIdx, int predIdx, int splitL, int splitR, i
     SetPredRun(splitR, predIdx, level+1, true);
 }
 
-// Sets the run bit to 'val' for the split/pred pair at level 'level'.
-//
+/**
+   @brief Sets the specified run bit.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param is the zero-based level.
+
+   @param val is the bit value to set.
+
+   @return void.
+*/
 void SplitPred::SetPredRun(int splitIdx, int predIdx, int level, bool val) {
   bool *base = runFlags + (nPred * levelMax) * (level & 1);
   base[levelMax * predIdx + splitIdx] = val;
 }
 
-// Determines whether the split/pred pair is marked as a run this 'level'.
-//
+/**
+   @brief Determines whether this split/pred pair is marked as a run.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param level is the current level.
+
+   @return true iff this is a run.
+*/
 bool SplitPred::PredRun(int splitIdx, int predIdx, int level) {
   bool *base = runFlags + (nPred * levelMax) * (level & 1);
   return base[predIdx * levelMax + splitIdx];
 }
 
-// Returns true iff the split/pred pair is neither in the pred-prob rejection region nor
-// defines a run at this 'level'.
-//
+/**
+   @brief Determines whether this split/pred pair is splitable.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the count of live index nodes.
+
+   @param index is the current level
+
+   @return true iff the  pair is neither in the pred-prob rejection region nor a run.
+*/
 bool SplitPred::Splitable(int splitIdx, int predIdx, int splitCount, int level) {
   return splitFlags[splitCount * predIdx + splitIdx] && !PredRun(splitIdx, predIdx, level);
 }
 
-// Walks the (#preds x # splitCount) split results and saves the state for the maxima at this
-// level.  State is passed to the index tree via 'levelSplitSig[]', which recieves a
-// reference to the information in the node's SplitSig.
-//
-// Factor LHS data resides with nodes so is overwritten at the next
-// level.  As factor-valued splits for current level are final at this point,
-// it makes sense to register these now for use by the decision tree.
-//
+/**
+   @brief Gini-based splitting method.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the number of live index nodes.
+
+   @param level is the current level.
+
+   @return void.
+ */
 // Looping over splitPred[] indices, 'i'.  Populates non-root levels by 'y' values
 // sorted according to predictor order.  Target locations given by the tree-defining
 // permutation of the corresponding row number.
@@ -318,6 +445,18 @@ void SPRegNum::SplitGini(int predIdx, int splitCount, int level) {
   }
 }
 
+
+/**
+   @brief Gini-based splitting method.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the number of live index nodes.
+
+   @param level is the current level.
+
+   @return void.
+ */
 void SPCtgNum::SplitGini(int predIdx, int splitCount, int level) {
   SamplePred *samplePred = SamplePred::BufferOff(predIdx, level);
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
@@ -369,6 +508,15 @@ void SPCtgNum::SplitGini(int predIdx, int splitCount, int level) {
   }
 }
 
+/**
+   @brief Splits the current level's index nodes.
+
+   @param splitCount is the number of live index nodes.
+   
+   @param level is the current level.
+
+   @return void.
+ */
 void SplitPred::Level(int splitCount, int level) {
   ProbSplitable(splitCount);
   splitPred->LevelReset(splitCount);
@@ -378,9 +526,15 @@ void SplitPred::Level(int splitCount, int level) {
     splitPred->RestageAndSplit(splitCount, level);
 }
 
-// Initializes the auxilliary data structures associated with all predictors
-// for every node live at this level.
-//
+/**
+   @brief Initializes the auxilliary data structures associated with all predictors
+   for every node live at this level.
+
+   @param splitCount is the number of live index nodes.
+
+   @return void.
+*/
+
 // N.B.:  The numeric/regression case uses no auxilliary structures.
 //
 void SPReg::LevelReset(int splitCount) {
@@ -388,6 +542,13 @@ void SPReg::LevelReset(int splitCount) {
     FacRun::LevelReset(splitCount);
 }
 
+/**
+   @brief As above, but categorical response.
+
+   @param splitCount is the number of live index nodes.
+
+   @return void.
+*/
 void SPCtg::LevelReset(int splitCount) {
   if (nPredNum > 0) {
     SPCtgNum::LevelResetSumR(splitCount);
@@ -396,13 +557,22 @@ void SPCtg::LevelReset(int splitCount) {
     FacRunCtg::LevelReset(splitCount);
 }
 
+/**
+   @brief Resets the accumulated-sum checkerboard.
+
+   @param splitCount is the number of live index nodes.
+
+   @return void.
+ */
 void SPCtgNum::LevelResetSumR(int splitCount) {
   for (int i = 0; i < nPredNum * ctgWidth * levelMax; i++)
     ctgSumR[i] = 0.0;
 }
 
-// N.B.:  Relies on Predictor's having ordered like-typed predictors in blocks.
-//
+/**
+   @brief Dispatches blocks of similarly-typed predictors to their respective splitting methods.
+   @return void.
+ */
 void SPReg::LevelZero() {
     int predIdx;
 
@@ -427,8 +597,9 @@ void SPReg::LevelZero() {
     }
 }
 
-// N.B.:  Relies on Predictor's having ordered like-typed predictors in blocks.
-//
+/**
+   @brief As above, but categorical response.
+ */
 void SPCtg::LevelZero() {
     int predIdx;
     int predNumFirst = Predictor::PredNumFirst();
@@ -452,8 +623,15 @@ void SPCtg::LevelZero() {
     }
 }
 
-// N.B.:  Relies on Predictor's having ordered like-typed predictors in blocks.
-//
+/**
+   @brief Restages, then splits, blocks of similarly-typed predictors.
+
+   @param splitCount is the number of live index nodes.
+
+   @param level is the current level.
+
+   @return void.
+ */
 void SPReg::RestageAndSplit(int splitCount, int level) {
     int predIdx;
 
@@ -480,6 +658,9 @@ void SPReg::RestageAndSplit(int splitCount, int level) {
     }
 }
 
+/**
+   @brief As above, but categorical response.
+ */
 void SPCtg::RestageAndSplit(int splitCount, int level) {
   int predIdx;
 
@@ -506,6 +687,17 @@ void SPCtg::RestageAndSplit(int splitCount, int level) {
     }
 }
 
+/**
+   @brief Gini-based splitting method.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the number of live index nodes.
+
+   @param level is the current level.
+
+   @return void.
+ */
 void SPCtgFac::SplitGini(int predIdx, int splitCount, int level) {
   SamplePred *samplePred = SamplePred::BufferOff(predIdx, level);
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
@@ -517,7 +709,7 @@ void SPCtgFac::SplitGini(int predIdx, int splitCount, int level) {
     IndexNode::SplitFields(splitIdx, start, end, dummy, sum, maxGini);
 
     int top = BuildRuns(samplePred, splitIdx, predIdx, start, end);
-    int argMax = SplitRuns(splitIdx, predIdx, sum, top, maxGini);
+    int argMax = SplitRuns(splitIdx, predIdx, splitCount, sum, top, maxGini);
 
     // Reconstructs LHS sample and index counts from 'argMax'.
     //
@@ -543,15 +735,28 @@ void SPCtgFac::SplitGini(int predIdx, int splitCount, int level) {
   }
 }
 
-// Retains local sumR values until a transition is noted.  On each transition, pushes
-// pair consisting of local factor value (rank) and mean-Y onto node's heap.
-// Pushes one more time at conclusion, to catch each node's final factor/mean-Y pair.
-//
-// N.B.:  Only the Transition() method is specific to FacRunCtg.  All other actions
-// involving the heap can be implemented via FacRun.
-//
-// Returns depth of run vector.
-//
+/**
+   @brief Builds runs of ranked predictors for checkerboard processing.
+
+   @param samplePred contains the level's index information.
+
+   @param splitIdx is the index node index.
+
+   @param predIdx is the predictor index.
+
+   @param start is the starting index.
+
+   @param end is the ending index.
+
+   @return number of runs built.
+
+   Retains local sumR values until a transition is noted.  On each transition, pushes
+   pair consisting of local factor value (rank) and mean-Y onto node's heap.
+   Pushes one more time at conclusion, to catch each node's final factor/mean-Y pair.
+
+   N.B.:  Only the Transition() method is specific to FacRunCtg.  All other actions
+   involving the heap can be implemented via FacRun.
+*/
 int SPCtgFac::BuildRuns(const SamplePred samplePred[], int splitIdx, int predIdx, int start, int end) {
   int rkThis = -1;
   int sCount = 0;
@@ -591,20 +796,34 @@ int SPCtgFac::BuildRuns(const SamplePred samplePred[], int splitIdx, int predIdx
   return top;
 }
 
+/**
+   @brief Splits blocks of runs.
 
-// Nodes are now represented compactly as a collection of runs.
-// For each node, subsets of these collections are examined, looking for the
-// Gini argmax beginning from the pre-bias.
-//
-// Iterates over nontrivial subsets, coded by integers as bit patterns.  If the
-// full factor set is not present, then all 'facCount' factors may participate
-// in the split.  A practical limit of 2^10 trials is employed.  Hence a node
-// with more than 11 distinct factors requires random sampling:  selects 1024
-// full-width sequences with bits set ~Bernoulli(0.5).
-//
-int SPCtgFac::SplitRuns(int splitIdx, int predIdx, double sum, int &top, double &maxGini) {
-  int pairOffset = FacRun::PairOffset(splitIdx, predIdx);
-  top = FacRunCtg::Shrink(pairOffset, top);
+   @param splitIdx is the index node index.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the number of live index nodes.
+
+   @param sum is the sum of response values for this index node.
+
+   @param top outputs the (possibly reduced) number of runs.
+
+   @param maxGini outputs the highest observed Gini value.
+
+   @return subset encoding of the maximal-Gini LHS.
+   Nodes are now represented compactly as a collection of runs.
+   For each node, subsets of these collections are examined, looking for the
+   Gini argmax beginning from the pre-bias.
+
+   Iterates over nontrivial subsets, coded by integers as bit patterns.  If the
+   full factor set is not present, then all 'facCount' factors may participate
+   in the split.  A practical limit of 2^10 trials is employed.  Hence a node
+   with more than 11 distinct factors requires random sampling:  selects 1024
+   full-width sequences with bits set ~Bernoulli(0.5).
+*/
+int SPCtgFac::SplitRuns(int splitIdx, int predIdx, int splitCount, double sum, int &top, double &maxGini) {
+  top = FacRunCtg::Shrink(splitIdx, predIdx, splitCount, top);
   int fullSet = (1 << top) - 1;
 
   // Iterates over all nontrivial subsets of factors in the node.
@@ -638,7 +857,17 @@ int SPCtgFac::SplitRuns(int splitIdx, int predIdx, double sum, int &top, double 
   return argMax;
 }
 
-//
+/**
+   @brief Gini-based splitting method.
+
+   @param predIdx is the predictor index.
+
+   @param splitCount is the number of live index nodes.
+
+   @param level is the current level.
+
+   @return void.
+ */
 void SPRegFac::SplitGini(int predIdx, int splitCount, int level) {
   SamplePred *samplePred = SamplePred::BufferOff(predIdx, level);
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
@@ -658,8 +887,21 @@ void SPRegFac::SplitGini(int predIdx, int splitCount, int level) {
   }
 }
 
-// Must sort runs on the fly, ordering by mean.
-//
+/**
+ @brief Builds runs and maintains using FacRunReg coroutines.
+
+ @param samplePred holds the restaged information.
+
+ @param splitIdx is the index node index.
+
+ @param predIdx is the predictor index.
+
+ @param start is the starting index.
+
+ @param end is the ending index.
+
+ @return void. 
+*/
 void SPRegFac::BuildRuns(const SamplePred samplePred[], int splitIdx, int predIdx, int start, int end) {
   int rkThis = -1;
   int sCount = 0;
@@ -696,12 +938,27 @@ void SPRegFac::BuildRuns(const SamplePred samplePred[], int splitIdx, int predId
   FacRunReg::Transition(splitIdx, predIdx, rkThis, sCount, sumR);
 }
 
-// Causes a SplitSig to be filled in, when appropriate.
-//
-// BHeap sorts factors by mean-Y over node.  Gini scoring can be done by run, as
-// all factors within a run have the same predictor pseudo-value.  Individual run
-// members must be noted, however, so that node LHS can be identifed later.
-//
+/**
+   @brief Splits runs sorted by FacRunReg coroutines.
+
+   @param splitIdx is the index node index.
+
+   @param predIdx is the predictor index.
+
+   @param sum is the sum of response values for this index node.
+
+   @param _sCount outputs the sample count of the argmax LHS.
+
+   @param _lhIdxCount outputs the index count of the argmax LHS.
+
+   @param maxGini outputs the max Gini value.
+
+   @return top index of LHS.
+
+   BHeap sorts factors by mean-Y over node.  Gini scoring can be done by run, as
+   all factors within a run have the same predictor pseudo-value.  Individual run
+   members must be noted, however, so that node LHS can be identifed later.
+*/
 int SPRegFac::SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int &lhIdxCount, double &maxGini) {
   int sCountTot = sCount; // Captures entry value of full sample count.
   int idxCountTot = lhIdxCount; // Diagnostic only:  see caller, and below.

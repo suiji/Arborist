@@ -15,6 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+   @file rcppSample.h
+
+   @brief C++ class definitions for invocation of R methods implementing response sampling.   Suitable for other uses of sampling, as implemented.
+
+   @author Mark Seligman
+
+ */
+
+
 #ifndef ARBORIST_RCPP_SAMPLE_H
 #define ARBORIST_RCPP_SAMPLE_H
 
@@ -27,12 +37,7 @@ class RcppSample {
   static NumericVector sampleWeight;
   static bool withReplacement;
 public:
-  static void Factory(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement ) {
-    nRow = _nRow;
-    nSamp = _nSamp;
-    sampleWeight = _sampleWeight;
-    withReplacement = _withReplacement;
-  }
+  static void Factory(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement);
   static void SampleRows(int samp[]);
 };
 

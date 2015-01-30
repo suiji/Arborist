@@ -5,9 +5,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file response.h
+
+   @brief Class definitions for representing response-specific aspects of training, especially regression versus categorical support.
+
+   @author Mark Seligman
+
+ */
+
+
 #ifndef ARBORIST_RESPONSE_H
 #define ARBORIST_RESPONSE_H
 
+/**
+   @brief Methods and members for management of response-related computations.
+ */
 class Response {
  protected:
   static int bagCount;
@@ -42,6 +55,9 @@ class Response {
   
 };
 
+/**
+   @brief Specialization to regression trees.
+ */
 class ResponseReg : public Response {
   static int *sample2Rank;
  public:
@@ -64,6 +80,9 @@ class ResponseReg : public Response {
   double Prebias(int splitIdx);
 };
 
+/**
+   @brief Specialization to classification trees.
+ */
 class ResponseCtg : public Response {
   static int ctgWidth;
   static double *treeJitter; // Helps prevent ties among response scores.

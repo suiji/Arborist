@@ -5,17 +5,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/**
+   @file dectree.h
+
+   @brief Data structures and methods for constructing and walking
+       the decision tree.
+
+   @author Mark Seligman
+
+ */
+
 #ifndef ARBORIST_DECTREE_H
 #define ARBORIST_DECTREE_H
 
 #include <climits>
 
 
-// The decision forest, as a collection of trees.  Trees are represented by individual columns within
-// the forest data structures and are not first-class objects.
-//
+/**
+   @brief The decision forest is a collection of decision trees.  DecTree members and methods are currently all static.
+*/
 class DecTree {
-  static double recipNumTrees;
   static int nTree; // Running tally of forest size.
   static int nRow;
   static int nPred;
@@ -59,18 +68,18 @@ class DecTree {
   static int totQLeafWidth;
 
   static void ConsumeSplitBits(int treeNum, int facWidth);
-  static void SetBagRow(const bool sampledRows[], const int treeNum);
+  static void SetBagRow(const bool sampledRows[], int treeNum);
   static bool InBag(int treeNum, int row);
-  static void PredictRowNumReg(const int row, double[], int leaves[], bool useBag);
-  static void PredictRowFacReg(const int row, int rowT[], int leaves[], bool useBag);
-  static void PredictRowMixedReg(const int row, double rowNT[], int rowFT[], int leaves[], bool useBag);
-  static void PredictRowNumCtg(const int row, double rowSlice[], const int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowFacCtg(const int row, int rowFT[], const int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowMixedCtg(const int row, double rowNT[], int rowFT[], const int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowNumReg(int row, double[], int leaves[], bool useBag);
+  static void PredictRowFacReg(int row, int rowT[], int leaves[], bool useBag);
+  static void PredictRowMixedReg(int row, double rowNT[], int rowFT[], int leaves[], bool useBag);
+  static void PredictRowNumCtg(int row, double rowSlice[], int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowFacCtg(int row, int rowFT[], int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWidth, int rowPred[], bool useBag);
   static void PredictAcrossNumReg(double prediction[], bool useBag);
   static void PredictAcrossFacReg(double prediction[], bool useBag);
   static void PredictAcrossMixedReg(double prediction[], bool useBag);
-  static void QuantileLeaves(double *qRow, const int qCells, /*const int row,*/ const int leaves[]);
+  static void QuantileLeaves(double qRow[], int qCells, const int leaves[]);
   static void QuantileRanks(int treeNum, int treeSize, int bagCount);
   static void DeForest();
  public:
@@ -83,9 +92,9 @@ class DecTree {
   static void ForestReloadQuant(double qYRanked[], int qYLen, int qRank[], int qRankOrigin[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
   static void ScaleGini(double*);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
-  static  void WriteTree(const int treeNum, const int tOrig, const int treeFacOffset, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits);
+  static  void WriteTree(int treeNum, int tOrig, int treeFacOffset, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits);
   static void WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]);
   static void PredictAcrossReg(double outVec[], bool useBag=true);
-  static void PredictAcrossCtg(int yCtg[], const int ctgWidth, int confusion[], double error[], bool useBag = true);
+  static void PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double error[], bool useBag = true);
 };
 #endif

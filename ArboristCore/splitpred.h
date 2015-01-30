@@ -8,9 +8,18 @@
 #ifndef ARBORIST_SPLITPRED_H
 #define ARBORIST_SPLITPRED_H
 
-//#include <cfloat>
+/**
+   @file splitpred.h
 
+   @brief Class definitions for the four types of predictor splitting:  {regression, categorical} x {numerical, factor}.
 
+   @author Mark Seligman
+
+ */
+
+/**
+   @brief Per-predictor splitting facilities.
+ */
 // Predictor-specific implementation of node.
 // Currently available in four flavours depending on response type of node and data
 // type of predictor:  { regression, categorical } x { numeric, factor }.
@@ -54,6 +63,9 @@ class SplitPred {
   virtual void RestageAndSplit(int splitCount, int level) = 0;
 };
 
+/**
+   @brief Splitting facilities specific regression trees.
+ */
 class SPReg : public SplitPred {
   ~SPReg() {};
  public:
@@ -65,6 +77,9 @@ class SPReg : public SplitPred {
   void RestageAndSplit(int splitCount, int level);
 };
 
+/**
+   @brief Gini splitting for numerical predictors.
+ */
 class SPRegNum : public SPReg {
  public:
   static void SplitGini(int predIdx, int splitCount, int level);
@@ -73,6 +88,9 @@ class SPRegNum : public SPReg {
   static void DeFactory();
 };
 
+/**
+   @brief Gini splitting for factor-valued predictors.
+ */
 class SPRegFac : public SPReg {
  public:
   static void BuildRuns(const class SamplePred samplePred[], int splitIdx, int predIdx, int start, int end);
@@ -83,6 +101,9 @@ class SPRegFac : public SPReg {
   static void DeFactory();
 };
 
+/**
+   @brief Splitting facilities for categorical trees.
+ */
 class SPCtg : public SplitPred {
   ~SPCtg() {}
   void LevelZero();
@@ -96,6 +117,9 @@ class SPCtg : public SplitPred {
   static void ReFactory(int _levelMax);
 };
 
+/**
+   @brief Gini splitting for numerical predictors.
+ */
 class SPCtgNum : public SPCtg {
  public:
   // Gini coefficient is non-negative:  quotient of non-negative quantities.
@@ -104,13 +128,26 @@ class SPCtgNum : public SPCtg {
   // Mininum denominator value at which to test a split
   static double minDenom;
 
-  // Records sum of proxy values at 'yCtg' strictly to the right and updates the
-  // subaccumulator by the current proxy value.  Returns recorded sum.
   //
   // Numerators do not use updated sumR/sumL values, so update is delayed until
   // current value is recorded.
   //
   static double *ctgSumR;
+  /**
+     @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
+     subaccumulator by the current proxy value.
+
+     @param predIdx is the predictor index.
+
+     @param splitIdx is the split index.
+
+     @param yCtg is the categorical response value.
+
+     @param yVal is the proxy response value.
+
+     @return recorded sum.
+  */
+  // TODO:  Reverse first two parameters to conform with similar invocations.
   static inline double CtgSumRight(int predIdx, int splitIdx, int yCtg, double yVal) {
     int off = predIdx * levelMax * ctgWidth + splitIdx * ctgWidth + yCtg;
     double val = ctgSumR[off];
@@ -126,9 +163,12 @@ class SPCtgNum : public SPCtg {
   static void SplitGini(int predIdx, int splitCount, int level);
 };
 
+/**
+   @brief Gini splitting for factor-valued predictors.
+*/
 class SPCtgFac : public SPCtg {
   static int BuildRuns(const class SamplePred samplePred[], int splitIdx, int predIdx, int start, int end);
-  static int SplitRuns(int splitIdx, int predIdx, double sum, int &top, double &maxGini);
+  static int SplitRuns(int splitIdx, int predIdx, int splitCount, double sum, int &top, double &maxGini);
  public:
   static void Factory();
   static void ReFactory();
