@@ -27,9 +27,6 @@ public:
   static int nSamp;
   static int levelMax;
   static double probCutoff;
-  static bool doQuantiles;
-  static int qCells;
-  static double *qVec;
   static double minRatio; // Spread between parent and child information content.
   static int blockSize;
   static int accumRealloc;
@@ -38,8 +35,8 @@ public:
   static int *cdfOff;
   static void ResponseReg(double y[]);
   static int ResponseCtg(const int y[], double yPerturb[]);
-  static int Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels);
-  static void Factory(int _nTree, bool _quantiles, double _minRatio, int _blockSize);
+  static int Training(int minH, bool _quantiles, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels);
+  static void Factory(int _nTree, double _minRatio, int _blockSize);
   static void DeFactory();
   static int ReFactory();
   static inline double MinInfo(double info) {
@@ -48,6 +45,5 @@ public:
   static void SampleWeights(double sWeight[]);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
   static void WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]);
-  static void Quantiles(double *_qVec, const int _qCells);
 };
 #endif

@@ -76,16 +76,14 @@ RcppExport SEXP RcppTrainResponse(SEXP sY) {
 
    @param sNTree is the number of trees requested.
 
-   @param sQuantiles indicates whether quantiles are requested.
-
    @param sMinRatio is a threshold ratio of information measures between an index node and its offspring, below which the node does not split.
 
    @param sBlockSize is a block size, tuned for performance.
 
    @return Wrapped zero.
  */
-RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sQuantiles, SEXP sMinRatio, SEXP sBlockSize) {
-  Train::Factory(as<int>(sNTree), as<bool>(sQuantiles), as<double>(sMinRatio), as<int>(sBlockSize));
+RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sMinRatio, SEXP sBlockSize) {
+  Train::Factory(as<int>(sNTree), as<double>(sMinRatio), as<int>(sBlockSize));
 
   return wrap(0);
 }
@@ -94,6 +92,8 @@ RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sQuantiles, SEXP sMinRatio, SEXP
    @brief Builds the forest.
 
    @param sMinH is the smallest index node width allowed for splitting.
+
+   @param sQuantiles indicates whether quantiles are requested.
 
    @param sFacWidth records the cardinalities of factor-valued predictors.
 
@@ -105,12 +105,12 @@ RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sQuantiles, SEXP sMinRatio, SEXP
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotQLeafWidth, SEXP sTotLevels) {
+RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotQLeafWidth, SEXP sTotLevels) {
   IntegerVector facWidth(sFacWidth);
   IntegerVector totBagCount(sTotBagCount);
   IntegerVector totQLeafWidth(sTotQLeafWidth);
 
-  int forestHeight = Train::Training(as<int>(sMinH), facWidth.begin(), totBagCount.begin(), totQLeafWidth.begin(), as<int>(sTotLevels));
+  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), facWidth.begin(), totBagCount.begin(), totQLeafWidth.begin(), as<int>(sTotLevels));
 
   return wrap(forestHeight);
 }

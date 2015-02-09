@@ -41,31 +41,13 @@ class DecTree {
   static int *facOffForest;
   static int *facSplitForest; // Consolidation of per-tree values.
 
-  static int *treeQRankWidth;
-  static int *treeQLeafWidth;
-  static int **treeQLeafPos;
-  static int **treeQLeafExtent;
-  static int **treeQRank;
-  static int **treeQRankCount;
-  static double *qYRankedForest;
-  static int qYLenForest; // Length of training response.
-  static int *qRankOriginForest;
-  static int *qRankForest;
-  static int *qRankCountForest;
-  static int *qLeafPosForest;
-  static int *qLeafExtentForest;
-
-  static double *predGini; // 'tgini' == impurity.  May belong elsewhere, as known before scoring.
+  static double *predInfo; // E.g., Gini gain.  May belong elsewhere, as known before scoring.
   static int* predForest;
   static double* splitForest;
   static double* scoreForest;
   static int* bumpForest;
   static unsigned int *inBag; // Train only.
   static int forestSize;
-
-  // Only client for thse is quantile regression
-  static int totBagCount;
-  static int totQLeafWidth;
 
   static void ConsumeSplitBits(int treeNum, int facWidth);
   static void SetBagRow(const bool sampledRows[], int treeNum);
@@ -76,25 +58,25 @@ class DecTree {
   static void PredictRowNumCtg(int row, double rowSlice[], int ctgWidth, int rowPred[], bool useBag);
   static void PredictRowFacCtg(int row, int rowFT[], int ctgWidth, int rowPred[], bool useBag);
   static void PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWidth, int rowPred[], bool useBag);
-  static void PredictAcrossNumReg(double prediction[], bool useBag);
-  static void PredictAcrossFacReg(double prediction[], bool useBag);
-  static void PredictAcrossMixedReg(double prediction[], bool useBag);
-  static void QuantileLeaves(double qRow[], int qCells, const int leaves[]);
-  static void QuantileRanks(int treeNum, int treeSize, int bagCount);
-  static void DeForest();
+  static void PredictAcrossNumReg(double prediction[], int *predictLeaves, bool useBag);
+  static void PredictAcrossFacReg(double prediction[], int *predictLeaves, bool useBag);
+  static void PredictAcrossMixedReg(double prediction[], int *predictLeaves, bool useBag);
+  static void PredictAcrossNumCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossFacCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossMixedCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
+  static void DeFactory();
  public:
-  static void DeForestPredict();
+  static void DeFactoryPredict();
   static const int leafPred = INT_MIN; // Positive counterpart not representable as int.
   static void ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum);
   static void FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac);
-  static int AllTrees(int *cumFacWidth, int *cumBagWidth, int *totQLeafWidth);
+  static int AllTrees(int *cumFacWidth, int *totQLeafWidth);
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
-  static void ForestReloadQuant(double qYRanked[], int qYLen, int qRank[], int qRankOrigin[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
-  static void ScaleGini(double*);
+  static void ScaleInfo(double*);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
   static  void WriteTree(int treeNum, int tOrig, int treeFacOffset, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits);
-  static void WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]);
-  static void PredictAcrossReg(double outVec[], bool useBag=true);
+  static void PredictAcrossReg(double outVec[], bool useBag);
   static void PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double error[], bool useBag = true);
 };
+
 #endif

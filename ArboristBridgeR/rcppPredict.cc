@@ -155,7 +155,7 @@ RcppExport SEXP RcppReloadQuant(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, 
   IntegerVector qLeafPos(sQLeafPos);
   IntegerVector qLeafExtent(sQLeafExtent);
 
-  Predict::ForestReloadQuant(qYRanked.begin(), qYRanked.length(), qRankOrigin.begin(), qRank.begin(), qRankCount.begin(), qLeafPos.begin(), qLeafExtent.begin());
+  Predict::ForestReloadQuant(qRankOrigin.length(), qYRanked.begin(), qYRanked.length(), qRankOrigin.begin(), qRank.begin(), qRankCount.begin(), qLeafPos.begin(), qLeafExtent.begin());
 
   return wrap(0);
 }
@@ -177,7 +177,7 @@ RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQPred, SEXP sY) {
   NumericVector qPred(sQPred);
   NumericVector y(sY);
 
-  Predict::PredictQuant(quantVec.begin(), quantVec.length(), qPred.begin(), y.begin());
+  Predict::PredictQuant(y.length(), quantVec.begin(), quantVec.length(), qPred.begin(), y.begin());
 
   return wrap(0);
 }

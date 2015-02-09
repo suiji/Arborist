@@ -24,6 +24,7 @@
 class Response {
  protected:
   static int bagCount;
+  static void Finish(double predInfo[]);
  public:
   double *y;
   static int nRow; // Set from Predictor
@@ -45,14 +46,10 @@ class Response {
   virtual void ReFactorySP(int levelMax) = 0;
   static void LevelSums(int splitCount);
   virtual void Sums(int splitCount) = 0;
-  virtual void PredictOOB(int *conf, double error[]) = 0;
   virtual void GetYRanked(double yRanked[]) = 0;
   virtual ~Response(){}
   static double PrebiasSt(int splitIdx);
   virtual double Prebias(int splitIdx) = 0;
-  static void DispatchQuantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
-  virtual void Quantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) = 0;
-  
 };
 
 /**
@@ -65,9 +62,9 @@ class ResponseReg : public Response {
   ~ResponseReg();
   static int *row2Rank;
   static double *yRanked;
-  void Quantiles(int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
   void Scores(int leafCount, double scores[]);
-  void PredictOOB(int *conf, double[]);
+  static void PredictOOB(double err[], double predInfo[]);
+  static void PredictOOB(double error[], double quantVec[], int qCells, double qPred[], double predInfo[]);
   void GetYRanked(double _yRanked[]);
   void ReFactorySP(int levelMax);
   int SampleRows(const int rvRows[]);
@@ -96,7 +93,7 @@ class ResponseCtg : public Response {
   ResponseCtg(const int _yCtg[], double perturb[], int &_ctgWidth);
   static double Jitter(int row);
   void GetYRanked(double _yRanked[]);
-  void PredictOOB(int *conf, double[]);
+  static void PredictOOB(int *conf, double err[], double predInfo[]);
   ~ResponseCtg();
   void ReFactorySP(int levelMax);
   static void Factory(int _yCtg[], int _ctgWidth, int levelMax);
@@ -107,7 +104,6 @@ class ResponseCtg : public Response {
   double Sum();
   int SampleRows(const int rvRows[]);
   void Scores(int leafCount, double scores[]);
-  void Quantiles(int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
 
   double Prebias(int splitIdx);
   void Sums(int splitNext);

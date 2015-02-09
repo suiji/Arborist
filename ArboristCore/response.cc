@@ -321,17 +321,32 @@ double ResponseCtg::Jitter(int row) {
 }
 
 /**
-   @brief Response entry for out-of-bag prediction.
+   @brief Outputs Info values of predictors and cleans up.
 
-   @param conf is a dummy placeholder for a confusion matrix.
+   @param predInfo is an output vector of predictor Info values.
+
+   @return void, with output vector parameter.
+ */
+void Response::Finish(double predInfo[]) {
+  DecTree::ScaleInfo(predInfo);
+  DeFactorySt();
+}
+
+
+/**
+   @brief Response entry for out-of-bag prediction.
 
    @param error outputs the prediction errors.
 
+   @param predInfo is an output vector parameter reporting predictor Info values.
+
    @return void, with output parameter vector.
  */
-void ResponseReg::PredictOOB(int *conf, double error[]) {
-  DecTree::PredictAcrossReg(error);
+void ResponseReg::PredictOOB(double error[], double predInfo[]) {
+  DecTree::PredictAcrossReg(error, true);
+  Finish(predInfo);
 }
+
 
 /**
    @brief Categorical entry for out-of-bag prediction.
@@ -340,10 +355,13 @@ void ResponseReg::PredictOOB(int *conf, double error[]) {
 
    @param error outputs the prediction errors.
 
+   @param predInfo is an output vector parameter reporting predictor Info values.
+
    @return void, with output parameters.
 */
-void ResponseCtg::PredictOOB(int *conf, double error[]) {
+void ResponseCtg::PredictOOB(int *conf, double error[], double predInfo[]) {
   DecTree::PredictAcrossCtg(yCtg, ctgWidth, conf, error);
+  Finish(predInfo);
 }
 
 /**
@@ -628,54 +646,3 @@ void ResponseReg::Scores(int treeHeight, double scores[]) {
 void ResponseCtg::Scores(int treeHeight, double scores[]) {
   SampleCtg::Scores(bagCount, ctgWidth, treeHeight, scores);
 }
-
-/**
-   @brief Virtual entry for quantile computation.
-
-   @param treeSize is the height of the pretree.
-
-   @param leafPos outputs the offsets of each quantile leaf.
-
-   @param leafExtent outputs the size of each quantile leaf.
-
-   @param rank outputs the ranks of the quantile leaves.
-
-   @param rankCount outputs the multiplicities of each rank.
-
-   @return void.
- */
-void Response::DispatchQuantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
-  response->Quantiles(treeSize, leafPos, leafExtent, rank, rankCount);
-}
-
-/**
-   @brief Error method indicating nonsensical categorical quantiles.
-
-   @return void.
- */
-void ResponseCtg::Quantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
-  cout << "Quantiles undefined for categorical response" << endl;
-  // error()
-}
-
-/**
-   @brief Regression entry for quantile computation.
-
-   @param treeSize is the height of the pretree.
-
-   @param leafPos outputs the offsets of each quantile leaf.
-
-   @param leafExtent outputs the size of each quantile leaf.
-
-   @param rank outputs the ranks of the quantile leaves.
-
-   @param rankCount outputs the multiplicities of each rank.
-
-   @return void.
- */
-void ResponseReg::Quantiles(int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
-  SampleReg::DispatchQuantiles(treeSize, bagCount, leafPos, leafExtent, rank, rankCount);
-}
-
-
-

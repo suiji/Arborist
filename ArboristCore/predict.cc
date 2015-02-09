@@ -19,44 +19,12 @@
 //
 
 #include "predict.h"
-#include "predictor.h"
 #include "dectree.h"
+#include "quant.h"
 #include "response.h"
 
 #include <iostream>
 using namespace std;
-
-int QuantSig::qCells = 0;
-double *QuantSig::qVec = 0;
-double *QuantSig::qPred = 0;
-
-/**
-   @brief Sets the global parameters for quantile prediction using storage provided by the front end.
-
-   @param _qVec
-
-   @param _qCells
-
-   @param _qPred
-
-   @return void.
- */
-void QuantSig::Factory(double *_qVec, int _qCells, double *_qPred) {
-  qCells = _qCells;
-  qVec = _qVec;
-  qPred = _qPred;
-}
-
-/**
-   @brief Unsets global state.
-
-   @return void.
-
- */
-void QuantSig::DeFactory() {
-  qCells = 0;
-  qVec = qPred = 0;
-}
 
 /**
    @brief Thin interface for reloading trained forest.
@@ -74,27 +42,8 @@ void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
    @return void.
  */
 
-void Predict::ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
-  DecTree::ForestReloadQuant(qYRanked, qYLen, qRankOrigin, qRank, qRankCount, qLeafPos, qLeafExtent);
-}
-
-/**
-   @brief Outputs Gini values of predictors and cleans up.
-
-   @param predGini is an output vector of predictor Gini values.
-
-   @return void, with output vector parameter.
- */
-void Predict::Finish(double predGini[]) {
-  DecTree::ScaleGini(predGini);
-  Response::DeFactorySt();
-}
-
-void Predict::PredictOOBQuant(double *err, double *quantVec, int qCells, double qPred[], double predGini[]) {
-  QuantSig::Factory(quantVec, qCells, qPred);
-  Response::response->PredictOOB(0, err);
-  QuantSig::DeFactory();
-  Finish(predGini);
+void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
+  Quant::FactoryPredict(nTree, qYRanked, qYLen, qRankOrigin, qRank, qRankCount, qLeafPos, qLeafExtent);
 }
 
 /**
@@ -102,29 +51,32 @@ void Predict::PredictOOBQuant(double *err, double *quantVec, int qCells, double 
 
    @param err is an output parameter containing the mean-square error.
 
-   @param predGini is an output vector parameter reporting predictor Gini values.
+   @param predInfo is an output vector parameter reporting predictor Info values.
 
    @return void, with output parameters.
  */
-void Predict::PredictOOBReg(double *err, double predGini[]) {
-  Response::response->PredictOOB(0, err);
-  Finish(predGini);
+void Predict::PredictOOBReg(double *err, double predInfo[]) {
+  ResponseReg::PredictOOB(err, predInfo);
 }
 
 /**
-   @brief Predicts using a classification forest on out-of-bag data.
+   @brief As above, but with quantile predictions as well.
 
-   @param conf outputs a confusion matrix.
+   @param err is an output parameter containing the mean-square error.
 
-   @param err outputs the mean-square error.
+   @param quantVec is an ordered vector of desired quantiles.
 
-   @param predGini outputs predictor Gini values.
+   @param qCount is the length of the quantVec vector.
+
+   @param qPred is the predicted quantile set.
+
+   @param predInfo is an output vector parameter reporting predictor Info values.
 
    @return void, with output parameters.
  */
-void Predict::PredictOOBCtg(int conf[], double *error, double predGini[]) {
-  Response::response->PredictOOB(conf, error);
-  Finish(predGini);
+void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, double qPred[], double predInfo[]) {
+  Quant::EntryPredict(quantVec, qCount, qPred);
+  ResponseReg::PredictOOB(err, predInfo);
 }
 
 /**
@@ -133,11 +85,9 @@ void Predict::PredictOOBCtg(int conf[], double *error, double predGini[]) {
    @return void, with output vector parameters.
  */
 
-void Predict::PredictQuant(double quantVec[], int qCells, double qPred[], double y[]) {
-  QuantSig::Factory(quantVec, qCells, qPred);
+void Predict::PredictQuant(int nRow, double quantVec[], int qCount, double qPred[], double y[]) {
+  Quant::EntryPredict(quantVec, qCount, qPred, nRow);
   DecTree::PredictAcrossReg(y, false);
-  DecTree::DeForestPredict();
-  Predictor::DeFactory();
 }
 
 /**
@@ -149,8 +99,21 @@ void Predict::PredictQuant(double quantVec[], int qCells, double qPred[], double
  */
 void Predict::PredictReg(double y[]) {
   DecTree::PredictAcrossReg(y, false);
-  DecTree::DeForestPredict();
-  Predictor::DeFactory();
+}
+
+/**
+   @brief Predicts using a classification forest on out-of-bag data.
+
+   @param conf outputs a confusion matrix.
+
+   @param err outputs the mean-square error.
+
+   @param predInfo outputs predictor Info values.
+
+   @return void, with output parameters.
+ */
+void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[]) {
+  ResponseCtg::PredictOOB(conf, error, predInfo);
 }
 
 /**
@@ -164,6 +127,4 @@ void Predict::PredictReg(double y[]) {
  */
 void Predict::PredictCtg(int y[], int ctgWidth) {
   DecTree::PredictAcrossCtg(y, ctgWidth, 0, 0, false);
-  DecTree::DeForestPredict();
-  Predictor::DeFactory();
 }

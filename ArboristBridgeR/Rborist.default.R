@@ -90,14 +90,14 @@
   # There is currently very little freedom in factory ordering.
   unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampWeight, withRepl)
 
-  .Call("RcppTrainInit", nTree, quantiles, minInfo, pvtBlock);
+  .Call("RcppTrainInit", nTree, minInfo, pvtBlock);
 
   ctgWidth <- .Call("RcppTrainResponse", y)
 
   facWidth <- integer(1)
   totBagCount <- integer(1)
   totQLeafWidth <- integer(1)
-  height <- .Call("RcppTrain", minNode, facWidth, totBagCount, totQLeafWidth, nLevel)
+  height <- .Call("RcppTrain", minNode, quantiles, facWidth, totBagCount, totQLeafWidth, nLevel)
   
   # The forest consists of trees specified by a splitting predictor and value, as
   # well as a Gini coefficient and subtree mean.

@@ -389,14 +389,12 @@ void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[
     int argMaxWeight = -1;
     for (int ctg = 0; ctg < ctgWidth; ctg++) {
       double thisWeight = ctgBase[ctg];
-      //cout << "Leaf " << leafIdx << " factor index: " << fac << ", weight:  " << thisWeight << endl;
       if (thisWeight > maxWeight) {
 	maxWeight = thisWeight;
 	argMaxWeight = ctg;
       }
     }
     score[leafIdx] = argMaxWeight; // For now, upcasts score to double, for compatability with DecTree.
-    //    cout << leafIdx << ":  " << maxWeightIdx << endl;
   }
   // ASSERTION:
   //  Can count nonterminals and verify #nonterminals == treeHeight - leafCount
@@ -459,7 +457,7 @@ void SampleCtg::TreeClear() {
 
    @return void, with output parameter vectors.
  */
-void SampleReg::DispatchQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
+void SampleReg::TreeQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
   // Must be wide enough to access all decision-tree offsets.
   int *seen = new int[treeSize];
   for (int i = 0; i < treeSize; i++) {

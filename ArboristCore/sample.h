@@ -83,7 +83,7 @@ class SampleReg : public Sample {
   static void Stage();
   static void Stage(int predIdx);
   static void Scores(int bagCount, int leafCount, double score[]);
-  static void DispatchQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
+  static void TreeQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
   static void TreeClear();
 };
 

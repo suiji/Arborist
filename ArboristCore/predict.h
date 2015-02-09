@@ -18,29 +18,16 @@
 #define ARBORIST_PREDICT_H
 
 /**
- @brief Quantile signature.
-*/
-class QuantSig {
- public:
-  static void DeFactory();
-  static void Factory(double *_qVec, int _qCells, double *_qPred);
-  static int qCells;
-  static double *qVec;
-  static double *qPred;
-};
-
-/**
  @brief Interface class for front end.
 */
 class Predict {
-  static void Finish(double predGini[]);
 public:
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
-  static void ForestReloadQuant(double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
-  static void PredictOOBQuant(double *err, double quantVec[], int qCells, double qPred[], double predGini[]);
-  static void PredictOOBReg(double *err, double predGini[]);
+  static void ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
+  static void PredictOOBQuant(double err[], double quantVec[], int qCount, double qPred[], double predGini[]);
+  static void PredictOOBReg(double err[], double predGini[]);
   static void PredictOOBCtg(int conf[], double *error, double predGini[]);
-  static void PredictQuant(double quantVec[], int qcells, double qPred[], double y[]);
+  static void PredictQuant(int nRow, double quantVec[], int qcells, double qPred[], double y[]);
   static void PredictReg(double y[]);
   static void PredictCtg(int y[], int ctgWidth);
 };

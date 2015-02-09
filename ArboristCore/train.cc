@@ -14,6 +14,7 @@
  */
 
 #include "dectree.h"
+#include "quant.h"
 #include "sample.h"
 #include "train.h"
 #include "predictor.h"
@@ -32,20 +33,16 @@ int Train::accumRealloc = -1;
 int Train::probResize = -1;
 int Train::nTree = -1;
 int Train::levelMax = -1;
-int Train::qCells = -1;
-double *Train::qVec = 0;
-bool Train::doQuantiles = false;
 double Train::minRatio = 0.0;
 int Train::blockSize = -1;
 int *Train::cdfOff = 0;
 double *Train::sCDF = 0;
+int Train::reLevel = 0;
 
 /**
    @brief Singleton factory:  everything is static.
 
    @param _nTree is the requested number of trees.
-
-   @param _quantiles is true iff quantiles have been requested.
 
    @param _minRatio is a threshold ratio for determining whether to split.
 
@@ -53,9 +50,8 @@ double *Train::sCDF = 0;
 
    @return void.
 */
-void Train::Factory(int _nTree, bool _quantiles, double _minRatio, int _blockSize) {
+void Train::Factory(int _nTree, double _minRatio, int _blockSize) {
   nTree = _nTree;
-  doQuantiles = _quantiles;
   blockSize = _blockSize;
   minRatio = _minRatio;
   accumRealloc = 0;
@@ -80,8 +76,6 @@ void Train::Factory(int _nTree, bool _quantiles, double _minRatio, int _blockSiz
   //
   levelMax = 1 << (accumExp >= (balancedDepth - 5) ? accumExp : balancedDepth - 5);
 }
-
-int Train::reLevel = 0;
 
 /**
    @brief Determines next level-max value.
@@ -145,6 +139,8 @@ int Train::ResponseCtg(const int y[], double yPerturb[]) {
 
    @param minH is the minimal index node size on which to split.
 
+   @param _quantiles is true iff quantiles have been requested.
+
    @param facWidth outputs the sum of factor cardinalities.
 
    @param totBagCount outputs the sum of all tree in-bag sizes.
@@ -155,17 +151,20 @@ int Train::ResponseCtg(const int y[], double yPerturb[]) {
 
    @return void.
 */
-int Train::Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels) {
+int Train::Training(int minH, bool _quantiles, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels) {
+  *totBagCount = 0;
   SplitSig::Factory(levelMax, Predictor::NPred());
   IndexNode::Factory(minH, totLevels);
   DecTree::FactoryTrain(nTree, Predictor::NRow(), Predictor::NPred(), Predictor::NPredNum(), Predictor::NPredFac());
+  Quant::FactoryTrain(Predictor::NRow(), nTree, _quantiles);
   for (int tn = 0; tn < nTree; tn++) {
     int bagCount = Response::SampleRows(levelMax);
     int treeSize = IndexNode::Levels();
     DecTree::ConsumePretree(Sample::inBag, bagCount, treeSize, tn);
     Response::TreeClearSt();
+    *totBagCount += bagCount;
   }
-  int forestHeight = DecTree::AllTrees(facWidth, totBagCount, totQLeafWidth);
+  int forestHeight = DecTree::AllTrees(facWidth, totQLeafWidth);
 
   DeFactory();
   Sample::DeFactory();
@@ -174,20 +173,6 @@ int Train::Training(int minH, int *facWidth, int *totBagCount, int *totQLeafWidt
   Predictor::DeFactory(); // Dispenses with training clone of 'x'.
 
   return forestHeight;
-}
-
-/**
-   @brief Main entry for quantile regression.
-
-   @param _qVec.
-
-   @param _qCells.
-
-   @return void.
- */
-void Train::Quantiles(double *_qVec, int _qCells) {
-  qCells = _qCells;
-  qVec = _qVec;
 }
 
 /**
@@ -238,5 +223,5 @@ void Train::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBu
    @return void, with output parameter vectors.
 */
 void Train::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
-  DecTree::WriteQuantile(rQYRanked, rQRankOrigin, rQRank, rQRankCount, rQLeafPos, rQLeafExtent);
+  Quant::Write(rQYRanked, rQRankOrigin, rQRank, rQRankCount, rQLeafPos, rQLeafExtent);
 }
