@@ -170,6 +170,7 @@ class NodeCache : public IndexNode {
     nc->preBias = nd->preBias;
     nc->ptId = nd->ptId;
     nc->minInfo = nd->minInfo;
+    nc->ptL = nc->ptR = -1; // Terminal until shown otherwise.
   }
 
   /**

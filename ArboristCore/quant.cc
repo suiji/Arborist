@@ -28,7 +28,6 @@ double *Quant::qPred = 0;
 
 // Nonzero iff quantiles stipulated for training.
 int *Quant::treeQRankWidth = 0;
-int *Quant::treeQLeafWidth = 0;
 int **Quant::treeQLeafPos = 0;
 int **Quant::treeQLeafExtent = 0;
 int **Quant::treeQRank = 0;
@@ -36,6 +35,7 @@ int **Quant::treeQRankCount = 0;
 
 int Quant::qYLenForest = -1;
 int Quant::totBagCount = -1;
+int Quant::forestSize = -1;
 
 // Nonzero iff quantiles tabulated.
 double *Quant::qYRankedForest = 0;
@@ -44,9 +44,6 @@ int *Quant::qRankForest = 0;
 int *Quant::qRankCountForest = 0;
 int *Quant::qLeafPosForest = 0;
 int *Quant::qLeafExtentForest = 0;
-
-int Quant::totQLeafWidth = -1;  // Size of compressed quantile leaf vector.
-
 
 /**
    @brief Entry for training path.
@@ -65,9 +62,9 @@ void Quant::FactoryTrain(int _nRow, int _nTree, bool _train) {
   nRow = _nRow;
   nTree = _nTree;
   totBagCount = 0;
+  forestSize = 0;
 
   treeQRankWidth = new int[nTree];
-  treeQLeafWidth = new int[nTree];
   treeQLeafPos = new int*[nTree];
   treeQLeafExtent = new int*[nTree];
   treeQRank = new int*[nTree];
@@ -75,7 +72,6 @@ void Quant::FactoryTrain(int _nRow, int _nTree, bool _train) {
 
   for (int i = 0; i < nTree; i++) { // Actually not necessary, as all trees have >= 1 leaf.
     treeQRankWidth[i] = 0;
-    treeQLeafWidth[i] = 0;
     treeQLeafPos[i] = 0;
     treeQLeafExtent[i] = 0;
     treeQRank[i] = 0;
@@ -89,6 +85,10 @@ void Quant::FactoryTrain(int _nRow, int _nTree, bool _train) {
 
  */
 void Quant::Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
+  // ASSERTION
+  //  if (!live)
+  //cout << "Attempting to write and deallocate unallocated quantile" << endl;
+
   for (int i = 0; i < nRow; i++)
     rQYRanked[i] = qYRankedForest[i];
 
@@ -99,7 +99,7 @@ void Quant::Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRa
     rQRank[i] = qRankForest[i];
     rQRankCount[i] = qRankCountForest[i];
   }
-  for (int i = 0; i < totQLeafWidth; i++) {
+  for (int i = 0; i < forestSize; i++) {
     rQLeafPos[i] = qLeafPosForest[i];
     rQLeafExtent[i] = qLeafExtentForest[i];
   }
@@ -111,7 +111,7 @@ void Quant::Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRa
   delete [] qLeafPosForest;
   delete [] qLeafExtentForest;
 
-  nRow = nTree = totQLeafWidth = totBagCount = qYLenForest = -1;
+  nRow = nTree = totBagCount = forestSize = qYLenForest = -1;
   qYRankedForest = 0;
   qRankOriginForest = 0;
   qRankForest = 0;
@@ -121,12 +121,12 @@ void Quant::Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRa
 
   // Tree-based quantile data.
   treeQRankWidth = 0;
-  treeQLeafWidth = 0;
   treeQLeafPos = 0;
   treeQLeafExtent = 0;
   treeQRank = 0;
   treeQRankCount = 0;;
 
+  live = false;
 }
 
 /**
@@ -185,31 +185,31 @@ void Quant::DeFactoryPredict() {
 
 
 /**
-   @brief Consolodates per-tree quantile information into single set of vectors.
+   @brief Consumes per-tree quantile information into forest-wide vectors.
 
-   @return sum of quantile leaf widths for the forest.
+   @return void.//sum of quantile leaf widths for the forest.
  */
-int Quant::ConsumeTrees(const int treeOriginForest[]) {
+void Quant::ConsumeTrees(const int treeOriginForest[], int _forestSize) {
   if (!live)
-    return 0;
+    return;
 
-  int totQRankWidth = 0;
+  forestSize = _forestSize;
+  totBagCount = 0;
 
   qYRankedForest = new double[nRow];
   qYLenForest = nRow;
-  Response::response->GetYRanked(qYRankedForest);
+  ResponseReg::GetYRanked(qYRankedForest);
 
   qRankOriginForest = new int[nTree];
   for (int tn = 0; tn < nTree; tn++) {
-    qRankOriginForest[tn] = totQRankWidth;
-    totQRankWidth += treeQRankWidth[tn]; // bagCount
-    totQLeafWidth += treeQLeafWidth[tn];
+    qRankOriginForest[tn] = totBagCount;
+    totBagCount += treeQRankWidth[tn]; // bagCount
   }
 
-  qRankForest = new int[totQRankWidth];
-  qRankCountForest = new int[totQRankWidth];
-  qLeafPosForest = new int[totQLeafWidth];
-  qLeafExtentForest = new int[totQLeafWidth];
+  qRankForest = new int[totBagCount];
+  qRankCountForest = new int[totBagCount];
+  qLeafPosForest = new int[forestSize];
+  qLeafExtentForest = new int[forestSize];
   for (int tn = 0; tn < nTree; tn++) {
     int *qRank = qRankForest + qRankOriginForest[tn];
     int *qRankCount = qRankCountForest + qRankOriginForest[tn];
@@ -222,7 +222,9 @@ int Quant::ConsumeTrees(const int treeOriginForest[]) {
 
     int *qLeafPos = qLeafPosForest + treeOriginForest[tn];
     int *qLeafExtent = qLeafExtentForest + treeOriginForest[tn];
-    for (int i = 0; i < treeQLeafWidth[tn]; i++) {
+    int end = (tn < (nTree - 1) ? treeOriginForest[tn + 1] : forestSize);
+    end -= treeOriginForest[tn];
+    for (int i = 0; i < end; i++) {
       qLeafPos[i] = treeQLeafPos[tn][i];
       qLeafExtent[i] = treeQLeafExtent[tn][i];
     }
@@ -231,13 +233,10 @@ int Quant::ConsumeTrees(const int treeOriginForest[]) {
   }
 
   delete [] treeQRankWidth;
-  delete [] treeQLeafWidth;
   delete [] treeQRank;
   delete [] treeQRankCount;
   delete [] treeQLeafPos;
   delete [] treeQLeafExtent;
-
-  return totQLeafWidth;
 }
 
 /**
@@ -251,14 +250,11 @@ int Quant::ConsumeTrees(const int treeOriginForest[]) {
 
   @return void.
 */
-// TODO:  Exit treeQLeafWidth, as size is known.
 void Quant::TreeRanks(int tn, int treeSize, int bagCount) {
   if (!live)
     return;
 
-  totBagCount += bagCount;
   treeQRankWidth[tn] = bagCount;
-  treeQLeafWidth[tn] = treeSize;
 
   int *qLeafPos = new int[treeSize];
   treeQLeafPos[tn] = qLeafPos;

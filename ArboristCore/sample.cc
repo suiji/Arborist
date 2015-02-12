@@ -447,45 +447,45 @@ void SampleCtg::TreeClear() {
 
    @param bagCount is the size of the in-bag sample set.
 
-   @param leafPos outputs the offsets of each quantile leaf.
+   @param qLeafPos outputs quantile leaf offsets; vector length treeSize.
 
-   @param leafExtent outputs the sizes of each quantile leaf.
+   @param qLeafExtent outputs quantile leaf sizes; vector length treeSize.
 
-   @param rank outputs the ranks of each quantile leaf.
+   @param rank outputs quantile leaf ranks; vector length bagCount.
 
-   @param rankCount outputs the multiplicities of each quantile leaf rank.
+   @param rankCount outputs rank multiplicities; vector length bagCount.
 
    @return void, with output parameter vectors.
  */
-void SampleReg::TreeQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]) {
-  // Must be wide enough to access all decision-tree offsets.
+void SampleReg::TreeQuantiles(int treeSize, int bagCount, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
+  // Must be wide enough to access all tree offsets.
   int *seen = new int[treeSize];
   for (int i = 0; i < treeSize; i++) {
     seen[i] = 0;
-    leafExtent[i] = 0;
-    leafPos[i] = -1;
+    qLeafExtent[i] = 0;
   }
   for (int sIdx = 0; sIdx < bagCount; sIdx++) {
     int leafIdx = PreTree::Sample2Leaf(sIdx);
-    leafExtent[leafIdx]++;
+    qLeafExtent[leafIdx]++;
   }
 
   int totCt = 0;
   for (int i = 0; i < treeSize; i++) {
-    if (leafExtent[i] > 0) {
-      leafPos[i] = totCt;
-      totCt += leafExtent[i];
-    }
+    int leafExtent = qLeafExtent[i];
+    qLeafPos[i] = leafExtent > 0 ? totCt : -1;
+    totCt += leafExtent;
   }
+  // By this point qLeafExtent[i] > 0 iff the node at tree offset 'i' is a leaf.
+  // Similarly, qLeafPos[i] >= 0 iff this is a leaf.
 
   for (int sIdx = 0; sIdx < bagCount; sIdx++) {
     // ASSERTION:
     //    if (rk > Predictor::nRow)
     //  cout << "Invalid rank:  " << rk << " / " << Predictor::nRow << endl;
     int leafIdx = PreTree::Sample2Leaf(sIdx);
-    int rkOff = leafPos[leafIdx] + seen[leafIdx];
-    rank[rkOff] = sample2Rank[sIdx];
-    rankCount[rkOff] = sampleReg[sIdx].rowRun;
+    int rkOff = qLeafPos[leafIdx] + seen[leafIdx];
+    qRank[rkOff] = sample2Rank[sIdx];
+    qRankCount[rkOff] = sampleReg[sIdx].rowRun;
     seen[leafIdx]++;
   }
 

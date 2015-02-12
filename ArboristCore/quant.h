@@ -26,14 +26,13 @@ class Quant {
 
   // Per-tree quantile vectors.
   static int *treeQRankWidth;
-  static int *treeQLeafWidth;
   static int **treeQLeafPos;
   static int **treeQLeafExtent;
   static int **treeQRank;
   static int **treeQRankCount;
 
   static int totBagCount; // Internally-maintained copy.
-  static int totQLeafWidth;
+  static int forestSize; // " " 
   static double *qYRankedForest;
   static int qYLenForest; // Length of training response.
   static int *qRankOriginForest;
@@ -47,7 +46,7 @@ class Quant {
   static void FactoryPredict(int _nTree, double qYRanked[], int qYLen, int qRank[], int qRankOrigin[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
   static void EntryPredict(double _qVec[], int _qCount, double _qPred[], int _nRow = 0);
   static void DeFactoryPredict();
-  static int ConsumeTrees(const int treeOriginForest[]);
+  static void ConsumeTrees(const int treeOriginForest[], int forestSize);
   static void TreeRanks(int tn, int treeSize, int bagCount);
   static void Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]);
   static void PredictRows(const int treeOriginForest[], int *predictLeaves);

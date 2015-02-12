@@ -7,7 +7,7 @@ Author: Mark Seligman
 Maintainer: Mark Seligman <mseligman@suiji.org>
 SystemRequirements: gcc (release >= 4.5).
 Description: Scalable decision tree training and prediction.
-URL: http://www.suiji.org/arborist, https://github.com/suiji/arborist
+URL: http://www.suiji.org/arborist, https://github.com/suiji/Arborist
 License: MPL-2 | GPL (>= 2) | file LICENSE
 LazyLoad: yes
 Depends: RcppArmadillo (>= 0.4.500.0), Rcpp (>= 0.10.1), R(>= 3.1)

@@ -32,10 +32,10 @@ class DecTree {
   static int nPredFac;
   static int *treeSizes;
   static int *treeOriginForest;
-  static int **treePreds;
-  static double **treeSplits;
-  static double **treeScores;
-  static int **treeBumps;
+  static int **predTree;
+  static double **splitTree;
+  static double **scoreTree;
+  static int **bumpTree;
   static int *treeFacWidth; // Per-tree:  # factors subsumed by splits.
   static int **treeFacSplits; // Per-tree:  temporary vectors holding factor values.
   static int *facOffForest;
@@ -49,7 +49,7 @@ class DecTree {
   static unsigned int *inBag; // Train only.
   static int forestSize;
 
-  static void ConsumeSplitBits(int treeNum, int facWidth);
+  static void ConsumeSplitBits(int treeNum);
   static void SetBagRow(const bool sampledRows[], int treeNum);
   static bool InBag(int treeNum, int row);
   static void PredictRowNumReg(int row, double[], int leaves[], bool useBag);
@@ -70,7 +70,7 @@ class DecTree {
   static const int leafPred = INT_MIN; // Positive counterpart not representable as int.
   static void ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum);
   static void FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac);
-  static int AllTrees(int *cumFacWidth, int *totQLeafWidth);
+  static int ConsumeTrees(int &cumFacWidth);
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
   static void ScaleInfo(double*);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);

@@ -31,47 +31,6 @@ using namespace Rcpp;
 #include "train.h"
 
 /**
-   @brief Dispatches factories for Train class, according to response type.
-
-   @param sY is the response vector.
-
-   @return Number of categories if classifying, otherwise zero.
-
- */
-int FormResponse(SEXP sY) {
-  int ctgWidth = 0;
-  if (TYPEOF(sY) == REALSXP) {
-    NumericVector y(sY);
-    Train::ResponseReg(y.begin());
-  }
-  else if (TYPEOF(sY) == INTSXP) {
-    IntegerVector yOneBased(sY);
-    IntegerVector y = yOneBased - 1;
-    RNGScope scope;
-    NumericVector rn(runif(y.length()));
-    ctgWidth = Train::ResponseCtg(y.begin(), rn.begin());
-  }
-  else {
-    //TODO:  flag error for unanticipated response types.
-  }
-
-  return ctgWidth;
-}
-
-/**
-   @brief R-language interface to response caching.
-
-   @parm sY is the response vector
-
-   @return Wrapped count of category levels, if applicable.
- */
-RcppExport SEXP RcppTrainResponse(SEXP sY) {
-  int ctgWidth = FormResponse(sY);
-
-  return wrap(ctgWidth);
-}
-
-/**
    @brief Lights off intializations for Train class, which drives training.
 
    @param sNTree is the number of trees requested.
@@ -80,12 +39,12 @@ RcppExport SEXP RcppTrainResponse(SEXP sY) {
 
    @param sBlockSize is a block size, tuned for performance.
 
-   @return Wrapped zero.
+   @return Wrapped level-max value.
  */
 RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sMinRatio, SEXP sBlockSize) {
-  Train::Factory(as<int>(sNTree), as<double>(sMinRatio), as<int>(sBlockSize));
+  int levelMax = Train::Factory(as<int>(sNTree), as<double>(sMinRatio), as<int>(sBlockSize));
 
-  return wrap(0);
+  return wrap(levelMax);
 }
 
 /**
@@ -99,18 +58,18 @@ RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sMinRatio, SEXP sBlockSize) {
 
    @param sTotBagCount is an output scalar giving the sum of in-bag sizes.
 
-   @param sTotQLeafWidth is an output scalar recording the sum of quantile-vectors sizes.
-
    @param sTotLevels is an upper bound on the number of levels to construct for each tree.
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotQLeafWidth, SEXP sTotLevels) {
+RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotLevels) {
   IntegerVector facWidth(sFacWidth);
   IntegerVector totBagCount(sTotBagCount);
-  IntegerVector totQLeafWidth(sTotQLeafWidth);
 
-  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), facWidth.begin(), totBagCount.begin(), totQLeafWidth.begin(), as<int>(sTotLevels));
+  int fw, tbc;
+  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), as<int>(sTotLevels), fw, tbc);
+  facWidth[0] = fw;
+  totBagCount[0] = tbc;
 
   return wrap(forestHeight);
 }

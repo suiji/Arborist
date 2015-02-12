@@ -48,9 +48,9 @@ int Train::reLevel = 0;
 
    @param _blockSize is a predictor-blocking heuristic for parallel implementations.
 
-   @return void.
+   @return level-max value.
 */
-void Train::Factory(int _nTree, double _minRatio, int _blockSize) {
+int Train::Factory(int _nTree, double _minRatio, int _blockSize) {
   nTree = _nTree;
   blockSize = _blockSize;
   minRatio = _minRatio;
@@ -75,7 +75,10 @@ void Train::Factory(int _nTree, double _minRatio, int _blockSize) {
   // trees.  Categorical trees may require "unlimited" depth.
   //
   levelMax = 1 << (accumExp >= (balancedDepth - 5) ? accumExp : balancedDepth - 5);
+
+  return levelMax;
 }
+
 
 /**
    @brief Determines next level-max value.
@@ -109,31 +112,6 @@ void Train::DeFactory() {
   reLevel = 0;
 }
 
-
-/**
-   @brief Main entry for regression response.
-
-   @param y is the response.
-
-   @return void.
-*/
-void Train::ResponseReg(double y[]) {
-  Response::FactoryReg(y, levelMax);
-}
-
-/**
-   @brief Main entry for categorical response.
-
-   @param y is the response.
-
-   @param yPerturb outputs proxy response.
-
-   @return void, with output vector parameter.
- */
-int Train::ResponseCtg(const int y[], double yPerturb[]) {
-  return Response::FactoryCtg(y, yPerturb, levelMax);
-}
-
 /**
    @brief Main entry for training after singleton factory.
 
@@ -145,14 +123,12 @@ int Train::ResponseCtg(const int y[], double yPerturb[]) {
 
    @param totBagCount outputs the sum of all tree in-bag sizes.
 
-   @param totQLeafWidth outputs the sum of quantile leaf sizes.
-
    @param totLevels, if positive, limits the number of levels to build.
 
    @return void.
 */
-int Train::Training(int minH, bool _quantiles, int *facWidth, int *totBagCount, int *totQLeafWidth, int totLevels) {
-  *totBagCount = 0;
+int Train::Training(int minH, bool _quantiles, int totLevels, int &facWidth, int &totBagCount) {
+  totBagCount = 0;
   SplitSig::Factory(levelMax, Predictor::NPred());
   IndexNode::Factory(minH, totLevels);
   DecTree::FactoryTrain(nTree, Predictor::NRow(), Predictor::NPred(), Predictor::NPredNum(), Predictor::NPredFac());
@@ -162,9 +138,9 @@ int Train::Training(int minH, bool _quantiles, int *facWidth, int *totBagCount, 
     int treeSize = IndexNode::Levels();
     DecTree::ConsumePretree(Sample::inBag, bagCount, treeSize, tn);
     Response::TreeClearSt();
-    *totBagCount += bagCount;
+    totBagCount += bagCount;
   }
-  int forestHeight = DecTree::AllTrees(facWidth, totQLeafWidth);
+  int forestHeight = DecTree::ConsumeTrees(facWidth);
 
   DeFactory();
   Sample::DeFactory();

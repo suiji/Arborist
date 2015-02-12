@@ -323,8 +323,6 @@ void NodeCache::Splitable(int level) {
   splitSig = SplitSig::ArgMax(splitIdx, level, preBias, minInfo);
   if (splitSig != 0) // Tags PreTree node as splitable.
     splitSig->NonTerminal(splitIdx, level,  ptId, lhStart);
-  else
-    ptL = ptR = -1;  // Prevents restaging.
 }
 
 /**
@@ -386,6 +384,7 @@ void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
   int lhIdxCount = 0;
   int lNext = -1;
   int rNext = -1;
+  int splitIdx = this - nodeCache;
   if (splitSig != 0) {
     // Pre-tree nodes (PreTree) for both sides are initialized as leaves (i.e.,
     // terminal), and are only later updated as splits if found to be splitable
@@ -396,11 +395,9 @@ void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
     // With LH and RH PreTree indices known, the sample indices associated with
     // this split node can be looked up and remapped.  Replay() assigns actual
     // index values, irrespective of whether the pre-tree nodes at these indices
-    // are terminal or non-terminal.  Hence the current 'restage' values suffice
-    // to convey this information, although these may later be reset to a negative
-    // value if found to reference terminals.
+    // are terminal or non-terminal.
     //
-    double lhSum = splitSig->Replay(this - nodeCache, ptL, ptR);
+    double lhSum = splitSig->Replay(splitIdx, ptL, ptR);
 
     // Index tree nodes (IndexNode), OTOH, are only made for those sides with the
     // potential to split - that is, which are not already known to be terminal.
@@ -410,26 +407,15 @@ void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
     // ordering as is assigned by restaging, which effects a stable partition of
     // this level's predictor sample orderings (SampleOrd).
     //
-    // Sides flagged as terminal have the respective 'restage' field reset to a
-    // negative value.  This ensures that restaging does not attempt to copy its
-    // contents.  Note that it is possible for both right and left sides to be
-    // found terminal.  Such nodes will be ignored by restaging, for the same
-    // reason that nodes found unsplitable during this interlevel pass are ignored,
-    // i.e., by virtue of having both 'restage' fields set to negative values.
-    //
     int lhSCount;
     splitSig->LHSizes(lhSCount, lhIdxCount);
     double minInfoNext = splitSig->MinInfo();
 
-    if (TerminalSize(lhSCount, lhIdxCount))
-      ptL = -1;  // Reset to flag terminality.  EXIT?
-    else {
+    if (!TerminalSize(lhSCount, lhIdxCount)) {
       lNext = lhSplitCount++;
       IndexNode::NextLevel(lNext, ptL, lhIdxCount, lhSCount, lhSum, minInfoNext);
     }
-    if (TerminalSize(sCount - lhSCount, idxCount - lhIdxCount))
-      ptR = -1; // Reset to flag terminality.  EXIT?
-    else {
+    if (!TerminalSize(sCount - lhSCount, idxCount - lhIdxCount)) {
       rNext = lhSplitNext + rhSplitCount++;
       IndexNode::NextLevel(rNext, ptR, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, minInfoNext);
     }
@@ -437,7 +423,7 @@ void NodeCache::Consume(int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
 
   // Consumes all fields essential for restaging.
   //
-  RestageMap::ConsumeSplit(this - nodeCache, lNext, rNext, lNext >= 0 ? lhIdxCount : 0, rNext >= 0 ? idxCount - lhIdxCount : 0);
+  RestageMap::ConsumeSplit(splitIdx, lNext, rNext, lNext >= 0 ? lhIdxCount : 0, rNext >= 0 ? idxCount - lhIdxCount : 0);
 }
 
 /**

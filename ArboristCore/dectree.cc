@@ -30,10 +30,10 @@ using namespace std;
 
 int *DecTree::treeOriginForest = 0; // Output to front-end.
 int *DecTree::treeSizes = 0; // Internal use only.
-int **DecTree::treePreds = 0;
-double **DecTree::treeSplits = 0;
-double **DecTree::treeScores = 0;
-int **DecTree::treeBumps = 0;
+int **DecTree::predTree = 0;
+double **DecTree::splitTree = 0;
+double **DecTree::scoreTree = 0;
+int **DecTree::bumpTree = 0;
 
 // Nonzero iff factor appear in decision tree.
 //
@@ -84,10 +84,10 @@ void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int
   treeOriginForest = new int[nTree];
   treeSizes = new int[nTree];
   predInfo = new double[nPred];
-  treePreds = new int*[nTree];
-  treeSplits = new double*[nTree];
-  treeScores = new double*[nTree];
-  treeBumps = new int*[nTree];
+  predTree = new int*[nTree];
+  splitTree = new double*[nTree];
+  scoreTree = new double*[nTree];
+  bumpTree = new int*[nTree];
   treeFacWidth = new int[nTree]; // Factor width counts of individual trees.
   treeFacSplits = new int* [nTree]; // Tree-based factor split values.
   for (int i = 0; i < nPred; i++)
@@ -177,10 +177,10 @@ void DecTree::DeFactoryPredict() {
 void DecTree::DeFactory() {
   delete [] treeSizes;
   delete [] treeOriginForest;
-  delete [] treePreds; // Contents deleted at consumption.
-  delete [] treeSplits; // "
-  delete [] treeScores; // "
-  delete [] treeBumps; // "
+  delete [] predTree; // Contents deleted at consumption.
+  delete [] splitTree; // "
+  delete [] scoreTree; // "
+  delete [] bumpTree; // "
   delete [] treeFacWidth;
   delete [] treeFacSplits; // Inidividual components deleted when tree written.
   delete [] inBag;
@@ -198,10 +198,10 @@ void DecTree::DeFactory() {
 
   treeSizes = 0;
   treeOriginForest = 0;
-  treePreds = 0;
-  treeSplits = 0;
-  treeScores = 0;
-  treeBumps = 0;
+  predTree = 0;
+  splitTree = 0;
+  scoreTree = 0;
+  bumpTree = 0;
   nTree = forestSize = -1;
   treeFacWidth = 0;
   treeFacSplits = 0;
@@ -214,32 +214,24 @@ void DecTree::DeFactory() {
 }
 
 /**
-   @brief Gathers all tree-based information and builds forest-wide data structures.
+   @brief Consumes remaining tree-based information into forest-wide data structures.
 
    @param cumFacWidth outputs the sum of all widths of factor bitvectors.
 
-   @param cumBagWidth outputs the sum of all tree bag sizes.
-
-   @param cumQLeafWidth outputs the sum of all quantile leaf sizes.
-
-   @return Length of forest-wide vectors, plus output vector parameters.
+   @return Length of forest-wide vectors, plus output reference parameter.
 
  */
-int DecTree::AllTrees(int *cumFacWidth, int *cumQLeafWidth) {
+int DecTree::ConsumeTrees(int &cumFacWidth) {
   facOffForest = new int[nTree];
 
-  // Returns sum of factor widths so that R caller can allocate vector holding all
-  // splitting values.
-  //
-  int totFacWidth = 0;
+  cumFacWidth = 0;
   for (int tn = 0; tn < nTree; tn++) {
-    facOffForest[tn] = totFacWidth;
-    totFacWidth += treeFacWidth[tn];
+    facOffForest[tn] = cumFacWidth;
+    cumFacWidth += treeFacWidth[tn];
   }
-  *cumFacWidth = totFacWidth;
 
-  if (totFacWidth > 0) {
-    facSplitForest = new int[totFacWidth];
+  if (cumFacWidth > 0) {
+    facSplitForest = new int[cumFacWidth];
 
     int *facSplit = facSplitForest;
     for (int tn = 0; tn < nTree; tn++) {
@@ -256,50 +248,49 @@ int DecTree::AllTrees(int *cumFacWidth, int *cumQLeafWidth) {
     }
   }
 
-  int totQLeafWidth = Quant::ConsumeTrees(treeOriginForest);
   predForest = new int[forestSize];
   splitForest = new double[forestSize];
   scoreForest = new double[forestSize];
   bumpForest = new int[forestSize];
-  //  for (int i = 0; i < forestSize; i++) // TODO:  Necessary?
-	//predForest[i] = leafPred;
 
-  // Consumes individual trees into forest-wide vectors.
-  //
   for (int i = 0; i < nTree; i++) {
     int start = treeOriginForest[i];
-    int treeSize = treeSizes[i];
-    for (int j = 0; j < treeSize; j++) {
-      int pred = treePreds[i][j];
-      predForest[start + j] = pred;
-      double split = treeSplits[i][j];
-      splitForest[start + j] = split;
-      scoreForest[start + j] = treeScores[i][j];
-      bumpForest[start + j] = treeBumps[i][j];
+    for (int j = 0; j < treeSizes[i]; j++) {
+      predForest[start + j] = predTree[i][j];
+      splitForest[start + j] = splitTree[i][j];
+      scoreForest[start + j] = scoreTree[i][j];
+      bumpForest[start + j] = bumpTree[i][j];
     }
-    delete [] treePreds[i];
-    delete [] treeSplits[i];
-    delete [] treeScores[i];
-    delete [] treeBumps[i];
+    delete [] predTree[i];
+    delete [] splitTree[i];
+    delete [] scoreTree[i];
+    delete [] bumpTree[i];
   }
+  Quant::ConsumeTrees(treeOriginForest, forestSize);
 
-  *cumQLeafWidth = totQLeafWidth;
   return forestSize;
 }
 
 /**
-  @brief Implements the handshake between pre-tree consumption and decision-tree production.
-Tells pre-tree to blow itself away when done.
+  @brief Consumes pretree into per-tree data structures.
+
+  @param _inBag enumerates the bagged rows for the current tree.
+
+  @param bagCount is the number of bagged rows.
+
+  @param treeSize is the number of nodes in this tree.
+
+  @param treeNum is the zero-based tree number.
 
   @return void
 */
 void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum) {
   SetBagRow(_inBag, treeNum);
   treeSizes[treeNum] = treeSize;
-  treePreds[treeNum] = new int[treeSize];
-  treeSplits[treeNum] = new double[treeSize];
-  treeBumps[treeNum] = new int[treeSize];
-  treeScores[treeNum] = new double[treeSize];
+  predTree[treeNum] = new int[treeSize];
+  splitTree[treeNum] = new double[treeSize];
+  bumpTree[treeNum] = new int[treeSize];
+  scoreTree[treeNum] = new double[treeSize];
 
   // Employs data freed by pretree consumption, so must be called here.
   //
@@ -307,9 +298,9 @@ void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, in
 
   // Consumes pretree nodes, ranks and split bits via separate calls.
   //
-  PreTree::ConsumeNodes(leafPred, treePreds[treeNum], treeSplits[treeNum], treeBumps[treeNum], treeScores[treeNum]);
+  PreTree::ConsumeNodes(leafPred, predTree[treeNum], splitTree[treeNum], bumpTree[treeNum], scoreTree[treeNum]);
 
-  ConsumeSplitBits(treeNum, PreTree::SplitFacWidth());
+  ConsumeSplitBits(treeNum);
 
   treeOriginForest[treeNum] = forestSize;
   forestSize += treeSize;
@@ -324,7 +315,8 @@ void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, in
 
  @return void.
 */
-void DecTree::ConsumeSplitBits(int treeNum, int facWidth) {
+void DecTree::ConsumeSplitBits(int treeNum) {
+  int facWidth = PreTree::SplitFacWidth();
   treeFacWidth[treeNum] = facWidth;
   if (facWidth > 0) {
     treeFacSplits[treeNum] = new int[facWidth];
@@ -490,8 +482,11 @@ void DecTree::PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double
 void DecTree::PredictAcrossNumCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag) {
   double *rowSlice = new double[nPred];
   int *rowPred = new int[ctgWidth];
-
-  for (int row = 0; row < nRow; row++) {
+  // TODO:  Parallelize.  There can be considerable false sharing if 'ctgWidth'
+  // is small, so row-based approach may need to be reconsidered.
+  // Mut. mut. for the other two methods.
+  int row;
+  for (row = 0; row < nRow; row++) {
     // double jitter = 1 + ResponseCtg::Jitter(row);
     PredictRowNumCtg(row, rowSlice, ctgWidth, rowPred, useBag);
     int argMax = -1;
@@ -667,6 +662,9 @@ void DecTree::PredictAcrossNumReg(double prediction[], int *predictLeaves, bool 
   double *transpose = new double[nPred * nRow];
   int row;
 
+  // N.B.:  Parallelization by row assumes that nRow >> nTree.
+  // TODO:  Consider blocking, to cut down on memory.  Mut. mut. for the
+  // other two methods.
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
@@ -705,6 +703,7 @@ void DecTree::PredictAcrossFacReg(double prediction[], int *predictLeaves, bool 
 
 #pragma omp parallel default(shared) private(row)
   {
+#pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
     double score = 0.0;
     int treesSeen = 0;

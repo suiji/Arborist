@@ -41,16 +41,20 @@ int *ResponseReg::sample2Rank = 0;
 int *ResponseReg::row2Rank = 0;
 double *ResponseReg::yRanked = 0;
 
+
+void Response::FactoryReg(double yNum[], int levelMax) {
+  ResponseReg::Factory(yNum, levelMax);
+}
 /**
    @brief Regression-specific entry to factory methods.
 
-   @param yNum is the response vector.
+   @param yNum is the front end's response vector.
 
    @param levelMax is the current level-max value.
 
    @return void.
  */
-void Response::FactoryReg(double *yNum, int levelMax) {
+void ResponseReg::Factory(double yNum[], int levelMax) {
   nRow = Sample::NRow();
   response = new ResponseReg(yNum);
   SPReg::Factory(levelMax);
@@ -59,44 +63,58 @@ void Response::FactoryReg(double *yNum, int levelMax) {
 /**
    @base Classification-specific entry to factory methods.
 
-   @param _yCtg is the response vector
+   @param feCtg is the response vector supplied by the front end.
 
-   @param _perturb is a vector of numerical proxy values.
+   @param feProxy is a vector of numerical proxy values from the front end.
 
-   @param levelMax is the current level-max value.
+   @param ctgWidth is the cardinality of the response.
 
-   @return cardinality of the response.
+   @return void.
  */
 // Requires an unadulterated zero-based version of the factor response as well as a
 // clone subject to reordering.
 //
-int Response::FactoryCtg(const int _yCtg[], double perturb[], int levelMax) {
+void Response::FactoryCtg(const int feCtg[], const double feProxy[], int ctgWidth, int levelMax) {
   nRow = Sample::NRow();
 
-  int ctgWidth = ResponseCtg::Factory(_yCtg, perturb, levelMax);
+  ResponseCtg::Factory(feCtg, feProxy, ctgWidth, levelMax);
   SPCtg::Factory(levelMax, ctgWidth);
-
-  return ctgWidth;
 }
 
 /**
-   @base Lights off initializations specific to classification.
+   @base Copies front-end vectors and lights off initializations specific to classification.
 
-   @paramm yCtg is the response vector.
+   @param feCtg is the front end's response vector.
 
-   @param perturb is a vector of proxy values.
+   @param feProxy is the front end's vector of proxy values.
+
+   @param ctgWidth is the cardinality of the response.
 
    @param levelMax is the current level-max value.
 
-   @return cardinality of response.
+   @return void.
 */
-int ResponseCtg::Factory(const int _yCtg[], double perturb[], int levelMax) {
+void ResponseCtg::Factory(const int feCtg[], const double feProxy[], int _ctgWidth, int levelMax) {
+  ctgWidth = _ctgWidth;
   treeJitter = new double[nRow];
   sumSquares = new double[levelMax];
-  response =  new ResponseCtg(_yCtg, perturb, ctgWidth);
+  yCtg = new int[nRow];
+  double *_proxy = new double[nRow];
+  for (int i = 0; i < nRow; i++) {    
+    yCtg[i] = feCtg[i];
+    _proxy[i] = feProxy[i];
+  }
+  response = new ResponseCtg(_proxy);
   ctgSum = new double[levelMax * ctgWidth];
+}
 
-  return ctgWidth;
+/**
+ @brief Constructor for categorical response.
+
+ @param _proxy is the associated numerical proxy response.
+
+*/
+ResponseCtg::ResponseCtg(double _proxy[]) : Response(_proxy) {
 }
 
 /**
@@ -144,12 +162,6 @@ ResponseReg::~ResponseReg() {
   yRanked = 0;
 }
 
-/**
-   @brief Dummy error method to flag nonsensical categorical quantiles.
-*/
-void ResponseCtg::GetYRanked(double yRanked[]) {
-  cout << "Quantile regression not supported for categorical response" << endl;
-}
 
 /**
  @brief Copies ranked response into caller's buffer.  Quantiles is the only client.
@@ -161,21 +173,6 @@ void ResponseCtg::GetYRanked(double yRanked[]) {
 void ResponseReg::GetYRanked(double _yRanked[]) {
   for (int i = 0; i < nRow; i++)
     _yRanked[i] = yRanked[i];
-}
-
-/**
- @brief Constructor for categorical response.
-
- @param _yCtg is a stack temporary, so its contents must be copied and saved.
-
- @param perturb is the associated numerical proxy response.
-
- @param _ctgWidth outputs the response cardinality.
-*/
-ResponseCtg::ResponseCtg(const int _yCtg[], double perturb[], int &_ctgWidth) : Response(CtgFreq(_yCtg, perturb, _ctgWidth)) {
-  yCtg = new int[nRow];
-  for (int i = 0; i < nRow; i++)
-    yCtg[i] = _yCtg[i];
 }
 
 /**
@@ -234,86 +231,6 @@ ResponseCtg::~ResponseCtg() {
   delete [] treeJitter;
   yCtg = 0;
   treeJitter = 0;
-}
-
-/**
-   @brief Computes relative frequencies of the various categories.
-
-   @param yCtg is the categorical response vector.
-   
-   @param perturb is the proxy response vector.
-
-   @param _ctgWidth outputs the response cardinality.
-
-   @return Vector of corresponding frequencies, plus output parameter.
-*/
-// TODO:  Perhaps implemented more succinctly in front end.
-double *ResponseCtg::CtgFreq(const int _yCtg[], double perturb[], int &_ctgWidth) {
-  // Sorts a copy of the response, retaining the permutation induced.
-  //
-  int *yCtgClone = new int[nRow];
-  for (int i = 0; i < nRow; i++) {    
-    yCtgClone[i] = _yCtg[i];
-  }
-
-  int *perm = new int[nRow];
-  for (int i = 0; i < nRow; i++) {
-    perm[i] = i;
-  }
-  CallBack::QSortI(yCtgClone, perm, 1, nRow);
-
-  // Walks sorted copy of '_yCtg[]' and over-writes with run cumulative
-  // run lengths, from the second index up.
-  //
-  // '_ctgWidth' is assigned the number of distinct runs.
-  //
-  int yLast = yCtgClone[0];
-  int runLength = 1;
-  int numRuns = 1;
-  for (int i = 1; i < nRow; i++) {
-    int val = yCtgClone[i];
-    if (yCtgClone[i] == yLast)
-      runLength++;
-    else {
-      numRuns++;
-      runLength = 1;
-    }
-    yLast = val;
-    yCtgClone[i] = runLength;
-  }
-  if (numRuns < 2) // ASSERTION
-    cout << "Single class tree" << endl;
-
-  // Maintains a vector of compressed factors.
-  //
-  _ctgWidth = numRuns;
-  double *yNum = new double[nRow]; // Freed by 'response' destructor.
-
-  yLast = -1; // Dummy value to force new run on entry.
-  // Scaled by conservative upper bound on interference:
-  double recipRow = 1.0 / double(nRow);
-  double scale = 0.5 * recipRow;
-  for (int i = nRow - 1; i >= 0; i--) {
-    if (yCtgClone[i] >= yLast) { // New run, possibly singleton:  resets length;
-      runLength = yCtgClone[i];
-    }
-    yLast = yCtgClone[i];
-    int idx = perm[i];
-    // Assigns runlength frequency to the fractional part,
-    // jittered by +- a value on a similar scale.
-    yNum[idx] = recipRow * double(runLength) + scale * (perturb[i] - 0.5);
-  }
-
-  // Needs to be moved to a spot after 'nTree' is set.
-  //  double treeBound = 2.0 * double(Train::nTree);
-  //for (int i = 0; i < Train::nTree; i++)
-  //treeJitter[i] = (perturb[i] - 0.5) / treeBound;
-
-  delete [] perm;
-  delete [] yCtgClone;
-
-  return yNum;
-  // Postcond:  numRuns == 0;
 }
 
 double ResponseCtg::Jitter(int row) {
