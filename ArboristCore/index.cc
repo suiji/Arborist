@@ -22,7 +22,8 @@
 #include "splitpred.h"
 #include "samplepred.h"
 
-#include <iostream>
+// Testing only:
+//#include <iostream>
 using namespace std;
 
 
@@ -303,8 +304,8 @@ void NodeCache::NextLevel(int splitCount, int lhSplitNext, int totLhIdx, bool re
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++)
     nodeCache[splitIdx].Consume(lhSplitNext, lhCount, rhCount);
 
-  if (lhSplitNext != lhCount) // ASSERTION
-    cout << "Next level split-count mismatch" << endl;
+  //  if (lhSplitNext != lhCount) // ASSERTION
+	//cout << "Next level split-count mismatch" << endl;
 
   // Reallocates vectors potentially referenced by objects in the node cache.
   //

@@ -25,7 +25,9 @@
 
 #include <R.h>
 #include <Rcpp.h>
-#include <iostream>
+
+// Testing only:
+//#include <iostream>
 
 #include "predictor.h"
 
@@ -59,8 +61,8 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
   int nColFac = as<int>(sFacCol);
   
   // ASSERTION:
-  if (nColNum + nColFac != nCol)
-    cout << "Unrecognized data frame layout." << endl;
+  //if (nColNum + nColFac != nCol)
+  //cout << "Unrecognized data frame layout." << endl;
     
   if (nColFac > 0) {
     IntegerVector facLevel(nColFac); // Compressed factor vector.

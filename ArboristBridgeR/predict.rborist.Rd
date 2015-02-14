@@ -9,7 +9,7 @@
 }
 
 \usage{
-\method{predict}{Rborist}(object,x,yTest=NULL, quantVec=NULL)
+\method{predict}{Rborist}(object,x,yTest=NULL, quantVec=NULL, ...)
 }
 
 \arguments{
@@ -17,23 +17,24 @@
     previous invocation of the command \code{Rborist} to train.}
   \item{x}{a design matrix containing new data, with the same signature
     of predictors as in the training command.}
-  \item{y}{if specfied, a response vector against which to test the new
+  \item{yTest}{if specfied, a response vector against which to test the new
     predictions.}
   \item{quantVec}{a vector of quantiles from which to report new
   quantile regressions.  Only valid if training step specficied quantile
   regression.}
+  \item{...}{not currently used.}
 }
 
 \value{
   A list with the following components:
 
   If regression, either a vector \code{yPred} containing the predictions for each
-  row, if \code{y} is null, or the mean-square error, \code{mse} of the
-  predictions computed with respect to expected \code{y}.
+  row, if \code{yTest} is null, or the mean-square error, \code{mse} of the
+  predictions computed with respect to expected \code{yTest}.
 
   If categorical, either a vector of predictions \code{yPred} for null
-  \code{y} or a confusion matrix, \code{confusion}, computed with
-  repsect to expected \code{y}.
+  \code{yTest} or a confusion matrix, \code{confusion}, computed with
+  repsect to expected \code{yTest}.
 
   If training included quantile regression, the matrix \code{quantiles}
   records the vector of predicted quantiles for each row.

@@ -18,8 +18,8 @@
 #include "callback.h"
 
 // Testing only:
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 // Establishes the layout of the predictors relative to their container arrays.
 // The container arrays themselves are allocated, as well, if cloning is specified.
@@ -367,7 +367,7 @@ double Predictor::SplitVal(int predIdx, int rkLow, int rkHigh) {
   double low = numCol[rkLow];
   double high = numCol[rkHigh];
 
-  // ASSERTIONS:
+  /* ASSERTIONS:
   if (rkLow < 0 || rkLow > nRow || rkHigh <0 || rkHigh > nRow)
     cout << "NONSENSICAL split" << rkLow << " / " << rkHigh << " : " << predIdx << endl;
   if (rkLow == rkHigh)
@@ -376,6 +376,6 @@ double Predictor::SplitVal(int predIdx, int rkLow, int rkHigh) {
     cout << "BAD SPLIT  (" << predIdx << ") "<<  low << " / " << high << " ords:  " << rkLow << " / " << rkHigh <<endl;
   else if (low == high)
     cout << "TIED SPLIT:  " << low << " / " << high << endl;
-
+  */
   return 0.5 * (low + high);
 }

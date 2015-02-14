@@ -19,7 +19,7 @@
 #include "splitpred.h"
 #include "pretree.h"
 
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
 // Simulation-invariant values.
@@ -371,8 +371,8 @@ void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[
     int leafIdx = PreTree::Sample2Leaf(i);
     int ctg = sampleCtg[i].ctg;
     // ASSERTION:
-    if (ctg < 0 || ctg >= ctgWidth)
-      cout << "Bad response category:  " << ctg << endl;
+    //if (ctg < 0 || ctg >= ctgWidth)
+    //cout << "Bad response category:  " << ctg << endl;
     double responseWeight = sampleCtg[i].sum;
     leafWS[leafIdx * ctgWidth + ctg] += responseWeight;
   }

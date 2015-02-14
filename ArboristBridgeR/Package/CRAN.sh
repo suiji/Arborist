@@ -15,7 +15,7 @@ cp ../*.h Rborist/src/
 cp ../Makevars Rborist/src/
 cp ../../ArboristCore/*.cc Rborist/src/
 cp ../../ArboristCore/*.h Rborist/src/
-cp ../../ArboristCore/LICENSE Rborist/src/
-tar -czvf Rborist.tar.gz Rborist/
+cp -r ../tests Rborist
+R CMD build Rborist
 rm -rf Rborist
 

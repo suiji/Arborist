@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
 #include "index.h"
@@ -436,8 +436,8 @@ void SPRegNum::SplitGini(int predIdx, int splitCount, int level) {
       sumR += yVal;
       rkRight = rkThis;
     }
-    if (numL != 0) // ASSERTION
-      cout << "Row runs do not sum to sample count:  " << numL << endl;
+    //    if (numL != 0) // ASSERTION
+	    //cout << "Row runs do not sum to sample count:  " << numL << endl;
 
     if (lhSup >= 0) {
       SplitSig::WriteNum(splitIdx, predIdx, level, lhSampCt, lhSup + 1 - start, maxGini);
@@ -971,8 +971,8 @@ int SPRegFac::SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int 
   for (int slot = 0; slot < depth - 1; slot++) {
     sumL += FacRun::Accum(pairOffset, slot, sCountL, idxCount);
     int numR = sCountTot - sCountL;
-    if (numR == 0) // ASSERTION.  Will lead to division by zero.
-      cout << "All samples seen but " << depth - slot - 1 <<  " heap slots remain" << endl;
+    //if (numR == 0) // ASSERTION.  Will lead to division by zero.
+	//cout << "All samples seen but " << depth - slot - 1 <<  " heap slots remain" << endl;
 
     double sumR = sum - sumL;
     double runGini = (sumL * sumL) / sCountL + (sumR * sumR) / numR;
@@ -985,10 +985,10 @@ int SPRegFac::SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int 
   }
   // ASSERTIONS:
   (void) FacRun::Accum(pairOffset, depth - 1, sCountL, idxCount);
-  if (sCountL != sCountTot)
-    cout << "Incomplete sample coverage" << endl;
-  if (idxCount != idxCountTot)
-    cout << "Incomplete index coverage:  " << idxCount << " != " << idxCountTot << endl;
+  //if (sCountL != sCountTot)
+  //cout << "Incomplete sample coverage" << endl;
+  //if (idxCount != idxCountTot)
+  //cout << "Incomplete index coverage:  " << idxCount << " != " << idxCountTot << endl;
   return lhTop;
 }
 

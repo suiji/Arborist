@@ -25,7 +25,8 @@
 #include "callback.h"
 #include "math.h"
 
-#include <iostream>
+// Testing only:
+//#include <iostream>
 using namespace std;
 
 

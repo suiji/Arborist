@@ -18,7 +18,8 @@
 #include "pretree.h"
 #include "callback.h"
 
-#include <iostream>
+// Testing only:
+//#include <iostream>
 using namespace std;
 
 int *BHeap::vacant = 0;

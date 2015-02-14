@@ -26,10 +26,10 @@
                 minNode = ifelse(!is.factor(y), 6, 2),
                 nLevel = 0,
                 minInfo = 0.01,
-                sampWeight = NULL,
+                sampleWeight = NULL,
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
-                pvtBlock = 8, pvtNoPredict = FALSE) {
+                pvtBlock = 8, pvtNoPredict = FALSE, ...) {
 
   # Argument checking:
   if (any(is.na(x)))
@@ -57,15 +57,15 @@
     stop("Empty classes not supported in response.")
 
   # Sample weight constraints.
-  if (!is.null(sampWeight)) {
-    if (length(sampWeight) != nrow(x))
+  if (!is.null(sampleWeight)) {
+    if (length(sampleWeight) != nrow(x))
       stop("Sample weight length must match row count")
     
-    if (any(sampWeight < 0))
+    if (any(sampleWeight < 0))
       stop("Negative weights not permitted")
   }
   else {
-    sampWeight = rep(1.0, nrow(x))
+    sampleWeight = rep(1.0, nrow(x))
   }
   
   # Quantile constraints:  regression only
@@ -88,7 +88,7 @@
   PredBlock(x, y, probVec)
   
   # There is currently very little freedom in factory ordering.
-  unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampWeight, withRepl)
+  unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
 
   levelMax <- .Call("RcppTrainInit", nTree, minInfo, pvtBlock);
   ctgWidth <- .Call("RcppResponse", y, levelMax)

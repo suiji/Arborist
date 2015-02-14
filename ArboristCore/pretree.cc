@@ -20,8 +20,8 @@
 #include "predictor.h"
 #include "response.h"
 
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 PreTree *PreTree::preTree = 0;
 int PreTree::bitLength = -1;
@@ -282,8 +282,8 @@ void PreTree::ConsumeNodes(int leafPred, int predVec[], double splitVec[], int b
 */
 int PreTree::Sample2Leaf(int sIdx) {
   int leafIdx = Sample2PT(sIdx);
-  if (IsNT(leafIdx)) // ASSERTION
-    cout << "Unexpected non-terminal:  " << leafIdx << endl;
+  //if (IsNT(leafIdx)) // ASSERTION
+      //cout << "Unexpected non-terminal:  " << leafIdx << endl;
 
   return leafIdx;
 }

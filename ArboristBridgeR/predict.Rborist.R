@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, x, yTest=NULL, quantVec = NULL) {
+"predict.Rborist" <- function(object, x, yTest=NULL, quantVec = NULL, ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
