@@ -20,85 +20,39 @@
 #include "predictor.h"
 #include "dectree.h"
 #include "index.h"
-#include "response.h"
+#include "pretree.h"
 #include "splitsig.h"
 #include "callback.h"
-#include "math.h"
+
 
 // Testing only:
 //#include <iostream>
 using namespace std;
 
-
 int Train::accumRealloc = -1;
 int Train::probResize = -1;
 int Train::nTree = -1;
-int Train::levelMax = -1;
-double Train::minRatio = 0.0;
-int Train::blockSize = -1;
+int Train::treeBlock = -1;
 int *Train::cdfOff = 0;
 double *Train::sCDF = 0;
-int Train::reLevel = 0;
+
 
 /**
    @brief Singleton factory:  everything is static.
 
    @param _nTree is the requested number of trees.
 
-   @param _minRatio is a threshold ratio for determining whether to split.
+   @param _treeBlock is the number of PreTree objects to brace for MPI-style parallelism.
 
-   @param _blockSize is a predictor-blocking heuristic for parallel implementations.
-
-   @return level-max value.
+   @return void.
 */
-int Train::Factory(int _nTree, double _minRatio, int _blockSize) {
+void Train::Factory(int _nTree, int _treeBlock) {
   nTree = _nTree;
-  blockSize = _blockSize;
-  minRatio = _minRatio;
+  treeBlock = _treeBlock;
   accumRealloc = 0;
   probResize = 0;
-
-  // Employs heuristics to determine suitable vector sizes for level-based
-  // operations.
-  //
-  unsigned twoL = 1; // 2^ #(levels-1)
-  unsigned uN = Sample::NSamp();
-  int balancedDepth = 1;
-  while (twoL <= uN) { // Next power of two greater than 'nSamp'.
-    balancedDepth++;
-    twoL <<= 1;
-  }
-
-  // There could be as many as (bagCount - 1)/2 levels, in the case of a completely
-  // left- or right-leaning tree.
-  //
-  // Two greater than balanced tree height is empirically well-suited to regression
-  // trees.  Categorical trees may require "unlimited" depth.
-  //
-  levelMax = 1 << (accumExp >= (balancedDepth - 5) ? accumExp : balancedDepth - 5);
-
-  return levelMax;
 }
 
-
-/**
-   @brief Determines next level-max value.
-
-   @return next level-max value.
-   Employs the old reallocation heuristic of doubling the high watermark.
-   This also happens to be safe, as there cannot be more than twice as
-   many splits in the next level.
-
-   N.B.:  Assumes trees trained sequentially, so that newer 'levelMax' values
-   can be employed by later trees.  If trees are trained in parallel, then
-   a guard must be employed to prevent unnecessary reallocation.
- */
-int Train::ReFactory() {
-  reLevel++;
-  levelMax <<= 1;
-
-  return levelMax;
-}
 
 /**
    @brief Finalizer.
@@ -110,7 +64,6 @@ void Train::DeFactory() {
     cdfOff = 0;
     sCDF = 0;
   }
-  reLevel = 0;
 }
 
 /**
@@ -118,7 +71,9 @@ void Train::DeFactory() {
 
    @param minH is the minimal index node size on which to split.
 
-   @param _quantiles is true iff quantiles have been requested.
+   @param quantiles is true iff quantiles have been requested.
+
+   @param minRatio is a threshold ratio for determining whether to split.
 
    @param facWidth outputs the sum of factor cardinalities.
 
@@ -128,29 +83,85 @@ void Train::DeFactory() {
 
    @return void.
 */
-int Train::Training(int minH, bool _quantiles, int totLevels, int &facWidth, int &totBagCount) {
-  totBagCount = 0;
-  SplitSig::Factory(levelMax, Predictor::NPred());
-  IndexNode::Factory(minH, totLevels);
+int Train::Training(int minH, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount) {
+  SplitSig::Immutables(Predictor::NPred(), minRatio);
+  Index::Immutables(minH, totLevels, Sample::NSamp());
   DecTree::FactoryTrain(nTree, Predictor::NRow(), Predictor::NPred(), Predictor::NPredNum(), Predictor::NPredFac());
   Quant::FactoryTrain(Predictor::NRow(), nTree, _quantiles);
-  for (int tn = 0; tn < nTree; tn++) {
-    int bagCount = Response::SampleRows(levelMax);
-    int treeSize = IndexNode::Levels();
-    DecTree::ConsumePretree(Sample::inBag, bagCount, treeSize, tn);
-    Response::TreeClearSt();
-    totBagCount += bagCount;
-  }
+  PreTree::Immutables(Predictor::NRow(), Sample::NSamp(), minH);
+
+  PredOrd *predOrd = Predictor::Order();
+  totBagCount = TrainForest(predOrd, nTree);
+  delete [] predOrd;
+  
   int forestHeight = DecTree::ConsumeTrees(facWidth);
 
   DeFactory();
-  Sample::DeFactory();
-  SplitSig::DeFactory();
-  IndexNode::DeFactory();
+  Sample::DeImmutables();
+  SplitSig::DeImmutables();
+  Index::DeImmutables();
+  PreTree::DeImmutables();
   Predictor::DeFactory(); // Dispenses with training clone of 'x'.
 
   return forestHeight;
 }
+
+/**
+  @brief Trains the requisite number of trees.
+
+  @param treeCount is the number of trees to construct.
+
+  @return Sum of bag counts.
+*/
+int Train::TrainForest(const PredOrd *predOrd, int treeCount) {
+  int totBagCount = 0;
+  int tn;
+
+  totBagCount = TrainZero(predOrd);
+  
+  for (tn = 1; tn < treeCount - treeBlock; tn += treeBlock) {
+    totBagCount += TrainBlock(predOrd, tn, treeBlock);
+  }
+  if (tn < treeCount)
+    totBagCount += TrainBlock(predOrd, tn, treeCount - tn);
+  
+  return totBagCount;
+}
+
+
+/**
+   @brief Trains tree zero separately and records height information.
+
+   @param predOrd is the ordered predictor set.
+
+   @return void.
+ */
+int Train::TrainZero(const PredOrd *predOrd) {
+  PreTree **ptBlock = Index::BlockTrees(predOrd, 1);
+  PreTree::RefineHeight(ptBlock[0]->TreeHeight());
+
+  return DecTree::BlockConsume(ptBlock, 1, 0);
+}
+
+/**
+   @brief Trains a block of pretrees, then builds decision trees from them.  Training in blocks facilitates coarse-grain parallel treatments, such as map/reduce or MPI.
+
+   @param predOrd is the sorted predictor table.
+
+   @param tn is the index of the first tree in the current block.
+
+   @param treeBlock is the number of trees in the block.
+
+   @return sum of bag counts of trees built.
+ */
+int Train::TrainBlock(const PredOrd *predOrd, int tn, int treeBlock) {
+  PreTree **ptBlock = Index::BlockTrees(predOrd, treeBlock);
+
+  return DecTree::BlockConsume(ptBlock, treeBlock, tn);
+}
+
+
+
 
 /**
    @brief Writes decision forest to storage provided by front end.

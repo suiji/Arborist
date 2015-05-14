@@ -29,6 +29,7 @@
 #define ARBORIST_RCPP_SAMPLE_H
 
 #include <RcppArmadillo.h>
+
 using namespace Rcpp;
 
 class RcppSample {
@@ -37,7 +38,7 @@ class RcppSample {
   static NumericVector sampleWeight;
   static bool withReplacement;
 public:
-  static void Factory(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement);
+  static void Immutables(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement);
   static void SampleRows(int samp[]);
 };
 

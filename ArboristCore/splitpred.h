@@ -25,119 +25,161 @@
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitPred {
-  static void ProbSplitable(int splitCount);
+  void LevelSplit(const class IndexNode _indexNode[], class SPNode *nodeBase, int splitCount);
  protected:
-  static SplitPred *splitPred; // Singleton virtual guide.
   static int nPred;
   static int nPredNum;
   static int nPredFac;
   static int nFacTot;
-  static int levelMax;
-
+  static int predNumFirst;
+  static int predNumSup;
+  static int predFacFirst;
+  static int predFacSup;
+  
+  bool *splitFlags;
+  bool *runFlags;
+  void ProbSplitable(int splitCount);
  public:
-  static bool *splitFlags;
-  static bool *runFlags;
-  static void Factory(int _levelMax);
-  static void ReFactory(int _levelMax);
-  static void DeFactory();
-  static void TreeInit();
-  static void CheckStorage();
-  static void Level(int splitCount, int level);
-  static bool PredRun(int splitIdx, int predIdx);
-  static void setPredRun(int splitNext, int predIdx);
-  static void FactoryReg(int maxWidth);
-  static void ReFactoryReg(int _levelMax);
-  static int FactoryCtg(int maxWidth, int _ctgWidth);
-  static void ReFactoryCtg(int _levelMax);
-  static void DeFactoryReg();
-  static void DeFactoryCtg();
+  class SamplePred *samplePred;
+  SplitPred(class SamplePred *_samplePred);
+  static void Immutables();
+  static void DeImmutables();
+  void LevelInit(class Index *index, int splitCount);
+  void LevelSplit(const class IndexNode indexNode[], int level, int splitCount, class SplitSig *splitSig);
+  void LevelSplit(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig);
+  bool *RunFlagReplace(int splitCount);
+  void TransmitRun(int splitCount, int predIdx, int splitL, int splitR);
+  virtual ~SplitPred();
 
-  static bool PredRun(int splitIdx, int predIdx, int level);
-  static void TransmitRun(int splitIdx, int predIdx, int splitL, int splitR, int level);
-  static void SetPredRun(int splitIdx, int predIdx, int level, bool val);
-  static bool Splitable(int splitIdx, int predIdx, int splitCount, int level);
+  virtual void LevelPreset(const class Index *index, int splitCount) = 0;
+  virtual double Prebias(int splitIdx, int sCount, double sum) = 0;
+  virtual int RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end) = 0;
 
-  virtual ~SplitPred() {}
-  virtual void LevelZero() = 0;
-  virtual void LevelReset(int splitCount) = 0;
-  virtual void RestageAndSplit(int splitCount, int level) = 0;
+  
+  /**
+     @brief Returns address of run value.
+   */
+  inline bool &RunFlag(int splitCount, int splitIdx, int predIdx, bool _runFlags[]) {
+    return _runFlags[splitCount * predIdx + splitIdx];
+  }
+
+  
+  /**
+     @brief Sets the specified run bit in 'runFlags'.
+
+     @param splitIdx is the split index.
+
+     @param predIdx is the predictor index.
+
+     @return void.
+  */
+  void inline SetPredRun(int splitCount, int splitIdx, int predIdx) {
+    RunFlag(splitCount, splitIdx, predIdx, runFlags) = true;
+  }
+
+  
+  /**
+     @brief Reads specified run bit in specified bit vector.
+
+     @param splitIdx is the split index.
+
+     @param predIdx is the predictor index.
+
+     @param _runFlags[] is the run bit vector.
+
+     @return whether specified run bit is set.
+   */
+  bool inline PredRun(int splitCount, int splitIdx, int predIdx, bool _runFlags[]) {
+    return RunFlag(splitCount, splitIdx, predIdx, _runFlags);
+  }
+
+  
+  
+  /**
+     @brief Determines whether this split/pred pair is splitable.
+
+     @param splitIdx is the split index.
+
+     @param predIdx is the predictor index.
+
+     @return true iff the  pair is neither in the pred-prob rejection region nor a run.
+  */
+  bool inline Splitable(int splitCount, int splitIdx, int predIdx) {
+    return splitFlags[splitCount * predIdx + splitIdx] && !PredRun(splitCount, splitIdx, predIdx, runFlags);
+  }
+
+  virtual void LevelClear() = 0;
+  virtual void Split(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig) = 0;
 };
+
 
 /**
    @brief Splitting facilities specific regression trees.
  */
 class SPReg : public SplitPred {
-  ~SPReg() {};
+  ~SPReg();
+  class FacRunReg *facRunReg;
+
  public:
-  static void ReFactory(int _levelMax);
-  static void Factory(int _levelMax);
-  static void DeFactory();
-  void LevelZero();
-  void LevelReset(int splitCount);
-  void RestageAndSplit(int splitCount, int level);
+  SPReg(class SamplePred *_samplePred);
+  static void Immutables(unsigned int _nRow, int _nSamp);
+  static void DeImmutables();
+  void LevelPreset(const class Index *index, int splitCount);
+  double Prebias(int spiltIdx, int sCount, double sum);
+  void LevelClear();
+  void Split(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig);
+  void SplitNum(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, int predIdx, class SplitSig *splitSig);
+  void SplitNumGini(const class IndexNode *indexNode, const class SPNode spn[], int predIdx, class SplitSig *splitSig);
+  void BuildRuns(const class SPNode spn[], int splitIdx, int predIdx, int start, int end);
+  int SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int &lhIdxCount, double &maxGini);
+  void SplitFac(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, int predIdx, class SplitSig *splitSig);
+  void SplitFacGini(const class IndexNode *indexNode, const class SPNode spn[], int predIdx, class SplitSig *splitSig);
+  int RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end);
 };
 
-/**
-   @brief Gini splitting for numerical predictors.
- */
-class SPRegNum : public SPReg {
- public:
-  static void SplitGini(int predIdx, int splitCount, int level);
-  static void Factory();
-  static void ReFactory();
-  static void DeFactory();
-};
-
-/**
-   @brief Gini splitting for factor-valued predictors.
- */
-class SPRegFac : public SPReg {
- public:
-  static void BuildRuns(const class SamplePred samplePred[], int splitIdx, int predIdx, int start, int end);
-  static int SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int &lhIdxCount, double &maxGini);
-  static void SplitGini(int predIdx, int splitCount, int level);
-  static void Factory();
-  static void ReFactory();
-  static void DeFactory();
-};
 
 /**
    @brief Splitting facilities for categorical trees.
  */
 class SPCtg : public SplitPred {
-  ~SPCtg() {}
-  void LevelZero();
-  void LevelReset(int splitCunt);
-  void RestageAndSplit(int splitCount, int level);
+  class SampleNodeCtg *sampleCtg;
+  class FacRunCtg *facRunCtg;
+  void LevelPreset(const class Index *index, int splitCount);
+  double Prebias(int splitIdx, int sCount, double sum);
+  void LevelClear();
+  void Split(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig);
  protected:
-  static int ctgWidth;
+  static unsigned int ctgWidth; // Response cardinality:  immutable.
+  static double minDenomNum; // Suggested by Andy Liaw's implementation.
+  double *ctgSum; // Per-level sum, by split/category pair.
+  double *ctgSumR; // Numeric predictors:  sum to right.
+  double *sumSquares; // Per-level sum of squares, by split.
+
+
+  /**
+     @brief Looks up node values by category.
+
+     @param splitIdx is the split index.
+
+     @param ctg is the category.
+
+     @return Sum of index node values at split index, category.
+   */
+  inline double CtgSum(int splitIdx, unsigned int ctg) {
+    return ctgSum[splitIdx * ctgWidth + ctg];
+  }
+  
  public:
-  static void Factory(int _levelMax, int _ctgWidth);
-  static void DeFactory();
-  static void ReFactory(int _levelMax);
-};
+  static void Immutables(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth);
+  static void DeImmutables();
+  SPCtg(class SamplePred *_samplePred, class SampleNodeCtg _sampleCtg[]);
+  ~SPCtg();
 
-/**
-   @brief Gini splitting for numerical predictors.
- */
-class SPCtgNum : public SPCtg {
- public:
-  // Gini coefficient is non-negative:  quotient of non-negative quantities.
-  //  static const double giniMin = -1.0e25;
-
-  // Mininum denominator value at which to test a split
-  static double minDenom;
-
-  //
-  // Numerators do not use updated sumR/sumL values, so update is delayed until
-  // current value is recorded.
-  //
-  static double *ctgSumR;
   /**
      @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
      subaccumulator by the current proxy value.
 
-     @param predIdx is the predictor index.
+     @param predIdx is the predictor index.  Assumes numerical predictors contiguous.  
 
      @param splitIdx is the split index.
 
@@ -147,34 +189,23 @@ class SPCtgNum : public SPCtg {
 
      @return recorded sum.
   */
-  // TODO:  Reverse first two parameters to conform with similar invocations.
-  static inline double CtgSumRight(int predIdx, int splitIdx, int yCtg, double yVal) {
-    int off = predIdx * levelMax * ctgWidth + splitIdx * ctgWidth + yCtg;
+  inline double CtgSumRight(int splitCount, int splitIdx, int predIdx, unsigned int yCtg, double yVal) {
+    int off = (predIdx - predNumFirst) * splitCount * ctgWidth + splitIdx * ctgWidth + yCtg;
     double val = ctgSumR[off];
     ctgSumR[off] = val + yVal;
 
     return val;
   }
- public:
-  static void Factory();
-  static void ReFactory();
-  static void DeFactory();
-  static void LevelResetSumR(int splitCount);
-  static void SplitGini(int predIdx, int splitCount, int level);
-};
 
-/**
-   @brief Gini splitting for factor-valued predictors.
-*/
-class SPCtgFac : public SPCtg {
-  static int BuildRuns(const class SamplePred samplePred[], int splitIdx, int predIdx, int start, int end);
-  static int SplitRuns(int splitIdx, int predIdx, int splitCount, double sum, int &top, double &maxGini);
+  void LevelInitSumR(int splitCount);
+  void SplitNum(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, int predIdx, class SplitSig *splitSig);
+  void SplitNumGini(const class IndexNode *indexNode, const class SPNode spn[], int splitCount, int predIdx, class SplitSig *splitSig);
+
+  unsigned int BuildRuns(const class SPNode spn[], int splitIdx, int predIdx, int start, int end);
+  unsigned int SplitRuns(int splitIdx, int predIdx, double sum, unsigned int &top, double &maxGini);
  public:
-  static void Factory();
-  static void ReFactory();
-  static void DeFactory();
-  static void TreeInit();
-  static void ClearTree();
-  static void SplitGini(int predIdx, int splitCount, int level);
+  void SplitFac(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, int predIdx, class SplitSig *splitSig);
+  void SplitFacGini(const class IndexNode *indexNode, const class SPNode spn[], int predIdx, class SplitSig *splitSig);
+  int RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end);
 };
 #endif

@@ -16,110 +16,94 @@
 #ifndef ARBORIST_SAMPLE_H
 #define ARBORIST_SAMPLE_H
 
-/**
-   @brief Contains the predictor-specific component of the staged data.
- */
-class PredOrd {
- public:
-  int rank; // True rank, with ties identically receiving lowest applicable value.
-  int row; // local copy of r2r[] value.
-};
-
-
-/**
- @brief Run of instances of a given row obtained from sampling for an individual tree.
-*/
-class Sample {
-  static double *sYRow;
-  static void TreeInit();
- protected:
-  static int nPred;
-  static int nRow;
-  static int nSamp;
-  static PredOrd *predOrd;
-  static int *sCountRow;
-  static void CountRows(const int rvRow[]);
+class SampleNode {
  public:
   double sum; // Sum of values selected:  rowRun * y-value.
   // Integer-sized container is likely overkill.  Size is typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
   unsigned int rowRun;
+};
 
-  static bool *inBag; // Overwritten by each tree.
-  static int *sIdxRow; // Inverted by FacResponse for local use.
+
+class SampleNodeCtg : public SampleNode {
+ public:
+  unsigned int ctg;
+  inline unsigned int CtgAndSum(double &_sum) {
+    _sum = sum;
+    return ctg;
+  }
+};
+
+/**
+ @brief Run of instances of a given row obtained from sampling for an individual tree.
+*/
+class Sample {
+ protected:
+  static int nPred;
+  static unsigned int nRow;
+  static int nSamp;
+  int bagCount;
+  int *CountRows();
+ public:
+  static void Immutables(unsigned int _nRow, int _nPred, int _nSamp);
+  static void DeImmutables();
+
+
   static inline int NSamp() {
     return nSamp;
   }
+
+
   static inline int NRow() {
     return nRow;
   }
-  static void Factory(int _nRow, int _nPred, int _nSamp);
-  static void TreeClear();
-  static void DeFactory();
+
+
+  static inline int NPred() {
+    return nPred;
+  }
+
+  
+  inline int BagCount() {
+    return bagCount;
+  }
+
+  virtual ~Sample() {}
+  virtual void Scores(const int frontierMap[], int treeHeight, double score[]) = 0;
+  virtual void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) = 0;
 };
+
 
 /**
    @brief Regression-specific methods and members.
 */
 class SampleReg : public Sample {
-  static SampleReg *sampleReg;
-  static int *sample2Rank;
+  SampleNode *sampleReg;
+  int *sample2Rank; // Only client currently quantile regression.
+
  public:
-  /**
-     @brief Computes the sum of all sampled response values.
-
-     @param bagCount is the size of this tree's in-bag set.
-
-     @return sum of sampled values.
-  */
-  static double Sum(int bagCount) {
-    double _sum = 0.0;
-    for (int i = 0; i < bagCount; i++)
-      _sum += sampleReg[i].sum;
-
-    return _sum;
-  }
-  static int SampleRows(const int rvRow[],  const double y[], const int row2Rank[]);
-  static void Stage();
-  static void Stage(int predIdx);
-  static void Scores(int bagCount, int leafCount, double score[]);
-  static void TreeQuantiles(int treeSize, int bagCount, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
-  static void TreeClear();
+  SampleReg();
+  ~SampleReg();
+  static void Immutables();
+  int Stage(const double y[], const int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &bagSum);
+  void Scores(const int frontierMap[], int treeHeight, double score[]);
+  void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
 };
+
 
 /**
  @brief Categorical-specific sampling.
 */
 class SampleCtg : public Sample {
-  static SampleCtg *sampleCtg;
+  static int ctgWidth;
+  SampleNodeCtg *sampleCtg;
  public:
-  unsigned int ctg;
-
-  /**
-     @brief Computes the sum of sample values for the current tree.
-
-     @param bagCount is the number of samples drawn.
-
-     @return sum of (proxy) response values.
-  */
-  static double Sum(int bagCount) {
-    double _sum = 0.0;
-    for (int i = 0; i < bagCount; i++)
-      _sum += sampleCtg[i].sum;
-
-    return _sum;
-  }
-
-  static int CtgSum(int sIdx, double &_sum) {
-    _sum = sampleCtg[sIdx].sum;
-    return sampleCtg[sIdx].ctg;
-  }
-
-  static int SampleRows(const int rvRow[], const int yCtg[], const double y[]);
-  static void Stage();
-  static void Stage(int predIdx);
-  static void Scores(int bagCount, int ctgWidth, int leafCount, double score[]);
-  static void TreeClear();
+  SampleCtg();
+  ~SampleCtg();
+  static void Immutables(int _ctgWidth);
+  int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &bagSum);
+  void Scores(const int frontierMap[], int treeHeight, double score[]);
+  void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
 };
 
 

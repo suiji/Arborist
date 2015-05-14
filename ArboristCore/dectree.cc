@@ -25,7 +25,7 @@
 #include "pretree.h"
 #include "quant.h"
 
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
 int *DecTree::treeOriginForest = 0; // Output to front-end.
@@ -43,7 +43,7 @@ int **DecTree::treeFacSplits = 0;
 int* DecTree::facSplitForest = 0; // Bits as integers:  alignment.
 int *DecTree::facOffForest = 0;
 int DecTree::nTree = -1;
-int DecTree::nRow = -1;
+unsigned int DecTree::nRow = -1;
 int DecTree::nPred = -1;
 int DecTree::nPredNum = -1;
 int DecTree::nPredFac = -1;
@@ -74,7 +74,7 @@ int DecTree::forestSize = -1;
    @return void.
 
  */
-void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
+void DecTree::FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
   nTree = _nTree;
   nPred = _nPred;
   nRow = _nRow;
@@ -100,7 +100,7 @@ void DecTree::FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int
   // necessary, however, for per-row OOB prediction scheme employed for quantile
   // regression.
   //
-  int inBagSize = ((nTree * nRow) + 31) >> 5;
+  int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
   inBag = new unsigned int[inBagSize];
   for (int i = 0; i < inBagSize; i++)
     inBag[i] = 0;
@@ -272,38 +272,45 @@ int DecTree::ConsumeTrees(int &cumFacWidth) {
 }
 
 /**
-  @brief Consumes pretree into per-tree data structures.
+  @brief Consumes block of PreTrees into decision trees.
 
-  @param _inBag enumerates the bagged rows for the current tree.
+  @param treeBlock is the number of PreTrees in the block.
 
-  @param bagCount is the number of bagged rows.
+  @param treeStart is the zero-based index of the first tree in the block.
 
-  @param treeSize is the number of nodes in this tree.
-
-  @param treeNum is the zero-based tree number.
-
-  @return void
+  @return sum of bag counts over trees in block.
 */
-void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum) {
-  SetBagRow(_inBag, treeNum);
-  treeSizes[treeNum] = treeSize;
-  predTree[treeNum] = new int[treeSize];
-  splitTree[treeNum] = new double[treeSize];
-  bumpTree[treeNum] = new int[treeSize];
-  scoreTree[treeNum] = new double[treeSize];
+int DecTree::BlockConsume(PreTree *ptBlock[], int treeBlock, int treeStart) {
+  int totBagCount = 0; // Sums bag counts in current block.
 
-  // Employs data freed by pretree consumption, so must be called here.
-  //
-  Quant::TreeRanks(treeNum, treeSize, bagCount);
+  for (int treeIdx = 0; treeIdx < treeBlock; treeIdx++) {
+    PreTree *pt = ptBlock[treeIdx];
+    int treeSize = pt->TreeHeight();
+    int bagCount = pt->BagCount();
+    totBagCount += bagCount;
+    int treeNum = treeStart + treeIdx;
+    SetBagRow(pt->InBag(), treeNum);
+    treeSizes[treeNum] = treeSize;
+    predTree[treeNum] = new int[treeSize];
+    splitTree[treeNum] = new double[treeSize];
+    bumpTree[treeNum] = new int[treeSize];
+    scoreTree[treeNum] = new double[treeSize];
 
-  // Consumes pretree nodes, ranks and split bits via separate calls.
-  //
-  PreTree::ConsumeNodes(leafPred, predTree[treeNum], splitTree[treeNum], bumpTree[treeNum], scoreTree[treeNum]);
+    // Employs data freed by pretree consumption, so must be called here.
+    //
+    Quant::TreeRanks(pt, treeSize, treeNum, bagCount);
+    // Consumes pretree nodes, ranks and split bits via separate calls.
+    //
+    pt->ConsumeNodes(leafPred, predTree[treeNum], splitTree[treeNum], bumpTree[treeNum], scoreTree[treeNum]);
+    ConsumeSplitBits(pt, treeFacWidth[treeNum], treeFacSplits[treeNum]);
+    delete pt;
+    
+    treeOriginForest[treeNum] = forestSize;
+    forestSize += treeSize;
+  }
+  delete [] ptBlock;
 
-  ConsumeSplitBits(treeNum);
-
-  treeOriginForest[treeNum] = forestSize;
-  forestSize += treeSize;
+  return totBagCount;
 }
 
 /**
@@ -315,37 +322,47 @@ void DecTree::ConsumePretree(const bool _inBag[], int bagCount, int treeSize, in
 
  @return void.
 */
-void DecTree::ConsumeSplitBits(int treeNum) {
-  int facWidth = PreTree::SplitFacWidth();
-  treeFacWidth[treeNum] = facWidth;
+void DecTree::ConsumeSplitBits(PreTree *pt, int &treeFW, int *&treeFS) {
+  int facWidth = pt->SplitFacWidth();
+  treeFW = facWidth;
   if (facWidth > 0) {
-    treeFacSplits[treeNum] = new int[facWidth];
-    PreTree::ConsumeSplitBits(treeFacSplits[treeNum]);
+    treeFS = new int[facWidth];
+    pt->ConsumeSplitBits(treeFS);
   }
   else
-    treeFacSplits[treeNum] = 0;
+    treeFS = 0;
 }
 
 
 /**
   @brief Sets bit for <row, tree> with tree as faster-moving index.
 
-  @param sampledRow[]
+  @param ptInBag[] records a PreTree's in-bag rows as compressed bits.
+
+  @param treeNum is the decision tree for which in-bag state is being set.
   
   @return void.
 */
-void DecTree::SetBagRow(const bool sampledRow[], int treeNum) {
-  for (int row = 0; row < nRow; row++) {
-    if (sampledRow[row]) {
-      int idx = row * nTree + treeNum;
-      int off = idx >> 5;
-      int bit = idx & 31;
-      unsigned int val = inBag[off];
-      val |= (1 << bit);
-      inBag[off] = val;
+void DecTree::SetBagRow(const unsigned int ptInBag[], int treeNum) {
+  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  int slotRow = 0;
+  int slot = 0;
+  for (unsigned int baseRow = 0; baseRow < nRow; baseRow += slotBits, slot++) {
+    unsigned int ptSlot = ptInBag[slot];
+    unsigned int mask = 1;
+    unsigned int supRow = nRow < baseRow + slotBits ? nRow : baseRow + slotBits;
+    for (unsigned int row = baseRow; row < supRow; row++, mask <<= 1) {
+      if (ptSlot & mask) { // row is in-bag.
+	unsigned int off, bit;
+	unsigned int val = BagCoord(treeNum, row, off, bit);
+        val |= (1 << bit);
+        inBag[off] = val;
+      }
     }
+    slotRow += slotBits;
   }
 }
+
 
 /**
    @brief Determines whether a given row index is in-bag in a given tree.
@@ -356,11 +373,9 @@ void DecTree::SetBagRow(const bool sampledRow[], int treeNum) {
 
    @return True iff the row is in-bag.
  */
-bool DecTree::InBag(int treeNum, int row) {
-  int idx = row * nTree + treeNum;
-  int off = idx >> 5;
-  int bit = idx & 31;
-  unsigned int val = inBag[off];
+bool DecTree::InBag(int treeNum, unsigned int row) {
+  unsigned int bit, off;
+  unsigned int val = BagCoord(treeNum, row, off, bit);
 
   return (val & (1 << bit)) > 0;
 }
@@ -436,7 +451,7 @@ void DecTree::ScaleInfo(double outPredInfo[]) {
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double error[], bool useBag) {
+void DecTree::PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[], double error[], bool useBag) {
   if (nPredFac == 0) {
     PredictAcrossNumCtg(yCtg, ctgWidth, confusion, useBag);
   }
@@ -450,9 +465,9 @@ void DecTree::PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double
   if (useBag) { // Otherwise, no test-vector against which to compare.
     // Fills in classification error vector.
     //
-    for (int rsp = 0; rsp < ctgWidth; rsp++) {
+    for (unsigned int rsp = 0; rsp < ctgWidth; rsp++) {
       int numWrong = 0;
-      for (int predicted = 0; predicted < ctgWidth; predicted++) {
+      for (unsigned int predicted = 0; predicted < ctgWidth; predicted++) {
 	if (predicted != rsp) {// Wrong answers are off-diagonal.
 	  numWrong += confusion[rsp + ctgWidth * predicted];
 	}
@@ -479,19 +494,18 @@ void DecTree::PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossNumCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag) {
+void DecTree::PredictAcrossNumCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
   double *rowSlice = new double[nPred];
   int *rowPred = new int[ctgWidth];
   // TODO:  Parallelize.  There can be considerable false sharing if 'ctgWidth'
   // is small, so row-based approach may need to be reconsidered.
   // Mut. mut. for the other two methods.
-  int row;
-  for (row = 0; row < nRow; row++) {
+  for (unsigned int row = 0; row < nRow; row++) {
     // double jitter = 1 + ResponseCtg::Jitter(row);
     PredictRowNumCtg(row, rowSlice, ctgWidth, rowPred, useBag);
     int argMax = -1;
     double popMax = 0.0;
-    for (int col = 0; col < ctgWidth; col++) {
+    for (unsigned int col = 0; col < ctgWidth; col++) {
       int colPop = rowPred[col];// * jitter;
       if (colPop > popMax) {
 	popMax = colPop;
@@ -527,16 +541,16 @@ void DecTree::PredictAcrossNumCtg(int yCtg[], int ctgWidth, int confusion[], boo
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossFacCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag) {
+void DecTree::PredictAcrossFacCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
   int *rowSlice = new int[nPred];
   int *rowPred = new int[ctgWidth];
 
-  for (int row = 0; row < nRow; row++) {
+  for (unsigned int row = 0; row < nRow; row++) {
     //double jitter = 1 + ResponseCtg::Jitter(row);
     PredictRowFacCtg(row, rowSlice, ctgWidth, rowPred, useBag);
     int argMax = -1;
     double popMax = 0.0;
-    for (int col = 0; col < ctgWidth; col++) {
+    for (unsigned int col = 0; col < ctgWidth; col++) {
       double colPop = rowPred[col];// * jitter;
       if (colPop > popMax) {
 	popMax = colPop;
@@ -571,17 +585,17 @@ void DecTree::PredictAcrossFacCtg(int yCtg[], int ctgWidth, int confusion[], boo
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossMixedCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag) {
+void DecTree::PredictAcrossMixedCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
   int *rowPred = new int[ctgWidth];
   double *rowSliceN = new double[nPredNum];
   int *rowSliceI = new int[nPredFac];
 
-  for (int row = 0; row < nRow; row++) {
+  for (unsigned int row = 0; row < nRow; row++) {
     //double jitter = 1 + ResponseCtg::Jitter(row);
     PredictRowMixedCtg(row, rowSliceN, rowSliceI, ctgWidth, rowPred, useBag);
     int argMax = -1;
     double popMax = 0.0;
-    for (int col = 0; col < ctgWidth; col++) {
+    for (unsigned int col = 0; col < ctgWidth; col++) {
       double colPop = rowPred[col];// * jitter;
       if (colPop > popMax) {
 	popMax = colPop;
@@ -634,7 +648,7 @@ void DecTree::PredictAcrossReg(double outVec[], bool useBag) {
 
   if (useBag) {
     double SSE = 0.0;
-    for (int row = 0; row < nRow; row++) {
+    for (unsigned int row = 0; row < nRow; row++) {
       SSE += (prediction[row] - Response::response->y[row]) * (prediction[row] - Response::response->y[row]);
     }
     // TODO:  repair assumption that every row is sampled:
@@ -660,7 +674,7 @@ void DecTree::PredictAcrossReg(double outVec[], bool useBag) {
 
 void DecTree::PredictAcrossNumReg(double prediction[], int *predictLeaves, bool useBag) {
   double *transpose = new double[nPred * nRow];
-  int row;
+  unsigned int row;
 
   // N.B.:  Parallelization by row assumes that nRow >> nTree.
   // TODO:  Consider blocking, to cut down on memory.  Mut. mut. for the
@@ -699,7 +713,7 @@ void DecTree::PredictAcrossNumReg(double prediction[], int *predictLeaves, bool 
  */
 void DecTree::PredictAcrossFacReg(double prediction[], int *predictLeaves, bool useBag) {
   int *transpose = new int[nPred * nRow];
-  int row;
+  unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
@@ -736,7 +750,7 @@ void DecTree::PredictAcrossFacReg(double prediction[], int *predictLeaves, bool 
 void DecTree::PredictAcrossMixedReg(double prediction[], int *predictLeaves, bool useBag) {
   double *transposeN = new double[nPredNum * nRow];
   int *transposeI = new int[nPredFac * nRow];
-  int row;
+  unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
@@ -777,7 +791,7 @@ void DecTree::PredictAcrossMixedReg(double prediction[], int *predictLeaves, boo
    @return Void with output vector parameter.
  */
 
-void DecTree::PredictRowNumReg(int row, double rowT[], int leaves[], bool useBag) {
+void DecTree::PredictRowNumReg(unsigned int row, double rowT[], int leaves[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::numBase[row + i* nRow];
 
@@ -819,10 +833,10 @@ void DecTree::PredictRowNumReg(int row, double rowT[], int leaves[], bool useBag
    @return Void with output vector parameter.
  */
 
-void DecTree::PredictRowNumCtg(int row, double rowT[], int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowNumCtg(unsigned int row, double rowT[], unsigned int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::numBase[row + i* nRow];
-  for (int i = 0; i < ctgWidth; i++)
+  for (unsigned int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
 
   // TODO:  Use row at rank.
@@ -852,11 +866,11 @@ void DecTree::PredictRowNumCtg(int row, double rowT[], int ctgWidth, int prd[], 
 
 // Temporary clone of regression tree version.
 //
-void DecTree::PredictRowFacCtg(int row, int rowT[], int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowFacCtg(unsigned int row, int rowT[], unsigned int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::facBase[row + i* nRow];
 
-  for (int i = 0; i < ctgWidth; i++)
+  for (unsigned int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
 
   // TODO:  Use row at rank.
@@ -902,13 +916,13 @@ void DecTree::PredictRowFacCtg(int row, int rowT[], int ctgWidth, int prd[], boo
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], unsigned int ctgWidth, int prd[], bool useBag) {
   for (int i = 0; i < nPredNum; i++)
     rowNT[i] = Predictor::numBase[row + i * nRow];
   for (int i = 0; i < nPredFac; i++)
     rowFT[i] = Predictor::facBase[row + i * nRow];
 
-  for (int i = 0; i < ctgWidth; i++)
+  for (unsigned int i = 0; i < ctgWidth; i++)
     prd[i] = 0;
 
   for (int tc = 0; tc < nTree; tc++) {
@@ -948,7 +962,7 @@ void DecTree::PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWi
    @return Void with output vector parameter.
  */
 
-void DecTree::PredictRowFacReg(int row, int rowT[], int leaves[],  bool useBag) {
+void DecTree::PredictRowFacReg(unsigned int row, int rowT[], int leaves[],  bool useBag) {
   for (int i = 0; i < nPredFac; i++)
     rowT[i] = Predictor::facBase[row + i * nRow];
 
@@ -994,7 +1008,7 @@ void DecTree::PredictRowFacReg(int row, int rowT[], int leaves[],  bool useBag) 
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictRowMixedReg(int row, double rowNT[], int rowFT[], int leaves[], bool useBag) {
+void DecTree::PredictRowMixedReg(unsigned int row, double rowNT[], int rowFT[], int leaves[], bool useBag) {
   for (int i = 0; i < nPredNum; i++)
     rowNT[i] = Predictor::numBase[row + i * nRow];
   for (int i = 0; i < nPredFac; i++)

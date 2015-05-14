@@ -29,6 +29,7 @@
                 sampleWeight = NULL,
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
+                treeBlock = 1,
                 pvtBlock = 8, pvtNoPredict = FALSE, ...) {
 
   # Argument checking:
@@ -90,13 +91,13 @@
   # There is currently very little freedom in factory ordering.
   unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
 
-  levelMax <- .Call("RcppTrainInit", nTree, minInfo, pvtBlock);
-  ctgWidth <- .Call("RcppResponse", y, levelMax)
+  unused <- .Call("RcppTrainInit", nTree, treeBlock);
+  ctgWidth <- .Call("RcppResponse", y);
 
   facWidth <- integer(1)
   totBagCount <- integer(1)
   totQLeafWidth <- integer(1)
-  height <- .Call("RcppTrain", minNode, quantiles, facWidth, totBagCount, nLevel)
+  height <- .Call("RcppTrain", minNode, quantiles, facWidth, totBagCount, minInfo, nLevel)
   
   # The forest consists of trees specified by a splitting predictor and value, as
   # well as a Gini coefficient and subtree mean.

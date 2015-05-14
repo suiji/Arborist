@@ -17,14 +17,15 @@
 \method{Rborist}{default}(x, y, nTree=500, withRepl = TRUE,
                 predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
                 predWeight = rep(1.0, ncol(x)),
-                nSamp = ifelse(smpWithRepl, nrow(x),
-                round((1-exp(-1))*nrow(x))),
+                nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
                 minNode = ifelse(!is.factor(y), 6, 2),
                 nLevel = 0,
                 minInfo = 0.01,
-                sampWeight = NULL,
+                sampleWeight = NULL,
                 quantVec = NULL,
-                quantiles = !is.null(quantVec))
+                quantiles = !is.null(quantVec),
+                pvtBlock = 8,
+                pvtNoPredict = FALSE, ...)
 }
 
 \arguments{
@@ -40,7 +41,7 @@
     which to attempt to split at each node.}
   \item{predWeight}{a numerical vector of weights for selecting individual
     predictors as splitting candidates.}
-  \item{nsamp}{the number of samples to draw when training an individual
+  \item{nSamp}{the number of samples to draw when training an individual
     tree.}
   \item{minNode}{the minimal index set width over which to attempt
     splitting. Similar to \code{nodesize} parameter of
@@ -57,6 +58,10 @@
   \item{quantiles}{whether to train with quantile information.  If
     \code{quantVec} is not specified but \code{quantiles} has been
     specified, then quartiles are employed by default.}
+  \item{pvtBlock}{blocking parameter for performance tuning.  Currently
+    unsupported.}
+  \item{pvtNoPredict}{skips prediction.  Meant for testing only.}
+  \item{...}{not currently used.}
 }
 
 \value{An object of class \code{Rborist}.  Contains a \code{forest}

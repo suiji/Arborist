@@ -26,7 +26,7 @@
 */
 class DecTree {
   static int nTree; // Running tally of forest size.
-  static int nRow;
+  static unsigned int nRow;
   static int nPred;
   static int nPredNum;
   static int nPredFac;
@@ -49,34 +49,55 @@ class DecTree {
   static unsigned int *inBag; // Train only.
   static int forestSize;
 
-  static void ConsumeSplitBits(int treeNum);
-  static void SetBagRow(const bool sampledRows[], int treeNum);
-  static bool InBag(int treeNum, int row);
-  static void PredictRowNumReg(int row, double[], int leaves[], bool useBag);
-  static void PredictRowFacReg(int row, int rowT[], int leaves[], bool useBag);
-  static void PredictRowMixedReg(int row, double rowNT[], int rowFT[], int leaves[], bool useBag);
-  static void PredictRowNumCtg(int row, double rowSlice[], int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowFacCtg(int row, int rowFT[], int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowMixedCtg(int row, double rowNT[], int rowFT[], int ctgWidth, int rowPred[], bool useBag);
+  static void ConsumeSplitBits(class PreTree *pt, int &treeFW, int *&treeFS);
+  static void SetBagRow(const unsigned int inBag[], int treeNum);
+  static bool InBag(int treeNum, unsigned int row);
+  static void PredictRowNumReg(unsigned int row, double[], int leaves[], bool useBag);
+  static void PredictRowFacReg(unsigned int row, int rowT[], int leaves[], bool useBag);
+  static void PredictRowMixedReg(unsigned int row, double rowNT[], int rowFT[], int leaves[], bool useBag);
+  static void PredictRowNumCtg(unsigned int row, double rowSlice[], unsigned int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowFacCtg(unsigned int row, int rowFT[], unsigned int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], unsigned int ctgWidth, int rowPred[], bool useBag);
   static void PredictAcrossNumReg(double prediction[], int *predictLeaves, bool useBag);
   static void PredictAcrossFacReg(double prediction[], int *predictLeaves, bool useBag);
   static void PredictAcrossMixedReg(double prediction[], int *predictLeaves, bool useBag);
-  static void PredictAcrossNumCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
-  static void PredictAcrossFacCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
-  static void PredictAcrossMixedCtg(int yCtg[], int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossNumCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossFacCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossMixedCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
   static void DeFactory();
+
+  /**
+     @brief computes the offset and bit coordinates of a given <tree, row> pair in the InBag structure.
+
+     @param treeNum is the current tree index.
+
+     @param row is the row index.
+
+     @param off outputs the offset coordinate.
+
+     @param bit outputs the bit coordinate.
+
+     @return value of InBag slot.
+   */
+  static unsigned int inline BagCoord(int treeNum, unsigned int row, unsigned int &off, unsigned int &bit) {
+    const unsigned int slotBits = 8 * sizeof(unsigned int);
+    unsigned int idx = row * nTree + treeNum;
+    off = idx / slotBits; // Compiler should generate right-shift.
+    bit = idx & (slotBits - 1);
+    return inBag[off];
+  }
  public:
   static void DeFactoryPredict();
   static const int leafPred = INT_MIN; // Positive counterpart not representable as int.
-  static void ConsumePretree(const bool _inBag[], int bagCount, int treeSize, int treeNum);
-  static void FactoryTrain(int _nTree, int _nRow, int _nPred, int _nPredNum, int _nPredFac);
+  static int BlockConsume(class PreTree *ptBlock[], int treeBlock, int treeStart);
+  static void FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPredNum, int _nPredFac);
   static int ConsumeTrees(int &cumFacWidth);
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
   static void ScaleInfo(double*);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
   static  void WriteTree(int treeNum, int tOrig, int treeFacOffset, int *outPreds, double* outSplitVals, double* outScores, int *outBump, int *outFacSplits);
   static void PredictAcrossReg(double outVec[], bool useBag);
-  static void PredictAcrossCtg(int yCtg[], int ctgWidth, int confusion[], double error[], bool useBag = true);
+  static void PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[], double error[], bool useBag = true);
 };
 
 #endif

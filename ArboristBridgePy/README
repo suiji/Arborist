@@ -1,0 +1,3 @@
+The Python bridge will likely use CFFI as an interface to ArboristCore.
+
+For the nonce, this directory is a stub.

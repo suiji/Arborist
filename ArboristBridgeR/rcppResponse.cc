@@ -36,16 +36,14 @@ using namespace Rcpp;
 
    @param sY is the front end's response vector.
 
-   @param sLevelMax is the current level-max value.
-
    @return cardinality of response if classifying, otherwise zero.
 
  */
-int FormResponse(SEXP sY, SEXP sLevelMax) {
+int FormResponse(SEXP sY) {
   int ctgWidth = 0;
   if (TYPEOF(sY) == REALSXP) {
     NumericVector y(sY);
-    Response::FactoryReg(y.begin(), as<int>(sLevelMax));
+    Response::FactoryReg(y.begin());
   }
   else if (TYPEOF(sY) == INTSXP) {
     // Constructs a proxy response from category frequency and
@@ -61,7 +59,7 @@ int FormResponse(SEXP sY, SEXP sLevelMax) {
     NumericVector rn(runif(y.length()));
     NumericVector proxy = freq + (rn - 0.5) * 0.5 * recipLen;
     ctgWidth = tb.length();
-    Response::FactoryCtg(y.begin(), proxy.begin(), ctgWidth, as<int>(sLevelMax));
+    Response::FactoryCtg(y.begin(), proxy.begin(), ctgWidth);
   }
   else {
     //TODO:  flag error for unanticipated response types.
@@ -77,8 +75,8 @@ int FormResponse(SEXP sY, SEXP sLevelMax) {
 
    @return Wrapped value of response cardinality, if applicable.
  */
-RcppExport SEXP RcppResponse(SEXP sY, SEXP sLevelMax) {
-  int ctgWidth = FormResponse(sY, sLevelMax);
+RcppExport SEXP RcppResponse(SEXP sY) {
+  int ctgWidth = FormResponse(sY);
 
   return wrap(ctgWidth);
 }

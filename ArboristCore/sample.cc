@@ -14,34 +14,24 @@
  */
 
 #include "sample.h"
+#include "callback.h"
 #include "samplepred.h"
 #include "predictor.h"
 #include "splitpred.h"
-#include "pretree.h"
 
 //#include <iostream>
 using namespace std;
 
 // Simulation-invariant values.
 //
-int Sample::nRow = -1;
+unsigned int Sample::nRow = 0;
 int Sample::nPred = -1;
 int Sample::nSamp = -1;
-PredOrd *Sample::predOrd = 0;
 
-// Tree-invariant values.
-//
-bool *Sample::inBag = 0; // Whether row in this tree is an in-bag sample.
-int *Sample::sCountRow = 0; // # Samples per row. 0 <=> OOB.
-int *Sample::sIdxRow = 0; // Index of row in sample vector.
-
-int *SampleReg::sample2Rank = 0; // Only client is quantile regression.
-SampleReg *SampleReg::sampleReg = 0;
-
-SampleCtg *SampleCtg::sampleCtg = 0;
+int SampleCtg::ctgWidth = 0;
 
 /**
- @brief Lights off initilizations needed for sampling.
+ @brief Lights off initializations needed for sampling.
 
  @param _nRow is the number of response/observation rows.
 
@@ -51,84 +41,89 @@ SampleCtg *SampleCtg::sampleCtg = 0;
 
  @return void.
 */
-void Sample::Factory(int _nRow, int _nSamp, int _nPred) {
+void Sample::Immutables(unsigned int _nRow, int _nPred, int _nSamp) {
   nRow = _nRow;
   nPred = _nPred;
   nSamp = _nSamp;
-
-  // 'dOrd' is invariant across the training phase.
-  //
- predOrd = new PredOrd[nRow * nPred];
-
-  // Both methods are implemented by Predictor class as an iterator suitable for exporting
-  // has not yet been developed.
-  //
-  // The construction of 'rank2Row[]' can be blocked in predictor chunks, should memory
-  // become a limiting resource.  If 'dOrd' is to be blocked as well, however, then its
-  // level-based consumers must also be blocked across trees.
-  //
-  int *rank2Row = new int[nRow * nPred];
-  Predictor::UniqueRank(rank2Row);
-  Predictor::SetSortAndTies(rank2Row, predOrd);
-
-  // Can instead be retained for scoring by rank.
-  delete [] rank2Row; 
 }
 
+
+/**
+   @return void.
+ */
+void SampleReg::Immutables() {
+  SPReg::Immutables(nRow, nSamp);
+}
+
+
+/**
+   @return void.
+ */
+void SampleCtg::Immutables(int _ctgWidth) {
+  ctgWidth = _ctgWidth;
+  SPCtg::Immutables(nRow, nSamp, ctgWidth);
+}
 
 /**
    @brief Finalizer.
 
    @return void.
 */
-void Sample::DeFactory() {
-  delete [] predOrd;
-  predOrd = 0;
+void Sample::DeImmutables() {
+  nRow = 0;
+  nSamp = nPred = -1;
+  SamplePred::DeImmutables();
+
+  // Only one of these two class has been set, but no harm in resetting both:
+  SPReg::DeImmutables();
+  SPCtg::DeImmutables();
 }
 
 /**
-   @brief Counts instances of each row index in sample.
+   @brief Counts instances of each row index in sampled set.
 
-   @param rvRow is the vector of sampled row indices.
-
-   @return void.
+   @return vector of sample counts, by row.  0 <=> OOB.
 */
-void Sample::CountRows(const int rvRow[]) {
-  TreeInit();
-
-  sCountRow = new int[nRow];
-  for (int row= 0; row < nRow; row++)
+int *Sample::CountRows() {
+  int *sCountRow = new int[nRow]; // Needed until Stage() finishes.
+  for (unsigned int row= 0; row < nRow; row++)
     sCountRow[row] = 0;
 
   // Counts occurrences of the rank associated with each target 'row' of the
   // sampling vector.
   //
+  int *rvRow = new int[nRow];
+  CallBack::SampleRows(rvRow);
   for (int i = 0; i < nSamp; i++) {
     int row = rvRow[i];
     sCountRow[row]++;
   }
+  delete [] rvRow;
+
+  return sCountRow;
 }
 
+
 /**
-   @brief Per-tree initializations and allocations.
-
-   @return void.
-*/
-void Sample::TreeInit() {
-  sIdxRow = new int[nRow];
-  inBag = new bool[nRow];
-
-  SamplePred::TreeInit(nPred, nSamp);
+   @brief Constructor.
+ */
+SampleReg::SampleReg() {
+  sample2Rank = new int[nSamp]; // Lives until scoring.
+  sampleReg = new SampleNode[nSamp]; //  " "
 }
 
 /**
    @brief Inverts the randomly-sampled vector of rows.
 
-   @param rvRow is the tree-defining ordering of sampled rows.
-
    @param y is the response vector.
 
    @param row2Rank is rank of each sampled row.
+
+   @param inBag is a bit vector indicating whether a row is in-bag in this tree.
+
+   @param samplePred is the SamplePred object associated with this tree.
+
+   @param bagSum is the sum of in-bag sample values.  Used for initializing index tree root.
 
    @return count of in-bag samples.
 */
@@ -138,176 +133,120 @@ void Sample::TreeInit() {
 // Returns the sum of sampled response values for intiializition of topmost
 // accumulator.
 //
-int SampleReg::SampleRows(const int rvRow[], const double y[], const int row2Rank[]) {
-  CountRows(rvRow);
-
-  sampleReg = new SampleReg[nSamp]; // Lives until TreeClear()
-  sample2Rank = new int[nSamp]; // " " 
-
-  // Enables lookup by row, for Stage(), or index, for LevelMap.
-  //
-  int bagCount = 0;
+int SampleReg::Stage(const double y[], const int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *&samplePred, SplitPred *&splitPred, double &bagSum) {  
+  int *sCountRow = CountRows();
+  int *sIdxRow = new int[nRow]; // Index of row in sample vector.
+  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  samplePred = new SamplePred(); // Lives through final level.
+  
+  bagSum = 0.0;
+  int slot = 0;
   int idx = 0;
-  for (int row = 0; row < nRow; row++) {
-    int sCount = sCountRow[row];
-    if (sCount > 0) {
-      double sum = sCount * y[row];
-      sampleReg[idx].sum = sum;
-      sampleReg[idx].rowRun = sCount;
-      sIdxRow[row] = idx;
-
-      // Only client for these two is quantile regression, but cheap to compute.
-      sample2Rank[idx] = row2Rank[row];
-      idx++;
-      inBag[row] = true;
+  for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
+    // Enables lookup by row, for Stage(), or index, for LevelMap.
+    //
+    unsigned int bits = 0;
+    unsigned int mask = 1;
+    unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
+    for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
+      int sCount = sCountRow[row];
+      if (sCount > 0) {
+        double val = sCount * y[row];
+        bagSum += val;
+        sampleReg[idx].sum = val;
+        sampleReg[idx].rowRun = sCount;
+        // Only client is quantile regression, but cheap to compute here:
+        sample2Rank[idx] = row2Rank[row];
+	
+        sIdxRow[row] = idx++;
+	bits |= mask;
+      }
     }
-    else {
-      inBag[row] = false;
-      sIdxRow[row] = -1;
-    }
-    bagCount = idx;
+    inBag[slot] = bits;
   }
+  bagCount = idx;
+  samplePred->StageReg(predOrd, sampleReg, sCountRow, sIdxRow);
+  splitPred = new SPReg(samplePred);
+
+  delete [] sCountRow;
+  delete [] sIdxRow;
 
   return bagCount;
 }
 
-/**
-   @brief Inverts the randomly-sampled vector of rows.
 
-   @param rvRow is the tree-defining ordering of sampled rows.
+/**
+   @brief Constructor.
+
+   @param ctgWidth is the response cardinality.
+
+ */
+SampleCtg::SampleCtg() {
+  sampleCtg = new SampleNodeCtg[nSamp]; // Lives until scoring.
+}
+
+
+/**
+   @brief Samples the response, sets in-bag bits and stages.
 
    @param yCtg is the response vector.
 
    @param y is the proxy response vector.
+
+   @param inBag is a bit vector indicating in-bag rows.
+
+   @param samplePred is the staged SamplePred object.
+
+   @param bagSum is the sum of in-bag response values, used for splitting the root index node.
 
    @return count of in-bag samples.
 */
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-int SampleCtg::SampleRows(const int rvRow[], const int yCtg[], const double y[]) {
-  sampleCtg = new SampleCtg[nSamp]; // Lives until TreeClear()
+int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *&samplePred, SplitPred *&splitPred, double &bagSum) {
+  int *sCountRow = CountRows();
+  int *sIdxRow = new int[nRow];
+  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  samplePred = new SamplePred(); // Lives through final level.
 
-  CountRows(rvRow);
-
-  int maxSCount = 1;
   int idx = 0;
-  int bagCount = 0;
-  for (int row = 0; row < nRow; row++) {
-    int sCount = sCountRow[row];
-    if (sCount > 0) {
-      if (sCount > maxSCount)
-	maxSCount = sCount;
-      double sum = sCount * y[row];
-      sampleCtg[idx].sum = sum;
-      sampleCtg[idx].rowRun = sCount;
-      sampleCtg[idx].ctg = yCtg[row];
-      sIdxRow[row] = idx;
-      idx++;
-      inBag[row] = true;
+  bagSum = 0.0;
+  bagCount = 0;
+  int slot = 0;
+  for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
+    unsigned int bits = 0;
+    unsigned int mask = 1;
+    unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
+    for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
+      int sCount = sCountRow[row];
+      if (sCount > 0) {
+        double val = sCount * y[row];
+	bagSum += val;
+        sampleCtg[idx].sum = val;
+        sampleCtg[idx].rowRun = sCount;
+        sampleCtg[idx].ctg = yCtg[row];
+        sIdxRow[row] = idx++;
+        bits |= mask;
+      }
     }
-    else {
-      inBag[row] = false;
-      sIdxRow[row] = -1;
-    }
-    bagCount = idx;
+    inBag[slot] = bits;
   }
-  SamplePred::SetCtgShift(maxSCount);
+  bagCount = idx;
+  samplePred->StageCtg(predOrd, sampleCtg, sCountRow, sIdxRow);
+  splitPred = new SPCtg(samplePred, sampleCtg);
+
+  delete [] sCountRow;
+  delete [] sIdxRow;
 
   return bagCount;
 }
 
-/**
-   @brief Records ranked regression sample information per predictor.
-
-   @return void.
- */
-void SampleReg::Stage() {
-  int predIdx;
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = 0; predIdx < nPred; predIdx++) {
-	Stage(predIdx);
-      }
-    }
-}
-
-
-/**
-   @brief Stages the regression sample for a given predictor.
-
-   @param predIdx is the predictor index.
-
-   @return void.
-*/
-// For each predictor derives rank associated with sampled row and random vector index.
-// Writes predTree[] for subsequent use by Level() calls.
-// 
-void SampleReg::Stage(int predIdx) {
-  SamplePred *samplePred = SamplePred::BufferOff(predIdx, 0);
-  PredOrd *dCol = predOrd + predIdx * nRow;
-
-  // 'rk' values must be recorded in nondecreasing rank order.
-  //
-  int ptIdx = 0;
-  for (int rk = 0; rk < nRow; rk++) {
-    PredOrd dc = dCol[rk];
-    int row = dc.row;
-    int sCount = sCountRow[row]; // Should be predictor-invariant.
-    if (sCount > 0) {
-      int sIdx = sIdxRow[row];
-      SampleReg sReg = sampleReg[sIdx];
-      SamplePred::SetReg(samplePred, ptIdx++, sIdx, sReg.sum, dc.rank, sReg.rowRun);
-    }
-  }
-}
-
-/**
-   @brief Records ranked categorical sample information per predictor.
-
-   @return void.
- */
-void SampleCtg::Stage() {
-  int predIdx;
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = 0; predIdx < nPred; predIdx++) {
-	Stage(predIdx);
-      }
-    }
-}
-
-/**
-   @brief Stages the categorical sample for a given predictor.
-
-   @param predIdx is the predictor index.
-
-   @return void.
-*/
-void SampleCtg::Stage(int predIdx) {
-  SamplePred *samplePred = SamplePred::BufferOff(predIdx, 0);
-  PredOrd *dCol = predOrd + predIdx * nRow;
-  // 'rk' values must be recorded in nondecreasing rank order.
-  //
-  int ptIdx = 0;
-  for (int rk = 0; rk < nRow; rk++) {
-    PredOrd dc = dCol[rk];
-    int row = dc.row;
-    int sCount = sCountRow[row]; // Should be predictor-invariant.
-    if (sCount > 0) {
-      int sIdx = sIdxRow[row];
-      SampleCtg sCtg = sampleCtg[sIdx];
-      SamplePred::SetCtg(samplePred, ptIdx++, sIdx, sCtg.sum, dc.rank, sCtg.rowRun, sCtg.ctg);
-    }
-  }
-}
 
 /**
    @brief Derives scores for regression tree.
 
-   @param bagCount is the in-bag sample count.
+   @param frontierMap maps sample id to pretree terminal id.
 
    @param treeHeight is the number of nodes in the pretree.
 
@@ -319,9 +258,7 @@ void SampleCtg::Stage(int predIdx) {
 // is the sample mean.  These values could also be computed by passing sums down the
 // pre-tree and pulling them from terminal nodes.
 //
-// 'sampleReg[]' deleted here.
-//
-void SampleReg::Scores(int bagCount, int treeHeight, double score[]) {
+void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) {
   int *sCount = new int[treeHeight];
   for (int pt = 0; pt < treeHeight; pt++) {
     score[pt] = 0.0;
@@ -329,7 +266,7 @@ void SampleReg::Scores(int bagCount, int treeHeight, double score[]) {
   }
 
   for (int i = 0; i < bagCount; i++) {
-    int leafIdx = PreTree::Sample2Leaf(i);
+    int leafIdx = frontierMap[i];
     score[leafIdx] += sampleReg[i].sum;
     sCount[leafIdx] += sampleReg[i].rowRun;
   }
@@ -340,16 +277,13 @@ void SampleReg::Scores(int bagCount, int treeHeight, double score[]) {
   }
 
   delete [] sCount;
-  delete [] sampleReg;
-  sampleReg = 0;
 }
+
 
 /**
    @brief Derives scores for categorical tree.
 
-   @param bagCount is the in-bag sample count.
-
-   @param ctgWidth is the response cardinality.
+   @param sampleMap maps sample id to pretree terminal id.
 
    @param treeHeight is the number of nodes in the pretree.
 
@@ -358,7 +292,7 @@ void SampleReg::Scores(int bagCount, int treeHeight, double score[]) {
    @return void, with output parameter vector.
 */
 
-void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[]) {
+void SampleCtg::Scores(const int frontierMap[], int treeHeight, double score[]) {
   double *leafWS = new double[ctgWidth * treeHeight];
 
   for (int i = 0; i < ctgWidth * treeHeight; i++)
@@ -368,7 +302,7 @@ void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[
   // weights with which they are associated.
   //
   for (int i = 0; i < bagCount; i++) {
-    int leafIdx = PreTree::Sample2Leaf(i);
+    int leafIdx = frontierMap[i];
     int ctg = sampleCtg[i].ctg;
     // ASSERTION:
     //if (ctg < 0 || ctg >= ctgWidth)
@@ -400,52 +334,31 @@ void SampleCtg::Scores(int bagCount, int ctgWidth, int treeHeight, double score[
   //  Can count nonterminals and verify #nonterminals == treeHeight - leafCount
 
   delete [] leafWS;
-  delete [] sampleCtg;
-  sampleCtg = 0;
 }
+
+
+SampleCtg::~SampleCtg() {
+  delete [] sampleCtg;
+}
+
 
 /**
    @brief Clears per-tree information.
 
    @return void.
  */
-void Sample::TreeClear() {
-  SamplePred::TreeClear();
-
-  delete [] sCountRow;
-  delete [] sIdxRow;
-  delete [] inBag;
-  sCountRow = 0;
-  sIdxRow = 0;
-  inBag = 0;
-}
-
-/**
-   @brief Clears regression-specific information and calls base clear method.
-
-   @return void.
- */
-void SampleReg::TreeClear() {
+SampleReg::~SampleReg() {
+  delete [] sampleReg;
   delete [] sample2Rank;
-  Sample::TreeClear();
 }
 
-/**
-   @brief Clears categorical-specific information and calls base clear method.
-
-   @return void.
- */
-void SampleCtg::TreeClear() {
-  delete [] sampleCtg;
-  Sample::TreeClear();
-}
 
 /**
    @brief Derives and copies quantile leaf information.
 
-   @param treeSize is the height of the pretree.
+   @param frontierMap[] maps sample index to its pre-tree terminal id.
 
-   @param bagCount is the size of the in-bag sample set.
+   @param treeSize is the height of the pretree.
 
    @param qLeafPos outputs quantile leaf offsets; vector length treeSize.
 
@@ -457,7 +370,7 @@ void SampleCtg::TreeClear() {
 
    @return void, with output parameter vectors.
  */
-void SampleReg::TreeQuantiles(int treeSize, int bagCount, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
+void SampleReg::Quantiles(const int frontierMap[], int treeSize, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
   // Must be wide enough to access all tree offsets.
   int *seen = new int[treeSize];
   for (int i = 0; i < treeSize; i++) {
@@ -465,7 +378,7 @@ void SampleReg::TreeQuantiles(int treeSize, int bagCount, int qLeafPos[], int qL
     qLeafExtent[i] = 0;
   }
   for (int sIdx = 0; sIdx < bagCount; sIdx++) {
-    int leafIdx = PreTree::Sample2Leaf(sIdx);
+    int leafIdx = frontierMap[sIdx];
     qLeafExtent[leafIdx]++;
   }
 
@@ -482,7 +395,7 @@ void SampleReg::TreeQuantiles(int treeSize, int bagCount, int qLeafPos[], int qL
     // ASSERTION:
     //    if (rk > Predictor::nRow)
     //  cout << "Invalid rank:  " << rk << " / " << Predictor::nRow << endl;
-    int leafIdx = PreTree::Sample2Leaf(sIdx);
+    int leafIdx = frontierMap[sIdx];
     int rkOff = qLeafPos[leafIdx] + seen[leafIdx];
     qRank[rkOff] = sample2Rank[sIdx];
     qRankCount[rkOff] = sampleReg[sIdx].rowRun;
@@ -490,4 +403,13 @@ void SampleReg::TreeQuantiles(int treeSize, int bagCount, int qLeafPos[], int qL
   }
 
   delete [] seen;
+}
+
+
+/**
+   @brief Stub:  should be unreachable.
+ */
+void SampleCtg::Quantiles(const int frontierMap[], int treeSize, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
+  // ASSERTION:
+  // Should never get here.
 }

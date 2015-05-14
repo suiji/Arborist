@@ -41,7 +41,7 @@
 }
 
 \author{
-  Mark Seligman at Rapidics LLC.
+  Mark Seligman at Suiji.
 }
 
 \seealso{\code{\link{Rborist}}}

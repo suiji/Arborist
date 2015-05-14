@@ -15,7 +15,7 @@
 
 #include "quant.h"
 #include "response.h"
-#include "sample.h"
+#include "pretree.h"
 
 bool Quant::live = false;
 int Quant::nTree = -1;
@@ -250,7 +250,7 @@ void Quant::ConsumeTrees(const int treeOriginForest[], int _forestSize) {
 
   @return void.
 */
-void Quant::TreeRanks(int tn, int treeSize, int bagCount) {
+void Quant::TreeRanks(const PreTree *preTree, int treeSize, int tn, int bagCount) {
   if (!live)
     return;
 
@@ -266,8 +266,9 @@ void Quant::TreeRanks(int tn, int treeSize, int bagCount) {
   int *qRankCount = new int[bagCount];
   treeQRankCount[tn] = qRankCount;
 
-  SampleReg::TreeQuantiles(treeSize, bagCount, qLeafPos, qLeafExtent, qRank, qRankCount);
+  preTree->Quantiles(treeSize, qLeafPos, qLeafExtent, qRank, qRankCount);
 }
+
 
 /**
    @brief Fills in the quantile leaves for each row.

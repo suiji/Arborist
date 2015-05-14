@@ -14,71 +14,222 @@
  */
 
 #include "samplepred.h"
-#include "index.h"
+#include "sample.h"
+#include "predictor.h"
 #include "pretree.h"
-#include "splitpred.h"
+#include "restage.h"
+//#include <iostream>
+using namespace std;
 
-SamplePred *SamplePred::samplePredWS = 0;
-int SamplePred::nSamp = 0;
-int SamplePred::ctgShift = -1;
+unsigned int SamplePred::nRow = 0;
+unsigned int SamplePred::pitchSP = 0;
+unsigned int SamplePred::pitchSIdx = -1;
+int SamplePred::predNumFirst = -1;
+int SamplePred::predNumSup = -1;
+int SamplePred::predFacFirst = -1;
+int SamplePred::predFacSup = -1;
 
-RestageMap *RestageMap::restageMap = 0;
-int RestageMap::splitCount = -1;
-int RestageMap::totLhIdx = -1;
+int SamplePred::nSamp = -1;
+int SamplePred::nPred = -1;
+int SamplePred::bufferSize = -1;
 
-void RestageMap::Factory(int levelMax) {
-  restageMap = new RestageMap[levelMax];
-  splitCount = 0;
-}
-
-/**
-   @brief Reallocates the restaging map.
-
-   @param levelMax is the current level-max value.
-
-   @return void.
- */
-// The map should not be in use when reallocating.
-//
-void RestageMap::ReFactory(int levelMax) {
-  delete [] restageMap;
-  restageMap = new RestageMap[levelMax];
-}
+unsigned int SPNode::ctgShift = 0;
 
 /**
-   @brief Class finalizer.
+  @brief Sets static allocation parameters.
 
-   @return void.
+  @param _nPred is the number of predictors.
+
+  @param _nSamp is the number of samples.
+
+  @param _nRow is the number of rows.
+
+  @param ctgWidth is the response cardinality.
+
+  @return void.
  */
-void RestageMap::DeFactory() {
-  delete [] restageMap;
-  splitCount = -1;
-}
- 
-/**
-   @brief Per-tree allocation of workspace.
-
-   @param nPred is the number of predictors.
-
-   @param _nSamp is the number of samples
-
-   @return void.
- */
-void SamplePred::TreeInit(int nPred, int _nSamp) {
+void SamplePred::Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned int ctgWidth) {
+  nPred = _nPred;
   nSamp = _nSamp;
-  samplePredWS = new SamplePred[2 * nPred * nSamp];
+  nRow = _nRow;
+
+  predNumFirst = Predictor::PredNumFirst();
+  predNumSup = Predictor::PredNumSup();
+  predFacFirst = Predictor::PredFacFirst();
+  predFacSup = Predictor::PredFacSup();
+  
+  // 'bagCount' suffices, but easier to preinitialize to same value for each tree:
+  pitchSP = nSamp * sizeof(SamplePred);
+  pitchSIdx = nSamp * sizeof(unsigned int);
+  
+  bufferSize = nPred * nSamp;
+  SPNode::Immutables(ctgWidth);
+  RestageMap::Immutables(nPred);
 }
 
 /**
-   @brief Per-tree deallocations of workspace.
+   @brief Computes a packing width sufficient to hold all (zero-based) response
+   category values.
 
-   @return void
+   @param ctgWidth is the response cardinality.
+
+   @return void.
  */
-void SamplePred::TreeClear() {
-  delete [] samplePredWS;
-  samplePredWS = 0;
-  nSamp = -1;
+void SPNode::Immutables(unsigned int ctgWidth) {
+  unsigned int bits = 1;
+  ctgShift = 0;
+  // Ctg values are zero-based, so the first power of 2 greater than or
+  // equal to 'ctgWidth' has sufficient bits to hold all response values.
+  while (bits < ctgWidth) {
+    bits <<= 1;
+    ctgShift++;
+  }
 }
+
+
+/*
+**/
+void SPNode::DeImmutables() {
+  ctgShift = 0;
+}
+
+
+/**
+   @brief Nothing to see here.
+ */
+void SamplePred::DeImmutables() {
+  pitchSP = pitchSIdx = 0;
+  nRow = 0;
+  predNumFirst = predNumSup = predFacFirst = predFacSup = -1;
+  nPred = nSamp = bufferSize = -1;
+  SPNode::DeImmutables();
+  RestageMap::DeImmutables();
+}
+
+
+/**
+   @brief Base class constructor.
+ */
+SamplePred::SamplePred() {
+  sampleIdx = new unsigned int[2* bufferSize];
+  nodeVec = new SPNode[2 * bufferSize];
+}
+
+
+/**
+  @brief Base class destructor.
+ */
+SamplePred::~SamplePred() {
+  delete [] nodeVec;
+  delete [] sampleIdx;
+}
+
+/**
+   @brief Records ranked regression sample information per predictor.
+
+   @return void.
+ */
+void SamplePred::StageReg(const PredOrd *predOrd, const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[]) {
+  int predIdx;
+#pragma omp parallel default(shared) private(predIdx)
+    {
+#pragma omp for schedule(dynamic, 1)
+      for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
+	StageReg(predOrd + predIdx * nRow, sampleReg, sCountRow, sIdxRow, predIdx);
+      }
+    }
+
+#pragma omp parallel default(shared) private(predIdx)
+    {
+#pragma omp for schedule(dynamic, 1)
+      for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
+	StageReg(predOrd + predIdx * nRow, sampleReg, sCountRow, sIdxRow, predIdx);
+      }
+    }
+}
+
+
+/**
+   @brief Stages the regression sample for a given predictor.  For each predictor derives rank associated with sampled row and random vector index.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
+void SamplePred::StageReg(const PredOrd *dCol, const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
+  unsigned int *sampleIdx;
+  SPNode *spn = Buffers(predIdx, 0, sampleIdx);
+
+  // 'rk' values must be recorded in nondecreasing rank order.
+  //
+  int ptIdx = 0;
+  for (unsigned int rk = 0; rk < nRow; rk++) {
+    PredOrd dc = dCol[rk];
+    unsigned int row = dc.row;
+    int sCount = sCountRow[row]; // Should be predictor-invariant.
+    if (sCount > 0) {
+      int sIdx = sIdxRow[row];
+      SampleNode sReg = sampleReg[sIdx];
+      sampleIdx[ptIdx] = sIdx;
+      spn[ptIdx++].SetReg(sReg.sum, dc.rank, sReg.rowRun);
+    }
+  }
+}
+
+
+/**
+   @brief Records ranked categorical sample information per predictor.
+
+   @return void.
+ */
+void SamplePred::StageCtg(const PredOrd *predOrd, const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[]) {
+  
+  int predIdx;
+#pragma omp parallel default(shared) private(predIdx)
+    {
+#pragma omp for schedule(dynamic, 1)
+      for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
+	StageCtg(predOrd + predIdx * nRow, sampleCtg, sCountRow, sIdxRow, predIdx);
+      }
+    }
+
+#pragma omp parallel default(shared) private(predIdx)
+    {
+#pragma omp for schedule(dynamic, 1)
+      for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
+	StageCtg(predOrd + predIdx * nRow, sampleCtg, sCountRow, sIdxRow, predIdx);
+      }
+    }
+}
+
+
+/**
+   @brief Stages the categorical sample for a given predictor.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
+void SamplePred::StageCtg(const PredOrd *dCol, const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
+  unsigned int *sampleIdx;
+  SPNode *spn = Buffers(predIdx, 0, sampleIdx);
+
+  // 'rk' values must be recorded in nondecreasing rank order.
+  //
+  int ptIdx = 0;
+  for (unsigned int rk = 0; rk < nRow; rk++) {
+    PredOrd dc = dCol[rk];
+    unsigned int row = dc.row;
+    int sCount = sCountRow[row]; // Should be predictor-invariant.
+    if (sCount > 0) {
+      int sIdx = sIdxRow[row];
+      SampleNodeCtg sCtg = sampleCtg[sIdx];
+      sampleIdx[ptIdx] = sIdx;
+      spn[ptIdx++].SetCtg(sCtg.sum, dc.rank, sCtg.rowRun, sCtg.ctg);
+    }
+  }
+}
+
 
 /**
    @brief Fills in the high and low ranks defining a numerical split.
@@ -96,13 +247,14 @@ void SamplePred::TreeClear() {
    @return void, with output reference parameters.
  */
 void SamplePred::SplitRanks(int predIdx, int level, int spPos, int &rkLow, int &rkHigh) {
-  SamplePred *tOrd = BufferOff(predIdx, level);
-  rkLow = tOrd[spPos].rank;
-  rkHigh = tOrd[spPos + 1].rank;
+  SPNode *spn = SplitBuffer(predIdx, level);
+  rkLow = spn[spPos].Rank();
+  rkHigh = spn[spPos + 1].Rank();
 }
 
+
 /**
-   @brief Remaps the pretree index of a SamplePred block.
+   @brief Maps a block of predictor-associated sample indices to a specified pretree node index.
 
    @param predIdx is the splitting predictor.
 
@@ -112,216 +264,20 @@ void SamplePred::SplitRanks(int predIdx, int level, int spPos, int &rkLow, int &
 
    @param end is the block ending index.
 
-   @param ptId is the pretree index to which to map the block.
+   @param ptId is the pretree node index to which to map the block.
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(int predIdx, int level, int start, int end, int ptId) {
-  SamplePred *tOrd = BufferOff(predIdx, level);
-  double sum = 0.0;
+double SamplePred::Replay(int sample2PT[], int predIdx, int level, int start, int end, int ptId) {
+  unsigned int *sIdx;
+  SPNode *spn = Buffers(predIdx, level, sIdx);
 
+  double sum = 0.0;
   for (int idx = start; idx <= end; idx++) {
-    PreTree::MapSample(tOrd[idx].sampleIdx, ptId);
-    sum += tOrd[idx].yVal;
+    sum += spn[idx].YVal();
+    unsigned int sId = sIdx[idx];
+    sample2PT[sId] = ptId;
   }
 
   return sum;
-}
-
-/**
-   @brief Consumes all fields in current NodeCache item relevant to restaging.
-
-   @param _splitIdx is the split index.
-
-   @param _lNext is the index node offset of the LHS in the next level.
-
-   @param _rNext is the index node offset of the RHS in the next level.
-
-   @param _lhIdxCount is the count of indices associated with the split's LHS.
-
-   @param _rhIdxCount is the count of indices associated with the split's RHS.
-
-   @return void.
-*/
-void RestageMap::ConsumeSplit(int _splitIdx, int _lNext, int _rNext, int _lhIdxCount, int _rhIdxCount) {
-  RestageMap *rsMap = &restageMap[_splitIdx];
-  rsMap->lNext = _lNext;
-  rsMap->rNext = _rNext;
-  rsMap->lhIdxCount = _lhIdxCount;
-  rsMap->rhIdxCount = _rhIdxCount;
-  NodeCache::RestageFields(_splitIdx, rsMap->ptL, rsMap->ptR, rsMap->startIdx, rsMap->endIdx);
-}
-
-/**
-   @brief Walks the live split indices for a predictor and either restages or propagates runs.
-
-   @param predIdx is the predictor being restaged.
-
-   @param level is the current level.
-
-   @return void.
- */
-void RestageMap::Restage(int predIdx, int level) {
-  int lhIdx = 0;
-  int rhIdx = totLhIdx;
-  SamplePred *source = SamplePred::BufferOff(predIdx, level-1);
-  SamplePred *targ = SamplePred::BufferOff(predIdx, level);
-
-  for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    RestageMap *rsMap = &restageMap[splitIdx];
-    if (SplitPred::PredRun(splitIdx, predIdx, level-1)) {
-      rsMap->TransmitRun(splitIdx, predIdx, level-1);
-    }
-    else {
-      rsMap->Restage(source, targ, lhIdx, rhIdx);
-      rsMap->NoteRuns(predIdx, level, targ, lhIdx, rhIdx);
-    }
-    lhIdx += rsMap->lhIdxCount;
-    rhIdx += rsMap->rhIdxCount;
-  }
-  // Diagnostic:
-  // rhIdx == rhStop + 1
-}
-
-/**
-   @brief Notes those index nodes for consist of single runs.
-
-   @param predIdx is the predictor index.
-  
-   @param level is the current level.
-
-   @param targ contains the restaged indices for this predictor.
-
-   @param lhIdx is the index of the LHS.
-
-   @param rhIdx is the index of the RHS.
-
-   @return void.
-*/
-// Runs of subminimal length should not make it to restaging, so no effort is
-// made to threshold by run length.
-//
-void RestageMap::NoteRuns(int predIdx, int level, const SamplePred targ[], int lhIdx, int rhIdx) {
-  if (lNext >= 0) {
-    if (targ[lhIdx].rank == targ[lhIdx + lhIdxCount - 1].rank)
-      SplitPred::SetPredRun(lNext, predIdx, level, true);
-  }
-
-  if (rNext >= 0) {
-    if (targ[rhIdx].rank == targ[rhIdx + rhIdxCount - 1].rank)
-      SplitPred::SetPredRun(rNext, predIdx, level, true);
-  }
-}
-
-/**
-   @brief Transmits the bits associated with a run from the previous level into those for the descendents in the current level.
-
-   @param splitIdx is the index of the node in the previous level.
-
-   @param predIdx is the predictor for which the indices are restaged.
-
-   @param level is the previous level.
-   
-   @return void.
- */
-// Runs are maintained by SplitPred, as SamplePred does not record either
-// of split or predictor.
-//
-// Runs need not be restaged, but lh, rh index positions should be
-// updated for uniformity across predictors.  Hence the data in
-// unrestaged SamplePreds is dirty.
-//
-void RestageMap::TransmitRun(int splitIdx, int predIdx, int level) {
-  SplitPred::TransmitRun(splitIdx, predIdx, lNext, rNext, level);
-}
-
-/**
-   @brief Sends contents of previous level's SamplePreds to this level's descendents, via a stable partition.
-
-   @param source contains the previous level's SamplePreds.
-
-   @param targ outputs this level's SamplePreds.
-
-   @param lhIdx is the index node offset for the LHS.
-
-   @param rhIdx is the index node offset for the RHS.
-
-   @return void, with output parameter vector.
-*/
-void RestageMap::Restage(const SamplePred source[], SamplePred targ[], int lhIdx, int rhIdx) {
-  // Node either does not split or splits into two terminals.
-  if (lNext < 0 && rNext < 0)
-    return;
-
-  if (lNext >= 0 && rNext >= 0) // Both subnodes potentially splitable.
-    SamplePred::RestageTwo(source, targ, startIdx, endIdx, ptL, ptR, lhIdx, rhIdx);
-  else if (lNext >= 0) // Only LH subnode potentially splitable.
-    SamplePred::RestageOne(source, targ, startIdx, endIdx, ptL, lhIdx);
-  else // Only RH subnode potentially splitable.
-    SamplePred::RestageOne(source, targ, startIdx, endIdx, ptR, rhIdx);
-
-  // Post-conditions:  lhIdx = lhIdx in + lhIdxCount && rhIdxIdx = rhIdx in + rhIdxCount
-}
-
-/**
-   @brief Sends SamplePred contents to both LH and RH targets.
-
-   @param source contains the previous level's SamplePred values.
-
-   @param targ outputs the current level's SamplePred values.
-
-   @param startIdx is the first index in the node being restaged.
-
-   @param endIdx is the last index in the node being restaged.
-
-   @param ptL is the pretree index of the LHS.
-
-   @param ptR is the pretree index of the RHS.
-
-   @param lhIdx is the index node offset of the LHS.
-
-   @param rhIdx is the index node offset of the RHS.
-
-   @return void.
- */
-// Target nodes should all equal either lh or rh.
-//
-void SamplePred::RestageTwo(const SamplePred source[], SamplePred targ[], int startIdx, int endIdx, int ptL, int ptR, int lhIdx, int rhIdx) {
-  for (int i = startIdx; i <= endIdx; i++) {
-    int sIdx = source[i].sampleIdx;
-    int ptIdx = PreTree::Sample2PT(sIdx);
-    if (ptIdx == ptL)
-      targ[lhIdx++] = source[i];
-    else {
-      // if (ptIdx != ptR) // ASSERTION
-      //	cout << "Expected " << ptR << ":  " << ptIdx << " sIndex " << sIdx << endl;;
-      targ[rhIdx++] = source[i];
-    }
-  }
-}
-
-/**
-   @brief Sends SamplePred contents to one of either LH or RH targets.
-
-   @param source contains the previous level's SamplePred values.
-
-   @param targ outputs the current level's SamplePred values.
-
-   @param startIdx is the first index in the node being restaged.
-
-   @param endIdx is the last index in the node being restaged.
-
-   @param ptL is the pretree index of the descendent index node.
-
-   @param idx is the offset of the descendent index node.
-
-   @return void.
- */
-void SamplePred::RestageOne(const SamplePred source[], SamplePred targ[], int startIdx, int endIdx, int pt, int idx) {
-  // Target nodes should all be either lh or leaf.
-  for (int i = startIdx; i <= endIdx; i++) {
-    int sIdx = source[i].sampleIdx;
-    if (PreTree::Sample2PT(sIdx) == pt)
-      targ[idx++] = source[i];
-  }
 }

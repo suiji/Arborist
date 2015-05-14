@@ -20,28 +20,23 @@
    @brief Interface class for front end. Holds simulation-specific parameters of the data.
 */
 class Train {
-  static const int accumExp = 5;
-  static int reLevel; // Diagnostic:  # reallocations.
-  static int levelMax;
-public:
+  static int treeBlock; // Multinode blocking parameter.
+ protected:
+  static int TrainZero(const class PredOrd *predOrd);
+  static int TrainBlock(const class PredOrd *predOrd, int tn, int count);
+  static int TrainForest(const class PredOrd *predOrd, int treeCount);
+ public:
   static int nTree;
-  static int nSamp;
   static double probCutoff;
-  static double minRatio; // Spread between parent and child information content.
-  static int blockSize;
   static int accumRealloc;
   static int probResize;
   static double *sCDF;
   static int *cdfOff;
   static void ResponseReg(double y[]);
   static int ResponseCtg(const int y[], double yPerturb[], const double l[], int ln);
-  static int Training(int minH, bool _quantiles, int totLevels, int &facWidth, int &totBagCount);
-  static int Factory(int _nTree, double _minRatio, int _blockSize);
+  static int Training(int minH, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount);
+  static void Factory(int _nTree, int _treeBlock);
   static void DeFactory();
-  static int ReFactory();
-  static inline double MinInfo(double info) {
-    return minRatio * info;
-  }
 
   static void SampleWeights(double sWeight[]);
   static void WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);

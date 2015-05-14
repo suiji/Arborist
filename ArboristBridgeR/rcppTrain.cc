@@ -37,15 +37,16 @@ using namespace Rcpp;
 
    @param sMinRatio is a threshold ratio of information measures between an index node and its offspring, below which the node does not split.
 
-   @param sBlockSize is a block size, tuned for performance.
+   @param sTreeBlock is a block count for MPI-style parallelism.
 
    @return Wrapped level-max value.
  */
-RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sMinRatio, SEXP sBlockSize) {
-  int levelMax = Train::Factory(as<int>(sNTree), as<double>(sMinRatio), as<int>(sBlockSize));
+RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sTreeBlock) {
+  Train::Factory(as<int>(sNTree), as<int>(sTreeBlock));
 
-  return wrap(levelMax);
+  return wrap(0);
 }
+
 
 /**
    @brief Builds the forest.
@@ -62,12 +63,12 @@ RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sMinRatio, SEXP sBlockSize) {
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sTotLevels) {
+RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sMinRatio, SEXP sTotLevels) {
   IntegerVector facWidth(sFacWidth);
   IntegerVector totBagCount(sTotBagCount);
 
   int fw, tbc;
-  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), as<int>(sTotLevels), fw, tbc);
+  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), as<double>(sMinRatio), as<int>(sTotLevels), fw, tbc);
   facWidth[0] = fw;
   totBagCount[0] = tbc;
 

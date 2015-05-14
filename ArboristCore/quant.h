@@ -47,7 +47,7 @@ class Quant {
   static void EntryPredict(double _qVec[], int _qCount, double _qPred[], int _nRow = 0);
   static void DeFactoryPredict();
   static void ConsumeTrees(const int treeOriginForest[], int forestSize);
-  static void TreeRanks(int tn, int treeSize, int bagCount);
+  static void TreeRanks(const class PreTree *pt, int treeSize, int tn, int bagCount);
   static void Write(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]);
   static void PredictRows(const int treeOriginForest[], int *predictLeaves);
   static int qCount;

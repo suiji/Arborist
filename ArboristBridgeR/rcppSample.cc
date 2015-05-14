@@ -30,6 +30,7 @@ int RcppSample::nRow = -1;
 int RcppSample::nSamp = -1;
 NumericVector RcppSample::sampleWeight = 0;
 bool RcppSample::withReplacement = true;
+
 /**
   @brief R-language entry to sampling factories.
 
@@ -52,8 +53,8 @@ RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNPred, SEXP sNSamp, SEXP sSampWeigh
   NumericVector sampWeight(sSampWeight);
   bool withReplacement = as<bool>(sWithReplacement);
 
-  RcppSample::Factory(nRow, nSamp, sampWeight, withReplacement);
-  Sample::Factory(nRow, nSamp, nPred);
+  RcppSample::Immutables(nRow, nSamp, sampWeight, withReplacement);
+  Sample::Immutables(nRow, nPred, nSamp);
 
   return wrap(0);
 }
@@ -71,11 +72,11 @@ RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNPred, SEXP sNSamp, SEXP sSampWeigh
 
    @return void.
  */
-void RcppSample::Factory(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement ) {
-    nRow = _nRow;
-    nSamp = _nSamp;
-    sampleWeight = _sampleWeight;
-    withReplacement = _withReplacement;
+void RcppSample::Immutables(int _nRow, int _nSamp, NumericVector _sampleWeight, bool _withReplacement ) {
+  nRow = _nRow;
+  nSamp = _nSamp;
+  sampleWeight = _sampleWeight;
+  withReplacement = _withReplacement;
 }
 
 

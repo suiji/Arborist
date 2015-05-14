@@ -14,179 +14,168 @@
  */
 
 #include "splitsig.h"
-#include "train.h"
 #include "predictor.h"
-#include "index.h"
-#include "facrun.h"
-#include "pretree.h"
 #include "samplepred.h"
+#include "pretree.h"
+#include "splitpred.h"
 
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
-SplitSig *SplitSig::levelSS = 0;
+/* Split signature values only live during a single level, from argmax
+   pass one (splitting) through argmax pass two.
+*/
+
 int SplitSig::nPred = -1;
+double SSNode::minRatio = 0.0;
 
 // TODO:  Economize on width (nPred) here et seq.
 //
 
 /**
-   @brief Lights initializer for level workspace.
-
-   @param _levelMax is the current level-max value.
+   @brief Sets immutable static values.
 
    @param _nPred is the number of predictors.
 
+   @param _minRatio is an inf information content for splitting.
+
    @return void.
  */
-void SplitSig::Factory(int _levelMax, int _nPred) {
+void SplitSig::Immutables(int _nPred, double _minRatio) {
   nPred = _nPred;
-  levelSS = new SplitSig[_levelMax * nPred];
-}
-
-/**
-   @brief Reallocates level workspace.
-
-   @param _levelMax is the new level-max value.
-
-   @return void.
-*/
-void SplitSig::ReFactory(int _levelMax) {
-  delete [] levelSS;
-
-  levelSS = new SplitSig[_levelMax * nPred];
-  TreeInit(_levelMax);
+  SSNode::minRatio = _minRatio;
 }
 
 
 /**
    @brief Finalizer.
 */  
-void SplitSig::DeFactory() {
-  delete [] levelSS;
-  levelSS = 0;
-
+void SplitSig::DeImmutables() {
   nPred = -1;
+  SSNode::minRatio = 0.0;
 }
 
-/**
-   @brief Records splitting information in pretree for numerical predictor.
-
-   @param level is the current level.
-
-   @param lhStart is the starting index of the LHS.
-
-   @param ptId is the pretree index.
-
-   @return void.
-*/
-void SplitSig::NonTerminalNum(int level, int lhStart, int ptId) {
-  int rkLow, rkHigh;
-  SamplePred::SplitRanks(predIdx, level, lhStart + lhIdxCount - 1, rkLow, rkHigh);
-  double splitVal = Predictor::SplitVal(predIdx, rkLow, rkHigh);
-  PreTree::NonTerminalGeneric(ptId, info, splitVal, predIdx);
-}
 
 /**
-   @brief Records splitting information in pretree for factor-valued predictor.
+   @brief Dispatches nonterminal method based on predictor type.
+
+   With LH and RH PreTree indices known, the sample indices associated with
+   this split node can be looked up and remapped.  Replay() assigns actual
+   index values, irrespective of whether the pre-tree nodes at these indices
+   are terminal or non-terminal.
+
 
    @param splitIdx is the index node index.
 
    @param ptId is the pretree index.
 
+   @param lhStart is the start index of the LHS.
+
+   @return void.
+
+   Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
+*/
+double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+  preTree->TerminalOffspring(ptId, ptLH, ptRH);
+  double splitVal, lhSum;
+  int facCard = Predictor::FacCard(predIdx);
+  if (facCard > 0) {
+    lhSum = NonTerminalFac(samplePred, preTree, splitPred, level, start, end, ptLH, ptRH, facCard, splitVal);
+  }
+  else {
+    lhSum = NonTerminalNum(samplePred, preTree, level, start, end, ptLH, ptRH, splitVal);
+  }
+  preTree->NonTerminal(ptId, info, splitVal, predIdx);
+
+  return lhSum;
+}
+
+
+/**
+   @brief Writes PreTree nonterminal node for factor predictor.
+ */
+double SSNode::NonTerminalFac(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptLH, int ptRH, int facCard, double &splitVal) {
+  double lhSum = 0.0;
+  int bitOff = preTree->TreeBitOffset();
+  preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
+  for (int slot = 0; slot <= facLHTop; slot++) {
+    int runStart, runEnd;
+    int fac = splitPred->RunBounds(splitIdx, predIdx, slot, runStart, runEnd);
+    preTree->LHBit(bitOff + fac);
+    lhSum += preTree->Replay(samplePred, predIdx, level, runStart, runEnd, ptLH);
+  }
+  splitVal = bitOff;
+  preTree->BumpOff(facCard);
+
+  return lhSum;
+}
+
+
+/**
+   @brief Writes PreTree nonterminal node for numerical predictor.
+ */
+double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int level, int start, int end, int ptLH, int ptRH, double &splitVal) {
+  int rkHigh, rkLow;
+  samplePred->SplitRanks(predIdx, level, start + lhIdxCount - 1, rkLow, rkHigh);
+  splitVal = Predictor::SplitVal(predIdx, rkLow, rkHigh);
+
+  (void) preTree->Replay(samplePred, predIdx, level, start + lhIdxCount, end, ptRH);
+  return preTree->Replay(samplePred, predIdx, level, start, start + lhIdxCount - 1, ptLH);
+}
+
+
+/**
+   @brief Walks predictors associated with a given split index to find which,
+   if any, maximizes information gain above split's threshold.
+
+   @param splitIdx is the current split index.
+
+   @param gainMax begins as the minimal information gain suitable for spltting this
+   index node.
+
    @return void.
  */
-void SplitSig::NonTerminalFac(int splitIdx, int ptId) {
-  int bitOff = PreTree::TreeBitOffset();
-  for (int slot = 0; slot <= fac.lhTop; slot++) {
-    PreTree::SingleBit(FacRun::FacVal(splitIdx, predIdx, slot));
-  }
-  PreTree::NonTerminalFac(ptId, info, predIdx);
+SSNode *SplitSig::ArgMax(int splitIdx, double gainMax) const {
+  SSNode *argMax = 0;
 
-  fac.bitOff = bitOff;
-}
-
-/**
-   @brief Dispatches replay method according to predictor type.
-
-   @param spiltIdx is the index node index.
-
-   @param ptLH is the pretree index of the LHS.
-
-   @param ptRH is the pretree index of the RHS.
-
-   @return sum of LHS reponse values.
-
-   Not virtual:  once again replaces elegance with efficiency.
-*/
-double SplitSig::Replay(int splitIdx, int ptLH, int ptRH) {
-  if (Predictor::FacIdx(predIdx) >= 0)
-    return FacRun::Replay(splitIdx, predIdx, level, fac.bitOff, ptLH, ptRH);
-  else
-    return NodeCache::ReplayNum(splitIdx, predIdx, level, lhIdxCount);
-}
-
-
-/**
- @brief  Walks level's split signatures to find maximal information content.
-
- @param splitIdx is the index node index.
-
- @param _level is the current level.
-
- @param preBias is an information threshold derived from the index node.
-
- @param minInfo is an additional threshold derived from the pretree.
-
- @return SplitSig with maximal information content, if any, exceeding threshold.
-*/
-SplitSig* SplitSig::ArgMax(int splitIdx, int _level, double preBias, double minInfo) {
-  SplitSig *argMax = 0;
-  double maxInfo = preBias + minInfo;
-
-  // TODO:  Randomize predictor walk to break ties nondeterministically.
+  // TODO: Break ties nondeterministically.
   //
-  SplitSig *ssBase = Lookup(splitIdx);
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    SplitSig *candSS = &ssBase[predIdx];
-    if (candSS->level == _level && candSS->info > maxInfo) {
+  int predOff = splitIdx;
+  for (int predIdx = 0; predIdx < nPred; predIdx++, predOff += splitCount) {
+    SSNode *candSS = &levelSS[predOff];
+    if (candSS->info > gainMax) {
       argMax = candSS;
-      maxInfo = candSS->info;
+      gainMax = candSS->info;
     }
-  }
-
-  if (argMax != 0) {
-    argMax->info -= preBias;
   }
 
   return argMax;
 }
 
-/**
-   @brief Derives an information threshold.
-
-   @return information threshold
-
-   TODO:  Implement internally ut avoid host calls from coprocessor.
-*/
-double SplitSig::MinInfo() {
-  return Train::MinInfo(info);
-}
 
 /**
- @brief Resets all level and predIdx fields, per tree.
+ @brief Allocates level's splitting signatures and initializes 'info'
+ content to zero.
 
- @param _levelMax is the current level-max value.
+ @param _splitCount is the number of splits in the current level.
 
  @return void.
 */
-void SplitSig::TreeInit(int _levelMax) {
-  int i = 0;
-  for (int splitIdx = 0; splitIdx < _levelMax; splitIdx++) {
-    for (int predIdx = 0; predIdx < nPred; predIdx++) {
-      levelSS[i].level = -1;
-      levelSS[i].predIdx = predIdx;
-      i++;
-    }
+void SplitSig::LevelInit(int _splitCount) {
+  splitCount = _splitCount;
+  levelSS = new SSNode[nPred * splitCount];
+  for (int i = 0; i < nPred * splitCount; i++) {
+    levelSS[i].info = 0.0;
   }
+}
+
+
+/**
+   @brief Deallocates level's signatures.
+
+   @return void.
+ */
+void SplitSig::LevelClear() {
+  delete [] levelSS;
+  levelSS = 0;
 }

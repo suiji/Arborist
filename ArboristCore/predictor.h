@@ -17,6 +17,16 @@
 #define ARBORIST_PREDICTOR_H
 
 /**
+   @brief Contains the predictor-specific component of the staged data.
+ */
+class PredOrd {
+ public:
+  unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
+  unsigned int row; // local copy of r2r[] value.
+};
+
+
+/**
   @brief Parameters specific to the data set, whether training, testing or predicting.
 */
 class Predictor {
@@ -26,7 +36,7 @@ class Predictor {
   static int *facCount;
   static int *facSum;
   static int *facCard;
-  static int nRow;
+  static unsigned int nRow;
   static int nPredInt;
   static int nPredNum;
   static int nPredFac;
@@ -41,9 +51,10 @@ class Predictor {
   static int nCardTot; // Total number of levels over all factor predictors.
   static int maxFacCard;  // Highest number of levels among all factors.
   static void UniqueRank(int *);
-  static void IntegerBlock(int x[], int _nrow, int _ncol, bool doClone = true);
-  static void FactorBlock(int xi[], int _nrow, int _ncol, int levelCount[]);
-  static void NumericBlock(double xn[], int _nrow, int _ncol, bool doClone = true);
+  static void IntegerBlock(int x[], unsigned int _nrow, int _ncol, bool doClone = true);
+  static void FactorBlock(int xi[], unsigned int _nrow, int _ncol, int levelCount[]);
+  static void NumericBlock(double xn[], unsigned int _nrow, int _ncol, bool doClone = true);
+  static PredOrd *Order();
 
   /**
      @brief Computes compressed factor index. N.B.:  Implementation relies on factors having highest indices.
@@ -53,19 +64,20 @@ class Predictor {
      @return index of 'predIdx' into factor segment or -1, if not factor-valued.
   */
   static inline int FacIdx(int predIdx) {
-    return predIdx >= nPredNum ? predIdx - nPredNum : -1;
+    return predIdx >= PredFacFirst() ? predIdx - PredFacFirst() : -1;
   }
 
   /**
-   @brief Computes cardinality of factor-valued predictor.  N.B.:  caller verifies this is a factor.
+   @brief Computes cardinality of factor-valued predictor, or zero if not a
+   factor.
 
    @param predIdx is the predictor index.
 
-   @return factor cardinality.
+   @return factor cardinality or zero.
   */
   static inline int FacCard(int predIdx) {
     int facIdx = FacIdx(predIdx);
-    return facCard[facIdx];
+    return facIdx >= 0 ? facCard[facIdx] : 0;
   }
 
   /**
@@ -92,7 +104,7 @@ class Predictor {
   /**
      @return number or observation rows.
    */
-  static inline int NRow() {
+  static inline unsigned int NRow() {
     return nRow;
   }
 
@@ -171,12 +183,26 @@ class Predictor {
     return predProb[_predIdx];
   }
 
-  static double SplitVal(int _predIdx, int rkLow, int rkHigh);
 
-  static void SetSortAndTies(const int *rank2Row, class PredOrd *predOrd);
-  static void OrderByRank(const int *Col, const int *r2r, class PredOrd *dCol, bool ordinals = true);
-  static void OrderByRank(const double *xCol, const int *r2r, class PredOrd *dCol);
-  static void Factory(const double _predProb[], int _nPred, int _nRow);
+  /**
+    @brief Derives split values for a predictor.
+
+    @param predIdx is the preditor index.
+
+    @param rkLow is the lower rank of the split.
+
+    @param rkHigh is the higher rank of the split.
+
+    @return mean predictor value between low and high ranks.
+  */
+  static inline double SplitVal(int predIdx, int rkLow, int rkHigh) {
+    return 0.5 * (numBase[predIdx * nRow + rkLow] + numBase[predIdx * nRow + rkHigh]);
+  }
+
+  static void SetSortAndTies(const int *rank2Row, PredOrd *predOrd);
+  static void OrderByRank(const int *Col, const int *r2r, PredOrd *dCol, bool ordinals = true);
+  static void OrderByRank(const double *xCol, const int *r2r, PredOrd *dCol);
+  static void Factory(const double _predProb[], int _nPred, unsigned int _nRow);
   static void DeFactory();
 };
 
