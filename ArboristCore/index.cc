@@ -22,7 +22,7 @@
 #include "restage.h"
 
 // Testing only:
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
 int Index::totLevels = -1;
@@ -72,11 +72,12 @@ void NodeCache::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-Index::Index() {
+Index::Index(SamplePred *_samplePred, PreTree *_preTree, SplitPred *_splitPred, int _bagCount, double _sum) : bagCount(_bagCount), samplePred(_samplePred), preTree(_preTree), splitPred(_splitPred) {
   levelBase = 0;
   levelWidth = 1;
   splitCount = 1;
   indexNode = new IndexNode[1];
+  indexNode[0].Init(0, 0, _bagCount, nSamp, _sum, 0.0);
 }
 
 
@@ -102,30 +103,30 @@ Index::~Index() {
 PreTree **Index::BlockTrees(const PredOrd *predOrd, int treeBlock) {
   PreTree **ptBlock = new PreTree*[treeBlock];
 
-  int levelBlock = 1;  // For now, only building sequentially.
-  for (int treeIdx = 0; treeIdx < treeBlock; treeIdx += levelBlock) {
-    Index *index = new Index();
-    ptBlock[treeIdx] = index->Root(predOrd);
-    index->Levels();
-    delete index;
+  int treeIdx = 0;
+  for (treeIdx = 0; treeIdx < treeBlock; treeIdx ++) {
+    ptBlock[treeIdx] = OneTree(predOrd);
   }
-
+  
   return ptBlock;
 }
 
 
 /**
-   @brief Initializes root node and fires off attendant classes' per-tree methods.
+   @brief Performs sampling and level processing for a single tree.
 
-   @param predOrd is the sorted predictor table.
-
-   @return Reference to current PreTree.
+   @return void.
  */
-PreTree *Index::Root(const PredOrd *predOrd) {
+PreTree *Index::OneTree(const PredOrd *predOrd) {
+  PreTree *preTree = new PreTree();
+  int bagCount;
   double sum;
-  preTree = new PreTree();
-  bagCount = preTree->BagRows(predOrd, samplePred, splitPred, sum);
-  indexNode[0].Init(0, 0, bagCount, nSamp, sum, 0.0);
+  SamplePred *samplePred = new SamplePred();
+  SplitPred *splitPred = preTree->BagRows(predOrd, samplePred, bagCount, sum);
+  Index *index = new Index(samplePred, preTree, splitPred, bagCount, sum);
+  index->Levels();
+  delete index;
+  delete samplePred;
 
   return preTree;
 }
@@ -148,12 +149,14 @@ void  Index::Levels() {
     ArgMax(nodeCache, splitSig);
     int lhSplitNext, leafNext;
     int splitNext = LevelCensus(nodeCache, lhSplitNext, leafNext);
-    ProduceNext(nodeCache, splitNext, lhSplitNext, leafNext, level);
+    RestageMap *restageMap = ProduceNext(nodeCache, splitNext, lhSplitNext, leafNext, level);
+    if (splitNext > 0 && level + 1 != totLevels)
+      restageMap->RestageLevel(samplePred, level+1);
+    delete restageMap;
     splitSig->LevelClear();
     splitCount = splitNext;
   }
 
-  delete samplePred;
   delete splitPred;
   delete splitSig;
   // ASSERTION:
@@ -292,9 +295,9 @@ void NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) c
 
    @param level is the current level.
 
-   @return void.
+   @return restaging map for next level.
 */
-void Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, int leafNext, int level) {
+RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, int leafNext, int level) {
   // Next level of pre-tree needs sufficient space to consume
   // splits precipitated by cached nodes.
   preTree->CheckStorage(splitNext, leafNext);
@@ -304,6 +307,7 @@ void Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, in
 
   delete [] indexNode;
   indexNode = new IndexNode[splitNext];
+  // Destructor cleans up exposed indexNode.
 
   ntLH = new bool[levelWidth];
   ntRH = new bool[levelWidth];
@@ -327,17 +331,13 @@ void Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, in
     indexNode[splitIdx].Start() = idxCount;
     idxCount += indexNode[splitIdx].IdxCount();
   }
-
   restageMap->Conclude(this);
-  if (splitNext > 0 && level + 1 != totLevels)
-    restageMap->RestageLevel(samplePred, level+1);
-  delete restageMap;
 
   delete [] ntLH;
   delete [] ntRH;
   ntLH = ntRH = 0;
 
-  // Destructor cleans up exposed indexNode.
+  return restageMap;
 }
 
 

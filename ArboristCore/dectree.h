@@ -12,7 +12,6 @@
        the decision tree.
 
    @author Mark Seligman
-
  */
 
 #ifndef ARBORIST_DECTREE_H
@@ -25,8 +24,8 @@
    @brief The decision forest is a collection of decision trees.  DecTree members and methods are currently all static.
 */
 class DecTree {
-  static int nTree; // Running tally of forest size.
-  static unsigned int nRow;
+  static int nTree;
+  static unsigned int nRow; // Set separately for training and prediction.
   static int nPred;
   static int nPredNum;
   static int nPredFac;
@@ -48,6 +47,7 @@ class DecTree {
   static int* bumpForest;
   static unsigned int *inBag; // Train only.
   static int forestSize;
+  static void ObsDeImmutables();
 
   static void ConsumeSplitBits(class PreTree *pt, int &treeFW, int *&treeFS);
   static void SetBagRow(const unsigned int inBag[], int treeNum);
@@ -64,7 +64,7 @@ class DecTree {
   static void PredictAcrossNumCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
   static void PredictAcrossFacCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
   static void PredictAcrossMixedCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
-  static void DeFactory();
+  static void DeFactoryTrain();
 
   /**
      @brief computes the offset and bit coordinates of a given <tree, row> pair in the InBag structure.
@@ -87,10 +87,11 @@ class DecTree {
     return inBag[off];
   }
  public:
+  static void ObsImmutables(int _nRow, int _nPred, int _nPredNum, int _nPredFac);
   static void DeFactoryPredict();
   static const int leafPred = INT_MIN; // Positive counterpart not representable as int.
   static int BlockConsume(class PreTree *ptBlock[], int treeBlock, int treeStart);
-  static void FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPredNum, int _nPredFac);
+  static void FactoryTrain(int _nTree);
   static int ConsumeTrees(int &cumFacWidth);
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
   static void ScaleInfo(double*);

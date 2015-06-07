@@ -21,14 +21,18 @@
 /**
  */
 class SPNode {
-  static unsigned int ctgShift; // Packing parameter:  only valid for categorical response.
+  static unsigned int runShift; // Pack:  nonzero iff categorical response.
+ protected:
   double yVal; // sum of response values associated with sample.
   unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
   unsigned int rowRun; // # occurrences of row sampled.  << # rows.
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
-  
+
+  inline unsigned int Rank() {
+    return rank;
+  }
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
   // to that case.
@@ -58,7 +62,9 @@ class SPNode {
 
 
   /**
-     @brief Reports SamplePred contents for regression response.
+     @brief Reports SamplePred contents for regression response.  Cannot
+     be used with categorical response, as 'rowRun' value reported here
+     is unshifted.
 
      @param _yVal outputs the response value.
 
@@ -101,12 +107,13 @@ class SPNode {
   void SetCtg(double _yVal, unsigned int _rank, unsigned int _rowRun, unsigned int _ctg) {
     yVal = _yVal;
     rank = _rank;
-    rowRun = _ctg + (_rowRun << ctgShift);
+    rowRun = _ctg + (_rowRun << runShift);
   }
 
   
   /**
-     @brief Reports SamplePred contents for categorical response.
+     @brief Reports SamplePred contents for categorical response.  Can
+     be called with regression response if '_yCtg' value ignored.
 
      @param _yVal outputs the proxy response value.
 
@@ -121,8 +128,8 @@ class SPNode {
   inline void CtgFields(double &_yVal, unsigned int &_rank, unsigned int &_rowRun, unsigned int &_yCtg) const {
     _yVal = yVal;
     _rank = rank;
-    _rowRun = rowRun >> ctgShift;
-    _yCtg = rowRun & ((1 << ctgShift) - 1);
+    _rowRun = rowRun >> runShift;
+    _yCtg = rowRun & ((1 << runShift) - 1);
   }
 
   
@@ -237,7 +244,7 @@ class SamplePred {
 
      @return buffer starting position.
    */
-  inline SPNode* NodeBase(int level) {
+  inline SPNode* NodeBase(int level) const {
     return nodeVec + LevelOff(level);
   }
 

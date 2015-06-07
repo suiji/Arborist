@@ -30,7 +30,7 @@
 
 #include "predictor.h"
 /**
-   @brief Implementation of binary heap tailored to FacRunReg.
+   @brief Implementation of binary heap tailored to FacRunHeap.
 
    Implemented as a set of arrays parallel to the FacAccum set.
    The 'key' and 'fac' arrays should be long enough to allow 
@@ -64,6 +64,7 @@ class FRNode {
   int sCount; // Sample count of factor run:  not always same as length.
   double sum; // Sum of responses associated with run.
 
+ FRNode() : start(-1), end(-1), sCount(-1), sum(0.0) {}
   /**
      @brief Bounds accessor.
    */
@@ -84,12 +85,11 @@ class FacRun {
   void LevelInit(int splitCount);
   void LevelClear();
   int FacVal(int pairOffset, int pos);
-  void SetFacVal(int pairOffset, int pos, int fac);
  public:
-  static int nCardTot;
+  void SetFacVal(int pairOffset, int pos, int fac);
+  static int cardTot;
   static int nPredFac;
   static int predFacFirst; // Useful for iterators.
-  FacRun();
   FRNode *levelFR; // Workspace for FacRuns used along level.
   void Bounds(int splitIdx, int predIdx, int fac, int &start, int &end);
   int *levelFac; // Workspace for FacRun values.
@@ -102,17 +102,16 @@ class FacRun {
   void Pack(int pairOffset, int posTo, int posFrom);
   double Accum(int pairOffset, int pos, int &count, int &length);
   void TreeInit();
-  static void Immutables(int _nPredFac, int _nCardTot, int _predFacFirst);
+  static void Immutables(int _nPredFac, int _cardTot, int _predFacFirst);
   static void DeImmutables();
 };
 
 /**
    @brief Factor run methods specific to regression trees.
  */
-class FacRunReg : public FacRun {
+class FacRunHeap : public FacRun {
   BHeap *bHeap;
  public:
-  FacRunReg();
   void Transition(int splitIdx, int predIdx, int val, int _sCuont, double _sumR);
   void LevelInit(int _splitCount);
   void LevelClear();
@@ -122,8 +121,8 @@ class FacRunReg : public FacRun {
 /**
    @brief Factor run methods and members specific to classification trees.
  */
-class FacRunCtg : public FacRun {
-  static const int maxWidthDirect = 10; // Wide threshold:  sampling vs. all subsets.
+class FacRunOrd : public FacRun {
+  static const int maxWidthDirect = 9; // Wide threshold:  sampling vs. all subsets.
   static int *wideOffset;  // Offset position lookup vector for wide factors.
   static int totalWide; // Sum of wide offsets, according to threshold.
   static int ctgWidth; // Immutable.
@@ -136,8 +135,7 @@ class FacRunCtg : public FacRun {
   int WideOffset(int splitIdx, int predIdx);
   unsigned int Shrink(int splitIdx, int predIdx, unsigned int depth, int container[]);
  public:
-  FacRunCtg();
-  static void Immutables(int _nPred, int _nPredFac, int _nCardTot, int _predFacFirst, int _ctgWidth);
+  static void Immutables(int _nPred, int _nPredFac, int _cardTot, int _predFacFirst, int _ctgWidth);
   static void DeImmutables();
   void LeftTerminus(int splitIdx, int predIdx, int rk, int lhIdx, int yCtg, double yVal, bool rh = false);
 
@@ -161,7 +159,7 @@ class FacRunCtg : public FacRun {
   @return The level-base offset corresponding to this pair.
 */
 inline int FacRun::PairOffset(int splitIdx, int predIdx) {
-  return  Predictor::FacCard(predIdx) * splitIdx + Predictor::FacOffset(predIdx) * splitCount;
+  return Predictor::FacOffset(predIdx) * splitCount + Predictor::FacCard(predIdx) * splitIdx;
 }
 
 
@@ -269,7 +267,7 @@ inline void FacRun::Transition(int pairOffset, int rk, int _sCount, double _sumR
 
    @return void.
 */
-inline void FacRunReg::Transition(int splitIdx, int predIdx, int rk, int _sCount, double _sumR) {
+inline void FacRunHeap::Transition(int splitIdx, int predIdx, int rk, int _sCount, double _sumR) {
   int pairOffset = PairOffset(splitIdx, predIdx);
   FacRun::Transition(pairOffset, rk, _sCount, _sumR);
 
@@ -292,7 +290,7 @@ inline void FacRunReg::Transition(int splitIdx, int predIdx, int rk, int _sCount
 
    @return void.
 */
-inline void FacRunCtg::Transition(int pairOffset, int top, int rk, int _sCount, double _sumR) {
+inline void FacRunOrd::Transition(int pairOffset, int top, int rk, int _sCount, double _sumR) {
   FacRun::Transition(pairOffset, rk, _sCount, _sumR);
   SetFacVal(pairOffset, top, rk);
 }
@@ -307,7 +305,7 @@ inline void FacRunCtg::Transition(int pairOffset, int top, int rk, int _sCount, 
 
    @return count of items pulled.
 */
-inline int FacRunReg::DePop(int splitIdx, int predIdx) {
+inline int FacRunHeap::DePop(int splitIdx, int predIdx) {
   return bHeap->Depopulate(PairOffset(splitIdx, predIdx), splitIdx, predIdx, levelFac + PairOffset(splitIdx, predIdx));
 }
 
@@ -347,8 +345,8 @@ inline double FacRun::Accum(int pairOffset, int pos, int &count, int &length) {
 
  @return Checkerboard offset.
 */
-inline int FacRunCtg::SumOffset(int splitIdx, int predIdx, int rk, int yCtg) {
-  return yCtg + ctgWidth * (nCardTot * splitIdx + Predictor::FacOffset(predIdx) + rk);
+inline int FacRunOrd::SumOffset(int splitIdx, int predIdx, int rk, int yCtg) {
+  return yCtg + ctgWidth * (cardTot * splitIdx + Predictor::FacOffset(predIdx) + rk);
 }
 
 /**
@@ -364,7 +362,7 @@ inline int FacRunCtg::SumOffset(int splitIdx, int predIdx, int rk, int yCtg) {
 
  @return void.
 */
-inline void FacRunCtg::Init(int splitIdx, int predIdx, int rk, int yCtg, double yVal) {
+inline void FacRunOrd::Init(int splitIdx, int predIdx, int rk, int yCtg, double yVal) {
   facCtgSum[SumOffset(splitIdx, predIdx, rk, yCtg)] = yVal;
 }
 
@@ -383,7 +381,7 @@ inline void FacRunCtg::Init(int splitIdx, int predIdx, int rk, int yCtg, double 
 
  @return void.
 */
-inline void FacRunCtg::Incr(int splitIdx, int predIdx, int rk, int yCtg, double yVal) {
+inline void FacRunOrd::Incr(int splitIdx, int predIdx, int rk, int yCtg, double yVal) {
   facCtgSum[SumOffset(splitIdx, predIdx, rk, yCtg)] += yVal;
 }
 
@@ -404,7 +402,7 @@ inline void FacRunCtg::Incr(int splitIdx, int predIdx, int rk, int yCtg, double 
 
    @return the checkerboard value accumalated at that coordinate.
 */
-inline double FacRunCtg::SlotSum(int splitIdx, int predIdx, int pos, int yCtg) {
+inline double FacRunOrd::SlotSum(int splitIdx, int predIdx, int pos, int yCtg) {
   int pairOffset = PairOffset(splitIdx, predIdx);
   int rk = FacVal(pairOffset, pos);
   return facCtgSum[SumOffset(splitIdx, predIdx, rk, yCtg)];
@@ -420,12 +418,12 @@ inline double FacRunCtg::SlotSum(int splitIdx, int predIdx, int pos, int yCtg) {
 
  @param splitCount is the count of splits at the current level.
 
- @param top is the current top position of the rank vector.
+ @param depth is the current depth of the rank vector.
 
  @return Size of shrunken rank vector.
 */
-inline unsigned int FacRunCtg::Shrink(int splitIdx, int predIdx, unsigned int top) {
-  return top > maxWidthDirect ? Shrink(splitIdx, predIdx, top, levelFac + PairOffset(splitIdx, predIdx)) : top;
+inline unsigned int FacRunOrd::Shrink(int splitIdx, int predIdx, unsigned int depth) {
+  return depth > maxWidthDirect ? Shrink(splitIdx, predIdx, depth, levelFac + PairOffset(splitIdx, predIdx)) : depth;
 }
 
 /**
@@ -467,7 +465,7 @@ inline void FacRun::LeftTerminus(int pairOffset, int rk, int lhIdx, bool rEdge) 
    @return void.
    
  */
-inline void FacRunCtg::LeftTerminus(int splitIdx, int predIdx, int rk, int lhIdx, int yCtg, double yVal, bool rEdge) {
+inline void FacRunOrd::LeftTerminus(int splitIdx, int predIdx, int rk, int lhIdx, int yCtg, double yVal, bool rEdge) {
   int pairOffset = PairOffset(splitIdx, predIdx);
   FacRun::LeftTerminus(pairOffset, rk, lhIdx, rEdge);
 
@@ -477,6 +475,7 @@ inline void FacRunCtg::LeftTerminus(int splitIdx, int predIdx, int rk, int lhIdx
   else
     Incr(splitIdx, predIdx, rk, yCtg, yVal);
 }
+
 
 /**
    @brief Computes the workspace offset for predictors known to rank-vector shrinkage.
@@ -489,7 +488,7 @@ inline void FacRunCtg::LeftTerminus(int splitIdx, int predIdx, int rk, int lhIdx
 
    @return workspace offset.
  */
-inline int FacRunCtg::WideOffset(int splitIdx, int predIdx) {
+inline int FacRunOrd::WideOffset(int splitIdx, int predIdx) {
   return splitCount * wideOffset[predIdx - predFacFirst] + splitIdx * (1 + Predictor::FacCard(predIdx));
 }
 
@@ -573,20 +572,20 @@ inline int BHeap::Depopulate(int pairOffset, int splitIdx, int predIdx, int cont
   BHPair *pairVec = bhPair + pairOffset;
   unsigned int vac = Vacant(splitIdx, predIdx);
 
-  for (unsigned int bot = vac-1; bot >= 0; bot--) {
+  for (int bot = vac-1; bot >= 0; bot--) {
     container[vac - 1 - bot] = pairVec[0].fac;
 
     // Places bottom element at head and refiles.
     unsigned int idx = 0;
     int facRefile = pairVec[idx].fac = pairVec[bot].fac;
     double keyRefile = pairVec[idx].key = pairVec[bot].key;
-    unsigned int chL = 1;
-    unsigned int chR = 2;
+    int chL = 1;
+    int chR = 2;
 
     // 'chR' remains the lower of the two child indices.  Some short-circuiting below.
     //
     while((chR <= bot && keyRefile > pairVec[chR].key) || (chL <= bot && keyRefile > pairVec[chL].key)) {
-      unsigned int chIdx =  (chR <= bot && pairVec[chR].key < pairVec[chL].key) ?  chR : chL;
+      int chIdx =  (chR <= bot && pairVec[chR].key < pairVec[chL].key) ?  chR : chL;
       pairVec[idx].key = pairVec[chIdx].key;
       pairVec[idx].fac = pairVec[chIdx].fac;
       pairVec[chIdx].key = keyRefile;

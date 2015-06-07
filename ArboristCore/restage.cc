@@ -19,13 +19,15 @@
 #include "splitpred.h"
 #include "predictor.h"
 
-#include <iostream>
+//include <iostream>
 using namespace std;
 
 int RestageMap::nPred = 0;
+int RestageMap::nSamp = 0;
 
-void RestageMap::Immutables(int _nPred) {
+void RestageMap::Immutables(int _nPred, int _nSamp) {
   nPred = _nPred;
+  nSamp = _nSamp;
 }
 
 void RestageMap::DeImmutables() {

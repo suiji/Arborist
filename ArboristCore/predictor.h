@@ -54,6 +54,7 @@ class Predictor {
   static void IntegerBlock(int x[], unsigned int _nrow, int _ncol, bool doClone = true);
   static void FactorBlock(int xi[], unsigned int _nrow, int _ncol, int levelCount[]);
   static void NumericBlock(double xn[], unsigned int _nrow, int _ncol, bool doClone = true);
+  static int BlockEnd();
   static PredOrd *Order();
 
   /**

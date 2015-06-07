@@ -28,6 +28,14 @@
 //#include <iostream>
 using namespace std;
 
+int DecTree::nTree = -1; // Immutable
+int DecTree::forestSize = -1; // Derived from PreTree consumption.
+
+unsigned int DecTree::nRow = -1; // et seq.:  observation-derived immutables.
+int DecTree::nPred = -1;
+int DecTree::nPredNum = -1;
+int DecTree::nPredFac = -1;
+
 int *DecTree::treeOriginForest = 0; // Output to front-end.
 int *DecTree::treeSizes = 0; // Internal use only.
 int **DecTree::predTree = 0;
@@ -35,18 +43,13 @@ double **DecTree::splitTree = 0;
 double **DecTree::scoreTree = 0;
 int **DecTree::bumpTree = 0;
 
-// Nonzero iff factor appear in decision tree.
+// Nonzero iff factors appear in decision tree.
 //
 int *DecTree::treeFacWidth = 0;
 int **DecTree::treeFacSplits = 0;
 
 int* DecTree::facSplitForest = 0; // Bits as integers:  alignment.
 int *DecTree::facOffForest = 0;
-int DecTree::nTree = -1;
-unsigned int DecTree::nRow = -1;
-int DecTree::nPred = -1;
-int DecTree::nPredNum = -1;
-int DecTree::nPredFac = -1;
 double *DecTree::predInfo = 0;
 int *DecTree::predForest = 0;
 double *DecTree::scoreForest = 0;
@@ -54,32 +57,38 @@ double *DecTree::splitForest = 0;
 int *DecTree::bumpForest = 0;
 unsigned int *DecTree::inBag = 0;
 
-int DecTree::forestSize = -1;
+
+/**
+   @brief Sets per-session immutables derived from the observations.  Essential for initilalizing separate prediction sessions.
+ */
+void DecTree::ObsImmutables(int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
+  nRow = _nRow;
+  nPred = _nPred;
+  nPredNum = _nPredNum;
+  nPredFac = _nPredFac;
+}
+
+
+/**
+   @brief Unsets per-session static values.
+ */
+void DecTree::ObsDeImmutables() {
+  nRow = nPred = nPredNum = nPredFac = -1;
+}
+
 
 /**
    @brief Lights off the initializations for building decision trees.
 
    @param _nTree is the number of trees requested.
 
-   @param _nRow is the number of samples in the response/observations.
-
-   @param _nPred is the number of predictors.
-
-   @param _nPredNum is the number of numeric predictors.
-
-   @param _nPredFac is the number of factor-valued predictors.
-
    @param _doQuantiles inidicates whether quantile training is specified.
 
    @return void.
 
  */
-void DecTree::FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPredNum, int _nPredFac) {
+void DecTree::FactoryTrain(int _nTree) {
   nTree = _nTree;
-  nPred = _nPred;
-  nRow = _nRow;
-  nPredNum = _nPredNum;
-  nPredFac = _nPredFac;
   forestSize = 0;
   treeOriginForest = new int[nTree];
   treeSizes = new int[nTree];
@@ -94,17 +103,18 @@ void DecTree::FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPre
     predInfo[i] = 0.0;
   for (int i = 0; i < nTree; i++)
     treeFacWidth[i] = 0;
-
-  // Maintains forest-wide in-bag set as bits.  Achieves high compression, but
-  // may still prove too small for multi-gigarow sets.  Saving this state is
-  // necessary, however, for per-row OOB prediction scheme employed for quantile
-  // regression.
+  
+  //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
+  //  may still prove too small for multi-gigarow sets.  Saving this state is
+  //  necessary, however, for per-row OOB prediction scheme employed for quantile
+  //  regression.
   //
   int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
   inBag = new unsigned int[inBagSize];
   for (int i = 0; i < inBagSize; i++)
     inBag[i] = 0;
 }
+
 
 /**
    @brief Loads trained forest from front end.
@@ -127,7 +137,6 @@ void DecTree::FactoryTrain(int _nTree, unsigned int _nRow, int _nPred, int _nPre
 
    @return void.
 */
-
 void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
   nTree = _nTree;
   forestSize = _forestSize;
@@ -148,6 +157,7 @@ void DecTree::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
   }
 }
 
+
 /**
   @brief Resets addresses of vectors used during prediction.  Most are allocated
   by the front end so are not deallocated here.
@@ -163,18 +173,19 @@ void DecTree::DeFactoryPredict() {
   facSplitForest = 0;
   facOffForest = 0;
   forestSize = nTree = -1;
-
+  ObsDeImmutables();
+  
   Quant::DeFactoryPredict();
-
   Predictor::DeFactory();
 }
 
+
 /**
-   @brief General deallocation after train/predict combination.
+   @brief General deallocation after train/validate session.
 
    @return void
  */
-void DecTree::DeFactory() {
+void DecTree::DeFactoryTrain() {
   delete [] treeSizes;
   delete [] treeOriginForest;
   delete [] predTree; // Contents deleted at consumption.
@@ -202,7 +213,6 @@ void DecTree::DeFactory() {
   splitTree = 0;
   scoreTree = 0;
   bumpTree = 0;
-  nTree = forestSize = -1;
   treeFacWidth = 0;
   treeFacSplits = 0;
   inBag = 0;
@@ -211,7 +221,11 @@ void DecTree::DeFactory() {
   predForest = 0;
   splitForest = 0;
   scoreForest = predInfo =  0;
+
+  nTree = forestSize = -1;
+  ObsDeImmutables();
 }
+
 
 /**
    @brief Consumes remaining tree-based information into forest-wide data structures.
@@ -271,6 +285,7 @@ int DecTree::ConsumeTrees(int &cumFacWidth) {
   return forestSize;
 }
 
+
 /**
   @brief Consumes block of PreTrees into decision trees.
 
@@ -313,6 +328,7 @@ int DecTree::BlockConsume(PreTree *ptBlock[], int treeBlock, int treeStart) {
   return totBagCount;
 }
 
+
 /**
  @brief Consumes splitting bitvector for the current pretree.
 
@@ -338,6 +354,8 @@ void DecTree::ConsumeSplitBits(PreTree *pt, int &treeFW, int *&treeFS) {
   @brief Sets bit for <row, tree> with tree as faster-moving index.
 
   @param ptInBag[] records a PreTree's in-bag rows as compressed bits.
+
+  @param trainRows is the number of rows in the training set.
 
   @param treeNum is the decision tree for which in-bag state is being set.
   
@@ -380,6 +398,7 @@ bool DecTree::InBag(int treeNum, unsigned int row) {
   return (val & (1 << bit)) > 0;
 }
 
+
 void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
   for (int tn = 0; tn < nTree; tn++) {
     int tOrig = treeOriginForest[tn];
@@ -388,7 +407,7 @@ void DecTree::WriteForest(int *rPreds, double *rSplits, double * rScores, int *r
     rFacOff[tn] = facOrigin;
     WriteTree(tn, tOrig, facOrigin, rPreds + tOrig, rSplits + tOrig, rScores + tOrig, rBump + tOrig, rFacSplits + facOrigin);
   }
-  DeFactory();
+  DeFactoryTrain();
 }
 
 
@@ -424,6 +443,7 @@ void DecTree::WriteTree(int treeNum, int tOrig, int tFacOrig, int *outPreds, dou
   }
 }
 
+
 /**
    @brief Scales the predictor Info values by the tree count.
 
@@ -435,6 +455,7 @@ void DecTree::ScaleInfo(double outPredInfo[]) {
   for (int i = 0; i < nPred; i++)
     outPredInfo[i] = predInfo[i] / nTree;
 }
+
 
 /**
    @brief Main driver for prediting categorical response.
@@ -468,7 +489,7 @@ void DecTree::PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[
     for (unsigned int rsp = 0; rsp < ctgWidth; rsp++) {
       int numWrong = 0;
       for (unsigned int predicted = 0; predicted < ctgWidth; predicted++) {
-	if (predicted != rsp) {// Wrong answers are off-diagonal.
+	if (predicted != rsp) {  // Mispredictions are off-diagonal.
 	  numWrong += confusion[rsp + ctgWidth * predicted];
 	}
       }
@@ -478,6 +499,7 @@ void DecTree::PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[
   else // Prediction only:  not training.
     DeFactoryPredict();
 }
+
 
 /**
    @brief Categorical prediction across rows with numerical predictor type.
@@ -899,6 +921,7 @@ void DecTree::PredictRowFacCtg(unsigned int row, int rowT[], unsigned int ctgWid
   }
 }
 
+
 /**
    @brief Prediction for classification tree, with predictors of both numeric and factor type.
 
@@ -948,6 +971,7 @@ void DecTree::PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], 
   }
 }
 
+
 /**
    @brief Prediction for regression tree, with factor-valued predictors only.
 
@@ -961,7 +985,6 @@ void DecTree::PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], 
 
    @return Void with output vector parameter.
  */
-
 void DecTree::PredictRowFacReg(unsigned int row, int rowT[], int leaves[],  bool useBag) {
   for (int i = 0; i < nPredFac; i++)
     rowT[i] = Predictor::facBase[row + i * nRow];
@@ -992,6 +1015,7 @@ void DecTree::PredictRowFacReg(unsigned int row, int rowT[], int leaves[],  bool
     // predictor fields.
   }
 }
+
 
 /**
    @brief Prediction for regression tree, with predictors of both numeric and factor type.

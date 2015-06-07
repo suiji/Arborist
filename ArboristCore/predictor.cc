@@ -15,11 +15,12 @@
 
 #include "predictor.h"
 #include "sample.h"
+#include "dectree.h"
 #include "callback.h"
 
 // Testing only:
 //#include <iostream>
-//using namespace std;
+using namespace std;
 
 // Establishes the layout of the predictors relative to their container arrays.
 // The container arrays themselves are allocated, as well, if cloning is specified.
@@ -45,8 +46,8 @@ bool Predictor::intClone = false;
 bool Predictor::facClone = false;
 
 
-// The block routines, below, together act as "subfactories" for
-// the complete Predictor object.
+// Observations are blocked according to type.  Blocks written in separate
+// calls from front-end interface.
 
 
 /**
@@ -145,6 +146,21 @@ void Predictor::FactorBlock(int xi[], unsigned int _nrow, int _ncol, int levelCo
 
 
 /**
+   @brief Verifies integrity of block decomposition.  Sends observation-
+   specific immutable values to DecTree.
+
+   @return integrity status.
+ */
+int Predictor::BlockEnd() {
+  if (nPredNum + nPredFac != nPred)
+    return -1;
+  
+  DecTree::ObsImmutables(nRow, nPred, nPredNum, nPredFac);
+  return 0;
+}
+
+
+/**
    @brief Light off the initializations needed by the Preditor class.
 
    @param _predProb is the vector selection probabilities.
@@ -209,7 +225,7 @@ void Predictor::UniqueRank(int *rank2Row) {
 
   int baseOff = 0;
   int rankOff = 0;
-  for (predIdx = 0; predIdx < nPredNum; predIdx++, baseOff += nRow, rankOff += nRow){
+  for (predIdx = PredNumFirst(); predIdx < PredNumSup(); predIdx++, baseOff += nRow, rankOff += nRow){
     /* Sort-with-index requires a vector of rows to permute.*/
     for (unsigned int i = 0; i < nRow; i++)
       *(rank2Row + rankOff + i) = i;
@@ -221,7 +237,7 @@ void Predictor::UniqueRank(int *rank2Row) {
 
   // Note divergence of 'baseOff' and 'rankOff':
   baseOff = 0;
-  for (predIdx = 0; predIdx < nPredFac; predIdx++, baseOff += nRow, rankOff += nRow) {
+  for (predIdx = PredFacFirst(); predIdx < PredFacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
     for (unsigned int i = 0; i < nRow;i++)
       *(rank2Row + rankOff + i) = i;
     // TODO:  Replace with thread-safe sort to permit parallel execution.
@@ -257,7 +273,7 @@ void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
   //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {
     //  #pragma omp for schedule(static, 1) nowait
-  for (predIdx = 0; predIdx < nPredNum; predIdx++, baseOff += nRow, rankOff += nRow) {
+    for (predIdx = PredNumFirst(); predIdx < PredNumSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
       OrderByRank(numBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
 
@@ -266,11 +282,12 @@ void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
   //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {    // Factors:
     //#pragma omp for schedule(static, 1) nowait
-    for (predIdx = 0; predIdx < nPredFac; predIdx++, baseOff += nRow, rankOff += nRow) {
+    for (predIdx = PredFacFirst(); predIdx < PredFacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
       OrderByRank(facBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
   }
 }
+
 
 /**
    @brief Encapsulates predictor data by rank, with index and tie class.

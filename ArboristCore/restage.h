@@ -98,11 +98,12 @@ class RestageMap {
   
  public:
   static int nPred;
-  static void Immutables(int _nPred);
+  static int nSamp; // Useful to coprocessor.
+  static void Immutables(int _nPred, int _nSamp);
   static void DeImmutables();
   RestageMap(class SplitPred *_splitPred, unsigned int _bagCount, int _splitPrev, int _splitNext);
   ~RestageMap();
-  void RestageLevel(SamplePred *samplePred, int level);
+  void RestageLevel(class SamplePred *samplePred, int level);
   void RestagePred(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], int predIdx, bool rfPrev[]) const;
   void ConsumeSplit(int _splitIdx, int _lNext, int _rNext, int _lhIdxCount, int _rhIdxCount, int _startIdx, int _endIdx);
   void Conclude(const class Index *index);//, int _splitPrev);

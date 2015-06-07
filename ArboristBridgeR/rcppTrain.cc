@@ -41,8 +41,8 @@ using namespace Rcpp;
 
    @return Wrapped level-max value.
  */
-RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sTreeBlock) {
-  Train::Factory(as<int>(sNTree), as<int>(sTreeBlock));
+RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sTreeBlock, SEXP sNRow) {
+  Train::Immutables(as<int>(sNTree), as<int>(sTreeBlock), as<int>(sNRow));
 
   return wrap(0);
 }

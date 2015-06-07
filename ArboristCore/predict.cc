@@ -32,10 +32,10 @@ using namespace std;
 
    @return void.
  */
-
 void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
   DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _scores, _bump, _origins, _facOff, _facSplits);
 }
+
 
 /**
    @brief Thin interface for reloading trained forest, with quantiles.
@@ -46,6 +46,7 @@ void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
 void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
   Quant::FactoryPredict(nTree, qYRanked, qYLen, qRankOrigin, qRank, qRankCount, qLeafPos, qLeafExtent);
 }
+
 
 /**
    @brief Predicts using a regression forest on out-of-bag data.
@@ -59,6 +60,7 @@ void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRa
 void Predict::PredictOOBReg(double *err, double predInfo[]) {
   ResponseReg::PredictOOB(err, predInfo);
 }
+
 
 /**
    @brief As above, but with quantile predictions as well.
@@ -80,6 +82,7 @@ void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, doubl
   ResponseReg::PredictOOB(err, predInfo);
 }
 
+
 /**
    @brief Predicts from a quantile forest.
 
@@ -91,6 +94,7 @@ void Predict::PredictQuant(int nRow, double quantVec[], int qCount, double qPred
   DecTree::PredictAcrossReg(y, false);
 }
 
+
 /**
    @brief Predicts from a regression forest.
 
@@ -101,6 +105,7 @@ void Predict::PredictQuant(int nRow, double quantVec[], int qCount, double qPred
 void Predict::PredictReg(double y[]) {
   DecTree::PredictAcrossReg(y, false);
 }
+
 
 /**
    @brief Predicts using a classification forest on out-of-bag data.
@@ -116,6 +121,7 @@ void Predict::PredictReg(double y[]) {
 void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[]) {
   ResponseCtg::PredictOOB(conf, error, predInfo);
 }
+
 
 /**
    @brief Predicts from a classification forest.

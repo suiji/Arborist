@@ -29,12 +29,9 @@
 //#include <iostream>
 using namespace std;
 
-int Train::accumRealloc = -1;
-int Train::probResize = -1;
 int Train::nTree = -1;
 int Train::treeBlock = -1;
-int *Train::cdfOff = 0;
-double *Train::sCDF = 0;
+int Train::nRow = -1;
 
 
 /**
@@ -46,24 +43,18 @@ double *Train::sCDF = 0;
 
    @return void.
 */
-void Train::Factory(int _nTree, int _treeBlock) {
+void Train::Immutables(int _nTree, int _treeBlock, int _nRow) {
   nTree = _nTree;
   treeBlock = _treeBlock;
-  accumRealloc = 0;
-  probResize = 0;
+  nRow = _nRow;
 }
 
 
 /**
    @brief Finalizer.
 */
-void Train::DeFactory() {
-  if (cdfOff != 0) {
-    delete [] cdfOff;
-    delete [] sCDF;
-    cdfOff = 0;
-    sCDF = 0;
-  }
+void Train::DeImmutables() {
+  nTree = treeBlock = nRow = -1;
 }
 
 /**
@@ -86,17 +77,17 @@ void Train::DeFactory() {
 int Train::Training(int minH, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount) {
   SplitSig::Immutables(Predictor::NPred(), minRatio);
   Index::Immutables(minH, totLevels, Sample::NSamp());
-  DecTree::FactoryTrain(nTree, Predictor::NRow(), Predictor::NPred(), Predictor::NPredNum(), Predictor::NPredFac());
-  Quant::FactoryTrain(Predictor::NRow(), nTree, _quantiles);
-  PreTree::Immutables(Predictor::NRow(), Sample::NSamp(), minH);
+  Quant::FactoryTrain(nRow, nTree, _quantiles);
+  PreTree::Immutables(nRow, Sample::NSamp(), minH);
 
   PredOrd *predOrd = Predictor::Order();
+  DecTree::FactoryTrain(nTree);
   totBagCount = TrainForest(predOrd, nTree);
   delete [] predOrd;
-  
+
   int forestHeight = DecTree::ConsumeTrees(facWidth);
 
-  DeFactory();
+  DeImmutables();
   Sample::DeImmutables();
   SplitSig::DeImmutables();
   Index::DeImmutables();
@@ -105,6 +96,7 @@ int Train::Training(int minH, bool _quantiles, double minRatio, int totLevels, i
 
   return forestHeight;
 }
+
 
 /**
   @brief Trains the requisite number of trees.

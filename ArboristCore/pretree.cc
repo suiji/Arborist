@@ -120,8 +120,8 @@ void PreTree::RefineHeight(unsigned int height) {
 
    @return in-bag count for tree.
  */
-int PreTree::BagRows(const PredOrd *predOrd, SamplePred *&samplePred, SplitPred *&splitPred, double &sum) {
-  int bagCount;
+SplitPred *PreTree::BagRows(const PredOrd *predOrd, SamplePred *samplePred, int &bagCount, double &sum) {
+  SplitPred *splitPred;
   sample = Response::StageSamples(predOrd, inBag, samplePred, splitPred, sum, bagCount);
   
   sample2PT = new int[bagCount];
@@ -129,7 +129,7 @@ int PreTree::BagRows(const PredOrd *predOrd, SamplePred *&samplePred, SplitPred 
     sample2PT[i] = 0; // Unique root nodes zero.
   }
 
-  return bagCount;
+  return splitPred;
 }
 
 /**

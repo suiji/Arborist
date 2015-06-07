@@ -28,7 +28,7 @@ class SampleNode {
 class SampleNodeCtg : public SampleNode {
  public:
   unsigned int ctg;
-  inline unsigned int CtgAndSum(double &_sum) {
+  inline unsigned int CtgAndSum(double &_sum) const {
     _sum = sum;
     return ctg;
   }
@@ -85,7 +85,7 @@ class SampleReg : public Sample {
   SampleReg();
   ~SampleReg();
   static void Immutables();
-  int Stage(const double y[], const int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &bagSum);
+  int Stage(const double y[], const int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
   void Scores(const int frontierMap[], int treeHeight, double score[]);
   void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
 };
@@ -101,7 +101,7 @@ class SampleCtg : public Sample {
   SampleCtg();
   ~SampleCtg();
   static void Immutables(int _ctgWidth);
-  int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &bagSum);
+  int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
   void Scores(const int frontierMap[], int treeHeight, double score[]);
   void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
 };

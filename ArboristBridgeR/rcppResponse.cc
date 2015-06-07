@@ -33,6 +33,7 @@ using namespace Rcpp;
 
 /**
    @brief Dispatches factories for Response class, according to response type.
+   Front end guarantees response is either numeric or categorical.
 
    @param sY is the front end's response vector.
 

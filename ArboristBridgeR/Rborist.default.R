@@ -37,7 +37,9 @@
     stop("NA not supported in design matrix")
   if (any(is.na(y)))
     stop("NA not supported in response")
-
+  if (!is.numeric(y) && !is.factor(y))
+    stop("Exping numeric or factor response")
+  
   # Height constraints
   if (minNode < 2)
     stop("Minimum splitting width must be at least 2")
@@ -91,7 +93,7 @@
   # There is currently very little freedom in factory ordering.
   unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
 
-  unused <- .Call("RcppTrainInit", nTree, treeBlock);
+  unused <- .Call("RcppTrainInit", nTree, treeBlock, nrow(x));
   ctgWidth <- .Call("RcppResponse", y);
 
   facWidth <- integer(1)
@@ -201,38 +203,32 @@
   arbOut
 }
 
+
 # Breaks data into blocks suitable for Rcpp methods.
 #
 PredBlock <- function(x, y = NULL, predProb = NULL){#, quantiles = NULL) {
   training <- ifelse(is.null(y), FALSE, TRUE)
   
-  # For now, turns off any special handling of Integer and Character to process as numeric:
+  # For now, only numeric and factor types supporte.
   #
-  if (!is.null(predProb)) {
-    .Call("RcppPredictorFactory",predProb, ncol(x), nrow(x))
-  }
-  else { # TODO:  Pass null instead of zero.
-    .Call("RcppPredictorFactory",0, ncol(x), nrow(x))
-  }
+  unused <- .Call("RcppPredictorFactory", predProb, ncol(x), nrow(x))
+  
   if (is.data.frame(x)) { # As with "randomForest" package
     facLevels <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))
     numCols <- as.integer(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
     nFacCol <- length(which(facLevels > 0))
     nNumCol <- length(which(numCols > 0))
-    if (nFacCol + nNumCol != ncol(x))
-      stop("Non-numeric, non-factor data appear among observations")
-    
-    .Call("RcppPredictorFrame", x, nrow(x), ncol(x), nFacCol, nNumCol, facLevels)
+    unused <- .Call("RcppPredictorFrame", x, nrow(x), ncol(x), nFacCol, nNumCol, facLevels)
   }
   else if (is.integer(x)) {
-    .Call("RcppPredictorNum", data.matrix(x), TRUE)
+    unused <- .Call("RcppPredictorNum", data.matrix(x), TRUE)
   }
   else if (is.numeric(x)) {
     if (training) {
-      .Call("RcppPredictorNum", x, TRUE)
+      unused <- .Call("RcppPredictorNum", x, TRUE)
     }
     else {
-      .Call("RcppPredictorNum", x, FALSE)
+      unused <- .Call("RcppPredictorNum", x, FALSE)
     }
   }
   else if (is.character(x)) {
@@ -241,7 +237,12 @@ PredBlock <- function(x, y = NULL, predProb = NULL){#, quantiles = NULL) {
   else {
     stop("Unsupported data format");
   }
+
+  blockStatus <- .Call("RcppPredictorBlockEnd");
+  if (blockStatus != 0)
+    stop("Unsupported data types appear among observations")
 }
+
 
 # Uses quartiles by default.
 #

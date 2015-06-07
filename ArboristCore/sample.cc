@@ -52,7 +52,7 @@ void Sample::Immutables(unsigned int _nRow, int _nPred, int _nSamp) {
    @return void.
  */
 void SampleReg::Immutables() {
-  SPReg::Immutables(nRow, nSamp);
+  SplitPred::ImmutablesReg(nRow, nSamp);
 }
 
 
@@ -61,7 +61,7 @@ void SampleReg::Immutables() {
  */
 void SampleCtg::Immutables(int _ctgWidth) {
   ctgWidth = _ctgWidth;
-  SPCtg::Immutables(nRow, nSamp, ctgWidth);
+  SplitPred::ImmutablesCtg(nRow, nSamp, ctgWidth);
 }
 
 /**
@@ -133,11 +133,10 @@ SampleReg::SampleReg() {
 // Returns the sum of sampled response values for intiializition of topmost
 // accumulator.
 //
-int SampleReg::Stage(const double y[], const int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *&samplePred, SplitPred *&splitPred, double &bagSum) {  
+int SampleReg::Stage(const double y[], const int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {  
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow]; // Index of row in sample vector.
   const unsigned int slotBits = 8 * sizeof(unsigned int);
-  samplePred = new SamplePred(); // Lives through final level.
   
   bagSum = 0.0;
   int slot = 0;
@@ -166,7 +165,7 @@ int SampleReg::Stage(const double y[], const int row2Rank[], const PredOrd *pred
   }
   bagCount = idx;
   samplePred->StageReg(predOrd, sampleReg, sCountRow, sIdxRow);
-  splitPred = new SPReg(samplePred);
+  splitPred = SplitPred::FactoryReg(samplePred);
 
   delete [] sCountRow;
   delete [] sIdxRow;
@@ -204,11 +203,10 @@ SampleCtg::SampleCtg() {
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *&samplePred, SplitPred *&splitPred, double &bagSum) {
+int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow];
   const unsigned int slotBits = 8 * sizeof(unsigned int);
-  samplePred = new SamplePred(); // Lives through final level.
 
   int idx = 0;
   bagSum = 0.0;
@@ -234,7 +232,7 @@ int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd,
   }
   bagCount = idx;
   samplePred->StageCtg(predOrd, sampleCtg, sCountRow, sIdxRow);
-  splitPred = new SPCtg(samplePred, sampleCtg);
+  splitPred = SplitPred::FactoryCtg(samplePred, sampleCtg);
 
   delete [] sCountRow;
   delete [] sIdxRow;
@@ -328,8 +326,10 @@ void SampleCtg::Scores(const int frontierMap[], int treeHeight, double score[]) 
 	argMaxWeight = ctg;
       }
     }
-    score[leafIdx] = argMaxWeight; // For now, upcasts score to double, for compatability with DecTree.
+    // For now, upcasts score to double, for compatability with DecTree.
+    score[leafIdx] = argMaxWeight;
   }
+
   // ASSERTION:
   //  Can count nonterminals and verify #nonterminals == treeHeight - leafCount
 

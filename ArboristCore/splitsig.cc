@@ -98,9 +98,8 @@ double SSNode::NonTerminalFac(SamplePred *samplePred, PreTree *preTree, SplitPre
   double lhSum = 0.0;
   int bitOff = preTree->TreeBitOffset();
   preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
-  for (int slot = 0; slot <= facLHTop; slot++) {
-    int runStart, runEnd;
-    int fac = splitPred->RunBounds(splitIdx, predIdx, slot, runStart, runEnd);
+  int runStart, runEnd, fac;
+  for (int slot = 0; (fac = splitPred->RunBounds(splitIdx, predIdx, slot, runStart, runEnd)) >= 0; slot++) {
     preTree->LHBit(bitOff + fac);
     lhSum += preTree->Replay(samplePred, predIdx, level, runStart, runEnd, ptLH);
   }
@@ -164,9 +163,6 @@ SSNode *SplitSig::ArgMax(int splitIdx, double gainMax) const {
 void SplitSig::LevelInit(int _splitCount) {
   splitCount = _splitCount;
   levelSS = new SSNode[nPred * splitCount];
-  for (int i = 0; i < nPred * splitCount; i++) {
-    levelSS[i].info = 0.0;
-  }
 }
 
 

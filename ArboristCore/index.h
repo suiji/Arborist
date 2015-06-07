@@ -186,28 +186,28 @@ class NodeCache : public IndexNode {
 
 class Index {
   static int totLevels;
-  class PreTree *Root(const class PredOrd *predOrd);
   NodeCache *CacheNodes();
   void ArgMax(NodeCache nodeCache[], const class SplitSig *splitSig);
   int LevelCensus(NodeCache nodeCache[], int &lhSplitNext, int &leafNext);
-  void ProduceNext(NodeCache nodeCache[], int splitNext, int lhSplitNext, int leafNext, int level);
+  class RestageMap *ProduceNext(NodeCache nodeCache[], int splitNext, int lhSplitNext, int leafNext, int level);
  protected:
   int level; // Zero-based level number.
   int splitCount; // Width of current level.
   IndexNode *indexNode;  
-  unsigned int bagCount;
+  const unsigned int bagCount;
   unsigned int levelBase; // Pre-tree index at which level's nodes begin.
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   bool *ntLH;
   bool *ntRH;
+  static class PreTree *OneTree(const class PredOrd *predOrd);
  public:
   static int nSamp;
   static void Immutables(int _minHeight, int _totLevels, int _nSamp);
   static void DeImmutables();
-  class PreTree *preTree;
   class SamplePred *samplePred;
+  class PreTree *preTree;
   class SplitPred *splitPred;
-  Index();
+  Index(class SamplePred *_samplePred, class PreTree *_preTree, class SplitPred *_splitPred, int _bagCount, double _sum);
   ~Index();
   /**
      @brief level accessor.

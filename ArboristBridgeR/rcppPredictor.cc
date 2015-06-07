@@ -27,7 +27,7 @@
 #include <Rcpp.h>
 
 // Testing only:
-//#include <iostream>
+#include <iostream>
 
 #include "predictor.h"
 
@@ -57,13 +57,7 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
   IntegerVector levels(sLevels);
   int nRow = as<int>(sNRow);
   int nCol = as<int>(sNCol);
-  int nColNum = as<int>(sNumCol);
   int nColFac = as<int>(sFacCol);
-  
-  // ASSERTION:
-  //if (nColNum + nColFac != nCol)
-  //cout << "Unrecognized data frame layout." << endl;
-    
   if (nColFac > 0) {
     IntegerVector facLevel(nColFac); // Compressed factor vector.
     IntegerMatrix xFac(nRow, nColFac);
@@ -76,6 +70,8 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
     }
     Predictor::FactorBlock(xFac.begin(), nRow, nColFac, facLevel.begin());
   }
+
+  int nColNum = as<int>(sNumCol);
   if (nColNum > 0) {
     NumericMatrix xNum(nRow, nColNum);
     int colIdx = 0;
@@ -89,6 +85,7 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
 
   return wrap(0);
 }
+
 
 /**
    @brief Caches a block of factor-valued predictors.
@@ -107,6 +104,7 @@ RcppExport SEXP RcppPredictorFac(SEXP sX, SEXP sFacLevel) {
 
   return wrap(0);
 }
+
 
 /**
    @brief Caches a block of numeric predictors.
@@ -140,6 +138,7 @@ RcppExport SEXP RcppPredictorInt(SEXP sX) {
   return wrap(0);
 }
 
+
 /**
    @brief Lights off the initializations used by the Predictor class.
 
@@ -152,8 +151,21 @@ RcppExport SEXP RcppPredictorInt(SEXP sX) {
    @return Wrapped zero.
  */
 RcppExport SEXP RcppPredictorFactory(SEXP sPredProb, SEXP sNPred, SEXP sNRow) {
-  NumericVector predProb(sPredProb);
+  if (Rf_isNull(sPredProb)) {
+    Predictor::Factory(0, as<int>(sNPred), as<int>(sNRow));
+  }
+  else {
+    NumericVector predProb(sPredProb);
+    Predictor::Factory(predProb.begin(), as<int>(sNPred), as<int>(sNRow));
+  }
 
-  Predictor::Factory(predProb.begin(), as<int>(sNPred), as<int>(sNRow));
   return wrap(0);
+}
+
+
+/**
+   @return Exit status of block-integrity check.
+ */
+RcppExport SEXP RcppPredictorBlockEnd() {
+  return wrap(Predictor::BlockEnd());
 }

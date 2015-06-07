@@ -33,7 +33,7 @@ int SamplePred::nSamp = -1;
 int SamplePred::nPred = -1;
 int SamplePred::bufferSize = -1;
 
-unsigned int SPNode::ctgShift = 0;
+unsigned int SPNode::runShift = 0;
 
 /**
   @brief Sets static allocation parameters.
@@ -64,7 +64,7 @@ void SamplePred::Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned
   
   bufferSize = nPred * nSamp;
   SPNode::Immutables(ctgWidth);
-  RestageMap::Immutables(nPred);
+  RestageMap::Immutables(nPred, nSamp);
 }
 
 /**
@@ -77,12 +77,12 @@ void SamplePred::Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned
  */
 void SPNode::Immutables(unsigned int ctgWidth) {
   unsigned int bits = 1;
-  ctgShift = 0;
+  runShift = 0;
   // Ctg values are zero-based, so the first power of 2 greater than or
   // equal to 'ctgWidth' has sufficient bits to hold all response values.
   while (bits < ctgWidth) {
     bits <<= 1;
-    ctgShift++;
+    runShift++;
   }
 }
 
@@ -90,7 +90,7 @@ void SPNode::Immutables(unsigned int ctgWidth) {
 /*
 **/
 void SPNode::DeImmutables() {
-  ctgShift = 0;
+  runShift = 0;
 }
 
 
@@ -156,7 +156,7 @@ void SamplePred::StageReg(const PredOrd *predOrd, const SampleNode sampleReg[], 
 
    @return void.
 */
-void SamplePred::StageReg(const PredOrd *dCol, const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
+void SamplePred::StageReg(const PredOrd dCol[], const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
   unsigned int *sampleIdx;
   SPNode *spn = Buffers(predIdx, 0, sampleIdx);
 
@@ -166,8 +166,7 @@ void SamplePred::StageReg(const PredOrd *dCol, const SampleNode sampleReg[], con
   for (unsigned int rk = 0; rk < nRow; rk++) {
     PredOrd dc = dCol[rk];
     unsigned int row = dc.row;
-    int sCount = sCountRow[row]; // Should be predictor-invariant.
-    if (sCount > 0) {
+    if (sCountRow[row] > 0) {
       int sIdx = sIdxRow[row];
       SampleNode sReg = sampleReg[sIdx];
       sampleIdx[ptIdx] = sIdx;
@@ -210,7 +209,7 @@ void SamplePred::StageCtg(const PredOrd *predOrd, const SampleNodeCtg sampleCtg[
 
    @return void.
 */
-void SamplePred::StageCtg(const PredOrd *dCol, const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
+void SamplePred::StageCtg(const PredOrd dCol[], const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
   unsigned int *sampleIdx;
   SPNode *spn = Buffers(predIdx, 0, sampleIdx);
 
@@ -220,8 +219,7 @@ void SamplePred::StageCtg(const PredOrd *dCol, const SampleNodeCtg sampleCtg[], 
   for (unsigned int rk = 0; rk < nRow; rk++) {
     PredOrd dc = dCol[rk];
     unsigned int row = dc.row;
-    int sCount = sCountRow[row]; // Should be predictor-invariant.
-    if (sCount > 0) {
+    if (sCountRow[row] > 0) {
       int sIdx = sIdxRow[row];
       SampleNodeCtg sCtg = sampleCtg[sIdx];
       sampleIdx[ptIdx] = sIdx;

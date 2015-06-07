@@ -69,7 +69,7 @@ class PreTree {
   static void DeImmutables();
   static void RefineHeight(unsigned int height);
   
-  int BagRows(const class PredOrd *predOrd, class SamplePred *&samplePred, class SplitPred *&splitPred, double &sum);
+  class SplitPred *BagRows(const class PredOrd *predOrd, class SamplePred *samplePred, int &bagCount, double &sum);
 
   /**
      @return offset into the split-value bit vector for the current level.
@@ -77,6 +77,7 @@ class PreTree {
   int TreeBitOffset() {
     return treeBitOffset;
   }
+
 
   /**
      @return true iff bit at position 'pos' is set.
@@ -98,33 +99,23 @@ class PreTree {
 
 
   /**
-     @brief Associates a sample index to a pretree index via the sample map.
-
-     @param sIdx is a sample index.
-
-     @param ptId is a pretree index.
-
-     @return void.
-   */
-  inline void MapSample(int sIdx, int ptId) {
-    sample2PT[sIdx] = ptId;
-  }
-
-  /**
      @return  total accumulated width of factors seen as splitting values.
   */
   inline int SplitFacWidth() {
     return treeBitOffset;
   }
 
+  
   inline int TreeHeight() {
     return treeHeight;
   }
 
+  
   inline int BagCount() {
     return bagCount;
   }
 
+  
   inline unsigned int *InBag() {
     return inBag;
   }

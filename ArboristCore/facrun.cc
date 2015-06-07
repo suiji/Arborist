@@ -26,13 +26,13 @@ using namespace std;
    factories should suffice.
 */
 
-int FacRun::nCardTot = -1;
+int FacRun::cardTot = -1;
 int FacRun::nPredFac = -1;
 int FacRun::predFacFirst = -1;
 
-int *FacRunCtg::wideOffset = 0;
-int FacRunCtg::ctgWidth = -1;
-int FacRunCtg::totalWide = -1; // Set on simulation.
+int *FacRunOrd::wideOffset = 0;
+int FacRunOrd::ctgWidth = -1;
+int FacRunOrd::totalWide = -1; // Set on simulation.
 
 /**
    @brief Fires off initializations.
@@ -46,41 +46,27 @@ int FacRunCtg::totalWide = -1; // Set on simulation.
    @return void.
  */
 void FacRun::Immutables(int _nPredFac, int _cardTot, int _predFacFirst) {
-  nCardTot = _cardTot;
+  cardTot = _cardTot;
   nPredFac = _nPredFac;
   predFacFirst = _predFacFirst;
 }
 
+
 void FacRun::DeImmutables() {
-  nCardTot = -1;
+  cardTot = -1;
   nPredFac = -1;
   predFacFirst = -1;
 }
 
 
-/**
-   @brief Constructor.
 
-   @return void.
- */
-FacRun::FacRun() {}
-
-
-/**
-   @brief Constructor.
- */
-FacRunReg::FacRunReg() {
-  LevelInit(1);
-}
-
-
-void FacRunReg::LevelInit(int splitCount) {
+void FacRunHeap::LevelInit(int splitCount) {
   FacRun::LevelInit(splitCount);
   bHeap = new BHeap(splitCount);
 }
 
 
-void FacRunReg::LevelClear() {
+void FacRunHeap::LevelClear() {
   FacRun::LevelClear();
   delete bHeap;
   bHeap = 0;
@@ -94,7 +80,7 @@ BHeap::BHeap(int _splitCount) {
   vacant = new unsigned int[vacCount];
   for (int i = 0; i < vacCount; i++)
     vacant[i] = 0;
-  bhPair = new BHPair[splitCount * FacRun::nCardTot];
+  bhPair = new BHPair[splitCount * FacRun::cardTot];
 }
 
 
@@ -115,20 +101,8 @@ BHeap::~BHeap() {
 */
 void FacRun::LevelInit(int _splitCount) {
   splitCount = _splitCount;
-  levelFR = new FRNode[splitCount * nCardTot];
-  levelFac = new int[splitCount * nCardTot];
-  for (int predIdx = predFacFirst; predIdx < predFacFirst + nPredFac; predIdx++) {
-    int facCard = Predictor::FacCard(predIdx);
-    int predOff = Predictor::FacOffset(predIdx) * splitCount;
-    for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {      
-      FRNode *base = levelFR + predOff + splitIdx * facCard;
-      for (int fac = 0; fac < facCard; fac++) {
-	FRNode *fr = base + fac;
-	fr->start = fr->end = fr->sCount = -1;
-	fr->sum = 0.0;
-      }
-    }
-  }
+  levelFR = new FRNode[splitCount * cardTot];
+  levelFac = new int[splitCount * cardTot];
 }
 
 
@@ -141,25 +115,17 @@ void FacRun::LevelClear() {
 
 
 /**
-   @brief Constructor.
- */
-FacRunCtg::FacRunCtg() {
-  LevelInit(1);
-}
-
-
-/**
    @brief Resets the sum vector and replenishes 'rvWide' with new random variates.
 
    @pram splitCount is the count of splits in the current level.
 
    @return void.
 */
-void FacRunCtg::LevelInit(int _splitCount) {
+void FacRunOrd::LevelInit(int _splitCount) {
   FacRun::LevelInit(_splitCount);
 
-  facCtgSum = new double[splitCount * nCardTot * ctgWidth];
-  for (int i = 0; i < splitCount * nCardTot * ctgWidth; i++)
+  facCtgSum = new double[splitCount * cardTot * ctgWidth];
+  for (int i = 0; i < splitCount * cardTot * ctgWidth; i++)
       facCtgSum[i] = 0.0;
   if (totalWide > 0) {
     rvWide = new double[splitCount * totalWide];
@@ -169,7 +135,7 @@ void FacRunCtg::LevelInit(int _splitCount) {
 }
 
 
-void FacRunCtg::LevelClear() {
+void FacRunOrd::LevelClear() {
   FacRun::LevelClear();
   delete [] facCtgSum;
   if (totalWide > 0) {
@@ -200,7 +166,7 @@ void FacRunCtg::LevelClear() {
 
    @return size of rank vector, with output parameter.
 */
-unsigned int FacRunCtg::Shrink(int splitIdx, int predIdx, unsigned int depth, int facOrd[]) {
+unsigned int FacRunOrd::Shrink(int splitIdx, int predIdx, unsigned int depth, int facOrd[]) {
   // The first rv for this pair is used to locate an arbitrary position
   // in [0, depth-1].  The remaining rv's are used to select up to
   // 'maxWidthDirect'-many indices out of 'depth' to retain.
@@ -214,37 +180,35 @@ unsigned int FacRunCtg::Shrink(int splitIdx, int predIdx, unsigned int depth, in
   int startIdx = rvWide[rvOffset] * (depth - 1);
   double *rvBase = &rvWide[rvOffset + 1];
   
-  unsigned int selected = 0;
   double thresh = double(maxWidthDirect) / depth;
-  for (unsigned int idx = startIdx; idx < depth; idx++) { // Loop to top.
-    if (selected == maxWidthDirect)
-      break;
-    if (rvBase[idx] <= thresh)
+  unsigned int idx = startIdx;
+  int selected = 0;
+  for (unsigned int count = 0; count < depth; count++) {
+    if (rvBase[idx] <= thresh && selected < maxWidthDirect)
       selected++;
     else
       facOrd[idx] = -1;
-  }
-  for (int idx = 0; idx < startIdx; idx++) { // Loop from bottom.
-    if (selected == maxWidthDirect)
-      break;
-    if (rvBase[idx] <= thresh)
-      selected++;
+
+    if (idx == depth - 1)
+      idx = 0;
     else
-      facOrd[idx] = -1;
+      idx++;
   }
 
   // Shrinks the index vector by moving only positive indices to the
   // next unfilled postion.
   //
   int j = 0; // Destination index of copy.
-  for (unsigned int idx = 0; idx < depth; idx++) { // Source index of copy.
+  for (idx = 0; idx < depth; idx++) { // Source index of copy.
     int slot = facOrd[idx];
-    if (slot >= 0)
+    if (slot >= 0) {
       facOrd[j++] = slot;
+    }
   }
 
   return selected;
 }
+
 
 /**
  @brief Sets the RV offsets for the wide-cardinality factors.  Uses one slot
@@ -252,7 +216,7 @@ unsigned int FacRunCtg::Shrink(int splitIdx, int predIdx, unsigned int depth, in
 
  @return high watermark of workspace offsets.
 */
-int FacRunCtg::SetWideOffset() {
+int FacRunOrd::SetWideOffset() {
   int wideOff = 0;
   for (int predIdx = predFacFirst; predIdx < predFacFirst + nPredFac; predIdx++) {
     int facIdx = predIdx - predFacFirst;
@@ -276,7 +240,7 @@ int FacRunCtg::SetWideOffset() {
 
    @param _nPredFac is the number of factor-valued predictors.
 
-   @param _nCardTot is the sum of cardinalities of all factor-valued predictors.
+   @param _cardTot is the sum of cardinalities of all factor-valued predictors.
 
    @param _predFacFirst is the index of the first factor-valued predictor.
 
@@ -284,8 +248,8 @@ int FacRunCtg::SetWideOffset() {
 
    @return void.
  */
-void FacRunCtg::Immutables(int _nPred, int _nPredFac, int _nCardTot, int _predFacFirst, int _ctgWidth) {
-  FacRun::Immutables(_nPredFac, _nCardTot, _predFacFirst);
+void FacRunOrd::Immutables(int _nPred, int _nPredFac, int _cardTot, int _predFacFirst, int _ctgWidth) {
+  FacRun::Immutables(_nPredFac, _cardTot, _predFacFirst);
   ctgWidth = _ctgWidth;
   wideOffset = new int[nPredFac];
   totalWide = SetWideOffset();
@@ -297,7 +261,7 @@ void FacRunCtg::Immutables(int _nPred, int _nPredFac, int _nCardTot, int _predFa
 
    @return void.
  */
-void FacRunCtg::DeImmutables() {
+void FacRunOrd::DeImmutables() {
   ctgWidth = -1;
   totalWide = -1;
   delete [] wideOffset;

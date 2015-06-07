@@ -91,6 +91,22 @@ SplitPred::~SplitPred() {
 
 
 /**
+   @brief Static entry for regression.
+ */
+SplitPred *SplitPred::FactoryReg(SamplePred *_samplePred) {
+  return new SPReg(_samplePred);
+}
+
+
+/**
+   @brief Static entry for classification.
+ */
+SplitPred *SplitPred::FactoryCtg(SamplePred *_samplePred, SampleNodeCtg *_sampleCtg) {
+  return new SPCtg(_samplePred, _sampleCtg);
+}
+
+
+/**
    @brief Allocates next level's 'runFlags' vector.
 
    @param splitCount is the number of splits in the next level.
@@ -108,6 +124,12 @@ bool *SplitPred::RunFlagReplace(int splitCount) {
 }
 
 
+void SplitPred::ImmutablesReg(unsigned int _nRow, int _nSamp) {
+  Immutables();
+  SPReg::Immutables(_nRow, _nSamp);
+}
+
+
 /**
    @brief Immutable initializations.
 
@@ -118,10 +140,15 @@ bool *SplitPred::RunFlagReplace(int splitCount) {
    @return void.
  */
 void SPReg::Immutables(unsigned int _nRow, int _nSamp) {
-  SplitPred::Immutables();
   SamplePred::Immutables(nPred, _nSamp, _nRow, 0);
   if (nPredFac > 0)
     FacRun::Immutables(nPredFac, nFacTot, predFacFirst);
+}
+
+
+void SplitPred::ImmutablesCtg(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth) {
+  Immutables();
+  SPCtg::Immutables(_nRow, _nSamp, _ctgWidth);
 }
 
 
@@ -134,10 +161,9 @@ void SPReg::Immutables(unsigned int _nRow, int _nSamp) {
  */
 void SPCtg::Immutables(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth) {
   ctgWidth = _ctgWidth;
-  SplitPred::Immutables();
   SamplePred::Immutables(nPred, _nSamp, _nRow, ctgWidth);
   if (nPredFac > 0) {
-    FacRunCtg::Immutables(nPred, nPredFac, nFacTot, Predictor::PredFacFirst(), ctgWidth);
+    FacRunOrd::Immutables(nPred, nPredFac, nFacTot, Predictor::PredFacFirst(), ctgWidth);
   }
 }
 
@@ -149,7 +175,7 @@ void SPCtg::DeImmutables() {
   SplitPred::DeImmutables();
   ctgWidth = 0;
   if (nPredFac > 0) {
-    FacRunCtg::DeImmutables();
+    FacRunOrd::DeImmutables();
   }  
 }
 
@@ -160,23 +186,23 @@ void SPCtg::DeImmutables() {
 void SPReg::DeImmutables() {
   SplitPred::DeImmutables();
   if (nPredFac > 0)
-    FacRunReg::DeImmutables();
+    FacRunHeap::DeImmutables();
 }
 
 
 SPReg::SPReg(SamplePred *_samplePred) : SplitPred(_samplePred) {
   if (nPredFac > 0)
-    facRunReg = new FacRunReg();
+    frHeap = new FacRunHeap();
   else
-    facRunReg = 0;
+    frHeap = 0;
 }
 
 
 SPCtg::SPCtg(SamplePred *_samplePred, SampleNodeCtg _sampleCtg[]) : SplitPred(_samplePred), sampleCtg(_sampleCtg) {
   if (nPredFac > 0)
-    facRunCtg = new FacRunCtg();
+    frOrd = new FacRunOrd();
   else
-    facRunCtg = 0;
+    frOrd = 0;
 }
 
 
@@ -252,7 +278,7 @@ void SplitPred::LevelSplit(const IndexNode indexNode[], int level, int splitCoun
 
 void SPReg::LevelClear() {
   if (nPredFac > 0) {
-    facRunReg->LevelClear();
+    frHeap->LevelClear();
   }
   delete [] splitFlags;
   splitFlags = 0;
@@ -261,19 +287,19 @@ void SPReg::LevelClear() {
 
 SPReg::~SPReg() {
   if (nPredFac > 0)
-    delete facRunReg;
+    delete frHeap;
 }
 
 
 SPCtg::~SPCtg() {
   if (nPredFac > 0)
-    delete facRunCtg;
+    delete frOrd;
 }
 
 
 void SPCtg::LevelClear() {
   if (nPredFac > 0) {
-    facRunCtg->LevelClear();
+    frOrd->LevelClear();
   }
   if (nPredNum > 0) {
     delete [] ctgSumR;
@@ -309,7 +335,7 @@ void SplitPred::LevelSplit(const IndexNode indexNode[], SPNode *nodeBase, int sp
 */
 void SPReg::LevelPreset(const Index *index, int splitCount) {
   if (nPredFac > 0)
-    facRunReg->LevelInit(splitCount);
+    frHeap->LevelInit(splitCount);
 }
 
 
@@ -341,11 +367,15 @@ void SPCtg::LevelPreset(const Index *index, int splitCount) {
   if (nPredNum > 0)
     LevelInitSumR(splitCount);
   if (nPredFac > 0)
-    facRunCtg->LevelInit(splitCount);
+    frOrd->LevelInit(splitCount);
 
-  ctgSum = new double[splitCount * ctgWidth];
+  SumsAndSquares(index, splitCount);
+}
+
+
+void SPCtg::SumsAndSquares(const Index *index, int splitCount) {
   sumSquares = new double[splitCount];
-
+  ctgSum = new double[splitCount * ctgWidth];
   unsigned int levelWidth = index->LevelWidth();
   double *sumTemp = new double[levelWidth * ctgWidth];
   for (unsigned int i = 0; i < levelWidth * ctgWidth; i++)
@@ -381,8 +411,8 @@ void SPCtg::LevelPreset(const Index *index, int splitCount) {
   }
 
   delete [] sumTemp;
-}
 
+}
 
 /**
    @brief Gini pre-bias computation for categorical response.
@@ -412,17 +442,39 @@ void SPCtg::LevelInitSumR(int splitCount) {
 }
 
 
+/**
+   @brief Looks up the bounds associated with a factor run for
+   categorical response.
+
+   @param splitIdx is the split index.
+
+   @param predIdx is the predictor index.
+
+   @param slot is the position of the run's factor value within the
+   compressed factor vector.
+
+   @param start outputs the starting offset of the run.  Undefined if not
+   a run.
+
+   @param end outputs the ending offset of run if run, else undefined.
+
+   @return Factor value at slot position, or -1 if exhausted.
+ */
 int SPCtg::RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end) {
-  int fac = facRunCtg->FacVal(splitIdx, predIdx, slot);
-  facRunCtg->Bounds(splitIdx, predIdx, fac, start, end);
+  int fac = frOrd->FacVal(splitIdx, predIdx, slot);
+  if (fac >= 0)
+    frOrd->Bounds(splitIdx, predIdx, fac, start, end);
 
   return fac;
 }
 
 
+/**
+   @brief As above, but regression response.
+ */
 int SPReg::RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end) {
-  int fac = facRunReg->FacVal(splitIdx, predIdx, slot);
-  facRunReg->Bounds(splitIdx, predIdx, fac, start, end);
+  int fac = frHeap->FacVal(splitIdx, predIdx, slot);
+  frHeap->Bounds(splitIdx, predIdx, fac, start, end);
 
   return fac;
 }
@@ -440,7 +492,7 @@ void SPReg::Split(const IndexNode indexNode[], SPNode *nodeBase, int splitCount,
     {
 #pragma omp for schedule(dynamic, 1)
       for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
-        SPReg::SplitNum(indexNode, nodeBase, splitCount, predIdx, splitSig);
+        SplitNum(indexNode, nodeBase, splitCount, predIdx, splitSig);
       }
     }
 
@@ -448,10 +500,11 @@ void SPReg::Split(const IndexNode indexNode[], SPNode *nodeBase, int splitCount,
     {
 #pragma omp for schedule(dynamic, 1)
       for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
-        SPReg::SplitFac(indexNode, nodeBase, splitCount, predIdx, splitSig);
+        SplitFac(indexNode, nodeBase, splitCount, predIdx, splitSig);
       }
     }
 }
+
 
 /**
    @brief As above, but categorical response.
@@ -463,7 +516,7 @@ void SPCtg::Split(const IndexNode indexNode[], SPNode *nodeBase, int splitCount,
     {
 #pragma omp for schedule(dynamic, 1)
       for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
-	SPCtg::SplitNum(indexNode, nodeBase, splitCount, predIdx, splitSig);
+	SplitNum(indexNode, nodeBase, splitCount, predIdx, splitSig);
       }
     }
 
@@ -471,10 +524,12 @@ void SPCtg::Split(const IndexNode indexNode[], SPNode *nodeBase, int splitCount,
     {
 #pragma omp for schedule(dynamic, 1)
       for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
-	SPCtg::SplitFac(indexNode, nodeBase, splitCount, predIdx, splitSig);
+	SplitFac(indexNode, nodeBase, splitCount, predIdx, splitSig);
       }
     }
 }
+
+
 
 
 // The four splitting functions are specialized according to
@@ -499,11 +554,10 @@ void SPCtg::Split(const IndexNode indexNode[], SPNode *nodeBase, int splitCount,
 void SPReg::SplitNum(const IndexNode indexNode[], SPNode *nodeBase, int splitCount, int predIdx, SplitSig *splitSig) {
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     if (Splitable(splitCount, splitIdx, predIdx)) {
-      SPReg::SplitNumGini(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), predIdx, splitSig);
+      SplitNumGini(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), predIdx, splitSig);
     }
   }
 }
-
 
 
 /**
@@ -520,7 +574,7 @@ void SPReg::SplitNum(const IndexNode indexNode[], SPNode *nodeBase, int splitCou
 void SPReg::SplitFac(const IndexNode indexNode[], SPNode *nodeBase, int splitCount, int predIdx, SplitSig *splitSig) {
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     if (Splitable(splitCount, splitIdx, predIdx)) {
-      SPReg::SplitFacGini(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), predIdx, splitSig);
+      SplitHeap(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), predIdx, splitSig);
     }
   }
 }
@@ -540,7 +594,7 @@ void SPReg::SplitFac(const IndexNode indexNode[], SPNode *nodeBase, int splitCou
 void SPCtg::SplitNum(const IndexNode indexNode[], SPNode *nodeBase, int splitCount, int predIdx, SplitSig *splitSig) {
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     if (Splitable(splitCount, splitIdx, predIdx)) {
-      SPCtg::SplitNumGini(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), splitCount, predIdx, splitSig);
+      SplitNumGini(&indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), splitCount, predIdx, splitSig);
     }
   }
 }
@@ -605,7 +659,7 @@ void SPReg::SplitNumGini(const IndexNode *indexNode, const SPNode spn[], int pre
     //    if (numL != 0) // ASSERTION
     //cout << "Row runs do not sum to sample count:  " << numL << endl;
   if (lhSup >= 0) {
-    splitSig->WriteNum(splitIdx, predIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+    splitSig->Write(splitIdx, predIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
 
@@ -660,7 +714,7 @@ void SPCtg::SplitNumGini(const IndexNode *indexNode, const SPNode spn[], int spl
     rkRight = rkThis;
   }
   if (lhSup >= 0) {
-    splitSig->WriteNum(splitIdx, predIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+    splitSig->Write(splitIdx, predIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
 
@@ -678,35 +732,48 @@ void SPCtg::SplitFacGini(const IndexNode *indexNode, const SPNode spn[], int pre
   indexNode->SplitFields(splitIdx, start, end, dummy, sum, preBias);
 
   double maxGini = preBias;
-  unsigned int top = BuildRuns(spn, splitIdx, predIdx, start, end);
-  unsigned int argMax = SplitRuns(splitIdx, predIdx, sum, top, maxGini);
-
-  // Reconstructs LHS sample and index counts from 'argMax'.
-  //
-  if (argMax > 0) {
-    int pairOffset = facRunCtg->PairOffset(splitIdx, predIdx);
-    int lhSampCt = 0;
-    int lhIdxCount = 0;
-    // TODO:  Check 'slot' range.  Subsets may be narrower
-    // than [0,top].
-    int lhTop = -1;
-    for (unsigned int slot = 0; slot <= top; slot++) {
-	// If bit # 'slot' set in 'argMax', then the factor value, 'rk', at this
-	// position is copied to the the next vacant position, 'lhTop'.
-	// Over-writing is not a concern, as 'lhTop' <= 'slot'.
-	//
-      if ((argMax & (1 << slot)) > 0) {
-        facRunCtg->Pack(pairOffset, ++lhTop, slot);
-        (void) facRunCtg->Accum(pairOffset, lhTop, lhSampCt, lhIdxCount);
-      }
-    }
-    splitSig->WriteFac(splitIdx, predIdx, lhSampCt, lhIdxCount, maxGini - preBias, lhTop);
+  unsigned int depth = BuildRuns(spn, splitIdx, predIdx, start, end);
+  depth = frOrd->Shrink(splitIdx, predIdx, depth);
+  unsigned int lhBits = SplitRuns(splitIdx, predIdx, sum, depth, maxGini);
+  int lhSampCt;
+  int lhIdxCount = LHBits(lhBits, frOrd->PairOffset(splitIdx, predIdx), depth, lhSampCt);
+  if (lhIdxCount > 0) {
+    splitSig->Write(splitIdx, predIdx, lhSampCt, lhIdxCount, maxGini - preBias);
   }
 }
 
 
 /**
-   @brief Builds runs of ranked predictors for checkerboard processing.
+   @brief Reconstructs LHS sample and index counts from 'lhBits'.
+*/
+int SPCtg::LHBits(unsigned int lhBits, int pairOffset, unsigned int depth, int &lhSampCt) {
+  int lhIdxCount = 0;
+  lhSampCt = 0;
+  if (lhBits != 0) {
+    int lhTop = 0;
+    for (unsigned int slot = 0; slot <= depth; slot++) {
+	// If bit # 'slot' set in 'argMax', then the factor value, 'rk', at this
+	// position is copied to the the next vacant position, 'lhTop'.
+	// Over-writing is not a concern, as 'lhTop' <= 'slot'.
+	//
+      if ((lhBits & (1 << slot)) > 0) {
+        frOrd->Pack(pairOffset, lhTop, slot);
+        (void) frOrd->Accum(pairOffset, lhTop, lhSampCt, lhIdxCount);
+	lhTop++;
+      }
+    }
+
+    // Marks end of compressed rank vector.
+    frOrd->SetFacVal(pairOffset, lhTop, -1);
+  }
+
+  return lhIdxCount;
+}
+
+
+/**
+   @brief Builds runs of ranked predictors for checkerboard processing.  Final
+   run is assigned to RHS, by convention, so need not be built.
 
    @param splitIdx is the index node index.
 
@@ -717,27 +784,21 @@ void SPCtg::SplitFacGini(const IndexNode *indexNode, const SPNode spn[], int pre
    @param end is the ending index.
 
    @return number of runs built.
-
-   Retains local sumR values until a transition is noted.  On each transition, pushes
-   pair consisting of local factor value (rank) and mean-Y onto node's heap.
-   Pushes one more time at conclusion, to catch each node's final factor/mean-Y pair.
-
-   N.B.:  Only the Transition() method is specific to FacRunCtg.  All other actions
-   involving the heap can be implemented via FacRun.
 */
 unsigned int SPCtg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int start, int end) {
-  int pairOffset = facRunCtg->PairOffset(splitIdx, predIdx);
-  unsigned int top = 0; // Top index of compressed rank vector.
+  int pairOffset = frOrd->PairOffset(splitIdx, predIdx);
+  unsigned int vac = 0; // Next vacant index for compressed rank vector.
   double sumR;
   unsigned int rkThis, sCount, yCtg;
   spn[end].CtgFields(sumR, rkThis, sCount, yCtg);
-  facRunCtg->LeftTerminus(splitIdx, predIdx, rkThis, end, yCtg, sumR, true);
-  for (int i = end-1; i >= start; i--) {
+  double yVal = sumR;
+  unsigned int rkStart = spn[start].Rank();
+  bool rhEdge = true;
+  for (int i = end-1; rkThis != rkStart; i--) {
+    frOrd->LeftTerminus(splitIdx, predIdx, rkThis, i + 1, yCtg, yVal, rhEdge);
     unsigned int rkRight = rkThis;
     unsigned int rowRun;
-    double yVal;
     spn[i].CtgFields(yVal, rkThis, rowRun, yCtg);
-    bool rhEdge;
     if (rkThis == rkRight) { // No transition:  counters accumulate.
       sumR += yVal;
       sCount += rowRun;
@@ -745,7 +806,7 @@ unsigned int SPCtg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int
     }
     else {
       // Flushes run to the right.
-      facRunCtg->Transition(pairOffset, top++, rkRight, sCount, sumR);
+      frOrd->Transition(pairOffset, vac++, rkRight, sCount, sumR);
 
       // New run:  node reset and bounds initialized.
       //
@@ -753,15 +814,9 @@ unsigned int SPCtg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int
       sCount = rowRun;
       rhEdge = true;
     }
-    // Always moving left:
-    facRunCtg->LeftTerminus(splitIdx, predIdx, rkThis, i, yCtg, yVal, rhEdge);
   }
 
-  // Flushes the remaining runs.
-  //
-  facRunCtg->Transition(pairOffset, top++, rkThis, sCount, sumR);
-
-  return top;
+  return vac;
 }
 
 
@@ -774,39 +829,37 @@ unsigned int SPCtg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int
 
    @param sum is the sum of response values for this index node.
 
-   @param top outputs the (possibly reduced) number of runs.
+   @param depth outputs the (possibly reduced) number of runs.
 
    @param maxGini outputs the highest observed Gini value.
 
-   @return subset encoding of the maximal-Gini LHS.
+   @return binary encoding of the maximal-Gini LHS.
 
    Nodes are now represented compactly as a collection of runs.
    For each node, subsets of these collections are examined, looking for the
    Gini argmax beginning from the pre-bias.
 
-   Iterates over nontrivial subsets, coded by integers as bit patterns.  If the
-   full factor set is not present, then all 'facCount' factors may participate
-   in the split.  A practical limit of 2^10 trials is employed.  Hence a node
-   with more than 11 distinct factors requires random sampling:  selects 1024
-   full-width sequences with bits set ~Bernoulli(0.5).
+   Iterates over nontrivial subsets, coded by integers as bit patterns.  By
+   convention, the final run is incorporated into the RHS of the split, if any.
+   That is, the value of 'depth' has already been adjusted to exclude the
+   final run.  Hence the number of nonempty subsets to check is '2^depth - 1'.
 */
-unsigned int SPCtg::SplitRuns(int splitIdx, int predIdx, double sum, unsigned int &top, double &maxGini) {
-  top = facRunCtg->Shrink(splitIdx, predIdx, top);
-  unsigned int fullSet = (1 << top) - 1;
+unsigned int SPCtg::SplitRuns(int splitIdx, int predIdx, double sum, unsigned int depth, double &maxGini) {
+  unsigned int fullSet = (1 << depth) - 1;
 
   // Iterates over all nontrivial subsets of factors in the node.
   // 'Top' value of zero falls out as no-op.
   //
-  unsigned int argMax = 0;
+  unsigned int lhBits = 0;
   for (unsigned int subset = 1; subset <= fullSet; subset++) {
     double sumL = 0.0;
     double numerL = 0.0;
     double numerR = 0.0;
     for (unsigned int yCtg = 0; yCtg < ctgWidth; yCtg++) {
       double sumCtg = 0.0;
-      for (unsigned int slot = 0; slot  < top; slot++) {
-	if ((subset & (1 << slot)) > 0) {
-	  sumCtg += facRunCtg->SlotSum(splitIdx, predIdx, slot, yCtg);
+      for (unsigned int slot = 0; slot < depth; slot++) {
+	if ((subset & (1 << slot)) != 0) {
+	  sumCtg += frOrd->SlotSum(splitIdx, predIdx, slot, yCtg);
 	}
       }
       double totSum = CtgSum(splitIdx, yCtg);
@@ -818,11 +871,11 @@ unsigned int SPCtg::SplitRuns(int splitIdx, int predIdx, double sum, unsigned in
     double runGini = (sumL <= 1.0e-8 || sumR <= 1.0e-5) ? 0.0 : numerR / sumR + numerL / sumL;
     if (runGini > maxGini) {
       maxGini = runGini;
-      argMax = subset;
+      lhBits = subset;
     }
   }
 
-  return argMax;
+  return lhBits;
 }
 
 
@@ -833,23 +886,22 @@ unsigned int SPCtg::SplitRuns(int splitIdx, int predIdx, double sum, unsigned in
 
    @return void.
  */
-void SPReg::SplitFacGini(const IndexNode *indexNode, const SPNode spn[], int predIdx, SplitSig *splitSig) {
+void SPReg::SplitHeap(const IndexNode *indexNode, const SPNode spn[], int predIdx, SplitSig *splitSig) {
   int splitIdx, start, end, sCount;
   double sum, preBias;
   indexNode->SplitFields(splitIdx, start, end, sCount, sum, preBias);
   double maxGini = preBias;
-  BuildRuns(spn, splitIdx, predIdx, start, end);
+  int depth = HeapRuns(frHeap, spn, splitIdx, predIdx, start, end);
 
-  int lhIdxCount = end - start + 1; // Initialization for diagnostics, only.
-  int lhTop = SplitRuns(splitIdx, predIdx, sum, sCount, lhIdxCount, maxGini);
-  if (lhTop >= 0) {
-    splitSig->WriteFac(splitIdx, predIdx, sCount, lhIdxCount, maxGini - preBias, lhTop);
+  int lhIdxCount = HeapSplit(frHeap, frHeap->PairOffset(splitIdx, predIdx), depth, sum, sCount, maxGini);
+  if (lhIdxCount > 0) {
+    splitSig->Write(splitIdx, predIdx, sCount, lhIdxCount, maxGini - preBias);
   }
 }
 
 
 /**
- @brief Builds runs and maintains using FacRunReg coroutines.
+ @brief Builds runs and maintains using FacRunHeap coroutines.
 
  @param splitIdx is the index node index.
 
@@ -859,19 +911,19 @@ void SPReg::SplitFacGini(const IndexNode *indexNode, const SPNode spn[], int pre
 
  @param end is the ending index.
 
- @return void. 
+ @return length of run vector.
 */
-void SPReg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int start, int end) {
+int SplitPred::HeapRuns(FacRunHeap *frHeap, const SPNode spn[], int splitIdx, int predIdx, int start, int end) {
   unsigned int rkThis, sCount;
   double sumR;
-  int pairOffset = facRunReg->PairOffset(splitIdx, predIdx);
+  int pairOffset = frHeap->PairOffset(splitIdx, predIdx);
   spn[end].RegFields(sumR, rkThis, sCount);
-  facRunReg->LeftTerminus(pairOffset, rkThis, end, true);
+  frHeap->LeftTerminus(pairOffset, rkThis, end, true);
   for (int i = end-1; i >= start; i--) {
     unsigned int rkRight = rkThis;
     double yVal;
-    unsigned int rowRun;
-    spn[i].RegFields(yVal, rkThis, rowRun);
+    unsigned int rowRun, dummy;
+    spn[i].CtgFields(yVal, rkThis, rowRun, dummy);
 
     bool rhEdge;
     if (rkThis == rkRight) { // Same run:  counters accumulate.
@@ -880,23 +932,25 @@ void SPReg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int start, 
       rhEdge = false;
     }
     else { // New run:  flush accumulated counters and reset.
-      facRunReg->Transition(splitIdx, predIdx, rkRight, sCount, sumR);
+      frHeap->Transition(splitIdx, predIdx, rkRight, sCount, sumR);
       sumR = yVal;
       sCount = rowRun;
       rhEdge = true;
     }
     // Always moving left:
-    facRunReg->LeftTerminus(pairOffset, rkThis, i, rhEdge);
+    frHeap->LeftTerminus(pairOffset, rkThis, i, rhEdge);
   }
 
   // Flushes the remaining run.
   //
-  facRunReg->Transition(splitIdx, predIdx, rkThis, sCount, sumR);
+  frHeap->Transition(splitIdx, predIdx, rkThis, sCount, sumR);
+
+  return frHeap->DePop(splitIdx, predIdx);
 }
 
 
 /**
-   @brief Splits runs sorted by FacRunReg coroutines.
+   @brief Splits runs sorted by FacRunHeap coroutines.
 
    @param splitIdx is the index node index.
 
@@ -910,23 +964,21 @@ void SPReg::BuildRuns(const SPNode spn[], int splitIdx, int predIdx, int start, 
 
    @param maxGini outputs the max Gini value.
 
-   @return top index of LHS.
+   @return count of LH indices.
 
    BHeap sorts factors by mean-Y over node.  Gini scoring can be done by run, as
    all factors within a run have the same predictor pseudo-value.  Individual run
    members must be noted, however, so that node LHS can be identifed later.
 */
-int SPReg::SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int &lhIdxCount, double &maxGini) {
+int SplitPred::HeapSplit(FacRunHeap *frHeap, int pairOffset, int depth, double sum, int &sCount, double &maxGini) {
   int sCountTot = sCount; // Captures entry value of full sample count.
-  //int idxCountTot = lhIdxCount; // Diagnostic only:  see caller, and below.
   int sCountL = 0;
   int idxCount = 0;
   double sumL = 0.0;
   int lhTop = -1; // Top index of lh ords in 'facOrd' (q.v.).
-  int pairOffset = facRunReg->PairOffset(splitIdx, predIdx);
-  int depth = facRunReg->DePop(splitIdx, predIdx);
+  int lhIdxCount = 0;
   for (int slot = 0; slot < depth - 1; slot++) {
-    sumL += facRunReg->Accum(pairOffset, slot, sCountL, idxCount);
+    sumL += frHeap->Accum(pairOffset, slot, sCountL, idxCount);
     int numR = sCountTot - sCountL;
     //if (numR == 0) // ASSERTION.  Will lead to division by zero.
 
@@ -939,12 +991,12 @@ int SPReg::SplitRuns(int splitIdx, int predIdx, double sum, int &sCount, int &lh
       lhTop = slot;
     }
   }
+  (void) frHeap->Accum(pairOffset, depth - 1, sCountL, idxCount);
+  frHeap->SetFacVal(pairOffset, lhTop + 1, -1);
   // ASSERTIONS:
-  (void) facRunReg->Accum(pairOffset, depth - 1, sCountL, idxCount);
   //if (sCountL != sCountTot)
   //cout << "Incomplete sample coverage" << endl;
   //if (idxCount != idxCountTot)
   //cout << "Incomplete index coverage:  " << idxCount << " != " << idxCountTot << endl;
-  return lhTop;
+  return lhIdxCount;
 }
-

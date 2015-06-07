@@ -25,6 +25,7 @@ class SSNode {
   double NonTerminalFac(class SamplePred *samplePred, class PreTree *preTree, class SplitPred *splitPred, int level, int start, int end, int ptLH, int ptRH, int facCard, double &splitVal);
   double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, int ptLH, int ptRH, double &splitVal);
  public:
+ SSNode() : info(0.0) {}
   int predIdx; // Helpful, but necessary, for example, if reusing records.
   int splitIdx; // Helpful, but not necessary.
   int sCount; // # samples subsumed by split LHS.
@@ -33,16 +34,10 @@ class SSNode {
 
   static double minRatio;
   
-  // 'fac' information guides unpacking of LH the bit set for factor-valued
-  // splitting predictors.
-  //
   // Ideally, there would be SplitSigFac and SplitSigNum subclasses, with
   // Replay() and NonTerminal() methods implemented virtually.  Coprocessor
   // may not support virtual invocation, however, so we opt for a less
   // elegant solution.
-  //
-  int facLHTop; // Reference for unpacking.
-
 
   /**
    @brief Derives an information threshold.
@@ -106,7 +101,7 @@ class SplitSig {
   static void DeImmutables();
   
   /**
-     @brief Sets splitting fields for a numerical predictor.
+     @brief Sets splitting fields for a splitting predictor.
 
      @param splitIdx is the index node index.
 
@@ -120,7 +115,7 @@ class SplitSig {
 
      @return void.
    */
-  inline void WriteNum(int _splitIdx, int _predIdx, int _sCount, int _lhIdxCount, double _info) {
+  inline void Write(int _splitIdx, int _predIdx, int _sCount, int _lhIdxCount, double _info) {
     SSNode ssn;
     ssn.splitIdx = _splitIdx;
     ssn.predIdx = _predIdx;
@@ -128,35 +123,6 @@ class SplitSig {
     ssn.lhIdxCount = _lhIdxCount;
     ssn.info = _info;
     Lookup(_splitIdx, _predIdx) = ssn;
-  }
-
-  
-  /**
-     @brief Sets splitting fields for a factor-value predictor.
-
-     @param splitIdx is the index node index.
-
-     @param _predIdx is the predictor index.
-
-     @param _sCount is the count of samples in the LHS.
-
-     @param _lhIdxCount is count of indices associated with the LHS.
-
-     @param _info is the splitting information value, currently Gini.
-
-     @param _lhTop is the index of the highest sorted LHS rank.
-
-     @return void.
-   */
-  inline void WriteFac(int _splitIdx, int _predIdx, int _sCount, int _lhIdxCount, double _info, int _lhTop) {
-    SSNode ssf;
-    ssf.splitIdx = _splitIdx;
-    ssf.predIdx = _predIdx;
-    ssf.sCount = _sCount;
-    ssf.lhIdxCount = _lhIdxCount;
-    ssf.info = _info;
-    ssf.facLHTop = _lhTop;
-    Lookup(_splitIdx, _predIdx) = ssf;
   }
 
   void LevelInit(int splitCount);

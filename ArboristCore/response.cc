@@ -19,7 +19,7 @@
 #include "sample.h"
 #include "dectree.h"
 
-#include <iostream>
+//#include <iostream>
 using namespace std;
 
 int Response::nRow = -1;
