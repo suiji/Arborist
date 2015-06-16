@@ -29,6 +29,7 @@
                 sampleWeight = NULL,
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
+                qBin = 5000,
                 treeBlock = 1,
                 pvtBlock = 8, pvtNoPredict = FALSE, ...) {
 
@@ -121,7 +122,7 @@
         if (is.null(quantVec))
           quantVec <- DefaultQuantVec()
         qPred <- numeric(nrow(x) * length(quantVec))
-        unused <- .Call("RcppPredictOOBQuant", predGini, error, quantVec, qPred)
+        unused <- .Call("RcppPredictOOBQuant", predGini, error, quantVec, qBin, qPred)
         qPred <- matrix(qPred, nrow(x), length(quantVec), byrow = TRUE)
       }
       else {
@@ -133,19 +134,13 @@
   
   if (quantiles) {
     qYRanked <- numeric(nrow(x))
-    qRankOrigin <- integer(nTree)
     qRank <- integer(totBagCount)
-    qRankCount <- integer(totBagCount)
-    qLeafPos <- integer(height)
-    qLeafExtent <- integer(height)
+    qSCount <- integer(totBagCount)
 
-    unused <- .Call("RcppWriteQuantile", qYRanked, qRankOrigin, qRank, qRankCount, qLeafPos, qLeafExtent)
+    unused <- .Call("RcppWriteQuantile", qYRanked, qRank, qSCount)
     qOut <- list(qYRanked = qYRanked,
-                  qRankOrigin = qRankOrigin,
                   qRank = qRank,
-                  qRankCount = qRankCount,
-                  qLeafPos = qLeafPos,
-                  qLeafExtent = qLeafExtent
+                  qSCount = qSCount
                   )
   }
   else
@@ -153,13 +148,12 @@
 
   preds <-  integer(height)
   splits <- numeric(height)
-  leafScores <- numeric(height)
 #  splitGini <- matrix(0.0, height, ntree)
   facSplits <- integer(as.integer(facWidth))
   bump <- integer(height)
   facOff <- integer(nTree)
   origins <- integer(nTree)
-  unused <- .Call("RcppWriteForest", preds, splits, leafScores, bump, origins, facOff, facSplits);
+  unused <- .Call("RcppWriteForest", preds, splits, bump, origins, facOff, facSplits);
 
 
   RNGkind(saveRNG)
@@ -168,7 +162,6 @@
                 forest = list(
                   predictors = preds,
                   splitValues = splits,
-                  scores = leafScores,
                   bump = bump,
                   origins = origins,
                   facOff = facOff,
@@ -186,13 +179,11 @@
                 forest = list(
                   predictors = preds,
                   splitValues = splits,
-                  scores = leafScores,
                   bump = bump,
                   origins = origins,
                   facOff = facOff,
                   facSplits = facSplits,
                   quant = qOut),
-#                splitGini = splitGini,
                 mse = mse,
                 rsq = 1 - (mse*nrow(x))/ (var(y) * (nrow(x) - 1)),
                 qPred = qPred,
@@ -218,7 +209,7 @@ PredBlock <- function(x, y = NULL, predProb = NULL){#, quantiles = NULL) {
     numCols <- as.integer(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
     nFacCol <- length(which(facLevels > 0))
     nNumCol <- length(which(numCols > 0))
-    unused <- .Call("RcppPredictorFrame", x, nrow(x), ncol(x), nFacCol, nNumCol, facLevels)
+    unused <- .Call("RcppPredictorFrame", x, nNumCol, nFacCol, facLevels)
   }
   else if (is.integer(x)) {
     unused <- .Call("RcppPredictorNum", data.matrix(x), TRUE)

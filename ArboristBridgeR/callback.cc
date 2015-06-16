@@ -55,8 +55,8 @@ void CallBack::SampleRows(int samp[]) {
   @return Formally void, with copy-out parameter vectors.
 */
 
-void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
-  R_qsort_int_I(ySorted, rank2Row, one, nRow);
+void CallBack::QSortI(int ySorted[], unsigned int rank2Row[], int one, unsigned int nRow) {
+  R_qsort_int_I(ySorted, (int *) rank2Row, one, (int) nRow);
 }
 
 /**
@@ -73,8 +73,8 @@ void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
    @return Formally void, with copy-out parameter vectors.
 */
 
-void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
-  R_qsort_I(ySorted, rank2Row, one, nRow);
+void CallBack::QSortD(double ySorted[], unsigned int rank2Row[], int one, unsigned int nRow) {
+  R_qsort_I(ySorted, (int*) rank2Row, one, (int) nRow);
 }
 
 /**

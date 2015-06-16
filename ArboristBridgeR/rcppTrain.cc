@@ -82,8 +82,6 @@ RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTot
 
    @param sSplits are the splitting values for each nonterminal.
 
-   @param sScores are the score values for the terminals.
-
    @param sBump are the left-hand index increments for each nonterminal.
 
    @param sOrigins is a vector recording the beginning offsets of each tree.
@@ -94,17 +92,16 @@ RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTot
 
    @return Wrapped zero, with output parameter vectors.
  */
-RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
+RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
   IntegerVector rPreds(sPreds);
   NumericVector rSplits(sSplits);
-  NumericVector rScores(sScores);
   IntegerVector rBump(sBump);
   IntegerVector rOrigins(sOrigins); // Per-tree offsets of table origins.
   IntegerVector rFacOff(sFacOff); // Per-tree offsets of split bits.
   IntegerVector rFacSplits(sFacSplits);
 
   //  NumericMatrix rSplitGini(sSplitGini);
-  Train::WriteForest(rPreds.begin(), rSplits.begin(), rScores.begin(), rBump.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
+  Train::WriteForest(rPreds.begin(), rSplits.begin(), rBump.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
 
   return wrap(0);
 }
@@ -122,19 +119,14 @@ RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sB
 
    @param sQLeafPos is an output vector recording the offset of each quantile leaf.
 
-   @param sQLeafExtent is an output vector recording the length of each quantile leaf.
-
    @return Wrapped zero, with output parameters.
  */
-RcppExport SEXP RcppWriteQuantile(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, SEXP sQRankCount, SEXP sQLeafPos, SEXP sQLeafExtent) {
+RcppExport SEXP RcppWriteQuantile(SEXP sQYRanked, SEXP sQRank, SEXP sQSCount) {
   NumericVector rQYRanked(sQYRanked);
-  IntegerVector rQRankOrigin(sQRankOrigin);
   IntegerVector rQRank(sQRank);
-  IntegerVector rQRankCount(sQRankCount);
-  IntegerVector rQLeafPos(sQLeafPos);
-  IntegerVector rQLeafExtent(sQLeafExtent);
+  IntegerVector rQSCount(sQSCount);
 
-  Train::WriteQuantile(rQYRanked.begin(), rQRankOrigin.begin(), rQRank.begin(), rQRankCount.begin(), rQLeafPos.begin(), rQLeafExtent.begin());
+  Train::WriteQuantile(rQYRanked.begin(), rQRank.begin(), rQSCount.begin());
 
   return wrap(0);
 }

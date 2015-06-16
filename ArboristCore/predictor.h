@@ -50,10 +50,10 @@ class Predictor {
   static int nPred;
   static int nCardTot; // Total number of levels over all factor predictors.
   static int maxFacCard;  // Highest number of levels among all factors.
-  static void UniqueRank(int *);
-  static void IntegerBlock(int x[], unsigned int _nrow, int _ncol, bool doClone = true);
-  static void FactorBlock(int xi[], unsigned int _nrow, int _ncol, int levelCount[]);
-  static void NumericBlock(double xn[], unsigned int _nrow, int _ncol, bool doClone = true);
+  static void UniqueRank(unsigned int rank2Row[]);
+  static void IntegerBlock(int x[], int _ncol, bool doClone = true);
+  static void FactorBlock(int xi[], int _ncol, int levelCount[]);
+  static void NumericBlock(double xn[], int _ncol, bool doClone = true);
   static int BlockEnd();
   static PredOrd *Order();
 
@@ -200,9 +200,9 @@ class Predictor {
     return 0.5 * (numBase[predIdx * nRow + rkLow] + numBase[predIdx * nRow + rkHigh]);
   }
 
-  static void SetSortAndTies(const int *rank2Row, PredOrd *predOrd);
-  static void OrderByRank(const int *Col, const int *r2r, PredOrd *dCol, bool ordinals = true);
-  static void OrderByRank(const double *xCol, const int *r2r, PredOrd *dCol);
+  static void SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd);
+  static void OrderByRank(const int *Col, const unsigned int r2r[], PredOrd *dCol, bool ordinals = true);
+  static void OrderByRank(const double *xCol, const unsigned int r2r[], PredOrd *dCol);
   static void Factory(const double _predProb[], int _nPred, unsigned int _nRow);
   static void DeFactory();
 };

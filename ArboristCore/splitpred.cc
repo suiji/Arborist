@@ -730,7 +730,6 @@ void SPCtg::SplitFacGini(const IndexNode *indexNode, const SPNode spn[], int pre
   int splitIdx, start, end, dummy;
   double sum, preBias;
   indexNode->SplitFields(splitIdx, start, end, dummy, sum, preBias);
-
   double maxGini = preBias;
   unsigned int depth = BuildRuns(spn, splitIdx, predIdx, start, end);
   depth = frOrd->Shrink(splitIdx, predIdx, depth);

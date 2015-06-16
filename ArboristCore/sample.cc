@@ -108,7 +108,7 @@ int *Sample::CountRows() {
    @brief Constructor.
  */
 SampleReg::SampleReg() {
-  sample2Rank = new int[nSamp]; // Lives until scoring.
+  sample2Rank = new unsigned int[nSamp]; // Lives until scoring.
   sampleReg = new SampleNode[nSamp]; //  " "
 }
 
@@ -133,7 +133,7 @@ SampleReg::SampleReg() {
 // Returns the sum of sampled response values for intiializition of topmost
 // accumulator.
 //
-int SampleReg::Stage(const double y[], const int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {  
+int SampleReg::Stage(const double y[], const unsigned int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {  
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow]; // Index of row in sample vector.
   const unsigned int slotBits = 8 * sizeof(unsigned int);
@@ -248,6 +248,8 @@ int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd,
 
    @param treeHeight is the number of nodes in the pretree.
 
+   @param leafExtent outputs the number of unique sample indices subsumed by a leaf.
+
    @param score outputs the computed scores.
 
    @return void, with output parameter vector.
@@ -256,15 +258,17 @@ int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd,
 // is the sample mean.  These values could also be computed by passing sums down the
 // pre-tree and pulling them from terminal nodes.
 //
-void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) {
+void SampleReg::Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) {
   int *sCount = new int[treeHeight];
   for (int pt = 0; pt < treeHeight; pt++) {
     score[pt] = 0.0;
+    leafExtent[pt] = 0;
     sCount[pt]= 0;
   }
 
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
+    leafExtent[leafIdx]++;
     score[leafIdx] += sampleReg[i].sum;
     sCount[leafIdx] += sampleReg[i].rowRun;
   }
@@ -285,22 +289,29 @@ void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) 
 
    @param treeHeight is the number of nodes in the pretree.
 
+   @param leafExtent outputs the number of unique sample indices consumed by a leaf.
+
    @param score outputs the computed scores.
 
    @return void, with output parameter vector.
 */
 
-void SampleCtg::Scores(const int frontierMap[], int treeHeight, double score[]) {
+void SampleCtg::Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) {
   double *leafWS = new double[ctgWidth * treeHeight];
 
-  for (int i = 0; i < ctgWidth * treeHeight; i++)
-    leafWS[i] = 0.0;
+  for (int leafIdx = 0; leafIdx < treeHeight; leafIdx++) {
+    leafExtent[leafIdx] = 0;
+    double *ctgBase = leafWS + leafIdx * ctgWidth;
+    for (int ctg = 0; ctg < ctgWidth; ctg++)
+      ctgBase[ctg] = 0.0;
+  }
 
   // Irregular access.  Needs the ability to map sample indices to the factors and
   // weights with which they are associated.
   //
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
+    leafExtent[leafIdx]++;
     int ctg = sampleCtg[i].ctg;
     // ASSERTION:
     //if (ctg < 0 || ctg >= ctgWidth)
@@ -354,62 +365,25 @@ SampleReg::~SampleReg() {
 
 
 /**
-   @brief Derives and copies quantile leaf information.
+   @brief Returns fields useful for quantile computation.
 
-   @param frontierMap[] maps sample index to its pre-tree terminal id.
+   @param sIdx is the sample index to be dereferenced.
 
-   @param treeSize is the height of the pretree.
+   @param rank outputs the rank at the sample index.
 
-   @param qLeafPos outputs quantile leaf offsets; vector length treeSize.
-
-   @param qLeafExtent outputs quantile leaf sizes; vector length treeSize.
-
-   @param rank outputs quantile leaf ranks; vector length bagCount.
-
-   @param rankCount outputs rank multiplicities; vector length bagCount.
-
-   @return void, with output parameter vectors.
+   @return sample count at the index.
  */
-void SampleReg::Quantiles(const int frontierMap[], int treeSize, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
-  // Must be wide enough to access all tree offsets.
-  int *seen = new int[treeSize];
-  for (int i = 0; i < treeSize; i++) {
-    seen[i] = 0;
-    qLeafExtent[i] = 0;
-  }
-  for (int sIdx = 0; sIdx < bagCount; sIdx++) {
-    int leafIdx = frontierMap[sIdx];
-    qLeafExtent[leafIdx]++;
-  }
-
-  int totCt = 0;
-  for (int i = 0; i < treeSize; i++) {
-    int leafExtent = qLeafExtent[i];
-    qLeafPos[i] = leafExtent > 0 ? totCt : -1;
-    totCt += leafExtent;
-  }
-  // By this point qLeafExtent[i] > 0 iff the node at tree offset 'i' is a leaf.
-  // Similarly, qLeafPos[i] >= 0 iff this is a leaf.
-
-  for (int sIdx = 0; sIdx < bagCount; sIdx++) {
-    // ASSERTION:
-    //    if (rk > Predictor::nRow)
-    //  cout << "Invalid rank:  " << rk << " / " << Predictor::nRow << endl;
-    int leafIdx = frontierMap[sIdx];
-    int rkOff = qLeafPos[leafIdx] + seen[leafIdx];
-    qRank[rkOff] = sample2Rank[sIdx];
-    qRankCount[rkOff] = sampleReg[sIdx].rowRun;
-    seen[leafIdx]++;
-  }
-
-  delete [] seen;
+int SampleReg::QuantileFields(int sIdx, unsigned int &rank) {
+  rank = sample2Rank[sIdx];
+  return sampleReg[sIdx].rowRun;
 }
 
 
 /**
    @brief Stub:  should be unreachable.
  */
-void SampleCtg::Quantiles(const int frontierMap[], int treeSize, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) {
+int SampleCtg::QuantileFields(int sIdx, unsigned int &rank) {
   // ASSERTION:
   // Should never get here.
+  return -1;
 }

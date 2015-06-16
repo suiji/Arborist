@@ -29,8 +29,8 @@
 class CallBack {
  public:
   static void SampleRows(int samp[]);
-  static void QSortI(int ySorted[], int rank2Row[], int one, int nRow);
-  static void QSortD(double ySorted[], int rank2Row[], int one, int nRow);
+  static void QSortI(int ySorted[], unsigned int rank2Row[], int one, unsigned int nRow);
+  static void QSortD(double ySorted[], unsigned int rank2Row[], int one, unsigned int nRow);
   static void RUnif(int len, double out[]);
 };
 

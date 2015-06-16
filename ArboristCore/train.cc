@@ -35,11 +35,13 @@ int Train::nRow = -1;
 
 
 /**
-   @brief Singleton factory:  everything is static.
+   @brief Sets immutable static values.
 
    @param _nTree is the requested number of trees.
 
    @param _treeBlock is the number of PreTree objects to brace for MPI-style parallelism.
+
+   @param _nRow is the number of observation rows.
 
    @return void.
 */
@@ -51,14 +53,15 @@ void Train::Immutables(int _nTree, int _treeBlock, int _nRow) {
 
 
 /**
-   @brief Finalizer.
+   @brief Unsets immutables.
 */
 void Train::DeImmutables() {
   nTree = treeBlock = nRow = -1;
 }
 
+
 /**
-   @brief Main entry for training after singleton factory.
+   @brief Main entry for training.
 
    @param minH is the minimal index node size on which to split.
 
@@ -66,13 +69,13 @@ void Train::DeImmutables() {
 
    @param minRatio is a threshold ratio for determining whether to split.
 
+   @param totLevels, if positive, limits the number of levels to build.
+
    @param facWidth outputs the sum of factor cardinalities.
 
    @param totBagCount outputs the sum of all tree in-bag sizes.
 
-   @param totLevels, if positive, limits the number of levels to build.
-
-   @return void.
+   @return sum of tree heights.
 */
 int Train::Training(int minH, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount) {
   SplitSig::Immutables(Predictor::NPred(), minRatio);
@@ -122,7 +125,8 @@ int Train::TrainForest(const PredOrd *predOrd, int treeCount) {
 
 
 /**
-   @brief Trains tree zero separately and records height information.
+   @brief Trains tree zero separately to help calibrate memory
+   allocation.
 
    @param predOrd is the ordered predictor set.
 
@@ -134,6 +138,7 @@ int Train::TrainZero(const PredOrd *predOrd) {
 
   return DecTree::BlockConsume(ptBlock, 1, 0);
 }
+
 
 /**
    @brief Trains a block of pretrees, then builds decision trees from them.  Training in blocks facilitates coarse-grain parallel treatments, such as map/reduce or MPI.
@@ -153,16 +158,12 @@ int Train::TrainBlock(const PredOrd *predOrd, int tn, int treeBlock) {
 }
 
 
-
-
 /**
    @brief Writes decision forest to storage provided by front end.
 
    @rPreds outputs splitting predictors.
 
    @rSplits outputs splitting values.
-
-   @rScores outputs leaf scores.
 
    @rBump outputs branch increments.
 
@@ -174,8 +175,8 @@ int Train::TrainBlock(const PredOrd *predOrd, int tn, int treeBlock) {
 
    @return void, with output parameter vectors.
  */
-void Train::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
-  DecTree::WriteForest(rPreds, rSplits, rScores, rBump, rOrigins, rFacOff, rFacSplits);
+void Train::WriteForest(int *rPreds, double *rSplits, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
+  DecTree::WriteForest(rPreds, rSplits, rBump, rOrigins, rFacOff, rFacSplits);
 
   // Dispenses with second load of predictor data (BlockData()).  Only client this late
   // appears to be use of 'nPredFac' to indicate presence of factor predictors.  Substitution
@@ -185,23 +186,18 @@ void Train::WriteForest(int *rPreds, double *rSplits, double * rScores, int *rBu
   Predictor::DeFactory();
 }
 
+
 /**
    @brief Writes quantile information to storage provided by front end.
 
    @rQYRanked outputs the ranked response values.
 
-   @rQRankOrigins outputs the leaf offsets for the start of each tree.
-
    @rQRank outputs the quantile ranks.
 
-   @rQRankCount outputs the count of quantile ranks.
-
-   @rQLeafPos outputs the quantile leaf positions.
-
-   @rQLeafExtent outputs the quantile leaf sizes.
+   @rQSCount outputs the sample count for each ranks.
 
    @return void, with output parameter vectors.
 */
-void Train::WriteQuantile(double rQYRanked[], int rQRankOrigin[], int rQRank[], int rQRankCount[], int rQLeafPos[], int rQLeafExtent[]) {
-  Quant::Write(rQYRanked, rQRankOrigin, rQRank, rQRankCount, rQLeafPos, rQLeafExtent);
+void Train::WriteQuantile(double rQYRanked[], int rQRank[], int rQSCount[]) {
+  Quant::Write(rQYRanked, rQRank, rQSCount);
 }

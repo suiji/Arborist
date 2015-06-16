@@ -26,7 +26,7 @@ class Response {
   static void Finish(double predInfo[]);
  public:
   double *y;
-  static int nRow; // Set from Predictor
+  static unsigned int nRow; // Set from Predictor
   static Response *response;
   static void FactoryReg(double yNum[]);
   static void FactoryCtg(const int feCtg[], const double feProxy[], unsigned int ctgWidth);
@@ -47,7 +47,7 @@ class ResponseReg : public Response {
   ResponseReg(double _y[]);
   ~ResponseReg();
   static void Factory(double yNum[]);
-  static int *row2Rank;
+  static unsigned int *row2Rank;
   static double *yRanked;
   static void PredictOOB(double err[], double predInfo[]);
   static void PredictOOB(double error[], double quantVec[], int qCells, double qPred[], double predInfo[]);

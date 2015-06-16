@@ -32,8 +32,8 @@ using namespace std;
 
    @return void.
  */
-void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
-  DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _scores, _bump, _origins, _facOff, _facSplits);
+void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
+  DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplits);
 }
 
 
@@ -43,8 +43,8 @@ void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _sp
    @return void.
  */
 
-void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]) {
-  Quant::FactoryPredict(nTree, qYRanked, qYLen, qRankOrigin, qRank, qRankCount, qLeafPos, qLeafExtent);
+void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qRank[], int qSCount[]) {
+  Quant::FactoryPredict(nTree, qYRanked, qRank, qSCount);
 }
 
 
@@ -77,8 +77,8 @@ void Predict::PredictOOBReg(double *err, double predInfo[]) {
 
    @return void, with output parameters.
  */
-void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, double qPred[], double predInfo[]) {
-  Quant::EntryPredict(quantVec, qCount, qPred);
+void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, unsigned int qBin, double qPred[], double predInfo[]) {
+  Quant::EntryPredict(quantVec, qCount, qBin, qPred);
   ResponseReg::PredictOOB(err, predInfo);
 }
 
@@ -89,8 +89,8 @@ void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, doubl
    @return void, with output vector parameters.
  */
 
-void Predict::PredictQuant(int nRow, double quantVec[], int qCount, double qPred[], double y[]) {
-  Quant::EntryPredict(quantVec, qCount, qPred, nRow);
+void Predict::PredictQuant(int nRow, double quantVec[], int qCount, unsigned int qBin, double qPred[], double y[]) {
+  Quant::EntryPredict(quantVec, qCount, qBin, qPred, nRow);
   DecTree::PredictAcrossReg(y, false);
 }
 

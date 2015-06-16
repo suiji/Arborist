@@ -29,11 +29,14 @@
 */
 class PTNode {
  public:
+  int id;
   int lhId;  // LH subnode index. Non-negative iff non-terminal.
   int predIdx; // Split only.
   double splitVal; // Split only.
   double info; // Split only.
+  void Consume(int &pred, double &num, int &bump);
 };
+
 
 class PreTree {
   static unsigned int nRow;
@@ -69,7 +72,7 @@ class PreTree {
   static void DeImmutables();
   static void RefineHeight(unsigned int height);
   
-  class SplitPred *BagRows(const class PredOrd *predOrd, class SamplePred *samplePred, int &bagCount, double &sum);
+  class SplitPred *BagRows(const class PredOrd *predOrd, class SamplePred *samplePred, int &_bagCount, double &_sum);
 
   /**
      @return offset into the split-value bit vector for the current level.
@@ -93,7 +96,7 @@ class PreTree {
 
    @return pretree index.
   */
-  inline int Sample2Frontier(int sIdx) {
+  inline int Sample2Frontier(int sIdx) const {
     return sample2PT[sIdx];
   }
 
@@ -101,17 +104,17 @@ class PreTree {
   /**
      @return  total accumulated width of factors seen as splitting values.
   */
-  inline int SplitFacWidth() {
+  inline int SplitFacWidth() const {
     return treeBitOffset;
   }
 
   
-  inline int TreeHeight() {
+  inline int TreeHeight() const {
     return treeHeight;
   }
 
   
-  inline int BagCount() {
+  inline int BagCount() const {
     return bagCount;
   }
 
@@ -153,9 +156,9 @@ class PreTree {
   void ReBits();
   void ReNodes();
   double FacBits(const bool facBits[], int facWidth);
-  void ConsumeNodes(int leafPred, int predVec[], double splitVec[], int bumpVec[], double scoreVec[]);
+  void ConsumeNodes(int predVec[], double splitVec[], int bumpVec[]);
   void ConsumeSplitBits(int outBits[]);
-  void Quantiles(int treeHeight, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) const;
+  int QuantileFields(int sIdx, int &sCount, unsigned int &rank) const;
 };
 
 #endif

@@ -22,14 +22,14 @@
 //#include <iostream>
 using namespace std;
 
-int Response::nRow = -1;
+unsigned int Response::nRow = 0;
 Response *Response::response = 0;
 
 unsigned int ResponseCtg::ctgWidth = 0;
 double *ResponseCtg::treeJitter = 0;
 int *ResponseCtg::yCtg = 0;
 
-int *ResponseReg::row2Rank = 0;
+unsigned int *ResponseReg::row2Rank = 0;
 double *ResponseReg::yRanked = 0;
 
 void Response::FactoryReg(double yNum[]) {
@@ -86,7 +86,7 @@ void ResponseCtg::Factory(const int feCtg[], const double feProxy[], unsigned in
   treeJitter = new double[nRow];
   yCtg = new int[nRow];
   double *_proxy = new double[nRow];
-  for (int i = 0; i < nRow; i++) {    
+  for (unsigned int i = 0; i < nRow; i++) {    
     yCtg[i] = feCtg[i];
     _proxy[i] = feProxy[i];
   }
@@ -120,18 +120,18 @@ ResponseReg::ResponseReg(double _y[]) : Response(_y) {
   // The only client is quantile regression, via Sample::sample2Rank[], but it is
   // simpler to compute in all cases and copy when needed.
   //
-  row2Rank = new int[nRow];
+  row2Rank = new unsigned int[nRow];
   yRanked = new double[nRow];
-  int *rank2Row = new int[nRow];
-  for (int i = 0; i < nRow; i++) {
+  unsigned int *rank2Row = new unsigned int[nRow];
+  for (unsigned int i = 0; i < nRow; i++) {
     yRanked[i] = _y[i];
     rank2Row[i] = i;
   }
 
   // Can implement rank as match(_y, sort(_y)) in Rcpp.
   CallBack::QSortD(yRanked, rank2Row, 1, nRow);
-  for (int rk = 0; rk < nRow; rk++) {
-    int row = rank2Row[rk];
+  for (unsigned int rk = 0; rk < nRow; rk++) {
+    unsigned int row = rank2Row[rk];
     row2Rank[row] = rk;
   }
   delete [] rank2Row;
@@ -156,7 +156,7 @@ ResponseReg::~ResponseReg() {
  @return void, with output vector parameter.
 */
 void ResponseReg::GetYRanked(double _yRanked[]) {
-  for (int i = 0; i < nRow; i++)
+  for (unsigned int i = 0; i < nRow; i++)
     _yRanked[i] = yRanked[i];
 }
 

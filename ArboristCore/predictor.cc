@@ -55,20 +55,18 @@ bool Predictor::facClone = false;
 
    @param xn[] contains the matrix of numeric observations.
 
-   @param _nrow is the number of rows.
-
    @param _ncol is the number of columns.
 
    @param doClone indicates whether copying is required.
 
    @return void.
  */
-void Predictor::NumericBlock(double xn[], unsigned int _nrow, int _ncol, bool doClone) {
+void Predictor::NumericBlock(double xn[], int _ncol, bool doClone) {
   numClone = doClone; // Signals desctructor call at end.
   nPredNum = _ncol;
 
   if (doClone) { // Data subject to alteration:  clone.
-    int bufSize = _nrow * _ncol;
+    int bufSize = nRow * _ncol;
     numBase = new double[bufSize];
     for (int i = 0; i < bufSize; i++)
       numBase[i] = xn[i];
@@ -83,20 +81,18 @@ void Predictor::NumericBlock(double xn[], unsigned int _nrow, int _ncol, bool do
 
    @param xi[] contains the matrix of integer observations.
 
-   @param _nrow is the number of rows.
-
    @param ncol is the number of columns.
 
    @param doClone indicates whether copying is required.
 
    @return void.
  */
-void Predictor::IntegerBlock(int xi[], unsigned int _nrow, int ncol, bool doClone) {
+void Predictor::IntegerBlock(int xi[], int ncol, bool doClone) {
   intClone = doClone;
   nPredInt = ncol;
 
   if (doClone) { // Data subject to alteration:  clone.
-    int bufSize = _nrow * ncol;
+    int bufSize = nRow * ncol;
     intBase = new int[bufSize];
     for (int i = 0; i < bufSize; i++) {
       intBase[i] = xi[i];
@@ -112,19 +108,17 @@ void Predictor::IntegerBlock(int xi[], unsigned int _nrow, int ncol, bool doClon
 
    @param xi[] contains the matrix of factor observations.
 
-   @param _nrow is the number of rows.
-
    @param _ncol is the number of columns.
 
    @param levelCount enumerates the factor cardinalities.
 
    @return void.
 */
-void Predictor::FactorBlock(int xi[], unsigned int _nrow, int _ncol, int levelCount[]) {
+void Predictor::FactorBlock(int xi[], int _ncol, int levelCount[]) {
   facClone = true;
   nPredFac = _ncol;
 
-  int bufSize = _ncol * _nrow;
+  int bufSize = _ncol * nRow;
   facBase = new int[bufSize];
   for (int i = 0; i < bufSize; i++)
     facBase[i] = xi[i] - 1; // Not necessary to zero-justify, but hey.
@@ -220,7 +214,7 @@ void Predictor::DeFactory() {
 
  @return void, with output vector parameter.
 */
-void Predictor::UniqueRank(int *rank2Row) {
+void Predictor::UniqueRank(unsigned int rank2Row[]) {
   int predIdx;
 
   int baseOff = 0;
@@ -265,7 +259,7 @@ void Predictor::UniqueRank(int *rank2Row) {
 //
 // Implemented here to avoid exposing iterator outside of class.
 //
-void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
+void Predictor::SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd) {
   int baseOff = 0;
   int rankOff = 0;
   int predIdx;
@@ -299,7 +293,7 @@ void Predictor::SetSortAndTies(const int* rank2Row, PredOrd *predOrd) {
    @return void, with output vector parameter.
 */
 // Row index is obtained directly from r2r[].  Tie class derived by comparing 'x' values of consecutive ranks.
-void Predictor::OrderByRank(const double xCol[], const int r2r[], PredOrd dCol[]) {
+void Predictor::OrderByRank(const double xCol[], const unsigned int r2r[], PredOrd dCol[]) {
   // Sorts the rows of 'y' in the order that this predictor increases.
   // Sorts the predictor for later identification of tie classes.
   int row =r2r[0];
@@ -333,7 +327,7 @@ void Predictor::OrderByRank(const double xCol[], const int r2r[], PredOrd dCol[]
    
    @return void, with output vector parameter.
 */
-void Predictor::OrderByRank(const int xCol[], const int r2r[], PredOrd dCol[], bool ordinals) {
+void Predictor::OrderByRank(const int xCol[], const unsigned int r2r[], PredOrd dCol[], bool ordinals) {
   // Sorts the rows of 'y' in the order that this predictor increases.
   // Sorts the predictor for later identification of tie classes.
   int row =r2r[0];
@@ -382,7 +376,7 @@ void Predictor::SetProbabilities(const double _predProb[]) {
    @return Table of predictor orderings.
  */
 PredOrd *Predictor::Order() {
-  int *rank2Row = new int[nRow * nPred];
+  unsigned int *rank2Row = new unsigned int[nRow * nPred];
   UniqueRank(rank2Row);
 
   PredOrd *predOrd = new PredOrd[nRow * nPred]; // Lives until all trees sampled.

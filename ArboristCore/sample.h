@@ -69,8 +69,8 @@ class Sample {
   }
 
   virtual ~Sample() {}
-  virtual void Scores(const int frontierMap[], int treeHeight, double score[]) = 0;
-  virtual void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]) = 0;
+  virtual void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) = 0;
+  virtual int QuantileFields(int sIdx, unsigned int &rank) = 0;
 };
 
 
@@ -79,15 +79,15 @@ class Sample {
 */
 class SampleReg : public Sample {
   SampleNode *sampleReg;
-  int *sample2Rank; // Only client currently quantile regression.
+  unsigned int *sample2Rank; // Only client currently quantile regression.
 
  public:
   SampleReg();
   ~SampleReg();
   static void Immutables();
-  int Stage(const double y[], const int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
-  void Scores(const int frontierMap[], int treeHeight, double score[]);
-  void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
+  int Stage(const double y[], const unsigned int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
+  void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
+  int QuantileFields(int sIdx, unsigned int &rank);
 };
 
 
@@ -102,8 +102,8 @@ class SampleCtg : public Sample {
   ~SampleCtg();
   static void Immutables(int _ctgWidth);
   int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
-  void Scores(const int frontierMap[], int treeHeight, double score[]);
-  void Quantiles(const int frontierMap[], int treeSize, int leafPos[], int leafExtent[], int rank[], int rankCount[]);
+  void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
+  int QuantileFields(int sIdx, unsigned int &rank);
 };
 
 

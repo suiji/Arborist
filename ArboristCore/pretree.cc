@@ -23,12 +23,6 @@
 //#include <iostream>
 using namespace std;
 
-// Quantiles can be derived by noting rank population (sCount) at each
-// leaf.  After decision tree walked, leaf rank vectors are summed and
-// the appropriate rank quantiles can be derived by walking the leaf sums
-// in rank order.  Absolute quantiles can then be derived in a single
-// pass using a rank2row mapping for the response.
-//
 // Leaf accumulators are not reused, so there is no need to record
 // sample indices or ranks until the final row has been visited.
 //
@@ -88,6 +82,7 @@ void PreTree::DeImmutables() {
 PreTree::PreTree() {
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
+  nodeVec[0].id = 0;
   nodeVec[0].lhId = -1;
   const unsigned int slotBits = 8 * sizeof(unsigned int);
   inBag = new unsigned int [(nRow + slotBits - 1) / slotBits];
@@ -120,10 +115,11 @@ void PreTree::RefineHeight(unsigned int height) {
 
    @return in-bag count for tree.
  */
-SplitPred *PreTree::BagRows(const PredOrd *predOrd, SamplePred *samplePred, int &bagCount, double &sum) {
+SplitPred *PreTree::BagRows(const PredOrd *predOrd, SamplePred *samplePred, int &_bagCount, double &_sum) {
   SplitPred *splitPred;
-  sample = Response::StageSamples(predOrd, inBag, samplePred, splitPred, sum, bagCount);
-  
+  sample = Response::StageSamples(predOrd, inBag, samplePred, splitPred, _sum, _bagCount);
+
+  bagCount = _bagCount;
   sample2PT = new int[bagCount];
   for (int i = 0; i < bagCount; i++) {
     sample2PT[i] = 0; // Unique root nodes zero.
@@ -161,6 +157,7 @@ PreTree::~PreTree() {
   if (Predictor::NPredFac() > 0) {
     delete [] treeSplitBits;
   }
+  delete sample;
   delete [] nodeVec;
   delete [] sample2PT;
   delete [] inBag;
@@ -180,9 +177,11 @@ PreTree::~PreTree() {
 void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
   ptLH = treeHeight++;
   nodeVec[_parId].lhId = ptLH;
+  nodeVec[ptLH].id = ptLH;
   nodeVec[ptLH].lhId = -1;
 
   ptRH = treeHeight++;
+  nodeVec[ptRH].id = ptRH;
   nodeVec[ptRH].lhId = -1;
 
   leafCount += 2;
@@ -284,45 +283,53 @@ void PreTree::ConsumeSplitBits(int outBits[]) {
 /**
    @brief Consumes pretree nodes into the vectors needed by the decision tree.
 
-   @param leafPred is a reserved predictor index denoting a leaf.
+   @param nodeVal outputs splitting predictor / leaf extent : nonterminal / terminal.
 
-   @param predVec outputs the splitting predictors.
-
-   @param splitVec outputs the splitting values.
+   @param numVec outputs splitting value / leaf score : nonterminal / terminal.
 
    @param bumpVec outputs the left-hand node increment.
 
-   @param scoreVec outputs the scores of terminals.
-
    @return tree size equal to the maximum offset filled in, also output parameter vectors.
 */
-// Assigns a breadth-first numbering to minimize branching deltas.
-//
-void PreTree::ConsumeNodes(int leafPred, int predVec[], double splitVec[], int bumpVec[], double scoreVec[]) {
-  sample->Scores(sample2PT, treeHeight, scoreVec); // Virtual call.
-  delete sample;
-
+void PreTree::ConsumeNodes(int nodeVal[], double numVec[], int bumpVec[]) {
+  sample->Scores(sample2PT, treeHeight, nodeVal, numVec); // Virtual call.
   for (int idx = 0; idx < treeHeight; idx++) {
-      if (IsNT(idx)) { // Consumes splits.
-	PTNode ptNode = nodeVec[idx];
-	predVec[idx] = ptNode.predIdx;
-	splitVec[idx] = ptNode.splitVal;
-	bumpVec[idx] = ptNode.lhId - idx;
-      }
-      else { // Consumes leaves.
-	predVec[idx] = leafPred;
-      }
+    nodeVec[idx].Consume(nodeVal[idx], numVec[idx], bumpVec[idx]);
   }
 }
 
 
 /**
-   @brief Static entry passes through to SampleReg method.
+   @brief Consumes the node fields.
+
+   @param pred is the predictor associated with a split.
+
+   @param num is the splitting value, for a split, otherwise the score, for a leaf,
+   filled in elsewhere.
+
+   @param bump is the distance to the left-hand subnode, if a split, otherwize zero.
 
    @return void.
  */
-void PreTree::Quantiles(int treeHeight, int qLeafPos[], int qLeafExtent[], int qRank[], int qRankCount[]) const {
-  sample->Quantiles(sample2PT, treeHeight, qLeafPos, qLeafExtent, qRank, qRankCount);
+void PTNode::Consume(int &pred, double &num, int &bump) {
+  if (lhId > 0) { // Consumes splits.
+    pred = predIdx;
+    num = splitVal;
+    bump = lhId - id;
+  }
+  else { // Consumes leaves.  Scores already written into num.
+    bump = 0;
+  }
 }
 
 
+/**
+   @brief Reports field values useful for quantile computation.
+
+   @return tree index referenced by sample index passed.
+ */
+int PreTree::QuantileFields(int sIdx, int &sCount, unsigned int &rank) const {
+  sCount = sample->QuantileFields(sIdx, rank);
+
+  return sample2PT[sIdx];
+}

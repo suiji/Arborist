@@ -15,21 +15,19 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, x, yTest=NULL, quantVec = NULL, ...) {
+"predict.Rborist" <- function(object, x, yTest=NULL, quantVec = NULL, qBin = 1000, ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
     stop("Insufficient state maintained for prediction")
-  PredictForest(object$forest, x, yTest, quantVec)
+  PredictForest(object$forest, x, yTest, quantVec, qBin)
 }
 
-PredictForest <- function(forest, x, yTest, quantVec) {
+PredictForest <- function(forest, x, yTest, quantVec, qBin) {
   if (is.null(forest$predictors))
     stop("Unset predictors in forest")
   if (is.null(forest$splitValues))
     stop("Unset split values in forest")
-  if (is.null(forest$scores))
-    stop("Unset scores in forest")
   if (is.null(forest$bump))
     stop("Unset bump table in forest")
 
@@ -42,9 +40,9 @@ PredictForest <- function(forest, x, yTest, quantVec) {
   # Checks test data for conformity with training data.
   PredBlock(x)
 
-  .Call("RcppReload", forest$predictors, forest$splitValues, forest$scores, forest$bump, forest$origins, forest$facOff, forest$facSplits)
+  .Call("RcppReload", forest$predictors, forest$splitValues, forest$bump, forest$origins, forest$facOff, forest$facSplits)
   if (quantiles)
-    .Call("RcppReloadQuant", forest$quant$qYRanked, forest$quant$qRankOrigin, forest$quant$qRank, forest$quant$qRankCount, forest$quant$qLeafPos, forest$quant$qLeafExtent)
+    .Call("RcppReloadQuant", length(forest$origins), forest$quant$qYRanked, forest$quant$qRank, forest$quant$qSCount)
   
   if (is.null(forest$ctgWidth)) {
     y <- numeric(nrow(x))
@@ -53,8 +51,8 @@ PredictForest <- function(forest, x, yTest, quantVec) {
       .Call("RcppPredictReg", y)
     }
     else {
-      qPred <- numeric(nrow(x) *length(quantVec))
-      .Call("RcppPredictQuant", quantVec, qPred, y)
+      qPred <- numeric(nrow(x) * length(quantVec))
+      .Call("RcppPredictQuant", quantVec, qBin, qPred, y)
       qPred <- matrix(qPred, nrow(x), length(quantVec), byrow=TRUE)
     }
     

@@ -22,12 +22,12 @@
 */
 class Predict {
 public:
-  static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], double _scores[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
-  static void ForestReloadQuant(int nTree, double qYRanked[], int qYLen, int qRankOrigin[], int qRank[], int qRankCount[], int qLeafPos[], int qLeafExtent[]);
-  static void PredictOOBQuant(double err[], double quantVec[], int qCount, double qPred[], double predGini[]);
+  static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
+  static void ForestReloadQuant(int nTree, double qYRanked[], int qRank[], int qSCount[]);
+  static void PredictOOBQuant(double err[], double quantVec[], int qCount, unsigned int qBin, double qPred[], double predGini[]);
   static void PredictOOBReg(double err[], double predGini[]);
   static void PredictOOBCtg(int conf[], double *error, double predGini[]);
-  static void PredictQuant(int nRow, double quantVec[], int qcells, double qPred[], double y[]);
+  static void PredictQuant(int nRow, double quantVec[], int qcells, unsigned int qBin, double qPred[], double y[]);
   static void PredictReg(double y[]);
   static void PredictCtg(int y[], int ctgWidth);
 };

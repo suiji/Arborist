@@ -44,13 +44,13 @@ using namespace std;
  @return Wrapped zero, with copy-out vector and scalar paramters.
 
 */
-RcppExport SEXP RcppPredictOOBQuant(SEXP sPredGini, SEXP sError, SEXP sQuantVec, SEXP sQPred) {
+RcppExport SEXP RcppPredictOOBQuant(SEXP sPredGini, SEXP sError, SEXP sQuantVec, SEXP sQBin, SEXP sQPred) {
   NumericVector error(sError);
   NumericVector quantVec(sQuantVec);
   NumericVector qPred(sQPred);
   NumericVector predGini(sPredGini);
 
-  Predict::PredictOOBQuant(error.begin(), quantVec.begin(), quantVec.length(), qPred.begin(), predGini.begin());
+  Predict::PredictOOBQuant(error.begin(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), predGini.begin());
 
   return wrap(0);
 }
@@ -100,8 +100,6 @@ RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError) {
 
    @param sSplits are the split values for each nonterminal.
 
-   @param sScores are the scores for each terminal.
-
    @param sBump are the increments to the left-hand offspring index.
 
    @param sOrigins is a vector of tree origin offsets.
@@ -113,19 +111,18 @@ RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError) {
    @return Wrapped zero.
  */
 
-RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
+RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
   IntegerVector preds(sPreds);
   NumericVector splits(sSplits);
-  NumericVector scores(sScores);
   IntegerVector bump(sBump);
   IntegerVector origins(sOrigins);
   IntegerVector facOff(sFacOff);
   IntegerVector facSplits(sFacSplits);
 
   if (facSplits.length() == 0)
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bump.begin(), origins.begin(), 0, 0);
+    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), 0, 0);
   else
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), scores.begin(), bump.begin(), origins.begin(), facOff.begin(), facSplits.begin());
+    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), facOff.begin(), facSplits.begin());
 
   return wrap(0);
 }
@@ -141,21 +138,14 @@ RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sScores, SEXP sBump, 
 
    @param sQRankCount is a vector recording the rank counts.
 
-   @param sQLeafPos is a vector of quantile leaf positions.
-
-   @param sQLeafExtent is a vector of quantile leaf lengths.
-
    @return Wrapped zero.
  */
-RcppExport SEXP RcppReloadQuant(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, SEXP sQRankCount, SEXP sQLeafPos, SEXP sQLeafExtent) {
+RcppExport SEXP RcppReloadQuant(SEXP sTree, SEXP sQYRanked, SEXP sQRank, SEXP sQSCount) {
   NumericVector qYRanked(sQYRanked);
-  IntegerVector qRankOrigin(sQRankOrigin);
   IntegerVector qRank(sQRank);
-  IntegerVector qRankCount(sQRankCount);
-  IntegerVector qLeafPos(sQLeafPos);
-  IntegerVector qLeafExtent(sQLeafExtent);
+  IntegerVector qSCount(sQSCount);
 
-  Predict::ForestReloadQuant(qRankOrigin.length(), qYRanked.begin(), qYRanked.length(), qRankOrigin.begin(), qRank.begin(), qRankCount.begin(), qLeafPos.begin(), qLeafExtent.begin());
+  Predict::ForestReloadQuant(as<int>(sTree), qYRanked.begin(), qRank.begin(), qSCount.begin());
 
   return wrap(0);
 }
@@ -172,12 +162,12 @@ RcppExport SEXP RcppReloadQuant(SEXP sQYRanked, SEXP sQRankOrigin, SEXP sQRank, 
 
    @return Wrapped zero, with output parameters.
  */
-RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQPred, SEXP sY) {
+RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQBin, SEXP sQPred, SEXP sY) {
   NumericVector quantVec(sQuantVec);
   NumericVector qPred(sQPred);
   NumericVector y(sY);
 
-  Predict::PredictQuant(y.length(), quantVec.begin(), quantVec.length(), qPred.begin(), y.begin());
+  Predict::PredictQuant(y.length(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), y.begin());
 
   return wrap(0);
 }

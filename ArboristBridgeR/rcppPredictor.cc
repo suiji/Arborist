@@ -51,12 +51,11 @@ using namespace std;
 
   @return Wrapped zero.
 */
-
-RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol, SEXP sNumCol, SEXP sLevels) {
+RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNumCol, SEXP sFacCol, SEXP sLevels) {
   DataFrame xf(sX);
   IntegerVector levels(sLevels);
-  int nRow = as<int>(sNRow);
-  int nCol = as<int>(sNCol);
+  int nRow = xf.nrows();
+  int nCol = xf.length();
   int nColFac = as<int>(sFacCol);
   if (nColFac > 0) {
     IntegerVector facLevel(nColFac); // Compressed factor vector.
@@ -68,7 +67,7 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
 	xFac(_,colIdx++) = as<IntegerVector>(xf[i]);
       }
     }
-    Predictor::FactorBlock(xFac.begin(), nRow, nColFac, facLevel.begin());
+    Predictor::FactorBlock(xFac.begin(), nColFac, facLevel.begin());
   }
 
   int nColNum = as<int>(sNumCol);
@@ -80,7 +79,7 @@ RcppExport SEXP RcppPredictorFrame(SEXP sX, SEXP sNRow, SEXP sNCol, SEXP sFacCol
 	xNum(_, colIdx++) = as<NumericVector>(xf[i]);
       }
     }
-    Predictor::NumericBlock(xNum.begin(), nRow, nColNum);
+    Predictor::NumericBlock(xNum.begin(), nColNum);
   }
 
   return wrap(0);
@@ -100,7 +99,7 @@ RcppExport SEXP RcppPredictorFac(SEXP sX, SEXP sFacLevel) {
   IntegerMatrix xi(sX);
   IntegerVector facLevel(sFacLevel);
 
-  Predictor::FactorBlock(xi.begin(), xi.nrow(), xi.ncol(), facLevel.begin());
+  Predictor::FactorBlock(xi.begin(), xi.ncol(), facLevel.begin());
 
   return wrap(0);
 }
@@ -118,7 +117,7 @@ RcppExport SEXP RcppPredictorFac(SEXP sX, SEXP sFacLevel) {
 RcppExport SEXP RcppPredictorNum(SEXP sX, bool doClone) {
   NumericMatrix xn(sX);
 
-  Predictor::NumericBlock(xn.begin(), xn.nrow(), xn.ncol(), doClone);
+  Predictor::NumericBlock(xn.begin(), xn.ncol(), doClone);
 
   return wrap(0);
 }
@@ -134,7 +133,7 @@ RcppExport SEXP RcppPredictorNum(SEXP sX, bool doClone) {
 RcppExport SEXP RcppPredictorInt(SEXP sX) {
   IntegerMatrix xi(sX);
 
-  Predictor::IntegerBlock(xi.begin(), xi.nrow(), xi.ncol(), true);
+  Predictor::IntegerBlock(xi.begin(), xi.ncol(), true);
   return wrap(0);
 }
 
