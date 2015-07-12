@@ -70,7 +70,7 @@ class Sample {
 
   virtual ~Sample() {}
   virtual void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) = 0;
-  virtual int QuantileFields(int sIdx, unsigned int &rank) = 0;
+  virtual int LeafFields(int sIdx, unsigned int &rank) = 0;
 };
 
 
@@ -79,7 +79,7 @@ class Sample {
 */
 class SampleReg : public Sample {
   SampleNode *sampleReg;
-  unsigned int *sample2Rank; // Only client currently quantile regression.
+  unsigned int *sample2Rank; // Only client currently leaf-based methods.
 
  public:
   SampleReg();
@@ -87,7 +87,7 @@ class SampleReg : public Sample {
   static void Immutables();
   int Stage(const double y[], const unsigned int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
   void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
-  int QuantileFields(int sIdx, unsigned int &rank);
+  int LeafFields(int sIdx, unsigned int &rank);
 };
 
 
@@ -103,7 +103,7 @@ class SampleCtg : public Sample {
   static void Immutables(int _ctgWidth);
   int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
   void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
-  int QuantileFields(int sIdx, unsigned int &rank);
+  int LeafFields(int sIdx, unsigned int &rank);
 };
 
 

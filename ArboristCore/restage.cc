@@ -103,7 +103,6 @@ void RestageMap::Conclude(const Index *index) {
 
 void RestageMap::RestageLevel(SamplePred *samplePred, int level) {
   int predIdx;
-  bool *rfPrev = splitPred->RunFlagReplace(splitNext);
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
 
@@ -112,11 +111,9 @@ void RestageMap::RestageLevel(SamplePred *samplePred, int level) {
 #pragma omp for schedule(dynamic, 1)
     for (predIdx = 0; predIdx < nPred; predIdx++) {
       samplePred->Buffers(predIdx, level, source, sIdxSource, targ, sIdxTarg);
-      RestagePred(source, sIdxSource, targ, sIdxTarg, predIdx, rfPrev);
+      RestagePred(source, sIdxSource, targ, sIdxTarg, predIdx);
     }
   }
-
-  delete [] rfPrev;
 }
 
 
@@ -127,24 +124,18 @@ void RestageMap::RestageLevel(SamplePred *samplePred, int level) {
 
    @return void.
  */
-void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int predIdx, bool rfPrev[]) const {
+void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int predIdx) const {
   int lhIdx = 0;
   int rhIdx = rhIdxNext;
   for (int splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
-  // Runs are maintained by SplitPred, as SamplePred does not distinguish predictor/split
-  // pairs.
-  //
-  // Runs need not be restaged, but lh, rh index positions should be
-  // updated for uniformity across predictors.  Hence the data in
-  // unrestaged SamplePreds is dirty.
-  //
+    // Runs need not be restaged, but lh, rh index positions should be
+    // updated for uniformity across predictors.  Hence the data in
+    // unrestaged SamplePreds is dirty.
+    //
     MapNode *mn = &mapNode[splitIdx];
-    if (splitPred->PredRun(splitPrev, splitIdx, predIdx, rfPrev)) {
-      splitPred->TransmitRun(splitNext, predIdx, mn->LNext(), mn->RNext());
-    }
-    else {
-      mn->RestageSplit(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH, lhIdx, rhIdx);
-      mn->NoteRuns(splitPred, targ, splitNext, predIdx, lhIdx, rhIdx);
+    if (!splitPred->Singleton(splitIdx, predIdx)) {
+      mn->Restage(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH, lhIdx, rhIdx);
+      mn->Singletons(splitPred, targ, predIdx, lhIdx, rhIdx);
     }
     mn->UpdateIndices(lhIdx, rhIdx);
   }
@@ -152,41 +143,38 @@ void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSourc
 
 
 /**
+   @brief Advises SplitPred of any singletons arising as a result of this
+   restaging.
+
+   @param splitPred is the current SplitPred object.
+
+   @param targ is the restaged data.
+
+   @param predIdx is the predictor index.
+
+   @param lhIdx is the starting index of the left successor.
+
+   @param rhIdx is the starting index of the right successor.
+
+   @return void.
  */
-void MapNode::UpdateIndices(int &lhIdx, int &rhIdx) {
-  lhIdx += (lNext >= 0 ? lhIdxCount : 0);
-  rhIdx += (rNext >= 0 ? rhIdxCount : 0);
+void MapNode::Singletons(SplitPred *splitPred, const SPNode targ[], int predIdx, int lhIdx, int rhIdx) {
+  if (lNext >= 0 && targ->IsRun(lhIdx, lhIdx + lhIdxCount - 1)) {
+      splitPred->LengthNext(lNext, predIdx) = 1;
+  }
+  if (rNext >= 0 && targ->IsRun(rhIdx, rhIdx + rhIdxCount - 1)) {
+      splitPred->LengthNext(rNext, predIdx) = 1;
+  }
 }
 
 
 /**
-   @brief Notes those index nodes for consist of single runs.
 
-   @param predIdx is the predictor index.
-  
-   @param level is the upcoming level.
-
-   @param targ contains the restaged indices for this predictor.
-
-   @param lhIdx is the index of the LHS.
-
-   @param rhIdx is the index of the RHS.
-
-   @return void.
-*/
-// Runs of subminimal length should not make it to restaging, so no effort is
-// made to threshold by run length.
-//
-void MapNode::NoteRuns(SplitPred *splitPred, const SPNode targ[], int splitNext, int predIdx, int lhIdx, int rhIdx) {
-  if (lNext >= 0) {
-    if (targ->IsRun(lhIdx, lhIdx + lhIdxCount - 1))
-      splitPred->SetPredRun(splitNext, lNext, predIdx);
-  }
-
-  if (rNext >= 0) {
-    if (targ->IsRun(rhIdx, rhIdx + rhIdxCount - 1))
-      splitPred->SetPredRun(splitNext, rNext, predIdx);
-  }
+  @return void.
+ */
+void MapNode::UpdateIndices(int &lhIdx, int &rhIdx) {
+  lhIdx += (lNext >= 0 ? lhIdxCount : 0);
+  rhIdx += (rNext >= 0 ? rhIdxCount : 0);
 }
 
 
@@ -203,7 +191,7 @@ void MapNode::NoteRuns(SplitPred *splitPred, const SPNode targ[], int splitNext,
 
    @return void, with output parameter vector.
 */
-void MapNode::RestageSplit(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx) {
+void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx) {
 
   if (lNext >= 0 && rNext >= 0) // Both subnodes nonterminal.
     RestageLR(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, lhIdx, rhIdx);

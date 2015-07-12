@@ -153,7 +153,9 @@ void  Index::Levels() {
     if (splitNext > 0 && level + 1 != totLevels)
       restageMap->RestageLevel(samplePred, level+1);
     delete restageMap;
+
     splitSig->LevelClear();
+    splitPred->LevelClear();
     splitCount = splitNext;
   }
 
@@ -316,13 +318,11 @@ RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitN
 
   int lhCount = 0;
   int rhCount = 0;
+  splitPred->LengthVec(splitNext);
   RestageMap *restageMap = new RestageMap(splitPred, bagCount, splitCount, splitNext);
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++)
     nodeCache[splitIdx].Consume(this, preTree, splitPred, samplePred, restageMap, level, lhSplitNext, lhCount, rhCount);
   delete [] nodeCache;
-
-  // SplitPred frees FacRun structures, which must persist until SplitSigs consumed.
-  splitPred->LevelClear();
 
   // Assigns start values to consecutive nodes.
   //
@@ -406,8 +406,7 @@ void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, Sa
     }
   }
 
-  // Consumes all fields essential for restaging.
-  //
+  splitPred->LengthTransmit(splitIdx, lNext, rNext);
   restageMap->ConsumeSplit(splitIdx, lNext, rNext, lhIdxCount, idxCount - lhIdxCount, lhStart, lhStart + idxCount - 1);
 }
 

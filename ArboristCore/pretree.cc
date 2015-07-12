@@ -324,12 +324,12 @@ void PTNode::Consume(int &pred, double &num, int &bump) {
 
 
 /**
-   @brief Reports field values useful for quantile computation.
+   @brief Reports leaf field values useful for quantiles and path reconstruction.
 
    @return tree index referenced by sample index passed.
  */
-int PreTree::QuantileFields(int sIdx, int &sCount, unsigned int &rank) const {
-  sCount = sample->QuantileFields(sIdx, rank);
+int PreTree::LeafFields(int sIdx, int &sCount, unsigned int &rank) const {
+  sCount = sample->LeafFields(sIdx, rank);
 
   return sample2PT[sIdx];
 }

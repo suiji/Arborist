@@ -22,12 +22,12 @@
 
  */
 class SSNode {  
-  double NonTerminalFac(class SamplePred *samplePred, class PreTree *preTree, class SplitPred *splitPred, int level, int start, int end, int ptLH, int ptRH, int facCard, double &splitVal);
+  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, int ptLH, int ptRH, double &splitVal);
   double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, int ptLH, int ptRH, double &splitVal);
  public:
  SSNode() : info(0.0) {}
-  int predIdx; // Helpful, but necessary, for example, if reusing records.
-  int splitIdx; // Helpful, but not necessary.
+  int runId; // Index into RunSet list.
+  int predIdx; // Rederivable, but convenient to cache.
   int sCount; // # samples subsumed by split LHS.
   int lhIdxCount; // Index count of split LHS.
   double info; // Information content of split.
@@ -99,35 +99,10 @@ class SplitSig {
   SSNode *ArgMax(int splitIdx, double minInfo) const;
   static void Immutables(int _nPred, double _minRatio);
   static void DeImmutables();
-  
-  /**
-     @brief Sets splitting fields for a splitting predictor.
-
-     @param splitIdx is the index node index.
-
-     @param _predIdx is the predictor index.
-
-     @param _sCount is the count of samples in the LHS.
-
-     @param _lhIdxCount is count of indices associated with the LHS.
-
-     @param _info is the splitting information value, currently Gini.
-
-     @return void.
-   */
-  inline void Write(int _splitIdx, int _predIdx, int _sCount, int _lhIdxCount, double _info) {
-    SSNode ssn;
-    ssn.splitIdx = _splitIdx;
-    ssn.predIdx = _predIdx;
-    ssn.sCount = _sCount;
-    ssn.lhIdxCount = _lhIdxCount;
-    ssn.info = _info;
-    Lookup(_splitIdx, _predIdx) = ssn;
-  }
 
   void LevelInit(int splitCount);
   void LevelClear();
-
+  void Write(const class SPPair *_spPair, int _sCount, int _lhIdxCount, double _info);
 };
 
 #endif

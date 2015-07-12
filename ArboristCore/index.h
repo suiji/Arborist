@@ -116,17 +116,19 @@ class IndexNode {
 
      @param _sum outputs the sum.
 
-     @param _preBias outputs the pre-bias.
-
-     @return void, with output reference parameters.
+     @return preBias, with output parameters.
   */
-  void inline SplitFields(int &_splitIdx, int &_lhStart, int &_end, int &_sCount, double &_sum, double &_preBias) const {
-    _splitIdx = splitIdx;
+  double inline SplitFields(int &_lhStart, int &_end, int &_sCount, double &_sum) const {
     _lhStart = lhStart;
     _end = _lhStart + idxCount - 1;
     _sCount = sCount;
     _sum = sum;
-    _preBias = preBias;
+    return preBias;
+  }
+
+  void inline Extent(int &_lhStart, int &_end) const {
+    _lhStart = lhStart;
+    _end = lhStart + idxCount - 1;
   }
 
 };
@@ -166,11 +168,9 @@ class NodeCache : public IndexNode {
 
 
   /**
-     @brief Exposes field values relevant for info arg-max.
+     @brief Exposes minimum-information value for the node.
 
-     @param _splitIdx outputs the split index.
-
-     @return minInfo value, with output parameter.
+     @return minInfo value.
    */
   inline double MinInfo() {
     return minInfo;
@@ -282,10 +282,6 @@ class Index {
     return levelWidth;
   }
 
-  //  void SplitRanks(int predIdx, int pos, int &rkLow, int &rkHigh);
-  
-  //  void RunBounds(int splitIdx, int predIdx, int slot, int &start, int &end);
-  
   int LevelOffSample(unsigned int sIdx) const;
 
 };

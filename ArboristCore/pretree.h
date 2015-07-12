@@ -158,7 +158,7 @@ class PreTree {
   double FacBits(const bool facBits[], int facWidth);
   void ConsumeNodes(int predVec[], double splitVec[], int bumpVec[]);
   void ConsumeSplitBits(int outBits[]);
-  int QuantileFields(int sIdx, int &sCount, unsigned int &rank) const;
+  int LeafFields(int sIdx, int &sCount, unsigned int &rank) const;
 };
 
 #endif

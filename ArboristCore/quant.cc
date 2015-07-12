@@ -264,7 +264,7 @@ void Quant::Quantiles(const PreTree *pt, const int nonTerm[], const int leafExte
   for (int sIdx = 0; sIdx < pt->BagCount(); sIdx++) {
     int sCount;
     unsigned int rank;
-    int leafIdx = pt->QuantileFields(sIdx, sCount, rank);
+    int leafIdx = pt->LeafFields(sIdx, sCount, rank);
     int rkOff = leafPos[leafIdx] + seen[leafIdx]++;
     qSCount[rkOff] = sCount;
     qRank[rkOff] = rank;

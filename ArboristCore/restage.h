@@ -28,7 +28,6 @@ class MapNode {
   int endIdx;
 
  public:
-  void NoteRuns(class SplitPred *splitPred, const class SPNode targ[], int splitNext, int predIdx, int lhIdx, int rhIdx);
   void UpdateIndices(int &lhIdx, int &rhIdx);
 
   /**
@@ -76,10 +75,11 @@ class MapNode {
     return (bv[slot] & mask) != 0;
   }
 
-  void RestageSplit(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
+  void Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
   void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx);
   void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx);
 
+  void Singletons(class SplitPred *splitPred, const class SPNode targ[], int predIdx, int lhIdx, int rhIdx);
 };
 
 class RestageMap {
@@ -104,7 +104,7 @@ class RestageMap {
   RestageMap(class SplitPred *_splitPred, unsigned int _bagCount, int _splitPrev, int _splitNext);
   ~RestageMap();
   void RestageLevel(class SamplePred *samplePred, int level);
-  void RestagePred(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], int predIdx, bool rfPrev[]) const;
+  void RestagePred(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], int predIdx) const;
   void ConsumeSplit(int _splitIdx, int _lNext, int _rNext, int _lhIdxCount, int _rhIdxCount, int _startIdx, int _endIdx);
   void Conclude(const class Index *index);//, int _splitPrev);
 };

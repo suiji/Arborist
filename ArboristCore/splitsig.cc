@@ -18,6 +18,7 @@
 #include "samplepred.h"
 #include "pretree.h"
 #include "splitpred.h"
+#include "run.h"
 
 //#include <iostream>
 using namespace std;
@@ -57,15 +58,38 @@ void SplitSig::DeImmutables() {
 
 
 /**
+   @brief Sets splitting fields for a splitting predictor.
+
+   @param _spPair is the SplitPred pair precipitating the split.
+
+   @param _sCount is the count of samples in the LHS.
+
+   @param _lhIdxCount is count of indices associated with the LHS.
+
+   @param _info is the splitting information value, currently Gini.
+
+   @return void.
+ */
+void SplitSig::Write(const SPPair *_spPair, int _sCount, int _lhIdxCount, double _info) {
+  SSNode ssn;
+  ssn.runId = _spPair->RSet();
+  ssn.sCount = _sCount;
+  ssn.lhIdxCount = _lhIdxCount;
+  ssn.info = _info;
+
+  int splitIdx; // Dummy.
+  _spPair->Coords(splitIdx, ssn.predIdx);
+  Lookup(splitIdx, ssn.predIdx) = ssn;
+}
+
+
+/**
    @brief Dispatches nonterminal method based on predictor type.
 
    With LH and RH PreTree indices known, the sample indices associated with
    this split node can be looked up and remapped.  Replay() assigns actual
    index values, irrespective of whether the pre-tree nodes at these indices
    are terminal or non-terminal.
-
-
-   @param splitIdx is the index node index.
 
    @param ptId is the pretree index.
 
@@ -77,10 +101,10 @@ void SplitSig::DeImmutables() {
 */
 double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
   preTree->TerminalOffspring(ptId, ptLH, ptRH);
+
   double splitVal, lhSum;
-  int facCard = Predictor::FacCard(predIdx);
-  if (facCard > 0) {
-    lhSum = NonTerminalFac(samplePred, preTree, splitPred, level, start, end, ptLH, ptRH, facCard, splitVal);
+  if (runId >= 0) {
+    lhSum = NonTerminalRun(samplePred, preTree, splitPred->Runs(), level, start, end, ptLH, ptRH, splitVal);
   }
   else {
     lhSum = NonTerminalNum(samplePred, preTree, level, start, end, ptLH, ptRH, splitVal);
@@ -92,19 +116,24 @@ double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *
 
 
 /**
-   @brief Writes PreTree nonterminal node for factor predictor.
+   @brief Writes PreTree nonterminal node for multi-run (factor) predictor.
  */
-double SSNode::NonTerminalFac(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptLH, int ptRH, int facCard, double &splitVal) {
+double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run, int level, int start, int end, int ptLH, int ptRH, double &splitVal) {
+  // Replays entire index extent of node with RH pretree index then,
+  // where appropriate, overwrites by replaying with LH index in the
+  // loop to follow.
+  (void) preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
+
   double lhSum = 0.0;
   int bitOff = preTree->TreeBitOffset();
-  preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
-  int runStart, runEnd, fac;
-  for (int slot = 0; (fac = splitPred->RunBounds(splitIdx, predIdx, slot, runStart, runEnd)) >= 0; slot++) {
-    preTree->LHBit(bitOff + fac);
+  for (int outSlot = 0; outSlot < run->RunsLH(runId); outSlot++) {
+    int runStart, runEnd, rank;
+    rank = run->RunBounds(runId, outSlot, runStart, runEnd);
+    preTree->LHBit(bitOff + rank);
     lhSum += preTree->Replay(samplePred, predIdx, level, runStart, runEnd, ptLH);
   }
   splitVal = bitOff;
-  preTree->BumpOff(facCard);
+  preTree->BumpOff(Predictor::FacCard(predIdx));
 
   return lhSum;
 }

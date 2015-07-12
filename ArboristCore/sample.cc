@@ -373,7 +373,7 @@ SampleReg::~SampleReg() {
 
    @return sample count at the index.
  */
-int SampleReg::QuantileFields(int sIdx, unsigned int &rank) {
+int SampleReg::LeafFields(int sIdx, unsigned int &rank) {
   rank = sample2Rank[sIdx];
   return sampleReg[sIdx].rowRun;
 }
@@ -382,7 +382,7 @@ int SampleReg::QuantileFields(int sIdx, unsigned int &rank) {
 /**
    @brief Stub:  should be unreachable.
  */
-int SampleCtg::QuantileFields(int sIdx, unsigned int &rank) {
+int SampleCtg::LeafFields(int sIdx, unsigned int &rank) {
   // ASSERTION:
   // Should never get here.
   return -1;
