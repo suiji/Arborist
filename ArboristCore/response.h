@@ -61,13 +61,11 @@ class ResponseReg : public Response {
  */
 class ResponseCtg : public Response {
   static unsigned int ctgWidth; // Fixed by response.
-  static double *treeJitter; // Helps prevent ties among response scores.
  public:
   static void Factory(const int feCtg[], const double feProxy[], unsigned int ctgWidth);
   static int *yCtg; // The original factor-valued response.
 
   ResponseCtg(double yProxy[]);
-  static double Jitter(int row);
   static void PredictOOB(int *conf, double err[], double predInfo[]);
   ~ResponseCtg();
   static void Factory(int _yCtg[], unsigned int _ctgWidth);

@@ -316,7 +316,7 @@ void SampleCtg::Scores(const int frontierMap[], int treeHeight, int leafExtent[]
     // ASSERTION:
     //if (ctg < 0 || ctg >= ctgWidth)
     //cout << "Bad response category:  " << ctg << endl;
-    double responseWeight = sampleCtg[i].sum;
+    double responseWeight = sampleCtg[i].rowRun / sampleCtg[i].sum;
     leafWS[leafIdx * ctgWidth + ctg] += responseWeight;
   }
 

@@ -47,8 +47,11 @@ int FormResponse(SEXP sY) {
     Response::FactoryReg(y.begin());
   }
   else if (TYPEOF(sY) == INTSXP) {
-    // Constructs a proxy response from category frequency and
-    // jittering to avoid ties.
+    // Class weighting constructs a proxy response from category frequency.
+    // The response is then jittered to diminish the possibility of ties
+    // during scoring.  The magnitude of the jitter, then, should be scaled
+    // so that no combination of samples can "vote" themselves into a
+    // false plurality.
     //
     IntegerVector yOneBased(sY);
     NumericVector tb(table(yOneBased));
@@ -58,7 +61,7 @@ int FormResponse(SEXP sY) {
     NumericVector freq = census * recipLen;
     RNGScope scope;
     NumericVector rn(runif(y.length()));
-    NumericVector proxy = freq + (rn - 0.5) * 0.5 * recipLen;
+    NumericVector proxy = freq + (rn - 0.5) * 0.5 * (recipLen * recipLen);
     ctgWidth = tb.length();
     Response::FactoryCtg(y.begin(), proxy.begin(), ctgWidth);
   }

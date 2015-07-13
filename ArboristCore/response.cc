@@ -26,7 +26,6 @@ unsigned int Response::nRow = 0;
 Response *Response::response = 0;
 
 unsigned int ResponseCtg::ctgWidth = 0;
-double *ResponseCtg::treeJitter = 0;
 int *ResponseCtg::yCtg = 0;
 
 unsigned int *ResponseReg::row2Rank = 0;
@@ -83,7 +82,6 @@ void Response::FactoryCtg(const int feCtg[], const double feProxy[], unsigned in
 */
 void ResponseCtg::Factory(const int feCtg[], const double feProxy[], unsigned int _ctgWidth) {
   ctgWidth = _ctgWidth;
-  treeJitter = new double[nRow];
   yCtg = new int[nRow];
   double *_proxy = new double[nRow];
   for (unsigned int i = 0; i < nRow; i++) {    
@@ -212,14 +210,9 @@ Sample *ResponseCtg::SampleRows(const PredOrd *predOrd, unsigned int inBag[], cl
 ResponseCtg::~ResponseCtg() {
   delete [] y;
   delete [] yCtg;
-  delete [] treeJitter;
   yCtg = 0;
-  treeJitter = 0;
 }
 
-double ResponseCtg::Jitter(int row) {
-  return 0.0;//jitter[row];
-}
 
 /**
    @brief Outputs Info values of predictors and cleans up.
