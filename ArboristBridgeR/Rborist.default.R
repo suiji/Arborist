@@ -20,16 +20,17 @@
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
                 #importance = FALSE,
                 #nPermute = ifelse(importance, 1, 0),
-                predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
-                predWeight = rep(1.0, ncol(x)),
+                ctgCensus = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
+                minInfo = 0.01,
                 minNode = ifelse(!is.factor(y), 6, 2),
                 nLevel = 0,
-                minInfo = 0.01,
-                sampleWeight = NULL,
-                quantVec = NULL,
+                predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
+                predWeight = rep(1.0, ncol(x)),
                 quantiles = !is.null(quantVec),
+                quantVec = NULL,
                 qBin = 5000,
+                sampleWeight = NULL,
                 treeBlock = 1,
                 pvtBlock = 8, pvtNoPredict = FALSE, ...) {
 
@@ -95,7 +96,7 @@
   unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
 
   unused <- .Call("RcppTrainInit", nTree, treeBlock, nrow(x));
-  ctgWidth <- .Call("RcppResponse", y);
+  ctgWidth <- .Call("RcppResponse", y)
 
   facWidth <- integer(1)
   totBagCount <- integer(1)
@@ -108,13 +109,38 @@
   if (pvtNoPredict) {
     error <- -1
     confusion <- -1
+    census <- -1
   }
   else {
     unused <- PredBlock(x)
     if (is.factor(y)) {
-      error <- numeric(nlevels(y))
-      confusion <- matrix(0L, nlevels(y), nlevels(y))
-      unused <- .Call("RcppPredictOOBCtg", predGini, confusion, error)
+      error <- numeric(ctgWidth)
+      conf <- integer(ctgWidth * ctgWidth)
+      if (is.null(ctgCensus)) {
+        census <- NULL
+        prob <- FALSE
+      }
+      else if (ctgCensus == "votes") {
+        census <- integer(nrow(x) * ctgWidth)
+        prob <- FALSE
+      }
+      else if (ctgCensus == "prob") {
+        census <- integer(nrow(x) * ctgWidth)
+        prob <- TRUE
+      }
+      else {
+        stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
+      }
+      unused <- .Call("RcppPredictOOBCtg", predGini, conf, error, census)
+      confusion <- matrix(conf, ctgWidth, ctgWidth, byrow = TRUE)
+      dimnames(confusion) <- list(levels(y), levels(y))
+      if (!is.null(census)) {
+        census <- matrix(census, nrow(x), ctgWidth, byrow=TRUE)
+        if (prob) {
+          census <- t(apply(census, 1, function(x) { x / sum(x) }))
+        }
+        dimnames(census) = list(rownames(x), levels(y))
+      }
     }
     else {
       error <- numeric(1)
@@ -143,9 +169,10 @@
                   qSCount = qSCount
                   )
   }
-  else
+  else {
     qOut <- NULL
-
+  }
+  
   preds <-  integer(height)
   splits <- numeric(height)
 #  splitGini <- matrix(0.0, height, ntree)
@@ -166,13 +193,14 @@
                   origins = origins,
                   facOff = facOff,
                   facSplits = facSplits,
-                  ctgWidth = ctgWidth),
+                  levels = levels(y)),
 #                splitGini = splitGini,
                 misprediction = error,
                 Gini = predGini,
-                confusion = confusion
+                confusion = confusion,
+                ctgCensus = census
                 )
-  }
+  }    
   else {
     mse <- error[1]
     arbOut <- list(

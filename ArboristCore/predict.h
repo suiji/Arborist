@@ -26,9 +26,9 @@ public:
   static void ForestReloadQuant(int nTree, double qYRanked[], int qRank[], int qSCount[]);
   static void PredictOOBQuant(double err[], double quantVec[], int qCount, unsigned int qBin, double qPred[], double predGini[]);
   static void PredictOOBReg(double err[], double predGini[]);
-  static void PredictOOBCtg(int conf[], double *error, double predGini[]);
+  static void PredictOOBCtg(int conf[], double *error, double predGini[], int *census);
   static void PredictQuant(int nRow, double quantVec[], int qcells, unsigned int qBin, double qPred[], double y[]);
   static void PredictReg(double y[]);
-  static void PredictCtg(int y[], int ctgWidth);
+  static void PredictCtg(int y[], unsigned int nRow, unsigned int ctgWidth, int *census);
 };
 #endif

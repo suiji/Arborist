@@ -27,7 +27,7 @@
 #include <Rcpp.h>
 
 // Testing only:
-#include <iostream>
+//#include <iostream>
 
 #include "predictor.h"
 

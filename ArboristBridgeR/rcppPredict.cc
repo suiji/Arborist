@@ -25,6 +25,7 @@
 
 #include <Rcpp.h>
 
+//#include <iostream>
 using namespace Rcpp;
 using namespace std;
 
@@ -83,13 +84,19 @@ RcppExport SEXP RcppPredictOOB(SEXP sPredGini, SEXP sError) {
 
    @return Wrapped zero, with copy-out parameters.
  */
-RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError) {
-  IntegerMatrix conf(sConf);
+RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError, SEXP sCensus) {
+  IntegerVector conf(sConf);
   NumericVector error(sError);
   NumericVector predGini(sPredGini);
 
-  Predict::PredictOOBCtg(conf.begin(), error.begin(), predGini.begin());
-
+  if (Rf_isNull(sCensus)) {
+    Predict::PredictOOBCtg(conf.begin(), error.begin(), predGini.begin(), 0);
+  }
+  else {
+    IntegerVector census(sCensus);
+    Predict::PredictOOBCtg(conf.begin(), error.begin(), predGini.begin(), census.begin());
+  }
+    
   return wrap(0);
 }
 
@@ -196,10 +203,16 @@ RcppExport SEXP RcppPredictReg(SEXP sY) {
 
    @return Wrapped zero, with output pameter vector.
  */
-RcppExport SEXP RcppPredictCtg(SEXP sY, SEXP sCtgWidth) {
+RcppExport SEXP RcppPredictCtg(SEXP sY, SEXP sCtgWidth, SEXP sCensus) {
   IntegerVector y(sY);
   int ctgWidth = as<int>(sCtgWidth);
-  Predict::PredictCtg(y.begin(), ctgWidth);
+  if (Rf_isNull(sCensus)) {
+    Predict::PredictCtg(y.begin(), y.length(), ctgWidth, 0);
+  }
+  else {
+    IntegerVector census(sCensus);
+    Predict::PredictCtg(y.begin(), y.length(), ctgWidth, census.begin());
+  }
   y = y + 1;
 
   return wrap(0);

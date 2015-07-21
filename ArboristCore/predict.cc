@@ -118,8 +118,8 @@ void Predict::PredictReg(double y[]) {
 
    @return void, with output parameters.
  */
-void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[]) {
-  ResponseCtg::PredictOOB(conf, error, predInfo);
+void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[], int *census) {
+  ResponseCtg::PredictOOB(conf, error, predInfo, census);
 }
 
 
@@ -132,6 +132,6 @@ void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[]) {
 
    @return void, with output parameter vector.
  */
-void Predict::PredictCtg(int y[], int ctgWidth) {
-  DecTree::PredictAcrossCtg(y, ctgWidth, 0, 0, false);
+void Predict::PredictCtg(int y[], unsigned int nRow, unsigned int ctgWidth, int *census) {
+  DecTree::PredictCtg(census, ctgWidth, y, 0, 0, false);
 }

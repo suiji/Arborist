@@ -251,10 +251,13 @@ void ResponseReg::PredictOOB(double error[], double predInfo[]) {
 
    @param predInfo is an output vector parameter reporting predictor Info values.
 
+   @param census records the predicted category counts, by row.
+
    @return void, with output parameters.
 */
-void ResponseCtg::PredictOOB(int *conf, double error[], double predInfo[]) {
-  DecTree::PredictAcrossCtg(yCtg, ctgWidth, conf, error);
+void ResponseCtg::PredictOOB(int *conf, double error[], double predInfo[], int *census) {
+  DecTree::PredictCtg(census, ctgWidth, yCtg, conf, error);
+
   Finish(predInfo);
 }
 

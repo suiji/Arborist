@@ -207,6 +207,7 @@ void Predictor::DeFactory() {
   intClone = false;
 }
 
+
 /**
  @brief Derives a vector of ranks via callback methods.
 

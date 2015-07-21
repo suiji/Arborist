@@ -66,7 +66,7 @@ class ResponseCtg : public Response {
   static int *yCtg; // The original factor-valued response.
 
   ResponseCtg(double yProxy[]);
-  static void PredictOOB(int *conf, double err[], double predInfo[]);
+  static void PredictOOB(int *conf, double err[], double predInfo[], int *census);
   ~ResponseCtg();
   static void Factory(int _yCtg[], unsigned int _ctgWidth);
   void DeFactory();

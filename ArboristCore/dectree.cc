@@ -438,32 +438,79 @@ void DecTree::ScaleInfo(double outPredInfo[]) {
 }
 
 
+void DecTree::PredictCtg(int *censusIn, unsigned int ctgWidth, int yCtg[], int *confusion, double error[], bool useBag) {
+  int *census;
+  if (censusIn == 0) {
+    census = new int[ctgWidth * nRow];
+  }
+  else {
+    census = censusIn;
+  }
+  
+  for (unsigned int i = 0; i < ctgWidth * nRow; i++)
+    census[i] = 0;
+  
+  PredictAcrossCtg(census, ctgWidth, useBag);
+  Vote(census, yCtg, confusion, error, ctgWidth, useBag);
+
+  if (censusIn == 0)
+    delete [] census;
+}
+
 /**
    @brief Main driver for prediting categorical response.
-
-   @param yCtg contains the training response, in the case of bagged prediction, otherwise the predicted response.
-
-   @param ctgWidth is the cardinality of the response.
-
-   @param confusion is an output confusion matrix.
-
-   @param error is an output vector of classification errors.
 
    @param useBag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[], double error[], bool useBag) {
+void DecTree::PredictAcrossCtg(int *census, unsigned int ctgWidth, bool useBag) {
+  // TODO:  Look into effects of false sharing of census rows.
   if (nPredFac == 0) {
-    PredictAcrossNumCtg(yCtg, ctgWidth, confusion, useBag);
+    PredictAcrossNumCtg(census, ctgWidth, useBag);
   }
   else if (nPredNum == 0) {
-    PredictAcrossFacCtg(yCtg, ctgWidth, confusion, useBag);
+    PredictAcrossFacCtg(census, ctgWidth, useBag);
   }
   else {
-    PredictAcrossMixedCtg(yCtg, ctgWidth, confusion, useBag);
+    PredictAcrossMixedCtg(census, ctgWidth, useBag);
+  }
+}
+
+
+/**
+   @param yCtg contains the training response, in the case of bagged prediction, otherwise the predicted response.
+
+   @param ctgWidth is the cardinality of the response.
+
+   @param error is an output vector of classification errors.
+
+   @bool useBag indicates whether prediction is restricted to out-of-bag rows.
+
+   @return void.
+*/
+void DecTree::Vote(const int *census, int yCtg[], int *confusion, double error[], unsigned int ctgWidth, bool useBag) {
+  for (unsigned int row = 0; row < nRow; row++) {
+    int argMax = -1;
+    double popMax = 0.0;
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      int ctgPop = census[row * ctgWidth + ctg];
+      if (ctgPop > popMax) {
+	popMax = ctgPop;
+	argMax = ctg;
+      }
+    }
+    if (argMax >= 0) {
+      if (useBag) {
+	int rsp = yCtg[row];
+	confusion[rsp + ctgWidth * argMax]++;
+      }
+      else
+	yCtg[row] = argMax;
+    }
   }
 
+  
   if (useBag) { // Otherwise, no test-vector against which to compare.
     // Fills in classification error vector.
     //
@@ -485,138 +532,77 @@ void DecTree::PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[
 /**
    @brief Categorical prediction across rows with numerical predictor type.
 
-   @param yCtg contains the training response, in the case of bagged prediction, otherwise the predicted response.
-
-   @param ctgWidth is the cardinality of the response.
-
-   @param confusion is an output confusion matrix.
-
-   @param error is an output vector of classification errors.
-
    @param useBag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossNumCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
-  double *rowSlice = new double[nPred];
-  int *rowPred = new int[ctgWidth];
-  // TODO:  Parallelize.  There can be considerable false sharing if 'ctgWidth'
-  // is small, so row-based approach may need to be reconsidered.
-  // Mut. mut. for the other two methods.
-  for (unsigned int row = 0; row < nRow; row++) {
-    // double jitter = 1 + ResponseCtg::Jitter(row);
-    PredictRowNumCtg(row, rowSlice, ctgWidth, rowPred, useBag);
-    int argMax = -1;
-    double popMax = 0.0;
-    for (unsigned int col = 0; col < ctgWidth; col++) {
-      int colPop = rowPred[col];// * jitter;
-      if (colPop > popMax) {
-	popMax = colPop;
-	argMax = col;
-      }
-    }
-    if (argMax >= 0) {
-      if (useBag) {
-	int rsp = yCtg[row];
-	confusion[rsp + ctgWidth * argMax]++;
-      }
-      else
-	yCtg[row] = argMax;
-    }
+void DecTree::PredictAcrossNumCtg(int *census, unsigned int ctgWidth, bool useBag) {
+  double *transpose = new double[nPred * nRow];
+  unsigned int row;
+  
+#pragma omp parallel default(shared) private(row)
+  {
+#pragma omp for schedule(dynamic, 1)    
+  for (row = 0; row < nRow; row++) {
+    double *rowSlice = transpose + row * nPred;
+    int *rowPred = census + row * ctgWidth;
+    PredictRowNumCtg(row, rowSlice, rowPred, useBag);
+  }
   }
 
-  delete [] rowSlice;
-  delete [] rowPred;
+  delete [] transpose;
 }
 
 /**
    @brief Categorical prediction across rows with factor predictor type.
 
-   @param yCtg contains the training response, in the case of bagged prediction, otherwise the predicted response.
-
-   @param ctgWidth is the cardinality of the response.
-
-   @param confusion is an output confusion matrix.
-
-   @param error is an output vector of classification errors.
-
    @param useBag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossFacCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
-  int *rowSlice = new int[nPred];
-  int *rowPred = new int[ctgWidth];
+void DecTree::PredictAcrossFacCtg(int *census, unsigned int ctgWidth, bool useBag) {
+  int *transpose = new int[nPred * nRow];
+  unsigned int row;
 
-  for (unsigned int row = 0; row < nRow; row++) {
-    //double jitter = 1 + ResponseCtg::Jitter(row);
-    PredictRowFacCtg(row, rowSlice, ctgWidth, rowPred, useBag);
-    int argMax = -1;
-    double popMax = 0.0;
-    for (unsigned int col = 0; col < ctgWidth; col++) {
-      double colPop = rowPred[col];// * jitter;
-      if (colPop > popMax) {
-	popMax = colPop;
-	argMax = col;
-      }
-    }
-    if (argMax >= 0) {
-      if (useBag) {
-	int rsp = yCtg[row];
-	confusion[rsp + ctgWidth * argMax]++;
-      }
-      else
-	yCtg[row] = argMax;
-    }
+#pragma omp parallel default(shared) private(row)
+  {
+#pragma omp for schedule(dynamic, 1)
+    
+  for (row = 0; row < nRow; row++) {
+    int *rowSlice = transpose + row * nPred;
+    int *rowPred = census + row * ctgWidth;
+    PredictRowFacCtg(row, rowSlice, rowPred, useBag);
   }
-  delete [] rowSlice;
-  delete [] rowPred;
+  }
+  
+  delete [] transpose;
 }
 
 /**
    @brief Categorical prediction across rows with mixed predictor types.
 
-   @param yCtg contains the training response, in the case of bagged prediction, otherwise the predicted response.
-
-   @param ctgWidth is the cardinality of the response.
-
-   @param confusion is an output confusion matrix.
-
-   @param error is an output vector of classification errors.
-
    @param useBag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictAcrossMixedCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag) {
-  int *rowPred = new int[ctgWidth];
-  double *rowSliceN = new double[nPredNum];
-  int *rowSliceI = new int[nPredFac];
+void DecTree::PredictAcrossMixedCtg(int *census, unsigned int ctgWidth, bool useBag) {
+  double *transposeN = new double[nPredNum * nRow];
+  int *transposeI = new int[nPredFac * nRow];
+  unsigned int row;
 
-  for (unsigned int row = 0; row < nRow; row++) {
-    //double jitter = 1 + ResponseCtg::Jitter(row);
-    PredictRowMixedCtg(row, rowSliceN, rowSliceI, ctgWidth, rowPred, useBag);
-    int argMax = -1;
-    double popMax = 0.0;
-    for (unsigned int col = 0; col < ctgWidth; col++) {
-      double colPop = rowPred[col];// * jitter;
-      if (colPop > popMax) {
-	popMax = colPop;
-	argMax = col;
-      }
-    }
-    if (argMax >= 0) {
-      if (useBag) {
-	int rsp = yCtg[row];
-	confusion[rsp + ctgWidth *argMax]++;
-      }
-      else
-	yCtg[row] = argMax;
-    }
+#pragma omp parallel default(shared) private(row)
+  {
+#pragma omp for schedule(dynamic, 1) 
+  for (row = 0; row < nRow; row++) {
+    double *rowSliceN = transposeN + row * nPredNum;
+    int *rowSliceI = transposeI + row * nPredFac;
+    int *rowPred = census + row * ctgWidth;
+    PredictRowMixedCtg(row, rowSliceN, rowSliceI, rowPred, useBag);
   }
-  delete [] rowSliceN;
-  delete [] rowSliceI;
-  delete [] rowPred;
+  }
+
+  delete [] transposeI;
+  delete [] transposeN;
 }
 
 /**
@@ -836,11 +822,9 @@ void DecTree::PredictRowNumReg(unsigned int row, double rowT[], int leaves[], bo
    @return Void with output vector parameter.
  */
 
-void DecTree::PredictRowNumCtg(unsigned int row, double rowT[], unsigned int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowNumCtg(unsigned int row, double rowT[], int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::numBase[row + i* nRow];
-  for (unsigned int i = 0; i < ctgWidth; i++)
-    prd[i] = 0;
 
   // TODO:  Use row at rank.
   //int ct = 0;
@@ -868,14 +852,10 @@ void DecTree::PredictRowNumCtg(unsigned int row, double rowT[], unsigned int ctg
 
 // Temporary clone of regression tree version.
 //
-void DecTree::PredictRowFacCtg(unsigned int row, int rowT[], unsigned int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowFacCtg(unsigned int row, int rowT[], int prd[], bool useBag) {
   for (int i = 0; i < nPred; i++)
     rowT[i] = Predictor::facBase[row + i* nRow];
 
-  for (unsigned int i = 0; i < ctgWidth; i++)
-    prd[i] = 0;
-
-  // TODO:  Use row at rank.
 
   for (int tc = 0; tc < nTree; tc++) {
     if (useBag && InBag(tc, row))
@@ -910,22 +890,17 @@ void DecTree::PredictRowFacCtg(unsigned int row, int rowT[], unsigned int ctgWid
 
    @param rowFT is a factor data array section corresponding to the row.
 
-   @param ctgWidth is the cardinality of the response.
-
    @param prd[] are the tree terminals predicted for each row.
 
    @param useBag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void DecTree::PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], unsigned int ctgWidth, int prd[], bool useBag) {
+void DecTree::PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], int prd[], bool useBag) {
   for (int i = 0; i < nPredNum; i++)
     rowNT[i] = Predictor::numBase[row + i * nRow];
   for (int i = 0; i < nPredFac; i++)
     rowFT[i] = Predictor::facBase[row + i * nRow];
-
-  for (unsigned int i = 0; i < ctgWidth; i++)
-    prd[i] = 0;
 
   for (int tc = 0; tc < nTree; tc++) {
     if (useBag && InBag(tc, row))

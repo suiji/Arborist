@@ -48,18 +48,20 @@ class DecTree {
   static void ConsumeSplitBits(class PreTree *pt, int &treeFW, int *&treeFS);
   static void SetBagRow(const unsigned int inBag[], int treeNum);
   static bool InBag(int treeNum, unsigned int row);
+  static void PredictAcrossCtg(int *census, unsigned int ctgWidth, bool useBag);
+  static void Vote(const int *census, int yCtg[], int *confusion, double error[], unsigned int ctgWidth, bool useBag);
   static void PredictRowNumReg(unsigned int row, double[], int leaves[], bool useBag);
   static void PredictRowFacReg(unsigned int row, int rowT[], int leaves[], bool useBag);
   static void PredictRowMixedReg(unsigned int row, double rowNT[], int rowFT[], int leaves[], bool useBag);
-  static void PredictRowNumCtg(unsigned int row, double rowSlice[], unsigned int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowFacCtg(unsigned int row, int rowFT[], unsigned int ctgWidth, int rowPred[], bool useBag);
-  static void PredictRowMixedCtg(unsigned int row, double rowNT[], int rowFT[], unsigned int ctgWidth, int rowPred[], bool useBag);
+  static void PredictRowNumCtg(unsigned int row, double rowT[], int rowPred[], bool useBag);
+  static void PredictRowFacCtg(unsigned int row, int rowT[], int rowPred[], bool useBag);
+  static void PredictRowMixedCtg(unsigned int row, double rowNT[], int rowIT[], int rowPred[], bool useBag);
   static void PredictAcrossNumReg(double prediction[], int *predictLeaves, bool useBag);
   static void PredictAcrossFacReg(double prediction[], int *predictLeaves, bool useBag);
   static void PredictAcrossMixedReg(double prediction[], int *predictLeaves, bool useBag);
-  static void PredictAcrossNumCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
-  static void PredictAcrossFacCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
-  static void PredictAcrossMixedCtg(int yCtg[], unsigned int ctgWidth, int confusion[], bool useBag);
+  static void PredictAcrossNumCtg(int *census, unsigned int ctgWidth, bool useBag);
+  static void PredictAcrossFacCtg(int *census, unsigned int ctgWidth, bool useBag);
+  static void PredictAcrossMixedCtg(int *census, unsigned int ctgWidth, bool useBag);
   static void DeFactoryTrain();
 
   /**
@@ -92,8 +94,8 @@ class DecTree {
   static void ScaleInfo(double*);
   static void WriteForest(int *rPreds, double *rSplits, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
   static  void WriteTree(int treeNum, int tOrig, int treeFacOffset, int *outPreds, double* outSplitVals, int *outBump, int *outFacSplits);
+  static void PredictCtg(int *census, unsigned int ctgWidth, int y[], int *confusion, double error[], bool useBag = true);
   static void PredictAcrossReg(double outVec[], bool useBag);
-  static void PredictAcrossCtg(int yCtg[], unsigned int ctgWidth, int confusion[], double error[], bool useBag = true);
 };
 
 #endif
