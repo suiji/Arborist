@@ -31,7 +31,7 @@ int Index::nSamp = -1;
 /**
    @brief Initialization of static invariants.
 
-   @param _minHeight is the minimum node size for splitting.
+   @param _minNode is the minimum node size for splitting.
 
    @param _totLevels is the maximum number of levels to evaluate.
 
@@ -39,8 +39,8 @@ int Index::nSamp = -1;
 
    @return void.
  */
-void Index::Immutables(int _minHeight, int _totLevels, int _nSamp) {
-  NodeCache::Immutables(_minHeight);
+void Index::Immutables(int _minNode, int _totLevels, int _nSamp) {
+  NodeCache::Immutables(_minNode);
   totLevels = _totLevels;
   nSamp = _nSamp;
 }
@@ -57,15 +57,15 @@ void Index::DeImmutables() {
 }
 
 
-int NodeCache::minHeight = -1;
+int NodeCache::minNode = -1;
 
-void NodeCache::Immutables(int _minHeight) {
-  minHeight = _minHeight;
+void NodeCache::Immutables(int _minNode) {
+  minNode = _minNode;
 }
 
 
 void NodeCache::DeImmutables() {
-  minHeight = -1;
+  minNode = -1;
 }
 
 
@@ -270,18 +270,18 @@ void NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) c
   int lhSCount, lhIdxCount;
   ssNode->LHSizes(lhSCount, lhIdxCount);
 
-  if (TerminalSize(lhSCount, lhIdxCount)) {
-    leafNext++;
-  }
-  else {
+  if (Splitable(lhIdxCount)) {
     lhSplitNext++;
   }
-
-  if (TerminalSize(sCount - lhSCount, idxCount - lhIdxCount)) {
+  else {
     leafNext++;
   }
-  else
+
+  if (Splitable(idxCount - lhIdxCount)) {
     rhSplitNext++;
+  }
+  else
+    leafNext++;
 }
 
 
@@ -342,25 +342,6 @@ RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitN
 
 
 /**
-   @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next.
-   
-   MUST guarantee that no zero-length "splits" have been introduced.
-   Not only are these nonsensical, but they are also dangerous, as they violate
-   various assumptions about the integrity of the intermediate respresentation.
-
-   @param _SCount is the count of samples subsumed by the node.
-
-   @param _idxCount is the count of indices subsumed by the node.
-
-   @return true iff the node subsumes too few samples or is representable as a
-     single buffer element.
-*/
-inline bool NodeCache::TerminalSize(int _sCount, int _idxCount) {
-  return (_sCount < minHeight) || (_idxCount <= 1);
-}
-
-
-/**
    @brief Consumes all cached information for this node, following which the node should be considered dead.
    
    LH and RH pre-tree nodes are made for all split nodes actually found to be
@@ -396,11 +377,11 @@ void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, Sa
     ssNode->LHSizes(lhSCount, lhIdxCount);
     double minInfoNext = ssNode->MinInfo();
 
-    if (!TerminalSize(lhSCount, lhIdxCount)) {
+    if (Splitable(lhIdxCount)) {
       lNext = lhSplitCount++;
       index->NextLH(lNext, ptL, lhIdxCount, lhSCount, lhSum, minInfoNext);
     }
-    if (!TerminalSize(sCount - lhSCount, idxCount - lhIdxCount)) {
+    if (Splitable(idxCount - lhIdxCount)) {
       rNext = lhSplitNext + rhSplitCount++;
       index->NextRH(rNext, ptR, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, minInfoNext);
     }

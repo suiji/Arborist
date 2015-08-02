@@ -52,13 +52,17 @@ class FRNode {
   }
 };
 
-typedef struct { double key; int slot; } BHPair;
+class BHPair {
+ public:
+  double key; unsigned int slot;
+};
 
 /**
   @brief  Runs only:  caches pre-computed workspace starting indices to
   economize on address recomputation during splitting.
 */
 class RunSet {
+  static unsigned int ctgWidth;
   int runOff; // Temporary offset storage.
   int heapOff; //
   int outOff; //
@@ -67,25 +71,21 @@ class RunSet {
   int *outZero; // Final LH and/or output for heap-ordered slots.
   double *ctgZero; // Categorical:  run x ctg checkerboard.
   double *rvZero; // Non-binary wide runs:  random variates for sampling.
-  int runCount;  // Current high watermark:  not subject to shrinking.
+  unsigned int runCount;  // Current high watermark:  not subject to shrinking.
   int runsLH; // Count of LH runs.
  public:
   const static int maxWidth = 10;
-  static unsigned int ctgWidth;
-  void Shrink();
+  static void Immutables(unsigned int _ctgWidth);
+  static void DeImmutables();
+  unsigned int safeRunCount;
+  int DeWide();
   void DePop(int pop = 0);
   void Reset(FRNode*, BHPair*, int*, double*, double*);
   void OffsetCache(int runIdx, int bhpIdx, int outIdx);
-  void WriteHeap();
-
-  /**
-     @brief Characterizes wide run counts.
-
-     @return whether run set is wide.
-   */
-  inline bool IsWide() {
-    return runCount > maxWidth;
-  }
+  void HeapRandom();
+  void HeapProportion(unsigned int slot, unsigned int unitSum);
+  void HeapMean();
+  void HeapBinary();
 
 
   /**
@@ -93,8 +93,13 @@ class RunSet {
 
      @return reference to run count.
    */
-  inline int &RunCount() {
+  inline unsigned int &RunCount() {
     return runCount;
+  }
+
+  
+  inline unsigned int CountSafe() {
+    return safeRunCount;
   }
   
   
@@ -105,7 +110,7 @@ class RunSet {
      @return effective run count
    */
   inline int EffCount() {
-    return IsWide() ? maxWidth : runCount;
+    return runCount > maxWidth ? maxWidth : runCount;
   }
 
 
@@ -149,7 +154,7 @@ class RunSet {
   /**
      @return checkerboard value at slot for category.
    */
-  inline double SumCtg(unsigned int yCtg, int slot) {
+  inline double SumCtg(int slot, unsigned int yCtg) {
     return ctgZero[slot * ctgWidth + yCtg];
   }
 
@@ -164,47 +169,35 @@ class RunSet {
 
      @param cell1 outputs the response at rank 1.
 
-     @return void, with output reference parameters.
+     @return iff true slot counts differ by at least unity.
    */
-  inline void SumBinary(int outPos, double &cell0, double &cell1) {
+  inline bool SumBinary(int outPos, double &cell0, double &cell1) {
     int slot = outZero[outPos];
-    cell0 = SumCtg(0, slot);
-    cell1 = SumCtg(1, slot);
+    cell0 = SumCtg(slot, 0);
+    cell1 = SumCtg(slot, 1);
+
+    int slotNext = outZero[outPos+1];
+    return (SumCtg(slotNext, 1) * runZero[slot].sum - cell1 * runZero[slotNext].sum) >= 1.0;
   }
 
 
   /**
-    @brief Accumulates sample and index counts in an order specified by caller.
+    @brief Outputs sample and index counts at a given slot.
 
     @param liveIdx is a cached offset for the pair.
 
     @param pos is the position to dereference in the rank vector.
 
-    @param count accumulates sample counts.
+    @param count outputs the sample count.
 
-    @param length accumulates index counts.
-
-    @return void, with output reference parameters.
+    @return total index count subsumed, with reference accumulator.
   */
-  inline void LHAccum(int slot, int &count, int &length) {
+  inline int LHCounts(int slot, int &sCount) {
     FRNode *fRun = &runZero[slot];
-    count += fRun->sCount;
-    length += 1 + fRun->end - fRun->start;
+    sCount = fRun->sCount;
+    return  1 + fRun->end - fRun->start;
   }
 
-
-  /**
-     @brief Dereferences the slot at a specified output position.
-
-     @param outPos is a position in the output vector.
-
-     @return Reference to output position.
-   */
-  inline int &OrdSlot(int outpos) {
-    return outZero[outpos];
-  }
-
-  
 
   /**
      @brief Looks up run parameters by indirection through output vector.
@@ -234,6 +227,7 @@ class RunSet {
 
 class Run {
   static unsigned int nPred;
+  static unsigned int ctgWidth;
   int splitNext; // Cached for next level.
   int splitCount; // Cached for current level.
   int runSetCount;
@@ -269,13 +263,11 @@ class Run {
     return runLength[PairOffset(splitCount, splitIdx, predIdx)] == 1;
   }
 
-  static void Immutables(int _nPred, int _ctgWidth);
-  static void Immutables(int _nPred);
+  static void Immutables(unsigned int _nPred, unsigned int _ctgWidth = 0);
   static void DeImmutables();
 
   void LevelInit(int _splitCount);
   void LevelClear();
-  void SafeRunCount(int idx, int count);
   void OffsetsReg();
   void OffsetsCtg();
 
@@ -285,7 +277,7 @@ class Run {
   }
 
   
-  inline int RunBounds(int idx, int outSlot, int &start, int &end) {
+  inline unsigned int RunBounds(int idx, int outSlot, int &start, int &end) {
     return runSet[idx].Bounds(outSlot, start, end);
   }
 
@@ -315,10 +307,15 @@ class Run {
     return lengthNext[PairOffset(splitNext, splitIdx, predIdx)];
   }
 
+  /**
+     @brief Presets runCount field to a conservative value for
+     the purpose of allocating storage.
+   */
+  unsigned int &CountSafe(int idx) {
+    return runSet[idx].safeRunCount;
+  }
 
 };
-
-
 
 
 /**
@@ -334,7 +331,8 @@ class BHeap {
     return (idx-1) >> 1;
   };
   static void Depopulate(BHPair pairVec[], int lhOut[], unsigned int pop);
-  static void Insert(BHPair pairVec[], int _slot, double _key);
+  static void Insert(BHPair pairVec[], unsigned int _slot, double _key);
+  static unsigned int SlotPop(BHPair pairVec[], int bot);
 };
 
 #endif

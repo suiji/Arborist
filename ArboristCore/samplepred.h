@@ -25,7 +25,7 @@ class SPNode {
  protected:
   double yVal; // sum of response values associated with sample.
   unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
-  unsigned int rowRun; // # occurrences of row sampled.  << # rows.
+  unsigned int sCount; // # occurrences of row sampled.  << # rows.
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
@@ -50,34 +50,34 @@ class SPNode {
 
      @param _rank is the rank of the associated predictor value.
 
-     @param _rowRun is the number of instances of the current row in this sample.
+     @param _sCount is the number of instances of the current row in this sample.
 
      @return void, with output reference parameters.
    */
-  void SetReg(double _yVal, unsigned int _rank, unsigned int _rowRun) {
+  void SetReg(double _yVal, unsigned int _rank, unsigned int _sCount) {
     yVal = _yVal;
     rank = _rank;
-    rowRun = _rowRun;
+    sCount = _sCount;
   }
 
 
   /**
      @brief Reports SamplePred contents for regression response.  Cannot
-     be used with categorical response, as 'rowRun' value reported here
+     be used with categorical response, as 'sCount' value reported here
      is unshifted.
 
      @param _yVal outputs the response value.
 
      @param _rank outputs the predictor rank.
 
-     @param _rowRun outputs the multiplicity of the row in this sample.
+     @param _sCount outputs the multiplicity of the row in this sample.
 
      @return void.
    */
-  inline void RegFields(double &_yVal, unsigned int &_rank, unsigned int &_rowRun) const {
+  inline void RegFields(double &_yVal, unsigned int &_rank, unsigned int &_sCount) const {
     _yVal = yVal;
     _rank = rank;
-    _rowRun = rowRun;
+    _sCount = sCount;
   }
 
   // These methods should only be called when the response is known
@@ -98,16 +98,16 @@ class SPNode {
 
      @param _rank is the rank of the associated predictor value.
 
-     @param _rowRun is the number of instances of the current row in this sample.
+     @param _sCount is the number of instances of the current row in this sample.
 
      @param _ctg is the categorical response value.
 
      @return void.
    */
-  void SetCtg(double _yVal, unsigned int _rank, unsigned int _rowRun, unsigned int _ctg) {
+  void SetCtg(double _yVal, unsigned int _rank, unsigned int _sCount, unsigned int _ctg) {
     yVal = _yVal;
     rank = _rank;
-    rowRun = _ctg + (_rowRun << runShift);
+    sCount = _ctg + (_sCount << runShift);
   }
 
   
@@ -119,17 +119,17 @@ class SPNode {
 
      @param _rank outputs the predictor rank.
 
-     @param _rowRun outputs the multiplicity of the row in this sample.
+     @param _sCount outputs the multiplicity of the row in this sample.
 
      @param _yCtg outputs the response value.
 
      @return void, with output reference parameters.
    */
-  inline void CtgFields(double &_yVal, unsigned int &_rank, unsigned int &_rowRun, unsigned int &_yCtg) const {
+  inline void CtgFields(double &_yVal, unsigned int &_rank, unsigned int &_sCount, unsigned int &_yCtg) const {
     _yVal = yVal;
     _rank = rank;
-    _rowRun = rowRun >> runShift;
-    _yCtg = rowRun & ((1 << runShift) - 1);
+    _sCount = sCount >> runShift;
+    _yCtg = sCount & ((1 << runShift) - 1);
   }
 
   

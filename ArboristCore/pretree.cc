@@ -272,7 +272,7 @@ void PreTree::ReBits() {
 //
 void PreTree::ConsumeSplitBits(int outBits[]) {
   for (int i = 0; i < treeBitOffset; i++) {
-    outBits[i] = treeSplitBits[i]; // Upconverts to integer type for output to front end.
+    outBits[i] = treeSplitBits[i]; // Upconverts to output type.
   }
   delete [] treeSplitBits;
   treeSplitBits = 0;

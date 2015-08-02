@@ -26,6 +26,7 @@
 #include <R.h>
 #include <Rcpp.h>
 
+//#include <iostream>
 using namespace std;
 using namespace Rcpp;
 
@@ -53,16 +54,27 @@ int FormResponse(SEXP sY) {
     // so that no combination of samples can "vote" themselves into a
     // false plurality.
     //
+    bool autoWeights = false; // TODO:  Make user option.
     IntegerVector yOneBased(sY);
-    NumericVector tb(table(yOneBased));
     IntegerVector y = yOneBased - 1;
-    NumericVector census = tb[y];
-    double recipLen = 1.0 / y.length();
-    NumericVector freq = census * recipLen;
-    RNGScope scope;
-    NumericVector rn(runif(y.length()));
-    NumericVector proxy = freq + (rn - 0.5) * 0.5 * (recipLen * recipLen);
+    NumericVector classWeight;
+    NumericVector tb(table(y));
     ctgWidth = tb.length();
+    if (autoWeights) {
+      double tbSum = sum(tb);
+      NumericVector tbsInv = tbSum / tb;
+      double tbsInvSum = sum(tbsInv);
+      classWeight = tbsInv / tbsInvSum;
+    }
+    else {
+      classWeight = rep(1.0, ctgWidth);
+    }
+    int nRow = y.length();
+    double recipLen = 1.0 / nRow;
+    NumericVector yWeighted = classWeight[y];
+    RNGScope scope;
+    NumericVector rn(runif(nRow));
+    NumericVector proxy = yWeighted + (rn - 0.5) * 0.5 * (recipLen * recipLen);
     Response::FactoryCtg(y.begin(), proxy.begin(), ctgWidth);
   }
   else {

@@ -139,11 +139,11 @@ class IndexNode {
 */
 class NodeCache : public IndexNode {
   class SSNode *ssNode; // Convenient to cache for LH/RH partition.
-  static int minHeight;
+  static int minNode;
   int ptL; // LH index into pre-tree:  splits only.
   int ptR; // RH index into pre-tree:  splits only.
  public:
-  static void Immutables(int _minHeight);
+  static void Immutables(int _minNode);
   static void DeImmutables();
   void Consume(class Index *index, class PreTree *preTree, class SplitPred *splitPred, class SamplePred *samplePred, class RestageMap *restageMap, int level, int lhSplitNext, int &lhCount, int &rhCount);
   void SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) const;
@@ -181,7 +181,23 @@ class NodeCache : public IndexNode {
     return ssNode;
   }
   
-  static bool TerminalSize(int _sCount, int _idxCount);
+
+  /**
+    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
+    
+    MUST guarantee that no zero-length "splits" have been introduced.
+    Not only are these nonsensical, but they are also dangerous, as they violate
+    various assumptions about the integrity of the intermediate respresentation.
+
+    @param _idxCount is the count of indices subsumed by the node.
+
+    @return true iff the node subsumes more than minimal count of buffer elements.
+  */
+  inline bool Splitable(int _idxCount) const {
+    return _idxCount > minNode;
+  }
+
+
 };
 
 class Index {
@@ -202,7 +218,7 @@ class Index {
   static class PreTree *OneTree(const class PredOrd *predOrd);
  public:
   static int nSamp;
-  static void Immutables(int _minHeight, int _totLevels, int _nSamp);
+  static void Immutables(int _minNode, int _totLevels, int _nSamp);
   static void DeImmutables();
   class SamplePred *samplePred;
   class PreTree *preTree;

@@ -149,13 +149,13 @@ RcppExport SEXP RcppPredictorInt(SEXP sX) {
 
    @return Wrapped zero.
  */
-RcppExport SEXP RcppPredictorFactory(SEXP sPredProb, SEXP sNPred, SEXP sNRow) {
+RcppExport SEXP RcppPredictorFactory(SEXP sPredProb, SEXP sPredFixed, SEXP sNPred, SEXP sNRow) {
   if (Rf_isNull(sPredProb)) {
-    Predictor::Factory(0, as<int>(sNPred), as<int>(sNRow));
+    Predictor::Factory(0, as<int>(sPredFixed), as<int>(sNPred), as<int>(sNRow));
   }
   else {
     NumericVector predProb(sPredProb);
-    Predictor::Factory(predProb.begin(), as<int>(sNPred), as<int>(sNRow));
+    Predictor::Factory(predProb.begin(), as<int>(sPredFixed), as<int>(sNPred), as<int>(sNRow));
   }
 
   return wrap(0);

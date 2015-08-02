@@ -92,7 +92,7 @@ class DecTree {
   static int ConsumeTrees(int &cumFacWidth);
   static void ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplits[]);
   static void ScaleInfo(double*);
-  static void WriteForest(int *rPreds, double *rSplits, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
+  static void WriteForest(int *rPreds, double *rSplits, int *rBump, int* rOrigins, int *rFacOff, int *rFacSplits);
   static  void WriteTree(int treeNum, int tOrig, int treeFacOffset, int *outPreds, double* outSplitVals, int *outBump, int *outFacSplits);
   static void PredictCtg(int *census, unsigned int ctgWidth, int y[], int *confusion, double error[], bool useBag = true);
   static void PredictAcrossReg(double outVec[], bool useBag);

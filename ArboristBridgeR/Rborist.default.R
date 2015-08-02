@@ -22,10 +22,11 @@
                 #nPermute = ifelse(importance, 1, 0),
                 ctgCensus = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
-                minInfo = 0.01,
-                minNode = ifelse(!is.factor(y), 6, 2),
+                minInfo = 0.05,
+                minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
-                predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
+                predFixed = 0,
+                predProb = ifelse(predFixed != 0, 0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(ncol(x)))/ncol(x))),
                 predWeight = rep(1.0, ncol(x)),
                 quantiles = !is.null(quantVec),
                 quantVec = NULL,
@@ -43,8 +44,8 @@
     stop("Exping numeric or factor response")
   
   # Height constraints
-  if (minNode < 2)
-    stop("Minimum splitting width must be at least 2")
+  if (minNode < 1)
+    stop("Minimum node size must be positive")
   else if (minNode > nSamp)
     stop("Minimum splitting width exceeds tree size")
 
@@ -89,8 +90,16 @@
   RNGkind("L'Ecuyer-CMRG")
 
   # Normalizes vector of pointwise predictor probabilites.
-  probVec <- predWeight * ((ncol(x) * predProb) / sum(predWeight))
-  PredBlock(x, y, probVec)
+  if (predProb != 0 && predFixed != 0)
+    stop("Only one of 'predProb' and 'predFixed' may be specified")
+  if (predProb < 0 || predProb > 1.0)
+    stop("'predProb' value must lie in [0,1]");
+  if (predFixed < 0 || predFixed > ncol(x))
+    stop("'predFixed' must be positive integer <= predictor count")
+
+  meanWeight <- ifelse(predProb == 0, 1.0, predProb)
+  probVec <- predWeight * ((ncol(x) * meanWeight) / sum(predWeight))
+  PredBlock(x, y, probVec, predFixed)
   
   # There is currently very little freedom in factory ordering.
   unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
@@ -225,12 +234,12 @@
 
 # Breaks data into blocks suitable for Rcpp methods.
 #
-PredBlock <- function(x, y = NULL, predProb = NULL){#, quantiles = NULL) {
+PredBlock <- function(x, y = NULL, probVec = NULL, predFixed = 0){#, quantiles = NULL) {
   training <- ifelse(is.null(y), FALSE, TRUE)
   
   # For now, only numeric and factor types supporte.
   #
-  unused <- .Call("RcppPredictorFactory", predProb, ncol(x), nrow(x))
+  unused <- .Call("RcppPredictorFactory", probVec, predFixed, ncol(x), nrow(x))
   
   if (is.data.frame(x)) { # As with "randomForest" package
     facLevels <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))

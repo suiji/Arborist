@@ -36,7 +36,7 @@ class Train {
   static void DeImmutables();
 
   static void SampleWeights(double sWeight[]);
-  static void WriteForest(int *rPreds, double *rSplits, int *rBump, int* rOrigins, int *rFacOff, int * rFacSplits);
+  static void WriteForest(int *rPreds, double *rSplits, int *rBump, int* rOrigins, int *rFacOff, int *rFacSplits);
   static void WriteQuantile(double rQYRanked[], int rQRank[], int rQSCount[]);
 };
 #endif

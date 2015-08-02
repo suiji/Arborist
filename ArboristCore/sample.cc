@@ -153,7 +153,7 @@ int SampleReg::Stage(const double y[], const unsigned int row2Rank[], const Pred
         double val = sCount * y[row];
         bagSum += val;
         sampleReg[idx].sum = val;
-        sampleReg[idx].rowRun = sCount;
+        sampleReg[idx].sCount = sCount;
         // Only client is quantile regression, but cheap to compute here:
         sample2Rank[idx] = row2Rank[row];
 	
@@ -222,7 +222,7 @@ int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd,
         double val = sCount * y[row];
 	bagSum += val;
         sampleCtg[idx].sum = val;
-        sampleCtg[idx].rowRun = sCount;
+        sampleCtg[idx].sCount = sCount;
         sampleCtg[idx].ctg = yCtg[row];
         sIdxRow[row] = idx++;
         bits |= mask;
@@ -270,7 +270,7 @@ void SampleReg::Scores(const int frontierMap[], int treeHeight, int leafExtent[]
     int leafIdx = frontierMap[i];
     leafExtent[leafIdx]++;
     score[leafIdx] += sampleReg[i].sum;
-    sCount[leafIdx] += sampleReg[i].rowRun;
+    sCount[leafIdx] += sampleReg[i].sCount;
   }
 
   for (int pt = 0; pt < treeHeight; pt++) {
@@ -316,8 +316,7 @@ void SampleCtg::Scores(const int frontierMap[], int treeHeight, int leafExtent[]
     // ASSERTION:
     //if (ctg < 0 || ctg >= ctgWidth)
     //cout << "Bad response category:  " << ctg << endl;
-    double responseWeight = sampleCtg[i].rowRun / sampleCtg[i].sum;
-    leafWS[leafIdx * ctgWidth + ctg] += responseWeight;
+    leafWS[leafIdx * ctgWidth + ctg] += sampleCtg[i].sum;
   }
 
   // Factor weights have been jittered, making ties highly unlikely.  Even in the
@@ -375,7 +374,7 @@ SampleReg::~SampleReg() {
  */
 int SampleReg::LeafFields(int sIdx, unsigned int &rank) {
   rank = sample2Rank[sIdx];
-  return sampleReg[sIdx].rowRun;
+  return sampleReg[sIdx].sCount;
 }
 
 

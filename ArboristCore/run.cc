@@ -57,6 +57,7 @@ using namespace std;
 */
 
 unsigned int Run::nPred = 0;
+unsigned int Run::ctgWidth = 0;
 unsigned int RunSet::ctgWidth = 0;
 
 /**
@@ -98,16 +99,6 @@ void Run::RunSets(int _runSetCount) {
 
 
 /**
-   @brief Presets runCount field to a conservative value for
-   the purpose of allocating storage.
- */
-void Run::SafeRunCount(int idx, int count) {
-  runSet[idx].RunCount() = count;
-}
-
-
-
-/**
    @brief Regression:  all runs employ a heap.
 
    @return void.
@@ -119,7 +110,7 @@ void Run::OffsetsReg() {
   int runCount = 0;
   for (int i = 0; i < runSetCount; i++) {
     runSet[i].OffsetCache(runCount, runCount, runCount);
-    runCount += runSet[i].RunCount();
+    runCount += runSet[i].CountSafe();
   }
 
   facRun = new FRNode[runCount];
@@ -142,14 +133,20 @@ void Run::OffsetsCtg() {
 
   // Running counts:
   int runCount = 0; // Factor runs.
-  int wideRuns = 0; // Runs in wide factors.
-  int outRuns = 0; // Heap output slots.
+  int heapRuns = 0; // Runs subject to sorting.
+  int outRuns = 0; // Sorted runs of interest.
   for (int i = 0; i < runSetCount; i++) {
-    int rCount = runSet[i].RunCount();
-    if (rCount > RunSet::maxWidth) { // Only wide runs use heap.
-      runSet[i].OffsetCache(runCount, wideRuns, outRuns);
-      wideRuns += rCount;
-      outRuns += RunSet::ctgWidth == 2 ? rCount : RunSet::maxWidth;
+    int rCount = runSet[i].CountSafe();
+
+    if (ctgWidth == 2) { // Binary uses heap for all runs.
+      runSet[i].OffsetCache(runCount, heapRuns, outRuns);
+      heapRuns += rCount;
+      outRuns += rCount;
+    }
+    else if (rCount > RunSet::maxWidth) {
+      runSet[i].OffsetCache(runCount, heapRuns, outRuns);
+      heapRuns += rCount;
+      outRuns += RunSet::maxWidth;
     }
     else {
       runSet[i].OffsetCache(runCount, 0, outRuns);
@@ -158,20 +155,18 @@ void Run::OffsetsCtg() {
     runCount += rCount;
   }
 
-  int boardWidth = runCount * RunSet::ctgWidth; // Checkerboard.
+  int boardWidth = runCount * ctgWidth; // Checkerboard.
   ctgSum = new double[boardWidth];
   for (int i = 0; i < boardWidth; i++)
     ctgSum[i] = 0.0;
 
-  if (RunSet::ctgWidth > 2) { // Non-binary samples wide w.o. replacement.
-    if (wideRuns > 0) {
-      rvWide = new double[wideRuns];
-      CallBack::RUnif(wideRuns, rvWide);
-    }
+  if (ctgWidth > 2 && heapRuns > 0) { // Wide non-binary:  w.o. replacement.
+    rvWide = new double[heapRuns];
+    CallBack::RUnif(heapRuns, rvWide);
   }
 
   facRun = new FRNode[runCount];
-  bHeap = new BHPair[wideRuns];
+  bHeap = new BHPair[heapRuns];
   lhOut = new int[outRuns];
 
   ResetRuns();
@@ -264,23 +259,12 @@ void Run::LengthTransmit(int splitIdx, int lNext, int rNext) {
 
    @param _nPred is the number of predictors.
 
-   @param _ctgWidth is the response cardinality.
-
    @return void.
  */
-void Run::Immutables(int _nPred, int _ctgWidth) {
+void Run::Immutables(unsigned int _nPred, unsigned int _ctgWidth) {  
   nPred = _nPred;
-  RunSet::ctgWidth = _ctgWidth;
-}
-
-
-/**
-  @brief Regression variant does not set 'ctgWidth'.
-
-  @return void.
- */
-void Run::Immutables(int _nPred) {
-  nPred = _nPred;
+  ctgWidth = _ctgWidth;
+  RunSet::Immutables(ctgWidth);
 }
 
 
@@ -290,7 +274,19 @@ void Run::Immutables(int _nPred) {
    @return void.
  */
 void Run::DeImmutables() {
-  nPred = RunSet::ctgWidth = 0;
+  nPred = 0;
+  ctgWidth = 0;
+  RunSet::DeImmutables();
+}
+
+
+void RunSet::Immutables(unsigned int _ctgWidth) {
+  ctgWidth = _ctgWidth;
+}
+
+
+void RunSet::DeImmutables() {
+  ctgWidth = 0;
 }
 
 
@@ -320,21 +316,33 @@ void RunSet::Reset(FRNode *runBase, BHPair *heapBase, int *outBase, double *ctgB
 
 
 /**
-   @brief Writes to heap using appropriate weighting for response.
+   @brief Writes to heap arbitrarily:  sampling w/o replacement.
 
    @return void.
  */
-void RunSet::WriteHeap() {
-  // Non-binary classification weights arbitrarily:  sampling w/o replacement.
-  if (ctgWidth > 2) {
-    for (int i = 0; i < runCount; i++) {
-      BHeap::Insert(heapZero, i, rvZero[i]);
-    }
+void RunSet::HeapRandom() {
+  for (unsigned int slot = 0; slot < runCount; slot++) {
+    BHeap::Insert(heapZero, slot, rvZero[slot]);
   }
-  else { // Regression, binary weight by mean (== proportion at unity, for binary).
-    for (int i = 0; i < runCount; i++) {
-      BHeap::Insert(heapZero, i, runZero[i].sum / runZero[i].sCount);
-    }
+}
+
+
+/**
+   @brief Writes to heap using weighting category-0 contribution.
+ */
+void RunSet::HeapMean() {
+  for (unsigned int slot = 0; slot < runCount; slot++) {
+    BHeap::Insert(heapZero, slot, runZero[slot].sum / runZero[slot].sCount);
+  }
+}
+
+
+/**
+   @brief Writes to heap using weighting category-1 contribution.
+ */
+void RunSet::HeapBinary() {
+  for (unsigned int slot = 0; slot < runCount; slot++) {
+    BHeap::Insert(heapZero, slot, SumCtg(slot, 1) / runZero[slot].sum);
   }
 }
 
@@ -355,20 +363,36 @@ void RunSet::DePop(int pop) {
    @brief Hammers the pair's run contents with runs selected for
    sampling.  Since the runs are to be read numerous times, performance
    may be benefit from this elimination of a level of indirection.
- */
-void RunSet::Shrink() {
-  FRNode tempRun[maxWidth];
 
+
+   @return post-shrink run count.
+ */
+int RunSet::DeWide() {
+  if (runCount <= maxWidth)
+    return runCount;
+
+  HeapRandom();
+  FRNode tempRun[maxWidth];
+  double tempSum[ctgWidth * maxWidth];
   // Copies runs referenced by the slot list to a temporary area.
   DePop(maxWidth);
   for (int i = 0; i < maxWidth; i++) {
-    tempRun[i] = runZero[outZero[i]];
+    int outSlot = outZero[i];
+    tempRun[i] = runZero[outSlot];
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      tempSum[i * ctgWidth + ctg] = ctgZero[outSlot * ctgWidth + ctg];
+    }
   }
 
   // Overwrites existing runs with the shrunken list
   for (int i = 0; i < maxWidth; i++) {
     runZero[i] = tempRun[i];
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      ctgZero[i * ctgWidth + ctg] = tempSum[i * ctgWidth + ctg];
+    }
   }
+
+  return maxWidth;
 }
 
 
@@ -388,13 +412,15 @@ int RunSet::LHBits(unsigned int lhBits, int &lhSampCt) {
   lhSampCt = 0;
   if (lhBits != 0) {
     for (unsigned int slot = 0; slot < slotSup; slot++) {
-      // If bit # 'slot' set in 'argMax', then the run at index
+      // If bit # 'slot' set in 'lhBits', then the run at index
       // 'slot' belongs to the left-hand side of the split.  Its
       // sample and index counts are accumulated and its index
       // is recorded in the out-set.
       //
       if ((lhBits & (1 << slot)) != 0) {
-        LHAccum(slot, lhSampCt, lhIdxCount);
+	int sCount;
+        lhIdxCount += LHCounts(slot, sCount);
+	lhSampCt += sCount;
 	outZero[runsLH++] = slot;
       }
     }
@@ -407,21 +433,23 @@ int RunSet::LHBits(unsigned int lhBits, int &lhSampCt) {
 /**
    @brief Dereferences out slots and accumulates splitting parameters.
 
-   @param lhTop is the final out slot of the LHS:  < 0 iff no split.
+   @param cut is the final out slot of the LHS:  < 0 iff no split.
 
    @param lhSampCt outputs the LHS sample count.
 
    @return LHS index count.
 */
-int RunSet::LHSlots(int lhTop, int &lhSampCt) {
+int RunSet::LHSlots(int cut, int &lhSampCt) {
   int lhIdxCount = 0;
   lhSampCt = 0;
 
-  runsLH = lhTop + 1;
-  for (int outSlot = 0; outSlot < runsLH; outSlot++) {
-    LHAccum(outZero[outSlot], lhSampCt, lhIdxCount);
+  for (int outSlot = 0; outSlot <= cut; outSlot++) {
+    int sCount;
+    lhIdxCount += LHCounts(outZero[outSlot], sCount);
+    lhSampCt += sCount;
   }
 
+  runsLH = cut + 1;
   return lhIdxCount;  
 }
 
@@ -430,7 +458,8 @@ int RunSet::LHSlots(int lhTop, int &lhSampCt) {
 //
 
 /**
-   @brief Inserts a key, value pair into the heap at next vacant slot.
+   @brief Inserts a key, value pair into the heap at next vacant slot.  Heap
+   updates to move element with maximal key to the top.
 
    @param bhOffset is the cached pair coordinate.
 
@@ -440,17 +469,17 @@ int RunSet::LHSlots(int lhTop, int &lhSampCt) {
 
    @return void.
  */
-void BHeap::Insert(BHPair pairVec[], int _slot, double _key) {
+void BHeap::Insert(BHPair pairVec[], unsigned int _slot, double _key) {
   unsigned int idx = _slot;
-  pairVec[idx].key = _key;
-  pairVec[idx].slot = _slot;
+  BHPair input;
+  input.key = _key;
+  input.slot = _slot;
+  pairVec[idx] = input;
 
   int parIdx = Parent(idx);
   while (parIdx >= 0 && pairVec[parIdx].key > _key) {
-    pairVec[idx].key = pairVec[parIdx].key;
-    pairVec[idx].slot = pairVec[parIdx].slot;
-    pairVec[parIdx].slot = _slot;
-    pairVec[parIdx].key = _key;
+    pairVec[idx] = pairVec[parIdx];
+    pairVec[parIdx] = input;
     idx = parIdx;
     parIdx = Parent(idx);
   }
@@ -458,36 +487,50 @@ void BHeap::Insert(BHPair pairVec[], int _slot, double _key) {
 
 
 /**
-   @brief Empties the slot indices keyed in BHPairs, in weight-sorted order.
+   @brief Empties the slot indices keyed in BHPairs.
 
    @param pop is the number of elements to pop.
 
-   @param lhOut outputs the popped items, in order.
+   @param lhOut outputs the popped slots, in increasing order.
 
    @return void.
 */
 void BHeap::Depopulate(BHPair pairVec[], int lhOut[], unsigned int pop) {
   for (int bot = pop - 1; bot >= 0; bot--) {
-    lhOut[pop - 1 - bot] = pairVec[0].slot;
+    lhOut[pop - 1 - bot] = SlotPop(pairVec, bot);
+  }
+}
 
-    // Places bottom element at head and refiles.
-    unsigned int idx = 0;
-    int slotRefile = pairVec[idx].slot = pairVec[bot].slot;
-    double keyRefile = pairVec[idx].key = pairVec[bot].key;
-    int descL = 1;
-    int descR = 2;
+
+/**
+   @brief Pops value at bottom of heap.
+
+   @return popped value.
+ */
+unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
+  unsigned int ret = pairVec[0].slot;
+  if (bot == 0)
+    return ret;
+  
+  // Places bottom element at head and refiles.
+  unsigned int idx = 0;
+  int slotRefile = pairVec[idx].slot = pairVec[bot].slot;
+  double keyRefile = pairVec[idx].key = pairVec[bot].key;
+  int descL = 1;
+  int descR = 2;
 
     // 'descR' remains the lower of the two descendant indices.  Some short-circuiting below.
     //
-    while((descR <= bot && keyRefile > pairVec[descR].key) || (descL <= bot && keyRefile > pairVec[descL].key)) {
-      int chIdx =  (descR <= bot && pairVec[descR].key < pairVec[descL].key) ?  descR : descL;
-      pairVec[idx].key = pairVec[chIdx].key;
-      pairVec[idx].slot = pairVec[chIdx].slot;
-      pairVec[chIdx].key = keyRefile;
-      pairVec[chIdx].slot = slotRefile;
-      idx = chIdx;
-      descL = 1 + (idx << 1);
-      descR = (1 + idx) << 1;
-    }
+  while((descR <= bot && keyRefile > pairVec[descR].key) || (descL <= bot && keyRefile > pairVec[descL].key)) {
+    int chIdx =  (descR <= bot && pairVec[descR].key < pairVec[descL].key) ?  descR : descL;
+    pairVec[idx].key = pairVec[chIdx].key;
+    pairVec[idx].slot = pairVec[chIdx].slot;
+    pairVec[chIdx].key = keyRefile;
+    pairVec[chIdx].slot = slotRefile;
+    idx = chIdx;
+    descL = 1 + (idx << 1);
+    descR = (1 + idx) << 1;
   }
+
+  return ret;
 }

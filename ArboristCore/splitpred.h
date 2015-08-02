@@ -67,6 +67,8 @@ class SplitPred {
   int pairCount;
   SPPair *spPair;
   void SplitFlags();
+  void SplitPredProb(const double ruPred[], bool splitFlags[]);
+  void SplitPredFixed(int predFix, const double ruPred[], class BHPair heap[], bool splitFlags[]);
   void LevelSplit(const class IndexNode _indexNode[], class SPNode *nodeBase, int splitCount);
   SPPair *PairInit(int &pairCount);
  protected:
@@ -129,7 +131,7 @@ class SPReg : public SplitPred {
   void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
   void SplitFac(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode *nodeBase, class SplitSig *splitSig);
   void SplitFacGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
-  int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
+  unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
   int HeapSplit(class RunSet *runSet, double sum, int &lhSampCt, double &maxGini);
 
  public:
@@ -151,7 +153,7 @@ class SPCtg : public SplitPred {
   double *ctgSumR; // Numeric predictors:  sum to right.
   double *sumSquares; // Per-level sum of squares, by split.
 // Numerical tolerances taken from A. Liaw's code:
-  static const double minDenomNum = 1.0e-5;
+  static const double minDenom = 1.0e-5;
   static const double minSumL = 1.0e-8;
   static const double minSumR = 1.0e-5;
   const class SampleNodeCtg *sampleCtg;
@@ -179,9 +181,8 @@ class SPCtg : public SplitPred {
   void LevelInitSumR();
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
   void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
-  int BinarySplit(class RunSet *runSet, int splitIdx, int &lhSampCt, double &maxGini);
-  
-  int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
+  int SplitBinary(class RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt);  
+  unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
   int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt);
   
  public:

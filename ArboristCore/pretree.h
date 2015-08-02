@@ -48,9 +48,9 @@ class PreTree {
   int treeHeight;
   int leafCount;
   int treeBitOffset;
-  bool *treeSplitBits;
   int *sample2PT; // Public accessor is Sample2Frontier().
   unsigned int *inBag;
+  bool *treeSplitBits;
   inline bool *BitFactory(int bitLength = 0);
  protected:
   int bagCount;
@@ -133,7 +133,7 @@ class PreTree {
      @return void.
   */
   inline void LHBit(int pos) {
-    treeSplitBits[pos] = true;
+    treeSplitBits[treeBitOffset + pos] = true;
   }
 
   void NonTerminal(int _id, double _info, double _splitVal, int _predIdx);
@@ -146,8 +146,11 @@ class PreTree {
 
      @return cached bit offset value.
    */
-  void BumpOff(int bump) {
+  int PostBump(int bump) {
+    int preVal = treeBitOffset;
     treeBitOffset += bump;
+
+    return preVal;
   }
 
   double Replay(class SamplePred *samplePred, int predIdx, int level, int start, int end, int ptId);

@@ -100,7 +100,7 @@ RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOri
   IntegerVector rFacOff(sFacOff); // Per-tree offsets of split bits.
   IntegerVector rFacSplits(sFacSplits);
 
-  //  NumericMatrix rSplitGini(sSplitGini);
+ //  NumericMatrix rSplitGini(sSplitGini);
   Train::WriteForest(rPreds.begin(), rSplits.begin(), rBump.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
 
   return wrap(0);

@@ -9,19 +9,24 @@
 }
 
 \usage{
-\method{predict}{Rborist}(object,x,yTest=NULL, quantVec=NULL, ...)
+\method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL, qBin = 5000, ctgCensus = NULL, ...)
 }
 
 \arguments{
   \item{object}{an object of class \code{Rborist}, created from a
     previous invocation of the command \code{Rborist} to train.}
-  \item{x}{a design matrix containing new data, with the same signature
+  \item{newdata}{a design matrix containing new data, with the same signature
     of predictors as in the training command.}
   \item{yTest}{if specfied, a response vector against which to test the new
     predictions.}
   \item{quantVec}{a vector of quantiles from which to report new
   quantile regressions.  Only valid if training step specficied quantile
   regression.}
+  \item{qBin}{bin size for quantile etimation.  Performance scales with
+    bin size.  Smaller bins sacrifice precision.}
+  \item{ctgCensus}{whether/how to summarize per-category predictions.
+  "votes" specifies the number of trees predicting a given class.
+  "prob" specifies a normalized, probabilistic summary.}
   \item{...}{not currently used.}
 }
 

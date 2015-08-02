@@ -18,10 +18,10 @@
 
 class SampleNode {
  public:
-  double sum; // Sum of values selected:  rowRun * y-value.
+  double sum; // Sum of values selected:  sCount * y-value.
   // Integer-sized container is likely overkill.  Size is typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
-  unsigned int rowRun;
+  unsigned int sCount;
 };
 
 

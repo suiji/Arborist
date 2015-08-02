@@ -14,18 +14,21 @@
 }
 
 \usage{
-\method{Rborist}{default}(x, y, nTree=500, withRepl = TRUE,
-                predProb = ifelse(!is.factor(y), 0.4, sqrt(ncol(x))/ncol(x)),
-                predWeight = rep(1.0, ncol(x)),
+\method{Rborist}{default} (x, y, nTree=500, withRepl = TRUE,
+                ctgCensus = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
-                minNode = ifelse(!is.factor(y), 6, 2),
+                minInfo = 0.05,
+                minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
-                minInfo = 0.01,
-                sampleWeight = NULL,
-                quantVec = NULL,
+                predFixed = 0,
+                predProb = ifelse(predFixed != 0, 0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(ncol(x)))/ncol(x))),
+                predWeight = rep(1.0, ncol(x)),
                 quantiles = !is.null(quantVec),
-                pvtBlock = 8,
-                pvtNoPredict = FALSE, ...)
+                quantVec = NULL,
+                qBin = 5000,
+                sampleWeight = NULL,
+                treeBlock = 1,
+                pvtBlock = 8, pvtNoPredict = FALSE, ...)
 }
 
 \arguments{

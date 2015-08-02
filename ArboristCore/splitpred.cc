@@ -216,10 +216,8 @@ SPPair *SplitPred::PairInit(int &pairCount) {
   int idx = 0;
   pairCount = 0;
   int runSets = 0; // Counts splitable multi-run pairs.
-  // TODO:  splitFlags must be indexed in same order as it
-  // is created.  Camouflage using iterators.
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+  for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+    for (int predIdx = 0; predIdx < nPred; predIdx++) {
       int rl = run->RunLength(splitIdx, predIdx);
       if (splitFlags[idx] && rl != 1) {
 	pairCount++;
@@ -234,14 +232,14 @@ SPPair *SplitPred::PairInit(int &pairCount) {
   idx = 0;
   int pairIdx = 0;
   int rSetIdx = 0;
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+  for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+    for (int predIdx = 0; predIdx < nPred; predIdx++) {
       int rl = run->RunLength(splitIdx, predIdx);
       if (splitFlags[idx] && rl != 1) {
         SPPair *pair = &spPair[pairIdx];
 	pair->SetCoords(splitIdx, predIdx);
 	if (rl > 1) {
-	  run->SafeRunCount(rSetIdx, rl);
+	  run->CountSafe(rSetIdx) = rl;
 	  pair->SetRSet(rSetIdx++);
 	}
 	else {
@@ -268,21 +266,58 @@ void SplitPred::SplitFlags() {
   int len = splitCount * nPred;
   double *ruPred = new double[len];
   CallBack::RUnif(len, ruPred);
-
   splitFlags = new bool[len];
-  int idx = 0;
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    double predProb = Predictor::PredProb(predIdx);
-    for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-      splitFlags[idx] = ruPred[idx] < predProb;
-      idx++;
+
+  int predFixed = Predictor::PredFixed();
+  BHPair *heap;
+  if (predFixed > 0)
+    heap = new BHPair[splitCount * nPred];
+  else
+    heap = 0;
+
+  int splitOff;
+#pragma omp parallel default(shared) private(splitOff)
+  {
+#pragma omp for schedule(dynamic, 1)
+  for (splitOff = 0; splitOff < splitCount * nPred; splitOff += nPred) {
+    if (predFixed == 0) {
+      SplitPredProb(&ruPred[splitOff], &splitFlags[splitOff]);
+    }
+    else {
+      SplitPredFixed(predFixed, &ruPred[splitOff], &heap[splitOff], &splitFlags[splitOff]);
     }
   }
+  }
 
+  if (heap != 0)
+    delete [] heap;
   delete [] ruPred;
 }
 
+
+void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
+  for (int predIdx = 0; predIdx < nPred; predIdx++) {
+    double predProb = Predictor::PredProb(predIdx);
+    flags[predIdx] = ruPred[predIdx] < predProb;
+  }
+}
+
  
+void SplitPred::SplitPredFixed(int predFixed, const double ruPred[], BHPair heap[], bool flags[]) {
+  for (int predIdx = 0; predIdx < nPred; predIdx++) {
+    double predProb = Predictor::PredProb(predIdx);
+    BHeap::Insert(heap, predIdx, ruPred[predIdx] * predProb);
+    flags[predIdx] = false;
+  }
+
+  // Pops 'predFixed' items with highest scores.
+  for (int i = nPred - 1; i >= nPred - predFixed; i--){
+    int predIdx = BHeap::SlotPop(heap, i);
+    flags[predIdx] = true;
+  }
+}
+
+
 /**
  */
 bool SplitPred::Singleton(int splitIdx, int predIdx) {
@@ -303,6 +338,7 @@ void SplitPred::LevelSplit(const IndexNode indexNode[], int level, int splitCoun
    @return void.
  */
 void SplitPred::LevelClear() {
+  run->LevelClear();
   delete [] spPair;
   delete [] splitFlags;
   splitFlags = 0;
@@ -314,7 +350,6 @@ void SplitPred::LevelClear() {
    @brief Run objects should not be deleted until after splits have been consumed.
  */
 void SPReg::LevelClear() {
-  run->LevelClear();
   SplitPred::LevelClear();
 }
 
@@ -609,9 +644,10 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
-  double numeratorL = sumSquares[splitIdx];
-  double numeratorR = 0.0;
-  double sumR = 0.0;
+  double ssL = sumSquares[splitIdx];
+  double ssR = 0.0;
+  //double sumR = 0.0;
+  double sumL = sum;
   int lhSup = -1;
   unsigned int rkRight = spn[end].Rank();
   int numL = sCount;
@@ -619,30 +655,33 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
   for (int i = end; i >= start; i--) {
     unsigned int yCtg;
     unsigned int rkThis;
-    unsigned int rowRun;
+    unsigned int sCount;
     double yVal;    
-    spn[i].CtgFields(yVal, rkThis, rowRun, yCtg);
-    double sumL = sum - sumR;
-    double idxGini = (sumL > minDenomNum && sumR > minDenomNum) ? numeratorL / sumL + numeratorR / sumR : 0.0;
-
-    // Far-right element does not enter test:  sumR == 0.0, so idxGini = 0.0.
-    if (idxGini > maxGini && rkThis != rkRight) {
-      lhSampCt = numL;
-      lhSup = i;
-      maxGini = idxGini;
+    spn[i].CtgFields(yVal, rkThis, sCount, yCtg);
+    //double sumL = sum - sumR;
+    double sumR = sum - sumL;
+    if (sumL > minDenom && sumR > minDenom && rkThis != rkRight) {
+      double cutGini = ssL / sumL + ssR / sumR;
+      if (cutGini > maxGini) {
+        lhSampCt = numL;
+        lhSup = i;
+        maxGini = cutGini;
+      }
     }
-    numL -= rowRun;
+    numL -= sCount;
 
-    // Suggested by Andy Liaw's version.  Numerical stability?
+    // Right sum is post-incremented with 'yVal', hence is exclusive.
+    // Left sum is inclusive.
+    //
     double sumRCtg = CtgSumRight(splitIdx, predIdx, yCtg, yVal);
-    double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg; // Sum to left, inclusive.
+    double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg;
 
-    // Numerator, denominator wraparound values for next iteration
-    // Gini computation employs pre-updated values.
-    numeratorR += yVal * (yVal + 2.0 * sumRCtg);
-    numeratorL += yVal * (yVal - 2.0 * sumLCtg);
-
-    sumR += yVal;
+    // Numerator, denominator values wrap around to next iteration
+    //
+    ssR += yVal * (yVal + 2.0 * sumRCtg);
+    ssL += yVal * (yVal - 2.0 * sumLCtg);
+    //sumR += yVal;
+    sumL -= yVal;
     rkRight = rkThis;
   }
 
@@ -658,9 +697,9 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
    @return void.
  */
 void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  int start, end, sCount;
+  int start, end, dummy;
   double sum, preBias, maxGini;
-  maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
+  maxGini = preBias = indexNode->SplitFields(start, end, dummy, sum);
 
   int splitIdx, predIdx;
   RunSet *runSet = run->RSet(spPair->RSet());
@@ -668,15 +707,9 @@ void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
   run->RunLength(splitIdx, predIdx) = BuildRuns(runSet, spn, start, end);
 
   int lhSampCt, lhIdxCount;
-  if (runSet->IsWide()) {
-    runSet->WriteHeap();
-    if (ctgWidth == 2)  { // Wide binary:  splits using heap.
-      lhIdxCount = BinarySplit(runSet, splitIdx, sCount, maxGini);
-    }
-    else {
-      runSet->Shrink();
-      lhIdxCount = SplitRuns(runSet, splitIdx, sum, maxGini, lhSampCt);
-    }
+
+  if (ctgWidth == 2)  {
+    lhIdxCount = SplitBinary(runSet, splitIdx, sum, maxGini, lhSampCt);
   }
   else {
     lhIdxCount = SplitRuns(runSet, splitIdx, sum, maxGini, lhSampCt);
@@ -693,12 +726,8 @@ void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
    also resolve response sum by category.  Further, heap is optional, passed only
    when run count has been estimated to be wide:
 
-   In the case of binary response, heap is sorted by proportion of samples with
-   value 1.0, which is equivalent to the mean value for the run.  Non-binary
-   response uses heap to sort by uniform variate, so as to effect sampling
-   without replacement.
 */
-int  SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
+unsigned int  SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
   int frEnd = end;
   double sum = 0.0;
   unsigned int sCount = 0;
@@ -730,71 +759,16 @@ int  SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
 }
 
 
-
-/**
-   @brief Approximate splitting method for binary response with wide run count.  Heap
-   has ordered output slots by proportion having value unity:  as response is 0/1
-   this is simply the mean.  Gini computation similar to RegFac case.
-
-   @param runSet holds the cached workspace addresses for runs at this pair.
-
-   @param sum is the sum of responses at this node.
-
-   @param sCount outputs sample count if split, otherwise undefined.
-
-   @param maxGini inputs prebias and outputs splitting Gini, otherwise undefined.
-
-   @return LH index count:  positive iff split; output reference parameters.
- */
-int SPCtg::BinarySplit(RunSet *runSet, int splitIdx, int &lhSampCt, double &maxGini) {
-  double sumR0 = CtgSum(splitIdx, 0);
-  double sumR1 = CtgSum(splitIdx, 1);
-  double sumL0 = 0.0;
-  double sumL1 = 0.0;
-  double sumR = sumR0 + sumR1; // == node's 'sum' value.
-  double sumL = 0.0;
-
-  int lhTop = -1;
-  runSet->DePop();
-  for (int outSlot = 0; outSlot < runSet->RunCount() - 1; outSlot++) {
-    double cell0, cell1;
-    double sqSumL = 0.0;
-    double sqSumR = 0.0;
-    runSet->SumBinary(outSlot, cell0, cell1);
-    double slotSum = cell0 + cell1;
-    sumL += slotSum;
-    sumR -= slotSum;
-    
-    sumL0 += cell0;
-    sumR0 -= cell0;
-    sqSumL += sumL0 * sumL0;
-    sqSumR += sumR0 * sumR0;
-    sumL1 += cell1;
-    sumR1 -= cell1;
-    sqSumL += sumL1 * sumL1;
-    sqSumR += sumR1 * sumR1;
-
-    if (sumR > minDenomNum && sumL > minDenomNum) {
-      double runGini = sqSumL / sumL + sqSumR / sumR;
-      if (runGini > maxGini) {
-        maxGini = runGini;
-        lhTop = outSlot;
-      }
-    }
-  }
-
-  return runSet->LHSlots(lhTop, lhSampCt);
-}
- 
-
 /**
    @brief Splits blocks of runs.
 
    @param sum is the sum of response values for this index node.
 
    @param maxGini outputs the highest observed Gini value.
+   
+   @param lhSampCt outputs LHS sample count.
 
-   @return binary encoding of the maximal-Gini LHS.
+   @return index count of LHS, with output reference parameters.
 
    Nodes are now represented compactly as a collection of runs.
    For each node, subsets of these collections are examined, looking for the
@@ -806,7 +780,9 @@ int SPCtg::BinarySplit(RunSet *runSet, int splitIdx, int &lhSampCt, double &maxG
    '2^(runCount-1) - 1'.
 */
 int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt) {
-  unsigned int slotSup = runSet->EffCount() - 1; // Uses post-shrink value.
+  int countEff = runSet->DeWide();
+
+  unsigned int slotSup = countEff - 1; // Uses post-shrink value.
   unsigned int lhBits = 0;
   unsigned int leftFull = (1 << slotSup) - 1;
   // Nonempty subsets as binary-encoded integers:
@@ -818,7 +794,7 @@ int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, 
       double sumCtg = 0.0; // Sum at this category over subset slots.
       for (unsigned int slot = 0; slot < slotSup; slot++) {
 	if ((subset & (1 << slot)) != 0) {
-	  sumCtg += runSet->SumCtg(yCtg, slot);
+	  sumCtg += runSet->SumCtg(slot, yCtg);
 	}
       }
       double totSum = CtgSum(splitIdx, yCtg); // Sum at this category over node.
@@ -841,6 +817,47 @@ int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, 
 
 
 /**
+   @brief Adapated from SplitRuns().  Specialized for two-category case in
+   which LH subsets accumulate.  This permits running LH 0/1 sums to be
+   maintained, as opposed to recomputed, as the LH set grows.
+
+   @return 
+ */
+int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt) {
+  runSet->HeapBinary();
+  runSet->DePop();
+
+  double totR0 = CtgSum(splitIdx, 0); // Sum at this category over node.
+  double totR1 = CtgSum(splitIdx, 1);
+  double sumL0 = 0.0; // Running sum at category 0 over subset slots.
+  double sumL1 = 0.0; // "" 1 " 
+  int cut = -1;
+
+  for (unsigned int outSlot = 0; outSlot < runSet->RunCount() - 1; outSlot++) {
+    double cell0, cell1;
+    bool splitable = runSet->SumBinary(outSlot, cell0, cell1);
+
+    sumL0 += cell0;
+    sumL1 += cell1;
+
+    double sumL = sumL0 + sumL1;
+    double sumR = sum - sumL;
+    // sumR, sumL magnitudes can be ignored if no large case/class weightings.
+    if (splitable && sumL > minDenom && sumR > minDenom) {
+      double ssL = sumL0 * sumL0 + sumL1 * sumL1;
+      double ssR = (totR0 - sumL0) * (totR0 - sumL0) + (totR1 - sumL1) * (totR1 - sumL1);
+      double cutGini = ssR / sumR + ssL / sumL;
+      if (cutGini > maxGini) {
+        maxGini = cutGini;
+        cut = outSlot;
+      }
+    } 
+  }
+
+  return runSet->LHSlots(cut, lhSampCt);
+}
+
+/**
    @brief Gini-based splitting method.
 
    @return void.
@@ -854,7 +871,7 @@ void SPReg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
   RunSet *runSet = run->RSet(spPair->RSet());
   spPair->Coords(splitIdx, predIdx);
   run->RunLength(splitIdx, predIdx) = BuildRuns(runSet, spn, start, end);
-  runSet->WriteHeap();
+  runSet->HeapMean();
 
   int lhIdxCount = HeapSplit(runSet, sum, sCount, maxGini);
   if (lhIdxCount > 0) {
@@ -866,7 +883,7 @@ void SPReg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
 /**
    Regression runs always maintained by heap.
 */
-int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
+unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
   int frEnd = end;
   double sum = 0.0;
   unsigned int sCount = 0;
@@ -917,15 +934,15 @@ int SPReg::HeapSplit(RunSet *runSet, double sum, int &sCount, double &maxGini) {
   int lhTop = -1; // Top index of lh ords in 'facOrd' (q.v.).
   int sCountTot = sCount; // Entry value of full sample count.
   runSet->DePop();
-  for (int outSlot = 0; outSlot < runSet->RunCount() - 1; outSlot++) {
+  for (unsigned int outSlot = 0; outSlot < runSet->RunCount() - 1; outSlot++) {
     int sCount;
     sumL += runSet->SumHeap(outSlot, sCount);
     sCountL += sCount;
     int sCountR = sCountTot - sCountL;
     double sumR = sum - sumL;
-    double runGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    if (runGini > maxGini) {
-      maxGini = runGini;
+    double cutGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    if (cutGini > maxGini) {
+      maxGini = cutGini;
       lhTop = outSlot;
     }
   }

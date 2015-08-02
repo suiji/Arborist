@@ -117,7 +117,6 @@ RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError, SEXP 
 
    @return Wrapped zero.
  */
-
 RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
   IntegerVector preds(sPreds);
   NumericVector splits(sSplits);
@@ -126,7 +125,7 @@ RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins,
   IntegerVector facOff(sFacOff);
   IntegerVector facSplits(sFacSplits);
 
-  if (facSplits.length() == 0)
+  if (facOff.length() == 0)
     Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), 0, 0);
   else
     Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), facOff.begin(), facSplits.begin());

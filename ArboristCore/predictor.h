@@ -31,6 +31,7 @@ class PredOrd {
 */
 class Predictor {
   //  static const int defaultInt = -1;
+  static int predFixed;
   static double *predProb;
   static int *intBase;
   static int *facCount;
@@ -185,6 +186,10 @@ class Predictor {
   }
 
 
+  static inline int PredFixed() {
+    return predFixed;
+  }
+
   /**
     @brief Derives split values for a predictor.
 
@@ -203,7 +208,7 @@ class Predictor {
   static void SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd);
   static void OrderByRank(const int *Col, const unsigned int r2r[], PredOrd *dCol, bool ordinals = true);
   static void OrderByRank(const double *xCol, const unsigned int r2r[], PredOrd *dCol);
-  static void Factory(const double _predProb[], int _nPred, unsigned int _nRow);
+  static void Factory(const double _predProb[], int _predFixed, int _nPred, unsigned int _nRow);
   static void DeFactory();
 };
 

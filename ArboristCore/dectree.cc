@@ -46,8 +46,7 @@ int **DecTree::bumpTree = 0;
 //
 int *DecTree::treeFacWidth = 0;
 int **DecTree::treeFacSplits = 0;
-
-int* DecTree::facSplitForest = 0; // Bits as integers:  alignment.
+int *DecTree::facSplitForest = 0; // Bits as integers:  alignment.
 int *DecTree::facOffForest = 0;
 double *DecTree::predInfo = 0;
 int *DecTree::predForest = 0;
@@ -382,7 +381,7 @@ bool DecTree::InBag(int treeNum, unsigned int row) {
 }
 
 
-void DecTree::WriteForest(int *rPreds, double *rSplits, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
+void DecTree::WriteForest(int *rPreds, double *rSplits, int *rBump, int *rOrigins, int *rFacOff, int *rFacSplits) {
   for (int tn = 0; tn < nTree; tn++) {
     int tOrig = treeOriginForest[tn];
     int facOrigin = facOffForest[tn];
@@ -503,7 +502,7 @@ void DecTree::Vote(const int *census, int yCtg[], int *confusion, double error[]
     if (argMax >= 0) {
       if (useBag) {
 	int rsp = yCtg[row];
-	confusion[rsp + ctgWidth * argMax]++;
+	confusion[ctgWidth * rsp + argMax]++;
       }
       else
 	yCtg[row] = argMax;
@@ -518,10 +517,10 @@ void DecTree::Vote(const int *census, int yCtg[], int *confusion, double error[]
       int numWrong = 0;
       for (unsigned int predicted = 0; predicted < ctgWidth; predicted++) {
 	if (predicted != rsp) {  // Mispredictions are off-diagonal.
-	  numWrong += confusion[rsp + ctgWidth * predicted];
+	  numWrong += confusion[ctgWidth * rsp + predicted];
 	}
       }
-      error[rsp] = double(numWrong) / double(numWrong + confusion[rsp + ctgWidth * rsp]);
+      error[rsp] = double(numWrong) / double(numWrong + confusion[ctgWidth * rsp + rsp]);
     }
   }
   else // Prediction only:  not training.

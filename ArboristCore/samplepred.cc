@@ -170,7 +170,7 @@ void SamplePred::StageReg(const PredOrd dCol[], const SampleNode sampleReg[], co
       int sIdx = sIdxRow[row];
       SampleNode sReg = sampleReg[sIdx];
       sampleIdx[ptIdx] = sIdx;
-      spn[ptIdx++].SetReg(sReg.sum, dc.rank, sReg.rowRun);
+      spn[ptIdx++].SetReg(sReg.sum, dc.rank, sReg.sCount);
     }
   }
 }
@@ -223,7 +223,7 @@ void SamplePred::StageCtg(const PredOrd dCol[], const SampleNodeCtg sampleCtg[],
       int sIdx = sIdxRow[row];
       SampleNodeCtg sCtg = sampleCtg[sIdx];
       sampleIdx[ptIdx] = sIdx;
-      spn[ptIdx++].SetCtg(sCtg.sum, dc.rank, sCtg.rowRun, sCtg.ctg);
+      spn[ptIdx++].SetCtg(sCtg.sum, dc.rank, sCtg.sCount, sCtg.ctg);
     }
   }
 }

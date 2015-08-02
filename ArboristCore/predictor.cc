@@ -31,6 +31,7 @@ int Predictor::nPredNum = 0;
 int Predictor::nPredInt = 0;
 int Predictor::nPredFac = 0;
 
+int Predictor::predFixed = 0;
 double *Predictor::predProb = 0;
 double* Predictor::numBase = 0;
 int* Predictor::facBase = 0;
@@ -165,7 +166,8 @@ int Predictor::BlockEnd() {
 
    @return void.
  */
-void Predictor::Factory(const double _predProb[], int _nPred, unsigned int _nRow) {
+void Predictor::Factory(const double _predProb[], int _predFixed, int _nPred, unsigned int _nRow) {
+  predFixed = _predFixed;
   nPred = _nPred;
   nRow = _nRow;
   if (_predProb != 0)  {

@@ -63,7 +63,7 @@ void Train::DeImmutables() {
 /**
    @brief Main entry for training.
 
-   @param minH is the minimal index node size on which to split.
+   @param minNode is the minimal index node size on which to split.
 
    @param quantiles is true iff quantiles have been requested.
 
@@ -77,11 +77,11 @@ void Train::DeImmutables() {
 
    @return sum of tree heights.
 */
-int Train::Training(int minH, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount) {
+int Train::Training(int minNode, bool _quantiles, double minRatio, int totLevels, int &facWidth, int &totBagCount) {
   SplitSig::Immutables(Predictor::NPred(), minRatio);
-  Index::Immutables(minH, totLevels, Sample::NSamp());
+  Index::Immutables(minNode, totLevels, Sample::NSamp());
   Quant::FactoryTrain(nRow, nTree, _quantiles);
-  PreTree::Immutables(nRow, Sample::NSamp(), minH);
+  PreTree::Immutables(nRow, Sample::NSamp(), minNode);
 
   PredOrd *predOrd = Predictor::Order();
   DecTree::FactoryTrain(nTree);
@@ -175,7 +175,7 @@ int Train::TrainBlock(const PredOrd *predOrd, int tn, int treeBlock) {
 
    @return void, with output parameter vectors.
  */
-void Train::WriteForest(int *rPreds, double *rSplits, int *rBump, int *rOrigins, int *rFacOff, int * rFacSplits) {
+void Train::WriteForest(int *rPreds, double *rSplits, int *rBump, int *rOrigins, int *rFacOff, int *rFacSplits) {
   DecTree::WriteForest(rPreds, rSplits, rBump, rOrigins, rFacOff, rFacSplits);
 
   // Dispenses with second load of predictor data (BlockData()).  Only client this late
