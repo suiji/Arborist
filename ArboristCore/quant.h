@@ -16,46 +16,42 @@
 
 #ifndef ARBORIST_QUANT_H
 #define ARBORIST_QUANT_H
+
 /**
  @brief Quantile signature.
 */
 class Quant {
-  static unsigned int smudge;
-  static unsigned int logSmudge;
-  static unsigned int binSize;
-  static unsigned int qBin;
-  static int nTree;
-  static unsigned int nRow;
-  static bool live;
-  static int qCount;
-  static double *qVec;
-  static double *qPred;
+  // Set from ForestReg:
+  const int height;
+  const int nTree;
+  const unsigned int nRow;
+  const int *origin;
+  const int *extent;
+  const double *yRanked;
+  const int *rank;
+  int *sCount; // Nonconstant:  hammered by binning mechanism.
+  const double *qVec;
+  const int qCount;
+  const unsigned int qBin;
+  
+  int *leafPos;
+  Quant(int _height, int _nTree, unsigned int _nRow, int *_origin, int *_nonTerm, int *_extent, double *_yRanked, int *_rank, int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin);
+  ~Quant();
+  void PredictRows(int *predictLeaves, double qPred[]);
+  void LeafPositions(int nonTerm[]);
+  /**
+     @brief Accessor for leaf positions.
+   */
+  int LeafPos(int i) {
+    return leafPos[i];
+  }
+  unsigned int SmudgeLeaves(unsigned int &logSmudge);
+  void Leaves(const int rowPredict[], double qRow[], unsigned int binSize, unsigned int logSmudge);
+  int RanksExact(int leafExtent, int leafOff, int sampRanks[]);
+  int RanksSmudge(unsigned int leafExtent, int leafOff, int sampRanks[], unsigned int binSize, unsigned int logSmudge);
 
-  static int *treeBagCount;
-  // Per-tree quantile vectors.
-  static unsigned int **treeQRank;
-  static int **treeQSCount;
-
-  static unsigned int totBagCount; // Internally-maintained copy.
-  static double *qYRankedForest;
-  static int *qRankForest;
-  static int *qSCountForest;
-  static void Leaves(const int treeOriginForest[], const int predForest[], const int posForest[], const int leaves[], double qRow[]);
-  static void SmudgeLeaves(const int treeOriginForest[], const int nonTermForest[], const int extentForest[], const int posForest[], int forestLength);
-  static int RanksExact(int leafExtent, int rankOff, int sampRanks[]);
-  static int RanksSmudge(unsigned int leafExtent, int rankOff, int sampRanks[]);
-  static void Quantiles(const class PreTree *preTree, const int bump[], const int leafExtent[], unsigned int qRank[], int qSCount[]);
-  static int *LeafPos(int treeHeight, const int bump[], const int leafExtent[]);
-  static void AbsOffset(const int nonTerm[], const int leafExtent[], int treeSize, int absOff[]);
  public:
-  static void FactoryTrain(unsigned int _nRow, int _nTree, bool _train);
-  static void FactoryPredict(int _nTree, double qYRanked[], int qRank[], int qSCount[]);
-  static void EntryPredict(double _qVec[], int _qCount, unsigned int _qBin, double _qPred[], unsigned int _nRow = 0);
-  static void DeFactoryPredict();
-  static void ConsumeTrees();
-  static void TreeRanks(const class PreTree *pt, const int bump[], const int leafExtent[], int tn);
-  static void Write(double rQYRanked[], int rQRank[], int rQSCount[]);
-  static void PredictRows(const int treeOriginForest[], const int nonTermForest[], const int extentForest[], int forestLength, int predictLeaves[]);
+  static void Predict(const class ForestReg *forestReg, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double _qPred[]);
 };
 
 #endif

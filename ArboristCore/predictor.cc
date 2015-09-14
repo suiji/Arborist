@@ -15,7 +15,6 @@
 
 #include "predictor.h"
 #include "sample.h"
-#include "dectree.h"
 #include "callback.h"
 
 // Testing only:
@@ -149,8 +148,7 @@ void Predictor::FactorBlock(int xi[], int _ncol, int levelCount[]) {
 int Predictor::BlockEnd() {
   if (nPredNum + nPredFac != nPred)
     return -1;
-  
-  DecTree::ObsImmutables(nRow, nPred, nPredNum, nPredFac);
+
   return 0;
 }
 

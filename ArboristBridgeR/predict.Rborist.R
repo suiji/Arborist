@@ -15,108 +15,106 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, qBin = 5000, ctgCensus = NULL, ...) {
+"predict.Rborist" <- function(object, newdata, yTest=NULL, qVec = NULL, quantiles = !is.null(qVec), qBin = 5000, ctgCensus = "votes", ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
-    stop("Insufficient state maintained for prediction")
-  PredictForest(object$forest, newdata, yTest, quantVec, qBin, ctgCensus)
+    stop("Forest state needed for prediction")
+  if (quantiles && is.null(object$leaf))
+    stop("Leaf state needed for quantile")
+  if (quantiles && is.null(qVec))
+    qVec <- DefaultQuantVec()
+
+  PredictForest(object$forest, object$leaf, newdata, yTest, qVec, qBin, ctgCensus)
 }
 
-PredictForest <- function(forest, newdata, yTest, quantVec, qBin, ctgCensus) {
-  if (is.null(forest$predictors))
+PredictForest <- function(forest, leaf, newdata, yTest, qVec, qBin, ctgCensus) {
+  if (is.null(forest$pred))
     stop("Unset predictors in forest")
-  if (is.null(forest$splitValues))
+  if (is.null(forest$split))
     stop("Unset split values in forest")
   if (is.null(forest$bump))
     stop("Unset bump table in forest")
 
-  quantiles <- !is.null(forest$quant)
-  if (!quantiles && !is.null(quantVec))
-    stop("Quantile vector given but no quantile state found")
-  if (quantiles && is.null(quantVec))
-    quantVec <- DefaultQuantVec()
-  
+  if (!is.null(qVec)) {
+    if (any(qVec > 1) || any(qVec < 0))
+      stop("Quantile range must be within [0,1]")
+    if (any(diff(qVec) <= 0))
+      stop("Quantile range must be increasing")
+  }
+
   # Checks test data for conformity with training data.
   PredBlock(newdata)
 
-  .Call("RcppReload", forest$predictors, forest$splitValues, forest$bump, forest$origins, forest$facOff, forest$facSplits)
-  if (quantiles)
-    .Call("RcppReloadQuant", length(forest$origins), forest$quant$qYRanked, forest$quant$qRank, forest$quant$qSCount)
+  nRow <- nrow(newdata)
+  if (is.null(forest$yLevels)) {
+    .Call("RcppForestReg", forest, leaf)
   
-  if (is.null(forest$levels)) {
-    y <- numeric(nrow(newdata))
-    if (!quantiles) {
+    yPred <- numeric(nRow)
+    if (is.null(qVec)) {
       qPred <- NULL
-      .Call("RcppPredictReg", y)
+      .Call("RcppPredictReg", yPred)
     }
     else {
-      qPred <- numeric(nrow(newdata) * length(quantVec))
-      .Call("RcppPredictQuant", quantVec, qBin, qPred, y)
-      qPred <- matrix(qPred, nrow(newdata), length(quantVec), byrow=TRUE)
+      qPred <- numeric(nRow * length(qVec))
+      .Call("RcppPredictQuant", qVec, qBin, qPred, yPred)
+      qPred <- matrix(qPred, nRow, length(qVec), byrow=TRUE)
     }
     
     if (!is.null(yTest))
-      val <- sum((y-yTest)^2) / length(y)
-    else
-      val <- y
+      mse <- .Call("RcppMSE", yPred, yTest)
     
     if (!is.null(qPred)) {
       if (!is.null(yTest)) {
-        ret <- list(mse = val, quantiles = qPred)
+        ret <- list(predicted = yPred, mse = mse, quantiles = qPred)
       }
       else
-        ret <- list(predicted = y, quantiles = qPred)
+        ret <- list(predicted = yPred, quantiles = qPred)
     }
     else {
       if (!is.null(yTest)) {
-        ret <- list(mse = val)
+        ret <- list(predicted = yPred, mse = mse)
       }
       else
-        ret <- list(predicted = y)
+        ret <- list(predicted = yPred)
     }
   }
   else {
-    y <- integer(nrow(newdata))
-    trainClass = forest$levels
-    ctgWidth = length(trainClass)
-    if (is.null(ctgCensus)) {
-      census <- NULL
-      prob <- FALSE
-    }
-    else if (ctgCensus == "votes") {
-      census <- integer(nrow(newdata) * ctgWidth)
-      prob <- FALSE
+    if (!is.null(qVec))
+      stop("Quantiles supported for regression case only")
+
+    unused <- .Call("RcppForestCtg", forest, leaf)
+    yLevels <- forest$yLevels
+    yPred <- integer(nRow)
+    ctgWidth = length(yLevels)
+    census <- rep(0L, nRow * ctgWidth)
+    if (ctgCensus == "votes") {
+      prob <- NULL
+      unused <- .Call("RcppPredictVotes", yPred, census)
     }
     else if (ctgCensus == "prob") {
-      census <- integer(nrow(newdata) * ctgWidth)
-      prob <- TRUE
+      prob <- rep(0.0, nRow * ctgWidth)
+      unused <- .Call("RcppPredictProb", yPred, census, prob)
+      prob <- matrix(prob, nRow, ctgWidth, byrow = TRUE)
+      dimnames(prob) <- list(rownames(newdata), yLevels)
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
     }
-
-
-    unused <- .Call("RcppPredictCtg", y, ctgWidth, census)
-    if (!is.null(census)) {
-      census <- matrix(census, nrow(newdata), ctgWidth, byrow = TRUE)
-      if (prob) {
-        census <- t(apply(census, 1, function(x) { x / sum(x) }))
-      }
-      dimnames(census) <- list(rownames(newdata), trainClass)
-    }
+    census <- matrix(census, nRow, ctgWidth, byrow = TRUE)
+    dimnames(census) <- list(rownames(newdata), yLevels)
 
     if (is.null(yTest)) {
-      ret <- list(predicted = as.factor(y), ctgCensus=census)
+      ret <- list(predicted = yLevels[yPred], census=census, prob=prob)
     }
     else {
       conf <- matrix(0L, ctgWidth, ctgWidth)
-      for (i in 1:length(y)) {
+      for (i in 1:length(yPred)) {
         yActual <- yTest[i]
-        yPred <- y[i]
+        yPred <- yPred[i]
         conf[yActual, yPred] <- conf[yActual, yPred] + 1
       }
-      ret <- list(confusion = conf, ctgCensus=census)
+      ret <- list(confusion = conf, census = census, prob=prob)
     }
   }
 

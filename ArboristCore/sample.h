@@ -43,34 +43,49 @@ class Sample {
   static unsigned int nRow;
   static int nSamp;
   int bagCount;
+  double bagSum;
+  unsigned int *inBag;
+  class SamplePred *samplePred;
+  class SplitPred *splitPred;
   int *CountRows();
+  void LeafExtent(const int frontierMap[], int leafExtent[]);
  public:
-  static void Immutables(unsigned int _nRow, int _nPred, int _nSamp);
+  static void Immutables(unsigned int _nRow, int _nPred, int _nSamp, unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
 
+  Sample();
 
-  static inline int NSamp() {
-    return nSamp;
-  }
-
-
-  static inline int NRow() {
-    return nRow;
-  }
-
-
-  static inline int NPred() {
-    return nPred;
-  }
-
-  
   inline int BagCount() {
     return bagCount;
   }
 
-  virtual ~Sample() {}
-  virtual void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) = 0;
-  virtual int LeafFields(int sIdx, unsigned int &rank) = 0;
+  
+  inline double BagSum() {
+    return bagSum;
+  }
+
+  
+  inline class SplitPred *SplPred() {
+    return splitPred;
+  }
+
+  
+  inline class SamplePred *SmpPred() {
+    return samplePred;
+  }
+
+    
+  inline unsigned int *InBag() {
+    return inBag;
+  }
+
+
+  void TreeClear();
+
+  
+  virtual ~Sample() {
+    delete [] inBag;
+  }
 };
 
 
@@ -80,14 +95,14 @@ class Sample {
 class SampleReg : public Sample {
   SampleNode *sampleReg;
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
-
+  void Scores(const int frontierMap[], int treeHeight, double score[]);
+  int *LeafPos(const int nonTerm[], const int leafExtent[], int treeHeight);
  public:
   SampleReg();
   ~SampleReg();
   static void Immutables();
-  int Stage(const double y[], const unsigned int row2Rank[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
-  void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
-  int LeafFields(int sIdx, unsigned int &rank);
+  void Stage(const double y[], const unsigned int row2Rank[], const class PredOrd *predOrd);
+  void Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], unsigned int *rank, unsigned int *sCount);
 };
 
 
@@ -95,15 +110,18 @@ class SampleReg : public Sample {
  @brief Categorical-specific sampling.
 */
 class SampleCtg : public Sample {
-  static int ctgWidth;
+  static unsigned int ctgWidth;
+  static double forestScale;  // Jitter scale for forest-wide scores.
   SampleNodeCtg *sampleCtg;
+  void Scores(double *leafWeight, int treeHeight, const int nonTerm[], double score[]);
+  void LeafWeight(const int frontierMap[], double *leafWeight);
  public:
   SampleCtg();
   ~SampleCtg();
-  static void Immutables(int _ctgWidth);
-  int Stage(const int yCtg[], const double y[], const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *samplePred, class SplitPred *&splitPred, double &bagSum);
-  void Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]);
-  int LeafFields(int sIdx, unsigned int &rank);
+  static void Immutables(int _ctgWidth, int _nTree);
+  void Stage(const int yCtg[], const double y[], const class PredOrd *predOrd);
+
+  void Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], double *leafWeight);
 };
 
 

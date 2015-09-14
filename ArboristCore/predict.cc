@@ -8,130 +8,204 @@
 /**
    @file predict.cc
 
-   @brief Methods for the front-end interface supporting prediction.
+   @brief Methods for prediction.
 
    @author Mark Seligman
+ */
 
-*/
-
-// Interface class for front end.
-// Holds simulation-specific parameters of the data.
-//
-
+#include "forest.h"
 #include "predict.h"
-#include "dectree.h"
 #include "quant.h"
-#include "response.h"
 
-// Testing only:
-//#include <iostream>
-using namespace std;
+int Predict::nTree = 0;
+unsigned int Predict::nRow = 0;
+unsigned int Predict::ctgWidth = 0;
+ForestReg *Predict::forestReg = 0;
+ForestCtg *Predict::forestCtg = 0;
 
 /**
-   @brief Thin interface for reloading trained forest.
+   @brief Entry for separate prediction.
+ */
+void Predict::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) {
+  unsigned _nRow = Forest::PredImmutables();
+  Immutables(_nTree, _nRow, _ctgWidth);
+  forestCtg = Forest::FactoryCtg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _ctgWidth, _leafWeight);
+}
+
+
+/**
+   @brief Entry for separate prediction.
 
    @return void.
  */
-void Predict::ForestReload(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplits[]) {
-  DecTree::ForestReload(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplits);
+void Predict::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
+  unsigned _nRow = Forest::PredImmutables();
+  Immutables(_nTree, _nRow);
+  forestReg = Forest::FactoryReg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _rank, _sCount, _yRanked);
+}
+
+
+void Predict::Immutables(int _nTree, int _nRow, int _ctgWidth) {
+  nTree = _nTree;
+  nRow = _nRow;
+  ctgWidth = _ctgWidth;
+}
+
+
+void Predict::DeImmutables() {
+  nTree = -1;
+  ctgWidth = 0;
+  forestReg = 0;
+  forestCtg = 0;
+}
+
+/**
+   @brief Static entry for validation.
+ */
+int Predict::ValidateCtg(const int yCtg[], const unsigned int *bag, int yPred[], int *census, int *conf, double error[], double *prob) {
+  if (!forestCtg)
+    return -1;
+
+  int *predictLeaves = new int[nRow * nTree];
+  forestCtg->Predict(predictLeaves, bag);
+
+  double *votes = forestCtg->Score(predictLeaves);
+  Vote(votes, census, yPred);
+  delete [] votes;
+  Validate(yCtg, yPred, conf, error);
+
+  if (prob != 0)
+    forestCtg->Prob(predictLeaves, prob);
+  delete [] predictLeaves;
+  Forest::DeFactory(forestCtg);
+  
+  return 0;
 }
 
 
 /**
-   @brief Thin interface for reloading trained forest, with quantiles.
+   @brief Static entry for prediction.
+
+   @return 0 for normal termination, -1 for exception.
+ */
+int Predict::PredictCtg(int yPred[], int *census, double *prob) {
+  if (!forestCtg)
+    return -1;
+
+  int *predictLeaves = new int[nRow * nTree];
+  forestCtg->Predict(predictLeaves, 0);
+
+  double *votes = forestCtg->Score(predictLeaves);
+  Vote(votes, census, yPred);
+  delete [] votes;
+
+  if (prob != 0) {
+    forestCtg->Prob(predictLeaves, prob);
+  }
+  delete [] predictLeaves;
+
+  Forest::DeFactory(forestCtg);
+
+  return 0;
+}
+
+
+/**
+   @brief Fills in confusion matrix and error vector.
+
+   @param yCtg contains the training response.
+
+   @param yPred is the predicted response.
+
+   @param confusion is the confusion matrix.
+
+   @param error outputs the classification errors.
 
    @return void.
- */
+*/
+void Predict::Validate(const int yCtg[], const int yPred[], int confusion[], double error[]) {
+  for (unsigned int row = 0; row < nRow; row++) {
+    confusion[ctgWidth * yCtg[row] + yPred[row]]++;
+  }
 
-void Predict::ForestReloadQuant(int nTree, double qYRanked[], int qRank[], int qSCount[]) {
-  Quant::FactoryPredict(nTree, qYRanked, qRank, qSCount);
+  // Fills in classification error vector from off-diagonal confusion elements..
+  //
+  for (unsigned int rsp = 0; rsp < ctgWidth; rsp++) {
+    int numWrong = 0;
+    int numRight = 0;
+    for (unsigned int predicted = 0; predicted < ctgWidth; predicted++) {
+      if (predicted != rsp) {  // Mispredictions are off-diagonal.
+        numWrong += confusion[ctgWidth * rsp + predicted];
+      }
+      else {
+	numRight = confusion[ctgWidth * rsp + predicted];
+      }
+    }
+    error[rsp] = double(numWrong) / double(numWrong + numRight);
+  }
+}
+
+ 
+/**
+   @brief Voting for non-bagged prediction.  Rounds jittered scores to category.
+
+   @param predictLeaves are the predicted terminal indices.
+
+   @param yCtg outputs predicted response.
+
+   @return void, with output reference vector.
+*/
+void Predict::Vote(double *votes, int census[], int yPred[]) {
+  unsigned int row;
+
+#pragma omp parallel default(shared) private(row)
+  {
+#pragma omp for schedule(dynamic, 1)
+  for (row = 0; row < nRow; row++) {
+    int argMax = -1;
+    double scoreMax = 0.0;
+    double *score = votes + row * ctgWidth;
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      double ctgScore = score[ctg]; // Jittered vote count.
+      if (ctgScore > scoreMax) {
+	scoreMax = ctgScore;
+	argMax = ctg;
+      }
+      census[row * ctgWidth + ctg] = ctgScore; // De-jittered.
+    }
+    yPred[row] = argMax;
+  }
+  }
+}
+
+ 
+/**
+   @brief Static entry with local leaf allocation.
+ */
+int Predict::PredictReg(double yPred[], const unsigned int *bag) {
+  if (!forestReg) {
+    return -1;
+  }
+
+  int *predictLeaves = new int[nRow * nTree];
+  forestReg->Predict(yPred, predictLeaves, bag);
+  delete [] predictLeaves;
+
+  Forest::DeFactory(forestReg);
+  return 0;
 }
 
 
 /**
-   @brief Predicts using a regression forest on out-of-bag data.
-
-   @param err is an output parameter containing the mean-square error.
-
-   @param predInfo is an output vector parameter reporting predictor Info values.
-
-   @return void, with output parameters.
  */
-void Predict::PredictOOBReg(double *err, double predInfo[]) {
-  ResponseReg::PredictOOB(err, predInfo);
-}
+int Predict::PredictQuant(double yPred[], const double qVec[], int qCount, unsigned int qBin, double qPred[], const unsigned int *bag) {
+  if (!forestReg) {
+    return -1;
+  }
+  int *predictLeaves = new int[nRow * nTree];
+  forestReg->Predict(yPred, predictLeaves, bag);
+  Quant::Predict(forestReg, qVec, qCount, qBin, predictLeaves, qPred);
 
-
-/**
-   @brief As above, but with quantile predictions as well.
-
-   @param err is an output parameter containing the mean-square error.
-
-   @param quantVec is an ordered vector of desired quantiles.
-
-   @param qCount is the length of the quantVec vector.
-
-   @param qPred is the predicted quantile set.
-
-   @param predInfo is an output vector parameter reporting predictor Info values.
-
-   @return void, with output parameters.
- */
-void Predict::PredictOOBQuant(double err[], double quantVec[], int qCount, unsigned int qBin, double qPred[], double predInfo[]) {
-  Quant::EntryPredict(quantVec, qCount, qBin, qPred);
-  ResponseReg::PredictOOB(err, predInfo);
-}
-
-
-/**
-   @brief Predicts from a quantile forest.
-
-   @return void, with output vector parameters.
- */
-
-void Predict::PredictQuant(int nRow, double quantVec[], int qCount, unsigned int qBin, double qPred[], double y[]) {
-  Quant::EntryPredict(quantVec, qCount, qBin, qPred, nRow);
-  DecTree::PredictAcrossReg(y, false);
-}
-
-
-/**
-   @brief Predicts from a regression forest.
-
-   @param y outputs the predicted response.
-
-   @return void, with output vector parameter.
- */
-void Predict::PredictReg(double y[]) {
-  DecTree::PredictAcrossReg(y, false);
-}
-
-
-/**
-   @brief Predicts using a classification forest on out-of-bag data.
-
-   @param conf outputs a confusion matrix.
-
-   @param err outputs the mean-square error.
-
-   @param predInfo outputs predictor Info values.
-
-   @return void, with output parameters.
- */
-void Predict::PredictOOBCtg(int conf[], double *error, double predInfo[], int *census) {
-  ResponseCtg::PredictOOB(conf, error, predInfo, census);
-}
-
-
-/**
-   @brief Predicts from a classification forest.
-
-   @param y outputs the predicted response.
-
-   @param ctgWidth is the cardinality of factor-valued response.
-
-   @return void, with output parameter vector.
- */
-void Predict::PredictCtg(int y[], unsigned int nRow, unsigned int ctgWidth, int *census) {
-  DecTree::PredictCtg(census, ctgWidth, y, 0, 0, false);
+  delete [] predictLeaves;
+  return 0;
 }

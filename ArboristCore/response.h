@@ -22,19 +22,11 @@
    @brief Methods and members for management of response-related computations.
  */
 class Response {
- protected:
-  static void Finish(double predInfo[]);
  public:
-  double *y;
-  static unsigned int nRow; // Set from Predictor
-  static Response *response;
-  static void FactoryReg(double yNum[]);
-  static void FactoryCtg(const int feCtg[], const double feProxy[], unsigned int ctgWidth);
-  static void DeFactorySt();
-  virtual void DeFactory() = 0;
-  Response(double _y[]);
-  static class Sample* StageSamples(const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &sum, int &bagCount);
-  virtual Sample* SampleRows(const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &sum, int &bagCount) = 0;
+  const double *y;
+  Response(const double _y[]);
+  static class ResponseReg *FactoryReg(const double yNum[], double yRanked[], unsigned int nRow);
+  static class ResponseCtg *FactoryCtg(const int feCtg[], const double feProxy[]);
   
   virtual ~Response(){}
 };
@@ -43,34 +35,27 @@ class Response {
    @brief Specialization to regression trees.
  */
 class ResponseReg : public Response {
+  class SampleReg* SampleRows(const class PredOrd *predOrd);
+
  public:
-  ResponseReg(double _y[]);
+  ResponseReg(const double _y[], double yRanked[], unsigned int nRow);
   ~ResponseReg();
-  static void Factory(double yNum[]);
-  static unsigned int *row2Rank;
-  static double *yRanked;
-  static void PredictOOB(double err[], double predInfo[]);
-  static void PredictOOB(double error[], double quantVec[], int qCells, double qPred[], double predInfo[]);
-  static void GetYRanked(double _yRanked[]);
-  Sample* SampleRows(const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &sum, int &bagCount);
-  void DeFactory();
+  class SampleReg **BlockSample(const class PredOrd *predOrd, int tCount);
+  unsigned int *row2Rank;
 };
 
 /**
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
-  static unsigned int ctgWidth; // Fixed by response.
+  class SampleCtg* SampleRows(const class PredOrd *predOrd);
  public:
-  static void Factory(const int feCtg[], const double feProxy[], unsigned int ctgWidth);
-  static int *yCtg; // The original factor-valued response.
+  const int *yCtg; // The original factor-valued response.
 
-  ResponseCtg(double yProxy[]);
-  static void PredictOOB(int *conf, double err[], double predInfo[], int *census);
+  class SampleCtg **BlockSample(const class PredOrd *predOrd, int tCount);
+  ResponseCtg(const int _yCtg[], const double _yProxy[]);
   ~ResponseCtg();
-  static void Factory(int _yCtg[], unsigned int _ctgWidth);
-  void DeFactory();
-  Sample* SampleRows(const class PredOrd *predOrd, unsigned int inBag[], class SamplePred *&samplePred, class SplitPred *&splitPred, double &sum, int &bagCount);
+  
   static int CtgSum(unsigned int sIdx, double &sum);
 };
 

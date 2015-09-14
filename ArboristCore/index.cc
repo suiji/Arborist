@@ -17,6 +17,7 @@
 #include "index.h"
 #include "splitsig.h"
 #include "pretree.h"
+#include "sample.h"
 #include "splitpred.h"
 #include "samplepred.h"
 #include "restage.h"
@@ -96,16 +97,19 @@ Index::~Index() {
    @brief Instantiates a block of PreTees for bulk return, but may or may
    not build them concurrently.
 
+   @param sampleBlock contains the sample objects characterizing the roots.
+
    @param treeBlock is the number of trees to train in this block.
 
    @return brace of 'treeBlock'-many PreTree objects.
 */
-PreTree **Index::BlockTrees(const PredOrd *predOrd, int treeBlock) {
+PreTree **Index::BlockTrees(Sample **sampleBlock, int treeBlock) {
   PreTree **ptBlock = new PreTree*[treeBlock];
 
-  int treeIdx = 0;
-  for (treeIdx = 0; treeIdx < treeBlock; treeIdx ++) {
-    ptBlock[treeIdx] = OneTree(predOrd);
+  for (int blockIdx = 0; blockIdx < treeBlock; blockIdx ++) {
+    Sample *sample = sampleBlock[blockIdx];
+    ptBlock[blockIdx] = OneTree(sample->SmpPred(), sample->SplPred(), sample->BagCount(), sample->BagSum());
+    sample->TreeClear();
   }
   
   return ptBlock;
@@ -117,18 +121,13 @@ PreTree **Index::BlockTrees(const PredOrd *predOrd, int treeBlock) {
 
    @return void.
  */
-PreTree *Index::OneTree(const PredOrd *predOrd) {
-  PreTree *preTree = new PreTree();
-  int bagCount;
-  double sum;
-  SamplePred *samplePred = new SamplePred();
-  SplitPred *splitPred = preTree->BagRows(predOrd, samplePred, bagCount, sum);
-  Index *index = new Index(samplePred, preTree, splitPred, bagCount, sum);
+PreTree *Index::OneTree(SamplePred *_samplePred, SplitPred *_splitPred, int _bagCount, double _sum) {
+  PreTree *_preTree = new PreTree(_bagCount);
+  Index *index = new Index(_samplePred, _preTree, _splitPred, _bagCount, _sum);
   index->Levels();
   delete index;
-  delete samplePred;
 
-  return preTree;
+  return _preTree;
 }
 
 
@@ -159,7 +158,6 @@ void  Index::Levels() {
     splitCount = splitNext;
   }
 
-  delete splitPred;
   delete splitSig;
   // ASSERTION:
   //   levelBase + levelWidth == preTree->TreeHeight()

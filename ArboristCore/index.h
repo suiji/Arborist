@@ -215,7 +215,7 @@ class Index {
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   bool *ntLH;
   bool *ntRH;
-  static class PreTree *OneTree(const class PredOrd *predOrd);
+  static class PreTree *OneTree(class SamplePred *_samplePred, class SplitPred *_splitPred, int _bagCount, double _bagSum);
  public:
   static int nSamp;
   static void Immutables(int _minNode, int _totLevels, int _nSamp);
@@ -231,7 +231,7 @@ class Index {
   int Level() {
     return level;
   }
-  static class PreTree **BlockTrees(const class PredOrd *predOrd, int _treeBlock);
+  static class PreTree **BlockTrees(class Sample **sampleBlock, int _treeBlock);
   void SetPrebias();
   void Levels();
   void PredicateBits(unsigned int bitsLH[], unsigned int bitsRH[], int &lhIdxTot, int &rhIdxTot) const;

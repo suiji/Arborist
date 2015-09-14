@@ -128,9 +128,9 @@ class SPReg : public SplitPred {
   void SplitHeap(const class IndexNode *indexNode, const class SPNode spn[], int predIdx, class SplitSig *splitSig);
   void Split(const class IndexNode indexNode[], class SPNode *nodeBase, class SplitSig *splitSig);
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
-  void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
+  void SplitNumWV(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
   void SplitFac(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode *nodeBase, class SplitSig *splitSig);
-  void SplitFacGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
+  void SplitFacWV(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
   int HeapSplit(class RunSet *runSet, double sum, int &lhSampCt, double &maxGini);
 

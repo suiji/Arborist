@@ -18,90 +18,22 @@
 /**
    @file rcppPredict.cc
 
-   @brief C++ interface to R for prediction.
+   @brief C++ interface to R entry for prediction methods.
 
    @author Mark Seligman
  */
 
+#include <R.h>
 #include <Rcpp.h>
 
-//#include <iostream>
-using namespace Rcpp;
 using namespace std;
+using namespace Rcpp;
 
 #include "predict.h"
+//#include <iostream>
 
 /**
- @brief Out-of-box prediction with quantiles.  Individual predictions are not exposed.  Rather, the OOB/test/importance statistics are averaged and returned.
-
- @param sPredGini is a copy-out vector of per-predictor Gini gain values.
-
- @param sError is a copy-out scalar hoding mean-square error.
-
- @param sQuantVec is a vector of quantile training data.
-
- @param sQPred is an output vector of quantile predictions.
-
- @return Wrapped zero, with copy-out vector and scalar paramters.
-
-*/
-RcppExport SEXP RcppPredictOOBQuant(SEXP sPredGini, SEXP sError, SEXP sQuantVec, SEXP sQBin, SEXP sQPred) {
-  NumericVector error(sError);
-  NumericVector quantVec(sQuantVec);
-  NumericVector qPred(sQPred);
-  NumericVector predGini(sPredGini);
-
-  Predict::PredictOOBQuant(error.begin(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), predGini.begin());
-
-  return wrap(0);
-}
-
-/**
-   @brief Out-of-box predction for regression.
-
-   @param sPredGini is a copy-out vector with Gini values.
-
-   @param sError holds a copy-out scalar with mean-square error.
-
-   @return Wrapped zero, with copy-out parameters.
- */
-RcppExport SEXP RcppPredictOOB(SEXP sPredGini, SEXP sError) {
-  NumericVector error(sError);
-  NumericVector predGini(sPredGini);
-
-  Predict::PredictOOBReg(error.begin(), predGini.begin());
-  return wrap(0);
-}
-
-/**
-   @brief Out-of-box prediction for classification.
-
-   @param sPredGini is a copy-out vector reporting Gini values.
-
-   @param sConf is a copy-out confusion matrix
-
-   @param sError is a copy-out scalar with mean-square error.
-
-   @return Wrapped zero, with copy-out parameters.
- */
-RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError, SEXP sCensus) {
-  IntegerVector conf(sConf);
-  NumericVector error(sError);
-  NumericVector predGini(sPredGini);
-
-  if (Rf_isNull(sCensus)) {
-    Predict::PredictOOBCtg(conf.begin(), error.begin(), predGini.begin(), 0);
-  }
-  else {
-    IntegerVector census(sCensus);
-    Predict::PredictOOBCtg(conf.begin(), error.begin(), predGini.begin(), census.begin());
-  }
-    
-  return wrap(0);
-}
-
-/**
-   @brief Reloads a previously-generated forest for use by prediction.  Trees are stored sequentially in long vectors.
+   @brief Forests a previously-generated classification forest for use by prediction.  Trees are stored sequentially in long vectors.
    
    @param sPreds are the predictors for each terminal of each tree.
 
@@ -117,66 +49,88 @@ RcppExport SEXP RcppPredictOOBCtg(SEXP sPredGini, SEXP sConf, SEXP sError, SEXP 
 
    @return Wrapped zero.
  */
-RcppExport SEXP RcppReload(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) {
-  IntegerVector preds(sPreds);
-  NumericVector splits(sSplits);
-  IntegerVector bump(sBump);
-  IntegerVector origins(sOrigins);
-  IntegerVector facOff(sFacOff);
-  IntegerVector facSplits(sFacSplits);
+RcppExport SEXP RcppForestCtg(SEXP sForest, SEXP sLeaf) {
+  List forest(sForest);
+  List leaf(sLeaf);
 
-  if (facOff.length() == 0)
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), 0, 0);
-  else
-    Predict::ForestReload(origins.length(), preds.length(), preds.begin(), splits.begin(), bump.begin(), origins.begin(), facOff.begin(), facSplits.begin());
+  IntegerVector pred((SEXP) forest["pred"]);
+  NumericVector split((SEXP) forest["split"]);
+  IntegerVector bump((SEXP) forest["bump"]);
+  IntegerVector origin((SEXP) forest["origin"]);
+  IntegerVector facOrig((SEXP) forest["facOrig"]);
+  IntegerVector facSplit((SEXP) forest["facSplit"]);
+  CharacterVector yLevels((SEXP) forest["yLevels"]);
+  NumericVector leafWeight((SEXP) leaf["weight"]);
+  
+  Predict::ForestCtg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOrig.begin(), facSplit.begin(), yLevels.length(), leafWeight.begin());
 
   return wrap(0);
 }
 
+
 /**
-   @brief Reloads quantile information from a previously-built forest.
+   @brief Forests a previously-generated regression forest for use by prediction.  Trees are stored sequentially in long vectors.
+   
+   @param sPreds are the predictors for each terminal of each tree.
 
-   @param sQYRanked is a vector of ranked response values.
+   @param sSplits are the split values for each nonterminal.
 
-   @param sQRankOrigin is a vector of tree origin offsets.
+   @param sBump are the increments to the left-hand offspring index.
 
-   @param sQRank is a vector of ranks.
+   @param sOrigins is a vector of tree origin offsets.
 
-   @param sQRankCount is a vector recording the rank counts.
+   @param sFacOff are offsets into a vector holding bit encodings of the LHS for factor-valued predictors.
+
+   @param sFacSplits are bit encodings for left-hand subset membership decisions.
+
+   @param sYRanked is a vector of ranked response values.
+
+   @param sRank is a vector of ranks.
+
+   @param sRankCount is a vector recording the rank counts.
 
    @return Wrapped zero.
  */
-RcppExport SEXP RcppReloadQuant(SEXP sTree, SEXP sQYRanked, SEXP sQRank, SEXP sQSCount) {
-  NumericVector qYRanked(sQYRanked);
-  IntegerVector qRank(sQRank);
-  IntegerVector qSCount(sQSCount);
+RcppExport SEXP RcppForestReg(SEXP sForest, SEXP sLeaf) {
+  List forest(sForest);
+  List leaf(sLeaf);
 
-  Predict::ForestReloadQuant(as<int>(sTree), qYRanked.begin(), qRank.begin(), qSCount.begin());
+  IntegerVector pred((SEXP) forest["pred"]);
+  NumericVector split((SEXP) forest["split"]);
+  IntegerVector bump((SEXP) forest["bump"]);
+  IntegerVector origin((SEXP) forest["origin"]);
+  IntegerVector facOff((SEXP) forest["facOrig"]);
+  IntegerVector facSplit((SEXP) forest["facSplit"]);
+  NumericVector yRanked((SEXP) leaf["yRanked"]);
+  IntegerVector rank((SEXP) leaf["rank"]);
+  IntegerVector sCount((SEXP) leaf["sCount"]);
+
+  Predict::ForestReg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOff.begin(), facSplit.begin(), rank.begin(), sCount.begin(), yRanked.begin());
 
   return wrap(0);
 }
 
 
 /**
-   @brief Predicts quantiles
+   @brief Out-of-box predction for regression.
 
-   @param sQuantVect is a vector of quantile training information.
+   @param sPredInfo is a copy-out vector with Info values.
 
-   @param sQPred is an output vector containing predicted quantiles.
+   @param sError holds a copy-out scalar with mean-square error.
 
-   @param sY is an output vector containing predicted responses.
-
-   @return Wrapped zero, with output parameters.
+   @return Wrapped zero, with copy-out parameters.
  */
-RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQBin, SEXP sQPred, SEXP sY) {
-  NumericVector quantVec(sQuantVec);
-  NumericVector qPred(sQPred);
+RcppExport SEXP RcppValidateReg(SEXP sY, SEXP sBag) {
   NumericVector y(sY);
+  IntegerVector bag(sBag);
 
-  Predict::PredictQuant(y.length(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), y.begin());
+  int errCode = Predict::PredictReg(y.begin(), (unsigned int *) bag.begin());
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
 
   return wrap(0);
 }
+
 
 /**
    @brief Predicts from a regression forest.
@@ -188,32 +142,193 @@ RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQBin, SEXP sQPred, SEXP s
 RcppExport SEXP RcppPredictReg(SEXP sY) {
   NumericVector y(sY);
 
-  Predict::PredictReg(y.begin());
+  int errCode = Predict::PredictReg(y.begin(), 0);
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
 
   return wrap(0);
 }
 
+
 /**
-   @brief Predicts from a classification forest.
+   @brief Out-of-box prediction for classification.
 
-   @param sY is an output vector containing the (1-based) predicted response values.
+   @param sPredInfo is a copy-out vector reporting Info values.
 
-   @param sCtgWidth is the number of categories in the response.
+   @param sConf is a copy-out confusion matrix
+
+   @param sError is a copy-out scalar with mean-square error.
+
+   @return Wrapped zero, with copy-out parameters.
+ */
+RcppExport SEXP RcppValidateVotes(SEXP sYValid, SEXP sBag, SEXP sYPred, SEXP sConf, SEXP sError, SEXP sCensus) {
+  IntegerVector yValid(sYValid);
+  IntegerVector bag(sBag);
+  IntegerVector yPred(sYPred);
+  IntegerVector conf(sConf);
+  NumericVector error(sError);
+  IntegerVector census(sCensus);
+
+  IntegerVector y = yValid - 1;
+  int errCode = Predict::ValidateCtg(y.begin(), (unsigned int *) bag.begin(), yPred.begin(), census.begin(), conf.begin(), error.begin(), 0);
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+
+  yPred = yPred + 1;
+
+  return wrap(0);
+}
+
+
+/**
+   @brief Out-of-box prediction for classification.
+
+   @param sPredInfo is a copy-out vector reporting Info values.
+
+   @param sConf is a copy-out confusion matrix
+
+   @param sError is a copy-out scalar with mean-square error.
+
+   @return Wrapped zero, with copy-out parameters.
+ */
+RcppExport SEXP RcppValidateProb(SEXP sYValid, SEXP sBag, SEXP sYPred, SEXP sConf, SEXP sError, SEXP sCensus, SEXP sProb) {
+  IntegerVector yValid(sYValid);
+  IntegerVector bag(sBag);
+  IntegerVector yPred(sYPred);
+  IntegerVector conf(sConf);
+  NumericVector error(sError);
+  IntegerVector census(sCensus);
+  NumericVector prob(sProb);
+
+  IntegerVector y = yValid - 1;
+  int errCode = Predict::ValidateCtg(y.begin(), (unsigned int *) bag.begin(), yPred.begin(), census.begin(), conf.begin(), error.begin(), prob.begin());
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+
+  yPred = yPred + 1;
+  return wrap(0);
+}
+
+
+/**
+   @brief Predicts with class votes.
+
+   @param sY outputs the (1-based) predicted response values.
+
+   @param sVotes outputs the vote predictions.
 
    @return Wrapped zero, with output pameter vector.
  */
-RcppExport SEXP RcppPredictCtg(SEXP sY, SEXP sCtgWidth, SEXP sCensus) {
-  IntegerVector y(sY);
-  int ctgWidth = as<int>(sCtgWidth);
-  if (Rf_isNull(sCensus)) {
-    Predict::PredictCtg(y.begin(), y.length(), ctgWidth, 0);
-  }
-  else {
-    IntegerVector census(sCensus);
-    Predict::PredictCtg(y.begin(), y.length(), ctgWidth, census.begin());
-  }
-  y = y + 1;
+RcppExport SEXP RcppPredictVotes(SEXP sYPred, SEXP sCensus) {
+  IntegerVector yPred(sYPred);
+  IntegerVector census(sCensus);
+
+  int errCode = Predict::PredictCtg(yPred.begin(), census.begin(), 0);
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+
+  yPred = yPred + 1;
 
   return wrap(0);
 }
+
+
+/**
+   @brief Prediction with class probabilities.
+
+   @param sY outputs the (1-based) predicted response values.
+
+   @param sProb outputs the leaf-weighted response probablities.
+
+   @return Wrapped zero, with output pameter vector.
+ */
+RcppExport SEXP RcppPredictProb(SEXP sYPred, SEXP sCensus, SEXP sProb) {
+  IntegerVector yPred(sYPred);
+  IntegerVector census(sCensus);
+  NumericVector prob(sProb);
+
+  int errCode = Predict::PredictCtg(yPred.begin(), census.begin(), prob.begin());
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+
+  yPred = yPred + 1;
+
+  return wrap(0);
+}
+
+
+/**
+ @brief Validation with quantiles.
+
+ @param sQuantVec is a vector of quantile training data.
+
+ @param sQBin is the bin parameter.
+
+ @param sQPred is an output vector of quantile predictions.
+
+ @param sY is the predicted vector.
+
+ @param sBag is the training bag set.
+
+ @return Wrapped zero, with copy-out vector paramters.
+*/
+RcppExport SEXP RcppValidateQuant(SEXP sQuantVec, SEXP sQBin, SEXP sQPred, SEXP sY, SEXP sBag) {
+  NumericVector quantVec(sQuantVec);
+  NumericVector qPred(sQPred);
+  NumericVector y(sY);
+  IntegerVector bag(sBag);
+
+  int errCode = Predict::PredictQuant(y.begin(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), (unsigned int *) bag.begin());
+
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+  
+  return wrap(0);
+}
+
+
+/**
+ @brief Prediction with quantiles.
+
+ @param sQuantVec is a vector of quantile training data.
+
+ @param sQBin is the bin parameter.
+
+ @param sQPred is an output vector of quantile predictions.
+
+ @param sY is the predicted vector.
+
+ @return Wrapped zero, with copy-out vector paramters.
+*/
+RcppExport SEXP RcppPredictQuant(SEXP sQuantVec, SEXP sQBin, SEXP sQPred, SEXP sY) {
+  NumericVector quantVec(sQuantVec);
+  NumericVector qPred(sQPred);
+  NumericVector y(sY);
+
+  int errCode = Predict::PredictQuant(y.begin(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), 0);
+
+  if (errCode != 0)
+    stop("Internal error:  class mismatch");
+  
+  return wrap(0);
+}
+
+
+// Move somewhere appropriate:
+//
+RcppExport SEXP RcppMSE(SEXP sYValid, SEXP sY) {
+  NumericVector yValid(sYValid);
+  NumericVector y(sY);
+
+  double SSE = 0.0;
+  for (int i = 0; i < y.length(); i++) {
+    SSE += (yValid[i] - y[i]) * (yValid[i] - y[i]);
+  }
+
+  // TODO:  Repair assumption that every row sampled.
+  double MSE = SSE / y.length();
+
+  return wrap(MSE);
+}
+
 

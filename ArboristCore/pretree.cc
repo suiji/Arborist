@@ -16,29 +16,23 @@
 
 #include "pretree.h"
 #include "predictor.h"
-#include "response.h"
-#include "sample.h"
 #include "samplepred.h"
 
 //#include <iostream>
 using namespace std;
 
-// Leaf accumulators are not reused, so there is no need to record
-// sample indices or ranks until the final row has been visited.
-//
+
 // Records terminal-node information for elements of the next level in the pre-tree.
 // A terminal node may later be converted to non-terminal if found to be splitable.
 // Initializing as terminal by default offers several advantages, such as avoiding
 // the need to revise dangling non-terminals from an earlier level.
 //
 
-unsigned int PreTree::nRow = 0;
+int PreTree::nPred = 0;
 unsigned int PreTree::heightEst = 0;
 
 /**
    @brief Caches the row count and computes an initial estimate of node count.
-
-   @param _nRow is the number of observations.
 
    @param _nSamp is the number of samples.
 
@@ -46,16 +40,16 @@ unsigned int PreTree::heightEst = 0;
 
    @return void.
  */
-void PreTree::Immutables(unsigned int _nRow, unsigned int _nSamp, unsigned int _minH) {
-  nRow = _nRow;
+void PreTree::Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH) {
+  nPred = _nPred;
 
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
   //
   // In any case, 'heightEst' is re-estimated following construction of the
-  // first PreTree.  Hence the value is not really immutable.  Nodes can also
-  // be reallocated during the interlevel pass as needed.
+  // first PreTree block.  Hence the value is not really immutable.  Nodes
+  // can also be reallocated during the interlevel pass as needed.
   //
   unsigned twoL = 1; // 2^level, beginning from level zero (root).
   while (twoL * _minH < _nSamp) {
@@ -68,7 +62,7 @@ void PreTree::Immutables(unsigned int _nRow, unsigned int _nSamp, unsigned int _
 
 
 void PreTree::DeImmutables() {
-  nRow = heightEst = 0;
+  nPred = heightEst = 0;
 }
 
 
@@ -79,13 +73,19 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree() {
+PreTree::PreTree(int _bagCount) {
+  bagCount = _bagCount;
+  sample2PT = new int[bagCount];
+  for (int i = 0; i < bagCount; i++) {
+    sample2PT[i] = 0;
+  }
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   nodeVec[0].id = 0;
   nodeVec[0].lhId = -1;
-  const unsigned int slotBits = 8 * sizeof(unsigned int);
-  inBag = new unsigned int [(nRow + slotBits - 1) / slotBits];
+  info = new double[nPred];
+  for (int i = 0; i < nPred; i++)
+    info[i] = 0.0;
   treeHeight = leafCount = 1;
   treeBitOffset = 0;
   treeSplitBits = BitFactory();
@@ -105,28 +105,6 @@ void PreTree::RefineHeight(unsigned int height) {
     heightEst <<= 1;
 }
 
-
-/**
-   @brief Invokes Sample methods to initialize bag-related data sets and to stage.
-
-   @param samplePred outputs the staged sample/predictor object.
-
-   @param sum outputs the sum of bagged response values.
-
-   @return in-bag count for tree.
- */
-SplitPred *PreTree::BagRows(const PredOrd *predOrd, SamplePred *samplePred, int &_bagCount, double &_sum) {
-  SplitPred *splitPred;
-  sample = Response::StageSamples(predOrd, inBag, samplePred, splitPred, _sum, _bagCount);
-
-  bagCount = _bagCount;
-  sample2PT = new int[bagCount];
-  for (int i = 0; i < bagCount; i++) {
-    sample2PT[i] = 0; // Unique root nodes zero.
-  }
-
-  return splitPred;
-}
 
 /**
    @brief Allocates the bit string for the current (pre)tree and initializes to false.
@@ -154,13 +132,9 @@ bool *PreTree::BitFactory(int _bitLength) {
    @brief Per-tree finalizer.
  */
 PreTree::~PreTree() {
-  if (Predictor::NPredFac() > 0) {
-    delete [] treeSplitBits;
-  }
-  delete sample;
   delete [] nodeVec;
   delete [] sample2PT;
-  delete [] inBag;
+  delete [] info;
 }
 
 /**
@@ -203,14 +177,16 @@ void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
 void PreTree::NonTerminal(int _id, double _info, double _splitVal, int _predIdx) {
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  ptS->info = _info;
   ptS->splitVal = _splitVal;
+  info[_predIdx] += _info;
   leafCount--;
 }
+
 
 double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start, int end, int ptId) {
   return samplePred->Replay(sample2PT, predIdx, level, start, end, ptId);
 }
+
 
 /**
    @brief Updates the high watermark for the preTree vector.  Forces a reallocation to
@@ -232,6 +208,7 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
   }
 }
 
+
 /**
  @brief Guestimates safe height by doubling high watermark.
 
@@ -246,6 +223,7 @@ void PreTree::ReNodes() {
   delete [] nodeVec;
   nodeVec = PTtemp;
 }
+
 
 /**
  @brief Tree split bits accumulate, so data must be copied on realloc.
@@ -262,74 +240,78 @@ void PreTree::ReBits() {
 
 
 /**
-  @brief Writes factor bits from all levels into contiguous vector and resets bit state.
-  @param outBits outputs the split-value bit vector.
-  
-  @return void, with output vector parameter.
+  @brief Consumes all pretree nonterminal information into crescent decision forest.
+
+  @param predTree outputs leaf width for terminals, predictor index for nonterminals.
+
+  @param splitTree outputs score for terminals, splitting value for nonterminals.
+
+  @param bumpTree outputs zero for terminals, index delta for nonterminals.
+
+  @param facBits outputs the splitting bits.
+
+  @param predInfo accumulates the information contribution of each predictor.
+
+  @return void, with output vector parameters.
 */
-//
-// N.B.:  Should not be called unless FacWidth() > 0.
-//
-void PreTree::ConsumeSplitBits(int outBits[]) {
-  for (int i = 0; i < treeBitOffset; i++) {
-    outBits[i] = treeSplitBits[i]; // Upconverts to output type.
-  }
-  delete [] treeSplitBits;
-  treeSplitBits = 0;
-  treeBitOffset = 0;
+void PreTree::DecTree(int predTree[], double splitTree[], int bumpTree[], unsigned int *facBits, double predInfo[]) {
+  SplitConsume(predTree, splitTree, bumpTree);
+  BitConsume(facBits);
+  for (int i = 0; i < nPred; i++)
+    predInfo[i] += info[i];
 }
 
 
 /**
-   @brief Consumes pretree nodes into the vectors needed by the decision tree.
+   @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.  Leaf information is post-assigned by the response-dependent Sample methods.
 
    @param nodeVal outputs splitting predictor / leaf extent : nonterminal / terminal.
 
    @param numVec outputs splitting value / leaf score : nonterminal / terminal.
 
-   @param bumpVec outputs the left-hand node increment.
+   @param bumpVec outputs the left-hand node increment:  nonzero iff nonterminal.
 
-   @return tree size equal to the maximum offset filled in, also output parameter vectors.
+   @return void, with output reference parameter vectors.
 */
-void PreTree::ConsumeNodes(int nodeVal[], double numVec[], int bumpVec[]) {
-  sample->Scores(sample2PT, treeHeight, nodeVal, numVec); // Virtual call.
+void PreTree::SplitConsume(int nodeVal[], double numVec[], int bumpVec[]) {
   for (int idx = 0; idx < treeHeight; idx++) {
-    nodeVec[idx].Consume(nodeVal[idx], numVec[idx], bumpVec[idx]);
+    nodeVec[idx].SplitConsume(nodeVal[idx], numVec[idx], bumpVec[idx]);
   }
 }
 
 
 /**
-   @brief Consumes the node fields.
+  @brief Writes factor bits from all levels into contiguous vector and resets bit state.
 
-   @param pred is the predictor associated with a split.
+  @param outBits outputs the local bit values.
+  
+  @return void, with output parameter vector.
+*/
+void PreTree::BitConsume(unsigned int *outBits) {
+  if (treeBitOffset != 0) {
+    for (int i = 0; i < treeBitOffset; i++) {
+      outBits[i] = treeSplitBits[i]; // Upconverts to output type.
+    }
+    delete [] treeSplitBits;
+  }
+}
 
-   @param num is the splitting value, for a split, otherwise the score, for a leaf,
-   filled in elsewhere.
 
-   @param bump is the distance to the left-hand subnode, if a split, otherwize zero.
+/**
+   @brief Consumes the node fields of nonterminals (splits).
+
+   @param pred outputs the splitting predictor, if a split.
+
+   @param num outputs the splitting value, if a split.
+
+   @param bump outputs the distance to the left-hand subnode, if a split.
 
    @return void.
  */
-void PTNode::Consume(int &pred, double &num, int &bump) {
-  if (lhId > 0) { // Consumes splits.
+void PTNode::SplitConsume(int &pred, double &num, int &bump) {
+  if (lhId > id) {
     pred = predIdx;
     num = splitVal;
     bump = lhId - id;
   }
-  else { // Consumes leaves.  Scores already written into num.
-    bump = 0;
-  }
-}
-
-
-/**
-   @brief Reports leaf field values useful for quantiles and path reconstruction.
-
-   @return tree index referenced by sample index passed.
- */
-int PreTree::LeafFields(int sIdx, int &sCount, unsigned int &rank) const {
-  sCount = sample->LeafFields(sIdx, rank);
-
-  return sample2PT[sIdx];
 }

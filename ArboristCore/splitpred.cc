@@ -546,7 +546,7 @@ void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *no
    @return void.
  */
 void SPReg::SplitNum(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  SplitNumGini(spPair, indexNode, spn, splitSig);
+  SplitNumWV(spPair, indexNode, spn, splitSig);
 }
 
 
@@ -560,7 +560,7 @@ void SPReg::SplitNum(const SPPair *spPair, const IndexNode *indexNode, const SPN
    @return void.
  */
 void SPReg::SplitFac(const SPPair *spPair, const IndexNode indexNode[], const SPNode spn[], SplitSig *splitSig) {
-   SplitFacGini(spPair, indexNode, spn, splitSig);
+  SplitFacWV(spPair, indexNode, spn, splitSig);
 }
 
 
@@ -593,11 +593,11 @@ void SPCtg::SplitFac(const SPPair *spPair, const IndexNode *indexNode, const SPN
 
 
 /**
-   @brief Gini-based splitting method.
+   @brief Weighted-variance splitting method.
 
    @return void.
 */
-void SPReg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
+void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   // Walks samples backward from the end of nodes so that ties are not split.
   int start, end, sCount;
   double sum, preBias, maxGini;
@@ -646,7 +646,6 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
 
   double ssL = sumSquares[splitIdx];
   double ssR = 0.0;
-  //double sumR = 0.0;
   double sumL = sum;
   int lhSup = -1;
   unsigned int rkRight = spn[end].Rank();
@@ -658,7 +657,6 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
     unsigned int sCount;
     double yVal;    
     spn[i].CtgFields(yVal, rkThis, sCount, yCtg);
-    //double sumL = sum - sumR;
     double sumR = sum - sumL;
     if (sumL > minDenom && sumR > minDenom && rkThis != rkRight) {
       double cutGini = ssL / sumL + ssR / sumR;
@@ -676,11 +674,11 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
     double sumRCtg = CtgSumRight(splitIdx, predIdx, yCtg, yVal);
     double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg;
 
-    // Numerator, denominator values wrap around to next iteration
+    // Maintains sums of category squares incrementally, via update.
     //
     ssR += yVal * (yVal + 2.0 * sumRCtg);
     ssL += yVal * (yVal - 2.0 * sumLCtg);
-    //sumR += yVal;
+
     sumL -= yVal;
     rkRight = rkThis;
   }
@@ -803,6 +801,7 @@ int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, 
       ssR += (totSum - sumCtg) * (totSum - sumCtg);
     }
     double sumR = sum - sumL;
+    // Only relevant for case weighting:  otherwise sums are >= 1.
     if (sumL > minSumL && sumR > minSumR) {
       double subsetGini = ssR / sumR + ssL / sumL;
       if (subsetGini > maxGini) {
@@ -858,11 +857,11 @@ int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini
 }
 
 /**
-   @brief Gini-based splitting method.
+   @brief Weighted-variance splitting method.
 
    @return void.
  */
-void SPReg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
+void SPReg::SplitFacWV(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   int start, end, sCount;
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);

@@ -19,7 +19,7 @@
 #include "predictor.h"
 #include "splitpred.h"
 
-//#include <iostream>
+#include <iostream>
 using namespace std;
 
 // Simulation-invariant values.
@@ -28,7 +28,8 @@ unsigned int Sample::nRow = 0;
 int Sample::nPred = -1;
 int Sample::nSamp = -1;
 
-int SampleCtg::ctgWidth = 0;
+double SampleCtg::forestScale = 0.0;
+unsigned int SampleCtg::ctgWidth = 0;
 
 /**
  @brief Lights off initializations needed for sampling.
@@ -41,10 +42,14 @@ int SampleCtg::ctgWidth = 0;
 
  @return void.
 */
-void Sample::Immutables(unsigned int _nRow, int _nPred, int _nSamp) {
+void Sample::Immutables(unsigned int _nRow, int _nPred, int _nSamp, unsigned int _ctgWidth, int _nTree) {
   nRow = _nRow;
   nPred = _nPred;
   nSamp = _nSamp;
+  if (_ctgWidth > 0)
+    SampleCtg::Immutables(_ctgWidth, _nTree);
+  else
+    SampleReg::Immutables();
 }
 
 
@@ -59,8 +64,9 @@ void SampleReg::Immutables() {
 /**
    @return void.
  */
-void SampleCtg::Immutables(int _ctgWidth) {
+void SampleCtg::Immutables(int _ctgWidth, int _nTree) {
   ctgWidth = _ctgWidth;
+  forestScale = 1.0 / (nRow * _nTree);
   SplitPred::ImmutablesCtg(nRow, nSamp, ctgWidth);
 }
 
@@ -77,6 +83,12 @@ void Sample::DeImmutables() {
   // Only one of these two class has been set, but no harm in resetting both:
   SPReg::DeImmutables();
   SPCtg::DeImmutables();
+}
+
+
+Sample::Sample() {
+  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  inBag = new unsigned int [(nRow + slotBits - 1) / slotBits];
 }
 
 /**
@@ -119,8 +131,6 @@ SampleReg::SampleReg() {
 
    @param row2Rank is rank of each sampled row.
 
-   @param inBag is a bit vector indicating whether a row is in-bag in this tree.
-
    @param samplePred is the SamplePred object associated with this tree.
 
    @param bagSum is the sum of in-bag sample values.  Used for initializing index tree root.
@@ -133,7 +143,7 @@ SampleReg::SampleReg() {
 // Returns the sum of sampled response values for intiializition of topmost
 // accumulator.
 //
-int SampleReg::Stage(const double y[], const unsigned int row2Rank[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {  
+void SampleReg::Stage(const double y[], const unsigned int row2Rank[], const PredOrd *predOrd) {
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow]; // Index of row in sample vector.
   const unsigned int slotBits = 8 * sizeof(unsigned int);
@@ -164,13 +174,12 @@ int SampleReg::Stage(const double y[], const unsigned int row2Rank[], const Pred
     inBag[slot] = bits;
   }
   bagCount = idx;
+  samplePred = new SamplePred();
   samplePred->StageReg(predOrd, sampleReg, sCountRow, sIdxRow);
   splitPred = SplitPred::FactoryReg(samplePred);
 
   delete [] sCountRow;
   delete [] sIdxRow;
-
-  return bagCount;
 }
 
 
@@ -180,7 +189,7 @@ int SampleReg::Stage(const double y[], const unsigned int row2Rank[], const Pred
    @param ctgWidth is the response cardinality.
 
  */
-SampleCtg::SampleCtg() {
+SampleCtg::SampleCtg() : Sample() {
   sampleCtg = new SampleNodeCtg[nSamp]; // Lives until scoring.
 }
 
@@ -192,18 +201,12 @@ SampleCtg::SampleCtg() {
 
    @param y is the proxy response vector.
 
-   @param inBag is a bit vector indicating in-bag rows.
-
-   @param samplePred is the staged SamplePred object.
-
-   @param bagSum is the sum of in-bag response values, used for splitting the root index node.
-
-   @return count of in-bag samples.
+   @return void, with output vector parameter.
 */
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd, unsigned int inBag[], SamplePred *samplePred, SplitPred *&splitPred, double &bagSum) {
+void SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd) {
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow];
   const unsigned int slotBits = 8 * sizeof(unsigned int);
@@ -231,51 +234,83 @@ int SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd,
     inBag[slot] = bits;
   }
   bagCount = idx;
+  samplePred = new SamplePred();
   samplePred->StageCtg(predOrd, sampleCtg, sCountRow, sIdxRow);
   splitPred = SplitPred::FactoryCtg(samplePred, sampleCtg);
 
   delete [] sCountRow;
   delete [] sIdxRow;
+}
 
-  return bagCount;
+
+void Sample::TreeClear() {
+  delete samplePred;
+  delete splitPred;
 }
 
 
 /**
-   @brief Derives scores for regression tree.
+   @brief Derives and copies regression leaf information.
+
+   @param nonTerm is zero iff forest index is at leaf.
+
+   @param leafExtent gives leaf width at forest index.
+
+   @param rank outputs leaf ranks; vector length bagCount.
+
+   @param sCount outputs sample counts; vector length bagCount.
+
+   @return bag count, with output parameter vectors.
+ */
+void SampleReg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], unsigned int rank[], unsigned int sCount[]) {
+  Scores(frontierMap, treeHeight, score);
+  LeafExtent(frontierMap, leafExtent);
+
+  int *leafPos = LeafPos(nonTerm, leafExtent, treeHeight);
+  int *seen = new int[treeHeight];
+  for (int i = 0; i < treeHeight; i++) {
+    seen[i] = 0;
+  }
+  for (int sIdx = 0; sIdx < bagCount; sIdx++) {
+    int leafIdx = frontierMap[sIdx];
+    int rkOff = leafPos[leafIdx] + seen[leafIdx]++;
+    sCount[rkOff] = sampleReg[sIdx].sCount;
+    rank[rkOff] = sample2Rank[sIdx];
+  }
+
+  delete [] seen;
+  delete [] leafPos;
+}
+
+
+/**
+   @brief Derives scores for regression tree:  intialize, accumulate, divide.
 
    @param frontierMap maps sample id to pretree terminal id.
 
    @param treeHeight is the number of nodes in the pretree.
 
-   @param leafExtent outputs the number of unique sample indices subsumed by a leaf.
-
    @param score outputs the computed scores.
 
    @return void, with output parameter vector.
 */
-// Walks the sample set, accumulating value sums for the associated leaves.  Score
-// is the sample mean.  These values could also be computed by passing sums down the
-// pre-tree and pulling them from terminal nodes.
-//
-void SampleReg::Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) {
+void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) {
   int *sCount = new int[treeHeight];
-  for (int pt = 0; pt < treeHeight; pt++) {
-    score[pt] = 0.0;
-    leafExtent[pt] = 0;
-    sCount[pt]= 0;
+  for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
+    sCount[ptIdx] = 0;
   }
 
+  // score[] is 0.0 for leaves:  only nonterminals have been overwritten.
+  //
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
-    leafExtent[leafIdx]++;
     score[leafIdx] += sampleReg[i].sum;
     sCount[leafIdx] += sampleReg[i].sCount;
   }
 
-  for (int pt = 0; pt < treeHeight; pt++) {
-    if (sCount[pt] > 0)
-      score[pt] /= sCount[pt];
+  for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
+    if (sCount[ptIdx] > 0)
+      score[ptIdx] /= sCount[ptIdx];
   }
 
   delete [] sCount;
@@ -283,68 +318,119 @@ void SampleReg::Scores(const int frontierMap[], int treeHeight, int leafExtent[]
 
 
 /**
-   @brief Derives scores for categorical tree.
+   @brief Sets node counts on each leaf.
 
-   @param sampleMap maps sample id to pretree terminal id.
+   @param frontierMap maps samples to tree indices.
 
-   @param treeHeight is the number of nodes in the pretree.
+   @param leafExtent outputs the node counts by node index.
 
-   @param leafExtent outputs the number of unique sample indices consumed by a leaf.
-
-   @param score outputs the computed scores.
-
-   @return void, with output parameter vector.
-*/
-
-void SampleCtg::Scores(const int frontierMap[], int treeHeight, int leafExtent[], double score[]) {
-  double *leafWS = new double[ctgWidth * treeHeight];
-
-  for (int leafIdx = 0; leafIdx < treeHeight; leafIdx++) {
-    leafExtent[leafIdx] = 0;
-    double *ctgBase = leafWS + leafIdx * ctgWidth;
-    for (int ctg = 0; ctg < ctgWidth; ctg++)
-      ctgBase[ctg] = 0.0;
-  }
-
-  // Irregular access.  Needs the ability to map sample indices to the factors and
-  // weights with which they are associated.
-  //
+   @return void with output reference vector.
+ */
+void Sample::LeafExtent(const int frontierMap[], int leafExtent[]) {
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
     leafExtent[leafIdx]++;
-    int ctg = sampleCtg[i].ctg;
-    // ASSERTION:
-    //if (ctg < 0 || ctg >= ctgWidth)
-    //cout << "Bad response category:  " << ctg << endl;
-    leafWS[leafIdx * ctgWidth + ctg] += sampleCtg[i].sum;
   }
+}
 
-  // Factor weights have been jittered, making ties highly unlikely.  Even in the
-  // event of a tie, although the first in the run is chosen, the jittering itself
-  // is nondeterministic.
+
+/**
+   @brief Defines starting positions for ranks associated with a given leaf.
+
+   @param treeHeight is the height of the current tree.
+
+   @param nonTerm is zero iff leaf reference.
+
+   @param leafExtent enumerates leaf widths.
+
+   @return vector of leaf sample offsets, by tree index.
+ */
+int *SampleReg::LeafPos(const int nonTerm[], const int leafExtent[], int treeHeight) {
+  int totCt = 0;
+  int *leafPos = new int[treeHeight];
+  for (int i = 0; i < treeHeight; i++) {
+    if (nonTerm[i] == 0) {
+      leafPos[i] = totCt;
+      totCt += leafExtent[i];
+    }
+    else
+      leafPos[i] = -1;
+  }
+  // ASSERTION:  totCt == bagCount
+  // By this point leafPos[i] >= 0 iff this 'i' references is a leaf.
+
+  return leafPos;
+}
+
+
+void SampleCtg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], double *leafWeight) {
+  LeafExtent(frontierMap, leafExtent);
+  LeafWeight(frontierMap, leafWeight);
+  Scores(leafWeight, treeHeight, nonTerm, score);
+}
+
+
+/**
+   @brief Derives scores for categorical tree.
+
+   @param leafWeight holds per-leaf category weights.
+
+   @param treeHeight is the number of nodes in the pretree.
+
+   @param nonTerm is nonzero iff the indexed node is nonterminal.
+
+   @param score outputs the computed scores.
+
+   @return void, with output reference parameter.
+*/
+void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], double score[]) {
+
+  // Category weights are jittered, making ties highly unlikely.
   //
-  // Every leaf should obtain a non-negative factor-valued score.
-  //
-  for (int leafIdx = 0; leafIdx < treeHeight; leafIdx++) {
-    double *ctgBase = leafWS + leafIdx * ctgWidth;
+  for (int idx = 0; idx < treeHeight; idx++) {
+    if (nonTerm[idx] != 0)
+      continue;
+    double *ctgBase = leafWeight + idx * ctgWidth;
     double maxWeight = 0.0;
-    int argMaxWeight = -1;
-    for (int ctg = 0; ctg < ctgWidth; ctg++) {
+    unsigned int argMax = 0; // Zero will be default score/category.
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
       double thisWeight = ctgBase[ctg];
       if (thisWeight > maxWeight) {
 	maxWeight = thisWeight;
-	argMaxWeight = ctg;
+	argMax = ctg;
       }
     }
-    // For now, upcasts score to double, for compatability with DecTree.
-    score[leafIdx] = argMaxWeight;
+    
+    // Jitters category value by row/tree-scaled sum.
+    score[idx] = argMax + maxWeight * forestScale;
   }
 
   // ASSERTION:
   //  Can count nonterminals and verify #nonterminals == treeHeight - leafCount
-
-  delete [] leafWS;
 }
+
+
+/**
+   @brief Accumulates sums of samples associated with each leaf.
+
+   @param frontierMap associates samples with leaf indices.
+   
+   @leafWeight output the leaf weights, by category.
+
+   @return void, with reference output vector.
+ */
+void SampleCtg::LeafWeight(const int frontierMap[], double *leafWeight) {
+  // Irregular access.
+  //
+  // It should not be necessary to scale the weights, as their sums should
+  // be identical across trees.
+  for (int i = 0; i < bagCount; i++) {
+    int leafIdx = frontierMap[i];
+    int ctg = sampleCtg[i].ctg;
+    leafWeight[leafIdx * ctgWidth + ctg] += sampleCtg[i].sum;
+  }
+}
+
 
 
 SampleCtg::~SampleCtg() {
@@ -360,29 +446,4 @@ SampleCtg::~SampleCtg() {
 SampleReg::~SampleReg() {
   delete [] sampleReg;
   delete [] sample2Rank;
-}
-
-
-/**
-   @brief Returns fields useful for quantile computation.
-
-   @param sIdx is the sample index to be dereferenced.
-
-   @param rank outputs the rank at the sample index.
-
-   @return sample count at the index.
- */
-int SampleReg::LeafFields(int sIdx, unsigned int &rank) {
-  rank = sample2Rank[sIdx];
-  return sampleReg[sIdx].sCount;
-}
-
-
-/**
-   @brief Stub:  should be unreachable.
- */
-int SampleCtg::LeafFields(int sIdx, unsigned int &rank) {
-  // ASSERTION:
-  // Should never get here.
-  return -1;
 }

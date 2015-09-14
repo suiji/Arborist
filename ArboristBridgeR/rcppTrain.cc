@@ -26,107 +26,149 @@
 #include <R.h>
 #include <Rcpp.h>
 
-using namespace std;
 using namespace Rcpp;
+
 #include "train.h"
+//#include <iostream>
 
 /**
-   @brief Lights off intializations for Train class, which drives training.
+   @brief R-language interface to response caching.
 
-   @param sNTree is the number of trees requested.
+   @parm sY is the response vector.
 
-   @param sMinRatio is a threshold ratio of information measures between an index node and its offspring, below which the node does not split.
-
-   @param sTreeBlock is a block count for MPI-style parallelism.
-
-   @return Wrapped level-max value.
+   @return Wrapped value of response cardinality, if applicable.
  */
-RcppExport SEXP RcppTrainInit(SEXP sNTree, SEXP sTreeBlock, SEXP sNRow) {
-  Train::Immutables(as<int>(sNTree), as<int>(sTreeBlock), as<int>(sNRow));
+RcppExport SEXP RcppResponseCtg(IntegerVector y, unsigned int &ctgWidth) {
+  // Class weighting constructs a proxy response from category frequency.
+  // The response is then jittered to diminish the possibility of ties
+  // during scoring.  The magnitude of the jitter, then, should be scaled
+  // so that no combination of samples can "vote" themselves into a
+  // false plurality.
+  //
+  bool autoWeights = false; // TODO:  Make user option.
+  NumericVector classWeight;
+  NumericVector tb(table(y));
+  ctgWidth = tb.length();
+  if (autoWeights) {
+    double tbSum = sum(tb);
+    NumericVector tbsInv = tbSum / tb;
+    double tbsInvSum = sum(tbsInv);
+    classWeight = tbsInv / tbsInvSum;
+  }
+  else {
+    classWeight = rep(1.0, ctgWidth);
+  }
+  int nRow = y.length();
+  double recipLen = 1.0 / nRow;
+  NumericVector yWeighted = classWeight[y];
+  RNGScope scope;
+  NumericVector rn(runif(nRow));
+  NumericVector proxy = yWeighted + (rn - 0.5) * 0.5 * (recipLen * recipLen);
 
-  return wrap(0);
+  return wrap(proxy);
 }
 
 
 /**
-   @brief Builds the forest.
+   @brief Constructs classification forest.
 
-   @param sMinH is the smallest index node width allowed for splitting.
+   @param sNTree is the number of trees requested.
 
-   @param sQuantiles indicates whether quantiles are requested.
+   @param sMinNode is the smallest index node width allowed for splitting.
 
-   @param sFacWidth records the cardinalities of factor-valued predictors.
+   @param sMinRatio is a threshold ratio of information measures between an index node and its offspring, below which the node does not split.
 
-   @param sTotBagCount is an output scalar giving the sum of in-bag sizes.
+   @param sTotLevels is an upper bound on the number of levels to construct for each tree.
 
    @param sTotLevels is an upper bound on the number of levels to construct for each tree.
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrain(SEXP sMinH, SEXP sQuantiles, SEXP sFacWidth, SEXP sTotBagCount, SEXP sMinRatio, SEXP sTotLevels) {
-  IntegerVector facWidth(sFacWidth);
-  IntegerVector totBagCount(sTotBagCount);
+RcppExport SEXP RcppTrainCtg(SEXP sYOneBased, SEXP sNTree, SEXP sNPred, SEXP sNSamp, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels) {
+  IntegerVector yOneBased(sYOneBased);
+  int nTree = as<int>(sNTree);
+  int nPred = as<int>(sNPred);
+  int nSamp = as<int>(sNSamp);
+  IntegerVector y = yOneBased - 1;
+  unsigned int ctgWidth;
+  NumericVector proxy = RcppResponseCtg(y, ctgWidth);
+  int nRow = y.length();
 
-  int fw, tbc;
-  int forestHeight = Train::Training(as<int>(sMinH), as<int>(sQuantiles), as<double>(sMinRatio), as<int>(sTotLevels), fw, tbc);
-  facWidth[0] = fw;
-  totBagCount[0] = tbc;
+  Train::Init(nTree, nRow, nPred, nSamp, as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth);
 
-  return wrap(forestHeight);
+  IntegerVector origin(nTree);
+  IntegerVector facOrig(nTree);
+  NumericVector predInfo(nPred);
+  std::vector<int> pred;
+  std::vector<double> split;
+  std::vector<int> bump;
+  std::vector<unsigned int> facSplit;
+  std::vector<double> weight;
+
+  //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
+  //  may not scale to multi-gigarow sets.
+  //
+  int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
+  IntegerVector inBag(inBagSize, 0);
+
+  Train::ForestCtg(y.begin(), proxy.begin(), (unsigned int*) inBag.begin(), origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, weight);
+
+  return List::create(
+		      _["bag"] = inBag,
+		      _["origin"] = origin,
+		      _["pred"] = pred,
+		      _["split"] = split,
+		      _["bump"] = bump,
+		      _["facOrig"] = facOrig,
+		      _["facSplit"] = facSplit,
+		      _["predInfo"] = predInfo,
+		      _["weight"] = weight
+  );
 }
 
-/**
-   @brief Writes forest into storage provided by R.
+using namespace std;
+RcppExport SEXP RcppTrainReg(SEXP sY, SEXP sNTree, SEXP sNPred, SEXP sNSamp, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels) {
+  NumericVector y(sY);
+  int nTree = as<int>(sNTree);
+  int nPred = as<int>(sNPred);
+  int nRow = y.length();
+  int nSamp = as<int>(sNSamp);
+  Train::Init(nTree, nRow, nPred, nSamp, as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels));
 
-   @param sPreds are the predictors splitting each nonterminal.
+  NumericVector yRanked(nRow);
+  IntegerVector origin(nTree);
+  IntegerVector facOrig(nTree);
+  NumericVector predInfo(nPred);
 
-   @param sSplits are the splitting values for each nonterminal.
+  // Variable-length vectors.
+  //
+  std::vector<int> pred;
+  std::vector<double> split;
+  std::vector<int> bump;
+  std::vector<unsigned int> facSplit;
+  std::vector<unsigned int> rank;
+  std::vector<unsigned int> sCount;
 
-   @param sBump are the left-hand index increments for each nonterminal.
+  //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
+  //  may not scale to multi-gigarow sets.
+  //  Inititalized to zeroes.
+  //
+  int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
+  IntegerVector inBag(inBagSize, 0);
 
-   @param sOrigins is a vector recording the beginning offsets of each tree.
+  Train::ForestReg(y.begin(), yRanked.begin(), (unsigned int*) inBag.begin(), origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
 
-   @param sFacOff are offests into a bit vector recording splitting subsets.
-
-   @param sFacSplits are the bit values of left-hand subsets.
-
-   @return Wrapped zero, with output parameter vectors.
- */
-RcppExport SEXP RcppWriteForest(SEXP sPreds, SEXP sSplits, SEXP sBump, SEXP sOrigins, SEXP sFacOff, SEXP sFacSplits) { // SEXP sSplitGini)
-  IntegerVector rPreds(sPreds);
-  NumericVector rSplits(sSplits);
-  IntegerVector rBump(sBump);
-  IntegerVector rOrigins(sOrigins); // Per-tree offsets of table origins.
-  IntegerVector rFacOff(sFacOff); // Per-tree offsets of split bits.
-  IntegerVector rFacSplits(sFacSplits);
-
- //  NumericMatrix rSplitGini(sSplitGini);
-  Train::WriteForest(rPreds.begin(), rSplits.begin(), rBump.begin(), rOrigins.begin(), rFacOff.begin(), rFacSplits.begin());
-
-  return wrap(0);
-}
-
-/**
-   @brief Writes forest quantile information into storage provided by R. 
-
-   @param sQYRanked is an output vector giving the response in rank order.
-
-   @param sQRankOrigin is an output vector giving the origin of each tree's ranked information.
-
-   @param sQRank is an output vector of quantile ranks.
-
-   @param sQRankCount is an output vector of quantile rank counts.
-
-   @param sQLeafPos is an output vector recording the offset of each quantile leaf.
-
-   @return Wrapped zero, with output parameters.
- */
-RcppExport SEXP RcppWriteQuantile(SEXP sQYRanked, SEXP sQRank, SEXP sQSCount) {
-  NumericVector rQYRanked(sQYRanked);
-  IntegerVector rQRank(sQRank);
-  IntegerVector rQSCount(sQSCount);
-
-  Train::WriteQuantile(rQYRanked.begin(), rQRank.begin(), rQSCount.begin());
-
-  return wrap(0);
+  return List::create(
+     _["bag"] = inBag,
+     _["origin"] = origin,
+     _["pred"] = pred,
+     _["split"] = split,
+     _["bump"] = bump,
+     _["facOrig"] = facOrig,
+     _["facSplit"] = facSplit,
+     _["predInfo"] = predInfo,
+     _["rank"] = rank,
+     _["sCount"] = sCount,
+     _["yRanked"] = yRanked
+    );
 }

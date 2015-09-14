@@ -17,6 +17,7 @@
 #ifndef ARBORIST_PRETREE_H
 #define ARBORIST_PRETREE_H
 
+
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
  devices such as coprocessors, disks and nodes.
@@ -33,15 +34,13 @@ class PTNode {
   int lhId;  // LH subnode index. Non-negative iff non-terminal.
   int predIdx; // Split only.
   double splitVal; // Split only.
-  double info; // Split only.
-  void Consume(int &pred, double &num, int &bump);
+  void SplitConsume(int &pred, double &num, int &bump);
 };
 
 
 class PreTree {
-  static unsigned int nRow;
+  static int nPred;
   static unsigned int heightEst;
-  class Sample *sample;
   PTNode *nodeVec; // Vector of tree nodes.
   int nodeCount; // Allocation height of node vector.
   int bitLength; // Length of bit vector recording factor-valued splits.
@@ -49,9 +48,12 @@ class PreTree {
   int leafCount;
   int treeBitOffset;
   int *sample2PT; // Public accessor is Sample2Frontier().
-  unsigned int *inBag;
+  double *info; // Aggregates info value of nonterminals, by predictor.
   bool *treeSplitBits;
   inline bool *BitFactory(int bitLength = 0);
+
+  void Consume(int nodeVal[], double numVec[], int bumpVec[], double _predInfo[], int &facWidth, int *&facSplits);
+  void ConsumeSplitBits(int outBits[]);
  protected:
   int bagCount;
   /**
@@ -66,18 +68,22 @@ class PreTree {
   }
 
  public:
-  PreTree();
+  PreTree(int _bagCount);
   ~PreTree();
-  static void Immutables(unsigned int _nRow, unsigned int _nSamp, unsigned int _minH);
+  static void Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
   static void RefineHeight(unsigned int height);
-  
-  class SplitPred *BagRows(const class PredOrd *predOrd, class SamplePred *samplePred, int &_bagCount, double &_sum);
 
+  class SplitPred *BagRows(const class PredOrd *predOrd, int &_bagCount, double &_sum);
+
+  void DecTree(int *predTree, double *splitTree, int *bumpTree, unsigned int *facBits, double predInfo[]);
+  void SplitConsume(int nodeVal[], double numVec[], int bumpVec[]);
+  void BitConsume(unsigned int *outBits);
+  
   /**
      @return offset into the split-value bit vector for the current level.
    */
-  int TreeBitOffset() {
+  int BitWidth() {
     return treeBitOffset;
   }
 
@@ -102,14 +108,16 @@ class PreTree {
 
 
   /**
-     @return  total accumulated width of factors seen as splitting values.
-  */
-  inline int SplitFacWidth() const {
-    return treeBitOffset;
+     @brief Accessor for sample map.
+
+     @return sample map.
+   */
+  inline int* FrontierMap() {
+    return sample2PT;
   }
 
-  
-  inline int TreeHeight() const {
+
+  inline int Height() const {
     return treeHeight;
   }
 
@@ -119,10 +127,6 @@ class PreTree {
   }
 
   
-  inline unsigned int *InBag() {
-    return inBag;
-  }
-
   void TerminalOffspring(int _parId, int &ptLH, int &ptRH);
   
   /**
@@ -160,8 +164,6 @@ class PreTree {
   void ReNodes();
   double FacBits(const bool facBits[], int facWidth);
   void ConsumeNodes(int predVec[], double splitVec[], int bumpVec[]);
-  void ConsumeSplitBits(int outBits[]);
-  int LeafFields(int sIdx, int &sCount, unsigned int &rank) const;
 };
 
 #endif

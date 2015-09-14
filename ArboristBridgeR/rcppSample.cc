@@ -36,8 +36,6 @@ bool RcppSample::withReplacement = true;
 
   @param sNRow is the number of rows of observations.
 
-  @param sNPred is the number of columns of observations.
-
   @param sNSamp is the number of samples requested.
 
   @param sSampWeight is a vector of response-element weights.
@@ -46,15 +44,13 @@ bool RcppSample::withReplacement = true;
 
   @return Wrapped zero.
 */
-RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNPred, SEXP sNSamp, SEXP sSampWeight, SEXP sWithReplacement) {
+RcppExport SEXP RcppSample(SEXP sNRow, SEXP sNSamp, SEXP sSampWeight, SEXP sWithReplacement) {
   int nRow = as<int>(sNRow);
-  int nPred = as<int>(sNPred);
   int nSamp = as<int>(sNSamp);
   NumericVector sampWeight(sSampWeight);
   bool withReplacement = as<bool>(sWithReplacement);
 
   RcppSample::Immutables(nRow, nSamp, sampWeight, withReplacement);
-  Sample::Immutables(nRow, nPred, nSamp);
 
   return wrap(0);
 }

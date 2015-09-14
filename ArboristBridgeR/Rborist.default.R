@@ -20,7 +20,8 @@
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
                 #importance = FALSE,
                 #nPermute = ifelse(importance, 1, 0),
-                ctgCensus = NULL,
+                ctgCensus = "votes",
+                classWeight = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
                 minInfo = 0.05,
                 minNode = ifelse(is.factor(y), 2, 5),
@@ -28,8 +29,8 @@
                 predFixed = 0,
                 predProb = ifelse(predFixed != 0, 0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(ncol(x)))/ncol(x))),
                 predWeight = rep(1.0, ncol(x)),
-                quantiles = !is.null(quantVec),
-                quantVec = NULL,
+                qVec = NULL,
+                quantiles = !is.null(qVec),
                 qBin = 5000,
                 sampleWeight = NULL,
                 treeBlock = 1,
@@ -42,6 +43,17 @@
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))
     stop("Exping numeric or factor response")
+
+  # Class weights
+  if (!is.null(classWeight)) {
+    if (is.numeric(classWeight)) {
+    }
+    else if (classWeight == "auto") {
+    }
+    else {
+      stop("Unrecognized class weights")
+    }
+  }  
   
   # Height constraints
   if (minNode < 1)
@@ -78,13 +90,16 @@
   if (quantiles && is.factor(y))
     stop("Quantiles supported for regression case only")
 
-  if (!is.null(quantVec)) {
-    if (any(quantVec > 1) || any(quantVec < 0))
+  if (!is.null(qVec)) {
+    if (any(qVec > 1) || any(qVec < 0))
       stop("Quantile range must be within [0,1]")
-    if (any(diff(quantVec) <= 0))
+    if (any(diff(qVec) <= 0))
       stop("Quantile range must be increasing")
   }
 
+  if (pvtNoPredict)
+    stop("Non-validating version NYI")
+  
    # L'Ecuyer's CMRG has more desirable distributional properties for this application.
   saveRNG <- RNGkind()[1]
   RNGkind("L'Ecuyer-CMRG")
@@ -99,142 +114,130 @@
 
   meanWeight <- ifelse(predProb == 0, 1.0, predProb)
   probVec <- predWeight * ((ncol(x) * meanWeight) / sum(predWeight))
+
+  # Predictor and Sample immutables must be set by commencement of training.
   PredBlock(x, y, probVec, predFixed)
-  
-  # There is currently very little freedom in factory ordering.
-  unused <- .Call("RcppSample", nrow(x), ncol(x), nSamp, sampleWeight, withRepl)
-
-  unused <- .Call("RcppTrainInit", nTree, treeBlock, nrow(x));
-  ctgWidth <- .Call("RcppResponse", y)
-
-  facWidth <- integer(1)
-  totBagCount <- integer(1)
-  totQLeafWidth <- integer(1)
-  height <- .Call("RcppTrain", minNode, quantiles, facWidth, totBagCount, minInfo, nLevel)
-  
-  # The forest consists of trees specified by a splitting predictor and value, as
-  # well as a Gini coefficient and subtree mean.
-  predGini <- numeric(ncol(x))
-  if (pvtNoPredict) {
-    error <- -1
-    confusion <- -1
-    census <- -1
+  unused <- .Call("RcppSample", nrow(x), nSamp, sampleWeight, withRepl)
+  if (is.factor(y)) {
+    train <- .Call("RcppTrainCtg", y, nTree, ncol(x), nSamp, treeBlock, minNode, minInfo, nLevel)
+    forest = list(
+       pred = train[["pred"]],
+       split = train[["split"]],
+       bump = train[["bump"]],
+       origin = train[["origin"]],
+       facOrig = train[["facOrig"]],
+       facSplit = train[["facSplit"]],
+       yLevels = levels(y)
+    )
+    
+    leaf <- list(
+      weight = train[["weight"]]
+    )
   }
   else {
-    unused <- PredBlock(x)
+    train <- .Call("RcppTrainReg", y, nTree, ncol(x), nSamp, treeBlock, minNode, minInfo, nLevel)
+    forest = list(
+      pred = train[["pred"]],
+      split = train[["split"]],
+      bump = train[["bump"]],
+      origin = train[["origin"]],
+      facOrig = train[["facOrig"]],
+      facSplit = train[["facSplit"]]
+    )
+
+    leaf <- list(
+      yRanked = train[["yRanked"]],
+      rank = train[["rank"]],
+      sCount = train[["sCount"]]
+    )
+  }
+  RNGkind(saveRNG)
+
+  predInfo <- train[["predInfo"]]
+  names(predInfo) <- colnames(x)
+  training = list(
+    info = predInfo,
+    bag = train[["bag"]]
+  )
+
+  if (!pvtNoPredict) {
+    PredBlock(x) # Cheap way to undo internal sort.
     if (is.factor(y)) {
+      ctgWidth <- length(levels(y))
+      unused <- .Call("RcppForestCtg", forest, leaf);
       error <- numeric(ctgWidth)
-      conf <- integer(ctgWidth * ctgWidth)
-      if (is.null(ctgCensus)) {
-        census <- NULL
-        prob <- FALSE
-      }
-      else if (ctgCensus == "votes") {
-        census <- integer(nrow(x) * ctgWidth)
-        prob <- FALSE
+      conf <- rep(0L, ctgWidth * ctgWidth)
+      yValid <- integer(length(y))
+      census <- rep(0L, length(y) * ctgWidth)
+      if (ctgCensus == "votes") {
+        prob <- NULL
+        unused <- .Call("RcppValidateVotes", y, training[["bag"]], yValid, conf, error, census)
       }
       else if (ctgCensus == "prob") {
-        census <- integer(nrow(x) * ctgWidth)
-        prob <- TRUE
+        prob <- rep(0.0, length(y) * ctgWidth)
+        unused <- .Call("RcppValidateProb", y, training[["bag"]], yValid, conf, error, census, prob)
+        prob <- matrix(prob, length(y), ctgWidth, byrow = TRUE)
+        dimnames(prob) <- list(rownames(x), levels(y))
       }
       else {
         stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
       }
-      unused <- .Call("RcppPredictOOBCtg", predGini, conf, error, census)
       confusion <- matrix(conf, ctgWidth, ctgWidth, byrow = TRUE)
       dimnames(confusion) <- list(levels(y), levels(y))
-      if (!is.null(census)) {
-        census <- matrix(census, nrow(x), ctgWidth, byrow=TRUE)
-        if (prob) {
-          census <- t(apply(census, 1, function(x) { x / sum(x) }))
-        }
-        dimnames(census) = list(rownames(x), levels(y))
-      }
+      census <- matrix(census, nrow(x), ctgWidth, byrow=TRUE)
+      dimnames(census) = list(rownames(x), levels(y))
+      validation = list(
+        yValid = levels(y)[yValid],
+        misprediction = error,
+        confusion = confusion,
+        census = census,
+        prob = prob
+        )
     }
     else {
-      error <- numeric(1)
+      unused <- .Call("RcppForestReg", forest, leaf)
+      yValid <- numeric(nrow(x))
       if (quantiles) {
-        if (is.null(quantVec))
-          quantVec <- DefaultQuantVec()
-        qPred <- numeric(nrow(x) * length(quantVec))
-        unused <- .Call("RcppPredictOOBQuant", predGini, error, quantVec, qBin, qPred)
-        qPred <- matrix(qPred, nrow(x), length(quantVec), byrow = TRUE)
+        if (is.null(qVec)) {
+          qVec <- DefaultQuantVec()
+        }
+        qValid <- numeric(nrow(x) * length(qVec))
+        unused <- .Call("RcppValidateQuant", qVec, qBin, qValid, yValid, training[["bag"]])
+        qValid <- matrix(qValid, nrow(x), length(qVec), byrow = TRUE)
       }
       else {
-        qPred <- NULL
-        unused <- .Call("RcppPredictOOB", predGini, error)
+        qValid <- NULL
+        unused <- .Call("RcppValidateReg", yValid, training[["bag"]])
       }
+
+      mse <- .Call("RcppMSE", yValid, y)
+      validation = list(
+        yValid = yValid,
+        mse = mse,
+        rsq = 1 - (mse * nrow(x)) / (var(y) * (nrow(x) - 1)),
+        qValid = qValid
+      )
     }
   }
-  
-  if (quantiles) {
-    qYRanked <- numeric(nrow(x))
-    qRank <- integer(totBagCount)
-    qSCount <- integer(totBagCount)
-
-    unused <- .Call("RcppWriteQuantile", qYRanked, qRank, qSCount)
-    qOut <- list(qYRanked = qYRanked,
-                  qRank = qRank,
-                  qSCount = qSCount
-                  )
-  }
   else {
-    qOut <- NULL
+    validation <- NULL
   }
-  
-  preds <-  integer(height)
-  splits <- numeric(height)
-#  splitGini <- matrix(0.0, height, ntree)
-  facSplits <- integer(as.integer(facWidth))
-  bump <- integer(height)
-  facOff <- integer(nTree)
-  origins <- integer(nTree)
-  unused <- .Call("RcppWriteForest", preds, splits, bump, origins, facOff, facSplits);
 
-
-  RNGkind(saveRNG)
-  if (is.factor(y)) {
-    arbOut <- list(
-                forest = list(
-                  predictors = preds,
-                  splitValues = splits,
-                  bump = bump,
-                  origins = origins,
-                  facOff = facOff,
-                  facSplits = facSplits,
-                  levels = levels(y)),
-#                splitGini = splitGini,
-                misprediction = error,
-                Gini = predGini,
-                confusion = confusion,
-                ctgCensus = census
-                )
-  }    
-  else {
-    mse <- error[1]
-    arbOut <- list(
-                forest = list(
-                  predictors = preds,
-                  splitValues = splits,
-                  bump = bump,
-                  origins = origins,
-                  facOff = facOff,
-                  facSplits = facSplits,
-                  quant = qOut),
-                mse = mse,
-                rsq = 1 - (mse*nrow(x))/ (var(y) * (nrow(x) - 1)),
-                qPred = qPred,
-                Gini = predGini
-                )
-  }
+  arbOut <- list(
+    forest = forest,
+    leaf = leaf,
+    training = training,
+    validation = validation
+  )
   class(arbOut) <- "Rborist"
+
   arbOut
 }
 
 
 # Breaks data into blocks suitable for Rcpp methods.
 #
-PredBlock <- function(x, y = NULL, probVec = NULL, predFixed = 0){#, quantiles = NULL) {
+PredBlock <- function(x, y = NULL, probVec = NULL, predFixed = 0) {
   training <- ifelse(is.null(y), FALSE, TRUE)
   
   # For now, only numeric and factor types supporte.
