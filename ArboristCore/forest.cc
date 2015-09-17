@@ -19,6 +19,7 @@
  */
 
 
+#include "bv.h"
 #include "predictor.h"
 #include "forest.h"
 
@@ -30,13 +31,13 @@ int Forest::nPredNum = -1;
 int Forest::nPredFac = -1;
 unsigned int Forest::nRow = 0;
 
-ForestReg *Forest::FactoryReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
-  return new ForestReg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _rank, _sCount, _yRanked);
+ForestReg *Forest::FactoryReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
+  return new ForestReg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit, _rank, _sCount, _yRanked);
 }
 
 
-ForestCtg *Forest::FactoryCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], unsigned int _ctgWidth, double _leafWeight[]) {
-  return new ForestCtg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _ctgWidth, _leafWeight);
+ForestCtg *Forest::FactoryCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], unsigned int _ctgWidth, double _leafWeight[]) {
+  return new ForestCtg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit, _ctgWidth, _leafWeight);
 }
 
 
@@ -95,13 +96,13 @@ void Forest::DeFactory(Forest *forest) {
 
    @param _origins[] are the offsets into the multivector denoting each individual tree vector.
 
-   @param _facOff[] are the offsets into the multi-bitvector denoting each tree's factor splitting values.
+   @param _facOrig[] are the offsets into the multi-bitvector denoting each tree's factor splitting values.
 
    @param _facSplits[] are the factor splitting values. 
 
    @param _leafWeight holds the class-weighted sample values for each leaf.
 */
-ForestCtg::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit), ctgWidth(_ctgWidth), leafWeight(_leafWeight) {
+ForestCtg::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit), ctgWidth(_ctgWidth), leafWeight(_leafWeight) {
 }
 
 
@@ -112,14 +113,14 @@ ForestCtg::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[]
 
    @param _sCount[] are the sample multiplicities.
  */
-ForestReg::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit), rank(_rank), sCount(_sCount) , yRanked(_yRanked) {
+ForestReg::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit), rank(_rank), sCount(_sCount) , yRanked(_yRanked) {
 }
 
 
 /**
    @brief Base class reload constructor.  Parameters common to Ctg, Reg variants.
 */
-Forest::Forest(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[]) : nTree(_nTree), treeOrigin(_origins), facOff(_facOff), facSplit(_facSplit), pred(_preds), num(_splits), bump(_bump), forestSize(_forestSize) {
+Forest::Forest(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[]) : nTree(_nTree), treeOrigin(_origins), facOrig(_facOrig), facSplit(_facSplit), pred(_preds), num(_splits), bump(_bump), forestSize(_forestSize) {
 }
 
 
@@ -421,14 +422,14 @@ void Forest::PredictRowFac(unsigned int row, int rowT[], int leaves[],  const un
     int *preds = pred + tOrig;
     double *splitVal = num + tOrig;
     int *bumps = bump + tOrig;
-    int *fs = facSplit + facOff[tc];
+    unsigned int *fs = facSplit + facOrig[tc];
 
     int inc = bumps[idx];
     while (inc != 0) {
-      int facOff = int(splitVal[idx]);
+      unsigned int splitOff = splitVal[idx];
       int pred = preds[idx];
       int facId = Predictor::FacIdx(pred);
-      idx += (fs[facOff + rowT[facId]] ? inc : inc + 1);
+      idx += (BV::IsSet(fs, splitOff + rowT[facId]) ? inc : inc + 1);
       inc = bumps[idx];
     }
     leaves[tc] = idx;
@@ -469,20 +470,51 @@ void Forest::PredictRowMixed(unsigned int row, double rowNT[], int rowFT[], int 
     int *preds = pred + tOrig;
     double *splitVal = num + tOrig;
     int *bumps = bump + tOrig;
-    int *fs = facSplit + facOff[tc];
+    unsigned int *fs = facSplit + facOrig[tc];
 
     int idx = 0;
     int inc = bumps[idx];
     while (inc != 0) {
       int pred = preds[idx];
       int facId = Predictor::FacIdx(pred);
-      idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  inc : inc + 1)  : (fs[int(splitVal[idx]) + rowFT[facId]] ? inc : inc + 1));
+      idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  inc : inc + 1)  : (BV::IsSet(fs, (unsigned int) splitVal[idx] + rowFT[facId]) ? inc : inc + 1));
       inc = bumps[idx];
     }
     leaves[tc] = idx;
   }
   // TODO:  Instead of runtime check, can guarantee this by checking last level for non-negative
   // predictor fields.
+}
+
+
+/**
+   @brief Determines whether a given row index is in-bag in a given tree.
+
+   @param treeNum is the index of a given tree.
+
+   @param row is the row index to be tested.
+
+   @return True iff the row is in-bag.
+ */
+bool Forest::InBag(const unsigned int bag[], int treeNum, unsigned int row) {
+  return bag != 0 && BV::IsSet(bag, row * nTree + treeNum);
+}
+
+/**
+   @brief Sets the in-bag bit for a given <tree, row> pair.
+
+   @param bag is the forest-wide bit matrix.
+
+   @param _nTree is the number of trees being grown.
+
+   @param treeNum is the current tree index.
+
+   @param row is the row index.
+
+   @return void.
+*/
+void Forest::BagSet(unsigned int bag[], int _nTree, unsigned int treeNum, unsigned int row) {
+  BV::SetBit(bag, row * _nTree + treeNum);
 }
 
 

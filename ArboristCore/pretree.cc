@@ -14,6 +14,7 @@
 
  */
 
+#include "bv.h"
 #include "pretree.h"
 #include "predictor.h"
 #include "samplepred.h"
@@ -73,8 +74,7 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(int _bagCount) {
-  bagCount = _bagCount;
+PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bvLength(0), bagCount(_bagCount) {
   sample2PT = new int[bagCount];
   for (int i = 0; i < bagCount; i++) {
     sample2PT[i] = 0;
@@ -86,10 +86,20 @@ PreTree::PreTree(int _bagCount) {
   info = new double[nPred];
   for (int i = 0; i < nPred; i++)
     info[i] = 0.0;
-  treeHeight = leafCount = 1;
-  treeBitOffset = 0;
-  treeSplitBits = BitFactory();
+  splitBits = BitFactory();
 }
+  
+/**
+     @brief Sets specified bit in splitting bit vector.
+
+     @param pos is the bit position beyond to set.
+
+     @return void.
+*/
+void PreTree::LHBit(unsigned int pos) {
+  BV::SetBit(splitBits, bitEnd + pos);
+}
+
 
 
 /**
@@ -115,13 +125,13 @@ void PreTree::RefineHeight(unsigned int height) {
 
    @return pointer to allocated vector.
 */
-bool *PreTree::BitFactory(int _bitLength) {
-  bool *tsb = 0;
+unsigned int *PreTree::BitFactory(unsigned int _bvLength) {
+  unsigned int *tsb = 0;
   if (Predictor::NPredFac() > 0) {
-    bitLength = _bitLength == 0 ? nodeCount * Predictor::MaxFacCard() : _bitLength;
-    tsb = new bool[bitLength];
-    for (int i = 0; i < bitLength; i++)
-      tsb[i] = false;
+    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * Predictor::MaxFacCard()) : _bvLength;
+    tsb = new unsigned int[bvLength];
+    for (unsigned int i = 0; i < bvLength; i++)
+      tsb[i] = 0;
   }
 
   return tsb;
@@ -149,12 +159,12 @@ PreTree::~PreTree() {
    @return void, with output reference parameters.
 */
 void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
-  ptLH = treeHeight++;
+  ptLH = height++;
   nodeVec[_parId].lhId = ptLH;
   nodeVec[ptLH].id = ptLH;
   nodeVec[ptLH].lhId = -1;
 
-  ptRH = treeHeight++;
+  ptRH = height++;
   nodeVec[ptRH].id = ptRH;
   nodeVec[ptRH].lhId = -1;
 
@@ -195,15 +205,17 @@ double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start
    N.B.:  reallocations incur considerable resynchronization costs if precipitated
    from the coprocessor.
 
-   @param levelWidth is the count of nodes in the next level.
+   @param splitNext is the count of splits in the upcoming level.
+
+   @param leafNext is the count of leaves in the upcoming level.
 
    @return void.
 */
 void PreTree::CheckStorage(int splitNext, int leafNext) {
-  if (treeHeight + splitNext + leafNext > nodeCount)
+  if (height + splitNext + leafNext > nodeCount)
     ReNodes();
   if (Predictor::NPredFac() > 0) {
-    if (treeBitOffset + splitNext * Predictor::MaxFacCard() > bitLength)
+    if (BV::LengthAlign(bitEnd + splitNext * Predictor::MaxFacCard()) > bvLength)
       ReBits();
   }
 }
@@ -217,7 +229,7 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
 void PreTree::ReNodes() {
   nodeCount <<= 1;
   PTNode *PTtemp = new PTNode[nodeCount];
-  for (int i = 0; i < treeHeight; i++)
+  for (int i = 0; i < height; i++)
     PTtemp[i] = nodeVec[i];
 
   delete [] nodeVec;
@@ -231,11 +243,12 @@ void PreTree::ReNodes() {
  @return void.
 */
 void PreTree::ReBits() {
-  bool *TStemp = BitFactory(bitLength << 1);
-  for (int i = 0; i < treeBitOffset; i++)
-    TStemp[i] = treeSplitBits[i];
-  delete [] treeSplitBits;
-  treeSplitBits = TStemp;
+  int lengthPrev = bvLength;
+  unsigned int *TStemp = BitFactory(lengthPrev << 1);
+  for (int i = 0; i < lengthPrev; i++)
+    TStemp[i] = splitBits[i];
+  delete [] splitBits;
+  splitBits = TStemp;
 }
 
 
@@ -274,9 +287,17 @@ void PreTree::DecTree(int predTree[], double splitTree[], int bumpTree[], unsign
    @return void, with output reference parameter vectors.
 */
 void PreTree::SplitConsume(int nodeVal[], double numVec[], int bumpVec[]) {
-  for (int idx = 0; idx < treeHeight; idx++) {
+  for (int idx = 0; idx < height; idx++) {
     nodeVec[idx].SplitConsume(nodeVal[idx], numVec[idx], bumpVec[idx]);
   }
+}
+
+
+/**
+   @return aligned length of used portion of split vector.
+ */
+unsigned int PreTree::BitWidth() {
+  return BV::LengthAlign(bitEnd);
 }
 
 
@@ -287,12 +308,12 @@ void PreTree::SplitConsume(int nodeVal[], double numVec[], int bumpVec[]) {
   
   @return void, with output parameter vector.
 */
-void PreTree::BitConsume(unsigned int *outBits) {
-  if (treeBitOffset != 0) {
-    for (int i = 0; i < treeBitOffset; i++) {
-      outBits[i] = treeSplitBits[i]; // Upconverts to output type.
+void PreTree::BitConsume(unsigned int outBits[]) {
+  if (bitEnd != 0) {
+    for (unsigned int i = 0; i < BV::LengthAlign(bitEnd); i++) {
+      outBits[i] = splitBits[i];
     }
-    delete [] treeSplitBits;
+    delete [] splitBits;
   }
 }
 

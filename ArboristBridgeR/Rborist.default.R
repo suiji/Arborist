@@ -18,8 +18,6 @@
 # 'y' should be defined on entry.  Other entry points to be used for different behaviours.
 #
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
-                #importance = FALSE,
-                #nPermute = ifelse(importance, 1, 0),
                 ctgCensus = "votes",
                 classWeight = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),

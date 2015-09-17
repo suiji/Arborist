@@ -13,6 +13,7 @@
    @author Mark Seligman
  */
 
+#include "bv.h"
 #include "samplepred.h"
 #include "restage.h"
 #include "index.h"
@@ -44,8 +45,7 @@ void RestageMap::DeImmutables() {
  */
 RestageMap::RestageMap(SplitPred *_splitPred, unsigned int _bagCount, int _splitPrev, int _splitNext) : splitPrev(_splitPrev), splitNext(_splitNext), splitPred(_splitPred) {
   mapNode = new MapNode[splitPrev];
-  unsigned int slotBits = 8 * sizeof(unsigned int);
-  bitSlots = (_bagCount + slotBits - 1) / slotBits;
+  bitSlots = BV::LengthAlign(_bagCount);
   sIdxLH = new unsigned int[bitSlots];
   sIdxRH = new unsigned int[bitSlots];
 }
@@ -227,7 +227,7 @@ void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SP
 void MapNode::RestageLR(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx) {
   for (int i = startIdx; i <= endIdx; i++) {
     unsigned int sIdx = sIdxSource[i];
-    int destIdx = IsSet(bvL, sIdx) ? lhIdx++ : rhIdx++;
+    int destIdx = BV::IsSet(bvL, sIdx) ? lhIdx++ : rhIdx++;
     sIdxTarg[destIdx] = sIdx;
     targ[destIdx] = source[i];
   }
@@ -254,7 +254,7 @@ void MapNode::RestageLR(const SPNode source[], const unsigned int sIdxSource[], 
 void MapNode::RestageSingle(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx) {
   for (int i = startIdx; i <= endIdx; i++) {
     unsigned int sIdx = sIdxSource[i];
-    if (IsSet(bv, sIdx)) {
+    if (BV::IsSet(bv, sIdx)) {
       int destIdx = idx++;
       sIdxTarg[destIdx] = sIdx;
       targ[destIdx] = source[i];

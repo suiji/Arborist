@@ -26,7 +26,7 @@ ForestCtg *Predict::forestCtg = 0;
 /**
    @brief Entry for separate prediction.
  */
-void Predict::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) {
+void Predict::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) {
   unsigned _nRow = Forest::PredImmutables();
   Immutables(_nTree, _nRow, _ctgWidth);
   forestCtg = Forest::FactoryCtg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _ctgWidth, _leafWeight);
@@ -38,7 +38,7 @@ void Predict::ForestCtg(int _nTree, int _forestSize, int _preds[], double _split
 
    @return void.
  */
-void Predict::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
+void Predict::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
   unsigned _nRow = Forest::PredImmutables();
   Immutables(_nTree, _nRow);
   forestReg = Forest::FactoryReg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit, _rank, _sCount, _yRanked);

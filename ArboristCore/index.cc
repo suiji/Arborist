@@ -15,6 +15,7 @@
  */
 
 #include "index.h"
+#include "bv.h"
 #include "splitsig.h"
 #include "pretree.h"
 #include "sample.h"
@@ -405,7 +406,7 @@ void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, Sa
  */
 void Index::PredicateBits(unsigned int sIdxLH[], unsigned int sIdxRH[], int &lhIdxTot, int &rhIdxTot) const {
   lhIdxTot = rhIdxTot = 0;
-  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  unsigned int slotBits = BV::SlotBits();
   int slot = 0;
   for (unsigned int base = 0; base < bagCount; base += slotBits, slot++) {
     unsigned int lhBits = 0;

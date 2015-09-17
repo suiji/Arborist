@@ -14,6 +14,7 @@
  */
 
 #include "sample.h"
+#include "bv.h"
 #include "callback.h"
 #include "samplepred.h"
 #include "predictor.h"
@@ -87,8 +88,7 @@ void Sample::DeImmutables() {
 
 
 Sample::Sample() {
-  const unsigned int slotBits = 8 * sizeof(unsigned int);
-  inBag = new unsigned int [(nRow + slotBits - 1) / slotBits];
+  inBag = new unsigned int [BV::LengthAlign(nRow)];
 }
 
 /**
@@ -146,7 +146,7 @@ SampleReg::SampleReg() {
 void SampleReg::Stage(const double y[], const unsigned int row2Rank[], const PredOrd *predOrd) {
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow]; // Index of row in sample vector.
-  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  unsigned int slotBits = BV::SlotBits();
   
   bagSum = 0.0;
   int slot = 0;
@@ -209,7 +209,7 @@ SampleCtg::SampleCtg() : Sample() {
 void SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd) {
   int *sCountRow = CountRows();
   int *sIdxRow = new int[nRow];
-  const unsigned int slotBits = 8 * sizeof(unsigned int);
+  unsigned int slotBits = BV::SlotBits();
 
   int idx = 0;
   bagSum = 0.0;
@@ -365,7 +365,7 @@ int *SampleReg::LeafPos(const int nonTerm[], const int leafExtent[], int treeHei
 
 void SampleCtg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], double *leafWeight) {
   LeafExtent(frontierMap, leafExtent);
-  LeafWeight(frontierMap, leafWeight);
+  LeafWeight(frontierMap, treeHeight, leafWeight);
   Scores(leafWeight, treeHeight, nonTerm, score);
 }
 
@@ -419,16 +419,31 @@ void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], 
 
    @return void, with reference output vector.
  */
-void SampleCtg::LeafWeight(const int frontierMap[], double *leafWeight) {
+void SampleCtg::LeafWeight(const int frontierMap[], int treeHeight, double *leafWeight) {
   // Irregular access.
   //
-  // It should not be necessary to scale the weights, as their sums should
-  // be identical across trees.
+  double *leafSum = new double[treeHeight];
+  for (int i = 0; i < treeHeight; i++)
+    leafSum[i] = 0.0;
+  
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
     int ctg = sampleCtg[i].ctg;
-    leafWeight[leafIdx * ctgWidth + ctg] += sampleCtg[i].sum;
+    double sum = sampleCtg[i].sum;
+    leafSum[leafIdx] += sum;
+    leafWeight[leafIdx * ctgWidth + ctg] += sum;
   }
+
+  // Normalizes weights for probabilities.
+  for (int i = 0; i < treeHeight; i++) {
+    double sum = leafSum[i];
+    if (sum > 0.0) {
+      for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+	leafWeight[i * ctgWidth + ctg] /= sum;
+      }
+    }
+  }
+  delete [] leafSum;
 }
 
 

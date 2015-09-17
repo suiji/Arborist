@@ -16,9 +16,11 @@
 #ifndef ARBORIST_SAMPLE_H
 #define ARBORIST_SAMPLE_H
 
+#include "param.h"
+
 class SampleNode {
  public:
-  double sum; // Sum of values selected:  sCount * y-value.
+  FltVal sum; // Sum of values selected:  sCount * y-value.
   // Integer-sized container is likely overkill.  Size is typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
   unsigned int sCount;
@@ -28,7 +30,7 @@ class SampleNode {
 class SampleNodeCtg : public SampleNode {
  public:
   unsigned int ctg;
-  inline unsigned int CtgAndSum(double &_sum) const {
+  inline unsigned int CtgAndSum(FltVal &_sum) const {
     _sum = sum;
     return ctg;
   }
@@ -114,7 +116,7 @@ class SampleCtg : public Sample {
   static double forestScale;  // Jitter scale for forest-wide scores.
   SampleNodeCtg *sampleCtg;
   void Scores(double *leafWeight, int treeHeight, const int nonTerm[], double score[]);
-  void LeafWeight(const int frontierMap[], double *leafWeight);
+  void LeafWeight(const int frontierMap[], int treeHeight, double *leafWeight);
  public:
   SampleCtg();
   ~SampleCtg();

@@ -102,7 +102,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sYOneBased, SEXP sNTree, SEXP sNPred, SEXP sNS
   std::vector<int> pred;
   std::vector<double> split;
   std::vector<int> bump;
-  std::vector<unsigned int> facSplit;
+  std::vector<int> facSplit;
   std::vector<double> weight;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
@@ -145,7 +145,7 @@ RcppExport SEXP RcppTrainReg(SEXP sY, SEXP sNTree, SEXP sNPred, SEXP sNSamp, SEX
   std::vector<int> pred;
   std::vector<double> split;
   std::vector<int> bump;
-  std::vector<unsigned int> facSplit;
+  std::vector<int> facSplit;
   std::vector<unsigned int> rank;
   std::vector<unsigned int> sCount;
 

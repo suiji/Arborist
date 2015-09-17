@@ -62,7 +62,7 @@ RcppExport SEXP RcppForestCtg(SEXP sForest, SEXP sLeaf) {
   CharacterVector yLevels((SEXP) forest["yLevels"]);
   NumericVector leafWeight((SEXP) leaf["weight"]);
   
-  Predict::ForestCtg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOrig.begin(), facSplit.begin(), yLevels.length(), leafWeight.begin());
+  Predict::ForestCtg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOrig.begin(), (unsigned int *) facSplit.begin(), yLevels.length(), leafWeight.begin());
 
   return wrap(0);
 }
@@ -105,7 +105,7 @@ RcppExport SEXP RcppForestReg(SEXP sForest, SEXP sLeaf) {
   IntegerVector rank((SEXP) leaf["rank"]);
   IntegerVector sCount((SEXP) leaf["sCount"]);
 
-  Predict::ForestReg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOff.begin(), facSplit.begin(), rank.begin(), sCount.begin(), yRanked.begin());
+  Predict::ForestReg(origin.length(), pred.length(), pred.begin(), split.begin(), bump.begin(), origin.begin(), facOff.begin(), (unsigned int *) facSplit.begin(), rank.begin(), sCount.begin(), yRanked.begin());
 
   return wrap(0);
 }

@@ -444,7 +444,7 @@ void SPCtg::LevelPreset(const Index *index) {
   for (unsigned int sIdx = 0; sIdx < index->BagCount(); sIdx++) {
     int levelOff = index->LevelOffSample(sIdx);
     if (levelOff >= 0) {
-      double sum;
+      FltVal sum;
       unsigned int ctg = sampleCtg[sIdx].CtgAndSum(sum);
       sumTemp[levelOff * ctgWidth + ctg] += sum;
     }
@@ -600,20 +600,21 @@ void SPCtg::SplitFac(const SPPair *spPair, const IndexNode *indexNode, const SPN
 void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   // Walks samples backward from the end of nodes so that ties are not split.
   int start, end, sCount;
-  double sum, preBias, maxGini;
+  double sum;
+  FltVal preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   int lhSup = -1;
-  double sumR;
   unsigned int rkRight, rowRun;
-  spn[end].RegFields(sumR, rkRight, rowRun);
+  FltVal yVal;
+  spn[end].RegFields(yVal, rkRight, rowRun);
+  double sumR = yVal;
   int numL = sCount - rowRun; // >= 1: counts up to, including, this index. 
   int lhSampCt = 0;
   for (int i = end-1; i >= start; i--) {
     int numR = sCount - numL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
-    double yVal;
+    FltVal sumL = sum - sumR;
+    FltVal idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
     unsigned int rkThis;
     spn[i].RegFields(yVal, rkThis, rowRun);
     if (idxGini > maxGini && rkThis != rkRight) {
@@ -641,7 +642,8 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
   int splitIdx, predIdx;
   spPair->Coords(splitIdx, predIdx);
   int start, end, sCount;
-  double sum, preBias, maxGini;
+  double sum;
+  FltVal preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   double ssL = sumSquares[splitIdx];
@@ -655,11 +657,11 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
     unsigned int yCtg;
     unsigned int rkThis;
     unsigned int sCount;
-    double yVal;    
+    FltVal yVal;    
     spn[i].CtgFields(yVal, rkThis, sCount, yCtg);
-    double sumR = sum - sumL;
+    FltVal sumR = sum - sumL;
     if (sumL > minDenom && sumR > minDenom && rkThis != rkRight) {
-      double cutGini = ssL / sumL + ssR / sumR;
+      FltVal cutGini = ssL / sumL + ssR / sumR;
       if (cutGini > maxGini) {
         lhSampCt = numL;
         lhSup = i;
@@ -725,7 +727,7 @@ void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
    when run count has been estimated to be wide:
 
 */
-unsigned int  SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
+unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int end) {
   int frEnd = end;
   double sum = 0.0;
   unsigned int sCount = 0;
@@ -733,7 +735,7 @@ unsigned int  SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, in
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
     unsigned int rowRun, yCtg;
-    double yVal;
+    FltVal yVal;
     spn[i].CtgFields(yVal, rkThis, rowRun, yCtg);
 
     if (rkThis == rkRight) { // Current run's counters accumulate.
@@ -839,13 +841,13 @@ int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini
     sumL0 += cell0;
     sumL1 += cell1;
 
-    double sumL = sumL0 + sumL1;
-    double sumR = sum - sumL;
+    FltVal sumL = sumL0 + sumL1;
+    FltVal sumR = sum - sumL;
     // sumR, sumL magnitudes can be ignored if no large case/class weightings.
     if (splitable && sumL > minDenom && sumR > minDenom) {
-      double ssL = sumL0 * sumL0 + sumL1 * sumL1;
-      double ssR = (totR0 - sumL0) * (totR0 - sumL0) + (totR1 - sumL1) * (totR1 - sumL1);
-      double cutGini = ssR / sumR + ssL / sumL;
+      FltVal ssL = sumL0 * sumL0 + sumL1 * sumL1;
+      FltVal ssR = (totR0 - sumL0) * (totR0 - sumL0) + (totR1 - sumL1) * (totR1 - sumL1);
+      FltVal cutGini = ssR / sumR + ssL / sumL;
       if (cutGini > maxGini) {
         maxGini = cutGini;
         cut = outSlot;
@@ -890,7 +892,7 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
     unsigned int rowRun;
-    double yVal;
+    FltVal yVal;
     spn[i].RegFields(yVal, rkThis, rowRun);
 
     if (rkThis == rkRight) { // Same run:  counters accumulate.

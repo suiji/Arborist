@@ -31,8 +31,8 @@ class Predict {
   static void Validate(const int yCtg[], const int yPred[], int confusion[], double error[]);
   static void Vote(double *score, int *census, int yCtg[]);
  public:
-  static void ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], unsigned int _ctgWidth, double *_leafWeight);
-  static void ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], int _facSplit[], int _rank[], int _sCount[], double *_yRanked);
+  static void ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], unsigned int _ctgWidth, double *_leafWeight);
+  static void ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], int _rank[], int _sCount[], double *_yRanked);
   static int ValidateCtg(const int yCtg[], const unsigned int *bag, int yPred[], int *census, int *conf, double error[], double *prob);
   static int PredictCtg(int yPred[], int *census, double *prob);
   static int PredictReg(double yPred[], const unsigned int *bag);

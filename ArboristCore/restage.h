@@ -61,20 +61,6 @@ class MapNode {
     endIdx = _endIdx;
   }
 
-  /**
-     @param bv is the bit vector to check.
-
-     @param sIdx is the sample index at which to test.
-
-     @return true iff sample index is set in the bit vector.
-   */
-  inline bool IsSet(const unsigned int bv[], unsigned int sIdx) {
-    const unsigned int slotBits = 8 * sizeof(unsigned int);
-    unsigned int slot = sIdx / slotBits; // Compiler should generate right-shift.
-    unsigned int mask = 1 << (sIdx - (slot * slotBits));
-    return (bv[slot] & mask) != 0;
-  }
-
   void Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
   void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx);
   void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx);

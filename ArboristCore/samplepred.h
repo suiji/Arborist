@@ -18,12 +18,14 @@
 #ifndef ARBORIST_SAMPLEPRED_H
 #define ARBORIST_SAMPLEPRED_H
 
+#include "param.h"
+
 /**
  */
 class SPNode {
   static unsigned int runShift; // Pack:  nonzero iff categorical response.
  protected:
-  double yVal; // sum of response values associated with sample.
+  FltVal yVal; // sum of response values associated with sample.
   unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
   unsigned int sCount; // # occurrences of row sampled.  << # rows.
  public:
@@ -54,7 +56,7 @@ class SPNode {
 
      @return void, with output reference parameters.
    */
-  void SetReg(double _yVal, unsigned int _rank, unsigned int _sCount) {
+  void SetReg(FltVal _yVal, unsigned int _rank, unsigned int _sCount) {
     yVal = _yVal;
     rank = _rank;
     sCount = _sCount;
@@ -74,7 +76,7 @@ class SPNode {
 
      @return void.
    */
-  inline void RegFields(double &_yVal, unsigned int &_rank, unsigned int &_sCount) const {
+  inline void RegFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_sCount) const {
     _yVal = yVal;
     _rank = rank;
     _sCount = sCount;
@@ -104,7 +106,7 @@ class SPNode {
 
      @return void.
    */
-  void SetCtg(double _yVal, unsigned int _rank, unsigned int _sCount, unsigned int _ctg) {
+  void SetCtg(FltVal _yVal, unsigned int _rank, unsigned int _sCount, unsigned int _ctg) {
     yVal = _yVal;
     rank = _rank;
     sCount = _ctg + (_sCount << runShift);
@@ -125,7 +127,7 @@ class SPNode {
 
      @return void, with output reference parameters.
    */
-  inline void CtgFields(double &_yVal, unsigned int &_rank, unsigned int &_sCount, unsigned int &_yCtg) const {
+  inline void CtgFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_sCount, unsigned int &_yCtg) const {
     _yVal = yVal;
     _rank = rank;
     _sCount = sCount >> runShift;
@@ -162,7 +164,7 @@ class SPNode {
 
      @return sum of y-values for sample.
    */
-  inline double YVal() {
+  inline FltVal YVal() {
     return yVal;
   }
 

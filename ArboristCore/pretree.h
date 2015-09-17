@@ -43,17 +43,16 @@ class PreTree {
   static unsigned int heightEst;
   PTNode *nodeVec; // Vector of tree nodes.
   int nodeCount; // Allocation height of node vector.
-  int bitLength; // Length of bit vector recording factor-valued splits.
-  int treeHeight;
+  int height;
   int leafCount;
-  int treeBitOffset;
+  unsigned int bitEnd;
+  unsigned int bvLength; // Length of bit vector recording factor-valued splits.
   int *sample2PT; // Public accessor is Sample2Frontier().
   double *info; // Aggregates info value of nonterminals, by predictor.
-  bool *treeSplitBits;
-  inline bool *BitFactory(int bitLength = 0);
+  unsigned int *splitBits;
+  unsigned int *BitFactory(unsigned int _bvLength = 0);
 
   void Consume(int nodeVal[], double numVec[], int bumpVec[], double _predInfo[], int &facWidth, int *&facSplits);
-  void ConsumeSplitBits(int outBits[]);
  protected:
   int bagCount;
   /**
@@ -74,26 +73,11 @@ class PreTree {
   static void DeImmutables();
   static void RefineHeight(unsigned int height);
 
-  class SplitPred *BagRows(const class PredOrd *predOrd, int &_bagCount, double &_sum);
-
   void DecTree(int *predTree, double *splitTree, int *bumpTree, unsigned int *facBits, double predInfo[]);
   void SplitConsume(int nodeVal[], double numVec[], int bumpVec[]);
+  unsigned int BitWidth();
   void BitConsume(unsigned int *outBits);
-  
-  /**
-     @return offset into the split-value bit vector for the current level.
-   */
-  int BitWidth() {
-    return treeBitOffset;
-  }
 
-
-  /**
-     @return true iff bit at position 'pos' is set.
-   */
-  bool BitVal(int pos) {
-    return treeSplitBits[pos];
-  }
 
   /**
    @brief Maps sample index to index of frontier node with which it is currently associated.
@@ -118,7 +102,7 @@ class PreTree {
 
 
   inline int Height() const {
-    return treeHeight;
+    return height;
   }
 
   
@@ -126,20 +110,8 @@ class PreTree {
     return bagCount;
   }
 
-  
+  void LHBit(unsigned int pos);
   void TerminalOffspring(int _parId, int &ptLH, int &ptRH);
-  
-  /**
-     @brief Sets specified bit value to true.  Assumes initialized false.
-
-     @param pos is the bit position beyond to set.
-
-     @return void.
-  */
-  inline void LHBit(int pos) {
-    treeSplitBits[treeBitOffset + pos] = true;
-  }
-
   void NonTerminal(int _id, double _info, double _splitVal, int _predIdx);
 
 
@@ -150,9 +122,9 @@ class PreTree {
 
      @return cached bit offset value.
    */
-  int PostBump(int bump) {
-    int preVal = treeBitOffset;
-    treeBitOffset += bump;
+  unsigned int PostBump(unsigned int bump) {
+    unsigned int preVal = bitEnd;
+    bitEnd += bump;
 
     return preVal;
   }
@@ -162,7 +134,6 @@ class PreTree {
   void CheckStorage(int splitNext, int leafNext);
   void ReBits();
   void ReNodes();
-  double FacBits(const bool facBits[], int facWidth);
   void ConsumeNodes(int predVec[], double splitVec[], int bumpVec[]);
 };
 
