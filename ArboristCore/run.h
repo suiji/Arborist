@@ -23,7 +23,6 @@
 #ifndef ARBORIST_RUN_H
 #define ARBORIST_RUN_H
 
-
 /**
  */
 class FRNode {
@@ -83,7 +82,6 @@ class RunSet {
   void Reset(FRNode*, BHPair*, int*, double*, double*);
   void OffsetCache(int runIdx, int bhpIdx, int outIdx);
   void HeapRandom();
-  void HeapProportion(unsigned int slot, unsigned int unitSum);
   void HeapMean();
   void HeapBinary();
 
@@ -130,6 +128,7 @@ class RunSet {
     return runZero[slot].sum;
   }
 
+  
   /**
      @brief Sets run parameters and increments run count.
 
@@ -169,13 +168,14 @@ class RunSet {
 
      @param cell1 outputs the response at rank 1.
 
-     @return iff true slot counts differ by at least unity.
+     @return true iff slot counts differ by at least unity.
    */
   inline bool SumBinary(int outPos, double &cell0, double &cell1) {
     int slot = outZero[outPos];
     cell0 = SumCtg(slot, 0);
     cell1 = SumCtg(slot, 1);
 
+    // Assumes slot-one values have increasing order.
     int slotNext = outZero[outPos+1];
     return (SumCtg(slotNext, 1) * runZero[slot].sum - cell1 * runZero[slotNext].sum) >= 1.0;
   }

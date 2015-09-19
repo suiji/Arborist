@@ -328,7 +328,9 @@ void RunSet::HeapRandom() {
 
 
 /**
-   @brief Writes to heap using weighting category-0 contribution.
+   @brief Writes to heap, weighting by slot mean response.
+
+   @return void.
  */
 void RunSet::HeapMean() {
   for (unsigned int slot = 0; slot < runCount; slot++) {
@@ -338,7 +340,9 @@ void RunSet::HeapMean() {
 
 
 /**
-   @brief Writes to heap using weighting category-1 contribution.
+   @brief Writes to heap, weighting by category-1 contribution.
+
+   @return void.
  */
 void RunSet::HeapBinary() {
   for (unsigned int slot = 0; slot < runCount; slot++) {

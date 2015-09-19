@@ -30,8 +30,9 @@ class SampleNode {
 class SampleNodeCtg : public SampleNode {
  public:
   unsigned int ctg;
-  inline unsigned int CtgAndSum(FltVal &_sum) const {
+  inline unsigned int LevelFields(FltVal &_sum, unsigned int &_sCount) const {
     _sum = sum;
+    _sCount = sCount;
     return ctg;
   }
 };

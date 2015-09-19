@@ -244,7 +244,11 @@ class Index {
   inline unsigned int BagCount() const {
     return bagCount;
   }
-  
+
+
+  inline unsigned int SCount(int splitIdx) const {
+    return indexNode[splitIdx].sCount;
+  }
 
   inline void SetLH(int ptL) {
     ntLH[LevelOffPT(ptL)] = true;
