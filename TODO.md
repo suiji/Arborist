@@ -4,6 +4,8 @@ Several more issues before the next CRAN release:
 	
 	Investigate high false-negative rate on benchml test (binary classification).
 	
+	Compatibility with forestFloor package.
+	
 	Bring help files up-to-date.
 	
 	Vignettes.
