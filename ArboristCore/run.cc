@@ -137,7 +137,6 @@ void Run::OffsetsCtg() {
   int outRuns = 0; // Sorted runs of interest.
   for (int i = 0; i < runSetCount; i++) {
     int rCount = runSet[i].CountSafe();
-
     if (ctgWidth == 2) { // Binary uses heap for all runs.
       runSet[i].OffsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
@@ -340,11 +339,16 @@ void RunSet::HeapMean() {
 
 
 /**
-   @brief Writes to heap, weighting by category-1 contribution.
+   @brief Writes to heap, weighting by category-1 probability.
 
    @return void.
  */
 void RunSet::HeapBinary() {
+  // Ordering by category probability is equivalent to ordering by
+  // concentration, as weighting by priors does not affect oder.
+  //
+  // In the absence of class weighting, numerator can be (integer) slot
+  // sample count, instead of slot sum.
   for (unsigned int slot = 0; slot < runCount; slot++) {
     BHeap::Insert(heapZero, slot, SumCtg(slot, 1) / runZero[slot].sum);
   }
@@ -409,7 +413,7 @@ int RunSet::DeWide() {
 
    @return LHS index count.
 */
-int RunSet::LHBits(unsigned int lhBits, int &lhSampCt) {
+int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
   int lhIdxCount = 0;
   unsigned int slotSup = EffCount() - 1;
   runsLH = 0;
@@ -443,7 +447,7 @@ int RunSet::LHBits(unsigned int lhBits, int &lhSampCt) {
 
    @return LHS index count.
 */
-int RunSet::LHSlots(int cut, int &lhSampCt) {
+int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
   int lhIdxCount = 0;
   lhSampCt = 0;
 
@@ -538,3 +542,21 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
   return ret;
 }
+/**
+     @brief Looks up run parameters by indirection through output vector.
+
+     @param start outputs starting index of run.
+
+     @param end outputs ending index of run.
+
+     @return rank of referenced run, plus output reference parameters.
+*/
+unsigned int RunSet::Bounds(int outSlot, int &start, int &end) {
+  int slot = outZero[outSlot];
+  FRNode fRun = runZero[slot];
+  start = fRun.start;
+  end = fRun.end;
+
+  return fRun.rank;
+}
+

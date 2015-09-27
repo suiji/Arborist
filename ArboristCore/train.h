@@ -31,7 +31,7 @@ class Train {
   static int nPred;
   static unsigned int ctgWidth;
 
-  unsigned int *inBag; // Packed bit std::vector: nRow x nTree.
+  std::vector<int> &inBag; // Packed vector:  treated as unsigned[].
   int *orig; // Tree origins:  nTree.
   int *facOrig; // Factor bit origins:  nTree.
   double *predInfo; // E.g., Gini gain:  nPred.
@@ -43,17 +43,17 @@ class Train {
   static void Immutables(int _nTree, int _nRow, int _nPred, int _nSamp, int _trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth);
   static void DeImmutables();
 
-  Train(unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit);
+  Train(std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit);
 
   virtual ~Train() {};
   void Forest(const class PredOrd *predOrd);
-  void BagSetTree(const unsigned int inBag[], int treeNum);
+  void BagSetTree(const unsigned int bagSource[], int treeNum);
 
 
  public:
   static void Init(int _nTree, int _nRow, int _nPred, int _nSamp, int trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth = 0);
-  static void ForestReg(double _y[], double _yRanked[], unsigned int _inBag[], int _origin[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
-  static void ForestCtg(int _yCtg[], double _yProxy[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
+  static void ForestReg(double _y[], double _yRanked[], std::vector<int> &_inBag, int _origin[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  static void ForestCtg(int _yCtg[], double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
 
   void Reserve(class PreTree **ptBlock, int tCoun);
   int BlockPeek(class PreTree **ptBlock, int tCount, int &blockFac, int &blockBag, int &maxHeight);
@@ -72,7 +72,7 @@ class TrainReg : public Train {
   void LeafReserve(int heightEst, int bagEst);
   void BlockLeaf(class PreTree **ptBlock, class SampleReg **sampleBlock, int tSTart, int tCount, int tOrig);
  public:
-  TrainReg(double _y[], double _yRanked[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  TrainReg(double _y[], double _yRanked[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
   ~TrainReg();
 };
 
@@ -84,7 +84,7 @@ class TrainCtg : public Train {
   void LeafReserve(int heightEst, int bagEst);
   void BlockLeaf(class PreTree **ptBlock, class SampleCtg **sampleBlock, int tStart, int tCount, int tOrig);
  public:
-  TrainCtg(int _yCtg[], double _yProxy[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
+  TrainCtg(int _yCtg[], double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
   ~TrainCtg();
 };
 

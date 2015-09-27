@@ -91,7 +91,7 @@ void Train::DeImmutables() {
 
    @return forest height, with output reference parameter.
 */
-void Train::ForestReg(double _y[], double _yRanked[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) {
+void Train::ForestReg(double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) {
   TrainReg *trainReg = new TrainReg(_y, _yRanked, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _rank, _sCount);
 
   PredOrd *predOrd = Predictor::Order();
@@ -114,7 +114,7 @@ void Train::ForestReg(double _y[], double _yRanked[], unsigned int _inBag[], int
 
    @return void.
 */
-void Train::ForestCtg(int _yCtg[], double _yProxy[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) {
+void Train::ForestCtg(int _yCtg[], double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) {
   TrainCtg *trainCtg = new TrainCtg(_yCtg, _yProxy, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _weight);
 
   PredOrd *predOrd = Predictor::Order();
@@ -126,7 +126,7 @@ void Train::ForestCtg(int _yCtg[], double _yProxy[], unsigned int _inBag[], int 
 }
 
 
-TrainCtg::TrainCtg(int _yCtg[], double _yProxy[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy))  {
+TrainCtg::TrainCtg(int _yCtg[], double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy))  {
 }
 
 
@@ -137,7 +137,7 @@ TrainCtg::~TrainCtg() {
 /**
 
  */
-TrainReg::TrainReg(double _y[], double _yRanked[], unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
+TrainReg::TrainReg(double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
 }
 
 TrainReg::~TrainReg() {
@@ -146,7 +146,7 @@ TrainReg::~TrainReg() {
 
 /**
  */  
-Train::Train(unsigned int _inBag[], int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit) : inBag(_inBag), orig(_orig), facOrig(_facOrig), predInfo(_predInfo), pred(_pred), split(_split), bump(_bump), facSplit(_facSplit) {
+Train::Train(vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit) : inBag(_inBag), orig(_orig), facOrig(_facOrig), predInfo(_predInfo), pred(_pred), split(_split), bump(_bump), facSplit(_facSplit) {
 }
 
 
@@ -158,6 +158,9 @@ Train::Train(unsigned int _inBag[], int _orig[], int _facOrig[], double _predInf
   @return void.
 */
 void Train::Forest(const PredOrd *predOrd) {
+  unsigned int ibLength = BV::LengthAlign(nTree * nRow);
+  inBag.reserve(ibLength);
+  inBag.insert(inBag.end(), ibLength, 0);
   int tn;
   for (tn = 0; tn < nTree - trainBlock; tn += trainBlock) {
     Block(predOrd, tn, trainBlock);
@@ -356,7 +359,7 @@ void Train::BagSetTree(const unsigned int bagSource[], int tIdx) {
     unsigned int supRow = nRow < baseRow + slotBits ? nRow : baseRow + slotBits;
     for (unsigned int row = baseRow; row < supRow; row++, mask <<= 1) {
       if (sourceSlot & mask) { // row is in-bag.
-	Forest::BagSet(inBag, nTree, tIdx, row);
+	Forest::BagSet((unsigned int*) &inBag[0], nTree, tIdx, row);
       }
     }
     slotRow += slotBits;

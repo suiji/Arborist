@@ -22,8 +22,9 @@
    @brief Methods and members for management of response-related computations.
  */
 class Response {
- public:
+ protected:
   const double *y;
+ public:
   Response(const double _y[]);
   static class ResponseReg *FactoryReg(const double yNum[], double yRanked[], unsigned int nRow);
   static class ResponseCtg *FactoryCtg(const int feCtg[], const double feProxy[]);
@@ -36,12 +37,12 @@ class Response {
  */
 class ResponseReg : public Response {
   class SampleReg* SampleRows(const class PredOrd *predOrd);
+  unsigned int *row2Rank;
 
  public:
   ResponseReg(const double _y[], double yRanked[], unsigned int nRow);
   ~ResponseReg();
   class SampleReg **BlockSample(const class PredOrd *predOrd, int tCount);
-  unsigned int *row2Rank;
 };
 
 /**
@@ -49,8 +50,8 @@ class ResponseReg : public Response {
  */
 class ResponseCtg : public Response {
   class SampleCtg* SampleRows(const class PredOrd *predOrd);
- public:
   const int *yCtg; // The original factor-valued response.
+ public:
 
   class SampleCtg **BlockSample(const class PredOrd *predOrd, int tCount);
   ResponseCtg(const int _yCtg[], const double _yProxy[]);

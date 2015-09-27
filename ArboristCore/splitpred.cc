@@ -27,7 +27,6 @@ using namespace std;
 
 int SplitPred::nPred = -1;
 int SplitPred::nPredNum = -1;
-int SplitPred::predNumFirst = -1;
 int SplitPred::nPredFac = -1;
 
 unsigned int SPCtg::ctgWidth = 0;
@@ -40,7 +39,6 @@ unsigned int SPCtg::ctgWidth = 0;
 void SplitPred::Immutables() {
   nPred = Predictor::NPred();
   nPredNum = Predictor::NPredNum();
-  predNumFirst = Predictor::PredNumFirst();
   nPredFac = Predictor::NPredFac();
 }
 
@@ -53,7 +51,6 @@ void SplitPred::Immutables() {
 void SplitPred::DeImmutables() {
   nPred = -1;
   nPredNum = -1;
-  predNumFirst = -1;
   nPredFac = -1;
 }
 
@@ -157,7 +154,6 @@ SPReg::SPReg(SamplePred *_samplePred) : SplitPred(_samplePred) {
 
 SPCtg::SPCtg(SamplePred *_samplePred, SampleNodeCtg _sampleCtg[]) : SplitPred(_samplePred), sampleCtg(_sampleCtg) {
 }
-
 
 
 /**
@@ -414,7 +410,7 @@ bool *SPReg::LevelPreset(const Index *index) {
 
 
 /**
-  @brief Gini pre-bias computation for regression response.
+  @brief Weight-variance pre-bias computation for regression response.
 
   @param splitIdx is the split index.
 
@@ -632,12 +628,13 @@ void SPCtg::SplitFac(const SPPair *spPair, const IndexNode *indexNode, const SPN
 */
 void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   // Walks samples backward from the end of nodes so that ties are not split.
-  int start, end, sCount;
+  int start, end;
+  unsigned int sCount;
   double sum;
   FltVal preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
-  int lhSup = -1;
+  int lhSup = end;
   unsigned int rkRight, rowRun;
   FltVal yVal;
   spn[end].RegFields(yVal, rkRight, rowRun);
@@ -660,7 +657,7 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
     rkRight = rkThis;
   }
 
-  if (lhSup >= 0) {
+  if (lhSup < end) {
     splitSig->Write(spPair, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
@@ -674,26 +671,24 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
 void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   int splitIdx, predIdx;
   spPair->Coords(splitIdx, predIdx);
-  int start, end, sCount;
+  int numIdx = Predictor::NumIdx(predIdx);
+  int start, end;
+  unsigned int numL;
   double sum;
   FltVal preBias, maxGini;
-  maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
+  maxGini = preBias = indexNode->SplitFields(start, end, numL, sum);
 
   double ssL = sumSquares[splitIdx];
   double ssR = 0.0;
   double sumL = sum;
-  int lhSup = -1;
+  int lhSup = end;
   unsigned int rkRight = spn[end].Rank();
-  int numL = sCount;
-  int lhSampCt = 0;
+  unsigned int rkStart = spn[start].Rank();
+  unsigned int lhSampCt = 0;
   for (int i = end; i >= start; i--) {
-    unsigned int yCtg;
-    unsigned int rkThis;
-    unsigned int sCount;
-    FltVal yVal;    
-    spn[i].CtgFields(yVal, rkThis, sCount, yCtg);
+    unsigned int rkThis = spn[i].Rank();
     FltVal sumR = sum - sumL;
-    if (sumL > minDenom && sumR > minDenom && rkThis != rkRight) {
+    if (rkThis != rkRight && sumL > minDenom && sumR > minDenom) {
       FltVal cutGini = ssL / sumL + ssR / sumR;
       if (cutGini > maxGini) {
         lhSampCt = numL;
@@ -701,24 +696,27 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
         maxGini = cutGini;
       }
     }
-    numL -= sCount;
+    if (rkRight == rkStart) // Last valid cut already checked.
+      break;
 
-    // Right sum is post-incremented with 'yVal', hence is exclusive.
-    // Left sum is inclusive.
-    //
-    double sumRCtg = CtgSumRight(splitIdx, predIdx, yCtg, yVal);
-    double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg;
+    unsigned int yCtg;
+    FltVal yVal;    
+    numL -= spn[i].CtgFields(yVal, yCtg);
 
     // Maintains sums of category squares incrementally, via update.
     //
+    // Right sum is post-incremented with 'yVal', hence is exclusive.
+    // Left sum is inclusive.
+    //
+    double sumRCtg = CtgSumRight(splitIdx, numIdx, yCtg, yVal);
+    double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg;
     ssR += yVal * (yVal + 2.0 * sumRCtg);
     ssL += yVal * (yVal - 2.0 * sumLCtg);
-
     sumL -= yVal;
     rkRight = rkThis;
   }
 
-  if (lhSup >= 0) {
+  if (lhSup < end) {
     splitSig->Write(spPair, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
@@ -730,7 +728,8 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
    @return void.
  */
 void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  int start, end, dummy;
+  int start, end;
+  unsigned int dummy;
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, dummy, sum);
 
@@ -739,8 +738,8 @@ void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
   spPair->Coords(splitIdx, predIdx);
   run->RunLength(splitIdx, predIdx) = BuildRuns(runSet, spn, start, end);
 
-  int lhSampCt, lhIdxCount;
-
+  int lhIdxCount;
+  unsigned int lhSampCt;
   if (ctgWidth == 2)  {
     lhIdxCount = SplitBinary(runSet, splitIdx, sum, maxGini, lhSampCt);
   }
@@ -767,9 +766,9 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
   unsigned int rkThis = spn[end].Rank();
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
-    unsigned int rowRun, yCtg;
+    unsigned int yCtg;
     FltVal yVal;
-    spn[i].CtgFields(yVal, rkThis, rowRun, yCtg);
+    unsigned int rowRun = spn[i].CtgFields(yVal, rkThis, yCtg);
 
     if (rkThis == rkRight) { // Current run's counters accumulate.
       sum += yVal;
@@ -812,7 +811,7 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
    Excluding the final run, then, the number of candidate LHS subsets is
    '2^(runCount-1) - 1'.
 */
-int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt) {
+int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt) {
   int countEff = runSet->DeWide();
 
   unsigned int slotSup = countEff - 1; // Uses post-shrink value.
@@ -857,7 +856,7 @@ int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, 
 
    @return 
  */
-int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini, int &sCount) {
+int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount) {
   runSet->HeapBinary();
   runSet->DePop();
 
@@ -897,7 +896,8 @@ int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini
    @return void.
  */
 void SPReg::SplitFacWV(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  int start, end, sCount;
+  int start, end;
+  unsigned int sCount;
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
@@ -962,7 +962,7 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
 
    @return count of LH indices.
 */
-int SPReg::HeapSplit(RunSet *runSet, double sum, int &sCount, double &maxGini) {
+int SPReg::HeapSplit(RunSet *runSet, double sum, unsigned int &sCount, double &maxGini) {
   int sCountL = 0;
   double sumL = 0.0;
   int cut = -1; // Top index of lh ords in 'facOrd' (q.v.).

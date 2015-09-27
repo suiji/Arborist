@@ -53,10 +53,10 @@ void SamplePred::Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned
   nSamp = _nSamp;
   nRow = _nRow;
 
-  predNumFirst = Predictor::PredNumFirst();
-  predNumSup = Predictor::PredNumSup();
-  predFacFirst = Predictor::PredFacFirst();
-  predFacSup = Predictor::PredFacSup();
+  predNumFirst = Predictor::NumFirst();
+  predNumSup = Predictor::NumSup();
+  predFacFirst = Predictor::FacFirst();
+  predFacSup = Predictor::FacSup();
   
   // 'bagCount' suffices, but easier to preinitialize to same value for each tree:
   pitchSP = nSamp * sizeof(SamplePred);

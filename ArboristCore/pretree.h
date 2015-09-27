@@ -132,7 +132,7 @@ class PreTree {
   double Replay(class SamplePred *samplePred, int predIdx, int level, int start, int end, int ptId);
   
   void CheckStorage(int splitNext, int leafNext);
-  void ReBits();
+  void ReBits(unsigned int bitMin);
   void ReNodes();
   void ConsumeNodes(int predVec[], double splitVec[], int bumpVec[]);
 };

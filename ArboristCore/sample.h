@@ -117,7 +117,7 @@ class SampleCtg : public Sample {
   static double forestScale;  // Jitter scale for forest-wide scores.
   SampleNodeCtg *sampleCtg;
   void Scores(double *leafWeight, int treeHeight, const int nonTerm[], double score[]);
-  void LeafWeight(const int frontierMap[], int treeHeight, double *leafWeight);
+  void LeafWeight(const int frontierMap[], const int nonTerm[], int treeHeight, double *leafWeight);
  public:
   SampleCtg();
   ~SampleCtg();

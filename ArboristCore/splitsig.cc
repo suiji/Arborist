@@ -70,7 +70,7 @@ void SplitSig::DeImmutables() {
 
    @return void.
  */
-void SplitSig::Write(const SPPair *_spPair, int _sCount, int _lhIdxCount, double _info) {
+void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, int _lhIdxCount, double _info) {
   SSNode ssn;
   ssn.runId = _spPair->RSet();
   ssn.sCount = _sCount;

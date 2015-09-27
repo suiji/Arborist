@@ -365,7 +365,7 @@ int *SampleReg::LeafPos(const int nonTerm[], const int leafExtent[], int treeHei
 
 void SampleCtg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], double *leafWeight) {
   LeafExtent(frontierMap, leafExtent);
-  LeafWeight(frontierMap, treeHeight, leafWeight);
+  LeafWeight(frontierMap, nonTerm, treeHeight, leafWeight);
   Scores(leafWeight, treeHeight, nonTerm, score);
 }
 
@@ -390,11 +390,11 @@ void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], 
   for (int idx = 0; idx < treeHeight; idx++) {
     if (nonTerm[idx] != 0)
       continue;
-    double *ctgBase = leafWeight + idx * ctgWidth;
+    double *leafBase = leafWeight + idx * ctgWidth;
     double maxWeight = 0.0;
     unsigned int argMax = 0; // Zero will be default score/category.
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      double thisWeight = ctgBase[ctg];
+      double thisWeight = leafBase[ctg];
       if (thisWeight > maxWeight) {
 	maxWeight = thisWeight;
 	argMax = ctg;
@@ -419,15 +419,13 @@ void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], 
 
    @return void, with reference output vector.
  */
-void SampleCtg::LeafWeight(const int frontierMap[], int treeHeight, double *leafWeight) {
-  // Irregular access.
-  //
+void SampleCtg::LeafWeight(const int frontierMap[], const int nonTerm[], int treeHeight, double *leafWeight) {
   double *leafSum = new double[treeHeight];
   for (int i = 0; i < treeHeight; i++)
     leafSum[i] = 0.0;
   
   for (int i = 0; i < bagCount; i++) {
-    int leafIdx = frontierMap[i];
+    int leafIdx = frontierMap[i]; // Irregular access.
     int ctg = sampleCtg[i].ctg;
     double sum = sampleCtg[i].sum;
     leafSum[leafIdx] += sum;
@@ -436,10 +434,10 @@ void SampleCtg::LeafWeight(const int frontierMap[], int treeHeight, double *leaf
 
   // Normalizes weights for probabilities.
   for (int i = 0; i < treeHeight; i++) {
-    double sum = leafSum[i];
-    if (sum > 0.0) {
+    if (nonTerm[i] == 0) {
+      double recipSum = 1.0 / leafSum[i];
       for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-	leafWeight[i * ctgWidth + ctg] /= sum;
+	leafWeight[i * ctgWidth + ctg] *= recipSum;
       }
     }
   }

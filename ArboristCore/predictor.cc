@@ -26,6 +26,8 @@ using namespace std;
 //
 int Predictor::nPred = 0;
 unsigned int Predictor::nRow = 0;
+int Predictor::numFirst = 0;
+
 int Predictor::nPredNum = 0;
 int Predictor::nPredInt = 0;
 int Predictor::nPredFac = 0;
@@ -220,7 +222,7 @@ void Predictor::UniqueRank(unsigned int rank2Row[]) {
 
   int baseOff = 0;
   int rankOff = 0;
-  for (predIdx = PredNumFirst(); predIdx < PredNumSup(); predIdx++, baseOff += nRow, rankOff += nRow){
+  for (predIdx = NumFirst(); predIdx < NumSup(); predIdx++, baseOff += nRow, rankOff += nRow){
     /* Sort-with-index requires a vector of rows to permute.*/
     for (unsigned int i = 0; i < nRow; i++)
       *(rank2Row + rankOff + i) = i;
@@ -232,7 +234,7 @@ void Predictor::UniqueRank(unsigned int rank2Row[]) {
 
   // Note divergence of 'baseOff' and 'rankOff':
   baseOff = 0;
-  for (predIdx = PredFacFirst(); predIdx < PredFacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
+  for (predIdx = FacFirst(); predIdx < FacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
     for (unsigned int i = 0; i < nRow;i++)
       *(rank2Row + rankOff + i) = i;
     // TODO:  Replace with thread-safe sort to permit parallel execution.
@@ -268,7 +270,7 @@ void Predictor::SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd) 
   //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {
     //  #pragma omp for schedule(static, 1) nowait
-    for (predIdx = PredNumFirst(); predIdx < PredNumSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
+    for (predIdx = NumFirst(); predIdx < NumSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
       OrderByRank(numBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
 
@@ -277,7 +279,7 @@ void Predictor::SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd) 
   //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {    // Factors:
     //#pragma omp for schedule(static, 1) nowait
-    for (predIdx = PredFacFirst(); predIdx < PredFacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
+    for (predIdx = FacFirst(); predIdx < FacSup(); predIdx++, baseOff += nRow, rankOff += nRow) {
       OrderByRank(facBase + baseOff, rank2Row + rankOff, predOrd + rankOff);
     }
   }
@@ -387,6 +389,22 @@ PredOrd *Predictor::Order() {
   delete [] rank2Row;
 
   return predOrd;
+}
+
+
+/**
+  @brief Derives split values for a predictor.
+
+  @param predIdx is the preditor index.
+
+  @param rkLow is the lower rank of the split.
+
+  @param rkHigh is the higher rank of the split.
+
+  @return mean predictor value between low and high ranks.
+*/
+double Predictor::SplitVal(int predIdx, int rkLow, int rkHigh) {
+  return 0.5 * (numBase[predIdx * nRow + rkLow] + numBase[predIdx * nRow + rkHigh]);
 }
 
 

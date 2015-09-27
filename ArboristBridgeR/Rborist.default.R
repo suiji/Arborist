@@ -21,7 +21,7 @@
                 ctgCensus = "votes",
                 classWeight = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
-                minInfo = 0.05,
+                minInfo = 0.1,
                 minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
                 predFixed = 0,
@@ -98,10 +98,6 @@
   if (pvtNoPredict)
     stop("Non-validating version NYI")
   
-   # L'Ecuyer's CMRG has more desirable distributional properties for this application.
-  saveRNG <- RNGkind()[1]
-  RNGkind("L'Ecuyer-CMRG")
-
   # Normalizes vector of pointwise predictor probabilites.
   if (predProb != 0 && predFixed != 0)
     stop("Only one of 'predProb' and 'predFixed' may be specified")
@@ -149,7 +145,6 @@
       sCount = train[["sCount"]]
     )
   }
-  RNGkind(saveRNG)
 
   predInfo <- train[["predInfo"]]
   names(predInfo) <- colnames(x)

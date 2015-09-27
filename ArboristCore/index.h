@@ -32,7 +32,7 @@ class IndexNode {
   int splitIdx; // Position within containing vector:  split index.
   int lhStart; // Start index of LHS data in buffer.
   int idxCount; // # distinct indices in the node.
-  int sCount;  // # samples subsumed by this node.
+  unsigned int sCount;  // # samples subsumed by this node.
   double sum; // Sum of all responses in node.
   double minInfo; // Minimum acceptable information on which to split.
   int ptId; // Index of associated PTSerial node.
@@ -118,7 +118,7 @@ class IndexNode {
 
      @return preBias, with output parameters.
   */
-  double inline SplitFields(int &_lhStart, int &_end, int &_sCount, double &_sum) const {
+  double inline SplitFields(int &_lhStart, int &_end, unsigned int &_sCount, double &_sum) const {
     _lhStart = lhStart;
     _end = _lhStart + idxCount - 1;
     _sCount = sCount;

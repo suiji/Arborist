@@ -27,8 +27,9 @@
 #include <Rcpp.h>
 
 using namespace Rcpp;
-
 #include "train.h"
+
+//using namespace std;
 //#include <iostream>
 
 /**
@@ -48,15 +49,15 @@ RcppExport SEXP RcppResponseCtg(IntegerVector y, unsigned int &ctgWidth) {
   bool autoWeights = false; // TODO:  Make user option.
   NumericVector classWeight;
   NumericVector tb(table(y));
+  double tbSum = sum(tb);
   ctgWidth = tb.length();
   if (autoWeights) {
-    double tbSum = sum(tb);
     NumericVector tbsInv = tbSum / tb;
     double tbsInvSum = sum(tbsInv);
     classWeight = tbsInv / tbsInvSum;
   }
   else {
-    classWeight = rep(1.0, ctgWidth);
+    classWeight = rep(1.0, tb.length());
   }
   int nRow = y.length();
   double recipLen = 1.0 / nRow;
@@ -86,14 +87,14 @@ RcppExport SEXP RcppResponseCtg(IntegerVector y, unsigned int &ctgWidth) {
  */
 RcppExport SEXP RcppTrainCtg(SEXP sYOneBased, SEXP sNTree, SEXP sNPred, SEXP sNSamp, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels) {
   IntegerVector yOneBased(sYOneBased);
-  int nTree = as<int>(sNTree);
-  int nPred = as<int>(sNPred);
-  int nSamp = as<int>(sNSamp);
   IntegerVector y = yOneBased - 1;
   unsigned int ctgWidth;
   NumericVector proxy = RcppResponseCtg(y, ctgWidth);
-  int nRow = y.length();
 
+  int nRow = y.length();
+  int nTree = as<int>(sNTree);
+  int nPred = as<int>(sNPred);
+  int nSamp = as<int>(sNSamp);
   Train::Init(nTree, nRow, nPred, nSamp, as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth);
 
   IntegerVector origin(nTree);
@@ -107,11 +108,9 @@ RcppExport SEXP RcppTrainCtg(SEXP sYOneBased, SEXP sNTree, SEXP sNPred, SEXP sNS
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
   //  may not scale to multi-gigarow sets.
-  //
-  int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
-  IntegerVector inBag(inBagSize, 0);
+  std::vector<int> inBag;
 
-  Train::ForestCtg(y.begin(), proxy.begin(), (unsigned int*) inBag.begin(), origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, weight);
+  Train::ForestCtg(y.begin(), proxy.begin(), inBag, origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, weight);
 
   return List::create(
 		      _["bag"] = inBag,
@@ -153,10 +152,9 @@ RcppExport SEXP RcppTrainReg(SEXP sY, SEXP sNTree, SEXP sNPred, SEXP sNSamp, SEX
   //  may not scale to multi-gigarow sets.
   //  Inititalized to zeroes.
   //
-  int inBagSize = ((nTree * nRow) + 8 * sizeof(unsigned int) - 1) / (8 * sizeof(unsigned int));
-  IntegerVector inBag(inBagSize, 0);
+  std::vector<int> inBag;
 
-  Train::ForestReg(y.begin(), yRanked.begin(), (unsigned int*) inBag.begin(), origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
+  Train::ForestReg(y.begin(), yRanked.begin(), inBag, origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
 
   return List::create(
      _["bag"] = inBag,

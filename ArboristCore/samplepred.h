@@ -121,17 +121,35 @@ class SPNode {
 
      @param _rank outputs the predictor rank.
 
+     @param _yCtg outputs the response value.
+
+     @return sample count, with output reference parameters.
+   */
+  inline unsigned int CtgFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_yCtg) const {
+    _yVal = yVal;
+    _rank = rank;
+    _yCtg = sCount & ((1 << runShift) - 1);
+
+    return sCount >> runShift;
+  }
+
+
+    /**
+     @brief Variant of above, for which rank determined separately.
+
+     @param _yVal outputs the proxy response value.
+
      @param _sCount outputs the multiplicity of the row in this sample.
 
      @param _yCtg outputs the response value.
 
-     @return void, with output reference parameters.
+     @return sample count of node, with output reference parameters.
    */
-  inline void CtgFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_sCount, unsigned int &_yCtg) const {
+  inline unsigned int CtgFields(FltVal &_yVal, unsigned int &_yCtg) const {
     _yVal = yVal;
-    _rank = rank;
-    _sCount = sCount >> runShift;
     _yCtg = sCount & ((1 << runShift) - 1);
+
+    return sCount >> runShift;
   }
 
   

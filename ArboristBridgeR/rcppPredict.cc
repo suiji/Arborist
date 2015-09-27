@@ -228,7 +228,6 @@ RcppExport SEXP RcppPredictVotes(SEXP sYPred, SEXP sCensus) {
     stop("Internal error:  class mismatch");
 
   yPred = yPred + 1;
-
   return wrap(0);
 }
 
@@ -252,7 +251,6 @@ RcppExport SEXP RcppPredictProb(SEXP sYPred, SEXP sCensus, SEXP sProb) {
     stop("Internal error:  class mismatch");
 
   yPred = yPred + 1;
-
   return wrap(0);
 }
 

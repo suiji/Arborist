@@ -31,6 +31,7 @@ class PredOrd {
 */
 class Predictor {
   //  static const int defaultInt = -1;
+  static int numFirst;
   static int predFixed;
   static double *predProb;
   static int *intBase;
@@ -57,7 +58,7 @@ class Predictor {
   static void NumericBlock(double xn[], int _ncol, bool doClone = true);
   static int BlockEnd();
   static PredOrd *Order();
-
+  
   /**
      @brief Computes compressed factor index. N.B.:  Implementation relies on factors having highest indices.
      
@@ -66,9 +67,10 @@ class Predictor {
      @return index of 'predIdx' into factor segment or -1, if not factor-valued.
   */
   static inline int FacIdx(int predIdx) {
-    return predIdx >= PredFacFirst() ? predIdx - PredFacFirst() : -1;
+    return predIdx >= FacFirst() ? predIdx - FacFirst() : -1;
   }
 
+  
   /**
    @brief Computes cardinality of factor-valued predictor, or zero if not a
    factor.
@@ -143,16 +145,32 @@ class Predictor {
 
      @return Position of first numerical predictor.
   */
-  static inline int PredNumFirst() {
-    return 0;
+  static inline int NumFirst() {
+    return numFirst;
   }
+
+
+  /**
+     @brief Positions predictor within numerical block.
+
+     @param predIdx is the index of a predictor assumed to be numeric.
+
+     @return Position of predictor within numerical block.
+   */
+  static inline int NumIdx(int predIdx) {
+    return predIdx - NumFirst();
+  }
+
+  
+
+
 
   /**
      @brief Assumes numerical predictors packed ahead of factor-valued.
 
      @return Position of last numerical predictor.
   */
-  static inline int PredNumSup() {
+  static inline int NumSup() {
     return nPredNum;
   }
 
@@ -161,7 +179,7 @@ class Predictor {
 
      @return Position of fist factor-valued predictor.
   */
-  static inline int PredFacFirst() {
+  static inline int FacFirst() {
     return nPredNum;
   }
 
@@ -170,7 +188,7 @@ class Predictor {
 
      @return Position of last factor-valued predictor.
   */
-  static inline int PredFacSup() {
+  static inline int FacSup() {
     return nPred;
   }
 
@@ -190,21 +208,7 @@ class Predictor {
     return predFixed;
   }
 
-  /**
-    @brief Derives split values for a predictor.
-
-    @param predIdx is the preditor index.
-
-    @param rkLow is the lower rank of the split.
-
-    @param rkHigh is the higher rank of the split.
-
-    @return mean predictor value between low and high ranks.
-  */
-  static inline double SplitVal(int predIdx, int rkLow, int rkHigh) {
-    return 0.5 * (numBase[predIdx * nRow + rkLow] + numBase[predIdx * nRow + rkHigh]);
-  }
-
+  static double SplitVal(int predIdx, int rkLow, int rkHigh);
   static void SetSortAndTies(const unsigned int rank2Row[], PredOrd *predOrd);
   static void OrderByRank(const int *Col, const unsigned int r2r[], PredOrd *dCol, bool ordinals = true);
   static void OrderByRank(const double *xCol, const unsigned int r2r[], PredOrd *dCol);

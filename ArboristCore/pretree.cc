@@ -215,8 +215,9 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
   if (height + splitNext + leafNext > nodeCount)
     ReNodes();
   if (Predictor::NPredFac() > 0) {
-    if (BV::LengthAlign(bitEnd + splitNext * Predictor::MaxFacCard()) > bvLength)
-      ReBits();
+    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * Predictor::MaxFacCard());
+    if (bitMin > bvLength)
+      ReBits(bitMin);
   }
 }
 
@@ -242,10 +243,13 @@ void PreTree::ReNodes() {
 
  @return void.
 */
-void PreTree::ReBits() {
-  int lengthPrev = bvLength;
-  unsigned int *TStemp = BitFactory(lengthPrev << 1);
-  for (int i = 0; i < lengthPrev; i++)
+void PreTree::ReBits(unsigned int bitMin) {
+  unsigned int lengthPrev = bvLength;
+  unsigned int lengthNext = bvLength;
+  while (lengthNext < bitMin)
+    lengthNext <<= 1;
+  unsigned int *TStemp = BitFactory(lengthNext);
+  for (unsigned int i = 0; i < lengthPrev; i++)
     TStemp[i] = splitBits[i];
   delete [] splitBits;
   splitBits = TStemp;

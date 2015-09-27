@@ -175,9 +175,14 @@ class RunSet {
     cell0 = SumCtg(slot, 0);
     cell1 = SumCtg(slot, 1);
 
-    // Assumes slot-one values have increasing order.
+    int sCount = runZero[slot].sCount;
     int slotNext = outZero[outPos+1];
-    return (SumCtg(slotNext, 1) * runZero[slot].sum - cell1 * runZero[slotNext].sum) >= 1.0;
+    // Cannot test for floating point equality.  If sCount values are unequal,
+    // then assumes the two slots are significantly different.  If identical,
+    // then checks whether the response values are likely different, given
+    // some jittering.
+    // TODO:  replace constant with value obtained from class weighting.
+    return sCount != runZero[slotNext].sCount ? true : SumCtg(slotNext, 1) - cell1 > 0.9;
   }
 
 
@@ -199,29 +204,13 @@ class RunSet {
   }
 
 
-  /**
-     @brief Looks up run parameters by indirection through output vector.
-
-     @param start outputs starting index of run.
-
-     @param end outputs ending index of run.
-
-     @return rank of referenced run, plus output reference parameters.
-  */
-  inline unsigned int Bounds(int outSlot, int &start, int &end) {
-    int slot = outZero[outSlot];
-    FRNode fRun = runZero[slot];
-    start = fRun.start;
-    end = fRun.end;
-    return fRun.rank;
-  }
-
   inline int RunsLH() {
     return runsLH;
   }
 
-  int LHBits(unsigned int lhBits, int &lhSampCt);
-  int LHSlots(int outPos, int &lhSampCt);
+  int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
+  int LHSlots(int outPos, unsigned int &lhSampCt);
+  unsigned int Bounds(int outSlot, int &start, int &end);
 };
 
 

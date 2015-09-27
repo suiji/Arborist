@@ -102,7 +102,7 @@ class SplitSig {
 
   void LevelInit(int splitCount);
   void LevelClear();
-  void Write(const class SPPair *_spPair, int _sCount, int _lhIdxCount, double _info);
+  void Write(const class SPPair *_spPair, unsigned int _sCount, int _lhIdxCount, double _info);
 };
 
 #endif

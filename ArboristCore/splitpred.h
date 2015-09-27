@@ -133,7 +133,7 @@ class SPReg : public SplitPred {
   void SplitFac(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode *nodeBase, class SplitSig *splitSig);
   void SplitFacWV(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
-  int HeapSplit(class RunSet *runSet, double sum, int &lhSampCt, double &maxGini);
+  int HeapSplit(class RunSet *runSet, double sum, unsigned int &lhSampCt, double &maxGini);
 
  public:
   SPReg(class SamplePred *_samplePred);
@@ -182,9 +182,9 @@ class SPCtg : public SplitPred {
   void LevelInitSumR();
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
   void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
-  int SplitBinary(class RunSet *runSet, int splitIdx, double sum, double &maxGini, int &sCount);
+  int SplitBinary(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
-  int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, int &lhSampCt);
+  int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt);
   
  public:
   static unsigned int ctgWidth; // Response cardinality:  immutable.
@@ -197,7 +197,7 @@ class SPCtg : public SplitPred {
      @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
      subaccumulator by the current proxy value.
 
-     @param predIdx is the predictor index.  Assumes numerical predictors contiguous.  
+     @param numIdx is contiguouly-numbered numerical index of the predictor.
 
      @param splitIdx is the split index.
 
@@ -207,8 +207,8 @@ class SPCtg : public SplitPred {
 
      @return recorded sum.
   */
-  inline double CtgSumRight(int splitIdx, int predIdx, unsigned int yCtg, double yVal) {
-    int off = (predIdx - predNumFirst) * splitCount * ctgWidth + splitIdx * ctgWidth + yCtg;
+  inline double CtgSumRight(int splitIdx, int numIdx, unsigned int yCtg, double yVal) {
+    int off = numIdx * splitCount * ctgWidth + splitIdx * ctgWidth + yCtg;
     double val = ctgSumR[off];
     ctgSumR[off] = val + yVal;
 
