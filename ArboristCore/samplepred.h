@@ -321,7 +321,7 @@ class SamplePred {
     targ = Buffers(predIdx, level, sIdxTarg);
   }
 
-  void SplitRanks(int predIdx, int level, int spIdx, int &rkLow, int &rkHigh);
+  void SplitRanks(int predIdx, int level, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
   double Replay(int sample2PT[], int predIdx, int level, int start, int end, int ptId);
 
   // TODO:  Move somewhere appropriate.

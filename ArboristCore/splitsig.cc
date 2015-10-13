@@ -14,7 +14,6 @@
  */
 
 #include "splitsig.h"
-#include "predictor.h"
 #include "samplepred.h"
 #include "pretree.h"
 #include "splitpred.h"
@@ -100,53 +99,49 @@ void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, int _lhIdxCoun
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
 double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
-  preTree->TerminalOffspring(ptId, ptLH, ptRH);
+  return runId >= 0 ? NonTerminalRun(samplePred, preTree, splitPred->Runs(), level, start, end, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, level, start, end, ptId, ptLH, ptRH);
+}
 
-  double splitVal, lhSum;
-  if (runId >= 0) {
-    splitVal = NonTerminalRun(samplePred, preTree, splitPred->Runs(), level, start, end, ptLH, ptRH, lhSum);
+
+/**
+   @brief Writes PreTree nonterminal node for multi-run (factor) predictor.
+
+   @return sum of left-hand subnode's response values.
+ */
+double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+  preTree->NonTerminalFac(info, predIdx, ptId, ptLH, ptRH);
+
+  // Replays entire index extent of node with RH pretree index then,
+  // where appropriate, overwrites by replaying with LH index in the
+  // loop to follow.
+  (void) preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
+
+  double lhSum = 0.0;
+  for (int outSlot = 0; outSlot < run->RunsLH(runId); outSlot++) {
+    int runStart, runEnd;
+    unsigned int rank = run->RunBounds(runId, outSlot, runStart, runEnd);
+    preTree->LHBit(ptId, rank);
+    lhSum += preTree->Replay(samplePred, predIdx, level, runStart, runEnd, ptLH);
   }
-  else {
-    splitVal = NonTerminalNum(samplePred, preTree, level, start, end, ptLH, ptRH, lhSum);
-  }
-  preTree->NonTerminal(ptId, info, splitVal, predIdx);
 
   return lhSum;
 }
 
 
 /**
-   @brief Writes PreTree nonterminal node for multi-run (factor) predictor.
- */
-double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run, int level, int start, int end, int ptLH, int ptRH, double &lhSum) {
-  // Replays entire index extent of node with RH pretree index then,
-  // where appropriate, overwrites by replaying with LH index in the
-  // loop to follow.
-  (void) preTree->Replay(samplePred, predIdx, level, start, end, ptRH);
-
-  lhSum = 0.0;
-  for (int outSlot = 0; outSlot < run->RunsLH(runId); outSlot++) {
-    int runStart, runEnd;
-    unsigned int rank = run->RunBounds(runId, outSlot, runStart, runEnd);
-    preTree->LHBit(rank);
-    lhSum += preTree->Replay(samplePred, predIdx, level, runStart, runEnd, ptLH);
-  }
-
-  return  preTree->PostBump(Predictor::FacCard(predIdx));
-}
-
-
-/**
    @brief Writes PreTree nonterminal node for numerical predictor.
+
+   @return sum of LH subnode's sample values.
  */
-double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int level, int start, int end, int ptLH, int ptRH, double &lhSum) {
-  lhSum = preTree->Replay(samplePred, predIdx, level, start, start + lhIdxCount - 1, ptLH);
+double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+  unsigned int rkLow, rkHigh;
+  samplePred->SplitRanks(predIdx, level, start + lhIdxCount - 1, rkLow, rkHigh);
+  preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
+  
+  double lhSum = preTree->Replay(samplePred, predIdx, level, start, start + lhIdxCount - 1, ptLH);
   (void) preTree->Replay(samplePred, predIdx, level, start + lhIdxCount, end, ptRH);
 
-  int rkLow, rkHigh;
-  samplePred->SplitRanks(predIdx, level, start + lhIdxCount - 1, rkLow, rkHigh);
-
-  return Predictor::SplitVal(predIdx, rkLow, rkHigh);
+  return lhSum;
 }
 
 

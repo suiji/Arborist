@@ -21,10 +21,10 @@
                 ctgCensus = "votes",
                 classWeight = NULL,
                 nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
-                minInfo = 0.1,
+                minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
-                predFixed = 0,
+                predFixed = ifelse(ncol(x) >= 16, 0, ifelse(!is.factor(y), max(floor(ncol(x)/3), 1), floor(sqrt(ncol(x))))),
                 predProb = ifelse(predFixed != 0, 0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(ncol(x)))/ncol(x))),
                 predWeight = rep(1.0, ncol(x)),
                 qVec = NULL,
@@ -99,8 +99,8 @@
     stop("Non-validating version NYI")
   
   # Normalizes vector of pointwise predictor probabilites.
-  if (predProb != 0 && predFixed != 0)
-    stop("Only one of 'predProb' and 'predFixed' may be specified")
+  #if (predProb != 0 && predFixed != 0)
+   # stop("Only one of 'predProb' and 'predFixed' may be specified")
   if (predProb < 0 || predProb > 1.0)
     stop("'predProb' value must lie in [0,1]");
   if (predFixed < 0 || predFixed > ncol(x))

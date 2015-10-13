@@ -33,7 +33,13 @@ class PTNode {
   int id;
   int lhId;  // LH subnode index. Non-negative iff non-terminal.
   int predIdx; // Split only.
-  double splitVal; // Split only.
+  union {
+    unsigned int offset;
+    struct {
+      unsigned int rkLow;
+      unsigned int rkHigh;
+    } splitNum;
+  } splitVal;
   void SplitConsume(int &pred, double &num, int &bump);
 };
 
@@ -51,6 +57,7 @@ class PreTree {
   double *info; // Aggregates info value of nonterminals, by predictor.
   unsigned int *splitBits;
   unsigned int *BitFactory(unsigned int _bvLength = 0);
+  void TerminalOffspring(int _parId, int &ptLH, int &ptRH);
 
   void Consume(int nodeVal[], double numVec[], int bumpVec[], double _predInfo[], int &facWidth, int *&facSplits);
  protected:
@@ -110,24 +117,9 @@ class PreTree {
     return bagCount;
   }
 
-  void LHBit(unsigned int pos);
-  void TerminalOffspring(int _parId, int &ptLH, int &ptRH);
-  void NonTerminal(int _id, double _info, double _splitVal, int _predIdx);
-
-
-  /**
-     @brief Post-increments bit offset value.
-
-     @param bump is the increment amount.
-
-     @return cached bit offset value.
-   */
-  unsigned int PostBump(unsigned int bump) {
-    unsigned int preVal = bitEnd;
-    bitEnd += bump;
-
-    return preVal;
-  }
+  void LHBit(int idx, unsigned int pos);
+  void NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int &ptRH);
+  void NonTerminalNum(double _info, int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, int _id, int &ptLH, int &ptRH);
 
   double Replay(class SamplePred *samplePred, int predIdx, int level, int start, int end, int ptId);
   

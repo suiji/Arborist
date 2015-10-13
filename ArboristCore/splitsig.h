@@ -22,8 +22,8 @@
 
  */
 class SSNode {  
-  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, int ptLH, int ptRH, double &splitVal);
-  double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, int ptLH, int ptRH, double &splitVal);
+  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, int ptId, int &ptLH, int &ptRH);
+  double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, int ptId, int &ptLH, int &ptRH);
  public:
  SSNode() : info(0.0) {}
   int runId; // Index into RunSet list.

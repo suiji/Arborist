@@ -244,7 +244,7 @@ void SamplePred::StageCtg(const PredOrd dCol[], const SampleNodeCtg sampleCtg[],
 
    @return void, with output reference parameters.
  */
-void SamplePred::SplitRanks(int predIdx, int level, int spPos, int &rkLow, int &rkHigh) {
+void SamplePred::SplitRanks(int predIdx, int level, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
   SPNode *spn = SplitBuffer(predIdx, level);
   rkLow = spn[spPos].Rank();
   rkHigh = spn[spPos + 1].Rank();

@@ -92,12 +92,14 @@ PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bvLength(0
 /**
      @brief Sets specified bit in splitting bit vector.
 
+     @param id is the index node for which the LH bit is set.
+
      @param pos is the bit position beyond to set.
 
      @return void.
 */
-void PreTree::LHBit(unsigned int pos) {
-  BV::SetBit(splitBits, bitEnd + pos);
+void PreTree::LHBit(int idx, unsigned int pos) {
+  BV::SetBit(splitBits, nodeVec[idx].splitVal.offset + pos);
 }
 
 
@@ -148,7 +150,7 @@ PreTree::~PreTree() {
 }
 
 /**
-   @brief Speculatively sets the two offspring slots as terminal lh, rh.
+   @brief Speculatively sets the two offspring slots as terminal lh, rh and changes status of this from terminal to nonterminal.
 
    @param _parId is the pretree index of the parent.
 
@@ -168,8 +170,31 @@ void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
   nodeVec[ptRH].id = ptRH;
   nodeVec[ptRH].lhId = -1;
 
-  leafCount += 2;
+  // Two more leaves for offspring, one fewer for this.
+  leafCount++;
 }
+
+
+/**
+   @brief Fills in some fields for (generic) node found splitable.
+
+   @param _id is the node index.
+
+   @param _info is the information content.
+
+   @param _predIdx is the splitting predictor index.
+
+   @return void.
+*/
+void PreTree::NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int &ptRH) {
+  TerminalOffspring(_id, ptLH, ptRH);
+  PTNode *ptS = &nodeVec[_id];
+  ptS->predIdx = _predIdx;
+  info[_predIdx] += _info;
+  ptS->splitVal.offset = bitEnd;
+  bitEnd += Predictor::FacCard(_predIdx);
+}
+
 
 /**
    @brief Fills in some fields for (generic) node found splitable.
@@ -184,12 +209,13 @@ void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
 
    @return void.
 */
-void PreTree::NonTerminal(int _id, double _info, double _splitVal, int _predIdx) {
+void PreTree::NonTerminalNum(double _info, int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, int _id, int &ptLH, int &ptRH) {
+  TerminalOffspring(_id, ptLH, ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  ptS->splitVal = _splitVal;
+  ptS->splitVal.splitNum.rkLow = _rkLow;
+  ptS->splitVal.splitNum.rkHigh = _rkHigh;
   info[_predIdx] += _info;
-  leafCount--;
 }
 
 
@@ -336,7 +362,12 @@ void PreTree::BitConsume(unsigned int outBits[]) {
 void PTNode::SplitConsume(int &pred, double &num, int &bump) {
   if (lhId > id) {
     pred = predIdx;
-    num = splitVal;
     bump = lhId - id;
+    if (Predictor::FacIdx(predIdx) >= 0) {
+      num = splitVal.offset;
+    }
+    else {
+      num = Predictor::SplitVal(predIdx, splitVal.splitNum.rkLow, splitVal.splitNum.rkHigh);
+    }
   }
 }

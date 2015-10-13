@@ -143,7 +143,9 @@ double *ForestCtg::Score(int *predictLeaves) {
   double *votes = new double[nRow * ctgWidth];
   for (row = 0; row < nRow * ctgWidth; row++)
     votes[row] = 0.0;
-  
+
+  // TODO:  Recast loop by blocks, to avoid
+  // false sharing.
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)

@@ -38,9 +38,7 @@ double* Predictor::numBase = 0;
 int* Predictor::facBase = 0;
 int* Predictor::intBase = 0;
 int* Predictor::facCard = 0;
-int* Predictor::facSum = 0;
 
-int  Predictor::nCardTot = 0; // Total count of factor levels.
 int  Predictor::maxFacCard = -1;
 
 bool Predictor::numClone = false;
@@ -125,19 +123,14 @@ void Predictor::FactorBlock(int xi[], int _ncol, int levelCount[]) {
   for (int i = 0; i < bufSize; i++)
     facBase[i] = xi[i] - 1; // Not necessary to zero-justify, but hey.
 
-  facSum = new int[nPredFac];
   facCard = new int[nPredFac];
 
-  int facOff = 0;
   maxFacCard = 0;
   for (int i = 0; i < nPredFac; i++) {
-    facSum[i] = facOff;
     facCard[i] = levelCount[i];
     if (facCard[i] > maxFacCard)
       maxFacCard = facCard[i];
-    facOff += levelCount[i];
   }
-  nCardTot = facOff;
 }
 
 
@@ -187,13 +180,10 @@ void Predictor::DeFactory() {
     predProb = 0;
   }
 
-  nPred = nPredNum = nPredInt = nPredFac = nCardTot = nRow = 0;  
+  nPred = nPredNum = nPredInt = nPredFac = nRow = 0;  
   if (facCard)
     delete [] facCard;
   facCard = 0;
-  if (facSum)
-    delete [] facSum;
-  facSum = 0;
   if (numClone)
     delete [] numBase;
   if (intClone)
@@ -393,7 +383,7 @@ PredOrd *Predictor::Order() {
 
 
 /**
-  @brief Derives split values for a predictor.
+  @brief Derives split values for a numerical predictor.
 
   @param predIdx is the preditor index.
 

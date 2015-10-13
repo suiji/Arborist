@@ -36,7 +36,6 @@ class Predictor {
   static double *predProb;
   static int *intBase;
   static int *facCount;
-  static int *facSum;
   static int *facCard;
   static unsigned int nRow;
   static int nPredInt;
@@ -50,7 +49,6 @@ class Predictor {
   static int *facBase;   // Ordered factor list.
   static double *numBase;
   static int nPred;
-  static int nCardTot; // Total number of levels over all factor predictors.
   static int maxFacCard;  // Highest number of levels among all factors.
   static void UniqueRank(unsigned int rank2Row[]);
   static void IntegerBlock(int x[], int _ncol, bool doClone = true);
@@ -93,18 +91,7 @@ class Predictor {
     return maxFacCard;
   }
 
-  /**
-     @brief Computes storage offset of factor-valued predictor.
-
-     @param predIdx is the predictor index.
-
-     @return accumulated count of factors preceding this predictor.
-  */
-  static inline int FacOffset(int predIdx) {
-    int facIdx = FacIdx(predIdx);
-    return facSum[facIdx];
-  }
-
+  
   /**
      @return number or observation rows.
    */
@@ -133,12 +120,6 @@ class Predictor {
     return nPredNum;
   }
 
-  /**
-     @return sum of factor cardinalities.
-   */
-  static inline int NCardTot() {
-    return nCardTot;
-  }
 
   /**
      @brief Fixes contiguous factor ordering as numerical preceding factor.
