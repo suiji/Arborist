@@ -25,50 +25,25 @@
 class SPNode {
   static unsigned int runShift; // Pack:  nonzero iff categorical response.
  protected:
-  FltVal yVal; // sum of response values associated with sample.
+  FltVal ySum; // sum of response values associated with sample.
   unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
   unsigned int sCount; // # occurrences of row sampled.  << # rows.
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
+  void Init(const class SampleNode *sampleNode, unsigned int _rank);
 
-  inline unsigned int Rank() {
-    return rank;
-  }
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
   // to that case.
   //
-  /**
-     @brief Sets the SamplePred contents for regression response.
-
-     @param samplePred is the array base.
-
-     @param idx is the index at which to write.
-
-     @param sIdx is the associated sample index.
-
-     @param _yVal is the response value.
-
-     @param _rank is the rank of the associated predictor value.
-
-     @param _sCount is the number of instances of the current row in this sample.
-
-     @return void, with output reference parameters.
-   */
-  void SetReg(FltVal _yVal, unsigned int _rank, unsigned int _sCount) {
-    yVal = _yVal;
-    rank = _rank;
-    sCount = _sCount;
-  }
-
 
   /**
      @brief Reports SamplePred contents for regression response.  Cannot
      be used with categorical response, as 'sCount' value reported here
      is unshifted.
 
-     @param _yVal outputs the response value.
+     @param _ySum outputs the response value.
 
      @param _rank outputs the predictor rank.
 
@@ -76,8 +51,8 @@ class SPNode {
 
      @return void.
    */
-  inline void RegFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_sCount) const {
-    _yVal = yVal;
+  inline void RegFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_sCount) const {
+    _ySum = ySum;
     _rank = rank;
     _sCount = sCount;
   }
@@ -86,38 +61,12 @@ class SPNode {
   // to be categorical, as it relies on a packed representation specific
   // to that case.
   //
-
-  /**
-     @brief Sets the SamplePred contents for categorical response.
-
-     @param samplePred is the base array.
-
-     @param idx is the index at which to write.
-
-     @param sIdx is the associated sample index.
-
-     @param _yVal is the proxy response.
-
-     @param _rank is the rank of the associated predictor value.
-
-     @param _sCount is the number of instances of the current row in this sample.
-
-     @param _ctg is the categorical response value.
-
-     @return void.
-   */
-  void SetCtg(FltVal _yVal, unsigned int _rank, unsigned int _sCount, unsigned int _ctg) {
-    yVal = _yVal;
-    rank = _rank;
-    sCount = _ctg + (_sCount << runShift);
-  }
-
   
   /**
      @brief Reports SamplePred contents for categorical response.  Can
      be called with regression response if '_yCtg' value ignored.
 
-     @param _yVal outputs the proxy response value.
+     @param _ySum outputs the proxy response value.
 
      @param _rank outputs the predictor rank.
 
@@ -125,8 +74,8 @@ class SPNode {
 
      @return sample count, with output reference parameters.
    */
-  inline unsigned int CtgFields(FltVal &_yVal, unsigned int &_rank, unsigned int &_yCtg) const {
-    _yVal = yVal;
+  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_yCtg) const {
+    _ySum = ySum;
     _rank = rank;
     _yCtg = sCount & ((1 << runShift) - 1);
 
@@ -137,7 +86,7 @@ class SPNode {
     /**
      @brief Variant of above, for which rank determined separately.
 
-     @param _yVal outputs the proxy response value.
+     @param _ySum outputs the proxy response value.
 
      @param _sCount outputs the multiplicity of the row in this sample.
 
@@ -145,8 +94,8 @@ class SPNode {
 
      @return sample count of node, with output reference parameters.
    */
-  inline unsigned int CtgFields(FltVal &_yVal, unsigned int &_yCtg) const {
-    _yVal = yVal;
+  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_yCtg) const {
+    _ySum = ySum;
     _yCtg = sCount & ((1 << runShift) - 1);
 
     return sCount >> runShift;
@@ -178,12 +127,12 @@ class SPNode {
 
 
   /**
-     @brief Accessor for 'yVal' field
+     @brief Accessor for 'ySum' field
 
      @return sum of y-values for sample.
    */
-  inline FltVal YVal() {
-    return yVal;
+  inline FltVal YSum() {
+    return ySum;
   }
 
 };
@@ -197,20 +146,16 @@ class SamplePred {
   // y-value, run class and sample index for the predictor position to which they
   // correspond.
 
+  const unsigned int nRow;
+  const unsigned int bagCount;
+  const unsigned int nPred;
+
   // Predictor-based sample orderings, double-buffered by level value.
   //
-  static int bufferSize; // Number of cells in single buffer:  nSamp * nPred.
-  static unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
-  static unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
-  static int predNumFirst;
-  static int predNumSup;
-  static int predFacFirst;
-  static int predFacSup;
+  const int bufferSize; // bagCount * nPred.
+  const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
+  const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
- protected:
-  static unsigned int nRow;
-  static int nPred;
-  static int nSamp;
   SPNode* nodeVec;
 
   // 'sampleIdx' could be boxed with SPNode.  While it is used in both
@@ -221,22 +166,18 @@ class SamplePred {
   //
   unsigned int *sampleIdx; // RV index for this row.  Used by CTG as well as on replay.
  public:
-  static void Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned int _ctgWidth);
-  static void DeImmutables();
-  SamplePred();
+  SamplePred(unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount);
   ~SamplePred();
+  static SamplePred *Factory(const class RowRank *rowRank, const class SampleNode sample[], const int sIdxRow[], unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount);
 
-  void StageReg(const class PredOrd *predOrd, const class SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[]);
-  void StageReg(const class PredOrd *dCol, const class SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[], int predIdx);
+  void Stage(const class RowRank *rowRank, const class SampleNode sampleNode[], const int sIdxRow[]);
+  void Stage(const class RowRank *rowRank, const class SampleNode sampleNode[], const int sIdxRow[], int predIdx);
   
-  void StageCtg(const class PredOrd *predOrd, const class SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[]);
-  void StageCtg(const class PredOrd *dCol, const class SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[], int predIdx);
-  
-  static inline unsigned int PitchSP() {
+  inline unsigned int PitchSP() {
     return pitchSP;
   }
 
-  static inline unsigned int PitchSIdx() {
+  inline unsigned int PitchSIdx() {
     return pitchSIdx;
   }
   
@@ -253,9 +194,10 @@ class SamplePred {
 
      @return workspace starting position for this level.
    */
-  static inline int LevelOff(int level) {
+  inline int LevelOff(unsigned int level) const {
     return (level & 1) == 0 ? 0 : bufferSize;
   }
+
 
   /**
      @brief Allows caller to cache the node buffer for the current level.
@@ -278,8 +220,8 @@ class SamplePred {
 
      @return node vector section for this predictor.
    */
-  inline static SPNode* PredBase(class SPNode *nodeBase, int predIdx) {
-    return nodeBase + nSamp * predIdx; 
+  SPNode* PredBase(class SPNode *nodeBase, int predIdx) const {
+    return nodeBase + bagCount * predIdx; 
   }
   
   /**
@@ -290,24 +232,29 @@ class SamplePred {
 
      @return starting position within workspace.
    */
-  static inline int BufferOff(int predIdx, int level) {
-    return nSamp * predIdx + LevelOff(level);
+  inline int BufferOff(int predIdx, unsigned int level) {
+    return bagCount * predIdx + LevelOff(level);
   }
 
-  inline SPNode* Buffers(int predIdx, int level, unsigned int*& sIdx) {
+  
+  /**
+   */
+  inline SPNode* Buffers(int predIdx, unsigned int level, unsigned int*& sIdx) {
     int offset = BufferOff(predIdx, level);
     sIdx = sampleIdx + offset;
     return nodeVec + offset;
   }
 
+  
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline SPNode* SplitBuffer(int predIdx, int level) {
+  inline SPNode* SplitBuffer(int predIdx, unsigned int level) {
     return nodeVec + BufferOff(predIdx, level);
   }
 
-/**
+
+  /**
    @brief Looks up source and target vectors.
 
    @param predIdx is the predictor column.
@@ -316,13 +263,13 @@ class SamplePred {
 
    @return void, with output parameter vectors.
  */
-  inline void Buffers(int predIdx, int level, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) {
+  inline void Buffers(int predIdx, unsigned int level, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) {
     source = Buffers(predIdx, level-1, sIdxSource);
     targ = Buffers(predIdx, level, sIdxTarg);
   }
 
-  void SplitRanks(int predIdx, int level, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
-  double Replay(int sample2PT[], int predIdx, int level, int start, int end, int ptId);
+  void SplitRanks(int predIdx, unsigned int level, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
+  double Replay(int sample2PT[], int predIdx, unsigned int level, int start, int end, int ptId);
 
   // TODO:  Move somewhere appropriate.
   /**

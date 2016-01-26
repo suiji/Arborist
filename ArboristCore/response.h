@@ -26,8 +26,8 @@ class Response {
   const double *y;
  public:
   Response(const double _y[]);
-  static class ResponseReg *FactoryReg(const double yNum[], double yRanked[], unsigned int nRow);
-  static class ResponseCtg *FactoryCtg(const int feCtg[], const double feProxy[]);
+  static class ResponseReg *FactoryReg(const double yNum[], double yRanked[], unsigned int _nRow);
+  static class ResponseCtg *FactoryCtg(const int feCtg[], const double feProxy[], unsigned int _nRow);
   
   virtual ~Response(){}
 };
@@ -36,25 +36,25 @@ class Response {
    @brief Specialization to regression trees.
  */
 class ResponseReg : public Response {
-  class SampleReg* SampleRows(const class PredOrd *predOrd);
+  class SampleReg* SampleRows(const class RowRank *rowRank);
   unsigned int *row2Rank;
 
  public:
   ResponseReg(const double _y[], double yRanked[], unsigned int nRow);
   ~ResponseReg();
-  class SampleReg **BlockSample(const class PredOrd *predOrd, int tCount);
+  class SampleReg **BlockSample(const class RowRank *rowRank, int tCount);
 };
 
 /**
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
-  class SampleCtg* SampleRows(const class PredOrd *predOrd);
-  const int *yCtg; // The original factor-valued response.
+  class SampleCtg* SampleRows(const class RowRank *rowRank);
+  unsigned int *yCtg; // 0-based factor-valued response.
  public:
 
-  class SampleCtg **BlockSample(const class PredOrd *predOrd, int tCount);
-  ResponseCtg(const int _yCtg[], const double _yProxy[]);
+  class SampleCtg **BlockSample(const class RowRank *rowRank, int tCount);
+  ResponseCtg(const int _yCtg[], const double _yProxy[], unsigned int _nRow);
   ~ResponseCtg();
   
   static int CtgSum(unsigned int sIdx, double &sum);

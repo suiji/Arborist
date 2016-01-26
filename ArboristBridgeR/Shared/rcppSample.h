@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2015   Mark Seligman
+// Copyright (C)  2012-2016  Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -16,22 +16,32 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file callback.h
+   @file rcppSample.h
 
-   @brief Exposes utility functions provided by the front end.
+   @brief C++ class definitions for invocation of R methods implementing response sampling.   Can be extended for other instances of sampling.
 
    @author Mark Seligman
+
  */
 
-#ifndef ARBORIST_CALLBACK_H
-#define ARBORIST_CALLBACK_H
 
-class CallBack {
- public:
-  static void SampleRows(int samp[]);
-  static void QSortI(int ySorted[], unsigned int rank2Row[], int one, unsigned int nRow);
-  static void QSortD(double ySorted[], unsigned int rank2Row[], int one, unsigned int nRow);
-  static void RUnif(int len, double out[]);
+#ifndef ARBORIST_RCPP_SAMPLE_H
+#define ARBORIST_RCPP_SAMPLE_H
+
+#include <RcppArmadillo.h>
+
+using namespace Rcpp;
+
+/**
+   @brief Row-sampling parameters supplied by the front end are invariant, so can be cached as static.
+ */
+class RcppSample {
+  static unsigned int nRow;
+  static bool withRepl;
+  static NumericVector weight;
+public:
+  static void Init(unsigned int _nRow, double _weight[], bool _withRepl);
+  static void SampleRows(unsigned int nSamp, int out[]);
 };
 
 #endif

@@ -17,6 +17,7 @@
 #include "response.h"
 #include "callback.h"
 #include "sample.h"
+#include "rowrank.h"
 
 //#include <iostream>
 using namespace std;
@@ -27,7 +28,11 @@ using namespace std;
 
    @param yNum is the front end's response vector.
 
-   @return void.
+   @param yRanked is the sorted response.
+
+   @param nRow is size of either input vector.
+
+   @return void, with output reference vector.
  */
 ResponseReg *Response::FactoryReg(const double yNum[], double yRanked[], unsigned int nRow) {
   return new ResponseReg(yNum, yRanked, nRow);
@@ -43,8 +48,8 @@ ResponseReg *Response::FactoryReg(const double yNum[], double yRanked[], unsigne
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const int feCtg[], const double feProxy[]) {
-  return new ResponseCtg(feCtg, feProxy);
+ResponseCtg *Response::FactoryCtg(const int feCtg[], const double feProxy[], unsigned int _nRow) {
+  return new ResponseCtg(feCtg, feProxy, _nRow);
 }
 
 
@@ -54,7 +59,11 @@ ResponseCtg *Response::FactoryCtg(const int feCtg[], const double feProxy[]) {
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const int _yCtg[], const double _proxy[]) : Response(_proxy), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const int _yCtg[], const double _proxy[], unsigned int _nRow) : Response(_proxy) {
+  yCtg = new unsigned int[_nRow];
+  for (unsigned int i = 0; i < _nRow; i++) {
+    yCtg[i] = _yCtg[i];
+  }
 }
 
 
@@ -89,7 +98,7 @@ ResponseReg::ResponseReg(const double _y[], double yRanked[], unsigned int nRow)
   }
 
   // Can implement rank as match(_y, sort(_y)) in Rcpp.
-  CallBack::QSortD(yRanked, rank2Row, 1, nRow);
+  CallBack::QSortD(yRanked, (int *) rank2Row, 1, nRow);
   for (unsigned int rk = 0; rk < nRow; rk++) {
     unsigned int row = rank2Row[rk];
     row2Rank[row] = rk;
@@ -106,58 +115,47 @@ ResponseReg::~ResponseReg() {
 }
 
 
-SampleCtg **ResponseCtg::BlockSample(const PredOrd *predOrd, int tCount) {
+/**
+   @brief Causes a block of classification trees to be sampled.
+
+   @param rowRank is the predictor rank information.
+
+   @param tCount is the number of trees in the block.
+
+   @return block of SampleCtg instances.
+ */
+SampleCtg **ResponseCtg::BlockSample(const RowRank *rowRank, int tCount) {
   SampleCtg **sampleBlock = new SampleCtg*[tCount];
   for (int i = 0; i < tCount; i++) {
-    sampleBlock[i] = SampleRows(predOrd);
+    sampleBlock[i] = SampleCtg::Factory(y, rowRank, yCtg);
   }
 
   return sampleBlock;
 }
 
 
-SampleReg **ResponseReg::BlockSample(const PredOrd *predOrd, int tCount) {
+/**
+   @brief Causes a block of regression trees to be sampled.
+
+   @param rowRank is the predictor rank information.
+
+   @param tCount is the number of trees in the block.
+
+   @return block of SampleReg instances.
+ */
+SampleReg **ResponseReg::BlockSample(const RowRank *rowRank, int tCount) {
   SampleReg **sampleBlock = new SampleReg*[tCount];
   for (int i = 0; i < tCount; i++) {
-    sampleBlock[i] = SampleRows(predOrd);
+    sampleBlock[i] = SampleReg::Factory(y, rowRank, row2Rank);
   }
 
   return sampleBlock;
 }
- 
- 
-/**
-   @brief Row-sampling entry for regression tree.
-
-   @param predOrd is the ordered predictor table.
-
-   @return void, with output parameter vectors.
-*/
-SampleReg *ResponseReg::SampleRows(const PredOrd *predOrd) {
-  SampleReg *sampleReg = new SampleReg();
-  sampleReg->Stage(y, row2Rank, predOrd);
-
-  return sampleReg;
-}
 
 
 /**
-   @brief Row-sampling entry for classification tree.
-
-   @param predOrd is the ordered predictor table.
-
-   @return Sample object, plus output param.
-*/
-SampleCtg *ResponseCtg::SampleRows(const PredOrd *predOrd) {
-  SampleCtg *sampleCtg = new SampleCtg();
-  sampleCtg->Stage(yCtg, y, predOrd);
-
-  return sampleCtg;
-}
-
-
-/**
-   @brief Destructor for categorical response.
+   @brief Destructor for classification.
  */
 ResponseCtg::~ResponseCtg() {
+  delete [] yCtg;
 }

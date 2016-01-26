@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2015   Mark Seligman
+// Copyright (C)  2012-2016   Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -29,17 +29,34 @@
 #include "rcppSample.h"
 
 /**
+   @brief Initializes static state parameters for row sampling.
+
+   @param _nRow is the (fixed) number of response rows.
+
+   @param _weight is the user-specified weighting of row samples.
+
+   @param _repl is true iff sampling with replacement.
+
+   @return void.
+ */
+void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
+  RcppSample::Init(_nRow, _weight, _repl);
+}
+
+
+/**
    @brief Call-back to Rcpp implementation of row sampling.
 
-   @param samp[] is a copy-out/copy-out vector containing the rows
-   to be sampled and overwritten with the samples.
+   @param nSamp is the number of samples to draw.
+
+   @param out[] outputs the sampled row indices.
 
    @return Formally void, with copy-out parameter vector.
 */
-
-void CallBack::SampleRows(int samp[]) {
-  RcppSample::SampleRows(samp);
+void CallBack::SampleRows(unsigned int nSamp, int out[]) {
+  RcppSample::SampleRows(nSamp, out);
 }
+
 
 /**
   @brief Call-back to R's integer quicksort with indices.
@@ -54,10 +71,10 @@ void CallBack::SampleRows(int samp[]) {
 
   @return Formally void, with copy-out parameter vectors.
 */
-
-void CallBack::QSortI(int ySorted[], unsigned int rank2Row[], int one, unsigned int nRow) {
+void CallBack::QSortI(int ySorted[],  int rank2Row[], int one,  int nRow) {
   R_qsort_int_I(ySorted, (int *) rank2Row, one, (int) nRow);
 }
+
 
 /**
    @brief Call-back to R's double quicksort with indices.
@@ -72,10 +89,10 @@ void CallBack::QSortI(int ySorted[], unsigned int rank2Row[], int one, unsigned 
 
    @return Formally void, with copy-out parameter vectors.
 */
-
-void CallBack::QSortD(double ySorted[], unsigned int rank2Row[], int one, unsigned int nRow) {
+void CallBack::QSortD(double ySorted[],  int rank2Row[], int one,  int nRow) {
   R_qsort_I(ySorted, (int*) rank2Row, one, (int) nRow);
 }
+
 
 /**
    @brief Call-back to R's uniform random-variate generator.

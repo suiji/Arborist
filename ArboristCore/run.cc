@@ -15,11 +15,16 @@
 
 #include "run.h"
 #include "callback.h"
-#include "predictor.h"
+#include "predblock.h"
 
 // Testing only:
 //#include <iostream>
 using namespace std;
+
+unsigned int Run::nPred = 0;
+unsigned int Run::ctgWidth = 0;
+
+unsigned int RunSet::ctgWidth = 0;
 
 /**
    Run objects are allocated per-tree, and live throughout training.
@@ -27,16 +32,16 @@ using namespace std;
    RunSets live only during a single level, from argmax pass one (splitting)
    through argmax pass two.  They accumulate summary information for split/
    predictor pairs anticipated to have two or more distinct runs.  RunSets
-   are not built for numerical predictors, which are assumed generally to
-   have dispersive values.
+   are not yet built for numerical predictors, which have so far been
+   generally assumed to have dispersive values.
 
    The runLength[] vector tracks conservatively-estimated run lengths for
    every split/predictor pair, regardless whether the pair is chosen for
    splitting in a given level (cf., 'mtry' and 'predProb').  The vector
    must be reallocated at each level, to accommodate changes in node numbering
-   introduced through splitting.  "Fat ranks", however, which track the
-   dense components of sparse predictors, employ a different type of
-   mechanism to track runs.
+   introduced through splitting.  DenseRanks, however, which track the
+   dense components of sparse predictor values, employ a different mechanism
+   to track runs.
 
    Run lengths for a given predictor decrease, although not necessarily
    monotonically, with splitting.  Hence once a pair becomes a singleton, the
@@ -56,10 +61,6 @@ using namespace std;
    known from splitting.
 */
 
-unsigned int Run::nPred = 0;
-unsigned int Run::ctgWidth = 0;
-unsigned int RunSet::ctgWidth = 0;
-
 /**
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
@@ -68,7 +69,7 @@ Run::Run() {
   runLength = 0;
   lengthNext = new unsigned int[nPred];
   for (unsigned int i = 0; i < nPred; i++) {
-    lengthNext[i] = Predictor::FacCard(i);
+    lengthNext[i] = PredBlock::FacCard(i);
   }
   runSet = 0;
   facRun = 0;
@@ -251,41 +252,32 @@ void Run::LengthTransmit(int splitIdx, int lNext, int rNext) {
     }
   }
 }
-  
+
 
 /**
-   @brief Invokes base class factory and lights off class specific initializations.
+   @brief Easiest to maintain 'ctgWidth' as static.
 
-   @param _nPred is the number of predictors.
+   @param _ctgWidth is the response cardinality.
 
    @return void.
  */
-void Run::Immutables(unsigned int _nPred, unsigned int _ctgWidth) {  
+void Run::Immutables(unsigned int _nPred, unsigned int _ctgWidth) {
   nPred = _nPred;
   ctgWidth = _ctgWidth;
-  RunSet::Immutables(ctgWidth);
+  RunSet::ctgWidth = ctgWidth;
 }
 
 
+
 /**
-   @brief Restoration of class immutables to static default values.
+   @brief Resets 'ctgWidth' to default state.
 
    @return void.
  */
 void Run::DeImmutables() {
   nPred = 0;
   ctgWidth = 0;
-  RunSet::DeImmutables();
-}
-
-
-void RunSet::Immutables(unsigned int _ctgWidth) {
-  ctgWidth = _ctgWidth;
-}
-
-
-void RunSet::DeImmutables() {
-  ctgWidth = 0;
+  RunSet::ctgWidth = 0;
 }
 
 

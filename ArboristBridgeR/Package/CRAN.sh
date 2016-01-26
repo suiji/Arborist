@@ -5,14 +5,14 @@
 
 mkdir Rborist
 cd Rborist; mkdir src; mkdir R; mkdir man; cd ..
-cp ../DESCRIPTION Rborist/
-cp ../NAMESPACE Rborist/
 cp ../LICENSE Rborist/
-cp ../*.Rd Rborist/man/
-cp ../*R Rborist/R/
-cp ../*.cc Rborist/src/
-cp ../*.h Rborist/src/
-cp ../Makevars Rborist/src/
+cp ../FrontEnd/DESCRIPTION Rborist/
+cp ../FrontEnd/NAMESPACE Rborist/
+cp ../FrontEnd/*.Rd Rborist/man/
+cp ../FrontEnd/*R Rborist/R/
+cp ../Shared/Makevars Rborist/src/
+cp ../Shared/*.cc Rborist/src/
+cp ../Shared/*.h Rborist/src/
 cp ../../ArboristCore/*.cc Rborist/src/
 cp ../../ArboristCore/*.h Rborist/src/
 cp -r ../tests Rborist

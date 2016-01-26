@@ -61,14 +61,16 @@ class MapNode {
     endIdx = _endIdx;
   }
 
-  void Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
+  void Restage(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
   void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx);
   void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx);
 
   void Singletons(class SplitPred *splitPred, const class SPNode targ[], int predIdx, int lhIdx, int rhIdx);
 };
 
+
 class RestageMap {
+  static int nPred;
   int splitPrev; // Number of splits in the level just concluded.
   int splitNext; // " " next level.
   MapNode *mapNode;
@@ -83,13 +85,12 @@ class RestageMap {
   int rhIdxNext; // Starting index of next level RH:   stable partition.
   
  public:
-  static int nPred;
-  static int nSamp; // Useful to coprocessor.
-  static void Immutables(int _nPred, int _nSamp);
-  static void DeImmutables();
   RestageMap(class SplitPred *_splitPred, unsigned int _bagCount, int _splitPrev, int _splitNext);
   ~RestageMap();
-  void RestageLevel(class SamplePred *samplePred, int level);
+  static void Immutables(int _nPred);
+  static void DeImmutables();
+
+  void RestageLevel(class SamplePred *samplePred, unsigned int level);
   void RestagePred(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], int predIdx) const;
   void ConsumeSplit(int _splitIdx, int _lNext, int _rNext, int _lhIdxCount, int _rhIdxCount, int _startIdx, int _endIdx);
   void Conclude(const class Index *index);//, int _splitPrev);

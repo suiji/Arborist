@@ -44,79 +44,32 @@ PredictForest <- function(forest, leaf, newdata, yTest, qVec, qBin, ctgCensus) {
   }
 
   # Checks test data for conformity with training data.
-  PredBlock(newdata)
-
-  nRow <- nrow(newdata)
-  if (is.null(forest$yLevels)) {
-    .Call("RcppForestReg", forest, leaf)
-  
-    yPred <- numeric(nRow)
+  predBlock <- PredBlock(newdata)
+  if (inherits(leaf, "LeafReg")) {
     if (is.null(qVec)) {
-      qPred <- NULL
-      .Call("RcppPredictReg", yPred)
+      prediction <- .Call("RcppTestReg", predBlock, forest, leaf, yTest)
     }
     else {
-      qPred <- numeric(nRow * length(qVec))
-      .Call("RcppPredictQuant", qVec, qBin, qPred, yPred)
-      qPred <- matrix(qPred, nRow, length(qVec), byrow=TRUE)
-    }
-    
-    if (!is.null(yTest))
-      mse <- .Call("RcppMSE", yPred, yTest)
-    
-    if (!is.null(qPred)) {
-      if (!is.null(yTest)) {
-        ret <- list(predicted = yPred, mse = mse, quantiles = qPred)
-      }
-      else
-        ret <- list(predicted = yPred, quantiles = qPred)
-    }
-    else {
-      if (!is.null(yTest)) {
-        ret <- list(predicted = yPred, mse = mse)
-      }
-      else
-        ret <- list(predicted = yPred)
+      prediction <- .Call("RcppTestQuant", predBlock, forest, leaf, qVec, qBin, yTest)
     }
   }
-  else {
+  else if (inherits(leaf, "LeafCtg")) {
     if (!is.null(qVec))
       stop("Quantiles supported for regression case only")
 
-    unused <- .Call("RcppForestCtg", forest, leaf)
-    yLevels <- forest$yLevels
-    yPred <- integer(nRow)
-    ctgWidth = length(yLevels)
-    census <- rep(0L, nRow * ctgWidth)
     if (ctgCensus == "votes") {
-      prob <- NULL
-      unused <- .Call("RcppPredictVotes", yPred, census)
+      prediction <- .Call("RcppTestVotes", predBlock, forest, leaf, yTest)
     }
     else if (ctgCensus == "prob") {
-      prob <- rep(0.0, nRow * ctgWidth)
-      unused <- .Call("RcppPredictProb", yPred, census, prob)
-      prob <- matrix(prob, nRow, ctgWidth, byrow = TRUE)
-      dimnames(prob) <- list(rownames(newdata), yLevels)
+      prediction <- .Call("RcppTestProb", predBlock, forest, leaf, yTest)
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
     }
-    census <- matrix(census, nRow, ctgWidth, byrow = TRUE)
-    dimnames(census) <- list(rownames(newdata), yLevels)
-
-    if (is.null(yTest)) {
-      ret <- list(predicted = yLevels[yPred], census=census, prob=prob)
-    }
-    else {
-      conf <- matrix(0L, ctgWidth, ctgWidth)
-      for (i in 1:length(yPred)) {
-        yActual <- yTest[i]
-        yPred <- yPred[i]
-        conf[yActual, yPred] <- conf[yActual, yPred] + 1
-      }
-      ret <- list(confusion = conf, census = census, prob=prob)
-    }
+  }
+  else {
+    stop("Unsupported leaf type")
   }
 
-  ret
+  prediction
 }

@@ -1,5 +1,6 @@
 useDynLib(Rborist)
 export(Rborist)
+export(PreTrain)
 
 S3method(predict, Rborist)
 S3method(Rborist, default)

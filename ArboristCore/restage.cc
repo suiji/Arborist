@@ -8,7 +8,9 @@
 /**
    @file restage.cc
 
-   @brief Methods maintaining the per-predictor ordering of sample information.
+   @brief Methods to update the per-predictor ordering of sampled values following splitting.
+
+   Restaging is implemented by stable partition, directed by sample-indexed predicates.  The predicates are node-specific, as nodes are completely characterized by the samples they index. Sample-to-rank mappings vary by predictor, however, so each node/predictor pair is repartitioned separately using the node's predicate.
 
    @author Mark Seligman
  */
@@ -18,23 +20,12 @@
 #include "restage.h"
 #include "index.h"
 #include "splitpred.h"
-#include "predictor.h"
 
 //include <iostream>
 using namespace std;
 
+
 int RestageMap::nPred = 0;
-int RestageMap::nSamp = 0;
-
-void RestageMap::Immutables(int _nPred, int _nSamp) {
-  nPred = _nPred;
-  nSamp = _nSamp;
-}
-
-void RestageMap::DeImmutables() {
-  nPred = 0;
-}
-
 
 /**
    @brief Class constructor.
@@ -50,6 +41,19 @@ RestageMap::RestageMap(SplitPred *_splitPred, unsigned int _bagCount, int _split
   sIdxRH = new unsigned int[bitSlots];
 }
 
+
+/**
+ */
+void RestageMap::Immutables(int _nPred) {
+  nPred = _nPred;
+}
+
+
+/**
+ */
+void RestageMap::DeImmutables() {
+  nPred = 0;
+}
 
 /**
    @brief Class finalizer.
@@ -101,7 +105,7 @@ void RestageMap::Conclude(const Index *index) {
 }
 
 
-void RestageMap::RestageLevel(SamplePred *samplePred, int level) {
+void RestageMap::RestageLevel(SamplePred *samplePred, unsigned int level) {
   int predIdx;
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;

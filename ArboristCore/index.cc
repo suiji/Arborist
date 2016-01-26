@@ -27,8 +27,7 @@
 //#include <iostream>
 using namespace std;
 
-int Index::totLevels = -1;
-int Index::nSamp = -1;
+unsigned int Index::totLevels = 0;
 
 /**
    @brief Initialization of static invariants.
@@ -37,14 +36,11 @@ int Index::nSamp = -1;
 
    @param _totLevels is the maximum number of levels to evaluate.
 
-   @param _nSamp is the total sample count.  Only used to initialize root.
-
    @return void.
  */
-void Index::Immutables(int _minNode, int _totLevels, int _nSamp) {
+void Index::Immutables(int _minNode, int _totLevels) {
   NodeCache::Immutables(_minNode);
   totLevels = _totLevels;
-  nSamp = _nSamp;
 }
 
 
@@ -54,7 +50,7 @@ void Index::Immutables(int _minNode, int _totLevels, int _nSamp) {
    @return void.
  */
 void Index::DeImmutables() {
-  totLevels = nSamp = -1;
+  totLevels = 0;
   NodeCache::DeImmutables();
 }
 
@@ -74,12 +70,12 @@ void NodeCache::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-Index::Index(SamplePred *_samplePred, PreTree *_preTree, SplitPred *_splitPred, int _bagCount, double _sum) : bagCount(_bagCount), samplePred(_samplePred), preTree(_preTree), splitPred(_splitPred) {
+Index::Index(SamplePred *_samplePred, PreTree *_preTree, SplitPred *_splitPred, int _nSamp, int _bagCount, double _sum) : bagCount(_bagCount), samplePred(_samplePred), preTree(_preTree), splitPred(_splitPred) {
   levelBase = 0;
   levelWidth = 1;
   splitCount = 1;
   indexNode = new IndexNode[1];
-  indexNode[0].Init(0, 0, _bagCount, nSamp, _sum, 0.0);
+  indexNode[0].Init(0, 0, _bagCount, _nSamp, _sum, 0.0);
 }
 
 
@@ -109,8 +105,7 @@ PreTree **Index::BlockTrees(Sample **sampleBlock, int treeBlock) {
 
   for (int blockIdx = 0; blockIdx < treeBlock; blockIdx ++) {
     Sample *sample = sampleBlock[blockIdx];
-    ptBlock[blockIdx] = OneTree(sample->SmpPred(), sample->SplPred(), sample->BagCount(), sample->BagSum());
-    sample->TreeClear();
+    ptBlock[blockIdx] = OneTree(sample->SmpPred(), sample->SplPred(), Sample::NSamp(), sample->BagCount(), sample->BagSum());
   }
   
   return ptBlock;
@@ -122,9 +117,9 @@ PreTree **Index::BlockTrees(Sample **sampleBlock, int treeBlock) {
 
    @return void.
  */
-PreTree *Index::OneTree(SamplePred *_samplePred, SplitPred *_splitPred, int _bagCount, double _sum) {
+PreTree *Index::OneTree(SamplePred *_samplePred, SplitPred *_splitPred, int _nSamp, int _bagCount, double _sum) {
   PreTree *_preTree = new PreTree(_bagCount);
-  Index *index = new Index(_samplePred, _preTree, _splitPred, _bagCount, _sum);
+  Index *index = new Index(_samplePred, _preTree, _splitPred, _nSamp, _bagCount, _sum);
   index->Levels();
   delete index;
 
@@ -298,7 +293,7 @@ void NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) c
 
    @return restaging map for next level.
 */
-RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, int leafNext, int level) {
+RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitNext, int leafNext, unsigned int level) {
   // Next level of pre-tree needs sufficient space to consume
   // splits precipitated by cached nodes.
   preTree->CheckStorage(splitNext, leafNext);
@@ -366,7 +361,7 @@ RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitN
 
    @return void, plus output reference parameters.
 */
-void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, SamplePred *samplePred, RestageMap *restageMap, int level, int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
+void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, SamplePred *samplePred, RestageMap *restageMap, unsigned int level, int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
   int lhIdxCount = 0;
   int lNext = -1;
   int rNext = -1;

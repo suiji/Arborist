@@ -15,57 +15,12 @@
 
 #include "samplepred.h"
 #include "sample.h"
-#include "predictor.h"
-#include "pretree.h"
-#include "restage.h"
+#include "rowrank.h"
+
 //#include <iostream>
 using namespace std;
 
-unsigned int SamplePred::nRow = 0;
-unsigned int SamplePred::pitchSP = 0;
-unsigned int SamplePred::pitchSIdx = -1;
-int SamplePred::predNumFirst = -1;
-int SamplePred::predNumSup = -1;
-int SamplePred::predFacFirst = -1;
-int SamplePred::predFacSup = -1;
-
-int SamplePred::nSamp = -1;
-int SamplePred::nPred = -1;
-int SamplePred::bufferSize = -1;
-
 unsigned int SPNode::runShift = 0;
-
-/**
-  @brief Sets static allocation parameters.
-
-  @param _nPred is the number of predictors.
-
-  @param _nSamp is the number of samples.
-
-  @param _nRow is the number of rows.
-
-  @param ctgWidth is the response cardinality.
-
-  @return void.
- */
-void SamplePred::Immutables(int _nPred, int _nSamp, unsigned int _nRow, unsigned int ctgWidth) {
-  nPred = _nPred;
-  nSamp = _nSamp;
-  nRow = _nRow;
-
-  predNumFirst = Predictor::NumFirst();
-  predNumSup = Predictor::NumSup();
-  predFacFirst = Predictor::FacFirst();
-  predFacSup = Predictor::FacSup();
-  
-  // 'bagCount' suffices, but easier to preinitialize to same value for each tree:
-  pitchSP = nSamp * sizeof(SamplePred);
-  pitchSIdx = nSamp * sizeof(unsigned int);
-  
-  bufferSize = nPred * nSamp;
-  SPNode::Immutables(ctgWidth);
-  RestageMap::Immutables(nPred, nSamp);
-}
 
 /**
    @brief Computes a packing width sufficient to hold all (zero-based) response
@@ -95,22 +50,9 @@ void SPNode::DeImmutables() {
 
 
 /**
-   @brief Nothing to see here.
- */
-void SamplePred::DeImmutables() {
-  pitchSP = pitchSIdx = 0;
-  nRow = 0;
-  predNumFirst = predNumSup = predFacFirst = predFacSup = -1;
-  nPred = nSamp = bufferSize = -1;
-  SPNode::DeImmutables();
-  RestageMap::DeImmutables();
-}
-
-
-/**
    @brief Base class constructor.
  */
-SamplePred::SamplePred() {
+SamplePred::SamplePred(unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount) : nRow(_nRow), bagCount(_bagCount), nPred(_nPred), bufferSize(_nPred * _bagCount), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   sampleIdx = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
 }
@@ -124,108 +66,79 @@ SamplePred::~SamplePred() {
   delete [] sampleIdx;
 }
 
+
 /**
-   @brief Records ranked regression sample information per predictor.
+   @brief Static entry for sample staging.
 
-   @return void.
+   @return SamplePred object for tree.
  */
-void SamplePred::StageReg(const PredOrd *predOrd, const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[]) {
-  int predIdx;
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
-	StageReg(predOrd + predIdx * nRow, sampleReg, sCountRow, sIdxRow, predIdx);
-      }
-    }
+SamplePred *SamplePred::Factory(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[], unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount) {
+  SamplePred *samplePred = new SamplePred(_nRow, _nPred, _bagCount);
+  samplePred->Stage(rowRank, sampleNode, sIdxRow);
 
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
-	StageReg(predOrd + predIdx * nRow, sampleReg, sCountRow, sIdxRow, predIdx);
-      }
-    }
+  return samplePred;
 }
 
 
 /**
-   @brief Stages the regression sample for a given predictor.  For each predictor derives rank associated with sampled row and random vector index.
-
-   @param predIdx is the predictor index.
+   @brief Loops through the predictors to stage.
 
    @return void.
-*/
-void SamplePred::StageReg(const PredOrd dCol[], const SampleNode sampleReg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
-  unsigned int *sampleIdx;
-  SPNode *spn = Buffers(predIdx, 0, sampleIdx);
+ */
+void SamplePred::Stage(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[]) {  
+  unsigned int predIdx;
 
-  // 'rk' values must be recorded in nondecreasing rank order.
-  //
-  int ptIdx = 0;
-  for (unsigned int rk = 0; rk < nRow; rk++) {
-    PredOrd dc = dCol[rk];
-    unsigned int row = dc.row;
-    if (sCountRow[row] > 0) {
-      int sIdx = sIdxRow[row];
-      SampleNode sReg = sampleReg[sIdx];
-      sampleIdx[ptIdx] = sIdx;
-      spn[ptIdx++].SetReg(sReg.sum, dc.rank, sReg.sCount);
+#pragma omp parallel default(shared) private(predIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (predIdx = 0; predIdx < nPred; predIdx++) {
+      Stage(rowRank, sampleNode, sIdxRow, predIdx);
     }
   }
 }
 
 
 /**
-   @brief Records ranked categorical sample information per predictor.
-
-   @return void.
- */
-void SamplePred::StageCtg(const PredOrd *predOrd, const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[]) {
-  
-  int predIdx;
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = predNumFirst; predIdx < predNumSup; predIdx++) {
-	StageCtg(predOrd + predIdx * nRow, sampleCtg, sCountRow, sIdxRow, predIdx);
-      }
-    }
-
-#pragma omp parallel default(shared) private(predIdx)
-    {
-#pragma omp for schedule(dynamic, 1)
-      for (predIdx = predFacFirst; predIdx < predFacSup; predIdx++) {
-	StageCtg(predOrd + predIdx * nRow, sampleCtg, sCountRow, sIdxRow, predIdx);
-      }
-    }
-}
-
-
-/**
-   @brief Stages the categorical sample for a given predictor.
+   @brief Stages SamplePred objects in non-decreasing predictor order.
 
    @param predIdx is the predictor index.
 
    @return void.
 */
-void SamplePred::StageCtg(const PredOrd dCol[], const SampleNodeCtg sampleCtg[], const int sCountRow[], const int sIdxRow[], int predIdx) {
-  unsigned int *sampleIdx;
-  SPNode *spn = Buffers(predIdx, 0, sampleIdx);
+void SamplePred::Stage(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[], int predIdx) {
+  unsigned int *smpIdx;
+  SPNode *spn = Buffers(predIdx, 0, smpIdx);
 
-  // 'rk' values must be recorded in nondecreasing rank order.
-  //
-  int ptIdx = 0;
-  for (unsigned int rk = 0; rk < nRow; rk++) {
-    PredOrd dc = dCol[rk];
-    unsigned int row = dc.row;
-    if (sCountRow[row] > 0) {
-      int sIdx = sIdxRow[row];
-      SampleNodeCtg sCtg = sampleCtg[sIdx];
-      sampleIdx[ptIdx] = sIdx;
-      spn[ptIdx++].SetCtg(sCtg.sum, dc.rank, sCtg.sCount, sCtg.ctg);
+  // TODO:  For sparse predictors, stage to DenseRank.
+  for (unsigned int idx = 0; idx < nRow; idx++) {
+    unsigned int rank;
+    unsigned int row = rowRank->Lookup(predIdx, idx, rank);
+    int sIdx = sIdxRow[row];
+    if (sIdx >= 0) {
+      *smpIdx++ = sIdx;
+      spn++->Init(&sampleNode[sIdx], rank);
     }
   }
+}
+
+
+/**
+   @brief Initializes immutable field values with category packing.
+
+   @param sample holds sampled values.
+
+   @param sIdx is the sample index.
+
+   @param sn contains the sampled values.
+
+   @param _rank is the predictor rank at the sampled row.
+
+   @return void.
+ */
+void SPNode::Init(const SampleNode *sampleNode, unsigned int _rank) {
+  unsigned int ctg = sampleNode->Ref(ySum, sCount);
+  sCount = (sCount << runShift) | ctg; // Packed representation.
+  rank = _rank;
 }
 
 
@@ -244,7 +157,7 @@ void SamplePred::StageCtg(const PredOrd dCol[], const SampleNodeCtg sampleCtg[],
 
    @return void, with output reference parameters.
  */
-void SamplePred::SplitRanks(int predIdx, int level, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
+void SamplePred::SplitRanks(int predIdx, unsigned int level, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
   SPNode *spn = SplitBuffer(predIdx, level);
   rkLow = spn[spPos].Rank();
   rkHigh = spn[spPos + 1].Rank();
@@ -266,15 +179,15 @@ void SamplePred::SplitRanks(int predIdx, int level, int spPos, unsigned int &rkL
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(int sample2PT[], int predIdx, int level, int start, int end, int ptId) {
+double SamplePred::Replay(int sample2PT[], int predIdx, unsigned int level, int start, int end, int ptId) {
   unsigned int *sIdx;
   SPNode *spn = Buffers(predIdx, level, sIdx);
 
   double sum = 0.0;
   for (int idx = start; idx <= end; idx++) {
-    sum += spn[idx].YVal();
-    unsigned int sId = sIdx[idx];
-    sample2PT[sId] = ptId;
+    sum += spn[idx].YSum();
+    unsigned int sampleIdx = sIdx[idx];
+    sample2PT[sampleIdx] = ptId;
   }
 
   return sum;

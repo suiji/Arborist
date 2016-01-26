@@ -145,7 +145,7 @@ class NodeCache : public IndexNode {
  public:
   static void Immutables(int _minNode);
   static void DeImmutables();
-  void Consume(class Index *index, class PreTree *preTree, class SplitPred *splitPred, class SamplePred *samplePred, class RestageMap *restageMap, int level, int lhSplitNext, int &lhCount, int &rhCount);
+  void Consume(class Index *index, class PreTree *preTree, class SplitPred *splitPred, class SamplePred *samplePred, class RestageMap *restageMap, unsigned int level, int lhSplitNext, int &lhCount, int &rhCount);
   void SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) const;
 
   /**
@@ -201,13 +201,13 @@ class NodeCache : public IndexNode {
 };
 
 class Index {
-  static int totLevels;
+  static unsigned int totLevels;
   NodeCache *CacheNodes();
   void ArgMax(NodeCache nodeCache[], const class SplitSig *splitSig);
   int LevelCensus(NodeCache nodeCache[], int &lhSplitNext, int &leafNext);
-  class RestageMap *ProduceNext(NodeCache nodeCache[], int splitNext, int lhSplitNext, int leafNext, int level);
+  class RestageMap *ProduceNext(NodeCache nodeCache[], int splitNext, int lhSplitNext, int leafNext, unsigned int level);
  protected:
-  int level; // Zero-based level number.
+  unsigned int level; // Zero-based level number.
   int splitCount; // Width of current level.
   IndexNode *indexNode;  
   const unsigned int bagCount;
@@ -215,20 +215,19 @@ class Index {
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   bool *ntLH;
   bool *ntRH;
-  static class PreTree *OneTree(class SamplePred *_samplePred, class SplitPred *_splitPred, int _bagCount, double _bagSum);
+  static class PreTree *OneTree(class SamplePred *_samplePred, class SplitPred *_splitPred, int _nSamp, int _bagCount, double _bagSum);
  public:
-  static int nSamp;
-  static void Immutables(int _minNode, int _totLevels, int _nSamp);
+  static void Immutables(int _minNode, int _totLevels);
   static void DeImmutables();
   class SamplePred *samplePred;
   class PreTree *preTree;
   class SplitPred *splitPred;
-  Index(class SamplePred *_samplePred, class PreTree *_preTree, class SplitPred *_splitPred, int _bagCount, double _sum);
+  Index(class SamplePred *_samplePred, class PreTree *_preTree, class SplitPred *_splitPred, int _nSamp, int _bagCount, double _sum);
   ~Index();
   /**
      @brief level accessor.
    */
-  int Level() {
+  unsigned int Level() {
     return level;
   }
   static class PreTree **BlockTrees(class Sample **sampleBlock, int _treeBlock);

@@ -15,7 +15,9 @@
 
 
 #include "quant.h"
+#include "predict.h"
 #include "forest.h"
+#include "sample.h"
 
 //#include <iostream>
 using namespace std;
@@ -24,63 +26,56 @@ using namespace std;
 /**
    @brief Static entry for quantile prediction.
 
-   @param qVec is a front-end vector of quantiles to evaluate.
+   @param _nRow is the number of observations.
+
+   @param _forest is the Forest yielding the prediction.
+
+   @param _rank are the sample rank values.
+
+   @param _sCount are the sample counts.
+
+   @param _qVec is the vector of quantiles to compute.
 
    @param qCount is the number of elements in _qVec.
 
    @param qBin is the row-count threshold for binning.
 
+   @param predictLeaves is the predicted outcome, as leaf indices.
+
    @param qPred outputs the prediction.
 
-   @return error code from Forest static entry.
+   @return void, with reference output parameter.
  */
-void Quant::Predict(const ForestReg *forestReg, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]) {
-  int _nTree;
-  unsigned int _nRow;
-  int *_origin, *_nonTerm, *_extent, *_rank, *_sCount;
-  double *_yRanked;
-  int _height = forestReg->QuantFields(_nTree, _nRow, _origin, _nonTerm, _extent, _yRanked, _rank, _sCount);
-  Quant *quant = new Quant(_height, _nTree, _nRow, _origin, _nonTerm, _extent, _yRanked, _rank, _sCount, _qVec, _qCount, _qBin);
+void Quant::Predict(unsigned int _nRow, Forest *forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]) {
+  Quant *quant = new Quant(_nRow, forest, _yRanked, _rank, _sCount, _qVec, _qCount, _qBin);
   quant->PredictRows(predictLeaves, qPred);
 
   delete quant;
 }
 
 
-Quant::Quant(int _height, int _nTree, unsigned int _nRow, int *_origin, int *_nonTerm, int *_extent, double *_yRanked, int *_rank, int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin) : height(_height), nTree(_nTree), nRow(_nRow), origin(_origin), extent(_extent), yRanked(_yRanked), rank(_rank), sCount(_sCount) , qVec(_qVec), qCount(_qCount), qBin(_qBin) {
-  LeafPositions(_nonTerm);
+/**
+   @brief Constructor.  Caches parameter values and computes compressed
+   leaf indices.
+ */
+Quant::Quant(unsigned int _nRow, Forest *_forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin) : nRow(_nRow), forest(_forest), height(forest->Height()), nTree(forest->NTree()), extent(forest->Extent()), yRanked(_yRanked), rank(_rank), sCount(_sCount), qVec(_qVec), qCount(_qCount), qBin(_qBin) {
+  leafPos = SampleReg::LeafPos(forest->Nonterminal(), extent, height);
 }
 
+
+/**
+ */
 Quant::~Quant() {
   delete [] leafPos;
 }
 
 
 /**
-   @brief Marks absolute starting offset of each leaf in forest, or -1
-   to identify nonterminals.
-
-   @return void, with vector side effect.
- */
-void Quant::LeafPositions(int nonTerm[]) {
-  leafPos = new int[height];
-  int idxAccum = 0;
-  for (int i = 0; i < height; i++) {
-    if (nonTerm[i] == 0) {
-      leafPos[i] = idxAccum;
-      idxAccum += extent[i];
-    }
-    else {
-      leafPos[i] = -1;
-    }
-  }
-}
-
-
-/**
    @brief Fills in the quantile leaves for each row.
 
-   @param predictLeavs outputs the matrix of quantile leaves.
+   @param predictLeaves contains the predicted leaf indices.
+
+   @param qPred outputs the matrix of quantile leaves.
 
    @return void, with output parameter matrix.
  */
@@ -102,7 +97,9 @@ void Quant::PredictRows(int predictLeaves[], double qPred[]) {
 /**
    @brief Overwrites sample counts for wide leaves with binned values.
 
-   @return bin size.
+   @param logSmudge outputs the log2 of the smudging factor.
+
+   @return bin size, with output reference parameter.
  */
 unsigned int Quant::SmudgeLeaves(unsigned int &logSmudge) {
   logSmudge = 0;
@@ -113,7 +110,7 @@ unsigned int Quant::SmudgeLeaves(unsigned int &logSmudge) {
 
   unsigned int binSize = (nRow + (1 << logSmudge) - 1) >> logSmudge;
   for (int i = 0; i < height; i++) {
-    int leafOff = LeafPos(i);
+    int leafOff = leafPos[i];
     if (leafOff >= 0) {
       unsigned int leafSize = extent[i];
       if (leafSize > binSize) {
@@ -143,9 +140,13 @@ unsigned int Quant::SmudgeLeaves(unsigned int &logSmudge) {
 
    @param qRow[] outputs quantile values.
 
+   @param binSize is the bin size and threshold.
+
+   @param logSmudge is the log2 of the smudging value.
+
    @return void, with output vector parameter.
  */
-void Quant::Leaves(const int rowPredict[], double qRow[], unsigned int binSize, unsigned int logSmudge) {
+void Quant::Leaves(const int leaves[], double qRow[], unsigned int binSize, unsigned int logSmudge) {
   int *sampRanks = new int[binSize];
   for (unsigned int i = 0; i < binSize; i++)
     sampRanks[i] = 0;
@@ -154,14 +155,14 @@ void Quant::Leaves(const int rowPredict[], double qRow[], unsigned int binSize, 
   //
   int totRanks = 0;
   for (int tn = 0; tn < nTree; tn++) {
-    int leafIdx = rowPredict[tn];
+    int leafIdx = leaves[tn];
     if (leafIdx >= 0) { // otherwise in-bag:  no prediction for tree at row.
-      int leafOff = origin[tn] + leafIdx; // Absolute forest offset of leaf.
+      int leafOff = forest->LeafPos(tn, leafIdx); // Absolute forest offset.
       if (logSmudge == 0) {
-        totRanks += RanksExact(extent[leafOff], LeafPos(leafOff), sampRanks);
+        totRanks += RanksExact(extent[leafOff], leafPos[leafOff], sampRanks);
       }
       else {
-        totRanks += RanksSmudge(extent[leafOff], LeafPos(leafOff), sampRanks, binSize, logSmudge);
+        totRanks += RanksSmudge(extent[leafOff], leafPos[leafOff], sampRanks, binSize, logSmudge);
       }
     }
   }
@@ -197,6 +198,8 @@ void Quant::Leaves(const int rowPredict[], double qRow[], unsigned int binSize, 
    @param leafExtent enumerates sample indices associated with a leaf.
 
    @param leafOff is the forest starting index of leaf's rank values.
+
+   @param sampRanks outputs the count of samples at a given rank.
 
    @return count of ranks introduced by leaf.
  */

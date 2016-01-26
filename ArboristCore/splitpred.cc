@@ -20,40 +20,15 @@ using namespace std;
 #include "splitpred.h"
 #include "splitsig.h"
 #include "run.h"
-#include "predictor.h"
 #include "samplepred.h"
 #include "callback.h"
 #include "sample.h"
+#include "predblock.h"
 
-int SplitPred::nPred = -1;
-int SplitPred::nPredNum = -1;
-int SplitPred::nPredFac = -1;
-
+int SplitPred::nPred = 0;
+int SplitPred::predFixed = 0;
+double *SplitPred::predProb = 0;
 unsigned int SPCtg::ctgWidth = 0;
-
-/**
-   @brief Lights off base class initializations.
-
-   @return void.
- */
-void SplitPred::Immutables() {
-  nPred = Predictor::NPred();
-  nPredNum = Predictor::NPredNum();
-  nPredFac = Predictor::NPredFac();
-}
-
-
-/**
-   @brief Restores static values to initial.
-
-   @return void.
- */
-void SplitPred::DeImmutables() {
-  nPred = -1;
-  nPredNum = -1;
-  nPredFac = -1;
-}
-
 
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
@@ -72,6 +47,39 @@ SplitPred::~SplitPred() {
 }
 
 
+void SplitPred::Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[]) {
+  nPred = _nPred;
+  predFixed = _predFixed;
+  predProb = new double[nPred];
+  for (int i = 0; i < nPred; i++)
+    predProb[i] = _predProb[i];
+
+  if (_ctgWidth > 0) {
+    SPCtg::Immutables(_ctgWidth);
+  }
+}
+
+
+void SplitPred::DeImmutables() {
+  nPred = 0;
+  predFixed = 0;
+  delete [] predProb;
+  predProb = 0;
+
+  SPCtg::DeImmutables();
+}
+
+
+void SPCtg::Immutables(unsigned int _ctgWidth) {
+  ctgWidth = _ctgWidth;
+}
+
+
+void SPCtg::DeImmutables() {
+  ctgWidth = 0;
+}
+
+
 /**
    @brief Static entry for regression.
  */
@@ -83,76 +91,28 @@ SplitPred *SplitPred::FactoryReg(SamplePred *_samplePred) {
 /**
    @brief Static entry for classification.
  */
-SplitPred *SplitPred::FactoryCtg(SamplePred *_samplePred, SampleNodeCtg *_sampleCtg) {
+SplitPred *SplitPred::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg) {
   return new SPCtg(_samplePred, _sampleCtg);
 }
 
 
-void SplitPred::ImmutablesReg(unsigned int _nRow, int _nSamp) {
-  Immutables();
-  SPReg::Immutables(_nRow, _nSamp);
-}
-
-
 /**
-   @brief Immutable initializations.
+   @brief Constructor.
 
-   @param _nRow is the number of rows.
-
-   @param _nSamp is the number of samples.
-
-   @return void.
+   @param samplePred holds (re)staged node contents.
  */
-void SPReg::Immutables(unsigned int _nRow, int _nSamp) {
-  SamplePred::Immutables(nPred, _nSamp, _nRow, 0);
-  Run::Immutables(nPred);
-}
-
-
-void SplitPred::ImmutablesCtg(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth) {
-  Immutables();
-  SPCtg::Immutables(_nRow, _nSamp, _ctgWidth);
-}
-
-
-/**
-   @brief Lights off initializers for categorical tree.
-
-   @param _ctgWidth is the response cardinality.
-
-   @return void.
- */
-void SPCtg::Immutables(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth) {
-  ctgWidth = _ctgWidth;
-  SamplePred::Immutables(nPred, _nSamp, _nRow, ctgWidth);
-  Run::Immutables(nPred, ctgWidth);
-}
-
-
-/**
-   @brief If factor predictors, finalizes subclass.
- */
-void SPCtg::DeImmutables() {
-  SplitPred::DeImmutables();
-  ctgWidth = 0;
-  Run::DeImmutables();
-}
-
-
-/**
-   @brief Finalizer.
- */
-void SPReg::DeImmutables() {
-  SplitPred::DeImmutables();
-  Run::DeImmutables();
-}
-
-
 SPReg::SPReg(SamplePred *_samplePred) : SplitPred(_samplePred) {
 }
 
 
-SPCtg::SPCtg(SamplePred *_samplePred, SampleNodeCtg _sampleCtg[]) : SplitPred(_samplePred), sampleCtg(_sampleCtg) {
+/**
+   @brief Constructor.
+
+   @param samplePred holds (re)staged node contents.
+
+   @param sampleCtg is the sample vector for the tree, included for category lookup.
+ */
+SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[]): SplitPred(_samplePred), sampleCtg(_sampleCtg) {
 }
 
 
@@ -171,31 +131,46 @@ void SplitPred::LevelInit(Index *index, int _splitCount) {
   bool *unsplitable = LevelPreset(index);
   SplitFlags(unsplitable);
   index->SetPrebias(); // Depends on state from LevelPreset()
-  spPair = PairInit(pairCount);
+  spPair = PairInit(nPred, pairCount);
   RunOffsets();
 }
 
 
+/**
+   @brief Sets quick lookup offets for Run object.
+
+   @return void.
+ */
 void SPReg::RunOffsets() {
   run->OffsetsReg();
 }
 
 
+/**
+   @brief Sets quick lookup offsets for Run object.
+ */
 void SPCtg::RunOffsets() {
   run->OffsetsCtg();
 }
 
 
+/**
+   @brief Sets run length sups for next row.
+ */
 void SplitPred::LengthVec(int splitNext) {
   run->LengthVec(splitNext);
 }
 
 
+/**
+ */
 void SplitPred::LengthTransmit(int splitIdx, int lNext, int rNext) {
   run->LengthTransmit(splitIdx, lNext, rNext);
 }
 
 
+/**
+ */
 unsigned int &SplitPred::LengthNext(int splitIdx, int predIdx) {
   return run->LengthNext(splitIdx, predIdx);
 }
@@ -205,7 +180,7 @@ unsigned int &SplitPred::LengthNext(int splitIdx, int predIdx) {
    @brief Builds the run workspace using the most recent count values for
    factors splitable at this level.
  */
-SPPair *SplitPred::PairInit(int &pairCount) {
+SPPair *SplitPred::PairInit(int nPred, int &pairCount) {
   // Whether it is a better idea to avoid the counting step and simply
   // allocate a conservatively-sized buffer is open to debate.
   //
@@ -264,7 +239,6 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
   CallBack::RUnif(len, ruPred);
   splitFlags = new bool[len];
 
-  int predFixed = Predictor::PredFixed();
   BHPair *heap;
   if (predFixed > 0)
     heap = new BHPair[splitCount * nPred];
@@ -284,7 +258,7 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
       SplitPredProb(&ruPred[splitOff], &splitFlags[splitOff]);
     }
     else { // Fixed number of predictors splitable.
-      SplitPredFixed(predFixed, &ruPred[splitOff], &heap[splitOff], &splitFlags[splitOff]);
+      SplitPredFixed(&ruPred[splitOff], &heap[splitOff], &splitFlags[splitOff]);
     }
   }
   }
@@ -296,6 +270,8 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
 }
 
 
+/**
+ */
 void SplitPred::SplitPredNull(bool flags[]) {
   for (int predIdx = 0; predIdx < nPred; predIdx++) {
     flags[predIdx] = false;
@@ -303,18 +279,36 @@ void SplitPred::SplitPredNull(bool flags[]) {
 }
 
 
+/**
+   @brief Set splitable flag by Bernoulli sampling.
+
+   @param ruPred is a vector of uniformly-sampled variates.
+
+   @param flags outputs the splitability predicate.
+
+   @return void, with output vector.
+ */
 void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
   for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    double predProb = Predictor::PredProb(predIdx);
-    flags[predIdx] = ruPred[predIdx] < predProb;
+    flags[predIdx] = ruPred[predIdx] < predProb[predIdx];
   }
 }
 
  
-void SplitPred::SplitPredFixed(int predFixed, const double ruPred[], BHPair heap[], bool flags[]) {
+/**
+   @brief Sets splitable flag for a fixed number of predictors.
+
+   @param ruPred is a vector of uniformly-sampled variates.
+
+   @param heap orders probability-weighted variates.
+
+   @param flags outputs the splitability predicate.
+
+   @return void, with output vector.
+ */
+void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[]) {
   for (int predIdx = 0; predIdx < nPred; predIdx++) {
-    double predProb = Predictor::PredProb(predIdx);
-    BHeap::Insert(heap, predIdx, ruPred[predIdx] * predProb);
+    BHeap::Insert(heap, predIdx, ruPred[predIdx] * predProb[predIdx]);
     flags[predIdx] = false;
   }
 
@@ -335,7 +329,7 @@ bool SplitPred::Singleton(int splitIdx, int predIdx) {
  
 /**
  */
-void SplitPred::LevelSplit(const IndexNode indexNode[], int level, int splitCount, SplitSig *splitSig) {
+void SplitPred::LevelSplit(const IndexNode indexNode[], unsigned int level, int splitCount, SplitSig *splitSig) {
   LevelSplit(indexNode, samplePred->NodeBase(level), splitCount, splitSig);
 }
 
@@ -371,7 +365,7 @@ SPCtg::~SPCtg() {
 
 
 void SPCtg::LevelClear() {
-  if (nPredNum > 0) {
+  if (PredBlock::NPredNum() > 0) {
     delete [] ctgSumR;
   }
   delete [] ctgSum;
@@ -434,7 +428,7 @@ wells as FacRun vectors.
    @return vector of unsplitable indices.
 */
 bool *SPCtg::LevelPreset(const Index *index) {
-  if (nPredNum > 0)
+  if (PredBlock::NPredNum() > 0)
     LevelInitSumR();
 
   bool *unsplitable = new bool[splitCount];
@@ -446,6 +440,8 @@ bool *SPCtg::LevelPreset(const Index *index) {
 }
 
 
+/**
+ */
 void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
   sumSquares = new double[splitCount];
   ctgSum = new double[splitCount * ctgWidth];
@@ -467,7 +463,7 @@ void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
     if (levelOff >= 0) {
       FltVal sum;
       unsigned int sCount;
-      unsigned int ctg = sampleCtg[sIdx].LevelFields(sum, sCount);
+      unsigned int ctg = sampleCtg[sIdx].Ref(sum, sCount);
       sumTemp[levelOff * ctgWidth + ctg] += sum;
       sCountTemp[levelOff * ctgWidth + ctg] += sCount;
     }
@@ -520,7 +516,7 @@ double SPCtg::Prebias(int splitIdx, int sCount, double sum) {
    @return void.
  */
 void SPCtg::LevelInitSumR() {
-  unsigned int length = nPredNum * ctgWidth * splitCount;
+  unsigned int length = PredBlock::NPredNum() * ctgWidth * splitCount;
   ctgSumR = new double[length];
   for (unsigned int i = 0; i < length; i++)
     ctgSumR[i] = 0.0;
@@ -539,20 +535,20 @@ void SplitPred::Split(const IndexNode indexNode[], SPNode *nodeBase, SplitSig *s
     {
 #pragma omp for schedule(dynamic, 1)
       for (pairIdx = 0; pairIdx < pairCount; pairIdx++) {
-	spPair[pairIdx].Split(this, indexNode, nodeBase, splitSig);
+	spPair[pairIdx].Split(this, indexNode, nodeBase, samplePred, splitSig);
       }
     }
 }
 
 
-void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *nodeBase, SplitSig *splitSig) {
+void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *nodeBase, const SamplePred *samplePred, SplitSig *splitSig) {
   int splitIdx, predIdx;
   Coords(splitIdx, predIdx);
   if (setIdx >= 0) {
-    splitPred->SplitFac(this, &indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), splitSig);
+    splitPred->SplitFac(this, &indexNode[splitIdx], samplePred->PredBase(nodeBase, predIdx), splitSig);
   }
   else {
-    splitPred->SplitNum(this, &indexNode[splitIdx], SamplePred::PredBase(nodeBase, predIdx), splitSig);
+    splitPred->SplitNum(this, &indexNode[splitIdx], samplePred->PredBase(nodeBase, predIdx), splitSig);
   }
 }
 
@@ -635,25 +631,25 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   int lhSup = end;
-  unsigned int rkRight, rowRun;
-  FltVal yVal;
-  spn[end].RegFields(yVal, rkRight, rowRun);
-  double sumR = yVal;
-  int numL = sCount - rowRun; // >= 1: counts up to, including, this index. 
+  unsigned int rkRight, rowRank;
+  FltVal ySum;
+  spn[end].RegFields(ySum, rkRight, rowRank);
+  double sumR = ySum;
+  int numL = sCount - rowRank; // >= 1: counts up to, including, this index. 
   int lhSampCt = 0;
   for (int i = end-1; i >= start; i--) {
     int numR = sCount - numL;
     FltVal sumL = sum - sumR;
     FltVal idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
     unsigned int rkThis;
-    spn[i].RegFields(yVal, rkThis, rowRun);
+    spn[i].RegFields(ySum, rkThis, rowRank);
     if (idxGini > maxGini && rkThis != rkRight) {
-      lhSampCt = numL; // Recomputable: rowRun sum on indices <= 'lhSup'.
+      lhSampCt = numL; // Recomputable: rowRank sum on indices <= 'lhSup'.
       lhSup = i;
       maxGini = idxGini;
     }
-    numL -= rowRun;
-    sumR += yVal;
+    numL -= rowRank;
+    sumR += ySum;
     rkRight = rkThis;
   }
 
@@ -671,7 +667,7 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
 void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   int splitIdx, predIdx;
   spPair->Coords(splitIdx, predIdx);
-  int numIdx = Predictor::NumIdx(predIdx);
+  int numIdx = PredBlock::NumIdx(predIdx);
   int start, end;
   unsigned int numL;
   double sum;
@@ -700,19 +696,19 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
       break;
 
     unsigned int yCtg;
-    FltVal yVal;    
-    numL -= spn[i].CtgFields(yVal, yCtg);
+    FltVal ySum;    
+    numL -= spn[i].CtgFields(ySum, yCtg);
 
     // Maintains sums of category squares incrementally, via update.
     //
-    // Right sum is post-incremented with 'yVal', hence is exclusive.
+    // Right sum is post-incremented with 'ySum', hence is exclusive.
     // Left sum is inclusive.
     //
-    double sumRCtg = CtgSumRight(splitIdx, numIdx, yCtg, yVal);
+    double sumRCtg = CtgSumRight(splitIdx, numIdx, yCtg, ySum);
     double sumLCtg = CtgSum(splitIdx, yCtg) - sumRCtg;
-    ssR += yVal * (yVal + 2.0 * sumRCtg);
-    ssL += yVal * (yVal - 2.0 * sumLCtg);
-    sumL -= yVal;
+    ssR += ySum * (ySum + 2.0 * sumRCtg);
+    ssL += ySum * (ySum - 2.0 * sumLCtg);
+    sumL -= ySum;
     rkRight = rkThis;
   }
 
@@ -767,21 +763,21 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
     unsigned int yCtg;
-    FltVal yVal;
-    unsigned int rowRun = spn[i].CtgFields(yVal, rkThis, yCtg);
+    FltVal ySum;
+    unsigned int rowRank = spn[i].CtgFields(ySum, rkThis, yCtg);
 
     if (rkThis == rkRight) { // Current run's counters accumulate.
-      sum += yVal;
-      sCount += rowRun;
+      sum += ySum;
+      sCount += rowRank;
     }
     else { // Flushes current run and resets counters for next run.
       runSet->Write(rkRight, sCount, sum, i+1, frEnd);
 
-      sum = yVal;
-      sCount = rowRun;
+      sum = ySum;
+      sCount = rowRank;
       frEnd = i;
     }
-    runSet->SumCtg(yCtg) += yVal;
+    runSet->SumCtg(yCtg) += ySum;
   }
 
   // Flushes remaining run.
@@ -924,19 +920,19 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
   unsigned int rkThis = spn[end].Rank();
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
-    unsigned int rowRun;
-    FltVal yVal;
-    spn[i].RegFields(yVal, rkThis, rowRun);
+    unsigned int rowRank;
+    FltVal ySum;
+    spn[i].RegFields(ySum, rkThis, rowRank);
 
     if (rkThis == rkRight) { // Same run:  counters accumulate.
-      sum += yVal;
-      sCount += rowRun;
+      sum += ySum;
+      sCount += rowRank;
     }
     else { // New run:  flush accumulated counters and reset.
       runSet->Write(rkRight, sCount, sum, i+1, frEnd);
 
-      sum = yVal;
-      sCount = rowRun;
+      sum = ySum;
+      sCount = rowRank;
       frEnd = i;
     }
   }

@@ -16,21 +16,21 @@
 #include "sample.h"
 #include "bv.h"
 #include "callback.h"
+#include "rowrank.h"
 #include "samplepred.h"
-#include "predictor.h"
 #include "splitpred.h"
 
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 // Simulation-invariant values.
 //
 unsigned int Sample::nRow = 0;
-int Sample::nPred = -1;
+unsigned int Sample::nPred = 0;
 int Sample::nSamp = -1;
 
-double SampleCtg::forestScale = 0.0;
 unsigned int SampleCtg::ctgWidth = 0;
+double SampleCtg::forestScale = 0.0;
 
 /**
  @brief Lights off initializations needed for sampling.
@@ -39,37 +39,34 @@ unsigned int SampleCtg::ctgWidth = 0;
 
  @param _nSamp is the number of samples.
 
- @param _nPred is the number of predictors.
-
  @return void.
 */
-void Sample::Immutables(unsigned int _nRow, int _nPred, int _nSamp, unsigned int _ctgWidth, int _nTree) {
+void Sample::Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree) {
   nRow = _nRow;
   nPred = _nPred;
   nSamp = _nSamp;
+  CallBack::SampleInit(nRow, _feSampleWeight, _withRepl);
   if (_ctgWidth > 0)
     SampleCtg::Immutables(_ctgWidth, _nTree);
-  else
-    SampleReg::Immutables();
 }
 
 
 /**
    @return void.
  */
-void SampleReg::Immutables() {
-  SplitPred::ImmutablesReg(nRow, nSamp);
-}
-
-
-/**
-   @return void.
- */
-void SampleCtg::Immutables(int _ctgWidth, int _nTree) {
+void SampleCtg::Immutables(unsigned int _ctgWidth, int _nTree) {
   ctgWidth = _ctgWidth;
   forestScale = 1.0 / (nRow * _nTree);
-  SplitPred::ImmutablesCtg(nRow, nSamp, ctgWidth);
 }
+
+
+/**
+ */
+void SampleCtg::DeImmutables() {
+  ctgWidth = 0;
+  forestScale = 0.0;
+}
+
 
 /**
    @brief Finalizer.
@@ -78,51 +75,94 @@ void SampleCtg::Immutables(int _ctgWidth, int _nTree) {
 */
 void Sample::DeImmutables() {
   nRow = 0;
-  nSamp = nPred = -1;
-  SamplePred::DeImmutables();
-
-  // Only one of these two class has been set, but no harm in resetting both:
-  SPReg::DeImmutables();
-  SPCtg::DeImmutables();
+  nPred = 0;
+  nSamp = -1;
+  SampleCtg::DeImmutables();
 }
 
 
 Sample::Sample() {
   inBag = new unsigned int [BV::LengthAlign(nRow)];
+  sampleNode = new SampleNode[nSamp]; // Lives until scoring.
 }
 
-/**
-   @brief Counts instances of each row index in sampled set.
 
-   @return vector of sample counts, by row.  0 <=> OOB.
+Sample::~Sample() {
+  delete [] inBag;
+  delete [] sampleNode;
+  delete samplePred;
+  delete splitPred;
+}
+
+
+/**
+   @brief Samples and enumerates instances of each row index.
+   'bagCount'.
+
+   @param sCountRow[] holds the row counts:  0 <=> OOB.
+
+   @param sIdxRow[] row index into sample vector:  -1 <=> OOB.
+
+   @return bagCount, plus output vectors.
 */
-int *Sample::CountRows() {
-  int *sCountRow = new int[nRow]; // Needed until Stage() finishes.
-  for (unsigned int row= 0; row < nRow; row++)
+int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
+  for (unsigned int row = 0; row < nRow; row++) {
     sCountRow[row] = 0;
+    sIdxRow[row] = -1;
+  }
 
   // Counts occurrences of the rank associated with each target 'row' of the
   // sampling vector.
   //
-  int *rvRow = new int[nRow];
-  CallBack::SampleRows(rvRow);
+  int *rvRow = new int[nSamp];
+  CallBack::SampleRows(nSamp, rvRow);
   for (int i = 0; i < nSamp; i++) {
     int row = rvRow[i];
     sCountRow[row]++;
   }
   delete [] rvRow;
 
-  return sCountRow;
+  int idx = 0;
+  for (unsigned int row = 0; row < nRow; row++) {
+    if (sCountRow[row] > 0)
+      sIdxRow[row] = idx++;
+  }
+
+  return idx;
+}
+
+
+/**
+   @brief Static entry for classification.
+ */
+SampleCtg *SampleCtg::Factory(const double y[], const RowRank *rowRank,  const unsigned int yCtg[]) {
+  SampleCtg *sampleCtg = new SampleCtg();
+  sampleCtg->Stage(yCtg, y, rowRank);
+
+  return sampleCtg;
+}
+
+
+/**
+   @brief Static entry for regression response.
+
+ */
+SampleReg *SampleReg::Factory(const double y[], const RowRank *rowRank, const unsigned int row2Rank[]) {
+  SampleReg *sampleReg = new SampleReg();
+  sampleReg->Stage(y, row2Rank, rowRank);
+
+  return sampleReg;
 }
 
 
 /**
    @brief Constructor.
  */
-SampleReg::SampleReg() {
+SampleReg::SampleReg() : Sample() {
   sample2Rank = new unsigned int[nSamp]; // Lives until scoring.
-  sampleReg = new SampleNode[nSamp]; //  " "
 }
+
+
 
 /**
    @brief Inverts the randomly-sampled vector of rows.
@@ -137,60 +177,27 @@ SampleReg::SampleReg() {
 
    @return count of in-bag samples.
 */
-// The number of unique rows is the size of the bag.  With compression,
-// however, the resulting number of samples is smaller than the bag count.
-//
-// Returns the sum of sampled response values for intiializition of topmost
-// accumulator.
-//
-void SampleReg::Stage(const double y[], const unsigned int row2Rank[], const PredOrd *predOrd) {
-  int *sCountRow = CountRows();
-  int *sIdxRow = new int[nRow]; // Index of row in sample vector.
-  unsigned int slotBits = BV::SlotBits();
-  
-  bagSum = 0.0;
-  int slot = 0;
-  int idx = 0;
-  for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
-    // Enables lookup by row, for Stage(), or index, for LevelMap.
-    //
-    unsigned int bits = 0;
-    unsigned int mask = 1;
-    unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
-    for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
-      int sCount = sCountRow[row];
-      if (sCount > 0) {
-        double val = sCount * y[row];
-        bagSum += val;
-        sampleReg[idx].sum = val;
-        sampleReg[idx].sCount = sCount;
-        // Only client is quantile regression, but cheap to compute here:
-        sample2Rank[idx] = row2Rank[row];
-	
-        sIdxRow[row] = idx++;
-	bits |= mask;
-      }
-    }
-    inBag[slot] = bits;
-  }
-  bagCount = idx;
-  samplePred = new SamplePred();
-  samplePred->StageReg(predOrd, sampleReg, sCountRow, sIdxRow);
-  splitPred = SplitPred::FactoryReg(samplePred);
+void SampleReg::Stage(const double y[], const unsigned int row2Rank[], const RowRank *rowRank) {
+  int *sIdxRow = Sample::PreStage(y);
 
-  delete [] sCountRow;
+  // Only client is quantile regression.
+  for (unsigned int row = 0; row < nRow; row++) {
+    int sIdx = sIdxRow[row];
+    if (sIdx >= 0) {
+      sample2Rank[sIdx] = row2Rank[row];
+    }
+  }
+  samplePred = SamplePred::Factory(rowRank, sampleNode, sIdxRow, nRow, nPred, bagCount);
   delete [] sIdxRow;
+
+  splitPred = SplitPred::FactoryReg(samplePred);
 }
 
 
 /**
    @brief Constructor.
-
-   @param ctgWidth is the response cardinality.
-
  */
 SampleCtg::SampleCtg() : Sample() {
-  sampleCtg = new SampleNodeCtg[nSamp]; // Lives until scoring.
 }
 
 
@@ -206,46 +213,51 @@ SampleCtg::SampleCtg() : Sample() {
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::Stage(const int yCtg[], const double y[], const PredOrd *predOrd) {
-  int *sCountRow = CountRows();
+void SampleCtg::Stage(const unsigned int yCtg[], const double y[], const RowRank *rowRank) {
+  int *sIdxRow = Sample::PreStage(y, yCtg);
+  samplePred = SamplePred::Factory(rowRank, sampleNode, sIdxRow, nRow, nPred, bagCount);
+  delete [] sIdxRow;
+
+  splitPred = SplitPred::FactoryCtg(samplePred, sampleNode);
+}
+
+
+/**
+   @brief Sets the stage, so to speak, for a newly-sampled response set.
+
+   @param y is the proxy / response:  classification / summary.
+
+   @param yCtg is true response / zero:  classification / regression.
+
+   @return vector of compressed indices into sample data structures.
+ */
+int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
   int *sIdxRow = new int[nRow];
+  int *sCountRow = new int[nRow];
+  bagCount = CountRows(sCountRow, sIdxRow);
   unsigned int slotBits = BV::SlotBits();
 
-  int idx = 0;
   bagSum = 0.0;
-  bagCount = 0;
   int slot = 0;
   for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
     unsigned int bits = 0;
     unsigned int mask = 1;
     unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
     for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
-      int sCount = sCountRow[row];
-      if (sCount > 0) {
+      int sIdx = sIdxRow[row];
+      if (sIdx >= 0) {
+	int sCount = sCountRow[row];
         double val = sCount * y[row];
+	sampleNode[sIdx].Set(val, sCount, yCtg == 0 ? 0 : yCtg[row]);
 	bagSum += val;
-        sampleCtg[idx].sum = val;
-        sampleCtg[idx].sCount = sCount;
-        sampleCtg[idx].ctg = yCtg[row];
-        sIdxRow[row] = idx++;
         bits |= mask;
       }
     }
     inBag[slot] = bits;
   }
-  bagCount = idx;
-  samplePred = new SamplePred();
-  samplePred->StageCtg(predOrd, sampleCtg, sCountRow, sIdxRow);
-  splitPred = SplitPred::FactoryCtg(samplePred, sampleCtg);
-
   delete [] sCountRow;
-  delete [] sIdxRow;
-}
 
-
-void Sample::TreeClear() {
-  delete samplePred;
-  delete splitPred;
+  return sIdxRow;
 }
 
 
@@ -274,7 +286,7 @@ void SampleReg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[]
   for (int sIdx = 0; sIdx < bagCount; sIdx++) {
     int leafIdx = frontierMap[sIdx];
     int rkOff = leafPos[leafIdx] + seen[leafIdx]++;
-    sCount[rkOff] = sampleReg[sIdx].sCount;
+    sCount[rkOff] = sampleNode[sIdx].SCount();
     rank[rkOff] = sample2Rank[sIdx];
   }
 
@@ -304,8 +316,11 @@ void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) 
   //
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
-    score[leafIdx] += sampleReg[i].sum;
-    sCount[leafIdx] += sampleReg[i].sCount;
+    FltVal _sum;
+    unsigned int _sCount;
+    (void) Ref(i, _sum, _sCount);
+    score[leafIdx] += _sum;
+    sCount[leafIdx] += _sCount;
   }
 
   for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
@@ -426,8 +441,9 @@ void SampleCtg::LeafWeight(const int frontierMap[], const int nonTerm[], int tre
   
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i]; // Irregular access.
-    int ctg = sampleCtg[i].ctg;
-    double sum = sampleCtg[i].sum;
+    FltVal sum;
+    unsigned int dummy;
+    int ctg = Ref(i, sum, dummy);
     leafSum[leafIdx] += sum;
     leafWeight[leafIdx * ctgWidth + ctg] += sum;
   }
@@ -445,9 +461,7 @@ void SampleCtg::LeafWeight(const int frontierMap[], const int nonTerm[], int tre
 }
 
 
-
 SampleCtg::~SampleCtg() {
-  delete [] sampleCtg;
 }
 
 
@@ -457,6 +471,5 @@ SampleCtg::~SampleCtg() {
    @return void.
  */
 SampleReg::~SampleReg() {
-  delete [] sampleReg;
   delete [] sample2Rank;
 }

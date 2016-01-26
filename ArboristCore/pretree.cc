@@ -16,7 +16,8 @@
 
 #include "bv.h"
 #include "pretree.h"
-#include "predictor.h"
+#include "forest.h"
+#include "predblock.h"
 #include "samplepred.h"
 
 //#include <iostream>
@@ -129,8 +130,8 @@ void PreTree::RefineHeight(unsigned int height) {
 */
 unsigned int *PreTree::BitFactory(unsigned int _bvLength) {
   unsigned int *tsb = 0;
-  if (Predictor::NPredFac() > 0) {
-    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * Predictor::MaxFacCard()) : _bvLength;
+  if (PredBlock::NPredFac() > 0) {
+    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * PredBlock::CardMax()) : _bvLength;
     tsb = new unsigned int[bvLength];
     for (unsigned int i = 0; i < bvLength; i++)
       tsb[i] = 0;
@@ -192,20 +193,18 @@ void PreTree::NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
   ptS->splitVal.offset = bitEnd;
-  bitEnd += Predictor::FacCard(_predIdx);
+  bitEnd += PredBlock::FacCard(_predIdx);
 }
 
 
 /**
-   @brief Fills in some fields for (generic) node found splitable.
+   @brief Finalizes numeric-valued nonterminal.
 
-   @param _id is the node index.
-
-   @param _info is the information content.
-
-   @param _splitVal is the splitting value.
+   @param _info is the splitting information content.
 
    @param _predIdx is the splitting predictor index.
+
+   @param _id is the node index.
 
    @return void.
 */
@@ -213,8 +212,7 @@ void PreTree::NonTerminalNum(double _info, int _predIdx, unsigned int _rkLow, un
   TerminalOffspring(_id, ptLH, ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  ptS->splitVal.splitNum.rkLow = _rkLow;
-  ptS->splitVal.splitNum.rkHigh = _rkHigh;
+  ptS->splitVal.rkMean = 0.5 * (double(_rkLow) + double(_rkHigh));
   info[_predIdx] += _info;
 }
 
@@ -225,11 +223,11 @@ double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start
 
 
 /**
-   @brief Updates the high watermark for the preTree vector.  Forces a reallocation to
-   twice the existing size, if necessary.
+   @brief Updates the high watermark for the preTree vector.  Forces a
+   reallocation to twice the existing size, if necessary.
 
-   N.B.:  reallocations incur considerable resynchronization costs if precipitated
-   from the coprocessor.
+   N.B.:  reallocations incur considerable resynchronization costs if
+   precipitated from the coprocessor.
 
    @param splitNext is the count of splits in the upcoming level.
 
@@ -240,8 +238,8 @@ double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start
 void PreTree::CheckStorage(int splitNext, int leafNext) {
   if (height + splitNext + leafNext > nodeCount)
     ReNodes();
-  if (Predictor::NPredFac() > 0) {
-    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * Predictor::MaxFacCard());
+  if (PredBlock::NPredFac() > 0) {
+    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * PredBlock::CardMax());
     if (bitMin > bvLength)
       ReBits(bitMin);
   }
@@ -361,13 +359,9 @@ void PreTree::BitConsume(unsigned int outBits[]) {
  */
 void PTNode::SplitConsume(int &pred, double &num, int &bump) {
   if (lhId > id) {
-    pred = predIdx;
     bump = lhId - id;
-    if (Predictor::FacIdx(predIdx) >= 0) {
-      num = splitVal.offset;
-    }
-    else {
-      num = Predictor::SplitVal(predIdx, splitVal.splitNum.rkLow, splitVal.splitNum.rkHigh);
-    }
+    bool isFactor = PredBlock::IsFactor(predIdx);
+    pred = Forest::Encode(predIdx, isFactor);
+    num = isFactor ? splitVal.offset : splitVal.rkMean;
   }
 }

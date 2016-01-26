@@ -52,7 +52,7 @@ class SPPair {
     return setIdx;
   }
 
-  void Split(class SplitPred *splitPred, const class IndexNode indexNode[], class SPNode *nodeBase,  class SplitSig *splitSig);
+  void Split(class SplitPred *splitPred, const class IndexNode indexNode[], class SPNode *nodeBase,  const class SamplePred *samplePred, class SplitSig *splitSig);
 };
 
 
@@ -64,35 +64,34 @@ class SPPair {
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitPred {
+  static int nPred;
+  static int predFixed;
+  static double *predProb;
   int pairCount;
   SPPair *spPair;
+
   void SplitFlags(bool unsplitable[]);
   void SplitPredNull(bool splitFlags[]);
   void SplitPredProb(const double ruPred[], bool splitFlags[]);
-  void SplitPredFixed(int predFix, const double ruPred[], class BHPair heap[], bool splitFlags[]);
+  void SplitPredFixed(const double ruPred[], class BHPair heap[], bool splitFlags[]);
   void LevelSplit(const class IndexNode _indexNode[], class SPNode *nodeBase, int splitCount);
-  SPPair *PairInit(int &pairCount);
+  SPPair *PairInit(int nPred, int &pairCount);
  protected:
-  static int nPred;
-  static int nPredNum;
-  static int predNumFirst;
-  static int nPredFac;
   int splitCount;
   
   class Run *run;
   bool *splitFlags; // Indexed by pair.
-  static void Immutables();
+
  public:
   const class SamplePred *samplePred;
   SplitPred(class SamplePred *_samplePred);
-  static SplitPred *FactoryReg(class SamplePred *_samplePred);
-  static SplitPred *FactoryCtg(class SamplePred *_samplePred, class SampleNodeCtg *_sampleCtg);
-  static void ImmutablesCtg(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth);
-  static void ImmutablesReg(unsigned int _nRow, int _nSamp);
+  static void Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[]);
   static void DeImmutables();
+  static SplitPred *FactoryReg(class SamplePred *_samplePred);
+  static SplitPred *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg);
 
   void LevelInit(class Index *index, int splitCount);
-  void LevelSplit(const class IndexNode indexNode[], int level, int splitCount, class SplitSig *splitSig);
+  void LevelSplit(const class IndexNode indexNode[], unsigned int level, int splitCount, class SplitSig *splitSig);
   void LevelSplit(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig);  
   void LengthTransmit(int splitIdx, int lNext, int rNext);
   unsigned int &LengthNext(int splitNext, int predIdx);
@@ -137,8 +136,6 @@ class SPReg : public SplitPred {
 
  public:
   SPReg(class SamplePred *_samplePred);
-  static void Immutables(unsigned int _nRow, int _nSamp);
-  static void DeImmutables();
   void RunOffsets();
   bool *LevelPreset(const class Index *index);
   double Prebias(int spiltIdx, int sCount, double sum);
@@ -150,6 +147,7 @@ class SPReg : public SplitPred {
    @brief Splitting facilities for categorical trees.
  */
 class SPCtg : public SplitPred {
+  static unsigned int ctgWidth;
   double *ctgSum; // Per-level sum, by split/category pair.
   double *ctgSumR; // Numeric predictors:  sum to right.
   double *sumSquares; // Per-level sum of squares, by split.
@@ -157,7 +155,7 @@ class SPCtg : public SplitPred {
   static const double minDenom = 1.0e-5;
   static const double minSumL = 1.0e-8;
   static const double minSumR = 1.0e-5;
-  const class SampleNodeCtg *sampleCtg;
+  const class SampleNode *sampleCtg;
   bool *LevelPreset(const class Index *index);
   double Prebias(int splitIdx, int sCount, double sum);
   void LevelClear();
@@ -165,7 +163,6 @@ class SPCtg : public SplitPred {
   void RunOffsets();
   void SumsAndSquares(const class Index *index, bool unsplitable[]);
   int LHBits(unsigned int lhBits, int pairOffset, unsigned int depth, int &lhSampCt);
-
 
   /**
      @brief Looks up node values by category.
@@ -179,6 +176,7 @@ class SPCtg : public SplitPred {
   inline double CtgSum(int splitIdx, unsigned int ctg) {
     return ctgSum[splitIdx * ctgWidth + ctg];
   }
+
   void LevelInitSumR();
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
   void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
@@ -187,12 +185,11 @@ class SPCtg : public SplitPred {
   int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt);
   
  public:
-  static unsigned int ctgWidth; // Response cardinality:  immutable.
-  static void Immutables(unsigned int _nRow, int _nSamp, unsigned int _ctgWidth);
-  static void DeImmutables();
-  SPCtg(class SamplePred *_samplePred, class SampleNodeCtg _sampleCtg[]);
+  SPCtg(class SamplePred *_samplePred, class SampleNode _sampleCtg[]);
   ~SPCtg();
-
+  static void Immutables(unsigned int _ctgWidth);
+  static void DeImmutables();
+  
   /**
      @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
      subaccumulator by the current proxy value.
@@ -203,14 +200,14 @@ class SPCtg : public SplitPred {
 
      @param yCtg is the categorical response value.
 
-     @param yVal is the proxy response value.
+     @param ySum is the proxy response value.
 
      @return recorded sum.
   */
-  inline double CtgSumRight(int splitIdx, int numIdx, unsigned int yCtg, double yVal) {
+  inline double CtgSumRight(int splitIdx, int numIdx, unsigned int yCtg, double ySum) {
     int off = numIdx * splitCount * ctgWidth + splitIdx * ctgWidth + yCtg;
     double val = ctgSumR[off];
-    ctgSumR[off] = val + yVal;
+    ctgSumR[off] = val + ySum;
 
     return val;
   }

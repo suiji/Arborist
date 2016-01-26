@@ -29,7 +29,6 @@ class Train {
   static int nTree;
   static unsigned int nRow;
   static int nPred;
-  static unsigned int ctgWidth;
 
   std::vector<int> &inBag; // Packed vector:  treated as unsigned[].
   int *orig; // Tree origins:  nTree.
@@ -38,29 +37,35 @@ class Train {
   std::vector<int> &pred;
   std::vector<double> &split;
   std::vector<int> &bump;
-  std::vector<int> &facSplit;
+  std::vector<unsigned int> &facSplit;
 
-  static void Immutables(int _nTree, int _nRow, int _nPred, int _nSamp, int _trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth);
   static void DeImmutables();
 
-  Train(std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit);
+  Train(std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<unsigned int> &_facSplit);
 
   virtual ~Train() {};
-  void Forest(const class PredOrd *predOrd);
+  void Forest(const class RowRank *rowRank);
   void BagSetTree(const unsigned int bagSource[], int treeNum);
 
 
  public:
-  static void Init(int _nTree, int _nRow, int _nPred, int _nSamp, int trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth = 0);
-  static void ForestReg(double _y[], double _yRanked[], std::vector<int> &_inBag, int _origin[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
-  static void ForestCtg(int _yCtg[], double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
+/**
+   @brief Static initializer.
+
+   @return void.
+ */
+  static void Init(double *_feNum, int _facCard[], int _feMap[], int _cardMax, int _nPredNum, int _nPredFac, int _nRow, int _nTree, int _nSamp, double _feSampleWeight[], bool withRepl, int _trainBlock, int _minNode, double _minRatio, int _totLevels, int _ctgWidth, int _predFixed, double _predProb[]);
+
+  static void Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], std::vector<int> &_inBag, int _origin[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+
+  static void Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
 
   void Reserve(class PreTree **ptBlock, int tCoun);
   int BlockPeek(class PreTree **ptBlock, int tCount, int &blockFac, int &blockBag, int &maxHeight);
   void BlockTree(class PreTree **ptBlock, int tStart, int tCount);
   void Grow(unsigned int height, unsigned int bitWidth);
   virtual void LeafReserve(int heightEst, int bagEst) = 0;
-  virtual void Block(const class PredOrd *predOrd, int tStart, int tCount) = 0;
+  virtual void Block(const class RowRank *rowRank, int tStart, int tCount) = 0;
 };
 
 
@@ -68,23 +73,24 @@ class TrainReg : public Train {
   std::vector<unsigned int> &rank;
   std::vector<unsigned int> &sCount;
   class ResponseReg *responseReg;
-  void Block(const class PredOrd *predOrd, int tStart, int tCount);
+  void Block(const class RowRank *rowRank, int tStart, int tCount);
   void LeafReserve(int heightEst, int bagEst);
   void BlockLeaf(class PreTree **ptBlock, class SampleReg **sampleBlock, int tSTart, int tCount, int tOrig);
  public:
-  TrainReg(double _y[], double _yRanked[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  TrainReg(double _y[], double _yRanked[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
   ~TrainReg();
 };
 
 
 class TrainCtg : public Train {
+  const unsigned int ctgWidth;
   std::vector<double> &weight;
   class ResponseCtg *responseCtg;
-  void Block(const class PredOrd *predOrd, int tStart, int tCount);
+  void Block(const class RowRank *rowRank, int tStart, int tCount);
   void LeafReserve(int heightEst, int bagEst);
   void BlockLeaf(class PreTree **ptBlock, class SampleCtg **sampleBlock, int tStart, int tCount, int tOrig);
  public:
-  TrainCtg(int _yCtg[], double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<int> &_facSplit, std::vector<double> &_weight);
+  TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], std::vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], std::vector<int> &_pred, std::vector<double> &_split, std::vector<int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
   ~TrainCtg();
 };
 

@@ -61,7 +61,6 @@ class BHPair {
   economize on address recomputation during splitting.
 */
 class RunSet {
-  static unsigned int ctgWidth;
   int runOff; // Temporary offset storage.
   int heapOff; //
   int outOff; //
@@ -74,8 +73,7 @@ class RunSet {
   int runsLH; // Count of LH runs.
  public:
   const static int maxWidth = 10;
-  static void Immutables(unsigned int _ctgWidth);
-  static void DeImmutables();
+  static unsigned int ctgWidth;
   unsigned int safeRunCount;
   int DeWide();
   void DePop(int pop = 0);
@@ -238,7 +236,9 @@ class Run {
  public:
   Run();
   ~Run();
-  
+  static void Immutables(unsigned int _nPred, unsigned int _ctgWidth);
+  static void DeImmutables();
+
   /**
      @brief Reads specified run bit in specified bit vector.
 
@@ -251,9 +251,6 @@ class Run {
   bool inline Singleton(int splitCount, int splitIdx, int predIdx) {
     return runLength[PairOffset(splitCount, splitIdx, predIdx)] == 1;
   }
-
-  static void Immutables(unsigned int _nPred, unsigned int _ctgWidth = 0);
-  static void DeImmutables();
 
   void LevelInit(int _splitCount);
   void LevelClear();

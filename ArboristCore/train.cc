@@ -17,11 +17,17 @@
 #include "sample.h"
 #include "train.h"
 #include "forest.h"
-#include "predictor.h"
+#include "rowrank.h"
+#include "predblock.h"
 #include "index.h"
 #include "pretree.h"
+#include "sample.h"
+#include "samplepred.h"
 #include "splitsig.h"
 #include "response.h"
+#include "restage.h"
+#include "splitpred.h"
+#include "run.h"
 
 // Testing only:
 //#include <iostream>
@@ -31,21 +37,12 @@ int Train::trainBlock = 0;
 int Train::nTree = 0;
 unsigned int Train::nRow = 0;
 int Train::nPred = 0;
-unsigned int Train::ctgWidth = 0;
 
 /**
-   @brief Static initializer.
-
-   @return void.
- */
-void Train::Init(int _nTree, int _nRow, int _nPred, int _nSamp, int _trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth) {
-  Immutables(_nTree, _nRow, _nPred, _nSamp, _trainBlock, _minNode, _minRatio, _totLevels, _ctgWidth);
-}
-
-
-/**
-   @brief Invokes immutable initializers for other classes.  N.B.:  depends
-   on Sample, Predictor and Forest static immutables having been set.
+   @brief Initializes immutable values for "top-level" classes directly,
+   for those instances in which static initialization seems to make
+   more sense.  These may, in turn, initialize subclasses or classes
+   with objects strictly local to them.
 
    @param minNode is the minimal index node size on which to split.
 
@@ -55,28 +52,38 @@ void Train::Init(int _nTree, int _nRow, int _nPred, int _nSamp, int _trainBlock,
 
    @return void.
 */
-void Train::Immutables(int _nTree, int _nRow, int _nPred, int _nSamp, int _trainBlock, int _minNode, double _minRatio, int _totLevels, unsigned int _ctgWidth) {
+void Train::Init(double *_feNum, int _facCard[], int _feMap[], int _cardMax, int _nPredNum, int _nPredFac, int _nRow, int _nTree, int _nSamp, double _feSampleWeight[], bool _withRepl, int _trainBlock, int _minNode, double _minRatio, int _totLevels, int _ctgWidth, int _predFixed, double _predProb[]) {
   nTree = _nTree;
   nRow = _nRow;
-  nPred = _nPred;
+  nPred = _nPredNum + _nPredFac;
   trainBlock = _trainBlock;
-  ctgWidth = _ctgWidth; // Necessary on both paths?
-  Sample::Immutables(nRow, nPred, _nSamp, ctgWidth, nTree);
+  PredBlock::Immutables(_feNum, _facCard, _feMap, _cardMax, _nPredNum, _nPredFac, nRow);
+  Sample::Immutables(nRow, nPred, _nSamp, _feSampleWeight, _withRepl, _ctgWidth, nTree);
+  SPNode::Immutables(_ctgWidth);
   SplitSig::Immutables(nPred, _minRatio);
-  Index::Immutables(_minNode, _totLevels, _nSamp);
+  Index::Immutables(_minNode, _totLevels);
   PreTree::Immutables(nPred, _nSamp, _minNode);
+  RestageMap::Immutables(nPred);
+  SplitPred::Immutables(nPred, _ctgWidth, _predFixed, _predProb);
+  Run::Immutables(nPred, _ctgWidth);
 }
 
 
 /**
    @brief Unsets immutables.
+
+   @return void.
 */
 void Train::DeImmutables() {
-  nTree = nRow = nPred = trainBlock = ctgWidth = 0;
+  nTree = nRow = nPred = trainBlock = 0;
+  PredBlock::DeImmutables();
   SplitSig::DeImmutables();
   Index::DeImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
+  SPNode::DeImmutables();
+  SplitPred::DeImmutables();
+  Run::DeImmutables();
 }
 
 
@@ -91,13 +98,13 @@ void Train::DeImmutables() {
 
    @return forest height, with output reference parameter.
 */
-void Train::ForestReg(double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) {
+void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<unsigned int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) {
   TrainReg *trainReg = new TrainReg(_y, _yRanked, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _rank, _sCount);
 
-  PredOrd *predOrd = Predictor::Order();
-  trainReg->Forest(predOrd);
+  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
+  trainReg->Forest(rowRank);
 
-  delete [] predOrd;
+  delete rowRank;
   delete trainReg;
   DeImmutables();
 }
@@ -106,7 +113,7 @@ void Train::ForestReg(double _y[], double _yRanked[], vector<int> &_inBag, int _
 /**
    @brief Static entry for regression training.
 
-   @param predOrd is the sorted predictor table.
+   @param rowRank is the sorted predictor table.
 
    @param trainBlock is the number of trees to train per block.
 
@@ -114,39 +121,47 @@ void Train::ForestReg(double _y[], double _yRanked[], vector<int> &_inBag, int _
 
    @return void.
 */
-void Train::ForestCtg(int _yCtg[], double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) {
-  TrainCtg *trainCtg = new TrainCtg(_yCtg, _yProxy, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _weight);
+void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<unsigned int> &_facSplit, vector<double> &_weight) {
 
-  PredOrd *predOrd = Predictor::Order();
-  trainCtg->Forest(predOrd);
+  TrainCtg *trainCtg = new TrainCtg(_yCtg, _ctgWidth, _yProxy, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _weight);
+  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
+  trainCtg->Forest(rowRank);
 
-  delete [] predOrd;
+  delete rowRank;
   delete trainCtg;
   DeImmutables();
 }
 
 
-TrainCtg::TrainCtg(int _yCtg[], double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy))  {
+/**
+ */
+TrainCtg::TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<unsigned int> &_facSplit, vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), ctgWidth(_ctgWidth), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy, nRow)) {
 }
 
 
+/**
+ */
 TrainCtg::~TrainCtg() {
   delete responseCtg;
 }
 
-/**
 
+/**
  */
-TrainReg::TrainReg(double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
+TrainReg::TrainReg(double _y[], double _yRanked[], vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<unsigned int> &_facSplit, vector<unsigned int> &_rank, vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
 }
 
+
+/**
+ */
 TrainReg::~TrainReg() {
   delete responseReg;
 }
 
+
 /**
  */  
-Train::Train(vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<int> &_facSplit) : inBag(_inBag), orig(_orig), facOrig(_facOrig), predInfo(_predInfo), pred(_pred), split(_split), bump(_bump), facSplit(_facSplit) {
+Train::Train(vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[], vector<int> &_pred, vector<double> &_split, vector<int> &_bump, vector<unsigned int> &_facSplit) : inBag(_inBag), orig(_orig), facOrig(_facOrig), predInfo(_predInfo), pred(_pred), split(_split), bump(_bump), facSplit(_facSplit) {
 }
 
 
@@ -157,28 +172,40 @@ Train::Train(vector<int> &_inBag, int _orig[], int _facOrig[], double _predInfo[
 
   @return void.
 */
-void Train::Forest(const PredOrd *predOrd) {
+void Train::Forest(const RowRank *rowRank) {
   unsigned int ibLength = BV::LengthAlign(nTree * nRow);
   inBag.reserve(ibLength);
   inBag.insert(inBag.end(), ibLength, 0);
   int tn;
   for (tn = 0; tn < nTree - trainBlock; tn += trainBlock) {
-    Block(predOrd, tn, trainBlock);
+    Block(rowRank, tn, trainBlock);
   }
 
   if (tn < nTree) {
-    Block(predOrd, tn, nTree - tn);
+    Block(rowRank, tn, nTree - tn);
   }
 
-    // Normalizes 'predInfo' to per-tree means.
+  // Post-training fix-up to forest:
+  
+  // Normalizes 'predInfo' to per-tree means.
   double recipNTree = 1.0 / nTree;
   for (int i = 0; i < nPred; i++)
     predInfo[i] *= recipNTree;
+
+  // Updates numerical splitting values from ranks.
+  for (unsigned int i = 0; i < pred.size(); i++) {
+    int predIdx = pred[i];
+    if (bump[i] > 0 && !Forest::IsFactor(predIdx)) {
+      split[i] = rowRank->MeanRank(predIdx, split[i]);
+    }
+  }
 }
 
 
-void TrainCtg::Block(const PredOrd *predOrd, int tStart, int tCount) {
-  SampleCtg **sampleBlock = responseCtg->BlockSample(predOrd, tCount);
+/**
+ */
+void TrainCtg::Block(const RowRank *rowRank, int tStart, int tCount) {
+  SampleCtg **sampleBlock = responseCtg->BlockSample(rowRank, tCount);
 
   PreTree **ptBlock = Index::BlockTrees((Sample**) sampleBlock, tCount);
   if (tStart == 0)
@@ -195,8 +222,8 @@ void TrainCtg::Block(const PredOrd *predOrd, int tStart, int tCount) {
 
 /**
  */
-void TrainReg::Block(const PredOrd *predOrd, int tStart, int tCount) {
-  SampleReg **sampleBlock = responseReg->BlockSample(predOrd, tCount);
+void TrainReg::Block(const RowRank *rowRank, int tStart, int tCount) {
+  SampleReg **sampleBlock = responseReg->BlockSample(rowRank, tCount);
   PreTree **ptBlock = Index::BlockTrees((Sample**) sampleBlock, tCount);
   if (tStart == 0)
     Reserve(ptBlock, tCount);
@@ -238,12 +265,30 @@ void Train::Reserve(PreTree **ptBlock, int tCount) {
 }
 
 
+/**
+   @brief Reserves storage for count and rank vectors.
+
+   @heightEst is the estimated tree height.
+
+   @bagEst is the estimated total bag count.
+
+   @return void.
+ */
 void TrainReg::LeafReserve(int heightEst, int bagEst) {
   sCount.reserve(bagEst);
   rank.reserve(bagEst);
 }
 
 
+/**
+   @brief Reserves storage for weight vector.
+
+   @param heightEst is the estimated tree height.
+
+   @param bagEst is unused.
+
+   @return void.
+ */
 void TrainCtg::LeafReserve(int heightEst, int bagEst) {
   weight.reserve(heightEst * ctgWidth);
 }
@@ -271,6 +316,17 @@ int Train::BlockPeek(PreTree **ptBlock, int tCount, int &blockFac, int &blockBag
 }
 
  
+/**
+   @brief Builds segment of decision forest for a block of trees.
+
+   @param ptBlock is a vector of PreTree objects.
+
+   @param tStart is the starting tree index for the block.
+
+   @param tCount is the number of trees in the block.
+
+   @return void.
+*/
 void Train::BlockTree(PreTree **ptBlock, int tStart, int tCount) {
   for (int tIdx = 0; tIdx < tCount; tIdx++) {
     int tNum = tStart + tIdx;
@@ -280,7 +336,7 @@ void Train::BlockTree(PreTree **ptBlock, int tStart, int tCount) {
     facOrig[tNum] = bitOrig;
     PreTree *pt = ptBlock[tIdx];
     Grow(pt->Height(), pt->BitWidth());
-    pt->DecTree(&pred[tOrig], &split[tOrig], &bump[tOrig], (unsigned int*) &facSplit[bitOrig], predInfo);
+    pt->DecTree(&pred[tOrig], &split[tOrig], &bump[tOrig], &facSplit[bitOrig], predInfo);
   }
 }
 
@@ -302,6 +358,11 @@ void Train::Grow(unsigned int height, unsigned int bitWidth) {
 }
 
 
+/**
+   @brief Extracts categorical leaf information from a block of PreTrees.
+
+   @return void.
+ */
 void TrainCtg::BlockLeaf(PreTree **ptBlock, SampleCtg **sampleBlock, int tStart, int tCount, int tOrig) {
   for (int i = 0; i < tCount; i++) {
     SampleCtg *sampleCtg = sampleBlock[i];
@@ -319,7 +380,7 @@ void TrainCtg::BlockLeaf(PreTree **ptBlock, SampleCtg **sampleBlock, int tStart,
 
 
 /**
-   @brief Rank, sCount grow by bag count.
+   @brief Extracts regression leaf information for a block of PreTrees.
  */
 void TrainReg::BlockLeaf(PreTree **ptBlock, SampleReg **sampleBlock, int tStart, int tCount, int tOrig) {
   for (int i = 0; i < tCount; i++) {

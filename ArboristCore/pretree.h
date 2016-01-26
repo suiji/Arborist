@@ -34,11 +34,8 @@ class PTNode {
   int lhId;  // LH subnode index. Non-negative iff non-terminal.
   int predIdx; // Split only.
   union {
-    unsigned int offset;
-    struct {
-      unsigned int rkLow;
-      unsigned int rkHigh;
-    } splitNum;
+    unsigned int offset; // Bit-vector offset:  factor.
+    double rkMean; // Mean rank:  numeric.
   } splitVal;
   void SplitConsume(int &pred, double &num, int &bump);
 };

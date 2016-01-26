@@ -20,258 +20,27 @@
 
 
 #include "bv.h"
-#include "predictor.h"
+#include "predict.h"
 #include "forest.h"
 
 //#include <iostream>
 using namespace std;
 
-int Forest::nPred = -1; // et seq.:  observation-derived immutables.
-int Forest::nPredNum = -1;
-int Forest::nPredFac = -1;
-unsigned int Forest::nRow = 0;
-
-ForestReg *Forest::FactoryReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) {
-  return new ForestReg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit, _rank, _sCount, _yRanked);
-}
-
-
-ForestCtg *Forest::FactoryCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], unsigned int _ctgWidth, double _leafWeight[]) {
-  return new ForestCtg(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit, _ctgWidth, _leafWeight);
-}
-
 
 /**
-   @brief Sets per-session immutables describing predictor layout.
-   TODO:  Replace with predictor-based factory.
-
-   @return row count, temporarily:  TODO repair.
- */
-unsigned int Forest::PredImmutables() {
-  nRow = Predictor::NRow();
-  nPred = Predictor::NPred();
-  nPredNum = Predictor::NPredNum();
-  nPredFac = Predictor::NPredFac();
-
-  return nRow;
-}
-
-
-/**
-   @brief Unsets per-session static values.
- */
-void Forest::PredDeImmutables() {
-  nRow = 0;
-  nPred = nPredNum = nPredFac = -1;
-}
-
-
-/**
-   @brief Deletes forest object and tells Predictor to shut down.
-
-   @parm forest is the forest object.
-
-   @return void.
- */
-void Forest::DeFactory(Forest *forest) {
-  delete forest;
-
-  PredDeImmutables();
-  Predictor::DeFactory();
-}
-
-
-/**
-   @brief Reloading classification constructor, using front-end storage.
-
-   @param _nTree is the number of trees in the forest.
-
-   @param _forestSize is the length of the multi-vector holding all tree parameters.
-
-   @param _preds[] are the predictors associated with tree nonterminals.
-
-   @param _splits[] are the splitting values associated with nonterminals, or scores.
-
-   @param _bump[] are the increments from node to LH successor.
-
-   @param _origins[] are the offsets into the multivector denoting each individual tree vector.
-
-   @param _facOrig[] are the offsets into the multi-bitvector denoting each tree's factor splitting values.
-
-   @param _facSplits[] are the factor splitting values. 
-
-   @param _leafWeight holds the class-weighted sample values for each leaf.
+   @brief Reload constructor uses front end's storage.
 */
-ForestCtg::ForestCtg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], unsigned int _ctgWidth, double *_leafWeight) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit), ctgWidth(_ctgWidth), leafWeight(_leafWeight) {
-}
-
-
-/**
-   @brief Reloading regression constructor.  As above, but with the following:
-
-   @param _rank[] are the sample ranks.
-
-   @param _sCount[] are the sample multiplicities.
- */
-ForestReg::ForestReg(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[], int _rank[], int _sCount[], double _yRanked[]) : Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOrig, _facSplit), rank(_rank), sCount(_sCount) , yRanked(_yRanked) {
-}
-
-
-/**
-   @brief Base class reload constructor.  Parameters common to Ctg, Reg variants.
-*/
-Forest::Forest(int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrig[], unsigned int _facSplit[]) : nTree(_nTree), treeOrigin(_origins), facOrig(_facOrig), facSplit(_facSplit), pred(_preds), num(_splits), bump(_bump), forestSize(_forestSize) {
-}
-
-
-/**
- */
-void ForestCtg::Predict(int *predictLeaves, const unsigned int bag[]) {
-  PredictAcross(predictLeaves, bag);
-}
-
-
-/**
-   @brief Computes score from leaf predictions.
-
-   @param predictLeaves are the predicted leaf indices.
-
-   @return internal vote table, with output reference vector.
- */
-double *ForestCtg::Score(int *predictLeaves) {
-  unsigned int row;
-  double *votes = new double[nRow * ctgWidth];
-  for (row = 0; row < nRow * ctgWidth; row++)
-    votes[row] = 0.0;
-
-  // TODO:  Recast loop by blocks, to avoid
-  // false sharing.
-#pragma omp parallel default(shared) private(row)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
-    int *leaves = predictLeaves + row * nTree;
-    double *prediction = votes + row * ctgWidth;
-    for (int tc = 0; tc < nTree; tc++) {
-      int leafIdx = leaves[tc];
-      if (leafIdx >= 0) {
-	double val = *(num + treeOrigin[tc] + leafIdx);
-	unsigned int ctg = val; // Truncates jittered score for indexing.
-	prediction[ctg] += 1 + val - ctg;
-      }
-    }
-  }
-  }
-
-  return votes;
-}
-  
-
-/**
-   @brief Fills in the probability matrix from leaf scores.
-
-   @param predictLeaves are the predicted leaf indices.
-
-   @param prob outputs the leaf scores.
-
-   @return void.
- */ 
-void ForestCtg::Prob(int *predictLeaves, double *prob) {
-  for (unsigned int row = 0; row < nRow; row++) {
-    int *leafRow = predictLeaves + row * nTree;
-    double *probRow = prob + row * ctgWidth;
-    double rowSum = 0.0;
-    for (int tc = 0; tc < nTree; tc++) {
-      int leafIdx = leafRow[tc];
-      if (leafIdx >= 0) {
-        double *idxWeight = leafWeight + ctgWidth * (treeOrigin[tc] + leafIdx);
-	for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-	  probRow[ctg] += idxWeight[ctg];
-	  rowSum += idxWeight[ctg];
-	}
-      }
-    }
-    double recipSum = 1.0 / rowSum;
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++)
-      probRow[ctg] *= recipSum;
+Forest::Forest(int _nTree, int _height, int _pred[], double _split[], int _bump[], int _origins[], int _facOrigin[], unsigned int _facSplit[]) : nTree(_nTree), treeOrigin(_origins), facOrigin(_facOrigin), facSplit(_facSplit), fePred(_pred), feNum(_split), feBump(_bump), height(_height) {
+  forestNode = new ForestNode[height];
+  for (int i = 0; i < height; i++) { // Caches copy as packed structures.
+    forestNode[i].Set(fePred[i], feBump[i], feNum[i]);
   }
 }
 
 
-/**
-   @brief Regression prediction.
-
-   @return void.
- */
-void ForestReg::Predict(double yPred[], int predictLeaves[], const unsigned int bag[]) {
-  PredictAcross(predictLeaves, bag);
-  Score(predictLeaves, yPred);
+Forest::~Forest() {
+  delete [] forestNode;
 }
-
-
-/**
-  @brief Sets regression scores from leaf predictions.
-
-  @param predictLeaves holds the leaf predictions.
-
-  @param yPred outputs the score predictions.
-
-  @return void, with output refererence vector.
- */
-void ForestReg::Score(int predictLeaves[], double yPred[]) {
-  unsigned int row;
-
-#pragma omp parallel default(shared) private(row)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
-    double score = 0.0;
-    int treesSeen = 0;
-    int *leaves = predictLeaves + row * nTree;
-    for (int tc = 0; tc < nTree; tc++) {
-      int leafIdx = leaves[tc];
-      if (leafIdx >= 0) {
-        treesSeen++;
-        score +=  num[treeOrigin[tc] + leafIdx];
-      }
-    }
-    yPred[row] = score / treesSeen; // Assumes >= 1 tree seen.
-  }
-  }
-}
-
-/**
-   @brief Call-back enabling Quant class to access forest fields.
-
-   @return Height of forest.
- */
-int ForestReg::QuantFields(int &_nTree, unsigned int &_nRow, int *&_origin, int *&_nonTerm, int *&_extent, double *&_yRanked, int *&_rank, int *&_sCount) const {
-  _nTree = nTree;
-  _nRow = nRow;
-  _origin = treeOrigin;
-  _nonTerm = &bump[0];
-  _extent = &pred[0];
-  _yRanked = yRanked;
-  _rank = &rank[0];
-  _sCount = &sCount[0];
-
-  return forestSize;
-}
-
-
-/**
- */
-void Forest::PredictAcross(int predictLeaves[], const unsigned int bag[]) {
-  // TODO:  Also catch mixed case in which no factors split, and avoid mixed case
-  // in which no numericals split.
-  if (nPredFac == 0)
-    PredictAcrossNum(predictLeaves, bag);
-  else if (nPredNum == 0) // Purely factor predictors.
-    PredictAcrossFac(predictLeaves, bag);
-  else  // Mixed numerical and factor
-    PredictAcrossMixed(predictLeaves, bag);
-}
-
 
 /**
    @brief Multi-row prediction for regression tree, with predictors of only numeric.
@@ -282,22 +51,16 @@ void Forest::PredictAcross(int predictLeaves[], const unsigned int bag[]) {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossNum(int *leaves, const unsigned int bag[]) {
-  double *transpose = new double[nPred * nRow];
+void Forest::PredictAcrossNum(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
-  // N.B.:  Parallelization by row assumes that nRow >> nTree.
-  // TODO:  Consider blocking, to cut down on memory.  Mut. mut. for the
-  // other two methods.
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowNum(row, &transpose[nPred * row], &leaves[nTree * row], bag);
+    PredictRowNum(row, predict->RowNum(row), &leaves[nTree * row], bag);
   }
   }
-
-  delete [] transpose;
 }
 
 
@@ -310,19 +73,17 @@ void Forest::PredictAcrossNum(int *leaves, const unsigned int bag[]) {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossFac(int *leaves, const unsigned int bag[]) {
-  int *transpose = new int[nPred * nRow];
+void Forest::PredictAcrossFac(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowFac(row, &transpose[row * nPred], &leaves[row * nTree], bag);
+    PredictRowFac(row, predict->RowFac(row), &leaves[row * nTree], bag);
   }
   }
 
-  delete [] transpose;
 }
 
 
@@ -335,21 +96,17 @@ void Forest::PredictAcrossFac(int *leaves, const unsigned int bag[]) {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossMixed(int *leaves, const unsigned int bag[]) {
-  double *transposeN = new double[nPredNum * nRow];
-  int *transposeI = new int[nPredFac * nRow];
+void Forest::PredictAcrossMixed(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowMixed(row, &transposeN[row * nPredNum], &transposeI[row * nPredFac], &leaves[row * nTree], bag);
+    PredictRowMixed(row, predict->RowNum(row), predict->RowFac(row), &leaves[row * nTree], bag);
   }
   }
 
-  delete [] transposeN;
-  delete [] transposeI;
 }
 
 
@@ -367,29 +124,24 @@ void Forest::PredictAcrossMixed(int *leaves, const unsigned int bag[]) {
    @return Void with output vector parameter.
  */
 
-void Forest::PredictRowNum(unsigned int row, double rowT[], int leaves[], const unsigned int bag[]) {
-  for (int i = 0; i < nPred; i++)
-    rowT[i] = Predictor::numBase[row + i* nRow];
-
-  // TODO:  Use row at rank.
-  int tc;
-  for (tc = 0; tc < nTree; tc++) {
+void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const unsigned int bag[]) {
+  for (int tc = 0; tc < nTree; tc++) {
     if (InBag(bag, tc, row)) {
       leaves[tc] = -1;
       continue;
     }
 
-    int tOrig = treeOrigin[tc];
-    int *preds = pred + tOrig;
-    double *splitVal = num + tOrig;
-    int *bumps = bump + tOrig;
-
+    ForestNode *treeBase;
+    unsigned int *bitBase;
+    TreeBases(tc, treeBase, bitBase);
     int idx = 0;
-    int inc = bumps[idx];
-    while (inc != 0) {
-      int pred = preds[idx];
-      idx += (rowT[pred] <= splitVal[idx] ? inc : inc + 1);
-      inc = bumps[idx];
+    unsigned int bump;
+    int pred;
+    double num;
+    treeBase[0].Ref(pred, bump, num);
+    while (bump != 0) {
+      idx += (rowT[pred] <= num ? bump : bump + 1);
+      treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
@@ -409,34 +161,31 @@ void Forest::PredictRowNum(unsigned int row, double rowT[], int leaves[], const 
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowFac(unsigned int row, int rowT[], int leaves[],  const unsigned int bag[]) {
-  for (int i = 0; i < nPredFac; i++)
-    rowT[i] = Predictor::facBase[row + i * nRow];
-
+void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const unsigned int bag[]) {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (InBag(bag, tc, row)) {
       leaves[tc] = -1;
       continue;
     }
-    int idx = 0;
-    int tOrig = treeOrigin[tc];
-    int *preds = pred + tOrig;
-    double *splitVal = num + tOrig;
-    int *bumps = bump + tOrig;
-    unsigned int *fs = facSplit + facOrig[tc];
 
-    int inc = bumps[idx];
-    while (inc != 0) {
-      unsigned int splitOff = splitVal[idx];
-      int pred = preds[idx];
-      int facId = Predictor::FacIdx(pred);
-      idx += (BV::IsSet(fs, splitOff + rowT[facId]) ? inc : inc + 1);
-      inc = bumps[idx];
+    ForestNode *treeBase;
+    unsigned int *bitBase;
+    TreeBases(tc, treeBase, bitBase);
+
+    int idx = 0;
+    unsigned int bump;
+    int pred;
+    double num;
+    treeBase[0].Ref(pred, bump, num);
+    while (bump != 0) {
+      bool isFactor;
+      unsigned int facId = Decode(pred, isFactor);
+      unsigned int splitOff = (unsigned int) num;
+      idx += (BV::IsSet(bitBase, splitOff + rowT[facId]) ? bump : bump + 1);
+      treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
-    // TODO:  Instead of runtime check, can guarantee this by checking last level for non-negative
-    // predictor fields.
   }
 }
 
@@ -456,36 +205,32 @@ void Forest::PredictRowFac(unsigned int row, int rowT[], int leaves[],  const un
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowMixed(unsigned int row, double rowNT[], int rowFT[], int leaves[], const unsigned int bag[]) {
-  for (int i = 0; i < nPredNum; i++)
-    rowNT[i] = Predictor::numBase[row + i * nRow];
-  for (int i = 0; i < nPredFac; i++)
-    rowFT[i] = Predictor::facBase[row + i * nRow];
-
+void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const unsigned int bag[]) {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (InBag(bag, tc, row)) {
       leaves[tc] = -1;
       continue;
     }
-    int tOrig = treeOrigin[tc];
-    int *preds = pred + tOrig;
-    double *splitVal = num + tOrig;
-    int *bumps = bump + tOrig;
-    unsigned int *fs = facSplit + facOrig[tc];
+
+    ForestNode *treeBase;
+    unsigned int *bitBase;
+    TreeBases(tc, treeBase, bitBase);
 
     int idx = 0;
-    int inc = bumps[idx];
-    while (inc != 0) {
-      int pred = preds[idx];
-      int facId = Predictor::FacIdx(pred);
-      idx += (facId < 0 ? (rowNT[pred] <= splitVal[idx] ?  inc : inc + 1)  : (BV::IsSet(fs, (unsigned int) splitVal[idx] + rowFT[facId]) ? inc : inc + 1));
-      inc = bumps[idx];
+    unsigned int bump;
+    int pred;
+    double num;
+    treeBase[0].Ref(pred, bump, num);
+    while (bump != 0) {
+      bool isFactor;
+      unsigned int predIdx = Decode(pred, isFactor);
+      unsigned int splitOff = (unsigned int) num;
+      idx += isFactor ? (BV::IsSet(bitBase, splitOff + rowFT[predIdx]) ? bump : bump + 1) : (rowNT[predIdx] <= num ?  bump : bump + 1);
+      treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
-  // TODO:  Instead of runtime check, can guarantee this by checking last level for non-negative
-  // predictor fields.
 }
 
 
@@ -501,6 +246,7 @@ void Forest::PredictRowMixed(unsigned int row, double rowNT[], int rowFT[], int 
 bool Forest::InBag(const unsigned int bag[], int treeNum, unsigned int row) {
   return bag != 0 && BV::IsSet(bag, row * nTree + treeNum);
 }
+
 
 /**
    @brief Sets the in-bag bit for a given <tree, row> pair.
@@ -518,5 +264,4 @@ bool Forest::InBag(const unsigned int bag[], int treeNum, unsigned int row) {
 void Forest::BagSet(unsigned int bag[], int _nTree, unsigned int treeNum, unsigned int row) {
   BV::SetBit(bag, row * _nTree + treeNum);
 }
-
 
