@@ -130,14 +130,9 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
 
   int nPred = nPredNum + nPredFac;
-  // Probability vector reindexed by core ordering.
-  NumericVector probVec(sProbVec);
-  IntegerVector invMap(nPred);
-  IntegerVector seq = seq_len(nPred) - 1;
-  invMap[predMap] = seq;
-  NumericVector predProb = probVec[invMap];
+  NumericVector predProb = NumericVector(sProbVec)[predMap];
 
-  Train::Init(feNum, feFacCard, predMap.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth, as<int>(sPredFixed), predProb.begin());
+  Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth, as<int>(sPredFixed), predProb.begin());
 
   IntegerVector origin(nTree);
   IntegerVector facOrig(nTree);
@@ -164,7 +159,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
 using namespace std;
 
-RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sProbVec) {
+RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sProbVec, SEXP sRegMono) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -198,15 +193,10 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
 
   int nPred = nPredNum + nPredFac;
-  // Probability vector reindexed by core ordering.
-  NumericVector probVec(sProbVec);
-  IntegerVector invMap(nPred);
-  IntegerVector seq = seq_len(nPred) - 1;
-  invMap[predMap] = seq;
-  NumericVector predProb = probVec[invMap];
-
+  NumericVector predProb = NumericVector(sProbVec)[predMap];
+  IntegerVector regMono = IntegerVector(sRegMono)[predMap];
   
-  Train::Init(feNum, feFacCard, predMap.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), 0, as<int>(sPredFixed), predProb.begin());
+  Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), 0, as<int>(sPredFixed), predProb.begin(), regMono.begin());
 
   IntegerVector feRow(as<IntegerVector>(rowRank["row"]));
   IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));

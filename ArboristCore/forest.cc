@@ -20,8 +20,8 @@
 
 
 #include "bv.h"
-#include "predict.h"
 #include "forest.h"
+#include "predblock.h"
 
 //#include <iostream>
 using namespace std;
@@ -35,6 +35,23 @@ Forest::Forest(int _nTree, int _height, int _pred[], double _split[], int _bump[
   for (int i = 0; i < height; i++) { // Caches copy as packed structures.
     forestNode[i].Set(fePred[i], feBump[i], feNum[i]);
   }
+}
+
+ 
+/**
+   @brief Dispatches prediction method based on available predictor types.
+
+   @param bag is the packed in-bag representation, if validating.
+
+   @return void.
+ */
+void Forest::PredictAcross(int *predictLeaves, const unsigned int *bag) {
+  if (PredBlock::NPredFac() == 0)
+    PredictAcrossNum(predictLeaves, PredBlock::NRow(), bag);
+  else if (PredBlock::NPredNum() == 0)
+    PredictAcrossFac(predictLeaves, PredBlock::NRow(), bag);
+  else
+    PredictAcrossMixed(predictLeaves, PredBlock::NRow(), bag);
 }
 
 
@@ -51,14 +68,14 @@ Forest::~Forest() {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossNum(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowNum(row, predict->RowNum(row), &leaves[nTree * row], bag);
+    PredictRowNum(row, PBPredict::RowNum(row), &leaves[nTree * row], bag);
   }
   }
 }
@@ -73,14 +90,14 @@ void Forest::PredictAcrossNum(Predict *predict, int *leaves, unsigned int nRow, 
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossFac(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowFac(row, predict->RowFac(row), &leaves[row * nTree], bag);
+    PredictRowFac(row, PBPredict::RowFac(row), &leaves[row * nTree], bag);
   }
   }
 
@@ -96,14 +113,14 @@ void Forest::PredictAcrossFac(Predict *predict, int *leaves, unsigned int nRow, 
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossMixed(Predict *predict, int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const unsigned int bag[]) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < nRow; row++) {
-    PredictRowMixed(row, predict->RowNum(row), predict->RowFac(row), &leaves[row * nTree], bag);
+    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), &leaves[row * nTree], bag);
   }
   }
 
@@ -136,7 +153,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
     TreeBases(tc, treeBase, bitBase);
     int idx = 0;
     unsigned int bump;
-    int pred;
+    int pred; // N.B.:  Use BlockIdx() if numericals not numbered from 0.
     double num;
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
@@ -175,14 +192,12 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
     int idx = 0;
     unsigned int bump;
-    int pred;
+    int pred; // N.B.: Use BlockIdx() if not factor-only (zero based).
     double num;
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
-      bool isFactor;
-      unsigned int facId = Decode(pred, isFactor);
       unsigned int splitOff = (unsigned int) num;
-      idx += (BV::IsSet(bitBase, splitOff + rowT[facId]) ? bump : bump + 1);
+      idx += (BV::IsSet(bitBase, splitOff + rowT[pred]) ? bump : bump + 1);
       treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
@@ -224,9 +239,9 @@ void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int r
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
       bool isFactor;
-      unsigned int predIdx = Decode(pred, isFactor);
+      unsigned int blockIdx = PredBlock::BlockIdx(pred, isFactor);
       unsigned int splitOff = (unsigned int) num;
-      idx += isFactor ? (BV::IsSet(bitBase, splitOff + rowFT[predIdx]) ? bump : bump + 1) : (rowNT[predIdx] <= num ?  bump : bump + 1);
+      idx += isFactor ? (BV::IsSet(bitBase, splitOff + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ?  bump : bump + 1);
       treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;

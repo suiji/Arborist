@@ -15,24 +15,24 @@
 
 #include "predblock.h"
 
-double *PredBlock::feNum = 0;
-int *PredBlock::feCard = 0; // Factor predictor cardinalities.
-int *PredBlock::feMap = 0;
 unsigned int PredBlock::nPredNum = 0;
 unsigned int PredBlock::nPredFac = 0;
 unsigned int PredBlock::nRow = 0;
-unsigned int PredBlock::cardMax = 0;  // High watermark of factor cardinalities.
+double *PBTrain::feNum = 0;
+double *PBPredict::feNumT = 0;
+int *PBPredict::feFacT = 0;
+int *PBTrain::feCard = 0; // Factor predictor cardinalities.
+unsigned int PBTrain::cardMax = 0;  // High watermark of factor cardinalities.
 
 
 /**
-   @brief For now, every member is static.
+   @brief Static initialization for training.
 
    @return void.
  */
-void PredBlock::Immutables(double *_feNum, int *_feCard, int _feMap[], const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow) {
+void PBTrain::Immutables(double *_feNum, int *_feCard, const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow) {
   feNum = _feNum;
   feCard = _feCard;
-  feMap = _feMap;
   cardMax = _cardMax;
   nPredNum = _nPredNum;
   nPredFac = _nPredFac;
@@ -41,15 +41,42 @@ void PredBlock::Immutables(double *_feNum, int *_feCard, int _feMap[], const int
 
 
 /**
+   @brief Static initialization for prediction.
+
    @return void.
  */
+void PBPredict::Immutables(double *_feNumT, int *_feFacT, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow) {
+  feNumT = _feNumT;
+  feFacT = _feFacT;
+  nPredNum = _nPredNum;
+  nPredFac = _nPredFac;
+  nRow = _nRow;
+}
+
+
 void PredBlock::DeImmutables() {
+  nPredNum = nPredFac = nRow = 0;
+}
+
+/**
+   @breif De-initializes all statics.
+
+   @return void.
+ */
+void PBTrain::DeImmutables() {
   feNum = 0;
   feCard = 0; // Factor predictor cardinalities.
   nPredNum = nPredFac =  nRow = 0;
   cardMax = 0;  // High watermark of factor cardinalities.
+  PredBlock::DeImmutables();
 }
 
+
+void PBPredict::DeImmutables() {
+  feNumT = 0;
+  feFacT = 0;
+  PredBlock::DeImmutables();
+}
 
 /**
    @brief Estimates mean of a numeric predictor from values at two rows.
@@ -64,7 +91,7 @@ void PredBlock::DeImmutables() {
 
    @return arithmetic mean of the (possibly equal) estimates.
  */
-double PredBlock::MeanVal(int predIdx, int rowLow, int rowHigh) {
+double PBTrain::MeanVal(int predIdx, int rowLow, int rowHigh) {
   double *feBase = &feNum[predIdx * nRow];
   return 0.5 * (feBase[rowLow] + feBase[rowHigh]);
 }

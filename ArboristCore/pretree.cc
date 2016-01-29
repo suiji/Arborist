@@ -131,7 +131,7 @@ void PreTree::RefineHeight(unsigned int height) {
 unsigned int *PreTree::BitFactory(unsigned int _bvLength) {
   unsigned int *tsb = 0;
   if (PredBlock::NPredFac() > 0) {
-    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * PredBlock::CardMax()) : _bvLength;
+    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * PBTrain::CardMax()) : _bvLength;
     tsb = new unsigned int[bvLength];
     for (unsigned int i = 0; i < bvLength; i++)
       tsb[i] = 0;
@@ -193,7 +193,7 @@ void PreTree::NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
   ptS->splitVal.offset = bitEnd;
-  bitEnd += PredBlock::FacCard(_predIdx);
+  bitEnd += PBTrain::FacCard(_predIdx);
 }
 
 
@@ -239,7 +239,7 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
   if (height + splitNext + leafNext > nodeCount)
     ReNodes();
   if (PredBlock::NPredFac() > 0) {
-    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * PredBlock::CardMax());
+    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * PBTrain::CardMax());
     if (bitMin > bvLength)
       ReBits(bitMin);
   }
@@ -360,8 +360,7 @@ void PreTree::BitConsume(unsigned int outBits[]) {
 void PTNode::SplitConsume(int &pred, double &num, int &bump) {
   if (lhId > id) {
     bump = lhId - id;
-    bool isFactor = PredBlock::IsFactor(predIdx);
-    pred = Forest::Encode(predIdx, isFactor);
-    num = isFactor ? splitVal.offset : splitVal.rkMean;
+    pred = predIdx;
+    num = PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean;
   }
 }

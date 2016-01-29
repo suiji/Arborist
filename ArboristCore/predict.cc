@@ -13,6 +13,7 @@
    @author Mark Seligman
  */
 
+#include "predblock.h"
 #include "forest.h"
 #include "predict.h"
 #include "quant.h"
@@ -25,12 +26,14 @@
    @brief Static entry for regression case.
  */
 void Predict::Regression(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], double _yPred[], const unsigned int *_bag) {
-  PredictReg *predictReg = new PredictReg(_nRow, _nTree, _nPredNum, _nPredFac, _blockNumT, _blockFacT);
+  PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
+  PredictReg *predictReg = new PredictReg(_nRow, _nTree);
   Forest *forest =  new Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit);
-  predictReg->PredictAcross(forest, _bag);
+  forest->PredictAcross(predictReg->predictLeaves, _bag);
   predictReg->Score(_yPred, forest);
-
   delete predictReg;
+
+  PBPredict::DeImmutables();
 }
 
 
@@ -38,13 +41,15 @@ void Predict::Regression(double *_blockNumT, int *_blockFacT, unsigned int _nRow
    @brief Static entry for regression case.
  */
 void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], unsigned int _rank[], unsigned int _sCount[], double _yRanked[], double _yPred[], double _quantVec[], int _qCount, unsigned int _qBin, double _qPred[], const unsigned int *_bag) {
-  PredictReg *predictReg = new PredictReg(_nRow, _nTree, _nPredNum, _nPredFac, _blockNumT, _blockFacT);
+  PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
+  PredictReg *predictReg = new PredictReg(_nRow, _nTree);
   Forest *forest =  new Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit);
-  predictReg->PredictAcross(forest, _bag);
+  forest->PredictAcross(predictReg->predictLeaves, _bag);
   predictReg->Score(_yPred, forest);
   Quant::Predict(_nRow, forest, _yRanked, _rank, _sCount, _quantVec, _qCount, _qBin, predictReg->predictLeaves, _qPred);
 
   delete predictReg;
+  PBPredict::DeImmutables();
 }
 
 
@@ -52,9 +57,10 @@ void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nRow,
    @brief Entry for separate classification prediction.
  */
 void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, int _nTree, int _forestSize, int _preds[], double _splits[], int _bump[], int _origins[], int _facOff[], unsigned int _facSplit[], unsigned int _ctgWidth, double *_leafWeight, int *_yPred, int *_census, int *_yTest, int *_conf, double *_error, double *_prob, unsigned int *_bag) {
-  PredictCtg *predictCtg = new PredictCtg(_nRow, _nTree, _nPredNum, _nPredFac, _blockNumT, _blockFacT, _ctgWidth, _leafWeight);
+  PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
+  PredictCtg *predictCtg = new PredictCtg(_nRow, _nTree, _ctgWidth, _leafWeight);
   Forest *forest = new Forest(_nTree, _forestSize, _preds, _splits, _bump, _origins, _facOff, _facSplit);
-  predictCtg->PredictAcross(forest, _bag);
+  forest->PredictAcross(predictCtg->predictLeaves, _bag);
   double *votes = predictCtg->Score(forest);
   predictCtg->Vote(votes, _census, _yPred);
   delete [] votes;
@@ -66,18 +72,19 @@ void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _
     predictCtg->Prob(_prob, forest);
 
   delete predictCtg;
+  PBPredict::DeImmutables();
 }
 
 
-PredictCtg::PredictCtg(unsigned int _nRow, int _nTree, unsigned int _nPredNum, unsigned int _nPredFac, double *_blockNumT, int *_blockFacT, unsigned int _ctgWidth, double *_leafWeight) : Predict(_nRow, _nTree, _nPredNum, _nPredFac, _blockNumT, _blockFacT), ctgWidth(_ctgWidth), leafWeight(_leafWeight) {
+PredictCtg::PredictCtg(unsigned int _nRow, int _nTree, unsigned int _ctgWidth, double *_leafWeight) : Predict(_nRow, _nTree), ctgWidth(_ctgWidth), leafWeight(_leafWeight) {
 }
 
 
-PredictReg::PredictReg(unsigned int _nRow, int _nTree, unsigned int _nPredNum, unsigned int _nPredFac, double *_blockNumT, int *_blockFacT)  : Predict(_nRow, _nTree, _nPredNum, _nPredFac, _blockNumT, _blockFacT) {
+PredictReg::PredictReg(unsigned int _nRow, int _nTree)  : Predict(_nRow, _nTree) {
 }
 
 
-Predict::Predict(unsigned int _nRow, int _nTree, unsigned int _nPredNum, unsigned int _nPredFac, double *_blockNumT, int *_blockFacT) : nRow(_nRow), nPredNum(_nPredNum), nPredFac(_nPredFac), nTree(_nTree), blockNumT(_blockNumT), blockFacT(_blockFacT) {
+Predict::Predict(unsigned int _nRow, int _nTree) : nRow(_nRow), nTree(_nTree) {
   predictLeaves = new int[_nRow * _nTree];
 }
 
@@ -153,23 +160,6 @@ void PredictCtg::Vote(double *votes, int census[], int yPred[]) {
     yPred[row] = argMax;
   }
   }
-}
-
- 
-/**
-   @brief Dispatches prediction method based on available predictor types.
-
-   @param bag is the packed in-bag representation, if validating.
-
-   @return void.
- */
-void Predict::PredictAcross(Forest *forest, const unsigned int *bag) {
-  if (NPredFac() == 0)
-    forest->PredictAcrossNum(this, predictLeaves, nRow, bag);
-  else if (NPredNum() == 0)
-    forest->PredictAcrossFac(this, predictLeaves, nRow, bag);
-  else
-    forest->PredictAcrossMixed(this, predictLeaves, nRow, bag);
 }
 
 

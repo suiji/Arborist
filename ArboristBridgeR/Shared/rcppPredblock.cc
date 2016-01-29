@@ -51,13 +51,14 @@ using namespace std;
 
   @return PredBlock with separate numeric and integer matrices.
 */
-RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumCol, SEXP sFacCol, SEXP sLevels) {
+RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLevels) {
   DataFrame xf(sX);
-
+  IntegerVector numElt = IntegerVector(sNumElt) - 1;
+  IntegerVector facElt = IntegerVector(sFacElt) - 1;
   IntegerVector levels(sLevels);
   int nRow = xf.nrows();
-  int nPredFac = as<int>(sFacCol);
-  int nPredNum = as<int>(sNumCol);
+  int nPredFac = facElt.length();
+  int nPredNum = numElt.length();
   int nPred = nPredFac + nPredNum;
   IntegerVector predMap(nPred);
 

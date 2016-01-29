@@ -21,18 +21,12 @@
    prediction session.
  */
 class PredBlock {
-  static double *feNum; // Numerical predictor values, retained for scoring.
-  static int *feCard; // Factor predictor cardinalities.
-  static int *feMap; // Maps core index to front-end index.
+ protected:
+  static void DeImmutables();
   static unsigned int nPredNum;
   static unsigned int nPredFac;
   static unsigned int nRow;
-  static unsigned int cardMax;  // High watermark of factor cardinalities.
- public:
-  static void Immutables(double *_feNum, int _feCard[], int _feMap[], const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow);
-  static void DeImmutables();
-  static double MeanVal(int predIdx, int rowLow, int rowHigh);
-  
+ public:  
   /**
      @brief Assumes numerical predictors packed in front of factor-valued.
 
@@ -56,28 +50,14 @@ class PredBlock {
 
 
   /**
-   @brief Computes cardinality of factor-valued predictor, or zero if not a
-   factor.
-
-   @param predIdx is the internal predictor index.
-
-   @return factor cardinality or zero.
-  */
-  static inline int FacCard(int predIdx) {
-    return IsFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
-  }
-
-  
-  /**
-     @brief Maximal predictor cardinality.  Useful for packing.
-
-     @return highest cardinality, if any, among factor predictors.
+     @brief Computes block-relative position for a predictor.
    */
-  static inline int CardMax() {
-    return cardMax;
+  static inline unsigned int BlockIdx(int predIdx, bool &isFactor) {
+    isFactor = IsFactor(predIdx);
+    return isFactor ? predIdx - FacFirst() : predIdx;
   }
 
-  
+
   /**
      @return number or observation rows.
    */
@@ -147,8 +127,68 @@ class PredBlock {
   static inline int FacSup() {
     return nPredNum + nPredFac;
   }
-
 };
 
+
+/**
+   @brief Training caches numerical predictors for evaluating splits.
+ */
+class PBTrain : public PredBlock {
+  static double *feNum;
+  static int *feCard; // Factor predictor cardinalities.
+ public:
+  static unsigned int cardMax;  // High watermark of factor cardinalities.
+  static void Immutables(double *_feNum, int _feCard[], const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow);
+  static void DeImmutables();
+  static double MeanVal(int predIdx, int rowLow, int rowHigh);
+  /**
+   @brief Computes cardinality of factor-valued predictor, or zero if not a
+   factor.
+
+   @param predIdx is the internal predictor index.
+
+   @return factor cardinality or zero.
+  */
+  static inline int FacCard(int predIdx) {
+    return IsFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
+  }
+
+  
+  /**
+     @brief Maximal predictor cardinality.  Useful for packing.
+
+     @return highest cardinality, if any, among factor predictors.
+   */
+  static inline int CardMax() {
+    return cardMax;
+  }
+};
+
+
+class PBPredict : public PredBlock {
+ public:
+  static double *feNumT;
+  static int *feFacT;
+
+  static void Immutables(double *_feNumT, int *_feFacT, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow);
+
+  static void DeImmutables();
+
+  /**
+     @return base address for (transposed) numeric values at row.
+   */
+  static inline double *RowNum(unsigned int row) {
+    return &feNumT[nPredNum * row];
+  }
+
+
+  /**
+     @return base address for (transposed) factor values at row.
+   */
+  static inline int *RowFac(unsigned int row) {
+    return &feFacT[nPredFac * row];
+  }
+
+};
 
 #endif

@@ -252,5 +252,5 @@ RowRank::~RowRank() {
 double RowRank::MeanRank(int predIdx, double rkMean) const {
   unsigned int rankLow = floor(rkMean);
   unsigned int rankHigh = ceil(rkMean);
-  return PredBlock::MeanVal(predIdx, Rank2Row(predIdx, rankLow), Rank2Row(predIdx, rankHigh));
+  return PBTrain::MeanVal(predIdx, Rank2Row(predIdx, rankLow), Rank2Row(predIdx, rankHigh));
 }

@@ -52,19 +52,19 @@ int Train::nPred = 0;
 
    @return void.
 */
-void Train::Init(double *_feNum, int _facCard[], int _feMap[], int _cardMax, int _nPredNum, int _nPredFac, int _nRow, int _nTree, int _nSamp, double _feSampleWeight[], bool _withRepl, int _trainBlock, int _minNode, double _minRatio, int _totLevels, int _ctgWidth, int _predFixed, double _predProb[]) {
+void Train::Init(double *_feNum, int _facCard[], int _cardMax, int _nPredNum, int _nPredFac, int _nRow, int _nTree, int _nSamp, double _feSampleWeight[], bool _withRepl, int _trainBlock, int _minNode, double _minRatio, int _totLevels, int _ctgWidth, int _predFixed, double _predProb[], int _regMono[]) {
   nTree = _nTree;
   nRow = _nRow;
   nPred = _nPredNum + _nPredFac;
   trainBlock = _trainBlock;
-  PredBlock::Immutables(_feNum, _facCard, _feMap, _cardMax, _nPredNum, _nPredFac, nRow);
+  PBTrain::Immutables(_feNum, _facCard, _cardMax, _nPredNum, _nPredFac, nRow);
   Sample::Immutables(nRow, nPred, _nSamp, _feSampleWeight, _withRepl, _ctgWidth, nTree);
   SPNode::Immutables(_ctgWidth);
   SplitSig::Immutables(nPred, _minRatio);
   Index::Immutables(_minNode, _totLevels);
   PreTree::Immutables(nPred, _nSamp, _minNode);
   RestageMap::Immutables(nPred);
-  SplitPred::Immutables(nPred, _ctgWidth, _predFixed, _predProb);
+  SplitPred::Immutables(nPred, _ctgWidth, _predFixed, _predProb, _regMono);
   Run::Immutables(nPred, _ctgWidth);
 }
 
@@ -76,7 +76,7 @@ void Train::Init(double *_feNum, int _facCard[], int _feMap[], int _cardMax, int
 */
 void Train::DeImmutables() {
   nTree = nRow = nPred = trainBlock = 0;
-  PredBlock::DeImmutables();
+  PBTrain::DeImmutables();
   SplitSig::DeImmutables();
   Index::DeImmutables();
   PreTree::DeImmutables();
@@ -195,7 +195,7 @@ void Train::Forest(const RowRank *rowRank) {
   // Updates numerical splitting values from ranks.
   for (unsigned int i = 0; i < pred.size(); i++) {
     int predIdx = pred[i];
-    if (bump[i] > 0 && !Forest::IsFactor(predIdx)) {
+    if (bump[i] > 0 && !PredBlock::IsFactor(predIdx)) {
       split[i] = rowRank->MeanRank(predIdx, split[i]);
     }
   }

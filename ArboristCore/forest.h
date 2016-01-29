@@ -67,10 +67,12 @@ class Forest {
     bitBase = facSplit + facOrigin[tc];
   } 
 
+  void PredictAcrossNum(int *leaves, unsigned int nRow, const unsigned int *bag);
+  void PredictAcrossFac(int *leaves, unsigned int nRow, const unsigned int *bag);
+  void PredictAcrossMixed(int *leaves, unsigned int nRow, const unsigned int *bag);
  public:
-  void PredictAcrossNum(class Predict *predict, int *leaves, unsigned int nRow, const unsigned int *bag);
-  void PredictAcrossFac(class Predict *predict, int *leaves, unsigned int nRow, const unsigned int *bag);
-  void PredictAcrossMixed(class Predict *predict, int *leaves, unsigned int nRow, const unsigned int *bag);
+  void PredictAcross(int *predictLeaves, const unsigned int *bag);
+  
   void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const unsigned int bag[]);
   void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const unsigned int bag[]);
   void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const unsigned int bag[]);
@@ -78,18 +80,6 @@ class Forest {
   Forest(int _nTree, int _height, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrigin[], unsigned int _facSplit[]);
   ~Forest();
 
-  static inline int Encode(int predIdx, bool isFactor) {
-    return isFactor ? -(1 + predIdx) : predIdx;
-  }
-
-  static inline bool IsFactor(int predIdx) {
-    return predIdx < 0;
-  }
-
-  static inline unsigned int Decode(int predIdx, bool &isFactor) {
-    isFactor = IsFactor(predIdx);
-    return isFactor ? -(1 + predIdx) : predIdx;
-  }
   
   /**
      @brief Accessor for tree count.
@@ -130,8 +120,6 @@ class Forest {
     return treeOrigin;
   }
   
-  static void Immutables(class Predict *_predict);
-  static void DeImmutables();
 
   void TreeBlock(class PreTree *ptBlock[], int treeBlock, int treeStart);
   bool InBag(const unsigned int bag[], int treeNum, unsigned int row);

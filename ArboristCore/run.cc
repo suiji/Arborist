@@ -69,7 +69,7 @@ Run::Run() {
   runLength = 0;
   lengthNext = new unsigned int[nPred];
   for (unsigned int i = 0; i < nPred; i++) {
-    lengthNext[i] = PredBlock::FacCard(i);
+    lengthNext[i] = PBTrain::FacCard(i);
   }
   runSet = 0;
   facRun = 0;

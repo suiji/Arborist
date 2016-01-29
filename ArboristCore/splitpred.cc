@@ -28,6 +28,7 @@ using namespace std;
 int SplitPred::nPred = 0;
 int SplitPred::predFixed = 0;
 double *SplitPred::predProb = 0;
+int *SPReg::mono = 0;
 unsigned int SPCtg::ctgWidth = 0;
 
 /**
@@ -47,7 +48,7 @@ SplitPred::~SplitPred() {
 }
 
 
-void SplitPred::Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[]) {
+void SplitPred::Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]) {
   nPred = _nPred;
   predFixed = _predFixed;
   predProb = new double[nPred];
@@ -56,6 +57,9 @@ void SplitPred::Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, c
 
   if (_ctgWidth > 0) {
     SPCtg::Immutables(_ctgWidth);
+  }
+  else {
+    SPReg::Immutables(nPred, _regMono);
   }
 }
 
@@ -66,7 +70,24 @@ void SplitPred::DeImmutables() {
   delete [] predProb;
   predProb = 0;
 
-  SPCtg::DeImmutables();
+  // 'ctgWidth' distinguishes regression from classification.
+  if (SPCtg::CtgWidth() > 0)
+    SPCtg::DeImmutables();
+  else
+    SPReg::DeImmutables();
+}
+
+
+void SPReg::Immutables(int _nPred, const int _mono[]) {
+  mono = new int[_nPred];
+  for (int i = 0; i < _nPred; i++) {
+    mono[i] = _mono == 0 ? 0 : _mono[i];
+  }
+}
+
+
+void SPReg::DeImmutables() {
+  delete [] mono;
 }
 
 
@@ -571,7 +592,15 @@ void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *no
    @return void.
  */
 void SPReg::SplitNum(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  SplitNumWV(spPair, indexNode, spn, splitSig);
+  int monoMode = MonoMode(spPair);
+  if (monoMode != 0) {
+    int splitIdx, predIdx;
+    spPair->Coords(splitIdx, predIdx);
+    SplitNumMono(spPair, indexNode, spn, splitSig, monoMode);
+  }
+  else {
+    SplitNumWV(spPair, indexNode, spn, splitSig);
+  }
 }
 
 
@@ -650,6 +679,53 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
     }
     numL -= rowRank;
     sumR += ySum;
+    rkRight = rkThis;
+  }
+
+  if (lhSup < end) {
+    splitSig->Write(spPair, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+  }
+}
+
+
+/**
+   @brief Weighted-variance splitting method.
+
+   @return void.
+*/
+void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig, int monoMode) {
+  // Walks samples backward from the end of nodes so that ties are not split.
+  int start, end;
+  unsigned int sCount;
+  double sum;
+  FltVal preBias, maxGini;
+  maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
+
+  int lhSup = end;
+  unsigned int rkRight, rowRun;
+  FltVal yVal;
+  spn[end].RegFields(yVal, rkRight, rowRun);
+  double sumR = yVal;
+  int numL = sCount - rowRun; // >= 1: counts up to, including, this index. 
+  int lhSampCt = 0;
+  for (int i = end-1; i >= start; i--) {
+    int numR = sCount - numL;
+    FltVal sumL = sum - sumR;
+    FltVal idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
+    unsigned int rkThis;
+    spn[i].RegFields(yVal, rkThis, rowRun);
+    if (idxGini > maxGini && rkThis != rkRight) {
+      FltVal meanL = sumL / numL;
+      FltVal meanR = sumR / numR;
+      bool doSplit = monoMode == 1 ? meanL <= meanR : meanL >= meanR;
+      if (doSplit) {
+        lhSampCt = numL;
+        lhSup = i;
+        maxGini = idxGini;
+      }
+    }
+    numL -= rowRun;
+    sumR += yVal;
     rkRight = rkThis;
   }
 
