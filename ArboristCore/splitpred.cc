@@ -25,7 +25,7 @@ using namespace std;
 #include "sample.h"
 #include "predblock.h"
 
-int SplitPred::nPred = 0;
+unsigned int SplitPred::nPred = 0;
 int SplitPred::predFixed = 0;
 double *SplitPred::predProb = 0;
 int *SPReg::mono = 0;
@@ -48,11 +48,11 @@ SplitPred::~SplitPred() {
 }
 
 
-void SplitPred::Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]) {
+void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]) {
   nPred = _nPred;
   predFixed = _predFixed;
   predProb = new double[nPred];
-  for (int i = 0; i < nPred; i++)
+  for (unsigned int i = 0; i < nPred; i++)
     predProb[i] = _predProb[i];
 
   if (_ctgWidth > 0) {
@@ -78,9 +78,9 @@ void SplitPred::DeImmutables() {
 }
 
 
-void SPReg::Immutables(int _nPred, const int _mono[]) {
+void SPReg::Immutables(unsigned int _nPred, const int _mono[]) {
   mono = new int[_nPred];
-  for (int i = 0; i < _nPred; i++) {
+  for (unsigned int i = 0; i < _nPred; i++) {
     mono[i] = _mono == 0 ? 0 : _mono[i];
   }
 }
@@ -192,7 +192,7 @@ void SplitPred::LengthTransmit(int splitIdx, int lNext, int rNext) {
 
 /**
  */
-unsigned int &SplitPred::LengthNext(int splitIdx, int predIdx) {
+unsigned int &SplitPred::LengthNext(int splitIdx, unsigned int predIdx) {
   return run->LengthNext(splitIdx, predIdx);
 }
  
@@ -201,7 +201,7 @@ unsigned int &SplitPred::LengthNext(int splitIdx, int predIdx) {
    @brief Builds the run workspace using the most recent count values for
    factors splitable at this level.
  */
-SPPair *SplitPred::PairInit(int nPred, int &pairCount) {
+SPPair *SplitPred::PairInit(unsigned int nPred, int &pairCount) {
   // Whether it is a better idea to avoid the counting step and simply
   // allocate a conservatively-sized buffer is open to debate.
   //
@@ -209,7 +209,7 @@ SPPair *SplitPred::PairInit(int nPred, int &pairCount) {
   pairCount = 0;
   int runSets = 0; // Counts splitable multi-run pairs.
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    for (int predIdx = 0; predIdx < nPred; predIdx++) {
+    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
       int rl = run->RunLength(splitIdx, predIdx);
       if (splitFlags[idx] && rl != 1) {
 	pairCount++;
@@ -225,7 +225,7 @@ SPPair *SplitPred::PairInit(int nPred, int &pairCount) {
   int pairIdx = 0;
   int rSetIdx = 0;
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    for (int predIdx = 0; predIdx < nPred; predIdx++) {
+    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
       int rl = run->RunLength(splitIdx, predIdx);
       if (splitFlags[idx] && rl != 1) {
         SPPair *pair = &spPair[pairIdx];
@@ -294,7 +294,7 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
 /**
  */
 void SplitPred::SplitPredNull(bool flags[]) {
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     flags[predIdx] = false;
   }
 }
@@ -310,7 +310,7 @@ void SplitPred::SplitPredNull(bool flags[]) {
    @return void, with output vector.
  */
 void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     flags[predIdx] = ruPred[predIdx] < predProb[predIdx];
   }
 }
@@ -328,14 +328,14 @@ void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
    @return void, with output vector.
  */
 void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[]) {
-  for (int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     BHeap::Insert(heap, predIdx, ruPred[predIdx] * predProb[predIdx]);
     flags[predIdx] = false;
   }
 
   // Pops 'predFixed' items with highest scores.
-  for (int i = nPred - 1; i >= nPred - predFixed; i--){
-    int predIdx = BHeap::SlotPop(heap, i);
+  for (unsigned int i = nPred - 1; i >= nPred - predFixed; i--){
+    unsigned int predIdx = BHeap::SlotPop(heap, i);
     flags[predIdx] = true;
   }
 }
@@ -343,7 +343,7 @@ void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[
 
 /**
  */
-bool SplitPred::Singleton(int splitIdx, int predIdx) {
+bool SplitPred::Singleton(int splitIdx, unsigned int predIdx) {
   return run->Singleton(splitCount, splitIdx, predIdx);
 }
 
@@ -435,7 +435,7 @@ bool *SPReg::LevelPreset(const Index *index) {
 
   @return square squared, divided by sample count.
 */
-double SPReg::Prebias(int splitIdx, int sCount, double sum) {
+double SPReg::Prebias(int splitIdx, unsigned int sCount, double sum) {
   return (sum * sum) / sCount;
 }
 
@@ -480,8 +480,9 @@ void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
   // ready access by splitting methods.
   //
   for (unsigned int sIdx = 0; sIdx < index->BagCount(); sIdx++) {
-    int levelOff = index->LevelOffSample(sIdx);
-    if (levelOff >= 0) {
+    unsigned int levelOff;
+    bool atLevel = index->LevelOffSample(sIdx, levelOff);
+    if (atLevel) {
       FltVal sum;
       unsigned int sCount;
       unsigned int ctg = sampleCtg[sIdx].Ref(sum, sCount);
@@ -526,7 +527,7 @@ void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
 
    @return sum of squares divided by sum.
  */
-double SPCtg::Prebias(int splitIdx, int sCount, double sum) {
+double SPCtg::Prebias(int splitIdx, unsigned int sCount, double sum) {
   return sumSquares[splitIdx] / sum;
 }
 
@@ -563,7 +564,8 @@ void SplitPred::Split(const IndexNode indexNode[], SPNode *nodeBase, SplitSig *s
 
 
 void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *nodeBase, const SamplePred *samplePred, SplitSig *splitSig) {
-  int splitIdx, predIdx;
+  int splitIdx;
+  unsigned int predIdx;
   Coords(splitIdx, predIdx);
   if (setIdx >= 0) {
     splitPred->SplitFac(this, &indexNode[splitIdx], samplePred->PredBase(nodeBase, predIdx), splitSig);
@@ -594,7 +596,8 @@ void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *no
 void SPReg::SplitNum(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   int monoMode = MonoMode(spPair);
   if (monoMode != 0) {
-    int splitIdx, predIdx;
+    int splitIdx;
+    unsigned int predIdx;
     spPair->Coords(splitIdx, predIdx);
     SplitNumMono(spPair, indexNode, spn, splitSig, monoMode);
   }
@@ -660,24 +663,24 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   int lhSup = end;
-  unsigned int rkRight, rowRank;
+  unsigned int rkRight, sampleCount;
   FltVal ySum;
-  spn[end].RegFields(ySum, rkRight, rowRank);
+  spn[end].RegFields(ySum, rkRight, sampleCount);
   double sumR = ySum;
-  int numL = sCount - rowRank; // >= 1: counts up to, including, this index. 
+  int sCountL = sCount - sampleCount; // >= 1: counts up to, including, this index. 
   int lhSampCt = 0;
   for (int i = end-1; i >= start; i--) {
-    int numR = sCount - numL;
+    int sCountR = sCount - sCountL;
     FltVal sumL = sum - sumR;
-    FltVal idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
+    FltVal idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
     unsigned int rkThis;
-    spn[i].RegFields(ySum, rkThis, rowRank);
+    spn[i].RegFields(ySum, rkThis, sampleCount);
     if (idxGini > maxGini && rkThis != rkRight) {
-      lhSampCt = numL; // Recomputable: rowRank sum on indices <= 'lhSup'.
+      lhSampCt = sCountL;
       lhSup = i;
       maxGini = idxGini;
     }
-    numL -= rowRank;
+    sCountL -= sampleCount;
     sumR += ySum;
     rkRight = rkThis;
   }
@@ -702,29 +705,29 @@ void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   int lhSup = end;
-  unsigned int rkRight, rowRun;
+  unsigned int rkRight, sampleCount;
   FltVal yVal;
-  spn[end].RegFields(yVal, rkRight, rowRun);
+  spn[end].RegFields(yVal, rkRight, sampleCount);
   double sumR = yVal;
-  int numL = sCount - rowRun; // >= 1: counts up to, including, this index. 
+  int sCountL = sCount - sampleCount; // >= 1: counts up to, including, this index. 
   int lhSampCt = 0;
   for (int i = end-1; i >= start; i--) {
-    int numR = sCount - numL;
+    int sCountR = sCount - sCountL;
     FltVal sumL = sum - sumR;
-    FltVal idxGini = (sumL * sumL) / numL + (sumR * sumR) / numR;
+    FltVal idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
     unsigned int rkThis;
-    spn[i].RegFields(yVal, rkThis, rowRun);
+    spn[i].RegFields(yVal, rkThis, sampleCount);
     if (idxGini > maxGini && rkThis != rkRight) {
-      FltVal meanL = sumL / numL;
-      FltVal meanR = sumR / numR;
+      FltVal meanL = sumL / sCountL;
+      FltVal meanR = sumR / sCountR;
       bool doSplit = monoMode == 1 ? meanL <= meanR : meanL >= meanR;
       if (doSplit) {
-        lhSampCt = numL;
+        lhSampCt = sCountL;
         lhSup = i;
         maxGini = idxGini;
       }
     }
-    numL -= rowRun;
+    sCountL -= sampleCount;
     sumR += yVal;
     rkRight = rkThis;
   }
@@ -741,14 +744,15 @@ void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const
    @return void.
  */
 void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
-  int splitIdx, predIdx;
+  int splitIdx;
+  unsigned int predIdx;
   spPair->Coords(splitIdx, predIdx);
   int numIdx = PredBlock::NumIdx(predIdx);
   int start, end;
-  unsigned int numL;
+  unsigned int sCountL;
   double sum;
   FltVal preBias, maxGini;
-  maxGini = preBias = indexNode->SplitFields(start, end, numL, sum);
+  maxGini = preBias = indexNode->SplitFields(start, end, sCountL, sum);
 
   double ssL = sumSquares[splitIdx];
   double ssR = 0.0;
@@ -763,7 +767,7 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
     if (rkThis != rkRight && sumL > minDenom && sumR > minDenom) {
       FltVal cutGini = ssL / sumL + ssR / sumR;
       if (cutGini > maxGini) {
-        lhSampCt = numL;
+        lhSampCt = sCountL;
         lhSup = i;
         maxGini = cutGini;
       }
@@ -773,7 +777,7 @@ void SPCtg::SplitNumGini(const SPPair *spPair, const IndexNode *indexNode, const
 
     unsigned int yCtg;
     FltVal ySum;    
-    numL -= spn[i].CtgFields(ySum, yCtg);
+    sCountL -= spn[i].CtgFields(ySum, yCtg);
 
     // Maintains sums of category squares incrementally, via update.
     //
@@ -805,13 +809,13 @@ void SPCtg::SplitFacGini(const SPPair *spPair, const IndexNode *indexNode, const
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, dummy, sum);
 
-  int splitIdx, predIdx;
+  int splitIdx;
+  unsigned int predIdx;
   RunSet *runSet = run->RSet(spPair->RSet());
   spPair->Coords(splitIdx, predIdx);
   run->RunLength(splitIdx, predIdx) = BuildRuns(runSet, spn, start, end);
 
-  int lhIdxCount;
-  unsigned int lhSampCt;
+  unsigned int lhIdxCount, lhSampCt;
   if (ctgWidth == 2)  {
     lhIdxCount = SplitBinary(runSet, splitIdx, sum, maxGini, lhSampCt);
   }
@@ -840,17 +844,17 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
     unsigned int rkRight = rkThis;
     unsigned int yCtg;
     FltVal ySum;
-    unsigned int rowRank = spn[i].CtgFields(ySum, rkThis, yCtg);
+    unsigned int sampleCount = spn[i].CtgFields(ySum, rkThis, yCtg);
 
     if (rkThis == rkRight) { // Current run's counters accumulate.
       sum += ySum;
-      sCount += rowRank;
+      sCount += sampleCount;
     }
     else { // Flushes current run and resets counters for next run.
       runSet->Write(rkRight, sCount, sum, i+1, frEnd);
 
       sum = ySum;
-      sCount = rowRank;
+      sCount = sampleCount;
       frEnd = i;
     }
     runSet->SumCtg(yCtg) += ySum;
@@ -883,7 +887,7 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
    Excluding the final run, then, the number of candidate LHS subsets is
    '2^(runCount-1) - 1'.
 */
-int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt) {
+unsigned int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt) {
   int countEff = runSet->DeWide();
 
   unsigned int slotSup = countEff - 1; // Uses post-shrink value.
@@ -928,7 +932,7 @@ int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, 
 
    @return 
  */
-int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount) {
+unsigned int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount) {
   runSet->HeapBinary();
   runSet->DePop();
 
@@ -973,15 +977,17 @@ void SPReg::SplitFacWV(const SPPair *spPair, const IndexNode *indexNode, const S
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
-  int splitIdx, predIdx;
+  int splitIdx;
+  unsigned int predIdx;
   RunSet *runSet = run->RSet(spPair->RSet());
   spPair->Coords(splitIdx, predIdx);
   run->RunLength(splitIdx, predIdx) = BuildRuns(runSet, spn, start, end);
   runSet->HeapMean();
 
-  int lhIdxCount = HeapSplit(runSet, sum, sCount, maxGini);
-  if (lhIdxCount > 0) {
-    splitSig->Write(spPair, sCount, lhIdxCount, maxGini - preBias);
+  unsigned int idxCountL;
+  unsigned int sCountL = HeapSplit(runSet, sum, sCount, idxCountL, maxGini);
+  if (sCountL > 0) {
+    splitSig->Write(spPair, sCountL, idxCountL, maxGini - preBias);
   }
 }
 
@@ -996,19 +1002,19 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
   unsigned int rkThis = spn[end].Rank();
   for (int i = end; i >= start; i--) {
     unsigned int rkRight = rkThis;
-    unsigned int rowRank;
+    unsigned int sampleCount;
     FltVal ySum;
-    spn[i].RegFields(ySum, rkThis, rowRank);
+    spn[i].RegFields(ySum, rkThis, sampleCount);
 
     if (rkThis == rkRight) { // Same run:  counters accumulate.
       sum += ySum;
-      sCount += rowRank;
+      sCount += sampleCount;
     }
     else { // New run:  flush accumulated counters and reset.
       runSet->Write(rkRight, sCount, sum, i+1, frEnd);
 
       sum = ySum;
-      sCount = rowRank;
+      sCount = sampleCount;
       frEnd = i;
     }
   }
@@ -1028,23 +1034,24 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
 
    @param sum is the sum of response values for this index node.
 
-   @param _sCount outputs the sample count of the argmax LHS.
+   @param sCountNode is the sample count of the node being split.
+
+   @param _sCount outputs the index count of the argmax LHS.
 
    @param maxGini outputs the max Gini value.
 
-   @return count of LH indices.
+   @return sample count of LH indices.
 */
-int SPReg::HeapSplit(RunSet *runSet, double sum, unsigned int &sCount, double &maxGini) {
-  int sCountL = 0;
+unsigned int SPReg::HeapSplit(RunSet *runSet, double sum, unsigned int sCountNode, unsigned int &lhIdxCount, double &maxGini) {
+  unsigned int sCountL = 0;
   double sumL = 0.0;
   int cut = -1; // Top index of lh ords in 'facOrd' (q.v.).
-  int sCountTot = sCount; // Entry value of full sample count.
   runSet->DePop();
   for (unsigned int outSlot = 0; outSlot < runSet->RunCount() - 1; outSlot++) {
-    int sCount;
-    sumL += runSet->SumHeap(outSlot, sCount);
-    sCountL += sCount;
-    int sCountR = sCountTot - sCountL;
+    unsigned int sCountRun;
+    sumL += runSet->SumHeap(outSlot, sCountRun);
+    sCountL += sCountRun;
+    unsigned int sCountR = sCountNode - sCountL;
     double sumR = sum - sumL;
     double cutGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
     if (cutGini > maxGini) {
@@ -1053,5 +1060,6 @@ int SPReg::HeapSplit(RunSet *runSet, double sum, unsigned int &sCount, double &m
     }
   }
 
-  return runSet->LHSlots(cut, sCount);
+  lhIdxCount = runSet->LHSlots(cut, sCountL);
+  return sCountL;
 }

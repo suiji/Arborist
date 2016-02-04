@@ -134,20 +134,20 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
   Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth, as<int>(sPredFixed), predProb.begin());
 
-  IntegerVector origin(nTree);
-  IntegerVector facOrig(nTree);
+  std::vector<unsigned int> origin(nTree);
+  std::vector<unsigned int> facOrig(nTree);
   NumericVector predInfo(nPred);
-  std::vector<int> pred;
+  std::vector<unsigned int> pred;
   std::vector<double> split;
-  std::vector<int> bump;
+  std::vector<unsigned int> bump;
   std::vector<unsigned int> facSplit;
   std::vector<double> weight;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
   //  may not scale to multi-gigarow sets.
-  std::vector<int> inBag;
+  std::vector<unsigned int> inBag;
 
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, y.begin(), ctgWidth, proxy.begin(), inBag, origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, weight);
+  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, y.begin(), ctgWidth, proxy.begin(), inBag, origin, facOrig, predInfo.begin(), pred, split, bump, facSplit, weight);
 
   return List::create(
       _["forest"] = RcppForestWrap(pred, split, bump, origin, facOrig, facSplit),
@@ -202,15 +202,15 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));
 
   NumericVector yRanked(nRow);
-  IntegerVector origin(nTree);
-  IntegerVector facOrig(nTree);
+  std::vector<unsigned int> origin(nTree);
+  std::vector<unsigned int> facOrig(nTree);
   NumericVector predInfo(nPred);
 
   // Variable-length vectors.
   //
-  std::vector<int> pred;
+  std::vector<unsigned int> pred;
   std::vector<double> split;
-  std::vector<int> bump;
+  std::vector<unsigned int> bump;
   std::vector<unsigned int> facSplit;
   std::vector<unsigned int> rank;
   std::vector<unsigned int> sCount;
@@ -219,9 +219,9 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   //  may not scale to multi-gigarow sets.
   //  Inititalized to zeroes.
   //
-  std::vector<int> inBag;
+  std::vector<unsigned int> inBag;
 
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, y.begin(), yRanked.begin(), inBag, origin.begin(), facOrig.begin(), predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
+  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, y.begin(), yRanked.begin(), inBag, origin, facOrig, predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
 
   return List::create(
       _["forest"] = RcppForestWrap(pred, split, bump, origin, facOrig, facSplit),

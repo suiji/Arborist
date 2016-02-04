@@ -32,7 +32,7 @@ class PredBlock {
 
      @return Position of fist factor-valued predictor.
   */
-  static inline int FacFirst() {
+  static inline unsigned int FacFirst() {
     return nPredNum;
   }
 
@@ -44,7 +44,7 @@ class PredBlock {
 
      @return true iff index references a factor.
    */
-  static inline bool IsFactor(int predIdx)  {
+  static inline bool IsFactor(unsigned int predIdx)  {
     return predIdx >= FacFirst();
   }
 

@@ -405,8 +405,8 @@ int RunSet::DeWide() {
 
    @return LHS index count.
 */
-int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
-  int lhIdxCount = 0;
+unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
+  unsigned int lhIdxCount = 0;
   unsigned int slotSup = EffCount() - 1;
   runsLH = 0;
   lhSampCt = 0;
@@ -418,7 +418,7 @@ int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
       // is recorded in the out-set.
       //
       if ((lhBits & (1 << slot)) != 0) {
-	int sCount;
+	unsigned int sCount;
         lhIdxCount += LHCounts(slot, sCount);
 	lhSampCt += sCount;
 	outZero[runsLH++] = slot;
@@ -439,12 +439,12 @@ int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
 
    @return LHS index count.
 */
-int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
-  int lhIdxCount = 0;
+unsigned int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
+  unsigned int lhIdxCount = 0;
   lhSampCt = 0;
 
   for (int outSlot = 0; outSlot <= cut; outSlot++) {
-    int sCount;
+    unsigned int sCount;
     lhIdxCount += LHCounts(outZero[outSlot], sCount);
     lhSampCt += sCount;
   }

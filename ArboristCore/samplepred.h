@@ -269,7 +269,7 @@ class SamplePred {
   }
 
   void SplitRanks(int predIdx, unsigned int level, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
-  double Replay(int sample2PT[], int predIdx, unsigned int level, int start, int end, int ptId);
+  double Replay(unsigned int sample2PT[], int predIdx, unsigned int level, int start, int end, unsigned int ptId);
 
   // TODO:  Move somewhere appropriate.
   /**

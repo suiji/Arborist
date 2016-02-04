@@ -36,9 +36,8 @@ int RestageMap::nPred = 0;
  */
 RestageMap::RestageMap(SplitPred *_splitPred, unsigned int _bagCount, int _splitPrev, int _splitNext) : splitPrev(_splitPrev), splitNext(_splitNext), splitPred(_splitPred) {
   mapNode = new MapNode[splitPrev];
-  bitSlots = BV::LengthAlign(_bagCount);
-  sIdxLH = new unsigned int[bitSlots];
-  sIdxRH = new unsigned int[bitSlots];
+  sIdxLH = new BV(_bagCount);
+  sIdxRH = new BV(_bagCount);
 }
 
 
@@ -55,6 +54,7 @@ void RestageMap::DeImmutables() {
   nPred = 0;
 }
 
+
 /**
    @brief Class finalizer.
 
@@ -62,8 +62,8 @@ void RestageMap::DeImmutables() {
  */
 RestageMap::~RestageMap() {
   delete [] mapNode;
-  delete [] sIdxLH;
-  delete [] sIdxRH;
+  delete sIdxLH;
+  delete sIdxRH;
 }
 
 
@@ -195,7 +195,7 @@ void MapNode::UpdateIndices(int &lhIdx, int &rhIdx) {
 
    @return void, with output parameter vector.
 */
-void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx) {
+void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH, int lhIdx, int rhIdx) {
 
   if (lNext >= 0 && rNext >= 0) // Both subnodes nonterminal.
     RestageLR(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, lhIdx, rhIdx);
@@ -228,10 +228,10 @@ void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SP
  */
 // Target nodes should all equal either lh or rh.
 //
-void MapNode::RestageLR(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx) {
+void MapNode::RestageLR(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const BV *bvL, int lhIdx, int rhIdx) {
   for (int i = startIdx; i <= endIdx; i++) {
     unsigned int sIdx = sIdxSource[i];
-    int destIdx = BV::IsSet(bvL, sIdx) ? lhIdx++ : rhIdx++;
+    int destIdx = bvL->IsSet(sIdx) ? lhIdx++ : rhIdx++;
     sIdxTarg[destIdx] = sIdx;
     targ[destIdx] = source[i];
   }
@@ -255,10 +255,10 @@ void MapNode::RestageLR(const SPNode source[], const unsigned int sIdxSource[], 
    @return void.
  */
 // Target nodes should all be either leaf or set in bv[].
-void MapNode::RestageSingle(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx) {
+void MapNode::RestageSingle(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int startIdx, int endIdx, const BV *bv, int idx) {
   for (int i = startIdx; i <= endIdx; i++) {
     unsigned int sIdx = sIdxSource[i];
-    if (BV::IsSet(bv, sIdx)) {
+    if (bv->IsSet(sIdx)) {
       int destIdx = idx++;
       sIdxTarg[destIdx] = sIdx;
       targ[destIdx] = source[i];

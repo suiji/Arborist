@@ -38,7 +38,7 @@ unsigned int Index::totLevels = 0;
 
    @return void.
  */
-void Index::Immutables(int _minNode, int _totLevels) {
+void Index::Immutables(unsigned int _minNode, unsigned int _totLevels) {
   NodeCache::Immutables(_minNode);
   totLevels = _totLevels;
 }
@@ -55,15 +55,15 @@ void Index::DeImmutables() {
 }
 
 
-int NodeCache::minNode = -1;
+unsigned int NodeCache::minNode = 0;
 
-void NodeCache::Immutables(int _minNode) {
+void NodeCache::Immutables(unsigned int _minNode) {
   minNode = _minNode;
 }
 
 
 void NodeCache::DeImmutables() {
-  minNode = -1;
+  minNode = 0;
 }
 
 
@@ -170,7 +170,7 @@ void  Index::Levels() {
 void Index::SetPrebias() {
   for (int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     IndexNode *idxNode = &indexNode[splitIdx];
-    int sCount;
+    unsigned int sCount;
     double sum;
     idxNode->PrebiasFields(sCount, sum);
     idxNode->Prebias() = splitPred->Prebias(splitIdx, sCount, sum);
@@ -261,7 +261,8 @@ void NodeCache::SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) c
   if (ssNode == 0)
     return;
   
-  int lhSCount, lhIdxCount;
+  unsigned int lhSCount;
+  unsigned int lhIdxCount;
   ssNode->LHSizes(lhSCount, lhIdxCount);
 
   if (Splitable(lhIdxCount)) {
@@ -320,7 +321,7 @@ RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitN
 
   // Assigns start values to consecutive nodes.
   //
-  int idxCount = 0;
+  unsigned int idxCount = 0;
   for (int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
     indexNode[splitIdx].Start() = idxCount;
     idxCount += indexNode[splitIdx].IdxCount();
@@ -362,12 +363,12 @@ RestageMap *Index::ProduceNext(NodeCache *nodeCache, int splitNext, int lhSplitN
    @return void, plus output reference parameters.
 */
 void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, SamplePred *samplePred, RestageMap *restageMap, unsigned int level, int lhSplitNext, int &lhSplitCount, int &rhSplitCount) {
-  int lhIdxCount = 0;
+  unsigned int lhIdxCount = 0;
   int lNext = -1;
   int rNext = -1;
   if (ssNode != 0) {
     double lhSum = ssNode->NonTerminal(samplePred, preTree, splitPred, level, lhStart, lhStart + idxCount - 1, ptId, ptL, ptR);
-    int lhSCount;
+    unsigned int lhSCount;
     ssNode->LHSizes(lhSCount, lhIdxCount);
     double minInfoNext = ssNode->MinInfo();
 
@@ -399,7 +400,7 @@ void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, Sa
 
    @return void, with output parameters.
  */
-void Index::PredicateBits(unsigned int sIdxLH[], unsigned int sIdxRH[], int &lhIdxTot, int &rhIdxTot) const {
+void Index::PredicateBits(BV *sIdxLH, BV *sIdxRH, int &lhIdxTot, int &rhIdxTot) const {
   lhIdxTot = rhIdxTot = 0;
   unsigned int slotBits = BV::SlotBits();
   int slot = 0;
@@ -409,8 +410,9 @@ void Index::PredicateBits(unsigned int sIdxLH[], unsigned int sIdxRH[], int &lhI
     unsigned int mask = 1;
     unsigned int supIdx = bagCount < base + slotBits ? bagCount : base + slotBits;
     for (unsigned int sIdx = base; sIdx < supIdx; sIdx++, mask <<= 1) {
-      int levelOff = LevelOffSample(sIdx);
-      if (levelOff >= 0) {
+      unsigned int levelOff;
+      bool atLevel = LevelOffSample(sIdx, levelOff);
+      if (atLevel) {
 	bool isLH = ntLH[levelOff];
 	lhIdxTot += isLH ? 1 : 0;
 	lhBits |= isLH ? mask : 0;
@@ -419,8 +421,8 @@ void Index::PredicateBits(unsigned int sIdxLH[], unsigned int sIdxRH[], int &lhI
 	rhBits |= ntRH[levelOff] ? mask : 0;
       }
     }
-    sIdxLH[slot] = lhBits;
-    sIdxRH[slot] = rhBits;
+    sIdxLH->SetSlot(slot, lhBits);
+    sIdxRH->SetSlot(slot, rhBits);
   }
 }
 
@@ -430,8 +432,18 @@ void Index::PredicateBits(unsigned int sIdxLH[], unsigned int sIdxRH[], int &lhI
 
    @param sIdx is the sample index.
 
-   @return level-relative offset of node holding sample index. 
+   @param levelOff  level-relative offset of node holding sample index. 
+
+   @return true iff node holding sample is at current level.
  */
-int Index::LevelOffSample(unsigned int sIdx) const {
-  return preTree->Sample2Frontier(sIdx) - levelBase;
+bool Index::LevelOffSample(unsigned int sIdx, unsigned int &levelOff) const {
+  unsigned int ptIdx = preTree->Sample2Frontier(sIdx);
+  if (ptIdx >= levelBase) {
+    levelOff = ptIdx - levelBase;
+    return true;
+  }
+  else {
+    levelOff = 0; // dummy value.
+    return false;
+  }
 }

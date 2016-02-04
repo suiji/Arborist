@@ -179,7 +179,7 @@ void SamplePred::SplitRanks(int predIdx, unsigned int level, int spPos, unsigned
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(int sample2PT[], int predIdx, unsigned int level, int start, int end, int ptId) {
+double SamplePred::Replay(unsigned int sample2PT[], int predIdx, unsigned int level, int start, int end, unsigned int ptId) {
   unsigned int *sIdx;
   SPNode *spn = Buffers(predIdx, level, sIdx);
 

@@ -11,11 +11,6 @@
    @brief Methods for building and walking the decision tree.
 
    @author Mark Seligman
-
-   These methods are mostly mechanical.  Several methods are tasked
-   with populating or depopulating tree-related data structures.  The
-   tree-walking methods are clones of one another, with slight variations
-   based on response or predictor type.
  */
 
 
@@ -30,22 +25,33 @@ using namespace std;
 /**
    @brief Reload constructor uses front end's storage.
 */
-Forest::Forest(int _nTree, int _height, int _pred[], double _split[], int _bump[], int _origins[], int _facOrigin[], unsigned int _facSplit[]) : nTree(_nTree), treeOrigin(_origins), facOrigin(_facOrigin), facSplit(_facSplit), fePred(_pred), feNum(_split), feBump(_bump), height(_height) {
+Forest::Forest(std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOrigin, const std::vector<unsigned int> &_facSplit) : nTree(_origin.size()), height(_pred.size()), treeOrigin(&_origin[0]), fePred(&_pred[0]), feNum(&_split[0]), feBump(&_bump[0]) {
   forestNode = new ForestNode[height];
   for (int i = 0; i < height; i++) { // Caches copy as packed structures.
     forestNode[i].Set(fePred[i], feBump[i], feNum[i]);
   }
+  facSplit = new BVJagged(_facSplit, _facOrigin);
 }
 
- 
+
+/**
+ */ 
+Forest::~Forest() {
+  delete [] forestNode;
+  delete facSplit;
+}
+
+
 /**
    @brief Dispatches prediction method based on available predictor types.
+
+   @param predictLeaves outputs the predicted leaf indices.
 
    @param bag is the packed in-bag representation, if validating.
 
    @return void.
  */
-void Forest::PredictAcross(int *predictLeaves, const unsigned int *bag) {
+void Forest::PredictAcross(int *predictLeaves, const class BitMatrix *bag) {
   if (PredBlock::NPredFac() == 0)
     PredictAcrossNum(predictLeaves, PredBlock::NRow(), bag);
   else if (PredBlock::NPredNum() == 0)
@@ -54,10 +60,6 @@ void Forest::PredictAcross(int *predictLeaves, const unsigned int *bag) {
     PredictAcrossMixed(predictLeaves, PredBlock::NRow(), bag);
 }
 
-
-Forest::~Forest() {
-  delete [] forestNode;
-}
 
 /**
    @brief Multi-row prediction for regression tree, with predictors of only numeric.
@@ -68,7 +70,7 @@ Forest::~Forest() {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
@@ -90,7 +92,7 @@ void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const unsigned int
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
@@ -109,11 +111,11 @@ void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const unsigned int
 
    @param prediction contains the mean score across trees.
 
-   @param useBag indicates whether prediction is restricted to out-of-bag data.
+   @param bag indicates whether prediction is restricted to out-of-bag data.
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const unsigned int bag[]) {
+void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
@@ -141,19 +143,18 @@ void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const unsigned i
    @return Void with output vector parameter.
  */
 
-void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const unsigned int bag[]) {
+void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) {
   for (int tc = 0; tc < nTree; tc++) {
-    if (InBag(bag, tc, row)) {
+    if (bag->IsSet(row, tc)) {
       leaves[tc] = -1;
       continue;
     }
 
-    ForestNode *treeBase;
-    unsigned int *bitBase;
-    TreeBases(tc, treeBase, bitBase);
-    int idx = 0;
+    ForestNode *treeBase = forestNode + treeOrigin[tc];
+
+    unsigned int idx = 0;
     unsigned int bump;
-    int pred; // N.B.:  Use BlockIdx() if numericals not numbered from 0.
+    unsigned int pred; // N.B.:  Use BlockIdx() if numericals not numbered from 0.
     double num;
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
@@ -178,26 +179,23 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const unsigned int bag[]) {
+void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const class BitMatrix *bag) {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
-    if (InBag(bag, tc, row)) {
+    if (bag->IsSet(row, tc)) {
       leaves[tc] = -1;
       continue;
     }
 
-    ForestNode *treeBase;
-    unsigned int *bitBase;
-    TreeBases(tc, treeBase, bitBase);
-
-    int idx = 0;
+    ForestNode *treeBase = forestNode + treeOrigin[tc];
+    unsigned int idx = 0;
     unsigned int bump;
-    int pred; // N.B.: Use BlockIdx() if not factor-only (zero based).
+    unsigned int pred; // N.B.: Use BlockIdx() if not factor-only (zero based).
     double num;
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
-      unsigned int splitOff = (unsigned int) num;
-      idx += (BV::IsSet(bitBase, splitOff + rowT[pred]) ? bump : bump + 1);
+      unsigned int bitOff = (unsigned int) num + rowT[pred];
+      idx += facSplit->IsSet(tc, bitOff) ? bump : bump + 1;
       treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
@@ -220,63 +218,26 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const unsigned int bag[]) {
+void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const class BitMatrix *bag) {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
-    if (InBag(bag, tc, row)) {
+    if (bag->IsSet(row, tc)) {
       leaves[tc] = -1;
       continue;
     }
 
-    ForestNode *treeBase;
-    unsigned int *bitBase;
-    TreeBases(tc, treeBase, bitBase);
-
-    int idx = 0;
+    ForestNode *treeBase = forestNode + treeOrigin[tc];
+    unsigned int idx = 0;
     unsigned int bump;
-    int pred;
+    unsigned int pred;
     double num;
     treeBase[0].Ref(pred, bump, num);
     while (bump != 0) {
       bool isFactor;
       unsigned int blockIdx = PredBlock::BlockIdx(pred, isFactor);
-      unsigned int splitOff = (unsigned int) num;
-      idx += isFactor ? (BV::IsSet(bitBase, splitOff + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ?  bump : bump + 1);
+      idx += isFactor ? (facSplit->IsSet(tc, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
       treeBase[idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
 }
-
-
-/**
-   @brief Determines whether a given row index is in-bag in a given tree.
-
-   @param treeNum is the index of a given tree.
-
-   @param row is the row index to be tested.
-
-   @return True iff the row is in-bag.
- */
-bool Forest::InBag(const unsigned int bag[], int treeNum, unsigned int row) {
-  return bag != 0 && BV::IsSet(bag, row * nTree + treeNum);
-}
-
-
-/**
-   @brief Sets the in-bag bit for a given <tree, row> pair.
-
-   @param bag is the forest-wide bit matrix.
-
-   @param _nTree is the number of trees being grown.
-
-   @param treeNum is the current tree index.
-
-   @param row is the row index.
-
-   @return void.
-*/
-void Forest::BagSet(unsigned int bag[], int _nTree, unsigned int treeNum, unsigned int row) {
-  BV::SetBit(bag, row * _nTree + treeNum);
-}
-

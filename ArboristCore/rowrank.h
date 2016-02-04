@@ -79,7 +79,7 @@ class RowRank {
 
      @return rank at predictor/row.
    */
-  unsigned int inline Lookup(int predIdx, unsigned int idx, unsigned int &_rank) const {
+  unsigned int inline Lookup(unsigned int predIdx, unsigned int idx, unsigned int &_rank) const {
     return rowRank[predIdx * nRow + idx].Lookup(_rank);
   }
 
@@ -88,11 +88,11 @@ class RowRank {
 
      @return a (possibly nonunique) row index at which predictor has rank passed.
    */
-  inline unsigned int Rank2Row(int predIdx, int _rank) const {
+  inline unsigned int Rank2Row(unsigned int predIdx, int _rank) const {
     return invNum[predIdx * nRow + _rank];
   }
   
-  double MeanRank(int predIdx, double rkMean) const;
+  double MeanRank(unsigned int predIdx, double rkMean) const;
 };
 
 #endif

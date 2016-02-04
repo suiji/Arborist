@@ -33,7 +33,7 @@ using namespace Rcpp;
 
 //#include <iostream>
 
-RcppExport SEXP RcppForestWrap(std::vector<int> pred, std::vector<double> split, std::vector<int> bump, IntegerVector origin, IntegerVector facOrigin, std::vector<unsigned int> facSplit) {
+RcppExport SEXP RcppForestWrap(const std::vector<unsigned int> &pred, const std::vector<double> &split, const std::vector<unsigned int> &bump, const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit) {
   List forest = List::create(
      _["pred"] = pred,
      _["split"] = split,
@@ -51,17 +51,15 @@ RcppExport SEXP RcppForestWrap(std::vector<int> pred, std::vector<double> split,
 
    @return void.
  */
-void RcppForestUnwrap(SEXP sForest, int *&_pred, double *&_split, int *&_bump, int *&_origin, int *&_facOrig, unsigned int *&_facSplit, int &_nTree, int &_height) {
+void RcppForestUnwrap(SEXP sForest, std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
 
-  _pred = IntegerVector((SEXP) forest["pred"]).begin();
-  _split = NumericVector((SEXP) forest["split"]).begin();
-  _bump = IntegerVector((SEXP) forest["bump"]).begin();
-  _origin = IntegerVector((SEXP) forest["origin"]).begin();
-  _facOrig = IntegerVector((SEXP) forest["facOrig"]).begin();
-  _facSplit = (unsigned int*) IntegerVector((SEXP) forest["facSplit"]).begin();
-  _nTree = IntegerVector((SEXP) forest["origin"]).length();
-  _height = IntegerVector((SEXP) forest["pred"]).length();
+  _pred = as<std::vector<unsigned int> >(forest["pred"]);
+  _split = as<std::vector<double> >(forest["split"]);
+  _bump = as<std::vector<unsigned int> >(forest["bump"]);
+  _origin = as<std::vector<unsigned int> >(forest["origin"]);
+  _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
+  _facSplit = as<std::vector<unsigned int> >(forest["facSplit"]);
 }

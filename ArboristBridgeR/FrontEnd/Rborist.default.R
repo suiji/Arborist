@@ -30,6 +30,7 @@
                 qVec = NULL,
                 quantiles = !is.null(qVec),
                 qBin = 5000,
+                regMono = NULL,
                 rowWeight = NULL,
                 treeBlock = 1,
                 pvtBlock = 8, pvtNoValidate = FALSE, ...) {
@@ -44,7 +45,9 @@
   predBlock <- preTrain$predBlock
   nPred <- predBlock$nPredNum + predBlock$nPredFac
   nRow <- predBlock$nRow
-
+  if (is.null(regMono)) {
+    regMono <- rep(0, nPred)
+  }
   if (nSamp == 0) {
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
@@ -57,11 +60,12 @@
   if (is.null(predWeight)) {
     predWeight <- rep(1.0, nPred)
   }
+
   
   if (any(is.na(y)))
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))
-    stop("Exping numeric or factor response")
+    stop("Expecting numeric or factor response")
 
   # Class weights
   if (!is.null(classWeight)) {
@@ -116,9 +120,6 @@
       stop("Quantile range must be increasing")
   }
 
-  if (pvtNoValidate)
-    stop("Non-validating version NYI")
-  
   # Normalizes vector of pointwise predictor probabilites.
   #if (predProb != 0 && predFixed != 0)
    # stop("Only one of 'predProb' and 'predFixed' may be specified")
@@ -133,14 +134,17 @@
   probVec <- predWeight * (nPred * meanWeight) / sum(predWeight)
 
   if (is.factor(y)) {
-    train <- .Call("RcppTrainCtg", preTrain$predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec)
+    if (any(regMono != 0)) {
+      stop("Monotonicity undefined for categorical response")
+    }
+    train <- .Call("RcppTrainCtg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec)
   }
   else {
-    train <- .Call("RcppTrainReg", preTrain$predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec)
+    train <- .Call("RcppTrainReg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, regMono)
   }
 
   predInfo <- train[["predInfo"]]
-  names(predInfo) <- preTrain$predBlock$colnames
+  names(predInfo) <- predBlock$colnames
   training = list(
     info = predInfo,
     bag = train[["bag"]]
@@ -149,10 +153,10 @@
   if (!pvtNoValidate) {
     if (is.factor(y)) {
       if (ctgCensus == "votes") {
-        validation <- .Call("RcppValidateVotes", preTrain$predBlock, train$forest, train$leaf, y, training[["bag"]]);
+        validation <- .Call("RcppValidateVotes", predBlock, train$forest, train$leaf, y, training[["bag"]]);
       }
       else if (ctgCensus == "prob") {
-        validation <- .Call("RcppValidateProb", preTrain$predBlock, train$forest, train$leaf, y, training[["bag"]]);
+        validation <- .Call("RcppValidateProb", predBlock, train$forest, train$leaf, y, training[["bag"]]);
       }
       else {
         stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -163,10 +167,10 @@
         if (is.null(qVec)) {
           qVec <- DefaultQuantVec()
         }
-        validation <- .Call("RcppValidateQuant", preTrain$predBlock, train$forest, train$leaf, qVec, qBin, y, training[["bag"]])
+        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, qVec, qBin, y, training[["bag"]])
       }
       else {
-        validation <- .Call("RcppValidateReg", preTrain$predBlock, train$forest, train$leaf, y, training[["bag"]])
+        validation <- .Call("RcppValidateReg", predBlock, train$forest, train$leaf, y, training[["bag"]])
       }
     }
   }
@@ -214,12 +218,12 @@ PredBlock <- function(x) {
   if (is.data.frame(x)) { # As with "randomForest" package
     facCard <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))
     numCols <- as.integer(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
-    nPredFac <- length(which(facCard > 0))
-    nPredNum <- length(which(numCols > 0))
-    if (nPredFac + nPredNum != ncol(x)) {
+    facIdx <- which(facCard > 0)
+    numIdx <- which(numCols > 0)
+    if (length(numIdx) + length(facIdx) != ncol(x)) {
       stop("Frame column with unsupported data type")
     }
-    return(.Call("RcppPredBlockFrame", x, nPredNum, nPredFac, facCard))
+    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard))
   }
   else if (is.integer(x)) {
     return(.Call("RcppPredBlockNum", data.matrix(x)))

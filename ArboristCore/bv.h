@@ -17,11 +17,28 @@
 #ifndef ARBORIST_BV_H
 #define ARBORIST_BV_H
 
-class BV {
+#include <vector>
 
+class BV {
+  unsigned int *raw;
+  unsigned int nSlot;
   static const unsigned int slotBits = 8 * sizeof(unsigned int);
  public:
+  BV(unsigned int len, bool slotWise = false);
+  BV(const std::vector<unsigned int> &_raw);
+  ~BV();
 
+  void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0);
+
+  BV *Resize(unsigned int bitMin);
+
+  /**
+     @brief Accessor for slot count.
+   */
+  unsigned int Slots() const {
+    return nSlot;
+  }
+  
   /**
      @brief Accessor for slotwise bit count.
 
@@ -42,8 +59,23 @@ class BV {
 
      @return length of containing quantity.
    */
-  static unsigned int LengthAlign(unsigned int len) {
+  static inline unsigned int SlotAlign(unsigned int len) {
     return (len + slotBits - 1) / slotBits;
+  }
+
+  
+  /**
+   */
+  static unsigned int SlotMask(unsigned int pos, unsigned int &mask) {
+    unsigned int slot = pos / slotBits;
+    mask = 1 << (pos - (slot * slotBits));
+
+    return slot;
+  }
+
+
+  bool Test(unsigned int slot, unsigned int mask) const {
+    return (raw[slot] & mask) != 0;
   }
 
   
@@ -56,14 +88,14 @@ class BV {
 
      @return true iff bit position is set in the bit vector.
    */
-  static inline bool IsSet(const unsigned int bv[], unsigned int pos) {
-    unsigned int slot = pos / slotBits;
-    unsigned int mask = 1 << (pos - (slot * slotBits));
+  inline bool IsSet(unsigned int pos) const {
+    unsigned int mask;
+    unsigned int slot = SlotMask(pos, mask);
 
-    return (bv[slot] & mask) != 0;
+    return Test(slot, mask);
   }
 
-
+  
   /**
      @brief Sets the bit at position 'pos'.
 
@@ -73,12 +105,79 @@ class BV {
 
      @return void.
    */
-  static inline void SetBit (unsigned int bv[], unsigned int pos) {
+  inline void SetBit(unsigned int pos) {
     unsigned int slot = pos / slotBits;
     unsigned int mask = 1 << (pos - (slot * slotBits));
-    bv[slot] |= mask;
+    raw[slot] |= mask;
+  }
+
+
+  inline unsigned int Slot(unsigned int slot) const {
+    return raw[slot];
   }
   
+  
+  inline void SetSlot(unsigned int slot, unsigned int val) {
+    raw[slot] = val;
+  }
+
+};
+
+
+/**
+   @brief Like a bit vector with strided access.
+
+ */
+class BitMatrix : public BV {
+  const unsigned int stride;
+ public:
+  BitMatrix(unsigned int _nRow, unsigned int _nCol);
+  BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
+  ~BitMatrix();
+
+  /**
+     @brief Bit test with short-circuit for zero-length matrix.
+
+     @return whether bit at specified coordinate is set.
+   */
+  inline bool IsSet(unsigned int row, unsigned int col) const {
+    return stride == 0 ? false : BV::IsSet(row * stride + col);
+  }
+
+  inline void SetBit(unsigned int row, unsigned int col) {
+    BV::SetBit(row * stride + col);
+  }
+
+};
+
+
+/**
+   @brief Jagged bit matrix.
+ */
+class BVJagged : public BV {
+  unsigned int *offset;
+ public:
+  BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsigned int> _offset);
+  ~BVJagged();
+
+
+  /**
+     @brief Bit test for jagged matrix.
+
+     @param row is the (nonstrided) row.
+
+     @param pos is the bit position within the row.
+
+     @return true iff bit set.
+
+   */
+  inline bool IsSet(unsigned int row, unsigned int pos) const {
+    unsigned int mask;
+    unsigned int slot = SlotMask(pos, mask);
+    unsigned int base = offset[row];
+    
+    return Test(base + slot, mask);
+  }
 };
 
 

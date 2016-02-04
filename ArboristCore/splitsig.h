@@ -22,14 +22,14 @@
 
  */
 class SSNode {  
-  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, int ptId, int &ptLH, int &ptRH);
-  double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, int ptId, int &ptLH, int &ptRH);
+  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
+  double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
  public:
  SSNode() : info(0.0) {}
   int runId; // Index into RunSet list.
-  int predIdx; // Rederivable, but convenient to cache.
-  int sCount; // # samples subsumed by split LHS.
-  int lhIdxCount; // Index count of split LHS.
+  unsigned int predIdx; // Rederivable, but convenient to cache.
+  unsigned int sCount; // # samples subsumed by split LHS.
+  unsigned int lhIdxCount; // Index count of split LHS.
   double info; // Information content of split.
 
   static double minRatio;
@@ -58,12 +58,12 @@ class SSNode {
 
      @return void, with output reference parameters.
    */  
-  void inline LHSizes(int &_lhSCount, int &_lhIdxCount) {
+  void inline LHSizes(unsigned int &_lhSCount, unsigned int &_lhIdxCount) {
     _lhSCount = sCount;
     _lhIdxCount = lhIdxCount;
   }
 
-  double NonTerminal(class SamplePred *samplePred, class PreTree *preTree, class SplitPred *splitPred, int level, int start, int end, int ptId, int &ptL, int &ptR);
+  double NonTerminal(class SamplePred *samplePred, class PreTree *preTree, class SplitPred *splitPred, int level, int start, int end, unsigned int ptId, unsigned int &ptL, unsigned int &ptR);
 };
 
 
@@ -74,7 +74,7 @@ class SplitSig {
   int splitCount;
   SSNode *levelSS; // Workspace records for the current level.
  protected:
-  static int nPred;
+  static unsigned int nPred;
 
   /**
      @brief Looks up the SplitSig associated with a given pair.
@@ -91,18 +91,18 @@ class SplitSig {
 
      @return pointer to looked-up SplitSig.
    */
-  inline SSNode &Lookup(int splitIdx, int predIdx = 0) {
+  inline SSNode &Lookup(int splitIdx, unsigned int predIdx = 0) {
     return levelSS[predIdx * splitCount + splitIdx];
   }
 
  public:
   SSNode *ArgMax(int splitIdx, double minInfo) const;
-  static void Immutables(int _nPred, double _minRatio);
+  static void Immutables(unsigned int _nPred, double _minRatio);
   static void DeImmutables();
 
   void LevelInit(int splitCount);
   void LevelClear();
-  void Write(const class SPPair *_spPair, unsigned int _sCount, int _lhIdxCount, double _info);
+  void Write(const class SPPair *_spPair, unsigned int _sCount, unsigned int _lhIdxCount, double _info);
 };
 
 #endif

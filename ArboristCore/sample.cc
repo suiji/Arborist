@@ -82,13 +82,13 @@ void Sample::DeImmutables() {
 
 
 Sample::Sample() {
-  inBag = new unsigned int [BV::LengthAlign(nRow)];
+  treeBag = new BV(nRow);
   sampleNode = new SampleNode[nSamp]; // Lives until scoring.
 }
 
 
 Sample::~Sample() {
-  delete [] inBag;
+  delete treeBag;
   delete [] sampleNode;
   delete samplePred;
   delete splitPred;
@@ -253,7 +253,7 @@ int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
         bits |= mask;
       }
     }
-    inBag[slot] = bits;
+    treeBag->SetSlot(slot, bits);
   }
   delete [] sCountRow;
 
@@ -274,7 +274,7 @@ int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
 
    @return bag count, with output parameter vectors.
  */
-void SampleReg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], unsigned int rank[], unsigned int sCount[]) {
+void SampleReg::Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], unsigned int rank[], unsigned int sCount[]) {
   Scores(frontierMap, treeHeight, score);
   LeafExtent(frontierMap, leafExtent);
 
@@ -306,7 +306,7 @@ void SampleReg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[]
 
    @return void, with output parameter vector.
 */
-void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) {
+void SampleReg::Scores(const unsigned int frontierMap[], int treeHeight, double score[]) {
   int *sCount = new int[treeHeight];
   for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
     sCount[ptIdx] = 0;
@@ -341,7 +341,7 @@ void SampleReg::Scores(const int frontierMap[], int treeHeight, double score[]) 
 
    @return void with output reference vector.
  */
-void Sample::LeafExtent(const int frontierMap[], int leafExtent[]) {
+void Sample::LeafExtent(const unsigned int frontierMap[], unsigned int leafExtent[]) {
   for (int i = 0; i < bagCount; i++) {
     int leafIdx = frontierMap[i];
     leafExtent[leafIdx]++;
@@ -360,7 +360,7 @@ void Sample::LeafExtent(const int frontierMap[], int leafExtent[]) {
 
    @return vector of leaf sample offsets, by tree index.
  */
-int *SampleReg::LeafPos(const int nonTerm[], const int leafExtent[], int treeHeight) {
+int *SampleReg::LeafPos(const unsigned int nonTerm[], const unsigned int leafExtent[], int treeHeight) {
   int totCt = 0;
   int *leafPos = new int[treeHeight];
   for (int i = 0; i < treeHeight; i++) {
@@ -378,7 +378,7 @@ int *SampleReg::LeafPos(const int nonTerm[], const int leafExtent[], int treeHei
 }
 
 
-void SampleCtg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[], double score[], const int nonTerm[], double *leafWeight) {
+void SampleCtg::Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], double *leafWeight) {
   LeafExtent(frontierMap, leafExtent);
   LeafWeight(frontierMap, nonTerm, treeHeight, leafWeight);
   Scores(leafWeight, treeHeight, nonTerm, score);
@@ -398,7 +398,7 @@ void SampleCtg::Leaves(const int frontierMap[], int treeHeight, int leafExtent[]
 
    @return void, with output reference parameter.
 */
-void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], double score[]) {
+void SampleCtg::Scores(double *leafWeight, int treeHeight, const unsigned int nonTerm[], double score[]) {
 
   // Category weights are jittered, making ties highly unlikely.
   //
@@ -434,7 +434,7 @@ void SampleCtg::Scores(double *leafWeight, int treeHeight, const int nonTerm[], 
 
    @return void, with reference output vector.
  */
-void SampleCtg::LeafWeight(const int frontierMap[], const int nonTerm[], int treeHeight, double *leafWeight) {
+void SampleCtg::LeafWeight(const unsigned int frontierMap[], const unsigned int nonTerm[], int treeHeight, double *leafWeight) {
   double *leafSum = new double[treeHeight];
   for (int i = 0; i < treeHeight; i++)
     leafSum[i] = 0.0;

@@ -30,7 +30,7 @@ using namespace std;
 // the need to revise dangling non-terminals from an earlier level.
 //
 
-int PreTree::nPred = 0;
+unsigned int PreTree::nPred = 0;
 unsigned int PreTree::heightEst = 0;
 
 /**
@@ -75,21 +75,22 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bvLength(0), bagCount(_bagCount) {
-  sample2PT = new int[bagCount];
+PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
+  sample2PT = new unsigned int[bagCount];
   for (int i = 0; i < bagCount; i++) {
     sample2PT[i] = 0;
   }
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
-  nodeVec[0].id = 0;
-  nodeVec[0].lhId = -1;
+  nodeVec[0].id = 0; // Root.
+  nodeVec[0].lhId = 0; // Initializes as terminal.
   info = new double[nPred];
-  for (int i = 0; i < nPred; i++)
+  for (unsigned int i = 0; i < nPred; i++)
     info[i] = 0.0;
   splitBits = BitFactory();
 }
   
+
 /**
      @brief Sets specified bit in splitting bit vector.
 
@@ -100,9 +101,8 @@ PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bvLength(0
      @return void.
 */
 void PreTree::LHBit(int idx, unsigned int pos) {
-  BV::SetBit(splitBits, nodeVec[idx].splitVal.offset + pos);
+  splitBits->SetBit(nodeVec[idx].splitVal.offset + pos);
 }
-
 
 
 /**
@@ -120,24 +120,14 @@ void PreTree::RefineHeight(unsigned int height) {
 
 
 /**
-   @brief Allocates the bit string for the current (pre)tree and initializes to false.
+   @brief Allocates a zero-valued bit string for the current (pre)tree.
 
-    // Should be wide enough to hold all factor bits for an entire tree:
-    //    #nodes * width of widest factor.
-    //
-
-   @return pointer to allocated vector.
+   @return pointer to allocated vector, possibly zero-length.
 */
-unsigned int *PreTree::BitFactory(unsigned int _bvLength) {
-  unsigned int *tsb = 0;
-  if (PredBlock::NPredFac() > 0) {
-    bvLength = _bvLength == 0 ? BV::LengthAlign(nodeCount * PBTrain::CardMax()) : _bvLength;
-    tsb = new unsigned int[bvLength];
-    for (unsigned int i = 0; i < bvLength; i++)
-      tsb[i] = 0;
-  }
-
-  return tsb;
+BV *PreTree::BitFactory() {
+  // Should be wide enough to hold all factor bits for an entire tree:
+  //    estimated #nodes * width of widest factor.
+  return new BV(nodeCount * PBTrain::CardMax());
 }
 
 
@@ -161,15 +151,15 @@ PreTree::~PreTree() {
 
    @return void, with output reference parameters.
 */
-void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
+void PreTree::TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH) {
   ptLH = height++;
   nodeVec[_parId].lhId = ptLH;
   nodeVec[ptLH].id = ptLH;
-  nodeVec[ptLH].lhId = -1;
+  nodeVec[ptLH].lhId = 0;
 
   ptRH = height++;
   nodeVec[ptRH].id = ptRH;
-  nodeVec[ptRH].lhId = -1;
+  nodeVec[ptRH].lhId = 0;
 
   // Two more leaves for offspring, one fewer for this.
   leafCount++;
@@ -187,7 +177,7 @@ void PreTree::TerminalOffspring(int _parId, int &ptLH, int &ptRH) {
 
    @return void.
 */
-void PreTree::NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int &ptRH) {
+void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH) {
   TerminalOffspring(_id, ptLH, ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
@@ -208,7 +198,7 @@ void PreTree::NonTerminalFac(double _info, int _predIdx, int _id, int &ptLH, int
 
    @return void.
 */
-void PreTree::NonTerminalNum(double _info, int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, int _id, int &ptLH, int &ptRH) {
+void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH) {
   TerminalOffspring(_id, ptLH, ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
@@ -217,7 +207,7 @@ void PreTree::NonTerminalNum(double _info, int _predIdx, unsigned int _rkLow, un
 }
 
 
-double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start, int end, int ptId) {
+double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, int level, int start, int end, unsigned int ptId) {
   return samplePred->Replay(sample2PT, predIdx, level, start, end, ptId);
 }
 
@@ -238,10 +228,10 @@ double PreTree::Replay(SamplePred *samplePred, int predIdx, int level, int start
 void PreTree::CheckStorage(int splitNext, int leafNext) {
   if (height + splitNext + leafNext > nodeCount)
     ReNodes();
-  if (PredBlock::NPredFac() > 0) {
-    unsigned int bitMin = BV::LengthAlign(bitEnd + splitNext * PBTrain::CardMax());
-    if (bitMin > bvLength)
-      ReBits(bitMin);
+
+  unsigned int bitMin = bitEnd + splitNext * PBTrain::CardMax();
+  if (bitMin > 0) {
+    splitBits = splitBits->Resize(bitMin);
   }
 }
 
@@ -263,24 +253,6 @@ void PreTree::ReNodes() {
 
 
 /**
- @brief Tree split bits accumulate, so data must be copied on realloc.
-
- @return void.
-*/
-void PreTree::ReBits(unsigned int bitMin) {
-  unsigned int lengthPrev = bvLength;
-  unsigned int lengthNext = bvLength;
-  while (lengthNext < bitMin)
-    lengthNext <<= 1;
-  unsigned int *TStemp = BitFactory(lengthNext);
-  for (unsigned int i = 0; i < lengthPrev; i++)
-    TStemp[i] = splitBits[i];
-  delete [] splitBits;
-  splitBits = TStemp;
-}
-
-
-/**
   @brief Consumes all pretree nonterminal information into crescent decision forest.
 
   @param predTree outputs leaf width for terminals, predictor index for nonterminals.
@@ -295,10 +267,12 @@ void PreTree::ReBits(unsigned int bitMin) {
 
   @return void, with output vector parameters.
 */
-void PreTree::DecTree(int predTree[], double splitTree[], int bumpTree[], unsigned int *facBits, double predInfo[]) {
-  SplitConsume(predTree, splitTree, bumpTree);
-  BitConsume(facBits);
-  for (int i = 0; i < nPred; i++)
+void PreTree::DecTree(std::vector<unsigned int> &predTree, std::vector<double> &splitTree, std::vector<unsigned int> &bumpTree, std::vector<unsigned int> &facBits, double predInfo[]) {
+  NodeConsume(predTree, splitTree, bumpTree);
+  splitBits->Consume(facBits, bitEnd);
+  delete splitBits;
+
+  for (unsigned int i = 0; i < nPred; i++)
     predInfo[i] += info[i];
 }
 
@@ -314,9 +288,9 @@ void PreTree::DecTree(int predTree[], double splitTree[], int bumpTree[], unsign
 
    @return void, with output reference parameter vectors.
 */
-void PreTree::SplitConsume(int nodeVal[], double numVec[], int bumpVec[]) {
+void PreTree::NodeConsume(std::vector<unsigned int> &pred, std::vector<double> &split, std::vector<unsigned int> &bump) {
   for (int idx = 0; idx < height; idx++) {
-    nodeVec[idx].SplitConsume(nodeVal[idx], numVec[idx], bumpVec[idx]);
+    nodeVec[idx].Consume(pred, split, bump);
   }
 }
 
@@ -325,24 +299,7 @@ void PreTree::SplitConsume(int nodeVal[], double numVec[], int bumpVec[]) {
    @return aligned length of used portion of split vector.
  */
 unsigned int PreTree::BitWidth() {
-  return BV::LengthAlign(bitEnd);
-}
-
-
-/**
-  @brief Writes factor bits from all levels into contiguous vector and resets bit state.
-
-  @param outBits outputs the local bit values.
-  
-  @return void, with output parameter vector.
-*/
-void PreTree::BitConsume(unsigned int outBits[]) {
-  if (bitEnd != 0) {
-    for (unsigned int i = 0; i < BV::LengthAlign(bitEnd); i++) {
-      outBits[i] = splitBits[i];
-    }
-    delete [] splitBits;
-  }
+  return BV::SlotAlign(bitEnd);
 }
 
 
@@ -357,10 +314,9 @@ void PreTree::BitConsume(unsigned int outBits[]) {
 
    @return void.
  */
-void PTNode::SplitConsume(int &pred, double &num, int &bump) {
-  if (lhId > id) {
-    bump = lhId - id;
-    pred = predIdx;
-    num = PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean;
-  }
+void PTNode::Consume(std::vector<unsigned int> &pred, std::vector<double> &num, std::vector<unsigned int> &bump) {
+  bool nonTerminal = lhId > 0;
+  bump.insert(bump.end(), 1, nonTerminal ? lhId - id : 0);
+  pred.insert(pred.end(), 1, nonTerminal ? predIdx : 0);
+  num.insert(num.end(), 1, nonTerminal ? (PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean) : 0.0);
 }

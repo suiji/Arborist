@@ -61,9 +61,9 @@ class MapNode {
     endIdx = _endIdx;
   }
 
-  void Restage(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], const unsigned int sIdxLH[], const unsigned int sIdxRH[], int lhIdx, int rhIdx);
-  void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const unsigned int bvL[], int lhIdx, int rhIdx);
-  void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const unsigned int bv[], int idx);
+  void Restage(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH, int lhIdx, int rhIdx);
+  void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const class BV *bvL, int lhIdx, int rhIdx);
+  void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const class BV *bv, int idx);
 
   void Singletons(class SplitPred *splitPred, const class SPNode targ[], int predIdx, int lhIdx, int rhIdx);
 };
@@ -77,9 +77,8 @@ class RestageMap {
 
  protected:
   class SplitPred *splitPred;
-  unsigned int bitSlots; // Useful for coprocessor alignment of predicates.
-  unsigned int *sIdxLH; // Predicate for live LH indices.
-  unsigned int *sIdxRH; // Predicate for live RH indices.
+  class BV *sIdxLH; // Predicate for live LH indices.
+  class BV *sIdxRH; // Predicate for live RH indices.
   int endPrev; // Terminus of live indices in previous level.
   int endThis; // Terminus of live indices in this level.
   int rhIdxNext; // Starting index of next level RH:   stable partition.

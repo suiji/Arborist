@@ -30,10 +30,10 @@ class FRNode {
   unsigned int rank;
   int start; // Buffer position of start of factor run.
   int end;
-  int sCount; // Sample count of factor run:  not always same as length.
+  unsigned int sCount; // Sample count of factor run:  not always same as length.
   double sum; // Sum of responses associated with run.
 
-  FRNode() : start(-1), end(-1), sCount(-1), sum(0.0) {}
+  FRNode() : start(-1), end(-1), sCount(0), sum(0.0) {}
   /**
      @brief Bounds accessor.
    */
@@ -42,7 +42,7 @@ class FRNode {
     _end = end;
   }
 
-  inline void Set(unsigned int _rank, int _sCount, double _sum, int _start, int _end) {
+  inline void Set(unsigned int _rank, unsigned int _sCount, double _sum, unsigned int _start, unsigned int _end) {
     rank = _rank;
     sCount = _sCount;
     sum = _sum;
@@ -119,7 +119,7 @@ class RunSet {
 
      @return sum at dereferenced position, with output reference parameter.
    */
-  inline double SumHeap(int outPos, int &sCount) {
+  inline double SumHeap(int outPos, unsigned int &sCount) {
     int slot = outZero[outPos];
     sCount = runZero[slot].sCount;
     
@@ -132,7 +132,7 @@ class RunSet {
 
      @return void.
    */
-  void Write(unsigned int rank, int sCount, double sum, int start, int end) {
+  void Write(unsigned int rank, unsigned int sCount, double sum, int start, int end) {
     runZero[runCount++].Set(rank, sCount, sum, start, end);
   }
 
@@ -173,7 +173,7 @@ class RunSet {
     cell0 = SumCtg(slot, 0);
     cell1 = SumCtg(slot, 1);
 
-    int sCount = runZero[slot].sCount;
+    unsigned int sCount = runZero[slot].sCount;
     int slotNext = outZero[outPos+1];
     // Cannot test for floating point equality.  If sCount values are unequal,
     // then assumes the two slots are significantly different.  If identical,
@@ -195,7 +195,7 @@ class RunSet {
 
     @return total index count subsumed, with reference accumulator.
   */
-  inline int LHCounts(int slot, int &sCount) {
+  inline unsigned int LHCounts(int slot, unsigned int &sCount) {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
     return  1 + fRun->end - fRun->start;
@@ -206,8 +206,8 @@ class RunSet {
     return runsLH;
   }
 
-  int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
-  int LHSlots(int outPos, unsigned int &lhSampCt);
+  unsigned int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
+  unsigned int LHSlots(int outPos, unsigned int &lhSampCt);
   unsigned int Bounds(int outSlot, int &start, int &end);
 };
 

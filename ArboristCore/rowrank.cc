@@ -249,7 +249,7 @@ RowRank::~RowRank() {
 
   @return predictor value at mean rank, computed by PredBlock method.
 */
-double RowRank::MeanRank(int predIdx, double rkMean) const {
+double RowRank::MeanRank(unsigned int predIdx, double rkMean) const {
   unsigned int rankLow = floor(rkMean);
   unsigned int rankHigh = ceil(rkMean);
   return PBTrain::MeanVal(predIdx, Rank2Row(predIdx, rankLow), Rank2Row(predIdx, rankHigh));

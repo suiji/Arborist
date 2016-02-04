@@ -28,7 +28,7 @@
 
 #include "rowrank.h"
 // Testing only:
-//#include <iostream>
+#include <iostream>
 
 
 using namespace Rcpp;
@@ -62,15 +62,21 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
   int nPred = nPredFac + nPredNum;
   IntegerVector predMap(nPred);
 
-  IntegerVector facCard = 0;
-  IntegerMatrix xFac = 0;
-  NumericMatrix xNum = 0;
+  IntegerVector facCard;
+  IntegerMatrix xFac;
+  NumericMatrix xNum;
   if (nPredNum > 0) {
     xNum = NumericMatrix(nRow, nPredNum);
   }
+  else
+    xNum = NumericMatrix(0, 0);
   if (nPredFac > 0) {
     facCard = IntegerVector(nPredFac); // Compressed factor vector.
     xFac = IntegerMatrix(nRow, nPredFac);
+  }
+  else {
+    facCard = IntegerVector(0);
+    xFac = IntegerMatrix(0);
   }
 
   int numIdx = 0;

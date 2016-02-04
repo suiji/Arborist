@@ -75,14 +75,14 @@ RcppExport SEXP RcppLeafWrapCtg(std::vector<double> weight, CharacterVector leve
 
    @return void, with output reference parameters.
  */
-void RcppLeafUnwrapReg(SEXP sLeaf, double *&_yRanked, unsigned int *&_rank, unsigned int *&_sCount) {
+void RcppLeafUnwrapReg(SEXP sLeaf, double *&_yRanked, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
   _yRanked = NumericVector((SEXP) leaf["yRanked"]).begin();
-  _rank = (unsigned int *) IntegerVector((SEXP) leaf["rank"]).begin();
-  _sCount = (unsigned int *) IntegerVector((SEXP) leaf["sCount"]).begin();
+  _rank = as<std::vector<unsigned int> >(leaf["rank"]);
+  _sCount = as<std::vector<unsigned int> >(leaf["sCount"]);
 }
 
 

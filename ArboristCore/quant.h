@@ -26,7 +26,7 @@ class Quant {
   class Forest *forest;
   const int height;
   const int nTree;
-  const int *extent;
+  const unsigned int *extent;
   const double *yRanked;
   const unsigned int *rank;
   unsigned int *sCount; // Nonconstant:  hammered by binning mechanism.

@@ -30,7 +30,7 @@
 
 using namespace Rcpp;
 
-RcppExport SEXP RcppForestWrap(std::vector<int> pred, std::vector<double> split, std::vector<int> bump, IntegerVector origin, IntegerVector facOrigin, std::vector<unsigned int> facSplit);
-void RcppForestUnwrap(SEXP sForest, int *&_pred, double *&_split, int *&_bump, int *&_origin, int *&_facOrig, unsigned int *&_facSplit, int &_nTree, int &_height);
+RcppExport SEXP RcppForestWrap(const std::vector<unsigned int> &pred, const std::vector<double> &split, const std::vector<unsigned int> &bump, const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit);
+void RcppForestUnwrap(SEXP sForest, std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit);
 
 #endif

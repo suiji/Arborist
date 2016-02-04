@@ -26,7 +26,7 @@ using namespace std;
    pass one (splitting) through argmax pass two.
 */
 
-int SplitSig::nPred = -1;
+unsigned int SplitSig::nPred = 0;
 double SSNode::minRatio = 0.0;
 
 // TODO:  Economize on width (nPred) here et seq.
@@ -41,7 +41,7 @@ double SSNode::minRatio = 0.0;
 
    @return void.
  */
-void SplitSig::Immutables(int _nPred, double _minRatio) {
+void SplitSig::Immutables(unsigned int _nPred, double _minRatio) {
   nPred = _nPred;
   SSNode::minRatio = _minRatio;
 }
@@ -51,7 +51,7 @@ void SplitSig::Immutables(int _nPred, double _minRatio) {
    @brief Finalizer.
 */  
 void SplitSig::DeImmutables() {
-  nPred = -1;
+  nPred = 0;
   SSNode::minRatio = 0.0;
 }
 
@@ -69,7 +69,7 @@ void SplitSig::DeImmutables() {
 
    @return void.
  */
-void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, int _lhIdxCount, double _info) {
+void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, unsigned int _lhIdxCount, double _info) {
   SSNode ssn;
   ssn.runId = _spPair->RSet();
   ssn.sCount = _sCount;
@@ -98,7 +98,7 @@ void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, int _lhIdxCoun
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *splitPred, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
   return runId >= 0 ? NonTerminalRun(samplePred, preTree, splitPred->Runs(), level, start, end, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, level, start, end, ptId, ptLH, ptRH);
 }
 
@@ -108,7 +108,7 @@ double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, SplitPred *
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
   preTree->NonTerminalFac(info, predIdx, ptId, ptLH, ptRH);
 
   // Replays entire index extent of node with RH pretree index then,
@@ -133,7 +133,7 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Run *run
 
    @return sum of LH subnode's sample values.
  */
-double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int level, int start, int end, int ptId, int &ptLH, int &ptRH) {
+double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
   unsigned int rkLow, rkHigh;
   samplePred->SplitRanks(predIdx, level, start + lhIdxCount - 1, rkLow, rkHigh);
   preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
@@ -162,7 +162,7 @@ SSNode *SplitSig::ArgMax(int splitIdx, double gainMax) const {
   // TODO: Break ties nondeterministically.
   //
   int predOff = splitIdx;
-  for (int predIdx = 0; predIdx < nPred; predIdx++, predOff += splitCount) {
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++, predOff += splitCount) {
     SSNode *candSS = &levelSS[predOff];
     if (candSS->info > gainMax) {
       argMax = candSS;

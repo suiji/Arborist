@@ -17,22 +17,24 @@
 #ifndef ARBORIST_FOREST_H
 #define ARBORIST_FOREST_H
 
+#include <vector>
+
 /**
    @brief To replace parallel array access.
  */
 class ForestNode {
-  int pred;
+  unsigned int pred;
   unsigned int bump;
   double num;
  public:
-  inline void Set(int _pred, unsigned int _bump, double _num) {
+  inline void Set(unsigned int _pred, unsigned int _bump, double _num) {
     pred = _pred;
     bump = _bump;
     num = _num;
   }
 
 
-  inline void Ref(int &_pred, unsigned int &_bump, double &_num) const {
+  inline void Ref(unsigned int &_pred, unsigned int &_bump, double &_num) const {
     _pred = pred;
     _bump = bump;
     _num = num;
@@ -44,40 +46,27 @@ class ForestNode {
 */
 class Forest {
   const int nTree;
-
-  int *treeOrigin; // Index of of decision tree bases into forestNode[].
-  const int *facOrigin; // Offset of factor splitting bases into facSplit[];
-  unsigned int *facSplit; // Consolidation of per-tree values.
-  ForestNode *forestNode;
-
-  int* fePred;  // Split predictor / sample extent : nonterminal / terminal.
-  double* feNum; // Split value / score : nonterminal / terminal.
-  int* feBump;  // Successor offset / zero :  nonterminal / terminal.
   const int height;
 
-  /**
-     @brief Sets the decision tree and factor splitting bases for a tree.
+  unsigned int *treeOrigin; // Index of decision tree bases into forestNode[].
+  class BVJagged *facSplit; // Consolidation of per-tree values.
+  ForestNode *forestNode;
 
-     @param tc is the index of the tree.
+  unsigned int* fePred;  // Split predictor / sample extent : nonterminal / terminal.
+  double* feNum; // Split value / score : nonterminal / terminal.
+  unsigned int* feBump;  // Successor offset / zero :  nonterminal / terminal.
 
-     @return void with output reference parameters.
-   */
-  inline void TreeBases(int tc, ForestNode *&treeBase, unsigned int *&bitBase) {
-    treeBase = forestNode + treeOrigin[tc];
-    bitBase = facSplit + facOrigin[tc];
-  } 
-
-  void PredictAcrossNum(int *leaves, unsigned int nRow, const unsigned int *bag);
-  void PredictAcrossFac(int *leaves, unsigned int nRow, const unsigned int *bag);
-  void PredictAcrossMixed(int *leaves, unsigned int nRow, const unsigned int *bag);
+  void PredictAcrossNum(int *leaves, unsigned int nRow, const class BitMatrix *bag);
+  void PredictAcrossFac(int *leaves, unsigned int nRow, const class BitMatrix *bag);
+  void PredictAcrossMixed(int *leaves, unsigned int nRow, const class BitMatrix *bag);
  public:
-  void PredictAcross(int *predictLeaves, const unsigned int *bag);
+  void PredictAcross(int *predictLeaves, const class BitMatrix *bag);
   
-  void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const unsigned int bag[]);
-  void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const unsigned int bag[]);
-  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const unsigned int bag[]);
+  void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag);
+  void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const class BitMatrix *bag);
+  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const class BitMatrix *bag);
 
-  Forest(int _nTree, int _height, int _preds[], double _splits[], int _bump[], int _origins[], int _facOrigin[], unsigned int _facSplit[]);
+  Forest(std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOrigin, const std::vector<unsigned int> &_facSplit);
   ~Forest();
 
   
@@ -101,7 +90,7 @@ class Forest {
   /**
      @brief Bump values nonzero iff nonterminal.
    */
-  int *Nonterminal() {
+  unsigned int *Nonterminal() {
     return feBump;
   }
 
@@ -109,30 +98,28 @@ class Forest {
   /**
      @brief Records sample extents for regression terminals.
    */
-  int *Extent() {
+  unsigned int *Extent() {
     return fePred;
   }
 
 
   /**
    */
-  int *Origin() {
+  unsigned int *Origin() {
     return treeOrigin;
   }
   
 
   void TreeBlock(class PreTree *ptBlock[], int treeBlock, int treeStart);
-  bool InBag(const unsigned int bag[], int treeNum, unsigned int row);
 
-  inline int LeafPos(int treeNum, int leafIdx) const {
+  unsigned inline int LeafPos(int treeNum, int leafIdx) const {
     return treeOrigin[treeNum] + leafIdx;
   }
 
   
-  inline double LeafVal(int treeNum, int leafIdx) {
+  inline double LeafVal(int treeNum, int leafIdx) const {
     return feNum[LeafPos(treeNum, leafIdx)];
   }
-  static void BagSet(unsigned int bag[], int _nTree, unsigned int treeNum, unsigned int row);
 };
 
 #endif

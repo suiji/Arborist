@@ -22,15 +22,15 @@
  */
 class SPPair {
   int splitIdx;
-  int predIdx;
+  unsigned int predIdx;
   int setIdx; // Nonnegative iff nontrivial run.
  public:
-  inline void Coords(int &_splitIdx, int &_predIdx) const {
+  inline void Coords(int &_splitIdx, unsigned int &_predIdx) const {
     _splitIdx = splitIdx;
     _predIdx = predIdx;
   }
 
-  inline void SetCoords(int _splitIdx, int _predIdx) {
+  inline void SetCoords(int _splitIdx, unsigned int _predIdx) {
     splitIdx = _splitIdx;
     predIdx = _predIdx;
   }
@@ -64,7 +64,7 @@ class SPPair {
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitPred {
-  static int nPred;
+  static unsigned int nPred;
   static int predFixed;
   static double *predProb;
   int pairCount;
@@ -75,7 +75,7 @@ class SplitPred {
   void SplitPredProb(const double ruPred[], bool splitFlags[]);
   void SplitPredFixed(const double ruPred[], class BHPair heap[], bool splitFlags[]);
   void LevelSplit(const class IndexNode _indexNode[], class SPNode *nodeBase, int splitCount);
-  SPPair *PairInit(int nPred, int &pairCount);
+  SPPair *PairInit(unsigned int nPred, int &pairCount);
  protected:
   int splitCount;
   
@@ -85,7 +85,7 @@ class SplitPred {
  public:
   const class SamplePred *samplePred;
   SplitPred(class SamplePred *_samplePred);
-  static void Immutables(int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]);
+  static void Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]);
   static void DeImmutables();
   static SplitPred *FactoryReg(class SamplePred *_samplePred);
   static SplitPred *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg);
@@ -94,15 +94,15 @@ class SplitPred {
   void LevelSplit(const class IndexNode indexNode[], unsigned int level, int splitCount, class SplitSig *splitSig);
   void LevelSplit(const class IndexNode indexNode[], class SPNode *nodeBase, int splitCount, class SplitSig *splitSig);  
   void LengthTransmit(int splitIdx, int lNext, int rNext);
-  unsigned int &LengthNext(int splitNext, int predIdx);
+  unsigned int &LengthNext(int splitNext, unsigned int predIdx);
   void LengthVec(int splitNext);
-  inline void SplitFields(int pairIdx, int &_splitIdx, int &_predIdx) {
+  inline void SplitFields(int pairIdx, int &_splitIdx, unsigned int &_predIdx) {
     spPair[pairIdx].Coords(_splitIdx, _predIdx);
   }
 
   void RLNext(int splitIdx, int lNext, int rNext);
-  unsigned int &RLNext(int splitIdx, int predIdx);
-  bool Singleton(int splitIdx, int predIdx);
+  unsigned int &RLNext(int splitIdx, unsigned int predIdx);
+  bool Singleton(int splitIdx, unsigned int predIdx);
   void Split(const class IndexNode indexNode[], class SPNode *nodeBase, class SplitSig *splitSig);
 
   class Run *Runs() {
@@ -112,7 +112,7 @@ class SplitPred {
   virtual ~SplitPred();
   virtual void RunOffsets() = 0;
   virtual bool *LevelPreset(const class Index *index) = 0;
-  virtual double Prebias(int splitIdx, int sCount, double sum) = 0;
+  virtual double Prebias(int splitIdx, unsigned int sCount, double sum) = 0;
   virtual void LevelClear();
 
   virtual void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig) = 0;
@@ -126,7 +126,7 @@ class SplitPred {
 class SPReg : public SplitPred {
   static int *mono;
   ~SPReg();
-  void SplitHeap(const class IndexNode *indexNode, const class SPNode spn[], int predIdx, class SplitSig *splitSig);
+  void SplitHeap(const class IndexNode *indexNode, const class SPNode spn[], unsigned int predIdx, class SplitSig *splitSig);
   void Split(const class IndexNode indexNode[], class SPNode *nodeBase, class SplitSig *splitSig);
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
   void SplitNumWV(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
@@ -134,21 +134,22 @@ class SPReg : public SplitPred {
   void SplitFac(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode *nodeBase, class SplitSig *splitSig);
   void SplitFacWV(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
-  int HeapSplit(class RunSet *runSet, double sum, unsigned int &lhSampCt, double &maxGini);
+  unsigned int HeapSplit(class RunSet *runSet, double sum, unsigned int sCountNode, unsigned int &lhIdxCount, double &maxGini);
 
   inline int MonoMode(const SPPair *pair) {
-    int splitIdx, predIdx;
+    int splitIdx;
+    unsigned int predIdx;
     pair->Coords(splitIdx, predIdx);
     return mono[predIdx];
   }
 
  public:
-  static void Immutables(int _nPred, const int *_mono);
+  static void Immutables(unsigned int _nPred, const int *_mono);
   static void DeImmutables();
   SPReg(class SamplePred *_samplePred);
   void RunOffsets();
   bool *LevelPreset(const class Index *index);
-  double Prebias(int spiltIdx, int sCount, double sum);
+  double Prebias(int spiltIdx, unsigned int sCount, double sum);
   void LevelClear();
 };
 
@@ -167,12 +168,12 @@ class SPCtg : public SplitPred {
   static const double minSumR = 1.0e-5;
   const class SampleNode *sampleCtg;
   bool *LevelPreset(const class Index *index);
-  double Prebias(int splitIdx, int sCount, double sum);
+  double Prebias(int splitIdx, unsigned int sCount, double sum);
   void LevelClear();
   void Split(const class IndexNode indexNode[], class SPNode *nodeBase, class SplitSig *splitSig);
   void RunOffsets();
   void SumsAndSquares(const class Index *index, bool unsplitable[]);
-  int LHBits(unsigned int lhBits, int pairOffset, unsigned int depth, int &lhSampCt);
+  unsigned int LHBits(unsigned int lhBits, int pairOffset, unsigned int depth, int &lhSampCt);
 
   /**
      @brief Looks up node values by category.
@@ -190,9 +191,9 @@ class SPCtg : public SplitPred {
   void LevelInitSumR();
   void SplitNum(const SPPair *spPair, const class IndexNode indexNode[], const class SPNode spn[], class SplitSig *splitSig);
   void SplitNumGini(const SPPair *spPair, const class IndexNode *indexNode, const class SPNode spn[], class SplitSig *splitSig);
-  int SplitBinary(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount);
+  unsigned int SplitBinary(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &sCount);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], int start, int end);
-  int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt);
+  unsigned int SplitRuns(class RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt);
   
  public:
   SPCtg(class SamplePred *_samplePred, class SampleNode _sampleCtg[]);
