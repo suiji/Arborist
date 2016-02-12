@@ -25,16 +25,17 @@
   if (quantiles && is.null(qVec))
     qVec <- DefaultQuantVec()
 
-  PredictForest(object$forest, object$leaf, newdata, yTest, qVec, qBin, ctgCensus)
+  PredictForest(object$forest, object$leaf, object$signature, newdata, yTest, qVec, qBin, ctgCensus)
 }
 
-PredictForest <- function(forest, leaf, newdata, yTest, qVec, qBin, ctgCensus) {
-  if (is.null(forest$pred))
-    stop("Unset predictors in forest")
-  if (is.null(forest$split))
-    stop("Unset split values in forest")
-  if (is.null(forest$bump))
-    stop("Unset bump table in forest")
+
+PredictForest <- function(forest, leaf, signature, newdata, yTest, qVec, qBin, ctgCensus) {
+  if (is.null(forest$forestNode))
+    stop("Forest nodes missing")
+  if (is.null(leaf))
+    stop("Leaf missing")
+  if (is.null(signature))
+    stop("Signature missing")
 
   if (!is.null(qVec)) {
     if (any(qVec > 1) || any(qVec < 0))
@@ -44,7 +45,7 @@ PredictForest <- function(forest, leaf, newdata, yTest, qVec, qBin, ctgCensus) {
   }
 
   # Checks test data for conformity with training data.
-  predBlock <- PredBlock(newdata)
+  predBlock <- PredBlock(newdata, signature)
   if (inherits(leaf, "LeafReg")) {
     if (is.null(qVec)) {
       prediction <- .Call("RcppTestReg", predBlock, forest, leaf, yTest)

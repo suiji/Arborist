@@ -113,7 +113,7 @@ void PreTree::LHBit(int idx, unsigned int pos) {
 
    @return void.
  */
-void PreTree::RefineHeight(unsigned int height) {
+void PreTree::Reserve(unsigned int height) {
   while (heightEst <= height) // Assigns next power-of-two above 'height'.
     heightEst <<= 1;
 }
@@ -255,21 +255,18 @@ void PreTree::ReNodes() {
 /**
   @brief Consumes all pretree nonterminal information into crescent decision forest.
 
-  @param predTree outputs leaf width for terminals, predictor index for nonterminals.
+  @param forest grows by producing nodes and splits consumed from pre-tree.
 
-  @param splitTree outputs score for terminals, splitting value for nonterminals.
-
-  @param bumpTree outputs zero for terminals, index delta for nonterminals.
-
-  @param facBits outputs the splitting bits.
+  @param tIdx is the index of the tree being consumed/produced.
 
   @param predInfo accumulates the information contribution of each predictor.
 
-  @return void, with output vector parameters.
+  @return void, with side-effected forest.
 */
-void PreTree::DecTree(std::vector<unsigned int> &predTree, std::vector<double> &splitTree, std::vector<unsigned int> &bumpTree, std::vector<unsigned int> &facBits, double predInfo[]) {
-  NodeConsume(predTree, splitTree, bumpTree);
-  splitBits->Consume(facBits, bitEnd);
+void PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
+  forest->Origins(tIdx);
+  NodeConsume(forest);
+  forest->BitProduce(splitBits, bitEnd);
   delete splitBits;
 
   for (unsigned int i = 0; i < nPred; i++)
@@ -280,17 +277,13 @@ void PreTree::DecTree(std::vector<unsigned int> &predTree, std::vector<double> &
 /**
    @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.  Leaf information is post-assigned by the response-dependent Sample methods.
 
-   @param nodeVal outputs splitting predictor / leaf extent : nonterminal / terminal.
+   @param forest inputs/outputs the updated forest.
 
-   @param numVec outputs splitting value / leaf score : nonterminal / terminal.
-
-   @param bumpVec outputs the left-hand node increment:  nonzero iff nonterminal.
-
-   @return void, with output reference parameter vectors.
+   @return void, with output reference parameter vector.
 */
-void PreTree::NodeConsume(std::vector<unsigned int> &pred, std::vector<double> &split, std::vector<unsigned int> &bump) {
+void PreTree::NodeConsume(Forest *forest) {
   for (int idx = 0; idx < height; idx++) {
-    nodeVec[idx].Consume(pred, split, bump);
+    nodeVec[idx].Consume(forest);
   }
 }
 
@@ -306,17 +299,15 @@ unsigned int PreTree::BitWidth() {
 /**
    @brief Consumes the node fields of nonterminals (splits).
 
-   @param pred outputs the splitting predictor, if a split.
+   @param forest outputs the growing forest node vector.
 
-   @param num outputs the splitting value, if a split.
-
-   @param bump outputs the distance to the left-hand subnode, if a split.
-
-   @return void.
+   @return void, with output parameter vector.
  */
-void PTNode::Consume(std::vector<unsigned int> &pred, std::vector<double> &num, std::vector<unsigned int> &bump) {
-  bool nonTerminal = lhId > 0;
-  bump.insert(bump.end(), 1, nonTerminal ? lhId - id : 0);
-  pred.insert(pred.end(), 1, nonTerminal ? predIdx : 0);
-  num.insert(num.end(), 1, nonTerminal ? (PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean) : 0.0);
+void PTNode::Consume(Forest *forest) {
+  if (lhId > 0) { // i.e., nonterminal
+    forest->NodeProduce(predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
+  }
+  else {
+    forest->NodeProduce(0, 0, 0.0);
+  }
 }

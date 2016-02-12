@@ -18,6 +18,7 @@
 
 #include "param.h"
 
+
 /**
    @brief Single node type for regression and classification.
 
@@ -62,11 +63,16 @@ class SampleNode {
   }
 
 
+  inline double Sum() const {
+    return sum;
+  }
+  
+
   /**
      @brief Accessor for sample count.
      
    */
-  inline unsigned int SCount() {
+  inline unsigned int SCount() const {
     return sCount;
   }
 
@@ -83,14 +89,14 @@ class Sample {
   static unsigned int nPred;
   static int nSamp;
   SampleNode *sampleNode;
-  int bagCount;
+  unsigned int bagCount;
   double bagSum;
   class BV *treeBag;
   class SamplePred *samplePred;
   class SplitPred *splitPred;
   int *PreStage(const double y[], const unsigned int *yCtg = 0);
-  static int CountRows(int sCountRow[], int sIdxRow[]);
-  void LeafExtent(const unsigned int frontierMap[], unsigned int leafExtent[]);
+  static unsigned int CountRows(int sCountRow[], int sIdxRow[]);
+  void LeafExtent(const unsigned int frontierMap[], class Forest *forest, int tIdx);
  public:
   static void Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
@@ -107,12 +113,12 @@ class Sample {
   /**
      @brief Accessor for bag count.
    */
-  inline int BagCount() {
+  inline unsigned int BagCount() const {
     return bagCount;
   }
 
   
-  inline double BagSum() {
+  inline double BagSum() const {
     return bagSum;
   }
 
@@ -136,6 +142,12 @@ class Sample {
     return sampleNode[sIdx].Ref(_sum, _sCount);
   }
 
+  
+  inline FltVal Sum(int sIdx) const {
+    return sampleNode[sIdx].Sum();
+  }
+
+  
   virtual ~Sample();
 };
 
@@ -145,14 +157,22 @@ class Sample {
 */
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
-  void Scores(const unsigned int frontierMap[], int treeHeight, double score[]);
  public:
   SampleReg();
   ~SampleReg();
   static SampleReg *Factory(const double y[], const class RowRank *rowRank, const unsigned int row2Rank[]);
+
+  inline unsigned int SCount(unsigned int sIdx) const {
+    return sampleNode[sIdx].SCount();
+  }
+
+
+  inline unsigned int Rank(unsigned int sIdx) const {
+    return sample2Rank[sIdx];
+  }
+
+
   void Stage(const double y[], const unsigned int row2Rank[], const class RowRank *rowRank);
-  void Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], unsigned int *rank, unsigned int *sCount);
-  static int *LeafPos(const unsigned int nonTerm[], const unsigned int leafExtent[], int treeHeight);
 };
 
 
@@ -161,17 +181,15 @@ class SampleReg : public Sample {
 */
 class SampleCtg : public Sample {
   static unsigned int ctgWidth;
-  static double forestScale;  // Jitter scale for forest-wide scores.
-  void Scores(double *leafWeight, int treeHeight, const unsigned int nonTerm[], double score[]);
-  void LeafWeight(const unsigned int frontierMap[], const unsigned int nonTerm[], int treeHeight, double *leafWeight);
  public:
   SampleCtg();
   ~SampleCtg();
   static SampleCtg *Factory(const double y[], const class RowRank *rowRank, const unsigned int yCtg[]);
   static void Immutables(unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
+
+  
   void Stage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank);
-  void Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], double *leafWeight);
 };
 
 

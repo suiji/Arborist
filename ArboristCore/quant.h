@@ -17,6 +17,7 @@
 #ifndef ARBORIST_QUANT_H
 #define ARBORIST_QUANT_H
 
+#include <vector>
 /**
  @brief Quantile signature.
 */
@@ -26,7 +27,8 @@ class Quant {
   class Forest *forest;
   const int height;
   const int nTree;
-  const unsigned int *extent;
+  const std::vector<class ForestNode> &forestNode;
+  //  const unsigned int *extent;
   const double *yRanked;
   const unsigned int *rank;
   unsigned int *sCount; // Nonconstant:  hammered by binning mechanism.
@@ -36,7 +38,7 @@ class Quant {
   const unsigned int qBin;
   
   int *leafPos;
-  Quant(unsigned int _nRow, class Forest *forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin);
+  Quant(unsigned int _nRow, class Forest *forest, std::vector<class ForestNode> &_forestNode, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin);
   ~Quant();
   void PredictRows(int *predictLeaves, double qPred[]);
   unsigned int SmudgeLeaves(unsigned int &logSmudge);
@@ -45,7 +47,7 @@ class Quant {
   int RanksSmudge(unsigned int leafExtent, int leafOff, int sampRanks[], unsigned int binSize, unsigned int logSmudge);
 
  public:
-  static void Predict(unsigned int _nRow, class Forest *forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]);
+  static void Predict(unsigned int _nRow, class Forest *forest, std::vector<class ForestNode> &_forestNode, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]);
 };
 
 #endif

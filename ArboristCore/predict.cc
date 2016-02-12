@@ -26,11 +26,11 @@ using namespace std;
 /**
    @brief Static entry for regression case.
  */
-void Predict::Regression(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOff, const std::vector<unsigned int> &_facSplit, double _yPred[], const std::vector<unsigned int> &_bag) {
+void Predict::Regression(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, double _yPred[], const std::vector<unsigned int> &_bag) {
   int nTree = _origin.size();
   PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
   PredictReg *predictReg = new PredictReg(_nRow, nTree);
-  Forest *forest =  new Forest(_pred, _split, _bump, _origin, _facOff, _facSplit);
+  Forest *forest =  new Forest(_forestNode, _origin, _facOff, _facSplit);
   BitMatrix *bag = new BitMatrix(_nRow, nTree, _bag);
   forest->PredictAcross(predictReg->predictLeaves, bag);
   predictReg->Score(_yPred, forest);
@@ -45,15 +45,15 @@ void Predict::Regression(double *_blockNumT, int *_blockFacT, unsigned int _nRow
 /**
    @brief Static entry for regression case.
  */
-void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOff, const std::vector<unsigned int> &_facSplit, unsigned int _rank[], unsigned int _sCount[], double _yRanked[], double _yPred[], double _quantVec[], int _qCount, unsigned int _qBin, double _qPred[], const std::vector<unsigned int> &_bag) {
+void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, unsigned int _rank[], unsigned int _sCount[], double _yRanked[], double _yPred[], double _quantVec[], int _qCount, unsigned int _qBin, double _qPred[], const std::vector<unsigned int> &_bag) {
   int nTree = _origin.size();
   PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
   PredictReg *predictReg = new PredictReg(_nRow, nTree);
-  Forest *forest =  new Forest(_pred, _split, _bump, _origin, _facOff, _facSplit);
+  Forest *forest =  new Forest(_forestNode, _origin, _facOff, _facSplit);
   BitMatrix *bag = new BitMatrix(_nRow, nTree, _bag);
   forest->PredictAcross(predictReg->predictLeaves, bag);
   predictReg->Score(_yPred, forest);
-  Quant::Predict(_nRow, forest, _yRanked, _rank, _sCount, _quantVec, _qCount, _qBin, predictReg->predictLeaves, _qPred);
+  Quant::Predict(_nRow, forest, _forestNode, _yRanked, _rank, _sCount, _quantVec, _qCount, _qBin, predictReg->predictLeaves, _qPred);
 
   delete bag;
   delete predictReg;
@@ -66,11 +66,11 @@ void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nRow,
 /**
    @brief Entry for separate classification prediction.
  */
-void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOff, const std::vector<unsigned int> &_facSplit, unsigned int _ctgWidth, double *_leafWeight, int *_yPred, int *_census, int *_yTest, int *_conf, double *_error, double *_prob, const std::vector<unsigned int> &_bag) {
+void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, unsigned int _ctgWidth, double *_leafWeight, int *_yPred, int *_census, int *_yTest, int *_conf, double *_error, double *_prob, const std::vector<unsigned int> &_bag) {
   int nTree = _origin.size();
   PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
   PredictCtg *predictCtg = new PredictCtg(_nRow, nTree, _ctgWidth, _leafWeight);
-  Forest *forest = new Forest(_pred, _split, _bump, _origin, _facOff, _facSplit);
+  Forest *forest = new Forest(_forestNode, _origin, _facOff, _facSplit);
   BitMatrix *bag = new BitMatrix(_nRow, nTree, _bag);
   predictCtg->PredictAcross(forest, bag, _census, _yPred, _yTest, _conf, _error, _prob);
   delete predictCtg;

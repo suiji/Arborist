@@ -23,7 +23,6 @@
    @author Mark Seligman
  */
 
-#include <R.h>
 #include <Rcpp.h>
 
 using namespace Rcpp;
@@ -31,6 +30,7 @@ using namespace Rcpp;
 #include "rcppForest.h"
 #include "rcppLeaf.h"
 #include "train.h"
+#include "forest.h"
 
 //using namespace std;
 //#include <iostream>
@@ -114,7 +114,8 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
     feFacCard = facCard.begin();
     cardMax = max(facCard);
   }
-  IntegerVector predMap(as<IntegerVector>(predBlock["predMap"]));
+  List signature(as<List>(predBlock["signature"]));
+  IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
 
   IntegerVector feRow(as<IntegerVector>(rowRank["row"]));
   IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));
@@ -137,9 +138,9 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
   NumericVector predInfo(nPred);
-  std::vector<unsigned int> pred;
-  std::vector<double> split;
-  std::vector<unsigned int> bump;
+
+  std::vector<ForestNode> forestNode;
+
   std::vector<unsigned int> facSplit;
   std::vector<double> weight;
 
@@ -147,10 +148,10 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   //  may not scale to multi-gigarow sets.
   std::vector<unsigned int> inBag;
 
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, y.begin(), ctgWidth, proxy.begin(), inBag, origin, facOrig, predInfo.begin(), pred, split, bump, facSplit, weight);
+  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, y.begin(), ctgWidth, proxy.begin(), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, weight);
 
   return List::create(
-      _["forest"] = RcppForestWrap(pred, split, bump, origin, facOrig, facSplit),
+		      _["forest"] = RcppForestWrap(/*pred, split, bump,*/ origin, facOrig, facSplit, forestNode),
       _["leaf"] = RcppLeafWrapCtg(weight, CharacterVector(yOneBased.attr("levels"))),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
@@ -186,7 +187,8 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
     feFacCard = facCard.begin();
     cardMax = max(facCard);
   }
-  IntegerVector predMap(as<IntegerVector>(predBlock["predMap"]));
+  List signature(as<List>(predBlock["signature"]));
+  IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
   
   NumericVector y(sY);
   int nTree = as<int>(sNTree);
@@ -206,11 +208,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> facOrig(nTree);
   NumericVector predInfo(nPred);
 
-  // Variable-length vectors.
-  //
-  std::vector<unsigned int> pred;
-  std::vector<double> split;
-  std::vector<unsigned int> bump;
+  std::vector<ForestNode> forestNode;
   std::vector<unsigned int> facSplit;
   std::vector<unsigned int> rank;
   std::vector<unsigned int> sCount;
@@ -221,10 +219,10 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   //
   std::vector<unsigned int> inBag;
 
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, y.begin(), yRanked.begin(), inBag, origin, facOrig, predInfo.begin(), pred, split, bump, facSplit, rank, sCount);
+  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, y.begin(), yRanked.begin(), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, rank, sCount);
 
   return List::create(
-      _["forest"] = RcppForestWrap(pred, split, bump, origin, facOrig, facSplit),
+		      _["forest"] = RcppForestWrap(/*pred, split, bump,*/ origin, facOrig, facSplit, forestNode),
       _["leaf"] = RcppLeafWrapReg(rank, sCount, yRanked),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.

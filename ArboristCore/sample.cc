@@ -19,9 +19,10 @@
 #include "rowrank.h"
 #include "samplepred.h"
 #include "splitpred.h"
+#include "forest.h"
 
 //#include <iostream>
-//using namespace std;
+using namespace std;
 
 // Simulation-invariant values.
 //
@@ -30,7 +31,6 @@ unsigned int Sample::nPred = 0;
 int Sample::nSamp = -1;
 
 unsigned int SampleCtg::ctgWidth = 0;
-double SampleCtg::forestScale = 0.0;
 
 /**
  @brief Lights off initializations needed for sampling.
@@ -56,7 +56,6 @@ void Sample::Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, dou
  */
 void SampleCtg::Immutables(unsigned int _ctgWidth, int _nTree) {
   ctgWidth = _ctgWidth;
-  forestScale = 1.0 / (nRow * _nTree);
 }
 
 
@@ -64,7 +63,6 @@ void SampleCtg::Immutables(unsigned int _ctgWidth, int _nTree) {
  */
 void SampleCtg::DeImmutables() {
   ctgWidth = 0;
-  forestScale = 0.0;
 }
 
 
@@ -105,7 +103,7 @@ Sample::~Sample() {
 
    @return bagCount, plus output vectors.
 */
-int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
+unsigned int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
   for (unsigned int row = 0; row < nRow; row++) {
     sCountRow[row] = 0;
     sIdxRow[row] = -1;
@@ -122,7 +120,7 @@ int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
   }
   delete [] rvRow;
 
-  int idx = 0;
+  unsigned int idx = 0;
   for (unsigned int row = 0; row < nRow; row++) {
     if (sCountRow[row] > 0)
       sIdxRow[row] = idx++;
@@ -258,206 +256,6 @@ int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
   delete [] sCountRow;
 
   return sIdxRow;
-}
-
-
-/**
-   @brief Derives and copies regression leaf information.
-
-   @param nonTerm is zero iff forest index is at leaf.
-
-   @param leafExtent gives leaf width at forest index.
-
-   @param rank outputs leaf ranks; vector length bagCount.
-
-   @param sCount outputs sample counts; vector length bagCount.
-
-   @return bag count, with output parameter vectors.
- */
-void SampleReg::Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], unsigned int rank[], unsigned int sCount[]) {
-  Scores(frontierMap, treeHeight, score);
-  LeafExtent(frontierMap, leafExtent);
-
-  int *leafPos = LeafPos(nonTerm, leafExtent, treeHeight);
-  int *seen = new int[treeHeight];
-  for (int i = 0; i < treeHeight; i++) {
-    seen[i] = 0;
-  }
-  for (int sIdx = 0; sIdx < bagCount; sIdx++) {
-    int leafIdx = frontierMap[sIdx];
-    int rkOff = leafPos[leafIdx] + seen[leafIdx]++;
-    sCount[rkOff] = sampleNode[sIdx].SCount();
-    rank[rkOff] = sample2Rank[sIdx];
-  }
-
-  delete [] seen;
-  delete [] leafPos;
-}
-
-
-/**
-   @brief Derives scores for regression tree:  intialize, accumulate, divide.
-
-   @param frontierMap maps sample id to pretree terminal id.
-
-   @param treeHeight is the number of nodes in the pretree.
-
-   @param score outputs the computed scores.
-
-   @return void, with output parameter vector.
-*/
-void SampleReg::Scores(const unsigned int frontierMap[], int treeHeight, double score[]) {
-  int *sCount = new int[treeHeight];
-  for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
-    sCount[ptIdx] = 0;
-  }
-
-  // score[] is 0.0 for leaves:  only nonterminals have been overwritten.
-  //
-  for (int i = 0; i < bagCount; i++) {
-    int leafIdx = frontierMap[i];
-    FltVal _sum;
-    unsigned int _sCount;
-    (void) Ref(i, _sum, _sCount);
-    score[leafIdx] += _sum;
-    sCount[leafIdx] += _sCount;
-  }
-
-  for (int ptIdx = 0; ptIdx < treeHeight; ptIdx++) {
-    if (sCount[ptIdx] > 0)
-      score[ptIdx] /= sCount[ptIdx];
-  }
-
-  delete [] sCount;
-}
-
-
-/**
-   @brief Sets node counts on each leaf.
-
-   @param frontierMap maps samples to tree indices.
-
-   @param leafExtent outputs the node counts by node index.
-
-   @return void with output reference vector.
- */
-void Sample::LeafExtent(const unsigned int frontierMap[], unsigned int leafExtent[]) {
-  for (int i = 0; i < bagCount; i++) {
-    int leafIdx = frontierMap[i];
-    leafExtent[leafIdx]++;
-  }
-}
-
-
-/**
-   @brief Defines starting positions for ranks associated with a given leaf.
-
-   @param treeHeight is the height of the current tree.
-
-   @param nonTerm is zero iff leaf reference.
-
-   @param leafExtent enumerates leaf widths.
-
-   @return vector of leaf sample offsets, by tree index.
- */
-int *SampleReg::LeafPos(const unsigned int nonTerm[], const unsigned int leafExtent[], int treeHeight) {
-  int totCt = 0;
-  int *leafPos = new int[treeHeight];
-  for (int i = 0; i < treeHeight; i++) {
-    if (nonTerm[i] == 0) {
-      leafPos[i] = totCt;
-      totCt += leafExtent[i];
-    }
-    else
-      leafPos[i] = -1;
-  }
-  // ASSERTION:  totCt == bagCount
-  // By this point leafPos[i] >= 0 iff this 'i' references is a leaf.
-
-  return leafPos;
-}
-
-
-void SampleCtg::Leaves(const unsigned int frontierMap[], int treeHeight, unsigned int leafExtent[], double score[], const unsigned int nonTerm[], double *leafWeight) {
-  LeafExtent(frontierMap, leafExtent);
-  LeafWeight(frontierMap, nonTerm, treeHeight, leafWeight);
-  Scores(leafWeight, treeHeight, nonTerm, score);
-}
-
-
-/**
-   @brief Derives scores for categorical tree.
-
-   @param leafWeight holds per-leaf category weights.
-
-   @param treeHeight is the number of nodes in the pretree.
-
-   @param nonTerm is nonzero iff the indexed node is nonterminal.
-
-   @param score outputs the computed scores.
-
-   @return void, with output reference parameter.
-*/
-void SampleCtg::Scores(double *leafWeight, int treeHeight, const unsigned int nonTerm[], double score[]) {
-
-  // Category weights are jittered, making ties highly unlikely.
-  //
-  for (int idx = 0; idx < treeHeight; idx++) {
-    if (nonTerm[idx] != 0)
-      continue;
-    double *leafBase = leafWeight + idx * ctgWidth;
-    double maxWeight = 0.0;
-    unsigned int argMax = 0; // Zero will be default score/category.
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      double thisWeight = leafBase[ctg];
-      if (thisWeight > maxWeight) {
-	maxWeight = thisWeight;
-	argMax = ctg;
-      }
-    }
-    
-    // Jitters category value by row/tree-scaled sum.
-    score[idx] = argMax + maxWeight * forestScale;
-  }
-
-  // ASSERTION:
-  //  Can count nonterminals and verify #nonterminals == treeHeight - leafCount
-}
-
-
-/**
-   @brief Accumulates sums of samples associated with each leaf.
-
-   @param frontierMap associates samples with leaf indices.
-   
-   @leafWeight output the leaf weights, by category.
-
-   @return void, with reference output vector.
- */
-void SampleCtg::LeafWeight(const unsigned int frontierMap[], const unsigned int nonTerm[], int treeHeight, double *leafWeight) {
-  double *leafSum = new double[treeHeight];
-  for (int i = 0; i < treeHeight; i++)
-    leafSum[i] = 0.0;
-  
-  for (int i = 0; i < bagCount; i++) {
-    int leafIdx = frontierMap[i]; // Irregular access.
-    FltVal sum;
-    unsigned int dummy;
-    int ctg = Ref(i, sum, dummy);
-    leafSum[leafIdx] += sum;
-    leafWeight[leafIdx * ctgWidth + ctg] += sum;
-  }
-
-  // Normalizes weights for probabilities.
-  for (int i = 0; i < treeHeight; i++) {
-    if (nonTerm[i] == 0) {
-      double recipSum = 1.0 / leafSum[i];
-      for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-	leafWeight[i * ctgWidth + ctg] *= recipSum;
-      }
-    }
-  }
-  delete [] leafSum;
 }
 
 

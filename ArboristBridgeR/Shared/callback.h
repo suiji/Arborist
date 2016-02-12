@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2015   Mark Seligman
+// Copyright (C)  2012-2016   Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //

@@ -17,7 +17,6 @@
 #ifndef ARBORIST_PRETREE_H
 #define ARBORIST_PRETREE_H
 
-#include <vector>
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
@@ -38,7 +37,7 @@ class PTNode {
     unsigned int offset; // Bit-vector offset:  factor.
     double rkMean; // Mean rank:  numeric.
   } splitVal;
-  void Consume(std::vector<unsigned int> &pred, std::vector<double> &num, std::vector<unsigned int> &bump);
+  void Consume(class Forest *forest);
 };
 
 
@@ -55,8 +54,6 @@ class PreTree {
   class BV *splitBits;
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
-
-  void Consume(int nodeVal[], double numVec[], int bumpVec[], double _predInfo[], int &facWidth, int *&facSplits);
   int bagCount;
 
  public:
@@ -64,10 +61,10 @@ class PreTree {
   ~PreTree();
   static void Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
-  static void RefineHeight(unsigned int height);
+  static void Reserve(unsigned int height);
 
-  void DecTree(std::vector<unsigned int> &predTree, std::vector<double> &splitTree, std::vector<unsigned int> &bumpTree, std::vector<unsigned int> &facBits, double predInfo[]);
-  void NodeConsume(std::vector<unsigned int> &pred, std::vector<double> &num, std::vector<unsigned int> &bumpVec);
+  void DecTree(class Forest *forest, unsigned int tNum, double predInfo[]);
+  void NodeConsume(class Forest *forest);
   unsigned int BitWidth();
   void BitConsume(unsigned int *outBits);
 
@@ -111,7 +108,6 @@ class PreTree {
   
   void CheckStorage(int splitNext, int leafNext);
   void ReNodes();
-  void Consume(std::vector<unsigned int> &pred, std::vector<double> &split, std::vector<unsigned int> &bump);
 };
 
 #endif

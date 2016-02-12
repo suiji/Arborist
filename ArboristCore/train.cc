@@ -28,6 +28,7 @@
 #include "restage.h"
 #include "splitpred.h"
 #include "run.h"
+#include "leaf.h"
 
 // Testing only:
 //#include <iostream>
@@ -98,11 +99,11 @@ void Train::DeImmutables() {
 
    @return forest height, with output reference parameter.
 */
-void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) {
-  TrainReg *trainReg = new TrainReg(_y, _yRanked, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _rank, _sCount);
+void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) {
+  TrainReg *trainReg = new TrainReg(_y, _yRanked, _inBag, _orig, _facOrig, _predInfo, _forestNode, _facSplit, _rank, _sCount);
 
   RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
-  trainReg->Forest(rowRank);
+  trainReg->ForestTrain(rowRank);
 
   delete rowRank;
   delete trainReg;
@@ -121,11 +122,11 @@ void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[]
 
    @return void.
 */
-void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight) {
+void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight) {
 
-  TrainCtg *trainCtg = new TrainCtg(_yCtg, _ctgWidth, _yProxy, _inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit, _weight);
+  TrainCtg *trainCtg = new TrainCtg(_yCtg, _ctgWidth, _yProxy, _inBag, _orig, _facOrig, _predInfo, _forestNode, _facSplit, _weight);
   RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
-  trainCtg->Forest(rowRank);
+  trainCtg->ForestTrain(rowRank);
 
   delete rowRank;
   delete trainCtg;
@@ -135,33 +136,40 @@ void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yC
 
 /**
  */
-TrainCtg::TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), ctgWidth(_ctgWidth), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy, nRow)) {
+TrainCtg::TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight) : Train(_inBag, _orig, _facOrig, _predInfo, _forestNode, _facSplit), ctgWidth(_ctgWidth), weight(_weight), responseCtg(Response::FactoryCtg(_yCtg, _yProxy, nRow)) {
 }
 
 
 /**
  */
 TrainCtg::~TrainCtg() {
+  delete leafCtg;
   delete responseCtg;
 }
 
 
 /**
  */
-TrainReg::TrainReg(double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _pred, _split, _bump, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
+TrainReg::TrainReg(double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) : Train(_inBag, _orig, _facOrig, _predInfo, _forestNode, _facSplit), rank(_rank), sCount(_sCount), responseReg(Response::FactoryReg(_y, _yRanked, nRow)) {
 }
 
 
 /**
  */
 TrainReg::~TrainReg() {
+  delete leafReg;
   delete responseReg;
 }
 
 
 /**
  */  
-Train::Train(vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit) : inBag(_inBag), orig(_origin), facOrig(_facOrig), predInfo(_predInfo), pred(_pred), split(_split), bump(_bump), facSplit(_facSplit) {
+Train::Train(vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit) : forest(new Forest(_forestNode, _origin, _facOrigin, _facSplit)), inBag(_inBag), predInfo(_predInfo) {
+}
+
+
+Train::~Train() {
+  delete forest;
 }
 
 
@@ -172,7 +180,7 @@ Train::Train(vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, s
 
   @return void.
 */
-void Train::Forest(const RowRank *rowRank) {
+void Train::ForestTrain(const RowRank *rowRank) {
   BitMatrix *forestBag = new BitMatrix(nRow, nTree);
   
   unsigned int tn;
@@ -194,13 +202,7 @@ void Train::Forest(const RowRank *rowRank) {
   for (int i = 0; i < nPred; i++)
     predInfo[i] *= recipNTree;
 
-  // Updates numerical splitting values from ranks.
-  for (unsigned int i = 0; i < pred.size(); i++) {
-    unsigned int predIdx = pred[i];
-    if (bump[i] != 0 && !PredBlock::IsFactor(predIdx)) {
-      split[i] = rowRank->MeanRank(predIdx, split[i]);
-    }
-  }
+  forest->ScoreUpdate(rowRank);
 }
 
 
@@ -213,9 +215,8 @@ void TrainCtg::Block(const RowRank *rowRank, BitMatrix *forestBag, int tStart, i
   if (tStart == 0)
     Reserve(ptBlock, tCount);
 
-  int blockOrig = pred.size();
   BlockTree(ptBlock, tStart, tCount);
-  BlockLeaf(ptBlock, sampleBlock, forestBag, tStart, tCount, blockOrig);
+  BlockLeaf(ptBlock, sampleBlock, forestBag, tStart, tCount);
 
   delete [] ptBlock;
   delete [] sampleBlock;
@@ -230,9 +231,8 @@ void TrainReg::Block(const RowRank *rowRank, BitMatrix *forestBag, int tStart, i
   if (tStart == 0)
     Reserve(ptBlock, tCount);
 
-  int blockOrig = pred.size();
   BlockTree(ptBlock, tStart, tCount);
-  BlockLeaf(ptBlock, sampleBlock, forestBag, tStart, tCount, blockOrig);
+  BlockLeaf(ptBlock, sampleBlock, forestBag, tStart, tCount);
 
   delete [] ptBlock;
   delete [] sampleBlock;
@@ -251,48 +251,39 @@ void Train::Reserve(PreTree **ptBlock, int tCount) {
   int blockFac, blockBag;
   int maxHeight = 0;
   int blockHeight = BlockPeek(ptBlock, tCount, blockFac, blockBag, maxHeight);
-  PreTree::RefineHeight(maxHeight);
+  PreTree::Reserve(maxHeight);
 
-  double slop = (1.2 * nTree) / trainBlock;
-  int heightEst = slop * blockHeight;
-  pred.reserve(heightEst);
-  split.reserve(heightEst);
-  bump.reserve(heightEst);
-  if (blockFac > 0) {
-    int facEst = slop * blockFac;
-    facSplit.reserve(facEst);
-  }
-  int bagEst = slop * blockBag;
-  LeafReserve(heightEst, bagEst);
+  double slop = (slopFactor * nTree) / trainBlock;
+  forest->Reserve(blockHeight, blockFac, slop);
+  FactoryLeaf(blockHeight * slop, slop * blockBag);
 }
 
 
 /**
-   @brief Reserves storage for count and rank vectors.
+   @brief Initializes LeafReg with estimated vector sizes.
 
-   @heightEst is the estimated tree height.
+   @heightEst is unused.
 
    @bagEst is the estimated total bag count.
 
-   @return void.
+   @return void, with side-effected leaf object.
  */
-void TrainReg::LeafReserve(int heightEst, int bagEst) {
-  sCount.reserve(bagEst);
-  rank.reserve(bagEst);
+void TrainReg::FactoryLeaf(int heightEst, int bagEst) {
+  leafReg = new LeafReg(forest, sCount, rank, bagEst);
 }
 
 
 /**
-   @brief Reserves storage for weight vector.
+   @brief Initializes LeafCtg with estimated vector sizes.
 
    @param heightEst is the estimated tree height.
 
    @param bagEst is unused.
 
-   @return void.
+   @return void, with side-effected leaf object.
  */
-void TrainCtg::LeafReserve(int heightEst, int bagEst) {
-  weight.reserve(heightEst * ctgWidth);
+void TrainCtg::FactoryLeaf(int heightEst, int bagEst) {
+  leafCtg = new LeafCtg(forest, weight, ctgWidth, heightEst);
 }
 
 
@@ -323,18 +314,15 @@ int Train::BlockPeek(PreTree **ptBlock, int tCount, int &blockFac, int &blockBag
 
    @param ptBlock is a vector of PreTree objects.
 
-   @param tStart is the starting tree index for the block.
+   @param blockStart is the starting tree index for the block.
 
-   @param tCount is the number of trees in the block.
+   @param blockCount is the number of trees in the block.
 
-   @return void.
+   @return void, with side-effected forest.
 */
 void Train::BlockTree(PreTree **ptBlock, int blockStart, int blockCount) {
   for (int blockIdx = 0; blockIdx < blockCount; blockIdx++) {
-    int tNum = blockStart + blockIdx;
-    orig[tNum] = pred.size();
-    facOrig[tNum] = facSplit.size();
-    ptBlock[blockIdx]->DecTree(pred, split, bump, facSplit, predInfo);
+    ptBlock[blockIdx]->DecTree(forest, blockStart + blockIdx, predInfo);
   }
 }
 
@@ -344,18 +332,14 @@ void Train::BlockTree(PreTree **ptBlock, int blockStart, int blockCount) {
 
    @return void.
  */
-void TrainCtg::BlockLeaf(PreTree **ptBlock, SampleCtg **sampleBlock, BitMatrix *forestBag, int tStart, int tCount, int tOrig) {
+void TrainCtg::BlockLeaf(PreTree **ptBlock, SampleCtg **sampleBlock, BitMatrix *forestBag, int tStart, int tCount) {
   for (int i = 0; i < tCount; i++) {
-    SampleCtg *sampleCtg = sampleBlock[i];
-    BagSetTree(sampleCtg->TreeBag(), forestBag, tStart + i);
-    PreTree *pt = ptBlock[i];
-    int height = pt->Height();
-    int leafOrig = weight.size();
-    weight.insert(weight.end(), ctgWidth * height, 0.0);
-    sampleCtg->Leaves(pt->FrontierMap(), height, &pred[tOrig], &split[tOrig], &bump[tOrig], &weight[leafOrig]);
-    tOrig += height;
-    delete sampleCtg;
-    delete pt;
+    int tIdx = tStart + i;
+    BagSetTree(sampleBlock[i]->TreeBag(), forestBag, tIdx);
+    leafCtg->Leaves(sampleBlock[i], ptBlock[i]->FrontierMap(), tIdx);
+
+    delete sampleBlock[i];
+    delete ptBlock[i];
   }
 }
 
@@ -363,21 +347,14 @@ void TrainCtg::BlockLeaf(PreTree **ptBlock, SampleCtg **sampleBlock, BitMatrix *
 /**
    @brief Extracts regression leaf information for a block of PreTrees.
  */
-void TrainReg::BlockLeaf(PreTree **ptBlock, SampleReg **sampleBlock, BitMatrix *forestBag, int tStart, int tCount, int tOrig) {
+void TrainReg::BlockLeaf(PreTree **ptBlock, SampleReg **sampleBlock, BitMatrix *forestBag, int tStart, int tCount) {
   for (int i = 0; i < tCount; i++) {
-    SampleReg *sampleReg = sampleBlock[i];
-    BagSetTree(sampleReg->TreeBag(), forestBag, tStart + i);
-    PreTree *pt = ptBlock[i];
-    int height = pt->Height();
-    int bagCount = sampleReg->BagCount();
-    int bagOrig = rank.size();
-    rank.insert(rank.end(), bagCount, 0);
-    sCount.insert(sCount.end(), bagCount, 0);
-    sampleReg->Leaves(pt->FrontierMap(), height, &pred[tOrig], &split[tOrig], &bump[tOrig], &rank[bagOrig], &sCount[bagOrig]);
-    tOrig += height;
+    int tIdx = tStart + i;
+    BagSetTree(sampleBlock[i]->TreeBag(), forestBag, tIdx);
+    leafReg->Leaves(sampleBlock[i], ptBlock[i]->FrontierMap(), tIdx);
 
-    delete sampleReg;
-    delete pt;
+    delete sampleBlock[i];
+    delete ptBlock[i];
   }
 }
 

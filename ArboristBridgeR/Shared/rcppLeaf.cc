@@ -23,7 +23,6 @@
    @author Mark Seligman
  */
 
-#include <R.h>
 #include <Rcpp.h>
 
 using namespace std;
@@ -81,8 +80,8 @@ void RcppLeafUnwrapReg(SEXP sLeaf, double *&_yRanked, std::vector<unsigned int> 
     stop("Expecting LeafReg");
 
   _yRanked = NumericVector((SEXP) leaf["yRanked"]).begin();
-  _rank = as<std::vector<unsigned int> >(leaf["rank"]);
-  _sCount = as<std::vector<unsigned int> >(leaf["sCount"]);
+  _rank = leaf["rank"];
+  _sCount = leaf["sCount"];
 }
 
 

@@ -24,29 +24,23 @@
    of the data and constructs forest, leaf and diagnostic structures.
 */
 class Train {
+  static const double slopFactor = 1.2; // Estimates tree growth.
  protected:
   static int trainBlock; // Front-end defined buffer size.
   static unsigned int nTree;
   static unsigned int nRow;
   static int nPred;
 
+  class Forest *forest;
   std::vector<unsigned int> &inBag;
-  std::vector<unsigned int> &orig; // Tree origins:  nTree.
-  std::vector<unsigned int> &facOrig; // Factor bit origins:  nTree.
   double *predInfo; // E.g., Gini gain:  nPred.
-  std::vector<unsigned int> &pred;
-  std::vector<double> &split;
-  std::vector<unsigned int> &bump;
-  std::vector<unsigned int> &facSplit;
 
   static void DeImmutables();
+  Train(std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit);
 
-  Train(std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit);
-
-  virtual ~Train() {};
-  void Forest(const class RowRank *rowRank);
+  virtual ~Train();
+  void ForestTrain(const class RowRank *rowRank);
   void BagSetTree(const class BV *treeBag, class BitMatrix *forestBag, int treeNum);
-
 
  public:
 /**
@@ -56,14 +50,14 @@ class Train {
  */
   static void Init(double *_feNum, int _facCard[], int _cardMax, int _nPredNum, int _nPredFac, int _nRow, int _nTree, int _nSamp, double _feSampleWeight[], bool withRepl, int _trainBlock, int _minNode, double _minRatio, int _totLevels, int _ctgWidth, int _predFixed, double _predProb[], int _regMono[] = 0);
 
-  static void Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  static void Regression(int _feRow[], int _feRank[], int _feInvNum[], double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
 
-  static void Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
+  static void Classification(int _feRow[], int _feRank[], int _feInvNum[], int _yCtg[], int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
 
   void Reserve(class PreTree **ptBlock, int tCoun);
   int BlockPeek(class PreTree **ptBlock, int tCount, int &blockFac, int &blockBag, int &maxHeight);
   void BlockTree(class PreTree **ptBlock, int tStart, int tCount);
-  virtual void LeafReserve(int heightEst, int bagEst) = 0;
+  virtual void FactoryLeaf(int heightEst, int bagEst) = 0;
   virtual void Block(const class RowRank *rowRank, class BitMatrix *forestBag, int tStart, int tCount) = 0;
 };
 
@@ -71,12 +65,13 @@ class Train {
 class TrainReg : public Train {
   std::vector<unsigned int> &rank;
   std::vector<unsigned int> &sCount;
+  class LeafReg *leafReg;
   class ResponseReg *responseReg;
+  void FactoryLeaf(int heightEst, int bagEst);
   void Block(const class RowRank *rowRank, class BitMatrix *forestBag, int tStart, int tCount);
-  void LeafReserve(int heightEst, int bagEst);
-  void BlockLeaf(class PreTree **ptBlock, class SampleReg **sampleBlock, class BitMatrix *forestBag, int tSTart, int tCount, int tOrig);
+  void BlockLeaf(class PreTree **ptBlock, class SampleReg **sampleBlock, class BitMatrix *forestBag, int tSTart, int tCount);
  public:
-  TrainReg(double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  TrainReg(double _y[], double _yRanked[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
   ~TrainReg();
 };
 
@@ -84,12 +79,13 @@ class TrainReg : public Train {
 class TrainCtg : public Train {
   const unsigned int ctgWidth;
   std::vector<double> &weight;
+  class LeafCtg *leafCtg;
   class ResponseCtg *responseCtg;
+  void FactoryLeaf(int heightEst, int bagEst);
   void Block(const class RowRank *rowRank, class BitMatrix *forestBag, int tStart, int tCount);
-  void LeafReserve(int heightEst, int bagEst);
-  void BlockLeaf(class PreTree **ptBlock, class SampleCtg **sampleBlock, class BitMatrix *forestBag, int tStart, int tCount, int tOrig);
+  void BlockLeaf(class PreTree **ptBlock, class SampleCtg **sampleBlock, class BitMatrix *forestBag, int tStart, int tCount);
  public:
-  TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
+  TrainCtg(int _yCtg[], unsigned int _ctgWidth, double _yProxy[], std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_orig, std::vector<unsigned int> &_facOrig, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<double> &_weight);
   ~TrainCtg();
 };
 

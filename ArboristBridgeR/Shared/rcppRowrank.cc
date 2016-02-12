@@ -23,7 +23,6 @@
    @author Mark Seligman
 */
 
-#include <R.h>
 #include <Rcpp.h>
 
 #include "rowrank.h"

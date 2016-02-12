@@ -46,8 +46,8 @@ using namespace std;
 
    @return void, with reference output parameter.
  */
-void Quant::Predict(unsigned int _nRow, Forest *forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]) {
-  Quant *quant = new Quant(_nRow, forest, _yRanked, _rank, _sCount, _qVec, _qCount, _qBin);
+void Quant::Predict(unsigned int _nRow, Forest *forest, std::vector<ForestNode> &_forestNode, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin, int *predictLeaves, double qPred[]) {
+  Quant *quant = new Quant(_nRow, forest, _forestNode, _yRanked, _rank, _sCount, _qVec, _qCount, _qBin);
   quant->PredictRows(predictLeaves, qPred);
 
   delete quant;
@@ -58,8 +58,8 @@ void Quant::Predict(unsigned int _nRow, Forest *forest, double *_yRanked, unsign
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(unsigned int _nRow, Forest *_forest, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin) : nRow(_nRow), forest(_forest), height(forest->Height()), nTree(forest->NTree()), extent(forest->Extent()), yRanked(_yRanked), rank(_rank), sCount(_sCount), qVec(_qVec), qCount(_qCount), qBin(_qBin) {
-  leafPos = SampleReg::LeafPos(forest->Nonterminal(), extent, height);
+Quant::Quant(unsigned int _nRow, Forest *_forest, std::vector<ForestNode> &_forestNode, double *_yRanked, unsigned int *_rank, unsigned int *_sCount, const double _qVec[], int _qCount, unsigned int _qBin) : nRow(_nRow), forest(_forest), height(forest->Height()), nTree(forest->NTree()), forestNode(_forestNode), yRanked(_yRanked), rank(_rank), sCount(_sCount), qVec(_qVec), qCount(_qCount), qBin(_qBin) {
+  leafPos = forest->ExtentPosition();
 }
 
 
@@ -112,7 +112,7 @@ unsigned int Quant::SmudgeLeaves(unsigned int &logSmudge) {
   for (int i = 0; i < height; i++) {
     int leafOff = leafPos[i];
     if (leafOff >= 0) {
-      unsigned int leafSize = extent[i];
+      unsigned int leafSize = forestNode[i].Extent();//extent[i];
       if (leafSize > binSize) {
 	int *binTemp = new int[binSize];
 	for (unsigned int j = 0; j < binSize; j++)
@@ -159,10 +159,10 @@ void Quant::Leaves(const int leaves[], double qRow[], unsigned int binSize, unsi
     if (leafIdx >= 0) { // otherwise in-bag:  no prediction for tree at row.
       int leafOff = forest->LeafPos(tn, leafIdx); // Absolute forest offset.
       if (logSmudge == 0) {
-        totRanks += RanksExact(extent[leafOff], leafPos[leafOff], sampRanks);
+        totRanks += RanksExact(forestNode[leafOff].Extent()/*extent[leafOff]*/, leafPos[leafOff], sampRanks);
       }
       else {
-        totRanks += RanksSmudge(extent[leafOff], leafPos[leafOff], sampRanks, binSize, logSmudge);
+        totRanks += RanksSmudge(forestNode[leafOff].Extent()/*extent[leafOff]*/, leafPos[leafOff], sampRanks, binSize, logSmudge);
       }
     }
   }

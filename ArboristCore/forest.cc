@@ -17,27 +17,23 @@
 #include "bv.h"
 #include "forest.h"
 #include "predblock.h"
+#include "rowrank.h"
 
 //#include <iostream>
 using namespace std;
 
 
 /**
-   @brief Reload constructor uses front end's storage.
+   @brief Crescent constructor for training.
 */
-Forest::Forest(std::vector<unsigned int> &_pred, std::vector<double> &_split, std::vector<unsigned int> &_bump, std::vector<unsigned int> &_origin, const std::vector<unsigned int> &_facOrigin, const std::vector<unsigned int> &_facSplit) : nTree(_origin.size()), height(_pred.size()), treeOrigin(&_origin[0]), fePred(&_pred[0]), feNum(&_split[0]), feBump(&_bump[0]) {
-  forestNode = new ForestNode[height];
-  for (int i = 0; i < height; i++) { // Caches copy as packed structures.
-    forestNode[i].Set(fePred[i], feBump[i], feNum[i]);
-  }
-  facSplit = new BVJagged(_facSplit, _facOrigin);
+Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec) {
+  facSplit = new BVJagged(facVec, _facOrigin);
 }
 
 
 /**
  */ 
 Forest::~Forest() {
-  delete [] forestNode;
   delete facSplit;
 }
 
@@ -150,16 +146,15 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
       continue;
     }
 
-    ForestNode *treeBase = forestNode + treeOrigin[tc];
-
+    unsigned int treeBase = treeOrigin[tc];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred; // N.B.:  Use BlockIdx() if numericals not numbered from 0.
     double num;
-    treeBase[0].Ref(pred, bump, num);
+    forestNode[treeBase].Ref(pred, bump, num);
     while (bump != 0) {
       idx += (rowT[pred] <= num ? bump : bump + 1);
-      treeBase[idx].Ref(pred, bump, num);
+      forestNode[treeBase +idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
@@ -187,16 +182,16 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
       continue;
     }
 
-    ForestNode *treeBase = forestNode + treeOrigin[tc];
+    unsigned int treeBase = treeOrigin[tc];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred; // N.B.: Use BlockIdx() if not factor-only (zero based).
     double num;
-    treeBase[0].Ref(pred, bump, num);
+    forestNode[treeBase].Ref(pred, bump, num);
     while (bump != 0) {
       unsigned int bitOff = (unsigned int) num + rowT[pred];
       idx += facSplit->IsSet(tc, bitOff) ? bump : bump + 1;
-      treeBase[idx].Ref(pred, bump, num);
+      forestNode[treeBase + idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
@@ -226,18 +221,111 @@ void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int r
       continue;
     }
 
-    ForestNode *treeBase = forestNode + treeOrigin[tc];
+    unsigned int treeBase = treeOrigin[tc];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred;
     double num;
-    treeBase[0].Ref(pred, bump, num);
+    forestNode[treeBase].Ref(pred, bump, num);
     while (bump != 0) {
       bool isFactor;
       unsigned int blockIdx = PredBlock::BlockIdx(pred, isFactor);
       idx += isFactor ? (facSplit->IsSet(tc, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
-      treeBase[idx].Ref(pred, bump, num);
+      forestNode[treeBase + idx].Ref(pred, bump, num);
     }
     leaves[tc] = idx;
   }
+}
+
+
+/**
+   @brief Produces a new forest node and initializes to values passed.
+ */
+void Forest::NodeProduce(unsigned int _predIdx, unsigned int _bump, double _split) {
+  ForestNode fn;
+  fn.Set(_predIdx, _bump, _split);
+  forestNode.push_back(fn);
+}
+
+
+/**
+   @brief Produces new splits for an entire tree.
+ */
+void Forest::BitProduce(BV *splitBits, unsigned int bitEnd) {
+  splitBits->Consume(facVec, bitEnd);
+}
+
+
+/**
+   @brief Updates numerical splitting values from ranks.
+
+   @param rowRank
+
+   @return void
+ */
+void Forest::ScoreUpdate(const RowRank *rowRank) {
+  for (unsigned int i = 0; i < forestNode.size(); i++) {
+    unsigned int predIdx = forestNode[i].Pred();
+    if (forestNode[i].Nonterminal()  && !PredBlock::IsFactor(predIdx)) {
+      forestNode[i].Num() = rowRank->MeanRank(predIdx, forestNode[i].Num());
+    }
+  }
+}
+
+
+void Forest::Reserve(unsigned int blockHeight, unsigned int blockFac, double slop) {
+  forestNode.reserve(slop * blockHeight);
+  if (blockFac > 0) {
+    facVec.reserve(slop * blockFac);
+  }
+}
+
+
+/**
+   @param tIdx is current tree index.
+
+   @brief Registers current vector sizes of crescent forest as origin values.
+ */
+void Forest::Origins(unsigned int tIdx) {
+  treeOrigin[tIdx] = Height();
+  facOrigin[tIdx] = SplitHeight();
+}
+
+
+/**
+     @brief Classification score.  Uses forest-width jitter.
+     
+*/
+void Forest::ScoreCtg(int tIdx, unsigned int off, unsigned int ctg, double weight) const {
+  unsigned int idx = treeOrigin[tIdx] + off;
+  forestNode[idx].Num() = ctg + weight / (PredBlock::NRow() * nTree);
+}
+
+
+/**
+   @brief Defines extent-based starting positions ranks associated with leaf.
+
+   @param treeHeight is the height of the current tree.
+
+   @param tIdx is the tree index or, if negative, the entire forest.
+
+   @return vector of leaf sample offsets, by tree index.
+ */
+int *Forest::ExtentPosition(int tIdx) const {
+  unsigned int treeHeight = tIdx >= 0 ? TreeHeight(tIdx) : Height();
+  int totCt = 0;
+  int *extentPos = new int[treeHeight];
+  for (unsigned int i = 0; i < treeHeight; i++) {
+    if (Nonterminal(tIdx, i)) {
+      extentPos[i] = -1;
+    }
+    else {
+      extentPos[i] = totCt;
+      totCt += Extent(tIdx, i);
+    }
+  }
+  // ASSERTION:  totCt == bagCount
+  // By this point extentPos[i] >= 0 iff this 'i' references is a leaf.
+
+  return extentPos;
 }

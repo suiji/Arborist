@@ -181,6 +181,7 @@
   arbOut <- list(
     forest = train$forest,
     leaf = train$leaf,
+    signature = predBlock$signature,
     training = training,
     validation = validation
   )
@@ -212,7 +213,7 @@ PreTrain <- function(x) {
 # Groups predictors into like-typed blocks and creates zero-based type
 # summaries.
 #
-PredBlock <- function(x) {
+PredBlock <- function(x, signature = NULL) {
   # For now, only numeric and factor types supported.
   #
   if (is.data.frame(x)) { # As with "randomForest" package
@@ -223,7 +224,7 @@ PredBlock <- function(x) {
     if (length(numIdx) + length(facIdx) != ncol(x)) {
       stop("Frame column with unsupported data type")
     }
-    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard))
+    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, signature))
   }
   else if (is.integer(x)) {
     return(.Call("RcppPredBlockNum", data.matrix(x)))
@@ -244,4 +245,16 @@ PredBlock <- function(x) {
 #
 DefaultQuantVec <- function() {
   seq(0.25, 1.0, by = 0.25)
+}
+
+
+ForestFloorExport <- function(arbout) {
+  if (!inherits(arbout, "Rborist"))
+    stop("Unknown training class")
+
+  leaf <- arbout$leaf
+  forest <- arbout$forest
+
+  ffe <- list(leaf, forest)
+  class(ffe) <- "ForestFloorExport"
 }

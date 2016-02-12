@@ -11,4 +11,5 @@ License: MPL (>= 2) | GPL (>= 2) | file LICENSE
 LazyLoad: yes
 Depends: Rcpp (>= 0.12.2), R(>= 3.1)
 Suggests: testthat
+Enhances: forestFloor
 LinkingTo: Rcpp, RcppArmadillo
