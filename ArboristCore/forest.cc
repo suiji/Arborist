@@ -47,13 +47,13 @@ Forest::~Forest() {
 
    @return void.
  */
-void Forest::PredictAcross(int *predictLeaves, const class BitMatrix *bag) {
+void Forest::PredictAcross(int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   if (PredBlock::NPredFac() == 0)
-    PredictAcrossNum(predictLeaves, PredBlock::NRow(), bag);
+    PredictAcrossNum(predictLeaves, rowStart, rowEnd, bag);
   else if (PredBlock::NPredNum() == 0)
-    PredictAcrossFac(predictLeaves, PredBlock::NRow(), bag);
+    PredictAcrossFac(predictLeaves, rowStart, rowEnd, bag);
   else
-    PredictAcrossMixed(predictLeaves, PredBlock::NRow(), bag);
+    PredictAcrossMixed(predictLeaves, rowStart, rowEnd, bag);
 }
 
 
@@ -66,14 +66,14 @@ void Forest::PredictAcross(int *predictLeaves, const class BitMatrix *bag) {
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
+void Forest::PredictAcrossNum(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
-    PredictRowNum(row, PBPredict::RowNum(row), &leaves[nTree * row], bag);
+  for (row = rowStart; row < rowEnd; row++) {
+    PredictRowNum(row, PBPredict::RowNum(row), &leaves[nTree * (row - rowStart)], bag);
   }
   }
 }
@@ -88,14 +88,14 @@ void Forest::PredictAcrossNum(int *leaves, unsigned int nRow, const class BitMat
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
+void Forest::PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
-    PredictRowFac(row, PBPredict::RowFac(row), &leaves[row * nTree], bag);
+    for (row = rowStart; row < rowEnd; row++) {
+      PredictRowFac(row, PBPredict::RowFac(row), &leaves[nTree * (row - rowStart)], bag);
   }
   }
 
@@ -111,14 +111,14 @@ void Forest::PredictAcrossFac(int *leaves, unsigned int nRow, const class BitMat
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const class BitMatrix *bag) {
+void Forest::PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
-    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), &leaves[row * nTree], bag);
+  for (row = rowStart; row < rowEnd; row++) {
+    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), &leaves[nTree * (row - rowStart)], bag);
   }
   }
 
@@ -139,7 +139,7 @@ void Forest::PredictAcrossMixed(int *leaves, unsigned int nRow, const class BitM
    @return Void with output vector parameter.
  */
 
-void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) {
+void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) const {
   for (int tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
       leaves[tc] = -1;
@@ -174,7 +174,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const class BitMatrix *bag) {
+void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const class BitMatrix *bag) const {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
@@ -213,7 +213,7 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const class BitMatrix *bag) {
+void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const class BitMatrix *bag) const {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
@@ -312,10 +312,10 @@ void Forest::ScoreCtg(int tIdx, unsigned int off, unsigned int ctg, double weigh
    @return vector of leaf sample offsets, by tree index.
  */
 int *Forest::ExtentPosition(int tIdx) const {
-  unsigned int treeHeight = tIdx >= 0 ? TreeHeight(tIdx) : Height();
+  unsigned int height = TreeHeight(tIdx);
   int totCt = 0;
-  int *extentPos = new int[treeHeight];
-  for (unsigned int i = 0; i < treeHeight; i++) {
+  int *extentPos = new int[height];
+  for (unsigned int i = 0; i < height; i++) {
     if (Nonterminal(tIdx, i)) {
       extentPos[i] = -1;
     }

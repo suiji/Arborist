@@ -555,7 +555,7 @@ void SplitPred::Split(const IndexNode indexNode[], SPNode *nodeBase, SplitSig *s
 
 #pragma omp parallel default(shared) private(pairIdx)
     {
-#pragma omp for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 4)
       for (pairIdx = 0; pairIdx < pairCount; pairIdx++) {
 	spPair[pairIdx].Split(this, indexNode, nodeBase, samplePred, splitSig);
       }

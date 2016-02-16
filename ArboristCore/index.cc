@@ -214,7 +214,7 @@ void Index::ArgMax(NodeCache nodeCache[], const SplitSig *splitSig) {
 
 #pragma omp parallel default(shared) private(splitIdx)
   {
-#pragma omp for schedule(dynamic, 1)
+#pragma omp for schedule(static, 1)
     for (splitIdx = 0; splitIdx < splitCount; splitIdx++) {
       nodeCache[splitIdx].SS() = splitSig->ArgMax(splitIdx, nodeCache[splitIdx].MinInfo());
     }

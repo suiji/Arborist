@@ -20,10 +20,11 @@
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
                 ctgCensus = "votes",
                 classWeight = NULL,
-                nSamp = 0,
-                minInfo = 0.01,
+                minInfo = 0.03,
                 minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
+                noValidate = FALSE,
+                nSamp = 0,
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
@@ -33,7 +34,7 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 treeBlock = 1,
-                pvtBlock = 8, pvtNoValidate = FALSE, ...) {
+                pvtBlock = 8, ...) {
 
   # Argument checking:
   if (inherits(x, "PreTrain")) {
@@ -150,7 +151,7 @@
     bag = train[["bag"]]
   )
 
-  if (!pvtNoValidate) {
+  if (!noValidate) {
     if (is.factor(y)) {
       if (ctgCensus == "votes") {
         validation <- .Call("RcppValidateVotes", predBlock, train$forest, train$leaf, y, training[["bag"]]);

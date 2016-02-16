@@ -32,7 +32,7 @@ using namespace Rcpp;
 
 RcppExport SEXP RcppLeafWrapReg(std::vector<unsigned int> rank, std::vector<unsigned int> sCount, NumericVector yRanked);
 RcppExport SEXP RcppLeafWrapCtg(std::vector<double> weight, CharacterVector levels);
-void RcppLeafUnwrapReg(SEXP sLeaf, double *&_yRanked, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+void RcppLeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
 void RcppLeafUnwrapCtg(SEXP sLeaf, double *&_weight, CharacterVector &_levels);
 
 #endif

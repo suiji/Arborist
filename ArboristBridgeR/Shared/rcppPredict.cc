@@ -39,7 +39,7 @@ using namespace Rcpp;
 /**
    @brief Utility for computing mean-square error of prediction.
  */
-double RcppMSE(NumericVector yValid, NumericVector y, double &rsq) {
+double RcppMSE(const double yValid[], NumericVector y, double &rsq) {
   double sse = 0.0;
   for (int i = 0; i < y.length(); i++) {
     double error = yValid[i] - y[i];
@@ -73,12 +73,13 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   std::vector<ForestNode> *forestNode;
   RcppForestUnwrap(sForest, origin, facOrig, facSplit, forestNode);
   
-  double *yRanked;
+  std::vector<double> yRanked;
   std::vector<unsigned int> rank, sCount;
   RcppLeafUnwrapReg(sLeaf, yRanked, rank, sCount);
-  NumericVector yPred = NumericVector(nRow);
+
+  std::vector<double> yPred(nRow);
   std::vector<unsigned int> dummy;
-  Predict::Regression(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nRow, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, yPred.begin(), Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Regression(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, yPred, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   List prediction;
   if (Rf_isNull(sYTest)) { // Prediction
@@ -91,7 +92,7 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   else { // Validation
     NumericVector yTest(sYTest);
     double rsq;
-    double mse = RcppMSE(yPred, yTest, rsq);
+    double mse = RcppMSE(&yPred[0], yTest, rsq);
     prediction = List::create(
 			 _["yPred"] = yPred,
 			 _["mse "]= mse,
@@ -148,10 +149,10 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   IntegerVector yTest = validate ? IntegerVector(sYTest) - 1 : IntegerVector(0);
 
   IntegerVector censusCore = IntegerVector(nRow * ctgWidth);
-  IntegerVector yPred = IntegerVector(nRow);
+  std::vector<int> yPred(nRow);
   NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
   std::vector<unsigned int> dummy;
-  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nRow, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, ctgWidth, leafWeight, yPred.begin(), censusCore.begin(), validate ? yTest.begin() : 0, validate ? confCore.begin() : 0, validate ? error.begin() : 0, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, ctgWidth, leafWeight, yPred, censusCore.begin(), validate ? yTest.begin() : 0, validate ? confCore.begin() : 0, validate ? error.begin() : 0, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   List predBlock(sPredBlock);
   IntegerMatrix census = transpose(IntegerMatrix(ctgWidth, nRow, censusCore.begin()));
@@ -161,6 +162,9 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
     prob.attr("dimnames") = List::create(predBlock["rowNames"], levels);
   }
 
+  for (int i = 0; i < nRow; i++) // Bases to unity for front end.
+    yPred[i] = yPred[i] + 1;
+
   List prediction;
   if (validate) {
     IntegerMatrix conf = transpose(IntegerMatrix(ctgWidth, ctgWidth, confCore.begin()));
@@ -168,7 +172,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
     prediction = List::create(
          _["misprediction"] = error,
  	 _["confusion"] = conf,
-	 _["yPred"] = yPred + 1,
+	 _["yPred"] = yPred,
 	 _["census"] = census,
 	 _["prob"] = prob
     );
@@ -176,9 +180,9 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   }
   else {
     prediction = List::create(
-	 _["yPred"] = yPred + 1,
-	 _["census"] = census,
-	 _["prob"] = prob
+      _["yPred"] = yPred,
+      _["census"] = census,
+      _["prob"] = prob
    );
    prediction.attr("class") = "PredictCtg";
   }
@@ -264,20 +268,21 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
   std::vector<ForestNode> *forestNode;
   RcppForestUnwrap(sForest, origin, facOrig, facSplit, forestNode);
 
-  double *yRanked;
+  std::vector<double> yRanked;
   std::vector<unsigned int> rank, sCount;
   RcppLeafUnwrapReg(sLeaf, yRanked, rank, sCount);
 
-  NumericVector yPred(nRow);
-  NumericVector quantVec(sQuantVec);
-  NumericMatrix qPred = NumericMatrix(nRow, quantVec.length());
+  std::vector<double> yPred(nRow);
+  std::vector<double> quantVecCore(as<std::vector<double> >(sQuantVec));
+  std::vector<double> qPredCore(nRow * quantVecCore.size());
   std::vector<unsigned int> dummy;
-  Predict::Quantiles(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nRow, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, &rank[0], &sCount[0], yRanked, yPred.begin(), quantVec.begin(), quantVec.length(), as<int>(sQBin), qPred.begin(), Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Quantiles(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, rank, sCount, yRanked, yPred, quantVecCore, as<int>(sQBin), qPredCore,  Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
+  NumericMatrix qPred(transpose(NumericMatrix(quantVecCore.size(), nRow, qPredCore.begin())));
   List prediction;
   if (!Rf_isNull(sYTest)) {
     double rsq;
-    double mse = RcppMSE(yPred, NumericVector(sYTest), rsq);
+    double mse = RcppMSE(&yPred[0], NumericVector(sYTest), rsq);
     prediction = List::create(
  	 _["yPred"] = yPred,
 	 _["qPred"] = qPred,

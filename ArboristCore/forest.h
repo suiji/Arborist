@@ -99,19 +99,17 @@ class Forest {
   std::vector<unsigned int> &treeOrigin;
   std::vector<unsigned int> &facOrigin;
   std::vector<unsigned int> &facVec;
-  //  unsigned int *treeOrigin; // Index of decision tree bases into forestNode[].
   class BVJagged *facSplit; // Consolidation of per-tree values.
 
-  void PredictAcrossNum(int *leaves, unsigned int nRow, const class BitMatrix *bag);
-  void PredictAcrossFac(int *leaves, unsigned int nRow, const class BitMatrix *bag);
-  void PredictAcrossMixed(int *leaves, unsigned int nRow, const class BitMatrix *bag);
+  void PredictAcrossNum(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
+  void PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
+  void PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
  public:
-  //  ForestNode *forestNode;
-  void PredictAcross(int *predictLeaves, const class BitMatrix *bag);
+  void PredictAcross(int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
   
-  void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag);
-  void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const class BitMatrix *bag);
-  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const class BitMatrix *bag);
+  void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) const;
+  void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const class BitMatrix *bag) const;
+  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const class BitMatrix *bag) const;
 
   Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
 
@@ -121,7 +119,7 @@ class Forest {
   /**
      @brief Accessor for tree count.
    */
-  int NTree() {
+  int NTree() const {
     return nTree;
   }
 
@@ -166,11 +164,15 @@ class Forest {
      @brief Computes tree height from either of origin vector or,
      if at the top or growing, the current height.
 
-     @parm tIdx is the tree number.
+     @parm tIdx is the tree number, if nonnegative, otherwise an
+     indication to return the forest heigght.
 
-     @return height of tree.
+     @return height of tree/forest.
    */
   inline unsigned int TreeHeight(int tIdx) const {
+    if (tIdx < 0)
+      return Height();
+
     if (tIdx < nTree - 1  && treeOrigin[tIdx + 1] > 0)
       return treeOrigin[tIdx + 1] - treeOrigin[tIdx];
     else
@@ -190,9 +192,19 @@ class Forest {
     return forestNode[idx].Nonterminal();
   }
 
+  
+  /**
+     @brief
 
+     @param tIdx is a tree index, if nonnegative, else a place holder
+     indicating that the offset is absolute.
+
+     @param off is the offset, either absolute or tree-relative.
+
+     @return true iff referenced node is non-terminal.
+   */
   inline bool Nonterminal(int tIdx, unsigned int off) const {
-    unsigned int idx = treeOrigin[tIdx] + off;
+    unsigned int idx = tIdx >= 0 ? treeOrigin[tIdx] + off : off;
     return Nonterminal(idx);
   }
   
@@ -202,8 +214,19 @@ class Forest {
   }
 
 
+  /**
+     @brief Computes the extent of a leaf, that is, the number of
+     samples it subsumes.
+
+     @param tIdx is a tree index, if nonnegative, else a place holder
+     indicating that the offset is absolute.
+
+     @param off is the offset, either absolute or tree-relative.
+
+     @return extent of referenced leaf.
+   */
   inline unsigned int Extent(int tIdx, unsigned int off) const {
-    unsigned int idx = treeOrigin[tIdx];
+    unsigned int idx = tIdx >= 0 ? treeOrigin[tIdx] + off : off;
     return Extent(idx);
   }
 
