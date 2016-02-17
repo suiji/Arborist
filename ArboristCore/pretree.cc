@@ -226,8 +226,9 @@ double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, int level, 
    @return void.
 */
 void PreTree::CheckStorage(int splitNext, int leafNext) {
-  if (height + splitNext + leafNext > nodeCount)
+  if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
+  }
 
   unsigned int bitMin = bitEnd + splitNext * PBTrain::CardMax();
   if (bitMin > 0) {

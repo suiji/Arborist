@@ -91,7 +91,7 @@ unsigned int Quant::BinSize(unsigned int nRow, unsigned int qBin, unsigned int &
  */
 void Quant::SmudgeLeaves() {    
   sCountSmudge = new unsigned int[sCount.size()];
-  for (int i = 0; i < sCount.size(); i++)
+  for (unsigned int i = 0; i < sCount.size(); i++)
     sCountSmudge[i] = sCount[i];
   for (int i = 0; i < height; i++) {
     int leafOff = leafPos[i];

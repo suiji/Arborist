@@ -57,7 +57,7 @@ BV::~BV() {
 */
 BV *BV::Resize(unsigned int bitMin) {
   unsigned int slotMin = SlotAlign(bitMin);
-  if (nSlot <= slotMin)
+  if (nSlot >= slotMin)
     return this;
 
   unsigned int slotsNext = nSlot;

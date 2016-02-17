@@ -102,6 +102,12 @@ void RestageMap::Conclude(const Index *index) {
   index->PredicateBits(sIdxLH, sIdxRH, lhIdxTot, rhIdxTot);
   rhIdxNext = lhIdxTot;
   endThis = rhIdxTot + lhIdxTot - 1;
+
+  int lhIdx = 0;
+  int rhIdx = rhIdxNext;
+  for (int splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
+    mapNode[splitIdx].UpdateIndices(lhIdx, rhIdx);
+  }
 }
 
 
@@ -122,26 +128,20 @@ void RestageMap::RestageLevel(SamplePred *samplePred, unsigned int level) {
 
 
 /**
-   @brief Walks the live split indices for a predictor and either restages or propagates runs.
+   @brief Walks the live split indices for a predictor and either restages or propagates runs.  N.B.:  unrestaged SamplePreds are dirty.
 
    @param predIdx is the predictor being restaged.
 
    @return void.
  */
 void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int predIdx) const {
-  int lhIdx = 0;
-  int rhIdx = rhIdxNext;
-  for (int splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
-    // Runs need not be restaged, but lh, rh index positions should be
-    // updated for uniformity across predictors.  Hence the data in
-    // unrestaged SamplePreds is dirty.
-    //
+  int splitIdx;
+  for (splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
     MapNode *mn = &mapNode[splitIdx];
     if (!splitPred->Singleton(splitIdx, predIdx)) {
-      mn->Restage(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH, lhIdx, rhIdx);
-      mn->Singletons(splitPred, targ, predIdx, lhIdx, rhIdx);
+      mn->Restage(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH);
+      mn->Singletons(splitPred, targ, predIdx);
     }
-    mn->UpdateIndices(lhIdx, rhIdx);
   }
 }
 
@@ -162,21 +162,30 @@ void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSourc
 
    @return void.
  */
-void MapNode::Singletons(SplitPred *splitPred, const SPNode targ[], int predIdx, int lhIdx, int rhIdx) {
-  if (lNext >= 0 && targ->IsRun(lhIdx, lhIdx + lhIdxCount - 1)) {
+void MapNode::Singletons(SplitPred *splitPred, const SPNode targ[], int predIdx) {
+  if (lNext >= 0 && targ->IsRun(idxNextL, idxNextL + lhIdxCount - 1)) {
       splitPred->LengthNext(lNext, predIdx) = 1;
   }
-  if (rNext >= 0 && targ->IsRun(rhIdx, rhIdx + rhIdxCount - 1)) {
+  if (rNext >= 0 && targ->IsRun(idxNextR, idxNextR + rhIdxCount - 1)) {
       splitPred->LengthNext(rNext, predIdx) = 1;
   }
 }
 
 
 /**
+   @brief Assigns and accumulates left, right starting indices.
+
+   @param lhIdx inputs the left index for this node and outputs the
+   left index for the next node.
+
+   @param rhIdx inputs the right index for this node and outputs the
+   right index for the next node.
 
   @return void.
  */
 void MapNode::UpdateIndices(int &lhIdx, int &rhIdx) {
+  idxNextL = lhIdx;
+  idxNextR = rhIdx;
   lhIdx += (lNext >= 0 ? lhIdxCount : 0);
   rhIdx += (rNext >= 0 ? rhIdxCount : 0);
 }
@@ -195,14 +204,13 @@ void MapNode::UpdateIndices(int &lhIdx, int &rhIdx) {
 
    @return void, with output parameter vector.
 */
-void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH, int lhIdx, int rhIdx) {
-
+void MapNode::Restage(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH) {
   if (lNext >= 0 && rNext >= 0) // Both subnodes nonterminal.
-    RestageLR(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, lhIdx, rhIdx);
+    RestageLR(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, idxNextL, idxNextR);
   else if (lNext >= 0) // Only LH subnode nonterminal.
-    RestageSingle(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, lhIdx);
+    RestageSingle(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxLH, idxNextL);
   else if (rNext >= 0) // Only RH subnode nonterminal.
-    RestageSingle(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxRH, rhIdx);
+    RestageSingle(source, sIdxSource, targ, sIdxTarg, startIdx, endIdx, sIdxRH, idxNextR);
 
   // Otherwise, either node is itself terminal or both subnodes are.
   

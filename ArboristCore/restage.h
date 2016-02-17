@@ -24,8 +24,10 @@ class MapNode {
   int rNext;
   int lhIdxCount;
   int rhIdxCount;
-  int startIdx;
-  int endIdx;
+  int idxNextL;  // Starting left index
+  int idxNextR; // Starting right index.
+  int startIdx;  // Start index of predecessor.
+  int endIdx;    // End index of predecessor.
 
  public:
   void UpdateIndices(int &lhIdx, int &rhIdx);
@@ -61,11 +63,11 @@ class MapNode {
     endIdx = _endIdx;
   }
 
-  void Restage(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH, int lhIdx, int rhIdx);
+  void Restage(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], const BV *sIdxLH, const BV *sIdxRH);
   void RestageLR(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, unsigned int sIdxTarg[], int startIdx, int endIdx, const class BV *bvL, int lhIdx, int rhIdx);
   void RestageSingle(const class SPNode *source, const unsigned int sIdxSource[], class SPNode *targ, int unsigned sIdxTarg[], int startIdx, int endIdx, const class BV *bv, int idx);
 
-  void Singletons(class SplitPred *splitPred, const class SPNode targ[], int predIdx, int lhIdx, int rhIdx);
+  void Singletons(class SplitPred *splitPred, const class SPNode targ[], int predIdx);
 };
 
 

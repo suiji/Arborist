@@ -133,6 +133,9 @@ PreTree *Index::OneTree(SamplePred *_samplePred, SplitPred *_splitPred, int _nSa
 
    @return void.
 */
+//#include <time.h>
+//clock_t clock(void);
+
 void  Index::Levels() {
   SplitSig *splitSig = new SplitSig();
 
@@ -148,7 +151,6 @@ void  Index::Levels() {
     if (splitNext > 0 && level + 1 != totLevels)
       restageMap->RestageLevel(samplePred, level+1);
     delete restageMap;
-
     splitSig->LevelClear();
     splitPred->LevelClear();
     splitCount = splitNext;
