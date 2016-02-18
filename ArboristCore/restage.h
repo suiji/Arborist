@@ -92,7 +92,6 @@ class RestageMap {
   static void DeImmutables();
 
   void RestageLevel(class SamplePred *samplePred, unsigned int level);
-  void RestagePred(const class SPNode source[], const unsigned int sIdxSource[], class SPNode targ[], unsigned int sIdxTarg[], int predIdx) const;
   void ConsumeSplit(int _splitIdx, int _lNext, int _rNext, int _lhIdxCount, int _rhIdxCount, int _startIdx, int _endIdx);
   void Conclude(const class Index *index);//, int _splitPrev);
 };

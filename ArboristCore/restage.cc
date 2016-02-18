@@ -111,36 +111,31 @@ void RestageMap::Conclude(const Index *index) {
 }
 
 
+/**
+   @brief Restages predictors and splits as pairs with equal priority.
+
+   @param samplePred holds the restaging area.
+
+   @param level is the next level to be split.
+
+   @return void, with side-effected restaging buffers.
+ */
 void RestageMap::RestageLevel(SamplePred *samplePred, unsigned int level) {
-  int predIdx;
+  int predIdx, splitIdx;
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
 
-#pragma omp parallel default(shared) private(predIdx, source, sIdxSource, targ, sIdxTarg)
+#pragma omp parallel default(shared) private(predIdx, splitIdx, source, sIdxSource, targ, sIdxTarg)
   {
-#pragma omp for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1) collapse(2)
     for (predIdx = 0; predIdx < nPred; predIdx++) {
-      samplePred->Buffers(predIdx, level, source, sIdxSource, targ, sIdxTarg);
-      RestagePred(source, sIdxSource, targ, sIdxTarg, predIdx);
-    }
-  }
-}
-
-
-/**
-   @brief Walks the live split indices for a predictor and either restages or propagates runs.  N.B.:  unrestaged SamplePreds are dirty.
-
-   @param predIdx is the predictor being restaged.
-
-   @return void.
- */
-void RestageMap::RestagePred(const SPNode source[], const unsigned int sIdxSource[], SPNode targ[], unsigned int sIdxTarg[], int predIdx) const {
-  int splitIdx;
-  for (splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
-    MapNode *mn = &mapNode[splitIdx];
-    if (!splitPred->Singleton(splitIdx, predIdx)) {
-      mn->Restage(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH);
-      mn->Singletons(splitPred, targ, predIdx);
+      for (splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
+        samplePred->Buffers(predIdx, level, source, sIdxSource, targ, sIdxTarg);
+        if (!splitPred->Singleton(splitIdx, predIdx)) {
+          mapNode[splitIdx].Restage(source, sIdxSource, targ, sIdxTarg, sIdxLH, sIdxRH);
+          mapNode[splitIdx].Singletons(splitPred, targ, predIdx);
+        }
+      }
     }
   }
 }
