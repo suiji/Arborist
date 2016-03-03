@@ -17,6 +17,7 @@
 #ifndef ARBORIST_PRETREE_H
 #define ARBORIST_PRETREE_H
 
+#include <vector>
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
@@ -37,7 +38,7 @@ class PTNode {
     unsigned int offset; // Bit-vector offset:  factor.
     double rkMean; // Mean rank:  numeric.
   } splitVal;
-  void Consume(class Forest *forest);
+  void Consume(class Forest *forest, unsigned int tIdx);
 };
 
 
@@ -47,28 +48,29 @@ class PreTree {
   PTNode *nodeVec; // Vector of tree nodes.
   int nodeCount; // Allocation height of node vector.
   int height;
-  int leafCount;
+  unsigned int leafCount;
   unsigned int bitEnd; // Next free slot in factor bit vector.
   unsigned int *sample2PT; // Public accessor is Sample2Frontier().
   double *info; // Aggregates info value of nonterminals, by predictor.
   class BV *splitBits;
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
-  int bagCount;
+  unsigned int bagCount;
 
  public:
-  PreTree(int _bagCount);
+  PreTree(unsigned int _bagCount);
   ~PreTree();
   static void Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
   static void Reserve(unsigned int height);
 
   void DecTree(class Forest *forest, unsigned int tNum, double predInfo[]);
-  void NodeConsume(class Forest *forest);
+  void NodeConsume(class Forest *forest, unsigned int tIdx);
   unsigned int BitWidth();
   void BitConsume(unsigned int *outBits);
+  void SampleToLeaf(class Forest *forest, unsigned int tIdx, std::vector<unsigned int> &frontierMap);
 
-
+  
   /**
    @brief Maps sample index to index of frontier node with which it is currently associated.
  
@@ -81,15 +83,10 @@ class PreTree {
   }
 
 
-  /**
-     @brief Accessor for sample map.
-
-     @return sample map.
-   */
-  inline unsigned int* FrontierMap() {
-    return sample2PT;
+  inline unsigned int LeafCount() const {
+    return leafCount;
   }
-
+  
 
   inline int Height() const {
     return height;

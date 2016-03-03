@@ -18,18 +18,18 @@
 #ifndef ARBORIST_RESPONSE_H
 #define ARBORIST_RESPONSE_H
 
+#include <vector>
+
 /**
    @brief Methods and members for management of response-related computations.
  */
 class Response {
  protected:
-  const double *y;
+  const std::vector<double> &y;
  public:
-  Response(const double _y[]);
-  static class ResponseReg *FactoryReg(const double yNum[], double yRanked[], unsigned int _nRow);
-  static class ResponseCtg *FactoryCtg(const int feCtg[], const double feProxy[], unsigned int _nRow);
-  
-  virtual ~Response(){}
+  Response(const std::vector<double> &_y);
+  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank);
+  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy);
 };
 
 /**
@@ -37,11 +37,10 @@ class Response {
  */
 class ResponseReg : public Response {
   class SampleReg* SampleRows(const class RowRank *rowRank);
-  unsigned int *row2Rank;
+  const std::vector<unsigned int> &row2Rank; // Facilitates rank[] output.
 
  public:
-  ResponseReg(const double _y[], double yRanked[], unsigned int nRow);
-  ~ResponseReg();
+  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank);
   class SampleReg **BlockSample(const class RowRank *rowRank, int tCount);
 };
 
@@ -50,12 +49,11 @@ class ResponseReg : public Response {
  */
 class ResponseCtg : public Response {
   class SampleCtg* SampleRows(const class RowRank *rowRank);
-  unsigned int *yCtg; // 0-based factor-valued response.
+  const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
  public:
 
   class SampleCtg **BlockSample(const class RowRank *rowRank, int tCount);
-  ResponseCtg(const int _yCtg[], const double _yProxy[], unsigned int _nRow);
-  ~ResponseCtg();
+  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &yProxy);
   
   static int CtgSum(unsigned int sIdx, double &sum);
 };

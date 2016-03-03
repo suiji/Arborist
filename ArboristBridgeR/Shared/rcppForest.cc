@@ -23,6 +23,7 @@
    @author Mark Seligman
  */
 
+
 #include <RcppCommon.h>
 
 #include "forest.h"
@@ -39,10 +40,12 @@ using namespace Rcpp;
 
 #include "rcppForest.h"
 
+
 template<> SEXP Rcpp::wrap(const std::vector<ForestNode> &forestNode) {
   XPtr<const std::vector<ForestNode> > extWrap(new std::vector<ForestNode>(forestNode), true);
  return wrap(extWrap);
 }
+
 
 template <> std::vector<ForestNode>* Rcpp::as(SEXP sFN) {
   Rcpp::XPtr<std::vector<ForestNode> > xp(sFN);
@@ -50,9 +53,9 @@ template <> std::vector<ForestNode>* Rcpp::as(SEXP sFN) {
 }
 
 
-#include <iostream>
+//#include <iostream>
 
-RcppExport SEXP RcppForestWrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
+RcppExport SEXP ForestWrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
   List forest = List::create(
      _["forestNode"] = forestNode,
      _["origin"] = origin,
@@ -63,12 +66,13 @@ RcppExport SEXP RcppForestWrap(const std::vector<unsigned int> &origin, const st
   return forest;
 }
 
+
 /**
    @brief Exposes front-end Forest fields for transmission to core.
 
    @return void.
  */
-void RcppForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> *&_forestNode) {
+void ForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> *&_forestNode) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");

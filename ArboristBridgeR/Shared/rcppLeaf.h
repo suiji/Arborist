@@ -28,11 +28,13 @@
 #ifndef ARBORIST_RCPP_LEAF_H
 #define ARBORIST_RCPP_LEAF_H
 
+#include <vector>
+#include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP RcppLeafWrapReg(std::vector<unsigned int> rank, std::vector<unsigned int> sCount, NumericVector yRanked);
-RcppExport SEXP RcppLeafWrapCtg(std::vector<double> weight, CharacterVector levels);
-void RcppLeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
-void RcppLeafUnwrapCtg(SEXP sLeaf, double *&_weight, CharacterVector &_levels);
+RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const std::vector<class LeafNode> &leafNode, const std::vector<class RankCount> &leafInfo, const std::vector<double> &yRanked);
+RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<double> &leafInfo, const CharacterVector &levels);
+void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> *&_leafNode, std::vector<class RankCount> *&_leafInfo);
+void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> *&_leafNode, std::vector<double> &_leafCtgInfo, CharacterVector &_levels);
 
 #endif

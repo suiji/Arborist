@@ -16,6 +16,7 @@
 #ifndef ARBORIST_SAMPLE_H
 #define ARBORIST_SAMPLE_H
 
+#include <vector>
 #include "param.h"
 
 
@@ -94,9 +95,9 @@ class Sample {
   class BV *treeBag;
   class SamplePred *samplePred;
   class SplitPred *splitPred;
-  int *PreStage(const double y[], const unsigned int *yCtg = 0);
+  int *PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg);
   static unsigned int CountRows(int sCountRow[], int sIdxRow[]);
-  void LeafExtent(const unsigned int frontierMap[], class Forest *forest, int tIdx);
+
  public:
   static void Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
@@ -160,7 +161,7 @@ class SampleReg : public Sample {
  public:
   SampleReg();
   ~SampleReg();
-  static SampleReg *Factory(const double y[], const class RowRank *rowRank, const unsigned int row2Rank[]);
+  static SampleReg *Factory(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
 
   inline unsigned int SCount(unsigned int sIdx) const {
     return sampleNode[sIdx].SCount();
@@ -172,7 +173,7 @@ class SampleReg : public Sample {
   }
 
 
-  void Stage(const double y[], const unsigned int row2Rank[], const class RowRank *rowRank);
+  void Stage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank);
 };
 
 
@@ -184,12 +185,12 @@ class SampleCtg : public Sample {
  public:
   SampleCtg();
   ~SampleCtg();
-  static SampleCtg *Factory(const double y[], const class RowRank *rowRank, const unsigned int yCtg[]);
+  static SampleCtg *Factory(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
   static void Immutables(unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
 
   
-  void Stage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank);
+  void Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank);
 };
 
 

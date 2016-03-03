@@ -31,6 +31,8 @@ using namespace Rcpp;
 #include "rcppLeaf.h"
 #include "train.h"
 #include "forest.h"
+#include "leaf.h"
+
 
 //using namespace std;
 //#include <iostream>
@@ -42,33 +44,28 @@ using namespace Rcpp;
 
    @return Wrapped value of response cardinality, if applicable.
  */
-RcppExport SEXP RcppResponseCtg(IntegerVector y) {
+void RcppProxyCtg(IntegerVector y, NumericVector classWeight, std::vector<double> &proxy) {
   // Class weighting constructs a proxy response from category frequency.
   // The response is then jittered to diminish the possibility of ties
   // during scoring.  The magnitude of the jitter, then, should be scaled
   // so that no combination of samples can "vote" themselves into a
   // false plurality.
   //
-  bool autoWeights = false; // TODO:  Make user option.
-  NumericVector classWeight;
-  NumericVector tb(table(y));
-  double tbSum = sum(tb);
-  if (autoWeights) {
-    NumericVector tbsInv = tbSum / tb;
-    double tbsInvSum = sum(tbsInv);
-    classWeight = tbsInv / tbsInvSum;
+  if (is_true(all(classWeight == 0.0))) { // Place-holder for balancing.
+    NumericVector tb(table(y));
+    for (unsigned int i = 0; i < classWeight.length(); i++) {
+      classWeight[i] = tb[i] == 0.0 ? 0.0 : 1.0 / tb[i];
+    }
   }
-  else {
-    classWeight = rep(1.0, tb.length());
-  }
-  int nRow = y.length();
+  classWeight = classWeight / sum(classWeight);
+
+  unsigned int nRow = y.length();
   double recipLen = 1.0 / nRow;
   NumericVector yWeighted = classWeight[y];
   RNGScope scope;
   NumericVector rn(runif(nRow));
-  NumericVector proxy = yWeighted + (rn - 0.5) * 0.5 * (recipLen * recipLen);
-
-  return wrap(proxy);
+  for (unsigned int i = 0; i < nRow; i++)
+    proxy[i] = yWeighted[i] + (rn[i] - 0.5) * 0.5 * (recipLen * recipLen);
 }
 
 
@@ -87,7 +84,7 @@ RcppExport SEXP RcppResponseCtg(IntegerVector y) {
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sProbVec) {
+RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sProbVec, SEXP sClassWeight) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -125,7 +122,9 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   unsigned int ctgWidth = levels.length();
 
   IntegerVector y = yOneBased - 1;
-  NumericVector proxy = RcppResponseCtg(y);
+  std::vector<double> proxy(y.length());
+  NumericVector classWeight(as<NumericVector>(sClassWeight));
+  RcppProxyCtg(y, classWeight, proxy);
 
   int nTree = as<int>(sNTree);
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
@@ -137,22 +136,24 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
+  std::vector<unsigned int> leafOrigin(nTree);
   NumericVector predInfo(nPred);
 
   std::vector<ForestNode> forestNode;
 
   std::vector<unsigned int> facSplit;
-  std::vector<double> weight;
+  std::vector<LeafNode> leafNode;
+  std::vector<double> leafInfo;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
   //  may not scale to multi-gigarow sets.
   std::vector<unsigned int> inBag;
 
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, y.begin(), ctgWidth, proxy.begin(), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, weight);
+  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, leafInfo);
 
   return List::create(
-		      _["forest"] = RcppForestWrap(/*pred, split, bump,*/ origin, facOrig, facSplit, forestNode),
-      _["leaf"] = RcppLeafWrapCtg(weight, CharacterVector(yOneBased.attr("levels"))),
+      _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
+      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, leafInfo, CharacterVector(yOneBased.attr("levels"))),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
   );
@@ -190,7 +191,6 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
   
-  NumericVector y(sY);
   int nTree = as<int>(sNTree);
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
 
@@ -203,15 +203,19 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   IntegerVector feRow(as<IntegerVector>(rowRank["row"]));
   IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));
 
-  NumericVector yRanked(nRow);
+  NumericVector y(sY);
+  NumericVector yRanked = clone(y).sort();
+  IntegerVector row2Rank = match(y, yRanked) - 1;
+
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
+  std::vector<unsigned int> leafOrigin(nTree);
   NumericVector predInfo(nPred);
 
   std::vector<ForestNode> forestNode;
+  std::vector<LeafNode> leafNode;
+  std::vector<RankCount> leafInfo;
   std::vector<unsigned int> facSplit;
-  std::vector<unsigned int> rank;
-  std::vector<unsigned int> sCount;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
   //  may not scale to multi-gigarow sets.
@@ -219,11 +223,11 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   //
   std::vector<unsigned int> inBag;
 
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, y.begin(), yRanked.begin(), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, rank, sCount);
+  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, leafInfo);
 
   return List::create(
-		      _["forest"] = RcppForestWrap(/*pred, split, bump,*/ origin, facOrig, facSplit, forestNode),
-      _["leaf"] = RcppLeafWrapReg(rank, sCount, yRanked),
+      _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
+      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, leafInfo, as<std::vector<double> >(yRanked)),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
     );

@@ -69,15 +69,33 @@
     stop("Expecting numeric or factor response")
 
   # Class weights
-  if (!is.null(classWeight)) {
-    if (is.numeric(classWeight)) {
-    }
-    else if (classWeight == "auto") {
+  if (is.factor(y)) {
+    # Allows for gaps:
+    ctgWidth <- max(as.integer(y))
+    if (!is.null(classWeight)) {
+      if (is.numeric(classWeight)) {
+        if (length(classWeight) != ctgWidth)
+          stop("class weights must conform to response cardinality")
+        if (any(classWeight < 0))
+          stop("class weights must be nonnegative")
+        if (all(classWeight == 0.0)) {
+          stop("class weights cannot all be zero")
+        }
+      }
+      else if (classWeight == "balance") { # place-holder value
+        classWeight <- rep(0.0, ctgWidth)
+      }
+      else {
+        stop("Unrecognized class weights")
+      }
     }
     else {
-      stop("Unrecognized class weights")
+      classWeight <- rep(1.0, ctgWidth)
     }
-  }  
+  }
+  else if (!is.null(classWeight)) {
+    stop("class weights only defined for classification")
+  }
   
   # Height constraints
   if (minNode < 1)
@@ -138,7 +156,7 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec)
+    train <- .Call("RcppTrainCtg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, classWeight)
   }
   else {
     train <- .Call("RcppTrainReg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, regMono)

@@ -26,50 +26,37 @@ class ForestNode {
   unsigned int pred;
   unsigned int bump;
   double num;
-
  public:
+  
+  void SplitUpdate(const class RowRank *rowRank);
+
+  inline void Init() {
+    pred = bump = 0;
+    num = 0.0;
+  }
+
+
   inline void Set(unsigned int _pred, unsigned int _bump, double _num) {
     pred = _pred;
     bump = _bump;
     num = _num;
   }
 
+
   inline unsigned int &Pred() {
     return pred;
   }
+
 
   inline double &Num() {
     return num;
   }
 
 
-  inline void ScoreAccum(double incr) {
-    num += incr;
-  }
-
-
-  inline void ScoreScale(unsigned int sCount) {
-    num /= sCount;
-  }
-
-
-  inline double Score() const {
-    return num;
-  }
-
-
   /**
-     @brief Accessor for building leaf count.
+     @brief Accessor for final leaf index.
    */
-  inline unsigned int &LeafCount() {
-    return pred;
-  }
-
-  
-  /**
-     @brief Accessor for final leaf count;
-   */
-  inline unsigned int Extent() const {
+  inline unsigned int &LeafIdx() {
     return pred;
   }
 
@@ -89,6 +76,7 @@ class ForestNode {
   }
 };
 
+
 /**
    @brief The decision forest is a collection of decision trees.  DecTree members and methods are currently all static.
 */
@@ -105,6 +93,9 @@ class Forest {
   void PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
   void PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
  public:
+
+  void SplitUpdate(const class RowRank *rowRank) const;
+
   void PredictAcross(int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
   
   void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) const;
@@ -112,9 +103,9 @@ class Forest {
   void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const class BitMatrix *bag) const;
 
   Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
-
   ~Forest();
 
+  void NodeInit(unsigned int treeHeight);
   
   /**
      @brief Accessor for tree count.
@@ -138,14 +129,18 @@ class Forest {
     return treeOrigin[tIdx];
   }
 
-  
-  unsigned inline int LeafPos(int treeNum, int leafIdx) const {
-    return treeOrigin[treeNum] + leafIdx;
+
+  inline unsigned int NodeIdx(unsigned int tIdx, unsigned int nodeOffset) {
+    return treeOrigin[tIdx] + nodeOffset;
   }
 
-  
-  inline double LeafVal(int treeNum, int leafIdx) const {
-    return forestNode[LeafPos(treeNum, leafIdx)].Score();
+/**
+   @brief Sets looked-up forest node to values passed.
+
+   @return void.
+ */
+  inline void NodeSet(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, double _split) {
+    forestNode[NodeIdx(tIdx, nodeIdx)].Set(_predIdx, _bump, _split);
   }
 
 
@@ -209,8 +204,8 @@ class Forest {
   }
   
 
-  inline unsigned int Extent(unsigned int idx) const {
-    return forestNode[idx].Extent();
+  inline unsigned int &LeafIdx(unsigned int idx) {
+    return forestNode[idx].LeafIdx();
   }
 
 
@@ -223,45 +218,17 @@ class Forest {
 
      @param off is the offset, either absolute or tree-relative.
 
-     @return extent of referenced leaf.
+     @return referenced leaf index.
    */
-  inline unsigned int Extent(int tIdx, unsigned int off) const {
+  inline unsigned int &LeafIdx(int tIdx, unsigned int off) {
     unsigned int idx = tIdx >= 0 ? treeOrigin[tIdx] + off : off;
-    return Extent(idx);
+    return LeafIdx(idx);
   }
 
-
-  inline void LeafAccum(int tIdx, unsigned int off) const {
-    int idx = treeOrigin[tIdx] + off;
-    forestNode[idx].LeafCount()++;
-  }
-
-
-  /**
-     @brief Builds score incrementally:  regression.
-   */
-  inline void ScoreAccum(int tIdx, unsigned int off, double incr) const {
-    int idx = treeOrigin[tIdx] + off;
-    forestNode[idx].ScoreAccum(incr);
-  }
-
-
-  /**
-     @brief Scales accumulated score:  regression.
-   */
-  inline void ScoreReg(int tIdx, unsigned int off, unsigned int sCount) const {
-    int idx = treeOrigin[tIdx] + off;
-    forestNode[idx].ScoreScale(sCount);
-  }
-
-  int *ExtentPosition(int tIdx = -1) const;
 
   void NodeProduce(unsigned int _predIdx, unsigned int _bump, double _split);
   void BitProduce(class BV *splitBits, unsigned int bitEnd);
   void Origins(unsigned int tIdx);
-
-  void ScoreCtg(int tIdx, unsigned int off, unsigned int ctg, double weight) const;
-  void ScoreUpdate(const class RowRank *rowRank);
 };
 
 #endif

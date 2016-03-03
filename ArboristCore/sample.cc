@@ -133,7 +133,7 @@ unsigned int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
 /**
    @brief Static entry for classification.
  */
-SampleCtg *SampleCtg::Factory(const double y[], const RowRank *rowRank,  const unsigned int yCtg[]) {
+SampleCtg *SampleCtg::Factory(const std::vector<double> &y, const RowRank *rowRank,  const std::vector<unsigned int> &yCtg) {
   SampleCtg *sampleCtg = new SampleCtg();
   sampleCtg->Stage(yCtg, y, rowRank);
 
@@ -145,7 +145,7 @@ SampleCtg *SampleCtg::Factory(const double y[], const RowRank *rowRank,  const u
    @brief Static entry for regression response.
 
  */
-SampleReg *SampleReg::Factory(const double y[], const RowRank *rowRank, const unsigned int row2Rank[]) {
+SampleReg *SampleReg::Factory(const std::vector<double> &y, const RowRank *rowRank, const std::vector<unsigned int> &row2Rank) {
   SampleReg *sampleReg = new SampleReg();
   sampleReg->Stage(y, row2Rank, rowRank);
 
@@ -175,8 +175,10 @@ SampleReg::SampleReg() : Sample() {
 
    @return count of in-bag samples.
 */
-void SampleReg::Stage(const double y[], const unsigned int row2Rank[], const RowRank *rowRank) {
-  int *sIdxRow = Sample::PreStage(y);
+void SampleReg::Stage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const RowRank *rowRank) {
+  std::vector<unsigned int> ctgProxy(nRow);
+  std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
+  int *sIdxRow = Sample::PreStage(y, ctgProxy);
 
   // Only client is quantile regression.
   for (unsigned int row = 0; row < nRow; row++) {
@@ -211,7 +213,7 @@ SampleCtg::SampleCtg() : Sample() {
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::Stage(const unsigned int yCtg[], const double y[], const RowRank *rowRank) {
+void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank) {
   int *sIdxRow = Sample::PreStage(y, yCtg);
   samplePred = SamplePred::Factory(rowRank, sampleNode, sIdxRow, nRow, nPred, bagCount);
   delete [] sIdxRow;
@@ -229,7 +231,7 @@ void SampleCtg::Stage(const unsigned int yCtg[], const double y[], const RowRank
 
    @return vector of compressed indices into sample data structures.
  */
-int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
+int *Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg) {
   int *sIdxRow = new int[nRow];
   int *sCountRow = new int[nRow];
   bagCount = CountRows(sCountRow, sIdxRow);
@@ -246,7 +248,7 @@ int *Sample::PreStage(const double y[], const unsigned int yCtg[]) {
       if (sIdx >= 0) {
 	int sCount = sCountRow[row];
         double val = sCount * y[row];
-	sampleNode[sIdx].Set(val, sCount, yCtg == 0 ? 0 : yCtg[row]);
+	sampleNode[sIdx].Set(val, sCount, yCtg[row]);
 	bagSum += val;
         bits |= mask;
       }

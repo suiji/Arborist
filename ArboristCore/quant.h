@@ -24,14 +24,10 @@
  @brief Quantile signature.
 */
 class Quant {
-  const class Forest *forest;
-  const int height;
-  const int nTree;
   const std::vector<double> &yRanked;
-  const std::vector<unsigned int> &rank;
-  const std::vector<unsigned int> &sCount;
   const std::vector<double> &qVec;
-  const int qCount;
+  std::vector<unsigned int> sampleOffset;
+  const unsigned int qCount;
   unsigned int logSmudge;
   unsigned int binSize;
   unsigned int *sCountSmudge;
@@ -39,14 +35,14 @@ class Quant {
   int *leafPos;
   
   unsigned int BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge);
-  void SmudgeLeaves();
-  void Leaves(const int rowLeaves[], double qRow[]);
-  int RanksExact(int leafExtent, int leafOff, int sampRanks[]);
-  int RanksSmudge(unsigned int leafExtent, int leafOff, int sampRanks[]);
+  void SmudgeLeaves(const class LeafReg *leafReg);
+  void Leaves(const LeafReg *leafReg, const int rowLeaves[], double qRow[]);
+  unsigned int RanksExact(const LeafReg *leafReg, unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]);
+  unsigned int RanksSmudge(const LeafReg *leafReg, unsigned int tIdx, unsigned int LeafIdx, unsigned int sampRanks[]);
  public:
-  Quant(const class Forest *_forest, const std::vector<double> &_yRanked, const std::vector<unsigned int> &_rank, const std::vector<unsigned int> &_sCount, const std::vector<double> &_qVec, unsigned int qBin);
+  Quant(const class LeafReg *_leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec, unsigned int qBin);
   ~Quant();
-  void PredictAcross(const int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, double qPred[]);
+  void PredictAcross(const class LeafReg *leafReg, const int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, double qPred[]);
 };
 
 #endif

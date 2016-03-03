@@ -75,9 +75,9 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
+PreTree::PreTree(unsigned int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
   sample2PT = new unsigned int[bagCount];
-  for (int i = 0; i < bagCount; i++) {
+  for (unsigned int i = 0; i < bagCount; i++) {
     sample2PT[i] = 0;
   }
   nodeCount = heightEst;   // Initial height estimate.
@@ -266,7 +266,8 @@ void PreTree::ReNodes() {
 */
 void PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
   forest->Origins(tIdx);
-  NodeConsume(forest);
+  forest->NodeInit(height);
+  NodeConsume(forest, tIdx);
   forest->BitProduce(splitBits, bitEnd);
   delete splitBits;
 
@@ -280,20 +281,12 @@ void PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
 
    @param forest inputs/outputs the updated forest.
 
-   @return void, with output reference parameter vector.
+   @return void, with output reference parameter.
 */
-void PreTree::NodeConsume(Forest *forest) {
+void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
   for (int idx = 0; idx < height; idx++) {
-    nodeVec[idx].Consume(forest);
+    nodeVec[idx].Consume(forest, tIdx);
   }
-}
-
-
-/**
-   @return aligned length of used portion of split vector.
- */
-unsigned int PreTree::BitWidth() {
-  return BV::SlotAlign(bitEnd);
 }
 
 
@@ -304,11 +297,42 @@ unsigned int PreTree::BitWidth() {
 
    @return void, with output parameter vector.
  */
-void PTNode::Consume(Forest *forest) {
+void PTNode::Consume(Forest *forest, unsigned int tIdx) {
   if (lhId > 0) { // i.e., nonterminal
-    forest->NodeProduce(predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
-  }
-  else {
-    forest->NodeProduce(0, 0, 0.0);
+    forest->NodeSet(tIdx, id, predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
   }
 }
+
+
+/**
+   @brief Copies frontier map, but replaces node indices with indices of
+   their associated leaves.  Also sets terminal fields in forest.
+
+   @return Pointer to overwritten map.
+ */
+void PreTree::SampleToLeaf(Forest *forest, unsigned int tIdx, std::vector<unsigned int> &frontierMap) {
+  // Initializes with unattainable leaf-index value.
+  std::vector<unsigned int> nodeLeaf(height);
+  std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);
+  
+  unsigned int leafIdx = 0;
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    unsigned int ptIdx = sample2PT[sIdx];
+    if (nodeLeaf[ptIdx] == leafCount) {
+      unsigned int nodeIdx = sample2PT[sIdx];
+      forest->NodeSet(tIdx, nodeIdx, leafIdx, 0, 0.0);
+      nodeLeaf[ptIdx] = leafIdx++;
+    }
+    frontierMap[sIdx] = nodeLeaf[ptIdx];
+  }
+}
+
+
+/**
+   @return BV-aligned length of used portion of split vector.
+ */
+unsigned int PreTree::BitWidth() {
+  return BV::SlotAlign(bitEnd);
+}
+
+

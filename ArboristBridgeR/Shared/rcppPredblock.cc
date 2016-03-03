@@ -176,10 +176,11 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
   return predBlock;
 }
 
+
 /**
    @brief Unwraps field values useful for prediction.
  */
-void RcppPredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
+void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");

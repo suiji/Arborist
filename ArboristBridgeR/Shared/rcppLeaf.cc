@@ -23,23 +23,55 @@
    @author Mark Seligman
  */
 
-#include <Rcpp.h>
 
-using namespace std;
-using namespace Rcpp;
+#include <RcppCommon.h>
+
+#include "leaf.h"
+
+namespace Rcpp {
+  template <> SEXP wrap(const std::vector<LeafNode> &);
+  template <> SEXP wrap(const std::vector<RankCount> &);
+  template <> std::vector<LeafNode>* as(SEXP);
+  template <> std::vector<RankCount>* as(SEXP);
+}
 
 #include "rcppLeaf.h"
 
-//#include <iostream>
+template <> SEXP Rcpp::wrap(const std::vector<LeafNode> &leafNode) {
+  XPtr<const std::vector<LeafNode> > extWrap(new std::vector<LeafNode>(leafNode), true);
+
+  return wrap(extWrap);
+}
+
+
+template <> SEXP Rcpp::wrap(const std::vector<RankCount> &leafInfo) {
+  XPtr<const std::vector<RankCount> > extWrap(new std::vector<RankCount>(leafInfo), true);
+
+  return wrap(extWrap);
+}
+
+
+template <> std::vector<LeafNode>* Rcpp::as(SEXP sLNReg) {
+  Rcpp::XPtr<std::vector<LeafNode> > xp(sLNReg);
+  return (std::vector<LeafNode>*) xp;
+}
+
+
+template <> std::vector<RankCount>* Rcpp::as(SEXP sLNReg) {
+  Rcpp::XPtr<std::vector<RankCount> > xp(sLNReg);
+  return (std::vector<RankCount>*) xp;
+}
+
 
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
-RcppExport SEXP RcppLeafWrapReg(std::vector<unsigned int> rank, std::vector<unsigned int> sCount, NumericVector yRanked) {
+RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<RankCount> &leafInfo, const std::vector<double> &yRanked) {
   List leaf = List::create(
-      _["rank"] = rank,
-      _["sCount"] = sCount,
-      _["yRanked"] = yRanked
+   _["origin"] = leafOrigin,
+   _["node"] = leafNode,			   
+   _["info"] = leafInfo,
+   _["yRanked"] = yRanked
   );
   leaf.attr("class") = "LeafReg";
   
@@ -50,9 +82,11 @@ RcppExport SEXP RcppLeafWrapReg(std::vector<unsigned int> rank, std::vector<unsi
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-RcppExport SEXP RcppLeafWrapCtg(std::vector<double> weight, CharacterVector levels) {
+RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<double> &leafInfo, const CharacterVector &levels) {
   List leaf = List::create(
-   _["weight"] = weight,
+   _["origin"] = leafOrigin,	
+   _["node"] = leafNode,
+   _["info"] = leafInfo,
    _["levels"] = levels
    );
   leaf.attr("class") = "LeafCtg";
@@ -68,20 +102,19 @@ RcppExport SEXP RcppLeafWrapCtg(std::vector<double> weight, CharacterVector leve
 
    @param _yRanked outputs the sorted response.
 
-   @param _rank outputs the sample ranks, organized by leaf; unwrapped to unsigned.
-
-   @param _sCount outputs the sample counts, organized by leaf; unwrapped to unsigned.
+   @param _leafInfoReg outputs the sample ranks and counts, organized by leaf.
 
    @return void, with output reference parameters.
  */
-void RcppLeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) {
+void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<RankCount> *&_leafInfo) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
-  _yRanked = as<std::vector<double > >(leaf["yRanked"]);
-  _rank = leaf["rank"];
-  _sCount = leaf["sCount"];
+  _yRanked = leaf["yRanked"];
+  _leafOrigin = leaf["origin"];
+  _leafNode = leaf["node"];
+  _leafInfo = leaf["info"];
 }
 
 
@@ -96,11 +129,13 @@ void RcppLeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<un
 
    @return void, with output reference parameters.
  */
-void RcppLeafUnwrapCtg(SEXP sLeaf, double *&_weight, CharacterVector &_levels) {
+void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<double> &_leafInfo, CharacterVector &_levels) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");
   }
-  _weight = NumericVector((SEXP) leaf["weight"]).begin();
+  _leafOrigin = leaf["origin"];
+  _leafNode = leaf["node"];
+  _leafInfo = leaf["info"];
   _levels = CharacterVector((SEXP) leaf["levels"]);
 }

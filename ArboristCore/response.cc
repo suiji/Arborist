@@ -15,7 +15,6 @@
  */
 
 #include "response.h"
-#include "callback.h"
 #include "sample.h"
 #include "rowrank.h"
 
@@ -30,12 +29,10 @@ using namespace std;
 
    @param yRanked is the sorted response.
 
-   @param nRow is size of either input vector.
-
    @return void, with output reference vector.
  */
-ResponseReg *Response::FactoryReg(const double yNum[], double yRanked[], unsigned int nRow) {
-  return new ResponseReg(yNum, yRanked, nRow);
+ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank) {
+  return new ResponseReg(yNum, _row2Rank);
 }
 
 
@@ -48,8 +45,8 @@ ResponseReg *Response::FactoryReg(const double yNum[], double yRanked[], unsigne
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const int feCtg[], const double feProxy[], unsigned int _nRow) {
-  return new ResponseCtg(feCtg, feProxy, _nRow);
+ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy) {
+  return new ResponseCtg(feCtg, feProxy);
 }
 
 
@@ -59,11 +56,7 @@ ResponseCtg *Response::FactoryCtg(const int feCtg[], const double feProxy[], uns
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const int _yCtg[], const double _proxy[], unsigned int _nRow) : Response(_proxy) {
-  yCtg = new unsigned int[_nRow];
-  for (unsigned int i = 0; i < _nRow; i++) {
-    yCtg[i] = _yCtg[i];
-  }
+ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy) : Response(_proxy), yCtg(_yCtg) {
 }
 
 
@@ -73,7 +66,7 @@ ResponseCtg::ResponseCtg(const int _yCtg[], const double _proxy[], unsigned int 
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const double _y[]) : y(_y) {
+Response::Response(const std::vector<double> &_y) : y(_y) {
 }
 
 
@@ -83,35 +76,8 @@ Response::Response(const double _y[]) : y(_y) {
    @param _y is the response vector.
 
    @param yRanked outputs the sorted response needed for quantile ranking.
-
-   @param nRow is the length of the response vector.
  */
-ResponseReg::ResponseReg(const double _y[], double yRanked[], unsigned int nRow) : Response(_y) {
-  // The only client is quantile regression, via Sample::sample2Rank[],
-  // but it is simpler to compute in all cases.
-  //
-  row2Rank = new unsigned int[nRow];
-  unsigned int *rank2Row = new unsigned int[nRow];
-  for (unsigned int i = 0; i < nRow; i++) {
-    yRanked[i] = _y[i];
-    rank2Row[i] = i;
-  }
-
-  // Can implement rank as match(_y, sort(_y)) in Rcpp.
-  CallBack::QSortD(yRanked, (int *) rank2Row, 1, nRow);
-  for (unsigned int rk = 0; rk < nRow; rk++) {
-    unsigned int row = rank2Row[rk];
-    row2Rank[row] = rk;
-  }
-  delete [] rank2Row;
-}
-
-
-/**
-   @brief Regression subclass destructor.
-*/
-ResponseReg::~ResponseReg() {
-  delete [] row2Rank;
+ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank) : Response(_y), row2Rank(_row2Rank) {
 }
 
 
@@ -150,12 +116,4 @@ SampleReg **ResponseReg::BlockSample(const RowRank *rowRank, int tCount) {
   }
 
   return sampleBlock;
-}
-
-
-/**
-   @brief Destructor for classification.
- */
-ResponseCtg::~ResponseCtg() {
-  delete [] yCtg;
 }
