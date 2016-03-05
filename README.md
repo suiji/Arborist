@@ -4,11 +4,10 @@ Arborist: Parallelized, Extensible Random Forests
 
 **Core:**&nbsp;&nbsp;
 [![License](http://img.shields.io/badge/license-MPL--2+-brightgreen.svg?style=flat)](https://www.mozilla.org/en-US/MPL/2.0/) 
-[![Github All Releases](https://img.shields.io/github/downloads/suiji/Arborist/total.svg)]()
 &nbsp;&nbsp;&nbsp;
 **R:**&nbsp;&nbsp;
+[![License](http://img.shields.io/badge/license-GPL%20%28%3E=%202%29-brightgreen.svg?style=flat)](http://www.gnu.org/licenses/gpl-2.0.html)
 [![CRAN](http://www.r-pkg.org/badges/version/Rborist)](https://cran.rstudio.com/web/packages/Rborist/index.html) 
-[![License](http://img.shields.io/badge/license-GPL%20%28%3E=%202%29-brightgreen.svg?style=flat)](http://www.gnu.org/licenses/gpl-2.0.html) 
 [![Downloads](http://cranlogs.r-pkg.org/badges/Rborist?color=brightgreen)](http://www.r-pkg.org/pkg/Rborist)
 &nbsp;&nbsp;&nbsp;**Python:**&nbsp;&nbsp;
 
