@@ -12,7 +12,7 @@ Arborist: Parallelized, Extensible Random Forests
 &nbsp;&nbsp;&nbsp;**Python:**&nbsp;&nbsp;
 
 
-The Arborist provides the fastest open source implementation of Leo Brieman's Random Forest algorithm. The Arborist achieves its speed through efficient C++ code and parallel, distributed tree construction. 
+The Arborist provides a fast, open-source implementation of Leo Brieman's Random Forest algorithm. The Arborist achieves its speed through efficient C++ code and parallel, distributed tree construction. 
 
 Bindings are available for **Python** and [R](https://cran.r-project.org/web/packages/Rborist/index.html).
 
