@@ -51,8 +51,11 @@ News/Changes
 
 - Latest changes are geared toward hierarchical parallelization: distributed over heterogeneous systems. Low-level support to be available before actual interfaces are provided.
 
-- A "pretrain" feature is being added to cache initital training state.  This will save computation under iterative training schemes, such as are facilitated by the R package Caret.  This has entailed considerable refactoring from which the dust has not quite settled.
+- A "preTrain" feature has been added to cache initital training state.  This will save computation under iterative training schemes, such as are facilitated by the R package Caret.
+- Optional vector "regMono" has been introduced to specify monotonic constraints on numeric variables under regression.
+- Training now computes and saves full leaf information by default. This facilitates quantile prediction, as well as interaction with other packages, such as "forestFloor", by eliminating the need for customized training.
+- Restaging and splitting now parallelize across predictor/node pairs, improving core occupancy.  For an interesting illustration of the limits to the benefits of restaging, see the RangeR preprint by Wright and Ziegler.
 
-- Several performance issues have been resolved, but multicore load-balancing will likely not get much attention until version 2.
+- Several performance issues have been resolved, but dynamic load-balancing will likely not receive further attention until version 2.
 Correctness errors are being addressed as they are received.
 
