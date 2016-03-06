@@ -32,13 +32,17 @@ LeafReg::LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_lea
 }
 
 
+LeafReg::~LeafReg() {
+}
+
+
 /**
    @brief Reserves leafNode space based on estimate.
 
    @return void.
  */
 void Leaf::Reserve(unsigned int leafEst) {
-  leafNode.reserve(leafEst * nTree);
+  leafNode.reserve(leafEst);
 }
 
 
@@ -49,7 +53,15 @@ void Leaf::Reserve(unsigned int leafEst) {
  */
 void LeafReg::Reserve(unsigned int leafEst, unsigned int bagEst) {
   Leaf::Reserve(leafEst);
-  info.reserve(bagEst * NTree());
+  info.reserve(bagEst);
+}
+
+
+/**
+ */
+void LeafCtg::Reserve(unsigned int leafEst, unsigned int bagEst) {
+  Leaf::Reserve(leafEst);
+  info.reserve(leafEst * ctgWidth);
 }
 
 
@@ -67,11 +79,7 @@ LeafCtg::LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_lea
 }
 
 
-/**
- */
-void LeafCtg::Reserve(unsigned int leafEst) {
-  Leaf::Reserve(leafEst);
-  info.reserve(leafEst * ctgWidth * NTree());
+LeafCtg::~LeafCtg() {
 }
 
 
@@ -84,30 +92,30 @@ void LeafCtg::Reserve(unsigned int leafEst) {
 
    @return bag count, with output parameter vectors.
  */
-void LeafReg::Leaves(const SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int tIdx) {
-  unsigned int leafCount = 1 + *std::max_element(frontierMap.begin(), frontierMap.end());
-  NodeExtent(frontierMap, sampleReg->BagCount(), leafCount, tIdx);
-  Scores(sampleReg, frontierMap, leafCount, tIdx);
-  SampleInfo(sampleReg, frontierMap, leafCount, tIdx);
+void LeafReg::Leaves(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
+  unsigned int leafCount = 1 + *std::max_element(leafMap.begin(), leafMap.end());
+  NodeExtent(leafMap, sample->BagCount(), leafCount, tIdx);
+  Scores(sample, leafMap, leafCount, tIdx);
+  SampleInfo((SampleReg *) sample, leafMap, leafCount, tIdx);
 }
 
 
 /**
    @brief Derives scores for regression tree:  intialize, accumulate, divide.
 
-   @param frontierMap maps sample id to leaf index.
+   @param leafMap maps sample id to leaf index.
 
    @param leafCount is the number of leaves in the tree.
 
    @return void, with output parameter vector.
 */
-void LeafReg::Scores(const SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx) {
+void LeafReg::Scores(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx) {
   std::vector<unsigned int> sCount(leafCount); // Leaf sample counts.
   std::fill(sCount.begin(), sCount.end(), 0);
-  for (unsigned int sIdx = 0; sIdx < sampleReg->BagCount(); sIdx++) {
-    unsigned int leafIdx = frontierMap[sIdx];
-    ScoreAccum(tIdx, leafIdx, sampleReg->Sum(sIdx));
-    sCount[leafIdx] += sampleReg->SCount(sIdx);
+  for (unsigned int sIdx = 0; sIdx < sample->BagCount(); sIdx++) {
+    unsigned int leafIdx = leafMap[sIdx];
+    ScoreAccum(tIdx, leafIdx, sample->Sum(sIdx));
+    sCount[leafIdx] += sample->SCount(sIdx);
   }
 
   for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
@@ -116,7 +124,7 @@ void LeafReg::Scores(const SampleReg *sampleReg, const std::vector<unsigned int>
 }
 
 
-void LeafReg::SampleInfo(const SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx) {  
+void LeafReg::SampleInfo(const SampleReg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx) {  
   std::vector<unsigned int> sampleOffset(leafCount);
   SampleOffset(sampleOffset, Origin(tIdx), leafCount, info.size());
 
@@ -124,11 +132,11 @@ void LeafReg::SampleInfo(const SampleReg *sampleReg, const std::vector<unsigned 
   std::fill(leafSeen.begin(), leafSeen.end(), 0);
   RankCount init;
   init.Init();
-  unsigned int bagCount = sampleReg->BagCount();
+  unsigned int bagCount = sample->BagCount();
   info.insert(info.end(), bagCount, init);
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int leafIdx = frontierMap[sIdx];
-    InfoSet(sampleOffset[leafIdx] + leafSeen[leafIdx]++, sampleReg->SCount(sIdx), sampleReg->Rank(sIdx));
+    unsigned int leafIdx = leafMap[sIdx];
+    InfoSet(sampleOffset[leafIdx] + leafSeen[leafIdx]++, sample->SCount(sIdx), sample->Rank(sIdx));
   }
 }
 
@@ -140,7 +148,7 @@ void LeafReg::SampleInfo(const SampleReg *sampleReg, const std::vector<unsigned 
 
    @void, with count-adjusted leaf nodes.
  */
-void Leaf::NodeExtent(std::vector<unsigned int> frontierMap, unsigned int bagCount, unsigned int leafCount, unsigned int tIdx) {
+void Leaf::NodeExtent(std::vector<unsigned int> leafMap, unsigned int bagCount, unsigned int leafCount, unsigned int tIdx) {
   unsigned int leafBase = leafNode.size();
   origin[tIdx] = leafBase;
 
@@ -148,7 +156,7 @@ void Leaf::NodeExtent(std::vector<unsigned int> frontierMap, unsigned int bagCou
   init.Init();
   leafNode.insert(leafNode.end(), leafCount, init);
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int leafIdx = frontierMap[sIdx];
+    unsigned int leafIdx = leafMap[sIdx];
     leafNode[leafBase + leafIdx].Count()++;
   }
 }
@@ -179,10 +187,10 @@ void LeafReg::SampleOffset(std::vector<unsigned int> &sampleOffset, unsigned int
 
    @return void, with side-effected weights and forest terminals.
  */
-void LeafCtg::Leaves(const SampleCtg *sampleCtg, const std::vector<unsigned int> &frontierMap, unsigned int tIdx) {
-  unsigned int leafCount = 1 + *std::max_element(frontierMap.begin(), frontierMap.end());
-  NodeExtent(frontierMap, sampleCtg->BagCount(), leafCount, tIdx);
-  Scores(sampleCtg, frontierMap, leafCount, tIdx);
+void LeafCtg::Leaves(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
+  unsigned int leafCount = 1 + *std::max_element(leafMap.begin(), leafMap.end());
+  NodeExtent(leafMap, sample->BagCount(), leafCount, tIdx);
+  Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
 }
 
 
@@ -191,22 +199,22 @@ void LeafCtg::Leaves(const SampleCtg *sampleCtg, const std::vector<unsigned int>
 
    @param sampleCtg is the sampling vector for the current tree.
    
-   @param frontierMap maps sample indices to terminal tree nodes.
+   @param leafMap maps sample indices to leaf indices.
 
    @param treeOrigin is the base leaf index of the current tree.
 
    @return void, with side-effected weight vector.
  */
-void LeafCtg::Scores(const SampleCtg *sampleCtg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx) {
+void LeafCtg::Scores(const SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx) {
   WeightInit(leafCount);
 
   std::vector<double> leafSum(leafCount);
   std::fill(leafSum.begin(), leafSum.end(), 0.0);
-  for (unsigned int sIdx = 0; sIdx < sampleCtg->BagCount(); sIdx++) {
-    unsigned int leafIdx = frontierMap[sIdx];
+  for (unsigned int sIdx = 0; sIdx < sample->BagCount(); sIdx++) {
+    unsigned int leafIdx = leafMap[sIdx];
     FltVal sum;
     unsigned int dummy;
-    unsigned int ctg = sampleCtg->Ref(sIdx, sum, dummy);
+    unsigned int ctg = sample->Ref(sIdx, sum, dummy);
     leafSum[leafIdx] += sum;
     WeightAccum(tIdx, leafIdx, ctg, sum);
   }

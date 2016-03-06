@@ -24,38 +24,53 @@
    @brief Methods and members for management of response-related computations.
  */
 class Response {
- protected:
   const std::vector<double> &y;
+  class Leaf *leaf;
+  class Sample** sampleBlock;
  public:
-  Response(const std::vector<double> &_y);
-  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank);
-  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class RankCount> &info);
+  virtual ~Response();
+
+  const std::vector<double> &Y() {
+    return y;
+  }
+  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class RankCount> &_leafInfo);
+  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
+
+  class PreTree **BlockTree(const class RowRank *rowRank, unsigned int blockSize);
+  unsigned int BagCount(unsigned int blockIdx);
+  const class BV *TreeBag(unsigned int blockIdx);
+  void LeafReserve(unsigned int leafEst, unsigned int bagEst);
+  void DeBlock(unsigned int blockSize);
+  void Leaves(const std::vector<unsigned int> &frontierMap, unsigned int blockIdx, unsigned int tIdx);
+
+  virtual class Sample* Sampler(const class RowRank *rowRank) = 0;
 };
+
 
 /**
    @brief Specialization to regression trees.
  */
 class ResponseReg : public Response {
-  class SampleReg* SampleRows(const class RowRank *rowRank);
   const std::vector<unsigned int> &row2Rank; // Facilitates rank[] output.
-
  public:
-  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank);
-  class SampleReg **BlockSample(const class RowRank *rowRank, int tCount);
+
+  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class RankCount> &leafInfo);
+  ~ResponseReg();
+  class Sample *Sampler(const class RowRank *rowRank);
 };
 
 /**
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
-  class SampleCtg* SampleRows(const class RowRank *rowRank);
   const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
  public:
 
-  class SampleCtg **BlockSample(const class RowRank *rowRank, int tCount);
-  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &yProxy);
-  
-  static int CtgSum(unsigned int sIdx, double &sum);
+  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
+  ~ResponseCtg();
+  class Sample *Sampler(const class RowRank *rowRank);
 };
 
 #endif

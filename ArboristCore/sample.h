@@ -99,6 +99,9 @@ class Sample {
   static unsigned int CountRows(int sCountRow[], int sIdxRow[]);
 
  public:
+  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
+  static class SampleReg *FactoryReg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
+
   static void Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
 
@@ -134,8 +137,13 @@ class Sample {
   }
 
     
-  inline class BV *TreeBag() {
+  inline const class BV *TreeBag() const {
     return treeBag;
+  }
+
+
+  inline unsigned int SCount(unsigned int sIdx) const {
+    return sampleNode[sIdx].SCount();
   }
 
 
@@ -161,13 +169,6 @@ class SampleReg : public Sample {
  public:
   SampleReg();
   ~SampleReg();
-  static SampleReg *Factory(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
-
-  inline unsigned int SCount(unsigned int sIdx) const {
-    return sampleNode[sIdx].SCount();
-  }
-
-
   inline unsigned int Rank(unsigned int sIdx) const {
     return sample2Rank[sIdx];
   }
@@ -185,7 +186,6 @@ class SampleCtg : public Sample {
  public:
   SampleCtg();
   ~SampleCtg();
-  static SampleCtg *Factory(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
   static void Immutables(unsigned int _ctgWidth, int _nTree);
   static void DeImmutables();
 

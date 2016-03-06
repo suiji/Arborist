@@ -112,18 +112,12 @@ void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, Bit
   double *votes = new double[nRow * ctgWidth];
   for (unsigned int i = 0; i < nRow * ctgWidth; i++)
     votes[i] = 0;
-  unsigned int rowStart;
-  for (rowStart = 0; rowStart + rowBlock < nRow; rowStart += rowBlock) {
-    forest->PredictAcross(predictLeaves, rowStart, rowStart + rowBlock, bag);
-    Score(leafCtg, votes, rowStart, rowStart + rowBlock);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
+    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    forest->PredictAcross(predictLeaves, rowStart, rowEnd, bag);
+    Score(leafCtg, votes, rowStart, rowEnd);
     if (prob != 0)
-      Prob(leafCtg, prob, rowStart, rowStart + rowBlock);
-  }
-  if (rowStart < nRow) {
-    forest->PredictAcross(predictLeaves, rowStart, nRow, bag);
-    Score(leafCtg, votes, rowStart, nRow);
-    if (prob != 0)
-      Prob(leafCtg, prob, rowStart, nRow);
+      Prob(leafCtg, prob, rowStart, rowEnd);
   }
   Vote(votes, census, &yPred[0]);
   delete [] votes;
@@ -261,14 +255,10 @@ void PredictCtg::Prob(const LeafCtg *leafCtg, double *prob, unsigned int rowStar
 /**
  */
 void PredictReg::PredictAcross(const Forest *forest, const LeafReg *leafReg, std::vector<double> &yPred, const BitMatrix *bag) {
-  unsigned int rowStart;
-  for (rowStart = 0; rowStart + rowBlock < nRow; rowStart += rowBlock) {
-    forest->PredictAcross(predictLeaves, rowStart, rowStart + rowBlock, bag);
-    Score(leafReg, &yPred[0], rowStart, rowStart + rowBlock);
-  }
-  if (rowStart < nRow) {
-    forest->PredictAcross(predictLeaves, rowStart, nRow, bag);
-    Score(leafReg, &yPred[0], rowStart, nRow);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
+    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    forest->PredictAcross(predictLeaves, rowStart, rowEnd, bag);
+    Score(leafReg, &yPred[0], rowStart, rowEnd);
   }
 }
 
@@ -276,19 +266,13 @@ void PredictReg::PredictAcross(const Forest *forest, const LeafReg *leafReg, std
 /**
  */
 void PredictReg::PredictAcross(const Forest *forest, const LeafReg *leafReg, std::vector<double> &yPred, Quant *quant, double qPred[], const BitMatrix *bag) {
-  unsigned int rowStart;
-  for (rowStart = 0; rowStart + rowBlock < nRow; rowStart += rowBlock) {
-    forest->PredictAcross(predictLeaves, rowStart, rowStart + rowBlock, bag);
-    Score(leafReg, &yPred[0], rowStart, rowStart + rowBlock);
-    quant->PredictAcross(leafReg, &predictLeaves[rowStart], rowStart, rowStart + rowBlock, qPred);
-  }
-  if (rowStart < nRow) {
-    forest->PredictAcross(predictLeaves, rowStart, nRow, bag);
-    Score(leafReg, &yPred[0], rowStart, nRow);
-    quant->PredictAcross(leafReg, &predictLeaves[rowStart], rowStart, nRow, qPred);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
+    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    forest->PredictAcross(predictLeaves, rowStart, rowEnd, bag);
+    Score(leafReg, &yPred[0], rowStart, rowEnd);
+    quant->PredictAcross(leafReg, predictLeaves, rowStart, rowEnd, qPred);
   }
 }
-
 
 
 

@@ -264,7 +264,7 @@ void PreTree::ReNodes() {
 
   @return void, with side-effected forest.
 */
-void PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
+const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
   forest->Origins(tIdx);
   forest->NodeInit(height);
   NodeConsume(forest, tIdx);
@@ -273,6 +273,8 @@ void PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
 
   for (unsigned int i = 0; i < nPred; i++)
     predInfo[i] += info[i];
+
+  return SampleToLeaf(forest, tIdx);
 }
 
 
@@ -310,11 +312,12 @@ void PTNode::Consume(Forest *forest, unsigned int tIdx) {
 
    @return Pointer to overwritten map.
  */
-void PreTree::SampleToLeaf(Forest *forest, unsigned int tIdx, std::vector<unsigned int> &frontierMap) {
+const std::vector<unsigned int> PreTree::SampleToLeaf(Forest *forest, unsigned int tIdx) {
   // Initializes with unattainable leaf-index value.
   std::vector<unsigned int> nodeLeaf(height);
   std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);
-  
+
+  std::vector<unsigned int> frontierMap(bagCount);
   unsigned int leafIdx = 0;
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int ptIdx = sample2PT[sIdx];
@@ -325,6 +328,8 @@ void PreTree::SampleToLeaf(Forest *forest, unsigned int tIdx, std::vector<unsign
     }
     frontierMap[sIdx] = nodeLeaf[ptIdx];
   }
+
+  return frontierMap;
 }
 
 

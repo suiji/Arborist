@@ -89,14 +89,14 @@ void BV::Consume(std::vector<unsigned int> &out, unsigned int bitEnd) {
 
 /**
  */
-BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol) : BV(_nRow * _nCol), stride(_nCol) {
+BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol) : BV(_nRow * _nCol), nRow(_nRow), stride(_nCol) {
 }
 
 
 /**
    @brief Constructor.  Sets stride to zero if empty.
  */
-BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw) : BV(_raw), stride(_raw.size() > 0 ? _nCol : 0) {
+BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw) : BV(_raw), nRow(_nRow), stride(_raw.size() > 0 ? _nCol : 0) {
 }
 
 
@@ -121,4 +121,31 @@ BVJagged::BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsi
  */
 BVJagged::~BVJagged() {
   delete [] offset;
+}
+
+
+/**
+  @brief Transfers vector of bits to matrix column.
+
+  @param vec holds rows as compressed bits.
+
+  @param colIdx is the column index.
+  
+  @return void, with output reference bit matrix.
+*/
+void BitMatrix::SetColumn(const BV *vec, int colIdx) {
+  unsigned int slotBits = BV::SlotBits();
+  int slotRow = 0;
+  unsigned int slot = 0;
+  for (unsigned int baseRow = 0; baseRow < nRow; baseRow += slotBits, slot++) {
+    unsigned int sourceSlot = vec->Slot(slot);
+    unsigned int mask = 1;
+    unsigned int supRow = nRow < baseRow + slotBits ? nRow : baseRow + slotBits;
+    for (unsigned int row = baseRow; row < supRow; row++, mask <<= 1) {
+      if (sourceSlot & mask) { // row is in-bag.
+	SetBit(row, colIdx);
+      }
+    }
+    slotRow += slotBits;
+  }
 }

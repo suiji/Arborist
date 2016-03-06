@@ -92,7 +92,13 @@ class Leaf {
  public:
   Leaf(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode);
   void Reserve(unsigned int leafEst);
-  void NodeExtent(std::vector<unsigned int> frontierMap, unsigned int bagCount, unsigned int leafCount, unsigned int tIdx);
+  virtual ~Leaf() {}
+  
+  virtual void Reserve(unsigned int leafEst, unsigned int bagEst) = 0;
+  virtual void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
+
+  
+  void NodeExtent(std::vector<unsigned int> leafMap, unsigned int bagCount, unsigned int leafCount, unsigned int tIdx);
 
   inline unsigned Origin(unsigned int tIdx) {
     return origin[tIdx];
@@ -154,7 +160,7 @@ class Leaf {
 
 class LeafReg : public Leaf {
   std::vector<class RankCount> &info;
-  void Scores(const class SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx);
+  void Scores(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
 
   inline void InfoSet(unsigned int samplePos, unsigned int _sCount, unsigned int _rank) {
     info[samplePos].Set(_sCount, _rank);
@@ -192,10 +198,12 @@ class LeafReg : public Leaf {
 
  public:
   LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<RankCount> &_info);
+  ~LeafReg();
+  
   void Reserve(unsigned int leafEst, unsigned int bagEst);
-  void Leaves(const class SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int tIdx);
+  void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
   void SampleOffset(std::vector<unsigned int> &sampleOffset, unsigned int leafBase, unsigned int leafCount, unsigned int sampleBase) const;
-  void SampleInfo(const class SampleReg *sampleReg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx);
+  void SampleInfo(const class SampleReg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
 
 
   inline void InfoRef(unsigned int infoIdx, unsigned int &_sCount, unsigned int &_rank) const {
@@ -242,11 +250,13 @@ class LeafCtg : public Leaf {
     return info[ctgWidth * idx + ctg];
   }
   
-  void Scores(const class SampleCtg *sampleCtg, const std::vector<unsigned int> &frontierMap, unsigned int leafCount, unsigned int tIdx);
+  void Scores(const class SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
  public:
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<double> &_info, unsigned int _ctgWdith);
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<double> &_info);
-  void Reserve(unsigned int leafEst);
+  ~LeafCtg();
+
+  void Reserve(unsigned int leafEst, unsigned int bagEst);
   
   inline unsigned int CtgWidth() const {
     return ctgWidth;
@@ -275,7 +285,7 @@ class LeafCtg : public Leaf {
     return info[ctgWidth * idx + ctg];
   }
 
-  void Leaves(const class SampleCtg *sampleCtg, const std::vector<unsigned int> &frontierMap, unsigned int tIdx);
+  void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
 };
 
 

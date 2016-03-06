@@ -55,6 +55,7 @@ class PreTree {
   class BV *splitBits;
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
+  const std::vector<unsigned int> SampleToLeaf(class Forest *forest, unsigned int tIdx);
   unsigned int bagCount;
 
  public:
@@ -64,11 +65,10 @@ class PreTree {
   static void DeImmutables();
   static void Reserve(unsigned int height);
 
-  void DecTree(class Forest *forest, unsigned int tNum, double predInfo[]);
+  const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, double predInfo[]);
   void NodeConsume(class Forest *forest, unsigned int tIdx);
   unsigned int BitWidth();
   void BitConsume(unsigned int *outBits);
-  void SampleToLeaf(class Forest *forest, unsigned int tIdx, std::vector<unsigned int> &frontierMap);
 
   
   /**

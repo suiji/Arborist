@@ -129,11 +129,14 @@ class BV {
 
  */
 class BitMatrix : public BV {
+  const unsigned int nRow;
   const unsigned int stride;
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
   BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
   ~BitMatrix();
+
+  void SetColumn(const class BV *vec, int colIdx);
 
   /**
      @brief Bit test with short-circuit for zero-length matrix.

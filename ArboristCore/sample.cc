@@ -133,7 +133,7 @@ unsigned int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
 /**
    @brief Static entry for classification.
  */
-SampleCtg *SampleCtg::Factory(const std::vector<double> &y, const RowRank *rowRank,  const std::vector<unsigned int> &yCtg) {
+SampleCtg *Sample::FactoryCtg(const std::vector<double> &y, const RowRank *rowRank,  const std::vector<unsigned int> &yCtg) {
   SampleCtg *sampleCtg = new SampleCtg();
   sampleCtg->Stage(yCtg, y, rowRank);
 
@@ -145,7 +145,7 @@ SampleCtg *SampleCtg::Factory(const std::vector<double> &y, const RowRank *rowRa
    @brief Static entry for regression response.
 
  */
-SampleReg *SampleReg::Factory(const std::vector<double> &y, const RowRank *rowRank, const std::vector<unsigned int> &row2Rank) {
+SampleReg *Sample::FactoryReg(const std::vector<double> &y, const RowRank *rowRank, const std::vector<unsigned int> &row2Rank) {
   SampleReg *sampleReg = new SampleReg();
   sampleReg->Stage(y, row2Rank, rowRank);
 
