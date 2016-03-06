@@ -48,9 +48,7 @@ The *Arborist* is will soon be available on PyPI.
 
 News/Changes
 ----
-
-- Latest changes are geared toward hierarchical parallelization: distributed over heterogeneous systems. Low-level support to be available before actual interfaces are provided.
-
+- Several major refactorings have taken place since the initial CRAN release.  These were aimed not only at improving performance but also away from the Arborist's original narrow focus on high observation count and high predictor probability.  Additionally, the groundwork has been laid for more advanced features to appear in upcoming releases, such as support for heterogeneous parallelization and for sparse training sets.
 - A "preTrain" feature has been added to cache initital training state.  This will save computation under iterative training schemes, such as are facilitated by the R package Caret.
 - Optional vector "regMono" has been introduced to specify monotonic constraints on numeric variables under regression.
 - Training now computes and saves full leaf information by default. This facilitates quantile prediction, as well as interaction with other packages, such as "forestFloor", by eliminating the need for customized training.
