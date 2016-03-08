@@ -44,6 +44,10 @@ PredictForest <- function(forest, leaf, signature, newdata, yTest, qVec, qBin, c
       stop("Quantile range must be increasing")
   }
 
+  if (!is.null(yTest) && nrow(newdata) != length(yTest)) {
+    stop("Row counts of data and test vector must match")
+  }
+  
   # Checks test data for conformity with training data.
   predBlock <- PredBlock(newdata, signature)
   if (inherits(leaf, "LeafReg")) {

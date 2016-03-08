@@ -113,7 +113,7 @@ ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsign
 
    @param rowRank is the predictor rank information.
 
-   @param tCount is the number of trees in the block.
+   @param blockSize is the number of trees in the block.
 
    @return block of SampleCtg instances.
  */
@@ -127,16 +127,29 @@ PreTree **Response::BlockTree(const RowRank *rowRank, unsigned int blockSize) {
 }
 
 
+/**
+   @return Regression-style Sample object.
+ */
 Sample *ResponseReg::Sampler(const class RowRank *rowRank) {
   return Sample::FactoryReg(Y(), rowRank, row2Rank);
 }
 
 
+/**
+   @return Classification-style Sample object.
+ */
 Sample *ResponseCtg::Sampler(const class RowRank *rowRank) {
   return Sample::FactoryCtg(Y(), rowRank, yCtg);
 }
 
 
+/**
+   @brief Deletes Sample objects belonging to the current block.
+
+   @param blockSize is the number of objects in the current block.
+
+   @return void.
+ */
 void Response::DeBlock(unsigned int blockSize) {
   for (unsigned int blockIdx = 0; blockIdx < blockSize; blockIdx++) {
     delete sampleBlock[blockIdx];
@@ -146,16 +159,29 @@ void Response::DeBlock(unsigned int blockSize) {
 }
 
 
-void Response::Leaves(const std::vector<unsigned int> &frontierMap, unsigned int blockIdx, unsigned int tIdx) {
-  leaf->Leaves(sampleBlock[blockIdx], frontierMap, tIdx);    
+/**
+   @brief Fills in leaves for a tree.
+
+   @param leafMap maps sampled indices to leaf indices.
+
+   @param blockIdx is the block-based index of a Sample.
+
+   @param tIdx is the absolute tree index.
+
+   @return void, with side-effected Leaf object.
+ */
+void Response::Leaves(const std::vector<unsigned int> &leafMap, unsigned int blockIdx, unsigned int tIdx) {
+  leaf->Leaves(sampleBlock[blockIdx], leafMap, tIdx);    
 }
 
 
-unsigned int Response::BagCount(unsigned int blockIdx) {
-  return sampleBlock[blockIdx]->BagCount();
-}
+/**
+   @brief Exposes in-bag vectors within sample block.
 
+   @param blockIdx is the block-based index of a Sample.
 
+   @return the in-bag vector for the tree at the referenced index.
+ */
 const BV *Response::TreeBag(unsigned int blockIdx) {
   return sampleBlock[blockIdx]->TreeBag();
 }

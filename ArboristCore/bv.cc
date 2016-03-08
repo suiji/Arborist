@@ -80,7 +80,7 @@ BV *BV::Resize(unsigned int bitMin) {
 
    @return void, with output vector parameter.
  */
-void BV::Consume(std::vector<unsigned int> &out, unsigned int bitEnd) {
+void BV::Consume(std::vector<unsigned int> &out, unsigned int bitEnd) const {
   unsigned int slots = bitEnd == 0 ? nSlot : SlotAlign(bitEnd);
   out.reserve(slots);
   out.insert(out.end(), raw, raw + slots);

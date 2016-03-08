@@ -250,7 +250,7 @@ void Forest::NodeInit(unsigned int treeHeight) {
 /**
    @brief Produces new splits for an entire tree.
  */
-void Forest::BitProduce(BV *splitBits, unsigned int bitEnd) {
+void Forest::BitProduce(const BV *splitBits, unsigned int bitEnd) {
   splitBits->Consume(facVec, bitEnd);
 }
 

@@ -28,6 +28,7 @@ using namespace std;
 unsigned int SplitPred::nPred = 0;
 int SplitPred::predFixed = 0;
 double *SplitPred::predProb = 0;
+
 int *SPReg::mono = 0;
 unsigned int SPCtg::ctgWidth = 0;
 
@@ -956,7 +957,7 @@ unsigned int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double
       FltVal ssL = sumL0 * sumL0 + sumL1 * sumL1;
       FltVal ssR = (totR0 - sumL0) * (totR0 - sumL0) + (totR1 - sumL1) * (totR1 - sumL1);
       FltVal cutGini = ssR / sumR + ssL / sumL;
-      if (cutGini > maxGini) {
+       if (cutGini > maxGini) {
         maxGini = cutGini;
         cut = outSlot;
       }
@@ -965,6 +966,7 @@ unsigned int SPCtg::SplitBinary(RunSet *runSet, int splitIdx, double sum, double
 
   return runSet->LHSlots(cut, sCount);
 }
+
 
 /**
    @brief Weighted-variance splitting method.

@@ -28,7 +28,7 @@ class BV {
   BV(const std::vector<unsigned int> &_raw);
   ~BV();
 
-  void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0);
+  void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0) const;
 
   BV *Resize(unsigned int bitMin);
 

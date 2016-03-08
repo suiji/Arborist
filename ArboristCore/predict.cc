@@ -72,7 +72,7 @@ void Predict::Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nPred
 /**
    @brief Entry for separate classification prediction.
  */
-void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<double> &_leafInfoCtg, std::vector<int> &yPred, int *_census, int *_yTest, int *_conf, double *_error, double *_prob, const std::vector<unsigned int> &_bag) {
+void Predict::Classification(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<double> &_leafInfoCtg, std::vector<int> &yPred, int *_census, const std::vector<unsigned int> &_yTest, int *_conf, std::vector<double> &_error, double *_prob, const std::vector<unsigned int> &_bag) {
   int nTree = _origin.size();
   unsigned int _nRow = yPred.size();
   PBPredict::Immutables(_blockNumT, _blockFacT, _nPredNum, _nPredFac, _nRow);
@@ -108,7 +108,7 @@ Predict::~Predict() {
 }
 
 
-void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, BitMatrix *bag, int *census, std::vector<int> &yPred, int *yTest, int *conf, double *error, double *prob) {
+void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, BitMatrix *bag, int *census, std::vector<int> &yPred, const std::vector<unsigned int> &yTest, int *conf, std::vector<double> &error, double *prob) {
   double *votes = new double[nRow * ctgWidth];
   for (unsigned int i = 0; i < nRow * ctgWidth; i++)
     votes[i] = 0;
@@ -122,7 +122,7 @@ void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, Bit
   Vote(votes, census, &yPred[0]);
   delete [] votes;
 
-  if (yTest != 0) {
+  if (yTest.size() > 0) {
     Validate(yTest, &yPred[0], conf, error);
   }
 }
@@ -131,7 +131,7 @@ void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, Bit
 /**
    @brief Fills in confusion matrix and error vector.
 
-   @param yCtg contains the training response.
+   @param yTest contains the test response.
 
    @param yPred is the predicted response.
 
@@ -141,16 +141,14 @@ void PredictCtg::PredictAcross(const Forest *forest, const LeafCtg *leafCtg, Bit
 
    @return void.
 */
-void PredictCtg::Validate(const int yCtg[], const int yPred[], int confusion[], double error[]) {
+void PredictCtg::Validate(const std::vector<unsigned int> &yTest, const int yPred[], int confusion[], std::vector<double> &error) {
   for (unsigned int row = 0; row < nRow; row++) {
-    confusion[ctgWidth * yCtg[row] + yPred[row]]++;
+    confusion[ctgWidth * yTest[row] + yPred[row]]++;
   }
-
-  // TODO:  Adjust confusion matrix for mismatched separate prediction.
 
   // Fills in classification error vector from off-diagonal confusion elements..
   //
-  for (unsigned int rsp = 0; rsp < ctgWidth; rsp++) {
+  for (unsigned int rsp = 0; rsp < error.size(); rsp++) {
     int numWrong = 0;
     int numRight = 0;
     for (unsigned int predicted = 0; predicted < ctgWidth; predicted++) {
@@ -161,7 +159,7 @@ void PredictCtg::Validate(const int yCtg[], const int yPred[], int confusion[], 
 	numRight = confusion[ctgWidth * rsp + predicted];
       }
     }
-    error[rsp] = double(numWrong) / double(numWrong + numRight);
+    error[rsp] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
   }
 }
 

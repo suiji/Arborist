@@ -89,16 +89,16 @@ PreTree::PreTree(unsigned int _bagCount) : height(1), leafCount(1), bitEnd(0), b
     info[i] = 0.0;
   splitBits = BitFactory();
 }
-  
+
 
 /**
-     @brief Sets specified bit in splitting bit vector.
+   @brief Sets specified bit in splitting bit vector.
 
-     @param id is the index node for which the LH bit is set.
+   @param id is the index node for which the LH bit is set.
 
-     @param pos is the bit position beyond to set.
+   @param pos is the bit position beyond to set.
 
-     @return void.
+   @return void.
 */
 void PreTree::LHBit(int idx, unsigned int pos) {
   splitBits->SetBit(nodeVec[idx].splitVal.offset + pos);
@@ -274,7 +274,7 @@ const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tI
   for (unsigned int i = 0; i < nPred; i++)
     predInfo[i] += info[i];
 
-  return SampleToLeaf(forest, tIdx);
+  return FrontierToLeaf(forest, tIdx);
 }
 
 
@@ -297,22 +297,26 @@ void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
 
    @param forest outputs the growing forest node vector.
 
-   @return void, with output parameter vector.
+   @param tIdx is the index of the tree being produced.
+
+   @return void, with side-effected Forest.
  */
 void PTNode::Consume(Forest *forest, unsigned int tIdx) {
   if (lhId > 0) { // i.e., nonterminal
-    forest->NodeSet(tIdx, id, predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
+    forest->NonterminalProduce(tIdx, id, predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
   }
 }
 
 
 /**
    @brief Copies frontier map, but replaces node indices with indices of
-   their associated leaves.  Also sets terminal fields in forest.
+   corresponding leaves.  Also sets terminal forest nodes.
 
-   @return Pointer to overwritten map.
+   @param tIdx is the index of the tree being produced.
+
+   @return Pointer to rewritten map, with side-effected Forest.
  */
-const std::vector<unsigned int> PreTree::SampleToLeaf(Forest *forest, unsigned int tIdx) {
+const std::vector<unsigned int> PreTree::FrontierToLeaf(Forest *forest, unsigned int tIdx) {
   // Initializes with unattainable leaf-index value.
   std::vector<unsigned int> nodeLeaf(height);
   std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);
@@ -321,9 +325,9 @@ const std::vector<unsigned int> PreTree::SampleToLeaf(Forest *forest, unsigned i
   unsigned int leafIdx = 0;
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int ptIdx = sample2PT[sIdx];
-    if (nodeLeaf[ptIdx] == leafCount) {
+    if (nodeLeaf[ptIdx] == leafCount) { // Unseen so far.
       unsigned int nodeIdx = sample2PT[sIdx];
-      forest->NodeSet(tIdx, nodeIdx, leafIdx, 0, 0.0);
+      forest->LeafProduce(tIdx, nodeIdx, leafIdx);
       nodeLeaf[ptIdx] = leafIdx++;
     }
     frontierMap[sIdx] = nodeLeaf[ptIdx];

@@ -134,13 +134,25 @@ class Forest {
     return treeOrigin[tIdx] + nodeOffset;
   }
 
-/**
-   @brief Sets looked-up forest node to values passed.
+  
+  /**
+     @brief Sets looked-up nonterminal node to values passed.
 
-   @return void.
- */
-  inline void NodeSet(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, double _split) {
+     @return void.
+  */
+  inline void NonterminalProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, double _split) {
     forestNode[NodeIdx(tIdx, nodeIdx)].Set(_predIdx, _bump, _split);
+  }
+
+
+  /**
+    @brief Sets looked-up leaf node to leaf index passed.
+
+    @return void.
+
+  */
+  inline void LeafProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _leafIdx) {
+    forestNode[NodeIdx(tIdx, nodeIdx)].Set(_leafIdx, 0, 0.0);
   }
 
 
@@ -227,7 +239,7 @@ class Forest {
 
 
   void NodeProduce(unsigned int _predIdx, unsigned int _bump, double _split);
-  void BitProduce(class BV *splitBits, unsigned int bitEnd);
+  void BitProduce(const class BV *splitBits, unsigned int bitEnd);
   void Origins(unsigned int tIdx);
 };
 

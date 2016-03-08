@@ -39,11 +39,10 @@ class Response {
   static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
 
   class PreTree **BlockTree(const class RowRank *rowRank, unsigned int blockSize);
-  unsigned int BagCount(unsigned int blockIdx);
   const class BV *TreeBag(unsigned int blockIdx);
   void LeafReserve(unsigned int leafEst, unsigned int bagEst);
   void DeBlock(unsigned int blockSize);
-  void Leaves(const std::vector<unsigned int> &frontierMap, unsigned int blockIdx, unsigned int tIdx);
+  void Leaves(const std::vector<unsigned int> &leafMap, unsigned int blockIdx, unsigned int tIdx);
 
   virtual class Sample* Sampler(const class RowRank *rowRank) = 0;
 };

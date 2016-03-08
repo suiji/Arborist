@@ -35,7 +35,8 @@ using namespace Rcpp;
 #include "forest.h"
 #include "leaf.h"
 
-//#include <iostream>
+#include <algorithm>
+#include <iostream>
 
 
 /**
@@ -66,11 +67,7 @@ double MSE(const double yValid[], NumericVector y, double &rsq) {
 
 
 /**
-   @brief Out-of-bag predction for regression.
-
-   @param sPredInfo is a copy-out vector with Info values.
-
-   @param sError holds a copy-out scalar with mean-square error.
+   @brief Predction for regression.
 
    @return Wrapped zero, with copy-out parameters.
  */
@@ -153,28 +150,63 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
   std::vector<double> leafInfo;
-  CharacterVector levels;
-  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, leafInfo, levels);
+  CharacterVector levelsTrain;
+  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, leafInfo, levelsTrain);
 
-  unsigned int ctgWidth = levels.length();
-
+  unsigned int ctgWidth = levelsTrain.length();
   bool validate = !Rf_isNull(sYTest);
-  IntegerVector confCore = validate ? IntegerVector(ctgWidth * ctgWidth) : IntegerVector(0);
-  NumericVector error = validate ? NumericVector(ctgWidth) : NumericVector(0);
   IntegerVector yTest = validate ? IntegerVector(sYTest) - 1 : IntegerVector(0);
+  CharacterVector levelsTest = validate ? as<CharacterVector>(IntegerVector(sYTest).attr("levels")) : CharacterVector(0);
+  IntegerVector levelMatch = validate ? match(levelsTest, levelsTrain) : IntegerVector(0);
+  unsigned int testWidth;
+  unsigned int testLength = yTest.length();
+  bool dimFixup = false;
+  if (validate) {
+    if (is_true(any(levelsTest != levelsTrain))) {
+      dimFixup = true;
+      IntegerVector sq = seq(0, levelsTest.length() - 1);
+      IntegerVector idxNonMatch = sq[is_na(levelMatch)];
+      if (idxNonMatch.length() > 0) {
+	warning("Unreachable test levels not encountered in training");
+	int proxy = ctgWidth + 1;
+	for (int i = 0; i < idxNonMatch.length(); i++) {
+	  int idx = idxNonMatch[i];
+	  levelMatch[idx] = proxy++;
+        }
+      }
 
+    // Matches are one-based.
+      for (unsigned int i = 0; i < testLength; i++) {
+        yTest[i] = levelMatch[yTest[i]] - 1;
+      }
+      testWidth = max(yTest) + 1;
+    }
+    else {
+      testWidth = levelsTest.length();
+    }
+  }
+  else {
+    testWidth = 0;
+  }
+  std::vector<unsigned int> testCore(testLength);
+  for (unsigned int i = 0; i < testLength; i++) {
+    testCore[i] = yTest[i];
+  }
+
+  IntegerVector confCore(testWidth * ctgWidth);
+  std::vector<double> misPredCore(testWidth);
   IntegerVector censusCore = IntegerVector(nRow * ctgWidth);
   std::vector<int> yPred(nRow);
   NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
   std::vector<unsigned int> dummy;
-  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, leafInfo, yPred, censusCore.begin(), validate ? yTest.begin() : 0, validate ? confCore.begin() : 0, validate ? error.begin() : 0, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, leafInfo, yPred, censusCore.begin(), testCore, validate ? confCore.begin() : 0, misPredCore, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   List predBlock(sPredBlock);
   IntegerMatrix census = transpose(IntegerMatrix(ctgWidth, nRow, censusCore.begin()));
-  census.attr("dimnames") = List::create(predBlock["rowNames"], levels);
+  census.attr("dimnames") = List::create(predBlock["rowNames"], levelsTrain);
   NumericMatrix prob = doProb ? transpose(NumericMatrix(ctgWidth, nRow, probCore.begin())) : NumericMatrix(0);
   if (doProb) {
-    prob.attr("dimnames") = List::create(predBlock["rowNames"], levels);
+    prob.attr("dimnames") = List::create(predBlock["rowNames"], levelsTrain);
   }
 
   for (int i = 0; i < nRow; i++) // Bases to unity for front end.
@@ -182,14 +214,28 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 
   List prediction;
   if (validate) {
-    IntegerMatrix conf = transpose(IntegerMatrix(ctgWidth, ctgWidth, confCore.begin()));
-    conf.attr("dimnames") = List::create(levels, levels);
+    IntegerMatrix conf = transpose(IntegerMatrix(ctgWidth, testWidth, confCore.begin()));
+    NumericVector misPred(levelsTest.length());
+    if (dimFixup) {
+      IntegerMatrix confOut(levelsTest.length(), ctgWidth);
+      for (int i = 0; i < levelsTest.length(); i++) {
+        confOut(i, _) = conf(levelMatch[i] - 1, _);
+	misPred[i] = misPredCore[levelMatch[i] - 1];
+      }
+      conf = confOut;
+    }
+    else {
+      for (int i = 0; i < levelsTest.length(); i++)
+	misPred[i] = misPredCore[i];
+    }
+    misPred.attr("names") = levelsTest;
+    conf.attr("dimnames") = List::create(levelsTest, levelsTrain);
     prediction = List::create(
-         _["misprediction"] = error,
- 	 _["confusion"] = conf,
-	 _["yPred"] = yPred,
-	 _["census"] = census,
-	 _["prob"] = prob
+      _["misprediction"] = misPred,
+      _["confusion"] = conf,
+      _["yPred"] = yPred,
+      _["census"] = census,
+      _["prob"] = prob
     );
     prediction.attr("class") = "ValidCtg";
   }

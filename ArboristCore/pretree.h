@@ -55,7 +55,7 @@ class PreTree {
   class BV *splitBits;
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
-  const std::vector<unsigned int> SampleToLeaf(class Forest *forest, unsigned int tIdx);
+  const std::vector<unsigned int> FrontierToLeaf(class Forest *forest, unsigned int tIdx);
   unsigned int bagCount;
 
  public:

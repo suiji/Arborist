@@ -17,6 +17,8 @@
 
  */
 
+#include "param.h"
+
 /**
    @brief Pair-based splitting information.
  */
