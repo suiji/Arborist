@@ -108,6 +108,12 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
     List levelTrain(as<List>(sig["level"]));
     FactorRemap(xFac, level, levelTrain);
   }
+  List signature = List::create(
+	_["nRow"] = nRow,
+        _["predMap"] = predMap,
+        _["level"] = level
+	);
+  signature.attr("class") = "Signature";
   
   List predBlock = List::create(
       _["colNames"] = colnames(xf),
@@ -118,10 +124,7 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
       _["nPredFac"] = nPredFac,
       _["nRow"] = nRow,
       _["facCard"] = facCard,
-      _["signature"] = List::create(
-	    _["predMap"] = predMap,
-	    _["level"] = level
-	    )
+      _["signature"] = signature
       );
   predBlock.attr("class") = "PredBlock";
 
@@ -157,6 +160,13 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
   NumericMatrix blockNum(as<NumericMatrix>(sX));
   int nPred = blockNum.ncol();
   List dimnames = blockNum.attr("dimnames");
+  List signature = List::create(
+      _["nRow"] = blockNum.nrow(),				
+      _["predMap"] = seq_len(nPred) - 1,
+      _["level"] = List::create(0)
+  );
+  signature.attr("class") = "Signature";
+  
   List predBlock = List::create(
 	_["colNames"] = colnames(blockNum),
 	_["rowNames"] = rownames(blockNum),
@@ -166,10 +176,7 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
 	_["nPredFac"] = 0,
 	_["nRow"] = blockNum.nrow(),
         _["facCard"] = IntegerVector(0),
-	_["signature"] = List::create(
-	      _["predMap"] = seq_len(nPred) - 1,
-	      _["level"] = List::create(0)
-	      )
+	_["signature"] = signature
       );
   predBlock.attr("class") = "PredBlock";
 
@@ -190,4 +197,16 @@ void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac
   _nPredNum = as<int>((SEXP) predBlock["nPredNum"]);
   _blockNum = as<NumericMatrix>((SEXP) predBlock["blockNum"]);
   _blockFac = as<IntegerMatrix>((SEXP) predBlock["blockFac"]);
+}
+
+
+/**
+   @brief Unwraps field values useful for export.
+ */
+void SignatureUnwrap(SEXP sSignature, unsigned int &_nRow, IntegerVector &_predMap) {
+  List signature(sSignature);
+  if (!signature.inherits("Signature"))
+    stop("Expecting Signature");
+  _nRow = as<int>((SEXP) signature["nRow"]);
+  _predMap = as<IntegerVector>((SEXP) signature["predMap"]);
 }

@@ -56,21 +56,46 @@ class RankCount {
 
 class LeafNode {
   double score;
-  unsigned int count; // count of sample-index slots.
+  unsigned int extent; // count of sample-index slots.
+  static void TreeExport(const std::vector<LeafNode> &_leafNode, unsigned int treeOff, unsigned int leafCount, std::vector<double> &_score, std::vector<unsigned int> &_extent);
+
+
+  /**
+     @brief All-field accessor.
+
+     @return void, with output reference parameters.
+   */
+  inline void Ref(double &_score, unsigned int _extent) const {
+    _score = score;
+    _extent = extent;
+  }
+
  public:
+  static void Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<LeafNode> &_leafNode, std::vector<std::vector<double> > &_score, std::vector<std::vector<unsigned int> > &_extent);
+
+  /**
+     @brief Static determination of individual tree height.
+
+     @return Height of tree.
+   */
+  static inline unsigned int LeafCount(const std::vector<unsigned int> &_leafOrigin, unsigned int height, unsigned int tIdx) {
+    unsigned int heightInf = _leafOrigin[tIdx];
+    return tIdx < _leafOrigin.size() - 1 ? _leafOrigin[tIdx + 1] - heightInf : height - heightInf;
+  }
+
 
   inline void Init() {
     score = 0.0;
-    count = 0;
+    extent = 0;
   }
 
   inline unsigned int Extent() const {
-    return count;
+    return extent;
   }
 
 
   inline unsigned int &Count() {
-    return count;
+    return extent;
   }
 
 
@@ -160,6 +185,9 @@ class Leaf {
 
 class LeafReg : public Leaf {
   std::vector<class RankCount> &info;
+  static void TreeExport(const std::vector<class RankCount> &_leafInfo, unsigned int treeOff, unsigned int leafCount, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount);
+  static unsigned int LeafCount(const std::vector<unsigned int> &_origin, unsigned int height, unsigned int tIdx);
+
   void Scores(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
 
   inline void InfoSet(unsigned int samplePos, unsigned int _sCount, unsigned int _rank) {
@@ -199,6 +227,7 @@ class LeafReg : public Leaf {
  public:
   LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<RankCount> &_info);
   ~LeafReg();
+  static void Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<RankCount> &_leafInfo, std::vector< std::vector<unsigned int> > &_rank, std::vector< std::vector<unsigned int> > &_sCount);
   
   void Reserve(unsigned int leafEst, unsigned int bagEst);
   void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
@@ -236,6 +265,9 @@ class LeafCtg : public Leaf {
   std::vector<double> &info;
   unsigned int ctgWidth;
 
+  static void TreeExport(const std::vector<double> &leafinfo, unsigned int _ctgWidth, unsigned int treeOffset, unsigned int leafCount, std::vector<double> &_weight);
+  static unsigned int LeafCount(std::vector<unsigned int> _origin, unsigned int infoLen, unsigned int _ctgWidth, unsigned int tIdx);
+
   /**
      @brief Looks up info by leaf index and category value.
 
@@ -255,6 +287,8 @@ class LeafCtg : public Leaf {
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<double> &_info, unsigned int _ctgWdith);
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<double> &_info);
   ~LeafCtg();
+
+  static void Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<double> &_leafInfo, unsigned int _ctgWidth, std::vector< std::vector<double> > &_weight);
 
   void Reserve(unsigned int leafEst, unsigned int bagEst);
   

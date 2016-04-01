@@ -103,9 +103,13 @@ void Forest::PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int r
 
 
 /**
-   @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
+   @brief Multi-row prediction with predictors of both numeric and factor type.
 
-   @param prediction contains the mean score across trees.
+   @param leaves contain the leaf indices of the predictions for a row.
+
+   @param rowStart is the first row in the block.
+
+   @param rowEnd is the first row beyond the block.
 
    @param bag indicates whether prediction is restricted to out-of-bag data.
 
@@ -126,7 +130,7 @@ void Forest::PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int
 
 
 /**
-   @brief Prediction for regression tree, with predictors of only numeric type.
+   @brief Prediction with predictors of only numeric type.
 
    @param row is the row of data over which a prediction is made.
 
@@ -134,7 +138,7 @@ void Forest::PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int
 
    @param leaves[] are the tree terminals predicted for each row.
 
-   @param useBag indicates whether prediction is restricted to out-of-bag data.
+   @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
@@ -162,7 +166,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
 
 
 /**
-   @brief Prediction for regression tree, with factor-valued predictors only.
+   @brief Prediction with factor-valued predictors only.
 
    @param row is the row of data over which a prediction is made.
 
@@ -170,7 +174,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
 
    @param leaves[] are the tree terminals predicted for each row.
 
-   @param useBag indicates whether prediction is restricted to out-of-bag data.
+   @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
@@ -199,7 +203,7 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
 
 /**
-   @brief Prediction for regression tree, with predictors of both numeric and factor type.
+   @brief Prediction with predictors of both numeric and factor type.
 
    @param row is the row of data over which a prediction is made.
 
@@ -209,7 +213,7 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
    @param leaves[] are the tree terminals predicted for each row.
 
-   @param useBag indicates whether prediction is restricted to out-of-bag data.
+   @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
@@ -301,5 +305,33 @@ void Forest::SplitUpdate(const RowRank *rowRank) const {
 void ForestNode::SplitUpdate(const RowRank *rowRank) {
   if (Nonterminal() && !PredBlock::IsFactor(pred)) {
     num = rowRank->MeanRank(pred, num);    
+  }
+}
+
+
+/**
+   @brief Unpacks node fields into vector of per-tree vectors.
+
+   @return void, with output reference vectors.
+ */
+void ForestNode::Export(const std::vector<unsigned int> &_nodeOrigin, const std::vector<ForestNode> &_forestNode, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split) {
+  for (unsigned int tIdx = 0; tIdx < _nodeOrigin.size(); tIdx++) {
+    unsigned int treeHeight = TreeHeight(_nodeOrigin, _forestNode.size(), tIdx);
+    _pred[tIdx] = std::vector<unsigned int>(treeHeight);
+    _bump[tIdx] = std::vector<unsigned int>(treeHeight);
+    _split[tIdx] = std::vector<double>(treeHeight);
+    TreeExport(_forestNode, _pred[tIdx], _bump[tIdx], _split[tIdx], _nodeOrigin[tIdx], TreeHeight(_nodeOrigin, _forestNode.size(), tIdx));
+  }
+}
+
+
+/**
+   @brief Exports node field values for a single tree.
+
+   @return void, with output reference vectors.
+ */
+void ForestNode::TreeExport(const std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_pred, std::vector<unsigned int> &_bump, std::vector<double> &_split, unsigned int treeOff, unsigned int treeHeight) {
+  for (unsigned int i = 0; i < treeHeight; i++) {
+    _forestNode[treeOff + i].Ref(_pred[i], _bump[i], _split[i]);
   }
 }

@@ -21,12 +21,18 @@
 
 class BV {
   unsigned int *raw;
-  unsigned int nSlot;
+  const unsigned int nSlot;
+  const unsigned int nBit;
   static const unsigned int slotBits = 8 * sizeof(unsigned int);
  public:
   BV(unsigned int len, bool slotWise = false);
   BV(const std::vector<unsigned int> &_raw);
   ~BV();
+
+  inline unsigned int NBit() const {
+    return nBit;
+  }
+  
 
   void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0) const;
 
@@ -131,12 +137,17 @@ class BV {
 class BitMatrix : public BV {
   const unsigned int nRow;
   const unsigned int stride;
+  void Export(unsigned int _nRow, std::vector<std::vector<unsigned int> > &bmOut);
+  void ColExport(unsigned int _nRow, std::vector<unsigned int> &outCol, unsigned int colIdx);
+
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
   BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
   ~BitMatrix();
 
   void SetColumn(const class BV *vec, int colIdx);
+
+  static void Export(const std::vector<unsigned int> &_raw, unsigned int _nRow, std::vector<std::vector<unsigned int> > &vecOut);
 
   /**
      @brief Bit test with short-circuit for zero-length matrix.
@@ -155,13 +166,18 @@ class BitMatrix : public BV {
 
 
 /**
-   @brief Jagged bit matrix.
+   @brief Jagged bit matrix:  unstrided access.
  */
 class BVJagged : public BV {
-  unsigned int *offset;
+  const unsigned int nRow;
+  unsigned int *rowOrigin;
+  void Export(std::vector<std::vector<unsigned int> > &outVec);
+  void RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
+  unsigned int RowHeight(unsigned int rowIdx) const;
  public:
-  BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsigned int> _offset);
+  BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsigned int> _origin);
   ~BVJagged();
+  static void Export(const std::vector<unsigned int> _origin, const std::vector<unsigned int> _raw, std::vector<std::vector<unsigned int> > &outVec);
 
 
   /**
@@ -177,7 +193,7 @@ class BVJagged : public BV {
   inline bool IsSet(unsigned int row, unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
-    unsigned int base = offset[row];
+    unsigned int base = rowOrigin[row];
     
     return Test(base + slot, mask);
   }

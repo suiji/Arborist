@@ -15,11 +15,6 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 #
-ForestFloorExport <- function(arbout) {
-  if (!inherits(arbout, "Rborist"))
-    stop("Unknown training class")
-
-  leaf <- arbout$leaf
-  forest <- arbout$forest
-  ffe <- .Call("RcppForestFloorExport", forest, leaf)
+ForestFloorExport <- function(arbOut) {
+  return (.Call("RcppForestFloorExport", arbOut))
 }

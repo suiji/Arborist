@@ -234,3 +234,83 @@ void LeafCtg::Scores(const SampleCtg *sample, const std::vector<unsigned int> &l
     ScoreSet(tIdx, leafIdx, argMax + maxWeight / (PredBlock::NRow() * NTree()));
   }
 }
+
+
+/**
+   @brief Static exporter into per-tree vector of vectors.
+
+   @return void, with output reference parameters.
+ */
+void LeafNode::Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<LeafNode> &_leafNode, std::vector< std::vector<double> > &_score, std::vector< std::vector<unsigned int> > &_extent) {
+  for (unsigned int tIdx = 0; tIdx < _leafOrigin.size(); tIdx++) {
+    unsigned int leafCount = LeafCount(_leafOrigin, _leafNode.size(), tIdx);
+    _score[tIdx] = std::vector<double>(leafCount);
+    _extent[tIdx] = std::vector<unsigned int>(leafCount);
+    TreeExport(_leafNode, _leafOrigin[tIdx], leafCount, _score[tIdx], _extent[tIdx]); 
+  }
+}
+
+
+/**
+   @brief Per-tree exporter into separate vectors.
+ */
+void LeafNode::TreeExport(const std::vector<LeafNode> &_leafNode, unsigned int treeOff, unsigned int leafCount, std::vector<double> &_score, std::vector<unsigned int> &_extent) {
+  for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
+    _leafNode[treeOff + leafIdx].Ref(_score[leafIdx], _extent[leafIdx]);
+  }
+}
+
+
+/**
+ */
+void LeafReg::Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<RankCount> &_leafInfo, std::vector< std::vector<unsigned int> > &_rank, std::vector< std::vector<unsigned int> > &_sCount) {
+  for (unsigned int tIdx = 0; tIdx < _leafOrigin.size(); tIdx++) {
+    unsigned int leafCount = LeafCount(_leafOrigin, _leafInfo.size(), tIdx);
+    _rank[tIdx] = std::vector<unsigned int>(leafCount);
+    _sCount[tIdx] = std::vector<unsigned int>(leafCount);
+    TreeExport(_leafInfo, _leafOrigin[tIdx], leafCount,  _rank[tIdx], _sCount[tIdx]);
+  }
+}
+
+
+/**
+ */
+unsigned int LeafReg::LeafCount(const std::vector<unsigned int> &_origin, unsigned int height, unsigned int tIdx) {
+  return LeafNode::LeafCount(_origin, height, tIdx);
+}
+
+
+void LeafReg::TreeExport(const std::vector<RankCount> &_rankCount, unsigned int treeOff, unsigned int leafCount, std::vector<unsigned int> &_rank, std::vector<unsigned int> &_sCount) {
+  _rank.reserve(leafCount);
+  _sCount.reserve(leafCount);
+  for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
+    _rankCount[treeOff + leafIdx].Ref(_rank[leafIdx], _sCount[leafIdx]);
+  }
+}
+
+
+/**
+ */
+void LeafCtg::Export(const std::vector<unsigned int> &_leafOrigin, const std::vector<double> &_leafInfo, unsigned int _ctgWidth, std::vector< std::vector<double> > &_weight) {
+  for (unsigned int tIdx = 0; tIdx < _leafOrigin.size(); tIdx++) {
+    unsigned int leafCount = LeafCount(_leafOrigin, _leafInfo.size(), _ctgWidth, tIdx);
+    _weight[tIdx] = std::vector<double>(leafCount * _ctgWidth);
+    TreeExport(_leafInfo, _ctgWidth, _leafOrigin[tIdx] * _ctgWidth, leafCount, _weight[tIdx]);
+  }
+}
+
+
+unsigned int LeafCtg::LeafCount(std::vector<unsigned int> _origin, unsigned int infoLen, unsigned int _ctgWidth, unsigned int tIdx) {
+  return LeafNode::LeafCount(_origin, infoLen / _ctgWidth, tIdx);
+}
+
+
+void LeafCtg::TreeExport(const std::vector<double> &leafInfo, unsigned int _ctgWidth, unsigned int treeOff, unsigned int leafCount, std::vector<double> &_weight) {
+  unsigned int off = 0;
+  for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
+    for (unsigned int ctg = 0; ctg < _ctgWidth; ctg++) {
+      _weight[off] = leafInfo[treeOff + off];
+      off++;
+    }
+  }
+}

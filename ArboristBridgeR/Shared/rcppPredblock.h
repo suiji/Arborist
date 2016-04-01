@@ -31,5 +31,6 @@
 using namespace Rcpp;
 
 void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac);
+void SignatureUnwrap(SEXP sSignature, unsigned int &nRow, IntegerVector &_predMap);
 
 #endif

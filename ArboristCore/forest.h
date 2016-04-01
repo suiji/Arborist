@@ -26,9 +26,22 @@ class ForestNode {
   unsigned int pred;
   unsigned int bump;
   double num;
+  static void TreeExport(const std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_pred, std::vector<unsigned int> &_bump, std::vector<double> &_split, unsigned int treeOff, unsigned int treeHeight);
+
+  /**
+     @brief Static determination of individual tree height.
+
+     @return Height of tree.
+   */
+  static inline unsigned int TreeHeight(const std::vector<unsigned int> &_nodeOrigin, unsigned int height, unsigned int tIdx) {
+    unsigned int heightInf = _nodeOrigin[tIdx];
+    return tIdx < _nodeOrigin.size() - 1 ? _nodeOrigin[tIdx + 1] - heightInf : height - heightInf;
+  }
+
  public:
   
   void SplitUpdate(const class RowRank *rowRank);
+  static void Export(const std::vector<unsigned int> &_nodeOrigin, const std::vector<ForestNode> &_forestNode, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
 
   inline void Init() {
     pred = bump = 0;
@@ -180,13 +193,14 @@ class Forest {
     if (tIdx < 0)
       return Height();
 
+    unsigned int heightInf = treeOrigin[tIdx];
     if (tIdx < nTree - 1  && treeOrigin[tIdx + 1] > 0)
-      return treeOrigin[tIdx + 1] - treeOrigin[tIdx];
+      return treeOrigin[tIdx + 1] - heightInf;
     else
-      return Height() - treeOrigin[tIdx];
+      return Height() - heightInf;
   }
 
-  
+
   /**
      @return current size of (possibly crescent) splitting vector.
    */

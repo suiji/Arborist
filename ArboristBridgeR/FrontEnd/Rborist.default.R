@@ -265,15 +265,3 @@ PredBlock <- function(x, signature = NULL) {
 DefaultQuantVec <- function() {
   seq(0.25, 1.0, by = 0.25)
 }
-
-
-ForestFloorExport <- function(arbout) {
-  if (!inherits(arbout, "Rborist"))
-    stop("Unknown training class")
-
-  leaf <- arbout$leaf
-  forest <- arbout$forest
-
-  ffe <- list(leaf, forest)
-  class(ffe) <- "ForestFloorExport"
-}
