@@ -332,7 +332,9 @@ const std::vector<unsigned int> PreTree::FrontierToLeaf(Forest *forest, unsigned
     }
     frontierMap[sIdx] = nodeLeaf[ptIdx];
   }
-
+  //  if (leafCount != leafIdx)
+  //cout << "Leaf count mismatch at frontier" << endl;
+  
   return frontierMap;
 }
 

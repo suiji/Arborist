@@ -217,7 +217,7 @@ void PredictCtg::Score(const LeafCtg *leafCtg, double *votes, unsigned int rowSt
     double *prediction = votes + row * ctgWidth;
     for (int tc = 0; tc < nTree; tc++) {
       int leafIdx = leaves[tc];
-      if (leafIdx >= 0) {
+      if (leafIdx != -1) {
 	double val = leafCtg->GetScore(tc, leafIdx);
 	unsigned int ctg = val; // Truncates jittered score for indexing.
 	prediction[ctg] += 1 + val - ctg;
@@ -295,7 +295,7 @@ void PredictReg::Score(const LeafReg *leafReg, double yPred[], unsigned int rowS
     int *leaves = predictLeaves + (row - rowStart) * nTree;
     for (int tc = 0; tc < nTree; tc++) {
       int leafIdx = leaves[tc];
-      if (leafIdx >= 0) {
+      if (leafIdx != -1) {
         treesSeen++;
         score += leafReg->GetScore(tc, leafIdx);
       }

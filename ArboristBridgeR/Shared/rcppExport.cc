@@ -38,11 +38,16 @@ using namespace Rcpp;
 //#include <iostream>
 
 /**
+   @brief Recasts 'pred' field of nonterminals to front-end facing values.
+
+   @return void.
  */
-void PredTree(const int predMap[], std::vector<unsigned int> &pred) {
+void PredTree(const int predMap[], std::vector<unsigned int> &pred, std::vector<unsigned int> &bump) {
   for (unsigned int i = 0; i < pred.size(); i++) {
-    unsigned int predCore = pred[i];
-    pred[i] = predMap[predCore];
+    if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
+      unsigned int predCore = pred[i];
+      pred[i] = predMap[predCore];
+    }
   }
 }
 
@@ -50,9 +55,9 @@ void PredTree(const int predMap[], std::vector<unsigned int> &pred) {
 /**
    @brief Prepares predictor field for export by remapping to front-end indices.
  */
-void PredExport(const int predMap[], std::vector<std::vector<unsigned int> > &pred) {
+void PredExport(const int predMap[], std::vector<std::vector<unsigned int> > &pred, std::vector<std::vector<unsigned int> > &bump) {
   for (unsigned int tIdx = 0; tIdx < pred.size(); tIdx++) {
-    PredTree(predMap, pred[tIdx]);
+    PredTree(predMap, pred[tIdx], bump[tIdx]);
   }
 }
 
@@ -84,7 +89,7 @@ RcppExport SEXP ExportReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
   std::vector<std::vector<unsigned int> > pred(nTree), bump(nTree);
   std::vector<std::vector<double > > split(nTree);
   ForestNode::Export(nodeOrigin, *forestNode, pred, bump, split);
-  PredExport(predMap.begin(), pred);
+  PredExport(predMap.begin(), pred, bump);
   
   std::vector<std::vector<unsigned int> > facSplit(nTree);
   BVJagged::Export(facOrigin, splitBV, facSplit);
@@ -140,7 +145,7 @@ RcppExport SEXP ExportCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
   std::vector<std::vector<unsigned int> > pred(nTree), bump(nTree);
   std::vector<std::vector<double > > split(nTree);
   ForestNode::Export(nodeOrigin, *forestNode, pred, bump, split);
-  PredExport(predMap.begin(), pred);
+  PredExport(predMap.begin(), pred, bump);
   
   std::vector<std::vector<unsigned int> > facSplit(nTree);
   BVJagged::Export(facOrigin, splitBV, facSplit);
@@ -241,7 +246,7 @@ RcppExport SEXP FFloorInternal(SEXP sForestCore, unsigned int tIdx) {
   List ffTree = List::create(
      _["pred"] = pred[tIdx],
      _["daugherL"] = incrL,
-     _["daughterR"] = incrL + 1,
+     _["daughterR"] = ifelse(incrL == 0, 0, incrL + 1),
      _["split"] = split[tIdx],
      _["facSplit"] = facSplit[tIdx],
      _["bag"] = bag[tIdx]
