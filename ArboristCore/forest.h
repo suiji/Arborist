@@ -100,22 +100,24 @@ class Forest {
   std::vector<unsigned int> &treeOrigin;
   std::vector<unsigned int> &facOrigin;
   std::vector<unsigned int> &facVec;
+  class Predict *predict;
   class BVJagged *facSplit; // Consolidation of per-tree values.
 
-  void PredictAcrossNum(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
-  void PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
-  void PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
+  void PredictAcrossNum(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
+  void PredictAcrossFac(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
+  void PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
  public:
 
   void SplitUpdate(const class RowRank *rowRank) const;
 
-  void PredictAcross(int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
+  void PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
   
-  void PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) const;
-  void PredictRowFac(unsigned int row, const int rowT[], int leaves[], const class BitMatrix *bag) const;
-  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], int leaves[], const class BitMatrix *bag) const;
+  void PredictRowNum(unsigned int row, const double rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
+  void PredictRowFac(unsigned int row, const int rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
+  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], unsigned int rowBlock, const class BitMatrix *bag) const;
 
   Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
+  Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, class Predict *_predict);
   ~Forest();
 
   void NodeInit(unsigned int treeHeight);

@@ -16,6 +16,7 @@
 
 #include "quant.h"
 #include "leaf.h"
+#include "predict.h"
 
 //#include <iostream>
 using namespace std;
@@ -25,13 +26,13 @@ using namespace std;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const LeafReg *leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec,  unsigned int qBin) : yRanked(_yRanked), qVec(_qVec), qCount(qVec.size()), logSmudge(0), sCountSmudge(0) {
+Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yRanked(_yRanked), qVec(_qVec), qCount(qVec.size()), logSmudge(0), sCountSmudge(0) {
   unsigned int nRow = yRanked.size();
   sampleOffset = std::vector<unsigned int>(leafReg->NodeCount());
   leafReg->SampleOffset(sampleOffset, 0, leafReg->NodeCount(), 0);
   binSize = BinSize(nRow, qBin, logSmudge);
   if (binSize < nRow) {
-    SmudgeLeaves(leafReg);
+    SmudgeLeaves();
   }
 }
 
@@ -55,14 +56,13 @@ Quant::~Quant() {
 
    @return void, with output parameter matrix.
  */
-void Quant::PredictAcross(const LeafReg *leafReg, const int predictLeaves[], unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
-  unsigned int nTree = leafReg->NTree();
+void Quant::PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
   unsigned int row;
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = rowStart; row < rowEnd; row++) {
-      Leaves(leafReg, predictLeaves + nTree * (row - rowStart), &qPred[qCount * row]);
+      Leaves(row - rowStart, &qPred[qCount * row]);
     }
   }
 }
@@ -90,7 +90,7 @@ unsigned int Quant::BinSize(unsigned int nRow, unsigned int qBin, unsigned int &
 
    @return void.
  */
-void Quant::SmudgeLeaves(const LeafReg *leafReg) {    
+void Quant::SmudgeLeaves() {    
   sCountSmudge = new unsigned int[leafReg->BagTot()];
   for (unsigned int i = 0; i < leafReg->BagTot(); i++)
     sCountSmudge[i] = leafReg->SCount(i);
@@ -125,7 +125,7 @@ void Quant::SmudgeLeaves(const LeafReg *leafReg) {
 
    @return void, with output vector parameter.
  */
-void Quant::Leaves(const LeafReg *leafReg, const int rowLeaves[], double qRow[]) {
+void Quant::Leaves(unsigned int blockRow, double qRow[]) {
   unsigned int *sampRanks = new unsigned int[binSize];
   for (unsigned int i = 0; i < binSize; i++)
     sampRanks[i] = 0;
@@ -134,9 +134,9 @@ void Quant::Leaves(const LeafReg *leafReg, const int rowLeaves[], double qRow[])
   //
   unsigned int totRanks = 0;
   for (unsigned int tn = 0; tn < leafReg->NTree(); tn++) {
-    int leafIdx = rowLeaves[tn];
-    if (leafIdx >= 0) { // otherwise in-bag:  no prediction for tree at row.
-      totRanks += (logSmudge == 0) ? RanksExact(leafReg, tn, leafIdx, sampRanks) : RanksSmudge(leafReg, tn, leafIdx, sampRanks);
+    if (!predictReg->IsBagged(blockRow, tn)) {
+      unsigned int leafIdx = predictReg->LeafIdx(blockRow, tn);
+      totRanks += (logSmudge == 0) ? RanksExact(tn, leafIdx, sampRanks) : RanksSmudge(tn, leafIdx, sampRanks);
     }
   }
 
@@ -176,7 +176,7 @@ void Quant::Leaves(const LeafReg *leafReg, const int rowLeaves[], double qRow[])
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksExact(const LeafReg *leafReg, unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]) {
+unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]) {
   int rankTot = 0;
   unsigned int infoOff = sampleOffset[leafReg->NodeIdx(tIdx, leafIdx)];
   for (unsigned int i = 0; i < leafReg->Extent(tIdx, leafIdx); i++) {
@@ -201,7 +201,7 @@ unsigned int Quant::RanksExact(const LeafReg *leafReg, unsigned int tIdx, unsign
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksSmudge(const LeafReg *leafReg, unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]) {
+unsigned int Quant::RanksSmudge(unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]) {
   unsigned int rankTot = 0;
   unsigned int extent = leafReg->Extent(tIdx, leafIdx);
   unsigned int infoOff = sampleOffset[leafReg->NodeIdx(tIdx, leafIdx)];

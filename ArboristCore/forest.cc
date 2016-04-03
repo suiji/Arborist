@@ -18,6 +18,7 @@
 #include "forest.h"
 #include "predblock.h"
 #include "rowrank.h"
+#include "predict.h"
 
 //#include <iostream>
 using namespace std;
@@ -26,7 +27,15 @@ using namespace std;
 /**
    @brief Crescent constructor for training.
 */
-Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec) {
+Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(0) {
+  facSplit = new BVJagged(facVec, _facOrigin);
+}
+
+
+/**
+   @brief Constructor for prediction.
+*/
+Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, Predict *_predict) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(_predict) {
   facSplit = new BVJagged(facVec, _facOrigin);
 }
 
@@ -41,39 +50,35 @@ Forest::~Forest() {
 /**
    @brief Dispatches prediction method based on available predictor types.
 
-   @param predictLeaves outputs the predicted leaf indices.
-
    @param bag is the packed in-bag representation, if validating.
 
    @return void.
  */
-void Forest::PredictAcross(int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
+void Forest::PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   if (PredBlock::NPredFac() == 0)
-    PredictAcrossNum(predictLeaves, rowStart, rowEnd, bag);
+    PredictAcrossNum(rowStart, rowEnd, bag);
   else if (PredBlock::NPredNum() == 0)
-    PredictAcrossFac(predictLeaves, rowStart, rowEnd, bag);
+    PredictAcrossFac(rowStart, rowEnd, bag);
   else
-    PredictAcrossMixed(predictLeaves, rowStart, rowEnd, bag);
+    PredictAcrossMixed(rowStart, rowEnd, bag);
 }
 
 
 /**
    @brief Multi-row prediction for regression tree, with predictors of only numeric.
 
-   @param leaves outputs the predicted leaf offsets.
-
    @param bag enumerates the in-bag rows, if validating.
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossNum(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
+void Forest::PredictAcrossNum(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = rowStart; row < rowEnd; row++) {
-    PredictRowNum(row, PBPredict::RowNum(row), &leaves[nTree * (row - rowStart)], bag);
+    PredictRowNum(row, PBPredict::RowNum(row), row - rowStart, bag);
   }
   }
 }
@@ -82,20 +87,18 @@ void Forest::PredictAcrossNum(int *leaves, unsigned int rowStart, unsigned int r
 /**
    @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
 
-   @param leaves outputs the predicted leaf offsets.
-
    @param bag enumerates the in-bag rows, if validating.
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
+void Forest::PredictAcrossFac(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = rowStart; row < rowEnd; row++) {
-      PredictRowFac(row, PBPredict::RowFac(row), &leaves[nTree * (row - rowStart)], bag);
+      PredictRowFac(row, PBPredict::RowFac(row), row - rowStart, bag);
   }
   }
 
@@ -105,8 +108,6 @@ void Forest::PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int r
 /**
    @brief Multi-row prediction with predictors of both numeric and factor type.
 
-   @param leaves contain the leaf indices of the predictions for a row.
-
    @param rowStart is the first row in the block.
 
    @param rowEnd is the first row beyond the block.
@@ -115,14 +116,14 @@ void Forest::PredictAcrossFac(int *leaves, unsigned int rowStart, unsigned int r
 
    @return Void with output vector parameter.
  */
-void Forest::PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
+void Forest::PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
   unsigned int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = rowStart; row < rowEnd; row++) {
-    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), &leaves[nTree * (row - rowStart)], bag);
+    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), row - rowStart, bag);
   }
   }
 
@@ -136,17 +137,15 @@ void Forest::PredictAcrossMixed(int *leaves, unsigned int rowStart, unsigned int
 
    @param rowT is a numeric data array section corresponding to the row.
 
-   @param leaves[] are the tree terminals predicted for each row.
-
    @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
 
-void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], const class BitMatrix *bag) const {
+void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
   for (int tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
-      leaves[tc] = -1;
+      predict->BagIdx(blockRow, tc);
       continue;
     }
 
@@ -160,7 +159,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
       idx += (rowT[pred] <= num ? bump : bump + 1);
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    leaves[tc] = pred;
+    predict->LeafIdx(blockRow, tc, pred);
   }
 }
 
@@ -172,17 +171,15 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], int leaves[], 
 
    @param rowT is a factor data array section corresponding to the row.
 
-   @param leaves[] are the tree terminals predicted for each row.
-
    @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  const class BitMatrix *bag) const {
+void Forest::PredictRowFac(unsigned int row, const int rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
-      leaves[tc] = -1;
+      predict->BagIdx(blockRow, tc);
       continue;
     }
 
@@ -197,7 +194,7 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
       idx += facSplit->IsSet(tc, bitOff) ? bump : bump + 1;
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    leaves[tc] = pred;
+    predict->LeafIdx(blockRow, tc, pred);
   }
 }
 
@@ -211,17 +208,15 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], int leaves[],  co
 
    @param rowFT is a factor data array section corresponding to the row.
 
-   @param leaves[] are the tree terminals predicted for each row.
-
    @param bag indexes out-of-bag rows, and may be null.
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], int leaves[], const class BitMatrix *bag) const {
+void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], unsigned int blockRow, const class BitMatrix *bag) const {
   int tc;
   for (tc = 0; tc < nTree; tc++) {
     if (bag->IsSet(row, tc)) {
-      leaves[tc] = -1;
+      predict->BagIdx(blockRow, tc);
       continue;
     }
 
@@ -237,7 +232,7 @@ void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int r
       idx += isFactor ? (facSplit->IsSet(tc, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    leaves[tc] = pred;
+    predict->LeafIdx(blockRow, tc, pred);
   }
 }
 

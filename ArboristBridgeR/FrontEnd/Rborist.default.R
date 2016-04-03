@@ -47,7 +47,7 @@
   nPred <- predBlock$nPredNum + predBlock$nPredFac
   nRow <- predBlock$nRow
   if (is.null(regMono)) {
-    regMono <- rep(0, nPred)
+    regMono <- rep(0.0, nPred)
   }
   if (nSamp == 0) {
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))

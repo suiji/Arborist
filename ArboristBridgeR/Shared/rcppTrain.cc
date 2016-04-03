@@ -196,7 +196,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
 
   int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
-  IntegerVector regMono = IntegerVector(sRegMono)[predMap];
+  NumericVector regMono = NumericVector(sRegMono)[predMap];
   
   Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), 0, as<int>(sPredFixed), predProb.begin(), regMono.begin());
 

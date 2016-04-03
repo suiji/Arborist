@@ -19,15 +19,16 @@
 #include <vector>
 
 class Predict {
+  const unsigned int nonLeafIdx; // Inattainable leaf index value.
  protected:
-  static const int rowBlock = 10000;
+  static const int rowBlock = 8192;
   const int nTree;
   const unsigned int nRow;
-  int *predictLeaves;
+  unsigned int *predictLeaves;
 
  public:  
   
-  Predict(int _nTree, unsigned int _nRow);
+  Predict(int _nTree, unsigned int _nRow, unsigned int _nonLeafIdx);
   ~Predict();
 
   static void Regression(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class RankCount> &_leafInfoReg, std::vector<double> &yPred, const std::vector<unsigned int> &_bag);
@@ -36,26 +37,62 @@ class Predict {
   static void Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<RankCount> &_leafInfoReg, const std::vector<double> &yRanked, std::vector<double> &yPred, const std::vector<double> &quantVec, unsigned int qBin, std::vector<double> &qPred, const std::vector<unsigned int> &_bag);
 
   static void Classification(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<double> &_leafInfoCtg, std::vector<int> &yPred, int *_census, const std::vector<unsigned int> &_yTest, int *_conf, std::vector<double> &_error, double *_prob, const std::vector<unsigned int> &_bag);
+
+  /**
+     @brief Assigns a proxy leaf index at the prediction coordinates passed.
+
+     @return void.
+   */
+  inline void BagIdx(unsigned int blockRow, unsigned int tc) {
+    predictLeaves[nTree * blockRow + tc] = nonLeafIdx;
+  }
+
+  
+  /**
+   */
+  inline bool IsBagged(unsigned int blockRow, unsigned int tc) const {
+    return predictLeaves[nTree * blockRow + tc] == nonLeafIdx;
+  }
+
+
+  /**
+     @brief Assigns a true leaf index at the prediction coordinates passed.
+
+     @return void.
+   */
+  inline void LeafIdx(unsigned int blockRow, unsigned int tc, unsigned int leafIdx) {
+    predictLeaves[nTree * blockRow + tc] = leafIdx;
+  }
+
+  
+  /**
+     @brief Accessor for prediction at specified coordinates.
+   */
+  inline unsigned int LeafIdx(unsigned int blockRow, unsigned int tc) const {
+    return predictLeaves[nTree * blockRow + tc];
+  }
 };
 
 
 class PredictReg : public Predict {
-  void Score(const class LeafReg *_leafReg, double yPred[], unsigned int rowStart, unsigned int rowEnd);
+  const class LeafReg *leafReg;
+  void Score(unsigned int rowStart, unsigned int rowEnd, double yPred[]);
  public:
-  PredictReg(int _nTree, unsigned int _nRow);
-  void PredictAcross(const class Forest *forest, const class LeafReg *leafReg, std::vector<double> &yPred, const class BitMatrix *bag);
-  void PredictAcross(const Forest *forest, const class LeafReg *leafReg, std::vector<double> &yPred, class Quant *quant, double qPred[], const BitMatrix *bag);
+  PredictReg(const class LeafReg *_leafReg, int _nTree, unsigned int _nRow, unsigned int _nonLeafIdx);
+  void PredictAcross(const class Forest *forest, std::vector<double> &yPred, const class BitMatrix *bag);
+  void PredictAcross(const Forest *forest, std::vector<double> &yPred, class Quant *quant, double qPred[], const BitMatrix *bag);
 };
 
 
 class PredictCtg : public Predict {
+  const class LeafCtg *leafCtg;
   const unsigned int ctgWidth;
   void Validate(const std::vector<unsigned int> &yTest, const int yPred[], int confusion[], std::vector<double> &error);
   void Vote(double *votes, int census[], int yPred[]);
-  void Prob(const class LeafCtg *_leafCtg, double *prob, unsigned int rowStart, unsigned int rowEnd);
-  void Score(const class LeafCtg *_leafCtg, double *votes, unsigned int rowStart, unsigned int rowEnd);
+  void Prob(double *prob, unsigned int rowStart, unsigned int rowEnd);
+  void Score(double *votes, unsigned int rowStart, unsigned int rowEnd);
  public:
-  PredictCtg(int _nTree, unsigned _nRow, unsigned int _ctgWidth);
-  void PredictAcross(const class Forest *forest, const class LeafCtg *leafCtg, class BitMatrix *bag, int *census, std::vector<int> &yPred, const std::vector<unsigned int> &yTest, int *conf, std::vector<double> &error, double *prob);
+  PredictCtg(const class LeafCtg *_leafCtg, int _nTree, unsigned _nRow, unsigned int _nonLeafIdx);
+  void PredictAcross(const class Forest *forest, const class BitMatrix *bag, int *census, std::vector<int> &yPred, const std::vector<unsigned int> &yTest, int *conf, std::vector<double> &error, double *prob);
 };
 #endif

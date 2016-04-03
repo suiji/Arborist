@@ -29,7 +29,8 @@ unsigned int SplitPred::nPred = 0;
 int SplitPred::predFixed = 0;
 double *SplitPred::predProb = 0;
 
-int *SPReg::mono = 0;
+double *SPReg::mono = 0;
+unsigned int SPReg::predMono = 0;
 unsigned int SPCtg::ctgWidth = 0;
 
 /**
@@ -49,7 +50,7 @@ SplitPred::~SplitPred() {
 }
 
 
-void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const int _regMono[]) {
+void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const double _regMono[]) {
   nPred = _nPred;
   predFixed = _predFixed;
   predProb = new double[nPred];
@@ -79,15 +80,22 @@ void SplitPred::DeImmutables() {
 }
 
 
-void SPReg::Immutables(unsigned int _nPred, const int _mono[]) {
-  mono = new int[_nPred];
+/**
+   @brief Caches a local copy of the mono[] vector.
+ */
+void SPReg::Immutables(unsigned int _nPred, const double _mono[]) {
+  predMono = 0;
+  mono = new double[_nPred];
   for (unsigned int i = 0; i < _nPred; i++) {
-    mono[i] = _mono == 0 ? 0 : _mono[i];
+    double monoProb = _mono[i];
+    predMono += monoProb != 0.0;
+    mono[i] = _mono[i];
   }
 }
 
 
 void SPReg::DeImmutables() {
+  predMono = 0;
   delete [] mono;
 }
 
@@ -123,7 +131,7 @@ SplitPred *SplitPred::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg
 
    @param samplePred holds (re)staged node contents.
  */
-SPReg::SPReg(SamplePred *_samplePred) : SplitPred(_samplePred) {
+SPReg::SPReg(SamplePred *_samplePred) : SplitPred(_samplePred), ruMono(0) {
 }
 
 
@@ -155,6 +163,17 @@ void SplitPred::LevelInit(Index *index, int _splitCount) {
   index->SetPrebias(); // Depends on state from LevelPreset()
   spPair = PairInit(nPred, pairCount);
   RunOffsets();
+}
+
+void SPReg::LevelInit(Index *index, int _splitCount) {
+  SplitPred::LevelInit(index, _splitCount);
+  if (predMono > 0) {
+    ruMono = new double[pairCount];
+    CallBack::RUnif(pairCount, ruMono);
+  }
+  else {
+    ruMono = 0;
+  }
 }
 
 
@@ -230,7 +249,7 @@ SPPair *SplitPred::PairInit(unsigned int nPred, int &pairCount) {
       int rl = run->RunLength(splitIdx, predIdx);
       if (splitFlags[idx] && rl != 1) {
         SPPair *pair = &spPair[pairIdx];
-	pair->SetCoords(splitIdx, predIdx);
+	pair->Init(splitIdx, predIdx, pairIdx);
 	if (rl > 1) {
 	  run->CountSafe(rSetIdx) = rl;
 	  pair->SetRSet(rSetIdx++);
@@ -374,6 +393,10 @@ void SplitPred::LevelClear() {
    @brief Run objects should not be deleted until after splits have been consumed.
  */
 void SPReg::LevelClear() {
+  if (ruMono != 0) {
+    delete [] ruMono;
+    ruMono = 0;
+  }
   SplitPred::LevelClear();
 }
 
@@ -597,14 +620,29 @@ void SPPair::Split(SplitPred *splitPred, const IndexNode indexNode[], SPNode *no
 void SPReg::SplitNum(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig) {
   int monoMode = MonoMode(spPair);
   if (monoMode != 0) {
-    int splitIdx;
-    unsigned int predIdx;
-    spPair->Coords(splitIdx, predIdx);
-    SplitNumMono(spPair, indexNode, spn, splitSig, monoMode);
+    SplitNumMono(spPair, indexNode, spn, splitSig, monoMode > 0);
   }
   else {
     SplitNumWV(spPair, indexNode, spn, splitSig);
   }
+}
+
+
+/**
+   @brief Determines whether a regression pair undergoes constrained splitting.
+
+   @return The sign of the constraint, if within the splitting probability, else zero.
+ */
+int SPReg::MonoMode(const SPPair *pair) {
+  if (predMono == 0)
+    return 0;
+  
+  int splitIdx;
+  unsigned int predIdx;
+  pair->Coords(splitIdx, predIdx);
+  double monoProb = mono[predIdx];
+  int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
+  return sign * ruMono[pair->PairIdx()] < monoProb ? sign : 0;
 }
 
 
@@ -697,7 +735,7 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
 
    @return void.
 */
-void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig, int monoMode) {
+void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const SPNode spn[], SplitSig *splitSig, bool increasing) {
   // Walks samples backward from the end of nodes so that ties are not split.
   int start, end;
   unsigned int sCount;
@@ -721,7 +759,7 @@ void SPReg::SplitNumMono(const SPPair *spPair, const IndexNode *indexNode, const
     if (idxGini > maxGini && rkThis != rkRight) {
       FltVal meanL = sumL / sCountL;
       FltVal meanR = sumR / sCountR;
-      bool doSplit = monoMode == 1 ? meanL <= meanR : meanL >= meanR;
+      bool doSplit = increasing ? meanL <= meanR : meanL >= meanR;
       if (doSplit) {
         lhSampCt = sCountL;
         lhSup = i;

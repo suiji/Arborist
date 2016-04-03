@@ -24,6 +24,8 @@
  @brief Quantile signature.
 */
 class Quant {
+  const class PredictReg *predictReg;
+  const class LeafReg *leafReg;
   const std::vector<double> &yRanked;
   const std::vector<double> &qVec;
   std::vector<unsigned int> sampleOffset;
@@ -35,14 +37,14 @@ class Quant {
   int *leafPos;
   
   unsigned int BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge);
-  void SmudgeLeaves(const class LeafReg *leafReg);
-  void Leaves(const LeafReg *leafReg, const int rowLeaves[], double qRow[]);
-  unsigned int RanksExact(const LeafReg *leafReg, unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]);
-  unsigned int RanksSmudge(const LeafReg *leafReg, unsigned int tIdx, unsigned int LeafIdx, unsigned int sampRanks[]);
+  void SmudgeLeaves();
+  void Leaves(unsigned int rowBlock, double qRow[]);
+  unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]);
+  unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, unsigned int sampRanks[]);
  public:
-  Quant(const class LeafReg *_leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec, unsigned int qBin);
+  Quant(const class PredictReg *_predictReg, const class LeafReg *_leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec, unsigned int qBin);
   ~Quant();
-  void PredictAcross(const class LeafReg *leafReg, const int *predictLeaves, unsigned int rowStart, unsigned int rowEnd, double qPred[]);
+  void PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]);
 };
 
 #endif
