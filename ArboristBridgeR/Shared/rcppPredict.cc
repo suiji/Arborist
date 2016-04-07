@@ -97,7 +97,7 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 			 _["yPred"] = yPred,
 			 _["qPred"] = NumericMatrix(0)
 		     );
-    prediction.attr("class") = "predReg";
+    prediction.attr("class") = "PredictReg";
   }
   else { // Validation
     NumericVector yTest(sYTest);
@@ -109,7 +109,7 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 			 _["rsq"] = rsq,
 			 _["qPred"] = NumericMatrix(0)
 		     );
-    prediction.attr("class") = "validReg";
+    prediction.attr("class") = "ValidReg";
   }
 
   return prediction;

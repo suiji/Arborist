@@ -105,7 +105,7 @@ class RunSet {
 
      @return effective run count
    */
-  inline int EffCount() {
+  inline unsigned int EffCount() {
     return runCount > maxWidth ? maxWidth : runCount;
   }
 
