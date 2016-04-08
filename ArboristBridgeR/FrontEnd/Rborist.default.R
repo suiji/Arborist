@@ -20,7 +20,7 @@
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
                 ctgCensus = "votes",
                 classWeight = NULL,
-                minInfo = 0.03,
+                minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
                 noValidate = FALSE,
@@ -53,7 +53,7 @@
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
   if (predFixed == 0) {
-    predFixed <- ifelse(nPred >= 16, 0, ifelse(!is.factor(y), max(floor(nPred/3), 1), floor(sqrt(nPred))))
+    predFixed <- ifelse(predProb != 0.0, 0, ifelse(nPred >= 16, 0, ifelse(!is.factor(y), max(floor(nPred/3), 1), floor(sqrt(nPred)))))
   }
   if (predProb == 0.0) {
     predProb <- ifelse(predFixed != 0, 0.0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(nPred))/nPred))

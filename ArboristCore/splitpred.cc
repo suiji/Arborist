@@ -27,7 +27,7 @@ using namespace std;
 
 unsigned int SplitPred::nPred = 0;
 int SplitPred::predFixed = 0;
-double *SplitPred::predProb = 0;
+std::vector<double> SplitPred::predProb(0);
 
 double *SPReg::mono = 0;
 unsigned int SPReg::predMono = 0;
@@ -53,7 +53,7 @@ SplitPred::~SplitPred() {
 void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _predFixed, const double _predProb[], const double _regMono[]) {
   nPred = _nPred;
   predFixed = _predFixed;
-  predProb = new double[nPred];
+  predProb = std::vector<double>(nPred);
   for (unsigned int i = 0; i < nPred; i++)
     predProb[i] = _predProb[i];
 
@@ -69,8 +69,6 @@ void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, int _pre
 void SplitPred::DeImmutables() {
   nPred = 0;
   predFixed = 0;
-  delete [] predProb;
-  predProb = 0;
 
   // 'ctgWidth' distinguishes regression from classification.
   if (SPCtg::CtgWidth() > 0)
@@ -275,14 +273,14 @@ SPPair *SplitPred::PairInit(unsigned int nPred, int &pairCount) {
    @return void.
 */
 void SplitPred::SplitFlags(bool unsplitable[]) {
-  int len = splitCount * nPred;
-  double *ruPred = new double[len];
-  CallBack::RUnif(len, ruPred);
-  splitFlags = new bool[len];
+  int cellCount = splitCount * nPred;
+  double *ruPred = new double[cellCount];
+  CallBack::RUnif(cellCount, ruPred);
+  splitFlags = new bool[cellCount];
 
   BHPair *heap;
   if (predFixed > 0)
-    heap = new BHPair[splitCount * nPred];
+    heap = new BHPair[cellCount];
   else
     heap = 0;
 
@@ -348,12 +346,13 @@ void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
    @return void, with output vector.
  */
 void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[]) {
+  // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    BHeap::Insert(heap, predIdx, ruPred[predIdx] * predProb[predIdx]);
+    BHeap::Insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
     flags[predIdx] = false;
   }
 
-  // Pops 'predFixed' items with highest scores.
+  // Pops 'predFixed' items in order of Dbincreasing value.
   for (unsigned int i = nPred - 1; i >= nPred - predFixed; i--){
     unsigned int predIdx = BHeap::SlotPop(heap, i);
     flags[predIdx] = true;
@@ -710,8 +709,8 @@ void SPReg::SplitNumWV(const SPPair *spPair, const IndexNode *indexNode, const S
   int lhSampCt = 0;
   for (int i = end-1; i >= start; i--) {
     int sCountR = sCount - sCountL;
-    FltVal sumL = sum - sumR;
-    FltVal idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    double sumL = sum - sumR;
+    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
     unsigned int rkThis;
     spn[i].RegFields(ySum, rkThis, sampleCount);
     if (idxGini > maxGini && rkThis != rkRight) {

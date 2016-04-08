@@ -18,6 +18,7 @@
  */
 
 #include "param.h"
+#include <vector>
 
 /**
    @brief Pair-based splitting information.
@@ -78,7 +79,7 @@ class SPPair {
 class SplitPred {
   static unsigned int nPred;
   static int predFixed;
-  static double *predProb;
+  static std::vector<double> predProb;
   SPPair *spPair;
 
   void SplitFlags(bool unsplitable[]);

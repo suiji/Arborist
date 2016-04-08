@@ -36,7 +36,7 @@ using namespace Rcpp;
 #include "leaf.h"
 
 #include <algorithm>
-#include <iostream>
+//#include <iostream>
 
 
 /**

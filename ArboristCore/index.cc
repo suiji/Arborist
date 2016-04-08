@@ -378,6 +378,7 @@ void NodeCache::Consume(Index *index, PreTree *preTree, SplitPred *splitPred, Sa
       lNext = lhSplitCount++;
       index->NextLH(lNext, ptL, lhIdxCount, lhSCount, lhSum, minInfoNext);
     }
+
     if (Splitable(idxCount - lhIdxCount)) {
       rNext = lhSplitNext + rhSplitCount++;
       index->NextRH(rNext, ptR, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, minInfoNext);
