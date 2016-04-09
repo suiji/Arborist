@@ -1,9 +1,12 @@
 useDynLib(Rborist)
+
 export(Rborist)
 export(PreTrain)
 export(ForestFloorExport)
 
-S3method(predict, Rborist)
 S3method(Rborist, default)
+S3method(PreTrain, default)
+S3method(predict, Rborist)
+S3method(ForestFloorExport, Rborist)
 
 import(Rcpp)

@@ -8,62 +8,62 @@
 \title{Rapid Decision Tree Construction and Evaluation}
 \description{
   Accelerated implementation of the Random Forest (trademarked name)
-  algorithm.  Tuned for multicore and GPU hardware.  Works with most
+  algorithm.  Tuned for multicore and GPU hardware.  Bindable with most
   numerical front-end languages in addtion to R.  Invocation is
   similar to that provided by "randomForest" package.
 }
 
 \usage{
 \method{Rborist}{default} (x, y, nTree=500, withRepl = TRUE,
-                ctgCensus = NULL,
-                nSamp = ifelse(withRepl, nrow(x), round((1-exp(-1))*nrow(x))),
-                minInfo = 0.05,
+                ctgCensus = "votes",
+                classWeight = NULL,
+                minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 5),
                 nLevel = 0,
+                noValidate = FALSE,
+                nSamp = 0,
                 predFixed = 0,
-                predProb = ifelse(predFixed != 0, 0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(ncol(x)))/ncol(x))),
-                predWeight = rep(1.0, ncol(x)),
-                quantiles = !is.null(quantVec),
-                quantVec = NULL,
+                predProb = 0.0,
+                predWeight = NULL, 
+                qVec = NULL,
+                quantiles = !is.null(qVec),
                 qBin = 5000,
-                sampleWeight = NULL,
+                regMono = NULL,
+                rowWeight = NULL,
                 treeBlock = 1,
-                pvtBlock = 8, pvtNoPredict = FALSE, ...)
+                pvtBlock = 8, ...)
 }
 
 \arguments{
-  \item{x}{the design matrix. Can be either a numerical matrix or a data
-  frame of numerical or categorical columns.}
-  \item{y}{the response vector.  Can be either numerical or categorical.
-  Hence \code{x} and \code{y} should have the same number of rows.}
-  \item{nTree}{the number of trees on which to train.}
+  \item{x}{the design matrix expressed as a \code{PreTrain} object, as a
+  \code{data.frame} object with numeric and/or \code{factor} columns or
+  as a numeric matrix.}
+  \item{y}{the response (outcome) vector, either numerical or
+  categorical.  Row count must conform with \code{x}.}
+  \item{nTree}{the number of trees to train.}
   \item{withRepl}{whether row sampling is by replacement.}
-  \item{predProb}{the probability that an arbitrary predictor is chosen
-    as a splitting candidate.  Similar in spirit to the \code{mtry} option
-    of \code{randomForest}, which is a fixed number of predictors over
-    which to attempt to split at each node.}
-  \item{predWeight}{a numerical vector of weights for selecting individual
-    predictors as splitting candidates.}
-  \item{nSamp}{the number of samples to draw when training an individual
-    tree.}
-  \item{minNode}{the minimal index set width over which to attempt
-    splitting. Similar to \code{nodesize} parameter of
-    \code{randomForest}.}
-  \item{nLevel}{the number of levels at which to terminate.  At least
-  one level of the decision tree is built.  The value \code{0} is reserved to
-  stipulate no pre-set limit.}
-  \item{minInfo}{a threshold ratio of information values between a
-  subnode and its parent, below which splitting will not be attempted.}  
-  \item{sampleWeight}{a numerical vector of weights for drawing individual
-    rows as sample candidates.}
-  \item{quantVec}{vector of quantiles over which to report quantile
+  \item{ctgCensus}{report categorical validation by vote or by probability.}
+  \item{classWeight}{proportional weighting of classification categories.}
+  \item{minInfo}{information ratio with parent below which node does not split.}
+  \item{minNode}{minimum number of distinct row references to split a node.}
+  \item{nLevel}{maximum number of tree levels to train.  Zero denotes no
+    limit.}
+  \item{noValidate}{whether to train without validation.}
+  \item{nSamp}{number of rows to sample, per tree.}
+  \item{predFixed}{number of trial predictors for a split (\code{mtry}).}
+  \item{predProb}{probability of selecting individual predictor as trial splitter.}
+  \item{predWeight}{relative weighting of individual predictors as trial
+    splitters.}
+  \item{qVec}{quantile levels to validate.}
+  \item{quantiles}{whether to report quantiles at validation.}
+  \item{qBin}{bin size for facilating quantiles at large sample count.}
+  \item{regMono}{signed probability constraint for monotonic
     regression.}
-  \item{quantiles}{whether to train with quantile information.  If
-    \code{quantVec} is not specified but \code{quantiles} has been
-    specified, then quartiles are employed by default.}
-  \item{pvtBlock}{blocking parameter for performance tuning.  Currently
-    unsupported.}
-  \item{pvtNoPredict}{skips prediction.  Meant for testing only.}
+  \item{rowWeight}{row weighting for initial sampling of tree.}
+  \item{treeBlock}{maximum number of trees to train during a single
+    level (e.g., coprocessor computing).}
+  \item{pvtBlock}{maximum number of trees to train in a block (e.g.,
+  cluster computing).}
   \item{...}{not currently used.}
 }
 
@@ -79,6 +79,7 @@
   subsequent quantile regression.
 }
 
+
 \author{
   Mark Seligman at Suiji.
-  }
+}

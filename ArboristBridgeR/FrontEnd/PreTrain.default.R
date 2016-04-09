@@ -14,7 +14,20 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
-#
-ForestFloorExport <- function(arbOut) {
-  return (.Call("RcppForestFloorExport", arbOut))
+
+PreTrain.default <- function(x) {
+  # Argument checking:
+  if (any(is.na(x)))
+    stop("NA not supported in design matrix")
+
+  predBlock <- PredBlock(x)
+  rowRank <- .Call("RcppRowRank", predBlock)
+
+  preTrain <- list(
+    predBlock = predBlock,
+    rowRank = rowRank
+  )
+  class(preTrain) <- "PreTrain"
+
+  preTrain
 }

@@ -209,26 +209,6 @@
   arbOut
 }
 
-
-PreTrain <- function(x) {
-  # Argument checking:
-  if (any(is.na(x)))
-    stop("NA not supported in design matrix")
-
-  predBlock <- PredBlock(x)
-  rowRank <- .Call("RcppRowRank", predBlock)
-
-  preTrain <- list(
-    predBlock = predBlock,
-    rowRank = rowRank
-  )
-  class(preTrain) <- "PreTrain"
-
-  preTrain
-}
-
-
-
 # Groups predictors into like-typed blocks and creates zero-based type
 # summaries.
 #

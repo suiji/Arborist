@@ -9,7 +9,8 @@
 }
 
 \usage{
-\method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL, qBin = 5000, ctgCensus = NULL, ...)
+\method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL,
+quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", ...)
 }
 
 \arguments{
@@ -19,9 +20,8 @@
     of predictors as in the training command.}
   \item{yTest}{if specfied, a response vector against which to test the new
     predictions.}
-  \item{quantVec}{a vector of quantiles from which to report new
-  quantile regressions.  Only valid if training step specficied quantile
-  regression.}
+  \item{quantVec}{a vector of quantiles to predict.}
+  \item{quantiles}{whether to predict quantiles.}
   \item{qBin}{bin size for quantile etimation.  Performance scales with
     bin size.  Smaller bins sacrifice precision.}
   \item{ctgCensus}{whether/how to summarize per-category predictions.
