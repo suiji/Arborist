@@ -245,7 +245,7 @@ RcppExport SEXP FFloorInternal(SEXP sForestCore, unsigned int tIdx) {
   IntegerVector incrL(bump[tIdx].begin(), bump[tIdx].end());
   List ffTree = List::create(
      _["pred"] = pred[tIdx],
-     _["daugherL"] = incrL,
+     _["daughterL"] = incrL,
      _["daughterR"] = ifelse(incrL == 0, 0, incrL + 1),
      _["split"] = split[tIdx],
      _["facSplit"] = facSplit[tIdx],
