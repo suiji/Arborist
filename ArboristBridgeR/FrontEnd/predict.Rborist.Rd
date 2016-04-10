@@ -1,4 +1,4 @@
-% File man/predict.rborist.Rd
+% File man/predict.Rborist.Rd
 % Part of the rborist package
 
 \name{predict.Rborist}
@@ -30,19 +30,23 @@ quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", ...)
   \item{...}{not currently used.}
 }
 
-\value{
-  A list with the following components:
+\value{ a list containing either of the two prediction containers:
+    
+  \item{PredictReg}{ a list of prediction results for regression:
+      
+  \code{yPred}{ a vector containing the predicted response.}
 
-  If regression, either a vector \code{yPred} containing the predictions for each
-  row, if \code{yTest} is null, or the mean-square error, \code{mse} of the
-  predictions computed with respect to expected \code{yTest}.
+  \code{qPred}{ a matrix containing the prediction quantiles, if requested.}
+  }
 
-  If categorical, either a vector of predictions \code{yPred} for null
-  \code{yTest} or a confusion matrix, \code{confusion}, computed with
-  repsect to expected \code{yTest}.
+  \item{PredictCtg}{ a list of validation results for classification:
+      
+    \code{yPred}{ a vector containing the predicted response.}
 
-  If training included quantile regression, the matrix \code{quantiles}
-  records the vector of predicted quantiles for each row.
+    \code{census}{ a matrix of predictions, by category.}
+    
+    \code{prob}{ a matrix of prediction probabilities by category, if requested.}
+  }
 }
 
 \author{

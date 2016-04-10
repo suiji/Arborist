@@ -22,9 +22,39 @@
 }
 
 \value{
-  An object of type \code{PreTrain}.
-}
+  \item{PreTrain}{ a list of presorted and formatted predictor
+    information:
 
+    \code{colNames}{ a vector of strings containing the training column
+      names.}
+
+    \code{rowNames}{ a vector of strings containing the training row
+      names.}
+
+    \code{blockNum}{ a matrix containing all numeric predictor values.}
+
+    \code{blockFac}{ a matrix containing all factor predictor values.}
+
+    \code{nPredFac}{ the number of factor predictors.}
+
+    \code{nRow}{ the number of training rows.}
+
+    \code{facCard}{ a vector of the factor cardinalities.}
+
+    \code{signature}{ a list consisting of training information needed
+      for separate testing and prediction:
+
+      \code{nRow}{ the number of training rows.}
+
+      \code{predMap}{ a vector mapping core predictor indices back to
+	their respective front-end positions.}
+
+      \code{level}{ a vector of strings containing the training response
+      factor levels.}
+
+    }
+  }
+}
 
 \author{
   Mark Seligman at Suiji.
