@@ -1,9 +1,12 @@
-Several more issues before the next CRAN release:
+Remaining issues for CRAN release 1:
 
-	Employ integer division when no class weighting requested (classification).
+	Vignettes and examples.
 	
-	Compatibility with forestFloor package.
+Release 2:
+
+	Employ integer division in the absence of class weighting (classification).
+	Lazier restaging.
+	Sparse predictors.
+	Out-of-memory "streaming".
+	Separate subtree training.
 	
-	Bring help files up-to-date.
-	
-	Vignettes.
