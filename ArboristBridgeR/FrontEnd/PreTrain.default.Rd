@@ -8,7 +8,8 @@
 \title{Preformatting for Training with Warm Starts}
 \description{
   Presorts and formats training input into a form suitable for
-  subsequent training by \code{Rborist} command.
+  subsequent training by \code{Rborist} command.  Saves unnecessary
+  recomputation of this form when iteratively retraining.
 }
 
 
@@ -55,6 +56,22 @@
     }
   }
 }
+
+\examples{
+  \dontrun{
+    data(iris)
+    pt <- PreTrain(iris[,-5])
+
+    ppTry <- seq(0.2, 0.5, by= 0.3/10)
+    nIter <- length(ppTry)
+    rsq <- numeric(nIter)
+    for (i in 1:nIter) {
+      rb <- Rborist(pt, iris[,5], predProb=ppTry[i])
+      rsq[i] = rb$validiation$rsq
+    }
+  }
+}
+
 
 \author{
   Mark Seligman at Suiji.

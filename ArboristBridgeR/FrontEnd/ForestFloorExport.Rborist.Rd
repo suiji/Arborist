@@ -24,6 +24,17 @@
 }
 
 
+\examples{
+  \dontrun{
+    data(iris)
+    rb <- Rborist(iris[-5], iris[5])
+    ffe <- ForestFloorExport(rb)
+
+    library(forestFloor)
+    ForestFloor(ffe)
+  }
+}
+
 \author{
   Mark Seligman at Suiji.
 }

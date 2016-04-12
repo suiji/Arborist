@@ -1,0 +1,19 @@
+
+Changes in 0.1-1:
+
+* Training produces rich internal state by default.  In particular,
+  quantile validation and prediction can be performed without having
+  to train specially for them.
+
+* ForestFloorExport objects can be produced from training state for
+  use by 'forestFloor' feature-analysis package.
+
+* PreTrain method produces pre-sorted predictor format, saving
+  recomputation when retraining iteratively, such as during a Caret
+  session.
+
+* OMP parallelization now performed per node/predictor pair, rather
+  than per predictor.
+
+* Optional 'regMono' vector enforces monotonic constraints on numeric
+  regressors.

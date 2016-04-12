@@ -28,8 +28,8 @@
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
-                qVec = NULL,
-                quantiles = !is.null(qVec),
+                quantVec = NULL,
+                quantiles = !is.null(quantVec),
                 qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
@@ -132,10 +132,10 @@
   if (quantiles && is.factor(y))
     stop("Quantiles supported for regression case only")
 
-  if (!is.null(qVec)) {
-    if (any(qVec > 1) || any(qVec < 0))
+  if (!is.null(quantVec)) {
+    if (any(quantVec > 1) || any(quantVec < 0))
       stop("Quantile range must be within [0,1]")
-    if (any(diff(qVec) <= 0))
+    if (any(diff(quantVec) <= 0))
       stop("Quantile range must be increasing")
   }
 
@@ -183,10 +183,10 @@
     }
     else {
       if (quantiles) {
-        if (is.null(qVec)) {
-          qVec <- DefaultQuantVec()
+        if (is.null(quantVec)) {
+          quantVec <- DefaultQuantVec()
         }
-        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, qVec, qBin, y, training[["bag"]])
+        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, quantVec, qBin, y, training[["bag"]])
       }
       else {
         validation <- .Call("RcppValidateReg", predBlock, train$forest, train$leaf, y, training[["bag"]])

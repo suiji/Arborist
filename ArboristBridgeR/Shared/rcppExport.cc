@@ -24,9 +24,10 @@
  */
 
 #include <Rcpp.h>
+using namespace Rcpp;
 
 using namespace std;
-using namespace Rcpp;
+//#include <iostream>
 
 #include "rcppPredblock.h"
 #include "rcppForest.h"
@@ -35,7 +36,6 @@ using namespace Rcpp;
 #include "bv.h"
 #include "leaf.h"
 
-//#include <iostream>
 
 /**
    @brief Recasts 'pred' field of nonterminals to front-end facing values.

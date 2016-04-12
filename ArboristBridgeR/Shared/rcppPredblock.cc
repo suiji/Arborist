@@ -23,15 +23,13 @@
    @author Mark Seligman
 */
 
-#include <Rcpp.h>
-
 #include "rowrank.h"
 // Testing only:
 //#include <iostream>
 
-
+#include <Rcpp.h>
 using namespace Rcpp;
-using namespace std;
+
 
 void FactorRemap(IntegerMatrix &xFac, List &level, List &levelTrain);
 

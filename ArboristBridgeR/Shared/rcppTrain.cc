@@ -24,7 +24,6 @@
  */
 
 #include <Rcpp.h>
-
 using namespace Rcpp;
 
 #include "rcppForest.h"
@@ -33,9 +32,9 @@ using namespace Rcpp;
 #include "forest.h"
 #include "leaf.h"
 
-
-//using namespace std;
 //#include <iostream>
+using namespace std;
+
 
 /**
    @brief R-language interface to response caching.
@@ -159,7 +158,6 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   );
 }
 
-using namespace std;
 
 RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sProbVec, SEXP sRegMono) {
   List predBlock(sPredBlock);
