@@ -1,6 +1,14 @@
 
 Changes in 0.1-1:
 
+* Significant reductions in memory footprint.
+
+* Default predictor-selction mode changed to 'predFixed' (like 'mTry')
+  for small predictor counts.  'predProb' remains the default at higher
+  count.
+
+* Binary classification now employs faster, weight-based algorithm.
+
 * Training produces rich internal state by default.  In particular,
   quantile validation and prediction can be performed without having
   to train specially for them.

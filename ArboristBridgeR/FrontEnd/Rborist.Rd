@@ -236,21 +236,24 @@
   rb <- Rborist(x, y, predWeight=c(2.0, 2.0, 2.0, 1.0, 1.0))
 
 
-  # Causes default quantiles to be computed at validation:
+  # Causes (default) quantiles to be computed at validation:
   rb <- Rborist(x, y, quantiles=TRUE)
+  qPred <- rb$validation$qPred
 
 
   # Causes specfied quantiles (deciles) to be computed at validation:
   rb <- Rborist(x, y, quantVec = seq(0.1, 1.0, by = 0.10))
+  qPred <- rb$validation$qPred
 
 
   # Causes (default) quantile computation to be approximated by a
   # small bin size of 100:  fast, but not as accurate:
   rb <- Rborist(x, y, quantiles = TRUE, qBin = 100).
+  qPred <- rb$validation$qPred
 
 
-  # Constrains response to be increasing with respect to X1 and
-  # decreasing with respect to X5 (both unlikely).
+  # Constrains modelled response to be increasing with respect to X1
+  # and decreasing with respect to X5 (both unlikely).
   rb <- Rborist(x, y, regMono=c(1.0, 0, 0, 0, -1.0, 0))
 
 

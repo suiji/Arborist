@@ -49,6 +49,69 @@ quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", ...)
   }
 }
 
+
+\examples{
+\dontrun{
+  # Regression example:
+  nRow <- 5000
+  x <- data.frame(replicate(6, rnorm(nRow)))
+  y <- with(x, X1^2 + sin(X2) + X3 * X4) # courtesy of S. Welling.
+  rb <- Rborist(x,y)
+
+
+  # Performs separate prediction on new data:
+  xx <- data.frame(replace(6, rnorm(nRow)))
+  pred <- predict(rb, xx)
+  yPred <- pred$yPred
+
+
+  # Performs separate prediction, using original response as test
+  # vector:
+  pred <- predict(rb, xx, y)
+  mse <- pred$mse
+  rsq <- pred$rsq
+
+
+  # Performs separate prediction with (default) quantiles:
+  pred <- predict(rb, xx, quantiles="TRUE")
+  qPred <- pred$qPred
+
+
+  # Performs separate prediction with deciles:
+  pred <- predict(rb, xx, quantVec = seq(0.1, 1.0, by = 0.10))
+  qPred <- pred$qPred
+
+
+  # Performs separate quantile prediction with high binning factor:
+  pred <- predict(rb, xx, qBin=20000, quantiles="TRUE")
+  qPred <- pred$pPred
+
+
+  # Classification examples:
+  data(iris)
+  rb <- Rborist(iris[-5], iris[5])
+
+
+  # Generic prediction using training set.
+  # Census as (default) votes:
+  pred <- predict(rb, iris[-5])
+  yPred <- pred$yPred
+  census <- pred$census
+
+
+  # As above, but validation census to report class probabilities:
+  pred <- predict(rb, iris[-5], ctgCensus="prob")
+  prob <- pred$prob
+
+
+  # As above, but with training reponse as test vector:
+  pred <- predict(rb, iris[-5], iris[5], ctgCensus = "prob")
+  prob <- pred$prob
+  conf <- pred$confusion
+  misPred <- pred$misPred
+}
+}
+
 \author{
   Mark Seligman at Suiji.
 }
