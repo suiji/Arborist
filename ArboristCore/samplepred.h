@@ -20,6 +20,37 @@
 
 #include "param.h"
 
+#include <vector>
+
+/**
+   @brief Container for staging initialization, viz. minimizing communication
+   from host or head node.
+ */
+class StagePack {
+  unsigned int sIdx;
+  unsigned int rank;
+  unsigned int sCount;
+  unsigned int ctg;
+  FltVal ySum;
+ public:
+  inline void Ref(unsigned int &_sIdx, unsigned int &_rank, unsigned int &_sCount, unsigned int &_ctg, FltVal &_ySum) const {
+    _sIdx = sIdx;
+    _rank = rank;
+    _sCount = sCount;
+    _ctg = ctg;
+    _ySum = ySum;
+  }
+
+  inline void Set(unsigned int _sIdx, unsigned int _rank, unsigned int _sCount, unsigned int _ctg, FltVal _ySum) {
+    sIdx = _sIdx;
+    rank = _rank;
+    sCount = _sCount;
+    ctg = _ctg;
+    ySum = _ySum;
+  }
+};
+
+
 /**
  */
 class SPNode {
@@ -31,7 +62,7 @@ class SPNode {
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
-  void Init(const class SampleNode *sampleNode, unsigned int _rank);
+  unsigned int Init(const StagePack &stagePack);
 
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
@@ -146,7 +177,6 @@ class SamplePred {
   // y-value, run class and sample index for the predictor position to which they
   // correspond.
 
-  const unsigned int nRow;
   const unsigned int bagCount;
   const unsigned int nPred;
 
@@ -166,13 +196,12 @@ class SamplePred {
   //
   unsigned int *sampleIdx; // RV index for this row.  Used by CTG as well as on replay.
  public:
-  SamplePred(unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount);
+  SamplePred(unsigned int _nPred, unsigned int _bagCount);
   ~SamplePred();
-  static SamplePred *Factory(const class RowRank *rowRank, const class SampleNode sample[], const int sIdxRow[], unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount);
+  static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount);
 
-  void Stage(const class RowRank *rowRank, const class SampleNode sampleNode[], const int sIdxRow[]);
-  void Stage(const class RowRank *rowRank, const class SampleNode sampleNode[], const int sIdxRow[], int predIdx);
-  
+  void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx);
+ 
   inline unsigned int PitchSP() {
     return pitchSP;
   }

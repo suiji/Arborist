@@ -114,6 +114,8 @@ class Leaf {
   std::vector<unsigned int> &origin; // Starting position, per tree.
   const unsigned int nTree;
   std::vector<LeafNode> &leafNode;
+  std::vector<unsigned int> sCount; // bagged count:  per sample.
+  std::vector<unsigned int> row; // originating row:  per sample.
  public:
   Leaf(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode);
   void Reserve(unsigned int leafEst);

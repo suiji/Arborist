@@ -81,6 +81,7 @@ void Sample::DeImmutables() {
 
 Sample::Sample() {
   treeBag = new BV(nRow);
+  row2Sample = new int[nRow];
   sampleNode = new SampleNode[nSamp]; // Lives until scoring.
 }
 
@@ -88,6 +89,7 @@ Sample::Sample() {
 Sample::~Sample() {
   delete treeBag;
   delete [] sampleNode;
+  delete [] row2Sample;
   delete samplePred;
   delete splitPred;
 }
@@ -97,16 +99,12 @@ Sample::~Sample() {
    @brief Samples and enumerates instances of each row index.
    'bagCount'.
 
-   @param sCountRow[] holds the row counts:  0 <=> OOB.
-
-   @param sIdxRow[] row index into sample vector:  -1 <=> OOB.
-
-   @return bagCount, plus output vectors.
+   @return vector of sample counts, by row.
 */
-unsigned int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
+unsigned int *Sample::RowSample() {
+  unsigned int *sCountRow = new unsigned int[nRow];
   for (unsigned int row = 0; row < nRow; row++) {
     sCountRow[row] = 0;
-    sIdxRow[row] = -1;
   }
 
   // Counts occurrences of the rank associated with each target 'row' of the
@@ -120,13 +118,7 @@ unsigned int Sample::CountRows(int sCountRow[], int sIdxRow[]) {
   }
   delete [] rvRow;
 
-  unsigned int idx = 0;
-  for (unsigned int row = 0; row < nRow; row++) {
-    if (sCountRow[row] > 0)
-      sIdxRow[row] = idx++;
-  }
-
-  return idx;
+  return sCountRow;
 }
 
 
@@ -157,7 +149,6 @@ SampleReg *Sample::FactoryReg(const std::vector<double> &y, const RowRank *rowRa
    @brief Constructor.
  */
 SampleReg::SampleReg() : Sample() {
-  sample2Rank = new unsigned int[nSamp]; // Lives until scoring.
 }
 
 
@@ -167,7 +158,7 @@ SampleReg::SampleReg() : Sample() {
 
    @param y is the response vector.
 
-   @param row2Rank is rank of each sampled row.
+   @param row2Rank is the response ranking, by row.
 
    @param samplePred is the SamplePred object associated with this tree.
 
@@ -178,22 +169,30 @@ SampleReg::SampleReg() : Sample() {
 void SampleReg::Stage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const RowRank *rowRank) {
   std::vector<unsigned int> ctgProxy(nRow);
   std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  int *sIdxRow = Sample::PreStage(y, ctgProxy);
-
-  // Only client is quantile regression.
-  for (unsigned int row = 0; row < nRow; row++) {
-    int sIdx = sIdxRow[row];
-    if (sIdx >= 0) {
-      sample2Rank[sIdx] = row2Rank[row];
-    }
-  }
-  samplePred = SamplePred::Factory(rowRank, sampleNode, sIdxRow, nRow, nPred, bagCount);
-  delete [] sIdxRow;
-
+  Sample::PreStage(y, ctgProxy, rowRank);
+  SetRank(row2Rank);
   splitPred = SplitPred::FactoryReg(samplePred);
 }
 
 
+/**
+   @brief Compresses row->rank map to sIdx->rank.
+
+   @param row2Rank[] is the response ranking, by row.
+
+   @return void, with side-effected sample2Rank[].
+ */
+void SampleReg::SetRank(const std::vector<unsigned int> &row2Rank) {
+  // Only client is quantile regression.
+  sample2Rank = new unsigned int[bagCount];
+  for (unsigned int row = 0; row < nRow; row++) {
+    int sIdx = SampleIdx(row);
+    if (sIdx >= 0)
+      sample2Rank[sIdx] = row2Rank[row];
+  }
+}
+
+  
 /**
    @brief Constructor.
  */
@@ -214,10 +213,7 @@ SampleCtg::SampleCtg() : Sample() {
 // Full row count is used to avoid the need to rewalk.
 //
 void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank) {
-  int *sIdxRow = Sample::PreStage(y, yCtg);
-  samplePred = SamplePred::Factory(rowRank, sampleNode, sIdxRow, nRow, nPred, bagCount);
-  delete [] sIdxRow;
-
+  Sample::PreStage(y, yCtg, rowRank);
   splitPred = SplitPred::FactoryCtg(samplePred, sampleNode);
 }
 
@@ -231,33 +227,85 @@ void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<d
 
    @return vector of compressed indices into sample data structures.
  */
-int *Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg) {
-  int *sIdxRow = new int[nRow];
-  int *sCountRow = new int[nRow];
-  bagCount = CountRows(sCountRow, sIdxRow);
+void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const RowRank *rowRank) {
+  unsigned int *sCountRow = RowSample();
   unsigned int slotBits = BV::SlotBits();
 
   bagSum = 0.0;
   int slot = 0;
+  unsigned int sIdx = 0;
   for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
     unsigned int bits = 0;
     unsigned int mask = 1;
     unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
     for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
-      int sIdx = sIdxRow[row];
-      if (sIdx >= 0) {
-	int sCount = sCountRow[row];
+      unsigned int sCount = sCountRow[row];
+      if (sCount > 0) {
         double val = sCount * y[row];
 	sampleNode[sIdx].Set(val, sCount, yCtg[row]);
 	bagSum += val;
         bits |= mask;
+	row2Sample[row] = sIdx++;
+      }
+      else {
+	row2Sample[row] = -1;
       }
     }
     treeBag->SetSlot(slot, bits);
   }
+  bagCount = sIdx;
   delete [] sCountRow;
 
-  return sIdxRow;
+  samplePred = SamplePred::Factory(nPred, bagCount);
+  PreStage(rowRank);
+}
+
+
+/**
+   @brief Loops through the predictors to stage.
+
+   @return void.
+ */
+void Sample::PreStage(const RowRank *rowRank) {
+  unsigned int predIdx;
+
+#pragma omp parallel default(shared) private(predIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (predIdx = 0; predIdx < nPred; predIdx++) {
+      PreStage(rowRank, predIdx);
+    }
+  }
+}
+
+
+/**
+   @brief Stages SamplePred objects in non-decreasing predictor order.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
+void Sample::PreStage(const RowRank *rowRank, int predIdx) {
+  // TODO:  For sparse predictors, stage to DenseRank.
+
+  // Predictor orderings recorded by RowRank may be built with an unstable sort.
+  // Lookup() therefore need not map to 'idx', and results vary by predictor.
+  //
+  unsigned int spIdx = 0;
+  std::vector<StagePack> stagePack(bagCount);
+  for (unsigned int idx = 0; idx < nRow; idx++) {
+    unsigned int predRank;
+    unsigned int row = rowRank->Lookup(predIdx, idx, predRank);
+    int sIdx = SampleIdx(row);
+    if (sIdx >= 0) {
+      unsigned int sCount;
+      FltVal ySum;
+      unsigned int ctg = Ref(sIdx, ySum, sCount);
+      stagePack[spIdx++].Set(sIdx, predRank, sCount, ctg, ySum);
+    }
+  }
+  samplePred->Stage(stagePack, predIdx);
 }
 
 

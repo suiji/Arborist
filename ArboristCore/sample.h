@@ -28,14 +28,14 @@
    value (and interpretation) of the 'ctg' field.  Care should be taken
    to call the appropriate method, as 'ctg' is only used as a packing
    parameter (with value zero) in the case of regression.  Subtyping seems
-   to complicate the code needlessly, and only results in a size savings of
-   #samples * sizeof(uint) per tree.
+   to complicate the code needlessly, with a per-tree size savings of only
+   'nSamp' * sizeof(uint).
  */
 class SampleNode {
   unsigned int ctg;  // Category of sample; no interpretation for regression.
   FltVal sum; // Sum of values selected:  sCount * y-value.
 
-  // Integer-sized container is likely overkill.  Size is typically << #rows,
+  // Integer-sized container is likely overkill:  typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
   unsigned int sCount;
 
@@ -85,6 +85,9 @@ class SampleNode {
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
+  int *row2Sample;
+  void PreStage(const class RowRank *rowRank);
+  void PreStage(const class RowRank *rowRank, int predIdx);
  protected:
   static unsigned int nRow;
   static unsigned int nPred;
@@ -95,8 +98,9 @@ class Sample {
   class BV *treeBag;
   class SamplePred *samplePred;
   class SplitPred *splitPred;
-  int *PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg);
-  static unsigned int CountRows(int sCountRow[], int sIdxRow[]);
+  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
+
+  static unsigned int *RowSample();
 
  public:
   static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
@@ -114,6 +118,18 @@ class Sample {
     return nSamp;
   }
 
+
+  
+  /**
+     @param row row index at which to look up sample index.
+
+     @return Sample index associated with row, or -1 if none.
+   */
+  inline int SampleIdx(unsigned int row) const {
+    return row2Sample[row];
+  }
+  
+  
   /**
      @brief Accessor for bag count.
    */
@@ -166,9 +182,11 @@ class Sample {
 */
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
+  void SetRank(const std::vector<unsigned int> &row2Rank);
  public:
   SampleReg();
   ~SampleReg();
+
   inline unsigned int Rank(unsigned int sIdx) const {
     return sample2Rank[sIdx];
   }

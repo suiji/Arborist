@@ -14,8 +14,6 @@
  */
 
 #include "samplepred.h"
-#include "sample.h"
-#include "rowrank.h"
 
 //#include <iostream>
 using namespace std;
@@ -52,7 +50,7 @@ void SPNode::DeImmutables() {
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount) : nRow(_nRow), bagCount(_bagCount), nPred(_nPred), bufferSize(_nPred * _bagCount), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount) : bagCount(_bagCount), nPred(_nPred), bufferSize(_nPred * _bagCount), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   sampleIdx = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
 }
@@ -72,52 +70,31 @@ SamplePred::~SamplePred() {
 
    @return SamplePred object for tree.
  */
-SamplePred *SamplePred::Factory(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[], unsigned int _nRow, unsigned int _nPred, unsigned int _bagCount) {
-  SamplePred *samplePred = new SamplePred(_nRow, _nPred, _bagCount);
-  samplePred->Stage(rowRank, sampleNode, sIdxRow);
+SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount) {
+  SamplePred *samplePred = new SamplePred(_nPred, _bagCount);
 
   return samplePred;
 }
 
 
 /**
-   @brief Loops through the predictors to stage.
+   @brief Initializes column pertaining to a single predictor.
+
+   @param stagePack is a vector of rank/index pairs.
+
+   @param predIdx is the predictor index at which to initialize.
 
    @return void.
  */
-void SamplePred::Stage(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[]) {  
-  unsigned int predIdx;
-
-#pragma omp parallel default(shared) private(predIdx)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (predIdx = 0; predIdx < nPred; predIdx++) {
-      Stage(rowRank, sampleNode, sIdxRow, predIdx);
-    }
-  }
-}
-
-
-/**
-   @brief Stages SamplePred objects in non-decreasing predictor order.
-
-   @param predIdx is the predictor index.
-
-   @return void.
-*/
-void SamplePred::Stage(const RowRank *rowRank, const SampleNode sampleNode[], const int sIdxRow[], int predIdx) {
+void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx) {
   unsigned int *smpIdx;
   SPNode *spn = Buffers(predIdx, 0, smpIdx);
 
   // TODO:  For sparse predictors, stage to DenseRank.
-  for (unsigned int idx = 0; idx < nRow; idx++) {
-    unsigned int rank;
-    unsigned int row = rowRank->Lookup(predIdx, idx, rank);
-    int sIdx = sIdxRow[row];
-    if (sIdx >= 0) {
-      *smpIdx++ = sIdx;
-      spn++->Init(&sampleNode[sIdx], rank);
-    }
+
+  for (unsigned int idx = 0; idx < stagePack.size(); idx++) {
+    unsigned int sIdx = spn++->Init(stagePack[idx]);
+    *smpIdx++ = sIdx;
   }
 }
 
@@ -125,20 +102,16 @@ void SamplePred::Stage(const RowRank *rowRank, const SampleNode sampleNode[], co
 /**
    @brief Initializes immutable field values with category packing.
 
-   @param sample holds sampled values.
+   @param stagePack holds packed staging values.
 
-   @param sIdx is the sample index.
-
-   @param sn contains the sampled values.
-
-   @param _rank is the predictor rank at the sampled row.
-
-   @return void.
+   @return upacked sample index.
  */
-void SPNode::Init(const SampleNode *sampleNode, unsigned int _rank) {
-  unsigned int ctg = sampleNode->Ref(ySum, sCount);
+unsigned int SPNode::Init(const StagePack &stagePack) {
+  unsigned int sIdx, ctg;
+  stagePack.Ref(sIdx, rank, sCount, ctg, ySum);
   sCount = (sCount << runShift) | ctg; // Packed representation.
-  rank = _rank;
+  
+  return sIdx;
 }
 
 

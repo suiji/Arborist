@@ -118,6 +118,12 @@ void LeafReg::Scores(const Sample *sample, const std::vector<unsigned int> &leaf
     sCount[leafIdx] += sample->SCount(sIdx);
   }
 
+  // TODO:
+  //  i) Move sCount[] to base class
+  // ii) Replace RankCount vector with vector of uint.
+  //iii) Introduce uint row[] vector, parallel to sCount[], also in base.
+  // iv) Invert Sample's row2Sample[] to construct (iii); size = bagCount.
+
   for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
     ScoreScale(tIdx, leafIdx, sCount[leafIdx]);
   }
