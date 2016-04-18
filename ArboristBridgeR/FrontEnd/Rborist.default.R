@@ -46,6 +46,7 @@
   predBlock <- preTrain$predBlock
   nPred <- predBlock$nPredNum + predBlock$nPredFac
   nRow <- predBlock$nRow
+
   if (is.null(regMono)) {
     regMono <- rep(0.0, nPred)
   }
@@ -62,7 +63,8 @@
     predWeight <- rep(1.0, nPred)
   }
 
-  
+  if (minInfo < 0.0)
+      stop("minInfo must be non-negative")
   if (any(is.na(y)))
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))

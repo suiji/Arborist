@@ -72,10 +72,10 @@ class RunSet {
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
   int runsLH; // Count of LH runs.
  public:
-  const static int maxWidth = 10;
+  const static unsigned int maxWidth = 10;
   static unsigned int ctgWidth;
   unsigned int safeRunCount;
-  int DeWide();
+  unsigned int DeWide();
   void DePop(int pop = 0);
   void Reset(FRNode*, BHPair*, int*, double*, double*);
   void OffsetCache(int runIdx, int bhpIdx, int outIdx);

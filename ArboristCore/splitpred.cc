@@ -926,7 +926,7 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], int start, int
    '2^(runCount-1) - 1'.
 */
 unsigned int SPCtg::SplitRuns(RunSet *runSet, int splitIdx, double sum, double &maxGini, unsigned int &lhSampCt) {
-  int countEff = runSet->DeWide();
+  unsigned int countEff = runSet->DeWide();
 
   unsigned int slotSup = countEff - 1; // Uses post-shrink value.
   unsigned int lhBits = 0;

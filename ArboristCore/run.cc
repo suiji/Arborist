@@ -133,11 +133,11 @@ void Run::OffsetsCtg() {
     return;
 
   // Running counts:
-  int runCount = 0; // Factor runs.
-  int heapRuns = 0; // Runs subject to sorting.
-  int outRuns = 0; // Sorted runs of interest.
+  unsigned int runCount = 0; // Factor runs.
+  unsigned int heapRuns = 0; // Runs subject to sorting.
+  unsigned int outRuns = 0; // Sorted runs of interest.
   for (int i = 0; i < runSetCount; i++) {
-    int rCount = runSet[i].CountSafe();
+    unsigned int rCount = runSet[i].CountSafe();
     if (ctgWidth == 2) { // Binary uses heap for all runs.
       runSet[i].OffsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
@@ -367,7 +367,7 @@ void RunSet::DePop(int pop) {
 
    @return post-shrink run count.
  */
-int RunSet::DeWide() {
+unsigned int RunSet::DeWide() {
   if (runCount <= maxWidth)
     return runCount;
 
@@ -376,7 +376,7 @@ int RunSet::DeWide() {
   double tempSum[ctgWidth * maxWidth];
   // Copies runs referenced by the slot list to a temporary area.
   DePop(maxWidth);
-  for (int i = 0; i < maxWidth; i++) {
+  for (unsigned int i = 0; i < maxWidth; i++) {
     int outSlot = outZero[i];
     tempRun[i] = runZero[outSlot];
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
@@ -385,7 +385,7 @@ int RunSet::DeWide() {
   }
 
   // Overwrites existing runs with the shrunken list
-  for (int i = 0; i < maxWidth; i++) {
+  for (unsigned int i = 0; i < maxWidth; i++) {
     runZero[i] = tempRun[i];
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
       ctgZero[i * ctgWidth + ctg] = tempSum[i * ctgWidth + ctg];
