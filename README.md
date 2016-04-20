@@ -1,6 +1,6 @@
 
-Arborist: Parallelized, Extensible Random Forests
-====
+## Arborist: Parallelized, Extensible Random Forests
+
 
 [![License](https://img.shields.io/badge/core-MPL--2-brightgreen.svg)](https://www.mozilla.org/en-US/MPL/2.0/) 
 [![R License](http://img.shields.io/badge/R_Bridge-GPL%20%28%3E=%202%29-brightgreen.svg?style=flat)](http://www.gnu.org/licenses/gpl-2.0.html)
@@ -22,8 +22,8 @@ Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/i
 
 
 
-R
-----
+### R
+
 
 The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html) package. 
 
@@ -34,7 +34,7 @@ The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/
 
 - Installation of Development Version:
 
-    # -tk
+    > -tk
 
 
 ### Notes
@@ -42,17 +42,16 @@ The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/
 - Version 1.0 will not be released to CRAN until vignettes, tests and (improved) examples are complete.
 
 
-Python
-----
+#### Python
 
 The *Arborist* is will soon be available on PyPI.
 
     
-References
-----
+#### References
+
  
 
-News/Changes
+#### News/Changes
 ----
 - Several major refactorings have taken place since the initial CRAN release.  These were aimed not only at improving performance but also away from the Arborist's original narrow focus on high observation count and high predictor probability.  Additionally, the groundwork has been laid for more advanced features to appear in upcoming releases, such as support for heterogeneous parallelization and for sparse training sets.
 - A "preTrain" feature has been added to cache initital training state.  This will save computation under iterative training schemes, such as are facilitated by the R package Caret.
