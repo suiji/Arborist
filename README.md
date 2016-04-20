@@ -2,19 +2,16 @@
 Arborist: Parallelized, Extensible Random Forests
 ====
 
-**Core:**&nbsp;&nbsp;
-[![License](http://img.shields.io/badge/license-MPL--2+-brightgreen.svg?style=flat)](https://www.mozilla.org/en-US/MPL/2.0/) 
-&nbsp;&nbsp;&nbsp;
-**R:**&nbsp;&nbsp;
+[![Core License](http://img.shields.io/badge/license-MPL--2+-brightgreen.svg?style=flat)](https://www.mozilla.org/en-US/MPL/2.0/) 
 [![License](http://img.shields.io/badge/license-GPL%20%28%3E=%202%29-brightgreen.svg?style=flat)](http://www.gnu.org/licenses/gpl-2.0.html)
 [![CRAN](http://www.r-pkg.org/badges/version/Rborist)](https://cran.rstudio.com/web/packages/Rborist/index.html) 
 [![Downloads](http://cranlogs.r-pkg.org/badges/Rborist?color=brightgreen)](http://www.r-pkg.org/pkg/Rborist)
-&nbsp;&nbsp;&nbsp;**Python:**&nbsp;&nbsp;
+[![PyPI version](https://badge.fury.io/py/pyborist.svg)](https://pypi.python.org/pypi/pyborist/)
 
 
 The Arborist provides a fast, open-source implementation of Leo Brieman's Random Forest algorithm. The Arborist achieves its speed through efficient C++ code and parallel, distributed tree construction. 
 
-Bindings are available for **Python** and [R](https://cran.r-project.org/web/packages/Rborist/index.html).
+Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/index.html) and **Python (coming soon)**
 
 
 R
@@ -43,7 +40,8 @@ Python
 The *Arborist* is will soon be available on PyPI.
 
     
-
+References
+----
  
 
 News/Changes
