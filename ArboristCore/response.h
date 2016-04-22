@@ -28,15 +28,15 @@ class Response {
   class Leaf *leaf;
   class Sample** sampleBlock;
  public:
-  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
-  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class RankCount> &info);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagRow> &bagRow, std::vector<unsigned int> &rank);
   virtual ~Response();
 
   const std::vector<double> &Y() {
     return y;
   }
-  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class RankCount> &_leafInfo);
-  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
+  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &bagRow, std::vector<unsigned int> &_rank);
+  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagRow> &bagRow,std::vector<double> &weight, unsigned int ctgWidth);
 
   class PreTree **BlockTree(const class RowRank *rowRank, unsigned int blockSize);
   const class BV *TreeBag(unsigned int blockIdx);
@@ -55,7 +55,7 @@ class ResponseReg : public Response {
   const std::vector<unsigned int> &row2Rank; // Facilitates rank[] output.
  public:
 
-  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class RankCount> &leafInfo);
+  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagRow> &bagRow, std::vector<unsigned int> &rank);
   ~ResponseReg();
   class Sample *Sampler(const class RowRank *rowRank);
 };
@@ -67,7 +67,7 @@ class ResponseCtg : public Response {
   const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
  public:
 
-  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth);
+  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<class BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth);
   ~ResponseCtg();
   class Sample *Sampler(const class RowRank *rowRank);
 };

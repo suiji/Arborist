@@ -309,6 +309,16 @@ void Sample::PreStage(const RowRank *rowRank, int predIdx) {
 }
 
 
+void Sample::RowInvert(std::vector<unsigned int> &sample2Row) const {
+  for (unsigned int row = 0; row < nRow; row++) {
+    int sIdx = row2Sample[row];
+    if (sIdx >= 0) {
+      sample2Row[sIdx] = row;
+    }
+  }
+}
+
+
 SampleCtg::~SampleCtg() {
 }
 

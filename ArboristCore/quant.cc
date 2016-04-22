@@ -102,8 +102,8 @@ void Quant::SmudgeLeaves() {
       for (unsigned int j = 0; j < binSize; j++)
 	binTemp[j] = 0;
       for (unsigned int j = 0; j < extent; j++) {
-	unsigned int rank, sCount;
-	leafReg->InfoRef(infoOff + j, sCount, rank);
+	unsigned int sCount = leafReg->SCount(infoOff + j);
+	unsigned int rank = leafReg->Rank(infoOff + j);
 	binTemp[rank >> logSmudge] += sCount;
       }
       for (unsigned int j = 0; j < binSize; j++) {
@@ -180,8 +180,8 @@ unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, unsigned
   int rankTot = 0;
   unsigned int infoOff = sampleOffset[leafReg->NodeIdx(tIdx, leafIdx)];
   for (unsigned int i = 0; i < leafReg->Extent(tIdx, leafIdx); i++) {
-    unsigned int sCount, rank;
-    leafReg->InfoRef(infoOff + i, sCount, rank);
+    unsigned int sCount = leafReg->SCount(infoOff + i);
+    unsigned int rank = leafReg->Rank(infoOff + i);
     sampRanks[rank] += sCount;
     rankTot += sCount;
   }

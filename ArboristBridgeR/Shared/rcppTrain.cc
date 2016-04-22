@@ -142,17 +142,18 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
   std::vector<unsigned int> facSplit;
   std::vector<LeafNode> leafNode;
-  std::vector<double> leafInfo;
+  std::vector<BagRow> bagRow;
+  std::vector<double> weight;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
   //  may not scale to multi-gigarow sets.
   std::vector<unsigned int> inBag;
 
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, leafInfo);
+  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
 
   return List::create(
       _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, leafInfo, CharacterVector(yOneBased.attr("levels"))),
+      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, bagRow, weight, CharacterVector(yOneBased.attr("levels"))),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
   );
@@ -212,7 +213,8 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
 
   std::vector<ForestNode> forestNode;
   std::vector<LeafNode> leafNode;
-  std::vector<RankCount> leafInfo;
+  std::vector<BagRow> bagRow;
+  std::vector<unsigned int> rank;
   std::vector<unsigned int> facSplit;
 
   //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
@@ -221,11 +223,11 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   //
   std::vector<unsigned int> inBag;
 
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, leafInfo);
+  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
 
   return List::create(
       _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, leafInfo, as<std::vector<double> >(yRanked)),
+      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, bagRow, rank, as<std::vector<double> >(yRanked)),
       _["bag"] = inBag,
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
     );

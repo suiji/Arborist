@@ -110,14 +110,14 @@ class Sample {
   static void DeImmutables();
 
   Sample();
-
+  void RowInvert(std::vector<unsigned int> &sample2Row) const;
+  
   /**
      @brief Accessor for sample count.
    */
   static inline int NSamp() {
     return nSamp;
   }
-
 
   
   /**

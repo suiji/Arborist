@@ -266,9 +266,11 @@ void Forest::Reserve(unsigned int blockHeight, unsigned int blockFac, double slo
 
 
 /**
-   @param tIdx is current tree index.
-
    @brief Registers current vector sizes of crescent forest as origin values.
+
+   @param tIdx is current tree index.
+   
+   @return void.
  */
 void Forest::Origins(unsigned int tIdx) {
   treeOrigin[tIdx] = Height();

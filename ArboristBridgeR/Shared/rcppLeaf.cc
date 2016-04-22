@@ -30,9 +30,9 @@
 
 namespace Rcpp {
   template <> SEXP wrap(const std::vector<LeafNode> &);
-  template <> SEXP wrap(const std::vector<RankCount> &);
+  template <> SEXP wrap(const std::vector<BagRow> &);
   template <> std::vector<LeafNode>* as(SEXP);
-  template <> std::vector<RankCount>* as(SEXP);
+  template <> std::vector<BagRow>* as(SEXP);
 }
 
 #include "rcppLeaf.h"
@@ -44,8 +44,8 @@ template <> SEXP Rcpp::wrap(const std::vector<LeafNode> &leafNode) {
 }
 
 
-template <> SEXP Rcpp::wrap(const std::vector<RankCount> &leafInfo) {
-  XPtr<const std::vector<RankCount> > extWrap(new std::vector<RankCount>(leafInfo), true);
+template <> SEXP Rcpp::wrap(const std::vector<BagRow> &bagRow) {
+  XPtr<const std::vector<BagRow> > extWrap(new std::vector<BagRow>(bagRow), true);
 
   return wrap(extWrap);
 }
@@ -57,20 +57,21 @@ template <> std::vector<LeafNode>* Rcpp::as(SEXP sLNReg) {
 }
 
 
-template <> std::vector<RankCount>* Rcpp::as(SEXP sLNReg) {
-  Rcpp::XPtr<std::vector<RankCount> > xp(sLNReg);
-  return (std::vector<RankCount>*) xp;
+template <> std::vector<BagRow>* Rcpp::as(SEXP sLNReg) {
+  Rcpp::XPtr<std::vector<BagRow> > xp(sLNReg);
+  return (std::vector<BagRow>*) xp;
 }
 
 
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
-RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<RankCount> &leafInfo, const std::vector<double> &yRanked) {
+RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked) {
   List leaf = List::create(
    _["origin"] = leafOrigin,
-   _["node"] = leafNode,			   
-   _["info"] = leafInfo,
+   _["node"] = leafNode,
+   _["bagRow"] = bagRow,
+   _["rank"] = rank,
    _["yRanked"] = yRanked
   );
   leaf.attr("class") = "LeafReg";
@@ -82,11 +83,12 @@ RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const s
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<double> &leafInfo, const CharacterVector &levels) {
+RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, const std::vector<double> &weight, const CharacterVector &levels) {
   List leaf = List::create(
    _["origin"] = leafOrigin,	
    _["node"] = leafNode,
-   _["info"] = leafInfo,
+   _["bagRow"] = bagRow,
+   _["weight"] = weight,
    _["levels"] = levels
    );
   leaf.attr("class") = "LeafCtg";
@@ -106,7 +108,7 @@ RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const s
 
    @return void, with output reference parameters.
  */
-void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<RankCount> *&_leafInfo) {
+void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<BagRow> *&_bagRow, std::vector<unsigned int> &_rank) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
@@ -114,7 +116,8 @@ void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsign
   _yRanked = leaf["yRanked"];
   _leafOrigin = leaf["origin"];
   _leafNode = leaf["node"];
-  _leafInfo = leaf["info"];
+  _bagRow = leaf["bagRow"];
+  _rank = leaf["rank"];
 }
 
 
@@ -129,13 +132,14 @@ void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsign
 
    @return void, with output reference parameters.
  */
-void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<double> &_leafInfo, CharacterVector &_levels) {
+void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> *&_leafNode, std::vector<BagRow> *&_bagRow, std::vector<double> &_weight, CharacterVector &_levels) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");
   }
   _leafOrigin = leaf["origin"];
   _leafNode = leaf["node"];
-  _leafInfo = leaf["info"];
+  _bagRow = leaf["bagRow"];
+  _weight = leaf["weight"];
   _levels = CharacterVector((SEXP) leaf["levels"]);
 }

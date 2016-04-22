@@ -35,8 +35,8 @@ using namespace std;
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth) {
-  return new ResponseCtg(feCtg, feProxy, leafOrigin, leafNode, info, ctgWidth);
+ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) {
+  return new ResponseCtg(feCtg, feProxy, leafOrigin, leafNode, bagRow, weight, ctgWidth);
 }
 
 
@@ -46,7 +46,7 @@ ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const 
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, info, ctgWidth), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, bagRow, weight, ctgWidth), yCtg(_yCtg) {
 }
 
 
@@ -56,7 +56,7 @@ ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vect
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<double> &info, unsigned int ctgWidth) : y(_y), leaf(new LeafCtg(leafOrigin, leafNode, info, ctgWidth)) {
+Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : y(_y), leaf(new LeafCtg(leafOrigin, leafNode, bagRow, weight, ctgWidth)) {
 }
 
 
@@ -66,7 +66,7 @@ Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &lea
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<RankCount> &info) : y(_y), leaf(new LeafReg(leafOrigin, leafNode, info)) {
+Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : y(_y), leaf(new LeafReg(leafOrigin, leafNode, bagRow, rank)) {
 }
 
 
@@ -92,8 +92,8 @@ ResponseReg::~ResponseReg() {
 
    @return void, with output reference vector.
  */
-ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<RankCount> &_leafInfo) {
-  return new ResponseReg(yNum, _row2Rank, _leafOrigin, _leafNode, _leafInfo);
+ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &_rank) {
+  return new ResponseReg(yNum, _row2Rank, _leafOrigin, _leafNode, bagRow, _rank);
 }
 
 
@@ -104,7 +104,7 @@ ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::ve
 
    @param yRanked outputs the sorted response needed for quantile ranking.
  */
-ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<RankCount> &leafInfo) : Response(_y, leafOrigin, leafNode, leafInfo), row2Rank(_row2Rank) {
+ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : Response(_y, leafOrigin, leafNode, bagRow, rank), row2Rank(_row2Rank) {
 }
 
 

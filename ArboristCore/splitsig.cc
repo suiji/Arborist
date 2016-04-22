@@ -37,7 +37,9 @@ double SSNode::minRatio = 0.0;
 
    @param _nPred is the number of predictors.
 
-   @param _minRatio is an inf information content for splitting.
+   @param _minRatio is an inf information content for splitting.  Must
+   be non-negative, as otherwise ArgMax cannot distinguish splitting
+   candidates from unset SSNodes, which have initial 'info' == 0.
 
    @return void.
  */

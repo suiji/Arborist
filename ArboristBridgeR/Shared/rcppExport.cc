@@ -55,9 +55,9 @@ void PredTree(const int predMap[], std::vector<unsigned int> &pred, std::vector<
 /**
    @brief Prepares predictor field for export by remapping to front-end indices.
  */
-void PredExport(const int predMap[], std::vector<std::vector<unsigned int> > &pred, std::vector<std::vector<unsigned int> > &bump) {
-  for (unsigned int tIdx = 0; tIdx < pred.size(); tIdx++) {
-    PredTree(predMap, pred[tIdx], bump[tIdx]);
+void PredExport(const int predMap[], std::vector<std::vector<unsigned int> > &predTree, std::vector<std::vector<unsigned int> > &bumpTree) {
+  for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
+    PredTree(predMap, predTree[tIdx], bumpTree[tIdx]);
   }
 }
 
@@ -67,7 +67,7 @@ void PredExport(const int predMap[], std::vector<std::vector<unsigned int> > &pr
 
    @return List with common and regression-specific members.
  */
-RcppExport SEXP ExportReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) {
+RcppExport SEXP ExportReg(SEXP sSignature, SEXP sForest, SEXP sLeaf) {
   unsigned int nRow;
   IntegerVector predMap;
   SignatureUnwrap(sSignature, nRow, predMap);
@@ -79,41 +79,39 @@ RcppExport SEXP ExportReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
   std::vector<ForestNode> *forestNode;
   ForestUnwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
 
+  unsigned int nTree = nodeOrigin.size();
+  std::vector<std::vector<unsigned int> > predTree(nTree), bumpTree(nTree);
+  std::vector<std::vector<double > > splitTree(nTree);
+  ForestNode::Export(nodeOrigin, *forestNode, predTree, bumpTree, splitTree);
+  PredExport(predMap.begin(), predTree, bumpTree);
+  
+  std::vector<std::vector<unsigned int> > facSplitTree(nTree);
+  BVJagged::Export(facOrigin, splitBV, facSplitTree);
+
   std::vector<double> yRanked;
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
-  std::vector<RankCount> *leafInfo;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, leafInfo);
+  std::vector<BagRow> *bagRow;
+  std::vector<unsigned int> rank;
+  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rank);
 
-  unsigned int nTree = nodeOrigin.size();
-  std::vector<std::vector<unsigned int> > pred(nTree), bump(nTree);
-  std::vector<std::vector<double > > split(nTree);
-  ForestNode::Export(nodeOrigin, *forestNode, pred, bump, split);
-  PredExport(predMap.begin(), pred, bump);
-  
-  std::vector<std::vector<unsigned int> > facSplit(nTree);
-  BVJagged::Export(facOrigin, splitBV, facSplit);
-
-  std::vector<std::vector<unsigned int> > bag(nTree);
-  BitMatrix::Export(as<std::vector<unsigned int> >(sBag), nRow, bag);
-
-  std::vector<std::vector<double> > score(nTree);
-  std::vector<std::vector<unsigned int> > extent(nTree);
-  LeafNode::Export(leafOrigin, *leafNode, score, extent);
-
-  std::vector<std::vector<unsigned int> > rank(nTree), sCount(nTree);
-  LeafReg::Export(leafOrigin, *leafInfo, rank, sCount);
+  std::vector<std::vector<unsigned int> > rowTree(nTree), sCountTree(nTree);
+  std::vector<std::vector<double> > scoreTree(nTree);
+  std::vector<std::vector<unsigned int> > extentTree(nTree);
+  std::vector<std::vector<unsigned int> > rankTree(nTree);
+  LeafReg::Export(leafOrigin, *leafNode, *bagRow, rank, rowTree, sCountTree, scoreTree, extentTree, rankTree);
 
   List outBundle = List::create(
-				_["pred"] = pred,
-				_["bump"] = bump,
-				_["split"] = split,
-				_["facSplit"] = facSplit,
-				_["bag"] = bag,
-				_["score"] = score,
-				_["extent"] = extent,
-				_["rank"] = rank,
-				_["sCount"] = sCount
+				_["nRow"] = nRow,
+				_["pred"] = predTree,
+				_["bump"] = bumpTree,
+				_["split"] = splitTree,
+				_["facSplit"] = facSplitTree,
+				_["row"] = rowTree,
+				_["sCount"] = sCountTree,
+				_["score"] = scoreTree,
+				_["extent"] = extentTree,
+				_["rank"] = rankTree
 				);
   outBundle.attr("class") = "ExportReg";
 
@@ -126,7 +124,7 @@ RcppExport SEXP ExportReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
 
    @return List with common and classification-specific members.
  */
-RcppExport SEXP ExportCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) {
+RcppExport SEXP ExportCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf) {
   unsigned int nRow;
   IntegerVector predMap;
   SignatureUnwrap(sSignature, nRow, predMap);
@@ -135,40 +133,39 @@ RcppExport SEXP ExportCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
   std::vector<ForestNode> *forestNode;
   ForestUnwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
 
+  unsigned int nTree = nodeOrigin.size();
+  std::vector<std::vector<unsigned int> > predTree(nTree), bumpTree(nTree);
+  std::vector<std::vector<double > > splitTree(nTree);
+  ForestNode::Export(nodeOrigin, *forestNode, predTree, bumpTree, splitTree);
+  PredExport(predMap.begin(), predTree, bumpTree);
+  
+  std::vector<std::vector<unsigned int> > facSplitTree(nTree);
+  BVJagged::Export(facOrigin, splitBV, facSplitTree);
+
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
-  std::vector<double> leafInfo;
+  std::vector<BagRow> *bagRow;
+  std::vector<double> weight;
   CharacterVector levels;
-  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, leafInfo, levels);
+  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, weight, levels);
 
-  unsigned int nTree = nodeOrigin.size();
-  std::vector<std::vector<unsigned int> > pred(nTree), bump(nTree);
-  std::vector<std::vector<double > > split(nTree);
-  ForestNode::Export(nodeOrigin, *forestNode, pred, bump, split);
-  PredExport(predMap.begin(), pred, bump);
-  
-  std::vector<std::vector<unsigned int> > facSplit(nTree);
-  BVJagged::Export(facOrigin, splitBV, facSplit);
-
-  std::vector<std::vector<unsigned int> > bag(nTree);
-  BitMatrix::Export(as<std::vector<unsigned int> >(sBag), nRow, bag);
-
-  std::vector<std::vector<double> > score(nTree);
-  std::vector<std::vector<unsigned int> > extent(nTree);
-  LeafNode::Export(leafOrigin, *leafNode, score, extent);
-
-  std::vector<std::vector<double> > weight(nTree);
-  LeafCtg::Export(leafOrigin, leafInfo, levels.length(), weight);
+  std::vector<std::vector<unsigned int> > rowTree(nTree), sCountTree(nTree);
+  std::vector<std::vector<double> > scoreTree(nTree);
+  std::vector<std::vector<unsigned int> > extentTree(nTree);
+  std::vector<std::vector<double> > weightTree(nTree);
+  LeafCtg::Export(leafOrigin, *leafNode, *bagRow, weight, levels.length(), rowTree, sCountTree, scoreTree, extentTree, weightTree);
 
   List outBundle = List::create(
-				_["pred"] = pred,
-				_["bump"] = bump,
-				_["split"] = split,
-				_["facSplit"] = facSplit,
-				_["bag"] = bag,
-				_["score"] = score,
-				_["extent"] = extent,
-				_["weight"] = weight
+				_["nRow"] = nRow,
+				_["pred"] = predTree,
+				_["bump"] = bumpTree,
+				_["split"] = splitTree,
+				_["facSplit"] = facSplitTree,
+				_["row"] = rowTree,
+				_["sCount"] = sCountTree,
+				_["score"] = scoreTree,
+				_["extent"] = extentTree,
+				_["weight"] = weightTree
 				);
   outBundle.attr("class") = "ExportCtg";
 
@@ -237,24 +234,36 @@ RcppExport SEXP FFloorLeafCtg(SEXP sForestCore, unsigned int tIdx) {
  */
 RcppExport SEXP FFloorInternal(SEXP sForestCore, unsigned int tIdx) {
   List forestCore(sForestCore);
-  std::vector<std::vector<unsigned int> > pred = forestCore["pred"];
-  std::vector<std::vector<unsigned int> > bump = forestCore["bump"];
-  std::vector<std::vector<double > > split = forestCore["split"];
-  std::vector<std::vector<unsigned int> > facSplit = forestCore["facSplit"];
-  std::vector<std::vector<unsigned int> > bag = forestCore["bag"];
-  IntegerVector incrL(bump[tIdx].begin(), bump[tIdx].end());
-  IntegerVector predIdx(pred[tIdx].begin(), pred[tIdx].end());
+  std::vector<std::vector<unsigned int> > predTree = forestCore["pred"];
+  std::vector<std::vector<unsigned int> > bumpTree = forestCore["bump"];
+  std::vector<std::vector<double > > splitTree = forestCore["split"];
+  std::vector<std::vector<unsigned int> > facSplitTree = forestCore["facSplit"];
+  IntegerVector incrL(bumpTree[tIdx].begin(), bumpTree[tIdx].end());
+  IntegerVector predIdx(predTree[tIdx].begin(), predTree[tIdx].end());
   List ffTree = List::create(
      _["pred"] = ifelse(incrL == 0, -(predIdx + 1), predIdx),
      _["daughterL"] = incrL,
      _["daughterR"] = ifelse(incrL == 0, 0, incrL + 1),
-     _["split"] = split[tIdx],
-     _["facSplit"] = facSplit[tIdx],
-     _["bag"] = bag[tIdx]
+     _["split"] = splitTree[tIdx],
+     _["facSplit"] = facSplitTree[tIdx]
      );
 
   ffTree.attr("class") = "FFloorTree";
   return ffTree;
+}
+
+
+RcppExport SEXP FFloorBag(SEXP sForestCore, int tIdx) {
+  List forestCore(sForestCore);
+  unsigned int nRow = as<unsigned int>(forestCore["nRow"]);
+  std::vector<std::vector<unsigned int> > rowTree = forestCore["row"];
+  std::vector<std::vector<unsigned int> > sCountTree = forestCore["sCount"];
+  IntegerVector bag = IntegerVector(nRow);
+  IntegerVector row(rowTree[tIdx].begin(), rowTree[tIdx].end());
+  IntegerVector sCount(sCountTree[tIdx].begin(), sCountTree[tIdx].end());
+  bag[row] = sCount;
+
+  return bag;
 }
 
 
@@ -263,7 +272,8 @@ RcppExport SEXP FFloorInternal(SEXP sForestCore, unsigned int tIdx) {
 RcppExport SEXP FFloorTreeReg(SEXP sCoreReg, unsigned int tIdx) {
   List ffReg = List::create(
     _["internal"] = FFloorInternal(sCoreReg, tIdx),
-    _["leaf"] = FFloorLeafReg(sCoreReg, tIdx)
+    _["leaf"] = FFloorLeafReg(sCoreReg, tIdx),
+    _["bag"] = FFloorBag(sCoreReg, tIdx)
   );
 
   ffReg.attr("class") = "FFloorTreeReg";
@@ -276,7 +286,8 @@ RcppExport SEXP FFloorTreeReg(SEXP sCoreReg, unsigned int tIdx) {
 RcppExport SEXP FFloorTreeCtg(SEXP sCoreCtg, unsigned int tIdx) {
   List ffCtg = List::create(
     _["internal"] = FFloorInternal(sCoreCtg, tIdx),
-    _["leaf"] = FFloorLeafCtg(sCoreCtg, tIdx)
+    _["leaf"] = FFloorLeafCtg(sCoreCtg, tIdx),
+    _["bag"] = FFloorBag(sCoreCtg, tIdx)
   );
 
   ffCtg.attr("class") = "FFloorTreeCtg";
@@ -286,8 +297,8 @@ RcppExport SEXP FFloorTreeCtg(SEXP sCoreCtg, unsigned int tIdx) {
 
 /**
  */
-RcppExport SEXP FFloorReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) {
-  SEXP coreReg = ExportReg(sSignature, sForest, sLeaf, sBag);
+RcppExport SEXP FFloorReg(SEXP sSignature, SEXP sForest, SEXP sLeaf) {
+  SEXP coreReg = ExportReg(sSignature, sForest, sLeaf);
   unsigned int nTree = NTree(coreReg);
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -304,8 +315,8 @@ RcppExport SEXP FFloorReg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) 
 
 /**
  */
-RcppExport SEXP FFloorCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf, SEXP sBag) {
-  SEXP coreCtg = ExportCtg(sSignature, sForest, sLeaf, sBag);
+RcppExport SEXP FFloorCtg(SEXP sSignature, SEXP sForest, SEXP sLeaf) {
+  SEXP coreCtg = ExportCtg(sSignature, sForest, sLeaf);
   unsigned int nTree = NTree(coreCtg);
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -337,10 +348,10 @@ RcppExport SEXP RcppForestFloorExport(SEXP sArbOut) {
   List training((SEXP) arbOut["training"]);
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {
-    return FFloorReg(arbOut["signature"], arbOut["forest"], arbOut["leaf"], training["bag"]);
+    return FFloorReg(arbOut["signature"], arbOut["forest"], arbOut["leaf"]);
   }
   else if (leaf.inherits("LeafCtg")) {
-    return FFloorCtg(arbOut["signature"], arbOut["forest"], arbOut["leaf"], training["bag"]);
+    return FFloorCtg(arbOut["signature"], arbOut["forest"], arbOut["leaf"]);
   }
   else {
     warning("Unrecognized forest type.");

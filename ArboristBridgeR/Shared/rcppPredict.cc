@@ -84,12 +84,13 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   std::vector<double> yRanked;
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
-  std::vector<RankCount> *leafInfo;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, leafInfo);
+  std::vector<BagRow> *bagRow;
+  std::vector<unsigned int> rank;
+  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rank);
 
   std::vector<double> yPred(nRow);
   std::vector<unsigned int> dummy;
-  Predict::Regression(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, *leafInfo, yPred, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Regression(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, *bagRow, rank, yPred, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   List prediction;
   if (Rf_isNull(sYTest)) { // Prediction
@@ -127,15 +128,9 @@ RcppExport SEXP RcppTestReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTe
 
 
 /**
-   @brief Out-of-bag prediction for classification.
+   @brief Prediction for classification.
 
-   @param sPredInfo is a copy-out vector reporting Info values.
-
-   @param sConf is a copy-out confusion matrix
-
-   @param sError is a copy-out scalar with mean-square error.
-
-   @return Wrapped zero, with copy-out parameters.
+   @return Prediction list.
  */
 RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, SEXP sBag, bool doProb) {
   int nPredNum, nPredFac, nRow;
@@ -149,9 +144,10 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
-  std::vector<double> leafInfo;
+  std::vector<BagRow> *bagRow;
+  std::vector<double> weight;
   CharacterVector levelsTrain;
-  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, leafInfo, levelsTrain);
+  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, weight, levelsTrain);
 
   unsigned int ctgWidth = levelsTrain.length();
   bool validate = !Rf_isNull(sYTest);
@@ -199,7 +195,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   std::vector<int> yPred(nRow);
   NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
   std::vector<unsigned int> dummy;
-  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, leafInfo, yPred, censusCore.begin(), testCore, validate ? confCore.begin() : 0, misPredCore, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Classification(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, *bagRow, weight, yPred, censusCore.begin(), testCore, validate ? confCore.begin() : 0, misPredCore, doProb ? probCore.begin() : 0, Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   List predBlock(sPredBlock);
   IntegerMatrix census = transpose(IntegerMatrix(ctgWidth, nRow, censusCore.begin()));
@@ -332,14 +328,15 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
   std::vector<double> yRanked;
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> *leafNode;
-  std::vector<RankCount> *leafInfo;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, leafInfo);
+  std::vector<BagRow> *bagRow;
+  std::vector<unsigned int> rank;
+  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rank);
 
   std::vector<double> yPred(nRow);
   std::vector<double> quantVecCore(as<std::vector<double> >(sQuantVec));
   std::vector<double> qPredCore(nRow * quantVecCore.size());
   std::vector<unsigned int> dummy;
-  Predict::Quantiles(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, *leafInfo, yRanked, yPred, quantVecCore, as<int>(sQBin), qPredCore,  Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
+  Predict::Quantiles(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, *forestNode, origin, facOrig, facSplit, leafOrigin, *leafNode, *bagRow, rank, yRanked, yPred, quantVecCore, as<int>(sQBin), qPredCore,  Rf_isNull(sBag) ? dummy : as<std::vector<unsigned int> >(sBag));
 
   NumericMatrix qPred(transpose(NumericMatrix(quantVecCore.size(), nRow, qPredCore.begin())));
   List prediction;
