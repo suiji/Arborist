@@ -92,7 +92,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   if (!rowRank.inherits("RowRank"))
     stop("Expecting RowRank");
 
-  int nRow = as<int>(predBlock["nRow"]);
+  unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   int nPredNum = as<int>(predBlock["nPredNum"]);
   int nPredFac = as<int>(predBlock["nPredFac"]);
   double *feNum = 0;
@@ -145,16 +145,11 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   std::vector<BagRow> bagRow;
   std::vector<double> weight;
 
-  //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
-  //  may not scale to multi-gigarow sets.
-  std::vector<unsigned int> inBag;
-
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
+  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
 
   return List::create(
       _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, bagRow, weight, CharacterVector(yOneBased.attr("levels"))),
-      _["bag"] = inBag,
+      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, bagRow, nRow, weight, CharacterVector(yOneBased.attr("levels"))),
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
   );
 }
@@ -169,7 +164,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   if (!rowRank.inherits("RowRank"))
     stop("Expecting RowRank");
 
-  int nRow = as<int>(predBlock["nRow"]);
+  unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   int nPredNum = as<int>(predBlock["nPredNum"]);
   int nPredFac = as<int>(predBlock["nPredFac"]);
   double *feNum = 0;
@@ -217,18 +212,11 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> rank;
   std::vector<unsigned int> facSplit;
 
-  //  Maintains forest-wide in-bag set as bits.  Achieves high compression, but
-  //  may not scale to multi-gigarow sets.
-  //  Inititalized to zeroes.
-  //
-  std::vector<unsigned int> inBag;
-
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), inBag, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
+  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
 
   return List::create(
       _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, bagRow, rank, as<std::vector<double> >(yRanked)),
-      _["bag"] = inBag,
+      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, bagRow, nRow, rank, as<std::vector<double> >(yRanked)),
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
     );
 }

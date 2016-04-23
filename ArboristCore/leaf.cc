@@ -16,6 +16,7 @@
 #include "leaf.h"
 #include "predblock.h"
 #include "sample.h"
+#include "bv.h"
 
 #include <algorithm>
 using namespace std;
@@ -81,6 +82,33 @@ LeafCtg::LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_lea
 
 
 LeafCtg::~LeafCtg() {
+}
+
+
+/**
+   @brief Builds a bit matrix for the forest bag set.  Each row/column pair is
+   read exactly once during validation, so greatest benefits lie in iterative
+   workflows, such as importance permutation.
+
+   @param bagTrain is the number of rows used to train or zero, if not using bag.
+
+   @return bagged bit matrix.
+ */
+BitMatrix *Leaf::ForestBag(unsigned int bagTrain) {
+  if (bagTrain == 0) // Not using bag.
+    return new BitMatrix(0, 0);
+  
+  unsigned int nTree = origin.size();
+  BitMatrix *forestBag = new BitMatrix(bagTrain, nTree); 
+  unsigned int sIdx = 0;
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    unsigned int bagCount = BagCount(origin, leafNode, tIdx);
+    for (unsigned int idx = 0; idx < bagCount; idx++) {
+      forestBag->SetBit(bagRow[sIdx++].Row(), tIdx);
+    }
+  }
+
+  return forestBag;
 }
 
 

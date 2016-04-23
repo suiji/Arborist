@@ -167,17 +167,16 @@
   predInfo <- train[["predInfo"]]
   names(predInfo) <- predBlock$colnames
   training = list(
-    info = predInfo,
-    bag = train[["bag"]]
+    info = predInfo
   )
 
   if (!noValidate) {
     if (is.factor(y)) {
       if (ctgCensus == "votes") {
-        validation <- .Call("RcppValidateVotes", predBlock, train$forest, train$leaf, y, training[["bag"]]);
+        validation <- .Call("RcppValidateVotes", predBlock, train$forest, train$leaf, y);
       }
       else if (ctgCensus == "prob") {
-        validation <- .Call("RcppValidateProb", predBlock, train$forest, train$leaf, y, training[["bag"]]);
+        validation <- .Call("RcppValidateProb", predBlock, train$forest, train$leaf, y);
       }
       else {
         stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -188,10 +187,10 @@
         if (is.null(quantVec)) {
           quantVec <- DefaultQuantVec()
         }
-        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, quantVec, qBin, y, training[["bag"]])
+        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, quantVec, qBin, y);
       }
       else {
-        validation <- .Call("RcppValidateReg", predBlock, train$forest, train$leaf, y, training[["bag"]])
+        validation <- .Call("RcppValidateReg", predBlock, train$forest, train$leaf, y);
       }
     }
   }
@@ -214,7 +213,7 @@
 # Groups predictors into like-typed blocks and creates zero-based type
 # summaries.
 #
-PredBlock <- function(x, signature = NULL) {
+PredBlock <- function(x, sigTrain = NULL) {
   # For now, only numeric and factor types supported.
   #
   if (is.data.frame(x)) { # As with "randomForest" package
@@ -225,7 +224,7 @@ PredBlock <- function(x, signature = NULL) {
     if (length(numIdx) + length(facIdx) != ncol(x)) {
       stop("Frame column with unsupported data type")
     }
-    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, signature))
+    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, sigTrain))
   }
   else if (is.integer(x)) {
     return(.Call("RcppPredBlockNum", data.matrix(x)))

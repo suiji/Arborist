@@ -29,13 +29,13 @@
 }
 
 
-PredictForest <- function(forest, leaf, signature, newdata, yTest, quantVec, qBin, ctgCensus) {
+PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin, ctgCensus) {
   if (is.null(forest$forestNode))
     stop("Forest nodes missing")
   if (is.null(leaf))
     stop("Leaf missing")
-  if (is.null(signature))
-    stop("Signature missing")
+  if (is.null(sigTrain))
+    stop("Training signature missing")
 
   if (!is.null(quantVec)) {
     if (any(quantVec > 1) || any(quantVec < 0))
@@ -49,7 +49,7 @@ PredictForest <- function(forest, leaf, signature, newdata, yTest, quantVec, qBi
   }
   
   # Checks test data for conformity with training data.
-  predBlock <- PredBlock(newdata, signature)
+  predBlock <- PredBlock(newdata, sigTrain)
   if (inherits(leaf, "LeafReg")) {
     if (is.null(quantVec)) {
       prediction <- .Call("RcppTestReg", predBlock, forest, leaf, yTest)

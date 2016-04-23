@@ -13,7 +13,6 @@
    @author Mark Seligman
 */
 
-#include "bv.h"
 #include "sample.h"
 #include "train.h"
 #include "forest.h"
@@ -91,7 +90,7 @@ void Train::DeImmutables() {
 /**
    @brief Regression constructor.
  */
-Train::Train(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<unsigned int> &_rank) : forest(new Forest(_forestNode, _origin, _facOrigin, _facSplit)), inBag(_inBag), predInfo(_predInfo), response(Response::FactoryReg(_y, _row2Rank, _leafOrigin, _leafNode, _bagRow, _rank)) {
+Train::Train(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<unsigned int> &_rank) : forest(new Forest(_forestNode, _origin, _facOrigin, _facSplit)), predInfo(_predInfo), response(Response::FactoryReg(_y, _row2Rank, _leafOrigin, _leafNode, _bagRow, _rank)) {
 }
 
 
@@ -106,8 +105,8 @@ Train::Train(const std::vector<double> &_y, const std::vector<unsigned int> &_ro
 
    @return forest height, with output reference parameter.
 */
-void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<unsigned int> &_rank) {
-  Train *train = new Train(_y, _row2Rank, _inBag, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _rank);
+void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<unsigned int> &_rank) {
+  Train *train = new Train(_y, _row2Rank, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _rank);
 
   RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
   train->ForestTrain(rowRank);
@@ -121,23 +120,17 @@ void Train::Regression(int _feRow[], int _feRank[], int _feInvNum[], const std::
 /**
    @brief Classification constructor.
  */
-Train::Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight) : forest(new Forest(_forestNode, _origin, _facOrigin, _facSplit)), inBag(_inBag), predInfo(_predInfo), response(Response::FactoryCtg(_yCtg, _yProxy, _leafOrigin, _leafNode, _bagRow, _weight, _ctgWidth)) {
+Train::Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight) : forest(new Forest(_forestNode, _origin, _facOrigin, _facSplit)), predInfo(_predInfo), response(Response::FactoryCtg(_yCtg, _yProxy, _leafOrigin, _leafNode, _bagRow, _weight, _ctgWidth)) {
 }
 
 
 /**
    @brief Static entry for regression training.
 
-   @param rowRank is the sorted predictor table.
-
-   @param trainBlock is the number of trees to train per block.
-
-   @param treeStart is the absolute tree index.  Only client is 'inBag'.
-
    @return void.
 */
-void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], const std::vector<unsigned int> &_yCtg, int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_inBag, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight) {
-  Train *train = new Train(_yCtg, _ctgWidth, _yProxy, _inBag, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _weight);
+void Train::Classification(int _feRow[], int _feRank[], int _feInvNum[], const std::vector<unsigned int> &_yCtg, int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight) {
+  Train *train = new Train(_yCtg, _ctgWidth, _yProxy, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _weight);
 
   RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
   train->ForestTrain(rowRank);
@@ -162,14 +155,10 @@ Train::~Train() {
   @return void.
 */
 void Train::ForestTrain(const RowRank *rowRank) {
-  BitMatrix *forestBag = new BitMatrix(nRow, nTree);
   for (unsigned treeStart = 0; treeStart < nTree; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, nTree); // one beyond.
-    Block(rowRank, forestBag, treeStart, treeEnd - treeStart);
+    Block(rowRank, treeStart, treeEnd - treeStart);
   }
-
-  forestBag->Consume(inBag);
-  delete forestBag;
     
   // Normalizes 'predInfo' to per-tree means.
   double recipNTree = 1.0 / nTree;
@@ -184,12 +173,12 @@ void Train::ForestTrain(const RowRank *rowRank) {
 
    @param tEnd is one 
  */
-void Train::Block(const RowRank *rowRank, BitMatrix *forestBag, unsigned int tStart, unsigned int tCount) {
+void Train::Block(const RowRank *rowRank, unsigned int tStart, unsigned int tCount) {
   PreTree **ptBlock = response->BlockTree(rowRank, tCount);
   if (tStart == 0)
     Reserve(ptBlock, tCount);
 
-  BlockTree(ptBlock, forestBag, tStart, tCount);
+  BlockTree(ptBlock, tStart, tCount);
   response->DeBlock(tCount);
 
   delete [] ptBlock;
@@ -244,20 +233,17 @@ unsigned int Train::BlockPeek(PreTree **ptBlock, unsigned int tCount, unsigned i
 
    @param ptBlock is a vector of PreTree objects.
 
-   @param forestBag is the forest-wide in-bag matrix.
-
    @param blockStart is the starting tree index for the block.
 
    @param blockCount is the number of trees in the block.
 
    @return void, with side-effected forest.
 */
-void Train::BlockTree(PreTree **ptBlock, BitMatrix *forestBag, unsigned int blockStart, unsigned int blockCount) {
+void Train::BlockTree(PreTree **ptBlock, unsigned int blockStart, unsigned int blockCount) {
   for (unsigned int blockIdx = 0; blockIdx < blockCount; blockIdx++) {
     unsigned int tIdx = blockStart + blockIdx;
     const std::vector<unsigned int> leafMap = ptBlock[blockIdx]->DecTree(forest, tIdx, predInfo);
     response->Leaves(leafMap, blockIdx, tIdx);
-    forestBag->SetColumn(response->TreeBag(blockIdx), tIdx);
 
     delete ptBlock[blockIdx];
   }

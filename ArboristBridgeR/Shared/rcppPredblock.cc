@@ -50,7 +50,7 @@ void FactorRemap(IntegerMatrix &xFac, List &level, List &levelTrain);
 
   @return PredBlock with separate numeric and integer matrices.
 */
-RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLevels, SEXP sSig) {
+RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLevels, SEXP sSigTrain) {
   DataFrame xf(sX);
   IntegerVector numElt = IntegerVector(sNumElt) - 1;
   IntegerVector facElt = IntegerVector(sFacElt) - 1;
@@ -97,17 +97,16 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
 
   // Factor positions must match those from training and values must conform.
   //
-  if (!Rf_isNull(sSig) && nPredFac > 0) {
-    List sig(sSig);
-    IntegerVector predTrain(as<IntegerVector>(sig["predMap"]));
+  if (!Rf_isNull(sSigTrain) && nPredFac > 0) {
+    List sigTrain(sSigTrain);
+    IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
     if (!is_true(all( predMap == predTrain)))
       stop("Signature mismatch");
 
-    List levelTrain(as<List>(sig["level"]));
+    List levelTrain(as<List>(sigTrain["level"]));
     FactorRemap(xFac, level, levelTrain);
   }
   List signature = List::create(
-	_["nRow"] = nRow,
         _["predMap"] = predMap,
         _["level"] = level
 	);
@@ -159,7 +158,6 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
   int nPred = blockNum.ncol();
   List dimnames = blockNum.attr("dimnames");
   List signature = List::create(
-      _["nRow"] = blockNum.nrow(),				
       _["predMap"] = seq_len(nPred) - 1,
       _["level"] = List::create(0)
   );
@@ -201,10 +199,10 @@ void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac
 /**
    @brief Unwraps field values useful for export.
  */
-void SignatureUnwrap(SEXP sSignature, unsigned int &_nRow, IntegerVector &_predMap) {
+void SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level) {
   List signature(sSignature);
   if (!signature.inherits("Signature"))
     stop("Expecting Signature");
-  _nRow = as<int>((SEXP) signature["nRow"]);
   _predMap = as<IntegerVector>((SEXP) signature["predMap"]);
+  _level = as<List>(signature["level"]);
 }

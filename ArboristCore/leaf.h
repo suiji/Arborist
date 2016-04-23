@@ -31,18 +31,35 @@ class BagRow {
     row = sCount = 0;
   }
   
-  
+
+  /**
+     @brief Sets both members.
+   */
   void Set(unsigned int _row, unsigned int _sCount) {
     row = _row;
     sCount = _sCount;
   }
 
 
+  /**
+     @brief Accessor for row.
+   */
+  inline unsigned int Row() const {
+    return row;
+  }
+
+
+  /**
+     @brief Accessor for sample count.
+   */
   inline unsigned int SCount() const {
     return sCount;
   }
 
-
+  
+  /**
+     @brief Accessor for both members.
+   */
   inline void Ref(unsigned int &_row, unsigned int &_sCount) const {
     _row = row;
     _sCount = sCount;
@@ -136,6 +153,7 @@ class Leaf {
   virtual void RankInit(unsigned int bagCount, unsigned int init) = 0;
   virtual void RankSet(unsigned int sOff, const class Sample *sample, unsigned int sIdx) = 0;
 
+  class BitMatrix *ForestBag(unsigned int rowTrain);
   
   void SampleOffset(std::vector<unsigned int> &sampleOffset, unsigned int leafBase, unsigned int leafCount, unsigned int sampleBase) const;
 
