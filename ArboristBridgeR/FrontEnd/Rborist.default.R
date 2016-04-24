@@ -63,8 +63,6 @@
     predWeight <- rep(1.0, nPred)
   }
 
-  if (minInfo < 0.0)
-      stop("minInfo must be non-negative")
   if (any(is.na(y)))
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))

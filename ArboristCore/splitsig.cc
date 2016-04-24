@@ -19,6 +19,8 @@
 #include "splitpred.h"
 #include "run.h"
 
+#include <cfloat>
+
 //#include <iostream>
 using namespace std;
 
@@ -81,6 +83,10 @@ void SplitSig::Write(const SPPair *_spPair, unsigned int _sCount, unsigned int _
   int splitIdx; // Dummy.
   _spPair->Coords(splitIdx, ssn.predIdx);
   Lookup(splitIdx, ssn.predIdx) = ssn;
+}
+
+
+SSNode::SSNode() : info(-DBL_MAX) {
 }
 
 

@@ -83,25 +83,23 @@
     splitting factor values.}
   }
   \item{leaf}{ a list containing either of
+
+    \code{BagRow}{ a vector of packed data structures, one per unique row
+    sample, containing a row index and the number of times the row is sampled.}
     
     \code{LeafReg}{ a list consisting of regression leaf data:
       
       \code{node}{ a packed structure expressing leaf scores and node counts.}
 
       \code{origin}{ a vector of tree starting positions within
-	\code{node}.}
+	\code{node}.
 
-      \code{info}{ a list consisting of
-	
-	\code{rank}{ the rank of the response value corresponding to
-	  indexed sample.}
-
-	\code{sCount}{ the sample count corresponding to the indexed
-	  sample.}
+      \code{rank}{ a vector, one element per unique row sample, indicating
+	  the rank of the sampled row.}
       }
 
       \code{yRanked}{ a sorted vector of response values.}
-      }
+   }
     or
     \code{LeafCtg}{ a list consisting of classification leaf data:
       
@@ -111,7 +109,7 @@
       \code{origin}{ a vector of tree starting positions within
 	\code{node}.}
 
-      \code{info}{ a matrix of weighted scores, per category per sample.}
+      \code{weight}{ a matrix of weighted scores, per category per sample.}
       
       \code{levels}{ a vector of strings containing the training response levels.}
       }
@@ -131,9 +129,7 @@
   \item{training}{ a list containing information gleaned during training:
     
     \code{predInfo}{ the information contribution of each predictor.}
-    
-    \code{bag}{ a packed bit matrix representing the bagged samples in
-      each tree.}
+
   }
 
   \item{validation}{ a list containing the results of validation:

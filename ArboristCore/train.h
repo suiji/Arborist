@@ -24,7 +24,7 @@
    of the data and constructs forest, leaf and diagnostic structures.
 */
 class Train {
-  static const double slopFactor = 1.2; // Estimates tree growth.
+  static constexpr double slopFactor = 1.2; // Estimates tree growth.
   static int trainBlock; // Front-end defined buffer size.
   static unsigned int nTree;
   static unsigned int nRow;

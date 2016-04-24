@@ -175,9 +175,9 @@ class SPCtg : public SplitPred {
   double *ctgSumR; // Numeric predictors:  sum to right.
   double *sumSquares; // Per-level sum of squares, by split.
 // Numerical tolerances taken from A. Liaw's code:
-  static const double minDenom = 1.0e-5;
-  static const double minSumL = 1.0e-8;
-  static const double minSumR = 1.0e-5;
+  static constexpr double minDenom = 1.0e-5;
+  static constexpr double minSumL = 1.0e-8;
+  static constexpr double minSumR = 1.0e-5;
   const class SampleNode *sampleCtg;
   bool *LevelPreset(const class Index *index);
   double Prebias(int splitIdx, unsigned int sCount, double sum);

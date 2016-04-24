@@ -77,8 +77,8 @@ void ForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
 
-  _origin = forest["origin"];
-  _facOrig = forest["facOrig"];
-  _facSplit = forest["facSplit"];
-  _forestNode = forest["forestNode"];
+  _origin = as<std::vector<unsigned int> >(forest["origin"]);
+  _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
+  _facSplit = as<std::vector<unsigned int> >(forest["facSplit"]);
+  _forestNode = as<std::vector<ForestNode> *>(forest["forestNode"]);
 }

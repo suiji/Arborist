@@ -249,13 +249,16 @@ class Index {
     return indexNode[splitIdx].sCount;
   }
 
+
   inline void SetLH(unsigned int ptL) {
     ntLH[LevelOffPT(ptL)] = true;
   }
       
+
   inline void SetRH(unsigned int ptR) {
     ntRH[LevelOffPT(ptR)] = true;
   }
+
 
   inline void NextLH(int idxNext, unsigned int ptId, int idxCount, unsigned int sCount, double sum, double minInfo) {
     indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo);

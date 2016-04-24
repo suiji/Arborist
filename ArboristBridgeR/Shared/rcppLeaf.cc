@@ -115,12 +115,12 @@ void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsign
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
-  _yRanked = leaf["yRanked"];
-  _leafOrigin = leaf["origin"];
-  _leafNode = leaf["node"];
-  _bagRow = leaf["bagRow"];
-  _rowTrain = leaf["rowTrain"];
-  _rank = leaf["rank"];
+  _yRanked = as<std::vector<double> >(leaf["yRanked"]);
+  _leafOrigin = as<std::vector<unsigned int>>(leaf["origin"]);
+  _leafNode = as<std::vector<LeafNode> *>(leaf["node"]);
+  _bagRow = as<std::vector<BagRow> *>(leaf["bagRow"]);
+  _rowTrain = as<unsigned int>(leaf["rowTrain"]);
+  _rank = as<std::vector<unsigned int> >(leaf["rank"]);
 }
 
 
@@ -140,10 +140,10 @@ void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vect
   if (!leaf.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");
   }
-  _leafOrigin = leaf["origin"];
-  _leafNode = leaf["node"];
-  _bagRow = leaf["bagRow"];
-  _rowTrain = leaf["rowTrain"];
-  _weight = leaf["weight"];
-  _levels = CharacterVector((SEXP) leaf["levels"]);
+  _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
+  _leafNode = as<std::vector<LeafNode> *>(leaf["node"]);
+  _bagRow = as<std::vector<BagRow> *>(leaf["bagRow"]);
+  _rowTrain = as<unsigned int>(leaf["rowTrain"]);
+  _weight = as<std::vector<double> >(leaf["weight"]);
+  _levels = as<CharacterVector>((SEXP) leaf["levels"]);
 }

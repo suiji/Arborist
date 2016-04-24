@@ -25,7 +25,7 @@ class SSNode {
   double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
   double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int level, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
  public:
- SSNode() : info(0.0) {}
+  SSNode();
   int runId; // Index into RunSet list.
   unsigned int predIdx; // Rederivable, but convenient to cache.
   unsigned int sCount; // # samples subsumed by split LHS.
