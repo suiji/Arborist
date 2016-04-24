@@ -301,7 +301,10 @@ RcppExport SEXP FFloorReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap, List 
      trees[tIdx] = FFloorTreeReg(sCoreReg, tIdx);
   }
 
+  int facCount = predLevel.length();
+  IntegerVector facMap(predMap.end() - facCount, predMap.end());
   List ffe = List::create(
+    _["facMap"] = facMap,
     _["predLevel"] = predLevel,
     _["tree"] = trees
   );
@@ -320,8 +323,11 @@ RcppExport SEXP FFloorCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap, List 
     trees[tIdx] = FFloorTreeCtg(sCoreCtg, tIdx);
   }
 
+  int facCount = predLevel.length();
+  IntegerVector facMap(predMap.end() - facCount, predMap.end());
   List coreCtg(sCoreCtg);
   List ffe = List::create(
+   _["facMap"] = facMap,
    _["predLevel"] = predLevel,
    _["yLevel"] = as<CharacterVector>(coreCtg["yLevel"]),
    _["tree"] = trees
@@ -336,7 +342,7 @@ RcppExport SEXP FFloorCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap, List 
 
    @param sForest is the Forest summary.
 
-   @return wrapped ForestFloorExport object.
+   @return ForestFloorExport as List.
  */
 RcppExport SEXP RcppForestFloorExport(SEXP sArbOut) {
   List arbOut(sArbOut);
