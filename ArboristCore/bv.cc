@@ -217,7 +217,7 @@ void BitMatrix::Export(unsigned int _nRow, std::vector<std::vector<unsigned int>
     outCol[i] = std::vector<unsigned>(_nRow);
     ColExport(_nRow, outCol[i], i);
   }
-};
+}
 
 
 /**
