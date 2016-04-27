@@ -30,13 +30,11 @@ Installation of Development Version:
 
 
 #### Notes
-- Version 0.x has been tested on multicore implementations 
-- Version 1.0 will not be released to CRAN until vignettes, tests and (improved) examples are complete.
-
+- Version 1.0 now on CRAN.
 
 ### Python
 
-The *Arborist* is will soon be available on PyPI.
+The *Arborist* will soon be available on PyPI.
 
     
 ### References
