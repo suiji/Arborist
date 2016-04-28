@@ -41,6 +41,7 @@ The *Arborist* will soon be available on PyPI.
 
 - [GTC 2015 Poster, March 2015 (Video)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
 - [PyData, August 2015 (PDF)](https://www.youtube.com/watch?v=dRZrYdhNUec)
+- [R in Finance 2015](http://www.rinfinance.com/agenda/2015/talk/MarkSeligman.pdf)
 
 
 ### News/Changes
