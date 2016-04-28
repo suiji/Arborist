@@ -16,6 +16,7 @@ The Arborist provides a fast, open-source implementation of Leo Brieman's Random
 
 Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/index.html) and **Python (coming soon)**
 
+
 ### R
 
 The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html) package. 
@@ -35,6 +36,10 @@ Installation of Development Version:
 ### Python
 
 The *Arborist* will soon be available on PyPI.
+
+### Performance 
+
+Performance metrics will be measured soon using [benchm-ml](https://github.com/szilard/benchm-m). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
 
     
 ### References
