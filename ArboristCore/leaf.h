@@ -283,8 +283,7 @@ class LeafReg : public Leaf {
   inline unsigned int BagTot() const {
     return rank.size();
   }
-
-
+  
 };
 
 
@@ -322,7 +321,7 @@ class LeafCtg : public Leaf {
   void RankInit(unsigned int bagCount, unsigned int init) {}
   void RankSet(unsigned int sOff, const class Sample *sample, unsigned int sIdx) {}
 
-
+  
   inline unsigned int CtgWidth() const {
     return ctgWidth;
   }
@@ -351,6 +350,8 @@ class LeafCtg : public Leaf {
   }
 
   void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
+
+  void ForestWeight(double *defaultWeight) const;
 };
 
 

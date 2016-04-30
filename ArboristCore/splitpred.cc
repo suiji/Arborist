@@ -352,9 +352,9 @@ void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[
     flags[predIdx] = false;
   }
 
-  // Pops 'predFixed' items in order of Dbincreasing value.
-  for (unsigned int i = nPred - 1; i >= nPred - predFixed; i--){
-    unsigned int predIdx = BHeap::SlotPop(heap, i);
+  // Pops 'predFixed' items in order of increasing value.
+  for (unsigned int i = nPred; i > nPred - predFixed; i--){
+    unsigned int predIdx = BHeap::SlotPop(heap, i - 1);
     flags[predIdx] = true;
   }
 }

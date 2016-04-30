@@ -29,9 +29,9 @@ class Predict {
  public:  
   
   Predict(int _nTree, unsigned int _nRow, unsigned int _nonLeafIdx);
-  ~Predict();
+  virtual ~Predict();
 
-  static void Regression(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<unsigned int> &_rank, std::vector<double> &yPred, unsigned int bagTrain);
+  static void Regression(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<unsigned int> &_rank, const std::vector<double> &yRanked, std::vector<double> &yPred, unsigned int bagTrain);
 
 
   static void Quantiles(double *_blockNumT, int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<unsigned int> &_rank, const std::vector<double> &yRanked, std::vector<double> &yPred, const std::vector<double> &quantVec, unsigned int qBin, std::vector<double> &qPred, unsigned int bagTrain);
@@ -76,23 +76,54 @@ class Predict {
 
 class PredictReg : public Predict {
   const class LeafReg *leafReg;
+  const std::vector<double> &yRanked;
+  double defaultScore;
   void Score(unsigned int rowStart, unsigned int rowEnd, double yPred[]);
+  double DefaultScore();
  public:
-  PredictReg(const class LeafReg *_leafReg, int _nTree, unsigned int _nRow, unsigned int _nonLeafIdx);
+  PredictReg(const class LeafReg *_leafReg, const std::vector<double> &_yRanked, int _nTree, unsigned int _nRow, unsigned int _nonLeafIdx);
+  ~PredictReg() {}
+
   void PredictAcross(const class Forest *forest, std::vector<double> &yPred, const class BitMatrix *bag);
   void PredictAcross(const Forest *forest, std::vector<double> &yPred, class Quant *quant, double qPred[], const BitMatrix *bag);
+
+  
+  /**
+     @return number of rows used in training.
+   */
+  inline unsigned int TrainRows() const {
+    return yRanked.size();
+  }
+
+
+  /**
+     @brief Looks up training response by rank.
+
+     @param rankIdx is the rank accessed.
+
+     @return value of training response at specified rank.
+   */
+  inline double YRanked(unsigned int rankIdx) const {
+    return yRanked[rankIdx];
+  }
 };
 
 
 class PredictCtg : public Predict {
   const class LeafCtg *leafCtg;
   const unsigned int ctgWidth;
+  unsigned int defaultScore;
+  double *defaultWeight;
   void Validate(const std::vector<unsigned int> &yTest, const int yPred[], int confusion[], std::vector<double> &error);
   void Vote(double *votes, int census[], int yPred[]);
   void Prob(double *prob, unsigned int rowStart, unsigned int rowEnd);
   void Score(double *votes, unsigned int rowStart, unsigned int rowEnd);
+  unsigned int DefaultScore();
+  double DefaultWeight(double *weightPredict);
  public:
   PredictCtg(const class LeafCtg *_leafCtg, int _nTree, unsigned _nRow, unsigned int _nonLeafIdx);
+  ~PredictCtg();
+
   void PredictAcross(const class Forest *forest, const class BitMatrix *bag, int *census, std::vector<int> &yPred, const std::vector<unsigned int> &yTest, int *conf, std::vector<double> &error, double *prob);
 };
 #endif

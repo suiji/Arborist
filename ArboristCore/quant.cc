@@ -26,12 +26,12 @@ using namespace std;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const std::vector<double> &_yRanked, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yRanked(_yRanked), qVec(_qVec), qCount(qVec.size()), logSmudge(0), sCountSmudge(0) {
-  unsigned int nRow = yRanked.size();
+Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), qVec(_qVec), qCount(qVec.size()), logSmudge(0), sCountSmudge(0) {
+  unsigned int trainRow = predictReg->TrainRows();
   sampleOffset = std::vector<unsigned int>(leafReg->NodeCount());
   leafReg->SampleOffset(sampleOffset, 0, leafReg->NodeCount(), 0);
-  binSize = BinSize(nRow, qBin, logSmudge);
-  if (binSize < nRow) {
+  binSize = BinSize(trainRow, qBin, logSmudge);
+  if (binSize < trainRow) {
     SmudgeLeaves();
   }
 }
@@ -71,17 +71,19 @@ void Quant::PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPr
 /**
    @brief Computes bin size and smudging factor.
 
+   @param trainRow is the number of rows used to train.
+
    @param qBin is the bin size specified by the front end.
 
    @param logSmudge outputs the log2 of the smudging factor.
 
    @return bin size, with output reference parameter.
  */
-unsigned int Quant::BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge) {
+unsigned int Quant::BinSize(unsigned int trainRow, unsigned int qBin, unsigned int &_logSmudge) {
   logSmudge = 0;
-  while ((nRow >> logSmudge) > qBin)
+  while ((trainRow >> logSmudge) > qBin)
     logSmudge++;
-  return (nRow + (1 << logSmudge) - 1) >> logSmudge;
+  return (trainRow + (1 << logSmudge) - 1) >> logSmudge;
 }
 
 
@@ -152,7 +154,7 @@ void Quant::Leaves(unsigned int blockRow, double qRow[]) {
   for (unsigned int i = 0; i < binSize && qIdx < qCount; i++) {
     rankCount += sampRanks[i];
     while (qIdx < qCount && rankCount >= countThreshold[qIdx]) {
-      qRow[qIdx++] = yRanked[rankIdx];
+      qRow[qIdx++] = predictReg->YRanked(rankIdx);
     }
     rankIdx += smudge;
   }

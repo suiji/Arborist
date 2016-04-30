@@ -328,6 +328,25 @@ unsigned int Leaf::BagCount(const std::vector<unsigned int> &_origin, const std:
 
 
 /**
+   @brief Assigns a forest-wide default weighting value to each category.
+
+   @return void, with output reference parameter.
+ */
+void LeafCtg::ForestWeight(double *defaultWeight) const {
+  unsigned int idx = 0;
+  unsigned int forestLeaves = weight.size() / ctgWidth;
+  for (unsigned int forestIdx = 0; forestIdx < forestLeaves; forestIdx++) {
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      defaultWeight[ctg] += weight[idx++];
+    }
+  }
+  for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+    defaultWeight[ctg] /= forestLeaves;
+  }
+}
+
+
+/**
  */
 void LeafReg::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const vector<BagRow> &_bagRow, const std::vector<unsigned int> &_rank, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree, std::vector< std::vector<unsigned int> > &rankTree) {
   Leaf::Export(_origin, _leafNode, _bagRow, rowTree, sCountTree);
