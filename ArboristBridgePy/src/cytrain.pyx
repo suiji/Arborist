@@ -12,23 +12,23 @@ cdef extern from 'train.h':
             vector[unsigned int] &,
             vector[unsigned int] &,
             double,
-            vector[class ForestNode] &,
+            vector[ForestNode] &,
             vector[unsigned int] &,
             vector[unsigned int] &,
-            vector[class LeafNode] &,
-            vector[class BagRow] &,
+            vector[LeafNode] &,
+            vector[BagRow] &,
             vector[double] &) except +
 
         Train(vector[double] &,
             vector[unsigned int] &,
             vector[unsigned int] &,
             vector[unsigned int] &, 
-            double _predInfo[],
-            vector[class ForestNode] &,
+            double,
+            vector[ForestNode] &,
             vector[unsigned int] &,
             vector[unsigned int] &,
-            vector[class LeafNode] &,
-            vector[class BagRow] &,
+            vector[LeafNode] &,
+            vector[BagRow] &,
             vector[unsigned int] &) except +
 
         @staticmethod
@@ -44,20 +44,20 @@ cdef extern from 'train.h':
             int, int,
             vector[double] &, vector[unsigned int] &,
             vector[unsigned int] &, vector[unsigned int] &,
-            double, vector[class ForestNode] &,
+            double, vector[ForestNode] &,
             vector[unsigned int] &, vector[unsigned int] &,
-            vector[class LeafNode] &, vector[class BagRow] &,
-            vector[unsigned int] &_rank)
+            vector[LeafNode] &, vector[BagRow] &,
+            vector[unsigned int] &)
 
         @staticmethod
         void Classification(int,
             int, int,
             vector[unsigned int] &, int,
             vector[double] &, vector[unsigned int] &,
-            vector[unsigned int] &, double _predInfo[],
-            vector[class ForestNode] &, vector[unsigned int] &,
-            vector[unsigned int] &, vector[class LeafNode] &,
-            vector[class BagRow] &, vector[double] &)
+            vector[unsigned int] &, double,
+            vector[ForestNode] &, vector[unsigned int] &,
+            vector[unsigned int] &, vector[LeafNode] &,
+            vector[BagRow] &, vector[double] &)
 
 
 cdef class PyTrain:

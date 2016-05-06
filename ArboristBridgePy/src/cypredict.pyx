@@ -11,12 +11,12 @@ cdef extern from 'predict.h':
         @staticmethod
         void Regression(double *,
             int *, unsigned int,
-            unsigned int, vector[class ForestNode] &, 
+            unsigned int, vector[ForestNode] &, 
             vector[unsigned int] &, vector[unsigned int] &,
             vector[unsigned int] &, vector[unsigned int] &,
-            vector[class LeafNode] &, vector[class BagRow] &,
+            vector[LeafNode] &, vector[BagRow] &,
             vector[unsigned int] &, vector[double] &,
-            vector[double] &, unsigned int bagTrain)
+            vector[double] &, unsigned int)
 
         @staticmethod
         void Quantiles(double *,
@@ -24,7 +24,7 @@ cdef extern from 'predict.h':
             unsigned int, vector[ForestNode] &,
             vector[unsigned int] &, vector[unsigned int] &,
             vector[unsigned int] &, vector[unsigned int] &,
-            vector[LeafNode] &, vector[class BagRow] &,
+            vector[LeafNode] &, vector[BagRow] &,
             vector[unsigned int] &, vector[double] &,
             vector[double] &, vector[double] &,
             unsigned int, vector[double] &,
@@ -33,15 +33,15 @@ cdef extern from 'predict.h':
         @staticmethod
         void Classification(double *,
             int *, unsigned int,
-            unsigned int, vector[class ForestNode] &,
+            unsigned int, vector[ForestNode] &,
             vector[unsigned int] &, vector[unsigned int] &,
             vector[unsigned int] &, vector[unsigned int] &,
-            vector[LeafNode] &, vector[class BagRow] &,
+            vector[LeafNode] &, vector[BagRow] &,
             vector[double] &, vector[int] &,
             int *, vector[unsigned int] &,
             int *, vector[double] &,
-            double *, unsigned int bagTrain)
+            double *, unsigned int)
 
 
-cdef PyPredict:
+cdef class PyPredict:
     cdef Predict *thisptr
