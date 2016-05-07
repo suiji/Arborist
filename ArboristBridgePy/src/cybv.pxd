@@ -1,5 +1,4 @@
 # distutils: language = c++
-# distutils: sources = bv.cc
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -66,3 +65,16 @@ cdef extern from 'bv.h':
 
         void SetBit(unsigned int row,
             unsigned int col)
+
+
+    cdef cppclass BVJagged(BV):
+        BVJagged(const vector[unsigned int] &_raw,
+            const vector[unsigned int] _origin) except +
+
+        @staticmethod
+        void Export(const vector[unsigned int] _origin,
+            const vector[unsigned int] _raw,
+            vector[vector[UInt]] &outVec)
+
+        bool IsSet(unsigned int row,
+            unsigned int pos)

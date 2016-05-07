@@ -1,5 +1,4 @@
 # distutils: language = c++
-# distutils: sources = leaf.cc
 
 from libcpp.vector cimport vector
 

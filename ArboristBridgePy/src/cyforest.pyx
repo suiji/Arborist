@@ -1,6 +1,3 @@
-from .cyforest cimport ForestNode
-from .cyforest cimport Forest
-
 cdef class PyForestNode:
     cdef ForestNode *thisptr
 

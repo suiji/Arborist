@@ -1,5 +1,4 @@
 # distutils: language = c++
-# distutils: sources = train.cc
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
