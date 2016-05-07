@@ -68,15 +68,18 @@ cdef extern from 'train.h':
 
         void Reserve(PreTree **ptBlock,
             unsigned int tCount)
+
         unsigned int BlockPeek(PreTree **ptBlock,
             unsigned int tCount,
             unsigned int &blockFac,
             unsigned int &blockBag,
             unsigned int &blockLeaf,
             unsigned int &maxHeight)
+
         void BlockTree(PreTree **ptBlock,
             unsigned int tStart,
             unsigned int tCount)
+        
         void Block(const RowRank *rowRank,
             unsigned int tStart,
             unsigned int tCount)

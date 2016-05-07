@@ -45,37 +45,37 @@ cdef extern from 'forest.h':
 
     cdef cppclass Forest:
         Forest(vector[ForestNode] &_forestNode,
-          vector[unsigned int] &_origin,
-          vector[unsigned int] &_facOrigin,
-          vector[unsigned int] &_facVec) except +
+            vector[unsigned int] &_origin,
+            vector[unsigned int] &_facOrigin,
+            vector[unsigned int] &_facVec) except +
 
         Forest(vector[ForestNode] &_forestNode,
-          vector[unsigned int] &_origin,
-          vector[unsigned int] &_facOrigin,
-          vector[unsigned int] &_facVec,
-          Predict *_predict) except +
+            vector[unsigned int] &_origin,
+            vector[unsigned int] &_facOrigin,
+            vector[unsigned int] &_facVec,
+            Predict *_predict) except +
 
         void SplitUpdate(const RowRank *rowRank)
 
         void PredictAcross(unsigned int rowStart,
-          unsigned int rowEnd,
-          const BitMatrix *bag)
+            unsigned int rowEnd,
+            const BitMatrix *bag)
 
         void PredictRowNum(unsigned int row,
-          const double rowT[],
-          unsigned int rowBlock,
-          const BitMatrix *bag)
+            const double rowT[],
+            unsigned int rowBlock,
+            const BitMatrix *bag)
 
         void PredictRowFac(unsigned int row,
-          const int rowT[],
-          unsigned int rowBlock,
-          const BitMatrix *bag)
+            const int rowT[],
+            unsigned int rowBlock,
+            const BitMatrix *bag)
 
         void PredictRowMixed(unsigned int row,
-          const double rowNT[],
-          const int rowIT[],
-          unsigned int rowBlock,
-          const BitMatrix *bag)
+            const double rowNT[],
+            const int rowIT[],
+            unsigned int rowBlock,
+            const BitMatrix *bag)
 
         void NodeInit(unsigned int treeHeight)
 
@@ -84,27 +84,27 @@ cdef extern from 'forest.h':
         unsigned int *Origin()
 
         void TreeBlock(PreTree *ptBlock[],
-          int treeBlock,
-          int treeStart)
+            int treeBlock,
+            int treeStart)
 
         unsigned int Origin(int tIdx)
 
         unsigned int NodeIdx(unsigned int tIdx,
-          unsigned int nodeOffset)
+            unsigned int nodeOffset)
 
         void NonterminalProduce(unsigned int tIdx,
-          unsigned int nodeIdx,
-          unsigned int _predIdx,
-          unsigned int _bump,
-          double _split) 
+            unsigned int nodeIdx,
+            unsigned int _predIdx,
+            unsigned int _bump,
+            double _split) 
 
         void LeafProduce(unsigned int tIdx,
-        unsigned int nodeIdx,
-        unsigned int _leafIdx) 
+            unsigned int nodeIdx,
+            unsigned int _leafIdx) 
 
         void Reserve(unsigned int nodeEst,
-          unsigned int facEst,
-          double slop)
+            unsigned int facEst,
+            double slop)
 
         unsigned int Height()
 
@@ -115,18 +115,18 @@ cdef extern from 'forest.h':
         bool Nonterminal(unsigned int idx)
 
         bool Nonterminal(int tIdx,
-          unsigned int off)
+            unsigned int off)
 
         unsigned int &LeafIdx(unsigned int idx)
 
         unsigned int &LeafIdx(int tIdx,
-          unsigned int off)
+            unsigned int off)
 
         void NodeProduce(unsigned int _predIdx,
-          unsigned int _bump,
-          double _split)
+            unsigned int _bump,
+            double _split)
 
         void BitProduce(const BV *splitBits,
-          unsigned int bitEnd)
+            unsigned int bitEnd)
 
         void Origins(unsigned int tIdx)
