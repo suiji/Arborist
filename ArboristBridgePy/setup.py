@@ -1,7 +1,13 @@
 from distutils.core import setup
+from distutils.extension import Extension
 from Cython.Build import cythonize
 
-setup(ext_modules = cythonize(
-        "src/*.pyx"
+extensions = [
+    Extension('*', ['src/*.pyx'],
+        include_dirs = ['src/', '../ArboristCore'],
+        #libraries = [...], #TODO what?
+        library_dirs = ['src/', '../ArboristCore']
     )
-)
+]
+
+setup(ext_modules = cythonize(extensions))
