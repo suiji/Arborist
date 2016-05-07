@@ -1,5 +1,5 @@
 # distutils: language = c++
-# distutils: sources = train.cc
+# distutils: sources = pretree.cc
 
 from libcpp.vector cimport vector
 
