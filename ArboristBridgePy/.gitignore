@@ -1,5 +1,9 @@
 build/
 
-*.cpp
 *.c
+*.cc
+*.cpp
+
 *.pyd
+*.dll
+*.so

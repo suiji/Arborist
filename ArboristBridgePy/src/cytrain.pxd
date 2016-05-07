@@ -1,64 +1,82 @@
 # distutils: language = c++
 # distutils: sources = train.cc
 
+from libcpp cimport bool
 from libcpp.vector cimport vector
 
 from .cyforest cimport ForestNode
 from .cyleaf cimport LeafNode
 from .cyleaf cimport BagRow
+from .cypretree cimport PreTree
+from .cyrowrank cimport RowRank
 
 
 cdef extern from 'train.h':
     cdef cppclass Train:
-        Train(vector[unsigned int] &,
-            unsigned int,
-            vector[double] &,
-            vector[unsigned int] &,
-            vector[unsigned int] &,
-            double,
-            vector[ForestNode] &,
-            vector[unsigned int] &,
-            vector[unsigned int] &,
-            vector[LeafNode] &,
-            vector[BagRow] &,
-            vector[double] &) except +
-
-        Train(vector[double] &,
-            vector[unsigned int] &,
-            vector[unsigned int] &,
-            vector[unsigned int] &, 
-            double,
-            vector[ForestNode] &,
-            vector[unsigned int] &,
-            vector[unsigned int] &,
-            vector[LeafNode] &,
-            vector[BagRow] &,
-            vector[unsigned int] &) except +
+        @staticmethod
+        void Init(double *_feNum,
+            int _facCard[],
+            int _cardMax,
+            int _nPredNum,
+            int _nPredFac,
+            int _nRow,
+            int _nTree,
+            int _nSamp,
+            double _feSampleWeight[],
+            bool withRepl,
+            int _trainBlock,
+            int _minNode,
+            double _minRatio,
+            int _totLevels,
+            int _ctgWidth,
+            int _predFixed,
+            double _predProb[],
+            double _regMono[])
 
         @staticmethod
-        void Init(double *,
-            int, int, int, int, 
-            int, int, int, double, 
-            bool, int, int, double, 
-            int, int, int, double, 
-            double)
+        void Regression(int _feRow[],
+            int _feRank[],
+            int _feInvNum[],
+            const vector[double] &_y,
+            const vector[unsigned int] &_row2Rank,
+            vector[unsigned int] &_origin,
+            vector[unsigned int] &_facOrigin,
+            double _predInfo[],
+            vector[ForestNode] &_forestNode,
+            vector[unsigned int] &_facSplit,
+            vector[unsigned int] &_leafOrigin,
+            vector[LeafNode] &_leafNode,
+            vector[BagRow] &_bagRow,
+            vector[unsigned int] &_rank)
 
         @staticmethod
-        void Regression(int, 
-            int, int,
-            vector[double] &, vector[unsigned int] &,
-            vector[unsigned int] &, vector[unsigned int] &,
-            double, vector[ForestNode] &,
-            vector[unsigned int] &, vector[unsigned int] &,
-            vector[LeafNode] &, vector[BagRow] &,
-            vector[unsigned int] &)
+        void Classification(int _feRow[],
+            int _feRank[],
+            int _feInvNum[],
+            const vector[unsigned int]  &_yCtg,
+            int _ctgWidth,
+            const vector[double] &_yProxy,
+            vector[unsigned int] &_origin,
+            vector[unsigned int] &_facOrigin,
+            double _predInfo[],
+            vector[ForestNode] &_forestNode,
+            vector[unsigned int] &_facSplit,
+            vector[unsigned int] &_leafOrigin,
+            vector[LeafNode] &_leafNode,
+            vector[BagRow] &_bagRow,
+            vector[double] &_weight)
 
-        @staticmethod
-        void Classification(int,
-            int, int,
-            vector[unsigned int] &, int,
-            vector[double] &, vector[unsigned int] &,
-            vector[unsigned int] &, double,
-            vector[ForestNode] &, vector[unsigned int] &,
-            vector[unsigned int] &, vector[LeafNode] &,
-            vector[BagRow] &, vector[double] &)
+        void Reserve(PreTree **ptBlock,
+            unsigned int tCount)
+        unsigned int BlockPeek(PreTree **ptBlock,
+            unsigned int tCount,
+            unsigned int &blockFac,
+            unsigned int &blockBag,
+            unsigned int &blockLeaf,
+            unsigned int &maxHeight)
+        void BlockTree(PreTree **ptBlock,
+            unsigned int tStart,
+            unsigned int tCount)
+        void Block(const RowRank *rowRank,
+            unsigned int tStart,
+            unsigned int tCount)
