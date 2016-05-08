@@ -1,8 +1,113 @@
+#TODO
+#so, how about the pointers?!
+
+
+
 cdef class PyPredBlock:
-    cdef PredBlock *thisptr
+    @staticmethod
+    def FacFirst():
+        return PredBlock_FacFirst()
 
-cdef class PyPBTrain:
-    cdef PBTrain *thisptr
+    @staticmethod
+    def IsFactor(predIdx):
+        return PredBlock_IsFactor(predIdx)
 
-cdef class PyPBPredict:
-    cdef PBPredict *thisptr
+    @staticmethod
+    def BlockIdx(predIdx, isFactor):
+        return PredBlock_BlockIdx(predIdx, isFactor)
+
+    @staticmethod
+    def NRow():
+        return PredBlock_NRow()
+
+    @staticmethod
+    def NPred():
+        return PredBlock_NPred()
+
+    @staticmethod
+    def NPredFac():
+        return PredBlock_NPredFac()
+
+    @staticmethod
+    def NPredNum():
+        return PredBlock_NPredNum()
+
+    @staticmethod
+    def NumFirst():
+        return PredBlock_NumFirst()
+
+    @staticmethod
+    def NumIdx(predIdx):
+        return PredBlock_NumIdx(predIdx)
+
+    @staticmethod
+    def NumSup():
+        return PredBlock_NumSup()
+
+    @staticmethod
+    def FacSup():
+        return PredBlock_FacSup()
+
+
+
+cdef class PyPBTrain(PyPredBlock):
+    #@staticmethod
+    #def Immutables(_feNum,
+    #    _feCard,
+    #    _cardMax,
+    #    _nPredNum,
+    #    _nPredFac,
+    #    _nRow):
+    #    return PBTrain_Immutables(_feNum,
+    #        _feCard,
+    #        _cardMax,
+    #        _nPredNum,
+    #        _nPredFac,
+    #        _nRow)
+
+    @staticmethod
+    def DeImmutables():
+        return PBTrain_DeImmutables()
+
+    @staticmethod
+    def MeanVal(predIdx,
+        rowLow,
+        rowHigh):
+        return PBTrain_MeanVal(predIdx,
+            rowLow,
+            rowHigh)
+
+    @staticmethod
+    def FacCard(predIdx):
+        return PBTrain_FacCard(predIdx)
+
+    @staticmethod
+    def CardMax():
+        return PBTrain_CardMax()
+
+
+
+cdef class PyPBPredict(PyPredBlock):
+    #@staticmethod
+    #def Immutables(_feNumT,
+    #    _feFacT,
+    #    _nPredNum,
+    #    _nPredFac,
+    #    _nRow):
+    #    return PBPredict_Immutables(_feNumT,
+    #        _feFacT,
+    #        _nPredNum,
+    #        _nPredFac,
+    #        _nRow)
+
+    @staticmethod
+    def DeImmutables():
+        return PBPredict_DeImmutables()
+
+    #@staticmethod
+    #def RowNum(row):
+    #    return PBPredict_RowNum(row)
+
+    #@staticmethod
+    #def RowFac(row):
+    #    return PBPredict_RowFac(row)

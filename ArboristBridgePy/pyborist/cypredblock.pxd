@@ -3,92 +3,79 @@
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
+#TODO
+# how to CALL static members in cython?
+# declaring using @staticmethod is useless!
+# see https://groups.google.com/forum/#!searchin/cython-users/static/cython-users/xaErUq2yY0s/eadFRPSdm0sJ
+# see (history of) https://github.com/cython/cython/blob/master/docs/src/userguide/wrapping_CPlusPlus.rst#static-member-method
+
+
 
 cdef extern from 'predblock.h':
     cdef cppclass PredBlock:
-        @staticmethod
-        unsigned int FacFirst()
+        pass
+    
+    cdef unsigned int PredBlock_FacFirst 'PredBlock::FacFirst'()
 
-        @staticmethod
-        bool IsFactor(unsigned int predIdx)
+    cdef bool PredBlock_IsFactor 'PredBlock::IsFactor'(unsigned int predIdx)
 
-        @staticmethod
-        unsigned int BlockIdx(int predIdx, bool &isFactor)
+    cdef unsigned int PredBlock_BlockIdx 'PredBlock::BlockIdx'(int predIdx, bool &isFactor)
 
-        @staticmethod
-        unsigned int NRow()
+    cdef unsigned int PredBlock_NRow 'PredBlock::NRow'()
 
-        @staticmethod
-        int NPred()
+    cdef int PredBlock_NPred 'PredBlock::NPred'()
 
-        @staticmethod
-        int NPredFac()
+    cdef int PredBlock_NPredFac 'PredBlock::NPredFac'()
 
-        @staticmethod
-        int NPredNum()
+    cdef int PredBlock_NPredNum 'PredBlock::NPredNum'()
 
-        @staticmethod
-        int NumFirst()
+    cdef int PredBlock_NumFirst 'PredBlock::NumFirst'()
 
-        @staticmethod
-        int NumIdx(int predIdx)
+    cdef int PredBlock_NumIdx 'PredBlock::NumIdx'(int predIdx)
 
-        @staticmethod
-        int NumSup()
+    cdef int PredBlock_NumSup 'PredBlock::NumSup'()
 
-        @staticmethod
-        int FacSup()
+    cdef int PredBlock_FacSup 'PredBlock::FacSup'()
 
 
     cdef cppclass PBTrain(PredBlock):
-        #TODO how to deal with static FIELD?!
-        #@staticmethod
-        #unsigned int cardMax
+        pass
 
-        @staticmethod
-        void Immutables(double *_feNum,
-            int _feCard[],
-            const int _cardMax,
-            const unsigned int _nPredNum,
-            const unsigned int _nPredFac,
-            const unsigned int _nRow)
+    cdef unsigned int PBTrain_cardMax 'PBTrain::cardMax'
 
-        @staticmethod
-        void DeImmutables()
+    cdef void PBTrain_Immutables 'PBTrain::Immutables'(double *_feNum,
+        int _feCard[],
+        const int _cardMax,
+        const unsigned int _nPredNum,
+        const unsigned int _nPredFac,
+        const unsigned int _nRow)
 
-        @staticmethod
-        double MeanVal(int predIdx,
-            int rowLow,
-            int rowHigh)
+    cdef void PBTrain_DeImmutables 'PBTrain::DeImmutables'()
 
-        @staticmethod
-        int FacCard(int predIdx)
+    cdef double PBTrain_MeanVal 'PBTrain::MeanVal'(int predIdx,
+        int rowLow,
+        int rowHigh)
 
-        @staticmethod
-        int CardMax()
+    cdef int PBTrain_FacCard 'PBTrain::FacCard'(int predIdx)
+
+    cdef int PBTrain_CardMax 'PBTrain::CardMax'()
 
 
     cdef cppclass PBPredict(PredBlock):
-        #TODO how to deal with static FIELD?!
-        #@staticmethod
-        #double *feNumT
+        pass
 
-        #TODO how to deal with static FIELD?!
-        #@staticmethod
-        #int *feFacT
+    cdef double *PBPredict_feNumT 'PBPredict::feNumT'
 
-        @staticmethod
-        void Immutables(double *_feNumT,
-            int *_feFacT,
-            const unsigned int _nPredNum,
-            const unsigned int _nPredFac,
-            const unsigned int _nRow)
+    cdef int *PBPredict_feFacT 'PBPredict::feFacT'
 
-        @staticmethod
-        void DeImmutables()
+    cdef void PBPredict_Immutables 'PBPredict::Immutables'(double *_feNumT,
+        int *_feFacT,
+        const unsigned int _nPredNum,
+        const unsigned int _nPredFac,
+        const unsigned int _nRow)
 
-        @staticmethod
-        double *RowNum(unsigned int row)
+    cdef void PBPredict_DeImmutables 'PBPredict::DeImmutables'()
 
-        @staticmethod
-        int *RowFac(unsigned int row)
+    cdef double *PBPredict_RowNum 'PBPredict::RowNum'(unsigned int row)
+
+    cdef int *PBPredict_RowFac 'PBPredict::RowFac'(unsigned int row)
