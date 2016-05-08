@@ -5,7 +5,7 @@ from Cython.Build import cythonize
 from Cython.Distutils import build_ext
 from os import listdir, path
 
-pyx_src_dir = 'src'
+pyx_src_dir = 'pyborist'
 cc_src_dir = path.join('..', 'ArboristCore')
 
 all_pyx_files = [x for x in listdir(pyx_src_dir) if x.endswith('.pyx')]
