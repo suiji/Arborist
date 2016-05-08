@@ -7,3 +7,7 @@ charset = utf-8
 [*.{py, pyx, pxd}]
 indent_style = space
 indent_size = 4
+
+[*.{c, cc, cpp, h, hpp}]
+indent_style = space
+indent_size = 2
