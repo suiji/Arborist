@@ -5,16 +5,19 @@
 
   @author GitHub user @fyears
  */
+#include <Python.h>
+#include <numpy/arrayobject.h>
 #include <algorithm> // sort
 #include <random> // default_random_engine
 #include <utility> // make_pair
+#include <iostream>
 //#include <vector> // vector
 
 #include "callback.h"
 
 unsigned int CallBack::nRow = 0;
 bool CallBack::withRepl = false;
-std::vector<double> CallBack::weight = {};
+double* CallBack::weight;
 
 /**
   @brief Initializes static state parameters for row sampling.
@@ -29,9 +32,75 @@ std::vector<double> CallBack::weight = {};
  */
 void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
   nRow = _nRow;
-  weight.assign(_weight, _weight + _nRow);
+  weight = new double[_nRow];
+  std::copy(_weight, _weight+_nRow, weight);
   withRepl = _repl;
   return;
+}
+
+
+int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int nSamp, int out[]){
+  // excellent example:
+  // http://codereview.stackexchange.com/questions/92266/sending-a-c-array-to-python-numpy-and-back/92353#92353
+
+  Py_Initialize();
+  import_array();
+
+  PyObject* pNumpyModule = PyImport_ImportModule("numpy");
+  PyObject* pRandomModule = PyObject_GetAttrString(pNumpyModule, "random");
+  PyObject* pChoiceModule = PyObject_GetAttrString(pRandomModule , "choice");
+  assert(pChoiceModule != NULL);
+
+  npy_intp dims[1] {nRow};
+
+  unsigned int* allNums = new unsigned int[nRow];
+  for (unsigned int i = 0; i < nRow; ++i){
+    allNums[i] = i;
+  }
+  PyObject* numpyArray = PyArray_SimpleNewFromData(1, dims, NPY_UINT, (void *)allNums);
+  if (!PyArray_Check(numpyArray)) {
+    std::cerr << "Init array failed." << std::endl;
+  }
+
+  PyObject* howmany = PyLong_FromLong(nSamp);
+  assert(howmany != NULL);
+
+  PyObject* repl = Py_False;
+  if (withRepl){
+    repl = Py_True;
+  }
+  assert(repl != NULL);
+
+  PyObject* probs = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void *)(weight));
+  if (!PyArray_Check(probs)) {
+    std::cerr << "Init weights failed." << std::endl;
+  }
+
+  PyObject* pResult = PyObject_CallFunctionObjArgs(pChoiceModule, numpyArray, howmany, repl, probs, NULL);
+  assert(pResult != NULL);
+  if (!PyArray_Check(pResult)) {
+    std::cerr << "Sampling failed." << std::endl;
+  }
+
+  PyArrayObject *pArrayResult = (PyArrayObject*)(pResult);
+  int lenResult = PyArray_SHAPE(pArrayResult)[0];
+  assert(lenResult == nSamp);
+
+  unsigned int* result = (unsigned int*)(PyArray_DATA(pArrayResult));
+  for (unsigned int i = 0; i < nSamp; ++i){
+    out[i] = result[i];
+  }
+
+  //Py_DecRef(pArrayResult);
+  Py_DecRef(pResult);
+  Py_DecRef(probs);
+  Py_DecRef(repl);
+  Py_DecRef(howmany);
+  Py_DecRef(numpyArray);
+  Py_DecRef(pChoiceModule);
+  Py_DecRef(pRandomModule);
+  Py_DecRef(pNumpyModule);
+  Py_Finalize();
 }
 
 
@@ -45,7 +114,8 @@ void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
   @return Formally void, with copy-out parameter vector.
 */
 void CallBack::SampleRows(unsigned int nSamp, int out[]) {
-  return;
+  //TODO unable to avoid python here...
+  sampleInNumpy(weight, nRow, withRepl, nSamp, out);  
 }
 
 
