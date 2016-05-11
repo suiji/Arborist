@@ -1,51 +1,7 @@
 import numpy as np
 cimport numpy as np
 
-from sklearn.utils import check_array
-
-
 #TODO how to return pointers then convert them into numpy arrays...
-
-class PredBlockObj(object):
-    """This is the normal Python object storing the predblock info.
-
-    Parameters
-    ----------
-    x: array-like
-        The 2-D design matrix.
-
-    Attributes
-    ----------
-    colNames: array-like
-        The array of the names of cols.
-
-    rowNames: array-like
-        The array of the names of rows.
-
-    blockNum: array-like
-        The numpy array/matrix of the blocks containing numeric predictors.
-
-    nPredNum: int (default = 0)
-        The number of the numeric predictors.
-
-    blockFac: array-like
-        The numpy array/matrix of the blocks containing factoric predictors.
-
-    nPredFac: int (default = 0)
-        The number of the factoric predictors.
-
-    nRow: int (defualt = 0)
-        Number of rows
-    """
-    def __init__(self, x):
-        x = check_array(x)
-        self.colNames = None
-        self.rowNames = None
-        self.blockNum = x
-        self.nPredNum = x.shape[1]
-        self.blockFac = None
-        self.nPredFac = 0
-        self.nRow = x.shape[0]
 
 
 cdef class PyPredBlock:
