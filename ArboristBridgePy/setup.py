@@ -3,6 +3,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
+import numpy as np
 from os import listdir, path
 
 pyx_src_dir = 'pyborist'
@@ -24,7 +25,7 @@ lib_aborist_core = ('libaboristcore',
 extensions = [
     Extension(x[:-4], [path.join(pyx_src_dir, x)],
         language = 'c++',
-        include_dirs = [pyx_src_dir, cc_src_dir],
+        include_dirs = [pyx_src_dir, cc_src_dir, np.get_include()],
         library_dirs = [pyx_src_dir, cc_src_dir]
     ) for x in all_pyx_files
 ]
