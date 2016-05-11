@@ -8,3 +8,5 @@ __pycache__/
 *.pyd
 *.dll
 *.so
+
+omgtest.py
