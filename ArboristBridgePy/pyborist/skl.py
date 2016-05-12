@@ -38,7 +38,7 @@ class PyboristModel(object):
     no_validate: bool, optional (default=True)
         Whether to train without validation.
 
-    n_sample: int, optional (default=0)
+    n_to_sample: int, optional (default=0)
         Number of rows to sample, per tree.
 
     pred_fixed: int, optional (default=0)
@@ -47,9 +47,6 @@ class PyboristModel(object):
     pred_prob: float, optional (default=0.0)
         Probability of selecting individual predictor as trial splitter.
         Causes each predictor to be selected as a splitting candidate with distribution Bernoulli(pred_prob).
-
-    pred_weight: array-like or None, optional (default=None)
-        Relative weighting of individual predictors as trial splitters.
 
     quantiles_arr: array-like or None (dafault=None)
         Quantile levels to validate.
@@ -90,10 +87,9 @@ class PyboristModel(object):
         min_samples_split = 0,
         max_depth = 0,
         no_validate = True,
-        n_sample = 0,
+        n_to_sample = 0,
         pred_fixed = 0,
         pred_prob = 0.0,
-        pred_weight = None,
         quantiles_arr = None,
         report_quantiles = False,
         q_bin = 5000,
@@ -116,11 +112,19 @@ class PyboristModel(object):
         if self.min_samples_split <= 0:
             raise ValueError('Invalid min_samples_split.')
 
-        if self.min_samples_split > self.n_samples:
-            raise ValueError('Invalid min_samples_split.')
+        if self.is_classify_task and self.quantiles_arr is not None:
+            raise ValueError('Quantiles are for regression only.')
+        if self.quantiles_arr is not None:
+            if np.any(self.quantiles_arr < 0.0) or np.any(self.quantiles_arr > 1.0):
+                raise ValueError('Quantiles shoule be inside 0 and 1.')
+            if np.any(np.diff(self.quantiles_arr) < 0.0):
+                raise ValueError('Quantiles should be increasing.')
+
+        if self.pred_prob < 0.0 or self.pred_prob > 1.0:
+            raise ValueError('pred_prob should be inside [0.0, 1.0].')
 
 
-    def fit(self, X, y, sample_weight = None):
+    def fit(self, X, y, sample_weight = None, feature_weight = None):
         """Fit estimator.
 
         Parameters
@@ -132,6 +136,9 @@ class PyboristModel(object):
 
         sample_weight: array-like, shape=(n_samples) or None
 
+        feature_weight: array-like, shape=(n_features) or None
+            Relative weighting of individual predictors as trial splitters.
+
         Returns
         -------
         self : object
@@ -139,9 +146,20 @@ class PyboristModel(object):
         """
         X, y = check_X_y(X, y)
         X = X.astype(np.float)
+        self.sample_weight = sample_weight
+        self.feature_weight = feature_weight
+
         self._init_basical_attrbutes(X)
         self._init_row_rank()
-        self._init_model_params()
+        self._adjust_model_params()
+
+        if self.is_classify_task:
+            if np.any(self.reg_mono != 0.0):
+                raise ValueError('Categorical response could not have reg_mono.')
+            self._train_classification()
+        else:
+            self._train_regression()
+
         return self
 
     def _init_basical_attrbutes(self, X):
@@ -162,29 +180,29 @@ class PyboristModel(object):
         block_num: array-like
             The numpy array/matrix of the blocks containing numeric predictors.
 
-        n_pred_num: int (default = 0)
+        n_features_num: int (default = 0)
             The number of the numeric predictors.
 
         block_fac: array-like
             The numpy array/matrix of the blocks containing factoric predictors.
 
-        n_pred_fac: int (default = 0)
+        n_features_fac: int (default = 0)
             The number of the factoric predictors.
 
-        n_row: int (defualt = 0)
+        n_samples: int (defualt = 0)
             Number of rows
 
-        n_pred: int (default = 0)
+        n_features: int (default = 0)
             The number of predictors.
         """
         self.col_names = None
         self.row_names = None
         self.block_num = X
-        self.n_pred_num = X.shape[1]
+        self.n_features_num = X.shape[1]
         self.block_fac = None
-        self.n_pred_fac = 0
-        self.n_row = X.shape[0]
-        self.n_pred = self.n_pred_num + self.n_pred_fac
+        self.n_features_fac = 0
+        self.n_samples = X.shape[0]
+        self.n_features = self.n_features_num + self.n_features_fac
 
     def _init_row_rank(self):
         """Call the backend to generate the rowrank. Similar to the R verson.
@@ -197,60 +215,65 @@ class PyboristModel(object):
 
         inv_num: array-like
         """
-        n_row = self.n_row
-        n_pred_num = self.n_pred_num
-        n_pred_fac = self.n_pred_fac
-        n_pred = self.n_pred
-        rank = np.empty([n_pred * n_row], dtype=np.int)
-        row = np.empty([n_pred * n_row], dtype=np.int)
-        inv_num = np.empty([n_pred * n_row], dtype=np.int)
-        if n_pred_num > 0:
+        n_samples = self.n_samples
+        n_features_num = self.n_features_num
+        n_features_fac = self.n_features_fac
+        n_features = self.n_features
+        rank = np.empty([n_features * n_samples], dtype=np.int)
+        row = np.empty([n_features * n_samples], dtype=np.int)
+        inv_num = np.empty([n_features * n_samples], dtype=np.int)
+        if n_features_num > 0:
             PyRowRank.PreSortNum(np.reshape(self.block_num.transpose(),
-                    (n_pred * n_row), 'C'),
-                n_pred_num,
-                n_row,
+                    (n_features * n_samples), 'C'),
+                n_features_num,
+                n_samples,
                 row,
                 rank,
                 inv_num)
-        if n_pred_fac > 0:
+        if n_features_fac > 0:
             PyRowRank.PreSortFac(np.reshape(self.block_fac.transpose(),
-                    (n_pred * n_row), 'C'),
-                n_pred_num,
-                n_pred_fac,
-                n_row,
+                    (n_features * n_samples), 'C'),
+                n_features_num,
+                n_features_fac,
+                n_samples,
                 row,
                 rank)
         self.row = row
         self.rank = rank
         self.inv_num = inv_num
 
-    def _init_model_params(self):
+    def _adjust_model_params(self):
         """Regenerate some parameters of model based on input.
         """
-        if self.reg_mono is None:
-            self.reg_mono = np.zeros(self.n_pred)
+        #TODO params should be invariant
 
-        if self.n_sample == 0:
+        if self.min_samples_split > self.n_samples:
+            raise ValueError('Invalid min_samples_split.')
+
+        if self.reg_mono is None:
+            self.reg_mono = np.zeros(self.n_features)
+
+        if self.n_to_sample == 0:
             if self.bootstrap:
-                self.n_sample = self.n_row
+                self.n_to_sample = self.n_samples
             else:
-                self.n_sample = np.round((1-np.exp(-1)) * self.n_row)
+                self.n_to_sample = np.round((1-np.exp(-1)) * self.n_samples)
 
         if self.pred_fixed == 0 \
-            and self.pred_prob == 0 and self.n_pred < 16:
-            if not is_classify_task:
-                self.pred_fixed = np.max(np.floor(self.n_pred/3), 1)
+            and self.pred_prob == 0 and self.n_features < 16:
+            if not self.is_classify_task:
+                self.pred_fixed = np.max([np.floor(self.n_features/3), 1])
             else:
-                self.pred_fixed = np.floor(np.sqrt(self.n_pred))
+                self.pred_fixed = np.floor(np.sqrt(self.n_features))
 
         if self.pred_prob == 0.0 and self.pred_fixed == 0:
-            if not is_classify_task:
+            if not self.is_classify_task:
                 self.pred_prob = 0.4
             else:
-                self.pred_prob = np.ceiling(np.sqrt(self.n_pred)) / self.n_pred
+                self.pred_prob = np.ceil(np.sqrt(self.n_features)) / self.n_features
 
-        if self.pred_weight is None:
-            self.pred_weight = np.ones(self.n_pred)
+        if self.pred_fixed > self.n_features:
+            raise ValueError('pred_fixed should be no more than n_features.')
 
         if self.is_classify_task:
             ctg_width = np.max(y) - 1 # how many categoriess
@@ -270,6 +293,60 @@ class PyboristModel(object):
             #TODO maybe move some code into __init__
             if self.class_weight is not None:
                 raise ValueError('Class Weight should be used in classification.')
+
+        if self.feature_weight is None:
+            self.feature_weight = np.ones(self.n_features)
+        else:
+            if len(self.feature_weight) != self.n_features:
+                raise ValueError('Predictor weight should equal to column number.')
+            if np.any(self.feature_weight < 0.0):
+                raise ValueError('Predictor weight should larger than zero.')
+            if np.sum(self.feature_weight) == 0.0:
+                raise ValueError('Predictor weight could not be all zero.')
+
+        if self.sample_weight is None:
+            self.sample_weight = np.ones(self.n_samples)
+        else:
+            if len(self.sample_weight) != self.n_samples:
+                raise ValueError('Sample weight should equal to column number.')
+            if np.any(self.sample_weight < 0.0):
+                raise ValueError('Sample weight should larger than zero.')
+            if np.sum(self.sample_weight) == 0.0:
+                raise ValueError('Sample weight could not be all zero.')
+
+        mean_weight = 1.0 if self.pred_prob == 0.0 else self.pred_prob
+        self.prob_arr = self.feature_weight * (self.n_features * mean_weight) / np.sum(self.feature_weight)
+
+
+    def _train_classification(self):
+        pass
+
+    def _train_regression(self,
+        block_num,
+        n_features_num,
+        block_fac,
+        n_features_fac,
+        n_features,
+
+        row,
+        rank,
+        inv_num,
+
+        y,
+
+        n_estimators,
+        n_to_sample,
+        sample_weight,
+        bootstrap,
+        tree_block,
+        min_samples_split,
+        min_info_ratio,
+        max_depth,
+        pred_fixed,
+        prob_arr,
+        reg_mono
+        ):
+        pass
 
     def predict(self, X):
         """Fit estimator.
