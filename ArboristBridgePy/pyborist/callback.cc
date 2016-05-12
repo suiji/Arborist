@@ -53,14 +53,11 @@ int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int
 
   npy_intp dims[1] {nRow};
 
-  unsigned int* allNums = new unsigned int[nRow];
-  for (unsigned int i = 0; i < nRow; ++i){
-    allNums[i] = i;
-  }
-  PyObject* numpyArray = PyArray_SimpleNewFromData(1, dims, NPY_UINT, (void *)allNums);
+  PyObject* numpyArray = PyArray_Arange(0, nRow, 1, NPY_UINT);
   if (!PyArray_Check(numpyArray)) {
     std::cerr << "Init array failed." << std::endl;
   }
+  assert(PyArray_SHAPE((PyArrayObject*)numpyArray)[0] == nRow);
 
   PyObject* howmany = PyLong_FromLong(nSamp);
   assert(howmany != NULL);
@@ -72,6 +69,8 @@ int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int
   assert(repl != NULL);
 
   PyObject* probs = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void *)(weight));
+  PyArrayObject* weightSum = (PyArrayObject *) PyArray_Sum((PyArrayObject *)probs, 0, NPY_DOUBLE, NULL);
+  probs = PyNumber_TrueDivide(probs, (PyObject *) weightSum);
   if (!PyArray_Check(probs)) {
     std::cerr << "Init weights failed." << std::endl;
   }
@@ -83,8 +82,7 @@ int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int
   }
 
   PyArrayObject *pArrayResult = (PyArrayObject*)(pResult);
-  int lenResult = PyArray_SHAPE(pArrayResult)[0];
-  assert(lenResult == nSamp);
+  assert(PyArray_SHAPE(pArrayResult)[0] == nSamp);
 
   unsigned int* result = (unsigned int*)(PyArray_DATA(pArrayResult));
   for (unsigned int i = 0; i < nSamp; ++i){
@@ -94,6 +92,7 @@ int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int
   //Py_DecRef(pArrayResult);
   Py_DecRef(pResult);
   Py_DecRef(probs);
+  Py_DecRef((PyObject *)weightSum);
   Py_DecRef(repl);
   Py_DecRef(howmany);
   Py_DecRef(numpyArray);
