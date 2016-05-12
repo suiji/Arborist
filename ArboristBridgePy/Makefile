@@ -1,7 +1,13 @@
 all:
-	python setup.py build_ext
+	python setup.py build
+
+local:
+	python setup.py build_clib
+	python setup.py build_ext --inplace
+	mv *.pyd pyborist/
 
 clean:
+	rm -rf pyborist/build
 	rm -rf pyborist/__pycache__
 	rm -f pyborist/*.cpp
 	rm -f pyborist/*.c
