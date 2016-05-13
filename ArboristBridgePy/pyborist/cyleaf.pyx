@@ -4,5 +4,3 @@ cdef class PyBagRow:
 
 cdef class PyLeadNode:
     cdef LeafNode *thisptr
-
-

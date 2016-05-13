@@ -32,13 +32,11 @@ cdef extern from 'leaf.h':
 
         double GetScore()
 
-        @staticmethod
-        void Export(const vector[unsigned int] &_origin,
+    cdef void LeafNode_Export 'LeafNode::Export'(const vector[unsigned int] &_origin,
             const vector[LeafNode] &_leafNode,
             vector[vector[double]] &_score,
             vector[vector[UInt]] &_extent)
         
-        @staticmethod
-        unsigned int LeafCount(const vector[unsigned int] &_origin,
+    cdef unsigned int LeafNode_LeafCount 'LeafNode::LeafCount'(const vector[unsigned int] &_origin,
             unsigned int height,
             unsigned int tIdx)
