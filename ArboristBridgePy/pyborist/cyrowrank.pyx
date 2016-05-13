@@ -8,9 +8,9 @@ cdef class PyRowRank:
     cdef RowRank *thisptr
 
     def __cinit__(self,
-        np.ndarray[int, ndim=1, mode="c"] _feRow not None,
-        np.ndarray[int, ndim=1, mode="c"] _feRank not None,
-        np.ndarray[int, ndim=1, mode="c"] _feInvNum not None,
+        int[:] _feRow not None,
+        int[:] _feRank not None,
+        int[:] _feInvNum not None,
         unsigned int _nRow,
         unsigned int _nPredDense):
         self.thisptr = new RowRank(&_feRow[0],
@@ -32,12 +32,12 @@ cdef class PyRowRank:
         return self.thisptr.MeanRank(predIdx, rkMean)
 
     @staticmethod
-    def PreSortNum(np.ndarray[double, ndim=1, mode="c"] _feNum not None,
+    def PreSortNum(double[:] _feNum not None,
         _nPredNum,
         _nRow,
-        np.ndarray[int, ndim=1, mode="c"] _row not None,
-        np.ndarray[int, ndim=1, mode="c"] _rank not None,
-        np.ndarray[int, ndim=1, mode="c"] _invNum not None):
+        int[:] _row not None,
+        int[:] _rank not None,
+        int[:] _invNum not None):
         return RowRank_PreSortNum(&_feNum[0],
             _nPredNum,
             _nRow,
@@ -46,12 +46,12 @@ cdef class PyRowRank:
             &_invNum[0])
 
     @staticmethod
-    def PreSortFac(np.ndarray[int, ndim=1, mode="c"] _feFac not None,
+    def PreSortFac(int[:] _feFac not None,
         _nPredNum,
         _nPredFac,
         _nRow,
-        np.ndarray[int, ndim=1, mode="c"] _row not None,
-        np.ndarray[int, ndim=1, mode="c"] _rank not None):
+        int[:] _row not None,
+        int[:] _rank not None):
         RowRank_PreSortFac(&_feFac[0],
             _nPredNum,
             _nPredFac,
