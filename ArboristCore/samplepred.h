@@ -223,36 +223,10 @@ class SamplePred {
 
      @return workspace starting position for this level.
    */
-  inline int LevelOff(unsigned int level) const {
-    return (level & 1) == 0 ? 0 : bufferSize;
+  inline int BuffOffset(unsigned int bufferBit) const {
+    return (bufferBit & 1) == 0 ? 0 : bufferSize;
   }
 
-
-  /**
-     @brief Allows caller to cache the node buffer for the current level.
-
-     @param level is the current level.
-
-     @return buffer starting position.
-   */
-  inline SPNode* NodeBase(int level) const {
-    return nodeVec + LevelOff(level);
-  }
-
-  /**
-     @brief Allows lightweight lookup of predictor's SPNode vector using
-     cached node base.
- 
-     @param nodeBase is the node base, cached by the caller.
-
-     @param preIdx is the predictor index.
-
-     @return node vector section for this predictor.
-   */
-  SPNode* PredBase(class SPNode *nodeBase, int predIdx) const {
-    return nodeBase + bagCount * predIdx; 
-  }
-  
   /**
 
      @param predIdx is the predictor coordinate.
@@ -261,25 +235,39 @@ class SamplePred {
 
      @return starting position within workspace.
    */
-  inline int BufferOff(int predIdx, unsigned int level) {
-    return bagCount * predIdx + LevelOff(level);
+  inline unsigned int BufferOff(unsigned int predIdx, unsigned int bufBit) const {
+    return bagCount * predIdx + BuffOffset(bufBit);
   }
 
   
   /**
    */
-  inline SPNode* Buffers(int predIdx, unsigned int level, unsigned int*& sIdx) {
-    int offset = BufferOff(predIdx, level);
+  inline SPNode* Buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) {
+    unsigned int offset = BufferOff(predIdx, bufBit);
     sIdx = sampleIdx + offset;
     return nodeVec + offset;
   }
 
+
+  /**
+     @brief Allows lightweight lookup of predictor's SPNode vector.
+
+     @param bufBit is the containing buffer, currently 0/1.
+ 
+     @param predIdx is the predictor index.
+
+     @return node vector section for this predictor.
+   */
+  SPNode* PredBase(unsigned int predIdx, unsigned int bufBit) const {
+    return nodeVec + BufferOff(predIdx, bufBit);
+  }
   
+
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline SPNode* SplitBuffer(int predIdx, unsigned int level) {
-    return nodeVec + BufferOff(predIdx, level);
+  inline SPNode* SplitBuffer(unsigned int predIdx, unsigned int bufBit) {
+    return nodeVec + BufferOff(predIdx, bufBit);
   }
 
 
@@ -292,13 +280,13 @@ class SamplePred {
 
    @return void, with output parameter vectors.
  */
-  inline void Buffers(int predIdx, unsigned int level, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) {
-    source = Buffers(predIdx, level-1, sIdxSource);
-    targ = Buffers(predIdx, level, sIdxTarg);
+  inline void Buffers(int predIdx, unsigned int bufBit, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) {
+    source = Buffers(predIdx, bufBit, sIdxSource);
+    targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
-  void SplitRanks(int predIdx, unsigned int level, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
-  double Replay(unsigned int sample2PT[], int predIdx, unsigned int level, int start, int end, unsigned int ptId);
+  void SplitRanks(unsigned int predIdx, unsigned int targBit, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
+  double Replay(unsigned int sample2PT[], unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId);
 
   // TODO:  Move somewhere appropriate.
   /**

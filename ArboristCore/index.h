@@ -17,6 +17,8 @@
 #ifndef ARBORIST_INDEX_H
 #define ARBORIST_INDEX_H
 
+#include <vector>
+
 /**
    Index tree node fields associated with the response, viz., invariant across
    predictors.  IndexNodes of the index tree can be thought of as representing
@@ -29,13 +31,15 @@
 class IndexNode {
   double preBias; // Inf of information values eligible for splitting.
  public: // The three integer values are all non-negative.
-  int splitIdx; // Position within containing vector:  split index.
-  int lhStart; // Start index of LHS data in buffer.
+  IndexNode();
+  unsigned int splitIdx; // Position within containing vector:  split index.
+  unsigned int lhStart; // Start index of LHS data in buffer.
   unsigned int idxCount; // # distinct indices in the node.
   unsigned int sCount;  // # samples subsumed by this node.
   double sum; // Sum of all responses in node.
   double minInfo; // Minimum acceptable information on which to split.
   unsigned int ptId; // Index of associated PTSerial node.
+  unsigned char path; // Bitwise record of recent reaching L/R path.
 
   double PrebiasReg();
   double PrebiasCtg(const double sumSquares[]);
@@ -84,7 +88,7 @@ class IndexNode {
 
      @return void.
   */
-  void Init(int _splitIdx, unsigned int _ptId, int _idxCount, unsigned int _sCount, double _sum, double _minInfo) {
+  void Init(int _splitIdx, unsigned int _ptId, int _idxCount, unsigned int _sCount, double _sum, double _minInfo, unsigned char bit) {
     splitIdx = _splitIdx;
     ptId = _ptId;
     idxCount = _idxCount;
@@ -92,12 +96,19 @@ class IndexNode {
     sum = _sum;
     minInfo = _minInfo;
     lhStart = 0;
+    path = (path << 1) | bit;
   }
 
+  inline void PathCoords(unsigned int &_start, unsigned int &_extent, unsigned int &_path) const {
+    _start = lhStart;
+    _extent = idxCount;
+    _path = path;
+  }
+  
   /**
      @return reference to 'lhStart' field.
    */
-  inline int &Start() {
+  inline unsigned int &Start() {
     return lhStart;
   }
 
@@ -118,7 +129,7 @@ class IndexNode {
 
      @return preBias, with output parameters.
   */
-  double inline SplitFields(int &_lhStart, int &_end, unsigned int &_sCount, double &_sum) const {
+  double inline SplitFields(unsigned int &_lhStart, unsigned int &_end, unsigned int &_sCount, double &_sum) const {
     _lhStart = lhStart;
     _end = _lhStart + idxCount - 1;
     _sCount = sCount;
@@ -126,11 +137,20 @@ class IndexNode {
     return preBias;
   }
 
-  void inline Extent(int &_lhStart, int &_end) const {
+  void inline Extent(unsigned int &_lhStart, unsigned int &_end) const {
     _lhStart = lhStart;
     _end = lhStart + idxCount - 1;
   }
 
+
+  /**
+     @brief Exposes minimum-information value for the node.
+
+     @return minInfo value.
+   */
+  inline double MinInfo() const {
+    return minInfo;
+  }
 };
 
 
@@ -140,13 +160,15 @@ class IndexNode {
 class NodeCache : public IndexNode {
   class SSNode *ssNode; // Convenient to cache for LH/RH partition.
   static unsigned int minNode;
+  double lhSum; // Sum of responses over LH:  splits only.
   unsigned int ptL; // LH index into pre-tree:  splits only.
   unsigned int ptR; // RH index into pre-tree:  splits only.
  public:
   static void Immutables(unsigned int _minNode);
   static void DeImmutables();
-  void Consume(class Index *index, class PreTree *preTree, class SplitPred *splitPred, class SamplePred *samplePred, class RestageMap *restageMap, unsigned int level, int lhSplitNext, int &lhCount, int &rhCount);
-  void SplitCensus(int &lhSplitNext, int &rhSplitNext, int &leafNext) const;
+  void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
+  void Successors(class Index *index, class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhCount, unsigned int &rhCount);
+  void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext) const;
 
   /**
      @brief Copies indexNode entry into corresponding nodeCache.
@@ -155,7 +177,7 @@ class NodeCache : public IndexNode {
 
      @return void.
    */
-  inline void Cache(IndexNode *nd) {
+  inline void Cache(IndexNode *nd, class SSNode *argMax) {
     splitIdx = nd->splitIdx;
     lhStart = nd->lhStart;
     idxCount = nd->idxCount;
@@ -163,20 +185,12 @@ class NodeCache : public IndexNode {
     sum = nd->sum;
     ptId = nd->ptId;
     minInfo = nd->minInfo;
+    path = nd->path,
     ptL = ptR = 0; // Terminal until shown otherwise.
+    SS() = argMax;
   }
 
 
-  /**
-     @brief Exposes minimum-information value for the node.
-
-     @return minInfo value.
-   */
-  inline double MinInfo() {
-    return minInfo;
-  }
-
-  
   inline class SSNode *&SS() {
     return ssNode;
   }
@@ -202,38 +216,35 @@ class NodeCache : public IndexNode {
 
 class Index {
   static unsigned int totLevels;
-  NodeCache *CacheNodes();
-  void ArgMax(NodeCache nodeCache[], const class SplitSig *splitSig);
-  int LevelCensus(NodeCache nodeCache[], int &lhSplitNext, int &leafNext);
-  class RestageMap *ProduceNext(NodeCache nodeCache[], int splitNext, int lhSplitNext, int leafNext, unsigned int level);
+  NodeCache *CacheNodes(const std::vector<class SSNode*> &argMax);
+  void ArgMax(NodeCache nodeCache[]);
+  unsigned int LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext);
+  NodeCache *LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext);
+  void LevelProduce(NodeCache *nodeCache, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext);
  protected:
-  unsigned int level; // Zero-based level number.
-  int splitCount; // Width of current level.
   IndexNode *indexNode;  
   const unsigned int bagCount;
   unsigned int levelBase; // Pre-tree index at which level's nodes begin.
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   bool *ntLH;
   bool *ntRH;
-  static class PreTree *OneTree(class SamplePred *_samplePred, class SplitPred *_splitPred, int _nSamp, int _bagCount, double _bagSum);
+  static class PreTree *OneTree(class SamplePred *_samplePred, class Bottom *_bottom, int _nSamp, int _bagCount, double _bagSum);
+
  public:
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
   class SamplePred *samplePred;
   class PreTree *preTree;
-  class SplitPred *splitPred;
-  Index(class SamplePred *_samplePred, class PreTree *_preTree, class SplitPred *_splitPred, int _nSamp, int _bagCount, double _sum);
+  class Bottom *bottom;
+  Index(class SamplePred *_samplePred, class PreTree *_preTree, class Bottom *_bottom, int _nSamp, int _bagCount, double _sum);
   ~Index();
-  /**
-     @brief level accessor.
-   */
-  unsigned int Level() {
-    return level;
-  }
+
   static class PreTree **BlockTrees(class Sample **sampleBlock, int _treeBlock);
   void SetPrebias();
   void Levels();
   void PredicateBits(class BV *bitsLH, class BV *bitsRH, int &lhIdxTot, int &rhIdxTot) const;
+  void LRLive(const class Bottom *bottom) const;
+
 
   /**
      @brief 'bagCount' accessor.
@@ -261,19 +272,19 @@ class Index {
 
 
   inline void NextLH(int idxNext, unsigned int ptId, int idxCount, unsigned int sCount, double sum, double minInfo) {
-    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo);
+    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo, 0);
 
     SetLH(ptId);
   }
 
   
   inline void NextRH(int idxNext, int ptId, int idxCount, unsigned int sCount, double sum, double minInfo) {
-    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo);
+    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo, 1);
 
     SetRH(ptId);
   }
 
-  
+
   /**
      @brief Computes a level-relative offset for an indexed Pretree node.
 

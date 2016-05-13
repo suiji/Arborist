@@ -23,7 +23,7 @@ class BV {
   unsigned int *raw;
   const unsigned int nSlot;
   const unsigned int nBit;
-  static const unsigned int slotBits = 8 * sizeof(unsigned int);
+  static constexpr unsigned int slotBits = 8 * sizeof(unsigned int);
  public:
   BV(unsigned int len, bool slotWise = false);
   BV(const std::vector<unsigned int> &_raw);
@@ -111,10 +111,11 @@ class BV {
 
      @return void.
    */
-  inline void SetBit(unsigned int pos) {
+  inline void SetBit(unsigned int pos, bool on = true) {
     unsigned int slot = pos / slotBits;
     unsigned int mask = 1 << (pos - (slot * slotBits));
-    raw[slot] |= mask;
+    unsigned int val = raw[slot];
+    raw[slot] = on ? val | mask : val & ~mask;
   }
 
 
@@ -149,6 +150,10 @@ class BitMatrix : public BV {
 
   static void Export(const std::vector<unsigned int> &_raw, unsigned int _nRow, std::vector<std::vector<unsigned int> > &vecOut);
 
+  inline unsigned int Stride() {
+    return stride;
+  }
+  
   /**
      @brief Bit test with short-circuit for zero-length matrix.
 
@@ -158,8 +163,8 @@ class BitMatrix : public BV {
     return stride == 0 ? false : BV::IsSet(row * stride + col);
   }
 
-  inline void SetBit(unsigned int row, unsigned int col) {
-    BV::SetBit(row * stride + col);
+  inline void SetBit(unsigned int row, unsigned int col, bool on = true) {
+    BV::SetBit(row * stride + col, on);
   }
 
 };

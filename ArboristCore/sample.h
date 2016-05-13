@@ -97,7 +97,7 @@ class Sample {
   double bagSum;
   class BV *treeBag;
   class SamplePred *samplePred;
-  class SplitPred *splitPred;
+  class Bottom *bottom;
   void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
 
   static unsigned int *RowSample();
@@ -143,8 +143,8 @@ class Sample {
   }
 
   
-  inline class SplitPred *SplPred() {
-    return splitPred;
+  inline class Bottom *Bot() {
+    return bottom;
   }
 
   

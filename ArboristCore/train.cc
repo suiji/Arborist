@@ -24,9 +24,7 @@
 #include "samplepred.h"
 #include "splitsig.h"
 #include "response.h"
-#include "restage.h"
 #include "splitpred.h"
-#include "run.h"
 #include "leaf.h"
 
 // Testing only:
@@ -63,9 +61,8 @@ void Train::Init(double *_feNum, int _facCard[], int _cardMax, int _nPredNum, in
   SplitSig::Immutables(nPred, _minRatio);
   Index::Immutables(_minNode, _totLevels);
   PreTree::Immutables(nPred, _nSamp, _minNode);
-  RestageMap::Immutables(nPred);
   SplitPred::Immutables(nPred, _ctgWidth, _predFixed, _predProb, _regMono);
-  Run::Immutables(nPred, _ctgWidth);
+  //  Run::Immutables(_ctgWidth);
 }
 
 
@@ -83,7 +80,7 @@ void Train::DeImmutables() {
   Sample::DeImmutables();
   SPNode::DeImmutables();
   SplitPred::DeImmutables();
-  Run::DeImmutables();
+  //  Run::DeImmutables();
 }
 
 
