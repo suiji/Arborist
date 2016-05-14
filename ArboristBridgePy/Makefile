@@ -14,5 +14,6 @@ clean:
 	rm -f pyborist/*.pyd
 	rm -f pyborist/*.so
 	rm -rf build/
+	rm -rf __pycache__/
 	rm -f *.pyd
 	rm -f *.so
