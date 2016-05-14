@@ -3,6 +3,7 @@
 from libcpp.vector cimport vector
 
 
+
 cdef extern from 'leaf.h':
     ctypedef unsigned int UInt # workaround due to cython bug
 
@@ -33,10 +34,27 @@ cdef extern from 'leaf.h':
         double GetScore()
 
     cdef void LeafNode_Export 'LeafNode::Export'(const vector[unsigned int] &_origin,
-            const vector[LeafNode] &_leafNode,
-            vector[vector[double]] &_score,
-            vector[vector[UInt]] &_extent)
+        const vector[LeafNode] &_leafNode,
+        vector[vector[double]] &_score,
+        vector[vector[UInt]] &_extent)
         
     cdef unsigned int LeafNode_LeafCount 'LeafNode::LeafCount'(const vector[unsigned int] &_origin,
-            unsigned int height,
-            unsigned int tIdx)
+        unsigned int height,
+        unsigned int tIdx)
+
+
+
+cdef class PyBagRow:
+    cdef BagRow *thisptr
+
+    @staticmethod
+    cdef factory(BagRow bagRow)
+
+
+
+
+cdef class PyLeafNode:
+    cdef LeafNode *thisptr
+
+    @staticmethod
+    cdef factory(LeafNode leafNode)

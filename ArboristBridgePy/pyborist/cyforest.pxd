@@ -129,3 +129,11 @@ cdef extern from 'forest.h':
             unsigned int bitEnd)
 
         void Origins(unsigned int tIdx)
+
+
+# we have to expose the object in compile time here
+cdef class PyForestNode:
+    cdef ForestNode *thisptr
+
+    @staticmethod
+    cdef factory(ForestNode forestNode)
