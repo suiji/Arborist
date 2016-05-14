@@ -16,7 +16,7 @@
 
 unsigned int CallBack::nRow = 0;
 bool CallBack::withRepl = false;
-double* CallBack::weight;
+std::vector<double> CallBack::weight;
 
 /**
   @brief Initializes static state parameters for row sampling.
@@ -31,8 +31,7 @@ double* CallBack::weight;
  */
 void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
   nRow = _nRow;
-  weight = new double[_nRow];
-  std::copy(_weight, _weight+_nRow, weight);
+  weight.assign(_weight, _weight+_nRow);
   withRepl = _repl;
   return;
 }
@@ -48,11 +47,27 @@ void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
   @return Formally void, with copy-out parameter vector.
 */
 void CallBack::SampleRows(unsigned int nSamp, int out[]) {
-  std::default_random_engine generator;
-  std::discrete_distribution<unsigned int> distribution(weight, weight+nRow);
-  for (auto i = 0; i < nSamp; i++){
-    out[i] = distribution(generator);
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  if (withRepl) {
+    std::discrete_distribution<unsigned int> distribution(weight.begin(), weight.end());
+    for (auto i = 0; i < nSamp; i++){
+      out[i] = distribution(gen);
+    }
+  } else {
+    // no replacement
+    // so we need another vector to note down the item have been selected or not;
+    // we do not ensure/check nSamp <= nRow here
+    std::vector<double> w;
+    w.assign(weight.begin(), weight.end());
+    for (auto i = 0; i < nSamp; ++i)
+    {
+      std::discrete_distribution<unsigned int> distribution(w.begin(), w.end());
+      out[i] = distribution(gen);
+      w[out[i]] = 0;
+    }
   }
+  
 }
 
 
@@ -134,9 +149,10 @@ void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
     
  */
 void CallBack::RUnif(int len, double out[]) {
-  std::default_random_engine generator;
+  std::random_device rd;
+  std::mt19937 gen(rd());
   std::uniform_real_distribution<double> distribution(0.0, 1.0);
   for (auto i = 0; i < len; i++){
-    out[i] = distribution(generator);
+    out[i] = distribution(gen);
   }
 }

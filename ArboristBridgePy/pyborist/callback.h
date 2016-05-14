@@ -14,7 +14,7 @@
 class CallBack {
   static unsigned int nRow;
   static bool withRepl;
-  static double* weight;
+  static std::vector<double> weight;
 
   public:
     static void SampleInit(unsigned int _nRow,
