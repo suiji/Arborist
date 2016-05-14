@@ -1,7 +1,7 @@
 from distutils.command.build_clib import build_clib
 from distutils.core import setup
 from distutils.extension import Extension
-from distutils.sysconfig import get_python_inc
+#from distutils.sysconfig import get_python_inc
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
 import numpy as np
@@ -19,8 +19,7 @@ all_cpp_core_files.extend([path.join(pyx_src_dir, 'callback.cc')])
 lib_aborist_core = ('libaboristcore', 
     {
         'sources': all_cpp_core_files,
-        'include_dirs':[cc_src_dir, pyx_src_dir,
-            get_python_inc(), np.get_include()]
+        'include_dirs':[cc_src_dir, pyx_src_dir]
     }
 )
 

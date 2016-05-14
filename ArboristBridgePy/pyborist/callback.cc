@@ -5,13 +5,12 @@
 
   @author GitHub user @fyears
  */
-#include <Python.h>
-#include <numpy/arrayobject.h>
 #include <algorithm> // sort
 #include <random> // default_random_engine
 #include <utility> // make_pair
-#include <iostream>
+//#include <iostream>
 //#include <vector> // vector
+
 
 #include "callback.h"
 
@@ -39,70 +38,6 @@ void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
 }
 
 
-int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int nSamp, int out[]){
-  // excellent example:
-  // http://codereview.stackexchange.com/questions/92266/sending-a-c-array-to-python-numpy-and-back/92353#92353
-
-  Py_Initialize();
-  import_array();
-
-  PyObject* pNumpyModule = PyImport_ImportModule("numpy");
-  PyObject* pRandomModule = PyObject_GetAttrString(pNumpyModule, "random");
-  PyObject* pChoiceModule = PyObject_GetAttrString(pRandomModule , "choice");
-  assert(pChoiceModule != NULL);
-
-  npy_intp dims[1] {nRow};
-
-  PyObject* numpyArray = PyArray_Arange(0, nRow, 1, NPY_UINT);
-  if (!PyArray_Check(numpyArray)) {
-    std::cerr << "Init array failed." << std::endl;
-  }
-  assert(PyArray_SHAPE((PyArrayObject*)numpyArray)[0] == nRow);
-
-  PyObject* howmany = PyLong_FromLong(nSamp);
-  assert(howmany != NULL);
-
-  PyObject* repl = Py_False;
-  if (withRepl){
-    repl = Py_True;
-  }
-  assert(repl != NULL);
-
-  PyObject* probs = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void *)(weight));
-  PyArrayObject* weightSum = (PyArrayObject *) PyArray_Sum((PyArrayObject *)probs, 0, NPY_DOUBLE, NULL);
-  probs = PyNumber_TrueDivide(probs, (PyObject *) weightSum);
-  if (!PyArray_Check(probs)) {
-    std::cerr << "Init weights failed." << std::endl;
-  }
-
-  PyObject* pResult = PyObject_CallFunctionObjArgs(pChoiceModule, numpyArray, howmany, repl, probs, NULL);
-  assert(pResult != NULL);
-  if (!PyArray_Check(pResult)) {
-    std::cerr << "Sampling failed." << std::endl;
-  }
-
-  PyArrayObject *pArrayResult = (PyArrayObject*)(pResult);
-  assert(PyArray_SHAPE(pArrayResult)[0] == nSamp);
-
-  unsigned int* result = (unsigned int*)(PyArray_DATA(pArrayResult));
-  for (unsigned int i = 0; i < nSamp; ++i){
-    out[i] = result[i];
-  }
-
-  //Py_DecRef(pArrayResult);
-  Py_DecRef(pResult);
-  Py_DecRef(probs);
-  Py_DecRef((PyObject *)weightSum);
-  Py_DecRef(repl);
-  Py_DecRef(howmany);
-  Py_DecRef(numpyArray);
-  Py_DecRef(pChoiceModule);
-  Py_DecRef(pRandomModule);
-  Py_DecRef(pNumpyModule);
-  Py_Finalize();
-}
-
-
 /**
   @brief Call-back to row sampling.
 
@@ -113,8 +48,11 @@ int sampleInNumpy(double* weight, unsigned int nRow, bool withRepl, unsigned int
   @return Formally void, with copy-out parameter vector.
 */
 void CallBack::SampleRows(unsigned int nSamp, int out[]) {
-  //TODO unable to avoid python here...
-  sampleInNumpy(weight, nRow, withRepl, nSamp, out);  
+  std::default_random_engine generator;
+  std::discrete_distribution<unsigned int> distribution(weight, weight+nRow);
+  for (auto i = 0; i < nSamp; i++){
+    out[i] = distribution(generator);
+  }
 }
 
 
@@ -133,7 +71,7 @@ void CallBack::SampleRows(unsigned int nSamp, int out[]) {
 */
 void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
   std::vector<std::pair<int, int>> pairs;
-  for (int i = one; i <= nRow; ++i)
+  for (auto i = one; i <= nRow; ++i)
   {
     pairs.push_back(std::make_pair(ySorted[i-1], rank2Row[i-1]));
   }
@@ -144,7 +82,7 @@ void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
     }
   );
 
-  for (int i = one; i <= nRow; ++i) {
+  for (auto i = one; i <= nRow; ++i) {
     ySorted[i-1] = pairs[i-1].first;
     rank2Row[i-1] = pairs[i-1].second;
   }
@@ -166,7 +104,7 @@ void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
 */
 void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
   std::vector<std::pair<double, int>> pairs;
-  for (int i = one; i <= nRow; ++i)
+  for (auto i = one; i <= nRow; ++i)
   {
     pairs.push_back(std::make_pair(ySorted[i-1], rank2Row[i-1]));
   }
@@ -178,7 +116,7 @@ void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
     }
   );
 
-  for (int i = one; i <= nRow; ++i) {
+  for (auto i = one; i <= nRow; ++i) {
     ySorted[i-1] = pairs[i-1].first;
     rank2Row[i-1] = pairs[i-1].second;
   }
@@ -198,7 +136,7 @@ void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
 void CallBack::RUnif(int len, double out[]) {
   std::default_random_engine generator;
   std::uniform_real_distribution<double> distribution(0.0, 1.0);
-  for (int i = 0; i < len; i++){
+  for (auto i = 0; i < len; i++){
     out[i] = distribution(generator);
   }
 }
