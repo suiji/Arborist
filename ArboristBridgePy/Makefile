@@ -6,6 +6,13 @@ local:
 	python setup.py build_ext --inplace
 	mv *.pyd pyborist/
 
+locallib:
+	python setup.py build_clib
+
+localext:
+	python setup.py build_ext --inplace
+	cp *.pyd pyborist/
+
 clean:
 	rm -rf pyborist/build
 	rm -rf pyborist/__pycache__
