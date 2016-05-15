@@ -45,16 +45,20 @@ cdef extern from 'leaf.h':
 
 
 cdef class PyBagRow:
-    cdef BagRow *thisptr
-
+    cdef public unsigned int row
+    cdef public unsigned int sCount
     @staticmethod
-    cdef factory(BagRow bagRow)
+    cdef wrap(BagRow bagRow)
+    @staticmethod
+    cdef BagRow unwrap(PyBagRow pyBagRow)
 
 
 
 
 cdef class PyLeafNode:
-    cdef LeafNode *thisptr
-
+    cdef public unsigned int extent
+    cdef public double score
     @staticmethod
-    cdef factory(LeafNode leafNode)
+    cdef wrap(LeafNode leafNode)
+    @staticmethod
+    cdef LeafNode unwrap(PyLeafNode pyLeafNode)

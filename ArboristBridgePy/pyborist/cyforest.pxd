@@ -133,7 +133,10 @@ cdef extern from 'forest.h':
 
 # we have to expose the object in compile time here
 cdef class PyForestNode:
-    cdef ForestNode *thisptr
-
+    cdef public unsigned int pred
+    cdef public unsigned int bump
+    cdef public double num
     @staticmethod
-    cdef factory(ForestNode forestNode)
+    cdef wrap(ForestNode forestNode)
+    @staticmethod
+    cdef ForestNode unwrap(PyForestNode pyForestNode)

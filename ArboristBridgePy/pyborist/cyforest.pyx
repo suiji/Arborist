@@ -1,54 +1,31 @@
 cdef class PyForestNode:
-    def __cinit__(self, bool isRealObj = True):
-        if isRealObj:
-            self.thisptr = new ForestNode()
+    def __init__(self,
+        unsigned int pred,
+        unsigned int bump,
+        double num):
+        self.pred = pred
+        self.bump = bump
+        self.num = num
 
-    def __dealloc__(self):
-        if self.thisptr:
-            del self.thisptr
+    def __repr__(self):
+        return ('<PyForestNode, pred={}, bump={}, num={}>'.format(
+            self.pred, self.bump, self.num))
 
     @staticmethod
-    cdef factory(ForestNode forestNode):
-        #TODO will we have troubles (?wild pointer?) here?
-        fn = PyForestNode(isRealObj = False)
-        fn.thisptr = &forestNode
-        return fn
+    cdef wrap(ForestNode forestNode):
+        cdef unsigned int pred = 0
+        cdef unsigned int bump = 0
+        cdef double num = 0.0
+        forestNode.Ref(pred, bump, num)
+        return PyForestNode(pred, bump, num)
 
-    def Init(self):
-        if self.thisptr:
-            return self.thisptr.Init()
-
-    def Set(self,
-        unsigned int _pred,
-        unsigned int _bump,
-        double _num):
-        if self.thisptr:
-            return self.thisptr.Set(_pred,
-                _bump,
-                _num)
-
-    def Pred(self):
-        if self.thisptr:
-            return self.thisptr.Pred()
-
-    def Num(self):
-        if self.thisptr:
-            return self.thisptr.Num()
-
-    def LeafIdx(self):
-        if self.thisptr:
-            return self.thisptr.LeafIdx()
-
-    def Nonterminal(self):
-        if self.thisptr:
-            return self.thisptr.Nonterminal()
-
-    def Ref(self,
-        unsigned int &_pred,
-        unsigned int &_bump,
-        double &_num):
-        if self.thisptr:
-            return self.thisptr.Ref(_pred, _bump, _num)
+    @staticmethod
+    cdef ForestNode unwrap(PyForestNode pyForestNode):
+        cdef ForestNode h
+        h.Set(pyForestNode.pred,
+            pyForestNode.bump,
+            pyForestNode.num)
+        return h
 
 
 cdef class PyForest:

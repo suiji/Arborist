@@ -3,79 +3,44 @@ from libcpp cimport bool
 
 
 cdef class PyBagRow:
-    def __cinit__(self, bool isRealObj = True):
-        if isRealObj:
-            self.thisptr = new BagRow()
-    
-    def __dealloc__(self):
-        if self.thisptr:
-            del self.thisptr
+    def __init__(self,
+        unsigned int row,
+        unsigned int sCount):
+        self.row = row
+        self.sCount = sCount
+
+    def __repr__(self):
+        return '<PyBagRow, row={}, sCount={}>'.format(self.row, self.sCount)
 
     @staticmethod
-    cdef factory(BagRow bagRow):
-        self = PyBagRow(isRealObj = False)
-        self.thisptr = &bagRow
-        return self
+    cdef wrap(BagRow bagRow):
+        return PyBagRow(bagRow.Row(), bagRow.SCount())
 
-    def Init(self):
-        if self.thisptr:
-            return self.thisptr.Init()
-
-    def Set(self,
-        unsigned int _row,
-        unsigned int _sCount):
-        if self.thisptr:
-            return self.thisptr.Set(_row,
-                _sCount)
-
-    def Row(self):
-        if self.thisptr:
-            return self.thisptr.Row()
-
-    def SCount(self):
-        if self.thisptr:
-            return self.thisptr.SCount()
-
-    def Ref(self,
-        _row,
-        _sCount):
-        if self.thisptr:
-            return self.thisptr.Ref(_row,
-                _sCount)
+    @staticmethod
+    cdef BagRow unwrap(PyBagRow pyBagRow):
+        cdef BagRow h
+        h.Set(pyBagRow.row, pyBagRow.sCount)
+        return h
 
 
 
 cdef class PyLeafNode:
-    def __cinit__(self, bool isRealObj = True):
-        if isRealObj:
-            self.thisptr = new LeafNode()
-    
-    def __dealloc__(self):
-        if self.thisptr:
-            del self.thisptr
+    def __init__(self, unsigned int extent, double score):
+        self.extent = extent
+        self.score = score
+
+    def __repr__(self):
+        return '<PyLeafNode, extent={}, score={}>'.format(self.extent, self.score)
 
     @staticmethod
-    cdef factory(LeafNode leafNode):
-        self = PyLeafNode(isRealObj = False)
-        self.thisptr = &leafNode
-        return self
+    cdef wrap(LeafNode leafNode):
+        return PyLeafNode(leafNode.Extent(), leafNode.GetScore())
 
-    def Init(self):
-        if self.thisptr:
-            return self.thisptr.Init()
-
-    def Extent(self):
-        if self.thisptr:
-            return self.thisptr.Extent()
-
-    def Count(self):
-        if self.thisptr:
-            return self.thisptr.Count()
-
-    def Score(self):
-        if self.thisptr:
-            return self.thisptr.Score()
-
-    def GetScore(self):
-        if self.thisptr:
-            return self.thisptr.GetScore()
+    @staticmethod
+    cdef LeafNode unwrap(PyLeafNode pyLeafNode):
+        cdef LeafNode h
+        cdef double insideScore = h.Score()
+        (&insideScore)[0] = pyLeafNode.score
+        cdef unsigned int insideExtent = h.Count()
+        (&insideExtent)[0] = pyLeafNode.extent
+        return h
