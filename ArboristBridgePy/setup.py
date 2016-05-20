@@ -1,11 +1,11 @@
 from distutils.command.build_clib import build_clib
 from distutils.core import setup
 from distutils.extension import Extension
-#from distutils.sysconfig import get_python_inc
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
 import numpy as np
 from os import listdir, path
+
 
 pyx_src_dir = 'pyborist'
 cc_src_dir = path.join('..', 'ArboristCore')
@@ -16,12 +16,14 @@ all_cpp_core_files = [path.join(cc_src_dir, x)
 # special
 all_cpp_core_files.extend([path.join(pyx_src_dir, 'callback.cc')])
 
+
 lib_aborist_core = ('libaboristcore', 
     {
         'sources': all_cpp_core_files,
-        'include_dirs':[cc_src_dir, pyx_src_dir]
+        'include_dirs': [cc_src_dir, pyx_src_dir]
     }
 )
+
 
 extensions = [
     Extension(x[:-4], [path.join(pyx_src_dir, x)],
