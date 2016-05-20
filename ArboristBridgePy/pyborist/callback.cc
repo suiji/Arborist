@@ -51,7 +51,7 @@ void CallBack::SampleRows(unsigned int nSamp, int out[]) {
   std::mt19937 gen(rd());
   if (withRepl) {
     std::discrete_distribution<unsigned int> distribution(weight.begin(), weight.end());
-    for (auto i = 0; i < nSamp; i++){
+    for (unsigned int i = 0; i < nSamp; i++){
       out[i] = distribution(gen);
     }
   } else {
@@ -60,7 +60,7 @@ void CallBack::SampleRows(unsigned int nSamp, int out[]) {
     // we do not ensure/check nSamp <= nRow here
     std::vector<double> w;
     w.assign(weight.begin(), weight.end());
-    for (auto i = 0; i < nSamp; ++i)
+    for (unsigned int i = 0; i < nSamp; ++i)
     {
       std::discrete_distribution<unsigned int> distribution(w.begin(), w.end());
       out[i] = distribution(gen);
@@ -86,7 +86,7 @@ void CallBack::SampleRows(unsigned int nSamp, int out[]) {
 */
 void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
   std::vector<std::pair<int, int>> pairs;
-  for (auto i = one; i <= nRow; ++i)
+  for (int i = one; i <= nRow; ++i)
   {
     pairs.push_back(std::make_pair(ySorted[i-1], rank2Row[i-1]));
   }
@@ -97,7 +97,7 @@ void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
     }
   );
 
-  for (auto i = one; i <= nRow; ++i) {
+  for (int i = one; i <= nRow; ++i) {
     ySorted[i-1] = pairs[i-1].first;
     rank2Row[i-1] = pairs[i-1].second;
   }
@@ -119,7 +119,7 @@ void CallBack::QSortI(int ySorted[], int rank2Row[], int one, int nRow) {
 */
 void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
   std::vector<std::pair<double, int>> pairs;
-  for (auto i = one; i <= nRow; ++i)
+  for (int i = one; i <= nRow; ++i)
   {
     pairs.push_back(std::make_pair(ySorted[i-1], rank2Row[i-1]));
   }
@@ -131,7 +131,7 @@ void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
     }
   );
 
-  for (auto i = one; i <= nRow; ++i) {
+  for (int i = one; i <= nRow; ++i) {
     ySorted[i-1] = pairs[i-1].first;
     rank2Row[i-1] = pairs[i-1].second;
   }
@@ -152,7 +152,7 @@ void CallBack::RUnif(int len, double out[]) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<double> distribution(0.0, 1.0);
-  for (auto i = 0; i < len; i++){
+  for (int i = 0; i < len; i++){
     out[i] = distribution(gen);
   }
 }
