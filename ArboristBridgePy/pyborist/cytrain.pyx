@@ -14,12 +14,13 @@ from .cyleaf cimport PyBagRow, PyPtrVecBagRow
 ctypedef vector[unsigned int] VecUInt # workaround deal to cython bug
 
 
+
 def match(a, b, dtype=np.uintc):
     """http://stackoverflow.com/questions/4110059/pythonor-numpy-equivalent-of-match-in-r"""
     a = np.array(a)
     b = np.array(b)
-    return np.array([np.nonzero(b == x)[0][0] 
-        if x in b else None for x in a], dtype=dtype)
+    return np.ascontiguousarray(np.array([np.nonzero(b == x)[0][0] 
+        if x in b else None for x in a], dtype=dtype))
 
 
 
@@ -44,6 +45,8 @@ cdef class PyTrain:
         double[::view.contiguous] predProb not None,
         double[::view.contiguous] regMono not None):
 
+        print('X');print(np.asarray(X))
+
         Train_Init(&X[0],
             NULL, #feFacCard,
             0, #cardMax,
@@ -63,15 +66,16 @@ cdef class PyTrain:
             &predProb[0],
             &regMono[0])
 
-        yRanked = np.empty(y.shape[0])
+        yRanked = np.empty(y.shape[0], dtype=np.double)
         yRanked[:] = y
         yRanked.sort()
         cdef unsigned int[:] row2Rank = match(y, yRanked)
+        print('row2Rank');print(np.asarray(row2Rank))
 
         cdef VecUInt origin = VecUInt(nTree)
         cdef VecUInt facOrig = VecUInt(nTree)
         cdef VecUInt leafOrigin = VecUInt(nTree)
-        cdef double[:] predInfo = np.zeros(nPred) # maybe .empty()
+        cdef double[:] predInfo = np.zeros(nPred)
 
         cdef shared_ptr[vector[ForestNode]] ptrVecForestNode = make_shared[vector[ForestNode]]()
         cdef shared_ptr[vector[LeafNode]] ptrVecLeafNode = make_shared[vector[LeafNode]]()
@@ -106,9 +110,9 @@ cdef class PyTrain:
                 'leafOrigin': np.asarray(leafOrigin, dtype=np.uintc),
                 'leafNode': PyPtrVecLeafNode().set(ptrVecLeafNode),
                 'bagRow': PyPtrVecBagRow().set(ptrVecBagRow),
-                'nRow': nRow,
+                'nRow': nRow, #nRow in train
                 'rank': np.asarray(rank, dtype=np.uintc),
-                'yRanked': np.asarray(yRanked)
+                'yRanked': np.asarray(yRanked) # old y getting sorted
             },
             'predInfo': np.asarray(predInfo)
         }

@@ -33,8 +33,8 @@ cdef class PyRowRank:
 
     @staticmethod
     def PreSortNum(double[:] _feNum not None,
-        _nPredNum,
-        _nRow,
+        unsigned int _nPredNum,
+        unsigned int _nRow,
         int[:] _row not None,
         int[:] _rank not None,
         int[:] _invNum not None):
@@ -47,9 +47,9 @@ cdef class PyRowRank:
 
     @staticmethod
     def PreSortFac(int[:] _feFac not None,
-        _nPredNum,
-        _nPredFac,
-        _nRow,
+        unsigned int _nPredNum,
+        unsigned int _nPredFac,
+        unsigned int _nRow,
         int[:] _row not None,
         int[:] _rank not None):
         RowRank_PreSortFac(&_feFac[0],

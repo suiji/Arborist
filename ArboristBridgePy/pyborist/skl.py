@@ -245,8 +245,7 @@ class PyboristModel(object):
         rank = np.empty([n_samples * n_features], dtype=np.intc)
         row = np.empty([n_samples * n_features], dtype=np.intc)
         inv_num = np.zeros([n_samples * n_features], dtype=np.intc)
-        PyRowRank.PreSortNum(np.reshape(self.X.transpose(),
-                (n_samples * n_features), 'C'),
+        PyRowRank.PreSortNum(np.ascontiguousarray(self.X.transpose().reshape(self.X.size)), # transpose() to become consistent with rcpp reuslt
             n_features,
             n_samples,
             row,
@@ -342,8 +341,8 @@ class PyboristModel(object):
             Returns self.
         """
         result = PyTrain.Regression(
-            np.ascontiguousarray(self.X.reshape(self.X.size)),
-            np.ascontiguousarray(np.reshape(self.y, self.n_samples, 'C')),
+            np.ascontiguousarray(self.X.transpose().reshape(self.X.size)),
+            np.ascontiguousarray(np.reshape(self.y, self.n_samples)),
             self.n_samples,
             self.n_features,
             np.ascontiguousarray(self.row),
@@ -351,15 +350,15 @@ class PyboristModel(object):
             np.ascontiguousarray(self.inv_num),
             self.n_estimators,
             self.n_to_sample,
-            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples, 'C')),
+            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples)),
             self.bootstrap,
             self.tree_block,
             self.min_samples_split,
             self.min_info_ratio,
             self.max_depth,
             self.pred_fixed,
-            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features, 'C')),
-            np.ascontiguousarray(np.reshape(self.reg_mono, self.n_features, 'C'))
+            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features)),
+            np.ascontiguousarray(np.reshape(self.reg_mono, self.n_features))
         )
         self.trained_result = result
         return self
@@ -394,7 +393,7 @@ class PyboristModel(object):
             return self._predict_regression(X)
 
     def _predict_regression(self, X):
-        result = PyPredict.Regression(np.ascontiguousarray(X.transpose().reshape(X.size)),
+        result = PyPredict.Regression(np.ascontiguousarray(X.reshape(X.size)),
             X.shape[0],
             X.shape[1],
             self.trained_result['forest']['origin'],

@@ -15,33 +15,40 @@ cdef class PyPredict:
     def Regression(double[::view.contiguous] X not None, #C
         unsigned int nRow,
         unsigned int nPred,
-        unsigned int[::view.contiguous] origin not None,
-        unsigned int[::view.contiguous] facOrig not None,
-        unsigned int[::view.contiguous] facSplit not None,
+        unsigned int[::view.contiguous] _origin not None,
+        unsigned int[::view.contiguous] _facOrig not None,
+        unsigned int[::view.contiguous] _facSplit not None,
         PyPtrVecForestNode pyPtrForestNode,
-        double[::view.contiguous] yRanked,
-        unsigned int[::view.contiguous] leafOrigin,
+        double[::view.contiguous] _yRanked,
+        unsigned int[::view.contiguous] _leafOrigin,
         PyPtrVecLeafNode pyPtrLeafNode,
         PyPtrVecBagRow pyPtrBagRow,
         unsigned int rowTrain,
-        unsigned int[::view.contiguous] rank
+        unsigned int[::view.contiguous] _rank
         ):
-        cdef double[:] yPred = np.empty(nRow, dtype=np.double)
+        cdef vector[unsigned int] origin = np.asarray(_origin)
+        cdef vector[unsigned int] facOrig = np.asarray(_facOrig)
+        cdef vector[unsigned int] facSplit = np.asarray(_facSplit)
+        cdef vector[double] yRanked = np.asarray(_yRanked)
+        cdef vector[unsigned int] leafOrigin = np.asarray(_leafOrigin)
+        cdef vector[unsigned int] rank = np.asarray(_rank)
+
+        cdef vector[double] yPred = vector[double](nRow)
 
         Predict_Regression(&X[0],
             NULL, #blockFacT
             nPred,
             0, #nPredFac
             deref(pyPtrForestNode.get()),
-            np.asarray(origin),
-            np.asarray(facOrig),
-            np.asarray(facSplit),
-            np.asarray(leafOrigin),
+            origin,
+            facOrig,
+            facSplit,
+            leafOrigin,
             deref(pyPtrLeafNode.get()),
             deref(pyPtrBagRow.get()),
-            np.asarray(rank),
-            np.asarray(yRanked),
-            np.asarray(yPred),
+            rank,
+            yRanked,
+            yPred,
             0)
 
         return np.asarray(yPred)
