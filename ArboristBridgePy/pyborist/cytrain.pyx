@@ -4,41 +4,28 @@
 import numpy as np
 cimport numpy as np
 from cython cimport view
+from cython.operator cimport dereference as deref
+from libcpp.memory cimport shared_ptr, make_shared
 
-from .cyforest cimport PyForestNode
-from .cyleaf cimport PyLeafNode
-from .cyleaf cimport PyBagRow
+from .cyforest cimport PyForestNode, PyPtrVecForestNode
+from .cyleaf cimport PyLeafNode, PyPtrVecLeafNode
+from .cyleaf cimport PyBagRow, PyPtrVecBagRow
 
 ctypedef vector[unsigned int] VecUInt # workaround deal to cython bug
 
 
-
-def match(a, b):
+def match(a, b, dtype=np.uintc):
     """http://stackoverflow.com/questions/4110059/pythonor-numpy-equivalent-of-match-in-r"""
     a = np.array(a)
     b = np.array(b)
     return np.array([np.nonzero(b == x)[0][0] 
-        if x in b else None for x in a], dtype=np.uint)
+        if x in b else None for x in a], dtype=dtype)
 
-
-
-cdef class PyVecWrapped:
-    """turn the cpp vector[T] to python list(PyT)
-    """
-    @staticmethod
-    cdef ForestNode(vector[ForestNode] vec):
-        return [PyForestNode.wrap(x) for x in vec]
-    @staticmethod
-    cdef LeafNode(vector[LeafNode] vec):
-        return [PyLeafNode.wrap(x) for x in vec]
-    @staticmethod
-    cdef BagRow(vector[BagRow] vec):
-        return [PyBagRow.wrap(x) for x in vec]
 
 
 cdef class PyTrain:
     @staticmethod
-    def Regression(double[::view.contiguous, :] X not None, #F
+    def Regression(double[::view.contiguous] X not None, #F
         double[::view.contiguous] y not None,
         unsigned int nRow,
         int nPred,
@@ -57,7 +44,7 @@ cdef class PyTrain:
         double[::view.contiguous] predProb not None,
         double[::view.contiguous] regMono not None):
 
-        Train_Init(&X[0][0],
+        Train_Init(&X[0],
             NULL, #feFacCard,
             0, #cardMax,
             nPred,
@@ -86,9 +73,10 @@ cdef class PyTrain:
         cdef VecUInt leafOrigin = VecUInt(nTree)
         cdef double[:] predInfo = np.zeros(nPred) # maybe .empty()
 
-        cdef vector[ForestNode] forestNode
-        cdef vector[LeafNode] leafNode
-        cdef vector[BagRow] bagRow
+        cdef shared_ptr[vector[ForestNode]] ptrVecForestNode = make_shared[vector[ForestNode]]()
+        cdef shared_ptr[vector[LeafNode]] ptrVecLeafNode = make_shared[vector[LeafNode]]()
+        cdef shared_ptr[vector[BagRow]] ptrVecBagRow = make_shared[vector[BagRow]]()
+
         cdef VecUInt rank
         cdef VecUInt facSplit
 
@@ -100,28 +88,28 @@ cdef class PyTrain:
             origin,
             facOrig,
             &predInfo[0],
-            forestNode,
+            deref(ptrVecForestNode),
             facSplit,
             leafOrigin,
-            leafNode,
-            bagRow,
+            deref(ptrVecLeafNode),
+            deref(ptrVecBagRow),
             rank)
 
         result = {
-            'forest': [
-                origin,
-                facOrig,
-                facSplit,
-                PyVecWrapped.ForestNode(forestNode)
-            ],
-            'leaf': [
-                leafOrigin,
-                PyVecWrapped.LeafNode(leafNode),
-                PyVecWrapped.BagRow(bagRow),
-                nRow,
-                rank,
-                yRanked
-            ],
+            'forest': {
+                'origin': np.asarray(origin, dtype=np.uintc),
+                'facOrig': np.asarray(facOrig, dtype=np.uintc),
+                'facSplit': np.asarray(facSplit, dtype=np.uintc),
+                'forestNode': PyPtrVecForestNode().set(ptrVecForestNode)
+            },
+            'leaf': {
+                'leafOrigin': np.asarray(leafOrigin, dtype=np.uintc),
+                'leafNode': PyPtrVecLeafNode().set(ptrVecLeafNode),
+                'bagRow': PyPtrVecBagRow().set(ptrVecBagRow),
+                'nRow': nRow,
+                'rank': np.asarray(rank, dtype=np.uintc),
+                'yRanked': np.asarray(yRanked)
+            },
             'predInfo': np.asarray(predInfo)
         }
         return result

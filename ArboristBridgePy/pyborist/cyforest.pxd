@@ -2,6 +2,7 @@
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from libcpp.memory cimport shared_ptr, make_shared
 
 from .cybv cimport BitMatrix
 from .cybv cimport BV
@@ -131,7 +132,7 @@ cdef extern from 'forest.h':
         void Origins(unsigned int tIdx)
 
 
-# we have to expose the object in compile time here
+
 cdef class PyForestNode:
     cdef public unsigned int pred
     cdef public unsigned int bump
@@ -140,3 +141,8 @@ cdef class PyForestNode:
     cdef wrap(ForestNode forestNode)
     @staticmethod
     cdef ForestNode unwrap(PyForestNode pyForestNode)
+
+cdef class PyPtrVecForestNode:
+    cdef shared_ptr[vector[ForestNode]] thisptr
+    cdef set(self, shared_ptr[vector[ForestNode]] ptr)
+    cdef shared_ptr[vector[ForestNode]] get(self)

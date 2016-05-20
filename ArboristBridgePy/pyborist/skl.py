@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.utils import check_array, assert_all_finite, check_X_y
 
 from .cyrowrank import PyRowRank
-from .cytrain import train_regression
+from .cytrain import PyTrain
+from .cypredict import PyPredict
 
 __all__ = ['PyboristModel']
 
@@ -140,9 +141,9 @@ class PyboristModel(object):
             Returns self.
         """
         X, y = check_X_y(X, y)
-        X = X.astype(float, copy=False)
+        X = X.astype(np.double, copy=False)
         if not self.is_classify_task:
-            y = y.astype(float, copy=False)
+            y = y.astype(np.double, copy=False)
 
         self._init_basic_attrbutes(X, y, sample_weight, feature_weight)
         self._init_row_rank()
@@ -241,9 +242,9 @@ class PyboristModel(object):
         """
         n_samples = self.n_samples
         n_features = self.n_features
-        rank = np.empty([n_samples * n_features], dtype=np.int)
-        row = np.empty([n_samples * n_features], dtype=np.int)
-        inv_num = np.zeros([n_samples * n_features], dtype=np.int)
+        rank = np.empty([n_samples * n_features], dtype=np.intc)
+        row = np.empty([n_samples * n_features], dtype=np.intc)
+        inv_num = np.zeros([n_samples * n_features], dtype=np.intc)
         PyRowRank.PreSortNum(np.reshape(self.X.transpose(),
                 (n_samples * n_features), 'C'),
             n_features,
@@ -340,26 +341,40 @@ class PyboristModel(object):
         self : object
             Returns self.
         """
-        result = train_regression(
-            np.asfortranarray(self.X),
-            np.reshape(self.y, self.n_samples, 'C'),
+        result = PyTrain.Regression(
+            np.ascontiguousarray(self.X.reshape(self.X.size)),
+            np.ascontiguousarray(np.reshape(self.y, self.n_samples, 'C')),
             self.n_samples,
             self.n_features,
-            self.row,
-            self.rank,
-            self.inv_num,
+            np.ascontiguousarray(self.row),
+            np.ascontiguousarray(self.rank),
+            np.ascontiguousarray(self.inv_num),
             self.n_estimators,
             self.n_to_sample,
-            np.reshape(self.sample_weight, self.n_samples, 'C'),
+            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples, 'C')),
             self.bootstrap,
             self.tree_block,
             self.min_samples_split,
             self.min_info_ratio,
             self.max_depth,
             self.pred_fixed,
-            np.reshape(self.prob_arr, self.n_features, 'C'),
-            np.reshape(self.reg_mono, self.n_features, 'C'))
+            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features, 'C')),
+            np.ascontiguousarray(np.reshape(self.reg_mono, self.n_features, 'C'))
+        )
         self.trained_result = result
+        return self
+ 
+    def _valid_trained_result(self):
+        """
+        validate the training result
+
+        Returns
+        -------
+        self : object
+            Returns self.
+        """
+        if self.no_validate:
+            return self
         return self
 
     def predict(self, X):
@@ -375,4 +390,22 @@ class PyboristModel(object):
         self : object
             Returns self.
         """
-        return self
+        if not self.is_classify_task:
+            return self._predict_regression(X)
+
+    def _predict_regression(self, X):
+        result = PyPredict.Regression(np.ascontiguousarray(X.transpose().reshape(X.size)),
+            X.shape[0],
+            X.shape[1],
+            self.trained_result['forest']['origin'],
+            self.trained_result['forest']['facOrig'],
+            self.trained_result['forest']['facSplit'],
+            self.trained_result['forest']['forestNode'],
+            self.trained_result['leaf']['yRanked'],
+            self.trained_result['leaf']['leafOrigin'],
+            self.trained_result['leaf']['leafNode'],
+            self.trained_result['leaf']['bagRow'],
+            self.trained_result['leaf']['nRow'],
+            self.trained_result['leaf']['rank']
+        )
+        return result

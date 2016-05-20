@@ -22,6 +22,16 @@ cdef class PyBagRow:
         h.Set(pyBagRow.row, pyBagRow.sCount)
         return h
 
+cdef class PyPtrVecBagRow:
+    cdef set(self, shared_ptr[vector[BagRow]] ptr):
+        self.thisptr = ptr
+        return self
+    cdef shared_ptr[vector[BagRow]] get(self):
+        return self.thisptr
+    def __repr__(self):
+        return '<Pointer to vector<BagRow>>'
+
+
 
 
 cdef class PyLeafNode:
@@ -39,8 +49,17 @@ cdef class PyLeafNode:
     @staticmethod
     cdef LeafNode unwrap(PyLeafNode pyLeafNode):
         cdef LeafNode h
-        cdef double insideScore = h.Score()
-        (&insideScore)[0] = pyLeafNode.score
-        cdef unsigned int insideExtent = h.Count()
-        (&insideExtent)[0] = pyLeafNode.extent
+        cdef double *insideScore = &h.Score()
+        (&insideScore)[0][0] = pyLeafNode.score
+        cdef unsigned int *insideExtent = &h.Count()
+        (&insideExtent)[0][0] = pyLeafNode.extent
         return h
+
+cdef class PyPtrVecLeafNode:
+    cdef set(self, shared_ptr[vector[LeafNode]] ptr):
+        self.thisptr = ptr
+        return self
+    cdef shared_ptr[vector[LeafNode]] get(self):
+        return self.thisptr
+    def __repr__(self):
+        return '<Pointer to vector<LeafNode>>'

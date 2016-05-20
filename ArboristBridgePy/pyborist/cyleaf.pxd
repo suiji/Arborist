@@ -1,6 +1,7 @@
 # distutils: language = c++
 
 from libcpp.vector cimport vector
+from libcpp.memory cimport shared_ptr, make_shared
 
 
 
@@ -52,7 +53,10 @@ cdef class PyBagRow:
     @staticmethod
     cdef BagRow unwrap(PyBagRow pyBagRow)
 
-
+cdef class PyPtrVecBagRow:
+    cdef shared_ptr[vector[BagRow]] thisptr
+    cdef set(self, shared_ptr[vector[BagRow]] ptr)
+    cdef shared_ptr[vector[BagRow]] get(self)
 
 
 cdef class PyLeafNode:
@@ -62,3 +66,8 @@ cdef class PyLeafNode:
     cdef wrap(LeafNode leafNode)
     @staticmethod
     cdef LeafNode unwrap(PyLeafNode pyLeafNode)
+
+cdef class PyPtrVecLeafNode:
+    cdef shared_ptr[vector[LeafNode]] thisptr
+    cdef set(self, shared_ptr[vector[LeafNode]] ptr)
+    cdef shared_ptr[vector[LeafNode]] get(self)

@@ -1,110 +1,47 @@
+import numpy as np
+cimport numpy as np
+from cython cimport view
+from cython.operator cimport dereference as deref
+from libcpp.memory cimport shared_ptr, make_shared
+
+from .cyforest cimport PyForestNode, ForestNode, PyPtrVecForestNode
+from .cyleaf cimport PyLeafNode, LeafNode, PyPtrVecLeafNode
+from .cyleaf cimport PyBagRow, BagRow, PyPtrVecBagRow
+
+
+
 cdef class PyPredict:
     @staticmethod
-    def Regression(np.ndarray[double, ndim=1, mode="c"] _blockNumT not None,
-        np.ndarray[int, ndim=1, mode="c"]  _blockFacT not None,
-        _nPredNum,
-        _nPredFac,
-        vector[ForestNode] &_forestNode,
-        _origin,
-        _facOff,
-        _facSplit,
-        _leafOrigin,
-        vector[LeafNode] &_leafNode,
-        vector[BagRow] &_bagRow,
-        _rank,
-        yRanked,
-        yPred,
-        bagTrain):
-        return Predict_Regression(&_blockNumT[0],
-            &_blockFacT[0],
-            nPredNum,
-            _nPredFac,
-            vector[ForestNode] &_forestNode,
-            _origin,
-            _facOff,
-            _facSplit,
-            _leafOrigin,
-            vector[LeafNode] &_leafNode,
-            vector[BagRow] &_bagRow,
-            _rank,
-            yRanked,
-            yPred,
-            bagTrain)
+    def Regression(double[::view.contiguous] X not None, #C
+        unsigned int nRow,
+        unsigned int nPred,
+        unsigned int[::view.contiguous] origin not None,
+        unsigned int[::view.contiguous] facOrig not None,
+        unsigned int[::view.contiguous] facSplit not None,
+        PyPtrVecForestNode pyPtrForestNode,
+        double[::view.contiguous] yRanked,
+        unsigned int[::view.contiguous] leafOrigin,
+        PyPtrVecLeafNode pyPtrLeafNode,
+        PyPtrVecBagRow pyPtrBagRow,
+        unsigned int rowTrain,
+        unsigned int[::view.contiguous] rank
+        ):
+        cdef double[:] yPred = np.empty(nRow, dtype=np.double)
 
-    @staticmethod
-    def Quantiles(np.ndarray[double, ndim=1, mode="c"] _blockNumT not None,
-        np.ndarray[int, ndim=1, mode="c"]  _blockFacT not None,
-        _nPredNum,
-        _nPredFac,
-        vector[ForestNode] &_forestNode,
-        _origin,
-        _facOff,
-        _facSplit,
-        _leafOrigin,
-        vector[LeafNode] &_leafNode,
-        vector[BagRow] &_bagRow,
-        _rank,
-        yRanked,
-        yPred,
-        quantVec,
-        qBin,
-        qPred,
-        bagTrain):
-        return Regression_Quantiles(&_blockNumT[0],
-            &_blockFacT[0],
-            _nPredNum,
-            _nPredFac,
-            vector[ForestNode] &_forestNode,
-            _origin,
-            _facOff,
-            _facSplit,
-            _leafOrigin,
-            vector[LeafNode] &_leafNode,
-            vector[BagRow] &_bagRow,
-            _rank,
-            yRanked,
-            yPred,
-            quantVec,
-            qBin,
-            qPred,
-            bagTrain)
+        Predict_Regression(&X[0],
+            NULL, #blockFacT
+            nPred,
+            0, #nPredFac
+            deref(pyPtrForestNode.get()),
+            np.asarray(origin),
+            np.asarray(facOrig),
+            np.asarray(facSplit),
+            np.asarray(leafOrigin),
+            deref(pyPtrLeafNode.get()),
+            deref(pyPtrBagRow.get()),
+            np.asarray(rank),
+            np.asarray(yRanked),
+            np.asarray(yPred),
+            0)
 
-    @staticmethod
-    def Classification(np.ndarray[double, ndim=1, mode="c"] _blockNumT not None,
-        np.ndarray[int, ndim=1, mode="c"]  _blockFacT not None,
-        _nPredNum,
-        _nPredFac,
-        vector[ForestNode] &_forestNode,
-        _origin,
-        _facOff,
-        _facSplit,
-        _leafOrigin,
-        vector[LeafNode] &_leafNode,
-        vector[BagRow] &_bagRow,
-        _leafInfoCtg,
-        yPred,
-        np.ndarray[int, ndim=1, mode="c"]  _census not None,
-        _yTest,
-        np.ndarray[int, ndim=1, mode="c"]  _conf not None,
-        _error,
-        np.ndarray[double, ndim=1, mode="c"] _prob not None,
-        bagTrain):
-        return Regression_Classification(&_blockNumT[0],
-            int *_blockFacT,
-            _nPredNum,
-            _nPredFac,
-            vector[ForestNode] &_forestNode,
-            _origin,
-            _facOff,
-            _facSplit,
-            _leafOrigin,
-            vector[LeafNode] &_leafNode,
-            vector[BagRow] &_bagRow,
-            _leafInfoCtg,
-            yPred,
-            &_census[0],
-            _yTest,
-            &_conf[0],
-            _error,
-            &_prob[0],
-            bagTrain)
+        return np.asarray(yPred)
