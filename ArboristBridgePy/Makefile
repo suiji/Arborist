@@ -6,20 +6,16 @@ local:
 	export CFLAGS='-std=c++11'; \
 	python setup.py build_clib; \
 	python setup.py build_ext --inplace; \
-	mv -f *.pyd pyborist/ 2>/dev/null; \
-	mv -f *.so pyborist/ 2>/dev/null;
-	mv -f *.dynlib pyborist/ 2>/dev/null; 
+	python -c 'from pyborist.utils import move_dynamic_files;move_dynamic_files()'
 
 locallib:
 	export CFLAGS='-std=c++11'; \
-	python setup.py build_clib; \
+	python setup.py build_clib;
 
 localext:
 	export CFLAGS='-std=c++11'; \
 	python setup.py build_ext --inplace; \
-	mv -f *.pyd pyborist/ 2>/dev/null; \
-	mv -f *.so pyborist/ 2>/dev/null;
-	mv -f *.dynlib pyborist/ 2>/dev/null; 
+	python -c 'from pyborist.utils import move_dynamic_files;move_dynamic_files()'
 
 clean:
 	rm -rf pyborist/build; \
@@ -33,4 +29,4 @@ clean:
 	rm -rf __pycache__/; \
 	rm -f *.pyd; \
 	rm -f *.so;
-	rm -f *.dynlib; \
+	rm -f *.dynlib;
