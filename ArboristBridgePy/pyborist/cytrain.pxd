@@ -6,31 +6,10 @@ from libcpp.vector cimport vector
 from .cyforest cimport ForestNode
 from .cyleaf cimport LeafNode
 from .cyleaf cimport BagRow
-from .cypretree cimport PreTree
-from .cyrowrank cimport RowRank
+
 
 
 cdef extern from 'train.h':
-    cdef cppclass Train:
-        void Reserve(PreTree **ptBlock,
-            unsigned int tCount)
-
-        unsigned int BlockPeek(PreTree **ptBlock,
-            unsigned int tCount,
-            unsigned int &blockFac,
-            unsigned int &blockBag,
-            unsigned int &blockLeaf,
-            unsigned int &maxHeight)
-
-        void BlockTree(PreTree **ptBlock,
-            unsigned int tStart,
-            unsigned int tCount)
-        
-        void Block(const RowRank *rowRank,
-            unsigned int tStart,
-            unsigned int tCount)
-
-
     cdef void Train_Init 'Train::Init'(double *_feNum,
         int _facCard[],
         int _cardMax,

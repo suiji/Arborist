@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.utils import check_array, assert_all_finite, check_X_y
 
 from .cyrowrank import PyRowRank
 from .cytrain import PyTrain
@@ -140,7 +139,6 @@ class PyboristModel(object):
         self : object
             Returns self.
         """
-        X, y = check_X_y(X, y)
         X = X.astype(np.double, copy=False)
         if not self.is_classify_task:
             y = y.astype(np.double, copy=False)

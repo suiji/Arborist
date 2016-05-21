@@ -8,11 +8,6 @@ from .cyleaf cimport BagRow
 
 
 cdef extern from 'predict.h':
-    cdef cppclass Predict:
-        Predict(int _nTree,
-            unsigned int _nRow,
-            unsigned int _nonLeafIdx) except +
-
     cdef void Predict_Regression 'Predict::Regression'(double *_blockNumT,
         int *_blockFacT,
         unsigned int _nPredNum,

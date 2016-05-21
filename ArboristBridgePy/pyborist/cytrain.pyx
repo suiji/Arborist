@@ -7,9 +7,9 @@ from cython cimport view
 from cython.operator cimport dereference as deref
 from libcpp.memory cimport shared_ptr, make_shared
 
-from .cyforest cimport PyForestNode, PyPtrVecForestNode
-from .cyleaf cimport PyLeafNode, PyPtrVecLeafNode
-from .cyleaf cimport PyBagRow, PyPtrVecBagRow
+from .cyforest cimport ForestNode, PyPtrVecForestNode
+from .cyleaf cimport LeafNode, PyPtrVecLeafNode
+from .cyleaf cimport BagRow, PyPtrVecBagRow
 
 ctypedef vector[unsigned int] VecUInt # workaround deal to cython bug
 
@@ -45,8 +45,6 @@ cdef class PyTrain:
         double[::view.contiguous] predProb not None,
         double[::view.contiguous] regMono not None):
 
-        print('X');print(np.asarray(X))
-
         Train_Init(&X[0],
             NULL, #feFacCard,
             0, #cardMax,
@@ -70,7 +68,6 @@ cdef class PyTrain:
         yRanked[:] = y
         yRanked.sort()
         cdef unsigned int[:] row2Rank = match(y, yRanked)
-        print('row2Rank');print(np.asarray(row2Rank))
 
         cdef VecUInt origin = VecUInt(nTree)
         cdef VecUInt facOrig = VecUInt(nTree)
