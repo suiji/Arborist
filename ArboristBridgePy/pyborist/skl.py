@@ -4,7 +4,7 @@ from .cyrowrank import PyRowRank
 from .cytrain import PyTrain
 from .cypredict import PyPredict
 
-__all__ = ['PyboristModel']
+__all__ = ['PyboristClassifier', 'PyboristRegressor']
 
 
 
@@ -16,12 +16,12 @@ class PyboristModel(object):
     n_estimators: int, optional (default=10)
         The number of trees to train.
 
-    bootstrap: bool, optional (defualt=True)
-        Thether row sampling is by replacement.
+    bootstrap: bool, optional (default=True)
+        Whether row sampling is by replacement.
 
-    class_weight: str or None or array-like, optional (default=None)
+    class_weight: str or None or dict-like, optional (default=None)
         Proportional weighting of classification categories.
-        Could use None or `balance`, or an array
+        Could use None or `balance`, or a dict as {'class_label': weight}
 
     min_info_ratio: float, optional (default=0.01)
         Information ratio with parent below which node does not split.
@@ -45,7 +45,7 @@ class PyboristModel(object):
         Probability of selecting individual predictor as trial splitter.
         Causes each predictor to be selected as a splitting candidate with distribution Bernoulli(pred_prob).
 
-    quantiles_arr: array-like or None (dafault=None)
+    quantiles_arr: array-like or None (default=None)
         Quantile levels to validate.
 
     q_bin: int, optional (default=5000)
@@ -60,7 +60,7 @@ class PyboristModel(object):
     pvt_block: int, optional (default=8)
         Maximum number of trees to train in a block (e.g., cluster computing).
 
-    is_classify_task: bool, optional (default = False)
+    is_classifier: bool, optional (default = False)
         Regression or Classification?
 
     Attributes
@@ -74,9 +74,11 @@ class PyboristModel(object):
     n_classes_ : int
         The number of classes in classification.
 
+    classes_ : array-like
+        The class labels extracted from the training response in classification.
+
     n_outputs_ : int
         The number of outputs.
-
     """
     def __init__(self,
         n_estimators = 10,
@@ -94,12 +96,36 @@ class PyboristModel(object):
         reg_mono = None,
         tree_block = 1,
         pvt_block = 8,
-        is_classify_task = False):
+        is_classifier = False):
         # a trick to save everything into self...
         for k, v in locals().items():
             if k == 'self':
                 continue
             setattr(self, k, v)
+
+
+    @staticmethod
+    def get_allowed_param_keys():
+        """
+        Get the default params for this model.
+        """
+        keys = ['n_estimators',
+            'bootstrap',
+            'class_weight',
+            'min_info_ratio',
+            'min_samples_split',
+            'max_depth',
+            'no_validate',
+            'n_to_sample',
+            'max_features',
+            'pred_prob',
+            'quantiles_arr',
+            'q_bin',
+            'reg_mono',
+            'tree_block',
+            'pvt_block',
+            'is_classifier']
+        return keys
 
 
     def fit(self,
@@ -132,11 +158,13 @@ class PyboristModel(object):
             raise ValueError('X and y do not share the same first dimension.')
 
         X = X.astype(np.double, copy=False)
-        if self.is_classify_task:
+        if self.is_classifier:
+            self._estimator_type = 'classifier'
             self.classes_, y = np.unique(y, return_inverse=True)
             self.n_classes_ = len(self.classes_)
             y = y.astype(np.uintc, copy=False)
         else:
+            self._estimator_type = 'regressor'
             y = y.astype(np.double, copy=False)
 
         self.n_samples_ = X.shape[0]
@@ -167,7 +195,7 @@ class PyboristModel(object):
         self._init_row_rank(X, y, sample_weight, feature_weight)
         self._adjust_model_params(X, y, sample_weight, feature_weight)
 
-        if self.is_classify_task:
+        if self.is_classifier:
             self._train_classification(X, y, sample_weight, feature_weight)
         else:
             self._train_regression(X, y, sample_weight, feature_weight)
@@ -191,7 +219,7 @@ class PyboristModel(object):
         if self.pred_prob < 0.0 or self.pred_prob > 1.0:
             raise ValueError('pred_prob should be inside [0.0, 1.0].')
 
-        if self.is_classify_task:
+        if self.is_classifier:
             if self.quantiles_arr is not None:
                 raise ValueError('Quantiles are for regression only.')
 
@@ -265,23 +293,31 @@ class PyboristModel(object):
         if self.min_samples_split > n_samples:
             raise ValueError('Invalid min_samples_split.')
 
-        if self.is_classify_task:
+        if self.is_classifier:
             n_classes = self.n_classes_
 
+            # the accepted class_weight is None or 'balanced' or dict-like
+            # we want to storage an array-like, sorted based on the self.classes_
+
             if self.class_weight is None:
-                class_weight = np.ones(n_classes)
+                class_weight_arr = np.ones(n_classes)
             elif self.class_weight == 'balanced':
-                class_weight = n_samples / (n_classes * np.bincount(y))
-            elif np.any(self.class_weight < 0.0):
-                raise ValueError('Invalid class weighting.')
-            elif np.sum(self.class_weight) == 0.0:
-                raise ValueError('Invalid class weighting.')
-            class_weight = class_weight / np.sum(class_weight)
-            class_weight = (class_weight[y] + 
+                class_weight_arr = n_samples / (n_classes * np.bincount(y))
+            else:
+                if np.any(np.array(list(self.class_weight.values())) < 0.0):
+                    raise ValueError('Invalid class weighting.')
+                if np.sum(list(self.class_weight.values())) == 0.0:
+                    raise ValueError('Invalid class weighting.')
+                if len(self.class_weight) < n_classes:
+                    raise ValueError('Some class weighting missed.')
+                class_weight_arr = np.array([self.class_weight[k] for k in self.classes_])
+            class_weight_arr[np.isinf(class_weight_arr)] = 0
+            class_weight_arr = class_weight_arr / np.sum(class_weight_arr)
+            class_weight_arr = (class_weight_arr[y] + 
                 (np.random.uniform(size=n_samples) - 0.5) * 
                 0.5 / n_samples / n_samples).astype(np.double)
             self.real_params.update({
-                'class_weight': class_weight
+                'class_weight': class_weight_arr
             })
 
             if self.max_features > n_features:
@@ -304,7 +340,7 @@ class PyboristModel(object):
 
         else:
             self.real_params.update({
-                'reg_mono': np.zeros(n_features) if self.reg_mono is None else self.reg_mono
+                'reg_mono': np.zeros(n_features) if self.reg_mono is None else np.array(self.reg_mono)
             })
 
             if self.max_features > n_features:
@@ -359,7 +395,7 @@ class PyboristModel(object):
             self.max_depth,
             self.real_params['max_features'],
             np.ascontiguousarray(np.reshape(self.real_params['prob_arr'], n_features)),
-            np.ascontiguousarray(np.reshape(self.real_params['reg_mono'], n_features))
+            np.ascontiguousarray(np.reshape(self.real_params['reg_mono'], self.real_params['reg_mono'].size))
         )
         self.estimators_ = result
         return self
@@ -416,36 +452,12 @@ class PyboristModel(object):
             Returns the predicted result.
         """
         self.n_outputs_ = X.shape[1]
-        if self.is_classify_task:
+        if self.is_classifier:
             self.y_pred, self.y_pred_votes, self.y_pred_proba = self._predict_classification(X)
             return self.classes_[self.y_pred]
         else:
             self.y_pred = self._predict_regression(X)
             return self.y_pred
-
-
-    def predict_proba(self, X, return_votes=False):
-        """Fit estimator for classification.
-
-        Parameters
-        ----------
-        X : array-like, shape=(n_samples, n_features)
-            The input samples.
-
-        return_votes: bool, optional (defualt=False)
-            Whether return votes or probilities.
-
-        Returns
-        -------
-        y_pred_proba or y_pred_votes: array-like, shape=(n_samples, n_classes)
-            Returns the predicted result, in probilities or votes.
-        """
-        if not self.is_classify_task:
-            raise AttributeError('This function is used in classification.')
-        self.predict(X)
-        if return_votes:
-            return self.y_pred_votes
-        return self.y_pred_proba
 
 
     def _predict_regression(self, X):
@@ -489,7 +501,131 @@ class PyboristModel(object):
         """To make the estimator scikit-learn capable
         #TODO how to "don't repeat yourself"?
         """
-        default_param_keys = ['n_estimators',
+        default_param_keys = self.__class__.get_allowed_param_keys()
+        result = {}
+        for k in default_param_keys:
+            result[k] = getattr(self, k)
+        return result
+
+
+    def set_params(self, **kwargs):
+        """To make the estimator scikit-learn capable"""
+        default_param_keys = self.__class__.get_allowed_param_keys()
+        for k, v in kwargs.items():
+            if k in default_param_keys:
+                setattr(self, k, v)
+        return self
+
+
+
+class PyboristClassifier(PyboristModel):
+    """The classifier.
+
+    Parameters
+    ----------
+    n_estimators: int, optional (default=10)
+        The number of trees to train.
+
+    bootstrap: bool, optional (default=True)
+        Whether row sampling is by replacement.
+
+    class_weight: str or None or array-like, optional (default=None)
+        Proportional weighting of classification categories.
+        Could use None or `balance`, or an array
+
+    min_info_ratio: float, optional (default=0.01)
+        Information ratio with parent below which node does not split.
+
+    min_samples_split: int, optional (default=2)
+        Minimum number of distinct row references to split a node.
+
+    max_depth: int or None, optional (default=0)
+        Maximum number of tree levels to train. Zero denotes no limit.
+
+    no_validate: bool, optional (default=True)
+        Whether to train without validation.
+
+    n_to_sample: int, optional (default=0)
+        Number of rows to sample, per tree.
+
+    max_features: int, optional (default=0)
+        Number of trial predictors for a split.
+
+    pred_prob: float, optional (default=0.0)
+        Probability of selecting individual predictor as trial splitter.
+        Causes each predictor to be selected as a splitting candidate with distribution Bernoulli(pred_prob).
+
+    quantiles_arr: array-like or None (default=None)
+        Quantile levels to validate.
+
+    q_bin: int, optional (default=5000)
+        Bin size for facilating quantiles at large sample count.
+
+    tree_block: int, optional (default=1)
+        Maximum number of trees to train during a single level (e.g., coprocessor computing).
+
+    pvt_block: int, optional (default=8)
+        Maximum number of trees to train in a block (e.g., cluster computing).
+
+    Attributes
+    ----------
+    n_features_ : int
+        The number of features.
+
+    n_samples_ : int
+        The number of samples in trainning dataset.
+
+    n_classes_ : int
+        The number of classes in classification.
+
+    classes_ : array-like
+        The class labels extracted from the training response in classification.
+
+    n_outputs_ : int
+        The number of outputs.
+    """
+
+    _estimator_type = 'classifier'
+
+    def __init__(self,
+        n_estimators = 10,
+        bootstrap = True,
+        class_weight = None,
+        min_info_ratio = 0.01,
+        min_samples_split = 2,
+        max_depth = 0,
+        no_validate = True,
+        n_to_sample = 0,
+        max_features = 0,
+        pred_prob = 0.0,
+        quantiles_arr = None,
+        q_bin = 5000,
+        tree_block = 1,
+        pvt_block = 8):
+        super(PyboristClassifier, self).__init__(n_estimators = n_estimators,
+            bootstrap = bootstrap,
+            class_weight = class_weight,
+            min_info_ratio = min_info_ratio,
+            min_samples_split = min_samples_split,
+            max_depth = max_depth,
+            no_validate = no_validate,
+            n_to_sample = n_to_sample,
+            max_features = max_features,
+            pred_prob = pred_prob,
+            quantiles_arr = quantiles_arr,
+            q_bin = q_bin,
+            reg_mono = None,
+            tree_block = tree_block,
+            pvt_block = pvt_block,
+            is_classifier = True)
+
+
+    @staticmethod
+    def get_allowed_param_keys():
+        """
+        Get the default params for this model.
+        """
+        keys = ['n_estimators',
             'bootstrap',
             'class_weight',
             'min_info_ratio',
@@ -501,18 +637,146 @@ class PyboristModel(object):
             'pred_prob',
             'quantiles_arr',
             'q_bin',
+            'tree_block',
+            'pvt_block']
+        return keys
+
+
+    def predict_proba(self, X, return_votes=False):
+        """Fit estimator for classification.
+
+        Parameters
+        ----------
+        X : array-like, shape=(n_samples, n_features)
+            The input samples.
+
+        return_votes: bool, optional (defualt=False)
+            Whether return votes or probilities.
+
+        Returns
+        -------
+        y_pred_proba or y_pred_votes: array-like, shape=(n_samples, n_classes)
+            Returns the predicted result, in probilities or votes.
+        """
+        self.predict(X)
+        if return_votes:
+            return self.y_pred_votes
+        return self.y_pred_proba
+
+
+
+class PyboristRegressor(PyboristModel):
+    """The classifier.
+
+    Parameters
+    ----------
+    n_estimators: int, optional (default=10)
+        The number of trees to train.
+
+    bootstrap: bool, optional (default=True)
+        Whether row sampling is by replacement.
+
+    min_info_ratio: float, optional (default=0.01)
+        Information ratio with parent below which node does not split.
+
+    min_samples_split: int, optional (default=2)
+        Minimum number of distinct row references to split a node.
+
+    max_depth: int or None, optional (default=0)
+        Maximum number of tree levels to train. Zero denotes no limit.
+
+    no_validate: bool, optional (default=True)
+        Whether to train without validation.
+
+    n_to_sample: int, optional (default=0)
+        Number of rows to sample, per tree.
+
+    max_features: int, optional (default=0)
+        Number of trial predictors for a split.
+
+    pred_prob: float, optional (default=0.0)
+        Probability of selecting individual predictor as trial splitter.
+        Causes each predictor to be selected as a splitting candidate with distribution Bernoulli(pred_prob).
+
+    quantiles_arr: array-like or None (default=None)
+        Quantile levels to validate.
+
+    q_bin: int, optional (default=5000)
+        Bin size for facilating quantiles at large sample count.
+
+    reg_mono: array-like or None, optional (default=None)
+        Signed probability constraint for monotonic regression.
+
+    tree_block: int, optional (default=1)
+        Maximum number of trees to train during a single level (e.g., coprocessor computing).
+
+    pvt_block: int, optional (default=8)
+        Maximum number of trees to train in a block (e.g., cluster computing).
+
+    Attributes
+    ----------
+    n_features_ : int
+        The number of features.
+
+    n_samples_ : int
+        The number of samples in trainning dataset.
+
+    n_outputs_ : int
+        The number of outputs.
+    """
+
+    _estimator_type = 'regressor'
+
+    def __init__(self,
+        n_estimators = 10,
+        bootstrap = True,
+        min_info_ratio = 0.01,
+        min_samples_split = 2,
+        max_depth = 0,
+        no_validate = True,
+        n_to_sample = 0,
+        max_features = 0,
+        pred_prob = 0.0,
+        quantiles_arr = None,
+        q_bin = 5000,
+        reg_mono = None,
+        tree_block = 1,
+        pvt_block = 8):
+        super(PyboristRegressor, self).__init__(n_estimators = n_estimators,
+            bootstrap = bootstrap,
+            class_weight = None,
+            min_info_ratio = min_info_ratio,
+            min_samples_split = min_samples_split,
+            max_depth = max_depth,
+            no_validate = no_validate,
+            n_to_sample = n_to_sample,
+            max_features = max_features,
+            pred_prob = pred_prob,
+            quantiles_arr = quantiles_arr,
+            q_bin = q_bin,
+            reg_mono = reg_mono,
+            tree_block = tree_block,
+            pvt_block = pvt_block,
+            is_classifier = False)
+
+
+    @staticmethod
+    def get_allowed_param_keys():
+        """
+        Get the default params for this model.
+        """
+        keys = ['n_estimators',
+            'bootstrap',
+            'min_info_ratio',
+            'min_samples_split',
+            'max_depth',
+            'no_validate',
+            'n_to_sample',
+            'max_features',
+            'pred_prob',
+            'quantiles_arr',
+            'q_bin',
             'reg_mono',
             'tree_block',
-            'pvt_block',
-            'is_classify_task']
-        result = {}
-        for k in default_param_keys:
-            result[k] = getattr(self, k)
-        return result
-
-
-    def set_params(self, **kwargs):
-        """To make the estimator scikit-learn capable"""
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-        return self
+            'pvt_block']
+        return keys
