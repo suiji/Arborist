@@ -120,7 +120,7 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
    @param predIdx is the splitting predictor.
 
-   @param level is the current level.
+   @param sourceBit (0/1) indicates which buffer holds the current values.
 
    @param spPos is the index position of the split.
 
@@ -130,8 +130,8 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
    @return void, with output reference parameters.
  */
-void SamplePred::SplitRanks(int predIdx, unsigned int level, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
-  SPNode *spn = SplitBuffer(predIdx, level);
+void SamplePred::SplitRanks(unsigned int predIdx, unsigned int sourceBit, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
+  SPNode *spn = SplitBuffer(predIdx, sourceBit);
   rkLow = spn[spPos].Rank();
   rkHigh = spn[spPos + 1].Rank();
 }
@@ -142,7 +142,7 @@ void SamplePred::SplitRanks(int predIdx, unsigned int level, int spPos, unsigned
 
    @param predIdx is the splitting predictor.
 
-   @param level is the current level.
+   @param sourceBit (0/1) indicates which buffer holds the current values.
 
    @param start is the block starting index.
 
@@ -152,9 +152,9 @@ void SamplePred::SplitRanks(int predIdx, unsigned int level, int spPos, unsigned
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(unsigned int sample2PT[], int predIdx, unsigned int level, int start, int end, unsigned int ptId) {
+double SamplePred::Replay(unsigned int sample2PT[], unsigned int predIdx, unsigned int sourceBit, int start, int end, unsigned int ptId) {
   unsigned int *sIdx;
-  SPNode *spn = Buffers(predIdx, level, sIdx);
+  SPNode *spn = Buffers(predIdx, sourceBit, sIdx);
 
   double sum = 0.0;
   for (int idx = start; idx <= end; idx++) {

@@ -101,7 +101,7 @@ class PreTree {
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH);
   void NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH);
 
-  double Replay(class SamplePred *samplePred, unsigned int predIdx, int level, int start, int end, unsigned int ptId);
+  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId);
   
   void CheckStorage(int splitNext, int leafNext);
   void ReNodes();

@@ -6,23 +6,19 @@
  */
 
 /**
-   @file run.cc
+   @file runset.cc
 
    @brief Methods for maintaining runs of factor-valued predictors during splitting.
 
    @author Mark Seligman
  */
 
-#include "run.h"
+#include "runset.h"
 #include "callback.h"
-#include "predblock.h"
 
 // Testing only:
 //#include <iostream>
 using namespace std;
-
-unsigned int Run::nPred = 0;
-unsigned int Run::ctgWidth = 0;
 
 unsigned int RunSet::ctgWidth = 0;
 
@@ -35,7 +31,7 @@ unsigned int RunSet::ctgWidth = 0;
    are not yet built for numerical predictors, which have so far been
    generally assumed to have dispersive values.
 
-   The runLength[] vector tracks conservatively-estimated run lengths for
+   The runCounts[] vector tracks conservatively-estimated run lengths for
    every split/predictor pair, regardless whether the pair is chosen for
    splitting in a given level (cf., 'mtry' and 'predProb').  The vector
    must be reallocated at each level, to accommodate changes in node numbering
@@ -65,12 +61,8 @@ unsigned int RunSet::ctgWidth = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run() {
-  runLength = 0;
-  lengthNext = new unsigned int[nPred];
-  for (unsigned int i = 0; i < nPred; i++) {
-    lengthNext[i] = PBTrain::FacCard(i);
-  }
+Run::Run(unsigned int _ctgWidth) : ctgWidth(_ctgWidth) {
+  RunSet::ctgWidth = ctgWidth;
   runSet = 0;
   facRun = 0;
   bHeap = 0;
@@ -79,23 +71,12 @@ Run::Run() {
   ctgSum = 0;
 }
 
-/**
-   @brief Moves pre-computed split count and run-length information to
-   current level.
 
-   @return void.
- */
-void Run::LevelInit(int _splitCount) {
-  splitCount = _splitCount;
-  runLength = lengthNext;
-  lengthNext = 0;
-}
-
-
-void Run::RunSets(int _runSetCount) {
-  runSetCount = _runSetCount;
-  if (runSetCount > 0)
-    runSet = new RunSet[runSetCount];
+void Run::RunSets(unsigned int _setCount) {
+  setCount = _setCount;
+  if (setCount > 0) {
+    runSet = new RunSet[setCount];
+  }
 }
 
 
@@ -105,18 +86,18 @@ void Run::RunSets(int _runSetCount) {
    @return void.
  */
 void Run::OffsetsReg() {
-  if (runSet == 0)
+  if (setCount == 0)
     return;
 
-  int runCount = 0;
-  for (int i = 0; i < runSetCount; i++) {
+  unsigned int runCount = 0;
+  for (unsigned int i = 0; i < setCount; i++) {
     runSet[i].OffsetCache(runCount, runCount, runCount);
     runCount += runSet[i].CountSafe();
   }
 
   facRun = new FRNode[runCount];
   bHeap = new BHPair[runCount];
-  lhOut = new int[runCount];
+  lhOut = new unsigned int[runCount];
 
   ResetRuns();
 }
@@ -129,14 +110,14 @@ void Run::OffsetsReg() {
 
 */
 void Run::OffsetsCtg() {
-  if (runSet == 0)
+  if (setCount == 0)
     return;
 
   // Running counts:
   unsigned int runCount = 0; // Factor runs.
   unsigned int heapRuns = 0; // Runs subject to sorting.
   unsigned int outRuns = 0; // Sorted runs of interest.
-  for (int i = 0; i < runSetCount; i++) {
+  for (unsigned int i = 0; i < setCount; i++) {
     unsigned int rCount = runSet[i].CountSafe();
     if (ctgWidth == 2) { // Binary uses heap for all runs.
       runSet[i].OffsetCache(runCount, heapRuns, outRuns);
@@ -155,9 +136,9 @@ void Run::OffsetsCtg() {
     runCount += rCount;
   }
 
-  int boardWidth = runCount * ctgWidth; // Checkerboard.
+  unsigned int boardWidth = runCount * ctgWidth; // Checkerboard.
   ctgSum = new double[boardWidth];
-  for (int i = 0; i < boardWidth; i++)
+  for (unsigned int i = 0; i < boardWidth; i++)
     ctgSum[i] = 0.0;
 
   if (ctgWidth > 2 && heapRuns > 0) { // Wide non-binary:  w.o. replacement.
@@ -167,7 +148,7 @@ void Run::OffsetsCtg() {
 
   facRun = new FRNode[runCount];
   bHeap = new BHPair[heapRuns];
-  lhOut = new int[outRuns];
+  lhOut = new unsigned int[outRuns];
 
   ResetRuns();
 }
@@ -179,17 +160,14 @@ void Run::OffsetsCtg() {
    @return void.
  */
 void Run::ResetRuns() {
-  for (int i = 0; i < runSetCount; i++) {
+  for (unsigned int i = 0; i < setCount; i++) {
     runSet[i].Reset(facRun, bHeap, lhOut, ctgSum, rvWide);
   }
 }
 
 
 void Run::LevelClear() {
-  delete [] runLength;
-  runLength = 0;
-
-  if (runSetCount > 0) {
+  if (setCount > 0) {
     delete [] runSet;
     delete [] facRun;
     delete [] lhOut;
@@ -205,24 +183,18 @@ void Run::LevelClear() {
     rvWide = 0;
     ctgSum = 0;
     bHeap = 0;
-    runSetCount = 0;
+    setCount = 0;
   }
 }
 
 
-Run::~Run() {
-  delete [] lengthNext; // One will always be dangling.
-}
-
-
-
 /**
- */
-void Run::LengthVec(int _splitNext) {
+
+void Run::LengthVec(unsigned int _splitNext) {
   splitNext = _splitNext;
   lengthNext = new unsigned int[splitNext * nPred];
 }
-
+*/
 
 /**
    @brief Transmits next level's lh/rh indices, as needed.  Singletons must
@@ -237,55 +209,28 @@ void Run::LengthVec(int _splitNext) {
    @param rNext is the split index of the right successor in the next level
 
    @return void.
-*/
-void Run::LengthTransmit(int splitIdx, int lNext, int rNext) {
+
+void Run::LengthTransmit(unsigned int splitIdx, int lNext, int rNext) {
   if (lNext >= 0) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      unsigned int rCount = RunLength(splitIdx, predIdx);
+      unsigned int rCount = RunCount(splitIdx, predIdx);
       LengthNext(lNext, predIdx) = rCount;
     }
   }
   if (rNext >= 0) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      unsigned int rCount = RunLength(splitIdx, predIdx);
+      unsigned int rCount = RunCount(splitIdx, predIdx);
       LengthNext(rNext, predIdx) = rCount;
     }
   }
 }
-
-
-/**
-   @brief Easiest to maintain 'ctgWidth' as static.
-
-   @param _ctgWidth is the response cardinality.
-
-   @return void.
- */
-void Run::Immutables(unsigned int _nPred, unsigned int _ctgWidth) {
-  nPred = _nPred;
-  ctgWidth = _ctgWidth;
-  RunSet::ctgWidth = ctgWidth;
-}
-
-
-
-/**
-   @brief Resets 'ctgWidth' to default state.
-
-   @return void.
- */
-void Run::DeImmutables() {
-  nPred = 0;
-  ctgWidth = 0;
-  RunSet::ctgWidth = 0;
-}
-
+*/
 
 /**
    @brief Records only the (casted) relative vector offsets, as absolute
    base addresses not yet known.
  */
-void RunSet::OffsetCache(int _runOff, int _heapOff, int _outOff) {
+void RunSet::OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff) {
   runOff = _runOff;
   heapOff = _heapOff;
   outOff = _outOff;
@@ -296,7 +241,7 @@ void RunSet::OffsetCache(int _runOff, int _heapOff, int _outOff) {
    @brief Updates relative vector addresses with their respective base
    addresses, now known.
  */
-void RunSet::Reset(FRNode *runBase, BHPair *heapBase, int *outBase, double *ctgBase, double *rvBase) {
+void RunSet::Reset(FRNode *runBase, BHPair *heapBase, unsigned int *outBase, double *ctgBase, double *rvBase) {
   runZero = runBase + runOff;
   heapZero = heapBase + heapOff;
   outZero = outBase + outOff;
@@ -354,7 +299,7 @@ void RunSet::HeapBinary() {
 
    @return void
 */
-void RunSet::DePop(int pop) {
+void RunSet::DePop(unsigned int pop) {
   return BHeap::Depopulate(heapZero, outZero, pop == 0 ? runCount : pop);
 }
 
@@ -377,7 +322,7 @@ unsigned int RunSet::DeWide() {
   // Copies runs referenced by the slot list to a temporary area.
   DePop(maxWidth);
   for (unsigned int i = 0; i < maxWidth; i++) {
-    int outSlot = outZero[i];
+    unsigned int outSlot = outZero[i];
     tempRun[i] = runZero[outSlot];
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
       tempSum[i * ctgWidth + ctg] = ctgZero[outSlot * ctgWidth + ctg];
@@ -490,15 +435,15 @@ void BHeap::Insert(BHPair pairVec[], unsigned int _slot, double _key) {
 /**
    @brief Empties the slot indices keyed in BHPairs.
 
-   @param pop is the number of elements to pop.
+   @param pop is the number of elements to pop.  Caller enforces value > 0.
 
    @param lhOut outputs the popped slots, in increasing order.
 
    @return void.
 */
-void BHeap::Depopulate(BHPair pairVec[], int lhOut[], unsigned int pop) {
+void BHeap::Depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop) {
   for (int bot = pop - 1; bot >= 0; bot--) {
-    lhOut[pop - 1 - bot] = SlotPop(pairVec, bot);
+    lhOut[pop - (1 + bot)] = SlotPop(pairVec, bot);
   }
 }
 
@@ -544,8 +489,8 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
      @return rank of referenced run, plus output reference parameters.
 */
-unsigned int RunSet::Bounds(int outSlot, int &start, int &end) {
-  int slot = outZero[outSlot];
+unsigned int RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) {
+  unsigned int slot = outZero[outSlot];
   FRNode fRun = runZero[slot];
   start = fRun.start;
   end = fRun.end;

@@ -18,7 +18,7 @@
 #include "callback.h"
 #include "rowrank.h"
 #include "samplepred.h"
-#include "splitpred.h"
+#include "bottom.h"
 #include "forest.h"
 
 //#include <iostream>
@@ -91,7 +91,7 @@ Sample::~Sample() {
   delete [] sampleNode;
   delete [] row2Sample;
   delete samplePred;
-  delete splitPred;
+  delete bottom;
 }
 
 
@@ -171,7 +171,7 @@ void SampleReg::Stage(const std::vector<double> &y, const std::vector<unsigned i
   std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
   Sample::PreStage(y, ctgProxy, rowRank);
   SetRank(row2Rank);
-  splitPred = SplitPred::FactoryReg(samplePred);
+  bottom = Bottom::FactoryReg(samplePred, bagCount);
 }
 
 
@@ -214,7 +214,7 @@ SampleCtg::SampleCtg() : Sample() {
 //
 void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank) {
   Sample::PreStage(y, yCtg, rowRank);
-  splitPred = SplitPred::FactoryCtg(samplePred, sampleNode);
+  bottom = Bottom::FactoryCtg(samplePred, sampleNode, bagCount);
 }
 
 

@@ -6,7 +6,7 @@
  */
 
 /**
-   @file run.h
+   @file runset.h
 
    @brief Definitions for the Run classes, which maintain predictor
    runs, especially factor-valued predictors.
@@ -20,8 +20,8 @@
 // representations. These values live for a single level, so must be consumed
 // before a new level is started.
 //
-#ifndef ARBORIST_RUN_H
-#define ARBORIST_RUN_H
+#ifndef ARBORIST_RUNSET_H
+#define ARBORIST_RUNSET_H
 
 /**
  */
@@ -51,6 +51,7 @@ class FRNode {
   }
 };
 
+
 class BHPair {
  public:
   double key; unsigned int slot;
@@ -66,7 +67,7 @@ class RunSet {
   int outOff; //
   FRNode *runZero; // Base for this run set.
   BHPair *heapZero; // Heap workspace.
-  int *outZero; // Final LH and/or output for heap-ordered slots.
+  unsigned int *outZero; // Final LH and/or output for heap-ordered slots.
   double *ctgZero; // Categorical:  run x ctg checkerboard.
   double *rvZero; // Non-binary wide runs:  random variates for sampling.
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
@@ -76,9 +77,9 @@ class RunSet {
   static unsigned int ctgWidth;
   unsigned int safeRunCount;
   unsigned int DeWide();
-  void DePop(int pop = 0);
-  void Reset(FRNode*, BHPair*, int*, double*, double*);
-  void OffsetCache(int runIdx, int bhpIdx, int outIdx);
+  void DePop(unsigned int pop = 0);
+  void Reset(FRNode*, BHPair*, unsigned int*, double*, double*);
+  void OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
   void HeapRandom();
   void HeapMean();
   void HeapBinary();
@@ -119,8 +120,8 @@ class RunSet {
 
      @return sum at dereferenced position, with output reference parameter.
    */
-  inline double SumHeap(int outPos, unsigned int &sCount) {
-    int slot = outZero[outPos];
+  inline double SumHeap(unsigned int outPos, unsigned int &sCount) {
+    unsigned int slot = outZero[outPos];
     sCount = runZero[slot].sCount;
     
     return runZero[slot].sum;
@@ -132,7 +133,7 @@ class RunSet {
 
      @return void.
    */
-  void Write(unsigned int rank, unsigned int sCount, double sum, int start, int end) {
+  void Write(unsigned int rank, unsigned int sCount, double sum, unsigned int start, unsigned int end) {
     runZero[runCount++].Set(rank, sCount, sum, start, end);
   }
 
@@ -151,7 +152,7 @@ class RunSet {
   /**
      @return checkerboard value at slot for category.
    */
-  inline double SumCtg(int slot, unsigned int yCtg) {
+  inline double SumCtg(unsigned int slot, unsigned int yCtg) {
     return ctgZero[slot * ctgWidth + yCtg];
   }
 
@@ -168,13 +169,13 @@ class RunSet {
 
      @return true iff slot counts differ by at least unity.
    */
-  inline bool SumBinary(int outPos, double &cell0, double &cell1) {
-    int slot = outZero[outPos];
+  inline bool SumBinary(unsigned int outPos, double &cell0, double &cell1) {
+    unsigned int slot = outZero[outPos];
     cell0 = SumCtg(slot, 0);
     cell1 = SumCtg(slot, 1);
 
     unsigned int sCount = runZero[slot].sCount;
-    int slotNext = outZero[outPos+1];
+    unsigned int slotNext = outZero[outPos+1];
     // Cannot test for floating point equality.  If sCount values are unequal,
     // then assumes the two slots are significantly different.  If identical,
     // then checks whether the response values are likely different, given
@@ -195,7 +196,7 @@ class RunSet {
 
     @return total index count subsumed, with reference accumulator.
   */
-  inline unsigned int LHCounts(int slot, unsigned int &sCount) {
+  inline unsigned int LHCounts(unsigned int slot, unsigned int &sCount) {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
     return  1 + fRun->end - fRun->start;
@@ -208,96 +209,52 @@ class RunSet {
 
   unsigned int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
   unsigned int LHSlots(int outPos, unsigned int &lhSampCt);
-  unsigned int Bounds(int outSlot, int &start, int &end);
+  unsigned int Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end);
 };
 
 
 class Run {
-  static unsigned int nPred;
-  static unsigned int ctgWidth;
-  int splitNext; // Cached for next level.
-  int splitCount; // Cached for current level.
-  int runSetCount;
-  unsigned int *runLength;
-  unsigned int *lengthNext; // Upcoming level's run lengths.
+  unsigned int setCount;
   RunSet *runSet;
   FRNode *facRun; // Workspace for FRNodes used along level.
   BHPair *bHeap;
-  int *lhOut; // Vector of lh-bound slot indices.
+  unsigned int *lhOut; // Vector of lh-bound slot indices.
   double *rvWide;
   double *ctgSum;
 
   void ResetRuns();
 
-  int inline PairOffset(int splitCount, int splitIdx, int predIdx) {
-    return splitCount * predIdx + splitIdx;
-  }
-
  public:
-  Run();
-  ~Run();
-  static void Immutables(unsigned int _nPred, unsigned int _ctgWidth);
-  static void DeImmutables();
+  const unsigned int ctgWidth;
+  Run(unsigned int _ctgWidth);
 
-  /**
-     @brief Reads specified run bit in specified bit vector.
-
-     @param splitIdx is the split index.
-
-     @param predIdx is the predictor index.
-
-     @return whether specified run bit is set.
-   */
-  bool inline Singleton(int splitCount, int splitIdx, int predIdx) {
-    return runLength[PairOffset(splitCount, splitIdx, predIdx)] == 1;
-  }
-
-  void LevelInit(int _splitCount);
   void LevelClear();
   void OffsetsReg();
   void OffsetsCtg();
 
 
-  inline RunSet *RSet(int rsIdx) {
+  inline RunSet *RSet(unsigned int rsIdx) {
     return &runSet[rsIdx];
   }
 
   
-  inline unsigned int RunBounds(int idx, int outSlot, int &start, int &end) {
+  inline unsigned int RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &end) {
     return runSet[idx].Bounds(outSlot, start, end);
   }
 
 
-  inline int RunsLH(int rsIdx) {
+  inline unsigned int RunsLH(unsigned int rsIdx) {
     return runSet[rsIdx].RunsLH();
   }
 
   
-  void RunSets(int _runSetCount);
-
-  /**
-     @brief References run length in current level.
-   */
-  inline unsigned int &RunLength(int splitIdx, int predIdx) {
-    return runLength[PairOffset(splitCount, splitIdx, predIdx)];
-  }
-
-
-  void LengthVec(int _splitNext);
-  void LengthTransmit(int splitIdx, int lNext, int rNext);
-
-  /**
-     @brief References run length in next level.
-   */
-  inline unsigned int &LengthNext(int splitIdx, int predIdx) {
-    return lengthNext[PairOffset(splitNext, splitIdx, predIdx)];
-  }
+  void RunSets(unsigned int _setCount);
 
   /**
      @brief Presets runCount field to a conservative value for
      the purpose of allocating storage.
    */
-  unsigned int &CountSafe(int idx) {
+  unsigned int &CountSafe(unsigned int idx) {
     return runSet[idx].safeRunCount;
   }
 
@@ -316,7 +273,7 @@ class BHeap {
   static inline int Parent(int idx) { 
     return (idx-1) >> 1;
   };
-  static void Depopulate(BHPair pairVec[], int lhOut[], unsigned int pop);
+  static void Depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop);
   static void Insert(BHPair pairVec[], unsigned int _slot, double _key);
   static unsigned int SlotPop(BHPair pairVec[], int bot);
 };
