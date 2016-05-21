@@ -115,6 +115,92 @@ cdef class PyTrain:
         }
         return result
 
+
     @staticmethod
-    def Classification():
-        pass
+    def Classification(double[::view.contiguous] X not None, #F
+        unsigned int[::view.contiguous] y not None,
+        unsigned int nRow,
+        int nPred,
+        int[::view.contiguous] feRow not None,
+        int[::view.contiguous] feRank not None,
+        int[::view.contiguous] invNum not None,
+        int nTree,
+        int nSamp,
+        double[::view.contiguous] sampleWeight not None,
+        bool withRepl,
+        int trainBlock,
+        int minNode,
+        double minRatio,
+        int totLevels,
+        int predFixed,
+        double[::view.contiguous] predProb not None,
+        double[::view.contiguous] classWeightJittered not None):
+
+        cdef unsigned int ctgWidth = np.max(y) + 1 # how many categories
+
+        Train_Init(&X[0],
+            NULL, #feFacCard,
+            0, #cardMax,
+            nPred,
+            0, #nPredFac,
+            nRow,
+            nTree,
+            nSamp,
+            &sampleWeight[0],
+            withRepl,
+            trainBlock,
+            minNode,
+            minRatio,
+            totLevels,
+            ctgWidth,
+            predFixed,
+            &predProb[0],
+            NULL # regMono
+            )
+
+        cdef VecUInt origin = VecUInt(nTree)
+        cdef VecUInt facOrig = VecUInt(nTree)
+        cdef VecUInt leafOrigin = VecUInt(nTree)
+        cdef double[:] predInfo = np.zeros(nPred, dtype=np.double)
+
+        cdef shared_ptr[vector[ForestNode]] ptrVecForestNode = make_shared[vector[ForestNode]]()
+        cdef shared_ptr[vector[LeafNode]] ptrVecLeafNode = make_shared[vector[LeafNode]]()
+        cdef shared_ptr[vector[BagRow]] ptrVecBagRow = make_shared[vector[BagRow]]()
+
+        cdef VecUInt facSplit
+        cdef vector[double] weight
+
+        Train_Classification(&feRow[0],
+            &feRank[0],
+            &invNum[0],
+            np.asarray(y),
+            ctgWidth,
+            np.asarray(classWeightJittered),
+            origin,
+            facOrig,
+            &predInfo[0],
+            deref(ptrVecForestNode),
+            facSplit,
+            leafOrigin,
+            deref(ptrVecLeafNode),
+            deref(ptrVecBagRow),
+            weight)
+
+        result = {
+            'forest': {
+                'origin': np.asarray(origin, dtype=np.uintc),
+                'facOrig': np.asarray(facOrig, dtype=np.uintc),
+                'facSplit': np.asarray(facSplit, dtype=np.uintc),
+                'forestNode': PyPtrVecForestNode().set(ptrVecForestNode)
+            },
+            'leaf': {
+                'leafOrigin': np.asarray(leafOrigin, dtype=np.uintc),
+                'leafNode': PyPtrVecLeafNode().set(ptrVecLeafNode),
+                'bagRow': PyPtrVecBagRow().set(ptrVecBagRow),
+                'nRow': nRow, #nRow in train
+                'weight': np.asarray(weight, dtype=np.double),
+                'yLevels': np.unique(y) # old y all different levels
+            },
+            'predInfo': np.asarray(predInfo)
+        }
+        return result

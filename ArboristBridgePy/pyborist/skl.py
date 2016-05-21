@@ -19,10 +19,6 @@ class PyboristModel(object):
     bootstrap: bool, optional (defualt=True)
         Thether row sampling is by replacement.
 
-    categorical_census: str, optional (default='votes')
-        Report categorical validation by votes or by probability.
-        Could use `prob` or `votes`.
-
     class_weight: str or None or array-like, optional (default=None)
         Proportional weighting of classification categories.
         Could use None or `balance`, or an array
@@ -79,7 +75,6 @@ class PyboristModel(object):
     def __init__(self,
         n_estimators = 10,
         bootstrap = True,
-        categorical_census = 'votes',
         class_weight = None,
         min_info_ratio = 0.01,
         min_samples_split = 0,
@@ -140,19 +135,22 @@ class PyboristModel(object):
             Returns self.
         """
         X = X.astype(np.double, copy=False)
-        if not self.is_classify_task:
+        if self.is_classify_task:
+            y = y.astype(np.uintc, copy=False)
+        else:
             y = y.astype(np.double, copy=False)
 
         self._init_basic_attrbutes(X, y, sample_weight, feature_weight)
         self._init_row_rank()
         self._adjust_model_params()
 
-        # if self.is_classify_task:
-        #     self._train_classification()
-        # else:
-        #     self._train_regression()
+        if self.is_classify_task:
+            self._train_classification()
+        else:
+            self._train_regression()
 
         return self
+
 
     def _init_basic_attrbutes(self,
         X,
@@ -222,6 +220,7 @@ class PyboristModel(object):
 
         return self
 
+
     def _init_row_rank(self):
         """Call the backend to generate the rowrank. Similar to the R verson.
 
@@ -253,6 +252,7 @@ class PyboristModel(object):
         self.rank = rank
         self.inv_num = inv_num
         return self
+
 
     def _adjust_model_params(self):
         """Regenerate some parameters of model based on input.
@@ -290,12 +290,15 @@ class PyboristModel(object):
             raise ValueError('pred_fixed should be no more than n_features.')
 
         if self.is_classify_task:
-            ctg_width = np.max(y) + 1 # how many categoriess
+            ctg_width = np.max(self.y) + 1 # how many categories
             if self.class_weight is None:
                 self.class_weight = np.ones(ctg_width)
             elif self.class_weight == 'balanced':
-                self.class_weight = np.zeros(ctg_width)
-            elif len(self.class_weight) != ctg_width:
+                uniqueClasses, occurrences = np.unique(y, return_counts=True)
+                assert(len(uniqueClasses) == ctgWidth)
+                self.class_weight = 1.0 / occurrences
+                self.class_weight[np.isinf(self.class_weight)] = 0.0
+            elif len(self.class_weight) != class_weight:
                 raise ValueError('Invalid class weighting.')
             elif np.any(self.class_weight < 0.0):
                 raise ValueError('Invalid class weighting.')
@@ -303,6 +306,10 @@ class PyboristModel(object):
                 raise ValueError('Invalid class weighting.')
             else:
                 raise ValueError('Invalid class weighting.')
+            self.class_weight = self.class_weight / np.sum(self.class_weight)
+            self.class_weight_jittered = (self.class_weight[self.y] + 
+                (np.random.uniform(size=self.n_samples) - 0.5) * 
+                0.5 / self.n_samples / self.n_samples).astype(np.double)
         else:
             #TODO maybe move some code into __init__
             if self.class_weight is not None:
@@ -322,14 +329,6 @@ class PyboristModel(object):
 
         return self
 
-    def _train_classification(self):
-        """
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        return self
 
     def _train_regression(self):
         """
@@ -360,7 +359,38 @@ class PyboristModel(object):
         )
         self.trained_result = result
         return self
- 
+
+    def _train_classification(self):
+        """
+        Returns
+        -------
+        self : object
+            Returns self.
+        """
+        result = PyTrain.Classification(
+            np.ascontiguousarray(self.X.transpose().reshape(self.X.size)),
+            np.ascontiguousarray(np.reshape(self.y, self.n_samples)),
+            self.n_samples,
+            self.n_features,
+            np.ascontiguousarray(self.row),
+            np.ascontiguousarray(self.rank),
+            np.ascontiguousarray(self.inv_num),
+            self.n_estimators,
+            self.n_to_sample,
+            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples)),
+            self.bootstrap,
+            self.tree_block,
+            self.min_samples_split,
+            self.min_info_ratio,
+            self.max_depth,
+            self.pred_fixed,
+            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features)),
+            np.ascontiguousarray(self.class_weight_jittered)
+        )
+        self.trained_result = result
+        return self
+
+
     def _valid_trained_result(self):
         """
         validate the training result
@@ -374,6 +404,7 @@ class PyboristModel(object):
             return self
         return self
 
+
     def predict(self, X):
         """Fit estimator.
 
@@ -384,11 +415,39 @@ class PyboristModel(object):
 
         Returns
         -------
-        self : object
-            Returns self.
+        y_pred : array-like, shape=(n_samples)
+            Returns the predicted result.
+        """
+        if self.is_classify_task:
+            self.y_pred, self.y_pred_votes, self.y_pred_proba = self._predict_classification(X)
+            return self.y_pred
+        else:
+            self.y_pred = self._predict_regression(X)
+            return self.y_pred
+
+    def predict_proba(self, X, return_votes=False):
+        """Fit estimator for classification.
+
+        Parameters
+        ----------
+        X : array-like, shape=(n_samples, n_features)
+            The input samples.
+
+        return_votes: bool, optional (defualt=False)
+            Whether return votes or probilities.
+
+        Returns
+        -------
+        y_pred_proba or y_pred_votes: array-like, shape=(n_samples, n_classes)
+            Returns the predicted result, in probilities or votes.
         """
         if not self.is_classify_task:
-            return self._predict_regression(X)
+            raise AttributeError('This function is used in classification.')
+        self.predict(X)
+        if return_votes:
+            return self.y_pred_votes
+        return self.y_pred_proba
+
 
     def _predict_regression(self, X):
         result = PyPredict.Regression(np.ascontiguousarray(X.reshape(X.size)),
@@ -404,5 +463,24 @@ class PyboristModel(object):
             self.trained_result['leaf']['bagRow'],
             self.trained_result['leaf']['nRow'],
             self.trained_result['leaf']['rank']
+        )
+        return result
+
+
+    def _predict_classification(self, X):
+        result = PyPredict.Classification(np.ascontiguousarray(X.reshape(X.size)),
+            X.shape[0],
+            X.shape[1],
+            np.max(self.y) + 1, # how many categories
+            self.trained_result['forest']['origin'],
+            self.trained_result['forest']['facOrig'],
+            self.trained_result['forest']['facSplit'],
+            self.trained_result['forest']['forestNode'],
+            self.trained_result['leaf']['yLevels'],
+            self.trained_result['leaf']['leafOrigin'],
+            self.trained_result['leaf']['leafNode'],
+            self.trained_result['leaf']['bagRow'],
+            self.trained_result['leaf']['nRow'],
+            self.trained_result['leaf']['weight']
         )
         return result
