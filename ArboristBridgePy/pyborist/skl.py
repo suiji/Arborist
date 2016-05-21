@@ -68,6 +68,12 @@ class PyboristModel(object):
     n_features_ : int
         The number of features.
 
+    n_samples_ : int
+        The number of samples in trainning dataset.
+
+    n_classes_ : int
+        The number of classes in classification.
+
     n_outputs_ : int
         The number of outputs.
 
@@ -109,6 +115,13 @@ class PyboristModel(object):
             The input samples.
 
         y: array-like, shape=(n_samples)
+            The input response.
+
+        sample_weight : array-like or None, shape=(n_samples), optional (default=None)
+            The sample weight.
+
+        feature_weight : array-like or None, shape=(n_features), optional (default=None)
+            The feature weight.
 
         Returns
         -------
@@ -121,7 +134,7 @@ class PyboristModel(object):
         X = X.astype(np.double, copy=False)
         if self.is_classify_task:
             self.classes_, y = np.unique(y, return_inverse=True)
-            self.n_classes_ = np.max(self.classes_) + 1
+            self.n_classes_ = len(self.classes_)
             y = y.astype(np.uintc, copy=False)
         else:
             y = y.astype(np.double, copy=False)
@@ -402,6 +415,7 @@ class PyboristModel(object):
         y_pred : array-like, shape=(n_samples)
             Returns the predicted result.
         """
+        self.n_outputs_ = X.shape[1]
         if self.is_classify_task:
             self.y_pred, self.y_pred_votes, self.y_pred_proba = self._predict_classification(X)
             return self.classes_[self.y_pred]
