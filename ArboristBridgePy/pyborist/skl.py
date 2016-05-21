@@ -26,7 +26,7 @@ class PyboristModel(object):
     min_info_ratio: float, optional (default=0.01)
         Information ratio with parent below which node does not split.
 
-    min_samples_split: int, optional (default=2 for regression or 5 for classification)
+    min_samples_split: int, optional (default=2)
         Minimum number of distinct row references to split a node.
 
     max_depth: int or None, optional (default=0)
@@ -38,8 +38,8 @@ class PyboristModel(object):
     n_to_sample: int, optional (default=0)
         Number of rows to sample, per tree.
 
-    pred_fixed: int, optional (default=0)
-        Number of trial predictors for a split (`mtry`).
+    max_features: int, optional (default=0)
+        Number of trial predictors for a split.
 
     pred_prob: float, optional (default=0.0)
         Probability of selecting individual predictor as trial splitter.
@@ -77,11 +77,11 @@ class PyboristModel(object):
         bootstrap = True,
         class_weight = None,
         min_info_ratio = 0.01,
-        min_samples_split = 0,
+        min_samples_split = 2,
         max_depth = 0,
         no_validate = True,
         n_to_sample = 0,
-        pred_fixed = 0,
+        max_features = 0,
         pred_prob = 0.0,
         quantiles_arr = None,
         q_bin = 5000,
@@ -94,25 +94,6 @@ class PyboristModel(object):
             if k == 'self':
                 continue
             setattr(self, k, v)
-
-        if self.min_samples_split == 0:
-            if self.is_classify_task:
-                self.min_samples_split = 2
-            else:
-                self.min_samples_split = 5
-        if self.min_samples_split <= 0:
-            raise ValueError('Invalid min_samples_split.')
-
-        if self.is_classify_task and self.quantiles_arr is not None:
-            raise ValueError('Quantiles are for regression only.')
-        if self.quantiles_arr is not None:
-            if np.any(self.quantiles_arr < 0.0) or np.any(self.quantiles_arr > 1.0):
-                raise ValueError('Quantiles shoule be inside 0 and 1.')
-            if np.any(np.diff(self.quantiles_arr) < 0.0):
-                raise ValueError('Quantiles should be increasing.')
-
-        if self.pred_prob < 0.0 or self.pred_prob > 1.0:
-            raise ValueError('pred_prob should be inside [0.0, 1.0].')
 
 
     def fit(self,
@@ -134,94 +115,79 @@ class PyboristModel(object):
         self : object
             Returns self.
         """
+        if X.shape[0] != y.shape[0]:
+            raise ValueError('X and y do not share the same first dimension.')
+
         X = X.astype(np.double, copy=False)
         if self.is_classify_task:
+            self.classes_, y = np.unique(y, return_inverse=True)
+            self.n_classes_ = np.max(self.classes_) + 1
             y = y.astype(np.uintc, copy=False)
         else:
             y = y.astype(np.double, copy=False)
 
-        self._init_basic_attrbutes(X, y, sample_weight, feature_weight)
-        self._init_row_rank()
-        self._adjust_model_params()
+        self.n_samples_ = X.shape[0]
+        self.n_features_ = X.shape[1]
+        self.real_params = {}
 
-        if self.is_classify_task:
-            self._train_classification()
+        if sample_weight is None:
+            sample_weight = np.ones(self.n_samples_)
         else:
-            self._train_regression()
-
-        return self
-
-
-    def _init_basic_attrbutes(self,
-        X,
-        y,
-        sample_weight = None,
-        feature_weight = None):
-        """
-        Parameters
-        ----------
-        X : array-like, shape=(n_samples, n_features)
-            The input samples.
-
-        y: array-like, shape=(n_samples)
-
-        Attributes
-        ----------
-        X : array-like, shape=(n_samples, n_features)
-            The input samples.
-
-        y: array-like, shape=(n_samples)
-
-        sample_weight: array-like, shape=(n_samples) or None
-
-        feature_weight: array-like, shape=(n_features) or None
-            Relative weighting of individual predictors as trial splitters.
-
-        n_samples: int (defualt = 0)
-            Number of rows
-
-        n_features: int (default = 0)
-            The number of predictors.
-
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        self.X = X
-        self.y = y
-        self.sample_weight = sample_weight
-        self.feature_weight = feature_weight
-        self.n_samples = X.shape[0]
-        self.n_features = X.shape[1]
-
-        if self.n_features <= 0 or self.n_samples <= 0:
-            raise ValueError('Invalid design matrix.')
-
-        if self.sample_weight is None:
-            self.sample_weight = np.ones(self.n_samples)
-        else:
-            if len(self.sample_weight) != self.n_samples:
+            if len(sample_weight) != self.n_samples_:
                 raise ValueError('Sample weight should equal to column number.')
-            if np.any(self.sample_weight < 0.0):
+            if np.any(sample_weight < 0.0):
                 raise ValueError('Sample weight should larger than zero.')
-            if np.sum(self.sample_weight) == 0.0:
+            if np.sum(sample_weight) == 0.0:
                 raise ValueError('Sample weight could not be all zero.')
 
-        if self.feature_weight is None:
-            self.feature_weight = np.ones(self.n_features)
+        if feature_weight is None:
+            feature_weight = np.ones(self.n_features_)
         else:
-            if len(self.feature_weight) != self.n_features:
+            if len(feature_weight) != self.n_features_:
                 raise ValueError('Predictor weight should equal to column number.')
-            if np.any(self.feature_weight < 0.0):
+            if np.any(feature_weight < 0.0):
                 raise ValueError('Predictor weight should larger than zero.')
-            if np.sum(self.feature_weight) == 0.0:
+            if np.sum(feature_weight) == 0.0:
                 raise ValueError('Predictor weight could not be all zero.')
+
+        self._valid_default_params()
+        self._init_row_rank(X, y, sample_weight, feature_weight)
+        self._adjust_model_params(X, y, sample_weight, feature_weight)
+
+        if self.is_classify_task:
+            self._train_classification(X, y, sample_weight, feature_weight)
+        else:
+            self._train_regression(X, y, sample_weight, feature_weight)
 
         return self
 
 
-    def _init_row_rank(self):
+    def _valid_default_params(self):
+        """
+        Check the default params that are independent of X and y
+        """
+        if self.min_samples_split <= 0:
+            raise ValueError('Invalid min_samples_split.')
+
+        if self.quantiles_arr is not None:
+            if np.any(self.quantiles_arr < 0.0) or np.any(self.quantiles_arr > 1.0):
+                raise ValueError('Quantiles shoule be inside 0 and 1.')
+            if np.any(np.diff(self.quantiles_arr) < 0.0):
+                raise ValueError('Quantiles should be increasing.')
+
+        if self.pred_prob < 0.0 or self.pred_prob > 1.0:
+            raise ValueError('pred_prob should be inside [0.0, 1.0].')
+
+        if self.is_classify_task:
+            if self.quantiles_arr is not None:
+                raise ValueError('Quantiles are for regression only.')
+
+
+    def _init_row_rank(self,
+        X,
+        y,
+        sample_weight,
+        feature_weight):
         """Call the backend to generate the rowrank. Similar to the R verson.
 
         Attributes
@@ -237,171 +203,189 @@ class PyboristModel(object):
         self : object
             Returns self.
         """
-        n_samples = self.n_samples
-        n_features = self.n_features
+        n_samples = self.n_samples_
+        n_features = self.n_features_
+
         rank = np.empty([n_samples * n_features], dtype=np.intc)
         row = np.empty([n_samples * n_features], dtype=np.intc)
         inv_num = np.zeros([n_samples * n_features], dtype=np.intc)
-        PyRowRank.PreSortNum(np.ascontiguousarray(self.X.transpose().reshape(self.X.size)), # transpose() to become consistent with rcpp reuslt
+        PyRowRank.PreSortNum(np.ascontiguousarray(X.transpose().reshape(X.size)),
             n_features,
             n_samples,
             row,
             rank,
             inv_num)
-        self.row = row
-        self.rank = rank
-        self.inv_num = inv_num
+
+        self.real_params.update({
+            'presort_row': row,
+            'presort_rank': rank,
+            'presort_inv_num': inv_num
+        })
         return self
 
 
-    def _adjust_model_params(self):
+    def _adjust_model_params(self,
+        X,
+        y,
+        sample_weight,
+        feature_weight):
         """Regenerate some parameters of model based on input.
-
-        Attributes
-        ----------
-        prob_arr: array-like, shape=(n_features)
 
         Returns
         -------
         self : object
             Returns self.
         """
-        #TODO params should be invariant
+        n_samples = self.n_samples_
+        n_features = self.n_features_
+
+        self.real_params.update({
+            'n_to_sample': self.n_to_sample
+        })
         if self.n_to_sample == 0:
-            if self.bootstrap:
-                self.n_to_sample = self.n_samples
-            else:
-                self.n_to_sample = np.round((1-np.exp(-1)) * self.n_samples)
+            self.real_params.update({
+                'n_to_sample': n_samples \
+                    if self.bootstrap \
+                    else np.round((1-np.exp(-1)) * n_samples)
+            })
 
-        if self.pred_fixed == 0 \
-            and self.pred_prob == 0 and self.n_features < 16:
-            if not self.is_classify_task:
-                self.pred_fixed = np.max([np.floor(self.n_features/3), 1])
-            else:
-                self.pred_fixed = np.floor(np.sqrt(self.n_features))
-
-        if self.pred_prob == 0.0 and self.pred_fixed == 0:
-            if not self.is_classify_task:
-                self.pred_prob = 0.4
-            else:
-                self.pred_prob = np.ceil(np.sqrt(self.n_features)) / self.n_features
-
-        if self.pred_fixed > self.n_features:
-            raise ValueError('pred_fixed should be no more than n_features.')
+        if self.min_samples_split > n_samples:
+            raise ValueError('Invalid min_samples_split.')
 
         if self.is_classify_task:
-            ctg_width = np.max(self.y) + 1 # how many categories
+            n_classes = self.n_classes_
+
             if self.class_weight is None:
-                self.class_weight = np.ones(ctg_width)
+                class_weight = np.ones(n_classes)
             elif self.class_weight == 'balanced':
-                uniqueClasses, occurrences = np.unique(y, return_counts=True)
-                assert(len(uniqueClasses) == ctgWidth)
-                self.class_weight = 1.0 / occurrences
-                self.class_weight[np.isinf(self.class_weight)] = 0.0
-            elif len(self.class_weight) != class_weight:
-                raise ValueError('Invalid class weighting.')
+                class_weight = n_samples / (n_classes * np.bincount(y))
             elif np.any(self.class_weight < 0.0):
                 raise ValueError('Invalid class weighting.')
             elif np.sum(self.class_weight) == 0.0:
                 raise ValueError('Invalid class weighting.')
-            else:
-                raise ValueError('Invalid class weighting.')
-            self.class_weight = self.class_weight / np.sum(self.class_weight)
-            self.class_weight_jittered = (self.class_weight[self.y] + 
-                (np.random.uniform(size=self.n_samples) - 0.5) * 
-                0.5 / self.n_samples / self.n_samples).astype(np.double)
+            class_weight = class_weight / np.sum(class_weight)
+            class_weight = (class_weight[y] + 
+                (np.random.uniform(size=n_samples) - 0.5) * 
+                0.5 / n_samples / n_samples).astype(np.double)
+            self.real_params.update({
+                'class_weight': class_weight
+            })
+
+            if self.max_features > n_features:
+                raise ValueError('max_features should be no more than n_features.')
+            max_features = self.max_features
+            if self.max_features == 0 and self.pred_prob == 0.0 and n_features < 16:
+                max_features = np.floor(np.sqrt(n_features))
+            self.real_params.update({
+                'max_features': max_features
+            })
+
+            pred_prob = self.pred_prob
+            if self.pred_prob == 0.0 and self.max_features == 0:
+                pred_prob = np.ceil(np.sqrt(n_features)) / n_features
+            mean_weight = 1.0 if pred_prob == 0.0 else pred_prob
+            prob_arr = feature_weight * (n_features * mean_weight) / np.sum(feature_weight)
+            self.real_params.update({
+                'prob_arr': prob_arr
+            })
+
         else:
-            #TODO maybe move some code into __init__
-            if self.class_weight is not None:
-                raise ValueError('Class Weight should be used in classification.')
+            self.real_params.update({
+                'reg_mono': np.zeros(n_features) if self.reg_mono is None else self.reg_mono
+            })
 
-        mean_weight = 1.0 if self.pred_prob == 0.0 else self.pred_prob
-        self.prob_arr = self.feature_weight * (self.n_features * mean_weight) / np.sum(self.feature_weight)
+            if self.max_features > n_features:
+                raise ValueError('max_features should be no more than n_features.')
+            max_features = self.max_features
+            if self.max_features == 0 and self.pred_prob == 0.0 and n_features < 16:
+                max_features = np.max([np.floor(n_features/3), 1])
+            self.real_params.update({
+                'max_features': max_features
+            })
 
-        if self.min_samples_split > self.n_samples:
-            raise ValueError('Invalid min_samples_split.')
-
-        if self.reg_mono is None:
-            self.reg_mono = np.zeros(self.n_features)
-        if self.is_classify_task:
-            if np.any(self.reg_mono != 0.0):
-                raise ValueError('Categorical response could not have reg_mono.')
+            pred_prob = self.pred_prob
+            if self.pred_prob == 0.0 and self.max_features == 0:
+                pred_prob = 0.4
+            mean_weight = 1.0 if pred_prob == 0.0 else pred_prob
+            prob_arr = feature_weight * (n_features * mean_weight) / np.sum(feature_weight)
+            self.real_params.update({
+                'prob_arr': prob_arr
+            })
 
         return self
 
 
-    def _train_regression(self):
+    def _train_regression(self,
+        X,
+        y,
+        sample_weight,
+        feature_weight):
         """
         Returns
         -------
         self : object
             Returns self.
         """
+        n_samples = self.n_samples_
+        n_features = self.n_features_
         result = PyTrain.Regression(
-            np.ascontiguousarray(self.X.transpose().reshape(self.X.size)),
-            np.ascontiguousarray(np.reshape(self.y, self.n_samples)),
-            self.n_samples,
-            self.n_features,
-            np.ascontiguousarray(self.row),
-            np.ascontiguousarray(self.rank),
-            np.ascontiguousarray(self.inv_num),
+            np.ascontiguousarray(X.transpose().reshape(X.size)),
+            np.ascontiguousarray(np.reshape(y, n_samples)),
+            n_samples,
+            n_features,
+            np.ascontiguousarray(self.real_params['presort_row']),
+            np.ascontiguousarray(self.real_params['presort_rank']),
+            np.ascontiguousarray(self.real_params['presort_inv_num']),
             self.n_estimators,
-            self.n_to_sample,
-            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples)),
+            self.real_params['n_to_sample'],
+            np.ascontiguousarray(np.reshape(sample_weight, n_samples)),
             self.bootstrap,
             self.tree_block,
             self.min_samples_split,
             self.min_info_ratio,
             self.max_depth,
-            self.pred_fixed,
-            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features)),
-            np.ascontiguousarray(np.reshape(self.reg_mono, self.n_features))
+            self.real_params['max_features'],
+            np.ascontiguousarray(np.reshape(self.real_params['prob_arr'], n_features)),
+            np.ascontiguousarray(np.reshape(self.real_params['reg_mono'], n_features))
         )
-        self.trained_result = result
+        self.estimators_ = result
         return self
 
-    def _train_classification(self):
+
+    def _train_classification(self,
+        X,
+        y,
+        sample_weight,
+        feature_weight):
         """
         Returns
         -------
         self : object
             Returns self.
         """
+        n_samples = self.n_samples_
+        n_features = self.n_features_
         result = PyTrain.Classification(
-            np.ascontiguousarray(self.X.transpose().reshape(self.X.size)),
-            np.ascontiguousarray(np.reshape(self.y, self.n_samples)),
-            self.n_samples,
-            self.n_features,
-            np.ascontiguousarray(self.row),
-            np.ascontiguousarray(self.rank),
-            np.ascontiguousarray(self.inv_num),
+            np.ascontiguousarray(X.transpose().reshape(X.size)),
+            np.ascontiguousarray(np.reshape(y, n_samples)),
+            n_samples,
+            n_features,
+            np.ascontiguousarray(self.real_params['presort_row']),
+            np.ascontiguousarray(self.real_params['presort_rank']),
+            np.ascontiguousarray(self.real_params['presort_inv_num']),
             self.n_estimators,
-            self.n_to_sample,
-            np.ascontiguousarray(np.reshape(self.sample_weight, self.n_samples)),
+            self.real_params['n_to_sample'],
+            np.ascontiguousarray(np.reshape(sample_weight, n_samples)),
             self.bootstrap,
             self.tree_block,
             self.min_samples_split,
             self.min_info_ratio,
             self.max_depth,
-            self.pred_fixed,
-            np.ascontiguousarray(np.reshape(self.prob_arr, self.n_features)),
-            np.ascontiguousarray(self.class_weight_jittered)
+            self.real_params['max_features'],
+            np.ascontiguousarray(np.reshape(self.real_params['prob_arr'], n_features)),
+            np.ascontiguousarray(self.real_params['class_weight'])
         )
-        self.trained_result = result
-        return self
-
-
-    def _valid_trained_result(self):
-        """
-        validate the training result
-
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        if self.no_validate:
-            return self
+        self.estimators_ = result
         return self
 
 
@@ -420,10 +404,11 @@ class PyboristModel(object):
         """
         if self.is_classify_task:
             self.y_pred, self.y_pred_votes, self.y_pred_proba = self._predict_classification(X)
-            return self.y_pred
+            return self.classes_[self.y_pred]
         else:
             self.y_pred = self._predict_regression(X)
             return self.y_pred
+
 
     def predict_proba(self, X, return_votes=False):
         """Fit estimator for classification.
@@ -453,16 +438,16 @@ class PyboristModel(object):
         result = PyPredict.Regression(np.ascontiguousarray(X.reshape(X.size)),
             X.shape[0],
             X.shape[1],
-            self.trained_result['forest']['origin'],
-            self.trained_result['forest']['facOrig'],
-            self.trained_result['forest']['facSplit'],
-            self.trained_result['forest']['forestNode'],
-            self.trained_result['leaf']['yRanked'],
-            self.trained_result['leaf']['leafOrigin'],
-            self.trained_result['leaf']['leafNode'],
-            self.trained_result['leaf']['bagRow'],
-            self.trained_result['leaf']['nRow'],
-            self.trained_result['leaf']['rank']
+            self.estimators_['forest']['origin'],
+            self.estimators_['forest']['facOrig'],
+            self.estimators_['forest']['facSplit'],
+            self.estimators_['forest']['forestNode'],
+            self.estimators_['leaf']['yRanked'],
+            self.estimators_['leaf']['leafOrigin'],
+            self.estimators_['leaf']['leafNode'],
+            self.estimators_['leaf']['bagRow'],
+            self.estimators_['leaf']['nRow'],
+            self.estimators_['leaf']['rank']
         )
         return result
 
@@ -471,16 +456,49 @@ class PyboristModel(object):
         result = PyPredict.Classification(np.ascontiguousarray(X.reshape(X.size)),
             X.shape[0],
             X.shape[1],
-            np.max(self.y) + 1, # how many categories
-            self.trained_result['forest']['origin'],
-            self.trained_result['forest']['facOrig'],
-            self.trained_result['forest']['facSplit'],
-            self.trained_result['forest']['forestNode'],
-            self.trained_result['leaf']['yLevels'],
-            self.trained_result['leaf']['leafOrigin'],
-            self.trained_result['leaf']['leafNode'],
-            self.trained_result['leaf']['bagRow'],
-            self.trained_result['leaf']['nRow'],
-            self.trained_result['leaf']['weight']
+            self.n_classes_,
+            self.estimators_['forest']['origin'],
+            self.estimators_['forest']['facOrig'],
+            self.estimators_['forest']['facSplit'],
+            self.estimators_['forest']['forestNode'],
+            self.estimators_['leaf']['yLevels'],
+            self.estimators_['leaf']['leafOrigin'],
+            self.estimators_['leaf']['leafNode'],
+            self.estimators_['leaf']['bagRow'],
+            self.estimators_['leaf']['nRow'],
+            self.estimators_['leaf']['weight']
         )
         return result
+
+
+    def get_params(self, deep=True):
+        """To make the estimator scikit-learn capable
+        #TODO how to "don't repeat yourself"?
+        """
+        default_param_keys = ['n_estimators',
+            'bootstrap',
+            'class_weight',
+            'min_info_ratio',
+            'min_samples_split',
+            'max_depth',
+            'no_validate',
+            'n_to_sample',
+            'max_features',
+            'pred_prob',
+            'quantiles_arr',
+            'q_bin',
+            'reg_mono',
+            'tree_block',
+            'pvt_block',
+            'is_classify_task']
+        result = {}
+        for k in default_param_keys:
+            result[k] = getattr(self, k)
+        return result
+
+
+    def set_params(self, **kwargs):
+        """To make the estimator scikit-learn capable"""
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        return self
