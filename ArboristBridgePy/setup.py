@@ -50,15 +50,10 @@ extensions = [
 #TODO
 # msvc may raise this error if '/openmp' flag is added:
 # error C3016: index variable in OpenMP 'for' statement must have signed integral type
-extra_compile_args = {
-    'msvc': ['/Ox', '/fp:fast'], 
-    'mingw32': ['-std=c++11', '-fopenmp','-O3','-ffast-math'],
-    'unix': ['-std=c++11', '-fopenmp','-O3','-ffast-math']
-}
-extra_link_args = {
-    'mingw32': ['-fopenmp'],
-    'unix': ['-fopenmp']
-}
+win_compile_args = ['/Ox', '/fp:fast']
+win_link_args = []
+unix_compile_args = ['-std=c++11', '-fopenmp','-O3','-ffast-math']
+unix_link_args = ['-fopenmp']
 
 
 class build_clib(_build_clib):
@@ -69,9 +64,10 @@ class build_clib(_build_clib):
         Most code are exactly the same but the compiler.compile() gets injected.
         """
         compiler_type = self.compiler.compiler_type
-        compile_args = []
-        if compiler_type in extra_compile_args:
-            compile_args = extra_compile_args[compiler_type]
+        if compiler_type == 'msvc':
+            compile_args = win_compile_args
+        else:
+            compile_args = unix_compile_args
 
         for (lib_name, build_info) in libraries:
             sources = list(build_info.get('sources'))
@@ -97,12 +93,13 @@ class build_ext(_build_ext):
         We want to inject the compile / link args based on different compilers.
         """
         compiler_type = self.compiler.compiler_type
-        if compiler_type in extra_compile_args:
-           for ext in self.extensions:
-               ext.extra_compile_args = extra_compile_args[compiler_type]
-        if compiler_type in extra_link_args:
-            for ext in self.extensions:
-                ext.extra_link_args = extra_link_args[compiler_type]
+        for ext in self.extensions:
+            if compiler_type == 'msvc':
+                ext.extra_compile_args = win_compile_args
+                ext.extra_link_args = win_link_args
+            else:
+                ext.extra_compile_args = unix_compile_args
+                ext.extra_link_args = unix_link_args
         super(build_ext, self).build_extensions()
 
 
