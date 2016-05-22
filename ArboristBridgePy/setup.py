@@ -9,6 +9,15 @@ from os import listdir, path
 
 
 
+PKGNAME = 'pyborist'
+DESCRIPTION = 'a Random Forest library'
+with open('README.rst') as f:
+    LONG_DESCRIPTION = f.read()
+LICENSE = 'MIT'
+VERSION = '0.0.1'
+
+
+
 pyx_src_dir = 'pyborist'
 cc_src_dir = path.join('..', 'ArboristCore')
 
@@ -28,7 +37,8 @@ lib_aborist_core = ('libaboristcore',
 
 
 extensions = [
-    Extension(x[:-4], [path.join(pyx_src_dir, x)],
+    Extension('{}.{}'.format(PKGNAME, x[:-4]),
+        [path.join(pyx_src_dir, x)],
         language = 'c++',
         include_dirs = [pyx_src_dir, cc_src_dir, np.get_include()],
         library_dirs = [pyx_src_dir, cc_src_dir]
@@ -95,23 +105,14 @@ class build_ext(_build_ext):
                 ext.extra_link_args = extra_link_args[compiler_type]
         super(build_ext, self).build_extensions()
 
-    def get_ext_fullpath(self, ext_name):
-        """
-        The default one returns os.path.join(package_dir, filename)
-        But we want to move the files to the real subdir if --inplace here
-        """
-        parsed_ext_path = super(build_ext, self).get_ext_fullpath(ext_name)
-        package_dir = path.dirname(parsed_ext_path)
-        filename = path.basename(parsed_ext_path)
-        real_ext_path = path.join(package_dir, pyx_src_dir, filename)
-        return real_ext_path
-
 
 
 setup(
-    name = 'pyborist',
-    version = '0.0.1',
-    description = 'a Random Forest library',
+    name = PKGNAME,
+    version = VERSION,
+    description = DESCRIPTION,
+    long_description = LONG_DESCRIPTION,
+    license = LICENSE,
     packages = ['pyborist'],
     libraries = [lib_aborist_core],
     cmdclass = {'build_clib': build_clib, 'build_ext': build_ext},
