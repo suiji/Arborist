@@ -126,8 +126,8 @@ void CallBack::QSortD(double ySorted[], int rank2Row[], int one, int nRow) {
 
   std::sort(pairs.begin(), pairs.end(),
     [](const std::pair<double, int> &a, const std::pair<double, int> &b){
-      //TODO how to do the double comparation?!
-      return a.first < b.first;
+      // avoid Inf
+      return a.first < b.first || (b.first != b.first && a.first == a.first);
     }
   );
 
