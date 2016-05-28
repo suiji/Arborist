@@ -54,9 +54,14 @@ class SamplePath {
 
      @return whether sample is live.
    */
-  inline bool IsLive(unsigned char &_path) const {
+  inline bool IsLive(unsigned int &_path) const {
     _path = path;
     return extinct == 0;
+  }
+
+
+  inline int Path(unsigned int del) const {
+    return extinct == 0 ? path & ~(0xff << del) : -1;
   }
 };
 
@@ -104,11 +109,11 @@ class RestageNode {
   unsigned int extent;// Requires access to start, end
   unsigned int pathZero; // Beginning index of path offsets within 'pathAccum'.
   unsigned char levelDel; // Level difference between creation and restaging.
-  void Singletons(const class Bottom *bottom, const std::vector<PathNode> &pathNode, const int targOffset[], const class SPNode targ[], unsigned int predIdx) const;
+  void Singletons(class Bottom *bottom, const std::vector<PathNode> &pathNode, const int targOffset[], const class SPNode targ[], unsigned int predIdx) const;
  public:
 
-  void Restage(const class Bottom *bottom, class SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const;
-  void RestageTwo(const class Bottom *bottom, class SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const;
+  void Restage(class Bottom *bottom, class SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const;
+  void RestageTwo(class Bottom *bottom, class SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const;
 
 
   /**
@@ -146,7 +151,7 @@ class RestagePair {
   }
   
 
-  void Coords(unsigned int &_nodeIdx, unsigned int &_predIdx) const {
+  void Coords(int &_nodeIdx, int &_predIdx) const {
     _nodeIdx = nodeIdx;
     _predIdx = predIdx;
   }
@@ -158,7 +163,7 @@ class RestagePair {
 */
 
 class MRRA {
-  int restageIdx; // Index for external reference.  Cached for re-use.
+  int restageIdx; // Index for external reference.  Cached for level.
   unsigned int start; // Starting index of cell within buffer.
   unsigned int extent; // Count of indices within cell.
 
@@ -169,7 +174,21 @@ public:
     extent = _extent;
   }
 
-  unsigned int RestageIdx(unsigned int levelDel, unsigned int &pathAccum, std::vector<RestageNode> &restageNode);
+
+  /**
+     @brief Accessor.
+   */
+  unsigned int RestageIdx() {
+    return restageIdx;
+  }
+
+
+  void Reset() { // Must be called for reuse in subsequent levels.
+    restageIdx = -1;
+  }
+
+  
+  unsigned int PathAccum(unsigned int levelDel, unsigned int &pathAccum, std::vector<RestageNode> &restageNode);
 };
 
 
@@ -183,7 +202,7 @@ class BottomNode {
   unsigned char levelDel; // # levels back at which restaging occurred:  <= pathMax.
 
  public:
-  static constexpr unsigned int pathMax = 1;//8 * sizeof(unsigned char);
+  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
 
   
   /**
@@ -273,18 +292,18 @@ class BottomNode {
 class SplitPair {
   static const int noSplit = -2;
   unsigned int bottomIdx;
-  unsigned int restageIdx; // Dense numbering of MRRAs reaching this level.
+  int restageIdx; // Dense numbering of MRRAs reaching this level.
   int setIdx;
 
  public:
-  inline void Init(unsigned int _bottomIdx, unsigned int _restageIdx) {
+  inline void Init(unsigned int _bottomIdx, int _restageIdx) {
     bottomIdx = _bottomIdx;
     restageIdx = _restageIdx;
     setIdx = noSplit;
   }
 
   
-  inline void SplitInit(unsigned int _bottomIdx, unsigned int _restageIdx, int _setIdx = -1) {
+  inline void SplitInit(unsigned int _bottomIdx, int _restageIdx, int _setIdx = -1) {
     bottomIdx = _bottomIdx;
     restageIdx = _restageIdx;
     setIdx = _setIdx;
@@ -308,7 +327,10 @@ class SplitPair {
 class Bottom {
   std::deque<class BitMatrix *> bufferLevel;
   std::deque<std::vector<MRRA> > mrraLevel;
-  
+  std::vector<BottomNode> bottomNode; // All levelCount x nPred cells referenceable at current level.
+  std::vector<BottomNode> preStage; // Temporary staging area.
+
+
   SamplePath *samplePath;
   const unsigned int nPred;
   const unsigned int nPredFac;
@@ -317,17 +339,36 @@ class Bottom {
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
-  BottomNode *bottomNode; // All levelCount x nPred cells referenceable at current level.
 
-  BottomNode *preStage; // Temporary staging area.
   //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
-  unsigned int PairInit(class Run *run, const bool splitFlags[], std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode);
-  class BV *RestageInit(const class IndexNode indexNode[], const std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode, std::vector<RestagePair> &restagePair, std::vector<PathNode> &pathNode);
+  int RestageIdx(unsigned int bottomIdx);
+  unsigned int PairInit(class Run *run, const bool splitFlags[], std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode, std::vector<RestagePair> &restagePair);
+  class BV *RestageInit(const class IndexNode indexNode[], const std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode);
   void Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, const std::vector<PathNode> &pathNode, const class BV *bufSource);
   void Split(const std::vector<SplitPair> &pairNode, const class IndexNode indexNode[]);
   void Split(const class IndexNode indexNode[], const SplitPair &pairNode);
 
+  
+  inline bool Singleton(unsigned int botIdx) {
+    return bottomNode[botIdx].RunCount() == 1;
+  }
+
+  
+  inline bool Singleton(unsigned int botIdx, int &runCount) {
+    return (runCount = bottomNode[botIdx].RunCount()) == 1;
+  }
+  
+  /**
+     @brief Determines whether MRRA should be scheduled for restaging.
+
+     @return true iff MRRA to be restaged.
+   */  
+  inline bool ScheduleMRRA(const bool splitFlags[], unsigned int botIdx) {
+    return !Singleton(botIdx) && (splitFlags[botIdx] || Exhausted(botIdx));
+  }
+
+  
  public:
   static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int bagCount);
   static Bottom *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg, unsigned int bagCount);
@@ -337,10 +378,10 @@ class Bottom {
   void LevelInit();
   void Level(class Run *run, const bool splitFlags[], const class IndexNode indexNode[]);
   void Overlap(unsigned int _splitNext);
-  void DeOverlap(const class Index *index, unsigned int splitPrev);
+  void DeOverlap();
   void LevelClear();
   const std::vector<class SSNode*> LevelSplit(class Index *index, class IndexNode indexNode[]);
-  void Inherit(unsigned int _splitIdx, int _lNext, int _rNext, unsigned int _lhIdxCount, unsigned int _rhIdxCount, unsigned int _startIdx, unsigned int _endIdx);
+  void Inherit(unsigned int _splitIdx, unsigned int nodeNext);
   unsigned int PathAccum(std::vector<RestageNode> &restageNode, unsigned int bottomIdx, unsigned int &_pathAccum);
   void SSWrite(unsigned int bottomIdx, int setIdx, unsigned int lhSampCount, unsigned lhIdxCount, double info);
   class Run *Runs();
@@ -350,8 +391,13 @@ class Bottom {
   /**
      @brief Setter methods for sample path.
    */
-  inline bool IsLive(unsigned int sIdx, unsigned char &sIdxPath) const {
+  inline bool IsLive(unsigned int sIdx, unsigned int &sIdxPath) const {
     return samplePath[sIdx].IsLive(sIdxPath);
+  }
+
+
+  inline int Path(unsigned int sIdx, unsigned int del) const {
+    return samplePath[sIdx].Path(del);
   }
 
 
@@ -405,8 +451,8 @@ class Bottom {
     return bottomNode[idx].Exhausted();
   }
 
-  
-  inline void SetSingleton(unsigned int levelIdx, unsigned int predIdx) const {
+
+  inline void SetSingleton(unsigned int levelIdx, unsigned int predIdx) {
     bottomNode[levelIdx * nPred + predIdx].RunCount(1);
   }
 

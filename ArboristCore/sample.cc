@@ -267,12 +267,12 @@ void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned i
    @return void.
  */
 void Sample::PreStage(const RowRank *rowRank) {
-  unsigned int predIdx;
+  int predIdx;
 
 #pragma omp parallel default(shared) private(predIdx)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (predIdx = 0; predIdx < nPred; predIdx++) {
+    for (predIdx = 0; predIdx < int(nPred); predIdx++) {
       PreStage(rowRank, predIdx);
     }
   }

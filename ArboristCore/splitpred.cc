@@ -226,11 +226,12 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
   else
     heap = 0;
 
-  unsigned int levelIdx, splitOff;
+  int levelIdx;
+  unsigned int splitOff;
 #pragma omp parallel default(shared) private(splitOff, levelIdx)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (levelIdx = 0; levelIdx < levelCount; levelIdx++) {
+  for (levelIdx = 0; levelIdx < int(levelCount); levelIdx++) {
     splitOff = levelIdx * nPred;
     if (unsplitable[levelIdx]) { // No predictor splitable
       SplitPredNull(&splitFlags[splitOff]);

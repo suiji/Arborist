@@ -23,6 +23,9 @@
 #ifndef ARBORIST_RUNSET_H
 #define ARBORIST_RUNSET_H
 
+#include <vector>
+
+
 /**
  */
 class FRNode {
@@ -34,6 +37,8 @@ class FRNode {
   double sum; // Sum of responses associated with run.
 
   FRNode() : start(-1), end(-1), sCount(0), sum(0.0) {}
+
+
   /**
      @brief Bounds accessor.
    */
@@ -232,11 +237,9 @@ class Run {
   void OffsetsReg();
   void OffsetsCtg();
 
-
   inline RunSet *RSet(unsigned int rsIdx) {
     return &runSet[rsIdx];
   }
-
   
   inline unsigned int RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &end) {
     return runSet[idx].Bounds(outSlot, start, end);
@@ -248,7 +251,7 @@ class Run {
   }
 
   
-  void RunSets(unsigned int _setCount);
+  void RunSets(const std::vector<unsigned int> &safeCount);
 
   /**
      @brief Presets runCount field to a conservative value for

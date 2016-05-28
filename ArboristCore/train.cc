@@ -27,9 +27,10 @@
 #include "splitpred.h"
 #include "leaf.h"
 
+#include <algorithm>
 // Testing only:
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 int Train::trainBlock = 0;
 unsigned int Train::nTree = 0;
@@ -153,7 +154,7 @@ Train::~Train() {
 */
 void Train::ForestTrain(const RowRank *rowRank) {
   for (unsigned treeStart = 0; treeStart < nTree; treeStart += trainBlock) {
-    unsigned int treeEnd = min(treeStart + trainBlock, nTree); // one beyond.
+    unsigned int treeEnd = std::min(treeStart + trainBlock, nTree); // one beyond.
     Block(rowRank, treeStart, treeEnd - treeStart);
   }
     
@@ -214,7 +215,7 @@ unsigned int Train::BlockPeek(PreTree **ptBlock, unsigned int tCount, unsigned i
   for (unsigned int i = 0; i < tCount; i++) {
     PreTree *pt = ptBlock[i];
     unsigned int height = pt->Height();
-    maxHeight = max(height, maxHeight);
+    maxHeight = std::max(height, maxHeight);
     blockHeight += height;
     blockFac += pt->BitWidth();
     blockLeaf += pt->LeafCount();

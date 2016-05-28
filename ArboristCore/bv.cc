@@ -85,6 +85,19 @@ void BV::Consume(std::vector<unsigned int> &out, unsigned int bitEnd) const {
 }
 
 
+unsigned int BV::PopCount() const {
+  unsigned int pop = 0;
+  for (unsigned int i = 0; i < nSlot; i++) {
+    unsigned int val = raw[i];
+    for (unsigned int j = 0; j < 8 * sizeof(unsigned int); j++) {
+      pop += val & 1;
+      val >>= 1;
+    }
+  }
+  return pop;
+}
+
+
 /**
  */
 BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol) : BV(_nRow * _nCol), nRow(_nRow), stride(_nCol) {
@@ -157,7 +170,7 @@ void BVJagged::Export(std::vector<std::vector<unsigned int> > &outVec) {
  */
 void BVJagged::RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const {
   for (unsigned int idx = 0; idx < rowHeight; idx++) {
-    outRow[idx] = IsSet(rowIdx, idx);
+    outRow[idx] = TestBit(rowIdx, idx);
   }
 }
 
@@ -233,5 +246,5 @@ void BitMatrix::Export(unsigned int _nRow, std::vector<std::vector<unsigned int>
  */
 void BitMatrix::ColExport(unsigned int _nRow, std::vector<unsigned int> &outCol, unsigned int colIdx) {
   for (unsigned int row = 0; row < _nRow; row++)
-    outCol[row] = IsSet(row, colIdx) ? 1 : 0;
+    outCol[row] = TestBit(row, colIdx) ? 1 : 0;
 }

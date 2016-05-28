@@ -21,8 +21,9 @@
 #include "bv.h"
 
 #include <cfloat>
+#include <algorithm>
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 
 /**
@@ -187,7 +188,7 @@ void PredictCtg::PredictAcross(const Forest *forest, const BitMatrix *bag, int *
   for (unsigned int i = 0; i < nRow * ctgWidth; i++)
     votes[i] = 0;
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
-    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    unsigned int rowEnd = std::min(rowStart + rowBlock, nRow);
     forest->PredictAcross(rowStart, rowEnd, bag);
     Score(votes, rowStart, rowEnd);
     if (prob != 0)
@@ -246,12 +247,12 @@ void PredictCtg::Validate(const std::vector<unsigned int> &yTest, const int yPre
    @return void, with output reference vector.
 */
 void PredictCtg::Vote(double *votes, int census[], int yPred[]) {
-  unsigned int row;
+  int row;
 
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < nRow; row++) {
+  for (row = 0; row < int(nRow); row++) {
     int argMax = -1;
     double scoreMax = 0.0;
     double *score = votes + row * ctgWidth;
@@ -275,14 +276,14 @@ void PredictCtg::Vote(double *votes, int census[], int yPred[]) {
    @return internal vote table, with output reference vector.
  */
 void PredictCtg::Score(double *votes, unsigned int rowStart, unsigned int rowEnd) {
-  unsigned int blockRow;
+  int blockRow;
 
 // TODO:  Recast loop by blocks, to avoid
 // false sharing.
 #pragma omp parallel default(shared) private(blockRow)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (blockRow = 0; blockRow < rowEnd - rowStart; blockRow++) {
+  for (blockRow = 0; blockRow < int(rowEnd - rowStart); blockRow++) {
     double *prediction = votes + (rowStart + blockRow) * ctgWidth;
     unsigned int treesSeen = 0;
     for (int tc = 0; tc < nTree; tc++) {
@@ -334,7 +335,7 @@ void PredictCtg::Prob(double *prob, unsigned int rowStart, unsigned int rowEnd) 
  */
 void PredictReg::PredictAcross(const Forest *forest, std::vector<double> &yPred, const BitMatrix *bag) {
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
-    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    unsigned int rowEnd = std::min(rowStart + rowBlock, nRow);
     forest->PredictAcross(rowStart, rowEnd, bag);
     Score(rowStart, rowEnd, &yPred[rowStart]);
   }
@@ -348,7 +349,7 @@ void PredictReg::PredictAcross(const Forest *forest, std::vector<double> &yPred,
  */
 void PredictReg::PredictAcross(const Forest *forest, std::vector<double> &yPred, Quant *quant, double qPred[], const BitMatrix *bag) {
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
-    unsigned int rowEnd = min(rowStart + rowBlock, nRow);
+    unsigned int rowEnd = std::min(rowStart + rowBlock, nRow);
     forest->PredictAcross(rowStart, rowEnd, bag);
     Score(rowStart, rowEnd, &yPred[rowStart]);
     quant->PredictAcross(rowStart, rowEnd, qPred);
@@ -365,12 +366,12 @@ void PredictReg::PredictAcross(const Forest *forest, std::vector<double> &yPred,
   @return void, with output refererence vector.
  */
 void PredictReg::Score(unsigned int rowStart, unsigned int rowEnd, double yPred[]) {
-  unsigned int blockRow;
+  int blockRow;
 
 #pragma omp parallel default(shared) private(blockRow)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (blockRow = 0; blockRow < rowEnd - rowStart; blockRow++) {
+  for (blockRow = 0; blockRow < int(rowEnd - rowStart); blockRow++) {
       double score = 0.0;
       int treesSeen = 0;
       for (int tc = 0; tc < nTree; tc++) {

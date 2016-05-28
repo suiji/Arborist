@@ -23,8 +23,11 @@
 #include "bottom.h"
 
 // Testing only:
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
+//#include <time.h>
+//clock_t clock(void);
+
 
 unsigned int Index::totLevels = 0;
 
@@ -73,7 +76,7 @@ Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _n
   levelBase = 0;
   levelWidth = 1;
   indexNode = new IndexNode[1];
-  indexNode[0].Init(0, 0, _bagCount, _nSamp, _sum, 0.0, 0);
+  indexNode[0].Init(0, 0, 0, _bagCount, _nSamp, _sum, 0.0, 0);
 }
 
 
@@ -132,13 +135,12 @@ PreTree *Index::OneTree(SamplePred *_samplePred, Bottom *_bottom, int _nSamp, in
 
    @return void.
 */
-//#include <time.h>
-//clock_t clock(void);
 void  Index::Levels() {
   unsigned int levelCount = 1;
   for (unsigned int level = 0; levelCount > 0; level++) {
     bottom->LevelInit();
     unsigned int splitNext, lhNext, leafNext;
+
     NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhNext, leafNext);
     if (splitNext != 0 && level + 1 != totLevels) {
       LevelProduce(nodeCache, levelCount, splitNext, lhNext, leafNext);
@@ -189,9 +191,11 @@ unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, 
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++)
     nodeCache[splitIdx].SplitCensus(lhSplitNext, rhSplitNext, leafNext);
   
-  // Restaging is implemented as a stable partition, and is facilitated by
-  // enumerating all left-hand subnodes before the first right-hand subnode.
-  // Whence the separate enumeration of the two.
+  // Restaging is implemented as a patient stable partition.
+  //
+  // Coprocessor implementations can be streamlined using a node-
+  // independent indexing scheme, e.g., enumerating all left-hand
+  // subnodes before the first right-hand subnode.
   //
   return lhSplitNext + rhSplitNext;
 }
@@ -270,19 +274,20 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int levelCount, unsigned
 
   // Next call guaranteed, so no dangling references:
   indexNode = new IndexNode[splitNext];
-  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++)
+  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Successors(this, preTree, samplePred, bottom, lhSplitNext, lhCount, rhCount);
+  }
+  bottom->DeOverlap();
+  LRLive(bottom);  
 
-  LRLive(bottom);
-  bottom->DeOverlap(this, levelCount);
-  
   // Assigns start values to consecutive nodes at next level.
-  //
+  /*
   unsigned int idxCount = 0;
   for (unsigned int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
     indexNode[splitIdx].Start() = idxCount;
     idxCount += indexNode[splitIdx].IdxCount();
   }
+  */
 
   delete [] ntLH;
   delete [] ntRH;
@@ -329,25 +334,21 @@ void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom
    @return void, plus output reference parameters.
 */
 void NodeCache::Successors(Index *index, PreTree *preTree, SamplePred *samplePred, Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
-  unsigned int lhIdxCount = 0;
-  int lNext = -1;
-  int rNext = -1;
   if (ssNode != 0) {
-    unsigned int lhSCount;
+    unsigned int lhIdxCount, lhSCount;
     ssNode->LHSizes(lhSCount, lhIdxCount);
-    double minInfoNext = ssNode->MinInfo();
     if (Splitable(lhIdxCount)) {
-      lNext = lhSplitCount++;
-      index->NextLH(lNext, ptL, lhIdxCount, lhSCount, lhSum, minInfoNext);
+      unsigned int lNext = lhSplitCount++;
+      index->NextLH(lNext, ptL, lhStart, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
+      bottom->Inherit(splitIdx, lNext);
     }
 
     if (Splitable(idxCount - lhIdxCount)) {
-      rNext = lhSplitNext + rhSplitCount++;
-      index->NextRH(rNext, ptR, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, minInfoNext);
+      unsigned int rNext = lhSplitNext + rhSplitCount++;
+      index->NextRH(rNext, ptR, lhStart + lhIdxCount, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
+      bottom->Inherit(splitIdx, rNext);
     }
   }
-
-  bottom->Inherit(splitIdx, lNext, rNext, lhIdxCount, idxCount - lhIdxCount, lhStart, lhStart + idxCount - 1);
 }
 
 

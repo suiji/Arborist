@@ -88,15 +88,15 @@ class IndexNode {
 
      @return void.
   */
-  void Init(int _splitIdx, unsigned int _ptId, int _idxCount, unsigned int _sCount, double _sum, double _minInfo, unsigned char bit) {
+  void Init(int _splitIdx, unsigned int _start, unsigned int _ptId, int _idxCount, unsigned int _sCount, double _sum, double _minInfo, unsigned char _path) {
     splitIdx = _splitIdx;
     ptId = _ptId;
+    lhStart = _start;
     idxCount = _idxCount;
     sCount = _sCount;
     sum = _sum;
     minInfo = _minInfo;
-    lhStart = 0;
-    path = (path << 1) | bit;
+    path = _path;
   }
 
   inline void PathCoords(unsigned int &_start, unsigned int &_extent, unsigned int &_path) const {
@@ -271,15 +271,15 @@ class Index {
   }
 
 
-  inline void NextLH(int idxNext, unsigned int ptId, int idxCount, unsigned int sCount, double sum, double minInfo) {
-    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo, 0);
+  inline void NextLH(int idxNext, unsigned int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
+    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, _path << 1);
 
     SetLH(ptId);
   }
 
   
-  inline void NextRH(int idxNext, int ptId, int idxCount, unsigned int sCount, double sum, double minInfo) {
-    indexNode[idxNext].Init(idxNext, ptId, idxCount, sCount, sum, minInfo, 1);
+  inline void NextRH(int idxNext, int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
+    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, (_path << 1) | 1);
 
     SetRH(ptId);
   }

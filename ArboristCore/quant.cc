@@ -57,11 +57,11 @@ Quant::~Quant() {
    @return void, with output parameter matrix.
  */
 void Quant::PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
-  unsigned int row;
+  int row;
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (row = rowStart; row < rowEnd; row++) {
+    for (row = rowStart; row < int(rowEnd); row++) {
       Leaves(row - rowStart, &qPred[qCount * row]);
     }
   }

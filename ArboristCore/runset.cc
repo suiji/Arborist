@@ -72,10 +72,20 @@ Run::Run(unsigned int _ctgWidth) : ctgWidth(_ctgWidth) {
 }
 
 
-void Run::RunSets(unsigned int _setCount) {
-  setCount = _setCount;
+/**
+   @brief Initializes the run counts to conservative values.
+
+   @param safeCount is a vector of run counts.
+
+   @return void.
+ */
+void Run::RunSets(const std::vector<unsigned int> &safeCount) {
+  setCount = safeCount.size();
   if (setCount > 0) {
     runSet = new RunSet[setCount];
+    for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
+      CountSafe(setIdx) = safeCount[setIdx];
+    }
   }
 }
 
@@ -187,44 +197,6 @@ void Run::LevelClear() {
   }
 }
 
-
-/**
-
-void Run::LengthVec(unsigned int _splitNext) {
-  splitNext = _splitNext;
-  lengthNext = new unsigned int[splitNext * nPred];
-}
-*/
-
-/**
-   @brief Transmits next level's lh/rh indices, as needed.  Singletons must
-   be transmitted, to avoid referencing dirty fields during splitting.  Non-
-   singleton runs are usefully transmitted, in order to set conservative
-   bounds on memory allocation.
-
-   @param splitIdx is the current level's split index.
-
-   @param lNext is the split index of the left successor in the next level.
-
-   @param rNext is the split index of the right successor in the next level
-
-   @return void.
-
-void Run::LengthTransmit(unsigned int splitIdx, int lNext, int rNext) {
-  if (lNext >= 0) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      unsigned int rCount = RunCount(splitIdx, predIdx);
-      LengthNext(lNext, predIdx) = rCount;
-    }
-  }
-  if (rNext >= 0) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      unsigned int rCount = RunCount(splitIdx, predIdx);
-      LengthNext(rNext, predIdx) = rCount;
-    }
-  }
-}
-*/
 
 /**
    @brief Records only the (casted) relative vector offsets, as absolute

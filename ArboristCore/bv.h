@@ -35,6 +35,7 @@ class BV {
   
 
   void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0) const;
+  unsigned int PopCount() const;
 
   BV *Resize(unsigned int bitMin);
 
@@ -94,7 +95,7 @@ class BV {
 
      @return true iff bit position is set in the bit vector.
    */
-  inline bool IsSet(unsigned int pos) const {
+  inline bool TestBit(unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
 
@@ -159,8 +160,8 @@ class BitMatrix : public BV {
 
      @return whether bit at specified coordinate is set.
    */
-  inline bool IsSet(unsigned int row, unsigned int col) const {
-    return stride == 0 ? false : BV::IsSet(row * stride + col);
+  inline bool TestBit(unsigned int row, unsigned int col) const {
+    return stride == 0 ? false : BV::TestBit(row * stride + col);
   }
 
   inline void SetBit(unsigned int row, unsigned int col, bool on = true) {
@@ -195,7 +196,7 @@ class BVJagged : public BV {
      @return true iff bit set.
 
    */
-  inline bool IsSet(unsigned int row, unsigned int pos) const {
+  inline bool TestBit(unsigned int row, unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
     unsigned int base = rowOrigin[row];
