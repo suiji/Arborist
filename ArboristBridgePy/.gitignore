@@ -1,0 +1,12 @@
+build/
+__pycache__/
+
+*.c
+*.cc
+*.cpp
+
+*.pyd
+*.dll
+*.so
+
+omgtest.py
