@@ -122,8 +122,8 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Bottom *
   unsigned int sourceBit = bottom->BufBit(splitIdx, predIdx);
   (void) preTree->Replay(samplePred, predIdx, sourceBit, start, end, ptRH);
 
-  double lhSum = 0.0;
   Run *run = bottom->Runs();
+  double lhSum = 0.0;
   for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
     unsigned int runStart, runEnd;
     unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);

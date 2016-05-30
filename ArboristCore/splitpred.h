@@ -54,10 +54,11 @@ class SplitPred {
   class Run *Runs() {
     return run;
   }
+  void Split(unsigned int bottomIdx, const class IndexNode indexNode[], const class SPNode spn[], int setIdx);
   
   virtual ~SplitPred();
-  virtual bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount, class Run *&_run);
-  virtual void RunOffsets() = 0;
+  virtual bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount);
+  virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
   virtual bool *LevelPreset(const class Index *index) = 0;
   virtual double Prebias(unsigned int levelIdx, unsigned int sCount, double sum) = 0;
   virtual void LevelClear();
@@ -92,10 +93,10 @@ class SPReg : public SplitPred {
   static void DeImmutables();
   SPReg(class SamplePred *_samplePred, unsigned int bagCount);
   ~SPReg();
-  void RunOffsets();
+  void RunOffsets(const std::vector<unsigned int> &safeCount);
   bool *LevelPreset(const class Index *index);
   double Prebias(unsigned int spiltIdx, unsigned int sCount, double sum);
-  bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount, class Run *&_run);
+  bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount);
   void LevelClear();
 };
 
@@ -117,7 +118,7 @@ class SPCtg : public SplitPred {
   double Prebias(unsigned int levelIdx, unsigned int sCount, double sum);
   void LevelClear();
   void Split(const class IndexNode indexNode[], class SPNode *nodeBase);
-  void RunOffsets();
+  void RunOffsets(const std::vector<unsigned int> &safeCount);
   void SumsAndSquares(const class Index *index, bool unsplitable[]);
   unsigned int LHBits(unsigned int lhBits, unsigned int pairOffset, unsigned int depth, unsigned int &lhSampCt);
 

@@ -131,9 +131,13 @@ class RestageNode {
   }
 
 
-  inline unsigned int PathZero() const {
-    return pathZero;
-  };
+  /**
+     @brief Computes the offset for a target path.
+   */
+  inline unsigned int PathOffset(unsigned int path, unsigned int &_levelDel) const {
+    _levelDel = levelDel;
+    return pathZero + (path & ~(0xff << levelDel));
+  }
 };
 
 
@@ -278,11 +282,22 @@ class BottomNode {
 
      @return MRRA index and reference to level delta.
    */
-  inline unsigned int MrraIdx(unsigned int levelIdx, unsigned int &_levelDel, bool reset) {
+  inline unsigned int MrraIdx(unsigned int levelIdx, unsigned int &_levelDel) {
     _levelDel = levelDel;
+    return mrraIdx;
+  }
+
+
+  /**
+     @brief Destructive accessor for MRRA index.
+
+     @param levelIdx is the level-relative node position.
+
+     @return MRRA index.
+   */
+  inline unsigned int MrraConsume(unsigned int levelIdx) {
     unsigned int _mrraIdx = mrraIdx;
-    if (reset)
-      MrraReset(levelIdx);
+    MrraReset(levelIdx);
 
     return _mrraIdx;
   }
@@ -296,6 +311,7 @@ class SplitPair {
   int setIdx;
 
  public:
+  
   inline void Init(unsigned int _bottomIdx, int _restageIdx) {
     bottomIdx = _bottomIdx;
     restageIdx = _restageIdx;
@@ -309,17 +325,23 @@ class SplitPair {
     setIdx = _setIdx;
   }
 
-  
+
+  /**
+     @brief Accessor for 'bottomIdx'.
+   */
+  inline unsigned int BottomIdx() const {
+    return bottomIdx;
+  }
+
+
   inline unsigned int BottomIdx(unsigned int &_restageIdx) const {
     _restageIdx = restageIdx;
 
     return bottomIdx;
   }
 
-
-  inline bool Split(int &_setIdx) const {
-    _setIdx = setIdx;
-    return setIdx != noSplit;
+  inline int SetIdx() const {
+    return setIdx;
   }
 };
 
@@ -339,15 +361,17 @@ class Bottom {
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
-
+  class Run *run; // Passes through to SSNode methods.
+  
   //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
   int RestageIdx(unsigned int bottomIdx);
-  unsigned int PairInit(class Run *run, const bool splitFlags[], std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode, std::vector<RestagePair> &restagePair);
-  class BV *RestageInit(const class IndexNode indexNode[], const std::vector<SplitPair> &pairNode, std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode);
+  class BitMatrix *RestageSetup(const bool splitFlags[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair);
+  void PairInit(const bool splitFlags[], const BitMatrix *ancReach, const class IndexNode indexNode[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair);
+  void SourceTarg(unsigned int levelDel, class BV *restageSource, BitMatrix *restageTarg, unsigned int restgeIdx, unsigned int botIdx, unsigned int levelIdx, unsigned int predIdx);
   void Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, const std::vector<PathNode> &pathNode, const class BV *bufSource);
   void Split(const std::vector<SplitPair> &pairNode, const class IndexNode indexNode[]);
-  void Split(const class IndexNode indexNode[], const SplitPair &pairNode);
+  void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
 
   
   inline bool Singleton(unsigned int botIdx) {
@@ -376,7 +400,7 @@ class Bottom {
   Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int bagCount, unsigned int _nPred, unsigned int _nPredFac);
   ~Bottom();
   void LevelInit();
-  void Level(class Run *run, const bool splitFlags[], const class IndexNode indexNode[]);
+  void Level(const bool splitFlags[], const class IndexNode indexNode[]);
   void Overlap(unsigned int _splitNext);
   void DeOverlap();
   void LevelClear();
@@ -384,10 +408,17 @@ class Bottom {
   void Inherit(unsigned int _splitIdx, unsigned int nodeNext);
   unsigned int PathAccum(std::vector<RestageNode> &restageNode, unsigned int bottomIdx, unsigned int &_pathAccum);
   void SSWrite(unsigned int bottomIdx, int setIdx, unsigned int lhSampCount, unsigned lhIdxCount, double info);
-  class Run *Runs();
   unsigned int BufBit(unsigned int levelIdx, unsigned int predIdx);
 
   
+  /**
+     @brief Accessor.  SSNode only client.
+   */
+  inline class Run *Runs() {
+    return run;
+  }
+
+
   /**
      @brief Setter methods for sample path.
    */
@@ -461,9 +492,24 @@ class Bottom {
     bottomNode[bottomIdx].RunCount(runCount);
   }
 
+
+  inline unsigned int MrraIdx(unsigned int bottomIdx, unsigned int levelIdx, unsigned int &levelDel) {
+    return bottomNode[bottomIdx].MrraIdx(levelIdx, levelDel);
+  }
+
+
+  inline unsigned int MrraConsume(unsigned int bottomIdx, unsigned int levelIdx) {
+    return bottomNode[bottomIdx].MrraConsume(levelIdx);
+  }
+
   
-  inline unsigned int MrraIdx(unsigned int bottomIdx, unsigned int levelIdx, unsigned int &levelDel, bool reset = false) {
-    return bottomNode[bottomIdx].MrraIdx(levelIdx, levelDel, reset);
+  inline MRRA &Mrra(unsigned int bottomIdx, unsigned int &levelDel) {
+    unsigned int levelIdx, predIdx;
+    SplitCoords(bottomIdx, levelIdx, predIdx);
+
+    unsigned int mrraIdx = bottomNode[bottomIdx].MrraIdx(levelIdx, levelDel);
+    std::vector<MRRA> &mrraVec = *(end(mrraLevel) - levelDel);
+    return mrraVec[mrraIdx];
   }
 };
 

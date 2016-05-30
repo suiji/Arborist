@@ -139,14 +139,13 @@ SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[], unsigned int bagC
 
    @return split count.
 */
-bool *SplitPred::LevelInit(Index *index, IndexNode indexNode[], Bottom *_bottom, unsigned int _levelCount, Run *&_run) {
+bool *SplitPred::LevelInit(Index *index, IndexNode indexNode[], Bottom *_bottom, unsigned int _levelCount) {
   bottom = _bottom;
   levelCount = _levelCount;
   bool *unsplitable = LevelPreset(index);
   SplitFlags(unsplitable);
   SetPrebias(indexNode); // Depends on state from LevelPreset()
 
-  _run = run;
   return splitFlags;
 }
 
@@ -174,8 +173,8 @@ void SplitPred::SetPrebias(IndexNode indexNode[]) {
 
    @return void.
  */
-bool *SPReg::LevelInit(Index *index, IndexNode indexNode[], Bottom *bottom, unsigned int _levelCount, Run *&_run) {
-  (void) SplitPred::LevelInit(index, indexNode, bottom, _levelCount, _run);
+bool *SPReg::LevelInit(Index *index, IndexNode indexNode[], Bottom *bottom, unsigned int _levelCount) {
+  (void) SplitPred::LevelInit(index, indexNode, bottom, _levelCount);
   if (predMono > 0) {
     unsigned int monoCount = _levelCount * nPred; // Clearly too big.
     ruMono = new double[monoCount];
@@ -194,7 +193,8 @@ bool *SPReg::LevelInit(Index *index, IndexNode indexNode[], Bottom *bottom, unsi
 
    @return void.
  */
-void SPReg::RunOffsets() {
+void SPReg::RunOffsets(const std::vector<unsigned int> &safeCount) {
+  run->RunSets(safeCount);
   run->OffsetsReg();
 }
 
@@ -202,7 +202,8 @@ void SPReg::RunOffsets() {
 /**
    @brief Sets quick lookup offsets for Run object.
  */
-void SPCtg::RunOffsets() {
+void SPCtg::RunOffsets(const std::vector<unsigned int> &safeCount) {
+  run->RunSets(safeCount);
   run->OffsetsCtg();
 }
 
@@ -312,6 +313,16 @@ void SplitPred::LevelClear() {
   run->LevelClear();
   delete [] splitFlags;
   splitFlags = 0;
+}
+
+
+void SplitPred::Split(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode *spn, int setIdx) {
+  if (setIdx >= 0) {
+    SplitFac(bottomIdx, setIdx, indexNode, spn);
+  }
+  else {
+    SplitNum(bottomIdx, indexNode, spn);
+  }
 }
 
 
