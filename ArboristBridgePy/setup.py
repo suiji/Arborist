@@ -47,10 +47,7 @@ extensions = [
 
 
 
-#TODO
-# msvc may raise this error if '/openmp' flag is added:
-# error C3016: index variable in OpenMP 'for' statement must have signed integral type
-win_compile_args = ['/Ox', '/fp:fast']
+win_compile_args = ['/openmp', '/Ox', '/fp:fast']
 win_link_args = []
 unix_compile_args = ['-std=c++11', '-fopenmp','-O3','-ffast-math']
 unix_link_args = ['-fopenmp']
