@@ -58,11 +58,12 @@ class SSNode {
 
      @return void, with output reference parameters.
    */  
-  void inline LHSizes(unsigned int &_lhSCount, unsigned int &_lhIdxCount) {
+  void inline LHSizes(unsigned int &_lhSCount, unsigned int &_lhIdxCount) const {
     _lhSCount = sCount;
     _lhIdxCount = lhIdxCount;
   }
 
+  
   double NonTerminal(class SamplePred *samplePred, class PreTree *preTree, class Bottom *bottom, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptL, unsigned int &ptR);
 };
 

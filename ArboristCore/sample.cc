@@ -229,7 +229,7 @@ void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<d
  */
 void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const RowRank *rowRank) {
   unsigned int *sCountRow = RowSample();
-  unsigned int slotBits = BV::SlotBits();
+  unsigned int slotBits = BV::SlotElts();
 
   bagSum = 0.0;
   int slot = 0;

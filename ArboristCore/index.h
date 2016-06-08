@@ -159,16 +159,20 @@ class IndexNode {
 */
 class NodeCache : public IndexNode {
   class SSNode *ssNode; // Convenient to cache for LH/RH partition.
+  bool terminal; // True unless next-level descendants produced.
   static unsigned int minNode;
+  unsigned int lhIdxCount; // Total indices over LH:  splits only.
+  unsigned int lhSCount; // Total samples cover LH:  splits only.
   double lhSum; // Sum of responses over LH:  splits only.
   unsigned int ptL; // LH index into pre-tree:  splits only.
   unsigned int ptR; // RH index into pre-tree:  splits only.
  public:
   static void Immutables(unsigned int _minNode);
   static void DeImmutables();
+  NodeCache();
   void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
   void Successors(class Index *index, class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhCount, unsigned int &rhCount);
-  void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext) const;
+  void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext);
 
   /**
      @brief Copies indexNode entry into corresponding nodeCache.
@@ -212,6 +216,24 @@ class NodeCache : public IndexNode {
   }
 
 
+  
+  /**
+     @brief Transmits location coordinates for interlevel activity.
+
+     @param _start outputs starting index position.
+
+     @param _extent output index count.
+
+     @return true iff no successors produced.
+   */
+  inline bool Terminal(unsigned int &_start, unsigned int &_extent, unsigned int &_lhIdxCount) const {
+    _start = lhStart;
+    _extent = idxCount;
+    _lhIdxCount = lhIdxCount; // nonzero iff nonterminal.
+
+    return terminal;
+  }
+  
 };
 
 class Index {
@@ -220,7 +242,7 @@ class Index {
   void ArgMax(NodeCache nodeCache[]);
   unsigned int LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext);
   NodeCache *LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext);
-  void LevelProduce(NodeCache *nodeCache, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext);
+  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext);
  protected:
   IndexNode *indexNode;  
   const unsigned int bagCount;
@@ -243,9 +265,9 @@ class Index {
   void SetPrebias();
   void Levels();
   void PredicateBits(class BV *bitsLH, class BV *bitsRH, int &lhIdxTot, int &rhIdxTot) const;
-  void LRLive(const class Bottom *bottom) const;
+  void LRLive(class Bottom *bottom, const NodeCache *nodeCache, unsigned int level) const;
 
-
+  
   /**
      @brief 'bagCount' accessor.
 

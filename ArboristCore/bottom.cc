@@ -52,7 +52,7 @@ Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsi
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int bagCount, unsigned int _nPred, unsigned int _nPredFac) : samplePath(new SamplePath[bagCount]), nPred(_nPred), nPredFac(_nPredFac), ancTot(0), levelCount(1), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
+Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int bagCount, unsigned int _nPred, unsigned int _nPredFac) : samplePath(new SamplePath[bagCount]), nPred(_nPred), nPredFac(_nPredFac), ancTot(0), levelCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pathVec(new unsigned char[bagCount * nPred]), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
   bottomNode.reserve(nPred);
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     bottomNode[predIdx].Init(PBTrain::FacCard(predIdx));
@@ -80,10 +80,33 @@ Bottom::~Bottom() {
   bufferLevel.clear();
   mrraLevel.clear();
 
+  delete bvLeft;
+  delete bvDead;
+  delete [] pathVec;
   delete [] samplePath;
   delete splitPred;
   delete splitSig;
 }
+
+
+void Bottom::PathLeft(unsigned int sIdx) const {
+   samplePath[sIdx].PathLeft();
+   bvLeft->SetBit(sIdx, true);
+}
+
+
+void Bottom::PathRight(unsigned int sIdx) const {
+    samplePath[sIdx].PathRight();
+    bvLeft->SetBit(sIdx, false);
+}
+
+
+void Bottom::PathExtinct(unsigned int sIdx) const {
+  samplePath[sIdx].PathExtinct();
+  bvDead->SetBit(sIdx, true);
+}
+  
+
 
 
 /**
@@ -222,7 +245,7 @@ void Bottom::PairInit(const bool splitFlags[], const BitMatrix *ancReach, const 
   if (!restageNode.empty()) {
     bufferLevel.push_back(restageTarg);
     mrraLevel.push_back(mrraTarg);
-    Restage(restageNode, restagePair, pathNode, restageSource);
+    Restage(restageNode, restagePair, &pathNode[0], restageSource);
   }
   else {
     delete restageTarg;
@@ -247,9 +270,8 @@ void Bottom::SourceTarg(unsigned int levelDel, BV *restageSource, BitMatrix *res
   // predictors reach along the path.
 
   // Source buffer looked up by node position at MRRA's level:
-  BitMatrix *bufMRRA = *(end(bufferLevel) - levelDel);
-  bool sourceBit = bufMRRA->TestBit(mrraIdx, predIdx);
-
+  bool sourceBit = SourceBit(mrraIdx, predIdx, levelDel);
+  
   // Records source bit for dense pair reaching this level.
   restageSource->SetBit(PairOffset(restageIdx, predIdx), sourceBit);
 
@@ -318,7 +340,7 @@ int Bottom::RestageIdx(unsigned int bottomIdx) {
 
    @return void, with side-effected restaging buffers.
  */
-void Bottom::Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, const std::vector<PathNode> &pathNode, const BV *restageSource) {
+void Bottom::Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, PathNode *pathNode, const BV *restageSource) {
   int pairIdx, nodeIdx, predIdx;
 
 #pragma omp parallel default(shared) private(pairIdx, nodeIdx, predIdx)
@@ -326,7 +348,7 @@ void Bottom::Restage(const std::vector<RestageNode> &restageNode, const std::vec
 #pragma omp for schedule(dynamic, 1)
     for (pairIdx = 0; pairIdx < int(restagePair.size()); pairIdx++) {
       restagePair[pairIdx].Coords(nodeIdx, predIdx);
-      restageNode[nodeIdx].Restage(this, samplePred, pathNode, predIdx, restageSource->TestBit(PairOffset(nodeIdx, predIdx)) ? 1 : 0);
+      restageNode[nodeIdx].Restage(this, pathNode, predIdx, restageSource->TestBit(PairOffset(nodeIdx, predIdx)) ? 1 : 0);
     }
   }
 }
@@ -335,33 +357,43 @@ void Bottom::Restage(const std::vector<RestageNode> &restageNode, const std::vec
 /**
    @brief General, multi-level restaging.
  */
-void RestageNode::Restage(Bottom *bottom, SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const {
-  if (levelDel == 1) {
-    RestageTwo(bottom, samplePred, pathNode, predIdx, sourceBit);
-    return;
-  }
+void RestageNode::Restage(Bottom *bottom, PathNode *pathNode, unsigned int predIdx, unsigned int sourceBit) const {
   int targOffset[1 << BottomNode::pathMax];
   unsigned int pathCount = 1 << levelDel;
   for (unsigned int path = 0; path < pathCount; path++) {
     targOffset[path] = pathNode[pathZero + path].Offset();
   }
 
+  if (levelDel == 1) {
+    bottom->RestageOne(&pathNode[pathZero], targOffset, predIdx, sourceBit, startIdx, extent);
+  }
+  else {
+    bottom->RestageIrr(&pathNode[pathZero], targOffset, predIdx, sourceBit, startIdx, extent, levelDel);
+    }
+}
+
+
+/**
+   @brief Irregular restaging, suitable for smaller sample sets.
+
+   @return void.
+ */
+void Bottom::RestageIrr(PathNode *pathNode, int targOffset[], unsigned int predIdx, unsigned int sourceBit, unsigned int startIdx, unsigned int extent, unsigned int levelDel) {
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   samplePred->Buffers(predIdx, sourceBit, source, sIdxSource, targ, sIdxTarg);
 
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
-    int path;
-    if ((path = bottom->Path(sIdx, levelDel)) >= 0) {
+    if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
+      unsigned path = Path(sIdx, levelDel); // Irregular access:  8 bits.
       unsigned int destIdx = targOffset[path]++;
       targ[destIdx] = source[idx];
       sIdxTarg[destIdx] = sIdx;
     }
   }
-  // Target bit recorded during initialization.
 
-  Singletons(bottom, pathNode, targOffset, targ, predIdx);
+  Singletons(pathNode, targOffset, targ, predIdx, levelDel);
 }
 
 
@@ -369,28 +401,26 @@ void RestageNode::Restage(Bottom *bottom, SamplePred *samplePred, const std::vec
    @brief Specialized for two-path case, bypasses stack array.
 
  */
-void RestageNode::RestageTwo(Bottom *bottom, SamplePred *samplePred, const std::vector<PathNode> &pathNode, unsigned int predIdx, unsigned int sourceBit) const {
+void Bottom::RestageOne(PathNode *pathNode, int targOffset[], unsigned int predIdx, unsigned int sourceBit, unsigned int startIdx, unsigned int extent) {
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   samplePred->Buffers(predIdx, sourceBit, source, sIdxSource, targ, sIdxTarg);
 
-  unsigned int leftOff = pathNode[pathZero].Offset();
-  unsigned int rightOff = pathNode[pathZero + 1].Offset();
+  unsigned int leftOff = targOffset[0];
+  unsigned int rightOff = targOffset[1];
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
-    int path;
-    if ((path = bottom->Path(sIdx, levelDel)) >= 0) {
+    if (!bvDead->TestBit(sIdx)) {
+      unsigned int path = Path(sIdx, 1);
       unsigned int destIdx = path == 0 ? leftOff++ : rightOff++;
       targ[destIdx] = source[idx];
       sIdxTarg[destIdx] = sIdx;
     }
   }
 
-  // Target bit recorded during initialization.
-  int targOffset[2];
   targOffset[0] = leftOff;
   targOffset[1] = rightOff;
-  Singletons(bottom, pathNode, targOffset, targ, predIdx);
+  Singletons(pathNode, targOffset, targ, predIdx, 1);
 }
 
 
@@ -405,14 +435,14 @@ void RestageNode::RestageTwo(Bottom *bottom, SamplePred *samplePred, const std::
 
    @return void, with side-effected bottom nodes.
  */
-void RestageNode::Singletons(Bottom *bottom, const std::vector<PathNode> &pathNode, const int targOffset[], const SPNode targ[], unsigned int predIdx) const {
+void Bottom::Singletons(PathNode *pathNode, const int targOffset[], const SPNode targ[], unsigned int predIdx, unsigned int levelDel) {
   unsigned int pathTot = 1 << levelDel;
   for (unsigned int path = 0; path < pathTot; path++) {
     int levelIdx, offset;
-    pathNode[pathZero + path].Coords(levelIdx, offset);
+    pathNode[path].Coords(levelIdx, offset);
     if (levelIdx >= 0) {
       if (targ->IsRun(offset, targOffset[path]-1)) {
-    	bottom->SetSingleton(levelIdx, predIdx);
+    	SetSingleton(levelIdx, predIdx);
       }
     }
   }
@@ -443,15 +473,22 @@ void Bottom::Split(const std::vector<SplitPair> &pairNode, const IndexNode index
 void Bottom::Split(const IndexNode indexNode[], unsigned int bottomIdx, int setIdx) {
   unsigned int levelIdx, predIdx;
   SplitCoords(bottomIdx, levelIdx, predIdx);
-  splitPred->Split(bottomIdx, &indexNode[levelIdx], samplePred->PredBase(predIdx, BufBit(levelIdx, predIdx)), setIdx);
+  splitPred->Split(bottomIdx, &indexNode[levelIdx], samplePred->PredBase(predIdx, SourceBit(levelIdx, predIdx)), setIdx);
 }
 
 
 /**
-   @brief Reports source buffer.
+   @brief Reports source buffer for node restaged at specified level.
  */
-unsigned int Bottom::BufBit(unsigned int levelIdx, unsigned int predIdx) {
-  return bufferLevel.back()->TestBit(levelIdx, predIdx) ? 1 : 0;
+unsigned int Bottom::SourceBit(unsigned int mrraIdx, unsigned int predIdx, unsigned int levelDel) {
+  // Source buffer looked up by node position at MRRA's level:
+  if (levelDel == 0) {
+    return bufferLevel.back()->TestBit(mrraIdx, predIdx) ? 1 : 0;
+  }
+  else {
+    BitMatrix *bufMRRA = *(end(bufferLevel) - levelDel);
+    return bufMRRA->TestBit(mrraIdx, predIdx) ? 1 : 0;
+  }
 }
 
 
@@ -502,24 +539,17 @@ void Bottom::LevelClear() {
 
    @return void.
  */
-void Bottom::Overlap(unsigned int _splitNext) {
-  levelCount = _splitNext;
-  preStage.reserve(levelCount * nPred);
+void Bottom::Overlap(unsigned int splitNext) {
+  preStage.reserve(splitNext * nPred);
 }
 
 
 /**
    @brief Consumes all fields in current NodeCache item relevant to restaging.
 
-   @param _splitIdx is the split index.
+   @param _levelIdx is the index of the parent.
 
-   @param _lNext is the index node offset of the LHS in the next level.
-
-   @param _rNext is the index node offset of the RHS in the next level.
-
-   @param _lhIdxCount is the count of indices associated with the split's LHS.
-
-   @param _rhIdxCount is the count of indices associated with the split's RHS.
+   @param nodeNext is the index of the heir.
 
    @return void.
 */
@@ -531,11 +561,14 @@ void Bottom::Inherit(unsigned int _levelIdx, unsigned int nodeNext) {
 
 
 /**
-  @brief Promotes incipient BottomNode array.
+  @brief Promotes incipient BottomNode vector from staging area.
+
+  @param _levelCount is the number of nodes in the upcoming level.
 
   @return void.
 */
-void Bottom::DeOverlap() {
+void Bottom::DeOverlap(unsigned int _levelCount) {
+  levelCount = _levelCount;
   bottomNode = move(preStage);
 }
 

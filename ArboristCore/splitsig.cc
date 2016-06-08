@@ -119,7 +119,7 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Bottom *
   // Replays entire index extent of node with RH pretree index then,
   // where appropriate, overwrites by replaying with LH index in the
   // loop to follow.
-  unsigned int sourceBit = bottom->BufBit(splitIdx, predIdx);
+  unsigned int sourceBit = bottom->SourceBit(splitIdx, predIdx);
   (void) preTree->Replay(samplePred, predIdx, sourceBit, start, end, ptRH);
 
   Run *run = bottom->Runs();
@@ -142,7 +142,7 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Bottom *
  */
 double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, Bottom *bottom, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
   unsigned int rkLow, rkHigh;
-  unsigned int sourceBit = bottom->BufBit(splitIdx, predIdx);
+  unsigned int sourceBit = bottom->SourceBit(splitIdx, predIdx);
   samplePred->SplitRanks(predIdx, sourceBit, start + lhIdxCount - 1, rkLow, rkHigh);
   preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
   

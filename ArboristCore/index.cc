@@ -92,6 +92,8 @@ Index::~Index() {
 IndexNode::IndexNode() : splitIdx(0), lhStart(0), idxCount(0), sCount(0), sum(0.0), minInfo(0.0), ptId(0), path(0) {
 }
 
+NodeCache::NodeCache() : IndexNode(), terminal(true) {}
+
 /**
    @brief Instantiates a block of PreTees for bulk return, but may or may
    not build them concurrently.
@@ -140,10 +142,9 @@ void  Index::Levels() {
   for (unsigned int level = 0; levelCount > 0; level++) {
     bottom->LevelInit();
     unsigned int splitNext, lhNext, leafNext;
-
     NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhNext, leafNext);
     if (splitNext != 0 && level + 1 != totLevels) {
-      LevelProduce(nodeCache, levelCount, splitNext, lhNext, leafNext);
+      LevelProduce(nodeCache, level, levelCount, splitNext, lhNext, leafNext);
       levelCount = splitNext;
     }
     else {
@@ -213,14 +214,11 @@ unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, 
 
    @return void, plus output reference parameters.
 */
-void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext) const {
+void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext) {
   if (ssNode == 0)
     return;
-  
-  unsigned int lhSCount;
-  unsigned int lhIdxCount;
-  ssNode->LHSizes(lhSCount, lhIdxCount);
 
+  ssNode->LHSizes(lhSCount, lhIdxCount);
   if (Splitable(lhIdxCount)) {
     lhSplitNext++;
   }
@@ -259,7 +257,7 @@ NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext,
 }
 
 
-void Index::LevelProduce(NodeCache *nodeCache, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext) {
+void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext) {
   levelBase += levelWidth;
   levelWidth = splitNext + leafNext;
 
@@ -277,8 +275,8 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int levelCount, unsigned
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Successors(this, preTree, samplePred, bottom, lhSplitNext, lhCount, rhCount);
   }
-  bottom->DeOverlap();
-  LRLive(bottom);  
+  LRLive(bottom, nodeCache, level);
+  bottom->DeOverlap(splitNext);
 
   // Assigns start values to consecutive nodes at next level.
   /*
@@ -335,15 +333,15 @@ void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom
 */
 void NodeCache::Successors(Index *index, PreTree *preTree, SamplePred *samplePred, Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
   if (ssNode != 0) {
-    unsigned int lhIdxCount, lhSCount;
-    ssNode->LHSizes(lhSCount, lhIdxCount);
     if (Splitable(lhIdxCount)) {
+      terminal = false;
       unsigned int lNext = lhSplitCount++;
       index->NextLH(lNext, ptL, lhStart, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
       bottom->Inherit(splitIdx, lNext);
     }
 
     if (Splitable(idxCount - lhIdxCount)) {
+      terminal = false;
       unsigned int rNext = lhSplitNext + rhSplitCount++;
       index->NextRH(rNext, ptR, lhStart + lhIdxCount, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
       bottom->Inherit(splitIdx, rNext);
@@ -367,7 +365,7 @@ void NodeCache::Successors(Index *index, PreTree *preTree, SamplePred *samplePre
  */
 void Index::PredicateBits(BV *sIdxLH, BV *sIdxRH, int &lhIdxTot, int &rhIdxTot) const {
   lhIdxTot = rhIdxTot = 0;
-  unsigned int slotBits = BV::SlotBits();
+  unsigned int slotBits = BV::SlotElts();
   int slot = 0;
   for (unsigned int base = 0; base < bagCount; base += slotBits, slot++) {
     unsigned int lhBits = 0;
@@ -395,7 +393,7 @@ void Index::PredicateBits(BV *sIdxLH, BV *sIdxRH, int &lhIdxTot, int &rhIdxTot) 
 /**
    @brief 
  */
-void Index::LRLive(const Bottom *bottom) const {
+void Index::LRLive(Bottom *bottom, const NodeCache *nodeCache, unsigned int level) const {
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int levelOff; // Not dense w.r.t. levelIdx.
     if (LevelOffSample(sIdx, levelOff)) {
