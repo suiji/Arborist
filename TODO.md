@@ -1,7 +1,6 @@
-	Patient restaging.
+	Sparse internal representation.
+	Curborist:  regression.
 	Employ integer division in the absence of class weighting (classification).
-	Sparse predictors.
 	Out-of-memory "streaming".
 	Separate subtree training.
-	Curborist to Github.
 	
