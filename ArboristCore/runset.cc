@@ -290,7 +290,7 @@ unsigned int RunSet::DeWide() {
 
   HeapRandom();
   FRNode tempRun[maxWidth];
-  double *tempSum = new double(ctgWidth * maxWidth);
+  double *tempSum = new double[ctgWidth * maxWidth];
   // Copies runs referenced by the slot list to a temporary area.
   DePop(maxWidth);
   for (unsigned int i = 0; i < maxWidth; i++) {
