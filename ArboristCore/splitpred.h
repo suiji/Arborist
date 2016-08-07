@@ -29,22 +29,20 @@
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitPred {
-  static int predFixed;
+  static unsigned int predFixed;
   static std::vector<double> predProb;
 
   void SetPrebias(class IndexNode indexNode[]);
   void SplitFlags(bool unsplitable[]);
-  void SplitPredNull(bool splitFlags[]);
-  void SplitPredProb(const double ruPred[], bool splitFlags[]);
-  void SplitPredFixed(const double ruPred[], class BHPair heap[], bool splitFlags[]);
+  void SplitPredProb(unsigned int levelIdx, const double ruPred[], std::vector<unsigned int> &safeCount);
+  void SplitPredFixed(unsigned int levelIdx, const double ruPred[], class BHPair heap[], std::vector<unsigned int> &safeCount);
+
  protected:
   static unsigned int nPred;
   class Bottom *bottom;
   unsigned int levelCount; // # subtree nodes at current level.
-  
   class Run *run;
-  bool *splitFlags; // Indexed by pair.
-
+  void Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount);
  public:
   class SamplePred *samplePred;
   SplitPred(class SamplePred *_samplePred, unsigned int bagCount);
@@ -54,17 +52,21 @@ class SplitPred {
   class Run *Runs() {
     return run;
   }
-  void Split(unsigned int bottomIdx, const class IndexNode indexNode[], const class SPNode spn[], int setIdx);
+  void SetBottom(class Bottom *_bottom) {
+    bottom = _bottom;
+  }
+
+  void Split(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]);
   
   virtual ~SplitPred();
-  virtual bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount);
+  virtual void LevelInit(class Index *index, class IndexNode indexNode[], unsigned int levelCount);
   virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
   virtual bool *LevelPreset(const class Index *index) = 0;
   virtual double Prebias(unsigned int levelIdx, unsigned int sCount, double sum) = 0;
   virtual void LevelClear();
 
   virtual void SplitNum(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]) = 0;
-  virtual void SplitFac(unsigned int splitIdx, int runIdx, const class IndexNode indexNode[], const class SPNode spn[]) = 0;
+  virtual void SplitFac(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]) = 0;
 };
 
 
@@ -82,8 +84,8 @@ class SPReg : public SplitPred {
   void SplitNum(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]);
   void SplitNumWV(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[]);
   void SplitNumMono(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[], bool increasing);
-  void SplitFac(unsigned int splitIdx, int runIdx, const class IndexNode indexNode[], const class SPNode *nodeBase);
-  void SplitFacWV(unsigned int splitIdx, int runIdx, const class IndexNode *indexNode, const class SPNode spn[]);
+  void SplitFac(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode *nodeBase);
+  void SplitFacWV(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[]);
   unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], unsigned int start, unsigned int end);
   unsigned int HeapSplit(class RunSet *runSet, double sum, unsigned int sCountNode, unsigned int &lhIdxCount, double &maxGini);
 
@@ -96,7 +98,7 @@ class SPReg : public SplitPred {
   void RunOffsets(const std::vector<unsigned int> &safeCount);
   bool *LevelPreset(const class Index *index);
   double Prebias(unsigned int spiltIdx, unsigned int sCount, double sum);
-  bool *LevelInit(class Index *index, class IndexNode indexNode[], class Bottom *bottom, unsigned int levelCount);
+  void LevelInit(class Index *index, class IndexNode indexNode[], unsigned int levelCount);
   void LevelClear();
 };
 
@@ -174,8 +176,8 @@ class SPCtg : public SplitPred {
   static inline unsigned int CtgWidth() {
     return ctgWidth;
   }
-  void SplitFac(unsigned int splitIdx, int runIdx, const class IndexNode indexNode[], const class SPNode spn[]);
-  void SplitFacGini(unsigned int splitIdx, int runIdx, const class IndexNode *indexNode, const class SPNode spn[]);
+  void SplitFac(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]);
+  void SplitFacGini(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[]);
 };
 
 

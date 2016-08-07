@@ -20,6 +20,8 @@
 
 #include <deque>
 #include <vector>
+#include <map>
+
 
 /**
    @brief Records sample's recent branching path.
@@ -67,20 +69,37 @@ class SamplePath {
 
 
 /**
+   @brief Coordinate pair defining most-recently-restaged cell within
+   SamplePred block.
+ */
+class Cell {
+  unsigned int start;
+  unsigned int extent;
+ public:
+
+  inline void Init(unsigned int _start, unsigned int _extent) {
+    start = _start;
+    extent = _extent;
+  }
+
+  
+  /**
+     @brief Dual field accessor.
+   */
+  inline void Ref(unsigned int &_start, unsigned int &_extent) {
+    _start = start;
+    _extent = extent;
+  }
+};
+
+
+/**
    @brief Records node and offset reached by path from MRRA.
  */
 class PathNode {
-  int levelIdx; // Negative iff path extinct.
-  int offset; // Target offset for path.
+  unsigned int levelIdx; // < noIndex iff path extinct.
+  unsigned int offset; // Target offset for path.
  public:
-
-  /**
-     @brief Initializes to extinct path.
-   */
-  void Init() {
-    levelIdx = -1;
-    offset = -1;
-  }
 
   
   /**
@@ -92,7 +111,7 @@ class PathNode {
   }
   
 
-  inline void Coords(int &_levelIdx, int &_offset) const {
+  inline void Coords(unsigned int &_levelIdx, unsigned int &_offset) const {
     _offset = offset;
     _levelIdx = levelIdx;
   }
@@ -101,317 +120,232 @@ class PathNode {
   inline int Offset() const {
     return offset;
   }
-};
 
 
-class RestageNode {
-  unsigned int startIdx;
-  unsigned int extent;// Requires access to start, end
-  unsigned int pathZero; // Beginning index of path offsets within 'pathAccum'.
-  unsigned char levelDel; // Level difference between creation and restaging.
- public:
-
-  void Restage(class Bottom *bottom, PathNode *pathNode, unsigned int predIdx, unsigned int sourceBit) const;
-
-  
-  /**
-     @brief Initializes the node.  The first three parameters are the immutable state of the MRRA.
-
-     @param _pathZero is an accumulated starting index for restaging targets.
-
-     @return void.
-   */
-  inline void Init(unsigned int _startIdx, unsigned int _extent, unsigned int _levelDel, unsigned int _pathZero) {
-    startIdx = _startIdx;
-    extent = _extent;
-    pathZero = _pathZero;
-    levelDel = _levelDel;
-  }
-
-
-  /**
-     @brief Computes the offset for a target path.
-   */
-  inline unsigned int PathOffset(unsigned int path, unsigned int &_levelDel) const {
-    _levelDel = levelDel;
-    return pathZero + (path & ~(0xff << levelDel));
+  inline unsigned int Idx() {
+    return levelIdx;
   }
 };
 
+
+typedef std::pair<unsigned int, unsigned int> SplitPair;
 
 /**
-   @brief Bundling of RestageNode and predictor indices:  1/many.
+   @brief Split/predictor coordinate pair.
  */
-class RestagePair {
-  unsigned int nodeIdx; // RestageNode index.
-  unsigned int predIdx; // Predictor index.
- public:
-
-  inline void Init(unsigned int _nodeIdx, unsigned int _predIdx) {
-    nodeIdx = _nodeIdx;
-    predIdx = _predIdx;
-  }
-  
-
-  void Coords(int &_nodeIdx, int &_predIdx) const {
-    _nodeIdx = nodeIdx;
-    _predIdx = predIdx;
-  }
-};
+typedef std::pair<unsigned int, unsigned int> SPCoord;
 
 
 /**
-  @brief Most-recently restaged ancestor.
-*/
-
-class MRRA {
-  int restageIdx; // Index for external reference.  Cached for level.
-  unsigned int start; // Starting index of cell within buffer.
-  unsigned int extent; // Count of indices within cell.
-
-public:
-  void Init(unsigned int _start, unsigned int _extent) {
-    restageIdx = -1;
-    start = _start;
-    extent = _extent;
-  }
-
-
-  /**
-     @brief Accessor.
-   */
-  unsigned int RestageIdx() {
-    return restageIdx;
-  }
-
-
-  void Reset() { // Must be called for reuse in subsequent levels.
-    restageIdx = -1;
-  }
-
-  
-  unsigned int PathAccum(unsigned int levelDel, unsigned int &pathAccum, std::vector<RestageNode> &restageNode);
-};
-
-
-/**
-   @brief Guides splitting and memory-locality operations for the most recently
-   trained tree levels.
+   @brief Per-level reaching definitions.
  */
-class BottomNode {
-  unsigned int runCount;
-  unsigned int mrraIdx; // Level-relative node position from which restaging.
-  unsigned char levelDel; // # levels back at which restaging occurred:  <= pathMax.
+class Level {
+  const unsigned int nPred;
+  const unsigned int splitCount;
+  const unsigned int noIndex; // Inattainable node index value.
+  unsigned int defCount; // # live definitions.
+  unsigned char del; // Position in deque.  Increments.
+  // Persistent:
+  std::vector<Cell> cell; // Stage coordinates, by node.
+  std::vector<unsigned int> parent; // Indexed by node.
 
+  // More elegant, parsimonious yet slower to map SplitPair to node*:
+  std::vector<unsigned int> def; // Indexed by pair-offset
+
+  class BitMatrix *defined; // Indexed by pair.
+  class BitMatrix *buffer; // Indexed by pair.
+  // Recomputed:
+  std::vector<PathNode> pathNode; // Indexed by <node, predictor> pair.
+  std::vector<unsigned int> liveCount; // Indexed by node.
  public:
-  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
+
+  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int noIndex);
+  ~Level();
+  bool Defines(unsigned int &mrraIdx, unsigned int predIdx);
+  unsigned int Definition(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount);
+  void AddDef(PathNode pathReach[], unsigned int reach, unsigned int predIdx, unsigned int defRC, unsigned int destBit);
+  void Flush(class Bottom *bottom, bool forward = true);
+  void FlushDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx);
+  bool NonreachPurge();
+  void PurgeDef(unsigned int mrraIdx, unsigned int predIdx);
+  void Paths();
+  void PathInit(unsigned int &mrraIdx, unsigned int path, unsigned int levelIdx, unsigned int start);
+  void Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par);
+  void CellBounds(const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent);
+  void RootDef(unsigned int nPred);
+  void OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]);
+  void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SplitPair &mrra, Level *levelFront);  
+
 
   /**
-     @brief Level-zero initializer.
+     @brief Will overflow if level sufficiently fat:  switch to depth-first
+     in such regimes.
 
-     @param _runCount is an upper bound on the number of factor levels.
-
-     @return void.
+     @return offset strided by 'nPred'.
    */
-  inline void Init(unsigned int _runCount) {
-    runCount = _runCount;
-    mrraIdx = 0;
-    levelDel = 0;
-  }
-
-  
-  /**
-     @brief Sets or Inherits values derived from parent.
-
-     @return void.
-   */
-  inline void Inherit(BottomNode &botLevel) {
-    runCount = botLevel.runCount;
-    mrraIdx = botLevel.mrraIdx;
-    levelDel = botLevel.levelDel + 1;
-  }
-
-  
-  /**
-     @brief Indicates whether the node's MRRA requires requres restaging.
-
-     @return true iff distance to MRRA's level has reached the path maximum.
-   */
-  inline bool Exhausted() const {
-    return levelDel >= pathMax;
+  inline unsigned int PairOffset(unsigned int mrraIdx, unsigned int predIdx) {
+    return mrraIdx * nPred + predIdx;
   }
 
 
   /**
-     @brief Accessor for runCount field.
+     @brief Shifts a value by the number of back-levels to compensate for
+     effects of binary branching.
+
+     @param val is the value to shift.
+
+     @return shifted value.
    */  
-  inline unsigned int RunCount() const {
-    return runCount;
+  inline unsigned int BackScale(unsigned int val) {
+    return val << (unsigned int) del;
+  }
+
+  
+  inline unsigned int ParentIdx(unsigned int mrraIdx) {
+    return parent[mrraIdx];
   }
 
 
   /**
-     @brief Setter for runCount.
-   */
-  inline void RunCount(int _runCount) {
+     @brief Accessor.  What more can be said?
+
+     @return definition count at this level.
+  */
+  inline unsigned int DefCount() {
+    return defCount;
+  }
+
+  inline unsigned int SplitCount() {
+    return splitCount;
+  }
+};
+
+
+/**
+   @brief Encapsulates information needed to drive splitting.
+ */
+class SplitCoord {
+  unsigned int splitPos; // Position in containing vector.
+  unsigned int levelIdx;
+  unsigned int predIdx;
+  unsigned int runCount;
+  int setPos; // runset offset, iff nonnegative.
+  unsigned char bufIdx; // Buffer containing SpiltPred block.
+ public:
+  void Init(unsigned int _splitPos, unsigned int _levelIdx, unsigned int _predIdx, unsigned int _bufIdx, unsigned int _runCount, int _setPos) {
+    splitPos = _splitPos;
+    levelIdx = _levelIdx;
+    predIdx = _predIdx;
+    bufIdx = _bufIdx;
+    runCount = _runCount;
+    setPos = _runCount > 0 ? _setPos : -1;
+  }
+
+  void Ref(unsigned int &_levelIdx, unsigned int &_predIdx, int &_setPos, unsigned int &_bufIdx) const {
+    _levelIdx = levelIdx;
+    _predIdx = predIdx;
+    _setPos = setPos;
+    _bufIdx = bufIdx;
+  }
+
+  void Split(const class SamplePred *samplePred, const class IndexNode indexNode[], class SplitPred *splitPred);
+
+
+  inline bool HasRuns() {
+    return setPos >= 0;
+  }
+
+
+  inline void SetRunCount(unsigned int _runCount) {
     runCount = _runCount;
   }
-
-
-  /**
-     @brief Accessor for MRRA, which can be reset.
-
-     @param _levelDel outputs level delta.
-
-     @param reset indicates whether to reset index and delta (for inheritance).
-
-     @return MRRA index and reference to level delta.
-   */
-  inline unsigned int MrraIdx(unsigned int &_levelDel) {
-    _levelDel = levelDel;
-    return mrraIdx;
-  }
-
-
-  /**
-     @brief Resets MRRA index and level delta to ajdust for effects of
-     restaging.  Crucial for inheritance at next level. 
-   */
-  inline void MrraReset(unsigned int levelIdx) {
-    mrraIdx = levelIdx;
-    levelDel = 0;
-  }
-
   
-  /**
-     @brief Destructive accessor for MRRA index.
-
-     @param levelIdx is the level-relative node position.
-
-     @return MRRA index.
-   */
-  inline unsigned int MrraConsume(unsigned int levelIdx) {
-    unsigned int _mrraIdx = mrraIdx;
-    MrraReset(levelIdx);
-
-    return _mrraIdx;
-  }
 };
 
 
-class SplitPair {
-  static const int noSplit = -2;
-  unsigned int bottomIdx;
-  int restageIdx; // Dense numbering of MRRAs reaching this level.
-  int setIdx;
-
+/**
+   @brief Coordinates referencing most-recently restaged ancester (MRRA).
+ */
+class RestageCoord {
+  SplitPair mrra; // Level-relative coordinates of reaching ancestor.
+  unsigned char del; // # levels back to referencing level.
+  unsigned char bufIdx; // buffer index of mrra's SamplePred.
  public:
-  
-  inline void Init(unsigned int _bottomIdx, int _restageIdx) {
-    bottomIdx = _bottomIdx;
-    restageIdx = _restageIdx;
-    setIdx = noSplit;
+
+  void inline Init(const SplitPair &_mrra, unsigned int _del, unsigned int _bufIdx) {
+    mrra = _mrra;
+    del = _del;
+    bufIdx = _bufIdx;
   }
 
-  
-  inline void SplitInit(unsigned int _bottomIdx, int _restageIdx, int _setIdx = -1) {
-    bottomIdx = _bottomIdx;
-    restageIdx = _restageIdx;
-    setIdx = _setIdx;
-  }
-
-
-  /**
-     @brief Accessor for 'bottomIdx'.
-   */
-  inline unsigned int BottomIdx() const {
-    return bottomIdx;
-  }
-
-
-  inline unsigned int BottomIdx(unsigned int &_restageIdx) const {
-    _restageIdx = restageIdx;
-
-    return bottomIdx;
-  }
-
-  inline int SetIdx() const {
-    return setIdx;
+  void inline Ref(SplitPair &_mrra, unsigned int &_del, unsigned int &_bufIdx) {
+    _mrra = mrra;
+    _del = del;
+    _bufIdx = bufIdx;
   }
 };
 
 
+/**
+ */
 class Bottom {
-  std::deque<class BitMatrix *> bufferLevel;
-  std::deque<std::vector<MRRA> > mrraLevel;
-  std::vector<BottomNode> bottomNode; // All levelCount x nPred cells referenceable at current level.
-  std::vector<BottomNode> preStage; // Temporary staging area.
-
-  SamplePath *samplePath;
+  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
   const unsigned int nPred;
   const unsigned int nPredFac;
-  unsigned int ancTot; // Current count of extant ancestors.
-  unsigned int levelCount; // # nodes in the level about to split.
+  const unsigned int bagCount;
+  Level *levelFront; // Current level.
+  std::deque<Level *> level;
+
+  std::vector<SplitCoord> splitCoord; // Schedule of splits.
+  static constexpr double efficiency = 0.1; // Work efficiency threshold.
+  
+  SamplePath *samplePath;
+  unsigned int frontCount; // # nodes in the level about to split.
   class BV *bvLeft;
   class BV *bvDead;
-  unsigned char *pathVec;
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
-  class Run *run; // Passes through to SSNode methods.
-  
+  class Run *run;
+  std::vector<RestageCoord> restageCoord;
   //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
+ public:
+  void ScheduleRestage(const SplitPair &mrra, unsigned int del, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
-  class BitMatrix *RestageSetup(const bool splitFlags[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair);
-  void PairInit(const bool splitFlags[], const BitMatrix *ancReach, const class IndexNode indexNode[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair);
-  void SourceTarg(unsigned int levelDel, class BV *restageSource, BitMatrix *restageTarg, unsigned int restgeIdx, unsigned int botIdx, unsigned int levelIdx, unsigned int predIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
-  void Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, PathNode *pathNode, const class BV *bufSource);
-  void Singletons(PathNode *pathNode, const int targOffset[], const class SPNode targ[], unsigned int predIdx, unsigned int levelDel);
-  
+  unsigned int ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop);
   void Split(const std::vector<SplitPair> &pairNode, const class IndexNode indexNode[]);
   void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
-  inline bool Singleton(unsigned int botIdx) {
-    return bottomNode[botIdx].RunCount() == 1;
-  }
-
-  
-  inline bool Singleton(unsigned int botIdx, int &runCount) {
-    return (runCount = bottomNode[botIdx].RunCount()) == 1;
+  inline void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SplitPair &mrra, unsigned int del) {
+    level[del]->Singletons(reachOffset, targ, mrra, levelFront);
   }
   
-  /**
-     @brief Determines whether MRRA should be scheduled for restaging.
-
-     @return true iff MRRA to be restaged.
-   */  
-  inline bool ScheduleMRRA(const bool splitFlags[], unsigned int botIdx) {
-    return !Singleton(botIdx) && (splitFlags[botIdx] || Exhausted(botIdx));
-  }
 
   
  public:
-  static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int bagCount);
-  static Bottom *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg, unsigned int bagCount);
+  static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int _bagCount);
+  static Bottom *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg, unsigned int _bagCount);
   
-  Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int bagCount, unsigned int _nPred, unsigned int _nPredFac);
+  Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac);
   ~Bottom();
   void LevelInit();
-  void Level(const bool splitFlags[], const class IndexNode indexNode[]);
-  void Overlap(unsigned int _splitNext);
-  void DeOverlap(unsigned int _levelCount);
-  void RestageIrr(PathNode *pathNode, int targOffset[], unsigned int sourceBit, unsigned int startIdx, unsigned int extent, unsigned int predIdx, unsigned int levelDel);
-  void RestageOne(PathNode *pathNode, int targOffset[], unsigned int sourceBit, unsigned int startIdx, unsigned int extent, unsigned int predIdx);
+  void Split(const class IndexNode indexNode[]);
+  void NewLevel(unsigned int _splitCount);
   void LevelClear();
-  const std::vector<class SSNode*> LevelSplit(class Index *index, class IndexNode indexNode[]);
-  void Inherit(unsigned int _splitIdx, unsigned int nodeNext);
-  unsigned int PathAccum(std::vector<RestageNode> &restageNode, unsigned int bottomIdx, unsigned int &_pathAccum);
-  void SSWrite(unsigned int bottomIdx, int setIdx, unsigned int lhSampCount, unsigned lhIdxCount, double info);
-  unsigned int SourceBit(unsigned int mrraIdx, unsigned int predIdx, unsigned int levelDel = 0);
+  const std::vector<class SSNode*> Split(class Index *index, class IndexNode indexNode[]);
+  void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
+  void SSWrite(unsigned int splitPos, unsigned int lhSampCount, unsigned lhIdxCount, double info);
   void PathLeft(unsigned int sIdx) const;
   void PathRight(unsigned int sIdx) const ;
   void PathExtinct(unsigned int sIdx) const ;
+  void FlushRear();
+  unsigned int DefForward(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount);
+  void Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
+  void Restage();
+  void Restage(RestageCoord &rsCoord);
+  SPNode *RestageOne(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx);
+  SPNode *RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int del, unsigned int bufIdx);
   
   /**
      @brief Accessor.  SSNode only client.
@@ -440,7 +374,7 @@ class Bottom {
   /**
      @brief Derives pair coordinates from positional index.
 
-     @param bottomIdx is the position within a vector assumed to be in level-major order.
+     @param splitIdx is split ordinal, a position within the vector of splits.
 
      @param levelIdx is the level-relative node index.
 
@@ -448,60 +382,85 @@ class Bottom {
 
      @return void, with reference paramters.
    */
-  inline void SplitCoords(unsigned int bottomIdx, unsigned int &levelIdx, unsigned int &predIdx) const {
-    levelIdx = bottomIdx / nPred;
-    predIdx = bottomIdx - nPred * levelIdx;
+  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx) const {
+    int dummy1;
+    unsigned int dummy2;
+    splitCoord[splitIdx].Ref(levelIdx, predIdx, dummy1, dummy2);
   }
 
 
   /**
-     @brief Derives offset from <major, minor> pair with 'nPred' as implicit stride.
+     @brief Variant of above, with runset position.
 
-     @param major is the major dimension.
+     @param splitIdx is split ordinal, a position within the vector of splits.
 
-     @param minor is the fastest-moving index.
+     @param levelIdx is the level-relative node index.
 
-     @return computed offset for pair.
+     @param predIdx is the predictor index.
+
+     @param runsetPos it the position within the runset vector.
+
+     @return void, with reference paramters.
    */
-  inline unsigned int PairOffset(unsigned int major, unsigned int minor) const {
-    return major * nPred + minor;
+  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx, int &runsetPos) const {
+    unsigned int dummy;
+    splitCoord[splitIdx].Ref(levelIdx, predIdx, runsetPos, dummy);
+  }
+
+
+  /**
+     @brief Variant of above, with runset position.
+
+     @param splitIdx is split ordinal, a position within the vector of splits.
+
+     @param levelIdx is the level-relative node index.
+
+     @param predIdx is the predictor index.
+
+     @param runsetPos it the position within the runset vector.
+
+     @return void, with reference paramters.
+   */
+  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx, int &runsetPos, unsigned int &bufIdx) const {
+    splitCoord[splitIdx].Ref(levelIdx, predIdx, runsetPos, bufIdx);
+  }
+
+
+  inline void SetRunCount(unsigned int splitIdx, int runCount) {
+    splitCoord[splitIdx].SetRunCount(runCount);
+  }
+
+  inline void CellBounds(unsigned int del, const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
+    return level[del]->CellBounds(mrra, startIdx, extent);
+  }
+
+
+  void OffsetClone(const SplitPair &mrra, unsigned int del, unsigned int reachOffset[]) {
+    level[del]->OffsetClone(mrra, reachOffset);
+  }
+
+  bool HasRuns(unsigned int splitPos) {
+    return splitCoord[splitPos].HasRuns();
   }
 
   
-  inline bool Exhausted(unsigned int idx) const {
-    return bottomNode[idx].Exhausted();
+  unsigned int SplitCount(unsigned int del) {
+    return level[del]->SplitCount();
   }
 
 
-  inline void SetSingleton(unsigned int levelIdx, unsigned int predIdx) {
-    bottomNode[levelIdx * nPred + predIdx].RunCount(1);
+  /**
+     @brief Flips source bit if a definition reaches to current level.
+
+     @return void
+   */
+  inline void AddDef(PathNode pathReach[], unsigned int reach, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
+    levelFront->AddDef(pathReach, reach, predIdx, defRC, destBit);
   }
 
-  
-  inline void RunCount(unsigned int bottomIdx, int runCount) {
-    bottomNode[bottomIdx].RunCount(runCount);
-  }
-
-
-  inline unsigned int MrraIdx(unsigned int bottomIdx, unsigned int &levelDel) {
-    return bottomNode[bottomIdx].MrraIdx(levelDel);
-  }
-
-
-  inline unsigned int MrraConsume(unsigned int bottomIdx, unsigned int levelIdx) {
-    return bottomNode[bottomIdx].MrraConsume(levelIdx);
-  }
-
-  
-  inline MRRA &Mrra(unsigned int bottomIdx, unsigned int &levelDel) {
-    unsigned int levelIdx, predIdx;
-    SplitCoords(bottomIdx, levelIdx, predIdx);
-
-    unsigned int mrraIdx = bottomNode[bottomIdx].MrraIdx(levelDel);
-    std::vector<MRRA> &mrraVec = *(end(mrraLevel) - levelDel);
-    return mrraVec[mrraIdx];
-  }
+    
 };
+
 
 #endif
 

@@ -27,7 +27,7 @@ using namespace std;
 #include "predblock.h"
 
 unsigned int SplitPred::nPred = 0;
-int SplitPred::predFixed = 0;
+unsigned int SplitPred::predFixed = 0;
 std::vector<double> SplitPred::predProb(0);
 
 double *SPReg::mono = 0;
@@ -139,14 +139,15 @@ SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[], unsigned int bagC
 
    @return split count.
 */
-bool *SplitPred::LevelInit(Index *index, IndexNode indexNode[], Bottom *_bottom, unsigned int _levelCount) {
-  bottom = _bottom;
+void SplitPred::LevelInit(Index *index, IndexNode indexNode[], unsigned int _levelCount) {
   levelCount = _levelCount;
+  std::vector<unsigned int> safeCount;
   bool *unsplitable = LevelPreset(index);
-  SplitFlags(unsplitable);
-  SetPrebias(indexNode); // Depends on state from LevelPreset()
+  Splitable(unsplitable, safeCount);
+  delete [] unsplitable;
 
-  return splitFlags;
+  SetPrebias(indexNode); // Depends on state from LevelPreset()
+  RunOffsets(safeCount);
 }
 
 
@@ -173,8 +174,8 @@ void SplitPred::SetPrebias(IndexNode indexNode[]) {
 
    @return void.
  */
-bool *SPReg::LevelInit(Index *index, IndexNode indexNode[], Bottom *bottom, unsigned int _levelCount) {
-  (void) SplitPred::LevelInit(index, indexNode, bottom, _levelCount);
+void SPReg::LevelInit(Index *index, IndexNode indexNode[], unsigned int _levelCount) {
+  SplitPred::LevelInit(index, indexNode, _levelCount);
   if (predMono > 0) {
     unsigned int monoCount = _levelCount * nPred; // Clearly too big.
     ruMono = new double[monoCount];
@@ -183,8 +184,6 @@ bool *SPReg::LevelInit(Index *index, IndexNode indexNode[], Bottom *bottom, unsi
   else {
     ruMono = 0;
   }
-
-  return splitFlags;
 }
 
 
@@ -209,17 +208,18 @@ void SPCtg::RunOffsets(const std::vector<unsigned int> &safeCount) {
 
 
 /**
-   @brief Initializes pair-specific information, such as splitflags.
+   @brief Signals Bottom to schedule splitable pairs.
 
    @param unsplitable lists unsplitable nodes.
 
    @return void.
 */
-void SplitPred::SplitFlags(bool unsplitable[]) {
+void SplitPred::Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount) {
+    // TODO:  Pre-empt overflow.
   int cellCount = levelCount * nPred;
+
   double *ruPred = new double[cellCount];
   CallBack::RUnif(cellCount, ruPred);
-  splitFlags = new bool[cellCount];
 
   BHPair *heap;
   if (predFixed > 0)
@@ -227,38 +227,21 @@ void SplitPred::SplitFlags(bool unsplitable[]) {
   else
     heap = 0;
 
-  int levelIdx;
-  unsigned int splitOff;
-#pragma omp parallel default(shared) private(splitOff, levelIdx)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (levelIdx = 0; levelIdx < int(levelCount); levelIdx++) {
-    splitOff = levelIdx * nPred;
-    if (unsplitable[levelIdx]) { // No predictor splitable
-      SplitPredNull(&splitFlags[splitOff]);
-    }
-    else if (predFixed == 0) { // Probability of predictor splitable.
-      SplitPredProb(&ruPred[splitOff], &splitFlags[splitOff]);
+  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
+    if (unsplitable[levelIdx])
+      continue; // No predictor splitable
+    unsigned int splitOff = levelIdx * nPred;
+    if (predFixed == 0) { // Probability of predictor splitable.
+      SplitPredProb(levelIdx, &ruPred[splitOff], safeCount);
     }
     else { // Fixed number of predictors splitable.
-      SplitPredFixed(&ruPred[splitOff], &heap[splitOff], &splitFlags[splitOff]);
+      SplitPredFixed(levelIdx, &ruPred[splitOff], &heap[splitOff], safeCount);
     }
-  }
   }
 
   if (heap != 0)
     delete [] heap;
   delete [] ruPred;
-  delete [] unsplitable;
-}
-
-
-/**
- */
-void SplitPred::SplitPredNull(bool flags[]) {
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    flags[predIdx] = false;
-  }
 }
 
 
@@ -271,9 +254,14 @@ void SplitPred::SplitPredNull(bool flags[]) {
 
    @return void, with output vector.
  */
-void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
+void SplitPred::SplitPredProb(unsigned int levelIdx, const double ruPred[], std::vector<unsigned int> &safeCount) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    flags[predIdx] = ruPred[predIdx] < predProb[predIdx];
+    if (ruPred[predIdx] < predProb[predIdx]) {
+      unsigned int rc = bottom->ScheduleSplit(levelIdx, predIdx, safeCount.size());
+      if (rc > 1) {
+	safeCount.push_back(rc);
+      }
+    }
   }
 }
 
@@ -289,17 +277,23 @@ void SplitPred::SplitPredProb(const double ruPred[], bool flags[]) {
 
    @return void, with output vector.
  */
-void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[]) {
+void SplitPred::SplitPredFixed(unsigned int levelIdx, const double ruPred[], BHPair heap[], std::vector<unsigned int> &safeCount) {
   // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     BHeap::Insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
-    flags[predIdx] = false;
   }
 
   // Pops 'predFixed' items in order of increasing value.
-  for (unsigned int i = nPred; i > nPred - predFixed; i--){
-    unsigned int predIdx = BHeap::SlotPop(heap, i - 1);
-    flags[predIdx] = true;
+  unsigned int schedCount = 0;
+  for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
+    unsigned int predIdx = BHeap::SlotPop(heap, heapSize - 1);
+    unsigned int rc = bottom->ScheduleSplit(levelIdx, predIdx, safeCount.size());
+    if (rc > 1) {
+      safeCount.push_back(rc);
+    }
+    schedCount += rc == 1 ? 0 : 1;
+    if (schedCount == predFixed)
+      break;
   }
 }
 
@@ -311,17 +305,15 @@ void SplitPred::SplitPredFixed(const double ruPred[], BHPair heap[], bool flags[
  */
 void SplitPred::LevelClear() {
   run->LevelClear();
-  delete [] splitFlags;
-  splitFlags = 0;
 }
 
 
-void SplitPred::Split(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode *spn, int setIdx) {
-  if (setIdx >= 0) {
-    SplitFac(bottomIdx, setIdx, indexNode, spn);
+void SplitPred::Split(unsigned int splitIdx, const IndexNode *indexNode, const SPNode *spn) {
+  if (bottom->HasRuns(splitIdx)) {
+    SplitFac(splitIdx, indexNode, spn);
   }
   else {
-    SplitNum(bottomIdx, indexNode, spn);
+    SplitNum(splitIdx, indexNode, spn);
   }
 }
 
@@ -513,13 +505,13 @@ void SPCtg::LevelInitSumR() {
 
    @return void.
  */
-void SPReg::SplitNum(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode spn[]) {
-  int monoMode = MonoMode(bottomIdx);
+void SPReg::SplitNum(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
+  int monoMode = MonoMode(splitIdx);
   if (monoMode != 0) {
-    SplitNumMono(bottomIdx, indexNode, spn, monoMode > 0);
+    SplitNumMono(splitIdx, indexNode, spn, monoMode > 0);
   }
   else {
-    SplitNumWV(bottomIdx, indexNode, spn);
+    SplitNumWV(splitIdx, indexNode, spn);
   }
 }
 
@@ -529,15 +521,15 @@ void SPReg::SplitNum(unsigned int bottomIdx, const IndexNode *indexNode, const S
 
    @return The sign of the constraint, if within the splitting probability, else zero.
  */
-int SPReg::MonoMode(unsigned int bottomIdx) {
+int SPReg::MonoMode(unsigned int splitIdx) {
   if (predMono == 0)
     return 0;
   
   unsigned int levelIdx, predIdx;
-  bottom->SplitCoords(bottomIdx, levelIdx, predIdx);
+  bottom->SplitRef(splitIdx, levelIdx, predIdx);
   double monoProb = mono[predIdx];
   int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
-  return sign * ruMono[bottomIdx] < monoProb ? sign : 0;
+  return sign * ruMono[splitIdx] < monoProb ? sign : 0;
 }
 
 
@@ -550,8 +542,8 @@ int SPReg::MonoMode(unsigned int bottomIdx) {
 
    @return void.
  */
-void SPReg::SplitFac(unsigned int bottomIdx, int setIdx, const IndexNode indexNode[], const SPNode spn[]) {
-  SplitFacWV(bottomIdx, setIdx, indexNode, spn);
+void SPReg::SplitFac(unsigned int splitIdx, const IndexNode indexNode[], const SPNode spn[]) {
+  SplitFacWV(splitIdx, indexNode, spn);
 }
 
 
@@ -564,8 +556,8 @@ void SPReg::SplitFac(unsigned int bottomIdx, int setIdx, const IndexNode indexNo
 
    @return void.
  */
-void SPCtg::SplitNum(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode spn[]) {
-  SplitNumGini(bottomIdx, indexNode, spn);
+void SPCtg::SplitNum(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
+  SplitNumGini(splitIdx, indexNode, spn);
 }
 
 
@@ -578,8 +570,8 @@ void SPCtg::SplitNum(unsigned int bottomIdx, const IndexNode *indexNode, const S
 
    @return void.
  */
-void SPCtg::SplitFac(unsigned int bottomIdx, int setIdx, const IndexNode *indexNode, const SPNode spn[]) {
-  SplitFacGini(bottomIdx, setIdx, indexNode, spn);
+void SPCtg::SplitFac(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
+  SplitFacGini(splitIdx, indexNode, spn);
 }
 
 
@@ -588,7 +580,7 @@ void SPCtg::SplitFac(unsigned int bottomIdx, int setIdx, const IndexNode *indexN
 
    @return void.
 */
-void SPReg::SplitNumWV(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode spn[]) {
+void SPReg::SplitNumWV(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
   // Walks samples backward from the end of nodes so that ties are not split.
   unsigned int _start, _end;
   unsigned int sCount;
@@ -624,7 +616,7 @@ void SPReg::SplitNumWV(unsigned int bottomIdx, const IndexNode *indexNode, const
   }
 
   if (lhSup < end) {
-    bottom->SSWrite(bottomIdx, -1, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+    bottom->SSWrite(splitIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
 
@@ -634,7 +626,7 @@ void SPReg::SplitNumWV(unsigned int bottomIdx, const IndexNode *indexNode, const
 
    @return void.
 */
-void SPReg::SplitNumMono(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode spn[], bool increasing) {
+void SPReg::SplitNumMono(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[], bool increasing) {
   // Walks samples backward from the end of nodes so that ties are not split.
   unsigned int _start, _end;
   unsigned int sCount;
@@ -675,7 +667,7 @@ void SPReg::SplitNumMono(unsigned int bottomIdx, const IndexNode *indexNode, con
   }
 
   if (lhSup < end) {
-    bottom->SSWrite(bottomIdx, -1, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+    bottom->SSWrite(splitIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
 
@@ -685,9 +677,9 @@ void SPReg::SplitNumMono(unsigned int bottomIdx, const IndexNode *indexNode, con
 
    @return void.
  */
-void SPCtg::SplitNumGini(unsigned int bottomIdx, const IndexNode *indexNode, const SPNode spn[]) {
+void SPCtg::SplitNumGini(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
   unsigned int levelIdx, predIdx;
-  bottom->SplitCoords(bottomIdx, levelIdx, predIdx);
+  bottom->SplitRef(splitIdx, levelIdx, predIdx);
   int numIdx = PredBlock::NumIdx(predIdx);
   unsigned int _start, _end;
   unsigned int sCountL;
@@ -738,7 +730,7 @@ void SPCtg::SplitNumGini(unsigned int bottomIdx, const IndexNode *indexNode, con
   }
 
   if (lhSup < end) {
-    bottom->SSWrite(bottomIdx, -1, lhSampCt, lhSup + 1 - start, maxGini - preBias);
+    bottom->SSWrite(splitIdx, lhSampCt, lhSup + 1 - start, maxGini - preBias);
   }
 }
 
@@ -748,16 +740,17 @@ void SPCtg::SplitNumGini(unsigned int bottomIdx, const IndexNode *indexNode, con
 
    @return void.
  */
-void SPCtg::SplitFacGini(unsigned int bottomIdx, int setIdx, const IndexNode *indexNode, const SPNode spn[]) {
+void SPCtg::SplitFacGini(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
   unsigned int start, end;
   unsigned int dummy;
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, dummy, sum);
 
   unsigned int levelIdx, predIdx;
-  bottom->SplitCoords(bottomIdx, levelIdx, predIdx);
+  int setIdx;
+  bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->RunCount(bottomIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(splitIdx, BuildRuns(runSet, spn, start, end));
   
   unsigned int lhIdxCount, lhSampCt;
   if (ctgWidth == 2)  {
@@ -768,7 +761,7 @@ void SPCtg::SplitFacGini(unsigned int bottomIdx, int setIdx, const IndexNode *in
   }
 
   if (lhIdxCount > 0) {
-    bottom->SSWrite(bottomIdx, setIdx, lhSampCt, lhIdxCount, maxGini - preBias);
+    bottom->SSWrite(splitIdx, lhSampCt, lhIdxCount, maxGini - preBias);
   }
 }
 
@@ -920,22 +913,23 @@ unsigned int SPCtg::SplitBinary(RunSet *runSet, unsigned int levelIdx, double su
 
    @return void.
  */
-void SPReg::SplitFacWV(unsigned int bottomIdx, int setIdx, const IndexNode *indexNode, const SPNode spn[]) {
+void SPReg::SplitFacWV(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
   unsigned int start, end;
   unsigned int sCount;
   double sum, preBias, maxGini;
   maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   unsigned int levelIdx, predIdx;
-  bottom->SplitCoords(bottomIdx, levelIdx, predIdx);
+  int setIdx;
+  bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->RunCount(bottomIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(splitIdx, BuildRuns(runSet, spn, start, end));
   runSet->HeapMean();
 
   unsigned int idxCountL;
   unsigned int sCountL = HeapSplit(runSet, sum, sCount, idxCountL, maxGini);
   if (sCountL > 0) {
-    bottom->SSWrite(bottomIdx, setIdx, sCountL, idxCountL, maxGini - preBias);
+    bottom->SSWrite(splitIdx, sCountL, idxCountL, maxGini - preBias);
   }
 }
 

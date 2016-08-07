@@ -18,7 +18,7 @@
                 ctgCensus = "votes",
                 classWeight = NULL,
                 minInfo = 0.01,
-                minNode = ifelse(is.factor(y), 2, 5),
+                minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
                 noValidate = FALSE,
                 nSamp = 0,

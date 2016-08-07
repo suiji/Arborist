@@ -21,7 +21,7 @@
                 ctgCensus = "votes",
                 classWeight = NULL,
                 minInfo = 0.01,
-                minNode = ifelse(is.factor(y), 2, 5),
+                minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
                 noValidate = FALSE,
                 nSamp = 0,
@@ -53,12 +53,16 @@
   if (nSamp == 0) {
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
+
+  if (predProb != 0.0 && predFixed != 0)
+      stop("Conflicting predictor sampling specifications:  Bernoulli and fixed.")
   if (predFixed == 0) {
     predFixed <- ifelse(predProb != 0.0, 0, ifelse(nPred >= 16, 0, ifelse(!is.factor(y), max(floor(nPred/3), 1), floor(sqrt(nPred)))))
   }
   if (predProb == 0.0) {
     predProb <- ifelse(predFixed != 0, 0.0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(nPred))/nPred))
   }
+
   if (is.null(predWeight)) {
     predWeight <- rep(1.0, nPred)
   }

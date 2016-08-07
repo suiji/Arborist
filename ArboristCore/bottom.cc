@@ -32,16 +32,16 @@
 /**
    @brief Static entry for regression.
  */
-Bottom *Bottom::FactoryReg(SamplePred *_samplePred, unsigned int bagCount) {
-  return new Bottom(_samplePred, new SPReg(_samplePred, bagCount), bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryReg(SamplePred *_samplePred, unsigned int _bagCount) {
+  return new Bottom(_samplePred, new SPReg(_samplePred, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
 }
 
 
 /**
    @brief Static entry for classification.
  */
-Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsigned int bagCount) {
-  return new Bottom(_samplePred, new SPCtg(_samplePred, _sampleCtg, bagCount), bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsigned int _bagCount) {
+  return new Bottom(_samplePred, new SPCtg(_samplePred, _sampleCtg, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
 }
 
 
@@ -52,21 +52,204 @@ Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsi
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int bagCount, unsigned int _nPred, unsigned int _nPredFac) : samplePath(new SamplePath[bagCount]), nPred(_nPred), nPredFac(_nPredFac), ancTot(0), levelCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pathVec(new unsigned char[bagCount * nPred]), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
-  bottomNode.reserve(nPred);
+Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac) : nPred(_nPred), nPredFac(_nPredFac), bagCount(_bagCount), samplePath(new SamplePath[bagCount]), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
+  levelFront = new Level(1, nPred, bagCount);
+  level.push_front(levelFront);
+
+  levelFront->Node(0, 0, bagCount, bagCount);
+  levelFront->RootDef(nPred);
+
+  splitPred->SetBottom(this);
+}
+
+
+/**
+   @brief Adds a new definition at the root level.
+
+   @param nPred is the number of predictors.
+
+   @return void.
+ */
+void Level::RootDef(unsigned int nPred) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    bottomNode[predIdx].Init(PBTrain::FacCard(predIdx));
+    def[predIdx] = PBTrain::FacCard(predIdx);
+    defined->SetBit(0, predIdx);
+    defCount++;
+  }
+}
+
+  
+Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), defCount(0), del(0) {
+  std::vector<unsigned int> _parent(splitCount);
+  std::vector<Cell> _cell(splitCount);
+  //std::map<unsigned int, unsigned int> _def;
+  std::vector<unsigned int> _def(splitCount * nPred);
+  std::fill(_def.begin(), _def.end(), 0);
+  defined = new BitMatrix(splitCount, nPred);
+  buffer = new BitMatrix(splitCount, nPred);
+  parent = std::move(_parent);
+  cell = std::move(_cell);
+  def = std::move(_def);
+}
+
+
+/**
+   @brief Entry to spltting and restaging.
+
+   @return vector of splitting signatures, possibly empty, for each node passed.
+ */
+const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNode indexNode[]) {
+  FlushRear();
+  splitPred->LevelInit(index, indexNode, frontCount);
+
+  if (!restageCoord.empty()) {
+    Restage();
+    restageCoord.clear();
+  }
+  if (level.size() > pathMax) {
+    delete level.back();
+    level.pop_back();
   }
 
-  // 'nPred'-many source bits for level zero initialized to zero.
-  bufferLevel.push_front(new BitMatrix(1, nPred));
+  Split(indexNode);
 
-  // 'bagCount'-many indices in staged predictors.
-  std::vector<MRRA> mrraZero;
-  MRRA mrra;
-  mrra.Init(0, bagCount);
-  mrraZero.push_back(mrra);
-  mrraLevel.push_front(mrraZero);
+  std::vector<SSNode*> ssNode(frontCount);
+  for (unsigned int levelIdx = 0; levelIdx < frontCount; levelIdx++) {
+    ssNode[levelIdx] = splitSig->ArgMax(levelIdx, indexNode[levelIdx].MinInfo());
+  }
+
+  return ssNode;
+}
+
+
+/**
+   @brief Flushes non-reaching definitions as well as those about
+   to fall off the level deque.
+ */
+void Bottom::FlushRear() {
+  // Walks backward from rear, purging non-reaching definitions.
+  // Stops when a level with no non-reaching nodes is encountered.
+  //
+  for (unsigned int off = level.size() - 1; off > 0; off--) {
+    if (!level[off]->NonreachPurge())
+      break;
+  }
+
+  // Capacity:  1 front level + 'pathMax' back levels.
+  // If at capacity, every reaching definition should be flushed
+  // to current level ut avoid falling off the deque.
+  // Flushing prior to split assignment, rather than during, should
+  // also save lookup time, as all definitions reaching from rear are
+  // now at current level.
+  //
+  if ((level.size() > pathMax)) {
+    level.back()->Flush(this);
+  }
+}
+
+
+/**
+   @brief Walks the definitions, purging those which no longer reach.
+
+   @return true iff a definition was purged at this level.
+ */
+bool Level::NonreachPurge() {
+  bool purged = false;
+  for (unsigned int mrraIdx = 0; mrraIdx < splitCount; mrraIdx++) {
+    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+      if (!defined->TestBit(mrraIdx, predIdx))
+	continue;
+      if (liveCount[mrraIdx] == 0) {
+	PurgeDef(mrraIdx, predIdx);
+	purged = true;
+      }
+    }
+  }
+
+  return purged;
+}
+
+
+/**
+   @brief Moves entire level's defnitions to restaging schedule.
+
+   @param bottom is the active bottom state.
+
+   @return void.
+ */
+void Level::Flush(Bottom *bottom, bool forward) {
+  for (unsigned int mrraIdx = 0; mrraIdx < splitCount; mrraIdx++) {
+    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+      if (!defined->TestBit(mrraIdx, predIdx))
+	continue;
+      if (forward) {
+	FlushDef(bottom, mrraIdx, predIdx);
+      }
+      else {
+	PurgeDef(mrraIdx, predIdx);
+      }
+    }
+  }
+}
+
+
+/**
+   @brief Removes definition from a back level and builds definition
+   for each descendant reached in current level.
+
+   @param mrra is the coordinate pair of the ancestor to flush.
+
+   @return void.
+ */
+void Level::FlushDef(Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx) {
+  // N.B.:  Assumes definition reaches
+  PathNode *pathStart = &pathNode[BackScale(mrraIdx)];
+  unsigned int extent = BackScale(1);
+  unsigned int sourceBit = buffer->TestBit(mrraIdx, predIdx) ? 1 : 0;
+  unsigned int defRC = def[PairOffset(mrraIdx, predIdx)];
+  for (unsigned int path = 0; path < extent; path++) {
+    bottom->AddDef(pathStart, path, predIdx, defRC, 1 - sourceBit);
+  }
+  SplitPair mrra = std::make_pair(mrraIdx, predIdx);
+  bottom->ScheduleRestage(mrra, del, sourceBit);
+
+  PurgeDef(mrraIdx, predIdx);
+}
+
+
+// def[], sourceBit may be left dirty:  no reads after dedefinition.
+void Level::PurgeDef(unsigned int mrraIdx, unsigned int predIdx) {
+  defined->ClearBit(mrraIdx, predIdx);
+  defCount--;
+}
+
+
+/**
+   @brief Adds a new definition to front level at passed coordinates, provided
+   that the node index is live.
+
+   @return true iff path reaches to current level.
+ */
+void Level::AddDef(PathNode pathReach[], unsigned int path, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
+  unsigned reachIdx = pathReach[path].Idx();
+  if (reachIdx != noIndex) {
+    def[PairOffset(reachIdx, predIdx)] = defRC;
+    defined->SetBit(reachIdx, predIdx);
+    buffer->SetBit(reachIdx, predIdx, destBit);
+    defCount++;
+  }
+}
+
+
+void Bottom::ScheduleRestage(const SplitPair &mrra, unsigned int del, unsigned bufIdx) {
+  RestageCoord rsSet;
+  rsSet.Init(mrra, del, bufIdx);
+  restageCoord.push_back(rsSet);
+}
+
+
+void Level::CellBounds(const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent) {
+  return cell[mrra.first].Ref(startIdx, extent);
 }
 
 
@@ -74,18 +257,23 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int bagC
    @brief Class finalizer.
  */
 Bottom::~Bottom() {
-  for (BitMatrix *bitLevel : bufferLevel) {
-    delete bitLevel;
+  for (auto *defLevel : level) {
+    defLevel->Flush(this, false);
+    delete defLevel;
   }
-  bufferLevel.clear();
-  mrraLevel.clear();
+  level.clear();
 
   delete bvLeft;
   delete bvDead;
-  delete [] pathVec;
   delete [] samplePath;
   delete splitPred;
   delete splitSig;
+}
+
+
+Level::~Level() {
+  delete defined;
+  delete buffer;
 }
 
 
@@ -105,347 +293,90 @@ void Bottom::PathExtinct(unsigned int sIdx) const {
   samplePath[sIdx].PathExtinct();
   bvDead->SetBit(sIdx, true);
 }
+
+
+/**
+   @brief Records coordinates and offsets for candidate splitting pairs.
+
+   @param runTop is the current top of a dense vector of run values.
+
+   @return run count of front-level definition.
+ */
+unsigned int Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop) {
+  unsigned int rc;
+  unsigned int bufIdx = DefForward(levelIdx, predIdx, rc);
+
+  if (rc != 1) { // No reason to attempt splitting a singleton.
+    SplitCoord sg;
+    sg.Init(splitCoord.size(), levelIdx, predIdx, bufIdx, rc, runTop);
+    splitCoord.push_back(sg);
+  }
   
-
-
-
-/**
-   @brief Entry to spltting and restaging.
-
-   @return vector of splitting signatures, possibly empty, for each node passed.
- */
-const std::vector<class SSNode*> Bottom::LevelSplit(class Index *index, class IndexNode indexNode[]) {
-  bool *splitFlags = splitPred->LevelInit(index, indexNode, this, levelCount);
-  Level(splitFlags, indexNode);
-  std::vector<SSNode*> ssNode(levelCount);
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    ssNode[levelIdx] = splitSig->ArgMax(levelIdx, indexNode[levelIdx].MinInfo());
-  }
-
-  return ssNode;
-}
-
-
-void Bottom::Level(const bool splitFlags[], const IndexNode indexNode[]) {
-  // Pulls in the reaching MRRAs from the various levels at which
-  // they last restaged, allowing dense lookup:  start, extent, pathBase.
-  std::vector<RestageNode> restageNode;
-  std::vector<PathNode> pathNode;
-  std::vector<RestagePair> restagePair;
-  BitMatrix *ancReach = RestageSetup(splitFlags, restageNode, pathNode, restagePair);
-  PairInit(splitFlags, ancReach, indexNode, restageNode, pathNode, restagePair);
-  delete ancReach;
-
-  ancTot += levelCount; // All nodes at this level are potential ancestors.
+  return rc;
 }
 
 
 /**
- */
-BitMatrix *Bottom::RestageSetup(const bool splitFlags[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair) {
-  restageNode.reserve(ancTot); // Safe upper limit.
-  BitMatrix *ancReach = new BitMatrix(ancTot, nPred);
-  if (ancTot == 0)
-    return ancReach;
+   @brief Finds definition reaching coordinate pair at current level,
+   flushing ancestor if necessary.  Obtains node reached by coordinates
+   within current level.
 
-  // Accumulates target paths for all restageable MRRA, i.e., those either
-  // having splitting descendants or which are about to expire.
-  //
-  unsigned int pathAccum = 0; // Accumulated count of reaching paths.
-  unsigned int botIdx = 0;
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++, botIdx++) {
-      if (ScheduleMRRA(splitFlags, botIdx)) {
-	unsigned int restageIdx = PathAccum(restageNode, botIdx, pathAccum);
-	ancReach->SetBit(restageIdx, predIdx);
-      }
-    }
-  }
-
-  // Distributes reaching predictors to their respective nodes.
-  //
-  for (unsigned int restageIdx = 0; restageIdx < restageNode.size(); restageIdx++) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      if (ancReach->TestBit(restageIdx, predIdx)) {
-	RestagePair rsPair;
-	rsPair.Init(restageIdx, predIdx);
-	restagePair.push_back(rsPair);
-      }
-    }
-  }
-
-  pathNode.reserve(pathAccum);
-  PathNode node;
-  node.Init();
-  std::fill(pathNode.begin(), pathNode.begin() + pathAccum, node);
-
-  return ancReach;
-}
-
-
-/**
-   @brief Initializes the vector of splitting pairs.  Flags pairs with extinct
-   ancestors for restaging.
-
-   @return total count of restageable targets.
- */
-void Bottom::PairInit(const bool splitFlags[], const BitMatrix *ancReach, const IndexNode indexNode[], std::vector<RestageNode> &restageNode, std::vector<PathNode> &pathNode, std::vector<RestagePair> &restagePair) {
-  std::vector<SplitPair> pairNode;
-  pairNode.reserve(levelCount * nPred); // Very high limit.
-
-  std::vector<unsigned int> safeCount;
-  safeCount.reserve(levelCount * nPredFac);
-
-  // Pulls in buffer indices (0/1) of restaging sources, on a per-
-  // predictor basis, using the dense ordering.  Only dense pairs
-  // to be restaged at this level have corresponding bits set.
-  BV *restageSource = new BV(restageNode.size() * nPred);
-
-  // Records buffer positions (0/1) of restaged targets, by level-
-  // relative pair ordering.  Looked up as MRRA by subsequent levels.
-  BitMatrix *restageTarg = new BitMatrix(levelCount, nPred);
-
-  // Records this level's restaged cells, by level index.
-  std::vector<MRRA> mrraTarg(levelCount);
-
-  unsigned int setCount = 0;  // <= nPredFac * levelCount.
-  unsigned int botIdx = 0;
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    unsigned int start, extent, path;
-    indexNode[levelIdx].PathCoords(start, extent, path);
-    mrraTarg[levelIdx].Init(start, extent);
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++, botIdx++) {
-      int rl;
-      if (Singleton(botIdx, rl)) {
-	continue;
-      }
-      // Schedules pairs either splitting or reached from restaging MRRA.
-      int restageIdx = RestageIdx(botIdx);
-      if (splitFlags[botIdx]) {
-	SplitPair pair;
-	if (rl > 1) {
-	  safeCount.push_back(rl);
-	  pair.SplitInit(botIdx, restageIdx, setCount++);
-	}
-	else {
-          pair.SplitInit(botIdx, restageIdx);
-	}
-	pairNode.push_back(pair);
-      }
-      if (restageIdx >= 0 && ancReach->TestBit(restageIdx, predIdx)) {
-	unsigned int levelDel;
-	unsigned int pathOff = restageNode[restageIdx].PathOffset(path, levelDel);
-	pathNode[pathOff].Init(levelIdx, start);
-	SourceTarg(levelDel, restageSource, restageTarg, restageIdx, MrraConsume(botIdx, levelIdx), levelIdx, predIdx);
-      }
-    }
-  }
-  splitPred->RunOffsets(safeCount);
-
-  if (!restageNode.empty()) {
-    bufferLevel.push_back(restageTarg);
-    mrraLevel.push_back(mrraTarg);
-    Restage(restageNode, restagePair, &pathNode[0], restageSource);
-  }
-  else {
-    delete restageTarg;
-  }
-  delete restageSource;
-
-  Split(pairNode, indexNode);
-}
-// Every restageable target now references a dense index into the set of MRRAs
-// visible from the current level.
-// Every densely-indexed MRRA in the set now references a unique target area
-// for restaging, sufficiently wide to hold all paths reaching from it.
-
-
-/**
-   @brief Sets source and target bits for the restaging path.
-
-   @return void.
- */
-void Bottom::SourceTarg(unsigned int levelDel, BV *restageSource, BitMatrix *restageTarg, unsigned int restageIdx, unsigned int mrraIdx, unsigned int levelIdx, unsigned int predIdx) {
-  // Will hit same source/target pair many times if multiple
-  // predictors reach along the path.
-
-  // Source buffer looked up by node position at MRRA's level:
-  bool sourceBit = SourceBit(mrraIdx, predIdx, levelDel);
-  
-  // Records source bit for dense pair reaching this level.
-  restageSource->SetBit(PairOffset(restageIdx, predIdx), sourceBit);
-
-  // Target position indexed by node position at THIS level:
-  restageTarg->SetBit(levelIdx, predIdx, !sourceBit);
-}
-
-
-/**
-  @brief Looks up MRRA and accumulates its dense index and target path base.
-
-  @param restageNode accumulates newly-created RestageNodes.
-
-  @param bottomIdx is the node/predictor pair index.
-
-  @param pathAccum accumulates a count of targets reached from the MRRA.
-
-  @return index into restageNode vector.
- */
-unsigned int Bottom::PathAccum(std::vector<RestageNode> &restageNode, unsigned int bottomIdx, unsigned int &pathAccum) {
-  unsigned int levelDel;
-  MRRA &mrra = Mrra(bottomIdx, levelDel);
-  return mrra.PathAccum(levelDel, pathAccum, restageNode);
-}
-
-
-/**
-   @brief Assigns and updates dense index and target path offset.
-
-   @param pathAccum outputs the starting index into a vector of target positions.
-
-   @param restageNode accumulates the new nodes, as needed.
-
-   @return restageIndex.
-*/
-unsigned int MRRA::PathAccum(unsigned int levelDel, unsigned int &pathAccum, std::vector<RestageNode> &restageNode) {
-  if (restageIdx < 0) { // First encounter:  caches starting index.
-    RestageNode rsNode;
-    restageIdx = restageNode.size();
-    rsNode.Init(start, extent, levelDel, pathAccum);
-    restageNode.push_back(rsNode);
-    pathAccum += (1 << levelDel); // 2^del potential reaching paths.
-  }
-  return restageIdx;
-}
-
-
-/**
-  @brief Looks up MRRA and accumulates its dense index and target path base.
-
-  @param bottomIdx is the node/predictor pair index.
-
-  @return index into restageNode vector.
- */
-int Bottom::RestageIdx(unsigned int bottomIdx) {
-  if (ancTot == 0)
-    return -1;
-
-  unsigned int levelDel;
-  return Mrra(bottomIdx, levelDel).RestageIdx();
-}
-
-
-/**
-   @brief Restages predictors and splits as pairs with equal priority.
-
-   @return void, with side-effected restaging buffers.
- */
-void Bottom::Restage(const std::vector<RestageNode> &restageNode, const std::vector<RestagePair> &restagePair, PathNode *pathNode, const BV *restageSource) {
-  int pairIdx, nodeIdx, predIdx;
-
-#pragma omp parallel default(shared) private(pairIdx, nodeIdx, predIdx)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (pairIdx = 0; pairIdx < int(restagePair.size()); pairIdx++) {
-      restagePair[pairIdx].Coords(nodeIdx, predIdx);
-      restageNode[nodeIdx].Restage(this, pathNode, predIdx, restageSource->TestBit(PairOffset(nodeIdx, predIdx)) ? 1 : 0);
-    }
-  }
-}
-
-
-/**
-   @brief General, multi-level restaging.
- */
-void RestageNode::Restage(Bottom *bottom, PathNode *pathNode, unsigned int predIdx, unsigned int sourceBit) const {
-  int targOffset[1 << BottomNode::pathMax];
-  unsigned int pathCount = 1 << levelDel;
-  for (unsigned int path = 0; path < pathCount; path++) {
-    targOffset[path] = pathNode[pathZero + path].Offset();
-  }
-
-  if (levelDel == 1) {
-    bottom->RestageOne(&pathNode[pathZero], targOffset, predIdx, sourceBit, startIdx, extent);
-  }
-  else {
-    bottom->RestageIrr(&pathNode[pathZero], targOffset, predIdx, sourceBit, startIdx, extent, levelDel);
-    }
-}
-
-
-/**
-   @brief Irregular restaging, suitable for smaller sample sets.
-
-   @return void.
- */
-void Bottom::RestageIrr(PathNode *pathNode, int targOffset[], unsigned int predIdx, unsigned int sourceBit, unsigned int startIdx, unsigned int extent, unsigned int levelDel) {
-  SPNode *source, *targ;
-  unsigned int *sIdxSource, *sIdxTarg;
-  samplePred->Buffers(predIdx, sourceBit, source, sIdxSource, targ, sIdxTarg);
-
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int sIdx = sIdxSource[idx];
-    if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
-      unsigned path = Path(sIdx, levelDel); // Irregular access:  8 bits.
-      unsigned int destIdx = targOffset[path]++;
-      targ[destIdx] = source[idx];
-      sIdxTarg[destIdx] = sIdx;
-    }
-  }
-
-  Singletons(pathNode, targOffset, targ, predIdx, levelDel);
-}
-
-
-/**
-   @brief Specialized for two-path case, bypasses stack array.
-
- */
-void Bottom::RestageOne(PathNode *pathNode, int targOffset[], unsigned int predIdx, unsigned int sourceBit, unsigned int startIdx, unsigned int extent) {
-  SPNode *source, *targ;
-  unsigned int *sIdxSource, *sIdxTarg;
-  samplePred->Buffers(predIdx, sourceBit, source, sIdxSource, targ, sIdxTarg);
-
-  unsigned int leftOff = targOffset[0];
-  unsigned int rightOff = targOffset[1];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int sIdx = sIdxSource[idx];
-    if (!bvDead->TestBit(sIdx)) {
-      unsigned int path = Path(sIdx, 1);
-      unsigned int destIdx = path == 0 ? leftOff++ : rightOff++;
-      targ[destIdx] = source[idx];
-      sIdxTarg[destIdx] = sIdx;
-    }
-  }
-
-  targOffset[0] = leftOff;
-  targOffset[1] = rightOff;
-  Singletons(pathNode, targOffset, targ, predIdx, 1);
-}
-
-
-/**
-   @brief Notes any new singletons arising as a result of this restaging.
-
-   @param bottom is the bottom environment.
-
-   @param targ is the restaged data.
+   @param levelIdx is the node index within current level.
 
    @param predIdx is the predictor index.
 
-   @return void, with side-effected bottom nodes.
+   @param runCount outputs the reached node's run count.
+
+   @return buffer index of reached definition.
  */
-void Bottom::Singletons(PathNode *pathNode, const int targOffset[], const SPNode targ[], unsigned int predIdx, unsigned int levelDel) {
-  unsigned int pathTot = 1 << levelDel;
-  for (unsigned int path = 0; path < pathTot; path++) {
-    int levelIdx, offset;
-    pathNode[path].Coords(levelIdx, offset);
-    if (levelIdx >= 0) {
-      if (targ->IsRun(offset, targOffset[path]-1)) {
-    	SetSingleton(levelIdx, predIdx);
+unsigned int Bottom::DefForward(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount) {
+  unsigned int mrraIdx = levelIdx; // Chains upward through parent indices.
+  for (unsigned int del = 0; del < level.size(); del++) {
+    if (level[del]->Defines(mrraIdx, predIdx)) {
+      if (del > 0) { // Else already flushed to front level.
+        level[del]->FlushDef(this, mrraIdx, predIdx);
       }
+      break;
     }
   }
+ 
+  return levelFront->Definition(levelIdx, predIdx, runCount);
+}
+
+
+/**
+   @brief Tests whether this level defines split/predictor pair passed.
+
+   @param mrraIdx inputs trial level index / outputs parent index if level
+   does not define pair.
+
+   @param predIdx is the predictor index of the pair.
+
+   @return true iff pair defined at this level.
+ */
+bool Level::Defines(unsigned int &mrraIdx, unsigned int predIdx) {
+  if (defined->TestBit(mrraIdx, predIdx)) {
+    return true;
+  }
+  else {
+    mrraIdx = parent[mrraIdx];
+    return false;
+  }
+}
+
+
+/**
+   @brief Looks up definition associated with coordinates passed.
+
+   @param levelIdx is the node index.
+
+   @param predIdx is the predictor index.
+
+   @return buffer index of definition.
+ */
+unsigned int Level::Definition(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount) {
+  runCount = def[PairOffset(levelIdx, predIdx)];
+  return buffer->TestBit(levelIdx, predIdx) ? 1 : 0;
 }
 
 
@@ -454,77 +385,207 @@ void Bottom::Singletons(PathNode *pathNode, const int targOffset[], const SPNode
 
    @return void.
  */
-void Bottom::Split(const std::vector<SplitPair> &pairNode, const IndexNode indexNode[]) {
+void Bottom::Split(const IndexNode indexNode[]) {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
-  int stageIdx;
-#pragma omp parallel default(shared) private(stageIdx)
+  int splitPos;
+#pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (stageIdx = 0; stageIdx < int(pairNode.size()); stageIdx++) {
-      Split(indexNode, pairNode[stageIdx].BottomIdx(), pairNode[stageIdx].SetIdx());
+    for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
+      splitCoord[splitPos].Split(samplePred, indexNode, splitPred);
+    }
+  }
+
+  splitCoord.clear();
+}
+
+
+/**
+   @brief Dispatches the staged node to the appropriate splitting family.
+
+   @return void.
+ */
+void SplitCoord::Split(const SamplePred *samplePred, const IndexNode indexNode[], SplitPred *splitPred) {
+  splitPred->Split(splitPos, &indexNode[levelIdx], samplePred->PredBase(predIdx, bufIdx));
+}
+
+
+/**
+   @brief Restages predictors and splits as pairs with equal priority.
+
+   @return void, with side-effected restaging buffers.
+ */
+void Bottom::Restage() {
+  int nodeIdx;
+
+#pragma omp parallel default(shared) private(nodeIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
+      Restage(restageCoord[nodeIdx]);
+    }
+  }
+
+  restageCoord.clear();
+}
+
+
+/**
+   @brief General, multi-level restaging.
+ */
+void Bottom::Restage(RestageCoord &rsCoord) {
+  unsigned int reachOffset[1 << pathMax];
+  unsigned int del, bufIdx;
+  SplitPair mrra;
+  rsCoord.Ref(mrra, del, bufIdx);
+
+  OffsetClone(mrra, del, reachOffset);
+
+  SPNode *targ;
+  if (del == 1) {
+    targ = RestageOne(reachOffset, mrra, bufIdx);
+  }
+  else {
+    targ = RestageIrr(reachOffset, mrra, del, bufIdx);
+  }
+
+  Singletons(reachOffset, targ, mrra, del);
+}
+
+
+/**
+   @brief Irregular restaging, suitable for smaller sample sets.
+
+   @return void.
+ */
+SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int del, unsigned int bufIdx) {
+  SPNode *source, *targ;
+  unsigned int *sIdxSource, *sIdxTarg;
+  Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
+
+  unsigned int startIdx, extent;
+  CellBounds(del, mrra, startIdx, extent);
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int sIdx = sIdxSource[idx];
+    if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
+      unsigned path = Path(sIdx, del); // Irregular access:  8 bits.
+      unsigned int destIdx = reachOffset[path]++;
+      targ[destIdx] = source[idx];
+      sIdxTarg[destIdx] = sIdx;
+    }
+  }
+
+  return targ;
+}
+
+
+/**
+   @brief Clones offsets along path reaching from ancestor node.
+
+   @param mrra is an MRRA coordinate.
+
+   @param reachOffset holds the starting offset positions along the path.
+
+   @return path origin at the index passed.
+ */
+void Level::OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]) {
+  unsigned int nodeStart = BackScale(mrra.first);
+  for (unsigned int i = 0; i < BackScale(1); i++) {
+    reachOffset[i] = pathNode[nodeStart + i].Offset();
+  }
+}
+
+
+/**
+   @brief Specialized for two-path case, bypasses stack array.
+
+ */
+SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx) {
+  SPNode *source, *targ;
+  unsigned int *sIdxSource, *sIdxTarg;
+  Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
+
+  unsigned int startIdx, extent;
+  CellBounds(1, mrra, startIdx, extent);
+  unsigned int leftOff = reachOffset[0];
+  unsigned int rightOff = reachOffset[1];
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int sIdx = sIdxSource[idx];
+    if (!bvDead->TestBit(sIdx)) {
+      unsigned int destIdx = Path(sIdx, 1) == 0 ? leftOff++ : rightOff++;
+      targ[destIdx] = source[idx];
+      sIdxTarg[destIdx] = sIdx;
+    }
+  }
+
+  reachOffset[0] = leftOff;
+  reachOffset[1] = rightOff;
+
+  return targ;
+}
+
+
+/**
+   @brief Sets buffer addresses from source coordinates.
+
+   @param mrra holds the ancestor's coordinates.
+
+   @param bufIdx is the index of the source buffer.
+
+   @return void.
+ */
+void Bottom::Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const {
+  samplePred->Buffers(mrra.second, bufIdx, source, sIdxSource, targ, sIdxTarg);
+}
+
+
+void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], const SplitPair &mrra, Level *levelFront) {
+  unsigned int predIdx = mrra.second;
+  if (PBTrain::FacCard(predIdx) == 0)
+    return;
+  PathNode *pathPos = &pathNode[BackScale(mrra.first)];
+  for (unsigned int path = 0; path < BackScale(1); path++) {
+    unsigned int levelIdx, offset;
+    pathPos[path].Coords(levelIdx, offset);
+    if (levelIdx != noIndex) {
+      if (targ->IsRun(offset, reachOffset[path]-1)) {
+	levelFront->def[PairOffset(levelIdx, predIdx)] = 1;//->SetSingleton();
+      }
     }
   }
 }
 
 
 /**
-   @brief Dispatches the staged node to the appropriate splitting family.
+   @brief Invoked from splitting methods to precipitate creation of signature
+   for candidate split.
+
+   @return void.
  */
-void Bottom::Split(const IndexNode indexNode[], unsigned int bottomIdx, int setIdx) {
-  unsigned int levelIdx, predIdx;
-  SplitCoords(bottomIdx, levelIdx, predIdx);
-  splitPred->Split(bottomIdx, &indexNode[levelIdx], samplePred->PredBase(predIdx, SourceBit(levelIdx, predIdx)), setIdx);
+void Bottom::SSWrite(unsigned int splitIdx, unsigned int lhSampCount, unsigned int lhIdxCount, double info) {
+  unsigned int levelIdx, predIdx, bufIdx;
+  int runsetPos;
+  SplitRef(splitIdx, levelIdx, predIdx, runsetPos, bufIdx);
+  splitSig->Write(levelIdx, predIdx, runsetPos, bufIdx, lhSampCount, lhIdxCount, info);
 }
 
 
 /**
-   @brief Reports source buffer for node restaged at specified level.
+   @brief Sets level data structures within attendant objects.
+
+   @return void.
  */
-unsigned int Bottom::SourceBit(unsigned int mrraIdx, unsigned int predIdx, unsigned int levelDel) {
-  // Source buffer looked up by node position at MRRA's level:
-  if (levelDel == 0) {
-    return bufferLevel.back()->TestBit(mrraIdx, predIdx) ? 1 : 0;
-  }
-  else {
-    BitMatrix *bufMRRA = *(end(bufferLevel) - levelDel);
-    return bufMRRA->TestBit(mrraIdx, predIdx) ? 1 : 0;
-  }
-}
-
-
-void Bottom::SSWrite(unsigned int bottomIdx, int setIdx, unsigned int lhSampCount, unsigned int lhIdxCount, double info) {
-  unsigned int levelIdx, predIdx;
-  SplitCoords(bottomIdx, levelIdx, predIdx);
-  splitSig->Write(levelIdx, predIdx, setIdx, lhSampCount, lhIdxCount, info);
-}
-
-
 void Bottom::LevelInit() {
-  splitSig->LevelInit(levelCount);
+  splitSig->LevelInit(frontCount);
 }
 
 
 /**
-   @brief
+   @brief Clears level data structures within attendant objects.
+
+   @return void.
  */
 void Bottom::LevelClear() {
-  // Deletes information beyond the reach of future levels.
-  if (bufferLevel.size() > BottomNode::pathMax) {
-    delete *(begin(bufferLevel));
-    bufferLevel.erase(bufferLevel.begin());
-  }
-  if (mrraLevel.size() > BottomNode::pathMax) {
-    ancTot -= mrraLevel[0].size(); // Extinct ancestors.
-    mrraLevel.erase(mrraLevel.begin());
-  }
-
-  // Clears extant MRRA cells.
-  for (unsigned int level = 0; level < mrraLevel.size() - 1; level++) {
-    std::vector<MRRA> &mrraVec = *(begin(mrraLevel) + level);
-    for (unsigned int anc = 0; anc < mrraVec.size(); anc++)
-      mrraVec[anc].Reset();
-  }
-
   splitPred->LevelClear();
   splitSig->LevelClear();
 }
@@ -535,41 +596,87 @@ void Bottom::LevelClear() {
    during which the contents of the current level's nodes can be inherited
    by the next level.
 
-   @param _splitNext is the number of nodes in the upcoming level.
+   @param splitNext is the number of nodes in the upcoming level.
 
    @return void.
  */
-void Bottom::Overlap(unsigned int splitNext) {
-  preStage.reserve(splitNext * nPred);
+void Bottom::NewLevel(unsigned int splitCount) {
+  levelFront = new Level(splitCount, nPred, bagCount);
+  level.push_front(levelFront);
+  // Recomputes paths reaching from non-front levels.
+  //
+  for(unsigned int i = 1; i < level.size(); i++) {
+    level[i]->Paths();
+  }
+
+  frontCount = splitCount;
 }
 
 
 /**
+  @brief Initializes reaching paths:  back levels 1 and higher.
+
+  @return void.
+ */
+void Level::Paths() {
+  del++;
+  std::vector<unsigned int> live(splitCount);
+  std::vector<PathNode> path(BackScale(splitCount));
+  PathNode node;
+  node.Init(noIndex, 0);
+  std::fill(path.begin(), path.end(), node);
+  std::fill(live.begin(), live.end(), 0);
+  
+  pathNode = move(path);
+  liveCount = move(live);
+}
+    
+
+/**
    @brief Consumes all fields in current NodeCache item relevant to restaging.
 
-   @param _levelIdx is the index of the parent.
+   @param par is the index of the parent.
 
-   @param nodeNext is the index of the heir.
+   @param path is a unique path identifier.
+
+   @param levelIdx is the index of the heir.
+
+   @param start is the cell starting position.
 
    @return void.
 */
-void Bottom::Inherit(unsigned int _levelIdx, unsigned int nodeNext) {
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    preStage[PairOffset(nodeNext, predIdx)].Inherit(bottomNode[PairOffset(_levelIdx, predIdx)]);
+void Bottom::ReachingPath(unsigned int par, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent) {
+  levelFront->Node(levelIdx, start, extent, par);
+
+  // Places <levelIdx, start> pair at appropriate position in every
+  // reaching path.
+  //
+  unsigned int mrraIdx = levelFront->ParentIdx(levelIdx);
+  for (unsigned int i = 1; i < level.size(); i++) {
+    level[i]->PathInit(mrraIdx, path, levelIdx, start);
   }
 }
 
 
 /**
-  @brief Promotes incipient BottomNode vector from staging area.
+   @brief Initializes the cell and parent fields for a node in the upcoming level.
 
-  @param _levelCount is the number of nodes in the upcoming level.
+   @return void.
+ */
+void Level::Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par) {
+  Cell _cell;
+  _cell.Init(start, extent);
+  cell[levelIdx] = _cell;
+  parent[levelIdx] = par;
+}
 
-  @return void.
-*/
-void Bottom::DeOverlap(unsigned int _levelCount) {
-  levelCount = _levelCount;
-  bottomNode = move(preStage);
+
+void Level::PathInit(unsigned int &mrraIdx, unsigned int path, unsigned int levelIdx, unsigned int start) {
+  unsigned int pathOff = BackScale(mrraIdx);
+  unsigned int pathBits = path & (BackScale(1) - 1);
+  pathNode[pathOff + pathBits].Init(levelIdx, start);
+  liveCount[mrraIdx]++;
+  mrraIdx = parent[mrraIdx];
 }
 
 

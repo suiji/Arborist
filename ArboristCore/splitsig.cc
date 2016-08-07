@@ -16,7 +16,6 @@
 #include "splitsig.h"
 #include "samplepred.h"
 #include "pretree.h"
-#include "bottom.h"
 #include "runset.h"
 
 #include <cfloat>
@@ -71,15 +70,16 @@ void SplitSig::DeImmutables() {
 
    @return void.
  */
-void SplitSig::Write(unsigned int _bottomIdx, unsigned int _predIdx, int _setIdx, unsigned int _sCount, unsigned int _lhIdxCount, double _info) {
+void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, int _setIdx, unsigned int _bufIdx, unsigned int _sCount, unsigned int _lhIdxCount, double _info) {
   SSNode ssn;
   ssn.setIdx = _setIdx;
+  ssn.bufIdx = _bufIdx;
   ssn.sCount = _sCount;
   ssn.lhIdxCount = _lhIdxCount;
   ssn.info = _info;
   ssn.predIdx = _predIdx;
 
-  Lookup(_bottomIdx, ssn.predIdx) = ssn;
+  Lookup(_levelIdx, ssn.predIdx) = ssn;
 }
 
 
@@ -103,8 +103,8 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Bottom *bottom, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  return setIdx >= 0 ? NonTerminalRun(samplePred, preTree, bottom, splitIdx, start, end, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, bottom, splitIdx, start, end, ptId, ptLH, ptRH);
+double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
+  return setIdx >= 0 ? NonTerminalRun(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH, run) : NonTerminalNum(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH);
 }
 
 
@@ -113,22 +113,20 @@ double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Bottom *bot
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Bottom *bottom, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
   preTree->NonTerminalFac(info, predIdx, ptId, ptLH, ptRH);
 
   // Replays entire index extent of node with RH pretree index then,
   // where appropriate, overwrites by replaying with LH index in the
   // loop to follow.
-  unsigned int sourceBit = bottom->SourceBit(splitIdx, predIdx);
-  (void) preTree->Replay(samplePred, predIdx, sourceBit, start, end, ptRH);
+  (void) preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptRH);
 
-  Run *run = bottom->Runs();
   double lhSum = 0.0;
   for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
     unsigned int runStart, runEnd;
     unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
     preTree->LHBit(ptId, rank);
-    lhSum += preTree->Replay(samplePred, predIdx, sourceBit, runStart, runEnd, ptLH);
+    lhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptLH);
   }
 
   return lhSum;
@@ -140,14 +138,13 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, Bottom *
 
    @return sum of LH subnode's sample values.
  */
-double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, Bottom *bottom, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
   unsigned int rkLow, rkHigh;
-  unsigned int sourceBit = bottom->SourceBit(splitIdx, predIdx);
-  samplePred->SplitRanks(predIdx, sourceBit, start + lhIdxCount - 1, rkLow, rkHigh);
+  samplePred->SplitRanks(predIdx, bufIdx, start + lhIdxCount - 1, rkLow, rkHigh);
   preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
   
-  double lhSum = preTree->Replay(samplePred, predIdx, sourceBit, start, start + lhIdxCount - 1, ptLH);
-  (void) preTree->Replay(samplePred, predIdx, sourceBit, start + lhIdxCount, end, ptRH);
+  double lhSum = preTree->Replay(samplePred, predIdx, bufIdx, start, start + lhIdxCount - 1, ptLH);
+  (void) preTree->Replay(samplePred, predIdx, bufIdx, start + lhIdxCount, end, ptRH);
 
   return lhSum;
 }

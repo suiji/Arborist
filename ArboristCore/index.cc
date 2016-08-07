@@ -243,7 +243,7 @@ void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext
    @return count of nodes at next level:  zero if short-circuiting.
 */
 NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext) {
-  NodeCache *nodeCache = CacheNodes(bottom->LevelSplit(this, indexNode));
+  NodeCache *nodeCache = CacheNodes(bottom->Split(this, indexNode));
   splitNext = LevelCensus(nodeCache, levelCount, lhSplitNext, leafNext);
 
   // Next level of pre-tree needs sufficient space to consume splits
@@ -271,12 +271,11 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
 
   // Next call guaranteed, so no dangling references:
   indexNode = new IndexNode[splitNext];
-  bottom->Overlap(splitNext);
+  bottom->NewLevel(splitNext);
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Successors(this, preTree, samplePred, bottom, lhSplitNext, lhCount, rhCount);
   }
   LRLive(bottom, nodeCache, level);
-  bottom->DeOverlap(splitNext);
 
   // Assigns start values to consecutive nodes at next level.
   /*
@@ -300,7 +299,7 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
 */
 void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
   if (ssNode != 0) {
-    lhSum = ssNode->NonTerminal(samplePred, preTree, bottom, splitIdx, lhStart, lhStart + idxCount - 1, ptId, ptL, ptR);
+    lhSum = ssNode->NonTerminal(samplePred, preTree, splitIdx, lhStart, lhStart + idxCount - 1, ptId, ptL, ptR, bottom->Runs());
   }
 }
 
@@ -336,15 +335,17 @@ void NodeCache::Successors(Index *index, PreTree *preTree, SamplePred *samplePre
     if (Splitable(lhIdxCount)) {
       terminal = false;
       unsigned int lNext = lhSplitCount++;
-      index->NextLH(lNext, ptL, lhStart, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
-      bottom->Inherit(splitIdx, lNext);
+      unsigned int start = lhStart;
+      unsigned int pathNext = index->NextLH(lNext, ptL, start, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
+      bottom->ReachingPath(splitIdx, pathNext, lNext, start, lhIdxCount);
     }
 
     if (Splitable(idxCount - lhIdxCount)) {
       terminal = false;
       unsigned int rNext = lhSplitNext + rhSplitCount++;
-      index->NextRH(rNext, ptR, lhStart + lhIdxCount, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
-      bottom->Inherit(splitIdx, rNext);
+      unsigned int start = lhStart + lhIdxCount;
+      unsigned int pathNext = index->NextRH(rNext, ptR, start, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
+      bottom->ReachingPath(splitIdx, pathNext, rNext, start, idxCount - lhIdxCount);
     }
   }
 }

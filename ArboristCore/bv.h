@@ -190,6 +190,10 @@ class BitMatrix : public BV {
     BV::SetBit(row * stride + col, on);
   }
 
+
+  inline void ClearBit(unsigned int row, unsigned int col) {
+    SetBit(row, col, false);
+  }
 };
 
 
