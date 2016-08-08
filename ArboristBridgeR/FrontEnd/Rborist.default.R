@@ -37,13 +37,13 @@
                 pvtBlock = 8, ...) {
 
   # Argument checking:
-  if (inherits(x, "PreTrain")) {
-    preTrain <- x 
+  if (inherits(x, "PreTrain") || inherits(x, "PreFormat")) {
+    preFormat <- x 
   }
   else {
-    preTrain <- PreTrain(x)
+    preFormat <- PreFormat(x)
   }
-  predBlock <- preTrain$predBlock
+  predBlock <- preFormat$predBlock
   nPred <- predBlock$nPredNum + predBlock$nPredFac
   nRow <- predBlock$nRow
 
@@ -160,10 +160,10 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preTrain$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, regMono)
   }
 
   predInfo <- train[["predInfo"]]

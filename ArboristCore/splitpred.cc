@@ -750,7 +750,7 @@ void SPCtg::SplitFacGini(unsigned int splitIdx, const IndexNode *indexNode, cons
   int setIdx;
   bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->SetRunCount(splitIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(runSet, spn, start, end));
   
   unsigned int lhIdxCount, lhSampCt;
   if (ctgWidth == 2)  {
@@ -923,7 +923,7 @@ void SPReg::SplitFacWV(unsigned int splitIdx, const IndexNode *indexNode, const 
   int setIdx;
   bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->SetRunCount(splitIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(runSet, spn, start, end));
   runSet->HeapMean();
 
   unsigned int idxCountL;

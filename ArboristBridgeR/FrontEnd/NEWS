@@ -1,3 +1,17 @@
+Changes in 0.1-2:
+
+ * Improved scaling with predictor count.
+
+ * Improved conformance with Caret package.
+
+ * 'minNode' default lowered to reflect uniqueness of indices
+   referenced within a node.
+
+ * Name change:  PreTrain deprecated in favor of PreFormat.
+
+ * Minor reorganization to support sparse internal representation
+   planned for next release.
+   
 
 Changes in 0.1-1:
 

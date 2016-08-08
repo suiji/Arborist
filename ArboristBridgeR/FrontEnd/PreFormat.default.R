@@ -15,9 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-PreTrain.default <- function(x) {
-  .Deprecated("PreFormat")
-    
+PreFormat.default <- function(x) {
   # Argument checking:
   if (any(is.na(x)))
     stop("NA not supported in design matrix")
@@ -29,7 +27,7 @@ PreTrain.default <- function(x) {
     predBlock = predBlock,
     rowRank = rowRank
   )
-  class(preTrain) <- "PreTrain"
+  class(preTrain) <- "PreFormat"
 
   preTrain
 }

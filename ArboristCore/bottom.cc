@@ -72,9 +72,7 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bag
  */
 void Level::RootDef(unsigned int nPred) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    def[predIdx] = PBTrain::FacCard(predIdx);
-    defined->SetBit(0, predIdx);
-    defCount++;
+    Define(0, predIdx, PBTrain::FacCard(predIdx), 0);
   }
 }
 
@@ -82,14 +80,15 @@ void Level::RootDef(unsigned int nPred) {
 Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), defCount(0), del(0) {
   std::vector<unsigned int> _parent(splitCount);
   std::vector<Cell> _cell(splitCount);
-  //std::map<unsigned int, unsigned int> _def;
-  std::vector<unsigned int> _def(splitCount * nPred);
-  std::fill(_def.begin(), _def.end(), 0);
-  defined = new BitMatrix(splitCount, nPred);
-  buffer = new BitMatrix(splitCount, nPred);
+
+  std::vector<MRRA> _def(splitCount *nPred);
+  MRRA df;
+  df.Undefine();
+  std::fill(_def.begin(), _def.end(), df);
+  def = std::move(_def);
+
   parent = std::move(_parent);
   cell = std::move(_cell);
-  def = std::move(_def);
 }
 
 
@@ -101,11 +100,8 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noInde
 const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNode indexNode[]) {
   FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
+  Restage();
 
-  if (!restageCoord.empty()) {
-    Restage();
-    restageCoord.clear();
-  }
   if (level.size() > pathMax) {
     delete level.back();
     level.pop_back();
@@ -156,12 +152,10 @@ void Bottom::FlushRear() {
 bool Level::NonreachPurge() {
   bool purged = false;
   for (unsigned int mrraIdx = 0; mrraIdx < splitCount; mrraIdx++) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      if (!defined->TestBit(mrraIdx, predIdx))
-	continue;
-      if (liveCount[mrraIdx] == 0) {
-	PurgeDef(mrraIdx, predIdx);
-	purged = true;
+    if (liveCount[mrraIdx] == 0) {
+      for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+        Undefine(mrraIdx, predIdx); // Harmless if already undefined.
+        purged = true;
       }
     }
   }
@@ -180,13 +174,13 @@ bool Level::NonreachPurge() {
 void Level::Flush(Bottom *bottom, bool forward) {
   for (unsigned int mrraIdx = 0; mrraIdx < splitCount; mrraIdx++) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      if (!defined->TestBit(mrraIdx, predIdx))
+      if (!Defined(mrraIdx, predIdx))
 	continue;
       if (forward) {
 	FlushDef(bottom, mrraIdx, predIdx);
       }
       else {
-	PurgeDef(mrraIdx, predIdx);
+	Undefine(mrraIdx, predIdx);
       }
     }
   }
@@ -202,49 +196,31 @@ void Level::Flush(Bottom *bottom, bool forward) {
    @return void.
  */
 void Level::FlushDef(Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx) {
-  // N.B.:  Assumes definition reaches
+  if (del == 0) // Already flushed to front level.
+    return;
+
+  unsigned int runCount, bufIdx;
+  Consume(mrraIdx, predIdx, runCount, bufIdx);
+  FrontDef(bottom, mrraIdx, predIdx, runCount, bufIdx);
+  if (runCount != 1)
+    bottom->ScheduleRestage(mrraIdx, predIdx, del, runCount, bufIdx);
+}
+
+
+void Level::FrontDef(const Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int defRC, unsigned int sourceBit) {
   PathNode *pathStart = &pathNode[BackScale(mrraIdx)];
   unsigned int extent = BackScale(1);
-  unsigned int sourceBit = buffer->TestBit(mrraIdx, predIdx) ? 1 : 0;
-  unsigned int defRC = def[PairOffset(mrraIdx, predIdx)];
   for (unsigned int path = 0; path < extent; path++) {
-    bottom->AddDef(pathStart, path, predIdx, defRC, 1 - sourceBit);
+    bottom->AddDef(pathStart[path].Idx(), predIdx, defRC, 1 - sourceBit);
   }
+}
+
+
+void Bottom::ScheduleRestage(unsigned int mrraIdx, unsigned int predIdx, unsigned int del, unsigned int runCount, unsigned bufIdx) {
   SplitPair mrra = std::make_pair(mrraIdx, predIdx);
-  bottom->ScheduleRestage(mrra, del, sourceBit);
-
-  PurgeDef(mrraIdx, predIdx);
-}
-
-
-// def[], sourceBit may be left dirty:  no reads after dedefinition.
-void Level::PurgeDef(unsigned int mrraIdx, unsigned int predIdx) {
-  defined->ClearBit(mrraIdx, predIdx);
-  defCount--;
-}
-
-
-/**
-   @brief Adds a new definition to front level at passed coordinates, provided
-   that the node index is live.
-
-   @return true iff path reaches to current level.
- */
-void Level::AddDef(PathNode pathReach[], unsigned int path, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
-  unsigned reachIdx = pathReach[path].Idx();
-  if (reachIdx != noIndex) {
-    def[PairOffset(reachIdx, predIdx)] = defRC;
-    defined->SetBit(reachIdx, predIdx);
-    buffer->SetBit(reachIdx, predIdx, destBit);
-    defCount++;
-  }
-}
-
-
-void Bottom::ScheduleRestage(const SplitPair &mrra, unsigned int del, unsigned bufIdx) {
-  RestageCoord rsSet;
-  rsSet.Init(mrra, del, bufIdx);
-  restageCoord.push_back(rsSet);
+  RestageCoord coord;
+  coord.Init(mrra, del, runCount, bufIdx);
+  restageCoord.push_back(coord);
 }
 
 
@@ -272,8 +248,6 @@ Bottom::~Bottom() {
 
 
 Level::~Level() {
-  delete defined;
-  delete buffer;
 }
 
 
@@ -303,80 +277,35 @@ void Bottom::PathExtinct(unsigned int sIdx) const {
    @return run count of front-level definition.
  */
 unsigned int Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop) {
-  unsigned int rc;
-  unsigned int bufIdx = DefForward(levelIdx, predIdx, rc);
+  DefForward(levelIdx, predIdx);
 
-  if (rc != 1) { // No reason to attempt splitting a singleton.
+  unsigned int runCount, bufIdx;
+  if (!levelFront->Singleton(levelIdx, predIdx, runCount, bufIdx)) {
     SplitCoord sg;
-    sg.Init(splitCoord.size(), levelIdx, predIdx, bufIdx, rc, runTop);
+    sg.Init(splitCoord.size(), levelIdx, predIdx, bufIdx, runCount, runTop);
     splitCoord.push_back(sg);
   }
   
-  return rc;
+  return runCount;
 }
 
 
 /**
    @brief Finds definition reaching coordinate pair at current level,
-   flushing ancestor if necessary.  Obtains node reached by coordinates
-   within current level.
+   flushing ancestor if necessary.
 
    @param levelIdx is the node index within current level.
 
    @param predIdx is the predictor index.
 
-   @param runCount outputs the reached node's run count.
-
-   @return buffer index of reached definition.
+   @return void.
  */
-unsigned int Bottom::DefForward(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount) {
+void Bottom::DefForward(unsigned int levelIdx, unsigned int predIdx) {
   unsigned int mrraIdx = levelIdx; // Chains upward through parent indices.
   for (unsigned int del = 0; del < level.size(); del++) {
-    if (level[del]->Defines(mrraIdx, predIdx)) {
-      if (del > 0) { // Else already flushed to front level.
-        level[del]->FlushDef(this, mrraIdx, predIdx);
-      }
+    if (level[del]->Forwards(this, mrraIdx, predIdx))
       break;
-    }
   }
- 
-  return levelFront->Definition(levelIdx, predIdx, runCount);
-}
-
-
-/**
-   @brief Tests whether this level defines split/predictor pair passed.
-
-   @param mrraIdx inputs trial level index / outputs parent index if level
-   does not define pair.
-
-   @param predIdx is the predictor index of the pair.
-
-   @return true iff pair defined at this level.
- */
-bool Level::Defines(unsigned int &mrraIdx, unsigned int predIdx) {
-  if (defined->TestBit(mrraIdx, predIdx)) {
-    return true;
-  }
-  else {
-    mrraIdx = parent[mrraIdx];
-    return false;
-  }
-}
-
-
-/**
-   @brief Looks up definition associated with coordinates passed.
-
-   @param levelIdx is the node index.
-
-   @param predIdx is the predictor index.
-
-   @return buffer index of definition.
- */
-unsigned int Level::Definition(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount) {
-  runCount = def[PairOffset(levelIdx, predIdx)];
-  return buffer->TestBit(levelIdx, predIdx) ? 1 : 0;
 }
 
 
@@ -435,10 +364,9 @@ void Bottom::Restage() {
  */
 void Bottom::Restage(RestageCoord &rsCoord) {
   unsigned int reachOffset[1 << pathMax];
-  unsigned int del, bufIdx;
+  unsigned int del, runCount, bufIdx;
   SplitPair mrra;
-  rsCoord.Ref(mrra, del, bufIdx);
-
+  rsCoord.Ref(mrra, del, runCount, bufIdx);
   OffsetClone(mrra, del, reachOffset);
 
   SPNode *targ;
@@ -446,10 +374,11 @@ void Bottom::Restage(RestageCoord &rsCoord) {
     targ = RestageOne(reachOffset, mrra, bufIdx);
   }
   else {
-    targ = RestageIrr(reachOffset, mrra, del, bufIdx);
+    targ = RestageIrr(reachOffset, mrra, bufIdx, del);
   }
 
-  Singletons(reachOffset, targ, mrra, del);
+  if (runCount > 1)
+    Singletons(reachOffset, targ, mrra, del);
 }
 
 
@@ -458,7 +387,7 @@ void Bottom::Restage(RestageCoord &rsCoord) {
 
    @return void.
  */
-SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int del, unsigned int bufIdx) {
+SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx, unsigned int del) {
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
@@ -541,15 +470,13 @@ void Bottom::Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source
 
 void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], const SplitPair &mrra, Level *levelFront) {
   unsigned int predIdx = mrra.second;
-  if (PBTrain::FacCard(predIdx) == 0)
-    return;
   PathNode *pathPos = &pathNode[BackScale(mrra.first)];
   for (unsigned int path = 0; path < BackScale(1); path++) {
     unsigned int levelIdx, offset;
     pathPos[path].Coords(levelIdx, offset);
     if (levelIdx != noIndex) {
       if (targ->IsRun(offset, reachOffset[path]-1)) {
-	levelFront->def[PairOffset(levelIdx, predIdx)] = 1;//->SetSingleton();
+	levelFront->Singleton(levelIdx, predIdx);
       }
     }
   }

@@ -1,11 +1,13 @@
 useDynLib(Rborist)
 
 export(Rborist)
+export(PreFormat)
 export(PreTrain)
 export(ForestFloorExport)
 export(RboristNews)
 
 S3method(Rborist, default)
+S3method(PreFormat, default)
 S3method(PreTrain, default)
 S3method(predict, Rborist)
 S3method(ForestFloorExport, Rborist)

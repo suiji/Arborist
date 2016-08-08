@@ -122,7 +122,7 @@ class PathNode {
   }
 
 
-  inline unsigned int Idx() {
+  inline unsigned int Idx() const {
     return levelIdx;
   }
 };
@@ -137,6 +137,52 @@ typedef std::pair<unsigned int, unsigned int> SPCoord;
 
 
 /**
+   @brief Inherited state for most-recently-restaged ancestor.
+ */
+class MRRA {
+  static const unsigned int defBit = 1;
+  static const unsigned int bufBit = 2;
+  unsigned int raw;
+ public:
+
+  inline void Init(unsigned int runCount, unsigned int bufIdx) {
+    raw = (runCount << 2) | (bufIdx << 1) | 1;
+  }
+
+  inline void Ref(unsigned int &runCount, unsigned int &bufIdx) {
+    runCount = raw >> 2;
+    bufIdx = (raw & bufBit) >> 1;
+  }
+
+  
+  inline void Consume(unsigned int &runCount, unsigned int &bufIdx) {
+    Ref(runCount, bufIdx);
+    raw = 0;
+  }
+
+  
+  inline unsigned int RunCount() {
+    return raw >> 2;
+  }
+
+  inline void RunCount(unsigned int runCount) {
+    raw = (runCount << 2) | (raw & 3);
+  }
+
+  
+  inline bool Defined() {
+    return (raw & defBit) == 1;
+  }
+  
+
+  inline bool Undefine() {
+    bool wasDefined = ((raw & defBit) == 1);
+    raw = 0;
+    return wasDefined;
+  }
+};
+
+/**
    @brief Per-level reaching definitions.
  */
 class Level {
@@ -149,11 +195,10 @@ class Level {
   std::vector<Cell> cell; // Stage coordinates, by node.
   std::vector<unsigned int> parent; // Indexed by node.
 
-  // More elegant, parsimonious yet slower to map SplitPair to node*:
-  std::vector<unsigned int> def; // Indexed by pair-offset
+  // More elegant and parsimonious to use std::map from pair to node,
+  // but hashing much too slow.
+  std::vector<MRRA> def; // Indexed by pair-offset.
 
-  class BitMatrix *defined; // Indexed by pair.
-  class BitMatrix *buffer; // Indexed by pair.
   // Recomputed:
   std::vector<PathNode> pathNode; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
@@ -161,18 +206,16 @@ class Level {
 
   Level(unsigned int _splitCount, unsigned int _nPred, unsigned int noIndex);
   ~Level();
-  bool Defines(unsigned int &mrraIdx, unsigned int predIdx);
-  unsigned int Definition(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount);
-  void AddDef(PathNode pathReach[], unsigned int reach, unsigned int predIdx, unsigned int defRC, unsigned int destBit);
+  //  bool Defines(unsigned int &mrraIdx, unsigned int predIdx);
   void Flush(class Bottom *bottom, bool forward = true);
   void FlushDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();
-  void PurgeDef(unsigned int mrraIdx, unsigned int predIdx);
   void Paths();
   void PathInit(unsigned int &mrraIdx, unsigned int path, unsigned int levelIdx, unsigned int start);
   void Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par);
   void CellBounds(const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void RootDef(unsigned int nPred);
+  void FrontDef(const class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
   void OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]);
   void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SplitPair &mrra, Level *levelFront);  
 
@@ -218,6 +261,85 @@ class Level {
   inline unsigned int SplitCount() {
     return splitCount;
   }
+
+
+  inline void Define(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx) {
+    def[PairOffset(levelIdx, predIdx)].Init(runCount, bufIdx);
+    defCount++;
+  }
+
+
+  inline void Undefine(unsigned int levelIdx, unsigned int predIdx) {
+    bool wasDefined = def[PairOffset(levelIdx, predIdx)].Undefine();
+    defCount -= wasDefined ? 1 : 0;
+  }
+
+
+  inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount) {
+    def[PairOffset(levelIdx, predIdx)].RunCount(runCount);
+  }
+  
+
+  inline void Singleton(unsigned int levelIdx, unsigned int predIdx) {
+    def[PairOffset(levelIdx, predIdx)].RunCount(1);
+  }
+  
+  
+  inline bool Singleton(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
+    def[PairOffset(levelIdx, predIdx)].Ref(runCount, bufIdx);
+    return runCount == 1;
+  }
+
+
+  inline void Ref(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
+    def[PairOffset(levelIdx, predIdx)].Ref(runCount, bufIdx);
+  }
+
+
+  inline void Consume(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
+    def[PairOffset(levelIdx, predIdx)].Consume(runCount, bufIdx);
+  }
+
+
+  inline bool Defined(unsigned int levelIdx, unsigned int predIdx) {
+    return def[PairOffset(levelIdx, predIdx)].Defined();
+  }
+
+
+  /**
+     @brief Adds a new definition to front level at passed coordinates, provided
+   that the node index is live.
+
+     @return true iff path reaches to current level.
+   */
+  inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
+    if (reachIdx != noIndex) {
+      Define(reachIdx, predIdx, defRC, destBit);
+    }
+  }
+
+
+  /**
+     @brief Tests whether this level defines split/predictor pair passed and,
+     if so, forwards reaching paths.
+
+     @param mrraIdx inputs trial level index / outputs parent index if level
+     does not define pair.
+
+     @param predIdx is the predictor index of the pair.
+
+     @return true iff pair defined at this level.
+   */
+  inline bool Forwards(class Bottom *bottom, unsigned int &mrraIdx, unsigned int predIdx) {
+    if (Defined(mrraIdx, predIdx)) {
+      FlushDef(bottom, mrraIdx, predIdx);
+      return true;
+    }
+    else {
+      mrraIdx = parent[mrraIdx];
+      return false;
+    }
+  }
 };
 
 
@@ -254,12 +376,6 @@ class SplitCoord {
   inline bool HasRuns() {
     return setPos >= 0;
   }
-
-
-  inline void SetRunCount(unsigned int _runCount) {
-    runCount = _runCount;
-  }
-  
 };
 
 
@@ -268,19 +384,22 @@ class SplitCoord {
  */
 class RestageCoord {
   SplitPair mrra; // Level-relative coordinates of reaching ancestor.
+  unsigned int runCount;
   unsigned char del; // # levels back to referencing level.
   unsigned char bufIdx; // buffer index of mrra's SamplePred.
  public:
 
-  void inline Init(const SplitPair &_mrra, unsigned int _del, unsigned int _bufIdx) {
+  void inline Init(const SplitPair &_mrra, unsigned int _del, unsigned int _runCount, unsigned int _bufIdx) {
     mrra = _mrra;
     del = _del;
+    runCount = _runCount;
     bufIdx = _bufIdx;
   }
 
-  void inline Ref(SplitPair &_mrra, unsigned int &_del, unsigned int &_bufIdx) {
+  void inline Ref(SplitPair &_mrra, unsigned int &_del, unsigned int &_runCount, unsigned int &_bufIdx) {
     _mrra = mrra;
     _del = del;
+    _runCount = runCount;
     _bufIdx = bufIdx;
   }
 };
@@ -311,7 +430,7 @@ class Bottom {
   //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
-  void ScheduleRestage(const SplitPair &mrra, unsigned int del, unsigned int bufIdx);
+  void ScheduleRestage(unsigned int mrraIdx, unsigned int predIdx, unsigned int del, unsigned int runCount, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
   unsigned int ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop);
@@ -340,12 +459,12 @@ class Bottom {
   void PathRight(unsigned int sIdx) const ;
   void PathExtinct(unsigned int sIdx) const ;
   void FlushRear();
-  unsigned int DefForward(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount);
+  void DefForward(unsigned int levelIdx, unsigned int predIdx);
   void Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
   void Restage();
   void Restage(RestageCoord &rsCoord);
   SPNode *RestageOne(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx);
-  SPNode *RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int del, unsigned int bufIdx);
+  SPNode *RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx, unsigned int del);
   
   /**
      @brief Accessor.  SSNode only client.
@@ -426,8 +545,8 @@ class Bottom {
   }
 
 
-  inline void SetRunCount(unsigned int splitIdx, int runCount) {
-    splitCoord[splitIdx].SetRunCount(runCount);
+  inline void SetRunCount(unsigned int splitIdx, unsigned int predIdx, unsigned int runCount) {
+    levelFront->SetRunCount(splitIdx, predIdx, runCount);
   }
 
   inline void CellBounds(unsigned int del, const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
@@ -454,8 +573,8 @@ class Bottom {
 
      @return void
    */
-  inline void AddDef(PathNode pathReach[], unsigned int reach, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
-    levelFront->AddDef(pathReach, reach, predIdx, defRC, destBit);
+  inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) const {
+    levelFront->AddDef(reachIdx, predIdx, defRC, destBit);
   }
 
     
