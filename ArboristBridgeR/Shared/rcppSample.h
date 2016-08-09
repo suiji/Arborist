@@ -28,8 +28,7 @@
 #ifndef ARBORIST_RCPP_SAMPLE_H
 #define ARBORIST_RCPP_SAMPLE_H
 
-#include <RcppArmadillo.h>
-
+#include <Rcpp.h>
 using namespace Rcpp;
 
 /**
@@ -38,7 +37,7 @@ using namespace Rcpp;
 class RcppSample {
   static unsigned int nRow;
   static bool withRepl;
-  static NumericVector weight;
+  static Rcpp::NumericVector weight;
 public:
   static void Init(unsigned int _nRow, double _weight[], bool _withRepl);
   static void SampleRows(unsigned int nSamp, int out[]);

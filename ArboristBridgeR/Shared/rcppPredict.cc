@@ -57,8 +57,6 @@ double MSE(const double yValid[], NumericVector y, double &rsq) {
     sse += error * error;
   }
 
-  // TODO:  Repair assumption that every row sampled.
-
   double mse = sse / y.length();
   rsq = 1.0 - (mse * y.length()) / (var(y) * (y.length() - 1.0));
 

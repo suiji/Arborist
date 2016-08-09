@@ -23,8 +23,8 @@
    @author Mark Seligman
  */
 
-#include "rcppSample.h"
 #include <RcppArmadilloExtensions/sample.h>
+#include "rcppSample.h"
 
 //#include <iostream>
 //using namespace std;

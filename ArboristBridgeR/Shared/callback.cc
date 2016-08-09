@@ -23,10 +23,9 @@
    @author Mark Seligman
  */
 
-#include "callback.h"
-#include <R.h>
 
 #include "rcppSample.h"
+#include "callback.h"
 
 /**
    @brief Initializes static state parameters for row sampling.
