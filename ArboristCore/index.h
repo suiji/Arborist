@@ -99,10 +99,9 @@ class IndexNode {
     path = _path;
   }
 
-  inline void PathCoords(unsigned int &_start, unsigned int &_extent, unsigned int &_path) const {
+  inline void PathCoords(unsigned int &_start, unsigned int &_extent) {
     _start = lhStart;
     _extent = idxCount;
-    _path = path;
   }
   
   /**
@@ -293,17 +292,21 @@ class Index {
   }
 
 
-  inline void NextLH(int idxNext, unsigned int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
-    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, _path << 1);
+  inline unsigned int NextLH(int idxNext, unsigned int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
+    unsigned int pathNext = _path << 1;
+    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, pathNext);
 
     SetLH(ptId);
+    return pathNext;
   }
 
   
-  inline void NextRH(int idxNext, int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
-    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, (_path << 1) | 1);
+  inline unsigned int NextRH(int idxNext, int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
+    unsigned int pathNext = (_path << 1) | 1;
+    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, pathNext);
 
     SetRH(ptId);
+    return pathNext;
   }
 
 
