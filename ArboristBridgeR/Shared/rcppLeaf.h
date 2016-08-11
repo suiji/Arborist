@@ -32,9 +32,9 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, const std::vector<class LeafNode> &leafNode, const std::vector<class BagRow> &bagRow, unsigned int rowTrain, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked);
+RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, const std::vector<class BagRow> &bagRow, unsigned int rowTrain, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked);
 RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<double> &weight, const CharacterVector &levels);
-void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> *&_leafNode, std::vector<class BagRow> *&_bagRow, unsigned int &rowTrain, std::vector<unsigned int> &_rank);
-void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> *&_leafNode, std::vector<class BagRow> *&_bagRow, unsigned int &rowTrain, std::vector<double> &_weight, CharacterVector &_levels);
+void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, unsigned int &rowTrain, std::vector<unsigned int> &_rank);
+void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, unsigned int &rowTrain, std::vector<double> &_weight, CharacterVector &_levels);
 
 #endif

@@ -24,15 +24,7 @@
  */
 
 
-#include <RcppCommon.h>
-
 #include "forest.h"
-
-namespace Rcpp {
-  template <> SEXP wrap(const std::vector<ForestNode> &);
-  template <> std::vector<ForestNode>* as(SEXP);
-}
-
 #include <Rcpp.h>
 
 using namespace std;
@@ -40,24 +32,17 @@ using namespace Rcpp;
 
 #include "rcppForest.h"
 
-
-template<> SEXP Rcpp::wrap(const std::vector<ForestNode> &forestNode) {
-  XPtr<const std::vector<ForestNode> > extWrap(new std::vector<ForestNode>(forestNode), true);
- return wrap(extWrap);
-}
-
-
-template <> std::vector<ForestNode>* Rcpp::as(SEXP sFN) {
-  Rcpp::XPtr<std::vector<ForestNode> > xp(sFN);
-  return (std::vector<ForestNode>*) xp;
-}
-
-
 //#include <iostream>
 
 RcppExport SEXP ForestWrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
+  unsigned int rawSize = forestNode.size() * sizeof(ForestNode);
+  RawVector fnRaw(rawSize);
+  for (unsigned int i = 0; i < rawSize; i++) {
+    fnRaw[i] = ((unsigned char*) &forestNode[0])[i];
+  }
+
   List forest = List::create(
-     _["forestNode"] = forestNode,
+     _["forestNode"] = fnRaw,
      _["origin"] = origin,
      _["facOrig"] = facOrigin,
      _["facSplit"] = facSplit);
@@ -72,13 +57,21 @@ RcppExport SEXP ForestWrap(const std::vector<unsigned int> &origin, const std::v
 
    @return void.
  */
-void ForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> *&_forestNode) {
+void ForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> &_forestNode) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
 
+  RawVector fnRaw = forest["forestNode"];
+  unsigned int rawSize = fnRaw.length();
+  std::vector<ForestNode> forestNode(rawSize / sizeof(ForestNode));
+  for (unsigned int i = 0; i < rawSize; i++) {
+    ((unsigned char*) &forestNode[0])[i] = fnRaw[i];
+  }
+  
+
   _origin = as<std::vector<unsigned int> >(forest["origin"]);
   _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
   _facSplit = as<std::vector<unsigned int> >(forest["facSplit"]);
-  _forestNode = as<std::vector<ForestNode> *>(forest["forestNode"]);
+  _forestNode = std::move(forestNode);
 }
