@@ -1,0 +1,33 @@
+sudo: false
+
+language: r
+r:
+  - oldrel
+  - release
+  - devel
+
+cache: packages
+
+before_install:
+  - cd ArboristBridgeR/Package/
+  - chmod u+x Rborist.CRAN.sh
+  - ./Rborist.CRAN.sh
+
+install:
+  - tar -xzvf Rborist_*.*-*.tar.gz
+  - Rscript -e 'install.packages("devtools")'
+  - Rscript -e 'devtools::install_deps("Rborist")'
+script:
+  - Rscript -e 'devtools::check("Rborist", manual = TRUE)'
+  
+notifications:
+  email:
+    on_success: change
+    on_failure: change
+
+r_github_packages:
+  - jimhester/covr
+
+# This can be enabled if you want code coverage
+#after_success:
+#  - Rscript -e 'install.packages("covr"); covr::coveralls("Rborist")'
