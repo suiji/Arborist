@@ -148,8 +148,8 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
 
   return List::create(
-      _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapCtg(leafOrigin, leafNode, bagRow, nRow, weight, CharacterVector(yOneBased.attr("levels"))),
+      _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
+      _["leaf"] = RcppLeaf::WrapCtg(leafOrigin, leafNode, bagRow, nRow, weight, CharacterVector(yOneBased.attr("levels"))),
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
   );
 }
@@ -215,8 +215,8 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
 
   return List::create(
-      _["forest"] = ForestWrap(origin, facOrig, facSplit, forestNode),
-      _["leaf"] = LeafWrapReg(leafOrigin, leafNode, bagRow, nRow, rank, as<std::vector<double> >(yRanked)),
+      _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
+      _["leaf"] = RcppLeaf::WrapReg(leafOrigin, leafNode, bagRow, nRow, rank, as<std::vector<double> >(yRanked)),
       _["predInfo"] = predInfo[predMap] // Maps back from core order.
     );
 }

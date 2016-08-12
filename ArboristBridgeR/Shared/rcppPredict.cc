@@ -73,11 +73,11 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
-  PredblockUnwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
+  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
 
   std::vector<unsigned int> origin, facOrig, facSplit;
   std::vector<ForestNode> forestNode;
-  ForestUnwrap(sForest, origin, facOrig, facSplit, forestNode);
+  RcppForest::Unwrap(sForest, origin, facOrig, facSplit, forestNode);
   
   std::vector<double> yRanked;
   std::vector<unsigned int> leafOrigin;
@@ -85,7 +85,7 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   std::vector<BagRow> bagRow;
   unsigned int rowTrain;
   std::vector<unsigned int> rank;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
+  RcppLeaf::UnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
 
   std::vector<double> yPred(nRow);
   Predict::Regression(nPredNum > 0 ? transpose(blockNum).begin() : 0, nPredFac > 0 ? transpose(blockFac).begin() : 0, nPredNum, nPredFac, forestNode, origin, facOrig, facSplit, leafOrigin, leafNode, bagRow, rank, yRanked, yPred, bag ? rowTrain : 0);
@@ -134,11 +134,11 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
-  PredblockUnwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
+  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
     
   std::vector<unsigned int> origin, facOrig, facSplit;
   std::vector<ForestNode> forestNode;
-  ForestUnwrap(sForest, origin, facOrig, facSplit, forestNode);
+  RcppForest::Unwrap(sForest, origin, facOrig, facSplit, forestNode);
 
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> leafNode;
@@ -146,7 +146,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   unsigned int rowTrain;
   std::vector<double> weight;
   CharacterVector levelsTrain;
-  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, rowTrain, weight, levelsTrain);
+  RcppLeaf::UnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, rowTrain, weight, levelsTrain);
 
   unsigned int ctgWidth = levelsTrain.length();
   bool validate = !Rf_isNull(sYTest);
@@ -317,11 +317,11 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
   int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
-  PredblockUnwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
+  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
     
   std::vector<unsigned int> origin, facOrig, facSplit;
   std::vector<ForestNode> forestNode;
-  ForestUnwrap(sForest, origin, facOrig, facSplit, forestNode);
+  RcppForest::Unwrap(sForest, origin, facOrig, facSplit, forestNode);
 
   std::vector<double> yRanked;
   std::vector<unsigned int> leafOrigin;
@@ -329,7 +329,7 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
   std::vector<BagRow> bagRow;
   unsigned int rowTrain;
   std::vector<unsigned int> rank;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
+  RcppLeaf::UnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
 
   std::vector<double> yPred(nRow);
   std::vector<double> quantVecCore(as<std::vector<double> >(sQuantVec));

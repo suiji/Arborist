@@ -74,7 +74,7 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   //
   std::vector<unsigned int> nodeOrigin, facOrigin, splitBV;
   std::vector<ForestNode> forestNode;
-  ForestUnwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
+  RcppForest::Unwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
 
   unsigned int nTree = nodeOrigin.size();
   std::vector<std::vector<unsigned int> > predTree(nTree), bumpTree(nTree);
@@ -91,7 +91,7 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   std::vector<BagRow> bagRow;
   unsigned int rowTrain;
   std::vector<unsigned int> rank;
-  LeafUnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
+  RcppLeaf::UnwrapReg(sLeaf, yRanked, leafOrigin, leafNode, bagRow, rowTrain, rank);
 
   std::vector<std::vector<unsigned int> > rowTree(nTree), sCountTree(nTree);
   std::vector<std::vector<double> > scoreTree(nTree);
@@ -125,7 +125,7 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
 RcppExport SEXP ExportCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   std::vector<unsigned int> nodeOrigin, facOrigin, splitBV;
   std::vector<ForestNode> forestNode;
-  ForestUnwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
+  RcppForest::Unwrap(sForest, nodeOrigin, facOrigin, splitBV, forestNode);
 
   unsigned int nTree = nodeOrigin.size();
   std::vector<std::vector<unsigned int> > predTree(nTree), bumpTree(nTree);
@@ -142,7 +142,7 @@ RcppExport SEXP ExportCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   unsigned int rowTrain;
   std::vector<double> weight;
   CharacterVector yLevel;
-  LeafUnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, rowTrain, weight, yLevel);
+  RcppLeaf::UnwrapCtg(sLeaf, leafOrigin, leafNode, bagRow, rowTrain, weight, yLevel);
 
   std::vector<std::vector<unsigned int> > rowTree(nTree), sCountTree(nTree);
   std::vector<std::vector<double> > scoreTree(nTree);
@@ -353,7 +353,7 @@ RcppExport SEXP RcppForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  SignatureUnwrap(arbOut["signature"], predMap, predLevel);
+  RcppPredblock::SignatureUnwrap(arbOut["signature"], predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

@@ -34,7 +34,7 @@ using namespace Rcpp;
 
 //#include <iostream>
 
-RcppExport SEXP ForestWrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
+SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
   unsigned int rawSize = forestNode.size() * sizeof(ForestNode);
   RawVector fnRaw(rawSize);
   for (unsigned int i = 0; i < rawSize; i++) {
@@ -57,7 +57,7 @@ RcppExport SEXP ForestWrap(const std::vector<unsigned int> &origin, const std::v
 
    @return void.
  */
-void ForestUnwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> &_forestNode) {
+void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> &_forestNode) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");

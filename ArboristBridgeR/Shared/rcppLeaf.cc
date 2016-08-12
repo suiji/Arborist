@@ -31,7 +31,7 @@
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
-RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked) {
+SEXP RcppLeaf::WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked) {
   unsigned int rawSize = leafNode.size() * sizeof(LeafNode);
   RawVector leafRaw(rawSize);
   for (unsigned int i = 0; i < rawSize; i++) {
@@ -69,7 +69,7 @@ RcppExport SEXP LeafWrapReg(const std::vector<unsigned int> &leafOrigin, std::ve
 
    @return void, with output reference parameters.
  */
-void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, unsigned int &_rowTrain, std::vector<unsigned int> &_rank) {
+void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, unsigned int &_rowTrain, std::vector<unsigned int> &_rank) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
@@ -100,7 +100,7 @@ void LeafUnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<unsign
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<double> &weight, const CharacterVector &levels) {
+SEXP RcppLeaf::WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<double> &weight, const CharacterVector &levels) {
   unsigned int rawSize = leafNode.size() * sizeof(LeafNode);
   RawVector leafRaw(rawSize);
   for (unsigned int i = 0; i < rawSize; i++) {
@@ -138,7 +138,7 @@ RcppExport SEXP LeafWrapCtg(const std::vector<unsigned int> &leafOrigin, const s
 
    @return void, with output reference parameters.
  */
-void LeafUnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, unsigned int &_rowTrain, std::vector<double> &_weight, CharacterVector &_levels) {
+void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, unsigned int &_rowTrain, std::vector<double> &_weight, CharacterVector &_levels) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");

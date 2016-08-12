@@ -13,8 +13,10 @@ cp ../FrontEnd/NEWS Rborist/inst/
 cp ../FrontEnd/*R Rborist/R/
 cp ../Shared/Makevars Rborist/src/
 cp ../Shared/?[^cpp]*.cc Rborist/src/
-cp ../Shared/rcppArmadillo*.cc Rborist/src
-cat ../Shared/rcppMonolithHeader ../Shared/rcpp[^Armadillo]*.cc > Rborist/src/rcppMonolith.cc
+
+# Hideous hack for tricking linker:
+cat ../Shared/rcppMonolithHeader ../Shared/rcppArmadillo*.cc ../Shared/rcpp[^Armadillo]*.cc > Rborist/src/rcppMonolith.cc
+
 cp ../Shared/*.h Rborist/src/
 cp ../../ArboristCore/*.cc Rborist/src/
 cp ../../ArboristCore/*.h Rborist/src/

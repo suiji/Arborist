@@ -23,15 +23,12 @@
    @author Mark Seligman
 */
 
-#include "rowrank.h"
 // Testing only:
 //#include <iostream>
 
-#include <Rcpp.h>
-using namespace Rcpp;
+#include "rcppPredblock.h"
+#include "rowrank.h"
 
-
-void FactorRemap(IntegerMatrix &xFac, List &level, List &levelTrain);
 
 /**
   @brief Extracts contents of a data frame into numeric and (zero-based) factor blocks.  Can be quite slow for large predictor counts, as a linked list is being walked.
@@ -104,7 +101,7 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
       stop("Signature mismatch");
 
     List levelTrain(as<List>(sigTrain["level"]));
-    FactorRemap(xFac, level, levelTrain);
+    RcppPredblock::FactorRemap(xFac, level, levelTrain);
   }
   List signature = List::create(
         _["predMap"] = predMap,
@@ -129,7 +126,7 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
 }
 
 
-void FactorRemap(IntegerMatrix &xFac, List &levelTest, List &levelTrain) {
+void RcppPredblock::FactorRemap(IntegerMatrix &xFac, List &levelTest, List &levelTrain) {
   for (int col = 0; col < xFac.ncol(); col++) {
     CharacterVector colTest(as<CharacterVector>(levelTest[col]));
     CharacterVector colTrain(as<CharacterVector>(levelTrain[col]));
@@ -183,7 +180,7 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
 /**
    @brief Unwraps field values useful for prediction.
  */
-void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
+void RcppPredblock::Unwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -199,7 +196,7 @@ void PredblockUnwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac
 /**
    @brief Unwraps field values useful for export.
  */
-void SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level) {
+void RcppPredblock::SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level) {
   List signature(sSignature);
   if (!signature.inherits("Signature"))
     stop("Expecting Signature");
