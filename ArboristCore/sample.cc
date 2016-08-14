@@ -41,7 +41,7 @@ unsigned int SampleCtg::ctgWidth = 0;
 
  @return void.
 */
-void Sample::Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree) {
+void Sample::Immutables(unsigned int _nRow, unsigned int _nPred, int _nSamp, const double _feSampleWeight[], bool _withRepl, unsigned int _ctgWidth, int _nTree) {
   nRow = _nRow;
   nPred = _nPred;
   nSamp = _nSamp;

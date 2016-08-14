@@ -16,6 +16,8 @@
 #ifndef ARBORIST_PREDBLOCK_H
 #define ARBORIST_PREDBLOCK_H
 
+#include <vector>
+
 /**
    @brief For now, all members are static and initialized once per training or
    prediction session.
@@ -134,13 +136,14 @@ class PredBlock {
    @brief Training caches numerical predictors for evaluating splits.
  */
 class PBTrain : public PredBlock {
-  static double *feNum;
-  static int *feCard; // Factor predictor cardinalities.
+  static const double *feNum;
+  static const unsigned int *feCard; // Factor predictor cardinalities.
  public:
   static unsigned int cardMax;  // High watermark of factor cardinalities.
-  static void Immutables(double *_feNum, int _feCard[], const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow);
+  static void Immutables(const double _feNum[], const unsigned int _feCard[], unsigned int _cardMax, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
   static void DeImmutables();
-  static double MeanVal(int predIdx, int rowLow, int rowHigh);
+
+  
   /**
    @brief Computes cardinality of factor-valued predictor, or zero if not a
    factor.
@@ -162,6 +165,23 @@ class PBTrain : public PredBlock {
   static inline int CardMax() {
     return cardMax;
   }
+/**
+   @brief Estimates mean of a numeric predictor from values at two rows.
+   N.B.:  assumes 'predIdx' and 'feIdx' are identical for numeric
+   predictors; otherwise remap with predMap[].
+
+   @param predIdx is the core-ordered predictor index.
+
+   @param rowLow is the row index of the lower estimate.
+
+   @param rowHigh is the row index of the higher estimate.
+
+   @return arithmetic mean of the (possibly equal) estimates.
+ */
+  static double inline MeanVal(int predIdx, int rowLow, int rowHigh) {
+    unsigned int predBase = predIdx * nRow;
+    return 0.5 * (feNum[predBase + rowLow] + feNum[predBase + rowHigh]);
+  }
 };
 
 
@@ -170,7 +190,7 @@ class PBPredict : public PredBlock {
   static double *feNumT;
   static int *feFacT;
 
-  static void Immutables(double *_feNumT, int *_feFacT, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow);
+  static void Immutables(double *_feNumT, int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
 
   static void DeImmutables();
 

@@ -93,28 +93,30 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
     stop("Expecting RowRank");
 
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
-  int nPredNum = as<int>(predBlock["nPredNum"]);
-  int nPredFac = as<int>(predBlock["nPredFac"]);
-  double *feNum = 0;
-  int *feInvNum = 0;
+  unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
+  unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
+  NumericMatrix xNum;
+  IntegerMatrix feInvNum;
   if (nPredNum > 0) {
-    NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
-    feNum = xNum.begin();
-    IntegerVector invNum(as<IntegerVector>(rowRank["invNum"]));
-    feInvNum = invNum.begin();
+    xNum = as<NumericMatrix>(predBlock["blockNum"]);
+    feInvNum = as<IntegerMatrix>(rowRank["invNum"]);
   }
-  int *feFacCard = 0;
-  int cardMax = 0;
+  else {
+    xNum = NumericMatrix(0,0);
+    feInvNum = IntegerMatrix(0,0);
+  }
+
+  IntegerVector facCard(0);
+  unsigned int cardMax = 0;
   if (nPredFac > 0) {
-    IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
-    feFacCard = facCard.begin();
+    facCard = as<IntegerVector>(predBlock["facCard"]);
     cardMax = max(facCard);
   }
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
 
-  IntegerVector feRow(as<IntegerVector>(rowRank["row"]));
-  IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));
+  IntegerMatrix feRow = as<IntegerMatrix>(rowRank["row"]);
+  IntegerMatrix feRank = as<IntegerMatrix>(rowRank["rank"]);
 
   IntegerVector yOneBased(sYOneBased);
   CharacterVector levels(yOneBased.attr("levels"));
@@ -125,13 +127,13 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   NumericVector classWeight(as<NumericVector>(sClassWeight));
   RcppProxyCtg(y, classWeight, proxy);
 
-  int nTree = as<int>(sNTree);
+  unsigned int nTree = as<unsigned int>(sNTree);
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
 
-  int nPred = nPredNum + nPredFac;
+  unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
 
-  Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), ctgWidth, as<int>(sPredFixed), predProb.begin());
+  Train::Init(xNum.begin(), (unsigned int*) facCard.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<unsigned int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), predProb.begin());
 
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
@@ -139,13 +141,13 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   NumericVector predInfo(nPred);
 
   std::vector<ForestNode> forestNode;
-
   std::vector<unsigned int> facSplit;
   std::vector<LeafNode> leafNode;
   std::vector<BagRow> bagRow;
   std::vector<double> weight;
 
-  Train::Classification(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
+  Train::Classification((unsigned int*) feRow.begin(), (unsigned int*) feRank.begin(), (unsigned int*) feInvNum.begin(), as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
+
 
   return List::create(
       _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
@@ -165,37 +167,39 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
     stop("Expecting RowRank");
 
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
-  int nPredNum = as<int>(predBlock["nPredNum"]);
-  int nPredFac = as<int>(predBlock["nPredFac"]);
-  double *feNum = 0;
-  int *feInvNum = 0;
+  unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
+  unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
+  NumericMatrix xNum;
+  IntegerMatrix feInvNum;
   if (nPredNum > 0) {
-    NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
-    feNum = xNum.begin();
-    IntegerVector invNum(as<IntegerVector>(rowRank["invNum"]));
-    feInvNum = invNum.begin();
+    xNum = as<NumericMatrix>(predBlock["blockNum"]);
+    feInvNum = as<IntegerMatrix>(rowRank["invNum"]);
   }
-  int *feFacCard = 0;
-  int cardMax = 0;
+  else {
+    xNum = NumericMatrix(0,0);
+    feInvNum = IntegerMatrix(0,0);
+  }
+
+  IntegerVector facCard(0);
+  unsigned int cardMax = 0;
   if (nPredFac > 0) {
-    IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
-    feFacCard = facCard.begin();
+    facCard = as<IntegerVector>(predBlock["facCard"]);
     cardMax = max(facCard);
   }
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
   
-  int nTree = as<int>(sNTree);
+  unsigned int nTree = as<unsigned int>(sNTree);
   NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
 
-  int nPred = nPredNum + nPredFac;
+  unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
   NumericVector regMono = NumericVector(sRegMono)[predMap];
   
-  Train::Init(feNum, feFacCard, cardMax, nPredNum, nPredFac, nRow, nTree, as<int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<int>(sTrainBlock), as<int>(sMinNode), as<double>(sMinRatio), as<int>(sTotLevels), 0, as<int>(sPredFixed), predProb.begin(), regMono.begin());
+  Train::Init(xNum.begin(), (unsigned int*) facCard.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<unsigned int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), predProb.begin(), regMono.begin());
 
-  IntegerVector feRow(as<IntegerVector>(rowRank["row"]));
-  IntegerVector feRank(as<IntegerVector>(rowRank["rank"]));
+  IntegerMatrix feRow = as<IntegerMatrix>(rowRank["row"]);
+  IntegerMatrix feRank = as<IntegerMatrix>(rowRank["rank"]);
 
   NumericVector y(sY);
   NumericVector yRanked = clone(y).sort();
@@ -212,7 +216,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> rank;
   std::vector<unsigned int> facSplit;
 
-  Train::Regression(feRow.begin(), feRank.begin(), feInvNum, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
+  Train::Regression((unsigned int*) feRow.begin(), (unsigned int*) feRank.begin(), (unsigned int*) feInvNum.begin(), as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
 
   return List::create(
       _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),

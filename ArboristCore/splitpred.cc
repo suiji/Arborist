@@ -28,9 +28,9 @@ using namespace std;
 
 unsigned int SplitPred::nPred = 0;
 unsigned int SplitPred::predFixed = 0;
-std::vector<double> SplitPred::predProb(0);
+const double *SplitPred::predProb = 0;
 
-double *SPReg::mono = 0;
+const double *SPReg::feMono = 0;
 unsigned int SPReg::predMono = 0;
 unsigned int SPCtg::ctgWidth = 0;
 
@@ -53,9 +53,7 @@ SplitPred::~SplitPred() {
 void SplitPred::Immutables(unsigned int _nPred, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]) {
   nPred = _nPred;
   predFixed = _predFixed;
-  predProb = std::vector<double>(nPred);
-  for (unsigned int i = 0; i < nPred; i++)
-    predProb[i] = _predProb[i];
+  predProb = _predProb;
 
   if (_ctgWidth > 0) {
     SPCtg::Immutables(_ctgWidth);
@@ -83,18 +81,16 @@ void SplitPred::DeImmutables() {
  */
 void SPReg::Immutables(unsigned int _nPred, const double _mono[]) {
   predMono = 0;
-  mono = new double[_nPred];
+  feMono = _mono;
   for (unsigned int i = 0; i < _nPred; i++) {
-    double monoProb = _mono[i];
+    double monoProb = feMono[i];
     predMono += monoProb != 0.0;
-    mono[i] = _mono[i];
   }
 }
 
 
 void SPReg::DeImmutables() {
   predMono = 0;
-  delete [] mono;
 }
 
 
@@ -527,7 +523,7 @@ int SPReg::MonoMode(unsigned int splitIdx) {
   
   unsigned int levelIdx, predIdx;
   bottom->SplitRef(splitIdx, levelIdx, predIdx);
-  double monoProb = mono[predIdx];
+  double monoProb = feMono[predIdx];
   int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
   return sign * ruMono[splitIdx] < monoProb ? sign : 0;
 }

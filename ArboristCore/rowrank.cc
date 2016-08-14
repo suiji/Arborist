@@ -18,9 +18,11 @@
 #include "callback.h"
 #include "math.h"
 
+#include <algorithm>
+
 // Testing only:
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 // TODO:  Investigate moving Presorts to bridges, cloning.
 
@@ -43,14 +45,19 @@ using namespace std;
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, int _row[], int _rank[], int _feInvNum[]) {
+void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[], unsigned int _feInvNum[]) {
   // Builds the ranked numeric block.
   //
   double *numOrd = new double[_nRow * _nPredNum];
-  for (unsigned int i = 0; i < _nRow * _nPredNum; i++)
-    numOrd[i] = _feNum[i];
-  Sort(_nRow, _nPredNum, numOrd, _row);
-  Ranks(_nRow, _nPredNum, numOrd, _row, _rank, _feInvNum);
+  unsigned int colOff = 0;
+  for (unsigned int num = 0; num < _nPredNum; num++, colOff += _nRow) {
+    for (unsigned int row = 0; row < _nRow; row++) {
+      _rowOrd[colOff + row] = row; // Initializes permutation vector.
+      numOrd[colOff + row] = _feNum[colOff + row];
+    }
+  }
+  Sort(_nRow, _nPredNum, numOrd, _rowOrd);
+  Ranks(_nRow, _nPredNum, numOrd, _rowOrd, _rank, _feInvNum);
   delete [] numOrd;
 }
 
@@ -66,22 +73,27 @@ void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned
 
    @param nRow is the number of observation rows. 
 
-   @param row Outputs the (unstably) sorted row indices.
+   @param rowOrd outputs the (unstably) sorted row indices.
 
    @param rank Outputs the tie-classed predictor ranks.
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortFac(const int _feFac[], unsigned int _facStart, unsigned int _nPredFac, unsigned int _nRow, int _row[], int _rank[]) {
+void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[]) {
 
   // Builds the ranked factor block.  Assumes 0-justification has been 
   // performed by bridge.
   //
-  int *facOrd = new int[_nRow * _nPredFac];
-  for (unsigned int i = 0; i < _nRow * _nPredFac; i++)
-    facOrd[i] = _feFac[i];
-  Sort(_nRow, _nPredFac, facOrd, _row + _facStart * _nRow);
-  Ranks(_nRow, _nPredFac, facOrd, _rank + _facStart * _nRow);
+  unsigned int colOff = 0;
+  unsigned int *facOrd = new unsigned int[_nRow * _nPredFac]; // Copy for sorting.
+  for (unsigned int col = 0; col < _nPredFac; col++, colOff += _nRow) {
+    for (unsigned int row = 0; row < _nRow; row++) {
+      _rowOrd[colOff + row] = row; // Initializes permutation vector.
+      facOrd[colOff + row] = _feFac[colOff + row];
+    }
+  }
+  Sort(_nRow, _nPredFac, facOrd, _rowOrd);
+  Ranks(_nRow, _nPredFac, facOrd, _rank);
   delete [] facOrd;
 }
 
@@ -95,15 +107,12 @@ void RowRank::PreSortFac(const int _feFac[], unsigned int _facStart, unsigned in
 
  @return void, with output vector parameters.
 */
-void RowRank::Sort(int _nRow, int _nPredNum, double numOrd[], int perm[]) {
-  int colOff = 0;  
-  for (int numIdx = 0; numIdx < _nPredNum; numIdx++, colOff += _nRow) {
-    /* Sort-with-index requires a vector of rows to permute.*/
-    for (int i = 0; i < _nRow; i++)
-      perm[colOff + i] = i;
-    // TODO:  Replace with thread-safe sort to permit parallel execution.
-    // Row consistency does not appear necessary:  unstable sort suffices.
-    //
+void RowRank::Sort(unsigned int _nRow, unsigned int _nPredNum, double numOrd[], unsigned int perm[]) {
+  unsigned int colOff = 0;  
+
+  // Unstable sort suffices, as row consistency does not appear necessary.
+  //
+  for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++, colOff += _nRow) {
     CallBack::QSortD(numOrd + colOff, perm + colOff, 1, _nRow);
   }
 }
@@ -114,13 +123,13 @@ void RowRank::Sort(int _nRow, int _nPredNum, double numOrd[], int perm[]) {
 
    @return void, with output reference parameters.
  */
-void RowRank::Sort(int _nRow, int _nPredFac, int facOrd[], int perm[]) {
-  int colOff = 0;
-  for (int facIdx = 0; facIdx < _nPredFac; facIdx++, colOff += _nRow) {
-    for (int i = 0; i < _nRow; i++)
-      perm[colOff + i] = i;
-    // TODO:  Replace with thread-safe sort to permit parallel execution.
-    CallBack::QSortI(facOrd + colOff, perm + colOff, 1, _nRow);
+void RowRank::Sort(unsigned int _nRow, unsigned int _nPredFac, unsigned int facOrd[], unsigned int perm[]) {
+  unsigned int colOff = 0;
+
+  // Unstable sort suffices, as row consistency does not appear necessary.
+  //
+  for (unsigned int facIdx = 0; facIdx < _nPredFac; facIdx++, colOff += _nRow) {
+    CallBack::QSortI((int*) facOrd + colOff, perm + colOff, 1, _nRow);
   }
 }
 
@@ -132,7 +141,7 @@ void RowRank::Sort(int _nRow, int _nPredFac, int facOrd[], int perm[]) {
 
    @return void, with output parameter matrix.
 */
-void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], int _row[], int _rank[], int _invRank[]) {
+void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], unsigned int _row[], unsigned int _rank[], unsigned int _invRank[]) {
   unsigned int colOff = 0;
   unsigned int numIdx; 
 
@@ -149,7 +158,7 @@ void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[]
 /**
    @brief As above, but i) looping over factor predictors and ii) no inverse map computed.
  */
-void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredFac, int _facOrd[], int _rank[]) {
+void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredFac, unsigned int _facOrd[], unsigned int _rank[]) {
   unsigned int colOff = 0;
   unsigned int facIdx;
   
@@ -178,7 +187,7 @@ void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredFac, int _facOrd[], i
 
    @return void, with output vector parameters.
 */
-void RowRank::Ranks(unsigned int _nRow, const double xCol[], const int row[], int rank[], int invRank[]) {
+void RowRank::Ranks(unsigned int _nRow, const double xCol[], const unsigned int row[], unsigned int rank[], unsigned int invRank[]) {
   unsigned int rk = 0;
   double prevX = xCol[0];
   for (unsigned int rw = 0; rw < _nRow; rw++) {
@@ -202,7 +211,7 @@ void RowRank::Ranks(unsigned int _nRow, const double xCol[], const int row[], in
 
    @return void, with output vector parameter.
 */
-void RowRank::Ranks(unsigned int _nRow, const int xCol[], int rank[]) {
+void RowRank::Ranks(unsigned int _nRow, const unsigned int xCol[], unsigned int rank[]) {
   for (unsigned int rw = 0; rw < _nRow; rw++) {
     rank[rw] = xCol[rw];
   }
@@ -218,14 +227,13 @@ void RowRank::Ranks(unsigned int _nRow, const int xCol[], int rank[]) {
 
    @param _feInvNum is the rank-to-row mapping for numeric predictors.
  */
-RowRank::RowRank(const int _feRow[], const int _feRank[], const int _feInvNum[], unsigned int _nRow, unsigned int _nPredDense) : nRow(_nRow), nBlock(0), nPredDense(_nPredDense), invNum(_feInvNum) {
-  int dim = nRow * nPredDense;
+RowRank::RowRank(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feInvNum[], unsigned int _nRow, unsigned int _nPredDense) : nRow(_nRow), nBlock(0), nPredDense(_nPredDense), feInvNum(_feInvNum) {
+  unsigned int dim = nRow * nPredDense;
 
   rowRank = new RRNode[dim];
-  for (int i = 0; i < dim; i++) {
+  for (unsigned int i = 0; i < dim; i++) {
     rowRank[i].Set(_feRow[i], _feRank[i]);
   }
-
   //  blockRank = new BlockRank[nBlock];
 }
 

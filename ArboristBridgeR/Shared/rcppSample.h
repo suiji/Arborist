@@ -37,9 +37,9 @@ using namespace Rcpp;
 class RcppSample {
   static unsigned int nRow;
   static bool withRepl;
-  static Rcpp::NumericVector weight;
+  static std::vector<double> &weight;
 public:
-  static void Init(unsigned int _nRow, double _weight[], bool _withRepl);
+  static void Init(unsigned int _nRow, const double feWeight[], bool _withRepl);
   static void SampleRows(unsigned int nSamp, int out[]);
 };
 

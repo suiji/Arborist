@@ -30,7 +30,7 @@
 //
 class SplitPred {
   static unsigned int predFixed;
-  static std::vector<double> predProb;
+  static const double *predProb;
 
   void SetPrebias(class IndexNode indexNode[]);
   void SplitFlags(bool unsplitable[]);
@@ -75,7 +75,7 @@ class SplitPred {
  */
 class SPReg : public SplitPred {
   static unsigned int predMono;
-  static double *mono;
+  static const double *feMono;
   double *ruMono;
 
   int MonoMode(unsigned int splitIdx);

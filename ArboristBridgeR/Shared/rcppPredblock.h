@@ -33,7 +33,7 @@ using namespace Rcpp;
 
 class RcppPredblock {
  public:
-  static void Unwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac);
+  static void Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_nPredNum, unsigned int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac);
   static void SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level);
   static void FactorRemap(IntegerMatrix &xFac, List &level, List &levelTrain);
 };

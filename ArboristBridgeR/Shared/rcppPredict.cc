@@ -56,11 +56,9 @@ double MSE(const double yValid[], NumericVector y, double &rsq) {
     double error = yValid[i] - y[i];
     sse += error * error;
   }
+  rsq = 1.0 - sse / (var(y) * (y.length() - 1.0));
 
-  double mse = sse / y.length();
-  rsq = 1.0 - (mse * y.length()) / (var(y) * (y.length() - 1.0));
-
-  return mse;
+  return sse / y.length();
 }
 
 
@@ -70,7 +68,7 @@ double MSE(const double yValid[], NumericVector y, double &rsq) {
    @return Wrapped zero, with copy-out parameters.
  */
 RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, bool bag) {
-  int nPredNum, nPredFac, nRow;
+  unsigned int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
   RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
@@ -104,7 +102,7 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
     double mse = MSE(&yPred[0], yTest, rsq);
     prediction = List::create(
 			 _["yPred"] = yPred,
-			 _["mse "]= mse,
+			 _["mse"] = mse,
 			 _["rsq"] = rsq,
 			 _["qPred"] = NumericMatrix(0)
 		     );
@@ -131,7 +129,7 @@ RcppExport SEXP RcppTestReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTe
    @return Prediction list.
  */
 RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, bool bag, bool doProb) {
-  int nPredNum, nPredFac, nRow;
+  unsigned int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
   RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);
@@ -203,7 +201,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
     prob.attr("dimnames") = List::create(predBlock["rowNames"], levelsTrain);
   }
 
-  for (int i = 0; i < nRow; i++) // Bases to unity for front end.
+  for (unsigned int i = 0; i < nRow; i++) // Bases to unity for front end.
     yPred[i] = yPred[i] + 1;
 
   List prediction;
@@ -314,7 +312,7 @@ RcppExport SEXP RcppTestProb(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYT
    @return Prediction list.
 */
 RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sQuantVec, SEXP sQBin, SEXP sYTest, bool bag) {
-  int nPredNum, nPredFac, nRow;
+  unsigned int nPredNum, nPredFac, nRow;
   NumericMatrix blockNum;
   IntegerMatrix blockFac;
   RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac);

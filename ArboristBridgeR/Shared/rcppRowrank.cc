@@ -24,11 +24,10 @@
 */
 
 #include <Rcpp.h>
-
 #include "rowrank.h"
+
 // Testing only:
 //#include <iostream>
-
 
 using namespace Rcpp;
 using namespace std;
@@ -50,17 +49,22 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
   unsigned int nPred = nPredNum + nPredFac;
-  IntegerVector rank = IntegerVector(nRow * nPred);
-  IntegerVector row = IntegerVector(nRow * nPred);
-  IntegerVector invNum = 0;
+  IntegerMatrix rank(nRow, nPred);
+  IntegerMatrix row(nRow, nPred);
+  IntegerMatrix invNum;
   if (nPredNum > 0) {
-    invNum = IntegerVector(nRow * nPredNum);
-    NumericMatrix blockNum(as<NumericMatrix>(predBlock["blockNum"]));
-    RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, row.begin(), rank.begin(), invNum.begin());
+    invNum = IntegerMatrix(nRow, nPredNum);
+    NumericMatrix blockNum = predBlock["blockNum"];
+    RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, (unsigned int *) row.begin(), (unsigned int*) rank.begin(), (unsigned int *) invNum.begin());
   }
+  else {
+    invNum = IntegerMatrix(0,0);
+  }
+
   if (nPredFac > 0) {
-    IntegerMatrix blockFac(as<IntegerMatrix>(predBlock["blockFac"]));
-    RowRank::PreSortFac(blockFac.begin(), nPredNum, nPredFac, nRow, row.begin(), rank.begin());
+    unsigned int facStart = nPredNum * nRow;
+    IntegerMatrix blockFac = predBlock["blockFac"];
+    RowRank::PreSortFac((unsigned int*) blockFac.begin(), nPredFac, nRow, (unsigned int*) &row[facStart], (unsigned int*) &rank[facStart]);
   }
   
   List rowRank = List::create(

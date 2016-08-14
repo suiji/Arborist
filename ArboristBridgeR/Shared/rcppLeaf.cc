@@ -32,6 +32,8 @@
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
 SEXP RcppLeaf::WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, const std::vector<BagRow> &bagRow, unsigned int rowTrain, const std::vector<unsigned int> &rank, const std::vector<double> &yRanked) {
+  // Serializes the two internally-typed objects, 'LeafNode' and 'BagRow'.
+  //
   unsigned int rawSize = leafNode.size() * sizeof(LeafNode);
   RawVector leafRaw(rawSize);
   for (unsigned int i = 0; i < rawSize; i++) {
@@ -74,6 +76,8 @@ void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yRanked, std::vector<
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
+  // Deserializes:
+  //
   RawVector leafRaw = leaf["node"];
   unsigned int rawSize = leafRaw.length();
   std::vector<LeafNode> leafNode(rawSize / sizeof(LeafNode));

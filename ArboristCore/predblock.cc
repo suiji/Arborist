@@ -18,10 +18,11 @@
 unsigned int PredBlock::nPredNum = 0;
 unsigned int PredBlock::nPredFac = 0;
 unsigned int PredBlock::nRow = 0;
-double *PBTrain::feNum = 0;
 double *PBPredict::feNumT = 0;
 int *PBPredict::feFacT = 0;
-int *PBTrain::feCard = 0; // Factor predictor cardinalities.
+
+const double *PBTrain::feNum = 0;
+const unsigned int *PBTrain::feCard = 0;
 unsigned int PBTrain::cardMax = 0;  // High watermark of factor cardinalities.
 
 
@@ -30,7 +31,7 @@ unsigned int PBTrain::cardMax = 0;  // High watermark of factor cardinalities.
 
    @return void.
  */
-void PBTrain::Immutables(double *_feNum, int *_feCard, const int _cardMax, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow) {
+void PBTrain::Immutables(const double _feNum[], const unsigned int _feCard[], unsigned int _cardMax, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow) {
   feNum = _feNum;
   feCard = _feCard;
   cardMax = _cardMax;
@@ -45,7 +46,7 @@ void PBTrain::Immutables(double *_feNum, int *_feCard, const int _cardMax, const
 
    @return void.
  */
-void PBPredict::Immutables(double *_feNumT, int *_feFacT, const unsigned int _nPredNum, const unsigned int _nPredFac, const unsigned int _nRow) {
+void PBPredict::Immutables(double *_feNumT, int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow) {
   feNumT = _feNumT;
   feFacT = _feFacT;
   nPredNum = _nPredNum;
@@ -76,22 +77,4 @@ void PBPredict::DeImmutables() {
   feNumT = 0;
   feFacT = 0;
   PredBlock::DeImmutables();
-}
-
-/**
-   @brief Estimates mean of a numeric predictor from values at two rows.
-   N.B.:  assumes 'predIdx' and 'feIdx' are identical for numeric
-   predictors; otherwise remap with predMap[].
-
-   @param predIdx is the core-ordered predictor index.
-
-   @param rowLow is the row index of the lower estimate.
-
-   @param rowHigh is the row index of the higher estimate.
-
-   @return arithmetic mean of the (possibly equal) estimates.
- */
-double PBTrain::MeanVal(int predIdx, int rowLow, int rowHigh) {
-  double *feBase = &feNum[predIdx * nRow];
-  return 0.5 * (feBase[rowLow] + feBase[rowHigh]);
 }

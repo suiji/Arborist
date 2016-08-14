@@ -51,14 +51,14 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
   DataFrame xf(sX);
   IntegerVector numElt = IntegerVector(sNumElt) - 1;
   IntegerVector facElt = IntegerVector(sFacElt) - 1;
-  IntegerVector levels(sLevels);
-  int nRow = xf.nrows();
-  int nPredFac = facElt.length();
-  int nPredNum = numElt.length();
-  int nPred = nPredFac + nPredNum;
+  std::vector<unsigned int> levels = as<std::vector<unsigned int> >(sLevels);
+  unsigned int nRow = xf.nrows();
+  unsigned int nPredFac = facElt.length();
+  unsigned int nPredNum = numElt.length();
+  unsigned int nPred = nPredFac + nPredNum;
 
   IntegerVector predMap(nPred);
-  IntegerVector facCard;
+  IntegerVector facCard(0);
   IntegerMatrix xFac;
   NumericMatrix xNum;
   if (nPredNum > 0) {
@@ -67,19 +67,18 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
   else
     xNum = NumericMatrix(0, 0);
   if (nPredFac > 0) {
-    facCard = IntegerVector(nPredFac); // Compressed factor vector.
+    facCard = IntegerVector(nPredFac);
     xFac = IntegerMatrix(nRow, nPredFac);
   }
   else {
-    facCard = IntegerVector(0);
     xFac = IntegerMatrix(0);
   }
 
   int numIdx = 0;
   int facIdx = 0;
   List level(nPredFac);
-  for (int feIdx = 0; feIdx < nPred; feIdx++) {
-    int card = levels[feIdx];
+  for (unsigned int feIdx = 0; feIdx < nPred; feIdx++) {
+    unsigned int card = levels[feIdx];
     if (card == 0) {
       xNum(_, numIdx) = as<NumericVector>(xf[feIdx]);
       predMap[numIdx++] = feIdx;
@@ -159,7 +158,8 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
       _["level"] = List::create(0)
   );
   signature.attr("class") = "Signature";
-  
+
+  IntegerVector facCard(0);
   List predBlock = List::create(
 	_["colNames"] = colnames(blockNum),
 	_["rowNames"] = rownames(blockNum),
@@ -168,7 +168,7 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
         _["blockFac"] = IntegerMatrix(0),
 	_["nPredFac"] = 0,
 	_["nRow"] = blockNum.nrow(),
-        _["facCard"] = IntegerVector(0),
+        _["facCard"] = facCard,
 	_["signature"] = signature
       );
   predBlock.attr("class") = "PredBlock";
@@ -180,14 +180,14 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
 /**
    @brief Unwraps field values useful for prediction.
  */
-void RcppPredblock::Unwrap(SEXP sPredBlock, int &_nRow, int &_nPredNum, int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
+void RcppPredblock::Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_nPredNum, unsigned int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
   
-  _nRow = as<int>((SEXP) predBlock["nRow"]);
-  _nPredFac = as<int>((SEXP) predBlock["nPredFac"]);
-  _nPredNum = as<int>((SEXP) predBlock["nPredNum"]);
+  _nRow = as<unsigned int>((SEXP) predBlock["nRow"]);
+  _nPredFac = as<unsigned int>((SEXP) predBlock["nPredFac"]);
+  _nPredNum = as<unsigned int>((SEXP) predBlock["nPredNum"]);
   _blockNum = as<NumericMatrix>((SEXP) predBlock["blockNum"]);
   _blockFac = as<IntegerMatrix>((SEXP) predBlock["blockFac"]);
 }

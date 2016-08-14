@@ -16,6 +16,8 @@
 #ifndef ARBORIST_ROWRANK_H
 #define ARBORIST_ROWRANK_H
 
+#include <vector>
+
 class RRNode {
   unsigned int row;
   unsigned int rank;
@@ -24,7 +26,8 @@ class RRNode {
     _rank = rank;
     return row;
   }
-  void Set(int _row, int _rank) {
+
+  void Set(unsigned int _row, unsigned int _rank) {
     row = _row;
     rank = _rank;
   }
@@ -50,22 +53,23 @@ class RowRank {
   const unsigned int nRow;
   const unsigned int nBlock; // Number of BlockRank objects.
   const unsigned int nPredDense; // Number of non-sparse predictors.
-  const int *invNum; // Numeric predictors only:  split assignment.
+  const unsigned int *feInvNum; // Numeric predictors only:  split assignment.
   RRNode *rowRank;
   BlockRank *blockRank;
 
-  static void Sort(int _nRow, int _nPredNum, double numOrd[], int perm[]);
-  static void Sort(int _nRow, int _nPredFac, int facOrd[], int perm[]);
-  static void Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], int _row[], int _rank[], int _invRank[]);
-  static void Ranks(unsigned int _nRow, unsigned int _nPredFac, int _facOrd[], int _rank[]);
-  static void Ranks(unsigned int _nRow, const double xCol[], const int row[], int rank[], int invRank[]);
-  static void Ranks(unsigned int _nRow, const int xCol[], int rank[]);
+  static void Sort(unsigned int _nRow, unsigned int _nPredNum, double numOrd[], unsigned int perm[]);
+  static void Sort(unsigned int _nRow, unsigned int _nPredFac, unsigned int facOrd[], unsigned int perm[]);
+  static void Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], unsigned int _row[], unsigned int _rank[], unsigned int _invRank[]);
+  static void Ranks(unsigned int _nRow, unsigned int _nPredFac, unsigned int _facOrd[], unsigned int _rank[]);
+  static void Ranks(unsigned int _nRow, const double xCol[], const unsigned int row[], unsigned int rank[], unsigned int invRank[]);
+  static void Ranks(unsigned int _nRow, const unsigned int xCol[], unsigned int rank[]);
 
  public:
-  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, int _row[], int _rank[], int _invNum[]);
-  static void PreSortFac(const int _feFac[], unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow, int _row[], int _rank[]);
+  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[], unsigned int _feInvNum[]);
+  static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[]);
 
-  RowRank(const int _feRow[], const int _feRank[], const int _feInvNum[], unsigned int _nRow, unsigned int _nPredDense);
+
+  RowRank(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feInvNum[] , unsigned int _nRow, unsigned int _nPredDense);
   ~RowRank();
 
   /**
@@ -83,13 +87,14 @@ class RowRank {
     return rowRank[predIdx * nRow + idx].Lookup(_rank);
   }
 
+
   /**
      @brief asssumes numerical predictor.
 
      @return a (possibly nonunique) row index at which predictor has rank passed.
    */
-  inline unsigned int Rank2Row(unsigned int predIdx, int _rank) const {
-    return invNum[predIdx * nRow + _rank];
+  inline unsigned int Rank2Row(unsigned int predIdx, unsigned int _rank) const {
+    return feInvNum[predIdx * nRow + _rank];
   }
   
   double MeanRank(unsigned int predIdx, double rkMean) const;
