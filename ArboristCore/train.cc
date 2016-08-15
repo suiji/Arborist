@@ -52,7 +52,7 @@ unsigned int Train::nPred = 0;
 
    @return void.
 */
-void Train::Init(const double _feNum[], const unsigned int _feCard[], unsigned int _cardMax, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow, unsigned int _nTree, unsigned int _nSamp, const double _feSampleWeight[], bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], double _regMono[]) {
+void Train::Init(const double _feNum[], const unsigned int _feCard[], unsigned int _cardMax, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow, unsigned int _nTree, unsigned int _nSamp, const double _feSampleWeight[], bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]) {
   nTree = _nTree;
   nRow = _nRow;
   nPred = _nPredNum + _nPredFac;

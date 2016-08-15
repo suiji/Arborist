@@ -95,23 +95,12 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
-  NumericMatrix xNum;
-  IntegerMatrix feInvNum;
-  if (nPredNum > 0) {
-    xNum = as<NumericMatrix>(predBlock["blockNum"]);
-    feInvNum = as<IntegerMatrix>(rowRank["invNum"]);
-  }
-  else {
-    xNum = NumericMatrix(0,0);
-    feInvNum = IntegerMatrix(0,0);
-  }
+  NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
+  IntegerMatrix feInvNum(as<IntegerMatrix>(rowRank["invNum"]));
 
-  IntegerVector facCard(0);
-  unsigned int cardMax = 0;
-  if (nPredFac > 0) {
-    facCard = as<IntegerVector>(predBlock["facCard"]);
-    cardMax = max(facCard);
-  }
+  IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
+  unsigned int cardMax = nPredFac > 0 ? max(facCard) : 0;
+
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
 
@@ -169,23 +158,12 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
-  NumericMatrix xNum;
-  IntegerMatrix feInvNum;
-  if (nPredNum > 0) {
-    xNum = as<NumericMatrix>(predBlock["blockNum"]);
-    feInvNum = as<IntegerMatrix>(rowRank["invNum"]);
-  }
-  else {
-    xNum = NumericMatrix(0,0);
-    feInvNum = IntegerMatrix(0,0);
-  }
+  NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
+  IntegerMatrix feInvNum(as<IntegerMatrix>(rowRank["invNum"]));
 
-  IntegerVector facCard(0);
-  unsigned int cardMax = 0;
-  if (nPredFac > 0) {
-    facCard = as<IntegerVector>(predBlock["facCard"]);
-    cardMax = max(facCard);
-  }
+  IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
+  unsigned int cardMax = nPredFac > 0 ? max(facCard) : 0;
+
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
   

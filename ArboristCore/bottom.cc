@@ -98,12 +98,13 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noInde
    @return vector of splitting signatures, possibly empty, for each node passed.
  */
 const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNode indexNode[]) {
-  FlushRear();
+  unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
   Restage();
 
-  if (level.size() > pathMax) {
-    delete level.back();
+  // Source levels must persist through restaging ut allow path lookup.
+  //
+  for (unsigned int off = level.size() -1 ; off > supUnFlush; off--) {
     level.pop_back();
   }
 
@@ -121,15 +122,11 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNo
 /**
    @brief Flushes non-reaching definitions as well as those about
    to fall off the level deque.
+
+   @return highest level not flushed.
  */
-void Bottom::FlushRear() {
-  // Walks backward from rear, purging non-reaching definitions.
-  // Stops when a level with no non-reaching nodes is encountered.
-  //
-  for (unsigned int off = level.size() - 1; off > 0; off--) {
-    if (!level[off]->NonreachPurge())
-      break;
-  }
+unsigned int Bottom::FlushRear() {
+  unsigned int supUnFlush = level.size() - 1;
 
   // Capacity:  1 front level + 'pathMax' back levels.
   // If at capacity, every reaching definition should be flushed
@@ -140,7 +137,35 @@ void Bottom::FlushRear() {
   //
   if ((level.size() > pathMax)) {
     level.back()->Flush(this);
+    supUnFlush--;
   }
+
+  // Walks backward from rear, purging non-reaching definitions.
+  // Stops when a level with no non-reaching nodes is encountered.
+  //
+  for (unsigned int off = supUnFlush; off > 0; off--) {
+    if (!level[off]->NonreachPurge())
+      break;
+  }
+
+  unsigned int backDef = 0;
+  for (unsigned int off = supUnFlush; off > 0; off--) {
+    backDef += level[off]->DefCount();
+  }
+  unsigned int thresh = backDef * efficiency;
+
+  for (unsigned int off = supUnFlush; off > 0; off--) {
+    if (level[off]->DefCount() <= thresh) {
+      thresh -= level[off]->DefCount();
+      level[off]->Flush(this);
+      supUnFlush--;
+    }
+    else {
+      break;
+    }
+  }
+
+  return supUnFlush;
 }
 
 

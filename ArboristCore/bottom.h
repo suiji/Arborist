@@ -171,12 +171,12 @@ class MRRA {
 
   
   inline bool Defined() {
-    return (raw & defBit) == 1;
+    return (raw & defBit) != 0;
   }
   
 
   inline bool Undefine() {
-    bool wasDefined = ((raw & defBit) == 1);
+    bool wasDefined = ((raw & defBit) != 0);
     raw = 0;
     return wasDefined;
   }
@@ -275,6 +275,12 @@ class Level {
   }
 
 
+  inline void Consume(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
+    def[PairOffset(levelIdx, predIdx)].Consume(runCount, bufIdx);
+    defCount--;
+  }
+
+
   inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount) {
     def[PairOffset(levelIdx, predIdx)].RunCount(runCount);
   }
@@ -293,11 +299,6 @@ class Level {
 
   inline void Ref(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
     def[PairOffset(levelIdx, predIdx)].Ref(runCount, bufIdx);
-  }
-
-
-  inline void Consume(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
-    def[PairOffset(levelIdx, predIdx)].Consume(runCount, bufIdx);
   }
 
 
@@ -416,7 +417,7 @@ class Bottom {
   std::deque<Level *> level;
 
   std::vector<SplitCoord> splitCoord; // Schedule of splits.
-  static constexpr double efficiency = 0.1; // Work efficiency threshold.
+  static constexpr double efficiency = 0.15; // Work efficiency threshold.
   
   SamplePath *samplePath;
   unsigned int frontCount; // # nodes in the level about to split.
@@ -458,7 +459,7 @@ class Bottom {
   void PathLeft(unsigned int sIdx) const;
   void PathRight(unsigned int sIdx) const ;
   void PathExtinct(unsigned int sIdx) const ;
-  void FlushRear();
+  unsigned int FlushRear();
   void DefForward(unsigned int levelIdx, unsigned int predIdx);
   void Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
   void Restage();
