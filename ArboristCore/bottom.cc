@@ -105,6 +105,7 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNo
   // Source levels must persist through restaging ut allow path lookup.
   //
   for (unsigned int off = level.size() -1 ; off > supUnFlush; off--) {
+    delete level[off];
     level.pop_back();
   }
 
