@@ -32,8 +32,8 @@
 unsigned int RcppSample::nRow = 0;
 bool RcppSample::withRepl = false;
 
-std::vector<double> weightNull(0);
-std::vector<double> &RcppSample::weight = weightNull;
+NumericVector weightNull(0);
+NumericVector &RcppSample::weight = weightNull;
 
 /**
    @brief Caches row sampling parameters as static values.
@@ -48,8 +48,8 @@ std::vector<double> &RcppSample::weight = weightNull;
  */
 void RcppSample::Init(unsigned int _nRow, const double feWeight[], bool _withRepl) {
   nRow = _nRow;
-  std::vector<double> _weight(nRow);
-  weight = std::move(_weight);
+  NumericVector _weight(nRow);
+  weight = _weight;
   for (unsigned int i = 0; i < nRow; i++)
     weight[i] = feWeight[i];
   withRepl = _withRepl;
