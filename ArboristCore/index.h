@@ -190,12 +190,7 @@ class NodeCache : public IndexNode {
     minInfo = nd->minInfo;
     path = nd->path,
     ptL = ptR = 0; // Terminal until shown otherwise.
-    SS() = argMax;
-  }
-
-
-  inline class SSNode *&SS() {
-    return ssNode;
+    ssNode = argMax;
   }
   
 
