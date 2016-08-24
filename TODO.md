@@ -1,3 +1,4 @@
+	Trap errors thrown by Rcpp.
 	Sparse internal representation.
 	Curborist:  regression.
 	Employ integer division in the absence of class weighting (classification).
