@@ -21,6 +21,8 @@
 using namespace std;
 
 unsigned int RunSet::ctgWidth = 0;
+unsigned int RunSet::noIndex = 0;
+
 
 /**
    Run objects are allocated per-tree, and live throughout training.
@@ -36,8 +38,7 @@ unsigned int RunSet::ctgWidth = 0;
    splitting in a given level (cf., 'mtry' and 'predProb').  The vector
    must be reallocated at each level, to accommodate changes in node numbering
    introduced through splitting.  DenseRanks, however, which track the
-   dense components of sparse predictor values, employ a different mechanism
-   to track runs.
+   dense components of sparse predictor values, track runs indirectly.
 
    Run lengths for a given predictor decrease, although not necessarily
    monotonically, with splitting.  Hence once a pair becomes a singleton, the
@@ -61,8 +62,9 @@ unsigned int RunSet::ctgWidth = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run(unsigned int _ctgWidth) : ctgWidth(_ctgWidth) {
+Run::Run(unsigned int _ctgWidth, unsigned int nRow) : ctgWidth(_ctgWidth) {
   RunSet::ctgWidth = ctgWidth;
+  RunSet::noIndex = nRow; // Inattainable value for every tree.
   runSet = 0;
   facRun = 0;
   bHeap = 0;
@@ -265,6 +267,82 @@ void RunSet::HeapBinary() {
 
 
 /**
+   @brief Builds a run for the dense rank using residual values.
+
+   @param denseRank is the rank corresponding to the dense factor.
+
+   @param sCountTot is the total sample count over the node.
+
+   @param sumTot is the total sum of responses over the node.
+
+   @return void.
+ */
+void RunSet::DenseRun(unsigned int denseRank, unsigned int sCountTot, double sumTot) {
+  unsigned int sCountAccum = 0;
+  double sumAccum = 0.0;
+  for (unsigned int runIdx = 0; runIdx < runCount; runIdx++) {
+    sCountAccum += runZero[runIdx].sCount;
+    sumAccum += runZero[runIdx].sum;
+  }
+
+
+  WriteDense(denseRank, sCountTot - sCountAccum, sumTot - sumAccum);
+}
+
+
+/**
+   @brief Employs proxy start/end indices for dense rank.
+ */
+void RunSet::WriteDense(unsigned int rank, unsigned int sCount, double sum) {
+  Write(rank, sCount, sum, noIndex, noIndex);
+  hasDense = true;
+}
+
+  
+/**
+   @brief Dense runs are characterized by a start value of 'noIndex'.
+
+   @return Whether this run is dense.
+ */
+bool FRNode::IsDense() {
+  return start == RunSet::noIndex;
+}
+
+
+/**
+   @brief Determines whether it is necessary to expose the right-hand
+   runs.
+
+   Right-hand runs can often be omitted from consideration by
+   presetting a split's next-level contents all to the right-hand
+   index, then overwriting those known to lie in the left split.  The
+   left indices are always exposed, making this a convenient strategy.
+
+   This cannot be done if the left contains a dense run, as dense
+   run indices not directly recorded.  In such cases a complementary
+   strategy is employed, in which all indices are preset to the left
+   index, with known right-hand indices overwritten.  Hence the
+   right-hand runs must be enumerated in such instances.
+
+   @return true iff right-hand runs must be exposed.
+ */
+bool RunSet::ExposeRH() {
+  if (!hasDense)
+    return false;
+
+  for (unsigned int runIdx = 0; runIdx < runsLH; runIdx++) {
+    unsigned int outSlot = outZero[runIdx];
+    if (runZero[outSlot].IsDense()) {
+      return true;
+      break;
+    }
+  }
+
+  return false;
+}
+
+
+/**
    @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
 
    @param pop is the number of elements to pop from the heap.
@@ -340,6 +418,15 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
         lhIdxCount += LHCounts(slot, sCount);
 	lhSampCt += sCount;
 	outZero[runsLH++] = slot;
+      }
+    }
+  }
+
+  if (ExposeRH()) {
+    unsigned int rhIdx = runsLH;
+    for (unsigned int slot = 0; slot < EffCount(); slot++) {
+      if ((lhBits & (1 << slot)) == 0) {
+        outZero[rhIdx++] = slot;
       }
     }
   }
@@ -469,4 +556,3 @@ unsigned int RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned 
 
   return fRun.rank;
 }
-

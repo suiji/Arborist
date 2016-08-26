@@ -31,18 +31,19 @@
 class FRNode {
  public:
   unsigned int rank;
-  int start; // Buffer position of start of factor run.
-  int end;
+  unsigned int start; // Buffer position of start of factor run.
+  unsigned int end;
   unsigned int sCount; // Sample count of factor run:  not always same as length.
   double sum; // Sum of responses associated with run.
 
-  FRNode() : start(-1), end(-1), sCount(0), sum(0.0) {}
+  FRNode() : start(0), end(0), sCount(0), sum(0.0) {}
 
+  bool IsDense();
 
   /**
      @brief Bounds accessor.
    */
-  inline void ReplayFields(int &_start, int &_end) {
+  inline void ReplayFields(unsigned int &_start, unsigned int &_end) {
     _start = start;
     _end = end;
   }
@@ -67,6 +68,7 @@ class BHPair {
   economize on address recomputation during splitting.
 */
 class RunSet {
+  bool hasDense; // Whether dense run present.
   int runOff; // Temporary offset storage.
   int heapOff; //
   int outOff; //
@@ -76,12 +78,19 @@ class RunSet {
   double *ctgZero; // Categorical:  run x ctg checkerboard.
   double *rvZero; // Non-binary wide runs:  random variates for sampling.
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
-  int runsLH; // Count of LH runs.
+  unsigned int runsLH; // Count of LH runs.
  public:
   const static unsigned int maxWidth = 10;
   static unsigned int ctgWidth;
+  static unsigned int noIndex;
   unsigned int safeRunCount;
+
+  RunSet() : hasDense(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
+
+  bool ExposeRH();
+  void DenseRun(unsigned int denseRank, unsigned int sCountTot, double sumTot);
   unsigned int DeWide();
+  void WriteDense(unsigned int rank, unsigned int sCount, double sum);
   void DePop(unsigned int pop = 0);
   void Reset(FRNode*, BHPair*, unsigned int*, double*, double*);
   void OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
@@ -132,7 +141,7 @@ class RunSet {
     return runZero[slot].sum;
   }
 
-  
+
   /**
      @brief Sets run parameters and increments run count.
 
@@ -208,9 +217,10 @@ class RunSet {
   }
 
 
-  inline int RunsLH() {
+  inline unsigned int RunsLH() {
     return runsLH;
   }
+
 
   unsigned int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
   unsigned int LHSlots(int outPos, unsigned int &lhSampCt);
@@ -231,7 +241,7 @@ class Run {
 
  public:
   const unsigned int ctgWidth;
-  Run(unsigned int _ctgWidth);
+  Run(unsigned int _ctgWidth, unsigned int _nRow);
 
   void LevelClear();
   void OffsetsReg();
@@ -250,6 +260,11 @@ class Run {
     return runSet[rsIdx].RunsLH();
   }
 
+
+  inline bool ExposeRH(unsigned int rsIdx) {
+    return runSet[rsIdx].ExposeRH();
+  }
+
   
   void RunSets(const std::vector<unsigned int> &safeCount);
 
@@ -259,6 +274,11 @@ class Run {
    */
   unsigned int &CountSafe(unsigned int idx) {
     return runSet[idx].safeRunCount;
+  }
+
+
+  unsigned int RunCount(unsigned int rsIdx) {
+    return runSet[rsIdx].RunCount();
   }
 
 };

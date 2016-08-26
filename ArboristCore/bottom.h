@@ -128,11 +128,11 @@ class PathNode {
 };
 
 
-typedef std::pair<unsigned int, unsigned int> SplitPair;
-
 /**
    @brief Split/predictor coordinate pair.
  */
+typedef std::pair<unsigned int, unsigned int> SPPair;
+
 typedef std::pair<unsigned int, unsigned int> SPCoord;
 
 
@@ -180,7 +180,35 @@ class MRRA {
     raw = 0;
     return wasDefined;
   }
+
+  
+  /**
+     @brief Devirtualizes to no-op.
+   */
+  virtual inline void SetIdxCount(unsigned int _idxCount) {
+  }
+
+
+  virtual inline unsigned int DenseCount() const {
+    return 0;
+  }
 };
+
+
+class MRRADense : public MRRA {
+  unsigned int denseCount;
+ public:
+
+  inline void SetIdxCount(unsigned int _denseCount) {
+    denseCount = _denseCount;
+  }
+
+  
+  inline unsigned int DenseCount() const {
+    return denseCount;
+  }
+};
+
 
 /**
    @brief Per-level reaching definitions.
@@ -193,8 +221,8 @@ class Level {
   unsigned char del; // Position in deque.  Increments.
   // Persistent:
   std::vector<Cell> cell; // Stage coordinates, by node.
-  std::vector<unsigned int> parent; // Indexed by node.
-
+  std::vector<MRRA*> def2;
+  std::vector<MRRA> liveDef;
   // More elegant and parsimonious to use std::map from pair to node,
   // but hashing much too slow.
   std::vector<MRRA> def; // Indexed by pair-offset.
@@ -206,18 +234,19 @@ class Level {
 
   Level(unsigned int _splitCount, unsigned int _nPred, unsigned int noIndex);
   ~Level();
-  //  bool Defines(unsigned int &mrraIdx, unsigned int predIdx);
+
+  void Def2();
   void Flush(class Bottom *bottom, bool forward = true);
   void FlushDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();
   void Paths();
-  void PathInit(unsigned int &mrraIdx, unsigned int path, unsigned int levelIdx, unsigned int start);
+  void PathInit(const class Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start);
   void Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par);
-  void CellBounds(const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent);
+  void CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void RootDef(unsigned int nPred);
-  void FrontDef(const class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
-  void OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]);
-  void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SplitPair &mrra, Level *levelFront);  
+  void FrontDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
+  void OffsetClone(const SPPair &mrra, unsigned int reachOffset[]);
+  void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
 
 
   /**
@@ -241,11 +270,6 @@ class Level {
    */  
   inline unsigned int BackScale(unsigned int val) {
     return val << (unsigned int) del;
-  }
-
-  
-  inline unsigned int ParentIdx(unsigned int mrraIdx) {
-    return parent[mrraIdx];
   }
 
 
@@ -313,31 +337,12 @@ class Level {
 
      @return true iff path reaches to current level.
    */
-  inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
+  inline bool AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
     if (reachIdx != noIndex) {
       Define(reachIdx, predIdx, defRC, destBit);
-    }
-  }
-
-
-  /**
-     @brief Tests whether this level defines split/predictor pair passed and,
-     if so, forwards reaching paths.
-
-     @param mrraIdx inputs trial level index / outputs parent index if level
-     does not define pair.
-
-     @param predIdx is the predictor index of the pair.
-
-     @return true iff pair defined at this level.
-   */
-  inline bool Forwards(class Bottom *bottom, unsigned int &mrraIdx, unsigned int predIdx) {
-    if (Defined(mrraIdx, predIdx)) {
-      FlushDef(bottom, mrraIdx, predIdx);
       return true;
     }
     else {
-      mrraIdx = parent[mrraIdx];
       return false;
     }
   }
@@ -384,20 +389,20 @@ class SplitCoord {
    @brief Coordinates referencing most-recently restaged ancester (MRRA).
  */
 class RestageCoord {
-  SplitPair mrra; // Level-relative coordinates of reaching ancestor.
+  SPPair mrra; // Level-relative coordinates of reaching ancestor.
   unsigned int runCount;
   unsigned char del; // # levels back to referencing level.
   unsigned char bufIdx; // buffer index of mrra's SamplePred.
  public:
 
-  void inline Init(const SplitPair &_mrra, unsigned int _del, unsigned int _runCount, unsigned int _bufIdx) {
+  void inline Init(const SPPair &_mrra, unsigned int _del, unsigned int _runCount, unsigned int _bufIdx) {
     mrra = _mrra;
     del = _del;
     runCount = _runCount;
     bufIdx = _bufIdx;
   }
 
-  void inline Ref(SplitPair &_mrra, unsigned int &_del, unsigned int &_runCount, unsigned int &_bufIdx) {
+  void inline Ref(SPPair &_mrra, unsigned int &_del, unsigned int &_runCount, unsigned int &_bufIdx) {
     _mrra = mrra;
     _del = del;
     _runCount = runCount;
@@ -413,13 +418,19 @@ class Bottom {
   const unsigned int nPred;
   const unsigned int nPredFac;
   const unsigned int bagCount;
-  Level *levelFront; // Current level.
+
   std::deque<Level *> level;
+  Level *levelFront; // Current level.
+  std::vector<unsigned int> history;
+  std::vector<unsigned int> historyPrev;
+  std::vector<unsigned char> levelDelta;
+  std::vector<unsigned char> deltaPrev;
 
   std::vector<SplitCoord> splitCoord; // Schedule of splits.
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
   
   SamplePath *samplePath;
+  unsigned int splitPrev;
   unsigned int frontCount; // # nodes in the level about to split.
   class BV *bvLeft;
   class BV *bvDead;
@@ -428,30 +439,37 @@ class Bottom {
   class SplitSig *splitSig;
   class Run *run;
   std::vector<RestageCoord> restageCoord;
-  //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
+
+
+  /**
+     @brief Increments reaching levels for all pairs involving node.
+   */
+  inline void Inherit(unsigned int levelIdx, unsigned int par) {
+    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+      levelDelta[levelIdx * nPred + predIdx] = 1 + deltaPrev[par * nPred + predIdx];
+    }
+  }
+//unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
-  void ScheduleRestage(unsigned int mrraIdx, unsigned int predIdx, unsigned int del, unsigned int runCount, unsigned int bufIdx);
+  void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
   unsigned int ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop);
-  void Split(const std::vector<SplitPair> &pairNode, const class IndexNode indexNode[]);
+  void Split(const std::vector<SPPair> &pairNode, const class IndexNode indexNode[]);
   void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
-  inline void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SplitPair &mrra, unsigned int del) {
+  inline void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, unsigned int del) {
     level[del]->Singletons(reachOffset, targ, mrra, levelFront);
   }
   
-
-  
- public:
   static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int _bagCount);
   static Bottom *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg, unsigned int _bagCount);
   
   Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac);
   ~Bottom();
+  void Overlap(unsigned int _splitCount);
   void LevelInit();
   void Split(const class IndexNode indexNode[]);
-  void NewLevel(unsigned int _splitCount);
   void LevelClear();
   const std::vector<class SSNode*> Split(class Index *index, class IndexNode indexNode[]);
   void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
@@ -461,11 +479,11 @@ class Bottom {
   void PathExtinct(unsigned int sIdx) const ;
   unsigned int FlushRear();
   void DefForward(unsigned int levelIdx, unsigned int predIdx);
-  void Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
+  void Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
   void Restage();
   void Restage(RestageCoord &rsCoord);
-  SPNode *RestageOne(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx);
-  SPNode *RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx, unsigned int del);
+  SPNode *RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx);
+  SPNode *RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   
   /**
      @brief Accessor.  SSNode only client.
@@ -550,12 +568,19 @@ class Bottom {
     levelFront->SetRunCount(splitIdx, predIdx, runCount);
   }
 
-  inline void CellBounds(unsigned int del, const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
+
+  inline bool DenseRank(unsigned int splitIdx, unsigned int &denseRank) {
+    denseRank = 0;
+    return false;
+  }
+  
+
+  inline void CellBounds(unsigned int del, const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
     return level[del]->CellBounds(mrra, startIdx, extent);
   }
 
 
-  void OffsetClone(const SplitPair &mrra, unsigned int del, unsigned int reachOffset[]) {
+  void OffsetClone(const SPPair &mrra, unsigned int del, unsigned int reachOffset[]) {
     level[del]->OffsetClone(mrra, reachOffset);
   }
 
@@ -574,11 +599,21 @@ class Bottom {
 
      @return void
    */
-  inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) const {
-    levelFront->AddDef(reachIdx, predIdx, defRC, destBit);
+  inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
+    if( levelFront->AddDef(reachIdx, predIdx, defRC, destBit) ) {
+      levelDelta[reachIdx * nPred + predIdx] = 0;
+    }
+  }
+  
+
+  inline unsigned int History(unsigned int levelIdx, unsigned int del) const {
+    return del == 0 ? levelIdx : history[levelIdx + (del-1) * frontCount];
   }
 
-    
+
+  inline unsigned int ReachLevel(unsigned int levelIdx, unsigned int predIdx) {
+    return levelDelta[levelIdx * nPred + predIdx];
+  }
 };
 
 

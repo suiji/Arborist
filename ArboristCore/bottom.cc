@@ -24,10 +24,12 @@
 #include "runset.h"
 
 // Testing only:
-//#include <iostream>
-//using namespace std;
+#include <iostream>
+using namespace std;
 //#include <time.h>
 //clock_t clock(void);
+
+
 
 /**
    @brief Static entry for regression.
@@ -52,7 +54,14 @@ Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsi
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac) : nPred(_nPred), nPredFac(_nPredFac), bagCount(_bagCount), samplePath(new SamplePath[bagCount]), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
+Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac) : nPred(_nPred), nPredFac(_nPredFac), bagCount(_bagCount), samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
+  std::vector<unsigned int> _history(0);
+  history = std::move(_history);
+
+  std::vector<unsigned char> _levelDelta(nPred);
+  std::fill(_levelDelta.begin(), _levelDelta.end(), 0);
+  levelDelta = std::move(_levelDelta);
+  
   levelFront = new Level(1, nPred, bagCount);
   level.push_front(levelFront);
 
@@ -78,16 +87,13 @@ void Level::RootDef(unsigned int nPred) {
 
   
 Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), defCount(0), del(0) {
-  std::vector<unsigned int> _parent(splitCount);
   std::vector<Cell> _cell(splitCount);
-
   std::vector<MRRA> _def(splitCount *nPred);
   MRRA df;
+
   df.Undefine();
   std::fill(_def.begin(), _def.end(), df);
   def = std::move(_def);
-
-  parent = std::move(_parent);
   cell = std::move(_cell);
 }
 
@@ -100,6 +106,7 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noInde
 const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNode indexNode[]) {
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
+
   Restage();
 
   // Source levels must persist through restaging ut allow path lookup.
@@ -229,11 +236,11 @@ void Level::FlushDef(Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx)
   Consume(mrraIdx, predIdx, runCount, bufIdx);
   FrontDef(bottom, mrraIdx, predIdx, runCount, bufIdx);
   if (runCount != 1)
-    bottom->ScheduleRestage(mrraIdx, predIdx, del, runCount, bufIdx);
+    bottom->ScheduleRestage(del, mrraIdx, predIdx, runCount, bufIdx);
 }
 
 
-void Level::FrontDef(const Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int defRC, unsigned int sourceBit) {
+void Level::FrontDef(Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int defRC, unsigned int sourceBit) {
   PathNode *pathStart = &pathNode[BackScale(mrraIdx)];
   unsigned int extent = BackScale(1);
   for (unsigned int path = 0; path < extent; path++) {
@@ -242,15 +249,15 @@ void Level::FrontDef(const Bottom *bottom, unsigned int mrraIdx, unsigned int pr
 }
 
 
-void Bottom::ScheduleRestage(unsigned int mrraIdx, unsigned int predIdx, unsigned int del, unsigned int runCount, unsigned bufIdx) {
-  SplitPair mrra = std::make_pair(mrraIdx, predIdx);
+void Bottom::ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned bufIdx) {
+  SPPair mrra = std::make_pair(mrraIdx, predIdx);
   RestageCoord coord;
   coord.Init(mrra, del, runCount, bufIdx);
   restageCoord.push_back(coord);
 }
 
 
-void Level::CellBounds(const SplitPair &mrra, unsigned int &startIdx, unsigned int &extent) {
+void Level::CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
   return cell[mrra.first].Ref(startIdx, extent);
 }
 
@@ -327,11 +334,8 @@ unsigned int Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, 
    @return void.
  */
 void Bottom::DefForward(unsigned int levelIdx, unsigned int predIdx) {
-  unsigned int mrraIdx = levelIdx; // Chains upward through parent indices.
-  for (unsigned int del = 0; del < level.size(); del++) {
-    if (level[del]->Forwards(this, mrraIdx, predIdx))
-      break;
-  }
+  unsigned int del = ReachLevel(levelIdx, predIdx);
+  level[del]->FlushDef(this, History(levelIdx, del), predIdx);
 }
 
 
@@ -391,7 +395,7 @@ void Bottom::Restage() {
 void Bottom::Restage(RestageCoord &rsCoord) {
   unsigned int reachOffset[1 << pathMax];
   unsigned int del, runCount, bufIdx;
-  SplitPair mrra;
+  SPPair mrra;
   rsCoord.Ref(mrra, del, runCount, bufIdx);
   OffsetClone(mrra, del, reachOffset);
 
@@ -413,7 +417,7 @@ void Bottom::Restage(RestageCoord &rsCoord) {
 
    @return void.
  */
-SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx, unsigned int del) {
+SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
@@ -443,7 +447,7 @@ SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SplitPair &mrra, un
 
    @return path origin at the index passed.
  */
-void Level::OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]) {
+void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[]) {
   unsigned int nodeStart = BackScale(mrra.first);
   for (unsigned int i = 0; i < BackScale(1); i++) {
     reachOffset[i] = pathNode[nodeStart + i].Offset();
@@ -455,7 +459,7 @@ void Level::OffsetClone(const SplitPair &mrra, unsigned int reachOffset[]) {
    @brief Specialized for two-path case, bypasses stack array.
 
  */
-SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SplitPair &mrra, unsigned int bufIdx) {
+SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx) {
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
@@ -489,12 +493,15 @@ SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SplitPair &mrra, un
 
    @return void.
  */
-void Bottom::Buffers(const SplitPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const {
+void Bottom::Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const {
   samplePred->Buffers(mrra.second, bufIdx, source, sIdxSource, targ, sIdxTarg);
 }
 
 
-void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], const SplitPair &mrra, Level *levelFront) {
+
+// TODO:  Revise idxCount field on target MRRAs.
+// RENAM
+void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], const SPPair &mrra, Level *levelFront) {
   unsigned int predIdx = mrra.second;
   PathNode *pathPos = &pathNode[BackScale(mrra.first)];
   for (unsigned int path = 0; path < BackScale(1); path++) {
@@ -553,9 +560,20 @@ void Bottom::LevelClear() {
 
    @return void.
  */
-void Bottom::NewLevel(unsigned int splitCount) {
+void Bottom::Overlap(unsigned int splitCount) {
+  splitPrev = frontCount;
   levelFront = new Level(splitCount, nPred, bagCount);
   level.push_front(levelFront);
+
+  historyPrev = std::move(history);
+  std::vector<unsigned int> _history(splitCount * (level.size()-1));
+  history = std::move(_history);
+
+  deltaPrev = std::move(levelDelta);
+  std::vector<unsigned char> _levelDelta(splitCount * nPred);
+  levelDelta = std::move(_levelDelta);
+
+
   // Recomputes paths reaching from non-front levels.
   //
   for(unsigned int i = 1; i < level.size(); i++) {
@@ -599,20 +617,24 @@ void Level::Paths() {
    @return void.
 */
 void Bottom::ReachingPath(unsigned int par, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent) {
+  for (unsigned int backLevel = 0; backLevel < level.size() - 1; backLevel++) {
+    history[levelIdx + frontCount * backLevel] = backLevel == 0 ? par : historyPrev[par + splitPrev * (backLevel - 1)];
+  }
+
+  Inherit(levelIdx, par);
   levelFront->Node(levelIdx, start, extent, par);
 
   // Places <levelIdx, start> pair at appropriate position in every
   // reaching path.
   //
-  unsigned int mrraIdx = levelFront->ParentIdx(levelIdx);
   for (unsigned int i = 1; i < level.size(); i++) {
-    level[i]->PathInit(mrraIdx, path, levelIdx, start);
+    level[i]->PathInit(this, levelIdx, path, start);
   }
 }
 
 
 /**
-   @brief Initializes the cell and parent fields for a node in the upcoming level.
+   @brief Initializes the cell fields for a node in the upcoming level.
 
    @return void.
  */
@@ -620,16 +642,15 @@ void Level::Node(unsigned int levelIdx, unsigned int start, unsigned int extent,
   Cell _cell;
   _cell.Init(start, extent);
   cell[levelIdx] = _cell;
-  parent[levelIdx] = par;
 }
 
 
-void Level::PathInit(unsigned int &mrraIdx, unsigned int path, unsigned int levelIdx, unsigned int start) {
+void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start) {
+  unsigned int mrraIdx = bottom->History(levelIdx, del);
   unsigned int pathOff = BackScale(mrraIdx);
   unsigned int pathBits = path & (BackScale(1) - 1);
   pathNode[pathOff + pathBits].Init(levelIdx, start);
   liveCount[mrraIdx]++;
-  mrraIdx = parent[mrraIdx];
 }
 
 

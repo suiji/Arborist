@@ -271,7 +271,7 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
 
   // Next call guaranteed, so no dangling references:
   indexNode = new IndexNode[splitNext];
-  bottom->NewLevel(splitNext);
+  bottom->Overlap(splitNext);
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Successors(this, preTree, samplePred, bottom, lhSplitNext, lhCount, rhCount);
   }

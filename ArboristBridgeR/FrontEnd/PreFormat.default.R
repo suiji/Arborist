@@ -16,10 +16,6 @@
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 PreFormat.default <- function(x) {
-  # Argument checking:
-  if (any(is.na(x)))
-    stop("NA not supported in design matrix")
-
   predBlock <- PredBlock(x)
   rowRank <- .Call("RcppRowRank", predBlock)
 

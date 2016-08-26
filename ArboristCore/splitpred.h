@@ -39,6 +39,7 @@ class SplitPred {
 
  protected:
   static unsigned int nPred;
+  const unsigned int bagCount;
   class Bottom *bottom;
   unsigned int levelCount; // # subtree nodes at current level.
   class Run *run;
@@ -86,7 +87,7 @@ class SPReg : public SplitPred {
   void SplitNumMono(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[], bool increasing);
   void SplitFac(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode *nodeBase);
   void SplitFacWV(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[]);
-  unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], unsigned int start, unsigned int end);
+  unsigned int BuildRuns(unsigned int splitIdx, class RunSet *runSet, const class SPNode spn[], unsigned int sCountTot, double sumTot, unsigned int start, unsigned int end);
   unsigned int HeapSplit(class RunSet *runSet, double sum, unsigned int sCountNode, unsigned int &lhIdxCount, double &maxGini);
 
 
@@ -141,7 +142,7 @@ class SPCtg : public SplitPred {
   void SplitNum(unsigned int splitIdx, const class IndexNode indexNode[], const class SPNode spn[]);
   void SplitNumGini(unsigned int splitIdx, const class IndexNode *indexNode, const class SPNode spn[]);
   unsigned int SplitBinary(class RunSet *runSet, unsigned int levelIdx, double sum, double &maxGini, unsigned int &sCount);
-  unsigned int BuildRuns(class RunSet *runSet, const class SPNode spn[], unsigned int start, unsigned int end);
+  unsigned int BuildRuns(unsigned int splitIdx, class RunSet *runSet, const class SPNode spn[], unsigned int sCountTot, double sumTot, unsigned int start, unsigned int end);
   unsigned int SplitRuns(class RunSet *runSet, unsigned int levelIdx, double sum, double &maxGini, unsigned int &lhSampCt);
   
  public:

@@ -37,7 +37,7 @@ unsigned int SPCtg::ctgWidth = 0;
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitPred::SplitPred(SamplePred *_samplePred, unsigned int bagCount) : samplePred(_samplePred) {
+SplitPred::SplitPred(SamplePred *_samplePred, unsigned int _bagCount) : bagCount(_bagCount), samplePred(_samplePred) {
 }
 
 
@@ -109,8 +109,8 @@ void SPCtg::DeImmutables() {
 
    @param samplePred holds (re)staged node contents.
  */
-SPReg::SPReg(SamplePred *_samplePred, unsigned int bagCount) : SplitPred(_samplePred, bagCount), ruMono(0) {
-  run = new Run(0);
+SPReg::SPReg(SamplePred *_samplePred, unsigned int _bagCount) : SplitPred(_samplePred, _bagCount), ruMono(0) {
+  run = new Run(0, PBTrain::NRow());
 }
 
 
@@ -121,8 +121,8 @@ SPReg::SPReg(SamplePred *_samplePred, unsigned int bagCount) : SplitPred(_sample
 
    @param sampleCtg is the sample vector for the tree, included for category lookup.
  */
-SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[], unsigned int bagCount): SplitPred(_samplePred, bagCount), sampleCtg(_sampleCtg) {
-  run = new Run(ctgWidth);
+SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[], unsigned int _bagCount): SplitPred(_samplePred, _bagCount), sampleCtg(_sampleCtg) {
+  run = new Run(ctgWidth, PBTrain::NRow());
 }
 
 
@@ -418,7 +418,7 @@ void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
   // those columns corresponding to nonterminals in split-index order, for
   // ready access by splitting methods.
   //
-  for (unsigned int sIdx = 0; sIdx < index->BagCount(); sIdx++) {
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int levelOff;
     bool atLevel = index->LevelOffSample(sIdx, levelOff);
     if (atLevel) {
@@ -738,15 +738,15 @@ void SPCtg::SplitNumGini(unsigned int splitIdx, const IndexNode *indexNode, cons
  */
 void SPCtg::SplitFacGini(unsigned int splitIdx, const IndexNode *indexNode, const SPNode spn[]) {
   unsigned int start, end;
-  unsigned int dummy;
+  unsigned int sCount;
   double sum, preBias, maxGini;
-  maxGini = preBias = indexNode->SplitFields(start, end, dummy, sum);
+  maxGini = preBias = indexNode->SplitFields(start, end, sCount, sum);
 
   unsigned int levelIdx, predIdx;
   int setIdx;
   bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(splitIdx, runSet, spn, sCount, sum, start, end));
   
   unsigned int lhIdxCount, lhSampCt;
   if (ctgWidth == 2)  {
@@ -768,7 +768,8 @@ void SPCtg::SplitFacGini(unsigned int splitIdx, const IndexNode *indexNode, cons
    when run count has been estimated to be wide:
 
 */
-unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], unsigned int _start, unsigned int _end) {
+// TODO:  Preset dense run, if present.
+unsigned int SPCtg::BuildRuns(unsigned int splitIdx, RunSet *runSet, const SPNode spn[], unsigned int sCountTot, double sumTot, unsigned int _start, unsigned int _end) {
   unsigned int frEnd = _end;
   double sum = 0.0;
   unsigned int sCount = 0;
@@ -799,6 +800,12 @@ unsigned int SPCtg::BuildRuns(RunSet *runSet, const SPNode spn[], unsigned int _
 
   // Flushes remaining run.
   runSet->Write(rkThis, sCount, sum, start, frEnd);
+
+  // If a dense rank is present, flushes residual data.
+  unsigned int denseRank;
+  if (bottom->DenseRank(splitIdx, denseRank)) {
+    runSet->DenseRun(denseRank, sCountTot, sumTot);
+  }
 
   return runSet->RunCount();
 }
@@ -919,7 +926,7 @@ void SPReg::SplitFacWV(unsigned int splitIdx, const IndexNode *indexNode, const 
   int setIdx;
   bottom->SplitRef(splitIdx, levelIdx, predIdx, setIdx);
   RunSet *runSet = run->RSet(setIdx);
-  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(runSet, spn, start, end));
+  bottom->SetRunCount(levelIdx, predIdx, BuildRuns(splitIdx, runSet, spn, sCount, sum, start, end));
   runSet->HeapMean();
 
   unsigned int idxCountL;
@@ -932,8 +939,9 @@ void SPReg::SplitFacWV(unsigned int splitIdx, const IndexNode *indexNode, const 
 
 /**
    Regression runs always maintained by heap.
+// TODO:  Preset dense run, if present.
 */
-unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], unsigned int _start, unsigned int _end) {
+unsigned int SPReg::BuildRuns(unsigned int splitIdx, RunSet *runSet, const SPNode spn[], unsigned int sCountTot, double sumTot, unsigned int _start, unsigned int _end) {
   unsigned int frEnd = _end;
   double sum = 0.0;
   unsigned int sCount = 0;
@@ -964,6 +972,11 @@ unsigned int SPReg::BuildRuns(RunSet *runSet, const SPNode spn[], unsigned int _
   // Flushes the remaining run.
   //
   runSet->Write(rkThis, sCount, sum, start, frEnd);
+
+  unsigned int denseRank;
+  if (bottom->DenseRank(splitIdx, denseRank)) {
+    runSet->DenseRun(denseRank, sCountTot, sumTot);
+  }
 
   return runSet->RunCount();
 }

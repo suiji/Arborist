@@ -116,20 +116,36 @@ double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, unsigned in
 double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
   preTree->NonTerminalFac(info, predIdx, ptId, ptLH, ptRH);
 
-  // Replays entire index extent of node with RH pretree index then,
-  // where appropriate, overwrites by replaying with LH index in the
-  // loop to follow.
-  (void) preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptRH);
-
-  double lhSum = 0.0;
-  for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
-    unsigned int runStart, runEnd;
-    unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
-    preTree->LHBit(ptId, rank);
-    lhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptLH);
+  // Replays entire index extent of node with preset pretree index then,
+  // where appropriate, overwrites by replaying with the complementary
+  // index in the loop to follow.
+  //
+  if (run->ExposeRH(setIdx)) { // Must walk both LH and RH runs.
+    double sum = preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptLH);
+    double rhSum = 0.0;
+    for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
+      unsigned int runStart, runEnd;
+      unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
+      if (outSlot < run->RunsLH(setIdx)) {
+        preTree->LHBit(ptId, rank);
+      }
+      else {
+        rhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptRH);
+      }
+    }
+    return sum - rhSum;
   }
-
-  return lhSum;
+  else { // Suffices just to walk LH runs.
+    (void) preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptRH);
+    double lhSum = 0.0;
+    for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
+      unsigned int runStart, runEnd;
+      unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
+      preTree->LHBit(ptId, rank);
+      lhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptLH);
+    }
+    return lhSum;
+  }
 }
 
 

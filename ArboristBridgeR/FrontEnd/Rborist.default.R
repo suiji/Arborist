@@ -47,6 +47,9 @@
   nPred <- predBlock$nPredNum + predBlock$nPredFac
   nRow <- predBlock$nRow
 
+  if (length(y) != nRow)
+    stop("Nonconforming design matrix and response")
+          
   if (is.null(regMono)) {
     regMono <- rep(0.0, nPred)
   }
@@ -216,6 +219,10 @@
 # summaries.
 #
 PredBlock <- function(x, sigTrain = NULL) {
+  # Argument checking:
+  if (any(is.na(x)))
+    stop("NA not supported in design matrix")
+
   # For now, only numeric and factor types supported.
   #
   if (is.data.frame(x)) { # As with "randomForest" package
@@ -228,17 +235,22 @@ PredBlock <- function(x, sigTrain = NULL) {
     }
     return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, sigTrain))
   }
-  else if (is.integer(x)) {
-    return(.Call("RcppPredBlockNum", data.matrix(x)))
-  }
-  else if (is.numeric(x)) {
-    return(.Call("RcppPredBlockNum", x))
-  }
-  else if (is.character(x)) {
-    stop("Character data not yet supported")
+  else if (is.matrix(x)) {
+    if (is.integer(x)) {
+      return(.Call("RcppPredBlockNum", data.matrix(x)))
+    }
+    else if (is.numeric(x)) {
+      return(.Call("RcppPredBlockNum", x))
+    }
+    else if (is.character(x)) {
+      stop("Character data not yet supported")
+    }
+    else {
+      stop("Unsupported matrix type")
+    }
   }
   else {
-    stop("Unsupported data format")
+    stop("Expecting data frame or matrix")
   }
 }
 
