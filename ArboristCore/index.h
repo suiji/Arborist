@@ -99,10 +99,12 @@ class IndexNode {
     path = _path;
   }
 
+
   inline void PathCoords(unsigned int &_start, unsigned int &_extent) {
     _start = lhStart;
     _extent = idxCount;
   }
+
   
   /**
      @return reference to 'lhStart' field.
@@ -111,16 +113,18 @@ class IndexNode {
     return lhStart;
   }
 
+  
   inline unsigned int &IdxCount() {
     return idxCount;
   }
   
+
   /**
      @brief Exposes fields relevant for SplitPred methods.   N.B.:  Not all methods use all fields.
 
      @param _lhStart outputs the left-most index.
 
-     @param _end outputs the right-most index.
+     @param _idxCount outputs the count of unique indices.
 
      @param _sCount outputs the total sample count.
 
@@ -128,17 +132,12 @@ class IndexNode {
 
      @return preBias, with output parameters.
   */
-  double inline SplitFields(unsigned int &_lhStart, unsigned int &_end, unsigned int &_sCount, double &_sum) const {
+  double inline SplitFields(unsigned int &_lhStart, unsigned int &_idxCount, unsigned int &_sCount, double &_sum) const {
     _lhStart = lhStart;
-    _end = _lhStart + idxCount - 1;
+    _idxCount = idxCount;
     _sCount = sCount;
     _sum = sum;
     return preBias;
-  }
-
-  void inline Extent(unsigned int &_lhStart, unsigned int &_end) const {
-    _lhStart = lhStart;
-    _end = lhStart + idxCount - 1;
   }
 
 

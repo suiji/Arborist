@@ -16,6 +16,30 @@
 #ifndef ARBORIST_SPLITSIG_H
 #define ARBORIST_SPLITSIG_H
 
+
+/**
+   @brief Holds the information actually computed by a splitting method.
+ */
+class SplitNux {
+  unsigned int lhIdxCount; // Index count of split LHS.
+  unsigned int sCount; // # samples subsumed by split LHS.
+  double info; // Information content of split.
+ public:
+
+  void inline Init(unsigned int _lhIdxCount, unsigned int _sCount, double _info) {
+    lhIdxCount = _lhIdxCount;
+    sCount = _sCount;
+    info = _info;
+  }
+
+  void Ref(unsigned int &_lhIdxCount, unsigned int &_sCount, double &_info) const {
+    _lhIdxCount = lhIdxCount;
+    _sCount = sCount;
+    _info = info;
+  }
+};
+
+
 /**
    @brief SSNode records sample, index and information content for a
    potential split at a given split/predictor pair.
@@ -26,12 +50,13 @@ class SSNode {
   double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
  public:
   SSNode();
-  int setIdx; // Index into RunSet workspace.
+  unsigned int setIdx; // Index into RunSet workspace.
   unsigned int predIdx; // Rederivable, but convenient to cache.
-  unsigned int sCount; // # samples subsumed by split LHS.
-  unsigned int lhIdxCount; // Index count of split LHS.
-  double info; // Information content of split.
+  unsigned int sCount; // # samples subsumed by split LHS. // EXIT
+  unsigned int lhIdxCount; // Index count of split LHS.// EXIT
+  double info; // Information content of split. // EXIT
   unsigned char bufIdx;
+  SplitNux nux; // Holds output of splitting method.
   
   static double minRatio;
   
@@ -104,7 +129,7 @@ class SplitSig {
 
   void LevelInit(int splitCount);
   void LevelClear();
-  void Write(unsigned int _splitIdx, unsigned int _predIdx, int _runIdx, unsigned int _bufIdx, unsigned int _sCount, unsigned int _lhIdxCount, double _info);
+  void Write(unsigned int _splitIdx, unsigned int _predIdx, unsigned int _setPos, unsigned int _bufIdx, const SplitNux &nux);
 };
 
 #endif

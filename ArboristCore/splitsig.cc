@@ -70,14 +70,12 @@ void SplitSig::DeImmutables() {
 
    @return void.
  */
-void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, int _setIdx, unsigned int _bufIdx, unsigned int _sCount, unsigned int _lhIdxCount, double _info) {
+void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, unsigned int _setIdx, unsigned int _bufIdx, const SplitNux &nux) {
   SSNode ssn;
+  ssn.predIdx = _predIdx;
   ssn.setIdx = _setIdx;
   ssn.bufIdx = _bufIdx;
-  ssn.sCount = _sCount;
-  ssn.lhIdxCount = _lhIdxCount;
-  ssn.info = _info;
-  ssn.predIdx = _predIdx;
+  nux.Ref(ssn.lhIdxCount, ssn.sCount, ssn.info);
 
   Lookup(_levelIdx, ssn.predIdx) = ssn;
 }
@@ -104,7 +102,7 @@ SSNode::SSNode() : info(-DBL_MAX) {
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
 double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
-  return setIdx >= 0 ? NonTerminalRun(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH, run) : NonTerminalNum(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH);
+  return run->IsRun(setIdx) ? NonTerminalRun(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH, run) : NonTerminalNum(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH);
 }
 
 

@@ -37,8 +37,7 @@ unsigned int RunSet::noIndex = 0;
    every split/predictor pair, regardless whether the pair is chosen for
    splitting in a given level (cf., 'mtry' and 'predProb').  The vector
    must be reallocated at each level, to accommodate changes in node numbering
-   introduced through splitting.  DenseRanks, however, which track the
-   dense components of sparse predictor values, track runs indirectly.
+   introduced through splitting.
 
    Run lengths for a given predictor decrease, although not necessarily
    monotonically, with splitting.  Hence once a pair becomes a singleton, the
@@ -62,7 +61,7 @@ unsigned int RunSet::noIndex = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run(unsigned int _ctgWidth, unsigned int nRow) : ctgWidth(_ctgWidth) {
+Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount) : noRun(nRow * bagCount), ctgWidth(_ctgWidth) {
   RunSet::ctgWidth = ctgWidth;
   RunSet::noIndex = nRow; // Inattainable value for every tree.
   runSet = 0;
@@ -277,7 +276,7 @@ void RunSet::HeapBinary() {
 
    @return void.
  */
-void RunSet::DenseRun(unsigned int denseRank, unsigned int sCountTot, double sumTot) {
+void RunSet::ImplicitRun(unsigned int denseRank, unsigned int sCountTot, double sumTot) {
   unsigned int sCountAccum = 0;
   double sumAccum = 0.0;
   for (unsigned int runIdx = 0; runIdx < runCount; runIdx++) {
@@ -286,25 +285,25 @@ void RunSet::DenseRun(unsigned int denseRank, unsigned int sCountTot, double sum
   }
 
 
-  WriteDense(denseRank, sCountTot - sCountAccum, sumTot - sumAccum);
+  WriteImplicit(denseRank, sCountTot - sCountAccum, sumTot - sumAccum);
 }
 
 
 /**
    @brief Employs proxy start/end indices for dense rank.
  */
-void RunSet::WriteDense(unsigned int rank, unsigned int sCount, double sum) {
+void RunSet::WriteImplicit(unsigned int rank, unsigned int sCount, double sum) {
   Write(rank, sCount, sum, noIndex, noIndex);
-  hasDense = true;
+  hasImplicit = true;
 }
 
   
 /**
-   @brief Dense runs are characterized by a start value of 'noIndex'.
+   @brief Implicit runs are characterized by a start value of 'noIndex'.
 
    @return Whether this run is dense.
  */
-bool FRNode::IsDense() {
+bool FRNode::IsImplicit() {
   return start == RunSet::noIndex;
 }
 
@@ -318,8 +317,8 @@ bool FRNode::IsDense() {
    index, then overwriting those known to lie in the left split.  The
    left indices are always exposed, making this a convenient strategy.
 
-   This cannot be done if the left contains a dense run, as dense
-   run indices not directly recorded.  In such cases a complementary
+   This cannot be done if the left contains an implicit run, as implicit
+   run indices are not directly recorded.  In such cases a complementary
    strategy is employed, in which all indices are preset to the left
    index, with known right-hand indices overwritten.  Hence the
    right-hand runs must be enumerated in such instances.
@@ -327,12 +326,12 @@ bool FRNode::IsDense() {
    @return true iff right-hand runs must be exposed.
  */
 bool RunSet::ExposeRH() {
-  if (!hasDense)
+  if (!hasImplicit)
     return false;
 
   for (unsigned int runIdx = 0; runIdx < runsLH; runIdx++) {
     unsigned int outSlot = outZero[runIdx];
-    if (runZero[outSlot].IsDense()) {
+    if (runZero[outSlot].IsImplicit()) {
       return true;
       break;
     }

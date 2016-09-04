@@ -24,7 +24,7 @@
 #include "runset.h"
 
 // Testing only:
-#include <iostream>
+//#include <iostream>
 using namespace std;
 //#include <time.h>
 //clock_t clock(void);
@@ -116,7 +116,7 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNo
     level.pop_back();
   }
 
-  Split(indexNode);
+  splitPred->Split(indexNode);
 
   std::vector<SSNode*> ssNode(frontCount);
   for (unsigned int levelIdx = 0; levelIdx < frontCount; levelIdx++) {
@@ -235,7 +235,7 @@ void Level::FlushDef(Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx)
   unsigned int runCount, bufIdx;
   Consume(mrraIdx, predIdx, runCount, bufIdx);
   FrontDef(bottom, mrraIdx, predIdx, runCount, bufIdx);
-  if (runCount != 1)
+  if (runCount != 1) // Singletons need not restage.
     bottom->ScheduleRestage(del, mrraIdx, predIdx, runCount, bufIdx);
 }
 
@@ -303,23 +303,18 @@ void Bottom::PathExtinct(unsigned int sIdx) const {
 
 
 /**
-   @brief Records coordinates and offsets for candidate splitting pairs.
+   @brief Ensures a pair will be restaged for the front level.
 
-   @param runTop is the current top of a dense vector of run values.
+   @param runCount outputs the (unrestaged) run count of front-level definition.
 
-   @return run count of front-level definition.
+   @param bufIdx outputs the front-level buffer index of the pair.
+
+   @return true iff the front-level definition is a singleton.
  */
-unsigned int Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop) {
+bool Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
   DefForward(levelIdx, predIdx);
 
-  unsigned int runCount, bufIdx;
-  if (!levelFront->Singleton(levelIdx, predIdx, runCount, bufIdx)) {
-    SplitCoord sg;
-    sg.Init(splitCoord.size(), levelIdx, predIdx, bufIdx, runCount, runTop);
-    splitCoord.push_back(sg);
-  }
-  
-  return runCount;
+  return !levelFront->Singleton(levelIdx, predIdx, runCount, bufIdx);
 }
 
 
@@ -336,36 +331,6 @@ unsigned int Bottom::ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, 
 void Bottom::DefForward(unsigned int levelIdx, unsigned int predIdx) {
   unsigned int del = ReachLevel(levelIdx, predIdx);
   level[del]->FlushDef(this, History(levelIdx, del), predIdx);
-}
-
-
-/**
-   @brief Dispatches splitting of staged pairs independently.
-
-   @return void.
- */
-void Bottom::Split(const IndexNode indexNode[]) {
-  // Guards cast to int for OpenMP 2.0 back-compatibility.
-  int splitPos;
-#pragma omp parallel default(shared) private(splitPos)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
-      splitCoord[splitPos].Split(samplePred, indexNode, splitPred);
-    }
-  }
-
-  splitCoord.clear();
-}
-
-
-/**
-   @brief Dispatches the staged node to the appropriate splitting family.
-
-   @return void.
- */
-void SplitCoord::Split(const SamplePred *samplePred, const IndexNode indexNode[], SplitPred *splitPred) {
-  splitPred->Split(splitPos, &indexNode[levelIdx], samplePred->PredBase(predIdx, bufIdx));
 }
 
 
@@ -407,8 +372,7 @@ void Bottom::Restage(RestageCoord &rsCoord) {
     targ = RestageIrr(reachOffset, mrra, bufIdx, del);
   }
 
-  if (runCount > 1)
-    Singletons(reachOffset, targ, mrra, del);
+  RunCounts(reachOffset, targ, mrra, del);
 }
 
 
@@ -499,21 +463,43 @@ void Bottom::Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, u
 
 
 
-// TODO:  Revise idxCount field on target MRRAs.
-// RENAM
-void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], const SPPair &mrra, Level *levelFront) {
+/**
+   @brief Sets dense count on target MRRA and, if singleton, sets run count to
+   unity.
+
+   @return void.
+ */
+void Level::RunCounts(const unsigned int reachOffset[], const SPNode targ[], const SPPair &mrra, Level *levelFront) {
   unsigned int predIdx = mrra.second;
   PathNode *pathPos = &pathNode[BackScale(mrra.first)];
   for (unsigned int path = 0; path < BackScale(1); path++) {
-    unsigned int levelIdx, offset;
-    pathPos[path].Coords(levelIdx, offset);
+    unsigned int levelIdx, offset, idxCount;
+    pathPos[path].Coords(levelIdx, offset, idxCount);
     if (levelIdx != noIndex) {
-      if (targ->IsRun(offset, reachOffset[path]-1)) {
-	levelFront->Singleton(levelIdx, predIdx);
-      }
+      levelFront->SetRuns(levelIdx, predIdx, idxCount - (reachOffset[path] - offset), targ->IsRun(offset, reachOffset[path]-1));
     }
   }
 }
+
+
+/**
+   @brief Sets dense count and conveys tied cell as single run.
+
+   @return void.
+ */
+void Level::SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int denseCount, bool ties) {
+  if (ties) {
+    if (PBTrain::IsFactor(predIdx)) { // Factor:  singleton or doubleton.
+      unsigned int runCount = 1 + denseCount > 0 ? 1 : 0;
+      def[PairOffset(levelIdx, predIdx)].SetRunCount(runCount);
+    }
+    else if (denseCount == 0) { // Numeric:  only singletons tracked.
+      def[PairOffset(levelIdx, predIdx)].SetRunCount(1);
+    }
+  }
+  def[PairOffset(levelIdx, predIdx)].SetDenseCount(denseCount);
+}
+
 
 
 /**
@@ -521,12 +507,9 @@ void Level::Singletons(const unsigned int reachOffset[], const SPNode targ[], co
    for candidate split.
 
    @return void.
- */
-void Bottom::SSWrite(unsigned int splitIdx, unsigned int lhSampCount, unsigned int lhIdxCount, double info) {
-  unsigned int levelIdx, predIdx, bufIdx;
-  int runsetPos;
-  SplitRef(splitIdx, levelIdx, predIdx, runsetPos, bufIdx);
-  splitSig->Write(levelIdx, predIdx, runsetPos, bufIdx, lhSampCount, lhIdxCount, info);
+*/
+void Bottom::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const SplitNux &nux) const {
+  splitSig->Write(levelIdx, predIdx, setPos, bufIdx, nux);
 }
 
 
@@ -594,7 +577,7 @@ void Level::Paths() {
   std::vector<unsigned int> live(splitCount);
   std::vector<PathNode> path(BackScale(splitCount));
   PathNode node;
-  node.Init(noIndex, 0);
+  node.Init(noIndex, 0, 0);
   std::fill(path.begin(), path.end(), node);
   std::fill(live.begin(), live.end(), 0);
   
@@ -612,7 +595,9 @@ void Level::Paths() {
 
    @param levelIdx is the index of the heir.
 
-   @param start is the cell starting position.
+   @param start is the cell starting index.
+
+   @param extent is the index count.
 
    @return void.
 */
@@ -628,7 +613,7 @@ void Bottom::ReachingPath(unsigned int par, unsigned int path, unsigned int leve
   // reaching path.
   //
   for (unsigned int i = 1; i < level.size(); i++) {
-    level[i]->PathInit(this, levelIdx, path, start);
+    level[i]->PathInit(this, levelIdx, path, start, extent);
   }
 }
 
@@ -645,11 +630,11 @@ void Level::Node(unsigned int levelIdx, unsigned int start, unsigned int extent,
 }
 
 
-void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start) {
+void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start, unsigned int extent) {
   unsigned int mrraIdx = bottom->History(levelIdx, del);
   unsigned int pathOff = BackScale(mrraIdx);
   unsigned int pathBits = path & (BackScale(1) - 1);
-  pathNode[pathOff + pathBits].Init(levelIdx, start);
+  pathNode[pathOff + pathBits].Init(levelIdx, start, extent);
   liveCount[mrraIdx]++;
 }
 

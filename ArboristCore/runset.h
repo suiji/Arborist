@@ -38,7 +38,7 @@ class FRNode {
 
   FRNode() : start(0), end(0), sCount(0), sum(0.0) {}
 
-  bool IsDense();
+  bool IsImplicit();
 
   /**
      @brief Bounds accessor.
@@ -68,7 +68,7 @@ class BHPair {
   economize on address recomputation during splitting.
 */
 class RunSet {
-  bool hasDense; // Whether dense run present.
+  bool hasImplicit; // Whether dense run present.
   int runOff; // Temporary offset storage.
   int heapOff; //
   int outOff; //
@@ -85,12 +85,12 @@ class RunSet {
   static unsigned int noIndex;
   unsigned int safeRunCount;
 
-  RunSet() : hasDense(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
+  RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
   bool ExposeRH();
-  void DenseRun(unsigned int denseRank, unsigned int sCountTot, double sumTot);
+  void ImplicitRun(unsigned int denseRank, unsigned int sCountTot, double sumTot);
+  void WriteImplicit(unsigned int rank, unsigned int sCount, double sum);
   unsigned int DeWide();
-  void WriteDense(unsigned int rank, unsigned int sCount, double sum);
   void DePop(unsigned int pop = 0);
   void Reset(FRNode*, BHPair*, unsigned int*, double*, double*);
   void OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
@@ -229,6 +229,7 @@ class RunSet {
 
 
 class Run {
+  const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
   RunSet *runSet;
   FRNode *facRun; // Workspace for FRNodes used along level.
@@ -241,7 +242,17 @@ class Run {
 
  public:
   const unsigned int ctgWidth;
-  Run(unsigned int _ctgWidth, unsigned int _nRow);
+  Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount);
+
+  inline bool IsRun(unsigned int setIdx) {
+    return setIdx != noRun;
+  }
+
+
+  inline unsigned int NoRun() {
+    return noRun;
+  }
+
 
   void LevelClear();
   void OffsetsReg();

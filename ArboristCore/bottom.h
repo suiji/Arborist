@@ -99,21 +99,24 @@ class Cell {
 class PathNode {
   unsigned int levelIdx; // < noIndex iff path extinct.
   unsigned int offset; // Target offset for path.
+  unsigned int extent;
  public:
 
   
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void Init(unsigned int _levelIdx, unsigned int _offset) {
+  inline void Init(unsigned int _levelIdx, unsigned int _offset, unsigned int _extent) {
     levelIdx = _levelIdx;
     offset = _offset;
+    extent = _extent;
   }
   
 
-  inline void Coords(unsigned int &_levelIdx, unsigned int &_offset) const {
+  inline void Coords(unsigned int &_levelIdx, unsigned int &_offset, unsigned int &_extent) const {
     _offset = offset;
     _levelIdx = levelIdx;
+    _extent = extent;
   }
 
   
@@ -143,34 +146,64 @@ class MRRA {
   static const unsigned int defBit = 1;
   static const unsigned int bufBit = 2;
   unsigned int raw;
+  unsigned int denseCount; // Nonincreasing.
  public:
 
   inline void Init(unsigned int runCount, unsigned int bufIdx) {
     raw = (runCount << 2) | (bufIdx << 1) | 1;
+    denseCount = 0;
   }
 
-  inline void Ref(unsigned int &runCount, unsigned int &bufIdx) {
+  inline void Ref(unsigned int &runCount, unsigned int &bufIdx) const {
     runCount = raw >> 2;
     bufIdx = (raw & bufBit) >> 1;
   }
 
+
+  inline unsigned int DenseCount() const {
+    return denseCount;
+  }
+
   
+  inline void SetDenseCount(unsigned int _denseCount) {
+    denseCount = _denseCount;
+  }
+
+
   inline void Consume(unsigned int &runCount, unsigned int &bufIdx) {
     Ref(runCount, bufIdx);
     raw = 0;
   }
 
-  
-  inline unsigned int RunCount() {
+
+  /**
+     @brief Run count accessor.
+
+     Run count values are nonnegative:
+
+     Values greater than or equal to 2 are currently reserved for
+     factor-valued predictors and denote an upper limit on the number
+     of runs subsumed by the pair.
+
+     A value of zero denotes pairs for which runs are not tracked, such
+     as numerical predictors having no dense rank.
+
+     A value of one denotes a singleton, i.e., a pair which must remain
+     on the books but which will not precipitate a split and so need
+     not either restage or split.  Note that the method to identify a
+     singleton varies with the data type.
+   */
+  inline unsigned int RunCount() const {
     return raw >> 2;
   }
 
-  inline void RunCount(unsigned int runCount) {
+
+  inline void SetRunCount(unsigned int runCount) {
     raw = (runCount << 2) | (raw & 3);
   }
 
   
-  inline bool Defined() {
+  inline bool Defined() const {
     return (raw & defBit) != 0;
   }
   
@@ -181,32 +214,7 @@ class MRRA {
     return wasDefined;
   }
 
-  
-  /**
-     @brief Devirtualizes to no-op.
-   */
-  virtual inline void SetIdxCount(unsigned int _idxCount) {
-  }
 
-
-  virtual inline unsigned int DenseCount() const {
-    return 0;
-  }
-};
-
-
-class MRRADense : public MRRA {
-  unsigned int denseCount;
- public:
-
-  inline void SetIdxCount(unsigned int _denseCount) {
-    denseCount = _denseCount;
-  }
-
-  
-  inline unsigned int DenseCount() const {
-    return denseCount;
-  }
 };
 
 
@@ -240,13 +248,14 @@ class Level {
   void FlushDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();
   void Paths();
-  void PathInit(const class Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start);
+  void PathInit(const class Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start, unsigned int extent);
   void Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par);
   void CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void RootDef(unsigned int nPred);
   void FrontDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[]);
-  void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
+  void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
+  void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int denseCount, bool ties);
 
 
   /**
@@ -255,7 +264,7 @@ class Level {
 
      @return offset strided by 'nPred'.
    */
-  inline unsigned int PairOffset(unsigned int mrraIdx, unsigned int predIdx) {
+  inline unsigned int PairOffset(unsigned int mrraIdx, unsigned int predIdx) const {
     return mrraIdx * nPred + predIdx;
   }
 
@@ -306,18 +315,26 @@ class Level {
 
 
   inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount) {
-    def[PairOffset(levelIdx, predIdx)].RunCount(runCount);
+    def[PairOffset(levelIdx, predIdx)].SetRunCount(runCount);
   }
   
 
-  inline void Singleton(unsigned int levelIdx, unsigned int predIdx) {
-    def[PairOffset(levelIdx, predIdx)].RunCount(1);
-  }
-  
-  
+  /**
+     @brief Determines whether pair consists of a single run.
+
+     @param bufIdx outputs the buffer index.
+
+     @return true iff a singleton.
+   */
   inline bool Singleton(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
     def[PairOffset(levelIdx, predIdx)].Ref(runCount, bufIdx);
     return runCount == 1;
+  }
+
+
+  inline bool Singleton(unsigned int levelIdx, unsigned int predIdx) {
+    unsigned int ignore1, ignore2;
+    return Singleton(levelIdx, predIdx, ignore1, ignore2);
   }
 
 
@@ -346,42 +363,11 @@ class Level {
       return false;
     }
   }
-};
 
-
-/**
-   @brief Encapsulates information needed to drive splitting.
- */
-class SplitCoord {
-  unsigned int splitPos; // Position in containing vector.
-  unsigned int levelIdx;
-  unsigned int predIdx;
-  unsigned int runCount;
-  int setPos; // runset offset, iff nonnegative.
-  unsigned char bufIdx; // Buffer containing SpiltPred block.
- public:
-  void Init(unsigned int _splitPos, unsigned int _levelIdx, unsigned int _predIdx, unsigned int _bufIdx, unsigned int _runCount, int _setPos) {
-    splitPos = _splitPos;
-    levelIdx = _levelIdx;
-    predIdx = _predIdx;
-    bufIdx = _bufIdx;
-    runCount = _runCount;
-    setPos = _runCount > 0 ? _setPos : -1;
+  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].DenseCount();
   }
 
-  void Ref(unsigned int &_levelIdx, unsigned int &_predIdx, int &_setPos, unsigned int &_bufIdx) const {
-    _levelIdx = levelIdx;
-    _predIdx = predIdx;
-    _setPos = setPos;
-    _bufIdx = bufIdx;
-  }
-
-  void Split(const class SamplePred *samplePred, const class IndexNode indexNode[], class SplitPred *splitPred);
-
-
-  inline bool HasRuns() {
-    return setPos >= 0;
-  }
 };
 
 
@@ -426,7 +412,6 @@ class Bottom {
   std::vector<unsigned char> levelDelta;
   std::vector<unsigned char> deltaPrev;
 
-  std::vector<SplitCoord> splitCoord; // Schedule of splits.
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
   
   SamplePath *samplePath;
@@ -455,11 +440,12 @@ class Bottom {
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
-  unsigned int ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int runTop);
+  bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx);
   void Split(const std::vector<SPPair> &pairNode, const class IndexNode indexNode[]);
   void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
-  inline void Singletons(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, unsigned int del) {
-    level[del]->Singletons(reachOffset, targ, mrra, levelFront);
+
+  inline void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, unsigned int del) {
+    level[del]->RunCounts(reachOffset, targ, mrra, levelFront);
   }
   
   static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int _bagCount);
@@ -469,11 +455,11 @@ class Bottom {
   ~Bottom();
   void Overlap(unsigned int _splitCount);
   void LevelInit();
-  void Split(const class IndexNode indexNode[]);
+
   void LevelClear();
   const std::vector<class SSNode*> Split(class Index *index, class IndexNode indexNode[]);
   void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
-  void SSWrite(unsigned int splitPos, unsigned int lhSampCount, unsigned lhIdxCount, double info);
+  void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class SplitNux &nux) const;
   void PathLeft(unsigned int sIdx) const;
   void PathRight(unsigned int sIdx) const ;
   void PathExtinct(unsigned int sIdx) const ;
@@ -508,7 +494,7 @@ class Bottom {
     return samplePath[sIdx].Path(del);
   }
 
-
+#ifdef restore
   /**
      @brief Derives pair coordinates from positional index.
 
@@ -562,10 +548,15 @@ class Bottom {
   inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx, int &runsetPos, unsigned int &bufIdx) const {
     splitCoord[splitIdx].Ref(levelIdx, predIdx, runsetPos, bufIdx);
   }
+#endif
 
-
-  inline void SetRunCount(unsigned int splitIdx, unsigned int predIdx, unsigned int runCount) {
+  inline void SetRunCount(unsigned int splitIdx, unsigned int predIdx, unsigned int runCount) const {
     levelFront->SetRunCount(splitIdx, predIdx, runCount);
+  }
+
+
+  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx) const {
+    return levelFront->DenseCount(levelIdx, predIdx);
   }
 
 
@@ -584,10 +575,11 @@ class Bottom {
     level[del]->OffsetClone(mrra, reachOffset);
   }
 
+#ifdef restore
   bool HasRuns(unsigned int splitPos) {
     return splitCoord[splitPos].HasRuns();
   }
-
+#endif
   
   unsigned int SplitCount(unsigned int del) {
     return level[del]->SplitCount();
@@ -613,6 +605,16 @@ class Bottom {
 
   inline unsigned int ReachLevel(unsigned int levelIdx, unsigned int predIdx) {
     return levelDelta[levelIdx * nPred + predIdx];
+  }
+
+  
+  /**
+     @brief Determines whether front-level pair is a singleton.
+
+     @return true iff the pair is a singleton.
+   */
+  inline bool Singleton(unsigned int levelIdx, unsigned int predIdx) const {
+    return levelFront->Singleton(levelIdx, predIdx);
   }
 };
 

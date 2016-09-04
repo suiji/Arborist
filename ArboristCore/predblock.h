@@ -136,6 +136,8 @@ class PredBlock {
    @brief Training caches numerical predictors for evaluating splits.
  */
 class PBTrain : public PredBlock {
+  static unsigned int noRank; // Inattainable rank value.
+  static unsigned int *denseRank;
   static const double *feNum;
   static const unsigned int *feCard; // Factor predictor cardinalities.
  public:
@@ -165,7 +167,29 @@ class PBTrain : public PredBlock {
   static inline int CardMax() {
     return cardMax;
   }
-/**
+
+
+  /**
+     @brief Looks up dense rank, if appropriate.
+
+     @return Dense rank iff pair does not subsume node, otherwise placeholder rank. 
+   */
+  static inline unsigned int DenseRank(unsigned int predIdx, unsigned denseCount) {
+    return denseCount == 0 ? noRank : denseRank[predIdx];
+  }
+
+  
+  /**
+     @brief Determines whether passed value is an attainable dense rank value.
+
+     @return true iff passed value is not inattainable rank.
+   */
+  static bool DenseRank(unsigned int _denseRank) {
+    return _denseRank != noRank;
+  }
+
+  
+  /**
    @brief Estimates mean of a numeric predictor from values at two rows.
    N.B.:  assumes 'predIdx' and 'feIdx' are identical for numeric
    predictors; otherwise remap with predMap[].
