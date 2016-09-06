@@ -34,16 +34,16 @@ using namespace std;
 /**
    @brief Static entry for regression.
  */
-Bottom *Bottom::FactoryReg(SamplePred *_samplePred, unsigned int _bagCount) {
-  return new Bottom(_samplePred, new SPReg(_samplePred, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryReg(const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) {
+  return new Bottom(_samplePred, new SPReg(_rowRank, _samplePred, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
 }
 
 
 /**
    @brief Static entry for classification.
  */
-Bottom *Bottom::FactoryCtg(SamplePred *_samplePred, SampleNode *_sampleCtg, unsigned int _bagCount) {
-  return new Bottom(_samplePred, new SPCtg(_samplePred, _sampleCtg, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryCtg(const RowRank *_rowRank, SamplePred *_samplePred, const std::vector<SampleNode> &_sampleCtg, unsigned int _bagCount) {
+  return new Bottom(_samplePred, new SPCtg(_rowRank, _samplePred, _sampleCtg, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
 }
 
 
@@ -66,7 +66,6 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bag
   level.push_front(levelFront);
 
   levelFront->Node(0, 0, bagCount, bagCount);
-  levelFront->RootDef(nPred);
 
   splitPred->SetBottom(this);
 }
@@ -79,10 +78,10 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bag
 
    @return void.
  */
-void Level::RootDef(unsigned int nPred) {
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    Define(0, predIdx, PBTrain::FacCard(predIdx), 0);
-  }
+  // This is the only time that the denseCount is assigned outside of
+  // restaging:
+void Bottom::RootDef(unsigned int predIdx, unsigned int denseCount) {
+  levelFront->Define(0, predIdx, PBTrain::FacCard(predIdx), 0, denseCount);
 }
 
   

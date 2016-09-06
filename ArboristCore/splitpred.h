@@ -57,9 +57,9 @@ class SplitCoord {
   bool SplitBinary(class RunSet *runSet, const class SPCtg *spCtg, class SplitNux &nux);
   bool SplitRuns(class RunSet *runSet, const class SPCtg *spCtg, class SplitNux &nux);
 
-  unsigned int RunsReg(class RunSet *runSet, const class SPNode spn[]) const;
+  unsigned int RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
   bool HeapSplit(class RunSet *runSet, class SplitNux &nux) const;
-  unsigned int RunsCtg(class RunSet *runSet, const SPNode spn[]) const;
+  unsigned int RunsCtg(class RunSet *runSet, const SPNode spn[], unsigned int denseRank) const;
 };
 
 
@@ -71,6 +71,7 @@ class SplitCoord {
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitPred {
+  const class RowRank *rowRank;
   static unsigned int predFixed;
   static const double *predProb;
 
@@ -90,9 +91,10 @@ class SplitPred {
   void Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount);
  public:
   class SamplePred *samplePred;
-  SplitPred(class SamplePred *_samplePred, unsigned int bagCount);
+  SplitPred(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   static void Immutables(unsigned int _nPred, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]);
   static void DeImmutables();
+  unsigned int DenseRank(unsigned int predIdx) const;
 
   class Run *Runs() {
     return run;
@@ -128,7 +130,7 @@ class SPReg : public SplitPred {
  public:
   static void Immutables(unsigned int _nPred, const double *_mono);
   static void DeImmutables();
-  SPReg(class SamplePred *_samplePred, unsigned int bagCount);
+  SPReg(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   ~SPReg();
   int MonoMode(unsigned int splitIdx, unsigned int predIdx) const;
   void RunOffsets(const std::vector<unsigned int> &safeCount);
@@ -147,7 +149,7 @@ class SPCtg : public SplitPred {
   double *ctgSum; // Per-level sum, by split/category pair.
   double *ctgSumR; // Numeric predictors:  sum to right.
   double *sumSquares; // Per-level sum of squares, by split.
-  const class SampleNode *sampleCtg;
+  const std::vector<class SampleNode> &sampleCtg;
   bool *LevelPreset(const class Index *index);
   double Prebias(unsigned int levelIdx, unsigned int sCount, double sum);
   void LevelClear();
@@ -164,7 +166,7 @@ class SPCtg : public SplitPred {
   static constexpr double minSumL = 1.0e-8;
   static constexpr double minSumR = 1.0e-5;
 
-  SPCtg(class SamplePred *_samplePred, class SampleNode _sampleCtg[], unsigned int bagCount);
+  SPCtg(const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int bagCount);
   ~SPCtg();
   static void Immutables(unsigned int _ctgWidth);
   static void DeImmutables();

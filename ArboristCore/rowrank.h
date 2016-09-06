@@ -54,6 +54,9 @@ class RowRank {
   const unsigned int nBlock; // Number of BlockRank objects.
   const unsigned int nPredDense; // Number of non-sparse predictors.
   const unsigned int *feInvNum; // Numeric predictors only:  split assignment.
+  static unsigned int noRank; // Inattainable rank value.
+  
+  std::vector<unsigned int> denseRank;
   RRNode *rowRank;
   BlockRank *blockRank;
 
@@ -81,9 +84,12 @@ class RowRank {
 
      @param _row outputs the looked-up row.
 
+     @param implicit outputs whether predictor value has dense rank.
+
      @return rank at predictor/row.
    */
-  unsigned int inline Lookup(unsigned int predIdx, unsigned int idx, unsigned int &_rank) const {
+  unsigned int inline Lookup(unsigned int predIdx, unsigned int idx, unsigned int &_rank, bool &implicit) const {
+    implicit = false;
     return rowRank[predIdx * nRow + idx].Lookup(_rank);
   }
 
@@ -96,6 +102,17 @@ class RowRank {
   inline unsigned int Rank2Row(unsigned int predIdx, unsigned int _rank) const {
     return feInvNum[predIdx * nRow + _rank];
   }
+
+  
+  /**
+     @brief Determines whether passed value is an attainable dense rank value.
+
+     @return true iff passed value is not inattainable rank.
+   */
+  unsigned int DenseRank(unsigned int predIdx) const{
+    return denseRank[predIdx];
+  }
+
   
   double MeanRank(unsigned int predIdx, double rkMean) const;
 };

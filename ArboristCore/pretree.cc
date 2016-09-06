@@ -208,7 +208,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _
 
 
 double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufBit, int start, int end, unsigned int ptId) {
-  return samplePred->Replay(sample2PT, predIdx, bufBit, start, end, ptId);
+  return samplePred->Replay(predIdx, bufBit, start, end, ptId, sample2PT);
 }
 
 

@@ -53,6 +53,9 @@ void SPNode::DeImmutables() {
 SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount) : bagCount(_bagCount), nPred(_nPred), bufferSize(_nPred * _bagCount), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   sampleIdx = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
+  
+  std::vector<unsigned int> _stageOffset(nPred);
+  stageOffset = std::move(_stageOffset);
 }
 
 
@@ -87,11 +90,11 @@ SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount) {
    @return void.
  */
 void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx) {
+  // TODO:  Hoist and preset to smaller, conservative value.
+  stageOffset[predIdx] = bagCount * predIdx;
+
   unsigned int *smpIdx;
   SPNode *spn = Buffers(predIdx, 0, smpIdx);
-
-  // TODO:  For sparse predictors, stage to DenseRank.
-
   for (unsigned int idx = 0; idx < stagePack.size(); idx++) {
     unsigned int sIdx = spn++->Init(stagePack[idx]);
     *smpIdx++ = sIdx;
@@ -138,7 +141,7 @@ void SamplePred::SplitRanks(unsigned int predIdx, unsigned int sourceBit, int sp
 
 
 /**
-   @brief Maps a block of predictor-associated sample indices to a specified pretree node index.
+   @brief Maps a block of sample indices from a splitting pair to the pretree node in whose sample set the indices now, as a result of splitting, reside.
 
    @param predIdx is the splitting predictor.
 
@@ -150,9 +153,11 @@ void SamplePred::SplitRanks(unsigned int predIdx, unsigned int sourceBit, int sp
 
    @param ptId is the pretree node index to which to map the block.
 
+   @param sample2PT outputs the preTree node to which a sample belongs.
+
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(unsigned int sample2PT[], unsigned int predIdx, unsigned int sourceBit, int start, int end, unsigned int ptId) {
+double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, int start, int end, unsigned int ptId, unsigned int sample2PT[]) {
   unsigned int *sIdx;
   SPNode *spn = Buffers(predIdx, sourceBit, sIdx);
 

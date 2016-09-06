@@ -21,8 +21,6 @@ unsigned int PredBlock::nRow = 0;
 double *PBPredict::feNumT = 0;
 int *PBPredict::feFacT = 0;
 
-unsigned int PBTrain::noRank = 0;
-unsigned int *PBTrain::denseRank = 0;
 const double *PBTrain::feNum = 0;
 const unsigned int *PBTrain::feCard = 0;
 unsigned int PBTrain::cardMax = 0;  // High watermark of factor cardinalities.
@@ -39,8 +37,6 @@ void PBTrain::Immutables(const double _feNum[], const unsigned int _feCard[], un
   nPredNum = _nPredNum;
   nPredFac = _nPredFac;
   nRow = _nRow;
-  denseRank = new unsigned int[_nPredNum + _nPredFac];
-  noRank = nRow;
 }
 
 
@@ -68,8 +64,6 @@ void PredBlock::DeImmutables() {
    @return void.
  */
 void PBTrain::DeImmutables() {
-  delete [] denseRank;
-  denseRank = 0;
   feNum = 0;
   feCard = 0; // Factor predictor cardinalities.
   nPredNum = nPredFac =  nRow = 0;

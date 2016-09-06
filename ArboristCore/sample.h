@@ -85,22 +85,23 @@ class SampleNode {
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
-  int *row2Sample;
-  void PreStage(const class RowRank *rowRank);
-  void PreStage(const class RowRank *rowRank, int predIdx);
+  class BV *treeBag;
+  std::vector<unsigned int> row2Sample;
  protected:
+  const unsigned int noSample; // Inattainable sample index.
   static unsigned int nRow;
   static unsigned int nPred;
   static int nSamp;
-  SampleNode *sampleNode;
+  std::vector<SampleNode> sampleNode;
   unsigned int bagCount;
   double bagSum;
-  class BV *treeBag;
   class SamplePred *samplePred;
   class Bottom *bottom;
-  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
+  unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank, class SamplePred *&_samplePred);
+  void Stage(const class RowRank *rowRank);
+  void Stage(const class RowRank *rowRank, int predIdx);
 
-  static unsigned int *RowSample();
+  static void RowSample(std::vector<unsigned int> &sCountRow);
 
  public:
   static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
@@ -123,9 +124,9 @@ class Sample {
   /**
      @param row row index at which to look up sample index.
 
-     @return Sample index associated with row, or -1 if none.
+     @return Sample index associated with row, or 'noSample' if none.
    */
-  inline int SampleIdx(unsigned int row) const {
+  inline unsigned int SampleIdx(unsigned int row) const {
     return row2Sample[row];
   }
   

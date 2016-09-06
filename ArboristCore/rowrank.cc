@@ -20,6 +20,8 @@
 
 #include <algorithm>
 
+unsigned int RowRank::noRank = 0;
+
 // Testing only:
 //#include <iostream>
 //using namespace std;
@@ -145,9 +147,9 @@ void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[]
   unsigned int colOff = 0;
   unsigned int numIdx; 
 
-  //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
+//#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {
-    //  #pragma omp for schedule(static, 1) nowait
+//  #pragma omp for schedule(static, 1) nowait
     for (numIdx = 0; numIdx < _nPredNum; numIdx++, colOff += _nRow) {
       Ranks(_nRow, _numOrd + colOff, _row + colOff, _rank + colOff, _invRank + colOff);
     }
@@ -162,9 +164,9 @@ void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredFac, unsigned int _fa
   unsigned int colOff = 0;
   unsigned int facIdx;
   
-  //#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
+//#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
   {    // Factors:
-    //#pragma omp for schedule(static, 1) nowait
+//#pragma omp for schedule(static, 1) nowait
     for (facIdx = 0; facIdx < _nPredFac; facIdx++, colOff += _nRow) {
       Ranks(_nRow, _facOrd + colOff, _rank + colOff);
     }
@@ -194,7 +196,7 @@ void RowRank::Ranks(unsigned int _nRow, const double xCol[], const unsigned int 
     double curX = xCol[rw];
     rk = curX == prevX ? rk : rk + 1;
     rank[rw] = rk;
-    invRank[rk] = row[rw];  // Assignment of row within a run is arbitrary.
+    invRank[rk] = row[rw];  // Unstable assignment to row within a run.
     prevX = curX;
   }
   // Values of invRank[] at indices beyond final 'rk' value are undefined.
@@ -228,12 +230,17 @@ void RowRank::Ranks(unsigned int _nRow, const unsigned int xCol[], unsigned int 
    @param _feInvNum is the rank-to-row mapping for numeric predictors.
  */
 RowRank::RowRank(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feInvNum[], unsigned int _nRow, unsigned int _nPredDense) : nRow(_nRow), nBlock(0), nPredDense(_nPredDense), feInvNum(_feInvNum) {
+  noRank = nRow;
   unsigned int dim = nRow * nPredDense;
 
   rowRank = new RRNode[dim];
   for (unsigned int i = 0; i < dim; i++) {
     rowRank[i].Set(_feRow[i], _feRank[i]);
   }
+
+  std::vector<unsigned int> _denseRank(nPredDense);
+  denseRank = std::move(_denseRank);
+
   //  blockRank = new BlockRank[nBlock];
 }
 

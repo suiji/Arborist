@@ -149,9 +149,9 @@ class MRRA {
   unsigned int denseCount; // Nonincreasing.
  public:
 
-  inline void Init(unsigned int runCount, unsigned int bufIdx) {
+  inline void Init(unsigned int runCount, unsigned int bufIdx, unsigned int _denseCount) {
     raw = (runCount << 2) | (bufIdx << 1) | 1;
-    denseCount = 0;
+    denseCount = _denseCount;
   }
 
   inline void Ref(unsigned int &runCount, unsigned int &bufIdx) const {
@@ -251,7 +251,6 @@ class Level {
   void PathInit(const class Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start, unsigned int extent);
   void Node(unsigned int levelIdx, unsigned int start, unsigned int extent, unsigned int par);
   void CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
-  void RootDef(unsigned int nPred);
   void FrontDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[]);
   void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
@@ -296,8 +295,14 @@ class Level {
   }
 
 
-  inline void Define(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx) {
-    def[PairOffset(levelIdx, predIdx)].Init(runCount, bufIdx);
+  /**
+     @brief
+
+     @param denseCount is only set directly by staging.  Otherwise it has a
+     default setting of zero, which is later reset by restaging.
+   */
+  inline void Define(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx, unsigned int denseCount = 0) {
+    def[PairOffset(levelIdx, predIdx)].Init(runCount, bufIdx, denseCount);
     defCount++;
   }
 
@@ -437,6 +442,7 @@ class Bottom {
 //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
+  void RootDef(unsigned int predIdx, unsigned int denseCount);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
@@ -448,8 +454,8 @@ class Bottom {
     level[del]->RunCounts(reachOffset, targ, mrra, levelFront);
   }
   
-  static Bottom *FactoryReg(class SamplePred *_samplePred, unsigned int _bagCount);
-  static Bottom *FactoryCtg(class SamplePred *_samplePred, class SampleNode *_sampleCtg, unsigned int _bagCount);
+  static Bottom *FactoryReg(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int _bagCount);
+  static Bottom *FactoryCtg(const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int _bagCount);
   
   Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac);
   ~Bottom();
@@ -486,69 +492,16 @@ class Bottom {
     return samplePath[sIdx].IsLive(sIdxPath);
   }
 
+  
   inline void PathPrefetch(unsigned int *sampleIdx, unsigned int del) const {
     __builtin_prefetch(samplePath + sampleIdx[del]);
   }
 
+  
   inline int Path(unsigned int sIdx, unsigned int del) const {
     return samplePath[sIdx].Path(del);
   }
 
-#ifdef restore
-  /**
-     @brief Derives pair coordinates from positional index.
-
-     @param splitIdx is split ordinal, a position within the vector of splits.
-
-     @param levelIdx is the level-relative node index.
-
-     @param predIdx is the predictor index.
-
-     @return void, with reference paramters.
-   */
-  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx) const {
-    int dummy1;
-    unsigned int dummy2;
-    splitCoord[splitIdx].Ref(levelIdx, predIdx, dummy1, dummy2);
-  }
-
-
-  /**
-     @brief Variant of above, with runset position.
-
-     @param splitIdx is split ordinal, a position within the vector of splits.
-
-     @param levelIdx is the level-relative node index.
-
-     @param predIdx is the predictor index.
-
-     @param runsetPos it the position within the runset vector.
-
-     @return void, with reference paramters.
-   */
-  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx, int &runsetPos) const {
-    unsigned int dummy;
-    splitCoord[splitIdx].Ref(levelIdx, predIdx, runsetPos, dummy);
-  }
-
-
-  /**
-     @brief Variant of above, with runset position.
-
-     @param splitIdx is split ordinal, a position within the vector of splits.
-
-     @param levelIdx is the level-relative node index.
-
-     @param predIdx is the predictor index.
-
-     @param runsetPos it the position within the runset vector.
-
-     @return void, with reference paramters.
-   */
-  inline void SplitRef(unsigned int splitIdx, unsigned int &levelIdx, unsigned int &predIdx, int &runsetPos, unsigned int &bufIdx) const {
-    splitCoord[splitIdx].Ref(levelIdx, predIdx, runsetPos, bufIdx);
-  }
-#endif
 
   inline void SetRunCount(unsigned int splitIdx, unsigned int predIdx, unsigned int runCount) const {
     levelFront->SetRunCount(splitIdx, predIdx, runCount);
@@ -560,12 +513,6 @@ class Bottom {
   }
 
 
-  inline bool DenseRank(unsigned int splitIdx, unsigned int &denseRank) {
-    denseRank = 0;
-    return false;
-  }
-  
-
   inline void CellBounds(unsigned int del, const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
     return level[del]->CellBounds(mrra, startIdx, extent);
   }
@@ -575,11 +522,6 @@ class Bottom {
     level[del]->OffsetClone(mrra, reachOffset);
   }
 
-#ifdef restore
-  bool HasRuns(unsigned int splitPos) {
-    return splitCoord[splitPos].HasRuns();
-  }
-#endif
   
   unsigned int SplitCount(unsigned int del) {
     return level[del]->SplitCount();
@@ -598,6 +540,15 @@ class Bottom {
   }
   
 
+  /**
+     @brief Locates index of ancestor several levels back.
+
+     @param levelIdx is descendant index.
+
+     @param del is the number of levels back.
+
+     @return index of ancestor node.
+   */
   inline unsigned int History(unsigned int levelIdx, unsigned int del) const {
     return del == 0 ? levelIdx : history[levelIdx + (del-1) * frontCount];
   }

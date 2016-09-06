@@ -25,6 +25,7 @@ using namespace std;
 #include "callback.h"
 #include "sample.h"
 #include "predblock.h"
+#include "rowrank.h"
 
 unsigned int SplitPred::nPred = 0;
 unsigned int SplitPred::predFixed = 0;
@@ -37,7 +38,7 @@ unsigned int SPCtg::ctgWidth = 0;
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitPred::SplitPred(SamplePred *_samplePred, unsigned int _bagCount) : bagCount(_bagCount), samplePred(_samplePred) {
+SplitPred::SplitPred(const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) : rowRank(_rowRank), bagCount(_bagCount), samplePred(_samplePred) {
 }
 
 
@@ -110,7 +111,7 @@ void SPCtg::DeImmutables() {
 
    @param samplePred holds (re)staged node contents.
  */
-SPReg::SPReg(SamplePred *_samplePred, unsigned int _bagCount) : SplitPred(_samplePred, _bagCount), ruMono(0) {
+SPReg::SPReg(const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) : SplitPred(_rowRank, _samplePred, _bagCount), ruMono(0) {
   run = new Run(0, PBTrain::NRow(), _bagCount);
 }
 
@@ -122,7 +123,7 @@ SPReg::SPReg(SamplePred *_samplePred, unsigned int _bagCount) : SplitPred(_sampl
 
    @param sampleCtg is the sample vector for the tree, included for category lookup.
  */
-SPCtg::SPCtg(SamplePred *_samplePred, SampleNode _sampleCtg[], unsigned int _bagCount): SplitPred(_samplePred, _bagCount), sampleCtg(_sampleCtg) {
+SPCtg::SPCtg(const RowRank *_rowRank, SamplePred *_samplePred, const std::vector<SampleNode> &_sampleCtg, unsigned int _bagCount): SplitPred(_rowRank, _samplePred, _bagCount), sampleCtg(_sampleCtg) {
   run = new Run(ctgWidth, PBTrain::NRow(), _bagCount);
 }
 
@@ -168,6 +169,11 @@ void SplitPred::SetPrebias(IndexNode indexNode[]) {
 
 RunSet *SplitPred::RSet(unsigned int setIdx) const {
   return run->RSet(setIdx);
+}
+
+
+unsigned int SplitPred::DenseRank(unsigned int predIdx) const {
+  return rowRank->DenseRank(predIdx);
 }
 
 
@@ -510,7 +516,7 @@ int SPReg::MonoMode(unsigned int splitIdx, unsigned int predIdx) const {
 
 /**
  @brief Sets those fields known before restaging.
-  denseCount set following restage.
+  isDense set following restage.
  runCount may be reset to unity following restage.
 
  @return void.
@@ -560,10 +566,6 @@ void SPCtg::Split(const IndexNode indexNode[]) {
   splitCoord.clear();
 }
 
-
-// TODO:  Reimplement singletons:
-    // Factors:  runCount == 1
-    // Numerical:  denseCount == 1 & idxCount == 0 or denseCount == 0 and all tied.
 
 /**
    @brief  Regression splitting based on type:  numeric or factor.
@@ -646,7 +648,7 @@ void SplitCoord::SplitFac(const SPCtg *spCtg, const Bottom *bottom, const SPNode
 
 bool SplitCoord::SplitFac(const SPCtg *spCtg, const SPNode spn[], unsigned int &runCount, SplitNux &nux) {
   RunSet *runSet = spCtg->RSet(setIdx);
-  runCount = RunsCtg(runSet, spn);
+  runCount = RunsCtg(runSet, spn, spCtg->DenseRank(setIdx));
   if (spCtg->CtgWidth() == 2) {
     return SplitBinary(runSet, spCtg, nux);
   }
@@ -654,6 +656,7 @@ bool SplitCoord::SplitFac(const SPCtg *spCtg, const SPNode spn[], unsigned int &
     return SplitRuns(runSet, spCtg, nux);
   }
 }
+
 
 // The four major classes of splitting supported here are based on either
 // Gini impurity or weighted variance.  New variants may be supplied in
@@ -671,7 +674,7 @@ bool SplitCoord::SplitFac(const SPCtg *spCtg, const SPNode spn[], unsigned int &
  */
 bool SplitCoord::SplitFac(const SPReg *spReg, const SPNode spn[], unsigned int &runCount, SplitNux &nux) {
   RunSet *runSet = spReg->RSet(setIdx);
-  runCount = RunsReg(runSet, spn);
+  runCount = RunsReg(runSet, spn, spReg->DenseRank(predIdx));
   runSet->HeapMean();
   runSet->DePop();
 
@@ -839,7 +842,7 @@ bool SplitCoord::SplitNum(SPCtg *spCtg, const SPNode spn[], SplitNux &nux) {
 /**
    Regression runs always maintained by heap.
 */
-unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[]) const {
+unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[], unsigned int denseRank) const {
   double sumHeap = 0.0;
   unsigned int sCountHeap = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
@@ -869,7 +872,7 @@ unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[]) const {
   //
   runSet->Write(rkThis, sCountHeap, sumHeap, idxStart, frEnd);
   if (denseCount > 0) {
-    runSet->ImplicitRun(PBTrain::DenseRank(predIdx), sCount, sum);
+    runSet->ImplicitRun(denseRank, sCount, sum);
   }
 
   return runSet->RunCount();
@@ -920,7 +923,7 @@ bool SplitCoord::HeapSplit(RunSet *runSet, SplitNux &nux) const {
    when run count has been estimated to be wide:
 
 */
-unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[]) const {
+unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[], unsigned int denseRank) const {
   double sumLoc = 0.0;
   unsigned int sCountLoc = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
@@ -950,7 +953,7 @@ unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[]) const {
   // Flushes remaining run.
   runSet->Write(rkThis, sCountLoc, sumLoc, idxStart, frEnd);
   if (denseCount > 0) {
-    runSet->ImplicitRun(PBTrain::DenseRank(predIdx), sCount, sum);
+    runSet->ImplicitRun(denseRank, sCount, sum);
   }
 
   return runSet->RunCount();

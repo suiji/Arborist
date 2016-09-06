@@ -41,7 +41,7 @@ class StagePack {
     _ySum = ySum;
   }
 
-  inline void Set(unsigned int _sIdx, unsigned int _rank, unsigned int _sCount, unsigned int _ctg, FltVal _ySum) {
+  inline void Init(unsigned int _sIdx, unsigned int _rank, unsigned int _sCount, unsigned int _ctg, FltVal _ySum) {
     sIdx = _sIdx;
     rank = _rank;
     sCount = _sCount;
@@ -182,10 +182,11 @@ class SamplePred {
 
   // Predictor-based sample orderings, double-buffered by level value.
   //
-  const int bufferSize; // bagCount * nPred.
+  const int bufferSize; // <= bagCount * nPred.
   const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
+  std::vector<unsigned int> stageOffset;
   SPNode* nodeVec;
 
   // 'sampleIdx' could be boxed with SPNode.  While it is used in both
@@ -236,7 +237,7 @@ class SamplePred {
      @return starting position within workspace.
    */
   inline unsigned int BufferOff(unsigned int predIdx, unsigned int bufBit) const {
-    return bagCount * predIdx + BuffOffset(bufBit);
+    return stageOffset[predIdx] + BuffOffset(bufBit);
   }
 
   
@@ -286,7 +287,7 @@ class SamplePred {
   }
 
   void SplitRanks(unsigned int predIdx, unsigned int targBit, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
-  double Replay(unsigned int sample2PT[], unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId);
+  double Replay(unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId, unsigned int sample2PT[]);
 
   // TODO:  Move somewhere appropriate.
   /**
