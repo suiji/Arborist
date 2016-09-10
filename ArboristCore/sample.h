@@ -97,9 +97,10 @@ class Sample {
   double bagSum;
   class SamplePred *samplePred;
   class Bottom *bottom;
-  unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank, class SamplePred *&_samplePred);
+  unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, class SamplePred *&_samplePred);
   void Stage(const class RowRank *rowRank);
   void Stage(const class RowRank *rowRank, int predIdx);
+  void PackIndex(unsigned int row, unsigned int predRank, std::vector<class StagePack> &stagePack);
 
   static void RowSample(std::vector<unsigned int> &sCountRow);
 
@@ -126,8 +127,9 @@ class Sample {
 
      @return Sample index associated with row, or 'noSample' if none.
    */
-  inline unsigned int SampleIdx(unsigned int row) const {
-    return row2Sample[row];
+  inline bool SampleIdx(unsigned int row, unsigned int &sIdx) const {
+    sIdx = row2Sample[row];
+    return sIdx != noSample;
   }
   
   

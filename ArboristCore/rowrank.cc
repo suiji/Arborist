@@ -15,12 +15,9 @@
 
 #include "rowrank.h"
 #include "predblock.h"
-#include "callback.h"
 #include "math.h"
 
 #include <algorithm>
-
-unsigned int RowRank::noRank = 0;
 
 // Testing only:
 //#include <iostream>
@@ -47,20 +44,13 @@ unsigned int RowRank::noRank = 0;
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[], unsigned int _feInvNum[]) {
-  // Builds the ranked numeric block.
-  //
-  double *numOrd = new double[_nRow * _nPredNum];
-  unsigned int colOff = 0;
-  for (unsigned int num = 0; num < _nPredNum; num++, colOff += _nRow) {
-    for (unsigned int row = 0; row < _nRow; row++) {
-      _rowOrd[colOff + row] = row; // Initializes permutation vector.
-      numOrd[colOff + row] = _feNum[colOff + row];
-    }
+void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int _feInvNum[]) {
+  int numIdx, colOff;
+
+  for (numIdx = 0; numIdx < int(_nPredNum); numIdx++) {
+    colOff = _nRow * numIdx;
+    NumSort(&_feNum[colOff], _nRow, rowOut, rankOut, &_feInvNum[colOff]);
   }
-  Sort(_nRow, _nPredNum, numOrd, _rowOrd);
-  Ranks(_nRow, _nPredNum, numOrd, _rowOrd, _rank, _feInvNum);
-  delete [] numOrd;
 }
 
 
@@ -81,167 +71,200 @@ void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[]) {
-
+void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength) {
   // Builds the ranked factor block.  Assumes 0-justification has been 
   // performed by bridge.
   //
-  unsigned int colOff = 0;
-  unsigned int *facOrd = new unsigned int[_nRow * _nPredFac]; // Copy for sorting.
-  for (unsigned int col = 0; col < _nPredFac; col++, colOff += _nRow) {
-    for (unsigned int row = 0; row < _nRow; row++) {
-      _rowOrd[colOff + row] = row; // Initializes permutation vector.
-      facOrd[colOff + row] = _feFac[colOff + row];
+  for (unsigned int facIdx = 0; facIdx < _nPredFac; facIdx++) {
+    FacSort(&_feFac[facIdx * _nRow], _nRow, rowOut, rankOut, runLength);
+  }
+}
+
+
+void RowRank::FacSort(const unsigned int predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rle) {
+typedef std::pair<unsigned int, unsigned int> ValRowI;
+  std::vector<ValRowI> valRow(_nRow);
+  for (unsigned int row = 0; row < _nRow; row++) {
+    valRow[row].first = predCol[row];
+    valRow[row].second = row;
+  }
+  std::sort(valRow.begin(), valRow.end()); // Stable sort.
+
+  // Final "rank" values are the internal factor codes and may contain
+  // gaps.  A dense numbering scheme would entail backmapping at LH bit
+  // assignment following splitting (q.v.):  prediction and training
+  // must map to the same factor levels.
+  unsigned int rankPrev = valRow[0].first;
+  unsigned int rowPrev = valRow[0].second;
+  rle.push_back(1);
+  rankOut.push_back(rankPrev);
+  rowOut.push_back(rowPrev);
+  for (unsigned int row = 1; row < _nRow; row++) {
+    unsigned int rankThis = valRow[row].first;
+    unsigned int rowThis = valRow[row].second;
+    if (rankThis == rankPrev && rowThis == (rowPrev + 1)) {
+      rle.back()++;
     }
-  }
-  Sort(_nRow, _nPredFac, facOrd, _rowOrd);
-  Ranks(_nRow, _nPredFac, facOrd, _rank);
-  delete [] facOrd;
-}
-
-
-/**
- @brief Sorts each column of predictors, saving value and permutation vectors.
-
- @param numOrd outputs the sorted numeric values.
-
- @param perm outputs the permutation vectors.
-
- @return void, with output vector parameters.
-*/
-void RowRank::Sort(unsigned int _nRow, unsigned int _nPredNum, double numOrd[], unsigned int perm[]) {
-  unsigned int colOff = 0;  
-
-  // Unstable sort suffices, as row consistency does not appear necessary.
-  //
-  for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++, colOff += _nRow) {
-    CallBack::QSortD(numOrd + colOff, perm + colOff, 1, _nRow);
+    else {
+      rle.push_back(1);
+      rankOut.push_back(rankThis);
+      rowOut.push_back(rowThis);
+    }
+    rankPrev = rankThis;
+    rowPrev = rowThis;
   }
 }
 
 
-/**
-   @brief Same as above, but with factor-valued predictors.
 
-   @return void, with output reference parameters.
+/**
+   @brief
+
+   @return void.
  */
-void RowRank::Sort(unsigned int _nRow, unsigned int _nPredFac, unsigned int facOrd[], unsigned int perm[]) {
-  unsigned int colOff = 0;
-
-  // Unstable sort suffices, as row consistency does not appear necessary.
-  //
-  for (unsigned int facIdx = 0; facIdx < _nPredFac; facIdx++, colOff += _nRow) {
-    CallBack::QSortI((int*) facOrd + colOff, perm + colOff, 1, _nRow);
+void RowRank::NumSort(const double predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int invRank[]) {
+typedef std::pair<double, unsigned int> ValRowD;
+  std::vector<ValRowD> valRow(_nRow);
+  for (unsigned int row = 0; row < _nRow; row++) {
+    valRow[row].first = predCol[row];
+    valRow[row].second = row;
   }
-}
+  std::sort(valRow.begin(), valRow.end());  // Stable sort.
 
-
-/**
-   @brief Loops over numerical predictors to compute row, rank and inverse vectors.
-
-   @param rowRank outputs the matrix of predictor-order objects.
-
-   @return void, with output parameter matrix.
-*/
-void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], unsigned int _row[], unsigned int _rank[], unsigned int _invRank[]) {
-  unsigned int colOff = 0;
-  unsigned int numIdx; 
-
-//#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
-  {
-//  #pragma omp for schedule(static, 1) nowait
-    for (numIdx = 0; numIdx < _nPredNum; numIdx++, colOff += _nRow) {
-      Ranks(_nRow, _numOrd + colOff, _row + colOff, _rank + colOff, _invRank + colOff);
-    }
-  }
-}
-
-
-/**
-   @brief As above, but i) looping over factor predictors and ii) no inverse map computed.
- */
-void RowRank::Ranks(unsigned int _nRow, unsigned int _nPredFac, unsigned int _facOrd[], unsigned int _rank[]) {
-  unsigned int colOff = 0;
-  unsigned int facIdx;
-  
-//#pragma omp parallel default(shared) private(predIdx)//, baseOff, rankOff)
-  {    // Factors:
-//#pragma omp for schedule(static, 1) nowait
-    for (facIdx = 0; facIdx < _nPredFac; facIdx++, colOff += _nRow) {
-      Ranks(_nRow, _facOrd + colOff, _rank + colOff);
-    }
-  }
-}
-
-
-/**
-   @brief Walks sorted predictor rows, assigning rank, row and inverse maps.
-
-   @param xCol[] are the sorted values of a numeric predictor.
-
-   @param row is the permutation vector defined by the sort.
-
-   @param rank outputs the predictor-order rank values.  Rank values are dense, with ties identified.
-
-   @param row[] orders row indices so that predictor is nonondecreasing.
-
-   @param invRank[] maps ranks to one (of possibly many) associated row.
-
-   @return void, with output vector parameters.
-*/
-void RowRank::Ranks(unsigned int _nRow, const double xCol[], const unsigned int row[], unsigned int rank[], unsigned int invRank[]) {
   unsigned int rk = 0;
-  double prevX = xCol[0];
-  for (unsigned int rw = 0; rw < _nRow; rw++) {
-    double curX = xCol[rw];
-    rk = curX == prevX ? rk : rk + 1;
-    rank[rw] = rk;
-    invRank[rk] = row[rw];  // Unstable assignment to row within a run.
+  double prevX = valRow[0].first;
+  for (unsigned int row = 0; row < _nRow; row++) {
+    double curX = valRow[row].first;
+    rk += curX == prevX ? 0 : 1;
     prevX = curX;
+    rankOut.push_back(rk);
+    rowOut.push_back(valRow[row].second);
+    invRank[rk] = valRow[row].second;
   }
-  // Values of invRank[] at indices beyond final 'rk' value are undefined.
-}
-
-
-/**
-   @brief Same as above, but for factors.  The zero-based internal
-   values of factors are used as proxy "ranks":  gaps are not filled in.
-
-   @param xCol[] are the sorted (nonnegative) predictor values.
-
-   @param rank[] outputs a proxy rank equal to the predictor value.  Rank values need not be dense, as factors may be missing.
-
-   @return void, with output vector parameter.
-*/
-void RowRank::Ranks(unsigned int _nRow, const unsigned int xCol[], unsigned int rank[]) {
-  for (unsigned int rw = 0; rw < _nRow; rw++) {
-    rank[rw] = xCol[rw];
-  }
+  // Under the current stable sorting scheme, invRank[] is assigned the
+  // highest-valued row index within a run of identical rank values.
+  // Furthermore, as the presence of ties causes the loop to terminate
+  // with 'rk < row', invRank[] may be undefined beyond some index.
+  // 
 }
 
 
 /**
    @brief Constructor for row, rank passed from front end as parallel arrays.
 
-   @param _feRow is the vector of rows allocated by the front end.
+   @param feRow is the vector of rows allocated by the front end.
 
-   @param _feRank is the vector of ranks allocated by the front end.
+   @param feRank is the vector of ranks allocated by the front end.
 
-   @param _feInvNum is the rank-to-row mapping for numeric predictors.
+   @param feInvNum is the rank-to-row mapping for numeric predictors.
  */
-RowRank::RowRank(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feInvNum[], unsigned int _nRow, unsigned int _nPredDense) : nRow(_nRow), nBlock(0), nPredDense(_nPredDense), feInvNum(_feInvNum) {
-  noRank = nRow;
-  unsigned int dim = nRow * nPredDense;
-
-  rowRank = new RRNode[dim];
-  for (unsigned int i = 0; i < dim; i++) {
-    rowRank[i].Set(_feRow[i], _feRank[i]);
+RowRank::RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const unsigned int _feInvNum[], const std::vector<unsigned int> &feRunLength, unsigned int _nRow, unsigned int _nPred) : nRow(_nRow), nPred(_nPred), feInvNum(_feInvNum), noRank(_nRow) {
+  std::vector<unsigned int> _rrCount(nPred);
+  std::vector<unsigned int> _rrStart(nPred);
+  rrCount = std::move(_rrCount);
+  rrStart = std::move(_rrStart);
+  // Default initialization, overwritten by RLE processing.
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+    rrCount[predIdx] = nRow;
+    rrStart[predIdx] = nRow * predIdx;
   }
+  // By convention, non-compressed row/rank pairs precede any rle-compressed
+  // pairs.
+  //
+  unsigned int nonCmprTot = feRank.size() - feRunLength.size();
+  unsigned int cmprTot = DenseRanks(feRank, feRunLength, nonCmprTot);
+  std::vector<RRNode> _rrNode(nonCmprTot + cmprTot);
+  rrNode = std::move(_rrNode);
+  for (unsigned int i = 0; i < nonCmprTot; i++) {
+    rrNode[i].Init(feRow[i], feRank[i]);
+  }
+  Decompress(feRow, feRank, feRunLength, nonCmprTot);
+}
 
-  std::vector<unsigned int> _denseRank(nPredDense);
+
+/**
+   @brief Counts the number of rows to be decompressed and sets dense ranks.
+
+   @param rle records the run lengths of the remaining entries.
+
+   @param nonCmprTot is the total number of noncompressed rows.
+
+   @return total number of rows to be decompressed.
+ */
+void RowRank::Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot) {
+  unsigned int predCmpr = nonCmprTot / nRow; // First compressed predictor.
+  unsigned int outIdx = nonCmprTot;
+  unsigned int inIdx = nonCmprTot;
+  unsigned int rleIdx = 0; // To change.
+  for (unsigned int predIdx = predCmpr; predIdx < nPred; predIdx++) {
+    unsigned int rowTot = 0;
+    while (rowTot < nRow) {
+      unsigned int rank = feRank[inIdx];
+      unsigned int row = feRow[inIdx];
+      unsigned int runLength = rle[rleIdx++];
+      rowTot += runLength;
+      if (rank != denseRank[predIdx]) { // Omits dense ranks.
+	for (unsigned int i = 0; i < runLength; i++) { // Expands non-dense ranks.
+	  rrNode[outIdx++].Init(row + i, rank);
+	}
+      }
+      inIdx++;
+    }
+  }
+}
+
+
+/**
+   @brief Counts the number of rows to be decompressed and sets dense ranks.
+
+   @param rle records the run lengths of the remaining entries.
+
+   @param nonCmprTot is the total number of noncompressed rows.
+
+   @return total number of rows to be decompressed.
+ */
+unsigned int RowRank::DenseRanks(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot) {
+  std::vector<unsigned int> _denseRank(nPred);
+  std::fill(_denseRank.begin(), _denseRank.end(), noRank);
   denseRank = std::move(_denseRank);
 
-  //  blockRank = new BlockRank[nBlock];
+  unsigned int cmprTot = 0;
+  unsigned int predCmpr = nonCmprTot / nRow; // First compressed predictor.
+  unsigned int rleIdx = 0; // Will change.
+  unsigned int inIdx = nonCmprTot;
+  for (unsigned int predIdx = predCmpr; predIdx < nPred; predIdx++) {
+    unsigned int rowTot = 0;
+    unsigned int denseCount = 0; // Running maximum of run counts.
+    unsigned int argMax = noRank;
+    unsigned int runCount = 0; // Runs across adjacent rle entries.
+    unsigned int rankPrev = noRank;
+    while (rowTot < nRow) {
+      unsigned int runLength = rle[rleIdx++];
+      unsigned int rankThis = feRank[inIdx++];
+      rowTot += runLength;
+      if (rankThis == rankPrev) {
+	runCount += runLength;
+      }
+      else {
+	runCount = runLength;
+	rankPrev = rankThis;
+      }
+      if (runCount > denseCount) {
+	denseCount = runCount;
+	argMax = rankThis;
+      }
+    }
+
+    if (denseCount > plurality * nRow) {
+      denseRank[predIdx] = argMax;
+      cmprTot += nRow - denseCount;
+    }
+    else {
+      cmprTot += nRow;
+    }
+  }
+  
+  return cmprTot;
 }
 
 
@@ -251,7 +274,6 @@ RowRank::RowRank(const unsigned int _feRow[], const unsigned int _feRank[], cons
    @return void.
  */
 RowRank::~RowRank() {
-  delete [] rowRank;
 }
 
 

@@ -102,10 +102,10 @@ Train::Train(const std::vector<double> &_y, const std::vector<unsigned int> &_ro
 
    @return forest height, with output reference parameter.
 */
-void Train::Regression(unsigned int _feRow[], unsigned int _feRank[], unsigned int _feInvNum[], const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<unsigned int> &_rank) {
+void Train::Regression(const std::vector<unsigned int> &_feRow, const std::vector<unsigned int> &_feRank, unsigned int _feInvNum[], const std::vector<unsigned int> &_feRunLength, const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<unsigned int> &_rank) {
   Train *train = new Train(_y, _row2Rank, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _rank);
 
-  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
+  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, _feRunLength, nRow, nPred);
   train->ForestTrain(rowRank);
 
   delete rowRank;
@@ -126,10 +126,10 @@ Train::Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, con
 
    @return void.
 */
-void Train::Classification(unsigned int _feRow[], unsigned int _feRank[], unsigned int _feInvNum[], const std::vector<unsigned int>  &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<double> &_weight) {
+void Train::Classification(const std::vector<unsigned int> &_feRow, const std::vector<unsigned int> &_feRank, unsigned int _feInvNum[], const std::vector<unsigned int> &_feRunLength, const std::vector<unsigned int>  &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, double _predInfo[], std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagRow> &_bagRow, std::vector<double> &_weight) {
   Train *train = new Train(_yCtg, _ctgWidth, _yProxy, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _weight);
 
-  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, nRow, nPred);
+  RowRank *rowRank = new RowRank(_feRow, _feRank, _feInvNum, _feRunLength, nRow, nPred);
   train->ForestTrain(rowRank);
 
   delete rowRank;

@@ -22,6 +22,7 @@
 #include "splitsig.h"
 #include "predblock.h"
 #include "runset.h"
+#include "rowrank.h"
 
 // Testing only:
 //#include <iostream>

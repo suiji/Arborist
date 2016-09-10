@@ -18,7 +18,7 @@
 /**
    @file callback.cc
 
-   @brief Implements sorting and sampling utitlities by means of calls to front end.  Employs pre-allocated copy-out parameters to avoid dependence on front end's memory allocation.
+   @brief Implements sampling utitlities by means of calls to front end.  Employs pre-allocated copy-out parameters to avoid dependence on front end's memory allocation.
 
    @author Mark Seligman
  */
@@ -74,45 +74,3 @@ void CallBack::RUnif(int len, double out[]) {
   for (int i = 0; i < len; i++)
     out[i] = rn[i];
 }
-
-
-// Leaving front-end sorts in place for now, as std:: versions
-// not offering a performance advantage, even when run in parallel:
-//
-
-/**
-  @brief Call-back to R's integer quicksort with indices.
-
-  @param ySorted[] is a copy-out vector containing the sorted integers.
-
-  @param rank2Row[] is the vector of permuted indices.
-
-  @param one is a hard-coded integer indicating unit stride.
-
-  @param nRow is the number of rows to sort.
-
-  @return Formally void, with copy-out parameter vectors.
-*/
-void CallBack::QSortI(int ySorted[],  unsigned int rank2Row[], int one,  int nRow) {
-  R_qsort_int_I(ySorted, (int *) rank2Row, one, (int) nRow);
-}
-
-
-/**
-   @brief Call-back to R's double quicksort with indices.
-
-   @param ySorted[] is the copy-out vector of sorted values.
-
-   @param rank2Row[] is the copy-out vector of permuted indices.
-
-   @param one is a hard-coded integer indicating unit stride.
-
-   @param nRow is the number of rows to sort.
-
-   @return Formally void, with copy-out parameter vectors.
-*/
-void CallBack::QSortD(double ySorted[],  unsigned int rank2Row[], int one,  int nRow) {
-  R_qsort_I(ySorted, (int*) rank2Row, one, (int) nRow);
-}
-
-

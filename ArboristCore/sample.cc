@@ -160,7 +160,7 @@ SampleReg::SampleReg() : Sample() {
 void SampleReg::Stage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const RowRank *rowRank) {
   std::vector<unsigned int> ctgProxy(nRow);
   std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  bagCount = Sample::PreStage(y, ctgProxy, rowRank, samplePred);
+  bagCount = Sample::PreStage(y, ctgProxy, samplePred);
   bottom = Bottom::FactoryReg(rowRank, samplePred, bagCount);
   Sample::Stage(rowRank);
   SetRank(row2Rank);
@@ -178,9 +178,10 @@ void SampleReg::SetRank(const std::vector<unsigned int> &row2Rank) {
   // Only client is quantile regression.
   sample2Rank = new unsigned int[bagCount];
   for (unsigned int row = 0; row < nRow; row++) {
-    unsigned int sIdx = SampleIdx(row);
-    if (sIdx != noSample)
+    unsigned int sIdx;
+    if (SampleIdx(row, sIdx)) {
       sample2Rank[sIdx] = row2Rank[row];
+    }
   }
 }
 
@@ -205,7 +206,7 @@ SampleCtg::SampleCtg() : Sample() {
 // Full row count is used to avoid the need to rewalk.
 //
 void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank) {
-  bagCount = Sample::PreStage(y, yCtg, rowRank, samplePred);
+  bagCount = Sample::PreStage(y, yCtg, samplePred);
   bottom = Bottom::FactoryCtg(rowRank, samplePred, sampleNode, bagCount);
   Sample::Stage(rowRank);
 }
@@ -220,7 +221,7 @@ void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<d
 
    @return bagCount value.
  */
-unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const RowRank *rowRank, SamplePred *&_samplePred) {
+unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, SamplePred *&_samplePred) {
   std::vector<unsigned int> sCountRow(nRow);
   std::fill(sCountRow.begin(), sCountRow.end(), 0);
   RowSample(sCountRow);
@@ -277,34 +278,42 @@ void Sample::Stage(const RowRank *rowRank) {
    @return void.
 */
 void Sample::Stage(const RowRank *rowRank, int predIdx) {
-  // Predictor orderings recorded by RowRank may be built with an unstable sort.
-  // Lookup() therefore need not map to 'idx', and results vary by predictor.
-  //
   std::vector<StagePack> stagePack;
   stagePack.reserve(bagCount); // Too big iff implicits present.
-  for (unsigned int idx = 0; idx < nRow; idx++) {
-    unsigned int predRank;
-    bool implicit;
-    unsigned int row = rowRank->Lookup(predIdx, idx, predRank, implicit);
-    unsigned int sIdx = SampleIdx(row);
-    if (sIdx != noSample && !implicit) {
-      StagePack packItem;
-      unsigned int sCount;
-      FltVal ySum;
-      unsigned int ctg = Ref(sIdx, ySum, sCount);
-      packItem.Init(sIdx, predRank, sCount, ctg, ySum);
-      stagePack.push_back(packItem);
-    }
+
+  unsigned int idxCount = rowRank->ExplicitCount(predIdx);
+  for (unsigned int idx = 0; idx < idxCount; idx++) {
+    unsigned int row, rank;
+    rowRank->Ref(predIdx, idx, row, rank);
+    PackIndex(row, rank, stagePack);
   }
   bottom->RootDef(predIdx, bagCount - stagePack.size());
   samplePred->Stage(stagePack, predIdx);
 }
 
 
+/**
+   @brief Packs rank with response statisitcs iff row is sampled.
+
+   @return void.
+ */
+void Sample::PackIndex(unsigned int row, unsigned int predRank, std::vector<StagePack> &stagePack) {
+  unsigned int sIdx;
+  if (SampleIdx(row, sIdx)) {
+    StagePack packItem;
+    unsigned int sCount;
+    FltVal ySum;
+    unsigned int ctg = Ref(sIdx, ySum, sCount);
+    packItem.Init(sIdx, predRank, sCount, ctg, ySum);
+    stagePack.push_back(packItem);
+  }
+}
+
+
 void Sample::RowInvert(std::vector<unsigned int> &sample2Row) const {
   for (unsigned int row = 0; row < nRow; row++) {
-    unsigned int sIdx = row2Sample[row];
-    if (sIdx != noSample) {
+    unsigned int sIdx;
+    if (SampleIdx(row, sIdx)) {
       sample2Row[sIdx] = row;
     }
   }

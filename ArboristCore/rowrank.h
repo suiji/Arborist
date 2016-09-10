@@ -22,78 +22,65 @@ class RRNode {
   unsigned int row;
   unsigned int rank;
  public:
-  unsigned int Lookup(unsigned int &_rank) {
+  unsigned int Lookup(unsigned int &_rank) const {
     _rank = rank;
     return row;
   }
 
-  void Set(unsigned int _row, unsigned int _rank) {
+  void Init(unsigned int _row, unsigned int _rank) {
     row = _row;
     rank = _rank;
+  }
+
+
+  void Ref(unsigned int &_row, unsigned int &_rank) const {
+    _row = row;
+    _rank = rank;
   }
 };
 
 
 /**
-   @brief Represents ranks for sparsely-expressed predictors.
- */
-class BlockRank {
-  unsigned int predIdx;
-  unsigned int extent;
-  unsigned int row; // Starting row.
-  unsigned int rank;
-};
-
-
-/**
-  @brief Block and rank orderings of predictors.
+  @brief Rank orderings of predictors.
 
 */
 class RowRank {
   const unsigned int nRow;
-  const unsigned int nBlock; // Number of BlockRank objects.
-  const unsigned int nPredDense; // Number of non-sparse predictors.
+  const unsigned int nPred;
   const unsigned int *feInvNum; // Numeric predictors only:  split assignment.
-  static unsigned int noRank; // Inattainable rank value.
+  const unsigned int noRank; // Inattainable rank value.
+  static constexpr double plurality = 1.0;// Suppress, for now 0.25;
   
   std::vector<unsigned int> denseRank;
-  RRNode *rowRank;
-  BlockRank *blockRank;
+  std::vector<RRNode> rrNode;
+  std::vector<unsigned int> rrCount;
+  std::vector<unsigned int> rrStart;
 
-  static void Sort(unsigned int _nRow, unsigned int _nPredNum, double numOrd[], unsigned int perm[]);
-  static void Sort(unsigned int _nRow, unsigned int _nPredFac, unsigned int facOrd[], unsigned int perm[]);
-  static void Ranks(unsigned int _nRow, unsigned int _nPredNum, double _numOrd[], unsigned int _row[], unsigned int _rank[], unsigned int _invRank[]);
-  static void Ranks(unsigned int _nRow, unsigned int _nPredFac, unsigned int _facOrd[], unsigned int _rank[]);
-  static void Ranks(unsigned int _nRow, const double xCol[], const unsigned int row[], unsigned int rank[], unsigned int invRank[]);
-  static void Ranks(unsigned int _nRow, const unsigned int xCol[], unsigned int rank[]);
+
+  static void FacSort(const unsigned int predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rle);
+  static void NumSort(const double predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int invRank[]);
+
+  unsigned int DenseRanks(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot);
+  void Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot);
 
  public:
-  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[], unsigned int _feInvNum[]);
-  static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, unsigned int _rowOrd[], unsigned int _rank[]);
+  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int _feInvNum[]);
+  static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
 
 
-  RowRank(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feInvNum[] , unsigned int _nRow, unsigned int _nPredDense);
+  RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const unsigned int _feInvNum[], const std::vector<unsigned int> &feRunLength, unsigned int _nRow, unsigned int _nPred);
   ~RowRank();
 
-  /**
-     @brief Looks up row/rank using predictor and index.
-
-     @param predIdx is the predictor index.
-
-     @param idx is the index into a RowRank predictor column.
-
-     @param _row outputs the looked-up row.
-
-     @param implicit outputs whether predictor value has dense rank.
-
-     @return rank at predictor/row.
-   */
-  unsigned int inline Lookup(unsigned int predIdx, unsigned int idx, unsigned int &_rank, bool &implicit) const {
-    implicit = false;
-    return rowRank[predIdx * nRow + idx].Lookup(_rank);
+  inline unsigned int ExplicitCount(unsigned int predIdx) const {
+    return rrCount[predIdx];
   }
 
 
+  inline void Ref(unsigned int predIdx, unsigned int idx, unsigned int &_row, unsigned int &_rank) const {
+    rrNode[rrStart[predIdx] + idx].Ref(_row, _rank);
+  }
+
+  
   /**
      @brief asssumes numerical predictor.
 
@@ -105,9 +92,11 @@ class RowRank {
 
   
   /**
-     @brief Determines whether passed value is an attainable dense rank value.
+     @brief Accessor for dense rank value associated with a predictor.
 
-     @return true iff passed value is not inattainable rank.
+     @param predIdx is the predictor index.
+
+     @return dense rank assignment for predictor.
    */
   unsigned int DenseRank(unsigned int predIdx) const{
     return denseRank[predIdx];

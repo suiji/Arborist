@@ -31,8 +31,6 @@ class CallBack {
   static void SampleInit(unsigned int _nRow, const double _sampleWeight[], bool _withRepl);
   static void SampleRows(unsigned int nSamp, int out[]);
   static void RUnif(int len, double out[]);
-  static void QSortI(int ySorted[], unsigned int rank2Row[], int one, int nRow);
-  static void QSortD(double ySorted[], unsigned int rank2Row[], int one, int nRow);
 };
 
 #endif
