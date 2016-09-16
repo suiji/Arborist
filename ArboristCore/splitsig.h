@@ -45,18 +45,19 @@ class SplitNux {
    potential split at a given split/predictor pair.
 
  */
-class SSNode {  
-  double NonTerminalRun(class SamplePred *samplePred, class PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, class Run *run);
-  double NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
+class SSNode {
+  void NonTerminalRun(class PreTree *preTree, class Run *run, unsigned int ptIdx, unsigned int &ptLH, unsigned int &ptRH);
+  double ReplayRun(class SamplePred *samplePred, class PreTree *preTree, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH, class Run *run);
+  void NonTerminalNum(class SamplePred *samplePred, class PreTree *preTree, int start, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH);
+  double ReplayNum(class SamplePred *samplePred, class PreTree *preTree, int start, unsigned int ptLH);
  public:
   SSNode();
   unsigned int setIdx; // Index into RunSet workspace.
   unsigned int predIdx; // Rederivable, but convenient to cache.
-  unsigned int sCount; // # samples subsumed by split LHS. // EXIT
-  unsigned int lhIdxCount; // Index count of split LHS.// EXIT
-  double info; // Information content of split. // EXIT
+  unsigned int sCount; // # samples subsumed by split LHS.
+  unsigned int lhIdxCount; // Index count of split LHS.
+  double info; // Information content of split.
   unsigned char bufIdx;
-  SplitNux nux; // Holds output of splitting method.
   
   static double minRatio;
   
@@ -89,8 +90,8 @@ class SSNode {
     _lhIdxCount = lhIdxCount;
   }
 
-  
-  double NonTerminal(class SamplePred *samplePred, class PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptL, unsigned int &ptR, class Run *run);
+  void NonTerminal(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int start, unsigned int ptIdx, unsigned int &ptLH, unsigned int &ptRH);
+  double Replay(class SamplePred *samplePred, class PreTree *preTree, class Run *run, int start, double sum, unsigned int ptId, unsigned int ptL, unsigned int ptR);
 };
 
 

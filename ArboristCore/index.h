@@ -168,6 +168,7 @@ class NodeCache : public IndexNode {
   static void Immutables(unsigned int _minNode);
   static void DeImmutables();
   NodeCache();
+  void NonTerminal(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
   void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
   void Successors(class Index *index, class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhCount, unsigned int &rhCount);
   void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext);
@@ -205,7 +206,7 @@ class NodeCache : public IndexNode {
     @return true iff the node subsumes more than minimal count of buffer elements.
   */
   inline bool Splitable(unsigned int _idxCount) const {
-    return _idxCount > minNode;
+    return _idxCount >= minNode;
   }
 
 

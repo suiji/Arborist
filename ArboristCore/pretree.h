@@ -18,6 +18,8 @@
 #define ARBORIST_PRETREE_H
 
 #include <vector>
+#include <algorithm>
+
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
@@ -46,28 +48,34 @@ class PreTree {
   static unsigned int nPred;
   static unsigned int heightEst;
   PTNode *nodeVec; // Vector of tree nodes.
-  int nodeCount; // Allocation height of node vector.
-  int height;
+  std::vector<unsigned int> sample2PT;
+  std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
+  unsigned int nodeCount; // Allocation height of node vector.
+  unsigned int height;
   unsigned int leafCount;
   unsigned int bitEnd; // Next free slot in factor bit vector.
-  unsigned int *sample2PT; // Public accessor is Sample2Frontier().
-  double *info; // Aggregates info value of nonterminals, by predictor.
   class BV *splitBits;
+  std::vector<unsigned int> ppHand; // Handedness of preplay.
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
   const std::vector<unsigned int> FrontierToLeaf(class Forest *forest, unsigned int tIdx);
   unsigned int bagCount;
+  unsigned int levelBase; // Height at base of current level.
+  unsigned int BitWidth();
 
+  void SetHand(unsigned int parId, unsigned int hand);
+  bool PreplayHand(unsigned int parId, unsigned int &hand);
+  
  public:
   PreTree(unsigned int _bagCount);
   ~PreTree();
   static void Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
   static void Reserve(unsigned int height);
+  void Preplay(unsigned int levelCount);
 
   const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, double predInfo[]);
   void NodeConsume(class Forest *forest, unsigned int tIdx);
-  unsigned int BitWidth();
   void BitConsume(unsigned int *outBits);
 
   
@@ -83,27 +91,27 @@ class PreTree {
   }
 
 
-  inline unsigned int LeafCount() const {
-    return leafCount;
+  /**
+     @brief Fills in references to values known to be useful for building
+     a block of PreTree objects.
+
+     @return void.
+   */
+  inline void BlockBump(unsigned int &_height, unsigned int &_maxHeight, unsigned int &_bitWidth, unsigned int &_leafCount, unsigned int &_bagCount) {
+    _height += height;
+    _maxHeight = std::max(height, _maxHeight);
+    _bitWidth += BitWidth();
+    _leafCount += leafCount;
+    _bagCount += bagCount;
   }
   
-
-  inline int Height() const {
-    return height;
-  }
-
-  
-  inline int BagCount() const {
-    return bagCount;
-  }
-
   void LHBit(int idx, unsigned int pos);
-  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH);
+  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
   void NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH);
 
   double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId);
   
-  void CheckStorage(int splitNext, int leafNext);
+  void NextLevel(int splitNext, int leafNext);
   void ReNodes();
 };
 

@@ -142,7 +142,7 @@ class SPNode {
 
    @return whether a run is encountered.
   */
-  inline bool IsRun(int start, int end) const {
+  inline bool IsRun(unsigned int start, unsigned int end) const {
     return (this + start)->rank == (this + end)->rank;
   }
 
@@ -197,11 +197,11 @@ class SamplePred {
   //
   unsigned int *sampleIdx; // RV index for this row.  Used by CTG as well as on replay.
  public:
-  SamplePred(unsigned int _nPred, unsigned int _bagCount);
+  SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
-  static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount);
+  static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
 
-  void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx);
+  void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset);
  
   inline unsigned int PitchSP() {
     return pitchSP;

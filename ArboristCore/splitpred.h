@@ -59,7 +59,7 @@ class SplitCoord {
 
   unsigned int RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
   bool HeapSplit(class RunSet *runSet, class SplitNux &nux) const;
-  unsigned int RunsCtg(class RunSet *runSet, const SPNode spn[], unsigned int denseRank) const;
+  unsigned int RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SPNode spn[]) const;
 };
 
 
@@ -187,6 +187,14 @@ class SPCtg : public SplitPred {
 
 
   /**
+     @return column of category sums at index.
+   */
+  inline double *ColumnSums(unsigned int levelIdx) const {
+    return ctgSum + levelIdx * ctgWidth;
+  }
+
+  
+  /**
      @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
      subaccumulator by the current proxy value.
 
@@ -207,6 +215,7 @@ class SPCtg : public SplitPred {
 
     return val;
   }
+
 
   static inline unsigned int CtgWidth() {
     return ctgWidth;

@@ -25,35 +25,43 @@
 
 #include <vector>
 
-
 /**
  */
 class FRNode {
  public:
   unsigned int rank;
   unsigned int start; // Buffer position of start of factor run.
-  unsigned int end;
+  unsigned int idxCount;
   unsigned int sCount; // Sample count of factor run:  not always same as length.
   double sum; // Sum of responses associated with run.
 
-  FRNode() : start(0), end(0), sCount(0), sum(0.0) {}
+  FRNode() : start(0), idxCount(0), sCount(0), sum(0.0) {}
 
   bool IsImplicit();
 
-  /**
-     @brief Bounds accessor.
-   */
-  inline void ReplayFields(unsigned int &_start, unsigned int &_end) {
-    _start = start;
-    _end = end;
-  }
-
-  inline void Set(unsigned int _rank, unsigned int _sCount, double _sum, unsigned int _start, unsigned int _end) {
+  
+  inline void Init(unsigned int _rank, unsigned int _sCount, double _sum, unsigned int _start, unsigned int _idxCount) {
     rank = _rank;
     sCount = _sCount;
     sum = _sum;
     start = _start;
-    end = _end;
+    idxCount = _idxCount;
+  }
+
+  
+  /**
+     @brief Replay accessor.  N.B.:  Should not be invoked on dense
+     run, as 'start' will hold a reserved value.
+
+     @param _end outputs the end position.
+
+     @return rank value.
+   */
+  inline unsigned int ReplayRef(unsigned int &_start, unsigned int &_end) {
+    _start = start;
+    _end = start + idxCount - 1;
+
+    return rank;
   }
 };
 
@@ -82,14 +90,13 @@ class RunSet {
  public:
   const static unsigned int maxWidth = 10;
   static unsigned int ctgWidth;
-  static unsigned int noIndex;
+  static unsigned int noStart;
   unsigned int safeRunCount;
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
   bool ExposeRH();
-  void ImplicitRun(unsigned int denseRank, unsigned int sCountTot, double sumTot);
-  void WriteImplicit(unsigned int rank, unsigned int sCount, double sum);
+  void WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[] = 0);
   unsigned int DeWide();
   void DePop(unsigned int pop = 0);
   void Reset(FRNode*, BHPair*, unsigned int*, double*, double*);
@@ -141,14 +148,14 @@ class RunSet {
     return runZero[slot].sum;
   }
 
-
   /**
      @brief Sets run parameters and increments run count.
 
      @return void.
    */
-  void Write(unsigned int rank, unsigned int sCount, double sum, unsigned int start, unsigned int end) {
-    runZero[runCount++].Set(rank, sCount, sum, start, end);
+  inline void Write(unsigned int rank, unsigned int sCount, double sum, unsigned int idxCount, unsigned int start = noStart) {
+    runZero[runCount++].Init(rank, sCount, sum, start, idxCount);
+    hasImplicit = (start == noStart ? true : false);
   }
 
 
@@ -213,7 +220,7 @@ class RunSet {
   inline unsigned int LHCounts(unsigned int slot, unsigned int &sCount) {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
-    return  1 + fRun->end - fRun->start;
+    return  fRun->idxCount;
   }
 
 
@@ -243,6 +250,11 @@ class Run {
  public:
   const unsigned int ctgWidth;
   Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount);
+  void LevelClear();
+  void OffsetsReg();
+  void OffsetsCtg();
+  void RunSets(const std::vector<unsigned int> &safeCount);
+
 
   inline bool IsRun(unsigned int setIdx) {
     return setIdx != noRun;
@@ -254,13 +266,10 @@ class Run {
   }
 
 
-  void LevelClear();
-  void OffsetsReg();
-  void OffsetsCtg();
-
   inline RunSet *RSet(unsigned int rsIdx) {
     return &runSet[rsIdx];
   }
+
   
   inline unsigned int RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &end) {
     return runSet[idx].Bounds(outSlot, start, end);
@@ -277,8 +286,6 @@ class Run {
   }
 
   
-  void RunSets(const std::vector<unsigned int> &safeCount);
-
   /**
      @brief Presets runCount field to a conservative value for
      the purpose of allocating storage.

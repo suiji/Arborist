@@ -21,7 +21,7 @@
 #include <cfloat>
 
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 /* Split signature values only live during a single level, from argmax
    pass one (splitting) through argmax pass two.
@@ -101,8 +101,36 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
-  return run->IsRun(setIdx) ? NonTerminalRun(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH, run) : NonTerminalNum(samplePred, preTree, splitIdx, start, end, ptId, ptLH, ptRH);
+void SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Run *run, int start, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+  return run->IsRun(setIdx) ? NonTerminalRun(preTree, run, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, start, ptId, ptLH, ptRH);
+}
+
+
+double SSNode::Replay(SamplePred *samplePred, PreTree *preTree, Run *run, int start, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH) {
+  return run->IsRun(setIdx) ? ReplayRun(samplePred, preTree, sum, ptId, ptLH, ptRH, run) : ReplayNum(samplePred, preTree, start, ptLH);
+}
+
+
+
+/**
+   @brief Writes PreTree nonterminal node for multi-run (factor) predictor.
+
+   @return sum of left-hand subnode's response values.
+ */
+void SSNode::NonTerminalRun(PreTree *preTree, Run *run, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+  preTree->NonTerminalFac(info, predIdx, ptId, run->ExposeRH(setIdx), ptLH, ptRH);
+}
+
+
+/**
+   @brief Writes PreTree nonterminal node for numerical predictor.
+
+   @return sum of LH subnode's sample values.
+ */
+void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int start, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+  unsigned int rkLow, rkHigh;
+  samplePred->SplitRanks(predIdx, bufIdx, start + lhIdxCount - 1, rkLow, rkHigh);
+  preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
 }
 
 
@@ -111,15 +139,12 @@ double SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, unsigned in
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH, Run *run) {
-  preTree->NonTerminalFac(info, predIdx, ptId, ptLH, ptRH);
-
-  // Replays entire index extent of node with preset pretree index then,
-  // where appropriate, overwrites by replaying with the complementary
-  // index in the loop to follow.
+double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH, Run *run) {
+  // Preplay() has overwritten all live sample indices with one or the other
+  // descendant.  Now the complementary descendant index is applied as appropriate.
+  // appropriate.
   //
   if (run->ExposeRH(setIdx)) { // Must walk both LH and RH runs.
-    double sum = preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptLH);
     double rhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
       unsigned int runStart, runEnd;
@@ -134,7 +159,6 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, unsigned
     return sum - rhSum;
   }
   else { // Suffices just to walk LH runs.
-    (void) preTree->Replay(samplePred, predIdx, bufIdx, start, end, ptRH);
     double lhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
       unsigned int runStart, runEnd;
@@ -148,19 +172,13 @@ double SSNode::NonTerminalRun(SamplePred *samplePred, PreTree *preTree, unsigned
 
 
 /**
-   @brief Writes PreTree nonterminal node for numerical predictor.
+   @brief Writes LH successor id at all sample indices preceding the cut.  Preplay()
+   has already preinitialized all samples with the RH id.
 
    @return sum of LH subnode's sample values.
  */
-double SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, unsigned int splitIdx, int start, int end, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  unsigned int rkLow, rkHigh;
-  samplePred->SplitRanks(predIdx, bufIdx, start + lhIdxCount - 1, rkLow, rkHigh);
-  preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
-  
-  double lhSum = preTree->Replay(samplePred, predIdx, bufIdx, start, start + lhIdxCount - 1, ptLH);
-  (void) preTree->Replay(samplePred, predIdx, bufIdx, start + lhIdxCount, end, ptRH);
-
-  return lhSum;
+double SSNode::ReplayNum(SamplePred *samplePred, PreTree *preTree, int start, unsigned int ptLH) {
+  return  preTree->Replay(samplePred, predIdx, bufIdx, start, start + lhIdxCount - 1, ptLH);
 }
 
 

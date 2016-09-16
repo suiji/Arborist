@@ -18,10 +18,10 @@
 
 // Testing only:
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 unsigned int RunSet::ctgWidth = 0;
-unsigned int RunSet::noIndex = 0;
+unsigned int RunSet::noStart = 0;
 
 
 /**
@@ -63,7 +63,7 @@ unsigned int RunSet::noIndex = 0;
  */
 Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount) : noRun(nRow * bagCount), ctgWidth(_ctgWidth) {
   RunSet::ctgWidth = ctgWidth;
-  RunSet::noIndex = nRow; // Inattainable value for every tree.
+  RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
   runSet = 0;
   facRun = 0;
   bHeap = 0;
@@ -276,35 +276,34 @@ void RunSet::HeapBinary() {
 
    @return void.
  */
-void RunSet::ImplicitRun(unsigned int denseRank, unsigned int sCountTot, double sumTot) {
-  unsigned int sCountAccum = 0;
-  double sumAccum = 0.0;
-  for (unsigned int runIdx = 0; runIdx < runCount; runIdx++) {
-    sCountAccum += runZero[runIdx].sCount;
-    sumAccum += runZero[runIdx].sum;
+void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[]) {
+  if (nodeSum != 0) {
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      SumCtg(ctg) = nodeSum[ctg];
+    }
   }
 
+  for (unsigned int runIdx = 0; runIdx < runCount; runIdx++) {
+    sCountTot -= runZero[runIdx].sCount;
+    sumTot -= runZero[runIdx].sum;
+    if (nodeSum != 0) {
+      for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+	SumCtg(ctg) -= SumCtg(runIdx, ctg);
+      }
+    }
+  }
 
-  WriteImplicit(denseRank, sCountTot - sCountAccum, sumTot - sumAccum);
+  Write(denseRank, sCountTot, sumTot, denseCount);
 }
 
 
 /**
-   @brief Employs proxy start/end indices for dense rank.
- */
-void RunSet::WriteImplicit(unsigned int rank, unsigned int sCount, double sum) {
-  Write(rank, sCount, sum, noIndex, noIndex);
-  hasImplicit = true;
-}
-
-  
-/**
-   @brief Implicit runs are characterized by a start value of 'noIndex'.
+   @brief Implicit runs are characterized by a start value of 'noStart'.
 
    @return Whether this run is dense.
  */
 bool FRNode::IsImplicit() {
-  return start == RunSet::noIndex;
+  return start == RunSet::noStart;
 }
 
 
@@ -538,8 +537,11 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
   return ret;
 }
+
+
 /**
      @brief Looks up run parameters by indirection through output vector.
+     N.B.:  should not be called with a dense run.
 
      @param start outputs starting index of run.
 
@@ -549,9 +551,5 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 */
 unsigned int RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) {
   unsigned int slot = outZero[outSlot];
-  FRNode fRun = runZero[slot];
-  start = fRun.start;
-  end = fRun.end;
-
-  return fRun.rank;
+  return runZero[slot].ReplayRef(start, end);
 }

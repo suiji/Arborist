@@ -23,8 +23,6 @@
 //#include <iostream>
 //using namespace std;
 
-// TODO:  Investigate moving Presorts to bridges, cloning.
-
 // Observations are blocked according to type.  Blocks written in separate
 // calls from front-end interface.
 
@@ -158,27 +156,33 @@ typedef std::pair<double, unsigned int> ValRowD;
 
    @param feInvNum is the rank-to-row mapping for numeric predictors.
  */
-RowRank::RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const unsigned int _feInvNum[], const std::vector<unsigned int> &feRunLength, unsigned int _nRow, unsigned int _nPred) : nRow(_nRow), nPred(_nPred), feInvNum(_feInvNum), noRank(_nRow) {
-  std::vector<unsigned int> _rrCount(nPred);
-  std::vector<unsigned int> _rrStart(nPred);
-  rrCount = std::move(_rrCount);
-  rrStart = std::move(_rrStart);
-  // Default initialization, overwritten by RLE processing.
+RowRank::RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const unsigned int _feInvNum[], const std::vector<unsigned int> &feRunLength, unsigned int _nRow, unsigned int _nPred) : nRow(_nRow), nPred(_nPred), feInvNum(_feInvNum), noRank(std::max(nRow, PBTrain::CardMax())), nonCompact(0), accumCompact(0) {
+  // Default initialization to uncompressed values.
+  rrCount.reserve(nPred);
+  rrStart.reserve(nPred);
+  safeOffset.reserve(nPred);
+  denseRank.reserve(nPred);
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+    safeOffset[predIdx] = predIdx;
     rrCount[predIdx] = nRow;
     rrStart[predIdx] = nRow * predIdx;
+    denseRank[predIdx] = noRank;
   }
-  // By convention, non-compressed row/rank pairs precede any rle-compressed
-  // pairs.
+
+  // By convention, rle-compressed pairs given highest offsets.
   //
   unsigned int nonCmprTot = feRank.size() - feRunLength.size();
-  unsigned int cmprTot = DenseRanks(feRank, feRunLength, nonCmprTot);
-  std::vector<RRNode> _rrNode(nonCmprTot + cmprTot);
-  rrNode = std::move(_rrNode);
+  nonCompact = nonCmprTot / nRow;
+  unsigned int blockFirst = nonCompact;
+  unsigned int blockTot = DenseBlock(feRank, feRunLength, nonCmprTot, blockFirst);
+  rrNode = new RRNode[nonCmprTot + blockTot];
   for (unsigned int i = 0; i < nonCmprTot; i++) {
-    rrNode[i].Init(feRow[i], feRank[i]);
+    RRNode rr;
+    rr.Init(feRow[i], feRank[i]);
+    rrNode[i] = rr;
   }
-  Decompress(feRow, feRank, feRunLength, nonCmprTot);
+
+  Decompress(feRow, feRank, feRunLength, nonCmprTot, blockFirst);
 }
 
 
@@ -191,57 +195,18 @@ RowRank::RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsig
 
    @return total number of rows to be decompressed.
  */
-void RowRank::Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot) {
-  unsigned int predCmpr = nonCmprTot / nRow; // First compressed predictor.
-  unsigned int outIdx = nonCmprTot;
-  unsigned int inIdx = nonCmprTot;
-  unsigned int rleIdx = 0; // To change.
-  for (unsigned int predIdx = predCmpr; predIdx < nPred; predIdx++) {
-    unsigned int rowTot = 0;
-    while (rowTot < nRow) {
-      unsigned int rank = feRank[inIdx];
-      unsigned int row = feRow[inIdx];
-      unsigned int runLength = rle[rleIdx++];
-      rowTot += runLength;
-      if (rank != denseRank[predIdx]) { // Omits dense ranks.
-	for (unsigned int i = 0; i < runLength; i++) { // Expands non-dense ranks.
-	  rrNode[outIdx++].Init(row + i, rank);
-	}
-      }
-      inIdx++;
-    }
-  }
-}
-
-
-/**
-   @brief Counts the number of rows to be decompressed and sets dense ranks.
-
-   @param rle records the run lengths of the remaining entries.
-
-   @param nonCmprTot is the total number of noncompressed rows.
-
-   @return total number of rows to be decompressed.
- */
-unsigned int RowRank::DenseRanks(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot) {
-  std::vector<unsigned int> _denseRank(nPred);
-  std::fill(_denseRank.begin(), _denseRank.end(), noRank);
-  denseRank = std::move(_denseRank);
-
-  unsigned int cmprTot = 0;
-  unsigned int predCmpr = nonCmprTot / nRow; // First compressed predictor.
+unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int blockIn, unsigned int blockFirst) {
   unsigned int rleIdx = 0; // Will change.
-  unsigned int inIdx = nonCmprTot;
-  for (unsigned int predIdx = predCmpr; predIdx < nPred; predIdx++) {
-    unsigned int rowTot = 0;
-    unsigned int denseCount = 0; // Running maximum of run counts.
+  unsigned int inIdx = blockIn;
+  for (unsigned int predIdx = blockFirst; predIdx < nPred; predIdx++) {
+    unsigned int denseMax = 0; // Running maximum of run counts.
     unsigned int argMax = noRank;
     unsigned int runCount = 0; // Runs across adjacent rle entries.
     unsigned int rankPrev = noRank;
-    while (rowTot < nRow) {
-      unsigned int runLength = rle[rleIdx++];
+    
+    for (unsigned int rowTot = rle[rleIdx]; rowTot <= nRow; rowTot += rle[rleIdx]) {
+      unsigned int runLength = rle[rleIdx];
       unsigned int rankThis = feRank[inIdx++];
-      rowTot += runLength;
       if (rankThis == rankPrev) {
 	runCount += runLength;
       }
@@ -249,22 +214,81 @@ unsigned int RowRank::DenseRanks(const std::vector<unsigned int> &feRank, const 
 	runCount = runLength;
 	rankPrev = rankThis;
       }
-      if (runCount > denseCount) {
-	denseCount = runCount;
+      if (runCount > denseMax) {
+	denseMax = runCount;
 	argMax = rankThis;
       }
+      rleIdx++;
+      if (rleIdx == rle.size())
+	break;
     }
+    // Post condition:  rowTot == nRow.
 
-    if (denseCount > plurality * nRow) {
+    unsigned int rowCount;
+    if (denseMax > plurality * nRow) {
       denseRank[predIdx] = argMax;
-      cmprTot += nRow - denseCount;
+      safeOffset[predIdx] = accumCompact; // Accumulated offset:  dense.
+      rowCount = nRow - denseMax;
+      accumCompact += rowCount;
     }
     else {
-      cmprTot += nRow;
+      denseRank[predIdx] = noRank;
+      safeOffset[predIdx] = nonCompact++; // Index:  non-dense storage.
+      rowCount = nRow;
     }
+    rrCount[predIdx] = rowCount;
+  }
+
+  // Assigns rrNode[] offsets ut noncompressed predictors stored first,
+  // as with staging offsets.
+  //
+  unsigned int blockTot = 0;
+  for (unsigned int predIdx = blockFirst; predIdx < nPred; predIdx++) {
+    unsigned int offSafe = safeOffset[predIdx];
+    if (denseRank[predIdx] != noRank) {
+      rrStart[predIdx] = nonCompact * nRow + offSafe;
+    }
+    else {
+      rrStart[predIdx] = offSafe * nRow;
+    }
+    blockTot += rrCount[predIdx];
   }
   
-  return cmprTot;
+  return blockTot;
+}
+
+
+/**
+   @brief Decompresses a block of predictors having compressed encoding.
+
+   @param rle records the run lengths of the remaining entries.
+
+   @param predStart is the first predictor in the block.
+
+   @return void.
+ */
+void RowRank::Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int inIdx, unsigned int blockFirst) {
+  unsigned int rleIdx = 0; // To change.
+  for (unsigned int predIdx = blockFirst; predIdx < nPred; predIdx++) {
+    unsigned int outIdx = rrStart[predIdx];
+    for (unsigned int rowTot = rle[rleIdx]; rowTot <= nRow; rowTot += rle[rleIdx]) {
+      unsigned int runLength = rle[rleIdx];
+      unsigned int rank = feRank[inIdx];
+      if (rank != denseRank[predIdx]) { // Omits dense ranks.
+	for (unsigned int i = 0; i < runLength; i++) { // Expands runs.
+	  RRNode rr;
+	  rr.Init(feRow[inIdx] + i, rank);
+	  rrNode[outIdx++] = rr;
+	}
+      }
+      inIdx++;
+      rleIdx++;
+      if (rleIdx == rle.size())
+	break;
+    }
+    //    if (outIdx - rrStart[predIdx] != rrCount[predIdx])
+    //cout << "Dense count mismatch" << endl;
+  }
 }
 
 
@@ -274,17 +298,18 @@ unsigned int RowRank::DenseRanks(const std::vector<unsigned int> &feRank, const 
    @return void.
  */
 RowRank::~RowRank() {
+  delete [] rrNode;
 }
 
 
 /**
   @brief Derives split values for a numerical predictor.
 
-  @param predIdx is the preditor index.
+  @param predIdx is the predictor index.
 
-  @param rkMedian is the median splitting rank:  interpolates if fractional.
+  @param rkMean is the mean splitting rank:  interpolates if fractional.
 
-  @return predictor value at mean rank, computed by PredBlock method.
+  @return predictor value at mean rank, computed by PBTrain method.
 */
 double RowRank::MeanRank(unsigned int predIdx, double rkMean) const {
   unsigned int rankLow = floor(rkMean);

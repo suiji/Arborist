@@ -254,7 +254,7 @@ class Level {
   void FrontDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[]);
   void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
-  void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int denseCount, bool ties);
+  void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxCount, unsigned int start, unsigned int idxNext, const class SPNode *targ);
 
 
   /**
@@ -301,9 +301,15 @@ class Level {
      @param denseCount is only set directly by staging.  Otherwise it has a
      default setting of zero, which is later reset by restaging.
    */
-  inline void Define(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx, unsigned int denseCount = 0) {
-    def[PairOffset(levelIdx, predIdx)].Init(runCount, bufIdx, denseCount);
-    defCount++;
+  inline bool Define(unsigned int levelIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx, unsigned int denseCount = 0) {
+    if (levelIdx != noIndex) {
+      def[PairOffset(levelIdx, predIdx)].Init(runCount, bufIdx, denseCount);
+      defCount++;
+      return true;
+    }
+    else {
+      return false;
+    }
   }
 
 
@@ -352,22 +358,6 @@ class Level {
     return def[PairOffset(levelIdx, predIdx)].Defined();
   }
 
-
-  /**
-     @brief Adds a new definition to front level at passed coordinates, provided
-   that the node index is live.
-
-     @return true iff path reaches to current level.
-   */
-  inline bool AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
-    if (reachIdx != noIndex) {
-      Define(reachIdx, predIdx, defRC, destBit);
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
 
   inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx) const {
     return def[PairOffset(levelIdx, predIdx)].DenseCount();
@@ -508,8 +498,8 @@ class Bottom {
   }
 
 
-  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx) const {
-    return levelFront->DenseCount(levelIdx, predIdx);
+  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx, unsigned int del = 0) const {
+    return level[del]->DenseCount(levelIdx, predIdx);
   }
 
 
@@ -534,7 +524,7 @@ class Bottom {
      @return void
    */
   inline void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int defRC, unsigned int destBit) {
-    if( levelFront->AddDef(reachIdx, predIdx, defRC, destBit) ) {
+    if (levelFront->Define(reachIdx, predIdx, defRC, destBit)) {
       levelDelta[reachIdx * nPred + predIdx] = 0;
     }
   }

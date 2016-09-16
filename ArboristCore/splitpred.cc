@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-//#include <iostream>
+#include <iostream>
 using namespace std;
 
 #include "index.h"
@@ -435,8 +435,7 @@ void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
   //
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int levelOff;
-    bool atLevel = index->LevelOffSample(sIdx, levelOff);
-    if (atLevel) {
+    if (index->LevelOffSample(sIdx, levelOff)) {
       FltVal sum;
       unsigned int sCount;
       unsigned int ctg = sampleCtg[sIdx].Ref(sum, sCount);
@@ -534,6 +533,8 @@ void SplitCoord::InitLate(const Bottom *bottom, const IndexNode indexNode[]) {
   unsigned int idxCount;
   preBias = indexNode[levelIdx].SplitFields(idxStart, idxCount, sCount, sum);
   denseCount = bottom->DenseCount(levelIdx, predIdx);
+  if (idxCount == denseCount) // Singletons can arise from bagging.
+    bottom->SetRunCount(levelIdx, predIdx, 1);
   idxEnd = idxStart + idxCount - (1 + denseCount);
 }
 
@@ -571,12 +572,13 @@ void SPCtg::Split(const IndexNode indexNode[]) {
    @brief  Regression splitting based on type:  numeric or factor.
  */
 void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const IndexNode indexNode[]) {
-  // Restaging may precipitate new singletons after scheduling.
+  InitLate(bottom, indexNode);
+
+  // Bagging or restaging may precipitate new singletons.
   //
   if (bottom->Singleton(levelIdx, predIdx))
     return;
 
-  InitLate(bottom, indexNode);
   if (PBTrain::IsFactor(predIdx)) {
     SplitFac(spReg, bottom, samplePred->PredBase(predIdx, bufIdx));
   }
@@ -590,12 +592,13 @@ void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePre
    @brief Categorical splitting based on type:  numeric or factor.
  */
 void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const IndexNode indexNode[]) {
-  // Restaging may precipitate new singletons after scheduling.
+  InitLate(bottom, indexNode);
+  
+  // Bagging or restaging may precipitate new singletons.
   //
   if (bottom->Singleton(levelIdx, predIdx))
     return;
 
-  InitLate(bottom, indexNode);
   if (PBTrain::IsFactor(predIdx)) {
     SplitFac(spCtg, bottom, samplePred->PredBase(predIdx, bufIdx));
   }
@@ -648,7 +651,8 @@ void SplitCoord::SplitFac(const SPCtg *spCtg, const Bottom *bottom, const SPNode
 
 bool SplitCoord::SplitFac(const SPCtg *spCtg, const SPNode spn[], unsigned int &runCount, SplitNux &nux) {
   RunSet *runSet = spCtg->RSet(setIdx);
-  runCount = RunsCtg(runSet, spn, spCtg->DenseRank(setIdx));
+  runCount = RunsCtg(spCtg, runSet, spn);
+
   if (spCtg->CtgWidth() == 2) {
     return SplitBinary(runSet, spCtg, nux);
   }
@@ -846,9 +850,10 @@ unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[], unsigned in
   double sumHeap = 0.0;
   unsigned int sCountHeap = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
+  unsigned int frEnd = idxEnd;
 
   // Signing values avoids decrementing below zero.
-  unsigned int frEnd = idxEnd;
+  //
   for (int i = int(idxEnd); i >= int(idxStart); i--) {
     unsigned int rkRight = rkThis;
     unsigned int sampleCount;
@@ -860,7 +865,7 @@ unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[], unsigned in
       sCountHeap += sampleCount;
     }
     else { // New run:  flush accumulated counters and reset.
-      runSet->Write(rkRight, sCountHeap, sumHeap, i+1, frEnd);
+      runSet->Write(rkRight, sCountHeap, sumHeap, frEnd - i, i+1);
 
       sumHeap = ySum;
       sCountHeap = sampleCount;
@@ -870,9 +875,9 @@ unsigned int SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[], unsigned in
   
   // Flushes the remaining run.  Also flushes the implicit run, if dense.
   //
-  runSet->Write(rkThis, sCountHeap, sumHeap, idxStart, frEnd);
+  runSet->Write(rkThis, sCountHeap, sumHeap, frEnd - idxStart + 1, idxStart);
   if (denseCount > 0) {
-    runSet->ImplicitRun(denseRank, sCount, sum);
+    runSet->WriteImplicit(denseRank, sCount, sum, denseCount);
   }
 
   return runSet->RunCount();
@@ -923,7 +928,7 @@ bool SplitCoord::HeapSplit(RunSet *runSet, SplitNux &nux) const {
    when run count has been estimated to be wide:
 
 */
-unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[], unsigned int denseRank) const {
+unsigned int SplitCoord::RunsCtg(const SPCtg *spCtg, RunSet *runSet, const SPNode spn[]) const {
   double sumLoc = 0.0;
   unsigned int sCountLoc = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
@@ -941,7 +946,7 @@ unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[], unsigned in
       sCountLoc += sampleCount;
     }
     else { // Flushes current run and resets counters for next run.
-      runSet->Write(rkRight, sCountLoc, sumLoc, i+1, frEnd);
+      runSet->Write(rkRight, sCountLoc, sumLoc, frEnd - i, i + 1);
 
       sumLoc = ySum;
       sCountLoc = sampleCount;
@@ -950,10 +955,11 @@ unsigned int SplitCoord::RunsCtg(RunSet *runSet, const SPNode spn[], unsigned in
     runSet->SumCtg(yCtg) += ySum;
   }
 
+  
   // Flushes remaining run.
-  runSet->Write(rkThis, sCountLoc, sumLoc, idxStart, frEnd);
+  runSet->Write(rkThis, sCountLoc, sumLoc, frEnd - idxStart + 1, idxStart);
   if (denseCount > 0) {
-    runSet->ImplicitRun(denseRank, sCount, sum);
+    runSet->WriteImplicit(spCtg->DenseRank(predIdx), sCount, sum, denseCount, spCtg->ColumnSums(levelIdx));
   }
 
   return runSet->RunCount();

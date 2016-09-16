@@ -162,7 +162,7 @@ class PBTrain : public PredBlock {
 
      @return highest cardinality, if any, among factor predictors.
    */
-  static inline int CardMax() {
+  static inline unsigned int CardMax() {
     return cardMax;
   }
 

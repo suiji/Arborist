@@ -26,7 +26,7 @@
 
 // Testing only:
 //#include <iostream>
-using namespace std;
+//using namespace std;
 //#include <time.h>
 //clock_t clock(void);
 
@@ -82,19 +82,19 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bag
   // This is the only time that the denseCount is assigned outside of
   // restaging:
 void Bottom::RootDef(unsigned int predIdx, unsigned int denseCount) {
-  levelFront->Define(0, predIdx, PBTrain::FacCard(predIdx), 0, denseCount);
+  levelFront->Define(0, predIdx, PBTrain::FacCard(predIdx) + (denseCount > 0 ? 1 : 0), 0, denseCount);
 }
 
   
 Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), defCount(0), del(0) {
-  std::vector<Cell> _cell(splitCount);
-  std::vector<MRRA> _def(splitCount *nPred);
   MRRA df;
-
   df.Undefine();
-  std::fill(_def.begin(), _def.end(), df);
-  def = std::move(_def);
-  cell = std::move(_cell);
+
+  cell.reserve(splitCount);
+  def.reserve(splitCount * nPred);
+  for (unsigned int i = 0; i < splitCount * nPred; i++) {
+    def[i] = df;
+  }
 }
 
 
@@ -343,7 +343,7 @@ void Bottom::Restage() {
   int nodeIdx;
 
 #pragma omp parallel default(shared) private(nodeIdx)
-  {
+ {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
       Restage(restageCoord[nodeIdx]);
@@ -388,6 +388,7 @@ SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsig
 
   unsigned int startIdx, extent;
   CellBounds(del, mrra, startIdx, extent);
+  extent -= DenseCount(mrra.first, mrra.second, del);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
     if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
@@ -427,12 +428,12 @@ SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsig
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
-
-  unsigned int startIdx, extent;
-  CellBounds(1, mrra, startIdx, extent);
+  unsigned int startIdx, idxCount;
+  CellBounds(1, mrra, startIdx, idxCount);
+  idxCount -= DenseCount(mrra.first, mrra.second, 1);
   unsigned int leftOff = reachOffset[0];
   unsigned int rightOff = reachOffset[1];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+  for (unsigned int idx = startIdx; idx < startIdx + idxCount; idx++) {
     unsigned int sIdx = sIdxSource[idx];
     if (!bvDead->TestBit(sIdx)) {
       unsigned int destIdx = Path(sIdx, 1) == 0 ? leftOff++ : rightOff++;
@@ -476,7 +477,7 @@ void Level::RunCounts(const unsigned int reachOffset[], const SPNode targ[], con
     unsigned int levelIdx, offset, idxCount;
     pathPos[path].Coords(levelIdx, offset, idxCount);
     if (levelIdx != noIndex) {
-      levelFront->SetRuns(levelIdx, predIdx, idxCount - (reachOffset[path] - offset), targ->IsRun(offset, reachOffset[path]-1));
+      levelFront->SetRuns(levelIdx, predIdx, idxCount, offset, reachOffset[path], targ);
     }
   }
 }
@@ -485,18 +486,26 @@ void Level::RunCounts(const unsigned int reachOffset[], const SPNode targ[], con
 /**
    @brief Sets dense count and conveys tied cell as single run.
 
+   @param idxNext is one beyond the final index written.
+
    @return void.
  */
-void Level::SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int denseCount, bool ties) {
-  if (ties) {
+void Level::SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxCount, unsigned int start, unsigned int idxNext, const SPNode *targ) {
+  unsigned int explicitCount = idxNext - start;
+  unsigned int denseCount = idxCount - explicitCount;
+  if (explicitCount == 0) {
+    def[PairOffset(levelIdx, predIdx)].SetRunCount(1);
+  }
+  else if (targ->IsRun(start, idxNext - 1)) {
     if (PBTrain::IsFactor(predIdx)) { // Factor:  singleton or doubleton.
-      unsigned int runCount = 1 + denseCount > 0 ? 1 : 0;
+      unsigned int runCount = 1 + (denseCount > 0 ? 1 : 0);
       def[PairOffset(levelIdx, predIdx)].SetRunCount(runCount);
     }
     else if (denseCount == 0) { // Numeric:  only singletons tracked.
       def[PairOffset(levelIdx, predIdx)].SetRunCount(1);
     }
   }
+
   def[PairOffset(levelIdx, predIdx)].SetDenseCount(denseCount);
 }
 

@@ -212,13 +212,7 @@ unsigned int Train::BlockPeek(PreTree **ptBlock, unsigned int tCount, unsigned i
   unsigned int blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
   for (unsigned int i = 0; i < tCount; i++) {
-    PreTree *pt = ptBlock[i];
-    unsigned int height = pt->Height();
-    maxHeight = std::max(height, maxHeight);
-    blockHeight += height;
-    blockFac += pt->BitWidth();
-    blockLeaf += pt->LeafCount();
-    blockBag += pt->BagCount();
+    ptBlock[i]->BlockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
   }
 
   return blockHeight;

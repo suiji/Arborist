@@ -50,12 +50,11 @@ void SPNode::DeImmutables() {
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount) : bagCount(_bagCount), nPred(_nPred), bufferSize(_nPred * _bagCount), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   sampleIdx = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
   
-  std::vector<unsigned int> _stageOffset(nPred);
-  stageOffset = std::move(_stageOffset);
+  stageOffset.reserve(nPred);
 }
 
 
@@ -73,8 +72,8 @@ SamplePred::~SamplePred() {
 
    @return SamplePred object for tree.
  */
-SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount) {
-  SamplePred *samplePred = new SamplePred(_nPred, _bagCount);
+SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) {
+  SamplePred *samplePred = new SamplePred(_nPred, _bagCount, _bufferSize);
 
   return samplePred;
 }
@@ -89,9 +88,8 @@ SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount) {
 
    @return void.
  */
-void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx) {
-  // TODO:  Hoist and preset to smaller, conservative value.
-  stageOffset[predIdx] = bagCount * predIdx;
+void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset) {
+  stageOffset[predIdx] = safeOffset;
 
   unsigned int *smpIdx;
   SPNode *spn = Buffers(predIdx, 0, smpIdx);

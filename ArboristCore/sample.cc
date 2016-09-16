@@ -160,7 +160,7 @@ SampleReg::SampleReg() : Sample() {
 void SampleReg::Stage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const RowRank *rowRank) {
   std::vector<unsigned int> ctgProxy(nRow);
   std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  bagCount = Sample::PreStage(y, ctgProxy, samplePred);
+  bagCount = Sample::PreStage(y, ctgProxy, rowRank, samplePred);
   bottom = Bottom::FactoryReg(rowRank, samplePred, bagCount);
   Sample::Stage(rowRank);
   SetRank(row2Rank);
@@ -206,7 +206,7 @@ SampleCtg::SampleCtg() : Sample() {
 // Full row count is used to avoid the need to rewalk.
 //
 void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank) {
-  bagCount = Sample::PreStage(y, yCtg, samplePred);
+  bagCount = Sample::PreStage(y, yCtg, rowRank, samplePred);
   bottom = Bottom::FactoryCtg(rowRank, samplePred, sampleNode, bagCount);
   Sample::Stage(rowRank);
 }
@@ -221,7 +221,7 @@ void SampleCtg::Stage(const std::vector<unsigned int> &yCtg, const std::vector<d
 
    @return bagCount value.
  */
-unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, SamplePred *&_samplePred) {
+unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const RowRank *rowRank, SamplePred *&_samplePred) {
   std::vector<unsigned int> sCountRow(nRow);
   std::fill(sCountRow.begin(), sCountRow.end(), 0);
   RowSample(sCountRow);
@@ -247,7 +247,7 @@ unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<un
     treeBag->SetSlot(slot, bits);
   }
 
-  _samplePred = SamplePred::Factory(nPred, sIdx);
+  _samplePred = SamplePred::Factory(nPred, sIdx, rowRank->SafeSize(sIdx));
   return sIdx;
 }
 
@@ -288,7 +288,9 @@ void Sample::Stage(const RowRank *rowRank, int predIdx) {
     PackIndex(row, rank, stagePack);
   }
   bottom->RootDef(predIdx, bagCount - stagePack.size());
-  samplePred->Stage(stagePack, predIdx);
+
+  unsigned int safeOffset = rowRank->SafeOffset(predIdx, bagCount);
+  samplePred->Stage(stagePack, predIdx, safeOffset);
 }
 
 

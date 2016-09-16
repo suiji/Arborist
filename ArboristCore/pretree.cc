@@ -75,19 +75,27 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(unsigned int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
-  sample2PT = new unsigned int[bagCount];
+PreTree::PreTree(unsigned int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), levelBase(0) {
+  info.reserve(nPred);
+  for (unsigned int i = 0; i < nPred; i++)
+    info.push_back(0.0);
+  sample2PT.reserve(bagCount);
   for (unsigned int i = 0; i < bagCount; i++) {
-    sample2PT[i] = 0;
+    sample2PT.push_back(0);
   }
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   nodeVec[0].id = 0; // Root.
   nodeVec[0].lhId = 0; // Initializes as terminal.
-  info = new double[nPred];
-  for (unsigned int i = 0; i < nPred; i++)
-    info[i] = 0.0;
   splitBits = BitFactory();
+}
+
+
+/**
+   @brief Per-tree finalizer.
+ */
+PreTree::~PreTree() {
+  delete [] nodeVec;
 }
 
 
@@ -132,15 +140,6 @@ BV *PreTree::BitFactory() {
 
 
 /**
-   @brief Per-tree finalizer.
- */
-PreTree::~PreTree() {
-  delete [] nodeVec;
-  delete [] sample2PT;
-  delete [] info;
-}
-
-/**
    @brief Speculatively sets the two offspring slots as terminal lh, rh and changes status of this from terminal to nonterminal.
 
    @param _parId is the pretree index of the parent.
@@ -177,8 +176,9 @@ void PreTree::TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigne
 
    @return void.
 */
-void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH) {
+void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH) {
   TerminalOffspring(_id, ptLH, ptRH);
+  SetHand(_id, preplayLH ? ptLH : ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
@@ -200,6 +200,7 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
 */
 void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH) {
   TerminalOffspring(_id, ptLH, ptRH);
+  SetHand(_id, ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   ptS->splitVal.rkMean = 0.5 * (double(_rkLow) + double(_rkHigh));
@@ -208,7 +209,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _
 
 
 double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufBit, int start, int end, unsigned int ptId) {
-  return samplePred->Replay(predIdx, bufBit, start, end, ptId, sample2PT);
+  return samplePred->Replay(predIdx, bufBit, start, end, ptId, &sample2PT[0]);
 }
 
 
@@ -225,7 +226,7 @@ double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned in
 
    @return void.
 */
-void PreTree::CheckStorage(int splitNext, int leafNext) {
+void PreTree::NextLevel(int splitNext, int leafNext) {
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -234,6 +235,39 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
+
+  std::vector<unsigned int> _ppHand(height - levelBase);
+  ppHand = std::move(_ppHand);
+  std::fill(ppHand.begin(), ppHand.end(), 0);
+}
+
+
+void PreTree::SetHand(unsigned int parId, unsigned int hand) {
+  ppHand[parId - levelBase] = hand;
+}
+
+
+bool PreTree::PreplayHand(unsigned int parId, unsigned int &hand) {
+  hand = 0;
+  if (parId >= levelBase) {
+    hand = ppHand[parId - levelBase];
+    return hand > parId ? true : false;
+  }
+  else {
+    return false;
+  }
+}
+
+
+void PreTree::Preplay(unsigned int levelCount) {
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    unsigned int ptThis = sample2PT[sIdx];
+    unsigned int hand;
+    if (PreplayHand(ptThis, hand)) {
+      sample2PT[sIdx] = hand;
+    }
+  }
+  levelBase += levelCount;
 }
 
 
@@ -245,7 +279,7 @@ void PreTree::CheckStorage(int splitNext, int leafNext) {
 void PreTree::ReNodes() {
   nodeCount <<= 1;
   PTNode *PTtemp = new PTNode[nodeCount];
-  for (int i = 0; i < height; i++)
+  for (unsigned int i = 0; i < height; i++)
     PTtemp[i] = nodeVec[i];
 
   delete [] nodeVec;
@@ -286,7 +320,7 @@ const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tI
    @return void, with output reference parameter.
 */
 void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
-  for (int idx = 0; idx < height; idx++) {
+  for (unsigned int idx = 0; idx < height; idx++) {
     nodeVec[idx].Consume(forest, tIdx);
   }
 }

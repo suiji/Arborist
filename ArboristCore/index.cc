@@ -246,14 +246,41 @@ NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext,
   NodeCache *nodeCache = CacheNodes(bottom->Split(this, indexNode));
   splitNext = LevelCensus(nodeCache, levelCount, lhSplitNext, leafNext);
 
-  // Next level of pre-tree needs sufficient space to consume splits
-  // precipitated by cached nodes.
-  preTree->CheckStorage(splitNext, leafNext);
+  preTree->NextLevel(splitNext, leafNext);
+  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
+    nodeCache[splitIdx].NonTerminal(preTree, samplePred, bottom);
+  }
+  preTree->Preplay(levelCount);
+  
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Consume(preTree, samplePred, bottom);
   }
 
   return nodeCache;
+}
+
+
+/**
+  @brief Consumes all remaining information for node in the current level.
+
+  @return void.
+*/
+void NodeCache::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
+  if (ssNode != 0) {
+    ssNode->NonTerminal(samplePred, preTree, bottom->Runs(), lhStart, ptId, ptL, ptR);
+  }
+}
+
+
+/**
+  @brief Consumes all remaining information for node in the current level.
+
+  @return void.
+*/
+void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
+  if (ssNode != 0) {
+    lhSum = ssNode->Replay(samplePred, preTree, bottom->Runs(), lhStart, sum, ptId, ptL, ptR);
+  }
 }
 
 
@@ -289,18 +316,6 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
   delete [] ntLH;
   delete [] ntRH;
   ntLH = ntRH = 0;
-}
-
-
-/**
-  @brief Consumes all remaining information for node in the current level.
-
-  @return void.
-*/
-void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
-  if (ssNode != 0) {
-    lhSum = ssNode->NonTerminal(samplePred, preTree, splitIdx, lhStart, lhStart + idxCount - 1, ptId, ptL, ptR, bottom->Runs());
-  }
 }
 
 
