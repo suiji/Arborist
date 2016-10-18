@@ -23,8 +23,8 @@
 #include "bottom.h"
 
 // Testing only:
-//#include <iostream>
-//using namespace std;
+#include <iostream>
+using namespace std;
 //#include <time.h>
 //clock_t clock(void);
 
@@ -104,12 +104,12 @@ NodeCache::NodeCache() : IndexNode(), terminal(true) {}
 
    @return brace of 'treeBlock'-many PreTree objects.
 */
-PreTree **Index::BlockTrees(Sample **sampleBlock, int treeBlock) {
+PreTree **Index::BlockTrees(const PMTrain *pmTrain, Sample **sampleBlock, int treeBlock) {
   PreTree **ptBlock = new PreTree*[treeBlock];
 
   for (int blockIdx = 0; blockIdx < treeBlock; blockIdx ++) {
     Sample *sample = sampleBlock[blockIdx];
-    ptBlock[blockIdx] = OneTree(sample->SmpPred(), sample->Bot(), Sample::NSamp(), sample->BagCount(), sample->BagSum());
+    ptBlock[blockIdx] = OneTree(pmTrain, sample->SmpPred(), sample->Bot(), Sample::NSamp(), sample->BagCount(), sample->BagSum());
   }
   
   return ptBlock;
@@ -121,8 +121,8 @@ PreTree **Index::BlockTrees(Sample **sampleBlock, int treeBlock) {
 
    @return void.
  */
-PreTree *Index::OneTree(SamplePred *_samplePred, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) {
-  PreTree *_preTree = new PreTree(_bagCount);
+PreTree *Index::OneTree(const PMTrain *pmTrain, SamplePred *_samplePred, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) {
+  PreTree *_preTree = new PreTree(pmTrain, _bagCount);
   Index *index = new Index(_samplePred, _preTree, _bottom, _nSamp, _bagCount, _sum);
   index->Levels();
   delete index;
@@ -140,6 +140,7 @@ PreTree *Index::OneTree(SamplePred *_samplePred, Bottom *_bottom, int _nSamp, in
 void  Index::Levels() {
   unsigned int levelCount = 1;
   for (unsigned int level = 0; levelCount > 0; level++) {
+    //    cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit();
     unsigned int splitNext, lhNext, leafNext;
     NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhNext, leafNext);
@@ -267,7 +268,7 @@ NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext,
 */
 void NodeCache::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
   if (ssNode != 0) {
-    ssNode->NonTerminal(samplePred, preTree, bottom->Runs(), lhStart, ptId, ptL, ptR);
+    ssNode->NonTerminal(samplePred, preTree, bottom->Runs(), ptId, ptL, ptR);
   }
 }
 
@@ -279,7 +280,7 @@ void NodeCache::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bo
 */
 void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
   if (ssNode != 0) {
-    lhSum = ssNode->Replay(samplePred, preTree, bottom->Runs(), lhStart, sum, ptId, ptL, ptR);
+    lhSum = ssNode->Replay(samplePred, preTree, bottom->Runs(), idxCount, sum, ptId, ptL, ptR);
   }
 }
 

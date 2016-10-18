@@ -21,7 +21,7 @@
 #include "samplepred.h"
 
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 
 // Records terminal-node information for elements of the next level in the pre-tree.
@@ -30,7 +30,6 @@ using namespace std;
 // the need to revise dangling non-terminals from an earlier level.
 //
 
-unsigned int PreTree::nPred = 0;
 unsigned int PreTree::heightEst = 0;
 
 /**
@@ -42,9 +41,7 @@ unsigned int PreTree::heightEst = 0;
 
    @return void.
  */
-void PreTree::Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH) {
-  nPred = _nPred;
-
+void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH) {
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
@@ -64,7 +61,7 @@ void PreTree::Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int 
 
 
 void PreTree::DeImmutables() {
-  nPred = heightEst = 0;
+  heightEst = 0;
 }
 
 
@@ -75,7 +72,7 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(unsigned int _bagCount) : height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), levelBase(0) {
+PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), nPred(pmTrain->NPred()), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), levelBase(0) {
   info.reserve(nPred);
   for (unsigned int i = 0; i < nPred; i++)
     info.push_back(0.0);
@@ -135,7 +132,7 @@ void PreTree::Reserve(unsigned int height) {
 BV *PreTree::BitFactory() {
   // Should be wide enough to hold all factor bits for an entire tree:
   //    estimated #nodes * width of widest factor.
-  return new BV(nodeCount * PBTrain::CardMax());
+  return new BV(nodeCount * pmTrain->CardMax());
 }
 
 
@@ -183,7 +180,7 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
   ptS->splitVal.offset = bitEnd;
-  bitEnd += PBTrain::FacCard(_predIdx);
+  bitEnd += pmTrain->FacCard(_predIdx);
 }
 
 
@@ -198,17 +195,17 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
 
    @return void.
 */
-void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH) {
+void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH) {
   TerminalOffspring(_id, ptLH, ptRH);
-  SetHand(_id, ptRH);
+  SetHand(_id, preplayLH ? ptLH : ptRH);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  ptS->splitVal.rkMean = 0.5 * (double(_rkLow) + double(_rkHigh));
   info[_predIdx] += _info;
+  ptS->splitVal.rkMean = _rankMean;
 }
 
 
-double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufBit, int start, int end, unsigned int ptId) {
+double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufBit, unsigned int start, unsigned int end, unsigned int ptId) {
   return samplePred->Replay(predIdx, bufBit, start, end, ptId, &sample2PT[0]);
 }
 
@@ -231,7 +228,7 @@ void PreTree::NextLevel(int splitNext, int leafNext) {
     ReNodes();
   }
 
-  unsigned int bitMin = bitEnd + splitNext * PBTrain::CardMax();
+  unsigned int bitMin = bitEnd + splitNext * pmTrain->CardMax();
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
@@ -298,7 +295,7 @@ void PreTree::ReNodes() {
 
   @return void, with side-effected forest.
 */
-const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tIdx, double predInfo[]) {
+const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tIdx, std::vector<double> &predInfo) {
   forest->Origins(tIdx);
   forest->NodeInit(height);
   NodeConsume(forest, tIdx);
@@ -321,7 +318,7 @@ const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tI
 */
 void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].Consume(forest, tIdx);
+    nodeVec[idx].Consume(pmTrain, forest, tIdx);
   }
 }
 
@@ -335,9 +332,9 @@ void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
 
    @return void, with side-effected Forest.
  */
-void PTNode::Consume(Forest *forest, unsigned int tIdx) {
+void PTNode::Consume(const PMTrain *pmTrain, Forest *forest, unsigned int tIdx) {
   if (lhId > 0) { // i.e., nonterminal
-    forest->NonterminalProduce(tIdx, id, predIdx, lhId - id, PredBlock::IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
+    forest->NonterminalProduce(tIdx, id, predIdx, lhId - id, pmTrain->IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
   }
 }
 

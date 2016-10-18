@@ -98,7 +98,7 @@ class Cell {
  */
 class PathNode {
   unsigned int levelIdx; // < noIndex iff path extinct.
-  unsigned int offset; // Target offset for path.
+  unsigned int idxStart; // Target offset for path.
   unsigned int extent;
  public:
 
@@ -106,22 +106,22 @@ class PathNode {
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void Init(unsigned int _levelIdx, unsigned int _offset, unsigned int _extent) {
+  inline void Init(unsigned int _levelIdx, unsigned int _idxStart, unsigned int _extent) {
     levelIdx = _levelIdx;
-    offset = _offset;
+    idxStart = _idxStart;
     extent = _extent;
   }
   
 
-  inline void Coords(unsigned int &_levelIdx, unsigned int &_offset, unsigned int &_extent) const {
-    _offset = offset;
+  inline void Coords(unsigned int &_levelIdx, unsigned int &_idxStart, unsigned int &_extent) const {
     _levelIdx = levelIdx;
+    _idxStart = idxStart;
     _extent = extent;
   }
 
   
-  inline int Offset() const {
-    return offset;
+  inline int IdxStart() const {
+    return idxStart;
   }
 
 
@@ -146,11 +146,13 @@ class MRRA {
   static const unsigned int defBit = 1;
   static const unsigned int bufBit = 2;
   unsigned int raw;
+  unsigned int denseMargin;
   unsigned int denseCount; // Nonincreasing.
  public:
 
   inline void Init(unsigned int runCount, unsigned int bufIdx, unsigned int _denseCount) {
     raw = (runCount << 2) | (bufIdx << 1) | 1;
+    denseMargin = 0;
     denseCount = _denseCount;
   }
 
@@ -160,12 +162,32 @@ class MRRA {
   }
 
 
-  inline unsigned int DenseCount() const {
+  /**
+     @brief Applies dense parameters to offsets derived from index node.
+
+     @param startIdx is input as the node offset and output as the
+     margin-adjusted starting index.
+
+     @param extent is input as the node index count and output with an
+     adjustment for implicit indices.
+
+     @return dense count.
+   */
+  inline unsigned int AdjustDense(unsigned int &startIdx, unsigned int &extent) const {
+    startIdx -= denseMargin;
+    extent -= denseCount;
+
     return denseCount;
+  }
+  
+
+  inline bool IsDense() const {
+    return denseCount > 0 || denseMargin > 0;
   }
 
   
-  inline void SetDenseCount(unsigned int _denseCount) {
+  inline void SetDense(unsigned int _denseMargin, unsigned int _denseCount) {
+    denseMargin = _denseMargin;
     denseCount = _denseCount;
   }
 
@@ -240,7 +262,7 @@ class Level {
   std::vector<unsigned int> liveCount; // Indexed by node.
  public:
 
-  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int noIndex);
+  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex);
   ~Level();
 
   void Def2();
@@ -253,9 +275,9 @@ class Level {
   void CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void FrontDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int sourceBit);
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[]);
-  void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, Level *levelFront);  
-  void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxCount, unsigned int start, unsigned int idxNext, const class SPNode *targ);
-
+  void RunCounts(const class SPNode targ[], const SPPair &mrra, const class Bottom *bottom) const ;
+  void SetRuns(const class Bottom *bottom, unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ);
+  void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
 
   /**
      @brief Will overflow if level sufficiently fat:  switch to depth-first
@@ -276,7 +298,7 @@ class Level {
 
      @return shifted value.
    */  
-  inline unsigned int BackScale(unsigned int val) {
+  inline unsigned int BackScale(unsigned int val) const {
     return val << (unsigned int) del;
   }
 
@@ -349,6 +371,11 @@ class Level {
   }
 
 
+  inline unsigned int AdjustDense(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
+    return def[PairOffset(mrra.first, mrra.second)].AdjustDense(startIdx, extent);
+  }
+
+  
   inline void Ref(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx) {
     def[PairOffset(levelIdx, predIdx)].Ref(runCount, bufIdx);
   }
@@ -359,8 +386,17 @@ class Level {
   }
 
 
-  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].DenseCount();
+  inline bool IsDense(unsigned int levelIdx, unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].IsDense();
+  }
+
+  /**
+     @brief Sets the density-associated parameters for a reached node.
+
+     @return void.
+  */
+  inline void SetDense(unsigned int levelIdx, unsigned int predIdx, unsigned int denseMargin, unsigned int denseCount) {
+    def[PairOffset(levelIdx, predIdx)].SetDense(denseMargin, denseCount);
   }
 
 };
@@ -396,9 +432,13 @@ class RestageCoord {
  */
 class Bottom {
   static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
+  static constexpr unsigned int noPath = 1 << pathMax;
   const unsigned int nPred;
   const unsigned int nPredFac;
   const unsigned int bagCount;
+  const unsigned int stageSize;
+
+  unsigned int *prePath;
 
   std::deque<Level *> level;
   Level *levelFront; // Current level.
@@ -414,11 +454,14 @@ class Bottom {
   unsigned int frontCount; // # nodes in the level about to split.
   class BV *bvLeft;
   class BV *bvDead;
+  const class PMTrain *pmTrain;
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
   class Run *run;
   std::vector<RestageCoord> restageCoord;
+
+  SPNode *RestageDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
 
 
   /**
@@ -440,14 +483,14 @@ class Bottom {
   void Split(const std::vector<SPPair> &pairNode, const class IndexNode indexNode[]);
   void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
 
-  inline void RunCounts(const unsigned int reachOffset[], const class SPNode targ[], const SPPair &mrra, unsigned int del) {
-    level[del]->RunCounts(reachOffset, targ, mrra, levelFront);
+  inline void RunCounts(const class SPNode targ[], const SPPair &mrra, unsigned int del) {
+    level[del]->RunCounts(targ, mrra, this);
   }
   
-  static Bottom *FactoryReg(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int _bagCount);
-  static Bottom *FactoryCtg(const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int _bagCount);
+  static Bottom *FactoryReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int _bagCount);
+  static Bottom *FactoryCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int _bagCount);
   
-  Bottom(class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac);
+  Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize);
   ~Bottom();
   void Overlap(unsigned int _splitCount);
   void LevelInit();
@@ -455,7 +498,7 @@ class Bottom {
   void LevelClear();
   const std::vector<class SSNode*> Split(class Index *index, class IndexNode indexNode[]);
   void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
-  void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class SplitNux &nux) const;
+  void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   void PathLeft(unsigned int sIdx) const;
   void PathRight(unsigned int sIdx) const ;
   void PathExtinct(unsigned int sIdx) const ;
@@ -466,6 +509,12 @@ class Bottom {
   void Restage(RestageCoord &rsCoord);
   SPNode *RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx);
   SPNode *RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
+  bool IsFactor(unsigned int predIdx) const;
+  
+  
+  inline void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ) const {
+    levelFront->SetRuns(this, levelIdx, predIdx, idxStart, idxCount, targ);
+  }
   
   /**
      @brief Accessor.  SSNode only client.
@@ -498,13 +547,13 @@ class Bottom {
   }
 
 
-  inline unsigned int DenseCount(unsigned int levelIdx, unsigned int predIdx, unsigned int del = 0) const {
-    return level[del]->DenseCount(levelIdx, predIdx);
+  inline bool IsDense(const SPPair &mrra, unsigned int del = 0) const {
+    return level[del]->IsDense(mrra.first, mrra.second);
   }
 
 
-  inline void CellBounds(unsigned int del, const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
-    return level[del]->CellBounds(mrra, startIdx, extent);
+  inline void CellBounds(const SPPair &mrra, unsigned int del, unsigned int &startIdx, unsigned int &extent) const {
+    level[del]->CellBounds(mrra, startIdx, extent);
   }
 
 
@@ -556,6 +605,12 @@ class Bottom {
    */
   inline bool Singleton(unsigned int levelIdx, unsigned int predIdx) const {
     return levelFront->Singleton(levelIdx, predIdx);
+  }
+
+
+  inline unsigned int AdjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
+    SPPair pair = std::make_pair(levelIdx, predIdx);
+    return levelFront->AdjustDense(pair, startIdx, extent);
   }
 };
 

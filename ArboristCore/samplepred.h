@@ -114,25 +114,6 @@ class SPNode {
   }
 
 
-    /**
-     @brief Variant of above, for which rank determined separately.
-
-     @param _ySum outputs the proxy response value.
-
-     @param _sCount outputs the multiplicity of the row in this sample.
-
-     @param _yCtg outputs the response value.
-
-     @return sample count of node, with output reference parameters.
-   */
-  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_yCtg) const {
-    _ySum = ySum;
-    _yCtg = sCount & ((1 << runShift) - 1);
-
-    return sCount >> runShift;
-  }
-
-  
   /**
    @brief Determines whether the consecutive index positions are a run of predictor values.
 
@@ -182,11 +163,12 @@ class SamplePred {
 
   // Predictor-based sample orderings, double-buffered by level value.
   //
-  const int bufferSize; // <= bagCount * nPred.
+  const unsigned int bufferSize; // <= nRow * nPred.
   const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
   std::vector<unsigned int> stageOffset;
+  std::vector<unsigned int> stageExtent; // Client:  debugging only.
   SPNode* nodeVec;
 
   // 'sampleIdx' could be boxed with SPNode.  While it is used in both
@@ -201,7 +183,7 @@ class SamplePred {
   ~SamplePred();
   static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
 
-  void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset);
+  void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
  
   inline unsigned int PitchSP() {
     return pitchSP;
@@ -209,6 +191,11 @@ class SamplePred {
 
   inline unsigned int PitchSIdx() {
     return pitchSIdx;
+  }
+
+
+  inline unsigned int StageOffset(unsigned int predIdx) {
+    return stageOffset[predIdx];
   }
   
   // The category could, alternatively, be recorded in an object subclassed
@@ -224,7 +211,7 @@ class SamplePred {
 
      @return workspace starting position for this level.
    */
-  inline int BuffOffset(unsigned int bufferBit) const {
+  inline unsigned int BuffOffset(unsigned int bufferBit) const {
     return (bufferBit & 1) == 0 ? 0 : bufferSize;
   }
 
@@ -286,8 +273,7 @@ class SamplePred {
     targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
-  void SplitRanks(unsigned int predIdx, unsigned int targBit, int spIdx, unsigned int &rkLow, unsigned int &rkHigh);
-  double Replay(unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId, unsigned int sample2PT[]);
+  double Replay(unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId, unsigned int sample2PT[]);
 
   // TODO:  Move somewhere appropriate.
   /**
@@ -301,6 +287,13 @@ class SamplePred {
     return ((count + (1 << pow) - 1) >> pow) << pow;
   }
 
+
+  /**
+     @brief Accessor for staging extent field.
+   */
+  inline unsigned int StageExtent(unsigned int predIdx) {
+    return stageExtent[predIdx];
+  }
 };
 
 #endif

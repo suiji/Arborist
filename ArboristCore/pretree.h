@@ -40,13 +40,14 @@ class PTNode {
     unsigned int offset; // Bit-vector offset:  factor.
     double rkMean; // Mean rank:  numeric.
   } splitVal;
-  void Consume(class Forest *forest, unsigned int tIdx);
+  void Consume(const class PMTrain *pmTrain, class Forest *forest, unsigned int tIdx);
 };
 
 
 class PreTree {
-  static unsigned int nPred;
   static unsigned int heightEst;
+  const class PMTrain *pmTrain;
+  unsigned int nPred;
   PTNode *nodeVec; // Vector of tree nodes.
   std::vector<unsigned int> sample2PT;
   std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
@@ -67,14 +68,14 @@ class PreTree {
   bool PreplayHand(unsigned int parId, unsigned int &hand);
   
  public:
-  PreTree(unsigned int _bagCount);
+  PreTree(const class PMTrain *_pmTrain, unsigned int _bagCount);
   ~PreTree();
-  static void Immutables(unsigned int _nPred, unsigned int _nSamp, unsigned int _minH);
+  static void Immutables(unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
   static void Reserve(unsigned int height);
   void Preplay(unsigned int levelCount);
 
-  const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, double predInfo[]);
+  const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, std::vector<double> &predInfo);
   void NodeConsume(class Forest *forest, unsigned int tIdx);
   void BitConsume(unsigned int *outBits);
 
@@ -107,9 +108,9 @@ class PreTree {
   
   void LHBit(int idx, unsigned int pos);
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
-  void NonTerminalNum(double _info, unsigned int _predIdx, unsigned int _rkLow, unsigned int _rkHigh, unsigned int _id, unsigned int &ptLH, unsigned int &ptRH);
+  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
 
-  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, int start, int end, unsigned int ptId);
+  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
   
   void NextLevel(int splitNext, int leafNext);
   void ReNodes();

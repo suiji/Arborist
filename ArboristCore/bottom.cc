@@ -27,24 +27,24 @@
 // Testing only:
 //#include <iostream>
 //using namespace std;
-//#include <time.h>
-//clock_t clock(void);
+#include <time.h>
+clock_t clock(void);
 
 
 
 /**
    @brief Static entry for regression.
  */
-Bottom *Bottom::FactoryReg(const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) {
-  return new Bottom(_samplePred, new SPReg(_rowRank, _samplePred, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryReg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) {
+  return new Bottom(_pmTrain, _samplePred, new SPReg(_pmTrain, _rowRank, _samplePred, _bagCount), _bagCount, _rowRank->SafeSize(_bagCount));
 }
 
 
 /**
    @brief Static entry for classification.
  */
-Bottom *Bottom::FactoryCtg(const RowRank *_rowRank, SamplePred *_samplePred, const std::vector<SampleNode> &_sampleCtg, unsigned int _bagCount) {
-  return new Bottom(_samplePred, new SPCtg(_rowRank, _samplePred, _sampleCtg, _bagCount), _bagCount, PBTrain::NPred(), PBTrain::NPredFac());
+Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, const std::vector<SampleNode> &_sampleCtg, unsigned int _bagCount) {
+  return new Bottom(_pmTrain, _samplePred, new SPCtg(_pmTrain, _rowRank, _samplePred, _sampleCtg, _bagCount), _bagCount, _rowRank->SafeSize(_bagCount));
 }
 
 
@@ -55,7 +55,8 @@ Bottom *Bottom::FactoryCtg(const RowRank *_rowRank, SamplePred *_samplePred, con
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _nPred, unsigned int _nPredFac) : nPred(_nPred), nPredFac(_nPredFac), bagCount(_bagCount), samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig()), run(splitPred->Runs()) {
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stageSize(_stageSize), samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()) {
+  prePath = new unsigned int[stageSize];
   std::vector<unsigned int> _history(0);
   history = std::move(_history);
 
@@ -82,7 +83,7 @@ Bottom::Bottom(SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bag
   // This is the only time that the denseCount is assigned outside of
   // restaging:
 void Bottom::RootDef(unsigned int predIdx, unsigned int denseCount) {
-  levelFront->Define(0, predIdx, PBTrain::FacCard(predIdx) + (denseCount > 0 ? 1 : 0), 0, denseCount);
+  levelFront->Define(0, predIdx, IsFactor(predIdx) ? (pmTrain->FacCard(predIdx) + (denseCount > 0 ? 1 : 0)) : 0, 0, denseCount);
 }
 
   
@@ -107,7 +108,10 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNo
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
 
+  //  unsigned int t1 = clock();
   Restage();
+  //unsigned int t2 = clock();
+  // cout << "post restage: " << t2 - t1 << endl;
 
   // Source levels must persist through restaging ut allow path lookup.
   //
@@ -117,6 +121,8 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNo
   }
 
   splitPred->Split(indexNode);
+  //t1 = clock();
+  // cout << "post split: " << t1 - t2 << endl;
 
   std::vector<SSNode*> ssNode(frontCount);
   for (unsigned int levelIdx = 0; levelIdx < frontCount; levelIdx++) {
@@ -257,8 +263,13 @@ void Bottom::ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned in
 }
 
 
+/**
+   @brief Looks up the ancestor cell built for the corresponding index
+   node and adjusts start and extent values by corresponding dense parameters.
+ */
 void Level::CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
-  return cell[mrra.first].Ref(startIdx, extent);
+  cell[mrra.first].Ref(startIdx, extent);
+  (void) AdjustDense(mrra, startIdx, extent);
 }
 
 
@@ -266,6 +277,7 @@ void Level::CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int 
    @brief Class finalizer.
  */
 Bottom::~Bottom() {
+  delete [] prePath;
   for (auto *defLevel : level) {
     defLevel->Flush(this, false);
     delete defLevel;
@@ -362,17 +374,96 @@ void Bottom::Restage(RestageCoord &rsCoord) {
   unsigned int del, runCount, bufIdx;
   SPPair mrra;
   rsCoord.Ref(mrra, del, runCount, bufIdx);
-  OffsetClone(mrra, del, reachOffset);
 
   SPNode *targ;
-  if (del == 1) {
+  OffsetClone(mrra, del, reachOffset);
+  if (IsDense(mrra, del)) {
+    targ = RestageDense(reachOffset, mrra, bufIdx, del);
+  }
+  else if (del == 1) {
     targ = RestageOne(reachOffset, mrra, bufIdx);
   }
   else {
     targ = RestageIrr(reachOffset, mrra, bufIdx, del);
   }
 
-  RunCounts(reachOffset, targ, mrra, del);
+  RunCounts(targ, mrra, del);
+}
+
+
+/**
+   @brief Precomputes path vector prior to restaging.  This is necessary
+   in the case of dense ranks, as cell sizes are not derivable directly
+   from index nodes.
+ */
+SPNode *Bottom::RestageDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
+  SPNode *source, *targ;
+  unsigned int *sIdxSource, *sIdxTarg;
+  Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
+
+  unsigned int *ppBlock = prePath + samplePred->StageOffset(mrra.second);
+  unsigned int pathCount[1 << pathMax];
+  for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
+    pathCount[path] = 0;
+  }
+
+  // Decomposition into two paths adds ~5% performance penalty, but
+  // is necessary for dense packing or for coprocessor loading.
+  //
+  unsigned int startIdx, extent;
+  CellBounds(mrra, del, startIdx, extent);
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int sIdx = sIdxSource[idx];
+    if (bvDead->TestBit(sIdx)) {
+      ppBlock[idx] = noPath;
+    }
+    else {
+      unsigned int path = Path(sIdx, del);
+      ppBlock[idx] = path;
+      pathCount[path]++;
+    }
+  }
+
+  // Successors may or may not themselves be dense.
+  level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int path = ppBlock[idx];
+    if (path != noPath) {
+      unsigned int destIdx = reachOffset[path]++;
+      targ[destIdx] = source[idx];
+      sIdxTarg[destIdx] = sIdxSource[idx];
+    }
+  }
+
+  return targ;
+}
+
+
+/**
+   @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
+   index numbering ut prevent cell boundaries from crossing.
+
+   @param idxLeft is the left-most index of the predecessor.
+
+   @param pathCount inputs the path counts.
+
+   @param reachOffset outputs the dense starting offsets.
+
+   @return Count of explicit indices written.
+ */
+void Level::PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const {
+  const PathNode *pathPos = &pathNode[BackScale(mrra.first)];
+  for (unsigned int path = 0; path < BackScale(1); path++) {
+    unsigned int levelIdx, idxStart, idxCount;
+    pathPos[path].Coords(levelIdx, idxStart, idxCount);
+    if (levelIdx != noIndex) {
+      unsigned int margin = idxStart - idxLeft;
+      unsigned int idxLocal = pathCount[path];
+      levelFront->SetDense(levelIdx, mrra.second, margin, idxCount - idxLocal);
+      reachOffset[path] -= margin;
+      idxLeft += idxLocal;
+    }
+  }
 }
 
 
@@ -387,8 +478,7 @@ SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsig
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
 
   unsigned int startIdx, extent;
-  CellBounds(del, mrra, startIdx, extent);
-  extent -= DenseCount(mrra.first, mrra.second, del);
+  CellBounds(mrra, del, startIdx, extent);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
     if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
@@ -415,7 +505,7 @@ SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsig
 void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[]) {
   unsigned int nodeStart = BackScale(mrra.first);
   for (unsigned int i = 0; i < BackScale(1); i++) {
-    reachOffset[i] = pathNode[nodeStart + i].Offset();
+    reachOffset[i] = pathNode[nodeStart + i].IdxStart();
   }
 }
 
@@ -428,12 +518,11 @@ SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsig
   SPNode *source, *targ;
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
-  unsigned int startIdx, idxCount;
-  CellBounds(1, mrra, startIdx, idxCount);
-  idxCount -= DenseCount(mrra.first, mrra.second, 1);
+  unsigned int startIdx, extent;
+  CellBounds(mrra, 1, startIdx, extent);
   unsigned int leftOff = reachOffset[0];
   unsigned int rightOff = reachOffset[1];
-  for (unsigned int idx = startIdx; idx < startIdx + idxCount; idx++) {
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
     if (!bvDead->TestBit(sIdx)) {
       unsigned int destIdx = Path(sIdx, 1) == 0 ? leftOff++ : rightOff++;
@@ -470,14 +559,14 @@ void Bottom::Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, u
 
    @return void.
  */
-void Level::RunCounts(const unsigned int reachOffset[], const SPNode targ[], const SPPair &mrra, Level *levelFront) {
+void Level::RunCounts(const SPNode targ[], const SPPair &mrra, const Bottom *bottom) const {
   unsigned int predIdx = mrra.second;
-  PathNode *pathPos = &pathNode[BackScale(mrra.first)];
+  const PathNode *pathPos = &pathNode[BackScale(mrra.first)];
   for (unsigned int path = 0; path < BackScale(1); path++) {
-    unsigned int levelIdx, offset, idxCount;
-    pathPos[path].Coords(levelIdx, offset, idxCount);
+    unsigned int levelIdx, idxStart, idxCount;
+    pathPos[path].Coords(levelIdx, idxStart, idxCount);
     if (levelIdx != noIndex) {
-      levelFront->SetRuns(levelIdx, predIdx, idxCount, offset, reachOffset[path], targ);
+      bottom->SetRuns(levelIdx, predIdx, idxStart, idxCount, targ);
     }
   }
 }
@@ -486,29 +575,29 @@ void Level::RunCounts(const unsigned int reachOffset[], const SPNode targ[], con
 /**
    @brief Sets dense count and conveys tied cell as single run.
 
-   @param idxNext is one beyond the final index written.
-
    @return void.
  */
-void Level::SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxCount, unsigned int start, unsigned int idxNext, const SPNode *targ) {
-  unsigned int explicitCount = idxNext - start;
-  unsigned int denseCount = idxCount - explicitCount;
-  if (explicitCount == 0) {
-    def[PairOffset(levelIdx, predIdx)].SetRunCount(1);
+void Level::SetRuns(const Bottom *bottom, unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const SPNode *targ) {
+  MRRA &reach = def[PairOffset(levelIdx, predIdx)];
+  unsigned int denseCount = reach.AdjustDense(idxStart, idxCount);
+  if (idxCount == 0) { // all indices implicit.
+    reach.SetRunCount(1);
   }
-  else if (targ->IsRun(start, idxNext - 1)) {
-    if (PBTrain::IsFactor(predIdx)) { // Factor:  singleton or doubleton.
+  else if (targ->IsRun(idxStart, idxStart + idxCount - 1)) {
+    if (bottom->IsFactor(predIdx)) { // Factor:  singleton or doubleton.
       unsigned int runCount = 1 + (denseCount > 0 ? 1 : 0);
-      def[PairOffset(levelIdx, predIdx)].SetRunCount(runCount);
+      reach.SetRunCount(runCount);
     }
     else if (denseCount == 0) { // Numeric:  only singletons tracked.
-      def[PairOffset(levelIdx, predIdx)].SetRunCount(1);
+      reach.SetRunCount(1);
     }
   }
-
-  def[PairOffset(levelIdx, predIdx)].SetDenseCount(denseCount);
 }
 
+
+bool Bottom::IsFactor(unsigned int predIdx) const {
+  return pmTrain->IsFactor(predIdx);
+}
 
 
 /**
@@ -517,7 +606,7 @@ void Level::SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int id
 
    @return void.
 */
-void Bottom::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const SplitNux &nux) const {
+void Bottom::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const NuxLH &nux) const {
   splitSig->Write(levelIdx, predIdx, setPos, bufIdx, nux);
 }
 

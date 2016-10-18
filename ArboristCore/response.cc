@@ -16,6 +16,7 @@
 
 #include "bv.h"
 #include "response.h"
+#include "predblock.h"
 #include "sample.h"
 #include "leaf.h"
 #include "rowrank.h"
@@ -35,8 +36,8 @@ using namespace std;
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) {
-  return new ResponseCtg(feCtg, feProxy, leafOrigin, leafNode, bagRow, weight, ctgWidth);
+ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, const PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) {
+  return new ResponseCtg(feCtg, feProxy, _pmTrain, leafOrigin, leafNode, bagRow, weight, ctgWidth);
 }
 
 
@@ -46,7 +47,7 @@ ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const 
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, bagRow, weight, ctgWidth), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, const PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, _pmTrain, leafOrigin, leafNode, bagRow, weight, ctgWidth), yCtg(_yCtg) {
 }
 
 
@@ -56,7 +57,7 @@ ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vect
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : y(_y), leaf(new LeafCtg(leafOrigin, leafNode, bagRow, weight, ctgWidth)) {
+Response::Response(const std::vector<double> &_y, const PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<double> &weight, unsigned int ctgWidth) : y(_y), leaf(new LeafCtg(leafOrigin, leafNode, bagRow, weight, ctgWidth)), pmTrain(_pmTrain) {
 }
 
 
@@ -66,7 +67,7 @@ Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &lea
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : y(_y), leaf(new LeafReg(leafOrigin, leafNode, bagRow, rank)) {
+Response::Response(const std::vector<double> &_y, const PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : y(_y), leaf(new LeafReg(leafOrigin, leafNode, bagRow, rank)), pmTrain(_pmTrain) {
 }
 
 
@@ -92,8 +93,8 @@ ResponseReg::~ResponseReg() {
 
    @return void, with output reference vector.
  */
-ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &_rank) {
-  return new ResponseReg(yNum, _row2Rank, _leafOrigin, _leafNode, bagRow, _rank);
+ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, const PMTrain *_pmTrain, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &_rank) {
+  return new ResponseReg(yNum, _row2Rank, _pmTrain, _leafOrigin, _leafNode, bagRow, _rank);
 }
 
 
@@ -104,7 +105,7 @@ ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::ve
 
    @param yRanked outputs the sorted response needed for quantile ranking.
  */
-ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : Response(_y, leafOrigin, leafNode, bagRow, rank), row2Rank(_row2Rank) {
+ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, const PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagRow> &bagRow, std::vector<unsigned int> &rank) : Response(_y, _pmTrain, leafOrigin, leafNode, bagRow, rank), row2Rank(_row2Rank) {
 }
 
 
@@ -123,15 +124,15 @@ PreTree **Response::BlockTree(const RowRank *rowRank, unsigned int blockSize) {
     sampleBlock[i] = Sampler(rowRank);
   }
 
-  return Index::BlockTrees(sampleBlock, blockSize);
+  return Index::BlockTrees(pmTrain, sampleBlock, blockSize);
 }
 
 
 /**
    @return Regression-style Sample object.
  */
-Sample *ResponseReg::Sampler(const class RowRank *rowRank) {
-  return Sample::FactoryReg(Y(), rowRank, row2Rank);
+Sample *ResponseReg::Sampler(const RowRank *rowRank) {
+  return Sample::FactoryReg(pmTrain, Y(), rowRank, row2Rank);
 }
 
 
@@ -139,7 +140,7 @@ Sample *ResponseReg::Sampler(const class RowRank *rowRank) {
    @return Classification-style Sample object.
  */
 Sample *ResponseCtg::Sampler(const class RowRank *rowRank) {
-  return Sample::FactoryCtg(Y(), rowRank, yCtg);
+  return Sample::FactoryCtg(pmTrain, Y(), rowRank, yCtg);
 }
 
 
@@ -171,7 +172,7 @@ void Response::DeBlock(unsigned int blockSize) {
    @return void, with side-effected Leaf object.
  */
 void Response::Leaves(const std::vector<unsigned int> &leafMap, unsigned int blockIdx, unsigned int tIdx) {
-  leaf->Leaves(sampleBlock[blockIdx], leafMap, tIdx);    
+  leaf->Leaves(pmTrain, sampleBlock[blockIdx], leafMap, tIdx);    
 }
 
 

@@ -249,6 +249,9 @@ PredBlock <- function(x, sigTrain = NULL) {
       stop("Unsupported matrix type")
     }
   }
+  else if (inherits(x, "dgCMatrix")) {
+     return(.Call("RcppPredBlockSparse", x))
+  }
   else {
     stop("Expecting data frame or matrix")
   }

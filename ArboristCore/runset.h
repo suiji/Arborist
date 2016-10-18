@@ -55,12 +55,20 @@ class FRNode {
 
      @param _end outputs the end position.
 
-     @return rank value.
+     @return void.
    */
-  inline unsigned int ReplayRef(unsigned int &_start, unsigned int &_end) {
+  inline void ReplayRef(unsigned int &_start, unsigned int &_end) {
     _start = start;
     _end = start + idxCount - 1;
+  }
 
+
+  /**
+     @brief Rank accessor.
+
+     @return rank.
+   */
+  inline unsigned int Rank() {
     return rank;
   }
 };
@@ -231,7 +239,8 @@ class RunSet {
 
   unsigned int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
   unsigned int LHSlots(int outPos, unsigned int &lhSampCt);
-  unsigned int Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end);
+  void Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) const;
+  unsigned int Rank(unsigned int outSlot) const;
 };
 
 
@@ -271,8 +280,13 @@ class Run {
   }
 
   
-  inline unsigned int RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &end) {
-    return runSet[idx].Bounds(outSlot, start, end);
+  inline void RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &end) {
+    runSet[idx].Bounds(outSlot, start, end);
+  }
+
+
+  inline unsigned int Rank(unsigned int idx, unsigned int outSlot) {
+    return runSet[idx].Rank(outSlot);
   }
 
 

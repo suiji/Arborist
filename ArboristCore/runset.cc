@@ -549,7 +549,13 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
      @return rank of referenced run, plus output reference parameters.
 */
-unsigned int RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) {
+void RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) const {
   unsigned int slot = outZero[outSlot];
-  return runZero[slot].ReplayRef(start, end);
+  runZero[slot].ReplayRef(start, end);
+}
+
+
+unsigned int RunSet::Rank(unsigned int outSlot) const {
+  unsigned int slot = outZero[outSlot];
+  return runZero[slot].Rank();
 }

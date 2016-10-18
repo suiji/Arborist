@@ -40,7 +40,7 @@ class ForestNode {
 
  public:
   
-  void SplitUpdate(const class RowRank *rowRank);
+  void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank);
   static void Export(const std::vector<unsigned int> &_nodeOrigin, const std::vector<ForestNode> &_forestNode, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
 
   inline void Init() {
@@ -94,13 +94,15 @@ class ForestNode {
    @brief The decision forest is a collection of decision trees.  DecTree members and methods are currently all static.
 */
 class Forest {
-  const int nTree;
+  const unsigned int nTree;
 
   std::vector<ForestNode> &forestNode;
   std::vector<unsigned int> &treeOrigin;
   std::vector<unsigned int> &facOrigin;
   std::vector<unsigned int> &facVec;
+
   class Predict *predict;
+  const class PMPredict *predMap;
   class BVJagged *facSplit; // Consolidation of per-tree values.
 
   void PredictAcrossNum(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
@@ -108,13 +110,13 @@ class Forest {
   void PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
  public:
 
-  void SplitUpdate(const class RowRank *rowRank) const;
+  void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank) const;
 
   void PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
   
   void PredictRowNum(unsigned int row, const double rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
-  void PredictRowFac(unsigned int row, const int rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
-  void PredictRowMixed(unsigned int row, const double rowNT[], const int rowIT[], unsigned int rowBlock, const class BitMatrix *bag) const;
+  void PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
+  void PredictRowMixed(unsigned int row, const double rowNT[], const unsigned int rowIT[], unsigned int rowBlock, const class BitMatrix *bag) const;
 
   Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
   Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, class Predict *_predict);
@@ -125,7 +127,7 @@ class Forest {
   /**
      @brief Accessor for tree count.
    */
-  int NTree() const {
+  unsigned int NTree() const {
     return nTree;
   }
 
@@ -179,27 +181,6 @@ class Forest {
    */
   inline unsigned int Height() const {
     return forestNode.size();
-  }
-
-
-  /**
-     @brief Computes tree height from either of origin vector or,
-     if at the top or growing, the current height.
-
-     @parm tIdx is the tree number, if nonnegative, otherwise an
-     indication to return the forest heigght.
-
-     @return height of tree/forest.
-   */
-  inline unsigned int TreeHeight(int tIdx) const {
-    if (tIdx < 0)
-      return Height();
-
-    unsigned int heightInf = treeOrigin[tIdx];
-    if (tIdx < nTree - 1  && treeOrigin[tIdx + 1] > 0)
-      return treeOrigin[tIdx + 1] - heightInf;
-    else
-      return Height() - heightInf;
   }
 
 

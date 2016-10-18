@@ -95,11 +95,10 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
-  NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
-  IntegerMatrix feInvNum(as<IntegerMatrix>(rowRank["invNum"]));
+  const std::vector<unsigned int> &feNumOff(as<std::vector<unsigned int> >(rowRank["numOff"]));
+  const std::vector<double> &feNumVal(as<std::vector<double> >(rowRank["numVal"]));
 
-  IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
-  unsigned int cardMax = nPredFac > 0 ? max(facCard) : 0;
+  std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
 
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
@@ -118,17 +117,17 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   RcppProxyCtg(y, classWeight, proxy);
 
   unsigned int nTree = as<unsigned int>(sNTree);
-  NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
+  std::vector<double> sampleWeight(as<std::vector<double> >(sSampleWeight));
 
   unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
 
-  Train::Init(xNum.begin(), (unsigned int*) facCard.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<unsigned int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), predProb.begin());
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), predProb.begin());
 
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
   std::vector<unsigned int> leafOrigin(nTree);
-  NumericVector predInfo(nPred);
+  std::vector<double> predInfo(nPred);
 
   std::vector<ForestNode> forestNode;
   std::vector<unsigned int> facSplit;
@@ -136,13 +135,13 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   std::vector<BagRow> bagRow;
   std::vector<double> weight;
 
-  Train::Classification(feRow, feRank, (unsigned int*) feInvNum.begin(), feRunLength, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
+  Train::Classification(feRow, feRank, feNumOff, feNumVal, feRunLength, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagRow, weight);
 
-
+  NumericVector infoOut(predInfo.begin(), predInfo.end());
   return List::create(
       _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
       _["leaf"] = RcppLeaf::WrapCtg(leafOrigin, leafNode, bagRow, nRow, weight, CharacterVector(yOneBased.attr("levels"))),
-      _["predInfo"] = predInfo[predMap] // Maps back from core order.
+      _["predInfo"] = infoOut[predMap] // Maps back from core order.
   );
 }
 
@@ -159,23 +158,22 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
-  NumericMatrix xNum(as<NumericMatrix>(predBlock["blockNum"]));
-  IntegerMatrix feInvNum(as<IntegerMatrix>(rowRank["invNum"]));
+  const std::vector<unsigned int> &feNumOff(as<std::vector<unsigned int> >(rowRank["numOff"]));
+  const std::vector<double> &feNumVal(as<std::vector<double> >(rowRank["numVal"]));
 
-  IntegerVector facCard(as<IntegerVector>(predBlock["facCard"]));
-  unsigned int cardMax = nPredFac > 0 ? max(facCard) : 0;
+  std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
 
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
   
   unsigned int nTree = as<unsigned int>(sNTree);
-  NumericVector sampleWeight(as<NumericVector>(sSampleWeight));
+  std::vector<double> sampleWeight(as<std::vector<double> >(sSampleWeight));
 
   unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
   NumericVector regMono = NumericVector(sRegMono)[predMap];
   
-  Train::Init(xNum.begin(), (unsigned int*) facCard.begin(), cardMax, nPredNum, nPredFac, nRow, nTree, as<unsigned int>(sNSamp), sampleWeight.begin(), as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), predProb.begin(), regMono.begin());
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), predProb.begin(), regMono.begin());
 
   std::vector<unsigned int> feRow = as<std::vector<unsigned int> >(rowRank["row"]);
   std::vector<unsigned int> feRank = as<std::vector<unsigned int> >(rowRank["rank"]);
@@ -188,7 +186,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
   std::vector<unsigned int> leafOrigin(nTree);
-  NumericVector predInfo(nPred);
+  std::vector<double> predInfo(nPred);
 
   std::vector<ForestNode> forestNode;
   std::vector<LeafNode> leafNode;
@@ -196,11 +194,13 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> rank;
   std::vector<unsigned int> facSplit;
 
-  Train::Regression(feRow, feRank, (unsigned int*) feInvNum.begin(), feRunLength, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo.begin(), forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
+  Train::Regression(feRow, feRank, feNumOff, feNumVal, feRunLength, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagRow, rank);
 
+  // Temporary copy for subscripted access by IntegerVector.
+  NumericVector infoOut(predInfo.begin(), predInfo.end()); 
   return List::create(
       _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
       _["leaf"] = RcppLeaf::WrapReg(leafOrigin, leafNode, bagRow, nRow, rank, as<std::vector<double> >(yRanked)),
-      _["predInfo"] = predInfo[predMap] // Maps back from core order.
+      _["predInfo"] = infoOut[predMap] // Maps back from core order.
     );
 }

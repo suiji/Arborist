@@ -27,7 +27,7 @@ using namespace std;
 /**
    @brief Crescent constructor for training.
 */
-Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(0) {
+Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(0), predMap(0) {
   facSplit = new BVJagged(facVec, _facOrigin);
 }
 
@@ -35,7 +35,7 @@ Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &
 /**
    @brief Constructor for prediction.
 */
-Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, Predict *_predict) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(_predict) {
+Forest::Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, Predict *_predict) : nTree(_origin.size()), forestNode(_forestNode), treeOrigin(_origin), facOrigin(_facOrigin), facVec(_facVec), predict(_predict), predMap(predict->PredMap())  {
   facSplit = new BVJagged(facVec, _facOrigin);
 }
 
@@ -55,9 +55,9 @@ Forest::~Forest() {
    @return void.
  */
 void Forest::PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const {
-  if (PredBlock::NPredFac() == 0)
+  if (predMap->NPredFac() == 0)
     PredictAcrossNum(rowStart, rowEnd, bag);
-  else if (PredBlock::NPredNum() == 0)
+  else if (predMap->NPredNum() == 0)
     PredictAcrossFac(rowStart, rowEnd, bag);
   else
     PredictAcrossMixed(rowStart, rowEnd, bag);
@@ -78,8 +78,8 @@ void Forest::PredictAcrossNum(unsigned int rowStart, unsigned int rowEnd, const 
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = int(rowStart); row < int(rowEnd); row++) {
-    PredictRowNum(row, PBPredict::RowNum(row), row - rowStart, bag);
-  }
+      PredictRowNum(row, predict->RowNum(row - rowStart), row - rowStart, bag);
+    }
   }
 }
 
@@ -98,7 +98,7 @@ void Forest::PredictAcrossFac(unsigned int rowStart, unsigned int rowEnd, const 
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = int(rowStart); row < int(rowEnd); row++) {
-      PredictRowFac(row, PBPredict::RowFac(row), row - rowStart, bag);
+      PredictRowFac(row, predict->RowFac(row - rowStart), row - rowStart, bag);
   }
   }
 
@@ -123,8 +123,8 @@ void Forest::PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, cons
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = int(rowStart); row < int(rowEnd); row++) {
-    PredictRowMixed(row, PBPredict::RowNum(row), PBPredict::RowFac(row), row - rowStart, bag);
-  }
+      PredictRowMixed(row, predict->RowNum(row - rowStart), predict->RowFac(row - rowStart), row - rowStart, bag);
+    }
   }
 
 }
@@ -143,7 +143,7 @@ void Forest::PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, cons
  */
 
 void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  for (int tc = 0; tc < nTree; tc++) {
+  for (unsigned int tc = 0; tc < nTree; tc++) {
     if (bag->TestBit(row, tc)) {
       predict->BagIdx(blockRow, tc);
       continue;
@@ -175,9 +175,8 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int b
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowFac(unsigned int row, const int rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  int tc;
-  for (tc = 0; tc < nTree; tc++) {
+void Forest::PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
+  for (unsigned int tc = 0; tc < nTree; tc++) {
     if (bag->TestBit(row, tc)) {
       predict->BagIdx(blockRow, tc);
       continue;
@@ -212,9 +211,8 @@ void Forest::PredictRowFac(unsigned int row, const int rowT[], unsigned int bloc
 
    @return Void with output vector parameter.
  */
-void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int rowFT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  int tc;
-  for (tc = 0; tc < nTree; tc++) {
+void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const unsigned int rowFT[], unsigned int blockRow, const class BitMatrix *bag) const {
+  for (unsigned int tc = 0; tc < nTree; tc++) {
     if (bag->TestBit(row, tc)) {
       predict->BagIdx(blockRow, tc);
       continue;
@@ -228,7 +226,7 @@ void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const int r
     forestNode[treeBase].Ref(pred, bump, num);
     while (bump != 0) {
       bool isFactor;
-      unsigned int blockIdx = PredBlock::BlockIdx(pred, isFactor);
+      unsigned int blockIdx = predMap->BlockIdx(pred, isFactor);
       idx += isFactor ? (facSplit->TestBit(tc, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
@@ -285,9 +283,9 @@ void Forest::Origins(unsigned int tIdx) {
 
    @return void
  */
-void Forest::SplitUpdate(const RowRank *rowRank) const {
+void Forest::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) const {
   for (unsigned int i = 0; i < forestNode.size(); i++) {
-    forestNode[i].SplitUpdate(rowRank);
+    forestNode[i].SplitUpdate(pmTrain, rowRank);
   }
 }
 
@@ -299,8 +297,8 @@ void Forest::SplitUpdate(const RowRank *rowRank) const {
 
    @return void.
  */
-void ForestNode::SplitUpdate(const RowRank *rowRank) {
-  if (Nonterminal() && !PredBlock::IsFactor(pred)) {
+void ForestNode::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) {
+  if (Nonterminal() && !pmTrain->IsFactor(pred)) {
     num = rowRank->MeanRank(pred, num);    
   }
 }

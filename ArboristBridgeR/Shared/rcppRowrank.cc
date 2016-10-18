@@ -27,10 +27,10 @@
 #include "rowrank.h"
 
 // Testing only:
-//#include <iostream>
+#include <iostream>
+using namespace std;
 
 using namespace Rcpp;
-using namespace std;
 
 
 /**
@@ -53,17 +53,26 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   std::vector<unsigned int> row;
   rank.reserve(nRow * nPred);
   row.reserve(nRow * nPred);
-  IntegerMatrix invNum;
+  std::vector<unsigned int> runLength;
+
+  std::vector<unsigned int> numOffset(nPredNum);
+  std::vector<double> numVal;
   if (nPredNum > 0) {
-    invNum = IntegerMatrix(nRow, nPredNum);
-    NumericMatrix blockNum = predBlock["blockNum"];
-    RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, row, rank, (unsigned int *) invNum.begin());
-  }
-  else {
-    invNum = IntegerMatrix(0,0);
+    if (!Rf_isNull(predBlock["blockNumRLE"])) {
+      List blockNumRLE((SEXP) predBlock["blockNumRLE"]);
+      if (!blockNumRLE.inherits("BlockNumRLE"))
+	stop("Expecting BlockNumRLE");
+      const std::vector<double> &valNum = as<std::vector<double> >((SEXP) blockNumRLE["valNum"]);
+      const std::vector<unsigned int> &rowStart = as<std::vector<unsigned int> >((SEXP) blockNumRLE["rowStart"]);
+      const std::vector<unsigned int> &rLength = as<std::vector<unsigned int> >((SEXP) blockNumRLE["runLength"]);
+      RowRank::PreSortNumRLE(valNum, rowStart, rLength, nPredNum, nRow, row, rank, runLength, numOffset, numVal);
+    }
+    else {
+      NumericMatrix blockNum = predBlock["blockNum"];
+      RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, row, rank, runLength, numOffset, numVal);
+    }
   }
 
-  std::vector<unsigned int> runLength;
   if (nPredFac > 0) {
     IntegerMatrix blockFac = predBlock["blockFac"];
     RowRank::PreSortFac((unsigned int*) blockFac.begin(), nPredFac, nRow, row, rank, runLength);
@@ -72,8 +81,9 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   List rowRank = List::create(
       _["row"] = row,			      
       _["rank"] = rank,
-      _["invNum"] = invNum,
-      _["runLength"] = runLength
+      _["runLength"] = runLength,
+      _["numOff"] = numOffset,
+      _["numVal"] = numVal
     );
   rowRank.attr("class") = "RowRank";
 

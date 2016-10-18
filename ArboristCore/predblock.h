@@ -18,23 +18,142 @@
 
 #include <vector>
 
+
 /**
-   @brief For now, all members are static and initialized once per training or
-   prediction session.
+   @brief Abstract class for blocks of predictor values.
  */
-class PredBlock {
+class BlockNum {
  protected:
-  static void DeImmutables();
-  static unsigned int nPredNum;
-  static unsigned int nPredFac;
-  static unsigned int nRow;
- public:  
+  double *blockNumT; // Iterator state
+  const unsigned int nPredNum;
+ public:
+
+ BlockNum(unsigned int _nPredNum) : nPredNum(_nPredNum) {}
+  virtual ~BlockNum() {}
+
+  static BlockNum *Factory(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nPredNum);
+
+  virtual void Transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
+
+
+  inline const double *Row(unsigned int rowOff) {
+    return blockNumT + nPredNum * rowOff;
+  }
+};
+
+
+class BlockNumRLE : public BlockNum {
+  const std::vector<double> &valNum;
+  const std::vector<unsigned int> &rowStart;
+  const std::vector<unsigned int> &runLength;
+  const std::vector<unsigned int> &predStart;
+  double *val;
+  unsigned int *rowNext;
+  unsigned int *idxNext;
+
+ public:
+
+  /**
+     @brief Sparse constructor.
+   */
+  BlockNumRLE(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart);
+  ~BlockNumRLE();
+  void Transpose(unsigned int rowStart, unsigned int rowEnd);
+};
+
+
+class BlockNumDense : public BlockNum {
+  double *feNumT;
+ public:
+
+ BlockNumDense(double *_feNumT, unsigned int _nPredNum) : BlockNum(_nPredNum), feNumT(_feNumT) {
+    blockNumT = _feNumT;
+  }
+
+
+  ~BlockNumDense() {
+  }
+
+  
+  /**
+     @brief Resets starting position to block within region previously
+     transposed.
+
+     @param rowStart is the first row of the block.
+
+     @param rowEnd is the sup row.  Unused here.
+
+     @return void.
+   */
+  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
+    blockNumT = feNumT + nPredNum * rowStart;
+  }
+};
+
+
+class BlockFac {
+  const unsigned int nPredFac;
+  unsigned int *feFac; // Factors, may or may not already be transposed.
+  unsigned int *blockFacT; // Iterator state.
+
+ public:
+
+  /**
+     @brief Dense constructor:  currently pre-transposed.
+   */
+ BlockFac(unsigned int *_feFacT, unsigned int _nPredFac) : nPredFac(_nPredFac), feFac(_feFacT) {
+  }
+  static BlockFac *Factory(unsigned int *_feFacT, unsigned int _nPredFac);
+  
+  /**
+     @brief Resets starting position to block within region previously
+     transposed.
+
+     @param rowStart is the first row of the block.
+
+     @param rowEnd is the sup row.  Unused here.
+
+     @return void.
+   */
+  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
+    blockFacT = feFac + nPredFac * rowStart;
+  }
+
+
+  /**
+     @brief Computes the starting position of a row of transposed
+     predictor values.
+
+     @param rowOff is the buffer offset for the row.
+
+     @return pointer to beginning of transposed row.
+   */
+  inline const unsigned int *Row(unsigned int rowOff) const {
+    return blockFacT + rowOff * nPredFac;
+  }
+};
+
+
+
+/**
+   @brief Singleton subclass instances:  training or prediction.
+ */
+class PredMap {
+ protected:
+  unsigned int nRow;
+  unsigned int nPredNum;
+  unsigned int nPredFac;
+ public:
+
+ PredMap(unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac) : nRow(_nRow), nPredNum(_nPredNum), nPredFac(_nPredFac) {
+  }
+  
   /**
      @brief Assumes numerical predictors packed in front of factor-valued.
 
      @return Position of fist factor-valued predictor.
   */
-  static inline unsigned int FacFirst() {
+  inline unsigned int FacFirst() const {
     return nPredNum;
   }
 
@@ -46,7 +165,7 @@ class PredBlock {
 
      @return true iff index references a factor.
    */
-  static inline bool IsFactor(unsigned int predIdx)  {
+  inline bool IsFactor(unsigned int predIdx)  const {
     return predIdx >= FacFirst();
   }
 
@@ -54,7 +173,7 @@ class PredBlock {
   /**
      @brief Computes block-relative position for a predictor.
    */
-  static inline unsigned int BlockIdx(int predIdx, bool &isFactor) {
+  inline unsigned int BlockIdx(int predIdx, bool &isFactor) const{
     isFactor = IsFactor(predIdx);
     return isFactor ? predIdx - FacFirst() : predIdx;
   }
@@ -63,28 +182,28 @@ class PredBlock {
   /**
      @return number or observation rows.
    */
-  static inline unsigned int NRow() {
+  inline unsigned int NRow() const {
     return nRow;
   }
 
   /**
      @return number of observation predictors.
   */
-  static inline int NPred() {
+  inline unsigned int NPred() const {
     return nPredFac + nPredNum;
   }
 
   /**
      @return number of factor predictors.
    */
-  static inline int NPredFac() {
+  inline unsigned int NPredFac() const {
     return nPredFac;
   }
 
   /**
      @return number of numerical predictors.
    */
-  static inline int NPredNum() {
+  inline unsigned int NPredNum() const {
     return nPredNum;
   }
 
@@ -94,7 +213,7 @@ class PredBlock {
 
      @return Position of first numerical predictor.
   */
-  static inline int NumFirst() {
+  inline unsigned int NumFirst() const {
     return 0;
   }
 
@@ -106,7 +225,7 @@ class PredBlock {
 
      @return Position of predictor within numerical block.
    */
-  static inline int NumIdx(int predIdx) {
+  inline unsigned int NumIdx(int predIdx) const {
     return predIdx - NumFirst();
   }
 
@@ -116,7 +235,7 @@ class PredBlock {
 
      @return Position of last numerical predictor.
   */
-  static inline int NumSup() {
+  inline unsigned int NumSup() const {
     return nPredNum;
   }
 
@@ -126,7 +245,7 @@ class PredBlock {
 
      @return Position of last factor-valued predictor.
   */
-  static inline int FacSup() {
+  inline unsigned int FacSup() const {
     return nPredNum + nPredFac;
   }
 };
@@ -135,14 +254,11 @@ class PredBlock {
 /**
    @brief Training caches numerical predictors for evaluating splits.
  */
-class PBTrain : public PredBlock {
-  static const double *feNum;
-  static const unsigned int *feCard; // Factor predictor cardinalities.
+class PMTrain : public PredMap {
+  const std::vector<unsigned int> &feCard; // Factor predictor cardinalities.
  public:
-  static unsigned int cardMax;  // High watermark of factor cardinalities.
-  static void Immutables(const double _feNum[], const unsigned int _feCard[], unsigned int _cardMax, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
-  static void DeImmutables();
-
+  unsigned int cardMax;  // High watermark of factor cardinalities.
+  PMTrain(const std::vector<unsigned int> &_feCard, unsigned int _nPred, unsigned int _nRow);
   
   /**
    @brief Computes cardinality of factor-valued predictor, or zero if not a
@@ -152,7 +268,7 @@ class PBTrain : public PredBlock {
 
    @return factor cardinality or zero.
   */
-  static inline int FacCard(int predIdx) {
+  inline int FacCard(int predIdx) const {
     return IsFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
   }
 
@@ -162,55 +278,44 @@ class PBTrain : public PredBlock {
 
      @return highest cardinality, if any, among factor predictors.
    */
-  static inline unsigned int CardMax() {
+  inline unsigned int CardMax() const {
     return cardMax;
-  }
-
-
-  /**
-   @brief Estimates mean of a numeric predictor from values at two rows.
-   N.B.:  assumes 'predIdx' and 'feIdx' are identical for numeric
-   predictors; otherwise remap with predMap[].
-
-   @param predIdx is the core-ordered predictor index.
-
-   @param rowLow is the row index of the lower estimate.
-
-   @param rowHigh is the row index of the higher estimate.
-
-   @return arithmetic mean of the (possibly equal) estimates.
- */
-  static double inline MeanVal(int predIdx, int rowLow, int rowHigh) {
-    unsigned int predBase = predIdx * nRow;
-    return 0.5 * (feNum[predBase + rowLow] + feNum[predBase + rowHigh]);
   }
 };
 
 
-class PBPredict : public PredBlock {
+class PMPredict : public PredMap {
+  BlockNum *blockNum;
+  BlockFac *blockFac;
+
  public:
-  static double *feNumT;
-  static int *feFacT;
+  static const unsigned int rowBlock = 0x2000;
 
-  static void Immutables(double *_feNumT, int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
+  PMPredict(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
+  ~PMPredict();
 
-  static void DeImmutables();
+
+  inline void BlockTranspose(unsigned int rowStart, unsigned int rowEnd) {
+    blockNum->Transpose(rowStart, rowEnd);
+    blockFac->Transpose(rowStart, rowEnd);
+  }
+
 
   /**
      @return base address for (transposed) numeric values at row.
    */
-  static inline double *RowNum(unsigned int row) {
-    return &feNumT[nPredNum * row];
+  inline const double *RowNum(unsigned int rowOff) const {
+    return blockNum->Row(rowOff);
   }
 
 
   /**
      @return base address for (transposed) factor values at row.
    */
-  static inline int *RowFac(unsigned int row) {
-    return &feFacT[nPredFac * row];
+  inline const unsigned int *RowFac(unsigned int rowOff) const {
+    return blockFac->Row(rowOff);
   }
-
 };
+
 
 #endif

@@ -27,7 +27,6 @@
    pass one (splitting) through argmax pass two.
 */
 
-unsigned int SplitSig::nPred = 0;
 double SSNode::minRatio = 0.0;
 
 // TODO:  Economize on width (nPred) here et seq.
@@ -36,16 +35,13 @@ double SSNode::minRatio = 0.0;
 /**
    @brief Sets immutable static values.
 
-   @param _nPred is the number of predictors.
-
    @param _minRatio is an inf information content for splitting.  Must
    be non-negative, as otherwise ArgMax cannot distinguish splitting
    candidates from unset SSNodes, which have initial 'info' == 0.
 
    @return void.
  */
-void SplitSig::Immutables(unsigned int _nPred, double _minRatio) {
-  nPred = _nPred;
+void SplitSig::Immutables(double _minRatio) {
   SSNode::minRatio = _minRatio;
 }
 
@@ -54,7 +50,6 @@ void SplitSig::Immutables(unsigned int _nPred, double _minRatio) {
    @brief Finalizer.
 */  
 void SplitSig::DeImmutables() {
-  nPred = 0;
   SSNode::minRatio = 0.0;
 }
 
@@ -64,18 +59,18 @@ void SplitSig::DeImmutables() {
 
    @param _sCount is the count of samples in the LHS.
 
-   @param _lhIdxCount is count of indices associated with the LHS.
+   @param _idxCount is count of indices associated with the LHS.
 
    @param _info is the splitting information value, currently Gini.
 
    @return void.
  */
-void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, unsigned int _setIdx, unsigned int _bufIdx, const SplitNux &nux) {
+void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, unsigned int _setIdx, unsigned int _bufIdx, const NuxLH &nux) {
   SSNode ssn;
   ssn.predIdx = _predIdx;
   ssn.setIdx = _setIdx;
   ssn.bufIdx = _bufIdx;
-  nux.Ref(ssn.lhIdxCount, ssn.sCount, ssn.info);
+  nux.Ref(ssn.idxStart, ssn.idxCount, ssn.sCount, ssn.info, ssn.rankMean, ssn.idxImplicit);
 
   Lookup(_levelIdx, ssn.predIdx) = ssn;
 }
@@ -95,19 +90,17 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    @param ptId is the pretree index.
 
-   @param lhStart is the start index of the LHS.
-
    @return void.
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-void SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Run *run, int start, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  return run->IsRun(setIdx) ? NonTerminalRun(preTree, run, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, start, ptId, ptLH, ptRH);
+void SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Run *run, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+  return run->IsRun(setIdx) ? NonTerminalRun(preTree, run, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, ptId, ptLH, ptRH);
 }
 
 
-double SSNode::Replay(SamplePred *samplePred, PreTree *preTree, Run *run, int start, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH) {
-  return run->IsRun(setIdx) ? ReplayRun(samplePred, preTree, sum, ptId, ptLH, ptRH, run) : ReplayNum(samplePred, preTree, start, ptLH);
+double SSNode::Replay(SamplePred *samplePred, PreTree *preTree, Run *run, unsigned int idxPred, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH) {
+  return run->IsRun(setIdx) ? ReplayRun(samplePred, preTree, sum, ptId, ptLH, ptRH, run) : ReplayNum(samplePred, preTree, sum, idxPred, ptLH, ptRH);
 }
 
 
@@ -127,10 +120,8 @@ void SSNode::NonTerminalRun(PreTree *preTree, Run *run, unsigned int ptId, unsig
 
    @return sum of LH subnode's sample values.
  */
-void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int start, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  unsigned int rkLow, rkHigh;
-  samplePred->SplitRanks(predIdx, bufIdx, start + lhIdxCount - 1, rkLow, rkHigh);
-  preTree->NonTerminalNum(info, predIdx, rkLow, rkHigh, ptId, ptLH, ptRH);
+void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
+  preTree->NonTerminalNum(info, predIdx, rankMean, ptId, idxImplicit > 0, ptLH, ptRH);
 }
 
 
@@ -141,18 +132,18 @@ void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, int start,
  */
 double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH, Run *run) {
   // Preplay() has overwritten all live sample indices with one or the other
-  // descendant.  Now the complementary descendant index is applied as appropriate.
+  // successor.  Now the complementary successor index is applied as
   // appropriate.
   //
   if (run->ExposeRH(setIdx)) { // Must walk both LH and RH runs.
     double rhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
-      unsigned int runStart, runEnd;
-      unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
       if (outSlot < run->RunsLH(setIdx)) {
-        preTree->LHBit(ptId, rank);
+        preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
       }
       else {
+	unsigned int runStart, runEnd;
+	run->RunBounds(setIdx, outSlot, runStart, runEnd);
         rhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptRH);
       }
     }
@@ -161,9 +152,9 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
   else { // Suffices just to walk LH runs.
     double lhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
+      preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
       unsigned int runStart, runEnd;
-      unsigned int rank = run->RunBounds(setIdx, outSlot, runStart, runEnd);
-      preTree->LHBit(ptId, rank);
+      run->RunBounds(setIdx, outSlot, runStart, runEnd);
       lhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptLH);
     }
     return lhSum;
@@ -172,13 +163,21 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
 
 
 /**
-   @brief Writes LH successor id at all sample indices preceding the cut.  Preplay()
-   has already preinitialized all samples with the RH id.
+   @brief Writes successor id over appropriate side of the cut.  Preplay()
+   has already preinitialized all samples with the complementary id.
 
    @return sum of LH subnode's sample values.
  */
-double SSNode::ReplayNum(SamplePred *samplePred, PreTree *preTree, int start, unsigned int ptLH) {
-  return  preTree->Replay(samplePred, predIdx, bufIdx, start, start + lhIdxCount - 1, ptLH);
+double SSNode::ReplayNum(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int idxPred, unsigned int ptLH, unsigned int ptRH) {
+  double lhSum;
+  if (idxImplicit > 0) {
+    lhSum = sum - preTree->Replay(samplePred, predIdx, bufIdx, idxStart + idxCount - idxImplicit, idxStart + idxPred - 1 - idxImplicit, ptRH);
+  }
+  else {
+    lhSum = preTree->Replay(samplePred, predIdx, bufIdx, idxStart, idxStart + idxCount - 1, ptLH);
+  }
+
+  return lhSum;
 }
 
 
@@ -219,7 +218,7 @@ SSNode *SplitSig::ArgMax(unsigned int levelIdx, double gainMax) const {
 
  @return void.
 */
-void SplitSig::LevelInit(int _splitCount) {
+void SplitSig::LevelInit(unsigned int _splitCount) {
   splitCount = _splitCount;
   levelSS = new SSNode[nPred * splitCount];
 }

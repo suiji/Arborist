@@ -17,6 +17,14 @@
 #define ARBORIST_ROWRANK_H
 
 #include <vector>
+#include <tuple>
+
+#include <cmath>
+
+typedef std::pair<double, unsigned int> ValRowD;
+typedef std::tuple<double, unsigned int, unsigned int> RLENum;
+typedef std::pair<unsigned int, unsigned int> ValRowI;
+
 
 class RRNode {
   unsigned int row;
@@ -47,9 +55,12 @@ class RRNode {
 class RowRank {
   const unsigned int nRow;
   const unsigned int nPred;
-  const unsigned int *feInvNum; // Numeric predictors only:  split assignment.
   const unsigned int noRank; // Inattainable rank value.
   static constexpr double plurality = 0.25;
+
+  // Jagged array holding numerical predictor values for splt assignment.
+  const std::vector<unsigned int> &numOffset; // Per-predictor starting offsets.
+  const std::vector<double> &numVal; // Actual predictor values.
 
   unsigned int nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
@@ -59,21 +70,40 @@ class RowRank {
   std::vector<unsigned int> rrStart;
   std::vector<unsigned int> safeOffset; // Either an index or an accumulated count.
 
-
+  
   static void FacSort(const unsigned int predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rle);
-  static void NumSort(const double predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int invRank[]);
+  static unsigned int NumSortRaw(const double predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
+  static unsigned int NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<double> &numOut);
 
-  unsigned int DenseBlock(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int nonCmprTot, unsigned int blockFirst);
-  void Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle, unsigned int inIdx, unsigned int blockFirst);
+  static void RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut);
+  static unsigned int RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
+  static void RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
+  static void Rank2Row(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut);
+  
+  unsigned int DenseBlock(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle);
+  void Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle);
 
+  inline double NumVal(unsigned int predIdx, unsigned int rk) const {
+    return numVal[numOffset[predIdx] + rk];
+  }
+  
  public:
-  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, unsigned int _feInvNum[]);
+  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
+
+  static void PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
+  
   static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
 
 
-  RowRank(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const unsigned int _feInvNum[], const std::vector<unsigned int> &feRunLength, unsigned int _nRow, unsigned int _nPred);
+  RowRank(const class PMTrain *pmTrain, const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &_numOffset, const std::vector<double> &_numVal, const std::vector<unsigned int> &feRunLength);
   ~RowRank();
 
+  
+  inline unsigned int NPred() const {
+    return nPred;
+  }
+  
+  
   inline unsigned int ExplicitCount(unsigned int predIdx) const {
     return rrCount[predIdx];
   }
@@ -81,20 +111,6 @@ class RowRank {
 
   inline void Ref(unsigned int predIdx, unsigned int idx, unsigned int &_row, unsigned int &_rank) const {
     rrNode[rrStart[predIdx] + idx].Ref(_row, _rank);
-  }
-
-  
-  /**
-     @brief Row-lookup mechanism for numerical splitting values.
-
-     @param predIdx is the index of the splitting predictor.
-
-     @param _rank is a rank bound for the splitting criterion.
-
-     @return a row index at which predictor value has desired rank.
-   */
-  inline unsigned int Rank2Row(unsigned int predIdx, unsigned int _rank) const {
-    return feInvNum[predIdx * nRow + _rank];
   }
 
   
@@ -119,8 +135,7 @@ class RowRank {
      @return buffer size conforming to conservative constraints.
    */
   unsigned int SafeSize(unsigned int stride) const {
-    return nPred * stride; // Until starting offsets cached.
-    //return nonCompact * stride + accumCompact;
+    return nonCompact * stride + accumCompact; // TODO:  align.
   }
 
   
@@ -132,15 +147,31 @@ class RowRank {
 
      @param stride is the multiplier for strided access.
 
+     @param extent outputs the number of slots avaiable for staging.
+
      @return safe offset.
    */
-  unsigned int SafeOffset(unsigned int predIdx, unsigned int stride) const {
-    return predIdx * stride; // Until starting offsets cached.
-    //    return denseRank[predIdx] == noRank ? safeOffset[predIdx] * stride : nonCompact + safeOffset[predIdx];
+  unsigned int SafeOffset(unsigned int predIdx, unsigned int stride, unsigned int &extent) const {
+    extent = denseRank[predIdx] == noRank ? stride : rrCount[predIdx];
+    return denseRank[predIdx] == noRank ? safeOffset[predIdx] * stride : nonCompact * stride + safeOffset[predIdx]; // TODO:  align.
   }
 
   
-  double MeanRank(unsigned int predIdx, double rkMean) const;
+  /**
+     @brief Derives split values for a numerical predictor.
+
+     @param predIdx is the predictor index.
+
+     @param rkMean is the mean splitting rank:  interpolates if fractional.
+
+     @return predictor value at mean rank, computed by PBTrain method.
+  */
+ inline double MeanRank(unsigned int predIdx, double rkMean) const {
+   unsigned int rankLow = floor(rkMean);
+   unsigned int rankHigh = ceil(rkMean);
+
+   return 0.5 * (NumVal(predIdx, rankLow) + NumVal(predIdx, rankHigh));
+ }
 };
 
 #endif

@@ -121,7 +121,7 @@ BitMatrix *Leaf::ForestBag(unsigned int bagTrain) {
 
    @return bag count, with output parameter vectors.
  */
-void LeafReg::Leaves(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
+void LeafReg::Leaves(const PMTrain *pmTrain, const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *std::max_element(leafMap.begin(), leafMap.end());
   NodeExtent(sample, leafMap, leafCount, tIdx);
   RowBag(sample, leafMap, leafCount, tIdx);
@@ -247,11 +247,11 @@ void Leaf::SampleOffset(std::vector<unsigned int> &sampleOffset, unsigned int le
 
    @return void, with side-effected weights and forest terminals.
  */
-void LeafCtg::Leaves(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
+void LeafCtg::Leaves(const PMTrain *pmTrain, const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *std::max_element(leafMap.begin(), leafMap.end());
   NodeExtent(sample, leafMap, leafCount, tIdx);
   RowBag(sample, leafMap, leafCount, tIdx);
-  Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
+  Scores(pmTrain, (SampleCtg*) sample, leafMap, leafCount, tIdx);
 }
 
 
@@ -266,7 +266,7 @@ void LeafCtg::Leaves(const Sample *sample, const std::vector<unsigned int> &leaf
 
    @return void, with side-effected weight vector.
  */
-void LeafCtg::Scores(const SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx) {
+void LeafCtg::Scores(const PMTrain *pmTrain, const SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx) {
   WeightInit(leafCount);
 
   std::vector<double> leafSum(leafCount);
@@ -292,7 +292,7 @@ void LeafCtg::Scores(const SampleCtg *sample, const std::vector<unsigned int> &l
         argMax = ctg;
       }
     }
-    ScoreSet(tIdx, leafIdx, argMax + maxWeight / (PredBlock::NRow() * NTree()));
+    ScoreSet(tIdx, leafIdx, argMax + maxWeight / (pmTrain->NRow() * NTree()));
   }
 }
 

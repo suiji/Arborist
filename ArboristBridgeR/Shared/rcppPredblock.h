@@ -33,7 +33,11 @@ using namespace Rcpp;
 
 class RcppPredblock {
  public:
+  static void SparseIP(const NumericVector &eltsNZ, const IntegerVector &i, const IntegerVector &p, unsigned int nRow, unsigned int nCol, std::vector<double> &valNum, std::vector<unsigned int> &rowStart, std::vector<unsigned int> &runLength, std::vector<unsigned int> &predStart);
+  static void SparseJP(NumericVector &eltsNZ, IntegerVector &j, IntegerVector &p, unsigned int nRow, std::vector<double> &valNum, std::vector<unsigned int> &rowStart, std::vector<unsigned int> &runLength);
+  static void SparseIJ(NumericVector &eltsNZ, IntegerVector &i, IntegerVector &j, unsigned int nRow, std::vector<double> &valNum, std::vector<unsigned int> &rowStart, std::vector<unsigned int> &runLength);
   static void Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_nPredNum, unsigned int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac);
+  static void Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_nPredNum, unsigned int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac, std::vector<double> &_valNum, std::vector<unsigned int> &_rowStart, std::vector<unsigned int> &_runLength, std::vector<unsigned int> &_predBlock);
   static void SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level);
   static void FactorRemap(IntegerMatrix &xFac, List &level, List &levelTrain);
 };

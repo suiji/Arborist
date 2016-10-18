@@ -149,7 +149,7 @@ class Leaf {
   virtual ~Leaf() {}
   
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst);
-  virtual void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
+  virtual void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
   virtual void RankInit(unsigned int bagCount, unsigned int init) = 0;
   virtual void RankSet(unsigned int sOff, const class Sample *sample, unsigned int sIdx) = 0;
 
@@ -262,7 +262,7 @@ class LeafReg : public Leaf {
   static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagRow> &_bagRow, const std::vector<unsigned int> &_rank, std::vector<std::vector<unsigned int> >&rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree, std::vector< std::vector<unsigned int> > &rankTree);
   
   void Reserve(unsigned int leafEst, unsigned int bagEst);
-  void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
+  void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
   void RankInit(unsigned int bagCount, unsigned int init);
   void RankSet(unsigned int sOff, const class Sample *sample, unsigned int sIdx);
 
@@ -308,7 +308,7 @@ class LeafCtg : public Leaf {
     return weight[ctgWidth * idx + ctg];
   }
   
-  void Scores(const class SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
+  void Scores(const class PMTrain *pmTrain, const class SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
  public:
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight, unsigned int _ctgWdith);
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagRow> &_bagRow, std::vector<double> &_weight);
@@ -349,7 +349,7 @@ class LeafCtg : public Leaf {
     return weight[ctgWidth * idx + ctg];
   }
 
-  void Leaves(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
+  void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
 
   void ForestWeight(double *defaultWeight) const;
 };

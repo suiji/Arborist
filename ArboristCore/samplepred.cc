@@ -16,7 +16,7 @@
 #include "samplepred.h"
 
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 unsigned int SPNode::runShift = 0;
 
@@ -55,6 +55,7 @@ SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int
   nodeVec = new SPNode[2 * bufferSize];
   
   stageOffset.reserve(nPred);
+  stageExtent.reserve(nPred);
 }
 
 
@@ -88,8 +89,9 @@ SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount, uns
 
    @return void.
  */
-void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset) {
+void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent) {
   stageOffset[predIdx] = safeOffset;
+  stageExtent[predIdx] = extent;
 
   unsigned int *smpIdx;
   SPNode *spn = Buffers(predIdx, 0, smpIdx);
@@ -117,28 +119,6 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
 
 /**
-   @brief Fills in the high and low ranks defining a numerical split.
-
-   @param predIdx is the splitting predictor.
-
-   @param sourceBit (0/1) indicates which buffer holds the current values.
-
-   @param spPos is the index position of the split.
-
-   @param rkLow outputs the low rank.
-
-   @param rkHigh outputs the high rank.
-
-   @return void, with output reference parameters.
- */
-void SamplePred::SplitRanks(unsigned int predIdx, unsigned int sourceBit, int spPos, unsigned int &rkLow, unsigned int &rkHigh) {
-  SPNode *spn = SplitBuffer(predIdx, sourceBit);
-  rkLow = spn[spPos].Rank();
-  rkHigh = spn[spPos + 1].Rank();
-}
-
-
-/**
    @brief Maps a block of sample indices from a splitting pair to the pretree node in whose sample set the indices now, as a result of splitting, reside.
 
    @param predIdx is the splitting predictor.
@@ -155,12 +135,12 @@ void SamplePred::SplitRanks(unsigned int predIdx, unsigned int sourceBit, int sp
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, int start, int end, unsigned int ptId, unsigned int sample2PT[]) {
+double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, unsigned int ptId, unsigned int sample2PT[]) {
   unsigned int *sIdx;
   SPNode *spn = Buffers(predIdx, sourceBit, sIdx);
 
   double sum = 0.0;
-  for (int idx = start; idx <= end; idx++) {
+  for (unsigned int idx = start; idx <= end; idx++) {
     sum += spn[idx].YSum();
     unsigned int sampleIdx = sIdx[idx];
     sample2PT[sampleIdx] = ptId;

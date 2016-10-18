@@ -45,20 +45,23 @@ class SplitCoord {
   void Split(class SPCtg *spCtg, const class Bottom *bottom, const class SamplePred *samplePred, const class IndexNode indexNode[]);
   void SplitNum(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
   void SplitNum(class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
-  bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class SplitNux &nux);
-  bool SplitNum(const class SPNode spn[], class SplitNux &nux);
-  bool SplitNumMono(bool increasing, const class SPNode spn[], class SplitNux &nux);
-  bool SplitNum(class SPCtg *spCtg, const class SPNode spn[], class SplitNux &nux);
-
+  bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
+  bool SplitNum(const class SPNode spn[], class NuxLH &nux);
+  bool SplitNumDense(const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
+  bool SplitNumMono(bool increasing, const class SPNode spn[], class NuxLH &nux);
+  bool SplitNum(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
+  bool NumCtgDense(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
+  bool NumCtg(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
+  unsigned int NumCtgGini(SPCtg *spCtg, const class SPNode spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf);
   void SplitFac(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
   void SplitFac(const class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
-  bool SplitFac(const class SPReg *spReg, const class SPNode spn[], unsigned int &runCount, class SplitNux &nux);
-  bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], unsigned int &runCount, class SplitNux &nux);
-  bool SplitBinary(class RunSet *runSet, const class SPCtg *spCtg, class SplitNux &nux);
-  bool SplitRuns(class RunSet *runSet, const class SPCtg *spCtg, class SplitNux &nux);
+  bool SplitFac(const class SPReg *spReg, const class SPNode spn[], unsigned int &runCount, class NuxLH &nux);
+  bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], unsigned int &runCount, class NuxLH &nux);
+  bool SplitBinary(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
+  bool SplitRuns(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
 
   unsigned int RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
-  bool HeapSplit(class RunSet *runSet, class SplitNux &nux) const;
+  bool HeapSplit(class RunSet *runSet, class NuxLH &nux) const;
   unsigned int RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SPNode spn[]) const;
 };
 
@@ -82,6 +85,7 @@ class SplitPred {
   bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, std::vector<unsigned int> &safeCount);
   
  protected:
+  const class PMTrain *pmTrain;
   static unsigned int nPred;
   const unsigned int bagCount;
   class Bottom *bottom;
@@ -91,10 +95,12 @@ class SplitPred {
   void Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount);
  public:
   class SamplePred *samplePred;
-  SplitPred(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
+  SplitPred(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   static void Immutables(unsigned int _nPred, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]);
   static void DeImmutables();
   unsigned int DenseRank(unsigned int predIdx) const;
+  bool IsFactor(unsigned int predIdx) const;
+  unsigned int NumIdx(unsigned int predIdx) const;
 
   class Run *Runs() {
     return run;
@@ -128,9 +134,10 @@ class SPReg : public SplitPred {
   void Split(const class IndexNode indexNode[]);
 
  public:
+  bool Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &leftBount) const;
   static void Immutables(unsigned int _nPred, const double *_mono);
   static void DeImmutables();
-  SPReg(const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
+  SPReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   ~SPReg();
   int MonoMode(unsigned int splitIdx, unsigned int predIdx) const;
   void RunOffsets(const std::vector<unsigned int> &safeCount);
@@ -145,9 +152,14 @@ class SPReg : public SplitPred {
    @brief Splitting facilities for categorical trees.
  */
 class SPCtg : public SplitPred {
+// Numerical tolerances taken from A. Liaw's code:
+  static constexpr double minDenom = 1.0e-5;
+  static constexpr double minSumL = 1.0e-8;
+  static constexpr double minSumR = 1.0e-5;
+
   static unsigned int ctgWidth;
   double *ctgSum; // Per-level sum, by split/category pair.
-  double *ctgSumR; // Numeric predictors:  sum to right.
+  double *ctgSumAccum; // Numeric predictors:  accumulate sums.
   double *sumSquares; // Per-level sum of squares, by split.
   const std::vector<class SampleNode> &sampleCtg;
   bool *LevelPreset(const class Index *index);
@@ -160,18 +172,33 @@ class SPCtg : public SplitPred {
   void LevelInitSumR();
 
 
- public:
-// Numerical tolerances taken from A. Liaw's code:
-  static constexpr double minDenom = 1.0e-5;
-  static constexpr double minSumL = 1.0e-8;
-  static constexpr double minSumR = 1.0e-5;
 
-  SPCtg(const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int bagCount);
+ public:
+  SPCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int bagCount);
   ~SPCtg();
   static void Immutables(unsigned int _ctgWidth);
   static void DeImmutables();
+  bool Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &leftBount, std::vector<double> &ctgSumDense) const;
+  void ApplyResiduals(unsigned int levelIdx, unsigned int predIdx, double &ssL, double &ssr, std::vector<double> &sumDenseCtg);
+  /**
+     @brief Determine whether a pair of square-sums is acceptably stable
+     for a gain computation.
+   */
+  inline bool StableSums(double sumL, double sumR) const {
+    return sumL > minSumL && sumR > minSumR;
+  }
 
- public:
+
+
+  /**
+     @brief Determines whether a pair of sums is acceptably stable to appear
+     in the denominators of a gain computation.
+   */
+  inline bool StableDenoms(double sumL, double sumR) const {
+    return sumL > minDenom && sumR > minDenom;
+  }
+  
+
   /**
      @brief Looks up node values by category.
 
@@ -195,23 +222,24 @@ class SPCtg : public SplitPred {
 
   
   /**
-     @brief Records sum of proxy values at 'yCtg' strictly to the right and updates the
-     subaccumulator by the current proxy value.
-
-     @param numIdx is contiguouly-numbered numerical index of the predictor.
+     @brief Accumulates sum of proxy values at 'yCtg' walking strictly
+     in a given direction and updates the subaccumulator by the current
+     proxy value.
 
      @param levelIdx is the level-relative node index.
+
+     @param numIdx is contiguouly-numbered numerical index of the predictor.
 
      @param yCtg is the categorical response value.
 
      @param ySum is the proxy response value.
 
-     @return recorded sum.
+     @return current partial sum.
   */
-  inline double CtgSumRight(unsigned int levelIdx, unsigned int numIdx, unsigned int yCtg, double ySum) {
+  inline double CtgSumAccum(unsigned int levelIdx, unsigned int numIdx, unsigned int yCtg, double ySum) {
     int off = numIdx * levelCount * ctgWidth + levelIdx * ctgWidth + yCtg;
-    double val = ctgSumR[off];
-    ctgSumR[off] = val + ySum;
+    double val = ctgSumAccum[off];
+    ctgSumAccum[off] = val + ySum;
 
     return val;
   }
