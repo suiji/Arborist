@@ -16,7 +16,7 @@
 #include "bv.h"
 
 //#include <iostream>
-using namespace std;
+//using namespace std;
 
 
 /**
@@ -30,6 +30,7 @@ BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len))
 
 
 /**
+   @brief Copies contents of constant vector.
  */
 BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), wrapper(false) {
   raw = new unsigned int[nSlot];
@@ -38,10 +39,17 @@ BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), wrapper(fals
   }
 }
 
+
 /**
-   @brief Wrapper constructor.
+   @brief Wrapper constructor.  Initializes external container if empty.
  */
-BV::BV(unsigned int *_raw, unsigned int _nSlot) : raw(_raw), nSlot(_nSlot), wrapper(true) {
+BV::BV(std::vector<unsigned int> &_raw, unsigned int _nSlot) : nSlot(_nSlot), wrapper(true) {
+  if (_raw.size() == 0) {
+    for (unsigned int slot = 0; slot < nSlot; slot++) {
+      _raw.push_back(0);
+    }
+  }
+  raw = &_raw[0];
 }
 
 
@@ -129,9 +137,17 @@ BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol) : BV(_nRow * Stride
 
 
 /**
-   @brief Constructor.  Sets stride to zero if empty.
+   @brief Copy constructor.  Sets stride to zero if empty.
  */
 BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw) : BV(_raw), nRow(_nRow), stride(_raw.size() > 0 ? Stride(_nCol) : 0) {
+}
+
+
+/**
+   @brief Wrapper constructor.  If nonempty, assumed to be reconstituting
+   a previously-exported BitMatrix of conforming dimensions.
+ */
+BitMatrix::BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsigned int _nCol) : BV(_raw, _nRow * Stride(_nCol)), nRow(_nRow), stride(nRow > 0 ? Stride(_nCol) : 0) {
 }
 
 

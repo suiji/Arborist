@@ -5,11 +5,13 @@ export(PreFormat)
 export(PreTrain)
 export(ForestFloorExport)
 export(RboristNews)
+export(Validate)
 
 S3method(Rborist, default)
 S3method(PreFormat, default)
 S3method(PreTrain, default)
 S3method(predict, Rborist)
 S3method(ForestFloorExport, Rborist)
+S3method(Validate, default)
 
 import(Rcpp)

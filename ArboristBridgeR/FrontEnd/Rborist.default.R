@@ -33,8 +33,11 @@
                 qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
+                thinLeaves = FALSE,
                 treeBlock = 1,
-                pvtBlock = 8, ...) {
+                pvtBlock = 8,
+                pvtPlurality = 0.25,
+                ...) {
 
   # Argument checking:
   if (inherits(x, "PreTrain") || inherits(x, "PreFormat")) {
@@ -138,7 +141,9 @@
   # Quantile constraints:  regression only
   if (quantiles && is.factor(y))
     stop("Quantiles supported for regression case only")
-
+  if (quantiles && thinLeaves)
+    stop("Thin leaves insufficient for validating quantiles.")
+    
   if (!is.null(quantVec)) {
     if (any(quantVec > 1) || any(quantVec < 0))
       stop("Quantile range must be within [0,1]")
@@ -163,10 +168,10 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, thinLeaves, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, thinLeaves, regMono)
   }
 
   predInfo <- train[["predInfo"]]
@@ -175,32 +180,11 @@
     info = predInfo
   )
 
-  if (!noValidate) {
-    if (is.factor(y)) {
-      if (ctgCensus == "votes") {
-        validation <- .Call("RcppValidateVotes", predBlock, train$forest, train$leaf, y);
-      }
-      else if (ctgCensus == "prob") {
-        validation <- .Call("RcppValidateProb", predBlock, train$forest, train$leaf, y);
-      }
-      else {
-        stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
-      }
-    }
-    else {
-      if (quantiles) {
-        if (is.null(quantVec)) {
-          quantVec <- DefaultQuantVec()
-        }
-        validation <- .Call("RcppValidateQuant", predBlock, train$forest, train$leaf, quantVec, qBin, y);
-      }
-      else {
-        validation <- .Call("RcppValidateReg", predBlock, train$forest, train$leaf, y);
-      }
-    }
+  if (noValidate) {
+    validation <- NULL
   }
   else {
-    validation <- NULL
+    validation <- Validate(preFormat, train, y, ctgCensus, quantVec, quantiles, qBin)
   }
 
   arbOut <- list(
@@ -214,6 +198,7 @@
 
   arbOut
 }
+
 
 # Groups predictors into like-typed blocks and creates zero-based type
 # summaries.

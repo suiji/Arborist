@@ -63,7 +63,9 @@
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
   \item{pvtBlock}{maximum number of trees to train in a block (e.g.,
-  cluster computing).}
+    cluster computing).}
+  \item{pvtPlurality}{plurality threshold beyond which to compress
+  predictor values.(internal sparse representation)}
   \item{...}{not currently used.}
 }
 

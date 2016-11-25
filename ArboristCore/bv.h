@@ -34,6 +34,7 @@ class BV {
   BV(unsigned int len, bool slotWise = false);
   BV(const std::vector<unsigned int> &_raw);
   BV(unsigned int *_raw, unsigned int _nSlot);
+  BV(std::vector<unsigned int> &_raw, unsigned int _nSlot);
 
   ~BV();
 
@@ -167,8 +168,13 @@ class BitMatrix : public BV {
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
   BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
+  BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsigned int _nCol);
   ~BitMatrix();
 
+  inline unsigned int NRow() const {
+    return nRow;
+  }
+  
   static void Export(const std::vector<unsigned int> &_raw, unsigned int _nRow, std::vector<std::vector<unsigned int> > &vecOut);
 
 

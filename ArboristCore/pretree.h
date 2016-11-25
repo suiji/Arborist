@@ -57,6 +57,8 @@ class PreTree {
   unsigned int bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
   std::vector<unsigned int> ppHand; // Handedness of preplay.
+  std::vector<unsigned int> ntNext; // IndexNode indices for upcoming level.
+
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
   const std::vector<unsigned int> FrontierToLeaf(class Forest *forest, unsigned int tIdx);
@@ -78,6 +80,13 @@ class PreTree {
   const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, std::vector<double> &predInfo);
   void NodeConsume(class Forest *forest, unsigned int tIdx);
   void BitConsume(unsigned int *outBits);
+
+
+  /**
+   */
+  inline bool NonTerminal(unsigned int ptId) {
+    return nodeVec[ptId].lhId > 0;
+  }
 
   
   /**
@@ -105,14 +114,47 @@ class PreTree {
     _leafCount += leafCount;
     _bagCount += bagCount;
   }
+
   
+  /**
+     @brief Associates a relative PTNode index in the upcoming level
+     with the index of its corresponding IndexNode.
+
+     @param ptId is the absolute nonterminal index.
+
+     @param idxNext is the level-relative split index.
+
+     @return void.
+   */
+  void NTIndex(unsigned int ptId, unsigned int idxNext) {
+    ntNext[ptId - levelBase] = idxNext;
+  }
+  
+  
+  /**
+     @brief Looks up index node associated with frontier node.
+
+     @param sIdx is the sample index lookup key.
+
+     @param indexNext outputs either an IndexNode index or a placeholder
+     value, depending whether the frontier node is a nonterminal.
+
+     @return true iff frontier node defined in current level.
+  */
+  bool IndexNext(unsigned int sIdx, unsigned int &indexNext) {
+    unsigned int ptId = sample2PT[sIdx];
+    indexNext = ptId >= levelBase ? ntNext[ptId - levelBase] : bagCount;
+    return ptId >= levelBase;
+  }
+
+  void RelIdx(class Bottom *bottom, const std::vector<class IndexNode> &indexNode, unsigned int lhSplitNext);
   void LHBit(int idx, unsigned int pos);
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
   void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
 
   double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
   
-  void NextLevel(int splitNext, int leafNext);
+  unsigned int NextLevel(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
 };
 

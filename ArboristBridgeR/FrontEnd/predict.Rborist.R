@@ -60,7 +60,7 @@ PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin
   }
   else if (inherits(leaf, "LeafCtg")) {
     if (!is.null(quantVec))
-      stop("Quantiles supported for regression case only")
+      stop("Quantiles not supported for classifcation")
 
     if (ctgCensus == "votes") {
       prediction <- .Call("RcppTestVotes", predBlock, forest, leaf, yTest)

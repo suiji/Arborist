@@ -37,14 +37,12 @@
 
    @param rank outputs the tie-classed predictor ranks.
 
-
    @output void, with output vector parameters.
  */
 void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
-  unsigned int outColOff = 0;
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
-    numOffOut[numIdx] = outColOff;
-    outColOff += NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rlOut, numOut);
+    numOffOut[numIdx] = numOut.size();
+    NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rlOut, numOut);
   }
 }
 
@@ -52,7 +50,7 @@ void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned
 void RowRank::PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
   unsigned int colOff = 0;
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
-    numOffOut[numIdx] = colOff;
+    numOffOut[numIdx] = numOut.size();
     unsigned int idxCol = NumSortRLE(&valNum[colOff], _nRow, &rowStart[colOff], &runLength[colOff], rowOut, rankOut, rlOut, numOut);
     colOff += idxCol;
   }
@@ -83,14 +81,14 @@ unsigned int RowRank::NumSortRLE(const double colNum[], unsigned int _nRow, cons
 
    @return void.
  */
-unsigned int RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
+void RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
   std::vector<ValRowD> valRow(_nRow);
   for (unsigned int row = 0; row < _nRow; row++) {
     valRow[row] = std::make_pair(colNum[row], row);
   }
 
   std::sort(valRow.begin(), valRow.end());  // Stable sort.
-  return RankNum(valRow, rowOut, rankOut, rleOut, numOut);
+  RankNum(valRow, rowOut, rankOut, rleOut, numOut);
 }
 
 
@@ -101,9 +99,8 @@ unsigned int RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, std:
 
    @return void.
  */
-unsigned int RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
+void RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
   unsigned int rk = 0;
-  unsigned int topNum = numOut.size();
   rleOut.push_back(1);
   rowOut.push_back(valRow[0].second);
   numOut.push_back(valRow[0].first);
@@ -116,17 +113,15 @@ unsigned int RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<un
       rleOut.back()++;
     }
     else { // New RLE, row and rank entries regardless whether tied.
+      if (valThis != numOut.back()) {
+	rk++;
+	numOut.push_back(valThis);
+      }
+      rankOut.push_back(rk);
       rleOut.push_back(1);
       rowOut.push_back(rowThis);
-      rankOut.push_back(rk);
-      if (valThis != numOut.back()) { // New rank, num entry iff not tied.
-	numOut.push_back(valThis);
-	rk++;
-      }
     }
   }
-
-  return numOut.size() - topNum;
 }
 
 
@@ -138,10 +133,10 @@ unsigned int RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<un
 void RowRank::RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
   RLENum elt = rleNum[0];
   unsigned int rk = 0;
+  rankOut.push_back(rk);
   numOut.push_back(std::get<0>(elt));
   rowOut.push_back(std::get<1>(elt));
   rleOut.push_back(std::get<2>(elt));
-  rankOut.push_back(rk);
   for (unsigned int idx = 1; idx < rleNum.size(); idx++) {
     elt = rleNum[idx];
     double valThis = std::get<0>(elt);
@@ -151,13 +146,13 @@ void RowRank::RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned in
       rleOut.back() += runCount;
     }
     else { // New RLE, rank entries regardless whether tied.
-      rleOut.push_back(runCount);
-      rowOut.push_back(rowThis);
-      rankOut.push_back(rk);
       if (valThis != numOut.back()) {
-	numOut.push_back(valThis);
 	rk++;
+	numOut.push_back(valThis);
       }
+      rankOut.push_back(rk);
+      rowOut.push_back(rowThis);
+      rleOut.push_back(runCount);
     }
   }
 }

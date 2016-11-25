@@ -137,7 +137,7 @@ SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samp
 
    @return split count.
 */
-void SplitPred::LevelInit(Index *index, IndexNode indexNode[], unsigned int _levelCount) {
+void SplitPred::LevelInit(Index *index, std::vector<IndexNode> &indexNode, unsigned int _levelCount) {
   levelCount = _levelCount;
   std::vector<unsigned int> safeCount;
   bool *unsplitable = LevelPreset(index);
@@ -156,7 +156,7 @@ void SplitPred::LevelInit(Index *index, IndexNode indexNode[], unsigned int _lev
 
    @return void.
 */
-void SplitPred::SetPrebias(IndexNode indexNode[]) {
+void SplitPred::SetPrebias(std::vector<IndexNode> &indexNode) {
   for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
     IndexNode *idxNode = &indexNode[levelIdx];
     unsigned int sCount;
@@ -182,7 +182,7 @@ unsigned int SplitPred::DenseRank(unsigned int predIdx) const {
 
    @return void.
  */
-void SPReg::LevelInit(Index *index, IndexNode indexNode[], unsigned int _levelCount) {
+void SPReg::LevelInit(Index *index, std::vector<IndexNode> &indexNode, unsigned int _levelCount) {
   SplitPred::LevelInit(index, indexNode, _levelCount);
   if (predMono > 0) {
     unsigned int monoCount = _levelCount * nPred; // Clearly too big.
@@ -544,7 +544,7 @@ void SplitCoord::InitEarly(unsigned int _splitPos, unsigned int _levelIdx, unsig
 
    @return void.
  */
-void SplitCoord::InitLate(const Bottom *bottom, const IndexNode indexNode[]) {
+void SplitCoord::InitLate(const Bottom *bottom, const std::vector<IndexNode> &indexNode) {
   unsigned int idxCount;
   preBias = indexNode[levelIdx].SplitFields(idxStart, idxCount, sCount, sum);
   denseCount = bottom->AdjustDense(levelIdx, predIdx, idxStart, idxCount);
@@ -556,7 +556,7 @@ void SplitCoord::InitLate(const Bottom *bottom, const IndexNode indexNode[]) {
 }
 
  
-void SPReg::Split(const IndexNode indexNode[]) {
+void SPReg::Split(const std::vector<IndexNode> &indexNode) {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
   int splitPos;
 #pragma omp parallel default(shared) private(splitPos)
@@ -571,7 +571,7 @@ void SPReg::Split(const IndexNode indexNode[]) {
 }
 
 
-void SPCtg::Split(const IndexNode indexNode[]) {
+void SPCtg::Split(const std::vector<IndexNode> &indexNode) {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
   int splitPos;
 #pragma omp parallel default(shared) private(splitPos)
@@ -588,7 +588,7 @@ void SPCtg::Split(const IndexNode indexNode[]) {
 /**
    @brief  Regression splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const IndexNode indexNode[]) {
+void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexNode> &indexNode) {
   InitLate(bottom, indexNode);
 
   // Bagging or restaging may precipitate new singletons.
@@ -608,7 +608,7 @@ void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePre
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const IndexNode indexNode[]) {
+void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexNode> &indexNode) {
   InitLate(bottom, indexNode);
   
   // Bagging or restaging may precipitate new singletons.

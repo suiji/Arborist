@@ -143,13 +143,13 @@ void Forest::PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, cons
  */
 
 void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  for (unsigned int tc = 0; tc < nTree; tc++) {
-    if (bag->TestBit(row, tc)) {
-      predict->BagIdx(blockRow, tc);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    if (bag->TestBit(row, tIdx)) {
+      predict->BagIdx(blockRow, tIdx);
       continue;
     }
 
-    unsigned int treeBase = treeOrigin[tc];
+    unsigned int treeBase = treeOrigin[tIdx];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred; // N.B.:  Use BlockIdx() if numericals not numbered from 0.
@@ -159,7 +159,7 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int b
       idx += (rowT[pred] <= num ? bump : bump + 1);
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    predict->LeafIdx(blockRow, tc, pred);
+    predict->LeafIdx(blockRow, tIdx, pred);
   }
 }
 
@@ -176,13 +176,13 @@ void Forest::PredictRowNum(unsigned int row, const double rowT[], unsigned int b
    @return Void with output vector parameter.
  */
 void Forest::PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  for (unsigned int tc = 0; tc < nTree; tc++) {
-    if (bag->TestBit(row, tc)) {
-      predict->BagIdx(blockRow, tc);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    if (bag->TestBit(row, tIdx)) {
+      predict->BagIdx(blockRow, tIdx);
       continue;
     }
 
-    unsigned int treeBase = treeOrigin[tc];
+    unsigned int treeBase = treeOrigin[tIdx];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred; // N.B.: Use BlockIdx() if not factor-only (zero based).
@@ -190,10 +190,10 @@ void Forest::PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned
     forestNode[treeBase].Ref(pred, bump, num);
     while (bump != 0) {
       unsigned int bitOff = (unsigned int) num + rowT[pred];
-      idx += facSplit->TestBit(tc, bitOff) ? bump : bump + 1;
+      idx += facSplit->TestBit(tIdx, bitOff) ? bump : bump + 1;
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    predict->LeafIdx(blockRow, tc, pred);
+    predict->LeafIdx(blockRow, tIdx, pred);
   }
 }
 
@@ -212,13 +212,13 @@ void Forest::PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned
    @return Void with output vector parameter.
  */
 void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const unsigned int rowFT[], unsigned int blockRow, const class BitMatrix *bag) const {
-  for (unsigned int tc = 0; tc < nTree; tc++) {
-    if (bag->TestBit(row, tc)) {
-      predict->BagIdx(blockRow, tc);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    if (bag->TestBit(row, tIdx)) {
+      predict->BagIdx(blockRow, tIdx);
       continue;
     }
 
-    unsigned int treeBase = treeOrigin[tc];
+    unsigned int treeBase = treeOrigin[tIdx];
     unsigned int idx = 0;
     unsigned int bump;
     unsigned int pred;
@@ -227,10 +227,10 @@ void Forest::PredictRowMixed(unsigned int row, const double rowNT[], const unsig
     while (bump != 0) {
       bool isFactor;
       unsigned int blockIdx = predMap->BlockIdx(pred, isFactor);
-      idx += isFactor ? (facSplit->TestBit(tc, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
+      idx += isFactor ? (facSplit->TestBit(tIdx, (unsigned int) num + rowFT[blockIdx]) ? bump : bump + 1) : (rowNT[blockIdx] <= num ? bump : bump + 1);
       forestNode[treeBase + idx].Ref(pred, bump, num);
     }
-    predict->LeafIdx(blockRow, tc, pred);
+    predict->LeafIdx(blockRow, tIdx, pred);
   }
 }
 

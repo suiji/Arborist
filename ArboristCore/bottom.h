@@ -247,25 +247,27 @@ class Level {
   const unsigned int nPred;
   const unsigned int splitCount;
   const unsigned int noIndex; // Inattainable node index value.
+  const unsigned int idxTot; // Total # sample indices at level.
   unsigned int defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
+
   // Persistent:
   std::vector<Cell> cell; // Stage coordinates, by node.
-  std::vector<MRRA*> def2;
   std::vector<MRRA> liveDef;
+
   // More elegant and parsimonious to use std::map from pair to node,
   // but hashing much too slow.
   std::vector<MRRA> def; // Indexed by pair-offset.
 
   // Recomputed:
+  std::vector<unsigned int> rel2Rel; // Indexed by (previous) relative index.
   std::vector<PathNode> pathNode; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
  public:
 
-  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex);
+  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxTot);
   ~Level();
 
-  void Def2();
   void Flush(class Bottom *bottom, bool forward = true);
   void FlushDef(class Bottom *bottom, unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();
@@ -279,6 +281,21 @@ class Level {
   void SetRuns(const class Bottom *bottom, unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ);
   void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
 
+  /**
+     @brief Accessor for count of live sample indices.
+   */
+  unsigned int IdxTot() {
+    return idxTot;
+  }
+
+  
+  /**
+   */
+  void RelUpdate(unsigned int relPrev, unsigned int relIdx) {
+    rel2Rel[relPrev] = relIdx;
+  }
+
+  
   /**
      @brief Will overflow if level sufficiently fat:  switch to depth-first
      in such regimes.
@@ -448,7 +465,8 @@ class Bottom {
   std::vector<unsigned char> deltaPrev;
 
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
-  
+
+  std::vector<unsigned int> sample2Rel;
   SamplePath *samplePath;
   unsigned int splitPrev;
   unsigned int frontCount; // # nodes in the level about to split.
@@ -480,8 +498,6 @@ class Bottom {
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
   bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx);
-  void Split(const std::vector<SPPair> &pairNode, const class IndexNode indexNode[]);
-  void Split(const class IndexNode indexNode[], unsigned int bottomIdx, int setIdx);
 
   inline void RunCounts(const class SPNode targ[], const SPPair &mrra, unsigned int del) {
     level[del]->RunCounts(targ, mrra, this);
@@ -492,11 +508,11 @@ class Bottom {
   
   Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize);
   ~Bottom();
-  void Overlap(unsigned int _splitCount);
+  void Overlap(unsigned int _splitCount, unsigned int idxTot);
   void LevelInit();
 
   void LevelClear();
-  const std::vector<class SSNode*> Split(class Index *index, class IndexNode indexNode[]);
+  const std::vector<class SSNode*> Split(class Index *index, std::vector<class IndexNode> &indexNode);
   void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
   void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   void PathLeft(unsigned int sIdx) const;
@@ -510,6 +526,15 @@ class Bottom {
   SPNode *RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx);
   SPNode *RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   bool IsFactor(unsigned int predIdx) const;
+
+  inline void UpdateFront(unsigned int sIdx, unsigned int relIdx) {
+    unsigned int relPrev = sample2Rel[sIdx];
+    level[1]->RelUpdate(relPrev, relIdx);
+    sample2Rel[sIdx] = relIdx;
+    if (relIdx < levelFront->IdxTot()) { // Else extinct.
+      // pathRel[relIdx] = path[indexNext];
+    }
+  }
   
   
   inline void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ) const {

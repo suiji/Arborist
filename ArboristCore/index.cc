@@ -23,8 +23,8 @@
 #include "bottom.h"
 
 // Testing only:
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 //#include <time.h>
 //clock_t clock(void);
 
@@ -72,10 +72,9 @@ void NodeCache::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) : bagCount(_bagCount), samplePred(_samplePred), preTree(_preTree), bottom(_bottom) {
+Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) : indexNode(std::vector<IndexNode>(1)), bagCount(_bagCount), samplePred(_samplePred), preTree(_preTree), bottom(_bottom) {
   levelBase = 0;
   levelWidth = 1;
-  indexNode = new IndexNode[1];
   indexNode[0].Init(0, 0, 0, _bagCount, _nSamp, _sum, 0.0, 0);
 }
 
@@ -92,7 +91,9 @@ Index::~Index() {
 IndexNode::IndexNode() : splitIdx(0), lhStart(0), idxCount(0), sCount(0), sum(0.0), minInfo(0.0), ptId(0), path(0) {
 }
 
-NodeCache::NodeCache() : IndexNode(), terminal(true) {}
+
+NodeCache::NodeCache() : IndexNode() {}
+
 
 /**
    @brief Instantiates a block of PreTees for bulk return, but may or may
@@ -142,9 +143,10 @@ void  Index::Levels() {
   for (unsigned int level = 0; levelCount > 0; level++) {
     //    cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit();
-    unsigned int splitNext, lhNext, leafNext;
-    NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhNext, leafNext);
+    unsigned int splitNext, lhNext, leafNext, idxTot;
+    NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhNext, leafNext, idxTot);
     if (splitNext != 0 && level + 1 != totLevels) {
+      bottom->Overlap(splitNext, idxTot);
       LevelProduce(nodeCache, level, levelCount, splitNext, lhNext, leafNext);
       levelCount = splitNext;
     }
@@ -172,7 +174,6 @@ NodeCache *Index::CacheNodes(const std::vector<SSNode*> &argMax) {
   for (unsigned int splitIdx = 0; splitIdx < argMax.size(); splitIdx++) {
     nodeCache[splitIdx].Cache(&indexNode[splitIdx], argMax[splitIdx]);
   }
-  delete [] indexNode;
 
   return nodeCache;
 }
@@ -187,11 +188,11 @@ NodeCache *Index::CacheNodes(const std::vector<SSNode*> &argMax) {
 
    @return total number of splits in the next level.
  */
-unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext) {
-  lhSplitNext = leafNext = 0;
+unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
+  lhSplitNext = leafNext = idxTot = 0;
   unsigned int rhSplitNext = 0;
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++)
-    nodeCache[splitIdx].SplitCensus(lhSplitNext, rhSplitNext, leafNext);
+    nodeCache[splitIdx].SplitCensus(lhSplitNext, rhSplitNext, leafNext, idxTot);
   
   // Restaging is implemented as a patient stable partition.
   //
@@ -215,13 +216,15 @@ unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, 
 
    @return void, plus output reference parameters.
 */
-void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext) {
-  if (ssNode == 0)
+void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
+  if (ssNode == 0) {
     return;
+  }
 
   ssNode->LHSizes(lhSCount, lhIdxCount);
   if (Splitable(lhIdxCount)) {
     lhSplitNext++;
+    idxTot += lhIdxCount;
   }
   else {
     leafNext++;
@@ -229,6 +232,7 @@ void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext
 
   if (Splitable(idxCount - lhIdxCount)) {
     rhSplitNext++;
+    idxTot += idxCount - lhIdxCount;
   }
   else
     leafNext++;
@@ -243,15 +247,15 @@ void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext
 
    @return count of nodes at next level:  zero if short-circuiting.
 */
-NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext) {
+NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
   NodeCache *nodeCache = CacheNodes(bottom->Split(this, indexNode));
-  splitNext = LevelCensus(nodeCache, levelCount, lhSplitNext, leafNext);
+  splitNext = LevelCensus(nodeCache, levelCount, lhSplitNext, leafNext, idxTot);
 
-  preTree->NextLevel(splitNext, leafNext);
+  unsigned int heightPrev = preTree->NextLevel(splitNext, leafNext);
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].NonTerminal(preTree, samplePred, bottom);
   }
-  preTree->Preplay(levelCount);
+  preTree->Preplay(heightPrev);
   
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
     nodeCache[splitIdx].Consume(preTree, samplePred, bottom);
@@ -289,34 +293,16 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
   levelBase += levelWidth;
   levelWidth = splitNext + leafNext;
 
-  ntLH = new bool[levelWidth];
-  ntRH = new bool[levelWidth];
-  for (unsigned int i = 0; i < levelWidth; i++)
-    ntLH[i] = ntRH[i] = false;
-
   unsigned int lhCount = 0;
   unsigned int rhCount = 0;
-
   // Next call guaranteed, so no dangling references:
-  indexNode = new IndexNode[splitNext];
-  bottom->Overlap(splitNext);
+  std::vector<IndexNode> _indexNode(splitNext);
+  indexNode = std::move(_indexNode);
   for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
-    nodeCache[splitIdx].Successors(this, preTree, samplePred, bottom, lhSplitNext, lhCount, rhCount);
+    nodeCache[splitIdx].Successors(this, preTree, bottom, lhSplitNext, lhCount, rhCount);
   }
-  LRLive(bottom, nodeCache, level);
 
-  // Assigns start values to consecutive nodes at next level.
-  /*
-  unsigned int idxCount = 0;
-  for (unsigned int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
-    indexNode[splitIdx].Start() = idxCount;
-    idxCount += indexNode[splitIdx].IdxCount();
-  }
-  */
-
-  delete [] ntLH;
-  delete [] ntRH;
-  ntLH = ntRH = 0;
+  preTree->RelIdx(bottom, indexNode, lhSplitNext);
 }
 
 
@@ -346,84 +332,25 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
 
    @return void, plus output reference parameters.
 */
-void NodeCache::Successors(Index *index, PreTree *preTree, SamplePred *samplePred, Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
-  if (ssNode != 0) {
-    if (Splitable(lhIdxCount)) {
-      terminal = false;
-      unsigned int lNext = lhSplitCount++;
-      unsigned int start = lhStart;
-      unsigned int pathNext = index->NextLH(lNext, ptL, start, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
-      bottom->ReachingPath(splitIdx, pathNext, lNext, start, lhIdxCount);
-    }
-
-    if (Splitable(idxCount - lhIdxCount)) {
-      terminal = false;
-      unsigned int rNext = lhSplitNext + rhSplitCount++;
-      unsigned int start = lhStart + lhIdxCount;
-      unsigned int pathNext = index->NextRH(rNext, ptR, start, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
-      bottom->ReachingPath(splitIdx, pathNext, rNext, start, idxCount - lhIdxCount);
-    }
+void NodeCache::Successors(Index *index, PreTree *preTree, Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
+  if (ssNode == 0) {
+    return;
   }
-}
 
-
-/**
-   @brief Packs live lh/rh information into bit vectors and zero-pads up to the next slot boundary.
-
-   @param bitsLH[] outputs live LH bits.
-
-   @param bitsRH[] outputs live RH bits.
-
-   @param lhIdxTot outputs the count of LH indices used in the upcoming level.
-
-   @param rhIdxTot outputs the count of RH indices used in the upcoming level.
-
-   @return void, with output parameters.
- */
-void Index::PredicateBits(BV *sIdxLH, BV *sIdxRH, int &lhIdxTot, int &rhIdxTot) const {
-  lhIdxTot = rhIdxTot = 0;
-  unsigned int slotBits = BV::SlotElts();
-  int slot = 0;
-  for (unsigned int base = 0; base < bagCount; base += slotBits, slot++) {
-    unsigned int lhBits = 0;
-    unsigned int rhBits = 0;
-    unsigned int mask = 1;
-    unsigned int supIdx = bagCount < base + slotBits ? bagCount : base + slotBits;
-    for (unsigned int sIdx = base; sIdx < supIdx; sIdx++, mask <<= 1) {
-      unsigned int levelOff;
-      bool atLevel = LevelOffSample(sIdx, levelOff);
-      if (atLevel) {
-	bool isLH = ntLH[levelOff];
-	lhIdxTot += isLH ? 1 : 0;
-	lhBits |= isLH ? mask : 0;
-	bool isRH = ntRH[levelOff];
-	rhIdxTot += isRH ? 1 : 0;
-	rhBits |= ntRH[levelOff] ? mask : 0;
-      }
-    }
-    sIdxLH->SetSlot(slot, lhBits);
-    sIdxRH->SetSlot(slot, rhBits);
+  if (Splitable(lhIdxCount)) {
+    unsigned int lNext = lhSplitCount++;
+    unsigned int start = lhStart;
+    unsigned int pathNext = index->NextLH(lNext, ptL, start, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), path);
+    preTree->NTIndex(ptL, lNext);
+    bottom->ReachingPath(splitIdx, pathNext, lNext, start, lhIdxCount);
   }
-}
 
-
-/**
-   @brief 
- */
-void Index::LRLive(Bottom *bottom, const NodeCache *nodeCache, unsigned int level) const {
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int levelOff; // Not dense w.r.t. levelIdx.
-    if (LevelOffSample(sIdx, levelOff)) {
-      if (ntLH[levelOff])
-	bottom->PathLeft(sIdx);
-      else if (ntRH[levelOff])
-	bottom->PathRight(sIdx);
-      else {
-	bottom->PathExtinct(sIdx);
-      }
-    }
-    else
-      bottom->PathExtinct(sIdx);
+  if (Splitable(idxCount - lhIdxCount)) {
+    unsigned int rNext = lhSplitNext + rhSplitCount++;
+    unsigned int start = lhStart + lhIdxCount;
+    unsigned int pathNext = index->NextRH(rNext, ptR, start, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), path);
+    preTree->NTIndex(ptR, rNext);
+    bottom->ReachingPath(splitIdx, pathNext, rNext, start, idxCount - lhIdxCount);
   }
 }
 

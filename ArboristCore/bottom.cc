@@ -55,7 +55,7 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stageSize(_stageSize), samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()) {
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stageSize(_stageSize), sample2Rel(std::vector<unsigned int>(bagCount)),  samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()) {
   prePath = new unsigned int[stageSize];
   std::vector<unsigned int> _history(0);
   history = std::move(_history);
@@ -64,11 +64,14 @@ Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_spl
   std::fill(_levelDelta.begin(), _levelDelta.end(), 0);
   levelDelta = std::move(_levelDelta);
   
-  levelFront = new Level(1, nPred, bagCount);
+  levelFront = new Level(1, nPred, bagCount, bagCount);
   level.push_front(levelFront);
 
   levelFront->Node(0, 0, bagCount, bagCount);
 
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    sample2Rel[sIdx] = sIdx;
+  }
   splitPred->SetBottom(this);
 }
 
@@ -87,7 +90,7 @@ void Bottom::RootDef(unsigned int predIdx, unsigned int denseCount) {
 }
 
   
-Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), defCount(0), del(0) {
+Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxTot) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), idxTot(_idxTot), defCount(0), del(0), rel2Rel(std::vector<unsigned int>(idxTot)) {
   MRRA df;
   df.Undefine();
 
@@ -104,7 +107,7 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noInde
 
    @return vector of splitting signatures, possibly empty, for each node passed.
  */
-const std::vector<class SSNode*> Bottom::Split(class Index *index, class IndexNode indexNode[]) {
+const std::vector<class SSNode*> Bottom::Split(class Index *index, std::vector<IndexNode> &indexNode) {
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
 
@@ -639,11 +642,13 @@ void Bottom::LevelClear() {
 
    @param splitNext is the number of nodes in the upcoming level.
 
+   @param idxTot is the number of sample indices upcoming.
+
    @return void.
  */
-void Bottom::Overlap(unsigned int splitCount) {
+void Bottom::Overlap(unsigned int splitCount, unsigned int idxTot) {
   splitPrev = frontCount;
-  levelFront = new Level(splitCount, nPred, bagCount);
+  levelFront = new Level(splitCount, nPred, bagCount, idxTot);
   level.push_front(levelFront);
 
   historyPrev = std::move(history);
@@ -659,6 +664,7 @@ void Bottom::Overlap(unsigned int splitCount) {
   //
   for(unsigned int i = 1; i < level.size(); i++) {
     level[i]->Paths();
+    //    level[i]->IndexUpdate(level[i-1]->RelIdx());
   }
 
   frontCount = splitCount;

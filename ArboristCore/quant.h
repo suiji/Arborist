@@ -20,26 +20,33 @@
 #include <vector>
 
 
+typedef std::pair<double, unsigned int> RankedPair;
+
 /**
  @brief Quantile signature.
 */
 class Quant {
   const class PredictReg *predictReg;
   const class LeafReg *leafReg;
+  const std::vector<double> &yTrain;
+  std::vector<RankedPair> yRanked;
+  class RankCount *rankCount; // forest-wide, by sample
   const std::vector<double> &qVec;
-  std::vector<unsigned int> sampleOffset;
   const unsigned int qCount;
   unsigned int logSmudge;
   unsigned int binSize;
-  unsigned int *sCountSmudge;
+  std::vector<unsigned int> binTemp; // Helper vector.
+  std::vector<unsigned int> sCountSmudge;
 
   int *leafPos;
   
   unsigned int BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge);
   void SmudgeLeaves();
   void Leaves(unsigned int rowBlock, double qRow[]);
-  unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, unsigned int sampRanks[]);
-  unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, unsigned int sampRanks[]);
+  unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, std::vector<unsigned int> &sampRanks);
+  unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, std::vector<unsigned int> &sampRanks);
+
+  
  public:
   Quant(const class PredictReg *_predictReg, const class LeafReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin);
   ~Quant();

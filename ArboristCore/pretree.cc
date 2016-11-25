@@ -15,10 +15,12 @@
  */
 
 #include "bv.h"
+#include "bottom.h"
 #include "pretree.h"
 #include "forest.h"
 #include "predblock.h"
 #include "samplepred.h"
+#include "index.h"
 
 //#include <iostream>
 //using namespace std;
@@ -221,9 +223,14 @@ double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned in
 
    @param leafNext is the count of leaves in the upcoming level.
 
-   @return void.
+   @return current height;
 */
-void PreTree::NextLevel(int splitNext, int leafNext) {
+unsigned int PreTree::NextLevel(unsigned int splitNext, unsigned int leafNext) {
+  // Speculatively sets all new node indices to non-splitting index.
+  std::vector<unsigned int> _ntNext(leafNext + splitNext);
+  std::fill(_ntNext.begin(), _ntNext.end(), splitNext);
+  ntNext = std::move(_ntNext);
+
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -236,6 +243,8 @@ void PreTree::NextLevel(int splitNext, int leafNext) {
   std::vector<unsigned int> _ppHand(height - levelBase);
   ppHand = std::move(_ppHand);
   std::fill(ppHand.begin(), ppHand.end(), 0);
+
+  return height;
 }
 
 
@@ -256,7 +265,7 @@ bool PreTree::PreplayHand(unsigned int parId, unsigned int &hand) {
 }
 
 
-void PreTree::Preplay(unsigned int levelCount) {
+void PreTree::Preplay(unsigned int heightPrev) {
   for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
     unsigned int ptThis = sample2PT[sIdx];
     unsigned int hand;
@@ -264,7 +273,39 @@ void PreTree::Preplay(unsigned int levelCount) {
       sample2PT[sIdx] = hand;
     }
   }
-  levelBase += levelCount;
+  levelBase = heightPrev;
+}
+
+
+/**
+   @brief Propagates relative indices for each sample extant in the
+   upcoming level.
+ */
+void PreTree::RelIdx(Bottom *bottom, const std::vector<IndexNode> &indexNode, unsigned int lhSplitNext) {
+  // Assigns relative index offsets to consecutive nodes at next level.
+  unsigned int splitNext = indexNode.size();
+  std::vector<unsigned int> relIdx(splitNext + 1);
+  unsigned int idxTot = 0;
+  for (unsigned int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
+    relIdx[splitIdx] = idxTot;
+    idxTot += indexNode[splitIdx].IdxCount();
+  }
+  relIdx[splitNext] = idxTot;
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    unsigned int indexNext;
+    if (IndexNext(sIdx, indexNext)) {
+      bottom->UpdateFront(sIdx, relIdx[indexNext]++);
+      if (indexNext < lhSplitNext)
+	bottom->PathLeft(sIdx);
+      else if(indexNext < splitNext)
+	bottom->PathRight(sIdx);
+      else
+	bottom->PathExtinct(sIdx);
+    }
+    else {
+      bottom->PathExtinct(sIdx);
+    }
+  }
 }
 
 
