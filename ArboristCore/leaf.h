@@ -61,6 +61,7 @@ class RankCount {
 class LeafNode {
   double score;
   unsigned int extent; // count of sample-index slots.
+
   static void TreeExport(const std::vector<LeafNode> &_leafNode, unsigned int treeOff, unsigned int leafCount, std::vector<double> &_score, std::vector<unsigned int> &_extent);
 
 
@@ -68,12 +69,13 @@ class LeafNode {
      @brief All-field accessor.
 
      @return void, with output reference parameters.
-   */
-  inline void Ref(double &_score, unsigned int _extent) const {
+  */
+  inline void Ref(double &_score, unsigned int &_extent) const {
     _score = score;
     _extent = extent;
   }
 
+  
  public:
   static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, std::vector<std::vector<double> > &_score, std::vector<std::vector<unsigned int> > &_extent);
 
@@ -114,10 +116,10 @@ class LeafNode {
     return score;
   }
 
+
   inline double GetScore() const {
     return score;
   }
-
 };
 
 
@@ -129,12 +131,12 @@ class Leaf {
   std::vector<BagLeaf> &bagLeaf; // bagged row/count:  per sample.
   class BitMatrix *bagRow;
 
-  static void TreeExport(const std::vector<BagLeaf> &_bagLeaf, unsigned int bagOrig, unsigned int bagCount, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree);
+  static void TreeExport(const class BitMatrix *bag, const std::vector<BagLeaf> &_bagLeaf, unsigned int bagOrig, unsigned int bagCount, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree);
 
  protected:
   std::vector<unsigned int> offset; // Forest-wide leaf offsets.
   static unsigned int BagCount(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, unsigned int tIdx);
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree);
+  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree);
   void NodeExtent(const class Sample *sample, std::vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx);
   void ForestOffsets();
 
@@ -291,7 +293,7 @@ class LeafReg : public Leaf {
   LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
   LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, unsigned int rowTrain);
   ~LeafReg();
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<std::vector<unsigned int> >&rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree);
+  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<std::vector<unsigned int> >&rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree);
   
   void Reserve(unsigned int leafEst, unsigned int bagEst);
   void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
@@ -313,7 +315,7 @@ class LeafCtg : public Leaf {
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight);
   ~LeafCtg();
 
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, const std::vector<double> &_weight, unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &_weightTree);
+  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &_weight, unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &_weightTree);
 
   void Reserve(unsigned int leafEst, unsigned int bagEst);
 

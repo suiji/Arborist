@@ -35,14 +35,14 @@ using namespace Rcpp;
 //#include <iostream>
 
 SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
-  unsigned int rawSize = forestNode.size() * sizeof(ForestNode);
-  RawVector fnRaw(rawSize);
-  for (unsigned int i = 0; i < rawSize; i++) {
-    fnRaw[i] = ((unsigned char*) &forestNode[0])[i];
+  size_t numSize = forestNode.size() * (sizeof(ForestNode) / sizeof(double));
+  NumericVector fnNum(numSize);
+  for (size_t i = 0; i < numSize; i++) {
+    fnNum[i] = ((double*) &forestNode[0])[i];
   }
 
   List forest = List::create(
-     _["forestNode"] = fnRaw,
+     _["forestNode"] = fnNum,
      _["origin"] = origin,
      _["facOrig"] = facOrigin,
      _["facSplit"] = facSplit);
@@ -57,21 +57,17 @@ SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector
 
    @return void.
  */
-void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrig, std::vector<unsigned int> &_facSplit, std::vector<ForestNode> &_forestNode) {
+void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facSplit, size_t &_facLen, std::vector<unsigned int> &_facOrig, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
 
-  RawVector fnRaw = forest["forestNode"];
-  unsigned int rawSize = fnRaw.length();
-  std::vector<ForestNode> forestNode(rawSize / sizeof(ForestNode));
-  for (unsigned int i = 0; i < rawSize; i++) {
-    ((unsigned char*) &forestNode[0])[i] = fnRaw[i];
-  }
-  
-
   _origin = as<std::vector<unsigned int> >(forest["origin"]);
-  _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
   _facSplit = as<std::vector<unsigned int> >(forest["facSplit"]);
-  _forestNode = std::move(forestNode);
+  _facLen = _facSplit.size();
+  _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
+
+  NumericVector fnNum((SEXP) forest["forestNode"]);
+  _forestNode = (ForestNode *) fnNum.begin();
+  _nodeEnd = fnNum.length() / (sizeof(ForestNode) / sizeof(double));
 }

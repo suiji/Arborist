@@ -18,7 +18,6 @@
 //#include <iostream>
 //using namespace std;
 
-
 /**
  */
 BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len)), wrapper(false) {
@@ -50,6 +49,10 @@ BV::BV(std::vector<unsigned int> &_raw, unsigned int _nSlot) : nSlot(_nSlot), wr
     }
   }
   raw = &_raw[0];
+}
+
+
+BV::BV(unsigned int _raw[], size_t _nSlot) : raw(_raw), nSlot(_nSlot), wrapper(true) {
 }
 
 
@@ -159,25 +162,20 @@ BitMatrix::~BitMatrix() {
 
 /**
  */
-BVJagged::BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsigned int> _rowOrigin) : BV(_raw), nRow(_rowOrigin.size()), nElt(Slots() * slotElts) {
-  rowOrigin = new unsigned int[nRow];
-  for (unsigned int i = 0; i < nRow; i++) {
-    rowOrigin[i] = _rowOrigin[i];
-  }
+BVJagged::BVJagged(unsigned int _raw[], size_t _nSlot, const std::vector<unsigned int> &_rowOrigin) : BV(_raw, _nSlot), nElt(_nSlot * slotElts), rowOrigin(_rowOrigin) {
 }
 
 
 /**
  */
 BVJagged::~BVJagged() {
-  delete [] rowOrigin;
 }
 
 
 /**
  */
 unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
-  if (rowIdx < nRow - 1) {
+  if (rowIdx < rowOrigin.size() - 1) {
     return sizeof(unsigned int) * (rowOrigin[rowIdx + 1] - rowOrigin[rowIdx]);
   }
   else {
@@ -186,8 +184,8 @@ unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
 }
 
 
-void BVJagged::Export(const std::vector<unsigned int> _origin, const std::vector<unsigned int> _raw, std::vector<std::vector<unsigned int> > &outVec) {
-  BVJagged *bvj = new BVJagged(_raw, _origin);
+void BVJagged::Export(unsigned int _raw[], size_t _facLen, const std::vector<unsigned int> _origin, std::vector<std::vector<unsigned int> > &outVec) {
+  BVJagged *bvj = new BVJagged(_raw, _facLen, _origin);
   bvj->Export(outVec);
 
   delete bvj;
@@ -197,7 +195,7 @@ void BVJagged::Export(const std::vector<unsigned int> _origin, const std::vector
    @brief Exports contents of a forest.
  */
 void BVJagged::Export(std::vector<std::vector<unsigned int> > &outVec) {
-  for (unsigned int row = 0; row < nRow; row++) {
+  for (unsigned int row = 0; row < rowOrigin.size(); row++) {
     unsigned int rowHeight = RowHeight(row);
     outVec[row] = std::vector<unsigned int>(rowHeight);
     RowExport(outVec[row], rowHeight, row);

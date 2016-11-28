@@ -298,8 +298,8 @@ void LeafCtg::ForestWeight(double *defaultWeight) const {
 
 /**
  */
-void LeafReg::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree) {
-  Leaf::Export(_origin, _leafNode, _bagLeaf, rowTree, sCountTree);
+void LeafReg::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree) {
+  Leaf::Export(_origin, _leafNode, _bagLeaf, _bagBits, rowTree, sCountTree);
   LeafNode::Export(_origin, _leafNode, scoreTree, extentTree);
   unsigned int bagOrig = 0;
   for (unsigned int tIdx = 0; tIdx < _origin.size(); tIdx++) {
@@ -314,15 +314,29 @@ void LeafReg::Export(const std::vector<unsigned int> &_origin, const std::vector
 
    @return void, with output reference parameters.
  */
-void Leaf::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree) {
+void Leaf::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree) {
   unsigned int _nTree = _origin.size();
   unsigned int bagOrig = 0;
+  BitMatrix *bag = new BitMatrix(_bagBits, _bagBits.size() / _nTree, _nTree);
   for (unsigned int tIdx = 0; tIdx < _nTree; tIdx++) {
     unsigned int bagCount = BagCount(_origin, _leafNode, tIdx);
     rowTree[tIdx] = std::vector<unsigned int>(bagCount);
     sCountTree[tIdx] = std::vector<unsigned int>(bagCount);
-    TreeExport(_bagLeaf, bagOrig, bagCount, rowTree[tIdx], sCountTree[tIdx]);
+    TreeExport(bag, _bagLeaf, bagOrig, tIdx, rowTree[tIdx], sCountTree[tIdx]);
     bagOrig += bagCount;
+  }
+  delete bag;
+}
+
+
+void Leaf::TreeExport(const BitMatrix *bag, const std::vector<BagLeaf> &_bagLeaf, unsigned int bagOrig, unsigned int tIdx, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree) {
+  unsigned int bagIdx = 0;
+  for (unsigned int row = 0; row < bag->NRow(); row++) {
+    if (bag->TestBit(row, tIdx)) {
+      rowTree[bagIdx] = row;
+      sCountTree[bagIdx] = _bagLeaf[bagOrig + bagIdx].SCount();
+      bagIdx++;
+    }
   }
 }
 
@@ -342,14 +356,6 @@ void LeafNode::Export(const std::vector<unsigned int> &_origin, const std::vecto
 }
 
 
-void Leaf::TreeExport(const std::vector<BagLeaf> &_bagLeaf, unsigned int bagOrig, unsigned int bagCount, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree) {
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    rowTree[sIdx] = 0; // FIX:  Obtain rows from BagRow bits, in order.
-    sCountTree[sIdx] = _bagLeaf[bagOrig + sIdx].SCount();
-  }
-}
-
-
 /**
    @brief Per-tree exporter into separate vectors.
  */
@@ -364,8 +370,8 @@ void LeafNode::TreeExport(const std::vector<LeafNode> &_leafNode, unsigned int t
 
 /**
  */
-void LeafCtg::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, const std::vector<double> &_weight, unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &weightTree) {
-  Leaf::Export(_origin, _leafNode, _bagLeaf, rowTree, sCountTree);
+void LeafCtg::Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &_weight, unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &weightTree) {
+  Leaf::Export(_origin, _leafNode, _bagLeaf, _bagBits, rowTree, sCountTree);
   LeafNode::Export(_origin, _leafNode, scoreTree, extentTree);
   for (unsigned int tIdx = 0; tIdx < _origin.size(); tIdx++) {
     unsigned int leafCount = LeafCount(_origin, _weight.size(), _ctgWidth, tIdx);

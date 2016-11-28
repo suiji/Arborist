@@ -18,6 +18,7 @@
 #define ARBORIST_BV_H
 
 #include <vector>
+#include <algorithm>
 
 // TODO: Recast using templates.
 
@@ -33,7 +34,7 @@ class BV {
 
   BV(unsigned int len, bool slotWise = false);
   BV(const std::vector<unsigned int> &_raw);
-  BV(unsigned int *_raw, unsigned int _nSlot);
+  BV(unsigned int _raw[], size_t _nSlot);
   BV(std::vector<unsigned int> &_raw, unsigned int _nSlot);
 
   ~BV();
@@ -207,19 +208,18 @@ class BitMatrix : public BV {
    @brief Jagged bit matrix:  unstrided access.
  */
 class BVJagged : public BV {
-  const unsigned int nRow;
-  const unsigned int nElt;
-  unsigned int *rowOrigin;
+  const size_t nElt;
+  const std::vector<unsigned int> &rowOrigin;
   void Export(std::vector<std::vector<unsigned int> > &outVec);
   void RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
   unsigned int RowHeight(unsigned int rowIdx) const;
  public:
-  BVJagged(const std::vector<unsigned int> &_raw, const std::vector<unsigned int> _origin);
+  BVJagged(unsigned int _raw[], size_t _nSlot, const std::vector<unsigned int> &_origin);
   ~BVJagged();
-  static void Export(const std::vector<unsigned int> _origin, const std::vector<unsigned int> _raw, std::vector<std::vector<unsigned int> > &outVec);
+  static void Export(unsigned int _raw[], std::size_t facLen, const std::vector<unsigned int> _origin, std::vector<std::vector<unsigned int> > &outVec);
 
 
-  inline unsigned int NElt() const {
+  inline size_t NElt() const {
     return nElt;
   }
 

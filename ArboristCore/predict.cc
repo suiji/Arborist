@@ -30,10 +30,10 @@ using namespace std;
 /**
    @brief Static entry for regression case.
  */
-void Predict::Regression(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &yTrain, std::vector<double> &_yPred) {
+void Predict::Regression(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facSplit[], size_t _facLen, const std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &yTrain, std::vector<double> &_yPred) {
   LeafReg *_leafReg = new LeafReg(_leafOrigin, _leafNode, _bagLeaf, _bagBits);
   PredictReg *predictReg = new PredictReg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafReg, yTrain, _origin.size(), _yPred);
-  Forest *forest =  new Forest(_forestNode, _origin, _facOff, _facSplit, predictReg);
+  Forest *forest =  new Forest(_forestNode, _origin, _facSplit, _facLen, _facOff, predictReg);
   predictReg->PredictAcross(forest);
 
   delete predictReg;
@@ -47,10 +47,10 @@ void Predict::Regression(const std::vector<double> &_valNum, const std::vector<u
 
    // Only prediction method requiring BagLeaf.
  */
-void Predict::Quantiles(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &yTrain, std::vector<double> &_yPred, const std::vector<double> &quantVec, unsigned int qBin, std::vector<double> &qPred, bool validate) {
+void Predict::Quantiles(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facSplit[], size_t _facLen, const std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &yTrain, std::vector<double> &_yPred, const std::vector<double> &quantVec, unsigned int qBin, std::vector<double> &qPred, bool validate) {
   LeafReg *_leafReg = new LeafReg(_leafOrigin, _leafNode, _bagLeaf, _bagBits);
   PredictReg *predictReg = new PredictReg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafReg, yTrain, _origin.size(), _yPred);
-  Forest *forest =  new Forest(_forestNode, _origin, _facOff, _facSplit, predictReg);
+  Forest *forest =  new Forest(_forestNode, _origin, _facSplit, _facLen, _facOff, predictReg);
   Quant *quant = new Quant(predictReg, _leafReg, quantVec, qBin);
   predictReg->PredictAcross(forest, quant, &qPred[0], validate);
 
@@ -64,10 +64,10 @@ void Predict::Quantiles(const std::vector<double> &_valNum, const std::vector<un
 /**
    @brief Entry for separate classification prediction.
  */
-void Predict::Classification(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_leafInfoCtg, std::vector<unsigned int> &_yPred, unsigned int *_census, const std::vector<unsigned int> &_yTest, unsigned int *_conf, std::vector<double> &_error, double *_prob) {
+void Predict::Classification(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facSplit[], size_t _facLen, const std::vector<unsigned int> &_facOff, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_leafInfoCtg, std::vector<unsigned int> &_yPred, unsigned int *_census, const std::vector<unsigned int> &_yTest, unsigned int *_conf, std::vector<double> &_error, double *_prob) {
   LeafCtg *_leafCtg = new LeafCtg(_leafOrigin, _leafNode, _bagLeaf, _bagBits, _leafInfoCtg);
   PredictCtg *predictCtg = new PredictCtg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafCtg, _origin.size(), _yPred);
-  Forest *forest = new Forest(_forestNode, _origin, _facOff, _facSplit, predictCtg);
+  Forest *forest = new Forest(_forestNode, _origin, _facSplit, _facLen, _facOff, predictCtg);
   predictCtg->PredictAcross(forest, _census, _yTest, _conf, _error, _prob);
 
   delete predictCtg;

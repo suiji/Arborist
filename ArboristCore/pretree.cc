@@ -336,7 +336,7 @@ void PreTree::ReNodes() {
 
   @return void, with side-effected forest.
 */
-const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tIdx, std::vector<double> &predInfo) {
+const std::vector<unsigned int> PreTree::DecTree(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) {
   forest->Origins(tIdx);
   forest->NodeInit(height);
   NodeConsume(forest, tIdx);
@@ -357,7 +357,7 @@ const std::vector<unsigned int> PreTree::DecTree(Forest *forest, unsigned int tI
 
    @return void, with output reference parameter.
 */
-void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
+void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) {
   for (unsigned int idx = 0; idx < height; idx++) {
     nodeVec[idx].Consume(pmTrain, forest, tIdx);
   }
@@ -373,7 +373,7 @@ void PreTree::NodeConsume(Forest *forest, unsigned int tIdx) {
 
    @return void, with side-effected Forest.
  */
-void PTNode::Consume(const PMTrain *pmTrain, Forest *forest, unsigned int tIdx) {
+void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx) {
   if (lhId > 0) { // i.e., nonterminal
     forest->NonterminalProduce(tIdx, id, predIdx, lhId - id, pmTrain->IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
   }
@@ -388,7 +388,7 @@ void PTNode::Consume(const PMTrain *pmTrain, Forest *forest, unsigned int tIdx) 
 
    @return Pointer to rewritten map, with side-effected Forest.
  */
-const std::vector<unsigned int> PreTree::FrontierToLeaf(Forest *forest, unsigned int tIdx) {
+const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, unsigned int tIdx) {
   // Initializes with unattainable leaf-index value.
   std::vector<unsigned int> nodeLeaf(height);
   std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);

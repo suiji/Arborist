@@ -19,7 +19,6 @@
 #include "rowrank.h"
 #include "samplepred.h"
 #include "bottom.h"
-#include "forest.h"
 
 //#include <iostream>
 //using namespace std;

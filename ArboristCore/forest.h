@@ -18,6 +18,7 @@
 #define ARBORIST_FOREST_H
 
 #include <vector>
+#include <algorithm>
 
 /**
    @brief To replace parallel array access.
@@ -26,7 +27,7 @@ class ForestNode {
   unsigned int pred;
   unsigned int bump;
   double num;
-  static void TreeExport(const std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_pred, std::vector<unsigned int> &_bump, std::vector<double> &_split, unsigned int treeOff, unsigned int treeHeight);
+  static void TreeExport(const ForestNode *_forestNode, std::vector<unsigned int> &_pred, std::vector<unsigned int> &_bump, std::vector<double> &_split, unsigned int treeOff, unsigned int treeHeight);
 
   /**
      @brief Static determination of individual tree height.
@@ -38,10 +39,10 @@ class ForestNode {
     return tIdx < _nodeOrigin.size() - 1 ? _nodeOrigin[tIdx + 1] - heightInf : height - heightInf;
   }
 
- public:
   
+ public:
   void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank);
-  static void Export(const std::vector<unsigned int> &_nodeOrigin, const std::vector<ForestNode> &_forestNode, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
+  static void Export(const std::vector<unsigned int> &_nodeOrigin, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
 
   inline void Init() {
     pred = bump = 0;
@@ -67,14 +68,6 @@ class ForestNode {
 
 
   /**
-     @brief Accessor for final leaf index.
-   */
-  inline unsigned int &LeafIdx() {
-    return pred;
-  }
-
-  
-  /**
      @return True iff bump value is nonzero.
    */
   inline bool Nonterminal() const {
@@ -91,60 +84,47 @@ class ForestNode {
 
 
 /**
-   @brief The decision forest is a collection of decision trees.  DecTree members and methods are currently all static.
+   @brief The decision forest as a read-only collection.
 */
 class Forest {
-  const unsigned int nTree;
-
-  std::vector<ForestNode> &forestNode;
-  std::vector<unsigned int> &treeOrigin;
-  std::vector<unsigned int> &facOrigin;
-  std::vector<unsigned int> &facVec;
+  const ForestNode *forestNode;
+  const std::vector<unsigned int> &treeOrigin;
+  class BVJagged *facSplit; // Consolidation of per-tree values.
 
   class Predict *predict;
   const class PMPredict *predMap;
-  class BVJagged *facSplit; // Consolidation of per-tree values.
 
   void PredictAcrossNum(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
   void PredictAcrossFac(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
   void PredictAcrossMixed(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const;
- public:
 
-  void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank) const;
 
-  void PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
+  inline unsigned int NTree() const {
+    return treeOrigin.size();
+  }
+
+
+  inline void Ref(unsigned int idx, unsigned int &pred, unsigned int &bump, double &num) const {
+    forestNode[idx].Ref(pred, bump, num);
+  }
   
-  void PredictRowNum(unsigned int row, const double rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
+
+ public:
+  void PredictAcross(unsigned int rowStart, unsigned int rowEnd, const class BitMatrix *bag) const ;
+   void PredictRowNum(unsigned int row, const double rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
   void PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
   void PredictRowMixed(unsigned int row, const double rowNT[], const unsigned int rowIT[], unsigned int rowBlock, const class BitMatrix *bag) const;
 
-  Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
-  Forest(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec, class Predict *_predict);
+  Forest(const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facVec[], size_t _facLen, const std::vector<unsigned int> &_facOrigin, class Predict *_predict);
   ~Forest();
-
-  void NodeInit(unsigned int treeHeight);
-  
-  /**
-     @brief Accessor for tree count.
-   */
-  unsigned int NTree() const {
-    return nTree;
-  }
-
-  
-  /**
-   */
-  unsigned int *Origin() {
-    return &treeOrigin[0];
-  }
-  
-
-  void TreeBlock(class PreTree *ptBlock[], int treeBlock, int treeStart);
+};
 
 
-  inline unsigned Origin(int tIdx) {
-    return treeOrigin[tIdx];
-  }
+class ForestTrain {
+  std::vector<ForestNode> &forestNode;
+  std::vector<unsigned int> &treeOrigin;
+  std::vector<unsigned int> &facOrigin;
+  std::vector<unsigned int> &facVec;
 
 
   inline unsigned int NodeIdx(unsigned int tIdx, unsigned int nodeOffset) {
@@ -152,6 +132,32 @@ class Forest {
   }
 
   
+  /**
+     @return current size of forest.
+   */
+  inline unsigned int Height() const {
+    return forestNode.size();
+  }
+
+
+  /**
+     @return current size of splitting vector.
+   */
+  inline unsigned int SplitHeight() const {
+    return facVec.size();
+  }
+
+  
+ public:
+  ForestTrain(std::vector<ForestNode> &_forestNode, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<unsigned int> &_facVec);
+  ~ForestTrain();
+  void BitProduce(const class BV *splitBits, unsigned int bitEnd);
+  void Origins(unsigned int tIdx);
+  void Reserve(unsigned int nodeEst, unsigned int facEst, double slop);
+  void NodeInit(unsigned int treeHeight);
+  void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank) const;
+
+
   /**
      @brief Sets looked-up nonterminal node to values passed.
 
@@ -171,73 +177,6 @@ class Forest {
   inline void LeafProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _leafIdx) {
     forestNode[NodeIdx(tIdx, nodeIdx)].Set(_leafIdx, 0, 0.0);
   }
-
-
-  void Reserve(unsigned int nodeEst, unsigned int facEst, double slop);
-
-
-  /**
-     @return current size of (possibly crescent) forest.
-   */
-  inline unsigned int Height() const {
-    return forestNode.size();
-  }
-
-
-  /**
-     @return current size of (possibly crescent) splitting vector.
-   */
-  inline unsigned int SplitHeight() const {
-    return facVec.size();
-  }
-
-
-  inline bool Nonterminal(unsigned int idx) const {
-    return forestNode[idx].Nonterminal();
-  }
-
-  
-  /**
-     @brief
-
-     @param tIdx is a tree index, if nonnegative, else a place holder
-     indicating that the offset is absolute.
-
-     @param off is the offset, either absolute or tree-relative.
-
-     @return true iff referenced node is non-terminal.
-   */
-  inline bool Nonterminal(int tIdx, unsigned int off) const {
-    unsigned int idx = tIdx >= 0 ? treeOrigin[tIdx] + off : off;
-    return Nonterminal(idx);
-  }
-  
-
-  inline unsigned int &LeafIdx(unsigned int idx) {
-    return forestNode[idx].LeafIdx();
-  }
-
-
-  /**
-     @brief Computes the extent of a leaf, that is, the number of
-     samples it subsumes.
-
-     @param tIdx is a tree index, if nonnegative, else a place holder
-     indicating that the offset is absolute.
-
-     @param off is the offset, either absolute or tree-relative.
-
-     @return referenced leaf index.
-   */
-  inline unsigned int &LeafIdx(int tIdx, unsigned int off) {
-    unsigned int idx = tIdx >= 0 ? treeOrigin[tIdx] + off : off;
-    return LeafIdx(idx);
-  }
-
-
-  void NodeProduce(unsigned int _predIdx, unsigned int _bump, double _split);
-  void BitProduce(const class BV *splitBits, unsigned int bitEnd);
-  void Origins(unsigned int tIdx);
 };
 
 #endif

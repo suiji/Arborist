@@ -40,7 +40,7 @@ class PTNode {
     unsigned int offset; // Bit-vector offset:  factor.
     double rkMean; // Mean rank:  numeric.
   } splitVal;
-  void Consume(const class PMTrain *pmTrain, class Forest *forest, unsigned int tIdx);
+  void Consume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx);
 };
 
 
@@ -61,7 +61,7 @@ class PreTree {
 
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
-  const std::vector<unsigned int> FrontierToLeaf(class Forest *forest, unsigned int tIdx);
+  const std::vector<unsigned int> FrontierToLeaf(class ForestTrain *forest, unsigned int tIdx);
   unsigned int bagCount;
   unsigned int levelBase; // Height at base of current level.
   unsigned int BitWidth();
@@ -77,8 +77,8 @@ class PreTree {
   static void Reserve(unsigned int height);
   void Preplay(unsigned int levelCount);
 
-  const std::vector<unsigned int> DecTree(class Forest *forest, unsigned int tIdx, std::vector<double> &predInfo);
-  void NodeConsume(class Forest *forest, unsigned int tIdx);
+  const std::vector<unsigned int> DecTree(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo);
+  void NodeConsume(class ForestTrain *forest, unsigned int tIdx);
   void BitConsume(unsigned int *outBits);
 
 

@@ -28,7 +28,7 @@ class Train {
   static unsigned int trainBlock; // Front-end defined buffer size.
   const unsigned int nTree;
 
-  class Forest *forest;
+  class ForestTrain *forest;
   std::vector<double> &predInfo; // E.g., Gini gain:  nPred.
   class Response *response;
 
@@ -44,7 +44,7 @@ class Train {
 
   ~Train();
   
-  void ForestTrain(const class PMTrain *pmTrain, const class RowRank *rowRank);
+  void TrainForest(const class PMTrain *pmTrain, const class RowRank *rowRank);
 
  public:
 /**
