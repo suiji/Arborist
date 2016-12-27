@@ -16,6 +16,7 @@
 #include "bottom.h"
 #include "bv.h"
 #include "index.h"
+#include "pretree.h"
 #include "splitpred.h"
 #include "samplepred.h"
 #include "sample.h"
@@ -24,11 +25,14 @@
 #include "runset.h"
 #include "rowrank.h"
 
+#include <numeric>
+#include <algorithm>
+
 // Testing only:
 //#include <iostream>
 //using namespace std;
-#include <time.h>
-clock_t clock(void);
+//#include <time.h>
+//clock_t clock(void);
 
 
 
@@ -55,8 +59,7 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stageSize(_stageSize), sample2Rel(std::vector<unsigned int>(bagCount)),  samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), bvLeft(new BV(bagCount)), bvDead(new BV(bagCount)), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()) {
-  prePath = new unsigned int[stageSize];
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), prePath(std::vector<unsigned int>(_stageSize)), sample2Rel(std::vector<unsigned int>(bagCount)),  samplePath(new SamplePath[bagCount]), splitPrev(0), frontCount(1), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()) {
   std::vector<unsigned int> _history(0);
   history = std::move(_history);
 
@@ -69,9 +72,7 @@ Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_spl
 
   levelFront->Node(0, 0, bagCount, bagCount);
 
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    sample2Rel[sIdx] = sIdx;
-  }
+  std::iota(sample2Rel.begin(), sample2Rel.end(), 0);
   splitPred->SetBottom(this);
 }
 
@@ -90,7 +91,7 @@ void Bottom::RootDef(unsigned int predIdx, unsigned int denseCount) {
 }
 
   
-Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxTot) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), idxTot(_idxTot), defCount(0), del(0), rel2Rel(std::vector<unsigned int>(idxTot)) {
+Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxLive) : nPred(_nPred), splitCount(_splitCount), noIndex(_noIndex), idxLive(_idxLive), defCount(0), del(0), rel2Front(std::vector<unsigned int>(idxLive)) {
   MRRA df;
   df.Undefine();
 
@@ -111,10 +112,7 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, std::vector<I
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index, indexNode, frontCount);
 
-  //  unsigned int t1 = clock();
   Restage();
-  //unsigned int t2 = clock();
-  // cout << "post restage: " << t2 - t1 << endl;
 
   // Source levels must persist through restaging ut allow path lookup.
   //
@@ -124,8 +122,6 @@ const std::vector<class SSNode*> Bottom::Split(class Index *index, std::vector<I
   }
 
   splitPred->Split(indexNode);
-  //t1 = clock();
-  // cout << "post split: " << t1 - t2 << endl;
 
   std::vector<SSNode*> ssNode(frontCount);
   for (unsigned int levelIdx = 0; levelIdx < frontCount; levelIdx++) {
@@ -152,7 +148,7 @@ unsigned int Bottom::FlushRear() {
   // also save lookup time, as all definitions reaching from rear are
   // now at current level.
   //
-  if ((level.size() > pathMax)) {
+  if ((level.size() > PathNode::pathMax)) {
     level.back()->Flush(this);
     supUnFlush--;
   }
@@ -280,15 +276,12 @@ void Level::CellBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int 
    @brief Class finalizer.
  */
 Bottom::~Bottom() {
-  delete [] prePath;
   for (auto *defLevel : level) {
     defLevel->Flush(this, false);
     delete defLevel;
   }
   level.clear();
 
-  delete bvLeft;
-  delete bvDead;
   delete [] samplePath;
   delete splitPred;
   delete splitSig;
@@ -296,24 +289,6 @@ Bottom::~Bottom() {
 
 
 Level::~Level() {
-}
-
-
-void Bottom::PathLeft(unsigned int sIdx) const {
-   samplePath[sIdx].PathLeft();
-   bvLeft->SetBit(sIdx, true);
-}
-
-
-void Bottom::PathRight(unsigned int sIdx) const {
-    samplePath[sIdx].PathRight();
-    bvLeft->SetBit(sIdx, false);
-}
-
-
-void Bottom::PathExtinct(unsigned int sIdx) const {
-  samplePath[sIdx].PathExtinct();
-  bvDead->SetBit(sIdx, true);
 }
 
 
@@ -373,7 +348,7 @@ void Bottom::Restage() {
    @brief General, multi-level restaging.
  */
 void Bottom::Restage(RestageCoord &rsCoord) {
-  unsigned int reachOffset[1 << pathMax];
+  unsigned int reachOffset[1 << PathNode::pathMax];
   unsigned int del, runCount, bufIdx;
   SPPair mrra;
   rsCoord.Ref(mrra, del, runCount, bufIdx);
@@ -404,8 +379,8 @@ SPNode *Bottom::RestageDense(unsigned int reachOffset[], const SPPair &mrra, uns
   unsigned int *sIdxSource, *sIdxTarg;
   Buffers(mrra, bufIdx, source, sIdxSource, targ, sIdxTarg);
 
-  unsigned int *ppBlock = prePath + samplePred->StageOffset(mrra.second);
-  unsigned int pathCount[1 << pathMax];
+  unsigned int *ppBlock = &prePath[samplePred->StageOffset(mrra.second)];
+  unsigned int pathCount[1 << PathNode::pathMax];
   for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
     pathCount[path] = 0;
   }
@@ -417,13 +392,13 @@ SPNode *Bottom::RestageDense(unsigned int reachOffset[], const SPPair &mrra, uns
   CellBounds(mrra, del, startIdx, extent);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
-    if (bvDead->TestBit(sIdx)) {
-      ppBlock[idx] = noPath;
-    }
-    else {
-      unsigned int path = Path(sIdx, del);
+    unsigned int path;
+    if (Path(sIdx, del, path)) {
       ppBlock[idx] = path;
       pathCount[path]++;
+    }
+    else {
+      ppBlock[idx] = PathNode::noPath;
     }
   }
 
@@ -431,7 +406,7 @@ SPNode *Bottom::RestageDense(unsigned int reachOffset[], const SPPair &mrra, uns
   level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int path = ppBlock[idx];
-    if (path != noPath) {
+    if (path != PathNode::noPath) {
       unsigned int destIdx = reachOffset[path]++;
       targ[destIdx] = source[idx];
       sIdxTarg[destIdx] = sIdxSource[idx];
@@ -484,8 +459,8 @@ SPNode *Bottom::RestageIrr(unsigned int reachOffset[], const SPPair &mrra, unsig
   CellBounds(mrra, del, startIdx, extent);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
-    if (!bvDead->TestBit(sIdx)) {  // Irregular access:  1 bit.
-      unsigned path = Path(sIdx, del); // Irregular access:  8 bits.
+    unsigned int path;
+    if (Path(sIdx, del, path)) {
       unsigned int destIdx = reachOffset[path]++;
       targ[destIdx] = source[idx];
       sIdxTarg[destIdx] = sIdx;
@@ -527,8 +502,9 @@ SPNode *Bottom::RestageOne(unsigned int reachOffset[], const SPPair &mrra, unsig
   unsigned int rightOff = reachOffset[1];
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int sIdx = sIdxSource[idx];
-    if (!bvDead->TestBit(sIdx)) {
-      unsigned int destIdx = Path(sIdx, 1) == 0 ? leftOff++ : rightOff++;
+    unsigned int path;
+    if (Path(sIdx, 1, path)) {
+      unsigned int destIdx = path == 0 ? leftOff++ : rightOff++;
       targ[destIdx] = source[idx];
       sIdxTarg[destIdx] = sIdx;
     }
@@ -642,13 +618,13 @@ void Bottom::LevelClear() {
 
    @param splitNext is the number of nodes in the upcoming level.
 
-   @param idxTot is the number of sample indices upcoming.
+   @param idxLive is the number of live sample indices upcoming.
 
    @return void.
  */
-void Bottom::Overlap(unsigned int splitCount, unsigned int idxTot) {
+void Bottom::Overlap(unsigned int splitCount, unsigned int idxLive) {
   splitPrev = frontCount;
-  levelFront = new Level(splitCount, nPred, bagCount, idxTot);
+  levelFront = new Level(splitCount, nPred, bagCount, idxLive);
   level.push_front(levelFront);
 
   historyPrev = std::move(history);
@@ -743,5 +719,34 @@ void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int p
 }
 
 
-SamplePath::SamplePath() : extinct(0), path(0) {
+/**
+   @brief Updates the path leading to each bagged sample.  Assigns node-
+   relative indices to all samples in the current level, regardless
+   whether terminal.
+
+   @param index holds the IndexNode assignments for the upcoming level.
+
+   @param relIdx accumulates node-relative sample indices.
+
+   @return void.
+ */
+void Bottom::PathUpdate(const Index *index, std::vector<unsigned int> &relIdx) {
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    unsigned int idxNext;
+    if (index->IndexNext(sIdx, idxNext)) {
+      UpdateFront(sIdx, relIdx[idxNext]++);
+      if (index->IsRH(idxNext)) {
+	samplePath[sIdx].PathRight();
+      }
+      else if(index->IsLH(idxNext)) {
+	samplePath[sIdx].PathLeft();
+      }
+      else {
+	samplePath[sIdx].Extinct();
+      }
+    }
+    else {
+      samplePath[sIdx].Extinct();
+    }
+  }
 }

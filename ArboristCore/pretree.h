@@ -57,7 +57,6 @@ class PreTree {
   unsigned int bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
   std::vector<unsigned int> ppHand; // Handedness of preplay.
-  std::vector<unsigned int> ntNext; // IndexNode indices for upcoming level.
 
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
@@ -80,9 +79,18 @@ class PreTree {
   const std::vector<unsigned int> DecTree(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo);
   void NodeConsume(class ForestTrain *forest, unsigned int tIdx);
   void BitConsume(unsigned int *outBits);
+  void LHBit(int idx, unsigned int pos);
+  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
+  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
+
+  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
+  
+  unsigned int NextLevel(unsigned int splitNext, unsigned int leafNext);
+  void ReNodes();
 
 
   /**
+     @return true iff node is nonterminal.
    */
   inline bool NonTerminal(unsigned int ptId) {
     return nodeVec[ptId].lhId > 0;
@@ -115,47 +123,38 @@ class PreTree {
     _bagCount += bagCount;
   }
 
-  
+
   /**
-     @brief Associates a relative PTNode index in the upcoming level
-     with the index of its corresponding IndexNode.
+     @brief Computes a level-relative position for a PreTree node,
+     assumed to reside at the current level.
 
-     @param ptId is the absolute nonterminal index.
+     @param ptId is the node index.
 
-     @param idxNext is the level-relative split index.
-
-     @return void.
+     @return Level-relative position of node.
    */
-  void NTIndex(unsigned int ptId, unsigned int idxNext) {
-    ntNext[ptId - levelBase] = idxNext;
+  inline unsigned int LevelOffset(unsigned int ptId) {
+    return ptId - levelBase;
   }
-  
-  
+
+
   /**
-     @brief Looks up index node associated with frontier node.
+     @brief Determines whether a sample resides in an extant node and,
+     if so, computes the level-relative index of the containing node.
 
-     @param sIdx is the sample index lookup key.
+     @param sIdx is the sample index.
 
-     @param indexNext outputs either an IndexNode index or a placeholder
-     value, depending whether the frontier node is a nonterminal.
+     @param levelOffset outputs the level-relative offset of the extant
+     node containing the sample, if any.  Otherwise outputs a default value.
 
-     @return true iff frontier node defined in current level.
-  */
-  bool IndexNext(unsigned int sIdx, unsigned int &indexNext) {
+     @return true iff sample resides in an extant node.
+   */  
+  inline bool SampleOffset(unsigned int sIdx, unsigned int &levelOffset) {
     unsigned int ptId = sample2PT[sIdx];
-    indexNext = ptId >= levelBase ? ntNext[ptId - levelBase] : bagCount;
-    return ptId >= levelBase;
+    bool ofLevel = ptId >= levelBase;
+    levelOffset = ofLevel ? LevelOffset(ptId) : bagCount;
+
+    return ofLevel;
   }
-
-  void RelIdx(class Bottom *bottom, const std::vector<class IndexNode> &indexNode, unsigned int lhSplitNext);
-  void LHBit(int idx, unsigned int pos);
-  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
-  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
-
-  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
-  
-  unsigned int NextLevel(unsigned int splitNext, unsigned int leafNext);
-  void ReNodes();
 };
 
 #endif

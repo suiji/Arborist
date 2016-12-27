@@ -35,17 +35,23 @@ using namespace Rcpp;
 //#include <iostream>
 
 SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<ForestNode> &forestNode) {
-  size_t numSize = forestNode.size() * (sizeof(ForestNode) / sizeof(double));
-  NumericVector fnNum(numSize);
-  for (size_t i = 0; i < numSize; i++) {
-    fnNum[i] = ((double*) &forestNode[0])[i];
+  size_t forestSize = forestNode.size() * sizeof(ForestNode);
+  RawVector forestRaw(forestSize);
+  for (size_t i = 0; i < forestSize; i++) {
+    forestRaw[i] = ((unsigned char *) &forestNode[0])[i];
   }
 
+  size_t facSize = facSplit.size() * sizeof(unsigned int);
+  RawVector facRaw(facSize);
+  for (size_t i = 0; i < facSize; i++) {
+    facRaw[i] = ((unsigned char*) &facSplit[0])[i];
+  }
+  
   List forest = List::create(
-     _["forestNode"] = fnNum,
+     _["forestNode"] = forestRaw,
      _["origin"] = origin,
      _["facOrig"] = facOrigin,
-     _["facSplit"] = facSplit);
+     _["facSplit"] = facRaw);
   forest.attr("class") = "Forest";
 
   return forest;
@@ -57,17 +63,21 @@ SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector
 
    @return void.
  */
-void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facSplit, size_t &_facLen, std::vector<unsigned int> &_facOrig, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
+void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, unsigned int *&_facSplit, size_t &_facLen, std::vector<unsigned int> &_facOrig, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
 
+  // Alignment should be sufficient to guarantee safety of
+  // the casted loads.
+  //
   _origin = as<std::vector<unsigned int> >(forest["origin"]);
-  _facSplit = as<std::vector<unsigned int> >(forest["facSplit"]);
-  _facLen = _facSplit.size();
+  RawVector facRaw((SEXP) forest["facSplit"]);
+  _facLen = facRaw.length() / sizeof(unsigned int);
+  _facSplit = (unsigned int*) facRaw.begin();
   _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
 
-  NumericVector fnNum((SEXP) forest["forestNode"]);
-  _forestNode = (ForestNode *) fnNum.begin();
-  _nodeEnd = fnNum.length() / (sizeof(ForestNode) / sizeof(double));
+  RawVector forestRaw((SEXP) forest["forestNode"]);
+  _forestNode = (ForestNode *) forestRaw.begin();
+  _nodeEnd = forestRaw.length() / sizeof(ForestNode);
 }

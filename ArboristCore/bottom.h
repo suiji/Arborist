@@ -24,15 +24,23 @@
 
 
 /**
-   @brief Records sample's recent branching path.
+   @brief Records live sample's recent branching path.
  */
 class SamplePath {
-  unsigned char extinct; // Sticky semantics.
+  unsigned char extinct; // Logical:  single bit suffices.
   unsigned char path;
  public:
 
-  SamplePath();
+  
+ SamplePath() : extinct(0), path(0) {
+  }
 
+
+  inline void Extinct() {
+    extinct = 1;
+  }
+
+  
   inline void PathLeft() {
     path = (path << 1) | 0;
   }
@@ -43,28 +51,21 @@ class SamplePath {
   }
 
 
-  inline void PathExtinct() {
-    extinct = 1;
-  }
-  
-  
   /**
-     @brief Accessor.
+     @brief Exposes the level-many path bits.
 
-     @param _path outputs the path reaching the sample, if live.  Otherwise
-     the value is undefined.
+     @param del is the number of back levels.
 
-     @return whether sample is live.
+     @param _path outputs the reaching path, if not extinct.
+
+     @return true iff not extinct.
    */
-  inline bool IsLive(unsigned int &_path) const {
-    _path = path;
+  inline bool Path(unsigned int del, unsigned int &_path) {
+    _path = path & ~(0xff << del);
+
     return extinct == 0;
   }
-
-
-  inline int Path(unsigned int del) const {
-    return extinct == 0 ? path & ~(0xff << del) : -1;
-  }
+  
 };
 
 
@@ -101,6 +102,9 @@ class PathNode {
   unsigned int idxStart; // Target offset for path.
   unsigned int extent;
  public:
+
+  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
+  static constexpr unsigned int noPath = 1 << pathMax;
 
   
   /**
@@ -247,7 +251,7 @@ class Level {
   const unsigned int nPred;
   const unsigned int splitCount;
   const unsigned int noIndex; // Inattainable node index value.
-  const unsigned int idxTot; // Total # sample indices at level.
+  const unsigned int idxLive; // Total # sample indices at level.
   unsigned int defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
 
@@ -260,12 +264,12 @@ class Level {
   std::vector<MRRA> def; // Indexed by pair-offset.
 
   // Recomputed:
-  std::vector<unsigned int> rel2Rel; // Indexed by (previous) relative index.
+  std::vector<unsigned int> rel2Front; // Indexed by (previous) relative index.
   std::vector<PathNode> pathNode; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
  public:
 
-  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxTot);
+  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxLive);
   ~Level();
 
   void Flush(class Bottom *bottom, bool forward = true);
@@ -284,15 +288,15 @@ class Level {
   /**
      @brief Accessor for count of live sample indices.
    */
-  unsigned int IdxTot() {
-    return idxTot;
+  unsigned int IdxLive() {
+    return idxLive;
   }
 
   
   /**
    */
-  void RelUpdate(unsigned int relPrev, unsigned int relIdx) {
-    rel2Rel[relPrev] = relIdx;
+  void RelSet(unsigned int relPrev, unsigned int relIdx) {
+    rel2Front[relPrev] = relIdx;
   }
 
   
@@ -448,14 +452,11 @@ class RestageCoord {
 /**
  */
 class Bottom {
-  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char);
-  static constexpr unsigned int noPath = 1 << pathMax;
   const unsigned int nPred;
   const unsigned int nPredFac;
   const unsigned int bagCount;
-  const unsigned int stageSize;
 
-  unsigned int *prePath;
+  std::vector<unsigned int> prePath;
 
   std::deque<Level *> level;
   Level *levelFront; // Current level.
@@ -470,8 +471,6 @@ class Bottom {
   SamplePath *samplePath;
   unsigned int splitPrev;
   unsigned int frontCount; // # nodes in the level about to split.
-  class BV *bvLeft;
-  class BV *bvDead;
   const class PMTrain *pmTrain;
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
@@ -508,16 +507,14 @@ class Bottom {
   
   Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize);
   ~Bottom();
-  void Overlap(unsigned int _splitCount, unsigned int idxTot);
+  void Overlap(unsigned int _splitCount, unsigned int idxLive);
   void LevelInit();
 
   void LevelClear();
   const std::vector<class SSNode*> Split(class Index *index, std::vector<class IndexNode> &indexNode);
   void ReachingPath(unsigned int _splitIdx, unsigned int path, unsigned int levelIdx, unsigned int start, unsigned int extent);
   void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
-  void PathLeft(unsigned int sIdx) const;
-  void PathRight(unsigned int sIdx) const ;
-  void PathExtinct(unsigned int sIdx) const ;
+  void PathUpdate(const class Index *index, std::vector<unsigned int> &relIdx);
   unsigned int FlushRear();
   void DefForward(unsigned int levelIdx, unsigned int predIdx);
   void Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&sIdxSource, SPNode *&targ, unsigned int *&sIdxTarg) const;
@@ -529,9 +526,9 @@ class Bottom {
 
   inline void UpdateFront(unsigned int sIdx, unsigned int relIdx) {
     unsigned int relPrev = sample2Rel[sIdx];
-    level[1]->RelUpdate(relPrev, relIdx);
+    level[1]->RelSet(relPrev, relIdx);
     sample2Rel[sIdx] = relIdx;
-    if (relIdx < levelFront->IdxTot()) { // Else extinct.
+    if (relIdx < levelFront->IdxLive()) { // Else extinct.
       // pathRel[relIdx] = path[indexNext];
     }
   }
@@ -549,21 +546,12 @@ class Bottom {
   }
 
 
-  /**
-     @brief Setter methods for sample path.
-   */
-  inline bool IsLive(unsigned int sIdx, unsigned int &sIdxPath) const {
-    return samplePath[sIdx].IsLive(sIdxPath);
-  }
-
-  
   inline void PathPrefetch(unsigned int *sampleIdx, unsigned int del) const {
     __builtin_prefetch(samplePath + sampleIdx[del]);
   }
 
-  
-  inline int Path(unsigned int sIdx, unsigned int del) const {
-    return samplePath[sIdx].Path(del);
+  inline bool Path(unsigned int sIdx, unsigned int del, unsigned int &path) const {
+    return samplePath[sIdx].Path(del, path);
   }
 
 

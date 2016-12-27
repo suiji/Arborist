@@ -34,7 +34,7 @@ class RcppForest {
  public:
   static SEXP Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<class ForestNode> &test);
 
-  static void Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facSplit, size_t &facLen, std::vector<unsigned int> &_facOrigin, class ForestNode *&_forestNode, unsigned int &_nodeEnd);
+  static void Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, unsigned int *&_facSplit, size_t &facLen, std::vector<unsigned int> &_facOrigin, class ForestNode *&_forestNode, unsigned int &_nodeEnd);
 };
 
 #endif

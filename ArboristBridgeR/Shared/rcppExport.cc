@@ -72,7 +72,8 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   // Instantiates the forest-wide data structures as long vectors, then
   // distributes per tree.
   //
-  std::vector<unsigned int> nodeOrigin, facOrigin, splitBV;
+  std::vector<unsigned int> nodeOrigin, facOrigin;
+  unsigned int *splitBV;
   ForestNode *forestNode;
   unsigned int nodeEnd;
   size_t facLen;
@@ -85,7 +86,7 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   PredExport(predMap.begin(), predTree, bumpTree);
   
   std::vector<std::vector<unsigned int> > facSplitTree(nTree);
-  BVJagged::Export(&splitBV[0], facLen, facOrigin, facSplitTree);
+  BVJagged::Export(splitBV, facLen, facOrigin, facSplitTree);
 
   std::vector<double> yTrain;
   std::vector<unsigned int> leafOrigin;
@@ -123,7 +124,8 @@ RcppExport SEXP ExportReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
    @return List with common and classification-specific members.
  */
 RcppExport SEXP ExportCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
-  std::vector<unsigned int> nodeOrigin, facOrigin, splitBV;
+  std::vector<unsigned int> nodeOrigin, facOrigin;
+  unsigned int *splitBV;
   ForestNode *forestNode;
   unsigned int nodeEnd;
   size_t facLen;
@@ -136,7 +138,7 @@ RcppExport SEXP ExportCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
   PredExport(predMap.begin(), predTree, bumpTree);
   
   std::vector<std::vector<unsigned int> > facSplitTree(nTree);
-  BVJagged::Export(&splitBV[0], facLen, facOrigin, facSplitTree);
+  BVJagged::Export(splitBV, facLen, facOrigin, facSplitTree);
 
   std::vector<unsigned int> leafOrigin;
   std::vector<LeafNode> leafNode;

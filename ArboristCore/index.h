@@ -216,18 +216,25 @@ class NodeCache : public IndexNode {
 
 class Index {
   static unsigned int totLevels;
+  unsigned int splitNext; // Total count of nodes in next level.
+  unsigned int lhSplitNext; // Count of LH nodes in next level.
+
+  std::vector<unsigned int> ntNext; // Node indices for upcoming level.
   NodeCache *CacheNodes(const std::vector<class SSNode*> &argMax);
   void ArgMax(NodeCache nodeCache[]);
   unsigned int LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
   NodeCache *LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
-  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int splitNext, unsigned int lhSplitNext, unsigned int leafNext);
+  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int leafNext);
+
+
  protected:
-  std::vector<IndexNode> indexNode;  
+  std::vector<IndexNode> indexNode;
   const unsigned int bagCount;
-  unsigned int levelBase; // Pre-tree index at which level's nodes begin.
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   static class PreTree *OneTree(const class PMTrain *pmTrain, class SamplePred *_samplePred, class Bottom *_bottom, int _nSamp, int _bagCount, double _bagSum);
+  void RelIdx();
 
+  
  public:
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
@@ -240,7 +247,9 @@ class Index {
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
   void SetPrebias();
   void Levels();
-
+  bool IndexNext(unsigned int sIdx, unsigned int &indexNext) const;
+  void NodeNext(unsigned int parIdx, unsigned int idxNex, unsigned int ptId, unsigned int _start, unsigned int _idxCount, unsigned int sCount, double sum, double minInfo, unsigned int pathNext);
+  void NTNext(unsigned int ptIdx, unsigned int idxNext);
   
   /**
      @brief 'bagCount' accessor.
@@ -257,44 +266,23 @@ class Index {
   }
 
 
-  inline unsigned int NextLH(int idxNext, unsigned int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
-    unsigned int pathNext = _path << 1;
-    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, pathNext);
+  inline unsigned int PathLeft(unsigned char _path) {
+    return _path << 1;
+  }
 
-    return pathNext;
+
+  inline unsigned int PathRight(unsigned char _path) {
+    return (_path << 1) | 1;
   }
 
   
-  inline unsigned int NextRH(int idxNext, int ptId, unsigned int _start, int idxCount, unsigned int sCount, double sum, double minInfo, unsigned char _path) {
-    unsigned int pathNext = (_path << 1) | 1;
-    indexNode[idxNext].Init(idxNext, _start, ptId, idxCount, sCount, sum, minInfo, pathNext);
-
-    return pathNext;
+  inline bool IsLH(unsigned int idxNext) const {
+    return idxNext < lhSplitNext;
   }
 
-
-  /**
-     @brief Computes a level-relative offset for an indexed Pretree node.
-
-     @param ptId is the node index, assumed to be at or above 'levelBase'.
-
-     @return the level-relative offset.  A negative offset, in particular,
-     distinguishes nodes belonging to earlier levels.
-  */
-  inline int LevelOffPT(unsigned int ptId) const {
-    return ptId - levelBase;
-  }
-
-
-  /**
-   @brief Returns the level-relative offset associated with an index node.
-
-   @param splitIdx is the split index referenced.
-
-   @return pretree offset from level base.
-  */
-  inline int LevelOffSplit(int splitIdx) const {
-    return LevelOffPT(indexNode[splitIdx].ptId);
+  
+  inline bool IsRH(unsigned int idxNext) const {
+    return idxNext < splitNext && idxNext >= lhSplitNext;
   }
 
 
@@ -306,6 +294,7 @@ class Index {
   }
 
   bool LevelOffSample(unsigned int sIdx, unsigned int &levelOff) const;
+  unsigned int LevelOffSplit(unsigned int splitIdx) const;
 };
 
 #endif

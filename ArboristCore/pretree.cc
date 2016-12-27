@@ -226,11 +226,6 @@ double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned in
    @return current height;
 */
 unsigned int PreTree::NextLevel(unsigned int splitNext, unsigned int leafNext) {
-  // Speculatively sets all new node indices to non-splitting index.
-  std::vector<unsigned int> _ntNext(leafNext + splitNext);
-  std::fill(_ntNext.begin(), _ntNext.end(), splitNext);
-  ntNext = std::move(_ntNext);
-
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -278,39 +273,7 @@ void PreTree::Preplay(unsigned int heightPrev) {
 
 
 /**
-   @brief Propagates relative indices for each sample extant in the
-   upcoming level.
- */
-void PreTree::RelIdx(Bottom *bottom, const std::vector<IndexNode> &indexNode, unsigned int lhSplitNext) {
-  // Assigns relative index offsets to consecutive nodes at next level.
-  unsigned int splitNext = indexNode.size();
-  std::vector<unsigned int> relIdx(splitNext + 1);
-  unsigned int idxTot = 0;
-  for (unsigned int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
-    relIdx[splitIdx] = idxTot;
-    idxTot += indexNode[splitIdx].IdxCount();
-  }
-  relIdx[splitNext] = idxTot;
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int indexNext;
-    if (IndexNext(sIdx, indexNext)) {
-      bottom->UpdateFront(sIdx, relIdx[indexNext]++);
-      if (indexNext < lhSplitNext)
-	bottom->PathLeft(sIdx);
-      else if(indexNext < splitNext)
-	bottom->PathRight(sIdx);
-      else
-	bottom->PathExtinct(sIdx);
-    }
-    else {
-      bottom->PathExtinct(sIdx);
-    }
-  }
-}
-
-
-/**
- @brief Guestimates safe height by doubling high watermark.
+ @brief Guesstimates safe height by doubling high watermark.
 
  @return void.
 */
