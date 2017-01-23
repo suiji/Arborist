@@ -19,7 +19,6 @@
 #include "pretree.h"
 #include "forest.h"
 #include "predblock.h"
-#include "samplepred.h"
 #include "index.h"
 
 //#include <iostream>
@@ -204,11 +203,6 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMe
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
   ptS->splitVal.rkMean = _rankMean;
-}
-
-
-double PreTree::Replay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufBit, unsigned int start, unsigned int end, unsigned int ptId) {
-  return samplePred->Replay(predIdx, bufBit, start, end, ptId, &sample2PT[0]);
 }
 
 

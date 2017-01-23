@@ -173,7 +173,7 @@ class NodeCache : public IndexNode {
   NodeCache();
   void NonTerminal(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
   void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
-  void Successors(class Index *index, class PreTree *preTree, class Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhCount, unsigned int &rhCount);
+  void Successors(class Index *index, class PreTree *preTree, class Bottom *bottom, std::vector<unsigned int> &relIdx, unsigned int lhSplitNext, unsigned int &idxLive, unsigned int &lhCount, unsigned int &rhCount);
   void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
 
   /**
@@ -219,20 +219,18 @@ class Index {
   unsigned int splitNext; // Total count of nodes in next level.
   unsigned int lhSplitNext; // Count of LH nodes in next level.
 
-  std::vector<unsigned int> ntNext; // Node indices for upcoming level.
   NodeCache *CacheNodes(const std::vector<class SSNode*> &argMax);
   void ArgMax(NodeCache nodeCache[]);
   unsigned int LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
   NodeCache *LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
-  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int leafNext);
+  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int leafNext, unsigned int idxTot);
 
 
  protected:
   std::vector<IndexNode> indexNode;
   const unsigned int bagCount;
   unsigned int levelWidth; // Count of pretree nodes at frontier.
-  static class PreTree *OneTree(const class PMTrain *pmTrain, class SamplePred *_samplePred, class Bottom *_bottom, int _nSamp, int _bagCount, double _bagSum);
-  void RelIdx();
+  static class PreTree *OneTree(const class PMTrain *pmTrain, class SamplePred *_samplePred, class Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _bagSum);
 
   
  public:
@@ -241,15 +239,14 @@ class Index {
   class SamplePred *samplePred;
   class PreTree *preTree;
   class Bottom *bottom;
-  Index(class SamplePred *_samplePred, class PreTree *_preTree, class Bottom *_bottom, int _nSamp, int _bagCount, double _sum);
+  Index(class SamplePred *_samplePred, class PreTree *_preTree, class Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _sum);
   ~Index();
 
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
   void SetPrebias();
   void Levels();
-  bool IndexNext(unsigned int sIdx, unsigned int &indexNext) const;
+  void PathUpdate(std::vector<unsigned int> &relIdx);
   void NodeNext(unsigned int parIdx, unsigned int idxNex, unsigned int ptId, unsigned int _start, unsigned int _idxCount, unsigned int sCount, double sum, double minInfo, unsigned int pathNext);
-  void NTNext(unsigned int ptIdx, unsigned int idxNext);
   
   /**
      @brief 'bagCount' accessor.
@@ -276,16 +273,6 @@ class Index {
   }
 
   
-  inline bool IsLH(unsigned int idxNext) const {
-    return idxNext < lhSplitNext;
-  }
-
-  
-  inline bool IsRH(unsigned int idxNext) const {
-    return idxNext < splitNext && idxNext >= lhSplitNext;
-  }
-
-
   /**
      @return count of pretree nodes at current level.
   */

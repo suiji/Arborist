@@ -83,7 +83,9 @@ class PreTree {
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
   void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
 
-  double Replay(class SamplePred *samplePred, unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
+  std::vector<unsigned int> &FrontierMap() {
+    return sample2PT;
+  }
   
   unsigned int NextLevel(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
@@ -132,7 +134,7 @@ class PreTree {
 
      @return Level-relative position of node.
    */
-  inline unsigned int LevelOffset(unsigned int ptId) {
+  inline unsigned int LevelOffset(unsigned int ptId) const {
     return ptId - levelBase;
   }
 
@@ -144,16 +146,20 @@ class PreTree {
      @param sIdx is the sample index.
 
      @param levelOffset outputs the level-relative offset of the extant
-     node containing the sample, if any.  Otherwise outputs a default value.
+     node containing the sample, if any.  Otherwise outputs the lowest
+     offset value.
+
+     @param isLeft outputs whether the containing node is a left branch
+     into the upcoming level.  The value is undefined, however, for
+     samples contained in extinct nodes.
 
      @return true iff sample resides in an extant node.
    */  
-  inline bool SampleOffset(unsigned int sIdx, unsigned int &levelOffset) {
+  inline unsigned int SampleOffset(unsigned int sIdx, bool &isLH) const {
     unsigned int ptId = sample2PT[sIdx];
-    bool ofLevel = ptId >= levelBase;
-    levelOffset = ofLevel ? LevelOffset(ptId) : bagCount;
 
-    return ofLevel;
+    isLH = (ptId & 1) != 0; // Speculative.
+    return LevelOffset(ptId >= levelBase ? ptId : height);
   }
 };
 

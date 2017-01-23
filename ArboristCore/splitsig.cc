@@ -144,7 +144,7 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
       else {
 	unsigned int runStart, runEnd;
 	run->RunBounds(setIdx, outSlot, runStart, runEnd);
-        rhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptRH);
+        rhSum += samplePred->Replay(predIdx, bufIdx, runStart, runEnd, ptRH, preTree->FrontierMap());
       }
     }
     return sum - rhSum;
@@ -155,7 +155,7 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
       preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
       unsigned int runStart, runEnd;
       run->RunBounds(setIdx, outSlot, runStart, runEnd);
-      lhSum += preTree->Replay(samplePred, predIdx, bufIdx, runStart, runEnd, ptLH);
+      lhSum += samplePred->Replay(predIdx, bufIdx, runStart, runEnd, ptLH, preTree->FrontierMap());
     }
     return lhSum;
   }
@@ -171,10 +171,10 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
 double SSNode::ReplayNum(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int idxPred, unsigned int ptLH, unsigned int ptRH) {
   double lhSum;
   if (idxImplicit > 0) {
-    lhSum = sum - preTree->Replay(samplePred, predIdx, bufIdx, idxStart + idxCount - idxImplicit, idxStart + idxPred - 1 - idxImplicit, ptRH);
+    lhSum = sum - samplePred->Replay(predIdx, bufIdx, idxStart + idxCount - idxImplicit, idxStart + idxPred - 1 - idxImplicit, ptRH, preTree->FrontierMap());
   }
   else {
-    lhSum = preTree->Replay(samplePred, predIdx, bufIdx, idxStart, idxStart + idxCount - 1, ptLH);
+    lhSum = samplePred->Replay(predIdx, bufIdx, idxStart, idxStart + idxCount - 1, ptLH, preTree->FrontierMap());
   }
 
   return lhSum;

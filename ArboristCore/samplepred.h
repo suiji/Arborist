@@ -167,17 +167,18 @@ class SamplePred {
   const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
+  std::vector<unsigned int> rel2Sample;
   std::vector<unsigned int> stageOffset;
   std::vector<unsigned int> stageExtent; // Client:  debugging only.
   SPNode* nodeVec;
 
-  // 'sampleIdx' could be boxed with SPNode.  While it is used in both
+  // 'indexBase' could be boxed with SPNode.  While it is used in both
   // replaying and restaging, though, it plays no role in splitting.  Maintaining
   // a separate vector permits a 16-byte stride to be used for splitting.  More
   // significantly, it reduces memory traffic incurred by transposition on the
   // coprocessor.
   //
-  unsigned int *sampleIdx; // RV index for this row.  Used by CTG as well as on replay.
+  unsigned int *indexBase; // RV index for this row.  Used by CTG as well as on replay.
  public:
   SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
@@ -197,6 +198,12 @@ class SamplePred {
   inline unsigned int StageOffset(unsigned int predIdx) {
     return stageOffset[predIdx];
   }
+
+
+  inline void Rel2Sample(unsigned int relIdx, unsigned int sIdx) {
+    rel2Sample[relIdx] = sIdx;
+  }
+
   
   // The category could, alternatively, be recorded in an object subclassed
   // under class SamplePred.  This would require that the value be restaged,
@@ -232,7 +239,7 @@ class SamplePred {
    */
   inline SPNode* Buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) {
     unsigned int offset = BufferOff(predIdx, bufBit);
-    sIdx = sampleIdx + offset;
+    sIdx = indexBase + offset;
     return nodeVec + offset;
   }
 
@@ -273,7 +280,7 @@ class SamplePred {
     targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
-  double Replay(unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId, unsigned int sample2PT[]);
+  double Replay(unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId, std::vector<unsigned int> &sample2PT);
 
   // TODO:  Move somewhere appropriate.
   /**

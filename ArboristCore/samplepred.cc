@@ -14,6 +14,7 @@
  */
 
 #include "samplepred.h"
+#include <numeric>
 
 //#include <iostream>
 //using namespace std;
@@ -50,10 +51,11 @@ void SPNode::DeImmutables() {
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
-  sampleIdx = new unsigned int[2* bufferSize];
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)), rel2Sample(std::vector<unsigned int>(bagCount)) {
+  indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
-  
+
+  std::iota(rel2Sample.begin(), rel2Sample.end(), 0);
   stageOffset.reserve(nPred);
   stageExtent.reserve(nPred);
 }
@@ -64,7 +66,7 @@ SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int
  */
 SamplePred::~SamplePred() {
   delete [] nodeVec;
-  delete [] sampleIdx;
+  delete [] indexBase;
 }
 
 
@@ -135,14 +137,14 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
    @return sum of response values associated with each replayed index.
 */
-double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, unsigned int ptId, unsigned int sample2PT[]) {
-  unsigned int *sIdx;
-  SPNode *spn = Buffers(predIdx, sourceBit, sIdx);
+double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, unsigned int ptId, std::vector<unsigned int> &sample2PT) {
+  unsigned int *relIdx;
+  SPNode *spn = Buffers(predIdx, sourceBit, relIdx);
 
   double sum = 0.0;
   for (unsigned int idx = start; idx <= end; idx++) {
     sum += spn[idx].YSum();
-    unsigned int sampleIdx = sIdx[idx];
+    unsigned int sampleIdx = rel2Sample[relIdx[idx]];
     sample2PT[sampleIdx] = ptId;
   }
 

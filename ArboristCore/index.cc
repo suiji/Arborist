@@ -72,7 +72,7 @@ void NodeCache::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) : indexNode(std::vector<IndexNode>(1)), bagCount(_bagCount), levelWidth(1), samplePred(_samplePred), preTree(_preTree), bottom(_bottom) {
+Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _sum) : indexNode(std::vector<IndexNode>(1)), bagCount(_bagCount), levelWidth(1), samplePred(_samplePred), preTree(_preTree), bottom(_bottom) {
   indexNode[0].Init(0, 0, 0, _bagCount, _nSamp, _sum, 0.0, 0);
 }
 
@@ -120,7 +120,7 @@ PreTree **Index::BlockTrees(const PMTrain *pmTrain, Sample **sampleBlock, int tr
 
    @return void.
  */
-PreTree *Index::OneTree(const PMTrain *pmTrain, SamplePred *_samplePred, Bottom *_bottom, int _nSamp, int _bagCount, double _sum) {
+PreTree *Index::OneTree(const PMTrain *pmTrain, SamplePred *_samplePred, Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _sum) {
   PreTree *_preTree = new PreTree(pmTrain, _bagCount);
   Index *index = new Index(_samplePred, _preTree, _bottom, _nSamp, _bagCount, _sum);
   index->Levels();
@@ -145,7 +145,7 @@ void  Index::Levels() {
     NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhSplitNext, leafNext, idxTot);
     if (splitNext != 0 && level + 1 != totLevels) {
       bottom->Overlap(splitNext, idxTot);
-      LevelProduce(nodeCache, level, levelCount, leafNext);
+      LevelProduce(nodeCache, level, levelCount, leafNext, idxTot);
       levelCount = splitNext;
     }
     else {
@@ -287,7 +287,7 @@ void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom
 }
 
 
-void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int splitPrev, unsigned int leafNext) {
+void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int splitPrev, unsigned int leafNext, unsigned int idxTot) {
   levelWidth = splitNext + leafNext;
 
   unsigned int lhCount = 0;
@@ -296,55 +296,31 @@ void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int 
   std::vector<IndexNode> _indexNode(splitNext);
   indexNode = std::move(_indexNode);
 
-  // Speculatively sets all new node indices to canonical non-splitting index.
-  std::vector<unsigned int> _ntNext(levelWidth);
-  std::fill(_ntNext.begin(), _ntNext.end(), splitNext);
-  ntNext = std::move(_ntNext);
+  std::vector<unsigned int> relIdx(levelWidth + 1);
+  std::fill(relIdx.begin(), relIdx.end(), idxTot);
 
+  unsigned int idxLive = 0;
   for (unsigned int splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
-    nodeCache[splitIdx].Successors(this, preTree, bottom, lhSplitNext, lhCount, rhCount);
+    nodeCache[splitIdx].Successors(this, preTree, bottom, relIdx, lhSplitNext, idxLive, lhCount, rhCount);
   }
 
-  RelIdx();
+  PathUpdate(relIdx);
 }
 
 
 /**
-   @brief Enumerates base indices for each node extant in the upcoming
-   level.
+     @brief 
 
-   @return void.
- */
-void Index::RelIdx() {
-  unsigned int splitNext = indexNode.size();
-  std::vector<unsigned int> relIdx(splitNext + 1);
-  unsigned int idxTot = 0;
-  for (unsigned int splitIdx = 0; splitIdx < splitNext; splitIdx++) {
-    relIdx[splitIdx] = idxTot;
-    idxTot += indexNode[splitIdx].IdxCount();
-  }
-  relIdx[splitNext] = idxTot;
-  
-  bottom->PathUpdate(this, relIdx);
-}
-
-
-/**
-     @brief Looks up index node associated with frontier node.
-
-     @param sIdx is the sample index lookup key.
-
-     @param indexNext outputs either an IndexNode index or a placeholder
-     value, depending whether the frontier node is a nonterminal.
-
-     @return true iff frontier node defined in current level.
+     @return void.
 */
-bool Index::IndexNext(unsigned int sIdx, unsigned int &indexNext) const {
-  unsigned int levelOff;
-  bool ofLevel = preTree->SampleOffset(sIdx, levelOff);
+void Index::PathUpdate(std::vector<unsigned int> &relIdx) {
+  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+    bool isLeft;
+    unsigned int levelOff = preTree->SampleOffset(sIdx, isLeft);
+    bottom->FrontUpdate(sIdx, relIdx[levelOff]++, isLeft);
+  }
 
-  indexNext = ofLevel ? ntNext[levelOff] : bagCount;
-  return ofLevel;
+  bottom->BackUpdate();
 }
 
   
@@ -374,16 +350,20 @@ bool Index::IndexNext(unsigned int sIdx, unsigned int &indexNext) const {
 
    @return void, plus output reference parameters.
 */
-void NodeCache::Successors(Index *index, PreTree *preTree, Bottom *bottom, unsigned int lhSplitNext, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
+void NodeCache::Successors(Index *index, PreTree *preTree, Bottom *bottom, std::vector<unsigned int> &relIdx, unsigned int lhSplitNext, unsigned int &idxLive, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
   if (ssNode == 0) {
     return;
   }
 
   if (Splitable(lhIdxCount)) {
+    relIdx[preTree->LevelOffset(ptL)] = idxLive;
+    idxLive  += lhIdxCount;
     index->NodeNext(splitIdx, lhSplitCount++, ptL, lhStart, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), index->PathLeft(path));
   }
 
   if (Splitable(idxCount - lhIdxCount)) {
+    relIdx[preTree->LevelOffset(ptR)] = idxLive;
+    idxLive += idxCount - lhIdxCount;
     index->NodeNext(splitIdx, lhSplitNext + rhSplitCount++, ptR, lhStart + lhIdxCount, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), index->PathRight(path));
   }
 }
@@ -391,26 +371,10 @@ void NodeCache::Successors(Index *index, PreTree *preTree, Bottom *bottom, unsig
 
 void Index::NodeNext(unsigned int parIdx, unsigned int idxNext, unsigned int ptId, unsigned int start, unsigned int idxCount, unsigned int sCount, double sum, double minInfo, unsigned pathNext) {
   indexNode[idxNext].Init(idxNext, start, ptId, idxCount, sCount, sum, minInfo, pathNext);
-  NTNext(ptId, idxNext);
   bottom->ReachingPath(parIdx, pathNext, idxNext, start, idxCount);
 }
 
   
-/**
-   @brief Maps (absolute) nonterminal index to (compressed) index at next level.
-
-   @param ptId is the pretree index of a nonterminal node.
-
-   @param idxNext is the IndexNode index at representing the node at the
-   next level.
-
-   @return void.
- */
-void Index::NTNext(unsigned int ptId, unsigned int idxNext) {
-  ntNext[preTree->LevelOffset(ptId)] = idxNext;
-}
-
-
 /**
    @brief Consults pretree for node holding sample and computes node's offset.
 
@@ -421,7 +385,9 @@ void Index::NTNext(unsigned int ptId, unsigned int idxNext) {
    @return true iff node holding sample is at current level.
  */
 bool Index::LevelOffSample(unsigned int sIdx, unsigned int &levelOffset) const {
-  return preTree->SampleOffset(sIdx, levelOffset);
+  bool dummy;
+  levelOffset = preTree->SampleOffset(sIdx, dummy);
+  return levelOffset < levelWidth;
 }
 
 
