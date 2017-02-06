@@ -168,21 +168,26 @@ class RunSet {
 
 
   /**
+     @return checkerboard value at slot for category.
+   */
+  inline double SumCtg(unsigned int slot, unsigned int yCtg) {
+    return ctgZero[slot * ctgWidth + yCtg];
+  }
+
+
+  /**
      @brief Accumulates checkerboard values prior to writing topmost
      run.
 
      @return void.
    */
-  inline double &SumCtg(unsigned int yCtg) {
-    return ctgZero[runCount * ctgWidth + yCtg];
+  inline void AccumCtg(unsigned int yCtg, double ySum) {
+    ctgZero[runCount * ctgWidth + yCtg] += ySum;
   }
 
 
-  /**
-     @return checkerboard value at slot for category.
-   */
-  inline double SumCtg(unsigned int slot, unsigned int yCtg) {
-    return ctgZero[slot * ctgWidth + yCtg];
+  inline void SumCtgSet(unsigned int yCtg, double ySum) {
+    ctgZero[runCount * ctgWidth + yCtg] = ySum;
   }
 
 

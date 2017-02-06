@@ -1255,7 +1255,7 @@ unsigned int SplitCoord::RunsCtg(const SPCtg *spCtg, RunSet *runSet, const SPNod
       sCountLoc = sampleCount;
       frEnd = i;
     }
-    runSet->SumCtg(yCtg) += ySum;
+    runSet->AccumCtg(yCtg, ySum);
   }
 
   

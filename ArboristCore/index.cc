@@ -30,6 +30,7 @@
 
 
 unsigned int Index::totLevels = 0;
+unsigned int IndexNode::minNode = 0;
 
 /**
    @brief Initialization of static invariants.
@@ -41,7 +42,7 @@ unsigned int Index::totLevels = 0;
    @return void.
  */
 void Index::Immutables(unsigned int _minNode, unsigned int _totLevels) {
-  NodeCache::Immutables(_minNode);
+  IndexNode::minNode = _minNode;
   totLevels = _totLevels;
 }
 
@@ -53,27 +54,16 @@ void Index::Immutables(unsigned int _minNode, unsigned int _totLevels) {
  */
 void Index::DeImmutables() {
   totLevels = 0;
-  NodeCache::DeImmutables();
+  IndexNode::minNode = 0;
 }
 
-
-unsigned int NodeCache::minNode = 0;
-
-void NodeCache::Immutables(unsigned int _minNode) {
-  minNode = _minNode;
-}
-
-
-void NodeCache::DeImmutables() {
-  minNode = 0;
-}
 
 
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
 Index::Index(SamplePred *_samplePred, PreTree *_preTree, Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _sum) : indexNode(std::vector<IndexNode>(1)), bagCount(_bagCount), levelWidth(1), samplePred(_samplePred), preTree(_preTree), bottom(_bottom) {
-  indexNode[0].Init(0, 0, 0, _bagCount, _nSamp, _sum, 0.0, 0);
+  indexNode[0].Init(0, 0, _nSamp, bagCount, 0, 0.0, 0, _sum, 0);
 }
 
 
@@ -86,11 +76,8 @@ Index::~Index() {
 }
 
 
-IndexNode::IndexNode() : splitIdx(0), lhStart(0), idxCount(0), sCount(0), sum(0.0), minInfo(0.0), ptId(0), path(0) {
+IndexNode::IndexNode() : preBias(0.0), splitIdx(0), ptId(0), lhStart(0), idxCount(0), sCount(0), sum(0.0), minInfo(0.0), path(0), ssNode(0) {
 }
-
-
-NodeCache::NodeCache() : IndexNode() {}
 
 
 /**
@@ -106,7 +93,7 @@ NodeCache::NodeCache() : IndexNode() {}
 PreTree **Index::BlockTrees(const PMTrain *pmTrain, Sample **sampleBlock, int treeBlock) {
   PreTree **ptBlock = new PreTree*[treeBlock];
 
-  for (int blockIdx = 0; blockIdx < treeBlock; blockIdx ++) {
+  for (int blockIdx = 0; blockIdx < treeBlock; blockIdx++) {
     Sample *sample = sampleBlock[blockIdx];
     ptBlock[blockIdx] = OneTree(pmTrain, sample->SmpPred(), sample->Bot(), Sample::NSamp(), sample->BagCount(), sample->BagSum());
   }
@@ -137,21 +124,20 @@ PreTree *Index::OneTree(const PMTrain *pmTrain, SamplePred *_samplePred, Bottom 
    @return void.
 */
 void  Index::Levels() {
-  unsigned int levelCount = 1;
-  for (unsigned int level = 0; levelCount > 0; level++) {
-    //    cout << "\nLevel " << level << "\n" << endl;
+  for (unsigned int level = 0; !indexNode.empty(); level++) {
+    //cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit();
-    unsigned int leafNext, idxTot;
-    NodeCache *nodeCache = LevelConsume(levelCount, splitNext, lhSplitNext, leafNext, idxTot);
+    unsigned int lhSplitNext, leafNext, idxLive, idxMax;
+    unsigned int splitNext = LevelCensus(bottom->Split(this, indexNode), lhSplitNext, leafNext, idxLive, idxMax);
+    LevelConsume(splitNext, leafNext);
     if (splitNext != 0 && level + 1 != totLevels) {
-      bottom->Overlap(splitNext, idxTot);
-      LevelProduce(nodeCache, level, levelCount, leafNext, idxTot);
-      levelCount = splitNext;
+      levelWidth = splitNext + leafNext;
+      LevelProduce(bottom, splitNext, lhSplitNext, idxLive, idxMax);
     }
     else {
-      levelCount = 0;
+      indexNode.clear();
     }
-    delete [] nodeCache;
+
     bottom->LevelClear();
   }
 }
@@ -167,73 +153,42 @@ void  Index::Levels() {
 
    @return a vector of cached node copies.
  */
-NodeCache *Index::CacheNodes(const std::vector<SSNode*> &argMax) {
-  NodeCache *nodeCache = new NodeCache[argMax.size()];
-  for (unsigned int splitIdx = 0; splitIdx < argMax.size(); splitIdx++) {
-    nodeCache[splitIdx].Cache(&indexNode[splitIdx], argMax[splitIdx]);
+unsigned int Index::LevelCensus(const std::vector<SSNode*> &argMax, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxLive, unsigned int &idxMax) {
+  unsigned int rhSplitNext, leafThis;
+  rhSplitNext = leafThis = lhSplitNext = idxLive = idxMax = 0;
+
+  unsigned int splitIdx = 0;
+  for (auto & node : indexNode) {
+    node.SplitCensus(argMax[splitIdx++], leafThis, lhSplitNext, rhSplitNext, idxLive, idxMax);
   }
 
-  return nodeCache;
-}
-
-
-/**
-   @brief Counts splits and leaves in the next level.
-
-   @lhSplitNext outputs the count of left-hand splits in the next level.
-
-   @leafNext outputs the number of leaves in the next level.
-
-   @return total number of splits in the next level.
- */
-unsigned int Index::LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
-  lhSplitNext = leafNext = idxTot = 0;
-  unsigned int rhSplitNext = 0;
-  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++)
-    nodeCache[splitIdx].SplitCensus(lhSplitNext, rhSplitNext, leafNext, idxTot);
-  
   // Restaging is implemented as a patient stable partition.
   //
   // Coprocessor implementations can be streamlined using a node-
   // independent indexing scheme, e.g., enumerating all left-hand
   // subnodes before the first right-hand subnode.
   //
-  return lhSplitNext + rhSplitNext;
+  unsigned int splitNext = lhSplitNext + rhSplitNext;
+  leafNext = 2 * (indexNode.size() - leafThis) - splitNext;
+
+  return splitNext;
 }
 
 
 /**
-   @brief Splitable nodes only:  takes census next level's left, right split
-   nodes nodes and leaves.
-
-   @param lhSplitNext outputs count of LH index nodes in next level.
-
-   @param rhSplitNext outputs count of RH index nodes in next level.
-
-   @param leafNext outputs count of pretree terminals in next level.
-
-   @return void, plus output reference parameters.
-*/
-void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
+   @brief Consumes relevant contents of split signature, if any, and accumulates
+   leaf and splitting census.
+ */
+void IndexNode::SplitCensus(SSNode *argMax, unsigned int &leafThis, unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &idxLive, unsigned int &idxMax) {
+  ssNode = argMax;
   if (ssNode == 0) {
-    return;
-  }
-
-  ssNode->LHSizes(lhSCount, lhIdxCount);
-  if (Splitable(lhIdxCount)) {
-    lhSplitNext++;
-    idxTot += lhIdxCount;
+    leafThis++;
   }
   else {
-    leafNext++;
+    ssNode->LHSizes(lhSCount, lhIdxCount);
+    lhSplitNext += SplitAccum(lhIdxCount, idxLive, idxMax) ? 1 : 0;
+    rhSplitNext += SplitAccum(idxCount - lhIdxCount, idxLive, idxMax) ? 1 : 0;
   }
-
-  if (Splitable(idxCount - lhIdxCount)) {
-    rhSplitNext++;
-    idxTot += idxCount - lhIdxCount;
-  }
-  else
-    leafNext++;
 }
 
 
@@ -243,23 +198,19 @@ void NodeCache::SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext
 
    @param level is the current level.
 
-   @return count of nodes at next level:  zero if short-circuiting.
+   @return void.
 */
-NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot) {
-  NodeCache *nodeCache = CacheNodes(bottom->Split(this, indexNode));
-  splitNext = LevelCensus(nodeCache, levelCount, lhSplitNext, leafNext, idxTot);
+void Index::LevelConsume(unsigned int splitNext, unsigned int leafNext) {
+  unsigned int heightPrev = preTree->Level(splitNext, leafNext);
 
-  unsigned int heightPrev = preTree->NextLevel(splitNext, leafNext);
-  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
-    nodeCache[splitIdx].NonTerminal(preTree, samplePred, bottom);
+  for (auto  & node : indexNode) {
+    node.NonTerminal(preTree, samplePred, bottom);
   }
   preTree->Preplay(heightPrev);
-  
-  for (unsigned int splitIdx = 0; splitIdx < levelCount; splitIdx++) {
-    nodeCache[splitIdx].Consume(preTree, samplePred, bottom);
-  }
 
-  return nodeCache;
+  for (auto & node : indexNode) {
+    node.Consume(preTree, samplePred, bottom);
+  }
 }
 
 
@@ -268,7 +219,7 @@ NodeCache *Index::LevelConsume(unsigned int levelCount, unsigned int &splitNext,
 
   @return void.
 */
-void NodeCache::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
+void IndexNode::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
   if (ssNode != 0) {
     ssNode->NonTerminal(samplePred, preTree, bottom->Runs(), ptId, ptL, ptR);
   }
@@ -280,101 +231,45 @@ void NodeCache::NonTerminal(PreTree *preTree, SamplePred *samplePred, Bottom *bo
 
   @return void.
 */
-void NodeCache::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
+void IndexNode::Consume(PreTree *preTree, SamplePred *samplePred, Bottom *bottom) {
   if (ssNode != 0) {
     lhSum = ssNode->Replay(samplePred, preTree, bottom->Runs(), idxCount, sum, ptId, ptL, ptR);
   }
 }
 
 
-void Index::LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int splitPrev, unsigned int leafNext, unsigned int idxTot) {
-  levelWidth = splitNext + leafNext;
+void Index::LevelProduce(Bottom *bottom, unsigned int splitNext, unsigned int posRight, unsigned int idxLive, unsigned int idxMax) {
+  bottom->Overlap(splitNext, idxLive, idxMax);
 
-  unsigned int lhCount = 0;
-  unsigned int rhCount = 0;
-  // Next call guaranteed, so no dangling references:
-  std::vector<IndexNode> _indexNode(splitNext);
-  indexNode = std::move(_indexNode);
-
-  std::vector<unsigned int> relIdx(levelWidth + 1);
-  std::fill(relIdx.begin(), relIdx.end(), idxTot);
-
-  unsigned int idxLive = 0;
-  for (unsigned int splitIdx = 0; splitIdx < splitPrev; splitIdx++) {
-    nodeCache[splitIdx].Successors(this, preTree, bottom, relIdx, lhSplitNext, idxLive, lhCount, rhCount);
+  unsigned int posLeft = 0;
+  std::vector<IndexNode> indexNext(splitNext);
+  for (auto & node : indexNode) {
+    node.Produce(indexNext, posLeft, posRight);
   }
+  indexNode = std::move(indexNext);
 
-  PathUpdate(relIdx);
+  bottom->PathUpdate(indexNode, preTree, levelWidth);
 }
 
 
 /**
-     @brief 
+   @brief Splitable nodes only:  takes census next level's left, right split
+   nodes nodes and leaves.
 
-     @return void.
-*/
-void Index::PathUpdate(std::vector<unsigned int> &relIdx) {
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    bool isLeft;
-    unsigned int levelOff = preTree->SampleOffset(sIdx, isLeft);
-    bottom->FrontUpdate(sIdx, relIdx[levelOff]++, isLeft);
-  }
+   @param rhSplitNext outputs count of RH index nodes in next level.
 
-  bottom->BackUpdate();
-}
-
-  
-/**
-   @brief Consumes all cached information for this node, following which the node should be considered dead.
-   
-   LH and RH pre-tree nodes are made for all split nodes actually found to be
-   splitable during this interlevel pass.  Node indices for both sides are passed
-   to the Replay().  Terminality constraints are checked and index tree nodes
-   (IndexNode) are made for all sides not so constrained.  Split node order is
-   assigned so as to correspond with expectations of restaging, which takes place
-   at the start of the next level.
-
-   Index tree nodes (IndexNode), OTOH, are only made for those sides with the
-   potential to split - that is, which are not already known to be terminal.
-   These are made by NextLevel(), which is invoked in a manner guaranteeing
-   an ordering in which left-hand splits precede right-hand splits.
-   This ordering ensures that offset values assigned to splits reflect the same
-   ordering as is assigned by restaging, which effects a stable partition of
-   this level's predictor sample orderings (SampleOrd).
-
-   @param lhSplitNext is the total number of LH index nodes in the next level.
-
-   @param lhSplitCount outputs the accumulated number of next-level LH index nodes.
-
-   @param rhSplitCount outputs the accumulated number of next-level RH index nodes.
+   @param leafNext outputs count of pretree terminals in next level.
 
    @return void, plus output reference parameters.
 */
-void NodeCache::Successors(Index *index, PreTree *preTree, Bottom *bottom, std::vector<unsigned int> &relIdx, unsigned int lhSplitNext, unsigned int &idxLive, unsigned int &lhSplitCount, unsigned int &rhSplitCount) {
-  if (ssNode == 0) {
-    return;
-  }
-
-  if (Splitable(lhIdxCount)) {
-    relIdx[preTree->LevelOffset(ptL)] = idxLive;
-    idxLive  += lhIdxCount;
-    index->NodeNext(splitIdx, lhSplitCount++, ptL, lhStart, lhIdxCount, lhSCount, lhSum, ssNode->MinInfo(), index->PathLeft(path));
-  }
-
-  if (Splitable(idxCount - lhIdxCount)) {
-    relIdx[preTree->LevelOffset(ptR)] = idxLive;
-    idxLive += idxCount - lhIdxCount;
-    index->NodeNext(splitIdx, lhSplitNext + rhSplitCount++, ptR, lhStart + lhIdxCount, idxCount - lhIdxCount, sCount - lhSCount, sum - lhSum, ssNode->MinInfo(), index->PathRight(path));
+void IndexNode::Produce(std::vector<IndexNode> &indexNext, unsigned int &posLeft, unsigned int &posRight) const {
+  if (ssNode != 0) {
+    SplitHand(indexNext, posLeft, lhSCount, lhIdxCount, lhStart, ssNode->MinInfo(), ptL, lhSum, PathLeft());
+    SplitHand(indexNext, posRight, sCount - lhSCount, idxCount - lhIdxCount, lhStart + lhIdxCount, ssNode->MinInfo(), ptR, sum - lhSum, PathRight());
   }
 }
 
 
-void Index::NodeNext(unsigned int parIdx, unsigned int idxNext, unsigned int ptId, unsigned int start, unsigned int idxCount, unsigned int sCount, double sum, double minInfo, unsigned pathNext) {
-  indexNode[idxNext].Init(idxNext, start, ptId, idxCount, sCount, sum, minInfo, pathNext);
-  bottom->ReachingPath(parIdx, pathNext, idxNext, start, idxCount);
-}
-
-  
 /**
    @brief Consults pretree for node holding sample and computes node's offset.
 
@@ -400,5 +295,5 @@ bool Index::LevelOffSample(unsigned int sIdx, unsigned int &levelOffset) const {
   */
 
 unsigned int Index::LevelOffSplit(unsigned int splitIdx) const {
-  return preTree->LevelOffset(indexNode[splitIdx].ptId);
+  return preTree->LevelOffset(indexNode[splitIdx].PTId());
 }

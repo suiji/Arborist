@@ -73,14 +73,10 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), nPred(pmTrain->NPred()), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), levelBase(0) {
-  info.reserve(nPred);
-  for (unsigned int i = 0; i < nPred; i++)
-    info.push_back(0.0);
-  sample2PT.reserve(bagCount);
-  for (unsigned int i = 0; i < bagCount; i++) {
-    sample2PT.push_back(0);
-  }
+PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), sample2PT(std::vector<unsigned int>(bagCount)), info(std::vector<double>(pmTrain->NPred())), levelBase(0) {
+  std::fill(sample2PT.begin(), sample2PT.end(), 0);
+  std::fill(info.begin(), info.end(), 0.0);
+
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   nodeVec[0].id = 0; // Root.
@@ -207,7 +203,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMe
 
 
 /**
-   @brief Updates the high watermark for the preTree vector.  Forces a
+   @brief Builds a new  level of the pretree for nodes just split.  Forces a
    reallocation to twice the existing size, if necessary.
 
    N.B.:  reallocations incur considerable resynchronization costs if
@@ -219,7 +215,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMe
 
    @return current height;
 */
-unsigned int PreTree::NextLevel(unsigned int splitNext, unsigned int leafNext) {
+unsigned int PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -237,30 +233,17 @@ unsigned int PreTree::NextLevel(unsigned int splitNext, unsigned int leafNext) {
 }
 
 
-void PreTree::SetHand(unsigned int parId, unsigned int hand) {
-  ppHand[parId - levelBase] = hand;
-}
+/**
+   @brief Speculatively resets frontier map to one of either the
+   left or right offspring of the current mapping.
 
+   @param heightPrev is the tree height prior to this level.
 
-bool PreTree::PreplayHand(unsigned int parId, unsigned int &hand) {
-  hand = 0;
-  if (parId >= levelBase) {
-    hand = ppHand[parId - levelBase];
-    return hand > parId ? true : false;
-  }
-  else {
-    return false;
-  }
-}
-
-
+   @return void.
+ */
 void PreTree::Preplay(unsigned int heightPrev) {
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int ptThis = sample2PT[sIdx];
-    unsigned int hand;
-    if (PreplayHand(ptThis, hand)) {
-      sample2PT[sIdx] = hand;
-    }
+  for (unsigned int sIdx = 0; sIdx < sample2PT.size(); sIdx++) {
+    PreplayHand(sample2PT[sIdx]);
   }
   levelBase = heightPrev;
 }
@@ -300,7 +283,7 @@ const std::vector<unsigned int> PreTree::DecTree(ForestTrain *forest, unsigned i
   forest->BitProduce(splitBits, bitEnd);
   delete splitBits;
 
-  for (unsigned int i = 0; i < nPred; i++)
+  for (unsigned int i = 0; i < info.size(); i++)
     predInfo[i] += info[i];
 
   return FrontierToLeaf(forest, tIdx);
@@ -350,9 +333,9 @@ const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, uns
   std::vector<unsigned int> nodeLeaf(height);
   std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);
 
-  std::vector<unsigned int> frontierMap(bagCount);
+  std::vector<unsigned int> frontierMap(sample2PT.size());
   unsigned int leafIdx = 0;
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
+  for (unsigned int sIdx = 0; sIdx < sample2PT.size(); sIdx++) {
     unsigned int ptIdx = sample2PT[sIdx];
     if (nodeLeaf[ptIdx] == leafCount) { // Unseen so far.
       unsigned int nodeIdx = sample2PT[sIdx];

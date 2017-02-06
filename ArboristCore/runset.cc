@@ -279,7 +279,7 @@ void RunSet::HeapBinary() {
 void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[]) {
   if (nodeSum != 0) {
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      SumCtg(ctg) = nodeSum[ctg];
+      SumCtgSet(ctg, nodeSum[ctg]);
     }
   }
 
@@ -288,7 +288,7 @@ void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, doubl
     sumTot -= runZero[runIdx].sum;
     if (nodeSum != 0) {
       for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-	SumCtg(ctg) -= SumCtg(runIdx, ctg);
+	AccumCtg(ctg, -SumCtg(runIdx, ctg));
       }
     }
   }

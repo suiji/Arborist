@@ -47,10 +47,7 @@ class PTNode {
 class PreTree {
   static unsigned int heightEst;
   const class PMTrain *pmTrain;
-  unsigned int nPred;
   PTNode *nodeVec; // Vector of tree nodes.
-  std::vector<unsigned int> sample2PT;
-  std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
   unsigned int nodeCount; // Allocation height of node vector.
   unsigned int height;
   unsigned int leafCount;
@@ -61,13 +58,27 @@ class PreTree {
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
   const std::vector<unsigned int> FrontierToLeaf(class ForestTrain *forest, unsigned int tIdx);
-  unsigned int bagCount;
+  const unsigned int bagCount;
+  std::vector<unsigned int> sample2PT;
+  std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
   unsigned int levelBase; // Height at base of current level.
   unsigned int BitWidth();
 
-  void SetHand(unsigned int parId, unsigned int hand);
-  bool PreplayHand(unsigned int parId, unsigned int &hand);
   
+  inline void SetHand(unsigned int parId, unsigned int hand) {
+    ppHand[parId - levelBase] = hand;
+  }
+
+
+  inline void PreplayHand(unsigned int &parId) {
+    if (parId >= levelBase) {
+      unsigned int hand = ppHand[parId - levelBase];
+      if (hand > parId) {
+	parId = hand;
+      }
+    }
+  }
+
  public:
   PreTree(const class PMTrain *_pmTrain, unsigned int _bagCount);
   ~PreTree();
@@ -87,7 +98,7 @@ class PreTree {
     return sample2PT;
   }
   
-  unsigned int NextLevel(unsigned int splitNext, unsigned int leafNext);
+  unsigned int Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
 
 

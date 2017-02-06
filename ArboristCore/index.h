@@ -30,20 +30,89 @@
 */
 class IndexNode {
   double preBias; // Inf of information values eligible for splitting.
- public: // The three integer values are all non-negative.
-  IndexNode();
   unsigned int splitIdx; // Position within containing vector:  split index.
+  unsigned int parIdx; // Parent index, for use in path threading.
+  unsigned int ptId; // Index of associated PTSerial node.
   unsigned int lhStart; // Start index of LH in buffer:  Swiss cheese.
   unsigned int idxCount; // # distinct indices in the node.
   unsigned int sCount;  // # samples subsumed by this node.
   double sum; // Sum of all responses in node.
   double minInfo; // Minimum acceptable information on which to split.
-  unsigned int ptId; // Index of associated PTSerial node.
   unsigned char path; // Bitwise record of recent reaching L/R path.
+
+  // Post-splitting fields:
+  class SSNode *ssNode; // Convenient to cache for LH/RH partition.
+  unsigned int lhIdxCount; // Total indices over LH.
+  unsigned int lhSCount; // Total samples cover LH.
+  double lhSum; // Sum of responses over LH.
+  unsigned int ptL; // LH index into pre-tree.
+  unsigned int ptR; // RH index into pre-tree.
 
   double PrebiasReg();
   double PrebiasCtg(const double sumSquares[]);
 
+  
+  inline unsigned int PathLeft() const {
+    return path << 1;
+  }
+
+
+  inline unsigned int PathRight() const {
+    return (path << 1) | 1;
+  }
+
+
+ public:
+  static unsigned int minNode;
+  IndexNode();
+
+  void SplitCensus(SSNode *argMax, unsigned int &leafThis, unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &idxLive, unsigned int &idxMax);
+
+  void NonTerminal(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
+  void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
+  void Produce(std::vector<IndexNode> &indexNext, unsigned int &posLeft, unsigned int &posRight) const ;
+
+  /**
+    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
+    
+    MUST guarantee that no zero-length "splits" have been introduced.
+    Not only are these nonsensical, but they are also dangerous, as they violate
+    various assumptions about the integrity of the intermediate respresentation.
+
+    @param _idxCount is the count of indices subsumed by the node.
+
+    @return true iff the node subsumes more than minimal count of buffer elements.
+  */
+  static inline bool Splitable(unsigned int _idxCount) /*const*/ {
+    return _idxCount >= minNode;
+  }
+
+
+  static inline bool SplitAccum(unsigned int _idxCount, unsigned int &_idxLive, unsigned int &_idxMax) {
+    if (Splitable(_idxCount)) {
+      _idxMax = _idxCount > _idxMax ? _idxCount : _idxMax;
+      _idxLive += _idxCount;
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  
+  /**
+     @brief Appends one hand of a split onto next level's node list, if splitable.
+
+     @return void.
+  */
+  inline void SplitHand(std::vector<IndexNode> &indexNext, unsigned int &idx, unsigned int _sCount, unsigned int _idxCount, unsigned int _lhStart, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) const {
+    if (Splitable(_idxCount)) {
+      indexNext[idx].Init(idx, splitIdx, _sCount, _idxCount, _lhStart, _minInfo, _ptId, _sum, _path);
+      idx++;
+    }
+  }
+
+  
   /**
      @brief Outputs fields used by pre-bias computation.
 
@@ -69,37 +138,6 @@ class IndexNode {
   }
 
 
-  /**
-     @brief Sets nearly all (invariant) fields for the upcoming split methods.
-     The only exceptions are the "late" values, 'preBias' and 'lhStart'.
-     @see LateFields
-
-     @param _splitIdx is the index within the containing vector.
-
-     @param _ptId is the pretree node index.
-
-     @param _idxCount is the count indices represented.
-
-     @param _sCount is the count of samples represented.
-
-     @param _sum is the sum of response values at the indices represented.
-
-     @param _minInfo is the minimal information content suitable to split either child.
-
-     @return void.
-  */
-  void Init(int _splitIdx, unsigned int _start, unsigned int _ptId, int _idxCount, unsigned int _sCount, double _sum, double _minInfo, unsigned char _path) {
-    splitIdx = _splitIdx;
-    ptId = _ptId;
-    lhStart = _start;
-    idxCount = _idxCount;
-    sCount = _sCount;
-    sum = _sum;
-    minInfo = _minInfo;
-    path = _path;
-  }
-
-
   inline void PathCoords(unsigned int &_start, unsigned int &_extent) {
     _start = lhStart;
     _extent = idxCount;
@@ -121,6 +159,15 @@ class IndexNode {
     return idxCount;
   }
 
+
+  inline unsigned int SCount() const {
+    return sCount;
+  }
+
+
+  inline unsigned int PTId() const {
+    return ptId;
+  }
   
 
   /**
@@ -146,6 +193,28 @@ class IndexNode {
 
 
   /**
+     @brief Sets fields with values used immediately following splitting.
+
+     @param _idx is the index within the containing vector.
+
+     @para _idxCount is the index count.
+
+     @return void.
+   */
+  void Init(unsigned int _idx, unsigned int _parIdx, unsigned int _sCount, unsigned int _idxCount, unsigned int _lhStart, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) {
+    splitIdx = _idx;
+    parIdx = _parIdx;
+    sCount = _sCount;
+    idxCount = _idxCount;
+    lhStart = _lhStart;
+    minInfo = _minInfo;
+    ptId = _ptId;
+    sum = _sum;
+    path = _path;
+  }
+
+
+  /**
      @brief Exposes minimum-information value for the node.
 
      @return minInfo value.
@@ -153,86 +222,31 @@ class IndexNode {
   inline double MinInfo() const {
     return minInfo;
   }
-};
 
 
-/**
-   @brief Caches intermediate IndexNode contents during intra-level transfer.
-*/
-class NodeCache : public IndexNode {
-  class SSNode *ssNode; // Convenient to cache for LH/RH partition.
-  static unsigned int minNode;
-  unsigned int lhIdxCount; // Total indices over LH:  splits only.
-  unsigned int lhSCount; // Total samples cover LH:  splits only.
-  double lhSum; // Sum of responses over LH:  splits only.
-  unsigned int ptL; // LH index into pre-tree:  splits only.
-  unsigned int ptR; // RH index into pre-tree:  splits only.
- public:
-  static void Immutables(unsigned int _minNode);
-  static void DeImmutables();
-  NodeCache();
-  void NonTerminal(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
-  void Consume(class PreTree *preTree, class SamplePred *samplePred, class Bottom *bottom);
-  void Successors(class Index *index, class PreTree *preTree, class Bottom *bottom, std::vector<unsigned int> &relIdx, unsigned int lhSplitNext, unsigned int &idxLive, unsigned int &lhCount, unsigned int &rhCount);
-  void SplitCensus(unsigned int &lhSplitNext, unsigned int &rhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
-
-  /**
-     @brief Copies indexNode entry into corresponding nodeCache.
-
-     @param nd is the IndexNode to copy.
-
-     @return void.
-   */
-  inline void Cache(IndexNode *nd, class SSNode *argMax) {
-    splitIdx = nd->splitIdx;
-    lhStart = nd->lhStart;
-    idxCount = nd->idxCount;
-    sCount = nd->sCount;
-    sum = nd->sum;
-    ptId = nd->ptId;
-    minInfo = nd->minInfo;
-    path = nd->path,
-    ptL = ptR = 0; // Terminal until shown otherwise.
-    ssNode = argMax;
-  }
-  
-
-  /**
-    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
-    
-    MUST guarantee that no zero-length "splits" have been introduced.
-    Not only are these nonsensical, but they are also dangerous, as they violate
-    various assumptions about the integrity of the intermediate respresentation.
-
-    @param _idxCount is the count of indices subsumed by the node.
-
-    @return true iff the node subsumes more than minimal count of buffer elements.
-  */
-  inline bool Splitable(unsigned int _idxCount) const {
-    return _idxCount >= minNode;
+  inline void PathFields(unsigned int &_parIdx, unsigned int &_path, unsigned int &_lhStart, unsigned int &_idxCount, unsigned int &_ptId) const {
+    _parIdx = parIdx;
+    _path = path;
+    _lhStart = lhStart;
+    _idxCount = idxCount;
+    _ptId = ptId;
   }
 };
 
 
 class Index {
   static unsigned int totLevels;
-  unsigned int splitNext; // Total count of nodes in next level.
-  unsigned int lhSplitNext; // Count of LH nodes in next level.
+  //  unsigned int lhSplitNext; // Count of LH nodes in next level.
 
-  NodeCache *CacheNodes(const std::vector<class SSNode*> &argMax);
-  void ArgMax(NodeCache nodeCache[]);
-  unsigned int LevelCensus(NodeCache nodeCache[], unsigned int levelCount, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
-  NodeCache *LevelConsume(unsigned int levelCount, unsigned int &splitNext, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxTot);
-  void LevelProduce(NodeCache *nodeCache, unsigned int level, unsigned int levelCount, unsigned int leafNext, unsigned int idxTot);
-
-
- protected:
   std::vector<IndexNode> indexNode;
   const unsigned int bagCount;
   unsigned int levelWidth; // Count of pretree nodes at frontier.
   static class PreTree *OneTree(const class PMTrain *pmTrain, class SamplePred *_samplePred, class Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _bagSum);
+  unsigned int LevelCensus(const std::vector<class SSNode*> &argMax, unsigned int &lhSplitNext, unsigned int &leafNext, unsigned int &idxLive, unsigned int &idxMax);
+  void LevelConsume(unsigned int splitNext, unsigned int leafNext);
+  void LevelProduce(class Bottom *bottom, unsigned int splitNext, unsigned int leafNext, unsigned int idxLive, unsigned int idxMax);
 
-  
+
  public:
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
@@ -245,8 +259,6 @@ class Index {
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
   void SetPrebias();
   void Levels();
-  void PathUpdate(std::vector<unsigned int> &relIdx);
-  void NodeNext(unsigned int parIdx, unsigned int idxNex, unsigned int ptId, unsigned int _start, unsigned int _idxCount, unsigned int sCount, double sum, double minInfo, unsigned int pathNext);
   
   /**
      @brief 'bagCount' accessor.
@@ -259,20 +271,10 @@ class Index {
 
 
   inline unsigned int SCount(int splitIdx) const {
-    return indexNode[splitIdx].sCount;
+    return indexNode[splitIdx].SCount();
   }
 
 
-  inline unsigned int PathLeft(unsigned char _path) {
-    return _path << 1;
-  }
-
-
-  inline unsigned int PathRight(unsigned char _path) {
-    return (_path << 1) | 1;
-  }
-
-  
   /**
      @return count of pretree nodes at current level.
   */
