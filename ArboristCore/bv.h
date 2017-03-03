@@ -145,6 +145,12 @@ class BV {
     raw[slot] = val;
   }
 
+
+  inline void Clear() {
+    for (unsigned int i = 0; i < nSlot; i++) {
+      raw[i] = 0;
+    }
+  }
 };
 
 

@@ -63,6 +63,13 @@ class SPNode {
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
   unsigned int Init(const StagePack &stagePack);
+  
+  inline void Init(FltVal _ySum, unsigned int _sCount, unsigned int _rank) {
+    ySum = _ySum;
+    sCount = _sCount;
+    rank = _rank;
+  }
+
 
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
@@ -115,20 +122,6 @@ class SPNode {
 
 
   /**
-   @brief Determines whether the consecutive index positions are a run of predictor values.
-
-   @param start is starting index position of potential run.
-
-   @param end is the ending index position of potential run.
-
-   @return whether a run is encountered.
-  */
-  inline bool IsRun(unsigned int start, unsigned int end) const {
-    return (this + start)->rank == (this + end)->rank;
-  }
-
-
-  /**
      @brief Accessor for 'rank' field
 
      @return rank value.
@@ -167,7 +160,6 @@ class SamplePred {
   const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
-  std::vector<unsigned int> rel2Sample;
   std::vector<unsigned int> stageOffset;
   std::vector<unsigned int> stageExtent; // Client:  debugging only.
   SPNode* nodeVec;
@@ -185,7 +177,9 @@ class SamplePred {
   static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
 
   void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
- 
+  double BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
+
+  
   inline unsigned int PitchSP() {
     return pitchSP;
   }
@@ -200,11 +194,6 @@ class SamplePred {
   }
 
 
-  inline void Rel2Sample(unsigned int relIdx, unsigned int sIdx) {
-    rel2Sample[relIdx] = sIdx;
-  }
-
-  
   // The category could, alternatively, be recorded in an object subclassed
   // under class SamplePred.  This would require that the value be restaged,
   // which happens for all predictors at all splits.  It would also require
@@ -280,7 +269,6 @@ class SamplePred {
     targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
-  double Replay(unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId, std::vector<unsigned int> &sample2PT);
 
   // TODO:  Move somewhere appropriate.
   /**

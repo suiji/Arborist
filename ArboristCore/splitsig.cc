@@ -13,15 +13,16 @@
    @author Mark Seligman
  */
 
+
 #include "splitsig.h"
-#include "samplepred.h"
+#include "bottom.h"
 #include "pretree.h"
 #include "runset.h"
 
 #include <cfloat>
 
-//#include <iostream>
-//using namespace std;
+#include <iostream>
+using namespace std;
 
 /* Split signature values only live during a single level, from argmax
    pass one (splitting) through argmax pass two.
@@ -70,7 +71,7 @@ void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, unsigned int
   ssn.predIdx = _predIdx;
   ssn.setIdx = _setIdx;
   ssn.bufIdx = _bufIdx;
-  nux.Ref(ssn.idxStart, ssn.idxCount, ssn.sCount, ssn.info, ssn.rankMean, ssn.idxImplicit);
+  nux.Ref(ssn.idxStart, ssn.lhExtent, ssn.sCount, ssn.info, ssn.rankMean, ssn.lhImplicit);
 
   Lookup(_levelIdx, ssn.predIdx) = ssn;
 }
@@ -90,38 +91,25 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    @param ptId is the pretree index.
 
-   @return void.
+   @return sum of left-hand responses.
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-void SSNode::NonTerminal(SamplePred *samplePred, PreTree *preTree, Run *run, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  return run->IsRun(setIdx) ? NonTerminalRun(preTree, run, ptId, ptLH, ptRH) : NonTerminalNum(samplePred, preTree, ptId, ptLH, ptRH);
+double SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, double sum, unsigned int ptId) {
+  return run->IsRun(setIdx) ? NonTerminalRun(bottom, preTree, run, extent, sum, ptId) : NonTerminalNum(bottom, preTree, extent, sum, ptId);
 }
-
-
-double SSNode::Replay(SamplePred *samplePred, PreTree *preTree, Run *run, unsigned int idxPred, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH) {
-  return run->IsRun(setIdx) ? ReplayRun(samplePred, preTree, sum, ptId, ptLH, ptRH, run) : ReplayNum(samplePred, preTree, sum, idxPred, ptLH, ptRH);
-}
-
 
 
 /**
    @brief Writes PreTree nonterminal node for multi-run (factor) predictor.
 
-   @return sum of left-hand subnode's response values.
+   @return true iff LH is implicit.
  */
-void SSNode::NonTerminalRun(PreTree *preTree, Run *run, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  preTree->NonTerminalFac(info, predIdx, ptId, run->ExposeRH(setIdx), ptLH, ptRH);
-}
-
-
-/**
-   @brief Writes PreTree nonterminal node for numerical predictor.
-
-   @return sum of LH subnode's sample values.
- */
-void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, unsigned int ptId, unsigned int &ptLH, unsigned int &ptRH) {
-  preTree->NonTerminalNum(info, predIdx, rankMean, ptId, idxImplicit > 0, ptLH, ptRH);
+double SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, double sum, unsigned int ptId) {
+  preTree->NonTerminalFac(info, predIdx, ptId);
+  
+  leftExpl = !run->ImplicitLeft(setIdx);
+  return PreplayRun(bottom, preTree, sum, ptId, run);
 }
 
 
@@ -130,32 +118,28 @@ void SSNode::NonTerminalNum(SamplePred *samplePred, PreTree *preTree, unsigned i
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int ptId, unsigned int ptLH, unsigned int ptRH, Run *run) {
-  // Preplay() has overwritten all live sample indices with one or the other
-  // successor.  Now the complementary successor index is applied as
-  // appropriate.
-  //
-  if (run->ExposeRH(setIdx)) { // Must walk both LH and RH runs.
+double SSNode::PreplayRun(Bottom *bottom, PreTree *preTree, double sum, unsigned int ptId, const Run *run) {
+  if (run->ImplicitLeft(setIdx)) {// LH runs hold bits, RH hold preplay indices.
     double rhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
       if (outSlot < run->RunsLH(setIdx)) {
         preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
       }
       else {
-	unsigned int runStart, runEnd;
-	run->RunBounds(setIdx, outSlot, runStart, runEnd);
-        rhSum += samplePred->Replay(predIdx, bufIdx, runStart, runEnd, ptRH, preTree->FrontierMap());
+	unsigned int runStart, runExtent;
+	run->RunBounds(setIdx, outSlot, runStart, runExtent);
+        rhSum += bottom->BlockPreplay(predIdx, bufIdx, runStart, runExtent);
       }
     }
     return sum - rhSum;
   }
-  else { // Suffices just to walk LH runs.
+  else { // LH runs hold bits as well as preplay indices.
     double lhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
       preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
-      unsigned int runStart, runEnd;
-      run->RunBounds(setIdx, outSlot, runStart, runEnd);
-      lhSum += samplePred->Replay(predIdx, bufIdx, runStart, runEnd, ptLH, preTree->FrontierMap());
+      unsigned int runStart, runExtent;
+      run->RunBounds(setIdx, outSlot, runStart, runExtent);
+      lhSum += bottom->BlockPreplay(predIdx, bufIdx, runStart, runExtent);
     }
     return lhSum;
   }
@@ -163,21 +147,32 @@ double SSNode::ReplayRun(SamplePred *samplePred, PreTree *preTree, double sum, u
 
 
 /**
+   @brief Writes PreTree nonterminal node for numerical predictor.
+
+   @return True iff LH is implicit.
+ */
+double SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, double sum, unsigned int ptId) {
+  preTree->NonTerminalNum(info, predIdx, rankMean, ptId);
+
+  leftExpl = lhImplicit == 0;
+  return PreplayNum(bottom, sum, extent);
+}
+
+
+/**
    @brief Writes successor id over appropriate side of the cut.  Preplay()
    has already preinitialized all samples with the complementary id.
 
+   @param sum is the response sum of the predecessor node.
+
+   @param extent is the size of the predecessor node's index set.
+
    @return sum of LH subnode's sample values.
  */
-double SSNode::ReplayNum(SamplePred *samplePred, PreTree *preTree, double sum, unsigned int idxPred, unsigned int ptLH, unsigned int ptRH) {
-  double lhSum;
-  if (idxImplicit > 0) {
-    lhSum = sum - samplePred->Replay(predIdx, bufIdx, idxStart + idxCount - idxImplicit, idxStart + idxPred - 1 - idxImplicit, ptRH, preTree->FrontierMap());
-  }
-  else {
-    lhSum = samplePred->Replay(predIdx, bufIdx, idxStart, idxStart + idxCount - 1, ptLH, preTree->FrontierMap());
-  }
-
-  return lhSum;
+double SSNode::PreplayNum(Bottom *bottom, double sum, unsigned int extent) {
+   return lhImplicit == 0 ?
+    bottom->BlockPreplay(predIdx, bufIdx, idxStart, lhExtent) :
+    sum - bottom->BlockPreplay(predIdx, bufIdx, idxStart - lhImplicit + lhExtent, extent - lhExtent);
 }
 
 

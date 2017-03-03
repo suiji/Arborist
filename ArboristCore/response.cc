@@ -121,7 +121,7 @@ PreTree **Response::BlockTree(const RowRank *rowRank, unsigned int blockSize) {
     sampleBlock[i] = Sampler(rowRank);
   }
 
-  return Index::BlockTrees(pmTrain, sampleBlock, blockSize);
+  return IndexLevel::BlockTrees(pmTrain, sampleBlock, blockSize);
 }
 
 

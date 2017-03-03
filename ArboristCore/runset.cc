@@ -85,7 +85,7 @@ void Run::RunSets(const std::vector<unsigned int> &safeCount) {
   if (setCount > 0) {
     runSet = new RunSet[setCount];
     for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
-      CountSafe(setIdx) = safeCount[setIdx];
+      CountSafe(setIdx, safeCount[setIdx]);
     }
   }
 }
@@ -324,7 +324,7 @@ bool FRNode::IsImplicit() {
 
    @return true iff right-hand runs must be exposed.
  */
-bool RunSet::ExposeRH() {
+bool RunSet::ImplicitLeft() {
   if (!hasImplicit)
     return false;
 
@@ -332,7 +332,6 @@ bool RunSet::ExposeRH() {
     unsigned int outSlot = outZero[runIdx];
     if (runZero[outSlot].IsImplicit()) {
       return true;
-      break;
     }
   }
 
@@ -400,7 +399,7 @@ unsigned int RunSet::DeWide() {
    @return LHS index count.
 */
 unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
-  unsigned int lhIdxCount = 0;
+  unsigned int lhExtent = 0;
   unsigned int slotSup = EffCount() - 1;
   runsLH = 0;
   lhSampCt = 0;
@@ -413,14 +412,14 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
       //
       if ((lhBits & (1 << slot)) != 0) {
 	unsigned int sCount;
-        lhIdxCount += LHCounts(slot, sCount);
+        lhExtent += LHCounts(slot, sCount);
 	lhSampCt += sCount;
 	outZero[runsLH++] = slot;
       }
     }
   }
 
-  if (ExposeRH()) {
+  if (ImplicitLeft()) {
     unsigned int rhIdx = runsLH;
     for (unsigned int slot = 0; slot < EffCount(); slot++) {
       if ((lhBits & (1 << slot)) == 0) {
@@ -429,7 +428,7 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
     }
   }
 
-  return lhIdxCount;
+  return lhExtent;
 }
 
 
@@ -443,17 +442,17 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
    @return LHS index count.
 */
 unsigned int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
-  unsigned int lhIdxCount = 0;
+  unsigned int lhExtent = 0;
   lhSampCt = 0;
 
   for (int outSlot = 0; outSlot <= cut; outSlot++) {
     unsigned int sCount;
-    lhIdxCount += LHCounts(outZero[outSlot], sCount);
+    lhExtent += LHCounts(outZero[outSlot], sCount);
     lhSampCt += sCount;
   }
 
   runsLH = cut + 1;
-  return lhIdxCount;  
+  return lhExtent;  
 }
 
 
@@ -549,9 +548,9 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
      @return rank of referenced run, plus output reference parameters.
 */
-void RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &end) const {
+void RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
   unsigned int slot = outZero[outSlot];
-  runZero[slot].ReplayRef(start, end);
+  runZero[slot].ReplayRef(start, extent);
 }
 
 

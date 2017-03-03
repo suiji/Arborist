@@ -137,14 +137,14 @@ SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samp
 
    @return split count.
 */
-void SplitPred::LevelInit(Index *index, std::vector<IndexNode> &indexNode, unsigned int _levelCount) {
+void SplitPred::LevelInit(IndexLevel *index, std::vector<IndexSet> &indexSet, unsigned int _levelCount) {
   levelCount = _levelCount;
   std::vector<unsigned int> safeCount;
   bool *unsplitable = LevelPreset(index);
   Splitable(unsplitable, safeCount);
   delete [] unsplitable;
 
-  SetPrebias(indexNode); // Depends on state from LevelPreset()
+  SetPrebias(indexSet); // Depends on state from LevelPreset()
   RunOffsets(safeCount);
 }
 
@@ -152,13 +152,13 @@ void SplitPred::LevelInit(Index *index, std::vector<IndexNode> &indexNode, unsig
 /**
    @brief Sets (Gini) pre-bias value according to response type.
 
-   @param indexNode is the index tree vector for the current level.
+   @param indexSet is the index tree vector for the current level.
 
    @return void.
 */
-void SplitPred::SetPrebias(std::vector<IndexNode> &indexNode) {
+void SplitPred::SetPrebias(std::vector<IndexSet> &indexSet) {
   for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    IndexNode *idxNode = &indexNode[levelIdx];
+    IndexSet *idxNode = &indexSet[levelIdx];
     unsigned int sCount;
     double sum;
     idxNode->PrebiasFields(sCount, sum);
@@ -182,8 +182,8 @@ unsigned int SplitPred::DenseRank(unsigned int predIdx) const {
 
    @return void.
  */
-void SPReg::LevelInit(Index *index, std::vector<IndexNode> &indexNode, unsigned int _levelCount) {
-  SplitPred::LevelInit(index, indexNode, _levelCount);
+void SPReg::LevelInit(IndexLevel *index, std::vector<IndexSet> &indexSet, unsigned int _levelCount) {
+  SplitPred::LevelInit(index, indexSet, _levelCount);
   if (predMono > 0) {
     unsigned int monoCount = _levelCount * nPred; // Clearly too big.
     ruMono = new double[monoCount];
@@ -360,12 +360,9 @@ SPCtg::~SPCtg() {
 
 
 void SPCtg::LevelClear() {
-  if (pmTrain->NPredNum() > 0) {
-    delete [] ctgSumAccum;
-  }
   delete [] ctgSum;
   delete [] sumSquares;
-  ctgSum = sumSquares = ctgSumAccum = 0;
+  ctgSum = sumSquares = 0;
   SplitPred::LevelClear();
 }
 
@@ -379,7 +376,7 @@ void SPCtg::LevelClear() {
 
    @return vector of unsplitable indices.
 */
-bool *SPReg::LevelPreset(const Index *index) {
+bool *SPReg::LevelPreset(const IndexLevel *index) {
   bool* unsplitable = new bool[levelCount];
   for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++)
     unsplitable[levelIdx] = false;
@@ -412,9 +409,8 @@ wells as FacRun vectors.
 
    @return vector of unsplitable indices.
 */
-bool *SPCtg::LevelPreset(const Index *index) {
-  if (pmTrain->NPredNum() > 0)
-    LevelInitSumR();
+bool *SPCtg::LevelPreset(const IndexLevel *index) {
+  LevelInitSumR(pmTrain->NPredNum());
 
   bool *unsplitable = new bool[levelCount];
   for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++)
@@ -426,56 +422,44 @@ bool *SPCtg::LevelPreset(const Index *index) {
 
 
 /**
+   @brief Functionality shared between IndexLevel and SamplePred:  does
+   not really belong here.
  */
-void SPCtg::SumsAndSquares(const Index *index, bool unsplitable[]) {
+void SPCtg::SumsAndSquares(const IndexLevel *index, bool unsplitable[]) {
   sumSquares = new double[levelCount];
   ctgSum = new double[levelCount * ctgWidth];
-  unsigned int levelWidth = index->LevelWidth();
-  double *sumTemp = new double[levelWidth * ctgWidth];
-  unsigned int *sCountTemp = new unsigned int[levelWidth * ctgWidth];
-  for (unsigned int i = 0; i < levelWidth * ctgWidth; i++) {
-    sumTemp[i] = 0.0;
-    sCountTemp[i] = 0;
-  }
+  unsigned int *sCountCtg = new unsigned int[ctgWidth];
 
-  // Sums each category for each node in the upcoming level, including
-  // leaves.  Since these appear in arbitrary order, a second pass copies
-  // those columns corresponding to nonterminals in split-index order, for
-  // ready access by splitting methods.
-  //
-  for (unsigned int sIdx = 0; sIdx < bagCount; sIdx++) {
-    unsigned int levelOff;
-    if (index->LevelOffSample(sIdx, levelOff)) {
+  // Sums each category for each splitable node in the upcoming level.
+  // 
+  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
+    double *ctgSumCol = &ctgSum[levelIdx * ctgWidth];
+    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
+      sCountCtg[ctg] = 0;
+      ctgSumCol[ctg] = 0.0;
+    }
+
+    for (unsigned int relIdx = 0; relIdx < index->Extent(levelIdx); relIdx++) {
+      // TODO:  STIdx to SIdx translation:
+      unsigned int stIdx = index->STIdx(bottom, levelIdx, relIdx); // Irregular.
       FltVal sum;
       unsigned int sCount;
-      unsigned int ctg = sampleCtg[sIdx].Ref(sum, sCount);
-      sumTemp[levelOff * ctgWidth + ctg] += sum;
-      sCountTemp[levelOff * ctgWidth + ctg] += sCount;
+      unsigned int ctg = sampleCtg[stIdx].Ref(sum, sCount);
+      ctgSumCol[ctg] += sum;
+      sCountCtg[ctg] += sCount;
     }
-  }
 
-  // Reorders by split index, omitting any intervening leaf sums.  Could
-  // instead index directly by level offset, but this would require more
-  // complex accessor methods.
-  //
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    int levelOff = index->LevelOffSplit(levelIdx);
     unsigned int indexSCount = index->SCount(levelIdx);
-    double ss = 0.0;
+    sumSquares[levelIdx] = 0.0;
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      unsigned int sCount = sCountTemp[levelOff * ctgWidth + ctg];
-      if (sCount == indexSCount) { // Singleton response:  avoid splitting.
-	unsplitable[levelIdx] = true;
+      if (sCountCtg[ctg] == indexSCount) {
+	unsplitable[levelIdx] = true; // Short-circuits singleton response.
       }
-      double sum = sumTemp[levelOff * ctgWidth + ctg];
-      ctgSum[levelIdx * ctgWidth + ctg] = sum;
-      ss += sum * sum;
+      sumSquares[levelIdx] += ctgSumCol[ctg] * ctgSumCol[ctg];
     }
-    sumSquares[levelIdx] = ss;
   }
 
-  delete [] sumTemp;
-  delete [] sCountTemp;
+  delete [] sCountCtg;
 }
 
 
@@ -500,11 +484,11 @@ double SPCtg::Prebias(unsigned int levelIdx, unsigned int sCount, double sum) {
 
    @return void.
  */
-void SPCtg::LevelInitSumR() {
-  unsigned int length = pmTrain->NPredNum() * ctgWidth * levelCount;
-  ctgSumAccum = new double[length];
-  for (unsigned int i = 0; i < length; i++)
-    ctgSumAccum[i] = 0.0;
+void SPCtg::LevelInitSumR(unsigned int nPredNum) {
+  if (nPredNum > 0) {
+    ctgSumAccum = std::move(std::vector<double>(nPredNum * ctgWidth * levelCount));
+    std::fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
+  }
 }
 
 
@@ -513,13 +497,13 @@ void SPCtg::LevelInitSumR() {
 
    @return The sign of the constraint, if within the splitting probability, else zero.
 */
-int SPReg::MonoMode(unsigned int splitIdx, unsigned int predIdx) const {
+int SPReg::MonoMode(unsigned int levelIdx, unsigned int predIdx) const {
   if (predMono == 0)
     return 0;
 
   double monoProb = feMono[predIdx];
   int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
-  return sign * ruMono[splitIdx] < monoProb ? sign : 0;
+  return sign * ruMono[levelIdx] < monoProb ? sign : 0;
 }
 
 
@@ -544,9 +528,9 @@ void SplitCoord::InitEarly(unsigned int _splitPos, unsigned int _levelIdx, unsig
 
    @return void.
  */
-void SplitCoord::InitLate(const Bottom *bottom, const std::vector<IndexNode> &indexNode) {
+void SplitCoord::InitLate(const Bottom *bottom, const std::vector<IndexSet> &indexSet) {
   unsigned int idxCount;
-  preBias = indexNode[levelIdx].SplitFields(idxStart, idxCount, sCount, sum);
+  preBias = indexSet[levelIdx].SplitFields(idxStart, idxCount, sCount, sum);
   denseCount = bottom->AdjustDense(levelIdx, predIdx, idxStart, idxCount);
 
   // Singletons may arise from bagging or persist from initialization:
@@ -556,14 +540,14 @@ void SplitCoord::InitLate(const Bottom *bottom, const std::vector<IndexNode> &in
 }
 
  
-void SPReg::Split(const std::vector<IndexNode> &indexNode) {
+void SPReg::Split(const std::vector<IndexSet> &indexSet) {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
   int splitPos;
 #pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
-      splitCoord[splitPos].Split(this, bottom, samplePred, indexNode);
+      splitCoord[splitPos].Split(this, bottom, samplePred, indexSet);
     }
   }
 
@@ -571,14 +555,14 @@ void SPReg::Split(const std::vector<IndexNode> &indexNode) {
 }
 
 
-void SPCtg::Split(const std::vector<IndexNode> &indexNode) {
+void SPCtg::Split(const std::vector<IndexSet> &indexSet) {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
   int splitPos;
 #pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
-      splitCoord[splitPos].Split(this, bottom, samplePred, indexNode);
+      splitCoord[splitPos].Split(this, bottom, samplePred, indexSet);
     }
   }
   splitCoord.clear();
@@ -588,8 +572,8 @@ void SPCtg::Split(const std::vector<IndexNode> &indexNode) {
 /**
    @brief  Regression splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexNode> &indexNode) {
-  InitLate(bottom, indexNode);
+void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexSet> &indexSet) {
+  InitLate(bottom, indexSet);
 
   // Bagging or restaging may precipitate new singletons.
   //
@@ -608,8 +592,8 @@ void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePre
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexNode> &indexNode) {
-  InitLate(bottom, indexNode);
+void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const std::vector<IndexSet> &indexSet) {
+  InitLate(bottom, indexSet);
   
   // Bagging or restaging may precipitate new singletons.
   //
@@ -706,7 +690,7 @@ bool SplitCoord::SplitFac(const SPReg *spReg, const SPNode spn[], unsigned int &
 /**
    @brief Invokes regression/numeric splitting method, currently only Gini available.
 
-   @param indexNode[] is the vector of index nodes.
+   @param indexSet[] is the vector of index nodes.
 
    @param nodeBase is the vector of SamplePred nodes for this level.
 
@@ -761,12 +745,6 @@ bool SplitCoord::SplitNum(const SPNode spn[], NuxLH &nux) {
   }
 
   if (maxInfo > preBias) {
-    /*
-    FltVal dummy;
-    unsigned int rankLH, rankRH, sc;
-    spn[lhSup].RegFields(dummy, rankLH, sc);
-    spn[lhSup+1].RegFields(dummy, rankRH, sc);
-    */
     nux.InitNum(idxStart, lhSup + 1 - idxStart, lhSampCt, maxInfo - preBias, spn[lhSup].Rank(), spn[lhSup+1].Rank());
     return true;
   }

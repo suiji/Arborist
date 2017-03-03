@@ -22,6 +22,22 @@
 
 
 /**
+   @brief Key for translating terminal vector.
+ */
+class TermKey {
+ public:
+  unsigned int ptId;
+  unsigned int extent;
+
+  inline void Init(unsigned int _extent, unsigned int _ptId) {
+    extent = _extent;
+    ptId = _ptId;
+  }
+};
+
+
+
+/**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
  devices such as coprocessors, disks and nodes.
 
@@ -34,7 +50,7 @@
 class PTNode {
  public:
   unsigned int id;
-  unsigned int lhId;  // LH subnode index. Positive iff non-terminal.
+  unsigned int lhId;  // LH subnode index. Nonzero iff non-terminal.
   unsigned int predIdx; // Split only.
   union {
     unsigned int offset; // Bit-vector offset:  factor.
@@ -53,31 +69,14 @@ class PreTree {
   unsigned int leafCount;
   unsigned int bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
-  std::vector<unsigned int> ppHand; // Handedness of preplay.
-
+  std::vector<TermKey> termKey;
+  std::vector<unsigned int> termST;
   class BV *BitFactory();
-  void TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH);
+  void TerminalOffspring(unsigned int _parId);
   const std::vector<unsigned int> FrontierToLeaf(class ForestTrain *forest, unsigned int tIdx);
   const unsigned int bagCount;
-  std::vector<unsigned int> sample2PT;
   std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
-  unsigned int levelBase; // Height at base of current level.
   unsigned int BitWidth();
-
-  
-  inline void SetHand(unsigned int parId, unsigned int hand) {
-    ppHand[parId - levelBase] = hand;
-  }
-
-
-  inline void PreplayHand(unsigned int &parId) {
-    if (parId >= levelBase) {
-      unsigned int hand = ppHand[parId - levelBase];
-      if (hand > parId) {
-	parId = hand;
-      }
-    }
-  }
 
  public:
   PreTree(const class PMTrain *_pmTrain, unsigned int _bagCount);
@@ -85,23 +84,37 @@ class PreTree {
   static void Immutables(unsigned int _nSamp, unsigned int _minH);
   static void DeImmutables();
   static void Reserve(unsigned int height);
-  void Preplay(unsigned int levelCount);
 
   const std::vector<unsigned int> DecTree(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo);
   void NodeConsume(class ForestTrain *forest, unsigned int tIdx);
   void BitConsume(unsigned int *outBits);
   void LHBit(int idx, unsigned int pos);
-  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
-  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH);
-
-  std::vector<unsigned int> &FrontierMap() {
-    return sample2PT;
-  }
-  
-  unsigned int Level(unsigned int splitNext, unsigned int leafNext);
+  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id);
+  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id);
+  void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
+  void SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vector<unsigned int> &stTerm);
+
+  
+  /**
+     @brief Height accessor.
+   */
+  inline unsigned int Height() {
+    return height;
+  }
 
 
+  inline unsigned int LHId(unsigned int ptId) const {
+    return nodeVec[ptId].lhId;
+  }
+
+  
+  inline unsigned int RHId(unsigned int ptId) const {
+    unsigned int lhId = nodeVec[ptId].lhId;
+    return lhId != 0 ? lhId + 1 : 0;
+  }
+
+  
   /**
      @return true iff node is nonterminal.
    */
@@ -110,18 +123,6 @@ class PreTree {
   }
 
   
-  /**
-   @brief Maps sample index to index of frontier node with which it is currently associated.
- 
-   @param sIdx is the index of a sample
-
-   @return pretree index.
-  */
-  inline unsigned int Sample2Frontier(int sIdx) const {
-    return sample2PT[sIdx];
-  }
-
-
   /**
      @brief Fills in references to values known to be useful for building
      a block of PreTree objects.
@@ -134,43 +135,6 @@ class PreTree {
     _bitWidth += BitWidth();
     _leafCount += leafCount;
     _bagCount += bagCount;
-  }
-
-
-  /**
-     @brief Computes a level-relative position for a PreTree node,
-     assumed to reside at the current level.
-
-     @param ptId is the node index.
-
-     @return Level-relative position of node.
-   */
-  inline unsigned int LevelOffset(unsigned int ptId) const {
-    return ptId - levelBase;
-  }
-
-
-  /**
-     @brief Determines whether a sample resides in an extant node and,
-     if so, computes the level-relative index of the containing node.
-
-     @param sIdx is the sample index.
-
-     @param levelOffset outputs the level-relative offset of the extant
-     node containing the sample, if any.  Otherwise outputs the lowest
-     offset value.
-
-     @param isLeft outputs whether the containing node is a left branch
-     into the upcoming level.  The value is undefined, however, for
-     samples contained in extinct nodes.
-
-     @return true iff sample resides in an extant node.
-   */  
-  inline unsigned int SampleOffset(unsigned int sIdx, bool &isLH) const {
-    unsigned int ptId = sample2PT[sIdx];
-
-    isLH = (ptId & 1) != 0; // Speculative.
-    return LevelOffset(ptId >= levelBase ? ptId : height);
   }
 };
 

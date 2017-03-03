@@ -39,10 +39,10 @@ class SplitCoord {
  public:
 
   void InitEarly(unsigned int _splitPos, unsigned int _levelIdx, unsigned int _predIdx, unsigned int _bufIdx, unsigned int _setIdx);
-  void InitLate(const class Bottom *bottom, const std::vector<class IndexNode> &indexNode);
+  void InitLate(const class Bottom *bottom, const std::vector<class IndexSet> &indexSet);
   
-  void Split(const class SPReg *spReg, const class Bottom *bottom, const class SamplePred *samplePred, const std::vector<class IndexNode> &indexNode);
-  void Split(class SPCtg *spCtg, const class Bottom *bottom, const class SamplePred *samplePred, const std::vector<class IndexNode> &indexNode);
+  void Split(const class SPReg *spReg, const class Bottom *bottom, const class SamplePred *samplePred, const std::vector<class IndexSet> &indexSet);
+  void Split(class SPCtg *spCtg, const class Bottom *bottom, const class SamplePred *samplePred, const std::vector<class IndexSet> &indexSet);
   void SplitNum(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
   void SplitNum(class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
   bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
@@ -78,7 +78,7 @@ class SplitPred {
   static unsigned int predFixed;
   static const double *predProb;
 
-  void SetPrebias(std::vector<class IndexNode> &indexNode);
+  void SetPrebias(std::vector<class IndexSet> &indexSet);
   void SplitFlags(bool unsplitable[]);
   void ScheduleProb(unsigned int levelIdx, const double ruPred[], std::vector<unsigned int> &safeCount);
   void ScheduleFixed(unsigned int levelIdx, const double ruPred[], class BHPair heap[], std::vector<unsigned int> &safeCount);
@@ -112,12 +112,12 @@ class SplitPred {
     bottom = _bottom;
   }
 
-  virtual void Split(const std::vector<class IndexNode> &indexNode) = 0;
+  virtual void Split(const std::vector<class IndexSet> &indexSet) = 0;
   
   virtual ~SplitPred();
-  virtual void LevelInit(class Index *index, std::vector<class IndexNode> &indexNode, unsigned int levelCount);
+  virtual void LevelInit(class IndexLevel *index, std::vector<class IndexSet> &indexSet, unsigned int levelCount);
   virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
-  virtual bool *LevelPreset(const class Index *index) = 0;
+  virtual bool *LevelPreset(const class IndexLevel *index) = 0;
   virtual double Prebias(unsigned int levelIdx, unsigned int sCount, double sum) = 0;
   virtual void LevelClear();
 };
@@ -131,7 +131,7 @@ class SPReg : public SplitPred {
   static const double *feMono;
   double *ruMono;
 
-  void Split(const std::vector<class IndexNode> &indexNode);
+  void Split(const std::vector<class IndexSet> &indexSet);
 
  public:
   bool Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &leftBount) const;
@@ -141,9 +141,9 @@ class SPReg : public SplitPred {
   ~SPReg();
   int MonoMode(unsigned int splitIdx, unsigned int predIdx) const;
   void RunOffsets(const std::vector<unsigned int> &safeCount);
-  bool *LevelPreset(const class Index *index);
+  bool *LevelPreset(const class IndexLevel *index);
   double Prebias(unsigned int spiltIdx, unsigned int sCount, double sum);
-  void LevelInit(class Index *index, std::vector<class IndexNode> &indexNode, unsigned int levelCount);
+  void LevelInit(class IndexLevel *index, std::vector<class IndexSet> &indexSet, unsigned int levelCount);
   void LevelClear();
 };
 
@@ -159,17 +159,17 @@ class SPCtg : public SplitPred {
 
   static unsigned int ctgWidth;
   double *ctgSum; // Per-level sum, by split/category pair.
-  double *ctgSumAccum; // Numeric predictors:  accumulate sums.
+  std::vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
   double *sumSquares; // Per-level sum of squares, by split.
   const std::vector<class SampleNode> &sampleCtg;
-  bool *LevelPreset(const class Index *index);
+  bool *LevelPreset(const class IndexLevel *index);
   double Prebias(unsigned int levelIdx, unsigned int sCount, double sum);
   void LevelClear();
-  void Split(const std::vector<class IndexNode> &indexNode);
+  void Split(const std::vector<class IndexSet> &indexSet);
   void RunOffsets(const std::vector<unsigned int> &safeCount);
-  void SumsAndSquares(const class Index *index, bool unsplitable[]);
+  void SumsAndSquares(const class IndexLevel *index, bool unsplitable[]);
   unsigned int LHBits(unsigned int lhBits, unsigned int pairOffset, unsigned int depth, unsigned int &lhSampCt);
-  void LevelInitSumR();
+  void LevelInitSumR(unsigned int nPredNum);
 
 
 

@@ -15,11 +15,9 @@
  */
 
 #include "bv.h"
-#include "bottom.h"
 #include "pretree.h"
 #include "forest.h"
 #include "predblock.h"
-#include "index.h"
 
 //#include <iostream>
 //using namespace std;
@@ -73,8 +71,7 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), sample2PT(std::vector<unsigned int>(bagCount)), info(std::vector<double>(pmTrain->NPred())), levelBase(0) {
-  std::fill(sample2PT.begin(), sample2PT.end(), 0);
+PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), info(std::vector<double>(pmTrain->NPred())) {
   std::fill(info.begin(), info.end(), 0.0);
 
   nodeCount = heightEst;   // Initial height estimate.
@@ -144,13 +141,13 @@ BV *PreTree::BitFactory() {
 
    @return void, with output reference parameters.
 */
-void PreTree::TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigned int &ptRH) {
-  ptLH = height++;
+void PreTree::TerminalOffspring(unsigned int _parId) {
+  unsigned int ptLH = height++;
   nodeVec[_parId].lhId = ptLH;
   nodeVec[ptLH].id = ptLH;
   nodeVec[ptLH].lhId = 0;
 
-  ptRH = height++;
+  unsigned int ptRH = height++;
   nodeVec[ptRH].id = ptRH;
   nodeVec[ptRH].lhId = 0;
 
@@ -170,9 +167,8 @@ void PreTree::TerminalOffspring(unsigned int _parId, unsigned int &ptLH, unsigne
 
    @return void.
 */
-void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH) {
-  TerminalOffspring(_id, ptLH, ptRH);
-  SetHand(_id, preplayLH ? ptLH : ptRH);
+void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id) {
+  TerminalOffspring(_id);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
@@ -192,9 +188,8 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
 
    @return void.
 */
-void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id, bool preplayLH, unsigned int &ptLH, unsigned int &ptRH) {
-  TerminalOffspring(_id, ptLH, ptRH);
-  SetHand(_id, preplayLH ? ptLH : ptRH);
+void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id) {
+  TerminalOffspring(_id);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
@@ -203,8 +198,8 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMe
 
 
 /**
-   @brief Builds a new  level of the pretree for nodes just split.  Forces a
-   reallocation to twice the existing size, if necessary.
+   @brief Ensures sufficient space to accomodate the next level for nodes
+   just split.  If necessary, doubles existing vector sizes.
 
    N.B.:  reallocations incur considerable resynchronization costs if
    precipitated from the coprocessor.
@@ -215,7 +210,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMe
 
    @return current height;
 */
-unsigned int PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
+void PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -224,28 +219,6 @@ unsigned int PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
-
-  std::vector<unsigned int> _ppHand(height - levelBase);
-  ppHand = std::move(_ppHand);
-  std::fill(ppHand.begin(), ppHand.end(), 0);
-
-  return height;
-}
-
-
-/**
-   @brief Speculatively resets frontier map to one of either the
-   left or right offspring of the current mapping.
-
-   @param heightPrev is the tree height prior to this level.
-
-   @return void.
- */
-void PreTree::Preplay(unsigned int heightPrev) {
-  for (unsigned int sIdx = 0; sIdx < sample2PT.size(); sIdx++) {
-    PreplayHand(sample2PT[sIdx]);
-  }
-  levelBase = heightPrev;
 }
 
 
@@ -321,31 +294,43 @@ void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int t
 
 
 /**
-   @brief Copies frontier map, but replaces node indices with indices of
-   corresponding leaves.  Also sets terminal forest nodes.
+   @brief Absorbs the terminal list from a completed subtree.
+
+   @param stTerm are subtree-relative indices.  These must be mapped to
+   sample indices if the subtree is proper.
+
+   @return void, with side-effected frontier map.
+ */
+void PreTree::SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vector<unsigned int> &stTerm) {
+  for (auto & key : stKey) {
+    termKey.push_back(key);
+  }
+
+  for(auto & stIdx : stTerm) {
+    termST.push_back(stIdx);
+  }
+}
+
+
+/**
+   @brief Constructs mapping from sample indices to leaf indices.
 
    @param tIdx is the index of the tree being produced.
 
-   @return Pointer to rewritten map, with side-effected Forest.
+   @return Reference to rewritten map, with side-effected Forest.
  */
 const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, unsigned int tIdx) {
-  // Initializes with unattainable leaf-index value.
-  std::vector<unsigned int> nodeLeaf(height);
-  std::fill(nodeLeaf.begin(), nodeLeaf.end(), leafCount);
-
-  std::vector<unsigned int> frontierMap(sample2PT.size());
+  std::vector<unsigned int> frontierMap(termST.size());
   unsigned int leafIdx = 0;
-  for (unsigned int sIdx = 0; sIdx < sample2PT.size(); sIdx++) {
-    unsigned int ptIdx = sample2PT[sIdx];
-    if (nodeLeaf[ptIdx] == leafCount) { // Unseen so far.
-      unsigned int nodeIdx = sample2PT[sIdx];
-      forest->LeafProduce(tIdx, nodeIdx, leafIdx);
-      nodeLeaf[ptIdx] = leafIdx++;
+  unsigned int idx = 0;
+  for (auto & key : termKey) {
+    unsigned int termTop = idx;
+    for ( ; idx < termTop + key.extent; idx++) {
+      unsigned int stIdx = termST[idx];
+      frontierMap[stIdx] = leafIdx;
     }
-    frontierMap[sIdx] = nodeLeaf[ptIdx];
+    forest->LeafProduce(tIdx, key.ptId, leafIdx++);
   }
-  //  if (leafCount != leafIdx)
-  //cout << "Leaf count mismatch at frontier" << endl;
   
   return frontierMap;
 }
@@ -357,5 +342,3 @@ const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, uns
 unsigned int PreTree::BitWidth() {
   return BV::SlotAlign(bitEnd);
 }
-
-

@@ -102,13 +102,11 @@ unsigned int Quant::BinSize(unsigned int rowTrain, unsigned int qBin, unsigned i
    @return void.
  */
 void Quant::SmudgeLeaves() {
-  std::vector<unsigned int> _binTemp(binSize);
-  binTemp = std::move(_binTemp);
-  std::vector<unsigned int> _sCountSmudge(leafReg->BagTot());
-  for (unsigned int i = 0; i < _sCountSmudge.size(); i++)
-    _sCountSmudge[i] = rankCount[i].sCount;
-  sCountSmudge = std::move(_sCountSmudge);
+  sCountSmudge = std::move(std::vector<unsigned int>(leafReg->BagTot()));
+  for (unsigned int i = 0; i < sCountSmudge.size(); i++)
+    sCountSmudge[i] = rankCount[i].sCount;
 
+  binTemp = std::move(std::vector<unsigned int>(binSize));
   for (unsigned int leafIdx = 0; leafIdx < leafReg->NodeCount(); leafIdx++) {
     unsigned int leafStart, leafEnd;
     leafReg->BagBounds(0, leafIdx, leafStart, leafEnd);

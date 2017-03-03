@@ -14,6 +14,7 @@
  */
 
 #include "samplepred.h"
+#include "bv.h"
 #include <numeric>
 
 //#include <iostream>
@@ -51,11 +52,10 @@ void SPNode::DeImmutables() {
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)), rel2Sample(std::vector<unsigned int>(bagCount)) {
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
 
-  std::iota(rel2Sample.begin(), rel2Sample.end(), 0);
   stageOffset.reserve(nPred);
   stageExtent.reserve(nPred);
 }
@@ -121,31 +121,31 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
 
 /**
-   @brief Maps a block of sample indices from a splitting pair to the pretree node in whose sample set the indices now, as a result of splitting, reside.
+   @brief Walks a block of adjacent SamplePred records associated with
+   the explicit component of a split.
 
-   @param predIdx is the splitting predictor.
+   @param predIdx is the argmax predictor for the split.
 
-   @param sourceBit (0/1) indicates which buffer holds the current values.
+   @param sourceBit is a dual-buffer toggle.
 
-   @param start is the block starting index.
+   @param start is the starting SamplePred index for the split.
 
-   @param end is the block ending index.
+   @param extent is the number of SamplePred indices subsumed by the split.
 
-   @param ptId is the pretree node index to which to map the block.
+   @param replayExpl sets bits corresponding to explicit indices defined
+   by the split.  Indices are either node- or subtree-relative, depending
+   on Bottom's current indexing mode.
 
-   @param sample2PT outputs the preTree node to which a sample belongs.
-
-   @return sum of response values associated with each replayed index.
-*/
-double SamplePred::Replay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, unsigned int ptId, std::vector<unsigned int> &sample2PT) {
-  unsigned int *relIdx;
-  SPNode *spn = Buffers(predIdx, sourceBit, relIdx);
+   @return sum of responses within the block.
+ */
+double SamplePred::BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl) {
+  unsigned int *idx;
+  SPNode *spn = Buffers(predIdx, sourceBit, idx);
 
   double sum = 0.0;
-  for (unsigned int idx = start; idx <= end; idx++) {
-    sum += spn[idx].YSum();
-    unsigned int sampleIdx = rel2Sample[relIdx[idx]];
-    sample2PT[sampleIdx] = ptId;
+  for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
+    sum += spn[spIdx].YSum();
+    replayExpl->SetBit(idx[spIdx]);
   }
 
   return sum;

@@ -54,7 +54,7 @@ void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, 
   Sample::Immutables(_nSamp, _feSampleWeight, _withRepl, _ctgWidth, _nTree);
   SPNode::Immutables(_ctgWidth);
   SplitSig::Immutables(_minRatio);
-  Index::Immutables(_minNode, _totLevels);
+  IndexLevel::Immutables(_minNode, _totLevels);
   Leaf::Immutables(_thinLeaves);
   PreTree::Immutables(_nSamp, _minNode);
   SplitPred::Immutables(_nPred, _ctgWidth, _predFixed, _predProb, _regMono);
@@ -69,7 +69,7 @@ void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, 
 void Train::DeImmutables() {
   trainBlock = 0;
   SplitSig::DeImmutables();
-  Index::DeImmutables();
+  IndexLevel::DeImmutables();
   Leaf::DeImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
