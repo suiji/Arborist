@@ -18,6 +18,7 @@
 #include "bottom.h"
 #include "pretree.h"
 #include "runset.h"
+#include "index.h"
 
 #include <cfloat>
 

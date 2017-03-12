@@ -24,249 +24,6 @@
 
 
 /**
-   @brief Records index, start and extent for path reached from MRRA.
- */
-class NodePath {
-  unsigned int levelIdx; // < noIndex iff path extinct.
-  unsigned int idxStart; // Target offset for path.
-  unsigned int extent;
-  unsigned int relBase; // Dense starting position.
- public:
-
-  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char) - 1;
-  static constexpr unsigned int noPath = 1 << pathMax;
-
-  
-  /**
-     @brief Sets to non-extinct path coordinates.
-   */
-  inline void Init(unsigned int _levelIdx, unsigned int _idxStart, unsigned int _extent, unsigned int _relBase) {
-    levelIdx = _levelIdx;
-    idxStart = _idxStart;
-    extent = _extent;
-    relBase = _relBase;
-  }
-  
-
-  inline void Coords(unsigned int &_levelIdx, unsigned int &_idxStart, unsigned int &_extent) const {
-    _levelIdx = levelIdx;
-    _idxStart = idxStart;
-    _extent = extent;
-  }
-
-  
-  inline unsigned int IdxStart() const {
-    return idxStart;
-  }
-
-
-  inline unsigned int Extent() const {
-    return extent;
-  }
-  
-
-  inline unsigned int RelBase() const {
-    return relBase;
-  }
-
-
-  inline unsigned int Idx() const {
-    return levelIdx;
-  }
-};
-
-
-class IdxPath {
-  const unsigned int idxLive; // Inattainable index.
-  static constexpr unsigned int maskExtinct = NodePath::noPath;
-  static constexpr unsigned int maskLive = maskExtinct - 1;
-  static constexpr unsigned int relMax = 1 << 15;
-  std::vector<unsigned int> relFront;
-  std::vector<unsigned char> pathFront;
-
-  // Narrow for data locality.  Can be generalized to multiple
-  // sizes to accommodate more sophisticated hierarchies.
-  //
-  std::vector<unsigned int16_t> offFront;
- public:
-
-  IdxPath(unsigned int _idxLive);
-
-  /**
-     @brief When appropriate, introduces relative indexing at the cost
-     of trebling span of memory accesses:  char -> char + int16.
-
-     @return True iff relative indexing expected to be profitable.
-   */
-  static inline bool Relable(unsigned int bagCount, unsigned int idxMax) {
-    return false;//idxMax > relMax || bagCount <= 3 * relMax ? false : true;
-  }
-
-  
-  /**
-   */
-  inline unsigned int IdxLive() const {
-    return idxLive;
-  }
-
-
-  inline void Set(unsigned int idx, unsigned int path) {
-    pathFront[idx] = path;
-  }
-
-
-  /**
-     @brief Marks path as extinct, sets front index to inattainable value.
-     Other values undefined.
-
-     @return void.
-   */
-  inline void Extinct(unsigned int idx) {
-    Set(idx, maskExtinct);
-    relFront[idx] = idxLive;
-  }
-
-  
-  /**
-   */
-  inline void Set(unsigned int idx, unsigned int path, unsigned int relThis) {
-    Set(idx, path);
-    relFront[idx] = relThis;
-  }
-
-
-  inline unsigned int RelFront(unsigned int idx) {
-    return relFront[idx];
-  }
-
-  
-  /**
-   */
-  inline void Set(unsigned int idx, unsigned int path, unsigned int relThis, unsigned int offRel) {
-    relFront[idx] = relThis;
-    pathFront[idx] = path;
-    offFront[idx] = offRel;
-  }
-
-  
-  /**
-     @brief Accumulates a path bit vector.
-
-     @return shift-stamped path if live else fixed extinct mask.
-   */
-  inline static unsigned int PathNext(unsigned int pathPrev, bool isLive, bool isLeft) {
-    return  isLive ? ((maskLive & (pathPrev << 1)) | (isLeft ? 0 : 1)) : maskExtinct;
-  }
-  
-
-  /**
-
-   @brief Updates path by index:  front only.  Flags
-   extinct paths explicitly.  Relative indices maintained for front
-   level only.
-
-   @param relThis is the revised relative index.
-
-   @param isLive denotes whether the path is extinct.
-
-   @param isLeft it true iff index node is an extant splitable LHS.
-
-   @return void.
-*/
-  inline void Live(unsigned int idx, bool isLeft, unsigned int relIdx) {
-    Set(idx, PathNext(pathFront[idx], true, isLeft), relIdx);
-  }
-
-
-  /*
-*
-     @brief As above, but initializes paths for back propagation.  Relies on
-     relative index to flag extinct paths.
-// Simplifies to FrontifySdx when one2Front eliminated.
-  inline void FrontifyRel(IdxPath *one2Front, unsigned int sIdx, unsigned int relThis, unsigned int relBase, bool isLive, bool isLeft) {
-    unsigned int path = PathNext(pathFront[sIdx], isLive, isLeft);
-    //    one2Front->Frontify(relFront[sIdx], relThis, path, relBase);
-    Set(sIdx, relThis, path);
-  }
-*/
-  
-  /**
-     @param relPrev is the relative index of a sample from the previous front level.
-
-     @param relThis is the sample's relative index in the current front level.
-
-     @param path is the path to the front.
-
-     @return void.
-   */
-  inline void Frontify(unsigned int relPrev, unsigned int relThis, unsigned int path, unsigned int relBase) {
-    if (relPrev < idxLive) { // Otherwise extinct.
-      Set(relPrev, path, relThis, relThis - relBase);
-    }
-  }
-
-
-  /**
-     @brief Builds a single slot of the relative map passed.
-
-     @return void.
-   */
-  inline void Frontify(IdxPath *relPath, unsigned int idx, unsigned int frontPrev) const {
-    if (frontPrev < idxLive) { // Otherwise extinct.
-      relPath->Set(idx, relFront[frontPrev], pathFront[frontPrev], offFront[frontPrev]);
-    }
-  }
-
-  
-  /**
-     @brief Pushes one-to-front mapping back to this level.
-
-     @param one2Front maps first level's coordinates to front.
-
-     @return void.
-   */
-  inline void BackUpdate(const IdxPath *one2Front) {
-    for (unsigned int idx = 0; idx < idxLive; idx++) {
-      one2Front->Frontify(this, idx, relFront[idx]);
-    }
-  }
-
-  
-  /**
-     @brief Determines a sample's coordinates with respect to the front level.
-
-     @param relIdx is the relative index of the sample.
-
-     @param path outputs the path offset of the sample in the front level.
-
-     @return true iff sample at index lies on live path.
-   */
-  inline bool RelLive(unsigned int relIdx, unsigned int &path, unsigned int &offRel) {
-    path = pathFront[relIdx];
-    offRel = offFront[relIdx];
-
-    return path != maskExtinct;
-  }
-
-  
-  /**
-     @brief Looks up the path leading to the front level.
-
-     @param idx indexes the path vector.
-
-     @param path outputs the path to front level.
-
-     @return true iff path to front is not extinct.
-   */
-  inline bool PathFront(unsigned int idx, unsigned int &path) const {
-    path = pathFront[idx];
-    
-    return path != maskExtinct;
-  }
-};
-
-
-/**
    @brief Coordinates from ancestor IndexSet.
  */
 class IndexAnc {
@@ -294,8 +51,6 @@ class IndexAnc {
    @brief Split/predictor coordinate pair.
  */
 typedef std::pair<unsigned int, unsigned int> SPPair;
-
-typedef std::pair<unsigned int, unsigned int> SPCoord;
 
 
 /**
@@ -407,7 +162,7 @@ class Level {
   const unsigned int splitCount;
   const unsigned int noIndex; // Inattainable node index value.
   const unsigned int idxLive; // Total # sample indices at level.
-  const bool nodeRel;  // Subtree (absolute) or node-relative indexing.
+  const bool nodeRel;  // Subtree- or node-relative indexing.
 
   unsigned int defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
@@ -421,11 +176,11 @@ class Level {
   std::vector<MRRA> def; // Indexed by pair-offset.
 
   // Recomputed:
-  IdxPath *relPath;
-  std::vector<NodePath> nodePath;; // Indexed by <node, predictor> pair.
+  class IdxPath *relPath;
+  std::vector<class NodePath> nodePath;; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
- public:
 
+ public:
   Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel);
   ~Level();
 
@@ -442,6 +197,9 @@ class Level {
   void RunCounts(const class SPNode targ[], const SPPair &mrra, const class Bottom *bottom) const ;
   void SetRuns(const class Bottom *bottom, unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ);
   void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
+  void SetExtinct(unsigned int idx);
+  bool BackUpdate(const class IdxPath *one2Front);
+  void SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
 
 
   /**
@@ -457,7 +215,7 @@ class Level {
 
      @return reference to front path.
    */
-  inline IdxPath *FrontPath() const {
+  inline class IdxPath *FrontPath() const {
     return relPath;
   }
 
@@ -470,41 +228,9 @@ class Level {
   }
 
 
-  inline void Extinct(unsigned int idx) {
-    relPath->Extinct(idx);
-  }
-
-
   /**
-     @brief Invoked from level 0, constructs level 1's rel-to-front mapping
-     for live indices.  Essential for later transition to node-relative
-     indexing mode.
-
-     @return void.
-   */
-  inline void Live(unsigned int idx, bool isLeft, unsigned int targIdx) {
-    relPath->Live(idx, isLeft, targIdx);
-  }
-
-  
-  /**
-     @brief Revises relative indexing vector.  Irregular, but data locality
-     improves with depth.
-
-     @param relPrev is the previous relative index.
-
-     @param relThis is current relative index.
-
-     @return void.
-   */
-  inline void BackUpdate(const IdxPath *one2Front) {
-    relPath->BackUpdate(one2Front);
-  }
-
-  
-  /**
-     @brief Will overflow if level sufficiently fat:  switch to depth-first
-     in such regimes.
+     @brief Will overflow if level sufficiently fat.
+     TODO:  switch to depth-first in such regimes.
 
      @return offset strided by 'nPred'.
    */
@@ -527,6 +253,16 @@ class Level {
 
 
   /**
+     @brief Produces mask approprate for level:  lowest 'del' bits high.
+
+     @return bit mask value.
+   */
+  inline unsigned int PathMask() const {
+    return BackScale(1) - 1;
+  }
+  
+
+  /**
      @brief Accessor.  What more can be said?
 
      @return definition count at this level.
@@ -534,6 +270,7 @@ class Level {
   inline unsigned int DefCount() {
     return defCount;
   }
+
 
   inline unsigned int SplitCount() {
     return splitCount;
@@ -706,16 +443,14 @@ class Bottom {
   // Restaging methods.
   void Restage(RestageCoord &rsCoord);
   SPNode *Restage(SPPair mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageRelDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageRelOne(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx);
-  SPNode *RestageRelGen(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageSdxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageSdxOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx);
-  SPNode *RestageSdxGen(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
+  SPNode *RestageNdxDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
+  SPNode *RestageStxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   void BackUpdate() const;
-  unsigned int DiagReplay(unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int lhExtent, unsigned int rhExtent, unsigned int ptExpl, unsigned int ptImpl);
   void SplitPrepare(unsigned int splitNext);
   unsigned int IdxMax() const;
+  void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
+  void SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
+  void SetExtinct(unsigned int idx);
 
 
   /**
@@ -745,8 +480,13 @@ class Bottom {
   inline unsigned int SuccBase(unsigned int ptId) const {
     return succBase[OffsetSucc(ptId)];
   }
- 
 
+
+  inline unsigned int PathMask(unsigned int del) const {
+    return level[del]->PathMask();
+  }
+
+  
  //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
@@ -765,13 +505,14 @@ class Bottom {
   ~Bottom();
   void LevelInit();
   void LevelClear();
-  const std::vector<class SSNode*> Split(class IndexLevel *index, std::vector<class IndexSet> &indexSet);
+  void Split(class IndexLevel &index, std::vector<class SSNode*> &argMax);
   void Terminal(unsigned int extent, unsigned int ptId);
   void LevelSucc(class PreTree *preTree, unsigned int splitNext, unsigned int leafNext, unsigned int idxExtent, unsigned int idxLive, bool terminal);
   void Overlap(unsigned int splitNext);
   void Successor(unsigned int extent, unsigned int ptId);
   double BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent);
-  void Replay(const class PreTree *preTree, unsigned int ptId, bool leftExpl, unsigned int lhExtent, unsigned int rhExtent);
+  void Replay(const class PreTree *preTree, unsigned int ptId, unsigned int path, bool leftExpl, unsigned int extent, unsigned int lhExtent);
+  unsigned int DiagReplay(const class PreTree *preTree, unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int ptId, unsigned int lhExtent, unsigned int rhExtent);
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
   void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   unsigned int FlushRear();
@@ -804,18 +545,10 @@ class Bottom {
 
   
   /**
-     @brief Produces subtree index from node-relative index.
-   */
-  inline unsigned int RelFront(unsigned int stIdx) const {
-    return stPath->RelFront(stIdx);
-  }
-
-
-  /**
      @brief Computes a level-relative position for a PreTree node,
      assumed to reside at the current level.
 
-     @param ptId is the node index.
+     @param ptId is the node index.  Must be >= level base value.
 
      @return Level-relative position of node.
    */
@@ -824,6 +557,7 @@ class Bottom {
   }
 
 
+  
   inline void RunCounts(const class SPNode targ[], const SPPair &mrra, unsigned int del) {
     level[del]->RunCounts(targ, mrra, this);
   }
@@ -832,6 +566,7 @@ class Bottom {
   inline void SetRuns(unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ) const {
     levelFront->SetRuns(this, levelIdx, predIdx, idxStart, idxCount, targ);
   }
+
   
   /**
      @brief Accessor.  SSNode only client.
@@ -919,52 +654,12 @@ class Bottom {
 
 
   /**
-     @brief Updates both subtree- and node-relative paths for a live index.
-
-     @param relIdx is the associated node-relative index.
-
-     @param stIdx is the associated subtree-relative index.
-
-     @param isLeft is true iff index maps to the left branch.
-
-     @param targIdx is the updated node-relative index.
-
-     @return void.
-   */
-  inline void IdxLive(unsigned int relIdx, unsigned int stIdx, bool isLeft, unsigned int targIdx) {
-    levelFront->Live(relIdx, isLeft, targIdx);
-
-    // In addition to st-relative path, maintains an ST2Rel[]
-    // mapping, useful during the overlap period.
-    stPath->Live(stIdx, isLeft, targIdx);  // Irregular write.
-  }
-
-
-  /**
      @brief Determines whether node is live.
 
      @return true iff node's pretree index has been marked live.
    */
   bool IsLive(unsigned int ptId) {
     return RelBase(ptId) < idxLive;
-  }
-
-  
-  /**
-     @brief Terminates subtree-relative path for an extinct index.  Also
-     terminates node-relative path if currently live.
-
-     @param relIdx is a node-relative index.
-
-     @return void.
-   */
-  inline void Extinct(unsigned int relIdx) {
-    if (relIdx < idxLive) { // I.e., not flagged in previous level.
-      levelFront->Extinct(relIdx);
-    }
-    unsigned int stIdx = rel2ST[relIdx];
-    stPath->Extinct(stIdx);
-    termST[termTop++] = stIdx;
   }
 };
 

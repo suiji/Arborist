@@ -24,6 +24,7 @@
 #include "predblock.h"
 #include "runset.h"
 #include "rowrank.h"
+#include "path.h"
 
 #include <numeric>
 #include <algorithm>
@@ -33,11 +34,6 @@
 //using namespace std;
 //#include <time.h>
 //clock_t clock(void);
-
-
-IdxPath::IdxPath(unsigned int _idxLive) : idxLive(_idxLive), relFront(std::vector<unsigned int>(idxLive)), pathFront(std::vector<unsigned char>(idxLive)), offFront(std::vector<unsigned int16_t>(idxLive)) {
-  std::iota(relFront.begin(), relFront.end(), 0);
-}
 
 
 /**
@@ -111,7 +107,7 @@ double Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent
 void Bottom::Terminal(unsigned int extent, unsigned int ptId) {
   unsigned int nodeBase = RelBase(ptId);
   for (unsigned int relIdx = nodeBase; relIdx < nodeBase + extent; relIdx++) {
-    Extinct(relIdx);
+    SetExtinct(relIdx);
   }
 
   TermKey key;
@@ -198,14 +194,16 @@ double Bottom::BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsign
 
    @return void.
  */
-void Bottom::Replay(const PreTree *preTree, unsigned int ptId, bool leftExpl, unsigned int lhExtent, unsigned int rhExtent) {
-  unsigned int ptImpl = leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId);
-  unsigned int offImpl = SuccBase(ptImpl);
-  unsigned int ptExpl = leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId);
-  unsigned int offExpl = SuccBase(ptExpl);
+void Bottom::Replay(const PreTree *preTree, unsigned int ptId, unsigned int path, bool leftExpl, unsigned int extent, unsigned int lhExtent) {
+  unsigned int baseImpl = SuccBase(leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId));
+  unsigned int baseExpl = SuccBase(leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId));
 
   unsigned int idxSource = RelBase(ptId);
-  for (unsigned int relIdx = idxSource; relIdx < idxSource + lhExtent + rhExtent; relIdx++) {
+  unsigned int offExpl = baseExpl;
+  unsigned int offImpl = baseImpl;
+  unsigned int pathL = IdxPath::PathNext(path, true);
+  unsigned int pathR = IdxPath::PathNext(path, false);
+  for (unsigned int relIdx = idxSource; relIdx < idxSource + extent; relIdx++) {
     unsigned int stIdx = rel2ST[relIdx];
     bool expl = replayExpl->TestBit(nodeRel ? relIdx : stIdx);
     unsigned int targIdx = expl ? offExpl++ : offImpl++;
@@ -214,15 +212,16 @@ void Bottom::Replay(const PreTree *preTree, unsigned int ptId, bool leftExpl, un
     // Live index updates could be deferred to production of the next level,
     // but the relIdx-to-targIdx mapping is conveniently available here.
     //
-    // Extinct subtree indices are best updated on a per-node basis, so
-    // their treatment is deferred until production of the next level.
+    // Extinct subtree indices are best updated on a per-node basis, however,
+    // so their treatment is deferred until production of the next level.
     // Extinct node-relative indices, however, can be treated on the fly.
     //
     if (targIdx >= idxLive) {
-      levelFront->Extinct(relIdx);
+      levelFront->SetExtinct(relIdx);
     }
     else {
-      IdxLive(relIdx, stIdx, (expl && leftExpl) || !(expl || leftExpl), targIdx);    }
+      SetLive(relIdx, stIdx, (expl && leftExpl) || !(expl || leftExpl) ? pathL : pathR, targIdx, expl ? baseExpl : baseImpl);
+    }
   }
 }
 
@@ -233,10 +232,12 @@ void Bottom::Replay(const PreTree *preTree, unsigned int ptId, bool leftExpl, un
 
    @return count of mismatched expectations.
  */
-unsigned int Bottom::DiagReplay(unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int lhExtent, unsigned int rhExtent, unsigned int ptExpl, unsigned int ptImpl) {
+unsigned int Bottom::DiagReplay(const PreTree *preTree, unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int ptId, unsigned int lhExtent, unsigned int rhExtent) {
   unsigned int mismatch = 0;
   unsigned int extentImpl = leftExpl ? rhExtent : lhExtent;
   unsigned int extentExpl = leftExpl ? lhExtent : rhExtent;
+  unsigned int ptImpl = leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId);
+  unsigned int ptExpl = leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId);
   if (offExpl != SuccBase(ptExpl) + extentExpl) {
     mismatch++;
   }
@@ -253,11 +254,12 @@ unsigned int Bottom::DiagReplay(unsigned int offExpl, unsigned int offImpl, bool
 
    @return vector of splitting signatures, possibly empty, for each node passed.
  */
-const std::vector<SSNode*> Bottom::Split(IndexLevel *index, std::vector<IndexSet> &indexSet) {
+void Bottom::Split(IndexLevel &index, std::vector<SSNode*> &argMax) {
   LevelInit();
   unsigned int supUnFlush = FlushRear();
-  splitPred->LevelInit(index, indexSet, frontCount);
+  splitPred->LevelInit(index);
 
+  BackUpdate(); // Deferred until all level-based paths updated.
   Restage();
 
   // Source levels must persist through restaging ut allow path lookup.
@@ -267,14 +269,23 @@ const std::vector<SSNode*> Bottom::Split(IndexLevel *index, std::vector<IndexSet
     level.pop_back();
   }
 
-  splitPred->Split(indexSet);
+  splitPred->Split(index);
 
-  std::vector<SSNode*> ssNode(frontCount);
-  for (unsigned int levelIdx = 0; levelIdx < frontCount; levelIdx++) {
-    ssNode[levelIdx] = splitSig->ArgMax(levelIdx, indexSet[levelIdx].MinInfo());
+  return ArgMax(index, argMax);
+}
+
+
+void Bottom::ArgMax(const IndexLevel &index, std::vector<SSNode*> &argMax) {
+  unsigned int levelCount = argMax.size();
+
+  unsigned int levelIdx;
+#pragma omp parallel default(shared) private(levelIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (levelIdx = 0; levelIdx < levelCount; levelIdx++) {
+      argMax[levelIdx] = splitSig->ArgMax(levelIdx, index.MinInfo(levelIdx));
+    }
   }
-
-  return ssNode;
 }
 
 
@@ -484,7 +495,7 @@ void Bottom::Restage() {
   int nodeIdx;
 
 #pragma omp parallel default(shared) private(nodeIdx)
- {
+  {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
       Restage(restageCoord[nodeIdx]);
@@ -513,35 +524,64 @@ void Bottom::Restage(RestageCoord &rsCoord) {
  */
 SPNode *Bottom::Restage(SPPair mrra, unsigned int bufIdx, unsigned int del) {
   SPNode *targ;
-  if (level[del]->NodeRel()) { // Source, target employ node-relative indexing.
-    unsigned int reachOffset[1 << NodePath::pathMax];
+  unsigned int startIdx, extent;
+  Bounds(mrra, del, startIdx, extent);
+  
+  unsigned int reachOffset[1 << NodePath::pathMax];
+  if (level[del]->NodeRel()) { // Both levels employ node-relative indexing.
     unsigned int reachBase[1 << NodePath::pathMax];
     OffsetClone(mrra, del, reachOffset, reachBase);
     if (IsDense(mrra, del)) {
-      targ = RestageRelDense(reachOffset, reachBase, mrra, bufIdx, del);
+      targ = RestageNdxDense(reachOffset, reachBase, mrra, bufIdx, del);
     }
     else if (del == 1) {
-      targ = RestageRelOne(reachOffset, reachBase, mrra, bufIdx);
+      targ = samplePred->RestageNdxOne(reachOffset, reachBase, mrra.second, bufIdx, FrontPath(1), PathMask(1), startIdx, extent);
     }
     else {
-      targ = RestageRelGen(reachOffset, reachBase, mrra, bufIdx, del);
+      targ = samplePred->RestageNdxGen(reachOffset, reachBase, mrra.second, bufIdx, FrontPath(del), PathMask(del), startIdx, extent);
     }
   }
-  else { //  Source employs sample indexing.  Target may or may not.
-    unsigned int reachOffset[1 << NodePath::pathMax];
+  else { // Source level employs subtree indexing.  Target may or may not.
     OffsetClone(mrra, del, reachOffset);
     if (IsDense(mrra, del)) {
-      targ = RestageSdxDense(reachOffset, mrra, bufIdx, del);
+      targ = RestageStxDense(reachOffset, mrra, bufIdx, del);
     }
     else if (del == 1) {
-      targ = RestageSdxOne(reachOffset, mrra, bufIdx);
+      targ = samplePred->RestageStxOne(reachOffset, mrra.second, bufIdx, stPath, PathMask(1), startIdx, extent, nodeRel);
+
     }
     else {
-      targ = RestageSdxGen(reachOffset, mrra, bufIdx, del);
+      targ = samplePred->RestageStxGen(reachOffset, mrra.second, bufIdx, stPath, PathMask(del), startIdx, extent, nodeRel);
     }
   }
+  //  if (!IsDense(mrra, del) && level[del]->DiagRestage(mrra, reachOffset) > 0)
+  //cout << "Bad restage" << endl;
 
   return targ;
+}
+
+
+/**
+   @brief  Diagnositc test for restaging.  Checks that all target paths
+   advance by the expected number of indices.
+
+   @return count of mismatches.
+ */
+unsigned int Level::DiagRestage(const SPPair &mrra, unsigned int reachOffset[]) {
+  unsigned int mismatch = 0;
+  unsigned int nullPath = 0;
+  unsigned int nodeStart = BackScale(mrra.first);
+  for (unsigned int path = 0; path < BackScale(1); path++) {
+    NodePath &np = nodePath[nodeStart + path];
+    if (reachOffset[path] - np.IdxStart() != np.Extent()) {
+      //cout << path << ":  " << reachOffset[path] << " != " << np.IdxStart() << " + " << np.Extent() << endl;
+      mismatch++;
+    }
+    if (np.Extent() == 0)
+      nullPath++;
+  }
+
+  return mismatch;
 }
 
 
@@ -550,29 +590,25 @@ SPNode *Bottom::Restage(SPPair mrra, unsigned int bufIdx, unsigned int del) {
    in the case of dense ranks, as cell sizes are not derivable directly
    from index nodes.
  */
-SPNode *Bottom::RestageRelDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
-
+SPNode *Bottom::RestageNdxDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
+  IdxPath *frontPath = FrontPath(del);
+  unsigned int pathMask = PathMask(del);
+  unsigned int startIdx, extent;
+  Bounds(mrra, del, startIdx, extent);
+  
   unsigned int *ppBlock = &prePath[samplePred->StageOffset(mrra.second)];
   unsigned int pathCount[1 << NodePath::pathMax];
   for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
     pathCount[path] = 0;
   }
 
-  // Decomposition into two paths adds ~5% performance penalty, but
-  // is necessary for dense packing or for coprocessor loading.
-  //
-  IdxPath *frontPath = FrontPath(del);
-  unsigned int pathMask = level[del]->BackScale(1) - 1;
-  unsigned int startIdx, extent;
-  Bounds(mrra, del, startIdx, extent);
+  SPNode *source, *targ;
+  unsigned int *idxSource, *idxTarg;
+  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int relSource = idxSource[idx];
     unsigned int path, offRel;
-    if (frontPath->RelLive(relSource, path, offRel)) {
-      path &= pathMask;
+    if (frontPath->RefLive(relSource, pathMask, path, offRel)) {
       ppBlock[idx] = path;
       pathCount[path]++;
       idxSource[idx] = reachBase[path] + offRel; // O.k. to overwrite.
@@ -582,6 +618,9 @@ SPNode *Bottom::RestageRelDense(unsigned int reachOffset[], const unsigned int r
     }
   }
 
+  // Decomposition into two paths adds ~5% performance penalty, but
+  // is necessary for dense packing or for coprocessor loading.
+  //
   // Successors may or may not themselves be dense.
   level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
@@ -602,10 +641,14 @@ SPNode *Bottom::RestageRelDense(unsigned int reachOffset[], const unsigned int r
    in the case of dense ranks, as cell sizes are not derivable directly
    from index nodes.
  */
-SPNode *Bottom::RestageSdxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
+SPNode *Bottom::RestageStxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
+
+  // Decomposition into two paths adds ~5% performance penalty, but
+  // is necessary for dense packing or for coprocessor loading.
+  //
+  unsigned int pathMask = PathMask(del);
+  unsigned int startIdx, extent;
+  Bounds(mrra, del, startIdx, extent);
 
   unsigned int *ppBlock = &prePath[samplePred->StageOffset(mrra.second)];
   unsigned int pathCount[1 << NodePath::pathMax];
@@ -613,17 +656,13 @@ SPNode *Bottom::RestageSdxDense(unsigned int reachOffset[], const SPPair &mrra, 
     pathCount[path] = 0;
   }
 
-  // Decomposition into two paths adds ~5% performance penalty, but
-  // is necessary for dense packing or for coprocessor loading.
-  //
-  unsigned int pathMask = level[del]->BackScale(1) - 1;
-  unsigned int startIdx, extent;
-  Bounds(mrra, del, startIdx, extent);
+  SPNode *source, *targ;
+  unsigned int *idxSource, *idxTarg;
+  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int relSource = idxSource[idx];
     unsigned int path;
-    if (stPath->PathFront(relSource, path)) {
-      path &= pathMask;
+    if (stPath->PathLive(relSource, pathMask, path)) {
       ppBlock[idx] = path;
       pathCount[path]++;
       // RelFront() performs (slow) sIdx-to-relIdx mapping:  transition only.
@@ -678,68 +717,6 @@ void Level::PackDense(unsigned int idxLeft, const unsigned int pathCount[], Leve
 
 
 /**
-   @brief General restaging, using relative indexing.
-
-   @return void.
- */
-SPNode *Bottom::RestageRelGen(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
-
-  unsigned int startIdx, extent;
-  Bounds(mrra, del, startIdx, extent);
-  IdxPath *frontPath = FrontPath(del);
-  unsigned int pathMask = level[del]->BackScale(1) - 1;
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int relSource = idxSource[idx]; // previous relTarg
-    unsigned int path, offRel;
-    if (frontPath->RelLive(relSource, path, offRel)) {
-      path &= pathMask;
-      unsigned int destIdx = reachOffset[path]++;
-      targ[destIdx] = source[idx];
-      idxTarg[destIdx] = reachBase[path] + offRel;//relTarg;
-    }
-  }
-
-  return targ;
-}
-
-
-/**
-   @brief General restaging, using relative indexing.
-
-   @return void.
- */
-SPNode *Bottom::RestageSdxGen(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
-
-  unsigned int startIdx, extent;
-  Bounds(mrra, del, startIdx, extent);
-
-  unsigned int pathMask = level[del]->BackScale(1) - 1;
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int relSource = idxSource[idx];
-    unsigned int path;
-    if (stPath->PathFront(relSource, path)) {
-      unsigned int destIdx = reachOffset[path & pathMask]++;
-      targ[destIdx] = source[idx];
-      // RelFront() performs (slow) sIdx-to-relIdx mapping:  transition only.
-      idxTarg[destIdx] = nodeRel ? stPath->RelFront(relSource) : relSource;
-    }
-  }
-
-  //  if (level[del]->DiagRestage(mrra, reachOffset) > 0) {
-  //cout << "Error:  restage mishap" << endl;
-  //}
-
-  return targ;
-}
-
-
-/**
    @brief Clones offsets along path reaching from ancestor node.
 
    @param mrra is an MRRA coordinate.
@@ -758,97 +735,6 @@ void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned
       reachBase[i] = nodePath[nodeStart + i].RelBase();
     }
   }
-}
-
-
-/**
-   @brief  Diagnositc test for restaging.  Checks that all target paths
-   advance by the expected number of indices.
-
-   @return count of mismatches.
- */
-unsigned int Level::DiagRestage(const SPPair &mrra, unsigned int reachOffset[]) {
-  unsigned int mismatch = 0;
-  unsigned int nullPath = 0;
-  unsigned int nodeStart = BackScale(mrra.first);
-  for (unsigned int path = 0; path < BackScale(1); path++) {
-    NodePath &np = nodePath[nodeStart + path];
-    if (reachOffset[path] - np.IdxStart() != np.Extent()) {
-      mismatch++;
-    }
-    if (np.Extent() == 0)
-      nullPath++;
-  }
-
-  return mismatch;
-}
-
-
-/**
-   @brief Restaging using relative indexing, specialized for single-level
-   case.
- */
-SPNode *Bottom::RestageRelOne(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
-
-  unsigned int startIdx, extent;
-  Bounds(mrra, 1, startIdx, extent);
-  IdxPath *frontPath = FrontPath(1);
-  unsigned int pathMask = level[1]->BackScale(1) - 1;
-  unsigned int leftOff = reachOffset[0];
-  unsigned int rightOff = reachOffset[1];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int relSource = idxSource[idx];
-    unsigned int path, offRel;
-    if (frontPath->RelLive(relSource, path, offRel)) {
-      path &= pathMask;
-      unsigned int destIdx = path == 0 ? leftOff++ : rightOff++;
-      targ[destIdx] = source[idx];
-      idxTarg[destIdx] = reachBase[path] + offRel;
-    }
-  }
-
-  reachOffset[0] = leftOff;
-  reachOffset[1] = rightOff;
-
-  return targ;
-}
-
-
-/**
-   @brief Restaging using relative indexing, specialized for single-level
-   case.
- */
-SPNode *Bottom::RestageSdxOne(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(mrra, bufIdx, source, idxSource, targ, idxTarg);
-
-  unsigned int startIdx, extent;
-  Bounds(mrra, 1, startIdx, extent);
-  unsigned int pathMask = level[1]->BackScale(1) - 1;
-  unsigned int leftOff = reachOffset[0];
-  unsigned int rightOff = reachOffset[1];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int relSource = idxSource[idx];
-    unsigned int path;
-    if (stPath->PathFront(relSource, path)) {
-      unsigned int destIdx = (path & pathMask) == 0 ? leftOff++ : rightOff++;
-      targ[destIdx] = source[idx];
-      // RelFront() performs (slow) sIdx-to-relIdx mapping:  transition only.
-      idxTarg[destIdx] = nodeRel ? stPath->RelFront(relSource) : relSource;
-    }
-  }
-
-  reachOffset[0] = leftOff;
-  reachOffset[1] = rightOff;
-
-  //  if (level[1]->DiagRestage(mrra, reachOffset) > 0)
-  //cout << "Error:  restage mishap" << endl;
-
-  return targ;
 }
 
 
@@ -935,13 +821,11 @@ void Bottom::LevelInit() {
 
 
 /**
-   @brief Clears level data structures within attendant objects.
+   @brief Updates level-based data structures within attendant objects.
 
    @return void.
  */
 void Bottom::LevelClear() {
-  //  if (termTop + idxLive != bagCount)
-  //cout << "Error:  terminal / nonterminal conservation" << endl;
   splitPred->LevelClear();
   splitSig->LevelClear();
 }
@@ -980,6 +864,10 @@ void Bottom::SplitPrepare(unsigned int splitNext) {
   
   splitPrev = frontCount;
   frontCount = splitNext;
+  if (!nodeRel) { // Sticky.
+    nodeRel = IdxPath::Localizes(bagCount, IdxMax());
+  }
+
   levelFront = new Level(frontCount, nPred, bagCount, idxLive, nodeRel);
   level.push_front(levelFront);
 
@@ -994,12 +882,6 @@ void Bottom::SplitPrepare(unsigned int splitNext) {
   for (unsigned int i = 1; i < level.size(); i++) {
     level[i]->Paths();
   }
-
-  if (!nodeRel) { // Sticky.
-    nodeRel = IdxPath::Relable(bagCount, IdxMax());
-  }
-
-  BackUpdate();
 }
 
 
@@ -1025,15 +907,17 @@ unsigned int Bottom::IdxMax() const {
 
 
 /**
-   @brief Passes level 1's relative path map back to earlier levels for
-   remapping.
+   @brief Pushes first level's path maps back to all back levels
+   employing node-relative indexing.
 
    @return void.
  */
 void Bottom::BackUpdate() const {
-  if (nodeRel) {
+  if (level.size() > 2 && level[1]->NodeRel()) {
     for (auto lv = level.begin() + 2; lv != level.end(); lv++) {
-      (*lv)->BackUpdate(FrontPath(1));
+      if (!(*lv)->BackUpdate(FrontPath(1))) {
+	break;
+      }
     }
   }
 }
@@ -1088,12 +972,94 @@ void Level::Paths() {
     level[i]->PathInit(this, levelIdx, path, start, extent, RelBase(ptId));
   }
 }
+  /**
+     @brief Updates both subtree- and node-relative paths for a live index.
+
+     @param ndx is a node-relative index from the previous level.
+
+     @param stx is the associated subtree-relative index.
+
+     @param path is the path reaching the target node.
+
+     @param targIdx is the updated node-relative index:  current level.
+
+     @param ndBase is the base index of the target node:  current level.
+
+     @return void.
+   */
+void Bottom::SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
+  // Can omit if node-relative indexing is precluded.
+  //
+  levelFront->SetLive(ndx, path, targIdx, ndBase);
+
+  // Subtree-relative paths no longer needed when all levels employ
+  // node-relative restaging.
+  //
+  if (!level.back()->NodeRel()) {
+    stPath->SetLive(stx, path, targIdx);  // Irregular write.
+  }
+}
+
+
+/**
+   @brief Terminates subtree-relative path for an extinct index.  Also
+   terminates node-relative path if currently live.
+
+   @param relIdx is a node-relative index.
+
+   @return void.
+ */
+void Bottom::SetExtinct(unsigned int idx) {
+  levelFront->SetExtinct(idx);
+
+  unsigned int stIdx = rel2ST[idx];
+  termST[termTop++] = stIdx;
+  if (!level.back()->NodeRel()) {
+    stPath->SetExtinct(stIdx);
+  }
+}
 
 
 void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start, unsigned int extent, unsigned int relBase) {
   unsigned int mrraIdx = bottom->History(levelIdx, del);
   unsigned int pathOff = BackScale(mrraIdx);
-  unsigned int pathBits = path & (BackScale(1) - 1);
+  unsigned int pathBits = path & PathMask();
   nodePath[pathOff + pathBits].Init(levelIdx, start, extent, relBase);
   liveCount[mrraIdx]++;
 }
+
+
+void Level::SetExtinct(unsigned int idx) {
+  if (idx < idxLive) { // May have been set during Replay().
+    relPath->SetExtinct(idx);
+  }
+}
+
+
+/**
+   @brief Sets path, target and node-relative offse.
+
+   @return void.
+ */
+void Level::SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
+  relPath->SetLive(idx, path, targIdx, nodeRel ? targIdx - ndBase : 0);
+}
+
+  
+/**
+   @brief Revises node-relative indices, as appropriae.  Irregular,
+   but data locality improves with tree depth.
+
+   @param one2Front maps first level to front indices.
+
+   @return true iff level employs node-relative indexing.
+ */
+bool Level::BackUpdate(const IdxPath *one2Front) {
+  if (!nodeRel)
+    return false;
+
+  relPath->BackUpdate(one2Front);
+  return true;
+}
+
+  

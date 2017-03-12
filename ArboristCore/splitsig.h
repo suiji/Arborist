@@ -136,6 +136,7 @@ class SplitSig {
   unsigned int splitCount;
   SSNode *levelSS; // Workspace records for the current level.
 
+  
   /**
      @brief Looks up the SplitSig associated with a given pair.
 
@@ -155,14 +156,15 @@ class SplitSig {
     return levelSS[predIdx * splitCount + splitIdx];
   }
 
+
  public:
  SplitSig(unsigned int _nPred) : nPred(_nPred), splitCount(0), levelSS(0) {
   }
 
-  SSNode *ArgMax(unsigned int splitIdx, double minInfo) const;
   static void Immutables(double _minRatio);
   static void DeImmutables();
 
+  SSNode *ArgMax(unsigned int levelIdx, double gainMax) const;
   void LevelInit(unsigned int _splitCount);
   void LevelClear();
   void Write(unsigned int _splitIdx, unsigned int _predIdx, unsigned int _setPos, unsigned int _bufIdx, const NuxLH &nux);

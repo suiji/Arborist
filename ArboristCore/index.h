@@ -112,7 +112,7 @@ class IndexSet {
 
      @return void.
    */
-  inline void PrebiasFields(unsigned int &_sCount, double &_sum) {
+  inline void PrebiasFields(unsigned int &_sCount, double &_sum) const {
     _sCount = sCount;
     _sum = sum;
   }
@@ -123,8 +123,8 @@ class IndexSet {
 
      @return reference to 'preBias' field.
   */
-  inline double &Prebias() {
-    return preBias;
+  void SetPrebias(double _preBias) {
+    preBias = _preBias;
   }
 
 
@@ -237,7 +237,6 @@ class IndexLevel {
   ~IndexLevel();
 
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
-  void SetPrebias();
   void Levels(class Bottom *bottom, class PreTree *preTree);
   unsigned int STIdx(class Bottom *bottom, unsigned int splitIdx, unsigned int relIdx) const;
   
@@ -248,6 +247,11 @@ class IndexLevel {
    */
   inline unsigned int BagCount() const {
     return bagCount;
+  }
+
+
+  inline unsigned int LevelCount() const {
+    return indexSet.size();
   }
 
 
@@ -265,6 +269,25 @@ class IndexLevel {
     return indexSet[splitIdx].Start();
   }
 
+
+  inline double MinInfo(unsigned int splitIdx) const {
+    return indexSet[splitIdx].MinInfo();
+  }
+
+
+  inline double SplitFields(unsigned int splitIdx, unsigned int &idxStart, unsigned int &extent, unsigned int &sCount, double &sum) const {
+    return indexSet[splitIdx].SplitFields(idxStart, extent, sCount, sum);
+  }
+
+
+  inline void PrebiasFields(unsigned int splitIdx, unsigned int &sCount, double &sum) const {
+    indexSet[splitIdx].PrebiasFields(sCount, sum);
+  }
+
+
+  inline void SetPrebias(unsigned int splitIdx, double preBias) {
+    indexSet[splitIdx].SetPrebias(preBias);
+  }
 };
 
 #endif

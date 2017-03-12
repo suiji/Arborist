@@ -127,11 +127,13 @@ PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, Bottom *bottom, int _nSamp,
 void  IndexLevel::Levels(Bottom *bottom, PreTree *preTree) {
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
-    const std::vector<SSNode *> &argMax = bottom->Split(this, indexSet);
+    std::vector<SSNode*> argMax(indexSet.size());
+    bottom->Split(*this, argMax);
 
     unsigned int leafNext, idxExtent, idxLive;
     unsigned int splitNext = SplitCensus(argMax, leafNext, idxExtent, idxLive);
     Consume(bottom, preTree, splitNext, leafNext, idxExtent, idxLive, level + 1 == totLevels);
+
     Produce(bottom, preTree);
   }
 }
@@ -188,10 +190,11 @@ void IndexSet::SplitCensus(SSNode *argMax, unsigned int &leafThis, unsigned int 
 
 
 /**
-   @brief Walks the list of split signatures for the level just concluded,
-   adding pre-tree and Index iSets for the next level.
+   @brief Consumes current level of splits into new pretree level,
+   then replays successor mappings.
 
-   @param level is the current level.
+   @param terminal is true iff no attempt will be made to split the
+   new level's nodes.
 
    @return void.
 */
@@ -248,7 +251,7 @@ void IndexSet::Terminal(Bottom *bottom) {
 
 void IndexSet::Replay(Bottom *bottom, const PreTree *preTree) {
   if (ssNode != 0) {
-    bottom->Replay(preTree, ptId, ssNode->LeftExpl(), lhExtent, extent - lhExtent);
+    bottom->Replay(preTree, ptId, path, ssNode->LeftExpl(), extent, lhExtent);
   }
 }
 

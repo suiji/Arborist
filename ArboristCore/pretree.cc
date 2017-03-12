@@ -172,6 +172,7 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
+
   ptS->splitVal.offset = bitEnd;
   bitEnd += pmTrain->FacCard(_predIdx);
 }

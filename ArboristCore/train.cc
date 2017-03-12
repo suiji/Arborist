@@ -157,8 +157,9 @@ void Train::TrainForest(const PMTrain *pmTrain, const RowRank *rowRank) {
     
   // Normalizes 'predInfo' to per-tree means.
   double recipNTree = 1.0 / nTree;
-  for (unsigned int i = 0; i < predInfo.size(); i++)
+  for (unsigned int i = 0; i < predInfo.size(); i++) {
     predInfo[i] *= recipNTree;
+  }
 
   forest->SplitUpdate(pmTrain, rowRank);
 }
