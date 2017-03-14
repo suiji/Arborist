@@ -41,7 +41,7 @@ The *Arborist* will soon be available on PyPI.
 
 ### Performance 
 
-Performance metrics will be measured soon using [benchm-ml](https://github.com/szilard/benchm-m). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
+Performance metrics will be measured soon using [benchm-ml](https://github.com/szilard/benchm-ml). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
 
     
 ### References
