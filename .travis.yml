@@ -17,7 +17,7 @@ install:
   - tar -xzvf Rborist_*.*-*.tar.gz
   - Rscript -e 'install.packages("roxygen2")'
   - Rscript -e 'install.packages("devtools")'
-  - Rscript -e 'devtools::install_deps("Rborist")'
+  - Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
 script:
   - Rscript -e 'devtools::check("Rborist", manual = FALSE)'
   
