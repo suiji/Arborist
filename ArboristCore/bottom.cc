@@ -59,12 +59,10 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), termTop(0), nodeRel(false), prePath(std::vector<unsigned int>(_stageSize)), stPath(new IdxPath(bagCount)), splitPrev(0), frontCount(1), levelBase(0), ptHeight(1), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), idxLive(bagCount), rel2ST(std::vector<unsigned int>(bagCount)), relBase(std::vector<unsigned int>(1)), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, bagCount, bagCount, nodeRel)) {
-  std::iota(rel2ST.begin(), rel2ST.end(), 0);
-  relBase[0] = 0;
-  std::fill(levelDelta.begin(), levelDelta.end(), 0);
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), termTop(0), nodeRel(false), prePath(std::vector<unsigned int>(_stageSize)), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, bagCount, bagCount, nodeRel)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
+  std::fill(levelDelta.begin(), levelDelta.end(), 0);
 
   splitPred->SetBottom(this);
 }
@@ -92,11 +90,7 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int bagCoun
 
 
 double Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent, unsigned int lhExtent, double sum, unsigned int &ptId) {
-  double lhSum = ssNode->NonTerminal(this, preTree, Runs(), extent, sum, ptId);
-  Successor(preTree->LHId(ptId), lhExtent);
-  Successor(preTree->RHId(ptId), extent - lhExtent);
-
-  return lhSum;
+  return ssNode->NonTerminal(this, preTree, Runs(), extent, sum, ptId);
 }
 
 
@@ -105,11 +99,6 @@ double Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent
    index paths as extinct.
  */
 void Bottom::Terminal(unsigned int extent, unsigned int ptId) {
-  unsigned int nodeBase = RelBase(ptId);
-  for (unsigned int relIdx = nodeBase; relIdx < nodeBase + extent; relIdx++) {
-    SetExtinct(relIdx);
-  }
-
   TermKey key;
   key.Init(extent, ptId);
   termKey.push_back(key);
@@ -136,37 +125,9 @@ void Bottom::SubtreeFrontier(PreTree *preTree) const {
 
    @param levelTerminal is true iff the subtree terminates at this level.
  */
-void Bottom::LevelSucc(PreTree *preTree, unsigned int splitNext, unsigned int leafNext, unsigned int idxExtent, unsigned int _idxLive, bool levelTerminal) {
+void Bottom::Overlap(PreTree *preTree, unsigned int splitNext, unsigned int leafNext) {
   preTree->Level(splitNext, leafNext);
   replayExpl->Clear();
-
-  succBase = std::move(std::vector<unsigned int>(splitNext + leafNext));
-  std::fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
-
-  succST = std::move(std::vector<unsigned int>(idxExtent));
-  std::fill(succST.begin(), succST.end(), idxExtent); // Inattainable st index.
-
-  liveBase = 0;
-  extinctBase = _idxLive;
-  idxLive = levelTerminal ? 0 : _idxLive; // Value for upcoming level.
-}
-
-
-/**
-   @brief Builds index base offsets to mirror crescent pretree level.
-
-   @return void.
- */
-void Bottom::Successor(unsigned int ptId, unsigned int extent) {
-  unsigned int succOff = OffsetSucc(ptId);
-  if (IndexSet::Splitable(extent)) {
-    succBase[succOff] = liveBase;
-    liveBase += extent;
-  }
-  else {
-    succBase[succOff] = extinctBase;
-    extinctBase += extent;
-  }
 }
 
 
@@ -183,69 +144,23 @@ void Bottom::Successor(unsigned int ptId, unsigned int extent) {
 
    @return sum of response values associated with each replayed index.
 */
-double Bottom::BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent) {
-  return samplePred->BlockPreplay(predIdx, sourceBit, start, extent, replayExpl);
+double Bottom::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent) {
+  return samplePred->BlockReplay(predIdx, sourceBit, start, extent, replayExpl);
 }
 
 
 /**
-   @brief Updates the successor level's node- and subtree-relative index maps
-   via a stable partition.
+   @brief Selets reindexing method based on current indexing mode.
 
    @return void.
  */
-void Bottom::Replay(const PreTree *preTree, unsigned int ptId, unsigned int path, bool leftExpl, unsigned int extent, unsigned int lhExtent) {
-  unsigned int baseImpl = SuccBase(leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId));
-  unsigned int baseExpl = SuccBase(leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId));
-
-  unsigned int idxSource = RelBase(ptId);
-  unsigned int offExpl = baseExpl;
-  unsigned int offImpl = baseImpl;
-  unsigned int pathL = IdxPath::PathNext(path, true);
-  unsigned int pathR = IdxPath::PathNext(path, false);
-  for (unsigned int relIdx = idxSource; relIdx < idxSource + extent; relIdx++) {
-    unsigned int stIdx = rel2ST[relIdx];
-    bool expl = replayExpl->TestBit(nodeRel ? relIdx : stIdx);
-    unsigned int targIdx = expl ? offExpl++ : offImpl++;
-    succST[targIdx] = stIdx;
-
-    // Live index updates could be deferred to production of the next level,
-    // but the relIdx-to-targIdx mapping is conveniently available here.
-    //
-    // Extinct subtree indices are best updated on a per-node basis, however,
-    // so their treatment is deferred until production of the next level.
-    // Extinct node-relative indices, however, can be treated on the fly.
-    //
-    if (targIdx >= idxLive) {
-      levelFront->SetExtinct(relIdx);
-    }
-    else {
-      SetLive(relIdx, stIdx, (expl && leftExpl) || !(expl || leftExpl) ? pathL : pathR, targIdx, expl ? baseExpl : baseImpl);
-    }
+void Bottom::Reindex(IndexLevel *indexLevel) {
+  if (nodeRel) {
+    indexLevel->Reindex(this, replayExpl);
   }
-}
-
-
-/**
-   @brief Diagnostic test for replay.  Checks that left and right successors
-   receive the expected index counts.
-
-   @return count of mismatched expectations.
- */
-unsigned int Bottom::DiagReplay(const PreTree *preTree, unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int ptId, unsigned int lhExtent, unsigned int rhExtent) {
-  unsigned int mismatch = 0;
-  unsigned int extentImpl = leftExpl ? rhExtent : lhExtent;
-  unsigned int extentExpl = leftExpl ? lhExtent : rhExtent;
-  unsigned int ptImpl = leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId);
-  unsigned int ptExpl = leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId);
-  if (offExpl != SuccBase(ptExpl) + extentExpl) {
-    mismatch++;
+  else {
+    indexLevel->Reindex(replayExpl, stPath);
   }
-  if (offImpl != SuccBase(ptImpl) + extentImpl) {
-    mismatch++;
-  }
-
-  return mismatch;
 }
 
 
@@ -816,7 +731,7 @@ void Bottom::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int s
    @return void.
  */
 void Bottom::LevelInit() {
-  splitSig->LevelInit(frontCount);
+  splitSig->LevelInit(splitCount);
 }
 
 
@@ -833,76 +748,40 @@ void Bottom::LevelClear() {
 
 /**
    @brief Updates subtree and pretree mappings from temporaries constructed
-   during the overlap.
+   during the overlap.  Initializes data structures for restaging and
+   splitting the current level of the subtree.
 
    @param splitNext is the number of splitable nodes in the current
-   pretree level.
-
-   @return void.
- */
-void Bottom::Overlap(unsigned int splitNext) {
-  levelBase = ptHeight;
-  ptHeight += succBase.size();
-  relBase = std::move(succBase);
-  rel2ST = std::move(succST);
-
-  SplitPrepare(splitNext);
-}
-
-
-/**
-   @brief Initializes data structures for restaging and splitting
-   the current level of the subtree.
+   subtree level.
 
    @param idxMax is the maximum index width among live nodes.
 
    @return void.
  */
-void Bottom::SplitPrepare(unsigned int splitNext) {
-  if (splitNext == 0) // No further splitting or restaging.
+void Bottom::LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned int idxMax) {
+  splitPrev = splitCount;
+  splitCount = splitNext;
+  if (splitCount == 0) // No further splitting or restaging.
     return;
   
-  splitPrev = frontCount;
-  frontCount = splitNext;
   if (!nodeRel) { // Sticky.
-    nodeRel = IdxPath::Localizes(bagCount, IdxMax());
+    nodeRel = IdxPath::Localizes(bagCount, idxMax);
   }
 
-  levelFront = new Level(frontCount, nPred, bagCount, idxLive, nodeRel);
+  levelFront = new Level(splitCount, nPred, bagCount, idxLive, nodeRel);
   level.push_front(levelFront);
 
   historyPrev = std::move(history);
-  history = std::move(std::vector<unsigned int>(frontCount * (level.size()-1)));
+  history = std::move(std::vector<unsigned int>(splitCount * (level.size()-1)));
 
   deltaPrev = std::move(levelDelta);
-  levelDelta = std::move(std::vector<unsigned char>(frontCount * nPred));
+  levelDelta = std::move(std::vector<unsigned char>(splitCount * nPred));
 
   // Recomputes paths reaching from non-front levels.
   //
   for (unsigned int i = 1; i < level.size(); i++) {
     level[i]->Paths();
   }
-}
-
-
-/**
-   @brief Computes the extent of the widest splitable node.  Splitable nodes
-   are characterized by base values between zero and 'idxLive'.
-
-   @return maximal node extent.
- */
-unsigned int Bottom::IdxMax() const {
-  unsigned int idxMax = 0;
-  unsigned int top = idxLive;
-  for (auto base = relBase.end() - 1; base != relBase.begin(); base--) {
-    if (*base < idxLive) { // Otherwise unsplitable.
-      unsigned int extent = top - *base;
-      idxMax = extent > idxMax ? extent : idxMax;
-      top = *base;
-    }
-  }
-
-  return idxMax;
 }
 
 
@@ -957,9 +836,9 @@ void Level::Paths() {
 
    @return void.
 */
- void Bottom::ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path) {
+void Bottom::ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int relBase/*ptId*/, unsigned int path) {
   for (unsigned int backLevel = 0; backLevel < level.size() - 1; backLevel++) {
-    history[levelIdx + frontCount * backLevel] = backLevel == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLevel - 1)];
+    history[levelIdx + splitCount * backLevel] = backLevel == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLevel - 1)];
   }
 
   Inherit(levelIdx, parIdx);
@@ -969,7 +848,7 @@ void Level::Paths() {
   // reaching path.
   //
   for (unsigned int i = 1; i < level.size(); i++) {
-    level[i]->PathInit(this, levelIdx, path, start, extent, RelBase(ptId));
+    level[i]->PathInit(this, levelIdx, path, start, extent, relBase);//RelBase(ptId));
   }
 }
   /**
@@ -988,10 +867,8 @@ void Level::Paths() {
      @return void.
    */
 void Bottom::SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
-  // Can omit if node-relative indexing is precluded.
-  //
   levelFront->SetLive(ndx, path, targIdx, ndBase);
-
+  
   // Subtree-relative paths no longer needed when all levels employ
   // node-relative restaging.
   //
@@ -1009,10 +886,9 @@ void Bottom::SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsi
 
    @return void.
  */
-void Bottom::SetExtinct(unsigned int idx) {
+void Bottom::SetExtinct(unsigned int idx, unsigned int stIdx) {
   levelFront->SetExtinct(idx);
 
-  unsigned int stIdx = rel2ST[idx];
   termST[termTop++] = stIdx;
   if (!level.back()->NodeRel()) {
     stPath->SetExtinct(stIdx);
@@ -1030,7 +906,7 @@ void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int p
 
 
 void Level::SetExtinct(unsigned int idx) {
-  if (idx < idxLive) { // May have been set during Replay().
+  if (nodeRel && idx < idxLive) { // May have been set during Reindex().
     relPath->SetExtinct(idx);
   }
 }
@@ -1042,7 +918,9 @@ void Level::SetExtinct(unsigned int idx) {
    @return void.
  */
 void Level::SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
-  relPath->SetLive(idx, path, targIdx, nodeRel ? targIdx - ndBase : 0);
+  if (nodeRel) {
+    relPath->SetLive(idx, path, targIdx, targIdx - ndBase);
+  }
 }
 
   

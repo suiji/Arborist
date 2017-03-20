@@ -140,7 +140,7 @@ unsigned int SPNode::Init(const StagePack &stagePack) {
 
    @return sum of responses within the block.
  */
-double SamplePred::BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl) {
+double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl) {
   unsigned int *idx;
   SPNode *spn = Buffers(predIdx, sourceBit, idx);
 

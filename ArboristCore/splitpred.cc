@@ -440,7 +440,7 @@ void SPCtg::SumsAndSquares(const IndexLevel &index, bool unsplitable[]) {
 
     for (unsigned int relIdx = 0; relIdx < index.Extent(levelIdx); relIdx++) {
       // TODO:  STIdx to SIdx translation:
-      unsigned int stIdx = index.STIdx(bottom, levelIdx, relIdx); // Irregular.
+      unsigned int stIdx = index.STIdx(levelIdx, relIdx); // Irregular.
       FltVal sum;
       unsigned int sCount;
       unsigned int ctg = sampleCtg[stIdx].Ref(sum, sCount);

@@ -71,9 +71,9 @@ class SSNode {
   bool leftExpl;  // Whether LH or RH split indices explicit.
 
   double NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, double sum, unsigned int ptId);
-  double PreplayRun(class Bottom *bottom, class PreTree *preTree, double sum, unsigned int ptId, const class Run *run);
+  double ReplayRun(class Bottom *bottom, class PreTree *preTree, double sum, unsigned int ptId, const class Run *run);
   double NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, double sum, unsigned int ptId);
-  double PreplayNum(class Bottom *bottom, double sum, unsigned int idxCount);
+  double ReplayNum(class Bottom *bottom, double sum, unsigned int idxCount);
 
  public:
   SSNode();

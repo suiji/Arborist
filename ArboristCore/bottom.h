@@ -403,7 +403,6 @@ class Bottom {
   const unsigned int nPred;
   const unsigned int nPredFac;
   const unsigned int bagCount;
-  std::vector<unsigned int> st2Rel; // TO GO.Next preplay relIdx:  stIndex only.
   std::vector<unsigned int> termST; // Frontier subtree indices.
   std::vector<class TermKey> termKey; // Frontier map keys:  uninitialized.
   unsigned int termTop; // Next unused terminal index.
@@ -415,21 +414,13 @@ class Bottom {
 
   IdxPath *stPath; // IdxPath accessed by subtree.
   unsigned int splitPrev;
-  unsigned int frontCount; // # nodes in the level about to split.
-  unsigned int levelBase; // previous PreTree high watermark.
-  unsigned int ptHeight; // PreTree high watermark.
+  unsigned int splitCount; // # nodes in the level about to split.
   const class PMTrain *pmTrain;
   class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
   class Run *run;
-  unsigned int idxLive; // # non-extinct indices in current level.
-  unsigned int liveBase; // Accumulates index count.
-  unsigned int extinctBase; // Leading index of extinct nodes.
-  std::vector<unsigned int> rel2ST; // Maps to subtree index.
-  std::vector<unsigned int> succST;  // Overlaps, moves to, rel2ST.
-  std::vector<unsigned int> relBase; // Node-to-relative index.
-  std::vector<unsigned int> succBase; // Overlaps, then moves to relBase.
+  //  unsigned int idxLive; // # non-extinct indices in current level.
   class BV *replayExpl; // Whether sample employs explicit replay.
   std::vector<unsigned int> history;
   std::vector<unsigned int> historyPrev;
@@ -446,12 +437,7 @@ class Bottom {
   SPNode *RestageNdxDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   SPNode *RestageStxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   void BackUpdate() const;
-  void SplitPrepare(unsigned int splitNext);
-  unsigned int IdxMax() const;
   void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
-  void SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
-  void SetExtinct(unsigned int idx);
-
 
   /**
      @brief Increments reaching levels for all pairs involving node.
@@ -465,28 +451,11 @@ class Bottom {
   }
 
 
-  /**
-     @brief Looks up a node's relative offset for a crescent level.
-
-     @param ptId is the index of a PTNode in a crescent level.
-
-     @return offset of node from base of crescent level.
-   */
-  inline unsigned int OffsetSucc(unsigned int ptId) const {
-    return ptId - ptHeight;
-  }
-
-
-  inline unsigned int SuccBase(unsigned int ptId) const {
-    return succBase[OffsetSucc(ptId)];
-  }
-
-
   inline unsigned int PathMask(unsigned int del) const {
     return level[del]->PathMask();
   }
 
-  
+
  //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
@@ -507,57 +476,23 @@ class Bottom {
   void LevelClear();
   void Split(class IndexLevel &index, std::vector<class SSNode*> &argMax);
   void Terminal(unsigned int extent, unsigned int ptId);
-  void LevelSucc(class PreTree *preTree, unsigned int splitNext, unsigned int leafNext, unsigned int idxExtent, unsigned int idxLive, bool terminal);
-  void Overlap(unsigned int splitNext);
-  void Successor(unsigned int extent, unsigned int ptId);
-  double BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent);
-  void Replay(const class PreTree *preTree, unsigned int ptId, unsigned int path, bool leftExpl, unsigned int extent, unsigned int lhExtent);
-  unsigned int DiagReplay(const class PreTree *preTree, unsigned int offExpl, unsigned int offImpl, bool leftExpl, unsigned int ptId, unsigned int lhExtent, unsigned int rhExtent);
+  void Overlap(class PreTree *preTree, unsigned int splitNext, unsigned int leafNext);
+  void LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned int idxMax);
+  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent);
+  void Reindex(class IndexLevel *indexLevel);
+  void ReindexST(class IndexLevel &indexLvel, std::vector<unsigned int> &succST);
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
   void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   unsigned int FlushRear();
   void DefForward(unsigned int levelIdx, unsigned int predIdx);
   void Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&relIdxSource, SPNode *&targ, unsigned int *&relIdxTarg) const;
-  double Replay(unsigned int predIdx, unsigned int targBit, unsigned int start, unsigned int end, unsigned int ptId);
   void Restage();
   bool IsFactor(unsigned int predIdx) const;
+  void SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
+  void SetExtinct(unsigned int idx, unsigned int stIdx);
   void SubtreeFrontier(class PreTree *preTree) const;
   
 
-  /**
-     @brief Looks up a node's relative index base for a completed level.
-
-     @return relative index base of node.
-   */
-  inline unsigned int RelBase(unsigned int ptId) const {
-    return relBase[LevelOffset(ptId)];
-  }
-
-
-  /**
-     @brief Recovers subtree-relative index from pretree and node-relative index.
-
-     @return corresponding subtree-relative index.
-   */
-  inline unsigned int STIdx(unsigned int ptIdx, unsigned int relIdx) const {
-    return rel2ST[RelBase(ptIdx) + relIdx];
-  }
-
-  
-  /**
-     @brief Computes a level-relative position for a PreTree node,
-     assumed to reside at the current level.
-
-     @param ptId is the node index.  Must be >= level base value.
-
-     @return Level-relative position of node.
-   */
-  inline unsigned int LevelOffset(unsigned int ptId) const {
-    return ptId - levelBase;
-  }
-
-
-  
   inline void RunCounts(const class SPNode targ[], const SPPair &mrra, unsigned int del) {
     level[del]->RunCounts(targ, mrra, this);
   }
@@ -623,7 +558,7 @@ class Bottom {
      @return index of ancestor node.
    */
   inline unsigned int History(unsigned int levelIdx, unsigned int del) const {
-    return del == 0 ? levelIdx : history[levelIdx + (del-1) * frontCount];
+    return del == 0 ? levelIdx : history[levelIdx + (del-1) * splitCount];
   }
 
 
@@ -653,13 +588,13 @@ class Bottom {
   }
 
 
-  /**
-     @brief Determines whether node is live.
+  inline unsigned int SplitCount() const {
+    return splitCount;
+  }
 
-     @return true iff node's pretree index has been marked live.
-   */
-  bool IsLive(unsigned int ptId) {
-    return RelBase(ptId) < idxLive;
+
+  inline Level *LevelFront() const {
+    return levelFront;
   }
 };
 

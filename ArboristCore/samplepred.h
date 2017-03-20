@@ -177,7 +177,7 @@ class SamplePred {
   static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
 
   void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
-  double BlockPreplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
+  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
 
   SPNode *RestageStxGen(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
   SPNode *RestageStxOne(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
