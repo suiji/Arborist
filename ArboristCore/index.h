@@ -30,7 +30,6 @@
 class IndexSet {
   double preBias; // Inf of information values eligible for splitting.
   unsigned int splitIdx; // Unique level identifier.
-  //unsigned int parIdx; // Parent index, for use in path threading.
   unsigned int ptId; // Index of associated PTSerial node.
   unsigned int lhStart; // Start index of LH in buffer:  Swiss cheese.
   unsigned int extent; // # distinct indices in the node.
@@ -40,7 +39,7 @@ class IndexSet {
   unsigned int relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
 
-  // Post-splitting fields:
+  // Post-splitting fields:  (Set iff ssNode nonzero.)
   class SSNode *ssNode; // Nonzero iff split identified.
   unsigned int lhExtent; // Total indices over LH.
   unsigned int lhSCount; // Total samples cover LH.
@@ -57,55 +56,31 @@ class IndexSet {
   unsigned char pathRight; // Fixed:  path to right successor, if any.
   bool leftExpl; // Fixed:  whether left split explicit (else right).
 
+  // These fields pertain only to non-splitting sets, so can be
+  // overlaid with above via a union.
+  unsigned int succOnly; // Fixed:  successor iSet.
+  unsigned int offOnly; // Increases:  accumulating successor offset.
+  
   double PrebiasReg();
   double PrebiasCtg(const double sumSquares[]);
   void Successor(class IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, unsigned int succIdx, class Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) const;
   void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path);
+  void NonterminalReindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
+  void TerminalReindex(class Bottom *bottom, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
 
   
  public:
-  static unsigned int minNode;
   IndexSet();
 
-  void SplitCensus(std::vector<class SSNode*> &argMax, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxExtent, unsigned int &idxLive, unsigned int &idxMax);
+  void SplitCensus(std::vector<class SSNode*> &argMax, class IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax);
   void Consume(class IndexLevel *indexlevel, class Bottom *bottom, class PreTree *preTree);
   void NonTerminal(class IndexLevel *indexLevel, class Bottom *bottom, class PreTree *preTree);
   void Terminal(class IndexLevel *indexLevel, class Bottom *bottom);
-  void Reindex(const std::vector<unsigned int> &rel2ST, class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, std::vector<unsigned int> &succST);
+  void Reindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
   void Produce(class IndexLevel *indexLevel, class Bottom *bottom, const class PreTree *preTree, std::vector<IndexSet> &indexNext) const;
-
-  
-  /**
-    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
-    
-    MUST guarantee that no zero-length "splits" have been introduced.
-    Not only are these nonsensical, but they are also dangerous, as they violate
-    various assumptions about the integrity of the intermediate respresentation.
-
-    @param _extent is the count of indices subsumed by the node.
-
-    @return true iff the node subsumes more than minimal count of buffer elements.
-  */
-  static inline bool Splitable(unsigned int _extent) {
-    return _extent >= minNode;
-  }
+  static unsigned SplitAccum(class IndexLevel *indexLevel, unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax);
 
 
-  /**
-     @return count of splitable nodes precipitated in next level:  0/1.
-   */
-  static inline unsigned SplitAccum(unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax) {
-    if (Splitable(_extent)) {
-      _idxLive += _extent;
-      _idxMax = _extent > _idxMax ? _extent : _idxMax;
-      return 1;
-    }
-    else {
-      return 0;
-    }
-  }
-
-  
   /**
      @brief Outputs fields used by pre-bias computation.
 
@@ -233,12 +208,18 @@ class IndexSet {
      @return index (possibly pseudo) of successor index set.
    */
   inline unsigned int Offspring(bool expl, unsigned int &pathSucc, unsigned int &idxSucc) {
-    bool isLeft= (expl && leftExpl) || !(expl || leftExpl);
-    unsigned int iSetSucc = isLeft ? succLeft : succRight;
-
-    pathSucc = isLeft ? pathLeft : pathRight;
-    idxSucc = expl ? offExpl++ : offImpl++;
-
+    unsigned int iSetSucc;
+    if (ssNode == 0) {  // Terminal from previous level.
+      iSetSucc = succOnly;
+      idxSucc = offOnly++;
+      pathSucc = 0; // Dummy:  overwritten by caller.
+    }
+    else {
+      bool isLeft= (expl && leftExpl) || !(expl || leftExpl);
+      iSetSucc = isLeft ? succLeft : succRight;
+      pathSucc = isLeft ? pathLeft : pathRight;
+      idxSucc = expl ? offExpl++ : offImpl++;
+    }
     return iSetSucc;
   }
 };
@@ -248,9 +229,11 @@ class IndexSet {
    @brief The index sets associated with nodes at a single subtree level.
  */
 class IndexLevel {
+  static unsigned int minNode;
   static unsigned int totLevels;
   std::vector<IndexSet> indexSet;
   const unsigned int bagCount;
+  bool levelTerminal; // Whether this level must exit.
   unsigned int idxLive; // Total live indices.
   unsigned int idxMax; // Widest live node.
   unsigned int liveBase; // Accumulates live index offset.
@@ -264,9 +247,9 @@ class IndexLevel {
   std::vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
 
   static class PreTree *OneTree(const class PMTrain *pmTrain, class Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _bagSum);
-  unsigned int SplitCensus(std::vector<class SSNode *> &argMax, unsigned int &leafNext);
+  unsigned int SplitCensus(std::vector<class SSNode *> &argMax, unsigned int &leafNext, bool _levelTerminal);
   void Consume(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext, unsigned int leafNext);
-  void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext, bool levelTerminal);
+  void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext);
 
 
  public:
@@ -278,10 +261,9 @@ class IndexLevel {
 
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
   void Levels(class Bottom *bottom, class PreTree *preTree);
-  unsigned int IdxSucc(unsigned int extent);
-  void Terminal(class Bottom *bottom, unsigned int spiltIdx, unsigned int extent, unsigned int ptId);
+  unsigned int IdxSucc(class Bottom *bottom, unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
   void Reindex(class Bottom *bottom, class BV *replayExpl);
-  void Reindex(class BV *replayExpl, class IdxPath *stPath);
+  void Reindex(class Bottom *bottom, class BV *replayExpl, class IdxPath *stPath);
 
 
   /**
@@ -291,6 +273,22 @@ class IndexLevel {
   }
   
   
+  /**
+    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
+    
+    MUST guarantee that no zero-length "splits" have been introduced.
+    Not only are these nonsensical, but they are also dangerous, as they violate
+    various assumptions about the integrity of the intermediate respresentation.
+
+    @param _extent is the count of indices subsumed by the node.
+
+    @return true iff the node subsumes more than minimal count of buffer elements.
+  */
+  inline bool Splitable(unsigned int extent) {
+    return !levelTerminal && extent >= minNode;
+  }
+
+
 /**
    @brief Looks up subtree-relative index from node-relative coordinates.
 

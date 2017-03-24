@@ -198,7 +198,7 @@ class Level {
   void SetRuns(const class Bottom *bottom, unsigned int levelIdx, unsigned int predIdx, unsigned int idxStart, unsigned int idxCount, const class SPNode *targ);
   void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
   void SetExtinct(unsigned int idx);
-  bool BackUpdate(const class IdxPath *one2Front);
+  bool Backdate(const class IdxPath *one2Front);
   void SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
 
 
@@ -405,7 +405,7 @@ class Bottom {
   const unsigned int bagCount;
   std::vector<unsigned int> termST; // Frontier subtree indices.
   std::vector<class TermKey> termKey; // Frontier map keys:  uninitialized.
-  unsigned int termTop; // Next unused terminal index.
+  //unsigned int termTop; // Next unused terminal index.
   bool nodeRel; // Subtree- or node-relative indexing.  Sticky, once node-.
   
   std::vector<unsigned int> prePath;
@@ -436,7 +436,7 @@ class Bottom {
   SPNode *Restage(SPPair mrra, unsigned int bufIdx, unsigned int del);
   SPNode *RestageNdxDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
   SPNode *RestageStxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  void BackUpdate() const;
+  void Backdate() const;
   void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
 
   /**
@@ -488,10 +488,24 @@ class Bottom {
   void Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&relIdxSource, SPNode *&targ, unsigned int *&relIdxTarg) const;
   void Restage();
   bool IsFactor(unsigned int predIdx) const;
-  void SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
-  void SetExtinct(unsigned int idx, unsigned int stIdx);
+  void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);
+  void SetExtinct(unsigned int termIdx, unsigned int stIdx);
   void SubtreeFrontier(class PreTree *preTree) const;
-  
+  void Terminal(unsigned int termBase, unsigned int extent, unsigned int ptId);
+
+  /**
+     @brief Terminates node-relative path an extinct index.  Also
+     terminates subtree-relative path if currently live.
+
+     @param nodeIdx is a node-relative index.
+
+     @return void.
+  */
+  void SetExtinct(unsigned int nodeIdx, unsigned int termIdx, unsigned int stIdx) {
+    levelFront->SetExtinct(nodeIdx);
+    SetExtinct(termIdx, stIdx);
+  }
+
 
   inline void RunCounts(const class SPNode targ[], const SPPair &mrra, unsigned int del) {
     level[del]->RunCounts(targ, mrra, this);

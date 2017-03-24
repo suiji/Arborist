@@ -59,7 +59,7 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), termTop(0), nodeRel(false), prePath(std::vector<unsigned int>(_stageSize)), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, bagCount, bagCount, nodeRel)) {
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), prePath(std::vector<unsigned int>(_stageSize)), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, bagCount, bagCount, nodeRel)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
@@ -91,17 +91,6 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int bagCoun
 
 double Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent, unsigned int lhExtent, double sum, unsigned int &ptId) {
   return ssNode->NonTerminal(this, preTree, Runs(), extent, sum, ptId);
-}
-
-
-/**
-   @brief Copies a node's subtree indices onto the terminal vector.  Marks
-   index paths as extinct.
- */
-void Bottom::Terminal(unsigned int extent, unsigned int ptId) {
-  TermKey key;
-  key.Init(extent, ptId);
-  termKey.push_back(key);
 }
 
 
@@ -159,7 +148,7 @@ void Bottom::Reindex(IndexLevel *indexLevel) {
     indexLevel->Reindex(this, replayExpl);
   }
   else {
-    indexLevel->Reindex(replayExpl, stPath);
+    indexLevel->Reindex(this, replayExpl, stPath);
   }
 }
 
@@ -174,7 +163,7 @@ void Bottom::Split(IndexLevel &index, std::vector<SSNode*> &argMax) {
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index);
 
-  BackUpdate(); // Deferred until all level-based paths updated.
+  Backdate();
   Restage();
 
   // Source levels must persist through restaging ut allow path lookup.
@@ -469,8 +458,6 @@ SPNode *Bottom::Restage(SPPair mrra, unsigned int bufIdx, unsigned int del) {
       targ = samplePred->RestageStxGen(reachOffset, mrra.second, bufIdx, stPath, PathMask(del), startIdx, extent, nodeRel);
     }
   }
-  //  if (!IsDense(mrra, del) && level[del]->DiagRestage(mrra, reachOffset) > 0)
-  //cout << "Bad restage" << endl;
 
   return targ;
 }
@@ -763,11 +750,10 @@ void Bottom::LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned
   splitCount = splitNext;
   if (splitCount == 0) // No further splitting or restaging.
     return;
-  
+
   if (!nodeRel) { // Sticky.
     nodeRel = IdxPath::Localizes(bagCount, idxMax);
   }
-
   levelFront = new Level(splitCount, nPred, bagCount, idxLive, nodeRel);
   level.push_front(levelFront);
 
@@ -791,14 +777,31 @@ void Bottom::LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned
 
    @return void.
  */
-void Bottom::BackUpdate() const {
+void Bottom::Backdate() const {
   if (level.size() > 2 && level[1]->NodeRel()) {
     for (auto lv = level.begin() + 2; lv != level.end(); lv++) {
-      if (!(*lv)->BackUpdate(FrontPath(1))) {
+      if (!(*lv)->Backdate(FrontPath(1))) {
 	break;
       }
     }
   }
+}
+
+  
+/**
+   @brief Revises node-relative indices, as appropriae.  Irregular,
+   but data locality improves with tree depth.
+
+   @param one2Front maps first level to front indices.
+
+   @return true iff level employs node-relative indexing.
+ */
+bool Level::Backdate(const IdxPath *one2Front) {
+  if (!nodeRel)
+    return false;
+
+  relPath->Backdate(one2Front);
+  return true;
 }
 
 
@@ -852,7 +855,8 @@ void Bottom::ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned i
   }
 }
   /**
-     @brief Updates both subtree- and node-relative paths for a live index.
+     @brief Updates both node-relative path for a live index, as
+     well as subtree-relative if back levels warrant.
 
      @param ndx is a node-relative index from the previous level.
 
@@ -866,12 +870,9 @@ void Bottom::ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned i
 
      @return void.
    */
-void Bottom::SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
+void Bottom::SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase) {
   levelFront->SetLive(ndx, path, targIdx, ndBase);
-  
-  // Subtree-relative paths no longer needed when all levels employ
-  // node-relative restaging.
-  //
+
   if (!level.back()->NodeRel()) {
     stPath->SetLive(stx, path, targIdx);  // Irregular write.
   }
@@ -879,20 +880,30 @@ void Bottom::SetLive(unsigned int ndx, unsigned int stx, unsigned int path, unsi
 
 
 /**
-   @brief Terminates subtree-relative path for an extinct index.  Also
-   terminates node-relative path if currently live.
-
-   @param relIdx is a node-relative index.
-
-   @return void.
+   @brief Copies a node's subtree indices onto the terminal vector.  Marks
+   index paths as extinct.
  */
-void Bottom::SetExtinct(unsigned int idx, unsigned int stIdx) {
-  levelFront->SetExtinct(idx);
+void Bottom::Terminal(unsigned int termBase, unsigned int extent, unsigned int ptId) {
+  TermKey key;
+  key.Init(termBase, extent, ptId);
+  termKey.push_back(key);
+}
 
-  termST[termTop++] = stIdx;
+
+/**
+   @brief Sends subtree-relative index to terminal vector.  Marks subtree-
+   relative path as extinct if still required by back levels.
+ */
+void Bottom::SetExtinct(unsigned int termIdx, unsigned int stIdx) {  
+  termST[termIdx] = stIdx;
   if (!level.back()->NodeRel()) {
     stPath->SetExtinct(stIdx);
   }
+}
+
+
+void Level::SetExtinct(unsigned int idx) {
+  relPath->SetExtinct(idx);
 }
 
 
@@ -905,39 +916,13 @@ void Level::PathInit(const Bottom *bottom, unsigned int levelIdx, unsigned int p
 }
 
 
-void Level::SetExtinct(unsigned int idx) {
-  if (nodeRel && idx < idxLive) { // May have been set during Reindex().
-    relPath->SetExtinct(idx);
-  }
-}
-
-
 /**
    @brief Sets path, target and node-relative offse.
 
    @return void.
  */
 void Level::SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
-  if (nodeRel) {
-    relPath->SetLive(idx, path, targIdx, targIdx - ndBase);
-  }
-}
-
-  
-/**
-   @brief Revises node-relative indices, as appropriae.  Irregular,
-   but data locality improves with tree depth.
-
-   @param one2Front maps first level to front indices.
-
-   @return true iff level employs node-relative indexing.
- */
-bool Level::BackUpdate(const IdxPath *one2Front) {
-  if (!nodeRel)
-    return false;
-
-  relPath->BackUpdate(one2Front);
-  return true;
+  relPath->SetLive(idx, path, targIdx, targIdx - ndBase);
 }
 
   

@@ -323,16 +323,16 @@ void PreTree::SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vect
 const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, unsigned int tIdx) {
   std::vector<unsigned int> frontierMap(termST.size());
   unsigned int leafIdx = 0;
-  unsigned int idx = 0;
+  unsigned int check = 0;
   for (auto & key : termKey) {
-    unsigned int termTop = idx;
-    for ( ; idx < termTop + key.extent; idx++) {
+    for (unsigned int idx = key.base ; idx < key.base + key.extent; idx++) {
       unsigned int stIdx = termST[idx];
       frontierMap[stIdx] = leafIdx;
+      check++;
     }
     forest->LeafProduce(tIdx, key.ptId, leafIdx++);
   }
-  
+
   return frontierMap;
 }
 

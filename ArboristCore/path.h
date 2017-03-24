@@ -132,7 +132,7 @@ class IdxPath {
      @return shift-stamped path if live else fixed extinct mask.
    */
   inline static unsigned int PathNext(unsigned int pathPrev, bool isLeft) {
-    return  (maskLive & (pathPrev << 1)) | (isLeft ? 0 : 1);
+    return maskLive & ((pathPrev << 1) | (isLeft ? 0 : 1));
   }
   
 
@@ -272,7 +272,7 @@ class IdxPath {
 
      @return void.
    */
-  inline void BackUpdate(const IdxPath *one2Front) {
+  inline void Backdate(const IdxPath *one2Front) {
     for (unsigned int idx = 0; idx < idxLive; idx++) {
       unsigned int oneIdx;
       if (FrontLive(idx, oneIdx)) {

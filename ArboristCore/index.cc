@@ -32,7 +32,7 @@
 
 
 unsigned int IndexLevel::totLevels = 0;
-unsigned int IndexSet::minNode = 0;
+unsigned int IndexLevel::minNode = 0;
 
 /**
    @brief Initialization of static invariants.
@@ -44,7 +44,7 @@ unsigned int IndexSet::minNode = 0;
    @return void.
  */
 void IndexLevel::Immutables(unsigned int _minNode, unsigned int _totLevels) {
-  IndexSet::minNode = _minNode;
+  minNode = _minNode;
   totLevels = _totLevels;
 }
 
@@ -56,7 +56,7 @@ void IndexLevel::Immutables(unsigned int _minNode, unsigned int _totLevels) {
  */
 void IndexLevel::DeImmutables() {
   totLevels = 0;
-  IndexSet::minNode = 0;
+  minNode = 0;
 }
 
 
@@ -64,7 +64,7 @@ void IndexLevel::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-IndexLevel::IndexLevel(int _nSamp, unsigned int _bagCount, double _sum) : indexSet(std::vector<IndexSet>(1)), bagCount(_bagCount), relBase(std::vector<unsigned int>(1)), rel2ST(std::vector<unsigned int>(bagCount)), st2Split(std::vector<unsigned int>(bagCount)) {
+IndexLevel::IndexLevel(int _nSamp, unsigned int _bagCount, double _sum) : indexSet(std::vector<IndexSet>(1)), bagCount(_bagCount), idxLive(bagCount), relBase(std::vector<unsigned int>(1)), rel2ST(std::vector<unsigned int>(bagCount)), st2Split(std::vector<unsigned int>(bagCount)) {
   indexSet[0].Init(0, _nSamp, 0, bagCount, 0.0, 0, _sum, 0, 0, bagCount);
   relBase[0] = 0;
   std::iota(rel2ST.begin(), rel2ST.end(), 0);
@@ -137,9 +137,9 @@ void  IndexLevel::Levels(Bottom *bottom, PreTree *preTree) {
     bottom->Split(*this, argMax);
 
     unsigned int leafNext;
-    unsigned int splitNext = SplitCensus(argMax, leafNext);
+    unsigned int splitNext = SplitCensus(argMax, leafNext, level + 1 == totLevels);
     Consume(bottom, preTree, splitNext, leafNext);
-    Produce(bottom, preTree, splitNext, level + 1 == totLevels);
+    Produce(bottom, preTree, splitNext);
   }
 }
 
@@ -152,11 +152,13 @@ void  IndexLevel::Levels(Bottom *bottom, PreTree *preTree) {
 
    @return count of splitable nodes in the next level.
  */
-unsigned int IndexLevel::SplitCensus(std::vector<SSNode*> &argMax, unsigned int &leafNext) {
+unsigned int IndexLevel::SplitCensus(std::vector<SSNode*> &argMax, unsigned int &leafNext, bool _levelTerminal) {
+  levelTerminal = _levelTerminal;
   unsigned int splitNext, leafThis, idxExtent;
-  leafThis = splitNext = idxExtent = idxLive = idxMax = 0;
+  idxExtent = idxLive; // Previous level's index space.
+  leafThis = splitNext = idxLive = idxMax = 0;
   for (auto & iSet : indexSet) {
-    iSet.SplitCensus(argMax, leafThis, splitNext, idxExtent, idxLive, idxMax);
+    iSet.SplitCensus(argMax, this, leafThis, splitNext, idxLive, idxMax);
   }
 
   // Restaging is implemented as a patient stable partition.
@@ -167,7 +169,7 @@ unsigned int IndexLevel::SplitCensus(std::vector<SSNode*> &argMax, unsigned int 
   //
   leafNext = 2 * (indexSet.size() - leafThis) - splitNext;
 
-  succBase = std::move(std::vector<unsigned int>(splitNext + leafNext));
+  succBase = std::move(std::vector<unsigned int>(splitNext + leafNext + leafThis));
   std::fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
 
   succST = std::move(std::vector<unsigned int>(idxExtent));
@@ -185,20 +187,34 @@ unsigned int IndexLevel::SplitCensus(std::vector<SSNode*> &argMax, unsigned int 
 
    @return void.
  */
-void IndexSet::SplitCensus(std::vector<SSNode*> &argMax, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxExtent, unsigned int &idxLive, unsigned int &idxMax) {
+void IndexSet::SplitCensus(std::vector<SSNode*> &argMax, IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax) {
   ssNode = argMax[splitIdx];
   if (ssNode == 0) {
     leafThis++;
   }
   else {
-    idxExtent += extent;
     ssNode->LHSizes(lhSCount, lhExtent);
-    splitNext += SplitAccum(lhExtent, idxLive, idxMax);
-    splitNext += SplitAccum(extent - lhExtent, idxLive, idxMax);
+    splitNext += SplitAccum(indexLevel, lhExtent, idxLive, idxMax);
+    splitNext += SplitAccum(indexLevel, extent - lhExtent, idxLive, idxMax);
   }
 }
 
 
+  /**
+     @return count of splitable nodes precipitated in next level:  0/1.
+   */
+unsigned IndexSet::SplitAccum(class IndexLevel *indexLevel, unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax) {
+    if (indexLevel->Splitable(_extent)) {
+      _idxLive += _extent;
+      _idxMax = _extent > _idxMax ? _extent : _idxMax;
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  
 /**
    @brief Consumes current level of splits into new pretree level,
    then replays successor mappings.
@@ -217,6 +233,7 @@ void IndexLevel::Consume(Bottom *bottom, PreTree *preTree, unsigned int splitNex
   for (auto  & iSet : indexSet) {
     iSet.Consume(this, bottom, preTree);
   }
+  //  Invariant:  extinctBase == succST.size()
 
   bottom->Reindex(this);
   relBase = std::move(succBase);
@@ -245,13 +262,15 @@ void IndexSet::Consume(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree)
    @return void.
  */
 void IndexSet::NonTerminal(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree) {
-  succLeft = indexLevel->IdxSucc(lhExtent);
-  succRight = indexLevel->IdxSucc(extent - lhExtent);
-
   lhSum = bottom->NonTerminal(preTree, ssNode, extent, lhExtent, sum, ptId);
+
+  unsigned int offLeft, offRight;
+  succLeft = indexLevel->IdxSucc(bottom, lhExtent, preTree->LHId(ptId), offLeft);
+  succRight = indexLevel->IdxSucc(bottom, extent - lhExtent, preTree->RHId(ptId), offRight);
+
   leftExpl = ssNode->LeftExpl();
-  offExpl = indexLevel->SuccBase(leftExpl ? succLeft : succRight);
-  offImpl = indexLevel->SuccBase(leftExpl ? succRight : succLeft);
+  offExpl = leftExpl ? offLeft : offRight;
+  offImpl = leftExpl ? offRight : offLeft;
   pathLeft = IdxPath::PathNext(path, true);
   pathRight = IdxPath::PathNext(path, false);
 }
@@ -260,21 +279,31 @@ void IndexSet::NonTerminal(IndexLevel *indexLevel, Bottom *bottom, PreTree *preT
 /**
    @brief Builds index base offsets to mirror crescent pretree level.
 
+   @param extent is the count of the index range.
+
+   @param ptId is the index of the corresponding pretree node.
+
+   @param offOut outputs the node-relative starting index.  Should not
+   exceed 'idxExtent', the live high watermark of the previous level.
+
    @return void.
  */
-unsigned int IndexLevel::IdxSucc(unsigned int extent) {
+unsigned int IndexLevel::IdxSucc(Bottom *bottom, unsigned int extent, unsigned int ptId, unsigned int &offOut, bool terminal) {
+  terminal |= !Splitable(extent);
   unsigned int idxSucc;
-  if (IndexSet::Splitable(extent)) {
-    idxSucc = succLive++;
-    succBase[idxSucc] = liveBase;
-    liveBase += extent;
+  if (terminal) { // Pseudo split holds terminal settings.
+    idxSucc = succExtinct++;
+    offOut = extinctBase;
+    extinctBase += extent;
+    bottom->Terminal(offOut, extent, ptId); 
   }
   else {
-    idxSucc = succExtinct++;
-    succBase[idxSucc] = extinctBase;
-    extinctBase += extent;
+    idxSucc = succLive++;
+    offOut = liveBase;
+    liveBase += extent;
   }
-
+  succBase[idxSucc] = offOut;
+  
   return idxSucc;
 }
 
@@ -285,26 +314,62 @@ unsigned int IndexLevel::IdxSucc(unsigned int extent) {
    @return void.
  */
 void IndexSet::Terminal(IndexLevel *indexLevel, Bottom *bottom) {
-  indexLevel->Terminal(bottom, splitIdx, extent, ptId);
+  succOnly = indexLevel->IdxSucc(bottom, extent, ptId, offOnly, true);
 }
 
 
-void IndexLevel::Terminal(Bottom *bottom, unsigned int splitIdx, unsigned int extent, unsigned int ptId) {
-  unsigned int nodeBase = RelBase(splitIdx);
-  for (unsigned int relIdx = nodeBase; relIdx < nodeBase + extent; relIdx++) {
-    bottom->SetExtinct(relIdx, rel2ST[relIdx]);
-  }
-  bottom->Terminal(extent, ptId);
-}
-
-
+/**
+   @brief Driver for node-relative reindexing.
+ */
 void IndexLevel::Reindex(Bottom *bottom, BV *replayExpl) {
   unsigned int i;
 #pragma omp parallel default(shared) private(i)
   {
 #pragma omp for schedule(dynamic, 1)
     for (i = 0; i < indexSet.size(); i++) {
-      indexSet[i].Reindex(rel2ST, bottom, replayExpl, idxLive, succST);
+      indexSet[i].Reindex(bottom, replayExpl, idxLive, rel2ST, succST);
+    }
+  }
+}
+
+
+/**
+   @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
+ */
+void IndexSet::Reindex(Bottom *bottom, BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST) {
+  if (ssNode == 0) {
+    TerminalReindex(bottom, rel2ST, succST);
+  }
+  else {
+    NonterminalReindex(bottom, replayExpl, idxLive, rel2ST, succST);
+  }
+}
+
+
+void IndexSet::TerminalReindex(Bottom *bottom, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST) {
+  for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
+    unsigned int stIdx = rel2ST[relIdx];
+    unsigned int termIdx = offOnly++;
+    succST[termIdx] = stIdx;
+    bottom->SetExtinct(relIdx, termIdx, stIdx);
+  }
+}
+
+
+void IndexSet::NonterminalReindex(Bottom *bottom, BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST) {
+  unsigned int baseExpl = offExpl;
+  unsigned int baseImpl = offImpl;
+  for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
+    unsigned int stIdx = rel2ST[relIdx];
+    bool expl = replayExpl->TestBit(relIdx);
+    unsigned int targIdx = expl ? offExpl++ : offImpl++;
+    succST[targIdx] = stIdx;
+
+    if (targIdx < idxLive) {
+      bottom->SetLive(relIdx, targIdx, stIdx, (expl && leftExpl) || !(expl || leftExpl) ? pathLeft : pathRight, expl ? baseExpl : baseImpl);
+    }
+    else {
+      bottom->SetExtinct(relIdx, targIdx, stIdx);
     }
   }
 }
@@ -322,49 +387,19 @@ void IndexLevel::Reindex(Bottom *bottom, BV *replayExpl) {
 
    @return void.
  */
-void IndexLevel::Reindex(BV *replayExpl, IdxPath *stPath) {
+void IndexLevel::Reindex(Bottom *bottom, BV *replayExpl, IdxPath *stPath) {
   for (unsigned int stIdx = 0; stIdx < bagCount; stIdx++) {
     unsigned int pathSucc, idxSucc;
     if (stPath->IsLive(stIdx)) {
       unsigned int splitIdx = st2Split[stIdx];
       st2Split[stIdx] = indexSet[splitIdx].Offspring(replayExpl->TestBit(stIdx), pathSucc, idxSucc);
       succST[idxSucc] = stIdx; // Write address staggered, but sequential.
-      if (idxSucc < idxLive) { // Extinct nodes marked en masse by Terminal()
+      if (idxSucc < idxLive) {
         stPath->SetLive(stIdx, pathSucc, idxSucc);
       }
-    }
-  }
-}
-
-
-/**
-   @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
- */
-void IndexSet::Reindex(const std::vector<unsigned int> &rel2ST, Bottom *bottom, BV *replayExpl, unsigned int idxLive, std::vector<unsigned int> &succST) {
-  if (ssNode == 0)
-    return;
-
-  Level *levelFront = bottom->LevelFront();
-  unsigned int baseExpl = offExpl;
-  unsigned int baseImpl = offImpl;
-  for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
-    unsigned int stIdx = rel2ST[relIdx];
-    bool expl = replayExpl->TestBit(relIdx);
-    unsigned int targIdx = expl ? offExpl++ : offImpl++;
-    succST[targIdx] = stIdx;
-
-    // Live index updates could be deferred to production of the next level,
-    // but the relIdx-to-targIdx mapping is conveniently available here.
-    //
-    // Extinct subtree indices are best updated on a per-node basis, however,
-    // so their treatment is deferred until production of the next level.
-    // Extinct node-relative indices, however, can be treated on the fly.
-    //
-    if (targIdx >= idxLive) {
-      levelFront->SetExtinct(relIdx);
-    }
-    else {
-      bottom->SetLive(relIdx, stIdx, (expl && leftExpl) || !(expl || leftExpl) ? pathLeft : pathRight, targIdx, expl ? baseExpl : baseImpl);
+      else {
+	bottom->SetExtinct(idxSucc, stIdx);
+      }
     }
   }
 }
@@ -399,8 +434,8 @@ unsigned int Bottom::DiagReindex(const PreTree *preTree, unsigned int offExpl, u
 
    @return void.
  */
-void IndexLevel::Produce(Bottom *bottom, PreTree *preTree, unsigned int splitNext, bool terminal) {
-  bottom->LevelPrepare(terminal ? 0 : splitNext, idxLive, idxMax);
+void IndexLevel::Produce(Bottom *bottom, PreTree *preTree, unsigned int splitNext) {
+  bottom->LevelPrepare(splitNext, idxLive, idxMax);
   std::vector<IndexSet> indexNext(bottom->SplitCount());
   for (auto & iSet : indexSet) {
     iSet.Produce(this, bottom, preTree, indexNext);
@@ -436,10 +471,7 @@ void IndexSet::Produce(IndexLevel *indexLevel, Bottom *bottom, const PreTree *pr
    @return void.
 */
 void IndexSet::Successor(IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, unsigned int succIdx, Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) const {
-  if (succIdx >= indexNext.size()) { // Extinct.
-    indexLevel->Terminal(bottom, succIdx, _extent, _ptId);
-  }
-  else {
+  if (succIdx < indexNext.size()) {
     indexNext[succIdx].SuccInit(indexLevel, bottom, succIdx, splitIdx, _sCount, _lhStart, _extent, _minInfo, _ptId, _sum, _path);
   }
 }

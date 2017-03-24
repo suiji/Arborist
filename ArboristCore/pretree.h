@@ -26,10 +26,12 @@
  */
 class TermKey {
  public:
-  unsigned int ptId;
+  unsigned int base;
   unsigned int extent;
+  unsigned int ptId;
 
-  inline void Init(unsigned int _extent, unsigned int _ptId) {
+  inline void Init(unsigned int _base, unsigned int _extent, unsigned int _ptId) {
+    base = _base;
     extent = _extent;
     ptId = _ptId;
   }
