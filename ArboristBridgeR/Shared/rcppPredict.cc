@@ -49,15 +49,18 @@ using namespace Rcpp;
 
    @param rsq outputs the r-squared statistic.
 
-   @return mean-square error, with output parameter.
+   @return mean squared error, with output parameter.
  */
-double MSE(const double yValid[], NumericVector y, double &rsq) {
+double MSE(const double yValid[], NumericVector y, double &rsq, double &mae) {
   double sse = 0.0;
+  mae = 0.0;
   for (int i = 0; i < y.length(); i++) {
     double error = yValid[i] - y[i];
     sse += error * error;
+    mae += abs(error);
   }
   rsq = 1.0 - sse / (var(y) * (y.length() - 1.0));
+  mae /= y.length();
 
   return sse / y.length();
 }
@@ -105,11 +108,12 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   }
   else { // Validation
     NumericVector yTest(sYTest);
-    double rsq;
-    double mse = MSE(&yPred[0], yTest, rsq);
+    double rsq, mae;
+    double mse = MSE(&yPred[0], yTest, rsq, mae);
     prediction = List::create(
 			 _["yPred"] = yPred,
 			 _["mse"] = mse,
+			 _["mae"] = mae,
 			 _["rsq"] = rsq,
 			 _["qPred"] = NumericMatrix(0)
 		     );
@@ -215,8 +219,16 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
     prob.attr("dimnames") = List::create(predBlock["rowNames"], levelsTrain);
   }
 
-  for (unsigned int i = 0; i < nRow; i++) // Bases to unity for front end.
+  // OOB error is mean(prediction != training class)
+  unsigned int missed = 0;
+  for (unsigned int i = 0; i < nRow; i++) { // Bases to unity for front end.
+    if (test) {
+      missed += (unsigned int) yTest[i] != yPred[i];
+    }
     yPred[i] = yPred[i] + 1;
+  }
+  double oobError = double(missed) / nRow;
+
 
   List prediction;
   if (test) {
@@ -231,13 +243,16 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
       conf = confOut;
     }
     else {
-      for (int i = 0; i < levelsTest.length(); i++)
+      for (int i = 0; i < levelsTest.length(); i++) {
 	misPred[i] = misPredCore[i];
+      }
     }
+
     misPred.attr("names") = levelsTest;
     conf.attr("dimnames") = List::create(levelsTest, levelsTrain);
     prediction = List::create(
       _["misprediction"] = misPred,
+      _["oobError"] = oobError,
       _["confusion"] = conf,
       _["yPred"] = yPred,
       _["census"] = census,
@@ -360,12 +375,13 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
   NumericMatrix qPred(transpose(NumericMatrix(quantVecCore.size(), nRow, qPredCore.begin())));
   List prediction;
   if (!Rf_isNull(sYTest)) {
-    double rsq;
-    double mse = MSE(&yPred[0], NumericVector(sYTest), rsq);
+    double rsq, mae;
+    double mse = MSE(&yPred[0], NumericVector(sYTest), rsq, mae);
     prediction = List::create(
  	 _["yPred"] = yPred,
 	 _["qPred"] = qPred,
 	 _["mse"] = mse,
+	 _["mae"] = mae,
 	 _["rsq"] = rsq
 	  );
     prediction.attr("class") = "ValidReg";

@@ -48,6 +48,7 @@ class SplitCoord {
   bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
   bool SplitNum(const class SPNode spn[], class NuxLH &nux);
   bool SplitNumDense(const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
+  bool SplitNumDenseMono(bool increasing, const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
   bool SplitNumMono(bool increasing, const class SPNode spn[], class NuxLH &nux);
   bool SplitNum(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
   bool NumCtgDense(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);

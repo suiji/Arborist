@@ -438,8 +438,8 @@ void SPCtg::SumsAndSquares(const IndexLevel &index, bool unsplitable[]) {
       ctgSumCol[ctg] = 0.0;
     }
 
+    // TODO:  STIdx to SIdx translation:
     for (unsigned int relIdx = 0; relIdx < index.Extent(levelIdx); relIdx++) {
-      // TODO:  STIdx to SIdx translation:
       unsigned int stIdx = index.STIdx(levelIdx, relIdx); // Irregular.
       FltVal sum;
       unsigned int sCount;
@@ -699,15 +699,12 @@ bool SplitCoord::SplitFac(const SPReg *spReg, const SPNode spn[], unsigned int &
    @return void.
 */
 bool SplitCoord::SplitNum(const SPReg *spReg, const SPNode spn[], NuxLH &nux) {
-  if (denseCount > 0) {
-    return SplitNumDense(spn, spReg, nux);
-  }
   int monoMode = spReg->MonoMode(splitPos, predIdx);
   if (monoMode != 0) {
-    return SplitNumMono(monoMode > 0, spn, nux);
+    return denseCount > 0 ? SplitNumDenseMono(monoMode > 0, spn, spReg, nux) : SplitNumMono(monoMode > 0, spn, nux);
   }
   else {
-    return SplitNum(spn, nux);
+    return denseCount > 0 ? SplitNumDense(spn, spReg, nux) : SplitNum(spn, nux);
   }
 
 }
@@ -859,6 +856,114 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
 
 
 /**
+   @brief TODO:  Merge with counterparts.
+
+   @return void.
+*/
+bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SPReg *spReg, NuxLH &nux) {
+  unsigned int denseRank = spReg->DenseRank(predIdx);
+  double sumDense = sum;
+  unsigned int sCountDense = sCount;
+  unsigned int denseCut;
+  bool strict = spReg->Residuals(spn, idxStart, idxEnd, denseRank, sumDense, sCountDense, denseCut);
+
+  unsigned int idxNext, idxFinal;
+  unsigned int rkRight, sampleCount;
+  FltVal ySum;
+  if (denseCut == idxEnd) {
+    ySum = sumDense;
+    rkRight = denseRank;
+    sampleCount = sCountDense;
+    idxNext = idxEnd;
+    idxFinal = idxStart;
+  }
+  else {
+    spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
+    idxNext = idxEnd - 1;
+    idxFinal = strict ? denseCut + 1 : idxStart;
+  }
+  double sumR = ySum;
+  unsigned int sCountL = sCount - sampleCount;
+  unsigned int lhSampCt = 0;
+  double maxInfo = preBias;
+
+  unsigned int rankLH = 0;
+  unsigned int rankRH = 0; // Splitting rank bounds.
+  unsigned int rhInf = idxEnd + 1;  // Always non-negative.
+  for (int i = int(idxNext); i >= int(idxFinal); i--) {
+    unsigned int sCountR = sCount - sCountL;
+    double sumL = sum - sumR;
+    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    unsigned int rkThis;
+    spn[i].RegFields(ySum, rkThis, sampleCount);
+    if (idxGini > maxInfo && rkThis != rkRight) {
+      bool up = (sumL * sCountR <= sumR * sCountL);
+      if (increasing ? up : !up) {
+        lhSampCt = sCountL;
+        rankLH = rkThis;
+        rankRH = rkRight;
+        rhInf = i + 1;
+        maxInfo = idxGini;
+      }
+    }
+    sCountL -= sampleCount;
+    sumR += ySum;
+    rkRight = rkThis;
+  }
+
+  // Evaluates the dense component, if not of highest rank.
+  if (denseCut != idxEnd) {
+    unsigned int sCountR = sCount - sCountL;
+    double sumL = sum - sumR;
+    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    if (idxGini > maxInfo) {
+      lhSampCt = sCountL;
+      rhInf = idxFinal;
+      rankLH = denseRank;
+      rankRH = rkRight;
+      maxInfo = idxGini;
+    }
+  
+    if (strict) {  // Walks remaining indices, if any, with rank below dense.
+      sCountL -= sCountDense;
+      sumR += sumDense;
+      rkRight = denseRank;
+      for (int i = idxFinal - 1; i >= int(idxStart); i--) {
+	unsigned int sCountR = sCount - sCountL;
+	double sumL = sum - sumR;
+	double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+	unsigned int rkThis;
+	spn[i].RegFields(ySum, rkThis, sampleCount);
+	if (idxGini > maxInfo && rkThis != rkRight) {
+	  bool up = (sumL * sCountR <= sumR * sCountL);
+	  if (increasing ? up : !up) {
+	    lhSampCt = sCountL;
+	    rhInf = i + 1;
+	    rankLH = rkThis;
+	    rankRH = rkRight;
+	    maxInfo = idxGini;
+	  }
+	}
+	sCountL -= sampleCount;
+	sumR += ySum;
+	rkRight = rkThis;
+      }
+    }
+  }
+
+  if (maxInfo > preBias) {
+    unsigned int lhDense = rankLH >= denseRank ? denseCount : 0;
+    unsigned int lhIdxTot = rhInf - idxStart + lhDense;
+    nux.InitNum(idxStart, lhIdxTot, lhSampCt, maxInfo - preBias, rankLH, rankRH, lhDense);
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+
+/**
    @brief Weighted-variance splitting method.
 
    @return void.
@@ -882,10 +987,8 @@ bool SplitCoord::SplitNumMono(bool increasing, const SPNode spn[], NuxLH &nux) {
     unsigned int rkThis;
     spn[i].RegFields(ySum, rkThis, sampleCount);
     if (idxGini > maxInfo && rkThis != rkRight) {
-      FltVal meanL = sumL / sCountL;
-      FltVal meanR = sumR / sCountR;
-      bool doSplit = increasing ? meanL <= meanR : meanL >= meanR;
-      if (doSplit) {
+      bool up = (sumL * sCountR <= sumR * sCountL);
+      if (increasing ? up : !up) {
         lhSampCt = sCountL;
         lhSup = i;
         maxInfo = idxGini;
