@@ -20,6 +20,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "param.h"
+
 
 /**
    @brief Key for translating terminal vector.
@@ -56,7 +58,7 @@ class PTNode {
   unsigned int predIdx; // Split only.
   union {
     unsigned int offset; // Bit-vector offset:  factor.
-    double rkMean; // Mean rank:  numeric.
+    RankRange rankRange;//double rkMean; // Mean rank:  numeric.
   } splitVal;
   void Consume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx);
 };
@@ -92,7 +94,7 @@ class PreTree {
   void BitConsume(unsigned int *outBits);
   void LHBit(int idx, unsigned int pos);
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id);
-  void NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id);
+  void NonTerminalNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id);
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vector<unsigned int> &stTerm);

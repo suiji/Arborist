@@ -22,4 +22,10 @@
 typedef float FltVal;
 
 
+typedef struct {
+  unsigned int rankLow;
+  unsigned int rankHigh;
+} RankRange;
+
+
 #endif

@@ -189,12 +189,12 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
 
    @return void.
 */
-void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, double _rankMean, unsigned int _id) {
+void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id) {
   TerminalOffspring(_id);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
   info[_predIdx] += _info;
-  ptS->splitVal.rkMean = _rankMean;
+  ptS->splitVal.rankRange = _rankRange;
 }
 
 
@@ -289,7 +289,12 @@ void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) {
  */
 void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx) {
   if (lhId > 0) { // i.e., nonterminal
-    forest->NonterminalProduce(tIdx, id, predIdx, lhId - id, pmTrain->IsFactor(predIdx) ? splitVal.offset : splitVal.rkMean);
+    if (pmTrain->IsFactor(predIdx)) {
+      forest->OffsetProduce(tIdx, id, predIdx, lhId - id, splitVal.offset);
+    }
+    else {
+      forest->RankProduce(tIdx, id, predIdx, lhId - id, splitVal.rankRange.rankLow, splitVal.rankRange.rankHigh);
+    }
   }
 }
 

@@ -33,6 +33,7 @@
                 qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
+                splitQuant = 0.5,
                 thinLeaves = FALSE,
                 treeBlock = 1,
                 pvtBlock = 8,
@@ -73,6 +74,10 @@
     predWeight <- rep(1.0, nPred)
   }
 
+  if (splitQuant < 0.0 || splitQuant > 1.0) {
+    stop("splitting quantile must be within [0,1]")
+  }
+    
   if (any(is.na(y)))
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))
@@ -168,10 +173,10 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, thinLeaves, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, thinLeaves, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, probVec, thinLeaves, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, thinLeaves, regMono)
   }
 
   predInfo <- train[["predInfo"]]

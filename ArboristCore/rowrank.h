@@ -18,8 +18,11 @@
 
 #include <vector>
 #include <tuple>
-
 #include <cmath>
+
+#include "param.h"
+#include <iostream>
+using namespace std;
 
 typedef std::pair<double, unsigned int> ValRowD;
 typedef std::tuple<double, unsigned int, unsigned int> RLENum;
@@ -156,21 +159,23 @@ class RowRank {
     return denseRank[predIdx] == noRank ? safeOffset[predIdx] * stride : nonCompact * stride + safeOffset[predIdx]; // TODO:  align.
   }
 
-  
+
   /**
-     @brief Derives split values for a numerical predictor.
+     @brief Derives split values for a numerical predictor by synthesizing
+     a fractional intermediate rank and interpolating.
 
      @param predIdx is the predictor index.
 
-     @param rkMean is the mean splitting rank:  interpolates if fractional.
+     @param rankRange is the range of ranks.
 
      @return predictor value at mean rank, computed by PBTrain method.
   */
- inline double MeanRank(unsigned int predIdx, double rkMean) const {
-   unsigned int rankLow = floor(rkMean);
-   unsigned int rankHigh = ceil(rkMean);
+  inline double QuantRank(unsigned int predIdx, RankRange rankRange, double splitQuant) const {
+  double rankNum = rankRange.rankLow + splitQuant * (rankRange.rankHigh - rankRange.rankLow);
+  unsigned int rankFloor = floor(rankNum);
+  unsigned int rankCeil = ceil(rankNum);
 
-   return 0.5 * (NumVal(predIdx, rankLow) + NumVal(predIdx, rankHigh));
+  return NumVal(predIdx, rankFloor) + (rankNum - rankFloor) * (NumVal(predIdx, rankCeil) - NumVal(predIdx, rankFloor));
  }
 };
 

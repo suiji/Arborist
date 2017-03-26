@@ -20,13 +20,21 @@
 #include <vector>
 #include <algorithm>
 
+#include "param.h"
+
+
 /**
    @brief To replace parallel array access.
  */
 class ForestNode {
+  static double splitQuant;
   unsigned int pred;
   unsigned int bump;
-  double num;
+  union {
+    double num;
+    RankRange rankRange;
+  } splitVal;
+  
   static void TreeExport(const ForestNode *_forestNode, std::vector<unsigned int> &_pred, std::vector<unsigned int> &_bump, std::vector<double> &_split, unsigned int treeOff, unsigned int treeHeight);
 
   /**
@@ -41,19 +49,37 @@ class ForestNode {
 
   
  public:
+  static void Immutables(double _splitQuant) {
+    splitQuant = _splitQuant;
+  }
+
+  
+  static void DeImmutables() {
+    splitQuant = 0.5;
+  }
+  
+  
   void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank);
   static void Export(const std::vector<unsigned int> &_nodeOrigin, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
 
   inline void Init() {
     pred = bump = 0;
-    num = 0.0;
+    splitVal.num = 0.0;
   }
 
 
-  inline void Set(unsigned int _pred, unsigned int _bump, double _num) {
+  inline void SetRank(unsigned int _pred, unsigned int _bump, unsigned int _rankLow, unsigned int _rankHigh) {
     pred = _pred;
     bump = _bump;
-    num = _num;
+    splitVal.rankRange.rankLow = _rankLow;
+    splitVal.rankRange.rankHigh = _rankHigh;
+  }
+
+
+  inline void SetNum(unsigned int _pred, unsigned int _bump, double _num) {
+    pred = _pred;
+    bump = _bump;
+    splitVal.num = _num;
   }
 
 
@@ -63,7 +89,7 @@ class ForestNode {
 
 
   inline double &Num() {
-    return num;
+    return splitVal.num;
   }
 
 
@@ -78,7 +104,7 @@ class ForestNode {
   inline void Ref(unsigned int &_pred, unsigned int &_bump, double &_num) const {
     _pred = pred;
     _bump = bump;
-    _num = num;
+    _num = splitVal.num;
   }
 };
 
@@ -163,8 +189,18 @@ class ForestTrain {
 
      @return void.
   */
-  inline void NonterminalProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, double _split) {
-    forestNode[NodeIdx(tIdx, nodeIdx)].Set(_predIdx, _bump, _split);
+  inline void RankProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, unsigned int _rankLow, unsigned int _rankHigh) {
+    forestNode[NodeIdx(tIdx, nodeIdx)].SetRank(_predIdx, _bump, _rankLow, _rankHigh);
+  }
+
+
+  /**
+     @brief Sets looked-up nonterminal node to values passed.
+
+     @return void.
+  */
+  inline void OffsetProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _predIdx, unsigned int _bump, unsigned int offset) {
+    forestNode[NodeIdx(tIdx, nodeIdx)].SetNum(_predIdx, _bump, offset);
   }
 
 
@@ -175,7 +211,7 @@ class ForestTrain {
 
   */
   inline void LeafProduce(unsigned int tIdx, unsigned int nodeIdx, unsigned int _leafIdx) {
-    forestNode[NodeIdx(tIdx, nodeIdx)].Set(_leafIdx, 0, 0.0);
+    forestNode[NodeIdx(tIdx, nodeIdx)].SetNum(_leafIdx, 0, 0.0);
   }
 };
 

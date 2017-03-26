@@ -24,6 +24,9 @@
 //using namespace std;
 
 
+double ForestNode::splitQuant = 0.5;
+
+
 /**
    @brief Crescent constructor for training.
 */
@@ -289,7 +292,7 @@ void ForestTrain::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) co
 
 
 /**
-   @brief Assigns value at mean rank to numerical split.
+   @brief Assigns value at quantile rank to numerical split.
 
    @param rowRank holds the presorted predictor values.
 
@@ -297,7 +300,7 @@ void ForestTrain::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) co
  */
 void ForestNode::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) {
   if (Nonterminal() && !pmTrain->IsFactor(pred)) {
-    num = rowRank->MeanRank(pred, num);    
+    splitVal.num = rowRank->QuantRank(pred, splitVal.rankRange, splitQuant);
   }
 }
 

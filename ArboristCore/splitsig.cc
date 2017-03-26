@@ -72,7 +72,7 @@ void SplitSig::Write(unsigned int _levelIdx, unsigned int _predIdx, unsigned int
   ssn.predIdx = _predIdx;
   ssn.setIdx = _setIdx;
   ssn.bufIdx = _bufIdx;
-  nux.Ref(ssn.idxStart, ssn.lhExtent, ssn.sCount, ssn.info, ssn.rankMean, ssn.lhImplicit);
+  nux.Ref(ssn.idxStart, ssn.lhExtent, ssn.sCount, ssn.info, ssn.rankRange, ssn.lhImplicit);
 
   Lookup(_levelIdx, ssn.predIdx) = ssn;
 }
@@ -153,7 +153,7 @@ double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, double sum, unsigned 
    @return True iff LH is implicit.
  */
 double SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, double sum, unsigned int ptId) {
-  preTree->NonTerminalNum(info, predIdx, rankMean, ptId);
+  preTree->NonTerminalNum(info, predIdx, rankRange, ptId);
 
   leftExpl = lhImplicit == 0;
   return ReplayNum(bottom, sum, extent);

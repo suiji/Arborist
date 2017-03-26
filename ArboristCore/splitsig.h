@@ -16,6 +16,7 @@
 #ifndef ARBORIST_SPLITSIG_H
 #define ARBORIST_SPLITSIG_H
 
+#include "param.h"
 
 /**
    @brief Holds the information actually computed by a splitting method.
@@ -25,8 +26,7 @@ class NuxLH {
   unsigned int idxStart; // Not derivable from index node alone.
   unsigned int lhExtent; // Index count of split LHS.
   unsigned int sCount; // # samples subsumed by split LHS.
-  unsigned int rankLH; // Numeric only.
-  unsigned int rankRH; // Numeric only.
+  RankRange rankRange; // Numeric only.
   unsigned int lhImplicit; // Numeric only.
  public:
 
@@ -35,7 +35,7 @@ class NuxLH {
     lhExtent = _lhExtent;
     sCount = _sCount;
     info = _info;
-    rankLH = rankRH = 0; // TODO:  Default should be 'noRank'.
+    rankRange.rankLow = rankRange.rankHigh = 0; // TODO:  'noRank' i/o zero.
   }
 
   
@@ -43,20 +43,20 @@ class NuxLH {
      @brief With introduction of dense ranks, splitting ranks can no longer be
      inferred by position alone so are passed explicitly.
   */
-  void inline InitNum(unsigned int _idxStart, unsigned int _lhExtent, unsigned int _sCount, double _info, unsigned int _rankLH, unsigned int _rankRH, unsigned int _lhImplicit = 0) {
+  void inline InitNum(unsigned int _idxStart, unsigned int _lhExtent, unsigned int _sCount, double _info, unsigned int _rankLow, unsigned int _rankHigh, unsigned int _lhImplicit = 0) {
     Init(_idxStart, _lhExtent, _sCount, _info);
-    rankLH = _rankLH;
-    rankRH = _rankRH;
+    rankRange.rankLow = _rankLow;
+    rankRange.rankHigh = _rankHigh;
     lhImplicit = _lhImplicit;
   }
 
   
-  void Ref(unsigned int &_idxStart, unsigned int &_lhExtent, unsigned int &_sCount, double &_info, double &_rankMean, unsigned int &_lhImplicit) const {
+  void Ref(unsigned int &_idxStart, unsigned int &_lhExtent, unsigned int &_sCount, double &_info, RankRange &_rankRange, unsigned int &_lhImplicit) const {
     _idxStart = idxStart;
     _lhExtent = lhExtent;
     _sCount = sCount;
     _info = info;
-    _rankMean = 0.5 * (double(rankLH) + double(rankRH));
+    _rankRange = rankRange;
     _lhImplicit = lhImplicit;
   }
 };
@@ -83,7 +83,7 @@ class SSNode {
   unsigned int idxStart; // Dense packing causes value to vary.
   unsigned int lhExtent; // Index count of split LHS.
   double info; // Information content of split.
-  double rankMean; // Numeric only.
+  RankRange rankRange; // Numeric only.
   unsigned int lhImplicit; // LHS implicit index count:  numeric only.
   unsigned char bufIdx;
   
