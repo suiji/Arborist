@@ -319,10 +319,11 @@ unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const 
   // as with staging offsets.
   //
   unsigned int blockTot = 0;
+  unsigned int denseBase = nonCompact * nRow;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int offSafe = safeOffset[predIdx];
     if (denseRank[predIdx] != noRank) {
-      rrStart[predIdx] = nonCompact * nRow + offSafe;
+      rrStart[predIdx] = denseBase + offSafe;
     }
     else {
       rrStart[predIdx] = offSafe * nRow;

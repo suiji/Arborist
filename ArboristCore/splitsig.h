@@ -68,12 +68,10 @@ class NuxLH {
 
  */
 class SSNode {
-  bool leftExpl;  // Whether LH or RH split indices explicit.
-
-  double NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, double sum, unsigned int ptId);
-  double ReplayRun(class Bottom *bottom, class PreTree *preTree, double sum, unsigned int ptId, const class Run *run);
-  double NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, double sum, unsigned int ptId);
-  double ReplayNum(class Bottom *bottom, double sum, unsigned int idxCount);
+  bool NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl);
+  double ReplayRun(class Bottom *bottom, class PreTree *preTree, unsigned int ptId, const class Run *run);
+  bool NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl);
+  double ReplayNum(class Bottom *bottom, unsigned int extent);
 
  public:
   SSNode();
@@ -95,11 +93,6 @@ class SSNode {
   // elegant solution.
 
 
-  inline bool LeftExpl() const {
-    return leftExpl;
-  }
-
-  
   /**
    @brief Derives an information threshold.
 
@@ -124,7 +117,8 @@ class SSNode {
     _lhExtent = lhExtent;
   }
 
-  double NonTerminal(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, double sum, unsigned int ptId);
+
+  bool NonTerminal(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl);
 };
 
 

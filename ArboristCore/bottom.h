@@ -459,7 +459,7 @@ class Bottom {
  //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
-  double NonTerminal(class PreTree *preTree, class SSNode *ssNode, unsigned int extent, unsigned int lhExtent, double sum, unsigned int &ptId);
+  bool NonTerminal(class PreTree *preTree, class SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl);
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
   void RootDef(unsigned int predIdx, unsigned int denseCount);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx);

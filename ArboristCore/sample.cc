@@ -26,7 +26,7 @@
 // Simulation-invariant values.
 //
 unsigned int Sample::nRow = 0;
-int Sample::nSamp = -1;
+unsigned int Sample::nSamp = 0;
 
 unsigned int SampleCtg::ctgWidth = 0;
 
@@ -39,7 +39,7 @@ unsigned int SampleCtg::ctgWidth = 0;
 
  @return void.
 */
-void Sample::Immutables(int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree) {
+void Sample::Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree) {
   nRow = _feSampleWeight.size();
   nSamp = _nSamp;
   CallBack::SampleInit(nRow, &_feSampleWeight[0], _withRepl);
@@ -70,14 +70,13 @@ void SampleCtg::DeImmutables() {
 */
 void Sample::DeImmutables() {
   nRow = 0;
-  nSamp = -1;
+  nSamp = 0;
   SampleCtg::DeImmutables();
 }
 
 
-Sample::Sample() : treeBag(new BV(nRow)), noSample(nRow) {
-  row2Sample.reserve(nRow);
-  std::fill(&row2Sample[0], &row2Sample[nRow], noSample);
+Sample::Sample() : treeBag(new BV(nRow)), row2Sample(std::vector<unsigned int>(nRow)), noSample(nRow) {
+  std::fill(row2Sample.begin(), row2Sample.end(), noSample);
   sampleNode.reserve(nSamp);
 }
 
@@ -100,7 +99,7 @@ Sample::~Sample() {
 void Sample::RowSample(std::vector<unsigned int> &sCountRow) {
   int *rvRow = new int[nSamp];
   CallBack::SampleRows(nSamp, rvRow);
-  for (int i = 0; i < nSamp; i++) {
+  for (unsigned int i = 0; i < nSamp; i++) {
     int row = rvRow[i];
     sCountRow[row]++;
   }
@@ -225,7 +224,6 @@ unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<un
 
   bagSum = 0.0;
   int slot = 0;
-  unsigned int sIdx = 0;
   for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
     unsigned int bits = 0;
     unsigned int mask = 1;
@@ -234,15 +232,18 @@ unsigned int Sample::PreStage(const std::vector<double> &y, const std::vector<un
       unsigned int sCount = sCountRow[row];
       if (sCount > 0) {
         double val = sCount * y[row];
-	sampleNode[sIdx].Set(val, sCount, yCtg[row]);
+	row2Sample[row] = sampleNode.size();
+	SampleNode sNode;
+	sNode.Set(val, sCount, yCtg[row]);
+	sampleNode.push_back(sNode);
 	bagSum += val;
         bits |= mask;
-	row2Sample[row] = sIdx++;
       }
     }
     treeBag->SetSlot(slot, bits);
   }
 
+  unsigned int sIdx = sampleNode.size();
   _samplePred = SamplePred::Factory(rowRank->NPred(), sIdx, rowRank->SafeSize(sIdx));
   return sIdx;
 }
@@ -276,7 +277,6 @@ void Sample::Stage(const RowRank *rowRank) {
 void Sample::Stage(const RowRank *rowRank, unsigned int predIdx) {
   std::vector<StagePack> stagePack;
   stagePack.reserve(bagCount); // Too big iff implicits present.
-
   unsigned int idxCount = rowRank->ExplicitCount(predIdx);
   for (unsigned int idx = 0; idx < idxCount; idx++) {
     unsigned int row, rank;

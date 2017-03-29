@@ -22,8 +22,8 @@
 
 #include <cfloat>
 
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 /* Split signature values only live during a single level, from argmax
    pass one (splitting) through argmax pass two.
@@ -92,12 +92,12 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    @param ptId is the pretree index.
 
-   @return sum of left-hand responses.
+   @return true iff left-hand of split is explicit.
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-double SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, double sum, unsigned int ptId) {
-  return run->IsRun(setIdx) ? NonTerminalRun(bottom, preTree, run, extent, sum, ptId) : NonTerminalNum(bottom, preTree, extent, sum, ptId);
+bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) {
+  return run->IsRun(setIdx) ? NonTerminalRun(bottom, preTree, run, extent, ptId, sumExpl) : NonTerminalNum(bottom, preTree, extent, ptId, sumExpl);
 }
 
 
@@ -106,11 +106,11 @@ double SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned 
 
    @return true iff LH is implicit.
  */
-double SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, double sum, unsigned int ptId) {
+bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) {
   preTree->NonTerminalFac(info, predIdx, ptId);
-  
-  leftExpl = !run->ImplicitLeft(setIdx);
-  return ReplayRun(bottom, preTree, sum, ptId, run);
+
+  sumExpl = ReplayRun(bottom, preTree, ptId, run);
+  return !run->ImplicitLeft(setIdx);
 }
 
 
@@ -119,9 +119,9 @@ double SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsign
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, double sum, unsigned int ptId, const Run *run) {
+double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, const Run *run) {
+  double sumExpl = 0.0;
   if (run->ImplicitLeft(setIdx)) {// LH runs hold bits, RH hold replay indices.
-    double rhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
       if (outSlot < run->RunsLH(setIdx)) {
         preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
@@ -129,34 +129,33 @@ double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, double sum, unsigned 
       else {
 	unsigned int runStart, runExtent;
 	run->RunBounds(setIdx, outSlot, runStart, runExtent);
-        rhSum += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
+        sumExpl += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
       }
     }
-    return sum - rhSum;
   }
   else { // LH runs hold bits as well as replay indices.
-    double lhSum = 0.0;
     for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
       preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
       unsigned int runStart, runExtent;
       run->RunBounds(setIdx, outSlot, runStart, runExtent);
-      lhSum += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
+      sumExpl += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
     }
-    return lhSum;
   }
+
+  return sumExpl;
 }
 
 
 /**
    @brief Writes PreTree nonterminal node for numerical predictor.
 
-   @return True iff LH is implicit.
+   @return true iff LH is explicit.
  */
-double SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, double sum, unsigned int ptId) {
+bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) {
   preTree->NonTerminalNum(info, predIdx, rankRange, ptId);
 
-  leftExpl = lhImplicit == 0;
-  return ReplayNum(bottom, sum, extent);
+  sumExpl = ReplayNum(bottom, extent);
+  return lhImplicit == 0;
 }
 
 
@@ -168,12 +167,10 @@ double SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int ext
 
    @param extent is the size of the predecessor node's index set.
 
-   @return sum of LH subnode's sample values.
+   @return sum of explicit successor node's sample values.
  */
-double SSNode::ReplayNum(Bottom *bottom, double sum, unsigned int extent) {
-   return lhImplicit == 0 ?
-    bottom->BlockReplay(predIdx, bufIdx, idxStart, lhExtent) :
-    sum - bottom->BlockReplay(predIdx, bufIdx, idxStart - lhImplicit + lhExtent, extent - lhExtent);
+double SSNode::ReplayNum(Bottom *bottom, unsigned int extent) {
+  return bottom->BlockReplay(predIdx, bufIdx, lhImplicit == 0 ? idxStart : idxStart - lhImplicit + lhExtent, lhImplicit == 0 ? lhExtent : extent - lhExtent);
 }
 
 

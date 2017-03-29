@@ -21,8 +21,8 @@
 #include <cmath>
 
 #include "param.h"
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 typedef std::pair<double, unsigned int> ValRowD;
 typedef std::tuple<double, unsigned int, unsigned int> RLENum;

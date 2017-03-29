@@ -89,8 +89,13 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int bagCoun
 }
 
 
-double Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent, unsigned int lhExtent, double sum, unsigned int &ptId) {
-  return ssNode->NonTerminal(this, preTree, Runs(), extent, sum, ptId);
+/**
+   @param sumExpl outputs response sum over explicit hand of the split.
+
+   @return true iff left hand of the split is explicit.
+ */
+bool Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl) {
+  return ssNode->NonTerminal(this, preTree, Runs(), extent, ptId, sumExpl);
 }
 
 

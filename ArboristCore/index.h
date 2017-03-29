@@ -31,10 +31,10 @@ class IndexSet {
   double preBias; // Inf of information values eligible for splitting.
   unsigned int splitIdx; // Unique level identifier.
   unsigned int ptId; // Index of associated PTSerial node.
-  unsigned int lhStart; // Start index of LH in buffer:  Swiss cheese.
-  unsigned int extent; // # distinct indices in the node.
-  unsigned int sCount;  // # samples subsumed by this node.
-  double sum; // Sum of all responses in node.
+  unsigned int lhStart; // Start position of LH in buffer:  Swiss cheese.
+  unsigned int extent; // # distinct indices in the set.
+  unsigned int sCount;  // # samples subsumed by this set.
+  double sum; // Sum of all responses in set.
   double minInfo; // Minimum acceptable information on which to split.
   unsigned int relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
@@ -42,18 +42,18 @@ class IndexSet {
   // Post-splitting fields:  (Set iff ssNode nonzero.)
   class SSNode *ssNode; // Nonzero iff split identified.
   unsigned int lhExtent; // Total indices over LH.
-  unsigned int lhSCount; // Total samples cover LH.
-  double lhSum; // Sum of responses over LH.
+  unsigned int lhSCount; // Total samples over LH.
+  double sumExpl; // Sum of explicit index responses.
 
   // State repeatedly polled and/or updated by Reindex methods.  Hence
   // appropriate to cache.
   //
-  unsigned int succLeft; // Fixed:  level index of left successor, if any.
-  unsigned int succRight; // Fixed:  " " right "
+  unsigned int succExpl; // Fixed:  level index of explicit successor, if any.
+  unsigned int succImpl; // Fixed:  " " implicit " "
   unsigned int offExpl; // Increases:  accumulating explicit offset.
   unsigned int offImpl; // Increases:  accumulating implicit offset.
-  unsigned char pathLeft;  // Fixed:  path to left successor, if any.
-  unsigned char pathRight; // Fixed:  path to right successor, if any.
+  unsigned char pathExpl;  // Fixed:  path to explicit successor, if any.
+  unsigned char pathImpl; // Fixed:  path to implicit successor, if any.
   bool leftExpl; // Fixed:  whether left split explicit (else right).
 
   // These fields pertain only to non-splitting sets, so can be
@@ -65,8 +65,8 @@ class IndexSet {
   double PrebiasCtg(const double sumSquares[]);
   void Successor(class IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, unsigned int succIdx, class Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) const;
   void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path);
-  void NonterminalReindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
-  void TerminalReindex(class Bottom *bottom, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
+  void NonterminalReindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<class SampleNode> &rel2Sample, std::vector<class SampleNode> &succSample);
+  void TerminalReindex(class Bottom *bottom, const std::vector<unsigned int> &rel2ST);
 
   
  public:
@@ -76,11 +76,19 @@ class IndexSet {
   void Consume(class IndexLevel *indexlevel, class Bottom *bottom, class PreTree *preTree);
   void NonTerminal(class IndexLevel *indexLevel, class Bottom *bottom, class PreTree *preTree);
   void Terminal(class IndexLevel *indexLevel, class Bottom *bottom);
-  void Reindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST);
+  void Reindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<SampleNode> &rel2Sample, std::vector<SampleNode> &succSample);
   void Produce(class IndexLevel *indexLevel, class Bottom *bottom, const class PreTree *preTree, std::vector<IndexSet> &indexNext) const;
   static unsigned SplitAccum(class IndexLevel *indexLevel, unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax);
+  bool SumsAndSquares(const std::vector<class SampleNode> &rel2Sample, unsigned int ctgWidth, double &sumSquares, double *ctgSumCol) const;
 
 
+  /**
+   */
+  inline unsigned int SplitIdx() const {
+    return splitIdx;
+  }
+
+  
   /**
      @brief Outputs fields used by pre-bias computation.
 
@@ -181,7 +189,7 @@ class IndexSet {
     relBase = _relBase;
 
     // Inattainable value.  Reset only when non-terminal:
-    succLeft = succRight = offExpl = offImpl = bagCount;
+    succExpl = succImpl = offExpl = offImpl = bagCount;
   }
 
 
@@ -215,9 +223,8 @@ class IndexSet {
       pathSucc = 0; // Dummy:  overwritten by caller.
     }
     else {
-      bool isLeft= (expl && leftExpl) || !(expl || leftExpl);
-      iSetSucc = isLeft ? succLeft : succRight;
-      pathSucc = isLeft ? pathLeft : pathRight;
+      iSetSucc = expl ? succExpl : succImpl;
+      pathSucc = expl ? pathExpl : pathImpl;
       idxSucc = expl ? offExpl++ : offImpl++;
     }
     return iSetSucc;
@@ -231,6 +238,7 @@ class IndexSet {
 class IndexLevel {
   static unsigned int minNode;
   static unsigned int totLevels;
+  const std::vector<class SampleNode> &stageSample;
   std::vector<IndexSet> indexSet;
   const unsigned int bagCount;
   bool levelTerminal; // Whether this level must exit.
@@ -243,10 +251,10 @@ class IndexLevel {
   std::vector<unsigned int> relBase; // Node-to-relative index.
   std::vector<unsigned int> succBase; // Overlaps, then moves to relBase.
   std::vector<unsigned int> rel2ST; // Maps to subtree index.
-  std::vector<unsigned int> succST;  // Overlaps, moves to, rel2ST.
+  std::vector<class SampleNode> rel2Sample;
   std::vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
 
-  static class PreTree *OneTree(const class PMTrain *pmTrain, class Bottom *_bottom, int _nSamp, unsigned int _bagCount, double _bagSum);
+  static class PreTree *OneTree(const class PMTrain *pmTrain, class Sample *sample);
   unsigned int SplitCensus(std::vector<class SSNode *> &argMax, unsigned int &leafNext, bool _levelTerminal);
   void Consume(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext, unsigned int leafNext);
   void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext);
@@ -256,7 +264,7 @@ class IndexLevel {
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
 
-  IndexLevel(int _nSamp, unsigned int _bagCount, double _sum);
+  IndexLevel(const std::vector<class SampleNode> &_stageSample, unsigned int _nSamp, double _bagSum);
   ~IndexLevel();
 
   static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
@@ -264,6 +272,7 @@ class IndexLevel {
   unsigned int IdxSucc(class Bottom *bottom, unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
   void Reindex(class Bottom *bottom, class BV *replayExpl);
   void Reindex(class Bottom *bottom, class BV *replayExpl, class IdxPath *stPath);
+  void SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumSquares, std::vector<double> &ctgSum, std::vector<bool> &unsplitable) const;
 
 
   /**
@@ -289,20 +298,6 @@ class IndexLevel {
   }
 
 
-/**
-   @brief Looks up subtree-relative index from node-relative coordinates.
-
-   @param splitIdx is an IndexSet index.
-
-   @param relIdx is an offset relative to the set index.
-
-   @return subtree-relative index.
- */
-  inline unsigned int STIdx(unsigned int splitIdx, unsigned int relIdx) const {
-    return rel2ST[relBase[splitIdx] + relIdx];
-  }
-
-  
   /**
      @brief 'bagCount' accessor.
 

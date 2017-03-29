@@ -139,10 +139,12 @@ SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samp
 */
 void SplitPred::LevelInit(IndexLevel &index) {
   levelCount = index.LevelCount();
+  std::vector<bool> unsplitable(levelCount);
+  std::fill(unsplitable.begin(), unsplitable.end(), false);
+  LevelPreset(index, unsplitable);
+
   std::vector<unsigned int> safeCount;
-  bool *unsplitable = LevelPreset(index);
   Splitable(unsplitable, safeCount);
-  delete [] unsplitable;
 
   SetPrebias(index); // Depends on state from LevelPreset()
   RunOffsets(safeCount);
@@ -218,7 +220,7 @@ void SPCtg::RunOffsets(const std::vector<unsigned int> &safeCount) {
 
    @return void.
 */
-void SplitPred::Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount) {
+void SplitPred::Splitable(const std::vector<bool> &unsplitable, std::vector<unsigned int> &safeCount) {
     // TODO:  Pre-empt overflow by walking wide subtrees depth-first.
   int cellCount = levelCount * nPred;
 
@@ -356,9 +358,6 @@ SPCtg::~SPCtg() {
 
 
 void SPCtg::LevelClear() {
-  delete [] ctgSum;
-  delete [] sumSquares;
-  ctgSum = sumSquares = 0;
   SplitPred::LevelClear();
 }
 
@@ -372,12 +371,7 @@ void SPCtg::LevelClear() {
 
    @return vector of unsplitable indices.
 */
-bool *SPReg::LevelPreset(const IndexLevel &index) {
-  bool* unsplitable = new bool[levelCount];
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++)
-    unsplitable[levelIdx] = false;
-
-  return unsplitable;
+void SPReg::LevelPreset(const IndexLevel &index, std::vector<bool> &unsplitable) {
 }
 
 
@@ -408,57 +402,13 @@ wells as FacRun vectors.
 
    @return vector of unsplitable indices.
 */
-bool *SPCtg::LevelPreset(const IndexLevel &index) {
+void SPCtg::LevelPreset(const IndexLevel &index, std::vector<bool> &unsplitable) {
   LevelInitSumR(pmTrain->NPredNum());
-
-  bool *unsplitable = new bool[levelCount];
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++)
-    unsplitable[levelIdx] = false;
-  SumsAndSquares(index, unsplitable);
-
-  return unsplitable;
-}
-
-
-/**
-   @brief Functionality shared between IndexLevel and SamplePred:  does
-   not really belong here.
- */
-void SPCtg::SumsAndSquares(const IndexLevel &index, bool unsplitable[]) {
-  sumSquares = new double[levelCount];
-  ctgSum = new double[levelCount * ctgWidth];
-  unsigned int *sCountCtg = new unsigned int[ctgWidth];
-
-  // Sums each category for each splitable node in the upcoming level.
-  // 
-  for (unsigned int levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-    double *ctgSumCol = &ctgSum[levelIdx * ctgWidth];
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      sCountCtg[ctg] = 0;
-      ctgSumCol[ctg] = 0.0;
-    }
-
-    // TODO:  STIdx to SIdx translation:
-    for (unsigned int relIdx = 0; relIdx < index.Extent(levelIdx); relIdx++) {
-      unsigned int stIdx = index.STIdx(levelIdx, relIdx); // Irregular.
-      FltVal sum;
-      unsigned int sCount;
-      unsigned int ctg = sampleCtg[stIdx].Ref(sum, sCount);
-      ctgSumCol[ctg] += sum;
-      sCountCtg[ctg] += sCount;
-    }
-
-    unsigned int indexSCount = index.SCount(levelIdx);
-    sumSquares[levelIdx] = 0.0;
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      if (sCountCtg[ctg] == indexSCount) {
-	unsplitable[levelIdx] = true; // Short-circuits singleton response.
-      }
-      sumSquares[levelIdx] += ctgSumCol[ctg] * ctgSumCol[ctg];
-    }
-  }
-
-  delete [] sCountCtg;
+  sumSquares = std::move(std::vector<double>(levelCount));
+  ctgSum = std::move(std::vector<double>(levelCount * ctgWidth));
+  std::fill(sumSquares.begin(), sumSquares.end(), 0.0);
+  std::fill(ctgSum.begin(), ctgSum.end(), 0.0);
+  index.SumsAndSquares(ctgWidth, sumSquares, ctgSum, unsplitable);
 }
 
 
@@ -762,13 +712,13 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
   unsigned int denseRank = spReg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
-  unsigned int denseCut;
-  bool strict = spReg->Residuals(spn, idxStart, idxEnd, denseRank, sumDense, sCountDense, denseCut);
+  unsigned int denseLeft, denseRight;
+  unsigned int denseCut = spReg->Residuals(spn, idxStart, idxEnd, denseRank, denseLeft, denseRight, sumDense, sCountDense);
 
   unsigned int idxNext, idxFinal;
   unsigned int rkRight, sampleCount;
   FltVal ySum;
-  if (denseCut == idxEnd) {
+  if (denseRight) {
     ySum = sumDense;
     rkRight = denseRank;
     sampleCount = sCountDense;
@@ -778,7 +728,7 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
   else {
     spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
     idxNext = idxEnd - 1;
-    idxFinal = strict ? denseCut + 1 : idxStart;
+    idxFinal = denseLeft ? idxStart : denseCut + 1;
   }
   double sumR = ySum;
   unsigned int sCountL = sCount - sampleCount;
@@ -819,7 +769,7 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
       maxInfo = idxGini;
     }
   
-    if (strict) {  // Walks remaining indices, if any, with rank below dense.
+    if (!denseLeft) {  // Walks remaining indices, if any, with rank below dense.
       sCountL -= sCountDense;
       sumR += sumDense;
       rkRight = denseRank;
@@ -864,13 +814,13 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SP
   unsigned int denseRank = spReg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
-  unsigned int denseCut;
-  bool strict = spReg->Residuals(spn, idxStart, idxEnd, denseRank, sumDense, sCountDense, denseCut);
+  unsigned int denseLeft, denseRight;
+  unsigned int denseCut = spReg->Residuals(spn, idxStart, idxEnd, denseRank, denseLeft, denseRight, sumDense, sCountDense);
 
   unsigned int idxNext, idxFinal;
   unsigned int rkRight, sampleCount;
   FltVal ySum;
-  if (denseCut == idxEnd) {
+  if (denseRight) {
     ySum = sumDense;
     rkRight = denseRank;
     sampleCount = sCountDense;
@@ -880,7 +830,7 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SP
   else {
     spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
     idxNext = idxEnd - 1;
-    idxFinal = strict ? denseCut + 1 : idxStart;
+    idxFinal = denseLeft ? idxStart : denseCut + 1;
   }
   double sumR = ySum;
   unsigned int sCountL = sCount - sampleCount;
@@ -924,7 +874,7 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SP
       maxInfo = idxGini;
     }
   
-    if (strict) {  // Walks remaining indices, if any, with rank below dense.
+    if (!denseLeft) {  // Walks remaining indices, if any, with rank below dense.
       sCountL -= sCountDense;
       sumR += sumDense;
       rkRight = denseRank;
@@ -1025,13 +975,12 @@ bool SplitCoord::SplitNumMono(bool increasing, const SPNode spn[], NuxLH &nux) {
 
    @return true iff left bound has rank less than dense value.
 */
-bool SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &denseCut) const {
-  denseCut = idxStart; // Defaults to lowest index.
+unsigned int SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const {
+  unsigned int denseCut = idxStart; // Defaults to lowest index.
   double sumTot = 0.0;
   unsigned int sCountTot = 0;
-  unsigned int rkThis = denseRank + 1;  // Arbitrary.
   for (int idx = int(idxEnd); idx >= int(idxStart); idx--) {
-    unsigned int sampleCount;
+    unsigned int sampleCount, rkThis;
     FltVal ySum;
     spn[idx].RegFields(ySum, rkThis, sampleCount);
     denseCut = rkThis >= denseRank ? idx : denseCut;
@@ -1041,7 +990,11 @@ bool SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigned int id
   sumDense -= sumTot;
   sCountDense -= sCountTot;
 
-  return rkThis < denseRank;
+  // Dense blob is either left, right or neither.
+  denseRight = (denseCut == idxEnd && spn[idxEnd].Rank() < denseRank);  
+  denseLeft = (denseCut == idxStart && spn[idxStart].Rank() > denseRank);
+  
+  return denseCut;
 }
 
 
@@ -1051,9 +1004,9 @@ bool SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigned int id
    @param idxSup outputs the sup of index values having ranks below the
    dense rank.
 
-   @return true iff left bound has rank less than dense value.
+   @return true iff left bound has rank less than dense rank.
 */
-bool SPCtg::Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &denseCut, std::vector<double> &ctgSumDense) const {
+unsigned int SPCtg::Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, bool &denseLeft, bool &denseRight, double &sumDense, unsigned int &sCountDense, std::vector<double> &ctgSumDense) const {
   std::vector<double> ctgAccum;
   ctgSumDense.reserve(ctgWidth);
   ctgAccum.reserve(ctgWidth);
@@ -1061,12 +1014,12 @@ bool SPCtg::Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int id
     ctgSumDense.push_back(CtgSum(levelIdx, ctg));
     ctgAccum.push_back(0.0);
   }
-  denseCut = idxStart; // Defaults to lowest index.
+  unsigned int denseCut = idxStart; // Defaults to lowest index.
   double sumTot = 0.0;
   unsigned int sCountTot = 0;
-  unsigned int rkThis = denseRank + 1;  // Arbitrary.
   for (int idx = int(idxEnd); idx >= int(idxStart); idx--) {
-    unsigned int yCtg;
+    // Accumulates statistics over explicit range.
+    unsigned int yCtg, rkThis;
     FltVal ySum;
     unsigned int sampleCount = spn[idx].CtgFields(ySum, rkThis, yCtg);
     ctgAccum[yCtg] += ySum;
@@ -1080,7 +1033,11 @@ bool SPCtg::Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int id
     ctgSumDense[ctg] -= ctgAccum[ctg];
   }
 
-  return rkThis < denseRank;
+  // Dense blob is either left, right or neither.
+  denseRight = (denseCut == idxEnd && spn[idxEnd].Rank() < denseRank);  
+  denseLeft = (denseCut == idxStart && spn[idxStart].Rank() > denseRank);
+  
+  return denseCut;
 }
 
 
@@ -1168,9 +1125,9 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
   unsigned int denseRank = spCtg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
-  unsigned int denseCut;
+  bool denseLeft, denseRight;
   std::vector<double> sumDenseCtg;
-  bool strict = spCtg->Residuals(spn, levelIdx, idxStart, idxEnd, denseRank, sumDense, sCountDense, denseCut, sumDenseCtg);
+  unsigned int denseCut = spCtg->Residuals(spn, levelIdx, idxStart, idxEnd, denseRank, denseLeft, denseRight, sumDense, sCountDense, sumDenseCtg);
 
   unsigned int idxFinal;
   unsigned int sCountL = sCount;
@@ -1178,7 +1135,7 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
   double sumL = sum;
   double ssL = spCtg->SumSquares(levelIdx);
   double ssR = 0.0;
-  if (denseCut == idxEnd) { // Implicit values to the far right.
+  if (denseRight) { // Implicit values to the far right.
     idxFinal = idxStart;
     rkRight = denseRank;
     spCtg->ApplyResiduals(levelIdx, predIdx, ssL, ssR, sumDenseCtg);
@@ -1186,9 +1143,10 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
     sumL -= sumDense;
   }
   else {
-    idxFinal = strict ? denseCut + 1 : idxStart;
+    idxFinal = denseLeft ? idxStart : denseCut + 1;
     rkRight = spn[idxEnd].Rank();
   }
+
   double maxInfo = preBias;
   unsigned int rankRH = 0;
   unsigned int rankLH = 0;
@@ -1209,7 +1167,7 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
       }
     }
 
-    if (strict) {  // Walks remaining indices, if any with ranks below dense.
+    if (!denseLeft) {  // Walks remaining indices, if any with ranks below dense.
       spCtg->ApplyResiduals(levelIdx, predIdx, ssR, ssL, sumDenseCtg);
       sCountL -= sCountDense;
       sumL -= sumDense;

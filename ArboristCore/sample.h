@@ -90,7 +90,7 @@ class Sample {
  protected:
   const unsigned int noSample; // Inattainable sample index.
   static unsigned int nRow;
-  static int nSamp;
+  static unsigned int nSamp;
   std::vector<SampleNode> sampleNode;
   unsigned int bagCount;
   double bagSum;
@@ -107,7 +107,7 @@ class Sample {
   static class SampleCtg *FactoryCtg(const class PMTrain *pmTrain, const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
   static class SampleReg *FactoryReg(const class PMTrain *pmTrain, const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
 
-  static void Immutables(int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree);
+  static void Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree);
   static void DeImmutables();
 
   Sample();
@@ -116,9 +116,14 @@ class Sample {
   /**
      @brief Accessor for sample count.
    */
-  static inline int NSamp() {
+  static inline unsigned int NSamp() {
     return nSamp;
   }
+
+
+  const std::vector<SampleNode> &StageSample() {
+    return sampleNode;
+  }    
 
   
   /**

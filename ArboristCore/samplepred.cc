@@ -103,6 +103,7 @@ void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int pre
     unsigned int sIdx = spn++->Init(stagePack[idx]);
     *smpIdx++ = sIdx;
   }
+  spn = Buffers(predIdx, 0, smpIdx);
 }
 
 

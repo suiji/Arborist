@@ -93,7 +93,7 @@ class SplitPred {
   unsigned int levelCount; // # subtree nodes at current level.
   class Run *run;
   std::vector<SplitCoord> splitCoord; // Schedule of splits.
-  void Splitable(const bool unsplitable[], std::vector<unsigned int> &safeCount);
+  void Splitable(const std::vector<bool> &unsplitable, std::vector<unsigned int> &safeCount);
  public:
   class SamplePred *samplePred;
   SplitPred(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
@@ -118,7 +118,7 @@ class SplitPred {
   virtual ~SplitPred();
   virtual void LevelInit(class IndexLevel &index);
   virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
-  virtual bool *LevelPreset(const class IndexLevel &index) = 0;
+  virtual void LevelPreset(const class IndexLevel &index, std::vector<bool> &unsplitable) = 0;
   virtual double Prebias(const class IndexLevel &index, unsigned int levelIdx) = 0;
   virtual void LevelClear();
 };
@@ -135,14 +135,14 @@ class SPReg : public SplitPred {
   void Split(const class IndexLevel &index);
 
  public:
-  bool Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &leftBount) const;
+  unsigned int Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const;
   static void Immutables(unsigned int _nPred, const double *_mono);
   static void DeImmutables();
   SPReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   ~SPReg();
   int MonoMode(unsigned int splitIdx, unsigned int predIdx) const;
   void RunOffsets(const std::vector<unsigned int> &safeCount);
-  bool *LevelPreset(const class IndexLevel &index);
+  void LevelPreset(const class IndexLevel &index, std::vector<bool> &unsplitable);
   double Prebias(const class IndexLevel &index, unsigned int spiltIdx);
   void LevelInit(class IndexLevel &index);
   void LevelClear();
@@ -159,19 +159,17 @@ class SPCtg : public SplitPred {
   static constexpr double minSumR = 1.0e-5;
 
   static unsigned int ctgWidth;
-  double *ctgSum; // Per-level sum, by split/category pair.
+  std::vector<double> sumSquares; // Per-level sum of squares, by split.
+  std::vector<double> ctgSum; // Per-level sum, by split/category pair.
   std::vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
-  double *sumSquares; // Per-level sum of squares, by split.
   const std::vector<class SampleNode> &sampleCtg;
-  bool *LevelPreset(const class IndexLevel &index);
+  void LevelPreset(const class IndexLevel &index, std::vector<bool> &unsplitable);
   double Prebias(const class IndexLevel &index, unsigned int levelIdx);
   void LevelClear();
   void Split(const class IndexLevel &index);
   void RunOffsets(const std::vector<unsigned int> &safeCount);
-  void SumsAndSquares(const class IndexLevel &index, bool unsplitable[]);
   unsigned int LHBits(unsigned int lhBits, unsigned int pairOffset, unsigned int depth, unsigned int &lhSampCt);
   void LevelInitSumR(unsigned int nPredNum);
-
 
 
  public:
@@ -179,7 +177,7 @@ class SPCtg : public SplitPred {
   ~SPCtg();
   static void Immutables(unsigned int _ctgWidth);
   static void DeImmutables();
-  bool Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, double &sumDense, unsigned int &sCountDense, unsigned int &leftBount, std::vector<double> &ctgSumDense) const;
+  unsigned int Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, bool &denseLeft, bool &denseRight, double &sumDense, unsigned int &sCountDense, std::vector<double> &ctgSumDense) const;
   void ApplyResiduals(unsigned int levelIdx, unsigned int predIdx, double &ssL, double &ssr, std::vector<double> &sumDenseCtg);
   /**
      @brief Determine whether a pair of square-sums is acceptably stable
@@ -217,8 +215,8 @@ class SPCtg : public SplitPred {
   /**
      @return column of category sums at index.
    */
-  inline double *ColumnSums(unsigned int levelIdx) const {
-    return ctgSum + levelIdx * ctgWidth;
+  inline const double *ColumnSums(unsigned int levelIdx) const {
+    return &ctgSum[levelIdx * ctgWidth];
   }
 
   
