@@ -33,11 +33,10 @@
                 qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
-                splitQuant = 0.5,
+                splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
                 pvtBlock = 8,
-                pvtPlurality = 0.25,
                 ...) {
 
   # Argument checking:
@@ -57,6 +56,23 @@
   if (is.null(regMono)) {
     regMono <- rep(0.0, nPred)
   }
+  else {
+    if (length(regMono) != nPred)
+        stop("Monotone specification length differs from predictor count.")
+    if (any(abs(regMono) > 1.0))
+        stop("Monotone specification contains invalid probability values.")
+  }
+    
+  if (is.null(splitQuant)) {
+    splitQuant <- rep(0.5, nPred)
+  }
+  else {
+    if (length(splitQuant) != nPred)
+        stop("Split quantile specification differs from predictor count.")
+    if (any(splitQuant > 1 || splitQuant < 0))
+        stop("Split specification contains invalid quantile values.")
+  }
+    
   if (nSamp == 0) {
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
@@ -74,10 +90,6 @@
     predWeight <- rep(1.0, nPred)
   }
 
-  if (splitQuant < 0.0 || splitQuant > 1.0) {
-    stop("splitting quantile must be within [0,1]")
-  }
-    
   if (any(is.na(y)))
     stop("NA not supported in response")
   if (!is.numeric(y) && !is.factor(y))

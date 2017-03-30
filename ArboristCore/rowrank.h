@@ -170,8 +170,8 @@ class RowRank {
 
      @return predictor value at mean rank, computed by PBTrain method.
   */
-  inline double QuantRank(unsigned int predIdx, RankRange rankRange, double splitQuant) const {
-  double rankNum = rankRange.rankLow + splitQuant * (rankRange.rankHigh - rankRange.rankLow);
+  inline double QuantRank(unsigned int predIdx, RankRange rankRange, const double splitQuant[]) const {
+  double rankNum = rankRange.rankLow + splitQuant[predIdx] * (rankRange.rankHigh - rankRange.rankLow);
   unsigned int rankFloor = floor(rankNum);
   unsigned int rankCeil = ceil(rankNum);
 

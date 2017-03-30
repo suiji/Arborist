@@ -27,7 +27,7 @@
    @brief To replace parallel array access.
  */
 class ForestNode {
-  static double splitQuant;
+  static const double *splitQuant;
   unsigned int pred;
   unsigned int bump;
   union {
@@ -49,13 +49,13 @@ class ForestNode {
 
   
  public:
-  static void Immutables(double _splitQuant) {
+  static void Immutables(const double _splitQuant[]) {
     splitQuant = _splitQuant;
   }
 
   
   static void DeImmutables() {
-    splitQuant = 0.5;
+    splitQuant = 0;
   }
   
   

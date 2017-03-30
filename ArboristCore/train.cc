@@ -49,7 +49,7 @@ unsigned int Train::trainBlock = 0;
 
    @return void.
 */
-void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, double _splitQuant, const double _predProb[], bool _thinLeaves, const double _regMono[]) {
+void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[]) {
   trainBlock = _trainBlock;
   Sample::Immutables(_nSamp, _feSampleWeight, _withRepl, _ctgWidth, _nTree);
   SPNode::Immutables(_ctgWidth);

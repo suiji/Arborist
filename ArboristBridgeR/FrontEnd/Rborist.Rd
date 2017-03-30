@@ -60,12 +60,14 @@
   \item{regMono}{signed probability constraint for monotonic
     regression.}
   \item{rowWeight}{row weighting for initial sampling of tree.}
+  \item{splitQuant}{(sub)quantile at which to place cut point for
+  numerical splits}.
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
+  \item{thinLeaves}{bypasses creation of export and quantile state in
+  order to reduce memory footprint.}
   \item{pvtBlock}{maximum number of trees to train in a block (e.g.,
     cluster computing).}
-  \item{pvtPlurality}{plurality threshold beyond which to compress
-  predictor values.(internal sparse representation)}
   \item{...}{not currently used.}
 }
 
@@ -251,7 +253,7 @@
 
 
   # Constrains modelled response to be increasing with respect to X1
-  # and decreasing with respect to X5 (both unlikely).
+  # and decreasing with respect to X5.
   rb <- Rborist(x, y, regMono=c(1.0, 0, 0, 0, -1.0, 0))
 
 

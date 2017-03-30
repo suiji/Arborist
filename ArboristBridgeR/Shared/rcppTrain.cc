@@ -120,8 +120,9 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
   unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
+  NumericVector splitQuant = NumericVector(sSplitQuant)[predMap];
 
-  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), as<double>(sSplitQuant), predProb.begin(), as<bool>(sThinLeaves));
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves));
 
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);
@@ -171,8 +172,9 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   unsigned int nPred = nPredNum + nPredFac;
   NumericVector predProb = NumericVector(sProbVec)[predMap];
   NumericVector regMono = NumericVector(sRegMono)[predMap];
+  NumericVector splitQuant = NumericVector(sSplitQuant)[predMap];
   
-  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), as<double>(sSplitQuant), predProb.begin(), as<bool>(sThinLeaves), regMono.begin());
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves), regMono.begin());
 
   std::vector<unsigned int> feRow = as<std::vector<unsigned int> >(rowRank["row"]);
   std::vector<unsigned int> feRank = as<std::vector<unsigned int> >(rowRank["rank"]);

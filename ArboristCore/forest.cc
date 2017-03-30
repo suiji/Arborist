@@ -24,7 +24,7 @@
 //using namespace std;
 
 
-double ForestNode::splitQuant = 0.5;
+const double *ForestNode::splitQuant = 0;
 
 
 /**

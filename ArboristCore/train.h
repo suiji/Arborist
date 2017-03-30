@@ -52,7 +52,7 @@ class Train {
 
    @return void.
  */
-  static void Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, double _splitQuant, const double _predProb[], bool thinLeaves, const double _regMono[] = 0);
+  static void Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool thinLeaves, const double _regMono[] = 0);
 
   static void Regression(const std::vector<unsigned int> &_feRow, const std::vector<unsigned int> &_feRank, const std::vector<unsigned int> &_feNumOff, const std::vector<double> &_feNumVal, const std::vector<unsigned int> &_feRunLength, const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
 
