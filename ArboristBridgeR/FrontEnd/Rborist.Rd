@@ -30,6 +30,8 @@
                 qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
+                splitQuant = NULL,
+                thinLeaves = FALSE,
                 treeBlock = 1,
                 pvtBlock = 8, ...)
 }
@@ -62,10 +64,10 @@
   \item{rowWeight}{row weighting for initial sampling of tree.}
   \item{splitQuant}{(sub)quantile at which to place cut point for
   numerical splits}.
-  \item{treeBlock}{maximum number of trees to train during a single
-    level (e.g., coprocessor computing).}
   \item{thinLeaves}{bypasses creation of export and quantile state in
   order to reduce memory footprint.}
+  \item{treeBlock}{maximum number of trees to train during a single
+    level (e.g., coprocessor computing).}
   \item{pvtBlock}{maximum number of trees to train in a block (e.g.,
     cluster computing).}
   \item{...}{not currently used.}
@@ -260,6 +262,19 @@
   # Causes rows to be sampled with random weighting:
   rb <- Rborist(x, y, rowWeight=runif(nRow))
 
+
+  # Suppresses creation of detailed leaf information needed for
+  # quantile prediction and external tools.
+  rb <- Rborist(x, y, thinLeaves = TRUE)
+
+
+  # Sets splitting position for predictor 0 to far left and predictor
+  # 1 to far right, others to default (median) position.
+
+  spq <- rep(0.5, ncol(x))
+  spq[0] <- 0.0
+  spq[1] <- 1.0
+  rb <- Rborist(x, y, splitQuant = spq)
   }
 }
 
