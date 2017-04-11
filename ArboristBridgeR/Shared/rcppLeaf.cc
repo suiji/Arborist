@@ -106,15 +106,15 @@ SEXP RcppLeaf::WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::v
     as the unsigned integer (packed bit) vector, "bagBits".
 */
 void RcppLeaf::Serialize(const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, RawVector &leafRaw, RawVector &blRaw, RawVector &bbRaw) {
-  for (unsigned int i = 0; i < leafRaw.length(); i++) {
+  for (size_t i = 0; i < leafNode.size() * sizeof(LeafNode); i++) {
     leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
   }
 
-  for (unsigned int i = 0; i < blRaw.length(); i++) {
+  for (size_t i = 0; i < bagLeaf.size() * sizeof(BagLeaf); i++) {
     blRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
   }
 
-  for (unsigned int i = 0; i < bbRaw.length(); i++) {
+  for (size_t i = 0; i < bagBits.size() * sizeof(unsigned int); i++) {
     bbRaw[i] = ((unsigned char*) &bagBits[0])[i];
   }
 }
