@@ -23,8 +23,8 @@
 // TODO: Recast using templates.
 
 class BV {
-  unsigned int *raw;
   const unsigned int nSlot;
+  unsigned int *raw;
   const bool wrapper;
  public:
   static const unsigned int full = 1;
@@ -81,6 +81,7 @@ class BV {
   static inline unsigned int SlotAlign(unsigned int len) {
     return (len + slotElts - 1) / slotElts;
   }
+
 
   static inline unsigned int Stride(unsigned int len) {
     return slotElts * SlotAlign(len);
@@ -176,6 +177,7 @@ class BitMatrix : public BV {
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
   BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
   BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsigned int _nCol);
+  BitMatrix(unsigned int _raw[], size_t _nRow, size_t _nCol);
   ~BitMatrix();
 
   inline unsigned int NRow() const {
@@ -199,6 +201,7 @@ class BitMatrix : public BV {
     return stride == 0 ? false : BV::TestBit(row * stride + col);
   }
 
+  
   inline void SetBit(unsigned int row, unsigned int col, bool on = true) {
     BV::SetBit(row * stride + col, on);
   }
@@ -215,14 +218,15 @@ class BitMatrix : public BV {
  */
 class BVJagged : public BV {
   const size_t nElt;
-  const std::vector<unsigned int> &rowOrigin;
+  const unsigned int *rowOrigin;
+  const unsigned int nRow;
   void Export(std::vector<std::vector<unsigned int> > &outVec);
   void RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
   unsigned int RowHeight(unsigned int rowIdx) const;
  public:
-  BVJagged(unsigned int _raw[], size_t _nSlot, const std::vector<unsigned int> &_origin);
+  BVJagged(unsigned int _raw[], size_t _nSlot, const unsigned int _origin[], unsigned int _nRow);
   ~BVJagged();
-  static void Export(unsigned int _raw[], std::size_t facLen, const std::vector<unsigned int> _origin, std::vector<std::vector<unsigned int> > &outVec);
+  static void Export(unsigned int _raw[], std::size_t facLen, const unsigned int _origin[], unsigned int _nElt, std::vector<std::vector<unsigned int> > &outVec);
 
 
   inline size_t NElt() const {

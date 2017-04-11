@@ -20,8 +20,7 @@
 
 /**
  */
-BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len)), wrapper(false) {
-  raw = new unsigned int[nSlot];
+BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len)), raw(new unsigned int[nSlot]), wrapper(false) {
   for (unsigned int i = 0; i < nSlot; i++) {
     raw[i] = 0;
   }
@@ -31,8 +30,7 @@ BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len))
 /**
    @brief Copies contents of constant vector.
  */
-BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), wrapper(false) {
-  raw = new unsigned int[nSlot];
+BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), raw(new unsigned int[nSlot]), wrapper(false) {
   for (unsigned int i = 0; i < nSlot; i++) {
     raw[i] = _raw[i];
   }
@@ -52,7 +50,7 @@ BV::BV(std::vector<unsigned int> &_raw, unsigned int _nSlot) : nSlot(_nSlot), wr
 }
 
 
-BV::BV(unsigned int _raw[], size_t _nSlot) : raw(_raw), nSlot(_nSlot), wrapper(true) {
+BV::BV(unsigned int _raw[], size_t _nSlot) : nSlot(_nSlot), raw(_raw), wrapper(true) {
 }
 
 
@@ -154,6 +152,10 @@ BitMatrix::BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsign
 }
 
 
+BitMatrix::BitMatrix(unsigned int _raw[], size_t _nRow, size_t _nCol) : BV(_raw, _nRow * Stride(_nCol)), nRow(_nRow), stride(nRow > 0 ? Stride(_nCol) : 0) {
+}
+
+
 /**
  */
 BitMatrix::~BitMatrix() {
@@ -162,7 +164,7 @@ BitMatrix::~BitMatrix() {
 
 /**
  */
-BVJagged::BVJagged(unsigned int _raw[], size_t _nSlot, const std::vector<unsigned int> &_rowOrigin) : BV(_raw, _nSlot), nElt(_nSlot * slotElts), rowOrigin(_rowOrigin) {
+BVJagged::BVJagged(unsigned int _raw[], size_t _nSlot, const unsigned int _rowOrigin[], unsigned int _nRow) : BV(_raw, _nSlot), nElt(_nSlot * slotElts), rowOrigin(_rowOrigin), nRow(_nRow) {
 }
 
 
@@ -175,7 +177,7 @@ BVJagged::~BVJagged() {
 /**
  */
 unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
-  if (rowIdx < rowOrigin.size() - 1) {
+  if (rowIdx < nRow - 1) {
     return sizeof(unsigned int) * (rowOrigin[rowIdx + 1] - rowOrigin[rowIdx]);
   }
   else {
@@ -184,8 +186,8 @@ unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
 }
 
 
-void BVJagged::Export(unsigned int _raw[], size_t _facLen, const std::vector<unsigned int> _origin, std::vector<std::vector<unsigned int> > &outVec) {
-  BVJagged *bvj = new BVJagged(_raw, _facLen, _origin);
+void BVJagged::Export(unsigned int _raw[], size_t _facLen, const unsigned int _origin[], unsigned int _nElt, std::vector<std::vector<unsigned int> > &outVec) {
+  BVJagged *bvj = new BVJagged(_raw, _facLen, _origin, _nElt);
   bvj->Export(outVec);
 
   delete bvj;
@@ -195,7 +197,7 @@ void BVJagged::Export(unsigned int _raw[], size_t _facLen, const std::vector<uns
    @brief Exports contents of a forest.
  */
 void BVJagged::Export(std::vector<std::vector<unsigned int> > &outVec) {
-  for (unsigned int row = 0; row < rowOrigin.size(); row++) {
+  for (unsigned int row = 0; row < nRow; row++) {
     unsigned int rowHeight = RowHeight(row);
     outVec[row] = std::vector<unsigned int>(rowHeight);
     RowExport(outVec[row], rowHeight, row);

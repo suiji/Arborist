@@ -63,7 +63,7 @@ SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector
 
    @return void.
  */
-void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, unsigned int *&_facSplit, size_t &_facLen, std::vector<unsigned int> &_facOrig, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
+void RcppForest::Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTree, unsigned int *&_facSplit, size_t &_facLen, unsigned int *&_facOrig, unsigned int &_nFac, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
   List forest(sForest);
   if (!forest.inherits("Forest"))
     stop("Expecting Forest");
@@ -71,13 +71,14 @@ void RcppForest::Unwrap(SEXP sForest, std::vector<unsigned int> &_origin, unsign
   // Alignment should be sufficient to guarantee safety of
   // the casted loads.
   //
-  _origin = as<std::vector<unsigned int> >(forest["origin"]);
-  RawVector facRaw((SEXP) forest["facSplit"]);
-  _facLen = facRaw.length() / sizeof(unsigned int);
-  _facSplit = (unsigned int*) facRaw.begin();
-  _facOrig = as<std::vector<unsigned int> >(forest["facOrig"]);
+  _origin = (unsigned int*) &IntegerVector((SEXP) forest["origin"])[0];
+  _nTree = IntegerVector((SEXP) forest["origin"]).length();
 
-  RawVector forestRaw((SEXP) forest["forestNode"]);
-  _forestNode = (ForestNode *) forestRaw.begin();
-  _nodeEnd = forestRaw.length() / sizeof(ForestNode);
+  _facSplit = (unsigned int*) &RawVector((SEXP) forest["facSplit"])[0];
+  _facLen = RawVector((SEXP) forest["facSplit"]).length() / sizeof(unsigned int);
+  _facOrig = (unsigned int*) &IntegerVector((SEXP) forest["facOrig"])[0];
+  _nFac = IntegerVector((SEXP) forest["facOrig"]).length();
+
+  _forestNode = (ForestNode*) &RawVector((SEXP) forest["forestNode"])[0];
+  _nodeEnd = RawVector((SEXP) forest["forestNode"]).length() / sizeof(ForestNode);
 }

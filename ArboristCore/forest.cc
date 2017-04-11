@@ -40,7 +40,7 @@ ForestTrain::~ForestTrain() {
 /**
    @brief Constructor for prediction.
 */
-Forest::Forest(const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facVec[], size_t _facLen, const std::vector<unsigned int> &_facOrigin, Predict *_predict) : forestNode(_forestNode), treeOrigin(_origin), facSplit(new BVJagged(_facVec, _facLen, _facOrigin)), predict(_predict), predMap(predict->PredMap())  {
+Forest::Forest(const ForestNode _forestNode[], const unsigned int _origin[], unsigned int _nTree, unsigned int _facVec[], size_t _facLen, const unsigned int _facOrigin[], unsigned int _nFac, Predict *_predict) : forestNode(_forestNode), treeOrigin(_origin), nTree(_nTree), facSplit(new BVJagged(_facVec, _facLen, _facOrigin, _nFac)), predict(_predict), predMap(predict->PredMap())  {
 }
 
 
@@ -310,9 +310,9 @@ void ForestNode::SplitUpdate(const PMTrain *pmTrain, const RowRank *rowRank) {
 
    @return void, with output reference vectors.
  */
-void ForestNode::Export(const std::vector<unsigned int> &_nodeOrigin, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split) {
-  for (unsigned int tIdx = 0; tIdx < _nodeOrigin.size(); tIdx++) {
-    unsigned int treeHeight = TreeHeight(_nodeOrigin, nodeEnd, tIdx);
+void ForestNode::Export(const unsigned int _nodeOrigin[], unsigned int _nTree, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split) {
+  for (unsigned int tIdx = 0; tIdx < _nTree; tIdx++) {
+    unsigned int treeHeight = TreeHeight(_nodeOrigin, _nTree, nodeEnd, tIdx);
     _pred[tIdx] = std::vector<unsigned int>(treeHeight);
     _bump[tIdx] = std::vector<unsigned int>(treeHeight);
     _split[tIdx] = std::vector<double>(treeHeight);

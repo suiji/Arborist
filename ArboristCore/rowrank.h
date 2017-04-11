@@ -62,8 +62,8 @@ class RowRank {
   static constexpr double plurality = 0.25;
 
   // Jagged array holding numerical predictor values for splt assignment.
-  const std::vector<unsigned int> &numOffset; // Per-predictor starting offsets.
-  const std::vector<double> &numVal; // Actual predictor values.
+  const unsigned int *numOffset; // Per-predictor starting offsets.
+  const double *numVal; // Actual predictor values.
 
   unsigned int nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
@@ -83,8 +83,8 @@ class RowRank {
   static void RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
   static void Rank2Row(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut);
   
-  unsigned int DenseBlock(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle);
-  void Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle);
+  unsigned int DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
+  void Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
 
   inline double NumVal(unsigned int predIdx, unsigned int rk) const {
     return numVal[numOffset[predIdx] + rk];
@@ -98,7 +98,7 @@ class RowRank {
   static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
 
 
-  RowRank(const class PMTrain *pmTrain, const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &_numOffset, const std::vector<double> &_numVal, const std::vector<unsigned int> &feRunLength);
+  RowRank(const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength);
   ~RowRank();
 
   

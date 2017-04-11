@@ -33,11 +33,14 @@
 using namespace Rcpp;
 
 class RcppLeaf {
+  static void Serialize(const std::vector<class LeafNode> &leafNode, const std::vector<class BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, RawVector &leafRaw, RawVector &blRaw, RawVector &bbRaw);
+
+
  public:
   static SEXP WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, const std::vector<class BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &yTrain);
-  static SEXP WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &weight, const CharacterVector &levels);
-  static void UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, bool bag);
-  static void UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight, CharacterVector &_levels, bool bag);
+  static SEXP WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &weight, unsigned int rowTrain, const CharacterVector &levels);
+  static void UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<unsigned int> &_leafOrigin, class LeafNode *&_leafNode, unsigned int &_leafCount, class BagLeaf *&_bagLeaf, unsigned int &bagLeafTot, unsigned int *&_bagBits, bool bag);
+  static void UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, class LeafNode *&_leafNode, unsigned int &_leafCount, class BagLeaf *&_bagLeaf, unsigned int &bagLeafTot, unsigned int *&_bagBits, double *&_weight, unsigned int &_rowTrain, CharacterVector &_levels, bool bag);
 };
 
 #endif

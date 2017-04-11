@@ -32,25 +32,15 @@
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
 SEXP RcppLeaf::WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &yTrain) {
-  // Serializes the two internally-typed objects, 'LeafNode' and 'BagLeaf'.
-  //
-  unsigned int rawSize = leafNode.size() * sizeof(LeafNode);
-  RawVector leafRaw(rawSize);
-  for (unsigned int i = 0; i < rawSize; i++) {
-    leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
-  }
-
-  unsigned int BRSize = bagLeaf.size() * sizeof(BagLeaf);
-  RawVector BRRaw(BRSize);
-  for (unsigned int i = 0; i < BRSize; i++) {
-    BRRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
-  }
-
+  RawVector leafRaw(leafNode.size() * sizeof(LeafNode));
+  RawVector blRaw(bagLeaf.size() * sizeof(BagLeaf));
+  RawVector bbRaw(bagBits.size() * sizeof(unsigned int));
+  Serialize(leafNode, bagLeaf, bagBits, leafRaw, blRaw, bbRaw);
   List leaf = List::create(
    _["origin"] = leafOrigin,
    _["node"] = leafRaw,
-   _["bagLeaf"] = BRRaw,
-   _["bagBits"] = bagBits,
+   _["bagLeaf"] = blRaw,
+   _["bagBits"] = bbRaw,
    _["yTrain"] = yTrain
   );
   leaf.attr("class") = "LeafReg";
@@ -72,67 +62,61 @@ SEXP RcppLeaf::WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<
 
    @return void, with output reference parameters.
  */
-void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, bool bag) {
+void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<unsigned int> &_leafOrigin, LeafNode *&_leafNode, unsigned int &_leafCount, BagLeaf *&_bagLeaf, unsigned int &_bagLeafTot, unsigned int *&_bagBits, bool bag) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
-  // Deserializes:
-  //
-  RawVector leafRaw = leaf["node"];
-  unsigned int rawSize = leafRaw.length();
-  std::vector<LeafNode> leafNode(rawSize / sizeof(LeafNode));
-  for (unsigned int i = 0; i < rawSize; i++) {
-    ((unsigned char*) &leafNode[0])[i] = leafRaw[i];
-  }
+  _bagBits = bag ? (unsigned int *) &RawVector((SEXP) leaf["bagBits"])[0] : 0;
+  _bagLeaf = bag ? (BagLeaf *) &RawVector((SEXP) leaf["bagLeaf"])[0] : 0;
+  _bagLeafTot = bag ? RawVector((SEXP) leaf["bagLeaf"]).length() / sizeof(BagLeaf) : 0;
+  _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
+  _leafNode = (LeafNode*) &RawVector((SEXP) leaf["node"])[0];
+  _leafCount = RawVector((SEXP) leaf["node"]).length() / sizeof(LeafNode);
 
-  if (bag) {
-    RawVector BRRaw = leaf["bagLeaf"];
-    unsigned int BRSize = BRRaw.length();
-    std::vector<BagLeaf> bagLeaf(BRSize / sizeof(BagLeaf));
-    for (unsigned int i = 0; i < BRSize; i++) {
-      ((unsigned char*) &bagLeaf[0])[i] = BRRaw[i];
-    }
-  _bagLeaf = std::move(bagLeaf);
-  _bagBits = as<std::vector<unsigned int> >(leaf["bagBits"]);
-  }
-  else {
-    _bagBits = std::vector<unsigned int>(0);
-  }
-  
   _yTrain = as<std::vector<double> >(leaf["yTrain"]);
-  _leafOrigin = as<std::vector<unsigned int>>(leaf["origin"]);
-  _leafNode = std::move(leafNode);
 }
 
 
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-SEXP RcppLeaf::WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &weight, const CharacterVector &levels) {
-  unsigned int rawSize = leafNode.size() * sizeof(LeafNode);
-  RawVector leafRaw(rawSize);
-  for (unsigned int i = 0; i < rawSize; i++) {
-    leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
-  }
-
-  size_t BRSize = bagLeaf.size() * sizeof(BagLeaf);
-  RawVector BRRaw(BRSize);
-  for (size_t i = 0; i < BRSize; i++) {
-    BRRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
-  }
-
+SEXP RcppLeaf::WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, const std::vector<double> &weight, unsigned int rowTrain, const CharacterVector &levels) {
+  RawVector leafRaw(leafNode.size() * sizeof(LeafNode));
+  RawVector blRaw(bagLeaf.size() * sizeof(BagLeaf));
+  RawVector bbRaw(bagBits.size() * sizeof(unsigned int));
+  Serialize(leafNode, bagLeaf, bagBits, leafRaw, blRaw, bbRaw);
   List leaf = List::create(
    _["origin"] = leafOrigin,	
    _["node"] = leafRaw,
-   _["bagLeaf"] = BRRaw,
-   _["bagBits"] = bagBits,
+   _["bagLeaf"] = blRaw,
+   _["bagBits"] = bbRaw,
    _["weight"] = weight,
+   _["rowTrain"] = rowTrain,
    _["levels"] = levels
    );
   leaf.attr("class") = "LeafCtg";
 
   return leaf;
+}
+
+
+/** 
+    @brief Serializes the internally-typed objects, 'LeafNode', as well
+    as the unsigned integer (packed bit) vector, "bagBits".
+*/
+void RcppLeaf::Serialize(const std::vector<LeafNode> &leafNode, const std::vector<BagLeaf> &bagLeaf, const std::vector<unsigned int> &bagBits, RawVector &leafRaw, RawVector &blRaw, RawVector &bbRaw) {
+  for (unsigned int i = 0; i < leafRaw.length(); i++) {
+    leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
+  }
+
+  for (unsigned int i = 0; i < blRaw.length(); i++) {
+    blRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
+  }
+
+  for (unsigned int i = 0; i < bbRaw.length(); i++) {
+    bbRaw[i] = ((unsigned char*) &bagBits[0])[i];
+  }
 }
 
 
@@ -149,33 +133,22 @@ SEXP RcppLeaf::WrapCtg(const std::vector<unsigned int> &leafOrigin, const std::v
 
    @return void, with output reference parameters.
  */
-void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight, CharacterVector &_levels, bool bag) {
+void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, LeafNode *&_leafNode, unsigned int &_leafCount, BagLeaf *&_bagLeaf, unsigned int &_bagLeafTot, unsigned int *&_bagBits, double *&_weight, unsigned int &_rowTrain, CharacterVector &_levels, bool bag) {
   List leaf(sLeaf);
   if (!leaf.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");
   }
-  RawVector leafRaw = leaf["node"];
-  unsigned int rawSize = leafRaw.length();
-  std::vector<LeafNode> leafNode(rawSize / sizeof(LeafNode));
-  for (unsigned int i = 0; i < rawSize; i++) {
-    ((unsigned char*) &leafNode[0])[i] = leafRaw[i];
-  }
 
-  if (bag) {
-    RawVector BRRaw = leaf["bagLeaf"];
-    size_t BRSize = BRRaw.length();
-    std::vector<BagLeaf> bagLeaf(BRSize / sizeof(BagLeaf));
-    for (size_t i = 0; i < BRSize; i++) {
-      ((unsigned char*) &bagLeaf[0])[i] = BRRaw[i];
-    }
-    _bagLeaf = move(bagLeaf);
-    _bagBits = as<std::vector<unsigned int> >(leaf["bagBits"]);
-  }
-  else {
-    _bagBits = std::vector<unsigned int>(0);
-  }
+  _bagBits = bag ? (unsigned int *) &RawVector((SEXP) leaf["bagBits"])[0] : 0;
+  _bagLeaf = bag ? (BagLeaf *) &RawVector((SEXP) leaf["bagLeaf"])[0] : 0;
+  _bagLeafTot = bag ? RawVector((SEXP) leaf["bagLeaf"]).length() / sizeof(BagLeaf) : 0;
+
   _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
-  _leafNode = move(leafNode);
-  _weight = as<std::vector<double> >(leaf["weight"]);
+
+  _leafNode = (LeafNode*) &RawVector((SEXP) leaf["node"])[0];
+  _leafCount = RawVector((SEXP) leaf["node"]).length() / sizeof(LeafNode);
+
+  _weight = &NumericVector((SEXP) leaf["weight"])[0];
+  _rowTrain = as<unsigned int>((SEXP) leaf["rowTrain"]);
   _levels = as<CharacterVector>((SEXP) leaf["levels"]);
 }

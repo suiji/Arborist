@@ -23,14 +23,13 @@
    @author Mark Seligman
 */
 
-#include <Rcpp.h>
+
+#include "rcppRowrank.h"
 #include "rowrank.h"
 
 // Testing only:
-#include <iostream>
-using namespace std;
-
-using namespace Rcpp;
+//#include <iostream>
+//using namespace std;
 
 
 /**
@@ -48,11 +47,8 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
-  unsigned int nPred = nPredNum + nPredFac;
   std::vector<unsigned int> rank;
   std::vector<unsigned int> row;
-  rank.reserve(nRow * nPred);
-  row.reserve(nRow * nPred);
   std::vector<unsigned int> runLength;
 
   std::vector<unsigned int> numOffset(nPredNum);
@@ -77,7 +73,7 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
     IntegerMatrix blockFac = predBlock["blockFac"];
     RowRank::PreSortFac((unsigned int*) blockFac.begin(), nPredFac, nRow, row, rank, runLength);
   }
-  
+
   List rowRank = List::create(
       _["row"] = row,			      
       _["rank"] = rank,
@@ -88,4 +84,28 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   rowRank.attr("class") = "RowRank";
 
   return rowRank;
+}
+
+
+void RcppRowrank::Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &rleLength) {
+  List rowRank(sRowRank);
+  if (!rowRank.inherits("RowRank"))
+    stop("Expecting RowRank");
+
+  IntegerVector t1((SEXP) rowRank["numOff"]);
+  feNumOff = (unsigned int*) &t1[0];
+
+  NumericVector t2((SEXP) rowRank["numVal"]);
+  feNumVal = &t2[0];
+
+  IntegerVector t3((SEXP) rowRank["row"]);
+  feRow = (unsigned int *) &t3[0];
+
+  IntegerVector t4((SEXP) rowRank["rank"]);
+  feRank = (unsigned int*) &t4[0];
+
+  IntegerVector t5((SEXP) rowRank["runLength"]);
+  feRLE = (unsigned int*) &t5[0];
+
+  rleLength = IntegerVector((SEXP) rowRank["runLength"]).length();
 }

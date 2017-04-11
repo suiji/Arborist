@@ -62,7 +62,7 @@ class LeafNode {
   double score;
   unsigned int extent; // count of sample-index slots.
 
-  static void TreeExport(const std::vector<LeafNode> &_leafNode, unsigned int treeOff, unsigned int leafCount, std::vector<double> &_score, std::vector<unsigned int> &_extent);
+  static void TreeExport(const LeafNode _leafNode[], unsigned int _leafCount, unsigned int treeOff, std::vector<double> &_score, std::vector<unsigned int> &_extent);
 
 
   /**
@@ -77,7 +77,7 @@ class LeafNode {
 
   
  public:
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, std::vector<std::vector<double> > &_score, std::vector<std::vector<unsigned int> > &_extent);
+  static void Export(const std::vector<unsigned int> &_origin, const LeafNode _leafNode[], unsigned int _leafCount, std::vector<std::vector<double> > &_score, std::vector<std::vector<unsigned int> > &_extent);
 
   /**
      @brief Static determination of individual tree height.
@@ -131,53 +131,35 @@ class Leaf {
   std::vector<BagLeaf> &bagLeaf; // bagged row/count:  per sample.
   class BitMatrix *bagRow;
 
-  static void TreeExport(const class BitMatrix *bag, const std::vector<BagLeaf> &_bagLeaf, unsigned int bagOrig, unsigned int bagCount, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree);
+  static void TreeExport(const class BitMatrix *bag, const BagLeaf _bagLeaf[], unsigned int bagOrig, unsigned int bagCount, std::vector<unsigned int> &rowTree, std::vector<unsigned int> &sCountTree);
 
  protected:
-  std::vector<unsigned int> offset; // Forest-wide leaf offsets.
-  static unsigned int BagCount(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, unsigned int tIdx);
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree);
+  static unsigned int BagCount(const std::vector<unsigned int> &_origin, const LeafNode _leafNode[], unsigned int tIdx, unsigned int _leafCount);
+  static void Export(const std::vector<unsigned int> &_origin, const LeafNode _leafNode[], unsigned int _leafCount, const BagLeaf _bagLeaf[], unsigned int _bagBits[], unsigned int _trainRow, std::vector< std::vector<unsigned int> > &rowTree, std::vector< std::vector<unsigned int> >&sCountTree);
   void NodeExtent(const class Sample *sample, std::vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx);
-  void ForestOffsets();
 
  public:
   static void Immutables(bool _thinLeaves);
   static void DeImmutables();
 
-  Leaf(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
   Leaf(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, unsigned int rowTrain);
   virtual ~Leaf();
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst);
   virtual void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
 
-  
   void BagTree(const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
-  void BagBounds(unsigned int tIdx, unsigned int leafIdx, unsigned int &start, unsigned int &end) const;
-  
-  inline class BitMatrix *BagRow() const {
-    return bagRow;
-  }
 
   
   inline unsigned Origin(unsigned int tIdx) {
     return origin[tIdx];
   }
 
+  
   inline unsigned int NTree() const {
     return nTree;
   }
   
 
-  /**
-     @brief computes total number of leaves in forest.
-
-     @return size of leafNode vector.
-   */
-  inline unsigned int NodeCount() const {
-    return leafNode.size();
-  }
-
-  
   inline double &Score(unsigned int idx) {
     return leafNode[idx].Score();
   }
@@ -192,10 +174,6 @@ class Leaf {
     return Score(NodeIdx(tIdx, leafIdx));
   }
 
-  inline double GetScore(int tIdx, unsigned int leafIdx) const {
-    return leafNode[NodeIdx(tIdx, leafIdx)].GetScore();
-  }
-
 
   /**
     @brief Sets score.
@@ -205,53 +183,6 @@ class Leaf {
   }
 
 
-  inline unsigned int Extent(unsigned int nodeIdx) const {
-    return leafNode[nodeIdx].Extent();
-  }
-
-  
-  inline unsigned int Extent(unsigned int tIdx, int leafIdx) const {
-    return Extent(NodeIdx(tIdx, leafIdx));
-  }
-
-
-  inline unsigned int SCount(unsigned int sIdx) const {
-    return bagLeaf[sIdx].SCount();
-  }
-
-
-  
-  /**
-     @param tIdx is the tree index.
-
-     @param bagIdx is the absolute index of a bagged row.
-
-     @return absolute index of leaf containing the bagged row.
-   */
-  inline unsigned int LeafIdx(unsigned int tIdx, unsigned int bagIdx) const {
-    return origin[tIdx] + bagLeaf[bagIdx].LeafIdx();
-  }
-  
-  
-  /**
-     @brief Determines inattainable leaf index value from leafNode
-     vector.  N.B.:  nonsensical if called before training complete.
-
-     @return inattainable leaf index valu.
-   */
-  inline unsigned int NoLeaf() const {
-    return leafNode.size();
-  }
-
-
-  /**
-     @brief Computes sum of all bag sizes.
-
-     @return size of information vector, which represents all bagged samples.
-   */
-  inline unsigned int BagTot() const {
-    return bagLeaf.size();
-  }
 };
 
 
@@ -290,15 +221,13 @@ class LeafReg : public Leaf {
 
 
  public:
-  LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
   LeafReg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, unsigned int rowTrain);
   ~LeafReg();
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<std::vector<unsigned int> >&rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree);
+  static void Export(const std::vector<unsigned int> &_origin, const LeafNode _leafNode[], unsigned int _leafCount, const BagLeaf _bagLeaf[], unsigned int _bagBits[], unsigned int _trainRow, std::vector<std::vector<unsigned int> >&rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> >&extentTree);
   
   void Reserve(unsigned int leafEst, unsigned int bagEst);
   void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
 
-  RankCount *RankCounts(const std::vector<unsigned int> &row2Rank) const;
 };
 
 
@@ -306,16 +235,14 @@ class LeafCtg : public Leaf {
   std::vector<double> &weight; // # leaves x # categories
   const unsigned int ctgWidth;
 
-  static void TreeExport(const std::vector<double> &leafWeight, unsigned int _ctgWidth, unsigned int treeOffset, unsigned int leafCount, std::vector<double> &_weight);
-  static unsigned int LeafCount(std::vector<unsigned int> _origin, unsigned int weightLen, unsigned int _ctgWidth, unsigned int tIdx);
+  static void TreeExport(const double leafWeight[], unsigned int _ctgWidth, unsigned int treeOffset, unsigned int leafCount, std::vector<double> &_weight);
 
   void Scores(const class PMTrain *pmTrain, const class SampleCtg *sample, const std::vector<unsigned int> &leafMap, unsigned int leafCount, unsigned int tIdx);
  public:
   LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, unsigned int rowTrain, std::vector<double> &_weight, unsigned int _ctgWdith);
-  LeafCtg(std::vector<unsigned int> &_origin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight);
   ~LeafCtg();
 
-  static void Export(const std::vector<unsigned int> &_origin, const std::vector<LeafNode> &_leafNode, const std::vector<BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, const std::vector<double> &_weight, unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &_weightTree);
+  static void Export(const std::vector<unsigned int> &_origin, const LeafNode _leafNode[], unsigned int _leafCount, const BagLeaf _bagLeaf[], unsigned int _bagBits[], unsigned int _trainRow, const double _weight[], unsigned int _ctgWidth, std::vector<std::vector<unsigned int> > &rowTree, std::vector<std::vector<unsigned int> > &sCountTree, std::vector<std::vector<double> > &scoreTree, std::vector<std::vector<unsigned int> > &extentTree, std::vector<std::vector<double> > &_weightTree);
 
   void Reserve(unsigned int leafEst, unsigned int bagEst);
 
@@ -333,11 +260,6 @@ class LeafCtg : public Leaf {
     return weight[ctgWidth * NodeIdx(tIdx, leafIdx) + ctg];
   }
   
-
-  inline double WeightCtg(int tIdx, unsigned int leafIdx, unsigned int ctg) const {
-    return weight[ctgWidth * NodeIdx(tIdx, leafIdx) + ctg];
-  }
-
 
   inline unsigned int CtgWidth() const {
     return ctgWidth;
@@ -363,8 +285,143 @@ class LeafCtg : public Leaf {
 
   void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx);
 
-  void ForestWeight(double *defaultWeight) const;
 };
 
+
+/**
+   @brief Represents leaves for fully-trained forest.
+ */
+class LeafPerf {
+  const unsigned int *origin;
+  const class LeafNode *leafNode;
+  const class BagLeaf *bagLeaf; 
+
+ protected:
+  const class BitMatrix *baggedRows;
+  const unsigned int nTree;
+  const unsigned int leafCount;
+  const unsigned int bagLeafTot;
+  
+ public:
+  LeafPerf(const unsigned int *_origin, unsigned int _nTree, const class LeafNode *_leafNode, unsigned int _leafCount, const class BagLeaf*_bagLeaf, unsigned int _bagTot, unsigned int _bagBits[], unsigned int _trainRow);
+  virtual ~LeafPerf();
+
+
+  inline const class BitMatrix *Bag() const {
+    return baggedRows;
+  }
+
+
+  inline unsigned int NTree() const {
+    return nTree;
+  }
+
+  
+  inline unsigned int NodeIdx(unsigned int tIdx, unsigned int leafIdx) const {
+    return origin[tIdx] + leafIdx;
+  }
+
+
+  /**
+     @param tIdx is the tree index.
+
+     @param bagIdx is the absolute index of a bagged row.
+
+     @return absolute index of leaf containing the bagged row.
+   */
+  inline unsigned int LeafIdx(unsigned int tIdx, unsigned int bagIdx) const {
+    return origin[tIdx] + bagLeaf[bagIdx].LeafIdx();
+  }
+  
+  
+  inline unsigned int SCount(unsigned int sIdx) const {
+    return bagLeaf[sIdx].SCount();
+  }
+
+
+  inline unsigned int Extent(unsigned int nodeIdx) const {
+    return leafNode[nodeIdx].Extent();
+  }
+
+
+  inline double GetScore(int tIdx, unsigned int leafIdx) const {
+    return leafNode[NodeIdx(tIdx, leafIdx)].GetScore();
+  }
+
+
+  /**
+     @brief computes total number of leaves in forest.
+
+     @return size of leafNode vector.
+   */
+  inline unsigned int LeafCount() const {
+    return leafCount;
+  }
+
+  
+  /**
+     @brief Computes sum of all bag sizes.
+
+     @return size of information vector, which represents all bagged samples.
+   */
+  inline unsigned int BagLeafTot() const {
+    return bagLeafTot;
+  }
+
+
+  /**
+     @brief Determines inattainable leaf index value from leafNode
+     vector.  N.B.:  nonsensical if called before training complete.
+
+     @return inattainable leaf index valu.
+   */
+  inline unsigned int NoLeaf() const {
+    return leafCount;
+  }
+};
+
+
+class LeafPerfReg : public LeafPerf {
+  std::vector<unsigned int> offset; // Accumulated extents.
+  void Offsets();
+
+  
+ public:
+  LeafPerfReg(const unsigned int _origin[], unsigned int _nTree, const class LeafNode _leafNode[], unsigned int _leafCount, const class BagLeaf _bagLeaf[], unsigned int _bagLeafTot, unsigned int _bagBits[], unsigned int _trainRow);
+  ~LeafPerfReg() {}
+  void RankCounts(const std::vector<unsigned int> &row2Rank, std::vector<RankCount> &rankCount) const;
+
+
+  /**
+   @brief Computes bag index bounds in forest setting.  Only client is Quant.
+  */
+  void BagBounds(unsigned int tIdx, unsigned int leafIdx, unsigned int &start, unsigned int &end) const {
+    unsigned int forestIdx = NodeIdx(tIdx, leafIdx);
+    start = offset[forestIdx];
+    end = start + Extent(forestIdx);
+  }
+};
+
+
+class LeafPerfCtg : public LeafPerf {
+  const double *weight;
+  const unsigned int ctgWidth;
+ public:
+
+  
+  LeafPerfCtg(const unsigned int _origin[], unsigned int _nTree, const class LeafNode _leafNode[], unsigned int _leafCount, const class BagLeaf _bagLeaf[], unsigned int _bagLeafTot, unsigned int _bagBits[], unsigned int _trainRow, const double _weight[], unsigned int _ctgWidth);
+  ~LeafPerfCtg(){}
+  void DefaultWeight(std::vector<double> &defaultWeight) const;
+
+
+  inline unsigned int CtgWidth() const {
+    return ctgWidth;
+  }
+  
+
+  inline double WeightCtg(int tIdx, unsigned int leafIdx, unsigned int ctg) const {
+    return weight[ctgWidth * NodeIdx(tIdx, leafIdx) + ctg];
+  }
+};
 
 #endif

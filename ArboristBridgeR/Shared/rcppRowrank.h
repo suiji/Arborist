@@ -16,25 +16,25 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file rcppForest.h
+   @file rcppRowrank.h
 
-   @brief C++ class definitions for managing Forest object.
+   @brief C++ class definitions for managing RowRank object.
 
    @author Mark Seligman
 
  */
 
 
-#ifndef ARBORIST_RCPP_FOREST_H
-#define ARBORIST_RCPP_FOREST_H
+#ifndef ARBORIST_RCPP_ROWRANK_H
+#define ARBORIST_RCPP_ROWRANK_H
 
+#include <Rcpp.h>
 using namespace Rcpp;
 
-class RcppForest {
+class RcppRowrank {
  public:
-  static SEXP Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<class ForestNode> &test);
-
-  static void Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTree, unsigned int *&_facSplit, size_t &facLen, unsigned int *&_facOrigin, unsigned int &_nFac, class ForestNode *&_forestNode, unsigned int &_nodeEnd);
+  static void Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &feRLELength); 
 };
+
 
 #endif

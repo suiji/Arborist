@@ -27,12 +27,12 @@ typedef std::pair<double, unsigned int> RankedPair;
 */
 class Quant {
   const class PredictReg *predictReg;
-  const class LeafReg *leafReg;
+  const class LeafPerfReg *leafReg;
   const std::vector<double> &yTrain;
   std::vector<RankedPair> yRanked;
-  class RankCount *rankCount; // forest-wide, by sample
   const std::vector<double> &qVec;
   const unsigned int qCount;
+  std::vector<class RankCount> rankCount; // forest-wide, by sample.
   unsigned int logSmudge;
   unsigned int binSize;
   std::vector<unsigned int> binTemp; // Helper vector.
@@ -48,8 +48,7 @@ class Quant {
 
   
  public:
-  Quant(const class PredictReg *_predictReg, const class LeafReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin);
-  ~Quant();
+  Quant(const class PredictReg *_predictReg, const class LeafPerfReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin);
   void PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]);
 };
 

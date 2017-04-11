@@ -42,9 +42,9 @@ class ForestNode {
 
      @return Height of tree.
    */
-  static inline unsigned int TreeHeight(const std::vector<unsigned int> &_nodeOrigin, unsigned int height, unsigned int tIdx) {
+  static inline unsigned int TreeHeight(const unsigned int _nodeOrigin[], unsigned int _nTree, unsigned int height, unsigned int tIdx) {
     unsigned int heightInf = _nodeOrigin[tIdx];
-    return tIdx < _nodeOrigin.size() - 1 ? _nodeOrigin[tIdx + 1] - heightInf : height - heightInf;
+    return tIdx < _nTree - 1 ? _nodeOrigin[tIdx + 1] - heightInf : height - heightInf;
   }
 
   
@@ -60,7 +60,7 @@ class ForestNode {
   
   
   void SplitUpdate(const class PMTrain *pmTrain, const class RowRank *rowRank);
-  static void Export(const std::vector<unsigned int> &_nodeOrigin, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
+  static void Export(const unsigned int _nodeOrigin[], unsigned int _nTree, const ForestNode *_forestNode, unsigned int nodeEnd, std::vector<std::vector<unsigned int> > &_pred, std::vector<std::vector<unsigned int> > &_bump, std::vector<std::vector<double> > &_split);
 
   inline void Init() {
     pred = bump = 0;
@@ -114,7 +114,8 @@ class ForestNode {
 */
 class Forest {
   const ForestNode *forestNode;
-  const std::vector<unsigned int> &treeOrigin;
+  const unsigned int *treeOrigin;
+  const unsigned int nTree;
   class BVJagged *facSplit; // Consolidation of per-tree values.
 
   class Predict *predict;
@@ -126,7 +127,7 @@ class Forest {
 
 
   inline unsigned int NTree() const {
-    return treeOrigin.size();
+    return nTree;
   }
 
 
@@ -141,7 +142,7 @@ class Forest {
   void PredictRowFac(unsigned int row, const unsigned int rowT[], unsigned int rowBlock, const class BitMatrix *bag) const;
   void PredictRowMixed(unsigned int row, const double rowNT[], const unsigned int rowIT[], unsigned int rowBlock, const class BitMatrix *bag) const;
 
-  Forest(const ForestNode _forestNode[], const std::vector<unsigned int> &_origin, unsigned int _facVec[], size_t _facLen, const std::vector<unsigned int> &_facOrigin, class Predict *_predict);
+  Forest(const ForestNode _forestNode[], const unsigned int _origin[], unsigned int _nTree, unsigned int _facVec[], size_t _facLen, const unsigned int _facOrigin[], unsigned int _nFac, class Predict *_predict);
   ~Forest();
 };
 

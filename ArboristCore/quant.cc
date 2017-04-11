@@ -27,7 +27,9 @@ using namespace std;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yTrain(predictReg->YTrain()), yRanked(std::vector<RankedPair>(yTrain.size())), qVec(_qVec), qCount(qVec.size()), logSmudge(0) {
+Quant::Quant(const PredictReg *_predictReg, const LeafPerfReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yTrain(predictReg->YTrain()), yRanked(std::vector<RankedPair>(yTrain.size())), qVec(_qVec), qCount(qVec.size()), rankCount(std::vector<RankCount>(leafReg->BagLeafTot())), logSmudge(0) {
+  if (rankCount.size() == 0) // Insufficient leaf information.
+    return;
   unsigned int rowTrain = yRanked.size();
   for (unsigned int row = 0; row < rowTrain; row++) {
     yRanked[row] = std::make_pair(yTrain[row], row);
@@ -37,20 +39,12 @@ Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const std::
   for (unsigned int rank = 0; rank < rowTrain; rank++) {
     row2Rank[yRanked[rank].second] = rank;
   }
-
-  rankCount = leafReg->RankCounts(row2Rank);
+  leafReg->RankCounts(row2Rank, rankCount);
 
   binSize = BinSize(rowTrain, qBin, logSmudge);
   if (binSize < rowTrain) {
     SmudgeLeaves();
   }
-}
-
-
-/**
- */
-Quant::~Quant() {
-  delete rankCount;
 }
 
 
@@ -66,6 +60,9 @@ Quant::~Quant() {
    @return void, with output parameter matrix.
  */
 void Quant::PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
+  if (rankCount.size() == 0)
+    return; // Insufficient leaf information.
+ 
   int row;
 #pragma omp parallel default(shared) private(row)
   {
@@ -102,12 +99,12 @@ unsigned int Quant::BinSize(unsigned int rowTrain, unsigned int qBin, unsigned i
    @return void.
  */
 void Quant::SmudgeLeaves() {
-  sCountSmudge = std::move(std::vector<unsigned int>(leafReg->BagTot()));
+  sCountSmudge = std::move(std::vector<unsigned int>(leafReg->BagLeafTot()));
   for (unsigned int i = 0; i < sCountSmudge.size(); i++)
     sCountSmudge[i] = rankCount[i].sCount;
 
   binTemp = std::move(std::vector<unsigned int>(binSize));
-  for (unsigned int leafIdx = 0; leafIdx < leafReg->NodeCount(); leafIdx++) {
+  for (unsigned int leafIdx = 0; leafIdx < leafReg->LeafCount(); leafIdx++) {
     unsigned int leafStart, leafEnd;
     leafReg->BagBounds(0, leafIdx, leafStart, leafEnd);
     if (leafEnd - leafStart > binSize) {

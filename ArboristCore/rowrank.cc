@@ -39,19 +39,19 @@
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
+void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
     numOffOut[numIdx] = numOut.size();
-    NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rlOut, numOut);
+    NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rleOut, numOut);
   }
 }
 
 
-void RowRank::PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
+void RowRank::PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
   unsigned int colOff = 0;
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
     numOffOut[numIdx] = numOut.size();
-    unsigned int idxCol = NumSortRLE(&valNum[colOff], _nRow, &rowStart[colOff], &runLength[colOff], rowOut, rankOut, rlOut, numOut);
+    unsigned int idxCol = NumSortRLE(&valNum[colOff], _nRow, &rowStart[colOff], &runLength[colOff], rowOut, rankOut, rleOut, numOut);
     colOff += idxCol;
   }
 }
@@ -243,23 +243,17 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
    @param feRank is the vector of ranks allocated by the front end.
 
  */
-RowRank::RowRank(const PMTrain *pmTrain, const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &_numOffset, const std::vector<double> &_numVal, const std::vector<unsigned int> &feRunLength) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0) {
+RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), rrCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)) {
   // Default initialization to uncompressed values.
-  rrCount.reserve(nPred);
-  rrStart.reserve(nPred);
-  safeOffset.reserve(nPred);
-  denseRank.reserve(nPred);
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    denseRank.push_back(noRank);
-    rrCount.push_back(0);
-    rrStart.push_back(0);
-    safeOffset.push_back(0);
-  }
+  std::fill(denseRank.begin(), denseRank.end(), noRank);
+  std::fill(rrCount.begin(), rrCount.end(), 0);
+  std::fill(rrStart.begin(), rrStart.end(), 0);
+  std::fill(safeOffset.begin(), safeOffset.end(), 0);
 
-  unsigned int blockTot = DenseBlock(feRank, feRunLength);
+  unsigned int blockTot = DenseBlock(feRank, feRLE, rleLength);
   rrNode = new RRNode[blockTot];
 
-  Decompress(feRow, feRank, feRunLength);
+  Decompress(feRow, feRank, feRLE, rleLength);
 }
 
 
@@ -272,16 +266,15 @@ RowRank::RowRank(const PMTrain *pmTrain, const std::vector<unsigned int> &feRow,
 
    @return total number of rows to be decompressed.
  */
-unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle) {
+unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength) {
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int denseMax = 0; // Running maximum of run counts.
     unsigned int argMax = noRank;
     unsigned int runCount = 0; // Runs across adjacent rle entries.
     unsigned int rankPrev = noRank;
-    
-    for (unsigned int rowTot = rle[rleIdx]; rowTot <= nRow; rowTot += rle[rleIdx]) {
-      unsigned int runLength = rle[rleIdx];
+    for (unsigned int rowTot = feRLE[rleIdx]; rowTot <= nRow; rowTot += feRLE[rleIdx]) {
+      unsigned int runLength = feRLE[rleIdx];
       unsigned int rankThis = feRank[rleIdx];
       if (rankThis == rankPrev) {
 	runCount += runLength;
@@ -294,8 +287,7 @@ unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const 
 	denseMax = runCount;
 	argMax = rankThis;
       }
-      rleIdx++;
-      if (rleIdx == rle.size())
+      if (++rleIdx == feRLELength)
 	break;
     }
     // Post condition:  rowTot == nRow.
@@ -330,7 +322,7 @@ unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const 
     }
     blockTot += rrCount[predIdx];
   }
-  
+
   return blockTot;
 }
 
@@ -344,12 +336,12 @@ unsigned int RowRank::DenseBlock(const std::vector<unsigned int> &feRank, const 
 
    @return void.
  */
-void RowRank::Decompress(const std::vector<unsigned int> &feRow, const std::vector<unsigned int> &feRank, const std::vector<unsigned int> &rle) {
+void RowRank::Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int outIdx = rrStart[predIdx];
-    for (unsigned int rowTot = rle[rleIdx]; rowTot <= nRow; rowTot += rle[rleIdx]) {
-      unsigned int runLength = rle[rleIdx];
+    for (unsigned int rowTot = feRLE[rleIdx]; rowTot <= nRow; rowTot += feRLE[rleIdx]) {
+      unsigned int runLength = feRLE[rleIdx];
       unsigned int rank = feRank[rleIdx];
       if (rank != denseRank[predIdx]) { // Omits dense ranks.
 	for (unsigned int i = 0; i < runLength; i++) { // Expands runs.
@@ -358,8 +350,7 @@ void RowRank::Decompress(const std::vector<unsigned int> &feRow, const std::vect
 	  rrNode[outIdx++] = rr;
 	}
       }
-      rleIdx++;
-      if (rleIdx == rle.size())
+      if (++rleIdx == rleLength)
 	break;
     }
     //    if (outIdx - rrStart[predIdx] != rrCount[predIdx])
