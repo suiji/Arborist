@@ -32,8 +32,13 @@
 using namespace Rcpp;
 
 class RcppRowrank {
+  static IntegerVector iv1, iv2, iv3, iv4;
+  static NumericVector nv1;
+
+
  public:
-  static void Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &feRLELength); 
+  static void Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &feRLELength);
+  static void Clear();
 };
 
 

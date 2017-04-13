@@ -120,6 +120,8 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 		     );
     prediction.attr("class") = "ValidReg";
   }
+  RcppLeaf::Clear();
+  RcppForest::Clear();
 
   return prediction;
 }
@@ -272,6 +274,8 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
    prediction.attr("class") = "PredictCtg";
   }
 
+  RcppLeaf::Clear();
+  RcppForest::Clear();
   return prediction;
 }
 
@@ -398,6 +402,8 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
     prediction.attr("class") = "PredictReg";
   }
 
+  RcppLeaf::Clear();
+  RcppForest::Clear();
   return prediction;
 }
 

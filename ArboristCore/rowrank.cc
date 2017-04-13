@@ -47,7 +47,7 @@ void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned
 }
 
 
-void RowRank::PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
+void RowRank::PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
   unsigned int colOff = 0;
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
     numOffOut[numIdx] = numOut.size();
@@ -244,95 +244,123 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
 
  */
 RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), rrCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)) {
-  // Default initialization to uncompressed values.
-  std::fill(denseRank.begin(), denseRank.end(), noRank);
-  std::fill(rrCount.begin(), rrCount.end(), 0);
-  std::fill(rrStart.begin(), rrStart.end(), 0);
-  std::fill(safeOffset.begin(), safeOffset.end(), 0);
-
-  unsigned int blockTot = DenseBlock(feRank, feRLE, rleLength);
-  rrNode = new RRNode[blockTot];
+  DenseBlock(feRank, feRLE, rleLength);
+  unsigned int rrSlots = ModeOffsets();
+  rrNode = new RRNode[rrSlots];
 
   Decompress(feRow, feRank, feRLE, rleLength);
 }
 
 
 /**
-   @brief Counts the number of rows to be decompressed and sets dense ranks.
+   @brief Walks the design matrix as RLE entries, merging adjacent
+   entries with identical ranks.
 
-   @param rle records the run lengths of the remaining entries.
+   @brief feRank are the ranks corresponding to runlength-encoding (RLE)
+   entries.
 
-   @param nonCmprTot is the total number of noncompressed rows.
+   @param feRLE are the run lengths corresponding to RLE entries.
 
-   @return total number of rows to be decompressed.
+   @param rleLength is the count of RLE entries.
+
+   @return void.
  */
-unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength) {
+void RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int denseMax = 0; // Running maximum of run counts.
     unsigned int argMax = noRank;
     unsigned int runCount = 0; // Runs across adjacent rle entries.
     unsigned int rankPrev = noRank;
-    for (unsigned int rowTot = feRLE[rleIdx]; rowTot <= nRow; rowTot += feRLE[rleIdx]) {
-      unsigned int runLength = feRLE[rleIdx];
-      unsigned int rankThis = feRank[rleIdx];
-      if (rankThis == rankPrev) {
+    unsigned int rank;
+    unsigned int runLength = RunSlot(feRLE, feRank, rleIdx, rank);
+
+    for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
+      if (rank == rankPrev) {
 	runCount += runLength;
       }
       else {
 	runCount = runLength;
-	rankPrev = rankThis;
+	rankPrev = rank;
       }
       if (runCount > denseMax) {
 	denseMax = runCount;
-	argMax = rankThis;
+	argMax = rank;
       }
-      if (++rleIdx == feRLELength)
+      if (++rleIdx == rleLength)
 	break;
+      runLength = RunSlot(feRLE, feRank, rleIdx, rank);
     }
     // Post condition:  rowTot == nRow.
 
-    unsigned int rowCount;
-    if (denseMax > plurality * nRow) {
-      denseRank[predIdx] = argMax;
-      safeOffset[predIdx] = accumCompact; // Accumulated offset:  dense.
-      rowCount = nRow - denseMax;
-      accumCompact += rowCount;
-    }
-    else {
-      denseRank[predIdx] = noRank;
-      safeOffset[predIdx] = nonCompact++; // Index:  non-dense storage.
-      rowCount = nRow;
-    }
-    rrCount[predIdx] = rowCount;
+    DenseMode(predIdx, denseMax, argMax);
   }
-
-  // Assigns rrNode[] offsets ut noncompressed predictors stored first,
-  // as with staging offsets.
-  //
-  unsigned int blockTot = 0;
-  unsigned int denseBase = nonCompact * nRow;
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    unsigned int offSafe = safeOffset[predIdx];
-    if (denseRank[predIdx] != noRank) {
-      rrStart[predIdx] = denseBase + offSafe;
-    }
-    else {
-      rrStart[predIdx] = offSafe * nRow;
-    }
-    blockTot += rrCount[predIdx];
-  }
-
-  return blockTot;
 }
 
 
 /**
-   @brief Decompresses a block of predictors having compressed encoding.
+   @brief Determines whether predictor to be stored densely and updates
+   storage accumulators accordingly.
 
-   @param rle records the run lengths of the remaining entries.
+   @param predIdx is the predictor under consideration.
 
-   @param predStart is the first predictor in the block.
+   @param denseMax is the highest run length encountered for the predictor:
+   must lie within [1, nRow].
+
+   @param argMax is an argmax rank value corresponding to denseMax.
+
+   @return void.
+ */
+void RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
+  unsigned int rowCount;
+  if (denseMax > plurality * nRow) { // Sufficiently long run found.
+    denseRank[predIdx] = argMax;
+    safeOffset[predIdx] = accumCompact; // Accumulated offset:  dense.
+    rowCount = nRow - denseMax;
+    accumCompact += rowCount;
+  }
+  else {
+    denseRank[predIdx] = noRank;
+    safeOffset[predIdx] = nonCompact++; // Index:  non-dense storage.
+    rowCount = nRow;
+  }
+  rrCount[predIdx] = rowCount;
+}
+
+
+/**
+   @brief Assigns predictor offsets according to storage mode:
+   noncompressed predictors stored first, as with staging offsets.
+
+   @return total number of non-compressed slots.
+ */
+unsigned int RowRank::ModeOffsets() {
+  unsigned int rrSlots = 0;
+  unsigned int denseBase = nonCompact * nRow;
+  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+    unsigned int offSafe = safeOffset[predIdx];
+    rrStart[predIdx] = denseRank[predIdx] != noRank ? denseBase + offSafe :
+      offSafe * nRow;
+    rrSlots += rrCount[predIdx];
+  }
+
+  return rrSlots;
+}
+
+
+/**
+   @brief Decompresses a block of predictors deemed not to be storable
+   densely.
+
+   @param feRow[] are the rows corresponding to distinct runlength-
+   encoded (RLE) entries.
+
+   @param feRank[] are the ranks corresponing to RLE entries.
+
+   @param feRLE records the run lengths spanning the original design
+   matrix.
+
+   @param rleLength is the total count of RLE entries.
 
    @return void.
  */
@@ -340,18 +368,17 @@ void RowRank::Decompress(const unsigned int feRow[], const unsigned int feRank[]
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int outIdx = rrStart[predIdx];
-    for (unsigned int rowTot = feRLE[rleIdx]; rowTot <= nRow; rowTot += feRLE[rleIdx]) {
-      unsigned int runLength = feRLE[rleIdx];
-      unsigned int rank = feRank[rleIdx];
-      if (rank != denseRank[predIdx]) { // Omits dense ranks.
-	for (unsigned int i = 0; i < runLength; i++) { // Expands runs.
-	  RRNode rr;
-	  rr.Init(feRow[rleIdx] + i, rank);
-	  rrNode[outIdx++] = rr;
+    unsigned int row, rank;
+    unsigned int runLength = RunSlot(feRLE, feRow, feRank, rleIdx, row, rank);
+    for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
+      if (rank != denseRank[predIdx]) { // Non-dense runs expanded.
+	for (unsigned int i = 0; i < runLength; i++) {
+	  rrNode[outIdx++].Init(row + i, rank);
 	}
       }
       if (++rleIdx == rleLength)
 	break;
+      runLength = RunSlot(feRLE, feRow, feRank, rleIdx, row, rank);
     }
     //    if (outIdx - rrStart[predIdx] != rrCount[predIdx])
     //cout << "Dense count mismatch" << endl;

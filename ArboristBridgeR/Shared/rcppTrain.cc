@@ -32,8 +32,8 @@ using namespace Rcpp;
 #include "forest.h"
 #include "leaf.h"
 
-//#include <iostream>
-using namespace std;
+////#include <iostream>
+//using namespace std;
 
 
 /**
@@ -131,6 +131,8 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 
   Train::Classification(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagLeaf, bagBits, weight);
 
+  RcppRowrank::Clear();
+  
   NumericVector infoOut(predInfo.begin(), predInfo.end());
   return List::create(
       _["forest"] = RcppForest::Wrap(origin, facOrig, facSplit, forestNode),
@@ -182,6 +184,8 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
 
   const std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
   Train::Regression(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagLeaf, bagBits);
+
+  RcppRowrank::Clear();
 
   // Temporary copy for subscripted access by IntegerVector.
   NumericVector infoOut(predInfo.begin(), predInfo.end()); 

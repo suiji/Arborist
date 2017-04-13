@@ -31,10 +31,16 @@
 using namespace Rcpp;
 
 class RcppForest {
+  static RawVector rv1, rv2;
+  static IntegerVector iv1, iv2;
+
+
  public:
   static SEXP Wrap(const std::vector<unsigned int> &origin, const std::vector<unsigned int> &facOrigin, const std::vector<unsigned int> &facSplit, const std::vector<class ForestNode> &test);
 
   static void Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTree, unsigned int *&_facSplit, size_t &facLen, unsigned int *&_facOrigin, unsigned int &_nFac, class ForestNode *&_forestNode, unsigned int &_nodeEnd);
+
+  static void Clear();
 };
 
 #endif

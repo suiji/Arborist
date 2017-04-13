@@ -47,25 +47,22 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
   unsigned int nPredFac = as<unsigned int>(predBlock["nPredFac"]);
+
   std::vector<unsigned int> rank;
   std::vector<unsigned int> row;
   std::vector<unsigned int> runLength;
-
-  std::vector<unsigned int> numOffset(nPredNum);
+  std::vector<unsigned int> numOff(nPredNum);
   std::vector<double> numVal;
   if (nPredNum > 0) {
     if (!Rf_isNull(predBlock["blockNumRLE"])) {
       List blockNumRLE((SEXP) predBlock["blockNumRLE"]);
       if (!blockNumRLE.inherits("BlockNumRLE"))
 	stop("Expecting BlockNumRLE");
-      const std::vector<double> &valNum = as<std::vector<double> >((SEXP) blockNumRLE["valNum"]);
-      const std::vector<unsigned int> &rowStart = as<std::vector<unsigned int> >((SEXP) blockNumRLE["rowStart"]);
-      const std::vector<unsigned int> &rLength = as<std::vector<unsigned int> >((SEXP) blockNumRLE["runLength"]);
-      RowRank::PreSortNumRLE(valNum, rowStart, rLength, nPredNum, nRow, row, rank, runLength, numOffset, numVal);
+      RowRank::PreSortNumRLE(NumericVector((SEXP) blockNumRLE["valNum"]).begin(), (unsigned int *) IntegerVector((SEXP) blockNumRLE["rowStart"]).begin(), (unsigned int*) IntegerVector((SEXP) blockNumRLE["runLength"]).begin(), nPredNum, nRow, row, rank, runLength, numOff, numVal);
     }
     else {
       NumericMatrix blockNum = predBlock["blockNum"];
-      RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, row, rank, runLength, numOffset, numVal);
+      RowRank::PreSortNum(blockNum.begin(), nPredNum, nRow, row, rank, runLength, numOff, numVal);
     }
   }
 
@@ -78,7 +75,7 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
       _["row"] = row,			      
       _["rank"] = rank,
       _["runLength"] = runLength,
-      _["numOff"] = numOffset,
+      _["numOff"] = numOff,
       _["numVal"] = numVal
     );
   rowRank.attr("class") = "RowRank";
@@ -87,25 +84,39 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
 }
 
 
+IntegerVector RcppRowrank::iv1 = IntegerVector(0);
+IntegerVector RcppRowrank::iv2 = IntegerVector(0);
+IntegerVector RcppRowrank::iv3 = IntegerVector(0);
+IntegerVector RcppRowrank::iv4 = IntegerVector(0);
+NumericVector RcppRowrank::nv1 = NumericVector(0);
+
 void RcppRowrank::Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &rleLength) {
   List rowRank(sRowRank);
   if (!rowRank.inherits("RowRank"))
     stop("Expecting RowRank");
 
-  IntegerVector t1((SEXP) rowRank["numOff"]);
-  feNumOff = (unsigned int*) &t1[0];
+  iv1 = (((SEXP) rowRank["numOff"]));
+  feNumOff = (unsigned int*) &iv1[0];
 
-  NumericVector t2((SEXP) rowRank["numVal"]);
-  feNumVal = &t2[0];
+  nv1 = ((SEXP) rowRank["numVal"]);
+  feNumVal = (double *) &nv1[0];
+  
+  iv2 = ((SEXP) rowRank["row"]);
+  feRow = (unsigned int *) &iv2[0];
 
-  IntegerVector t3((SEXP) rowRank["row"]);
-  feRow = (unsigned int *) &t3[0];
+  iv3 = ((SEXP) rowRank["rank"]);
+  feRank = (unsigned int *) &iv3[0];
 
-  IntegerVector t4((SEXP) rowRank["rank"]);
-  feRank = (unsigned int*) &t4[0];
+  iv4 = ((SEXP) rowRank["runLength"]);
+  feRLE = (unsigned int *) &iv4[0];
+  rleLength = iv4.length();
+}
 
-  IntegerVector t5((SEXP) rowRank["runLength"]);
-  feRLE = (unsigned int*) &t5[0];
 
-  rleLength = IntegerVector((SEXP) rowRank["runLength"]).length();
+void RcppRowrank::Clear() {
+  iv1 = IntegerVector(0);
+  iv2 = IntegerVector(0);
+  iv3 = IntegerVector(0);
+  iv4 = IntegerVector(0);
+  nv1 = NumericVector(0);
 }

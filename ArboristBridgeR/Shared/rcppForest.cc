@@ -57,6 +57,10 @@ SEXP RcppForest::Wrap(const std::vector<unsigned int> &origin, const std::vector
   return forest;
 }
 
+RawVector RcppForest::rv1 = RawVector(0);
+RawVector RcppForest::rv2 = RawVector(0);
+IntegerVector RcppForest::iv1 = IntegerVector(0);
+IntegerVector RcppForest::iv2 = IntegerVector(0);
 
 /**
    @brief Exposes front-end Forest fields for transmission to core.
@@ -71,14 +75,27 @@ void RcppForest::Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTr
   // Alignment should be sufficient to guarantee safety of
   // the casted loads.
   //
-  _origin = (unsigned int*) &IntegerVector((SEXP) forest["origin"])[0];
-  _nTree = IntegerVector((SEXP) forest["origin"]).length();
+  iv1 = (SEXP) forest["origin"];
+  _origin = (unsigned int*) &iv1[0];
+  _nTree = iv1.length();
 
-  _facSplit = (unsigned int*) &RawVector((SEXP) forest["facSplit"])[0];
-  _facLen = RawVector((SEXP) forest["facSplit"]).length() / sizeof(unsigned int);
-  _facOrig = (unsigned int*) &IntegerVector((SEXP) forest["facOrig"])[0];
-  _nFac = IntegerVector((SEXP) forest["facOrig"]).length();
+  rv1 = (SEXP) forest["facSplit"];
+  _facSplit = (unsigned int*) &rv1[0];
+  _facLen = rv1.length() / sizeof(unsigned int);
 
-  _forestNode = (ForestNode*) &RawVector((SEXP) forest["forestNode"])[0];
-  _nodeEnd = RawVector((SEXP) forest["forestNode"]).length() / sizeof(ForestNode);
+  iv2 = (SEXP) forest["facOrig"];
+  _facOrig = (unsigned int*) &iv2[0];
+  _nFac = iv2.length();
+
+  rv2 = (SEXP) forest["forestNode"];
+  _forestNode = (ForestNode*) &rv2[0];
+  _nodeEnd = rv2.length() / sizeof(ForestNode);
+}
+
+
+void RcppForest::Clear() {
+  rv1 = RawVector(0);
+  rv2 = RawVector(0);
+  iv1 = IntegerVector(0);
+  iv2 = IntegerVector(0);
 }

@@ -54,11 +54,16 @@ class StagePack {
 /**
  */
 class SPNode {
-  static unsigned int runShift; // Pack:  nonzero iff categorical response.
+  static unsigned int ctgShift; // Pack:  nonzero iff categorical response.
+
+
  protected:
   FltVal ySum; // sum of response values associated with sample.
-  unsigned int rank; // True rank, with ties identically receiving lowest applicable value.
-  unsigned int sCount; // # occurrences of row sampled.  << # rows.
+  unsigned int rank; // Rank, up to tie, or factor group.
+  unsigned int sCount; // # occurrences of row sampled:  << # rows.
+  // unsigned int level; // Most recent restage level.
+
+
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
@@ -115,9 +120,9 @@ class SPNode {
   inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_yCtg) const {
     _ySum = ySum;
     _rank = rank;
-    _yCtg = sCount & ((1 << runShift) - 1);
+    _yCtg = sCount & ((1 << ctgShift) - 1);
 
-    return sCount >> runShift;
+    return sCount >> ctgShift;
   }
 
 

@@ -22,7 +22,7 @@
 //#include <iostream>
 //using namespace std;
 
-unsigned int SPNode::runShift = 0;
+unsigned int SPNode::ctgShift = 0;
 
 /**
    @brief Computes a packing width sufficient to hold all (zero-based) response
@@ -34,12 +34,12 @@ unsigned int SPNode::runShift = 0;
  */
 void SPNode::Immutables(unsigned int ctgWidth) {
   unsigned int bits = 1;
-  runShift = 0;
+  ctgShift = 0;
   // Ctg values are zero-based, so the first power of 2 greater than or
   // equal to 'ctgWidth' has sufficient bits to hold all response values.
   while (bits < ctgWidth) {
     bits <<= 1;
-    runShift++;
+    ctgShift++;
   }
 }
 
@@ -47,7 +47,7 @@ void SPNode::Immutables(unsigned int ctgWidth) {
 /*
 **/
 void SPNode::DeImmutables() {
-  runShift = 0;
+  ctgShift = 0;
 }
 
 
@@ -117,7 +117,7 @@ void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int pre
 unsigned int SPNode::Init(const StagePack &stagePack) {
   unsigned int sIdx, ctg;
   stagePack.Ref(sIdx, rank, sCount, ctg, ySum);
-  sCount = (sCount << runShift) | ctg; // Packed representation.
+  sCount = (sCount << ctgShift) | ctg; // Packed representation.
   
   return sIdx;
 }

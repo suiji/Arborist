@@ -49,6 +49,11 @@ SEXP RcppLeaf::WrapReg(const std::vector<unsigned int> &leafOrigin, std::vector<
 }
 
 
+RawVector RcppLeaf::rv1 = RawVector(0);
+RawVector RcppLeaf::rv2 = RawVector(0);
+RawVector RcppLeaf::rv3 = RawVector(0);
+NumericVector RcppLeaf::nv1 = NumericVector(0);
+
 /**
    @brief Exposes front-end (regression) Leaf fields for transmission to core.
 
@@ -67,12 +72,18 @@ void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<u
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
-  _bagBits = bag ? (unsigned int *) &RawVector((SEXP) leaf["bagBits"])[0] : 0;
-  _bagLeaf = bag ? (BagLeaf *) &RawVector((SEXP) leaf["bagLeaf"])[0] : 0;
-  _bagLeafTot = bag ? RawVector((SEXP) leaf["bagLeaf"]).length() / sizeof(BagLeaf) : 0;
+  rv1 = (SEXP) leaf["bagBits"];
+  _bagBits = bag ? (unsigned int *) &rv1[0] : 0;
+  
+  rv1 = (SEXP) leaf["bagLeaf"];
+  _bagLeaf = bag ? (BagLeaf *) &rv1[0] : 0;
+  _bagLeafTot = bag ? rv1.length() / sizeof(BagLeaf) : 0;
+  
   _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
-  _leafNode = (LeafNode*) &RawVector((SEXP) leaf["node"])[0];
-  _leafCount = RawVector((SEXP) leaf["node"]).length() / sizeof(LeafNode);
+
+  rv2 = (SEXP) leaf["node"];
+  _leafNode = (LeafNode*) &rv2[0];
+  _leafCount = rv2.length() / sizeof(LeafNode);
 
   _yTrain = as<std::vector<double> >(leaf["yTrain"]);
 }
@@ -139,16 +150,30 @@ void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, Lea
     stop("Expecting LeafCtg");
   }
 
-  _bagBits = bag ? (unsigned int *) &RawVector((SEXP) leaf["bagBits"])[0] : 0;
-  _bagLeaf = bag ? (BagLeaf *) &RawVector((SEXP) leaf["bagLeaf"])[0] : 0;
-  _bagLeafTot = bag ? RawVector((SEXP) leaf["bagLeaf"]).length() / sizeof(BagLeaf) : 0;
+  rv1 = (SEXP) leaf["bagBits"];
+  _bagBits = bag ? (unsigned int *) &rv1[0] : 0;
+  
+  rv2 = (SEXP) leaf["bagLeaf"];
+  _bagLeaf = bag ? (BagLeaf *) &rv2[0] : 0;
+  _bagLeafTot = bag ? rv2.length() / sizeof(BagLeaf) : 0;
 
   _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
 
-  _leafNode = (LeafNode*) &RawVector((SEXP) leaf["node"])[0];
-  _leafCount = RawVector((SEXP) leaf["node"]).length() / sizeof(LeafNode);
+  rv3 = (SEXP) leaf["node"];
+  _leafNode = (LeafNode*) &rv3[0];
+  _leafCount = rv3.length() / sizeof(LeafNode);
 
-  _weight = &NumericVector((SEXP) leaf["weight"])[0];
+  nv1 = (SEXP) leaf["weight"];
+  _weight = &nv1[0];
+
   _rowTrain = as<unsigned int>((SEXP) leaf["rowTrain"]);
   _levels = as<CharacterVector>((SEXP) leaf["levels"]);
+}
+
+
+void RcppLeaf::Clear() {
+  rv1 = RawVector(0);
+  rv2 = RawVector(0);
+  rv3 = RawVector(0);
+  nv1 = NumericVector(0);
 }

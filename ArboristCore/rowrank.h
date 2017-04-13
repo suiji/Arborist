@@ -61,7 +61,7 @@ class RowRank {
   const unsigned int noRank; // Inattainable rank value.
   static constexpr double plurality = 0.25;
 
-  // Jagged array holding numerical predictor values for splt assignment.
+  // Jagged array holding numerical predictor values for split assignment.
   const unsigned int *numOffset; // Per-predictor starting offsets.
   const double *numVal; // Actual predictor values.
 
@@ -82,8 +82,23 @@ class RowRank {
   static void RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
   static void RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
   static void Rank2Row(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut);
+
+  static inline unsigned int RunSlot(const unsigned int feRLE[], const unsigned int feRow[], const unsigned int feRank[], unsigned int rleIdx, unsigned int &row, unsigned int &rank) {
+    row = feRow[rleIdx];
+    rank = feRank[rleIdx];
+    return feRLE[rleIdx];
+  };
+
   
-  unsigned int DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
+  static inline unsigned int RunSlot(const unsigned int feRLE[], const unsigned int feRank[], unsigned int rleIdx, unsigned int &rank) {
+    rank = feRank[rleIdx];
+    return feRLE[rleIdx];
+  };
+
+  
+  void DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
+  void DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax);
+  unsigned int ModeOffsets();
   void Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
 
   inline double NumVal(unsigned int predIdx, unsigned int rk) const {
@@ -93,7 +108,7 @@ class RowRank {
  public:
   static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
 
-  static void PreSortNumRLE(const std::vector<double> &valNum, const std::vector<unsigned int> &rowStart, const std::vector<unsigned int> &runLength, unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
+  static void PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
   
   static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
 
