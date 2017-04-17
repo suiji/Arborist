@@ -1,0 +1,180 @@
+---
+title: "The Rborist package"
+date: "'r Sys.Date()'"
+output: Rborist::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The Rborist package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+# Introduction
+
+The **Rborist** package implements the Random Forest (TM) algorithm, with particular emphasis on high performance.  The package is an **R**-language spinoff of the **Arborist** project, a multi-language effort targeting a variety of decision-tree methods.  Look and feel owes a large debt to Liaw's original **randomForest** package.
+
+## High performance
+
+The interpretation of the phrase "high performance" will vary among users.  We claim that the **Rborist** is a high-performance package primarily because it either does, or has the potential to, take advantage of the acceleration offerred by commodity parallel hardware.  We also expect performance to scale in accordance with algorithmic complexity, decaying gracefully as resource limitations are approached.
+
+Particular attention has been paid to minimizing data movement and, especially, toward maximizing *data locality*.  We believe that this has been a key contributing factor to performance and scalibility and will continue to play a major role in efforts to extend support more broadly.
+
+The current implementation is limited to in-memory execution on multicore and multi-socket hardware.  We envision the following improvements in the near to medium term:
+
+* Separate training of tree blocks over multiple compute nodes.
+
+* Training of significant portions of individual trees on vector coprocessors, such as GPUs.
+
+* Pipelined training over out-of-memory workloads.
+
+
+# Training and validation
+
+## Simple example
+
+The simplest way to invoke the package is to pass it a design matrix and response vector, of conforming dimensions.  For appropriately typed design *x* and response *y*, then, it suffices to call:
+
+
+```{r, eval = FALSE}
+
+  rs <- Rborist(x, y)
+
+```
+
+The design can be either a *data.frame*, a numeric matrix or an integer matrix.  In the case of a frame, the columns (predictors) must have either numeric or factor value.  Integer matrices are coerced internally to their numeric counterparts.  The response type may be either numeric, yielding a regression forest, or factor, yielding a classification forest.
+
+The return value (here *rs*) is of class *Rborist*.  The full layout of an *Rborist* object is described by the **help()** files.  A very useful example is the *validation* object, which summarizes testing on the out-of-bag samples.
+
+## Validation
+
+### Regression
+
+In regression training, the *validation* object's members include mean absolute and square errors, as well as the r-squared statistic.  Continuing from the previous codelet, these are obtainable as follows:
+
+```{r, eval = FALSE}
+
+  rs$validation$mae
+  rs$validation$mse
+  rs$validation$rsq
+  
+```
+
+These statistics are derived from the original training reponse (*y*, above) and the derived out-of-bag reponse.  The out-of-bag response itself can also be obtained fromt the *validation* object:
+
+```{r, eval = FALSE}
+
+   rs$validation$yPred
+```
+
+*validation* also contains member *qPred*, for use with quantile regression.  This member will be described in the next section.
+
+
+### Classification
+
+In classification training, the *validation* object also presents the out-of-bag response in member *yPred*.  Its other members, however, are specialized for classification:
+
+* The misprediction rate is reported for each classification category by field *mispredition*.
+
+* A confusion matrix is reported by field *confusion*.
+
+* The out-of-bag error rate is given by *oobError*.
+
+* The *census* field is a matrix giving, for each row, the number of times each response category is predicted for the row.
+
+* The *prob* field reports a normalized version of *census* and can be interpreted as the probability of predicting a given category at a given row.
+
+
+
+In addition to *validation*, an *Rborist* object contains several other members.  Most of these are used to coordinate subsequent operations, such as prediction or feature contribution, and do not directly convey summary information.  An exception is the *training* member, which summarizes training statistics not directly related to validation.  *training* currently has a single member, *info*:
+
+```{r, eval = FALSE}
+
+       rs$training$info
+
+```
+
+For each predictor the *info* vector reports the sum, over all tree nodes in the forest for which the predictor defines a splitting condition, of the information value precipitating the respective split.  Although these values depend on the information metric employed, they do provide a relative measure of each predictor's importance in the model.
+
+Validation can be suppressed as follows:
+
+
+```{r, eval = FALSE}
+
+       rs <- Rborist(x, y, noValidate = TRUE)
+```
+
+This option is primarily for the use of package maintainers, but may prove useful, for example, in instances when model fit is not a main concern.  The *validation* field will have value NULL.
+
+
+# Quantile regression
+
+When training a regression forest, Rborist provides quantiles simply for the asking.  Leaf information, by default, is rich enough to make their computation quite easy.  Quantiles can be requested in either of two ways.  The simplest is to set option *quantiles* to *TRUE*:
+
+```{r, eval = FALSE]
+       rs <- Rborist(x, y, quantiles = TRUE)
+```
+
+This default quantile vector consists of quartiles, which are given by the *qPred* member mentioned above:
+
+```{r, eval = FALSE}
+       rs$validation$qPred
+```
+
+Explicity specfiying the quantile vector, *quantVec*, yields quantiles of any desired type.  Deciles, for example, can be requested as follows:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, quantVec = seq(0.1, 1.0, by=0.1))
+```
+
+The algorithm employed to compute the quantiles is exact, up to the granularity of the response vector.  It is an $n^2$ algorithm, however, and slows noticeably beyond roughly 10,000 rows.  For this reason an optional binning parameter can be specified to improve performance.  The following example turns on binning at 2000 rows:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, quantiles=TRUE, qBin=2000)
+```
+
+If, on the other hand, when training a regression forest, quantiles are not desired and it is intended that quantiles will not subsequently be requested *after* training, space can be saved by representing leaves in a sparser form:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, thinLeaves=TRUE)
+```
+
+
+## Tree and forest size
+
+The simplest way to affect forest size is to specify the number of trees.  The following codelet requests 100 trees:
+
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, nTree=100)
+```
+
+This also affects training time, which is expected to scale linearly with the number of trees.
+
+Training of individual trees can be constrained according to several parameters.  The *minNode* option places a lower bound on node sizes, i.e., the number of distinct samples subsumed by each node.  A value of 1, for example, allows splitting to proceed until purity.  A larger value results in a smaller tree, as well as faster training.  To ensure that splitting does not proceed below a node size of 20, for example:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, minNode=20)
+```
+
+Another way to control tree size is to specify its maximal depth.  The option *nLevel* sets an upper bound on the number of levels over which trees can be trained.  The following codelet causes tree construction to halt after the root is created, resulting in a forest of singleton trees.
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, nLevel = 1)
+```
+
+As with other size-based constraints, constraining level depth also results in faster execution.
+
+
+Option *minInfo* sets a splitting threshold based on relative information gain.  A splitting candidate is rejected if the ratio of information values between a node and its potential successors lies below the threshold.
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, minRatio = 0.1}
+```
+
+This option should be applied with care and should probably be avoided at low predictor count.
+
+Option *nSamp* dictates the number of samples to draw from among the full set of training rows in determining the root of each tree.  A smaller sample count may result in smaller trees, as fewer opportunites arise to split.
+
+
+## Weighting options
+
+There are several options available that 

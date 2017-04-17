@@ -75,19 +75,19 @@ void RcppForest::Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTr
   // Alignment should be sufficient to guarantee safety of
   // the casted loads.
   //
-  iv1 = (SEXP) forest["origin"];
+  iv1 = IntegerVector((SEXP) forest["origin"]);
   _origin = (unsigned int*) &iv1[0];
   _nTree = iv1.length();
 
-  rv1 = (SEXP) forest["facSplit"];
+  rv1 = RawVector((SEXP) forest["facSplit"]);
   _facSplit = (unsigned int*) &rv1[0];
   _facLen = rv1.length() / sizeof(unsigned int);
 
-  iv2 = (SEXP) forest["facOrig"];
+  iv2 = IntegerVector((SEXP) forest["facOrig"]);
   _facOrig = (unsigned int*) &iv2[0];
   _nFac = iv2.length();
 
-  rv2 = (SEXP) forest["forestNode"];
+  rv2 = RawVector((SEXP) forest["forestNode"]);
   _forestNode = (ForestNode*) &rv2[0];
   _nodeEnd = rv2.length() / sizeof(ForestNode);
 }

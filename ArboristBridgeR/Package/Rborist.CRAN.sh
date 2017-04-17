@@ -1,7 +1,7 @@
 #/usr/bin/bash
 
 # Builds a CRAN-style temporary directory tree suitable for package
-#construction, then archives, then deletes the source tree.
+# construction, then archives, then deletes the source tree.
 
 mkdir Rborist
 cd Rborist; mkdir src; mkdir R; mkdir man; mkdir inst; cd ..
@@ -21,6 +21,7 @@ cp ../Shared/*.h Rborist/src/
 cp ../../ArboristCore/*.cc Rborist/src/
 cp ../../ArboristCore/*.h Rborist/src/
 cp -r ../tests Rborist
+cp -r ../vignettes Rborist
 R CMD build Rborist
 rm -rf Rborist
 

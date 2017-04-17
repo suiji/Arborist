@@ -1,3 +1,17 @@
+Changes in 0.1-4:
+
+* Sparse 'dcGMatrix' matrices accepted, if encoded in 'i/p' format.
+
+* Autocompression conserves space on a per-predictor basis.
+
+* Space-saving 'thinLeaves' option suppresses creation of summary data. 
+
+* 'splitQuantile' option allows fine tuning of split-point placement for
+  numerical predictors.
+
+* Improved scaling with row count.
+
+
 Changes in 0.1-2:
 
  * Improved scaling with predictor count.

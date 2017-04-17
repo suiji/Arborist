@@ -72,18 +72,18 @@ void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<u
   if (!leaf.inherits("LeafReg"))
     stop("Expecting LeafReg");
 
-  rv1 = (SEXP) leaf["bagBits"];
+  rv1 = RawVector((SEXP) leaf["bagBits"]);
   _bagBits = bag ? (unsigned int *) &rv1[0] : 0;
   
-  rv1 = (SEXP) leaf["bagLeaf"];
-  _bagLeaf = bag ? (BagLeaf *) &rv1[0] : 0;
-  _bagLeafTot = bag ? rv1.length() / sizeof(BagLeaf) : 0;
+  rv2 = RawVector((SEXP) leaf["bagLeaf"]);
+  _bagLeaf = bag ? (BagLeaf *) &rv2[0] : 0;
+  _bagLeafTot = bag ? rv2.length() / sizeof(BagLeaf) : 0;
   
   _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
 
-  rv2 = (SEXP) leaf["node"];
-  _leafNode = (LeafNode*) &rv2[0];
-  _leafCount = rv2.length() / sizeof(LeafNode);
+  rv3 = RawVector((SEXP) leaf["node"]);
+  _leafNode = (LeafNode*) &rv3[0];
+  _leafCount = rv3.length() / sizeof(LeafNode);
 
   _yTrain = as<std::vector<double> >(leaf["yTrain"]);
 }
@@ -150,20 +150,20 @@ void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, Lea
     stop("Expecting LeafCtg");
   }
 
-  rv1 = (SEXP) leaf["bagBits"];
+  rv1 = RawVector((SEXP) leaf["bagBits"]);
   _bagBits = bag ? (unsigned int *) &rv1[0] : 0;
   
-  rv2 = (SEXP) leaf["bagLeaf"];
+  rv2 = RawVector((SEXP) leaf["bagLeaf"]);
   _bagLeaf = bag ? (BagLeaf *) &rv2[0] : 0;
   _bagLeafTot = bag ? rv2.length() / sizeof(BagLeaf) : 0;
 
   _leafOrigin = as<std::vector<unsigned int> >(leaf["origin"]);
 
-  rv3 = (SEXP) leaf["node"];
+  rv3 = RawVector((SEXP) leaf["node"]);
   _leafNode = (LeafNode*) &rv3[0];
   _leafCount = rv3.length() / sizeof(LeafNode);
 
-  nv1 = (SEXP) leaf["weight"];
+  nv1 = NumericVector((SEXP) leaf["weight"]);
   _weight = &nv1[0];
 
   _rowTrain = as<unsigned int>((SEXP) leaf["rowTrain"]);

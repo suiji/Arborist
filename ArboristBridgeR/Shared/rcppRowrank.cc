@@ -95,19 +95,19 @@ void RcppRowrank::Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumV
   if (!rowRank.inherits("RowRank"))
     stop("Expecting RowRank");
 
-  iv1 = (((SEXP) rowRank["numOff"]));
+  iv1 = IntegerVector((SEXP) rowRank["numOff"]);
   feNumOff = (unsigned int*) &iv1[0];
 
-  nv1 = ((SEXP) rowRank["numVal"]);
+  nv1 = NumericVector((SEXP) rowRank["numVal"]);
   feNumVal = (double *) &nv1[0];
   
-  iv2 = ((SEXP) rowRank["row"]);
+  iv2 = IntegerVector((SEXP) rowRank["row"]);
   feRow = (unsigned int *) &iv2[0];
 
-  iv3 = ((SEXP) rowRank["rank"]);
+  iv3 = IntegerVector((SEXP) rowRank["rank"]);
   feRank = (unsigned int *) &iv3[0];
 
-  iv4 = ((SEXP) rowRank["runLength"]);
+  iv4 = IntegerVector((SEXP) rowRank["runLength"]);
   feRLE = (unsigned int *) &iv4[0];
   rleLength = iv4.length();
 }
