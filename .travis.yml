@@ -9,13 +9,13 @@ r:
 cache: packages
 
 before_install:
+  - Rscript -e 'install.packages("knitr")'
   - cd ArboristBridgeR/Package/
   - chmod u+x Rborist.CRAN.sh
   - ./Rborist.CRAN.sh
 
 install:
   - tar -xzvf Rborist_*.*-*.tar.gz
-  - Rscript -e 'install.packages("knitr")'
   - Rscript -e 'install.packages("roxygen2")'
   - Rscript -e 'install.packages("devtools")'
   - Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
