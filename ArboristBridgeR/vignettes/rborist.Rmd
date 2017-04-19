@@ -40,7 +40,7 @@ The simplest way to invoke the package is to pass it a design matrix and respons
 
 ```
 
-The design can be either a *data.frame*, a numeric matrix or an integer matrix.  In the case of a frame, the columns (predictors) must have either numeric or factor value.  Integer matrices are coerced internally to their numeric counterparts.  The response type may be either numeric, yielding a regression forest, or factor, yielding a classification forest.
+The design can be either a *data.frame*, a numeric matrix or an integer matrix.  In the case of a frame, the columns (predictors) must have either numeric or factor value.  Integer matrices are coerced internally to their numeric counterparts.  The response type may be either numeric, yielding a regression forest, or categorical, yielding a classification forest.
 
 The return value (here *rs*) is of class *Rborist*.  The full layout of an *Rborist* object is described by the **help()** files.  A very useful example is the *validation* object, which summarizes testing on the out-of-bag samples.
 
@@ -125,7 +125,7 @@ Explicity specfiying the quantile vector, *quantVec*, yields quantiles of any de
        rs <- Rborist(x, y, quantVec = seq(0.1, 1.0, by=0.1))
 ```
 
-The algorithm employed to compute the quantiles is exact, up to the granularity of the response vector.  It is an $n^2$ algorithm, however, and slows noticeably beyond roughly 10,000 rows.  For this reason an optional binning parameter can be specified to improve performance.  The following example turns on binning at 2000 rows:
+The algorithm employed to compute the quantiles is exact, up to the granularity of the response vector.  It is an $\matchcal{O}(n^2)$ algorithm, however, and slows noticeably beyond roughly 10,000 rows.  For this reason an optional binning parameter can be specified to improve performance.  The following example turns on binning at 2000 rows:
 
 ```{r, eval = FALSE}
        rs <- Rborist(x, y, quantiles=TRUE, qBin=2000)
@@ -208,7 +208,7 @@ The following example rejects nonincreasing predictors as splitting candidates w
 
 For classification training, vector *classWeight* weights repsonse categories for computation of the information content of a potential split.  This can be useful, for example, when training data is unbalanced.  The slots in the *classWeight* vector correspond to the positions of the response categories with repsect to their *Level* character descriptor.
 
-The vector *splitQuant* was introduced to facilitate the fine tuning of split value placement for numerical predictors.  By default, when a numerical predictor is chosen to split a node, the Arborist assigns its split value as that corresponding to the mean rank, with respect to the *full* set of observations on the predictor, between the two split boundary points.  That is, the splitting criterion attempts to reflect the empirical *cdf* of the entire predictor.  This contrasts with other implementations, which typically select either the midpoint value or one of the two boundary values.  In particular, depending upon how the observations are distributed, the midrank can correspond to a value arbitrarily close to either of the two boundaries.
+The vector *splitQuant* has been introduced to facilitate the fine tuning of split value placement for numerical predictors.  By default, when a numerical predictor is chosen to split a node, the Arborist assigns its split value as that corresponding to the mean rank, with respect to the *full* set of observations on the predictor, between the two split boundary points.  That is, the splitting criterion attempts to reflect the empirical *CDF* of the entire sample.  This contrasts with other implementations, which typically select either the midpoint value or one of the two boundary values.  In particular, depending upon how the observations are distributed, the midrank can correspond to a value arbitrarily close to either of the two boundaries.
 
 *splitQuant* allows a (sub)quantile value to be interpolated, so that the split value can be manipulated more finely with respect to the two endpoints.  For example, the following codelet expresses the default behavior, which is to select the middle rank (i.e., 0.5 quantile) for all numerical predictors (if any):
 
