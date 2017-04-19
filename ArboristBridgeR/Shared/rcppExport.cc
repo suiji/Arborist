@@ -26,7 +26,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-using namespace std;
+//using namespace std;
 //#include <iostream>
 
 #include "rcppPredblock.h"
@@ -200,7 +200,7 @@ RcppExport SEXP FFloorLeafReg(SEXP sForestCore, unsigned int tIdx) {
   List ffLeaf = List::create(
      _["score"] = score[tIdx]
     );
-  
+
   ffLeaf.attr("class") = "FFloorLeafReg";
   return ffLeaf;
 }
@@ -260,7 +260,7 @@ RcppExport SEXP FFloorBag(SEXP sForestCore, int tIdx) {
   std::vector<std::vector<unsigned int> > sCountTree = forestCore["sCount"];
   IntegerVector row(rowTree[tIdx].begin(), rowTree[tIdx].end());
   IntegerVector sCount(sCountTree[tIdx].begin(), sCountTree[tIdx].end());
-  IntegerVector bag = IntegerVector(row.length());
+  IntegerVector bag = IntegerVector(as<unsigned int>(forestCore["rowTrain"]), 0);
   bag[row] = sCount;
 
   return bag;
@@ -300,9 +300,10 @@ RcppExport SEXP FFloorTreeCtg(SEXP sCoreCtg, unsigned int tIdx) {
 RcppExport SEXP FFloorReg(SEXP sForest, SEXP sLeaf, IntegerVector predMap, List predLevel) {
   SEXP sCoreReg = ExportReg(sForest, sLeaf, predMap);
   unsigned int nTree = NTree(sCoreReg);
+
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-     trees[tIdx] = FFloorTreeReg(sCoreReg, tIdx);
+    trees[tIdx] = FFloorTreeReg(sCoreReg, tIdx);
   }
 
   int facCount = predLevel.length();

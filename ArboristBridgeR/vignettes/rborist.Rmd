@@ -183,7 +183,7 @@ Option *withRepl* specifies whether bag sampling is to be done with replacement.
 Vector *rowWeight* weights the probability of bagging a given row.  The following invocation gives each row identical weight, which is also the default behavior:
 
 ```{r, eval = FALSE}
-       rs <- Rborist(x, y, rowWeight = 1 /nrow(y))
+       rs <- Rborist(x, y, rowWeight = rep(1/nrow(y), nrow(y))
 ```
 
 Vector *predWeight* weights the probability of selecting a given predictor as splitting candidate.  For example, this invocation selects predictor 0 half as often, per predictor, as the remaining predictors:
