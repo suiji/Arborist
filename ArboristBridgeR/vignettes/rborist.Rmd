@@ -109,7 +109,7 @@ This option is primarily for the use of package maintainers, but may prove usefu
 
 When training a regression forest, Rborist provides quantiles simply for the asking.  Leaf information, by default, is rich enough to make their computation quite easy.  Quantiles can be requested in either of two ways.  The simplest is to set option *quantiles* to *TRUE*:
 
-```{r, eval = FALSE]
+```{r, eval = FALSE}
        rs <- Rborist(x, y, quantiles = TRUE)
 ```
 
@@ -164,7 +164,7 @@ Another way to control tree size is to specify its maximal depth.  The option *n
 As with other size-based constraints, constraining level depth also results in faster execution.
 
 
-Option *minInfo* sets a splitting threshold based on relative information gain.  A splitting candidate is rejected if the ratio of information values between a node and its potential successors lies below the threshold.
+Option *minInfo* sets a splitting threshold based on relative information gain.  A splitting candidate is rejected if the ratio of information content between a node and its potential successors lies below the threshold.
 
 ```{r, eval = FALSE}
        rs <- Rborist(x, y, minRatio = 0.1}
@@ -172,9 +172,81 @@ Option *minInfo* sets a splitting threshold based on relative information gain. 
 
 This option should be applied with care and should probably be avoided at low predictor count.
 
-Option *nSamp* dictates the number of samples to draw from among the full set of training rows in determining the root of each tree.  A smaller sample count may result in smaller trees, as fewer opportunites arise to split.
+## Sampling options
+
+Several options affect the behavior of the various sampling mechanims used by the package.
+
+Option *nSamp* dictates the number of bagged samples defining the root of each tree.  A smaller sample count may result in smaller trees, as fewer opportunites arise to split.
+
+Option *withRepl* specifies whether bag sampling is to be done with replacement.
+
+Vector *rowWeight* weights the probability of bagging a given row.  The following invocation gives each row identical weight, which is also the default behavior:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, rowWeight = 1 /nrow(y))
+```
+
+Vector *predWeight* weights the probability of selecting a given predictor as splitting candidate.  For example, this invocation selects predictor 0 half as often, per predictor, as the remaining predictors:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, predWeight = c(0.5, rep(1.0, ncol(x)-1)))
+```
+
+Option *predProb* is the uniform probability of selecting a predictor for splitting.  That is, the value applies uniformly to all predictors.  Hence the number of predictors tried at a given split will have a binomial distribution.
+
+Option *predFixed* is the actual number of predictors to test for a given split, and so calls for sampling predictors without replacement.  *predFixed* and *predProb* cannot both be specified within a single training operation.
+
+For regression training, vector *regMono* specifies a (signed) rejection probability to enforce monotonicity with respect to a given predictor.  Negative values specify rejection of nondecreasing splitting candidates with a given probability, while positive values stipulate a rejection probability for nonincreasing predictors.  A value of zero indicates that no monotonicity constraint is enforced.  Values assigned to factor predictors are ignored.
+
+The following example rejects nonincreasing predictors as splitting candidates with probability one:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, regMono = rep(1.0, ncol(x)))
+```
+
+# Other training options
+
+For classification training, vector *classWeight* weights repsonse categories for computation of the information content of a potential split.  This can be useful, for example, when training data is unbalanced.  The slots in the *classWeight* vector correspond to the positions of the response categories with repsect to their *Level* character descriptor.
+
+The vector *splitQuant* was introduced to facilitate the fine tuning of split value placement for numerical predictors.  By default, when a numerical predictor is chosen to split a node, the Arborist assigns its split value as that corresponding to the mean rank, with respect to the *full* set of observations on the predictor, between the two split boundary points.  That is, the splitting criterion attempts to reflect the empirical *cdf* of the entire predictor.  This contrasts with other implementations, which typically select either the midpoint value or one of the two boundary values.  In particular, depending upon how the observations are distributed, the midrank can correspond to a value arbitrarily close to either of the two boundaries.
+
+*splitQuant* allows a (sub)quantile value to be interpolated, so that the split value can be manipulated more finely with respect to the two endpoints.  For example, the following codelet expresses the default behavior, which is to select the middle rank (i.e., 0.5 quantile) for all numerical predictors (if any):
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, splitQuant = rep(0.5, ncol(x)))
+```
+
+Similarly, this example chooses the left endpoint for all relevant predictors:
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, splitQuant = rep(0.0, ncol(x)))
+```
+
+# Preformatting
+
+The Arborist represents predictors internally using a format streamlined for subsequent training.  A "preformatted" representation of the training data can be generated directly and trained separately as follows:
+
+```{r, eval = FALSE}
+       pf <- Preformat(x)
+       rs <- Rborist(pf, y)
+```
+
+Separate preformatting can result in a slight performance improvement in workflows with iterated training, such as under *Caret*.  This is simply because the sorting and packing performed at the start of training can be cached instead of repeatedly computed.
+
+A better motivation for preformatting arises when the training data can be represented sparsely.  Suppose, for example, that *B* is a large data set consisting chiefly of predictors with highly repetitive observation values.  As the Arborist is able to identify and compress repetitive observations, storage might be conserved by first preformatting *B*, then deleting it and finally training on the preformatted representation:
+
+```{r, eval = FALSE}
+       pf <- Preformat(B)
+       rm(B)
+       rs <- Rborist(pf, y)
+```
+
+# Performance
+
+Unlike many implementations, which employ sorting to order observations within a node, the Arborist employs a presort followed by linear updates.  The updates are a form of stable partition, which we refer to as *restaging*.  Restaging reduces the algorithmic complexity from the oft-cited $\mathcal{O}(n \log{}^2 n),$ where *n* represents the number of training samples, to $\mathcal{O}(n \log{} n).$
+
+Restaging is not without its problems, however.  As currently implemented, a double buffer caches outcome data corresponding to every cell in the design.  Hence the restaging containers can grow quite large.  While some users may find this to be be acceptable price for scalability, others may find the storage requirements too high for their application.  Scalability, moreover, may not be an important concern at low sample or row count.
+
+For high-dimensional problems, the **Ranger** package may provide a suitable alternative.  Similarly, for some problems, the package **Xgboost** offers excellent storage characteristics.  In the meantime, we envision several improvements, to appear in upcoming versions, to the Arborist's parsimony with storage.
 
 
-## Weighting options
-
-There are several options available that 
