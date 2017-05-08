@@ -146,6 +146,8 @@
 
       \code{mse}{ the mean-square error of prediction.}
 
+      \code{mae}{ the mean absolute error of prediction.}
+      
       \code{rsq}{ the r-squared statistic.}
 
       \code{qPred}{ a matrix containing the prediction quantiles, if requested.}
@@ -157,6 +159,8 @@
 
       \code{misprediction}{ a vector containing the classwise
 	misprediction rates.}
+
+      \code{oobError}{ the out-of-bag error rate}
       
       \code{confusion}{ a confusion matrix.}
 
