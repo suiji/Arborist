@@ -54,7 +54,7 @@ using namespace Rcpp;
 double MSE(const double yValid[], NumericVector y, double &rsq, double &mae) {
   double sse = 0.0;
   mae = 0.0;
-  for (int i = 0; i < y.length(); i++) {
+  for (R_len_t i = 0; i < y.length(); i++) {
     double error = yValid[i] - y[i];
     sse += error * error;
     mae += abs(error);
@@ -185,7 +185,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
       if (idxNonMatch.length() > 0) {
 	warning("Unreachable test levels not encountered in training");
 	int proxy = ctgWidth + 1;
-	for (int i = 0; i < idxNonMatch.length(); i++) {
+	for (R_len_t i = 0; i < idxNonMatch.length(); i++) {
 	  int idx = idxNonMatch[i];
 	  levelMatch[idx] = proxy++;
         }
@@ -248,7 +248,7 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
       conf = confOut;
     }
     else {
-      for (int i = 0; i < levelsTest.length(); i++) {
+      for (R_len_t i = 0; i < levelsTest.length(); i++) {
 	misPred[i] = misPredCore[i];
       }
     }

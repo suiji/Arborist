@@ -18,7 +18,7 @@
 #include <numeric>
 
 
-IdxPath::IdxPath(unsigned int _idxLive) : idxLive(_idxLive), relFront(std::vector<unsigned int>(idxLive)), pathFront(std::vector<unsigned char>(idxLive)), offFront(std::vector<unsigned int16_t>(idxLive)) {
+IdxPath::IdxPath(unsigned int _idxLive) : idxLive(_idxLive), relFront(std::vector<unsigned int>(idxLive)), pathFront(std::vector<unsigned char>(idxLive)), offFront(std::vector<uint_least16_t>(idxLive)) {
   std::iota(relFront.begin(), relFront.end(), 0);
 }
 

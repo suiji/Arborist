@@ -294,7 +294,7 @@ void RcppPredblock::SparseIP(const NumericVector &eltsNZ, const IntegerVector &i
   const double zero = 0.0;
   std::vector<unsigned int> nzHeight(p.length());
   unsigned int idxStart = p[0];
-  for (unsigned int colIdx = 1; colIdx < p.length(); colIdx++) {
+  for (R_len_t colIdx = 1; colIdx < p.length(); colIdx++) {
     nzHeight[colIdx - 1] = p[colIdx] - idxStart;
     idxStart = p[colIdx];
   }

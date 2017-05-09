@@ -52,7 +52,7 @@ void RcppProxyCtg(IntegerVector y, NumericVector classWeight, std::vector<double
   //
   if (is_true(all(classWeight == 0.0))) { // Place-holder for balancing.
     NumericVector tb(table(y));
-    for (unsigned int i = 0; i < classWeight.length(); i++) {
+    for (R_len_t i = 0; i < classWeight.length(); i++) {
       classWeight[i] = tb[i] == 0.0 ? 0.0 : 1.0 / tb[i];
     }
   }

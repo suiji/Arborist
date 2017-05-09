@@ -177,7 +177,7 @@ class Level {
 
   // Recomputed:
   class IdxPath *relPath;
-  std::vector<class NodePath> nodePath;; // Indexed by <node, predictor> pair.
+  std::vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
 
  public:

@@ -88,7 +88,7 @@ class IdxPath {
   // be generalized to multiple sizes to accommodate more sophisticated
   // hierarchies.
   //
-  std::vector<unsigned int16_t> offFront;
+  std::vector<uint_least16_t> offFront;
  public:
 
   IdxPath(unsigned int _idxLive);

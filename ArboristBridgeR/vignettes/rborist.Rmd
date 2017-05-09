@@ -1,7 +1,7 @@
 ---
 title: "The Rborist package"
 date: "'r Sys.Date()'"
-output: Rborist::html_vignette
+output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{The Rborist package}
   %\VignetteEngine{knitr::rmarkdown}
@@ -16,7 +16,7 @@ The **Rborist** package implements the Random Forest (TM) algorithm, with partic
 
 The interpretation of the phrase "high performance" will vary among users.  We claim that the **Rborist** is a high-performance package primarily because it either does, or has the potential to, take advantage of the acceleration offerred by commodity parallel hardware.  We also expect performance to scale in accordance with algorithmic complexity, decaying gracefully as resource limitations are approached.
 
-Particular attention has been paid to minimizing data movement and, especially, toward maximizing *data locality*.  We believe that this has been a key contributing factor to performance and scalibility and will continue to play a major role in efforts to extend support more broadly.
+Particular attention has been paid to minimizing data movement and, especially, toward maximizing *data locality*.  We believe that this has been a key contributing factor to performance and scalability and will continue to play a major role in efforts to extend support more broadly.
 
 The current implementation is limited to in-memory execution on multicore and multi-socket hardware.  We envision the following improvements in the near to medium term:
 
