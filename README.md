@@ -51,7 +51,7 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 - [Controlling for Monotonicity in Random Forest Regressors (PDF)](http://past.rinfinance.com/agenda/2016/talk/MarkSeligman.pdf), R in Finance, May 2016.
 - [GTC 2015 Poster, March 2015 (PDF)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
 - [PyData, August 2015 (Video)](https://www.youtube.com/watch?v=dRZrYdhNUec)
-- [R in Finance 2015](http://past.rinfinance.com/agenda/2015/talk/MarkSeligman.pdf)
+- [The Arborist:  A High-Performance Random Forest (TM) Implementation](http://past.rinfinance.com/agenda/2015/talk/MarkSeligman.pdf), R in Finance, May 2015.
 
 
 ### News/Changes
