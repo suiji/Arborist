@@ -50,7 +50,7 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 - [Scalability Issues in Training Decision Trees (video)](https://www.youtube.com/watch?v=ol0SZ2Omq7w), Nimbix Developer Summit, 2017.
 - [Controlling for Monotonicity in Random Forest Regressors (PDF)](http://past.rinfinance.com/agenda/2016/talk/MarkSeligman.pdf), R in Finance, May 2016.
 - [GTC 2015 Poster, March 2015 (PDF)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
-- [PyData, August 2015 (Video)](https://www.youtube.com/watch?v=dRZrYdhNUec)
+- [ Accelerating the Random Forest algorithm for commodity parallel hardware (Video)](https://www.youtube.com/watch?v=dRZrYdhNUec), PyData, July, 2015.
 - [The Arborist:  A High-Performance Random Forest (TM) Implementation](http://past.rinfinance.com/agenda/2015/talk/MarkSeligman.pdf), R in Finance, May 2015.
 
 
@@ -58,7 +58,7 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 - Sparse R-style 'dcgMatrix' format now accepted, with "i/p" encoding.
 - Autocompression employed on a per-predictor basis.
 - Space-saving 'thinLeaves' option suppresses creation of summary data for narrow workflows.
-- Option 'splitQuantile' provides fine-tuning of numeric split positions for research.
+- Research-inspired option 'splitQuantile' provides fine-tuning of numeric split positions.
 - Improved scaling with row count.
 - Option 'preTrain' deprecated in favor of 'preFormat'.
 - Optional vector "regMono" has been introduced to specify monotonic constraints on numeric variables under regression.
