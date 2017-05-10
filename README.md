@@ -29,11 +29,12 @@ Installation of Release Version:
 
 Installation of Development Version:
 
-    > -tk
+    > ./ArboristBridgeR/Package/Rborist.CRAN.sh
+    > R CMD INSTALL Rborist_*.*-*.tar.gz
 
 
 #### Notes
-- Version 1.0 now on CRAN.
+- Version 0.1-6 now on CRAN.
 
 ### Python
 
@@ -46,18 +47,23 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
     
 ### References
 
+- [Scalability Issues in Training Decision Trees (video)] https://www.youtube.com/watch?v=ol0SZ2Omq7w
 - [Controlling for Monotonicity in Random Forest Regressors (PDF)](http://www.rinfinance.com/agenda/2016/talk/MarkSeligman.pdf), R in Finance, May 2016.
-- [GTC 2015 Poster, March 2015 (Video)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
-- [PyData, August 2015 (PDF)](https://www.youtube.com/watch?v=dRZrYdhNUec)
+- [GTC 2015 Poster, March 2015 (PDF)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
+- [PyData, August 2015 (Video)](https://www.youtube.com/watch?v=dRZrYdhNUec)
 - [R in Finance 2015](http://www.rinfinance.com/agenda/2015/talk/MarkSeligman.pdf)
 
 
 ### News/Changes
-- Several major refactorings have taken place since the initial CRAN release.  These were aimed not only at improving performance but also away from the Arborist's original narrow focus on high observation count and high predictor probability.  Additionally, the groundwork has been laid for more advanced features to appear in upcoming releases, such as support for heterogeneous parallelization and for sparse training sets.
-- A "preTrain" feature has been added to cache initital training state.  This will save computation under iterative training schemes, such as are facilitated by the R package Caret.
+- Sparse R-style 'dcgMatrix' format now accepted, with "i/p" encoding.
+- Autocompression employed on a per-predictor basis.
+- Space-saving 'thinLeaves' option suppresses creation of summary data for narrow workflows.
+- Option 'splitQuantile' provides fine-tuning of numeric split positions for research.
+- Improved scaling with row count.
+- Option 'preTrain' deprecated in favor of 'preFormat'.
 - Optional vector "regMono" has been introduced to specify monotonic constraints on numeric variables under regression.
 - Training now computes and saves full leaf information by default. This facilitates quantile prediction, as well as interaction with other packages, such as "forestFloor", by eliminating the need for customized training.
 - Restaging and splitting now parallelize across predictor/node pairs, improving core occupancy.  For an interesting illustration of the limits to the benefits of restaging, see the RangeR preprint by Wright and Ziegler.
-- Several performance issues have been resolved, but dynamic load-balancing will likely not receive further attention until version 2.
+- Several performance issues have been resolved, but dynamic load-balancing will likely not receive further attention until version 1 series.
 Correctness errors are being addressed as they are received.
 
