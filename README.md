@@ -47,7 +47,7 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
     
 ### References
 
-- [Scalability Issues in Training Decision Trees (video)](https://www.youtube.com/watch?v=ol0SZ2Omq7w)
+- [Scalability Issues in Training Decision Trees (video)](https://www.youtube.com/watch?v=ol0SZ2Omq7w), Nimbix Developer Summit, 2017.
 - [Controlling for Monotonicity in Random Forest Regressors (PDF)](http://www.rinfinance.com/agenda/2016/talk/MarkSeligman.pdf), R in Finance, May 2016.
 - [GTC 2015 Poster, March 2015 (PDF)](http://on-demand.gputechconf.com/gtc/2015/posters/GTC_2015_Machine_Learning___Deep_Learning_03_P5282_WEB.pdf)
 - [PyData, August 2015 (Video)](https://www.youtube.com/watch?v=dRZrYdhNUec)
