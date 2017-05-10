@@ -169,7 +169,6 @@ class Level {
 
   // Persistent:
   std::vector<IndexAnc> indexAnc; // Stage coordinates, by node.
-  std::vector<MRRA> liveDef;
 
   // More elegant and parsimonious to use std::map from pair to node,
   // but hashing much too slow.

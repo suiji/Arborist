@@ -57,7 +57,7 @@ void SPNode::DeImmutables() {
 SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
-
+  
   stageOffset.reserve(nPred);
   stageExtent.reserve(nPred);
 }

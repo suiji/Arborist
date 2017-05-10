@@ -16,6 +16,9 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 
+#include <Rcpp.h>
+using namespace Rcpp;
+
 /**
    @file rcppInit.cc
 

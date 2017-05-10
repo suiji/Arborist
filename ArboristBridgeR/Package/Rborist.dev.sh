@@ -20,6 +20,6 @@ cp ../Shared/*.h Rborist/src/
 cp ../../ArboristCore/*.cc Rborist/src/
 cp ../../ArboristCore/*.h Rborist/src/
 
-R CMD build Rborist
+R CMD build Rborist --no-build-vignettes
 rm -rf Rborist
 

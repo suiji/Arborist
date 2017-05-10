@@ -691,8 +691,7 @@ void Level::SetRuns(const Bottom *bottom, unsigned int levelIdx, unsigned int pr
   }
   else if (targ[idxStart].Rank() == targ[idxStart + extent - 1].Rank()) {
     if (bottom->IsFactor(predIdx)) { // Factor:  singleton or doubleton.
-      unsigned int runCount = 1 + (denseCount > 0 ? 1 : 0);
-      reach.SetRunCount(runCount);
+      reach.SetRunCount(denseCount > 0 ? 2 : 1);
     }
     else if (denseCount == 0) { // Numeric:  only singletons tracked.
       reach.SetRunCount(1);

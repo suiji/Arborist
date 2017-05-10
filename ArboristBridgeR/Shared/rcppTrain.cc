@@ -26,6 +26,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include "rcppRowrank.h"
 #include "rcppForest.h"
 #include "rcppLeaf.h"
 #include "train.h"
