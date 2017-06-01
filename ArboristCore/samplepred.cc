@@ -54,7 +54,7 @@ void SPNode::DeImmutables() {
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)) {
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(_bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)), pathIdx(_bufferSize) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SPNode[2 * bufferSize];
   
@@ -242,3 +242,38 @@ SPNode *SamplePred::RestageNdxOne(unsigned int reachOffset[], const unsigned int
 
   return targ;
 }
+
+
+/**
+   @brief Pass-through to Path method.  Looks up reaching cell in appropriate
+   buffer.
+
+   @return void.
+ */
+void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]) {
+  idxPath->Prepath(reachBase, idxUpdate, startIdx, extent, pathMask, BufferIndex(predIdx, bufIdx), &pathIdx[StageOffset(predIdx)], pathCount);
+}
+
+
+/**
+   @brief Restages a block for which path values have been localized.
+ */
+SPNode *SamplePred::RestagePath(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[]) {
+  SPNode *source, *targ;
+  unsigned int *idxSource, *idxTarg;
+  Buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
+
+  PathT *pathBlock = &pathIdx[StageOffset(predIdx)];
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int path = pathBlock[idx];
+    if (path != NodePath::noPath) {
+      unsigned int destIdx = reachOffset[path]++;
+      targ[destIdx] = source[idx];
+      idxTarg[destIdx] = idxSource[idx];
+    }
+  }
+
+  return targ;
+}
+
+

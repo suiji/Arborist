@@ -375,22 +375,19 @@ class Level {
  */
 class RestageCoord {
   SPPair mrra; // Level-relative coordinates of reaching ancestor.
-  unsigned int runCount;
   unsigned char del; // # levels back to referencing level.
   unsigned char bufIdx; // buffer index of mrra's SamplePred.
  public:
 
-  void inline Init(const SPPair &_mrra, unsigned int _del, unsigned int _runCount, unsigned int _bufIdx) {
+  void inline Init(const SPPair &_mrra, unsigned int _del, unsigned int _bufIdx) {
     mrra = _mrra;
     del = _del;
-    runCount = _runCount;
     bufIdx = _bufIdx;
   }
 
-  void inline Ref(SPPair &_mrra, unsigned int &_del, unsigned int &_runCount, unsigned int &_bufIdx) {
+  void inline Ref(SPPair &_mrra, unsigned int &_del, unsigned int &_bufIdx) {
     _mrra = mrra;
     _del = del;
-    _runCount = runCount;
     _bufIdx = bufIdx;
   }
 };
@@ -404,10 +401,7 @@ class Bottom {
   const unsigned int bagCount;
   std::vector<unsigned int> termST; // Frontier subtree indices.
   std::vector<class TermKey> termKey; // Frontier map keys:  uninitialized.
-  //unsigned int termTop; // Next unused terminal index.
   bool nodeRel; // Subtree- or node-relative indexing.  Sticky, once node-.
-  
-  std::vector<unsigned int> prePath;
 
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
@@ -432,9 +426,8 @@ class Bottom {
 
   // Restaging methods.
   void Restage(RestageCoord &rsCoord);
-  SPNode *Restage(SPPair mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageNdxDense(unsigned int reachOffset[], const unsigned int reachBase[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageStxDense(unsigned int reachOffset[], const SPPair &mrra, unsigned int bufIdx, unsigned int del);
+  SPNode *Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del);
+  SPNode *RestageDense(const SPPair &mrra, unsigned int bufIdx, unsigned int del, unsigned int startIdx, unsigned int extent, const unsigned int reachBase[], unsigned int reachOffset[]);
   void Backdate() const;
   void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
 
@@ -461,7 +454,7 @@ class Bottom {
   bool NonTerminal(class PreTree *preTree, class SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl);
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
   void RootDef(unsigned int predIdx, unsigned int denseCount);
-  void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int runCount, unsigned int bufIdx);
+  void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
   bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &runCount, unsigned int &bufIdx);
@@ -469,7 +462,7 @@ class Bottom {
   static Bottom *FactoryReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int _bagCount);
   static Bottom *FactoryCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int _bagCount);
   
-  Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount, unsigned int _stageSize);
+  Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, class SplitPred *_splitPred, unsigned int _bagCount);
   ~Bottom();
   void LevelInit();
   void LevelClear();
@@ -484,7 +477,6 @@ class Bottom {
   void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   unsigned int FlushRear();
   void DefForward(unsigned int levelIdx, unsigned int predIdx);
-  void Buffers(const SPPair &mrra, unsigned int bufIdx, SPNode *&source, unsigned int *&relIdxSource, SPNode *&targ, unsigned int *&relIdxTarg) const;
   void Restage();
   bool IsFactor(unsigned int predIdx) const;
   void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);

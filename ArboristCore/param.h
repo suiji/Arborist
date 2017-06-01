@@ -28,4 +28,7 @@ typedef struct {
 } RankRange;
 
 
+typedef unsigned char PathT;
+
+
 #endif

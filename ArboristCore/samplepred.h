@@ -61,7 +61,6 @@ class SPNode {
   FltVal ySum; // sum of response values associated with sample.
   unsigned int rank; // Rank, up to tie, or factor group.
   unsigned int sCount; // # occurrences of row sampled:  << # rows.
-  // unsigned int level; // Most recent restage level.
 
 
  public:
@@ -165,6 +164,7 @@ class SamplePred {
   const unsigned int pitchSP; // Pitch of SPNode vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
+  std::vector<PathT> pathIdx;
   std::vector<unsigned int> stageOffset;
   std::vector<unsigned int> stageExtent; // Client:  debugging only.
   SPNode* nodeVec;
@@ -184,11 +184,14 @@ class SamplePred {
   void Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
   double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
 
+  
   SPNode *RestageStxGen(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
   SPNode *RestageStxOne(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
 
   SPNode *RestageNdxGen(unsigned int reachOffset[], const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *frontPath, unsigned int patHMask, unsigned int startIdx, unsigned int extent);
   SPNode *RestageNdxOne(unsigned int reachOffset[], const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *frontPath, unsigned int patHMask, unsigned int startIdx, unsigned int extent);
+  void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]);
+  SPNode *RestagePath(unsigned int predIdx, unsigned int bufIdx, unsigned int start, unsigned int extent, unsigned int reachOffset[]);
 
   
   inline unsigned int PitchSP() {
@@ -200,6 +203,9 @@ class SamplePred {
   }
 
 
+  /**
+     @brief Returns the staging position for a dense predictor.
+   */
   inline unsigned int StageOffset(unsigned int predIdx) {
     return stageOffset[predIdx];
   }
@@ -234,6 +240,14 @@ class SamplePred {
     return stageOffset[predIdx] + BuffOffset(bufBit);
   }
 
+
+  /**
+     @return base of the index buffer.
+   */
+  inline unsigned int *BufferIndex(unsigned int predIdx, unsigned int bufBit) {
+    return indexBase + BufferOff(predIdx, bufBit);
+  }
+  
   
   /**
    */

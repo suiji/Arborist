@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "param.h"
 
 /**
    @brief Records index, start and extent for path reached from MRRA.
@@ -31,7 +32,7 @@ class NodePath {
   unsigned int relBase; // Dense starting position.
  public:
 
-  static constexpr unsigned int pathMax = 8 * sizeof(unsigned char) - 1;
+  static constexpr unsigned int pathMax = 8 * sizeof(PathT) - 1;
   static constexpr unsigned int noPath = 1 << pathMax;
 
   
@@ -92,6 +93,7 @@ class IdxPath {
  public:
 
   IdxPath(unsigned int _idxLive);
+  void Prepath(const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const;
 
   /**
      @brief When appropriate, introduces node-relative indexing at the
@@ -121,7 +123,7 @@ class IdxPath {
   }
 
 
-  inline unsigned int RelFront(unsigned int idx) {
+  inline unsigned int RelFront(unsigned int idx) const {
     return relFront[idx];
   }
 
@@ -197,6 +199,7 @@ class IdxPath {
    */
   inline bool PathLive(unsigned int idx, unsigned int pathMask, unsigned int &path) const {
     if (!IsLive(idx)) {
+      path = NodePath::noPath;
       return false;
     }
 
@@ -204,6 +207,21 @@ class IdxPath {
     return true;
   }
 
+  inline unsigned int PathST(unsigned int idx, unsigned int pathMask, bool idxUpdate, unsigned int &idxLocal) const {
+    unsigned int path;
+    if (IsLive(idx)) {
+      path = pathFront[idx] & pathMask;
+      // Avoids irregular update if not necessary:
+      idxLocal = idxUpdate ? RelFront(idx) : idx;
+    }
+    else {
+      path = NodePath::noPath;
+      idxLocal = idx;
+    }
+    return path;
+  }
+
+  
 
   /**
      @brief Determines a sample's path and offset coordinates with respect
@@ -225,7 +243,22 @@ class IdxPath {
     return true;
   }
 
-  
+
+  inline unsigned int PathRel(unsigned int idx, unsigned int pathMask, const unsigned int reachBase[], unsigned int &idxLocal) const {
+    unsigned int path;
+    if (IsLive(idx)) {
+      path = pathFront[idx] & pathMask;
+      idxLocal = reachBase[path] + offFront[idx];
+    }
+    else {
+      path = NodePath::noPath;
+      idxLocal = idx;
+    }
+
+    return path;
+  }
+
+
   /**
      @brief Determines whether indexed path is live and looks up
      corresponding front index.
@@ -282,6 +315,8 @@ class IdxPath {
       }
     }
   }
+
+
 };
 
 #endif
