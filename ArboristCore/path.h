@@ -189,70 +189,23 @@ class IdxPath {
 
   
   /**
-     @brief Looks up the path leading to the front level.
+     @brief Looks up the path leading to the front level and updates
+     the index, if either in a switching to a node-relative regime.
 
-     @param idx indexes the path vector.
+     @param idx inputs the path vector index and outputs the index to
+     be used in the next level.
 
-     @param path outputs the path to front level, if live.x
-
-     @return true iff path to front is not extinct.
+     @return path to input index.
    */
-  inline bool PathLive(unsigned int idx, unsigned int pathMask, unsigned int &path) const {
-    if (!IsLive(idx)) {
-      path = NodePath::noPath;
-      return false;
-    }
-
-    path = pathFront[idx] & pathMask;
-    return true;
-  }
-
-  inline unsigned int PathST(unsigned int idx, unsigned int pathMask, bool idxUpdate, unsigned int &idxLocal) const {
+  inline unsigned int IdxUpdate(unsigned int &idx, unsigned int pathMask, const unsigned int reachBase[], bool idxUpdate) const {
     unsigned int path;
     if (IsLive(idx)) {
       path = pathFront[idx] & pathMask;
       // Avoids irregular update if not necessary:
-      idxLocal = idxUpdate ? RelFront(idx) : idx;
+      idx = reachBase != nullptr ? (reachBase[path] + offFront[idx]) : (idxUpdate ? RelFront(idx) : idx);
     }
     else {
       path = NodePath::noPath;
-      idxLocal = idx;
-    }
-    return path;
-  }
-
-  
-
-  /**
-     @brief Determines a sample's path and offset coordinates with respect
-     to the front level.
-
-     @param idx is the node-relative index of the sample.
-
-     @param path outputs the path offset of the sample in the front level.
-
-     @return true iff sample at index lies on live path.
-   */
-  inline bool RefLive(unsigned int idx, unsigned int pathMask, unsigned int &path, unsigned int &offRel) const {
-    if (!IsLive(idx)) {
-      return false;
-    }
-
-    path = pathFront[idx] & pathMask;
-    offRel = offFront[idx];
-    return true;
-  }
-
-
-  inline unsigned int PathRel(unsigned int idx, unsigned int pathMask, const unsigned int reachBase[], unsigned int &idxLocal) const {
-    unsigned int path;
-    if (IsLive(idx)) {
-      path = pathFront[idx] & pathMask;
-      idxLocal = reachBase[path] + offFront[idx];
-    }
-    else {
-      path = NodePath::noPath;
-      idxLocal = idx;
     }
 
     return path;

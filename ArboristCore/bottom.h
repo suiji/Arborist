@@ -426,8 +426,7 @@ class Bottom {
 
   // Restaging methods.
   void Restage(RestageCoord &rsCoord);
-  SPNode *Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del);
-  SPNode *RestageDense(const SPPair &mrra, unsigned int bufIdx, unsigned int del, unsigned int startIdx, unsigned int extent, const unsigned int reachBase[], unsigned int reachOffset[]);
+  SPNode *Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, unsigned int startIdx, unsigned int extent, const unsigned int reachBase[], unsigned int reachOffset[]);
   void Backdate() const;
   void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
 

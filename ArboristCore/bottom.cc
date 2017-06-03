@@ -423,48 +423,22 @@ void Bottom::Restage(RestageCoord &rsCoord) {
   SPPair mrra;
   rsCoord.Ref(mrra, del, bufIdx);
 
-  SPNode *targ = Restage(mrra, bufIdx, del);
-  RunCounts(targ, mrra, del);
-}
-
-
-/**
-   @brief Restaging dispatcher.
- */
-SPNode *Bottom::Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del) {
   SPNode *targ;
   unsigned int startIdx, extent;
   Bounds(mrra, del, startIdx, extent);
 
-  unsigned int predIdx = mrra.second;
   unsigned int reachOffset[1 << NodePath::pathMax];
   if (level[del]->NodeRel()) { // Both levels employ node-relative indexing.
     unsigned int reachBase[1 << NodePath::pathMax];
     OffsetClone(mrra, del, reachOffset, reachBase);
-    if (IsDense(mrra, del)) {
-      targ = RestageDense(mrra, bufIdx, del, startIdx, extent, reachBase, reachOffset);
-    }
-    else if (del == 1) {
-      targ = samplePred->RestageNdxOne(reachOffset, reachBase, predIdx, bufIdx, FrontPath(1), PathMask(1), startIdx, extent);
-    }
-    else {
-      targ = samplePred->RestageNdxGen(reachOffset, reachBase, predIdx, bufIdx, FrontPath(del), PathMask(del), startIdx, extent);
-    }
+    targ = Restage(mrra, bufIdx, del, startIdx, extent, reachBase, reachOffset);
   }
   else { // Source level employs subtree indexing.  Target may or may not.
     OffsetClone(mrra, del, reachOffset);
-    if (IsDense(mrra, del)) {
-      targ = RestageDense(mrra, bufIdx, del, startIdx, extent, nullptr, reachOffset);
-    }
-    else if (del == 1) {
-      targ = samplePred->RestageStxOne(reachOffset, predIdx, bufIdx, stPath, PathMask(1), startIdx, extent, nodeRel);
-    }
-    else {
-      targ = samplePred->RestageStxGen(reachOffset, predIdx, bufIdx, stPath, PathMask(del), startIdx, extent, nodeRel);
-    }
+    targ = Restage(mrra, bufIdx, del, startIdx, extent, nullptr, reachOffset);
   }
 
-  return targ;
+  RunCounts(targ, mrra, del);
 }
 
 
@@ -500,18 +474,31 @@ unsigned int Level::DiagRestage(const SPPair &mrra, unsigned int reachOffset[]) 
    Decomposition into two paths adds ~5% performance penalty, but
    appears necessary for dense packing or for coprocessor loading.
  */
-SPNode *Bottom::RestageDense(const SPPair &mrra, unsigned int bufIdx, unsigned int del, unsigned int startIdx, unsigned int extent, const unsigned int reachBase[], unsigned int reachOffset[]) {
+SPNode *Bottom::Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, unsigned int startIdx, unsigned int extent, const unsigned int reachBase[], unsigned int reachOffset[]) {
   unsigned int pathCount[1 << NodePath::pathMax];
   for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
     pathCount[path] = 0;
   }
 
-  samplePred->Prepath(stPath, reachBase, mrra.second, bufIdx, startIdx, extent, PathMask(del), reachBase == nullptr ? nodeRel : true, pathCount);
+  samplePred->Prepath(level[del]->NodeRel() ?  FrontPath(del) : stPath, reachBase, mrra.second, bufIdx, startIdx, extent, PathMask(del), reachBase == nullptr ? nodeRel : true, pathCount);
 
   // Successors may or may not themselves be dense.
-  level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
+  if (IsDense(mrra, del)) {
+    level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
+  }
+
   return samplePred->RestagePath(mrra.second, bufIdx, startIdx, extent, reachOffset);
 }
+
+
+    /*
+    else if (del == 1) {
+      targ = RestageOne(reachOffset, reachBase, predIdx, bufIdx, FrontPath(1), PathMask(1), startIdx, extent);
+    }
+    else if (del == 1) {
+      targ = RestageOne(reachOffset, predIdx, bufIdx, stPath, PathMask(1), startIdx, extent, nodeRel);
+    }
+    */
 
 
 /**

@@ -50,14 +50,10 @@ IdxPath::IdxPath(unsigned int _idxLive) : idxLive(_idxLive), relFront(std::vecto
  */
 void IdxPath::Prepath(const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const {
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int idxLocal;
-    unsigned int path = reachBase != nullptr ? PathRel(idxVec[idx], pathMask, reachBase, idxLocal) : PathST(idxVec[idx], pathMask, idxUpdate, idxLocal);
+    unsigned int path = IdxUpdate(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
     if (path != NodePath::noPath) {
       pathCount[path]++;
-      if (idxUpdate) {
-        idxVec[idx] = idxLocal;
-      }
     }
   }
 }

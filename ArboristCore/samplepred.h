@@ -185,11 +185,6 @@ class SamplePred {
   double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
 
   
-  SPNode *RestageStxGen(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
-  SPNode *RestageStxOne(unsigned int reachOffset[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *stPath, unsigned int pathMask, unsigned int startIdx, unsigned int extent, bool nodeRel);
-
-  SPNode *RestageNdxGen(unsigned int reachOffset[], const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *frontPath, unsigned int patHMask, unsigned int startIdx, unsigned int extent);
-  SPNode *RestageNdxOne(unsigned int reachOffset[], const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, class IdxPath *frontPath, unsigned int patHMask, unsigned int startIdx, unsigned int extent);
   void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]);
   SPNode *RestagePath(unsigned int predIdx, unsigned int bufIdx, unsigned int start, unsigned int extent, unsigned int reachOffset[]);
 
