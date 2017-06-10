@@ -91,19 +91,25 @@ SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount, uns
 
    @param predIdx is the predictor index at which to initialize.
 
-   @return void.
+   @return true iff entire staged set has single rank.  This might be
+   a property of the training data or may arise from bagging. 
  */
-void SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent) {
+bool SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent) {
   stageOffset[predIdx] = safeOffset;
   stageExtent[predIdx] = extent;
 
+  const unsigned int bufIdx = 0;
   unsigned int *smpIdx;
-  SPNode *spn = Buffers(predIdx, 0, smpIdx);
+  SPNode *spn = Buffers(predIdx, bufIdx, smpIdx);
   for (unsigned int idx = 0; idx < stagePack.size(); idx++) {
     unsigned int sIdx = spn++->Init(stagePack[idx]);
     *smpIdx++ = sIdx;
   }
-  spn = Buffers(predIdx, 0, smpIdx);
+
+  // Singleton iff either:
+  //   Dense and all indices implicit.
+  //   Not dense and all ranks equal.
+  return bagCount == stagePack.size() ? SingleRank(predIdx, bufIdx, 0, bagCount) : (stagePack.size() == 0 ? true : false);
 }
 
 
@@ -187,4 +193,29 @@ SPNode *SamplePred::RestagePath(unsigned int predIdx, unsigned int bufIdx, unsig
   return targ;
 }
 
+
+/**
+   @brief As above, but counts distinct ranks.
+
+   @return void.
+ */
+void SamplePred::RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]) {
+  SPNode *source, *targ;
+  unsigned int *idxSource, *idxTarg;
+  Buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
+
+  PathT *pathBlock = &pathIdx[StageOffset(predIdx)];
+  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+    unsigned int path = pathBlock[idx];
+    if (path != NodePath::noPath) {
+      SPNode spNode = source[idx];
+      unsigned int rank = spNode.Rank();
+      rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
+      rankPrev[path] = rank;
+      unsigned int destIdx = reachOffset[path]++;
+      targ[destIdx] = spNode;
+      idxTarg[destIdx] = idxSource[idx];
+    }
+  }
+}
 

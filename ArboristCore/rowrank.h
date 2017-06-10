@@ -120,7 +120,12 @@ class RowRank {
   inline unsigned int NPred() const {
     return nPred;
   }
-  
+
+
+  inline unsigned int NoRank() const {
+    return noRank;
+  }
+
   
   inline unsigned int ExplicitCount(unsigned int predIdx) const {
     return rrCount[predIdx];

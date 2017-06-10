@@ -283,11 +283,11 @@ void Sample::Stage(const RowRank *rowRank, unsigned int predIdx) {
     rowRank->Ref(predIdx, idx, row, rank);
     PackIndex(row, rank, stagePack);
   }
-  bottom->RootDef(predIdx, bagCount - stagePack.size());
 
   unsigned int extent;
   unsigned int safeOffset = rowRank->SafeOffset(predIdx, bagCount, extent);
-  samplePred->Stage(stagePack, predIdx, safeOffset, extent);
+  bool singleton = samplePred->Stage(stagePack, predIdx, safeOffset, extent);
+  bottom->RootDef(predIdx, singleton, bagCount - stagePack.size());
 }
 
 

@@ -263,7 +263,7 @@ class Run {
 
  public:
   const unsigned int ctgWidth;
-  Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount);
+  Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand);
   void LevelClear();
   void OffsetsReg();
   void OffsetsCtg();

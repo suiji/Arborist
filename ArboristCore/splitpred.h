@@ -38,9 +38,10 @@ class SplitCoord {
   unsigned char bufIdx; // Per pair.
  public:
 
-  void InitEarly(unsigned int _splitPos, unsigned int _levelIdx, unsigned int _predIdx, unsigned int _bufIdx, unsigned int _setIdx);
-  void InitLate(const class Bottom *bottom, const class IndexLevel &index);
-  
+  bool Preschedule(class Bottom *bottom, unsigned int _levelIdx, unsigned int _predIdx, std::vector<SplitCoord> &splitCoord);
+  void Schedule(const class Bottom *bottom, const class IndexLevel &indexLevel, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2);
+  void InitLate(const class Bottom *bottom, const class IndexLevel &index, unsigned int _splitPos, unsigned int _setIdx);
+
   void Split(const class SPReg *spReg, const class Bottom *bottom, const class SamplePred *samplePred, const class IndexLevel &index);
   void Split(class SPCtg *spCtg, const class Bottom *bottom, const class SamplePred *samplePred, const class IndexLevel &index);
   void SplitNum(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
@@ -56,14 +57,14 @@ class SplitCoord {
   unsigned int NumCtgGini(SPCtg *spCtg, const class SPNode spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf);
   void SplitFac(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
   void SplitFac(const class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
-  bool SplitFac(const class SPReg *spReg, const class SPNode spn[], unsigned int &runCount, class NuxLH &nux);
-  bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], unsigned int &runCount, class NuxLH &nux);
+  bool SplitFac(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
+  bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
   bool SplitBinary(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
   bool SplitRuns(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
 
-  unsigned int RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
+  void RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
   bool HeapSplit(class RunSet *runSet, class NuxLH &nux) const;
-  unsigned int RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SPNode spn[]) const;
+  void RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SPNode spn[]) const;
 };
 
 
@@ -81,24 +82,26 @@ class SplitPred {
 
   void SetPrebias(class IndexLevel &level);
   void SplitFlags(bool unsplitable[]);
-  void ScheduleProb(unsigned int levelIdx, const double ruPred[], std::vector<unsigned int> &safeCount);
-  void ScheduleFixed(unsigned int levelIdx, const double ruPred[], class BHPair heap[], std::vector<unsigned int> &safeCount);
-  bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, std::vector<unsigned int> &safeCount);
+  void PrescheduleProb(unsigned int levelIdx, const double ruPred[]);
+  void PrescheduleFixed(unsigned int levelIdx, const double ruPred[], class BHPair heap[]);
+  bool Preschedule(unsigned int levelIdx, unsigned int predIdx);
   
  protected:
   const class PMTrain *pmTrain;
   static unsigned int nPred;
   const unsigned int bagCount;
+  const unsigned int noSet; // Unreachable setIdx for SplitCoord.
   class Bottom *bottom;
   unsigned int levelCount; // # subtree nodes at current level.
   class Run *run;
   std::vector<SplitCoord> splitCoord; // Schedule of splits.
-  void Splitable(const std::vector<bool> &unsplitable, std::vector<unsigned int> &safeCount);
+  void Splitable(const std::vector<bool> &unsplitable);
  public:
   class SamplePred *samplePred;
   SplitPred(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   static void Immutables(unsigned int _nPred, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]);
   static void DeImmutables();
+  void ScheduleSplits(const class IndexLevel &index);
   unsigned int DenseRank(unsigned int predIdx) const;
   bool IsFactor(unsigned int predIdx) const;
   unsigned int NumIdx(unsigned int predIdx) const;

@@ -61,7 +61,7 @@ unsigned int RunSet::noStart = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int bagCount) : noRun(nRow * bagCount), ctgWidth(_ctgWidth) {
+Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand) : noRun(noCand), ctgWidth(_ctgWidth) {
   RunSet::ctgWidth = ctgWidth;
   RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
   runSet = 0;
