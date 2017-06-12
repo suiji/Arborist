@@ -48,41 +48,13 @@ class IndexAnc {
 
 
 /**
-   @brief Split/predictor coordinate pair.
+   @brief Defines the parameters needed to place a dense cell.
  */
-typedef std::pair<unsigned int, unsigned int> SPPair;
+class DenseCoord {
+  unsigned int margin;
+  unsigned int count; // Nonincreasing.
 
-
-/**
-   @brief Inherited state for most-recently-restaged ancestor.
- */
-class MRRA {
-  static const unsigned int defBit = 1;
-  static const unsigned int bufBit = 2;
-  static const unsigned int oneBit = 4;
-
-  unsigned char raw;
-  unsigned int denseMargin;
-  unsigned int denseCount; // Nonincreasing.
  public:
-
-  
-  inline void Init(unsigned int bufIdx, bool singleton, unsigned int _denseCount) {
-    raw = (singleton ? oneBit : 0) | (bufIdx << 1) | 1;
-    denseMargin = 0;
-    denseCount = _denseCount;
-  }
-
-
-  inline bool Singleton() const {
-    return (raw & oneBit) != 0;
-  }
-
-  inline bool Singleton(unsigned int &bufIdx) const {
-    bufIdx = (raw & bufBit) >> 1;
-    return Singleton();
-  }
-  
 
   /**
      @brief Applies dense parameters to offsets derived from index node.
@@ -96,19 +68,9 @@ class MRRA {
      @return dense count.
    */
   inline unsigned int AdjustDense(unsigned int &startIdx, unsigned int &extent) const {
-    startIdx -= denseMargin;
-    extent -= denseCount;
-
-    return denseCount;
-  }
-  
-
-  /**
-     @brief Determines whether cell requires dense placement, i.e, is either
-     unaligned within a dense region or is itself dense.
-   */
-  inline bool DensePlacement() const {
-    return denseCount > 0 || denseMargin > 0;
+    startIdx -= margin;
+    extent -= count;
+    return count;
   }
 
 
@@ -117,27 +79,73 @@ class MRRA {
 
      @return void.
    */
-  inline void SetDense(unsigned int _denseMargin, unsigned int _denseCount) {
-    denseMargin = _denseMargin;
-    denseCount = _denseCount;
+  inline void Init(unsigned int _count, unsigned int _margin = 0) {
+    count = _count;
+    margin = _margin;
+  }
+
+};
+
+/**
+   @brief Split/predictor coordinate pair.
+ */
+typedef std::pair<unsigned int, unsigned int> SPPair;
+
+
+/**
+   @brief Inherited state for most-recently-restaged ancestor.
+ */
+class MRRA {
+  static const unsigned int defBit = 1;
+  static const unsigned int oneBit = 2;
+  static const unsigned int denseBit = 4;
+
+  // Addition bits available for multiple buffers:
+  static const unsigned int bufBit = 8;
+
+  unsigned char raw;
+ public:
+
+ 
+  inline void Init() {
+    raw = 0;
+  }
+
+  
+  inline void Init(unsigned int bufIdx, bool singleton, bool dense) {
+    raw = defBit | (singleton ? oneBit : 0) | (dense ? denseBit : 0) | (bufIdx == 0 ? 0 : bufBit);
   }
 
 
-  /**
-     @brief Looks up position parameters and resets contents.
+  inline bool Singleton() const {
+    return (raw & oneBit) != 0;
+  }
 
-     @return void, with output reference parameters.
-  */
-  inline void Consume(unsigned int &bufIdx, bool &singleton) {
-    singleton = Singleton(bufIdx);
-    raw = 0;
+  inline bool Singleton(unsigned int &bufIdx) const {
+    bufIdx = (raw & bufBit) == 0 ? 0 : 1;
+    return Singleton();
+  }
+  
+
+  inline void SetDense() {
+    raw |= denseBit;
+  }
+
+  
+  /**
+     @brief Determines whether cell requires dense placement, i.e, is either
+     unaligned within a dense region or is itself dense.
+
+     @return true iff dense bit set.
+   */
+  inline bool Dense() const {
+    return (raw & denseBit) != 0;
   }
 
 
   inline void SetSingleton() {
     raw |= oneBit;
   }
-
 
   
   inline bool Defined() const {
@@ -147,8 +155,19 @@ class MRRA {
 
   inline bool Undefine() {
     bool wasDefined = Defined();
-    raw = 0;
+    raw &= ~defBit;
     return wasDefined;
+  }
+
+
+  /**
+     @brief Looks up position parameters and resets definition bit.
+
+     @return void, with output reference parameters.
+  */
+  inline void Consume(unsigned int &bufIdx, bool &singleton) {
+    singleton = Singleton(bufIdx);
+    (void) Undefine();
   }
 };
 
@@ -158,6 +177,8 @@ class MRRA {
  */
 class Level {
   const unsigned int nPred;
+  const std::vector<unsigned int> &denseIdx;
+  const unsigned int nPredDense;
   const unsigned int splitCount;
   const unsigned int noIndex; // Inattainable node index value.
   const unsigned int idxLive; // Total # sample indices at level.
@@ -172,6 +193,7 @@ class Level {
   // More elegant and parsimonious to use std::map from pair to node,
   // but hashing much too slow.
   std::vector<MRRA> def; // Indexed by pair-offset.
+  std::vector<DenseCoord> denseCoord;
 
   // Recomputed:
   class IdxPath *relPath;
@@ -179,7 +201,7 @@ class Level {
   std::vector<unsigned int> liveCount; // Indexed by node.
 
  public:
-  Level(unsigned int _splitCount, unsigned int _nPred, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel);
+  Level(unsigned int _splitCount, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel);
   ~Level();
 
   
@@ -239,6 +261,16 @@ class Level {
 
 
   /**
+     @brief Dense offsets maintained separately, as a special case.
+
+     @return offset strided by 'nPredDense'.
+   */
+  inline unsigned int DenseOffset(unsigned int mrraIdx, unsigned int predIdx) const {
+    return mrraIdx * nPredDense + denseIdx[predIdx];
+  }
+
+  
+  /**
      @brief Shifts a value by the number of back-levels to compensate for
      effects of binary branching.
 
@@ -284,7 +316,10 @@ class Level {
    */
   inline bool Define(unsigned int levelIdx, unsigned predIdx, unsigned int bufIdx, bool singleton, unsigned int denseCount = 0) {
     if (levelIdx != noIndex) {
-      def[PairOffset(levelIdx, predIdx)].Init(bufIdx, singleton, denseCount);
+      def[PairOffset(levelIdx, predIdx)].Init(bufIdx, singleton, denseCount > 0);
+      if (denseCount > 0) {
+	denseCoord[DenseOffset(levelIdx, predIdx)].Init(denseCount);
+      }
       defCount++;
       return true;
     }
@@ -323,8 +358,9 @@ class Level {
   }
 
 
-  inline unsigned int AdjustDense(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) const {
-    return def[PairOffset(mrra.first, mrra.second)].AdjustDense(startIdx, extent);
+  inline unsigned int AdjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
+    return def[PairOffset(levelIdx, predIdx)].Dense() ?
+      denseCoord[DenseOffset(levelIdx, predIdx)].AdjustDense(startIdx, extent) : 0;
   }
 
 
@@ -333,13 +369,13 @@ class Level {
   }
 
 
-  inline bool Defined(unsigned int levelIdx, unsigned int predIdx) {
+  inline bool Defined(unsigned int levelIdx, unsigned int predIdx) const {
     return def[PairOffset(levelIdx, predIdx)].Defined();
   }
 
 
-  inline bool DensePlacement(unsigned int levelIdx, unsigned int predIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].DensePlacement();
+  inline bool Dense(unsigned int levelIdx, unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].Dense();
   }
 
   /**
@@ -348,7 +384,8 @@ class Level {
      @return void.
   */
   inline void SetDense(unsigned int levelIdx, unsigned int predIdx, unsigned int denseMargin, unsigned int denseCount) {
-    def[PairOffset(levelIdx, predIdx)].SetDense(denseMargin, denseCount);
+    def[PairOffset(levelIdx, predIdx)].SetDense();
+    denseCoord[DenseOffset(levelIdx, predIdx)].Init(denseCount, denseMargin);
   }
 
 
@@ -513,7 +550,7 @@ class Bottom {
 
 
   inline bool DensePlacement(const SPPair &mrra, unsigned int del = 0) const {
-    return level[del]->DensePlacement(mrra.first, mrra.second);
+    return level[del]->Dense(mrra.first, mrra.second);
   }
 
 
@@ -574,8 +611,7 @@ class Bottom {
 
 
   inline unsigned int AdjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
-    SPPair pair = std::make_pair(levelIdx, predIdx);
-    return levelFront->AdjustDense(pair, startIdx, extent);
+    return levelFront->AdjustDense(levelIdx, predIdx, startIdx, extent);
   }
 
 
@@ -594,9 +630,9 @@ class Bottom {
   }
   
 
-  inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, bool isDense, unsigned int rankCount) {
+  inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, bool hasImplicit, unsigned int rankCount) {
     bool dummy;
-    unsigned int rCount = isDense ? rankCount + 1 : rankCount;
+    unsigned int rCount = hasImplicit ? rankCount + 1 : rankCount;
     runCount[levelIdx * nPredFac + FacIdx(predIdx, dummy)] = rCount;
     if (rCount == 1) {
       SetSingleton(levelIdx, predIdx);

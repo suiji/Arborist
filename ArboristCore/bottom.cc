@@ -59,7 +59,7 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class RowRank *_rowRank, SplitPred *_splitPred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), rowRank(_rowRank), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class RowRank *_rowRank, SplitPred *_splitPred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), rowRank(_rowRank), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
@@ -86,9 +86,9 @@ void Bottom::RootDef(unsigned int predIdx, bool singleton, unsigned int denseCou
 }
 
   
-Level::Level(unsigned int _splitCount, unsigned int _nPred, unsigned int bagCount, unsigned int _idxLive, bool _nodeRel) : nPred(_nPred), splitCount(_splitCount), noIndex(bagCount), idxLive(_idxLive), nodeRel(_nodeRel), defCount(0), del(0), indexAnc(std::vector<IndexAnc>(splitCount)), def(std::vector<MRRA>(splitCount * nPred)), relPath(new IdxPath(idxLive)) {
+Level::Level(unsigned int _splitCount, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int bagCount, unsigned int _idxLive, bool _nodeRel) : nPred(_nPred), denseIdx(_denseIdx), nPredDense(_nPredDense), splitCount(_splitCount), noIndex(bagCount), idxLive(_idxLive), nodeRel(_nodeRel), defCount(0), del(0), indexAnc(std::vector<IndexAnc>(splitCount)), def(std::vector<MRRA>(splitCount * nPred)), denseCoord(std::vector<DenseCoord>(splitCount * nPredDense)), relPath(new IdxPath(idxLive)) {
   MRRA df;
-  df.Undefine();
+  df.Init();
   std::fill(def.begin(), def.end(), df);
 }
 
@@ -339,7 +339,7 @@ void Bottom::ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned in
  */
 void Level::Bounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
   indexAnc[mrra.first].Ref(startIdx, extent);
-  (void) AdjustDense(mrra, startIdx, extent);
+  (void) AdjustDense(mrra.first, mrra.second, startIdx, extent);
 }
 
 
@@ -497,7 +497,6 @@ void Bottom::Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, 
   if (DensePlacement(mrra, del)) {
     level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
   }
-
 
   if (IsFactor(predIdx)) {
     unsigned int rankPrev[1 << NodePath::pathMax];
@@ -674,7 +673,7 @@ void Bottom::LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned
   if (!nodeRel) { // Sticky.
     nodeRel = IdxPath::Localizes(bagCount, idxMax);
   }
-  levelFront = new Level(splitCount, nPred, bagCount, idxLive, nodeRel);
+  levelFront = new Level(splitCount, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, idxLive, nodeRel);
   level.push_front(levelFront);
 
   historyPrev = std::move(history);

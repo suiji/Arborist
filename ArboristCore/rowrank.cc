@@ -243,7 +243,7 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
    @param feRank is the vector of ranks allocated by the front end.
 
  */
-RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), rrCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)) {
+RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), nPredDense(0), denseIdx(std::vector<unsigned int>(nPred)), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), rrCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)) {
   DenseBlock(feRank, feRLE, rleLength);
   unsigned int rrSlots = ModeOffsets();
   rrNode = new RRNode[rrSlots];
@@ -318,9 +318,11 @@ void RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned in
     safeOffset[predIdx] = accumCompact; // Accumulated offset:  dense.
     rowCount = nRow - denseMax;
     accumCompact += rowCount;
+    denseIdx[predIdx] = nPredDense++;
   }
   else {
     denseRank[predIdx] = noRank;
+    denseIdx[predIdx] = nPred; // Inattainable index. 
     safeOffset[predIdx] = nonCompact++; // Index:  non-dense storage.
     rowCount = nRow;
   }

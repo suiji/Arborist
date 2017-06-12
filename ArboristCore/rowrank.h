@@ -59,6 +59,8 @@ class RowRank {
   const unsigned int nRow;
   const unsigned int nPred;
   const unsigned int noRank; // Inattainable rank value.
+  unsigned int nPredDense;
+  std::vector<unsigned int> denseIdx;
   static constexpr double plurality = 0.25;
 
   // Jagged array holding numerical predictor values for split assignment.
@@ -180,6 +182,16 @@ class RowRank {
   }
 
 
+  inline unsigned int NPredDense() const {
+    return nPredDense;
+  }
+
+
+  inline const std::vector<unsigned int> &DenseIdx() const {
+    return denseIdx;
+  }
+
+  
   /**
      @brief Derives split values for a numerical predictor by synthesizing
      a fractional intermediate rank and interpolating.
