@@ -15,6 +15,7 @@
 
 \usage{
 \method{Rborist}{default} (x, y, nTree=500, withRepl = TRUE,
+                autoCompress = 0.4,
                 ctgCensus = "votes",
                 classWeight = NULL,
                 minInfo = 0.01,
@@ -44,6 +45,7 @@
   categorical.  Row count must conform with \code{x}.}
   \item{nTree}{ the number of trees to train.}
   \item{withRepl}{whether row sampling is by replacement.}
+  \item{autoCompress}{plurality above which to compress predictor values.}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{classWeight}{proportional weighting of classification categories.}
   \item{minInfo}{information ratio with parent below which node does not split.}

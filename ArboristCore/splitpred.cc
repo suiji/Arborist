@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 #include "index.h"
 #include "splitpred.h"

@@ -72,17 +72,19 @@ Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class Row
 /**
    @brief Adds a new definition at the root level.
 
-   @param nPred is the number of predictors.
+   @param predIdx is the predictor index.
+
+   @param singleton is true iff column consists of indentically-ranked samples.
+
+   @param implicit is the number of implicitly-sampled indices.
 
    @return void.
  */
-void Bottom::RootDef(unsigned int predIdx, bool singleton, unsigned int denseCount) {
+void Bottom::RootDef(unsigned int predIdx, bool singleton, unsigned int implicit) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int levelIdx = 0;
-  levelFront->Define(levelIdx, predIdx, bufIdx, singleton, denseCount);
-  if (IsFactor(predIdx)) { // Sets conservative run count value.
-    SetRunCount(levelIdx, predIdx, false, singleton ? 1 : pmTrain->FacCard(predIdx));
-  }
+  (void) levelFront->Define(levelIdx, predIdx, bufIdx, singleton, implicit);
+  SetRunCount(levelIdx, predIdx, false, singleton ? 1 : pmTrain->FacCard(predIdx));
 }
 
   
@@ -498,20 +500,14 @@ void Bottom::Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, 
     level[del]->PackDense(startIdx, pathCount, levelFront, mrra, reachOffset);
   }
 
-  if (IsFactor(predIdx)) {
-    unsigned int rankPrev[1 << NodePath::pathMax];
-    unsigned int rankCount[1 << NodePath::pathMax];
-    for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
-      rankPrev[path] = rowRank->NoRank();
-      rankCount[path] = 0;
-    }
-    samplePred->RestageRank(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
-    level[del]->RunCounts(this, mrra, pathCount, rankCount);
+  unsigned int rankPrev[1 << NodePath::pathMax];
+  unsigned int rankCount[1 << NodePath::pathMax];
+  for (unsigned int path = 0; path < level[del]->BackScale(1); path++) {
+    rankPrev[path] = rowRank->NoRank();
+    rankCount[path] = 0;
   }
-  else {
-    SPNode *targ = samplePred->RestagePath(predIdx, bufIdx, startIdx, extent, reachOffset);
-    level[del]->Singletons(this, mrra, pathCount, targ);
-  }
+  samplePred->RestageRank(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
+  level[del]->RunCounts(this, mrra, pathCount, rankCount);
 }
 
 
@@ -534,10 +530,10 @@ void Level::PackDense(unsigned int idxLeft, const unsigned int pathCount[], Leve
     pathPos[path].Coords(levelIdx, idxStart, extent);
     if (levelIdx != noIndex) {
       unsigned int margin = idxStart - idxLeft;
-      unsigned int idxLocal = pathCount[path];
-      levelFront->SetDense(levelIdx, mrra.second, margin, extent - idxLocal);
+      unsigned int extentDense = pathCount[path];
+      levelFront->SetDense(levelIdx, mrra.second, extent - extentDense, margin);
       reachOffset[path] -= margin;
-      idxLeft += idxLocal;
+      idxLeft += extentDense;
     }
   }
 }
@@ -560,30 +556,6 @@ void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned
   if (reachBase != nullptr) {
     for (unsigned int i = 0; i < BackScale(1); i++) {
       reachBase[i] = nodePath[nodeStart + i].RelBase();
-    }
-  }
-}
-
-
-/**
-   @brief Sets dense count on target MRRA and, if singleton, sets run count to
-   unity.
-
-   @return void.
- */
-void Level::Singletons(const Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const SPNode targ[]) const {
-  unsigned int predIdx = mrra.second;
-  const NodePath *pathPos = &nodePath[BackScale(mrra.first)];
-  for (unsigned int path = 0; path < BackScale(1); path++) {
-    unsigned int levelIdx, idxStart, extent;
-    pathPos[path].Coords(levelIdx, idxStart, extent);
-    if (levelIdx != noIndex) {
-      if (extent == 0) { // Single run, dense.
-	bottom->SetSingleton(levelIdx, predIdx);
-      }
-      else if (extent == pathCount[path] && (targ[idxStart].Rank() == targ[idxStart + extent - 1].Rank())) { // Single run, not dense.
-	bottom->SetSingleton(levelIdx, predIdx);
-      }
     }
   }
 }

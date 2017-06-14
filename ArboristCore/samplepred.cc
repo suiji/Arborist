@@ -173,29 +173,7 @@ void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int reachBase[],
 
 
 /**
-   @brief Restages a block for which path values have been localized.
- */
-SPNode *SamplePred::RestagePath(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[]) {
-  SPNode *source, *targ;
-  unsigned int *idxSource, *idxTarg;
-  Buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
-
-  PathT *pathBlock = &pathIdx[StageOffset(predIdx)];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int path = pathBlock[idx];
-    if (path != NodePath::noPath) {
-      unsigned int destIdx = reachOffset[path]++;
-      targ[destIdx] = source[idx];
-      idxTarg[destIdx] = idxSource[idx];
-    }
-  }
-
-  return targ;
-}
-
-
-/**
-   @brief As above, but counts distinct ranks.
+   @brief Restages and tabultates rank counts.
 
    @return void.
  */

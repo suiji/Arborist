@@ -201,7 +201,7 @@ class IdxPath {
     unsigned int path;
     if (IsLive(idx)) {
       path = pathFront[idx] & pathMask;
-      // Avoids irregular update if not necessary:
+      // Avoids irregular update unless necessary:
       idx = reachBase != nullptr ? (reachBase[path] + offFront[idx]) : (idxUpdate ? RelFront(idx) : idx);
     }
     else {

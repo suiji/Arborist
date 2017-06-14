@@ -48,29 +48,32 @@ class IndexAnc {
 
 
 /**
-   @brief Defines the parameters needed to place a dense cell.
+   @brief Defines the parameters needed to place a dense cell with respect
+   the position of its defining node.  Parameters are maintained as relative
+   values to facilitate recognition of cells no longer requiring dense
+   representation.
  */
 class DenseCoord {
   unsigned int margin;
-  unsigned int count; // Nonincreasing.
+  unsigned int implicit; // Nonincreasing.
 
  public:
 
   /**
      @brief Applies dense parameters to offsets derived from index node.
 
-     @param startIdx is input as the node offset and output as the
-     margin-adjusted starting index.
+     @param startIdx inputs the nodewise starting offset and outputs the
+     same value, minus the margin.
 
-     @param extent is input as the node index count and output with an
-     adjustment for implicit indices.
+     @param extent inputs the nodewise index count and outputs the same
+     value, minus the number of implicit indices.
 
      @return dense count.
    */
   inline unsigned int AdjustDense(unsigned int &startIdx, unsigned int &extent) const {
     startIdx -= margin;
-    extent -= count;
-    return count;
+    extent -= implicit;
+    return implicit;
   }
 
 
@@ -79,8 +82,8 @@ class DenseCoord {
 
      @return void.
    */
-  inline void Init(unsigned int _count, unsigned int _margin = 0) {
-    count = _count;
+  inline void Init(unsigned int _implicit, unsigned int _margin = 0) {
+    implicit = _implicit;
     margin = _margin;
   }
 
@@ -112,8 +115,8 @@ class MRRA {
   }
 
   
-  inline void Init(unsigned int bufIdx, bool singleton, bool dense) {
-    raw = defBit | (singleton ? oneBit : 0) | (dense ? denseBit : 0) | (bufIdx == 0 ? 0 : bufBit);
+  inline void Init(unsigned int bufIdx, bool singleton) {
+    raw = defBit | (singleton ? oneBit : 0) | (bufIdx == 0 ? 0 : bufBit);
   }
 
 
@@ -215,7 +218,6 @@ class Level {
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]);
   unsigned int DiagRestage(const SPPair &mrra, unsigned int reachOffset[]);
   void RunCounts(class Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const;
-  void Singletons(const class Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const class SPNode targ[]) const;
 
   void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
   void SetExtinct(unsigned int idx);
@@ -311,15 +313,13 @@ class Level {
   /**
      @brief
 
-     @param denseCount is only set directly by staging.  Otherwise it has a
+     @param implicit is only set directly by staging.  Otherwise it has a
      default setting of zero, which is later reset by restaging.
    */
-  inline bool Define(unsigned int levelIdx, unsigned predIdx, unsigned int bufIdx, bool singleton, unsigned int denseCount = 0) {
+  inline bool Define(unsigned int levelIdx, unsigned predIdx, unsigned int bufIdx, bool singleton, unsigned int implicit = 0) {
     if (levelIdx != noIndex) {
-      def[PairOffset(levelIdx, predIdx)].Init(bufIdx, singleton, denseCount > 0);
-      if (denseCount > 0) {
-	denseCoord[DenseOffset(levelIdx, predIdx)].Init(denseCount);
-      }
+      def[PairOffset(levelIdx, predIdx)].Init(bufIdx, singleton);
+      SetDense(levelIdx, predIdx, implicit);
       defCount++;
       return true;
     }
@@ -383,9 +383,11 @@ class Level {
 
      @return void.
   */
-  inline void SetDense(unsigned int levelIdx, unsigned int predIdx, unsigned int denseMargin, unsigned int denseCount) {
-    def[PairOffset(levelIdx, predIdx)].SetDense();
-    denseCoord[DenseOffset(levelIdx, predIdx)].Init(denseCount, denseMargin);
+  inline void SetDense(unsigned int levelIdx, unsigned int predIdx, unsigned int implicit, unsigned int margin = 0) {
+    if (implicit > 0 || margin > 0) {
+      def[PairOffset(levelIdx, predIdx)].SetDense();
+      denseCoord[DenseOffset(levelIdx, predIdx)].Init(implicit, margin);
+    }
   }
 
 
@@ -495,7 +497,7 @@ class Bottom {
  public:
   bool NonTerminal(class PreTree *preTree, class SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl);
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
-  void RootDef(unsigned int predIdx, bool singleton, unsigned int denseCount);
+  void RootDef(unsigned int predIdx, bool singleton, unsigned int implicit);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
@@ -633,9 +635,11 @@ class Bottom {
   inline void SetRunCount(unsigned int levelIdx, unsigned int predIdx, bool hasImplicit, unsigned int rankCount) {
     bool dummy;
     unsigned int rCount = hasImplicit ? rankCount + 1 : rankCount;
-    runCount[levelIdx * nPredFac + FacIdx(predIdx, dummy)] = rCount;
     if (rCount == 1) {
       SetSingleton(levelIdx, predIdx);
+    }
+    if (IsFactor(predIdx)) {
+      runCount[levelIdx * nPredFac + FacIdx(predIdx, dummy)] = rCount;
     }
   }
 

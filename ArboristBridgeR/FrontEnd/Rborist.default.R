@@ -18,6 +18,7 @@
 # 'y' should be defined on entry.  Other entry points to be used for different behaviours.
 #
 "Rborist.default" <- function(x, y, nTree=500, withRepl = TRUE,
+                autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,
                 minInfo = 0.01,
@@ -51,7 +52,10 @@
   nRow <- predBlock$nRow
 
   if (length(y) != nRow)
-    stop("Nonconforming design matrix and response")
+      stop("Nonconforming design matrix and response")
+
+  if (autoCompress < 0.0 || autoCompress > 1.0)
+      stop("Autocompression plurality must be a percentage.")
           
   if (is.null(regMono)) {
     regMono <- rep(0.0, nPred)
@@ -185,10 +189,10 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, thinLeaves, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, thinLeaves, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, regMono)
   }
 
   predInfo <- train[["predInfo"]]
