@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-//#include <iostream>
-//using namespace std;
+#include <iostream>
+using namespace std;
 
 #include "index.h"
 #include "splitpred.h"
@@ -372,7 +372,7 @@ void SplitCoord::InitLate(const Bottom *bottom, const IndexLevel &index, unsigne
   setIdx = _setIdx;
   unsigned int extent;
   preBias = index.SplitFields(levelIdx, idxStart, extent, sCount, sum);
-  denseCount = bottom->AdjustDense(levelIdx, predIdx, idxStart, extent);
+  implicit = bottom->AdjustDense(levelIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // May overflow if singleton:  invalid.
 }
 
@@ -662,10 +662,10 @@ bool SplitCoord::SplitFac(const SPReg *spReg, const SPNode spn[], NuxLH &nux) {
 bool SplitCoord::SplitNum(const SPReg *spReg, const SPNode spn[], NuxLH &nux) {
   int monoMode = spReg->MonoMode(splitPos, predIdx);
   if (monoMode != 0) {
-    return denseCount > 0 ? SplitNumDenseMono(monoMode > 0, spn, spReg, nux) : SplitNumMono(monoMode > 0, spn, nux);
+    return implicit > 0 ? SplitNumDenseMono(monoMode > 0, spn, spReg, nux) : SplitNumMono(monoMode > 0, spn, nux);
   }
   else {
-    return denseCount > 0 ? SplitNumDense(spn, spReg, nux) : SplitNum(spn, nux);
+    return implicit > 0 ? SplitNumDense(spn, spReg, nux) : SplitNum(spn, nux);
   }
 
 }
@@ -739,7 +739,7 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
   else {
     spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
     idxNext = idxEnd - 1;
-    idxFinal = denseLeft ? idxStart : denseCut + 1;
+    idxFinal = denseLeft ? idxStart : denseCut;
   }
   double sumR = ySum;
   unsigned int sCountL = sCount - sampleCount;
@@ -780,7 +780,7 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
       maxInfo = idxGini;
     }
   
-    if (!denseLeft) {  // Walks remaining indices, if any, with rank below dense.
+    if (!denseLeft) { // Walks remaining indices, if any, with rank below dense.
       sCountL -= sCountDense;
       sumR += sumDense;
       rkRight = denseRank;
@@ -795,6 +795,9 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
 	  rhInf = i + 1;
 	  rankLH = rkThis;
 	  rankRH = rkRight;
+    if (rankLH >= rankRH) {
+      cout << idxFinal - i << ":  " << rankLH << " / " << rankRH << endl;
+    }
 	  maxInfo = idxGini;
 	}
 	sCountL -= sampleCount;
@@ -805,7 +808,7 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
   }
 
   if (maxInfo > preBias) {
-    unsigned int lhDense = rankLH >= denseRank ? denseCount : 0;
+    unsigned int lhDense = rankLH >= denseRank ? implicit : 0;
     unsigned int lhIdxTot = rhInf - idxStart + lhDense;
     nux.InitNum(idxStart, lhIdxTot, lhSampCt, maxInfo - preBias, rankLH, rankRH, lhDense);
     return true;
@@ -841,7 +844,7 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SP
   else {
     spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
     idxNext = idxEnd - 1;
-    idxFinal = denseLeft ? idxStart : denseCut + 1;
+    idxFinal = denseLeft ? idxStart : denseCut;
   }
   double sumR = ySum;
   unsigned int sCountL = sCount - sampleCount;
@@ -913,7 +916,7 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SPNode spn[], const SP
   }
 
   if (maxInfo > preBias) {
-    unsigned int lhDense = rankLH >= denseRank ? denseCount : 0;
+    unsigned int lhDense = rankLH >= denseRank ? implicit : 0;
     unsigned int lhIdxTot = rhInf - idxStart + lhDense;
     nux.InitNum(idxStart, lhIdxTot, lhSampCt, maxInfo - preBias, rankLH, rankRH, lhDense);
     return true;
@@ -981,20 +984,17 @@ bool SplitCoord::SplitNumMono(bool increasing, const SPNode spn[], NuxLH &nux) {
    @param sCount dense input the response sample count over the node and
    outputs the residual count.
 
-   @param denseCut output the supremum of indices to the left ot the
-   dense rank.
-
-   @return true iff left bound has rank less than dense value.
+   @return supremum of indices to the left ot the dense rank.
 */
 unsigned int SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const {
-  unsigned int denseCut = idxStart; // Defaults to lowest index.
+  unsigned int denseCut = idxEnd; // Defaults to highest index.
   double sumTot = 0.0;
   unsigned int sCountTot = 0;
   for (int idx = int(idxEnd); idx >= int(idxStart); idx--) {
     unsigned int sampleCount, rkThis;
     FltVal ySum;
     spn[idx].RegFields(ySum, rkThis, sampleCount);
-    denseCut = rkThis >= denseRank ? idx : denseCut;
+    denseCut = rkThis > denseRank ? idx : denseCut;
     sCountTot += sampleCount;
     sumTot += ySum;
   }
@@ -1002,8 +1002,8 @@ unsigned int SPReg::Residuals(const SPNode spn[], unsigned int idxStart, unsigne
   sCountDense -= sCountTot;
 
   // Dense blob is either left, right or neither.
-  denseRight = (denseCut == idxEnd && spn[idxEnd].Rank() < denseRank);  
-  denseLeft = (denseCut == idxStart && spn[idxStart].Rank() > denseRank);
+  denseRight = (denseCut == idxEnd && spn[denseCut].Rank() < denseRank);  
+  denseLeft = (denseCut == idxStart && spn[denseCut].Rank() > denseRank);
   
   return denseCut;
 }
@@ -1065,7 +1065,7 @@ void SPCtg::ApplyResiduals(unsigned int levelIdx, unsigned int predIdx, double &
 
 
 bool SplitCoord::SplitNum(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
-  if (denseCount > 0) {
+  if (implicit > 0) {
     return NumCtgDense(spCtg, spn, nux);
   }
   else {
@@ -1187,7 +1187,7 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SPNode spn[], NuxLH &nux) {
   }
 
   if (maxInfo > preBias) {
-    unsigned int lhDense = rankLH >= denseRank ? denseCount : 0;
+    unsigned int lhDense = rankLH >= denseRank ? implicit : 0;
     unsigned int lhIdxTot = rhInf - idxStart + lhDense;
     nux.InitNum(idxStart, lhIdxTot, lhSampCt, maxInfo - preBias, rankLH, rankRH, lhDense);
     return true;
@@ -1231,8 +1231,8 @@ void SplitCoord::RunsReg(RunSet *runSet, const SPNode spn[], unsigned int denseR
   // Flushes the remaining run.  Also flushes the implicit run, if dense.
   //
   runSet->Write(rkThis, sCountHeap, sumHeap, frEnd - idxStart + 1, idxStart);
-  if (denseCount > 0) {
-    runSet->WriteImplicit(denseRank, sCount, sum, denseCount);
+  if (implicit > 0) {
+    runSet->WriteImplicit(denseRank, sCount, sum, implicit);
   }
 }
 
@@ -1311,8 +1311,8 @@ void SplitCoord::RunsCtg(const SPCtg *spCtg, RunSet *runSet, const SPNode spn[])
   
   // Flushes remaining run.
   runSet->Write(rkThis, sCountLoc, sumLoc, frEnd - idxStart + 1, idxStart);
-  if (denseCount > 0) {
-    runSet->WriteImplicit(spCtg->DenseRank(predIdx), sCount, sum, denseCount, spCtg->ColumnSums(levelIdx));
+  if (implicit > 0) {
+    runSet->WriteImplicit(spCtg->DenseRank(predIdx), sCount, sum, implicit, spCtg->ColumnSums(levelIdx));
   }
 }
 

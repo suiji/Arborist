@@ -33,7 +33,7 @@ class SplitCoord {
   double sum; // Per node.
   double preBias; // Per node.
   unsigned int setIdx;  // Per pair.
-  unsigned int denseCount; // Per pair:  post restage.
+  unsigned int implicit;  // Per pair:  post restage.
   unsigned int idxEnd; // Per pair:  post restage.
   unsigned char bufIdx; // Per pair.
  public:
