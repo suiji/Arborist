@@ -175,20 +175,20 @@ This option should be applied with care and should probably be avoided at low pr
 
 Performance as well as storage economy can in some cases both be enhanced by abstracting away repeated instances of the same predictor value.  This is the idea behind sparse representations and, in particular, one-hot encodings, in which repeated values of zero are represented implicitly.  The Arborist employs a simlilar strategy, but on a *per-predictor* basis, representing high-frequency observations of a given predictor implicitly.  A plurality threshold above which to compress repeated values is specified by the *autoCompress* option:
 
-'''{r, eval = FALSE}
+```{r, eval = FALSE}
        rs <- Rborist(x, y, autoCompress = 0.4)
-'''
+```
 
 As *autoCompress* specifies a plurality threshold, only a single set of repeated values undergoes compression for a given predictor.  Resolution of ties, in particular, is implementation-dependent.  A threshold frequency of 1.0, the maximum, ensures that no compression takes place, while a threshold frequency of 0.0, the minimum, ensures some value is compressed for each predictor, regardless of frequency.
 
 
 As a complement to the *thinLeaves* option for training, the *Streamline* command can be applied following training to reduce a forest's memory footprint.  *Streamline* clears fields employed by validation, quantile regression and feature contribution, so should not be employed if any of these operations are expected to be performed subsequently.
 
-'''{r, eval=FALSE}
+```{r, eval=FALSE}
        rs <- Rborist(x, y)
        ...
        rs <- Streamline(rs)
-'''
+```
 
 
 ## Sampling options
