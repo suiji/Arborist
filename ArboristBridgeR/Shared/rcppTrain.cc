@@ -84,7 +84,7 @@ void RcppProxyCtg(IntegerVector y, NumericVector classWeight, std::vector<double
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sThinLeaves, SEXP sClassWeight) {
+RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sClassWeight) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -130,7 +130,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   unsigned int *feNumOff, *feRow, *feRank, *feRLE, rleLength;
   RcppRowrank::Unwrap(sRowRank, feNumOff, feNumVal, feRow, feRank, feRLE, rleLength);
 
-  Train::Classification(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagLeaf, bagBits, weight);
+  Train::Classification(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<unsigned int> >(y), ctgWidth, proxy, origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, as<double>(sAutoCompress), bagLeaf, bagBits, weight);
 
   RcppRowrank::Clear();
   
@@ -143,7 +143,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 }
 
 
-RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sThinLeaves, SEXP sRegMono) {
+RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sRegMono) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -184,7 +184,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   std::vector<unsigned int> facSplit;
 
   const std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
-  Train::Regression(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, bagLeaf, bagBits);
+  Train::Regression(feRow, feRank, feNumOff, feNumVal, feRLE, rleLength, as<std::vector<double> >(y), as<std::vector<unsigned int> >(row2Rank), origin, facOrig, predInfo, facCard, forestNode, facSplit, leafOrigin, leafNode, as<double>(sAutoCompress), bagLeaf, bagBits);
 
   RcppRowrank::Clear();
 
