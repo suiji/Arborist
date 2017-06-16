@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 #include "index.h"
 #include "splitpred.h"
@@ -715,7 +715,7 @@ bool SplitCoord::SplitNum(const SPNode spn[], NuxLH &nux) {
 
 
 /**
-   @brief Experimental.
+   @brief Experimental.  Needs refactoring.
 
    @return void.
 */
@@ -795,9 +795,6 @@ bool SplitCoord::SplitNumDense(const SPNode spn[], const SPReg *spReg, NuxLH &nu
 	  rhInf = i + 1;
 	  rankLH = rkThis;
 	  rankRH = rkRight;
-    if (rankLH >= rankRH) {
-      cout << idxFinal - i << ":  " << rankLH << " / " << rankRH << endl;
-    }
 	  maxInfo = idxGini;
 	}
 	sCountL -= sampleCount;

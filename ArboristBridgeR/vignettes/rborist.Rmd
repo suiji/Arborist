@@ -167,10 +167,29 @@ As with other size-based constraints, constraining level depth also results in f
 Option *minInfo* sets a splitting threshold based on relative information gain.  A splitting candidate is rejected if the ratio of information content between a node and its potential successors lies below the threshold.
 
 ```{r, eval = FALSE}
-       rs <- Rborist(x, y, minRatio = 0.1}
+       rs <- Rborist(x, y, minRatio = 0.1)
 ```
 
 This option should be applied with care and should probably be avoided at low predictor count.
+
+
+Performance as well as storage economy can in some cases both be enhanced by abstracting away repeated instances of the same predictor value.  This is the idea behind sparse representations and, in particular, one-hot encodings, in which repeated values of zero are represented implicitly.  The Arborist employs a simlilar strategy, but on a *per-predictor* basis, representing high-frequency observations of a given predictor implicitly.  A plurality threshold above which to compress repeated values is specified by the *autoCompress* option:
+
+'''{r, eval = FALSE}
+       rs <- Rborist(x, y, autoCompress = 0.4)
+'''
+
+As *autoCompress* specifies a plurality threshold, only a single set of repeated values undergoes compression for a given predictor.  Resolution of ties, in particular, is implementation-dependent.  A threshold frequency of 1.0, the maximum, ensures that no compression takes place, while a threshold frequency of 0.0, the minimum, ensures some value is compressed for each predictor, regardless of frequency.
+
+
+As a complement to the *thinLeaves* option for training, the *Streamline* command can be applied following training to reduce a forest's memory footprint.  *Streamline* clears fields employed by validation, quantile regression and feature contribution, so should not be employed if any of these operations are expected to be performed subsequently.
+
+'''{r, eval=FALSE}
+       rs <- Rborist(x, y)
+       ...
+       rs <- Streamline(rs)
+'''
+
 
 ## Sampling options
 
@@ -252,7 +271,7 @@ A better motivation for preformatting arises when the training data can be repre
 
 Unlike many implementations, which employ sorting to order observations within a node, the Arborist employs a presort followed by linear updates.  The updates are a form of stable partition, which we refer to as *restaging*.  Restaging reduces the algorithmic complexity from the oft-cited $\mathcal{O}(n \log{}^2 n),$ where *n* represents the number of training samples, to $\mathcal{O}(n \log{} n).$
 
-Restaging is not without its problems, however.  As currently implemented, a double buffer caches outcome data corresponding to every cell in the design.  Hence the restaging containers can grow quite large.  While some users may find this to be be acceptable price for scalability, others may find the storage requirements too high for their application.  Scalability, moreover, may not be an important concern at low sample or row count.
+Restaging is not without its problems, however.  As currently implemented, a double buffer caches outcome data corresponding to every cell in the design.  Hence the restaging containers can grow quite large.  While some users may find this to be acceptable price for scalability, others may find the storage requirements too high for their application.  Scalability, moreover, may not be an important concern at low sample or row count.
 
 For high-dimensional problems, the **Ranger** package may provide a suitable alternative.  Similarly, for some problems, the package **Xgboost** offers excellent storage characteristics.  In the meantime, we envision several improvements, to appear in upcoming versions, to the Arborist's parsimony with storage.
 

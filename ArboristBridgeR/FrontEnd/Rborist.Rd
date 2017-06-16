@@ -15,7 +15,7 @@
 
 \usage{
 \method{Rborist}{default} (x, y, nTree=500, withRepl = TRUE,
-                autoCompress = 0.4,
+                autoCompress = 0.25,
                 ctgCensus = "votes",
                 classWeight = NULL,
                 minInfo = 0.01,
