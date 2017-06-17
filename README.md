@@ -38,7 +38,7 @@ Installation of Development Version:
 
 ### Python
 
-The *Arborist* will soon be available on PyPI.
+Under development.  Contributors sought.
 
 ### Performance 
 
@@ -55,15 +55,12 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 
 
 ### News/Changes
+- New option 'autoCompress' to fine-tune sparse internal representation.
+- New function 'Streamline' to clear unused fields of trained forest.
 - Sparse R-style 'dcgMatrix' format now accepted, with "i/p" encoding.
 - Autocompression employed on a per-predictor basis.
 - Space-saving 'thinLeaves' option suppresses creation of summary data for narrow workflows.
 - Research-inspired option 'splitQuantile' provides fine-tuning of numeric split positions.
 - Improved scaling with row count.
-- Option 'preTrain' deprecated in favor of 'preFormat'.
-- Optional vector "regMono" has been introduced to specify monotonic constraints on numeric variables under regression.
-- Training now computes and saves full leaf information by default. This facilitates quantile prediction, as well as interaction with other packages, such as "forestFloor", by eliminating the need for customized training.
-- Restaging and splitting now parallelize across predictor/node pairs, improving core occupancy.  For an interesting illustration of the limits to the benefits of restaging, see the RangeR preprint by Wright and Ziegler.
-- Several performance issues have been resolved, but dynamic load-balancing will likely not receive further attention until version 1 series.
 Correctness errors are being addressed as they are received.
 
