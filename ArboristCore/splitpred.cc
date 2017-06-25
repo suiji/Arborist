@@ -38,7 +38,7 @@ unsigned int SPCtg::ctgWidth = 0;
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitPred::SplitPred(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) : rowRank(_rowRank), pmTrain(_pmTrain), bagCount(_bagCount), noSet(bagCount * pmTrain->NPredFac()), samplePred(_samplePred) {
+SplitPred::SplitPred(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) : rowRank(_rowRank), pmTrain(_pmTrain), bagCount(_bagCount), noSet(bagCount * pmTrain->NPredFac()), samplePred(_samplePred), splitSig(new SplitSig(pmTrain->NPred())) {
 }
 
 
@@ -48,6 +48,7 @@ SplitPred::SplitPred(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePre
  */
 SplitPred::~SplitPred() {
   delete run;
+  delete splitSig;
 }
 
 
@@ -139,6 +140,7 @@ SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samp
 */
 void SplitPred::LevelInit(IndexLevel &index) {
   levelCount = index.LevelCount();
+  splitSig->LevelInit(levelCount);
   std::vector<bool> unsplitable(levelCount);
   std::fill(unsplitable.begin(), unsplitable.end(), false);
   LevelPreset(index, unsplitable);
@@ -378,12 +380,24 @@ void SplitCoord::InitLate(const Bottom *bottom, const IndexLevel &index, unsigne
 
 
 /**
+   @brief Invoked from splitting methods to precipitate creation of signature
+   for candidate split.
+
+   @return void.
+*/
+void SplitPred::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const NuxLH &nux) const {
+  splitSig->Write(levelIdx, predIdx, setPos, bufIdx, nux);
+}
+
+
+/**
    @brief Base method.  Deletes per-level run and split-flags vectors.
 
    @return void.
  */
 void SplitPred::LevelClear() {
   run->LevelClear();
+  splitSig->LevelClear();
 }
 
 
@@ -519,48 +533,61 @@ int SPReg::MonoMode(unsigned int levelIdx, unsigned int predIdx) const {
 }
 
 
-void SPReg::Split(const IndexLevel &index) {
-  ScheduleSplits(index);
-
-  // Guards cast to int for OpenMP 2.0 back-compatibility.
-  int splitPos;
-#pragma omp parallel default(shared) private(splitPos)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
-      splitCoord[splitPos].Split(this, bottom, samplePred, index);
-    }
-  }
+void SplitPred::Split(std::vector<SSNode> &argMax) {
+  Split();
+  ArgMax(argMax);
 
   splitCoord.clear();
 }
 
 
-void SPCtg::Split(const IndexLevel &index) {
-  ScheduleSplits(index);
-  
+void SPCtg::Split() {
   // Guards cast to int for OpenMP 2.0 back-compatibility.
   int splitPos;
 #pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
-      splitCoord[splitPos].Split(this, bottom, samplePred, index);
+      splitCoord[splitPos].Split(this, samplePred);
     }
   }
-  splitCoord.clear();
+}
+
+
+void SPReg::Split() {
+  // Guards cast to int for OpenMP 2.0 back-compatibility.
+  int splitPos;
+#pragma omp parallel default(shared) private(splitPos)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (splitPos = 0; splitPos < int(splitCoord.size()); splitPos++) {
+      splitCoord[splitPos].Split(this, samplePred);
+    }
+  }
+}
+
+
+void SplitPred::ArgMax(std::vector<SSNode> &argMax) {
+  unsigned int levelIdx;
+#pragma omp parallel default(shared) private(levelIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (levelIdx = 0; levelIdx < levelCount; levelIdx++) {
+      argMax[levelIdx].ArgMax(splitSig, levelIdx);
+    }
+  }
 }
 
 
 /**
    @brief  Regression splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePred *samplePred, const IndexLevel &index) {
+void SplitCoord::Split(const SPReg *spReg, const SamplePred *samplePred) {
   if (spReg->IsFactor(predIdx)) {
-    SplitFac(spReg, bottom, samplePred->PredBase(predIdx, bufIdx));
+    SplitFac(spReg, samplePred->PredBase(predIdx, bufIdx));
   }
   else {
-    SplitNum(spReg, bottom, samplePred->PredBase(predIdx, bufIdx));
+    SplitNum(spReg, samplePred->PredBase(predIdx, bufIdx));
   }
 }
 
@@ -568,20 +595,20 @@ void SplitCoord::Split(const SPReg *spReg, const Bottom *bottom, const SamplePre
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(SPCtg *spCtg, const Bottom *bottom, const SamplePred *samplePred, const IndexLevel &index) {
+void SplitCoord::Split(SPCtg *spCtg, const SamplePred *samplePred) {
   if (spCtg->IsFactor(predIdx)) {
-    SplitFac(spCtg, bottom, samplePred->PredBase(predIdx, bufIdx));
+    SplitFac(spCtg, samplePred->PredBase(predIdx, bufIdx));
   }
   else {
-    SplitNum(spCtg, bottom, samplePred->PredBase(predIdx, bufIdx));
+    SplitNum(spCtg, samplePred->PredBase(predIdx, bufIdx));
   }
 }
 
 
-void SplitCoord::SplitNum(const SPReg *spReg, const Bottom *bottom, const SPNode spn[]) {
+void SplitCoord::SplitNum(const SPReg *spReg, const SPNode spn[]) {
   NuxLH nux;
   if (SplitNum(spReg, spn, nux)) {
-    bottom->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
+    spReg->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
   }
 }
 
@@ -591,26 +618,26 @@ void SplitCoord::SplitNum(const SPReg *spReg, const Bottom *bottom, const SPNode
 
    @return void.
 */
-void SplitCoord::SplitNum(SPCtg *spCtg, const Bottom *bottom, const SPNode spn[]) {
+void SplitCoord::SplitNum(SPCtg *spCtg, const SPNode spn[]) {
   NuxLH nux;
   if (SplitNum(spCtg, spn, nux)) {
-    bottom->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
+    spCtg->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
   }
 }
 
 
-void SplitCoord::SplitFac(const SPReg *spReg, const Bottom *bottom, const SPNode spn[]) {
+void SplitCoord::SplitFac(const SPReg *spReg, const SPNode spn[]) {
   NuxLH nux;
   if (SplitFac(spReg, spn, nux)) {
-    bottom->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
+    spReg->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
   }
 }
 
 
-void SplitCoord::SplitFac(const SPCtg *spCtg, const Bottom *bottom, const SPNode spn[]) {
+void SplitCoord::SplitFac(const SPCtg *spCtg, const SPNode spn[]) {
   NuxLH nux;
   if (SplitFac(spCtg, spn, nux)) {
-    bottom->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
+    spCtg->SSWrite(levelIdx, predIdx, setIdx, bufIdx, nux);
   }
 }
 

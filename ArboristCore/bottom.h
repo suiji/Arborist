@@ -473,8 +473,8 @@ class Bottom {
   void Restage(RestageCoord &rsCoord);
   void Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, const unsigned int reachBase[], unsigned int reachOffset[]);
   void Backdate() const;
-  void ArgMax(const class IndexLevel &index, std::vector<class SSNode*> &argMax);
 
+  
   /**
      @brief Increments reaching levels for all pairs involving node.
    */
@@ -495,7 +495,7 @@ class Bottom {
  //unsigned int rhIdxNext; // GPU client only:  Starting RHS index.
 
  public:
-  bool NonTerminal(class PreTree *preTree, class SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl);
+  bool NonTerminal(const class SSNode &ssNode, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl);
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
   void RootDef(unsigned int predIdx, bool singleton, unsigned int implicit);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
@@ -509,9 +509,8 @@ class Bottom {
   
   Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, const class RowRank *_rowRank, class SplitPred *_splitPred, unsigned int _bagCount);
   ~Bottom();
-  void LevelInit();
   void LevelClear();
-  void Split(class IndexLevel &index, std::vector<class SSNode*> &argMax);
+  void Split(class IndexLevel &index, std::vector<class SSNode> &argMax);
   void Terminal(unsigned int extent, unsigned int ptId);
   void Overlap(class PreTree *preTree, unsigned int splitNext, unsigned int leafNext);
   void LevelPrepare(unsigned int splitNext, unsigned int idxLive, unsigned int idxMax);
@@ -519,7 +518,6 @@ class Bottom {
   void Reindex(class IndexLevel *indexLevel);
   void ReindexST(class IndexLevel &indexLvel, std::vector<unsigned int> &succST);
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
-  void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
   unsigned int FlushRear();
   void Restage();
   bool IsFactor(unsigned int predIdx) const;

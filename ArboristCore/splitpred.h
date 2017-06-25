@@ -42,10 +42,10 @@ class SplitCoord {
   void Schedule(const class Bottom *bottom, const class IndexLevel &indexLevel, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2);
   void InitLate(const class Bottom *bottom, const class IndexLevel &index, unsigned int _splitPos, unsigned int _setIdx);
 
-  void Split(const class SPReg *spReg, const class Bottom *bottom, const class SamplePred *samplePred, const class IndexLevel &index);
-  void Split(class SPCtg *spCtg, const class Bottom *bottom, const class SamplePred *samplePred, const class IndexLevel &index);
-  void SplitNum(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
-  void SplitNum(class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
+  void Split(const class SPReg *spReg, const class SamplePred *samplePred);
+  void Split(class SPCtg *spCtg, const class SamplePred *samplePred);
+  void SplitNum(const class SPReg *splitReg, const class SPNode spn[]);
+  void SplitNum(class SPCtg *splitCtg, const class SPNode spn[]);
   bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
   bool SplitNum(const class SPNode spn[], class NuxLH &nux);
   bool SplitNumDense(const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
@@ -55,8 +55,8 @@ class SplitCoord {
   bool NumCtgDense(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
   bool NumCtg(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
   unsigned int NumCtgGini(SPCtg *spCtg, const class SPNode spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf);
-  void SplitFac(const class SPReg *splitReg, const class Bottom *bottom, const class SPNode spn[]);
-  void SplitFac(const class SPCtg *splitCtg, const class Bottom *bottom, const class SPNode spn[]);
+  void SplitFac(const class SPReg *splitReg, const class SPNode spn[]);
+  void SplitFac(const class SPCtg *splitCtg, const class SPNode spn[]);
   bool SplitFac(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
   bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
   bool SplitBinary(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
@@ -96,8 +96,12 @@ class SplitPred {
   class Run *run;
   std::vector<SplitCoord> splitCoord; // Schedule of splits.
   void Splitable(const std::vector<bool> &unsplitable);
- public:
+  void ArgMax(std::vector<class SSNode> &argMax);
+
+public:
   class SamplePred *samplePred;
+  class SplitSig *splitSig;
+
   SplitPred(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int bagCount);
   static void Immutables(unsigned int _nPred, unsigned int _ctgWidth, unsigned int _predFixed, const double _predProb[], const double _regMono[]);
   static void DeImmutables();
@@ -105,6 +109,7 @@ class SplitPred {
   unsigned int DenseRank(unsigned int predIdx) const;
   bool IsFactor(unsigned int predIdx) const;
   unsigned int NumIdx(unsigned int predIdx) const;
+  void SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const class NuxLH &nux) const;
 
   class Run *Runs() {
     return run;
@@ -116,8 +121,9 @@ class SplitPred {
     bottom = _bottom;
   }
 
-  virtual void Split(const class IndexLevel &index) = 0;
-  
+  void Split(std::vector<class SSNode> &argMax);
+
+  virtual void Split() = 0;
   virtual ~SplitPred();
   virtual void LevelInit(class IndexLevel &index);
   virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
@@ -135,7 +141,7 @@ class SPReg : public SplitPred {
   static const double *feMono;
   double *ruMono;
 
-  void Split(const class IndexLevel &index);
+  void Split();
 
  public:
   unsigned int Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const;
@@ -169,7 +175,7 @@ class SPCtg : public SplitPred {
   void LevelPreset(const class IndexLevel &index, std::vector<bool> &unsplitable);
   double Prebias(const class IndexLevel &index, unsigned int levelIdx);
   void LevelClear();
-  void Split(const class IndexLevel &index);
+  void Split();
   void RunOffsets(const std::vector<unsigned int> &safeCount);
   unsigned int LHBits(unsigned int lhBits, unsigned int pairOffset, unsigned int depth, unsigned int &lhSampCt);
   void LevelInitSumR(unsigned int nPredNum);

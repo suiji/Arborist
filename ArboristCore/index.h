@@ -35,12 +35,12 @@ class IndexSet {
   unsigned int extent; // # distinct indices in the set.
   unsigned int sCount;  // # samples subsumed by this set.
   double sum; // Sum of all responses in set.
-  double minInfo; // Minimum acceptable information on which to split.
+  double minInfo; // Split threshold:  reset after splitting.
   unsigned int relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
 
-  // Post-splitting fields:  (Set iff ssNode nonzero.)
-  class SSNode *ssNode; // Nonzero iff split identified.
+  // Post-splitting fields:  (Set iff argMax nontrivial.)
+  bool terminal; // Whether argMax trivial.
   unsigned int lhExtent; // Total indices over LH.
   unsigned int lhSCount; // Total samples over LH.
   double sumExpl; // Sum of explicit index responses.
@@ -67,14 +67,13 @@ class IndexSet {
   void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path);
   void NonterminalReindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<class SampleNode> &rel2Sample, std::vector<class SampleNode> &succSample);
   void TerminalReindex(class Bottom *bottom, const std::vector<unsigned int> &rel2ST);
-
   
  public:
   IndexSet();
-
-  void SplitCensus(std::vector<class SSNode*> &argMax, class IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax);
-  void Consume(class IndexLevel *indexlevel, class Bottom *bottom, class PreTree *preTree);
-  void NonTerminal(class IndexLevel *indexLevel, class Bottom *bottom, class PreTree *preTree);
+  void ApplySplit(const std::vector<class SSNode> &argMax);
+  void SplitCensus(class IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax);
+  void Consume(class IndexLevel *indexlevel, class Bottom *bottom, class PreTree *preTree, const std::vector<class SSNode> &argMax);
+  void NonTerminal(class IndexLevel *indexLevel, class Bottom *bottom, class PreTree *preTree, const class SSNode &argMax);
   void Terminal(class IndexLevel *indexLevel, class Bottom *bottom);
   void Reindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<SampleNode> &rel2Sample, std::vector<SampleNode> &succSample);
   void Produce(class IndexLevel *indexLevel, class Bottom *bottom, const class PreTree *preTree, std::vector<IndexSet> &indexNext) const;
@@ -217,7 +216,7 @@ class IndexSet {
    */
   inline unsigned int Offspring(bool expl, unsigned int &pathSucc, unsigned int &idxSucc) {
     unsigned int iSetSucc;
-    if (ssNode == 0) {  // Terminal from previous level.
+    if (terminal) {  // Terminal from previous level.
       iSetSucc = succOnly;
       idxSucc = offOnly++;
       pathSucc = 0; // Dummy:  overwritten by caller.
@@ -255,8 +254,8 @@ class IndexLevel {
   std::vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
 
   static class PreTree *OneTree(const class PMTrain *pmTrain, class Sample *sample);
-  unsigned int SplitCensus(std::vector<class SSNode *> &argMax, unsigned int &leafNext, bool _levelTerminal);
-  void Consume(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext, unsigned int leafNext);
+  unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, bool _levelTerminal);
+  void Consume(class Bottom *bottom, class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext);
   void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext);
 
 
@@ -325,11 +324,6 @@ class IndexLevel {
 
   inline unsigned int StartIdx(unsigned int splitIdx) const {
     return indexSet[splitIdx].Start();
-  }
-
-
-  inline double MinInfo(unsigned int splitIdx) const {
-    return indexSet[splitIdx].MinInfo();
   }
 
 

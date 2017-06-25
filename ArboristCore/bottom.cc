@@ -20,11 +20,11 @@
 #include "splitpred.h"
 #include "samplepred.h"
 #include "sample.h"
-#include "splitsig.h"
 #include "predblock.h"
 #include "runset.h"
 #include "rowrank.h"
 #include "path.h"
+#include "splitsig.h"
 
 #include <numeric>
 #include <algorithm>
@@ -59,7 +59,7 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class RowRank *_rowRank, SplitPred *_splitPred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), rowRank(_rowRank), splitPred(_splitPred), splitSig(new SplitSig(nPred)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
+Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class RowRank *_rowRank, SplitPred *_splitPred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), rowRank(_rowRank), splitPred(_splitPred), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
@@ -100,8 +100,8 @@ Level::Level(unsigned int _splitCount, unsigned int _nPred, const std::vector<un
 
    @return true iff left hand of the split is explicit.
  */
-bool Bottom::NonTerminal(PreTree *preTree, SSNode *ssNode, unsigned int extent, unsigned int ptId, double &sumExpl) {
-  return ssNode->NonTerminal(this, preTree, Runs(), extent, ptId, sumExpl);
+bool Bottom::NonTerminal(const SSNode &ssNode, PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) {
+  return ssNode.NonTerminal(this, preTree, Runs(), extent, ptId, sumExpl);
 }
 
 
@@ -169,39 +169,23 @@ void Bottom::Reindex(IndexLevel *indexLevel) {
 
    @return vector of splitting signatures, possibly empty, for each node passed.
  */
-void Bottom::Split(IndexLevel &index, std::vector<SSNode*> &argMax) {
-  LevelInit();
+void Bottom::Split(IndexLevel &index, std::vector<SSNode> &argMax) {
   unsigned int supUnFlush = FlushRear();
   splitPred->LevelInit(index);
 
   Backdate();
   Restage();
 
-  // Source levels must persist through restaging ut allow path lookup.
+  // Reaching levels must persist through restaging ut allow path lookup.
   //
   for (unsigned int off = level.size() -1 ; off > supUnFlush; off--) {
     delete level[off];
     level.pop_back();
   }
-
-  splitPred->Split(index);
-
-  return ArgMax(index, argMax);
+  splitPred->ScheduleSplits(index);
+  splitPred->Split(argMax);
 }
 
-
-void Bottom::ArgMax(const IndexLevel &index, std::vector<SSNode*> &argMax) {
-  unsigned int levelCount = argMax.size();
-
-  unsigned int levelIdx;
-#pragma omp parallel default(shared) private(levelIdx)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (levelIdx = 0; levelIdx < levelCount; levelIdx++) {
-      argMax[levelIdx] = splitSig->ArgMax(levelIdx, index.MinInfo(levelIdx));
-    }
-  }
-}
 
 
 /**
@@ -357,7 +341,6 @@ Bottom::~Bottom() {
 
   delete stPath;
   delete splitPred;
-  delete splitSig;
   delete replayExpl;
 }
 
@@ -589,28 +572,6 @@ bool Bottom::IsFactor(unsigned int predIdx) const {
 unsigned int Bottom::FacIdx(unsigned int predIdx, bool &isFactor) const {
   return pmTrain->BlockIdx(predIdx, isFactor);
 }
-  
-
-
-/**
-   @brief Invoked from splitting methods to precipitate creation of signature
-   for candidate split.
-
-   @return void.
-*/
-void Bottom::SSWrite(unsigned int levelIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const NuxLH &nux) const {
-  splitSig->Write(levelIdx, predIdx, setPos, bufIdx, nux);
-}
-
-
-/**
-   @brief Sets level data structures within attendant objects.
-
-   @return void.
- */
-void Bottom::LevelInit() {
-  splitSig->LevelInit(splitCount);
-}
 
 
 /**
@@ -620,7 +581,6 @@ void Bottom::LevelInit() {
  */
 void Bottom::LevelClear() {
   splitPred->LevelClear();
-  splitSig->LevelClear();
 }
 
 

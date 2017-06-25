@@ -68,24 +68,26 @@ class NuxLH {
 
  */
 class SSNode {
-  bool NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl);
-  double ReplayRun(class Bottom *bottom, class PreTree *preTree, unsigned int ptId, const class Run *run);
-  bool NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl);
-  double ReplayNum(class Bottom *bottom, unsigned int extent);
+  bool NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const;
+  double ReplayRun(class Bottom *bottom, class PreTree *preTree, unsigned int ptId, const class Run *run) const;
+  bool NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) const;
+  double ReplayNum(class Bottom *bottom, unsigned int extent) const;
 
  public:
   SSNode();
+  double info; // Information content of split.
   unsigned int setIdx; // Index into RunSet workspace.
   unsigned int predIdx; // Rederivable, but convenient to cache.
   unsigned int sCount; // # samples subsumed by split LHS.
   unsigned int idxStart; // Dense packing causes value to vary.
   unsigned int lhExtent; // Index count of split LHS.
-  double info; // Information content of split.
   RankRange rankRange; // Numeric only.
   unsigned int lhImplicit; // LHS implicit index count:  numeric only.
   unsigned char bufIdx;
   
   static double minRatio;
+
+  void ArgMax(const class SplitSig *splitSig, unsigned int splitIdx);
   
   // Ideally, there would be SplitSigFac and SplitSigNum subclasses, with
   // Replay() and NonTerminal() methods implemented virtually.  Coprocessor
@@ -94,14 +96,39 @@ class SSNode {
 
 
   /**
+   */
+  double inline Info() const {
+    return info;
+  }
+  
+
+  /**
+   */
+  void inline SetInfo(double _info) {
+    info = _info;
+  }
+  
+
+  /**
    @brief Derives an information threshold.
 
    @return information threshold
   */
-  double inline MinInfo() {
+  double inline MinInfo() const {
     return minRatio * info;
   }
 
+
+  /**
+     @brief Absorbs contents of an SSNode found to be arg-max.
+   */
+  inline void Update(const SSNode *argMax) {
+    if (argMax != 0) {
+      *this = *argMax;
+
+    }
+  }
+  
   
   /**
      @brief Accessor for bipartitioning.
@@ -118,7 +145,7 @@ class SSNode {
   }
 
 
-  bool NonTerminal(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl);
+  bool NonTerminal(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const;
 };
 
 

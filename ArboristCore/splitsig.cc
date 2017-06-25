@@ -25,8 +25,7 @@
 //#include <iostream>
 //using namespace std;
 
-/* Split signature values only live during a single level, from argmax
-   pass one (splitting) through argmax pass two.
+/* Split signature values only live during a single level.
 */
 
 double SSNode::minRatio = 0.0;
@@ -96,7 +95,7 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) {
+bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const {
   return run->IsRun(setIdx) ? NonTerminalRun(bottom, preTree, run, extent, ptId, sumExpl) : NonTerminalNum(bottom, preTree, extent, ptId, sumExpl);
 }
 
@@ -106,7 +105,7 @@ bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned in
 
    @return true iff LH is implicit.
  */
-bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) {
+bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const {
   preTree->NonTerminalFac(info, predIdx, ptId);
 
   sumExpl = ReplayRun(bottom, preTree, ptId, run);
@@ -119,7 +118,7 @@ bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, const Run *run) {
+double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, const Run *run) const {
   double sumExpl = 0.0;
   if (run->ImplicitLeft(setIdx)) {// LH runs hold bits, RH hold replay indices.
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
@@ -151,7 +150,7 @@ double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, co
 
    @return true iff LH is explicit.
  */
-bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) {
+bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) const {
   preTree->NonTerminalNum(info, predIdx, rankRange, ptId);
 
   sumExpl = ReplayNum(bottom, extent);
@@ -169,8 +168,19 @@ bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int exten
 
    @return sum of explicit successor node's sample values.
  */
-double SSNode::ReplayNum(Bottom *bottom, unsigned int extent) {
+double SSNode::ReplayNum(Bottom *bottom, unsigned int extent) const {
   return bottom->BlockReplay(predIdx, bufIdx, lhImplicit == 0 ? idxStart : idxStart - lhImplicit + lhExtent, lhImplicit == 0 ? lhExtent : extent - lhExtent);
+}
+
+
+/**
+   @brief Pass-through from SplitPred.  Updates members to specifics of
+   most informative split, if any.
+
+   @return void.
+ */
+void SSNode::ArgMax(const SplitSig *splitSig, unsigned int splitIdx) {
+  Update(splitSig->ArgMax(splitIdx, info));
 }
 
 
@@ -183,7 +193,7 @@ double SSNode::ReplayNum(Bottom *bottom, unsigned int extent) {
    @param gainMax begins as the minimal information gain suitable for spltting this
    index node.
 
-   @return void.
+   @return node containing arg-max, if any.
  */
 SSNode *SplitSig::ArgMax(unsigned int levelIdx, double gainMax) const {
   SSNode *argMax = 0;
@@ -193,9 +203,9 @@ SSNode *SplitSig::ArgMax(unsigned int levelIdx, double gainMax) const {
   unsigned int predOff = levelIdx;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++, predOff += splitCount) {
     SSNode *candSS = &levelSS[predOff];
-    if (candSS->info > gainMax) {
+    if (candSS->Info() > gainMax) {
       argMax = candSS;
-      gainMax = candSS->info;
+      gainMax = candSS->Info();
     }
   }
 
