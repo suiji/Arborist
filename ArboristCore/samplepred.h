@@ -179,7 +179,6 @@ class SamplePred {
  public:
   SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
-  static SamplePred *Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
 
   bool Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
   double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);

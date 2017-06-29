@@ -25,6 +25,7 @@
 #include "rowrank.h"
 #include "path.h"
 #include "splitsig.h"
+#include "coproc.h"
 
 #include <numeric>
 #include <algorithm>
@@ -39,16 +40,16 @@
 /**
    @brief Static entry for regression.
  */
-Bottom *Bottom::FactoryReg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, unsigned int _bagCount) {
-  return new Bottom(_pmTrain, _samplePred, _rowRank, new SPReg(_pmTrain, _rowRank, _samplePred, _bagCount), _bagCount);
+Bottom *Bottom::FactoryReg(const PMTrain *_pmTrain, const RowRank *_rowRank, const Coproc *_coproc, unsigned int _bagCount) {
+  return new Bottom(_pmTrain, _rowRank, _coproc, _bagCount);
 }
 
 
 /**
    @brief Static entry for classification.
  */
-Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, SamplePred *_samplePred, const std::vector<SampleNode> &_sampleCtg, unsigned int _bagCount) {
-  return new Bottom(_pmTrain, _samplePred, _rowRank, new SPCtg(_pmTrain, _rowRank, _samplePred, _sampleCtg, _bagCount), _bagCount);
+Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, const std::vector<SampleNode> &_sampleCtg, const Coproc *_coproc, unsigned int _bagCount) {
+  return new Bottom(_pmTrain, _rowRank, _sampleCtg, _coproc, _bagCount);
 }
 
 
@@ -59,7 +60,17 @@ Bottom *Bottom::FactoryCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, Sam
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class RowRank *_rowRank, SplitPred *_splitPred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), samplePred(_samplePred), rowRank(_rowRank), splitPred(_splitPred), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
+Bottom::Bottom(const PMTrain *_pmTrain, const class RowRank *_rowRank, const std::vector<SampleNode> &_sampleCtg, const Coproc *_coproc, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), samplePred(FactorySamplePred(_coproc, nPred, bagCount, rowRank->SafeSize(bagCount))), splitPred(FactorySPCtg(_coproc, pmTrain, rowRank, samplePred,_sampleCtg, bagCount)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
+  level.push_front(levelFront);
+  levelFront->Ancestor(0, 0, bagCount);
+  std::fill(levelDelta.begin(), levelDelta.end(), 0);
+  std::fill(runCount.begin(), runCount.end(), 0);
+
+  splitPred->SetBottom(this);
+}
+
+
+Bottom::Bottom(const PMTrain *_pmTrain, const class RowRank *_rowRank, const Coproc *_coproc, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), termST(std::vector<unsigned int>(bagCount)), nodeRel(false), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), samplePred(FactorySamplePred(_coproc, nPred, bagCount, rowRank->SafeSize(bagCount))), splitPred(FactorySPReg(_coproc, pmTrain, rowRank, samplePred, bagCount)), run(splitPred->Runs()), replayExpl(new BV(bagCount)), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, nodeRel)), runCount(std::vector<unsigned int>(nPredFac)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
@@ -80,10 +91,13 @@ Bottom::Bottom(const PMTrain *_pmTrain, SamplePred *_samplePred, const class Row
 
    @return void.
  */
-void Bottom::RootDef(unsigned int predIdx, bool singleton, unsigned int implicit) {
+void Bottom::RootDef(unsigned int predIdx, const std::vector<StagePack> &stagePack) {
+  unsigned int extent;
+  unsigned int safeOffset = rowRank->SafeOffset(predIdx, bagCount, extent);
+  bool singleton = samplePred->Stage(stagePack, predIdx, safeOffset, extent);
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int levelIdx = 0;
-  (void) levelFront->Define(levelIdx, predIdx, bufIdx, singleton, implicit);
+  (void) levelFront->Define(levelIdx, predIdx, bufIdx, singleton, bagCount - stagePack.size());
   SetRunCount(levelIdx, predIdx, false, singleton ? 1 : pmTrain->FacCard(predIdx));
 }
 
@@ -340,6 +354,7 @@ Bottom::~Bottom() {
   level.clear();
 
   delete stPath;
+  delete samplePred;
   delete splitPred;
   delete replayExpl;
 }

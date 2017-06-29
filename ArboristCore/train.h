@@ -16,6 +16,7 @@
 #ifndef ARBORIST_TRAIN_H
 #define ARBORIST_TRAIN_H
 
+#include <string>
 #include <vector>
 //using namespace std;
 
@@ -30,17 +31,18 @@ class Train {
 
   class ForestTrain *forest;
   std::vector<double> &predInfo; // E.g., Gini gain:  nPred.
-  class Response *response;
+  const class Response *response;
+  const class Coproc *coproc;
 
   static void DeImmutables();
 
   /**
   */
-  Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, const class PMTrain *pmTrain, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight);
+  Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight, bool _enableCoproc, std::string &diag);
 
  /**
   */
-  Train(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, const class PMTrain *pmTrain, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
+  Train(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, bool _enableCoproc, std::string &diag);
 
   ~Train();
   
@@ -54,14 +56,14 @@ class Train {
  */
   static void Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[] = 0);
 
-  static void Regression(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feNumOff[], const double _feNumVal[], const unsigned int _feRLE[], unsigned int _rleLength, const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, double _autoCompress, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits);
+  static void Regression(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feNumOff[], const double _feNumVal[], const unsigned int _feRLE[], unsigned int _rleLength, const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, double _autoCompress, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, bool _enableCoproc, std::string &diag);
 
-  static void Classification(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feNumOff[], const double _feNumVal[], const unsigned int _feRLE[], unsigned int _rleLength, const std::vector<unsigned int>  &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, double _autoCompress, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight);
+  static void Classification(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _feNumOff[], const double _feNumVal[], const unsigned int _feRLE[], unsigned int _rleLength, const std::vector<unsigned int>  &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, double _autoCompress, std::vector<class BagLeaf> &_bagLeaf, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight, bool _enableCoproc, std::string &diag);
 
-  void Reserve(class PreTree **ptBlock, unsigned int tCount);
-  unsigned int BlockPeek(class PreTree **ptBlock, unsigned int tCount, unsigned int &blockFac, unsigned int &blockBag, unsigned int &blockLeaf, unsigned int &maxHeight);
-  void BlockTree(class PreTree **ptBlock, unsigned int tStart, unsigned int tCount);
-  void Block(const class RowRank *rowRank, unsigned int tStart, unsigned int tCount);
+  void Reserve(std::vector<class PreTree*> &ptBlock);
+  unsigned int BlockPeek(std::vector<class PreTree*> &ptBlock, unsigned int &blockFac, unsigned int &blockBag, unsigned int &blockLeaf, unsigned int &maxHeight);
+  void BlockConsume(const class PMTrain *pmTrain, const std::vector<class Sample*> &sampleBlock, std::vector<class PreTree*> &ptBlock, unsigned int blockStart);
+  void TreeBlock(const class PMTrain *pmTrain, const class RowRank *rowRank, unsigned int tStart, unsigned int tCount);
 };
 
 

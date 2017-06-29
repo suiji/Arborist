@@ -87,6 +87,7 @@ class SampleNode {
 class Sample {
   class BV *treeBag;
   std::vector<unsigned int> row2Sample;
+
  protected:
   const unsigned int noSample; // Inattainable sample index.
   static unsigned int nRow;
@@ -94,24 +95,26 @@ class Sample {
   std::vector<SampleNode> sampleNode;
   unsigned int bagCount;
   double bagSum;
-  class SamplePred *samplePred;
-  class Bottom *bottom;
-  unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank, class SamplePred *&_samplePred);
-  void Stage(const class RowRank *rowRank);
-  void Stage(const class RowRank *rowRank, unsigned int predIdx);
-  void PackIndex(unsigned int row, unsigned int predRank, std::vector<class StagePack> &stagePack);
+
+  unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
+  void Stage(const class RowRank *rowRank, class Bottom *bottom, unsigned int predIdx) const;
+  void PackIndex(unsigned int row, unsigned int predRank, std::vector<class StagePack> &stagePack) const ;
 
   static void RowSample(std::vector<unsigned int> &sCountRow);
 
  public:
-  static class SampleCtg *FactoryCtg(const class PMTrain *pmTrain, const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
-  static class SampleReg *FactoryReg(const class PMTrain *pmTrain, const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
+  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
+  static class SampleReg *FactoryReg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
 
   static void Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree);
   static void DeImmutables();
 
   Sample();
+  void Stage(const class RowRank *rowRank, class Bottom *bottom) const;
+
   void RowInvert(std::vector<unsigned int> &sample2Row) const;
+  virtual class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const = 0;
+
   
   /**
      @brief Accessor for sample count.
@@ -121,7 +124,7 @@ class Sample {
   }
 
 
-  const std::vector<SampleNode> &StageSample() {
+  const std::vector<SampleNode> &StageSample() const {
     return sampleNode;
   }    
 
@@ -150,16 +153,6 @@ class Sample {
   }
 
   
-  inline class Bottom *Bot() {
-    return bottom;
-  }
-
-  
-  inline class SamplePred *SmpPred() {
-    return samplePred;
-  }
-
-    
   inline const class BV *TreeBag() const {
     return treeBag;
   }
@@ -199,7 +192,8 @@ class SampleReg : public Sample {
   }
 
 
-  void Stage(const class PMTrain *pmTrain, const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank);
+  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank);
+  class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
 };
 
 
@@ -214,8 +208,8 @@ class SampleCtg : public Sample {
   static void Immutables(unsigned int _ctgWidth, unsigned int _nTree);
   static void DeImmutables();
 
-  
-  void Stage(const class PMTrain *pmTrain, const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank);
+  void PreStage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank);
+  class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
 };
 
 

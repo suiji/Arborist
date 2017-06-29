@@ -91,19 +91,13 @@ IndexSet::IndexSet() : preBias(0.0), splitIdx(0), ptId(0), lhStart(0), extent(0)
 
    @param sampleBlock contains the sample objects characterizing the roots.
 
-   @param treeBlock is the number of trees to train in this block.
-
-   @return brace of 'treeBlock'-many PreTree objects.
+   @param ptBlock is a brace of 'treeBlock'-many PreTree objects.
 */
-PreTree **IndexLevel::BlockTrees(const PMTrain *pmTrain, Sample **sampleBlock, int treeBlock) {
-  PreTree **ptBlock = new PreTree*[treeBlock];
-
-  for (int blockIdx = 0; blockIdx < treeBlock; blockIdx++) {
-    Sample *sample = sampleBlock[blockIdx];
-    ptBlock[blockIdx] = OneTree(pmTrain, sample);
+void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const std::vector<Sample *> &sampleBlock, const Coproc *coproc, std::vector<PreTree*> &ptBlock) {
+  unsigned int blockIdx = 0;
+  for (auto & sample : sampleBlock) {
+    ptBlock[blockIdx++] = OneTree(pmTrain, rowRank, sample, coproc);
   }
-  
-  return ptBlock;
 }
 
 
@@ -112,15 +106,17 @@ PreTree **IndexLevel::BlockTrees(const PMTrain *pmTrain, Sample **sampleBlock, i
 
    @return void.
  */
-PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, Sample *sample) {
+PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, const Sample *sample, const Coproc *coproc) {
+  Bottom *bottom = sample->BottomFactory(pmTrain, rowRank, coproc);
+  sample->Stage(rowRank, bottom);
   PreTree *preTree = new PreTree(pmTrain, sample->BagCount());
   IndexLevel *index = new IndexLevel(sample->StageSample(), Sample::NSamp(), sample->BagSum());
-  Bottom *bottom = sample->Bot();
   index->Levels(bottom, preTree);
   delete index;
 
   bottom->SubtreeFrontier(preTree);
-
+  delete bottom;
+  
   return preTree;
 }
 

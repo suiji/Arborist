@@ -73,18 +73,6 @@ SamplePred::~SamplePred() {
 
 
 /**
-   @brief Static entry for sample staging.
-
-   @return SamplePred object for tree.
- */
-SamplePred *SamplePred::Factory(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) {
-  SamplePred *samplePred = new SamplePred(_nPred, _bagCount, _bufferSize);
-
-  return samplePred;
-}
-
-
-/**
    @brief Initializes column pertaining to a single predictor.
 
    @param stagePack is a vector of rank/index pairs.

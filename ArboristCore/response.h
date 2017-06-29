@@ -26,27 +26,25 @@
 class Response {
   const std::vector<double> &y;
   class Leaf *leaf;
-  class Sample** sampleBlock;
- protected:
-  const class PMTrain *pmTrain;
+
  public:
-  Response(const std::vector<double> &_y, const class PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
-  Response(const std::vector<double> &_y, const class PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
+  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
   virtual ~Response();
 
-  const std::vector<double> &Y() {
+  inline const std::vector<double> &Y() const {
     return y;
   }
-  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, const class PMTrain *_pmTrain, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
-  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, const class PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
 
-  class PreTree **BlockTree(const class RowRank *rowRank, unsigned int blockSize);
-  const class BV *TreeBag(unsigned int blockIdx);
-  void LeafReserve(unsigned int leafEst, unsigned int bagEst);
-  void DeBlock(unsigned int blockSize);
-  void Leaves(const std::vector<unsigned int> &leafMap, unsigned int blockIdx, unsigned int tIdx);
 
-  virtual class Sample* Sampler(const class RowRank *rowRank) = 0;
+  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
+  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
+
+  void TreeBlock(const class RowRank *rowRank, std::vector<class Sample*> &sampleBlock) const;
+  void LeafReserve(unsigned int leafEst, unsigned int bagEst) const;
+  void Leaves(const class PMTrain *pmTrain, const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) const;
+
+  virtual class Sample* RootSample(const class RowRank *rowRank) const = 0;
 };
 
 
@@ -57,9 +55,9 @@ class ResponseReg : public Response {
   const std::vector<unsigned int> &row2Rank; // Facilitates rank[] output.
  public:
 
-  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, const class PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
+  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
   ~ResponseReg();
-  class Sample *Sampler(const class RowRank *rowRank);
+  class Sample *RootSample(const class RowRank *rowRank) const;
 };
 
 /**
@@ -69,9 +67,9 @@ class ResponseCtg : public Response {
   const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
  public:
 
-  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, const class PMTrain *_pmTrain, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
+  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
   ~ResponseCtg();
-  class Sample *Sampler(const class RowRank *rowRank);
+  class Sample *RootSample(const class RowRank *rowRank) const;
 };
 
 #endif

@@ -87,6 +87,7 @@ PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmT
  */
 PreTree::~PreTree() {
   delete [] nodeVec;
+  delete splitBits;
 }
 
 
@@ -248,19 +249,17 @@ void PreTree::ReNodes() {
 
   @param predInfo accumulates the information contribution of each predictor.
 
-  @return void, with side-effected forest.
+  @return leaf map from consumed frontier.
 */
-const std::vector<unsigned int> PreTree::DecTree(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) {
+const std::vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const {
   forest->Origins(tIdx);
   forest->NodeInit(height);
   NodeConsume(forest, tIdx);
   forest->BitProduce(splitBits, bitEnd);
-  delete splitBits;
-
   for (unsigned int i = 0; i < info.size(); i++)
     predInfo[i] += info[i];
 
-  return FrontierToLeaf(forest, tIdx);
+  return FrontierConsume(forest, tIdx);
 }
 
 
@@ -271,7 +270,7 @@ const std::vector<unsigned int> PreTree::DecTree(ForestTrain *forest, unsigned i
 
    @return void, with output reference parameter.
 */
-void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) {
+void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) const {
   for (unsigned int idx = 0; idx < height; idx++) {
     nodeVec[idx].Consume(pmTrain, forest, tIdx);
   }
@@ -287,7 +286,7 @@ void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) {
 
    @return void, with side-effected Forest.
  */
-void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx) {
+void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx) const {
   if (lhId > 0) { // i.e., nonterminal
     if (pmTrain->IsFactor(predIdx)) {
       forest->OffsetProduce(tIdx, id, predIdx, lhId - id, splitVal.offset);
@@ -325,15 +324,13 @@ void PreTree::SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vect
 
    @return Reference to rewritten map, with side-effected Forest.
  */
-const std::vector<unsigned int> PreTree::FrontierToLeaf(ForestTrain *forest, unsigned int tIdx) {
+const std::vector<unsigned int> PreTree::FrontierConsume(ForestTrain *forest, unsigned int tIdx) const {
   std::vector<unsigned int> frontierMap(termST.size());
   unsigned int leafIdx = 0;
-  unsigned int check = 0;
   for (auto & key : termKey) {
     for (unsigned int idx = key.base ; idx < key.base + key.extent; idx++) {
       unsigned int stIdx = termST[idx];
       frontierMap[stIdx] = leafIdx;
-      check++;
     }
     forest->LeafProduce(tIdx, key.ptId, leafIdx++);
   }

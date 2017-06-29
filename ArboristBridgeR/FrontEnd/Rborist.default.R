@@ -189,16 +189,17 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, regMono)
   }
 
   predInfo <- train[["predInfo"]]
   names(predInfo) <- predBlock$colnames
   training = list(
-    info = predInfo
+      info = predInfo,
+      diag = train[["diag"]]
   )
 
   if (noValidate) {

@@ -253,7 +253,7 @@ class IndexLevel {
   std::vector<class SampleNode> rel2Sample;
   std::vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
 
-  static class PreTree *OneTree(const class PMTrain *pmTrain, class Sample *sample);
+  static class PreTree *OneTree(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Sample *sample, const class Coproc *coproc);
   unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, bool _levelTerminal);
   void Consume(class Bottom *bottom, class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext);
   void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext);
@@ -266,7 +266,7 @@ class IndexLevel {
   IndexLevel(const std::vector<class SampleNode> &_stageSample, unsigned int _nSamp, double _bagSum);
   ~IndexLevel();
 
-  static class PreTree **BlockTrees(const class PMTrain *pmTrain, class Sample **sampleBlock, int _treeBlock);
+  static void TreeBlock(const class PMTrain *pmTrain, const RowRank *rowRank, const std::vector<class Sample*> &sampleBlock, const class Coproc *coproc, std::vector<class PreTree*> &ptBlock);
   void Levels(class Bottom *bottom, class PreTree *preTree);
   unsigned int IdxSucc(class Bottom *bottom, unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
   void Reindex(class Bottom *bottom, class BV *replayExpl);

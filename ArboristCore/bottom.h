@@ -453,8 +453,8 @@ class Bottom {
   unsigned int splitPrev;
   unsigned int splitCount; // # nodes in the level about to split.
   const class PMTrain *pmTrain;
-  class SamplePred *samplePred;
   const class RowRank *rowRank;
+  class SamplePred *samplePred;
   class SplitPred *splitPred;  // constant?
   class SplitSig *splitSig;
   class Run *run;
@@ -469,6 +469,11 @@ class Bottom {
   
   std::vector<RestageCoord> restageCoord;
 
+  // Factories parametrized by coprocessor state.
+  static class SamplePred *FactorySamplePred(const class Coproc *coproc, unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
+  static class SPCtg* FactorySPCtg(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, class SamplePred *samplePred, const std::vector<class SampleNode> &sampleCtg, unsigned int bagCount);
+  static class SPReg* FactorySPReg(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, class SamplePred *samplePred, unsigned int bagCount);
+  
   // Restaging methods.
   void Restage(RestageCoord &rsCoord);
   void Restage(const SPPair &mrra, unsigned int bufIdx, unsigned int del, const unsigned int reachBase[], unsigned int reachOffset[]);
@@ -497,17 +502,19 @@ class Bottom {
  public:
   bool NonTerminal(const class SSNode &ssNode, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl);
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
-  void RootDef(unsigned int predIdx, bool singleton, unsigned int implicit);
+  void RootDef(unsigned int predIdx, const std::vector<class StagePack> &stagePack);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
   bool Preschedule(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx);
   bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &rCount) const;
 
-  static Bottom *FactoryReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, unsigned int _bagCount);
-  static Bottom *FactoryCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SamplePred *_samplePred, const std::vector<class SampleNode> &_sampleCtg, unsigned int _bagCount);
+  static Bottom *FactoryReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, const class Coproc *_coproc, unsigned int _bagCount);
+  static Bottom *FactoryCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, const std::vector<class SampleNode> &_sampleCtg, const class Coproc *_coproc, unsigned int _bagCount);
   
-  Bottom(const class PMTrain *_pmTrain, class SamplePred *_samplePred, const class RowRank *_rowRank, class SplitPred *_splitPred, unsigned int _bagCount);
+  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, const std::vector<class SampleNode> &_sampleCtg, const class Coproc *_coproc, unsigned int _bagCount);
+  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, const class Coproc *_coproc, unsigned int _bagCount);
+
   ~Bottom();
   void LevelClear();
   void Split(class IndexLevel &index, std::vector<class SSNode> &argMax);
