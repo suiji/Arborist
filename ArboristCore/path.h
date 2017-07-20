@@ -26,7 +26,7 @@
    @brief Records index, start and extent for path reached from MRRA.
  */
 class NodePath {
-  unsigned int levelIdx; // < noIndex iff path extinct.
+  unsigned int splitIdx; // < noIndex iff path extinct.
   unsigned int idxStart; // Target offset for path.
   unsigned int extent;
   unsigned int relBase; // Dense starting position.
@@ -39,16 +39,16 @@ class NodePath {
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void Init(unsigned int _levelIdx, unsigned int _idxStart, unsigned int _extent, unsigned int _relBase) {
-    levelIdx = _levelIdx;
+  inline void Init(unsigned int _splitIdx, unsigned int _idxStart, unsigned int _extent, unsigned int _relBase) {
+    splitIdx = _splitIdx;
     idxStart = _idxStart;
     extent = _extent;
     relBase = _relBase;
   }
   
 
-  inline void Coords(unsigned int &_levelIdx, unsigned int &_idxStart, unsigned int &_extent) const {
-    _levelIdx = levelIdx;
+  inline void Coords(unsigned int &_splitIdx, unsigned int &_idxStart, unsigned int &_extent) const {
+    _splitIdx = splitIdx;
     _idxStart = idxStart;
     _extent = extent;
   }
@@ -70,7 +70,7 @@ class NodePath {
 
 
   inline unsigned int Idx() const {
-    return levelIdx;
+    return splitIdx;
   }
 };
 
@@ -93,7 +93,6 @@ class IdxPath {
  public:
 
   IdxPath(unsigned int _idxLive);
-  void Prepath(const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const;
 
   /**
      @brief When appropriate, introduces node-relative indexing at the
@@ -114,6 +113,11 @@ class IdxPath {
   }
 
 
+  inline void Set(unsigned int idx, unsigned int path = maskExtinct) {
+    pathFront[idx] = path;
+  }
+
+  
   /**
    */
   inline void Set(unsigned int idx, unsigned int path, unsigned int relThis, unsigned int ndOff = 0) {
@@ -139,14 +143,27 @@ class IdxPath {
   
 
   /**
+   @brief Revises path for live index.
 
+   @param idx is the current index value.
+
+   @param path is the revised path.
+
+   @return void.
+*/
+  inline void SetLive(unsigned int idx, unsigned int path) {
+    Set(idx, path);
+  }
+
+
+  /**
    @brief Revises path and target for live index.
 
    @param idx is the current index value.
 
-   @param isLeft it true iff index node is an extant splitable LHS.
+   @param path is the revised path.
 
-   @param targIdx is the revised index.
+   @param targIdx is the revised relative index.
 
    @return void.
 */
@@ -161,7 +178,7 @@ class IdxPath {
 
    @param idx is the current index value.
 
-   @param isLeft it true iff index node is an extant splitable LHS.
+   @param path
 
    @param targIdx is the revised index.
 
@@ -187,6 +204,22 @@ class IdxPath {
     return (pathFront[idx] & maskExtinct) == 0;
   }
 
+
+  /**
+     @brief Caller ensures path is two-valued, with neither lane extinct.
+
+     @return true iff path is LH.
+   */
+  inline bool IsLeft(unsigned int idx) const {
+    return (pathFront[idx] & 0x1) == 0;
+  }
+  
+
+  inline PathT PathSucc(unsigned int idx, unsigned int pathMask, bool &isLive) const {
+    isLive = IsLive(idx);
+    return isLive ? pathFront[idx] & pathMask : NodePath::noPath;
+  }
+  
   
   /**
      @brief Looks up the path leading to the front level and updates
@@ -198,14 +231,11 @@ class IdxPath {
      @return path to input index.
    */
   inline unsigned int IdxUpdate(unsigned int &idx, unsigned int pathMask, const unsigned int reachBase[], bool idxUpdate) const {
-    unsigned int path;
-    if (IsLive(idx)) {
-      path = pathFront[idx] & pathMask;
+    bool isLive;
+    PathT path = PathSucc(idx, pathMask, isLive);
+    if (isLive) {
       // Avoids irregular update unless necessary:
       idx = reachBase != nullptr ? (reachBase[path] + offFront[idx]) : (idxUpdate ? RelFront(idx) : idx);
-    }
-    else {
-      path = NodePath::noPath;
     }
 
     return path;

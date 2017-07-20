@@ -116,12 +116,29 @@ class SPNode {
 
      @return sample count, with output reference parameters.
    */
-  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_yCtg) const {
+  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_yCtg) const {
     _ySum = ySum;
-    _rank = rank;
     _yCtg = sCount & ((1 << ctgShift) - 1);
 
     return sCount >> ctgShift;
+  }
+
+
+  /**
+     @brief Reports SamplePred contents for categorical response.  Can
+     be called with regression response if '_yCtg' value ignored.
+
+     @param _ySum outputs the proxy response value.
+
+     @param _rank outputs the predictor rank.
+
+     @param _yCtg outputs the response value.
+
+     @return sample count, with output reference parameters.
+   */
+  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_yCtg) const {
+    _rank = rank;
+    return CtgFields(_ySum, _yCtg);
   }
 
 
@@ -176,17 +193,25 @@ class SamplePred {
   // coprocessor.
   //
   unsigned int *indexBase; // RV index for this row.  Used by CTG as well as on replay.
+
+  unsigned int *destRestage; // To coprocessor subclass;
+  unsigned int *destSplit; // To coprocessor subclass;
+  PathT *pathTest; // Exit.
+
  public:
   SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
 
   bool Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
-  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int end, class BV *replayExpl);
+  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, std::vector<class SumCount> &ctgExpl);
 
   
   void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]);
+  void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const;
   void RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned int start, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]);
 
+  // COPROCESSOR variant
+  void IndexRestage(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]);
   
   inline unsigned int PitchSP() {
     return pitchSP;
@@ -296,6 +321,12 @@ class SamplePred {
     targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
+  // To coprocessor subclass:
+  inline void IndexBuffers(unsigned int predIdx, unsigned int bufBit, unsigned int *&sIdxSource, unsigned int *&sIdxTarg) {
+    sIdxSource = indexBase + BufferOff(predIdx, bufBit);
+    sIdxTarg = indexBase + BufferOff(predIdx, 1 - bufBit);
+  }
+  
 
   // TODO:  Move somewhere appropriate.
   /**

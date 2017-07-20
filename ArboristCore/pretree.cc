@@ -306,11 +306,7 @@ void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int t
 
    @return void, with side-effected frontier map.
  */
-void PreTree::SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vector<unsigned int> &stTerm) {
-  for (auto & key : stKey) {
-    termKey.push_back(key);
-  }
-
+void PreTree::SubtreeFrontier(const std::vector<unsigned int> &stTerm) {
   for(auto & stIdx : stTerm) {
     termST.push_back(stIdx);
   }
@@ -326,13 +322,17 @@ void PreTree::SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vect
  */
 const std::vector<unsigned int> PreTree::FrontierConsume(ForestTrain *forest, unsigned int tIdx) const {
   std::vector<unsigned int> frontierMap(termST.size());
+  std::vector<unsigned int> pt2Leaf(height);
+  std::fill(pt2Leaf.begin(), pt2Leaf.end(), height); // Inattainable leaf index.
+
   unsigned int leafIdx = 0;
-  for (auto & key : termKey) {
-    for (unsigned int idx = key.base ; idx < key.base + key.extent; idx++) {
-      unsigned int stIdx = termST[idx];
-      frontierMap[stIdx] = leafIdx;
+  for (unsigned int stIdx = 0; stIdx < termST.size(); stIdx++) {
+    unsigned int ptIdx = termST[stIdx];
+    if (pt2Leaf[ptIdx] == height) {
+      forest->LeafProduce(tIdx, ptIdx, leafIdx);
+      pt2Leaf[ptIdx] = leafIdx++;
     }
-    forest->LeafProduce(tIdx, key.ptId, leafIdx++);
+    frontierMap[stIdx] = pt2Leaf[ptIdx];
   }
 
   return frontierMap;

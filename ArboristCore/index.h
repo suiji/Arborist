@@ -38,9 +38,11 @@ class IndexSet {
   double minInfo; // Split threshold:  reset after splitting.
   unsigned int relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
+  std::vector<class SumCount> ctgSum;  // Per-category response sums.
 
   // Post-splitting fields:  (Set iff argMax nontrivial.)
   bool terminal; // Whether argMax trivial.
+  bool unsplitable;  // Candidate found to have single response value.
   unsigned int lhExtent; // Total indices over LH.
   unsigned int lhSCount; // Total samples over LH.
   double sumExpl; // Sum of explicit index responses.
@@ -48,12 +50,15 @@ class IndexSet {
   // State repeatedly polled and/or updated by Reindex methods.  Hence
   // appropriate to cache.
   //
+  unsigned int ptExpl;
+  unsigned int ptImpl;
   unsigned int succExpl; // Fixed:  level index of explicit successor, if any.
   unsigned int succImpl; // Fixed:  " " implicit " "
   unsigned int offExpl; // Increases:  accumulating explicit offset.
   unsigned int offImpl; // Increases:  accumulating implicit offset.
   unsigned char pathExpl;  // Fixed:  path to explicit successor, if any.
   unsigned char pathImpl; // Fixed:  path to implicit successor, if any.
+  std::vector<class SumCount> ctgExpl; // Per-category sums.
   bool leftExpl; // Fixed:  whether left split explicit (else right).
 
   // These fields pertain only to non-splitting sets, so can be
@@ -63,24 +68,32 @@ class IndexSet {
   
   double PrebiasReg();
   double PrebiasCtg(const double sumSquares[]);
-  void Successor(class IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, unsigned int succIdx, class Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path) const;
-  void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path);
-  void NonterminalReindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<class SampleNode> &rel2Sample, std::vector<class SampleNode> &succSample);
-  void TerminalReindex(class Bottom *bottom, const std::vector<unsigned int> &rel2ST);
+  void Successor(class IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, class Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, bool explHand) const;
+  void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, const std::vector<class SumCount> &_ctgSum, const std::vector<class SumCount> &_ctgExpl, bool explHand);
+  void NontermReindex(const class BV *replayExpl, class IndexLevel *index, unsigned int idxLive, std::vector<unsigned int> &succST);
+
   
  public:
   IndexSet();
+  void Init(unsigned int _splitIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, unsigned int _relBase, unsigned int bagCount, const std::vector<class SumCount> &_ctgTot, const std::vector<SumCount> &_ctgExpl, bool explHand);
+  void Decr(std::vector<class SumCount> &_ctgTot, const std::vector<class SumCount> &_ctgSub);
   void ApplySplit(const std::vector<class SSNode> &argMax);
   void SplitCensus(class IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax);
   void Consume(class IndexLevel *indexlevel, class Bottom *bottom, class PreTree *preTree, const std::vector<class SSNode> &argMax);
-  void NonTerminal(class IndexLevel *indexLevel, class Bottom *bottom, class PreTree *preTree, const class SSNode &argMax);
-  void Terminal(class IndexLevel *indexLevel, class Bottom *bottom);
-  void Reindex(class Bottom *bottom, class BV *replayExpl, unsigned int idxLive, const std::vector<unsigned int> &rel2ST, std::vector<unsigned int> &succST, const std::vector<SampleNode> &rel2Sample, std::vector<SampleNode> &succSample);
+  void NonTerminal(class IndexLevel *indexLevel, class PreTree *preTree, const class SSNode &argMax);
+  void Terminal(class IndexLevel *indexLevel);
+  void BlockReplay(class SamplePred *samplePred, unsigned int predIdx, unsigned int bufIdx, unsigned int blockStart, unsigned int blockExtent, BV *replayExpl);
+  void Reindex(const class BV *replayExpl, class IndexLevel *index, unsigned int idxLive, std::vector<unsigned int> &succST);
   void Produce(class IndexLevel *indexLevel, class Bottom *bottom, const class PreTree *preTree, std::vector<IndexSet> &indexNext) const;
   static unsigned SplitAccum(class IndexLevel *indexLevel, unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax);
-  bool SumsAndSquares(const std::vector<class SampleNode> &rel2Sample, unsigned int ctgWidth, double &sumSquares, double *ctgSumCol) const;
+  const std::vector<class SumCount> &CtgDiff();
+  void SumsAndSquares(double &sumSquares, double *sumOut);
 
+  bool Unsplitable() const {
+    return unsplitable;
+  }
 
+  
   /**
    */
   inline unsigned int SplitIdx() const {
@@ -168,31 +181,6 @@ class IndexSet {
 
 
   /**
-     @brief Sets fields with values used immediately following splitting.
-
-     @param _idx is the index within the containing vector.
-
-     @para _extent is the index count.
-
-     @return void.
-   */
-  void Init(unsigned int _splitIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, unsigned int _relBase, unsigned int bagCount) {
-    splitIdx = _splitIdx;
-    sCount = _sCount;
-    lhStart = _lhStart;
-    extent = _extent;
-    minInfo = _minInfo;
-    ptId = _ptId;
-    sum = _sum;
-    path = _path;
-    relBase = _relBase;
-
-    // Inattainable value.  Reset only when non-terminal:
-    succExpl = succImpl = offExpl = offImpl = bagCount;
-  }
-
-
-  /**
      @brief Exposes minimum-information value for the node.
 
      @return minInfo value.
@@ -203,7 +191,7 @@ class IndexSet {
 
 
   /**
-     @brief Sets successor values for nonterminal node.
+     @brief L/R accessor for subtree-relative reindexing.
 
      @param expl is true iff the successor lies in the explicit side of
      the split.
@@ -214,19 +202,29 @@ class IndexSet {
 
      @return index (possibly pseudo) of successor index set.
    */
-  inline unsigned int Offspring(bool expl, unsigned int &pathSucc, unsigned int &idxSucc) {
+  inline unsigned int Offspring(bool expl, unsigned int &pathSucc, unsigned int &ptSucc) {
     unsigned int iSetSucc;
     if (terminal) {  // Terminal from previous level.
       iSetSucc = succOnly;
-      idxSucc = offOnly++;
+      ptSucc = ptId;
       pathSucc = 0; // Dummy:  overwritten by caller.
     }
     else {
       iSetSucc = expl ? succExpl : succImpl;
       pathSucc = expl ? pathExpl : pathImpl;
-      idxSucc = expl ? offExpl++ : offImpl++;
+      ptSucc = expl ? ptExpl : ptImpl;
     }
     return iSetSucc;
+  }
+
+  
+  /**
+     @brief As above, but also tracks (pseudo) successor indices.  State
+     is side-effected, moreover, so must be invoked sequentially.
+   */
+  inline unsigned int Offspring(bool expl, unsigned int &pathSucc, unsigned int &idxSucc, unsigned int &ptSucc) {
+    idxSucc = terminal ? offOnly++ : (expl ? offExpl++ : offImpl++);
+    return Offspring(expl, pathSucc, ptSucc);
   }
 };
 
@@ -237,12 +235,13 @@ class IndexSet {
 class IndexLevel {
   static unsigned int minNode;
   static unsigned int totLevels;
-  const std::vector<class SampleNode> &stageSample;
+  class SamplePred *samplePred;
+  class Bottom *bottom;
   std::vector<IndexSet> indexSet;
   const unsigned int bagCount;
+  bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
   unsigned int idxLive; // Total live indices.
-  unsigned int idxMax; // Widest live node.
   unsigned int liveBase; // Accumulates live index offset.
   unsigned int extinctBase; // Accumulates extinct index offset.
   unsigned int succLive; // Accumulates live indices for upcoming level.
@@ -250,37 +249,42 @@ class IndexLevel {
   std::vector<unsigned int> relBase; // Node-to-relative index.
   std::vector<unsigned int> succBase; // Overlaps, then moves to relBase.
   std::vector<unsigned int> rel2ST; // Maps to subtree index.
-  std::vector<class SampleNode> rel2Sample;
+  std::vector<unsigned int> rel2PT; // Maps to pretree index.
   std::vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
+  std::vector<unsigned int> st2PT; // Frontier map.
+  class BV *replayExpl;
 
   static class PreTree *OneTree(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Sample *sample, const class Coproc *coproc);
-  unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, bool _levelTerminal);
-  void Consume(class Bottom *bottom, class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext);
-  void Produce(class Bottom *bottom, class PreTree *preTree, unsigned int splitNext);
+  unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool _levelTerminal);
+  void Consume(class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax);
+  void Produce(class PreTree *preTree, unsigned int splitNext);
 
 
  public:
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
 
-  IndexLevel(const std::vector<class SampleNode> &_stageSample, unsigned int _nSamp, double _bagSum);
+  IndexLevel(class SamplePred *_samplePred, const std::vector<class SumCount> &ctgRoot, class Bottom *_bottom, unsigned int _nSamp, unsigned int _bagCount, double _bagSum);
   ~IndexLevel();
 
   static void TreeBlock(const class PMTrain *pmTrain, const RowRank *rowRank, const std::vector<class Sample*> &sampleBlock, const class Coproc *coproc, std::vector<class PreTree*> &ptBlock);
-  void Levels(class Bottom *bottom, class PreTree *preTree);
-  unsigned int IdxSucc(class Bottom *bottom, unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
-  void Reindex(class Bottom *bottom, class BV *replayExpl);
-  void Reindex(class Bottom *bottom, class BV *replayExpl, class IdxPath *stPath);
-  void SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumSquares, std::vector<double> &ctgSum, std::vector<bool> &unsplitable) const;
+  void Levels(const class RowRank *rowRank, const class Sample *sample, class PreTree *preTree);
+  bool NonTerminal(class PreTree *preTree, IndexSet *iSet, const class SSNode &argMax);
+  unsigned int IdxSucc(unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
+  void BlockReplay(IndexSet *iSet, unsigned int predIdx, unsigned int bufIdx, unsigned int blockStart, unsigned int blockExtent);
+
+  void NodeReindex();
+  void SubtreeReindex(unsigned int splitNext);
+  void ChunkReindex(class IdxPath *stPath, unsigned int splitNext, unsigned int chunkStart, unsigned int chunkNext);
+  void TransitionReindex(unsigned int splitNext);
+
+  unsigned int RelLive(unsigned int relIdx, unsigned int targIdx, unsigned int path, unsigned int base, unsigned int ptIdx);
+  void RelExtinct(unsigned int relIdx, unsigned int ptId);
 
 
-  /**
-   */
-  unsigned int BagCount() {
-    return bagCount;
-  }
-  
-  
+  void SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumSquares, std::vector<double> &ctgSum);
+
+
   /**
     @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
     
@@ -307,7 +311,7 @@ class IndexLevel {
   }
 
 
-  inline unsigned int LevelCount() const {
+  inline unsigned int NSplit() const {
     return indexSet.size();
   }
 
@@ -349,6 +353,36 @@ class IndexLevel {
 
   inline unsigned int RelBase(unsigned int splitIdx) {
     return relBase[splitIdx];
+  }
+
+
+  inline bool Unsplitable(unsigned int splitIdx) const {
+    return indexSet[splitIdx].Unsplitable();
+  }
+
+  
+/**
+   @brief Dispatches consecutive node-relative indices to frontier map for
+   final pre-tree node assignment.
+
+   @return void.
+ */
+  void RelExtinct(unsigned int relBase, unsigned int extent, unsigned int ptId) {
+    for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
+      RelExtinct(relIdx, ptId);
+    }
+  }
+
+
+  /**
+     @brief Reconciles remaining live node-relative indices.
+  */
+  void RelFlush() {
+    if (nodeRel) {
+      for (unsigned int relIdx = 0; relIdx < idxLive; relIdx++) {
+	RelExtinct(relIdx, rel2PT[relIdx]);
+      }
+    }
   }
 };
 

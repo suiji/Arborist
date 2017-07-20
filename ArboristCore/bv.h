@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 
+
 // TODO: Recast using templates.
 
 class BV {
@@ -89,8 +90,15 @@ class BV {
 
   
   /**
+     @brief Builds a bit mask having a single bit high.
+
+     @param pos is a bit position
+
+     @param mask outputs a slot-width mask with the bit at 'pos' set.
+
+     @return slot containing position.
    */
-  static unsigned int SlotMask(unsigned int pos, unsigned int &mask) {
+  static inline unsigned int SlotMask(unsigned int pos, unsigned int &mask) {
     unsigned int slot = pos / slotElts;
     mask = full << (pos - (slot * slotElts));
 
@@ -99,7 +107,7 @@ class BV {
 
 
   bool Test(unsigned int slot, unsigned int mask) const {
-    return (raw[slot] & mask) != 0;
+    return (raw[slot] & mask) == mask;
   }
 
   
@@ -130,10 +138,10 @@ class BV {
      @return void.
    */
   inline void SetBit(unsigned int pos, bool on = true) {
-    unsigned int slot = pos / slotElts;
-    unsigned int mask = full << (pos - (slot * slotElts));
+    unsigned int mask;
+    unsigned int slot = SlotMask(pos, mask);
     unsigned int val = raw[slot];
-    raw[slot] = on ? val | mask : val & ~mask;
+    raw[slot] = on ? (val | mask) : (val & ~mask);
   }
 
 

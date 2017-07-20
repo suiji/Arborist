@@ -33,7 +33,7 @@ using namespace Rcpp;
 #include "forest.h"
 #include "leaf.h"
 
-////#include <iostream>
+//#include <iostream>
 //using namespace std;
 
 
@@ -112,7 +112,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   NumericVector splitQuant = NumericVector(sSplitQuant)[predMap];
 
   Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves));
-  
+
   std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
   std::vector<unsigned int> origin(nTree);
   std::vector<unsigned int> facOrig(nTree);

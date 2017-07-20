@@ -26,9 +26,11 @@
 #include "response.h"
 #include "splitpred.h"
 #include "leaf.h"
+#include "level.h"
 #include "coproc.h"
 
 #include <algorithm>
+
 // Testing only:
 //#include <iostream>
 //using namespace std;
@@ -51,14 +53,17 @@ unsigned int Train::trainBlock = 0;
 */
 void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[]) {
   trainBlock = _trainBlock;
-  Sample::Immutables(_nSamp, _feSampleWeight, _withRepl, _ctgWidth, _nTree);
+  Sample::Immutables(_nSamp, _feSampleWeight, _withRepl);
   SPNode::Immutables(_ctgWidth);
   SplitSig::Immutables(_minRatio);
   IndexLevel::Immutables(_minNode, _totLevels);
   Leaf::Immutables(_thinLeaves);
   PreTree::Immutables(_nSamp, _minNode);
-  SplitPred::Immutables(_nPred, _ctgWidth, _predFixed, _predProb, _regMono);
+  Level::Immutables(_predFixed, _predProb);
   ForestNode::Immutables(_splitQuant);
+  if (_regMono != nullptr) {
+    SPReg::Immutables(_nPred, _regMono);
+  }
 }
 
 
@@ -76,7 +81,8 @@ void Train::DeImmutables() {
   PreTree::DeImmutables();
   Sample::DeImmutables();
   SPNode::DeImmutables();
-  SplitPred::DeImmutables();
+  Level::DeImmutables();
+  SPReg::DeImmutables();
 }
 
 
@@ -126,6 +132,7 @@ Train::Train(const std::vector<unsigned int> &_yCtg, unsigned int _ctgWidth, con
 */
 void Train::Classification(const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int _numOff[], const double _numVal[], const unsigned int _feRLE[], unsigned int _rleLength, const std::vector<unsigned int>  &_yCtg, unsigned int _ctgWidth, const std::vector<double> &_yProxy, std::vector<unsigned int> &_origin, std::vector<unsigned int> &_facOrigin, std::vector<double> &_predInfo, const std::vector<unsigned int> &_feCard, std::vector<class ForestNode> &_forestNode, std::vector<unsigned int> &_facSplit, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, double _autoCompress, std::vector<class BagLeaf> &_bagRow, std::vector<unsigned int> &_bagBits, std::vector<double> &_weight, bool _enableCoproc, std::string &diag) {
   PMTrain *pmTrain = new PMTrain(_feCard, _predInfo.size(), _yCtg.size());
+
   Train *train = new Train(_yCtg, _ctgWidth, _yProxy, _origin, _facOrigin, _predInfo, _forestNode, _facSplit, _leafOrigin, _leafNode, _bagRow, _bagBits, _weight, _enableCoproc, diag);
 
   RowRank *rowRank = new RowRank(pmTrain, _feRow, _feRank, _numOff, _numVal, _feRLE, _rleLength, _autoCompress);

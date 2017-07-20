@@ -68,10 +68,10 @@ class NuxLH {
 
  */
 class SSNode {
-  bool NonTerminalRun(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const;
-  double ReplayRun(class Bottom *bottom, class PreTree *preTree, unsigned int ptId, const class Run *run) const;
-  bool NonTerminalNum(class Bottom *bottom, class PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) const;
-  double ReplayNum(class Bottom *bottom, unsigned int extent) const;
+  bool NonTerminalRun(class IndexLevel *index, class IndexSet *iSet, class PreTree *preTree, class Run *run) const;
+  void ReplayRun(class IndexLevel *index, class IndexSet *iSet, class PreTree *preTree, const class Run *run) const;
+  bool NonTerminalNum(class IndexLevel *index, class IndexSet *iSet, class PreTree *preTree) const;
+  void ReplayNum(class IndexLevel *index, class IndexSet *iSet) const;
 
  public:
   SSNode();
@@ -145,7 +145,7 @@ class SSNode {
   }
 
 
-  bool NonTerminal(class Bottom *bottom, class PreTree *preTree, class Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const;
+  bool NonTerminal(class IndexLevel *index, class PreTree *preTree, class IndexSet *iSet, class Run *run) const;
 };
 
 

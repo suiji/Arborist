@@ -24,24 +24,6 @@
 
 
 /**
-   @brief Key for translating terminal vector.
- */
-class TermKey {
- public:
-  unsigned int base;
-  unsigned int extent;
-  unsigned int ptId;
-
-  inline void Init(unsigned int _base, unsigned int _extent, unsigned int _ptId) {
-    base = _base;
-    extent = _extent;
-    ptId = _ptId;
-  }
-};
-
-
-
-/**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
  devices such as coprocessors, disks and nodes.
 
@@ -73,7 +55,6 @@ class PreTree {
   unsigned int leafCount;
   unsigned int bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
-  std::vector<TermKey> termKey;
   std::vector<unsigned int> termST;
   class BV *BitFactory();
   void TerminalOffspring(unsigned int _parId);
@@ -97,7 +78,7 @@ class PreTree {
   void NonTerminalNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id);
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
-  void SubtreeFrontier(const std::vector<TermKey> &stKey, const std::vector<unsigned int> &stTerm);
+  void SubtreeFrontier(const std::vector<unsigned int> &stTerm);
 
   
   /**

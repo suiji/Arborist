@@ -44,7 +44,7 @@ ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const 
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, bagLeaf, bagBits, weight, ctgWidth), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, bagLeaf, bagBits, weight, ctgWidth), nCtg(ctgWidth), yCtg(_yCtg) {
 }
 
 
@@ -131,7 +131,7 @@ Sample *ResponseReg::RootSample(const RowRank *rowRank) const {
    @return Classification-style Sample object.
  */
 Sample *ResponseCtg::RootSample(const RowRank *rowRank) const {
-  return Sample::FactoryCtg(Y(), rowRank, yCtg);
+  return Sample::FactoryCtg(Y(), rowRank, yCtg, nCtg);
 }
 
 

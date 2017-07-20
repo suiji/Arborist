@@ -64,6 +64,7 @@ class ResponseReg : public Response {
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
+  const unsigned int nCtg;
   const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
  public:
 

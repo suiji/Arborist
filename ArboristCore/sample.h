@@ -21,6 +21,41 @@
 
 
 /**
+   @brief Sum / count record for categorical indices.
+ */
+class SumCount {
+  double sum;
+  unsigned int sCount;
+
+ public:
+  void Init() {
+    sum = 0.0;
+    sCount = 0;
+  }
+
+  void Ref(double &_sum, unsigned int &_sCount) const {
+    _sum = sum;
+    _sCount = sCount;
+  }
+  
+  
+  void Accum(double _sum, unsigned int _sCount) {
+    sum += _sum;
+    sCount += _sCount;
+  }
+
+
+  /**
+     @brief Subtracts contents of vector passed.
+   */
+  void Decr(const SumCount &subtrahend) {
+    sum -= subtrahend.sum;
+    sCount -= subtrahend.sCount;
+  }
+};
+
+
+/**
    @brief Single node type for regression and classification.
 
    For simplicity, regression and classification variants are distinguished
@@ -41,10 +76,12 @@ class SampleNode {
 
  public:
 
-  inline void Set(FltVal _sum, unsigned int _sCount, unsigned int _ctg = 0) {
-    sum = _sum;
+  inline double Set(FltVal _yVal, unsigned int _sCount, unsigned int _ctg = 0) {
     sCount = _sCount;
+    sum = _yVal * sCount;
     ctg = _ctg;
+
+    return sum;
   }
 
   /**
@@ -81,6 +118,7 @@ class SampleNode {
 };
 
 
+
 /**
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
@@ -89,31 +127,43 @@ class Sample {
   std::vector<unsigned int> row2Sample;
 
  protected:
+  const unsigned int nRow;
   const unsigned int noSample; // Inattainable sample index.
-  static unsigned int nRow;
   static unsigned int nSamp;
   std::vector<SampleNode> sampleNode;
+  std::vector<SumCount> ctgRoot;
   unsigned int bagCount;
   double bagSum;
 
+  // Factories parametrized by coprocessor state.
+  static class SamplePred *SamplePredFactory(const class Coproc *coproc, unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
+  static class SPCtg* SPCtgFactory(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, unsigned int bagCount, unsigned int _nCtg);
+  static class SPReg* SPRegFactory(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, unsigned int bagCount);
+  static void RowSample(std::vector<unsigned int> &sCountRow);
+  
+  
   unsigned int PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
-  void Stage(const class RowRank *rowRank, class Bottom *bottom, unsigned int predIdx) const;
+  void Stage(const class RowRank *rowRank, class SamplePred *samplePred, class Bottom *bottom, unsigned int predIdx) const;
   void PackIndex(unsigned int row, unsigned int predRank, std::vector<class StagePack> &stagePack) const ;
 
-  static void RowSample(std::vector<unsigned int> &sCountRow);
+  virtual double SetNode(double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
-  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg);
+  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg, unsigned int _nCtg);
   static class SampleReg *FactoryReg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
+  virtual class SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const = 0;
 
-  static void Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _ctgWidth, unsigned int _nTree);
+  static void Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl);
   static void DeImmutables();
+  Sample(unsigned int _nRow, unsigned int nCtg);
 
-  Sample();
-  void Stage(const class RowRank *rowRank, class Bottom *bottom) const;
+  virtual ~Sample();
+  
+  void Stage(const class RowRank *rowRank, class SamplePred *samplePred, class Bottom *bottom) const;
+  class IndexLevel *IndexFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
+
 
   void RowInvert(std::vector<unsigned int> &sample2Row) const;
-  virtual class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const = 0;
 
   
   /**
@@ -124,11 +174,6 @@ class Sample {
   }
 
 
-  const std::vector<SampleNode> &StageSample() const {
-    return sampleNode;
-  }    
-
-  
   /**
      @param row row index at which to look up sample index.
 
@@ -171,9 +216,6 @@ class Sample {
   inline FltVal Sum(int sIdx) const {
     return sampleNode[sIdx].Sum();
   }
-
-  
-  virtual ~Sample();
 };
 
 
@@ -183,17 +225,28 @@ class Sample {
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
   void SetRank(const std::vector<unsigned int> &row2Rank);
- public:
-  SampleReg();
-  ~SampleReg();
 
+ public:
+  SampleReg(unsigned int _nRow);
+  ~SampleReg();
+  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const;
+
+  
+  inline double SetNode(double yVal, unsigned int sCount, unsigned int ctg) {
+    SampleNode sNode;
+    double ySum = sNode.Set(yVal, sCount);
+    sampleNode.push_back(sNode);
+
+    return ySum;
+  }
+  
+  
   inline unsigned int Rank(unsigned int sIdx) const {
     return sample2Rank[sIdx];
   }
 
 
   void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank);
-  class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
 };
 
 
@@ -201,15 +254,26 @@ class SampleReg : public Sample {
  @brief Classification-specific sampling.
 */
 class SampleCtg : public Sample {
-  static unsigned int ctgWidth;
- public:
-  SampleCtg();
-  ~SampleCtg();
-  static void Immutables(unsigned int _ctgWidth, unsigned int _nTree);
-  static void DeImmutables();
+  const unsigned int nCtg;
 
+
+ public:
+  SampleCtg(unsigned int _nRow, unsigned int _nCtg);
+  ~SampleCtg();
+
+  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const;
+
+  inline double SetNode(double yVal, unsigned int sCount, unsigned int ctg) {
+    SampleNode sNode;
+    double ySum = sNode.Set(yVal, sCount, ctg);
+    sampleNode.push_back(sNode);
+    ctgRoot[ctg].Accum(ySum, sCount);
+
+    return ySum;
+  }
+  
+  
   void PreStage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank);
-  class Bottom *BottomFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
 };
 
 

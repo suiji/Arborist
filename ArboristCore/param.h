@@ -18,6 +18,8 @@
 #ifndef ARBORIST_PARAM_H
 #define ARBORIST_PARAM_H
 
+#include <utility>
+
 // Type for caching front-end values, but not necessarily for arithmetic.
 typedef float FltVal;
 
@@ -29,6 +31,12 @@ typedef struct {
 
 
 typedef unsigned char PathT;
+
+
+/**
+   @brief Split/predictor coordinate pair.
+ */
+typedef std::pair<unsigned int, unsigned int> SPPair;
 
 
 #endif

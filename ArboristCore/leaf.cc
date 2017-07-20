@@ -127,11 +127,13 @@ void LeafReg::Leaves(const PMTrain *pmTrain, const Sample *sample, const std::ve
 void Leaf::BagTree(const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) {
   std::vector<unsigned int> sample2Row(sample->BagCount());
   sample->RowInvert(sample2Row);
-  for (unsigned int sIdx = 0; sIdx < sample->BagCount(); sIdx++) {
-    bagRow->SetBit(sample2Row[sIdx], tIdx);
+  unsigned int sIdx = 0;
+  for (auto row : sample2Row) {
+    bagRow->SetBit(row, tIdx);
     if (!thinLeaves) {
       BagLeaf lb;
       lb.Init(leafMap[sIdx], sample->SCount(sIdx));
+      sIdx++;
       bagLeaf.push_back(lb);
     }
   }

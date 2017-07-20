@@ -15,10 +15,10 @@
 
 
 #include "splitsig.h"
-#include "bottom.h"
 #include "pretree.h"
 #include "runset.h"
 #include "index.h"
+#include "samplepred.h"
 
 #include <cfloat>
 
@@ -95,8 +95,8 @@ SSNode::SSNode() : info(-DBL_MAX) {
 
    Sacrifices elegance for efficiency, as coprocessor may not support virtual calls.
 */
-bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const {
-  return run->IsRun(setIdx) ? NonTerminalRun(bottom, preTree, run, extent, ptId, sumExpl) : NonTerminalNum(bottom, preTree, extent, ptId, sumExpl);
+bool SSNode::NonTerminal(IndexLevel *index, PreTree *preTree, IndexSet *iSet, Run *run) const {
+  return run->IsRun(setIdx) ? NonTerminalRun(index, iSet, preTree, run) : NonTerminalNum(index, iSet, preTree);
 }
 
 
@@ -105,11 +105,12 @@ bool SSNode::NonTerminal(Bottom *bottom, PreTree *preTree, Run *run, unsigned in
 
    @return true iff LH is implicit.
  */
-bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned int extent, unsigned int ptId, double &sumExpl) const {
-  preTree->NonTerminalFac(info, predIdx, ptId);
+bool SSNode::NonTerminalRun(IndexLevel *index, IndexSet *iSet, PreTree *preTree, Run *run) const {
+  // TODO:  Recast as run->Replay(index, iSet, preTree, predIdx, bufIdx, setIdx)
+  preTree->NonTerminalFac(info, predIdx, iSet->PTId());
+  ReplayRun(index, iSet, preTree, run);
 
-  sumExpl = ReplayRun(bottom, preTree, ptId, run);
-  return !run->ImplicitLeft(setIdx);
+  return  !run->ImplicitLeft(setIdx);
 }
 
 
@@ -118,30 +119,27 @@ bool SSNode::NonTerminalRun(Bottom *bottom, PreTree *preTree, Run *run, unsigned
 
    @return sum of left-hand subnode's response values.
  */
-double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, const Run *run) const {
-  double sumExpl = 0.0;
+void SSNode::ReplayRun(IndexLevel *index, IndexSet *iSet, PreTree *preTree, const Run *run) const {
   if (run->ImplicitLeft(setIdx)) {// LH runs hold bits, RH hold replay indices.
     for (unsigned int outSlot = 0; outSlot < run->RunCount(setIdx); outSlot++) {
       if (outSlot < run->RunsLH(setIdx)) {
-        preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
+        preTree->LHBit(iSet->PTId(), run->Rank(setIdx, outSlot));
       }
       else {
 	unsigned int runStart, runExtent;
 	run->RunBounds(setIdx, outSlot, runStart, runExtent);
-        sumExpl += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
+        index->BlockReplay(iSet, predIdx, bufIdx, runStart, runExtent);
       }
     }
   }
   else { // LH runs hold bits as well as replay indices.
     for (unsigned int outSlot = 0; outSlot < run->RunsLH(setIdx); outSlot++) {
-      preTree->LHBit(ptId, run->Rank(setIdx, outSlot));
+      preTree->LHBit(iSet->PTId(), run->Rank(setIdx, outSlot));
       unsigned int runStart, runExtent;
       run->RunBounds(setIdx, outSlot, runStart, runExtent);
-      sumExpl += bottom->BlockReplay(predIdx, bufIdx, runStart, runExtent);
+      index->BlockReplay(iSet, predIdx, bufIdx, runStart, runExtent);
     }
   }
-
-  return sumExpl;
 }
 
 
@@ -150,10 +148,10 @@ double SSNode::ReplayRun(Bottom *bottom, PreTree *preTree, unsigned int ptId, co
 
    @return true iff LH is explicit.
  */
-bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int extent, unsigned int ptId, double &sumExpl) const {
-  preTree->NonTerminalNum(info, predIdx, rankRange, ptId);
+bool SSNode::NonTerminalNum(IndexLevel *index, IndexSet *iSet, PreTree *preTree) const {
+  preTree->NonTerminalNum(info, predIdx, rankRange, iSet->PTId());
+  ReplayNum(index, iSet);
 
-  sumExpl = ReplayNum(bottom, extent);
   return lhImplicit == 0;
 }
 
@@ -168,8 +166,8 @@ bool SSNode::NonTerminalNum(Bottom *bottom, PreTree *preTree, unsigned int exten
 
    @return sum of explicit successor node's sample values.
  */
-double SSNode::ReplayNum(Bottom *bottom, unsigned int extent) const {
-  return bottom->BlockReplay(predIdx, bufIdx, lhImplicit == 0 ? idxStart : idxStart - lhImplicit + lhExtent, lhImplicit == 0 ? lhExtent : extent - lhExtent);
+void SSNode::ReplayNum(IndexLevel *index, IndexSet *iSet) const {
+  index->BlockReplay(iSet, predIdx, bufIdx, lhImplicit == 0 ? idxStart : idxStart - lhImplicit + lhExtent, lhImplicit == 0 ? lhExtent : iSet->Extent() - lhExtent);
 }
 
 
