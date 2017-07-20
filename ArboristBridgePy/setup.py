@@ -97,7 +97,7 @@ class build_ext(_build_ext):
             else:
                 ext.extra_compile_args = unix_compile_args
                 ext.extra_link_args = unix_link_args
-        super(build_ext, self).build_extensions()
+        _build_ext.build_extensions(self)
 
 
 

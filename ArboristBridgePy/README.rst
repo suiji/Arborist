@@ -75,13 +75,13 @@ Currently:
 Coding Style
 ~~~~~~~~~~~~
 
-The coding style for ``pyborist`` might be a little confused: it mixes different styles for a reason.
+The coding style for ``pyborist`` might be a little confusing: it mixes different styles for a reason.
 
 The simple policy:
 
 Every ``*.pyx`` and ``*.pxd`` files that import and directly wrap the corresponding C / C++ functions / classes follow the coding styles and naming conventions in the ``Arborist`` core source code. For example, use ``theVariableName`` and ``ClassName`` if possible. Moreover, the names and filenames of the imported classes should reflex the corresponding original ones, like: ``Train`` in ``train.h`` and ``train.cc`` -> ``Train`` and ``PyTrain`` in ``cytrain.pxd`` and ``cytrain.pyx``.
 
-Every pure Python files follows the ``scikit-learn`` coding styles. For example, ``the_variable_name`` is more favoriable. And the parameters should try to follow the similar ones in package ``scikit-learn``.
+Every pure Python files follows the ``scikit-learn`` coding styles. For example, ``the_variable_name`` is more favorable. And the parameters should try to follow their counterparts in package ``scikit-learn``.
 
 
 License
