@@ -37,17 +37,25 @@ class PTNode {
  public:
   unsigned int id;
   unsigned int lhId;  // LH subnode index. Nonzero iff non-terminal.
-  unsigned int predIdx; // Split only.
+  unsigned int predIdx; // Nonterminal only.
+  FltVal info; // Nonterminal only.
   union {
     unsigned int offset; // Bit-vector offset:  factor.
-    RankRange rankRange;//double rkMean; // Mean rank:  numeric.
+    RankRange rankRange; // LH, RH ranks:  numeric.
   } splitVal;
-  void Consume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx) const;
+
+  void NonterminalConsume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const;
+
+
+  inline bool NonTerminal() const {
+    return lhId > 0;
+  }
 };
 
 
 class PreTree {
   static unsigned int heightEst;
+  static unsigned int leafMax; // User option:  maximum # leaves, if > 0.
   const class PMTrain *pmTrain;
   PTNode *nodeVec; // Vector of tree nodes.
   unsigned int nodeCount; // Allocation height of node vector.
@@ -60,18 +68,17 @@ class PreTree {
   void TerminalOffspring(unsigned int _parId);
   const std::vector<unsigned int> FrontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
   const unsigned int bagCount;
-  std::vector<double> info; // Aggregates info value of nonterminals, by predictor.
   unsigned int BitWidth();
 
  public:
   PreTree(const class PMTrain *_pmTrain, unsigned int _bagCount);
   ~PreTree();
-  static void Immutables(unsigned int _nSamp, unsigned int _minH);
+  static void Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _leafMax);
   static void DeImmutables();
   static void Reserve(unsigned int height);
 
-  const std::vector<unsigned int> Consume(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const;
-  void NodeConsume(class ForestTrain *forest, unsigned int tIdx) const;
+  const std::vector<unsigned int> Consume(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo);
+  void NonterminalConsume(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const;
   void BitConsume(unsigned int *outBits);
   void LHBit(int idx, unsigned int pos);
   void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id);
@@ -79,7 +86,7 @@ class PreTree {
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void SubtreeFrontier(const std::vector<unsigned int> &stTerm);
-
+  void LeafMerge();
   
   /**
      @brief Height accessor.
@@ -103,9 +110,22 @@ class PreTree {
   /**
      @return true iff node is nonterminal.
    */
-  inline bool NonTerminal(unsigned int ptId) {
-    return nodeVec[ptId].lhId > 0;
+  inline bool NonTerminal(unsigned int ptId) const {
+    return nodeVec[ptId].NonTerminal();
   }
+
+
+    /**
+       @brief Determines whether a nonterminal can be merged with its
+       children.
+
+       @param ptId is the index of a nonterminal.
+
+       @return true iff node has two leaf children.
+    */
+  inline bool Mergeable(unsigned int ptId) const {
+    return !NonTerminal(LHId(ptId)) && !NonTerminal(RHId(ptId));
+  }  
 
   
   /**

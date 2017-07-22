@@ -22,6 +22,10 @@
 #include "runset.h"
 #include "samplepred.h"
 #include "splitpred.h"
+
+//#include <iostream>
+//using namespace std;
+
 unsigned int Level::predFixed = 0;
 const double *Level::predProb = 0;
 

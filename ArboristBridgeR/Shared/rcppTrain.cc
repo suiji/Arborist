@@ -84,7 +84,7 @@ void RcppProxyCtg(IntegerVector y, NumericVector classWeight, std::vector<double
 
    @return Wrapped length of forest vector, with output parameters.
  */
-RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sClassWeight) {
+RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sLeafMax, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sClassWeight) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -111,7 +111,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
   NumericVector predProb = NumericVector(sProbVec)[predMap];
   NumericVector splitQuant = NumericVector(sSplitQuant)[predMap];
 
-  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), ctgWidth, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves));
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), as<unsigned int>(sLeafMax), ctgWidth, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves));
 
   std::vector<unsigned int> facCard(as<std::vector<unsigned int> >(predBlock["facCard"]));
   std::vector<unsigned int> origin(nTree);
@@ -147,7 +147,7 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
 }
 
 
-RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sRegMono) {
+RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sLeafMax, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sRegMono) {
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock"))
     stop("Expecting PredBlock");
@@ -166,7 +166,7 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
   NumericVector regMono = NumericVector(sRegMono)[predMap];
   NumericVector splitQuant = NumericVector(sSplitQuant)[predMap];
 
-  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), 0, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves), regMono.begin());
+  Train::Init(nPred, nTree, as<unsigned int>(sNSamp), sampleWeight, as<bool>(sWithRepl), as<unsigned int>(sTrainBlock), as<unsigned int>(sMinNode), as<double>(sMinRatio), as<unsigned int>(sTotLevels), as<unsigned int>(sLeafMax), 0, as<unsigned int>(sPredFixed), splitQuant.begin(), predProb.begin(), as<bool>(sThinLeaves), regMono.begin());
 
   double *feNumVal;
   unsigned int *feRow, *feNumOff, *feRank, *feRLE, rleLength;

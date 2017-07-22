@@ -19,6 +19,8 @@
 #include "forest.h"
 #include "predblock.h"
 
+#include <queue>
+
 //#include <iostream>
 //using namespace std;
 
@@ -30,6 +32,8 @@
 //
 
 unsigned int PreTree::heightEst = 0;
+unsigned int PreTree::leafMax = 0;
+
 
 /**
    @brief Caches the row count and computes an initial estimate of node count.
@@ -40,7 +44,7 @@ unsigned int PreTree::heightEst = 0;
 
    @return void.
  */
-void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH) {
+void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _leafMax) {
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
@@ -56,11 +60,13 @@ void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH) {
 
   // Terminals plus accumulated nonterminals.
   heightEst = (twoL << 2); // - 1, for exact count.
+
+  leafMax = _leafMax;
 }
 
 
 void PreTree::DeImmutables() {
-  heightEst = 0;
+  leafMax = heightEst = 0;
 }
 
 
@@ -71,9 +77,7 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount), info(std::vector<double>(pmTrain->NPred())) {
-  std::fill(info.begin(), info.end(), 0.0);
-
+PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   nodeVec[0].id = 0; // Root.
@@ -172,8 +176,7 @@ void PreTree::NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _
   TerminalOffspring(_id);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  info[_predIdx] += _info;
-
+  ptS->info = _info;
   ptS->splitVal.offset = bitEnd;
   bitEnd += pmTrain->FacCard(_predIdx);
 }
@@ -194,7 +197,7 @@ void PreTree::NonTerminalNum(double _info, unsigned int _predIdx, RankRange _ran
   TerminalOffspring(_id);
   PTNode *ptS = &nodeVec[_id];
   ptS->predIdx = _predIdx;
-  info[_predIdx] += _info;
+  ptS->info = _info;
   ptS->splitVal.rankRange = _rankRange;
 }
 
@@ -251,13 +254,12 @@ void PreTree::ReNodes() {
 
   @return leaf map from consumed frontier.
 */
-const std::vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const {
+const std::vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) {
+  LeafMerge();
   forest->Origins(tIdx);
   forest->NodeInit(height);
-  NodeConsume(forest, tIdx);
+  NonterminalConsume(forest, tIdx, predInfo);
   forest->BitProduce(splitBits, bitEnd);
-  for (unsigned int i = 0; i < info.size(); i++)
-    predInfo[i] += info[i];
 
   return FrontierConsume(forest, tIdx);
 }
@@ -270,9 +272,10 @@ const std::vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned i
 
    @return void, with output reference parameter.
 */
-void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) const {
+void PreTree::NonterminalConsume(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const {
+  std::fill(predInfo.begin(), predInfo.end(), 0.0);
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].Consume(pmTrain, forest, tIdx);
+    nodeVec[idx].NonterminalConsume(pmTrain, forest, tIdx, predInfo);
   }
 }
 
@@ -286,14 +289,15 @@ void PreTree::NodeConsume(ForestTrain *forest, unsigned int tIdx) const {
 
    @return void, with side-effected Forest.
  */
-void PTNode::Consume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx) const {
-  if (lhId > 0) { // i.e., nonterminal
+void PTNode::NonterminalConsume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const {
+  if (NonTerminal()) {
     if (pmTrain->IsFactor(predIdx)) {
       forest->OffsetProduce(tIdx, id, predIdx, lhId - id, splitVal.offset);
     }
     else {
       forest->RankProduce(tIdx, id, predIdx, lhId - id, splitVal.rankRange.rankLow, splitVal.rankRange.rankHigh);
     }
+    predInfo[predIdx] += info;
   }
 }
 
@@ -344,4 +348,67 @@ const std::vector<unsigned int> PreTree::FrontierConsume(ForestTrain *forest, un
  */
 unsigned int PreTree::BitWidth() {
   return BV::SlotAlign(bitEnd);
+}
+
+
+class InfoCompare {
+public:
+  bool operator() (const PTNode &a , const PTNode &b) {
+    return a.info > b.info;
+  }
+};
+
+
+void PreTree::LeafMerge()  {
+  if (leafMax == 0 || leafCount <= leafMax)
+    return;
+  unsigned int leafCt = leafCount;
+  
+  std::priority_queue<PTNode, std::vector<PTNode>, InfoCompare> infoQueue;
+  std::vector<unsigned int> mergeRoot(height);
+  std::fill(mergeRoot.begin(), mergeRoot.end(), height); // Inattainable value.
+
+  // Initializes parent indices and pushes mergeable frontier
+  // nodes.
+  std::vector<unsigned int> parId(height);
+  parId[0] = 0;
+  for (unsigned int ptId = 0; ptId < height; ptId++) {
+    if (NonTerminal(ptId)) {
+      parId[LHId(ptId)] = parId[RHId(ptId)] = ptId;
+      if (Mergeable(ptId)) {
+	infoQueue.push(nodeVec[ptId]);
+      }
+    }
+  }
+
+  // Merges and pops mergeable nodes and pushes newly mergeable parents.
+  while (leafCt > leafMax) {
+    PTNode ptTop = infoQueue.top();
+    unsigned int topId = ptTop.id;
+    mergeRoot[topId] = topId;
+    infoQueue.pop();
+    leafCt--;
+    unsigned int parIndex = parId[topId];
+    if ((!NonTerminal(LHId(parIndex)) || mergeRoot[LHId(parIndex)] != height) &&
+	(!NonTerminal(RHId(parIndex)) || mergeRoot[RHId(parIndex)] != height)) {
+      infoQueue.push(nodeVec[parIndex]);
+    }
+  }
+
+  // Pushes down merged roots:
+  for (unsigned int id = 0; id < height; id++) {
+    unsigned int root = mergeRoot[id];
+    if (root != height) {
+      mergeRoot[LHId(id)] = mergeRoot[RHId(id)] = root;
+      nodeVec[id].lhId = 0; // Resets to terminal.
+    }
+  }
+
+  // Remaps frontier to merged terminals.
+  for (auto & ptId : termST) {
+    unsigned int mergeId = mergeRoot[ptId];
+    if (mergeId != height) {
+      ptId = mergeId;
+    }
+  }
 }

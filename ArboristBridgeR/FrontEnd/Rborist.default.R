@@ -21,6 +21,7 @@
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,
+                maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
@@ -56,7 +57,7 @@
 
   if (autoCompress < 0.0 || autoCompress > 1.0)
       stop("Autocompression plurality must be a percentage.")
-          
+
   if (is.null(regMono)) {
     regMono <- rep(0.0, nPred)
   }
@@ -80,6 +81,9 @@
   if (nSamp == 0) {
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
+    
+  if (maxLeaf < 0 || maxLeaf > nSamp)
+    stop("Leaf maximum must be nonnegative and cannot exceed sample count.")
 
   if (predProb != 0.0 && predFixed != 0)
       stop("Conflicting predictor sampling specifications:  Bernoulli and fixed.")
@@ -189,10 +193,10 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, classWeight)
+    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, classWeight)
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, regMono)
+    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, regMono)
   }
 
   predInfo <- train[["predInfo"]]

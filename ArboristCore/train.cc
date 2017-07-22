@@ -51,14 +51,14 @@ unsigned int Train::trainBlock = 0;
 
    @return void.
 */
-void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[]) {
+void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _leafMax, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[]) {
   trainBlock = _trainBlock;
   Sample::Immutables(_nSamp, _feSampleWeight, _withRepl);
   SPNode::Immutables(_ctgWidth);
   SplitSig::Immutables(_minRatio);
   IndexLevel::Immutables(_minNode, _totLevels);
   Leaf::Immutables(_thinLeaves);
-  PreTree::Immutables(_nSamp, _minNode);
+  PreTree::Immutables(_nSamp, _minNode, _leafMax);
   Level::Immutables(_predFixed, _predProb);
   ForestNode::Immutables(_splitQuant);
   if (_regMono != nullptr) {
