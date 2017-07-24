@@ -55,6 +55,7 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 
 
 ### News/Changes
+- New option 'maxLeaf' to bound the number of terminal (leaf) nodes.
 - New option 'autoCompress' to fine-tune sparse internal representation.
 - New function 'Streamline' to clear unused fields of trained forest.
 - Sparse R-style 'dcgMatrix' format now accepted, with "i/p" encoding.
