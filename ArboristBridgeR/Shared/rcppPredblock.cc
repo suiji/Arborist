@@ -98,7 +98,7 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
     List sigTrain(sSigTrain);
     IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
     if (!is_true(all( predMap == predTrain)))
-      stop("Signature mismatch");
+      stop("Training and prediction data types do not match");
 
     List levelTrain(as<List>(sigTrain["level"]));
     RcppPredblock::FactorRemap(xFac, level, levelTrain);
