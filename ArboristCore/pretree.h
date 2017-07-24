@@ -35,8 +35,8 @@
 */
 class PTNode {
  public:
-  unsigned int id;
-  unsigned int lhId;  // LH subnode index. Nonzero iff non-terminal.
+  unsigned int id; // Not necessarily the vector position.
+  unsigned int lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
   unsigned int predIdx; // Nonterminal only.
   FltVal info; // Nonterminal only.
   union {
@@ -48,7 +48,16 @@ class PTNode {
 
 
   inline bool NonTerminal() const {
-    return lhId > 0;
+    return lhDel != 0;
+  }
+
+
+  inline unsigned int LHId() const {
+    return NonTerminal() ? id + lhDel : 0;
+  }
+
+  inline unsigned int RHId() const {
+    return NonTerminal() ? LHId() + 1 : 0;
   }
 };
 
@@ -86,24 +95,15 @@ class PreTree {
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void SubtreeFrontier(const std::vector<unsigned int> &stTerm);
-  void LeafMerge();
+  void LeafMerge(class ForestTrain *forest);
   
-  /**
-     @brief Height accessor.
-   */
-  inline unsigned int Height() {
-    return height;
-  }
-
-
   inline unsigned int LHId(unsigned int ptId) const {
-    return nodeVec[ptId].lhId;
+    return nodeVec[ptId].LHId();
   }
 
   
   inline unsigned int RHId(unsigned int ptId) const {
-    unsigned int lhId = nodeVec[ptId].lhId;
-    return lhId != 0 ? lhId + 1 : 0;
+    return nodeVec[ptId].RHId();
   }
 
   

@@ -81,7 +81,7 @@ PreTree::PreTree(const PMTrain *_pmTrain, unsigned int _bagCount) : pmTrain(_pmT
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   nodeVec[0].id = 0; // Root.
-  nodeVec[0].lhId = 0; // Initializes as terminal.
+  nodeVec[0].lhDel = 0; // Initializes as terminal.
   splitBits = BitFactory();
 }
 
@@ -148,13 +148,13 @@ BV *PreTree::BitFactory() {
 */
 void PreTree::TerminalOffspring(unsigned int _parId) {
   unsigned int ptLH = height++;
-  nodeVec[_parId].lhId = ptLH;
+  nodeVec[_parId].lhDel = ptLH - _parId;
   nodeVec[ptLH].id = ptLH;
-  nodeVec[ptLH].lhId = 0;
+  nodeVec[ptLH].lhDel = 0;
 
   unsigned int ptRH = height++;
   nodeVec[ptRH].id = ptRH;
-  nodeVec[ptRH].lhId = 0;
+  nodeVec[ptRH].lhDel = 0;
 
   // Two more leaves for offspring, one fewer for this.
   leafCount++;
@@ -255,9 +255,8 @@ void PreTree::ReNodes() {
   @return leaf map from consumed frontier.
 */
 const std::vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) {
-  LeafMerge();
   forest->Origins(tIdx);
-  forest->NodeInit(height);
+  LeafMerge(forest);
   NonterminalConsume(forest, tIdx, predInfo);
   forest->BitProduce(splitBits, bitEnd);
 
@@ -292,10 +291,10 @@ void PreTree::NonterminalConsume(ForestTrain *forest, unsigned int tIdx, std::ve
 void PTNode::NonterminalConsume(const PMTrain *pmTrain, ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const {
   if (NonTerminal()) {
     if (pmTrain->IsFactor(predIdx)) {
-      forest->OffsetProduce(tIdx, id, predIdx, lhId - id, splitVal.offset);
+      forest->OffsetProduce(tIdx, id, predIdx, lhDel, splitVal.offset);
     }
     else {
-      forest->RankProduce(tIdx, id, predIdx, lhId - id, splitVal.rankRange.rankLow, splitVal.rankRange.rankHigh);
+      forest->RankProduce(tIdx, id, predIdx, lhDel, splitVal.rankRange.rankLow, splitVal.rankRange.rankHigh);
     }
     predInfo[predIdx] += info;
   }
@@ -359,15 +358,18 @@ public:
 };
 
 
-void PreTree::LeafMerge()  {
-  if (leafMax == 0 || leafCount <= leafMax)
+void PreTree::LeafMerge(ForestTrain *forest) {
+  if (leafMax == 0 || leafCount <= leafMax) {
+    forest->NodeInit(height);
     return;
+  }
   unsigned int leafCt = leafCount;
   
   std::priority_queue<PTNode, std::vector<PTNode>, InfoCompare> infoQueue;
   std::vector<unsigned int> mergeRoot(height);
   std::fill(mergeRoot.begin(), mergeRoot.end(), height); // Inattainable value.
-
+  std::vector<bool> parSeen(height);
+  std::fill(parSeen.begin(), parSeen.end(), false);
   // Initializes parent indices and pushes mergeable frontier
   // nodes.
   std::vector<unsigned int> parId(height);
@@ -395,20 +397,33 @@ void PreTree::LeafMerge()  {
     }
   }
 
-  // Pushes down merged roots:
-  for (unsigned int id = 0; id < height; id++) {
-    unsigned int root = mergeRoot[id];
-    if (root != height) {
-      mergeRoot[LHId(id)] = mergeRoot[RHId(id)] = root;
-      nodeVec[id].lhId = 0; // Resets to terminal.
+  // Pushes down merged roots.  Roots remain in node list, but descendants
+  // merged away.
+  //
+  unsigned int heightMerged = 0;
+  for (unsigned int idx = 0; idx < height; idx++) {
+    unsigned int root = mergeRoot[idx];
+    if (root != height) { // Merged, possibly a root.
+      mergeRoot[LHId(idx)] = mergeRoot[RHId(idx)] = root;
+      nodeVec[idx].lhDel = 0; // Resets to terminal.
+    }
+    if (root == height || root == idx) {
+      nodeVec[idx].id = heightMerged++;
+      if (idx > 0) { // Relink to parent.
+        unsigned int parIndex = parId[idx];
+	if (!parSeen[parIndex]) { // First child seen is left.
+	  nodeVec[parIndex].lhDel = nodeVec[idx].id - nodeVec[parIndex].id;
+	  parSeen[parIndex] = true;
+	}
+      }
     }
   }
 
   // Remaps frontier to merged terminals.
   for (auto & ptId : termST) {
-    unsigned int mergeId = mergeRoot[ptId];
-    if (mergeId != height) {
-      ptId = mergeId;
-    }
+    unsigned int root = mergeRoot[ptId];
+    ptId = nodeVec[(root == height) ? ptId : root].id;
   }
+
+  forest->NodeInit(heightMerged);
 }
