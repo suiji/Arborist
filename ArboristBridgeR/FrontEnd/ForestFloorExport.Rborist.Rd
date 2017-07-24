@@ -7,7 +7,7 @@
 \concept{decision trees}
 \title{Exportation Format for Rborist Training Output}
 \description{
-  Formats training output into a form suitable for \code{forestFloor} feature-contribution package.
+  Formats training output into a form suitable for \code{ForestFloor} feature-contribution package.
 }
 
 
@@ -20,17 +20,17 @@
 }
 
 \value{An object of type \code{ForestFloorExport}, as specified by the
-  interface for the \code{forestFloor} package.
+  interface for the \code{ForestFloor} package.
 }
 
 
 \examples{
   \dontrun{
     data(iris)
-    rb <- Rborist(iris[-5], iris[5])
+    rb <- Rborist(iris[,-5], iris[,5])
     ffe <- ForestFloorExport(rb)
 
-    library(forestFloor)
+    library(ForestFloor)
     ForestFloor(ffe)
   }
 }
