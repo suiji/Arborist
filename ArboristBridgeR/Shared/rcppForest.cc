@@ -69,8 +69,13 @@ IntegerVector RcppForest::iv2 = IntegerVector(0);
  */
 void RcppForest::Unwrap(SEXP sForest, unsigned int *&_origin, unsigned int &_nTree, unsigned int *&_facSplit, size_t &_facLen, unsigned int *&_facOrig, unsigned int &_nFac, ForestNode *&_forestNode, unsigned int &_nodeEnd) {
   List forest(sForest);
-  if (!forest.inherits("Forest"))
-    stop("Expecting Forest");
+  try {
+    if (!forest.inherits("Forest"))
+      throw std::domain_error("Expecting Forest");
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 
   // Alignment should be sufficient to guarantee safety of
   // the casted loads.

@@ -85,9 +85,12 @@ void RcppProxyCtg(IntegerVector y, NumericVector classWeight, std::vector<double
    @return Wrapped length of forest vector, with output parameters.
  */
 RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sLeafMax, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sClassWeight) {
+  BEGIN_RCPP
   List predBlock(sPredBlock);
-  if (!predBlock.inherits("PredBlock"))
+
+  if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
+  }
 
   IntegerVector yOneBased(sYOneBased);
   CharacterVector levels(yOneBased.attr("levels"));
@@ -144,13 +147,18 @@ RcppExport SEXP RcppTrainCtg(SEXP sPredBlock, SEXP sRowRank, SEXP sYOneBased, SE
       _["predInfo"] = infoOut[predMap], // Maps back from core order.
       _["diag"] = diag
   );
+  END_RCPP
 }
 
 
 RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTree, SEXP sNSamp, SEXP sSampleWeight, SEXP sWithRepl, SEXP sTrainBlock, SEXP sMinNode, SEXP sMinRatio, SEXP sTotLevels, SEXP sLeafMax, SEXP sPredFixed, SEXP sSplitQuant, SEXP sProbVec, SEXP sAutoCompress, SEXP sThinLeaves, SEXP sEnableCoproc, SEXP sRegMono) {
+  BEGIN_RCPP
   List predBlock(sPredBlock);
-  if (!predBlock.inherits("PredBlock"))
+
+  if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
+  }
+
 
   List signature(as<List>(predBlock["signature"]));
   IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
@@ -203,4 +211,6 @@ RcppExport SEXP RcppTrainReg(SEXP sPredBlock, SEXP sRowRank, SEXP sY, SEXP sNTre
       _["predInfo"] = infoOut[predMap], // Maps back from core order.
       _["diag"] = diag
     );
+
+  END_RCPP
 }

@@ -21,5 +21,5 @@ ForestFloorExport <- function(arbOut) {
 
 
 "ForestFloorExport.Rborist" <- function(arbOut) {
-  return (.Call("RcppForestFloorExport", arbOut))
+  return (tryCatch(.Call("RcppForestFloorExport", arbOut), error = function(e) {stop(e)}))
 }

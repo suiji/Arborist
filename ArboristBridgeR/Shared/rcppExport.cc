@@ -176,8 +176,14 @@ RcppExport SEXP ExportCtg(SEXP sForest, SEXP sLeaf, IntegerVector predMap) {
 
 unsigned int NTree(SEXP sExp) {
   List exp(sExp);
-  if (!exp.inherits("ExportCtg") && !exp.inherits("ExportReg"))
-    stop("Unrecognized export object");
+  try {
+    if (!exp.inherits("ExportCtg") && !exp.inherits("ExportReg")) {
+      throw std::domain_error("Unrecognized export object");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 
   std::vector<std::vector<unsigned int> > pred = exp["pred"];
 

@@ -40,9 +40,11 @@
    @return parallel row and rank arrays and the inverse numeric mapping.
  */
 RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
+  BEGIN_RCPP
   List predBlock(sPredBlock);
-  if (!predBlock.inherits("PredBlock"))
+  if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
+  }
 
   unsigned int nRow = as<unsigned int>(predBlock["nRow"]);
   unsigned int nPredNum = as<unsigned int>(predBlock["nPredNum"]);
@@ -56,8 +58,10 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   if (nPredNum > 0) {
     if (!Rf_isNull(predBlock["blockNumRLE"])) {
       List blockNumRLE((SEXP) predBlock["blockNumRLE"]);
-      if (!blockNumRLE.inherits("BlockNumRLE"))
+      if (!blockNumRLE.inherits("BlockNumRLE")) {
 	stop("Expecting BlockNumRLE");
+      }
+      
       RowRank::PreSortNumRLE(NumericVector((SEXP) blockNumRLE["valNum"]).begin(), (unsigned int *) IntegerVector((SEXP) blockNumRLE["rowStart"]).begin(), (unsigned int*) IntegerVector((SEXP) blockNumRLE["runLength"]).begin(), nPredNum, nRow, row, rank, runLength, numOff, numVal);
     }
     else {
@@ -81,6 +85,7 @@ RcppExport SEXP RcppRowRank(SEXP sPredBlock) {
   rowRank.attr("class") = "RowRank";
 
   return rowRank;
+  END_RCPP
 }
 
 
@@ -92,8 +97,14 @@ NumericVector RcppRowrank::nv1 = NumericVector(0);
 
 void RcppRowrank::Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &rleLength) {
   List rowRank(sRowRank);
-  if (!rowRank.inherits("RowRank"))
-    stop("Expecting RowRank");
+  try {
+    if (!rowRank.inherits("RowRank")) {
+      throw std::domain_error("Expecting RowRank");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 
   iv1 = IntegerVector((SEXP) rowRank["numOff"]);
   feNumOff = (unsigned int*) &iv1[0];

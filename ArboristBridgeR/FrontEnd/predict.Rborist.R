@@ -52,10 +52,10 @@ PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin
   predBlock <- PredBlock(newdata, sigTrain)
   if (inherits(leaf, "LeafReg")) {
     if (is.null(quantVec)) {
-      prediction <- .Call("RcppTestReg", predBlock, forest, leaf, yTest)
+      prediction <- tryCatch(.Call("RcppTestReg", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else {
-      prediction <- .Call("RcppTestQuant", predBlock, forest, leaf, quantVec, qBin, yTest)
+      prediction <- tryCatch(.Call("RcppTestQuant", predBlock, forest, leaf, quantVec, qBin, yTest), error = function(e) {stop(e)})
     }
   }
   else if (inherits(leaf, "LeafCtg")) {
@@ -63,10 +63,10 @@ PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin
       stop("Quantiles not supported for classifcation")
 
     if (ctgCensus == "votes") {
-      prediction <- .Call("RcppTestVotes", predBlock, forest, leaf, yTest)
+      prediction <- tryCatch(.Call("RcppTestVotes", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else if (ctgCensus == "prob") {
-      prediction <- .Call("RcppTestProb", predBlock, forest, leaf, yTest)
+      prediction <- tryCatch(.Call("RcppTestProb", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))

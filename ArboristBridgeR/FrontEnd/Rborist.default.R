@@ -193,17 +193,19 @@
     if (any(regMono != 0)) {
       stop("Monotonicity undefined for categorical response")
     }
-    train <- .Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, classWeight)
+    train <- tryCatch(.Call("RcppTrainCtg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, classWeight), error=function(e){stop(e)})
   }
   else {
-    train <- .Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, regMono)
+    train <- tryCatch(.Call("RcppTrainReg", predBlock, preFormat$rowRank, y, nTree, nSamp, rowWeight, withRepl, treeBlock, minNode, minInfo, nLevel, maxLeaf, predFixed, splitQuant, probVec, autoCompress, thinLeaves, FALSE, regMono), error=function(e) {stop(e)})
   }
 
   predInfo <- train[["predInfo"]]
   names(predInfo) <- predBlock$colnames
-  training = list(
-      info = predInfo,
-      diag = train[["diag"]]
+    training = list(
+        call = match.call(),
+        info = predInfo,
+        version = (sessionInfo())$otherPkgs$Rborist$Version,
+        diag = train[["diag"]]
   )
 
   if (noValidate) {
@@ -244,14 +246,14 @@ PredBlock <- function(x, sigTrain = NULL) {
     if (length(numIdx) + length(facIdx) != ncol(x)) {
       stop("Frame column with unsupported data type")
     }
-    return(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, sigTrain))
+    return(tryCatch(.Call("RcppPredBlockFrame", x, numIdx, facIdx, facCard, sigTrain), error = function(e) {stop(e)} ))
   }
   else if (is.matrix(x)) {
     if (is.integer(x)) {
-      return(.Call("RcppPredBlockNum", data.matrix(x)))
+      return(tryCatch(.Call("RcppPredBlockNum", data.matrix(x)), error=function(e) {stop(e)} ))
     }
     else if (is.numeric(x)) {
-      return(.Call("RcppPredBlockNum", x))
+      return(tryCatch(.Call("RcppPredBlockNum", x), error=function(e) {stop(e)}))
     }
     else if (is.character(x)) {
       stop("Character data not yet supported")
@@ -261,7 +263,7 @@ PredBlock <- function(x, sigTrain = NULL) {
     }
   }
   else if (inherits(x, "dgCMatrix")) {
-     return(.Call("RcppPredBlockSparse", x))
+     return(tryCatch(.Call("RcppPredBlockSparse", x), error= print))
   }
   else {
     stop("Expecting data frame or matrix")

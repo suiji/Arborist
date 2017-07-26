@@ -69,8 +69,14 @@ NumericVector RcppLeaf::nv1 = NumericVector(0);
  */
 void RcppLeaf::UnwrapReg(SEXP sLeaf, std::vector<double> &_yTrain, std::vector<unsigned int> &_leafOrigin, LeafNode *&_leafNode, unsigned int &_leafCount, BagLeaf *&_bagLeaf, unsigned int &_bagLeafTot, unsigned int *&_bagBits, bool bag) {
   List leaf(sLeaf);
-  if (!leaf.inherits("LeafReg"))
-    stop("Expecting LeafReg");
+  try {
+    if (!leaf.inherits("LeafReg")) {
+      throw std::domain_error("Expecting LeafReg");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 
   rv1 = RawVector((SEXP) leaf["bagBits"]);
   _bagBits = bag ? (unsigned int *) &rv1[0] : 0;
@@ -146,8 +152,13 @@ void RcppLeaf::Serialize(const std::vector<LeafNode> &leafNode, const std::vecto
  */
 void RcppLeaf::UnwrapCtg(SEXP sLeaf, std::vector<unsigned int> &_leafOrigin, LeafNode *&_leafNode, unsigned int &_leafCount, BagLeaf *&_bagLeaf, unsigned int &_bagLeafTot, unsigned int *&_bagBits, double *&_weight, unsigned int &_rowTrain, CharacterVector &_levels, bool bag) {
   List leaf(sLeaf);
-  if (!leaf.inherits("LeafCtg")) {
-    stop("Expecting LeafCtg");
+  try {
+    if (!leaf.inherits("LeafCtg")) {
+      throw std::domain_error("Expecting LeafCtg");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
   }
 
   rv1 = RawVector((SEXP) leaf["bagBits"]);

@@ -49,6 +49,7 @@
   @return PredBlock with separate numeric and integer matrices.
 */
 RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLevels, SEXP sSigTrain) {
+  BEGIN_RCPP
   DataFrame xf(sX);
   IntegerVector numElt = IntegerVector(sNumElt) - 1;
   IntegerVector facElt = IntegerVector(sFacElt) - 1;
@@ -97,8 +98,9 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
   if (!Rf_isNull(sSigTrain) && nPredFac > 0) {
     List sigTrain(sSigTrain);
     IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
-    if (!is_true(all( predMap == predTrain)))
-      stop("Training and prediction data types do not match");
+    if (!is_true(all(predMap == predTrain))) {
+      stop("Training, prediction data types do not match");
+    }
 
     List levelTrain(as<List>(sigTrain["level"]));
     RcppPredblock::FactorRemap(xFac, level, levelTrain);
@@ -125,6 +127,7 @@ RcppExport SEXP RcppPredBlockFrame(SEXP sX, SEXP sNumElt, SEXP sFacElt, SEXP sLe
   predBlock.attr("class") = "PredBlock";
 
   return predBlock;
+  END_RCPP
 }
 
 
@@ -186,6 +189,7 @@ RcppExport SEXP RcppPredBlockNum(SEXP sX) {
    @brief Reads an S4 object containing (sparse) dgCMatrix.
  */
 RcppExport SEXP RcppPredBlockSparse(SEXP sX) {
+  BEGIN_RCPP
   S4 spNum(sX);
 
   IntegerVector i;
@@ -204,19 +208,21 @@ RcppExport SEXP RcppPredBlockSparse(SEXP sX) {
   if (!R_has_slot(sX, Rf_mkString("Dim"))) {
     stop("Expecting dimension slot");
   }
+
+
   IntegerVector dim = spNum.slot("Dim");
   unsigned int nRow = dim[0];
   unsigned int nPred = dim[1];
 
   // 'eltsNZ' holds the nonzero elements.
   NumericVector eltsNZ;
+
   if (R_has_slot(sX, Rf_mkString("x"))) {
     eltsNZ = spNum.slot("x");
   }
   else {
     stop("Pattern matrix:  NYI");
   }
-
 
   std::vector<double> valNum;
   std::vector<unsigned int> rowStart;
@@ -233,7 +239,7 @@ RcppExport SEXP RcppPredBlockSparse(SEXP sX) {
   }
   else if (p.length() == 0) {
     RcppPredblock::SparseIJ(eltsNZ, i, j, nRow, valNum, rowStart, runLength);
-   }
+  }
   else {
     stop("Indeterminate sparse matrix format");
   }
@@ -281,6 +287,7 @@ RcppExport SEXP RcppPredBlockSparse(SEXP sX) {
   predBlock.attr("class") = "PredBlock";
 
   return predBlock;
+  END_RCPP
 }
 
 
@@ -341,14 +348,24 @@ void RcppPredblock::SparseIP(const NumericVector &eltsNZ, const IntegerVector &i
 
 
 void RcppPredblock::SparseJP(NumericVector &eltsNZ, IntegerVector &j, IntegerVector &p, unsigned int nRow, std::vector<double> &valNum, std::vector<unsigned int> &rowStart, std::vector<unsigned int> &runLength) {
-  stop("Sparse form j/p:  NYI");
+  try {
+    throw std::domain_error("Sparse form j/p:  NYI");
+  }
+  catch (std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 }
 
 
     // 'i' holds row indices of nonzero elements.
     // 'j' " column " "
 void RcppPredblock::SparseIJ(NumericVector &eltsNZ, IntegerVector &i, IntegerVector &j, unsigned int nRow, std::vector<double> &valNum, std::vector<unsigned int> &rowStart, std::vector<unsigned int> &runLength) {
-  stop("Sparse form i/j:  NYI");
+  try {
+    throw std::domain_error("Sparse form i/j:  NYI");
+  }
+  catch (std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
 }
 
 
@@ -357,8 +374,15 @@ void RcppPredblock::SparseIJ(NumericVector &eltsNZ, IntegerVector &i, IntegerVec
  */
 void RcppPredblock::Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_nPredNum, unsigned int &_nPredFac, NumericMatrix &_blockNum, IntegerMatrix &_blockFac, std::vector<double> &_valNum, std::vector<unsigned int> &_rowStart, std::vector<unsigned int> &_runLength, std::vector<unsigned int> &_predStart) {
   List predBlock(sPredBlock);
-  if (!predBlock.inherits("PredBlock"))
-    stop("Expecting PredBlock");
+
+  try {
+    if (!predBlock.inherits("PredBlock")) {
+      throw std::domain_error("Expecting PredBlock");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
   
   _nRow = as<unsigned int>((SEXP) predBlock["nRow"]);
   _nPredFac = as<unsigned int>((SEXP) predBlock["nPredFac"]);
@@ -374,12 +398,16 @@ void RcppPredblock::Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_
     _blockNum = as<NumericMatrix>((SEXP) predBlock["blockNum"]);
   }
 
-  if (!Rf_isNull(predBlock["blockFacRLE"])) {
-    stop("Sparse factors:  NYI");
+  try {
+    if (!Rf_isNull(predBlock["blockFacRLE"])) {
+      throw std::domain_error("Sparse factors:  NYI");
+    }
   }
-  else {
-    _blockFac = as<IntegerMatrix>((SEXP) predBlock["blockFac"]);
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
   }
+
+  _blockFac = as<IntegerMatrix>((SEXP) predBlock["blockFac"]);
 }
 
 
@@ -388,8 +416,15 @@ void RcppPredblock::Unwrap(SEXP sPredBlock, unsigned int &_nRow, unsigned int &_
  */
 void RcppPredblock::SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level) {
   List signature(sSignature);
-  if (!signature.inherits("Signature"))
-    stop("Expecting Signature");
+  try {
+    if (!signature.inherits("Signature")) {
+      throw std::domain_error("Expecting Signature");
+    }
+  }
+  catch(std::exception &ex) {
+    forward_exception_to_r(ex);
+  }
+
   _predMap = as<IntegerVector>((SEXP) signature["predMap"]);
   _level = as<List>(signature["level"]);
 }

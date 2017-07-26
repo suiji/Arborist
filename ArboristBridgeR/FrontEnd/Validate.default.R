@@ -31,10 +31,10 @@
   leaf <- train$leaf
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
-      validation <- .Call("RcppValidateVotes", predBlock, forest, leaf, y)
+      validation <- tryCatch(.Call("RcppValidateVotes", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
     else if (ctgCensus == "prob") {
-      validation <- .Call("RcppValidateProb", predBlock, forest, leaf, y)
+      validation <- tryCatch(.Call("RcppValidateProb", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -45,10 +45,10 @@
       if (is.null(quantVec)) {
         quantVec <- DefaultQuantVec()
       }
-      validation <- .Call("RcppValidateQuant", predBlock, forest, leaf, y, quantVec, qBin)
+      validation <- tryCatch(.Call("RcppValidateQuant", predBlock, forest, leaf, y, quantVec, qBin), error = function(e) { stop(e) })
     }
     else {
-      validation <- .Call("RcppValidateReg", predBlock, forest, leaf, y)
+      validation <- tryCatch(.Call("RcppValidateReg", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
   }
 
