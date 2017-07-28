@@ -66,8 +66,6 @@ class IndexSet {
   unsigned int succOnly; // Fixed:  successor iSet.
   unsigned int offOnly; // Increases:  accumulating successor offset.
   
-  double PrebiasReg();
-  double PrebiasCtg(const double sumSquares[]);
   void Successor(class IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, class Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, bool explHand) const;
   void SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int _parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, const std::vector<class SumCount> &_ctgSum, const std::vector<class SumCount> &_ctgExpl, bool explHand);
   void NontermReindex(const class BV *replayExpl, class IndexLevel *index, unsigned int idxLive, std::vector<unsigned int> &succST);
@@ -87,6 +85,7 @@ class IndexSet {
   void Produce(class IndexLevel *indexLevel, class Bottom *bottom, const class PreTree *preTree, std::vector<IndexSet> &indexNext) const;
   static unsigned SplitAccum(class IndexLevel *indexLevel, unsigned int _extent, unsigned int &_idxLive, unsigned int &_idxMax);
   const std::vector<class SumCount> &CtgDiff();
+  void SetPrebias(const class Bottom *bottom);
   void SumsAndSquares(double &sumSquares, double *sumOut);
 
   bool Unsplitable() const {
@@ -101,31 +100,6 @@ class IndexSet {
   }
 
   
-  /**
-     @brief Outputs fields used by pre-bias computation.
-
-     @param _sCount outputs the sample count.
-
-     @param _sum outputs the sum
-
-     @return void.
-   */
-  inline void PrebiasFields(unsigned int &_sCount, double &_sum) const {
-    _sCount = sCount;
-    _sum = sum;
-  }
-
-  
-  /**
-     @brief Accessor for 'preBias' field.
-
-     @return reference to 'preBias' field.
-  */
-  void SetPrebias(double _preBias) {
-    preBias = _preBias;
-  }
-
-
   inline void PathCoords(unsigned int &_start, unsigned int &_extent) {
     _start = lhStart;
     _extent = extent;
@@ -282,6 +256,7 @@ class IndexLevel {
   void RelExtinct(unsigned int relIdx, unsigned int ptId);
 
 
+  void SetPrebias();
   void SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumSquares, std::vector<double> &ctgSum);
 
 
@@ -333,16 +308,6 @@ class IndexLevel {
 
   inline double SplitFields(unsigned int splitIdx, unsigned int &idxStart, unsigned int &extent, unsigned int &sCount, double &sum) const {
     return indexSet[splitIdx].SplitFields(idxStart, extent, sCount, sum);
-  }
-
-
-  inline void PrebiasFields(unsigned int splitIdx, unsigned int &sCount, double &sum) const {
-    indexSet[splitIdx].PrebiasFields(sCount, sum);
-  }
-
-
-  inline void SetPrebias(unsigned int splitIdx, double preBias) {
-    indexSet[splitIdx].SetPrebias(preBias);
   }
 
 

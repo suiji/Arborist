@@ -170,7 +170,7 @@ void  IndexLevel::Levels(const RowRank *rowRank, const Sample *sample, PreTree *
     for (auto & iSet : indexSet) {
       argMax[iSet.SplitIdx()].SetInfo(iSet.MinInfo());
     }
-    bottom->Split(samplePred, *this, argMax);
+    bottom->Split(samplePred, this, argMax);
 
     unsigned int leafNext, idxMax;
     unsigned int splitNext = SplitCensus(argMax, leafNext, idxMax, level + 1 == totLevels);
@@ -546,9 +546,6 @@ void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
     iSet.Produce(this, bottom, preTree, indexNext);
   }
   indexSet = std::move(indexNext);
-
-  // Overlap persists through production of next level.
-  //
   bottom->LevelClear();
 }
 
@@ -619,7 +616,7 @@ void IndexLevel::SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumS
    @param ctgSum records the response sums, by category.  Assumed initialized
    to zero.
 
-   @return void.
+   @return void, with side-effected 'unsplitable' state.
    
 */
 void IndexSet::SumsAndSquares(double  &sumSquares, double *sumOut) {
@@ -640,4 +637,22 @@ void IndexLevel::BlockReplay(IndexSet *iSet, unsigned int predIdx, unsigned int 
 
 void IndexSet::BlockReplay(SamplePred *samplePred, unsigned int predIdx, unsigned int bufIdx, unsigned int blockStart, unsigned int blockExtent, BV *replayExpl) {
   sumExpl += samplePred->BlockReplay(predIdx, bufIdx, blockStart, blockExtent, replayExpl, ctgExpl);
+}
+
+
+/**
+   @brief Sets the prebias fields of all index sets in the level, employing
+   SplitPred-specific methods.
+
+   @return void.
+ */
+void IndexLevel::SetPrebias() {
+  for (auto & iSet : indexSet) {
+    iSet.SetPrebias(bottom);
+  }
+}
+
+
+void IndexSet::SetPrebias(const Bottom *bottom) {
+  preBias = bottom->Prebias(splitIdx, sum, sCount);
 }

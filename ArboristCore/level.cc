@@ -356,7 +356,7 @@ void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned
 
    @return void.
 */
-void Level::Candidates(const IndexLevel &index, SplitPred *splitPred) {
+void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
     // TODO:  Pre-empt overflow by walking wide subtrees depth-first.
   int cellCount = nSplit * nPred;
 
@@ -372,14 +372,14 @@ void Level::Candidates(const IndexLevel &index, SplitPred *splitPred) {
   unsigned int spanCand = 0;
   for (unsigned int splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     unsigned int splitOff = splitIdx * nPred;
-    if (index.Unsplitable(splitIdx)) { // Node cannot split.
+    if (index->Unsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      CandidateProb(splitPred, splitIdx, &ruPred[splitOff], index.Extent(splitIdx), spanCand);
+      CandidateProb(splitPred, splitIdx, &ruPred[splitOff], index->Extent(splitIdx), spanCand);
     }
     else { // Fixed number of predictors splitable.
-      CandidateFixed(splitPred, splitIdx, &ruPred[splitOff], &heap[splitOff], index.Extent(splitIdx), spanCand);
+      CandidateFixed(splitPred, splitIdx, &ruPred[splitOff], &heap[splitOff], index->Extent(splitIdx), spanCand);
     }
   }
   SetSpan(spanCand);

@@ -216,7 +216,7 @@ class Level {
 
   static void Immutables(unsigned int _predFixed, const double _predProb[]);
   static void DeImmutables();
-  void Candidates(const class IndexLevel &index, class SplitPred *splitPred);
+  void Candidates(const class IndexLevel *index, class SplitPred *splitPred);
   void CandidateProb(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], unsigned int extent, unsigned int &offCand);
   void CandidateFixed(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], class BHPair heap[], unsigned int extent, unsigned int &offCand);
   void Restage(SPPair &mrra, Level *levelFront, unsigned int bufIdx);

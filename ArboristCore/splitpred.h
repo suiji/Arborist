@@ -39,8 +39,8 @@ class SplitCoord {
  public:
 
   void InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsigned int _bufIdx);
-  void Schedule(const class Level *levelFront, const class IndexLevel &indexLevel, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2);
-  void InitLate(const class Level *levelFront, const class IndexLevel &index, unsigned int _splitPos, unsigned int _setIdx);
+  void Schedule(const class Level *levelFront, const class IndexLevel *indexLevel, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2);
+  void InitLate(const class Level *levelFront, const class IndexLevel *index, unsigned int _splitPos, unsigned int _setIdx);
 
   void Split(const class SPReg *spReg, const class SamplePred *samplePred);
   void Split(class SPCtg *spCtg, const class SamplePred *samplePred);
@@ -77,7 +77,6 @@ class SplitCoord {
 //
 class SplitPred {
   const class RowRank *rowRank;
-  void SetPrebias(class IndexLevel &level);
   
  protected:
   const class PMTrain *pmTrain;
@@ -93,7 +92,7 @@ public:
 
   SplitPred(const class PMTrain *_pmTrain, const class RowRank *_rowRank, unsigned int bagCount);
 
-  void ScheduleSplits(const class IndexLevel &index, const class Level *levelFront);
+  void ScheduleSplits(const class IndexLevel *index, const class Level *levelFront);
   void Preschedule(unsigned int splitIdx, unsigned int predIdx, unsigned int bufIdx);
   unsigned int DenseRank(unsigned int predIdx) const;
   bool IsFactor(unsigned int predIdx) const;
@@ -105,15 +104,14 @@ public:
   }
 
   class RunSet *RSet(unsigned int setIdx) const;
-
+  void LevelInit(class IndexLevel *index);
   void Split(const class SamplePred *samplePred, std::vector<class SSNode> &argMax);
 
   virtual void Split(const class SamplePred *samplePred) = 0;
   virtual ~SplitPred();
-  virtual void LevelInit(class IndexLevel &index, class Level *levelFront);
   virtual void RunOffsets(const std::vector<unsigned int> &safeCounts) = 0;
-  virtual void LevelPreset(class IndexLevel &index) = 0;
-  virtual double Prebias(const class IndexLevel &index, unsigned int levelIdx) = 0;
+  virtual void LevelPreset(class IndexLevel *index) = 0;
+  virtual double Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const = 0;
   virtual void LevelClear();
 };
 
@@ -136,10 +134,22 @@ class SPReg : public SplitPred {
   ~SPReg();
   int MonoMode(unsigned int splitIdx, unsigned int predIdx) const;
   void RunOffsets(const std::vector<unsigned int> &safeCount);
-  void LevelPreset(class IndexLevel &index);
-  double Prebias(const class IndexLevel &index, unsigned int spiltIdx);
-  void LevelInit(class IndexLevel &index, class Level *levelFront);
+  void LevelPreset(class IndexLevel *index);
   void LevelClear();
+
+  
+/**
+  @brief Weighted-variance pre-bias computation for regression response.
+
+  @param sum is the sum of samples subsumed by the index node.
+
+  @param sCount is the number of samples subsumed by the index node.
+
+  @return square squared, divided by sample count.
+*/
+  inline double Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const {
+    return (sum * sum) / sCount;
+  }
 };
 
 
@@ -156,13 +166,28 @@ class SPCtg : public SplitPred {
   std::vector<double> sumSquares; // Per-level sum of squares, by split.
   std::vector<double> ctgSum; // Per-level sum, by split/category pair.
   std::vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
-  void LevelPreset(class IndexLevel &index);
-  double Prebias(const class IndexLevel &index, unsigned int levelIdx);
+  void LevelPreset(class IndexLevel *index);
   void LevelClear();
   void Split(const class SamplePred *samplePred);
   void RunOffsets(const std::vector<unsigned int> &safeCount);
   unsigned int LHBits(unsigned int lhBits, unsigned int pairOffset, unsigned int depth, unsigned int &lhSampCt);
   void LevelInitSumR(unsigned int nPredNum);
+
+
+  /**
+     @brief Gini pre-bias computation for categorical response.
+
+     @param splitIdx is the level-relative node index.
+
+     @param sCount is the number of samples subsumed by the index node.
+
+     @param sum is the sum of samples subsumed by the index node.
+
+     @return sum of squares divided by sum.
+  */
+  inline double Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const {
+    return sumSquares[splitIdx] / sum;
+  }
 
 
  public:

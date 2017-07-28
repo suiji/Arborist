@@ -84,38 +84,6 @@ SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, unsigned int _bag
 }
 
 
-/**
-   @brief Sets per-level state enabling pre-bias computation.
-
-   @param index is the Index context.
-
-   @param splitCount is the potential number of splitting nodes in the upcoming level.
-
-   @return split count.
-*/
-void SplitPred::LevelInit(IndexLevel &index, Level *levelFront) {
-  splitCount = index.NSplit();
-  splitSig->LevelInit(splitCount);
-  LevelPreset(index);
-  SetPrebias(index); // Depends on state from LevelPreset()
-  levelFront->Candidates(index, this);
-}
-
-
-/**
-   @brief Sets (Gini) pre-bias value according to response type.
-
-   @param index holds the index set nodes.
-
-   @return void.
-*/
-void SplitPred::SetPrebias(IndexLevel &index) {
-  for (unsigned int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    index.SetPrebias(splitIdx, Prebias(index, splitIdx));
-  }
-}
-
-
 RunSet *SplitPred::RSet(unsigned int setIdx) const {
   return run->RSet(setIdx);
 }
@@ -123,24 +91,6 @@ RunSet *SplitPred::RSet(unsigned int setIdx) const {
 
 unsigned int SplitPred::DenseRank(unsigned int predIdx) const {
   return rowRank->DenseRank(predIdx);
-}
-
-
-/**
-   @brief Needs a dense numbering of pred-mono split candidates.
-
-   @return void.
- */
-void SPReg::LevelInit(IndexLevel &index, Level *levelFront) {
-  SplitPred::LevelInit(index, levelFront);
-  if (predMono > 0) {
-    unsigned int monoCount = splitCount * pmTrain->NPred(); // Clearly too big.
-    ruMono = new double[monoCount];
-    CallBack::RUnif(monoCount, ruMono);
-  }
-  else {
-    ruMono = nullptr;
-  }
 }
 
 
@@ -182,11 +132,11 @@ void SplitCoord::InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsign
 
    @return void
  */
-void SplitCoord::InitLate(const Level *levelFront, const IndexLevel &index, unsigned int _vecPos, unsigned int _setIdx) {
+void SplitCoord::InitLate(const Level *levelFront, const IndexLevel *index, unsigned int _vecPos, unsigned int _setIdx) {
   vecPos = _vecPos;
   setIdx = _setIdx;
   unsigned int extent;
-  preBias = index.SplitFields(splitIdx, idxStart, extent, sCount, sum);
+  preBias = index->SplitFields(splitIdx, idxStart, extent, sCount, sum);
   implicit = levelFront->AdjustDense(splitIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // May overflow if singleton:  invalid.
 }
@@ -209,7 +159,7 @@ void SplitPred::Preschedule(unsigned int splitIdx, unsigned int predIdx, unsigne
    initialization or as a result of bagging.  Fills in run counts, which
    values restaging has established precisely.
 */
-void SplitPred::ScheduleSplits(const IndexLevel &index, const Level *levelFront) {
+void SplitPred::ScheduleSplits(const IndexLevel *index, const Level *levelFront) {
   std::vector<unsigned int> runCount;
   std::vector<SplitCoord> sc2;
   for (auto & sg : splitCoord) {
@@ -233,7 +183,7 @@ void SplitPred::ScheduleSplits(const IndexLevel &index, const Level *levelFront)
 
    @return void, with output reference vectors.
  */
-void SplitCoord::Schedule(const Level *levelFront, const IndexLevel &index, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2) {
+void SplitCoord::Schedule(const Level *levelFront, const IndexLevel *index, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2) {
   unsigned int rCount;
   if (levelFront->ScheduleSplit(splitIdx, predIdx, rCount)) {
     InitLate(levelFront, index, sc2.size(), rCount > 1 ? runCount.size() : noSet);
@@ -253,6 +203,16 @@ void SplitCoord::Schedule(const Level *levelFront, const IndexLevel &index, unsi
 */
 void SplitPred::SSWrite(unsigned int splitIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const NuxLH &nux) const {
   splitSig->Write(splitIdx, predIdx, setPos, bufIdx, nux);
+}
+
+
+/**
+   @brief Initializes level about to be split
+ */
+void SplitPred::LevelInit(IndexLevel *index) {
+  splitCount = index->NSplit();
+  LevelPreset(index); // virtual
+  splitSig->LevelInit(splitCount);
 }
 
 
@@ -303,34 +263,22 @@ void SPCtg::LevelClear() {
 
 
 /**
-   @brief Currently just a stub.
+   @brief Sets level-specific values for the subclass.
 
-   @param index is not used by this instantiation.
-
-   @param splitCount is the number of live index nodes.
+   @param index contains the current level's index sets and state.
 
    @return void.
 */
-void SPReg::LevelPreset(IndexLevel &index) {
-}
-
-
-/**
-  @brief Weight-variance pre-bias computation for regression response.
-
-  @param splitIdx is the level-relative node index.
-
-  @param sCount is the number of samples subsumed by the index node.
-
-  @param sum is the sum of samples subsumed by the index node.
-
-  @return square squared, divided by sample count.
-*/
-double SPReg::Prebias(const IndexLevel &index, unsigned int splitIdx) {
-  unsigned int sCount;
-  double sum;
-  index.PrebiasFields(splitIdx, sCount, sum);
-  return (sum * sum) / sCount;
+void SPReg::LevelPreset(IndexLevel *index) {
+  if (predMono > 0) {
+    unsigned int monoCount = splitCount * pmTrain->NPred(); // Clearly too big.
+    ruMono = new double[monoCount];
+    CallBack::RUnif(monoCount, ruMono);
+  }
+  else {
+    ruMono = nullptr;
+  }
+  index->SetPrebias();
 }
 
 
@@ -338,41 +286,22 @@ double SPReg::Prebias(const IndexLevel &index, unsigned int splitIdx) {
    @brief As above, but categorical response.  Initializes per-level sum vectors as
 wells as FacRun vectors.
 
-   @param splitCount is the number of live index nodes.
-
    @return void.
 */
-void SPCtg::LevelPreset(IndexLevel &index) {
+void SPCtg::LevelPreset(IndexLevel *index) {
   LevelInitSumR(pmTrain->NPredNum());
   sumSquares = std::move(std::vector<double>(splitCount));
   ctgSum = std::move(std::vector<double>(splitCount * nCtg));
   std::fill(sumSquares.begin(), sumSquares.end(), 0.0);
   std::fill(ctgSum.begin(), ctgSum.end(), 0.0);
-  index.SumsAndSquares(nCtg, sumSquares, ctgSum);
+  index->SumsAndSquares(nCtg, sumSquares, ctgSum);
+  index->SetPrebias();
 }
 
 
 /**
-   @brief Gini pre-bias computation for categorical response.
-
-   @param splitIdx is the level-relative node index.
-
-   @param sCount is the number of samples subsumed by the index node.
-
-   @param sum is the sum of samples subsumed by the index node.
-
-   @return sum of squares divided by sum.
- */
-double SPCtg::Prebias(const IndexLevel &index, unsigned int splitIdx) {
-  unsigned int sCount;
-  double sum;
-  index.PrebiasFields(splitIdx, sCount, sum);
-  return sumSquares[splitIdx] / sum;
-}
-
-
-/**
-   @brief Initializes the accumulated-sum checkerboard.
+   @brief Initializes the accumulated-sum checkerboard used by
+   numerical predictors.
 
    @return void.
  */

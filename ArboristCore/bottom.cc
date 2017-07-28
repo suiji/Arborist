@@ -72,12 +72,12 @@ void Bottom::RootDef(unsigned int predIdx, unsigned int expl, bool singleton) {
 /**
    @brief Entry to spltting and restaging.
 
-   @return vector of splitting signatures, possibly empty, for each node passed.
+   @return void, with output vector of splitting signatures.
  */
-void Bottom::Split(const SamplePred *samplePred, IndexLevel &index, std::vector<SSNode> &argMax) {
-
+void Bottom::Split(const SamplePred *samplePred, IndexLevel *index, std::vector<SSNode> &argMax) {
+  splitPred->LevelInit(index);
   unsigned int supUnFlush = FlushRear();
-  splitPred->LevelInit(index, levelFront);
+  levelFront->Candidates(index, splitPred);
 
   Backdate();
   Restage();
@@ -333,11 +333,11 @@ void Bottom::ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned i
 
      @param ndx is a node-relative index from the previous level.
 
+     @param targIdx is the updated node-relative index:  current level.
+
      @param stx is the associated subtree-relative index.
 
      @param path is the path reaching the target node.
-
-     @param targIdx is the updated node-relative index:  current level.
 
      @param ndBase is the base index of the target node:  current level.
 
@@ -440,4 +440,17 @@ void Bottom::ReachFlush(unsigned int splitIdx, unsigned int predIdx) const {
   Level *reachLevel = ReachLevel(splitIdx, predIdx);
   reachLevel->FlushDef(History(reachLevel, splitIdx), predIdx);
 }
-  
+
+
+/**
+   @brief Passes pre-bias computation for an index set through to SplitPred.
+
+   @param sum is the sum of responses over an index set.
+
+   @param sCount is the sum of sampled indices over an index set.
+
+   @return pre-bias value derived from SplitPred.
+ */
+double Bottom::Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const {
+  return splitPred->Prebias(splitIdx, sum, sCount);
+}

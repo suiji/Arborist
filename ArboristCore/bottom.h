@@ -107,7 +107,7 @@ class Bottom {
   Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, class SamplePred *samplePred, unsigned int _bagCount);
   ~Bottom();
   void LevelClear();
-  void Split(const class SamplePred *samplePred, class IndexLevel &index, std::vector<class SSNode> &argMax);
+  void Split(const class SamplePred *samplePred, class IndexLevel *index, std::vector<class SSNode> &argMax);
   void LevelPrepare(class SamplePred *samplePred, unsigned int splitNext, unsigned int idxLive, bool nodeRel);
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
   unsigned int FlushRear();
@@ -118,8 +118,9 @@ class Bottom {
   void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);
   void SetExtinct(unsigned int stIdx);
   void SetExtinct(unsigned int nodeIdx, unsigned int stIdx);
+  double Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const;
 
-
+  
   /**
      @brief Accessor.  SSNode only client.
    */
