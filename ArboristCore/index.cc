@@ -166,20 +166,33 @@ void  IndexLevel::Levels(const RowRank *rowRank, const Sample *sample, PreTree *
   sample->Stage(rowRank, samplePred, bottom);
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
+    bottom->LevelInit(this);
     std::vector<SSNode> argMax(indexSet.size());
-    for (auto & iSet : indexSet) {
-      argMax[iSet.SplitIdx()].SetInfo(iSet.MinInfo());
-    }
+    InfoInit(argMax);
     bottom->Split(samplePred, this, argMax);
 
     unsigned int leafNext, idxMax;
     unsigned int splitNext = SplitCensus(argMax, leafNext, idxMax, level + 1 == totLevels);
     Consume(preTree, argMax, splitNext, leafNext, idxMax);
     Produce(preTree, splitNext);
+    bottom->LevelClear();
   }
 
   RelFlush();
   preTree->SubtreeFrontier(st2PT);
+}
+
+
+/**
+   @brief Initializes splitting threshold on each of the arg-max nodes
+   from associated splitting candidates.
+
+   @return void.
+ */
+void IndexLevel::InfoInit(std::vector<SSNode> &argMax) const {
+  for (auto & iSet : indexSet) {
+    argMax[iSet.SplitIdx()].SetInfo(iSet.MinInfo());
+  }
 }
 
 
@@ -540,13 +553,12 @@ void IndexLevel::TransitionReindex(unsigned int splitNext) {
    @return void.
  */
 void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
-  bottom->LevelPrepare(samplePred, splitNext, idxLive, nodeRel);
-  std::vector<IndexSet> indexNext(bottom->SplitCount());
+  bottom->Overlap(samplePred, splitNext, idxLive, nodeRel);
+  std::vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.Produce(this, bottom, preTree, indexNext);
   }
   indexSet = std::move(indexNext);
-  bottom->LevelClear();
 }
 
 

@@ -75,7 +75,6 @@ void Bottom::RootDef(unsigned int predIdx, unsigned int expl, bool singleton) {
    @return void, with output vector of splitting signatures.
  */
 void Bottom::Split(const SamplePred *samplePred, IndexLevel *index, std::vector<SSNode> &argMax) {
-  splitPred->LevelInit(index);
   unsigned int supUnFlush = FlushRear();
   levelFront->Candidates(index, splitPred);
 
@@ -231,7 +230,17 @@ unsigned int Bottom::FacIdx(unsigned int predIdx, bool &isFactor) const {
 
 
 /**
-   @brief Updates level-based data structures within attendant objects.
+   @brief Passes through to SplitPred's level initializer.
+
+   @return void.
+ */
+void Bottom::LevelInit(IndexLevel *index) {
+  splitPred->LevelInit(index);
+}
+
+
+/**
+   @brief Passes through to SplitPred's level clearer.
 
    @return void.
  */
@@ -252,7 +261,7 @@ void Bottom::LevelClear() {
 
    @return true iff front level employs node-relative indexing.
  */
-void Bottom::LevelPrepare(SamplePred *samplePred, unsigned int splitNext, unsigned int idxLive, bool nodeRel) {
+void Bottom::Overlap(SamplePred *samplePred, unsigned int splitNext, unsigned int idxLive, bool nodeRel) {
   splitPrev = splitCount;
   splitCount = splitNext;
   if (splitCount == 0) // No further splitting or restaging.

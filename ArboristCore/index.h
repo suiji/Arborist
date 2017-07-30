@@ -229,6 +229,7 @@ class IndexLevel {
   class BV *replayExpl;
 
   static class PreTree *OneTree(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Sample *sample, const class Coproc *coproc);
+  void InfoInit(std::vector<class SSNode> &argMax) const;
   unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool _levelTerminal);
   void Consume(class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax);
   void Produce(class PreTree *preTree, unsigned int splitNext);

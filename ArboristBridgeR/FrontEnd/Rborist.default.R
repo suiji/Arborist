@@ -82,8 +82,10 @@
     nSamp <- ifelse(withRepl, nRow, round((1-exp(-1)) * nRow))
   }
     
-  if (maxLeaf < 0 || maxLeaf > nSamp)
-    stop("Leaf maximum must be nonnegative and cannot exceed sample count.")
+  if (maxLeaf < 0)
+      stop("Leaf maximum must be nonnegative.")
+  if (maxLeaf > nSamp)
+      warning("Specified leaf maximum exceeds number of samples.")
 
   if (predProb != 0.0 && predFixed != 0)
       stop("Conflicting predictor sampling specifications:  Bernoulli and fixed.")

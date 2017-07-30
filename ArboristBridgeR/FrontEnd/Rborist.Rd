@@ -18,6 +18,7 @@
                 autoCompress = 0.25,
                 ctgCensus = "votes",
                 classWeight = NULL,
+                maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
@@ -47,7 +48,9 @@
   \item{withRepl}{whether row sampling is by replacement.}
   \item{autoCompress}{plurality above which to compress predictor values.}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
-  \item{classWeight}{proportional weighting of classification categories.}
+  \item{classWeight}{proportional weighting of classification
+    categories.}
+  \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
   \item{minNode}{minimum number of distinct row references to split a node.}
   \item{nLevel}{maximum number of tree levels to train.  Zero denotes no
@@ -135,9 +138,14 @@
   }
 
   \item{training}{ a list containing information gleaned during training:
-    
-    \code{predInfo}{ the information contribution of each predictor.}
 
+    \code{call}{ a string containing the original invocation.}
+
+    \code{info}{ the information contribution of each predictor.}
+
+    \code{version}{ the version of the Rborist package.}
+
+    \code{diag}{ strings containing unspecified diagnostic notes and observations.}
   }
 
   \item{validation}{ a list containing the results of validation:

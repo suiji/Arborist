@@ -35,7 +35,6 @@
 */
 class PTNode {
  public:
-  unsigned int id; // Not necessarily the vector position.
   unsigned int lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
   unsigned int predIdx; // Nonterminal only.
   FltVal info; // Nonterminal only.
@@ -44,20 +43,30 @@ class PTNode {
     RankRange rankRange; // LH, RH ranks:  numeric.
   } splitVal;
 
-  void NonterminalConsume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const;
+  void NonterminalConsume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo, unsigned int idx) const;
 
 
+  inline void SetTerminal() {
+    lhDel = 0;
+  }
+
+
+  inline void SetNonterminal(unsigned int parId, unsigned int lhId) {
+    lhDel = lhId - parId;
+  }
+
+  
   inline bool NonTerminal() const {
     return lhDel != 0;
   }
 
 
-  inline unsigned int LHId() const {
-    return NonTerminal() ? id + lhDel : 0;
+  inline unsigned int LHId(unsigned int ptId) const {
+    return NonTerminal() ? ptId + lhDel : 0;
   }
 
-  inline unsigned int RHId() const {
-    return NonTerminal() ? LHId() + 1 : 0;
+  inline unsigned int RHId(unsigned int ptId) const {
+    return NonTerminal() ? LHId(ptId) + 1 : 0;
   }
 };
 
@@ -95,15 +104,15 @@ class PreTree {
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void SubtreeFrontier(const std::vector<unsigned int> &stTerm);
-  void LeafMerge(class ForestTrain *forest);
+  unsigned int LeafMerge();
   
   inline unsigned int LHId(unsigned int ptId) const {
-    return nodeVec[ptId].LHId();
+    return nodeVec[ptId].LHId(ptId);
   }
 
   
   inline unsigned int RHId(unsigned int ptId) const {
-    return nodeVec[ptId].RHId();
+    return nodeVec[ptId].RHId(ptId);
   }
 
   

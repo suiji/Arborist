@@ -16,4 +16,5 @@ S3method(ForestFloorExport, Rborist)
 S3method(Validate, default)
 S3method(Streamline, default)
 
+importFrom("utils", "sessionInfo")
 import(Rcpp)
