@@ -25,24 +25,24 @@
 /**
    @brief Container for staging initialization, viz. minimizing communication
    from host or head node.
- */
+*/
 class StagePack {
-  unsigned int sIdx;
   unsigned int rank;
   unsigned int sCount;
   unsigned int ctg;
   FltVal ySum;
  public:
-  inline void Ref(unsigned int &_sIdx, unsigned int &_rank, unsigned int &_sCount, unsigned int &_ctg, FltVal &_ySum) const {
-    _sIdx = sIdx;
+
+
+  inline void Ref(unsigned int &_rank, unsigned int &_sCount, unsigned int &_ctg, FltVal &_ySum) const {
     _rank = rank;
     _sCount = sCount;
     _ctg = ctg;
     _ySum = ySum;
   }
 
-  inline void Init(unsigned int _sIdx, unsigned int _rank, unsigned int _sCount, unsigned int _ctg, FltVal _ySum) {
-    sIdx = _sIdx;
+
+  inline void Init(unsigned int _rank, unsigned int _sCount, unsigned int _ctg, FltVal _ySum) {
     rank = _rank;
     sCount = _sCount;
     ctg = _ctg;
@@ -66,14 +66,8 @@ class SPNode {
  public:
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
-  unsigned int Init(const StagePack &stagePack);
-  
-  inline void Init(FltVal _ySum, unsigned int _sCount, unsigned int _rank) {
-    ySum = _ySum;
-    sCount = _sCount;
-    rank = _rank;
-  }
 
+  void Init(const class SampleNode &sampleNode, unsigned int _rank);
 
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
@@ -202,7 +196,7 @@ class SamplePred {
   SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
 
-  bool Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent);
+  SPNode *StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx);
   double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, std::vector<class SumCount> &ctgExpl);
 
   
@@ -360,6 +354,22 @@ class SamplePred {
   inline bool SingleRank(unsigned int predIdx, unsigned int bufIdx, unsigned int idxStart, unsigned int extent) {
     SPNode *spNode = BufferNode(predIdx, bufIdx);
     return extent > 0 ? (spNode[idxStart].Rank() == spNode[extent - 1].Rank()) : false;
+  }
+
+
+  /**
+     @brief Singleton iff either:
+     i) Dense and all indices implicit or ii) Not dense and all ranks equal.
+
+     @param stageCount is the number of staged indices.
+
+     @param predIdx is the predictor index at which to initialize.
+
+     @return true iff entire staged set has single rank.  This might be
+     a property of the training data or may arise from bagging. 
+  */
+  bool Singleton(unsigned int stageCount, unsigned int predIdx) {
+    return bagCount == stageCount ? SingleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
   }
 };
 

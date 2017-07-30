@@ -55,9 +55,9 @@ Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_spl
 
    @param predIdx is the predictor index.
 
-   @param singleton is true iff column consists of indentically-ranked samples.
+   @param expl is the number of explicitly-staged indices.
 
-   @param implicit is the number of implicitly-sampled indices.
+   @param singleton is true iff column consists of indentically-ranked samples.
 
    @return void.
  */

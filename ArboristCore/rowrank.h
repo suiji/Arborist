@@ -44,7 +44,7 @@ class RRNode {
   }
 
 
-  void Ref(unsigned int &_row, unsigned int &_rank) const {
+  inline void Ref(unsigned int &_row, unsigned int &_rank) const {
     _row = row;
     _rank = rank;
   }
@@ -70,7 +70,7 @@ class RowRank {
   unsigned int accumCompact;  // Sum of compactified lengths.
   std::vector<unsigned int> denseRank;
   RRNode *rrNode;
-  std::vector<unsigned int> rrCount;
+  std::vector<unsigned int> explicitCount;
   std::vector<unsigned int> rrStart;
   std::vector<unsigned int> safeOffset; // Either an index or an accumulated count.
   const double autoCompress; // Threshold percentage for autocompression.
@@ -130,7 +130,7 @@ class RowRank {
 
   
   inline unsigned int ExplicitCount(unsigned int predIdx) const {
-    return rrCount[predIdx];
+    return explicitCount[predIdx];
   }
 
 
@@ -177,7 +177,7 @@ class RowRank {
      @return safe offset.
    */
   unsigned int SafeOffset(unsigned int predIdx, unsigned int stride, unsigned int &extent) const {
-    extent = denseRank[predIdx] == noRank ? stride : rrCount[predIdx];
+    extent = denseRank[predIdx] == noRank ? stride : explicitCount[predIdx];
     return denseRank[predIdx] == noRank ? safeOffset[predIdx] * stride : nonCompact * stride + safeOffset[predIdx]; // TODO:  align.
   }
 

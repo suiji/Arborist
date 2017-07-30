@@ -25,6 +25,7 @@
 
 unsigned int SPNode::ctgShift = 0;
 
+
 /**
    @brief Computes a packing width sufficient to hold all (zero-based) response
    category values.
@@ -50,6 +51,21 @@ void SPNode::Immutables(unsigned int ctgWidth) {
 void SPNode::DeImmutables() {
   ctgShift = 0;
 }
+
+
+/**
+  @brief Initializes immutable field values with category packing.
+
+   @param stagePack holds packed staging values.
+
+  @return void.
+*/
+void SPNode::Init(const SampleNode &sampleNode, unsigned int _rank) {
+  rank = _rank;
+  unsigned int ctg = sampleNode.Ref(ySum, sCount);
+  sCount = (sCount << ctgShift) | ctg; // Packed representation.
+}
+
 
 
 /**
@@ -81,47 +97,16 @@ SamplePred::~SamplePred() {
 
 
 /**
-   @brief Initializes column pertaining to a single predictor.
+   @brief Sets staging boundaries for a given predictor.
 
-   @param stagePack is a vector of rank/index pairs.
-
-   @param predIdx is the predictor index at which to initialize.
-
-   @return true iff entire staged set has single rank.  This might be
-   a property of the training data or may arise from bagging. 
+   @return voidl
  */
-bool SamplePred::Stage(const std::vector<StagePack> &stagePack, unsigned int predIdx, unsigned int safeOffset, unsigned int extent) {
+SPNode *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx) {
   stageOffset[predIdx] = safeOffset;
   stageExtent[predIdx] = extent;
 
-  const unsigned int bufIdx = 0;
-  unsigned int *smpIdx;
-  SPNode *spn = Buffers(predIdx, bufIdx, smpIdx);
-  for (unsigned int idx = 0; idx < stagePack.size(); idx++) {
-    unsigned int sIdx = spn++->Init(stagePack[idx]);
-    *smpIdx++ = sIdx;
-  }
+  return  Buffers(predIdx, 0, smpIdx);
 
-  // Singleton iff either:
-  //   Dense and all indices implicit.
-  //   Not dense and all ranks equal.
-  return bagCount == stagePack.size() ? SingleRank(predIdx, bufIdx, 0, bagCount) : (stagePack.size() == 0 ? true : false);
-}
-
-
-/**
-   @brief Initializes immutable field values with category packing.
-
-   @param stagePack holds packed staging values.
-
-   @return upacked sample index.
- */
-unsigned int SPNode::Init(const StagePack &stagePack) {
-  unsigned int sIdx, ctg;
-  stagePack.Ref(sIdx, rank, sCount, ctg, ySum);
-  sCount = (sCount << ctgShift) | ctg; // Packed representation.
-  
-  return sIdx;
 }
 
 
