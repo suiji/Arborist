@@ -64,7 +64,6 @@ unsigned int RunSet::noStart = 0;
 Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand) : noRun(noCand), ctgWidth(_ctgWidth) {
   RunSet::ctgWidth = ctgWidth;
   RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
-  runSet = 0;
   facRun = 0;
   bHeap = 0;
   lhOut = 0;
@@ -82,11 +81,9 @@ Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand) : noRun
  */
 void Run::RunSets(const std::vector<unsigned int> &safeCount) {
   setCount = safeCount.size();
-  if (setCount > 0) {
-    runSet = new RunSet[setCount];
-    for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
-      CountSafe(setIdx, safeCount[setIdx]);
-    }
+  runSet = std::move(std::vector<RunSet>(setCount));
+  for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
+    CountSafe(setIdx, safeCount[setIdx]);
   }
 }
 
@@ -101,16 +98,16 @@ void Run::OffsetsReg() {
     return;
 
   unsigned int runCount = 0;
-  for (unsigned int i = 0; i < setCount; i++) {
-    runSet[i].OffsetCache(runCount, runCount, runCount);
-    runCount += runSet[i].CountSafe();
+  for (auto & rs : runSet) {
+    rs.OffsetCache(runCount, runCount, runCount);
+    runCount += rs.CountSafe();
   }
 
   facRun = new FRNode[runCount];
   bHeap = new BHPair[runCount];
   lhOut = new unsigned int[runCount];
 
-  ResetRuns();
+  Reset();
 }
 
 
@@ -128,20 +125,20 @@ void Run::OffsetsCtg() {
   unsigned int runCount = 0; // Factor runs.
   unsigned int heapRuns = 0; // Runs subject to sorting.
   unsigned int outRuns = 0; // Sorted runs of interest.
-  for (unsigned int i = 0; i < setCount; i++) {
-    unsigned int rCount = runSet[i].CountSafe();
+  for (auto & rs : runSet) {
+    unsigned int rCount = rs.CountSafe();
     if (ctgWidth == 2) { // Binary uses heap for all runs.
-      runSet[i].OffsetCache(runCount, heapRuns, outRuns);
+      rs.OffsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
       outRuns += rCount;
     }
     else if (rCount > RunSet::maxWidth) {
-      runSet[i].OffsetCache(runCount, heapRuns, outRuns);
+      rs.OffsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
       outRuns += RunSet::maxWidth;
     }
     else {
-      runSet[i].OffsetCache(runCount, 0, outRuns);
+      rs.OffsetCache(runCount, 0, outRuns);
       outRuns += rCount;
     }
     runCount += rCount;
@@ -161,7 +158,7 @@ void Run::OffsetsCtg() {
   bHeap = new BHPair[heapRuns];
   lhOut = new unsigned int[outRuns];
 
-  ResetRuns();
+  Reset();
 }
 
 
@@ -170,16 +167,15 @@ void Run::OffsetsCtg() {
 
    @return void.
  */
-void Run::ResetRuns() {
-  for (unsigned int i = 0; i < setCount; i++) {
-    runSet[i].Reset(facRun, bHeap, lhOut, ctgSum, rvWide);
+void Run::Reset() {
+  for (auto & rs  : runSet) {
+    rs.Reset(facRun, bHeap, lhOut, ctgSum, rvWide);
   }
 }
 
 
 void Run::LevelClear() {
   if (setCount > 0) {
-    delete [] runSet;
     delete [] facRun;
     delete [] lhOut;
     if (rvWide != 0)
@@ -188,7 +184,7 @@ void Run::LevelClear() {
       delete [] ctgSum;
     if (bHeap != 0)
       delete [] bHeap;
-    runSet = 0;
+
     facRun = 0;
     lhOut = 0;
     rvWide = 0;
@@ -324,7 +320,7 @@ bool FRNode::IsImplicit() {
 
    @return true iff right-hand runs must be exposed.
  */
-bool RunSet::ImplicitLeft() {
+bool RunSet::ImplicitLeft() const {
   if (!hasImplicit)
     return false;
 

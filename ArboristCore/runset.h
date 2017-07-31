@@ -103,7 +103,7 @@ class RunSet {
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
-  bool ImplicitLeft();
+  bool ImplicitLeft() const;
   void WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[] = 0);
   unsigned int DeWide();
   void DePop(unsigned int pop = 0);
@@ -119,10 +119,15 @@ class RunSet {
 
      @return reference to run count.
    */
-  inline unsigned int &RunCount() {
+  inline unsigned int RunCount() const {
     return runCount;
   }
 
+
+  inline void SetRunCount(unsigned int _runCount) {
+    runCount = _runCount;
+  }
+  
   
   inline unsigned int CountSafe() {
     return safeRunCount;
@@ -237,7 +242,7 @@ class RunSet {
   }
 
 
-  inline unsigned int RunsLH() {
+  inline unsigned int RunsLH() const {
     return runsLH;
   }
 
@@ -252,14 +257,14 @@ class RunSet {
 class Run {
   const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
-  RunSet *runSet;
+  std::vector<RunSet> runSet;
   FRNode *facRun; // Workspace for FRNodes used along level.
   BHPair *bHeap;
   unsigned int *lhOut; // Vector of lh-bound slot indices.
   double *rvWide;
   double *ctgSum;
 
-  void ResetRuns();
+  void Reset();
 
  public:
   const unsigned int ctgWidth;
