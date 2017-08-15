@@ -16,6 +16,7 @@
 
 #include "index.h"
 #include "bv.h"
+#include "rowrank.h"
 #include "pretree.h"
 #include "sample.h"
 #include "samplepred.h"
@@ -133,10 +134,10 @@ IndexSet::IndexSet() : preBias(0.0), splitIdx(0), ptId(0), lhStart(0), extent(0)
 
    @param ptBlock is a brace of 'treeBlock'-many PreTree objects.
 */
-void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const std::vector<Sample *> &sampleBlock, const Coproc *coproc, std::vector<PreTree*> &ptBlock) {
+void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const Response *response, std::vector<Sample *> &sampleBlock, std::vector<PreTree*> &ptBlock) {
   unsigned int blockIdx = 0;
   for (auto & sample : sampleBlock) {
-    ptBlock[blockIdx++] = OneTree(pmTrain, rowRank, sample, coproc);
+    ptBlock[blockIdx++] = OneTree(pmTrain, rowRank, response, sample);
   }
 }
 
@@ -146,10 +147,15 @@ void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const
 
    @return void.
  */
-PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, const Sample *sample, const Coproc *coproc) {
-  PreTree *preTree = new PreTree(pmTrain, sample->BagCount());
-  IndexLevel *index = sample->IndexFactory(pmTrain, rowRank, coproc);
-  index->Levels(rowRank, sample, preTree);
+PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, const Response *response, Sample *&sample) {
+  std::vector<StageCount> stageCount(rowRank->NPred());
+  SplitPred *splitPred;
+  SamplePred *samplePred;
+  Sample::StageFactory(pmTrain, rowRank, response, sample, splitPred, samplePred, stageCount);
+  Bottom *bottom = new Bottom(pmTrain, rowRank, splitPred, samplePred, stageCount, sample->BagCount());
+  IndexLevel *index = new IndexLevel(samplePred, sample->CtgRoot(), bottom, sample->NSamp(), sample->BagCount(), sample->BagSum());
+
+  PreTree *preTree = index->Levels(pmTrain);
   delete index;
   
   return preTree;
@@ -162,8 +168,9 @@ PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, con
 
    @return void.
 */
-void  IndexLevel::Levels(const RowRank *rowRank, const Sample *sample, PreTree *preTree) {
-  sample->Stage(rowRank, samplePred, bottom);
+PreTree *IndexLevel::Levels(const PMTrain *pmTrain) {
+  PreTree *preTree = new PreTree(pmTrain, bagCount);
+
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit(this);
@@ -180,6 +187,8 @@ void  IndexLevel::Levels(const RowRank *rowRank, const Sample *sample, PreTree *
 
   RelFlush();
   preTree->SubtreeFrontier(st2PT);
+
+  return preTree;
 }
 
 

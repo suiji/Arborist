@@ -204,10 +204,8 @@ class Level {
   std::vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
   std::vector<unsigned int> liveCount; // Indexed by node.
 
-  // Coproc staging only.
   unsigned int spanCand; // Total candidate span.
   bool Preschedule(class SplitPred *splitPred, unsigned int levelIdx, unsigned int predIdx, unsigned int extent, unsigned int &spanCand);
-  void IndexRestage(const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]);
 
 
  public:
@@ -222,9 +220,6 @@ class Level {
   void Restage(SPPair &mrra, Level *levelFront, unsigned int bufIdx);
   void Restage(const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]);
 
-  // COPROCESSOR:
-  void IndexRestage(SPPair &mrra, const Level *levelFront, unsigned int bufIdx);
-		    
   void Flush(bool forward = true);
   void FlushDef(unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();

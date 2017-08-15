@@ -15,6 +15,7 @@
 
 #include "samplepred.h"
 #include "sample.h"
+#include "rowrank.h"
 #include "path.h"
 #include "bv.h"
 
@@ -51,21 +52,6 @@ void SPNode::Immutables(unsigned int ctgWidth) {
 void SPNode::DeImmutables() {
   ctgShift = 0;
 }
-
-
-/**
-  @brief Initializes immutable field values with category packing.
-
-   @param stagePack holds packed staging values.
-
-  @return void.
-*/
-void SPNode::Init(const SampleNode &sampleNode, unsigned int _rank) {
-  rank = _rank;
-  unsigned int ctg = sampleNode.Ref(ySum, sCount);
-  sCount = (sCount << ctgShift) | ctg; // Packed representation.
-}
-
 
 
 /**
@@ -226,24 +212,44 @@ void SamplePred::RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned
 }
 
 
-// Coprocessor variant.
-void SamplePred::IndexRestage(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int idxStart, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]) {
-  unsigned int *idxSource, *idxTarg;
-  IndexBuffers(predIdx, bufIdx, idxSource, idxTarg);
-
-  for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
-    unsigned int sIdx = idxSource[idx];
-    unsigned int path = idxPath->IdxUpdate(sIdx, pathMask, reachBase, idxUpdate);
-    if (path != NodePath::noPath) {
-      unsigned int targOff = reachOffset[path]++;
-      idxTarg[targOff] = sIdx; // Semi-regular:  split-level target store.
-      destRestage[idx] = targOff;
-      //      destSplit[idx] = splitOffset[path]++; // Speculative.
-    }
-    else {
-      destRestage[idx] = bagCount;
-      //destSplit[idx] = bagCount;
-    }
+unsigned int SamplePred::Stage(const std::vector<SampleNode> &sampleNode, const RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
+  unsigned int *smpIdx;
+  SPNode *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
+  unsigned int expl = 0;
+  for (unsigned int idx = 0; idx < explMax; idx++) {
+    Stage(sampleNode, rrPred[idx], row2Sample, spn, smpIdx, expl);
   }
+
+  singleton = Singleton(expl, predIdx);
+  return expl;
 }
 
+
+/**
+   @brief Fills in sampled response summary and rank information associated
+   with an RRNode reference.
+
+   @param rrNode summarizes an element of the compressed design matrix.
+
+   @param spn is the cell to initialize.
+
+   @param smpIdx is the associated sample index.
+
+   @param expl accumulates the current explicitly staged offset.
+
+   @return void.
+ */
+void SamplePred::Stage(const std::vector<SampleNode> &sampleNode, const RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SPNode *spn, unsigned int *smpIdx, unsigned int &expl) {
+  unsigned int row, rank;
+  rrNode.Ref(row, rank);
+
+  unsigned int sIdx = row2Sample[row];
+  if (sIdx < bagCount) {
+    unsigned int sCount;
+    FltVal ySum;
+    unsigned int ctg = sampleNode[sIdx].Ref(ySum, sCount);
+    spn[expl].Init(rank, ctg, ySum, sCount);
+    smpIdx[expl] = sIdx;
+    expl++;
+  }
+}

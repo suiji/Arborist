@@ -79,7 +79,6 @@ class Bottom {
 
   // Restaging methods.
   void Restage(RestageCoord &rsCoord);
-  void IndexRestage(RestageCoord &rsCoord); // COPROC
 
   void Backdate() const;
 
@@ -98,13 +97,13 @@ class Bottom {
 
  public:
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
-  void RootDef(unsigned int predIdx, unsigned int expl, bool singleton);
+  void RootDef(const std::vector<class StageCount> &stageCount);
   void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
   int RestageIdx(unsigned int bottomIdx);
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
 
   
-  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, class SamplePred *samplePred, unsigned int _bagCount);
+  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, class SamplePred *samplePred, std::vector<class StageCount> &stageCount, unsigned int _bagCount);
   ~Bottom();
   void LevelInit(class IndexLevel *index);
   void LevelClear();
@@ -113,7 +112,6 @@ class Bottom {
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
   unsigned int FlushRear();
   void Restage();
-  void IndexRestage(); // COPROC
   bool IsFactor(unsigned int predIdx) const;
   unsigned int FacIdx(unsigned int predIdx, bool &isFactor) const;
   void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);

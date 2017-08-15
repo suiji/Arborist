@@ -52,6 +52,16 @@ class RRNode {
 
 
 /**
+   @brief Summarizes staging operation.
+ */
+class StageCount {
+ public:
+  unsigned int expl;
+  bool singleton;
+};
+
+
+/**
   @brief Rank orderings of predictors.
 
 */
@@ -69,7 +79,7 @@ class RowRank {
   unsigned int nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
   std::vector<unsigned int> denseRank;
-  RRNode *rrNode;
+  std::vector<RRNode> rrNode;
   std::vector<unsigned int> explicitCount;
   std::vector<unsigned int> rrStart;
   std::vector<unsigned int> safeOffset; // Either an index or an accumulated count.
@@ -85,6 +95,7 @@ class RowRank {
   static void RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
   static void Rank2Row(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut);
 
+
   static inline unsigned int RunSlot(const unsigned int feRLE[], const unsigned int feRow[], const unsigned int feRank[], unsigned int rleIdx, unsigned int &row, unsigned int &rank) {
     row = feRow[rleIdx];
     rank = feRank[rleIdx];
@@ -98,14 +109,22 @@ class RowRank {
   };
 
   
-  void DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
-  void DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax);
-  unsigned int ModeOffsets();
+  unsigned int DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
+  unsigned int DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax);
+  void ModeOffsets();
   void Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
 
+  void Stage(const std::vector<class SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const;
+
+  
   inline double NumVal(unsigned int predIdx, unsigned int rk) const {
     return numVal[numOffset[predIdx] + rk];
   }
+
+  
+ protected:
+
+
   
  public:
   static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
@@ -115,9 +134,23 @@ class RowRank {
   static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
 
 
-  RowRank(const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autCompress);
-  ~RowRank();
+  // Factory parametrized by coprocessor state.
+  static RowRank *Factory(const class Coproc *coproc, const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autCompress);
 
+  virtual class SamplePred *SamplePredFactory(unsigned int _bagCount) const;
+  virtual class SPReg *SPRegFactory(const class PMTrain *pmTrain, unsigned int bagCount) const;
+  virtual class SPCtg *SPCtgFactory(const class PMTrain *pmTrain, unsigned int bagCount, unsigned int _nCtg) const; 
+
+  RowRank(const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autoCompress);
+  virtual ~RowRank();
+
+  void Stage(const std::vector<class SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, std::vector<StageCount> &stageCount) const;
+
+
+  inline unsigned int NRow() const {
+    return nRow;
+  }
+  
   
   inline unsigned int NPred() const {
     return nPred;
@@ -134,8 +167,8 @@ class RowRank {
   }
 
 
-  inline void Ref(unsigned int predIdx, unsigned int idx, unsigned int &_row, unsigned int &_rank) const {
-    rrNode[rrStart[predIdx] + idx].Ref(_row, _rank);
+  inline const RRNode &Ref(unsigned int predIdx, unsigned int idx) const {
+    return rrNode[rrStart[predIdx] + idx];
   }
 
   

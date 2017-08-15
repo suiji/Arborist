@@ -15,6 +15,9 @@
 
 #include "rowrank.h"
 #include "predblock.h"
+#include "sample.h"
+#include "samplepred.h"
+#include "splitpred.h"
 
 #include <algorithm>
 
@@ -234,7 +237,6 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
 }
 
 
-
 /**
    @brief Constructor for row, rank passed from front end as parallel arrays.
 
@@ -244,10 +246,10 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
 
  */
 RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength, double _autoCompress) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), nPredDense(0), denseIdx(std::vector<unsigned int>(nPred)), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), explicitCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)), autoCompress(_autoCompress) {
-  DenseBlock(feRank, feRLE, rleLength);
-  unsigned int rrSlots = ModeOffsets();
-  rrNode = new RRNode[rrSlots];
+  unsigned int explCount = DenseBlock(feRank, feRLE, rleLength);
+  ModeOffsets();
 
+  rrNode = std::move(std::vector<RRNode>(explCount));
   Decompress(feRow, feRank, feRLE, rleLength);
 }
 
@@ -263,9 +265,10 @@ RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsig
 
    @param rleLength is the count of RLE entries.
 
-   @return void.
+   @return total count of explicit slots.
  */
-void RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+  unsigned int explCount = 0;
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int denseMax = 0; // Running maximum of run counts.
@@ -293,8 +296,10 @@ void RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[]
     }
     // Post condition:  rowTot == nRow.
 
-    DenseMode(predIdx, denseMax, argMax);
+    explCount += DenseMode(predIdx, denseMax, argMax);
   }
+
+  return explCount;
 }
 
 
@@ -311,7 +316,7 @@ void RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[]
 
    @return void.
  */
-void RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
+unsigned int RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
   unsigned int rowCount;
   if (denseMax > autoCompress * nRow) { // Sufficiently long run found.
     denseRank[predIdx] = argMax;
@@ -327,6 +332,8 @@ void RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned in
     rowCount = nRow;
   }
   explicitCount[predIdx] = rowCount;
+
+  return rowCount;
 }
 
 
@@ -334,19 +341,15 @@ void RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned in
    @brief Assigns predictor offsets according to storage mode:
    noncompressed predictors stored first, as with staging offsets.
 
-   @return total number of non-compressed slots.
+   @return void.
  */
-unsigned int RowRank::ModeOffsets() {
-  unsigned int rrSlots = 0;
+void RowRank::ModeOffsets() {
   unsigned int denseBase = nonCompact * nRow;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int offSafe = safeOffset[predIdx];
     rrStart[predIdx] = denseRank[predIdx] != noRank ? denseBase + offSafe :
       offSafe * nRow;
-    rrSlots += explicitCount[predIdx];
   }
-
-  return rrSlots;
 }
 
 
@@ -389,10 +392,58 @@ void RowRank::Decompress(const unsigned int feRow[], const unsigned int feRank[]
 
 
 /**
-   @brief Deallocates and resets.
+   @brief Destructor.
+ */
+RowRank::~RowRank() {
+}
+
+
+/**
+   @brief Loops through the predictors to stage.
 
    @return void.
  */
-RowRank::~RowRank() {
-  delete [] rrNode;
+void RowRank::Stage(const std::vector<SampleNode>  &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, std::vector<StageCount> &stageCount) const {
+  int predIdx;
+#pragma omp parallel default(shared) private(predIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (predIdx = 0; predIdx < int(nPred); predIdx++) {
+      Stage(sampleNode, row2Sample, samplePred, predIdx, stageCount[predIdx]);
+    }
+  }
+}
+
+
+/**
+   @brief Stages SamplePred objects in non-decreasing predictor order.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
+void RowRank::Stage(const std::vector<SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
+  unsigned int extent;
+  unsigned int safeOffset = SafeOffset(predIdx, samplePred->BagCount(), extent);
+
+  stageCount.expl = samplePred->Stage(sampleNode, &rrNode[rrStart[predIdx]], row2Sample, ExplicitCount(predIdx), predIdx, safeOffset, extent, stageCount.singleton);
+}
+
+/**
+   @brief Static entry for sample staging.
+
+   @return SamplePred object for tree.
+ */
+SamplePred *RowRank::SamplePredFactory(unsigned int _bagCount) const {
+  return new SamplePred(nPred, _bagCount, SafeSize(_bagCount));
+}
+
+
+SPCtg *RowRank::SPCtgFactory(const PMTrain *pmTrain, unsigned int bagCount, unsigned int _nCtg) const {
+  return new SPCtg(pmTrain, this, bagCount, _nCtg);
+}
+
+
+SPReg *RowRank::SPRegFactory(const PMTrain *pmTrain, unsigned int bagCount) const {
+  return new SPReg(pmTrain, this, bagCount);
 }

@@ -115,7 +115,8 @@ void SPCtg::RunOffsets(const std::vector<unsigned int> &runCount) {
 
 
 /**
-   @brief Initializes only those field values known before restaging.
+   @brief Initializes only those field values known before restaging or
+   adjusted following.
 
    @return void.
  */
@@ -123,6 +124,9 @@ void SplitCoord::InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsign
   splitIdx = _splitIdx;
   predIdx = _predIdx;
   bufIdx = _bufIdx;
+  //  unsigned int extent;
+  //preBias = index->SplitFields(splitIdx, idxStart, extent, sCount, sum);
+  // idxEnd = idxStart + extent - 1;
 }
 
 
@@ -135,7 +139,7 @@ void SplitCoord::InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsign
 void SplitCoord::InitLate(const Level *levelFront, const IndexLevel *index, unsigned int _vecPos, unsigned int _setIdx) {
   vecPos = _vecPos;
   setIdx = _setIdx;
-  unsigned int extent;
+  unsigned int extent; // = idxEnd - idxStart + 1
   preBias = index->SplitFields(splitIdx, idxStart, extent, sCount, sum);
   implicit = levelFront->AdjustDense(splitIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // May overflow if singleton:  invalid.

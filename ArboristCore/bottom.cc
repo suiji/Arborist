@@ -42,11 +42,12 @@
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_splitPred, SamplePred *samplePred, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), noRank(rowRank->NoRank()), splitPred(_splitPred), run(splitPred->Runs()), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this, samplePred)), runCount(std::vector<unsigned int>(nPredFac)) {
+Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_splitPred, SamplePred *samplePred, std::vector<StageCount> &stageCount, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), noRank(rowRank->NoRank()), splitPred(_splitPred), run(splitPred->Runs()), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this, samplePred)), runCount(std::vector<unsigned int>(nPredFac)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
   std::fill(runCount.begin(), runCount.end(), 0);
+  RootDef(stageCount);
 }
 
 
@@ -61,11 +62,15 @@ Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_spl
 
    @return void.
  */
-void Bottom::RootDef(unsigned int predIdx, unsigned int expl, bool singleton) {
+void Bottom::RootDef(const std::vector<StageCount> &stageCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
-  const unsigned int levelIdx = 0;
-  (void) levelFront->Define(levelIdx, predIdx, bufIdx, singleton, bagCount - expl);
-  SetRunCount(levelIdx, predIdx, false, singleton ? 1 : pmTrain->FacCard(predIdx));
+  const unsigned int splitIdx = 0;
+  for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
+    bool singleton = stageCount[predIdx].singleton;
+    unsigned int expl = stageCount[predIdx].expl;
+    (void) levelFront->Define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
+    SetRunCount(splitIdx, predIdx, false, singleton ? 1 : pmTrain->FacCard(predIdx));
+  }
 }
 
   
@@ -194,27 +199,6 @@ void Bottom::Restage(RestageCoord &rsCoord) {
   SPPair mrra;
   rsCoord.Ref(mrra, del, bufIdx);
   level[del]->Restage(mrra, levelFront, bufIdx);
-}
-
-
-void Bottom::IndexRestage() {
-  int nodeIdx;
-
-#pragma omp parallel default(shared) private(nodeIdx)
-  {
-#pragma omp for schedule(dynamic, 1)    
-    for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
-      IndexRestage(restageCoord[nodeIdx]);
-    }
-  }
-}
-
-
-void Bottom::IndexRestage(RestageCoord &rsCoord) {
-  unsigned int del, bufIdx;
-  SPPair mrra;
-  rsCoord.Ref(mrra, del, bufIdx);
-  level[del]->IndexRestage(mrra, levelFront, bufIdx);
 }
 
 

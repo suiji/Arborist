@@ -228,7 +228,7 @@ class IndexLevel {
   std::vector<unsigned int> st2PT; // Frontier map.
   class BV *replayExpl;
 
-  static class PreTree *OneTree(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Sample *sample, const class Coproc *coproc);
+  static class PreTree *OneTree(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Response *response, class Sample *&sample);
   void InfoInit(std::vector<class SSNode> &argMax) const;
   unsigned int SplitCensus(const std::vector<class SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool _levelTerminal);
   void Consume(class PreTree *preTree, const std::vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax);
@@ -242,8 +242,8 @@ class IndexLevel {
   IndexLevel(class SamplePred *_samplePred, const std::vector<class SumCount> &ctgRoot, class Bottom *_bottom, unsigned int _nSamp, unsigned int _bagCount, double _bagSum);
   ~IndexLevel();
 
-  static void TreeBlock(const class PMTrain *pmTrain, const RowRank *rowRank, const std::vector<class Sample*> &sampleBlock, const class Coproc *coproc, std::vector<class PreTree*> &ptBlock);
-  void Levels(const class RowRank *rowRank, const class Sample *sample, class PreTree *preTree);
+  static void TreeBlock(const class PMTrain *pmTrain, const RowRank *rowRank, const class Response *response, std::vector<class Sample*> &sampleBlock, std::vector<class PreTree*> &ptBlock);
+  class PreTree *Levels(const class PMTrain *pmTrain);
   bool NonTerminal(class PreTree *preTree, IndexSet *iSet, const class SSNode &argMax);
   unsigned int IdxSucc(unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
   void BlockReplay(IndexSet *iSet, unsigned int predIdx, unsigned int bufIdx, unsigned int blockStart, unsigned int blockExtent);

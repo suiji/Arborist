@@ -360,14 +360,10 @@ void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
     // TODO:  Pre-empt overflow by walking wide subtrees depth-first.
   int cellCount = nSplit * nPred;
 
-  double *ruPred = new double[cellCount];
-  CallBack::RUnif(cellCount, ruPred);
+  std::vector<double> ruPred(cellCount);
+  CallBack::RUnif(cellCount, &ruPred[0]);
 
-  BHPair *heap;
-  if (predFixed > 0)
-    heap = new BHPair[cellCount];
-  else
-    heap = 0;
+  std::vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
 
   unsigned int spanCand = 0;
   for (unsigned int splitIdx = 0; splitIdx < nSplit; splitIdx++) {
@@ -383,10 +379,6 @@ void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
     }
   }
   SetSpan(spanCand);
-
-  if (heap != 0)
-    delete [] heap;
-  delete [] ruPred;
 }
 
 
@@ -485,31 +477,3 @@ void Level::Restage(const SPPair &mrra, Level *levelFront, unsigned int bufIdx, 
   samplePred->RestageRank(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
   RunCounts(bottom, mrra, pathCount, rankCount);
 }
-
-
-// Coprocessor variants:
-
-// Restages destination and index vectors only.
-//
-void Level::IndexRestage(SPPair &mrra, const Level *levelFront, unsigned int bufIdx) {
-  unsigned int reachOffset[1 << NodePath::pathMax];
-  unsigned int splitOffset[1 << NodePath::pathMax];
-  if (nodeRel) { // Both levels employ node-relative indexing.
-    unsigned int reachBase[1 << NodePath::pathMax];
-    OffsetClone(mrra, reachOffset, splitOffset, reachBase);
-    IndexRestage(mrra, levelFront, bufIdx, reachBase, reachOffset, splitOffset);
-  }
-  else { // Source level employs subtree indexing.  Target may or may not.
-    OffsetClone(mrra, reachOffset, splitOffset);
-    IndexRestage(mrra, levelFront, bufIdx, nullptr, reachOffset, splitOffset);
-  }
-}
-
-
-void Level::IndexRestage(const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]) {
-  unsigned int startIdx, extent;
-  Bounds(mrra, startIdx, extent);
-
-  samplePred->IndexRestage(nodeRel ? FrontPath() : bottom->STPath(), reachBase, mrra.second, bufIdx, startIdx, extent, PathMask(), reachBase == nullptr ? levelFront->NodeRel() : true, reachOffset, splitOffset);
-}
-

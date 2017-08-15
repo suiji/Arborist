@@ -104,34 +104,18 @@ ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsign
 
 
 /**
-   @brief Causes a block trees to be sampled and trained.
-
-   @param rowRank is the predictor rank information.
-
-   @param sampleBlock summarizes a block of sampled rows.
-
-   @return void.
- */
-void Response::TreeBlock(const RowRank *rowRank, std::vector<Sample*> &sampleBlock) const {
-  for (auto & sample : sampleBlock) {
-    sample = RootSample(rowRank);
-  }
-}
-
-
-/**
    @return Regression-style Sample object.
  */
-Sample *ResponseReg::RootSample(const RowRank *rowRank) const {
-  return Sample::FactoryReg(Y(), rowRank, row2Rank);
+Sample *ResponseReg::RootSample(const RowRank *rowRank, std::vector<unsigned int> &row2Sample) const {
+  return Sample::FactoryReg(Y(), rowRank, row2Rank, row2Sample);
 }
 
 
 /**
    @return Classification-style Sample object.
  */
-Sample *ResponseCtg::RootSample(const RowRank *rowRank) const {
-  return Sample::FactoryCtg(Y(), rowRank, yCtg, nCtg);
+Sample *ResponseCtg::RootSample(const RowRank *rowRank, std::vector<unsigned int> &row2Sample) const {
+  return Sample::FactoryCtg(Y(), rowRank, yCtg, nCtg, row2Sample);
 }
 
 

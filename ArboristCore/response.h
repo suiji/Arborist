@@ -40,11 +40,10 @@ class Response {
   static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
   static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
 
-  void TreeBlock(const class RowRank *rowRank, std::vector<class Sample*> &sampleBlock) const;
   void LeafReserve(unsigned int leafEst, unsigned int bagEst) const;
-  void Leaves(const class PMTrain *pmTrain, const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) const;
+  void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) const;
 
-  virtual class Sample* RootSample(const class RowRank *rowRank) const = 0;
+  virtual class Sample* RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const = 0;
 };
 
 
@@ -57,7 +56,7 @@ class ResponseReg : public Response {
 
   ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
   ~ResponseReg();
-  class Sample *RootSample(const class RowRank *rowRank) const;
+  class Sample *RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const;
 };
 
 /**
@@ -70,7 +69,7 @@ class ResponseCtg : public Response {
 
   ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
   ~ResponseCtg();
-  class Sample *RootSample(const class RowRank *rowRank) const;
+  class Sample *RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const;
 };
 
 #endif

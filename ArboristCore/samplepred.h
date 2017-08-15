@@ -67,7 +67,23 @@ class SPNode {
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
 
-  void Init(const class SampleNode &sampleNode, unsigned int _rank);
+
+  /**
+  
+     @brief Initializes immutable field values with category packing.
+
+     @param stagePack holds packed staging values.
+
+     @return void.
+  */
+  inline void Init(unsigned int _rank, unsigned int _ctg, FltVal _ySum, unsigned int _sCount) {
+    rank = _rank;
+    ySum = _ySum;
+    sCount = (_sCount << ctgShift) | _ctg; // Packed representation.
+  }
+
+
+
 
   // These methods should only be called when the response is known
   // to be regression, as it relies on a packed representation specific
@@ -196,7 +212,12 @@ class SamplePred {
   SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
   ~SamplePred();
 
+
   SPNode *StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx);
+
+  unsigned int Stage(const std::vector<class SampleNode> &sampleNode, const class RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton);
+  void Stage(const std::vector<class SampleNode> &sampleNode, const class RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SPNode *spn, unsigned int *smpIdx, unsigned int &expl);
+
   double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, std::vector<class SumCount> &ctgExpl);
 
   
@@ -204,8 +225,11 @@ class SamplePred {
   void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const;
   void RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned int start, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]);
 
-  // COPROCESSOR variant
-  void IndexRestage(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]);
+  
+  inline unsigned int BagCount() const {
+    return bagCount;
+  }
+
   
   inline unsigned int PitchSP() {
     return pitchSP;

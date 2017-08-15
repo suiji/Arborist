@@ -124,44 +124,44 @@ class SampleNode {
 */
 class Sample {
   class BV *treeBag;
-  std::vector<unsigned int> row2Sample;
+  std::vector<unsigned int> sample2Row;
 
  protected:
-  const unsigned int nRow;
-  const unsigned int noSample; // Inattainable sample index.
   static unsigned int nSamp;
   std::vector<SampleNode> sampleNode;
   std::vector<SumCount> ctgRoot;
   unsigned int bagCount;
   double bagSum;
 
-  // Factories parametrized by coprocessor state.
-  static class SamplePred *SamplePredFactory(const class Coproc *coproc, unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize);
-  static class SPCtg* SPCtgFactory(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, unsigned int bagCount, unsigned int _nCtg);
-  static class SPReg* SPRegFactory(const class Coproc *coproc, const class PMTrain *pmTrain, const class RowRank *rowRank, unsigned int bagCount);
   static unsigned int RowSample(std::vector<unsigned int> &sCountRow);
   
   
-  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank);
-  void Stage(const class RowRank *rowRank, class SamplePred *samplePred, class Bottom *bottom, unsigned int predIdx) const;
+  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const class RowRank *rowRank, std::vector<unsigned int> &row2Sample);
 
   virtual double SetNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
-  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg, unsigned int _nCtg);
-  static class SampleReg *FactoryReg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank);
-  virtual class SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const = 0;
+  static class SampleCtg *FactoryCtg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &yCtg, unsigned int _nCtg, std::vector<unsigned int> &row2Sample);
+  static class SampleReg *FactoryReg(const std::vector<double> &y, const class RowRank *rowRank, const std::vector<unsigned int> &row2Rank, std::vector<unsigned int> &row2Sample);
+  virtual class SplitPred *SplitPredFactory(const class PMTrain *pmTrain, const RowRank *rowRank) const = 0;
 
   static void Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl);
   static void DeImmutables();
   Sample(unsigned int _nRow, unsigned int nCtg);
   virtual ~Sample();
 
-  void Stage(const class RowRank *rowRank, class SamplePred *samplePred, class Bottom *bottom) const;
-  class IndexLevel *IndexFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Coproc *coproc) const;
+  static void StageFactory(const class PMTrain *pmTrain, const class RowRank *rowRank, const class Response *reponse, Sample *&sample, class SplitPred *&splitPred, class SamplePred *&samplePred, std::vector<class StageCount> &stageCount);
+
+  void Stage(const class RowRank *rowRank, const std::vector<unsigned int> &row2Sample, class SamplePred *&samplePred, std::vector<StageCount> &stageCount);
+  void RowInvert(const std::vector<unsigned int> &row2Sample);
 
 
-  void RowInvert(std::vector<unsigned int> &sample2Row) const;
+  /**
+     @brief Accessor for root category census.
+   */
+  inline const std::vector<SumCount> &CtgRoot() const {
+    return ctgRoot;
+  }
 
   
   /**
@@ -173,16 +173,12 @@ class Sample {
 
 
   /**
-     @param row row index at which to look up sample index.
-
-     @return Sample index associated with row, or 'noSample' if none.
    */
-  inline bool SampleIdx(unsigned int row, unsigned int &sIdx) const {
-    sIdx = row2Sample[row];
-    return sIdx != noSample;
+  unsigned int Sample2Row(unsigned int sIdx) const {
+    return sample2Row[sIdx];
   }
   
-  
+
   /**
      @brief Accessor for bag count.
    */
@@ -222,12 +218,12 @@ class Sample {
 */
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
-  void SetRank(const std::vector<unsigned int> &row2Rank);
+  void SetRank(const std::vector<unsigned int> &row2Sample, const std::vector<unsigned int> &row2Rank);
 
  public:
   SampleReg(unsigned int _nRow);
   ~SampleReg();
-  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const;
+  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank) const;
 
   
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
@@ -244,7 +240,7 @@ class SampleReg : public Sample {
   }
 
 
-  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank);
+  void PreStage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const class RowRank *rowRank, std::vector<unsigned int> &row2Sample);
 };
 
 
@@ -259,7 +255,7 @@ class SampleCtg : public Sample {
   SampleCtg(unsigned int _nRow, unsigned int _nCtg);
   ~SampleCtg();
 
-  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank, const class Coproc *coproc) const;
+  SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank) const;
 
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNode sNode;
@@ -271,7 +267,7 @@ class SampleCtg : public Sample {
   }
   
   
-  void PreStage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank);
+  void PreStage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const class RowRank *rowRank, std::vector<unsigned int> &row2Sample);
 };
 
 
