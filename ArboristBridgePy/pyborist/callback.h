@@ -18,7 +18,7 @@ class CallBack {
 
   public:
     static void SampleInit(unsigned int _nRow,
-      double _sampleWeight[],
+      const double _sampleWeight[],
       bool _withRepl);
 
     static void SampleRows(unsigned int nSamp,
