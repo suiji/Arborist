@@ -1,5 +1,4 @@
-	Trap errors thrown by Rcpp.
-	Sparse internal representation.
+	Incorporate Pyborist build within Travis script.
 	Curborist:  regression.
 	Employ integer division in the absence of class weighting (classification).
 	Out-of-memory "streaming".
