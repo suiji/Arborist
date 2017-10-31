@@ -34,11 +34,14 @@ Installation of Development Version:
 
 
 #### Notes
-- Version 0.1-6 now on CRAN.
+- Rborist version 0.1-8 now on CRAN.
+- Rborist version 0.1-9 under development.
 
 ### Python
 
-Under development.  Contributors sought.
+ - Some users reporting successful training and prediction.
+ - Out-of-bag validation NYI.
+ - Contributors sought.
 
 ### Performance 
 
