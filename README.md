@@ -16,7 +16,7 @@
 
 The Arborist provides a fast, open-source implementation of Leo Brieman's Random Forest algorithm. The Arborist achieves its speed through efficient C++ code and parallel, distributed tree construction. 
 
-Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/index.html) and **Python (coming soon)**
+Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/index.html) and **Python (evolving)**
 
 
 ### R
@@ -42,6 +42,7 @@ Installation of Development Version:
  - Some users reporting successful training and prediction.
  - Out-of-bag validation NYI.
  - Contributors sought.
+ - Test cases sought.
 
 ### Performance 
 
