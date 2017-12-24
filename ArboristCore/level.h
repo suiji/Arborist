@@ -178,10 +178,7 @@ class Level {
   const unsigned int nSplit;
   const unsigned int noIndex; // Inattainable node index value.
   const unsigned int idxLive; // Total # sample indices at level.
-  const bool nodeRel;  // Subtree- or node-relative indexing.
 
-  class Bottom *bottom;
-  class SamplePred *samplePred;
   unsigned int defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
 
@@ -205,11 +202,13 @@ class Level {
   std::vector<unsigned int> liveCount; // Indexed by node.
 
   unsigned int spanCand; // Total candidate span.
+  const bool nodeRel;  // Subtree- or node-relative indexing.
+  class Bottom *bottom;
+
   bool Preschedule(class SplitPred *splitPred, unsigned int levelIdx, unsigned int predIdx, unsigned int extent, unsigned int &spanCand);
-
-
+  
  public:
-  Level(unsigned int _nSplit, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel, class Bottom *bottom, class SamplePred *_samplePred);
+  Level(unsigned int _nSplit, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel, class Bottom *bottom);
   ~Level();
 
   static void Immutables(unsigned int _predFixed, const double _predProb[]);
@@ -217,8 +216,11 @@ class Level {
   void Candidates(const class IndexLevel *index, class SplitPred *splitPred);
   void CandidateProb(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], unsigned int extent, unsigned int &offCand);
   void CandidateFixed(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], class BHPair heap[], unsigned int extent, unsigned int &offCand);
-  void Restage(SPPair &mrra, Level *levelFront, unsigned int bufIdx);
-  void Restage(const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]);
+
+  void RankRestage(class SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx);
+  void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx);
+  void RankRestage(class SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]);
+  void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]);
 
   void Flush(bool forward = true);
   void FlushDef(unsigned int mrraIdx, unsigned int predIdx);
@@ -229,7 +231,7 @@ class Level {
   void Bounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void FrontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton);
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]);
-  // COPROC:
+
   void OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]);
   void RunCounts(class Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const;
 

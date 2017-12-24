@@ -53,7 +53,7 @@ unsigned int Train::trainBlock = 0;
 void Train::Init(unsigned int _nPred, unsigned int _nTree, unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl, unsigned int _trainBlock, unsigned int _minNode, double _minRatio, unsigned int _totLevels, unsigned int _leafMax, unsigned int _ctgWidth, unsigned int _predFixed, const double _splitQuant[], const double _predProb[], bool _thinLeaves, const double _regMono[]) {
   trainBlock = _trainBlock;
   Sample::Immutables(_nSamp, _feSampleWeight, _withRepl);
-  SPNode::Immutables(_ctgWidth);
+  SampleNux::Immutables(_ctgWidth);
   SplitSig::Immutables(_minRatio);
   IndexLevel::Immutables(_minNode, _totLevels);
   Leaf::Immutables(_thinLeaves);
@@ -79,7 +79,7 @@ void Train::DeImmutables() {
   Leaf::DeImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
-  SPNode::DeImmutables();
+  SampleNux::DeImmutables();
   Level::DeImmutables();
   SPReg::DeImmutables();
 }
@@ -109,6 +109,7 @@ void Train::Regression(const unsigned int _feRow[], const unsigned int _feRank[]
 
   Coproc *coproc = Coproc::Factory(_enableCoproc, diag);
   RowRank *rowRank = RowRank::Factory(coproc, pmTrain, _feRow, _feRank, _numOff, _numVal, _feRLE, _feRLELength, _autoCompress);
+
   train->TrainForest(pmTrain, rowRank);
 
   delete coproc;

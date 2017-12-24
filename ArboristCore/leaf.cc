@@ -214,8 +214,8 @@ void LeafCtg::Scores(const PMTrain *pmTrain, const SampleCtg *sample, const std:
   for (unsigned int sIdx = 0; sIdx < sample->BagCount(); sIdx++) {
     unsigned int leafIdx = leafMap[sIdx];
     FltVal sum;
-    unsigned int dummy;
-    unsigned int ctg = sample->Ref(sIdx, sum, dummy);
+    unsigned int ctg;
+    sample->RefLeaf(sIdx, sum, ctg);
     leafSum[leafIdx] += sum;
     WeightAccum(tIdx, leafIdx, ctg, sum);
   }

@@ -403,7 +403,7 @@ RowRank::~RowRank() {
 
    @return void.
  */
-void RowRank::Stage(const std::vector<SampleNode>  &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, std::vector<StageCount> &stageCount) const {
+void RowRank::Stage(const std::vector<SampleNux>  &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, std::vector<StageCount> &stageCount) const {
   int predIdx;
 #pragma omp parallel default(shared) private(predIdx)
   {
@@ -414,6 +414,7 @@ void RowRank::Stage(const std::vector<SampleNode>  &sampleNode, const std::vecto
   }
 }
 
+// RowRank must export vectors containing safe offset, extent, node-start and explicit count i/o to stage transparently:
 
 /**
    @brief Stages SamplePred objects in non-decreasing predictor order.
@@ -422,12 +423,13 @@ void RowRank::Stage(const std::vector<SampleNode>  &sampleNode, const std::vecto
 
    @return void.
 */
-void RowRank::Stage(const std::vector<SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
+void RowRank::Stage(const std::vector<SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
   unsigned int extent;
   unsigned int safeOffset = SafeOffset(predIdx, samplePred->BagCount(), extent);
 
   stageCount.expl = samplePred->Stage(sampleNode, &rrNode[rrStart[predIdx]], row2Sample, ExplicitCount(predIdx), predIdx, safeOffset, extent, stageCount.singleton);
 }
+
 
 /**
    @brief Static entry for sample staging.

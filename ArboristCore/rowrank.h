@@ -30,8 +30,10 @@ typedef std::pair<unsigned int, unsigned int> ValRowI;
 
 
 class RRNode {
+ protected:
   unsigned int row;
   unsigned int rank;
+
  public:
   unsigned int Lookup(unsigned int &_rank) const {
     _rank = rank;
@@ -79,10 +81,9 @@ class RowRank {
   unsigned int nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
   std::vector<unsigned int> denseRank;
-  std::vector<RRNode> rrNode;
-  std::vector<unsigned int> explicitCount;
-  std::vector<unsigned int> rrStart;
-  std::vector<unsigned int> safeOffset; // Either an index or an accumulated count.
+  std::vector<unsigned int> explicitCount; // Per predictor
+  std::vector<unsigned int> rrStart;   // Predictor offset within rrNode[].
+  std::vector<unsigned int> safeOffset; // Predictor offset within SamplePred[].
   const double autoCompress; // Threshold percentage for autocompression.
 
   
@@ -114,7 +115,7 @@ class RowRank {
   void ModeOffsets();
   void Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
 
-  void Stage(const std::vector<class SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const;
+  void Stage(const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const;
 
   
   inline double NumVal(unsigned int predIdx, unsigned int rk) const {
@@ -123,6 +124,7 @@ class RowRank {
 
   
  protected:
+  std::vector<RRNode> rrNode;
 
 
   
@@ -144,7 +146,7 @@ class RowRank {
   RowRank(const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autoCompress);
   virtual ~RowRank();
 
-  void Stage(const std::vector<class SampleNode> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, std::vector<StageCount> &stageCount) const;
+  virtual void Stage(const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, std::vector<StageCount> &stageCount) const;
 
 
   inline unsigned int NRow() const {

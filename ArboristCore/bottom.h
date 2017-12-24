@@ -78,7 +78,7 @@ class Bottom {
   std::vector<RestageCoord> restageCoord;
 
   // Restaging methods.
-  void Restage(RestageCoord &rsCoord);
+  void Restage(class SamplePred *samplePred, RestageCoord &rsCoord);
 
   void Backdate() const;
 
@@ -103,15 +103,15 @@ class Bottom {
   void RestagePath(unsigned int startIdx, unsigned int extent, unsigned int lhOff, unsigned int rhOff, unsigned int level, unsigned int predIdx);
 
   
-  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, class SamplePred *samplePred, std::vector<class StageCount> &stageCount, unsigned int _bagCount);
+  Bottom(const class PMTrain *_pmTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, std::vector<class StageCount> &stageCount, unsigned int _bagCount);
   ~Bottom();
   void LevelInit(class IndexLevel *index);
   void LevelClear();
-  void Split(const class SamplePred *samplePred, class IndexLevel *index, std::vector<class SSNode> &argMax);
-  void Overlap(class SamplePred *samplePred, unsigned int splitNext, unsigned int idxLive, bool nodeRel);
+  void Split(class SamplePred *samplePred, class IndexLevel *index, std::vector<class SSNode> &argMax);
+  void Overlap(unsigned int splitNext, unsigned int idxLive, bool nodeRel);
   void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
   unsigned int FlushRear();
-  void Restage();
+  void Restage(class SamplePred *samplePred);
   bool IsFactor(unsigned int predIdx) const;
   unsigned int FacIdx(unsigned int predIdx, bool &isFactor) const;
   void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);

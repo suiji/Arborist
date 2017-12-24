@@ -27,7 +27,6 @@
 //
 unsigned int Sample::nSamp = 0;
 
-
 /**
  @brief Lights off initializations needed for sampling.
 
@@ -204,7 +203,7 @@ void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned i
   std::vector<unsigned int> sCountRow(nRow);
   std::fill(sCountRow.begin(), sCountRow.end(), 0);
   bagCount = RowSample(sCountRow);
-  sampleNode = std::move(std::vector<SampleNode>(bagCount));
+  sampleNode = std::move(std::vector<SampleNux>(bagCount));
 
   unsigned int slotBits = BV::SlotElts();
   bagSum = 0.0;
@@ -248,6 +247,7 @@ void Sample::StageFactory(const PMTrain *pmTrain, const RowRank *rowRank, const 
  */
 void Sample::Stage(const RowRank *rowRank, const std::vector<unsigned int> &row2Sample, SamplePred *&samplePred, std::vector<StageCount> &stageCount) {
   samplePred = rowRank->SamplePredFactory(bagCount);
+  //  samplePred->Stage(rowRank, sampleNode, row2Sample, stageCount);
   rowRank->Stage(sampleNode, row2Sample, samplePred, stageCount);
   RowInvert(row2Sample);
 }

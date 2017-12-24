@@ -1,6 +1,8 @@
 #from libcpp cimport bool # .pxd
 #from libcpp.vector cimport vector # .pxd
 
+from libcpp cimport nullptr
+
 import numpy as np
 cimport numpy as np
 from cython cimport view
@@ -9,7 +11,7 @@ from libcpp.memory cimport shared_ptr, make_shared
 
 from .cyforest cimport ForestNode, PyPtrVecForestNode
 from .cyleaf cimport LeafNode, PyPtrVecLeafNode
-from .cyleaf cimport BagRow, PyPtrVecBagRow
+from .cyleaf cimport BagLeaf, PyPtrVecBagLeaf
 
 ctypedef vector[unsigned int] VecUInt # workaround deal to cython bug
 
@@ -29,40 +31,42 @@ cdef class PyTrain:
     def Regression(double[::view.contiguous] X not None, #F
         double[::view.contiguous] y not None,
         unsigned int nRow,
-        int nPred,
+        unsigned int nPred,
         int[::view.contiguous] feRow not None,
         int[::view.contiguous] feRank not None,
         int[::view.contiguous] invNum not None,
-        int nTree,
-        int nSamp,
+        unsigned int nTree,
+        unsigned int nSamp,
         double[::view.contiguous] sampleWeight not None,
         bool withRepl,
-        int trainBlock,
-        int minNode,
+	bool thinLeaves,
+        unsigned int trainBlock,
+        unsigned int minNode,
         double minRatio,
-        int totLevels,
-        int predFixed,
+        unsigned int totLevels,
+	unsigned int leafMax,
+        unsigned int predFixed,
+	double[::view.contiguous] splitQuant not None,
         double[::view.contiguous] predProb not None,
         double[::view.contiguous] regMono not None):
 
-        Train_Init(&X[0],
-            NULL, #feFacCard,
-            0, #cardMax,
-            nPred,
-            0, #nPredFac,
-            nRow,
-            nTree,
-            nSamp,
-            &sampleWeight[0],
-            withRepl,
-            trainBlock,
-            minNode,
-            minRatio,
-            totLevels,
-            0,
-            predFixed,
-            &predProb[0],
-            &regMono[0])
+        Train_Init(nPred,
+		nTree,
+		nSamp,
+		np.asarray(sampleWeight),
+		withRepl,
+		trainBlock,
+		minNode,
+		minRatio,
+		totLevels,
+		leafMax,
+		0, #cardMax
+		predFixed,
+		&splitQuant[0],
+		&predProb[0],
+		thinLeaves,
+		&regMono[0])
+#		&X[0],
 
         yRanked = np.empty(y.shape[0], dtype=np.double)
         yRanked[:] = y
@@ -76,7 +80,7 @@ cdef class PyTrain:
 
         cdef shared_ptr[vector[ForestNode]] ptrVecForestNode = make_shared[vector[ForestNode]]()
         cdef shared_ptr[vector[LeafNode]] ptrVecLeafNode = make_shared[vector[LeafNode]]()
-        cdef shared_ptr[vector[BagRow]] ptrVecBagRow = make_shared[vector[BagRow]]()
+        cdef shared_ptr[vector[BagLeaf]] ptrVecBagLeaf = make_shared[vector[BagLeaf]]()
 
         cdef VecUInt rank
         cdef VecUInt facSplit
@@ -93,7 +97,7 @@ cdef class PyTrain:
             facSplit,
             leafOrigin,
             deref(ptrVecLeafNode),
-            deref(ptrVecBagRow),
+            deref(ptrVecBagLeaf),
             rank)
 
         result = {
@@ -106,7 +110,7 @@ cdef class PyTrain:
             'leaf': {
                 'leafOrigin': np.asarray(leafOrigin, dtype=np.uintc),
                 'leafNode': PyPtrVecLeafNode().set(ptrVecLeafNode),
-                'bagRow': PyPtrVecBagRow().set(ptrVecBagRow),
+                'bagLeaf': PyPtrVecBagLeaf().set(ptrVecBagLeaf),
                 'nRow': nRow, #nRow in train
                 'rank': np.asarray(rank, dtype=np.uintc),
                 'yRanked': np.asarray(yRanked) # old y getting sorted
@@ -120,43 +124,44 @@ cdef class PyTrain:
     def Classification(double[::view.contiguous] X not None, #F
         unsigned int[::view.contiguous] y not None,
         unsigned int nRow,
-        int nPred,
+        unsigned int nPred,
         int[::view.contiguous] feRow not None,
         int[::view.contiguous] feRank not None,
         int[::view.contiguous] invNum not None,
-        int nTree,
-        int nSamp,
+        unsigned int nTree,
+        unsigned int nSamp,
         double[::view.contiguous] sampleWeight not None,
         bool withRepl,
-        int trainBlock,
-        int minNode,
+	bool thinLeaves,
+        unsigned int trainBlock,
+        unsigned int minNode,
         double minRatio,
-        int totLevels,
-        int predFixed,
+        unsigned int totLevels,
+	unsigned int leafMax,
+        unsigned int predFixed,
+	double[::view.contiguous] splitQuant not None,
         double[::view.contiguous] predProb not None,
         double[::view.contiguous] classWeightJittered not None):
 
         cdef unsigned int ctgWidth = np.max(y) + 1 # how many categories
 
-        Train_Init(&X[0],
-            NULL, #feFacCard,
-            0, #cardMax,
-            nPred,
-            0, #nPredFac,
-            nRow,
-            nTree,
-            nSamp,
-            &sampleWeight[0],
-            withRepl,
-            trainBlock,
-            minNode,
-            minRatio,
-            totLevels,
-            ctgWidth,
-            predFixed,
-            &predProb[0],
-            NULL # regMono
-            )
+        Train_Init(nPred,
+		nTree,
+		nSamp,
+		np.asarray(sampleWeight),
+		withRepl,
+		trainBlock,
+		minNode,
+		minRatio,
+		totLevels,
+		leafMax,
+		0, # ctgWidth
+		predFixed,
+		&splitQuant[0],
+		&predProb[0],
+		thinLeaves,
+		<double *> nullptr)
+#		&X[0],
 
         cdef VecUInt origin = VecUInt(nTree)
         cdef VecUInt facOrig = VecUInt(nTree)
@@ -165,7 +170,7 @@ cdef class PyTrain:
 
         cdef shared_ptr[vector[ForestNode]] ptrVecForestNode = make_shared[vector[ForestNode]]()
         cdef shared_ptr[vector[LeafNode]] ptrVecLeafNode = make_shared[vector[LeafNode]]()
-        cdef shared_ptr[vector[BagRow]] ptrVecBagRow = make_shared[vector[BagRow]]()
+        cdef shared_ptr[vector[BagLeaf]] ptrVecBagLeaf = make_shared[vector[BagLeaf]]()
 
         cdef VecUInt facSplit
         cdef vector[double] weight
@@ -183,7 +188,7 @@ cdef class PyTrain:
             facSplit,
             leafOrigin,
             deref(ptrVecLeafNode),
-            deref(ptrVecBagRow),
+            deref(ptrVecBagLeaf),
             weight)
 
         result = {
@@ -196,7 +201,7 @@ cdef class PyTrain:
             'leaf': {
                 'leafOrigin': np.asarray(leafOrigin, dtype=np.uintc),
                 'leafNode': PyPtrVecLeafNode().set(ptrVecLeafNode),
-                'bagRow': PyPtrVecBagRow().set(ptrVecBagRow),
+                'bagLeaf': PyPtrVecBagLeaf().set(ptrVecBagLeaf),
                 'nRow': nRow, #nRow in train
                 'weight': np.asarray(weight, dtype=np.double),
                 'yLevels': np.unique(y) # old y all different levels

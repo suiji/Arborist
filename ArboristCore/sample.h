@@ -19,6 +19,8 @@
 #include <vector>
 #include "param.h"
 
+#include "samplenux.h" // For now.
+
 
 /**
    @brief Sum / count record for categorical indices.
@@ -56,70 +58,6 @@ class SumCount {
 
 
 /**
-   @brief Single node type for regression and classification.
-
-   For simplicity, regression and classification variants are distinguished
-   only by method name and not by subtyping.  The only distinction is the
-   value (and interpretation) of the 'ctg' field.  Care should be taken
-   to call the appropriate method, as 'ctg' is only used as a packing
-   parameter (with value zero) in the case of regression.  Subtyping seems
-   to complicate the code needlessly, with a per-tree size savings of only
-   'nSamp' * sizeof(uint).
- */
-class SampleNode {
-  unsigned int ctg;  // Category of sample; no interpretation for regression.
-  FltVal sum; // Sum of values selected:  sCount * y-value.
-
-  // Integer-sized container is likely overkill:  typically << #rows,
-  // although sample weighting might yield run sizes approaching #rows.
-  unsigned int sCount;
-
- public:
-
-  inline double Set(FltVal _yVal, unsigned int _sCount, unsigned int _ctg = 0) {
-    sCount = _sCount;
-    sum = _yVal * sCount;
-    ctg = _ctg;
-
-    return sum;
-  }
-
-  /**
-     @brief Compound acceessor.
-
-     @param _sum outputs sum.
-
-     @param _sCount outputs sample count.
-
-     @return Category value or default:  classification / regression, plus output reference parameters.
-   */
-  inline unsigned int Ref(FltVal &_sum, unsigned int &_sCount) const {
-    _sum = sum;
-    _sCount = sCount;
-
-    return ctg;
-  }
-
-
-  inline double Sum() const {
-    return sum;
-  }
-  
-
-  /**
-     @brief Accessor for sample count.
-     
-   */
-  inline unsigned int SCount() const {
-    return sCount;
-  }
-
-
-};
-
-
-
-/**
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
@@ -128,7 +66,7 @@ class Sample {
 
  protected:
   static unsigned int nSamp;
-  std::vector<SampleNode> sampleNode;
+  std::vector<SampleNux> sampleNode;
   std::vector<SumCount> ctgRoot;
   unsigned int bagCount;
   double bagSum;
@@ -202,8 +140,11 @@ class Sample {
   }
 
 
-  inline unsigned int Ref(int sIdx, FltVal &_sum, unsigned int &_sCount) const {
-    return sampleNode[sIdx].Ref(_sum, _sCount);
+  /**
+     @brief References leaf-specific fields.
+   */
+  inline void RefLeaf(unsigned int sIdx, FltVal &_sum, unsigned int &_ctg) const {
+    _ctg = sampleNode[sIdx].RefLeaf(_sum);
   }
 
   
@@ -227,8 +168,8 @@ class SampleReg : public Sample {
 
   
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
-    SampleNode sNode;
-    double ySum = sNode.Set(yVal, sCount);
+    SampleNux sNode;
+    double ySum = sNode.Init(yVal, sCount);
     sampleNode[sIdx] = sNode;
 
     return ySum;
@@ -258,8 +199,8 @@ class SampleCtg : public Sample {
   SplitPred *SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank) const;
 
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
-    SampleNode sNode;
-    double ySum = sNode.Set(yVal, sCount, ctg);
+    SampleNux sNode;
+    double ySum = sNode.Init(yVal, sCount, ctg);
     sampleNode[sIdx] = sNode;
     ctgRoot[ctg].Accum(ySum, sCount);
 

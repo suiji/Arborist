@@ -6,7 +6,7 @@ from libcpp.memory cimport shared_ptr, make_shared
 
 
 cdef extern from 'leaf.h':
-    cdef cppclass BagRow:
+    cdef cppclass BagLeaf:
         pass
 
     cdef cppclass LeafNode:
@@ -14,10 +14,10 @@ cdef extern from 'leaf.h':
 
 
 
-cdef class PyPtrVecBagRow:
-    cdef shared_ptr[vector[BagRow]] thisptr
-    cdef set(self, shared_ptr[vector[BagRow]] ptr)
-    cdef shared_ptr[vector[BagRow]] get(self)
+cdef class PyPtrVecBagLeaf:
+    cdef shared_ptr[vector[BagLeaf]] thisptr
+    cdef set(self, shared_ptr[vector[BagLeaf]] ptr)
+    cdef shared_ptr[vector[BagLeaf]] get(self)
 
 
 

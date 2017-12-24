@@ -29,7 +29,7 @@
 unsigned int Level::predFixed = 0;
 const double *Level::predProb = 0;
 
-Level::Level(unsigned int _nSplit, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int bagCount, unsigned int _idxLive, bool _nodeRel, Bottom *_bottom, SamplePred *_samplePred) : nPred(_nPred), denseIdx(_denseIdx), nPredDense(_nPredDense), nSplit(_nSplit), noIndex(bagCount), idxLive(_idxLive), nodeRel(_nodeRel), bottom(_bottom), samplePred(_samplePred), defCount(0), del(0), indexAnc(std::vector<IndexAnc>(nSplit)), def(std::vector<MRRA>(nSplit * nPred)), denseCoord(std::vector<DenseCoord>(nSplit * nPredDense)), relPath(new IdxPath(idxLive)), offCand(std::vector<unsigned int>(nSplit * nPred)) {
+Level::Level(unsigned int _nSplit, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int bagCount, unsigned int _idxLive, bool _nodeRel, Bottom *_bottom) : nPred(_nPred), denseIdx(_denseIdx), nPredDense(_nPredDense), nSplit(_nSplit), noIndex(bagCount), idxLive(_idxLive), defCount(0), del(0), indexAnc(std::vector<IndexAnc>(nSplit)), def(std::vector<MRRA>(nSplit * nPred)), denseCoord(std::vector<DenseCoord>(nSplit * nPredDense)), relPath(new IdxPath(idxLive)), offCand(std::vector<unsigned int>(nSplit * nPred)), nodeRel(_nodeRel), bottom(_bottom) {
   MRRA df;
   df.Init();
   // Coprocessor only.
@@ -325,30 +325,6 @@ bool Level::ScheduleSplit(unsigned int splitIdx, unsigned int predIdx, unsigned 
 }
 
 
-// COPROC:
-/**
-   @brief Clones offsets along path reaching from ancestor node.
-
-   @param mrra is an MRRA coordinate.
-
-   @param reachOffset holds the starting offset positions along the path.
-
-   @return path origin at the index passed.
- */
-void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]) {
-  unsigned int nodeStart = BackScale(mrra.first);
-  for (unsigned int i = 0; i < BackScale(1); i++) {
-    reachOffset[i] = nodePath[nodeStart + i].IdxStart();
-    splitOffset[i] = offCand[PairOffset(mrra.first, mrra.second)];
-  }
-  if (reachBase != nullptr) {
-    for (unsigned int i = 0; i < BackScale(1); i++) {
-      reachBase[i] = nodePath[nodeStart + i].RelBase();
-    }
-  }
-}
-
-
 /**
    @brief Signals SplitPred to schedule splitable pairs.
 
@@ -429,16 +405,17 @@ void Level::CandidateFixed(SplitPred *splitPred, unsigned int splitIdx, const do
   }
 }
 
-void Level::Restage(SPPair &mrra, Level *levelFront, unsigned int bufIdx) {
+
+void Level::RankRestage(SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx) {
   unsigned int reachOffset[1 << NodePath::pathMax];
   if (nodeRel) { // Both levels employ node-relative indexing.
     unsigned int reachBase[1 << NodePath::pathMax];
     OffsetClone(mrra, reachOffset, reachBase);
-    Restage(mrra, levelFront, bufIdx, reachBase, reachOffset);
+    RankRestage(samplePred, mrra, levelFront, bufIdx, reachBase, reachOffset);
   }
   else { // Source level employs subtree indexing.  Target may or may not.
     OffsetClone(mrra, reachOffset, nullptr);
-    Restage(mrra, levelFront, bufIdx, nullptr, reachOffset);
+    RankRestage(samplePred, mrra, levelFront, bufIdx, nullptr, reachOffset);
   }
 }
 
@@ -451,7 +428,7 @@ void Level::Restage(SPPair &mrra, Level *levelFront, unsigned int bufIdx) {
    Decomposition into two paths adds ~5% performance penalty, but
    appears necessary for dense packing or for coprocessor loading.
  */
-void Level::Restage(const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]) {
+void Level::RankRestage(SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]) {
   unsigned int startIdx, extent;
   Bounds(mrra, startIdx, extent);
 
@@ -474,6 +451,53 @@ void Level::Restage(const SPPair &mrra, Level *levelFront, unsigned int bufIdx, 
     rankPrev[path] = bottom->NoRank();
     rankCount[path] = 0;
   }
-  samplePred->RestageRank(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
+  samplePred->RankRestage(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
   RunCounts(bottom, mrra, pathCount, rankCount);
+}
+
+
+// COPROC:
+/**
+   @brief Clones offsets along path reaching from ancestor node.
+
+   @param mrra is an MRRA coordinate.
+
+   @param reachOffset holds the starting offset positions along the path.
+
+   @return path origin at the index passed.
+ */
+void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]) {
+  unsigned int nodeStart = BackScale(mrra.first);
+  for (unsigned int i = 0; i < BackScale(1); i++) {
+    reachOffset[i] = nodePath[nodeStart + i].IdxStart();
+    splitOffset[i] = offCand[PairOffset(mrra.first, mrra.second)];
+  }
+  if (reachBase != nullptr) {
+    for (unsigned int i = 0; i < BackScale(1); i++) {
+      reachBase[i] = nodePath[nodeStart + i].RelBase();
+    }
+  }
+}
+
+
+void Level::IndexRestage(SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx) {
+  unsigned int reachOffset[1 << NodePath::pathMax];
+  unsigned int splitOffset[1 << NodePath::pathMax];
+  if (nodeRel) { // Both levels employ node-relative indexing.
+    unsigned int reachBase[1 << NodePath::pathMax];
+    OffsetClone(mrra, reachOffset, splitOffset, reachBase);
+    IndexRestage(samplePred, mrra, levelFront, bufIdx, reachBase, reachOffset, splitOffset);
+  }
+  else { // Source level employs subtree indexing.  Target may or may not.
+    OffsetClone(mrra, reachOffset, splitOffset);
+    IndexRestage(samplePred, mrra, levelFront, bufIdx, nullptr, reachOffset, splitOffset);
+  }
+}
+
+
+void Level::IndexRestage(SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]) {
+  unsigned int startIdx, extent;
+  Bounds(mrra, startIdx, extent);
+
+  samplePred->IndexRestage(nodeRel ? FrontPath() : bottom->STPath(), reachBase, mrra.second, bufIdx, startIdx, extent, PathMask(), reachBase == nullptr ? levelFront->NodeRel() : true, reachOffset, splitOffset);
 }

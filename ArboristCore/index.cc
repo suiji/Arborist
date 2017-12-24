@@ -152,7 +152,7 @@ PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, con
   SplitPred *splitPred;
   SamplePred *samplePred;
   Sample::StageFactory(pmTrain, rowRank, response, sample, splitPred, samplePred, stageCount);
-  Bottom *bottom = new Bottom(pmTrain, rowRank, splitPred, samplePred, stageCount, sample->BagCount());
+  Bottom *bottom = new Bottom(pmTrain, rowRank, splitPred, stageCount, sample->BagCount());
   IndexLevel *index = new IndexLevel(samplePred, sample->CtgRoot(), bottom, sample->NSamp(), sample->BagCount(), sample->BagSum());
 
   PreTree *preTree = index->Levels(pmTrain);
@@ -562,7 +562,7 @@ void IndexLevel::TransitionReindex(unsigned int splitNext) {
    @return void.
  */
 void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
-  bottom->Overlap(samplePred, splitNext, idxLive, nodeRel);
+  bottom->Overlap(splitNext, idxLive, nodeRel);
   std::vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.Produce(this, bottom, preTree, indexNext);

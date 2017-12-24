@@ -1,11 +1,11 @@
-cdef class PyPtrVecBagRow:
-    cdef set(self, shared_ptr[vector[BagRow]] ptr):
+cdef class PyPtrVecBagLeaf:
+    cdef set(self, shared_ptr[vector[BagLeaf]] ptr):
         self.thisptr = ptr
         return self
-    cdef shared_ptr[vector[BagRow]] get(self):
+    cdef shared_ptr[vector[BagLeaf]] get(self):
         return self.thisptr
     def __repr__(self):
-        return '<Pointer to vector<BagRow>>'
+        return '<Pointer to vector<BagLeaf>>'
 
 
 

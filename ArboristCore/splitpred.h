@@ -44,27 +44,27 @@ class SplitCoord {
 
   void Split(const class SPReg *spReg, const class SamplePred *samplePred);
   void Split(class SPCtg *spCtg, const class SamplePred *samplePred);
-  void SplitNum(const class SPReg *splitReg, const class SPNode spn[]);
-  void SplitNum(class SPCtg *splitCtg, const class SPNode spn[]);
-  bool SplitNum(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
-  bool SplitNum(const class SPNode spn[], class NuxLH &nux);
-  bool SplitNumDense(const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
-  bool SplitNumDenseMono(bool increasing, const class SPNode spn[], const class SPReg *spReg, class NuxLH &nux);
-  bool SplitNumMono(bool increasing, const class SPNode spn[], class NuxLH &nux);
-  bool SplitNum(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
-  bool NumCtgDense(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
-  bool NumCtg(class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
-  unsigned int NumCtgGini(SPCtg *spCtg, const class SPNode spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf);
-  void SplitFac(const class SPReg *splitReg, const class SPNode spn[]);
-  void SplitFac(const class SPCtg *splitCtg, const class SPNode spn[]);
-  bool SplitFac(const class SPReg *spReg, const class SPNode spn[], class NuxLH &nux);
-  bool SplitFac(const class SPCtg *spCtg, const class SPNode spn[], class NuxLH &nux);
+  void SplitNum(const class SPReg *splitReg, const class SampleRank spn[]);
+  void SplitNum(class SPCtg *splitCtg, const class SampleRank spn[]);
+  bool SplitNum(const class SPReg *spReg, const class SampleRank spn[], class NuxLH &nux);
+  bool SplitNum(const class SampleRank spn[], class NuxLH &nux);
+  bool SplitNumDense(const class SampleRank spn[], const class SPReg *spReg, class NuxLH &nux);
+  bool SplitNumDenseMono(bool increasing, const class SampleRank spn[], const class SPReg *spReg, class NuxLH &nux);
+  bool SplitNumMono(bool increasing, const class SampleRank spn[], class NuxLH &nux);
+  bool SplitNum(class SPCtg *spCtg, const class SampleRank spn[], class NuxLH &nux);
+  bool NumCtgDense(class SPCtg *spCtg, const class SampleRank spn[], class NuxLH &nux);
+  bool NumCtg(class SPCtg *spCtg, const class SampleRank spn[], class NuxLH &nux);
+  unsigned int NumCtgGini(SPCtg *spCtg, const class SampleRank spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf);
+  void SplitFac(const class SPReg *splitReg, const class SampleRank spn[]);
+  void SplitFac(const class SPCtg *splitCtg, const class SampleRank spn[]);
+  bool SplitFac(const class SPReg *spReg, const class SampleRank spn[], class NuxLH &nux);
+  bool SplitFac(const class SPCtg *spCtg, const class SampleRank spn[], class NuxLH &nux);
   bool SplitBinary(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
   bool SplitRuns(const class SPCtg *spCtg, class RunSet *runSet, class NuxLH &nux);
 
-  void RunsReg(class RunSet *runSet, const class SPNode spn[], unsigned int denseRank) const;
+  void RunsReg(class RunSet *runSet, const class SampleRank spn[], unsigned int denseRank) const;
   bool HeapSplit(class RunSet *runSet, class NuxLH &nux) const;
-  void RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SPNode spn[]) const;
+  void RunsCtg(const class SPCtg *spCtg, class RunSet *runSet, const SampleRank spn[]) const;
 };
 
 
@@ -127,7 +127,7 @@ class SPReg : public SplitPred {
   void Split(const class SamplePred *samplePred);
 
  public:
-  unsigned int Residuals(const SPNode spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const;
+  unsigned int Residuals(const SampleRank spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const;
   static void Immutables(unsigned int _nPred, const double *_mono);
   static void DeImmutables();
   SPReg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, unsigned int bagCount);
@@ -193,7 +193,7 @@ class SPCtg : public SplitPred {
  public:
   SPCtg(const class PMTrain *_pmTrain, const class RowRank *_rowRank, unsigned int bagCount, unsigned int _nCtg);
   ~SPCtg();
-  unsigned int Residuals(const SPNode spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, bool &denseLeft, bool &denseRight, double &sumDense, unsigned int &sCountDense, std::vector<double> &ctgSumDense) const;
+  unsigned int Residuals(const SampleRank spn[], unsigned int levelIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int denseRank, bool &denseLeft, bool &denseRight, double &sumDense, unsigned int &sCountDense, std::vector<double> &ctgSumDense) const;
   void ApplyResiduals(unsigned int levelIdx, unsigned int predIdx, double &ssL, double &ssr, std::vector<double> &sumDenseCtg);
 
   inline unsigned int CtgWidth() const {

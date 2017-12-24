@@ -18,48 +18,20 @@
 #include "rowrank.h"
 #include "path.h"
 #include "bv.h"
+#include "level.h"
 
 #include <numeric>
 
 //#include <iostream>
 //using namespace std;
 
-unsigned int SPNode::ctgShift = 0;
-
-
-/**
-   @brief Computes a packing width sufficient to hold all (zero-based) response
-   category values.
-
-   @param ctgWidth is the response cardinality.
-
-   @return void.
- */
-void SPNode::Immutables(unsigned int ctgWidth) {
-  unsigned int bits = 1;
-  ctgShift = 0;
-  // Ctg values are zero-based, so the first power of 2 greater than or
-  // equal to 'ctgWidth' has sufficient bits to hold all response values.
-  while (bits < ctgWidth) {
-    bits <<= 1;
-    ctgShift++;
-  }
-}
-
-
-/*
-**/
-void SPNode::DeImmutables() {
-  ctgShift = 0;
-}
-
 
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bagCount(_bagCount), nPred(_nPred), bufferSize(_bufferSize), pitchSP(bagCount * sizeof(SamplePred)), pitchSIdx(bagCount * sizeof(unsigned int)), pathIdx(bufferSize) {
+SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bufferSize(_bufferSize), pitchSP(bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)), pathIdx(bufferSize), nPred(_nPred), bagCount(_bagCount) {
   indexBase = new unsigned int[2* bufferSize];
-  nodeVec = new SPNode[2 * bufferSize];
+  nodeVec = new SampleRank[2 * bufferSize];
 
   // Coprocessor variants:
   destRestage = new unsigned int[bufferSize];
@@ -87,12 +59,55 @@ SamplePred::~SamplePred() {
 
    @return voidl
  */
-SPNode *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx) {
+SampleRank *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx) {
   stageOffset[predIdx] = safeOffset;
   stageExtent[predIdx] = extent;
 
   return  Buffers(predIdx, 0, smpIdx);
 
+}
+
+// TODO:  Merge
+void SamplePred::Stage(const class RRNode *rrNode, unsigned int rrTot, const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, std::vector<StageCount> &stageCount) {}
+
+
+unsigned int SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
+  unsigned int *smpIdx;
+  SampleRank *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
+  unsigned int expl = 0;
+  for (unsigned int idx = 0; idx < explMax; idx++) {
+    Stage(sampleNode, rrPred[idx], row2Sample, spn, smpIdx, expl);
+  }
+
+  singleton = Singleton(expl, predIdx);
+  return expl;
+}
+
+
+/**
+   @brief Fills in sampled response summary and rank information associated
+   with an RRNode reference.
+
+   @param rrNode summarizes an element of the compressed design matrix.
+
+   @param spn is the cell to initialize.
+
+   @param smpIdx is the associated sample index.
+
+   @param expl accumulates the current explicitly staged offset.
+
+   @return void.
+ */
+void SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl) {
+  unsigned int row, rank;
+  rrNode.Ref(row, rank);
+
+  unsigned int sIdx = row2Sample[row];
+  if (sIdx < bagCount) {
+    spn[expl].Join(rank, sampleNode[sIdx]);
+    smpIdx[expl] = sIdx;
+    expl++;
+  }
 }
 
 
@@ -116,7 +131,7 @@ SPNode *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffset, u
  */
 double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl, std::vector<SumCount> &ctgExpl) {
   unsigned int *idx;
-  SPNode *spn = Buffers(predIdx, sourceBit, idx);
+  SampleRank *spn = Buffers(predIdx, sourceBit, idx);
 
   double sumExpl = 0.0;
   if (!ctgExpl.empty()) {
@@ -187,12 +202,22 @@ void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int *reachBase, 
 
 
 /**
+   @brief Virtual pass-through to appropriate restaging method.
+
+   @return void.
+ */
+void SamplePred::Restage(Level *levelBack, Level *levelFront, const SPPair &mrra, unsigned int bufIdx) {
+  levelBack->RankRestage(this, mrra, levelFront, bufIdx);
+}
+
+
+/**
    @brief Restages and tabultates rank counts.
 
    @return void.
  */
-void SamplePred::RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]) {
-  SPNode *source, *targ;
+void SamplePred::RankRestage(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]) {
+  SampleRank *source, *targ;
   unsigned int *idxSource, *idxTarg;
   Buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
 
@@ -200,7 +225,7 @@ void SamplePred::RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int path = pathBlock[idx];
     if (path != NodePath::noPath) {
-      SPNode spNode = source[idx];
+      SampleRank spNode = source[idx];
       unsigned int rank = spNode.Rank();
       rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
       rankPrev[path] = rank;
@@ -212,44 +237,23 @@ void SamplePred::RestageRank(unsigned int predIdx, unsigned int bufIdx, unsigned
 }
 
 
-unsigned int SamplePred::Stage(const std::vector<SampleNode> &sampleNode, const RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
-  unsigned int *smpIdx;
-  SPNode *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
-  unsigned int expl = 0;
-  for (unsigned int idx = 0; idx < explMax; idx++) {
-    Stage(sampleNode, rrPred[idx], row2Sample, spn, smpIdx, expl);
-  }
+void SamplePred::IndexRestage(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int idxStart, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]) {
+  unsigned int *idxSource, *idxTarg;
+  IndexBuffers(predIdx, bufIdx, idxSource, idxTarg);
 
-  singleton = Singleton(expl, predIdx);
-  return expl;
-}
-
-
-/**
-   @brief Fills in sampled response summary and rank information associated
-   with an RRNode reference.
-
-   @param rrNode summarizes an element of the compressed design matrix.
-
-   @param spn is the cell to initialize.
-
-   @param smpIdx is the associated sample index.
-
-   @param expl accumulates the current explicitly staged offset.
-
-   @return void.
- */
-void SamplePred::Stage(const std::vector<SampleNode> &sampleNode, const RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SPNode *spn, unsigned int *smpIdx, unsigned int &expl) {
-  unsigned int row, rank;
-  rrNode.Ref(row, rank);
-
-  unsigned int sIdx = row2Sample[row];
-  if (sIdx < bagCount) {
-    unsigned int sCount;
-    FltVal ySum;
-    unsigned int ctg = sampleNode[sIdx].Ref(ySum, sCount);
-    spn[expl].Init(rank, ctg, ySum, sCount);
-    smpIdx[expl] = sIdx;
-    expl++;
+  for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
+    unsigned int sIdx = idxSource[idx];
+    unsigned int path = idxPath->IdxUpdate(sIdx, pathMask, reachBase, idxUpdate);
+    if (path != NodePath::noPath) {
+      unsigned int targOff = reachOffset[path]++;
+      idxTarg[targOff] = sIdx; // Semi-regular:  split-level target store.
+      destRestage[idx] = targOff;
+      //      destSplit[idx] = splitOffset[path]++; // Speculative.
+    }
+    else {
+      destRestage[idx] = bagCount;
+      //destSplit[idx] = bagCount;
+    }
   }
 }
+

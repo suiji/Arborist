@@ -5,29 +5,27 @@ from libcpp.vector cimport vector
 
 from .cyforest cimport ForestNode
 from .cyleaf cimport LeafNode
-from .cyleaf cimport BagRow
+from .cyleaf cimport BagLeaf
 
 
 
 cdef extern from 'train.h':
-    cdef void Train_Init 'Train::Init'(double *_feNum,
-        int _facCard[],
-        int _cardMax,
-        int _nPredNum,
-        int _nPredFac,
-        int _nRow,
-        int _nTree,
-        int _nSamp,
-        double _feSampleWeight[],
-        bool withRepl,
-        int _trainBlock,
-        int _minNode,
-        double _minRatio,
-        int _totLevels,
-        int _ctgWidth,
-        int _predFixed,
-        double _predProb[],
-        double _regMono[])
+    cdef void Train_Init 'Train::Init'(unsigned int _nPred,
+       unsigned int _nTree,
+       unsigned int _nSamp,
+       const vector[double] &_feSampleWeight,
+       bool withRepl,
+       unsigned int _trainBlock,
+       unsigned int _minNode,
+       double _minRatio,
+       unsigned int _totLevels,
+       unsigned int _leafMax,
+       unsigned int _ctgWidth,
+       unsigned int _predFixed,
+       const double _splitQuant[],
+       const double _predProb[],
+       bool _thinLeaves,
+       const double _regMono[])
 
     cdef void Train_Regression 'Train::Regression'(int _feRow[],
         int _feRank[],
@@ -41,7 +39,7 @@ cdef extern from 'train.h':
         vector[unsigned int] &_facSplit,
         vector[unsigned int] &_leafOrigin,
         vector[LeafNode] &_leafNode,
-        vector[BagRow] &_bagRow,
+        vector[BagLeaf] &_bagLeaf,
         vector[unsigned int] &_rank)
 
     cdef void Train_Classification 'Train::Classification'(int _feRow[],
@@ -57,5 +55,5 @@ cdef extern from 'train.h':
         vector[unsigned int] &_facSplit,
         vector[unsigned int] &_leafOrigin,
         vector[LeafNode] &_leafNode,
-        vector[BagRow] &_bagRow,
+        vector[BagLeaf] &_bagLeaf,
         vector[double] &_weight)

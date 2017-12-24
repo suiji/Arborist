@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from .cyrowrank import PyRowRank
 from .cytrain import PyTrain

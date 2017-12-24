@@ -42,7 +42,7 @@
 
    @param splitCount specifies the number of splits to map.
  */
-Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_splitPred, SamplePred *samplePred, std::vector<StageCount> &stageCount, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), noRank(rowRank->NoRank()), splitPred(_splitPred), run(splitPred->Runs()), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this, samplePred)), runCount(std::vector<unsigned int>(nPredFac)) {
+Bottom::Bottom(const PMTrain *_pmTrain, const RowRank *_rowRank, SplitPred *_splitPred, std::vector<StageCount> &stageCount, unsigned int _bagCount) : nPred(_pmTrain->NPred()), nPredFac(_pmTrain->NPredFac()), bagCount(_bagCount), stPath(new IdxPath(bagCount)), splitPrev(0), splitCount(1), pmTrain(_pmTrain), rowRank(_rowRank), noRank(rowRank->NoRank()), splitPred(_splitPred), run(splitPred->Runs()), history(std::vector<unsigned int>(0)), levelDelta(std::vector<unsigned char>(nPred)), levelFront(new Level(1, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this)), runCount(std::vector<unsigned int>(nPredFac)) {
   level.push_front(levelFront);
   levelFront->Ancestor(0, 0, bagCount);
   std::fill(levelDelta.begin(), levelDelta.end(), 0);
@@ -79,12 +79,12 @@ void Bottom::RootDef(const std::vector<StageCount> &stageCount) {
 
    @return void, with output vector of splitting signatures.
  */
-void Bottom::Split(const SamplePred *samplePred, IndexLevel *index, std::vector<SSNode> &argMax) {
+void Bottom::Split(SamplePred *samplePred, IndexLevel *index, std::vector<SSNode> &argMax) {
   unsigned int supUnFlush = FlushRear();
   levelFront->Candidates(index, splitPred);
 
   Backdate();
-  Restage();
+  Restage(samplePred);
 
   // Reaching levels must persist through restaging ut allow path lookup.
   //
@@ -176,14 +176,14 @@ Bottom::~Bottom() {
 
    @return void, with side-effected restaging buffers.
  */
-void Bottom::Restage() {
+void Bottom::Restage(SamplePred *samplePred) {
   int nodeIdx;
 
 #pragma omp parallel default(shared) private(nodeIdx)
   {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
-      Restage(restageCoord[nodeIdx]);
+      Restage(samplePred, restageCoord[nodeIdx]);
     }
   }
 
@@ -194,11 +194,11 @@ void Bottom::Restage() {
 /**
    @brief General, multi-level restaging.
  */
-void Bottom::Restage(RestageCoord &rsCoord) {
+void Bottom::Restage(SamplePred *samplePred, RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
   SPPair mrra;
   rsCoord.Ref(mrra, del, bufIdx);
-  level[del]->Restage(mrra, levelFront, bufIdx);
+  samplePred->Restage(level[del], levelFront, mrra, bufIdx);
 }
 
 
@@ -245,13 +245,13 @@ void Bottom::LevelClear() {
 
    @return true iff front level employs node-relative indexing.
  */
-void Bottom::Overlap(SamplePred *samplePred, unsigned int splitNext, unsigned int idxLive, bool nodeRel) {
+void Bottom::Overlap(unsigned int splitNext, unsigned int idxLive, bool nodeRel) {
   splitPrev = splitCount;
   splitCount = splitNext;
   if (splitCount == 0) // No further splitting or restaging.
     return;
 
-  levelFront = new Level(splitCount, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, idxLive, nodeRel, this, samplePred);
+  levelFront = new Level(splitCount, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, idxLive, nodeRel, this);
   level.push_front(levelFront);
 
   historyPrev = std::move(history);
