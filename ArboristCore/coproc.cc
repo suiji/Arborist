@@ -19,7 +19,7 @@
 /**
    @brief
  */
-Coproc *Coproc::Factory(bool enable, std::string &diag) {
+Coproc *Coproc::Factory(bool enable, string &diag) {
   diag = "Executable built without coprocessor support.";
 
   return new Coproc(0, 1);

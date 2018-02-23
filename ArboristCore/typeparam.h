@@ -6,19 +6,21 @@
  */
 
 /**
-   @file param.h
+   @file typetypeparam.h
 
-   @brief Definitions for parameterization of classes.
+   @brief Definitions for parameterization of internal types and classes.
 
    @author Mark Seligman
 
  */
 
 
-#ifndef ARBORIST_PARAM_H
-#define ARBORIST_PARAM_H
+#ifndef ARBORIST_TYPEPARAM_H
+#define ARBORIST_TYPEPARAM_H
 
 #include <utility>
+
+using namespace std;
 
 // Type for caching front-end values, but not necessarily for arithmetic.
 typedef float FltVal;
@@ -36,7 +38,7 @@ typedef unsigned char PathT;
 /**
    @brief Split/predictor coordinate pair.
  */
-typedef std::pair<unsigned int, unsigned int> SPPair;
+typedef pair<unsigned int, unsigned int> SPPair;
 
 
 #endif

@@ -25,6 +25,8 @@
 
 #include <vector>
 
+#include "typeparam.h"
+
 /**
  */
 class FRNode {
@@ -257,7 +259,7 @@ class RunSet {
 class Run {
   const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
-  std::vector<RunSet> runSet;
+  vector<RunSet> runSet;
   FRNode *facRun; // Workspace for FRNodes used along level.
   BHPair *bHeap;
   unsigned int *lhOut; // Vector of lh-bound slot indices.
@@ -272,7 +274,7 @@ class Run {
   void LevelClear();
   void OffsetsReg();
   void OffsetsCtg();
-  void RunSets(const std::vector<unsigned int> &safeCount);
+  void RunSets(const vector<unsigned int> &safeCount);
 
 
   inline bool IsRun(unsigned int setIdx) const {

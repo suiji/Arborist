@@ -26,11 +26,6 @@
 
 #include <numeric>
 
-// Testing only:
-//#include <iostream>
-//using namespace std;
-//#include <time.h>
-
 
 unsigned int IndexLevel::totLevels = 0;
 unsigned int IndexLevel::minNode = 0;
@@ -65,12 +60,12 @@ void IndexLevel::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-IndexLevel::IndexLevel(SamplePred *_samplePred, const std::vector<SumCount> &ctgRoot, Bottom *_bottom, unsigned int nSamp, unsigned int _bagCount, double bagSum) : samplePred(_samplePred), bottom(_bottom), indexSet(std::vector<IndexSet>(1)), bagCount(_bagCount), nodeRel(false), idxLive(bagCount), relBase(std::vector<unsigned int>(1)), rel2ST(std::vector<unsigned int>(bagCount)), st2Split(std::vector<unsigned int>(bagCount)), st2PT(std::vector<unsigned int>(bagCount)), replayExpl(new BV(bagCount))  {
+IndexLevel::IndexLevel(SamplePred *_samplePred, const vector<SumCount> &ctgRoot, Bottom *_bottom, unsigned int nSamp, unsigned int _bagCount, double bagSum) : samplePred(_samplePred), bottom(_bottom), indexSet(vector<IndexSet>(1)), bagCount(_bagCount), nodeRel(false), idxLive(bagCount), relBase(vector<unsigned int>(1)), rel2ST(vector<unsigned int>(bagCount)), st2Split(vector<unsigned int>(bagCount)), st2PT(vector<unsigned int>(bagCount)), replayExpl(new BV(bagCount))  {
   indexSet[0].Init(0, nSamp, 0, bagCount, 0.0, 0, bagSum, 0, 0, bagCount, ctgRoot, ctgRoot, true);
   relBase[0] = 0;
-  std::iota(rel2ST.begin(), rel2ST.end(), 0);
-  std::fill(st2Split.begin(), st2Split.end(), 0);
-  std::fill(st2PT.begin(), st2PT.end(), 0);
+  iota(rel2ST.begin(), rel2ST.end(), 0);
+  fill(st2Split.begin(), st2Split.end(), 0);
+  fill(st2PT.begin(), st2PT.end(), 0);
 }
 
 
@@ -79,7 +74,7 @@ IndexLevel::IndexLevel(SamplePred *_samplePred, const std::vector<SumCount> &ctg
 
   @return void.
  */
-void IndexSet::Init(unsigned int _splitIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, unsigned int _relBase, unsigned int bagCount, const std::vector<SumCount> &_ctgSum, const std::vector<SumCount> &_ctgExpl, bool explHand) {
+void IndexSet::Init(unsigned int _splitIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, unsigned int _relBase, unsigned int bagCount, const vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgExpl, bool explHand) {
     splitIdx = _splitIdx;
     sCount = _sCount;
     lhStart = _lhStart;
@@ -96,13 +91,13 @@ void IndexSet::Init(unsigned int _splitIdx, unsigned int _sCount, unsigned int _
       ctgSum = _ctgSum;
       Decr(ctgSum, _ctgExpl);
     }
-    ctgExpl = std::move(std::vector<SumCount>(ctgSum.size()));
+    ctgExpl = move(vector<SumCount>(ctgSum.size()));
 
     // Inattainable value.  Reset only when non-terminal:
     succExpl = succImpl = offExpl = offImpl = bagCount;
 }
 
-void IndexSet::Decr(std::vector<SumCount> &_ctgSum, const std::vector<SumCount> &_ctgSub) {
+void IndexSet::Decr(vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgSub) {
   unsigned i = 0;
   for (auto & sc : _ctgSum) {
     sc.Decr(_ctgSub[i++]);
@@ -134,10 +129,10 @@ IndexSet::IndexSet() : preBias(0.0), splitIdx(0), ptId(0), lhStart(0), extent(0)
 
    @param ptBlock is a brace of 'treeBlock'-many PreTree objects.
 */
-void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const Response *response, std::vector<Sample *> &sampleBlock, std::vector<PreTree*> &ptBlock) {
+void IndexLevel::TreeBlock(const FrameTrain *frameTrain, const RowRank *rowRank, const Response *response, vector<Sample *> &sampleBlock, vector<PreTree*> &ptBlock) {
   unsigned int blockIdx = 0;
   for (auto & sample : sampleBlock) {
-    ptBlock[blockIdx++] = OneTree(pmTrain, rowRank, response, sample);
+    ptBlock[blockIdx++] = OneTree(frameTrain, rowRank, response, sample);
   }
 }
 
@@ -147,15 +142,15 @@ void IndexLevel::TreeBlock(const PMTrain *pmTrain, const RowRank *rowRank, const
 
    @return void.
  */
-PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, const Response *response, Sample *&sample) {
-  std::vector<StageCount> stageCount(rowRank->NPred());
+PreTree *IndexLevel::OneTree(const FrameTrain *frameTrain, const RowRank *rowRank, const Response *response, Sample *&sample) {
+  vector<StageCount> stageCount(rowRank->NPred());
   SplitPred *splitPred;
   SamplePred *samplePred;
-  Sample::StageFactory(pmTrain, rowRank, response, sample, splitPred, samplePred, stageCount);
-  Bottom *bottom = new Bottom(pmTrain, rowRank, splitPred, stageCount, sample->BagCount());
+  Sample::StageFactory(frameTrain, rowRank, response, sample, splitPred, samplePred, stageCount);
+  Bottom *bottom = new Bottom(frameTrain, rowRank, splitPred, stageCount, sample->BagCount());
   IndexLevel *index = new IndexLevel(samplePred, sample->CtgRoot(), bottom, sample->NSamp(), sample->BagCount(), sample->BagSum());
 
-  PreTree *preTree = index->Levels(pmTrain);
+  PreTree *preTree = index->Levels(frameTrain);
   delete index;
   
   return preTree;
@@ -168,13 +163,13 @@ PreTree *IndexLevel::OneTree(const PMTrain *pmTrain, const RowRank *rowRank, con
 
    @return void.
 */
-PreTree *IndexLevel::Levels(const PMTrain *pmTrain) {
-  PreTree *preTree = new PreTree(pmTrain, bagCount);
+PreTree *IndexLevel::Levels(const FrameTrain *frameTrain) {
+  PreTree *preTree = new PreTree(frameTrain, bagCount);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit(this);
-    std::vector<SSNode> argMax(indexSet.size());
+    vector<SSNode> argMax(indexSet.size());
     InfoInit(argMax);
     bottom->Split(samplePred, this, argMax);
 
@@ -198,7 +193,7 @@ PreTree *IndexLevel::Levels(const PMTrain *pmTrain) {
 
    @return void.
  */
-void IndexLevel::InfoInit(std::vector<SSNode> &argMax) const {
+void IndexLevel::InfoInit(vector<SSNode> &argMax) const {
   for (auto & iSet : indexSet) {
     argMax[iSet.SplitIdx()].SetInfo(iSet.MinInfo());
   }
@@ -213,8 +208,8 @@ void IndexLevel::InfoInit(std::vector<SSNode> &argMax) const {
 
    @return count of splitable nodes in the next level.
  */
-unsigned int IndexLevel::SplitCensus(const std::vector<SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool _levelTerminal) {
-  levelTerminal = _levelTerminal;
+unsigned int IndexLevel::SplitCensus(const vector<SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool levelTerminal) {
+  this->levelTerminal = levelTerminal;
   unsigned int splitNext, leafThis, idxExtent;
   idxExtent = idxLive; // Previous level's index space.
   leafThis = splitNext = idxLive = idxMax = 0;
@@ -227,8 +222,8 @@ unsigned int IndexLevel::SplitCensus(const std::vector<SSNode> &argMax, unsigned
   //
   leafNext = 2 * (indexSet.size() - leafThis) - splitNext;
 
-  succBase = std::move(std::vector<unsigned int>(splitNext + leafNext + leafThis));
-  std::fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
+  succBase = move(vector<unsigned int>(splitNext + leafNext + leafThis));
+  fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
 
   return splitNext;
 }
@@ -243,7 +238,7 @@ unsigned int IndexLevel::SplitCensus(const std::vector<SSNode> &argMax, unsigned
    @return void.
  */
 void IndexSet::SplitCensus(IndexLevel *indexLevel, unsigned int &leafThis, unsigned int &splitNext, unsigned int &idxLive, unsigned int &idxMax) {
-  if (!terminal) {
+  if (doesSplit) {
     splitNext += SplitAccum(indexLevel, lhExtent, idxLive, idxMax);
     splitNext += SplitAccum(indexLevel, extent - lhExtent, idxLive, idxMax);
   }
@@ -254,22 +249,12 @@ void IndexSet::SplitCensus(IndexLevel *indexLevel, unsigned int &leafThis, unsig
 
 
 /**
-     @brief Sets members according to whether the set splits.
+     @brief Absorbs parameters of informative splits.
 
-     @param argMax is the arg-max node for the split.
-
-     @return void.
+     @return void, with side-effected 'doesSplit' value.
  */
-void IndexSet::ApplySplit(const std::vector<SSNode> &argMaxVec) {
-  SSNode argMax = argMaxVec[splitIdx];
-  if (argMax.Info() > minInfo) {
-    argMax.LHSizes(lhSCount, lhExtent);
-    minInfo = argMax.MinInfo(); // Reset for splitting next level.
-    terminal = false;
-  }
-  else {
-    terminal = true;
-  }  
+void IndexSet::ApplySplit(const vector<SSNode> &argMaxVec) {
+  doesSplit = argMaxVec[splitIdx].Informative(minInfo, lhSCount, lhExtent);
 }
 
 
@@ -294,7 +279,7 @@ unsigned IndexSet::SplitAccum(class IndexLevel *indexLevel, unsigned int _extent
 
    @return void.
 */
-void IndexLevel::Consume(PreTree *preTree, const std::vector<SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax) {
+void IndexLevel::Consume(PreTree *preTree, const vector<SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax) {
   preTree->Level(splitNext, leafNext); // Overlap:  two levels co-exist.
   replayExpl->Clear();
   succLive = 0;
@@ -318,7 +303,7 @@ void IndexLevel::Consume(PreTree *preTree, const std::vector<SSNode> &argMax, un
     }
   }
 
-  relBase = std::move(succBase);
+  relBase = move(succBase);
 }
 
 
@@ -327,8 +312,8 @@ void IndexLevel::Consume(PreTree *preTree, const std::vector<SSNode> &argMax, un
 
   @return void.
 */
-void IndexSet::Consume(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree, const std::vector<SSNode> &argMax) {
-  if (!terminal) {
+void IndexSet::Consume(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree, const vector<SSNode> &argMax) {
+  if (doesSplit) {
     NonTerminal(indexLevel, preTree, argMax[splitIdx]);
   }
   else {
@@ -410,8 +395,8 @@ unsigned int IndexLevel::IdxSucc(unsigned int extent, unsigned int ptId, unsigne
    @brief Driver for node-relative reindexing.
  */
 void IndexLevel::NodeReindex() {
-  std::vector<unsigned int> succST(idxLive);
-  rel2PT = std::move(std::vector<unsigned int>(idxLive));
+  vector<unsigned int> succST(idxLive);
+  rel2PT = move(vector<unsigned int>(idxLive));
 
   unsigned int splitIdx;
 #pragma omp parallel default(shared) private(splitIdx)
@@ -421,15 +406,15 @@ void IndexLevel::NodeReindex() {
       indexSet[splitIdx].Reindex(replayExpl, this, idxLive, succST);
     }
   }
-  rel2ST = std::move(succST);
+  rel2ST = move(succST);
 }
 
 
 /**
    @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
  */
-void IndexSet::Reindex(const BV *replayExpl, IndexLevel *index, unsigned int idxLive, std::vector<unsigned int> &succST) {
-  if (terminal) {
+void IndexSet::Reindex(const BV *replayExpl, IndexLevel *index, unsigned int idxLive, vector<unsigned int> &succST) {
+  if (!doesSplit) {
     index->RelExtinct(relBase, extent, ptId);
   }
   else {
@@ -438,7 +423,7 @@ void IndexSet::Reindex(const BV *replayExpl, IndexLevel *index, unsigned int idx
 }
 
 
-void IndexSet::NontermReindex(const BV *replayExpl, IndexLevel *index, unsigned int idxLive, std::vector<unsigned int> &succST) {
+void IndexSet::NontermReindex(const BV *replayExpl, IndexLevel *index, unsigned int idxLive, vector<unsigned int> &succST) {
   unsigned int baseExpl = offExpl;
   unsigned int baseImpl = offImpl;
   for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
@@ -563,11 +548,11 @@ void IndexLevel::TransitionReindex(unsigned int splitNext) {
  */
 void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
   bottom->Overlap(splitNext, idxLive, nodeRel);
-  std::vector<IndexSet> indexNext(splitNext);
+  vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.Produce(this, bottom, preTree, indexNext);
   }
-  indexSet = std::move(indexNext);
+  indexSet = move(indexNext);
 }
 
 
@@ -578,8 +563,8 @@ void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
 
    @return void, plus output reference parameters.
 */
-void IndexSet::Produce(IndexLevel *indexLevel, Bottom *bottom, const PreTree *preTree, std::vector<IndexSet> &indexNext) const {
-  if (!terminal) {
+void IndexSet::Produce(IndexLevel *indexLevel, Bottom *bottom, const PreTree *preTree, vector<IndexSet> &indexNext) const {
+  if (doesSplit) {
     Successor(indexLevel, indexNext, bottom, lhSCount, lhStart, lhExtent, minInfo, preTree->LHId(ptId), leftExpl);
     Successor(indexLevel, indexNext, bottom, sCount - lhSCount, lhStart + lhExtent, extent - lhExtent, minInfo, preTree->RHId(ptId), !leftExpl);
   }
@@ -592,7 +577,7 @@ void IndexSet::Produce(IndexLevel *indexLevel, Bottom *bottom, const PreTree *pr
 
    @return void.
 */
-void IndexSet::Successor(IndexLevel *indexLevel, std::vector<IndexSet> &indexNext, Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, bool explHand) const {
+void IndexSet::Successor(IndexLevel *indexLevel, vector<IndexSet> &indexNext, Bottom *bottom, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, bool explHand) const {
   unsigned int succIdx = explHand ? succExpl : succImpl;
   if (succIdx < indexNext.size()) {
     indexNext[succIdx].SuccInit(indexLevel, bottom, succIdx, splitIdx, _sCount, _lhStart, _extent, _minInfo, _ptId, explHand ? sumExpl : sum - sumExpl, explHand ? pathExpl : pathImpl, ctgSum, ctgExpl, explHand);
@@ -604,8 +589,7 @@ void IndexSet::Successor(IndexLevel *indexLevel, std::vector<IndexSet> &indexNex
    @brief Initializes index set as a successor node.
 
    @return void.
- */
-void IndexSet::SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, const std::vector<SumCount> &_ctgSum, const std::vector<SumCount> &_ctgExpl, bool explHand) {
+ */void IndexSet::SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _splitIdx, unsigned int parIdx, unsigned int _sCount, unsigned int _lhStart, unsigned int _extent, double _minInfo, unsigned int _ptId, double _sum, unsigned int _path, const vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgExpl, bool explHand) {
   Init(_splitIdx, _sCount, _lhStart, _extent, _minInfo, _ptId, _sum, _path, indexLevel->RelBase(_splitIdx), indexLevel->BagCount(), _ctgSum, _ctgExpl, explHand);
   bottom->ReachingPath(splitIdx, parIdx, lhStart, extent, relBase, path);
 }
@@ -613,9 +597,9 @@ void IndexSet::SuccInit(IndexLevel *indexLevel, Bottom *bottom, unsigned int _sp
 
 /**
    @brief Visits all live indices, so likely worth parallelizing.
-   TODO:  Build categorical sums within Repaly().
+   TODO:  Build categorical sums within Replay().
  */
-void IndexLevel::SumsAndSquares(unsigned int ctgWidth, std::vector<double> &sumSquares, std::vector<double> &ctgSum) {
+void IndexLevel::SumsAndSquares(unsigned int ctgWidth, vector<double> &sumSquares, vector<double> &ctgSum) {
   unsigned int splitIdx;
   
 #pragma omp parallel default(shared) private(splitIdx)

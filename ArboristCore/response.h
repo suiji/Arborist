@@ -20,30 +20,31 @@
 
 #include <vector>
 
+#include "typeparam.h"
+
 /**
    @brief Methods and members for management of response-related computations.
  */
 class Response {
-  const std::vector<double> &y;
-  class Leaf *leaf;
+  const double *y;
 
  public:
-  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
-  Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
+  Response(const double *_y);
   virtual ~Response();
 
-  inline const std::vector<double> &Y() const {
+  inline const double *Y() const {
     return y;
   }
 
 
-  static class ResponseReg *FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<class LeafNode> &_leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
-  static class ResponseCtg *FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
+  static class ResponseReg *FactoryReg(const double *yNum,
+				       const unsigned int *_row2Rank);
 
-  void LeafReserve(unsigned int leafEst, unsigned int bagEst) const;
-  void Leaves(const class PMTrain *pmTrain, const class Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) const;
+  static class ResponseCtg *FactoryCtg(const unsigned int *feCtg,
+				       const double *feProxy);
 
-  virtual class Sample* RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const = 0;
+  virtual class Sample* RootSample(const class RowRank *rowRank,
+				   vector<unsigned int> &row2Sample) const = 0;
 };
 
 
@@ -51,25 +52,30 @@ class Response {
    @brief Specialization to regression trees.
  */
 class ResponseReg : public Response {
-  const std::vector<unsigned int> &row2Rank; // Facilitates rank[] output.
+  const unsigned int *row2Rank; // Facilitates rank[] output.
  public:
 
-  ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<class LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits);
+  ResponseReg(const double *_y,
+	      const unsigned int *_row2Rank);
+
   ~ResponseReg();
-  class Sample *RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const;
+  class Sample *RootSample(const class RowRank *rowRank,
+			   vector<unsigned int> &row2Sample) const;
 };
 
 /**
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
-  const unsigned int nCtg;
-  const std::vector<unsigned int> &yCtg; // 0-based factor-valued response.
+  const unsigned int *yCtg; // 0-based factor-valued response.
  public:
 
-  ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<class BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth);
+  ResponseCtg(const unsigned int *_yCtg,
+	      const double *_proxy);
+
   ~ResponseCtg();
-  class Sample *RootSample(const class RowRank *rowRank, std::vector<unsigned int> &row2Sample) const;
+  class Sample *RootSample(const class RowRank *rowRank,
+			   vector<unsigned int> &row2Sample) const;
 };
 
 #endif

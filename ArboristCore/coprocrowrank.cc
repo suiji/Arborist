@@ -17,6 +17,14 @@
 #include "rowrank.h"
 
 
-RowRank *RowRank::Factory(const Coproc *coproc, const PMTrain *pmTrain, const unsigned int _feRow[], const unsigned int _feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int _feRLE[], unsigned int _feRLELength, double _autoCompress) {
-  return new RowRank(pmTrain, _feRow, _feRank, _numOffset, _numVal, _feRLE, _feRLELength, _autoCompress);
+RowRank *RowRank::Factory(const Coproc *coproc,
+			  const FrameTrain *frameTrain,
+			  const unsigned int _feRow[],
+			  const unsigned int _feRank[],
+			  const unsigned int *_numOffset,
+			  const double *_numVal,
+			  const unsigned int _feRLE[],
+			  unsigned int _feRLELength,
+			  double _autoCompress) {
+  return new RowRank(frameTrain, _feRow, _feRank, _numOffset, _numVal, _feRLE, _feRLELength, _autoCompress);
 }

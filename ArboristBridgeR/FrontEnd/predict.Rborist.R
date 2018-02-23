@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2017   Mark Seligman
+# Copyright (C)  2012-2018   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -52,10 +52,10 @@ PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin
   predBlock <- PredBlock(newdata, sigTrain)
   if (inherits(leaf, "LeafReg")) {
     if (is.null(quantVec)) {
-      prediction <- tryCatch(.Call("RcppTestReg", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestReg", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else {
-      prediction <- tryCatch(.Call("RcppTestQuant", predBlock, forest, leaf, quantVec, qBin, yTest), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestQuant", predBlock, forest, leaf, quantVec, qBin, yTest), error = function(e) {stop(e)})
     }
   }
   else if (inherits(leaf, "LeafCtg")) {
@@ -63,10 +63,10 @@ PredictForest <- function(forest, leaf, sigTrain, newdata, yTest, quantVec, qBin
       stop("Quantiles not supported for classifcation")
 
     if (ctgCensus == "votes") {
-      prediction <- tryCatch(.Call("RcppTestVotes", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestVotes", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else if (ctgCensus == "prob") {
-      prediction <- tryCatch(.Call("RcppTestProb", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestProb", predBlock, forest, leaf, yTest), error = function(e) {stop(e)})
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))

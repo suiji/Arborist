@@ -18,7 +18,7 @@
 #define ARBORIST_LEVEL_H
 
 #include <vector>
-#include "param.h"
+#include "typeparam.h"
 
 
 /**
@@ -173,7 +173,7 @@ class DenseCoord {
  */
 class Level {
   const unsigned int nPred;
-  const std::vector<unsigned int> &denseIdx;
+  const vector<unsigned int> &denseIdx;
   const unsigned int nPredDense;
   const unsigned int nSplit;
   const unsigned int noIndex; // Inattainable node index value.
@@ -185,21 +185,21 @@ class Level {
   // Immutable:
   //
   static unsigned int predFixed;
-  static const double *predProb;
+  static vector<double> predProb;
 
   // Persistent:
-  std::vector<IndexAnc> indexAnc; // Stage coordinates, by node.
+  vector<IndexAnc> indexAnc; // Stage coordinates, by node.
 
-  // More elegant and parsimonious to use std::map from pair to node,
+  // More elegant and parsimonious to use map from pair to node,
   // but hashing much too slow.
-  std::vector<MRRA> def; // Indexed by pair-offset.
-  std::vector<DenseCoord> denseCoord;
+  vector<MRRA> def; // Indexed by pair-offset.
+  vector<DenseCoord> denseCoord;
 
   // Recomputed:
   class IdxPath *relPath;
-  std::vector<unsigned int> offCand;
-  std::vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
-  std::vector<unsigned int> liveCount; // Indexed by node.
+  vector<unsigned int> offCand;
+  vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
+  vector<unsigned int> liveCount; // Indexed by node.
 
   unsigned int spanCand; // Total candidate span.
   const bool nodeRel;  // Subtree- or node-relative indexing.
@@ -208,10 +208,10 @@ class Level {
   bool Preschedule(class SplitPred *splitPred, unsigned int levelIdx, unsigned int predIdx, unsigned int extent, unsigned int &spanCand);
   
  public:
-  Level(unsigned int _nSplit, unsigned int _nPred, const std::vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel, class Bottom *bottom);
+  Level(unsigned int _nSplit, unsigned int _nPred, const vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel, class Bottom *bottom);
   ~Level();
 
-  static void Immutables(unsigned int _predFixed, const double _predProb[]);
+  static void Immutables(unsigned int feFixed, const vector<double> &feProb);
   static void DeImmutables();
   void Candidates(const class IndexLevel *index, class SplitPred *splitPred);
   void CandidateProb(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], unsigned int extent, unsigned int &offCand);

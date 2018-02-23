@@ -21,7 +21,6 @@
 #include "splitpred.h"
 
 //#include <iostream>
-//using namespace std;
 
 // Simulation-invariant values.
 //
@@ -34,7 +33,7 @@ unsigned int Sample::nSamp = 0;
 
  @return void.
 */
-void Sample::Immutables(unsigned int _nSamp, const std::vector<double> &_feSampleWeight, bool _withRepl) {
+void Sample::Immutables(unsigned int _nSamp, const vector<double> &_feSampleWeight, bool _withRepl) {
   nSamp = _nSamp;
   CallBack::SampleInit(_feSampleWeight.size(), &_feSampleWeight[0], _withRepl);
 }
@@ -50,7 +49,7 @@ void Sample::DeImmutables() {
 }
 
 
-Sample::Sample(unsigned int _nRow, unsigned int nCtg) : treeBag(new BV(_nRow)), ctgRoot(std::vector<SumCount>(nCtg)) {
+Sample::Sample(unsigned int _nRow) : treeBag(new BV(_nRow)), ctgRoot(vector<SumCount>(SampleNux::NCtg())) {
 }
 
 
@@ -67,8 +66,8 @@ Sample::~Sample() {
 
    @return count of unique rows sampled:  bag count.
 */
-unsigned int Sample::RowSample(std::vector<unsigned int> &sCountRow) {
-  std::vector<int> rvRow(nSamp);
+unsigned int Sample::RowSample(vector<unsigned int> &sCountRow) {
+  vector<int> rvRow(nSamp);
   CallBack::SampleRows(nSamp, &rvRow[0]);
   unsigned int _bagCount = 0;
   for (auto row : rvRow) {
@@ -84,8 +83,8 @@ unsigned int Sample::RowSample(std::vector<unsigned int> &sCountRow) {
 /**
    @brief Static entry for classification.
  */
-SampleCtg *Sample::FactoryCtg(const std::vector<double> &y, const RowRank *rowRank,  const std::vector<unsigned int> &yCtg, unsigned int _nCtg, std::vector<unsigned int> &row2Sample) {
-  SampleCtg *sampleCtg = new SampleCtg(y.size(), _nCtg);
+SampleCtg *Sample::FactoryCtg(const double y[], const RowRank *rowRank,  const unsigned int yCtg[], vector<unsigned int> &row2Sample) {
+  SampleCtg *sampleCtg = new SampleCtg(rowRank->NRow());
   sampleCtg->PreStage(yCtg, y, rowRank, row2Sample);
 
   return sampleCtg;
@@ -96,8 +95,8 @@ SampleCtg *Sample::FactoryCtg(const std::vector<double> &y, const RowRank *rowRa
    @brief Static entry for regression response.
 
  */
-SampleReg *Sample::FactoryReg(const std::vector<double> &y, const RowRank *rowRank, const std::vector<unsigned int> &row2Rank, std::vector<unsigned int> &row2Sample) {
-  SampleReg *sampleReg = new SampleReg(y.size());
+SampleReg *Sample::FactoryReg(const double y[], const RowRank *rowRank, const unsigned int *row2Rank, vector<unsigned int> &row2Sample) {
+  SampleReg *sampleReg = new SampleReg(rowRank->NRow());
   sampleReg->PreStage(y, row2Rank, rowRank, row2Sample);
 
   return sampleReg;
@@ -107,7 +106,7 @@ SampleReg *Sample::FactoryReg(const std::vector<double> &y, const RowRank *rowRa
 /**
    @brief Constructor.
  */
-SampleReg::SampleReg(unsigned int _nRow) : Sample(_nRow, 0) {
+SampleReg::SampleReg(unsigned int _nRow) : Sample(_nRow) {
 }
 
 
@@ -123,16 +122,16 @@ SampleReg::SampleReg(unsigned int _nRow) : Sample(_nRow, 0) {
 
    @return void.
 */
-void SampleReg::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &row2Rank, const RowRank *rowRank, std::vector<unsigned int> &row2Sample) {
-  std::vector<unsigned int> ctgProxy(rowRank->NRow());
-  std::fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  Sample::PreStage(y, ctgProxy, rowRank, row2Sample);
+void SampleReg::PreStage(const double y[], const unsigned int *row2Rank, const RowRank *rowRank, vector<unsigned int> &row2Sample) {
+  vector<unsigned int> ctgProxy(rowRank->NRow());
+  fill(ctgProxy.begin(), ctgProxy.end(), 0);
+  Sample::PreStage(y, &ctgProxy[0], rowRank, row2Sample);
   SetRank(row2Sample, row2Rank);
 }
 
 
-SplitPred *SampleReg::SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank) const {
-  return rowRank->SPRegFactory(pmTrain, bagCount);
+SplitPred *SampleReg::SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+  return rowRank->SPRegFactory(frameTrain, bagCount);
 }
 
 
@@ -144,7 +143,7 @@ SplitPred *SampleReg::SplitPredFactory(const PMTrain *pmTrain, const RowRank *ro
 
    @return void, with side-effected sample2Rank[].
  */
-void SampleReg::SetRank(const std::vector<unsigned int> &row2Sample, const std::vector<unsigned int> &row2Rank) {
+void SampleReg::SetRank(const vector<unsigned int> &row2Sample, const unsigned int *row2Rank) {
   // Only client is quantile regression.
   sample2Rank = new unsigned int[bagCount];
   for (unsigned int row = 0; row < row2Sample.size(); row++) {
@@ -159,11 +158,11 @@ void SampleReg::SetRank(const std::vector<unsigned int> &row2Sample, const std::
 /**
    @brief Constructor.
  */
-SampleCtg::SampleCtg(unsigned int _nRow, unsigned int _nCtg) : Sample(_nRow, _nCtg), nCtg(_nCtg) {
+SampleCtg::SampleCtg(unsigned int _nRow) : Sample(_nRow) {
   SumCount scZero;
   scZero.Init();
 
-  std::fill(ctgRoot.begin(), ctgRoot.end(), scZero);
+  fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
 
 
@@ -179,13 +178,13 @@ SampleCtg::SampleCtg(unsigned int _nRow, unsigned int _nCtg) : Sample(_nRow, _nC
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::PreStage(const std::vector<unsigned int> &yCtg, const std::vector<double> &y, const RowRank *rowRank, std::vector<unsigned int> &row2Sample) {
+void SampleCtg::PreStage(const unsigned int yCtg[], const double y[], const RowRank *rowRank, vector<unsigned int> &row2Sample) {
   Sample::PreStage(y, yCtg, rowRank, row2Sample);
 }
 
 
-SplitPred *SampleCtg::SplitPredFactory(const PMTrain *pmTrain, const RowRank *rowRank) const {
-  return rowRank->SPCtgFactory(pmTrain, bagCount, nCtg);
+SplitPred *SampleCtg::SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+  return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::NCtg());
 }
 
 
@@ -198,12 +197,12 @@ SplitPred *SampleCtg::SplitPredFactory(const PMTrain *pmTrain, const RowRank *ro
 
    @return void.
  */
-void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned int> &yCtg, const RowRank *rowRank, std::vector<unsigned int> &row2Sample) {
+void Sample::PreStage(const double y[], const unsigned int yCtg[], const RowRank *rowRank, vector<unsigned int> &row2Sample) {
   unsigned int nRow = rowRank->NRow();
-  std::vector<unsigned int> sCountRow(nRow);
-  std::fill(sCountRow.begin(), sCountRow.end(), 0);
+  vector<unsigned int> sCountRow(nRow);
+  fill(sCountRow.begin(), sCountRow.end(), 0);
   bagCount = RowSample(sCountRow);
-  sampleNode = std::move(std::vector<SampleNux>(bagCount));
+  sampleNode = move(vector<SampleNux>(bagCount));
 
   unsigned int slotBits = BV::SlotElts();
   bagSum = 0.0;
@@ -230,13 +229,13 @@ void Sample::PreStage(const std::vector<double> &y, const std::vector<unsigned i
 
    @return
  */
-void Sample::StageFactory(const PMTrain *pmTrain, const RowRank *rowRank, const Response *response, Sample *&sample, SplitPred *&splitPred, SamplePred *&samplePred, std::vector<StageCount> &stageCount) {
-  std::vector<unsigned int> row2Sample(rowRank->NRow());
-  std::fill(row2Sample.begin(), row2Sample.end(), nSamp);
+void Sample::StageFactory(const FrameTrain *frameTrain, const RowRank *rowRank, const Response *response, Sample *&sample, SplitPred *&splitPred, SamplePred *&samplePred, vector<StageCount> &stageCount) {
+  vector<unsigned int> row2Sample(rowRank->NRow());
+  fill(row2Sample.begin(), row2Sample.end(), nSamp);
   sample = response->RootSample(rowRank, row2Sample);
   sample->Stage(rowRank, row2Sample, samplePred, stageCount);
 
-  splitPred = sample->SplitPredFactory(pmTrain, rowRank);
+  splitPred = sample->SplitPredFactory(frameTrain, rowRank);
 }
 
 
@@ -245,7 +244,7 @@ void Sample::StageFactory(const PMTrain *pmTrain, const RowRank *rowRank, const 
 
    @return void.
  */
-void Sample::Stage(const RowRank *rowRank, const std::vector<unsigned int> &row2Sample, SamplePred *&samplePred, std::vector<StageCount> &stageCount) {
+void Sample::Stage(const RowRank *rowRank, const vector<unsigned int> &row2Sample, SamplePred *&samplePred, vector<StageCount> &stageCount) {
   samplePred = rowRank->SamplePredFactory(bagCount);
   //  samplePred->Stage(rowRank, sampleNode, row2Sample, stageCount);
   rowRank->Stage(sampleNode, row2Sample, samplePred, stageCount);
@@ -260,8 +259,8 @@ void Sample::Stage(const RowRank *rowRank, const std::vector<unsigned int> &row2
 
    @return void.
 */
-void Sample::RowInvert(const std::vector<unsigned int> &row2Sample) {
-  sample2Row = std::move(std::vector<unsigned int>(bagCount));
+void Sample::RowInvert(const vector<unsigned int> &row2Sample) {
+  sample2Row = move(vector<unsigned int>(bagCount));
   for (unsigned int row = 0; row < row2Sample.size(); row++) {
     unsigned int sIdx = row2Sample[row];
     if (sIdx < nSamp) {

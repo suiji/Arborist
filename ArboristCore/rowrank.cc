@@ -14,16 +14,12 @@
  */
 
 #include "rowrank.h"
-#include "predblock.h"
+#include "frameblock.h"
 #include "sample.h"
 #include "samplepred.h"
 #include "splitpred.h"
 
 #include <algorithm>
-
-// Testing only:
-//#include <iostream>
-//using namespace std;
 
 // Observations are blocked according to type.  Blocks written in separate
 // calls from front-end interface.
@@ -42,7 +38,7 @@
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
+void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<unsigned int> &numOffOut, vector<double> &numOut) {
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
     numOffOut[numIdx] = numOut.size();
     NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rleOut, numOut);
@@ -50,7 +46,7 @@ void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned
 }
 
 
-void RowRank::PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &numOffOut, std::vector<double> &numOut) {
+void RowRank::PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<unsigned int> &numOffOut, vector<double> &numOut) {
   unsigned int colOff = 0;
   for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
     numOffOut[numIdx] = numOut.size();
@@ -66,13 +62,13 @@ void RowRank::PreSortNumRLE(const double valNum[], const unsigned int rowStart[]
 
    @return Count of input vector elements read for the column.
  */
-unsigned int RowRank::NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector <double> &numOut) {
-  std::vector<RLENum> rleNum;
+unsigned int RowRank::NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector <double> &numOut) {
+  vector<RLENum> rleNum;
   for (unsigned int rleIdx = 0, rowTot = 0; rowTot < _nRow; rowTot += runLength[rleIdx++]) {
-    rleNum.push_back(std::make_tuple(colNum[rleIdx], rowStart[rleIdx], runLength[rleIdx]));
+    rleNum.push_back(make_tuple(colNum[rleIdx], rowStart[rleIdx], runLength[rleIdx]));
   }
 
-  std::sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
+  sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
   RankNum(rleNum, rowOut, rankOut, rleOut, numOut);
 
   return rleNum.size();
@@ -84,13 +80,13 @@ unsigned int RowRank::NumSortRLE(const double colNum[], unsigned int _nRow, cons
 
    @return void.
  */
-void RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
-  std::vector<ValRowD> valRow(_nRow);
+void RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
+  vector<ValRowD> valRow(_nRow);
   for (unsigned int row = 0; row < _nRow; row++) {
-    valRow[row] = std::make_pair(colNum[row], row);
+    valRow[row] = make_pair(colNum[row], row);
   }
 
-  std::sort(valRow.begin(), valRow.end());  // Stable sort.
+  sort(valRow.begin(), valRow.end());  // Stable sort.
   RankNum(valRow, rowOut, rankOut, rleOut, numOut);
 }
 
@@ -102,7 +98,7 @@ void RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, std::vector<
 
    @return void.
  */
-void RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
+void RowRank::RankNum(const vector<ValRowD> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
   unsigned int rk = 0;
   rleOut.push_back(1);
   rowOut.push_back(valRow[0].second);
@@ -133,18 +129,18 @@ void RowRank::RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned i
 
    @return void.
  */
-void RowRank::RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut) {
+void RowRank::RankNum(const vector<RLENum> &rleNum, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
   RLENum elt = rleNum[0];
   unsigned int rk = 0;
   rankOut.push_back(rk);
-  numOut.push_back(std::get<0>(elt));
-  rowOut.push_back(std::get<1>(elt));
-  rleOut.push_back(std::get<2>(elt));
+  numOut.push_back(get<0>(elt));
+  rowOut.push_back(get<1>(elt));
+  rleOut.push_back(get<2>(elt));
   for (unsigned int idx = 1; idx < rleNum.size(); idx++) {
     elt = rleNum[idx];
-    double valThis = std::get<0>(elt);
-    unsigned int rowThis = std::get<1>(elt);
-    unsigned int runCount = std::get<2>(elt);
+    double valThis = get<0>(elt);
+    unsigned int rowThis = get<1>(elt);
+    unsigned int runCount = get<2>(elt);
     if (valThis == numOut.back() && rowThis == rowOut.back() + rleOut.back()) {
       rleOut.back() += runCount;
     }
@@ -178,7 +174,7 @@ void RowRank::RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned in
 
    @output void, with output vector parameters.
  */
-void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength) {
+void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &runLength) {
   // Builds the ranked factor block.  Assumes 0-justification has been 
   // performed by bridge.
   //
@@ -193,12 +189,12 @@ void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, un
 
    @return void.
  */
-void RowRank::FacSort(const unsigned int predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut) {
-  std::vector<ValRowI> valRow(_nRow);
+void RowRank::FacSort(const unsigned int predCol[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut) {
+  vector<ValRowI> valRow(_nRow);
   for (unsigned int row = 0; row < _nRow; row++) {
-    valRow[row] = std::make_pair(predCol[row], row);
+    valRow[row] = make_pair(predCol[row], row);
   }
-  std::sort(valRow.begin(), valRow.end()); // Stable sort.
+  sort(valRow.begin(), valRow.end()); // Stable sort.
   RankFac(valRow, rowOut, rankOut, rleOut);
 }
 
@@ -213,7 +209,7 @@ void RowRank::FacSort(const unsigned int predCol[], unsigned int _nRow, std::vec
 
    @return void.
 */ 
-void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut) {
+void RowRank::RankFac(const vector<ValRowI> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut) {
   unsigned int rankPrev = valRow[0].first;
   unsigned int rowPrev = valRow[0].second;
   rleOut.push_back(1);
@@ -245,11 +241,19 @@ void RowRank::RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned i
    @param feRank is the vector of ranks allocated by the front end.
 
  */
-RowRank::RowRank(const PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int *_numOffset, const double *_numVal, const unsigned int feRLE[], unsigned int rleLength, double _autoCompress) : nRow(pmTrain->NRow()), nPred(pmTrain->NPred()), noRank(std::max(nRow, pmTrain->CardMax())), nPredDense(0), denseIdx(std::vector<unsigned int>(nPred)), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(std::vector<unsigned int>(nPred)), explicitCount(std::vector<unsigned int>(nPred)), rrStart(std::vector<unsigned int>(nPred)), safeOffset(std::vector<unsigned int>(nPred)), autoCompress(_autoCompress) {
+RowRank::RowRank(const FrameTrain *frameTrain,
+		 const unsigned int feRow[],
+		 const unsigned int feRank[],
+		 const unsigned int *_numOffset,
+		 const double *_numVal,
+		 const unsigned int feRLE[],
+		 unsigned int rleLength,
+		 double _autoCompress) :
+  nRow(frameTrain->NRow()), nPred(frameTrain->NPred()), noRank(max(nRow, frameTrain->CardMax())), nPredDense(0), denseIdx(vector<unsigned int>(nPred)), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(vector<unsigned int>(nPred)), explicitCount(vector<unsigned int>(nPred)), rrStart(vector<unsigned int>(nPred)), safeOffset(vector<unsigned int>(nPred)), autoCompress(_autoCompress) {
   unsigned int explCount = DenseBlock(feRank, feRLE, rleLength);
   ModeOffsets();
 
-  rrNode = std::move(std::vector<RRNode>(explCount));
+  rrNode = move(vector<RRNode>(explCount));
   Decompress(feRow, feRank, feRLE, rleLength);
 }
 
@@ -403,7 +407,7 @@ RowRank::~RowRank() {
 
    @return void.
  */
-void RowRank::Stage(const std::vector<SampleNux>  &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, std::vector<StageCount> &stageCount) const {
+void RowRank::Stage(const vector<SampleNux>  &sampleNode, const vector<unsigned int> &row2Sample, SamplePred *samplePred, vector<StageCount> &stageCount) const {
   int predIdx;
 #pragma omp parallel default(shared) private(predIdx)
   {
@@ -423,7 +427,7 @@ void RowRank::Stage(const std::vector<SampleNux>  &sampleNode, const std::vector
 
    @return void.
 */
-void RowRank::Stage(const std::vector<SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
+void RowRank::Stage(const vector<SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
   unsigned int extent;
   unsigned int safeOffset = SafeOffset(predIdx, samplePred->BagCount(), extent);
 
@@ -441,11 +445,11 @@ SamplePred *RowRank::SamplePredFactory(unsigned int _bagCount) const {
 }
 
 
-SPCtg *RowRank::SPCtgFactory(const PMTrain *pmTrain, unsigned int bagCount, unsigned int _nCtg) const {
-  return new SPCtg(pmTrain, this, bagCount, _nCtg);
+SPCtg *RowRank::SPCtgFactory(const FrameTrain *frameTrain, unsigned int bagCount, unsigned int _nCtg) const {
+  return new SPCtg(frameTrain, this, bagCount, _nCtg);
 }
 
 
-SPReg *RowRank::SPRegFactory(const PMTrain *pmTrain, unsigned int bagCount) const {
-  return new SPReg(pmTrain, this, bagCount);
+SPReg *RowRank::SPRegFactory(const FrameTrain *frameTrain, unsigned int bagCount) const {
+  return new SPReg(frameTrain, this, bagCount);
 }

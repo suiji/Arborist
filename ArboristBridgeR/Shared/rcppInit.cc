@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2017  Mark Seligman
+// Copyright (C)  2012-2018  Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -16,9 +16,6 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#include <Rcpp.h>
-using namespace Rcpp;
-
 /**
    @file rcppInit.cc
 
@@ -26,6 +23,9 @@ using namespace Rcpp;
 
    @author Mark Seligman
  */
+
+#include "rcppInit.h"
+
 void R_init_Rborist(DllInfo *info) {
   R_registerRoutines(info, NULL, NULL, NULL, NULL);
   R_useDynamicSymbols(info, TRUE);

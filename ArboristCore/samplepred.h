@@ -18,7 +18,7 @@
 #ifndef ARBORIST_SAMPLEPRED_H
 #define ARBORIST_SAMPLEPRED_H
 
-#include "param.h"
+#include "typeparam.h"
 
 #include <vector>
 
@@ -40,9 +40,9 @@ class SamplePred {
   const unsigned int pitchSP; // Pitch of SampleRank vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
-  std::vector<PathT> pathIdx;
-  std::vector<unsigned int> stageOffset;
-  std::vector<unsigned int> stageExtent; // Client:  debugging only.
+  vector<PathT> pathIdx;
+  vector<unsigned int> stageOffset;
+  vector<unsigned int> stageExtent; // Client:  debugging only.
   SampleRank* nodeVec;
 
   // 'indexBase' could be boxed with SampleRank.  While it is used in both
@@ -67,11 +67,11 @@ class SamplePred {
 
   SampleRank *StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx);
 
-  virtual void Stage(const class RRNode *rrNode, unsigned int rrTot, const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, std::vector<class StageCount> &stageCount);
-  unsigned int Stage(const std::vector<class SampleNux> &sampleNode, const class RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton);
-  void Stage(const std::vector<class SampleNux> &sampleNode, const class RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl);
+  virtual void Stage(const class RRNode *rrNode, unsigned int rrTot, const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, vector<class StageCount> &stageCount);
+  unsigned int Stage(const vector<class SampleNux> &sampleNode, const class RRNode *rrPred, const vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton);
+  void Stage(const vector<class SampleNux> &sampleNode, const class RRNode &rrNode, const vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl);
 
-  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, std::vector<class SumCount> &ctgExpl);
+  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, vector<class SumCount> &ctgExpl);
 
   virtual void Restage(class Level *levelBack, class Level *levelFront, const SPPair &mrra, unsigned int bufIdx);
   

@@ -1,4 +1,4 @@
-# Copyright (C)  2012-201&   Mark Seligman
+# Copyright (C)  2012-2018   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -15,6 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-PreFormat <- function(x) {
+"PreFormat" <-
+    function(x)
     UseMethod("PreFormat")
-}
+

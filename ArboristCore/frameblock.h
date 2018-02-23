@@ -6,17 +6,19 @@
  */
 
 /**
-   @file predblock.h
+   @file frameblock.h
 
-   @brief Class definitions for maintenance of predictor information.
+   @brief Class definitions for maintenance of type-based data blocks.
 
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_PREDBLOCK_H
-#define ARBORIST_PREDBLOCK_H
+#ifndef ARBORIST_FRAMEBLOCK_H
+#define ARBORIST_FRAMEBLOCK_H
 
 #include <vector>
+
+#include "typeparam.h"
 
 
 /**
@@ -31,7 +33,7 @@ class BlockNum {
  BlockNum(unsigned int _nPredNum) : nPredNum(_nPredNum) {}
   virtual ~BlockNum() {}
 
-  static BlockNum *Factory(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nPredNum);
+  static BlockNum *Factory(const vector<double> &_valNum, const vector<unsigned int> &_rowStart, const vector<unsigned int> &_runLength, const vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nPredNum);
 
   virtual void Transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
 
@@ -42,11 +44,11 @@ class BlockNum {
 };
 
 
-class BlockNumRLE : public BlockNum {
-  const std::vector<double> &valNum;
-  const std::vector<unsigned int> &rowStart;
-  const std::vector<unsigned int> &runLength;
-  const std::vector<unsigned int> &predStart;
+class BlockSparse : public BlockNum {
+  const vector<double> &valNum;
+  const vector<unsigned int> &rowStart;
+  const vector<unsigned int> &runLength;
+  const vector<unsigned int> &predStart;
   double *val;
   unsigned int *rowNext;
   unsigned int *idxNext;
@@ -56,8 +58,11 @@ class BlockNumRLE : public BlockNum {
   /**
      @brief Sparse constructor.
    */
-  BlockNumRLE(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart);
-  ~BlockNumRLE();
+  BlockSparse(const vector<double> &_valNum,
+	      const vector<unsigned int> &_rowStart,
+	      const vector<unsigned int> &_runLength,
+	      const vector<unsigned int> &_predStart);
+  ~BlockSparse();
   void Transpose(unsigned int rowStart, unsigned int rowEnd);
 };
 
@@ -66,7 +71,10 @@ class BlockNumDense : public BlockNum {
   double *feNumT;
  public:
 
- BlockNumDense(double *_feNumT, unsigned int _nPredNum) : BlockNum(_nPredNum), feNumT(_feNumT) {
+
+ BlockNumDense(double *_feNumT,
+	       unsigned int _nPredNum) :
+  BlockNum(_nPredNum), feNumT(_feNumT) {
     blockNumT = _feNumT;
   }
 
@@ -138,14 +146,14 @@ class BlockFac {
 /**
    @brief Singleton subclass instances:  training or prediction.
  */
-class PredMap {
+class FrameMap {
  protected:
   unsigned int nRow;
   unsigned int nPredNum;
   unsigned int nPredFac;
  public:
 
- PredMap(unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac) : nRow(_nRow), nPredNum(_nPredNum), nPredFac(_nPredFac) {
+ FrameMap(unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac) : nRow(_nRow), nPredNum(_nPredNum), nPredFac(_nPredFac) {
   }
   
   /**
@@ -159,7 +167,7 @@ class PredMap {
 
   
   /**
-     @brief Determines whether predictor is numeric of factor.
+     @brief Determines whether predictor is numeric or factor.
 
      @param predIdx is internal predictor index.
 
@@ -173,9 +181,17 @@ class PredMap {
   /**
      @brief Computes block-relative position for a predictor.
    */
-  inline unsigned int BlockIdx(int predIdx, bool &isFactor) const{
+  inline unsigned int FacIdx(int predIdx, bool &isFactor) const{
     isFactor = IsFactor(predIdx);
     return isFactor ? predIdx - FacFirst() : predIdx;
+  }
+
+
+  inline unsigned int FacStride(unsigned int predIdx,
+				unsigned int nStride,
+				bool &isFactor) const {
+    unsigned int facIdx = FacIdx(predIdx, isFactor);
+    return isFactor ? nStride * nPredFac + facIdx : predIdx;
   }
 
 
@@ -254,12 +270,16 @@ class PredMap {
 /**
    @brief Training caches numerical predictors for evaluating splits.
  */
-class PMTrain : public PredMap {
-  const std::vector<unsigned int> &feCard; // Factor predictor cardinalities.
+class FrameTrain : public FrameMap {
+  const vector<unsigned int> &feCard; // Factor predictor cardinalities.
+  const unsigned int cardMax;  // High watermark of factor cardinalities.
+
  public:
-  unsigned int cardMax;  // High watermark of factor cardinalities.
-  PMTrain(const std::vector<unsigned int> &_feCard, unsigned int _nPred, unsigned int _nRow);
-  
+  FrameTrain(const vector<unsigned int> &_feCard,
+	  unsigned int _nPred,
+	  unsigned int _nRow);
+
+
   /**
    @brief Computes cardinality of factor-valued predictor, or zero if not a
    factor.
@@ -284,18 +304,23 @@ class PMTrain : public PredMap {
 };
 
 
-class PMPredict : public PredMap {
+class FramePredict : public FrameMap {
   BlockNum *blockNum;
   BlockFac *blockFac;
 
  public:
   static const unsigned int rowBlock = 0x2000;
 
-  PMPredict(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow);
-  ~PMPredict();
+  FramePredict(BlockNum *_blockNum,
+	       BlockFac *_blockFac,
+	    unsigned int _nPredNum,
+	    unsigned int _nPredFac,
+	    unsigned int _nRow);
+  ~FramePredict();
 
 
-  inline void BlockTranspose(unsigned int rowStart, unsigned int rowEnd) {
+  inline void BlockTranspose(unsigned int rowStart,
+			     unsigned int rowEnd) const {
     blockNum->Transpose(rowStart, rowEnd);
     blockFac->Transpose(rowStart, rowEnd);
   }
@@ -317,5 +342,23 @@ class PMPredict : public PredMap {
   }
 };
 
+#ifdef REPLACE
+class FrameBlock {
+ protected:
+  unsigned int idxStart; // Starting offset within external container.
+  unsigned int extent;  // Extent within external container.
+};
 
+class FBNum : public FrameBlock {
+  double *num;
+};
+
+
+class FBFac : public FrameBlock {
+  unsigned int *fac;
+  unsigned int cardMax;
+};
+
+
+#endif // REPLACE
 #endif

@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2017   Mark Seligman
+# Copyright (C)  2012-2018   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -23,7 +23,7 @@ PreTrain.default <- function(x) {
     stop("NA not supported in design matrix")
 
   predBlock <- PredBlock(x)
-  rowRank <- .Call("RcppRowRank", predBlock)
+  rowRank <- .Call("BridgeRowRank", predBlock)
 
   preTrain <- list(
     predBlock = predBlock,

@@ -19,37 +19,38 @@
 
 #include <vector>
 
+#include "typeparam.h"
 
-typedef std::pair<double, unsigned int> RankedPair;
+typedef pair<double, unsigned int> RankedPair;
 
 /**
  @brief Quantile signature.
 */
 class Quant {
   const class PredictReg *predictReg;
-  const class LeafPerfReg *leafReg;
-  const std::vector<double> &yTrain;
-  std::vector<RankedPair> yRanked;
-  const std::vector<double> &qVec;
+  const class LeafReg *leafReg;
+  const double *yTrain;
+  vector<RankedPair> yRanked;
+  const vector<double> &qVec;
   const unsigned int qCount;
-  std::vector<class RankCount> rankCount; // forest-wide, by sample.
+  vector<class RankCount> rankCount; // forest-wide, by sample.
   unsigned int logSmudge;
   unsigned int binSize;
-  std::vector<unsigned int> binTemp; // Helper vector.
-  std::vector<unsigned int> sCountSmudge;
+  vector<unsigned int> binTemp; // Helper vector.
+  vector<unsigned int> sCountSmudge;
 
   int *leafPos;
   
   unsigned int BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge);
   void SmudgeLeaves();
   void Leaves(unsigned int rowBlock, double qRow[]);
-  unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, std::vector<unsigned int> &sampRanks);
-  unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, std::vector<unsigned int> &sampRanks);
+  unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks);
+  unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, vector<unsigned int> &sampRanks);
 
   
  public:
-  Quant(const class PredictReg *_predictReg, const class LeafPerfReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin);
-  void PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]);
+  Quant(const class PredictReg *_predictReg, const class LeafReg *_leafReg, const vector<double> &_qVec, unsigned int qBin);
+  void PredictAcross(class PredictReg *predict, unsigned int rowStart, unsigned int rowEnd, double qPred[]);
 };
 
 #endif

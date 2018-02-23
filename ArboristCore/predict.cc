@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "predblock.h"
+#include "frameblock.h"
 #include "forest.h"
 #include "leaf.h"
 #include "predict.h"
@@ -23,23 +23,19 @@
 #include <cfloat>
 #include <algorithm>
 
-//#include <iostream>
-//using namespace std;
-
 
 /**
    @brief Static entry for regression case.
  */
-void Predict::Regression(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const unsigned int _origin[], unsigned int _nTree, unsigned int _facSplit[], size_t _facLen, const unsigned int _facOff[], unsigned int _nFac, std::vector<unsigned int> &_leafOrigin, const LeafNode _leafNode[], unsigned int _leafCount, unsigned int _bagBits[], const std::vector<double> &yTrain, std::vector<double> &_yPred) {
+void Predict::Regression(const FramePredict *framePredict,
+			 const Forest *forest,
+			 const LeafReg *leafReg,
+			 vector<double> &_yPred) {
   // Non-quantile regression does not employ BagLeaf information.
-  LeafPerfReg *_leafReg = new LeafPerfReg(&_leafOrigin[0], _nTree, _leafNode, _leafCount, 0, 0, _bagBits, yTrain.size());
-  PredictReg *predictReg = new PredictReg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafReg, yTrain, _nTree, _yPred);
-  Forest *forest =  new Forest(_forestNode, _origin, _nTree, _facSplit, _facLen, _facOff, _nFac, predictReg);
+  PredictReg *predictReg = new PredictReg(framePredict, leafReg, forest->NTree(), _yPred);
   predictReg->PredictAcross(forest);
 
   delete predictReg;
-  delete forest;
-  delete _leafReg;
 }
 
 
@@ -48,61 +44,56 @@ void Predict::Regression(const std::vector<double> &_valNum, const std::vector<u
 
    // Only prediction method requiring BagLeaf.
  */
-void Predict::Quantiles(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const unsigned int _origin[], unsigned int _nTree, unsigned int _facSplit[], size_t _facLen, const unsigned int _facOff[], unsigned int _nFac, std::vector<unsigned int> &_leafOrigin, const LeafNode _leafNode[], unsigned int _leafCount, const BagLeaf _bagLeaf[], unsigned int _bagLeafTot, unsigned int _bagBits[], const std::vector<double> &yTrain, std::vector<double> &_yPred, const std::vector<double> &quantVec, unsigned int qBin, std::vector<double> &qPred, bool validate) {
-  LeafPerfReg *_leafReg = new LeafPerfReg(&_leafOrigin[0], _nTree, _leafNode, _leafCount, _bagLeaf, _bagLeafTot, _bagBits, yTrain.size());
-  PredictReg *predictReg = new PredictReg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafReg, yTrain, _nTree, _yPred);
-  Forest *forest =  new Forest(_forestNode, _origin, _nTree, _facSplit, _facLen, _facOff, _nFac, predictReg);
-  Quant *quant = new Quant(predictReg, _leafReg, quantVec, qBin);
+void Predict::Quantiles(const FramePredict *framePredict,
+			const Forest *forest,
+			const LeafReg *leafReg,
+			vector<double> &_yPred,
+			const vector<double> &quantVec,
+			unsigned int qBin,
+			vector<double> &qPred,
+			bool validate) {
+  PredictReg *predictReg = new PredictReg(framePredict, leafReg, forest->NTree(), _yPred);
+  Quant *quant = new Quant(predictReg, leafReg, quantVec, qBin);
   predictReg->PredictAcross(forest, quant, &qPred[0], validate);
 
   delete predictReg;
-  delete _leafReg;
   delete quant;
-  delete forest;
 }
 
 
 /**
    @brief Entry for separate classification prediction.
  */
-void Predict::Classification(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_blockNumT, unsigned int *_blockFacT, unsigned int _nPredNum, unsigned int _nPredFac, const ForestNode _forestNode[], const unsigned int _origin[], unsigned int _nTree, unsigned int _facSplit[], size_t _facLen, const unsigned int _facOff[], unsigned int _nFac, std::vector<unsigned int> &_leafOrigin, const LeafNode _leafNode[], unsigned int _leafCount, unsigned int _bagBits[], unsigned int _rowTrain, const double _weight[], unsigned int _ctgWidth, std::vector<unsigned int> &_yPred, unsigned int *_census, const std::vector<unsigned int> &_yTest, unsigned int *_conf, std::vector<double> &_error, double *_prob) {
-  // Ctg prediction does not employ BagLeaf information.
-  LeafPerfCtg *_leafCtg = new LeafPerfCtg(&_leafOrigin[0], _nTree, _leafNode, _leafCount, 0, 0, _bagBits, _rowTrain, _weight, _ctgWidth);
-  PredictCtg *predictCtg = new PredictCtg(new PMPredict(_valNum, _rowStart, _runLength, _predStart, _blockNumT, _blockFacT, _nPredNum, _nPredFac, _yPred.size()), _leafCtg, _nTree, _yPred);
-  Forest *forest = new Forest(_forestNode, _origin, _nTree, _facSplit, _facLen, _facOff, _nFac, predictCtg);
+void Predict::Classification(const FramePredict *framePredict,
+			     const Forest *forest,
+			     const LeafCtg *leafCtg,
+			     vector<unsigned int> &_yPred,
+			     unsigned int *_census,
+			     const vector<unsigned int> &_yTest,
+			     unsigned int *_conf,
+			     vector<double> &_error,
+			     double *_prob) {
+  PredictCtg *predictCtg = new PredictCtg(framePredict, leafCtg, forest->NTree(), _yPred);
   predictCtg->PredictAcross(forest, _census, _yTest, _conf, _error, _prob);
 
   delete predictCtg;
-  delete forest;
-  delete _leafCtg;
 }
 
 
-PredictCtg::PredictCtg(PMPredict *_pmPredict, const LeafPerfCtg *_leafCtg, unsigned int _nTree, std::vector<unsigned int> &_yPred) : Predict(_pmPredict, _nTree, _yPred.size(), _leafCtg->NoLeaf()), leafCtg(_leafCtg), ctgWidth(leafCtg->CtgWidth()), yPred(_yPred), defaultScore(ctgWidth), defaultWeight(std::vector<double>(ctgWidth)) {
-  std::fill(defaultWeight.begin(), defaultWeight.end(), -1.0);
+PredictCtg::PredictCtg(const FramePredict *_framePredict,
+		       const LeafCtg *_leafCtg,
+		       unsigned int _nTree,
+		       vector<unsigned int> &_yPred) :
+  Predict(_framePredict, _nTree, _yPred.size(), _leafCtg->NoLeaf()), leafCtg(_leafCtg), ctgWidth(leafCtg->CtgWidth()), yPred(_yPred), defaultScore(ctgWidth), defaultWeight(vector<double>(ctgWidth)) {
+  fill(defaultWeight.begin(), defaultWeight.end(), -1.0);
 }
 
 
-PredictReg::PredictReg(PMPredict *_pmPredict, const LeafPerfReg *_leafReg, const std::vector<double> &_yTrain, unsigned int _nTree, std::vector<double> &_yPred) : Predict(_pmPredict, _nTree, _yPred.size(), _leafReg->NoLeaf()), leafReg(_leafReg), yTrain(_yTrain), yPred(_yPred), defaultScore(-DBL_MAX) {
-}
-
-
-/**
-   @brief Lazily sets default score.
-   TODO:  Ensure error if called when no bag present.
-
-   @return default forest score:  mean training response.
- */
-double PredictReg::DefaultScore() {
-  if (defaultScore == -DBL_MAX) {
-    double sum = 0.0;
-    for (unsigned int i = 0; i < yTrain.size(); i++) {
-      sum += yTrain[i];
-    }
-    defaultScore = sum / yTrain.size();
-  }
-
-  return defaultScore;
+PredictReg::PredictReg(const FramePredict *_framePredict,
+		       const LeafReg *_leafReg,
+		       unsigned int _nTree,
+		       vector<double> &_yPred) :
+  Predict(_framePredict, _nTree, _yPred.size(), _leafReg->NoLeaf()), leafReg(_leafReg), yPred(_yPred), defaultScore(leafReg->MeanTrain()) {
 }
 
 
@@ -137,7 +128,7 @@ unsigned int PredictCtg::DefaultScore() {
  */
 void PredictCtg::DefaultInit() {
   if (defaultWeight[0] < 0.0) { // Unseen.
-    std::fill(defaultWeight.begin(), defaultWeight.end(), 0.0);
+    fill(defaultWeight.begin(), defaultWeight.end(), 0.0);
     leafCtg->DefaultWeight(defaultWeight);
   }
 }
@@ -154,14 +145,20 @@ double PredictCtg::DefaultWeight(double *weightPredict) {
 }
 
 
-Predict::Predict(class PMPredict *_pmPredict, unsigned int _nTree, unsigned int _nRow, unsigned int _noLeaf) : noLeaf(_noLeaf), pmPredict(_pmPredict), nTree(_nTree), nRow(_nRow) {
-  predictLeaves = new unsigned int[PMPredict::rowBlock * nTree];
+Predict::Predict(const FramePredict *_framePredict,
+		 unsigned int _nTree,
+		 unsigned int _nRow,
+		 unsigned int _noLeaf) :
+  noLeaf(_noLeaf),
+  framePredict(_framePredict),
+  nTree(_nTree),
+  nRow(_nRow) {
+  predictLeaves = new unsigned int[FramePredict::rowBlock * nTree];
 }
 
 
 Predict::~Predict() {
   delete [] predictLeaves;
-  delete pmPredict;
 }
 
 
@@ -169,16 +166,21 @@ PredictCtg::~PredictCtg() {
 }
 
 
-void PredictCtg::PredictAcross(const Forest *forest, unsigned int *census, const std::vector<unsigned int> &yTest, unsigned int *conf, std::vector<double> &error, double *prob) {
+void PredictCtg::PredictAcross(const Forest *forest,
+			       unsigned int *census,
+			       const vector<unsigned int> &yTest,
+			       unsigned int *conf,
+			       vector<double> &error,
+			       double *prob) {
   const BitMatrix *bag = leafCtg->Bag();
 
   double *votes = new double[nRow * ctgWidth];
   for (unsigned int i = 0; i < nRow * ctgWidth; i++)
     votes[i] = 0;
-  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += PMPredict::rowBlock) {
-    unsigned int rowEnd = std::min(rowStart + PMPredict::rowBlock, nRow);
-    pmPredict->BlockTranspose(rowStart, rowEnd);
-    forest->PredictAcross(rowStart, rowEnd, bag);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += FramePredict::rowBlock) {
+    unsigned int rowEnd = min(rowStart + FramePredict::rowBlock, nRow);
+    framePredict->BlockTranspose(rowStart, rowEnd);
+    forest->PredictAcross(this, rowStart, rowEnd, bag);
     Score(votes, rowStart, rowEnd);
     if (prob != 0)
       Prob(prob, rowStart, rowEnd);
@@ -206,7 +208,9 @@ void PredictCtg::PredictAcross(const Forest *forest, unsigned int *census, const
 
    @return void.
 */
-void PredictCtg::Validate(const std::vector<unsigned int> &yTest, unsigned int confusion[], std::vector<double> &error) {
+void PredictCtg::Validate(const vector<unsigned int> &yTest,
+			  unsigned int confusion[],
+			  vector<double> &error) {
   for (unsigned int row = 0; row < nRow; row++) {
     confusion[ctgWidth * yTest[row] + yPred[row]]++;
   }
@@ -236,7 +240,8 @@ void PredictCtg::Validate(const std::vector<unsigned int> &yTest, unsigned int c
 
    @return void, with output reference vector.
 */
-void PredictCtg::Vote(double *votes, unsigned int census[]) {
+void PredictCtg::Vote(double *votes,
+		      unsigned int census[]) {
   int row;
 
 #pragma omp parallel default(shared) private(row)
@@ -265,7 +270,9 @@ void PredictCtg::Vote(double *votes, unsigned int census[]) {
 
    @return internal vote table, with output reference vector.
  */
-void PredictCtg::Score(double *votes, unsigned int rowStart, unsigned int rowEnd) {
+void PredictCtg::Score(double *votes,
+		       unsigned int rowStart,
+		       unsigned int rowEnd) {
   int blockRow;
 
 // TODO:  Recast loop by blocks, to avoid
@@ -295,7 +302,9 @@ void PredictCtg::Score(double *votes, unsigned int rowStart, unsigned int rowEnd
 }
 
 
-void PredictCtg::Prob(double *prob, unsigned int rowStart, unsigned int rowEnd) {
+void PredictCtg::Prob(double *prob,
+		      unsigned int rowStart,
+		      unsigned int rowEnd) {
   for (unsigned int blockRow = 0; blockRow < rowEnd - rowStart; blockRow++) {
     double *probRow = prob + (rowStart + blockRow) * ctgWidth;
     double rowSum = 0.0;
@@ -314,9 +323,9 @@ void PredictCtg::Prob(double *prob, unsigned int rowStart, unsigned int rowEnd) 
       rowSum = DefaultWeight(probRow);
     }
 
-    double recipSum = 1.0 / rowSum;
+    double scale = 1.0 / rowSum;
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++)
-      probRow[ctg] *= recipSum;
+      probRow[ctg] *= scale;
   }
 }
 
@@ -325,10 +334,10 @@ void PredictCtg::Prob(double *prob, unsigned int rowStart, unsigned int rowEnd) 
  */
 void PredictReg::PredictAcross(const Forest *forest) {
   const BitMatrix *bag = leafReg->Bag();
-  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += PMPredict::rowBlock) {
-    unsigned int rowEnd = std::min(rowStart + PMPredict::rowBlock, nRow);
-    pmPredict->BlockTranspose(rowStart, rowEnd);
-    forest->PredictAcross(rowStart, rowEnd, bag);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += FramePredict::rowBlock) {
+    unsigned int rowEnd = min(rowStart + FramePredict::rowBlock, nRow);
+    framePredict->BlockTranspose(rowStart, rowEnd);
+    forest->PredictAcross(this, rowStart, rowEnd, bag);
     Score(rowStart, rowEnd);
   }
 }
@@ -339,14 +348,17 @@ void PredictReg::PredictAcross(const Forest *forest) {
 
    @return void, with side-effected prediction vectors.
  */
-void PredictReg::PredictAcross(const Forest *forest, Quant *quant, double qPred[], bool validate) {
+void PredictReg::PredictAcross(const Forest *forest,
+			       Quant *quant,
+			       double qPred[],
+			       bool validate) {
   const BitMatrix *leafBag = validate ? leafReg->Bag() : new BitMatrix(0, 0);
-  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += PMPredict::rowBlock) {
-    unsigned int rowEnd = std::min(rowStart + PMPredict::rowBlock, nRow);
-    pmPredict->BlockTranspose(rowStart, rowEnd);
-    forest->PredictAcross(rowStart, rowEnd, leafBag);
+  for (unsigned int rowStart = 0; rowStart < nRow; rowStart += FramePredict::rowBlock) {
+    unsigned int rowEnd = min(rowStart + FramePredict::rowBlock, nRow);
+    framePredict->BlockTranspose(rowStart, rowEnd);
+    forest->PredictAcross(this, rowStart, rowEnd, leafBag);
     Score(rowStart, rowEnd);
-    quant->PredictAcross(rowStart, rowEnd, qPred);
+    quant->PredictAcross(this, rowStart, rowEnd, qPred);
   }
 
   if (!validate)
@@ -360,7 +372,8 @@ void PredictReg::PredictAcross(const Forest *forest, Quant *quant, double qPred[
 
   @return void, with output refererence vector.
  */
-void PredictReg::Score(unsigned int rowStart, unsigned int rowEnd) {
+void PredictReg::Score(unsigned int rowStart,
+		       unsigned int rowEnd) {
   int blockRow;
 
 #pragma omp parallel default(shared) private(blockRow)
@@ -375,18 +388,18 @@ void PredictReg::Score(unsigned int rowStart, unsigned int rowEnd) {
           score += leafReg->GetScore(tc, LeafIdx(blockRow, tc));
         }
       }
-      yPred[rowStart + blockRow] = treesSeen > 0 ? score / treesSeen : DefaultScore();
+      yPred[rowStart + blockRow] = treesSeen > 0 ? score / treesSeen : defaultScore;
     }
   }
 }
 
 
 const double *Predict::RowNum(unsigned rowOff) const {
-  return pmPredict->RowNum(rowOff);
+  return framePredict->RowNum(rowOff);
 }
 
 
 
 const unsigned int *Predict::RowFac(unsigned int rowOff) const {
-  return pmPredict->RowFac(rowOff);
+  return framePredict->RowFac(rowOff);
 }

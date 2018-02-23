@@ -13,8 +13,6 @@
    @author Mark Seligman
  */
 
-//#include <iostream>
-//using namespace std;
 
 #include "index.h"
 #include "splitpred.h"
@@ -24,16 +22,23 @@
 #include "samplenux.h"
 #include "samplepred.h"
 #include "callback.h"
-#include "predblock.h"
+#include "frameblock.h"
 #include "rowrank.h"
 
-std::vector<double> SPReg::feMono;
+vector<double> SPReg::mono;
 unsigned int SPReg::predMono = 0;
 
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitPred::SplitPred(const PMTrain *_pmTrain, const RowRank *_rowRank, unsigned int _bagCount) : rowRank(_rowRank), pmTrain(_pmTrain), bagCount(_bagCount), noSet(bagCount * pmTrain->NPredFac()), splitSig(new SplitSig(pmTrain->NPred())) {
+SplitPred::SplitPred(const FrameTrain *_frameTrain,
+		     const RowRank *_rowRank,
+		     unsigned int _bagCount) :
+  rowRank(_rowRank),
+  frameTrain(_frameTrain),
+  bagCount(_bagCount),
+  noSet(bagCount * frameTrain->NPredFac()),
+  splitSig(new SplitSig(frameTrain->NPred())) {
 }
 
 
@@ -50,18 +55,17 @@ SplitPred::~SplitPred() {
 /**
    @brief Caches a local copy of the mono[] vector.
  */
-void SPReg::Immutables(unsigned int _nPred, const double _mono[]) {
+void SPReg::Immutables(const vector<double> &feMono) {
   predMono = 0;
-  for (unsigned int i = 0; i < _nPred; i++) {
-    double monoProb = _mono[i];
-    feMono.push_back(monoProb);
+  for (auto monoProb : feMono) {
+    mono.push_back(monoProb);
     predMono += monoProb != 0.0;
   }
 }
 
 
 void SPReg::DeImmutables() {
-  feMono.clear();
+  mono.clear();
   predMono = 0;
 }
 
@@ -69,8 +73,12 @@ void SPReg::DeImmutables() {
 /**
    @brief Constructor.
  */
-SPReg::SPReg(const PMTrain *_pmTrain, const RowRank *_rowRank, unsigned int _bagCount) : SplitPred(_pmTrain, _rowRank, _bagCount), ruMono(nullptr) {
-  run = new Run(0, pmTrain->NRow(), noSet);
+SPReg::SPReg(const FrameTrain *_frameTrain,
+	     const RowRank *_rowRank,
+	     unsigned int _bagCount) :
+  SplitPred(_frameTrain, _rowRank, _bagCount),
+  ruMono(nullptr) {
+  run = new Run(0, frameTrain->NRow(), noSet);
 }
 
 
@@ -79,8 +87,13 @@ SPReg::SPReg(const PMTrain *_pmTrain, const RowRank *_rowRank, unsigned int _bag
 
    @param sampleCtg is the sample vector for the tree, included for category lookup.
  */
-SPCtg::SPCtg(const PMTrain *_pmTrain, const RowRank *_rowRank, unsigned int _bagCount, unsigned int _nCtg): SplitPred(_pmTrain, _rowRank, _bagCount), nCtg(_nCtg) {
-  run = new Run(nCtg, pmTrain->NRow(), noSet);
+SPCtg::SPCtg(const FrameTrain *_frameTrain,
+	     const RowRank *_rowRank,
+	     unsigned int _bagCount,
+	     unsigned int _nCtg):
+  SplitPred(_frameTrain, _rowRank, _bagCount),
+  nCtg(_nCtg) {
+  run = new Run(nCtg, frameTrain->NRow(), noSet);
 }
 
 
@@ -99,7 +112,7 @@ unsigned int SplitPred::DenseRank(unsigned int predIdx) const {
 
    @return void.
  */
-void SPReg::RunOffsets(const std::vector<unsigned int> &runCount) {
+void SPReg::RunOffsets(const vector<unsigned int> &runCount) {
   run->RunSets(runCount);
   run->OffsetsReg();
 }
@@ -108,7 +121,7 @@ void SPReg::RunOffsets(const std::vector<unsigned int> &runCount) {
 /**
    @brief Sets quick lookup offsets for Run object.
  */
-void SPCtg::RunOffsets(const std::vector<unsigned int> &runCount) {
+void SPCtg::RunOffsets(const vector<unsigned int> &runCount) {
   run->RunSets(runCount);
   run->OffsetsCtg();
 }
@@ -120,13 +133,12 @@ void SPCtg::RunOffsets(const std::vector<unsigned int> &runCount) {
 
    @return void.
  */
-void SplitCoord::InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsigned int _bufIdx) {
-  splitIdx = _splitIdx;
-  predIdx = _predIdx;
-  bufIdx = _bufIdx;
-  //  unsigned int extent;
-  //preBias = index->SplitFields(splitIdx, idxStart, extent, sCount, sum);
-  // idxEnd = idxStart + extent - 1;
+void SplitCoord::InitEarly(unsigned int splitIdx,
+			   unsigned int predIdx,
+			   unsigned int bufIdx) {
+  this->splitIdx = splitIdx;
+  this->predIdx = predIdx;
+  this->bufIdx = bufIdx;
 }
 
 
@@ -136,10 +148,13 @@ void SplitCoord::InitEarly(unsigned int _splitIdx, unsigned int _predIdx, unsign
 
    @return void
  */
-void SplitCoord::InitLate(const Level *levelFront, const IndexLevel *index, unsigned int _vecPos, unsigned int _setIdx) {
-  vecPos = _vecPos;
-  setIdx = _setIdx;
-  unsigned int extent; // = idxEnd - idxStart + 1
+void SplitCoord::InitLate(const Level *levelFront,
+			  const IndexLevel *index,
+			  unsigned int vecPos,
+			  unsigned int setIdx) {
+  this->vecPos = vecPos;
+  this->setIdx = setIdx;
+  unsigned int extent;
   preBias = index->SplitFields(splitIdx, idxStart, extent, sCount, sum);
   implicit = levelFront->AdjustDense(splitIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // May overflow if singleton:  invalid.
@@ -150,7 +165,9 @@ void SplitCoord::InitLate(const Level *levelFront, const IndexLevel *index, unsi
    @brief
    // TODO:  Virtualize:  unnecessary for coprocessor, which employs autonomous splitting.
  */
-void SplitPred::Preschedule(unsigned int splitIdx, unsigned int predIdx, unsigned int bufIdx) {
+void SplitPred::Preschedule(unsigned int splitIdx,
+			    unsigned int predIdx,
+			    unsigned int bufIdx) {
   SplitCoord sg;
   sg.InitEarly(splitIdx, predIdx, bufIdx);
   splitCoord.push_back(sg);
@@ -163,13 +180,14 @@ void SplitPred::Preschedule(unsigned int splitIdx, unsigned int predIdx, unsigne
    initialization or as a result of bagging.  Fills in run counts, which
    values restaging has established precisely.
 */
-void SplitPred::ScheduleSplits(const IndexLevel *index, const Level *levelFront) {
-  std::vector<unsigned int> runCount;
-  std::vector<SplitCoord> sc2;
+void SplitPred::ScheduleSplits(const IndexLevel *index,
+			       const Level *levelFront) {
+  vector<unsigned int> runCount;
+  vector<SplitCoord> sc2;
   for (auto & sg : splitCoord) {
     sg.Schedule(levelFront, index, noSet, runCount, sc2);
   }
-  splitCoord = std::move(sc2);
+  splitCoord = move(sc2);
 
   RunOffsets(runCount);
 }
@@ -187,7 +205,11 @@ void SplitPred::ScheduleSplits(const IndexLevel *index, const Level *levelFront)
 
    @return void, with output reference vectors.
  */
-void SplitCoord::Schedule(const Level *levelFront, const IndexLevel *index, unsigned int noSet, std::vector<unsigned int> &runCount, std::vector<SplitCoord> &sc2) {
+void SplitCoord::Schedule(const Level *levelFront,
+			  const IndexLevel *index,
+			  unsigned int noSet,
+			  vector<unsigned int> &runCount,
+			  vector<SplitCoord> &sc2) {
   unsigned int rCount;
   if (levelFront->ScheduleSplit(splitIdx, predIdx, rCount)) {
     InitLate(levelFront, index, sc2.size(), rCount > 1 ? runCount.size() : noSet);
@@ -205,7 +227,11 @@ void SplitCoord::Schedule(const Level *levelFront, const IndexLevel *index, unsi
 
    @return void.
 */
-void SplitPred::SSWrite(unsigned int splitIdx, unsigned int predIdx, unsigned int setPos, unsigned int bufIdx, const NuxLH &nux) const {
+void SplitPred::SSWrite(unsigned int splitIdx,
+			unsigned int predIdx,
+			unsigned int setPos,
+			unsigned int bufIdx,
+			const NuxLH &nux) const {
   splitSig->Write(splitIdx, predIdx, setPos, bufIdx, nux);
 }
 
@@ -231,13 +257,27 @@ void SplitPred::LevelClear() {
 }
 
 
+/**
+   @brief Determines whether indexed predictor is a factor.
+
+   @param predIdx is the predictor index.
+
+   @return true iff predictor is a factor.
+ */
 bool SplitPred::IsFactor(unsigned int predIdx) const {
-  return pmTrain->IsFactor(predIdx);
+  return frameTrain->IsFactor(predIdx);
 }
 
 
-unsigned int SplitPred::NumIdx(unsigned int predIdx) const {
-  return pmTrain->NumIdx(predIdx);
+/**
+   @brief Determines whether indexed predictor is numerica.
+
+   @param predIdx is the predictor index.
+
+   @return true iff predictor is numeric.
+ */
+unsigned int SPCtg::NumIdx(unsigned int predIdx) const {
+  return frameTrain->NumIdx(predIdx);
 }
 
 
@@ -275,7 +315,7 @@ void SPCtg::LevelClear() {
 */
 void SPReg::LevelPreset(IndexLevel *index) {
   if (predMono > 0) {
-    unsigned int monoCount = splitCount * pmTrain->NPred(); // Clearly too big.
+    unsigned int monoCount = splitCount * frameTrain->NPred(); // Clearly too big.
     ruMono = new double[monoCount];
     CallBack::RUnif(monoCount, ruMono);
   }
@@ -287,17 +327,17 @@ void SPReg::LevelPreset(IndexLevel *index) {
 
 
 /**
-   @brief As above, but categorical response.  Initializes per-level sum vectors as
-wells as FacRun vectors.
+   @brief As above, but categorical response.  Initializes per-level sum and
+   FacRun vectors.
 
    @return void.
 */
 void SPCtg::LevelPreset(IndexLevel *index) {
-  LevelInitSumR(pmTrain->NPredNum());
-  sumSquares = std::move(std::vector<double>(splitCount));
-  ctgSum = std::move(std::vector<double>(splitCount * nCtg));
-  std::fill(sumSquares.begin(), sumSquares.end(), 0.0);
-  std::fill(ctgSum.begin(), ctgSum.end(), 0.0);
+  LevelInitSumR(frameTrain->NPredNum());
+  sumSquares = move(vector<double>(splitCount));
+  ctgSum = move(vector<double>(splitCount * nCtg));
+  fill(sumSquares.begin(), sumSquares.end(), 0.0);
+  fill(ctgSum.begin(), ctgSum.end(), 0.0);
   index->SumsAndSquares(nCtg, sumSquares, ctgSum);
   index->SetPrebias();
 }
@@ -307,12 +347,14 @@ void SPCtg::LevelPreset(IndexLevel *index) {
    @brief Initializes the accumulated-sum checkerboard used by
    numerical predictors.
 
+   @param nPredNum is the number of numerical predictors.
+
    @return void.
  */
 void SPCtg::LevelInitSumR(unsigned int nPredNum) {
   if (nPredNum > 0) {
-    ctgSumAccum = std::move(std::vector<double>(nPredNum * nCtg * splitCount));
-    std::fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
+    ctgSumAccum = move(vector<double>(nPredNum * nCtg * splitCount));
+    fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
   }
 }
 
@@ -322,17 +364,19 @@ void SPCtg::LevelInitSumR(unsigned int nPredNum) {
 
    @return The sign of the constraint, if within the splitting probability, else zero.
 */
-int SPReg::MonoMode(unsigned int splitIdx, unsigned int predIdx) const {
+int SPReg::MonoMode(unsigned int splitIdx,
+		    unsigned int predIdx) const {
   if (predMono == 0)
     return 0;
 
-  double monoProb = feMono[predIdx];
+  double monoProb = mono[predIdx];
   int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
   return sign * ruMono[splitIdx] < monoProb ? sign : 0;
 }
 
 
-void SplitPred::Split(const SamplePred *samplePred, std::vector<SSNode> &argMax) {
+void SplitPred::Split(const SamplePred *samplePred,
+		      vector<SSNode> &argMax) {
   Split(samplePred);
   ArgMax(argMax);
 
@@ -366,7 +410,7 @@ void SPReg::Split(const SamplePred *samplePred) {
 }
 
 
-void SplitPred::ArgMax(std::vector<SSNode> &argMax) {
+void SplitPred::ArgMax(vector<SSNode> &argMax) {
   int splitIdx;
 #pragma omp parallel default(shared) private(splitIdx)
   {
@@ -394,7 +438,8 @@ void SplitCoord::Split(const SPReg *spReg, const SamplePred *samplePred) {
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCoord::Split(SPCtg *spCtg, const SamplePred *samplePred) {
+void SplitCoord::Split(SPCtg *spCtg,
+		       const SamplePred *samplePred) {
   if (spCtg->IsFactor(predIdx)) {
     SplitFac(spCtg, samplePred->PredBase(predIdx, bufIdx));
   }
@@ -404,7 +449,8 @@ void SplitCoord::Split(SPCtg *spCtg, const SamplePred *samplePred) {
 }
 
 
-void SplitCoord::SplitNum(const SPReg *spReg, const SampleRank spn[]) {
+void SplitCoord::SplitNum(const SPReg *spReg,
+			  const SampleRank spn[]) {
   NuxLH nux;
   if (SplitNum(spReg, spn, nux)) {
     spReg->SSWrite(splitIdx, predIdx, setIdx, bufIdx, nux);
@@ -417,7 +463,8 @@ void SplitCoord::SplitNum(const SPReg *spReg, const SampleRank spn[]) {
 
    @return void.
 */
-void SplitCoord::SplitNum(SPCtg *spCtg, const SampleRank spn[]) {
+void SplitCoord::SplitNum(SPCtg *spCtg,
+			  const SampleRank spn[]) {
   NuxLH nux;
   if (SplitNum(spCtg, spn, nux)) {
     spCtg->SSWrite(splitIdx, predIdx, setIdx, bufIdx, nux);
@@ -425,7 +472,8 @@ void SplitCoord::SplitNum(SPCtg *spCtg, const SampleRank spn[]) {
 }
 
 
-void SplitCoord::SplitFac(const SPReg *spReg, const SampleRank spn[]) {
+void SplitCoord::SplitFac(const SPReg *spReg,
+			  const SampleRank spn[]) {
   NuxLH nux;
   if (SplitFac(spReg, spn, nux)) {
     spReg->SSWrite(splitIdx, predIdx, setIdx, bufIdx, nux);
@@ -433,7 +481,8 @@ void SplitCoord::SplitFac(const SPReg *spReg, const SampleRank spn[]) {
 }
 
 
-void SplitCoord::SplitFac(const SPCtg *spCtg, const SampleRank spn[]) {
+void SplitCoord::SplitFac(const SPCtg *spCtg,
+			  const SampleRank spn[]) {
   NuxLH nux;
   if (SplitFac(spCtg, spn, nux)) {
     spCtg->SSWrite(splitIdx, predIdx, setIdx, bufIdx, nux);
@@ -441,7 +490,9 @@ void SplitCoord::SplitFac(const SPCtg *spCtg, const SampleRank spn[]) {
 }
 
 
-bool SplitCoord::SplitFac(const SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitFac(const SPCtg *spCtg,
+			  const SampleRank spn[],
+			  NuxLH &nux) {
   RunSet *runSet = spCtg->RSet(setIdx);
   RunsCtg(spCtg, runSet, spn);
 
@@ -466,7 +517,9 @@ bool SplitCoord::SplitFac(const SPCtg *spCtg, const SampleRank spn[], NuxLH &nux
 
    @return true iff pair splits.
  */
-bool SplitCoord::SplitFac(const SPReg *spReg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitFac(const SPReg *spReg,
+			  const SampleRank spn[],
+			  NuxLH &nux) {
   RunSet *runSet = spReg->RSet(setIdx);
   RunsReg(runSet, spn, spReg->DenseRank(predIdx));
   runSet->HeapMean();
@@ -485,7 +538,9 @@ bool SplitCoord::SplitFac(const SPReg *spReg, const SampleRank spn[], NuxLH &nux
 
    @return void.
 */
-bool SplitCoord::SplitNum(const SPReg *spReg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitNum(const SPReg *spReg,
+			  const SampleRank spn[],
+			  NuxLH &nux) {
   int monoMode = spReg->MonoMode(vecPos, predIdx);
   if (monoMode != 0) {
     return implicit > 0 ? SplitNumDenseMono(monoMode > 0, spn, spReg, nux) : SplitNumMono(monoMode > 0, spn, nux);
@@ -502,7 +557,8 @@ bool SplitCoord::SplitNum(const SPReg *spReg, const SampleRank spn[], NuxLH &nux
 
    @return void.
 */
-bool SplitCoord::SplitNum(const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitNum(const SampleRank spn[],
+			  NuxLH &nux) {
   unsigned int rkRight, sampleCount;
   FltVal ySum;
   spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
@@ -545,7 +601,9 @@ bool SplitCoord::SplitNum(const SampleRank spn[], NuxLH &nux) {
 
    @return void.
 */
-bool SplitCoord::SplitNumDense(const SampleRank spn[], const SPReg *spReg, NuxLH &nux) {
+bool SplitCoord::SplitNumDense(const SampleRank spn[],
+			       const SPReg *spReg,
+			       NuxLH &nux) {
   unsigned int rankDense = spReg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
@@ -647,7 +705,10 @@ bool SplitCoord::SplitNumDense(const SampleRank spn[], const SPReg *spReg, NuxLH
 
    @return void.
 */
-bool SplitCoord::SplitNumDenseMono(bool increasing, const SampleRank spn[], const SPReg *spReg, NuxLH &nux) {
+bool SplitCoord::SplitNumDenseMono(bool increasing,
+				   const SampleRank spn[],
+				   const SPReg *spReg,
+				   NuxLH &nux) {
   unsigned int rankDense = spReg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
@@ -755,7 +816,9 @@ bool SplitCoord::SplitNumDenseMono(bool increasing, const SampleRank spn[], cons
 
    @return void.
 */
-bool SplitCoord::SplitNumMono(bool increasing, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitNumMono(bool increasing,
+			      const SampleRank spn[],
+			      NuxLH &nux) {
   unsigned int rkRight, sampleCount;
   FltVal ySum;
   spn[idxEnd].RegFields(ySum, rkRight, sampleCount);
@@ -809,7 +872,14 @@ bool SplitCoord::SplitNumMono(bool increasing, const SampleRank spn[], NuxLH &nu
 
    @return supremum of indices to the left ot the dense rank.
 */
-unsigned int SPReg::Residuals(const SampleRank spn[], unsigned int idxStart, unsigned int idxEnd, unsigned int rankDense, unsigned int &denseLeft, unsigned int &denseRight, double &sumDense, unsigned int &sCountDense) const {
+unsigned int SPReg::Residuals(const SampleRank spn[],
+			      unsigned int idxStart,
+			      unsigned int idxEnd,
+			      unsigned int rankDense,
+			      unsigned int &denseLeft,
+			      unsigned int &denseRight,
+			      double &sumDense,
+			      unsigned int &sCountDense) const {
   unsigned int denseCut = idxEnd; // Defaults to highest index.
   double sumTot = 0.0;
   unsigned int sCountTot = 0;
@@ -840,8 +910,17 @@ unsigned int SPReg::Residuals(const SampleRank spn[], unsigned int idxStart, uns
 
    @return true iff left bound has rank less than dense rank.
 */
-unsigned int SPCtg::Residuals(const SampleRank spn[], unsigned int splitIdx, unsigned int idxStart, unsigned int idxEnd, unsigned int rankDense, bool &denseLeft, bool &denseRight, double &sumDense, unsigned int &sCountDense, std::vector<double> &ctgSumDense) const {
-  std::vector<double> ctgAccum;
+unsigned int SPCtg::Residuals(const SampleRank spn[],
+			      unsigned int splitIdx,
+			      unsigned int idxStart,
+			      unsigned int idxEnd,
+			      unsigned int rankDense,
+			      bool &denseLeft,
+			      bool &denseRight,
+			      double &sumDense,
+			      unsigned int &sCountDense,
+			      vector<double> &ctgSumDense) const {
+  vector<double> ctgAccum;
   ctgSumDense.reserve(nCtg);
   ctgAccum.reserve(nCtg);
   for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
@@ -875,7 +954,11 @@ unsigned int SPCtg::Residuals(const SampleRank spn[], unsigned int splitIdx, uns
 }
 
 
-void SPCtg::ApplyResiduals(unsigned int splitIdx, unsigned int predIdx, double &ssL, double &ssR, std::vector<double> &sumDenseCtg) {
+void SPCtg::ApplyResiduals(unsigned int splitIdx,
+			   unsigned int predIdx,
+			   double &ssL,
+			   double &ssR,
+			   vector<double> &sumDenseCtg) {
   unsigned int numIdx = NumIdx(predIdx);
   for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
     double ySum = sumDenseCtg[ctg];
@@ -887,7 +970,9 @@ void SPCtg::ApplyResiduals(unsigned int splitIdx, unsigned int predIdx, double &
 }
 
 
-bool SplitCoord::SplitNum(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::SplitNum(SPCtg *spCtg,
+			  const SampleRank spn[],
+			  NuxLH &nux) {
   if (implicit > 0) {
     return NumCtgDense(spCtg, spn, nux);
   }
@@ -897,7 +982,9 @@ bool SplitCoord::SplitNum(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
 }
 
 
-bool SplitCoord::NumCtg(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::NumCtg(SPCtg *spCtg,
+			const SampleRank spn[],
+			NuxLH &nux) {
   unsigned int sCountL = sCount;
   unsigned int rkRight = spn[idxEnd].Rank();
   double sumL = sum;
@@ -921,7 +1008,19 @@ bool SplitCoord::NumCtg(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
 }
 
 
-unsigned int SplitCoord::NumCtgGini(SPCtg *spCtg, const SampleRank spn[], unsigned int idxNext, unsigned int idxFinal, unsigned int &sCountL, unsigned int &rkRight, double &sumL, double &ssL, double &ssR, double &maxGini, unsigned int &rankLH, unsigned int &rankRH, unsigned int &rhInf) {
+unsigned int SplitCoord::NumCtgGini(SPCtg *spCtg,
+				    const SampleRank spn[],
+				    unsigned int idxNext,
+				    unsigned int idxFinal,
+				    unsigned int &sCountL,
+				    unsigned int &rkRight,
+				    double &sumL,
+				    double &ssL,
+				    double &ssR,
+				    double &maxGini,
+				    unsigned int &rankLH,
+				    unsigned int &rankRH,
+				    unsigned int &rhInf) {
   unsigned int lhSampCt = 0;
   unsigned int numIdx = spCtg->NumIdx(predIdx);
   // Signing values avoids decrementing below zero.
@@ -955,12 +1054,14 @@ unsigned int SplitCoord::NumCtgGini(SPCtg *spCtg, const SampleRank spn[], unsign
 }
 
 
-bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
+bool SplitCoord::NumCtgDense(SPCtg *spCtg,
+			     const SampleRank spn[],
+			     NuxLH &nux) {
   unsigned int rankDense = spCtg->DenseRank(predIdx);
   double sumDense = sum;
   unsigned int sCountDense = sCount;
   bool denseLeft, denseRight;
-  std::vector<double> sumDenseCtg;
+  vector<double> sumDenseCtg;
   unsigned int denseCut = spCtg->Residuals(spn, splitIdx, idxStart, idxEnd, rankDense, denseLeft, denseRight, sumDense, sCountDense, sumDenseCtg);
 
   unsigned int idxFinal;
@@ -1025,7 +1126,9 @@ bool SplitCoord::NumCtgDense(SPCtg *spCtg, const SampleRank spn[], NuxLH &nux) {
 /**
    Regression runs always maintained by heap.
 */
-void SplitCoord::RunsReg(RunSet *runSet, const SampleRank spn[], unsigned int rankDense) const {
+void SplitCoord::RunsReg(RunSet *runSet,
+			 const SampleRank spn[],
+			 unsigned int rankDense) const {
   double sumHeap = 0.0;
   unsigned int sCountHeap = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
@@ -1070,7 +1173,8 @@ void SplitCoord::RunsReg(RunSet *runSet, const SampleRank spn[], unsigned int ra
 
    @return true iff node splits.
 */
-bool SplitCoord::HeapSplit(RunSet *runSet, NuxLH &nux) const {
+bool SplitCoord::HeapSplit(RunSet *runSet,
+			   NuxLH &nux) const {
   unsigned int lhSCount = 0;
   double sumL = 0.0;
   int cut = -1; // Top index of lh ords in 'facOrd' (q.v.).
@@ -1105,7 +1209,9 @@ bool SplitCoord::HeapSplit(RunSet *runSet, NuxLH &nux) const {
    when run count has been estimated to be wide:
 
 */
-void SplitCoord::RunsCtg(const SPCtg *spCtg, RunSet *runSet, const SampleRank spn[]) const {
+void SplitCoord::RunsCtg(const SPCtg *spCtg,
+			 RunSet *runSet,
+			 const SampleRank spn[]) const {
   double sumLoc = 0.0;
   unsigned int sCountLoc = 0;
   unsigned int rkThis = spn[idxEnd].Rank();
@@ -1161,7 +1267,9 @@ void SplitCoord::RunsCtg(const SPCtg *spCtg, RunSet *runSet, const SampleRank sp
    Excluding the final run, then, the number of candidate LHS subsets is
    '2^(runCount-1) - 1'.
 */
-bool SplitCoord::SplitRuns(const SPCtg *spCtg, RunSet *runSet, NuxLH &nux) {
+bool SplitCoord::SplitRuns(const SPCtg *spCtg,
+			   RunSet *runSet,
+			   NuxLH &nux) {
   unsigned int countEff = runSet->DeWide();
 
   unsigned int slotSup = countEff - 1; // Uses post-shrink value.
@@ -1213,9 +1321,11 @@ bool SplitCoord::SplitRuns(const SPCtg *spCtg, RunSet *runSet, NuxLH &nux) {
    which LH subsets accumulate.  This permits running LH 0/1 sums to be
    maintained, as opposed to recomputed, as the LH set grows.
 
-   @return 
+   @return true iff the node splits.
  */
-bool SplitCoord::SplitBinary(const SPCtg *spCtg, RunSet *runSet, NuxLH &nux) {
+bool SplitCoord::SplitBinary(const SPCtg *spCtg,
+			     RunSet *runSet,
+			     NuxLH &nux) {
   runSet->HeapBinary();
   runSet->DePop();
 

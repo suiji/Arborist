@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2017  Mark Seligman
+// Copyright (C)  2012-2018  Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -15,31 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
-   @file rcppRowrank.h
-
-   @brief C++ class definitions for managing RowRank object.
-
-   @author Mark Seligman
-
- */
-
-
-#ifndef ARBORIST_RCPP_ROWRANK_H
-#define ARBORIST_RCPP_ROWRANK_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
-class RcppRowrank {
-  static IntegerVector iv1, iv2, iv3, iv4;
-  static NumericVector nv1;
+/**
+   @file rcppInit.h
+
+   @brief C++ interface to R entry for symbol registration.
+
+   @author Mark Seligman
+ */
 
 
- public:
-  static void Unwrap(SEXP sRowRank, unsigned int *&feNumOff, double *&feNumVal, unsigned int *&feRow, unsigned int *&feRank, unsigned int *&feRLE, unsigned int &feRLELength);
-  static void Clear();
-};
+/**
+   @brief Lights off symbol registry for package loading.
 
+   @param info is an external handle for symbol registration.
 
-#endif
+   @return void.
+ */
+void R_init_Rborist(DllInfo *info);

@@ -6,27 +6,29 @@
  */
 
 /**
-   @file predblock.cc
+   @file frameblock.cc
 
    @brief Methods for blocks of similarly-typed predictors.
 
    @author Mark Seligman
  */
 
-#include "predblock.h"
+#include "frameblock.h"
 #include <vector>
 #include <algorithm>
 
-//#include <iostream>
-//using namespace std;
 
 /**
    @brief
 
    @return void.
  */
-PMTrain::PMTrain(const std::vector<unsigned int> &_feCard, unsigned int _nPred, unsigned int _nRow) : PredMap(_nRow, _nPred - _feCard.size(), _feCard.size()),  feCard(_feCard) {
-  cardMax = nPredFac > 0 ? *std::max_element(_feCard.begin(), _feCard.end()) : 0;
+FrameTrain::FrameTrain(const vector<unsigned int> &_feCard,
+		 unsigned int _nPred,
+		 unsigned int _nRow) :
+  FrameMap(_nRow, _nPred - _feCard.size(), _feCard.size()),
+  feCard(_feCard),
+  cardMax(nPredFac > 0 ? *max_element(feCard.begin(), feCard.end()) : 0) {
 }
 
 
@@ -35,25 +37,47 @@ PMTrain::PMTrain(const std::vector<unsigned int> &_feCard, unsigned int _nPred, 
 
    @return void.
  */
-PMPredict::PMPredict(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int *_feFacT, unsigned int _nPredNum, unsigned int _nPredFac, unsigned int _nRow) : PredMap(_nRow, _nPredNum, _nPredFac), blockNum(BlockNum::Factory(_valNum, _rowStart, _runLength, _predStart, _feNumT, nPredNum)), blockFac(BlockFac::Factory(_feFacT, nPredFac)) {
+FramePredict::FramePredict(/*
+			   const vector<double> &_valNum,
+		     const vector<unsigned int> &_rowStart,
+		     const vector<unsigned int> &_runLength,
+		     const vector<unsigned int> &_predStart,
+		     double *_feNumT,
+		     unsigned int *_feFacT,*/
+			   BlockNum *_blockNum,
+			   BlockFac *_blockFac,
+		     unsigned int _nPredNum,
+		     unsigned int _nPredFac,
+		     unsigned int _nRow) :
+  FrameMap(_nRow, _nPredNum, _nPredFac),
+  blockNum(_blockNum),
+  blockFac(_blockFac) {
+  //blockNum(BlockNum::Factory(_valNum, _rowStart, _runLength,_predStart, _feNumT, nPredNum)),
+  //  blockFac(BlockFac::Factory(_feFacT, nPredFac)) {
 }
 
 
-PMPredict::~PMPredict() {
+FramePredict::~FramePredict() {
   delete blockNum;
   delete blockFac;
 }
 
 
-BlockNum *BlockNum::Factory(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nPredNum) {
+/*
+BlockNum *BlockNum::Factory(const vector<double> &_valNum,
+			    const vector<unsigned int> &_rowStart,
+			    const vector<unsigned int> &_runLength,
+			    const vector<unsigned int> &_predStart,
+			    double *_feNumT,
+			    unsigned int _nPredNum) {
   if (_valNum.size() > 0) {
-    return new BlockNumRLE(_valNum, _rowStart, _runLength, _predStart);
+    return new BlockSparse(_valNum, _rowStart, _runLength, _predStart);
   }
   else {
-    return new BlockNumDense(_feNumT, _nPredNum);
+    return new BlockDense(_feNumT, _nPredNum);
   }
 }
-
+*/
 
 /**
    @brief RLE variant NYI.
@@ -62,14 +86,23 @@ BlockFac *BlockFac::Factory(unsigned int *_feFacT, unsigned int nPredFac) {
   return new BlockFac(_feFacT, nPredFac);
 }
 
-  /**
+
+/**
      @brief Sparse constructor.
    */
-BlockNumRLE::BlockNumRLE(const std::vector<double> &_valNum, const std::vector<unsigned int> &_rowStart, const std::vector<unsigned int> &_runLength, const std::vector<unsigned int> &_predStart) : BlockNum(_predStart.size()), valNum(_valNum), rowStart(_rowStart), runLength(_runLength), predStart(_predStart) {
+BlockSparse::BlockSparse(const vector<double> &_valNum,
+			 const vector<unsigned int> &_rowStart,
+			 const vector<unsigned int> &_runLength,
+			 const vector<unsigned int> &_predStart) :
+  BlockNum(_predStart.size()),
+  valNum(_valNum),
+  rowStart(_rowStart),
+  runLength(_runLength),
+  predStart(_predStart) {
 
   // Both 'blockNumT' and 'valPrev' are updated before the next use, so
   // need not be initialized.
-  blockNumT = new double[PMPredict::rowBlock * nPredNum];
+  blockNumT = new double[FramePredict::rowBlock * nPredNum];
   val = new double[nPredNum];
 
   rowNext = new unsigned int[nPredNum];
@@ -81,7 +114,7 @@ BlockNumRLE::BlockNumRLE(const std::vector<double> &_valNum, const std::vector<u
 }
 
 
-BlockNumRLE::~BlockNumRLE() {
+BlockSparse::~BlockSparse() {
   delete [] blockNumT;
   delete [] rowNext;
   delete [] idxNext;
@@ -95,7 +128,7 @@ BlockNumRLE::~BlockNumRLE() {
 
    @return void.
  */
-void BlockNumRLE::Transpose(unsigned int rowBegin, unsigned int rowEnd) {
+void BlockSparse::Transpose(unsigned int rowBegin, unsigned int rowEnd) {
   for (unsigned int row = rowBegin; row < rowEnd; row++) {
     for (unsigned int predIdx = 0; predIdx < nPredNum; predIdx++) {
       if (row == rowNext[predIdx]) { // Assignments persist across invocations:

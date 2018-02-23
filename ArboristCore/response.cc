@@ -15,13 +15,9 @@
  */
 
 #include "response.h"
-#include "predblock.h"
+#include "frameblock.h"
 #include "sample.h"
-#include "leaf.h"
 #include "rowrank.h"
-
-//#include <iostream>
-//using namespace std;
 
 
 /**
@@ -33,8 +29,8 @@
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const std::vector<double> &feProxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth) {
-  return new ResponseCtg(feCtg, feProxy, leafOrigin, leafNode, bagLeaf, bagBits, weight, ctgWidth);
+ResponseCtg *Response::FactoryCtg(const unsigned int *feCtg, const double *feProxy) {
+  return new ResponseCtg(feCtg, feProxy);
 }
 
 
@@ -44,7 +40,9 @@ ResponseCtg *Response::FactoryCtg(const std::vector<unsigned int> &feCtg, const 
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vector<double> &_proxy, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth) : Response(_proxy, leafOrigin, leafNode, bagLeaf, bagBits, weight, ctgWidth), nCtg(ctgWidth), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const unsigned int *_yCtg,
+			 const double *_proxy) :
+  Response(_proxy), yCtg(_yCtg) {
 }
 
 
@@ -54,22 +52,12 @@ ResponseCtg::ResponseCtg(const std::vector<unsigned int> &_yCtg, const std::vect
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits, std::vector<double> &weight, unsigned int ctgWidth) : y(_y), leaf(new LeafCtg(leafOrigin, leafNode, bagLeaf, bagBits, y.size(), weight, ctgWidth)) {
-}
-
-
-/**
-   @brief Base class constructor.
-
-   @param _y is the vector numerical/proxy response values.
-
- */
-Response::Response(const std::vector<double> &_y, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits) : y(_y), leaf(new LeafReg(leafOrigin, leafNode, bagLeaf, bagBits, y.size())) {
+Response::Response(const double *_y) :
+  y(_y) {
 }
 
 
 Response::~Response() {
-  delete leaf;
 }
 
 
@@ -88,8 +76,9 @@ ResponseReg::~ResponseReg() {
 
    @return void, with output reference vector.
  */
-ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &_leafOrigin, std::vector<LeafNode> &_leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits) {
-  return new ResponseReg(yNum, _row2Rank, _leafOrigin, _leafNode, bagLeaf, bagBits);
+ResponseReg *Response::FactoryReg(const double *yNum,
+				  const unsigned int *_row2Rank) {
+  return new ResponseReg(yNum, _row2Rank);
 }
 
 
@@ -99,14 +88,18 @@ ResponseReg *Response::FactoryReg(const std::vector<double> &yNum, const std::ve
    @param _y is the response vector.
 
  */
-ResponseReg::ResponseReg(const std::vector<double> &_y, const std::vector<unsigned int> &_row2Rank, std::vector<unsigned int> &leafOrigin, std::vector<LeafNode> &leafNode, std::vector<BagLeaf> &bagLeaf, std::vector<unsigned int> &bagBits) : Response(_y, leafOrigin, leafNode, bagLeaf, bagBits), row2Rank(_row2Rank) {
+ResponseReg::ResponseReg(const double *_y,
+			 const unsigned int *_row2Rank) :
+  Response(_y),
+  row2Rank(_row2Rank) {
 }
 
 
 /**
    @return Regression-style Sample object.
  */
-Sample *ResponseReg::RootSample(const RowRank *rowRank, std::vector<unsigned int> &row2Sample) const {
+Sample *ResponseReg::RootSample(const RowRank *rowRank,
+				vector<unsigned int> &row2Sample) const {
   return Sample::FactoryReg(Y(), rowRank, row2Rank, row2Sample);
 }
 
@@ -114,34 +107,7 @@ Sample *ResponseReg::RootSample(const RowRank *rowRank, std::vector<unsigned int
 /**
    @return Classification-style Sample object.
  */
-Sample *ResponseCtg::RootSample(const RowRank *rowRank, std::vector<unsigned int> &row2Sample) const {
-  return Sample::FactoryCtg(Y(), rowRank, yCtg, nCtg, row2Sample);
-}
-
-
-/**
-   @brief Fills in leaves for a tree using current Sample.
-
-   @param leafMap maps sampled indices to leaf indices.
-
-   @param tIdx is the absolute tree index.
-
-   @return void, with side-effected Leaf object.
- */
-void Response::Leaves(const PMTrain *pmTrain, const Sample *sample, const std::vector<unsigned int> &leafMap, unsigned int tIdx) const {
-  leaf->Leaves(pmTrain, sample, leafMap, tIdx);
-}
-
-
-/**
-   @brief Initializes LeafCtg with estimated vector sizes.
-
-   @param leafEst is the estimated number of leaves.
-
-   @param bagEst is the estimated in-bag count.
-
-   @return void, with side-effected leaf object.
-*/
-void Response::LeafReserve(unsigned int leafEst, unsigned int bagEst) const {
-  leaf->Reserve(leafEst, bagEst);
+Sample *ResponseCtg::RootSample(const RowRank *rowRank,
+				vector<unsigned int> &row2Sample) const {
+  return Sample::FactoryCtg(Y(), rowRank, &yCtg[0], row2Sample);
 }

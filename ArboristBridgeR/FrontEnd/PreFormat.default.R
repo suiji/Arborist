@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2017   Mark Seligman
+# Copyright (C)  2012-2018   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -15,15 +15,28 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
+# Pre-formats a data frame or buffer, if not already pre-formatted.
+# If already pre-formatted, verifies types of member fields.
 PreFormat.default <- function(x) {
-  predBlock <- PredBlock(x)
-  rowRank <- .Call("RcppRowRank", predBlock)
+    if (inherits(x, "PreFormat") || inherits(x, "PreTrain")) {
+        preFormat <- x
+        if (!inherits(preFormat$predBlock, "PredBlock")) {
+            stop("Missing PredBlock")
+        }
+        if (!inherits(preFormat$rowRank, "RowRank")) {
+            stop("Missing RowRank")
+        }
+    }
+    else {
+        predBlock <- PredBlock(x)
+        rowRank <- .Call("Presort", predBlock)
 
-  preTrain <- list(
-    predBlock = predBlock,
-    rowRank = rowRank
-  )
-  class(preTrain) <- "PreFormat"
+        preFormat <- list(
+            predBlock = predBlock,
+            rowRank = rowRank
+        )
+        class(preFormat) <- "PreFormat"
+    }
 
-  preTrain
+    preFormat
 }

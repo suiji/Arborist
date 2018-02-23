@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "typeparam.h"
 
 // TODO: Recast using templates.
 
@@ -27,6 +28,7 @@ class BV {
   const unsigned int nSlot;
   unsigned int *raw;
   const bool wrapper;
+  
  public:
   static const unsigned int full = 1;
   static const unsigned int eltSize = 1;
@@ -34,11 +36,16 @@ class BV {
   static constexpr unsigned int slotElts = 8 * slotSize;
 
   BV(unsigned int len, bool slotWise = false);
-  BV(const std::vector<unsigned int> &_raw);
+  BV(const vector<unsigned int> &_raw);
   BV(unsigned int _raw[], size_t _nSlot);
-  BV(std::vector<unsigned int> &_raw, unsigned int _nSlot);
+  BV(vector<unsigned int> &_raw, unsigned int _nSlot);
 
   ~BV();
+  void Serialize(unsigned char *bbRaw) const {
+    for (size_t i = 0; i < nSlot * sizeof(unsigned int); i++) {
+      bbRaw[i] = *((unsigned char *) &raw[0] + i);
+    }
+  }
 
   /**
      @brief Accessor for position within the 'raw' buffer.
@@ -47,7 +54,7 @@ class BV {
     return raw + off;
   }
 
-  void Consume(std::vector<unsigned int> &out, unsigned int bitEnd = 0) const;
+  void Consume(vector<unsigned int> &out, unsigned int bitEnd = 0) const;
   unsigned int PopCount() const;
 
   BV *Resize(unsigned int bitMin);
@@ -178,21 +185,26 @@ class BitRow : public BV {
 class BitMatrix : public BV {
   const unsigned int nRow;
   const unsigned int stride;
-  void Export(unsigned int _nRow, std::vector<std::vector<unsigned int> > &bmOut);
-  void ColExport(unsigned int _nRow, std::vector<unsigned int> &outCol, unsigned int colIdx);
+  void Export(unsigned int _nRow, vector<vector<unsigned int> > &bmOut) const;
+  void ColExport(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const;
 
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
-  BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw);
-  BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsigned int _nCol);
+  BitMatrix(unsigned int _nRow, unsigned int _nCol, const vector<unsigned int> &_raw);
   BitMatrix(unsigned int _raw[], size_t _nRow, size_t _nCol);
   ~BitMatrix();
 
   inline unsigned int NRow() const {
     return nRow;
   }
+
+
+  inline size_t Bytes() const {
+    return nRow * stride * sizeof(unsigned int);
+  }
+
   
-  static void Export(const std::vector<unsigned int> &_raw, unsigned int _nRow, std::vector<std::vector<unsigned int> > &vecOut);
+  static void Export(const vector<unsigned int> &_raw, unsigned int _nRow, vector<vector<unsigned int> > &vecOut);
 
 
   inline BitRow *Row(unsigned int row) {
@@ -228,13 +240,14 @@ class BVJagged : public BV {
   const size_t nElt;
   const unsigned int *rowOrigin;
   const unsigned int nRow;
-  void Export(std::vector<std::vector<unsigned int> > &outVec);
-  void RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
+  void RowExport(vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
   unsigned int RowHeight(unsigned int rowIdx) const;
+
  public:
   BVJagged(unsigned int _raw[], size_t _nSlot, const unsigned int _origin[], unsigned int _nRow);
   ~BVJagged();
-  static void Export(unsigned int _raw[], std::size_t facLen, const unsigned int _origin[], unsigned int _nElt, std::vector<std::vector<unsigned int> > &outVec);
+  void Export(vector<vector<unsigned int> > &outVec);
+  //  static void Export(unsigned int _raw[], size_t facLen, const unsigned int _origin[], unsigned int _nElt, vector<vector<unsigned int> > &outVec);
 
 
   inline size_t NElt() const {

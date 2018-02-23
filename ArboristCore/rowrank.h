@@ -20,13 +20,12 @@
 #include <tuple>
 #include <cmath>
 
-#include "param.h"
-//#include <iostream>
-//using namespace std;
+#include "typeparam.h"
 
-typedef std::pair<double, unsigned int> ValRowD;
-typedef std::tuple<double, unsigned int, unsigned int> RLENum;
-typedef std::pair<unsigned int, unsigned int> ValRowI;
+
+typedef pair<double, unsigned int> ValRowD;
+typedef tuple<double, unsigned int, unsigned int> RLENum;
+typedef pair<unsigned int, unsigned int> ValRowI;
 
 
 class RRNode {
@@ -72,7 +71,7 @@ class RowRank {
   const unsigned int nPred;
   const unsigned int noRank; // Inattainable rank value.
   unsigned int nPredDense;
-  std::vector<unsigned int> denseIdx;
+  vector<unsigned int> denseIdx;
 
   // Jagged array holding numerical predictor values for split assignment.
   const unsigned int *numOffset; // Per-predictor starting offsets.
@@ -80,21 +79,21 @@ class RowRank {
 
   unsigned int nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
-  std::vector<unsigned int> denseRank;
-  std::vector<unsigned int> explicitCount; // Per predictor
-  std::vector<unsigned int> rrStart;   // Predictor offset within rrNode[].
-  std::vector<unsigned int> safeOffset; // Predictor offset within SamplePred[].
+  vector<unsigned int> denseRank;
+  vector<unsigned int> explicitCount; // Per predictor
+  vector<unsigned int> rrStart;   // Predictor offset within rrNode[].
+  vector<unsigned int> safeOffset; // Predictor offset within SamplePred[].
   const double autoCompress; // Threshold percentage for autocompression.
 
   
-  static void FacSort(const unsigned int predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rle);
-  static void NumSortRaw(const double predCol[], unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
-  static unsigned int NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<double> &numOut);
+  static void FacSort(const unsigned int predCol[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rle);
+  static void NumSortRaw(const double predCol[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut);
+  static unsigned int NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rlOut, vector<double> &numOut);
 
-  static void RankFac(const std::vector<ValRowI> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut);
-  static void RankNum(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
-  static void RankNum(const std::vector<RLENum> &rleNum, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<double> &numOut);
-  static void Rank2Row(const std::vector<ValRowD> &valRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut);
+  static void RankFac(const vector<ValRowI> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut);
+  static void RankNum(const vector<ValRowD> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut);
+  static void RankNum(const vector<RLENum> &rleNum, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut);
+  static void Rank2Row(const vector<ValRowD> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut);
 
 
   static inline unsigned int RunSlot(const unsigned int feRLE[], const unsigned int feRow[], const unsigned int feRank[], unsigned int rleIdx, unsigned int &row, unsigned int &rank) {
@@ -115,7 +114,7 @@ class RowRank {
   void ModeOffsets();
   void Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int feRLELength);
 
-  void Stage(const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const;
+  void Stage(const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, class SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const;
 
   
   inline double NumVal(unsigned int predIdx, unsigned int rk) const {
@@ -124,29 +123,29 @@ class RowRank {
 
   
  protected:
-  std::vector<RRNode> rrNode;
+  vector<RRNode> rrNode;
 
 
   
  public:
-  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rleOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
+  static void PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<unsigned int> &valOffOut, vector<double> &numOut);
 
-  static void PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &rlOut, std::vector<unsigned int> &valOffOut, std::vector<double> &numOut);
+  static void PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rlOut, vector<unsigned int> &valOffOut, vector<double> &numOut);
   
-  static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, std::vector<unsigned int> &rowOut, std::vector<unsigned int> &rankOut, std::vector<unsigned int> &runLength);
+  static void PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &runLength);
 
 
   // Factory parametrized by coprocessor state.
-  static RowRank *Factory(const class Coproc *coproc, const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autCompress);
+  static RowRank *Factory(const class Coproc *coproc, const class FrameTrain *frameTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autCompress);
 
   virtual class SamplePred *SamplePredFactory(unsigned int _bagCount) const;
-  virtual class SPReg *SPRegFactory(const class PMTrain *pmTrain, unsigned int bagCount) const;
-  virtual class SPCtg *SPCtgFactory(const class PMTrain *pmTrain, unsigned int bagCount, unsigned int _nCtg) const; 
+  virtual class SPReg *SPRegFactory(const class FrameTrain *frameTrain, unsigned int bagCount) const;
+  virtual class SPCtg *SPCtgFactory(const class FrameTrain *frameTrain, unsigned int bagCount, unsigned int _nCtg) const; 
 
-  RowRank(const class PMTrain *pmTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autoCompress);
+  RowRank(const class FrameTrain *frameTrain, const unsigned int feRow[], const unsigned int feRank[], const unsigned int _numOffset[], const double _numVal[], const unsigned int feRLE[], unsigned int feRLELength, double _autoCompress);
   virtual ~RowRank();
 
-  virtual void Stage(const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, class SamplePred *samplePred, std::vector<StageCount> &stageCount) const;
+  virtual void Stage(const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, class SamplePred *samplePred, vector<StageCount> &stageCount) const;
 
 
   inline unsigned int NRow() const {
@@ -222,7 +221,7 @@ class RowRank {
   }
 
 
-  inline const std::vector<unsigned int> &DenseIdx() const {
+  inline const vector<unsigned int> &DenseIdx() const {
     return denseIdx;
   }
 
@@ -237,7 +236,7 @@ class RowRank {
 
      @return predictor value at mean rank, computed by PBTrain method.
   */
-  inline double QuantRank(unsigned int predIdx, RankRange rankRange, const double splitQuant[]) const {
+  inline double QuantRank(unsigned int predIdx, RankRange rankRange, const vector<double> &splitQuant) const {
   double rankNum = rankRange.rankLow + splitQuant[predIdx] * (rankRange.rankHigh - rankRange.rankLow);
   unsigned int rankFloor = floor(rankNum);
   unsigned int rankCeil = ceil(rankNum);

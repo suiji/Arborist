@@ -16,7 +16,7 @@
 #ifndef ARBORIST_SAMPLENUX_H
 #define ARBORIST_SAMPLENUX_H
 
-#include "param.h"
+#include "typeparam.h"
 
 
 /**
@@ -31,6 +31,8 @@
    'nSamp' * sizeof(uint).
  */
 class SampleNux {
+  static unsigned int nCtg;
+
  protected:
   static unsigned int ctgShift; // Pack:  nonzero iff categorical.
 
@@ -44,6 +46,9 @@ class SampleNux {
   static void Immutables(unsigned int ctgWidth);
   static void DeImmutables();
 
+  static inline unsigned int NCtg() {
+    return nCtg;
+  }
   
   inline double Init(FltVal _yVal, unsigned int _sCount, unsigned int _ctg = 0) {
     ySum = _yVal * _sCount;

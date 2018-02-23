@@ -17,6 +17,7 @@
 
 #include "samplenux.h"
 
+unsigned int SampleNux::nCtg = 0;
 unsigned int SampleNux::ctgShift = 0;
 
 
@@ -29,11 +30,12 @@ unsigned int SampleNux::ctgShift = 0;
    @return void.
  */
 void SampleNux::Immutables(unsigned int ctgWidth) {
+  nCtg = ctgWidth;
   unsigned int bits = 1;
   ctgShift = 0;
   // Ctg values are zero-based, so the first power of 2 greater than or
   // equal to 'ctgWidth' has sufficient bits to hold all response values.
-  while (bits < ctgWidth) {
+  while (bits < nCtg) {
     bits <<= 1;
     ctgShift++;
   }

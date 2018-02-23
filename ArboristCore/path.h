@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "param.h"
+#include "typeparam.h"
 
 /**
    @brief Records index, start and extent for path reached from MRRA.
@@ -80,8 +80,8 @@ class IdxPath {
   static constexpr unsigned int maskExtinct = NodePath::noPath;
   static constexpr unsigned int maskLive = maskExtinct - 1;
   static constexpr unsigned int relMax = 1 << 15;
-  std::vector<unsigned int> relFront;
-  std::vector<unsigned char> pathFront;
+  vector<unsigned int> relFront;
+  vector<unsigned char> pathFront;
 
   // Only defined for enclosing Levels employing node-relative indexing.
   //
@@ -89,7 +89,7 @@ class IdxPath {
   // be generalized to multiple sizes to accommodate more sophisticated
   // hierarchies.
   //
-  std::vector<uint_least16_t> offFront;
+  vector<uint_least16_t> offFront;
  public:
 
   IdxPath(unsigned int _idxLive);
@@ -106,13 +106,22 @@ class IdxPath {
 
   
   /**
-     @bool Accessor for live index count.
+     @brief Accessor for live index count.
    */
   inline unsigned int IdxLive() const {
     return idxLive;
   }
 
 
+  /**
+     @brief Setter for path reaching an index.
+
+     @param idx is the index in question.
+
+     @param path is the reaching path.
+
+     @return void.
+   */
   inline void Set(unsigned int idx, unsigned int path = maskExtinct) {
     pathFront[idx] = path;
   }
@@ -150,7 +159,7 @@ class IdxPath {
    @param path is the revised path.
 
    @return void.
-*/
+  */
   inline void SetLive(unsigned int idx, unsigned int path) {
     Set(idx, path);
   }
@@ -193,6 +202,8 @@ class IdxPath {
      @brief Marks path as extinct, sets front index to inattainable value.
      Other values undefined.
 
+     @param idx is the index in question.
+
      @return void.
    */
   inline void SetExtinct(unsigned int idx) {
@@ -200,6 +211,13 @@ class IdxPath {
   }
 
 
+  /**
+     @brief Indicates whether path reaching index is live.
+
+     @param idx is the index in question.
+
+     @return true iff reaching path is not extinct.
+   */
   inline bool IsLive(unsigned idx) const {
     return (pathFront[idx] & maskExtinct) == 0;
   }
@@ -207,6 +225,8 @@ class IdxPath {
 
   /**
      @brief Caller ensures path is two-valued, with neither lane extinct.
+
+     @param idx is the index in question.
 
      @return true iff path is LH.
    */
@@ -230,7 +250,7 @@ class IdxPath {
 
      @return path to input index.
    */
-  inline unsigned int IdxUpdate(unsigned int &idx, unsigned int pathMask, const unsigned int reachBase[], bool idxUpdate) const {
+  inline PathT IdxUpdate(unsigned int &idx, unsigned int pathMask, const unsigned int reachBase[], bool idxUpdate) const {
     bool isLive;
     PathT path = PathSucc(idx, pathMask, isLive);
     if (isLive) {
@@ -256,9 +276,10 @@ class IdxPath {
     if (!IsLive(idx)) {
       return false;
     }
-    
-    front = relFront[idx];
-    return true;
+    else {
+      front = relFront[idx];
+      return true;
+    }
   }
 
   
@@ -275,9 +296,10 @@ class IdxPath {
     if (!IsLive(idx)) {
       return false;
     }
-
-    backRef->Set(backIdx, pathFront[idx], relFront[idx], offFront[idx]);
-    return true;
+    else {
+      backRef->Set(backIdx, pathFront[idx], relFront[idx], offFront[idx]);
+      return true;
+    }
   }
 
   

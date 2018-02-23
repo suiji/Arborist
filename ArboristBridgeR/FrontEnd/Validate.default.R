@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2017   Mark Seligman
+# Copyright (C)  2012-2018   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -29,12 +29,18 @@
   predBlock <- preFormat$predBlock
   forest <- train$forest
   leaf <- train$leaf
+
+  ValidateDeep(predBlock, forest, leaf, y, ctgCensus, quantVec, quantiles, qBin)
+}
+
+
+ValidateDeep <- function(predBlock, forest, leaf, y, ctgCensus, quantVec, quantiles, qBin) {
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
-      validation <- tryCatch(.Call("RcppValidateVotes", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateVotes", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
     else if (ctgCensus == "prob") {
-      validation <- tryCatch(.Call("RcppValidateProb", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateProb", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -45,10 +51,10 @@
       if (is.null(quantVec)) {
         quantVec <- DefaultQuantVec()
       }
-      validation <- tryCatch(.Call("RcppValidateQuant", predBlock, forest, leaf, y, quantVec, qBin), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateQuant", predBlock, forest, leaf, y, quantVec, qBin), error = function(e) { stop(e) })
     }
     else {
-      validation <- tryCatch(.Call("RcppValidateReg", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateReg", predBlock, forest, leaf, y), error = function(e) { stop(e) })
     }
   }
 

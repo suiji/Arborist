@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2017  Mark Seligman
+// Copyright (C)  2012-2018  Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -16,7 +16,7 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file rcppPredict.cc
+   @file predictBridge.cc
 
    @brief C++ interface to R entry for prediction methods.
 
@@ -24,21 +24,16 @@
  */
 
 #include <Rcpp.h>
-
 using namespace Rcpp;
 
-#include "rcppPredblock.h"
-#include "rcppForest.h"
-#include "rcppLeaf.h"
-#include "predict.h"
 
-#include "forest.h"
-#include "leaf.h"
+#include "frameblockBridge.h"
+#include "forestBridge.h"
+#include "leafBridge.h"
+#include "predictBridge.h"
 
 #include <algorithm>
 
-//#include <iostream>
-//using namespace std;
 
 /**
    @brief Utility for computing mean-square error of prediction.
@@ -51,7 +46,10 @@ using namespace Rcpp;
 
    @return mean squared error, with output parameter.
  */
-double MSE(const double yValid[], NumericVector y, double &rsq, double &mae) {
+double PredictBridge::MSE(const double yValid[],
+			  NumericVector y,
+			  double &rsq,
+			  double &mae) {
   double sse = 0.0;
   mae = 0.0;
   for (R_len_t i = 0; i < y.length(); i++) {
@@ -71,33 +69,24 @@ double MSE(const double yValid[], NumericVector y, double &rsq, double &mae) {
 
    @return Wrapped zero, with copy-out parameters.
  */
-RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, bool validate) {
-  unsigned int nPredNum, nPredFac, nRow;
-  NumericMatrix blockNum;
-  IntegerMatrix blockFac;
-  std::vector<double> valNum;
-  std::vector<unsigned int> rowStart;
-  std::vector<unsigned int> runLength;
-  std::vector<unsigned int> predStart;
-  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac, valNum, rowStart, runLength, predStart);
+List PredictBridge::Reg(SEXP sPredBlock,
+			SEXP sForest,
+			SEXP sLeaf,
+			SEXP sYTest,
+			bool validate) {
+  BEGIN_RCPP
+  auto framePredict = FrameblockBridge::Unwrap(sPredBlock);
+  auto forest = ForestBridge::Unwrap(sForest);
+  auto leafReg = LeafRegBridge::Unwrap(List(sLeaf));
 
-  unsigned int *origin, *facOrig, *facSplit;
-  ForestNode *forestNode;
-  unsigned int nTree, nFac, nodeEnd;
-  size_t facLen;
-  RcppForest::Unwrap(sForest, origin, nTree, facSplit, facLen, facOrig, nFac, forestNode, nodeEnd);
-  
-  std::vector<double> yTrain;
-  std::vector<unsigned int> leafOrigin;
-  LeafNode *leafNode;
-  unsigned int leafCount;
-  BagLeaf *bagLeaf;
-  unsigned int bagLeafTot;
-  unsigned int *bagBits;
-  RcppLeaf::UnwrapReg(sLeaf, yTrain, leafOrigin, leafNode, leafCount, bagLeaf, bagLeafTot, bagBits, validate);
+  vector<double> yPred(framePredict->NRow());
+  Predict::Regression(framePredict, forest, leafReg, yPred);
 
-  std::vector<double> yPred(nRow);
-  Predict::Regression(valNum, rowStart, runLength, predStart, (valNum.size() == 0 && nPredNum > 0) ? transpose(blockNum).begin() : 0, nPredFac > 0 ? (unsigned int *) transpose(blockFac).begin() : 0, nPredNum, nPredFac, forestNode, origin, nTree, facSplit, facLen, facOrig, nFac, leafOrigin, leafNode, leafCount, bagBits, yTrain, yPred);
+  delete leafReg;
+  delete framePredict;
+  delete forest;
+
+  FrameblockBridge::Clear();
 
   List prediction;
   if (Rf_isNull(sYTest)) { // Prediction
@@ -120,20 +109,26 @@ RcppExport SEXP RcppPredictReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
 		     );
     prediction.attr("class") = "ValidReg";
   }
-  RcppLeaf::Clear();
-  RcppForest::Clear();
-
+  
   return prediction;
+
+  END_RCPP
 }
 
 
-RcppExport SEXP RcppValidateReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictReg(sPredBlock, sForest, sLeaf, sYTest, true);
+RcppExport SEXP ValidateReg(SEXP sPredBlock,
+				  SEXP sForest,
+				  SEXP sLeaf,
+				  SEXP sYTest) {
+  return PredictBridge::Reg(sPredBlock, sForest, sLeaf, sYTest, true);
 }
 
 
-RcppExport SEXP RcppTestReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictReg(sPredBlock, sForest, sLeaf, sYTest, false);
+RcppExport SEXP TestReg(SEXP sPredBlock,
+			      SEXP sForest,
+			      SEXP sLeaf,
+			      SEXP sYTest) {
+  return PredictBridge::Reg(sPredBlock, sForest, sLeaf, sYTest, false);
 }
 
 
@@ -142,34 +137,17 @@ RcppExport SEXP RcppTestReg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTe
 
    @return Prediction list.
  */
-RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, bool validate, bool doProb) {
-  unsigned int nPredNum, nPredFac, nRow;
-  NumericMatrix blockNum;
-  IntegerMatrix blockFac;
-  std::vector<double> valNum;
-  std::vector<unsigned int> rowStart;
-  std::vector<unsigned int> runLength;
-  std::vector<unsigned int> predStart;
-  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac, valNum, rowStart, runLength, predStart);
-    
-  unsigned int *origin, *facOrig, *facSplit;
-  ForestNode *forestNode;
-  unsigned int nTree, nFac, nodeEnd;
-  size_t facLen;
-  RcppForest::Unwrap(sForest, origin, nTree, facSplit, facLen, facOrig, nFac, forestNode, nodeEnd);
-
-  std::vector<unsigned int> leafOrigin;
-  LeafNode *leafNode;
-  unsigned int leafCount;
-  BagLeaf *bagLeaf;
-  unsigned int bagLeafTot;
-  unsigned int *bagBits;
-  double *weight;
-  unsigned int rowTrain;
-  CharacterVector levelsTrain;
-  RcppLeaf::UnwrapCtg(sLeaf, leafOrigin, leafNode, leafCount, bagLeaf, bagLeafTot, bagBits, weight, rowTrain, levelsTrain, validate);
-
+List PredictBridge::Ctg(SEXP sPredBlock,
+			SEXP sForest,
+			SEXP sLeaf,
+			SEXP sYTest,
+			bool validate,
+			bool doProb) {
+  auto framePredict = FrameblockBridge::Unwrap(sPredBlock);
+  auto leafCtg = LeafCtgBridge::Unwrap(List(sLeaf), validate);
+  CharacterVector levelsTrain = leafCtg->Levels();
   unsigned int ctgWidth = levelsTrain.length();
+
   bool test = !Rf_isNull(sYTest);
   IntegerVector yTest = test ? IntegerVector(sYTest) - 1 : IntegerVector(0);
   CharacterVector levelsTest = test ? as<CharacterVector>(IntegerVector(sYTest).attr("levels")) : CharacterVector(0);
@@ -204,18 +182,24 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
   else {
     testWidth = 0;
   }
-  std::vector<unsigned int> testCore(testLength);
+  vector<unsigned int> testCore(testLength);
   for (unsigned int i = 0; i < testLength; i++) {
     testCore[i] = yTest[i];
   }
 
-  std::vector<unsigned int> confCore(testWidth * ctgWidth);
-  std::vector<double> misPredCore(testWidth);
-  std::vector<unsigned int> censusCore(nRow * ctgWidth);
-  std::vector<unsigned int> yPred(nRow);
-  NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
-  Predict::Classification(valNum, rowStart, runLength, predStart, (valNum.size() == 0 && nPredNum > 0) ? transpose(blockNum).begin() : 0, nPredFac > 0 ? (unsigned int*) transpose(blockFac).begin() : 0, nPredNum, nPredFac, forestNode, origin, nTree, facSplit, facLen, facOrig, nFac, leafOrigin, leafNode, leafCount, bagBits, rowTrain, weight, ctgWidth, yPred, &censusCore[0], testCore, test ? &confCore[0] : 0, misPredCore, doProb ? probCore.begin() : 0);
+  unsigned int nRow = framePredict->NRow();
 
+  vector<unsigned int> confCore(testWidth * ctgWidth);
+  vector<double> misPredCore(testWidth);
+  vector<unsigned int> censusCore(nRow * ctgWidth);
+  vector<unsigned int> yPred(nRow);
+  auto forest = ForestBridge::Unwrap(sForest);
+  NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
+  Predict::Classification(framePredict, forest, leafCtg, yPred, &censusCore[0], testCore, test ? &confCore[0] : 0, misPredCore, doProb ? probCore.begin() : 0);
+  delete leafCtg;
+  delete framePredict;
+  delete forest;
+  
   List predBlock(sPredBlock);
   IntegerMatrix census = transpose(IntegerMatrix(ctgWidth, nRow, &censusCore[0]));
   census.attr("dimnames") = List::create(predBlock["rowNames"], levelsTrain);
@@ -274,37 +258,24 @@ RcppExport SEXP RcppPredictCtg(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP s
    prediction.attr("class") = "PredictCtg";
   }
 
-  RcppLeaf::Clear();
-  RcppForest::Clear();
+  FrameblockBridge::Clear();
   return prediction;
 }
 
 
-RcppExport SEXP RcppValidateVotes(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictCtg(sPredBlock, sForest, sLeaf, sYTest, true, false);
+RcppExport SEXP ValidateVotes(SEXP sPredBlock,
+				    SEXP sForest,
+				    SEXP sLeaf,
+				    SEXP sYTest) {
+  return PredictBridge::Ctg(sPredBlock, sForest, sLeaf, sYTest, true, false);
 }
 
 
-RcppExport SEXP RcppValidateProb(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictCtg(sPredBlock, sForest, sLeaf, sYTest, true, true);
-}
-
-
-/**
-   @brief Predicts with class votes.
-
-   @param sPredBlock contains the blocked observations.
-
-   @param sForest contains the trained forest.
-
-   @param sLeaf contains the trained leaves.
-
-   @param sVotes outputs the vote predictions.
-
-   @return Prediction object.
- */
-RcppExport SEXP RcppTestVotes(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictCtg(sPredBlock, sForest, sLeaf, sYTest, false, false);
+RcppExport SEXP ValidateProb(SEXP sPredBlock,
+				   SEXP sForest,
+				   SEXP sLeaf,
+				   SEXP sYTest) {
+  return PredictBridge::Ctg(sPredBlock, sForest, sLeaf, sYTest, true, true);
 }
 
 
@@ -321,8 +292,32 @@ RcppExport SEXP RcppTestVotes(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sY
 
    @return Prediction object.
  */
-RcppExport SEXP RcppTestProb(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest) {
-  return RcppPredictCtg(sPredBlock, sForest, sLeaf, sYTest, false, true);
+RcppExport SEXP TestVotes(SEXP sPredBlock,
+				SEXP sForest,
+				SEXP sLeaf,
+				SEXP sYTest) {
+  return PredictBridge::Ctg(sPredBlock, sForest, sLeaf, sYTest, false, false);
+}
+
+
+/**
+   @brief Predicts with class votes.
+
+   @param sPredBlock contains the blocked observations.
+
+   @param sForest contains the trained forest.
+
+   @param sLeaf contains the trained leaves.
+
+   @param sVotes outputs the vote predictions.
+
+   @return Prediction object.
+ */
+RcppExport SEXP TestProb(SEXP sPredBlock,
+			       SEXP sForest,
+			       SEXP sLeaf,
+			       SEXP sYTest) {
+  return PredictBridge::Ctg(sPredBlock, sForest, sLeaf, sYTest, false, true);
 }
 
 
@@ -347,38 +342,29 @@ RcppExport SEXP RcppTestProb(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYT
 
    @return Prediction list.
 */
-RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sQuantVec, SEXP sQBin, SEXP sYTest, bool validate) {
-  unsigned int nPredNum, nPredFac, nRow;
-  NumericMatrix blockNum;
-  IntegerMatrix blockFac;
-  std::vector<double> valNum;
-  std::vector<unsigned int> rowStart;
-  std::vector<unsigned int> runLength;
-  std::vector<unsigned int> predStart;
-  RcppPredblock::Unwrap(sPredBlock, nRow, nPredNum, nPredFac, blockNum, blockFac, valNum, rowStart, runLength, predStart);
-    
-  unsigned int *origin, *facOrig, *facSplit;
-  ForestNode *forestNode;
-  unsigned int nTree, nFac, nodeEnd;
-  size_t facLen;
-  RcppForest::Unwrap(sForest, origin, nTree, facSplit, facLen, facOrig, nFac, forestNode, nodeEnd);
-
-  std::vector<double> yTrain;
-  std::vector<unsigned int> leafOrigin;
-  LeafNode *leafNode;
-  unsigned int leafCount;
-  BagLeaf *bagLeaf;
-  unsigned int bagLeafTot;
-  unsigned int *bagBits;
+List PredictBridge::Quant(SEXP sPredBlock,
+			  SEXP sForest,
+			  SEXP sLeaf,
+			  SEXP sQuantVec,
+			  SEXP sQBin,
+			  SEXP sYTest,
+			  bool validate) {
+  BEGIN_RCPP
+  auto framePredict = FrameblockBridge::Unwrap(sPredBlock);
+  auto forest = ForestBridge::Unwrap(sForest);
 
   // Quantile prediction requires full bagging information regardless
   // whether validating.
-  RcppLeaf::UnwrapReg(sLeaf, yTrain, leafOrigin, leafNode, leafCount, bagLeaf, bagLeafTot, bagBits, true);
+  auto leafReg = LeafRegBridge::Unwrap(List(sLeaf), true);
 
-  std::vector<double> yPred(nRow);
-  std::vector<double> quantVecCore(as<std::vector<double> >(sQuantVec));
-  std::vector<double> qPredCore(nRow * quantVecCore.size());
-  Predict::Quantiles(valNum, rowStart, runLength, predStart, (valNum.size() == 0 && nPredNum > 0) ? transpose(blockNum).begin() : 0, nPredFac > 0 ? (unsigned int*) transpose(blockFac).begin() : 0, nPredNum, nPredFac, forestNode, origin, nTree, facSplit, facLen, facOrig, nFac, leafOrigin, leafNode, leafCount, bagLeaf, bagLeafTot, bagBits, yTrain, yPred, quantVecCore, as<unsigned int>(sQBin), qPredCore, validate);
+  unsigned int nRow = framePredict->NRow();
+  vector<double> yPred(nRow);
+  vector<double> quantVecCore(as<vector<double> >(sQuantVec));
+  vector<double> qPredCore(nRow * quantVecCore.size());
+  Predict::Quantiles(framePredict, forest, leafReg, yPred, quantVecCore, as<unsigned int>(sQBin), qPredCore, validate);
+  delete leafReg;
+  delete framePredict;
+  delete forest;
   
   NumericMatrix qPred(transpose(NumericMatrix(quantVecCore.size(), nRow, qPredCore.begin())));
   List prediction;
@@ -402,17 +388,28 @@ RcppExport SEXP RcppPredictQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP
     prediction.attr("class") = "PredictReg";
   }
 
-  RcppLeaf::Clear();
-  RcppForest::Clear();
+  FrameblockBridge::Clear();
   return prediction;
+
+  END_RCPP
 }
 
 
-RcppExport SEXP RcppValidateQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sYTest, SEXP sQuantVec, SEXP sQBin) {
-  return RcppPredictQuant(sPredBlock, sForest, sLeaf, sQuantVec, sQBin, sYTest, true);
+RcppExport SEXP ValidateQuant(SEXP sPredBlock,
+				    SEXP sForest,
+				    SEXP sLeaf,
+				    SEXP sYTest,
+				    SEXP sQuantVec,
+				    SEXP sQBin) {
+  return PredictBridge::Quant(sPredBlock, sForest, sLeaf, sQuantVec, sQBin, sYTest, true);
 }
 
 
-RcppExport SEXP RcppTestQuant(SEXP sPredBlock, SEXP sForest, SEXP sLeaf, SEXP sQuantVec, SEXP sQBin, SEXP sYTest) {
-  return RcppPredictQuant(sPredBlock, sForest, sLeaf, sQuantVec, sQBin, sYTest, false);
+RcppExport SEXP TestQuant(SEXP sPredBlock,
+				SEXP sForest,
+				SEXP sLeaf,
+				SEXP sQuantVec,
+				SEXP sQBin,
+				SEXP sYTest) {
+  return PredictBridge::Quant(sPredBlock, sForest, sLeaf, sQuantVec, sQBin, sYTest, false);
 }

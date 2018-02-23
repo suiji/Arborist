@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2017   Mark Seligman
+// Copyright (C)  2012-2018   Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -26,8 +26,6 @@
 #include <RcppArmadilloExtensions/sample.h>
 #include "rcppSample.h"
 
-//#include <iostream>
-//using namespace std;
 
 unsigned int RcppSample::nRow = 0;
 bool RcppSample::withRepl = false;

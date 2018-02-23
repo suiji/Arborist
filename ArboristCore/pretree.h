@@ -20,39 +20,36 @@
 #include <vector>
 #include <algorithm>
 
-#include "param.h"
+#include "decnode.h"
 
 
 /**
- @brief Serialized representation of the pre-tree, suitable for tranfer between
- devices such as coprocessors, disks and nodes.
-
- Left and right subnodes are referenced as indices into the vector
- representation of the tree. Leaves are distinguished as having two
- negative-valued subnode indices, while splits have both subset
- indices positive.  Mixed negative and non-negative subnode indices
- indicate an error.
-*/
-class PTNode {
+  @brief DecNode specialized for training.
+ */
+class PTNode : public DecNode {
+  FltVal info;  // Nonzero iff nonterminal.
  public:
-  unsigned int lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
-  unsigned int predIdx; // Nonterminal only.
-  FltVal info; // Nonterminal only.
-  union {
-    unsigned int offset; // Bit-vector offset:  factor.
-    RankRange rankRange; // LH, RH ranks:  numeric.
-  } splitVal;
-
-  void NonterminalConsume(const class PMTrain *pmTrain, class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo, unsigned int idx) const;
+  
+  void NonterminalConsume(const class FrameTrain *frameTrain, class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const;
 
 
+  /**
+     @brief Resets to default terminal status.
+
+     @return void.
+   */
   inline void SetTerminal() {
     lhDel = 0;
   }
 
 
-  inline void SetNonterminal(unsigned int parId, unsigned int lhId) {
-    lhDel = lhId - parId;
+  /**
+     @brief Resets to nonterminal with specified lh-delta.
+
+     @return void.
+   */
+  inline void SetNonterminal(unsigned int lhDel) {
+    this->lhDel = lhDel;
   }
 
   
@@ -68,42 +65,74 @@ class PTNode {
   inline unsigned int RHId(unsigned int ptId) const {
     return NonTerminal() ? LHId(ptId) + 1 : 0;
   }
+
+
+  inline void SplitNum(unsigned int predIdx, unsigned int lhDel, RankRange rankRange, double info) {
+    this->predIdx = predIdx;
+    this->lhDel = lhDel;
+    this->splitVal.rankRange = rankRange;
+    this->info = info;
+  }
+
+
+  inline void SplitFac(unsigned int predIdx, unsigned int lhDel, unsigned int bitEnd, double info) {
+    this->predIdx = predIdx;
+    this->lhDel = lhDel;
+    this->splitVal.offset = bitEnd;
+    this->info = info;
+  }
 };
 
 
+/**
+ @brief Serialized representation of the pre-tree, suitable for tranfer between
+ devices such as coprocessors, disks and nodes.
+*/
 class PreTree {
   static unsigned int heightEst;
   static unsigned int leafMax; // User option:  maximum # leaves, if > 0.
-  const class PMTrain *pmTrain;
+  const class FrameTrain *frameTrain;
   PTNode *nodeVec; // Vector of tree nodes.
   unsigned int nodeCount; // Allocation height of node vector.
   unsigned int height;
   unsigned int leafCount;
   unsigned int bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
-  std::vector<unsigned int> termST;
+  vector<unsigned int> termST;
   class BV *BitFactory();
-  void TerminalOffspring(unsigned int _parId);
-  const std::vector<unsigned int> FrontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
+  const vector<unsigned int> FrontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
   const unsigned int bagCount;
   unsigned int BitWidth();
 
+
+  /**
+     @brief Accounts for the addition of two terminals to the tree.
+
+     @return void, with incremented height and leaf count.
+  */
+  inline void TerminalOffspring() {
+  // Two more leaves for offspring, one fewer for this.
+    height += 2;
+    leafCount++;
+  }
+
+
  public:
-  PreTree(const class PMTrain *_pmTrain, unsigned int _bagCount);
+  PreTree(const class FrameTrain *_frameTrain, unsigned int _bagCount);
   ~PreTree();
   static void Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _leafMax);
   static void DeImmutables();
   static void Reserve(unsigned int height);
 
-  const std::vector<unsigned int> Consume(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo);
-  void NonterminalConsume(class ForestTrain *forest, unsigned int tIdx, std::vector<double> &predInfo) const;
+  const vector<unsigned int> Consume(class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo);
+  void NonterminalConsume(class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const;
   void BitConsume(unsigned int *outBits);
   void LHBit(int idx, unsigned int pos);
-  void NonTerminalFac(double _info, unsigned int _predIdx, unsigned int _id);
-  void NonTerminalNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id);
+  void BranchFac(double _info, unsigned int _predIdx, unsigned int _id);
+  void BranchNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id);
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
-  void SubtreeFrontier(const std::vector<unsigned int> &stTerm);
+  void SubtreeFrontier(const vector<unsigned int> &stTerm);
   unsigned int LeafMerge();
   
   inline unsigned int LHId(unsigned int ptId) const {
@@ -145,7 +174,7 @@ class PreTree {
    */
   inline void BlockBump(unsigned int &_height, unsigned int &_maxHeight, unsigned int &_bitWidth, unsigned int &_leafCount, unsigned int &_bagCount) {
     _height += height;
-    _maxHeight = std::max(height, _maxHeight);
+    _maxHeight = max(height, _maxHeight);
     _bitWidth += BitWidth();
     _leafCount += leafCount;
     _bagCount += bagCount;

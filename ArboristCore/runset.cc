@@ -18,7 +18,6 @@
 
 // Testing only:
 //#include <iostream>
-//using namespace std;
 
 unsigned int RunSet::ctgWidth = 0;
 unsigned int RunSet::noStart = 0;
@@ -79,9 +78,9 @@ Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand) : noRun
 
    @return void.
  */
-void Run::RunSets(const std::vector<unsigned int> &safeCount) {
+void Run::RunSets(const vector<unsigned int> &safeCount) {
   setCount = safeCount.size();
-  runSet = std::move(std::vector<RunSet>(setCount));
+  runSet = move(vector<RunSet>(setCount));
   for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
     CountSafe(setIdx, safeCount[setIdx]);
   }

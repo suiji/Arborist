@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2017   Mark Seligman
+// Copyright (C)  2012-2018   Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -25,6 +25,7 @@
 
 #ifndef ARBORIST_CALLBACK_H
 #define ARBORIST_CALLBACK_H
+
 
 class CallBack {
  public:

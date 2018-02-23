@@ -19,12 +19,14 @@
 #include <string>
 #include <vector>
 
+#include "typeparam.h"
+
 class Coproc {
   const unsigned int nCoproc; // Number of coprocessors detected.
   const unsigned int unroll; // Unroll factor.
 
  public:
-  static Coproc* Factory(bool enable, std::string &diag);
+  static Coproc* Factory(bool enable, string &diag);
 
  Coproc(unsigned int _nCoproc, unsigned int _unroll) : nCoproc(_nCoproc), unroll(_unroll) {
   }

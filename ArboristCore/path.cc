@@ -14,10 +14,15 @@
    @author Mark Seligman
  */
 
-#include "path.h"
 #include <numeric>
 
+#include "path.h"
 
-IdxPath::IdxPath(unsigned int _idxLive) : idxLive(_idxLive), relFront(std::vector<unsigned int>(idxLive)), pathFront(std::vector<unsigned char>(idxLive)), offFront(std::vector<uint_least16_t>(idxLive)) {
-  std::iota(relFront.begin(), relFront.end(), 0);
+
+IdxPath::IdxPath(unsigned int _idxLive) :
+  idxLive(_idxLive),
+  relFront(vector<unsigned int>(idxLive)),
+  pathFront(vector<unsigned char>(idxLive)),
+  offFront(vector<uint_least16_t>(idxLive)) {
+  iota(relFront.begin(), relFront.end(), 0);
 }

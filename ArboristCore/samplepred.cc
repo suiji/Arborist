@@ -23,7 +23,6 @@
 #include <numeric>
 
 //#include <iostream>
-//using namespace std;
 
 
 /**
@@ -68,10 +67,10 @@ SampleRank *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffse
 }
 
 // TODO:  Merge
-void SamplePred::Stage(const class RRNode *rrNode, unsigned int rrTot, const std::vector<class SampleNux> &sampleNode, const std::vector<unsigned int> &row2Sample, std::vector<StageCount> &stageCount) {}
+void SamplePred::Stage(const class RRNode *rrNode, unsigned int rrTot, const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, vector<StageCount> &stageCount) {}
 
 
-unsigned int SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const RRNode *rrPred, const std::vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
+unsigned int SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode *rrPred, const vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
   unsigned int *smpIdx;
   SampleRank *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
   unsigned int expl = 0;
@@ -98,7 +97,7 @@ unsigned int SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const R
 
    @return void.
  */
-void SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const RRNode &rrNode, const std::vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl) {
+void SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode &rrNode, const vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl) {
   unsigned int row, rank;
   rrNode.Ref(row, rank);
 
@@ -129,7 +128,7 @@ void SamplePred::Stage(const std::vector<SampleNux> &sampleNode, const RRNode &r
 
    @return sum of responses within the block.
  */
-double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl, std::vector<SumCount> &ctgExpl) {
+double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl, vector<SumCount> &ctgExpl) {
   unsigned int *idx;
   SampleRank *spn = Buffers(predIdx, sourceBit, idx);
 
@@ -192,7 +191,7 @@ void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int reachBase[],
  */
 void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int *reachBase, bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const {
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    unsigned int path = idxPath->IdxUpdate(idxVec[idx], pathMask, reachBase, idxUpdate);
+    PathT path = idxPath->IdxUpdate(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
     if (path != NodePath::noPath) {
       pathCount[path]++;
@@ -243,7 +242,7 @@ void SamplePred::IndexRestage(const IdxPath *idxPath, const unsigned int reachBa
 
   for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
     unsigned int sIdx = idxSource[idx];
-    unsigned int path = idxPath->IdxUpdate(sIdx, pathMask, reachBase, idxUpdate);
+    PathT path = idxPath->IdxUpdate(sIdx, pathMask, reachBase, idxUpdate);
     if (path != NodePath::noPath) {
       unsigned int targOff = reachOffset[path]++;
       idxTarg[targOff] = sIdx; // Semi-regular:  split-level target store.

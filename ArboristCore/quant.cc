@@ -20,22 +20,21 @@
 #include <algorithm>
 
 //#include <iostream>
-using namespace std;
 
 
 /**
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictReg *_predictReg, const LeafPerfReg *_leafReg, const std::vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yTrain(predictReg->YTrain()), yRanked(std::vector<RankedPair>(yTrain.size())), qVec(_qVec), qCount(qVec.size()), rankCount(std::vector<RankCount>(leafReg->BagLeafTot())), logSmudge(0) {
+Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yTrain(leafReg->YTrain()), yRanked(vector<RankedPair>(leafReg->RowTrain())), qVec(_qVec), qCount(qVec.size()), rankCount(vector<RankCount>(leafReg->BagLeafTot())), logSmudge(0) {
   if (rankCount.size() == 0) // Insufficient leaf information.
     return;
   unsigned int rowTrain = yRanked.size();
   for (unsigned int row = 0; row < rowTrain; row++) {
-    yRanked[row] = std::make_pair(yTrain[row], row);
+    yRanked[row] = make_pair(yTrain[row], row);
   }
-  std::sort(yRanked.begin(), yRanked.end());
-  std::vector<unsigned int> row2Rank(rowTrain);
+  sort(yRanked.begin(), yRanked.end());
+  vector<unsigned int> row2Rank(rowTrain);
   for (unsigned int rank = 0; rank < rowTrain; rank++) {
     row2Rank[yRanked[rank].second] = rank;
   }
@@ -59,7 +58,7 @@ Quant::Quant(const PredictReg *_predictReg, const LeafPerfReg *_leafReg, const s
 
    @return void, with output parameter matrix.
  */
-void Quant::PredictAcross(unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
+void Quant::PredictAcross(PredictReg *predict, unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
   if (rankCount.size() == 0)
     return; // Insufficient leaf information.
  
@@ -99,16 +98,16 @@ unsigned int Quant::BinSize(unsigned int rowTrain, unsigned int qBin, unsigned i
    @return void.
  */
 void Quant::SmudgeLeaves() {
-  sCountSmudge = std::move(std::vector<unsigned int>(leafReg->BagLeafTot()));
+  sCountSmudge = move(vector<unsigned int>(leafReg->BagLeafTot()));
   for (unsigned int i = 0; i < sCountSmudge.size(); i++)
     sCountSmudge[i] = rankCount[i].sCount;
 
-  binTemp = std::move(std::vector<unsigned int>(binSize));
+  binTemp = move(vector<unsigned int>(binSize));
   for (unsigned int leafIdx = 0; leafIdx < leafReg->LeafCount(); leafIdx++) {
     unsigned int leafStart, leafEnd;
     leafReg->BagBounds(0, leafIdx, leafStart, leafEnd);
     if (leafEnd - leafStart > binSize) {
-      std::fill(binTemp.begin(), binTemp.end(), 0);
+      fill(binTemp.begin(), binTemp.end(), 0);
       for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
 	unsigned int sCount = rankCount[bagIdx].sCount;
 	unsigned int rank = rankCount[bagIdx].rank;
@@ -132,8 +131,8 @@ void Quant::SmudgeLeaves() {
    @return void, with output vector parameter.
  */
 void Quant::Leaves(unsigned int blockRow, double qRow[]) {
-  std::vector<unsigned int> sampRanks(binSize);
-  std::fill(sampRanks.begin(), sampRanks.end(), 0);
+  vector<unsigned int> sampRanks(binSize);
+  fill(sampRanks.begin(), sampRanks.end(), 0);
 
   // Scores each rank seen at every predicted leaf.
   //
@@ -145,7 +144,7 @@ void Quant::Leaves(unsigned int blockRow, double qRow[]) {
     }
   }
 
-  std::vector<double> countThreshold(qCount);
+  vector<double> countThreshold(qCount);
   for (unsigned int qSlot = 0; qSlot < qCount; qSlot++) {
     countThreshold[qSlot] = totRanks * qVec[qSlot];  // Rounding properties?
   }
@@ -177,7 +176,7 @@ void Quant::Leaves(unsigned int blockRow, double qRow[]) {
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, std::vector<unsigned int> &sampRanks) {
+unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks) {
   int rankTot = 0;
   
   unsigned int leafStart, leafEnd;
@@ -204,7 +203,7 @@ unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, std::vec
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksSmudge(unsigned int tIdx, unsigned int leafIdx, std::vector<unsigned int> &sampRanks) {
+unsigned int Quant::RanksSmudge(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks) {
   unsigned int rankTot = 0;
 
   unsigned int leafStart, leafEnd;

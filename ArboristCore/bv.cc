@@ -16,7 +16,6 @@
 #include "bv.h"
 
 //#include <iostream>
-//using namespace std;
 
 /**
  */
@@ -30,7 +29,7 @@ BV::BV(unsigned int len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len))
 /**
    @brief Copies contents of constant vector.
  */
-BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), raw(new unsigned int[nSlot]), wrapper(false) {
+BV::BV(const vector<unsigned int> &_raw) : nSlot(_raw.size()), raw(new unsigned int[nSlot]), wrapper(false) {
   for (unsigned int i = 0; i < nSlot; i++) {
     raw[i] = _raw[i];
   }
@@ -40,7 +39,7 @@ BV::BV(const std::vector<unsigned int> &_raw) : nSlot(_raw.size()), raw(new unsi
 /**
    @brief Wrapper constructor.  Initializes external container if empty.
  */
-BV::BV(std::vector<unsigned int> &_raw, unsigned int _nSlot) : nSlot(_nSlot), wrapper(true) {
+BV::BV(vector<unsigned int> &_raw, unsigned int _nSlot) : nSlot(_nSlot), wrapper(true) {
   if (_raw.size() == 0) {
     for (unsigned int slot = 0; slot < nSlot; slot++) {
       _raw.push_back(0);
@@ -111,7 +110,7 @@ BV *BV::Resize(unsigned int bitMin) {
 
    @return void, with output vector parameter.
  */
-void BV::Consume(std::vector<unsigned int> &out, unsigned int bitEnd) const {
+void BV::Consume(vector<unsigned int> &out, unsigned int bitEnd) const {
   unsigned int slots = bitEnd == 0 ? nSlot : SlotAlign(bitEnd);
   out.reserve(slots);
   out.insert(out.end(), raw, raw + slots);
@@ -140,15 +139,7 @@ BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol) : BV(_nRow * Stride
 /**
    @brief Copy constructor.  Sets stride to zero if empty.
  */
-BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol, const std::vector<unsigned int> &_raw) : BV(_raw), nRow(_nRow), stride(_raw.size() > 0 ? Stride(_nCol) : 0) {
-}
-
-
-/**
-   @brief Wrapper constructor.  If nonempty, assumed to be reconstituting
-   a previously-exported BitMatrix of conforming dimensions.
- */
-BitMatrix::BitMatrix(std::vector<unsigned int> &_raw, unsigned int _nRow, unsigned int _nCol) : BV(_raw, _nRow * Stride(_nCol)), nRow(_nRow), stride(nRow > 0 ? Stride(_nCol) : 0) {
+BitMatrix::BitMatrix(unsigned int _nRow, unsigned int _nCol, const vector<unsigned int> &_raw) : BV(_raw), nRow(_nRow), stride(_raw.size() > 0 ? Stride(_nCol) : 0) {
 }
 
 
@@ -185,21 +176,21 @@ unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
   }
 }
 
-
-void BVJagged::Export(unsigned int _raw[], size_t _facLen, const unsigned int _origin[], unsigned int _nElt, std::vector<std::vector<unsigned int> > &outVec) {
+/*
+void BVJagged::Export(unsigned int _raw[], size_t _facLen, const unsigned int _origin[], unsigned int _nElt, vector<vector<unsigned int> > &outVec) {
   BVJagged *bvj = new BVJagged(_raw, _facLen, _origin, _nElt);
   bvj->Export(outVec);
 
   delete bvj;
-}
+  }*/
 
 /**
    @brief Exports contents of a forest.
  */
-void BVJagged::Export(std::vector<std::vector<unsigned int> > &outVec) {
+void BVJagged::Export(vector<vector<unsigned int> > &outVec) {
   for (unsigned int row = 0; row < nRow; row++) {
     unsigned int rowHeight = RowHeight(row);
-    outVec[row] = std::vector<unsigned int>(rowHeight);
+    outVec[row] = vector<unsigned int>(rowHeight);
     RowExport(outVec[row], rowHeight, row);
   }
 }
@@ -208,7 +199,7 @@ void BVJagged::Export(std::vector<std::vector<unsigned int> > &outVec) {
 /**
    @brief Exports contents for an individual row.
  */
-void BVJagged::RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const {
+void BVJagged::RowExport(vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const {
   for (unsigned int idx = 0; idx < rowHeight; idx++) {
     outRow[idx] = TestBit(rowIdx, idx);
   }
@@ -222,7 +213,7 @@ void BVJagged::RowExport(std::vector<unsigned int> &outRow, unsigned int rowHeig
 
    @return void, with output vector parameter.
  */
-void BitMatrix::Export(const std::vector<unsigned int> &_raw, unsigned int _nRow, std::vector<std::vector<unsigned int> > &vecOut) {
+void BitMatrix::Export(const vector<unsigned int> &_raw, unsigned int _nRow, vector<vector<unsigned int> > &vecOut) {
   unsigned int _nCol = vecOut.size();
   BitMatrix *bm = new BitMatrix(_nRow, _nCol, _raw);
   bm->Export(_nRow, vecOut);
@@ -238,9 +229,9 @@ void BitMatrix::Export(const std::vector<unsigned int> &_raw, unsigned int _nRow
 
    @return void, with output reference parameter.
  */
-void BitMatrix::Export(unsigned int _nRow, std::vector<std::vector<unsigned int> > &outCol) {
+void BitMatrix::Export(unsigned int _nRow, vector<vector<unsigned int> > &outCol) const {
   for (unsigned int i = 0; i < stride; i++) {
-    outCol[i] = std::vector<unsigned>(_nRow);
+    outCol[i] = vector<unsigned int>(_nRow);
     ColExport(_nRow, outCol[i], i);
   }
 }
@@ -257,11 +248,10 @@ void BitMatrix::Export(unsigned int _nRow, std::vector<std::vector<unsigned int>
 
    @return void, with output reference vector.
  */
-void BitMatrix::ColExport(unsigned int _nRow, std::vector<unsigned int> &outCol, unsigned int colIdx) {
+void BitMatrix::ColExport(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const {
   for (unsigned int row = 0; row < _nRow; row++)
     outCol[row] = TestBit(row, colIdx) ? 1 : 0;
 }
-
 
 
 CharMatrix::CharMatrix(unsigned int nRow, unsigned int _nCol) : CharV(SlotAlign(nRow) * _nCol), stride(Stride(nRow)), nCol(_nCol) {
