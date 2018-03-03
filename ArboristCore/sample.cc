@@ -49,7 +49,9 @@ void Sample::DeImmutables() {
 }
 
 
-Sample::Sample(unsigned int _nRow) : treeBag(new BV(_nRow)), ctgRoot(vector<SumCount>(SampleNux::NCtg())) {
+Sample::Sample(unsigned int _nRow) :
+  treeBag(new BV(_nRow)),
+  ctgRoot(vector<SumCount>(SampleNux::NCtg())) {
 }
 
 
@@ -229,13 +231,20 @@ void Sample::PreStage(const double y[], const unsigned int yCtg[], const RowRank
 
    @return
  */
-void Sample::StageFactory(const FrameTrain *frameTrain, const RowRank *rowRank, const Response *response, Sample *&sample, SplitPred *&splitPred, SamplePred *&samplePred, vector<StageCount> &stageCount) {
+Sample *Sample::StageFactory(const RowRank *rowRank,
+			     const Response *response,
+			     SamplePred *&samplePred,
+			     vector<StageCount> &stageCount) {
+  // Simplfiy name to Factory(...)
+  // Maintain row2sample as private member i/o ephemeral.
   vector<unsigned int> row2Sample(rowRank->NRow());
   fill(row2Sample.begin(), row2Sample.end(), nSamp);
-  sample = response->RootSample(rowRank, row2Sample);
-  sample->Stage(rowRank, row2Sample, samplePred, stageCount);
+  Sample *sample = response->RootSample(rowRank, row2Sample);
 
-  splitPred = sample->SplitPredFactory(frameTrain, rowRank);
+  // hoist, maintaining stageCount as private member i/o ephemeral.
+  samplePred = sample->Stage(rowRank, row2Sample, stageCount);
+
+  return sample;
 }
 
 
@@ -244,11 +253,15 @@ void Sample::StageFactory(const FrameTrain *frameTrain, const RowRank *rowRank, 
 
    @return void.
  */
-void Sample::Stage(const RowRank *rowRank, const vector<unsigned int> &row2Sample, SamplePred *&samplePred, vector<StageCount> &stageCount) {
-  samplePred = rowRank->SamplePredFactory(bagCount);
+SamplePred *Sample::Stage(const RowRank *rowRank,
+			  const vector<unsigned int> &row2Sample,
+			  vector<StageCount> &stageCount) {
+  SamplePred *samplePred = rowRank->SamplePredFactory(bagCount);
   //  samplePred->Stage(rowRank, sampleNode, row2Sample, stageCount);
   rowRank->Stage(sampleNode, row2Sample, samplePred, stageCount);
   RowInvert(row2Sample);
+
+  return samplePred;
 }
 
 

@@ -17,7 +17,7 @@
 #include "bv.h"
 #include "pretree.h"
 #include "forest.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "callback.h"
 
 #include <queue>

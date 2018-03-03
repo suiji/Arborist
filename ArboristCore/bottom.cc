@@ -20,7 +20,7 @@
 #include "splitpred.h"
 #include "samplepred.h"
 #include "sample.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "runset.h"
 #include "rowrank.h"
 #include "path.h"

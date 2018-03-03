@@ -31,14 +31,12 @@ class Train {
   static unsigned int trainBlock; // Front-end defined buffer size.
 
   const unsigned int nTree;
-  class ForestTrain *forest;
+  const unique_ptr<class ForestTrain> forest;
   vector<double> predInfo; // E.g., Gini gain:  nPred.
-  const class Response *response;
-
-  static void DeImmutables();
+  const unique_ptr<class Response> response;
 
   void TrainForest(const class FrameTrain *frameTrain,
-		   const class RowRank *rowRank);
+		   const class RankedSet *rankedPair);
 
  public:
 
@@ -50,8 +48,8 @@ class Train {
    @brief Regression constructor.
  */
   Train(const class FrameTrain *frameTrain,
-	const double *_y,
-	const unsigned int *_row2Rank,
+	const double *y,
+	const unsigned int *row2Rank,
 	unsigned int _nTree);
 
   
@@ -59,14 +57,14 @@ class Train {
    @brief Classification constructor.
  */
   Train(const class FrameTrain *frameTrain,
-	const unsigned int *_yCtg,
-	const double *_yProxy,
+	const unsigned int *yCtg,
+	const double *yProxy,
 	unsigned int _nTree);
 
   virtual ~Train();
 
   ForestTrain *Forest() const {
-    return forest;
+    return forest.get();
   }
 
   const vector<double> &PredInfo() const {
@@ -104,18 +102,22 @@ class Train {
   
   static void InitMono(const vector<double> &regMono);
 
-  static class TrainReg *Regression(const class FrameTrain *frameTrain,
-				    const class RowRank *_rowRank,
-				    const double *_y,
-				    const unsigned int *_row2Rank,
-				    unsigned int nTree);
+  static void DeInit();
 
-  static class TrainCtg *Classification(const class FrameTrain *frameTrain,
-					const class RowRank *_rowRank,
-					const unsigned int *_yCtg,
-					const double *_yProxy,
-					unsigned int nCtg,
-					unsigned int nTree);
+  static unique_ptr<class TrainReg> Regression(
+       const class FrameTrain *frameTrain,
+       const class RankedSet *rankedPair,
+       const double *y,
+       const unsigned int *row2Rank,
+       unsigned int nTree);
+
+  static unique_ptr<class TrainCtg> Classification(
+       const class FrameTrain *frameTrain,
+       const class RankedSet *rankedPair,
+       const unsigned int *yCtg,
+       const double *yProxy,
+       unsigned int nCtg,
+       unsigned int nTree);
 
   void Reserve(vector<class PreTree*> &ptBlock);
   unsigned int BlockPeek(vector<class PreTree*> &ptBlock,
@@ -135,21 +137,21 @@ class Train {
 
 
 class TrainCtg : public Train {
-  class LeafTrainCtg *leafCtg;
+  unique_ptr<class LeafTrainCtg> leafCtg;
  public:
 
   /**
   */
   TrainCtg(const class FrameTrain *frameTrain,
-	   const unsigned int *_yCtg,
-	   const double *_yProxy,
+	   const unsigned int *yCtg,
+	   const double *yProxy,
 	   unsigned int nCtg,
 	   unsigned int _nTree);
 
   ~TrainCtg() {}
   
   class LeafTrainCtg *SubLeaf() const {
-    return leafCtg;
+    return leafCtg.get();
   }
 
   class LeafTrain *Leaf() const;
@@ -157,20 +159,20 @@ class TrainCtg : public Train {
 
 
 class TrainReg : public Train {
-  class LeafTrainReg *leafReg;
+  unique_ptr<class LeafTrainReg> leafReg;
 
  public:
  /**
   */
  TrainReg(const class FrameTrain *frameTrain,
-	  const double *_y,
-	  const unsigned int *_row2Rank,
+	  const double *y,
+	  const unsigned int *row2Rank,
 	  unsigned int _nTree);
 
  ~TrainReg() {}
  
   class LeafTrainReg *SubLeaf() const {
-    return leafReg;
+    return leafReg.get();
   }
 
   class LeafTrain *Leaf() const;

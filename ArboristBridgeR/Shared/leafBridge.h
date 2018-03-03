@@ -54,8 +54,8 @@ class LeafRegBridge : public LeafReg {
 		bool aux);
 
 
-  static LeafRegBridge *Unwrap(const List &leaf,
-				   bool aux = false);
+  static unique_ptr<LeafRegBridge> Unwrap(const List &leaf,
+					  bool aux = false);
 };
 
 
@@ -118,10 +118,10 @@ class LeafCtgBridge : public LeafCtg {
     return feLevels;
   }
   
-  static LeafCtgBridge *Unwrap(const List &leaf,
+  static unique_ptr<LeafCtgBridge> Unwrap(const List &leaf,
 				   bool aux = false);
 
-  static LeafCtgBridge *Unwrap(const SEXP sLeaf,
+  static unique_ptr<LeafCtgBridge> Unwrap(const SEXP sLeaf,
 				   bool aux) {
     return Unwrap(List(sLeaf), aux);
   }

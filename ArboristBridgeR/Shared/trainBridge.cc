@@ -24,8 +24,8 @@
  */
 
 #include "trainBridge.h"
-#include "frameblockBridge.h"
-#include "rowrankBridge.h"
+#include "framemapBridge.h"
+#include "rankedsetBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
 #include "coproc.h"
@@ -38,45 +38,48 @@ RcppExport SEXP Train(const SEXP sArgList) {
   List signature(as<List>(predBlock["signature"]));
 
   // Temporary copy for subscripted access by IntegerVector.
-  IntegerVector predMap(as<IntegerVector>(signature["predMap"]));
-  TrainBridge::Init(argList, predMap);
-
-  unsigned int nPred = predMap.length();
+  IntegerVector predMap((SEXP) signature["predMap"]);
   vector<unsigned int> facCard(as<vector<unsigned int> >(predBlock["facCard"]));
-  FrameTrain *frameTrain = FrameblockBridge::FactoryTrain(facCard, nPred, as<unsigned int>(predBlock["nRow"]));
 
-  vector<string> diag;
-  string diagOut;
-  Coproc *coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diagOut);
-  diag.push_back(diagOut);
-
-  RowRankBridge *rowRank = RowRankBridge::Unwrap(argList["rowRank"],
-		 as<double>(argList["autoCompress"]), coproc, frameTrain);
-  unsigned int nTree = as<unsigned int>(argList["nTree"]);
-  
-  List trainOut = TrainBridge::Train(argList, frameTrain, rowRank, predMap, nTree, diag);
-
-  delete frameTrain;
-  delete rowRank;
-  delete coproc;
-
-  return trainOut;
+  return TrainBridge::Train(argList, predMap, facCard, as<unsigned int>(predBlock["nRow"]));
   END_RCPP
 }
 
 
 List TrainBridge::Train(const List &argList,
-			const FrameTrain *frameTrain,
-			const RowRankBridge *rowRank,
 			const IntegerVector &predMap,
-			unsigned int nTree,
-			vector<string> &diag) {
+			const vector<unsigned int> &facCard,
+			unsigned int nRow) {
+BEGIN_RCPP
+
+  auto frameTrain = FramemapBridge::FactoryTrain(facCard, predMap.length(), nRow);
+  vector<string> diag;
+  auto coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diag);
+
+  auto rankedSet = RankedSetBridge::Unwrap(argList["rankedSet"],
+					   as<double>(argList["autoCompress"]),
+					   coproc.get(),
+					   frameTrain.get());
+  Init(argList, predMap);
+  List outList;
   if (as<unsigned int>(argList["nCtg"]) > 0) {
-    return Classification(IntegerVector((SEXP) argList["y"]), NumericVector((SEXP) argList["classWeight"]), frameTrain, rowRank, predMap, nTree, diag);
+    outList =  Classification(argList,
+			      frameTrain.get(),
+			      rankedSet->GetPair(),
+			      predMap,
+			      diag);
   }
   else {
-    return Regression(NumericVector((SEXP) argList["y"]), frameTrain, rowRank, predMap, nTree, diag);
+    outList =  Regression(argList,
+			  frameTrain.get(),
+			  rankedSet->GetPair(),
+			  predMap,
+			  diag);
   }
+  Train::DeInit();
+
+  return outList;
+END_RCPP
 }
 
 
@@ -85,25 +88,31 @@ List TrainBridge::Train(const List &argList,
 SEXP TrainBridge::Init(const List &argList, const IntegerVector &predMap) {
   BEGIN_RCPP
 
-  NumericVector probVecNV = as<NumericVector>(argList["probVec"]);
+  NumericVector probVecNV((SEXP) argList["probVec"]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
   Train::InitProb(as<unsigned int>(argList["predFixed"]), predProb);
   
-  NumericVector splitQuantNV = as<NumericVector>(argList["splitQuant"]);
+  NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
   Train::InitCDF(splitQuant);
 
   vector<double> rowWeight(as<vector<double> >(argList["rowWeight"]));
-  Train::InitSample(as<unsigned int>(argList["nSamp"]), rowWeight, as<bool>(argList["withRepl"]));
-  Train::InitSplit(as<unsigned int>(argList["minNode"]), as<unsigned int>(argList["nLevel"]), as<double>(argList["minInfo"]));
-  Train::InitTree(as<unsigned int>(argList["nSamp"]), as<unsigned int>(argList["minNode"]), as<unsigned int>(argList["maxLeaf"]));
+  Train::InitSample(as<unsigned int>(argList["nSamp"]),
+		    rowWeight,
+		    as<bool>(argList["withRepl"]));
+  Train::InitSplit(as<unsigned int>(argList["minNode"]),
+		   as<unsigned int>(argList["nLevel"]),
+		   as<double>(argList["minInfo"]));
+  Train::InitTree(as<unsigned int>(argList["nSamp"]),
+		  as<unsigned int>(argList["minNode"]),
+		  as<unsigned int>(argList["maxLeaf"]));
   Train::InitLeaf(as<bool>(argList["thinLeaves"]));
   Train::InitBlock(as<unsigned int>(argList["treeBlock"]));
 
   unsigned int nCtg = as<unsigned int>(argList["nCtg"]);
   Train::InitCtgWidth(nCtg);
   if (nCtg == 0) { // Regression.
-    NumericVector regMonoNV(as<NumericVector>(argList["regMono"]));
+    NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
     Train::InitMono(regMono);
   }
@@ -119,7 +128,7 @@ SEXP TrainBridge::Init(const List &argList, const IntegerVector &predMap) {
 // false plurality.
 //
 NumericVector TrainBridge::CtgProxy(const IntegerVector &y,
-				     const NumericVector &classWeight) {
+				    const NumericVector &classWeight) {
   BEGIN_RCPP
     
   NumericVector scaledWeight = clone(classWeight);
@@ -142,28 +151,43 @@ NumericVector TrainBridge::CtgProxy(const IntegerVector &y,
 }
 
 
-List TrainBridge::Classification(const IntegerVector &y,
-				 const NumericVector &classWeight,
+List TrainBridge::Classification(const List &argList,
 				 const FrameTrain *frameTrain,
-				 const RowRankBridge *rowRank,
+				 const RankedSet *rankedPair,
 				 const IntegerVector &predMap,
-				 unsigned int nTree,
 				 vector<string> &diag) {
   BEGIN_RCPP
+  auto nTree = as<unsigned int>(argList["nTree"]);
 
-  IntegerVector yZeroBased = y - 1;
-  auto proxy = CtgProxy(yZeroBased, classWeight);
-  auto trainCtg = Train::Classification(frameTrain, rowRank, &(as<vector<unsigned int> >(yZeroBased))[0], &proxy[0], classWeight.size(), nTree);
-  List outList = List::create(
+  IntegerVector y = IntegerVector((SEXP) argList["y"]);
+  NumericVector classWeight = NumericVector((SEXP) argList["classWeight"]);
+  IntegerVector yZero = y - 1; // Zero-based translation.
+  auto proxy = CtgProxy(yZero, classWeight);
+  auto trainCtg = Train::Classification(frameTrain,
+					rankedPair,
+					&(as<vector<unsigned int> >(yZero))[0],
+					&proxy[0],
+					classWeight.size(),
+					nTree);
+  return Summarize(trainCtg.get(), predMap, nTree, y, diag);
+  END_RCPP
+}
+
+
+List TrainBridge::Summarize(const TrainCtg *trainCtg,
+			    const IntegerVector &predMap,
+			    unsigned int nTree,
+			    const IntegerVector &y,
+			    const vector<string> &diag) {
+  BEGIN_RCPP
+  return List::create(
       _["predInfo"] = PredInfo(trainCtg->PredInfo(), predMap, nTree),
       _["diag"] = diag,
-      _["forest"] = ForestBridge::Wrap(trainCtg->Forest()),
-      _["leaf"] = LeafBridge::Wrap(trainCtg->SubLeaf(), as<CharacterVector>(y.attr("levels")))
-  );
-  delete trainCtg;
+      _["forest"] = move(ForestBridge::Wrap(trainCtg->Forest())),
+      _["leaf"] = move(LeafBridge::Wrap(trainCtg->SubLeaf(),
+					as<CharacterVector>(y.attr("levels"))))
+		      );
 
-  return outList;
-  
   END_RCPP
 }
 
@@ -174,34 +198,44 @@ NumericVector TrainBridge::PredInfo(const vector<double> &predInfo,
   BEGIN_RCPP
   NumericVector infoOut(predInfo.begin(), predInfo.end());
   infoOut = infoOut / nTree; // Scales info per-tree.
-
   return infoOut[predMap]; // Maps back from core order.
-
   END_RCPP
 }
 
 
-List TrainBridge::Regression(const NumericVector &y,
+List TrainBridge::Regression(const List &argList,
 			     const FrameTrain *frameTrain,
-			     const RowRankBridge *rowRank,
+			     const RankedSet *rankedPair,
 			     const IntegerVector &predMap,
-			     unsigned int nTree,
 			     vector<string> &diag) {
   BEGIN_RCPP
-
+  auto nTree = as<unsigned int>(argList["nTree"]);
+  NumericVector y = NumericVector((SEXP) argList["y"]);
   NumericVector yOrdered = clone(y).sort();
   IntegerVector row2Rank = match(y, yOrdered) - 1;
 
-  auto trainReg = Train::Regression(frameTrain, rowRank, &y[0], &(as<vector<unsigned int> >(row2Rank))[0], nTree);
-  List outList = List::create(
+  auto trainReg = Train::Regression(frameTrain,
+				    rankedPair,
+				    &y[0],
+				    &(as<vector<unsigned int> >(row2Rank))[0],
+				    nTree);
+
+  return Summarize(trainReg.get(), predMap, nTree, y, diag);
+  END_RCPP
+}
+
+
+List TrainBridge::Summarize(const TrainReg *trainReg,
+			    const IntegerVector &predMap,
+			    unsigned int nTree,
+			    const NumericVector &y,
+			    const vector<string> &diag) {
+  BEGIN_RCPP
+  return List::create(
       _["predInfo"] = PredInfo(trainReg->PredInfo(), predMap, nTree),
       _["diag"] = diag,
-      _["forest"] = ForestBridge::Wrap(trainReg->Forest()),
-      _["leaf"] = LeafBridge::Wrap(trainReg->SubLeaf(), y)
+      _["forest"] = move(ForestBridge::Wrap(trainReg->Forest())),
+      _["leaf"] = move(LeafBridge::Wrap(trainReg->SubLeaf(), y))
   );
-  delete trainReg;
-
-  return outList;
-
   END_RCPP
 }

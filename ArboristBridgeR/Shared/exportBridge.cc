@@ -24,7 +24,7 @@
  */
 
 #include "exportBridge.h"
-#include "frameblockBridge.h"
+#include "framemapBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
 
@@ -48,7 +48,7 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  FrameblockBridge::SignatureUnwrap(arbOut["signature"], predMap, predLevel);
+  FramemapBridge::SignatureUnwrap(arbOut["signature"], predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

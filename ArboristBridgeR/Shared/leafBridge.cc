@@ -42,7 +42,6 @@ List LeafBridge::Wrap(LeafTrainReg *leafReg, const NumericVector &yTrain) {
    _["yTrain"] = yTrain
   );
   leaf.attr("class") = "LeafReg";
-  delete leafReg;
   
   return leaf;
 }
@@ -61,14 +60,15 @@ List LeafBridge::Wrap(LeafTrainReg *leafReg, const NumericVector &yTrain) {
 
    @return void, with output reference parameters.
  */
-LeafRegBridge *LeafRegBridge::Unwrap(const List &leaf, bool aux) {
+unique_ptr<LeafRegBridge> LeafRegBridge::Unwrap(const List &leaf,
+						bool validate) {
   Legal(leaf);
-  return new LeafRegBridge(IntegerVector((SEXP) leaf["origin"]),
+  return make_unique<LeafRegBridge>(IntegerVector((SEXP) leaf["origin"]),
 			   RawVector((SEXP) leaf["bagBits"]),
 			   RawVector((SEXP) leaf["bagLeaf"]),
 			   RawVector((SEXP) leaf["node"]),
 			   NumericVector((SEXP) leaf["yTrain"]),
-			   aux);
+			   validate);
 }
 
 
@@ -88,14 +88,14 @@ LeafRegBridge::LeafRegBridge(const IntegerVector &_feOrig,
 			     const RawVector &_feBagLeaf,
 			     const RawVector &_feNode,
 			     const NumericVector &_yTrain,
-			     bool aux) :
+			     bool validate) :
   LeafReg((unsigned int *) &_feOrig[0],
 	      _feOrig.length(),
 	      (LeafNode*) &_feNode[0],
 	      _feNode.length()/sizeof(LeafNode),
-	      aux ? (BagLeaf*) &_feBagLeaf[0] : nullptr,
-	      aux ? _feBagLeaf.length() / sizeof(BagLeaf) : 0,
-	      (unsigned int *) &_feBagBits[0],
+	  (BagLeaf*) &_feBagLeaf[0],
+	  _feBagLeaf.length() / sizeof(BagLeaf),
+	  validate ? (unsigned int *) &_feBagBits[0] : nullptr,
 	      &_yTrain[0],
 	      _yTrain.length(),
 	      mean(_yTrain)),  
@@ -128,7 +128,6 @@ List LeafBridge::Wrap(LeafTrainCtg *leafCtg, const CharacterVector &levels) {
    );
   leaf.attr("class") = "LeafCtg";
 
-  delete leafCtg;
   return leaf;
 }
 
@@ -146,17 +145,17 @@ List LeafBridge::Wrap(LeafTrainCtg *leafCtg, const CharacterVector &levels) {
 
    @return void, with output reference parameters.
  */
-LeafCtgBridge *LeafCtgBridge::Unwrap(const List &leaf,
-			 bool aux) {
+unique_ptr<LeafCtgBridge> LeafCtgBridge::Unwrap(const List &leaf,
+			 bool validate) {
   Legal(leaf);
-  return new LeafCtgBridge(IntegerVector((SEXP) leaf["origin"]),
+  return make_unique<LeafCtgBridge>(IntegerVector((SEXP) leaf["origin"]),
 			   RawVector((SEXP) leaf["bagBits"]),
 			   RawVector((SEXP) leaf["bagLeaf"]),
 			   RawVector((SEXP) leaf["node"]),
 			   NumericVector((SEXP) leaf["weight"]),
 			   as<unsigned int>((SEXP) leaf["rowTrain"]),
 			   as<CharacterVector>((SEXP) leaf["levels"]),
-			   aux);
+			   validate);
 }
 
 
@@ -178,15 +177,15 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector &_feOrig,
 			     const NumericVector &_feWeight,
 			     unsigned int _feRowTrain,
 			     const CharacterVector &_feLevels,
-			     bool aux) :
+			     bool validate) :
   // Ctg prediction does not employ BagLeaf information.
   LeafCtg((unsigned int *) &_feOrig[0],
 	      _feOrig.length(),
 	      (LeafNode*) &_feNode[0],
 	      _feNode.length()/sizeof(LeafNode),
-	      aux ? (BagLeaf*) &_feBagLeaf[0] : nullptr,
-	      aux ? _feBagLeaf.length() / sizeof(BagLeaf) : 0,
-	      (unsigned int *) &_feBagBits[0],
+	  (BagLeaf*) &_feBagLeaf[0],
+	  _feBagLeaf.length() / sizeof(BagLeaf),
+	  validate ? (unsigned int *) &_feBagBits[0] : nullptr,
 	      _feRowTrain,
 	      &_feWeight[0],
 	      _feLevels.length()),
@@ -200,7 +199,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector &_feOrig,
 
 
 LeafExportCtg::LeafExportCtg(const List &_leaf, bool aux) :
-  leaf(LeafCtgBridge::Unwrap(_leaf, aux)),
+  leaf(LeafCtgBridge::Unwrap(_leaf, aux).get()),
   nTree(leaf->NTree()),
   rowTree(vector<vector<unsigned int> >(nTree)),
   sCountTree(vector<vector<unsigned int> >(nTree)),
@@ -212,7 +211,7 @@ LeafExportCtg::LeafExportCtg(const List &_leaf, bool aux) :
 
 
 LeafExportReg::LeafExportReg(const List &_leaf, bool aux) :
-  leaf(LeafRegBridge::Unwrap(_leaf, aux)),
+  leaf(LeafRegBridge::Unwrap(_leaf, aux).get()),
   nTree(leaf->NTree()),
   rowTree(vector<vector<unsigned int> >(nTree)),
   sCountTree(vector<vector<unsigned int> >(nTree)),

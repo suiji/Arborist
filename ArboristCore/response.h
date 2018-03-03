@@ -37,11 +37,11 @@ class Response {
   }
 
 
-  static class ResponseReg *FactoryReg(const double *yNum,
-				       const unsigned int *_row2Rank);
+  static unique_ptr<class ResponseReg> FactoryReg(const double *yNum,
+					    const unsigned int *_row2Rank);
 
-  static class ResponseCtg *FactoryCtg(const unsigned int *feCtg,
-				       const double *feProxy);
+  static unique_ptr<class ResponseCtg> FactoryCtg(const unsigned int *feCtg,
+					    const double *feProxy);
 
   virtual class Sample* RootSample(const class RowRank *rowRank,
 				   vector<unsigned int> &row2Sample) const = 0;

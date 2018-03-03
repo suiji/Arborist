@@ -6,142 +6,19 @@
  */
 
 /**
-   @file frameblock.h
+   @file framemap.h
 
    @brief Class definitions for maintenance of type-based data blocks.
 
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_FRAMEBLOCK_H
-#define ARBORIST_FRAMEBLOCK_H
+#ifndef ARBORIST_FRAMEMAP_H
+#define ARBORIST_FRAMEMAP_H
 
 #include <vector>
 
 #include "typeparam.h"
-
-
-/**
-   @brief Abstract class for blocks of predictor values.
- */
-class BlockNum {
- protected:
-  double *blockNumT; // Iterator state
-  const unsigned int nPredNum;
- public:
-
- BlockNum(unsigned int _nPredNum) : nPredNum(_nPredNum) {}
-  virtual ~BlockNum() {}
-
-  static BlockNum *Factory(const vector<double> &_valNum, const vector<unsigned int> &_rowStart, const vector<unsigned int> &_runLength, const vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nPredNum);
-
-  virtual void Transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
-
-
-  inline const double *Row(unsigned int rowOff) {
-    return blockNumT + nPredNum * rowOff;
-  }
-};
-
-
-class BlockSparse : public BlockNum {
-  const vector<double> &valNum;
-  const vector<unsigned int> &rowStart;
-  const vector<unsigned int> &runLength;
-  const vector<unsigned int> &predStart;
-  double *val;
-  unsigned int *rowNext;
-  unsigned int *idxNext;
-
- public:
-
-  /**
-     @brief Sparse constructor.
-   */
-  BlockSparse(const vector<double> &_valNum,
-	      const vector<unsigned int> &_rowStart,
-	      const vector<unsigned int> &_runLength,
-	      const vector<unsigned int> &_predStart);
-  ~BlockSparse();
-  void Transpose(unsigned int rowStart, unsigned int rowEnd);
-};
-
-
-class BlockNumDense : public BlockNum {
-  double *feNumT;
- public:
-
-
- BlockNumDense(double *_feNumT,
-	       unsigned int _nPredNum) :
-  BlockNum(_nPredNum), feNumT(_feNumT) {
-    blockNumT = _feNumT;
-  }
-
-
-  ~BlockNumDense() {
-  }
-
-  
-  /**
-     @brief Resets starting position to block within region previously
-     transposed.
-
-     @param rowStart is the first row of the block.
-
-     @param rowEnd is the sup row.  Unused here.
-
-     @return void.
-   */
-  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
-    blockNumT = feNumT + nPredNum * rowStart;
-  }
-};
-
-
-class BlockFac {
-  const unsigned int nPredFac;
-  unsigned int *feFac; // Factors, may or may not already be transposed.
-  unsigned int *blockFacT; // Iterator state.
-
- public:
-
-  /**
-     @brief Dense constructor:  currently pre-transposed.
-   */
- BlockFac(unsigned int *_feFacT, unsigned int _nPredFac) : nPredFac(_nPredFac), feFac(_feFacT) {
-  }
-  static BlockFac *Factory(unsigned int *_feFacT, unsigned int _nPredFac);
-  
-  /**
-     @brief Resets starting position to block within region previously
-     transposed.
-
-     @param rowStart is the first row of the block.
-
-     @param rowEnd is the sup row.  Unused here.
-
-     @return void.
-   */
-  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
-    blockFacT = feFac + nPredFac * rowStart;
-  }
-
-
-  /**
-     @brief Computes the starting position of a row of transposed
-     predictor values.
-
-     @param rowOff is the buffer offset for the row.
-
-     @return pointer to beginning of transposed row.
-   */
-  inline const unsigned int *Row(unsigned int rowOff) const {
-    return blockFacT + rowOff * nPredFac;
-  }
-};
-
-
 
 /**
    @brief Singleton subclass instances:  training or prediction.
@@ -153,7 +30,12 @@ class FrameMap {
   unsigned int nPredFac;
  public:
 
- FrameMap(unsigned int _nRow, unsigned int _nPredNum, unsigned int _nPredFac) : nRow(_nRow), nPredNum(_nPredNum), nPredFac(_nPredFac) {
+ FrameMap(unsigned int _nRow,
+	  unsigned int _nPredNum,
+	  unsigned int _nPredFac) :
+  nRow(_nRow),
+    nPredNum(_nPredNum),
+    nPredFac(_nPredFac) {
   }
   
   /**
@@ -305,60 +187,30 @@ class FrameTrain : public FrameMap {
 
 
 class FramePredict : public FrameMap {
-  BlockNum *blockNum;
-  BlockFac *blockFac;
+  class BlockNum *blockNum;
+  class BlockFac *blockFac;
 
  public:
-  static const unsigned int rowBlock = 0x2000;
 
-  FramePredict(BlockNum *_blockNum,
-	       BlockFac *_blockFac,
-	    unsigned int _nPredNum,
-	    unsigned int _nPredFac,
+  FramePredict(class BlockNum *_blockNum,
+	       class BlockFac *_blockFac,
 	    unsigned int _nRow);
   ~FramePredict();
 
 
-  inline void BlockTranspose(unsigned int rowStart,
-			     unsigned int rowEnd) const {
-    blockNum->Transpose(rowStart, rowEnd);
-    blockFac->Transpose(rowStart, rowEnd);
-  }
-
+  void BlockTranspose(unsigned int rowStart,
+			     unsigned int rowEnd) const;
 
   /**
      @return base address for (transposed) numeric values at row.
    */
-  inline const double *RowNum(unsigned int rowOff) const {
-    return blockNum->Row(rowOff);
-  }
-
+  const double *RowNum(unsigned int rowOff) const;
 
   /**
      @return base address for (transposed) factor values at row.
    */
-  inline const unsigned int *RowFac(unsigned int rowOff) const {
-    return blockFac->Row(rowOff);
-  }
+  const unsigned int *RowFac(unsigned int rowOff) const;
+
 };
 
-#ifdef REPLACE
-class FrameBlock {
- protected:
-  unsigned int idxStart; // Starting offset within external container.
-  unsigned int extent;  // Extent within external container.
-};
-
-class FBNum : public FrameBlock {
-  double *num;
-};
-
-
-class FBFac : public FrameBlock {
-  unsigned int *fac;
-  unsigned int cardMax;
-};
-
-
-#endif // REPLACE
 #endif

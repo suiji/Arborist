@@ -244,7 +244,11 @@ class IndexLevel {
   IndexLevel(class SamplePred *_samplePred, const vector<class SumCount> &ctgRoot, class Bottom *_bottom, unsigned int _nSamp, unsigned int _bagCount, double _bagSum);
   ~IndexLevel();
 
-  static void TreeBlock(const class FrameTrain *frameTrain, const RowRank *rowRank, const class Response *response, vector<class Sample*> &sampleBlock, vector<class PreTree*> &ptBlock);
+  static void TreeBlock(const class FrameTrain *frameTrain,
+			const RowRank *rowRank,
+			const class Response *response,
+			vector<class Sample*> &sampleBlock,
+			vector<class PreTree*> &ptBlock);
   class PreTree *Levels(const class FrameTrain *frameTrain);
   bool NonTerminal(class PreTree *preTree, IndexSet *iSet, const class SSNode &argMax);
   unsigned int IdxSucc(unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);

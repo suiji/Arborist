@@ -36,6 +36,7 @@ RcppExport SEXP Train(const SEXP sArgList);
 
 
 class TrainBridge {
+
   /**
      @brief Constructs classification forest.
 
@@ -43,13 +44,17 @@ class TrainBridge {
 
      @return Wrapped length of forest vector, with output parameters.
   */
-  static List Classification(const IntegerVector &y,
-			     const NumericVector &classWeight,
+  static List Classification(const List &argList,
 			     const class FrameTrain *frameTrain,
-			     const class RowRankBridge *rowRank,
+			     const class RankedSet *rankedPair,
 			     const IntegerVector &predMap,
-			     unsigned int nTree,
 			     vector<string> &diag);
+  
+  static List Regression(const List &argList,
+			 const class FrameTrain *frameTrain,
+			 const class RankedSet *rankedPair,
+			 const IntegerVector &predMap,
+			 vector<string> &diag);
 
   /**
       @brief R-language interface to response caching.
@@ -61,32 +66,33 @@ class TrainBridge {
   static NumericVector CtgProxy(const IntegerVector &y,
 				 const NumericVector &classWeight);
 
+
   static NumericVector PredInfo(const vector<double> &predInfo,
 				const IntegerVector &predMap,
 				unsigned int nTree);
-  
 
-  static List Regression(const NumericVector &y,
-			 const class FrameTrain *frameTrain,
-			 const class RowRankBridge *rowRank,
-			 const IntegerVector &predMap,
-			 unsigned int nTree,
-			 vector<string> &diag);
-
- public:
-  static List Train(const List &argList,
-		    const class FrameTrain *frameTrain,
-		    const class RowRankBridge *rowRank,
-		    const IntegerVector &predMap,
-		    unsigned int nTree,
-		    vector<string> &diag);
+  static List Summarize(const TrainCtg *trainCtg,
+			const IntegerVector &predMap,
+			unsigned int nTree,
+			const IntegerVector &y,
+			const vector<string> &diag);
   
+  static List Summarize(const TrainReg *trainReg,
+			const IntegerVector &predMap,
+			unsigned int nTree,
+			const NumericVector &y,
+			const vector<string> &diag);
   /**
      @return implicit R_NilValue.
    */
   static SEXP Init(const List &argList,
 		   const IntegerVector &predMap);
 
+ public:  
+  static List Train(const List &argList,
+		    const IntegerVector &predMap,
+		    const vector<unsigned int> &facCard,
+		    unsigned int nRow);
 };
 
 #endif

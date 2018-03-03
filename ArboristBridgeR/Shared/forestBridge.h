@@ -55,7 +55,7 @@ class ForestBridge : public Forest {
 
      @return bridge specialization of Forest prediction type.
   */
-  static ForestBridge *Unwrap(SEXP sForest);
+  static unique_ptr<ForestBridge> Unwrap(SEXP sForest);
 
   static List Wrap(const ForestTrain *forest);
 };

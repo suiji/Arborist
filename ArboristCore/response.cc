@@ -15,7 +15,7 @@
  */
 
 #include "response.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "sample.h"
 #include "rowrank.h"
 
@@ -29,8 +29,9 @@
 
    @return void.
 */
-ResponseCtg *Response::FactoryCtg(const unsigned int *feCtg, const double *feProxy) {
-  return new ResponseCtg(feCtg, feProxy);
+unique_ptr<ResponseCtg> Response::FactoryCtg(const unsigned int *feCtg,
+					     const double *feProxy) {
+  return make_unique<ResponseCtg>(feCtg, feProxy);
 }
 
 
@@ -76,9 +77,9 @@ ResponseReg::~ResponseReg() {
 
    @return void, with output reference vector.
  */
-ResponseReg *Response::FactoryReg(const double *yNum,
+unique_ptr<ResponseReg> Response::FactoryReg(const double *yNum,
 				  const unsigned int *_row2Rank) {
-  return new ResponseReg(yNum, _row2Rank);
+  return make_unique<ResponseReg>(yNum, _row2Rank);
 }
 
 

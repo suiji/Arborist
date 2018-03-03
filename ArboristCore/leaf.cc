@@ -14,7 +14,7 @@
  */
 
 #include "leaf.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "sample.h"
 #include "bv.h"
 

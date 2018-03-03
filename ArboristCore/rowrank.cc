@@ -14,7 +14,7 @@
  */
 
 #include "rowrank.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "sample.h"
 #include "samplepred.h"
 #include "splitpred.h"
@@ -23,215 +23,6 @@
 
 // Observations are blocked according to type.  Blocks written in separate
 // calls from front-end interface.
-
-
-/**
-   @brief Numeric predictor presort to parallel output vectors.
-
-   @param feNum is a block of numeric predictor values.
-
-   @param nPredNum is the number of numeric predictors.
-
-   @param nRow is the number of observation rows. 
-
-   @param rank outputs the tie-classed predictor ranks.
-
-   @output void, with output vector parameters.
- */
-void RowRank::PreSortNum(const double _feNum[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<unsigned int> &numOffOut, vector<double> &numOut) {
-  for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
-    numOffOut[numIdx] = numOut.size();
-    NumSortRaw(&_feNum[numIdx * _nRow], _nRow, rowOut, rankOut, rleOut, numOut);
-  }
-}
-
-
-void RowRank::PreSortNumRLE(const double valNum[], const unsigned int rowStart[], const unsigned int runLength[], unsigned int _nPredNum, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<unsigned int> &numOffOut, vector<double> &numOut) {
-  unsigned int colOff = 0;
-  for (unsigned int numIdx = 0; numIdx < _nPredNum; numIdx++) {
-    numOffOut[numIdx] = numOut.size();
-    unsigned int idxCol = NumSortRLE(&valNum[colOff], _nRow, &rowStart[colOff], &runLength[colOff], rowOut, rankOut, rleOut, numOut);
-    colOff += idxCol;
-  }
-}
-
-
-/**
-   @brief Sorts a column of numerical predictor values compressed with
-   run-length encoding.
-
-   @return Count of input vector elements read for the column.
- */
-unsigned int RowRank::NumSortRLE(const double colNum[], unsigned int _nRow, const unsigned int rowStart[], const unsigned int runLength[], vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector <double> &numOut) {
-  vector<RLENum> rleNum;
-  for (unsigned int rleIdx = 0, rowTot = 0; rowTot < _nRow; rowTot += runLength[rleIdx++]) {
-    rleNum.push_back(make_tuple(colNum[rleIdx], rowStart[rleIdx], runLength[rleIdx]));
-  }
-
-  sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
-  RankNum(rleNum, rowOut, rankOut, rleOut, numOut);
-
-  return rleNum.size();
-}
-
-
-/**
-   @brief
-
-   @return void.
- */
-void RowRank::NumSortRaw(const double colNum[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
-  vector<ValRowD> valRow(_nRow);
-  for (unsigned int row = 0; row < _nRow; row++) {
-    valRow[row] = make_pair(colNum[row], row);
-  }
-
-  sort(valRow.begin(), valRow.end());  // Stable sort.
-  RankNum(valRow, rowOut, rankOut, rleOut, numOut);
-}
-
-
-/**
-   @brief Stores ordered predictor column, entering uncompressed.
-
-   @param numOut outputs the rank-ordered predictor values.
-
-   @return void.
- */
-void RowRank::RankNum(const vector<ValRowD> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
-  unsigned int rk = 0;
-  rleOut.push_back(1);
-  rowOut.push_back(valRow[0].second);
-  numOut.push_back(valRow[0].first);
-  rankOut.push_back(rk);
-  for (unsigned int idx = 1; idx < valRow.size(); idx++) {
-    double valThis = valRow[idx].first;
-    unsigned int rowThis = valRow[idx].second;
-
-    if (valThis == numOut.back() && rowThis == rowOut.back() + rleOut.back()) {
-      rleOut.back()++;
-    }
-    else { // New RLE, row and rank entries regardless whether tied.
-      if (valThis != numOut.back()) {
-	rk++;
-	numOut.push_back(valThis);
-      }
-      rankOut.push_back(rk);
-      rleOut.push_back(1);
-      rowOut.push_back(rowThis);
-    }
-  }
-}
-
-
-/**
-   @brief Stores ordered predictor column compresed by external RLE.
-
-   @return void.
- */
-void RowRank::RankNum(const vector<RLENum> &rleNum, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut, vector<double> &numOut) {
-  RLENum elt = rleNum[0];
-  unsigned int rk = 0;
-  rankOut.push_back(rk);
-  numOut.push_back(get<0>(elt));
-  rowOut.push_back(get<1>(elt));
-  rleOut.push_back(get<2>(elt));
-  for (unsigned int idx = 1; idx < rleNum.size(); idx++) {
-    elt = rleNum[idx];
-    double valThis = get<0>(elt);
-    unsigned int rowThis = get<1>(elt);
-    unsigned int runCount = get<2>(elt);
-    if (valThis == numOut.back() && rowThis == rowOut.back() + rleOut.back()) {
-      rleOut.back() += runCount;
-    }
-    else { // New RLE, rank entries regardless whether tied.
-      if (valThis != numOut.back()) {
-	rk++;
-	numOut.push_back(valThis);
-      }
-      rankOut.push_back(rk);
-      rowOut.push_back(rowThis);
-      rleOut.push_back(runCount);
-    }
-  }
-}
-
-
-/**
-   @brief Factor predictor presort to parallel output vectors.
-
-   @param feFac is a block of factor predictor values.
-
-   @param _facStart is the starting output position for factors.
-
-   @param nPredFac is the number of factor predictors.
-
-   @param nRow is the number of observation rows. 
-
-   @param rowOrd outputs the (unstably) sorted row indices.
-
-   @param rank Outputs the tie-classed predictor ranks.
-
-   @output void, with output vector parameters.
- */
-void RowRank::PreSortFac(const unsigned int _feFac[], unsigned int _nPredFac, unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &runLength) {
-  // Builds the ranked factor block.  Assumes 0-justification has been 
-  // performed by bridge.
-  //
-  for (unsigned int facIdx = 0; facIdx < _nPredFac; facIdx++) {
-    FacSort(&_feFac[facIdx * _nRow], _nRow, rowOut, rankOut, runLength);
-  }
-}
-
-
-/**
-   @brief Sorts factors and stores as rank-ordered run-length encoding.
-
-   @return void.
- */
-void RowRank::FacSort(const unsigned int predCol[], unsigned int _nRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut) {
-  vector<ValRowI> valRow(_nRow);
-  for (unsigned int row = 0; row < _nRow; row++) {
-    valRow[row] = make_pair(predCol[row], row);
-  }
-  sort(valRow.begin(), valRow.end()); // Stable sort.
-  RankFac(valRow, rowOut, rankOut, rleOut);
-}
-
-
-/**
-   @brief Builds rank-ordered run-length encoding to hold factor values.
-
-   Final "rank" values are the internal factor codes and may contain
-   gaps.  A dense numbering scheme would entail backmapping at LH bit
-   assignment following splitting (q.v.):  prediction and training
-   must map to the same factor levels.
-
-   @return void.
-*/ 
-void RowRank::RankFac(const vector<ValRowI> &valRow, vector<unsigned int> &rowOut, vector<unsigned int> &rankOut, vector<unsigned int> &rleOut) {
-  unsigned int rankPrev = valRow[0].first;
-  unsigned int rowPrev = valRow[0].second;
-  rleOut.push_back(1);
-  rankOut.push_back(rankPrev);
-  rowOut.push_back(rowPrev);
-  for (unsigned int row = 1; row < valRow.size(); row++) {
-    unsigned int rankThis = valRow[row].first;
-    unsigned int rowThis = valRow[row].second;
-
-    if (rankThis == rankPrev && rowThis == (rowPrev + 1)) {
-      rleOut.back() ++;
-    }
-    else {
-      rleOut.push_back(1);
-      rankOut.push_back(rankThis);
-      rowOut.push_back(rowThis);
-    }
-    rankPrev = rankThis;
-    rowPrev = rowThis;
-  }
-}
-
 
 /**
    @brief Constructor for row, rank passed from front end as parallel arrays.
@@ -244,12 +35,25 @@ void RowRank::RankFac(const vector<ValRowI> &valRow, vector<unsigned int> &rowOu
 RowRank::RowRank(const FrameTrain *frameTrain,
 		 const unsigned int feRow[],
 		 const unsigned int feRank[],
-		 const unsigned int *_numOffset,
-		 const double *_numVal,
+		 //		 const unsigned int *_numOffset,
+		 // const double *_numVal,
 		 const unsigned int feRLE[],
 		 unsigned int rleLength,
 		 double _autoCompress) :
-  nRow(frameTrain->NRow()), nPred(frameTrain->NPred()), noRank(max(nRow, frameTrain->CardMax())), nPredDense(0), denseIdx(vector<unsigned int>(nPred)), numOffset(_numOffset), numVal(_numVal), nonCompact(0), accumCompact(0), denseRank(vector<unsigned int>(nPred)), explicitCount(vector<unsigned int>(nPred)), rrStart(vector<unsigned int>(nPred)), safeOffset(vector<unsigned int>(nPred)), autoCompress(_autoCompress) {
+  nRow(frameTrain->NRow()),
+  nPred(frameTrain->NPred()),
+  noRank(max(nRow, frameTrain->CardMax())),
+  nPredDense(0),
+  denseIdx(vector<unsigned int>(nPred)),
+  //numOffset(_numOffset),
+  //numVal(_numVal),
+  nonCompact(0),
+  accumCompact(0),
+  denseRank(vector<unsigned int>(nPred)),
+  explicitCount(vector<unsigned int>(nPred)),
+  rrStart(vector<unsigned int>(nPred)),
+  safeOffset(vector<unsigned int>(nPred)),
+  autoCompress(_autoCompress) {
   unsigned int explCount = DenseBlock(feRank, feRLE, rleLength);
   ModeOffsets();
 
@@ -427,7 +231,11 @@ void RowRank::Stage(const vector<SampleNux>  &sampleNode, const vector<unsigned 
 
    @return void.
 */
-void RowRank::Stage(const vector<SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, SamplePred *samplePred, unsigned int predIdx, StageCount &stageCount) const {
+void RowRank::Stage(const vector<SampleNux> &sampleNode,
+		    const vector<unsigned int> &row2Sample,
+		    SamplePred *samplePred,
+		    unsigned int predIdx,
+		    StageCount &stageCount) const {
   unsigned int extent;
   unsigned int safeOffset = SafeOffset(predIdx, samplePred->BagCount(), extent);
 
@@ -445,11 +253,192 @@ SamplePred *RowRank::SamplePredFactory(unsigned int _bagCount) const {
 }
 
 
-SPCtg *RowRank::SPCtgFactory(const FrameTrain *frameTrain, unsigned int bagCount, unsigned int _nCtg) const {
+SPCtg *RowRank::SPCtgFactory(const FrameTrain *frameTrain,
+			     unsigned int bagCount,
+			     unsigned int _nCtg) const {
   return new SPCtg(frameTrain, this, bagCount, _nCtg);
 }
 
 
-SPReg *RowRank::SPRegFactory(const FrameTrain *frameTrain, unsigned int bagCount) const {
+SPReg *RowRank::SPRegFactory(const FrameTrain *frameTrain,
+			     unsigned int bagCount) const {
   return new SPReg(frameTrain, this, bagCount);
 }
+
+
+RankedPre::RankedPre(unsigned int _nRow,
+		       unsigned int _nPredNum,
+		       unsigned int _nPredFac) :
+  nRow(_nRow),
+  nPredNum(_nPredNum),
+  nPredFac(_nPredFac),
+  rank(vector<unsigned int>(0)),
+  row(vector<unsigned int>(0)),
+  runLength(vector<unsigned int>(0)),
+  numOff(vector<unsigned int>(nPredNum)),
+  numVal(vector<double>(0)) {
+}
+
+
+void RankedPre::NumSparse(const double feValNum[],
+			   const unsigned int feRowStart[],
+			   const unsigned int feRunLength[]) {
+  unsigned int colOff = 0;
+  for (unsigned int numIdx = 0; numIdx < nPredNum; numIdx++) {
+    numOff[numIdx] = numVal.size();
+    unsigned int idxCol = NumSortSparse(&feValNum[colOff], &feRowStart[colOff], &feRunLength[colOff]);
+    colOff += idxCol;
+  }
+}
+
+unsigned int RankedPre::NumSortSparse(const double feColNum[],
+				       const unsigned int feRowStart[],
+				       const unsigned int feRunLength[]) {
+  vector<NumRLE> rleNum;
+  for (unsigned int rleIdx = 0, rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
+    rleNum.push_back(make_tuple(feColNum[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
+  }
+
+  sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
+  RankNum(rleNum);
+
+  return rleNum.size();
+}
+
+void RankedPre::RankNum(const vector<NumRLE> &rleNum) {
+  NumRLE elt = rleNum[0];
+  unsigned int rk = 0;
+  rank.push_back(rk);
+  numVal.push_back(get<0>(elt));
+  row.push_back(get<1>(elt));
+  runLength.push_back(get<2>(elt));
+  for (unsigned int idx = 1; idx < rleNum.size(); idx++) {
+    elt = rleNum[idx];
+    double valThis = get<0>(elt);
+    unsigned int rowThis = get<1>(elt);
+    unsigned int runCount = get<2>(elt);
+    if (valThis == numVal.back() && rowThis == row.back() + runLength.back()) {
+      runLength.back() += runCount;
+    }
+    else { // New RLE, rank entries regardless whether tied.
+      if (valThis != numVal.back()) {
+	rk++;
+	numVal.push_back(valThis);
+      }
+      rank.push_back(rk);
+      row.push_back(rowThis);
+      runLength.push_back(runCount);
+    }
+  }
+}
+
+
+void RankedPre::NumDense(const double _feNum[]) {
+  for (unsigned int numIdx = 0; numIdx < nPredNum; numIdx++) {
+    numOff[numIdx] = numVal.size();
+    NumSortRaw(&_feNum[numIdx * nRow]);
+  }
+}
+
+
+void RankedPre::NumSortRaw(const double colNum[]) {
+  vector<ValRowD> valRow(nRow);
+  for (unsigned int row = 0; row < nRow; row++) {
+    valRow[row] = make_pair(colNum[row], row);
+  }
+
+  sort(valRow.begin(), valRow.end());  // Stable sort.
+  RankNum(valRow);
+}
+
+/**
+   @brief Stores ordered predictor column, entering uncompressed.
+
+   @param numOut outputs the rank-ordered predictor values.
+
+   @return void.
+ */
+void RankedPre::RankNum(const vector<ValRowD> &valRow) {
+  unsigned int rk = 0;
+  runLength.push_back(1);
+  row.push_back(valRow[0].second);
+  numVal.push_back(valRow[0].first);
+  rank.push_back(rk);
+  for (unsigned int idx = 1; idx < valRow.size(); idx++) {
+    double valThis = valRow[idx].first;
+    unsigned int rowThis = valRow[idx].second;
+
+    if (valThis == numVal.back() && rowThis == row.back() + runLength.back()) {
+      runLength.back()++;
+    }
+    else { // New RLE, row and rank entries regardless whether tied.
+      if (valThis != numVal.back()) {
+	rk++;
+	numVal.push_back(valThis);
+      }
+      rank.push_back(rk);
+      runLength.push_back(1);
+      row.push_back(rowThis);
+    }
+  }
+}
+
+
+void RankedPre::FacDense(const unsigned int feFac[]) {
+  // Builds the ranked factor block.  Assumes 0-justification has been 
+  // performed by bridge.
+  //
+  for (unsigned int facIdx = 0; facIdx < nPredFac; facIdx++) {
+    FacSort(&feFac[facIdx * nRow]);
+  }
+}
+
+
+/**
+   @brief Sorts factors and stores as rank-ordered run-length encoding.
+
+   @return void.
+ */
+void RankedPre::FacSort(const unsigned int predCol[]) {
+  vector<ValRowI> valRow(nRow);
+  for (unsigned int row = 0; row < nRow; row++) {
+    valRow[row] = make_pair(predCol[row], row);
+  }
+  sort(valRow.begin(), valRow.end()); // Stable sort.
+  RankFac(valRow);
+}
+
+
+/**
+   @brief Builds rank-ordered run-length encoding to hold factor values.
+
+   Final "rank" values are the internal factor codes and may contain
+   gaps.  A dense numbering scheme would entail backmapping at LH bit
+   assignment following splitting (q.v.):  prediction and training
+   must map to the same factor levels.
+
+   @return void.
+*/ 
+void RankedPre::RankFac(const vector<ValRowI> &valRow) {
+  unsigned int rankPrev = valRow[0].first;
+  unsigned int rowPrev = valRow[0].second;
+  runLength.push_back(1);
+  rank.push_back(rankPrev);
+  row.push_back(rowPrev);
+  for (unsigned int rowIdx = 1; rowIdx < valRow.size(); rowIdx++) {
+    unsigned int rankThis = valRow[rowIdx].first;
+    unsigned int rowThis = valRow[rowIdx].second;
+
+    if (rankThis == rankPrev && rowThis == (rowPrev + 1)) {
+      runLength.back() ++;
+    }
+    else {
+      runLength.push_back(1);
+      rank.push_back(rankThis);
+      row.push_back(rowThis);
+    }
+    rankPrev = rankThis;
+    rowPrev = rowThis;
+  }
+}
+

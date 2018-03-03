@@ -74,13 +74,22 @@ class Sample {
   static unsigned int RowSample(vector<unsigned int> &sCountRow);
   
   
-  void PreStage(const double y[], const unsigned int yCtg[], const class RowRank *rowRank, vector<unsigned int> &row2Sample);
+  void PreStage(const double y[],
+		const unsigned int yCtg[],
+		const class RowRank *rowRank,
+		vector<unsigned int> &row2Sample);
 
   virtual double SetNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
-  static class SampleCtg *FactoryCtg(const double y[], const class RowRank *rowRank, const unsigned int yCtg[], vector<unsigned int> &row2Sample);
-  static class SampleReg *FactoryReg(const double y[], const class RowRank *rowRank, const unsigned int *row2Rank, vector<unsigned int> &row2Sample);
+  static class SampleCtg *FactoryCtg(const double y[],
+				     const class RowRank *rowRank,
+				     const unsigned int yCtg[],
+				     vector<unsigned int> &row2Sample);
+  static class SampleReg *FactoryReg(const double y[],
+				     const class RowRank *rowRank,
+				     const unsigned int *row2Rank,
+				     vector<unsigned int> &row2Sample);
   virtual class SplitPred *SplitPredFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
 
   static void Immutables(unsigned int _nSamp, const vector<double> &_feSampleWeight, bool _withRepl);
@@ -88,9 +97,15 @@ class Sample {
   Sample(unsigned int _nRow);
   virtual ~Sample();
 
-  static void StageFactory(const class FrameTrain *frameTrain, const class RowRank *rowRank, const class Response *reponse, Sample *&sample, class SplitPred *&splitPred, class SamplePred *&samplePred, vector<class StageCount> &stageCount);
+  static Sample *StageFactory(const class RowRank *rowRank,
+			      const class Response *reponse,
+			      class SamplePred *&samplePred,
+			      vector<class StageCount> &stageCount);
 
-  void Stage(const class RowRank *rowRank, const vector<unsigned int> &row2Sample, class SamplePred *&samplePred, vector<StageCount> &stageCount);
+  class SamplePred *Stage(const class RowRank *rowRank,
+	     const vector<unsigned int> &row2Sample,
+	     vector<StageCount> &stageCount);
+
   void RowInvert(const vector<unsigned int> &row2Sample);
 
 

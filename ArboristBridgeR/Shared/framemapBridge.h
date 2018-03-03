@@ -16,7 +16,7 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file frameblockBridge.h
+   @file framemapBridge.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,13 +25,13 @@
  */
 
 
-#ifndef ARBORIST_FRAMEBLOCK_BRIDGE_H
-#define ARBORIST_FRAMEBLOCK_BRIDGE_H
+#ifndef ARBORIST_FRAMEMAP_BRIDGE_H
+#define ARBORIST_FRAMEMAP_BRIDGE_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "frameblock.h"
+#include "framemap.h"
 
 RcppExport SEXP FrameMixed(SEXP sX,
 				 SEXP sNumElt,
@@ -41,13 +41,29 @@ RcppExport SEXP FrameMixed(SEXP sX,
 RcppExport SEXP FrameNum(SEXP sX);
 RcppExport SEXP FrameSparse(SEXP sX);
 
-
-class FrameblockBridge {
-  static IntegerMatrix facT;
-  static NumericMatrix numT;
+/**
+   @brief Captures ownership of FramePredict and component Blocks.
+ */
+class FramePredictBridge {
+  unique_ptr<class BlockNumBridge> blockNum;
+  unique_ptr<class BlockFacBridge> blockFac;
+  unique_ptr<FramePredict> framePredict;
  public:
 
-  static void Clear();
+
+  FramePredictBridge(unique_ptr<class BlockNumBridge> _blockNum,
+		     unique_ptr<class BlockFacBridge> _blockFac,
+		       unsigned int nRow);
+
+  FramePredict *Frame() const {
+    return framePredict.get();
+  }
+};
+
+class FramemapBridge {
+
+public:
+
   static void SparseIP(const NumericVector &eltsNZ,
 		       const IntegerVector &i,
 		       const IntegerVector &p,
@@ -57,7 +73,7 @@ class FrameblockBridge {
 		       vector<unsigned int> &runLength,
 		       vector<unsigned int> &predStart);
 
-  static void SparseJP(NumericVector &eltsNZ,
+  static SEXP SparseJP(NumericVector &eltsNZ,
 		       IntegerVector &j,
 		       IntegerVector &p,
 		       unsigned int nRow,
@@ -65,14 +81,17 @@ class FrameblockBridge {
 		       vector<unsigned int> &rowStart,
 		       vector<unsigned int> &runLength);
 
-  static void SparseIJ(NumericVector &eltsNZ,
+  static SEXP SparseIJ(NumericVector &eltsNZ,
 		       IntegerVector &i,
 		       IntegerVector &j,
 		       unsigned int nRow,
 		       vector<double> &valNum,
 		       vector<unsigned int> &rowStart,
 		       vector<unsigned int> &runLength);
-  static class FramePredict *Unwrap(SEXP sPredBlock);
+
+  static List Unwrap(SEXP sPredBlock, List &signature);
+
+  static List Unwrap(SEXP sPredBlock);
 
   static SEXP PredblockLegal(const List &predBlock);
 
@@ -86,15 +105,18 @@ class FrameblockBridge {
 			  List &level,
 			  List &levelTrain);
 
+  
   /**
      @brief Singleton factory.
 
      @return allocated predictor map for training.
    */
-  static FrameTrain *FactoryTrain(const vector<unsigned int> &facCard,
-			unsigned int nPred,
-			unsigned int nRow);
-};
+  static unique_ptr<FrameTrain> FactoryTrain(
+		     const vector<unsigned int> &facCard,
+		     unsigned int nPred,
+		     unsigned int nRow);
 
+  static unique_ptr<FramePredictBridge> FactoryPredict(SEXP predBlock);
+};
 
 #endif

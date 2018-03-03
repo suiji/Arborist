@@ -69,7 +69,7 @@ class ForestNode : public DecNode {
   }
   
   
-  void SplitUpdate(const class FrameTrain *frameTrain, const class RowRank *rowRank);
+  void SplitUpdate(const class FrameTrain *frameTrain, const class BlockRanked *numRanked);
   
 
   /**
@@ -169,23 +169,6 @@ class Forest {
   const unsigned int nTree;
   class BVJagged *facSplit; // Consolidation of per-tree values.
 
-  void PredictAcrossNum(class Predict *predict,
-			unsigned int rowStart,
-			unsigned int rowEnd,
-			const class BitMatrix *bag) const;
-
-
-  void PredictAcrossFac(class Predict *predict,
-			unsigned int rowStart,
-			unsigned int rowEnd,
-			const class BitMatrix *bag) const;
-
-
-  void PredictAcrossMixed(class Predict *predict,
-			  unsigned int rowStart,
-			  unsigned int rowEnd,
-			  const class BitMatrix *bag) const;
-
   void NodeExport(vector<vector<unsigned int> > &predTree,
 		  vector<vector<double> > &splitTree,
 		  vector<vector<unsigned int> > &lhDelTree) const;
@@ -213,6 +196,18 @@ class Forest {
     return nTree;
   }
 
+
+  inline const ForestNode *Node() const {
+    return forestNode;
+  }
+
+  inline const unsigned int *Origin() const {
+    return &treeOrigin[0];
+  }
+
+  inline const BVJagged *FacSplit() const {
+    return facSplit;
+  }
   
   /**
      @brief Determines height of individual tree height.
@@ -225,32 +220,6 @@ class Forest {
     unsigned int heightInf = treeOrigin[tIdx];
     return tIdx < nTree - 1 ? treeOrigin[tIdx + 1] - heightInf : nodeCount - heightInf;
   }
-
-
-  void PredictAcross(class Predict *predict,
-		     unsigned int rowStart,
-		     unsigned int rowEnd,
-		     const class BitMatrix *bag) const;
-
-
-  void PredictRowNum(Predict *predict,
-		     unsigned int row,
-		     const double rowT[],
-		     unsigned int rowBlock,
-		     const class BitMatrix *bag) const;
-
-  void PredictRowFac(Predict *predict,
-		     unsigned int row,
-		     const unsigned int rowT[],
-		     unsigned int rowBlock,
-		     const class BitMatrix *bag) const;
-
-  void PredictRowMixed(Predict *predict,
-		       unsigned int row,
-		       const double rowNT[],
-		       const unsigned int rowIT[],
-		       unsigned int rowBlock,
-		       const class BitMatrix *bag) const;
 
 
   void Export(vector<vector<unsigned int> > &predTree,
@@ -326,7 +295,7 @@ class ForestTrain {
   void NodeInit(unsigned int treeHeight);
 
   void SplitUpdate(const class FrameTrain *frameTrain,
-		   const class RowRank *rowRank);
+		   const class BlockRanked *numRanked);
 
   void NonTerminal(const class FrameTrain *frameTrain,
 		   unsigned int tIdx,

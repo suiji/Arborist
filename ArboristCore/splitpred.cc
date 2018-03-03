@@ -22,7 +22,7 @@
 #include "samplenux.h"
 #include "samplepred.h"
 #include "callback.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "rowrank.h"
 
 vector<double> SPReg::mono;

@@ -91,14 +91,18 @@ RcppExport SEXP TestVotes(SEXP sPredBlock,
 				SEXP sYTest);
 
 
-class PredictBridge {
- public:
+namespace PredictBridge {
+
   static List Reg(SEXP sPredBlock,
 		  SEXP sForest,
 		  SEXP sLeaf,
 		  SEXP sYTest,
 		  bool validate);
 
+  static List SummaryReg(SEXP sYTest,
+			 vector<double> &yPred,
+			 NumericMatrix &qPred);
+  
   static List Ctg(SEXP sPredBlock,
 		  SEXP sForest,
 		  SEXP sLeaf,

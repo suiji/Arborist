@@ -17,7 +17,7 @@
 #include "train.h"
 #include "forest.h"
 #include "rowrank.h"
-#include "frameblock.h"
+#include "framemap.h"
 #include "index.h"
 #include "pretree.h"
 #include "samplepred.h"
@@ -131,7 +131,7 @@ void Train::InitMono(const vector<double> &regMono) {
 
    @return void.
 */
-void Train::DeImmutables() {
+void Train::DeInit() {
   trainBlock = 0;
   ForestNode::DeImmutables();
   SplitSig::DeImmutables();
@@ -156,26 +156,24 @@ void Train::DeImmutables() {
 
    @return forest height, with output reference parameter.
 */
-TrainReg* Train::Regression(const FrameTrain *frameTrain,
-			    const RowRank *rowRank,
-			    const double *_y,
-			    const unsigned int *_row2Rank,
-			    unsigned int nTree) {
-  auto trainReg = new TrainReg(frameTrain, _y, _row2Rank, nTree);
-  trainReg->TrainForest(frameTrain, rowRank);
-
-  DeImmutables();
+unique_ptr<TrainReg> Train::Regression(const FrameTrain *frameTrain,
+				       const RankedSet *rankedPair,
+				       const double *y,
+				       const unsigned int *row2Rank,
+				       unsigned int nTree) {
+  auto trainReg = make_unique<TrainReg>(frameTrain, y, row2Rank, nTree);
+  trainReg->TrainForest(frameTrain, rankedPair);
 
   return trainReg;
 }
 
 
 TrainReg::TrainReg(const class FrameTrain *frameTrain,
-		   const double *_y,
-		   const unsigned int *_row2Rank,
+		   const double *y,
+		   const unsigned int *row2Rank,
 		   unsigned int nTree) :
-  Train(frameTrain, _y, _row2Rank, nTree),
-  leafReg(new LeafTrainReg(nTree, frameTrain->NRow())) {
+  Train(frameTrain, y, row2Rank, nTree),
+  leafReg(make_unique<LeafTrainReg>(nTree, frameTrain->NRow())) {
 }
 
 
@@ -188,13 +186,13 @@ LeafTrain *TrainReg::Leaf() const {
    @brief Regression constructor.
  */
 Train::Train(const FrameTrain *frameTrain,
-	     const double *_y,
-	     const unsigned int *_row2Rank,
+	     const double *y,
+	     const unsigned int *row2Rank,
 	     unsigned int _nTree) :
   nTree(_nTree),
-  forest(new ForestTrain(nTree)),
+  forest(make_unique<ForestTrain>(nTree)),
   predInfo(vector<double>(frameTrain->NPred())),
-  response(Response::FactoryReg(_y, _row2Rank)) {
+  response(Response::FactoryReg(y, row2Rank)) {
 }
 
 
@@ -205,28 +203,26 @@ Train::Train(const FrameTrain *frameTrain,
 
    @return void.
 */
-TrainCtg *Train::Classification(const FrameTrain *frameTrain,
-				const RowRank *rowRank,
-			       const unsigned int *yCtg,
-			       const double *yProxy,
-			       unsigned int nCtg,
-			       unsigned int nTree) {
-  auto trainCtg = new TrainCtg(frameTrain, yCtg, yProxy, nCtg, nTree);
-  trainCtg->TrainForest(frameTrain, rowRank);
-
-  DeImmutables();
+unique_ptr<TrainCtg> Train::Classification(const FrameTrain *frameTrain,
+					   const RankedSet *rankedPair,
+					   const unsigned int *yCtg,
+					   const double *yProxy,
+					   unsigned int nCtg,
+					   unsigned int nTree) {
+  auto trainCtg = make_unique<TrainCtg>(frameTrain, yCtg, yProxy, nCtg, nTree);
+  trainCtg->TrainForest(frameTrain, rankedPair);
 
   return trainCtg;
 }
 
 
 TrainCtg::TrainCtg(const class FrameTrain *frameTrain,
-		   const unsigned int *_yCtg,
-		   const double *_yProxy,
+		   const unsigned int *yCtg,
+		   const double *yProxy,
 		   unsigned int nCtg,
 		   unsigned int nTree) :
-  Train(frameTrain, _yCtg, _yProxy, nTree),
-  leafCtg(new LeafTrainCtg(nTree, frameTrain->NRow(), nCtg)) {
+  Train(frameTrain, yCtg, yProxy, nTree),
+  leafCtg(make_unique<LeafTrainCtg>(nTree, frameTrain->NRow(), nCtg)) {
 }
 
 
@@ -239,18 +235,17 @@ LeafTrain *TrainCtg::Leaf() const {
    @brief Classification constructor.
  */
 Train::Train(const FrameTrain *frameTrain,
-	     const unsigned int *_yCtg,
-	     const double *_yProxy,
+	     const unsigned int *yCtg,
+	     const double *yProxy,
 	     unsigned int _nTree) :
   nTree(_nTree),
-  forest(new ForestTrain(nTree)),
+  forest(make_unique<ForestTrain>(nTree)),
   predInfo(vector<double>(frameTrain->NPred())),
-  response(Response::FactoryCtg(_yCtg, _yProxy)) {
+  response(Response::FactoryCtg(yCtg, yProxy)) {
 }
 
 
 Train::~Train() {
-  delete response;
 }
 
 
@@ -262,12 +257,12 @@ Train::~Train() {
   @return void.
 */
 void Train::TrainForest(const FrameTrain *frameTrain,
-			const RowRank *rowRank) {
+			const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < nTree; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, nTree); // one beyond.
-    TreeBlock(frameTrain, rowRank, treeStart, treeEnd - treeStart);
+    TreeBlock(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
   }
-  forest->SplitUpdate(frameTrain, rowRank);
+  Forest()->SplitUpdate(frameTrain, rankedPair->GetNumRanked());
 }
 
 
@@ -276,10 +271,14 @@ void Train::TrainForest(const FrameTrain *frameTrain,
 
    @return void.
  */
-void Train::TreeBlock(const FrameTrain *frameTrain, const RowRank *rowRank, unsigned int tStart, unsigned int tCount) {
+void Train::TreeBlock(const FrameTrain *frameTrain,
+		      const RowRank *rowRank,
+		      unsigned int tStart,
+		      unsigned int tCount) {
   vector<Sample*> sampleBlock(tCount);
   vector<PreTree*> ptBlock(tCount);
-  IndexLevel::TreeBlock(frameTrain, rowRank, response, sampleBlock, ptBlock);
+  // auto treeBlock = IndexLevel::TreeBlock(frameTrain. rowRank, response);
+  IndexLevel::TreeBlock(frameTrain, rowRank, response.get(), sampleBlock, ptBlock);
 
   if (tStart == 0)
     Reserve(ptBlock);
@@ -302,7 +301,7 @@ void Train::Reserve(vector<PreTree*> &ptBlock) {
   PreTree::Reserve(maxHeight);
 
   double slop = (slopFactor * nTree) / trainBlock;
-  forest->Reserve(blockHeight, blockFac, slop);
+  Forest()->Reserve(blockHeight, blockFac, slop);
   Leaf()->Reserve(slop * blockLeaf, slop * blockBag);
 }
 
@@ -343,7 +342,7 @@ void Train::BlockConsume(const FrameTrain *frameTrain,
 			 unsigned int blockStart) {
   unsigned int blockIdx = 0;
   for (auto & pt : ptBlock) {
-    const vector<unsigned int> leafMap = pt->Consume(forest, blockStart + blockIdx, predInfo);
+    const vector<unsigned int> leafMap = pt->Consume(Forest(), blockStart + blockIdx, predInfo);
     delete pt;
     Leaf()->Leaves(frameTrain, sampleBlock[blockIdx], leafMap, blockStart + blockIdx);
     delete sampleBlock[blockIdx];

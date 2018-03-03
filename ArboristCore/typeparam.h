@@ -18,6 +18,7 @@
 #ifndef ARBORIST_TYPEPARAM_H
 #define ARBORIST_TYPEPARAM_H
 
+#include <memory>
 #include <utility>
 
 using namespace std;

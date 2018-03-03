@@ -16,7 +16,8 @@
 
 #include "bv.h"
 #include "forest.h"
-#include "frameblock.h"
+#include "block.h"
+#include "framemap.h"
 #include "rowrank.h"
 #include "predict.h"
 
@@ -65,170 +66,6 @@ Forest::~Forest() {
 }
 
 
-/**
-   @brief Dispatches prediction method based on available predictor types.
-
-   @param bag is the packed in-bag representation, if validating.
-
-   @return void.
- */
-void Forest::PredictAcross(Predict *predict,
-			   unsigned int rowStart,
-			   unsigned int rowEnd,
-			   const class BitMatrix *bag) const {
-  if (predict->PredMap()->NPredFac() == 0)
-    PredictAcrossNum(predict, rowStart, rowEnd, bag);
-  else if (predict->PredMap()->NPredNum() == 0)
-    PredictAcrossFac(predict, rowStart, rowEnd, bag);
-  else
-    PredictAcrossMixed(predict, rowStart, rowEnd, bag);
-}
-
-
-/**
-   @brief Multi-row prediction for regression tree, with predictors of only numeric.
-
-   @param bag enumerates the in-bag rows, if validating.
-
-   @return Void with output vector parameter.
- */
-void Forest::PredictAcrossNum(Predict *predict,
-			      unsigned int rowStart,
-			      unsigned int rowEnd,
-			      const class BitMatrix *bag) const {
-  int row;
-
-#pragma omp parallel default(shared) private(row)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (row = int(rowStart); row < int(rowEnd); row++) {
-      PredictRowNum(predict, row, predict->RowNum(row - rowStart), row - rowStart, bag);
-    }
-  }
-}
-
-
-/**
-   @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
-
-   @param bag enumerates the in-bag rows, if validating.
-
-   @return Void with output vector parameter.
- */
-void Forest::PredictAcrossFac(Predict *predict,
-			      unsigned int rowStart,
-			      unsigned int rowEnd,
-			      const class BitMatrix *bag) const {
-  int row;
-
-#pragma omp parallel default(shared) private(row)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (row = int(rowStart); row < int(rowEnd); row++) {
-      PredictRowFac(predict, row, predict->RowFac(row - rowStart), row - rowStart, bag);
-  }
-  }
-
-}
-
-
-/**
-   @brief Multi-row prediction with predictors of both numeric and factor type.
-
-   @param rowStart is the first row in the block.
-
-   @param rowEnd is the first row beyond the block.
-
-   @param bag indicates whether prediction is restricted to out-of-bag data.
-
-   @return Void with output vector parameter.
- */
-void Forest::PredictAcrossMixed(Predict *predict,
-				unsigned int rowStart,
-				unsigned int rowEnd,
-				const class BitMatrix *bag) const {
-  int row;
-
-#pragma omp parallel default(shared) private(row)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (row = int(rowStart); row < int(rowEnd); row++) {
-      PredictRowMixed(predict, row, predict->RowNum(row - rowStart), predict->RowFac(row - rowStart), row - rowStart, bag);
-    }
-  }
-
-}
-
-
-/**
-   @brief Prediction with predictors of only numeric type.
-
-   @param row is the row of data over which a prediction is made.
-
-   @param rowT is a numeric data array section corresponding to the row.
-
-   @param bag indexes out-of-bag rows, and may be null.
-
-   @return Void with output vector parameter.
- */
-
-void Forest::PredictRowNum(Predict *predict,
-			   unsigned int row,
-			   const double rowT[],
-			   unsigned int blockRow,
-			   const class BitMatrix *bag) const {
-  unsigned int noLeaf = predict->NoLeaf();
-  for (unsigned int tIdx = 0; tIdx < NTree(); tIdx++) {
-    if (bag->TestBit(row, tIdx)) {
-      predict->BagIdx(blockRow, tIdx);
-      continue;
-    }
-
-    unsigned int idx = treeOrigin[tIdx];
-    unsigned int leafIdx = noLeaf;
-    while (leafIdx == noLeaf) {
-      idx += forestNode[idx].Advance(rowT, leafIdx);
-    }
-
-    predict->LeafIdx(blockRow, tIdx, leafIdx);
-  }
-}
-
-
-/**
-   @brief Prediction with factor-valued predictors only.
-
-   @param row is the row of data over which a prediction is made.
-
-   @param rowT is a factor data array section corresponding to the row.
-
-   @param bag indexes out-of-bag rows, and may be null.
-
-   @return Void with output vector parameter.
- */
-void Forest::PredictRowFac(Predict *predict,
-			   unsigned int row,
-			   const unsigned int rowT[],
-			   unsigned int blockRow,
-			   const class BitMatrix *bag) const {
-  unsigned int noLeaf = predict->NoLeaf();
-  for (unsigned int tIdx = 0; tIdx < NTree(); tIdx++) {
-    if (bag->TestBit(row, tIdx)) {
-      predict->BagIdx(blockRow, tIdx);
-      continue;
-    }
-
-    unsigned int idx = treeOrigin[tIdx];
-    unsigned int leafIdx = noLeaf;
-    while (leafIdx == noLeaf) {
-      idx += forestNode[idx].Advance(facSplit, rowT, tIdx, leafIdx);
-    }
-
-    predict->LeafIdx(blockRow, tIdx, leafIdx);
-  }
-}
-
-
 unsigned int ForestNode::Advance(const BVJagged *facSplit, const unsigned int rowT[], unsigned int tIdx, unsigned int &leafIdx) const {
   if (lhDel == 0) {
     leafIdx = predIdx;
@@ -237,43 +74,6 @@ unsigned int ForestNode::Advance(const BVJagged *facSplit, const unsigned int ro
   else {
     unsigned int bitOff = splitVal.offset + rowT[predIdx];
     return facSplit->TestBit(tIdx, bitOff) ? lhDel : lhDel + 1;
-  }
-}
-
-
-/**
-   @brief Prediction with predictors of both numeric and factor type.
-
-   @param row is the row of data over which a prediction is made.
-
-   @param rowNT is a numeric data array section corresponding to the row.
-
-   @param rowFT is a factor data array section corresponding to the row.
-
-   @param bag indexes out-of-bag rows, and may be null.
-
-   @return Void with output vector parameter.
- */
-void Forest::PredictRowMixed(Predict *predict,
-			     unsigned int row,
-			     const double rowNT[],
-			     const unsigned int rowFT[],
-			     unsigned int blockRow,
-			     const class BitMatrix *bag) const {
-  unsigned int noLeaf = predict->NoLeaf();
-  for (unsigned int tIdx = 0; tIdx < NTree(); tIdx++) {
-    if (bag->TestBit(row, tIdx)) {
-      predict->BagIdx(blockRow, tIdx);
-      continue;
-    }
-
-    unsigned int idx = treeOrigin[tIdx];
-    unsigned int leafIdx = noLeaf;
-    while (leafIdx == noLeaf) {
-      idx += forestNode[idx].Advance(predict->PredMap(), facSplit, rowFT, rowNT, tIdx, leafIdx);
-    }
-
-    predict->LeafIdx(blockRow, tIdx, leafIdx);
   }
 }
 
@@ -356,9 +156,9 @@ void ForestTrain::NonTerminal(const FrameTrain *frameTrain,
    @return void
  */
 void ForestTrain::SplitUpdate(const FrameTrain *frameTrain,
-			      const RowRank *rowRank) {
+			      const BlockRanked *numRanked) {
   for (auto & fn : forestNode) {
-    fn.SplitUpdate(frameTrain, rowRank);
+    fn.SplitUpdate(frameTrain, numRanked);
   }
 }
 
@@ -371,9 +171,9 @@ void ForestTrain::SplitUpdate(const FrameTrain *frameTrain,
    @return void.
  */
 void ForestNode::SplitUpdate(const FrameTrain *frameTrain,
-			     const RowRank *rowRank) {
+			     const BlockRanked *numRanked) {
   if (Nonterminal() && !frameTrain->IsFactor(predIdx)) {
-    splitVal.num = rowRank->QuantRank(predIdx, splitVal.rankRange, splitQuant);
+    splitVal.num = numRanked->QuantRank(predIdx, splitVal.rankRange, splitQuant);
   }
 }
 

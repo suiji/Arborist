@@ -42,9 +42,9 @@ List ForestBridge::Wrap(const ForestTrain *forestTrain) {
 }
 
 
-ForestBridge *ForestBridge::Unwrap(SEXP sForest) {
+unique_ptr<ForestBridge> ForestBridge::Unwrap(SEXP sForest) {
   List forest = Legal(sForest);
-  return new ForestBridge(IntegerVector((SEXP) forest["origin"]),
+  return make_unique<ForestBridge>(IntegerVector((SEXP) forest["origin"]),
 			  RawVector((SEXP) forest["facSplit"]),
 			  IntegerVector((SEXP) forest["facOrig"]),
 			  RawVector((SEXP) forest["forestNode"]));
@@ -86,7 +86,7 @@ ForestBridge::ForestBridge(const IntegerVector &_feOrigin,
 }
 
 ForestExport::ForestExport(SEXP sForest, IntegerVector &predMap) :
-  forest(ForestBridge::Unwrap(sForest)),
+  forest(ForestBridge::Unwrap(sForest).get()),
   nTree(forest->NTree()),
   predTree(vector<vector<unsigned int> >(nTree)),
   bumpTree(vector<vector<unsigned int> >(nTree)),

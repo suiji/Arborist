@@ -19,8 +19,8 @@
 /**
    @brief
  */
-Coproc *Coproc::Factory(bool enable, string &diag) {
-  diag = "Executable built without coprocessor support.";
+unique_ptr<Coproc> Coproc::Factory(bool enable, vector<string> &diag) {
+  diag.push_back("Executable built without coprocessor support.");
 
-  return new Coproc(0, 1);
+  return make_unique<Coproc>(0, 1);
 }
