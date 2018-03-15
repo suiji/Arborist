@@ -43,8 +43,7 @@ class Response {
   static unique_ptr<class ResponseCtg> FactoryCtg(const unsigned int *feCtg,
 					    const double *feProxy);
 
-  virtual class Sample* RootSample(const class RowRank *rowRank,
-				   vector<unsigned int> &row2Sample) const = 0;
+  virtual class Sample* RootSample(const class RowRank *rowRank) const = 0;
 };
 
 
@@ -59,8 +58,8 @@ class ResponseReg : public Response {
 	      const unsigned int *_row2Rank);
 
   ~ResponseReg();
-  class Sample *RootSample(const class RowRank *rowRank,
-			   vector<unsigned int> &row2Sample) const;
+  class Sample *RootSample(const class RowRank *rowRank) const;
+
 };
 
 /**
@@ -74,8 +73,7 @@ class ResponseCtg : public Response {
 	      const double *_proxy);
 
   ~ResponseCtg();
-  class Sample *RootSample(const class RowRank *rowRank,
-			   vector<unsigned int> &row2Sample) const;
+  class Sample *RootSample(const class RowRank *rowRank) const;
 };
 
 #endif

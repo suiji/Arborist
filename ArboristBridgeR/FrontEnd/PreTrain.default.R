@@ -17,19 +17,5 @@
 
 PreTrain.default <- function(x) {
   .Deprecated("PreFormat")
-    
-  # Argument checking:
-  if (any(is.na(x)))
-    stop("NA not supported in design matrix")
-
-  predBlock <- PredBlock(x)
-  rowRank <- .Call("BridgeRowRank", predBlock)
-
-  preTrain <- list(
-    predBlock = predBlock,
-    rowRank = rowRank
-  )
-  class(preTrain) <- "PreTrain"
-
-  preTrain
+  PreFormat(x)
 }

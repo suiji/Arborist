@@ -29,8 +29,9 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "train.h"
-
+#include <string>
+#include <vector>
+using namespace std;
 
 RcppExport SEXP Train(const SEXP sArgList);
 
@@ -71,13 +72,13 @@ class TrainBridge {
 				const IntegerVector &predMap,
 				unsigned int nTree);
 
-  static List Summarize(const TrainCtg *trainCtg,
+  static List Summarize(const class TrainCtg *trainCtg,
 			const IntegerVector &predMap,
 			unsigned int nTree,
 			const IntegerVector &y,
 			const vector<string> &diag);
   
-  static List Summarize(const TrainReg *trainReg,
+  static List Summarize(const class TrainReg *trainReg,
 			const IntegerVector &predMap,
 			unsigned int nTree,
 			const NumericVector &y,

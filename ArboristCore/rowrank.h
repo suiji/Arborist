@@ -146,25 +146,23 @@ class RowRank {
 			  const class FrameTrain *frameTrain,
 			  const unsigned int feRow[],
 			  const unsigned int feRank[],
-			  //		  const unsigned int _numOffset[],
-			  //const double _numVal[],
 			  const unsigned int feRLE[],
 			  unsigned int feRLELength,
 			  double _autCompress);
 
-  virtual class SamplePred *SamplePredFactory(unsigned int _bagCount) const;
+  virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int _bagCount) const;
 
-  virtual class SPReg *SPRegFactory(const class FrameTrain *frameTrain,
-				    unsigned int bagCount) const;
-  virtual class SPCtg *SPCtgFactory(const class FrameTrain *frameTrain,
+  virtual unique_ptr<class SPReg> SPRegFactory(
+			       const class FrameTrain *frameTrain,
+			       unsigned int bagCount) const;
+
+  virtual unique_ptr<class SPCtg> SPCtgFactory(const class FrameTrain *frameTrain,
 				    unsigned int bagCount,
 				    unsigned int _nCtg) const; 
 
   RowRank(const class FrameTrain *frameTrain,
 	  const unsigned int feRow[],
 	  const unsigned int feRank[],
-	  //	  const unsigned int _numOffset[],
-	  //const double _numVal[],
 	  const unsigned int feRLE[],
 	  unsigned int feRLELength,
 	  double _autoCompress);

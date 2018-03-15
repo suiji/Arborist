@@ -55,10 +55,12 @@ class FramePredictBridge {
 		     unique_ptr<class BlockFacBridge> _blockFac,
 		       unsigned int nRow);
 
-  FramePredict *Frame() const {
+  
+  const FramePredict *GetFrame() const {
     return framePredict.get();
   }
 };
+
 
 class FramemapBridge {
 
@@ -100,6 +102,10 @@ public:
   static void SignatureUnwrap(SEXP sSignature,
 			      IntegerVector &_predMap,
 			      List &_level);
+  static List WrapSignature(const IntegerVector &predMap,
+		 const List &level,
+		 const CharacterVector &colNames,
+		 const CharacterVector &rowNames);
 
   static void FactorRemap(IntegerMatrix &xFac,
 			  List &level,

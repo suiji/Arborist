@@ -26,8 +26,9 @@
 #include "exportBridge.h"
 #include "framemapBridge.h"
 #include "forestBridge.h"
+#include "forest.h"
 #include "leafBridge.h"
-
+#include "leaf.h"
 #include <vector>
 
 /**
@@ -76,25 +77,25 @@ List ExportBridge::ExportReg(const SEXP sForest,
 			     IntegerVector &predMap,
 			     unsigned int &nTree) {
   BEGIN_RCPP
-
-  auto forest = make_unique<ForestExport>(sForest, predMap);
+  auto forestExport = ForestExport::Unwrap(sForest, predMap);
+  auto forest = forestExport->GetForest();
   nTree = forest->NTree();
 
-  auto leafReg = make_unique<LeafExportReg>(leaf, true);
+  auto leafExportReg = make_unique<LeafExportReg>(leaf);
+  auto leafReg = leafExportReg->GetLeaf();
   List outBundle = List::create(
-				_["pred"] = forest->PredTree(),
-				_["bump"] = forest->BumpTree(),
-				_["split"] = forest->SplitTree(),
-				_["facSplit"] = forest->FacSplitTree(),
+				_["pred"] = forestExport->PredTree(),
+				_["bump"] = forestExport->BumpTree(),
+				_["split"] = forestExport->SplitTree(),
+				_["facSplit"] = forestExport->FacSplitTree(),
 				_["rowTrain"] = leafReg->RowTrain(),
-				_["row"] = leafReg->RowTree(),
-				_["sCount"] = leafReg->SCountTree(),
-				_["score"] = leafReg->ScoreTree(),
-				_["extent"] = leafReg->ExtentTree()
+				_["row"] = leafExportReg->RowTree(),
+				_["sCount"] = leafExportReg->SCountTree(),
+				_["score"] = leafExportReg->ScoreTree(),
+				_["extent"] = leafExportReg->ExtentTree()
 				);
   outBundle.attr("class") = "ExportReg";
   return outBundle;
-
   END_RCPP
 }
 
@@ -110,22 +111,24 @@ List ExportBridge::ExportCtg(const SEXP sForest,
 			     unsigned int &nTree) {
   BEGIN_RCPP
 
-  auto forest = make_unique<ForestExport>(sForest, predMap);
+  auto forestExport = ForestExport::Unwrap(sForest, predMap);
+  auto forest = forestExport->GetForest();
   nTree = forest->NTree();
 
-  auto leafCtg = make_unique<LeafExportCtg>(leaf, true);
+  auto leafExportCtg = make_unique<LeafExportCtg>(leaf);
+  auto leafCtg = leafExportCtg->GetLeaf();
   List outBundle = List::create(
-				_["pred"] = forest->PredTree(),
-				_["bump"] = forest->BumpTree(),
-				_["split"] = forest->SplitTree(),
-				_["facSplit"] = forest->FacSplitTree(),
+				_["pred"] = forestExport->PredTree(),
+				_["bump"] = forestExport->BumpTree(),
+				_["split"] = forestExport->SplitTree(),
+				_["facSplit"] = forestExport->FacSplitTree(),
 				_["rowTrain"] = leafCtg->RowTrain(),
-				_["row"] = leafCtg->RowTree(),
-				_["sCount"] = leafCtg->SCountTree(),
-				_["score"] = leafCtg->ScoreTree(),
-				_["extent"] = leafCtg->ExtentTree(),
-				_["yLevel"] = leafCtg->YLevel(),
-				_["weight"] = leafCtg->WeightTree()
+				_["row"] = leafExportCtg->RowTree(),
+				_["sCount"] = leafExportCtg->SCountTree(),
+				_["score"] = leafExportCtg->ScoreTree(),
+				_["extent"] = leafExportCtg->ExtentTree(),
+				_["yLevel"] = leafExportCtg->LevelsTrain(),
+				_["weight"] = leafExportCtg->WeightTree()
 				);
   outBundle.attr("class") = "ExportCtg";
   return outBundle;

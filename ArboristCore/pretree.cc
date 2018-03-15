@@ -22,8 +22,6 @@
 
 #include <queue>
 
-//#include <iostream>
-
 
 // Records terminal-node information for elements of the next level in the pre-tree.
 // A terminal node may later be converted to non-terminal if found to be splitable.

@@ -16,8 +16,6 @@
 #include "runset.h"
 #include "callback.h"
 
-// Testing only:
-//#include <iostream>
 
 unsigned int RunSet::ctgWidth = 0;
 unsigned int RunSet::noStart = 0;

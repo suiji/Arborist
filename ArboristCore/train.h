@@ -119,15 +119,14 @@ class Train {
        unsigned int nCtg,
        unsigned int nTree);
 
-  void Reserve(vector<class PreTree*> &ptBlock);
-  unsigned int BlockPeek(vector<class PreTree*> &ptBlock,
+  void Reserve(vector<TrainPair> &treeBlock);
+  unsigned int BlockPeek(vector<TrainPair> &treeBlock,
 			 unsigned int &blockFac,
 			 unsigned int &blockBag,
 			 unsigned int &blockLeaf,
 			 unsigned int &maxHeight);
   void BlockConsume(const class FrameTrain *frameTrain,
-		    const vector<class Sample*> &sampleBlock,
-		    vector<class PreTree*> &ptBlock,
+		    vector<TrainPair> &treeBlock,
 		    unsigned int blockStart);
   void TreeBlock(const class FrameTrain *frameTrain,
 		 const class RowRank *rowRank,

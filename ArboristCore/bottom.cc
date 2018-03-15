@@ -154,7 +154,6 @@ Bottom::~Bottom() {
   level.clear();
 
   delete stPath;
-  delete splitPred;
 }
 
 

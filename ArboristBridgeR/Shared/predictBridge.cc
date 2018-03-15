@@ -23,17 +23,17 @@
    @author Mark Seligman
  */
 
-#include <Rcpp.h>
-using namespace Rcpp;
+#include "predictBridge.h"
+#include "predict.h"
 
 #include "blockBridge.h"
 #include "framemapBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
-#include "predictBridge.h"
+#include "forest.h"
+#include "leaf.h"
 
 #include <algorithm>
-
 
 RcppExport SEXP ValidateReg(SEXP sPredBlock,
 				  SEXP sForest,
@@ -62,73 +62,17 @@ List PredictBridge::Reg(SEXP sPredBlock,
 			SEXP sYTest,
 			bool validate) {
   BEGIN_RCPP
+  
   auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
-  auto forest = ForestBridge::Unwrap(sForest);
-  auto leafReg = LeafRegBridge::Unwrap(List(sLeaf), validate);
-  auto yPred = Predict::Regression(frameMapBridge->Frame(), forest.get(), leafReg.get());
+  auto framePredict = frameMapBridge->GetFrame();
+  
+  auto forestBridge = ForestBridge::Unwrap(sForest);
+  auto predict = make_unique<Predict>(framePredict, forestBridge->GetForest(),
+				      validate);
 
-  NumericMatrix qPred(0);
-  return move(SummaryReg(sYTest, yPred, qPred));
+  return move(LeafRegBridge::Prediction(List(sLeaf), sYTest, predict.get()));
   END_RCPP
 }
-
-
-List PredictBridge::SummaryReg(SEXP sYTest, vector<double> &yPred, NumericMatrix &qPred) {
-  BEGIN_RCPP
-  List prediction;
-  if (Rf_isNull(sYTest)) { // Prediction
-    prediction = List::create(
-			 _["yPred"] = yPred,
-			 _["qPred"] = qPred
-		     );
-    prediction.attr("class") = "PredictReg";
-  }
-  else { // Validation
-    NumericVector yTest(sYTest);
-    double rsq, mae;
-    double mse = MSE(&yPred[0], yTest, rsq, mae);
-    prediction = List::create(
-			 _["yPred"] = yPred,
-			 _["mse"] = mse,
-			 _["mae"] = mae,
-			 _["rsq"] = rsq,
-			 _["qPred"] = qPred
-		     );
-    prediction.attr("class") = "ValidReg";
-  }
-
-  return prediction;
-  END_RCPP
-}
-
-/**
-   @brief Utility for computing mean-square error of prediction.
-   
-   @param yValid is the test vector.
-
-   @param y is the vector of predictions.
-
-   @param rsq outputs the r-squared statistic.
-
-   @return mean squared error, with output parameter.
- */
-double PredictBridge::MSE(const double yValid[],
-			  NumericVector y,
-			  double &rsq,
-			  double &mae) {
-  double sse = 0.0;
-  mae = 0.0;
-  for (R_len_t i = 0; i < y.length(); i++) {
-    double error = yValid[i] - y[i];
-    sse += error * error;
-    mae += abs(error);
-  }
-  rsq = 1.0 - sse / (var(y) * (y.length() - 1.0));
-  mae /= y.length();
-
-  return sse / y.length();
-}
-
 
 
 RcppExport SEXP ValidateVotes(SEXP sPredBlock,
@@ -201,126 +145,15 @@ List PredictBridge::Ctg(SEXP sPredBlock,
 			bool validate,
 			bool doProb) {
   BEGIN_RCPP
-  auto leafCtg = LeafCtgBridge::Unwrap(List(sLeaf), validate);
-  CharacterVector levelsTrain = leafCtg->Levels();
-
-  bool test = !Rf_isNull(sYTest);
-  IntegerVector yTest = test ? IntegerVector(sYTest) - 1 : IntegerVector(0);
-  CharacterVector levelsTest = test ? as<CharacterVector>(IntegerVector(sYTest).attr("levels")) : CharacterVector(0);
-  IntegerVector levelMatch = test ? match(levelsTest, levelsTrain) : IntegerVector(0);
-  unsigned int testWidth;
-  unsigned int testLength = yTest.length();
-  bool dimFixup = false;
-  unsigned int ctgWidth = levelsTrain.length();
-  if (test) {
-    if (is_true(any(levelsTest != levelsTrain))) {
-      dimFixup = true;
-      IntegerVector sq = seq(0, levelsTest.length() - 1);
-      IntegerVector idxNonMatch = sq[is_na(levelMatch)];
-      if (idxNonMatch.length() > 0) {
-	warning("Unreachable test levels not encountered in training");
-	int proxy = ctgWidth + 1;
-	for (R_len_t i = 0; i < idxNonMatch.length(); i++) {
-	  int idx = idxNonMatch[i];
-	  levelMatch[idx] = proxy++;
-        }
-      }
-
-    // Matches are one-based.
-      for (unsigned int i = 0; i < testLength; i++) {
-        yTest[i] = levelMatch[yTest[i]] - 1;
-      }
-      testWidth = max(yTest) + 1;
-    }
-    else {
-      testWidth = levelsTest.length();
-    }
-  }
-  else {
-    testWidth = 0;
-  }
-  vector<unsigned int> testCore(testLength);
-  for (unsigned int i = 0; i < testLength; i++) {
-    testCore[i] = yTest[i];
-  }
-
+  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
+  auto framePredict = frameMapBridge->GetFrame();
+  auto forestBridge = ForestBridge::Unwrap(sForest);
+  auto predict = make_unique<Predict>(framePredict, forestBridge->GetForest(),
+				      validate);
   List signature;
   List predBlock = FramemapBridge::Unwrap(sPredBlock, signature);
-  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
-  auto framePredict = frameMapBridge->Frame();
 
-  unsigned int nRow = framePredict->NRow();
-  vector<unsigned int> confCore(testWidth * ctgWidth);
-  vector<double> misPredCore(testWidth);
-  vector<unsigned int> censusCore(nRow * ctgWidth);
-  auto forest = ForestBridge::Unwrap(sForest);
-  NumericVector probCore = doProb ? NumericVector(nRow * ctgWidth) : NumericVector(0);
-  auto yPred = Predict::Classification(framePredict,//framePredict.get(),
-			  forest.get(),
-			  leafCtg.get(),
-			  &censusCore[0],
-			  testCore,
-			  test ? &confCore[0] : nullptr,
-			  misPredCore,
-			  doProb ? probCore.begin() : nullptr);
-
-  IntegerMatrix census = transpose(IntegerMatrix(ctgWidth, nRow, &censusCore[0]));
-  census.attr("dimnames") = List::create(signature["rowNames"], levelsTrain);
-
-  NumericMatrix prob = doProb ? transpose(NumericMatrix(ctgWidth, nRow, probCore.begin())) : NumericMatrix(0);
-  if (doProb) {
-    prob.attr("dimnames") = List::create(signature["rowNames"], levelsTrain);
-  }
-
-  // OOB error is mean(prediction != training class)
-  unsigned int missed = 0;
-  for (unsigned int i = 0; i < nRow; i++) { // Bases to unity for front end.
-    if (test) {
-      missed += (unsigned int) yTest[i] != yPred[i];
-    }
-    yPred[i] = yPred[i] + 1;
-  }
-  double oobError = double(missed) / nRow;
-  List prediction;
-  if (test) {
-    IntegerMatrix conf = transpose(IntegerMatrix(ctgWidth, testWidth, &confCore[0]));
-    NumericVector misPred(levelsTest.length());
-    if (dimFixup) {
-      IntegerMatrix confOut(levelsTest.length(), ctgWidth);
-      for (int i = 0; i < levelsTest.length(); i++) {
-        confOut(i, _) = conf(levelMatch[i] - 1, _);
-	misPred[i] = misPredCore[levelMatch[i] - 1];
-      }
-      conf = confOut;
-    }
-    else {
-      for (R_len_t i = 0; i < levelsTest.length(); i++) {
-	misPred[i] = misPredCore[i];
-      }
-    }
-
-    misPred.attr("names") = levelsTest;
-    conf.attr("dimnames") = List::create(levelsTest, levelsTrain);
-    prediction = List::create(
-      _["misprediction"] = misPred,
-      _["oobError"] = oobError,
-      _["confusion"] = conf,
-      _["yPred"] = yPred,
-      _["census"] = census,
-      _["prob"] = prob
-    );
-    prediction.attr("class") = "ValidCtg";
-  }
-  else {
-    prediction = List::create(
-      _["yPred"] = yPred,
-      _["census"] = census,
-      _["prob"] = prob
-   );
-   prediction.attr("class") = "PredictCtg";
-  }
-
-  return prediction;
+  return move(LeafCtgBridge::Prediction(List(sLeaf), sYTest, signature, predict.get(), doProb));
   END_RCPP
 }
 
@@ -375,23 +208,13 @@ List PredictBridge::Quant(SEXP sPredBlock,
 			  bool validate) {
   BEGIN_RCPP
 
-    auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
-  auto framePredict = frameMapBridge->Frame();
-  auto forest = ForestBridge::Unwrap(sForest);
-  auto leafReg = LeafRegBridge::Unwrap(List(sLeaf), validate);
+  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
+  auto framePredict = frameMapBridge->GetFrame();
+  auto forestBridge = ForestBridge::Unwrap(sForest);
+  auto predict = make_unique<Predict>(framePredict, forestBridge->GetForest(),
+				      validate);
 
-  unsigned int nRow = framePredict->NRow();
-  vector<double> quantVecCore(as<vector<double> >(sQuantVec));
-  vector<double> qPredCore(nRow * quantVecCore.size());
-  auto yPred = Predict::Quantiles(framePredict,//framePredict.get(),
-		     forest.get(),
-		     leafReg.get(),
-		     quantVecCore,
-		     as<unsigned int>(sQBin),
-				  qPredCore);
-
-  NumericMatrix qPred(transpose(NumericMatrix(quantVecCore.size(), nRow, qPredCore.begin())));
-  return move(SummaryReg(sYTest, yPred, qPred));
-
+  return move(LeafRegBridge::Prediction(List(sLeaf), sYTest, predict.get(), NumericVector(sQuantVec), as<unsigned int>(sQBin)));
+  
   END_RCPP
 }

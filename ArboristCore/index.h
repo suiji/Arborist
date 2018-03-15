@@ -230,41 +230,75 @@ class IndexLevel {
   vector<unsigned int> st2PT; // Frontier map.
   class BV *replayExpl;
 
-  static class PreTree *OneTree(const class FrameTrain *frameTrain, const class RowRank *rowRank, const class Response *response, class Sample *&sample);
+  static TrainPair OneTree(const class FrameTrain *frameTrain,
+			   const class RowRank *rowRank,
+			   const class Response *response);
+
   void InfoInit(vector<class SSNode> &argMax) const;
-  unsigned int SplitCensus(const vector<class SSNode> &argMax, unsigned int &leafNext, unsigned int &idxMax, bool _levelTerminal);
-  void Consume(class PreTree *preTree, const vector<class SSNode> &argMax, unsigned int splitNext, unsigned int leafNext, unsigned int idxMax);
-  void Produce(class PreTree *preTree, unsigned int splitNext);
+  unsigned int SplitCensus(const vector<class SSNode> &argMax,
+			   unsigned int &leafNext,
+			   unsigned int &idxMax,
+			   bool _levelTerminal);
+  void Consume(class PreTree *preTree,
+	       const vector<class SSNode> &argMax,
+	       unsigned int splitNext,
+	       unsigned int leafNext,
+	       unsigned int idxMax);
+  void Produce(const class PreTree *preTree,
+	       unsigned int splitNext);
 
 
  public:
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
 
-  IndexLevel(class SamplePred *_samplePred, const vector<class SumCount> &ctgRoot, class Bottom *_bottom, unsigned int _nSamp, unsigned int _bagCount, double _bagSum);
+  IndexLevel(class SamplePred *_samplePred,
+	     const vector<class SumCount> &ctgRoot,
+	     class Bottom *_bottom,
+	     unsigned int _nSamp,
+	     unsigned int _bagCount,
+	     double _bagSum);
   ~IndexLevel();
 
-  static void TreeBlock(const class FrameTrain *frameTrain,
+  static vector<TrainPair> TreeBlock(const class FrameTrain *frameTrain,
 			const RowRank *rowRank,
 			const class Response *response,
-			vector<class Sample*> &sampleBlock,
-			vector<class PreTree*> &ptBlock);
+			unsigned int tCount);
+
   class PreTree *Levels(const class FrameTrain *frameTrain);
-  bool NonTerminal(class PreTree *preTree, IndexSet *iSet, const class SSNode &argMax);
-  unsigned int IdxSucc(unsigned int extent, unsigned int ptId, unsigned int &outOff, bool terminal = false);
-  void BlockReplay(IndexSet *iSet, unsigned int predIdx, unsigned int bufIdx, unsigned int blockStart, unsigned int blockExtent);
+  bool NonTerminal(class PreTree *preTree,
+		   IndexSet *iSet,
+		   const class SSNode &argMax);
+  unsigned int IdxSucc(unsigned int extent,
+		       unsigned int ptId,
+		       unsigned int &outOff,
+		       bool terminal = false);
+  void BlockReplay(IndexSet *iSet,
+		   unsigned int predIdx,
+		   unsigned int bufIdx,
+		   unsigned int blockStart,
+		   unsigned int blockExtent);
 
   void NodeReindex();
   void SubtreeReindex(unsigned int splitNext);
-  void ChunkReindex(class IdxPath *stPath, unsigned int splitNext, unsigned int chunkStart, unsigned int chunkNext);
+  void ChunkReindex(class IdxPath *stPath,
+		    unsigned int splitNext,
+		    unsigned int chunkStart,
+		    unsigned int chunkNext);
   void TransitionReindex(unsigned int splitNext);
 
-  unsigned int RelLive(unsigned int relIdx, unsigned int targIdx, unsigned int path, unsigned int base, unsigned int ptIdx);
+  unsigned int RelLive(unsigned int relIdx,
+		       unsigned int targIdx,
+		       unsigned int path,
+		       unsigned int base,
+		       unsigned int ptIdx);
   void RelExtinct(unsigned int relIdx, unsigned int ptId);
 
 
   void SetPrebias();
-  void SumsAndSquares(unsigned int ctgWidth, vector<double> &sumSquares, vector<double> &ctgSum);
+  void SumsAndSquares(unsigned int ctgWidth,
+		      vector<double> &sumSquares,
+		      vector<double> &ctgSum);
 
 
   /**
@@ -313,7 +347,11 @@ class IndexLevel {
   }
 
 
-  inline double SplitFields(unsigned int splitIdx, unsigned int &idxStart, unsigned int &extent, unsigned int &sCount, double &sum) const {
+  inline double SplitFields(unsigned int splitIdx,
+			    unsigned int &idxStart,
+			    unsigned int &extent,
+			    unsigned int &sCount,
+			    double &sum) const {
     return indexSet[splitIdx].SplitFields(idxStart, extent, sCount, sum);
   }
 
@@ -339,7 +377,9 @@ class IndexLevel {
 
    @return void.
  */
-  void RelExtinct(unsigned int relBase, unsigned int extent, unsigned int ptId) {
+  void RelExtinct(unsigned int relBase,
+		  unsigned int extent,
+		  unsigned int ptId) {
     for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
       RelExtinct(relIdx, ptId);
     }

@@ -24,10 +24,12 @@
  */
 
 #include "trainBridge.h"
+#include "train.h"
 #include "framemapBridge.h"
 #include "rankedsetBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
+#include "leaf.h"
 #include "coproc.h"
 
 RcppExport SEXP Train(const SEXP sArgList) {

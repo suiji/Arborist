@@ -195,7 +195,7 @@
     # Updates argument list with new or recomputed parameters.
     argList$x <- NULL
     argList$predBlock <- predBlock
-    argList$rowRank <- preFormat$rowRank
+    argList$rankedSet <- preFormat$rankedSet
     argList$nCtg <- nCtg
     argList$nSamp <- nSamp
     argList$predFixed <- predFixed

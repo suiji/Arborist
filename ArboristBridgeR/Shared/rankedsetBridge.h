@@ -61,9 +61,9 @@ class BlockRankedBridge : public BlockRanked {
    front-end containeers.
  */
 class RowRankBridge : public RowRank {
-  const IntegerVector row;
-  const IntegerVector rank;
-  const IntegerVector runLength;
+  const IntegerVector row; // Pinned.
+  const IntegerVector rank; // Pinned.
+  const IntegerVector runLength; // Pinned.
 
  public:
   RowRankBridge(const class Coproc *coproc,

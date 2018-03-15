@@ -31,31 +31,73 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "leaf.h"
+#include <vector>
+#include <memory>
+using namespace std;
 
 
 /**
    @brief Bridge specialization of Core LeafReg, q.v.
  */
-class LeafRegBridge : public LeafReg {
+class LeafRegBridge {
   const IntegerVector &feOrig;
   const RawVector &feBagBits;
   const RawVector &feBagLeaf;
   const RawVector &feNode;
   const NumericVector &yTrain;
-  static SEXP Legal(const List &list);
 
+  static SEXP Legal(const List &list);
+ protected:
+  unique_ptr<class LeafReg> leaf;
+  
  public:
   LeafRegBridge(const IntegerVector &_feOrig,
 		const RawVector &_feBagBits,
 		const RawVector &_feBagLeaf,
 		const RawVector &_feNode,
 		const NumericVector &_yTrain,
-		bool aux);
+		unsigned int _rowPredict);
+
+  LeafRegBridge(const IntegerVector &_feOrig,
+		const RawVector &_feBagBits,
+		const RawVector &_feBagLeaf,
+		const RawVector &_feNode,
+		const NumericVector &_yTrain,
+		unsigned int _rowPredict,
+		const NumericVector &_quantiles,
+		const unsigned int _qBin);
+
+  static List Prediction(const List &list,
+			 SEXP sYTest,
+			 class Predict *predict);
+
+  static List Prediction(const List &list,
+			 SEXP sYTest,
+			 class Predict *predict,
+			 const NumericVector &quantVec,
+			 unsigned int qBin);
+  
+  static unique_ptr<LeafRegBridge> Unwrap(const List &leaf,
+					  unsigned int nRow);
 
 
   static unique_ptr<LeafRegBridge> Unwrap(const List &leaf,
-					  bool aux = false);
+					  unsigned int nRow,
+					  const NumericVector &sQuantVec,
+					  unsigned int qBin);
+
+  class LeafReg *GetLeaf() const {
+    return leaf.get();
+  }
+  
+  List Summary(SEXP sYTest);
+
+  NumericMatrix QPred();
+  
+  double MSE(const vector<double> &yPred,
+	     const NumericVector &yTest,
+	     double &rsq,
+	     double &mse);
 };
 
 
@@ -63,7 +105,7 @@ class LeafBridge {
 
  public:
 
-  static List Wrap(LeafTrainReg *leafReg, const NumericVector &yTrain);
+  static List Wrap(class LeafTrainReg *leafReg, const NumericVector &yTrain);
 
   /**
      @brief Bundles Core LeafCtg as R-style List.
@@ -74,20 +116,21 @@ class LeafBridge {
 
      @return bundled list.
    */
-  static List Wrap(LeafTrainCtg *leafCtg, const CharacterVector &levels);
+  static List Wrap(class LeafTrainCtg *leafCtg,
+		   const CharacterVector &levels);
 };
 
 
 /**
    @brief Bridge specialization of Core LeafCtg, q.v.
  */
-class LeafCtgBridge : public LeafCtg {
+class LeafCtgBridge {
   const IntegerVector &feOrig;
   const RawVector &feBagBits;
   const RawVector &feBagLeaf;
   const RawVector &feNode;
   const NumericVector &feWeight;
-  const CharacterVector &feLevels;
+  const CharacterVector levelsTrain; // Pinned for summary reuse.
 
   /**
      @brief Exception-throwing guard ensuring valid encapsulation.
@@ -95,6 +138,9 @@ class LeafCtgBridge : public LeafCtg {
      @return R-style List representing Core-generated LeafCtg.
    */
   static SEXP Legal(const List &list);
+
+ protected:
+  unique_ptr<class LeafCtg> leaf;
 
  public:
   /**
@@ -107,29 +153,48 @@ class LeafCtgBridge : public LeafCtg {
 		const NumericVector &_feWeight,
 		unsigned int _feRowTrain,
 		const CharacterVector &_feLevels,
-		    bool aux);
+		unsigned int _rowPredict,
+		bool doProb);
 
+  class LeafCtg *GetLeaf() const {
+    return leaf.get();
+  }
+
+
+  static List Prediction(const List &list,
+		  SEXP sYTest,
+		  const List &signature,
+		  class Predict *predict,
+		  bool doProb);
+  
   /**
      @brief Accessor exposes category name strings.
 
      @return vector of string names.
    */
-  const CharacterVector &Levels() const {
-    return feLevels;
+  const CharacterVector &LevelsTrain() const {
+    return levelsTrain;
   }
-  
-  static unique_ptr<LeafCtgBridge> Unwrap(const List &leaf,
-				   bool aux = false);
 
-  static unique_ptr<LeafCtgBridge> Unwrap(const SEXP sLeaf,
-				   bool aux) {
-    return Unwrap(List(sLeaf), aux);
-  }
+
+  SEXP CtgReconcile(IntegerVector &yOneTest);
+
+  SEXP MergeLevels(IntegerVector &yOneTest);
+
+  static unique_ptr<LeafCtgBridge> Unwrap(const List &leaf,
+					  unsigned int nRow,
+					  bool doProb);
+
+  List Summary(SEXP sYTest, const List &signature);
+
+
+  IntegerMatrix Census(const CharacterVector &rowNames);
+
+  NumericMatrix Prob(const CharacterVector &rowNames);
 };
 
 
-class LeafExportCtg {
-  const LeafCtgBridge *leaf;
+class LeafExportCtg : public LeafCtgBridge {
   unsigned int nTree;
   unsigned int rowTrain;
 
@@ -140,7 +205,7 @@ class LeafExportCtg {
   vector<vector<double> > weightTree;
 
  public:
-  LeafExportCtg(const List &leaf, bool aux);
+  LeafExportCtg(const List &leaf);
 
   unsigned int RowTrain() {
     return rowTrain;
@@ -170,14 +235,39 @@ class LeafExportCtg {
     return weightTree;
   }
 
-  const CharacterVector &YLevel() const {
-    return leaf->Levels();
-  }
 };
 
 
-class LeafExportReg {
-  const LeafRegBridge *leaf;
+class TestCtg {
+  const unsigned int rowPredict;
+  const CharacterVector levelsTrain;
+  const IntegerVector yTestOne;
+  const CharacterVector levels;
+  const unsigned int nCtg;
+  const IntegerVector test2Merged;
+  const IntegerVector yTestZero;
+  const unsigned int ctgMerged;
+  NumericVector misPred;
+  vector<unsigned int> confusion;
+
+ public:
+  TestCtg(SEXP sYTest,
+	  unsigned int _rowPredict,
+	  const CharacterVector &_levelsTrain);
+  static IntegerVector Reconcile(const IntegerVector &test2Train,
+				 const IntegerVector &yTestOne);
+  
+  static IntegerVector MergeLevels(const CharacterVector &levelsTest,
+				   const CharacterVector &levelsTrain);
+
+  void Validate(class LeafCtg *leaf, const vector<unsigned int> &yPred);
+  IntegerMatrix Confusion();
+  NumericVector MisPred();
+  double OOB(const vector<unsigned int> &yPred) const;
+};
+
+
+class LeafExportReg : public LeafRegBridge {
   unsigned int nTree;
   unsigned int rowTrain;
 
@@ -187,7 +277,7 @@ class LeafExportReg {
   vector<vector<double > > scoreTree;
   
  public:
-  LeafExportReg(const List &leaf, bool aux);
+  LeafExportReg(const List &leaf);
 
   unsigned int RowTrain() {
     return rowTrain;

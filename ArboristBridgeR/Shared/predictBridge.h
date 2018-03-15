@@ -30,8 +30,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "predict.h"
-
 RcppExport SEXP ValidateReg(SEXP sPredBlock,
 				  SEXP sForest,
 				  SEXP sLeaf,
@@ -92,23 +90,20 @@ RcppExport SEXP TestVotes(SEXP sPredBlock,
 
 
 namespace PredictBridge {
-
   static List Reg(SEXP sPredBlock,
 		  SEXP sForest,
 		  SEXP sLeaf,
 		  SEXP sYTest,
 		  bool validate);
 
-  static List SummaryReg(SEXP sYTest,
-			 vector<double> &yPred,
-			 NumericMatrix &qPred);
-  
+
   static List Ctg(SEXP sPredBlock,
 		  SEXP sForest,
 		  SEXP sLeaf,
 		  SEXP sYTest,
 		  bool validate,
 		  bool doProb);
+
 
   static List Quant(SEXP sPredBlock,
 		    SEXP sForest,
@@ -117,13 +112,6 @@ namespace PredictBridge {
 		    SEXP sQBin,
 		    SEXP sYTest,
 		    bool validate);
-
-  static double MSE(const double yValid[],
-		    NumericVector y,
-		    double &rsq,
-		    double &mae);
 };
-
-
 
 #endif

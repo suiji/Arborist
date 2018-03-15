@@ -24,6 +24,7 @@
  */
 
 #include "forestBridge.h"
+#include "forest.h"
 
 List ForestBridge::Wrap(const ForestTrain *forestTrain) {
   RawVector nodeRaw(forestTrain->NodeBytes());
@@ -71,28 +72,40 @@ ForestBridge::ForestBridge(const IntegerVector &_feOrigin,
 			   const RawVector &_feFacSplit,
 			   const IntegerVector &_feFacOrig,
 			   const RawVector &_feNode) :
-    Forest((ForestNode*) &_feNode[0],
-	   _feNode.length() / sizeof(ForestNode),
-	 (unsigned int *) &_feOrigin[0],
-	 _feOrigin.length(),
-	 (unsigned int *) &_feFacSplit[0],
-	 _feFacSplit.length() / sizeof(unsigned int),
-	 (unsigned int*) &_feFacOrig[0],
-	 _feFacOrig.length()),
-    feOrigin(_feOrigin),
-    feFacSplit(_feFacSplit),
-    feFacOrig(_feFacOrig),
-    feNode(_feNode) {
+  feOrigin(_feOrigin),
+  feFacSplit(_feFacSplit),
+  feFacOrig(_feFacOrig),
+  feNode(_feNode),
+  forest(move(make_unique<Forest>((ForestNode*) &feNode[0],
+				  feNode.length() / sizeof(ForestNode),
+				  (unsigned int *) &feOrigin[0],
+				  feOrigin.length(),
+				  (unsigned int *) &feFacSplit[0],
+				  feFacSplit.length() / sizeof(unsigned int),
+				  (unsigned int*) &feFacOrig[0],
+				  feFacOrig.length()
+				  ))) {
 }
 
-ForestExport::ForestExport(SEXP sForest, IntegerVector &predMap) :
-  forest(ForestBridge::Unwrap(sForest).get()),
-  nTree(forest->NTree()),
+
+unique_ptr<ForestExport> ForestExport::Unwrap(SEXP sForest,
+					      IntegerVector &predMap) {
+  List forestList = Legal(sForest);
+  return make_unique<ForestExport>(forestList, predMap);
+}
+
+
+ForestExport::ForestExport(List &forestList, IntegerVector &predMap) :
+  ForestBridge(IntegerVector((SEXP) forestList["origin"]),
+	       RawVector((SEXP) forestList["facSplit"]),
+	       IntegerVector((SEXP) forestList["facOrig"]),
+	       RawVector((SEXP) forestList["forestNode"])),
+  nTree(as<unsigned int>(forestList["nTree"])),
   predTree(vector<vector<unsigned int> >(nTree)),
   bumpTree(vector<vector<unsigned int> >(nTree)),
   splitTree(vector<vector<double > >( nTree)),
   facSplitTree(vector<vector<unsigned int> >(nTree)) {
-    forest->Export(predTree, splitTree, bumpTree, facSplitTree);
+  forest->Export(predTree, splitTree, bumpTree, facSplitTree);
     PredExport(predMap.begin());
 }
 

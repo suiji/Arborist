@@ -68,6 +68,7 @@ class Sample {
   static unsigned int nSamp;
   vector<SampleNux> sampleNode;
   vector<SumCount> ctgRoot;
+  vector<unsigned int> row2Sample;
   unsigned int bagCount;
   double bagSum;
 
@@ -76,37 +77,30 @@ class Sample {
   
   void PreStage(const double y[],
 		const unsigned int yCtg[],
-		const class RowRank *rowRank,
-		vector<unsigned int> &row2Sample);
+		const class RowRank *rowRank);
 
   virtual double SetNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
   static class SampleCtg *FactoryCtg(const double y[],
 				     const class RowRank *rowRank,
-				     const unsigned int yCtg[],
-				     vector<unsigned int> &row2Sample);
+				     const unsigned int yCtg[]);
+
   static class SampleReg *FactoryReg(const double y[],
 				     const class RowRank *rowRank,
-				     const unsigned int *row2Rank,
-				     vector<unsigned int> &row2Sample);
-  virtual class SplitPred *SplitPredFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
+				     const unsigned int *row2Rank);
+  
+  virtual unique_ptr<class SplitPred> SplitPredFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
 
   static void Immutables(unsigned int _nSamp, const vector<double> &_feSampleWeight, bool _withRepl);
   static void DeImmutables();
   Sample(unsigned int _nRow);
   virtual ~Sample();
 
-  static Sample *StageFactory(const class RowRank *rowRank,
-			      const class Response *reponse,
-			      class SamplePred *&samplePred,
-			      vector<class StageCount> &stageCount);
+  unique_ptr<class SamplePred> Stage(const class RowRank *rowRank,
+	     vector<class StageCount> &stageCount);
 
-  class SamplePred *Stage(const class RowRank *rowRank,
-	     const vector<unsigned int> &row2Sample,
-	     vector<StageCount> &stageCount);
-
-  void RowInvert(const vector<unsigned int> &row2Sample);
+  void RowInvert();
 
 
   /**
@@ -174,12 +168,12 @@ class Sample {
 */
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
-  void SetRank(const vector<unsigned int> &row2Sample, const unsigned int *row2Rank);
+  void SetRank(const unsigned int *row2Rank);
 
  public:
   SampleReg(unsigned int _nRow);
   ~SampleReg();
-  SplitPred *SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
+  unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
@@ -196,7 +190,7 @@ class SampleReg : public Sample {
   }
 
 
-  void PreStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank, vector<unsigned int> &row2Sample);
+void PreStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank);
 };
 
 
@@ -209,7 +203,7 @@ class SampleCtg : public Sample {
   SampleCtg(unsigned int _nRow);
   ~SampleCtg();
 
-  SplitPred *SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
+  unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNux sNode;
@@ -221,7 +215,7 @@ class SampleCtg : public Sample {
   }
   
   
-  void PreStage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank, vector<unsigned int> &row2Sample);
+  void PreStage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank);
 };
 
 

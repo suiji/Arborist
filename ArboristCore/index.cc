@@ -20,9 +20,11 @@
 #include "pretree.h"
 #include "sample.h"
 #include "samplepred.h"
+#include "splitpred.h"
 #include "splitsig.h"
 #include "bottom.h"
 #include "path.h"
+#include "response.h"
 
 #include <numeric>
 
@@ -127,8 +129,6 @@ void IndexSet::Decr(vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgSub) 
    @return void.
  */
 IndexLevel::~IndexLevel() {
-  delete samplePred;
-  delete bottom;
   delete replayExpl;
 }
 
@@ -147,31 +147,24 @@ IndexSet::IndexSet() :
   sumExpl(0.0){
 }
 
-
 /**
    @brief Instantiates a block of PreTees for bulk return, but may or may
    not build them concurrently.
 
    @param sampleBlock contains the sample objects characterizing the roots.
 
-   @param trainPair is a brace of trained (Sample, PreTree) pairs.
+   @param trainPair is a brace of trained (Sample*, PreTree*) pairs.
 */
-void IndexLevel::TreeBlock(const FrameTrain *frameTrain,
-			   const RowRank *rowRank,
-			   const Response *response,
-			   vector<Sample *> &sampleBlock,
-			   vector<PreTree*> &ptBlock) {
-  unsigned int blockIdx = 0;
-  //  vector<TrainPair> trainPair(tc); // 
-  //for (auto & pair : trainPair)
-  for (auto & sample : sampleBlock) {
-    //    Sample *sample = Sample::Factory(rowRank, response);
-    // remove 'response' from call:
-    ptBlock[blockIdx++] = OneTree(frameTrain, rowRank, response, sample);
-    //    pair = make_pair(sample, OneTree(frameTrain, rowRank, sample);
+vector<TrainPair> IndexLevel::TreeBlock(const FrameTrain *frameTrain,
+					const RowRank *rowRank,
+					const Response *response,
+					unsigned int tCount) {
+  vector<TrainPair> treeBlock(tCount);
+  for (auto & pair : treeBlock) {
+    pair = OneTree(frameTrain, rowRank, response);
   }
 
-  //return trainPair;
+  return treeBlock;
 }
 
 
@@ -180,21 +173,23 @@ void IndexLevel::TreeBlock(const FrameTrain *frameTrain,
 
    @return void.
  */
-PreTree *IndexLevel::OneTree(const FrameTrain *frameTrain,
+TrainPair IndexLevel::OneTree(const FrameTrain *frameTrain,
 			     const RowRank *rowRank,
-			     const Response *response, // To EXIT
-			     Sample *&sample) { // To constant pointer.
+			     const Response *response) {
   vector<StageCount> stageCount(rowRank->NPred());
-  SamplePred *samplePred;
-  // Hoist to caller and pass in as const:
-  sample = Sample::StageFactory(rowRank, response, samplePred, stageCount);
-  //  SamplePred *samplePred = sample->Stage(rowRank, stageCount);
+  Sample *sample = response->RootSample(rowRank);
+  auto samplePred = sample->Stage(rowRank, stageCount);
   auto splitPred = sample->SplitPredFactory(frameTrain, rowRank);
-  auto bottom = new Bottom(frameTrain, rowRank, splitPred, stageCount, sample->BagCount());
+  auto bottom = make_unique<Bottom>(frameTrain, rowRank, splitPred.get(), stageCount, sample->BagCount());
 
-  auto index = make_unique<IndexLevel>(samplePred, sample->CtgRoot(), bottom, sample->NSamp(), sample->BagCount(), sample->BagSum());
+  auto index = make_unique<IndexLevel>(samplePred.get(),
+				       sample->CtgRoot(),
+				       bottom.get(),
+				       sample->NSamp(),
+				       sample->BagCount(),
+				       sample->BagSum());
 
-  return index->Levels(frameTrain);
+  return make_pair(sample, index->Levels(frameTrain));
 }
 
 
@@ -208,7 +203,7 @@ PreTree *IndexLevel::Levels(const FrameTrain *frameTrain) {
   PreTree *preTree = new PreTree(frameTrain, bagCount);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
-    //cout << "\nLevel " << level << "\n" << endl;
+    //    cout << "\nLevel " << level << "\n" << endl;
     bottom->LevelInit(this);
     vector<SSNode> argMax(indexSet.size());
     InfoInit(argMax);
@@ -614,7 +609,7 @@ void IndexLevel::TransitionReindex(unsigned int splitNext) {
 
    @return void.
  */
-void IndexLevel::Produce(PreTree *preTree, unsigned int splitNext) {
+void IndexLevel::Produce(const PreTree *preTree, unsigned int splitNext) {
   bottom->Overlap(splitNext, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {

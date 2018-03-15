@@ -23,17 +23,15 @@ PreFormat.default <- function(x) {
         if (!inherits(preFormat$predBlock, "PredBlock")) {
             stop("Missing PredBlock")
         }
-        if (!inherits(preFormat$rowRank, "RowRank")) {
-            stop("Missing RowRank")
+        if (!inherits(preFormat$rankedSet, "RankedSet")) {
+            stop("Missing RankedSet")
         }
     }
     else {
         predBlock <- PredBlock(x)
-        rowRank <- .Call("Presort", predBlock)
-
         preFormat <- list(
             predBlock = predBlock,
-            rowRank = rowRank
+            rankedSet = .Call("Presort", predBlock)
         )
         class(preFormat) <- "PreFormat"
     }

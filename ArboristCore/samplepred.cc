@@ -22,8 +22,6 @@
 
 #include <numeric>
 
-//#include <iostream>
-
 
 /**
    @brief Base class constructor.
@@ -97,7 +95,12 @@ unsigned int SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode
 
    @return void.
  */
-void SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode &rrNode, const vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl) {
+void SamplePred::Stage(const vector<SampleNux> &sampleNode,
+		       const RRNode &rrNode,
+		       const vector<unsigned int> &row2Sample,
+		       SampleRank *spn,
+		       unsigned int *smpIdx,
+		       unsigned int &expl) {
   unsigned int row, rank;
   rrNode.Ref(row, rank);
 

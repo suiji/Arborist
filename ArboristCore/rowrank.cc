@@ -35,8 +35,6 @@
 RowRank::RowRank(const FrameTrain *frameTrain,
 		 const unsigned int feRow[],
 		 const unsigned int feRank[],
-		 //		 const unsigned int *_numOffset,
-		 // const double *_numVal,
 		 const unsigned int feRLE[],
 		 unsigned int rleLength,
 		 double _autoCompress) :
@@ -45,8 +43,6 @@ RowRank::RowRank(const FrameTrain *frameTrain,
   noRank(max(nRow, frameTrain->CardMax())),
   nPredDense(0),
   denseIdx(vector<unsigned int>(nPred)),
-  //numOffset(_numOffset),
-  //numVal(_numVal),
   nonCompact(0),
   accumCompact(0),
   denseRank(vector<unsigned int>(nPred)),
@@ -248,21 +244,21 @@ void RowRank::Stage(const vector<SampleNux> &sampleNode,
 
    @return SamplePred object for tree.
  */
-SamplePred *RowRank::SamplePredFactory(unsigned int _bagCount) const {
-  return new SamplePred(nPred, _bagCount, SafeSize(_bagCount));
+unique_ptr<SamplePred> RowRank::SamplePredFactory(unsigned int _bagCount) const {
+  return make_unique<SamplePred>(nPred, _bagCount, SafeSize(_bagCount));
 }
 
 
-SPCtg *RowRank::SPCtgFactory(const FrameTrain *frameTrain,
+unique_ptr<SPCtg> RowRank::SPCtgFactory(const FrameTrain *frameTrain,
 			     unsigned int bagCount,
 			     unsigned int _nCtg) const {
-  return new SPCtg(frameTrain, this, bagCount, _nCtg);
+  return make_unique<SPCtg>(frameTrain, this, bagCount, _nCtg);
 }
 
 
-SPReg *RowRank::SPRegFactory(const FrameTrain *frameTrain,
+unique_ptr<SPReg> RowRank::SPRegFactory(const FrameTrain *frameTrain,
 			     unsigned int bagCount) const {
-  return new SPReg(frameTrain, this, bagCount);
+  return make_unique<SPReg>(frameTrain, this, bagCount);
 }
 
 

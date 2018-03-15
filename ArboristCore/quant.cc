@@ -19,17 +19,25 @@
 #include "predict.h"
 #include <algorithm>
 
-//#include <iostream>
-
 
 /**
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const vector<double> &_qVec, unsigned int qBin) : predictReg(_predictReg), leafReg(_leafReg), yTrain(leafReg->YTrain()), yRanked(vector<RankedPair>(leafReg->RowTrain())), qVec(_qVec), qCount(qVec.size()), rankCount(vector<RankCount>(leafReg->BagLeafTot())), logSmudge(0) {
+Quant::Quant(const LeafReg *_leafReg,
+	     const vector<double> &_quantile,
+	     unsigned int qBin) :
+  leafReg(_leafReg),
+  yTrain(leafReg->YTrain()),
+  yRanked(vector<RankedPair>(leafReg->RowTrain())),
+  quantile(_quantile),
+  qCount(quantile.size()),
+  qPred(vector<double>(leafReg->RowPredict() * qCount)),
+  rankCount(vector<RankCount>(leafReg->BagLeafTot())),
+  logSmudge(0) {
   if (rankCount.size() == 0) // Insufficient leaf information.
     return;
-  unsigned int rowTrain = yRanked.size();
+   unsigned int rowTrain = yRanked.size();
   for (unsigned int row = 0; row < rowTrain; row++) {
     yRanked[row] = make_pair(yTrain[row], row);
   }
@@ -58,16 +66,19 @@ Quant::Quant(const PredictReg *_predictReg, const LeafReg *_leafReg, const vecto
 
    @return void, with output parameter matrix.
  */
-void Quant::PredictAcross(PredictReg *predict, unsigned int rowStart, unsigned int rowEnd, double qPred[]) {
+void Quant::PredictAcross(const Predict *predict,
+			  unsigned int rowStart,
+			  unsigned int rowEnd) {
   if (rankCount.size() == 0)
     return; // Insufficient leaf information.
  
-  int row;
+  OMPBound row;
+  OMPBound rowSup = (OMPBound) rowEnd;
 #pragma omp parallel default(shared) private(row)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (row = rowStart; row < int(rowEnd); row++) {
-      Leaves(row - rowStart, &qPred[qCount * row]);
+    for (row = rowStart; row < rowSup; row++) {
+      Leaves(predict, row - rowStart, &qPred[qCount * row]);
     }
   }
 }
@@ -84,7 +95,9 @@ void Quant::PredictAcross(PredictReg *predict, unsigned int rowStart, unsigned i
 
    @return bin size, with output reference parameter.
  */
-unsigned int Quant::BinSize(unsigned int rowTrain, unsigned int qBin, unsigned int &_logSmudge) {
+unsigned int Quant::BinSize(unsigned int rowTrain,
+			    unsigned int qBin,
+			    unsigned int &_logSmudge) {
   logSmudge = 0;
   while ((rowTrain >> logSmudge) > qBin)
     logSmudge++;
@@ -130,7 +143,9 @@ void Quant::SmudgeLeaves() {
 
    @return void, with output vector parameter.
  */
-void Quant::Leaves(unsigned int blockRow, double qRow[]) {
+void Quant::Leaves(const Predict *predict,
+		   unsigned int blockRow,
+		   double qRow[]) {
   vector<unsigned int> sampRanks(binSize);
   fill(sampRanks.begin(), sampRanks.end(), 0);
 
@@ -138,15 +153,15 @@ void Quant::Leaves(unsigned int blockRow, double qRow[]) {
   //
   unsigned int totRanks = 0;
   for (unsigned int tIdx = 0; tIdx < leafReg->NTree(); tIdx++) {
-    if (!predictReg->IsBagged(blockRow, tIdx)) {
-      unsigned int leafIdx = predictReg->LeafIdx(blockRow, tIdx);
-      totRanks += (logSmudge == 0) ? RanksExact(tIdx, leafIdx, sampRanks) : RanksSmudge(tIdx, leafIdx, sampRanks);
+    unsigned int termIdx;
+    if (!predict->IsBagged(blockRow, tIdx, termIdx)) {
+      totRanks += (logSmudge == 0) ? RanksExact(tIdx, termIdx, sampRanks) : RanksSmudge(tIdx, termIdx, sampRanks);
     }
   }
 
   vector<double> countThreshold(qCount);
   for (unsigned int qSlot = 0; qSlot < qCount; qSlot++) {
-    countThreshold[qSlot] = totRanks * qVec[qSlot];  // Rounding properties?
+    countThreshold[qSlot] = totRanks * quantile[qSlot];  // Rounding properties?
   }
   
   unsigned int qIdx = 0;
@@ -176,7 +191,9 @@ void Quant::Leaves(unsigned int blockRow, double qRow[]) {
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks) {
+unsigned int Quant::RanksExact(unsigned int tIdx,
+			       unsigned int leafIdx,
+			       vector<unsigned int> &sampRanks) {
   int rankTot = 0;
   
   unsigned int leafStart, leafEnd;
@@ -203,22 +220,23 @@ unsigned int Quant::RanksExact(unsigned int tIdx, unsigned int leafIdx, vector<u
 
    @return count of ranks introduced by leaf.
  */
-unsigned int Quant::RanksSmudge(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks) {
+unsigned int Quant::RanksSmudge(unsigned int tIdx,
+				unsigned int leafIdx,
+				vector<unsigned int> &sampRanks) {
   unsigned int rankTot = 0;
-
   unsigned int leafStart, leafEnd;
   leafReg->BagBounds(tIdx, leafIdx, leafStart, leafEnd);
   if (leafEnd - leafStart <= binSize) {
-    for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
+    for (auto bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
       unsigned int rkIdx = (rankCount[bagIdx].rank >> logSmudge);
-      unsigned int rkCount = sCountSmudge[bagIdx];
+      auto rkCount = sCountSmudge[bagIdx];
       sampRanks[rkIdx] += rkCount;
       rankTot += rkCount;
     }
   }
   else {
     for (unsigned int rkIdx = 0; rkIdx < binSize; rkIdx++) {
-      unsigned int rkCount = sCountSmudge[leafStart + rkIdx];
+      auto rkCount = sCountSmudge[leafStart + rkIdx];
       sampRanks[rkIdx] += rkCount;
       rankTot += rkCount;
     }

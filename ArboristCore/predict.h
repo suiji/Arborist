@@ -22,59 +22,39 @@
 #include "typeparam.h"
 
 class Predict {
-  const unsigned int noLeaf; // Inattainable leaf index value.
- protected:
+  const bool useBag;
+  unsigned int noLeaf; // Inattainable leaf index value.
   const class FramePredict *framePredict;
+  const class Forest *forest;
   const unsigned int nTree;
   const unsigned int nRow;
-  unsigned int *predictLeaves;
+  unique_ptr<unsigned int[]> predictLeaves;
 
- public:  
-  static const unsigned int rowBlock = 0x2000;
-  
-  Predict(const class FramePredict *_framePredict,
-	  unsigned int _nTree,
-	  unsigned int _nRow,
-	  unsigned int _noLeaf);
-  virtual ~Predict();
 
-  static vector<double> Regression(const class FramePredict *framePredict,
-				   const class Forest *forest,
-				   const class LeafReg *_leafReg);
+  /**
+     @brief Assigns a true leaf index at the prediction coordinates passed.
 
-  static vector<double> Quantiles(const class FramePredict *framePredict,
-			const class Forest *forest,
-			const class LeafReg *leafReg,
-			const vector<double> &quantVec,
-			unsigned int qBin,
-				  vector<double> &qPred);
+     @return void.
+   */
+  inline void SetTerminalIdx(unsigned int blockRow,
+		      unsigned int tc,
+		      unsigned int leafIdx) {
+    predictLeaves[nTree * blockRow + tc] = leafIdx;
+  }
 
-  static vector<unsigned int> Classification(const class FramePredict *framePredict,
-			     const class Forest *forest,
-			     const class LeafCtg *leafCtg,
-			     unsigned int *_census,
-			     const vector<unsigned int> &_yTest,
-			     unsigned int *_conf,
-			     vector<double> &_error,
-			     double *_prob);
-
-  void PredictBlock(const Forest *forest,
-		    unsigned int rowStart,
+  void PredictBlock(unsigned int rowStart,
 		    unsigned int rowEnd,
 		    const class BitMatrix *bag);
 
-  void PredictBlockNum(const Forest *forest,
-		    unsigned int rowStart,
+  void PredictBlockNum(unsigned int rowStart,
 		    unsigned int rowEnd,
 		    const class BitMatrix *bag);
 
-  void PredictBlockFac(const Forest *forest,
-		    unsigned int rowStart,
+  void PredictBlockFac(unsigned int rowStart,
 		    unsigned int rowEnd,
 		    const class BitMatrix *bag);
   
-  void PredictBlockMixed(const Forest *forest,
-		    unsigned int rowStart,
+  void PredictBlockMixed(unsigned int rowStart,
 		    unsigned int rowEnd,
 		    const class BitMatrix *bag);
   
@@ -98,6 +78,20 @@ class Predict {
 		       const class BVJagged *facSplit,
 		       const class BitMatrix *bag);
 
+ public:  
+  static const unsigned int rowBlock = 0x2000;
+  
+  Predict(const class FramePredict *_framePredict,
+	  const class Forest *_forest,
+	  bool _validate);
+
+
+  void PredictAcross(class Leaf *leaf);
+
+  unsigned int NRow() {
+    return nRow;
+  }
+  
   /**
      @brief Assigns a proxy leaf index at the prediction coordinates passed.
 
@@ -109,71 +103,14 @@ class Predict {
 
   
   /**
+     @return whether pair is bagged, plus output terminal index.
    */
-  inline bool IsBagged(unsigned int blockRow, unsigned int tc) const {
-    return predictLeaves[nTree * blockRow + tc] == noLeaf;
-  }
-
-
-  /**
-     @brief Assigns a true leaf index at the prediction coordinates passed.
-
-     @return void.
-   */
-  inline void LeafIdx(unsigned int blockRow,
-		      unsigned int tc,
-		      unsigned int leafIdx) {
-    predictLeaves[nTree * blockRow + tc] = leafIdx;
-  }
-
-  
-  /**
-     @brief Accessor for prediction at specified coordinates.
-   */
-  inline unsigned int LeafIdx(unsigned int blockRow,
-			      unsigned int tc) const {
-    return predictLeaves[nTree * blockRow + tc];
+  inline bool IsBagged(unsigned int blockRow,
+		       unsigned int tc,
+		       unsigned int &termIdx) const {
+    termIdx = predictLeaves[nTree * blockRow + tc];
+    return termIdx == noLeaf;
   }
 };
 
-
-class PredictReg : public Predict {
-  const class LeafReg *leafReg;
-  vector<double> &yPred;
-  double defaultScore;
-  void Score(unsigned int rowStart, unsigned int rowEnd);
-  
- public:
-  PredictReg(const FramePredict *_framePredict,
-	     const class LeafReg *_leafReg,
-	     unsigned int _nTree,
-	     vector<double> &_yPred);
-  ~PredictReg() {}
-
-  void PredictAcross(const class Forest *forest);
-  void PredictAcross(const Forest *forest, class Quant *quant, double qPred[]);
-};
-
-
-class PredictCtg : public Predict {
-  const class LeafCtg *leafCtg;
-  const unsigned int ctgWidth;
-  vector<unsigned int> &yPred;
-  unsigned int defaultScore;
-  vector<double> defaultWeight;
-  void Validate(const vector<unsigned int> &yTest,
-		unsigned int confusion[],
-		vector<double> &error);
-  void Vote(double *votes, unsigned int census[]);
-  void Prob(double *prob, unsigned int rowStart, unsigned int rowEnd);
-  void Score(double *votes, unsigned int rowStart, unsigned int rowEnd);
-  unsigned int DefaultScore();
-  void DefaultInit();
-  double DefaultWeight(double *weightPredict);
- public:
-  PredictCtg(const class FramePredict *_framePredict, const class LeafCtg *_leafCtg, unsigned int _nTree, vector<unsigned int> &_yPred);
-  ~PredictCtg();
-
-  void PredictAcross(const class Forest *forest, unsigned int *census, const vector<unsigned int> &yTest, unsigned int *conf, vector<double> &error, double *prob);
-};
 #endif

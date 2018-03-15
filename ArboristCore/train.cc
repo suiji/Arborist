@@ -275,14 +275,10 @@ void Train::TreeBlock(const FrameTrain *frameTrain,
 		      const RowRank *rowRank,
 		      unsigned int tStart,
 		      unsigned int tCount) {
-  vector<Sample*> sampleBlock(tCount);
-  vector<PreTree*> ptBlock(tCount);
-  // auto treeBlock = IndexLevel::TreeBlock(frameTrain. rowRank, response);
-  IndexLevel::TreeBlock(frameTrain, rowRank, response.get(), sampleBlock, ptBlock);
-
+  auto treeBlock = IndexLevel::TreeBlock(frameTrain, rowRank, response.get(), tCount);
   if (tStart == 0)
-    Reserve(ptBlock);
-  BlockConsume(frameTrain, sampleBlock, ptBlock, tStart);
+    Reserve(treeBlock);
+  BlockConsume(frameTrain, treeBlock, tStart);
 }
 
  
@@ -294,10 +290,10 @@ void Train::TreeBlock(const FrameTrain *frameTrain,
 
   @return void.
 */
-void Train::Reserve(vector<PreTree*> &ptBlock) {
+void Train::Reserve(vector<TrainPair> &treeBlock) {
   unsigned int blockFac, blockBag, blockLeaf;
   unsigned int maxHeight = 0;
-  unsigned int blockHeight = BlockPeek(ptBlock, blockFac, blockBag, blockLeaf, maxHeight);
+  unsigned int blockHeight = BlockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
   PreTree::Reserve(maxHeight);
 
   double slop = (slopFactor * nTree) / trainBlock;
@@ -312,15 +308,15 @@ void Train::Reserve(vector<PreTree*> &ptBlock) {
 
    @return sum of tree sizes over block, plus output parameters.
  */
-unsigned int Train::BlockPeek(vector<PreTree*> &ptBlock,
+unsigned int Train::BlockPeek(vector<TrainPair> &treeBlock,
 			      unsigned int &blockFac,
 			      unsigned int &blockBag,
 			      unsigned int &blockLeaf,
 			      unsigned int &maxHeight) {
   unsigned int blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
-  for (auto & pt : ptBlock) {
-    pt->BlockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
+  for (auto & pair : treeBlock) {
+    get<1>(pair)->BlockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
   }
 
   return blockHeight;
@@ -337,15 +333,15 @@ unsigned int Train::BlockPeek(vector<PreTree*> &ptBlock,
    @return void, with side-effected forest.
 */
 void Train::BlockConsume(const FrameTrain *frameTrain,
-			 const vector<Sample*> &sampleBlock,
-			 vector<PreTree*> &ptBlock,
+			 vector<TrainPair> &treeBlock,
 			 unsigned int blockStart) {
-  unsigned int blockIdx = 0;
-  for (auto & pt : ptBlock) {
-    const vector<unsigned int> leafMap = pt->Consume(Forest(), blockStart + blockIdx, predInfo);
-    delete pt;
-    Leaf()->Leaves(frameTrain, sampleBlock[blockIdx], leafMap, blockStart + blockIdx);
-    delete sampleBlock[blockIdx];
+  unsigned int blockIdx = blockStart;
+  for (auto & trainPair : treeBlock) {
+    const vector<unsigned int> leafMap = get<1>(trainPair)->Consume(Forest(), blockIdx, predInfo);
+    delete get<1>(trainPair);
+
+    Leaf()->Leaves(frameTrain, get<0>(trainPair), leafMap, blockIdx);
+    delete get<0>(trainPair);
     blockIdx++;
   }
 }

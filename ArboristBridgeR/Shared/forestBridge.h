@@ -31,23 +31,33 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "forest.h"
+#include <memory>
+#include <vector>
+using namespace std;
 
-class ForestBridge : public Forest {
-  // References to front end-style vectors, pinned to preserve scope:
+class ForestBridge {
+  // References to front end-style vectors:  can be pinned to preserve scope:
   const IntegerVector &feOrigin;
   const RawVector &feFacSplit;
   const IntegerVector &feFacOrig;
   const RawVector &feNode;
 
+ protected:
   static List Legal(SEXP sForest);
+  unique_ptr<class Forest> forest;
   
  public:
   ForestBridge(const IntegerVector &_feOrigin,
 	       const RawVector &_feFacSplit,
 	       const IntegerVector &_feFacOrig,
 	       const RawVector &_feNode);
-  
+
+
+  const class Forest *GetForest() const {
+    return forest.get();
+  }
+
+
   /**
      @brief Factory incorporating trained forest cached by front end.
 
@@ -57,12 +67,15 @@ class ForestBridge : public Forest {
   */
   static unique_ptr<ForestBridge> Unwrap(SEXP sForest);
 
-  static List Wrap(const ForestTrain *forest);
+  static List Wrap(const class ForestTrain *forest);
 };
 
 
-class ForestExport {
-  const Forest *forest;
+/**
+   @brief As above, but with additional members to facilitate dumping on
+   a per-tree basis.
+ */
+class ForestExport : public ForestBridge {
   unsigned int nTree;
   vector<vector<unsigned int> > predTree;
   vector<vector<unsigned int> > bumpTree;
@@ -73,10 +86,12 @@ class ForestExport {
   void PredTree(const int predMap[],
 	   vector<unsigned int> &pred,
 	   const vector<unsigned int> &bump);
-  
- public:
-  ForestExport(SEXP sForest, IntegerVector &predMap);
 
+ public:
+  ForestExport(List &forestList, IntegerVector &predMap);
+
+  static unique_ptr<ForestExport> Unwrap(SEXP Forest, IntegerVector &predMap);
+  
   unsigned int NTree() {
     return nTree;
   }

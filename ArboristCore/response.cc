@@ -99,16 +99,14 @@ ResponseReg::ResponseReg(const double *_y,
 /**
    @return Regression-style Sample object.
  */
-Sample *ResponseReg::RootSample(const RowRank *rowRank,
-				vector<unsigned int> &row2Sample) const {
-  return Sample::FactoryReg(Y(), rowRank, row2Rank, row2Sample);
+Sample *ResponseReg::RootSample(const RowRank *rowRank) const {
+  return Sample::FactoryReg(Y(), rowRank, row2Rank);
 }
 
 
 /**
    @return Classification-style Sample object.
  */
-Sample *ResponseCtg::RootSample(const RowRank *rowRank,
-				vector<unsigned int> &row2Sample) const {
-  return Sample::FactoryCtg(Y(), rowRank, &yCtg[0], row2Sample);
+Sample *ResponseCtg::RootSample(const RowRank *rowRank) const {
+  return Sample::FactoryCtg(Y(), rowRank, &yCtg[0]);
 }
