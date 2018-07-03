@@ -36,78 +36,81 @@ class Predict {
 
      @return void.
    */
-  inline void SetTerminalIdx(unsigned int blockRow,
-		      unsigned int tc,
-		      unsigned int leafIdx) {
+  inline void predictLeaf(unsigned int blockRow,
+                      unsigned int tc,
+                      unsigned int leafIdx) {
     predictLeaves[nTree * blockRow + tc] = leafIdx;
   }
 
+
+  void PredictAcross(class Leaf *leaf,
+                     const class BitMatrix *bag,
+                     class Quant *quant = nullptr);
+
   void PredictBlock(unsigned int rowStart,
-		    unsigned int rowEnd,
-		    const class BitMatrix *bag);
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
 
   void PredictBlockNum(unsigned int rowStart,
-		    unsigned int rowEnd,
-		    const class BitMatrix *bag);
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
 
   void PredictBlockFac(unsigned int rowStart,
-		    unsigned int rowEnd,
-		    const class BitMatrix *bag);
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
   
   void PredictBlockMixed(unsigned int rowStart,
-		    unsigned int rowEnd,
-		    const class BitMatrix *bag);
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
   
   void RowNum(unsigned int row,
-		     unsigned int blockRow,
-		     const class ForestNode *forestNode,
-		     const unsigned int *origin,
-		     const class BitMatrix *bag);
+              unsigned int blockRow,
+              const class ForestNode *forestNode,
+              const unsigned int *origin,
+              const class BitMatrix *bag);
 
   void RowFac(unsigned int row,
-		     unsigned int blockRow,
-		     const class ForestNode *forestNode,
-		     const unsigned int *origin,
-		     const class BVJagged *facSplit,
-		     const class BitMatrix *bag);
+              unsigned int blockRow,
+              const class ForestNode *forestNode,
+              const unsigned int *origin,
+              const class BVJagged *facSplit,
+              const class BitMatrix *bag);
   
   void RowMixed(unsigned int row,
-		       unsigned int blockRow,
-		       const class ForestNode *forestNode,
-		       const unsigned int *origin,
-		       const class BVJagged *facSplit,
-		       const class BitMatrix *bag);
+                unsigned int blockRow,
+                const class ForestNode *forestNode,
+                const unsigned int *origin,
+                const class BVJagged *facSplit,
+                const class BitMatrix *bag);
 
  public:  
   static const unsigned int rowBlock = 0x2000;
   
-  Predict(const class FramePredict *_framePredict,
-	  const class Forest *_forest,
-	  bool _validate);
+  Predict(const class FramePredict* framePredict_,
+          const class Forest* forest_,
+          bool validate_);
 
 
-  void PredictAcross(class Leaf *leaf);
-
-  unsigned int NRow() {
-    return nRow;
-  }
+  static void reg(class LeafReg *leaf,
+                  const class Forest *forest,
+                  const class BitMatrix *bag,
+                  const class FramePredict* framePredict,
+                  bool validate,
+                  class Quant *quant = nullptr);
   
-  /**
-     @brief Assigns a proxy leaf index at the prediction coordinates passed.
-
-     @return void.
-   */
-  inline void BagIdx(unsigned int blockRow, unsigned int tc) {
-    predictLeaves[nTree * blockRow + tc] = noLeaf;
-  }
-
+  static void ctg(class LeafCtg *leaf,
+                  const class Forest *forest,
+                  const class BitMatrix *bag,
+                  const class FramePredict* framePredict,
+                  bool validate);
+  
   
   /**
      @return whether pair is bagged, plus output terminal index.
    */
-  inline bool IsBagged(unsigned int blockRow,
-		       unsigned int tc,
-		       unsigned int &termIdx) const {
+  inline bool isBagged(unsigned int blockRow,
+                       unsigned int tc,
+                       unsigned int &termIdx) const {
     termIdx = predictLeaves[nTree * blockRow + tc];
     return termIdx == noLeaf;
   }

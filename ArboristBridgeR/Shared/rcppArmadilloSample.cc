@@ -27,47 +27,24 @@
 #include "rcppSample.h"
 
 
-unsigned int RcppSample::nRow = 0;
 bool RcppSample::withRepl = false;
 
 NumericVector weightNull(0);
 NumericVector &RcppSample::weight = weightNull;
 
-/**
-   @brief Caches row sampling parameters as static values.
+IntegerVector rowSeqNull(0);
+IntegerVector &RcppSample::rowSeq = rowSeqNull;
 
-   @param _nRow is length of the response vector.
 
-   @param _weight is user-specified weighting of row samples.
+void RcppSample::Init(const NumericVector &feWeight, bool withRepl_) {
+  weight = feWeight;
+  rowSeq = seq(0, feWeight.length()-1);
 
-   @param _withRepl is true iff sampling with replacement.
-
-   @return void.
- */
-void RcppSample::Init(unsigned int _nRow, const double feWeight[], bool _withRepl) {
-  nRow = _nRow;
-  NumericVector _weight(nRow);
-  weight = _weight;
-  for (unsigned int i = 0; i < nRow; i++)
-    weight[i] = feWeight[i];
-  withRepl = _withRepl;
+  withRepl = withRepl_;
 }
 
 
-/**
-   @brief Samples row indices either with or without replacement using methods from RccpArmadillo.
-
-   @param nSamp is the number of samples to draw.
-
-   @param out[] is an output vector of sampled row indices.
-
-   @return void, with output vector.
- */
-void RcppSample::SampleRows(unsigned int nSamp, int out[]) {
+IntegerVector RcppSample::sampleRows(unsigned int nSamp) {
   RNGScope scope;
-  IntegerVector rowVec(seq_len(nRow)-1);
-  IntegerVector samp = RcppArmadillo::sample(rowVec, nSamp, withRepl, weight);
-
-  for (unsigned int i = 0; i < nSamp; i++)
-    out[i] = samp[i];
+  return RcppArmadillo::sample(rowSeq, nSamp, withRepl, weight);
 }

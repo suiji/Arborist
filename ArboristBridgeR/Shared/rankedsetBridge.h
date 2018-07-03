@@ -46,13 +46,13 @@ RcppExport SEXP Presort(SEXP sPredBlock);
    @brief Bridge specialization of BlockRanked (q.v.) caching pinned
    front-end containers.
  */
-class BlockRankedBridge : public BlockRanked {
+class BlockRankedBridge final : public BlockRanked {
   const NumericVector numVal; // pinned
   const IntegerVector numOff; // pinned;
 
  public:
   BlockRankedBridge(const NumericVector &_numVal,
-		    const IntegerVector &_numOff);
+                    const IntegerVector &_numOff);
   static unique_ptr<BlockRankedBridge> Unwrap(SEXP sBlockNum);
 };
 
@@ -67,11 +67,11 @@ class RowRankBridge : public RowRank {
 
  public:
   RowRankBridge(const class Coproc *coproc,
-		const class FrameTrain *frameTrain,
-		const IntegerVector &_row,
-		const IntegerVector &_rank,
-		const IntegerVector &_runLength,
-		double _autoCompress);
+                const class FrameTrain *frameTrain,
+                const IntegerVector &_row,
+                const IntegerVector &_rank,
+                const IntegerVector &_runLength,
+                double _autoCompress);
 
   /**
      @brief Checks that front end provides valid representation of a RowRank.
@@ -85,9 +85,9 @@ class RowRankBridge : public RowRank {
      @brief Instantiates bridge-specialized RowRank from front end.
    */
   static unique_ptr<RowRankBridge> Unwrap(SEXP sRowRank,
-					  double autoCompress,
-					  const class Coproc *coproc,
-					  const class FrameTrain *frameTrain);
+                                          double autoCompress,
+                                          const class Coproc *coproc,
+                                          const class FrameTrain *frameTrain);
 };
 
 
@@ -103,16 +103,16 @@ class RankedSetBridge {
   static List Presort(List &predBlock);
 
   RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
-		  unique_ptr<BlockRankedBridge> _numRanked);
+                  unique_ptr<BlockRankedBridge> _numRanked);
 
   RankedSet *GetPair() {
     return rankedPair.get();
   }
 
   static unique_ptr<RankedSetBridge> Unwrap(SEXP sRowRank,
-					   double autoCompress,
-					   const class Coproc *coproc,
-					   const class FrameTrain *frameTrain);
+                                           double autoCompress,
+                                           const class Coproc *coproc,
+                                           const class FrameTrain *frameTrain);
   
 };
 

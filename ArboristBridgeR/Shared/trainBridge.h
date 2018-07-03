@@ -45,17 +45,22 @@ class TrainBridge {
 
      @return Wrapped length of forest vector, with output parameters.
   */
-  static List Classification(const List &argList,
-			     const class FrameTrain *frameTrain,
-			     const class RankedSet *rankedPair,
-			     const IntegerVector &predMap,
-			     vector<string> &diag);
+  static List classification(const IntegerVector &y,
+                             const NumericVector &classWeight,
+                             const class FrameTrain *frameTrain,
+                             const class RankedSet *rankedPair,
+                             const IntegerVector &predMap,
+                             unsigned int nTree,
+                             class BagBridge *bag,
+                             vector<string> &diag);
   
-  static List Regression(const List &argList,
-			 const class FrameTrain *frameTrain,
-			 const class RankedSet *rankedPair,
-			 const IntegerVector &predMap,
-			 vector<string> &diag);
+  static List regression(const NumericVector &y,
+                         const class FrameTrain *frameTrain,
+                         const class RankedSet *rankedPair,
+                         const IntegerVector &predMap,
+                         unsigned int nTree,
+                         class BagBridge *bag,
+                         vector<string> &diag);
 
   /**
       @brief R-language interface to response caching.
@@ -64,36 +69,39 @@ class TrainBridge {
 
       @return Wrapped value of response cardinality, if applicable.
   */
-  static NumericVector CtgProxy(const IntegerVector &y,
-				 const NumericVector &classWeight);
+  static NumericVector ctgProxy(const IntegerVector &y,
+                                 const NumericVector &classWeight);
 
 
-  static NumericVector PredInfo(const vector<double> &predInfo,
-				const IntegerVector &predMap,
-				unsigned int nTree);
+  static NumericVector predInfo(const vector<double> &predInfo,
+                                const IntegerVector &predMap,
+                                unsigned int nTree);
 
-  static List Summarize(const class TrainCtg *trainCtg,
-			const IntegerVector &predMap,
-			unsigned int nTree,
-			const IntegerVector &y,
-			const vector<string> &diag);
+  static List summarize(const class TrainCtg *trainCtg,
+                        class BagBridge *bag,
+                        const IntegerVector &predMap,
+                        unsigned int nTree,
+                        const IntegerVector &y,
+                        const vector<string> &diag);
   
-  static List Summarize(const class TrainReg *trainReg,
-			const IntegerVector &predMap,
-			unsigned int nTree,
-			const NumericVector &y,
-			const vector<string> &diag);
+  static List summarize(const class TrainReg *trainReg,
+                        class BagBridge *bag,
+                        const IntegerVector &predMap,
+                        unsigned int nTree,
+                        const NumericVector &y,
+                        const vector<string> &diag);
   /**
      @return implicit R_NilValue.
    */
-  static SEXP Init(const List &argList,
-		   const IntegerVector &predMap);
+  static SEXP init(const List &argList,
+                   const IntegerVector &predMap);
 
- public:  
-  static List Train(const List &argList,
-		    const IntegerVector &predMap,
-		    const vector<unsigned int> &facCard,
-		    unsigned int nRow);
+
+public:  
+  static List train(const List &argList,
+                    const IntegerVector &predMap,
+                    const vector<unsigned int> &facCard,
+                    unsigned int nRow);
 };
 
 #endif

@@ -34,10 +34,10 @@ using namespace Rcpp;
 #include "framemap.h"
 
 RcppExport SEXP FrameMixed(SEXP sX,
-				 SEXP sNumElt,
-				 SEXP sFacElt,
-				 SEXP sLevels,
-				 SEXP sSigTrain);
+                                 SEXP sNumElt,
+                                 SEXP sFacElt,
+                                 SEXP sLevels,
+                                 SEXP sSigTrain);
 RcppExport SEXP FrameNum(SEXP sX);
 RcppExport SEXP FrameSparse(SEXP sX);
 
@@ -52,64 +52,62 @@ class FramePredictBridge {
 
 
   FramePredictBridge(unique_ptr<class BlockNumBridge> _blockNum,
-		     unique_ptr<class BlockFacBridge> _blockFac,
-		       unsigned int nRow);
+                     unique_ptr<class BlockFacBridge> _blockFac,
+                       unsigned int nRow);
 
   
-  const FramePredict *GetFrame() const {
+  const FramePredict *getFrame() const {
     return framePredict.get();
   }
 };
 
 
-class FramemapBridge {
+struct FramemapBridge {
 
-public:
+  static void SparseIP(const NumericVector& eltsNZ,
+                       const IntegerVector& i,
+                       const IntegerVector& p,
+                       unsigned int nRow,
+                       vector<double>& valNum,
+                       vector<unsigned int>& rowStart,
+                       vector<unsigned int>& runLength,
+                       vector<unsigned int>& predStart);
 
-  static void SparseIP(const NumericVector &eltsNZ,
-		       const IntegerVector &i,
-		       const IntegerVector &p,
-		       unsigned int nRow,
-		       vector<double> &valNum,
-		       vector<unsigned int> &rowStart,
-		       vector<unsigned int> &runLength,
-		       vector<unsigned int> &predStart);
+  static SEXP SparseJP(NumericVector& eltsNZ,
+                       IntegerVector& j,
+                       IntegerVector& p,
+                       unsigned int nRow,
+                       vector<double>& valNum,
+                       vector<unsigned int>& rowStart,
+                       vector<unsigned int>& runLength);
 
-  static SEXP SparseJP(NumericVector &eltsNZ,
-		       IntegerVector &j,
-		       IntegerVector &p,
-		       unsigned int nRow,
-		       vector<double> &valNum,
-		       vector<unsigned int> &rowStart,
-		       vector<unsigned int> &runLength);
+  static SEXP SparseIJ(NumericVector& eltsNZ,
+                       IntegerVector& i,
+                       IntegerVector& j,
+                       unsigned int nRow,
+                       vector<double>& valNum,
+                       vector<unsigned int>& rowStart,
+                       vector<unsigned int>& runLength);
 
-  static SEXP SparseIJ(NumericVector &eltsNZ,
-		       IntegerVector &i,
-		       IntegerVector &j,
-		       unsigned int nRow,
-		       vector<double> &valNum,
-		       vector<unsigned int> &rowStart,
-		       vector<unsigned int> &runLength);
+  static List UnwrapSignature(const List& sPredBlock);
 
-  static List Unwrap(SEXP sPredBlock, List &signature);
+  static SEXP Unwrap(const List& sPredBlock);
 
-  static List Unwrap(SEXP sPredBlock);
+  static SEXP PredblockLegal(const List& predBlock);
 
-  static SEXP PredblockLegal(const List &predBlock);
+  static SEXP SignatureLegal(const List& signature);
 
-  static SEXP SignatureLegal(const List &signature);
+  static void SignatureUnwrap(const List& sTrain,
+                              IntegerVector& _predMap,
+                              List& _level);
+  static List WrapSignature(const IntegerVector& predMap,
+                 const List& level,
+                 const CharacterVector& colNames,
+                 const CharacterVector& rowNames);
 
-  static void SignatureUnwrap(SEXP sSignature,
-			      IntegerVector &_predMap,
-			      List &_level);
-  static List WrapSignature(const IntegerVector &predMap,
-		 const List &level,
-		 const CharacterVector &colNames,
-		 const CharacterVector &rowNames);
-
-  static void FactorRemap(IntegerMatrix &xFac,
-			  List &level,
-			  List &levelTrain);
+  static void FactorRemap(IntegerMatrix& xFac,
+                          List& level,
+                          List& levelTrain);
 
   
   /**
@@ -118,11 +116,11 @@ public:
      @return allocated predictor map for training.
    */
   static unique_ptr<FrameTrain> FactoryTrain(
-		     const vector<unsigned int> &facCard,
-		     unsigned int nPred,
-		     unsigned int nRow);
+                     const vector<unsigned int>& facCard,
+                     unsigned int nPred,
+                     unsigned int nRow);
 
-  static unique_ptr<FramePredictBridge> FactoryPredict(SEXP predBlock);
+  static unique_ptr<FramePredictBridge> FactoryPredict(const List& sPredBlock);
 };
 
 #endif

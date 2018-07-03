@@ -342,8 +342,7 @@ unsigned int PreTree::LeafMerge() {
   unsigned int leafDiff = leafCount - leafMax;
   vector<PTMerge> ptMerge(height);
   priority_queue<PTMerge*, vector<PTMerge*>, InfoCompare> infoQueue;
-  double *leafProb = new double[leafCount];
-  CallBack::RUnif(leafCount, leafProb);
+  auto leafProb = CallBack::rUnif(leafCount);
 
   ptMerge[0].parId = 0;
   for (unsigned int ptId = 0; ptId < height; ptId++) {
@@ -361,7 +360,6 @@ unsigned int PreTree::LeafMerge() {
       }
     }
   }
-  delete [] leafProb;
 
   // Merges and pops mergeable nodes and pushes newly mergeable parents.
   //

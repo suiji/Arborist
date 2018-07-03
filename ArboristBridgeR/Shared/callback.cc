@@ -18,59 +18,27 @@
 /**
    @file callback.cc
 
-   @brief Implements sampling utitlities by means of calls to front end.  Employs pre-allocated copy-out parameters to avoid dependence on front end's memory allocation.
+   @brief Implements sampling utitlities by means of calls to front end.
 
    @author Mark Seligman
  */
 
-
 #include "rcppSample.h"
 #include "callback.h"
 
-/**
-   @brief Initializes static state parameters for row sampling.
 
-   @param _nRow is the (fixed) number of response rows.
+vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
+  IntegerVector rowSample(RcppSample::sampleRows(nSamp));
 
-   @param _weight is the user-specified weighting of row samples.
-
-   @param _repl is true iff sampling with replacement.
-
-   @return void.
- */
-void CallBack::SampleInit(unsigned int _nRow, const double _weight[], bool _repl) {
-  RcppSample::Init(_nRow, _weight, _repl);
+  vector<unsigned int> rowOut(rowSample.begin(), rowSample.end());
+  return rowOut;
 }
 
 
-/**
-   @brief Call-back to Rcpp implementation of row sampling.
-
-   @param nSamp is the number of samples to draw.
-
-   @param out[] outputs the sampled row indices.
-
-   @return Formally void, with copy-out parameter vector.
-*/
-void CallBack::SampleRows(unsigned int nSamp, int out[]) {
-  RcppSample::SampleRows(nSamp, out);
-}
-
-
-/**
-   @brief Call-back to R's uniform random-variate generator.
-
-   @param len is number of variates to generate.
-
-   @param out[] is the copy-out vector of generated variates.
-
-   @return Formally void, with copy-out parameter vector.
-    
- */
-void CallBack::RUnif(int len, double out[]) {
+vector<double> CallBack::rUnif(size_t len) {
   RNGScope scope;
   NumericVector rn(runif(len));
 
-  for (int i = 0; i < len; i++)
-    out[i] = rn[i];
+  vector<double> rnOut(rn.begin(), rn.end());
+  return rnOut;
 }

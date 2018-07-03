@@ -41,7 +41,7 @@ class BlockFacBridge {
   BlockFac *Fac() {
     return blockFac.get();
   }
-  static unique_ptr<BlockFacBridge> Factory(List &predBlock);
+  static unique_ptr<BlockFacBridge> Factory(const List &predBlock);
 };
 
 
@@ -56,7 +56,7 @@ public:
   BlockNum *Num() {
     return blockNum.get();
   }
-  static unique_ptr<BlockNumBridge> Factory(List &predBlock);
+  static unique_ptr<BlockNumBridge> Factory(const List &predBlock);
 };
 
 

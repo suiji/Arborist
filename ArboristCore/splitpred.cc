@@ -77,7 +77,7 @@ SPReg::SPReg(const FrameTrain *_frameTrain,
 	     const RowRank *_rowRank,
 	     unsigned int _bagCount) :
   SplitPred(_frameTrain, _rowRank, _bagCount),
-  ruMono(nullptr) {
+  ruMono(vector<double>(0)) {
   run = new Run(0, frameTrain->NRow(), noSet);
 }
 
@@ -285,10 +285,6 @@ unsigned int SPCtg::NumIdx(unsigned int predIdx) const {
    @brief Run objects should not be deleted until after splits have been consumed.
  */
 void SPReg::LevelClear() {
-  if (ruMono != nullptr) {
-    delete [] ruMono;
-    ruMono = nullptr;
-  }
   SplitPred::LevelClear();
 }
 
@@ -316,12 +312,9 @@ void SPCtg::LevelClear() {
 void SPReg::LevelPreset(IndexLevel *index) {
   if (predMono > 0) {
     unsigned int monoCount = splitCount * frameTrain->NPred(); // Clearly too big.
-    ruMono = new double[monoCount];
-    CallBack::RUnif(monoCount, ruMono);
+    ruMono = move(CallBack::rUnif(monoCount));
   }
-  else {
-    ruMono = nullptr;
-  }
+
   index->SetPrebias();
 }
 

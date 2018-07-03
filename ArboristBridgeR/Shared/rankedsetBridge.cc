@@ -38,22 +38,24 @@
  */
 RcppExport SEXP Presort(SEXP sPredBlock) {
   BEGIN_RCPP
+
   List predBlock(sPredBlock);
   if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
   }
-
   return RankedSetBridge::Presort(predBlock);
+
   END_RCPP
 }
 
 
 List RankedSetBridge::Presort(List &predBlock) {
   BEGIN_RCPP
+
   auto rankedPre = make_unique<RankedPre>(as<unsigned int>(predBlock["nRow"]),
-				       as<unsigned int>(predBlock["nPredNum"]),
-				       as<unsigned int>(predBlock["nPredFac"])
-				       );
+                                       as<unsigned int>(predBlock["nPredNum"]),
+                                       as<unsigned int>(predBlock["nPredFac"])
+                                       );
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
   if (blockNumSparse.length() > 0) {
     if (!blockNumSparse.inherits("BlockNumSparse")) {
@@ -62,7 +64,7 @@ List RankedSetBridge::Presort(List &predBlock) {
     rankedPre->NumSparse(NumericVector((SEXP) blockNumSparse["valNum"]).begin(),
      (unsigned int*) IntegerVector((SEXP) blockNumSparse["rowStart"]).begin(),
      (unsigned int*) IntegerVector((SEXP) blockNumSparse["runLength"]).begin()
-		     );
+                     );
   }
   else {
     rankedPre->NumDense(NumericMatrix((SEXP) predBlock["blockNum"]).begin());
@@ -72,41 +74,42 @@ List RankedSetBridge::Presort(List &predBlock) {
   // Ranked numerical values for splitting-value interpolation.
   //
   List numRanked = List::create(
-				_["numVal"] = rankedPre->NumVal(),
-				_["numOff"] = rankedPre->NumOff()
-				);
+                                _["numVal"] = rankedPre->NumVal(),
+                                _["numOff"] = rankedPre->NumOff()
+                                );
   numRanked.attr("class") = "NumRanked";
 
   List rowRank = List::create(
-			      _["row"] = rankedPre->Row(),
-			      _["rank"] = rankedPre->Rank(),
-			      _["runLength"] = rankedPre->RunLength()
-			      );
+                              _["row"] = rankedPre->Row(),
+                              _["rank"] = rankedPre->Rank(),
+                              _["runLength"] = rankedPre->RunLength()
+                              );
   rowRank.attr("class") = "RowRank";
 
   List setOut = List::create(
-			     _["rowRank"] = move(rowRank),
-			     _["numRanked"] = move(numRanked)
-				 );
+                             _["rowRank"] = move(rowRank),
+                             _["numRanked"] = move(numRanked)
+                                 );
   setOut.attr("class") = "RankedSet";
 
   return setOut;
+
   END_RCPP
 }
 
 
 unique_ptr<RowRankBridge> RowRankBridge::Unwrap(SEXP sRankedSet,
-						double autoCompress,
-						const Coproc *coproc,
-						const FrameTrain *frameTrain) {
+                                                double autoCompress,
+                                                const Coproc *coproc,
+                                                const FrameTrain *frameTrain) {
   List rankedSet(sRankedSet);
   List rowRank = Legal(rankedSet["rowRank"]);
   return make_unique<RowRankBridge>(coproc,
-			   frameTrain,
-			   IntegerVector((SEXP) rowRank["row"]),
-			   IntegerVector((SEXP) rowRank["rank"]),
-			   IntegerVector((SEXP) rowRank["runLength"]),
-			   autoCompress);
+                           frameTrain,
+                           IntegerVector((SEXP) rowRank["row"]),
+                           IntegerVector((SEXP) rowRank["rank"]),
+                           IntegerVector((SEXP) rowRank["runLength"]),
+                           autoCompress);
 }
 
 
@@ -117,12 +120,12 @@ unique_ptr<BlockRankedBridge> BlockRankedBridge::Unwrap(SEXP sRankedSet) {
   List rankedSet(sRankedSet);
   List blockNum((SEXP) rankedSet["numRanked"]);
   return make_unique<BlockRankedBridge>(
-				NumericVector((SEXP) blockNum["numVal"]),
-				IntegerVector((SEXP) blockNum["numOff"]));
+                                NumericVector((SEXP) blockNum["numVal"]),
+                                IntegerVector((SEXP) blockNum["numOff"]));
 }
 
 BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
-				     const IntegerVector &_numOff) :
+                                     const IntegerVector &_numOff) :
   BlockRanked(&_numVal[0], (unsigned int*) &_numOff[0]),
   numVal(_numVal),
   numOff(_numOff) {
@@ -131,19 +134,19 @@ BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
 
 
 unique_ptr<RankedSetBridge> RankedSetBridge::Unwrap(
-		    SEXP sRankedSet,
-		    double autoCompress,
-		    const Coproc *coproc,
-		    const FrameTrain *frameTrain) {
+                    SEXP sRankedSet,
+                    double autoCompress,
+                    const Coproc *coproc,
+                    const FrameTrain *frameTrain) {
   return make_unique<RankedSetBridge>(
       RowRankBridge::Unwrap(sRankedSet,autoCompress, coproc, frameTrain),
       BlockRankedBridge::Unwrap(sRankedSet)
-				      );
-
+                                      );
 }
 
+
 RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
-				 unique_ptr<BlockRankedBridge> _numRanked) :
+                                 unique_ptr<BlockRankedBridge> _numRanked) :
   rowRank(move(_rowRank)),
   numRanked(move(_numRanked)) {
   rankedPair = make_unique<RankedSet>(rowRank.get(), numRanked.get());
@@ -153,30 +156,30 @@ RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
 
 List RowRankBridge::Legal(SEXP sRowRank) {
   BEGIN_RCPP
-    List rowRank(sRowRank);
-    if (!rowRank.inherits("RowRank")) {
-      stop("Expecting RowRank");
-    }
-    return rowRank;
 
-    END_RCPP
+  List rowRank(sRowRank);
+  if (!rowRank.inherits("RowRank")) {
+    stop("Expecting RowRank");
+  }
+  return rowRank;
+
+ END_RCPP
 }
 
 
 RowRankBridge::RowRankBridge(const Coproc *coproc,
-			     const FrameTrain *frameTrain,
-			     const IntegerVector &_row,
-			     const IntegerVector &_rank,
-			     const IntegerVector &_runLength,
-			     double _autoCompress) :
+                             const FrameTrain *frameTrain,
+                             const IntegerVector &_row,
+                             const IntegerVector &_rank,
+                             const IntegerVector &_runLength,
+                             double _autoCompress) :
   RowRank(frameTrain,
-	  (unsigned int*) &_row[0],
-	  (unsigned int*) &_rank[0],
-	  (unsigned int*) &_runLength[0],
-	  _runLength.length(),
-	  _autoCompress),
+          (unsigned int*) &_row[0],
+          (unsigned int*) &_rank[0],
+          (unsigned int*) &_runLength[0],
+          _runLength.length(),
+          _autoCompress),
   row(_row),
   rank(_rank),
   runLength(_runLength) {
 }
-

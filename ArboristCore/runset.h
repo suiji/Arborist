@@ -263,8 +263,8 @@ class Run {
   FRNode *facRun; // Workspace for FRNodes used along level.
   BHPair *bHeap;
   unsigned int *lhOut; // Vector of lh-bound slot indices.
-  double *rvWide;
   double *ctgSum;
+  vector<double> rvWide;
 
   void Reset();
 

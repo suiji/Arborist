@@ -18,7 +18,6 @@
 
 #include "typeparam.h"
 #include "sample.h"
-#include "quant.h"
 #include <vector>
 
 
@@ -27,35 +26,21 @@ class BagLeaf {
   unsigned int sCount; // # times bagged:  > 0
 
  public:
-  inline void Init(unsigned int _leafIdx, unsigned int _sCount) {
-    leafIdx = _leafIdx;
-    sCount = _sCount;
+  BagLeaf() {
+  }
+  
+  BagLeaf(unsigned int leafIdx_,
+          unsigned int sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
   }
 
-
-  inline unsigned int LeafIdx() const {
+  
+  inline unsigned int getLeafIdx() const {
     return leafIdx;
   }
 
   
-  inline unsigned int SCount() const {
+  inline unsigned int getSCount() const {
     return sCount;
-  }
-};
-
-
-/**
-   @brief Rank and sample-count values derived from BagLeaf.  Client:
-   quantile inference.
- */
-class RankCount {
- public:
-  unsigned int rank;
-  unsigned int sCount;
-
-  void Init(unsigned int _rank, unsigned int _sCount) {
-    rank = _rank;
-    sCount = _sCount;
   }
 };
 
@@ -104,7 +89,7 @@ class LeafNode {
   }
 
 
-  inline double GetScore() const {
+  inline double getScore() const {
     return score;
   }
 };
@@ -112,11 +97,9 @@ class LeafNode {
 
 class LeafTrain {
   static bool thinLeaves;
-  const unsigned int nTree;
   vector<unsigned int> origin; // Starting position, per tree.
   vector<LeafNode> leafNode;
   vector<BagLeaf> bagLeaf; // bagged row/count:  per sample.
-  class BitMatrix *bagRow;
 
 
  protected:
@@ -126,24 +109,19 @@ class LeafTrain {
   static void Immutables(bool _thinLeaves);
   static void DeImmutables();
 
-  LeafTrain(unsigned int _nTree,
-       unsigned int _rowTrain);
+  LeafTrain(unsigned int _nTree);
   
   virtual ~LeafTrain();
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst);
-  virtual void Leaves(const class FrameTrain *frameTrain, const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
+  virtual void Leaves(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
 
-  unsigned int RowTrain() const;
   size_t NodeBytes() const;
   size_t BLBytes() const;
-  size_t BagBytes() const;
 
   void Serialize(unsigned char *leafRaw,
-		 unsigned char *blRaw,
-		 unsigned char *bbRaw) const;
+                 unsigned char *blRaw) const;
   
-  void BagTree(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx);
-
+  void BagTree(const class Sample *sample, const vector<unsigned int> &leafMap);
 
   inline const vector<unsigned int> &Origin() const {
     return origin;
@@ -153,12 +131,6 @@ class LeafTrain {
   inline unsigned Origin(unsigned int tIdx) {
     return origin[tIdx];
   }
-
-  
-  inline unsigned int NTree() const {
-    return nTree;
-  }
-
 
   inline double &Score(unsigned int idx) {
     return leafNode[idx].Score();
@@ -189,9 +161,9 @@ class LeafTrain {
 class LeafTrainReg : public LeafTrain {
   
   void Scores(const class Sample *sample,
-	      const vector<unsigned int> &leafMap,
-	      unsigned int leafCount,
-	      unsigned int tIdx);
+              const vector<unsigned int> &leafMap,
+              unsigned int leafCount,
+              unsigned int tIdx);
 
 
   /**
@@ -205,8 +177,8 @@ class LeafTrainReg : public LeafTrain {
      @return void, with side-effected leaf-node score.
   */
   void ScoreAccum(unsigned int tIdx,
-		  unsigned int leafIdx,
-		  double incr) {
+                  unsigned int leafIdx,
+                  double incr) {
     LeafTrain::Score(tIdx, leafIdx) += incr;
   }
 
@@ -222,25 +194,23 @@ class LeafTrainReg : public LeafTrain {
      @return void, with final leaf-node score.
   */
   inline void ScoreScale(unsigned int tIdx,
-			 unsigned int leafIdx,
-			 unsigned int sCount) {
+                         unsigned int leafIdx,
+                         unsigned int sCount) {
     LeafTrain::Score(tIdx, leafIdx) /= sCount;
   }
 
 
  public:
-  LeafTrainReg(unsigned int _nTree,
-	  unsigned int _rowTrain);
+  LeafTrainReg(unsigned int _nTree);
   ~LeafTrainReg();
 
 
   
   void Reserve(unsigned int leafEst,
-	       unsigned int bagEst);
-  void Leaves(const class FrameTrain *frameTrain,
-	      const class Sample *sample,
-	      const vector<unsigned int> &leafMap,
-	      unsigned int tIdx);
+               unsigned int bagEst);
+  void Leaves(const class Sample *sample,
+              const vector<unsigned int> &leafMap,
+              unsigned int tIdx);
 
 };
 
@@ -248,22 +218,21 @@ class LeafTrainReg : public LeafTrain {
 class LeafTrainCtg : public LeafTrain {
   vector<double> weight; // # leaves x # categories
   const unsigned int nCtg;
+  const double weightScale;
 
-
-  void Scores(const class FrameTrain *frameTrain,
-	      const class SampleCtg *sample,
-	      const vector<unsigned int> &leafMap,
-	      unsigned int leafCount,
-	      unsigned int tIdx);
+  void Scores(const class SampleCtg *sample,
+              const vector<unsigned int> &leafMap,
+              unsigned int leafCount,
+              unsigned int tIdx);
  public:
   LeafTrainCtg(unsigned int _nTree,
-	  unsigned int _rowTrain,
-	  unsigned int _nCtg);
+               unsigned int rowTrain,
+               unsigned int _nCtg);
   ~LeafTrainCtg();
 
 
   void Reserve(unsigned int leafEst,
-	       unsigned int bagEst);
+               unsigned int bagEst);
 
   
   /**
@@ -306,7 +275,7 @@ class LeafTrainCtg : public LeafTrain {
     return weight;
   }
 
-  void Leaves(const class FrameTrain *frameTrain, const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx);
+  void Leaves(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx);
 
 };
 
@@ -315,47 +284,37 @@ class LeafTrainCtg : public LeafTrain {
    @brief Represents leaves for fully-trained forest.
  */
 class Leaf {
+ protected:
   const unsigned int *origin;
   const class LeafNode *leafNode;
-  const class BagLeaf *bagLeaf; 
-  
- protected:
-  const unsigned int rowTrain;
-  const unsigned int rowPredict;
-  const unique_ptr<class BitMatrix> baggedRows;
+  const class BagLeaf *bagLeaf;
   const unsigned int nTree;
   const unsigned int leafCount;
   const unsigned int bagLeafTot;
 
-  void Export(vector< vector<unsigned int> > &rowTree,
-	      vector< vector<unsigned int> > &sCountTree) const;
+  void populate(const class BitMatrix *baggedRows,
+              vector< vector<unsigned int> > &rowTree,
+              vector< vector<unsigned int> > &sCountTree) const;
 
-  void NodeExport(vector<vector<double> > &_score,
-		  vector<vector<unsigned int> > &_extent) const;
+  void nodeExport(vector<vector<double> > &_score,
+                  vector<vector<unsigned int> > &_extent) const;
 
   
  public:
   Leaf(const unsigned int *_origin,
-	   unsigned int _nTree,
-	   const class LeafNode *_leafNode,
-	   unsigned int _leafCount,
-	   const class BagLeaf*_bagLeaf,
-	   unsigned int _bagTot,
-	   unsigned int _bagBits[],
-       unsigned int _rowTrain,
-       unsigned int _rowPredict);
+       unsigned int _nTree,
+       const class LeafNode *_leafNode,
+       unsigned int _leafCount,
+       const class BagLeaf*_bagLeaf,
+       unsigned int _bagTot);
 
   virtual ~Leaf();
+  virtual const unsigned int rowPredict() const = 0;
   virtual void ScoreBlock(const class Predict *predict,
-		     unsigned int rowStart,
-		     unsigned int rowEnd) = 0;
+                     unsigned int rowStart,
+                     unsigned int rowEnd) = 0;
 
-  inline const class BitMatrix *Bag() const {
-    return baggedRows.get();
-  }
-
-
-  inline unsigned int NTree() const {
+  inline unsigned int getNTree() const {
     return nTree;
   }
 
@@ -363,22 +322,9 @@ class Leaf {
   inline unsigned int NodeIdx(unsigned int tIdx, unsigned int leafIdx) const {
     return origin[tIdx] + leafIdx;
   }
-
-
-  /**
-     @param tIdx is the tree index.
-
-     @param bagIdx is the absolute index of a bagged row.
-
-     @return absolute index of leaf containing the bagged row.
-   */
-  inline unsigned int LeafIdx(unsigned int tIdx, unsigned int bagIdx) const {
-    return origin[tIdx] + bagLeaf[bagIdx].LeafIdx();
-  }
   
-  
-  inline unsigned int SCount(unsigned int sIdx) const {
-    return bagLeaf[sIdx].SCount();
+  inline unsigned int getSCount(unsigned int sIdx) const {
+    return bagLeaf[sIdx].getSCount();
   }
 
 
@@ -387,18 +333,8 @@ class Leaf {
   }
 
 
-  inline double GetScore(int tIdx, unsigned int leafIdx) const {
-    return leafNode[NodeIdx(tIdx, leafIdx)].GetScore();
-  }
-
-
-  /**
-     @brief computes total number of leaves in forest.
-
-     @return size of leafNode vector.
-   */
-  inline unsigned int LeafCount() const {
-    return leafCount;
+  inline double getScore(int tIdx, unsigned int leafIdx) const {
+    return leafNode[NodeIdx(tIdx, leafIdx)].getScore();
   }
 
 
@@ -434,14 +370,15 @@ class Leaf {
   }
 
 
-  inline unsigned int RowTrain() const {
-    return rowTrain;
+  /**
+     @brief computes total number of leaves in forest.
+
+     @return size of leafNode vector.
+   */
+  inline unsigned int getLeafCount() const {
+    return leafCount;
   }
 
-
-  inline unsigned int RowPredict() const {
-    return rowPredict;
-  }
 };
 
 
@@ -451,44 +388,35 @@ class LeafReg : public Leaf {
   vector<unsigned int> offset; // Accumulated extents.
   double defaultScore;
   vector<double> yPred;
-  unique_ptr<class Quant> quant;
   void Offsets();
   
  public:
   LeafReg(const unsigned int _origin[],
-	  unsigned int _nTree,
-	  const class LeafNode _leafNode[],
-	  unsigned int _leafCount,
-	  const class BagLeaf _bagLeaf[],
-	  unsigned int _bagLeafTot,
-	  unsigned int _bagBits[],
-	  const double *_yTrain,
-	  unsigned int _rowTrain,
-	  double _meanTrain,
-	  unsigned int _rowPredict);
+          unsigned int _nTree,
+          const class LeafNode _leafNode[],
+          unsigned int _leafCount,
+          const class BagLeaf _bagLeaf[],
+          unsigned int _bagLeafTot,
+          const double *_yTrain,
+          double _meanTrain,
+          unsigned int _rowPredict);
 
- LeafReg(const unsigned int _origin[],
-			 unsigned int _nTree,
-			 const LeafNode _leafNode[],
-			 unsigned int _leafCount,
-			 const class BagLeaf _bagLeaf[],
-			 unsigned int _bagLeafTot,
-			 unsigned int _bagBits[],
-			 const double *_yTrain,
-			 unsigned int _rowTrain,
-		 double _meanTrain,
-		 unsigned int _rowPredict,
-	 const vector<double> quantVec,
-	 unsigned int qBin);
   ~LeafReg() {}
 
   inline const double *YTrain() const {
     return yTrain;
   }
 
+
   const vector<double> &YPred() const {
     return yPred;
   }
+  
+
+  const unsigned int rowPredict() const {
+    return yPred.size();
+  }
+
   
   inline double MeanTrain() const {
     return meanTrain;
@@ -496,34 +424,43 @@ class LeafReg : public Leaf {
 
 
   void ScoreBlock(const class Predict *predict,
-		  unsigned int rowStart,
-		  unsigned int rowEnd);
+                  unsigned int rowStart,
+                  unsigned int rowEnd);
   
-  void RankCounts(const vector<unsigned int> &row2Rank,
-		  vector<RankCount> &rankCount) const;
-
-
   /**
    @brief Computes bag index bounds in forest setting.  Only client is Quant.
   */
   void BagBounds(unsigned int tIdx,
-		 unsigned int leafIdx,
-		 unsigned int &start,
-		 unsigned int &end) const {
+                 unsigned int leafIdx,
+                 unsigned int &start,
+                 unsigned int &end) const {
     auto forestIdx = NodeIdx(tIdx, leafIdx);
     start = offset[forestIdx];
     end = start + Extent(forestIdx);
   }
 
 
-  const double *GetQuant(unsigned int &nQuantile) const;
+  /**
+     @param tIdx is the tree index.
 
+     @param bagIdx is the absolute index of a bagged row.
 
-  void Export(unsigned int &_rowTrain,
-	      vector<vector<unsigned int> >&rowTree,
-	      vector<vector<unsigned int> > &sCountTree,
-	      vector<vector<double> > &scoreTree,
-	      vector<vector<unsigned int> >&extentTree) const;
+     @return absolute index of leaf containing the bagged row.
+   */
+  unsigned int getLeafIdx(unsigned int tIdx,
+                          unsigned int bagIdx,
+                          unsigned int &offset_) const {
+    auto leafIdx = origin[tIdx] + bagLeaf[bagIdx].getLeafIdx();
+    offset_ = offset[leafIdx];
+    return leafIdx;
+  }
+
+  
+  void populate(const class BitMatrix *baggedRows,
+              vector<vector<unsigned int> >&rowTree,
+              vector<vector<unsigned int> > &sCountTree,
+              vector<vector<double> > &scoreTree,
+              vector<vector<unsigned int> >&extentTree) const;
 };
 
 
@@ -546,24 +483,26 @@ class LeafCtg : public Leaf {
 
   
   LeafCtg(const unsigned int _origin[],
-	      unsigned int _nTree,
-	      const class LeafNode _leafNode[],
-	      unsigned int _leafCount,
-	      const class BagLeaf _bagLeaf[],
-	      unsigned int _bagLeafTot,
-	      unsigned int _bagBits[],
-	      unsigned int _rowTrain,
-	      const double _weight[],
-	  unsigned int _ctgTrain,
-	  unsigned int _rowPredict,
-	  bool doProb);
+              unsigned int _nTree,
+              const class LeafNode _leafNode[],
+              unsigned int _leafCount,
+              const class BagLeaf _bagLeaf[],
+              unsigned int _bagLeafTot,
+              const double _weight[],
+          unsigned int _ctgTrain,
+          unsigned int _rowPredict,
+          bool doProb);
 
   ~LeafCtg(){}
 
 
- const vector<unsigned int> &YPred() {
-   return yPred;
- }
+  const vector<unsigned int> &YPred() {
+    return yPred;
+  }
+
+  const unsigned int rowPredict() const {
+    return yPred.size();
+  }
 
 
   const unsigned int *Census() const {
@@ -573,19 +512,19 @@ class LeafCtg : public Leaf {
   const vector<double> &Prob() const {
     return prob;
   }
-
   
+
   void ScoreBlock(const class Predict *predict,
-		  unsigned int rowStart,
-		  unsigned int rowEnd);
+                  unsigned int rowStart,
+                  unsigned int rowEnd);
 
   
   void Vote();
 
   
   void ProbBlock(const class Predict *predict,
-		 unsigned int rowStart,
-		 unsigned int rowEnd);
+                 unsigned int rowStart,
+                 unsigned int rowEnd);
 
 
   void DefaultWeight(vector<double> &defaultWeight) const;
@@ -597,10 +536,11 @@ class LeafCtg : public Leaf {
   
 
   inline double WeightCtg(int tIdx,
-			  unsigned int leafIdx,
-			  unsigned int ctg) const {
+                          unsigned int leafIdx,
+                          unsigned int ctg) const {
     return weight[ctgTrain * NodeIdx(tIdx, leafIdx) + ctg];
   }
+
 
   /**
      @brief Derives an index into a matrix having stride equal to the
@@ -608,18 +548,17 @@ class LeafCtg : public Leaf {
 
      @return derived strided index.
    */
-  unsigned int TrainIdx(unsigned int row, unsigned int col) const {
+  unsigned int getTrainIdx(unsigned int row, unsigned int col) const {
     return row * ctgTrain + col;
   }
 
 
-
-  void Export(unsigned int &_rowTrain,
-	      vector<vector<unsigned int> > &rowTree,
-	      vector<vector<unsigned int> > &sCountTree,
-	      vector<vector<double> > &scoreTree,
-	      vector<vector<unsigned int> > &extentTree,
-	      vector<vector<double> > &_weightTree) const;
+  void populate(const BitMatrix *baggedRows,
+              vector<vector<unsigned int> > &rowTree,
+              vector<vector<unsigned int> > &sCountTree,
+              vector<vector<double> > &scoreTree,
+              vector<vector<unsigned int> > &extentTree,
+              vector<vector<double> > &_weightTree) const;
 };
 
 #endif

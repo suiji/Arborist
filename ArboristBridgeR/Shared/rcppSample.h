@@ -31,16 +31,36 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+
 /**
    @brief Row-sampling parameters supplied by the front end are invariant, so can be cached as static.
  */
 class RcppSample {
-  static unsigned int nRow;
   static bool withRepl;
-  static NumericVector &weight;
+  static NumericVector &weight; // Pinned vector[nRow] of weights.
+  static IntegerVector &rowSeq; // Pinned sequence from 0 to nRow - 1.
 public:
-  static void Init(unsigned int _nRow, const double feWeight[], bool _withRepl);
-  static void SampleRows(unsigned int nSamp, int out[]);
+
+  /**
+   @brief Caches row sampling parameters as static values.
+
+   @param feWeight is user-specified weighting of row samples.
+
+   @param withRepl_ is true iff sampling with replacement.
+
+   @return void.
+ */
+  static void Init(const NumericVector &feWeight,
+                   bool withRepl_);
+
+  /**
+   @brief Samples row indices either with or without replacement using methods from RccpArmadillo.
+
+   @param nSamp is the number of samples to draw.
+
+   @return vector of sampled row indices.
+ */
+  static IntegerVector sampleRows(unsigned int nSamp);
 };
 
 #endif

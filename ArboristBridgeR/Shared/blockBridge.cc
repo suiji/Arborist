@@ -27,7 +27,7 @@
 #include "blockBridge.h"
 
 
-unique_ptr<BlockFacBridge> BlockFacBridge::Factory(List &predBlock) {
+unique_ptr<BlockFacBridge> BlockFacBridge::Factory(const List &predBlock) {
   return make_unique<BlockFacBridge>(IntegerMatrix((SEXP) predBlock["blockFac"]));
 }
 
@@ -38,7 +38,7 @@ BlockFacBridge::BlockFacBridge(const IntegerMatrix &fac) :
 }
 
 
-unique_ptr<BlockNumBridge> BlockNumBridge::Factory(List &predBlock) {
+unique_ptr<BlockNumBridge> BlockNumBridge::Factory(const List &predBlock) {
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
   if (blockNumSparse.length() > 0) {
     return make_unique<BlockSparseBridge>(

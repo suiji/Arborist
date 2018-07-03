@@ -33,49 +33,35 @@ using namespace Rcpp;
 
 RcppExport SEXP ForestFloorExport(SEXP sArbOut);
 
-namespace ExportBridge {
-  static List ExportReg(const SEXP sForest,
-			const List &leaf,
-			IntegerVector &predMap,
-			unsigned int &nTree);
+struct ExportBridge {
 
+  static List fFloorLeafReg(const class LeafRegBridge *leaf,
+                            unsigned int tIdx);
 
-  static List ExportCtg(const SEXP sForest,
-			const List &leaf,
-			IntegerVector &predMap,
-			unsigned int &nTree);
+  static List fFloorLeafCtg(const class LeafCtgBridge *leaf,
+                            unsigned int tIdx);
 
+  static List fFloorForest(const class ForestExport *forestExport,
+                           unsigned int tIdx);
 
-  static SEXP FFloorLeafReg(List &forestCore,
-			    unsigned int tIdx);
+  static IntegerVector fFloorBag(const class LeafBridge *leaf,
+                                 unsigned int tIdx,
+                                 unsigned int rowTrain);
 
-  static SEXP FFloorLeafCtg(List &forestCore,
-			    unsigned int tIdx);
+  static List fFloorTreeReg(const List &sTrain,
+                            IntegerVector &predMap);
 
-  static SEXP FFloorInternal(List &forestCore,
-			     unsigned int tIdx);
+  static List fFloorTreeCtg(const class ForestExport *forest,
+                            const class LeafCtgBridge *leaf,
+                            unsigned int rowTrain);
 
-  static SEXP FFloorBag(List &forestCore,
-			int tIdx);
+  static List fFloorReg(const List& sTrain,
+                        IntegerVector &predMap,
+                        List &predLevel);
 
-  static List FFloorTreeReg(SEXP sForest,
-			    const List &leaf,
-			    IntegerVector &predMap);
-
-  static List FFloorTreeCtg(List &coreCtg,
-			    unsigned int tIdx);
-
-  static SEXP FFloorReg(SEXP sForest,
-			List &leaf,
-			IntegerVector &predMap,
-			List &predLevel);
-
-  static SEXP FFloorCtg(SEXP sForest,
-			List &leaf,
-			IntegerVector &predMap,
-			List &predLevel);
+  static List fFloorCtg(const List& sTrain,
+                        IntegerVector &predMap,
+                        List &predLevel);
 };
-
-using namespace ExportBridge;
 
 #endif

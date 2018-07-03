@@ -47,10 +47,10 @@
 
 // TODO:  MOve column and row names to signature.
 RcppExport SEXP FrameMixed(SEXP sX,
-			   SEXP sNumElt,
-			   SEXP sFacElt,
-			   SEXP sLevels,
-			   SEXP sSigTrain) {
+                           SEXP sNumElt,
+                           SEXP sFacElt,
+                           SEXP sLevels,
+                           SEXP sSigTrain) {
   BEGIN_RCPP
   DataFrame xf(sX);
   IntegerVector numElt = IntegerVector(sNumElt) - 1;
@@ -121,9 +121,9 @@ RcppExport SEXP FrameMixed(SEXP sX,
       _["nRow"] = nRow,
       _["facCard"] = facCard,
       _["signature"] = move(FramemapBridge::WrapSignature(predMap,
-							  level,
-							  colnames(xf),
-							  rownames(xf)))
+                                                          level,
+                                                          colnames(xf),
+                                                          rownames(xf)))
       );
   predBlock.attr("class") = "PredBlock";
 
@@ -135,15 +135,15 @@ RcppExport SEXP FrameMixed(SEXP sX,
   // core.
 // Column and row names stubbed to zero-length vectors if null.
 List FramemapBridge::WrapSignature(const IntegerVector &predMap,
-	       const List &level,
-	       const CharacterVector &colNames,
-	       const CharacterVector &rowNames) {
+               const List &level,
+               const CharacterVector &colNames,
+               const CharacterVector &rowNames) {
   List signature = List::create(
-				_["predMap"] = predMap,
-				_["level"] = level,
-				_["colNames"] = Rf_isNull(colNames) ? CharacterVector(0) : colNames,
-				_["rowNames"] = Rf_isNull(rowNames) ? CharacterVector(0) : rowNames
-	);
+                                _["predMap"] = predMap,
+                                _["level"] = level,
+                                _["colNames"] = Rf_isNull(colNames) ? CharacterVector(0) : colNames,
+                                _["rowNames"] = Rf_isNull(rowNames) ? CharacterVector(0) : rowNames
+        );
   signature.attr("class") = "Signature";
 
   return signature;
@@ -158,9 +158,9 @@ void FramemapBridge::FactorRemap(IntegerMatrix &xFac, List &levelTest, List &lev
       IntegerVector sq = seq(0, colTest.length() - 1);
       IntegerVector idxNonMatch = sq[is_na(colMatch)];
       if (idxNonMatch.length() > 0) {
-	warning("Factor levels not observed in training:  employing proxy");
-	int proxy = colTrain.length() + 1;
-	colMatch[idxNonMatch] = proxy;
+        warning("Factor levels not observed in training:  employing proxy");
+        int proxy = colTrain.length() + 1;
+        colMatch[idxNonMatch] = proxy;
       }
 
       colMatch = colMatch - 1;  // match() is one-based.
@@ -180,19 +180,19 @@ RcppExport SEXP FrameNum(SEXP sX) {
 
   IntegerVector facCard(0);
   List predBlock = List::create(
-	_["blockNum"] = blockNum,
-	_["blockNumSparse"] = List(), // For now.
-	_["blockFacSparse"] = R_NilValue, // For now.
-	_["nPredNum"] = nPred,
+        _["blockNum"] = blockNum,
+        _["blockNumSparse"] = List(), // For now.
+        _["blockFacSparse"] = R_NilValue, // For now.
+        _["nPredNum"] = nPred,
         _["blockFac"] = IntegerMatrix(0),
-	_["nPredFac"] = 0,
-	_["nRow"] = blockNum.nrow(),
+        _["nPredFac"] = 0,
+        _["nRow"] = blockNum.nrow(),
         _["facCard"] = facCard,
-	_["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) - 1,
-					List::create(0),
-					colnames(blockNum),
-					rownames(blockNum)))
-				);
+        _["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) - 1,
+                                        List::create(0),
+                                        colnames(blockNum),
+                                        rownames(blockNum)))
+                                );
   predBlock.attr("class") = "PredBlock";
 
   return predBlock;
@@ -260,10 +260,10 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   }
 
   List blockNumSparse = List::create(
-	  _["valNum"] = valNum,
-	  _["rowStart"] = rowStart,
-	  _["runLength"] = runLength,
-	  _["predStart"] = predStart);
+          _["valNum"] = valNum,
+          _["rowStart"] = rowStart,
+          _["runLength"] = runLength,
+          _["predStart"] = predStart);
   blockNumSparse.attr("class") = "BlockNumSparse";
 
   List dimNames;
@@ -281,19 +281,19 @@ RcppExport SEXP FrameSparse(SEXP sX) {
 
   IntegerVector facCard(0);
   List predBlock = List::create(
-	_["blockNum"] = NumericMatrix(0),
-	_["nPredNum"] = nPred,
-	_["blockNumSparse"] = move(blockNumSparse),
-	_["blockFacSparse"] = R_NilValue, // For now.
+        _["blockNum"] = NumericMatrix(0),
+        _["nPredNum"] = nPred,
+        _["blockNumSparse"] = move(blockNumSparse),
+        _["blockFacSparse"] = R_NilValue, // For now.
         _["blockFac"] = IntegerMatrix(0),
-	_["nPredFac"] = 0,
-	_["nRow"] = nRow,
+        _["nPredFac"] = 0,
+        _["nRow"] = nRow,
         _["facCard"] = facCard,
-	_["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) -1,
-					List::create(0),
-					colName,
-					rowName))
-				);
+        _["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) -1,
+                                        List::create(0),
+                                        colName,
+                                        rowName))
+                                );
 
   predBlock.attr("class") = "PredBlock";
 
@@ -307,13 +307,13 @@ RcppExport SEXP FrameSparse(SEXP sX) {
 //    Repeated values indicate full-zero columns. 
 //
 void FramemapBridge::SparseIP(const NumericVector &eltsNZ,
-				const IntegerVector &i,
-				const IntegerVector &p,
-				unsigned int nRow,
-				vector<double> &valNum,
-				vector<unsigned int> &rowStart,
-				vector<unsigned int> &runLength,
-				vector<unsigned int> &predStart) {
+                                const IntegerVector &i,
+                                const IntegerVector &p,
+                                unsigned int nRow,
+                                vector<double> &valNum,
+                                vector<unsigned int> &rowStart,
+                                vector<unsigned int> &runLength,
+                                vector<unsigned int> &predStart) {
   // Pre-scans column heights. 'p' has length one greater than number
   // of columns, providing ready access to heights.
   const double zero = 0.0;
@@ -341,24 +341,24 @@ void FramemapBridge::SparseIP(const NumericVector &eltsNZ,
       for (unsigned int rowIdx = idxStart; rowIdx < idxEnd; rowIdx++) {
         unsigned int nzRow = i[rowIdx];
         if (nzPrev == nRow && nzRow > 0) { // Zeroes lead.
-	  valNum.push_back(zero);
-	  runLength.push_back(nzRow);
-	  rowStart.push_back(0);
-	}
-	else if (nzRow > nzPrev + 1) { // Zeroes precede.
-	  valNum.push_back(zero);
-	  runLength.push_back(nzRow - (nzPrev + 1));
-	  rowStart.push_back(nzPrev + 1);
-	}
-	valNum.push_back(eltsNZ[rowIdx]);
-	runLength.push_back(1);
-	rowStart.push_back(nzRow);
-	nzPrev = nzRow;
+          valNum.push_back(zero);
+          runLength.push_back(nzRow);
+          rowStart.push_back(0);
+        }
+        else if (nzRow > nzPrev + 1) { // Zeroes precede.
+          valNum.push_back(zero);
+          runLength.push_back(nzRow - (nzPrev + 1));
+          rowStart.push_back(nzPrev + 1);
+        }
+        valNum.push_back(eltsNZ[rowIdx]);
+        runLength.push_back(1);
+        rowStart.push_back(nzRow);
+        nzPrev = nzRow;
       }
       if (nzPrev + 1 < nRow) { // Zeroes trail.
-	valNum.push_back(zero);
-	runLength.push_back(nRow - nzPrev - 1);
-	rowStart.push_back(nzPrev + 1);
+        valNum.push_back(zero);
+        runLength.push_back(nRow - nzPrev - 1);
+        rowStart.push_back(nzPrev + 1);
       }
     }
   }
@@ -367,12 +367,12 @@ void FramemapBridge::SparseIP(const NumericVector &eltsNZ,
 
 
 SEXP FramemapBridge::SparseJP(NumericVector &eltsNZ,
-				IntegerVector &j,
-				IntegerVector &p,
-				unsigned int nRow,
-				vector<double> &valNum,
-				vector<unsigned int> &rowStart,
-				vector<unsigned int> &runLength) {
+                                IntegerVector &j,
+                                IntegerVector &p,
+                                unsigned int nRow,
+                                vector<double> &valNum,
+                                vector<unsigned int> &rowStart,
+                                vector<unsigned int> &runLength) {
   BEGIN_RCPP
   stop("Sparse form j/p:  NYI");
   END_RCPP
@@ -380,12 +380,12 @@ SEXP FramemapBridge::SparseJP(NumericVector &eltsNZ,
 
 
 SEXP FramemapBridge::SparseIJ(NumericVector &eltsNZ,
-				IntegerVector &i,
-				IntegerVector &j,
-				unsigned int nRow,
-				vector<double> &valNum,
-				vector<unsigned int> &rowStart,
-				vector<unsigned int> &runLength) {
+                                IntegerVector &i,
+                                IntegerVector &j,
+                                unsigned int nRow,
+                                vector<double> &valNum,
+                                vector<unsigned int> &rowStart,
+                                vector<unsigned int> &runLength) {
   BEGIN_RCPP
   stop("Sparse form i/j:  NYI");
   END_RCPP
@@ -395,26 +395,15 @@ SEXP FramemapBridge::SparseIJ(NumericVector &eltsNZ,
 /**
    @brief Unwraps field values useful for prediction.
  */
-List  FramemapBridge::Unwrap(SEXP sPredBlock, List &signature) {
-  List predBlock(sPredBlock);
-  PredblockLegal(predBlock);
-  signature = as<List>(predBlock["signature"]);
+List FramemapBridge::UnwrapSignature(const List& sPredBlock) {
+  BEGIN_RCPP
+  PredblockLegal(sPredBlock);
+  List signature = as<List>(sPredBlock["signature"]);
   SignatureLegal(signature);
 
-  return predBlock;
+  return signature;
+  END_RCPP
 }
-
-
-/**
-   @brief Unwraps field values useful for prediction.
- */
-List  FramemapBridge::Unwrap(SEXP sPredBlock) {
-  List predBlock(sPredBlock);
-  PredblockLegal(predBlock);
-
-  return predBlock;
-}
-
 
 
 SEXP FramemapBridge::PredblockLegal(const List &predBlock) {
@@ -425,7 +414,6 @@ SEXP FramemapBridge::PredblockLegal(const List &predBlock) {
 
   if (!Rf_isNull(predBlock["blockFacSparse"])) {
     stop ("Sparse factors:  NYI");
-
   }
   END_RCPP
 }
@@ -434,12 +422,12 @@ SEXP FramemapBridge::PredblockLegal(const List &predBlock) {
 /**
    @brief Unwraps field values useful for export.
  */
-void FramemapBridge::SignatureUnwrap(SEXP sSignature, IntegerVector &_predMap, List &_level) {
-  List signature(sSignature);
-  SignatureLegal(signature);
+void FramemapBridge::SignatureUnwrap(const List& sTrain, IntegerVector &_predMap, List &_level) {
+  List sSignature((SEXP) sTrain["signature"]);
+  SignatureLegal(sSignature);
 
-  _predMap = as<IntegerVector>((SEXP) signature["predMap"]);
-  _level = as<List>(signature["level"]);
+  _predMap = as<IntegerVector>((SEXP) sSignature["predMap"]);
+  _level = as<List>(sSignature["level"]);
 }
 
 
@@ -453,29 +441,39 @@ SEXP FramemapBridge::SignatureLegal(const List &signature) {
 
 
 unique_ptr<FrameTrain> FramemapBridge::FactoryTrain(
-		    const vector<unsigned int> &facCard,
-		    unsigned int nPred,
-		    unsigned int nRow) {
+                    const vector<unsigned int> &facCard,
+                    unsigned int nPred,
+                    unsigned int nRow) {
   return make_unique<FrameTrain>(facCard, nPred, nRow);
 }
 
 
-unique_ptr<FramePredictBridge> FramemapBridge::FactoryPredict(SEXP sPredBlock) {
-  auto predBlock = Unwrap(sPredBlock);
+unique_ptr<FramePredictBridge> FramemapBridge::FactoryPredict(const List& sPredBlock) {
+  Unwrap(sPredBlock);
   return make_unique<FramePredictBridge>(
-		 move(BlockNumBridge::Factory(predBlock)),
-		 move(BlockFacBridge::Factory(predBlock)),
-		 as<unsigned int>(predBlock["nRow"]));
+                 move(BlockNumBridge::Factory(sPredBlock)),
+                 move(BlockFacBridge::Factory(sPredBlock)),
+                 as<unsigned int>(sPredBlock["nRow"]));
+}
+
+
+/**
+   @brief Unwraps field values useful for prediction.
+ */
+SEXP FramemapBridge::Unwrap(const List &sPredBlock) {
+  BEGIN_RCPP
+  PredblockLegal(sPredBlock);
+  END_RCPP
 }
 
 
 FramePredictBridge::FramePredictBridge(
-	       unique_ptr<BlockNumBridge> _blockNum,
-	       unique_ptr<BlockFacBridge> _blockFac,
-	       unsigned int nRow) :
+               unique_ptr<BlockNumBridge> _blockNum,
+               unique_ptr<BlockFacBridge> _blockFac,
+               unsigned int nRow) :
   blockNum(move(_blockNum)),
-    blockFac(move(_blockFac)) {
+  blockFac(move(_blockFac)) {
   framePredict = move(make_unique<FramePredict>(blockNum->Num(),
-					     blockFac->Fac(),
-						nRow));
+                                                blockFac->Fac(),
+                                                nRow));
 }

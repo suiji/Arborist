@@ -43,29 +43,33 @@ class ForestBridge {
   const RawVector &feNode;
 
  protected:
-  static List Legal(SEXP sForest);
+  static SEXP Legal(const List &lForest);
   unique_ptr<class Forest> forest;
   
  public:
   ForestBridge(const IntegerVector &_feOrigin,
-	       const RawVector &_feFacSplit,
-	       const IntegerVector &_feFacOrig,
-	       const RawVector &_feNode);
+               const RawVector &_feFacSplit,
+               const IntegerVector &_feFacOrig,
+               const RawVector &_feNode);
 
 
-  const class Forest *GetForest() const {
+  const class Forest *getForest() const {
     return forest.get();
   }
 
 
+  const unsigned int getNTree() const {
+    return feOrigin.length();
+  }
+
   /**
      @brief Factory incorporating trained forest cached by front end.
 
-     @param sForest is an R-stye List node containing forest vectors.
+     @param sTrain is an R-stye List node containing forest vectors.
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<ForestBridge> Unwrap(SEXP sForest);
+  static unique_ptr<ForestBridge> Unwrap(const List &sTrain);
 
   static List Wrap(const class ForestTrain *forest);
 };
@@ -75,8 +79,7 @@ class ForestBridge {
    @brief As above, but with additional members to facilitate dumping on
    a per-tree basis.
  */
-class ForestExport : public ForestBridge {
-  unsigned int nTree;
+class ForestExport final : public ForestBridge {
   vector<vector<unsigned int> > predTree;
   vector<vector<unsigned int> > bumpTree;
   vector<vector<double > > splitTree;
@@ -84,32 +87,30 @@ class ForestExport : public ForestBridge {
 
   void PredExport(const int predMap[]);
   void PredTree(const int predMap[],
-	   vector<unsigned int> &pred,
-	   const vector<unsigned int> &bump);
+           vector<unsigned int> &pred,
+           const vector<unsigned int> &bump);
 
  public:
-  ForestExport(List &forestList, IntegerVector &predMap);
+  ForestExport(List &forestList,
+               IntegerVector &predMap);
 
-  static unique_ptr<ForestExport> Unwrap(SEXP Forest, IntegerVector &predMap);
-  
-  unsigned int NTree() {
-    return nTree;
-  }
-  
-  vector<vector<unsigned int> > &PredTree() {
-    return predTree;
+  static unique_ptr<ForestExport> Unwrap(const List &lTrain,
+                                         IntegerVector &predMap);
+
+  const vector<unsigned int> &getPredTree(unsigned int tIdx) const {
+    return predTree[tIdx];
   }
 
-  vector<vector<unsigned int> > &BumpTree() {
-    return bumpTree;
+  const vector<unsigned int> &getBumpTree(unsigned int tIdx) const {
+    return bumpTree[tIdx];
   }
 
-  vector<vector<double> > &SplitTree() {
-    return splitTree;
+  const vector<double> &getSplitTree(unsigned int tIdx) const {
+    return splitTree[tIdx];
   }
 
-  vector<vector<unsigned int> > &FacSplitTree() {
-    return facSplitTree;
+  const vector<unsigned int> &getFacSplitTree(unsigned int tIdx) const {
+    return facSplitTree[tIdx];
   }
 };
 

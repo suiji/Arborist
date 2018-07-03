@@ -24,35 +24,54 @@
 typedef pair<double, unsigned int> RankedPair;
 
 /**
+   @brief Rank and sample-count values derived from BagLeaf.  Client:
+   quantile inference.
+ */
+class RankCount {
+ public:
+  unsigned int rank;
+  unsigned int sCount;
+
+  void Init(unsigned int _rank, unsigned int _sCount) {
+    rank = _rank;
+    sCount = _sCount;
+  }
+};
+
+
+/**
  @brief Quantile signature.
 */
 class Quant {
   const class LeafReg *leafReg;
   const double *yTrain;
   vector<RankedPair> yRanked;
-  const vector<double> quantile; // Pinned.
+  const vector<double> &quantile;
   const unsigned int qCount;
   vector<double> qPred;
-  vector<class RankCount> rankCount; // forest-wide, by sample.
+  vector<RankCount> rankCount; // forest-wide, by sample.
   unsigned int logSmudge;
   unsigned int binSize;
   vector<unsigned int> binTemp; // Helper vector.
   vector<unsigned int> sCountSmudge;
   int *leafPos;
+
+  void rankCounts(const class BitMatrix *baggedRows);
   
   unsigned int BinSize(unsigned int nRow, unsigned int qBin, unsigned int &_logSmudge);
   void SmudgeLeaves();
   void Leaves(const class Predict *predict,
-	      unsigned int rowBlock,
-	      double qRow[]);
+              unsigned int rowBlock,
+              double qRow[]);
   unsigned int RanksExact(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks);
   unsigned int RanksSmudge(unsigned int tIdx, unsigned int LeafIdx, vector<unsigned int> &sampRanks);
 
   
  public:
-  Quant(const class LeafReg *_leafReg,
-	const vector<double> &_quantile,
-	unsigned int qBin);
+  Quant(const class LeafReg *leafReg_,
+        const class BitMatrix *baggedRows,
+        const vector<double> &quantile_,
+        unsigned int qBin);
 
   unsigned int NQuant() const {
     return quantile.size();
@@ -65,8 +84,8 @@ class Quant {
   
   
   void PredictAcross(const class Predict *predict,
-		     unsigned int rowStart,
-		     unsigned int rowEnd);
+                     unsigned int rowStart,
+                     unsigned int rowEnd);
 };
 
 #endif

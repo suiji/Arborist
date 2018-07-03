@@ -16,38 +16,40 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file callback.h
+   @file bagBridge.h
 
-   @brief Exposes utility functions implemented by the front end.
+   @brief C++ interface to R entry for bagged rows.  There is no direct
+   counterpart in Core, which records bagged rows using a bit matrix.
 
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_CALLBACK_H
-#define ARBORIST_CALLBACK_H
-
-#include <vector>
+#include <Rcpp.h>
+using namespace Rcpp;
 using namespace std;
 
-struct CallBack {
-  /**
-    @brief Call-back to Rcpp implementation of row sampling.
+class BagBridge {
+  size_t nRow;
+  unsigned int nTree;
+  size_t rowBytes;
+  RawVector raw; // Allocated OTF and moved.
+  unique_ptr<class BitMatrix> bmRaw;
 
-    @param nSamp is the number of samples to draw.
+ public:
+  BagBridge(unsigned int nRow_, unsigned int nTree_);
+  BagBridge(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_);
+  ~BagBridge();
 
-    @return copy of sampled row indices.
-  */
-  static vector<unsigned int> sampleRows(unsigned int nSamp);
+  const size_t getNRow() const {
+    return nRow;
+  }
 
+  const unsigned int getNTree() const {
+    return nTree;
+  }
 
-  /**
-    @brief Call-back to R's uniform random-variate generator.
-
-    @param len is number of variates to generate.
-
-    @return std::vector copy of R-generated random variates.
-  */
-  static vector<double> rUnif(size_t len);
+  void trainChunk(const class Train* train, unsigned int chunkOff);
+  List Wrap();
+  static unique_ptr<BagBridge> Unwrap(const List &sBag);
+  const BitMatrix* getRaw();
 };
-
-#endif

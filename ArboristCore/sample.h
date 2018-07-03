@@ -61,8 +61,7 @@ class SumCount {
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
-  class BV *treeBag;
-  vector<unsigned int> sample2Row;
+  //  vector<unsigned int> sample2Row;
 
  protected:
   static unsigned int nSamp;
@@ -72,36 +71,36 @@ class Sample {
   unsigned int bagCount;
   double bagSum;
 
-  static unsigned int RowSample(vector<unsigned int> &sCountRow);
+  static unsigned int rowSample(vector<unsigned int> &sCountRow);
   
   
   void PreStage(const double y[],
-		const unsigned int yCtg[],
-		const class RowRank *rowRank);
+                const unsigned int yCtg[],
+                const class RowRank *rowRank,
+                class BV *treeBag);
 
-  virtual double SetNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
+  virtual double setNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
   static class SampleCtg *FactoryCtg(const double y[],
-				     const class RowRank *rowRank,
-				     const unsigned int yCtg[]);
+                                     const class RowRank *rowRank,
+                                     const unsigned int yCtg[],
+                                     class BV *treeBag);
 
   static class SampleReg *FactoryReg(const double y[],
-				     const class RowRank *rowRank,
-				     const unsigned int *row2Rank);
+                                     const class RowRank *rowRank,
+                                     const unsigned int *row2Rank,
+                                     class BV *treeBag);
   
   virtual unique_ptr<class SplitPred> SplitPredFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
 
-  static void Immutables(unsigned int _nSamp, const vector<double> &_feSampleWeight, bool _withRepl);
+  static void Immutables(unsigned int nSamp_);
   static void DeImmutables();
-  Sample(unsigned int _nRow);
+  Sample();
   virtual ~Sample();
 
   unique_ptr<class SamplePred> Stage(const class RowRank *rowRank,
-	     vector<class StageCount> &stageCount);
-
-  void RowInvert();
-
+             vector<class StageCount> &stageCount);
 
   /**
      @brief Accessor for root category census.
@@ -114,37 +113,25 @@ class Sample {
   /**
      @brief Accessor for sample count.
    */
-  static inline unsigned int NSamp() {
+  static inline unsigned int getNSamp() {
     return nSamp;
   }
 
 
   /**
-   */
-  unsigned int Sample2Row(unsigned int sIdx) const {
-    return sample2Row[sIdx];
-  }
-  
-
-  /**
      @brief Accessor for bag count.
    */
-  inline unsigned int BagCount() const {
+  inline unsigned int getBagCount() const {
     return bagCount;
   }
 
   
-  inline double BagSum() const {
+  inline double  getBagSum() const {
     return bagSum;
   }
 
   
-  inline const class BV *TreeBag() const {
-    return treeBag;
-  }
-
-
-  inline unsigned int SCount(unsigned int sIdx) const {
+  inline unsigned int getSCount(unsigned int sIdx) const {
     return sampleNode[sIdx].SCount();
   }
 
@@ -157,7 +144,7 @@ class Sample {
   }
 
   
-  inline FltVal Sum(int sIdx) const {
+  inline FltVal getSum(int sIdx) const {
     return sampleNode[sIdx].Sum();
   }
 };
@@ -171,12 +158,15 @@ class SampleReg : public Sample {
   void SetRank(const unsigned int *row2Rank);
 
  public:
-  SampleReg(unsigned int _nRow);
+  SampleReg();
   ~SampleReg();
   unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   
-  inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
+  inline double setNode(unsigned int sIdx,
+                        double yVal,
+                        unsigned int sCount,
+                        unsigned int ctg) {
     SampleNux sNode;
     double ySum = sNode.Init(yVal, sCount);
     sampleNode[sIdx] = sNode;
@@ -190,7 +180,7 @@ class SampleReg : public Sample {
   }
 
 
-void PreStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank);
+  void PreStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank, class BV *treeBag);
 };
 
 
@@ -200,12 +190,12 @@ void PreStage(const double y[], const unsigned int *row2Rank, const class RowRan
 class SampleCtg : public Sample {
 
  public:
-  SampleCtg(unsigned int _nRow);
+  SampleCtg();
   ~SampleCtg();
 
   unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
-  inline double SetNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
+  inline double setNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNux sNode;
     double ySum = sNode.Init(yVal, sCount, ctg);
     sampleNode[sIdx] = sNode;
@@ -215,7 +205,7 @@ class SampleCtg : public Sample {
   }
   
   
-  void PreStage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank);
+  void PreStage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank, class BV *treeBag);
 };
 
 

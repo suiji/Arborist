@@ -27,7 +27,7 @@
 class BV {
   const unsigned int nSlot;
   unsigned int *raw;
-  const bool wrapper;
+  const bool wrapper;  // True iff an overlay onto pre-allocated memory.
   
  public:
   static const unsigned int full = 1;
@@ -35,10 +35,10 @@ class BV {
   static const unsigned int slotSize = sizeof(unsigned int);
   static constexpr unsigned int slotElts = 8 * slotSize;
 
-  BV(unsigned int len, bool slotWise = false);
-  BV(const vector<unsigned int> &_raw);
-  BV(unsigned int _raw[], size_t _nSlot);
-  BV(vector<unsigned int> &_raw, unsigned int _nSlot);
+  BV(size_t len, bool slotWise = false);
+  BV(const vector<unsigned int> &raw_);
+  BV(unsigned int raw_[], size_t nSlot_);
+  BV(vector<unsigned int> &raw_, unsigned int nSlot_);
 
   ~BV();
   void Serialize(unsigned char *bbRaw) const {
@@ -57,7 +57,7 @@ class BV {
   void Consume(vector<unsigned int> &out, unsigned int bitEnd = 0) const;
   unsigned int PopCount() const;
 
-  BV *Resize(unsigned int bitMin);
+  BV *Resize(size_t bitMin);
 
   /**
      @brief Accessor for slot count.
@@ -84,14 +84,21 @@ class BV {
 
      @param len is the element count to align.
 
-     @return length of containing aligned quantity in units of buffer type.
+     @return length of containing aligned quantity in buffer units.
    */
-  static inline unsigned int SlotAlign(unsigned int len) {
+  static inline unsigned int SlotAlign(size_t len) {
     return (len + slotElts - 1) / slotElts;
   }
 
 
-  static inline unsigned int Stride(unsigned int len) {
+  static inline size_t strideBytes(size_t len) {
+    return SlotAlign(len) * sizeof(unsigned int);
+  }
+
+  /**
+     @return length of aligned row in bits.
+   */
+  static inline unsigned int Stride(size_t len) {
     return slotElts * SlotAlign(len);
   }
 
@@ -127,7 +134,7 @@ class BV {
 
      @return true iff bit position is set in the bit vector.
    */
-  inline bool TestBit(unsigned int pos) const {
+  inline bool testBit(unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
 
@@ -157,7 +164,7 @@ class BV {
   }
   
   
-  inline void SetSlot(unsigned int slot, unsigned int val) {
+  inline void setSlot(unsigned int slot, unsigned int val) {
     raw[slot] = val;
   }
 
@@ -170,45 +177,37 @@ class BV {
 };
 
 
-class BitRow : public BV {
- public:
- BitRow(unsigned int *_raw, unsigned int _nSlot) : BV(_raw, _nSlot) {}
-  ~BitRow() {
-  }
-};
-
-
 /**
    @brief Like a bit vector, but with row-major strided access.
 
  */
 class BitMatrix : public BV {
   const unsigned int nRow;
-  const unsigned int stride;
+  const unsigned int stride; // Number of uint cells per row.
   void Export(unsigned int _nRow, vector<vector<unsigned int> > &bmOut) const;
   void ColExport(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const;
 
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
-  BitMatrix(unsigned int _nRow, unsigned int _nCol, const vector<unsigned int> &_raw);
-  BitMatrix(unsigned int _raw[], size_t _nRow, size_t _nCol);
+  BitMatrix(unsigned int _nRow, unsigned int _nCol, const vector<unsigned int> &raw_);
+  BitMatrix(unsigned int raw_[], size_t _nRow, size_t _nCol);
   ~BitMatrix();
 
-  inline unsigned int NRow() const {
+  inline unsigned int getNRow() const {
     return nRow;
   }
 
 
-  inline size_t Bytes() const {
-    return nRow * stride * sizeof(unsigned int);
+  inline size_t getStride() const {
+    return stride;
   }
-
   
-  static void Export(const vector<unsigned int> &_raw, unsigned int _nRow, vector<vector<unsigned int> > &vecOut);
+
+  static void Export(const vector<unsigned int> &raw_, unsigned int _nRow, vector<vector<unsigned int> > &vecOut);
 
 
-  inline BitRow *Row(unsigned int row) {
-    return new BitRow(Raw((stride * row)/slotElts), stride);
+  inline unique_ptr<BV> BVRow(unsigned int row) {
+    return make_unique<BV>(Raw((row * stride) / slotElts), stride);
   }
 
 
@@ -217,18 +216,18 @@ class BitMatrix : public BV {
 
      @return whether bit at specified coordinate is set.
    */
-  inline bool TestBit(unsigned int row, unsigned int col) const {
-    return stride == 0 ? false : BV::TestBit(row * stride + col);
+  inline bool testBit(unsigned int row, unsigned int col) const {
+    return stride == 0 ? false : BV::testBit(row * stride + col);
   }
 
   
-  inline void SetBit(unsigned int row, unsigned int col, bool on = true) {
+  inline void setBit(unsigned int row, unsigned int col, bool on = true) {
     BV::SetBit(row * stride + col, on);
   }
 
 
-  inline void ClearBit(unsigned int row, unsigned int col) {
-    SetBit(row, col, false);
+  inline void clearBit(unsigned int row, unsigned int col) {
+    setBit(row, col, false);
   }
 };
 
@@ -244,10 +243,9 @@ class BVJagged : public BV {
   unsigned int RowHeight(unsigned int rowIdx) const;
 
  public:
-  BVJagged(unsigned int _raw[], size_t _nSlot, const unsigned int _origin[], unsigned int _nRow);
+  BVJagged(unsigned int raw_[], size_t _nSlot, const unsigned int _origin[], unsigned int _nRow);
   ~BVJagged();
   void Export(vector<vector<unsigned int> > &outVec);
-  //  static void Export(unsigned int _raw[], size_t facLen, const unsigned int _origin[], unsigned int _nElt, vector<vector<unsigned int> > &outVec);
 
 
   inline size_t NElt() const {
@@ -265,7 +263,7 @@ class BVJagged : public BV {
      @return true iff bit set.
 
    */
-  inline bool TestBit(unsigned int row, unsigned int pos) const {
+  inline bool testBit(unsigned int row, unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
     unsigned int base = rowOrigin[row];
@@ -286,7 +284,7 @@ class CharV {
   static constexpr unsigned int slotElts = slotSize / eltSize;
 
   CharV(unsigned int _nSlot);
-  CharV(unsigned int *_raw, unsigned int _nSlot);
+  CharV(unsigned int *raw_, unsigned int _nSlot);
   ~CharV();
 
   
@@ -317,7 +315,7 @@ class CharV {
 
      @param len is the element count to align.
 
-     @return length of containing quantity in units of buffer type..
+     @return number of buffer slots in aligned row.
    */
   static inline unsigned int SlotAlign(unsigned int len) {
     return (len + slotElts - 1) / slotElts;
@@ -369,7 +367,7 @@ class CharV {
  */
 class CharRow : public CharV {
  public:
-  CharRow(unsigned int *_raw, unsigned int _nSlot) : CharV(_raw, _nSlot) {}
+  CharRow(unsigned int *raw_, unsigned int _nSlot) : CharV(raw_, _nSlot) {}
   ~CharRow() {}
 };
 

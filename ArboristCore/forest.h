@@ -30,7 +30,10 @@ class ForestNode : public DecNode {
 
  public:
 
-  inline unsigned int Advance(const double *rowT,
+  /**
+     @param[out] leafIdx outputs predictor index iff at leaf.
+   */
+  inline unsigned int advance(const double *rowT,
 		       unsigned int &leafIdx) const {
     if (lhDel == 0) {
       leafIdx = predIdx;
@@ -42,13 +45,13 @@ class ForestNode : public DecNode {
   }
 
   
-  unsigned int Advance(const class BVJagged *facSplit,
+  unsigned int advance(const class BVJagged *facSplit,
 		       const unsigned int *rowT,
 		       unsigned int tIdx,
 		       unsigned int &leafIdx) const;
   
 
-  unsigned int Advance(const class FramePredict *framePredict,
+  unsigned int advance(const class FramePredict *framePredict,
 		       const BVJagged *facSplit,
 		       const unsigned int *rowFT,
 		       const double *rowNT,
@@ -273,12 +276,12 @@ class ForestTrain {
   
  public:
   /**
-     @brief Constructs crescent forest, wrapping vectors allocated
-     by the front-end bridge.
+     @brief Constructs block of trees for crescent forest, wrapping
+     vectors allocated by the front-end bridge.
 
-     @param nTree is the number of trees to train.
+     @param[in] treeChunk is the number of trees to train.
    */
-  ForestTrain(unsigned int nTree);
+  ForestTrain(unsigned int treeChunk);
 
   
   ~ForestTrain();

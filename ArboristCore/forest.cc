@@ -28,10 +28,10 @@ vector<double> ForestNode::splitQuant;
 /**
    @brief Crescent constructor for training.
 */
-ForestTrain::ForestTrain(unsigned int nTree) :
+ForestTrain::ForestTrain(unsigned int treeChunk) :
   forestNode(vector<ForestNode>(0)),
-  treeOrigin(vector<unsigned int>(nTree)),
-  facOrigin(vector<unsigned int>(nTree)),
+  treeOrigin(vector<unsigned int>(treeChunk)),
+  facOrigin(vector<unsigned int>(treeChunk)),
   facVec(vector<unsigned int>(0)) {
 }
 
@@ -66,19 +66,22 @@ Forest::~Forest() {
 }
 
 
-unsigned int ForestNode::Advance(const BVJagged *facSplit, const unsigned int rowT[], unsigned int tIdx, unsigned int &leafIdx) const {
+unsigned int ForestNode::advance(const BVJagged *facSplit,
+                                 const unsigned int rowT[],
+                                 unsigned int tIdx,
+                                 unsigned int &leafIdx) const {
   if (lhDel == 0) {
     leafIdx = predIdx;
     return 0;
   }
   else {
     unsigned int bitOff = splitVal.offset + rowT[predIdx];
-    return facSplit->TestBit(tIdx, bitOff) ? lhDel : lhDel + 1;
+    return facSplit->testBit(tIdx, bitOff) ? lhDel : lhDel + 1;
   }
 }
 
 
-unsigned int ForestNode::Advance(const FramePredict *framePredict,
+unsigned int ForestNode::advance(const FramePredict *framePredict,
 				 const BVJagged *facSplit,
 				 const unsigned int *rowFT,
 				 const double *rowNT,
@@ -91,7 +94,7 @@ unsigned int ForestNode::Advance(const FramePredict *framePredict,
   else {
     bool isFactor;
     unsigned int blockIdx = framePredict->FacIdx(predIdx, isFactor);
-    return isFactor ? (facSplit->TestBit(tIdx, splitVal.offset + rowFT[blockIdx]) ? lhDel : lhDel + 1) : (rowNT[blockIdx] <= splitVal.num ? lhDel : lhDel + 1);
+    return isFactor ? (facSplit->testBit(tIdx, splitVal.offset + rowFT[blockIdx]) ? lhDel : lhDel + 1) : (rowNT[blockIdx] <= splitVal.num ? lhDel : lhDel + 1);
   }
 }
 

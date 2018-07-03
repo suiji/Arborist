@@ -58,13 +58,12 @@ unsigned int RunSet::noStart = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand) : noRun(noCand), ctgWidth(_ctgWidth) {
+Run::Run(unsigned int ctgWidth_, unsigned int nRow, unsigned int noCand) : noRun(noCand), rvWide(vector<double>(0)), ctgWidth(ctgWidth_) {
   RunSet::ctgWidth = ctgWidth;
   RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
   facRun = 0;
   bHeap = 0;
   lhOut = 0;
-  rvWide = 0;
   ctgSum = 0;
 }
 
@@ -147,8 +146,7 @@ void Run::OffsetsCtg() {
     ctgSum[i] = 0.0;
 
   if (ctgWidth > 2 && heapRuns > 0) { // Wide non-binary:  w.o. replacement.
-    rvWide = new double[heapRuns];
-    CallBack::RUnif(heapRuns, rvWide);
+    rvWide = move(CallBack::rUnif(heapRuns));
   }
 
   facRun = new FRNode[runCount];
@@ -166,7 +164,7 @@ void Run::OffsetsCtg() {
  */
 void Run::Reset() {
   for (auto & rs  : runSet) {
-    rs.Reset(facRun, bHeap, lhOut, ctgSum, rvWide);
+    rs.Reset(facRun, bHeap, lhOut, ctgSum, &rvWide[0]);
   }
 }
 
@@ -175,8 +173,6 @@ void Run::LevelClear() {
   if (setCount > 0) {
     delete [] facRun;
     delete [] lhOut;
-    if (rvWide != 0)
-      delete [] rvWide;
     if (ctgSum != 0)
       delete [] ctgSum;
     if (bHeap != 0)
@@ -184,7 +180,6 @@ void Run::LevelClear() {
 
     facRun = 0;
     lhOut = 0;
-    rvWide = 0;
     ctgSum = 0;
     bHeap = 0;
     setCount = 0;

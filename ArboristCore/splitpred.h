@@ -187,7 +187,7 @@ public:
 class SPReg : public SplitPred {
   static unsigned int predMono;
   static vector<double> mono;
-  double *ruMono;
+  vector<double> ruMono;
 
   void Split(const class SamplePred *samplePred);
 

@@ -359,8 +359,7 @@ void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
     // TODO:  Pre-empt overflow by walking wide subtrees depth-first.
   int cellCount = nSplit * nPred;
 
-  vector<double> ruPred(cellCount);
-  CallBack::RUnif(cellCount, &ruPred[0]);
+  auto ruPred = CallBack::rUnif(cellCount);
 
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
 

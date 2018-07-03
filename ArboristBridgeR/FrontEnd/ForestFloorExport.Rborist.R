@@ -21,5 +21,5 @@ ForestFloorExport <- function(arbOut) {
 
 
 "ForestFloorExport.Rborist" <- function(arbOut) {
-  return (tryCatch(.Call("BridgeForestFloorExport", arbOut), error = function(e) {stop(e)}))
+  return (tryCatch(.Call("ForestFloorExport", arbOut), error = function(e) {stop(e)}))
 }

@@ -43,24 +43,22 @@ List ForestBridge::Wrap(const ForestTrain *forestTrain) {
 }
 
 
-unique_ptr<ForestBridge> ForestBridge::Unwrap(SEXP sForest) {
-  List forest = Legal(sForest);
-  return make_unique<ForestBridge>(IntegerVector((SEXP) forest["origin"]),
-			  RawVector((SEXP) forest["facSplit"]),
-			  IntegerVector((SEXP) forest["facOrig"]),
-			  RawVector((SEXP) forest["forestNode"]));
+unique_ptr<ForestBridge> ForestBridge::Unwrap(const List& lTrain) {
+  List lForest = List((SEXP) lTrain["forest"]);
+  Legal(lForest);
+  return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["origin"]),
+			  RawVector((SEXP) lForest["facSplit"]),
+			  IntegerVector((SEXP) lForest["facOrig"]),
+			  RawVector((SEXP) lForest["forestNode"]));
 }
 
 
-List ForestBridge::Legal(SEXP sForest) {
+SEXP ForestBridge::Legal(const List &lForest) {
   BEGIN_RCPP
-  List forest(sForest);
 
-  if (!forest.inherits("Forest")) {
+  if (!lForest.inherits("Forest")) {
     stop("Expecting Forest");
   }
-
-  return forest;
   
   END_RCPP
 }
@@ -84,27 +82,28 @@ ForestBridge::ForestBridge(const IntegerVector &_feOrigin,
 				  feFacSplit.length() / sizeof(unsigned int),
 				  (unsigned int*) &feFacOrig[0],
 				  feFacOrig.length()
-				  ))) {
+                                  ))) {
 }
 
 
-unique_ptr<ForestExport> ForestExport::Unwrap(SEXP sForest,
-					      IntegerVector &predMap) {
-  List forestList = Legal(sForest);
-  return make_unique<ForestExport>(forestList, predMap);
+unique_ptr<ForestExport> ForestExport::Unwrap(const List &lTrain,
+                                              IntegerVector &predMap) {
+  List lForest = List((SEXP) lTrain["forest"]);
+  Legal(lForest);
+  return make_unique<ForestExport>(lForest, predMap);
 }
 
 
-ForestExport::ForestExport(List &forestList, IntegerVector &predMap) :
-  ForestBridge(IntegerVector((SEXP) forestList["origin"]),
-	       RawVector((SEXP) forestList["facSplit"]),
-	       IntegerVector((SEXP) forestList["facOrig"]),
-	       RawVector((SEXP) forestList["forestNode"])),
-  nTree(as<unsigned int>(forestList["nTree"])),
-  predTree(vector<vector<unsigned int> >(nTree)),
-  bumpTree(vector<vector<unsigned int> >(nTree)),
-  splitTree(vector<vector<double > >( nTree)),
-  facSplitTree(vector<vector<unsigned int> >(nTree)) {
+ForestExport::ForestExport(List &lForest,
+                           IntegerVector &predMap) :
+  ForestBridge(IntegerVector((SEXP) lForest["origin"]),
+               RawVector((SEXP) lForest["facSplit"]),
+               IntegerVector((SEXP) lForest["facOrig"]),
+               RawVector((SEXP) lForest["forestNode"])),
+  predTree(vector<vector<unsigned int> >(getNTree())),
+  bumpTree(vector<vector<unsigned int> >(getNTree())),
+  splitTree(vector<vector<double > >(getNTree())),
+  facSplitTree(vector<vector<unsigned int> >(getNTree())) {
   forest->Export(predTree, splitTree, bumpTree, facSplitTree);
     PredExport(predMap.begin());
 }
@@ -116,8 +115,8 @@ ForestExport::ForestExport(List &forestList, IntegerVector &predMap) :
    @return void.
  */
 void ForestExport::PredTree(const int predMap[],
-			    vector<unsigned int> &pred,
-			    const vector<unsigned int> &bump) {
+                            vector<unsigned int> &pred,
+                            const vector<unsigned int> &bump) {
   for (unsigned int i = 0; i < pred.size(); i++) {
     if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
       unsigned int predCore = pred[i];

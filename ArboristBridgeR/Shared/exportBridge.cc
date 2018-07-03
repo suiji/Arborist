@@ -24,11 +24,13 @@
  */
 
 #include "exportBridge.h"
+#include "bagBridge.h"
 #include "framemapBridge.h"
 #include "forestBridge.h"
 #include "forest.h"
 #include "leafBridge.h"
 #include "leaf.h"
+#include "bv.h"
 #include <vector>
 
 /**
@@ -49,14 +51,14 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  FramemapBridge::SignatureUnwrap(arbOut["signature"], predMap, predLevel);
+  FramemapBridge::SignatureUnwrap(arbOut, predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {
-    return ExportBridge::FFloorReg(arbOut["forest"], leaf, predMap, predLevel);
+    return ExportBridge::fFloorReg(arbOut, predMap, predLevel);
   }
   else if (leaf.inherits("LeafCtg")) {
-    return ExportBridge::FFloorCtg(arbOut["forest"], leaf, predMap, predLevel);
+    return ExportBridge::fFloorCtg(arbOut, predMap, predLevel);
   }
   else {
     warning("Unrecognized forest type.");
@@ -68,71 +70,42 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
 
 /**
-   @brief Exports core data structures as vector of per-tree vectors.
-
-   @return List with common and regression-specific members.
  */
-List ExportBridge::ExportReg(const SEXP sForest,
-			     const List &leaf,
-			     IntegerVector &predMap,
-			     unsigned int &nTree) {
+List ExportBridge::fFloorForest(const ForestExport *forest,
+                                unsigned int tIdx) {
   BEGIN_RCPP
-  auto forestExport = ForestExport::Unwrap(sForest, predMap);
-  auto forest = forestExport->GetForest();
-  nTree = forest->NTree();
 
-  auto leafExportReg = make_unique<LeafExportReg>(leaf);
-  auto leafReg = leafExportReg->GetLeaf();
-  List outBundle = List::create(
-				_["pred"] = forestExport->PredTree(),
-				_["bump"] = forestExport->BumpTree(),
-				_["split"] = forestExport->SplitTree(),
-				_["facSplit"] = forestExport->FacSplitTree(),
-				_["rowTrain"] = leafReg->RowTrain(),
-				_["row"] = leafExportReg->RowTree(),
-				_["sCount"] = leafExportReg->SCountTree(),
-				_["score"] = leafExportReg->ScoreTree(),
-				_["extent"] = leafExportReg->ExtentTree()
-				);
-  outBundle.attr("class") = "ExportReg";
-  return outBundle;
+  const vector<unsigned int> &predTree = forest->getPredTree(tIdx);
+  const vector<unsigned int> &bumpTree = forest->getBumpTree(tIdx);
+  IntegerVector incrL(bumpTree.begin(), bumpTree.end());
+  IntegerVector predIdx(predTree.begin(), predTree.end());
+  List ffTree = List::create(
+     _["pred"] = ifelse(incrL == 0, -(predIdx + 1), predIdx),
+     _["daughterL"] = incrL,
+     _["daughterR"] = ifelse(incrL == 0, 0, incrL + 1),
+     _["split"] = forest->getSplitTree(tIdx),
+     _["facSplit"] = forest->getFacSplitTree(tIdx)
+     );
+
+  ffTree.attr("class") = "fFloorTree";
+  return ffTree;
   END_RCPP
 }
 
-
-/**
-   @brief Exports core data structures as vector of per-tree vectors.
-
-   @return List with common and classification-specific members.
- */
-List ExportBridge::ExportCtg(const SEXP sForest,
-			     const List &leaf,
-			     IntegerVector &predMap,
-			     unsigned int &nTree) {
+IntegerVector ExportBridge::fFloorBag(const LeafBridge *leaf,
+                                      unsigned int tIdx,
+                                      unsigned int rowTrain) {
   BEGIN_RCPP
 
-  auto forestExport = ForestExport::Unwrap(sForest, predMap);
-  auto forest = forestExport->GetForest();
-  nTree = forest->NTree();
+  vector<unsigned int> rowTree = leaf->getRowTree(tIdx);
+  vector<unsigned int> sCountTree = leaf->getSCountTree(tIdx);
 
-  auto leafExportCtg = make_unique<LeafExportCtg>(leaf);
-  auto leafCtg = leafExportCtg->GetLeaf();
-  List outBundle = List::create(
-				_["pred"] = forestExport->PredTree(),
-				_["bump"] = forestExport->BumpTree(),
-				_["split"] = forestExport->SplitTree(),
-				_["facSplit"] = forestExport->FacSplitTree(),
-				_["rowTrain"] = leafCtg->RowTrain(),
-				_["row"] = leafExportCtg->RowTree(),
-				_["sCount"] = leafExportCtg->SCountTree(),
-				_["score"] = leafExportCtg->ScoreTree(),
-				_["extent"] = leafExportCtg->ExtentTree(),
-				_["yLevel"] = leafExportCtg->LevelsTrain(),
-				_["weight"] = leafExportCtg->WeightTree()
-				);
-  outBundle.attr("class") = "ExportCtg";
-  return outBundle;
+  IntegerVector row(rowTree.begin(), rowTree.end());
+  IntegerVector sCount(sCountTree.begin(), sCountTree.end());
+  IntegerVector bag = IntegerVector(rowTrain, 0);
+  bag[row] = sCount;
 
+  return bag;
   END_RCPP
 }
 
@@ -146,16 +119,41 @@ List ExportBridge::ExportCtg(const SEXP sForest,
 
    @return Vector of score values.
  */
-SEXP ExportBridge::FFloorLeafReg(List &forestCore,
-				 unsigned int tIdx) {
+List ExportBridge::fFloorLeafReg(const LeafRegBridge *leaf, unsigned int tIdx) {
   BEGIN_RCPP
-  const vector<vector<double> > &score = forestCore["score"];
+
+  const vector<double> &score = leaf->getScoreTree(tIdx);
   List ffLeaf = List::create(
      _["score"] = score[tIdx]
     );
 
-  ffLeaf.attr("class") = "FFloorLeafReg";
+  ffLeaf.attr("class") = "fFloorLeafReg";
   return ffLeaf;
+
+  END_RCPP
+}
+
+
+/**
+ */
+List ExportBridge::fFloorTreeCtg(const ForestExport *forest,
+                                 const LeafCtgBridge *leaf,
+                                 unsigned int rowTrain) {
+  BEGIN_RCPP
+
+  auto nTree = forest->getNTree();
+  List trees(nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    List ffCtg = List::create(
+                              _["internal"] = fFloorForest(forest, tIdx),
+                              _["leaf"] = fFloorLeafCtg(leaf, tIdx),
+                              _["bag"] = fFloorBag(leaf, tIdx, rowTrain)
+                              );
+    ffCtg.attr("class") = "fFloorTreeCtg";
+    trees[tIdx] = move(ffCtg);
+  }
+  return trees;
+
   END_RCPP
 }
 
@@ -169,19 +167,20 @@ SEXP ExportBridge::FFloorLeafReg(List &forestCore,
 
    @return Vector of score values.
  */
-SEXP ExportBridge::FFloorLeafCtg(List &forestCore,
-				 unsigned int tIdx) {
+List ExportBridge::fFloorLeafCtg(const LeafCtgBridge *leaf,
+                                 unsigned int tIdx) {
   BEGIN_RCPP
-  const vector<vector<double> > &score = forestCore["score"];
-  const vector<vector<double> > &weight = forestCore["weight"];
-  unsigned int leafCount = score[tIdx].size();
-  NumericMatrix weightOut = NumericMatrix(weight[tIdx].size() / leafCount, leafCount, weight[tIdx].begin());
-  List ffLeaf = List::create(
-     _["score"] = score[tIdx],
-     _["weight"] = transpose(weightOut)
-     );
 
-  ffLeaf.attr("class") = "FFloorLeafCtg";
+  const vector<double> &score = leaf->getScoreTree(tIdx);
+  const vector<double> &weight = leaf->getWeightTree(tIdx);
+  unsigned int leafCount = score.size();
+  NumericMatrix weightOut = NumericMatrix(weight.size() / leafCount, leafCount, weight.begin());
+  List ffLeaf = List::create(
+                           _["score"] = score,
+                           _["weight"] = transpose(weightOut)
+                             );
+
+  ffLeaf.attr("class") = "fFloorLeafCtg";
   return ffLeaf;
   END_RCPP
 }
@@ -189,131 +188,70 @@ SEXP ExportBridge::FFloorLeafCtg(List &forestCore,
 
 /**
  */
-SEXP ExportBridge::FFloorInternal(List &forestCore,
-				 unsigned int tIdx) {
-  BEGIN_RCPP
-  const vector<vector<unsigned int> > &predTree = forestCore["pred"];
-  const vector<vector<unsigned int> > &bumpTree = forestCore["lhDel"];
-  const vector<vector<double > > &splitTree = forestCore["split"];
-  const vector<vector<unsigned int> > &facSplitTree = forestCore["facSplit"];
-  IntegerVector incrL(bumpTree[tIdx].begin(), bumpTree[tIdx].end());
-  IntegerVector predIdx(predTree[tIdx].begin(), predTree[tIdx].end());
-  List ffTree = List::create(
-     _["pred"] = ifelse(incrL == 0, -(predIdx + 1), predIdx),
-     _["daughterL"] = incrL,
-     _["daughterR"] = ifelse(incrL == 0, 0, incrL + 1),
-     _["split"] = splitTree[tIdx],
-     _["facSplit"] = facSplitTree[tIdx]
-     );
-
-  ffTree.attr("class") = "FFloorTree";
-  return ffTree;
-  END_RCPP
-}
-
-
-SEXP ExportBridge::FFloorBag(List &forestCore,
-			    int tIdx) {
-  BEGIN_RCPP
-  const vector<vector<unsigned int> > &rowTree = forestCore["row"];
-  const vector<vector<unsigned int> > &sCountTree = forestCore["sCount"];
-  IntegerVector row(rowTree[tIdx].begin(), rowTree[tIdx].end());
-  IntegerVector sCount(sCountTree[tIdx].begin(), sCountTree[tIdx].end());
-  IntegerVector bag = IntegerVector(as<unsigned int>(forestCore["rowTrain"]), 0);
-  bag[row] = sCount;
-
-  return bag;
-  END_RCPP
-}
-
-
-/**
- */
-List ExportBridge::FFloorTreeReg(SEXP sForest,
-				 const List &leaf,
-				 IntegerVector &predMap) {
-  BEGIN_RCPP
-
-  unsigned int nTree;
-  List coreReg = ExportReg(sForest, leaf, predMap, nTree);
-    
-  List trees(nTree);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    List ffReg = List::create(
-			      _["internal"] = FFloorInternal(coreReg, tIdx),
-			      _["leaf"] = FFloorLeafReg(coreReg, tIdx),
-			      _["bag"] = FFloorBag(coreReg, tIdx)
-			      );
-      ffReg.attr("class") = "FFloorTreeReg";
-      trees[tIdx] = ffReg;
-  }
-  return trees;
-
-  END_RCPP
-}
-
-
-/**
- */
-List ExportBridge::FFloorTreeCtg(List &coreCtg,
-				 unsigned int nTree) {
-  BEGIN_RCPP
-
-    List trees(nTree);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    List ffCtg = List::create(
-			      _["internal"] = FFloorInternal(coreCtg, tIdx),
-			      _["leaf"] = FFloorLeafCtg(coreCtg, tIdx),
-			      _["bag"] = FFloorBag(coreCtg, tIdx)
-			      );
-    ffCtg.attr("class") = "FFloorTreeCtg";
-    trees[tIdx] = ffCtg;
-  }
-  return trees;
-
-  END_RCPP
-}
-
-
-/**
- */
-SEXP ExportBridge::FFloorReg(SEXP sForest,
-			     List &leaf,
-			     IntegerVector &predMap,
-			     List &predLevel) {
+List ExportBridge::fFloorReg(const List &lTrain,
+                             IntegerVector &predMap,
+                             List &predLevel) {
   BEGIN_RCPP
 
   int facCount = predLevel.length();
   IntegerVector facMap(predMap.end() - facCount, predMap.end());
   List ffe = List::create(
-			  _["facMap"] = facMap,
-			  _["predLevel"] = predLevel,
-			  _["tree"] = FFloorTreeReg(sForest, leaf, predMap)
-			  );
+                          _["facMap"] = facMap,
+                          _["predLevel"] = predLevel,
+                          _["tree"] = fFloorTreeReg(lTrain, predMap)
+                          );
   ffe.attr("class") = "ForestFloorReg";
   return ffe;
+
   END_RCPP
 }
 
 
 /**
  */
-SEXP ExportBridge::FFloorCtg(SEXP sForest,
-			     List &leaf,
-			     IntegerVector &predMap,
-			     List &predLevel) {
+List ExportBridge::fFloorTreeReg(const List &lTrain,
+                                 IntegerVector &predMap) {
   BEGIN_RCPP
 
-  unsigned int nTree;
-  List coreCtg = ExportCtg(sForest, leaf, predMap, nTree);
+  auto bag = BagBridge::Unwrap(lTrain);
+  auto leaf = LeafRegBridge::Unwrap(lTrain, bag->getRaw());
+  auto forest = ForestExport::Unwrap(lTrain, predMap);
+
+  auto nTree = bag->getNTree();
+  List trees(nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    List ffReg = List::create(
+                              _["internal"] = fFloorForest(forest.get(), tIdx),
+                              _["leaf"] = fFloorLeafReg(leaf.get(), tIdx),
+                              _["bag"] = fFloorBag(leaf.get(), tIdx, bag->getNRow())
+                              );
+      ffReg.attr("class") = "fFloorTreeReg";
+      trees[tIdx] = move(ffReg);
+  }
+  return trees;
+
+  END_RCPP
+}
+
+
+/**
+ */
+List ExportBridge::fFloorCtg(const List &lTrain,
+                             IntegerVector &predMap,
+                             List &predLevel) {
+  BEGIN_RCPP
+
+  auto bag = BagBridge::Unwrap(lTrain);
+  auto leaf = LeafCtgBridge::Unwrap(lTrain, bag->getRaw());
+  auto forest = ForestExport::Unwrap(lTrain, predMap);
 
   int facCount = predLevel.length();
   IntegerVector facMap(predMap.end() - facCount, predMap.end());
   List ffe = List::create(
    _["facMap"] = facMap,
    _["predLevel"] = predLevel,
-   _["yLevel"] = as<CharacterVector>(coreCtg["yLevel"]),
-   _["tree"] = FFloorTreeCtg(coreCtg, nTree)
+   _["yLevel"] = leaf->getLevelsTrain(),
+   _["tree"] = fFloorTreeCtg(forest.get(), leaf.get(), bag->getNRow())
   );
   ffe.attr("class") = "ForestFloorCtg";
   return ffe;
