@@ -18,29 +18,28 @@
                              quantVec = NULL, quantiles = !is.null(quantVec),
                              qBin = 5000) {
   if (is.null(preFormat$predBlock)) {
-    stop("Incomplete PreFormat object")
+    stop("Pre-formatted observations required for verification")
+  }
+  if (is.null(train$bag)) {
+    stop("Bag required for verification")
   }
   if (is.null(train$forest)) {
-    stop("Incomplete Train object")
+    stop("Trained forest required for verification")
   }
   if (is.null(train$leaf)) {
-    stop("Missing leaf information")
+    stop("Leaf information required for verification")
   }
-  predBlock <- preFormat$predBlock
-  forest <- train$forest
-  leaf <- train$leaf
-
-  ValidateDeep(predBlock, forest, leaf, y, ctgCensus, quantVec, quantiles, qBin)
+  ValidateDeep(preFormat$predBlock, train, y, ctgCensus, quantVec, quantiles, qBin)
 }
 
 
-ValidateDeep <- function(predBlock, forest, leaf, y, ctgCensus, quantVec, quantiles, qBin) {
+ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, qBin) {
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
-      validation <- tryCatch(.Call("ValidateVotes", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateVotes", predBlock, objTrain, y), error = function(e) { stop(e) })
     }
     else if (ctgCensus == "prob") {
-      validation <- tryCatch(.Call("ValidateProb", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateProb", predBlock, objTrain, y), error = function(e) { stop(e) })
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -51,10 +50,10 @@ ValidateDeep <- function(predBlock, forest, leaf, y, ctgCensus, quantVec, quanti
       if (is.null(quantVec)) {
         quantVec <- DefaultQuantVec()
       }
-      validation <- tryCatch(.Call("ValidateQuant", predBlock, forest, leaf, y, quantVec, qBin), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateQuant", predBlock, objTrain, y, quantVec, qBin), error = function(e) { stop(e) })
     }
     else {
-      validation <- tryCatch(.Call("ValidateReg", predBlock, forest, leaf, y), error = function(e) { stop(e) })
+      validation <- tryCatch(.Call("ValidateReg", predBlock, objTrain, y), error = function(e) { stop(e) })
     }
   }
 

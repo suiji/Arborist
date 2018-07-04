@@ -26,7 +26,7 @@
 #include "rcppSample.h"
 #include "callback.h"
 
-
+using namespace std;
 vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
   IntegerVector rowSample(RcppSample::sampleRows(nSamp));
 

@@ -136,10 +136,10 @@ class LeafRegBridge : public LeafBridge {
                          SEXP sYTest,
                          class Predict *predict);
 
-  static unique_ptr<LeafRegBridge> Unwrap(const List &leaf,
+  static unique_ptr<LeafRegBridge> unwrap(const List &leaf,
                                           unsigned int nRow);
 
-  static unique_ptr<LeafRegBridge> Unwrap(const List &lTrain,
+  static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   class LeafReg *getLeaf() const {
@@ -226,7 +226,7 @@ class LeafCtgBridge : public LeafBridge {
   /**
      @brief Accessor exposes category name strings.
 
-     @return vector of string names.
+     @return level names vector.
    */
   const CharacterVector &getLevelsTrain() const {
     return levelsTrain;
@@ -266,10 +266,10 @@ class LeafCtgBridge : public LeafBridge {
 
      @param lTrain is the R-style trained forest.
    */
-  static unique_ptr<LeafCtgBridge> Unwrap(const List &leaf,
+  static unique_ptr<LeafCtgBridge> unwrap(const List &leaf,
                                           unsigned int nRow,
                                           bool doProb);
-  static unique_ptr<LeafCtgBridge> Unwrap(const List &lTrain,
+  static unique_ptr<LeafCtgBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   

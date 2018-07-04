@@ -77,7 +77,7 @@ class SampleNux {
   }
 
 
-  inline double Sum() const {
+  inline double getSum() const {
     return ySum;
   }
   
@@ -86,8 +86,8 @@ class SampleNux {
      @brief Accessor for sample count.
      
    */
-  inline unsigned int SCount() const {
-    return sCount;
+  inline unsigned int getSCount() const {
+    return sCount >> ctgShift;
   }
 };
 
@@ -182,7 +182,7 @@ class SampleRank : public SampleNux {
     _ySum = ySum;
     _yCtg = sCount & ((1 << ctgShift) - 1);
 
-    return sCount >> ctgShift;
+    return getSCount();
   }
 
 

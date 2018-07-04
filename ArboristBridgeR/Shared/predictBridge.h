@@ -36,7 +36,8 @@ RcppExport SEXP ValidateReg(const SEXP sPredBlock,
 
 RcppExport SEXP TestReg(const SEXP sPredBlock,
                         const SEXP sTrain,
-                        SEXP sYTest);
+                        SEXP sYTest,
+                        SEXP sOOB);
 
 RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
                               const SEXP sTrain,
@@ -56,11 +57,13 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sQuantVec,
                           SEXP sQBin,
-                          SEXP sYTest);
+                          SEXP sYTest,
+                          SEXP sOOB);
 
 RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
-                         SEXP sYTest);
+                         SEXP sYTest,
+                         SEXP sOOB);
 
 
 /**
@@ -76,7 +79,8 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
  */
 RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
-                          SEXP sYTest);
+                          SEXP sYTest,
+                          SEXP sOOB);
 
 
 namespace PredictBridge {

@@ -117,7 +117,7 @@ LeafTrainCtg::~LeafTrainCtg() {
 void LeafTrainReg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
   NodeExtent(sample, leafMap, leafCount, tIdx);
-  BagTree(sample, leafMap);//, tIdx);
+  bagTree(sample, leafMap);
   Scores(sample, leafMap, leafCount, tIdx);
 }
 
@@ -130,11 +130,9 @@ void LeafTrainReg::Leaves(const Sample *sample, const vector<unsigned int> &leaf
 
    @param leafMap maps sample indices to leaves.
 
-   @param tIdx is the index of the current tree.
-
    @return void.
 */
-void LeafTrain::BagTree(const Sample *sample, const vector<unsigned int> &leafMap) {
+void LeafTrain::bagTree(const Sample *sample, const vector<unsigned int> &leafMap) {
   if (thinLeaves)
     return;
   for (unsigned int sIdx = 0; sIdx < sample->getBagCount(); sIdx++) {
@@ -196,7 +194,7 @@ void LeafTrain::NodeExtent(const Sample *sample, vector<unsigned int> leafMap, u
 void LeafTrainCtg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
   NodeExtent(sample, leafMap, leafCount, tIdx);
-  BagTree(sample, leafMap);//, tIdx);
+  bagTree(sample, leafMap);
   Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
 }
 
@@ -336,7 +334,7 @@ void LeafReg::Offsets() {
   unsigned int countAccum = 0;
   for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
     offset[leafIdx] = countAccum;
-    countAccum += Extent(leafIdx);
+    countAccum += getExtent(leafIdx);
   }
   // Post-condition:  countAccum == bagTot
 }
@@ -421,17 +419,15 @@ void Leaf::populate(const BitMatrix *baggedRows,
 /**
    @brief Exports LeafNode into vectors of per-tree vectors.
 
-
-
    @return void, with output reference parameters.
  */
 void Leaf::nodeExport(vector<vector<double> > &score,
-                          vector<vector<unsigned int> > &extent) const {
+                      vector<vector<unsigned int> > &extent) const {
   unsigned int forestIdx = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (unsigned int leafIdx = 0; leafIdx < TreeHeight(tIdx); leafIdx++) {
+    for (unsigned int leafIdx = 0; leafIdx < getHeight(tIdx); leafIdx++) {
       score[tIdx].push_back(leafNode[forestIdx].Score());
-      extent[tIdx].push_back(leafNode[forestIdx].Extent());
+      extent[tIdx].push_back(leafNode[forestIdx].getExtent());
       forestIdx++;
     }
   }
@@ -586,7 +582,7 @@ void LeafCtg::populate(const BitMatrix *baggedRows,
 
   unsigned int off = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (unsigned int leafIdx = 0; leafIdx < TreeHeight(tIdx); leafIdx++) {
+    for (unsigned int leafIdx = 0; leafIdx < getHeight(tIdx); leafIdx++) {
       for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
         weightTree[tIdx].push_back(weight[off++]);
       }

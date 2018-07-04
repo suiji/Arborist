@@ -46,5 +46,5 @@ void RcppSample::Init(const NumericVector &feWeight, bool withRepl_) {
 
 IntegerVector RcppSample::sampleRows(unsigned int nSamp) {
   RNGScope scope;
-  return RcppArmadillo::sample(rowSeq, nSamp, withRepl, weight);
+  return RcppArmadillo::sample(rowSeq, nSamp, withRepl, clone(weight));
 }

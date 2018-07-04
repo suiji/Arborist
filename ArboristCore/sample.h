@@ -132,7 +132,7 @@ class Sample {
 
   
   inline unsigned int getSCount(unsigned int sIdx) const {
-    return sampleNode[sIdx].SCount();
+    return sampleNode[sIdx].getSCount();
   }
 
 
@@ -145,7 +145,7 @@ class Sample {
 
   
   inline FltVal getSum(int sIdx) const {
-    return sampleNode[sIdx].Sum();
+    return sampleNode[sIdx].getSum();
   }
 };
 

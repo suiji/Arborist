@@ -229,10 +229,11 @@ RboristDeep <- function(argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(argList$predBlock, train$forest, train$leaf, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin)
+        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin)
     }
 
     arbOut <- list(
+        bag = train$bag,
         forest = train$forest,
         leaf = train$leaf,
         signature = argList$predBlock$signature,

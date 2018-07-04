@@ -72,9 +72,9 @@ List LeafBridge::Wrap(LeafTrainCtg *leafCtg,
    @brief References front-end member arrays and instantiates
    bridge-specific LeafReg handle.
  */
-unique_ptr<LeafRegBridge> LeafRegBridge::Unwrap(const List &sTrain,
+unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
                                                 unsigned int nRow) {
-  List lLeaf = sTrain["leaf"];
+  List lLeaf = lTrain["leaf"];
   Legal(lLeaf);
   return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["origin"]),
                                     RawVector((SEXP) lLeaf["bagLeaf"]),
@@ -130,7 +130,7 @@ LeafRegBridge::~LeafRegBridge() {
 
    @return 
  */
-unique_ptr<LeafCtgBridge> LeafCtgBridge::Unwrap(const List &sTrain,
+unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &sTrain,
                                                 unsigned int nRow,
                                                 bool doProb) {
   List lLeaf = sTrain["leaf"];
@@ -471,7 +471,7 @@ double TestCtg::OOB(const vector<unsigned int> &yPred) const {
 }
 
 
-unique_ptr<LeafCtgBridge> LeafCtgBridge::Unwrap(const List &lTrain,
+unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
   List lLeaf((SEXP) lTrain["leaf"]);
   Legal(lLeaf);
@@ -479,7 +479,7 @@ unique_ptr<LeafCtgBridge> LeafCtgBridge::Unwrap(const List &lTrain,
                                     RawVector((SEXP) lLeaf["bagLeaf"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     NumericVector((SEXP) lLeaf["weight"]),
-                                    CharacterVector((SEXP) lLeaf["yLevels"]),
+                                    CharacterVector((SEXP) lLeaf["levels"]),
                                     baggedRows);
 }
  
@@ -493,14 +493,14 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector &_feOrig,
                              const NumericVector &_feWeight,
                              const CharacterVector &_feLevels,
                              const BitMatrix *baggedRows) :
-  LeafBridge(0),
+  LeafBridge(_feOrig.length()),
   feOrig(_feOrig),
   feBagLeaf(_feBagLeaf),
   feNode(_feNode),
   feWeight(_feWeight),
   levelsTrain(_feLevels),
-  scoreTree(vector<vector<double > >(leaf->getNTree())),
-  weightTree(vector<vector<double> >(leaf->getNTree())) {
+  scoreTree(vector<vector<double > >(feOrig.length())),
+  weightTree(vector<vector<double> >(feOrig.length())) {
   leaf = move(make_unique<LeafCtg>((unsigned int *) &feOrig[0],
                                  feOrig.length(),
                                  (LeafNode*) &feNode[0],
@@ -515,7 +515,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector &_feOrig,
 }
 
 
-unique_ptr<LeafRegBridge> LeafRegBridge::Unwrap(const List &lTrain,
+unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
   List lLeaf((SEXP) lTrain["leaf"]);
   Legal(lLeaf);

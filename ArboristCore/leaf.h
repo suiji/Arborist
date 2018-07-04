@@ -61,7 +61,7 @@ class LeafNode {
   /**
      @brief Accessor for fully-accumulated extent value.
    */
-  inline unsigned int Extent() const {
+  inline unsigned int getExtent() const {
     return extent;
   }
 
@@ -121,7 +121,7 @@ class LeafTrain {
   void Serialize(unsigned char *leafRaw,
                  unsigned char *blRaw) const;
   
-  void BagTree(const class Sample *sample, const vector<unsigned int> &leafMap);
+  void bagTree(const class Sample *sample, const vector<unsigned int> &leafMap);
 
   inline const vector<unsigned int> &Origin() const {
     return origin;
@@ -328,8 +328,8 @@ class Leaf {
   }
 
 
-  inline unsigned int Extent(unsigned int nodeIdx) const {
-    return leafNode[nodeIdx].Extent();
+  inline unsigned int getExtent(unsigned int nodeIdx) const {
+    return leafNode[nodeIdx].getExtent();
   }
 
 
@@ -343,7 +343,7 @@ class Leaf {
 
      @return Height of tree.
    */
-  inline unsigned int TreeHeight(unsigned int tIdx)  const {
+  inline unsigned int getHeight(unsigned int tIdx)  const {
     unsigned int heightInf = origin[tIdx];
     return tIdx < nTree - 1 ? origin[tIdx + 1] - heightInf : leafCount - heightInf;
   }
@@ -436,7 +436,7 @@ class LeafReg : public Leaf {
                  unsigned int &end) const {
     auto forestIdx = NodeIdx(tIdx, leafIdx);
     start = offset[forestIdx];
-    end = start + Extent(forestIdx);
+    end = start + getExtent(forestIdx);
   }
 
 
