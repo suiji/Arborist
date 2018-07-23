@@ -14,22 +14,13 @@
    @author Mark Seligman
  */
 
-
 #include "samplenux.h"
 
 unsigned int SampleNux::nCtg = 0;
 unsigned int SampleNux::ctgShift = 0;
 
 
-/**
-   @brief Computes a packing width sufficient to hold all (zero-based) response
-   category values.
-
-   @param ctgWidth is the response cardinality.
-
-   @return void.
- */
-void SampleNux::Immutables(unsigned int ctgWidth) {
+void SampleNux::immutables(unsigned int ctgWidth) {
   nCtg = ctgWidth;
   unsigned int bits = 1;
   ctgShift = 0;
@@ -42,8 +33,6 @@ void SampleNux::Immutables(unsigned int ctgWidth) {
 }
 
 
-/*
-**/
-void SampleNux::DeImmutables() {
+void SampleNux::deImmutables() {
   ctgShift = 0;
 }

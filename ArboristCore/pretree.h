@@ -32,13 +32,15 @@ class PTNode : public DecNode {
   
   void NonterminalConsume(const class FrameTrain *frameTrain, class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const;
 
+  void splitNum(const class SplitCand &cand,
+                unsigned int lhDel);
 
   /**
      @brief Resets to default terminal status.
 
      @return void.
    */
-  inline void SetTerminal() {
+  inline void setTerminal() {
     lhDel = 0;
   }
 
@@ -48,7 +50,7 @@ class PTNode : public DecNode {
 
      @return void.
    */
-  inline void SetNonterminal(unsigned int lhDel) {
+  inline void setNonterminal(unsigned int lhDel) {
     this->lhDel = lhDel;
   }
 
@@ -64,14 +66,6 @@ class PTNode : public DecNode {
 
   inline unsigned int RHId(unsigned int ptId) const {
     return NonTerminal() ? LHId(ptId) + 1 : 0;
-  }
-
-
-  inline void SplitNum(unsigned int predIdx, unsigned int lhDel, RankRange rankRange, double info) {
-    this->predIdx = predIdx;
-    this->lhDel = lhDel;
-    this->splitVal.rankRange = rankRange;
-    this->info = info;
   }
 
 
@@ -128,8 +122,20 @@ class PreTree {
   void NonterminalConsume(class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const;
   void BitConsume(unsigned int *outBits);
   void LHBit(int idx, unsigned int pos);
-  void BranchFac(double _info, unsigned int _predIdx, unsigned int _id);
-  void BranchNum(double _info, unsigned int _predIdx, RankRange _rankRange, unsigned int _id);
+
+  void branchFac(const class SplitCand& argMax,
+                 unsigned int _id);
+
+  /**
+     @brief Finalizes numeric-valued nonterminal.
+
+     @param argMax is the split candidate characterizing the branch.
+
+     @param id is the node index.
+  */
+  void branchNum(const class SplitCand &argMax,
+                 unsigned int id);
+
   void Level(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void SubtreeFrontier(const vector<unsigned int> &stTerm);

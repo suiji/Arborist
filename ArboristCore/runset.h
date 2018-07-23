@@ -39,10 +39,14 @@ class FRNode {
 
   FRNode() : start(0), extent(0), sCount(0), sum(0.0) {}
 
-  bool IsImplicit();
+  bool isImplicit();
 
   
-  inline void Init(unsigned int _rank, unsigned int _sCount, double _sum, unsigned int _start, unsigned int _extent) {
+  inline void init(unsigned int _rank,
+                   unsigned int _sCount,
+                   double _sum,
+                   unsigned int _start,
+                   unsigned int _extent) {
     rank = _rank;
     sCount = _sCount;
     sum = _sum;
@@ -59,7 +63,7 @@ class FRNode {
 
      @return void.
    */
-  inline void ReplayRef(unsigned int &_start, unsigned int &_extent) {
+  inline void replayRef(unsigned int &_start, unsigned int &_extent) {
     _start = start;
     _extent = extent;
   }
@@ -70,7 +74,7 @@ class FRNode {
 
      @return rank.
    */
-  inline unsigned int Rank() {
+  inline unsigned int getRank() const {
     return rank;
   }
 };
@@ -105,15 +109,25 @@ class RunSet {
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
-  bool ImplicitLeft() const;
-  void WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[] = 0);
-  unsigned int DeWide();
-  void DePop(unsigned int pop = 0);
-  void Reset(FRNode*, BHPair*, unsigned int*, double*, double*);
-  void OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
-  void HeapRandom();
-  void HeapMean();
-  void HeapBinary();
+  bool implicitLeft() const;
+  void writeImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[] = 0);
+  unsigned int deWide();
+  void dePop(unsigned int pop = 0);
+
+  /**
+     @brief Updates local vector bases with their respective offsets,
+     addresses, now known.
+  */
+  void reBase(vector<FRNode> &facRun,
+              vector<BHPair> &bHeap,
+              vector<unsigned int> &lhOut,
+              vector<double> &ctgSum,
+              vector<double> &rvWide);
+
+  void offsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
+  void heapRandom();
+  void heapMean();
+  void heapBinary();
 
 
   /**
@@ -121,17 +135,17 @@ class RunSet {
 
      @return reference to run count.
    */
-  inline unsigned int RunCount() const {
+  inline unsigned int getRunCount() const {
     return runCount;
   }
 
 
-  inline void SetRunCount(unsigned int _runCount) {
-    runCount = _runCount;
+  inline void setRunCount(unsigned int runCount) {
+    this->runCount = runCount;
   }
   
   
-  inline unsigned int CountSafe() {
+  inline unsigned int getSafeCount() const {
     return safeRunCount;
   }
   
@@ -142,7 +156,7 @@ class RunSet {
 
      @return effective run count
    */
-  inline unsigned int EffCount() {
+  inline unsigned int effCount() const {
     return runCount > maxWidth ? maxWidth : runCount;
   }
 
@@ -156,7 +170,7 @@ class RunSet {
 
      @return sum at dereferenced position, with output reference parameter.
    */
-  inline double SumHeap(unsigned int outPos, unsigned int &sCount) {
+  inline double sumHeap(unsigned int outPos, unsigned int &sCount) {
     unsigned int slot = outZero[outPos];
     sCount = runZero[slot].sCount;
     
@@ -168,8 +182,8 @@ class RunSet {
 
      @return void.
    */
-  inline void Write(unsigned int rank, unsigned int sCount, double sum, unsigned int extent, unsigned int start = noStart) {
-    runZero[runCount++].Init(rank, sCount, sum, start, extent);
+  inline void write(unsigned int rank, unsigned int sCount, double sum, unsigned int extent, unsigned int start = noStart) {
+    runZero[runCount++].init(rank, sCount, sum, start, extent);
     hasImplicit = (start == noStart ? true : false);
   }
 
@@ -177,7 +191,7 @@ class RunSet {
   /**
      @return checkerboard value at slot for category.
    */
-  inline double SumCtg(unsigned int slot, unsigned int yCtg) {
+  inline double getSumCtg(unsigned int slot, unsigned int yCtg) const {
     return ctgZero[slot * ctgWidth + yCtg];
   }
 
@@ -188,12 +202,12 @@ class RunSet {
 
      @return void.
    */
-  inline void AccumCtg(unsigned int yCtg, double ySum) {
+  inline void accumCtg(unsigned int yCtg, double ySum) {
     ctgZero[runCount * ctgWidth + yCtg] += ySum;
   }
 
 
-  inline void SumCtgSet(unsigned int yCtg, double ySum) {
+  inline void setSumCtg(unsigned int yCtg, double ySum) {
     ctgZero[runCount * ctgWidth + yCtg] = ySum;
   }
 
@@ -204,16 +218,18 @@ class RunSet {
 
      @param outPos is a position in the output vector.
 
-     @param cell0 outputs the response at rank 0.
+     @param[in, out] sum0 accumulates the response at rank 0.
 
-     @param cell1 outputs the response at rank 1.
+     @param[in, out] sum1 accumulates the response at rank 1.
 
      @return true iff slot counts differ by at least unity.
    */
-  inline bool SumBinary(unsigned int outPos, double &cell0, double &cell1) {
+  inline bool accumBinary(unsigned int outPos, double &sum0, double &sum1) {
     unsigned int slot = outZero[outPos];
-    cell0 = SumCtg(slot, 0);
-    cell1 = SumCtg(slot, 1);
+    double cell0 = getSumCtg(slot, 0);
+    sum0 += cell0;
+    double cell1 = getSumCtg(slot, 1);
+    sum1 += cell1;
 
     unsigned int sCount = runZero[slot].sCount;
     unsigned int slotNext = outZero[outPos+1];
@@ -222,7 +238,7 @@ class RunSet {
     // then checks whether the response values are likely different, given
     // some jittering.
     // TODO:  replace constant with value obtained from class weighting.
-    return sCount != runZero[slotNext].sCount ? true : SumCtg(slotNext, 1) - cell1 > 0.9;
+    return sCount != runZero[slotNext].sCount ? true : getSumCtg(slotNext, 1) - cell1 > 0.9;
   }
 
 
@@ -237,22 +253,21 @@ class RunSet {
 
     @return total index count subsumed, with reference accumulator.
   */
-  inline unsigned int LHCounts(unsigned int slot, unsigned int &sCount) {
+  inline unsigned int lHCounts(unsigned int slot, unsigned int &sCount) {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
     return  fRun->extent;
   }
 
 
-  inline unsigned int RunsLH() const {
+  inline unsigned int getRunsLH() const {
     return runsLH;
   }
 
-
-  unsigned int LHBits(unsigned int lhBits, unsigned int &lhSampCt);
-  unsigned int LHSlots(int outPos, unsigned int &lhSampCt);
-  void Bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const;
-  unsigned int Rank(unsigned int outSlot) const;
+  unsigned int getRank(unsigned int outSlot) const;
+  unsigned int lHBits(unsigned int lhBits, unsigned int &lhSampCt);
+  unsigned int lHSlots(int outPos, unsigned int &lhSampCt);
+  void bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const;
 };
 
 
@@ -260,55 +275,58 @@ class Run {
   const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
   vector<RunSet> runSet;
-  FRNode *facRun; // Workspace for FRNodes used along level.
-  BHPair *bHeap;
-  unsigned int *lhOut; // Vector of lh-bound slot indices.
-  double *ctgSum;
+  vector<FRNode> facRun; // Workspace for FRNodes used along level.
+  vector<BHPair> bHeap;
+  vector<unsigned int> lhOut; // Vector of lh-bound slot indices.
+  vector<double> ctgSum;
   vector<double> rvWide;
 
-  void Reset();
+  void reBase();
+  void runSets(const vector<unsigned int>& safeCount);
+
+
+  inline unsigned int getRunCount(unsigned int rsIdx) const {
+    return runSet[rsIdx].getRunCount();
+  }
+
+  inline unsigned int getRank(unsigned int idx, unsigned int outSlot) const {
+    return runSet[idx].getRank(outSlot);
+  }
+
+  inline void runBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
+    runSet[idx].bounds(outSlot, start, extent);
+  }
+
+  inline unsigned int getRunsLH(unsigned int rsIdx) const {
+    return runSet[rsIdx].getRunsLH();
+  }
+
 
  public:
   const unsigned int ctgWidth;
   Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand);
-  void LevelClear();
-  void OffsetsReg();
-  void OffsetsCtg();
-  void RunSets(const vector<unsigned int> &safeCount);
+  void levelClear();
+  void offsetsReg(const vector<unsigned int> &safeCount);
+  void offsetsCtg(const vector<unsigned int> &safeCount);
+  bool isRun(const class SplitCand& cand) const;
 
-
-  inline bool IsRun(unsigned int setIdx) const {
+  bool replay(const class SplitCand& cand,
+              class IndexSet* iSet,
+              class PreTree* preTree,
+              const class IndexLevel* index) const;
+  
+  inline bool isRun(unsigned int setIdx) const {
     return setIdx != noRun;
   }
 
 
-  inline unsigned int NoRun() const {
+  inline unsigned int getNoRun() const {
     return noRun;
   }
 
 
-  inline RunSet *RSet(unsigned int rsIdx) {
+  inline RunSet *rSet(unsigned int rsIdx) {
     return &runSet[rsIdx];
-  }
-
-  
-  inline void RunBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
-    runSet[idx].Bounds(outSlot, start, extent);
-  }
-
-
-  inline unsigned int Rank(unsigned int idx, unsigned int outSlot) const {
-    return runSet[idx].Rank(outSlot);
-  }
-
-
-  inline unsigned int RunsLH(unsigned int rsIdx) const {
-    return runSet[rsIdx].RunsLH();
-  }
-
-
-  inline bool ImplicitLeft(unsigned int rsIdx) const {
-    return runSet[rsIdx].ImplicitLeft();
   }
 
   
@@ -316,19 +334,15 @@ class Run {
      @brief Presets runCount field to a conservative value for
      the purpose of allocating storage.
    */
-  unsigned int CountSafe(unsigned int idx) const {
+  unsigned int getSafeCount(unsigned int idx) const {
     return runSet[idx].safeRunCount;
   }
 
   
-  void CountSafe(unsigned int idx, unsigned int count) {
+  void countSafe(unsigned int idx, unsigned int count) {
     runSet[idx].safeRunCount = count;
   }
 
-
-  unsigned int RunCount(unsigned int rsIdx) const {
-    return runSet[rsIdx].RunCount();
-  }
 
 };
 
@@ -339,15 +353,23 @@ class Run {
 
    TODO:  Templatize and move elsewhere.
 */
-
-class BHeap {
+struct BHeap {
  public:
-  static inline int Parent(int idx) { 
+  static inline int parent(int idx) { 
     return (idx-1) >> 1;
   };
-  static void Depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop);
-  static void Insert(BHPair pairVec[], unsigned int _slot, double _key);
-  static unsigned int SlotPop(BHPair pairVec[], int bot);
+
+
+  static void depopulate(BHPair pairVec[],
+                         unsigned int lhOut[],
+                         unsigned int pop);
+
+  static void insert(BHPair pairVec[],
+                     unsigned int slot_,
+                     double key_);
+
+  static unsigned int slotPop(BHPair pairVec[],
+                              int bot);
 };
 
 #endif

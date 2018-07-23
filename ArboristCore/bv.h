@@ -151,7 +151,7 @@ class BV {
 
      @return void.
    */
-  inline void SetBit(unsigned int pos, bool on = true) {
+  inline void setBit(unsigned int pos, bool on = true) {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
     unsigned int val = raw[slot];
@@ -222,7 +222,7 @@ class BitMatrix : public BV {
 
   
   inline void setBit(unsigned int row, unsigned int col, bool on = true) {
-    BV::SetBit(row * stride + col, on);
+    BV::setBit(row * stride + col, on);
   }
 
 
@@ -336,13 +336,13 @@ class CharV {
 
 
   /**
-     @brief Sets slot at position to value passed.
+     @brief sets slot at position to value passed.
 
      @param pos is the position to set.
 
      @return void, with side-effected raw value.
    */
-  inline void Set(unsigned int pos, unsigned char val) {
+  inline void set(unsigned int pos, unsigned char val) {
     unsigned int slot = pos / slotElts;
     unsigned int slotPos = pos - (slot * slotElts);
     unsigned int shiftBits = slotPos * eltSize;

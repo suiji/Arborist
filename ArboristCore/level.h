@@ -70,13 +70,13 @@ class MRRA {
   }
 
 
-  inline bool Singleton() const {
+  inline bool isSingleton() const {
     return (raw & oneBit) != 0;
   }
 
-  inline bool Singleton(unsigned int &bufIdx) const {
+  inline bool isSingleton(unsigned int &bufIdx) const {
     bufIdx = (raw & bufBit) == 0 ? 0 : 1;
-    return Singleton();
+    return isSingleton();
   }
   
 
@@ -106,7 +106,7 @@ class MRRA {
   }
   
 
-  inline bool Undefine() {
+  inline bool undefine() {
     bool wasDefined = Defined();
     raw &= ~defBit;
     return wasDefined;
@@ -119,8 +119,8 @@ class MRRA {
      @return void, with output reference parameters.
   */
   inline void Consume(unsigned int &bufIdx, bool &singleton) {
-    singleton = Singleton(bufIdx);
-    (void) Undefine();
+    singleton = isSingleton(bufIdx);
+    (void) undefine();
   }
 };
 
@@ -148,7 +148,7 @@ class DenseCoord {
 
      @return dense count.
    */
-  inline unsigned int AdjustDense(unsigned int &startIdx, unsigned int &extent) const {
+  inline unsigned int adjustDense(unsigned int &startIdx, unsigned int &extent) const {
     startIdx -= margin;
     extent -= implicit;
     return implicit;
@@ -205,7 +205,20 @@ class Level {
   const bool nodeRel;  // Subtree- or node-relative indexing.
   class Bottom *bottom;
 
-  bool Preschedule(class SplitPred *splitPred, unsigned int levelIdx, unsigned int predIdx, unsigned int extent, unsigned int &spanCand);
+/**
+   @brief Schedules a non-singleton splitting candidate.
+
+   @param splitIdx
+
+   @param predIdx
+
+   @return true iff pair scheduled for splitting.
+ */
+  bool preschedule(class SplitPred *splitPred,
+                   unsigned int levelIdx,
+                   unsigned int predIdx,
+                   unsigned int extent,
+                   unsigned int &spanCand);
   
  public:
   Level(unsigned int _nSplit, unsigned int _nPred, const vector<unsigned int> &_denseIdx, unsigned int _nPredDense, unsigned int _noIndex, unsigned int _idxLive, bool _nodeRel, class Bottom *bottom);
@@ -213,30 +226,102 @@ class Level {
 
   static void Immutables(unsigned int feFixed, const vector<double> &feProb);
   static void DeImmutables();
-  void Candidates(const class IndexLevel *index, class SplitPred *splitPred);
-  void CandidateProb(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], unsigned int extent, unsigned int &offCand);
-  void CandidateFixed(class SplitPred *splitPred, unsigned int splitIdx, const double ruPred[], class BHPair heap[], unsigned int extent, unsigned int &offCand);
 
-  void RankRestage(class SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx);
+
+  /**
+     @brief Signals SplitPred to schedule splitable pairs.
+
+     @param index
+
+     @param splitPred maintains the candidate list.
+
+     @return void.
+  */
+  void candidates(const class IndexLevel *index,
+                  class SplitPred *splitPred);
+
+  /**
+   @brief Set splitable flag by Bernoulli sampling.
+
+   @param splitIdx is the level-relative node index.
+
+   @param ruPred is a vector of uniformly-sampled variates.
+
+   @param offCand accumulates offsets for splitable pairs.
+ */
+  void candidateProb(class SplitPred *splitPred,
+                     unsigned int splitIdx,
+                     const double ruPred[],
+                     unsigned int extent,
+                     unsigned int &offCand);
+
+  /**
+   @brief Sets splitable flag for a fixed number of predictors.
+
+   @param ruPred is a vector of uniformly-sampled variates.
+
+   @param heap orders probability-weighted variates.
+
+   @param extent is the index count of the splitting node.
+
+   @param offCand accumulates offsets for splitable pairs.
+ */
+  void candidateFixed(class SplitPred *splitPred,
+                      unsigned int splitIdx,
+                      const double ruPred[],
+                      class BHPair heap[],
+                      unsigned int extent,
+                      unsigned int &offCand);
+
+  void rankRestage(class SamplePred *samplePred,
+                   const SPPair &mrra,
+                   Level *levelFront,
+                   unsigned int bufIdx);
   void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx);
-  void RankRestage(class SamplePred *samplePred, const SPPair &mrra, Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[]);
+
+  void rankRestage(class SamplePred *samplePred,
+                   const SPPair &mrra,
+                   Level *levelFront,
+                   unsigned int bufIdx,
+                   const unsigned int reachBase[],
+                   unsigned int reachOffset[]);
+
   void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]);
 
-  void Flush(bool forward = true);
-  void FlushDef(unsigned int mrraIdx, unsigned int predIdx);
+  void flush(bool forward = true);
+  void flushDef(unsigned int mrraIdx, unsigned int predIdx);
   bool NonreachPurge();
   void Paths();
   void PathInit(const class Bottom *bottom, unsigned int levelIdx, unsigned int path, unsigned int start, unsigned int extent, unsigned int relBase);
-  bool ScheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &rCount) const;
+
+  /**
+     @brief Determines whether a cell is suitable for splitting.  It may,
+     for example, have become unsplitiable as a result of restaging's
+     precipitating a singleton instance.
+
+     @param levelIdx is the split index.
+
+     @param predIdx is the predictor index.
+
+     @param runCount outputs the run count iff not singleton.
+
+     @return true iff candidate remains splitable.
+  */
+  bool scheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &rCount) const;
+
   void Bounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
   void FrontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton);
-  void OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]);
 
-  void OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]);
+  void offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]);
+
+  void offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]);
+
   void RunCounts(class Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const;
 
   void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
-  void SetExtinct(unsigned int idx);
+
+  void setExtinct(unsigned int idx);
+
   bool Backdate(const class IdxPath *one2Front);
   void SetSingleton(unsigned int levelIdx, unsigned int predIdx);
   bool Splitable(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx);
@@ -329,7 +414,7 @@ class Level {
   }
 
 
-  inline unsigned int SplitCount() {
+  inline unsigned int getSplitCount() {
     return nSplit;
   }
 
@@ -353,8 +438,8 @@ class Level {
   }
 
 
-  inline void Undefine(unsigned int levelIdx, unsigned int predIdx) {
-    bool wasDefined = def[PairOffset(levelIdx, predIdx)].Undefine();
+  inline void undefine(unsigned int levelIdx, unsigned int predIdx) {
+    bool wasDefined = def[PairOffset(levelIdx, predIdx)].undefine();
     defCount -= wasDefined ? 1 : 0;
   }
 
@@ -372,24 +457,24 @@ class Level {
 
      @return true iff a singleton.
    */
-  inline bool Singleton(unsigned int levelIdx, unsigned int predIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].Singleton();
+  inline bool isSingleton(unsigned int levelIdx, unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].isSingleton();
   }
 
 
-  inline bool Singleton(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].Singleton(bufIdx);
+  inline bool isSingleton(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].isSingleton(bufIdx);
   }
 
 
-  inline unsigned int AdjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
+  inline unsigned int adjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
     return def[PairOffset(levelIdx, predIdx)].Dense() ?
-      denseCoord[DenseOffset(levelIdx, predIdx)].AdjustDense(startIdx, extent) : 0;
+      denseCoord[DenseOffset(levelIdx, predIdx)].adjustDense(startIdx, extent) : 0;
   }
 
 
   inline void Ref(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx, bool &singleton) {
-    singleton = def[PairOffset(levelIdx, predIdx)].Singleton(bufIdx);
+    singleton = def[PairOffset(levelIdx, predIdx)].isSingleton(bufIdx);
   }
 
 
@@ -420,13 +505,18 @@ class Level {
 
      @return void.
   */
-  void Ancestor(unsigned int levelIdx, unsigned int start, unsigned int extent) {
+  void Ancestor(unsigned int levelIdx,
+                unsigned int start,
+                unsigned int extent) {
     indexAnc[levelIdx].Init(start, extent);
   }
 
 
-  void SetSpan(unsigned int _spanCand) {
-    spanCand = _spanCand;
+  /**
+     @brief Sets the number of span candidates.
+   */
+  void setSpan(unsigned int spanCand) {
+    this->spanCand = spanCand;
   }
 };
 

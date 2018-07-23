@@ -47,7 +47,7 @@ void Sample::DeImmutables() {
 
 
 Sample::Sample() :
-  ctgRoot(vector<SumCount>(SampleNux::NCtg())) {
+  ctgRoot(vector<SumCount>(SampleNux::getNCtg())) {
 }
 
     
@@ -180,7 +180,7 @@ void SampleCtg::PreStage(const unsigned int yCtg[], const double y[], const RowR
 
 
 unique_ptr<SplitPred> SampleCtg::SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
-  return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::NCtg());
+  return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::getNCtg());
 }
 
 

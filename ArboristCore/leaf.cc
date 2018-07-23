@@ -222,7 +222,7 @@ void LeafTrainCtg::Scores(const SampleCtg *sample,
     unsigned int leafIdx = leafMap[sIdx];
     FltVal sum;
     unsigned int ctg;
-    sample->RefLeaf(sIdx, sum, ctg);
+    sample->refLeaf(sIdx, sum, ctg);
     leafSum[leafIdx] += sum;
     WeightAccum(tIdx, leafIdx, ctg, sum);
   }

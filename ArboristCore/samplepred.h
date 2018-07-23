@@ -29,6 +29,7 @@
  @brief Contains the sample data used by predictor-specific sample-walking pass.
 */
 class SamplePred {
+  const unsigned int nPred;
   // SamplePred appear in predictor order, grouped by node.  They store the
   // y-value, run class and sample index for the predictor position to which they
   // correspond.
@@ -54,7 +55,6 @@ class SamplePred {
   unsigned int *indexBase; // RV index for this row.  Used by CTG as well as on replay.
 
  protected:
-  const unsigned int nPred;
   const unsigned int bagCount;
   unsigned int *destRestage; // Coprocessor restaging.
   unsigned int *destSplit; // Coprocessor restaging.
@@ -67,24 +67,81 @@ class SamplePred {
 
   SampleRank *StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx);
 
-  virtual void Stage(const class RRNode *rrNode, unsigned int rrTot, const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, vector<class StageCount> &stageCount);
-  unsigned int Stage(const vector<class SampleNux> &sampleNode, const class RRNode *rrPred, const vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton);
-  void Stage(const vector<class SampleNux> &sampleNode, const class RRNode &rrNode, const vector<unsigned int> &row2Sample, SampleRank *spn, unsigned int *smpIdx, unsigned int &expl);
+  virtual void Stage(const class RRNode *rrNode,
+                     unsigned int rrTot,
+                     const vector<class SampleNux> &sampleNode,
+                     const vector<unsigned int> &row2Sample,
+                     vector<class StageCount> &stageCount);
 
-  double BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, class BV *replayExpl, vector<class SumCount> &ctgExpl);
+  unsigned int Stage(const vector<class SampleNux> &sampleNode,
+                     const class RRNode *rrPred,
+                     const vector<unsigned int> &row2Sample,
+                     unsigned int explMax,
+                     unsigned int predIdx,
+                     unsigned int safeOffset,
+                     unsigned int extent,
+                     bool &singleton);
+  void Stage(const vector<class SampleNux> &sampleNode,
+             const class RRNode &rrNode,
+             const vector<unsigned int> &row2Sample,
+             SampleRank *spn,
+             unsigned int *smpIdx,
+             unsigned int &expl);
 
-  virtual void Restage(class Level *levelBack, class Level *levelFront, const SPPair &mrra, unsigned int bufIdx);
+  double blockReplay(const class SplitCand& cand,
+                     unsigned int blockStart,
+                     unsigned int blockExtent,
+                     class BV *replayExpl,
+                     vector<class SumCount> &ctgExpl);
+
+  virtual void Restage(class Level *levelBack,
+                       class Level *levelFront,
+                       const SPPair &mrra,
+                       unsigned int bufIdx);
   
-  void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]);
-  void Prepath(const class IdxPath *idxPath, const unsigned int reachBase[], bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const;
-  void RankRestage(unsigned int predIdx, unsigned int bufIdx, unsigned int start, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]);
-  void IndexRestage(const class IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]);
+  void Prepath(const class IdxPath *idxPath,
+               const unsigned int reachBase[],
+               unsigned int predIdx,
+               unsigned int bufIdx,
+               unsigned int startIdx,
+               unsigned int extent,
+               unsigned int pathMask,
+               bool idxUpdate,
+               unsigned int pathCount[]);
 
-  
-  inline unsigned int BagCount() const {
+  void Prepath(const class IdxPath *idxPath,
+               const unsigned int reachBase[],
+               bool idxUpdate,
+               unsigned int startIdx,
+               unsigned int extent,
+               unsigned int pathMask,
+               unsigned int idxVec[],
+               PathT prepath[],
+               unsigned int pathCount[]) const;
+
+  void rankRestage(unsigned int predIdx,
+                   unsigned int bufIdx,
+                   unsigned int start,
+                   unsigned int extent,
+                   unsigned int reachOffset[],
+                   unsigned int rankPrev[],
+                   unsigned int rankCount[]);
+
+  void IndexRestage(const class IdxPath *idxPath,
+                    const unsigned int reachBase[],
+                    unsigned int predIdx,
+                    unsigned int bufIdx,
+                    unsigned int startIdx,
+                    unsigned int extent,
+                    unsigned int pathMask,
+                    bool idxUpdate,
+                    unsigned int reachOffset[],
+                    unsigned int splitOffset[]);
+
+
+  inline unsigned int getBagCount() const {
     return bagCount;
   }
-
   
   inline unsigned int PitchSP() {
     return pitchSP;
@@ -98,7 +155,7 @@ class SamplePred {
   /**
      @brief Returns the staging position for a dense predictor.
    */
-  inline unsigned int StageOffset(unsigned int predIdx) {
+  inline unsigned int getStageOffset(unsigned int predIdx) {
     return stageOffset[predIdx];
   }
 
@@ -116,7 +173,7 @@ class SamplePred {
 
      @return workspace starting position for this level.
    */
-  inline unsigned int BuffOffset(unsigned int bufferBit) const {
+  inline unsigned int buffOffset(unsigned int bufferBit) const {
     return (bufferBit & 1) == 0 ? 0 : bufferSize;
   }
 
@@ -128,31 +185,31 @@ class SamplePred {
 
      @return starting position within workspace.
    */
-  inline unsigned int BufferOff(unsigned int predIdx, unsigned int bufBit) const {
-    return stageOffset[predIdx] + BuffOffset(bufBit);
+  inline unsigned int bufferOff(unsigned int predIdx, unsigned int bufBit) const {
+    return stageOffset[predIdx] + buffOffset(bufBit);
   }
 
 
   /**
      @return base of the index buffer.
    */
-  inline unsigned int *BufferIndex(unsigned int predIdx, unsigned int bufBit) {
-    return indexBase + BufferOff(predIdx, bufBit);
+  inline unsigned int *bufferIndex(unsigned int predIdx, unsigned int bufBit) {
+    return indexBase + bufferOff(predIdx, bufBit);
   }
 
 
   /**
      @return base of node buffer.
    */
-  inline SampleRank *BufferNode(unsigned int predIdx, unsigned int bufBit) {
-    return nodeVec + BufferOff(predIdx, bufBit);
+  inline SampleRank *bufferNode(unsigned int predIdx, unsigned int bufBit) {
+    return nodeVec + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
-  inline SampleRank* Buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) {
-    unsigned int offset = BufferOff(predIdx, bufBit);
+  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) {
+    unsigned int offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
     return nodeVec + offset;
   }
@@ -168,15 +225,15 @@ class SamplePred {
      @return node vector section for this predictor.
    */
   SampleRank* PredBase(unsigned int predIdx, unsigned int bufBit) const {
-    return nodeVec + BufferOff(predIdx, bufBit);
+    return nodeVec + bufferOff(predIdx, bufBit);
   }
   
 
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline SampleRank* SplitBuffer(unsigned int predIdx, unsigned int bufBit) {
-    return nodeVec + BufferOff(predIdx, bufBit);
+  inline SampleRank* Splitbuffer(unsigned int predIdx, unsigned int bufBit) {
+    return nodeVec + bufferOff(predIdx, bufBit);
   }
 
 
@@ -189,15 +246,23 @@ class SamplePred {
 
    @return void, with output parameter vectors.
  */
-  inline void Buffers(int predIdx, unsigned int bufBit, SampleRank *&source, unsigned int *&sIdxSource, SampleRank *&targ, unsigned int *&sIdxTarg) {
-    source = Buffers(predIdx, bufBit, sIdxSource);
-    targ = Buffers(predIdx, 1 - bufBit, sIdxTarg);
+  inline void buffers(int predIdx,
+                      unsigned int bufBit,
+                      SampleRank *&source,
+                      unsigned int *&sIdxSource,
+                      SampleRank *&targ,
+                      unsigned int *&sIdxTarg) {
+    source = buffers(predIdx, bufBit, sIdxSource);
+    targ = buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
 
   // To coprocessor subclass:
-  inline void IndexBuffers(unsigned int predIdx, unsigned int bufBit, unsigned int *&sIdxSource, unsigned int *&sIdxTarg) {
-    sIdxSource = indexBase + BufferOff(predIdx, bufBit);
-    sIdxTarg = indexBase + BufferOff(predIdx, 1 - bufBit);
+  inline void indexBuffers(unsigned int predIdx,
+                           unsigned int bufBit,
+                           unsigned int *&sIdxSource,
+                           unsigned int *&sIdxTarg) {
+    sIdxSource = indexBase + bufferOff(predIdx, bufBit);
+    sIdxTarg = indexBase + bufferOff(predIdx, 1 - bufBit);
   }
   
 
@@ -230,9 +295,12 @@ class SamplePred {
 
      @return true iff cell consists of a single rank.
    */
-  inline bool SingleRank(unsigned int predIdx, unsigned int bufIdx, unsigned int idxStart, unsigned int extent) {
-    SampleRank *spNode = BufferNode(predIdx, bufIdx);
-    return extent > 0 ? (spNode[idxStart].Rank() == spNode[extent - 1].Rank()) : false;
+  inline bool singleRank(unsigned int predIdx,
+                         unsigned int bufIdx,
+                         unsigned int idxStart,
+                         unsigned int extent) {
+    SampleRank *spNode = bufferNode(predIdx, bufIdx);
+    return extent > 0 ? (spNode[idxStart].getRank() == spNode[extent - 1].getRank()) : false;
   }
 
 
@@ -247,8 +315,9 @@ class SamplePred {
      @return true iff entire staged set has single rank.  This might be
      a property of the training data or may arise from bagging. 
   */
-  bool Singleton(unsigned int stageCount, unsigned int predIdx) {
-    return bagCount == stageCount ? SingleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
+  bool singleton(unsigned int stageCount,
+                 unsigned int predIdx) {
+    return bagCount == stageCount ? singleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
   }
 };
 

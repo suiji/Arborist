@@ -14,6 +14,7 @@
  */
 
 #include "samplepred.h"
+#include "splitcand.h"
 #include "sample.h"
 #include "rowrank.h"
 #include "path.h"
@@ -26,7 +27,17 @@
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int _bufferSize) : bufferSize(_bufferSize), pitchSP(bagCount * sizeof(SamplePred)), pitchSIdx(_bagCount * sizeof(unsigned int)), pathIdx(bufferSize), nPred(_nPred), bagCount(_bagCount) {
+SamplePred::SamplePred(unsigned int _nPred,
+                       unsigned int _bagCount,
+                       unsigned int _bufferSize) :
+  nPred(_nPred),
+  bufferSize(_bufferSize),
+  pitchSP(bagCount * sizeof(SamplePred)),
+  pitchSIdx(_bagCount * sizeof(unsigned int)),
+  pathIdx(bufferSize),
+  stageOffset(nPred),
+  stageExtent(nPred),
+  bagCount(_bagCount) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SampleRank[2 * bufferSize];
 
@@ -34,8 +45,6 @@ SamplePred::SamplePred(unsigned int _nPred, unsigned int _bagCount, unsigned int
   destRestage = new unsigned int[bufferSize];
   destSplit = new unsigned int[bufferSize];
   
-  stageOffset.reserve(nPred);
-  stageExtent.reserve(nPred);
 }
 
 
@@ -54,21 +63,36 @@ SamplePred::~SamplePred() {
 /**
    @brief Sets staging boundaries for a given predictor.
 
-   @return voidl
+   @return 
  */
-SampleRank *SamplePred::StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx) {
+SampleRank *SamplePred::StageBounds(unsigned int predIdx,
+                                    unsigned int safeOffset,
+                                    unsigned int extent,
+                                    unsigned int*& smpIdx) {
   stageOffset[predIdx] = safeOffset;
   stageExtent[predIdx] = extent;
 
-  return  Buffers(predIdx, 0, smpIdx);
+  return buffers(predIdx, 0, smpIdx);
 
 }
 
 // TODO:  Merge
-void SamplePred::Stage(const class RRNode *rrNode, unsigned int rrTot, const vector<class SampleNux> &sampleNode, const vector<unsigned int> &row2Sample, vector<StageCount> &stageCount) {}
+void SamplePred::Stage(const class RRNode *rrNode,
+                       unsigned int rrTot,
+                       const vector<class SampleNux>& sampleNode,
+                       const vector<unsigned int>& row2Sample,
+                       vector<StageCount>& stageCount) {}
 
 
-unsigned int SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode *rrPred, const vector<unsigned int> &row2Sample, unsigned int explMax, unsigned int predIdx, unsigned int safeOffset, unsigned int extent, bool &singleton) {
+unsigned int SamplePred::Stage(const vector<SampleNux>&
+                               sampleNode,
+                               const RRNode *rrPred,
+                               const vector<unsigned int>& row2Sample,
+                               unsigned int explMax,
+                               unsigned int predIdx,
+                               unsigned int safeOffset,
+                               unsigned int extent,
+                               bool& isSingleton) {
   unsigned int *smpIdx;
   SampleRank *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
   unsigned int expl = 0;
@@ -76,7 +100,7 @@ unsigned int SamplePred::Stage(const vector<SampleNux> &sampleNode, const RRNode
     Stage(sampleNode, rrPred[idx], row2Sample, spn, smpIdx, expl);
   }
 
-  singleton = Singleton(expl, predIdx);
+  isSingleton = singleton(expl, predIdx);
   return expl;
 }
 
@@ -106,7 +130,7 @@ void SamplePred::Stage(const vector<SampleNux> &sampleNode,
 
   unsigned int sIdx = row2Sample[row];
   if (sIdx < bagCount) {
-    spn[expl].Join(rank, sampleNode[sIdx]);
+    spn[expl].join(rank, sampleNode[sIdx]);
     smpIdx[expl] = sIdx;
     expl++;
   }
@@ -131,25 +155,29 @@ void SamplePred::Stage(const vector<SampleNux> &sampleNode,
 
    @return sum of responses within the block.
  */
-double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, unsigned int start, unsigned int extent, BV *replayExpl, vector<SumCount> &ctgExpl) {
+double SamplePred::blockReplay(const SplitCand& argMax,
+                               unsigned int blockStart,
+                               unsigned int blockExtent,
+                               BV *replayExpl,
+                               vector<SumCount> &ctgExpl) {
   unsigned int *idx;
-  SampleRank *spn = Buffers(predIdx, sourceBit, idx);
+  SampleRank *spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
 
   double sumExpl = 0.0;
   if (!ctgExpl.empty()) {
-    for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
+    for (unsigned int spIdx = blockStart; spIdx < blockStart + blockExtent; spIdx++) {
       FltVal ySum;
       unsigned int yCtg;
-      unsigned sCount = spn[spIdx].CtgFields(ySum, yCtg);
+      unsigned sCount = spn[spIdx].ctgFields(ySum, yCtg);
       ctgExpl[yCtg].Accum(ySum, sCount);
       sumExpl += ySum;
-      replayExpl->SetBit(idx[spIdx]);
+      replayExpl->setBit(idx[spIdx]);
     }
   }
   else {
-    for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
-      sumExpl += spn[spIdx].YSum();
-      replayExpl->SetBit(idx[spIdx]);
+    for (unsigned int spIdx = blockStart; spIdx < blockStart + blockExtent; spIdx++) {
+      sumExpl += spn[spIdx].getYSum();
+      replayExpl->setBit(idx[spIdx]);
     }
   }
 
@@ -163,8 +191,16 @@ double SamplePred::BlockReplay(unsigned int predIdx, unsigned int sourceBit, uns
 
    @return void.
  */
-void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int pathCount[]) {
-  Prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, BufferIndex(predIdx, bufIdx), &pathIdx[StageOffset(predIdx)], pathCount);
+void SamplePred::Prepath(const IdxPath *idxPath,
+                         const unsigned int reachBase[],
+                         unsigned int predIdx,
+                         unsigned int bufIdx,
+                         unsigned int startIdx,
+                         unsigned int extent,
+                         unsigned int pathMask,
+                         bool idxUpdate,
+                         unsigned int pathCount[]) {
+  Prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
 }
 
 /**
@@ -192,7 +228,15 @@ void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int reachBase[],
 
    @return void.
  */
-void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int *reachBase, bool idxUpdate, unsigned int startIdx, unsigned int extent, unsigned int pathMask, unsigned int idxVec[], PathT prepath[], unsigned int pathCount[]) const {
+void SamplePred::Prepath(const IdxPath *idxPath,
+                         const unsigned int *reachBase,
+                         bool idxUpdate,
+                         unsigned int startIdx,
+                         unsigned int extent,
+                         unsigned int pathMask,
+                         unsigned int idxVec[],
+                         PathT prepath[],
+                         unsigned int pathCount[]) const {
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     PathT path = idxPath->IdxUpdate(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
@@ -208,8 +252,11 @@ void SamplePred::Prepath(const IdxPath *idxPath, const unsigned int *reachBase, 
 
    @return void.
  */
-void SamplePred::Restage(Level *levelBack, Level *levelFront, const SPPair &mrra, unsigned int bufIdx) {
-  levelBack->RankRestage(this, mrra, levelFront, bufIdx);
+void SamplePred::Restage(Level *levelBack,
+                         Level *levelFront,
+                         const SPPair &mrra,
+                         unsigned int bufIdx) {
+  levelBack->rankRestage(this, mrra, levelFront, bufIdx);
 }
 
 
@@ -218,17 +265,23 @@ void SamplePred::Restage(Level *levelBack, Level *levelFront, const SPPair &mrra
 
    @return void.
  */
-void SamplePred::RankRestage(unsigned int predIdx, unsigned int bufIdx, unsigned int startIdx, unsigned int extent, unsigned int reachOffset[], unsigned int rankPrev[], unsigned int rankCount[]) {
+void SamplePred::rankRestage(unsigned int predIdx,
+                             unsigned int bufIdx,
+                             unsigned int startIdx,
+                             unsigned int extent,
+                             unsigned int reachOffset[],
+                             unsigned int rankPrev[],
+                             unsigned int rankCount[]) {
   SampleRank *source, *targ;
   unsigned int *idxSource, *idxTarg;
-  Buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
+  buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
 
-  PathT *pathBlock = &pathIdx[StageOffset(predIdx)];
+  PathT *pathBlock = &pathIdx[getStageOffset(predIdx)];
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int path = pathBlock[idx];
     if (path != NodePath::noPath) {
       SampleRank spNode = source[idx];
-      unsigned int rank = spNode.Rank();
+      unsigned int rank = spNode.getRank();
       rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
       rankPrev[path] = rank;
       unsigned int destIdx = reachOffset[path]++;
@@ -239,9 +292,18 @@ void SamplePred::RankRestage(unsigned int predIdx, unsigned int bufIdx, unsigned
 }
 
 
-void SamplePred::IndexRestage(const IdxPath *idxPath, const unsigned int reachBase[], unsigned int predIdx, unsigned int bufIdx, unsigned int idxStart, unsigned int extent, unsigned int pathMask, bool idxUpdate, unsigned int reachOffset[], unsigned int splitOffset[]) {
+void SamplePred::IndexRestage(const IdxPath *idxPath,
+                              const unsigned int reachBase[],
+                              unsigned int predIdx,
+                              unsigned int bufIdx,
+                              unsigned int idxStart,
+                              unsigned int extent,
+                              unsigned int pathMask,
+                              bool idxUpdate,
+                              unsigned int reachOffset[],
+                              unsigned int splitOffset[]) {
   unsigned int *idxSource, *idxTarg;
-  IndexBuffers(predIdx, bufIdx, idxSource, idxTarg);
+  indexBuffers(predIdx, bufIdx, idxSource, idxTarg);
 
   for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
     unsigned int sIdx = idxSource[idx];

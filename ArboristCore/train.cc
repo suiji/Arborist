@@ -22,9 +22,9 @@
 #include "index.h"
 #include "pretree.h"
 #include "samplepred.h"
-#include "splitsig.h"
 #include "response.h"
 #include "splitpred.h"
+#include "splitcand.h"
 #include "leaf.h"
 #include "level.h"
 #include "coproc.h"
@@ -103,7 +103,7 @@ void Train::InitSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio) {
   IndexLevel::Immutables(minNode, totLevels);
-  SplitSig::Immutables(minRatio);
+  SplitCand::immutables(minRatio);
 }
 
 
@@ -113,7 +113,7 @@ void Train::InitSplit(unsigned int minNode,
    @return void.
  */
 void Train::InitCtgWidth(unsigned int ctgWidth) {
-  SampleNux::Immutables(ctgWidth);
+  SampleNux::immutables(ctgWidth);
 }
 
 
@@ -133,12 +133,12 @@ void Train::InitMono(const vector<double> &regMono) {
 void Train::DeInit() {
   trainBlock = 0;
   ForestNode::DeImmutables();
-  SplitSig::DeImmutables();
+  SplitCand::deImmutables();
   IndexLevel::DeImmutables();
   LeafTrain::DeImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
-  SampleNux::DeImmutables();
+  SampleNux::deImmutables();
   Level::DeImmutables();
   SPReg::DeImmutables();
 }
@@ -153,7 +153,7 @@ void Train::DeInit() {
 
    @param minRatio is the minimum information ratio of a node to its parent.
 
-   @return forest height, with output reference parameter.
+   @return regression-style object.
 */
 unique_ptr<TrainReg> Train::Regression(const FrameTrain *frameTrain,
                                        const RankedSet *rankedPair,
@@ -281,7 +281,7 @@ void Train::TreeBlock(const FrameTrain *frameTrain,
   for (auto & pair : treeBlock) {
     auto treeBag = bagRow->BVRow(tIdx++);
     auto sample = response->RootSample(rowRank, treeBag.get());
-    auto preTree = IndexLevel::OneTree(frameTrain, sample, rowRank);
+    auto preTree = IndexLevel::oneTree(frameTrain, sample, rowRank);
     pair = make_pair(sample, preTree);
   }
 
@@ -315,7 +315,7 @@ void Train::Reserve(vector<TrainPair> &treeBlock) {
    @brief Accumulates block size parameters as clues to forest-wide sizes.
    Estimates improve with larger blocks, at the cost of higher memory footprint.
 
-   @return sum of tree sizes over block, plus output parameters.
+   @return sum of tree sizes over block.
  */
 unsigned int Train::BlockPeek(vector<TrainPair> &treeBlock,
                               unsigned int &blockFac,

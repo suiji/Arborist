@@ -15,7 +15,9 @@
 
 #include "runset.h"
 #include "callback.h"
-
+#include "splitcand.h"
+#include "pretree.h"
+#include "index.h"
 
 unsigned int RunSet::ctgWidth = 0;
 unsigned int RunSet::noStart = 0;
@@ -58,13 +60,20 @@ unsigned int RunSet::noStart = 0;
    @brief Constructor initializes predictor run length either to cardinality, 
    for factors, or to a nonsensical zero, for numerical.
  */
-Run::Run(unsigned int ctgWidth_, unsigned int nRow, unsigned int noCand) : noRun(noCand), rvWide(vector<double>(0)), ctgWidth(ctgWidth_) {
+Run::Run(unsigned int ctgWidth_,
+         unsigned int nRow,
+         unsigned int noCand) :
+  noRun(noCand),
+  setCount(0),
+  runSet(vector<RunSet>(0)),
+  facRun(vector<FRNode>(0)),
+  bHeap(vector<BHPair>(0)),
+  lhOut(vector<unsigned int>(0)),
+  ctgSum(vector<double>(0)),
+  rvWide(vector<double>(0)),
+  ctgWidth(ctgWidth_) {
   RunSet::ctgWidth = ctgWidth;
   RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
-  facRun = 0;
-  bHeap = 0;
-  lhOut = 0;
-  ctgSum = 0;
 }
 
 
@@ -75,12 +84,16 @@ Run::Run(unsigned int ctgWidth_, unsigned int nRow, unsigned int noCand) : noRun
 
    @return void.
  */
-void Run::RunSets(const vector<unsigned int> &safeCount) {
+void Run::runSets(const vector<unsigned int> &safeCount) {
   setCount = safeCount.size();
   runSet = move(vector<RunSet>(setCount));
   for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
-    CountSafe(setIdx, safeCount[setIdx]);
+    countSafe(setIdx, safeCount[setIdx]);
   }
+}
+
+bool Run::isRun(const SplitCand& cand) const {
+  return isRun(cand.getSetIdx());
 }
 
 
@@ -89,21 +102,22 @@ void Run::RunSets(const vector<unsigned int> &safeCount) {
 
    @return void.
  */
-void Run::OffsetsReg() {
+void Run::offsetsReg(const vector<unsigned int> &safeCount) {
+  runSets(safeCount);
   if (setCount == 0)
     return;
 
   unsigned int runCount = 0;
   for (auto & rs : runSet) {
-    rs.OffsetCache(runCount, runCount, runCount);
-    runCount += rs.CountSafe();
+    rs.offsetCache(runCount, runCount, runCount);
+    runCount += rs.getSafeCount();
   }
 
-  facRun = new FRNode[runCount];
-  bHeap = new BHPair[runCount];
-  lhOut = new unsigned int[runCount];
+  facRun = move(vector<FRNode>(runCount));
+  bHeap = move(vector<BHPair>(runCount));
+  lhOut = move(vector<unsigned int>(runCount));
 
-  Reset();
+  reBase();
 }
 
 
@@ -113,7 +127,8 @@ void Run::OffsetsReg() {
    @return void.
 
 */
-void Run::OffsetsCtg() {
+void Run::offsetsCtg(const vector<unsigned int> &safeCount) {
+  runSets(safeCount);
   if (setCount == 0)
     return;
 
@@ -122,38 +137,37 @@ void Run::OffsetsCtg() {
   unsigned int heapRuns = 0; // Runs subject to sorting.
   unsigned int outRuns = 0; // Sorted runs of interest.
   for (auto & rs : runSet) {
-    unsigned int rCount = rs.CountSafe();
+    unsigned int rCount = rs.getSafeCount();
     if (ctgWidth == 2) { // Binary uses heap for all runs.
-      rs.OffsetCache(runCount, heapRuns, outRuns);
+      rs.offsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
       outRuns += rCount;
     }
     else if (rCount > RunSet::maxWidth) {
-      rs.OffsetCache(runCount, heapRuns, outRuns);
+      rs.offsetCache(runCount, heapRuns, outRuns);
       heapRuns += rCount;
       outRuns += RunSet::maxWidth;
     }
     else {
-      rs.OffsetCache(runCount, 0, outRuns);
+      rs.offsetCache(runCount, 0, outRuns);
       outRuns += rCount;
     }
     runCount += rCount;
   }
 
   unsigned int boardWidth = runCount * ctgWidth; // Checkerboard.
-  ctgSum = new double[boardWidth];
-  for (unsigned int i = 0; i < boardWidth; i++)
-    ctgSum[i] = 0.0;
+  ctgSum = move(vector<double>(boardWidth));
+  fill(ctgSum.begin(), ctgSum.end(), 0.0);
 
   if (ctgWidth > 2 && heapRuns > 0) { // Wide non-binary:  w.o. replacement.
     rvWide = move(CallBack::rUnif(heapRuns));
   }
 
-  facRun = new FRNode[runCount];
-  bHeap = new BHPair[heapRuns];
-  lhOut = new unsigned int[outRuns];
+  facRun = move(vector<FRNode>(runCount));
+  bHeap = move(vector<BHPair>(runCount));
+  lhOut = move(vector<unsigned int>(runCount));
 
-  Reset();
+  reBase();
 }
 
 
@@ -162,28 +176,50 @@ void Run::OffsetsCtg() {
 
    @return void.
  */
-void Run::Reset() {
+void Run::reBase() {
   for (auto & rs  : runSet) {
-    rs.Reset(facRun, bHeap, lhOut, ctgSum, &rvWide[0]);
+    rs.reBase(facRun, bHeap, lhOut, ctgSum, rvWide);
+  }
+}
+
+bool Run::replay(const SplitCand& argMax,
+                 IndexSet* iSet,
+                 PreTree* preTree,
+                 const IndexLevel* index) const {
+  preTree->branchFac(argMax, iSet->getPTId());
+  auto setIdx = argMax.getSetIdx();
+  if (runSet[setIdx].implicitLeft()) {// LH holds bits, RH holds replay indices.
+    for (unsigned int outSlot = 0; outSlot < getRunCount(setIdx); outSlot++) {
+      if (outSlot < getRunsLH(setIdx)) {
+        preTree->LHBit(iSet->getPTId(), getRank(setIdx, outSlot));
+      }
+      else {
+        unsigned int runStart, runExtent;
+        runBounds(setIdx, outSlot, runStart, runExtent);
+        index->blockReplay(iSet, argMax, runStart, runExtent);
+      }
+    }
+    return false;
+  }
+  else { // LH runs hold both bits and replay indices.
+    for (unsigned int outSlot = 0; outSlot < getRunsLH(setIdx); outSlot++) {
+      preTree->LHBit(iSet->getPTId(), getRank(setIdx, outSlot));
+      unsigned int runStart, runExtent;
+      runBounds(setIdx, outSlot, runStart, runExtent);
+      index->blockReplay(iSet, argMax, runStart, runExtent);
+    }
+    return true;
   }
 }
 
 
-void Run::LevelClear() {
-  if (setCount > 0) {
-    delete [] facRun;
-    delete [] lhOut;
-    if (ctgSum != 0)
-      delete [] ctgSum;
-    if (bHeap != 0)
-      delete [] bHeap;
-
-    facRun = 0;
-    lhOut = 0;
-    ctgSum = 0;
-    bHeap = 0;
-    setCount = 0;
-  }
+void Run::levelClear() {
+  runSet.clear();
+  facRun.clear();
+  lhOut.clear();
+  bHeap.clear();
+  ctgSum.clear();
+  rvWide.clear();
 }
 
 
@@ -191,23 +227,28 @@ void Run::LevelClear() {
    @brief Records only the (casted) relative vector offsets, as absolute
    base addresses not yet known.
  */
-void RunSet::OffsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff) {
+void RunSet::offsetCache(unsigned int _runOff,
+                         unsigned int _heapOff,
+                         unsigned int _outOff) {
   runOff = _runOff;
   heapOff = _heapOff;
   outOff = _outOff;
 }
 
 
-/**
-   @brief Updates relative vector addresses with their respective base
-   addresses, now known.
- */
-void RunSet::Reset(FRNode *runBase, BHPair *heapBase, unsigned int *outBase, double *ctgBase, double *rvBase) {
-  runZero = runBase + runOff;
-  heapZero = heapBase + heapOff;
-  outZero = outBase + outOff;
-  rvZero = rvBase + heapOff;
-  ctgZero = ctgBase + (runOff * ctgWidth);
+// N.B.:  Assumes that nonempty vectors have been allocated with
+// a conservative length.
+//
+void RunSet::reBase(vector<FRNode>& runBase,
+                    vector<BHPair>& heapBase,
+                    vector<unsigned int>& outBase,
+                    vector<double>& ctgBase,
+                    vector<double>& rvBase) {
+  runZero = &runBase[runOff];
+  heapZero = &heapBase[heapOff];
+  outZero = &outBase[outOff];
+  rvZero = rvBase.size() > 0 ? &rvBase[heapOff] : nullptr;
+  ctgZero = ctgBase.size() > 0 ?  &ctgBase[runOff * ctgWidth] : nullptr;
   runCount = 0;
 }
 
@@ -217,9 +258,9 @@ void RunSet::Reset(FRNode *runBase, BHPair *heapBase, unsigned int *outBase, dou
 
    @return void.
  */
-void RunSet::HeapRandom() {
+void RunSet::heapRandom() {
   for (unsigned int slot = 0; slot < runCount; slot++) {
-    BHeap::Insert(heapZero, slot, rvZero[slot]);
+    BHeap::insert(heapZero, slot, rvZero[slot]);
   }
 }
 
@@ -229,9 +270,9 @@ void RunSet::HeapRandom() {
 
    @return void.
  */
-void RunSet::HeapMean() {
+void RunSet::heapMean() {
   for (unsigned int slot = 0; slot < runCount; slot++) {
-    BHeap::Insert(heapZero, slot, runZero[slot].sum / runZero[slot].sCount);
+    BHeap::insert(heapZero, slot, runZero[slot].sum / runZero[slot].sCount);
   }
 }
 
@@ -241,14 +282,14 @@ void RunSet::HeapMean() {
 
    @return void.
  */
-void RunSet::HeapBinary() {
+void RunSet::heapBinary() {
   // Ordering by category probability is equivalent to ordering by
   // concentration, as weighting by priors does not affect oder.
   //
   // In the absence of class weighting, numerator can be (integer) slot
   // sample count, instead of slot sum.
   for (unsigned int slot = 0; slot < runCount; slot++) {
-    BHeap::Insert(heapZero, slot, SumCtg(slot, 1) / runZero[slot].sum);
+    BHeap::insert(heapZero, slot, getSumCtg(slot, 1) / runZero[slot].sum);
   }
 }
 
@@ -264,10 +305,10 @@ void RunSet::HeapBinary() {
 
    @return void.
  */
-void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[]) {
+void RunSet::writeImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[]) {
   if (nodeSum != 0) {
     for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      SumCtgSet(ctg, nodeSum[ctg]);
+      setSumCtg(ctg, nodeSum[ctg]);
     }
   }
 
@@ -276,12 +317,12 @@ void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, doubl
     sumTot -= runZero[runIdx].sum;
     if (nodeSum != 0) {
       for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-	AccumCtg(ctg, -SumCtg(runIdx, ctg));
+        accumCtg(ctg, -getSumCtg(runIdx, ctg));
       }
     }
   }
 
-  Write(denseRank, sCountTot, sumTot, denseCount);
+  write(denseRank, sCountTot, sumTot, denseCount);
 }
 
 
@@ -290,7 +331,7 @@ void RunSet::WriteImplicit(unsigned int denseRank, unsigned int sCountTot, doubl
 
    @return Whether this run is dense.
  */
-bool FRNode::IsImplicit() {
+bool FRNode::isImplicit() {
   return start == RunSet::noStart;
 }
 
@@ -312,13 +353,13 @@ bool FRNode::IsImplicit() {
 
    @return true iff right-hand runs must be exposed.
  */
-bool RunSet::ImplicitLeft() const {
+bool RunSet::implicitLeft() const {
   if (!hasImplicit)
     return false;
 
   for (unsigned int runIdx = 0; runIdx < runsLH; runIdx++) {
     unsigned int outSlot = outZero[runIdx];
-    if (runZero[outSlot].IsImplicit()) {
+    if (runZero[outSlot].isImplicit()) {
       return true;
     }
   }
@@ -334,8 +375,8 @@ bool RunSet::ImplicitLeft() const {
 
    @return void
 */
-void RunSet::DePop(unsigned int pop) {
-  return BHeap::Depopulate(heapZero, outZero, pop == 0 ? runCount : pop);
+void RunSet::dePop(unsigned int pop) {
+  return BHeap::depopulate(heapZero, outZero, pop == 0 ? runCount : pop);
 }
 
 
@@ -347,15 +388,15 @@ void RunSet::DePop(unsigned int pop) {
 
    @return post-shrink run count.
  */
-unsigned int RunSet::DeWide() {
+unsigned int RunSet::deWide() {
   if (runCount <= maxWidth)
     return runCount;
 
-  HeapRandom();
+  heapRandom();
   FRNode tempRun[maxWidth];
   double *tempSum = new double[ctgWidth * maxWidth];
   // Copies runs referenced by the slot list to a temporary area.
-  DePop(maxWidth);
+  dePop(maxWidth);
   for (unsigned int i = 0; i < maxWidth; i++) {
     unsigned int outSlot = outZero[i];
     tempRun[i] = runZero[outSlot];
@@ -386,9 +427,9 @@ unsigned int RunSet::DeWide() {
 
    @return LHS index count.
 */
-unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
+unsigned int RunSet::lHBits(unsigned int lhBits, unsigned int &lhSampCt) {
   unsigned int lhExtent = 0;
-  unsigned int slotSup = EffCount() - 1;
+  unsigned int slotSup = effCount() - 1;
   runsLH = 0;
   lhSampCt = 0;
   if (lhBits != 0) {
@@ -399,17 +440,17 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
       // is recorded in the out-set.
       //
       if ((lhBits & (1 << slot)) != 0) {
-	unsigned int sCount;
-        lhExtent += LHCounts(slot, sCount);
-	lhSampCt += sCount;
-	outZero[runsLH++] = slot;
+        unsigned int sCount;
+        lhExtent += lHCounts(slot, sCount);
+        lhSampCt += sCount;
+        outZero[runsLH++] = slot;
       }
     }
   }
 
-  if (ImplicitLeft()) {
+  if (implicitLeft()) {
     unsigned int rhIdx = runsLH;
-    for (unsigned int slot = 0; slot < EffCount(); slot++) {
+    for (unsigned int slot = 0; slot < effCount(); slot++) {
       if ((lhBits & (1 << slot)) == 0) {
         outZero[rhIdx++] = slot;
       }
@@ -429,13 +470,13 @@ unsigned int RunSet::LHBits(unsigned int lhBits, unsigned int &lhSampCt) {
 
    @return LHS index count.
 */
-unsigned int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
+unsigned int RunSet::lHSlots(int cut, unsigned int &lhSampCt) {
   unsigned int lhExtent = 0;
   lhSampCt = 0;
 
   for (int outSlot = 0; outSlot <= cut; outSlot++) {
     unsigned int sCount;
-    lhExtent += LHCounts(outZero[outSlot], sCount);
+    lhExtent += lHCounts(outZero[outSlot], sCount);
     lhSampCt += sCount;
   }
 
@@ -459,19 +500,19 @@ unsigned int RunSet::LHSlots(int cut, unsigned int &lhSampCt) {
 
    @return void.
  */
-void BHeap::Insert(BHPair pairVec[], unsigned int _slot, double _key) {
+void BHeap::insert(BHPair pairVec[], unsigned int _slot, double _key) {
   unsigned int idx = _slot;
   BHPair input;
   input.key = _key;
   input.slot = _slot;
   pairVec[idx] = input;
 
-  int parIdx = Parent(idx);
+  int parIdx = parent(idx);
   while (parIdx >= 0 && pairVec[parIdx].key > _key) {
     pairVec[idx] = pairVec[parIdx];
     pairVec[parIdx] = input;
     idx = parIdx;
-    parIdx = Parent(idx);
+    parIdx = parent(idx);
   }
 }
 
@@ -485,9 +526,9 @@ void BHeap::Insert(BHPair pairVec[], unsigned int _slot, double _key) {
 
    @return void.
 */
-void BHeap::Depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop) {
+void BHeap::depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop) {
   for (int bot = pop - 1; bot >= 0; bot--) {
-    lhOut[pop - (1 + bot)] = SlotPop(pairVec, bot);
+    lhOut[pop - (1 + bot)] = slotPop(pairVec, bot);
   }
 }
 
@@ -497,7 +538,7 @@ void BHeap::Depopulate(BHPair pairVec[], unsigned int lhOut[], unsigned int pop)
 
    @return popped value.
  */
-unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
+unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
   unsigned int ret = pairVec[0].slot;
   if (bot == 0)
     return ret;
@@ -532,17 +573,15 @@ unsigned int BHeap::SlotPop(BHPair pairVec[], int bot) {
 
      @param start outputs starting index of run.
 
-     @param end outputs ending index of run.
-
-     @return rank of referenced run, plus output reference parameters.
+     @param extent outputs the index extent of the run.
 */
-void RunSet::Bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
+void RunSet::bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
   unsigned int slot = outZero[outSlot];
-  runZero[slot].ReplayRef(start, extent);
+  runZero[slot].replayRef(start, extent);
 }
 
 
-unsigned int RunSet::Rank(unsigned int outSlot) const {
+unsigned int RunSet::getRank(unsigned int outSlot) const {
   unsigned int slot = outZero[outSlot];
-  return runZero[slot].Rank();
+  return runZero[slot].getRank();
 }

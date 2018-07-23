@@ -16,6 +16,7 @@
 
 #include "bv.h"
 #include "pretree.h"
+#include "splitcand.h"
 #include "forest.h"
 #include "framemap.h"
 #include "callback.h"
@@ -75,7 +76,9 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const FrameTrain *_frameTrain, unsigned int _bagCount) : frameTrain(_frameTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
+PreTree::PreTree(const FrameTrain *_frameTrain,
+                 unsigned int _bagCount) :
+  frameTrain(_frameTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
   nodeCount = heightEst;   // Initial height estimate.
   nodeVec = new PTNode[nodeCount];
   splitBits = BitFactory();
@@ -101,7 +104,7 @@ PreTree::~PreTree() {
    @return void.
 */
 void PreTree::LHBit(int idx, unsigned int pos) {
-  splitBits->SetBit(nodeVec[idx].splitVal.offset + pos);
+  splitBits->setBit(nodeVec[idx].splitVal.offset + pos);
 }
 
 
@@ -142,27 +145,24 @@ BV *PreTree::BitFactory() {
 
    @return void.
 */
-void PreTree::BranchFac(double info, unsigned int predIdx, unsigned int id) {
-  nodeVec[id].SplitFac(predIdx, height - id, bitEnd, info);
+void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
+  nodeVec[id].SplitFac(argMax.getPredIdx(), height - id, bitEnd, argMax.getInfo());
   TerminalOffspring();
-  bitEnd += frameTrain->FacCard(predIdx);
+  bitEnd += frameTrain->FacCard(argMax.getPredIdx());
 }
 
 
-/**
-   @brief Finalizes numeric-valued nonterminal.
-
-   @param _info is the splitting information content.
-
-   @param _predIdx is the splitting predictor index.
-
-   @param _id is the node index.
-
-   @return void.
-*/
-void PreTree::BranchNum(double info, unsigned int predIdx, RankRange rankRange, unsigned int id) {
-  nodeVec[id].SplitNum(predIdx, height - id, rankRange, info);
+void PreTree::branchNum(const SplitCand &argMax, unsigned int id) {
+  nodeVec[id].splitNum(argMax, height - id);
   TerminalOffspring();
+}
+
+
+void PTNode::splitNum(const SplitCand &cand, unsigned int lhDel) {
+  this->predIdx = cand.getPredIdx();
+  this->lhDel = lhDel;
+  this->splitVal.rankRange = cand.getRankRange();
+  this->info = cand.getInfo();
 }
 
 
@@ -356,7 +356,7 @@ unsigned int PreTree::LeafMerge() {
     if (NonTerminal(ptId)) {
       ptMerge[LHId(ptId)].parId = ptMerge[RHId(ptId)].parId = ptId;
       if (Mergeable(ptId)) {
-	infoQueue.push(merge);
+        infoQueue.push(merge);
       }
     }
   }
@@ -385,10 +385,10 @@ unsigned int PreTree::LeafMerge() {
       ptMerge[LHId(ptId)].root = ptMerge[RHId(ptId)].root = root;
     }
     if (root == height || root == ptId) { // Unmerged or root:  retained.
-      nodeVec[ptId].SetTerminal(); // Will reset if encountered as parent.
+      nodeVec[ptId].setTerminal(); // Will reset if encountered as parent.
       if (ptMerge[ptId].descLH) {
-	unsigned int parId = ptMerge[ptId].parId;
-	nodeVec[parId].SetNonterminal(heightMerged - ptMerge[parId].idMerged);
+        unsigned int parId = ptMerge[ptId].parId;
+        nodeVec[parId].setNonterminal(heightMerged - ptMerge[parId].idMerged);
       }
       ptMerge[ptId].idMerged = heightMerged++;
     }

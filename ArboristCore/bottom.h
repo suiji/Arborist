@@ -152,7 +152,7 @@ class Bottom {
 
      @return void.
   */
-  void LevelInit(class IndexLevel *index);
+  void levelInit(class IndexLevel *index);
 
 
   /**
@@ -160,7 +160,7 @@ class Bottom {
 
      @return void.
   */
-  void LevelClear();
+  void levelClear();
 
 
   
@@ -168,9 +168,10 @@ class Bottom {
   /**
      @brief Entry to spltting and restaging.
 
-     @return void, with output vector of splitting signatures.
+     @return vector of maximal-information splitting candidates.
   */
-  void Split(class SamplePred *samplePred, class IndexLevel *index, vector<class SSNode> &argMax);
+  vector<class SplitCand> split(class SamplePred *samplePred,
+                                 class IndexLevel *index);
 
   
   /**
@@ -205,8 +206,12 @@ class Bottom {
 
      @return void.
   */
-  void ReachingPath(unsigned int levelIdx, unsigned int parIdx, unsigned int start, unsigned int extent, unsigned int ptId, unsigned int path);
-
+  void reachingPath(unsigned int levelIdx,
+                    unsigned int parIdx,
+                    unsigned int start,
+                    unsigned int extent,
+                    unsigned int ptId,
+                    unsigned int path);
   
   /**
      @brief Flushes non-reaching definitions as well as those about
@@ -214,7 +219,7 @@ class Bottom {
 
      @return highest level not flushed.
   */
-  unsigned int FlushRear();
+  unsigned int flushRear();
 
 
   /**
@@ -265,7 +270,7 @@ class Bottom {
 
      @return void.
   */
-  void SetExtinct(unsigned int stIdx);
+  void setExtinct(unsigned int stIdx);
 
 
   /**
@@ -278,27 +283,13 @@ class Bottom {
 
      @return void.
   */
-  void SetExtinct(unsigned int nodeIdx, unsigned int stIdx);
-
-
-  /**
-     @brief Passes pre-bias computation for an index set through to SplitPred.
-
-     @param splitIdx is the level-relative node index.
-
-     @param sum is the sum of responses over an index set.
-
-     @param sCount is the sum of sampled indices over an index set.
-
-     @return pre-bias value derived from SplitPred.
-  */
-  double Prebias(unsigned int splitIdx, double sum, unsigned int sCount) const;
+  void setExtinct(unsigned int nodeIdx, unsigned int stIdx);
 
   
   /**
      @brief Accessor for 'run' field.  SSNode only client.
    */
-  inline class Run *Runs() const {
+  inline class Run *getRuns() const {
     return run;
   }
 
@@ -328,7 +319,7 @@ class Bottom {
 
      @return count of splitable nodes at level of interest.
   */
-  unsigned int SplitCount(unsigned int del) const;
+  unsigned int getSplitCount(unsigned int del) const;
 
   
   /**
@@ -348,7 +339,7 @@ class Bottom {
 
      @return true iff the pair is a singleton.
    */
-  bool Singleton(unsigned int levelIdx, unsigned int predIdx) const;
+  bool isSingleton(unsigned int levelIdx, unsigned int predIdx) const;
 
 
   /**
@@ -368,7 +359,10 @@ class Bottom {
 
      @return 
   */
-  unsigned int AdjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const;
+  unsigned int adjustDense(unsigned int levelIdx,
+                           unsigned int predIdx,
+                           unsigned int &startIdx,
+                           unsigned int &extent) const;
 
   
   /**
@@ -390,7 +384,7 @@ class Bottom {
 
    @return void.
  */
-  void ReachFlush(unsigned int splitIdx, unsigned int predIdx) const;
+  void reachFlush(unsigned int splitIdx, unsigned int predIdx) const;
 
 
   /**
@@ -402,13 +396,15 @@ class Bottom {
 
      @return level-relative index of ancestor node.
  */
-  unsigned int History(const Level *reachLevel, unsigned int splitIdx) const;
+  unsigned int History(const Level *reachLevel,
+                       unsigned int splitIdx) const;
 
   
   /**
      @brief Looks up the level containing the MRRA of a pair.
    */
-  inline class Level *ReachLevel(unsigned int levelIdx, unsigned int predIdx) const {
+  inline class Level *reachLevel(unsigned int levelIdx,
+                                 unsigned int predIdx) const {
     return level[levelDelta[levelIdx * nPred + predIdx]];
   }
 
@@ -416,7 +412,7 @@ class Bottom {
   /**
      @brief Accessof for splitable node count in front level.
    */
-  inline unsigned int SplitCount() const {
+  inline unsigned int getSplitCount() const {
     return splitCount;
   }
 

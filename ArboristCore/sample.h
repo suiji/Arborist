@@ -50,7 +50,7 @@ class SumCount {
   /**
      @brief Subtracts contents of vector passed.
    */
-  void Decr(const SumCount &subtrahend) {
+  void decr(const SumCount &subtrahend) {
     sum -= subtrahend.sum;
     sCount -= subtrahend.sCount;
   }
@@ -139,8 +139,8 @@ class Sample {
   /**
      @brief References leaf-specific fields.
    */
-  inline void RefLeaf(unsigned int sIdx, FltVal &_sum, unsigned int &_ctg) const {
-    _ctg = sampleNode[sIdx].RefLeaf(_sum);
+  inline void refLeaf(unsigned int sIdx, FltVal &_sum, unsigned int &_ctg) const {
+    _ctg = sampleNode[sIdx].refLeaf(_sum);
   }
 
   
@@ -168,7 +168,7 @@ class SampleReg : public Sample {
                         unsigned int sCount,
                         unsigned int ctg) {
     SampleNux sNode;
-    double ySum = sNode.Init(yVal, sCount);
+    double ySum = sNode.init(yVal, sCount);
     sampleNode[sIdx] = sNode;
 
     return ySum;
@@ -197,7 +197,7 @@ class SampleCtg : public Sample {
 
   inline double setNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNux sNode;
-    double ySum = sNode.Init(yVal, sCount, ctg);
+    double ySum = sNode.init(yVal, sCount, ctg);
     sampleNode[sIdx] = sNode;
     ctgRoot[ctg].Accum(ySum, sCount);
 

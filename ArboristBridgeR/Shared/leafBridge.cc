@@ -237,9 +237,11 @@ NumericMatrix LeafRegBridge::QPred(const Quant *quant) {
    
    @param yPred is the prediction.
 
-   @param rsq outputs the r-squared statistic.
+   @param rsq[out] is the r-squared statistic.
 
-   @return mean squared error, with output parameter.
+   @param mae[out] is the mean absolute error.
+
+   @return mean squared error.
  */
 double LeafRegBridge::MSE(const vector<double> &yPred,
                           const NumericVector &yTest,

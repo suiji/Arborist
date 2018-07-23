@@ -233,7 +233,7 @@ void RowRank::Stage(const vector<SampleNux> &sampleNode,
 		    unsigned int predIdx,
 		    StageCount &stageCount) const {
   unsigned int extent;
-  unsigned int safeOffset = SafeOffset(predIdx, samplePred->BagCount(), extent);
+  unsigned int safeOffset = SafeOffset(predIdx, samplePred->getBagCount(), extent);
 
   stageCount.expl = samplePred->Stage(sampleNode, &rrNode[rrStart[predIdx]], row2Sample, ExplicitCount(predIdx), predIdx, safeOffset, extent, stageCount.singleton);
 }

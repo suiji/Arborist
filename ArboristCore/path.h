@@ -206,7 +206,7 @@ class IdxPath {
 
      @return void.
    */
-  inline void SetExtinct(unsigned int idx) {
+  inline void setExtinct(unsigned int idx) {
     Set(idx, maskExtinct, idxLive);
   }
 
@@ -315,7 +315,7 @@ class IdxPath {
       unsigned int oneIdx;
       if (FrontLive(idx, oneIdx)) {
         if (!one2Front->CopyLive(this, oneIdx, idx)) {
-	  SetExtinct(idx);
+	  setExtinct(idx);
 	}
       }
     }

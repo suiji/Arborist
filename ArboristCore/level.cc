@@ -28,12 +28,12 @@ unsigned int Level::predFixed = 0;
 vector<double> Level::predProb;
 
 Level::Level(unsigned int _nSplit,
-	     unsigned int _nPred,
-	     const vector<unsigned int> &_denseIdx,
-	     unsigned int _nPredDense,
-	     unsigned int bagCount,
-	     unsigned int _idxLive,
-	     bool _nodeRel, Bottom *_bottom) :
+             unsigned int _nPred,
+             const vector<unsigned int> &_denseIdx,
+             unsigned int _nPredDense,
+             unsigned int bagCount,
+             unsigned int _idxLive,
+             bool _nodeRel, Bottom *_bottom) :
   nPred(_nPred),
   denseIdx(_denseIdx),
   nPredDense(_nPredDense),
@@ -80,7 +80,7 @@ bool Level::NonreachPurge() {
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     if (liveCount[mrraIdx] == 0) {
       for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-        Undefine(mrraIdx, predIdx); // Harmless if already undefined.
+        undefine(mrraIdx, predIdx); // Harmless if already undefined.
         purged = true;
       }
     }
@@ -97,16 +97,16 @@ bool Level::NonreachPurge() {
 
    @return void.
  */
-void Level::Flush(bool forward) {
+void Level::flush(bool forward) {
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
       if (!Defined(mrraIdx, predIdx))
-	continue;
+        continue;
       if (forward) {
-	FlushDef(mrraIdx, predIdx);
+        flushDef(mrraIdx, predIdx);
       }
       else {
-	Undefine(mrraIdx, predIdx);
+        undefine(mrraIdx, predIdx);
       }
     }
   }
@@ -121,7 +121,7 @@ void Level::Flush(bool forward) {
 
    @return void.
  */
-void Level::FlushDef(unsigned int mrraIdx, unsigned int predIdx) {
+void Level::flushDef(unsigned int mrraIdx, unsigned int predIdx) {
   if (del == 0) // Already flushed to front level.
     return;
 
@@ -148,7 +148,7 @@ void Level::FrontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bu
  */
 void Level::Bounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
   indexAnc[mrra.first].Ref(startIdx, extent);
-  (void) AdjustDense(mrra.first, mrra.second, startIdx, extent);
+  (void) adjustDense(mrra.first, mrra.second, startIdx, extent);
 }
 
 
@@ -197,7 +197,7 @@ void Level::PackDense(unsigned int idxLeft, const unsigned int pathCount[], Leve
 
    @return path origin at the index passed.
  */
-void Level::OffsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]) {
+void Level::offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]) {
   unsigned int nodeStart = BackScale(mrra.first);
   for (unsigned int i = 0; i < BackScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].IdxStart();
@@ -277,8 +277,8 @@ void Level::Paths() {
 }
 
 
-void Level::SetExtinct(unsigned int idx) {
-  relPath->SetExtinct(idx);
+void Level::setExtinct(unsigned int idx) {
+  relPath->setExtinct(idx);
 }
 
 
@@ -301,21 +301,16 @@ void Level::SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, u
 }
 
 
-/**
-   @brief Schedules a non-singleton for splitting.
-
-   @param splitIdx
-
-   @param predIdx
-
-   @return true iff pair scheduled for splitting.
- */
-bool Level::Preschedule(SplitPred *splitPred, unsigned int splitIdx, unsigned int predIdx, unsigned int extent, unsigned int &spanCand) {
-  bottom->ReachFlush(splitIdx, predIdx);
+bool Level::preschedule(SplitPred *splitPred,
+                        unsigned int splitIdx,
+                        unsigned int predIdx,
+                        unsigned int extent,
+                        unsigned int &spanCand) {
+  bottom->reachFlush(splitIdx, predIdx);
 
   unsigned int bufIdx;
-  if (!Singleton(splitIdx, predIdx, bufIdx)) {
-    splitPred->Preschedule(splitIdx, predIdx, bufIdx);
+  if (!isSingleton(splitIdx, predIdx, bufIdx)) {
+    splitPred->preSchedule(splitIdx, predIdx, bufIdx);
     offCand[PairOffset(splitIdx, predIdx)] = spanCand;
     spanCand += extent;
     return true;
@@ -324,21 +319,8 @@ bool Level::Preschedule(SplitPred *splitPred, unsigned int splitIdx, unsigned in
 }
 
 
-/**
-   @brief Determines whether a cell is suitable for splitting.  It may,
-   for example, have become unsplitiable as a result of restaging's
-   precipitating a singleton instance.
-
-   @param levelIdx is the split index.
-
-   @param predIdx is the predictor index.
-
-   @param runCount outputs the run count iff not singleton.
-
-   @return true iff candidate remains splitable.
- */
-bool Level::ScheduleSplit(unsigned int splitIdx, unsigned int predIdx, unsigned int &rCount) const {
-  if (!Singleton(splitIdx, predIdx)) {
+bool Level::scheduleSplit(unsigned int splitIdx, unsigned int predIdx, unsigned int &rCount) const {
+  if (!isSingleton(splitIdx, predIdx)) {
     rCount = bottom->RunCount(splitIdx, predIdx);
     return true;
   }
@@ -348,15 +330,8 @@ bool Level::ScheduleSplit(unsigned int splitIdx, unsigned int predIdx, unsigned 
 }
 
 
-/**
-   @brief Signals SplitPred to schedule splitable pairs.
-
-   @param unsplitable lists unsplitable nodes.
-
-   @return void.
-*/
-void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
-    // TODO:  Pre-empt overflow by walking wide subtrees depth-first.
+// TODO:  Preempt overflow by walking wide subtrees depth-first.
+void Level::candidates(const IndexLevel *index, SplitPred *splitPred) {
   int cellCount = nSplit * nPred;
 
   auto ruPred = CallBack::rUnif(cellCount);
@@ -366,90 +341,68 @@ void Level::Candidates(const IndexLevel *index, SplitPred *splitPred) {
   unsigned int spanCand = 0;
   for (unsigned int splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     unsigned int splitOff = splitIdx * nPred;
-    if (index->Unsplitable(splitIdx)) { // Node cannot split.
+    if (index->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      CandidateProb(splitPred, splitIdx, &ruPred[splitOff], index->Extent(splitIdx), spanCand);
+      candidateProb(splitPred, splitIdx, &ruPred[splitOff], index->getExtent(splitIdx), spanCand);
     }
     else { // Fixed number of predictors splitable.
-      CandidateFixed(splitPred, splitIdx, &ruPred[splitOff], &heap[splitOff], index->Extent(splitIdx), spanCand);
+      candidateFixed(splitPred, splitIdx, &ruPred[splitOff], &heap[splitOff], index->getExtent(splitIdx), spanCand);
     }
   }
-  SetSpan(spanCand);
+  setSpan(spanCand);
 }
 
 
-/**
-   @brief Set splitable flag by Bernoulli sampling.
-
-   @param splitIdx is the level-relative node index.
-
-   @param ruPred is a vector of uniformly-sampled variates.
-
-   @return total number of splitting candidates for the node.
- */
-void Level::CandidateProb(SplitPred *splitPred,
-			  unsigned int splitIdx,
-			  const double ruPred[],
-			  unsigned int extent,
-			  unsigned int &spanCand) {
+void Level::candidateProb(SplitPred *splitPred,
+                          unsigned int splitIdx,
+                          const double ruPred[],
+                          unsigned int extent,
+                          unsigned int &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) Preschedule(splitPred, splitIdx, predIdx, extent, spanCand);
+      (void) preschedule(splitPred, splitIdx, predIdx, extent, spanCand);
     }
   }
 }
 
  
-/**
-   @brief Sets splitable flag for a fixed number of predictors.
-
-   @param ruPred is a vector of uniformly-sampled variates.
-
-   @param heap orders probability-weighted variates.
-
-   @param extent is the index count of the splitting node.
-
-   @param offSplit accumulates offsets for splitable pairs.
-
-   @return total number of candidates for the node.
- */
-void Level::CandidateFixed(SplitPred *splitPred,
-			   unsigned int splitIdx,
-			   const double ruPred[],
-			   BHPair heap[],
-			   unsigned int extent,
-			   unsigned int &spanCand) {
+void Level::candidateFixed(SplitPred *splitPred,
+                           unsigned int splitIdx,
+                           const double ruPred[],
+                           BHPair heap[],
+                           unsigned int extent,
+                           unsigned int &spanCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-    BHeap::Insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
+    BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
   }
 
   // Pops 'predFixed' items in order of increasing value.
   unsigned int schedCount = 0;
   for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
-    unsigned int predIdx = BHeap::SlotPop(heap, heapSize - 1);
-    schedCount += Preschedule(splitPred, splitIdx, predIdx, extent, spanCand) ? 1 : 0;
+    unsigned int predIdx = BHeap::slotPop(heap, heapSize - 1);
+    schedCount += preschedule(splitPred, splitIdx, predIdx, extent, spanCand) ? 1 : 0;
     if (schedCount == predFixed)
       break;
   }
 }
 
 
-void Level::RankRestage(SamplePred *samplePred,
-			const SPPair &mrra,
-			Level *levelFront,
-			unsigned int bufIdx) {
+void Level::rankRestage(SamplePred *samplePred,
+                        const SPPair &mrra,
+                        Level *levelFront,
+                        unsigned int bufIdx) {
   unsigned int reachOffset[1 << NodePath::pathMax];
   if (nodeRel) { // Both levels employ node-relative indexing.
     unsigned int reachBase[1 << NodePath::pathMax];
-    OffsetClone(mrra, reachOffset, reachBase);
-    RankRestage(samplePred, mrra, levelFront, bufIdx, reachBase, reachOffset);
+    offsetClone(mrra, reachOffset, reachBase);
+    rankRestage(samplePred, mrra, levelFront, bufIdx, reachBase, reachOffset);
   }
   else { // Source level employs subtree indexing.  Target may or may not.
-    OffsetClone(mrra, reachOffset, nullptr);
-    RankRestage(samplePred, mrra, levelFront, bufIdx, nullptr, reachOffset);
+    offsetClone(mrra, reachOffset, nullptr);
+    rankRestage(samplePred, mrra, levelFront, bufIdx, nullptr, reachOffset);
   }
 }
 
@@ -462,12 +415,12 @@ void Level::RankRestage(SamplePred *samplePred,
    Decomposition into two paths adds ~5% performance penalty, but
    appears necessary for dense packing or for coprocessor loading.
  */
-void Level::RankRestage(SamplePred *samplePred,
-			const SPPair &mrra,
-			Level *levelFront,
-			unsigned int bufIdx,
-			const unsigned int reachBase[],
-			unsigned int reachOffset[]) {
+void Level::rankRestage(SamplePred *samplePred,
+                        const SPPair &mrra,
+                        Level *levelFront,
+                        unsigned int bufIdx,
+                        const unsigned int reachBase[],
+                        unsigned int reachOffset[]) {
   unsigned int startIdx, extent;
   Bounds(mrra, startIdx, extent);
 
@@ -490,7 +443,7 @@ void Level::RankRestage(SamplePred *samplePred,
     rankPrev[path] = bottom->NoRank();
     rankCount[path] = 0;
   }
-  samplePred->RankRestage(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
+  samplePred->rankRestage(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
   RunCounts(bottom, mrra, pathCount, rankCount);
 }
 
@@ -505,10 +458,10 @@ void Level::RankRestage(SamplePred *samplePred,
 
    @return path origin at the index passed.
  */
-void Level::OffsetClone(const SPPair &mrra,
-			unsigned int reachOffset[],
-			unsigned int splitOffset[],
-			unsigned int reachBase[]) {
+void Level::offsetClone(const SPPair &mrra,
+                        unsigned int reachOffset[],
+                        unsigned int splitOffset[],
+                        unsigned int reachBase[]) {
   unsigned int nodeStart = BackScale(mrra.first);
   for (unsigned int i = 0; i < BackScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].IdxStart();
@@ -523,30 +476,30 @@ void Level::OffsetClone(const SPPair &mrra,
 
 
 void Level::IndexRestage(SamplePred *samplePred,
-			 const SPPair &mrra,
-			 const Level *levelFront,
-			 unsigned int bufIdx) {
+                         const SPPair &mrra,
+                         const Level *levelFront,
+                         unsigned int bufIdx) {
   unsigned int reachOffset[1 << NodePath::pathMax];
   unsigned int splitOffset[1 << NodePath::pathMax];
   if (nodeRel) { // Both levels employ node-relative indexing.
     unsigned int reachBase[1 << NodePath::pathMax];
-    OffsetClone(mrra, reachOffset, splitOffset, reachBase);
+    offsetClone(mrra, reachOffset, splitOffset, reachBase);
     IndexRestage(samplePred, mrra, levelFront, bufIdx, reachBase, reachOffset, splitOffset);
   }
   else { // Source level employs subtree indexing.  Target may or may not.
-    OffsetClone(mrra, reachOffset, splitOffset);
+    offsetClone(mrra, reachOffset, splitOffset);
     IndexRestage(samplePred, mrra, levelFront, bufIdx, nullptr, reachOffset, splitOffset);
   }
 }
 
 
 void Level::IndexRestage(SamplePred *samplePred,
-			 const SPPair &mrra,
-			 const Level *levelFront,
-			 unsigned int bufIdx,
-			 const unsigned int reachBase[],
-			 unsigned int reachOffset[],
-			 unsigned int splitOffset[]) {
+                         const SPPair &mrra,
+                         const Level *levelFront,
+                         unsigned int bufIdx,
+                         const unsigned int reachBase[],
+                         unsigned int reachOffset[],
+                         unsigned int splitOffset[]) {
   unsigned int startIdx, extent;
   Bounds(mrra, startIdx, extent);
 

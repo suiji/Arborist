@@ -206,7 +206,7 @@ class RowRank {
 
      @return dense rank assignment for predictor.
    */
-  unsigned int DenseRank(unsigned int predIdx) const{
+  unsigned int getDenseRank(unsigned int predIdx) const{
     return denseRank[predIdx];
   }
 

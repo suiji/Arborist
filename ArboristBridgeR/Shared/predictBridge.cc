@@ -96,7 +96,9 @@ RcppExport SEXP ValidateProb(const SEXP sPredBlock,
 
    @param sTrain contains the trained object.
 
-   @param sVotes outputs the vote predictions.
+   @param sYTest contains the test vector.
+
+   @param sOOB indicates whether testing is out-of-bag.
 
    @return predict object.
  */
@@ -115,7 +117,9 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
 
    @param sTrain contains the trained object.
 
-   @param sVotes outputs the vote predictions.
+   @param sYTest is the vector of test values.
+
+   @param sOOB indicates whether testing is out-of-bag.
 
    @return predict object.
  */

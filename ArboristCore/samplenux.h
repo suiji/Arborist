@@ -23,8 +23,8 @@
    @brief Single node type for regression and classification.
 
    For simplicity, regression and classification variants are distinguished
-   only by method name and not by subtyping.  The only distinction is the
-   value (and interpretation) of the 'ctg' value.  Care should be taken
+   only by method name and not by subtype.  The only distinction is the
+   value (and interpretation) of the 'ctg' field.  Care should be taken
    to call the appropriate method, as 'ctg' is only used as a packing
    parameter (with value zero) in the case of regression.  Subtyping seems
    to complicate the code needlessly, with a per-tree size savings of only
@@ -43,16 +43,33 @@ class SampleNux {
 
   
  public:
-  static void Immutables(unsigned int ctgWidth);
-  static void DeImmutables();
 
-  static inline unsigned int NCtg() {
+  /**
+     @brief Computes a packing width sufficient to hold all (zero-based) response category values.
+
+     @param ctgWidth is the response cardinality.
+
+     @return void.
+  */
+  static void immutables(unsigned int ctgWidth);
+  
+  /**
+    @brief Resets to static initialization.
+  */
+  static void deImmutables();
+
+  /**
+     @brief Accessor for number of response training categories.
+   */
+  static inline unsigned int getNCtg() {
     return nCtg;
   }
   
-  inline double Init(FltVal _yVal, unsigned int _sCount, unsigned int _ctg = 0) {
-    ySum = _yVal * _sCount;
-    sCount = (_sCount << ctgShift) | _ctg; 
+  inline double init(FltVal yVal,
+                     unsigned int sampleCount,
+                     unsigned int ctg = 0) {
+    ySum = yVal * sampleCount;
+    sCount = (sampleCount << ctgShift) | ctg; 
     return ySum;
   }
 
@@ -60,23 +77,34 @@ class SampleNux {
   /**
      @brief Compound accessor.
 
-     @param _sum outputs sum.
+     @param[out] sum is the sample sum.
 
-     @return Category value or default:  classification / regression, plus output reference parameters.
-   
+     @return Category value or default:  classification / regression.
   */
-  inline unsigned int RefLeaf(FltVal &_sum) const {
-    _sum = ySum;
-    return sCount & ((1 << ctgShift) - 1);
+  inline unsigned int refLeaf(FltVal &sum) const {
+    sum = ySum;
+    return getCtg();
   }
 
 
-  inline void Ref(FltVal &_ySum, unsigned int &_sCount) const {
-    _ySum = ySum;
-    _sCount = sCount;
+  /**
+     @brief Compound accessor for sampled sum and count.
+
+     @param[out] ySum is the sampled sum.
+
+     @param[out] sCount is the sampled count.
+
+     @return void.
+   */
+  inline void ref(FltVal &ySum, unsigned int &sCount) const {
+    ySum = this->ySum;
+    sCount = this->sCount;
   }
 
 
+  /**
+     @brief Accessor for sampled sum.
+   */
   inline double getSum() const {
     return ySum;
   }
@@ -84,10 +112,17 @@ class SampleNux {
 
   /**
      @brief Accessor for sample count.
-     
    */
   inline unsigned int getSCount() const {
     return sCount >> ctgShift;
+  }
+
+
+  /**
+     @brief Accessor for response category.
+   */
+  inline unsigned int getCtg() const {
+    return sCount & ((1 << ctgShift) - 1);
   }
 };
 
@@ -107,7 +142,7 @@ class SampleRank : public SampleNux {
 
      @return rank value.
    */
-  inline unsigned int Rank() const {
+  inline unsigned int getRank() const {
     return rank;
   }
 
@@ -117,7 +152,7 @@ class SampleRank : public SampleNux {
 
      @return sum of y-values for sample.
    */
-  inline FltVal YSum() {
+  inline FltVal getYSum() {
     return ySum;
   }
 
@@ -131,9 +166,9 @@ class SampleRank : public SampleNux {
 
      @return void.
   */
-  inline void Join(unsigned int _rank, const SampleNux &_sNode) {
+  inline void join(unsigned int _rank, const SampleNux &_sNode) {
     rank = _rank;
-    _sNode.Ref(ySum, sCount);
+    _sNode.ref(ySum, sCount);
   }
 
 
@@ -143,22 +178,23 @@ class SampleRank : public SampleNux {
   //
 
   /**
-     @brief Reports SamplePred contents for regression response.  Cannot
-     be used with categorical response, as 'sCount' value reported here
-     is unshifted.
+     @brief Compound accessor for regression.  Cannot be used for
+     classification, as 'sCount' value reported here not unpacked.
 
-     @param _ySum outputs the response value.
+     @param[out] ySum outputs the response value.
 
-     @param _rank outputs the predictor rank.
+     @param[out] rank outputs the predictor rank.
 
-     @param _sCount outputs the multiplicity of the row in this sample.
+     @param[out] sCount outputs the multiplicity of the row in this sample.
 
      @return void.
    */
-  inline void RegFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_sCount) const {
-    _ySum = ySum;
-    _rank = rank;
-    _sCount = sCount;
+  inline void regFields(FltVal &ySum,
+                        unsigned int &rank,
+                        unsigned int &sCount) const {
+    ySum = this->ySum;
+    rank = this->rank;
+    sCount = this->sCount;
   }
 
 
@@ -170,37 +206,38 @@ class SampleRank : public SampleNux {
      @brief Reports SamplePred contents for categorical response.  Can
      be called with regression response if '_yCtg' value ignored.
 
-     @param _ySum outputs the proxy response value.
+     @param[out] ySum is the proxy response value.
 
-     @param _rank outputs the predictor rank.
+     @param[out] yCtg is the response value.
 
-     @param _yCtg outputs the response value.
-
-     @return sample count, with output reference parameters.
+     @return sample count.
    */
-  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_yCtg) const {
-    _ySum = ySum;
-    _yCtg = sCount & ((1 << ctgShift) - 1);
+  inline unsigned int ctgFields(FltVal &ySum,
+                                unsigned int &yCtg) const {
+    ySum = this->ySum;
+    yCtg = getCtg();
 
     return getSCount();
   }
 
 
   /**
-     @brief Reports SamplePred contents for categorical response.  Can
-     be called with regression response if '_yCtg' value ignored.
+     @brief Compound accessor for classification.  Can be
+     called for regression if '_yCtg' value ignored.
 
-     @param _ySum outputs the proxy response value.
+     @param[out] ySum_ is the proxy response value.
 
-     @param _rank outputs the predictor rank.
+     @param[out] rank is the predictor rank.
 
-     @param _yCtg outputs the response value.
+     @param[out] yCtg_ is the true response value.
 
-     @return sample count, with output reference parameters.
+     @return sample count.
    */
-  inline unsigned int CtgFields(FltVal &_ySum, unsigned int &_rank, unsigned int &_yCtg) const {
-    _rank = rank;
-    return CtgFields(_ySum, _yCtg);
+  inline unsigned int ctgFields(FltVal &ySum_,
+                                unsigned int &rank,
+                                unsigned int &yCtg_) const {
+    rank = this->rank;
+    return ctgFields(ySum_, yCtg_);
   }
 };
 
