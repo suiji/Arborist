@@ -275,6 +275,8 @@ List LeafCtgBridge::Summary(SEXP sYTest, const List &signature) {
   CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
   IntegerVector yPredZero(leaf->YPred().begin(), leaf->YPred().end());
   IntegerVector yPredOne = yPredZero + 1;
+  yPredOne.attr("class") = "factor";
+  yPredOne.attr("levels") = levelsTrain;
   List prediction;
   if (!Rf_isNull(sYTest)) {
     auto testCtg = make_unique<TestCtg>(sYTest, leaf->rowPredict(), getLevelsTrain());
