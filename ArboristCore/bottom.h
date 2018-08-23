@@ -64,7 +64,7 @@ class Bottom {
   const class FrameTrain *frameTrain;
   const class RowRank *rowRank;
   const unsigned int noRank;
-  class SplitPred *splitPred;  // constant?
+  class SplitNode *splitNode;  // constant?
   class SplitSig *splitSig;
   class Run *run;
 
@@ -89,7 +89,7 @@ class Bottom {
 
      @return void.
   */
-  void Backdate() const;
+  void backdate() const;
 
   
   /**
@@ -138,7 +138,7 @@ class Bottom {
 
      @param splitCount specifies the number of splits to map.
   */
-  Bottom(const class FrameTrain *_frameTrain, const class RowRank *_rowRank, class SplitPred *_splitPred, vector<class StageCount> &stageCount, unsigned int _bagCount);
+  Bottom(const class FrameTrain *_frameTrain, const class RowRank *_rowRank, class SplitNode *_splitNode, vector<class StageCount> &stageCount, unsigned int _bagCount);
 
 
   /**
@@ -148,7 +148,7 @@ class Bottom {
 
 
   /**
-     @brief Passes through to SplitPred's level initializer.
+     @brief Passes through to SplitNode's level initializer.
 
      @return void.
   */
@@ -156,7 +156,7 @@ class Bottom {
 
 
   /**
-     @brief Passes through to SplitPred's level clearer.
+     @brief Passes through to SplitNode's level clearer.
 
      @return void.
   */
@@ -237,11 +237,13 @@ class Bottom {
 
      @param nStride is the stride multiple.
 
-     @param isFactor outputs whether predictor is factor-valued.
+     @param[out] facStride is the strided factor index.
 
-     @return strided factor index, with output reference parameter.
+     @return true iff predictor is factor-valude.
    */
-  unsigned int FacStride(unsigned int predIdx, unsigned int nStride, bool &isFactor) const;
+  bool factorStride(unsigned int predIdx,
+                    unsigned int nStride,
+                    unsigned int &facStride) const;
 
 
   /**
@@ -260,7 +262,11 @@ class Bottom {
 
      @return void.
    */
-  void SetLive(unsigned int ndx, unsigned int targIdx, unsigned int stx, unsigned int path, unsigned int ndBase);
+  void setLive(unsigned int ndx,
+               unsigned int targIdx,
+               unsigned int stx,
+               unsigned int path,
+               unsigned int ndBase);
 
 
   /**
@@ -297,7 +303,7 @@ class Bottom {
   /**
      @brief Accessor for 'stPath' field.
    */
-  class IdxPath *STPath() const {
+  class IdxPath *subtreePath() const {
     return stPath;
   }
   
@@ -305,7 +311,7 @@ class Bottom {
   /**
      @return 'noRank' value for the current subtree.
    */
-  inline unsigned int NoRank() const {
+  inline unsigned int getNoRank() const {
     return noRank;
   }
 
@@ -351,7 +357,7 @@ class Bottom {
 
      @return void.
   */
-  void SetSingleton(unsigned int levelIdx, unsigned int predIdx) const;
+  void setSingleton(unsigned int levelIdx, unsigned int predIdx) const;
 
 
   /**
@@ -425,15 +431,17 @@ class Bottom {
 
      @return void.
   */
-  inline void SetRunCount(unsigned int splitIdx, unsigned int predIdx, bool hasImplicit, unsigned int rankCount) {
-    //    bool dummy;
-    unsigned int rCount = hasImplicit ? rankCount + 1 : rankCount;
+  inline void setRunCount(unsigned int splitIdx,
+                          unsigned int predIdx,
+                          bool hasImplicit,
+                          unsigned int rankCount) {
+    unsigned int rCount = rankCount + (hasImplicit ? 1 : 0);
     if (rCount == 1) {
-      SetSingleton(splitIdx, predIdx);
+      setSingleton(splitIdx, predIdx);
     }
-    bool isFactor;
-    unsigned int facStride = FacStride(predIdx, splitIdx, isFactor);
-    if (isFactor) {
+
+    unsigned int facStride;
+    if (factorStride(predIdx, splitIdx, facStride)) {
       runCount[facStride] = rCount;
     }
   }
@@ -448,10 +456,10 @@ class Bottom {
 
      @return run count associated with the node, if factor, otherwise zero.
    */
-  inline unsigned int RunCount(unsigned int splitIdx, unsigned int predIdx) const {
-    bool isFactor;
-    unsigned int facStride = FacStride(predIdx, splitIdx, isFactor);
-    return isFactor ? runCount[facStride] : 0;
+  inline unsigned int getRunCount(unsigned int splitIdx,
+                               unsigned int predIdx) const {
+    unsigned int facStride;
+    return factorStride(predIdx, splitIdx, facStride) ? runCount[facStride] : 0;
   }
 };
 

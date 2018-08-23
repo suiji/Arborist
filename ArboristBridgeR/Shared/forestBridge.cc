@@ -26,7 +26,7 @@
 #include "forestBridge.h"
 #include "forest.h"
 
-List ForestBridge::Wrap(const ForestTrain *forestTrain) {
+List ForestBridge::wrap(const ForestTrain *forestTrain) {
   RawVector nodeRaw(forestTrain->NodeBytes());
   RawVector facRaw(forestTrain->FacBytes());
   forestTrain->NodeRaw(&nodeRaw[0]);
@@ -43,7 +43,7 @@ List ForestBridge::Wrap(const ForestTrain *forestTrain) {
 }
 
 
-unique_ptr<ForestBridge> ForestBridge::Unwrap(const List& lTrain) {
+unique_ptr<ForestBridge> ForestBridge::unwrap(const List& lTrain) {
   List lForest = List((SEXP) lTrain["forest"]);
   Legal(lForest);
   return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["origin"]),
@@ -86,7 +86,7 @@ ForestBridge::ForestBridge(const IntegerVector &_feOrigin,
 }
 
 
-unique_ptr<ForestExport> ForestExport::Unwrap(const List &lTrain,
+unique_ptr<ForestExport> ForestExport::unwrap(const List &lTrain,
                                               IntegerVector &predMap) {
   List lForest = List((SEXP) lTrain["forest"]);
   Legal(lForest);

@@ -69,9 +69,9 @@ class ForestBridge {
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<ForestBridge> Unwrap(const List &sTrain);
+  static unique_ptr<ForestBridge> unwrap(const List &sTrain);
 
-  static List Wrap(const class ForestTrain *forest);
+  static List wrap(const class ForestTrain *forest);
 };
 
 
@@ -94,7 +94,7 @@ class ForestExport final : public ForestBridge {
   ForestExport(List &forestList,
                IntegerVector &predMap);
 
-  static unique_ptr<ForestExport> Unwrap(const List &lTrain,
+  static unique_ptr<ForestExport> unwrap(const List &lTrain,
                                          IntegerVector &predMap);
 
   const vector<unsigned int> &getPredTree(unsigned int tIdx) const {

@@ -31,7 +31,7 @@
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
-List LeafBridge::Wrap(LeafTrainReg *leafReg,
+List LeafBridge::wrap(LeafTrainReg *leafReg,
                       const NumericVector &yTrain) {
   RawVector leafRaw(leafReg->NodeBytes());
   RawVector blRaw(leafReg->BLBytes());
@@ -51,7 +51,7 @@ List LeafBridge::Wrap(LeafTrainReg *leafReg,
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-List LeafBridge::Wrap(LeafTrainCtg *leafCtg,
+List LeafBridge::wrap(LeafTrainCtg *leafCtg,
                       const CharacterVector &levels) {
   RawVector leafRaw(leafCtg->NodeBytes());
   RawVector blRaw(leafCtg->BLBytes());

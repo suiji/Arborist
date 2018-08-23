@@ -53,7 +53,7 @@ class BlockRankedBridge final : public BlockRanked {
  public:
   BlockRankedBridge(const NumericVector &_numVal,
                     const IntegerVector &_numOff);
-  static unique_ptr<BlockRankedBridge> Unwrap(SEXP sBlockNum);
+  static unique_ptr<BlockRankedBridge> unwrap(SEXP sBlockNum);
 };
 
 /**
@@ -84,7 +84,7 @@ class RowRankBridge : public RowRank {
   /**
      @brief Instantiates bridge-specialized RowRank from front end.
    */
-  static unique_ptr<RowRankBridge> Unwrap(SEXP sRowRank,
+  static unique_ptr<RowRankBridge> unwrap(SEXP sRowRank,
                                           double autoCompress,
                                           const class Coproc *coproc,
                                           const class FrameTrain *frameTrain);
@@ -109,7 +109,7 @@ class RankedSetBridge {
     return rankedPair.get();
   }
 
-  static unique_ptr<RankedSetBridge> Unwrap(SEXP sRowRank,
+  static unique_ptr<RankedSetBridge> unwrap(SEXP sRowRank,
                                            double autoCompress,
                                            const class Coproc *coproc,
                                            const class FrameTrain *frameTrain);

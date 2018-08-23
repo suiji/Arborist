@@ -26,11 +26,19 @@ using namespace std;
 // Type for caching front-end values, but not necessarily for arithmetic.
 typedef float FltVal;
 
+// Floating accumulator type, viz. arithmetic.
+typedef double FltAccum;
 
-typedef struct {
+struct RankRange {
   unsigned int rankLow;
   unsigned int rankHigh;
-} RankRange;
+
+  void set(unsigned int rankLow,
+           unsigned int rankHigh) {
+    this->rankLow = rankLow;
+    this->rankHigh = rankHigh;
+  }
+};
 
 
 typedef unsigned char PathT;

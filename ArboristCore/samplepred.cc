@@ -136,32 +136,20 @@ void SamplePred::Stage(const vector<SampleNux> &sampleNode,
   }
 }
 
+double SamplePred::blockReplay(const SplitCand& argMax,
+                               BV* replayExpl,
+                               vector<SumCount>& ctgExpl) {
+  return blockReplay(argMax, argMax.getExplicitBranchStart(), argMax.getExplicitBranchExtent(), replayExpl, ctgExpl);
+}
 
-/**
-   @brief Walks a block of adjacent SamplePred records associated with
-   the explicit component of a split.
 
-   @param predIdx is the argmax predictor for the split.
-
-   @param sourceBit is a dual-buffer toggle.
-
-   @param start is the starting SamplePred index for the split.
-
-   @param extent is the number of SamplePred indices subsumed by the split.
-
-   @param replayExpl sets bits corresponding to explicit indices defined
-   by the split.  Indices are either node- or subtree-relative, depending
-   on Bottom's current indexing mode.
-
-   @return sum of responses within the block.
- */
 double SamplePred::blockReplay(const SplitCand& argMax,
                                unsigned int blockStart,
                                unsigned int blockExtent,
-                               BV *replayExpl,
+                               BV* replayExpl,
                                vector<SumCount> &ctgExpl) {
-  unsigned int *idx;
-  SampleRank *spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
+  unsigned int* idx;
+  SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
 
   double sumExpl = 0.0;
   if (!ctgExpl.empty()) {
@@ -191,7 +179,7 @@ double SamplePred::blockReplay(const SplitCand& argMax,
 
    @return void.
  */
-void SamplePred::Prepath(const IdxPath *idxPath,
+void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int reachBase[],
                          unsigned int predIdx,
                          unsigned int bufIdx,
@@ -200,7 +188,7 @@ void SamplePred::Prepath(const IdxPath *idxPath,
                          unsigned int pathMask,
                          bool idxUpdate,
                          unsigned int pathCount[]) {
-  Prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
+  prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
 }
 
 /**
@@ -228,7 +216,7 @@ void SamplePred::Prepath(const IdxPath *idxPath,
 
    @return void.
  */
-void SamplePred::Prepath(const IdxPath *idxPath,
+void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int *reachBase,
                          bool idxUpdate,
                          unsigned int startIdx,
@@ -238,9 +226,9 @@ void SamplePred::Prepath(const IdxPath *idxPath,
                          PathT prepath[],
                          unsigned int pathCount[]) const {
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
-    PathT path = idxPath->IdxUpdate(idxVec[idx], pathMask, reachBase, idxUpdate);
+    PathT path = idxPath->update(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
-    if (path != NodePath::noPath) {
+    if (NodePath::isActive(path)) {
       pathCount[path]++;
     }
   }
@@ -279,7 +267,7 @@ void SamplePred::rankRestage(unsigned int predIdx,
   PathT *pathBlock = &pathIdx[getStageOffset(predIdx)];
   for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
     unsigned int path = pathBlock[idx];
-    if (path != NodePath::noPath) {
+    if (NodePath::isActive(path)) {
       SampleRank spNode = source[idx];
       unsigned int rank = spNode.getRank();
       rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
@@ -292,7 +280,7 @@ void SamplePred::rankRestage(unsigned int predIdx,
 }
 
 
-void SamplePred::IndexRestage(const IdxPath *idxPath,
+void SamplePred::indexRestage(const IdxPath *idxPath,
                               const unsigned int reachBase[],
                               unsigned int predIdx,
                               unsigned int bufIdx,
@@ -307,8 +295,8 @@ void SamplePred::IndexRestage(const IdxPath *idxPath,
 
   for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
     unsigned int sIdx = idxSource[idx];
-    PathT path = idxPath->IdxUpdate(sIdx, pathMask, reachBase, idxUpdate);
-    if (path != NodePath::noPath) {
+    PathT path = idxPath->update(sIdx, pathMask, reachBase, idxUpdate);
+    if (NodePath::isActive(path)) {
       unsigned int targOff = reachOffset[path]++;
       idxTarg[targOff] = sIdx; // Semi-regular:  split-level target store.
       destRestage[idx] = targOff;

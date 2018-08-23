@@ -89,9 +89,9 @@ struct FramemapBridge {
                        vector<unsigned int>& rowStart,
                        vector<unsigned int>& runLength);
 
-  static List UnwrapSignature(const List& sPredBlock);
+  static List unwrapSignature(const List& sPredBlock);
 
-  static SEXP Unwrap(const List& sPredBlock);
+  static SEXP unwrap(const List& sPredBlock);
 
   static SEXP PredblockLegal(const List& predBlock);
 
@@ -100,7 +100,7 @@ struct FramemapBridge {
   static void SignatureUnwrap(const List& sTrain,
                               IntegerVector& _predMap,
                               List& _level);
-  static List WrapSignature(const IntegerVector& predMap,
+  static List wrapSignature(const IntegerVector& predMap,
                  const List& level,
                  const CharacterVector& colNames,
                  const CharacterVector& rowNames);

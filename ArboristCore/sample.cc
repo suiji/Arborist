@@ -17,7 +17,7 @@
 #include "bv.h"
 #include "callback.h"
 #include "rowrank.h"
-#include "splitpred.h"
+#include "splitnode.h"
 #include "samplepred.h"
 
 // Simulation-invariant values.
@@ -126,7 +126,7 @@ void SampleReg::PreStage(const double y[], const unsigned int *row2Rank, const R
 }
 
 
-unique_ptr<SplitPred> SampleReg::SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+unique_ptr<SplitNode> SampleReg::SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
   return rowRank->SPRegFactory(frameTrain, bagCount);
 }
 
@@ -179,7 +179,7 @@ void SampleCtg::PreStage(const unsigned int yCtg[], const double y[], const RowR
 }
 
 
-unique_ptr<SplitPred> SampleCtg::SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+unique_ptr<SplitNode> SampleCtg::SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
   return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::getNCtg());
 }
 

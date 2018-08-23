@@ -88,18 +88,44 @@ class SamplePred {
              unsigned int *smpIdx,
              unsigned int &expl);
 
+  /**
+   @brief Walks a block of adjacent SampleRank records associated with
+   the explicit component of a split.
+
+   @param predIdx is the argmax predictor for the split.
+
+   @param sourceBit is a dual-buffer toggle.
+
+   @param blockStart is the starting SampleRank index for the split.
+
+   @param blockExtent is the number of explicit such indices subsumed.
+
+   @param replayExpl sets bits corresponding to explicit indices defined
+   by the split.  Indices are either node- or subtree-relative, depending
+   on Bottom's current indexing mode.
+
+   @return sum of responses within the block.
+*/
   double blockReplay(const class SplitCand& cand,
                      unsigned int blockStart,
                      unsigned int blockExtent,
                      class BV *replayExpl,
                      vector<class SumCount> &ctgExpl);
 
+
+  /**
+     @brief As above, but block start and extent taken from candidate.
+   */
+  double blockReplay(const class SplitCand& cand,
+                     class BV* replayExpl,
+                     vector<class SumCount>& ctgExpl);
+
   virtual void Restage(class Level *levelBack,
                        class Level *levelFront,
                        const SPPair &mrra,
                        unsigned int bufIdx);
   
-  void Prepath(const class IdxPath *idxPath,
+  void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
                unsigned int predIdx,
                unsigned int bufIdx,
@@ -109,7 +135,7 @@ class SamplePred {
                bool idxUpdate,
                unsigned int pathCount[]);
 
-  void Prepath(const class IdxPath *idxPath,
+  void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
                bool idxUpdate,
                unsigned int startIdx,
@@ -127,7 +153,7 @@ class SamplePred {
                    unsigned int rankPrev[],
                    unsigned int rankCount[]);
 
-  void IndexRestage(const class IdxPath *idxPath,
+  void indexRestage(const class IdxPath *idxPath,
                     const unsigned int reachBase[],
                     unsigned int predIdx,
                     unsigned int bufIdx,

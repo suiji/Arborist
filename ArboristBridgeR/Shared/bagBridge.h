@@ -49,7 +49,7 @@ class BagBridge {
   }
 
   void trainChunk(const class Train* train, unsigned int chunkOff);
-  List Wrap();
-  static unique_ptr<BagBridge> Unwrap(const List &sBag);
+  List wrap();
+  static unique_ptr<BagBridge> unwrap(const List &sBag);
   const BitMatrix* getRaw();
 };

@@ -6,7 +6,7 @@
  */
 
 /**
-   @file splitpred.cc
+   @file splitnode.cc
 
    @brief Methods to implement splitting of index-tree levels.
 
@@ -15,7 +15,7 @@
 
 
 #include "index.h"
-#include "splitpred.h"
+#include "splitnode.h"
 #include "splitcand.h"
 #include "level.h"
 #include "runset.h"
@@ -35,12 +35,11 @@ unsigned int SPReg::predMono = 0;
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitPred::SplitPred(const FrameTrain *_frameTrain,
-		     const RowRank *_rowRank,
-		     unsigned int _bagCount) :
-  rowRank(_rowRank),
-  frameTrain(_frameTrain),
-  bagCount(_bagCount),
+SplitNode::SplitNode(const FrameTrain *frameTrain_,
+		     const RowRank *rowRank_,
+		     unsigned int bagCount) :
+  rowRank(rowRank_),
+  frameTrain(frameTrain_),
   noSet(bagCount * frameTrain->NPredFac()) {
 }
 
@@ -48,7 +47,7 @@ SplitPred::SplitPred(const FrameTrain *_frameTrain,
 /**
    @brief Destructor.
  */
-SplitPred::~SplitPred() {
+SplitNode::~SplitNode() {
 }
 
 
@@ -75,8 +74,8 @@ void SPReg::DeImmutables() {
  */
 SPReg::SPReg(const FrameTrain *_frameTrain,
 	     const RowRank *_rowRank,
-	     unsigned int _bagCount) :
-  SplitPred(_frameTrain, _rowRank, _bagCount),
+	     unsigned int bagCount) :
+  SplitNode(_frameTrain, _rowRank, bagCount),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frameTrain->NRow(), noSet);
 }
@@ -89,21 +88,21 @@ SPReg::SPReg(const FrameTrain *_frameTrain,
  */
 SPCtg::SPCtg(const FrameTrain *frameTrain_,
 	     const RowRank *rowRank_,
-	     unsigned int bagCount_,
+	     unsigned int bagCount,
 	     unsigned int nCtg_):
-  SplitPred(frameTrain_, rowRank_, bagCount_),
+  SplitNode(frameTrain_, rowRank_, bagCount),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frameTrain->NRow(), noSet);
 }
 
 
-RunSet *SplitPred::rSet(unsigned int setIdx) const {
+RunSet *SplitNode::rSet(unsigned int setIdx) const {
   return run->rSet(setIdx);
 }
 
 
-unsigned int SplitPred::denseRank(unsigned int predIdx) const {
-  return rowRank->getDenseRank(predIdx);
+unsigned int SplitNode::denseRank(const SplitCand* cand) const {
+  return rowRank->getDenseRank(cand->getPredIdx());
 }
 
 
@@ -125,7 +124,7 @@ void SPCtg::setRunOffsets(const vector<unsigned int> &runCount) {
 }
 
 
-void SplitPred::preSchedule(unsigned int splitIdx,
+void SplitNode::preschedule(unsigned int splitIdx,
 			    unsigned int predIdx,
 			    unsigned int bufIdx) {
   splitCand.emplace_back(SplitCand(splitIdx, predIdx, bufIdx));
@@ -138,7 +137,7 @@ void SplitPred::preSchedule(unsigned int splitIdx,
    initialization or as a result of bagging.  Fills in run counts, which
    values restaging has established precisely.
 */
-void SplitPred::scheduleSplits(const IndexLevel *index,
+void SplitNode::scheduleSplits(const IndexLevel *index,
 			       const Level *levelFront) {
   vector<unsigned int> runCount;
   vector<SplitCand> sc2;
@@ -162,7 +161,7 @@ void SplitPred::scheduleSplits(const IndexLevel *index,
 /**
    @brief Initializes level about to be split
  */
-void SplitPred::levelInit(IndexLevel *index) {
+void SplitNode::levelInit(IndexLevel *index) {
   splitCount = index->getNSplit();
   prebias = move(vector<double>(splitCount));
   nCand = move(vector<unsigned int>(splitCount));
@@ -175,7 +174,7 @@ void SplitPred::levelInit(IndexLevel *index) {
 }
 
 
-void SplitPred::setPrebias(IndexLevel *index) {
+void SplitNode::setPrebias(IndexLevel *index) {
   for (unsigned int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     setPrebias(splitIdx, index->getSum(splitIdx), index->getSCount(splitIdx));
   }
@@ -187,7 +186,7 @@ void SplitPred::setPrebias(IndexLevel *index) {
 
    @return void.
  */
-void SplitPred::levelClear() {
+void SplitNode::levelClear() {
   prebias.clear();
   run->levelClear();
 }
@@ -200,7 +199,7 @@ void SplitPred::levelClear() {
 
    @return true iff predictor is a factor.
  */
-bool SplitPred::isFactor(unsigned int predIdx) const {
+bool SplitNode::isFactor(unsigned int predIdx) const {
   return frameTrain->IsFactor(predIdx);
 }
 
@@ -217,11 +216,16 @@ unsigned int SPCtg::getNumIdx(unsigned int predIdx) const {
 }
 
 
+double* SPCtg::getSumSlice(const SplitCand* cand) {
+  return &ctgSum[nCtg * cand->getSplitIdx()];
+}
+
+
 /**
    @brief Run objects should not be deleted until after splits have been consumed.
  */
 void SPReg::levelClear() {
-  SplitPred::levelClear();
+  SplitNode::levelClear();
 }
 
 
@@ -234,7 +238,7 @@ SPCtg::~SPCtg() {
 
 
 void SPCtg::levelClear() {
-  SplitPred::levelClear();
+  SplitNode::levelClear();
 }
 
 
@@ -286,13 +290,17 @@ void SPCtg::levelInitSumR(unsigned int nPredNum) {
 }
 
 
+int SPReg::getMonoMode(const SplitCand* cand) const {
+  return getMonoMode(cand->getSplitIdx(), cand->getPredIdx());
+}
+
 /**
    @brief Determines whether a regression pair undergoes constrained splitting.
 
    @return The sign of the constraint, if within the splitting probability, else zero.
 */
-int SPReg::MonoMode(unsigned int splitIdx,
-		    unsigned int predIdx) const {
+int SPReg::getMonoMode(unsigned int splitIdx,
+                       unsigned int predIdx) const {
   if (predMono == 0)
     return 0;
 
@@ -302,7 +310,7 @@ int SPReg::MonoMode(unsigned int splitIdx,
 }
 
 
-vector<SplitCand> SplitPred::split(const SamplePred *samplePred) {
+vector<SplitCand> SplitNode::split(const SamplePred *samplePred) {
   splitCandidates(samplePred);
 
   return move(maxCandidates());
@@ -333,7 +341,7 @@ void SPReg::splitCandidates(const SamplePred *samplePred) {
 }
 
 
-vector<SplitCand> SplitPred::maxCandidates() {
+vector<SplitCand> SplitNode::maxCandidates() {
   vector<SplitCand> candMax(splitCount);
 
   OMPBound splitIdx;
@@ -352,7 +360,7 @@ vector<SplitCand> SplitPred::maxCandidates() {
 }
 
 
-void SplitPred::maxSplit(SplitCand &candMax,
+void SplitNode::maxSplit(SplitCand &candMax,
                          unsigned int splitOff,
                          unsigned int nCandSplit) const {
   const auto slotSup = splitOff + nCandSplit;
@@ -367,118 +375,5 @@ void SplitPred::maxSplit(SplitCand &candMax,
 
   if (argMax != slotSup) {
     candMax = splitCand[argMax];
-  }
-}
-
-
-
-/**
-   @brief Imputes dense rank values as residuals.
-
-   @param[out] idxSup outputs the sup of index values having ranks below the
-   dense rank.
-
-   @param[in, out] sumDense inputs the reponse sum over the node and outputs the
-   residual sum.
-
-   @param[in, out] sCountDense inputs the response sample count over the node and
-   outputs the residual count.
-
-   @return supremum of indices to the left ot the dense rank.
-*/
-unsigned int SPReg::Residuals(const SampleRank spn[],
-			      unsigned int idxStart,
-			      unsigned int idxEnd,
-			      unsigned int rankDense,
-			      unsigned int &denseLeft,
-			      unsigned int &denseRight,
-			      double &sumDense,
-			      unsigned int &sCountDense) const {
-  unsigned int denseCut = idxEnd; // Defaults to highest index.
-  double sumTot = 0.0;
-  unsigned int sCountTot = 0;
-  for (int idx = int(idxEnd); idx >= int(idxStart); idx--) {
-    unsigned int sampleCount, rkThis;
-    FltVal ySum;
-    spn[idx].regFields(ySum, rkThis, sampleCount);
-    denseCut = rkThis > rankDense ? idx : denseCut;
-    sCountTot += sampleCount;
-    sumTot += ySum;
-  }
-  sumDense -= sumTot;
-  sCountDense -= sCountTot;
-
-  // Dense blob is either left, right or neither.
-  denseRight = (denseCut == idxEnd && spn[denseCut].getRank() < rankDense);  
-  denseLeft = (denseCut == idxStart && spn[denseCut].getRank() > rankDense);
-  
-  return denseCut;
-}
-
-
-/**
-   @brief Imputes dense rank values as residuals.
-
-   @param idxSup outputs the sup of index values having ranks below the
-   dense rank.
-
-   @return true iff left bound has rank less than dense rank.
-*/
-unsigned int SPCtg::Residuals(const SampleRank spn[],
-			      unsigned int splitIdx,
-			      unsigned int idxStart,
-			      unsigned int idxEnd,
-			      unsigned int rankDense,
-			      bool &denseLeft,
-			      bool &denseRight,
-			      double &sumDense,
-			      unsigned int &sCountDense,
-			      vector<double> &ctgSumDense) const {
-  vector<double> ctgAccum;
-  ctgSumDense.reserve(nCtg);
-  ctgAccum.reserve(nCtg);
-  for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
-    ctgSumDense.push_back(getCtgSum(splitIdx, ctg));
-    ctgAccum.push_back(0.0);
-  }
-  unsigned int denseCut = idxEnd; // Defaults to highest index.
-  double sumTot = 0.0;
-  unsigned int sCountTot = 0;
-  for (int idx = int(idxEnd); idx >= int(idxStart); idx--) {
-    // Accumulates statistics over explicit range.
-    unsigned int yCtg, rkThis;
-    FltVal ySum;
-    unsigned int sampleCount = spn[idx].ctgFields(ySum, rkThis, yCtg);
-    ctgAccum[yCtg] += ySum;
-    denseCut = rkThis >= rankDense ? idx : denseCut;
-    sCountTot += sampleCount;
-    sumTot += ySum;
-  }
-  sumDense -= sumTot;
-  sCountDense -= sCountTot;
-  for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
-    ctgSumDense[ctg] -= ctgAccum[ctg];
-  }
-
-  // Dense blob is either left, right or neither.
-  denseRight = (denseCut == idxEnd && spn[denseCut].getRank() < rankDense);  
-  denseLeft = (denseCut == idxStart && spn[denseCut].getRank() > rankDense);
-
-  return denseCut;
-}
-
-
-void SPCtg::applyResiduals(unsigned int splitIdx,
-			   unsigned int predIdx,
-			   double &ssL,
-			   double &ssR,
-			   vector<double> &sumDenseCtg) {
-  unsigned int numIdx = getNumIdx(predIdx);
-  for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
-    double ySum = sumDenseCtg[ctg];
-    double sumRCtg = accumCtgSum(splitIdx, numIdx, ctg, ySum);
-    ssR += ySum * (ySum + 2.0 * sumRCtg);
-    double sumLCtg = getCtgSum(splitIdx, ctg) - sumRCtg;
-    ssL += ySum * (ySum - 2.0 * sumLCtg);
   }
 }

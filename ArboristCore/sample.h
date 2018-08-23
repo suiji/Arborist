@@ -92,7 +92,7 @@ class Sample {
                                      const unsigned int *row2Rank,
                                      class BV *treeBag);
   
-  virtual unique_ptr<class SplitPred> SplitPredFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
+  virtual unique_ptr<class SplitNode> SplitNodeFactory(const class FrameTrain *frameTrain, const RowRank *rowRank) const = 0;
 
   static void Immutables(unsigned int nSamp_);
   static void DeImmutables();
@@ -160,7 +160,7 @@ class SampleReg : public Sample {
  public:
   SampleReg();
   ~SampleReg();
-  unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
+  unique_ptr<class SplitNode> SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   
   inline double setNode(unsigned int sIdx,
@@ -193,7 +193,7 @@ class SampleCtg : public Sample {
   SampleCtg();
   ~SampleCtg();
 
-  unique_ptr<class SplitPred> SplitPredFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
+  unique_ptr<class SplitNode> SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   inline double setNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNux sNode;

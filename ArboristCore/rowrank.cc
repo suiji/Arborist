@@ -17,7 +17,7 @@
 #include "framemap.h"
 #include "sample.h"
 #include "samplepred.h"
-#include "splitpred.h"
+#include "splitnode.h"
 
 #include <algorithm>
 

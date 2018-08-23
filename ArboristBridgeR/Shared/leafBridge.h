@@ -45,7 +45,7 @@ class LeafBridge {
 
   LeafBridge(unsigned int exportLength);
   
-  static List Wrap(class LeafTrainReg *leafReg,
+  static List wrap(class LeafTrainReg *leafReg,
                    const NumericVector &yTrain);
 
   /**
@@ -57,7 +57,7 @@ class LeafBridge {
 
      @return bundled list.
    */
-  static List Wrap(class LeafTrainCtg *leafCtg,
+  static List wrap(class LeafTrainCtg *leafCtg,
                    const CharacterVector &levels);
   /**
      @brief Accessor for per-tree sampled row vector.

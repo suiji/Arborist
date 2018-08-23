@@ -28,7 +28,7 @@ void BagBridge::trainChunk(const Train *train, unsigned int chunkOff) {
 }
 
 
-List BagBridge::Wrap() {
+List BagBridge::wrap() {
   BEGIN_RCPP
   return List::create(
                       _["raw"] = move(raw),
@@ -41,7 +41,7 @@ List BagBridge::Wrap() {
 }
 
 
-unique_ptr<BagBridge> BagBridge::Unwrap(const List &sTrain) {
+unique_ptr<BagBridge> BagBridge::unwrap(const List &sTrain) {
   List sBag((SEXP) sTrain["bag"]);
   return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
                                 as<unsigned int>(sBag["nTree"]),

@@ -17,7 +17,7 @@
 #include "level.h"
 #include "bv.h"
 #include "index.h"
-#include "splitpred.h"
+#include "splitnode.h"
 #include "splitcand.h"
 #include "samplepred.h"
 #include "sample.h"
@@ -32,7 +32,7 @@
 
 Bottom::Bottom(const FrameTrain *_frameTrain,
                const RowRank *_rowRank,
-               SplitPred *_splitPred,
+               SplitNode *_splitNode,
                vector<StageCount> &stageCount,
                unsigned int _bagCount) :
   nPred(_frameTrain->NPred()),
@@ -43,8 +43,8 @@ Bottom::Bottom(const FrameTrain *_frameTrain,
   frameTrain(_frameTrain),
   rowRank(_rowRank),
   noRank(rowRank->NoRank()),
-  splitPred(_splitPred),
-  run(splitPred->getRuns()),
+  splitNode(_splitNode),
+  run(splitNode->getRuns()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
   levelFront(new Level(1, nPred,rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this)),
@@ -65,7 +65,7 @@ void Bottom::RootDef(const vector<StageCount> &stageCount) {
     bool singleton = stageCount[predIdx].singleton;
     unsigned int expl = stageCount[predIdx].expl;
     (void) levelFront->Define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
-    SetRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->FacCard(predIdx));
+    setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->FacCard(predIdx));
   }
 }
 
@@ -73,9 +73,9 @@ void Bottom::RootDef(const vector<StageCount> &stageCount) {
 vector<SplitCand> Bottom::split(SamplePred *samplePred,
                                  IndexLevel *index) {
   unsigned int supUnFlush = flushRear();
-  levelFront->candidates(index, splitPred);
+  levelFront->candidates(index, splitNode);
 
-  Backdate();
+  backdate();
   Restage(samplePred);
 
   // Reaching levels must persist through restaging ut allow path lookup.
@@ -84,9 +84,9 @@ vector<SplitCand> Bottom::split(SamplePred *samplePred,
     delete level[off];
     level.pop_back();
   }
-  splitPred->scheduleSplits(index, levelFront);
+  splitNode->scheduleSplits(index, levelFront);
 
-  return move(splitPred->split(samplePred));
+  return move(splitNode->split(samplePred));
 }
 
 
@@ -101,7 +101,7 @@ unsigned int Bottom::flushRear() {
   // also save lookup time, as all definitions reaching from rear are
   // now at current level.
   //
-  if ((level.size() > NodePath::pathMax)) {
+  if (!NodePath::isRepresentable(level.size())) {
     level.back()->flush();
     supUnFlush--;
   }
@@ -116,13 +116,13 @@ unsigned int Bottom::flushRear() {
 
   unsigned int backDef = 0;
   for (unsigned int off = supUnFlush; off > 0; off--) {
-    backDef += level[off]->DefCount();
+    backDef += level[off]->getDefCount();
   }
-  unsigned int thresh = backDef * efficiency;
 
+  unsigned int thresh = backDef * efficiency;
   for (unsigned int off = supUnFlush; off > 0; off--) {
-    if (level[off]->DefCount() <= thresh) {
-      thresh -= level[off]->DefCount();
+    if (level[off]->getDefCount() <= thresh) {
+      thresh -= level[off]->getDefCount();
       level[off]->flush();
       supUnFlush--;
     }
@@ -180,20 +180,22 @@ void Bottom::Restage(SamplePred *samplePred, RestageCoord &rsCoord) {
 }
 
 
-unsigned int Bottom::FacStride(unsigned int predIdx,
-                               unsigned int nStride,
-                               bool &isFactor) const {
-  return frameTrain->FacStride(predIdx, nStride, isFactor);
+bool Bottom::factorStride(unsigned int predIdx,
+                          unsigned int nStride,
+                          unsigned int &facStride) const {
+  bool isFactor;
+  facStride = frameTrain->FacStride(predIdx, nStride, isFactor);
+  return isFactor;
 }
 
 
 void Bottom::levelInit(IndexLevel *index) {
-  splitPred->levelInit(index);
+  splitNode->levelInit(index);
 }
 
 
 void Bottom::levelClear() {
-  splitPred->levelClear();
+  splitNode->levelClear();
 }
 
 
@@ -225,10 +227,10 @@ void Bottom::Overlap(unsigned int splitNext,
 }
 
 
-void Bottom::Backdate() const {
-  if (level.size() > 2 && level[1]->NodeRel()) {
+void Bottom::backdate() const {
+  if (level.size() > 2 && level[1]->isNodeRel()) {
     for (auto lv = level.begin() + 2; lv != level.end(); lv++) {
-      if (!(*lv)->Backdate(FrontPath(1))) {
+      if (!(*lv)->backdate(FrontPath(1))) {
         break;
       }
     }
@@ -258,15 +260,15 @@ void Bottom::reachingPath(unsigned int levelIdx,
 }
 
 
-void Bottom::SetLive(unsigned int ndx,
+void Bottom::setLive(unsigned int ndx,
                      unsigned int targIdx,
                      unsigned int stx,
                      unsigned int path,
                      unsigned int ndBase) {
-  levelFront->SetLive(ndx, path, targIdx, ndBase);
+  levelFront->setLive(ndx, path, targIdx, ndBase);
 
-  if (!level.back()->NodeRel()) {
-    stPath->SetLive(stx, path, targIdx);  // Irregular write.
+  if (!level.back()->isNodeRel()) {
+    stPath->setLive(stx, path, targIdx);  // Irregular write.
   }
 }
 
@@ -279,7 +281,7 @@ void Bottom::setExtinct(unsigned int nodeIdx,
 
 
 void Bottom::setExtinct(unsigned int stIdx) {
-  if (!level.back()->NodeRel()) {
+  if (!level.back()->isNodeRel()) {
     stPath->setExtinct(stIdx);
   }
 }
@@ -331,9 +333,9 @@ bool Bottom::isSingleton(unsigned int levelIdx,
 }
 
 
-void Bottom::SetSingleton(unsigned int splitIdx,
+void Bottom::setSingleton(unsigned int splitIdx,
                           unsigned int predIdx) const {
-  levelFront->SetSingleton(splitIdx, predIdx);
+  levelFront->setSingleton(splitIdx, predIdx);
 }
 
 

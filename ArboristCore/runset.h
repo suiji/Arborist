@@ -253,7 +253,7 @@ class RunSet {
 
     @return total index count subsumed, with reference accumulator.
   */
-  inline unsigned int lHCounts(unsigned int slot, unsigned int &sCount) {
+  inline unsigned int lHCounts(unsigned int slot, unsigned int &sCount) const {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
     return  fRun->extent;
@@ -266,7 +266,7 @@ class RunSet {
 
   unsigned int getRank(unsigned int outSlot) const;
   unsigned int lHBits(unsigned int lhBits, unsigned int &lhSampCt);
-  unsigned int lHSlots(int outPos, unsigned int &lhSampCt);
+  unsigned int lHSlots(unsigned int outPos, unsigned int &lhSampCt);
   void bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const;
 };
 

@@ -19,8 +19,8 @@
 #include "path.h"
 
 
-IdxPath::IdxPath(unsigned int _idxLive) :
-  idxLive(_idxLive),
+IdxPath::IdxPath(unsigned int idxLive_) :
+  idxLive(idxLive_),
   relFront(vector<unsigned int>(idxLive)),
   pathFront(vector<unsigned char>(idxLive)),
   offFront(vector<uint_least16_t>(idxLive)) {

@@ -23,7 +23,7 @@
 #include "pretree.h"
 #include "samplepred.h"
 #include "response.h"
-#include "splitpred.h"
+#include "splitnode.h"
 #include "splitcand.h"
 #include "leaf.h"
 #include "level.h"

@@ -15,7 +15,7 @@
 
 #include "splitcand.h"
 #include "index.h"
-#include "splitpred.h"
+#include "splitnode.h"
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
@@ -50,7 +50,7 @@ SplitCand::SplitCand(unsigned int splitIdx_,
 
    @return void
  */
-void SplitCand::initLate(const SplitPred *splitPred,
+void SplitCand::initLate(const SplitNode *splitNode,
                          const Level *levelFront,
                          const IndexLevel *index,
                          unsigned int vecPos,
@@ -59,19 +59,19 @@ void SplitCand::initLate(const SplitPred *splitPred,
   this->setIdx = setIdx;
   unsigned int extent;
   index->getSplitFields(splitIdx, idxStart, extent, sCount, sum);
-  info = splitPred->getPrebias(splitIdx);
+  info = splitNode->getPrebias(splitIdx);
   implicit = levelFront->adjustDense(splitIdx, predIdx, idxStart, extent);
-  idxEnd = idxStart + extent - 1; // May overflow if singleton:  invalid.
+  idxEnd = idxStart + extent - 1; // Singletons invalid:  idxEnd < idxStart.
 }
 
-bool SplitCand::schedule(const SplitPred *splitPred,
+bool SplitCand::schedule(const SplitNode *splitNode,
                          const Level *levelFront,
                          const IndexLevel *index,
                          vector<unsigned int> &runCount,
                          vector<SplitCand> &sc2) {
   unsigned int rCount;
   if (levelFront->scheduleSplit(splitIdx, predIdx, rCount)) {
-    initLate(splitPred, levelFront, index, sc2.size(), rCount > 1 ? runCount.size() : splitPred->getNoSet());
+    initLate(splitNode, levelFront, index, sc2.size(), rCount > 1 ? runCount.size() : splitNode->getNoSet());
     if (rCount > 1) {
       runCount.push_back(rCount);
     }
@@ -88,7 +88,7 @@ bool SplitCand::schedule(const SplitPred *splitPred,
    @brief  Regression splitting based on type:  numeric or factor.
  */
 void SplitCand::split(const SPReg *spReg,
-                       const SamplePred *samplePred) {
+                      const SamplePred *samplePred) {
   if (spReg->isFactor(predIdx)) {
     splitFac(spReg, samplePred->PredBase(predIdx, bufIdx));
   }
@@ -102,7 +102,7 @@ void SplitCand::split(const SPReg *spReg,
    @brief Categorical splitting based on type:  numeric or factor.
  */
 void SplitCand::split(SPCtg *spCtg,
-		       const SamplePred *samplePred) {
+                      const SamplePred *samplePred) {
   if (spCtg->isFactor(predIdx)) {
     splitFac(spCtg, samplePred->PredBase(predIdx, bufIdx));
   }
@@ -112,11 +112,11 @@ void SplitCand::split(SPCtg *spCtg,
 }
 
 
-void SplitCand::splitFac(const SPCtg *spCtg,
-                          const SampleRank spn[]) {
-  runsCtg(spCtg, spn);
+void SplitCand::splitFac(SPCtg *spCtg,
+                         const SampleRank spn[]) {
+  buildRuns(spCtg, spn);
 
-  if (spCtg->getCtgWidth() == 2) {
+  if (spCtg->getNCtg() == 2) {
     splitBinary(spCtg);
   }
   else {
@@ -125,482 +125,290 @@ void SplitCand::splitFac(const SPCtg *spCtg,
 }
 
 
-// The four major classes of splitting supported here are based on either
-// Gini impurity or weighted variance.  New variants may be supplied in
-// future.
-
-
 /**
-   @brief Weighted-variance splitting method.
- */
-void SplitCand::splitFac(const SPReg *spReg,
-                          const SampleRank spn[]) {
-  runsReg(spReg, spn);
-  heapSplit(spReg);
-}
-
-
-/**
-   @brief Invokes regression/numeric splitting method, currently only Gini available.
-
-   @param indexSet[] is the vector of index nodes.
-
-   @param nodeBase is the vector of SamplePred nodes for this level.
+   @brief Main entry for numerical split.
 
    @return void.
 */
 void SplitCand::splitNum(const SPReg *spReg,
-                           const SampleRank spn[]) {
-  int monoMode = spReg->MonoMode(vecPos, predIdx);
-  if (monoMode != 0) {
-    if (implicit > 0) {
-      splitNumDenseMono(monoMode > 0, spn, spReg);
-    }
-    else {
-      splitNumMono(spReg, monoMode > 0, spn);
-    }
+                         const SampleRank spn[]) {
+  NumPersistReg numPersist(this, spn, spReg);
+  numPersist.split(spn, idxEnd, idxStart);
+  numPersist.write(this);
+}
+
+
+NumPersist::NumPersist(const SplitCand* cand,
+                       unsigned int rankDense_) :
+  sCount(cand->getSCount()),
+  sCountL(sCount),
+  sum(cand->getSum()),
+  sumL(sum),
+  rankDense(rankDense_),
+  cutDense(cand->getIdxEnd() + 1),
+  info(cand->getInfo()) {
+}
+
+
+NumPersistReg::NumPersistReg(const SplitCand* cand,
+                             const SampleRank spn[],
+                             const SPReg* spReg) :
+  NumPersist(cand, spReg->denseRank(cand)),
+  monoMode(spReg->getMonoMode(cand)),
+  resid(cand->getImplicit() > 0 ? makeResidual(cand, spn) : nullptr) {
+}
+
+void NumPersistReg::split(const SampleRank spn[],
+                          unsigned int idxEnd,
+                          unsigned int idxStart) {
+  if (resid != nullptr) {
+    splitImpl(spn, idxEnd, idxStart);
   }
   else {
-    if (implicit > 0) {
-      splitNumDense(spn, spReg);
-    }
-    else {
-      splitNumExpl(spReg, spn);
-    }
+    spn[idxEnd].regFields(ySum, rkThis, sCountThis);
+    splitExpl(spn, idxEnd-1, idxStart);
   }
 }
 
-
-/**
-   @brief Weighted-variance splitting method.
-
-   @return void.
-*/
-void SplitCand::splitNumExpl(const SPReg *spReg,
-                              const SampleRank spn[]) {
-  unsigned int rkRight, sampleCount;
-  FltVal ySum;
-  spn[idxEnd].regFields(ySum, rkRight, sampleCount);
-  double sumR = ySum;
-  unsigned int sCountL = sCount - sampleCount; // >= 1: counts up to, including, this index.
-  unsigned int lhSup = idxEnd; // lhExtent = idxEnd + 1 - idxStart;
-
-  // Walks samples backward from the end of nodes so that ties are not split.
-  // Signing values avoids decrementing below zero.
-  for (int i = int(idxEnd) - 1; i >= int(idxStart); i--) {
-    unsigned int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    unsigned int rkThis;
-    spn[i].regFields(ySum, rkThis, sampleCount);
-    if (idxGini > info && rkThis != rkRight) {
-      lhSCount = sCountL;
-      lhSup = i; // lhExtent = i + 1 - idxStart
-      info = idxGini;
-    }
-    sCountL -= sampleCount;
-    sumR += ySum;
-    rkRight = rkThis;
-  }
-
-  lhExtent = lhSup + 1 - idxStart;
-  writeNum(spReg, spn[lhSup].getRank(), spn[lhSup + 1].getRank());
-}
-
-void SplitCand::writeNum(const SplitPred *splitPred,
-                         unsigned int rankL,
-                         unsigned int rankR) {
-  info -= splitPred->getPrebias(splitIdx);
-  if (info > 0.0) {
-    writeNum(rankL, rankR);
-  }
-}
-
-
-/**
-   @brief Experimental.  Needs refactoring.
-
-   @return void.
-*/
-void SplitCand::splitNumDense(const SampleRank spn[],
-                                const SPReg *spReg) {
-  unsigned int rankDense = spReg->denseRank(predIdx);
-  double sumDense = sum;
-  unsigned int sCountDense = sCount;
-  unsigned int denseLeft, denseRight;
-  unsigned int denseCut = spReg->Residuals(spn, idxStart, idxEnd, rankDense, denseLeft, denseRight, sumDense, sCountDense);
-
-  unsigned int idxNext, idxFinal;
-  unsigned int rkRight, sampleCount;
-  FltVal ySum;
-  if (denseRight) {
-    ySum = sumDense;
-    rkRight = rankDense;
-    sampleCount = sCountDense;
-    idxNext = idxEnd;
-    idxFinal = idxStart;
+void NumPersistReg::splitImpl(const SampleRank spn[],
+                              unsigned int idxEnd,
+                              unsigned int idxStart) {
+  if (cutDense > idxEnd) {
+    // Checks resid/idxEnd, ..., idxStart+1/idxStart.
+    resid->apply(ySum, sCountThis);
+    rkThis = rankDense;
+    splitExpl(spn, idxEnd, idxStart);
   }
   else {
-    spn[idxEnd].regFields(ySum, rkRight, sampleCount);
-    idxNext = idxEnd - 1;
-    idxFinal = denseLeft ? idxStart : denseCut;
+    // Checks idxEnd/idxEnd-1, ..., denseCut+1/denseCut.
+    spn[idxEnd].regFields(ySum, rkThis, sCountThis);
+    splitExpl(spn, idxEnd-1, cutDense);
+    leftResidual(); // Checks denseCut/resid.
+
+    // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
+    if (cutDense > 0) {
+      splitExpl(spn, cutDense - 1, idxStart);
+    }
   }
-  double sumR = ySum;
-  unsigned int sCountL = sCount - sampleCount;
-  unsigned int rankLH = 0;
-  unsigned int rankRH = 0; // Splitting rank bounds.
-  unsigned int rhInf = idxEnd + 1;  // Always non-negative.
-  for (int i = int(idxNext); i >= int(idxFinal); i--) {
-    unsigned int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    unsigned int rkThis;
-    spn[i].regFields(ySum, rkThis, sampleCount);
-    if (idxGini > info && rkThis != rkRight) {
+}
+
+
+void NumPersistReg::leftResidual() {
+  // Rank exposed from previous invocation of splitExpl():
+  unsigned int rkRight = rkThis;
+
+  sumL -= ySum;
+  sCountL -= sCountThis;
+  resid->apply(ySum, sCountThis);
+  rkThis = rankDense;
+
+  unsigned int sCountR = sCount - sCountL;
+  double sumR = sum - sumL;
+  double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+
+  if (infoTrial > info) {
+    bool up = (sumL * sCountR <= sumR * sCountL);
+    if (monoMode == 0 || (monoMode >0 && up) || (monoMode < 0 && !up)) {
       lhSCount = sCountL;
+      rankRH = rkRight;
       rankLH = rkThis;
-      rankRH = rkRight;
-      rhInf = i + 1;
-      info = idxGini;
+      rhMin = cutDense;
+      info = infoTrial;
     }
-    sCountL -= sampleCount;
-    sumR += ySum;
-    rkRight = rkThis;
+  }
+}
+
+
+void NumPersistReg::splitExpl(const SampleRank spn[],
+                              unsigned int idxInit,
+                              unsigned int idxFinal) {
+  // Per-sample monotonicity constraint confined to specialized method:
+  if (monoMode != 0) {
+    splitMono(spn, idxInit, idxFinal);
+    return;
   }
 
-  // Evaluates the dense component, if not of highest rank.
-  if (denseCut != idxEnd) {
-    unsigned int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    if (idxGini > info) {
+  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+    unsigned int rkRight = rkThis;
+    sumL -= ySum;
+    sCountL -= sCountThis;
+    spn[idx].regFields(ySum, rkThis, sCountThis);
+
+    // localMax()
+    double sumR = sum - sumL;
+    double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / (sCount - sCountL);
+    if (infoTrial > info && rkThis != rkRight) {
+      info = infoTrial;
       lhSCount = sCountL;
-      rhInf = idxFinal;
-      rankLH = rankDense;
       rankRH = rkRight;
-      info = idxGini;
-    }
-  
-    if (!denseLeft) { // Walks remaining indices, if any, with rank below dense.
-      sCountL -= sCountDense;
-      sumR += sumDense;
-      rkRight = rankDense;
-      for (int i = idxFinal - 1; i >= int(idxStart); i--) {
-	unsigned int sCountR = sCount - sCountL;
-	double sumL = sum - sumR;
-	double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-	unsigned int rkThis;
-	spn[i].regFields(ySum, rkThis, sampleCount);
-	if (idxGini > info && rkThis != rkRight) {
-	  lhSCount = sCountL;
-	  rhInf = i + 1;
-	  rankLH = rkThis;
-	  rankRH = rkRight;
-	  info = idxGini;
-	}
-	sCountL -= sampleCount;
-	sumR += ySum;
-	rkRight = rkThis;
-      }
+      rankLH = rkThis;
+      rhMin = rkRight == rankDense ? cutDense : idx + 1;
     }
   }
-
-  lhImplicit = rankLH >= rankDense ? implicit : 0;
-  lhExtent = rhInf - idxStart + lhImplicit;
-  writeNum(spReg, rankLH, rankRH);
 }
 
 
 /**
-   @brief TODO:  Merge with counterparts.
+   @brief As above, but checks monotonicity at every index.
+ */
+void NumPersistReg::splitMono(const SampleRank spn[],
+                              unsigned int idxInit,
+                              unsigned int idxFinal) {
+  bool nonDecreasing = monoMode > 0;
+  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+    unsigned int rkRight = rkThis;
+    sumL -= ySum;
+    sCountL -= sCountThis;
+    spn[idx].regFields(ySum, rkThis, sCountThis);
 
-   @return void.
-*/
-void SplitCand::splitNumDenseMono(bool increasing,
-                                    const SampleRank spn[],
-                                    const SPReg *spReg) {
-  unsigned int rankDense = spReg->denseRank(predIdx);
-  double sumDense = sum;
-  unsigned int sCountDense = sCount;
-  unsigned int denseLeft, denseRight;
-  unsigned int denseCut = spReg->Residuals(spn, idxStart, idxEnd, rankDense, denseLeft, denseRight, sumDense, sCountDense);
-
-  unsigned int idxNext, idxFinal;
-  unsigned int rkRight, sampleCount;
-  FltVal ySum;
-  if (denseRight) {
-    ySum = sumDense;
-    rkRight = rankDense;
-    sampleCount = sCountDense;
-    idxNext = idxEnd;
-    idxFinal = idxStart;
-  }
-  else {
-    spn[idxEnd].regFields(ySum, rkRight, sampleCount);
-    idxNext = idxEnd - 1;
-    idxFinal = denseLeft ? idxStart : denseCut;
-  }
-  double sumR = ySum;
-  unsigned int sCountL = sCount - sampleCount;
-
-  unsigned int rankLH = 0;
-  unsigned int rankRH = 0; // Splitting rank bounds.
-  unsigned int rhInf = idxEnd + 1;  // Always non-negative.
-  for (int i = int(idxNext); i >= int(idxFinal); i--) {
+    //    localMax(nonDecreasing);
     unsigned int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    unsigned int rkThis;
-    spn[i].regFields(ySum, rkThis, sampleCount);
-    if (idxGini > info && rkThis != rkRight) {
+    double sumR = sum - sumL;
+    double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    if (infoTrial > info && rkThis != rkRight) {
       bool up = (sumL * sCountR <= sumR * sCountL);
-      if (increasing ? up : !up) {
+      if (nonDecreasing ? up : !up) {
+        info = infoTrial;
         lhSCount = sCountL;
-        rankLH = rkThis;
         rankRH = rkRight;
-        rhInf = i + 1;
-        info = idxGini;
-      }
-    }
-    sCountL -= sampleCount;
-    sumR += ySum;
-    rkRight = rkThis;
-  }
-
-  // Evaluates the dense component, if not of highest rank.
-  if (denseCut != idxEnd) {
-    unsigned int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    if (idxGini > info) {
-      lhSCount = sCountL;
-      rhInf = idxFinal;
-      rankLH = rankDense;
-      rankRH = rkRight;
-      info = idxGini;
-    }
-  
-    if (!denseLeft) {  // Walks remaining indices, if any, with rank below dense.
-      sCountL -= sCountDense;
-      sumR += sumDense;
-      rkRight = rankDense;
-      for (int i = idxFinal - 1; i >= int(idxStart); i--) {
-	unsigned int sCountR = sCount - sCountL;
-	double sumL = sum - sumR;
-	double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-	unsigned int rkThis;
-	spn[i].regFields(ySum, rkThis, sampleCount);
-	if (idxGini > info && rkThis != rkRight) {
-	  bool up = (sumL * sCountR <= sumR * sCountL);
-	  if (increasing ? up : !up) {
-	    lhSCount = sCountL;
-	    rhInf = i + 1;
-	    rankLH = rkThis;
-	    rankRH = rkRight;
-	    info = idxGini;
-	  }
-	}
-	sCountL -= sampleCount;
-	sumR += ySum;
-	rkRight = rkThis;
+        rankLH = rkThis;
+        rhMin = rkRight == rankDense ? cutDense : idx + 1;
       }
     }
   }
-
-  lhImplicit = rankLH >= rankDense ? implicit : 0;
-  lhExtent = rhInf - idxStart + lhImplicit;
-  writeNum(spReg, rankLH, rankRH);
 }
 
 
-/**
-   @brief Weighted-variance splitting method.
-
-   @return void.
-*/
-void SplitCand::splitNumMono(const SPReg *spReg,
-                              bool increasing,
-                              const SampleRank spn[]) {
-  unsigned int rkRight, sampleCount;
-  FltVal ySum;
-  spn[idxEnd].regFields(ySum, rkRight, sampleCount);
-  double sumR = ySum;
-  unsigned int sCountL = sCount - sampleCount; // >= 1: counts up to, including, this index.
-
-  unsigned int lhSup = idxEnd;
-
-  // Walks samples backward from the end of nodes so that ties are not split.
-  // Signing values avoids decrementing below zero.
-  for (int i = int(idxEnd) - 1; i >= int(idxStart); i--) {
-    int sCountR = sCount - sCountL;
-    double sumL = sum - sumR;
-    double idxGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    unsigned int rkThis;
-    spn[i].regFields(ySum, rkThis, sampleCount);
-    if (idxGini > info && rkThis != rkRight) {
-      bool up = (sumL * sCountR <= sumR * sCountL);
-      if (increasing ? up : !up) {
-        lhSCount = sCountL;
-        lhSup = i;
-        info = idxGini;
-      }
-    }
-    sCountL -= sampleCount;
-    sumR += ySum;
-    rkRight = rkThis;
-  }
-
-  lhExtent = lhSup - 1 - idxStart;
-  writeNum(spReg, spn[lhSup].getRank(), spn[lhSup+1].getRank());
+void NumPersist::write(SplitCand* cand) {
+  cand->writeNum(info, lhSCount, rankLH, rankRH, rankDense <= rankLH, rhMin);
 }
 
-
+void SplitCand::writeNum(double splitInfo,
+                         unsigned int lhSCount,
+                         unsigned int rankLH,
+                         unsigned int rankRH,
+                         bool lhDense,
+                         unsigned int rhMin) {
+  info = splitInfo - info;
+  if (info > 0.0) {
+    rankRange.set(rankLH, rankRH);
+    this->lhSCount = lhSCount;
+    lhImplicit = lhDense ? implicit : 0;
+    lhExtent = lhImplicit + (rhMin - idxStart);
+  }
+}
 
 
 void SplitCand::splitNum(SPCtg *spCtg,
-                          const SampleRank spn[]) {
-  return implicit > 0 ? numCtgDense(spCtg, spn) : numCtg(spCtg, spn);
+                         const SampleRank spn[]) {
+  NumPersistCtg numPersist(this, spn, spCtg);
+  numPersist.split(spn, idxEnd, idxStart);
+  numPersist.write(this);
+}
+
+NumPersistCtg::NumPersistCtg(const SplitCand* cand,
+                             const SampleRank spn[],
+                             SPCtg* spCtg) :
+  NumPersist(cand, spCtg->denseRank(cand)),
+  resid(cand->getImplicit() > 0 ? makeResidual(cand, spn, spCtg) : nullptr),
+  ctgSum(spCtg->getSumSlice(cand)),
+  ctgAccum(spCtg->getAccumSlice(cand->getSplitIdx(), cand->getPredIdx())),
+  ssL(spCtg->getSumSquares(cand->getSplitIdx())),
+  ssR(0.0) {
 }
 
 
-void SplitCand::numCtg(SPCtg *spCtg,
-                        const SampleRank spn[]) {
-  unsigned int sCountL = sCount;
-  unsigned int rkRight = spn[idxEnd].getRank();
-  double sumL = sum;
-  double ssL = spCtg->getSumSquares(splitIdx);
-  double ssR = 0.0;
-  unsigned int rankRH = 0;
-  unsigned int rankLH = 0;
-  unsigned int rhInf = idxEnd;
-  lhSCount = numCtgGini(spCtg, spn, idxEnd, idxStart, sCountL, rkRight, sumL, ssL, ssR, rankLH, rankRH, rhInf);
-
-  lhExtent = rhInf - idxStart;
-  writeNum(spCtg, rankLH, rankRH);
-}
-
-
-unsigned int SplitCand::numCtgGini(SPCtg *spCtg,
-				    const SampleRank spn[],
-				    unsigned int idxNext,
-				    unsigned int idxFinal,
-				    unsigned int &sCountL,
-				    unsigned int &rkRight,
-				    double &sumL,
-				    double &ssL,
-				    double &ssR,
-				    unsigned int &rankLH,
-				    unsigned int &rankRH,
-				    unsigned int &rhInf) {
-  unsigned int lhSampCt = 0;
-  unsigned int numIdx = spCtg->getNumIdx(predIdx);
-  // Signing values avoids decrementing below zero.
-  for (int idx = int(idxNext); idx >= int(idxFinal); idx--) {
-    FltVal ySum;    
-    unsigned int yCtg, rkThis;
-    unsigned int sampleCount = spn[idx].ctgFields(ySum, rkThis, yCtg);
-    FltVal sumR = sum - sumL;
-    if (rkThis != rkRight && spCtg->StableDenoms(sumL, sumR)) {
-      FltVal cutGini = ssL / sumL + ssR / sumR;
-      if (cutGini > info) {
-        lhSampCt = sCountL;
-	rankLH = rkThis;
-	rankRH = rkRight;
-	rhInf = idx + 1;
-        info = cutGini;
-      }
-    }
-    rkRight = rkThis;
-
-    sCountL -= sampleCount;
-    sumL -= ySum;
-
-    double sumRCtg = spCtg->accumCtgSum(splitIdx, numIdx, yCtg, ySum);
-    ssR += ySum * (ySum + 2.0 * sumRCtg);
-    double sumLCtg = spCtg->getCtgSum(splitIdx, yCtg) - sumRCtg;
-    ssL += ySum * (ySum - 2.0 * sumLCtg);
-  }
-
-  return lhSampCt;
-}
-
-
-void SplitCand::numCtgDense(SPCtg *spCtg,
-                             const SampleRank spn[]) {
-  unsigned int rankDense = spCtg->denseRank(predIdx);
-  double sumDense = sum;
-  unsigned int sCountDense = sCount;
-  bool denseLeft, denseRight;
-  vector<double> sumDenseCtg;
-  unsigned int denseCut = spCtg->Residuals(spn, splitIdx, idxStart, idxEnd, rankDense, denseLeft, denseRight, sumDense, sCountDense, sumDenseCtg);
-
-  unsigned int idxFinal;
-  unsigned int sCountL = sCount;
-  unsigned int rkRight;
-  double sumL = sum;
-  double ssL = spCtg->getSumSquares(splitIdx);
-  double ssR = 0.0;
-  if (denseRight) { // Implicit values to the far right.
-    idxFinal = idxStart;
-    rkRight = rankDense;
-    spCtg->applyResiduals(splitIdx, predIdx, ssL, ssR, sumDenseCtg);
-    sCountL -= sCountDense;
-    sumL -= sumDense;
+// Initializes from final index and loops over remaining indices.
+void NumPersistCtg::split(const SampleRank spn[],
+                          unsigned int idxEnd,
+                          unsigned int idxStart) {
+  if (resid != nullptr) {
+    splitImpl(spn, idxEnd, idxStart);
   }
   else {
-    idxFinal = denseLeft ? idxStart : denseCut + 1;
-    rkRight = spn[idxEnd].getRank();
+    sCountThis = spn[idxEnd].ctgFields(ySum, rkThis, yCtg);
+    splitExpl(spn, idxEnd-1, idxStart);
   }
+}
 
-  unsigned int rankRH = 0;
-  unsigned int rankLH = 0;
-  unsigned int rhInf = idxEnd;
-  lhSCount = numCtgGini(spCtg, spn, idxEnd, idxFinal, sCountL, rkRight, sumL, ssL, ssR, rankLH, rankRH, rhInf);
-
-  // Evaluates the dense component, if not of highest rank.
-  if (denseCut != idxEnd) {
-    FltVal sumR = sum - sumL;
-    if (spCtg->StableDenoms(sumL, sumR)) {
-      FltVal cutGini = ssL / sumL + ssR / sumR;
-      if (cutGini >  info) {
-	lhSCount = sCountL;
-	rhInf = idxFinal;
-	rankLH = rankDense;
-	rankRH = rkRight;
-	info = cutGini;
-      }
+// Initializes from final index and loops over remaining indices.
+void NumPersistCtg::splitExpl(const SampleRank spn[],
+                              unsigned int idxInit,
+                              unsigned int idxFinal,
+                              bool rightCtg) {
+  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+    unsigned int rkRight = rkThis;
+    sumL -= ySum;
+    sCountL -= sCountThis;
+    if (rightCtg) {
+      double sumRCtg = accumCtgSum(yCtg, ySum);
+      ssR += ySum * (ySum + 2.0 * sumRCtg);
+      double sumLCtg = ctgSum[yCtg] - sumRCtg;
+      ssL += ySum * (ySum - 2.0 * sumLCtg);
     }
-
-    // Walks remaining indices, if any with ranks below dense.
-    if (!denseLeft) {
-      spCtg->applyResiduals(splitIdx, predIdx, ssR, ssL, sumDenseCtg);
-      sCountL -= sCountDense;
-      sumL -= sumDense;
-      lhSCount = numCtgGini(spCtg, spn, denseCut, idxStart, sCountL, rkRight, sumL, ssL, ssR, rankLH, rankRH, rhInf);
+    rightCtg = true;
+    sCountThis = spn[idx].ctgFields(ySum, rkThis, yCtg);
+    double sumR = sum - sumL;
+    double infoTrial = ssL / sumL + ssR / sumR;
+    if (infoTrial > info && rkThis != rkRight) {
+      info = infoTrial;
+      lhSCount = sCountL;
+      rankRH = rkRight;
+      rankLH = rkThis;
+      rhMin = rkRight == rankDense ? cutDense : idx + 1;
     }
   }
+}
 
-  lhImplicit = rankLH >= rankDense ? implicit : 0;
-  lhExtent = rhInf - idxStart + lhImplicit;
-  writeNum(spCtg, rankLH, rankRH);
+
+void NumPersistCtg::splitImpl(const SampleRank spn[],
+                              unsigned int idxStart,
+                              unsigned int idxEnd) {
+  if (cutDense > idxEnd) {
+    resid->apply(ySum, sCountThis, ssR, ssL, this);
+    rkThis = rankDense;
+    splitExpl(spn, idxEnd, idxStart, false);
+  }
+  else {
+    sCountThis = spn[idxEnd].ctgFields(ySum, rkThis, yCtg);
+    splitExpl(spn, idxEnd-1, cutDense);
+    resid->apply(ySum, sCountThis, ssR, ssL, this);
+    if (cutDense > 0) {
+      splitExpl(spn, cutDense - 1, idxStart, false);
+    }
+  }
+}
+
+
+void ResidualCtg::apply(FltVal& ySum,
+                        unsigned int& sCount,
+                        double& ssR,
+                        double& ssL,
+                        NumPersistCtg* np) {
+  ySum = this->sum;
+  sCount = this->sCount;
+  for (unsigned int ctg = 0; ctg < ctgImpl.size(); ctg++) {
+    double sumCtg = ctgImpl[ctg];
+    double sumRCtg = np->accumCtgSum(ctg, sumCtg);
+    ssR += sumCtg * (sumCtg + 2.0 * sumRCtg);
+    double sumLCtg = np->getCtgSum(ctg) - sumRCtg;
+    ssL += sumCtg * (sumCtg - 2.0 * sumLCtg);
+  }
 }
 
 
 /**
    Regression runs always maintained by heap.
 */
-void SplitCand::runsReg(const SPReg *spReg,
-			 const SampleRank spn[]) const {
+void SplitCand::splitFac(const SPReg *spReg,
+                         const SampleRank spn[]) {
   RunSet *runSet = spReg->rSet(setIdx);
-  unsigned int rankDense = spReg->denseRank(predIdx);
+  
   double sumHeap = 0.0;
   unsigned int sCountHeap = 0;
   unsigned int rkThis = spn[idxEnd].getRank();
   unsigned int frEnd = idxEnd;
-
-  // Signing values avoids decrementing below zero.
-  //
-  for (int i = int(idxEnd); i >= int(idxStart); i--) {
+  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(idxStart); i--) {
     unsigned int rkRight = rkThis;
     unsigned int sampleCount;
     FltVal ySum;
@@ -623,8 +431,11 @@ void SplitCand::runsReg(const SPReg *spReg,
   //
   runSet->write(rkThis, sCountHeap, sumHeap, frEnd - idxStart + 1, idxStart);
   if (implicit > 0) {
-    runSet->writeImplicit(rankDense, sCount, sum, implicit);
+    runSet->writeImplicit(spReg->denseRank(this), sCount, sum, implicit);
   }
+
+  unsigned int runSlot = heapSplit(runSet);
+  writeSlots(spReg, runSet, runSlot);
 }
 
 
@@ -637,57 +448,48 @@ void SplitCand::runsReg(const SPReg *spReg,
 
    @return initialized LH split signature.
 */
-void SplitCand::heapSplit(const SPReg *spReg) {
-  RunSet *runSet = spReg->rSet(setIdx);
+unsigned SplitCand::heapSplit(RunSet *runSet) {
   runSet->heapMean();
   runSet->dePop();
 
-  unsigned int sCountL = 0;
+  unsigned int lhSCountTrial = 0;
   double sumL = 0.0;
-  int cut = -1; // Top index of lh ords in 'facOrd' (q.v.).
-  for (unsigned int outSlot = 0; outSlot < runSet->getRunCount() - 1; outSlot++) {
+  unsigned int runSlot = runSet->getRunCount() - 1;
+  for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
     unsigned int sCountRun;
-    sumL += runSet->sumHeap(outSlot, sCountRun);
-    sCountL += sCountRun;
-    unsigned int sCountR = sCount - sCountL;
+    sumL += runSet->sumHeap(slotTrial, sCountRun);
+    lhSCountTrial += sCountRun;
+    unsigned int sCountR = sCount - lhSCountTrial;
     double sumR = sum - sumL;
-    double cutGini = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-    if (cutGini > info) {
-      info = cutGini;
-      cut = outSlot;
+    double infoTrial = (sumL * sumL) / lhSCountTrial + (sumR * sumR) / sCountR;
+    if (infoTrial > info) {
+      info = infoTrial;
+      runSlot = slotTrial;
     }
   }
 
-  writeSlots(spReg, cut);
+  return runSlot;
 }
 
-void SplitCand::writeSlots(const SplitPred *splitPred,
-                           int cut) {
-  info -= splitPred->getPrebias(splitIdx);
+void SplitCand::writeSlots(const SplitNode *splitNode,
+                           RunSet *runSet,
+                           unsigned int cut) {
+  info -= splitNode->getPrebias(splitIdx);
   if (info > 0.0) {
-    RunSet *runSet = splitPred->rSet(setIdx);
     lhExtent = runSet->lHSlots(cut, lhSCount);
   }
 }
 
 
-/**
-   @brief Builds categorical runs.  Very similar to regression case, but the runs
-   also resolve response sum by category.  Further, heap is optional, passed only
-   when run count has been estimated to be wide:
-
-*/
-void SplitCand::runsCtg(const SPCtg *spCtg,
-			 const SampleRank spn[]) const {
+void SplitCand::buildRuns(SPCtg *spCtg,
+                          const SampleRank spn[]) const {
   double sumLoc = 0.0;
   unsigned int sCountLoc = 0;
   unsigned int rkThis = spn[idxEnd].getRank();
   auto runSet = spCtg->rSet(setIdx);
-  
-  
-  // Signing values avoids decrementing below zero.
+
   unsigned int frEnd = idxEnd;
-  for (int i = int(idxEnd); i >= int(idxStart); i--) {
+  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(idxStart); i--) {
     unsigned int rkRight = rkThis;
     unsigned int yCtg;
     FltVal ySum;
@@ -711,20 +513,13 @@ void SplitCand::runsCtg(const SPCtg *spCtg,
   // Flushes remaining run.
   runSet->write(rkThis, sCountLoc, sumLoc, frEnd - idxStart + 1, idxStart);
   if (implicit > 0) {
-    runSet->writeImplicit(spCtg->denseRank(predIdx), sCount, sum, implicit, spCtg->getColumnSums(splitIdx));
+    runSet->writeImplicit(spCtg->denseRank(this), sCount, sum, implicit, spCtg->getSumSlice(this));
   }
 }
 
 
 /**
    @brief Splits blocks of categorical runs.
-
-   @param sum is the sum of response values for this index node.
-
-   
-   @param lhSampCt outputs LHS sample count.
-
-   @return true iff the node splits.
 
    Nodes are now represented compactly as a collection of runs.
    For each node, subsets of these collections are examined, looking for the
@@ -734,9 +529,12 @@ void SplitCand::runsCtg(const SPCtg *spCtg,
    convention, the final run is incorporated into the RHS of the split, if any.
    Excluding the final run, then, the number of candidate LHS subsets is
    '2^(runCount-1) - 1'.
+
+   @param spCtg summarizes categorical response.
 */
-void SplitCand::splitRuns(const SPCtg *spCtg) {
+void SplitCand::splitRuns(SPCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(setIdx);
+  const double *ctgSum = spCtg->getSumSlice(this);
   const unsigned int slotSup = runSet->deWide() - 1;// Uses post-shrink value.
   unsigned int lhBits = 0;
   unsigned int leftFull = (1 << slotSup) - 1;
@@ -745,74 +543,138 @@ void SplitCand::splitRuns(const SPCtg *spCtg) {
     double sumL = 0.0;
     double ssL = 0.0;
     double ssR = 0.0;
-    for (unsigned int yCtg = 0; yCtg < spCtg->getCtgWidth(); yCtg++) {
+    for (unsigned int yCtg = 0; yCtg < spCtg->getNCtg(); yCtg++) {
       double sumCtg = 0.0; // Sum at category 'yCtg' over subset slots.
       for (unsigned int slot = 0; slot < slotSup; slot++) {
 	if ((subset & (1 << slot)) != 0) {
 	  sumCtg += runSet->getSumCtg(slot, yCtg);
 	}
       }
-      const double nodeSumCtg = spCtg->getCtgSum(splitIdx, yCtg);
+      const double nodeSumCtg = ctgSum[yCtg];
       sumL += sumCtg;
       ssL += sumCtg * sumCtg;
       ssR += (nodeSumCtg - sumCtg) * (nodeSumCtg - sumCtg);
     }
     double sumR = sum - sumL;
-    // Only relevant for case weighting:  otherwise sums are >= 1.
-    if (spCtg->StableSums(sumL, sumR)) {
-      double subsetGini = ssR / sumR + ssL / sumL;
-      if (subsetGini > info) {
-        info = subsetGini;
-        lhBits = subset;
-      }
+    double infoTrial = ssR / sumR + ssL / sumL;
+    if (infoTrial > info) {
+      info = infoTrial;
+      lhBits = subset;
     }
   }
 
   writeBits(spCtg, lhBits);
 }
 
-void SplitCand::writeBits(const SplitPred* splitPred,
+void SplitCand::writeBits(const SplitNode* splitNode,
                           unsigned int lhBits) {
-  info -= splitPred->getPrebias(splitIdx);
+  info -= splitNode->getPrebias(splitIdx);
   if (info > 0.0) {
-    RunSet *runSet = splitPred->rSet(setIdx);
+    RunSet *runSet = splitNode->rSet(setIdx);
     lhExtent = runSet->lHBits(lhBits, lhSCount);
   }
 }
 
 
-/**
-   @brief Adapated from splitRuns().  Specialized for two-category case in
-   which LH subsets accumulate.  This permits running LH 0/1 sums to be
-   maintained, as opposed to recomputed, as the LH set grows.
-
-   @return true iff the node splits.
- */
-void SplitCand::splitBinary(const SPCtg *spCtg) {
+void SplitCand::splitBinary(SPCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(setIdx);
   runSet->heapBinary();
   runSet->dePop();
 
-  const double tot0 = spCtg->getCtgSum(splitIdx, 0); // Sum over category 0.
-  const double tot1 = spCtg->getCtgSum(splitIdx, 1); // Sum over category 1.
-  double sumL0 = 0.0; // Running sum at category 0.
+  const double* ctgSum = spCtg->getSumSlice(this);
+  const double tot0 = ctgSum[0];
+  const double tot1 = ctgSum[1];
+  double sumL0 = 0.0; // Running left sum at category 0.
   double sumL1 = 0.0; // ibid., category 1.
-  int cut = -1;
-  for (unsigned int outSlot = 0; outSlot < runSet->getRunCount() - 1; outSlot++) {
-    bool splitable = runSet->accumBinary(outSlot, sumL0, sumL1);
+  unsigned int runSlot = runSet->getRunCount() - 1;
+  for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
+    bool splitable = runSet->accumBinary(slotTrial, sumL0, sumL1);
     FltVal sumL = sumL0 + sumL1;
     FltVal sumR = sum - sumL;
     // sumR, sumL magnitudes can be ignored if no large case/class weightings.
-    if (splitable && spCtg->StableDenoms(sumL, sumR)) {
-      FltVal ssL = sumL0 * sumL0 + sumL1 * sumL1;
-      FltVal ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
-      FltVal cutGini = ssR / sumR + ssL / sumL;
-      if (cutGini > info) {
-        info = cutGini;
-        cut = outSlot;
+    if (splitable) {
+      double ssL = sumL0 * sumL0 + sumL1 * sumL1;
+      double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
+      double infoTrial = ssR / sumR + ssL / sumL;
+      if (infoTrial > info) {
+        info = infoTrial;
+        runSlot = slotTrial;
       }
     } 
   }
 
-  writeSlots(spCtg, cut);
+  writeSlots(spCtg, runSet, runSlot);
+}
+
+
+shared_ptr<Residual> NumPersistReg::makeResidual(const SplitCand* cand,
+                                                 const SampleRank spn[]) {
+  unsigned int cut = cand->getIdxEnd() + 1; // Unreachable position for cell.
+  double sumTot = 0.0;
+  unsigned int sCountTot = 0;
+  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+    unsigned int sampleCount, rkThis;
+    FltVal ySum;
+    spn[idx].regFields(ySum, rkThis, sampleCount);
+    if (rkThis > rankDense) {
+      cut = idx;
+    }
+    sCountTot += sampleCount;
+    sumTot += ySum;
+  }
+  cutDense = cut;
+  
+  return make_shared<Residual>(cand, sumTot, sCountTot);
+}
+
+Residual::Residual(const SplitCand* cand,
+                   double sumTot,
+                   unsigned int sCountTot) :
+  sum(cand->getSum() - sumTot),
+  sCount(cand->getSCount() - sCountTot) {
+}
+
+
+/**
+   @brief Imputes per-category dense rank statistics as residuals over the cell.
+
+   @param cand
+
+   @param spn
+
+   @param spCtg
+
+   @return new residual for categorical response over cell.
+*/
+shared_ptr<ResidualCtg>
+NumPersistCtg::makeResidual(const SplitCand* cand,
+                            const SampleRank spn[],
+                            SPCtg* spCtg) {
+  vector<double> ctgExpl(spCtg->getNCtg());
+  ctgExpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgExpl.size());
+
+  unsigned int cut = cand->getIdxEnd() + 1; // Defaults to highest index.
+  double sumTot = 0.0;
+  unsigned int sCountTot = 0;
+  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+    unsigned int yCtg, rkThis;
+    FltVal ySum;
+    sCountTot += spn[idx].ctgFields(ySum, rkThis, yCtg);
+    ctgExpl[yCtg] -= ySum;
+    if (rkThis > rankDense) {
+      cut = idx;
+    }
+    sumTot += ySum;
+  }
+  cutDense = cut;
+
+  return make_shared<ResidualCtg>(cand, sumTot, sCountTot, ctgExpl);
+}
+
+ResidualCtg::ResidualCtg(const SplitCand *cand,
+                         double sumTot,
+                         unsigned int sCountTot,
+                         const vector<double>& ctgExpl) :
+  Residual(cand, sumTot, sCountTot),
+  ctgImpl(ctgExpl) {
 }

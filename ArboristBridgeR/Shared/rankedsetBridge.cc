@@ -98,7 +98,7 @@ List RankedSetBridge::Presort(List &predBlock) {
 }
 
 
-unique_ptr<RowRankBridge> RowRankBridge::Unwrap(SEXP sRankedSet,
+unique_ptr<RowRankBridge> RowRankBridge::unwrap(SEXP sRankedSet,
                                                 double autoCompress,
                                                 const Coproc *coproc,
                                                 const FrameTrain *frameTrain) {
@@ -116,7 +116,7 @@ unique_ptr<RowRankBridge> RowRankBridge::Unwrap(SEXP sRankedSet,
 /**
    @brief Unwraps a sparse numerical block.
  */
-unique_ptr<BlockRankedBridge> BlockRankedBridge::Unwrap(SEXP sRankedSet) {
+unique_ptr<BlockRankedBridge> BlockRankedBridge::unwrap(SEXP sRankedSet) {
   List rankedSet(sRankedSet);
   List blockNum((SEXP) rankedSet["numRanked"]);
   return make_unique<BlockRankedBridge>(
@@ -133,14 +133,14 @@ BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
 
 
 
-unique_ptr<RankedSetBridge> RankedSetBridge::Unwrap(
+unique_ptr<RankedSetBridge> RankedSetBridge::unwrap(
                     SEXP sRankedSet,
                     double autoCompress,
                     const Coproc *coproc,
                     const FrameTrain *frameTrain) {
   return make_unique<RankedSetBridge>(
-      RowRankBridge::Unwrap(sRankedSet,autoCompress, coproc, frameTrain),
-      BlockRankedBridge::Unwrap(sRankedSet)
+      RowRankBridge::unwrap(sRankedSet,autoCompress, coproc, frameTrain),
+      BlockRankedBridge::unwrap(sRankedSet)
                                       );
 }
 

@@ -120,7 +120,7 @@ RcppExport SEXP FrameMixed(SEXP sX,
       _["nPredFac"] = nPredFac,
       _["nRow"] = nRow,
       _["facCard"] = facCard,
-      _["signature"] = move(FramemapBridge::WrapSignature(predMap,
+      _["signature"] = move(FramemapBridge::wrapSignature(predMap,
                                                           level,
                                                           colnames(xf),
                                                           rownames(xf)))
@@ -134,7 +134,7 @@ RcppExport SEXP FrameMixed(SEXP sX,
   // Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.
-List FramemapBridge::WrapSignature(const IntegerVector &predMap,
+List FramemapBridge::wrapSignature(const IntegerVector &predMap,
                const List &level,
                const CharacterVector &colNames,
                const CharacterVector &rowNames) {
@@ -188,7 +188,7 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["nPredFac"] = 0,
         _["nRow"] = blockNum.nrow(),
         _["facCard"] = facCard,
-        _["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) - 1,
+        _["signature"] = move(FramemapBridge::wrapSignature(seq_len(nPred) - 1,
                                         List::create(0),
                                         colnames(blockNum),
                                         rownames(blockNum)))
@@ -289,7 +289,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
         _["nPredFac"] = 0,
         _["nRow"] = nRow,
         _["facCard"] = facCard,
-        _["signature"] = move(FramemapBridge::WrapSignature(seq_len(nPred) -1,
+        _["signature"] = move(FramemapBridge::wrapSignature(seq_len(nPred) -1,
                                         List::create(0),
                                         colName,
                                         rowName))
@@ -395,7 +395,7 @@ SEXP FramemapBridge::SparseIJ(NumericVector &eltsNZ,
 /**
    @brief Unwraps field values useful for prediction.
  */
-List FramemapBridge::UnwrapSignature(const List& sPredBlock) {
+List FramemapBridge::unwrapSignature(const List& sPredBlock) {
   BEGIN_RCPP
   PredblockLegal(sPredBlock);
   List signature = as<List>(sPredBlock["signature"]);
@@ -449,7 +449,7 @@ unique_ptr<FrameTrain> FramemapBridge::FactoryTrain(
 
 
 unique_ptr<FramePredictBridge> FramemapBridge::FactoryPredict(const List& sPredBlock) {
-  Unwrap(sPredBlock);
+  unwrap(sPredBlock);
   return make_unique<FramePredictBridge>(
                  move(BlockNumBridge::Factory(sPredBlock)),
                  move(BlockFacBridge::Factory(sPredBlock)),
@@ -460,7 +460,7 @@ unique_ptr<FramePredictBridge> FramemapBridge::FactoryPredict(const List& sPredB
 /**
    @brief Unwraps field values useful for prediction.
  */
-SEXP FramemapBridge::Unwrap(const List &sPredBlock) {
+SEXP FramemapBridge::unwrap(const List &sPredBlock) {
   BEGIN_RCPP
   PredblockLegal(sPredBlock);
   END_RCPP

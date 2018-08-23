@@ -470,11 +470,11 @@ unsigned int RunSet::lHBits(unsigned int lhBits, unsigned int &lhSampCt) {
 
    @return LHS index count.
 */
-unsigned int RunSet::lHSlots(int cut, unsigned int &lhSampCt) {
+unsigned int RunSet::lHSlots(unsigned int cut, unsigned int &lhSampCt) {
   unsigned int lhExtent = 0;
   lhSampCt = 0;
 
-  for (int outSlot = 0; outSlot <= cut; outSlot++) {
+  for (unsigned int outSlot = 0; outSlot <= cut; outSlot++) {
     unsigned int sCount;
     lhExtent += lHCounts(outZero[outSlot], sCount);
     lhSampCt += sCount;

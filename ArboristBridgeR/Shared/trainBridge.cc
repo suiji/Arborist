@@ -60,7 +60,7 @@ List TrainBridge::train(const List &argList,
   auto frameTrain = FramemapBridge::FactoryTrain(facCard, predMap.length(), nRow);
   vector<string> diag;
   auto coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diag);
-  auto rankedSet = RankedSetBridge::Unwrap(argList["rankedSet"],
+  auto rankedSet = RankedSetBridge::unwrap(argList["rankedSet"],
                                            as<double>(argList["autoCompress"]),
                                            coproc.get(),
                                            frameTrain.get());
@@ -200,10 +200,10 @@ List TrainBridge::summarize(const TrainCtg *trainCtg,
   return List::create(
       _["predInfo"] = predInfo(trainCtg->PredInfo(), predMap, nTree),
       _["diag"] = diag,
-      _["forest"] = move(ForestBridge::Wrap(trainCtg->getForest())),
-      _["leaf"] = move(LeafBridge::Wrap(trainCtg->getLeaf(),
+      _["forest"] = move(ForestBridge::wrap(trainCtg->getForest())),
+      _["leaf"] = move(LeafBridge::wrap(trainCtg->getLeaf(),
                                         as<CharacterVector>(y.attr("levels")))),
-      _["bag"] = move(bag->Wrap())
+      _["bag"] = move(bag->wrap())
                       );
 
   END_RCPP
@@ -262,9 +262,9 @@ List TrainBridge::summarize(const TrainReg *trainReg,
   return List::create(
       _["predInfo"] = predInfo(trainReg->PredInfo(), predMap, nTree),
       _["diag"] = diag,
-      _["forest"] = move(ForestBridge::Wrap(trainReg->getForest())),
-      _["leaf"] = move(LeafBridge::Wrap(trainReg->getLeaf(), y)),
-      _["bag"] = move(bag->Wrap())
+      _["forest"] = move(ForestBridge::wrap(trainReg->getForest())),
+      _["leaf"] = move(LeafBridge::wrap(trainReg->getLeaf(), y)),
+      _["bag"] = move(bag->wrap())
   );
 
   END_RCPP

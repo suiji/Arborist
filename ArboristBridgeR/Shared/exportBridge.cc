@@ -214,9 +214,9 @@ List ExportBridge::fFloorTreeReg(const List &lTrain,
                                  IntegerVector &predMap) {
   BEGIN_RCPP
 
-  auto bag = BagBridge::Unwrap(lTrain);
+  auto bag = BagBridge::unwrap(lTrain);
   auto leaf = LeafRegBridge::unwrap(lTrain, bag->getRaw());
-  auto forest = ForestExport::Unwrap(lTrain, predMap);
+  auto forest = ForestExport::unwrap(lTrain, predMap);
 
   auto nTree = bag->getNTree();
   List trees(nTree);
@@ -241,9 +241,9 @@ List ExportBridge::fFloorCtg(const List &lTrain,
                              IntegerVector &predMap,
                              List &predLevel) {
   BEGIN_RCPP
-  auto bag = BagBridge::Unwrap(lTrain);
+  auto bag = BagBridge::unwrap(lTrain);
   auto leaf = LeafCtgBridge::unwrap(lTrain, bag->getRaw());
-  auto forest = ForestExport::Unwrap(lTrain, predMap);
+  auto forest = ForestExport::unwrap(lTrain, predMap);
   int facCount = predLevel.length();
   IntegerVector facMap(predMap.end() - facCount, predMap.end());
   List ffe = List::create(

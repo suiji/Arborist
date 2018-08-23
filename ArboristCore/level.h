@@ -80,7 +80,7 @@ class MRRA {
   }
   
 
-  inline void SetDense() {
+  inline void setDense() {
     raw |= denseBit;
   }
 
@@ -91,23 +91,23 @@ class MRRA {
 
      @return true iff dense bit set.
    */
-  inline bool Dense() const {
+  inline bool isDense() const {
     return (raw & denseBit) != 0;
   }
 
 
-  inline void SetSingleton() {
+  inline void setSingleton() {
     raw |= oneBit;
   }
 
   
-  inline bool Defined() const {
+  inline bool isDefined() const {
     return (raw & defBit) != 0;
   }
   
 
   inline bool undefine() {
-    bool wasDefined = Defined();
+    bool wasDefined = isDefined();
     raw &= ~defBit;
     return wasDefined;
   }
@@ -138,17 +138,18 @@ class DenseCoord {
  public:
 
   /**
-     @brief Applies dense parameters to offsets derived from index node.
+     @brief Compresses index node coordinates for dense access.
 
-     @param startIdx inputs the nodewise starting offset and outputs the
-     same value, minus the margin.
+     @param[in, out] startIdx inputs the nodewise starting offset which is
+     then decremented by the margin.
 
-     @param extent inputs the nodewise index count and outputs the same
-     value, minus the number of implicit indices.
+     @param[in, out] extent inputs the nodewise index count, which is then
+     decremented by the implicit count.
 
-     @return dense count.
+     @return count of implicit indices, i.e., size of dense blob..
    */
-  inline unsigned int adjustDense(unsigned int &startIdx, unsigned int &extent) const {
+  inline unsigned int adjustDense(unsigned int &startIdx,
+                                  unsigned int &extent) const {
     startIdx -= margin;
     extent -= implicit;
     return implicit;
@@ -160,11 +161,11 @@ class DenseCoord {
 
      @return void.
    */
-  inline void Init(unsigned int _implicit, unsigned int _margin = 0) {
-    implicit = _implicit;
-    margin = _margin;
+  inline void Init(unsigned int implicit,
+                   unsigned int margin = 0) {
+    this->implicit = implicit;
+    this->margin = margin;
   }
-
 };
 
 
@@ -214,7 +215,7 @@ class Level {
 
    @return true iff pair scheduled for splitting.
  */
-  bool preschedule(class SplitPred *splitPred,
+  bool preschedule(class SplitNode *splitNode,
                    unsigned int levelIdx,
                    unsigned int predIdx,
                    unsigned int extent,
@@ -229,16 +230,16 @@ class Level {
 
 
   /**
-     @brief Signals SplitPred to schedule splitable pairs.
+     @brief Signals SplitNode to schedule splitable pairs.
 
      @param index
 
-     @param splitPred maintains the candidate list.
+     @param splitNode maintains the candidate list.
 
      @return void.
   */
   void candidates(const class IndexLevel *index,
-                  class SplitPred *splitPred);
+                  class SplitNode *splitNode);
 
   /**
    @brief Set splitable flag by Bernoulli sampling.
@@ -249,7 +250,7 @@ class Level {
 
    @param offCand accumulates offsets for splitable pairs.
  */
-  void candidateProb(class SplitPred *splitPred,
+  void candidateProb(class SplitNode *splitNode,
                      unsigned int splitIdx,
                      const double ruPred[],
                      unsigned int extent,
@@ -266,7 +267,7 @@ class Level {
 
    @param offCand accumulates offsets for splitable pairs.
  */
-  void candidateFixed(class SplitPred *splitPred,
+  void candidateFixed(class SplitNode *splitNode,
                       unsigned int splitIdx,
                       const double ruPred[],
                       class BHPair heap[],
@@ -277,16 +278,16 @@ class Level {
                    const SPPair &mrra,
                    Level *levelFront,
                    unsigned int bufIdx);
-  void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx);
+  void indexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx);
 
   void rankRestage(class SamplePred *samplePred,
                    const SPPair &mrra,
                    Level *levelFront,
                    unsigned int bufIdx,
-                   const unsigned int reachBase[],
-                   unsigned int reachOffset[]);
+                   unsigned int reachOffset[], 
+                   const unsigned int reachBase[] = nullptr);
 
-  void IndexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]);
+  void indexRestage(class SamplePred *samplePred, const SPPair &mrra, const Level *levelFront, unsigned int bufIdx, const unsigned int reachBase[], unsigned int reachOffset[], unsigned int splitOffset[]);
 
   void flush(bool forward = true);
   void flushDef(unsigned int mrraIdx, unsigned int predIdx);
@@ -309,23 +310,41 @@ class Level {
   */
   bool scheduleSplit(unsigned int levelIdx, unsigned int predIdx, unsigned int &rCount) const;
 
-  void Bounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent);
-  void FrontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton);
+  void getBounds(const SPPair &mrra,
+              unsigned int &startIdx,
+              unsigned int &extent);
 
-  void offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]);
+  void FrontDef(unsigned int mrraIdx,
+                unsigned int predIdx,
+                unsigned int bufIdx,
+                bool singleton);
 
-  void offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int splitOffset[], unsigned int reachBase[]);
+  void offsetClone(const SPPair &mrra,
+                   unsigned int reachOffset[],
+                   unsigned int reachBase[] = nullptr);
 
-  void RunCounts(class Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const;
+  void offsetClone(const SPPair &mrra,
+                   unsigned int reachOffset[],
+                   unsigned int splitOffset[],
+                   unsigned int reachBase[]);
 
-  void PackDense(unsigned int idxLeft, const unsigned int pathCount[], Level *levelFront, const SPPair &mrra, unsigned int reachOffset[]) const;
+  void setRunCounts(class Bottom *bottom,
+                    const SPPair &mrra,
+                    const unsigned int pathCount[],
+                    const unsigned int rankCount[]) const;
+
+  void packDense(unsigned int idxLeft,
+                 const unsigned int pathCount[],
+                 Level *levelFront,
+                 const SPPair &mrra,
+                 unsigned int reachOffset[]) const;
 
   void setExtinct(unsigned int idx);
 
-  bool Backdate(const class IdxPath *one2Front);
-  void SetSingleton(unsigned int levelIdx, unsigned int predIdx);
+  bool backdate(const class IdxPath *one2Front);
+  void setSingleton(unsigned int levelIdx, unsigned int predIdx);
   bool Splitable(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx);
-  void SetLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
+  void setLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase);
 
 
   /**
@@ -337,7 +356,7 @@ class Level {
   /**
      @brief Accessor for indexing mode.  Currently two-valued.
    */
-  inline bool NodeRel() const {
+  inline bool isNodeRel() const {
     return nodeRel;
   }
 
@@ -389,7 +408,7 @@ class Level {
 
      @return shifted value.
    */  
-  inline unsigned int BackScale(unsigned int val) const {
+  inline unsigned int backScale(unsigned int val) const {
     return val << (unsigned int) del;
   }
 
@@ -400,7 +419,7 @@ class Level {
      @return bit mask value.
    */
   inline unsigned int PathMask() const {
-    return BackScale(1) - 1;
+    return backScale(1) - 1;
   }
   
 
@@ -409,7 +428,7 @@ class Level {
 
      @return definition count at this level.
   */
-  inline unsigned int DefCount() {
+  inline unsigned int getDefCount() {
     return defCount;
   }
 
@@ -425,10 +444,14 @@ class Level {
      @param implicit is only set directly by staging.  Otherwise it has a
      default setting of zero, which is later reset by restaging.
    */
-  inline bool Define(unsigned int levelIdx, unsigned predIdx, unsigned int bufIdx, bool singleton, unsigned int implicit = 0) {
+  inline bool Define(unsigned int levelIdx,
+                     unsigned predIdx,
+                     unsigned int bufIdx,
+                     bool singleton,
+                     unsigned int implicit = 0) {
     if (levelIdx != noIndex) {
       def[PairOffset(levelIdx, predIdx)].Init(bufIdx, singleton);
-      SetDense(levelIdx, predIdx, implicit);
+      setDense(levelIdx, predIdx, implicit);
       defCount++;
       return true;
     }
@@ -438,13 +461,17 @@ class Level {
   }
 
 
-  inline void undefine(unsigned int levelIdx, unsigned int predIdx) {
+  inline void undefine(unsigned int levelIdx,
+                       unsigned int predIdx) {
     bool wasDefined = def[PairOffset(levelIdx, predIdx)].undefine();
     defCount -= wasDefined ? 1 : 0;
   }
 
 
-  inline void Consume(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx, bool &singleton) {
+  inline void Consume(unsigned int levelIdx,
+                      unsigned int predIdx,
+                      unsigned int &bufIdx,
+                      bool &singleton) {
     def[PairOffset(levelIdx, predIdx)].Consume(bufIdx, singleton);
     defCount--;
   }
@@ -453,38 +480,59 @@ class Level {
   /**
      @brief Determines whether pair consists of a single run.
 
-     @param bufIdx outputs the buffer index.
+     @param levelIdx is the level-relative split index.
+
+     @param predIdx is the predictor index.
 
      @return true iff a singleton.
    */
-  inline bool isSingleton(unsigned int levelIdx, unsigned int predIdx) const {
+  inline bool isSingleton(unsigned int levelIdx,
+                          unsigned int predIdx) const {
     return def[PairOffset(levelIdx, predIdx)].isSingleton();
   }
 
 
-  inline bool isSingleton(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx) const {
+  /**
+     @brief As above, but with output buffer index parameter.
+
+     @param[out] bufIdx is the buffer index for the cell.
+   */
+  inline bool isSingleton(unsigned int levelIdx,
+                          unsigned int predIdx,
+                          unsigned int &bufIdx) const {
     return def[PairOffset(levelIdx, predIdx)].isSingleton(bufIdx);
   }
 
 
-  inline unsigned int adjustDense(unsigned int levelIdx, unsigned int predIdx, unsigned int &startIdx, unsigned int &extent) const {
-    return def[PairOffset(levelIdx, predIdx)].Dense() ?
+  inline unsigned int adjustDense(unsigned int levelIdx,
+                                  unsigned int predIdx,
+                                  unsigned int &startIdx,
+                                  unsigned int &extent) const {
+    return def[PairOffset(levelIdx, predIdx)].isDense() ?
       denseCoord[DenseOffset(levelIdx, predIdx)].adjustDense(startIdx, extent) : 0;
   }
 
 
-  inline void Ref(unsigned int levelIdx, unsigned int predIdx, unsigned int &bufIdx, bool &singleton) {
+  /**
+     @brief Multiple accessor.
+   */
+  inline void Ref(unsigned int levelIdx,
+                  unsigned int predIdx,
+                  unsigned int &bufIdx,
+                  bool &singleton) {
     singleton = def[PairOffset(levelIdx, predIdx)].isSingleton(bufIdx);
   }
 
 
-  inline bool Defined(unsigned int levelIdx, unsigned int predIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].Defined();
+  inline bool isDefined(unsigned int levelIdx,
+                        unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].isDefined();
   }
 
 
-  inline bool Dense(unsigned int levelIdx, unsigned int predIdx) const {
-    return def[PairOffset(levelIdx, predIdx)].Dense();
+  inline bool isDense(unsigned int levelIdx,
+                      unsigned int predIdx) const {
+    return def[PairOffset(levelIdx, predIdx)].isDense();
   }
 
   /**
@@ -492,9 +540,12 @@ class Level {
 
      @return void.
   */
-  inline void SetDense(unsigned int levelIdx, unsigned int predIdx, unsigned int implicit, unsigned int margin = 0) {
+  inline void setDense(unsigned int levelIdx,
+                       unsigned int predIdx,
+                       unsigned int implicit,
+                       unsigned int margin = 0) {
     if (implicit > 0 || margin > 0) {
-      def[PairOffset(levelIdx, predIdx)].SetDense();
+      def[PairOffset(levelIdx, predIdx)].setDense();
       denseCoord[DenseOffset(levelIdx, predIdx)].Init(implicit, margin);
     }
   }
