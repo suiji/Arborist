@@ -119,9 +119,13 @@ void Train::InitCtgWidth(unsigned int ctgWidth) {
 
 /**
    @brief Registers monotone specifications for regression.
+
+   @param regMono has length equal to the predictor count.  Only
+   numeric predictors may have nonzero entries.
  */
-void Train::InitMono(const vector<double> &regMono) {
-  SPReg::Immutables(regMono);
+void Train::InitMono(const FrameTrain* frameTrain,
+                     const vector<double> &regMono) {
+  SPReg::Immutables(frameTrain, regMono);
 }
 
 

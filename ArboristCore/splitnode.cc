@@ -28,9 +28,7 @@
 // Post-split consumption:
 #include "pretree.h"
 
-vector<double> SPReg::mono;
-unsigned int SPReg::predMono = 0;
-
+vector<double> SPReg::mono; // Numeric monotonicity constraints.
 
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
@@ -51,27 +49,23 @@ SplitNode::~SplitNode() {
 }
 
 
-/**
-   @brief Caches a local copy of the mono[] vector.
- */
-void SPReg::Immutables(const vector<double> &feMono) {
-  predMono = 0;
-  for (auto monoProb : feMono) {
-    mono.push_back(monoProb);
-    predMono += monoProb != 0.0;
+void SPReg::Immutables(const FrameTrain* frameTrain,
+                       const vector<double> &bridgeMono) {
+  auto numFirst = frameTrain->NumFirst();
+  auto numExtent = frameTrain->NPredNum();
+  auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [](double prob) { return prob != 0.0; });
+  if (monoCount > 0) {
+    mono = move(vector<double>(frameTrain->NPredNum()));
+    mono.assign(bridgeMono.begin() + frameTrain->NumFirst(), bridgeMono.begin() + frameTrain->NumFirst() + frameTrain->NPredNum());
   }
 }
 
 
 void SPReg::DeImmutables() {
   mono.clear();
-  predMono = 0;
 }
 
 
-/**
-   @brief Constructor.
- */
 SPReg::SPReg(const FrameTrain *_frameTrain,
 	     const RowRank *_rowRank,
 	     unsigned int bagCount) :
@@ -83,8 +77,6 @@ SPReg::SPReg(const FrameTrain *_frameTrain,
 
 /**
    @brief Constructor.
-
-   @param sampleCtg is the sample vector for the tree, included for category lookup.
  */
 SPCtg::SPCtg(const FrameTrain *frameTrain_,
 	     const RowRank *rowRank_,
@@ -216,8 +208,8 @@ double SPCtg::getSumSquares(const SplitCand *cand) const {
 
    @return true iff predictor is numeric.
  */
-unsigned int SPCtg::getNumIdx(unsigned int predIdx) const {
-  return frameTrain->NumIdx(predIdx);
+unsigned int SplitNode::getNumIdx(unsigned int predIdx) const {
+  return frameTrain->getNumIdx(predIdx);
 }
 
 
@@ -259,9 +251,8 @@ void SPCtg::levelClear() {
    @return void.
 */
 void SPReg::levelPreset(IndexLevel *index) {
-  if (predMono > 0) {
-    unsigned int monoCount = splitCount * frameTrain->NPred(); // Clearly too big.
-    ruMono = move(CallBack::rUnif(monoCount));
+  if (!mono.empty()) {
+    ruMono = move(CallBack::rUnif(splitCount * mono.size()));
   }
 }
 
@@ -299,23 +290,27 @@ void SPCtg::levelInitSumR(unsigned int nPredNum) {
 }
 
 
-int SPReg::getMonoMode(const SplitCand* cand) const {
-  return getMonoMode(cand->getSplitIdx(), cand->getPredIdx());
-}
-
 /**
    @brief Determines whether a regression pair undergoes constrained splitting.
 
    @return The sign of the constraint, if within the splitting probability, else zero.
 */
-int SPReg::getMonoMode(unsigned int splitIdx,
-                       unsigned int predIdx) const {
-  if (predMono == 0)
+int SPReg::getMonoMode(const SplitCand* cand) const {
+  if (mono.empty())
     return 0;
 
-  double monoProb = mono[predIdx];
-  int sign = monoProb > 0.0 ? 1 : (monoProb < 0.0 ? -1 : 0);
-  return sign * ruMono[splitIdx] < monoProb ? sign : 0;
+  unsigned int numIdx = getNumIdx(cand->getPredIdx());
+  double monoProb = mono[numIdx];
+  double prob = ruMono[cand->getSplitIdx() * mono.size() + numIdx];
+  if (monoProb > 0 && prob < monoProb) {
+    return 1;
+  }
+  else if (monoProb < 0 && prob < -monoProb) {
+    return -1;
+  }
+  else {
+    return 0;
+  }
 }
 
 

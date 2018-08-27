@@ -101,7 +101,8 @@ class Train {
                         unsigned int totLevels,
                         double minRatio);
   
-  static void InitMono(const vector<double> &regMono);
+  static void InitMono(const class FrameTrain* frameTrain,
+                       const vector<double> &regMono);
 
   static void DeInit();
 

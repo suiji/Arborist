@@ -123,7 +123,7 @@ class FrameMap {
 
      @return Position of predictor within numerical block.
    */
-  inline unsigned int NumIdx(int predIdx) const {
+  inline unsigned int getNumIdx(int predIdx) const {
     return predIdx - NumFirst();
   }
 

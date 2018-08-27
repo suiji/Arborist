@@ -94,6 +94,7 @@ class TrainBridge {
      @return implicit R_NilValue.
    */
   static SEXP init(const List &argList,
+                   const class FrameTrain* frameTrain,
                    const IntegerVector &predMap);
 
 

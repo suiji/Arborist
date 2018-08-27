@@ -149,7 +149,6 @@ NumPersist::NumPersist(const SplitCand* cand,
   info(cand->getInfo()) {
 }
 
-
 NumPersistReg::NumPersistReg(const SplitCand* cand,
                              const SampleRank spn[],
                              const SPReg* spReg) :
@@ -247,7 +246,6 @@ void NumPersistReg::splitExpl(const SampleRank spn[],
   }
 }
 
-
 /**
    @brief As above, but checks monotonicity at every index.
  */
@@ -269,6 +267,7 @@ void NumPersistReg::splitMono(const SampleRank spn[],
     if (infoTrial > info && rkThis != rkRight) {
       bool up = (sumL * sCountR <= sumR * sCountL);
       if (nonDecreasing ? up : !up) {
+        //cout << "constrained split" << endl;
         info = infoTrial;
         lhSCount = sCountL;
         rankRH = rkRight;

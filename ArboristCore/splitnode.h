@@ -44,6 +44,14 @@ class SplitNode {
   vector<unsigned int> candOff;  // Lead candidate position.
   vector<unsigned int> nCand;  // Number of candidates.
 
+  /**
+     @brief Retrieves the type-relative index of a numerical predictor.
+
+     @return placement-adjusted index.
+   */
+  unsigned int getNumIdx(unsigned int predIdx) const;
+
+
 public:
 
   SplitNode(const class FrameTrain *_frameTrain,
@@ -122,17 +130,33 @@ public:
    @brief Splitting facilities specific regression trees.
  */
 class SPReg : public SplitNode {
-  static unsigned int predMono;
+  // Bridge-supplied monotone constraints.  Length is # numeric predictors
+  // or zero, if none so constrained.
   static vector<double> mono;
+
+  // Per-level vector of uniform variates.
   vector<double> ruMono;
 
   void splitCandidates(const class SamplePred *samplePred);
-  int getMonoMode(unsigned int splitIdx,
-	       unsigned int predIdx) const;
 
  public:
-  static void Immutables(const vector<double> &feMono);
+
+  /**
+     @brief Caches a dense local copy of the mono[] vector.
+
+     @param frameTrain contains the predictor block mappings.
+
+     @param bridgeMono has length equal to the predictor count.  Only
+     numeric predictors may have nonzero entries.
+  */
+  static void Immutables(const class FrameTrain* frameTrain,
+                         const vector<double> &feMono);
+
+  /**
+     @brief Resets the monotone constraint vector.
+   */
   static void DeImmutables();
+  
   SPReg(const class FrameTrain *_frameTrain,
 	const class RowRank *_rowRank,
 	unsigned int bagCount);
@@ -183,15 +207,6 @@ class SPCtg : public SplitNode {
 		      unsigned int &lhSampCt);
 
   void levelInitSumR(unsigned int nPredNum);
-
-  /**
-     @brief Retrieves the type-relative index of a numerical predictor.
-
-     @return placement-adjusted index.
-   */
-  unsigned int getNumIdx(unsigned int predIdx) const;
-
-
 
   /**
      @brief Gini pre-bias computation for categorical response.

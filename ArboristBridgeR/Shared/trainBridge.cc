@@ -64,7 +64,7 @@ List TrainBridge::train(const List &argList,
                                            as<double>(argList["autoCompress"]),
                                            coproc.get(),
                                            frameTrain.get());
-  init(argList, predMap);
+  init(argList, frameTrain.get(), predMap);
   List outList;
 
   auto nTree = as<unsigned int>(argList["nTree"]);
@@ -97,7 +97,9 @@ List TrainBridge::train(const List &argList,
 
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
-SEXP TrainBridge::init(const List &argList, const IntegerVector &predMap) {
+SEXP TrainBridge::init(const List &argList,
+                       const FrameTrain* frameTrain,
+                       const IntegerVector &predMap) {
   BEGIN_RCPP
 
   NumericVector probVecNV((SEXP) argList["probVec"]);
@@ -122,10 +124,10 @@ SEXP TrainBridge::init(const List &argList, const IntegerVector &predMap) {
 
   unsigned int nCtg = as<unsigned int>(argList["nCtg"]);
   Train::InitCtgWidth(nCtg);
-  if (nCtg == 0) { // Regression.
+  if (nCtg == 0) { // Regression only.
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
-    Train::InitMono(regMono);
+    Train::InitMono(frameTrain, regMono);
   }
 
   END_RCPP
