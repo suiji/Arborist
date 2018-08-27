@@ -34,6 +34,8 @@
 #include "leaf.h"
 #include "coproc.h"
 
+bool TrainBridge::verbose = false;
+
 RcppExport SEXP Train(const SEXP sArgList) {
   BEGIN_RCPP
 
@@ -101,7 +103,8 @@ SEXP TrainBridge::init(const List &argList,
                        const FrameTrain* frameTrain,
                        const IntegerVector &predMap) {
   BEGIN_RCPP
-
+  verbose = as<bool>(argList["verbose"]);
+    
   NumericVector probVecNV((SEXP) argList["probVec"]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
   Train::InitProb(as<unsigned int>(argList["predFixed"]), predProb);
@@ -186,8 +189,10 @@ List TrainBridge::classification(const IntegerVector &y,
                            classWeight.size(),
                            nTree);
   bag->trainChunk(trainCtg.get(), chunkOff);
-  return summarize(trainCtg.get(), bag, predMap, nTree, y, diag);
+  if (verbose)
+    Rcout << nTree << " trees trained" << endl;
 
+  return summarize(trainCtg.get(), bag, predMap, nTree, y, diag);
   END_RCPP
 }
 
@@ -247,8 +252,10 @@ List TrainBridge::regression(const NumericVector &y,
                              &(as<vector<unsigned int> >(row2Rank))[0],
                                     treeChunk);
   bag->trainChunk(trainReg.get(), chunkOff);
-  return summarize(trainReg.get(), bag, predMap, nTree, y, diag);
+  if (verbose)
+    Rcout << treeChunk << " trees trained" << endl;
 
+  return summarize(trainReg.get(), bag, predMap, nTree, y, diag);
   END_RCPP
 }
 

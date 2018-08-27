@@ -36,8 +36,10 @@ using namespace std;
 RcppExport SEXP Train(const SEXP sArgList);
 
 
-class TrainBridge {
+struct TrainBridge {
 
+  static bool verbose; // Whether to report progress while training.
+  
   /**
      @brief Constructs classification forest.
 

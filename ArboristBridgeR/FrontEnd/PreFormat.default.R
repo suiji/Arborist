@@ -17,7 +17,7 @@
 
 # Pre-formats a data frame or buffer, if not already pre-formatted.
 # If already pre-formatted, verifies types of member fields.
-PreFormat.default <- function(x) {
+PreFormat.default <- function(x, verbose = FALSE) {
     if (inherits(x, "PreFormat") || inherits(x, "PreTrain")) {
         preFormat <- x
         if (!inherits(preFormat$predBlock, "PredBlock")) {
@@ -26,6 +26,8 @@ PreFormat.default <- function(x) {
         if (!inherits(preFormat$rankedSet, "RankedSet")) {
             stop("Missing RankedSet")
         }
+        if (verbose)
+            print("Training set already preformatted")
     }
     else {
         predBlock <- PredBlock(x)
@@ -34,6 +36,8 @@ PreFormat.default <- function(x) {
             rankedSet = .Call("Presort", predBlock)
         )
         class(preFormat) <- "PreFormat"
+        if (verbose)
+            print("Pre-formatting complete")
     }
 
     preFormat

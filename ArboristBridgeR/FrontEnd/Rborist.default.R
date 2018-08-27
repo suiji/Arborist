@@ -41,6 +41,7 @@
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
+                verbose = FALSE,
                 withRepl = TRUE,
                 ...) {
     argList <- mget(names(formals()), sys.frame(sys.nframe()))
@@ -50,7 +51,7 @@
     if (!is.numeric(y) && !is.factor(y))
         stop("Expecting numeric or factor response")
 
-    preFormat <- PreFormat(x)
+    preFormat <- PreFormat(x, verbose)
     predBlock <- preFormat$predBlock
 
     
@@ -230,6 +231,8 @@ RboristDeep <- function(argList) {
     }
     else {
         validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin)
+        if (argList$verbose)
+            print("Validation completed.")
     }
 
     arbOut <- list(

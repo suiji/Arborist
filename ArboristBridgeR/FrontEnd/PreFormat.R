@@ -16,6 +16,6 @@
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 "PreFormat" <-
-    function(x)
+    function(x, verbose)
     UseMethod("PreFormat")
 
