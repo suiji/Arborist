@@ -274,22 +274,17 @@ class SPCtg : public SplitNode {
 
      @return raw pointer to per-category accumulation vector for pair.
    */
-  double* getAccumSlice(unsigned int splitIdx,
-                        unsigned int predIdx) {
-    return &ctgSumAccum[getNumIdx(predIdx) * splitCount * nCtg + splitIdx * nCtg];
-  }
+  double* getAccumSlice(const class SplitCand* cand);
 
 
   /**
      @brief Per-node accessor for sum of response squares.
 
-     @param splitIdx is the level-based index of the node.
+     @param cand is a splitting candidate.
 
      @return sum, over categories, of node reponse values.
    */
-  double getSumSquares(unsigned int splitIdx) const {
-    return sumSquares[splitIdx];
-  }
+  double getSumSquares(const class SplitCand *cand) const;
 };
 
 

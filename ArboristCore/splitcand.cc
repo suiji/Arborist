@@ -53,9 +53,9 @@ SplitCand::SplitCand(unsigned int splitIdx_,
 void SplitCand::initLate(const SplitNode *splitNode,
                          const Level *levelFront,
                          const IndexLevel *index,
-                         unsigned int vecPos,
+                         unsigned int vecIdx,
                          unsigned int setIdx) {
-  this->vecPos = vecPos;
+  this->vecIdx = vecIdx,
   this->setIdx = setIdx;
   unsigned int extent;
   index->getSplitFields(splitIdx, idxStart, extent, sCount, sum);
@@ -165,8 +165,8 @@ void NumPersistReg::split(const SampleRank spn[],
     splitImpl(spn, idxEnd, idxStart);
   }
   else {
-    spn[idxEnd].regFields(ySum, rkThis, sCountThis);
-    splitExpl(spn, idxEnd-1, idxStart);
+    unsigned int rkThis = spn[idxEnd].regFields(ySum, sCountThis);
+    splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
 }
 
@@ -176,24 +176,23 @@ void NumPersistReg::splitImpl(const SampleRank spn[],
   if (cutDense > idxEnd) {
     // Checks resid/idxEnd, ..., idxStart+1/idxStart.
     resid->apply(ySum, sCountThis);
-    rkThis = rankDense;
-    splitExpl(spn, idxEnd, idxStart);
+    splitExpl(spn, rankDense, idxEnd, idxStart);
   }
   else {
     // Checks idxEnd/idxEnd-1, ..., denseCut+1/denseCut.
-    spn[idxEnd].regFields(ySum, rkThis, sCountThis);
-    splitExpl(spn, idxEnd-1, cutDense);
-    leftResidual(); // Checks denseCut/resid.
+    unsigned int rkThis = spn[idxEnd].regFields(ySum, sCountThis);
+    splitExpl(spn, rkThis, idxEnd-1, cutDense);
+    leftResidual(spn[cutDense].getRank()); // Checks denseCut/resid.
 
     // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
     if (cutDense > 0) {
-      splitExpl(spn, cutDense - 1, idxStart);
+      splitExpl(spn, rankDense, cutDense - 1, idxStart);
     }
   }
 }
 
 
-void NumPersistReg::leftResidual() {
+void NumPersistReg::leftResidual(unsigned int rkThis) {
   // Rank exposed from previous invocation of splitExpl():
   unsigned int rkRight = rkThis;
 
@@ -220,11 +219,12 @@ void NumPersistReg::leftResidual() {
 
 
 void NumPersistReg::splitExpl(const SampleRank spn[],
+                              unsigned int rkThis,
                               unsigned int idxInit,
                               unsigned int idxFinal) {
   // Per-sample monotonicity constraint confined to specialized method:
   if (monoMode != 0) {
-    splitMono(spn, idxInit, idxFinal);
+    splitMono(spn, rkThis, idxInit, idxFinal);
     return;
   }
 
@@ -232,7 +232,7 @@ void NumPersistReg::splitExpl(const SampleRank spn[],
     unsigned int rkRight = rkThis;
     sumL -= ySum;
     sCountL -= sCountThis;
-    spn[idx].regFields(ySum, rkThis, sCountThis);
+    rkThis = spn[idx].regFields(ySum, sCountThis);
 
     // localMax()
     double sumR = sum - sumL;
@@ -252,6 +252,7 @@ void NumPersistReg::splitExpl(const SampleRank spn[],
    @brief As above, but checks monotonicity at every index.
  */
 void NumPersistReg::splitMono(const SampleRank spn[],
+                              unsigned int rkThis,
                               unsigned int idxInit,
                               unsigned int idxFinal) {
   bool nonDecreasing = monoMode > 0;
@@ -259,7 +260,7 @@ void NumPersistReg::splitMono(const SampleRank spn[],
     unsigned int rkRight = rkThis;
     sumL -= ySum;
     sCountL -= sCountThis;
-    spn[idx].regFields(ySum, rkThis, sCountThis);
+    rkThis = spn[idx].regFields(ySum, sCountThis);
 
     //    localMax(nonDecreasing);
     unsigned int sCountR = sCount - sCountL;
@@ -310,10 +311,11 @@ NumPersistCtg::NumPersistCtg(const SplitCand* cand,
                              const SampleRank spn[],
                              SPCtg* spCtg) :
   NumPersist(cand, spCtg->denseRank(cand)),
+  nCtg(spCtg->getNCtg()),
   resid(cand->getImplicit() > 0 ? makeResidual(cand, spn, spCtg) : nullptr),
   ctgSum(spCtg->getSumSlice(cand)),
-  ctgAccum(spCtg->getAccumSlice(cand->getSplitIdx(), cand->getPredIdx())),
-  ssL(spCtg->getSumSquares(cand->getSplitIdx())),
+  ctgAccum(spCtg->getAccumSlice(cand)),
+  ssL(spCtg->getSumSquares(cand)),
   ssR(0.0) {
 }
 
@@ -326,28 +328,37 @@ void NumPersistCtg::split(const SampleRank spn[],
     splitImpl(spn, idxEnd, idxStart);
   }
   else {
-    sCountThis = spn[idxEnd].ctgFields(ySum, rkThis, yCtg);
-    splitExpl(spn, idxEnd-1, idxStart);
+    unsigned int rkThis = stateNext(spn, idxEnd);
+    splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
+}
+
+
+inline unsigned int NumPersistCtg::stateNext(const SampleRank spn[],
+                       unsigned int idx) {
+  unsigned int yCtg;
+  unsigned int rkThis = spn[idx].ctgFields(ySum, sCountThis, yCtg);
+
+  sumL -= ySum;
+  sCountL -= sCountThis;
+  double sumRCtg = accumCtgSum(yCtg, ySum);
+  ssR += ySum * (ySum + 2.0 * sumRCtg);
+  double sumLCtg = ctgSum[yCtg] - sumRCtg;
+  ssL += ySum * (ySum - 2.0 * sumLCtg);
+
+  return rkThis;
 }
 
 // Initializes from final index and loops over remaining indices.
 void NumPersistCtg::splitExpl(const SampleRank spn[],
+                              unsigned int rkThis,
                               unsigned int idxInit,
-                              unsigned int idxFinal,
-                              bool rightCtg) {
+                              unsigned int idxFinal) {
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+    // Applies upward-exposed or wraparound state:
     unsigned int rkRight = rkThis;
-    sumL -= ySum;
-    sCountL -= sCountThis;
-    if (rightCtg) {
-      double sumRCtg = accumCtgSum(yCtg, ySum);
-      ssR += ySum * (ySum + 2.0 * sumRCtg);
-      double sumLCtg = ctgSum[yCtg] - sumRCtg;
-      ssL += ySum * (ySum - 2.0 * sumLCtg);
-    }
-    rightCtg = true;
-    sCountThis = spn[idx].ctgFields(ySum, rkThis, yCtg);
+    rkThis = spn[idx].getRank();
+
     double sumR = sum - sumL;
     double infoTrial = ssL / sumL + ssR / sumR;
     if (infoTrial > info && rkThis != rkRight) {
@@ -357,6 +368,7 @@ void NumPersistCtg::splitExpl(const SampleRank spn[],
       rankLH = rkThis;
       rhMin = rkRight == rankDense ? cutDense : idx + 1;
     }
+    (void) stateNext(spn, idx);
   }
 }
 
@@ -366,15 +378,14 @@ void NumPersistCtg::splitImpl(const SampleRank spn[],
                               unsigned int idxEnd) {
   if (cutDense > idxEnd) {
     resid->apply(ySum, sCountThis, ssR, ssL, this);
-    rkThis = rankDense;
-    splitExpl(spn, idxEnd, idxStart, false);
+    splitExpl(spn, rankDense, idxEnd, idxStart);
   }
   else {
-    sCountThis = spn[idxEnd].ctgFields(ySum, rkThis, yCtg);
-    splitExpl(spn, idxEnd-1, cutDense);
+    unsigned int rkThis = stateNext(spn, idxEnd);
+    splitExpl(spn, rkThis, idxEnd-1, cutDense);
     resid->apply(ySum, sCountThis, ssR, ssL, this);
     if (cutDense > 0) {
-      splitExpl(spn, cutDense - 1, idxStart, false);
+      splitExpl(spn, rankDense, cutDense - 1, idxStart);
     }
   }
 }
@@ -412,7 +423,7 @@ void SplitCand::splitFac(const SPReg *spReg,
     unsigned int rkRight = rkThis;
     unsigned int sampleCount;
     FltVal ySum;
-    spn[i].regFields(ySum, rkThis, sampleCount);
+    rkThis = spn[i].regFields(ySum, sampleCount);
 
     if (rkThis == rkRight) { // Same run:  counters accumulate.
       sumHeap += ySum;
@@ -491,9 +502,9 @@ void SplitCand::buildRuns(SPCtg *spCtg,
   unsigned int frEnd = idxEnd;
   for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(idxStart); i--) {
     unsigned int rkRight = rkThis;
-    unsigned int yCtg;
+    unsigned int yCtg, sampleCount;
     FltVal ySum;
-    unsigned int sampleCount = spn[i].ctgFields(ySum, rkThis, yCtg);
+    rkThis = spn[i].ctgFields(ySum, sampleCount, yCtg);
 
     if (rkThis == rkRight) { // Current run's counters accumulate.
       sumLoc += ySum;
@@ -615,7 +626,7 @@ shared_ptr<Residual> NumPersistReg::makeResidual(const SplitCand* cand,
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
     unsigned int sampleCount, rkThis;
     FltVal ySum;
-    spn[idx].regFields(ySum, rkThis, sampleCount);
+    rkThis = spn[idx].regFields(ySum, sampleCount);
     if (rkThis > rankDense) {
       cut = idx;
     }
@@ -650,16 +661,17 @@ shared_ptr<ResidualCtg>
 NumPersistCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],
                             SPCtg* spCtg) {
-  vector<double> ctgExpl(spCtg->getNCtg());
+  vector<double> ctgExpl(nCtg);
   ctgExpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgExpl.size());
 
   unsigned int cut = cand->getIdxEnd() + 1; // Defaults to highest index.
   double sumTot = 0.0;
   unsigned int sCountTot = 0;
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
-    unsigned int yCtg, rkThis;
+    unsigned int yCtg;
     FltVal ySum;
-    sCountTot += spn[idx].ctgFields(ySum, rkThis, yCtg);
+    unsigned int rkThis = spn[idx].ctgFields(ySum, sCountThis, yCtg);
+    sCountTot += sCountThis;
     ctgExpl[yCtg] -= ySum;
     if (rkThis > rankDense) {
       cut = idx;

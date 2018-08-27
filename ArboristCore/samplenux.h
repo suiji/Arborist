@@ -160,15 +160,15 @@ class SampleRank : public SampleNux {
   /**
      @brief Initializes node by joining sampled rank and response.
 
-     @param _rank is the predictor rank sampled at a given row.
+     @param rank is the predictor rank sampled at a given row.
 
-     @param _sNode summarizes response sampled at row.
+     @param sNode summarizes response sampled at row.
 
      @return void.
   */
-  inline void join(unsigned int _rank, const SampleNux &_sNode) {
-    rank = _rank;
-    _sNode.ref(ySum, sCount);
+  inline void join(unsigned int rank, const SampleNux &sNode) {
+    this->rank = rank;
+    sNode.ref(ySum, sCount);
   }
 
 
@@ -183,18 +183,16 @@ class SampleRank : public SampleNux {
 
      @param[out] ySum outputs the response value.
 
-     @param[out] rank outputs the predictor rank.
-
      @param[out] sCount outputs the multiplicity of the row in this sample.
 
-     @return void.
+     @return rank of predictor value at sample.
    */
-  inline void regFields(FltVal &ySum,
-                        unsigned int &rank,
+  inline auto regFields(FltVal &ySum,
                         unsigned int &sCount) const {
     ySum = this->ySum;
-    rank = this->rank;
     sCount = this->sCount;
+
+    return rank;
   }
 
 
@@ -227,17 +225,17 @@ class SampleRank : public SampleNux {
 
      @param[out] ySum_ is the proxy response value.
 
-     @param[out] rank is the predictor rank.
+     @param[out] sCount_ the sample count.
 
      @param[out] yCtg_ is the true response value.
 
-     @return sample count.
+     @return predictor rank.
    */
   inline unsigned int ctgFields(FltVal &ySum_,
-                                unsigned int &rank,
+                                unsigned int &sCount_,
                                 unsigned int &yCtg_) const {
-    rank = this->rank;
-    return ctgFields(ySum_, yCtg_);
+    sCount_ = ctgFields(ySum_, yCtg_);
+    return rank;
   }
 };
 

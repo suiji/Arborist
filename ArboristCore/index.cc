@@ -176,6 +176,7 @@ PreTree *IndexLevel::oneTree(const FrameTrain *frameTrain,
   return index->levels(frameTrain);
 }
 
+
 PreTree *IndexLevel::levels(const FrameTrain *frameTrain) {
   PreTree *preTree = new PreTree(frameTrain, bagCount);
 

@@ -147,7 +147,7 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
       unsigned int splitThis = sg.getSplitIdx();
       nCand[splitThis]++;
       if (splitPrev != splitThis) {
-        candOff[splitThis] = sg.getVecPos();
+        candOff[splitThis] = sg.getVecIdx();
         splitPrev = splitThis;
       }
     }
@@ -204,6 +204,11 @@ bool SplitNode::isFactor(unsigned int predIdx) const {
 }
 
 
+double SPCtg::getSumSquares(const SplitCand *cand) const {
+  return sumSquares[cand->getSplitIdx()];
+}
+
+
 /**
    @brief Determines whether indexed predictor is numerica.
 
@@ -220,6 +225,10 @@ double* SPCtg::getSumSlice(const SplitCand* cand) {
   return &ctgSum[nCtg * cand->getSplitIdx()];
 }
 
+
+double* SPCtg::getAccumSlice(const SplitCand *cand) {
+  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * splitCount * nCtg + cand->getSplitIdx() * nCtg];
+}
 
 /**
    @brief Run objects should not be deleted until after splits have been consumed.

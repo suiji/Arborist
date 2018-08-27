@@ -66,7 +66,6 @@ struct ResidualCtg : public Residual {
    NumPersist is tailored for right-to-left index traversal.
  */
 class NumPersist {
-
 protected:
   const unsigned int sCount;
   unsigned int sCountL; // running sum of trial LHS sample counts.
@@ -76,7 +75,6 @@ protected:
   unsigned int cutDense; // Rightmost position beyond implicit blob, if any.
   
   // Read locally but initialized, and possibly reset, externally.
-  unsigned int rkThis; // Current rank.
   unsigned int sCountThis; // Current sample count.
   FltVal ySum; // Current response value.
   
@@ -112,7 +110,7 @@ class NumPersistReg : public NumPersist {
      @brief Updates sums-of-squares accumulators as dictated
      by the presence of a residual.
    */
-  void leftResidual();
+  void leftResidual(unsigned int rkThis);
 
 
 public:
@@ -143,6 +141,7 @@ public:
      @brief Low-level splitting method for explicity index block.
    */
   void splitExpl(const SampleRank spn[],
+                 unsigned int rkThis,
                  unsigned int idxInit,
                  unsigned int idxFinal);
 
@@ -150,6 +149,7 @@ public:
      @brief As above, but specialized for monotonicty constraint.
    */
   void splitMono(const SampleRank spn[],
+                 unsigned int rkThis,
                  unsigned int idxInit,
                  unsigned int idxFinal);
 };
@@ -159,10 +159,10 @@ public:
    @brief Splitting accumulator for classification.
  */
 class NumPersistCtg : public NumPersist {
+  const unsigned int nCtg; // Cadinality of response.
   const shared_ptr<ResidualCtg> resid;
   double* ctgSum; // Slice of compressed response data structure.
   double* ctgAccum; // Slice of compressed accumulation data structure.
-  unsigned int yCtg; // Response category of current index.
   double ssL; // Left sum-of-squares accumulator.
   double ssR; // Right " ".
 
@@ -192,9 +192,9 @@ public:
      initialization or previous invocation.
    */
   void splitExpl(const class SampleRank spn[],
+                 unsigned int rkThs,
                  unsigned int idxInit,
-                 unsigned int idxFinal,
-                 bool rightCtg = true);
+                 unsigned int idxFinal);
 
   /**
      @brief As above, but with implicit dense blob.
@@ -202,6 +202,13 @@ public:
   void splitImpl(const class SampleRank spn[],
                  unsigned int idxInit,
                  unsigned int idxFinal);
+
+  /**
+     @brief Accumulates right and left sums-of-squares from
+     exposed state.
+   */
+inline unsigned int stateNext(const class SampleRank spn[],
+                         unsigned int idx);
 
   /**
      @brief Accessor for node-wide sum for a given category.
@@ -226,7 +233,9 @@ public:
    */
   double accumCtgSum(unsigned int yCtg,
                      double sumCtg) {
-    return ctgAccum[yCtg] != sumCtg;
+    double val = ctgAccum[yCtg];
+    ctgAccum[yCtg] += sumCtg;
+    return val;
   }
 };
 
@@ -239,7 +248,7 @@ class SplitCand {
   static double minRatio;
 
   double info; // Tracks during splitting.
-  unsigned int vecPos; // Position in containing vector.
+  unsigned int vecIdx; // Container position; facilitates dense tables.
   unsigned int splitIdx;
   unsigned int predIdx;
   unsigned int idxStart; // Per node.
@@ -335,8 +344,8 @@ public:
   /**
      @return position in containing vector, if applicable.
    */
-  auto getVecPos() const {
-    return vecPos;
+  auto getVecIdx() const {
+    return vecIdx;
   }
 
 

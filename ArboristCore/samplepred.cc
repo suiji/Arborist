@@ -84,8 +84,7 @@ void SamplePred::Stage(const class RRNode *rrNode,
                        vector<StageCount>& stageCount) {}
 
 
-unsigned int SamplePred::Stage(const vector<SampleNux>&
-                               sampleNode,
+unsigned int SamplePred::Stage(const vector<SampleNux>& sampleNode,
                                const RRNode *rrPred,
                                const vector<unsigned int>& row2Sample,
                                unsigned int explMax,
