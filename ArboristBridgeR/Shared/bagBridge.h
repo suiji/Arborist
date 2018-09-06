@@ -48,7 +48,15 @@ class BagBridge {
     return nTree;
   }
 
-  void trainChunk(const class Train* train, unsigned int chunkOff);
+  /**
+     @brief Consumes a chunk of tree bags following training.
+
+     @param train is the trained object.
+
+     @param chunkOff is the offset of the current chunk.
+   */
+  void consume(const class Train* train,
+               unsigned int chunkOff);
   List wrap();
   static unique_ptr<BagBridge> unwrap(const List &sBag);
   const BitMatrix* getRaw();

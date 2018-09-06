@@ -137,8 +137,8 @@ void ForestTrain::Reserve(unsigned int blockHeight,
    
    @return void.
  */
-void ForestTrain::Origins(unsigned int tIdx) {
-  treeOrigin[tIdx] = Height();
+void ForestTrain::setOrigins(unsigned int tIdx) {
+  treeOrigin[tIdx] = getHeight();
   facOrigin[tIdx] = SplitHeight();
 }
 

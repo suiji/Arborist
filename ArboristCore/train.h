@@ -46,8 +46,8 @@ class Train {
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst) const = 0;
 
   /**
-   @brief Regression constructor.
- */
+     @brief Regression constructor.
+  */
   Train(const class FrameTrain *frameTrain,
         const double *y,
         const unsigned int *row2Rank,
@@ -55,8 +55,8 @@ class Train {
 
   
   /**
-   @brief Classification constructor.
- */
+     @brief Classification constructor.
+  */
   Train(const class FrameTrain *frameTrain,
         const unsigned int *yCtg,
         const double *yProxy,
@@ -65,7 +65,7 @@ class Train {
   virtual ~Train();
 
 
-  const vector<double> &PredInfo() const {
+  const vector<double> &getPredInfo() const {
     return predInfo;
   }
 
@@ -106,14 +106,14 @@ class Train {
 
   static void DeInit();
 
-  static unique_ptr<class TrainReg> Regression(
+  static unique_ptr<class TrainReg> regression(
        const class FrameTrain *frameTrain,
        const class RankedSet *rankedPair,
        const double *y,
        const unsigned int *row2Rank,
        unsigned int treeChunk);
 
-  static unique_ptr<class TrainCtg> Classification(
+  static unique_ptr<class TrainCtg> classification(
        const class FrameTrain *frameTrain,
        const class RankedSet *rankedPair,
        const unsigned int *yCtg,
@@ -123,14 +123,14 @@ class Train {
 
 
   void Reserve(vector<TrainPair> &treeBlock);
-  unsigned int BlockPeek(vector<TrainPair> &treeBlock,
+  unsigned int blockPeek(vector<TrainPair> &treeBlock,
                          unsigned int &blockFac,
                          unsigned int &blockBag,
                          unsigned int &blockLeaf,
                          unsigned int &maxHeight);
-  void BlockConsume(vector<TrainPair> &treeBlock,
+  void blockConsume(vector<TrainPair> &treeBlock,
                     unsigned int blockStart);
-  void TreeBlock(const class FrameTrain *frameTrain,
+  void treeBlock(const class FrameTrain *frameTrain,
                  const class RowRank *rowRank,
                  unsigned int tStart,
                  unsigned int tCount);

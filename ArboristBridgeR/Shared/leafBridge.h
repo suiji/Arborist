@@ -44,21 +44,7 @@ class LeafBridge {
  public:
 
   LeafBridge(unsigned int exportLength);
-  
-  static List wrap(class LeafTrainReg *leafReg,
-                   const NumericVector &yTrain);
 
-  /**
-     @brief Bundles Core LeafCtg as R-style List.
-
-     @param leafCtg is a Core-generated summary of categorical leaves.
-
-     @param levels contains the front-end category string names.
-
-     @return bundled list.
-   */
-  static List wrap(class LeafTrainCtg *leafCtg,
-                   const CharacterVector &levels);
   /**
      @brief Accessor for per-tree sampled row vector.
 
@@ -315,4 +301,53 @@ class TestCtg {
   double OOB(const vector<unsigned int> &yPred) const;
 };
 
+
+/**
+   @brief Maintains R-style vectors represting the crescent leaf component
+   of the forest during training.
+ */
+struct LBTrain {
+  RawVector nodeRaw;
+  RawVector blRaw;
+  R_xlen_t nodeOff;
+  R_xlen_t blOff;
+
+  IntegerVector origin;
+  LBTrain(unsigned int nTree);
+
+  void consume(const class LeafTrain* leaf,
+               unsigned int treeOff,
+               double scale);
+
+  virtual List wrap() = 0;
+};
+
+struct LBTrainReg : public LBTrain {
+  const NumericVector yTrain;
+
+  LBTrainReg(const NumericVector& yTrain_,
+             unsigned int nTree);
+             
+  List wrap();
+};
+
+
+/**
+   @brief Specialization for categorical leaves, which maintain an
+   additional field for weights.
+ */
+struct LBTrainCtg : public LBTrain {
+  NumericVector weight;
+  R_xlen_t weightOff;
+  const IntegerVector& yTrain;
+
+  LBTrainCtg(const IntegerVector& yTrain_,
+             unsigned int nTree);
+  
+  void consume(const class LeafTrainCtg* leaf,
+               unsigned int treeOff,
+               double scale);
+
+  List wrap();
+};
 #endif

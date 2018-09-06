@@ -26,17 +26,61 @@
 #include "forestBridge.h"
 #include "forest.h"
 
-List ForestBridge::wrap(const ForestTrain *forestTrain) {
-  RawVector nodeRaw(forestTrain->NodeBytes());
-  RawVector facRaw(forestTrain->FacBytes());
-  forestTrain->NodeRaw(&nodeRaw[0]);
-  forestTrain->FacRaw(&facRaw[0]);
-  
-  List forest = List::create(
-     _["forestNode"] = nodeRaw,
-     _["origin"] = forestTrain->TreeOrigin(),
-     _["facOrig"] = forestTrain->FacOrigin(),
-     _["facSplit"] = facRaw);
+FBTrain::FBTrain(unsigned int nTree) :
+  nodeRaw(RawVector(0)),
+  facRaw(RawVector(0)),
+  nodeOff(0),
+  facOff(0),
+  origin(IntegerVector(nTree)),
+  facOrigin(IntegerVector(nTree)) {
+}
+
+void FBTrain::consume(const ForestTrain* forestTrain,
+                      unsigned int treeOff,
+                      double scale) {
+  unsigned int i = treeOff;
+  for (auto to : forestTrain->getTreeOrigin()) {
+    origin[i++] = nodeOff / sizeof(ForestNode) + to;
+  }
+  i = treeOff;
+  for (auto fo : forestTrain->getFacOrigin()) {
+    facOrigin[i++] = facOff / sizeof(unsigned int) + fo;
+  }
+
+  R_xlen_t nodeBytes = forestTrain->getNodeBytes();
+  if (nodeOff + nodeBytes > nodeRaw.length()) {
+    RawVector temp(scale * (nodeOff + nodeBytes));
+    for (unsigned int i = 0; i < nodeOff; i++)
+      temp[i] = nodeRaw[i];
+    nodeRaw = move(temp);
+  }
+  forestTrain->NodeRaw(&nodeRaw[nodeOff]);
+  nodeOff += nodeBytes;
+
+  R_xlen_t facBytes = forestTrain->getFacBytes();
+  if (facOff + facBytes > facRaw.length()) {
+    RawVector temp(scale * (facOff + facBytes));
+    for (unsigned int i = 0; i < facOff; i++)
+      temp[i] = facRaw[i];
+    facRaw = move(temp);
+  }
+  forestTrain->FacRaw(&facRaw[facOff]);
+  facOff += facBytes;
+}
+
+
+List FBTrain::wrap() {
+  List forest =
+    List::create(
+                 _["forestNode"] = move(nodeRaw),
+                 _["origin"] = move(origin),
+                 _["facOrig"] = move(facOrigin),
+                 _["facSplit"] = move(facRaw)
+                 );
+  nodeRaw = RawVector(0);
+  facRaw = RawVector(0);
+  nodeOff = 0;
+  facOff = 0;
   forest.attr("class") = "Forest";
 
   return forest;
@@ -105,7 +149,7 @@ ForestExport::ForestExport(List &lForest,
   splitTree(vector<vector<double > >(getNTree())),
   facSplitTree(vector<vector<unsigned int> >(getNTree())) {
   forest->Export(predTree, splitTree, bumpTree, facSplitTree);
-    PredExport(predMap.begin());
+  PredExport(predMap.begin());
 }
 
 

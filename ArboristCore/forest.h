@@ -261,7 +261,7 @@ class ForestTrain {
   /**
      @return current accumulated size of crescent forest.
    */
-  inline unsigned int Height() const {
+  inline unsigned int getHeight() const {
     return forestNode.size();
   }
 
@@ -289,7 +289,7 @@ class ForestTrain {
   void BitProduce(const class BV *splitBits,
 		  unsigned int bitEnd);
 
-  void Origins(unsigned int tIdx);
+  void setOrigins(unsigned int tIdx);
 
   void Reserve(unsigned int nodeEst,
 	       unsigned int facEst,
@@ -305,22 +305,11 @@ class ForestTrain {
 		   unsigned int idx,
 		   const DecNode *decNode);
 
-  
-  /**
-     @brief Derives number of trees from length of origin vector.
-
-     @return number of trees.
-   */
-  inline unsigned int NTree() {
-    return treeOrigin.size();
-  }
-  
-
   /**
      @return raw (byte) size of node region.
    */
-  size_t NodeBytes() const {
-    return Height() * sizeof(ForestNode);
+  size_t getNodeBytes() const {
+    return getHeight() * sizeof(ForestNode);
   }
 
   /**
@@ -329,7 +318,7 @@ class ForestTrain {
      @return void.
    */
   void NodeRaw(unsigned char rawOut[]) const {
-    for (size_t i = 0; i < NodeBytes(); i++) {
+    for (size_t i = 0; i < getNodeBytes(); i++) {
       rawOut[i] = ((unsigned char *) &forestNode[0])[i];
     }
   }
@@ -338,7 +327,7 @@ class ForestTrain {
   /**
      @return raw (byte) size of factor-splitting region.
    */
-  size_t FacBytes() const {
+  size_t getFacBytes() const {
     return SplitHeight() * sizeof(unsigned int);
   }
   
@@ -349,7 +338,7 @@ class ForestTrain {
      @return void.
    */
   void FacRaw(unsigned char rawOut[]) const {
-    for (size_t i = 0; i < FacBytes(); i++) {
+    for (size_t i = 0; i < getFacBytes(); i++) {
       rawOut[i] = ((unsigned char *) &facVec[0])[i];
     }
   }
@@ -357,8 +346,8 @@ class ForestTrain {
 
   /**
      @brief Exposes tree-origin vector.
-   */
-  const std::vector<unsigned int> &TreeOrigin() const {
+  */
+  const vector<unsigned int>& getTreeOrigin() const {
     return treeOrigin;
   }
 
@@ -366,7 +355,7 @@ class ForestTrain {
   /**
      @brief Exposes fac-origin vector.
    */
-  const std::vector<unsigned int> &FacOrigin() const {
+  const vector<unsigned int>& getFacOrigin() const {
     return facOrigin;
   }
   

@@ -215,7 +215,7 @@
 
 
 RboristDeep <- function(argList) {
-    train <- tryCatch(.Call("Train", argList), error = function(e){stop(e)})
+    train <- tryCatch(.Call("TrainForest", argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
     names(predInfo) <- argList$predBlock$colnames

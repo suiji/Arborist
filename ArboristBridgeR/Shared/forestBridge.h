@@ -35,6 +35,9 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
+/**
+   @brief Instantiates trained forest for prediction.
+ */
 class ForestBridge {
   // References to front end-style vectors:  can be pinned to preserve scope:
   const IntegerVector &feOrigin;
@@ -42,7 +45,7 @@ class ForestBridge {
   const IntegerVector &feFacOrig;
   const RawVector &feNode;
 
- protected:
+protected:
   static SEXP Legal(const List &lForest);
   unique_ptr<class Forest> forest;
   
@@ -62,6 +65,7 @@ class ForestBridge {
     return feOrigin.length();
   }
 
+
   /**
      @brief Factory incorporating trained forest cached by front end.
 
@@ -70,8 +74,6 @@ class ForestBridge {
      @return bridge specialization of Forest prediction type.
   */
   static unique_ptr<ForestBridge> unwrap(const List &sTrain);
-
-  static List wrap(const class ForestTrain *forest);
 };
 
 
@@ -97,6 +99,14 @@ class ForestExport final : public ForestBridge {
   static unique_ptr<ForestExport> unwrap(const List &lTrain,
                                          IntegerVector &predMap);
 
+  /**
+     @brief Exportation methods for unpacking per-tree node contents
+     as separate vectors.
+
+     @param tIdx is the tree index.
+
+     @return vector of unpacked values.
+   */
   const vector<unsigned int> &getPredTree(unsigned int tIdx) const {
     return predTree[tIdx];
   }
@@ -114,5 +124,27 @@ class ForestExport final : public ForestBridge {
   }
 };
 
+
+/**
+   @brief Accumulates R-style representation of crescent forest during
+   training.
+ */
+struct FBTrain {
+  RawVector nodeRaw; // Packed representation of decision tree.
+  RawVector facRaw; // Bit-vector representation of factor splits.
+  R_xlen_t nodeOff;
+  R_xlen_t facOff;
+
+  IntegerVector origin;
+  IntegerVector facOrigin;
+
+  FBTrain(unsigned int nTree);
+
+  void consume(const class ForestTrain* forest,
+               unsigned int treeOff,
+               double fraction);
+
+  List wrap();
+};
 
 #endif

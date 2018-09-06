@@ -115,23 +115,23 @@ class LeafTrain {
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst);
   virtual void Leaves(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) = 0;
 
-  size_t NodeBytes() const;
-  size_t BLBytes() const;
-
-  void Serialize(unsigned char *leafRaw,
-                 unsigned char *blRaw) const;
+  size_t getNodeBytes() const;
+  size_t getBLBytes() const;
+  /** 
+    @brief Serializes the internally-typed objects, 'LeafNode', as well
+    as the unsigned integer (packed bit) vector, "bagBits".
+  */
+  void getNodeRaw(unsigned char *leafRaw) const;
+  void getBLRaw(unsigned char *blRaw) const;
   
-  void bagTree(const class Sample *sample, const vector<unsigned int> &leafMap);
+  void bagTree(const class Sample *sample,
+               const vector<unsigned int> &leafMap);
 
-  inline const vector<unsigned int> &Origin() const {
+  inline const vector<unsigned int>& getTreeOrigin() const {
     return origin;
   }
 
   
-  inline unsigned Origin(unsigned int tIdx) {
-    return origin[tIdx];
-  }
-
   inline double &Score(unsigned int idx) {
     return leafNode[idx].Score();
   }
@@ -234,6 +234,7 @@ class LeafTrainCtg : public LeafTrain {
   void Reserve(unsigned int leafEst,
                unsigned int bagEst);
 
+  void getWeight(double weightOut[]) const;
   
   /**
      @brief Looks up info by leaf index and category value.
@@ -271,10 +272,11 @@ class LeafTrainCtg : public LeafTrain {
   }
 
 
-  inline const vector<double> &Weight() const {
+  inline const vector<double> &getWeight() const {
     return weight;
   }
-
+  
+  
   void Leaves(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx);
 
 };

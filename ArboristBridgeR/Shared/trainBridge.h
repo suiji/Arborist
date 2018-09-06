@@ -33,13 +33,46 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
-RcppExport SEXP Train(const SEXP sArgList);
+RcppExport SEXP TrainForest(const SEXP sArgList);
 
 
 struct TrainBridge {
 
-  static bool verbose; // Whether to report progress while training.
+  // Training granularity.  Values guesstimated to minimize footprint of
+  // Core-to-Bridge copies while also not over-allocating:
+  static const unsigned int treeChunk = 20;
+  static constexpr double allocSlop = 1.15d;
   
+  static bool verbose; // Whether to report progress while training.
+
+  class BagBridge *bag;
+  const unsigned int nTree;
+  unique_ptr<class FBTrain> forest;
+  NumericVector predInfo;
+  unique_ptr<class LBTrain> leaf;
+
+  TrainBridge(class BagBridge* bag_,
+              unsigned int nTree_,
+              const IntegerVector& predMap,
+              const NumericVector& yTrain);
+  
+  TrainBridge(class BagBridge* bag_,
+              unsigned int nTree_,
+              const IntegerVector& predMap,
+              const IntegerVector& yTrain);
+
+  /**
+     @brief Estimates scale factor for allocating forest-wide vector.
+
+     @param treesTot is the total number of trees trained so far.
+
+     @return scale factor estimation for accommodating entire forest.
+   */
+  double safeScale(unsigned int treesTot) {
+    return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
+  }
+
+
   /**
      @brief Constructs classification forest.
 
@@ -72,26 +105,10 @@ struct TrainBridge {
       @return Wrapped value of response cardinality, if applicable.
   */
   static NumericVector ctgProxy(const IntegerVector &y,
-                                 const NumericVector &classWeight);
+                                const NumericVector &classWeight);
 
+  NumericVector scalePredInfo(const IntegerVector &predMap);
 
-  static NumericVector predInfo(const vector<double> &predInfo,
-                                const IntegerVector &predMap,
-                                unsigned int nTree);
-
-  static List summarize(const class TrainCtg *trainCtg,
-                        class BagBridge *bag,
-                        const IntegerVector &predMap,
-                        unsigned int nTree,
-                        const IntegerVector &y,
-                        const vector<string> &diag);
-  
-  static List summarize(const class TrainReg *trainReg,
-                        class BagBridge *bag,
-                        const IntegerVector &predMap,
-                        unsigned int nTree,
-                        const NumericVector &y,
-                        const vector<string> &diag);
   /**
      @return implicit R_NilValue.
    */
@@ -100,11 +117,24 @@ struct TrainBridge {
                    const IntegerVector &predMap);
 
 
-public:  
   static List train(const List &argList,
                     const IntegerVector &predMap,
                     const vector<unsigned int> &facCard,
                     unsigned int nRow);
-};
 
+  void consumeReg(const class TrainReg* train,
+                  unsigned int treeOff,
+                  double scale);
+
+  void consumeCtg(const class TrainCtg* train,
+                  unsigned int treeOff,
+                  double scale);
+
+  void consume(const class Train* train,
+               unsigned int treeOff,
+               double scale);
+
+  List summarize(const IntegerVector& predMap,
+                 const vector<string>& diag);
+};
 #endif

@@ -25,7 +25,6 @@
 
 #include "trainBridge.h"
 #include "rcppSample.h"
-#include "train.h"
 #include "bagBridge.h"
 #include "framemapBridge.h"
 #include "rankedsetBridge.h"
@@ -33,10 +32,11 @@
 #include "leafBridge.h"
 #include "leaf.h"
 #include "coproc.h"
+#include "train.h"
 
 bool TrainBridge::verbose = false;
 
-RcppExport SEXP Train(const SEXP sArgList) {
+RcppExport SEXP TrainForest(const SEXP sArgList) {
   BEGIN_RCPP
 
   List argList(sArgList);
@@ -179,52 +179,29 @@ List TrainBridge::classification(const IntegerVector &y,
   IntegerVector yZero = y - 1; // Zero-based translation.
   auto proxy = ctgProxy(yZero, classWeight);
 
-  //  const unsigned int treeChunk = nTree;
-  const unsigned int chunkOff = 0;
-  //  for (unsigned int chunkOff = 0; chunkOff < nTree; chunkOff += treeChunk) {
-  auto trainCtg = Train::Classification(frameTrain,
-                           rankedPair,
-                           &(as<vector<unsigned int> >(yZero))[0],
-                           &proxy[0],
-                           classWeight.size(),
-                           nTree);
-  bag->trainChunk(trainCtg.get(), chunkOff);
-  if (verbose)
-    Rcout << nTree << " trees trained" << endl;
-
-  return summarize(trainCtg.get(), bag, predMap, nTree, y, diag);
-  END_RCPP
-}
-
-
-List TrainBridge::summarize(const TrainCtg *trainCtg,
-                            BagBridge *bag,
-                            const IntegerVector &predMap,
-                            unsigned int nTree,
-                            const IntegerVector &y,
-                            const vector<string> &diag) {
-  BEGIN_RCPP
-  return List::create(
-      _["predInfo"] = predInfo(trainCtg->PredInfo(), predMap, nTree),
-      _["diag"] = diag,
-      _["forest"] = move(ForestBridge::wrap(trainCtg->getForest())),
-      _["leaf"] = move(LeafBridge::wrap(trainCtg->getLeaf(),
-                                        as<CharacterVector>(y.attr("levels")))),
-      _["bag"] = move(bag->wrap())
-                      );
+  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(bag, nTree, predMap, y);
+  for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
+    auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
+    auto trainCtg =
+      Train::classification(frameTrain,
+                            rankedPair,
+                            &(as<vector<unsigned int> >(yZero))[0],
+                            &proxy[0],
+                            classWeight.size(),
+                            chunkThis);
+    tb->consumeCtg(trainCtg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
+  }
+  return tb->summarize(predMap, diag);
 
   END_RCPP
 }
 
 
-NumericVector TrainBridge::predInfo(const vector<double> &predInfo,
-                                          const IntegerVector &predMap,
-                                          unsigned int nTree) {
+NumericVector TrainBridge::scalePredInfo(const IntegerVector &predMap) {
   BEGIN_RCPP
 
-  NumericVector infoOut(predInfo.begin(), predInfo.end());
-  infoOut = infoOut / nTree; // Scales info per-tree.
-  return infoOut[predMap]; // Maps back from core order.
+  predInfo = predInfo / nTree; // Scales info per-tree.
+  return predInfo[predMap]; // Maps back from core order.
 
   END_RCPP
 }
@@ -242,39 +219,85 @@ List TrainBridge::regression(const NumericVector &y,
   auto yOrdered = clone(y).sort();
   IntegerVector row2Rank = match(y, yOrdered) - 1;
 
-  // Strip mine by smaller chunks:
-  const unsigned int treeChunk = nTree;
-  const unsigned int chunkOff = 0;
-  //  for (unsigned int chunkOff = 0; chunkOff < nTree; chunkOff += treeChunk) {
-  auto trainReg = Train::Regression(frameTrain,
-                             rankedPair,
-                             &y[0],
-                             &(as<vector<unsigned int> >(row2Rank))[0],
-                                    treeChunk);
-  bag->trainChunk(trainReg.get(), chunkOff);
-  if (verbose)
-    Rcout << treeChunk << " trees trained" << endl;
+  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(bag, nTree, predMap, y);
+  for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
+    auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
+    auto trainReg =
+      Train::regression(frameTrain,
+                        rankedPair,
+                        &y[0],
+                        &(as<vector<unsigned int> >(row2Rank))[0],
+                        chunkThis);
+    tb->consumeReg(trainReg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
+  }
+  return tb->summarize(predMap, diag);
 
-  return summarize(trainReg.get(), bag, predMap, nTree, y, diag);
   END_RCPP
 }
 
+TrainBridge::TrainBridge(BagBridge* bag_,
+                         unsigned int nTree_,
+                         const IntegerVector& predMap,
+                         const NumericVector& yTrain) :
+  bag(bag_),
+  nTree(nTree_),
+  forest(make_unique<FBTrain>(nTree)),
+  predInfo(NumericVector(predMap.length())),
+  leaf(make_unique<LBTrainReg>(yTrain, nTree)) {
+  predInfo.fill(0.0);
+}
 
-List TrainBridge::summarize(const TrainReg *trainReg,
-                            BagBridge *bag,
-                            const IntegerVector &predMap,
-                            unsigned int nTree,
-                            const NumericVector &y,
+
+TrainBridge::TrainBridge(BagBridge* bag_,
+                         unsigned int nTree_,
+                         const IntegerVector& predMap,
+                         const IntegerVector& yTrain) :
+  bag(bag_),
+  nTree(nTree_),
+  forest(make_unique<FBTrain>(nTree)),
+  predInfo(NumericVector(predMap.length())),
+  leaf(make_unique<LBTrainCtg>(yTrain, nTree)) {
+  predInfo.fill(0.0);
+}
+
+void TrainBridge::consume(const Train* train,
+                          unsigned int treeOff,
+                          double scale) {
+  bag->consume(train, treeOff);
+  forest->consume(train->getForest(), treeOff, scale);
+  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
+  predInfo = predInfo + infoChunk;
+
+  if (verbose) {
+    Rcout << treeOff << "trees trained" << endl;
+  }
+}
+
+void TrainBridge::consumeReg(const TrainReg* trainReg,
+                             unsigned int treeOff,
+                             double scale) {
+  TrainBridge::consume(trainReg, treeOff, scale);
+  leaf->consume(trainReg->getLeaf(), treeOff, scale);
+}
+  
+
+void TrainBridge::consumeCtg(const TrainCtg* trainCtg,
+                             unsigned int treeOff,
+                             double scale) {
+  TrainBridge::consume(trainCtg, treeOff, scale);
+  leaf->consume(trainCtg->getLeaf(), treeOff, scale);
+}
+  
+
+List TrainBridge::summarize(const IntegerVector &predMap,
                             const vector<string> &diag) {
   BEGIN_RCPP
-
   return List::create(
-      _["predInfo"] = predInfo(trainReg->PredInfo(), predMap, nTree),
-      _["diag"] = diag,
-      _["forest"] = move(ForestBridge::wrap(trainReg->getForest())),
-      _["leaf"] = move(LeafBridge::wrap(trainReg->getLeaf(), y)),
-      _["bag"] = move(bag->wrap())
-  );
-
+                      _["predInfo"] = scalePredInfo(predMap),
+                      _["diag"] = diag,
+                      _["forest"] = move(forest->wrap()),
+                      _["leaf"] = move(leaf->wrap()),
+                      _["bag"] = move(bag->wrap())
+                      );
   END_RCPP
 }

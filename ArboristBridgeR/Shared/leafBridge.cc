@@ -28,19 +28,85 @@
 #include "predict.h"
 #include "quant.h"
 
+LBTrain::LBTrain(unsigned int nTree) :
+  nodeRaw(RawVector(0)),
+  blRaw(RawVector(0)),
+  nodeOff(0),
+  blOff(0),
+  origin(IntegerVector(nTree)) {
+}
+
+LBTrainReg::LBTrainReg(const NumericVector& yTrain_,
+                       unsigned int nTree) :
+  LBTrain(nTree),
+  yTrain(yTrain_) {
+}
+
+LBTrainCtg::LBTrainCtg(const IntegerVector& yTrain_,
+                       unsigned int nTree) :
+  LBTrain(nTree),
+  weight(NumericVector(0)),
+  weightOff(0),
+  yTrain(yTrain_) {
+}
+
+void LBTrain::consume(const LeafTrain* leaf,
+                      unsigned int treeOff,
+                      double scale) {
+  unsigned int i = treeOff;
+  for (auto to : leaf->getTreeOrigin()) {
+    origin[i++] = nodeOff / sizeof(LeafNode) + to;
+  }
+
+  R_xlen_t nodeBytes = leaf->getNodeBytes();
+  if (nodeOff + nodeBytes > nodeRaw.length()) {
+    RawVector temp(scale * (nodeOff + nodeBytes));
+    for (unsigned int i = 0; i < nodeOff; i++)
+      temp[i] = nodeRaw[i];
+    nodeRaw = move(temp);
+  }
+  leaf->getNodeRaw(&nodeRaw[nodeOff]);
+  nodeOff += nodeBytes;
+
+  R_xlen_t blBytes = leaf->getBLBytes();
+  if (blOff + blBytes > blRaw.length()) {
+    RawVector temp(scale * (blOff + blBytes));
+    for (unsigned int i = 0; i < blOff; i++)
+      temp[i] = blRaw[i];
+    blRaw = move(temp);
+  }
+  leaf->getBLRaw(&blRaw[blOff]);
+  blOff += blBytes;
+}
+
+
+void LBTrainCtg::consume(const LeafTrainCtg* leaf,
+                         unsigned int treeOff,
+                         double scale) {
+  LBTrain::consume(leaf, treeOff, scale);
+
+  R_xlen_t weightSize = leaf->getWeight().size();
+  if (weightOff + weightSize > weight.length()) {
+    NumericVector temp(scale * (weightOff + weightSize));
+    for (unsigned int i = 0; i < weightOff; i++)
+      temp[i] = weight[i];
+    weight = move(temp);
+  }
+  leaf->getWeight(&weight[weightOff]);
+  weightOff += weightSize;
+}
+
+
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
-List LeafBridge::wrap(LeafTrainReg *leafReg,
-                      const NumericVector &yTrain) {
-  RawVector leafRaw(leafReg->NodeBytes());
-  RawVector blRaw(leafReg->BLBytes());
-  leafReg->Serialize((unsigned char *) &leafRaw[0], (unsigned char*) &blRaw[0]);
-  List leaf = List::create(
-   _["origin"] = leafReg->Origin(),
-   _["node"] = leafRaw,
-   _["bagLeaf"] = blRaw,
-   _["yTrain"] = yTrain
+List LBTrainReg::wrap() {
+  List leaf =
+    List::create(
+                 _["origin"] = move(origin),
+                 _["node"] = move(nodeRaw),
+                 _["bagLeaf"] = move(blRaw),
+                 _["yTrain"] = yTrain
   );
   leaf.attr("class") = "LeafReg";
   
@@ -51,18 +117,15 @@ List LeafBridge::wrap(LeafTrainReg *leafReg,
 /**
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
-List LeafBridge::wrap(LeafTrainCtg *leafCtg,
-                      const CharacterVector &levels) {
-  RawVector leafRaw(leafCtg->NodeBytes());
-  RawVector blRaw(leafCtg->BLBytes());
-  leafCtg->Serialize((unsigned char *) &leafRaw[0], (unsigned char *) &blRaw[0]);
-  List leaf = List::create(
-   _["origin"] = leafCtg->Origin(),
-   _["node"] = leafRaw,
-   _["bagLeaf"] = blRaw,
-   _["weight"] = leafCtg->Weight(),
-   _["levels"] = levels
-   );
+List LBTrainCtg::wrap() {
+  List leaf =
+    List::create(
+                 _["origin"] = move(origin),
+                 _["node"] = move(nodeRaw),
+                 _["bagLeaf"] = move(blRaw),
+                 _["weight"] = move(weight),
+                 _["levels"] = as<CharacterVector>(yTrain.attr("levels"))
+                 );
   leaf.attr("class") = "LeafCtg";
 
   return leaf;

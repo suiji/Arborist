@@ -220,7 +220,7 @@ void PreTree::ReNodes() {
 */
 const vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) {
   height = LeafMerge();
-  forest->Origins(tIdx);
+  forest->setOrigins(tIdx);
   forest->NodeInit(height);
   NonterminalConsume(forest, tIdx, predInfo);
   forest->BitProduce(splitBits, bitEnd);

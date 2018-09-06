@@ -371,27 +371,33 @@ void LeafReg::populate(const BitMatrix *baggedRows,
 }
 
 
-size_t LeafTrain::NodeBytes() const {
+size_t LeafTrain::getNodeBytes() const {
   return leafNode.size() * sizeof(LeafNode);
 }
 
 
-size_t LeafTrain::BLBytes() const {
+size_t LeafTrain::getBLBytes() const {
   return bagLeaf.size() * sizeof(BagLeaf);
 }
 
 
-/** 
-    @brief Serializes the internally-typed objects, 'LeafNode', as well
-    as the unsigned integer (packed bit) vector, "bagBits".
-*/
-void LeafTrain::Serialize(unsigned char *leafRaw, unsigned char *blRaw) const {
-  for (size_t i = 0; i < NodeBytes(); i++) {
+void LeafTrain::getNodeRaw(unsigned char leafRaw[]) const {
+  for (size_t i = 0; i < getNodeBytes(); i++) {
     leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
   }
+}
 
-  for (size_t i = 0; i < BLBytes(); i++) {
+
+void LeafTrain::getBLRaw(unsigned char blRaw[]) const {
+  for (size_t i = 0; i < getBLBytes(); i++) {
     blRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
+  }
+}
+
+
+void LeafTrainCtg::getWeight(double weightOut[]) const {
+  for (size_t i = 0; i < weight.size(); i++) {
+    weightOut[i] = weight[i];
   }
 }
 

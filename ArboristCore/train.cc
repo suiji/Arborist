@@ -159,7 +159,7 @@ void Train::DeInit() {
 
    @return regression-style object.
 */
-unique_ptr<TrainReg> Train::Regression(const FrameTrain *frameTrain,
+unique_ptr<TrainReg> Train::regression(const FrameTrain *frameTrain,
                                        const RankedSet *rankedPair,
                                        const double *y,
                                        const unsigned int *row2Rank,
@@ -207,7 +207,7 @@ Train::Train(const FrameTrain *frameTrain,
 
    @return void.
 */
-unique_ptr<TrainCtg> Train::Classification(const FrameTrain *frameTrain,
+unique_ptr<TrainCtg> Train::classification(const FrameTrain *frameTrain,
                                            const RankedSet *rankedPair,
                                            const unsigned int *yCtg,
                                            const double *yProxy,
@@ -265,7 +265,7 @@ void Train::TrainForest(const FrameTrain *frameTrain,
                         const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
-    TreeBlock(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
+    treeBlock(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
   }
   forest->SplitUpdate(frameTrain, rankedPair->GetNumRanked());
 }
@@ -276,13 +276,13 @@ void Train::TrainForest(const FrameTrain *frameTrain,
 
    @return void.
  */
-void Train::TreeBlock(const FrameTrain *frameTrain,
+void Train::treeBlock(const FrameTrain *frameTrain,
                       const RowRank *rowRank,
                       unsigned int tStart,
                       unsigned int tCount) {
   unsigned int tIdx = tStart;
-  vector<TrainPair> treeBlock(tCount);
-  for (auto & pair : treeBlock) {
+  vector<TrainPair> block(tCount);
+  for (auto & pair : block) {
     auto treeBag = bagRow->BVRow(tIdx++);
     auto sample = response->RootSample(rowRank, treeBag.get());
     auto preTree = IndexLevel::oneTree(frameTrain, sample, rowRank);
@@ -290,8 +290,8 @@ void Train::TreeBlock(const FrameTrain *frameTrain,
   }
 
   if (tStart == 0)
-    Reserve(treeBlock);
-  BlockConsume(treeBlock, tStart);
+    Reserve(block);
+  blockConsume(block, tStart);
 }
 
  
@@ -306,7 +306,7 @@ void Train::TreeBlock(const FrameTrain *frameTrain,
 void Train::Reserve(vector<TrainPair> &treeBlock) {
   unsigned int blockFac, blockBag, blockLeaf;
   unsigned int maxHeight = 0;
-  unsigned int blockHeight = BlockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
+  unsigned int blockHeight = blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
   PreTree::Reserve(maxHeight);
 
   double slop = (slopFactor * treeChunk) / trainBlock;
@@ -321,7 +321,7 @@ void Train::Reserve(vector<TrainPair> &treeBlock) {
 
    @return sum of tree sizes over block.
  */
-unsigned int Train::BlockPeek(vector<TrainPair> &treeBlock,
+unsigned int Train::blockPeek(vector<TrainPair> &treeBlock,
                               unsigned int &blockFac,
                               unsigned int &blockBag,
                               unsigned int &blockLeaf,
@@ -345,7 +345,7 @@ unsigned int Train::BlockPeek(vector<TrainPair> &treeBlock,
 
    @return void, with side-effected forest.
 */
-void Train::BlockConsume(vector<TrainPair> &treeBlock,
+void Train::blockConsume(vector<TrainPair> &treeBlock,
                          unsigned int blockStart) {
   unsigned int blockIdx = blockStart;
   for (auto & trainPair : treeBlock) {
