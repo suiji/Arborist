@@ -103,13 +103,16 @@ class LeafTrain {
 
 
  protected:
-  void NodeExtent(const class Sample *sample, vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx);
+  void getNodeExtent(const class Sample *sample,
+                     vector<unsigned int> leafMap,
+                     unsigned int leafCount,
+                     unsigned int tIdx);
 
  public:
-  static void Immutables(bool _thinLeaves);
-  static void DeImmutables();
+  static void immutables(bool _thinLeaves);
+  static void deImmutables();
 
-  LeafTrain(unsigned int _nTree);
+  LeafTrain(unsigned int treeChunk);
   
   virtual ~LeafTrain();
   virtual void Reserve(unsigned int leafEst, unsigned int bagEst);
@@ -136,21 +139,24 @@ class LeafTrain {
     return leafNode[idx].Score();
   }
 
-  
-  inline unsigned int NodeIdx(unsigned int tIdx, unsigned int leafIdx) const {
+
+  inline unsigned int nodeIdx(unsigned int tIdx,
+                              unsigned int leafIdx) const {
     return origin[tIdx] + leafIdx;
   }
 
   
   inline double &Score(int tIdx, unsigned int leafIdx) {
-    return Score(NodeIdx(tIdx, leafIdx));
+    return Score(nodeIdx(tIdx, leafIdx));
   }
 
 
   /**
     @brief Sets score.
   */
-  inline void ScoreSet(unsigned int tIdx, unsigned int leafIdx, double score) {
+  inline void setScore(unsigned int tIdx,
+                       unsigned int leafIdx,
+                       double score) {
     Score(tIdx, leafIdx) = score;
   }
 
@@ -201,7 +207,7 @@ class LeafTrainReg : public LeafTrain {
 
 
  public:
-  LeafTrainReg(unsigned int _nTree);
+  LeafTrainReg(unsigned int treeChunk);
   ~LeafTrainReg();
 
 
@@ -225,9 +231,10 @@ class LeafTrainCtg : public LeafTrain {
               unsigned int leafCount,
               unsigned int tIdx);
  public:
-  LeafTrainCtg(unsigned int _nTree,
-               unsigned int rowTrain,
-               unsigned int _nCtg);
+  LeafTrainCtg(unsigned int treeChunk,
+               unsigned int _nCtg,
+               double scale);
+
   ~LeafTrainCtg();
 
 
@@ -237,38 +244,40 @@ class LeafTrainCtg : public LeafTrain {
   void getWeight(double weightOut[]) const;
   
   /**
-     @brief Looks up info by leaf index and category value.
+     @brief Increments leaf weight.
+
+     @param tIdx is the tree index.
 
      @param leafIdx is a tree-relative leaf index.
 
      @param ctg is a zero-based category value.
 
-     @return reference to info slot.
+     @param sum is the value by which to increment.
+  */
+  inline void accumIdxWeight(unsigned int tIdx,
+                             unsigned int leafIdx,
+                             unsigned int ctg,
+                             double sum) {
+    weight[nCtg * nodeIdx(tIdx, leafIdx) + ctg] += sum;
+  }
+
+
+  /**
+     @brief As above, but scales instead of incrementing.
    */
-  inline double &WeightSlot(unsigned int tIdx, unsigned int leafIdx, unsigned int ctg) {
-    return weight[nCtg * NodeIdx(tIdx, leafIdx) + ctg];
-  }
-  
-
-  inline unsigned int CtgWidth() const {
-    return nCtg;
+  inline double scaleIdxWeight(unsigned int tIdx,
+                            unsigned int leafIdx,
+                            unsigned int ctg,
+                            double scale) {
+    return weight[nCtg * nodeIdx(tIdx, leafIdx) + ctg] *= scale;
   }
 
 
-  inline void WeightAccum(unsigned int tIdx, unsigned int leafIdx, unsigned int ctg, double sum) {
-    WeightSlot(tIdx, leafIdx, ctg) += sum;
-  }
-
-
-  inline void WeightInit(unsigned int leafCount) {
+  /**
+     @brief Initializes the weight for all leaves to zero.
+   */
+  inline void weightInit(unsigned int leafCount) {
     weight.insert(weight.end(), nCtg * leafCount, 0.0);
-  }
-
-
-  inline double WeightScale(unsigned int tIdx, unsigned int leafIdx, unsigned int ctg, double scale) {
-    WeightSlot(tIdx, leafIdx, ctg) *= scale;
-
-    return WeightSlot(tIdx, leafIdx, ctg);
   }
 
 
@@ -277,7 +286,9 @@ class LeafTrainCtg : public LeafTrain {
   }
   
   
-  void Leaves(const class Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx);
+  void Leaves(const class Sample *sample,
+              const vector<unsigned int> &leafMap,
+              unsigned int tIdx);
 
 };
 
@@ -312,7 +323,7 @@ class Leaf {
 
   virtual ~Leaf();
   virtual const unsigned int rowPredict() const = 0;
-  virtual void ScoreBlock(const class Predict *predict,
+  virtual void scoreBlock(const class Predict *predict,
                      unsigned int rowStart,
                      unsigned int rowEnd) = 0;
 
@@ -321,7 +332,8 @@ class Leaf {
   }
 
   
-  inline unsigned int NodeIdx(unsigned int tIdx, unsigned int leafIdx) const {
+  inline unsigned int nodeIdx(unsigned int tIdx,
+                              unsigned int leafIdx) const {
     return origin[tIdx] + leafIdx;
   }
   
@@ -336,7 +348,7 @@ class Leaf {
 
 
   inline double getScore(int tIdx, unsigned int leafIdx) const {
-    return leafNode[NodeIdx(tIdx, leafIdx)].getScore();
+    return leafNode[nodeIdx(tIdx, leafIdx)].getScore();
   }
 
 
@@ -425,7 +437,7 @@ class LeafReg : public Leaf {
   }
 
 
-  void ScoreBlock(const class Predict *predict,
+  void scoreBlock(const class Predict *predict,
                   unsigned int rowStart,
                   unsigned int rowEnd);
   
@@ -436,7 +448,7 @@ class LeafReg : public Leaf {
                  unsigned int leafIdx,
                  unsigned int &start,
                  unsigned int &end) const {
-    auto forestIdx = NodeIdx(tIdx, leafIdx);
+    auto forestIdx = nodeIdx(tIdx, leafIdx);
     start = offset[forestIdx];
     end = start + getExtent(forestIdx);
   }
@@ -474,7 +486,7 @@ class LeafCtg : public Leaf {
   vector<double> defaultWeight;
   unsigned int DefaultScore();
   void DefaultInit();
-  double DefaultWeight(double *weightPredict);
+  double getDefaultWeight(double *weightPredict);
 
  public:
   // Sized to zero by constructor.
@@ -516,31 +528,31 @@ class LeafCtg : public Leaf {
   }
   
 
-  void ScoreBlock(const class Predict *predict,
+  void scoreBlock(const class Predict *predict,
                   unsigned int rowStart,
                   unsigned int rowEnd);
 
   
-  void Vote();
+  void vote();
 
   
-  void ProbBlock(const class Predict *predict,
+  void setProbBlock(const class Predict *predict,
                  unsigned int rowStart,
                  unsigned int rowEnd);
 
 
-  void DefaultWeight(vector<double> &defaultWeight) const;
+  void setDefaultWeight(vector<double> &defaultWeight) const;
 
 
-  inline unsigned int CtgTrain() const {
+  inline unsigned int getCtgTrain() const {
     return ctgTrain;
   }
   
 
-  inline double WeightCtg(int tIdx,
-                          unsigned int leafIdx,
-                          unsigned int ctg) const {
-    return weight[ctgTrain * NodeIdx(tIdx, leafIdx) + ctg];
+  inline double getIdxWeight(int tIdx,
+                             unsigned int leafIdx,
+                             unsigned int ctg) const {
+    return weight[ctgTrain * nodeIdx(tIdx, leafIdx) + ctg];
   }
 
 

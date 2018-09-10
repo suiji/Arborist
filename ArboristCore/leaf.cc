@@ -22,12 +22,12 @@
 
 bool LeafTrain::thinLeaves = false;
 
-void LeafTrain::Immutables(bool _thinLeaves) {
+void LeafTrain::immutables(bool _thinLeaves) {
   thinLeaves = _thinLeaves;
 }
 
 
-void LeafTrain::DeImmutables() {
+void LeafTrain::deImmutables() {
   thinLeaves = false;
 }
 
@@ -35,8 +35,8 @@ void LeafTrain::DeImmutables() {
 /**
    @brief Training constructor.
  */
-LeafTrain::LeafTrain(unsigned int nTree) :
-  origin(vector<unsigned int>(nTree)),
+LeafTrain::LeafTrain(unsigned int treeChunk) :
+  origin(vector<unsigned int>(treeChunk)),
   leafNode(vector<LeafNode>(0)),
   bagLeaf(vector<BagLeaf>(0)) {
 }
@@ -48,8 +48,8 @@ LeafTrain::~LeafTrain() {
 
 /**
  */
-LeafTrainReg::LeafTrainReg(unsigned int nTree) :
-  LeafTrain(nTree) {
+LeafTrainReg::LeafTrainReg(unsigned int treeChunk) :
+  LeafTrain(treeChunk) {
 }
 
 
@@ -90,14 +90,13 @@ void LeafTrainCtg::Reserve(unsigned int leafEst, unsigned int bagEst) {
 /**
    @brief Constructor for crescent forest.
  */
-LeafTrainCtg::LeafTrainCtg(unsigned int nTree,
-                 unsigned int rowTrain_,
-                 unsigned int nCtg_)
-  : LeafTrain(nTree),
-    weight(vector<double>(0)),
-    nCtg(nCtg_),
-    weightScale(1.0 / (rowTrain_ * nTree))
-{
+LeafTrainCtg::LeafTrainCtg(unsigned int treeChunk,
+                           unsigned int nCtg_,
+                           double scale) :
+  LeafTrain(treeChunk),
+  weight(vector<double>(0)),
+  nCtg(nCtg_),
+  weightScale(scale) {
 }
 
 
@@ -116,7 +115,7 @@ LeafTrainCtg::~LeafTrainCtg() {
  */
 void LeafTrainReg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
-  NodeExtent(sample, leafMap, leafCount, tIdx);
+  getNodeExtent(sample, leafMap, leafCount, tIdx);
   bagTree(sample, leafMap);
   Scores(sample, leafMap, leafCount, tIdx);
 }
@@ -172,7 +171,7 @@ void LeafTrainReg::Scores(const Sample *sample, const vector<unsigned int> &leaf
 
    @void, with count-adjusted leaf nodes.
  */
-void LeafTrain::NodeExtent(const Sample *sample, vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx) {
+void LeafTrain::getNodeExtent(const Sample *sample, vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx) {
   unsigned int leafBase = leafNode.size();
   origin[tIdx] = leafBase;
 
@@ -193,7 +192,7 @@ void LeafTrain::NodeExtent(const Sample *sample, vector<unsigned int> leafMap, u
  */
 void LeafTrainCtg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
-  NodeExtent(sample, leafMap, leafCount, tIdx);
+  getNodeExtent(sample, leafMap, leafCount, tIdx);
   bagTree(sample, leafMap);
   Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
 }
@@ -214,7 +213,7 @@ void LeafTrainCtg::Scores(const SampleCtg *sample,
                           const vector<unsigned int> &leafMap,
                           unsigned int leafCount,
                           unsigned int tIdx) {
-  WeightInit(leafCount);
+  weightInit(leafCount);
 
   vector<double> leafSum(leafCount);
   fill(leafSum.begin(), leafSum.end(), 0.0);
@@ -224,7 +223,7 @@ void LeafTrainCtg::Scores(const SampleCtg *sample,
     unsigned int ctg;
     sample->refLeaf(sIdx, sum, ctg);
     leafSum[leafIdx] += sum;
-    WeightAccum(tIdx, leafIdx, ctg, sum);
+    accumIdxWeight(tIdx, leafIdx, ctg, sum);
   }
 
   // Scales weights by leaf for probabilities.
@@ -233,13 +232,13 @@ void LeafTrainCtg::Scores(const SampleCtg *sample,
     unsigned int argMax = 0;
     double recipSum = 1.0 / leafSum[leafIdx];
     for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
-      double thisWeight = WeightScale(tIdx, leafIdx, ctg, recipSum);
+      double thisWeight = scaleIdxWeight(tIdx, leafIdx, ctg, recipSum);
       if (thisWeight > maxWeight) {
         maxWeight = thisWeight;
         argMax = ctg;
       }
     }
-    ScoreSet(tIdx, leafIdx, argMax + maxWeight * weightScale);
+    setScore(tIdx, leafIdx, argMax + maxWeight * weightScale);
   }
 }
 
@@ -269,12 +268,12 @@ LeafReg::LeafReg(const unsigned int _origin[],
    @brief Constructor for trained forest:  vector lengths final.
  */
 LeafCtg::LeafCtg(const unsigned int _origin[],
-                         unsigned int _nTree,
-                         const class LeafNode _leafNode[],
-                         unsigned int _leafCount,
-                         const class BagLeaf _bagLeaf[],
-                         unsigned int _bagLeafTot,
-                         const double _weight[],
+                 unsigned int _nTree,
+                 const class LeafNode _leafNode[],
+                 unsigned int _leafCount,
+                 const class BagLeaf _bagLeaf[],
+                 unsigned int _bagLeafTot,
+                 const double _weight[],
                  unsigned int _ctgTrain,
                  unsigned int _rowPredict,
                  bool doProb) :
@@ -304,10 +303,10 @@ LeafCtg::LeafCtg(const unsigned int _origin[],
    @brief Prediction constructor.
  */
 Leaf::Leaf(const unsigned int *_origin,
-                   unsigned int _nTree,
-                   const LeafNode *_leafNode,
-                   unsigned int _leafCount,
-                   const BagLeaf *_bagLeaf,
+           unsigned int _nTree,
+           const LeafNode *_leafNode,
+           unsigned int _leafCount,
+           const BagLeaf *_bagLeaf,
            unsigned int _bagTot) :
   origin(_origin),
   leafNode(_leafNode),
@@ -346,7 +345,7 @@ void LeafReg::Offsets() {
 
    @return void, with output reference parameter.
  */
-void LeafCtg::DefaultWeight(vector<double> &defaultWeight) const {
+void LeafCtg::setDefaultWeight(vector<double> &defaultWeight) const {
   unsigned int idx = 0;
   for (unsigned int forestIdx = 0; forestIdx < leafCount; forestIdx++) {
     for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
@@ -445,7 +444,7 @@ void Leaf::nodeExport(vector<vector<double> > &score,
 
   @return void, with output refererence vector.
  */
-void LeafReg::ScoreBlock(const Predict *predict,
+void LeafReg::scoreBlock(const Predict *predict,
                          unsigned int rowStart,
                          unsigned int rowEnd) {
   OMPBound blockRow;
@@ -475,7 +474,7 @@ void LeafReg::ScoreBlock(const Predict *predict,
 
    @return internal vote table, with output reference vector.
  */
-void LeafCtg::ScoreBlock(const Predict *predict,
+void LeafCtg::scoreBlock(const Predict *predict,
                          unsigned int rowStart,
                          unsigned int rowEnd) {
   OMPBound blockRow;
@@ -506,15 +505,14 @@ void LeafCtg::ScoreBlock(const Predict *predict,
   }
   }
   if (prob.size() != 0) {
-    ProbBlock(predict, rowStart, rowEnd);
+    setProbBlock(predict, rowStart, rowEnd);
   }
 }
-
 
 /**
     Fills in proability matrix:  rowPredict x ctgTrain.
  */
-void LeafCtg::ProbBlock(const Predict *predict,
+void LeafCtg::setProbBlock(const Predict *predict,
                         unsigned int rowStart,
                         unsigned int rowEnd) {
   for (unsigned int blockRow = 0; blockRow < rowEnd - rowStart; blockRow++) {
@@ -526,14 +524,14 @@ void LeafCtg::ProbBlock(const Predict *predict,
       if (!predict->isBagged(blockRow, tc, termIdx)) {
         treesSeen++;
         for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
-          double idxWeight = WeightCtg(tc, termIdx, ctg);
+          double idxWeight = getIdxWeight(tc, termIdx, ctg);
           probRow[ctg] += idxWeight;
           rowSum += idxWeight;
         }
       }
     }
     if (treesSeen == 0) {
-      rowSum = DefaultWeight(probRow);
+      rowSum = getDefaultWeight(probRow);
     }
 
     double scale = 1.0 / rowSum;
@@ -550,8 +548,8 @@ void LeafCtg::ProbBlock(const Predict *predict,
 
    @return void, with output reference vector.
 */
-void LeafCtg::Vote() {
-  OMPBound rowSup = yPred.size();//rowPredict;
+void LeafCtg::vote() {
+  OMPBound rowSup = yPred.size();
   OMPBound row;
 
 #pragma omp parallel default(shared) private(row)
@@ -628,12 +626,12 @@ unsigned int LeafCtg::DefaultScore() {
 void LeafCtg::DefaultInit() {
   if (defaultWeight[0] < 0.0) { // Unseen.
     fill(defaultWeight.begin(), defaultWeight.end(), 0.0);
-    DefaultWeight(defaultWeight);
+    setDefaultWeight(defaultWeight);
   }
 }
 
 
-double LeafCtg::DefaultWeight(double *weightPredict) {
+double LeafCtg::getDefaultWeight(double *weightPredict) {
   double rowSum = 0.0;
   for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
     weightPredict[ctg] = defaultWeight[ctg];

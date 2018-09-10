@@ -267,7 +267,6 @@ void NumPersistReg::splitMono(const SampleRank spn[],
     if (infoTrial > info && rkThis != rkRight) {
       bool up = (sumL * sCountR <= sumR * sCountL);
       if (nonDecreasing ? up : !up) {
-        //cout << "constrained split" << endl;
         info = infoTrial;
         lhSCount = sCountL;
         rankRH = rkRight;

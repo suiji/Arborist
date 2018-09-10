@@ -219,7 +219,7 @@ class Forest {
 
      @return Height of tree.
    */
-  inline unsigned int TreeHeight(unsigned int tIdx) const {
+  inline unsigned int getTreeHeight(unsigned int tIdx) const {
     unsigned int heightInf = treeOrigin[tIdx];
     return tIdx < nTree - 1 ? treeOrigin[tIdx + 1] - heightInf : nodeCount - heightInf;
   }

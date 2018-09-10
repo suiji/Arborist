@@ -50,7 +50,7 @@ void Train::InitBlock(unsigned int trainBlock_) {
    @brief Registers preference for thin leaves.
  */
 void Train::InitLeaf(bool thinLeaves) {
-  LeafTrain::Immutables(thinLeaves);
+  LeafTrain::immutables(thinLeaves);
 }
 
 
@@ -139,7 +139,7 @@ void Train::DeInit() {
   ForestNode::DeImmutables();
   SplitCand::deImmutables();
   IndexLevel::DeImmutables();
-  LeafTrain::DeImmutables();
+  LeafTrain::deImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
   SampleNux::deImmutables();
@@ -212,8 +212,9 @@ unique_ptr<TrainCtg> Train::classification(const FrameTrain *frameTrain,
                                            const unsigned int *yCtg,
                                            const double *yProxy,
                                            unsigned int nCtg,
-                                           unsigned int treeChunk) {
-  auto trainCtg = make_unique<TrainCtg>(frameTrain, yCtg, yProxy, nCtg, treeChunk);
+                                           unsigned int treeChunk,
+                                           unsigned int nTree) {
+  auto trainCtg = make_unique<TrainCtg>(frameTrain, yCtg, yProxy, nCtg, treeChunk, nTree);
   trainCtg->TrainForest(frameTrain, rankedPair);
 
   return trainCtg;
@@ -224,9 +225,10 @@ TrainCtg::TrainCtg(const class FrameTrain *frameTrain,
                    const unsigned int *yCtg,
                    const double *yProxy,
                    unsigned int nCtg,
-                   unsigned int treeChunk) :
+                   unsigned int treeChunk,
+                   unsigned int nTree) :
   Train(frameTrain, yCtg, yProxy, treeChunk),
-  leafCtg(make_unique<LeafTrainCtg>(treeChunk, NRow(), nCtg)) {
+  leafCtg(make_unique<LeafTrainCtg>(treeChunk, nCtg, 1.0 / (double(nTree) * NRow()))) {
 }
 
 

@@ -41,7 +41,7 @@ struct TrainBridge {
   // Training granularity.  Values guesstimated to minimize footprint of
   // Core-to-Bridge copies while also not over-allocating:
   static const unsigned int treeChunk = 20;
-  static constexpr double allocSlop = 1.15d;
+  static constexpr double allocSlop = 1.2d;
   
   static bool verbose; // Whether to report progress while training.
 
@@ -116,6 +116,13 @@ struct TrainBridge {
                    const class FrameTrain* frameTrain,
                    const IntegerVector &predMap);
 
+  /**
+     @brief Unsets static initializations.
+
+     @return implicit R_NilValue.
+   */
+  static SEXP deInit();
+  
 
   static List train(const List &argList,
                     const IntegerVector &predMap,

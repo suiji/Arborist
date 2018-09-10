@@ -90,7 +90,7 @@ List TrainBridge::train(const List &argList,
                           bag.get(),
                           diag);
   }
-  Train::DeInit();
+  deInit();
   return outList;
 
   END_RCPP
@@ -133,6 +133,13 @@ SEXP TrainBridge::init(const List &argList,
     Train::InitMono(frameTrain, regMono);
   }
 
+  END_RCPP
+}
+
+SEXP TrainBridge::deInit() {
+  BEGIN_RCPP
+  verbose = false;
+  Train::DeInit();
   END_RCPP
 }
 
@@ -188,7 +195,8 @@ List TrainBridge::classification(const IntegerVector &y,
                             &(as<vector<unsigned int> >(yZero))[0],
                             &proxy[0],
                             classWeight.size(),
-                            chunkThis);
+                            chunkThis,
+                            nTree);
     tb->consumeCtg(trainCtg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
   }
   return tb->summarize(predMap, diag);
@@ -280,14 +288,13 @@ void TrainBridge::consumeReg(const TrainReg* trainReg,
   leaf->consume(trainReg->getLeaf(), treeOff, scale);
 }
   
-
 void TrainBridge::consumeCtg(const TrainCtg* trainCtg,
                              unsigned int treeOff,
                              double scale) {
   TrainBridge::consume(trainCtg, treeOff, scale);
   leaf->consume(trainCtg->getLeaf(), treeOff, scale);
 }
-  
+
 
 List TrainBridge::summarize(const IntegerVector &predMap,
                             const vector<string> &diag) {

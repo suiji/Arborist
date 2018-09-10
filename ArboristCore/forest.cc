@@ -199,7 +199,7 @@ void Forest::NodeExport(vector<vector<unsigned int> > &pred,
 			vector<vector<double> > &split,
 			vector<vector<unsigned int> > &lhDel) const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (unsigned int nodeIdx = 0; nodeIdx < TreeHeight(tIdx); nodeIdx++) {
+    for (unsigned int nodeIdx = 0; nodeIdx < getTreeHeight(tIdx); nodeIdx++) {
       pred[tIdx].push_back(forestNode[nodeIdx].Pred());
       lhDel[tIdx].push_back(forestNode[nodeIdx].LHDel());
 

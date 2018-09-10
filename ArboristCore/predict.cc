@@ -56,7 +56,7 @@ void Predict::PredictAcross(Leaf *leaf, const BitMatrix *bag, Quant *quant) {
     unsigned int rowEnd = min(rowStart + rowBlock, nRow);
     framePredict->BlockTranspose(rowStart, rowEnd);
     PredictBlock(rowStart, rowEnd, bag);
-    leaf->ScoreBlock(this, rowStart, rowEnd);
+    leaf->scoreBlock(this, rowStart, rowEnd);
     if (quant != nullptr) {
       quant->PredictAcross(this, rowStart, rowEnd);
     }

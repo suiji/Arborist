@@ -113,15 +113,16 @@ class Train {
        const unsigned int *row2Rank,
        unsigned int treeChunk);
 
+
   static unique_ptr<class TrainCtg> classification(
        const class FrameTrain *frameTrain,
        const class RankedSet *rankedPair,
        const unsigned int *yCtg,
        const double *yProxy,
        unsigned int nCtg,
-       unsigned int treeChunk);
-
-
+       unsigned int treeChunk,
+       unsigned int nTree);
+  
   void Reserve(vector<TrainPair> &treeBlock);
   unsigned int blockPeek(vector<TrainPair> &treeBlock,
                          unsigned int &blockFac,
@@ -157,7 +158,8 @@ class TrainCtg : public Train {
            const unsigned int *yCtg,
            const double *yProxy,
            unsigned int nCtg,
-           unsigned int treeChunk_);
+           unsigned int treeChunk,
+           unsigned int nTree);
 
   ~TrainCtg();
 
