@@ -30,8 +30,9 @@ Predict::Predict(const FramePredict *_framePredict,
   useBag(validate),
   framePredict(_framePredict),
   forest(_forest),
-  nTree(forest->NTree()),
-  nRow(framePredict->NRow()) {
+  nTree(forest->getNTree()),
+  nRow(framePredict->getNRow()),
+  treeOrigin(forest->cacheOrigin()) {
   predictLeaves = make_unique<unsigned int[]>(rowBlock * nTree);
 }
 
@@ -74,9 +75,9 @@ void Predict::PredictAcross(Leaf *leaf, const BitMatrix *bag, Quant *quant) {
 void Predict::PredictBlock(unsigned int rowStart,
                            unsigned int rowEnd,
                            const BitMatrix *bag) {
-  if (framePredict->NPredFac() == 0)
+  if (framePredict->getNPredFac() == 0)
     PredictBlockNum(rowStart, rowEnd, bag);
-  else if (framePredict->NPredNum() == 0)
+  else if (framePredict->getNPredNum() == 0)
     PredictBlockFac(rowStart, rowEnd, bag);
   else
     PredictBlockMixed(rowStart, rowEnd, bag);
@@ -100,7 +101,7 @@ void Predict::PredictBlockNum(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowNum(row, row - rowStart, forest->Node(), forest->Origin(), bag);
+      RowNum(row, row - rowStart, forest->Node(), bag);
     }
   }
 }
@@ -123,7 +124,7 @@ void Predict::PredictBlockFac(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowFac(row, row - rowStart, forest->Node(), forest->Origin(), forest->FacSplit(), bag);
+      RowFac(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
   }
   }
 
@@ -151,7 +152,7 @@ void Predict::PredictBlockMixed(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowMixed(row, row - rowStart, forest->Node(), forest->Origin(), forest->FacSplit(), bag);
+      RowMixed(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
     }
   }
 }
@@ -161,13 +162,12 @@ void Predict::PredictBlockMixed(unsigned int rowStart,
 void Predict::RowNum(unsigned int row,
                      unsigned int blockRow,
                      const ForestNode *forestNode,
-                     const unsigned int *origin,
                      const class BitMatrix *bag) {
   auto rowT = framePredict->RowNum(blockRow);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(useBag && bag->testBit(tIdx, row))) {
-      auto idx = origin[tIdx];
+      auto idx = treeOrigin[tIdx];
       do {
         idx += forestNode[idx].advance(rowT, leafIdx);
       } while (leafIdx == noLeaf);
@@ -191,14 +191,13 @@ void Predict::RowNum(unsigned int row,
 void Predict::RowFac(unsigned int row,
                      unsigned int blockRow,
                      const ForestNode *forestNode,
-                     const unsigned int *origin,
                      const BVJagged *facSplit,
                      const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(useBag && bag->testBit(tIdx, row))) {
       auto rowT = framePredict->RowFac(blockRow);
-      auto idx = origin[tIdx];
+      auto idx = treeOrigin[tIdx];
       do {
         idx += forestNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
       } while (leafIdx == noLeaf);
@@ -224,7 +223,6 @@ void Predict::RowFac(unsigned int row,
 void Predict::RowMixed(unsigned int row,
                        unsigned int blockRow,
                        const ForestNode *forestNode,
-                       const unsigned int *origin,
                        const BVJagged *facSplit,
                        const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -232,7 +230,7 @@ void Predict::RowMixed(unsigned int row,
     if (!(useBag && bag->testBit(tIdx, row))) {
       auto rowNT = framePredict->RowNum(blockRow);
       auto rowFT = framePredict->RowFac(blockRow);
-      auto idx = origin[tIdx];
+      auto idx = treeOrigin[tIdx];
       do {
         idx += forestNode[idx].advance(framePredict, facSplit, rowFT, rowNT, tIdx, leafIdx);
       } while (leafIdx == noLeaf);

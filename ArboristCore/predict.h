@@ -28,6 +28,7 @@ class Predict {
   const class Forest *forest;
   const unsigned int nTree;
   const unsigned int nRow;
+  const vector<size_t> treeOrigin;
   unique_ptr<unsigned int[]> predictLeaves;
 
 
@@ -66,20 +67,17 @@ class Predict {
   void RowNum(unsigned int row,
               unsigned int blockRow,
               const class ForestNode *forestNode,
-              const unsigned int *origin,
               const class BitMatrix *bag);
 
   void RowFac(unsigned int row,
               unsigned int blockRow,
               const class ForestNode *forestNode,
-              const unsigned int *origin,
               const class BVJagged *facSplit,
               const class BitMatrix *bag);
   
   void RowMixed(unsigned int row,
                 unsigned int blockRow,
                 const class ForestNode *forestNode,
-                const unsigned int *origin,
                 const class BVJagged *facSplit,
                 const class BitMatrix *bag);
 

@@ -22,10 +22,10 @@
 
 #include "typeparam.h"
 
-// TODO: Recast using templates.
+// TODO: Reparametrize with templates.
 
 class BV {
-  const unsigned int nSlot;
+  const unsigned int nSlot; // Number of typed (uint) slots.
   unsigned int *raw;
   const bool wrapper;  // True iff an overlay onto pre-allocated memory.
   
@@ -41,7 +41,8 @@ class BV {
   BV(vector<unsigned int> &raw_, unsigned int nSlot_);
 
   ~BV();
-  void Serialize(unsigned char *bbRaw) const {
+
+  inline void Serialize(unsigned char *bbRaw) const {
     for (size_t i = 0; i < nSlot * sizeof(unsigned int); i++) {
       bbRaw[i] = *((unsigned char *) &raw[0] + i);
     }
@@ -236,21 +237,16 @@ class BitMatrix : public BV {
    @brief Jagged bit matrix:  unstrided access.
  */
 class BVJagged : public BV {
-  const size_t nElt;
-  const unsigned int *rowOrigin;
+  const unsigned int *rowExtent;
   const unsigned int nRow;
-  void RowExport(vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const;
-  unsigned int RowHeight(unsigned int rowIdx) const;
+  vector<unsigned int> rowExport(unsigned int rowIdx) const;
 
  public:
-  BVJagged(unsigned int raw_[], size_t _nSlot, const unsigned int _origin[], unsigned int _nRow);
+  BVJagged(unsigned int raw_[],
+           const unsigned int height_[], // Cumulative extent per row.
+           unsigned int nRow_);
   ~BVJagged();
   void Export(vector<vector<unsigned int> > &outVec);
-
-
-  inline size_t NElt() const {
-    return nElt;
-  }
 
 
   /**
@@ -266,7 +262,7 @@ class BVJagged : public BV {
   inline bool testBit(unsigned int row, unsigned int pos) const {
     unsigned int mask;
     unsigned int slot = SlotMask(pos, mask);
-    unsigned int base = rowOrigin[row];
+    unsigned int base = row == 0 ? 0 : rowExtent[row-1];
     
     return Test(base + slot, mask);
   }

@@ -34,7 +34,7 @@ Quant::Quant(const LeafReg *leafReg_,
   quantile(quantile_),
   qCount(quantile.size()),
   qPred(vector<double>(leafReg->rowPredict() * qCount)),
-  rankCount(vector<RankCount>(leafReg->BagLeafTot())),
+  rankCount(vector<RankCount>(leafReg->getBagLeafTot())),
   logSmudge(0) {
   if (rankCount.size() == 0) // Insufficient leaf information.
     return;
@@ -136,7 +136,7 @@ unsigned int Quant::BinSize(unsigned int rowTrain,
    @return void.
  */
 void Quant::SmudgeLeaves() {
-  sCountSmudge = move(vector<unsigned int>(leafReg->BagLeafTot()));
+  sCountSmudge = move(vector<unsigned int>(leafReg->getBagLeafTot()));
   for (unsigned int i = 0; i < sCountSmudge.size(); i++)
     sCountSmudge[i] = rankCount[i].sCount;
 

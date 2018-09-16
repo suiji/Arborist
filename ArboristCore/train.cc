@@ -191,11 +191,11 @@ Train::Train(const FrameTrain *frameTrain,
              const double *y,
              const unsigned int *row2Rank,
              unsigned int treeChunk_) :
-  nRow(frameTrain->NRow()),
+  nRow(frameTrain->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
-  predInfo(vector<double>(frameTrain->NPred())),
+  predInfo(vector<double>(frameTrain->getNPred())),
   response(Response::FactoryReg(y, row2Rank)) {
 }
 
@@ -243,11 +243,11 @@ Train::Train(const FrameTrain *frameTrain,
              const unsigned int *yCtg,
              const double *yProxy,
              unsigned int treeChunk_) :
-  nRow(frameTrain->NRow()),
+  nRow(frameTrain->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
-  predInfo(vector<double>(frameTrain->NPred())),
+  predInfo(vector<double>(frameTrain->getNPred())),
   response(Response::FactoryCtg(yCtg, yProxy)) {
 }
 
@@ -331,7 +331,7 @@ unsigned int Train::blockPeek(vector<TrainPair> &treeBlock,
   unsigned int blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
   for (auto & pair : treeBlock) {
-    get<1>(pair)->BlockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
+    get<1>(pair)->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
   }
 
   return blockHeight;
@@ -351,7 +351,7 @@ void Train::blockConsume(vector<TrainPair> &treeBlock,
                          unsigned int blockStart) {
   unsigned int blockIdx = blockStart;
   for (auto & trainPair : treeBlock) {
-    const vector<unsigned int> leafMap = get<1>(trainPair)->Consume(forest.get(), blockIdx, predInfo);
+    const vector<unsigned int> leafMap = get<1>(trainPair)->consume(forest.get(), blockIdx, predInfo);
     delete get<1>(trainPair);
 
     Leaves(get<0>(trainPair), leafMap, blockIdx);

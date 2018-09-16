@@ -55,7 +55,7 @@ class FrameMap {
 
      @return true iff index references a factor.
    */
-  inline bool IsFactor(unsigned int predIdx)  const {
+  inline bool isFactor(unsigned int predIdx)  const {
     return predIdx >= FacFirst();
   }
 
@@ -63,45 +63,45 @@ class FrameMap {
   /**
      @brief Computes block-relative position for a predictor.
    */
-  inline unsigned int FacIdx(int predIdx, bool &isFactor) const{
-    isFactor = IsFactor(predIdx);
-    return isFactor ? predIdx - FacFirst() : predIdx;
+  inline unsigned int FacIdx(int predIdx, bool &thisIsFactor) const{
+    thisIsFactor = isFactor(predIdx);
+    return thisIsFactor ? predIdx - FacFirst() : predIdx;
   }
 
 
   inline unsigned int FacStride(unsigned int predIdx,
 				unsigned int nStride,
-				bool &isFactor) const {
-    unsigned int facIdx = FacIdx(predIdx, isFactor);
-    return isFactor ? nStride * nPredFac + facIdx : predIdx;
+				bool &thisIsFactor) const {
+    unsigned int facIdx = FacIdx(predIdx, thisIsFactor);
+    return thisIsFactor ? nStride * nPredFac + facIdx : predIdx;
   }
 
 
   /**
      @return number or observation rows.
    */
-  inline unsigned int NRow() const {
+  inline unsigned int getNRow() const {
     return nRow;
   }
 
   /**
      @return number of observation predictors.
   */
-  inline unsigned int NPred() const {
+  inline unsigned int getNPred() const {
     return nPredFac + nPredNum;
   }
 
   /**
      @return number of factor predictors.
    */
-  inline unsigned int NPredFac() const {
+  inline unsigned int getNPredFac() const {
     return nPredFac;
   }
 
   /**
      @return number of numerical predictors.
    */
-  inline unsigned int NPredNum() const {
+  inline unsigned int getNPredNum() const {
     return nPredNum;
   }
 
@@ -171,7 +171,7 @@ class FrameTrain : public FrameMap {
    @return factor cardinality or zero.
   */
   inline int FacCard(int predIdx) const {
-    return IsFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
+    return isFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
   }
 
   

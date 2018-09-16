@@ -154,7 +154,11 @@ BitMatrix::~BitMatrix() {
 
 /**
  */
-BVJagged::BVJagged(unsigned int raw_[], size_t _nSlot, const unsigned int _rowOrigin[], unsigned int _nRow) : BV(raw_, _nSlot), nElt(_nSlot * slotElts), rowOrigin(_rowOrigin), nRow(_nRow) {
+BVJagged::BVJagged(unsigned int raw_[],
+                   const unsigned int rowExtent_[],
+                   unsigned int nRow_) : BV(raw_, rowExtent_[nRow_-1]),
+                                         rowExtent(rowExtent_),
+                                         nRow(nRow_) {
 }
 
 
@@ -165,24 +169,11 @@ BVJagged::~BVJagged() {
 
 
 /**
- */
-unsigned int BVJagged::RowHeight(unsigned int rowIdx) const {
-  if (rowIdx < nRow - 1) {
-    return sizeof(unsigned int) * (rowOrigin[rowIdx + 1] - rowOrigin[rowIdx]);
-  }
-  else {
-    return NElt() - sizeof(unsigned int) * rowOrigin[rowIdx];
-  }
-}
-
-/**
    @brief Exports contents of a forest.
  */
 void BVJagged::Export(vector<vector<unsigned int> > &outVec) {
   for (unsigned int row = 0; row < nRow; row++) {
-    unsigned int rowHeight = RowHeight(row);
-    outVec[row] = vector<unsigned int>(rowHeight);
-    RowExport(outVec[row], rowHeight, row);
+    outVec[row] = rowExport(row);
   }
 }
 
@@ -190,10 +181,12 @@ void BVJagged::Export(vector<vector<unsigned int> > &outVec) {
 /**
    @brief Exports contents for an individual row.
  */
-void BVJagged::RowExport(vector<unsigned int> &outRow, unsigned int rowHeight, unsigned int rowIdx) const {
-  for (unsigned int idx = 0; idx < rowHeight; idx++) {
-    outRow[idx] = testBit(rowIdx, idx);
+vector<unsigned int> BVJagged::rowExport(unsigned int rowIdx) const {
+  vector<unsigned int> outVec(rowExtent[rowIdx]);
+  for (unsigned int idx = 0; idx < outVec.size(); idx++) {
+    outVec[idx] = testBit(rowIdx, idx);
   }
+  return outVec;
 }
 
 

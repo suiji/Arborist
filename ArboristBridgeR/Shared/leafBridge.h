@@ -85,11 +85,10 @@ class LeafBridge {
    @brief Bridge specialization of Core LeafReg, q.v.
  */
 class LeafRegBridge : public LeafBridge {
-  const IntegerVector &feOrig;
-  const RawVector &feBagLeaf;
-  R_xlen_t feBLSize;
+  const IntegerVector &feNodeHeight;
   const RawVector &feNode;
-  R_xlen_t feNodeSize;
+  const IntegerVector &feBagHeight;
+  const RawVector &feBagLeaf;
   const NumericVector &yTrain;
 
   vector<vector<double > > scoreTree;
@@ -103,24 +102,22 @@ class LeafRegBridge : public LeafBridge {
   /**
      @brief Constructor for prediction, no export.
    */
-  LeafRegBridge(const IntegerVector &_feOrig,
-                const RawVector &_feBagLeaf,
-                R_xlen_t feBLsize_,
-                const RawVector &_feNode,
-                R_xlen_t feNodeSize_,
-                const NumericVector &_yTrain,
+  LeafRegBridge(const IntegerVector &feNodeHeight_,
+                const RawVector &feNode_,
+                const IntegerVector& feBagHeight_,
+                const RawVector& feBagLeaf_,
+                const NumericVector& yTrain_,
                 unsigned int rowPredict);
 
   /**
     @brief Constructor for export, no prediction.
    */
-  LeafRegBridge(const IntegerVector &feOrig_,
-                const RawVector &feBagLeaf_,
-                R_xlen_t feBLSize_,
-                const RawVector &feNode_,
-                R_xlen_t feNodeSize_,
-                const NumericVector &yTrain_,
-                const class BitMatrix *baggedRows);
+  LeafRegBridge(const IntegerVector& feNodeHeight_,
+                const RawVector& feNode_,
+                const IntegerVector& feBagHeight_,
+                const RawVector& feBagLeaf_,
+                const NumericVector& yTrain_,
+                const class BitMatrix* baggedRows);
 
   ~LeafRegBridge();
   
@@ -161,12 +158,11 @@ class LeafRegBridge : public LeafBridge {
    @brief Bridge specialization of Core LeafCtg, q.v.
  */
 class LeafCtgBridge : public LeafBridge {
-  const IntegerVector &feOrig;
-  const RawVector &feBagLeaf;
-  R_xlen_t feBLSize;
-  const RawVector &feNode;
-  R_xlen_t feNodeSize;
-  const NumericVector &feWeight;
+  const IntegerVector& feNodeHeight;
+  const RawVector& feNode;
+  const IntegerVector& feBagHeight;
+  const RawVector& feBagLeaf;
+  const NumericVector& feWeight;
   const CharacterVector levelsTrain; // Pinned for summary reuse.
 
   vector<vector<double > > scoreTree;
@@ -186,27 +182,25 @@ class LeafCtgBridge : public LeafBridge {
   /**
      @brief Constructor for prediction; no export.
    */
-  LeafCtgBridge(const IntegerVector &_feOrig,
-                const RawVector &_feBagLeaf,
-                R_xlen_t feBLSize_,
-                const RawVector &_feNode,
-                R_xlen_t feNodeSize_,
-                const NumericVector &_feWeight,
-                const CharacterVector &_feLevels,
-                unsigned int _rowPredict,
+  LeafCtgBridge(const IntegerVector& feNodeHeight_,
+                const RawVector &feNode_,
+                const IntegerVector& feBagheight_,
+                const RawVector& feBagLeaf_,
+                const NumericVector& feWeight_,
+                const CharacterVector& feLevels_,
+                unsigned int rowPredict_,
                 bool doProb);
 
   /**
      @brief Constructor for export; no prediction.
    */
-  LeafCtgBridge(const IntegerVector &_feOrig,
-                const RawVector &_feBagLeaf,
-                R_xlen_t feBLSize_,
-                const RawVector &_feNode,
-                R_xlen_t feNodeSize_,
-                const NumericVector &_feWeight,
-                const CharacterVector &_feLevels,
-                const class BitMatrix *bitMatrix);
+  LeafCtgBridge(const IntegerVector& feNodeHeight_,
+                const RawVector& feNode_,
+                const IntegerVector& feBagHeight_,
+                const RawVector& feBagLeaf_,
+                const NumericVector& feWeight_,
+                const CharacterVector& feLevels_,
+                const class BitMatrix* bitMatrix);
 
   ~LeafCtgBridge();
   
@@ -319,12 +313,12 @@ class TestCtg {
    of the forest during training.
  */
 struct LBTrain {
+  IntegerVector nodeHeight;  // Accumulated per-tree extent of LeafNode vector.
   RawVector nodeRaw;
-  RawVector blRaw;
-  R_xlen_t nodeSize; // Running size of nodeRaw vector:  saved.
-  R_xlen_t blSize;   // Running size of blRaw Vector:  saved.
 
-  IntegerVector origin;
+  IntegerVector bagHeight; // Accumulated per-tree extent of BagLeaf vector.
+  RawVector blRaw;
+
   LBTrain(unsigned int nTree);
 
   virtual void consume(const class LeafTrain* leaf,

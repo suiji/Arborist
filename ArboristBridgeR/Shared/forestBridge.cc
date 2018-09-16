@@ -29,43 +29,42 @@
 FBTrain::FBTrain(unsigned int nTree) :
   nodeRaw(RawVector(0)),
   facRaw(RawVector(0)),
-  nodeOff(0),
-  facOff(0),
-  origin(IntegerVector(nTree)),
-  facOrigin(IntegerVector(nTree)) {
+  height(IntegerVector(nTree)),
+  facHeight(IntegerVector(nTree)) {
 }
 
 void FBTrain::consume(const ForestTrain* forestTrain,
-                      unsigned int treeOff,
+                      unsigned int tIdx,
                       double scale) {
-  unsigned int i = treeOff;
-  for (auto to : forestTrain->getTreeOrigin()) {
-    origin[i++] = nodeOff / sizeof(ForestNode) + to;
-  }
-  i = treeOff;
-  for (auto fo : forestTrain->getFacOrigin()) {
-    facOrigin[i++] = facOff / sizeof(unsigned int) + fo;
+  unsigned int i = tIdx;
+  for (auto th : forestTrain->getNodeHeight()) {
+    height[i++] = th + (tIdx == 0 ? 0 : height[tIdx-1]);
   }
 
-  R_xlen_t nodeBytes = forestTrain->getNodeBytes();
-  if (nodeOff + nodeBytes > nodeRaw.length()) {
+  i = tIdx;
+  for (auto fo : forestTrain->getFacHeight()) {
+    facHeight[i++] = fo + (tIdx == 0 ? 0 : facHeight[tIdx-1]);
+  }
+
+  size_t nodeOff = tIdx == 0 ? 0 : height[tIdx-1] * sizeof(ForestNode);
+  size_t nodeBytes = forestTrain->getNodeHeight().back() * sizeof(ForestNode);
+  if (nodeOff + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
     RawVector temp(scale * (nodeOff + nodeBytes));
-    for (unsigned int i = 0; i < nodeOff; i++)
+    for (size_t i = 0; i < nodeOff; i++)
       temp[i] = nodeRaw[i];
     nodeRaw = move(temp);
   }
-  forestTrain->NodeRaw(&nodeRaw[nodeOff]);
-  nodeOff += nodeBytes;
+  forestTrain->cacheNodeRaw(&nodeRaw[nodeOff]);
 
-  R_xlen_t facBytes = forestTrain->getFacBytes();
-  if (facOff + facBytes > facRaw.length()) {
+  size_t facOff = tIdx == 0 ? 0 : facHeight[tIdx-1] * sizeof(unsigned int);
+  size_t facBytes = forestTrain->getFacHeight().back() * sizeof(unsigned int);
+  if (facOff + facBytes > static_cast<size_t>(facRaw.length())) {
     RawVector temp(scale * (facOff + facBytes));
-    for (unsigned int i = 0; i < facOff; i++)
+    for (size_t i = 0; i < facOff; i++)
       temp[i] = facRaw[i];
     facRaw = move(temp);
   }
-  forestTrain->FacRaw(&facRaw[facOff]);
-  facOff += facBytes;
+  forestTrain->cacheFacRaw(&facRaw[facOff]);
 }
 
 
@@ -73,14 +72,12 @@ List FBTrain::wrap() {
   List forest =
     List::create(
                  _["forestNode"] = move(nodeRaw),
-                 _["origin"] = move(origin),
-                 _["facOrig"] = move(facOrigin),
+                 _["height"] = move(height),
+                 _["facHeight"] = move(facHeight),
                  _["facSplit"] = move(facRaw)
                  );
   nodeRaw = RawVector(0);
   facRaw = RawVector(0);
-  nodeOff = 0;
-  facOff = 0;
   forest.attr("class") = "Forest";
 
   return forest;
@@ -90,10 +87,10 @@ List FBTrain::wrap() {
 unique_ptr<ForestBridge> ForestBridge::unwrap(const List& lTrain) {
   List lForest = List((SEXP) lTrain["forest"]);
   Legal(lForest);
-  return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["origin"]),
-			  RawVector((SEXP) lForest["facSplit"]),
-			  IntegerVector((SEXP) lForest["facOrig"]),
-			  RawVector((SEXP) lForest["forestNode"]));
+  return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["height"]),
+                                   RawVector((SEXP) lForest["facSplit"]),
+                                   IntegerVector((SEXP) lForest["facHeight"]),
+                                   RawVector((SEXP) lForest["forestNode"]));
 }
 
 
@@ -110,23 +107,19 @@ SEXP ForestBridge::Legal(const List &lForest) {
 
 // Alignment should be sufficient to guarantee safety of
 // the casted loads.
-ForestBridge::ForestBridge(const IntegerVector &_feOrigin,
-			   const RawVector &_feFacSplit,
-			   const IntegerVector &_feFacOrig,
-			   const RawVector &_feNode) :
-  feOrigin(_feOrigin),
-  feFacSplit(_feFacSplit),
-  feFacOrig(_feFacOrig),
-  feNode(_feNode),
-  forest(move(make_unique<Forest>((ForestNode*) &feNode[0],
-				  feNode.length() / sizeof(ForestNode),
-				  (unsigned int *) &feOrigin[0],
-				  feOrigin.length(),
-				  (unsigned int *) &feFacSplit[0],
-				  feFacSplit.length() / sizeof(unsigned int),
-				  (unsigned int*) &feFacOrig[0],
-				  feFacOrig.length()
-                                  ))) {
+ForestBridge::ForestBridge(const IntegerVector& feHeight_,
+                           const RawVector &feFacSplit_,
+                           const IntegerVector &feFacHeight_,
+                           const RawVector &feNode_) :
+  feHeight(feHeight_),
+  feNode(feNode_),
+  feFacHeight(feFacHeight_),
+  feFacSplit(feFacSplit_),
+  forest(move(make_unique<Forest>((unsigned int*) &feHeight[0],
+                                  feHeight.length(),
+                                  (ForestNode*) &feNode[0],
+                                  (unsigned int *) &feFacSplit[0],
+                                  (unsigned int*) &feFacHeight[0]))) {
 }
 
 
@@ -140,16 +133,16 @@ unique_ptr<ForestExport> ForestExport::unwrap(const List &lTrain,
 
 ForestExport::ForestExport(List &lForest,
                            IntegerVector &predMap) :
-  ForestBridge(IntegerVector((SEXP) lForest["origin"]),
+  ForestBridge(IntegerVector((SEXP) lForest["height"]),
                RawVector((SEXP) lForest["facSplit"]),
-               IntegerVector((SEXP) lForest["facOrig"]),
+               IntegerVector((SEXP) lForest["facHeight"]),
                RawVector((SEXP) lForest["forestNode"])),
   predTree(vector<vector<unsigned int> >(getNTree())),
   bumpTree(vector<vector<unsigned int> >(getNTree())),
   splitTree(vector<vector<double > >(getNTree())),
   facSplitTree(vector<vector<unsigned int> >(getNTree())) {
   forest->Export(predTree, splitTree, bumpTree, facSplitTree);
-  PredExport(predMap.begin());
+  predExport(predMap.begin());
 }
 
 
@@ -158,7 +151,7 @@ ForestExport::ForestExport(List &lForest,
 
    @return void.
  */
-void ForestExport::PredTree(const int predMap[],
+void ForestExport::treeExport(const int predMap[],
                             vector<unsigned int> &pred,
                             const vector<unsigned int> &bump) {
   for (unsigned int i = 0; i < pred.size(); i++) {
@@ -173,8 +166,8 @@ void ForestExport::PredTree(const int predMap[],
 /**
    @brief Prepares predictor field for export by remapping to front-end indices.
  */
-void ForestExport::PredExport(const int predMap[]) {
+void ForestExport::predExport(const int predMap[]) {
   for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
-    PredTree(predMap, predTree[tIdx], bumpTree[tIdx]);
+    treeExport(predMap, predTree[tIdx], bumpTree[tIdx]);
   }
 }

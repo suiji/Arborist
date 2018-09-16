@@ -90,6 +90,10 @@ List TrainBridge::train(const List &argList,
                           bag.get(),
                           diag);
   }
+  if (verbose) {
+    Rcout << "Training completed" << endl;
+  }
+
   deInit();
   return outList;
 

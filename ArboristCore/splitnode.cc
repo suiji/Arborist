@@ -38,7 +38,7 @@ SplitNode::SplitNode(const FrameTrain *frameTrain_,
 		     unsigned int bagCount) :
   rowRank(rowRank_),
   frameTrain(frameTrain_),
-  noSet(bagCount * frameTrain->NPredFac()) {
+  noSet(bagCount * frameTrain->getNPredFac()) {
 }
 
 
@@ -52,11 +52,11 @@ SplitNode::~SplitNode() {
 void SPReg::Immutables(const FrameTrain* frameTrain,
                        const vector<double> &bridgeMono) {
   auto numFirst = frameTrain->NumFirst();
-  auto numExtent = frameTrain->NPredNum();
+  auto numExtent = frameTrain->getNPredNum();
   auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [](double prob) { return prob != 0.0; });
   if (monoCount > 0) {
-    mono = move(vector<double>(frameTrain->NPredNum()));
-    mono.assign(bridgeMono.begin() + frameTrain->NumFirst(), bridgeMono.begin() + frameTrain->NumFirst() + frameTrain->NPredNum());
+    mono = move(vector<double>(frameTrain->getNPredNum()));
+    mono.assign(bridgeMono.begin() + frameTrain->NumFirst(), bridgeMono.begin() + frameTrain->NumFirst() + frameTrain->getNPredNum());
   }
 }
 
@@ -71,7 +71,7 @@ SPReg::SPReg(const FrameTrain *_frameTrain,
 	     unsigned int bagCount) :
   SplitNode(_frameTrain, _rowRank, bagCount),
   ruMono(vector<double>(0)) {
-  run = make_unique<Run>(0, frameTrain->NRow(), noSet);
+  run = make_unique<Run>(0, frameTrain->getNRow(), noSet);
 }
 
 
@@ -84,7 +84,7 @@ SPCtg::SPCtg(const FrameTrain *frameTrain_,
 	     unsigned int nCtg_):
   SplitNode(frameTrain_, rowRank_, bagCount),
   nCtg(nCtg_) {
-  run = make_unique<Run>(nCtg, frameTrain->NRow(), noSet);
+  run = make_unique<Run>(nCtg, frameTrain->getNRow(), noSet);
 }
 
 
@@ -192,7 +192,7 @@ void SplitNode::levelClear() {
    @return true iff predictor is a factor.
  */
 bool SplitNode::isFactor(unsigned int predIdx) const {
-  return frameTrain->IsFactor(predIdx);
+  return frameTrain->isFactor(predIdx);
 }
 
 
@@ -264,7 +264,7 @@ void SPReg::levelPreset(IndexLevel *index) {
    @return void.
 */
 void SPCtg::levelPreset(IndexLevel *index) {
-  levelInitSumR(frameTrain->NPredNum());
+  levelInitSumR(frameTrain->getNPredNum());
   sumSquares = move(vector<double>(splitCount));
   ctgSum = move(vector<double>(splitCount * nCtg));  
   fill(sumSquares.begin(), sumSquares.end(), 0.0);

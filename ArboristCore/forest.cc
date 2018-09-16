@@ -30,8 +30,8 @@ vector<double> ForestNode::splitQuant;
 */
 ForestTrain::ForestTrain(unsigned int treeChunk) :
   forestNode(vector<ForestNode>(0)),
-  treeOrigin(vector<unsigned int>(treeChunk)),
-  facOrigin(vector<unsigned int>(treeChunk)),
+  nodeHeight(vector<size_t>(treeChunk)),
+  facHeight(vector<size_t>(treeChunk)),
   facVec(vector<unsigned int>(0)) {
 }
 
@@ -43,26 +43,22 @@ ForestTrain::~ForestTrain() {
 /**
    @brief Constructor for prediction.
 */
-Forest::Forest(const ForestNode _forestNode[],
-	       unsigned int _nodeCount,
-	       const unsigned int _origin[],
-	       unsigned int _nTree,
-	       unsigned int _facVec[],
-	       size_t _facLen,
-	       const unsigned int _facOrigin[],
-	       unsigned int _nFac) :
-  forestNode(_forestNode),
-  nodeCount(_nodeCount),
-  treeOrigin(_origin),
-  nTree(_nTree),
-  facSplit(new BVJagged(_facVec, _facLen, _facOrigin, _nFac)) {
+Forest::Forest(const unsigned int height_[],
+	       unsigned int nTree_,
+               const ForestNode forestNode_[],
+	       unsigned int facVec_[],
+               const unsigned int facHeight_[]) :
+  nodeHeight(height_),
+  nTree(nTree_),
+  forestNode(forestNode_),
+  nodeCount(nodeHeight[nTree-1]),
+  facSplit(make_unique<BVJagged>(facVec_, facHeight_, nTree)) {
 }
 
 
 /**
  */ 
 Forest::~Forest() {
-  delete facSplit;
 }
 
 
@@ -82,11 +78,11 @@ unsigned int ForestNode::advance(const BVJagged *facSplit,
 
 
 unsigned int ForestNode::advance(const FramePredict *framePredict,
-				 const BVJagged *facSplit,
-				 const unsigned int *rowFT,
-				 const double *rowNT,
-				 unsigned int tIdx,
-				 unsigned int &leafIdx) const {
+                                 const BVJagged *facSplit,
+                                 const unsigned int *rowFT,
+                                 const double *rowNT,
+                                 unsigned int tIdx,
+                                 unsigned int &leafIdx) const {
   if (lhDel == 0) {
     leafIdx = predIdx;
     return 0;
@@ -101,10 +97,10 @@ unsigned int ForestNode::advance(const FramePredict *framePredict,
 
 /**
  */
-void ForestTrain::NodeInit(unsigned int treeHeight) {
+void ForestTrain::initNode(unsigned int extent) {
   ForestNode fn;
   fn.Init();
-  forestNode.insert(forestNode.end(), treeHeight, fn);
+  forestNode.insert(forestNode.end(), extent, fn);
 }
 
 
@@ -112,7 +108,7 @@ void ForestTrain::NodeInit(unsigned int treeHeight) {
    @brief Produces new splits for an entire tree.
  */
 void ForestTrain::BitProduce(const BV *splitBits,
-			     unsigned int bitEnd) {
+                             unsigned int bitEnd) {
   splitBits->Consume(facVec, bitEnd);
 }
 
@@ -121,33 +117,25 @@ void ForestTrain::BitProduce(const BV *splitBits,
   @brief Reserves space in the relevant vectors for new trees.
  */
 void ForestTrain::Reserve(unsigned int blockHeight,
-			  unsigned int blockFac,
-			  double slop) {
+                          unsigned int blockFac,
+                          double slop) {
   forestNode.reserve(slop * blockHeight);
   if (blockFac > 0) {
     facVec.reserve(slop * blockFac);
   }
 }
 
-
-/**
-   @brief Registers current vector sizes of crescent forest as origin values.
-
-   @param tIdx is current tree index.
-   
-   @return void.
- */
-void ForestTrain::setOrigins(unsigned int tIdx) {
-  treeOrigin[tIdx] = getHeight();
-  facOrigin[tIdx] = SplitHeight();
+void ForestTrain::setHeights(unsigned int tIdx) {
+  nodeHeight[tIdx] = getHeight();
+  facHeight[tIdx] = getSplitHeight();
 }
 
 
 void ForestTrain::NonTerminal(const FrameTrain *frameTrain,
-			      unsigned int tIdx,
-			      unsigned int idx,
-			      const DecNode *decNode) {
-  BranchProduce(tIdx, idx, decNode, frameTrain->IsFactor(decNode->predIdx));
+                              unsigned int tIdx,
+                              unsigned int idx,
+                              const DecNode *decNode) {
+  BranchProduce(tIdx, idx, decNode, frameTrain->isFactor(decNode->predIdx));
 }
 
 
@@ -159,7 +147,7 @@ void ForestTrain::NonTerminal(const FrameTrain *frameTrain,
    @return void
  */
 void ForestTrain::SplitUpdate(const FrameTrain *frameTrain,
-			      const BlockRanked *numRanked) {
+                              const BlockRanked *numRanked) {
   for (auto & fn : forestNode) {
     fn.SplitUpdate(frameTrain, numRanked);
   }
@@ -174,17 +162,26 @@ void ForestTrain::SplitUpdate(const FrameTrain *frameTrain,
    @return void.
  */
 void ForestNode::SplitUpdate(const FrameTrain *frameTrain,
-			     const BlockRanked *numRanked) {
-  if (Nonterminal() && !frameTrain->IsFactor(predIdx)) {
+                             const BlockRanked *numRanked) {
+  if (Nonterminal() && !frameTrain->isFactor(predIdx)) {
     splitVal.num = numRanked->QuantRank(predIdx, splitVal.rankRange, splitQuant);
   }
 }
 
 
+vector<size_t> Forest::cacheOrigin() const {
+  vector<size_t> origin(nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    origin[tIdx] = tIdx == 0 ? 0 : nodeHeight[tIdx-1];
+  }
+  return origin;
+}
+
+
 void Forest::Export(vector<vector<unsigned int> > &predTree,
-		    vector<vector<double> > &splitTree,
-		    vector<vector<unsigned int> > &lhDelTree,
-		    vector<vector<unsigned int> > &facSplitTree) const {
+                    vector<vector<double> > &splitTree,
+                    vector<vector<unsigned int> > &lhDelTree,
+                    vector<vector<unsigned int> > &facSplitTree) const {
   NodeExport(predTree, splitTree, lhDelTree);
   facSplit->Export(facSplitTree);
 }
@@ -196,10 +193,10 @@ void Forest::Export(vector<vector<unsigned int> > &predTree,
    @return void, with output reference vectors.
  */
 void Forest::NodeExport(vector<vector<unsigned int> > &pred,
-			vector<vector<double> > &split,
-			vector<vector<unsigned int> > &lhDel) const {
+                        vector<vector<double> > &split,
+                        vector<vector<unsigned int> > &lhDel) const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (unsigned int nodeIdx = 0; nodeIdx < getTreeHeight(tIdx); nodeIdx++) {
+    for (unsigned int nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
       pred[tIdx].push_back(forestNode[nodeIdx].Pred());
       lhDel[tIdx].push_back(forestNode[nodeIdx].LHDel());
 

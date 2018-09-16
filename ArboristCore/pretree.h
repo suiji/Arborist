@@ -30,7 +30,11 @@ class PTNode : public DecNode {
   FltVal info;  // Nonzero iff nonterminal.
  public:
   
-  void NonterminalConsume(const class FrameTrain *frameTrain, class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const;
+  void consumeNonterminal(const class FrameTrain *frameTrain,
+                          class ForestTrain *forest,
+                          unsigned int tIdx,
+                          vector<double> &predInfo,
+                          unsigned int idx) const;
 
   void splitNum(const class SplitCand &cand,
                 unsigned int lhDel);
@@ -86,6 +90,7 @@ class PreTree {
   static unsigned int heightEst;
   static unsigned int leafMax; // User option:  maximum # leaves, if > 0.
   const class FrameTrain *frameTrain;
+  const unsigned int bagCount;
   PTNode *nodeVec; // Vector of tree nodes.
   unsigned int nodeCount; // Allocation height of node vector.
   unsigned int height;
@@ -95,7 +100,6 @@ class PreTree {
   vector<unsigned int> termST;
   class BV *BitFactory();
   const vector<unsigned int> FrontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
-  const unsigned int bagCount;
   unsigned int BitWidth();
 
 
@@ -118,9 +122,28 @@ class PreTree {
   static void DeImmutables();
   static void Reserve(unsigned int height);
 
-  const vector<unsigned int> Consume(class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo);
-  void NonterminalConsume(class ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const;
+
+  /**
+     @brief Consumes all pretree nonterminal information into crescent forest.
+
+     @param forest grows by producing nodes and splits consumed from pre-tree.
+
+     @param tIdx is the index of the tree being consumed/produced.
+
+     @param predInfo accumulates the information contribution of each predictor.
+
+     @return leaf map from consumed frontier.
+  */
+  const vector<unsigned int> consume(class ForestTrain *forest,
+                                     unsigned int tIdx,
+                                     vector<double> &predInfo);
+
+  void consumeNonterminal(class ForestTrain *forest,
+                          unsigned int tIdx,
+                          vector<double> &predInfo) const;
+
   void BitConsume(unsigned int *outBits);
+
   void LHBit(int idx, unsigned int pos);
 
   void branchFac(const class SplitCand& argMax,
@@ -178,7 +201,11 @@ class PreTree {
 
      @return void.
    */
-  inline void BlockBump(unsigned int &_height, unsigned int &_maxHeight, unsigned int &_bitWidth, unsigned int &_leafCount, unsigned int &_bagCount) {
+  inline void blockBump(unsigned int &_height,
+                        unsigned int &_maxHeight,
+                        unsigned int &_bitWidth,
+                        unsigned int &_leafCount,
+                        unsigned int &_bagCount) {
     _height += height;
     _maxHeight = max(height, _maxHeight);
     _bitWidth += BitWidth();

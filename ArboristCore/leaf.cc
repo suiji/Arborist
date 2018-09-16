@@ -36,8 +36,9 @@ void LeafTrain::deImmutables() {
    @brief Training constructor.
  */
 LeafTrain::LeafTrain(unsigned int treeChunk) :
-  origin(vector<unsigned int>(treeChunk)),
+  nodeHeight(vector<size_t>(treeChunk)),
   leafNode(vector<LeafNode>(0)),
+  bagHeight(vector<size_t>(treeChunk)),
   bagLeaf(vector<BagLeaf>(0)) {
 }
 
@@ -116,7 +117,7 @@ LeafTrainCtg::~LeafTrainCtg() {
 void LeafTrainReg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
   getNodeExtent(sample, leafMap, leafCount, tIdx);
-  bagTree(sample, leafMap);
+  bagTree(sample, leafMap, tIdx);
   Scores(sample, leafMap, leafCount, tIdx);
 }
 
@@ -131,12 +132,13 @@ void LeafTrainReg::Leaves(const Sample *sample, const vector<unsigned int> &leaf
 
    @return void.
 */
-void LeafTrain::bagTree(const Sample *sample, const vector<unsigned int> &leafMap) {
-  if (thinLeaves)
-    return;
-  for (unsigned int sIdx = 0; sIdx < sample->getBagCount(); sIdx++) {
-    bagLeaf.emplace_back(BagLeaf(leafMap[sIdx], sample->getSCount(sIdx)));
+void LeafTrain::bagTree(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
+  if (!thinLeaves) {
+    for (unsigned int sIdx = 0; sIdx < sample->getBagCount(); sIdx++) {
+      bagLeaf.emplace_back(BagLeaf(leafMap[sIdx], sample->getSCount(sIdx)));
+    }
   }
+  bagHeight[tIdx] = bagLeaf.size();
 }
 
 
@@ -173,8 +175,7 @@ void LeafTrainReg::Scores(const Sample *sample, const vector<unsigned int> &leaf
  */
 void LeafTrain::getNodeExtent(const Sample *sample, vector<unsigned int> leafMap, unsigned int leafCount, unsigned int tIdx) {
   unsigned int leafBase = leafNode.size();
-  origin[tIdx] = leafBase;
-
+  nodeHeight[tIdx] = leafBase + leafCount;
   LeafNode init;
   init.Init();
   leafNode.insert(leafNode.end(), leafCount, init);
@@ -193,7 +194,7 @@ void LeafTrain::getNodeExtent(const Sample *sample, vector<unsigned int> leafMap
 void LeafTrainCtg::Leaves(const Sample *sample, const vector<unsigned int> &leafMap, unsigned int tIdx) {
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
   getNodeExtent(sample, leafMap, leafCount, tIdx);
-  bagTree(sample, leafMap);
+  bagTree(sample, leafMap, tIdx);
   Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
 }
 
@@ -245,21 +246,20 @@ void LeafTrainCtg::Scores(const SampleCtg *sample,
 
 /**
  */
-LeafReg::LeafReg(const unsigned int _origin[],
-                 unsigned int _nTree,
-                 const LeafNode _leafNode[],
-                 unsigned int _leafCount,
-                 const class BagLeaf _bagLeaf[],
-                 unsigned int _bagLeafTot,
-                 const double *_yTrain,
-                 double _meanTrain,
-                 unsigned int _rowPredict) :
-  Leaf(_origin, _nTree, _leafNode, _leafCount, _bagLeaf, _bagLeafTot),
-  yTrain(_yTrain),
-  meanTrain(_meanTrain),
+LeafReg::LeafReg(const unsigned int nodeHeight_[],
+                 unsigned int nTree_,
+                 const LeafNode leafNode_[],
+                 const unsigned int bagHeight_[],
+                 const class BagLeaf bagLeaf_[],
+                 const double *yTrain_,
+                 double meanTrain_,
+                 unsigned int rowPredict_) :
+  Leaf(nodeHeight_, nTree_, leafNode_, bagHeight_, bagLeaf_),
+  yTrain(yTrain_),
+  meanTrain(meanTrain_),
   offset(vector<unsigned int>(leafCount)),
   defaultScore(MeanTrain()),
-  yPred(vector<double>(_rowPredict)) {
+  yPred(vector<double>(rowPredict_)) {
   Offsets();
 }
 
@@ -267,33 +267,30 @@ LeafReg::LeafReg(const unsigned int _origin[],
 /**
    @brief Constructor for trained forest:  vector lengths final.
  */
-LeafCtg::LeafCtg(const unsigned int _origin[],
-                 unsigned int _nTree,
-                 const class LeafNode _leafNode[],
-                 unsigned int _leafCount,
-                 const class BagLeaf _bagLeaf[],
-                 unsigned int _bagLeafTot,
-                 const double _weight[],
-                 unsigned int _ctgTrain,
-                 unsigned int _rowPredict,
+LeafCtg::LeafCtg(const unsigned int nodeHeight_[],
+                 unsigned int nTree_,
+                 const class LeafNode leafNode_[],
+                 const unsigned int bagHeight_[],
+                 const class BagLeaf bagLeaf_[],
+                 const double weight_[],
+                 unsigned int ctgTrain_,
+                 unsigned int rowPredict_,
                  bool doProb) :
-  Leaf(_origin,
-       _nTree,
-       _leafNode,
-       _leafCount,
-       _bagLeaf,
-       _bagLeafTot),
-
-  weight(_weight),
-  ctgTrain(_ctgTrain),
-  yPred(vector<unsigned int>(_rowPredict)),
+  Leaf(nodeHeight_,
+       nTree_,
+       leafNode_,
+       bagHeight_,
+       bagLeaf_),
+  weight(weight_),
+  ctgTrain(ctgTrain_),
+  yPred(vector<unsigned int>(rowPredict_)),
   // Can only predict trained categories, so census and
   // probability matrices have 'ctgTrain' columns.
   defaultScore(ctgTrain),
   defaultWeight(vector<double>(ctgTrain)),
-  votes(vector<double>(_rowPredict * ctgTrain)),
-  census(vector<unsigned int>(_rowPredict * ctgTrain)),
-  prob(vector<double>(doProb ? _rowPredict * ctgTrain : 0)) {
+  votes(vector<double>(rowPredict_ * ctgTrain)),
+  census(vector<unsigned int>(rowPredict_ * ctgTrain)),
+  prob(vector<double>(doProb ? rowPredict_ * ctgTrain : 0)) {
   fill(defaultWeight.begin(), defaultWeight.end(), -1.0);
   fill(votes.begin(), votes.end(), 0.0);
 }
@@ -302,18 +299,17 @@ LeafCtg::LeafCtg(const unsigned int _origin[],
 /**
    @brief Prediction constructor.
  */
-Leaf::Leaf(const unsigned int *_origin,
-           unsigned int _nTree,
-           const LeafNode *_leafNode,
-           unsigned int _leafCount,
-           const BagLeaf *_bagLeaf,
-           unsigned int _bagTot) :
-  origin(_origin),
-  leafNode(_leafNode),
-  bagLeaf(_bagLeaf),
-  nTree(_nTree),
-  leafCount(_leafCount),
-  bagLeafTot(_bagTot) {
+Leaf::Leaf(const unsigned int* nodeHeight_,
+           unsigned int nTree_,
+           const LeafNode *leafNode_,
+           const unsigned int* bagHeight_,
+           const BagLeaf *bagLeaf_) :
+  nodeHeight(nodeHeight_),
+  nTree(nTree_),
+  leafNode(leafNode_),
+  bagHeight(bagHeight_),
+  bagLeaf(bagLeaf_),
+  leafCount(nodeHeight[nTree-1]) {
 }
 
 
@@ -328,7 +324,7 @@ Leaf::~Leaf() {
    @return void, with side-effected reference vector.
  */
 void LeafReg::Offsets() {
-  if (bagLeafTot == 0)
+  if (getBagLeafTot() == 0)
     return;
   unsigned int countAccum = 0;
   for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
@@ -370,31 +366,20 @@ void LeafReg::populate(const BitMatrix *baggedRows,
 }
 
 
-size_t LeafTrain::getNodeBytes() const {
-  return leafNode.size() * sizeof(LeafNode);
-}
-
-
-size_t LeafTrain::getBLBytes() const {
-  return bagLeaf.size() * sizeof(BagLeaf);
-}
-
-
-void LeafTrain::getNodeRaw(unsigned char leafRaw[]) const {
-  for (size_t i = 0; i < getNodeBytes(); i++) {
+void LeafTrain::cacheNodeRaw(unsigned char leafRaw[]) const {
+  for (size_t i = 0; i < leafNode.size() * sizeof(LeafNode); i++) {
     leafRaw[i] = ((unsigned char*) &leafNode[0])[i];
   }
 }
 
-
-void LeafTrain::getBLRaw(unsigned char blRaw[]) const {
-  for (size_t i = 0; i < getBLBytes(); i++) {
+void LeafTrain::cacheBLRaw(unsigned char blRaw[]) const {
+  for (size_t i = 0; i < bagLeaf.size() * sizeof(BagLeaf); i++) {
     blRaw[i] = ((unsigned char*) &bagLeaf[0])[i];
   }
 }
 
 
-void LeafTrainCtg::getWeight(double weightOut[]) const {
+void LeafTrainCtg::cacheWeight(double weightOut[]) const {
   for (size_t i = 0; i < weight.size(); i++) {
     weightOut[i] = weight[i];
   }

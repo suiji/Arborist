@@ -40,19 +40,20 @@ using namespace std;
  */
 class ForestBridge {
   // References to front end-style vectors:  can be pinned to preserve scope:
-  const IntegerVector &feOrigin;
-  const RawVector &feFacSplit;
-  const IntegerVector &feFacOrig;
+  const IntegerVector &feHeight; // Accumulated height up to end of each tree.
   const RawVector &feNode;
+  const IntegerVector& feFacHeight; // Accumulated factor height.
+  const RawVector &feFacSplit;
 
 protected:
   static SEXP Legal(const List &lForest);
   unique_ptr<class Forest> forest;
   
  public:
-  ForestBridge(const IntegerVector &_feOrigin,
+  ForestBridge(const IntegerVector& feHeight_,
                const RawVector &_feFacSplit,
-               const IntegerVector &_feFacOrig,
+               //               const IntegerVector &_feFacOrig,
+               const IntegerVector& feFacHeight_,
                const RawVector &_feNode);
 
 
@@ -62,7 +63,7 @@ protected:
 
 
   const unsigned int getNTree() const {
-    return feOrigin.length();
+    return feHeight.length();
   }
 
 
@@ -87,8 +88,8 @@ class ForestExport final : public ForestBridge {
   vector<vector<double > > splitTree;
   vector<vector<unsigned int> > facSplitTree;
 
-  void PredExport(const int predMap[]);
-  void PredTree(const int predMap[],
+  void predExport(const int predMap[]);
+  void treeExport(const int predMap[],
            vector<unsigned int> &pred,
            const vector<unsigned int> &bump);
 
@@ -132,11 +133,9 @@ class ForestExport final : public ForestBridge {
 struct FBTrain {
   RawVector nodeRaw; // Packed representation of decision tree.
   RawVector facRaw; // Bit-vector representation of factor splits.
-  R_xlen_t nodeOff;
-  R_xlen_t facOff;
 
-  IntegerVector origin;
-  IntegerVector facOrigin;
+  IntegerVector height;
+  IntegerVector facHeight;
 
   FBTrain(unsigned int nTree);
 

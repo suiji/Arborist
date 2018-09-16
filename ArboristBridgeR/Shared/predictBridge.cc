@@ -65,7 +65,7 @@ List PredictBridge::reg(const List& sPredBlock,
   auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->NRow());
+  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
   auto bag = BagBridge::unwrap(lTrain);
 
   Predict::reg(leafReg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
@@ -145,7 +145,7 @@ List PredictBridge::ctg(const List& sPredBlock,
   auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafCtg = LeafCtgBridge::unwrap(lTrain, framePredict->NRow(), doProb);
+  auto leafCtg = LeafCtgBridge::unwrap(lTrain, framePredict->getNRow(), doProb);
   auto bag = BagBridge::unwrap(lTrain);
 
   Predict::ctg(leafCtg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
@@ -204,7 +204,7 @@ List PredictBridge::quant(const List& sPredBlock,
   auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->NRow());
+  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
 
   auto bag = BagBridge::unwrap(lTrain);
   const vector<double> qVec = as<vector<double> >(NumericVector(sQuantVec));

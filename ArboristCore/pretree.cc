@@ -76,10 +76,14 @@ void PreTree::DeImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const FrameTrain *_frameTrain,
-                 unsigned int _bagCount) :
-  frameTrain(_frameTrain), height(1), leafCount(1), bitEnd(0), bagCount(_bagCount) {
-  nodeCount = heightEst;   // Initial height estimate.
+PreTree::PreTree(const FrameTrain *frameTrain_,
+                 unsigned int bagCount_) :
+  frameTrain(frameTrain_),
+  bagCount(bagCount_),
+  nodeCount(heightEst), // Initial estimate.
+  height(1),
+  leafCount(1),
+  bitEnd(0) {
   nodeVec = new PTNode[nodeCount];
   splitBits = BitFactory();
 }
@@ -207,23 +211,12 @@ void PreTree::ReNodes() {
 }
 
 
-/**
-  @brief Consumes all pretree nonterminal information into crescent decision forest.
-
-  @param forest grows by producing nodes and splits consumed from pre-tree.
-
-  @param tIdx is the index of the tree being consumed/produced.
-
-  @param predInfo accumulates the information contribution of each predictor.
-
-  @return leaf map from consumed frontier.
-*/
-const vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) {
+const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) {
   height = LeafMerge();
-  forest->setOrigins(tIdx);
-  forest->NodeInit(height);
-  NonterminalConsume(forest, tIdx, predInfo);
+  forest->initNode(height);
+  consumeNonterminal(forest, tIdx, predInfo);
   forest->BitProduce(splitBits, bitEnd);
+  forest->setHeights(tIdx); // height and bit lengths known.
 
   return FrontierConsume(forest, tIdx);
 }
@@ -236,10 +229,10 @@ const vector<unsigned int> PreTree::Consume(ForestTrain *forest, unsigned int tI
 
    @return void, with output reference parameter.
 */
-void PreTree::NonterminalConsume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const {
+void PreTree::consumeNonterminal(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].NonterminalConsume(frameTrain, forest, tIdx, predInfo, idx);
+    nodeVec[idx].consumeNonterminal(frameTrain, forest, tIdx, predInfo, idx);
   }
 }
 
@@ -253,7 +246,7 @@ void PreTree::NonterminalConsume(ForestTrain *forest, unsigned int tIdx, vector<
 
    @return void, with side-effected Forest.
  */
-void PTNode::NonterminalConsume(const FrameTrain *frameTrain, ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const {
+void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const {
   if (NonTerminal()) {
     forest->NonTerminal(frameTrain, tIdx, idx, this);
     predInfo[predIdx] += info;

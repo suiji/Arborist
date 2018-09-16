@@ -46,17 +46,17 @@ class ForestNode : public DecNode {
 
   
   unsigned int advance(const class BVJagged *facSplit,
-		       const unsigned int *rowT,
-		       unsigned int tIdx,
-		       unsigned int &leafIdx) const;
+                       const unsigned int *rowT,
+                       unsigned int tIdx,
+                       unsigned int &leafIdx) const;
   
 
   unsigned int advance(const class FramePredict *framePredict,
-		       const BVJagged *facSplit,
-		       const unsigned int *rowFT,
-		       const double *rowNT,
-		       unsigned int tIdx,
-		       unsigned int &leafIdx) const;
+                       const BVJagged *facSplit,
+                       const unsigned int *rowFT,
+                       const double *rowNT,
+                       unsigned int tIdx,
+                       unsigned int &leafIdx) const;
 
 
 
@@ -153,8 +153,8 @@ class ForestNode : public DecNode {
      @return void, with output reference parameters.
    */
   inline void RefNum(unsigned int &_pred,
-		  unsigned int &_lhDel,
-		  double &_num) const {
+                  unsigned int &_lhDel,
+                  double &_num) const {
     _pred = predIdx;
     _lhDel = lhDel;
     _num = splitVal.num;
@@ -166,27 +166,24 @@ class ForestNode : public DecNode {
    @brief The decision forest as a read-only collection.
 */
 class Forest {
+  const unsigned int* nodeHeight;
+  const unsigned int nTree;
   const ForestNode *forestNode;
   const unsigned int nodeCount;
-  const unsigned int *treeOrigin;
-  const unsigned int nTree;
-  class BVJagged *facSplit; // Consolidation of per-tree values.
+  unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
 
   void NodeExport(vector<vector<unsigned int> > &predTree,
-		  vector<vector<double> > &splitTree,
-		  vector<vector<unsigned int> > &lhDelTree) const;
+                  vector<vector<double> > &splitTree,
+                  vector<vector<unsigned int> > &lhDelTree) const;
 
   
  public:
 
-  Forest(const ForestNode _forestNode[],
-	 unsigned int _nodeCount,
-	 const unsigned int _origin[],
-	 unsigned int _nTree,
-	 unsigned int _facVec[],
-	 size_t _facLen,
-	 const unsigned int _facOrigin[],
-	 unsigned int _nFac);
+  Forest(const unsigned int height_[],
+         unsigned int _nTree,
+         const ForestNode _forestNode[],
+         unsigned int _facVec[],
+         const unsigned int facHeight_[]);
 
   ~Forest();
 
@@ -195,7 +192,7 @@ class Forest {
      
      @return number of trees in the forest.
    */
-  inline unsigned int NTree() const {
+  inline unsigned int getNTree() const {
     return nTree;
   }
 
@@ -203,13 +200,10 @@ class Forest {
   inline const ForestNode *Node() const {
     return forestNode;
   }
+  
 
-  inline const unsigned int *Origin() const {
-    return &treeOrigin[0];
-  }
-
-  inline const BVJagged *FacSplit() const {
-    return facSplit;
+  inline const BVJagged *getFacSplit() const {
+    return facSplit.get();
   }
   
   /**
@@ -219,16 +213,23 @@ class Forest {
 
      @return Height of tree.
    */
-  inline unsigned int getTreeHeight(unsigned int tIdx) const {
-    unsigned int heightInf = treeOrigin[tIdx];
-    return tIdx < nTree - 1 ? treeOrigin[tIdx + 1] - heightInf : nodeCount - heightInf;
+  inline size_t getNodeHeight(unsigned int tIdx) const {
+    return nodeHeight[tIdx];
   }
 
 
+  /**
+     @brief Derives tree origins from the forest height vector
+     and caches.
+
+     @return vector of per-tree node starting offsets.
+   */
+  vector<size_t> cacheOrigin() const;
+
   void Export(vector<vector<unsigned int> > &predTree,
-	      vector<vector<double> > &splitTree,
-	      vector<vector<unsigned int> > &lhDelTree,
-	      vector<vector<unsigned int> > &facSplitTree) const;
+              vector<vector<double> > &splitTree,
+              vector<vector<unsigned int> > &lhDelTree,
+              vector<vector<unsigned int> > &facSplitTree) const;
 
 };
 
@@ -238,8 +239,8 @@ class Forest {
  */
 class ForestTrain {
   vector<ForestNode> forestNode;
-  vector<unsigned int> treeOrigin;
-  vector<unsigned int> facOrigin;
+  vector<size_t> nodeHeight;
+  vector<size_t> facHeight;
   vector<unsigned int> facVec;
 
 
@@ -252,14 +253,14 @@ class ForestTrain {
 
      @return absolute index of node within forest.
    */
-  inline unsigned int NodeIdx(unsigned int tIdx,
-			      unsigned int nodeOffset) const {
-    return treeOrigin[tIdx] + nodeOffset;
+  inline unsigned int getNodeIdx(unsigned int tIdx,
+                              unsigned int nodeOffset) const {
+    return (tIdx == 0 ? 0 : nodeHeight[tIdx-1]) + nodeOffset;
   }
 
   
   /**
-     @return current accumulated size of crescent forest.
+     @return size of crescent block.
    */
   inline unsigned int getHeight() const {
     return forestNode.size();
@@ -269,7 +270,7 @@ class ForestTrain {
   /**
      @return current size of factor-valued splitting vector in crescent forest.
    */
-  inline unsigned int SplitHeight() const {
+  inline unsigned int getSplitHeight() const {
     return facVec.size();
   }
 
@@ -287,38 +288,31 @@ class ForestTrain {
   ~ForestTrain();
 
   void BitProduce(const class BV *splitBits,
-		  unsigned int bitEnd);
+                  unsigned int bitEnd);
 
-  void setOrigins(unsigned int tIdx);
-
+  void setHeights(unsigned int tIdx);
+  
   void Reserve(unsigned int nodeEst,
-	       unsigned int facEst,
-	       double slop);
+               unsigned int facEst,
+               double slop);
 
-  void NodeInit(unsigned int treeHeight);
+  void initNode(unsigned int nodeHeight);
 
   void SplitUpdate(const class FrameTrain *frameTrain,
-		   const class BlockRanked *numRanked);
+                   const class BlockRanked *numRanked);
 
   void NonTerminal(const class FrameTrain *frameTrain,
-		   unsigned int tIdx,
-		   unsigned int idx,
-		   const DecNode *decNode);
-
-  /**
-     @return raw (byte) size of node region.
-   */
-  size_t getNodeBytes() const {
-    return getHeight() * sizeof(ForestNode);
-  }
+                   unsigned int tIdx,
+                   unsigned int idx,
+                   const DecNode *decNode);
 
   /**
      @brief Outputs raw byes of node vector.
 
      @return void.
    */
-  void NodeRaw(unsigned char rawOut[]) const {
-    for (size_t i = 0; i < getNodeBytes(); i++) {
+  void cacheNodeRaw(unsigned char rawOut[]) const {
+    for (size_t i = 0; i < getHeight() * sizeof(ForestNode); i++) {
       rawOut[i] = ((unsigned char *) &forestNode[0])[i];
     }
   }
@@ -328,7 +322,7 @@ class ForestTrain {
      @return raw (byte) size of factor-splitting region.
    */
   size_t getFacBytes() const {
-    return SplitHeight() * sizeof(unsigned int);
+    return getSplitHeight() * sizeof(unsigned int);
   }
   
 
@@ -337,7 +331,7 @@ class ForestTrain {
 
      @return void.
    */
-  void FacRaw(unsigned char rawOut[]) const {
+  void cacheFacRaw(unsigned char rawOut[]) const {
     for (size_t i = 0; i < getFacBytes(); i++) {
       rawOut[i] = ((unsigned char *) &facVec[0])[i];
     }
@@ -345,20 +339,19 @@ class ForestTrain {
 
 
   /**
-     @brief Exposes tree-origin vector.
-  */
-  const vector<unsigned int>& getTreeOrigin() const {
-    return treeOrigin;
+   */
+  const vector<size_t>& getNodeHeight() const {
+    return nodeHeight;
   }
-
+  
 
   /**
      @brief Exposes fac-origin vector.
    */
-  const vector<unsigned int>& getFacOrigin() const {
-    return facOrigin;
+  const vector<size_t>& getFacHeight() const {
+    return facHeight;
   }
-  
+
 
   /**
      @brief Sets looked-up nonterminal node to values passed.
@@ -366,13 +359,13 @@ class ForestTrain {
      @return void.
   */
   inline void BranchProduce( unsigned int tIdx,
-			   unsigned int nodeIdx,
-			   const DecNode *decNode,
-			   bool isFactor) {
+                           unsigned int nodeIdx,
+                           const DecNode *decNode,
+                           bool isFactor) {
     if (isFactor)
-      forestNode[NodeIdx(tIdx, nodeIdx)].SetOffset(decNode);
+      forestNode[getNodeIdx(tIdx, nodeIdx)].SetOffset(decNode);
     else
-      forestNode[NodeIdx(tIdx, nodeIdx)].SetRank(decNode);
+      forestNode[getNodeIdx(tIdx, nodeIdx)].SetRank(decNode);
   }
 
 
@@ -383,9 +376,9 @@ class ForestTrain {
 
   */
   inline void LeafProduce(unsigned int tIdx,
-			  unsigned int nodeIdx,
-			  unsigned int leafIdx) {
-    forestNode[NodeIdx(tIdx, nodeIdx)].SetLeaf(leafIdx);
+                          unsigned int nodeIdx,
+                          unsigned int leafIdx) {
+    forestNode[getNodeIdx(tIdx, nodeIdx)].SetLeaf(leafIdx);
   }
 };
 
