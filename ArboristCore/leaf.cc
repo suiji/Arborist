@@ -195,7 +195,7 @@ void LeafTrainCtg::Leaves(const Sample *sample, const vector<unsigned int> &leaf
   unsigned int leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
   getNodeExtent(sample, leafMap, leafCount, tIdx);
   bagTree(sample, leafMap, tIdx);
-  Scores((SampleCtg*) sample, leafMap, leafCount, tIdx);
+  Scores(static_cast<const SampleCtg*>(sample), leafMap, leafCount, tIdx);
 }
 
 

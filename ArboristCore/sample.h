@@ -61,6 +61,21 @@ class SumCount {
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
+  // Experimental coarse-grained control of locality:
+  static const unsigned int locExp = 18;  // Log of locality threshold.
+
+  /**
+     @brief Maps an index into its bin.
+
+     @param idx is the index in question.
+
+     @return bin index.
+   */
+  static constexpr unsigned int binIdx(unsigned int idx) {
+    return idx >> locExp;
+  }
+
+  
   //  vector<unsigned int> sample2Row;
 
  protected:
@@ -71,15 +86,50 @@ class Sample {
   unsigned int bagCount;
   double bagSum;
 
-  static unsigned int rowSample(vector<unsigned int> &sCountRow);
+  static vector<unsigned int> rowSample(unsigned int nRow,
+                                        unsigned int &bagCount_);
+
+  /**
+     @brief Bins a vector of indices for coarse locality.  Equivalent to
+     the first pass of a radix sort.
+
+     @param idx is an unordered vector of indices.
+
+     @return binned version of index vector passed.
+   */
+  static vector<unsigned int> binIndices(const vector<unsigned int>& idx);
+
+
+  /**
+     @brief Tabulates a collection of indices by occurrence.
+
+     @param idx is the vector of indices to be tabulated.
+
+     @param sampleCount tabulates the occurrence count of each index.
+
+     @return count of distinctly-sampled elements.
+   */
+  static unsigned int countSamples(vector<unsigned int>& idx,
+                                   vector<unsigned int>& sampleCount);
+
   
-  
-  void PreStage(const double y[],
+  /**
+     @brief Sets the stage, so to speak, for a newly-sampled response set.
+
+     @param y is the proxy / response:  classification / summary.
+
+     @param yCtg is true response / zero:  classification / regression.
+
+     @param[out] treeBag records the bagged rows.
+
+     @return void.
+  */
+  void preStage(const double y[],
                 const unsigned int yCtg[],
                 const class RowRank *rowRank,
                 class BV *treeBag);
 
-  virtual double setNode(unsigned int sIdx, double val, unsigned int sCount, unsigned int ctg) = 0;
+  virtual double addNode(double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
   static class SampleCtg *FactoryCtg(const double y[],
@@ -99,7 +149,7 @@ class Sample {
   Sample();
   virtual ~Sample();
 
-  unique_ptr<class SamplePred> Stage(const class RowRank *rowRank,
+  unique_ptr<class SamplePred> stage(const class RowRank *rowRank,
              vector<class StageCount> &stageCount);
 
   /**
@@ -137,6 +187,20 @@ class Sample {
 
 
   /**
+     @brief Determines whether a given row is sampled.
+
+     @param row is the row number in question.
+
+     @param[out] sIdx is the (possibly default) sample index for row.
+
+     @return true iff row is sampled.
+   */
+  inline bool sampledRow(unsigned int row, unsigned int &sIdx) const {
+    sIdx = row2Sample[row];
+    return sIdx < bagCount;
+  }
+
+  /**
      @brief References leaf-specific fields.
    */
   inline void refLeaf(unsigned int sIdx, FltVal &_sum, unsigned int &_ctg) const {
@@ -155,7 +219,16 @@ class Sample {
 */
 class SampleReg : public Sample {
   unsigned int *sample2Rank; // Only client currently leaf-based methods.
-  void SetRank(const unsigned int *row2Rank);
+
+  /**
+   @brief Compresses row->rank map to sIdx->rank.  Requires
+   that row2Sample[] be complete:  PreStage().
+
+   @param row2Rank[] is the response ranking, by row.
+
+   @return void, with side-effected sample2Rank[].
+  */
+  void setRank(const unsigned int *row2Rank);
 
  public:
   SampleReg();
@@ -163,24 +236,42 @@ class SampleReg : public Sample {
   unique_ptr<class SplitNode> SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
   
-  inline double setNode(unsigned int sIdx,
-                        double yVal,
+  inline double addNode(double yVal,
                         unsigned int sCount,
                         unsigned int ctg) {
     SampleNux sNode;
     double ySum = sNode.init(yVal, sCount);
-    sampleNode[sIdx] = sNode;
+    sampleNode.emplace_back(sNode);
 
     return ySum;
   }
   
-  
-  inline unsigned int Rank(unsigned int sIdx) const {
+
+  /**
+     @brief Looks up the rank of the response at a given sample index.
+
+     @param sIdx is a sample index.
+
+     @return rank of outcome.
+   */
+  inline unsigned int getRank(unsigned int sIdx) const {
     return sample2Rank[sIdx];
   }
 
 
-  void PreStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank, class BV *treeBag);
+
+  /**
+     @brief Inverts the randomly-sampled vector of rows.
+
+     @param y is the response vector.
+
+     @param row2Rank is the response ranking, by row.
+
+     @param[out] treeBag encodes the bagged rows for the tree.
+
+     @return void.
+  */
+  void preStage(const double y[], const unsigned int *row2Rank, const class RowRank *rowRank, class BV *treeBag);
 };
 
 
@@ -195,17 +286,33 @@ class SampleCtg : public Sample {
 
   unique_ptr<class SplitNode> SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const;
 
-  inline double setNode(unsigned int sIdx, double yVal, unsigned int sCount, unsigned int ctg) {
+  inline double addNode(double yVal, unsigned int sCount, unsigned int ctg) {
     SampleNux sNode;
     double ySum = sNode.init(yVal, sCount, ctg);
-    sampleNode[sIdx] = sNode;
+    sampleNode.emplace_back(sNode);
     ctgRoot[ctg].Accum(ySum, sCount);
 
     return ySum;
   }
   
   
-  void PreStage(const unsigned int yCtg[], const double y[], const class RowRank *rowRank, class BV *treeBag);
+  /**
+     @brief Samples the response, sets in-bag bits and stages.
+
+     @param yCtg is the response vector.
+
+     @param y is the proxy response vector.
+
+     @param rowRank .
+
+     @param[out] treeBag records the bagged rows.
+
+     @return void, with output vector parameter.
+  */
+  void preStage(const unsigned int yCtg[],
+                const double y[],
+                const class RowRank *rowRank,
+                class BV *treeBag);
 };
 
 

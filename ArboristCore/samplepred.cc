@@ -65,42 +65,59 @@ SamplePred::~SamplePred() {
 
    @return 
  */
-SampleRank *SamplePred::StageBounds(unsigned int predIdx,
-                                    unsigned int safeOffset,
-                                    unsigned int extent,
-                                    unsigned int*& smpIdx) {
+void SamplePred::setStageBounds(const RowRank* rowRank,
+                                unsigned int predIdx) {
+  unsigned int extent;
+  unsigned int safeOffset = rowRank->getSafeOffset(predIdx, bagCount, extent);
   stageOffset[predIdx] = safeOffset;
   stageExtent[predIdx] = extent;
-
-  return buffers(predIdx, 0, smpIdx);
-
 }
 
-// TODO:  Merge
-void SamplePred::Stage(const class RRNode *rrNode,
-                       unsigned int rrTot,
-                       const vector<class SampleNux>& sampleNode,
-                       const vector<unsigned int>& row2Sample,
-                       vector<StageCount>& stageCount) {}
 
 
-unsigned int SamplePred::Stage(const vector<SampleNux>& sampleNode,
-                               const RRNode *rrPred,
-                               const vector<unsigned int>& row2Sample,
-                               unsigned int explMax,
-                               unsigned int predIdx,
-                               unsigned int safeOffset,
-                               unsigned int extent,
-                               bool& isSingleton) {
+/**
+   @brief Loops through the predictors to stage.
+
+   @return void.
+ */
+void SamplePred::stage(const RowRank* rowRank,
+                       const vector<SampleNux>  &sampleNode,
+                       const Sample* sample,
+                       vector<StageCount> &stageCount) {
+  OMPBound predIdx;
+#pragma omp parallel default(shared) private(predIdx)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (predIdx = 0; predIdx < static_cast<OMPBound>(nPred); predIdx++) {
+      stage(rowRank, sampleNode, sample, predIdx, stageCount[predIdx]);
+    }
+  }
+}
+
+
+/**
+   @brief Stages SamplePred objects in non-decreasing predictor order.
+
+   @param predIdx is the predictor index.
+
+   @return void.
+*/
+void SamplePred::stage(const RowRank* rowRank,
+                       const vector<SampleNux>& sampleNode,
+                       const Sample* sample,
+                       unsigned int predIdx,
+                       StageCount& stageCount) {
+  setStageBounds(rowRank, predIdx);
   unsigned int *smpIdx;
-  SampleRank *spn = StageBounds(predIdx, safeOffset, extent, smpIdx);
+  SampleRank *spn = buffers(predIdx, 0, smpIdx);
+  const RRNode* rrPred = rowRank->predStart(predIdx);
   unsigned int expl = 0;
-  for (unsigned int idx = 0; idx < explMax; idx++) {
-    Stage(sampleNode, rrPred[idx], row2Sample, spn, smpIdx, expl);
+  for (unsigned int idx = 0; idx < rowRank->getExplicitCount(predIdx); idx++) {
+    stage(sampleNode, rrPred[idx], sample, expl, spn, smpIdx);
   }
 
-  isSingleton = singleton(expl, predIdx);
-  return expl;
+  stageCount.singleton = singleton(expl, predIdx);
+  stageCount.expl = expl;
 }
 
 
@@ -118,18 +135,15 @@ unsigned int SamplePred::Stage(const vector<SampleNux>& sampleNode,
 
    @return void.
  */
-void SamplePred::Stage(const vector<SampleNux> &sampleNode,
+void SamplePred::stage(const vector<SampleNux> &sampleNode,
 		       const RRNode &rrNode,
-		       const vector<unsigned int> &row2Sample,
-		       SampleRank *spn,
-		       unsigned int *smpIdx,
-		       unsigned int &expl) {
-  unsigned int row, rank;
-  rrNode.Ref(row, rank);
-
-  unsigned int sIdx = row2Sample[row];
-  if (sIdx < bagCount) {
-    spn[expl].join(rank, sampleNode[sIdx]);
+                       const Sample* sample,
+                       unsigned int &expl,
+		       SampleRank spn[],
+		       unsigned int smpIdx[]) const {
+  unsigned int sIdx;
+  if (sample->sampledRow(rrNode.getRow(), sIdx)) {
+    spn[expl].join(rrNode.getRank(), sampleNode[sIdx]);
     smpIdx[expl] = sIdx;
     expl++;
   }

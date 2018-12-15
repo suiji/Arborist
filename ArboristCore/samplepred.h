@@ -26,6 +26,16 @@
 
 
 /**
+   @brief Summarizes staging operation.
+ */
+class StageCount {
+ public:
+  unsigned int expl;
+  bool singleton;
+};
+
+
+/**
  @brief Contains the sample data used by predictor-specific sample-walking pass.
 */
 class SamplePred {
@@ -65,28 +75,33 @@ class SamplePred {
   virtual ~SamplePred();
 
 
-  SampleRank *StageBounds(unsigned int predIdx, unsigned int safeOffset, unsigned int extent, unsigned int *&smpIdx);
+  void setStageBounds(const class RowRank* rowRank,
+                   unsigned int predIdx);
 
-  virtual void Stage(const class RRNode *rrNode,
-                     unsigned int rrTot,
-                     const vector<class SampleNux> &sampleNode,
-                     const vector<unsigned int> &row2Sample,
-                     vector<class StageCount> &stageCount);
+  void stage(const class RowRank* rowRank,
+             const vector<SampleNux> &sampleNode,
+             const class Sample* sample,
+             vector<StageCount> &stageCount);
 
-  unsigned int Stage(const vector<class SampleNux> &sampleNode,
-                     const class RRNode *rrPred,
-                     const vector<unsigned int> &row2Sample,
-                     unsigned int explMax,
-                     unsigned int predIdx,
-                     unsigned int safeOffset,
-                     unsigned int extent,
-                     bool &singleton);
-  void Stage(const vector<class SampleNux> &sampleNode,
+  void stage(const class RowRank* rowRank,
+             const vector<SampleNux> &sampleNode,
+             const class Sample* sample,
+             unsigned int predIdx,
+             StageCount& stageCount);
+
+  void stage(const class RowRank* rowRank,
+             unsigned int rrTot,
+             const vector<class SampleNux> &sampleNode,
+             const class Sample* sample,
+             vector<class StageCount> &stageCount);
+
+  void stage(const vector<class SampleNux> &sampleNode,
              const class RRNode &rrNode,
-             const vector<unsigned int> &row2Sample,
-             SampleRank *spn,
-             unsigned int *smpIdx,
-             unsigned int &expl);
+             const class Sample *sample,
+             unsigned int &expl,
+             SampleRank spn[],
+             unsigned int smpIdx[]) const;
+
 
   /**
    @brief Walks a block of adjacent SampleRank records associated with
@@ -120,7 +135,7 @@ class SamplePred {
                      class BV* replayExpl,
                      vector<class SumCount>& ctgExpl);
 
-  virtual void Restage(class Level *levelBack,
+  void Restage(class Level *levelBack,
                        class Level *levelFront,
                        const SPPair &mrra,
                        unsigned int bufIdx);
@@ -219,7 +234,7 @@ class SamplePred {
   /**
      @return base of the index buffer.
    */
-  inline unsigned int *bufferIndex(unsigned int predIdx, unsigned int bufBit) {
+  inline unsigned int *bufferIndex(unsigned int predIdx, unsigned int bufBit) const {
     return indexBase + bufferOff(predIdx, bufBit);
   }
 
@@ -227,14 +242,14 @@ class SamplePred {
   /**
      @return base of node buffer.
    */
-  inline SampleRank *bufferNode(unsigned int predIdx, unsigned int bufBit) {
+  inline SampleRank *bufferNode(unsigned int predIdx, unsigned int bufBit) const {
     return nodeVec + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
-  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) {
+  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, unsigned int*& sIdx) const {
     unsigned int offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
     return nodeVec + offset;
@@ -324,7 +339,7 @@ class SamplePred {
   inline bool singleRank(unsigned int predIdx,
                          unsigned int bufIdx,
                          unsigned int idxStart,
-                         unsigned int extent) {
+                         unsigned int extent) const {
     SampleRank *spNode = bufferNode(predIdx, bufIdx);
     return extent > 0 ? (spNode[idxStart].getRank() == spNode[extent - 1].getRank()) : false;
   }
@@ -342,7 +357,7 @@ class SamplePred {
      a property of the training data or may arise from bagging. 
   */
   bool singleton(unsigned int stageCount,
-                 unsigned int predIdx) {
+                 unsigned int predIdx) const {
     return bagCount == stageCount ? singleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
   }
 };

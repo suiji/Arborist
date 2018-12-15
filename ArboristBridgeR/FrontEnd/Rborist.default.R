@@ -222,7 +222,7 @@ RboristDeep <- function(argList) {
     training = list(
         call = match.call(),
         info = predInfo,
-        version = (sessionInfo())$otherPkgs$Rborist$Version,
+        version = "0.1-9",
         diag = train[["diag"]]
     )
 

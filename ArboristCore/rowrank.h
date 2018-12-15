@@ -44,21 +44,14 @@ class RRNode {
     rank = _rank;
   }
 
-
-  inline void Ref(unsigned int &_row, unsigned int &_rank) const {
-    _row = row;
-    _rank = rank;
+  inline auto getRow() const {
+    return row;
   }
-};
 
 
-/**
-   @brief Summarizes staging operation.
- */
-class StageCount {
- public:
-  unsigned int expl;
-  bool singleton;
+  inline auto getRank() const {
+    return rank;
+  }
 };
 
 
@@ -126,14 +119,6 @@ class RowRank {
 		  const unsigned int feRLE[],
 		  unsigned int feRLELength);
 
-  void Stage(const vector<class SampleNux> &sampleNode,
-	     const vector<unsigned int> &row2Sample,
-	     class SamplePred *samplePred,
-	     unsigned int predIdx,
-	     StageCount &stageCount) const;
-
-  
-  
  protected:
   vector<RRNode> rrNode;
 
@@ -168,11 +153,6 @@ class RowRank {
 	  double _autoCompress);
   virtual ~RowRank();
 
-  virtual void Stage(const vector<class SampleNux> &sampleNode,
-		     const vector<unsigned int> &row2Sample,
-		     class SamplePred *samplePred,
-		     vector<StageCount> &stageCount) const;
-
 
   inline unsigned int NRow() const {
     return nRow;
@@ -189,7 +169,7 @@ class RowRank {
   }
 
   
-  inline unsigned int ExplicitCount(unsigned int predIdx) const {
+  inline unsigned int getExplicitCount(unsigned int predIdx) const {
     return explicitCount[predIdx];
   }
 
@@ -236,9 +216,16 @@ class RowRank {
 
      @return safe offset.
    */
-  unsigned int SafeOffset(unsigned int predIdx, unsigned int stride, unsigned int &extent) const {
+  unsigned int getSafeOffset(unsigned int predIdx,
+                          unsigned int stride,
+                          unsigned int &extent) const {
     extent = denseRank[predIdx] == noRank ? stride : explicitCount[predIdx];
     return denseRank[predIdx] == noRank ? safeOffset[predIdx] * stride : nonCompact * stride + safeOffset[predIdx]; // TODO:  align.
+  }
+
+
+  const RRNode* predStart(unsigned int predIdx) const {
+    return &rrNode[rrStart[predIdx]];
   }
 
 

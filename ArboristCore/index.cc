@@ -162,7 +162,7 @@ PreTree *IndexLevel::oneTree(const FrameTrain *frameTrain,
                               Sample *sample,
                               const RowRank *rowRank) {
   vector<StageCount> stageCount(rowRank->NPred());
-  auto samplePred = sample->Stage(rowRank, stageCount);
+  auto samplePred = sample->stage(rowRank, stageCount);
   auto splitNode = sample->SplitNodeFactory(frameTrain, rowRank);
   auto bottom = make_unique<Bottom>(frameTrain, rowRank, splitNode.get(), stageCount, sample->getBagCount());
 

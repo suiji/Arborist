@@ -203,43 +203,6 @@ RowRank::~RowRank() {
 
 
 /**
-   @brief Loops through the predictors to stage.
-
-   @return void.
- */
-void RowRank::Stage(const vector<SampleNux>  &sampleNode, const vector<unsigned int> &row2Sample, SamplePred *samplePred, vector<StageCount> &stageCount) const {
-  int predIdx;
-#pragma omp parallel default(shared) private(predIdx)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (predIdx = 0; predIdx < int(nPred); predIdx++) {
-      Stage(sampleNode, row2Sample, samplePred, predIdx, stageCount[predIdx]);
-    }
-  }
-}
-
-// RowRank must export vectors containing safe offset, extent, node-start and explicit count i/o to stage transparently:
-
-/**
-   @brief Stages SamplePred objects in non-decreasing predictor order.
-
-   @param predIdx is the predictor index.
-
-   @return void.
-*/
-void RowRank::Stage(const vector<SampleNux> &sampleNode,
-		    const vector<unsigned int> &row2Sample,
-		    SamplePred *samplePred,
-		    unsigned int predIdx,
-		    StageCount &stageCount) const {
-  unsigned int extent;
-  unsigned int safeOffset = SafeOffset(predIdx, samplePred->getBagCount(), extent);
-
-  stageCount.expl = samplePred->Stage(sampleNode, &rrNode[rrStart[predIdx]], row2Sample, ExplicitCount(predIdx), predIdx, safeOffset, extent, stageCount.singleton);
-}
-
-
-/**
    @brief Static entry for sample staging.
 
    @return SamplePred object for tree.
