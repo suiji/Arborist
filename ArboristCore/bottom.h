@@ -64,7 +64,7 @@ class Bottom {
   const class FrameTrain *frameTrain;
   const class RowRank *rowRank;
   const unsigned int noRank;
-  class SplitNode *splitNode;  // constant?
+  unique_ptr<class SplitNode> splitNode;  // constant?
   class SplitSig *splitSig;
   class Run *run;
 
@@ -107,14 +107,15 @@ class Bottom {
  public:
   void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
 
- /**
-   @brief Adds a new definition at the root level.
 
-   @param stageCount is a vector of per-predictor staging statistics.
+  /**
+     @brief Adds a new definition at the root level.
 
-   @return void.
- */
-  void RootDef(const vector<class StageCount> &stageCount);
+     @param stageCount is a vector of per-predictor staging statistics.
+
+     @return staged SamplePred region.
+  */
+  unique_ptr<class SamplePred> rootDef(const class Sample* sample);
 
 
   /**
@@ -138,7 +139,10 @@ class Bottom {
 
      @param splitCount specifies the number of splits to map.
   */
-  Bottom(const class FrameTrain *_frameTrain, const class RowRank *_rowRank, class SplitNode *_splitNode, vector<class StageCount> &stageCount, unsigned int _bagCount);
+  Bottom(const class FrameTrain *_frameTrain,
+         const class Sample* sample);
+         //         class SplitNode *_splitNode,
+  //         vector<class StageCount> &stageCount);
 
 
   /**

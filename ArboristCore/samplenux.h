@@ -31,7 +31,7 @@
    'nSamp' * sizeof(uint).
  */
 class SampleNux {
-  static unsigned int nCtg;
+  static unsigned int nCtg; // Number of categories; 0 for regression.
 
  protected:
   static unsigned int ctgShift; // Pack:  nonzero iff categorical.
@@ -152,7 +152,7 @@ class SampleRank : public SampleNux {
 
      @return sum of y-values for sample.
    */
-  inline FltVal getYSum() {
+  inline FltVal getYSum() const {
     return ySum;
   }
 

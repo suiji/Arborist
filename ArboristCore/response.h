@@ -37,14 +37,14 @@ class Response {
   }
 
 
-  static unique_ptr<class ResponseReg> FactoryReg(const double *yNum,
-					    const unsigned int *_row2Rank);
+  static unique_ptr<class ResponseReg> factoryReg(const double* yNum,
+					    const unsigned int* row2Rank_);
 
-  static unique_ptr<class ResponseCtg> FactoryCtg(const unsigned int *feCtg,
-					    const double *feProxy);
+  static unique_ptr<class ResponseCtg> factoryCtg(const unsigned int* feCtg,
+                                                  const double* feProxy);
 
-  virtual class Sample* RootSample(const class RowRank *rowRank,
-                                   class BV *treeBag) const = 0;
+  virtual shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+                                              class BV* treeBag) const = 0;
 };
 
 
@@ -52,15 +52,15 @@ class Response {
    @brief Specialization to regression trees.
  */
 class ResponseReg : public Response {
-  const unsigned int *row2Rank; // Facilitates rank[] output.
+  const unsigned int* row2Rank; // Facilitates rank[] output.
  public:
 
-  ResponseReg(const double *_y,
-	      const unsigned int *_row2Rank);
+  ResponseReg(const double* y_,
+	      const unsigned int* row2Rank_);
 
   ~ResponseReg();
-  class Sample *RootSample(const class RowRank *rowRank,
-                           class BV *treeBag) const;
+  shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+                                      class BV* treeBag) const;
 
 };
 
@@ -68,15 +68,15 @@ class ResponseReg : public Response {
    @brief Specialization to classification trees.
  */
 class ResponseCtg : public Response {
-  const unsigned int *yCtg; // 0-based factor-valued response.
+  const unsigned int* yCtg; // 0-based factor-valued response.
  public:
 
-  ResponseCtg(const unsigned int *_yCtg,
-	      const double *_proxy);
+  ResponseCtg(const unsigned int *yCtg_,
+	      const double *proxy_);
 
   ~ResponseCtg();
-  class Sample *RootSample(const class RowRank *rowRank,
-                           class BV *treeBag) const;
+  shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+                                      class BV* treeBag) const;
 };
 
 #endif

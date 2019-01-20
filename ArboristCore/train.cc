@@ -41,16 +41,8 @@ unsigned int Train::trainBlock = 0;
 
    @return void.
 */
-void Train::InitBlock(unsigned int trainBlock_) {
+void Train::initBlock(unsigned int trainBlock_) {
   trainBlock = trainBlock_;
-}
-
-
-/**
-   @brief Registers preference for thin leaves.
- */
-void Train::InitLeaf(bool thinLeaves) {
-  LeafTrain::immutables(thinLeaves);
 }
 
 
@@ -59,15 +51,15 @@ void Train::InitLeaf(bool thinLeaves) {
 
    @return void.
  */
-void Train::InitCDF(const vector<double> &feSplitQuant) {
-  ForestNode::Immutables(feSplitQuant);
+void Train::initCDF(const vector<double> &feSplitQuant) {
+  TreeNode::Immutables(feSplitQuant);
 }
 
 
 /**
    @brief Registers per-node probabilities of predictor selection.
  */
-void Train::InitProb(unsigned int predFixed,
+void Train::initProb(unsigned int predFixed,
                      const vector<double> &predProb) {
   Level::Immutables(predFixed, predProb);
 }
@@ -78,7 +70,7 @@ void Train::InitProb(unsigned int predFixed,
 
    @return void.
  */
-void Train::InitTree(unsigned int nSamp,
+void Train::initTree(unsigned int nSamp,
                      unsigned int minNode,
                      unsigned int leafMax) {
   PreTree::Immutables(nSamp, minNode, leafMax);
@@ -90,7 +82,7 @@ void Train::InitTree(unsigned int nSamp,
 
    @return void.
  */
-void Train::InitSample(unsigned int nSamp) {
+void Train::initSample(unsigned int nSamp) {
   Sample::Immutables(nSamp);
 }
 
@@ -99,7 +91,7 @@ void Train::InitSample(unsigned int nSamp) {
 
    @return void.
  */
-void Train::InitSplit(unsigned int minNode,
+void Train::initSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio) {
   IndexLevel::Immutables(minNode, totLevels);
@@ -112,7 +104,7 @@ void Train::InitSplit(unsigned int minNode,
 
    @return void.
  */
-void Train::InitCtgWidth(unsigned int ctgWidth) {
+void Train::initCtgWidth(unsigned int ctgWidth) {
   SampleNux::immutables(ctgWidth);
 }
 
@@ -123,7 +115,7 @@ void Train::InitCtgWidth(unsigned int ctgWidth) {
    @param regMono has length equal to the predictor count.  Only
    numeric predictors may have nonzero entries.
  */
-void Train::InitMono(const FrameTrain* frameTrain,
+void Train::initMono(const FrameTrain* frameTrain,
                      const vector<double> &regMono) {
   SPReg::Immutables(frameTrain, regMono);
 }
@@ -134,12 +126,11 @@ void Train::InitMono(const FrameTrain* frameTrain,
 
    @return void.
 */
-void Train::DeInit() {
+void Train::deInit() {
   trainBlock = 0;
-  ForestNode::DeImmutables();
+  TreeNode::DeImmutables();
   SplitCand::deImmutables();
   IndexLevel::DeImmutables();
-  LeafTrain::deImmutables();
   PreTree::DeImmutables();
   Sample::DeImmutables();
   SampleNux::deImmutables();
@@ -159,28 +150,15 @@ void Train::DeInit() {
 
    @return regression-style object.
 */
-unique_ptr<TrainReg> Train::regression(const FrameTrain *frameTrain,
+unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
                                        const RankedSet *rankedPair,
                                        const double *y,
                                        const unsigned int *row2Rank,
                                        unsigned int treeChunk) {
-  auto trainReg = make_unique<TrainReg>(frameTrain, y, row2Rank, treeChunk);
+  auto trainReg = make_unique<Train>(frameTrain, y, row2Rank, treeChunk);
   trainReg->TrainForest(frameTrain, rankedPair);
 
   return trainReg;
-}
-
-
-TrainReg::TrainReg(const class FrameTrain *frameTrain,
-                   const double *y,
-                   const unsigned int *row2Rank,
-                   unsigned int treeChunk) :
-  Train(frameTrain, y, row2Rank, treeChunk),
-  leafReg(make_unique<LeafTrainReg>(treeChunk)) {
-}
-
-
-TrainReg::~TrainReg() {
 }
 
 
@@ -196,7 +174,8 @@ Train::Train(const FrameTrain *frameTrain,
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
   predInfo(vector<double>(frameTrain->getNPred())),
-  response(Response::FactoryReg(y, row2Rank)) {
+  response(Response::factoryReg(y, row2Rank)),
+  leaf(LeafTrain::factoryReg(treeChunk)) {
 }
 
 
@@ -207,32 +186,17 @@ Train::Train(const FrameTrain *frameTrain,
 
    @return void.
 */
-unique_ptr<TrainCtg> Train::classification(const FrameTrain *frameTrain,
-                                           const RankedSet *rankedPair,
-                                           const unsigned int *yCtg,
-                                           const double *yProxy,
-                                           unsigned int nCtg,
-                                           unsigned int treeChunk,
-                                           unsigned int nTree) {
-  auto trainCtg = make_unique<TrainCtg>(frameTrain, yCtg, yProxy, nCtg, treeChunk, nTree);
+unique_ptr<Train> Train::classification(const FrameTrain *frameTrain,
+                                        const RankedSet *rankedPair,
+                                        const unsigned int *yCtg,
+                                        const double *yProxy,
+                                        unsigned int nCtg,
+                                        unsigned int treeChunk,
+                                        unsigned int nTree) {
+  auto trainCtg = make_unique<Train>(frameTrain, yCtg, nCtg, yProxy, nTree, treeChunk);
   trainCtg->TrainForest(frameTrain, rankedPair);
 
   return trainCtg;
-}
-
-
-TrainCtg::TrainCtg(const class FrameTrain *frameTrain,
-                   const unsigned int *yCtg,
-                   const double *yProxy,
-                   unsigned int nCtg,
-                   unsigned int treeChunk,
-                   unsigned int nTree) :
-  Train(frameTrain, yCtg, yProxy, treeChunk),
-  leafCtg(make_unique<LeafTrainCtg>(treeChunk, nCtg, 1.0 / (double(nTree) * NRow()))) {
-}
-
-
-TrainCtg::~TrainCtg() {
 }
 
 
@@ -241,14 +205,17 @@ TrainCtg::~TrainCtg() {
  */
 Train::Train(const FrameTrain *frameTrain,
              const unsigned int *yCtg,
+             unsigned int nCtg,
              const double *yProxy,
+             unsigned int nTree,
              unsigned int treeChunk_) :
   nRow(frameTrain->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
   predInfo(vector<double>(frameTrain->getNPred())),
-  response(Response::FactoryCtg(yCtg, yProxy)) {
+  response(Response::factoryCtg(yCtg, yProxy)),
+  leaf(LeafTrain::factoryCtg(treeChunk, nCtg, nTree, nRow)) {
 }
 
 
@@ -269,7 +236,7 @@ void Train::TrainForest(const FrameTrain *frameTrain,
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
     treeBlock(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
   }
-  forest->SplitUpdate(frameTrain, rankedPair->GetNumRanked());
+  forest->splitUpdate(frameTrain, rankedPair->GetNumRanked());
 }
 
 
@@ -286,13 +253,13 @@ void Train::treeBlock(const FrameTrain *frameTrain,
   vector<TrainPair> block(tCount);
   for (auto & pair : block) {
     auto treeBag = bagRow->BVRow(tIdx++);
-    auto sample = response->RootSample(rowRank, treeBag.get());
-    auto preTree = IndexLevel::oneTree(frameTrain, sample, rowRank);
+    auto sample = response->rootSample(rowRank, treeBag.get());
+    auto preTree = IndexLevel::oneTree(frameTrain, sample.get());
     pair = make_pair(sample, preTree);
   }
 
   if (tStart == 0)
-    Reserve(block);
+    reserve(block);
   blockConsume(block, tStart);
 }
 
@@ -305,30 +272,20 @@ void Train::treeBlock(const FrameTrain *frameTrain,
 
   @return void.
 */
-void Train::Reserve(vector<TrainPair> &treeBlock) {
-  unsigned int blockFac, blockBag, blockLeaf;
-  unsigned int maxHeight = 0;
-  unsigned int blockHeight = blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
-  PreTree::Reserve(maxHeight);
-
-  double slop = (slopFactor * treeChunk) / trainBlock;
-  forest->Reserve(blockHeight, blockFac, slop);
-  Reserve(slop * blockLeaf, slop * blockBag);
+void Train::reserve(vector<TrainPair> &treeBlock) {
+  size_t blockFac, blockBag, blockLeaf;
+  size_t maxHeight = 0;
+  size_t blockHeight = blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
+  PreTree::reserve(maxHeight);
 }
 
 
-/**
-   @brief Accumulates block size parameters as clues to forest-wide sizes.
-   Estimates improve with larger blocks, at the cost of higher memory footprint.
-
-   @return sum of tree sizes over block.
- */
 unsigned int Train::blockPeek(vector<TrainPair> &treeBlock,
-                              unsigned int &blockFac,
-                              unsigned int &blockBag,
-                              unsigned int &blockLeaf,
-                              unsigned int &maxHeight) {
-  unsigned int blockHeight = 0;
+                              size_t &blockFac,
+                              size_t &blockBag,
+                              size_t &blockLeaf,
+                              size_t &maxHeight) {
+  size_t blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
   for (auto & pair : treeBlock) {
     get<1>(pair)->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
@@ -338,44 +295,15 @@ unsigned int Train::blockPeek(vector<TrainPair> &treeBlock,
 }
 
  
-/**
-   @brief Builds segment of decision forest for a block of trees.
-
-   @param ptBlock is a vector of PreTree objects.
-
-   @param blockStart is the starting tree index for the block.
-
-   @return void, with side-effected forest.
-*/
 void Train::blockConsume(vector<TrainPair> &treeBlock,
                          unsigned int blockStart) {
   unsigned int blockIdx = blockStart;
   for (auto & trainPair : treeBlock) {
     const vector<unsigned int> leafMap = get<1>(trainPair)->consume(forest.get(), blockIdx, predInfo);
-    delete get<1>(trainPair);
+    leaf->blockLeaves(get<0>(trainPair).get(), leafMap, blockIdx);
 
-    Leaves(get<0>(trainPair), leafMap, blockIdx);
-    delete get<0>(trainPair);
     blockIdx++;
   }
-}
-
-
-void TrainReg::Leaves(Sample *sample, const vector<unsigned int> &leafMap, unsigned int blockIdx) const {
-  leafReg->Leaves(sample, leafMap, blockIdx);
-}
-
-
-void TrainReg::Reserve(unsigned int leafEst, unsigned int bagEst) const {
-  leafReg->Reserve(leafEst, bagEst);
-}
-
-void TrainCtg::Leaves(Sample *sample, const vector<unsigned int> &leafMap, unsigned int blockIdx) const {
-  leafCtg->Leaves(sample, leafMap, blockIdx);
-}
-
-void TrainCtg::Reserve(unsigned int leafEst, unsigned int bagEst) const {
-  leafCtg->Reserve(leafEst, bagEst);
 }
 
 

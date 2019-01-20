@@ -154,12 +154,12 @@ class RowRank {
   virtual ~RowRank();
 
 
-  inline unsigned int NRow() const {
+  inline unsigned int getNRow() const {
     return nRow;
   }
   
   
-  inline unsigned int NPred() const {
+  inline unsigned int getNPred() const {
     return nPred;
   }
 

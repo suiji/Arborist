@@ -31,19 +31,16 @@
 
 
 Bottom::Bottom(const FrameTrain *_frameTrain,
-               const RowRank *_rowRank,
-               SplitNode *_splitNode,
-               vector<StageCount> &stageCount,
-               unsigned int _bagCount) :
+               const Sample *sample) :
   nPred(_frameTrain->getNPred()),
   nPredFac(_frameTrain->getNPredFac()),
-  bagCount(_bagCount),
+  bagCount(sample->getBagCount()),
   stPath(new IdxPath(bagCount)),
   splitPrev(0), splitCount(1),
   frameTrain(_frameTrain),
-  rowRank(_rowRank),
+  rowRank(sample->getRowRank()),
   noRank(rowRank->NoRank()),
-  splitNode(_splitNode),
+  splitNode(sample->splitNodeFactory(frameTrain)),
   run(splitNode->getRuns()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
@@ -54,26 +51,29 @@ Bottom::Bottom(const FrameTrain *_frameTrain,
   levelFront->Ancestor(0, 0, bagCount);
   fill(levelDelta.begin(), levelDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
-  RootDef(stageCount);
 }
 
 
-void Bottom::RootDef(const vector<StageCount> &stageCount) {
+unique_ptr<SamplePred> Bottom::rootDef(const Sample* sample) {
+  vector<StageCount> stageCount(rowRank->getNPred());
+  auto samplePred = sample->stage(stageCount);
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int splitIdx = 0;
   for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
     bool singleton = stageCount[predIdx].singleton;
     unsigned int expl = stageCount[predIdx].expl;
     (void) levelFront->Define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
-    setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->FacCard(predIdx));
+    setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->getFacCard(predIdx));
   }
+
+  return samplePred;
 }
 
 
 vector<SplitCand> Bottom::split(SamplePred *samplePred,
                                  IndexLevel *index) {
   unsigned int supUnFlush = flushRear();
-  levelFront->candidates(index, splitNode);
+  levelFront->candidates(index, splitNode.get());
 
   backdate();
   Restage(samplePred);

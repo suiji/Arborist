@@ -30,8 +30,8 @@
 // the need to revise dangling non-terminals from an earlier level.
 //
 
-unsigned int PreTree::heightEst = 0;
-unsigned int PreTree::leafMax = 0;
+size_t PreTree::heightEst = 0;
+size_t PreTree::leafMax = 0;
 
 
 /**
@@ -43,7 +43,7 @@ unsigned int PreTree::leafMax = 0;
 
    @return void.
  */
-void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _leafMax) {
+void PreTree::Immutables(size_t _nSamp, size_t _minH, size_t _leafMax) {
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
@@ -52,7 +52,7 @@ void PreTree::Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _
   // first PreTree block.  Hence the value is not really immutable.  Nodes
   // can also be reallocated during the interlevel pass as needed.
   //
-  unsigned twoL = 1; // 2^level, beginning from level zero (root).
+  size_t twoL = 1; // 2^level, beginning from level zero (root).
   while (twoL * _minH < _nSamp) {
     twoL <<= 1;
   }
@@ -120,7 +120,7 @@ void PreTree::LHBit(int idx, unsigned int pos) {
 
    @return void.
  */
-void PreTree::Reserve(unsigned int height) {
+void PreTree::reserve(size_t height) {
   while (heightEst <= height) // Assigns next power-of-two above 'height'.
     heightEst <<= 1;
 }
@@ -134,7 +134,7 @@ void PreTree::Reserve(unsigned int height) {
 BV *PreTree::BitFactory() {
   // Should be wide enough to hold all factor bits for an entire tree:
   //    estimated #nodes * width of widest factor.
-  return new BV(nodeCount * frameTrain->CardMax());
+  return new BV(nodeCount * frameTrain->getCardMax());
 }
 
 
@@ -152,7 +152,7 @@ BV *PreTree::BitFactory() {
 void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
   nodeVec[id].SplitFac(argMax.getPredIdx(), height - id, bitEnd, argMax.getInfo());
   TerminalOffspring();
-  bitEnd += frameTrain->FacCard(argMax.getPredIdx());
+  bitEnd += frameTrain->getFacCard(argMax.getPredIdx());
 }
 
 
@@ -188,7 +188,7 @@ void PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
     ReNodes();
   }
 
-  unsigned int bitMin = bitEnd + splitNext * frameTrain->CardMax();
+  unsigned int bitMin = bitEnd + splitNext * frameTrain->getCardMax();
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
@@ -213,12 +213,11 @@ void PreTree::ReNodes() {
 
 const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) {
   height = LeafMerge();
-  forest->initNode(height);
-  consumeNonterminal(forest, tIdx, predInfo);
-  forest->BitProduce(splitBits, bitEnd);
-  forest->setHeights(tIdx); // height and bit lengths known.
+  forest->treeInit(tIdx, height);
+  consumeNonterminal(forest, predInfo);
+  forest->appendBits(splitBits, bitEnd, tIdx);
 
-  return FrontierConsume(forest, tIdx);
+  return frontierConsume(forest, tIdx);
 }
 
 
@@ -229,10 +228,10 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
 
    @return void, with output reference parameter.
 */
-void PreTree::consumeNonterminal(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) const {
+void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].consumeNonterminal(frameTrain, forest, tIdx, predInfo, idx);
+    nodeVec[idx].consumeNonterminal(frameTrain, forest, predInfo, idx);
   }
 }
 
@@ -242,13 +241,11 @@ void PreTree::consumeNonterminal(ForestTrain *forest, unsigned int tIdx, vector<
 
    @param forest outputs the growing forest node vector.
 
-   @param tIdx is the index of the tree being produced.
-
    @return void, with side-effected Forest.
  */
-void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo, unsigned int idx) const {
+void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
   if (NonTerminal()) {
-    forest->NonTerminal(frameTrain, tIdx, idx, this);
+    forest->nonTerminal(frameTrain, idx, this);
     predInfo[predIdx] += info;
   }
 }
@@ -276,7 +273,7 @@ void PreTree::SubtreeFrontier(const vector<unsigned int> &stTerm) {
 
    @return Reference to rewritten map, with side-effected Forest.
  */
-const vector<unsigned int> PreTree::FrontierConsume(ForestTrain *forest, unsigned int tIdx) const {
+const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest, unsigned int tIdx) const {
   vector<unsigned int> frontierMap(termST.size());
   vector<unsigned int> pt2Leaf(height);
   fill(pt2Leaf.begin(), pt2Leaf.end(), height); // Inattainable leaf index.
@@ -285,7 +282,7 @@ const vector<unsigned int> PreTree::FrontierConsume(ForestTrain *forest, unsigne
   for (unsigned int stIdx = 0; stIdx < termST.size(); stIdx++) {
     unsigned int ptIdx = termST[stIdx];
     if (pt2Leaf[ptIdx] == height) {
-      forest->LeafProduce(tIdx, ptIdx, leafIdx);
+      forest->terminal(ptIdx, leafIdx);
       pt2Leaf[ptIdx] = leafIdx++;
     }
     frontierMap[stIdx] = pt2Leaf[ptIdx];

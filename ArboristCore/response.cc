@@ -29,8 +29,8 @@
 
    @return void.
 */
-unique_ptr<ResponseCtg> Response::FactoryCtg(const unsigned int *feCtg,
-					     const double *feProxy) {
+unique_ptr<ResponseCtg> Response::factoryCtg(const unsigned int* feCtg,
+					     const double* feProxy) {
   return make_unique<ResponseCtg>(feCtg, feProxy);
 }
 
@@ -41,9 +41,9 @@ unique_ptr<ResponseCtg> Response::FactoryCtg(const unsigned int *feCtg,
  @param _proxy is the associated numerical proxy response.
 
 */
-ResponseCtg::ResponseCtg(const unsigned int *_yCtg,
-			 const double *_proxy) :
-  Response(_proxy), yCtg(_yCtg) {
+ResponseCtg::ResponseCtg(const unsigned int* yCtg_,
+			 const double* proxy_) :
+  Response(proxy_), yCtg(yCtg_) {
 }
 
 
@@ -53,8 +53,8 @@ ResponseCtg::ResponseCtg(const unsigned int *_yCtg,
    @param _y is the vector numerical/proxy response values.
 
  */
-Response::Response(const double *_y) :
-  y(_y) {
+Response::Response(const double *y_) :
+  y(y_) {
 }
 
 
@@ -77,9 +77,9 @@ ResponseReg::~ResponseReg() {
 
    @return void, with output reference vector.
  */
-unique_ptr<ResponseReg> Response::FactoryReg(const double *yNum,
-				  const unsigned int *_row2Rank) {
-  return make_unique<ResponseReg>(yNum, _row2Rank);
+unique_ptr<ResponseReg> Response::factoryReg(const double* yNum,
+				  const unsigned int* row2Rank_) {
+  return make_unique<ResponseReg>(yNum, row2Rank_);
 }
 
 
@@ -89,26 +89,26 @@ unique_ptr<ResponseReg> Response::FactoryReg(const double *yNum,
    @param _y is the response vector.
 
  */
-ResponseReg::ResponseReg(const double *_y,
-			 const unsigned int *_row2Rank) :
-  Response(_y),
-  row2Rank(_row2Rank) {
+ResponseReg::ResponseReg(const double* y_,
+			 const unsigned int* row2Rank_) :
+  Response(y_),
+  row2Rank(row2Rank_) {
 }
 
 
 /**
    @return Regression-style Sample object.
  */
-Sample *ResponseReg::RootSample(const RowRank *rowRank,
-                                BV *treeBag) const {
-  return Sample::FactoryReg(Y(), rowRank, row2Rank, treeBag);
+shared_ptr<Sample> ResponseReg::rootSample(const RowRank* rowRank,
+                                BV* treeBag) const {
+  return Sample::factoryReg(Y(), rowRank, row2Rank, treeBag);
 }
 
 
 /**
    @return Classification-style Sample object.
  */
-Sample *ResponseCtg::RootSample(const RowRank *rowRank,
-                                BV *treeBag) const {
-  return Sample::FactoryCtg(Y(), rowRank, &yCtg[0], treeBag);
+shared_ptr<Sample> ResponseCtg::rootSample(const RowRank* rowRank,
+                                BV* treeBag) const {
+  return Sample::factoryCtg(Y(), rowRank, &yCtg[0], treeBag);
 }

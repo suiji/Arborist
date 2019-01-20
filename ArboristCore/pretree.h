@@ -32,7 +32,6 @@ class PTNode : public DecNode {
   
   void consumeNonterminal(const class FrameTrain *frameTrain,
                           class ForestTrain *forest,
-                          unsigned int tIdx,
                           vector<double> &predInfo,
                           unsigned int idx) const;
 
@@ -87,19 +86,19 @@ class PTNode : public DecNode {
  devices such as coprocessors, disks and nodes.
 */
 class PreTree {
-  static unsigned int heightEst;
-  static unsigned int leafMax; // User option:  maximum # leaves, if > 0.
+  static size_t heightEst;
+  static size_t leafMax; // User option:  maximum # leaves, if > 0.
   const class FrameTrain *frameTrain;
   const unsigned int bagCount;
+  size_t nodeCount; // Allocation height of node vector.
   PTNode *nodeVec; // Vector of tree nodes.
-  unsigned int nodeCount; // Allocation height of node vector.
-  unsigned int height;
-  unsigned int leafCount;
-  unsigned int bitEnd; // Next free slot in factor bit vector.
+  size_t height;
+  size_t leafCount;
+  size_t bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
   vector<unsigned int> termST;
   class BV *BitFactory();
-  const vector<unsigned int> FrontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
+  const vector<unsigned int> frontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
   unsigned int BitWidth();
 
 
@@ -118,9 +117,9 @@ class PreTree {
  public:
   PreTree(const class FrameTrain *_frameTrain, unsigned int _bagCount);
   ~PreTree();
-  static void Immutables(unsigned int _nSamp, unsigned int _minH, unsigned int _leafMax);
+  static void Immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
   static void DeImmutables();
-  static void Reserve(unsigned int height);
+  static void reserve(size_t height);
 
 
   /**
@@ -139,7 +138,6 @@ class PreTree {
                                      vector<double> &predInfo);
 
   void consumeNonterminal(class ForestTrain *forest,
-                          unsigned int tIdx,
                           vector<double> &predInfo) const;
 
   void BitConsume(unsigned int *outBits);
@@ -201,11 +199,11 @@ class PreTree {
 
      @return void.
    */
-  inline void blockBump(unsigned int &_height,
-                        unsigned int &_maxHeight,
-                        unsigned int &_bitWidth,
-                        unsigned int &_leafCount,
-                        unsigned int &_bagCount) {
+  inline void blockBump(size_t &_height,
+                        size_t &_maxHeight,
+                        size_t &_bitWidth,
+                        size_t &_leafCount,
+                        size_t &_bagCount) {
     _height += height;
     _maxHeight = max(height, _maxHeight);
     _bitWidth += BitWidth();

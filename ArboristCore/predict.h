@@ -29,7 +29,7 @@ class Predict {
   const unsigned int nTree;
   const unsigned int nRow;
   const vector<size_t> treeOrigin;
-  unique_ptr<unsigned int[]> predictLeaves;
+  unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
 
 
   /**
@@ -44,40 +44,40 @@ class Predict {
   }
 
 
-  void PredictAcross(class Leaf *leaf,
+  void predictAcross(class LeafFrame* leaf,
                      const class BitMatrix *bag,
                      class Quant *quant = nullptr);
 
-  void PredictBlock(unsigned int rowStart,
+  void predictBlock(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
 
-  void PredictBlockNum(unsigned int rowStart,
+  void predictBlockNum(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
 
-  void PredictBlockFac(unsigned int rowStart,
+  void predictBlockFac(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
   
-  void PredictBlockMixed(unsigned int rowStart,
+  void predictBlockMixed(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
   
-  void RowNum(unsigned int row,
+  void rowNum(unsigned int row,
               unsigned int blockRow,
-              const class ForestNode *forestNode,
+              const class TreeNode *treeNode,
               const class BitMatrix *bag);
 
-  void RowFac(unsigned int row,
+  void rowFac(unsigned int row,
               unsigned int blockRow,
-              const class ForestNode *forestNode,
+              const class TreeNode *treeNode,
               const class BVJagged *facSplit,
               const class BitMatrix *bag);
   
-  void RowMixed(unsigned int row,
+  void rowMixed(unsigned int row,
                 unsigned int blockRow,
-                const class ForestNode *forestNode,
+                const class TreeNode *treeNode,
                 const class BVJagged *facSplit,
                 const class BitMatrix *bag);
 
@@ -89,14 +89,14 @@ class Predict {
           bool validate_);
 
 
-  static void reg(class LeafReg *leaf,
+  static void reg(class LeafFrameReg *leaf,
                   const class Forest *forest,
                   const class BitMatrix *bag,
                   const class FramePredict* framePredict,
                   bool validate,
                   class Quant *quant = nullptr);
   
-  static void ctg(class LeafCtg *leaf,
+  static void ctg(class LeafFrameCtg *leaf,
                   const class Forest *forest,
                   const class BitMatrix *bag,
                   const class FramePredict* framePredict,

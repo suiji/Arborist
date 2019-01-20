@@ -25,7 +25,7 @@
 /**
    @brief To replace parallel array access.
  */
-class ForestNode : public DecNode {
+class TreeNode : public DecNode {
   static vector<double> splitQuant;
 
  public:
@@ -72,19 +72,27 @@ class ForestNode : public DecNode {
   }
   
   
-  void SplitUpdate(const class FrameTrain *frameTrain, const class BlockRanked *numRanked);
-  
+
+  /**
+     @brief Post-pass to update numerical splitting values from ranks.
+
+     @param frameTrain records the predictor types.
+
+     @return void
+  */
+  void splitUpdate(const class FrameTrain *frameTrain,
+                   const class BlockRanked *numRanked);
 
   /**
      @brief Initializer for tree node.
    */
-  inline void Init() {
+  inline void init() {
     predIdx = lhDel = 0;
     splitVal.num = 0.0;
   }
 
 
-  inline void SetRank(const DecNode *decNode) {
+  inline void setRank(const DecNode *decNode) {
     predIdx = decNode->predIdx;
     lhDel = decNode->lhDel;
     splitVal = decNode->splitVal;
@@ -97,7 +105,7 @@ class ForestNode : public DecNode {
 
      @return void.
    */
-  inline void SetOffset(const DecNode *decNode) {
+  inline void setOffset(const DecNode *decNode) {
     predIdx = decNode->predIdx;
     lhDel = decNode->lhDel;
     splitVal = decNode->splitVal;
@@ -110,7 +118,7 @@ class ForestNode : public DecNode {
 
      @return void.
    */
-  inline void SetLeaf(unsigned int leafIdx) {
+  inline void setLeaf(unsigned int leafIdx) {
     predIdx = leafIdx;
     splitVal.num = 0.0;
   }
@@ -168,27 +176,27 @@ class ForestNode : public DecNode {
 class Forest {
   const unsigned int* nodeHeight;
   const unsigned int nTree;
-  const ForestNode *forestNode;
+  const TreeNode *treeNode;
   const unsigned int nodeCount;
   unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
 
-  void NodeExport(vector<vector<unsigned int> > &predTree,
-                  vector<vector<double> > &splitTree,
-                  vector<vector<unsigned int> > &lhDelTree) const;
+  void dump(vector<vector<unsigned int> > &predTree,
+            vector<vector<double> > &splitTree,
+            vector<vector<unsigned int> > &lhDelTree) const;
 
   
  public:
 
   Forest(const unsigned int height_[],
          unsigned int _nTree,
-         const ForestNode _forestNode[],
+         const TreeNode _treeNode[],
          unsigned int _facVec[],
          const unsigned int facHeight_[]);
 
   ~Forest();
 
   /**
-     @brief Accessor for 'nTree'.
+     @brief Getter for 'nTree'.
      
      @return number of trees in the forest.
    */
@@ -196,12 +204,21 @@ class Forest {
     return nTree;
   }
 
+  /**
+     @brief Accessor for node records.
 
-  inline const ForestNode *Node() const {
-    return forestNode;
+     @return pointer to base of node vector.
+   */
+  inline const TreeNode *Node() const {
+    return treeNode;
   }
-  
 
+  
+  /**
+     @brief Accessor for split encodings.
+
+     @return pointer to base of split-encoding vector.
+   */
   inline const BVJagged *getFacSplit() const {
     return facSplit.get();
   }
@@ -226,11 +243,149 @@ class Forest {
    */
   vector<size_t> cacheOrigin() const;
 
-  void Export(vector<vector<unsigned int> > &predTree,
-              vector<vector<double> > &splitTree,
-              vector<vector<unsigned int> > &lhDelTree,
-              vector<vector<unsigned int> > &facSplitTree) const;
+  /**
+     @brief Dumps forest-wide structure fields as per-tree vectors.
 
+     @param[out] predTree outputs per-tree splitting predictors.
+
+     @param[out] splitTree outputs per-tree splitting criteria.
+
+     @param[out] lhDelTree outputs per-tree lh-delta values.
+
+     @param[out] facSplitTree outputs per-tree factor encodings.
+   */
+  void dump(vector<vector<unsigned int> > &predTree,
+            vector<vector<double> > &splitTree,
+            vector<vector<unsigned int> > &lhDelTree,
+            vector<vector<unsigned int> > &facSplitTree) const;
+};
+
+
+/**
+   @brief TreeNode block for crescent frame;
+ */
+class NBCresc {
+  vector<TreeNode> treeNode;
+  vector<size_t> height;
+  size_t treeFloor; // Block-relative index of current tree floor.
+
+public:
+  /**
+     @brief Constructor.
+
+     @param treeChunk is the number of trees in the current block.
+   */
+  NBCresc(unsigned int treeChunk);
+
+  /**
+     @brief Allocates and initializes nodes for current tree.
+
+     @param tIdx is the block-relative tree index.
+
+     @param nodeCount is the number of tree nodes.
+   */
+  void treeInit(unsigned int tIdx,
+                unsigned int nodeCount);
+
+
+  /**
+     @brief Copies treeNode contents by byte.
+
+     @param[out] nodeRaw outputs the raw contents.
+   */
+  void dumpRaw(unsigned char nodeRaw[]) const;
+
+
+  /**
+     @brief Post-pass to update numerical splitting values from ranks.
+
+     @param rowRank holds the presorted predictor values.
+  */
+  void splitUpdate(const class FrameTrain *frameTrain,
+                   const class BlockRanked* numRanked);
+
+  
+  /**
+     @brief Accessor for height vector.
+   */
+  const vector<size_t>& getHeight() const {
+    return height;
+  }
+
+
+  /**
+     @brief Sets looked-up nonterminal node to values passed.
+
+     @return void.
+  */
+  inline void branchProduce(unsigned int nodeIdx,
+                            const DecNode *decNode,
+                            bool isFactor) {
+    if (isFactor)
+      treeNode[treeFloor + nodeIdx].setOffset(decNode);
+    else
+      treeNode[treeFloor + nodeIdx].setRank(decNode);
+  }
+
+  /**
+    @brief Sets looked-up leaf node to leaf index passed.
+
+    @return void.
+
+  */
+  inline void leafProduce(unsigned int nodeIdx,
+                          unsigned int leafIdx) {
+    treeNode[treeFloor + nodeIdx].setLeaf(leafIdx);
+  }
+};
+
+
+/**
+   @brief Manages the crescent factor blocks.
+ */
+class FBCresc {
+  vector<unsigned int> fac;  // Factor-encoding bit vector.
+  vector<size_t> height; // Cumulative vector heights, per tree.
+
+public:
+
+  FBCresc(unsigned int treeChunk);
+
+  /**
+     @brief Sets the height of the current tree, storage now being known.
+
+     @param tIdx is the tree index.
+   */
+  void treeCap(unsigned int tIdx);
+
+  /**
+     @brief Consumes factor bit vector and notes height.
+
+     @param splitBits is the bit vector.
+
+     @param bitEnd is the final bit position referenced.
+
+     @param tIdx is the current tree index.
+   */
+  void appendBits(const class BV* splitBIts,
+                  unsigned int bitEnd,
+                  unsigned int tIdx);
+
+  /**
+     @brief Dumps factor bits as raw data.
+
+     @param[out] facRaw outputs the raw factor data.
+   */
+  void dumpRaw(unsigned char facRaw[]) const;
+  
+  /**
+     @brief Accessor for the per-tree height vector.
+
+     @return reference to height vector.
+   */
+  const vector<size_t>& getHeight() const {
+    return height;
+  }
 };
 
 
@@ -238,43 +393,9 @@ class Forest {
    @brief Class definition for crescent forest.
  */
 class ForestTrain {
-  vector<ForestNode> forestNode;
-  vector<size_t> nodeHeight;
-  vector<size_t> facHeight;
-  vector<unsigned int> facVec;
+  unique_ptr<NBCresc> nbCresc;
+  unique_ptr<FBCresc> fbCresc;
 
-
-  /**
-     @brief Maps tree-relative node index to forest-relative index.
-
-     @param tIdx is the index of tree tree containing node.
-
-     @param nodeOffset is the tree-relative index of the node.
-
-     @return absolute index of node within forest.
-   */
-  inline unsigned int getNodeIdx(unsigned int tIdx,
-                              unsigned int nodeOffset) const {
-    return (tIdx == 0 ? 0 : nodeHeight[tIdx-1]) + nodeOffset;
-  }
-
-  
-  /**
-     @return size of crescent block.
-   */
-  inline unsigned int getHeight() const {
-    return forestNode.size();
-  }
-
-
-  /**
-     @return current size of factor-valued splitting vector in crescent forest.
-   */
-  inline unsigned int getSplitHeight() const {
-    return facVec.size();
-  }
-
-  
  public:
   /**
      @brief Constructs block of trees for crescent forest, wrapping
@@ -287,22 +408,33 @@ class ForestTrain {
   
   ~ForestTrain();
 
-  void BitProduce(const class BV *splitBits,
-                  unsigned int bitEnd);
+  /**
+     @brief Wrapper for bit vector appending.
 
-  void setHeights(unsigned int tIdx);
-  
-  void Reserve(unsigned int nodeEst,
-               unsigned int facEst,
-               double slop);
+     @param splitBits encodes bits maintained for the current tree.
 
-  void initNode(unsigned int nodeHeight);
+     @param bitEnd is the final referenced bit position.
 
-  void SplitUpdate(const class FrameTrain *frameTrain,
+     @param tIdx is the tree index.
+   */
+  void appendBits(const class BV *splitBits,
+                  unsigned int bitEnd,
+                  unsigned int tIdx);
+
+  /**
+     @brief Allocates and initializes sufficient nodes for current tree.
+
+     @param tIdx is the block-relative tree index.
+
+     @param nodeCount is the number of nodes.
+   */
+  void treeInit(unsigned int tIdx,
+                unsigned int nodeCount);
+
+  void splitUpdate(const class FrameTrain *frameTrain,
                    const class BlockRanked *numRanked);
 
-  void NonTerminal(const class FrameTrain *frameTrain,
-                   unsigned int tIdx,
+  void nonTerminal(const class FrameTrain *frameTrain,
                    unsigned int idx,
                    const DecNode *decNode);
 
@@ -312,19 +444,8 @@ class ForestTrain {
      @return void.
    */
   void cacheNodeRaw(unsigned char rawOut[]) const {
-    for (size_t i = 0; i < getHeight() * sizeof(ForestNode); i++) {
-      rawOut[i] = ((unsigned char *) &forestNode[0])[i];
-    }
+    nbCresc->dumpRaw(rawOut);
   }
-
-  
-  /**
-     @return raw (byte) size of factor-splitting region.
-   */
-  size_t getFacBytes() const {
-    return getSplitHeight() * sizeof(unsigned int);
-  }
-  
 
   /**
      @brief Outputs raw byes of node vector.
@@ -332,16 +453,14 @@ class ForestTrain {
      @return void.
    */
   void cacheFacRaw(unsigned char rawOut[]) const {
-    for (size_t i = 0; i < getFacBytes(); i++) {
-      rawOut[i] = ((unsigned char *) &facVec[0])[i];
-    }
+    fbCresc->dumpRaw(rawOut);
   }
 
 
   /**
    */
   const vector<size_t>& getNodeHeight() const {
-    return nodeHeight;
+    return nbCresc->getHeight();
   }
   
 
@@ -349,37 +468,21 @@ class ForestTrain {
      @brief Exposes fac-origin vector.
    */
   const vector<size_t>& getFacHeight() const {
-    return facHeight;
+    return fbCresc->getHeight();
   }
 
-
   /**
-     @brief Sets looked-up nonterminal node to values passed.
+    @brief Sets tree node as terminal.
 
-     @return void.
-  */
-  inline void BranchProduce( unsigned int tIdx,
-                           unsigned int nodeIdx,
-                           const DecNode *decNode,
-                           bool isFactor) {
-    if (isFactor)
-      forestNode[getNodeIdx(tIdx, nodeIdx)].SetOffset(decNode);
-    else
-      forestNode[getNodeIdx(tIdx, nodeIdx)].SetRank(decNode);
-  }
+    @param nodeIdx is a tree-relative node index.
 
-
-  /**
-    @brief Sets looked-up leaf node to leaf index passed.
+    @param leafIdx is a tree-relative leaf index.
 
     @return void.
 
   */
-  inline void LeafProduce(unsigned int tIdx,
-                          unsigned int nodeIdx,
-                          unsigned int leafIdx) {
-    forestNode[getNodeIdx(tIdx, nodeIdx)].SetLeaf(leafIdx);
-  }
+  void terminal(unsigned int nodeIdx,
+                unsigned int leafIdx);
 };
 
 #endif

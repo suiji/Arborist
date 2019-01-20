@@ -40,7 +40,7 @@ RowRank::RowRank(const FrameTrain *frameTrain,
 		 double _autoCompress) :
   nRow(frameTrain->getNRow()),
   nPred(frameTrain->getNPred()),
-  noRank(max(nRow, frameTrain->CardMax())),
+  noRank(max(nRow, frameTrain->getCardMax())),
   nPredDense(0),
   denseIdx(vector<unsigned int>(nPred)),
   nonCompact(0),

@@ -262,7 +262,7 @@ void SamplePred::Restage(Level *levelBack,
 
 
 /**
-   @brief Restages and tabultates rank counts.
+   @brief Restages and tabulates rank counts.
 
    @return void.
  */

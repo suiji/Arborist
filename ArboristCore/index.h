@@ -115,7 +115,7 @@ class IndexSet {
                    class PreTree *preTree,
                    const class SplitCand &argMax);
 
-  void Terminal(class IndexLevel *indexLevel);
+  void terminal(class IndexLevel *indexLevel);
 
   void blockReplay(class SamplePred *samplePred,
                    const class SplitCand& argMax,
@@ -319,12 +319,10 @@ class IndexLevel {
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
 
-  IndexLevel(class SamplePred *_samplePred,
-             const vector<class SumCount> &ctgRoot,
-             class Bottom *_bottom,
-             unsigned int _nSamp,
-             unsigned int _bagCount,
-             double _bagSum);
+  IndexLevel(const class Sample* sample,
+             class SamplePred *_samplePred,
+             class Bottom *_bottom);
+
   ~IndexLevel();
 
   /**
@@ -338,10 +336,10 @@ class IndexLevel {
 
     @return trained pretree object.
   */
-  static PreTree *oneTree(const class FrameTrain *frameTrain,
-                          class Sample *sample,
-                          const class RowRank *rowRank);
+  static shared_ptr<class PreTree> oneTree(const class FrameTrain *frameTrain,
+                                           const class Sample *sample);
 
+  
   /**
      @brief Main loop for per-level splitting.  Assumes root node and
      attendant per-tree data structures have been initialized.
@@ -350,7 +348,7 @@ class IndexLevel {
 
      @return trained pretree object.
   */
-  class PreTree *levels(const class FrameTrain *frameTrain);
+  shared_ptr<class PreTree> levels(const class FrameTrain *frameTrain);
   
   bool nonTerminal(class PreTree *preTree,
                    IndexSet *iSet,
@@ -420,12 +418,12 @@ class IndexLevel {
                     unsigned int chunkNext);
   void transitionReindex(unsigned int splitNext);
 
-  unsigned int RelLive(unsigned int relIdx,
+  unsigned int relLive(unsigned int relIdx,
                        unsigned int targIdx,
                        unsigned int path,
                        unsigned int base,
                        unsigned int ptIdx);
-  void RelExtinct(unsigned int relIdx, unsigned int ptId);
+  void relExtinct(unsigned int relIdx, unsigned int ptId);
 
   void sumsAndSquares(unsigned int ctgWidth,
                       vector<double> &sumSquares,
@@ -515,11 +513,11 @@ class IndexLevel {
 
    @return void.
  */
-  void RelExtinct(unsigned int relBase,
+  void relExtinct(unsigned int relBase,
                   unsigned int extent,
                   unsigned int ptId) {
     for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
-      RelExtinct(relIdx, ptId);
+      relExtinct(relIdx, ptId);
     }
   }
 
@@ -527,10 +525,10 @@ class IndexLevel {
   /**
      @brief Reconciles remaining live node-relative indices.
   */
-  void RelFlush() {
+  void relFlush() {
     if (nodeRel) {
       for (unsigned int relIdx = 0; relIdx < idxLive; relIdx++) {
-        RelExtinct(relIdx, rel2PT[relIdx]);
+        relExtinct(relIdx, rel2PT[relIdx]);
       }
     }
   }

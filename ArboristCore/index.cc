@@ -15,11 +15,9 @@
 
 #include "index.h"
 #include "bv.h"
-#include "rowrank.h"
 #include "pretree.h"
 #include "sample.h"
 #include "samplepred.h"
-#include "splitnode.h"
 #include "splitcand.h"
 #include "bottom.h"
 #include "path.h"
@@ -61,16 +59,13 @@ void IndexLevel::DeImmutables() {
 /**
    @brief Per-tree constructor.  Sets up root node for level zero.
  */
-IndexLevel::IndexLevel(SamplePred *_samplePred,
-                       const vector<SumCount> &ctgRoot,
-                       Bottom *_bottom,
-                       unsigned int nSamp,
-                       unsigned int _bagCount,
-                       double bagSum) :
+IndexLevel::IndexLevel(const Sample* sample,
+                       SamplePred *_samplePred,
+                       Bottom *_bottom) :
   samplePred(_samplePred),
   bottom(_bottom),
   indexSet(vector<IndexSet>(1)),
-  bagCount(_bagCount),
+  bagCount(sample->getBagCount()),
   nodeRel(false),
   idxLive(bagCount),
   relBase(vector<unsigned int>(1)),
@@ -78,7 +73,7 @@ IndexLevel::IndexLevel(SamplePred *_samplePred,
   st2Split(vector<unsigned int>(bagCount)),
   st2PT(vector<unsigned int>(bagCount)),
   replayExpl(new BV(bagCount)) {
-  indexSet[0].Init(0, nSamp, 0, bagCount, 0.0, 0, bagSum, 0, 0, bagCount, ctgRoot, ctgRoot, true);
+  indexSet[0].Init(0, sample->getNSamp(), 0, bagCount, 0.0, 0, sample->getBagSum(), 0, 0, bagCount, sample->getCtgRoot(), sample->getCtgRoot(), true);
   relBase[0] = 0;
   iota(rel2ST.begin(), rel2ST.end(), 0);
   fill(st2Split.begin(), st2Split.end(), 0);
@@ -158,27 +153,19 @@ IndexSet::IndexSet() :
 }
 
 
-PreTree *IndexLevel::oneTree(const FrameTrain *frameTrain,
-                              Sample *sample,
-                              const RowRank *rowRank) {
-  vector<StageCount> stageCount(rowRank->NPred());
-  auto samplePred = sample->stage(rowRank, stageCount);
-  auto splitNode = sample->SplitNodeFactory(frameTrain, rowRank);
-  auto bottom = make_unique<Bottom>(frameTrain, rowRank, splitNode.get(), stageCount, sample->getBagCount());
-
-  auto index = make_unique<IndexLevel>(samplePred.get(),
-                                       sample->CtgRoot(),
-                                       bottom.get(),
-                                       sample->getNSamp(),
-                                       sample->getBagCount(),
-                                       sample->getBagSum());
-
+shared_ptr<PreTree> IndexLevel::oneTree(const FrameTrain *frameTrain,
+                                        const Sample *sample) {
+  auto bottom = make_unique<Bottom>(frameTrain, sample);
+  auto samplePred = bottom->rootDef(sample);
+  auto index = make_unique<IndexLevel>(sample,
+                                       samplePred.get(),
+                                       bottom.get());
   return index->levels(frameTrain);
 }
 
 
-PreTree *IndexLevel::levels(const FrameTrain *frameTrain) {
-  PreTree *preTree = new PreTree(frameTrain, bagCount);
+shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain) {
+  shared_ptr<PreTree> preTree = make_shared<PreTree>(frameTrain, bagCount);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
@@ -187,12 +174,12 @@ PreTree *IndexLevel::levels(const FrameTrain *frameTrain) {
 
     unsigned int leafNext, idxMax;
     unsigned int splitNext = splitCensus(argMax, leafNext, idxMax, level + 1 == totLevels);
-    consume(preTree, argMax, splitNext, leafNext, idxMax);
-    produce(preTree, splitNext);
+    consume(preTree.get(), argMax, splitNext, leafNext, idxMax);
+    produce(preTree.get(), splitNext);
     bottom->levelClear();
   }
 
-  RelFlush();
+  relFlush();
   preTree->SubtreeFrontier(st2PT);
 
   return preTree;
@@ -330,7 +317,7 @@ void IndexSet::consume(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree,
     nonTerminal(indexLevel, preTree, argMax[splitIdx]);
   }
   else {
-    Terminal(indexLevel);
+    terminal(indexLevel);
   }
 }
 
@@ -340,7 +327,7 @@ void IndexSet::consume(IndexLevel *indexLevel, Bottom *bottom, PreTree *preTree,
 
    @return void.
  */
-void IndexSet::Terminal(IndexLevel *indexLevel) {
+void IndexSet::terminal(IndexLevel *indexLevel) {
   succOnly = indexLevel->idxSucc(extent, ptId, offOnly, true);
 }
 
@@ -419,7 +406,7 @@ void IndexSet::reindex(const BV* replayExpl,
                        unsigned int idxLive,
                        vector<unsigned int>& succST) {
   if (!doesSplit) {
-    index->RelExtinct(relBase, extent, ptId);
+    index->relExtinct(relBase, extent, ptId);
   }
   else {
     nontermReindex(replayExpl, index, idxLive, succST);
@@ -438,10 +425,10 @@ void IndexSet::nontermReindex(const BV *replayExpl,
     unsigned int targIdx = expl ? offExpl++ : offImpl++;
 
     if (targIdx < idxLive) {
-      succST[targIdx] = index->RelLive(relIdx, targIdx, expl ? pathExpl : pathImpl, expl? baseExpl : baseImpl, expl ? ptExpl : ptImpl);
+      succST[targIdx] = index->relLive(relIdx, targIdx, expl ? pathExpl : pathImpl, expl? baseExpl : baseImpl, expl ? ptExpl : ptImpl);
     }
     else {
-      index->RelExtinct(relIdx, expl ? ptExpl : ptImpl);
+      index->relExtinct(relIdx, expl ? ptExpl : ptImpl);
     }
   }
 }
@@ -453,7 +440,7 @@ void IndexSet::nontermReindex(const BV *replayExpl,
 
    @return corresponding subtree-relative index.
 */
-unsigned int IndexLevel::RelLive(unsigned int relIdx,
+unsigned int IndexLevel::relLive(unsigned int relIdx,
                                  unsigned int targIdx,
                                  unsigned int path,
                                  unsigned int base,
@@ -476,7 +463,7 @@ unsigned int IndexLevel::RelLive(unsigned int relIdx,
 
    @return void.
  */
-void IndexLevel::RelExtinct(unsigned int relIdx, unsigned int ptId) {
+void IndexLevel::relExtinct(unsigned int relIdx, unsigned int ptId) {
   unsigned int stIdx = rel2ST[relIdx];
   st2PT[stIdx] = ptId;
   bottom->setExtinct(relIdx, stIdx);

@@ -42,13 +42,14 @@ struct TrainBridge {
   // Core-to-Bridge copies while also not over-allocating:
   static const unsigned int treeChunk = 20;
   static constexpr double allocSlop = 1.2d;
-  
-  static bool verbose; // Whether to report progress while training.
 
+  static unsigned int nCtg; // # outcome categores:  classification iff > 0.
+  static bool verbose; // Whether to report progress while training.
+  
   class BagBridge *bag;
-  const unsigned int nTree;
+  const unsigned int nTree; // # trees under training.
   unique_ptr<class FBTrain> forest;
-  NumericVector predInfo;
+  NumericVector predInfo; // Forest-wide sum of predictors' split information.
   unique_ptr<class LBTrain> leaf;
 
   TrainBridge(class BagBridge* bag_,
@@ -62,13 +63,13 @@ struct TrainBridge {
               const IntegerVector& yTrain);
 
   /**
-     @brief Estimates scale factor for allocating forest-wide vector.
+     @brief Estimates scale factor for full-forest reallocation.
 
      @param treesTot is the total number of trees trained so far.
 
      @return scale factor estimation for accommodating entire forest.
    */
-  double safeScale(unsigned int treesTot) {
+  double constexpr safeScale(unsigned int treesTot) {
     return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
   }
 
@@ -129,18 +130,27 @@ struct TrainBridge {
                     const vector<unsigned int> &facCard,
                     unsigned int nRow);
 
-  void consumeReg(const class TrainReg* train,
-                  unsigned int treeOff,
-                  double scale);
+  /**
+     @brief Consumes core representation of a trained tree for writing.
 
-  void consumeCtg(const class TrainCtg* train,
-                  unsigned int treeOff,
-                  double scale);
+     @unsigned int tIdx is the absolute tree index.
 
+     @param scale guesstimates a reallocation size.
+   */
   void consume(const class Train* train,
-               unsigned int treeOff,
+               unsigned int tIdx,
                double scale);
 
+  
+  /**
+     @brief Whole-forest summary of trained chunks.
+
+     @param predMap[] maps core predictor indices to front-end.
+
+     @param diag accumulates diagnostic messages.
+
+     @return
+   */
   List summarize(const IntegerVector& predMap,
                  const vector<string>& diag);
 };

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2018   Mark Seligman
+// Copyright (C)  2012-2019   Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -28,11 +28,23 @@
 #include "predict.h"
 #include "quant.h"
 
+bool LBTrain::thin = false;
+
 LBTrain::LBTrain(unsigned int nTree) :
   nodeHeight(IntegerVector(nTree)),
   nodeRaw(RawVector(0)),
   bagHeight(IntegerVector(nTree)),
   blRaw(RawVector(0)) {
+  fill(bagHeight.begin(), bagHeight.end(), 0ul);
+}
+
+void LBTrain::init(bool thin_) {
+  thin = thin_;
+}
+
+
+void LBTrain::deInit() {
+  thin = false;
 }
 
 LBTrainReg::LBTrainReg(const NumericVector& yTrain_,
@@ -52,36 +64,63 @@ LBTrainCtg::LBTrainCtg(const IntegerVector& yTrain_,
 void LBTrain::consume(const LeafTrain* leaf,
                       unsigned int tIdx,
                       double scale) {
+  writeScore(leaf, tIdx);
+  writeNode(leaf, tIdx, scale);
+  writeBagLeaf(leaf, tIdx, scale);
+}
+
+
+void LBTrain::writeScore(const LeafTrain* leaf,
+                         unsigned int tIdx) {
+  //leaf->cacheScore();
+}
+
+
+void LBTrain::writeNode(const LeafTrain* leaf,
+                        unsigned int tIdx,
+                        double scale) {
+  // Accumulates node heights.
   unsigned int i = tIdx;
-  for (auto th : leaf->getNodeHeight()) {
+  for (auto th : leaf->getLeafHeight()) {
     nodeHeight[i++] = th + (tIdx == 0 ? 0 : nodeHeight[tIdx-1]);
   }
 
-  i = tIdx;
-  for (auto bh : leaf->getBagHeight()) {
-    bagHeight[i++] = bh + (tIdx == 0 ? 0 : bagHeight[tIdx-1]);
-  }
-
-  size_t nodeOff = tIdx == 0 ? 0 : nodeHeight[tIdx-1] * sizeof(LeafNode);
-  size_t nodeBytes = leaf->getNodeHeight().back() * sizeof(LeafNode);
+  // Writes leaf nodes as raw.
+  size_t nodeOff = tIdx == 0 ? 0 : nodeHeight[tIdx-1] * sizeof(Leaf);
+  size_t nodeBytes = leaf->getLeafHeight().back() * sizeof(Leaf);
   if (nodeOff + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
     RawVector temp(scale * (nodeOff + nodeBytes));
-    for (auto i = 0; i < nodeOff; i++)
+    for (size_t i = 0; i < nodeOff; i++)
       temp[i] = nodeRaw[i];
     nodeRaw = move(temp);
   }
   leaf->cacheNodeRaw(&nodeRaw[nodeOff]);
+ }
 
+
+void LBTrain::writeBagLeaf(const LeafTrain* leaf,
+                      unsigned int tIdx,
+                      double scale) {
+  // Thin leaves forgo writing bag state.
+  if (thin)
+    return;
+
+  auto i = tIdx;
+  for (auto bh : leaf->getBagHeight()) {
+    bagHeight[i++] = bh + (tIdx == 0 ? 0 : bagHeight[tIdx-1]);
+  }
+  // Writes BagLeaf records as raw.
   size_t blOff = tIdx == 0 ? 0 : bagHeight[tIdx-1] * sizeof(BagLeaf);
   size_t bagBytes = leaf->getBagHeight().back() * sizeof(BagLeaf);
   if (blOff + bagBytes > static_cast<size_t>(blRaw.length())) {
     RawVector temp(scale * (blOff + bagBytes));
-    for (auto i = 0; i < blOff; i++)
+    for (size_t i = 0; i < blOff; i++)
       temp[i] = blRaw[i];
     blRaw = move(temp);
   }
   leaf->cacheBLRaw(&blRaw[blOff]);
 }
+
 
 void LBTrainReg::consume(const LeafTrain* leaf,
                          unsigned int tIdx,
@@ -93,14 +132,20 @@ void LBTrainCtg::consume(const LeafTrain* leaf,
                          unsigned int tIdx,
                          double scale) {
   LBTrain::consume(leaf, tIdx, scale);
-  auto sizeLoc = static_cast<const LeafTrainCtg*>(leaf)->getWeight().size();
+  writeWeight(static_cast<const LeafTrainCtg*>(leaf), tIdx, scale);
+}
+
+void LBTrainCtg::writeWeight(const LeafTrainCtg* leaf,
+                             unsigned int tIdx,
+                             double scale) {
+  auto sizeLoc = static_cast<R_xlen_t>(leaf->getProbSize());
   if (weightSize + sizeLoc > weight.length()) {
     NumericVector temp(scale * (weightSize + sizeLoc));
-    for (auto i = 0; i < weightSize; i++)
+    for (int i = 0; i < weightSize; i++)
       temp[i] = weight[i];
     weight = move(temp);
   }
-  static_cast<const LeafTrainCtg*>(leaf)->cacheWeight(&weight[weightSize]);
+  leaf->dumpProb(&weight[weightSize]);
   weightSize += sizeLoc;
 }
 
@@ -183,9 +228,9 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
   feBagLeaf(feBagLeaf_),
   yTrain(yTrain_) {
 
-  leaf = move(make_unique<LeafReg>((unsigned int *) &feNodeHeight[0],
+  leaf = move(make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
-                                   (LeafNode*) &feNode[0],
+                                   (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagLeaf*) &feBagLeaf[0],
                                    &yTrain_[0],
@@ -251,9 +296,9 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
   feBagLeaf(feBagLeaf_),
   feWeight(feWeight_),
   levelsTrain(feLevels_) {
-  leaf = move(make_unique<LeafCtg>((unsigned int *) &feNodeHeight[0],
+  leaf = move(make_unique<LeafFrameCtg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
-                                   (LeafNode*) &feNode[0],
+                                   (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagLeaf*) &feBagLeaf[0],
                                    &feWeight[0],
@@ -408,10 +453,10 @@ TestCtg::TestCtg(SEXP sYTest,
 
    @return void.
 */
-void TestCtg::Validate(LeafCtg *leaf, const vector<unsigned int> &yPred) {
+void TestCtg::Validate(LeafFrameCtg *leaf, const vector<unsigned int> &yPred) {
   fill(confusion.begin(), confusion.end(), 0);
   for (unsigned int row = 0; row < rowPredict; row++) {
-    confusion[leaf->getTrainIdx(yTestZero[row], yPred[row])]++;
+    confusion[leaf->ctgIdx(yTestZero[row], yPred[row])]++;
   }
 
   // Fills in misprediction rates for all 'ctgMerged' testing categories.
@@ -422,10 +467,10 @@ void TestCtg::Validate(LeafCtg *leaf, const vector<unsigned int> &yPred) {
     unsigned int numRight = 0;
     for (unsigned int ctgPred = 0; ctgPred < leaf->getCtgTrain(); ctgPred++) {
       if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
-        numWrong += confusion[leaf->getTrainIdx(ctgRec, ctgPred)];
+        numWrong += confusion[leaf->ctgIdx(ctgRec, ctgPred)];
       }
       else {
-        numRight = confusion[leaf->getTrainIdx(ctgRec, ctgPred)];
+        numRight = confusion[leaf->ctgIdx(ctgRec, ctgPred)];
       }
     }
     misPred[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
@@ -535,8 +580,6 @@ NumericVector TestCtg::MisPred() {
 
    @param yPred is the zero-based prediction vector derived by the core.
 
-   @param yTest is a zero-based NumericVector cached by the bridge.
-
    @return OOB as mean number of mispredictions, if testing, otherwise 0.0.
  */
 double TestCtg::OOB(const vector<unsigned int> &yPred) const {
@@ -582,16 +625,16 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
   levelsTrain(feLevels_),
   scoreTree(vector<vector<double > >(feNodeHeight.length())),
   weightTree(vector<vector<double> >(feNodeHeight.length())) {
-  leaf = move(make_unique<LeafCtg>((unsigned int*) &feNodeHeight[0],
+  leaf = move(make_unique<LeafFrameCtg>((unsigned int*) &feNodeHeight[0],
                                    feNodeHeight.length(),
-                                   (LeafNode*) &feNode[0],
+                                   (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagLeaf*) &feBagLeaf[0],
                                    &feWeight[0],
                                    levelsTrain.length(),
                                    0,
                                    false));
-  leaf->populate(baggedRows, rowTree, sCountTree, scoreTree, extentTree, weightTree);
+  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree, weightTree);
 }
 
 
@@ -610,7 +653,7 @@ unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
  
 
 /**
-   @brief Constructor instantiates leaf for export only:
+   @brief Constructor instantiates leaves for export only:
    no prediction.
  */
 LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
@@ -626,15 +669,15 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
   feBagLeaf(feBagLeaf_),
   yTrain(yTrain_),
   scoreTree(vector<vector<double > >(feNodeHeight.length())) {
-  leaf = move(make_unique<LeafReg>((unsigned int *) &feNodeHeight[0],
+  leaf = move(make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
-                                   (LeafNode*) &feNode[0],
+                                   (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagLeaf*) &feBagLeaf[0],
                                    &yTrain[0],
                                    mean(yTrain),
                                    0));
-  leaf->populate(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
+  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
 }
 
 

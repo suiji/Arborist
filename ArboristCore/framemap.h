@@ -170,7 +170,7 @@ class FrameTrain : public FrameMap {
 
    @return factor cardinality or zero.
   */
-  inline int FacCard(int predIdx) const {
+  inline int getFacCard(int predIdx) const {
     return isFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
   }
 
@@ -180,7 +180,7 @@ class FrameTrain : public FrameMap {
 
      @return highest cardinality, if any, among factor predictors.
    */
-  inline unsigned int CardMax() const {
+  inline unsigned int getCardMax() const {
     return cardMax;
   }
 };

@@ -104,12 +104,7 @@ BV *BV::Resize(size_t bitMin) {
 }
 
 
-/**
-   @brief Appends contents onto output vector.
-
-   @return void, with output vector parameter.
- */
-void BV::Consume(vector<unsigned int> &out, unsigned int bitEnd) const {
+void BV::consume(vector<unsigned int> &out, unsigned int bitEnd) const {
   unsigned int slots = bitEnd == 0 ? nSlot : SlotAlign(bitEnd);
   out.reserve(slots);
   out.insert(out.end(), raw, raw + slots);
@@ -171,9 +166,9 @@ BVJagged::~BVJagged() {
 /**
    @brief Exports contents of a forest.
  */
-void BVJagged::Export(vector<vector<unsigned int> > &outVec) {
+void BVJagged::dump(vector<vector<unsigned int> > &outVec) {
   for (unsigned int row = 0; row < nRow; row++) {
-    outVec[row] = rowExport(row);
+    outVec[row] = rowDump(row);
   }
 }
 
@@ -181,7 +176,7 @@ void BVJagged::Export(vector<vector<unsigned int> > &outVec) {
 /**
    @brief Exports contents for an individual row.
  */
-vector<unsigned int> BVJagged::rowExport(unsigned int rowIdx) const {
+vector<unsigned int> BVJagged::rowDump(unsigned int rowIdx) const {
   vector<unsigned int> outVec(rowExtent[rowIdx]);
   for (unsigned int idx = 0; idx < outVec.size(); idx++) {
     outVec[idx] = testBit(rowIdx, idx);
@@ -197,10 +192,10 @@ vector<unsigned int> BVJagged::rowExport(unsigned int rowIdx) const {
 
    @return void, with output vector parameter.
  */
-void BitMatrix::Export(const vector<unsigned int> &raw_, unsigned int _nRow, vector<vector<unsigned int> > &vecOut) {
+void BitMatrix::dump(const vector<unsigned int> &raw_, unsigned int _nRow, vector<vector<unsigned int> > &vecOut) {
   unsigned int _nCol = vecOut.size();
   BitMatrix *bm = new BitMatrix(_nRow, _nCol, raw_);
-  bm->Export(_nRow, vecOut);
+  bm->dump(_nRow, vecOut);
 
   delete bm;
 }
@@ -213,10 +208,10 @@ void BitMatrix::Export(const vector<unsigned int> &raw_, unsigned int _nRow, vec
 
    @return void, with output reference parameter.
  */
-void BitMatrix::Export(unsigned int nRow_, vector<vector<unsigned int> > &outCol) const {
+void BitMatrix::dump(unsigned int nRow_, vector<vector<unsigned int> > &outCol) const {
   for (unsigned int i = 0; i < stride; i++) {
     outCol[i] = vector<unsigned int>(nRow_);
-    ColExport(nRow_, outCol[i], i);
+    colDump(nRow_, outCol[i], i);
   }
 }
 
@@ -232,7 +227,7 @@ void BitMatrix::Export(unsigned int nRow_, vector<vector<unsigned int> > &outCol
 
    @return void, with output reference vector.
  */
-void BitMatrix::ColExport(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const {
+void BitMatrix::colDump(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const {
   for (unsigned int row = 0; row < _nRow; row++)
     outCol[row] = testBit(row, colIdx) ? 1 : 0;
 }

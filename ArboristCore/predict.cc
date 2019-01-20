@@ -37,29 +37,29 @@ Predict::Predict(const FramePredict *_framePredict,
 }
 
 
-void Predict::reg(LeafReg* leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate, Quant* quant) {
+void Predict::reg(LeafFrameReg* leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate, Quant* quant) {
   auto predict = make_unique<Predict>(framePredict, forest, validate);
-  predict->PredictAcross(leaf, bag, quant);
+  predict->predictAcross(leaf, bag, quant);
 }
 
 
-void Predict::ctg(LeafCtg *leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate) {
+void Predict::ctg(LeafFrameCtg* leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate) {
   auto predict = make_unique<Predict>(framePredict, forest, validate);
-  predict->PredictAcross(leaf, bag, nullptr);
+  predict->predictAcross(leaf, bag, nullptr);
 }
 
 
 /**
  */
-void Predict::PredictAcross(Leaf *leaf, const BitMatrix *bag, Quant *quant) {
-  noLeaf = leaf->NoLeaf();
+void Predict::predictAcross(LeafFrame* leaf, const BitMatrix *bag, Quant *quant) {
+  noLeaf = leaf->getNoLeaf();
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
     unsigned int rowEnd = min(rowStart + rowBlock, nRow);
     framePredict->BlockTranspose(rowStart, rowEnd);
-    PredictBlock(rowStart, rowEnd, bag);
-    leaf->scoreBlock(this, rowStart, rowEnd);
+    predictBlock(rowStart, rowEnd, bag);
+    leaf->scoreBlock(predictLeaves.get(), rowStart, rowEnd);
     if (quant != nullptr) {
-      quant->PredictAcross(this, rowStart, rowEnd);
+      quant->predictAcross(this, rowStart, rowEnd);
     }
   }
 }
@@ -72,15 +72,15 @@ void Predict::PredictAcross(Leaf *leaf, const BitMatrix *bag, Quant *quant) {
 
    @return void.
  */
-void Predict::PredictBlock(unsigned int rowStart,
+void Predict::predictBlock(unsigned int rowStart,
                            unsigned int rowEnd,
                            const BitMatrix *bag) {
   if (framePredict->getNPredFac() == 0)
-    PredictBlockNum(rowStart, rowEnd, bag);
+    predictBlockNum(rowStart, rowEnd, bag);
   else if (framePredict->getNPredNum() == 0)
-    PredictBlockFac(rowStart, rowEnd, bag);
+    predictBlockFac(rowStart, rowEnd, bag);
   else
-    PredictBlockMixed(rowStart, rowEnd, bag);
+    predictBlockMixed(rowStart, rowEnd, bag);
 }
 
 
@@ -91,7 +91,7 @@ void Predict::PredictBlock(unsigned int rowStart,
 
    @return Void with output vector parameter.
  */
-void Predict::PredictBlockNum(unsigned int rowStart,
+void Predict::predictBlockNum(unsigned int rowStart,
                               unsigned int rowEnd,
                               const BitMatrix *bag) {
   OMPBound row;
@@ -101,7 +101,7 @@ void Predict::PredictBlockNum(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowNum(row, row - rowStart, forest->Node(), bag);
+      rowNum(row, row - rowStart, forest->Node(), bag);
     }
   }
 }
@@ -114,7 +114,7 @@ void Predict::PredictBlockNum(unsigned int rowStart,
 
    @return Void with output vector parameter.
  */
-void Predict::PredictBlockFac(unsigned int rowStart,
+void Predict::predictBlockFac(unsigned int rowStart,
                               unsigned int rowEnd,
                               const BitMatrix *bag) {
   OMPBound row;
@@ -124,7 +124,7 @@ void Predict::PredictBlockFac(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowFac(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
+      rowFac(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
   }
   }
 
@@ -142,7 +142,7 @@ void Predict::PredictBlockFac(unsigned int rowStart,
 
    @return Void with output vector parameter.
  */
-void Predict::PredictBlockMixed(unsigned int rowStart,
+void Predict::predictBlockMixed(unsigned int rowStart,
                                 unsigned int rowEnd,
                                 const BitMatrix *bag) {
   OMPBound row;
@@ -152,16 +152,16 @@ void Predict::PredictBlockMixed(unsigned int rowStart,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      RowMixed(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
+      rowMixed(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
     }
   }
 }
 
 
 
-void Predict::RowNum(unsigned int row,
+void Predict::rowNum(unsigned int row,
                      unsigned int blockRow,
-                     const ForestNode *forestNode,
+                     const TreeNode *treeNode,
                      const class BitMatrix *bag) {
   auto rowT = framePredict->RowNum(blockRow);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -169,7 +169,7 @@ void Predict::RowNum(unsigned int row,
     if (!(useBag && bag->testBit(tIdx, row))) {
       auto idx = treeOrigin[tIdx];
       do {
-        idx += forestNode[idx].advance(rowT, leafIdx);
+        idx += treeNode[idx].advance(rowT, leafIdx);
       } while (leafIdx == noLeaf);
     }
     predictLeaf(blockRow, tIdx, leafIdx);
@@ -188,9 +188,9 @@ void Predict::RowNum(unsigned int row,
 
    @return Void with output vector parameter.
  */
-void Predict::RowFac(unsigned int row,
+void Predict::rowFac(unsigned int row,
                      unsigned int blockRow,
-                     const ForestNode *forestNode,
+                     const TreeNode *treeNode,
                      const BVJagged *facSplit,
                      const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -199,7 +199,7 @@ void Predict::RowFac(unsigned int row,
       auto rowT = framePredict->RowFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
-        idx += forestNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
+        idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
       } while (leafIdx == noLeaf);
     }
     predictLeaf(blockRow, tIdx, leafIdx);
@@ -220,9 +220,9 @@ void Predict::RowFac(unsigned int row,
 
    @return Void with output vector parameter.
  */
-void Predict::RowMixed(unsigned int row,
+void Predict::rowMixed(unsigned int row,
                        unsigned int blockRow,
-                       const ForestNode *forestNode,
+                       const TreeNode *treeNode,
                        const BVJagged *facSplit,
                        const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -232,7 +232,7 @@ void Predict::RowMixed(unsigned int row,
       auto rowFT = framePredict->RowFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
-        idx += forestNode[idx].advance(framePredict, facSplit, rowFT, rowNT, tIdx, leafIdx);
+        idx += treeNode[idx].advance(framePredict, facSplit, rowFT, rowNT, tIdx, leafIdx);
       } while (leafIdx == noLeaf);
     }
     predictLeaf(blockRow, tIdx, leafIdx);

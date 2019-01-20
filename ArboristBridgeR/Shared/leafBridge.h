@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2018  Mark Seligman
+// Copyright (C)  2012-2019  Mark Seligman
 //
 // This file is part of ArboristBridgeR.
 //
@@ -96,7 +96,7 @@ class LeafRegBridge : public LeafBridge {
   
   static SEXP Legal(const List &lLeaf);
  protected:
-  unique_ptr<class LeafReg> leaf;
+  unique_ptr<class LeafFrameReg> leaf;
   
  public:
   /**
@@ -131,7 +131,7 @@ class LeafRegBridge : public LeafBridge {
   static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
-  class LeafReg *getLeaf() const {
+  class LeafFrameReg *getLeaf() const {
     return leaf.get();
   }
   
@@ -176,7 +176,7 @@ class LeafCtgBridge : public LeafBridge {
   static SEXP Legal(const List &lLeaf);
 
  protected:
-  unique_ptr<class LeafCtg> leaf;
+  unique_ptr<class LeafFrameCtg> leaf;
 
  public:
   /**
@@ -204,7 +204,7 @@ class LeafCtgBridge : public LeafBridge {
 
   ~LeafCtgBridge();
   
-  class LeafCtg *getLeaf() const {
+  class LeafFrameCtg *getLeaf() const {
     return leaf.get();
   }
 
@@ -301,7 +301,7 @@ class TestCtg {
   static IntegerVector MergeLevels(const CharacterVector &levelsTest,
                                    const CharacterVector &levelsTrain);
 
-  void Validate(class LeafCtg *leaf, const vector<unsigned int> &yPred);
+  void Validate(class LeafFrameCtg *leaf, const vector<unsigned int> &yPred);
   IntegerMatrix Confusion();
   NumericVector MisPred();
   double OOB(const vector<unsigned int> &yPred) const;
@@ -313,7 +313,41 @@ class TestCtg {
    of the forest during training.
  */
 struct LBTrain {
-  IntegerVector nodeHeight;  // Accumulated per-tree extent of LeafNode vector.
+private:
+  static bool thin; // User option:  whether to annotate bag state.
+
+
+  /**
+     @brief Accumulates scores of each bagged row in tree.
+
+     @param leaf is the core representation of the teaves.
+
+     @param tIdx is the absolute index of the tree.
+   */
+  void writeScore(const class LeafTrain* leaf,
+                  unsigned int tIdx);
+  
+  /**
+     @brief Consumes core Node recrods and writes as raw data.
+
+     @param leaf is the core representation of a trained leaf.
+
+     @param tIdx is the absolute tree index.
+
+     @param scale estimates a resizing factor.
+   */
+  void writeNode(const class LeafTrain* leaf,
+                 unsigned int tIdx,
+                 double scale);
+  
+  /**
+     @brief Consumes the BagLeaf records and writes as raw data.
+   */
+  void writeBagLeaf(const class LeafTrain* leaf,
+                    unsigned int treeOff,
+                    double scale);
+public:
+  IntegerVector nodeHeight;  // Accumulated per-tree extent of Leaf vector.
   RawVector nodeRaw;
 
   IntegerVector bagHeight; // Accumulated per-tree extent of BagLeaf vector.
@@ -321,12 +355,28 @@ struct LBTrain {
 
   LBTrain(unsigned int nTree);
 
+  static void init(bool thin_);
+  static void deInit();
+
+
+  /**
+     @brief High-level entry for writing contents of a tree's leaves.
+
+     @param leaf is the core represenation of the trained leaves.
+
+     @param tIdx is the absolute index of the tree.
+
+     @param scale estimates a resizing factor.
+   */
   virtual void consume(const class LeafTrain* leaf,
                unsigned int treeOff,
                double scale);
 
+  
+
   virtual List wrap() = 0;
 };
+
 
 struct LBTrainReg : public LBTrain {
   const NumericVector yTrain;
@@ -347,6 +397,21 @@ struct LBTrainReg : public LBTrain {
    additional field for weights.
  */
 struct LBTrainCtg : public LBTrain {
+private:
+  /**
+     @brief Writes leaf weights from core representation.
+
+     @param leaf is the core representation of a tree's leaves.
+
+     @param tIdx is the absolute tree index.
+
+     @double scale estimates a resizing factor.
+   */
+  void writeWeight(const class LeafTrainCtg* leaf,
+                   unsigned int tIdx,
+                   double scale);
+
+public:
   NumericVector weight;
   R_xlen_t weightSize; // Running Size of weight vector.  Not saved.
   const IntegerVector& yTrain;

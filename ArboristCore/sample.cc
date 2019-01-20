@@ -46,8 +46,10 @@ void Sample::DeImmutables() {
 }
 
 
-Sample::Sample() :
+Sample::Sample(const RowRank* rowRank_) :
+  rowRank(rowRank_),
   ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
+  row2Sample(vector<unsigned int>(rowRank->getNRow())),
   bagCount(0),
   bagSum(0.0) {
 }
@@ -57,24 +59,11 @@ Sample::~Sample() {
 }
 
 
-/**
-   @brief Samples and counts occurrences of each sampled row
-   index.
-
-   @param nRow is the number of rows in the training set.
-
-   @param[out] bagCount_ is the count of bagged rows.
-
-   @return row-indexed vector of sample counts.
-*/
-vector<unsigned int> Sample::rowSample(unsigned int nRow, unsigned int &bagCount_) {
+unsigned int Sample::rowSample(vector<unsigned int> &sCountRow) {
   vector<unsigned int> rvRow(CallBack::sampleRows(nSamp));
 
-  vector<unsigned int> sCountRow(nRow);
   fill(sCountRow.begin(), sCountRow.end(), 0);
-  bagCount_ = countSamples(rvRow, sCountRow);
-
-  return move(sCountRow);
+  return countSamples(rvRow, sCountRow);
 }
 
 
@@ -137,9 +126,12 @@ unsigned int Sample::countSamples(vector<unsigned int>& idx,
 /**
    @brief Static entry for classification.
  */
-SampleCtg *Sample::FactoryCtg(const double y[], const RowRank *rowRank,  const unsigned int yCtg[], BV *treeBag) {
-  SampleCtg *sampleCtg = new SampleCtg();
-  sampleCtg->preStage(yCtg, y, rowRank, treeBag);
+shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
+                                         const RowRank *rowRank,
+                                         const unsigned int yCtg[],
+                                         BV *treeBag) {
+  shared_ptr<SampleCtg> sampleCtg = make_shared<SampleCtg>(rowRank);
+  sampleCtg->bagSamples(yCtg, y, treeBag);
 
   return sampleCtg;
 }
@@ -149,9 +141,12 @@ SampleCtg *Sample::FactoryCtg(const double y[], const RowRank *rowRank,  const u
    @brief Static entry for regression response.
 
  */
-SampleReg *Sample::FactoryReg(const double y[], const RowRank *rowRank, const unsigned int *row2Rank, BV *treeBag) {
-  SampleReg *sampleReg = new SampleReg();
-  sampleReg->preStage(y, row2Rank, rowRank, treeBag);
+shared_ptr<SampleReg> Sample::factoryReg(const double y[],
+                                         const RowRank *rowRank,
+                                         const unsigned int *row2Rank,
+                                         BV *treeBag) {
+  shared_ptr<SampleReg> sampleReg = make_shared<SampleReg>(rowRank);
+  sampleReg->bagSamples(y, row2Rank, treeBag);
 
   return sampleReg;
 }
@@ -160,40 +155,27 @@ SampleReg *Sample::FactoryReg(const double y[], const RowRank *rowRank, const un
 /**
    @brief Constructor.
  */
-SampleReg::SampleReg() : Sample() {
+SampleReg::SampleReg(const RowRank *rowRank) : Sample(rowRank) {
 }
 
 
 
-void SampleReg::preStage(const double y[], const unsigned int *row2Rank, const RowRank *rowRank, BV *treeBag) {
-  vector<unsigned int> ctgProxy(rowRank->NRow());
+void SampleReg::bagSamples(const double y[], const unsigned int *row2Rank, BV *treeBag) {
+  vector<unsigned int> ctgProxy(row2Sample.size());
   fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  Sample::preStage(y, &ctgProxy[0], rowRank, treeBag);
-  setRank(row2Rank);
+  Sample::bagSamples(y, &ctgProxy[0], treeBag);
 }
 
 
-unique_ptr<SplitNode> SampleReg::SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameTrain *frameTrain) const {
   return rowRank->SPRegFactory(frameTrain, bagCount);
-}
-
-
-void SampleReg::setRank(const unsigned int *row2Rank) {
-  // Only client is quantile regression.
-  sample2Rank = new unsigned int[bagCount];
-  for (unsigned int row = 0; row < row2Sample.size(); row++) {
-    unsigned int sIdx;
-    if (sampledRow(row, sIdx)) {
-      sample2Rank[sIdx] = row2Rank[row];
-    }
-  }
 }
 
 
 /**
    @brief Constructor.
  */
-SampleCtg::SampleCtg() : Sample() {
+SampleCtg::SampleCtg(const RowRank* rowRank) : Sample(rowRank) {
   SumCount scZero;
   scZero.Init();
 
@@ -204,32 +186,27 @@ SampleCtg::SampleCtg() : Sample() {
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::preStage(const unsigned int yCtg[], const double y[], const RowRank *rowRank, BV *treeBag) {
-  Sample::preStage(y, yCtg, rowRank, treeBag);
+void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *treeBag) {
+  Sample::bagSamples(y, yCtg, treeBag);
 }
 
 
-unique_ptr<SplitNode> SampleCtg::SplitNodeFactory(const FrameTrain *frameTrain, const RowRank *rowRank) const {
+unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const FrameTrain *frameTrain) const {
   return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::getNCtg());
 }
 
 
-/**
-   @brief Sets the stage, so to speak, for a newly-sampled response set.
+void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag) {
+  // Samples row indices and counts occurrences.
+  //
+  const unsigned int nRow = row2Sample.size();
+  vector<unsigned int> sCountRow(nRow);
+  bagCount = rowSample(sCountRow);
 
-   @param y is the proxy / response:  classification / summary.
-
-   @param yCtg is true response / zero:  classification / regression.
-
-   @return void.
- */
-void Sample::preStage(const double y[], const unsigned int yCtg[], const RowRank *rowRank, BV *treeBag) {
-  unsigned int nRow = rowRank->NRow();
-  vector<unsigned int> sCountRow(rowSample(nRow, bagCount));
-  row2Sample = move(vector<unsigned int>(nRow));
+  // Copies contents of sampled outcomes and builds mapping vectors.
+  //
   fill(row2Sample.begin(), row2Sample.end(), bagCount);
-
-  unsigned int slotBits = BV::SlotElts();
+  const unsigned int slotBits = BV::SlotElts();
   unsigned int slot = 0;
   unsigned int sIdx = 0;
   for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
@@ -253,8 +230,7 @@ void Sample::preStage(const double y[], const unsigned int yCtg[], const RowRank
 
    @return void.
 */
-unique_ptr<SamplePred> Sample::stage(const RowRank *rowRank,
-                          vector<StageCount> &stageCount) {
+unique_ptr<SamplePred> Sample::stage(vector<StageCount>& stageCount) const {
   auto samplePred = rowRank->SamplePredFactory(bagCount);
   samplePred->stage(rowRank, sampleNode, this, stageCount);
   
@@ -272,5 +248,4 @@ SampleCtg::~SampleCtg() {
    @return void.
  */
 SampleReg::~SampleReg() {
-  delete [] sample2Rank;
 }

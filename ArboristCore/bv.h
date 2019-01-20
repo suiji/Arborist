@@ -55,7 +55,19 @@ class BV {
     return raw + off;
   }
 
-  void Consume(vector<unsigned int> &out, unsigned int bitEnd = 0) const;
+  /**
+     @brief Appends contents onto output vector.
+
+     @param[out] out outputs the raw bit vector contents.
+
+     @param bitEnd specifies a known end position if positive, otherwise
+     indicates that a default value be used.
+
+     @return void, with output vector parameter.
+  */
+  void consume(vector<unsigned int> &out, unsigned int bitEnd = 0) const;
+
+  
   unsigned int PopCount() const;
 
   BV *Resize(size_t bitMin);
@@ -185,8 +197,10 @@ class BV {
 class BitMatrix : public BV {
   const unsigned int nRow;
   const unsigned int stride; // Number of uint cells per row.
-  void Export(unsigned int _nRow, vector<vector<unsigned int> > &bmOut) const;
-  void ColExport(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const;
+  void dump(unsigned int _nRow, vector<vector<unsigned int> > &bmOut) const;
+  void colDump(unsigned int _nRow,
+               vector<unsigned int> &outCol,
+               unsigned int colIdx) const;
 
  public:
   BitMatrix(unsigned int _nRow, unsigned int _nCol);
@@ -204,7 +218,9 @@ class BitMatrix : public BV {
   }
   
 
-  static void Export(const vector<unsigned int> &raw_, unsigned int _nRow, vector<vector<unsigned int> > &vecOut);
+  static void dump(const vector<unsigned int> &raw_,
+                   unsigned int _nRow,
+                   vector<vector<unsigned int> > &vecOut);
 
 
   inline unique_ptr<BV> BVRow(unsigned int row) {
@@ -239,14 +255,14 @@ class BitMatrix : public BV {
 class BVJagged : public BV {
   const unsigned int *rowExtent;
   const unsigned int nRow;
-  vector<unsigned int> rowExport(unsigned int rowIdx) const;
+  vector<unsigned int> rowDump(unsigned int rowIdx) const;
 
  public:
   BVJagged(unsigned int raw_[],
            const unsigned int height_[], // Cumulative extent per row.
            unsigned int nRow_);
   ~BVJagged();
-  void Export(vector<vector<unsigned int> > &outVec);
+  void dump(vector<vector<unsigned int> > &outVec);
 
 
   /**

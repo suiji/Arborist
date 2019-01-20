@@ -46,8 +46,8 @@ void FBTrain::consume(const ForestTrain* forestTrain,
     facHeight[i++] = fo + (tIdx == 0 ? 0 : facHeight[tIdx-1]);
   }
 
-  size_t nodeOff = tIdx == 0 ? 0 : height[tIdx-1] * sizeof(ForestNode);
-  size_t nodeBytes = forestTrain->getNodeHeight().back() * sizeof(ForestNode);
+  size_t nodeOff = tIdx == 0 ? 0 : height[tIdx-1] * sizeof(TreeNode);
+  size_t nodeBytes = forestTrain->getNodeHeight().back() * sizeof(TreeNode);
   if (nodeOff + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
     RawVector temp(scale * (nodeOff + nodeBytes));
     for (size_t i = 0; i < nodeOff; i++)
@@ -117,7 +117,7 @@ ForestBridge::ForestBridge(const IntegerVector& feHeight_,
   feFacSplit(feFacSplit_),
   forest(move(make_unique<Forest>((unsigned int*) &feHeight[0],
                                   feHeight.length(),
-                                  (ForestNode*) &feNode[0],
+                                  (TreeNode*) &feNode[0],
                                   (unsigned int *) &feFacSplit[0],
                                   (unsigned int*) &feFacHeight[0]))) {
 }
@@ -141,7 +141,7 @@ ForestExport::ForestExport(List &lForest,
   bumpTree(vector<vector<unsigned int> >(getNTree())),
   splitTree(vector<vector<double > >(getNTree())),
   facSplitTree(vector<vector<unsigned int> >(getNTree())) {
-  forest->Export(predTree, splitTree, bumpTree, facSplitTree);
+  forest->dump(predTree, splitTree, bumpTree, facSplitTree);
   predExport(predMap.begin());
 }
 
