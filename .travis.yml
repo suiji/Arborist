@@ -1,13 +1,5 @@
 sudo: false
 
-language: r
-r:
-  - oldrel
-  - release
-  - devel
-
-cache: packages
-
 matrix:
   include:
     - os: linux
@@ -19,6 +11,14 @@ matrix:
             - g++-7
       env:
          - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+
+language: r
+r:
+  - oldrel
+  - release
+  - devel
+
+cache: packages
 
 before_install:
   - eval "${MATRIX_EVAL}"
