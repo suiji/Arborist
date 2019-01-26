@@ -11,8 +11,8 @@ cache: packages
 before_install:
   - Rscript -e 'install.packages("knitr")'
   - cd ArboristBridgeR/Package/
-  - chmod u+x Rborist.dev.sh
-  - ./Rborist.dev.sh
+  - chmod u+x Rborist.travis.sh
+  - ./Rborist.travis.sh
 
 install:
   - tar -xzvf Rborist_*.*-*.tar.gz
