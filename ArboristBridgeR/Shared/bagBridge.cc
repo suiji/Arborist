@@ -49,7 +49,7 @@ BagBridge::~BagBridge() {
 
 
 void BagBridge::consume(const Train *train, unsigned int treeOff) {
-  train->getBag((unsigned char*) &raw[treeOff * rowBytes]);
+  train->cacheBagRaw((unsigned char*) &raw[treeOff * rowBytes]);
 }
 
 

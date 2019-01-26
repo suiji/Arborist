@@ -40,8 +40,8 @@ class Train {
   unique_ptr<class ForestTrain> forest;
   vector<double> predInfo; // E.g., Gini gain:  nPred.
 
-  void TrainForest(const class FrameTrain *frameTrain,
-                   const class RankedSet *rankedPair);
+  void trainChunk(const class FrameTrain *frameTrain,
+                  const class RankedSet *rankedPair);
 
   unique_ptr<class LFTrain> leaf;
 
@@ -142,29 +142,33 @@ public:
   /**
      @brief Builds segment of decision forest for a block of trees.
 
-     @param ptBlock is a vector of PreTree objects.
+     @param treeBlock is a vector of Sample, PreTree pairs.
 
      @param blockStart is the starting tree index for the block.
-
-     @return void, with side-effected forest.
   */
   void blockConsume(vector<TrainSet> &treeBlock,
                     unsigned int blockStart);
 
-  
-  void treeBlock(const class FrameTrain *frameTrain,
-                 const class RowRank *rowRank,
-                 unsigned int tStart,
-                 unsigned int tCount);
+  /**
+     @brief  Creates a block of root samples and trains each one.
+
+     @return Wrapped collection of Sample, PreTree pairs.
+  */
+  vector<TrainSet> blockProduce(const class FrameTrain *frameTrain,
+                                const class RowRank *rowRank,
+                                unsigned int tStart,
+                                unsigned int tCount);
 
   class ForestTrain *getForest() const {
     return forest.get();
   }
 
   /**
+     @brief Dumps bag contents as raw characters.
+
      @param[out] bbRaw
    */
-  void getBag(unsigned char bbRaw[]) const;
+  void cacheBagRaw(unsigned char bbRaw[]) const;
 };
 
 #endif

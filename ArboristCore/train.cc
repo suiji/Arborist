@@ -155,7 +155,7 @@ unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
                                        const unsigned int *row2Rank,
                                        unsigned int treeChunk) {
   auto trainReg = make_unique<Train>(frameTrain, y, row2Rank, treeChunk);
-  trainReg->TrainForest(frameTrain, rankedPair);
+  trainReg->trainChunk(frameTrain, rankedPair);
 
   return trainReg;
 }
@@ -192,7 +192,7 @@ unique_ptr<Train> Train::classification(const FrameTrain *frameTrain,
                                         unsigned int treeChunk,
                                         unsigned int nTree) {
   auto trainCtg = make_unique<Train>(frameTrain, yCtg, nCtg, yProxy, nTree, treeChunk);
-  trainCtg->TrainForest(frameTrain, rankedPair);
+  trainCtg->trainChunk(frameTrain, rankedPair);
 
   return trainCtg;
 }
@@ -221,31 +221,27 @@ Train::~Train() {
 
 
 /**
-  @brief Trains the requisite number of trees.
+  @brief Trains a chunk of trees.
 
   @param trainBlock is the maximum count of trees to train en banc.
 
   @return void.
 */
-void Train::TrainForest(const FrameTrain *frameTrain,
-                        const RankedSet *rankedPair) {
+void Train::trainChunk(const FrameTrain *frameTrain,
+                       const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
-    treeBlock(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
+    auto treeBlock = blockProduce(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
+    blockConsume(treeBlock, treeStart);
   }
   forest->splitUpdate(frameTrain, rankedPair->GetNumRanked());
 }
 
 
-/**
-   @brief  Creates a block of root samples and trains each one.
-
-   @return void.
- */
-void Train::treeBlock(const FrameTrain *frameTrain,
-                      const RowRank *rowRank,
-                      unsigned int tStart,
-                      unsigned int tCount) {
+vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
+                                     const RowRank *rowRank,
+                                     unsigned int tStart,
+                                     unsigned int tCount) {
   unsigned int tIdx = tStart;
   vector<TrainSet> block(tCount);
   for (auto & set : block) {
@@ -256,7 +252,8 @@ void Train::treeBlock(const FrameTrain *frameTrain,
 
   if (tStart == 0)
     reserve(block);
-  blockConsume(block, tStart);
+
+  return move(block);
 }
 
  
@@ -296,13 +293,11 @@ void Train::blockConsume(vector<TrainSet> &treeBlock,
   unsigned int blockIdx = blockStart;
   for (auto & trainSet : treeBlock) {
     const vector<unsigned int> leafMap = get<1>(trainSet)->consume(forest.get(), blockIdx, predInfo);
-    leaf->blockLeaves(get<0>(trainSet).get(), leafMap, blockIdx);
-
-    blockIdx++;
+    leaf->blockLeaves(get<0>(trainSet).get(), leafMap, blockIdx++);
   }
 }
 
 
-void Train::getBag(unsigned char *bbRaw) const {
+void Train::cacheBagRaw(unsigned char *bbRaw) const {
   bagRow->Serialize(bbRaw);
 }
