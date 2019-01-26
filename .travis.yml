@@ -10,7 +10,7 @@ matrix:
       apt:
         sources: ['ubuntu-toolchain-r-test']
         packages: ['g++-7']
-    env: COMPILER=g++-7
+    env: g++=g++-7
 
 language: r
 r:
