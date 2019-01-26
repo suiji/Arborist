@@ -80,10 +80,11 @@ void SamplePred::setStageBounds(const RowRank* rowRank,
 
    @return void.
  */
-void SamplePred::stage(const RowRank* rowRank,
-                       const vector<SampleNux>  &sampleNode,
-                       const Sample* sample,
-                       vector<StageCount> &stageCount) {
+vector<StageCount> SamplePred::stage(const RowRank* rowRank,
+                                     const vector<SampleNux>  &sampleNode,
+                                     const Sample* sample) {
+  vector<StageCount> stageCount(rowRank->getNPred());
+
   OMPBound predIdx;
 #pragma omp parallel default(shared) private(predIdx)
   {
@@ -92,6 +93,8 @@ void SamplePred::stage(const RowRank* rowRank,
       stage(rowRank, sampleNode, sample, predIdx, stageCount[predIdx]);
     }
   }
+
+  return move(stageCount);
 }
 
 
@@ -253,7 +256,7 @@ void SamplePred::prepath(const IdxPath *idxPath,
 
    @return void.
  */
-void SamplePred::Restage(Level *levelBack,
+void SamplePred::restage(Level *levelBack,
                          Level *levelFront,
                          const SPPair &mrra,
                          unsigned int bufIdx) {

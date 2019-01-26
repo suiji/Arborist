@@ -64,8 +64,7 @@ class Bottom {
   const class FrameTrain *frameTrain;
   const class RowRank *rowRank;
   const unsigned int noRank;
-  unique_ptr<class SplitNode> splitNode;  // constant?
-  class SplitSig *splitSig;
+  class SplitNode* splitNode;
   class Run *run;
 
   vector<unsigned int> history;
@@ -81,7 +80,7 @@ class Bottom {
   /**
      @brief General, multi-level restaging.
   */
-  void Restage(class SamplePred *samplePred, RestageCoord &rsCoord);
+  void restage(class SamplePred *samplePred, RestageCoord &rsCoord);
 
   /**
      @brief Pushes first level's path maps back to all back levels
@@ -112,12 +111,10 @@ class Bottom {
      @brief Adds a new definition at the root level.
 
      @param stageCount is a vector of per-predictor staging statistics.
-
-     @return staged SamplePred region.
   */
-  unique_ptr<class SamplePred> rootDef(const class Sample* sample);
+  void rootDef(const vector<class StageCount>& stageCount);
 
-
+  
   /**
      @brief Schedules a reaching definition for restaging.
 
@@ -139,11 +136,10 @@ class Bottom {
 
      @param splitCount specifies the number of splits to map.
   */
-  Bottom(const class FrameTrain *_frameTrain,
-         const class Sample* sample);
-         //         class SplitNode *_splitNode,
-  //         vector<class StageCount> &stageCount);
-
+  Bottom(const class FrameTrain* frameTrain_,
+         const class RowRank* rowRank_,
+         unsigned int bagCount_,
+         SplitNode* splitNode_);
 
   /**
      @brief Class finalizer.
@@ -231,7 +227,7 @@ class Bottom {
 
      @return void, with side-effected restaging buffers.
   */
-  void Restage(class SamplePred *samplePred);
+  void restage(class SamplePred *samplePred);
 
 
   /**

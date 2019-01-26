@@ -24,7 +24,7 @@
 typedef pair<double, unsigned int> RankedPair;
 
 /**
-   @brief Rank and sample-count values derived from BagLeaf.  Client:
+   @brief Rank and sample-count values derived from BagSample.  Client:
    quantile inference.
  */
 class RankCount {

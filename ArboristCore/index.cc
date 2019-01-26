@@ -19,6 +19,7 @@
 #include "sample.h"
 #include "samplepred.h"
 #include "splitcand.h"
+#include "splitnode.h"
 #include "bottom.h"
 #include "path.h"
 #include "runset.h"
@@ -52,32 +53,6 @@ void IndexLevel::Immutables(unsigned int _minNode, unsigned int _totLevels) {
 void IndexLevel::DeImmutables() {
   totLevels = 0;
   minNode = 0;
-}
-
-
-
-/**
-   @brief Per-tree constructor.  Sets up root node for level zero.
- */
-IndexLevel::IndexLevel(const Sample* sample,
-                       SamplePred *_samplePred,
-                       Bottom *_bottom) :
-  samplePred(_samplePred),
-  bottom(_bottom),
-  indexSet(vector<IndexSet>(1)),
-  bagCount(sample->getBagCount()),
-  nodeRel(false),
-  idxLive(bagCount),
-  relBase(vector<unsigned int>(1)),
-  rel2ST(vector<unsigned int>(bagCount)),
-  st2Split(vector<unsigned int>(bagCount)),
-  st2PT(vector<unsigned int>(bagCount)),
-  replayExpl(new BV(bagCount)) {
-  indexSet[0].Init(0, sample->getNSamp(), 0, bagCount, 0.0, 0, sample->getBagSum(), 0, 0, bagCount, sample->getCtgRoot(), sample->getCtgRoot(), true);
-  relBase[0] = 0;
-  iota(rel2ST.begin(), rel2ST.end(), 0);
-  fill(st2Split.begin(), st2Split.end(), 0);
-  fill(st2PT.begin(), st2PT.end(), 0);
 }
 
 
@@ -154,23 +129,50 @@ IndexSet::IndexSet() :
 
 
 shared_ptr<PreTree> IndexLevel::oneTree(const FrameTrain *frameTrain,
+                                        const RowRank* rowRank,
                                         const Sample *sample) {
-  auto bottom = make_unique<Bottom>(frameTrain, sample);
-  auto samplePred = bottom->rootDef(sample);
-  auto index = make_unique<IndexLevel>(sample,
-                                       samplePred.get(),
-                                       bottom.get());
-  return index->levels(frameTrain);
+  auto index = make_unique<IndexLevel>(frameTrain, rowRank, sample);
+  return index->levels(frameTrain, sample);
 }
 
 
-shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain) {
+
+/**
+   @brief Per-tree constructor.  Sets up root node for level zero.
+ */
+IndexLevel::IndexLevel(const FrameTrain* frameTrain,
+                       const RowRank* rowRank,
+                       const Sample* sample) :
+  samplePred(sample->predictors()),
+  indexSet(vector<IndexSet>(1)),
+  bagCount(sample->getBagCount()),
+  splitNode(sample->splitNodeFactory(frameTrain)),
+  bottom(make_unique<Bottom>(frameTrain, rowRank, bagCount, splitNode.get())),
+  nodeRel(false),
+  idxLive(bagCount),
+  relBase(vector<unsigned int>(1)),
+  rel2ST(vector<unsigned int>(bagCount)),
+  st2Split(vector<unsigned int>(bagCount)),
+  st2PT(vector<unsigned int>(bagCount)),
+  replayExpl(new BV(bagCount)) {
+  indexSet[0].Init(0, sample->getNSamp(), 0, bagCount, 0.0, 0, sample->getBagSum(), 0, 0, bagCount, sample->getCtgRoot(), sample->getCtgRoot(), true);
+  relBase[0] = 0;
+  iota(rel2ST.begin(), rel2ST.end(), 0);
+  fill(st2Split.begin(), st2Split.end(), 0);
+  fill(st2PT.begin(), st2PT.end(), 0);
+}
+
+
+shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain,
+                                       const Sample* sample) {
+  auto stageCount = sample->stage(samplePred.get());
+  bottom->rootDef(stageCount);
   shared_ptr<PreTree> preTree = make_shared<PreTree>(frameTrain, bagCount);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     //cout << "\nLevel " << level << "\n" << endl;
     bottom->levelInit(this);
-    auto argMax = bottom->split(samplePred, this);
+    auto argMax = bottom->split(samplePred.get(), this);
 
     unsigned int leafNext, idxMax;
     unsigned int splitNext = splitCensus(argMax, leafNext, idxMax, level + 1 == totLevels);
@@ -287,7 +289,7 @@ void IndexLevel::consume(PreTree *preTree,
   liveBase = 0;
   extinctBase = idxLive;
   for (auto & iSet : indexSet) {
-    iSet.consume(this, bottom, preTree, argMax);
+    iSet.consume(this, bottom.get(), preTree, argMax);
   }
 
   if (nodeRel) {
@@ -551,7 +553,7 @@ void IndexLevel::produce(const PreTree *preTree, unsigned int splitNext) {
   bottom->Overlap(splitNext, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
-    iSet.produce(this, bottom, preTree, indexNext);
+    iSet.produce(this, bottom.get(), preTree, indexNext);
   }
   indexSet = move(indexNext);
 }
@@ -662,7 +664,7 @@ bool IndexLevel::branchNum(const SplitCand& argMax,
                           IndexSet* iSet,
                           PreTree* preTree) const {
   preTree->branchNum(argMax, iSet->getPTId());
-  iSet->blockReplay(samplePred, argMax, replayExpl);
+  iSet->blockReplay(samplePred.get(), argMax, replayExpl);
 
   return argMax.leftIsExplicit();
 }
@@ -686,5 +688,5 @@ void IndexLevel::blockReplay(IndexSet *iSet,
                              const SplitCand& argMax,
                              unsigned int blockStart,
                              unsigned int blockExtent) const {
-  iSet->blockReplay(samplePred, argMax, blockStart, blockExtent, replayExpl);
+  iSet->blockReplay(samplePred.get(), argMax, blockStart, blockExtent, replayExpl);
 }

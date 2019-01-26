@@ -78,10 +78,9 @@ class SamplePred {
   void setStageBounds(const class RowRank* rowRank,
                    unsigned int predIdx);
 
-  void stage(const class RowRank* rowRank,
-             const vector<SampleNux> &sampleNode,
-             const class Sample* sample,
-             vector<StageCount> &stageCount);
+  vector<StageCount> stage(const class RowRank* rowRank,
+                           const vector<SampleNux> &sampleNode,
+                           const class Sample* sample);
 
   void stage(const class RowRank* rowRank,
              const vector<SampleNux> &sampleNode,
@@ -135,7 +134,7 @@ class SamplePred {
                      class BV* replayExpl,
                      vector<class SumCount>& ctgExpl);
 
-  void Restage(class Level *levelBack,
+  void restage(class Level *levelBack,
                        class Level *levelFront,
                        const SPPair &mrra,
                        unsigned int bufIdx);

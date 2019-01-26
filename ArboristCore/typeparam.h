@@ -51,7 +51,4 @@ typedef int OMPBound;
  */
 typedef pair<unsigned int, unsigned int> SPPair;
 
-
-typedef pair<shared_ptr<class Sample>, shared_ptr<class PreTree> > TrainPair;
-
 #endif

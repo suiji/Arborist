@@ -223,8 +223,15 @@ class BitMatrix : public BV {
                    vector<vector<unsigned int> > &vecOut);
 
 
-  inline unique_ptr<BV> BVRow(unsigned int row) {
-    return make_unique<BV>(Raw((row * stride) / slotElts), stride);
+  /**
+     @brief Wraps a row section as a bit vector.
+
+     @param row is the row number being accessed.
+
+     @return wrapped bit vector.
+   */
+  inline shared_ptr<BV> BVRow(unsigned int row) {
+    return make_shared<BV>(Raw((row * stride) / slotElts), stride);
   }
 
 

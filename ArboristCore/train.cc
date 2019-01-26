@@ -22,7 +22,6 @@
 #include "index.h"
 #include "pretree.h"
 #include "samplepred.h"
-#include "response.h"
 #include "splitnode.h"
 #include "splitcand.h"
 #include "leaf.h"
@@ -83,7 +82,7 @@ void Train::initTree(unsigned int nSamp,
    @return void.
  */
 void Train::initSample(unsigned int nSamp) {
-  Sample::Immutables(nSamp);
+  Sample::immutables(nSamp);
 }
 
 /**
@@ -132,7 +131,7 @@ void Train::deInit() {
   SplitCand::deImmutables();
   IndexLevel::DeImmutables();
   PreTree::DeImmutables();
-  Sample::DeImmutables();
+  Sample::deImmutables();
   SampleNux::deImmutables();
   Level::DeImmutables();
   SPReg::DeImmutables();
@@ -174,8 +173,7 @@ Train::Train(const FrameTrain *frameTrain,
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
   predInfo(vector<double>(frameTrain->getNPred())),
-  response(Response::factoryReg(y, row2Rank)),
-  leaf(LeafTrain::factoryReg(treeChunk)) {
+  leaf(LFTrain::factoryReg(y, row2Rank, treeChunk)) {
 }
 
 
@@ -214,8 +212,7 @@ Train::Train(const FrameTrain *frameTrain,
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
   predInfo(vector<double>(frameTrain->getNPred())),
-  response(Response::factoryCtg(yCtg, yProxy)),
-  leaf(LeafTrain::factoryCtg(treeChunk, nCtg, nTree, nRow)) {
+  leaf(LFTrain::factoryCtg(yCtg, yProxy, treeChunk, nRow, nCtg, nTree)) {
 }
 
 
@@ -226,7 +223,7 @@ Train::~Train() {
 /**
   @brief Trains the requisite number of trees.
 
-  @param trainBlock is the maximum Count of trees to train en block.
+  @param trainBlock is the maximum count of trees to train en banc.
 
   @return void.
 */
@@ -250,12 +247,11 @@ void Train::treeBlock(const FrameTrain *frameTrain,
                       unsigned int tStart,
                       unsigned int tCount) {
   unsigned int tIdx = tStart;
-  vector<TrainPair> block(tCount);
-  for (auto & pair : block) {
-    auto treeBag = bagRow->BVRow(tIdx++);
-    auto sample = response->rootSample(rowRank, treeBag.get());
-    auto preTree = IndexLevel::oneTree(frameTrain, sample.get());
-    pair = make_pair(sample, preTree);
+  vector<TrainSet> block(tCount);
+  for (auto & set : block) {
+    auto sample = leaf->rootSample(rowRank, bagRow.get(), tIdx++);
+    auto preTree = IndexLevel::oneTree(frameTrain, rowRank, sample.get());
+    set = make_pair(sample, preTree);
   }
 
   if (tStart == 0)
@@ -272,7 +268,7 @@ void Train::treeBlock(const FrameTrain *frameTrain,
 
   @return void.
 */
-void Train::reserve(vector<TrainPair> &treeBlock) {
+void Train::reserve(vector<TrainSet> &treeBlock) {
   size_t blockFac, blockBag, blockLeaf;
   size_t maxHeight = 0;
   size_t blockHeight = blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
@@ -280,27 +276,27 @@ void Train::reserve(vector<TrainPair> &treeBlock) {
 }
 
 
-unsigned int Train::blockPeek(vector<TrainPair> &treeBlock,
+unsigned int Train::blockPeek(vector<TrainSet> &treeBlock,
                               size_t &blockFac,
                               size_t &blockBag,
                               size_t &blockLeaf,
                               size_t &maxHeight) {
   size_t blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
-  for (auto & pair : treeBlock) {
-    get<1>(pair)->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
+  for (auto & set : treeBlock) {
+    get<1>(set)->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
   }
 
   return blockHeight;
 }
 
  
-void Train::blockConsume(vector<TrainPair> &treeBlock,
+void Train::blockConsume(vector<TrainSet> &treeBlock,
                          unsigned int blockStart) {
   unsigned int blockIdx = blockStart;
-  for (auto & trainPair : treeBlock) {
-    const vector<unsigned int> leafMap = get<1>(trainPair)->consume(forest.get(), blockIdx, predInfo);
-    leaf->blockLeaves(get<0>(trainPair).get(), leafMap, blockIdx);
+  for (auto & trainSet : treeBlock) {
+    const vector<unsigned int> leafMap = get<1>(trainSet)->consume(forest.get(), blockIdx, predInfo);
+    leaf->blockLeaves(get<0>(trainSet).get(), leafMap, blockIdx);
 
     blockIdx++;
   }

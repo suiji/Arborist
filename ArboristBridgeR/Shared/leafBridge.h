@@ -88,7 +88,7 @@ class LeafRegBridge : public LeafBridge {
   const IntegerVector &feNodeHeight;
   const RawVector &feNode;
   const IntegerVector &feBagHeight;
-  const RawVector &feBagLeaf;
+  const RawVector &feBagSample;
   const NumericVector &yTrain;
 
   vector<vector<double > > scoreTree;
@@ -105,7 +105,7 @@ class LeafRegBridge : public LeafBridge {
   LeafRegBridge(const IntegerVector &feNodeHeight_,
                 const RawVector &feNode_,
                 const IntegerVector& feBagHeight_,
-                const RawVector& feBagLeaf_,
+                const RawVector& feBagSample_,
                 const NumericVector& yTrain_,
                 unsigned int rowPredict);
 
@@ -115,7 +115,7 @@ class LeafRegBridge : public LeafBridge {
   LeafRegBridge(const IntegerVector& feNodeHeight_,
                 const RawVector& feNode_,
                 const IntegerVector& feBagHeight_,
-                const RawVector& feBagLeaf_,
+                const RawVector& feBagSample_,
                 const NumericVector& yTrain_,
                 const class BitMatrix* baggedRows);
 
@@ -161,7 +161,7 @@ class LeafCtgBridge : public LeafBridge {
   const IntegerVector& feNodeHeight;
   const RawVector& feNode;
   const IntegerVector& feBagHeight;
-  const RawVector& feBagLeaf;
+  const RawVector& feBagSample;
   const NumericVector& feWeight;
   const CharacterVector levelsTrain; // Pinned for summary reuse.
 
@@ -185,7 +185,7 @@ class LeafCtgBridge : public LeafBridge {
   LeafCtgBridge(const IntegerVector& feNodeHeight_,
                 const RawVector &feNode_,
                 const IntegerVector& feBagheight_,
-                const RawVector& feBagLeaf_,
+                const RawVector& feBagSample_,
                 const NumericVector& feWeight_,
                 const CharacterVector& feLevels_,
                 unsigned int rowPredict_,
@@ -197,7 +197,7 @@ class LeafCtgBridge : public LeafBridge {
   LeafCtgBridge(const IntegerVector& feNodeHeight_,
                 const RawVector& feNode_,
                 const IntegerVector& feBagHeight_,
-                const RawVector& feBagLeaf_,
+                const RawVector& feBagSample_,
                 const NumericVector& feWeight_,
                 const CharacterVector& feLevels_,
                 const class BitMatrix* bitMatrix);
@@ -321,11 +321,9 @@ private:
      @brief Accumulates scores of each bagged row in tree.
 
      @param leaf is the core representation of the teaves.
-
-     @param tIdx is the absolute index of the tree.
    */
-  void writeScore(const class LeafTrain* leaf,
-                  unsigned int tIdx);
+  void accumScores(const class LFTrain* leaf);
+
   
   /**
      @brief Consumes core Node recrods and writes as raw data.
@@ -336,21 +334,21 @@ private:
 
      @param scale estimates a resizing factor.
    */
-  void writeNode(const class LeafTrain* leaf,
+  void writeNode(const class LFTrain* leaf,
                  unsigned int tIdx,
                  double scale);
   
   /**
-     @brief Consumes the BagLeaf records and writes as raw data.
+     @brief Consumes the BagSample records and writes as raw data.
    */
-  void writeBagLeaf(const class LeafTrain* leaf,
+  void writeBagSample(const class LFTrain* leaf,
                     unsigned int treeOff,
                     double scale);
 public:
   IntegerVector nodeHeight;  // Accumulated per-tree extent of Leaf vector.
   RawVector nodeRaw;
 
-  IntegerVector bagHeight; // Accumulated per-tree extent of BagLeaf vector.
+  IntegerVector bagHeight; // Accumulated per-tree extent of BagSample vector.
   RawVector blRaw;
 
   LBTrain(unsigned int nTree);
@@ -368,7 +366,7 @@ public:
 
      @param scale estimates a resizing factor.
    */
-  virtual void consume(const class LeafTrain* leaf,
+  virtual void consume(const class LFTrain* leaf,
                unsigned int treeOff,
                double scale);
 
@@ -384,7 +382,7 @@ struct LBTrainReg : public LBTrain {
   LBTrainReg(const NumericVector& yTrain_,
              unsigned int nTree);
              
-  void consume(const class LeafTrain* leaf,
+  void consume(const class LFTrain* leaf,
                unsigned int treeOff,
                double scale);
 
@@ -407,7 +405,7 @@ private:
 
      @double scale estimates a resizing factor.
    */
-  void writeWeight(const class LeafTrainCtg* leaf,
+  void writeWeight(const class LFTrainCtg* leaf,
                    unsigned int tIdx,
                    double scale);
 
@@ -419,7 +417,7 @@ public:
   LBTrainCtg(const IntegerVector& yTrain_,
              unsigned int nTree);
   
-  void consume(const class LeafTrain* leaf,
+  void consume(const class LFTrain* leaf,
                unsigned int treeOff,
                double scale);
 

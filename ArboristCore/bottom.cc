@@ -30,17 +30,19 @@
 #include <algorithm>
 
 
-Bottom::Bottom(const FrameTrain *_frameTrain,
-               const Sample *sample) :
-  nPred(_frameTrain->getNPred()),
-  nPredFac(_frameTrain->getNPredFac()),
-  bagCount(sample->getBagCount()),
+Bottom::Bottom(const FrameTrain* frameTrain_,
+               const RowRank* rowRank_,
+               unsigned int bagCount_,
+               SplitNode* splitNode_) :
+  nPred(frameTrain_->getNPred()),
+  nPredFac(frameTrain_->getNPredFac()),
+  bagCount(bagCount_),
   stPath(new IdxPath(bagCount)),
   splitPrev(0), splitCount(1),
-  frameTrain(_frameTrain),
-  rowRank(sample->getRowRank()),
+  frameTrain(frameTrain_),
+  rowRank(rowRank_),
   noRank(rowRank->NoRank()),
-  splitNode(sample->splitNodeFactory(frameTrain)),
+  splitNode(splitNode_),
   run(splitNode->getRuns()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
@@ -54,9 +56,7 @@ Bottom::Bottom(const FrameTrain *_frameTrain,
 }
 
 
-unique_ptr<SamplePred> Bottom::rootDef(const Sample* sample) {
-  vector<StageCount> stageCount(rowRank->getNPred());
-  auto samplePred = sample->stage(stageCount);
+void Bottom::rootDef(const vector<StageCount>& stageCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int splitIdx = 0;
   for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
@@ -65,18 +65,16 @@ unique_ptr<SamplePred> Bottom::rootDef(const Sample* sample) {
     (void) levelFront->Define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
     setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->getFacCard(predIdx));
   }
-
-  return samplePred;
 }
 
 
 vector<SplitCand> Bottom::split(SamplePred *samplePred,
                                  IndexLevel *index) {
   unsigned int supUnFlush = flushRear();
-  levelFront->candidates(index, splitNode.get());
+  levelFront->candidates(index, splitNode);
 
   backdate();
-  Restage(samplePred);
+  restage(samplePred);
 
   // Reaching levels must persist through restaging ut allow path lookup.
   //
@@ -157,14 +155,14 @@ Bottom::~Bottom() {
 }
 
 
-void Bottom::Restage(SamplePred *samplePred) {
+void Bottom::restage(SamplePred *samplePred) {
   int nodeIdx;
 
 #pragma omp parallel default(shared) private(nodeIdx)
   {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
-      Restage(samplePred, restageCoord[nodeIdx]);
+      restage(samplePred, restageCoord[nodeIdx]);
     }
   }
 
@@ -172,11 +170,11 @@ void Bottom::Restage(SamplePred *samplePred) {
 }
 
 
-void Bottom::Restage(SamplePred *samplePred, RestageCoord &rsCoord) {
+void Bottom::restage(SamplePred *samplePred, RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
   SPPair mrra;
   rsCoord.Ref(mrra, del, bufIdx);
-  samplePred->Restage(level[del], levelFront, mrra, bufIdx);
+  samplePred->restage(level[del], levelFront, mrra, bufIdx);
 }
 
 

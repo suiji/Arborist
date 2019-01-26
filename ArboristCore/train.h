@@ -21,6 +21,10 @@
 
 #include "typeparam.h"
 
+/**
+   @brief Short-lived bundle of objects created for training a block of trees.
+ */
+typedef pair<shared_ptr<class Sample>, shared_ptr<class PreTree> > TrainSet;
 
 /**
    @brief Interface class for front end.  Holds simulation-specific parameters
@@ -32,15 +36,14 @@ class Train {
 
   const unsigned int nRow;
   const unsigned int treeChunk;
-  unique_ptr<class BitMatrix> bagRow;
+  unique_ptr<class BitMatrix> bagRow; // treeChunk x nRow
   unique_ptr<class ForestTrain> forest;
   vector<double> predInfo; // E.g., Gini gain:  nPred.
-  const unique_ptr<class Response> response;
 
   void TrainForest(const class FrameTrain *frameTrain,
                    const class RankedSet *rankedPair);
 
-  unique_ptr<class LeafTrain> leaf;
+  unique_ptr<class LFTrain> leaf;
 
 public:
 
@@ -66,7 +69,7 @@ public:
   ~Train();
 
 
-  class LeafTrain *getLeaf() const {
+  class LFTrain *getLeaf() const {
     return leaf.get();
   }
 
@@ -122,7 +125,7 @@ public:
        unsigned int treeChunk,
        unsigned int nTree);
   
-  void reserve(vector<TrainPair> &treeBlock);
+  void reserve(vector<TrainSet> &treeBlock);
 
   /**
      @brief Accumulates block size parameters as clues to forest-wide sizes.
@@ -130,7 +133,7 @@ public:
 
      @return sum of tree sizes over block.
   */
-  unsigned int blockPeek(vector<TrainPair> &treeBlock,
+  unsigned int blockPeek(vector<TrainSet> &treeBlock,
                          size_t &blockFac,
                          size_t &blockBag,
                          size_t &blockLeaf,
@@ -145,7 +148,7 @@ public:
 
      @return void, with side-effected forest.
   */
-  void blockConsume(vector<TrainPair> &treeBlock,
+  void blockConsume(vector<TrainSet> &treeBlock,
                     unsigned int blockStart);
 
   

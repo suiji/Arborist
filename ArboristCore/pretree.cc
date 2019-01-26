@@ -217,7 +217,7 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
   consumeNonterminal(forest, predInfo);
   forest->appendBits(splitBits, bitEnd, tIdx);
 
-  return frontierConsume(forest, tIdx);
+  return frontierConsume(forest);
 }
 
 
@@ -273,19 +273,19 @@ void PreTree::SubtreeFrontier(const vector<unsigned int> &stTerm) {
 
    @return Reference to rewritten map, with side-effected Forest.
  */
-const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest, unsigned int tIdx) const {
+const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest) const {
   vector<unsigned int> frontierMap(termST.size());
   vector<unsigned int> pt2Leaf(height);
   fill(pt2Leaf.begin(), pt2Leaf.end(), height); // Inattainable leaf index.
 
   unsigned int leafIdx = 0;
-  for (unsigned int stIdx = 0; stIdx < termST.size(); stIdx++) {
-    unsigned int ptIdx = termST[stIdx];
+  unsigned int stIdx = 0;
+  for (auto ptIdx : termST) {
     if (pt2Leaf[ptIdx] == height) {
       forest->terminal(ptIdx, leafIdx);
       pt2Leaf[ptIdx] = leafIdx++;
     }
-    frontierMap[stIdx] = pt2Leaf[ptIdx];
+    frontierMap[stIdx++] = pt2Leaf[ptIdx];
   }
 
   return frontierMap;

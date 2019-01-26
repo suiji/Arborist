@@ -281,10 +281,11 @@ class IndexSet {
 class IndexLevel {
   static unsigned int minNode;
   static unsigned int totLevels;
-  class SamplePred *samplePred;
-  class Bottom *bottom;
+  unique_ptr<class SamplePred> samplePred;
   vector<IndexSet> indexSet;
   const unsigned int bagCount;
+  unique_ptr<class SplitNode> splitNode;
+  unique_ptr<class Bottom> bottom;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
   unsigned int idxLive; // Total live indices.
@@ -319,9 +320,9 @@ class IndexLevel {
   static void Immutables(unsigned int _minNode, unsigned int _totLevels);
   static void DeImmutables();
 
-  IndexLevel(const class Sample* sample,
-             class SamplePred *_samplePred,
-             class Bottom *_bottom);
+  IndexLevel(const class FrameTrain* frameTrain,
+             const class RowRank* rowRank,
+             const class Sample* sample);
 
   ~IndexLevel();
 
@@ -336,10 +337,11 @@ class IndexLevel {
 
     @return trained pretree object.
   */
-  static shared_ptr<class PreTree> oneTree(const class FrameTrain *frameTrain,
-                                           const class Sample *sample);
+  static shared_ptr<class PreTree> oneTree(const class FrameTrain* frameTrain,
+                                           const class RowRank* rowRank,
+                                           const class Sample* sample);
 
-  
+
   /**
      @brief Main loop for per-level splitting.  Assumes root node and
      attendant per-tree data structures have been initialized.
@@ -348,7 +350,8 @@ class IndexLevel {
 
      @return trained pretree object.
   */
-  shared_ptr<class PreTree> levels(const class FrameTrain *frameTrain);
+  shared_ptr<class PreTree> levels(const class FrameTrain *frameTrain,
+                                   const class Sample* sample);
   
   bool nonTerminal(class PreTree *preTree,
                    IndexSet *iSet,

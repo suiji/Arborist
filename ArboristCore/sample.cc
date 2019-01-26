@@ -24,24 +24,12 @@
 //
 unsigned int Sample::nSamp = 0;
 
-/**
- @brief Lights off initializations needed for sampling.
-
- @param nSamp_ is the number of samples.
-
- @return void.
-*/
-void Sample::Immutables(unsigned int nSamp_) {
+void Sample::immutables(unsigned int nSamp_) {
   nSamp = nSamp_;
 }
 
 
-/**
-   @brief Finalizer.
-
-   @return void.
-*/
-void Sample::DeImmutables() {
+void Sample::deImmutables() {
   nSamp = 0;
 }
 
@@ -137,10 +125,6 @@ shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
 }
 
 
-/**
-   @brief Static entry for regression response.
-
- */
 shared_ptr<SampleReg> Sample::factoryReg(const double y[],
                                          const RowRank *rowRank,
                                          const unsigned int *row2Rank,
@@ -152,9 +136,6 @@ shared_ptr<SampleReg> Sample::factoryReg(const double y[],
 }
 
 
-/**
-   @brief Constructor.
- */
 SampleReg::SampleReg(const RowRank *rowRank) : Sample(rowRank) {
 }
 
@@ -172,9 +153,6 @@ unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameTrain *frameTrain) 
 }
 
 
-/**
-   @brief Constructor.
- */
 SampleCtg::SampleCtg(const RowRank* rowRank) : Sample(rowRank) {
   SumCount scZero;
   scZero.Init();
@@ -225,16 +203,13 @@ void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag
 }
 
 
-/**
-   @brief Invokes RowRank staging methods and caches compression map.
+unique_ptr<SamplePred> Sample::predictors() const {
+  return rowRank->SamplePredFactory(bagCount);
+}
 
-   @return void.
-*/
-unique_ptr<SamplePred> Sample::stage(vector<StageCount>& stageCount) const {
-  auto samplePred = rowRank->SamplePredFactory(bagCount);
-  samplePred->stage(rowRank, sampleNode, this, stageCount);
-  
-  return samplePred;
+
+vector<StageCount> Sample::stage(SamplePred* samplePred) const {
+  return move(samplePred->stage(rowRank, sampleNode, this));
 }
 
 
@@ -242,10 +217,5 @@ SampleCtg::~SampleCtg() {
 }
 
 
-/**
-   @brief Clears per-tree information.
-
-   @return void.
- */
 SampleReg::~SampleReg() {
 }

@@ -98,7 +98,7 @@ class PreTree {
   class BV *splitBits;
   vector<unsigned int> termST;
   class BV *BitFactory();
-  const vector<unsigned int> frontierConsume(class ForestTrain *forest, unsigned int tIdx) const ;
+  const vector<unsigned int> frontierConsume(class ForestTrain *forest) const;
   unsigned int BitWidth();
 
 

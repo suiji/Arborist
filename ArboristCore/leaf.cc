@@ -8,7 +8,7 @@
 /**
    @file leaf.cc
 
-   @brief Methods to train leaf components for an entire forest.
+   @brief Methods to train and score leaf components for an entire forest.
 
    @author Mark Seligman
  */
@@ -21,276 +21,16 @@
 
 
 /**
-   @brief Crescent constructor.
- */
-LeafTrain::LeafTrain(unsigned int treeChunk) :
-  lbCresc(make_unique<LBCresc>(treeChunk)),
-  bbCresc(make_unique<BBCresc>(treeChunk)) {
-}
-
-
-LBCresc::LBCresc(unsigned int nTree) :
-  leaf(vector<Leaf>(0)),
-  height(vector<size_t>(nTree)),
-  treeFloor(0) {
-}
-
-
-BBCresc::BBCresc(unsigned int nTree) :
-  bagLeaf(vector<BagLeaf>(0)),
-  height(vector<size_t>(nTree)) {
-}
-
-
-LeafTrain::~LeafTrain() {
-}
-
-
-/**
- */
-LeafTrainReg::LeafTrainReg(unsigned int treeChunk) :
-  LeafTrain(treeChunk) {
-}
-
-
-
-LeafTrainReg::~LeafTrainReg() {
-}
-
-
-ProbCresc::ProbCresc(unsigned int treeChunk,
-                     unsigned int nCtg_,
-                     double forestScale_) :
-  nCtg(nCtg_),
-  treeFloor(0),
-  height(vector<size_t>(treeChunk)),
-  prob(vector<double>(0)),
-  forestScale(forestScale_) {
-}
-
-/**
-   @brief Constructor for crescent forest.
- */
-LeafTrainCtg::LeafTrainCtg(unsigned int treeChunk,
-                           unsigned int nCtg_,
-                           double scale) :
-  LeafTrain(treeChunk),
-  probCresc(make_unique<ProbCresc>(treeChunk, nCtg_, scale)),
-  nCtg(nCtg_) {
-}
-
-
-LeafTrainCtg::~LeafTrainCtg() {
-}
-
-
-unique_ptr<LeafTrainCtg> LeafTrain::factoryCtg(unsigned int treeChunk,
-                                               unsigned int nCtg,
-                                               unsigned int nTree,
-                                               unsigned int nRow) {
-  return make_unique<LeafTrainCtg>(treeChunk, nCtg, 1.0 / (static_cast<double>(nTree)) * nRow);
-}
-
-unique_ptr<LeafTrainReg> LeafTrain::factoryReg(unsigned int treeChunk) {
-  return make_unique<LeafTrainReg>(treeChunk);
-}
-
-void LeafTrain::blockLeaves(const Sample* sample,
-                            const vector<unsigned int>& leafMap,
-                            unsigned int tIdx) {
-  treeInit(sample, leafMap, tIdx); // virtual
-  lbCresc->setExtents(leafMap);
-  setScores(sample, leafMap); // virtual
-  bbCresc->bagLeaves(sample, leafMap);
-}
-
-
-void LeafTrain::treeInit(const Sample* sample,
-                         const vector<unsigned int>& leafMap,
-                         unsigned int tIdx) {
-  lbCresc->treeInit(leafMap, tIdx);
-  bbCresc->treeInit(sample, tIdx);
-}
-
-
-void LeafTrainCtg::treeInit(const Sample* sample,
-                            const vector<unsigned int>& leafMap,
-                            unsigned int tIdx) {
-  LeafTrain::treeInit(sample, leafMap, tIdx);
-  probCresc->treeInit(lbCresc->getLeafCount(), tIdx);
-}
-  
-
-
-// Allocating leaves for current tree.
-void LBCresc::treeInit(const vector<unsigned int> &leafMap,
-                                 unsigned int tIdx) {
-  leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
-  treeFloor = leaf.size();
-  height[tIdx] = treeFloor + leafCount;
-  Leaf init;
-  init.init();
-  leaf.insert(leaf.end(), leafCount, init);
-}
-
-
-void LBCresc::setExtents(const vector<unsigned int> &leafMap) {
-  for (auto leafIdx : leafMap) {
-    leaf[treeFloor + leafIdx].incrExtent();
-  }
-}
-
-void BBCresc::treeInit(const Sample* sample,
-                       unsigned int tIdx) {
-  height[tIdx] = bagLeaf.size() + sample->getBagCount();
-}
-
-
-void BBCresc::bagLeaves(const Sample *sample, const vector<unsigned int> &leafMap) {
-  // Placing in sIdx order allows row->leaf mapping to be recovered,
-  // by appling bag.
-  unsigned int sIdx = 0;
-  for (auto leafIdx : leafMap) {
-    bagLeaf.emplace_back(BagLeaf(leafIdx, sample->getSCount(sIdx++)));
-  }
-}
-
-
-void LeafTrainReg::setScores(const Sample* sample, const vector<unsigned int>& leafMap) {
-  lbCresc->setScoresReg(sample, leafMap);
-}
-
-
-void LBCresc::setScoresReg(const Sample* sample,
-                           const vector<unsigned int>& leafMap) {
-  vector<unsigned int> sCount(leafCount); // Per-leaf sample counts.
-  fill(sCount.begin(), sCount.end(), 0);
-
-  unsigned int sIdx = 0;
-  for (auto leafIdx : leafMap) {
-    scoreAccum(leafIdx, sample->getSum(sIdx));
-    sCount[leafIdx] += sample->getSCount(sIdx);
-    sIdx++;
-  }
-
-  auto leafIdx = 0ul;
-  for (auto sc : sCount) {
-    scoreScale(leafIdx++, 1.0 / sc);
-  }
-}
-
-void LeafTrainCtg::setScores(const Sample* sample,
-                             const vector<unsigned int>& leafMap) {
-  probCresc->probabilities(sample, leafMap, lbCresc->getLeafCount());
-  lbCresc->setScoresCtg(probCresc.get());
-}
-
-
-void LBCresc::setScoresCtg(const ProbCresc* probCresc) {
-  for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
-    setScore(leafIdx, probCresc->leafScore(leafIdx));
-  }
-}
-
-
-void ProbCresc::probabilities(const Sample* sample,
-                              const vector<unsigned int>& leafMap,
-                              unsigned int leafCount) {
-  vector<double> leafSum(leafCount);
-  fill(leafSum.begin(), leafSum.end(), 0.0);
-
-  // Accumulates sample sums by leaf.
-  unsigned int sIdx = 0;
-  for (auto leafIdx : leafMap) {
-    sample->accum(sIdx++, &leafSum[leafIdx], &prob[treeFloor + leafIdx*nCtg]);
-  }
-
-  unsigned int leafIdx = 0;
-  for (auto sum : leafSum) {
-    normalize(leafIdx++, 1.0 / sum);
-  }
-}
-
-void ProbCresc::normalize(unsigned int leafIdx, double recipSum) {
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
-    normalize(leafIdx, ctg, recipSum);
-  }
-}
-
-
-/**
-     @brief Allocates and initializes for all leaf categories in a tree.
-
-     @param leafCount is the number of leaves in the tree.
-*/
-void ProbCresc::treeInit(unsigned int leafCount, unsigned int tIdx) {
-  treeFloor = prob.size();
-  height[tIdx] = treeFloor + leafCount * nCtg;
-  prob.insert(prob.end(), nCtg * leafCount, 0.0);
-}
-
-
-double ProbCresc::leafScore(unsigned int leafIdx) const {
-  double probMax = 0;
-  unsigned int argMax = 0;
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
-    double ctgProb = prob[treeFloor + leafIdx * nCtg + ctg];
-    if (ctgProb > probMax) {
-      probMax = ctgProb;
-      argMax = ctg;
-    }
-  }
-
-  return argMax + forestScale * probMax;
-}
-
-
-void ProbCresc::dump(double *probOut) const {
-  for (size_t i = 0; i < prob.size(); i++) {
-    probOut[i] = prob[i];
-  }
-};
-
-
-
-void LeafTrain::cacheNodeRaw(unsigned char leafRaw[]) const {
-  lbCresc->dumpRaw(leafRaw);
-}
-
-
-void LBCresc::dumpRaw(unsigned char leafRaw[]) const {
-  for (size_t i = 0; i < leaf.size() * sizeof(Leaf); i++) {
-    leafRaw[i] = ((unsigned char*) &leaf[0])[i];
-  }
-}
-
-void LeafTrain::cacheBLRaw(unsigned char blRaw[]) const {
-  bbCresc->dumpRaw(blRaw);
-}
-
-
-void BBCresc::dumpRaw(unsigned char blRaw[]) const {
-  for (size_t i = 0; i < bagLeaf.size() * sizeof(BagLeaf); i++) {
-    blRaw[i] = ((unsigned int*) &bagLeaf[0])[i];
-  }
-}
-
-void LeafTrainCtg::dumpProb(double probOut[]) const {
-  probCresc->dump(probOut);
-}
-
-
-/**
  */
 LeafFrameReg::LeafFrameReg(const unsigned int height[],
                  unsigned int nTree_,
                  const Leaf leaf[],
                  const unsigned int bagHeight[],
-                 const class BagLeaf bagLeaf[],
+                 const class BagSample bagSample[],
                  const double *yTrain_,
                  double meanTrain_,
                  unsigned int rowPredict) :
-  LeafFrame(height, nTree_, leaf, bagHeight, bagLeaf),
+  LeafFrame(height, nTree_, leaf, bagHeight, bagSample),
   yTrain(yTrain_),
   meanTrain(meanTrain_),
   offset(vector<unsigned int>(leafBlock->size())), // leafCount
@@ -307,7 +47,7 @@ LeafFrameCtg::LeafFrameCtg(const unsigned int leafHeight[],
                  unsigned int nTree,
                  const class Leaf leaf[],
                  const unsigned int bagHeight[],
-                 const class BagLeaf bagLeaf[],
+                 const class BagSample bagSample[],
                  const double ctgProb_[],
                  unsigned int ctgTrain_,
                  unsigned int rowPredict,
@@ -316,7 +56,7 @@ LeafFrameCtg::LeafFrameCtg(const unsigned int leafHeight[],
        nTree,
        leaf,
        bagHeight,
-       bagLeaf),
+       bagSample),
   ctgTrain(ctgTrain_),
   ctgProb(make_unique<CtgProb>(ctgTrain, nTree, leafHeight, ctgProb_)),
   yPred(vector<unsigned int>(rowPredict)),
@@ -363,10 +103,10 @@ LeafFrame::LeafFrame(const unsigned int* leafHeight,
            unsigned int nTree_,
            const Leaf* leaf,
            const unsigned int* bagHeight,
-           const BagLeaf *bagLeaf) :
+           const BagSample *bagSample) :
   nTree(nTree_),
   leafBlock(make_unique<LeafBlock>(nTree, leafHeight, leaf)),
-  blBlock(make_unique<BLBlock>(nTree, bagHeight, bagLeaf)),
+  blBlock(make_unique<BLBlock>(nTree, bagHeight, bagSample)),
   noLeaf(leafBlock->size()) { // Greater than all absolute indices.
 }
 
@@ -380,8 +120,8 @@ LeafBlock::LeafBlock(unsigned int nTree,
 
 BLBlock::BLBlock(unsigned int nTree,
                  const unsigned int* height,
-                 const BagLeaf* bagLeaf) :
-  raw(make_unique<JaggedArray<const BagLeaf*, const unsigned int*> >(nTree, height, bagLeaf)) {
+                 const BagSample* bagSample) :
+  raw(make_unique<JaggedArray<const BagSample*, const unsigned int*> >(nTree, height, bagSample)) {
 }
                      
 
@@ -401,7 +141,7 @@ void LeafBlock::setOffsets(vector<unsigned int>& offset) const {
 }
 
 /**
-   @brief Exporter of BagLeaf vector into per-tree vector of vectors.
+   @brief Exporter of BagSample vector into per-tree vector of vectors.
 
    @return void, with output reference parameters.
  */
@@ -506,8 +246,8 @@ void LeafBlock::ctgAcross(const unsigned int predictLeaves[],
     if (termIdx != noLeaf) {
       treesSeen++;
       double val = getScore(tIdx, termIdx);
-      unsigned int ctg = val; // Truncates jittered score for indexing.
-      prediction[ctg] += 1 + val - ctg; // 1 plus small jitter.
+      unsigned int ctg = floor(val); // Truncates jittered score for indexing.
+      prediction[ctg] += (1.0 + val) - ctg; // 1 plus small jitter.
     }
   }
   if (treesSeen == 0) {
@@ -635,4 +375,294 @@ void CtgProb::applyDefault(double *probPredict) const {
   for (auto ctg = 0ul; ctg < nCtg; ctg++) {
     probPredict[ctg] = probDefault[ctg];
   }
+}
+
+/**
+   @brief Crescent constructor.
+ */
+LFTrain::LFTrain(const double* y_, unsigned int treeChunk) :
+  y(y_),
+  lbCresc(make_unique<LBCresc>(treeChunk)),
+  bbCresc(make_unique<BBCresc>(treeChunk)) {
+}
+
+
+LBCresc::LBCresc(unsigned int nTree) :
+  leaf(vector<Leaf>(0)),
+  height(vector<size_t>(nTree)),
+  treeFloor(0) {
+}
+
+
+BBCresc::BBCresc(unsigned int nTree) :
+  bagSample(vector<BagSample>(0)),
+  height(vector<size_t>(nTree)) {
+}
+
+
+LFTrain::~LFTrain() {
+}
+
+
+/**
+ */
+LFTrainReg::LFTrainReg(const double* y,
+                       const unsigned int* row2Rank_,
+                       unsigned int treeChunk) :
+  LFTrain(y, treeChunk),
+  row2Rank(row2Rank_) {
+}
+
+
+
+LFTrainReg::~LFTrainReg() {
+}
+
+
+ProbCresc::ProbCresc(unsigned int treeChunk,
+                     unsigned int nCtg_,
+                     double forestScale_) :
+  nCtg(nCtg_),
+  treeFloor(0),
+  height(vector<size_t>(treeChunk)),
+  prob(vector<double>(0)),
+  forestScale(forestScale_) {
+}
+
+/**
+   @brief Constructor for crescent forest.
+ */
+LFTrainCtg::LFTrainCtg(const unsigned int* yCtg_,
+                       const double* proxy,
+                       unsigned int treeChunk,
+                       unsigned int nCtg_,
+                       double scale) :
+  LFTrain(proxy, treeChunk),
+  yCtg(yCtg_),
+  probCresc(make_unique<ProbCresc>(treeChunk, nCtg_, scale)),
+  nCtg(nCtg_) {
+}
+
+
+LFTrainCtg::~LFTrainCtg() {
+}
+
+
+unique_ptr<LFTrainCtg> LFTrain::factoryCtg(const unsigned int* feResponse,
+                                           const double* feProxy,
+                                           unsigned int treeChunk,
+                                           unsigned int nRow,
+                                           unsigned int nCtg,
+                                           unsigned int nTree) {
+  return make_unique<LFTrainCtg>(feResponse, feProxy, treeChunk, nCtg, 1.0 / (static_cast<double>(nTree)) * nRow);
+}
+
+unique_ptr<LFTrainReg> LFTrain::factoryReg(const double* feResponse,
+                                           const unsigned int* row2Rank,
+                                           unsigned int treeChunk) {
+  return make_unique<LFTrainReg>(feResponse, row2Rank, treeChunk);
+}
+
+
+void LFTrain::blockLeaves(const Sample* sample,
+                          const vector<unsigned int>& leafMap,
+                          unsigned int tIdx) {
+  treeInit(sample, leafMap, tIdx); // virtual
+  lbCresc->setExtents(leafMap);
+  setScores(sample, leafMap); // virtual
+  bbCresc->bagLeaves(sample, leafMap);
+}
+
+
+void LFTrain::treeInit(const Sample* sample,
+                       const vector<unsigned int>& leafMap,
+                       unsigned int tIdx) {
+  lbCresc->treeInit(leafMap, tIdx);
+  bbCresc->treeInit(sample, tIdx);
+}
+
+
+void LFTrainCtg::treeInit(const Sample* sample,
+                            const vector<unsigned int>& leafMap,
+                            unsigned int tIdx) {
+  LFTrain::treeInit(sample, leafMap, tIdx);
+  probCresc->treeInit(lbCresc->getLeafCount(), tIdx);
+}
+  
+
+
+// Allocating leaves for current tree.
+void LBCresc::treeInit(const vector<unsigned int> &leafMap,
+                                 unsigned int tIdx) {
+  leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
+  treeFloor = leaf.size();
+  height[tIdx] = treeFloor + leafCount;
+  Leaf init;
+  init.init();
+  leaf.insert(leaf.end(), leafCount, init);
+}
+
+
+void LBCresc::setExtents(const vector<unsigned int> &leafMap) {
+  for (auto leafIdx : leafMap) {
+    leaf[treeFloor + leafIdx].incrExtent();
+  }
+}
+
+void BBCresc::treeInit(const Sample* sample,
+                       unsigned int tIdx) {
+  height[tIdx] = bagSample.size() + sample->getBagCount();
+}
+
+
+void BBCresc::bagLeaves(const Sample *sample, const vector<unsigned int> &leafMap) {
+  unsigned int sIdx = 0;
+  for (auto leafIdx : leafMap) {
+    bagSample.emplace_back(BagSample(leafIdx, sample->getSCount(sIdx++)));
+  }
+}
+
+
+void LFTrainReg::setScores(const Sample* sample, const vector<unsigned int>& leafMap) {
+  lbCresc->setScoresReg(sample, leafMap);
+}
+
+
+/**
+   @return Regression-style Sample object.
+ */
+shared_ptr<Sample> LFTrainReg::rootSample(const RowRank* rowRank,
+                                          BitMatrix* bag,
+                                          unsigned int tIdx) const {
+  return Sample::factoryReg(y, rowRank, row2Rank, bag->BVRow(tIdx).get());
+}
+
+
+
+void LBCresc::setScoresReg(const Sample* sample,
+                           const vector<unsigned int>& leafMap) {
+  vector<unsigned int> sCount(leafCount); // Per-leaf sample counts.
+  fill(sCount.begin(), sCount.end(), 0);
+
+  unsigned int sIdx = 0;
+  for (auto leafIdx : leafMap) {
+    scoreAccum(leafIdx, sample->getSum(sIdx));
+    sCount[leafIdx] += sample->getSCount(sIdx);
+    sIdx++;
+  }
+
+  auto leafIdx = 0ul;
+  for (auto sc : sCount) {
+    scoreScale(leafIdx++, 1.0 / sc);
+  }
+}
+
+void LFTrainCtg::setScores(const Sample* sample,
+                             const vector<unsigned int>& leafMap) {
+  probCresc->probabilities(sample, leafMap, lbCresc->getLeafCount());
+  lbCresc->setScoresCtg(probCresc.get());
+}
+
+
+/**
+   @return Classification-style Sample object.
+ */
+shared_ptr<Sample> LFTrainCtg::rootSample(const RowRank* rowRank,
+                                          BitMatrix* bag,
+                                          unsigned int tIdx) const {
+  return Sample::factoryCtg(y, rowRank, &yCtg[0], bag->BVRow(tIdx).get());
+}
+
+
+void LBCresc::setScoresCtg(const ProbCresc* probCresc) {
+  for (unsigned int leafIdx = 0; leafIdx < leafCount; leafIdx++) {
+    setScore(leafIdx, probCresc->leafScore(leafIdx));
+  }
+}
+
+
+void ProbCresc::probabilities(const Sample* sample,
+                              const vector<unsigned int>& leafMap,
+                              unsigned int leafCount) {
+  vector<double> leafSum(leafCount);
+  fill(leafSum.begin(), leafSum.end(), 0.0);
+
+  // Accumulates sample sums by leaf.
+  unsigned int sIdx = 0;
+  for (auto leafIdx : leafMap) {
+    sample->accum(sIdx++, &leafSum[leafIdx], &prob[treeFloor + leafIdx*nCtg]);
+  }
+
+  unsigned int leafIdx = 0;
+  for (auto sum : leafSum) {
+    normalize(leafIdx++, 1.0 / sum);
+  }
+}
+
+void ProbCresc::normalize(unsigned int leafIdx, double recipSum) {
+  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+    normalize(leafIdx, ctg, recipSum);
+  }
+}
+
+
+/**
+     @brief Allocates and initializes for all leaf categories in a tree.
+
+     @param leafCount is the number of leaves in the tree.
+*/
+void ProbCresc::treeInit(unsigned int leafCount, unsigned int tIdx) {
+  treeFloor = prob.size();
+  height[tIdx] = treeFloor + leafCount * nCtg;
+  prob.insert(prob.end(), nCtg * leafCount, 0.0);
+}
+
+
+double ProbCresc::leafScore(unsigned int leafIdx) const {
+  double probMax = 0;
+  unsigned int argMax = 0;
+  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+    double ctgProb = prob[treeFloor + leafIdx * nCtg + ctg];
+    if (ctgProb > probMax) {
+      probMax = ctgProb;
+      argMax = ctg;
+    }
+  }
+
+  return argMax + forestScale * probMax;
+}
+
+
+void ProbCresc::dump(double *probOut) const {
+  for (size_t i = 0; i < prob.size(); i++) {
+    probOut[i] = prob[i];
+  }
+};
+
+
+
+void LFTrain::cacheNodeRaw(unsigned char leafRaw[]) const {
+  lbCresc->dumpRaw(leafRaw);
+}
+
+
+void LBCresc::dumpRaw(unsigned char leafRaw[]) const {
+  for (size_t i = 0; i < leaf.size() * sizeof(Leaf); i++) {
+    leafRaw[i] = ((unsigned char*) &leaf[0])[i];
+  }
+}
+
+void LFTrain::cacheBLRaw(unsigned char blRaw[]) const {
+  bbCresc->dumpRaw(blRaw);
+}
+
+
+void BBCresc::dumpRaw(unsigned char blRaw[]) const {
+  for (size_t i = 0; i < bagSample.size() * sizeof(BagSample); i++) {
+    blRaw[i] = ((unsigned int*) &bagSample[0])[i];
+  }
+}
+
+void LFTrainCtg::dumpProb(double probOut[]) const {
+  probCresc->dump(probOut);
 }

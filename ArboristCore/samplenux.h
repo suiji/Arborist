@@ -133,9 +133,7 @@ class SampleRank : public SampleNux {
  protected:
   unsigned int rank; // Rank, up to tie, or factor group.
 
-
  public:
-
 
   /**
      @brief Accessor for 'rank' field
