@@ -69,7 +69,7 @@ struct TrainBridge {
 
      @return scale factor estimation for accommodating entire forest.
    */
-  double constexpr safeScale(unsigned int treesTot) {
+  double safeScale(unsigned int treesTot) {
     return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
   }
 
