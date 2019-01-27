@@ -1,24 +1,19 @@
-
-os: linux
-dist: trusty
-sudo: required
-
-matrix:
-  include:
-    compiler: gcc
-    addons:
-      apt:
-        sources: ['ubuntu-toolchain-r-test']
-        packages: ['g++-7']
-    env: g++=g++-7
-
 language: r
+cache: packages
+sudo: false
+warnings_are_errors: true
+
+addons:
+  apt:
+    sources: ['ubuntu-toolchain-r-test']
+    packages: ['g++-6']
+
+env: COMPILER=g++-6
+
 r:
   - oldrel
   - release
   - devel
-
-cache: packages
 
 before_install:
   - Rscript -e 'install.packages("knitr")'
