@@ -2,4 +2,4 @@ PKG_LIBS=`$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"` $(SHLIB_OPENMP_CXXFLAGS)
 PKG_CXXFLAGS=$(SHLIB_OPENMP_CXXFLAGS)
 CC=gcc-6 -std=c11
 CXX=g++-6
-CXX1X=g++-6 -std=c++0x
+CXX1X=g++-6 -std=c++14
