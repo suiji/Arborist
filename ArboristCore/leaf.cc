@@ -637,7 +637,7 @@ void ProbCresc::dump(double *probOut) const {
   for (size_t i = 0; i < prob.size(); i++) {
     probOut[i] = prob[i];
   }
-};
+}
 
 
 

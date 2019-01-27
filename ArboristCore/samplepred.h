@@ -47,6 +47,7 @@ class SamplePred {
 
   // Predictor-based sample orderings, double-buffered by level value.
   //
+  const unsigned int bagCount;
   const unsigned int bufferSize; // <= nRow * nPred.
   const unsigned int pitchSP; // Pitch of SampleRank vector, in bytes.
   const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
@@ -65,7 +66,6 @@ class SamplePred {
   unsigned int *indexBase; // RV index for this row.  Used by CTG as well as on replay.
 
  protected:
-  const unsigned int bagCount;
   unsigned int *destRestage; // Coprocessor restaging.
   unsigned int *destSplit; // Coprocessor restaging.
 

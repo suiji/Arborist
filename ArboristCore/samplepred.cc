@@ -31,13 +31,13 @@ SamplePred::SamplePred(unsigned int _nPred,
                        unsigned int _bagCount,
                        unsigned int _bufferSize) :
   nPred(_nPred),
+  bagCount(_bagCount),
   bufferSize(_bufferSize),
   pitchSP(bagCount * sizeof(SamplePred)),
-  pitchSIdx(_bagCount * sizeof(unsigned int)),
+  pitchSIdx(bagCount * sizeof(unsigned int)),
   pathIdx(bufferSize),
   stageOffset(nPred),
-  stageExtent(nPred),
-  bagCount(_bagCount) {
+  stageExtent(nPred) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SampleRank[2 * bufferSize];
 

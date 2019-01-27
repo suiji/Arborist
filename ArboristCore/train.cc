@@ -231,10 +231,10 @@ void Train::trainChunk(const FrameTrain *frameTrain,
                        const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
-    auto treeBlock = blockProduce(frameTrain, rankedPair->GetRowRank(), treeStart, treeEnd - treeStart);
+    auto treeBlock = blockProduce(frameTrain, rankedPair->getRowRank(), treeStart, treeEnd - treeStart);
     blockConsume(treeBlock, treeStart);
   }
-  forest->splitUpdate(frameTrain, rankedPair->GetNumRanked());
+  forest->splitUpdate(frameTrain, rankedPair->getNumRanked());
 }
 
 
@@ -268,7 +268,7 @@ vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
 void Train::reserve(vector<TrainSet> &treeBlock) {
   size_t blockFac, blockBag, blockLeaf;
   size_t maxHeight = 0;
-  size_t blockHeight = blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
+  (void) blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
   PreTree::reserve(maxHeight);
 }
 

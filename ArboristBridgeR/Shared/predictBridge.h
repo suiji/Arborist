@@ -103,6 +103,6 @@ namespace PredictBridge {
                     SEXP sQBin,
                     SEXP sYTest,
                     bool validate);
-};
+}
 
 #endif

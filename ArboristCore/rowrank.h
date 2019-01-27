@@ -406,14 +406,21 @@ class RankedSet {
   RankedSet(const RowRank *_rowRank,
 	     const BlockRanked *_numRanked) :
   rowRank(_rowRank),
-    numRanked(_numRanked) {
-    }
+  numRanked(_numRanked) {
+  }
 
-  const RowRank *GetRowRank() const {
+
+  /**
+     @brief Getter for rowRank.
+   */
+  const RowRank *getRowRank() const {
     return rowRank;
   }
 
-  const BlockRanked *GetNumRanked() const {
+  /**
+     @brief Getter for numRanked.
+   */
+  const BlockRanked *getNumRanked() const {
     return numRanked;
   }
 };
