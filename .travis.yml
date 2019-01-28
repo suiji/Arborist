@@ -14,7 +14,8 @@ env:
 r:
   - oldrel
   - release
-  - devel
+  # devel disabled until source of c++11 specification identified:
+  #  - devel
 
 before_install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 100
