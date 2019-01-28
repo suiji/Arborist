@@ -3,4 +3,4 @@ PKG_CXXFLAGS=$(SHLIB_OPENMP_CXXFLAGS)
 CC=gcc-6 -std=gnu99
 CXX=g++-6 -std=c++14
 CXX14=g++-6
-CXX_STD=CXX14
+CXX11STD='-std=c++14'
