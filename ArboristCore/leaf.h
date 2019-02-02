@@ -785,7 +785,10 @@ class LeafFrameReg : public LeafFrame {
   }
 
 
-  const vector<double> &YPred() const {
+  /**
+     @brief Getter for prediction.
+   */
+  const vector<double> &getYPred() const {
     return yPred;
   }
   
@@ -960,7 +963,10 @@ class LeafFrameCtg : public LeafFrame {
   ~LeafFrameCtg(){}
 
 
-  const vector<unsigned int> &YPred() {
+  /**
+     @brief Getter for prediction.
+   */
+  const vector<unsigned int> &getYPred() {
     return yPred;
   }
 

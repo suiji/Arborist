@@ -64,14 +64,8 @@ LBTrainCtg::LBTrainCtg(const IntegerVector& yTrain_,
 void LBTrain::consume(const LFTrain* leaf,
                       unsigned int tIdx,
                       double scale) {
-  accumScores(leaf);
   writeNode(leaf, tIdx, scale);
   writeBagSample(leaf, tIdx, scale);
-}
-
-
-void LBTrain::accumScores(const LFTrain* leaf) {
-  //  leaf->accumScores(treesSeen, sum);
 }
 
 
@@ -149,22 +143,37 @@ void LBTrainCtg::writeWeight(const LFTrainCtg* leaf,
 }
 
 
+LeafBridge::LeafBridge(unsigned int exportLength) :
+  rowTree(vector<vector<unsigned int> >(exportLength)),
+  sCountTree(vector<vector<unsigned int> >(exportLength)),
+  extentTree(vector<vector<unsigned int> >(exportLength)) {
+}
+
+
+LeafRegBridge::~LeafRegBridge() {
+}
+
+
+LeafCtgBridge::~LeafCtgBridge() {
+}
+
+
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
  */
 List LBTrainReg::wrap() {
+  BEGIN_RCPP
   List leaf =
     List::create(_["nodeHeight"] = move(nodeHeight),
                  _["node"] = move(nodeRaw),
                  _["bagHeight"] = move(bagHeight),
                  _["bagSample"] = move(blRaw),
                  _["yTrain"] = yTrain
-                 // _["yDefault"] = ?
-                 // _["yValid"] = score(treesSeen, scores),
   );
   leaf.attr("class") = "LeafReg";
   
   return leaf;
+  END_RCPP
 }
 
 
@@ -172,6 +181,7 @@ List LBTrainReg::wrap() {
    @brief Wraps core (classification) Leaf vectors for reference by front end.
  */
 List LBTrainCtg::wrap() {
+  BEGIN_RCPP
   List leaf =
     List::create(_["nodeHeight"] = move(nodeHeight),
                  _["node"] = move(nodeRaw),
@@ -179,14 +189,13 @@ List LBTrainCtg::wrap() {
                  _["bagSample"] = move(blRaw),
                  _["weight"] = move(weight),
                  _["levels"] = as<CharacterVector>(yTrain.attr("levels"))
-                 // _["yDefault"] = ?
-                 // _["probDefault"] = ?
-                 // _["yValid"] = score(treesSeen, scores)
                  );
   leaf.attr("class") = "LeafCtg";
 
   return leaf;
+  END_RCPP
 }
+
 
 /**
    @brief References front-end member arrays and instantiates
@@ -242,9 +251,6 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
                                    rowPredict));
 }
 
-
-LeafRegBridge::~LeafRegBridge() {
-}
 
 /**
    @brief References front-end vectors and instantiates bridge-specific
@@ -311,62 +317,8 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
                                    doProb));
 }
 
-LeafCtgBridge::~LeafCtgBridge() {
-}
 
-List LeafRegBridge::Summary(SEXP sYTest, const Quant *quant) {
-  BEGIN_RCPP
-  List prediction;
-  if (Rf_isNull(sYTest)) {
-    prediction = List::create(
-                              _["yPred"] = leaf->YPred(),
-                              _["qPred"] = QPred(quant)
-                              );
-    prediction.attr("class") = "PredictReg";
-  }
-  else { // Validation/testing
-    NumericVector yTest(sYTest);
-    double rsq, mae;
-    double mse = MSE(leaf->YPred(), yTest, rsq, mae);
-    prediction = List::create(
-                              _["yPred"] = leaf->YPred(),
-                              _["mse"] = mse,
-                              _["mae"] = mae,
-                              _["rsq"] = rsq,
-                              _["qPred"] = QPred(quant)
-                              );
-    prediction.attr("class") = "ValidReg";
-  }
-
-  return prediction;
-  END_RCPP
-}
-
-
-/**
-   @brief Builds a NumericMatrix representation of the quantile predictions.
-
-   @return transposed core matrix if quantiles requested, else empty matrix.
- */
-NumericMatrix LeafRegBridge::QPred(const Quant *quant) {
-  BEGIN_RCPP
-
-  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->NQuant(), leaf->rowPredict(), quant->QPred()));
-  END_RCPP
-}
-
-/**
-   @brief Utility for computing mean-square error of prediction.
-   
-   @param yPred is the prediction.
-
-   @param rsq[out] is the r-squared statistic.
-
-   @param mae[out] is the mean absolute error.
-
-   @return mean squared error.
- */
-double LeafRegBridge::MSE(const vector<double> &yPred,
+double LeafRegBridge::mse(const vector<double> &yPred,
                           const NumericVector &yTest,
                           double &rsq,
                           double &mae) {
@@ -382,49 +334,6 @@ double LeafRegBridge::MSE(const vector<double> &yPred,
   mae /= rowPred;
 
   return sse / rowPred;
-}
-
-/**
-   @param sYTest is the one-based test vector, possibly null.
-
-   @param rowNames are the row names of the test data.
-
-   @return list of summary entries.   
- */
-List LeafCtgBridge::Summary(SEXP sYTest, const List &signature) {
-  BEGIN_RCPP
-
-  leaf->vote();
-  CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
-  IntegerVector yPredZero(leaf->YPred().begin(), leaf->YPred().end());
-  IntegerVector yPredOne = yPredZero + 1;
-  yPredOne.attr("class") = "factor";
-  yPredOne.attr("levels") = levelsTrain;
-  List prediction;
-  if (!Rf_isNull(sYTest)) {
-    auto testCtg = make_unique<TestCtg>(sYTest, leaf->rowPredict(), getLevelsTrain());
-    testCtg->Validate(leaf.get(), leaf->YPred());
-    prediction = List::create(
-                              _["yPred"] = yPredOne,
-                              _["census"] = Census(rowNames),
-                              _["prob"] = Prob(rowNames),
-                              _["confusion"] = testCtg->Confusion(),
-                              _["misprediction"] = testCtg->MisPred(),
-                              _["oobError"] = testCtg->OOB(leaf->YPred())
-    );
-    prediction.attr("class") = "ValidCtg";
-  }
-  else {
-    prediction = List::create(
-                      _["yPred"] = yPredOne,
-                      _["census"] = Census(rowNames),
-                      _["prob"] = Prob(rowNames)
-   );
-   prediction.attr("class") = "PredictCtg";
-  }
-
-  return prediction;
-  END_RCPP
 }
 
 
@@ -444,20 +353,7 @@ TestCtg::TestCtg(SEXP sYTest,
 }
 
 
-/**
-   @brief Fills in confusion matrix and misprediction vector.
-
-   @param yPred contains the zero-based predictions.
-
-   @param yTest contains the zero-based, reconciled test response.
-
-   @param confusion is an uninitialized nRow x ctgMerged matrix
-
-   @param misPred is an unitialized vector of width ctgMerged.
-
-   @return void.
-*/
-void TestCtg::Validate(LeafFrameCtg *leaf, const vector<unsigned int> &yPred) {
+void TestCtg::validate(LeafFrameCtg *leaf, const vector<unsigned int> &yPred) {
   fill(confusion.begin(), confusion.end(), 0);
   for (unsigned int row = 0; row < rowPredict; row++) {
     confusion[leaf->ctgIdx(yTestZero[row], yPred[row])]++;
@@ -483,24 +379,117 @@ void TestCtg::Validate(LeafFrameCtg *leaf, const vector<unsigned int> &yPred) {
 
 
 /**
-   @brief Produces census summary, which is common to all categorical
-   prediction.
+   @brief Computes the mean number of mispredictions.
 
-   @return void.
+   @param yPred is the zero-based prediction vector derived by the core.
+
+   @return OOB as mean number of mispredictions, if testing, otherwise 0.0.
  */
-IntegerMatrix LeafCtgBridge::Census(const CharacterVector &rowNames) {
-  IntegerMatrix census = transpose(IntegerMatrix(leaf->getCtgTrain(), leaf->rowPredict(), leaf->Census()));
-  census.attr("dimnames") = List::create(rowNames, levelsTrain);
-  return census;
+double TestCtg::OOB(const vector<unsigned int> &yPred) const {
+  unsigned int missed = 0;
+  for (unsigned int i = 0; i < rowPredict; i++) {
+    missed += (unsigned int) yTestZero[i] != yPred[i];
+  }
+
+  return double(missed) / rowPredict;  // Caller precludes zero length.
+}
+
+
+List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
+  BEGIN_RCPP
+  List prediction;
+  if (Rf_isNull(sYTest)) {
+    prediction = List::create(
+                              _["yPred"] = leaf->getYPred(),
+                              _["qPred"] = QPred(quant)
+                              );
+    prediction.attr("class") = "PredictReg";
+  }
+  else { // Validation/testing
+    double rsq, mae;
+    prediction = List::create(
+                              _["yPred"] = leaf->getYPred(),
+                              _["mse"] = mse(leaf->getYPred(), as<NumericVector>(sYTest), rsq, mae),
+                              _["mae"] = mae,
+                              _["rsq"] = rsq,
+                              _["qPred"] = QPred(quant)
+                              );
+    prediction.attr("class") = "ValidReg";
+  }
+
+  return prediction;
+  END_RCPP
 }
 
 
 /**
-   @param rowNames decorates the returned matrix.
+   @brief Builds a NumericMatrix representation of the quantile predictions.
 
-   @return probability matrix iff requested.
+   @return transposed core matrix if quantiles requested, else empty matrix.
  */
+NumericMatrix LeafRegBridge::QPred(const Quant *quant) {
+  BEGIN_RCPP
+
+  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->NQuant(), leaf->rowPredict(), quant->QPred()));
+  END_RCPP
+}
+
+
+/**
+   @param sYTest is the one-based test vector, possibly null.
+
+   @param rowNames are the row names of the test data.
+
+   @return list of summary entries.   
+ */
+List LeafCtgBridge::summary(SEXP sYTest, const List &signature) {
+  BEGIN_RCPP
+
+  leaf->vote();
+  CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
+  IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());
+  IntegerVector yPredOne = yPredZero + 1;
+  yPredOne.attr("class") = "factor";
+  yPredOne.attr("levels") = levelsTrain;
+  List prediction;
+  if (!Rf_isNull(sYTest)) {
+    auto testCtg = make_unique<TestCtg>(sYTest, leaf->rowPredict(), getLevelsTrain());
+    testCtg->validate(leaf.get(), leaf->getYPred());
+    prediction = List::create(
+                              _["yPred"] = yPredOne,
+                              _["census"] = Census(rowNames),
+                              _["prob"] = Prob(rowNames),
+                              _["confusion"] = testCtg->Confusion(),
+                              _["misprediction"] = testCtg->MisPred(),
+                              _["oobError"] = testCtg->OOB(leaf->getYPred())
+    );
+    prediction.attr("class") = "ValidCtg";
+  }
+  else {
+    prediction = List::create(
+                      _["yPred"] = yPredOne,
+                      _["census"] = Census(rowNames),
+                      _["prob"] = Prob(rowNames)
+   );
+   prediction.attr("class") = "PredictCtg";
+  }
+
+  return prediction;
+  END_RCPP
+}
+
+
+IntegerMatrix LeafCtgBridge::Census(const CharacterVector &rowNames) {
+  BEGIN_RCPP
+  IntegerMatrix census = transpose(IntegerMatrix(leaf->getCtgTrain(), leaf->rowPredict(), leaf->Census()));
+  census.attr("dimnames") = List::create(rowNames, levelsTrain);
+  return census;
+  END_RCPP
+}
+
+
 NumericMatrix LeafCtgBridge::Prob(const CharacterVector &rowNames) {
+  BEGIN_RCPP
   if (!leaf->Prob().empty()) {
     NumericMatrix prob = transpose(NumericMatrix(leaf->getCtgTrain(), leaf->rowPredict(), &(leaf->Prob())[0]));
     prob.attr("dimnames") = List::create(rowNames, levelsTrain);
@@ -509,6 +498,7 @@ NumericMatrix LeafCtgBridge::Prob(const CharacterVector &rowNames) {
   else {
     return NumericMatrix(0);
   }
+  END_RCPP
 }
 
 
@@ -576,23 +566,6 @@ NumericVector TestCtg::MisPred() {
   misPredOut.attr("names") = levels;
   return misPredOut;
   END_RCPP
-}
-
-
-/**
-   @brief Computes the mean number of mispredictions.
-
-   @param yPred is the zero-based prediction vector derived by the core.
-
-   @return OOB as mean number of mispredictions, if testing, otherwise 0.0.
- */
-double TestCtg::OOB(const vector<unsigned int> &yPred) const {
-  unsigned int missed = 0;
-  for (unsigned int i = 0; i < rowPredict; i++) {
-    missed += (unsigned int) yTestZero[i] != yPred[i];
-  }
-
-  return double(missed) / rowPredict;  // Caller precludes zero length.
 }
 
 
@@ -682,11 +655,4 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
                                    mean(yTrain),
                                    0));
   leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
-}
-
-
-LeafBridge::LeafBridge(unsigned int exportLength) :
-  rowTree(vector<vector<unsigned int> >(exportLength)),
-  sCountTree(vector<vector<unsigned int> >(exportLength)),
-  extentTree(vector<vector<unsigned int> >(exportLength)) {
 }

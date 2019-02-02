@@ -59,7 +59,7 @@ List TrainBridge::train(const List &argList,
                         unsigned int nRow) {
   BEGIN_RCPP
 
-  auto frameTrain = FramemapBridge::FactoryTrain(facCard, predMap.length(), nRow);
+  auto frameTrain = FramemapBridge::factoryTrain(facCard, predMap.length(), nRow);
   vector<string> diag;
   auto coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diag);
   auto rankedSet = RankedSetBridge::unwrap(argList["rankedSet"],
@@ -212,6 +212,20 @@ List TrainBridge::classification(const IntegerVector &y,
 }
 
 
+List TrainBridge::summarize(const IntegerVector &predMap,
+                            const vector<string> &diag) {
+  BEGIN_RCPP
+  return List::create(
+                      _["predInfo"] = scalePredInfo(predMap),
+                      _["diag"] = diag,
+                      _["forest"] = move(forest->wrap()),
+                      _["leaf"] = move(leaf->wrap()),
+                      _["bag"] = move(bag->wrap())
+                      );
+  END_RCPP
+}
+
+
 NumericVector TrainBridge::scalePredInfo(const IntegerVector &predMap) {
   BEGIN_RCPP
 
@@ -292,16 +306,3 @@ void TrainBridge::consume(const Train* train,
   }
 }
 
-
-List TrainBridge::summarize(const IntegerVector &predMap,
-                            const vector<string> &diag) {
-  BEGIN_RCPP
-  return List::create(
-                      _["predInfo"] = scalePredInfo(predMap),
-                      _["diag"] = diag,
-                      _["forest"] = move(forest->wrap()),
-                      _["leaf"] = move(leaf->wrap()),
-                      _["bag"] = move(bag->wrap())
-                      );
-  END_RCPP
-}

@@ -31,14 +31,34 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include "block.h"
 #include "framemap.h"
 
+/**
+  @brief Extracts contents of a data frame into separate numeric- and integer-valued blocks.
+
+  Potentially slow for large predictor counts, as a linked list is being walked.
+
+  @param sX is the raw data frame, with columns either factor or numeric.
+
+  @param sNPredNum is the number of numeric colums.
+
+  @param sNPredFac is the number of factor-valued columns.
+
+  @param sCardFac is the cardinality of a factor, otherwise zero.
+
+  @param sSigTrain holds the training signature.
+
+  @return wrapped frame containing separately-typed matrices.
+*/
 RcppExport SEXP FrameMixed(SEXP sX,
-                                 SEXP sNumElt,
-                                 SEXP sFacElt,
-                                 SEXP sLevels,
-                                 SEXP sSigTrain);
+                           SEXP sNPredNum,
+                           SEXP sNPredFac,
+                           SEXP sCardFac,
+                           SEXP sSigTrain);
+
 RcppExport SEXP FrameNum(SEXP sX);
+
 RcppExport SEXP FrameSparse(SEXP sX);
 
 /**
@@ -64,7 +84,7 @@ class FramePredictBridge {
 
 struct FramemapBridge {
 
-  static void SparseIP(const NumericVector& eltsNZ,
+  static void sparseIP(const NumericVector& eltsNZ,
                        const IntegerVector& i,
                        const IntegerVector& p,
                        unsigned int nRow,
@@ -72,22 +92,6 @@ struct FramemapBridge {
                        vector<unsigned int>& rowStart,
                        vector<unsigned int>& runLength,
                        vector<unsigned int>& predStart);
-
-  static SEXP SparseJP(NumericVector& eltsNZ,
-                       IntegerVector& j,
-                       IntegerVector& p,
-                       unsigned int nRow,
-                       vector<double>& valNum,
-                       vector<unsigned int>& rowStart,
-                       vector<unsigned int>& runLength);
-
-  static SEXP SparseIJ(NumericVector& eltsNZ,
-                       IntegerVector& i,
-                       IntegerVector& j,
-                       unsigned int nRow,
-                       vector<double>& valNum,
-                       vector<unsigned int>& rowStart,
-                       vector<unsigned int>& runLength);
 
   static List unwrapSignature(const List& sPredBlock);
 
@@ -100,7 +104,7 @@ struct FramemapBridge {
   static void SignatureUnwrap(const List& sTrain,
                               IntegerVector& _predMap,
                               List& _level);
-  static List wrapSignature(const IntegerVector& predMap,
+  static SEXP wrapSignature(const IntegerVector& predMap,
                  const List& level,
                  const CharacterVector& colNames,
                  const CharacterVector& rowNames);
@@ -115,12 +119,12 @@ struct FramemapBridge {
 
      @return allocated predictor map for training.
    */
-  static unique_ptr<FrameTrain> FactoryTrain(
+  static unique_ptr<FrameTrain> factoryTrain(
                      const vector<unsigned int>& facCard,
                      unsigned int nPred,
                      unsigned int nRow);
 
-  static unique_ptr<FramePredictBridge> FactoryPredict(const List& sPredBlock);
+  static unique_ptr<FramePredictBridge> factoryPredict(const List& sPredBlock);
 };
 
 #endif

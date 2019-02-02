@@ -50,6 +50,9 @@ class BlockNum {
 };
 
 
+/**
+   @brief Encodes block of sparse data.
+ */
 class BlockSparse : public BlockNum {
   const double *val;
   const unsigned int *rowStart;
@@ -71,6 +74,89 @@ class BlockSparse : public BlockNum {
 	      unsigned int _nCol);
   ~BlockSparse();
   void Transpose(unsigned int rowStart, unsigned int rowEnd);
+};
+
+
+/**
+   @brief Crescent analogue of BlockSparse.
+ */
+class BSCresc {
+  const unsigned int nRow;
+  const unsigned int nPred;
+
+  vector<unsigned int> predStart; // Starting offset for predictor.
+  vector<unsigned int> rowStart; // Starting row of run.
+  vector<double> valNum; // Numerical value of run.
+  vector<unsigned int> runLength; // Length of run.
+
+  /**
+     @brief Pushes a run onto individual component vectors.
+
+     @param val is the numeric value of the run.
+
+     @param rl is the run length.
+
+     @param row is the starting row of the run.
+   */
+  inline void pushRun(double val,
+                      unsigned int rl,
+                      unsigned int row) {
+    valNum.push_back(val);
+    runLength.push_back(rl);
+    rowStart.push_back(row);
+  }
+
+public:
+
+  BSCresc(unsigned int nRow_,
+          unsigned int nPred_);
+
+  /**
+     @brief Constructs run vectors from I/P format suppled by front end.
+
+     Reads a sparse representation in which only nonzero values and their
+     coordinates are specified.  Constructs internal RLE in which runs of
+     arbitrary value are recorded for potential autocompression.
+
+     @param eltsNZ hold the nonzero elements of the sparse representation.
+
+     @param nz are row numbers corresponding to nonzero values.
+
+     @param p has length nCol + 1: index i > 0 gives the raw nonzero offset for
+     predictor i-1 and index i == 0 gives the base offset.
+   */
+  void ip(const double eltsNZ[],
+          const int nz[],
+          const int p[]);
+
+  /**
+     @brief Getter for run values.
+   */
+  const vector<double>& getValNum() {
+    return valNum;
+  }
+
+  /**
+     @brief Getter for starting row offsets;
+   */
+  const vector<unsigned int>& getRowStart() {
+    return rowStart;
+  }
+
+  /**
+     @brief Getter for run lengths.
+   */
+  const vector<unsigned int> getRunLength() {
+    return runLength;
+  }
+
+
+  /**
+     @brief Getter for predictor starting offsets.
+   */
+  const vector<unsigned int> getPredStart() {
+    return predStart;
+  }
 };
 
 

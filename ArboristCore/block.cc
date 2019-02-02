@@ -83,4 +83,56 @@ void BlockSparse::Transpose(unsigned int rowBegin, unsigned int rowEnd) {
   }
 }
 
-  
+
+BSCresc::BSCresc(unsigned int nRow_,
+                 unsigned int nCol_) :
+  nRow(nRow_),
+  nPred(nCol_),
+  predStart(vector<unsigned int>(nPred)) {
+}
+
+
+// 'i' in [0, nRow-1] list rows with nonzero elements.
+// 'p' holds the starting offset for each column in 'eltsNZ'.
+//    Repeated values indicate full-zero columns. 
+//
+void BSCresc::ip(const double eltsNZ[],
+                 const int nz[],
+                 const int p[]) {
+  // Pre-scans column heights.
+  const double zero = 0.0;
+  vector<unsigned int> nzHeight(nPred + 1);
+  unsigned int idxStart = p[0];
+  for (unsigned int colIdx = 1; colIdx <= nPred; colIdx++) {
+    nzHeight[colIdx - 1] = p[colIdx] - idxStart;
+    idxStart = p[colIdx];
+  }
+
+  for (unsigned int colIdx = 0; colIdx < predStart.size(); colIdx++) {
+    unsigned int colHeight = nzHeight[colIdx]; // # nonzero values in column.
+    predStart[colIdx] = valNum.size();
+    if (colHeight == 0) { // No nonzero values for predictor.
+      pushRun(zero, nRow, 0);
+    }
+    else {
+      unsigned int nzPrev = nRow; // Inattainable row value.
+      // Row indices into 'i' and 'x' are zero-based.
+      unsigned int idxStart = p[colIdx];
+      unsigned int idxEnd = idxStart + colHeight;
+      for (unsigned int rowIdx = idxStart; rowIdx < idxEnd; rowIdx++) {
+        unsigned int nzRow = nz[rowIdx]; // row # of nonzero element.
+        if (nzPrev == nRow && nzRow > 0) { // Zeroes lead.
+          pushRun(zero, nzRow, 0);
+        }
+        else if (nzRow > nzPrev + 1) { // Zeroes precede.
+          pushRun(zero, nzRow - (nzPrev + 1), nzPrev + 1);
+        }
+        pushRun(eltsNZ[rowIdx], 1, nzRow);
+        nzPrev = nzRow;
+      }
+      if (nzPrev + 1 < nRow) { // Zeroes trail.
+        pushRun(zero, nRow - (nzPrev + 1), nzPrev + 1);
+      }
+    }
+  }
+}

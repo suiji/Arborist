@@ -81,6 +81,7 @@ class LeafBridge {
   }
 };
 
+
 /**
    @brief Bridge specialization of Core LeafReg, q.v.
  */
@@ -140,14 +141,25 @@ class LeafRegBridge : public LeafBridge {
     return scoreTree[tIdx];
   }
   
-  List Summary(SEXP sYTest, const class Quant *quant = nullptr);
+  List summary(SEXP sYTest, const class Quant *quant = nullptr);
 
   NumericMatrix QPred(const class Quant *quant);
 
+
   /**
-     @return mean-squared prediction error.
-   */
-  double MSE(const vector<double> &yPred,
+     @brief Utility for computing mean-square error of prediction.
+   
+     @param yPred is the prediction.
+
+     @param yTest is the observed response.
+
+     @param rsq[out] is the r-squared statistic.
+
+     @param mae[out] is the mean absolute error.
+
+     @return mean squared error.
+  */
+  double mse(const vector<double> &yPred,
              const NumericVector &yTest,
              double &rsq,
              double &mse);
@@ -265,11 +277,25 @@ class LeafCtgBridge : public LeafBridge {
                                           const class BitMatrix *baggedRows);
 
   
-  List Summary(SEXP sYTest, const List &signature);
+  List summary(SEXP sYTest, const List &signature);
 
 
+  /**
+     @brief Produces census summary, which is common to all categorical
+     prediction.
+
+     @param rowNames is the user-supplied specification of row names.
+
+     @return matrix of predicted categorical responses, by row.
+  */
   IntegerMatrix Census(const CharacterVector &rowNames);
 
+  
+  /**
+     @param rowNames is the user-supplied collection of row names.
+
+     @return probability matrix if requested, otherwise empty matrix.
+  */
   NumericMatrix Prob(const CharacterVector &rowNames);
 };
 
@@ -301,7 +327,17 @@ class TestCtg {
   static IntegerVector MergeLevels(const CharacterVector &levelsTest,
                                    const CharacterVector &levelsTrain);
 
-  void Validate(class LeafFrameCtg *leaf, const vector<unsigned int> &yPred);
+
+  /**
+     @brief Fills in confusion matrix and misprediction vector.
+
+     @param leaf summarizes the trained leaf frame.
+
+     @param yPred contains the zero-based predictions.
+  */
+  void validate(class LeafFrameCtg *leaf, const vector<unsigned int> &yPred);
+
+
   IntegerMatrix Confusion();
   NumericVector MisPred();
   double OOB(const vector<unsigned int> &yPred) const;
@@ -316,15 +352,6 @@ struct LBTrain {
 private:
   static bool thin; // User option:  whether to annotate bag state.
 
-
-  /**
-     @brief Accumulates scores of each bagged row in tree.
-
-     @param leaf is the core representation of the teaves.
-   */
-  void accumScores(const class LFTrain* leaf);
-
-  
   /**
      @brief Consumes core Node recrods and writes as raw data.
 

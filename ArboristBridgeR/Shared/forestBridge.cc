@@ -26,13 +26,6 @@
 #include "forestBridge.h"
 #include "forest.h"
 
-FBTrain::FBTrain(unsigned int nTree) :
-  nodeRaw(RawVector(0)),
-  facRaw(RawVector(0)),
-  height(IntegerVector(nTree)),
-  facHeight(IntegerVector(nTree)) {
-}
-
 void FBTrain::consume(const ForestTrain* forestTrain,
                       unsigned int tIdx,
                       double scale) {
@@ -68,7 +61,35 @@ void FBTrain::consume(const ForestTrain* forestTrain,
 }
 
 
+/**
+   @brief Recasts 'pred' field of nonterminals to front-end facing values.
+
+   @return void.
+ */
+void ForestExport::treeExport(const int predMap[],
+                            vector<unsigned int> &pred,
+                            const vector<unsigned int> &bump) {
+  for (unsigned int i = 0; i < pred.size(); i++) {
+    if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
+      unsigned int predCore = pred[i];
+      pred[i] = predMap[predCore];
+    }
+  }
+}
+
+
+/**
+   @brief Prepares predictor field for export by remapping to front-end indices.
+ */
+void ForestExport::predExport(const int predMap[]) {
+  for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
+    treeExport(predMap, predTree[tIdx], bumpTree[tIdx]);
+  }
+}
+
+
 List FBTrain::wrap() {
+  BEGIN_RCPP
   List forest =
     List::create(
                  _["forestNode"] = move(nodeRaw),
@@ -81,6 +102,7 @@ List FBTrain::wrap() {
   forest.attr("class") = "Forest";
 
   return forest;
+  END_RCPP
 }
 
 
@@ -102,24 +124,6 @@ SEXP ForestBridge::Legal(const List &lForest) {
   }
   
   END_RCPP
-}
-
-
-// Alignment should be sufficient to guarantee safety of
-// the casted loads.
-ForestBridge::ForestBridge(const IntegerVector& feHeight_,
-                           const RawVector &feFacSplit_,
-                           const IntegerVector &feFacHeight_,
-                           const RawVector &feNode_) :
-  feHeight(feHeight_),
-  feNode(feNode_),
-  feFacHeight(feFacHeight_),
-  feFacSplit(feFacSplit_),
-  forest(move(make_unique<Forest>((unsigned int*) &feHeight[0],
-                                  feHeight.length(),
-                                  (TreeNode*) &feNode[0],
-                                  (unsigned int *) &feFacSplit[0],
-                                  (unsigned int*) &feFacHeight[0]))) {
 }
 
 
@@ -146,28 +150,27 @@ ForestExport::ForestExport(List &lForest,
 }
 
 
-/**
-   @brief Recasts 'pred' field of nonterminals to front-end facing values.
-
-   @return void.
- */
-void ForestExport::treeExport(const int predMap[],
-                            vector<unsigned int> &pred,
-                            const vector<unsigned int> &bump) {
-  for (unsigned int i = 0; i < pred.size(); i++) {
-    if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
-      unsigned int predCore = pred[i];
-      pred[i] = predMap[predCore];
-    }
-  }
+// Alignment should be sufficient to guarantee safety of
+// the casted loads.
+ForestBridge::ForestBridge(const IntegerVector& feHeight_,
+                           const RawVector &feFacSplit_,
+                           const IntegerVector &feFacHeight_,
+                           const RawVector &feNode_) :
+  feHeight(feHeight_),
+  feNode(feNode_),
+  feFacHeight(feFacHeight_),
+  feFacSplit(feFacSplit_),
+  forest(move(make_unique<Forest>((unsigned int*) &feHeight[0],
+                                  feHeight.length(),
+                                  (TreeNode*) &feNode[0],
+                                  (unsigned int *) &feFacSplit[0],
+                                  (unsigned int*) &feFacHeight[0]))) {
 }
 
 
-/**
-   @brief Prepares predictor field for export by remapping to front-end indices.
- */
-void ForestExport::predExport(const int predMap[]) {
-  for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
-    treeExport(predMap, predTree[tIdx], bumpTree[tIdx]);
-  }
+FBTrain::FBTrain(unsigned int nTree) :
+  nodeRaw(RawVector(0)),
+  facRaw(RawVector(0)),
+  height(IntegerVector(nTree)),
+  facHeight(IntegerVector(nTree)) {
 }

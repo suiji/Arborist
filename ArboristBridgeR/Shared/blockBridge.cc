@@ -27,16 +27,43 @@
 #include "blockBridge.h"
 
 
-unique_ptr<BlockFacBridge> BlockFacBridge::Factory(const List &predBlock) {
-  return make_unique<BlockFacBridge>(IntegerMatrix((SEXP) predBlock["blockFac"]));
-}
-
-
 BlockFacBridge::BlockFacBridge(const IntegerMatrix &fac) :
   facT(transpose(fac)) {
   blockFac = make_unique<BlockFac>((unsigned int*)facT.begin(), fac.ncol());
 }
 
+
+/**
+  @brief Sparse constructor.
+ */
+BlockSparseBridge::BlockSparseBridge(const NumericVector &_val,
+				     const IntegerVector &_rowStart,
+				     const IntegerVector &_runLength,
+				     const IntegerVector &_predStart) :
+  val(_val),
+  rowStart(_rowStart),
+  runLength(_runLength),
+  predStart(_predStart) {
+  blockNum = make_unique<BlockSparse>(val.begin(),
+				      (unsigned int *) rowStart.begin(),
+				      (unsigned int *) runLength.begin(),
+				      (unsigned int *) predStart.begin(),
+				      predStart.length());
+}
+
+
+/**
+   @brief Dense constructor
+ */
+BlockDenseBridge::BlockDenseBridge(const NumericMatrix &num) {
+  numT = transpose(num);
+  blockNum = make_unique<BlockNumDense>(numT.begin(), num.ncol());
+}
+
+
+unique_ptr<BlockFacBridge> BlockFacBridge::Factory(const List &predBlock) {
+  return make_unique<BlockFacBridge>(IntegerMatrix((SEXP) predBlock["blockFac"]));
+}
 
 unique_ptr<BlockNumBridge> BlockNumBridge::Factory(const List &predBlock) {
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
@@ -53,34 +80,3 @@ unique_ptr<BlockNumBridge> BlockNumBridge::Factory(const List &predBlock) {
 					 );
   }
 }
-
-
-/**
-  @brief Sparse constructor.
- */
-BlockSparseBridge::BlockSparseBridge(const NumericVector &_val,
-				     const IntegerVector &_rowStart,
-				     const IntegerVector &_runLength,
-				     const IntegerVector &_predStart) :
-
-  val(_val),
-  rowStart(_rowStart),
-  runLength(_runLength),
-  predStart(_predStart) {
-  blockNum = make_unique<BlockSparse>(val.begin(),
-				      (unsigned int *) rowStart.begin(),
-				      (unsigned int *) runLength.begin(),
-				      (unsigned int *) predStart.begin(),
-				      predStart.length());
-  }
-       
-
-
-/**
-   @brief Dense constructor
- */
-BlockDenseBridge::BlockDenseBridge(const NumericMatrix &num) {
-  numT = transpose(num);
-  blockNum = make_unique<BlockNumDense>(numT.begin(), num.ncol());
-}
-

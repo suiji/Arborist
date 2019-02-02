@@ -53,6 +53,11 @@ void BagBridge::consume(const Train *train, unsigned int treeOff) {
 }
 
 
+const BitMatrix *BagBridge::getRaw() {
+  return bmRaw.get();
+}
+
+
 List BagBridge::wrap() {
   BEGIN_RCPP
   return List::create(
@@ -73,7 +78,3 @@ unique_ptr<BagBridge> BagBridge::unwrap(const List &sTrain) {
                                 RawVector((SEXP) sBag["raw"]));
 }
 
-
-const BitMatrix *BagBridge::getRaw() {
-  return bmRaw.get();
-}

@@ -39,7 +39,9 @@
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,
                             const SEXP sTrain,
                             SEXP sYTest) {
+  BEGIN_RCPP
   return PredictBridge::reg(List(sPredBlock), List(sTrain), sYTest, true);
+  END_RCPP
 }
 
 
@@ -47,7 +49,9 @@ RcppExport SEXP TestReg(const SEXP sPredBlock,
                         const SEXP sTrain,
                         SEXP sYTest,
                         SEXP sOOB) {
+  BEGIN_RCPP
   return PredictBridge::reg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB));
+  END_RCPP
 }
 
 
@@ -62,7 +66,7 @@ List PredictBridge::reg(const List& sPredBlock,
                         bool validate) {
   BEGIN_RCPP
 
-  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
+  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
   auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
@@ -70,7 +74,7 @@ List PredictBridge::reg(const List& sPredBlock,
 
   Predict::reg(leafReg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
 
-  return move(leafReg->Summary(sYTest));
+  return move(leafReg->summary(sYTest));
   END_RCPP
 }
 
@@ -78,14 +82,18 @@ List PredictBridge::reg(const List& sPredBlock,
 RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest) {
+  BEGIN_RCPP
   return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, true, false);
+  END_RCPP
 }
 
 
 RcppExport SEXP ValidateProb(const SEXP sPredBlock,
                              const SEXP sTrain,
                              SEXP sYTest) {
+  BEGIN_RCPP
   return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, true, true);
+  END_RCPP
 }
 
 
@@ -106,7 +114,9 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sYTest,
                           SEXP sOOB) {
+  BEGIN_RCPP
   return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), false);
+  END_RCPP
 }
 
 
@@ -127,7 +137,9 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
                          SEXP sYTest,
                          SEXP sOOB) {
+  BEGIN_RCPP
   return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), true);
+  END_RCPP
 }
 
 
@@ -142,7 +154,7 @@ List PredictBridge::ctg(const List& sPredBlock,
                         bool validate,
                         bool doProb) {
   BEGIN_RCPP
-  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
+  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
   auto leafCtg = LeafCtgBridge::unwrap(lTrain, framePredict->getNRow(), doProb);
@@ -151,7 +163,7 @@ List PredictBridge::ctg(const List& sPredBlock,
   Predict::ctg(leafCtg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
 
   List signature = FramemapBridge::unwrapSignature(sPredBlock);
-  return move(leafCtg->Summary(sYTest, signature));
+  return move(leafCtg->summary(sYTest, signature));
 
   END_RCPP
 }
@@ -162,7 +174,9 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               SEXP sYTest,
                               SEXP sQuantVec,
                               SEXP sQBin) {
+  BEGIN_RCPP
   return PredictBridge::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true);
+  END_RCPP
 }
 
 
@@ -172,7 +186,9 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           SEXP sQBin,
                           SEXP sYTest,
                           SEXP sOOB) {
+  BEGIN_RCPP
   return PredictBridge::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB));
+  END_RCPP
 }
 
 
@@ -201,7 +217,7 @@ List PredictBridge::quant(const List& sPredBlock,
                           bool validate) {
   BEGIN_RCPP
 
-  auto frameMapBridge = FramemapBridge::FactoryPredict(sPredBlock);
+  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
   auto framePredict = frameMapBridge->getFrame();
   auto forestBridge = ForestBridge::unwrap(lTrain);
   auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
@@ -212,7 +228,7 @@ List PredictBridge::quant(const List& sPredBlock,
 
   Predict::reg(leafReg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate, quant.get());
 
-  return move(leafReg->Summary(sYTest, quant.get()));
+  return move(leafReg->summary(sYTest, quant.get()));
 
   END_RCPP
 }

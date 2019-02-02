@@ -29,6 +29,40 @@
 #include "framemapBridge.h"
 
 
+RowRankBridge::RowRankBridge(const Coproc *coproc,
+                             const FrameTrain *frameTrain,
+                             const IntegerVector &_row,
+                             const IntegerVector &_rank,
+                             const IntegerVector &_runLength,
+                             double _autoCompress) :
+  RowRank(frameTrain,
+          (unsigned int*) &_row[0],
+          (unsigned int*) &_rank[0],
+          (unsigned int*) &_runLength[0],
+          _runLength.length(),
+          _autoCompress),
+  row(_row),
+  rank(_rank),
+  runLength(_runLength) {
+}
+
+
+BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
+                                     const IntegerVector &_numOff) :
+  BlockRanked(&_numVal[0], (unsigned int*) &_numOff[0]),
+  numVal(_numVal),
+  numOff(_numOff) {
+}
+
+
+RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
+                                 unique_ptr<BlockRankedBridge> _numRanked) :
+  rowRank(move(_rowRank)),
+  numRanked(move(_numRanked)) {
+  rankedPair = make_unique<RankedSet>(rowRank.get(), numRanked.get());
+}
+
+
 /**
    @brief Builds row/rank maps as parallel arrays.
 
@@ -124,14 +158,6 @@ unique_ptr<BlockRankedBridge> BlockRankedBridge::unwrap(SEXP sRankedSet) {
                                 IntegerVector((SEXP) blockNum["numOff"]));
 }
 
-BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
-                                     const IntegerVector &_numOff) :
-  BlockRanked(&_numVal[0], (unsigned int*) &_numOff[0]),
-  numVal(_numVal),
-  numOff(_numOff) {
-}
-
-
 
 unique_ptr<RankedSetBridge> RankedSetBridge::unwrap(
                     SEXP sRankedSet,
@@ -145,15 +171,6 @@ unique_ptr<RankedSetBridge> RankedSetBridge::unwrap(
 }
 
 
-RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
-                                 unique_ptr<BlockRankedBridge> _numRanked) :
-  rowRank(move(_rowRank)),
-  numRanked(move(_numRanked)) {
-  rankedPair = make_unique<RankedSet>(rowRank.get(), numRanked.get());
-}
-
-
-
 List RowRankBridge::Legal(SEXP sRowRank) {
   BEGIN_RCPP
 
@@ -164,22 +181,4 @@ List RowRankBridge::Legal(SEXP sRowRank) {
   return rowRank;
 
  END_RCPP
-}
-
-
-RowRankBridge::RowRankBridge(const Coproc *coproc,
-                             const FrameTrain *frameTrain,
-                             const IntegerVector &_row,
-                             const IntegerVector &_rank,
-                             const IntegerVector &_runLength,
-                             double _autoCompress) :
-  RowRank(frameTrain,
-          (unsigned int*) &_row[0],
-          (unsigned int*) &_rank[0],
-          (unsigned int*) &_runLength[0],
-          _runLength.length(),
-          _autoCompress),
-  row(_row),
-  rank(_rank),
-  runLength(_runLength) {
 }

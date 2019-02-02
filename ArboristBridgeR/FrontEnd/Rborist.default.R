@@ -254,20 +254,23 @@ RboristDeep <- function(argList) {
 #
 PredBlock <- function(x, sigTrain = NULL) {
   # Argument checking:
-  if (any(is.na(x)))
+  if (any(is.na(x))) {
     stop("NA not supported in design matrix")
+  }
 
   # For now, only numeric and factor types supported.
   #
   if (is.data.frame(x)) { # As with "randomForest" package
     facCard <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))
-    numCols <- as.integer(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
-    facIdx <- which(facCard > 0)
-    numIdx <- which(numCols > 0)
-    if (length(numIdx) + length(facIdx) != ncol(x)) {
+    numCols <- sum(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
+    facCols <- length(which(facCard > 0))
+    if (numCols + facCols != ncol(x)) {
       stop("Frame column with unsupported data type")
     }
-    return(tryCatch(.Call("FrameMixed", x, numIdx, facIdx, facCard, sigTrain), error = function(e) {stop(e)} ))
+    return(tryCatch(.Call("FrameMixed", x, numCols, facCols, facCard, sigTrain), error = function(e) {stop(e)} ))
+  }
+  else if (inherits(x, "dgCMatrix")) {
+     return(tryCatch(.Call("FrameSparse", x), error= print))
   }
   else if (is.matrix(x)) {
     if (is.integer(x)) {
@@ -282,9 +285,6 @@ PredBlock <- function(x, sigTrain = NULL) {
     else {
       stop("Unsupported matrix type")
     }
-  }
-  else if (inherits(x, "dgCMatrix")) {
-     return(tryCatch(.Call("BlockSparse", x), error= print))
   }
   else {
     stop("Expecting data frame or matrix")
