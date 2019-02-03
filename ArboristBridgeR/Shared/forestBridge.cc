@@ -107,8 +107,7 @@ List FBTrain::wrap() {
 
 
 unique_ptr<ForestBridge> ForestBridge::unwrap(const List& lTrain) {
-  List lForest = List((SEXP) lTrain["forest"]);
-  Legal(lForest);
+  List lForest = checkForest(lTrain);
   return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["height"]),
                                    RawVector((SEXP) lForest["facSplit"]),
                                    IntegerVector((SEXP) lForest["facHeight"]),
@@ -116,12 +115,14 @@ unique_ptr<ForestBridge> ForestBridge::unwrap(const List& lTrain) {
 }
 
 
-SEXP ForestBridge::Legal(const List &lForest) {
+SEXP ForestBridge::checkForest(const List &lTrain) {
   BEGIN_RCPP
 
+  List lForest = List((SEXP) lTrain["forest"]);
   if (!lForest.inherits("Forest")) {
     stop("Expecting Forest");
   }
+  return lForest;
   
   END_RCPP
 }
@@ -129,8 +130,7 @@ SEXP ForestBridge::Legal(const List &lForest) {
 
 unique_ptr<ForestExport> ForestExport::unwrap(const List &lTrain,
                                               IntegerVector &predMap) {
-  List lForest = List((SEXP) lTrain["forest"]);
-  Legal(lForest);
+  List lForest = checkForest(lTrain);
   return make_unique<ForestExport>(lForest, predMap);
 }
 

@@ -95,7 +95,7 @@ class LeafRegBridge : public LeafBridge {
   vector<vector<double > > scoreTree;
 
   
-  static SEXP Legal(const List &lLeaf);
+  static SEXP checkLeaf(const List &lLeaf);
  protected:
   unique_ptr<class LeafFrameReg> leaf;
   
@@ -132,6 +132,9 @@ class LeafRegBridge : public LeafBridge {
   static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
+  /**
+     @brief Getter for pointer to core leaf representation.
+   */
   class LeafFrameReg *getLeaf() const {
     return leaf.get();
   }
@@ -143,7 +146,15 @@ class LeafRegBridge : public LeafBridge {
   
   List summary(SEXP sYTest, const class Quant *quant = nullptr);
 
-  NumericMatrix QPred(const class Quant *quant);
+
+  /**
+     @brief Builds a NumericMatrix representation of the quantile predictions.
+     
+     @param quant is a quantile prediction summary.
+
+     @return transposed core matrix if quantiles requested, else empty matrix.
+  */
+  NumericMatrix qPred(const class Quant *quant);
 
 
   /**
@@ -185,7 +196,7 @@ class LeafCtgBridge : public LeafBridge {
 
      @return R-style List representing Core-generated LeafCtg.
    */
-  static SEXP Legal(const List &lLeaf);
+  static SEXP checkLeaf(const List &lLeaf);
 
  protected:
   unique_ptr<class LeafFrameCtg> leaf;

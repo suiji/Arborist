@@ -36,7 +36,7 @@ using namespace Rcpp;
 /**
    @brief External entry to presorting RowRank builder.
 
-   @param R-style List containing frame block.
+   @param sPredBlock is an R-style List containing frame block.
 
    @return R-style bundle representing row/rank structure.
  */
@@ -78,7 +78,7 @@ class RowRankBridge : public RowRank {
 
      @return List object containing valid representation.
    */
-  static List Legal(SEXP sRowRank);
+  static List checkRowRank(SEXP sRowRank);
 
   
   /**
@@ -100,7 +100,7 @@ class RankedSetBridge {
   unique_ptr<RankedSet> rankedPair;
   
  public:
-  static List Presort(List &predBlock);
+  static List presort(List &predBlock);
 
   RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
                   unique_ptr<BlockRankedBridge> _numRanked);

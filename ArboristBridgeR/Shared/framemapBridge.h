@@ -71,12 +71,15 @@ class FramePredictBridge {
  public:
 
 
-  FramePredictBridge(unique_ptr<class BlockNumBridge> _blockNum,
-                     unique_ptr<class BlockFacBridge> _blockFac,
-                       unsigned int nRow);
+  FramePredictBridge(unique_ptr<class BlockNumBridge> blockNum_,
+                     unique_ptr<class BlockFacBridge> blockFac_,
+                     unsigned int nRow);
 
-  
-  const FramePredict *getFrame() const {
+
+  /**
+     @brief Getter for core object pointer.
+   */
+  const auto getFrame() const {
     return framePredict.get();
   }
 };
@@ -84,34 +87,61 @@ class FramePredictBridge {
 
 struct FramemapBridge {
 
-  static void sparseIP(const NumericVector& eltsNZ,
-                       const IntegerVector& i,
-                       const IntegerVector& p,
-                       unsigned int nRow,
-                       vector<double>& valNum,
-                       vector<unsigned int>& rowStart,
-                       vector<unsigned int>& runLength,
-                       vector<unsigned int>& predStart);
+  /**
+     @brief Pulls signature member from a PredBlock object.
 
+     @param sPredBlock contains the parent PredBlock.
+
+     @return member of type Signature.
+   */
   static List unwrapSignature(const List& sPredBlock);
 
-  static SEXP unwrap(const List& sPredBlock);
+  /**
+     @brief Ensures the passed object has PredBlock type.
 
-  static SEXP PredblockLegal(const List& predBlock);
+     @param predBlock is the object to be checked.
+   */
+  static SEXP checkPredblock(const List& predBlock);
 
-  static SEXP SignatureLegal(const List& signature);
 
-  static void SignatureUnwrap(const List& sTrain,
-                              IntegerVector& _predMap,
-                              List& _level);
+  /**
+     @brief Ensures passed object contains member of class Signature.
+
+     @param sParent is the parent object.
+
+     @return signature object. 
+   */
+  static SEXP checkSignature(const List& sParent);
+
+  
+  /**
+     @brief Unwraps field values useful for export.
+
+     @param[out] predMap outputs the core predictor mapping.
+
+     @param[out] level outputs the training factor levels.
+   */
+  static void signatureUnwrap(const List& sTrain,
+                              IntegerVector& predMap,
+                              List& level);
+
   static SEXP wrapSignature(const IntegerVector& predMap,
                  const List& level,
                  const CharacterVector& colNames,
                  const CharacterVector& rowNames);
 
-  static void FactorRemap(IntegerMatrix& xFac,
-                          List& level,
-                          List& levelTrain);
+  /**
+     @brief Matches internal codes of training and prediction factor levels.
+
+     @param[out] xFac contains the new codes.
+
+     @param levelTest encodes the prediction factor levels.
+
+     @param levelTrain encodes the training factor levels.
+   */
+  static void factorRemap(IntegerMatrix& xFac,
+                          const List& levelTest,
+                          const List& levelTrain);
 
   
   /**

@@ -77,13 +77,13 @@ RcppExport SEXP Presort(SEXP sPredBlock) {
   if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
   }
-  return RankedSetBridge::Presort(predBlock);
+  return RankedSetBridge::presort(predBlock);
 
   END_RCPP
 }
 
 
-List RankedSetBridge::Presort(List &predBlock) {
+List RankedSetBridge::presort(List &predBlock) {
   BEGIN_RCPP
 
   auto rankedPre = make_unique<RankedPre>(as<unsigned int>(predBlock["nRow"]),
@@ -95,15 +95,15 @@ List RankedSetBridge::Presort(List &predBlock) {
     if (!blockNumSparse.inherits("BlockNumSparse")) {
       stop("Expecting BlockNumSparse");
     }
-    rankedPre->NumSparse(NumericVector((SEXP) blockNumSparse["valNum"]).begin(),
+    rankedPre->numSparse(NumericVector((SEXP) blockNumSparse["valNum"]).begin(),
      (unsigned int*) IntegerVector((SEXP) blockNumSparse["rowStart"]).begin(),
      (unsigned int*) IntegerVector((SEXP) blockNumSparse["runLength"]).begin()
                      );
   }
   else {
-    rankedPre->NumDense(NumericMatrix((SEXP) predBlock["blockNum"]).begin());
+    rankedPre->numDense(NumericMatrix((SEXP) predBlock["blockNum"]).begin());
   }
-  rankedPre->FacDense((unsigned int*) IntegerMatrix((SEXP) predBlock["blockFac"]).begin());
+  rankedPre->facDense((unsigned int*) IntegerMatrix((SEXP) predBlock["blockFac"]).begin());
 
   // Ranked numerical values for splitting-value interpolation.
   //
@@ -137,7 +137,7 @@ unique_ptr<RowRankBridge> RowRankBridge::unwrap(SEXP sRankedSet,
                                                 const Coproc *coproc,
                                                 const FrameTrain *frameTrain) {
   List rankedSet(sRankedSet);
-  List rowRank = Legal(rankedSet["rowRank"]);
+  List rowRank = checkRowRank(rankedSet["rowRank"]);
   return make_unique<RowRankBridge>(coproc,
                            frameTrain,
                            IntegerVector((SEXP) rowRank["row"]),
@@ -171,7 +171,7 @@ unique_ptr<RankedSetBridge> RankedSetBridge::unwrap(
 }
 
 
-List RowRankBridge::Legal(SEXP sRowRank) {
+List RowRankBridge::checkRowRank(SEXP sRowRank) {
   BEGIN_RCPP
 
   List rowRank(sRowRank);

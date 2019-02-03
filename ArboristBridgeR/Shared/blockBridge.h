@@ -32,15 +32,28 @@ using namespace Rcpp;
 
 #include "block.h"
 
+/**
+   @brief Bridge-level manager for factor-valued observations.
+ */
 class BlockFacBridge {
   const IntegerMatrix facT; // Pins scope of integer transpose.
-  unique_ptr<BlockFac> blockFac;
+  unique_ptr<BlockFac> blockFac; // Core-level representation.
  public:
 
   BlockFacBridge(const IntegerMatrix &fac);
-  BlockFac *Fac() {
+
+  /**
+     @brief Getter for raw core pointer.
+   */
+  BlockFac *getFac() {
     return blockFac.get();
   }
+
+  /**
+     @brief Instantiates manager from front-end representation.
+
+     @param predBlock summarizes a block of factor-valued predictors.
+   */
   static unique_ptr<BlockFacBridge> Factory(const List &predBlock);
 };
 
@@ -53,13 +66,25 @@ class BlockNumBridge {
   unique_ptr<BlockNum> blockNum;
 public:
 
-  BlockNum *Num() {
+  /**
+     @brief Getter for raw pointer to core object.
+   */
+  BlockNum *getNum() {
     return blockNum.get();
   }
-  static unique_ptr<BlockNumBridge> Factory(const List &predBlock);
+
+  /**
+     @brief Instantiates bridge-level representation.
+
+     @param predBlock summarizes a front-end block of numeric observations.
+   */
+  static unique_ptr<BlockNumBridge> Factory(const List& predBlock);
 };
 
 
+/**
+   @brief Compressed representation of numeric data.
+ */
 class BlockDenseBridge : public BlockNumBridge {
   NumericMatrix numT; // Pins scope of numerical transpose.
 
@@ -67,6 +92,8 @@ class BlockDenseBridge : public BlockNumBridge {
 
   BlockDenseBridge(const NumericMatrix &_num);
 };
+
+
 // Dense blocks are transposed by the front end, which is typically
   // a numerical package supporting such operations.  Sparse blocks
   // are transposed incrementally, by the core.

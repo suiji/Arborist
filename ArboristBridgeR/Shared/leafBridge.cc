@@ -203,8 +203,7 @@ List LBTrainCtg::wrap() {
  */
 unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
                                                 unsigned int nRow) {
-  List lLeaf = lTrain["leaf"];
-  Legal(lLeaf);
+  List lLeaf = checkLeaf(lTrain);
   return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
@@ -214,12 +213,15 @@ unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
 }
 
 
-SEXP LeafRegBridge::Legal(const List &leaf) {
+SEXP LeafRegBridge::checkLeaf(const List &lTrain) {
   BEGIN_RCPP
 
+  List leaf = lTrain["leaf"];
   if (!leaf.inherits("LeafReg")) {
     stop("Expecting LeafReg");
   }
+
+  return leaf;
 
   END_RCPP
 }
@@ -261,8 +263,7 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
 unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &sTrain,
                                                 unsigned int nRow,
                                                 bool doProb) {
-  List lLeaf = sTrain["leaf"];
-  Legal(lLeaf);
+  List lLeaf = checkLeaf(sTrain);
   return make_unique<LeafCtgBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
@@ -277,12 +278,15 @@ unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &sTrain,
 /**
    @brief Ensures front end holds a LeafCtg.
  */
-SEXP LeafCtgBridge::Legal(const List &leaf) {
+SEXP LeafCtgBridge::checkLeaf(const List &lTrain) {
   BEGIN_RCPP
 
-  if (!leaf.inherits("LeafCtg")) {
+  List leafCtg = lTrain["leaf"];
+  if (!leafCtg.inherits("LeafCtg")) {
     stop("Expecting LeafCtg");
   }
+
+  return leafCtg;
 
   END_RCPP
 }
@@ -401,7 +405,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
   if (Rf_isNull(sYTest)) {
     prediction = List::create(
                               _["yPred"] = leaf->getYPred(),
-                              _["qPred"] = QPred(quant)
+                              _["qPred"] = qPred(quant)
                               );
     prediction.attr("class") = "PredictReg";
   }
@@ -412,7 +416,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
                               _["mse"] = mse(leaf->getYPred(), as<NumericVector>(sYTest), rsq, mae),
                               _["mae"] = mae,
                               _["rsq"] = rsq,
-                              _["qPred"] = QPred(quant)
+                              _["qPred"] = qPred(quant)
                               );
     prediction.attr("class") = "ValidReg";
   }
@@ -422,12 +426,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
 }
 
 
-/**
-   @brief Builds a NumericMatrix representation of the quantile predictions.
-
-   @return transposed core matrix if quantiles requested, else empty matrix.
- */
-NumericMatrix LeafRegBridge::QPred(const Quant *quant) {
+NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
   return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->NQuant(), leaf->rowPredict(), quant->QPred()));
@@ -571,8 +570,7 @@ NumericVector TestCtg::MisPred() {
 
 unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
-  List lLeaf((SEXP) lTrain["leaf"]);
-  Legal(lLeaf);
+  List lLeaf = checkLeaf(lTrain);
   return make_unique<LeafCtgBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
@@ -617,9 +615,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
 
 unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
-  List lLeaf((SEXP) lTrain["leaf"]);
-  Legal(lLeaf);
-  
+  List lLeaf = checkLeaf(lTrain);
   return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),

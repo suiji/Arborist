@@ -97,19 +97,6 @@ RcppExport SEXP ValidateProb(const SEXP sPredBlock,
 }
 
 
-/**
-   @brief Predicts with class votes.
-
-   @param sPredBlock contains the blocked observations.
-
-   @param sTrain contains the trained object.
-
-   @param sYTest contains the test vector.
-
-   @param sOOB indicates whether testing is out-of-bag.
-
-   @return predict object.
- */
 RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sYTest,
@@ -120,19 +107,6 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
 }
 
 
-/**
-   @brief Predicts with class votes.
-
-   @param sPredBlock contains the blocked observations.
-
-   @param sTrain contains the trained object.
-
-   @param sYTest is the vector of test values.
-
-   @param sOOB indicates whether testing is out-of-bag.
-
-   @return predict object.
- */
 RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
                          SEXP sYTest,
@@ -192,23 +166,6 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 }
 
 
-/**
-   @brief predict with quantiles.
-
-   @param sPredBlock contains the blocked observations.
-
-   @param sTrain contains the trained object.
-
-   @param sQuantVec is a vector of quantile training data.
-   
-   @param sQBin is the bin parameter.
-
-   @param sYTest is the test vector.
-
-   @param validate is true iff validating.
-
-   @return predict list.
-*/
 List PredictBridge::quant(const List& sPredBlock,
                           const List& lTrain,
                           SEXP sQuantVec,

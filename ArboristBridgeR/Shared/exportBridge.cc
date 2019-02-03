@@ -51,7 +51,7 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  FramemapBridge::SignatureUnwrap(arbOut, predMap, predLevel);
+  FramemapBridge::signatureUnwrap(arbOut, predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

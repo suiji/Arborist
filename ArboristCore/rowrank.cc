@@ -50,28 +50,15 @@ RowRank::RowRank(const FrameTrain *frameTrain,
   rrStart(vector<unsigned int>(nPred)),
   safeOffset(vector<unsigned int>(nPred)),
   autoCompress(_autoCompress) {
-  unsigned int explCount = DenseBlock(feRank, feRLE, rleLength);
-  ModeOffsets();
+  unsigned int explCount = denseBlock(feRank, feRLE, rleLength);
+  modeOffsets();
 
   rrNode = move(vector<RRNode>(explCount));
-  Decompress(feRow, feRank, feRLE, rleLength);
+  decompress(feRow, feRank, feRLE, rleLength);
 }
 
 
-/**
-   @brief Walks the design matrix as RLE entries, merging adjacent
-   entries with identical ranks.
-
-   @brief feRank are the ranks corresponding to runlength-encoding (RLE)
-   entries.
-
-   @param feRLE are the run lengths corresponding to RLE entries.
-
-   @param rleLength is the count of RLE entries.
-
-   @return total count of explicit slots.
- */
-unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+unsigned int RowRank::denseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
   unsigned int explCount = 0;
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -80,7 +67,7 @@ unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int
     unsigned int runCount = 0; // Runs across adjacent rle entries.
     unsigned int rankPrev = noRank;
     unsigned int rank;
-    unsigned int runLength = RunSlot(feRLE, feRank, rleIdx, rank);
+    unsigned int runLength = runSlot(feRLE, feRank, rleIdx, rank);
 
     for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank == rankPrev) {
@@ -96,31 +83,18 @@ unsigned int RowRank::DenseBlock(const unsigned int feRank[], const unsigned int
       }
       if (++rleIdx == rleLength)
 	break;
-      runLength = RunSlot(feRLE, feRank, rleIdx, rank);
+      runLength = runSlot(feRLE, feRank, rleIdx, rank);
     }
     // Post condition:  rowTot == nRow.
 
-    explCount += DenseMode(predIdx, denseMax, argMax);
+    explCount += denseMode(predIdx, denseMax, argMax);
   }
 
   return explCount;
 }
 
 
-/**
-   @brief Determines whether predictor to be stored densely and updates
-   storage accumulators accordingly.
-
-   @param predIdx is the predictor under consideration.
-
-   @param denseMax is the highest run length encountered for the predictor:
-   must lie within [1, nRow].
-
-   @param argMax is an argmax rank value corresponding to denseMax.
-
-   @return void.
- */
-unsigned int RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
+unsigned int RowRank::denseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
   unsigned int rowCount;
   if (denseMax > autoCompress * nRow) { // Sufficiently long run found.
     denseRank[predIdx] = argMax;
@@ -141,13 +115,7 @@ unsigned int RowRank::DenseMode(unsigned int predIdx, unsigned int denseMax, uns
 }
 
 
-/**
-   @brief Assigns predictor offsets according to storage mode:
-   noncompressed predictors stored first, as with staging offsets.
-
-   @return void.
- */
-void RowRank::ModeOffsets() {
+void RowRank::modeOffsets() {
   unsigned int denseBase = nonCompact * nRow;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int offSafe = safeOffset[predIdx];
@@ -157,28 +125,12 @@ void RowRank::ModeOffsets() {
 }
 
 
-/**
-   @brief Decompresses a block of predictors deemed not to be storable
-   densely.
-
-   @param feRow[] are the rows corresponding to distinct runlength-
-   encoded (RLE) entries.
-
-   @param feRank[] are the ranks corresponing to RLE entries.
-
-   @param feRLE records the run lengths spanning the original design
-   matrix.
-
-   @param rleLength is the total count of RLE entries.
-
-   @return void.
- */
-void RowRank::Decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+void RowRank::decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int outIdx = rrStart[predIdx];
     unsigned int row, rank;
-    unsigned int runLength = RunSlot(feRLE, feRow, feRank, rleIdx, row, rank);
+    unsigned int runLength = runSlot(feRLE, feRow, feRank, rleIdx, row, rank);
     for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank != denseRank[predIdx]) { // Non-dense runs expanded.
 	for (unsigned int i = 0; i < runLength; i++) {
@@ -187,7 +139,7 @@ void RowRank::Decompress(const unsigned int feRow[], const unsigned int feRank[]
       }
       if (++rleIdx == rleLength)
 	break;
-      runLength = RunSlot(feRLE, feRow, feRank, rleIdx, row, rank);
+      runLength = runSlot(feRLE, feRow, feRank, rleIdx, row, rank);
     }
     //    if (outIdx - rrStart[predIdx] != explicitCount[predIdx])
     //cout << "Dense count mismatch" << endl;
@@ -207,8 +159,8 @@ RowRank::~RowRank() {
 
    @return SamplePred object for tree.
  */
-unique_ptr<SamplePred> RowRank::SamplePredFactory(unsigned int _bagCount) const {
-  return make_unique<SamplePred>(nPred, _bagCount, SafeSize(_bagCount));
+unique_ptr<SamplePred> RowRank::SamplePredFactory(unsigned int bagCount) const {
+  return make_unique<SamplePred>(nPred, bagCount, safeSize(bagCount));
 }
 
 
@@ -239,18 +191,18 @@ RankedPre::RankedPre(unsigned int _nRow,
 }
 
 
-void RankedPre::NumSparse(const double feValNum[],
+void RankedPre::numSparse(const double feValNum[],
 			   const unsigned int feRowStart[],
 			   const unsigned int feRunLength[]) {
   unsigned int colOff = 0;
   for (unsigned int numIdx = 0; numIdx < nPredNum; numIdx++) {
     numOff[numIdx] = numVal.size();
-    unsigned int idxCol = NumSortSparse(&feValNum[colOff], &feRowStart[colOff], &feRunLength[colOff]);
+    unsigned int idxCol = numSortSparse(&feValNum[colOff], &feRowStart[colOff], &feRunLength[colOff]);
     colOff += idxCol;
   }
 }
 
-unsigned int RankedPre::NumSortSparse(const double feColNum[],
+unsigned int RankedPre::numSortSparse(const double feColNum[],
 				       const unsigned int feRowStart[],
 				       const unsigned int feRunLength[]) {
   vector<NumRLE> rleNum;
@@ -259,12 +211,12 @@ unsigned int RankedPre::NumSortSparse(const double feColNum[],
   }
 
   sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
-  RankNum(rleNum);
+  rankNum(rleNum);
 
   return rleNum.size();
 }
 
-void RankedPre::RankNum(const vector<NumRLE> &rleNum) {
+void RankedPre::rankNum(const vector<NumRLE> &rleNum) {
   NumRLE elt = rleNum[0];
   unsigned int rk = 0;
   rank.push_back(rk);
@@ -292,32 +244,25 @@ void RankedPre::RankNum(const vector<NumRLE> &rleNum) {
 }
 
 
-void RankedPre::NumDense(const double _feNum[]) {
+void RankedPre::numDense(const double _feNum[]) {
   for (unsigned int numIdx = 0; numIdx < nPredNum; numIdx++) {
     numOff[numIdx] = numVal.size();
-    NumSortRaw(&_feNum[numIdx * nRow]);
+    numSortRaw(&_feNum[numIdx * nRow]);
   }
 }
 
 
-void RankedPre::NumSortRaw(const double colNum[]) {
+void RankedPre::numSortRaw(const double colNum[]) {
   vector<ValRowD> valRow(nRow);
   for (unsigned int row = 0; row < nRow; row++) {
     valRow[row] = make_pair(colNum[row], row);
   }
 
   sort(valRow.begin(), valRow.end());  // Stable sort.
-  RankNum(valRow);
+  rankNum(valRow);
 }
 
-/**
-   @brief Stores ordered predictor column, entering uncompressed.
-
-   @param numOut outputs the rank-ordered predictor values.
-
-   @return void.
- */
-void RankedPre::RankNum(const vector<ValRowD> &valRow) {
+void RankedPre::rankNum(const vector<ValRowD> &valRow) {
   unsigned int rk = 0;
   runLength.push_back(1);
   row.push_back(valRow[0].second);
@@ -343,42 +288,27 @@ void RankedPre::RankNum(const vector<ValRowD> &valRow) {
 }
 
 
-void RankedPre::FacDense(const unsigned int feFac[]) {
+void RankedPre::facDense(const unsigned int feFac[]) {
   // Builds the ranked factor block.  Assumes 0-justification has been 
   // performed by bridge.
   //
   for (unsigned int facIdx = 0; facIdx < nPredFac; facIdx++) {
-    FacSort(&feFac[facIdx * nRow]);
+    facSort(&feFac[facIdx * nRow]);
   }
 }
 
 
-/**
-   @brief Sorts factors and stores as rank-ordered run-length encoding.
-
-   @return void.
- */
-void RankedPre::FacSort(const unsigned int predCol[]) {
+void RankedPre::facSort(const unsigned int predCol[]) {
   vector<ValRowI> valRow(nRow);
   for (unsigned int row = 0; row < nRow; row++) {
     valRow[row] = make_pair(predCol[row], row);
   }
   sort(valRow.begin(), valRow.end()); // Stable sort.
-  RankFac(valRow);
+  rankFac(valRow);
 }
 
 
-/**
-   @brief Builds rank-ordered run-length encoding to hold factor values.
-
-   Final "rank" values are the internal factor codes and may contain
-   gaps.  A dense numbering scheme would entail backmapping at LH bit
-   assignment following splitting (q.v.):  prediction and training
-   must map to the same factor levels.
-
-   @return void.
-*/ 
-void RankedPre::RankFac(const vector<ValRowI> &valRow) {
+void RankedPre::rankFac(const vector<ValRowI> &valRow) {
   unsigned int rankPrev = valRow[0].first;
   unsigned int rowPrev = valRow[0].second;
   runLength.push_back(1);

@@ -28,22 +28,32 @@
 using namespace Rcpp;
 using namespace std;
 
+/**
+   @brief Summary of bagged rows, by tree.
+ */
 class BagBridge {
-  size_t nRow;
-  unsigned int nTree;
-  size_t rowBytes;
+  const size_t nRow; // # rows trained.
+  const unsigned int nTree; // # trees trained.
+  const size_t rowBytes; // # count of raw bytes in summary object.
   RawVector raw; // Allocated OTF and moved.
-  unique_ptr<class BitMatrix> bmRaw;
+  unique_ptr<class BitMatrix> bmRaw; // Core instantiation of raw data.
 
  public:
   BagBridge(unsigned int nRow_, unsigned int nTree_);
   BagBridge(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_);
   ~BagBridge();
 
+  /**
+     @brief Getter for row count.
+   */
   const size_t getNRow() const {
     return nRow;
   }
 
+
+  /**
+     @brief Getter for tree count.
+   */
   const unsigned int getNTree() const {
     return nTree;
   }
@@ -57,7 +67,23 @@ class BagBridge {
    */
   void consume(const class Train* train,
                unsigned int chunkOff);
+
+  /**
+     @brief Bundles trained bag into format suitable for front end.
+
+     @return list containing raw data and summary information.
+   */
   List wrap();
+
+  /**
+     @brief Read bundled bag information in front-end format.
+
+     @return instantiation containing baga raw data.
+   */
   static unique_ptr<BagBridge> unwrap(const List &sBag);
+
+  /**
+     @brief Getter for raw data pointer.
+   */
   const BitMatrix* getRaw();
 };

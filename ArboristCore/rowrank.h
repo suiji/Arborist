@@ -83,7 +83,18 @@ class RowRank {
 		       vector<unsigned int> &rankOut);
 
 
-  static inline unsigned int RunSlot(const unsigned int feRLE[],
+  /**
+     @brief Looks up run characteristics at a given index.
+
+     @param rleIdx is the index.
+
+     @param[out] row outputs the row number.
+
+     @param[out] rank outputs the rank
+
+     @return run length.
+   */
+  static inline unsigned int runSlot(const unsigned int feRLE[],
 				     const unsigned int feRow[],
 				     const unsigned int feRank[],
 				     unsigned int rleIdx,
@@ -95,7 +106,7 @@ class RowRank {
   };
 
   
-  static inline unsigned int RunSlot(const unsigned int feRLE[],
+  static inline unsigned int runSlot(const unsigned int feRLE[],
 				     const unsigned int feRank[],
 				     unsigned int rleIdx,
 				     unsigned int &rank) {
@@ -104,25 +115,67 @@ class RowRank {
   };
 
   
-  unsigned int DenseBlock(const unsigned int feRank[],
+  /**
+     @brief Walks the design matrix as RLE entries, merging adjacent
+     entries with identical ranks.
+
+     @param feRLE are the run lengths corresponding to RLE entries.
+
+     @param rleLength is the count of RLE entries.
+
+     @return total count of explicit slots.
+  */
+  unsigned int denseBlock(const unsigned int feRank[],
 			  const unsigned int feRLE[],
 			  unsigned int feRLELength);
 
-  unsigned int DenseMode(unsigned int predIdx,
+  /**
+     @brief Determines whether predictor to be stored densely and updates
+     storage accumulators accordingly.
+
+     @param predIdx is the predictor under consideration.
+
+     @param denseMax is the highest run length encountered for the predictor:
+     must lie within [1, nRow].
+
+     @param argMax is an argmax rank value corresponding to denseMax.
+
+     @return void.
+  */
+  unsigned int denseMode(unsigned int predIdx,
 			 unsigned int denseMax,
 			 unsigned int argMax);
 
-  void ModeOffsets();
+  /**
+     @brief Assigns predictor offsets according to storage mode:
+     noncompressed predictors stored first, as with staging offsets.
 
-  void Decompress(const unsigned int feRow[],
+     @return void.
+  */
+  void modeOffsets();
+
+  
+  /**
+     @brief Decompresses a block of predictors deemed not to be storable
+     densely.
+
+     @param feRow[] are the rows corresponding to distinct runlength-
+     encoded (RLE) entries.
+
+     @param feRank[] are the ranks corresponing to RLE entries.
+
+     @param feRLE records the run lengths spanning the original design
+     matrix.
+
+     @param rleLength is the total count of RLE entries.
+  */
+  void decompress(const unsigned int feRow[],
 		  const unsigned int feRank[],
 		  const unsigned int feRLE[],
 		  unsigned int feRLELength);
 
  protected:
-  vector<RRNode> rrNode;
-
-
+  vector<RRNode> rrNode; // Row/rank pairs associated with explicit items.
   
  public:
 
@@ -135,7 +188,7 @@ class RowRank {
 			  unsigned int feRLELength,
 			  double _autCompress);
 
-  virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int _bagCount) const;
+  virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int bagCount) const;
 
   virtual unique_ptr<class SPReg> SPRegFactory(
 			       const class FrameTrain *frameTrain,
@@ -174,11 +227,6 @@ class RowRank {
   }
 
 
-  inline const RRNode &Ref(unsigned int predIdx, unsigned int idx) const {
-    return rrNode[rrStart[predIdx] + idx];
-  }
-
-  
   /**
      @brief Accessor for dense rank value associated with a predictor.
 
@@ -199,7 +247,7 @@ class RowRank {
 
      @return buffer size conforming to conservative constraints.
    */
-  unsigned int SafeSize(unsigned int stride) const {
+  unsigned int safeSize(unsigned int stride) const {
     return nonCompact * stride + accumCompact; // TODO:  align.
   }
 
@@ -258,19 +306,43 @@ class RankedPre {
   vector<unsigned int> numOff;
   vector<double> numVal;
 
-  unsigned int NumSortSparse(const double feColNum[],
+  unsigned int numSortSparse(const double feColNum[],
 			     const unsigned int feRowStart[],
 			     const unsigned int feRunLength[]);
 
-  void RankNum(const vector<NumRLE> &rleNum);
+  void rankNum(const vector<NumRLE> &rleNum);
 
-  void NumSortRaw(const double colNum[]);
+  void numSortRaw(const double colNum[]);
 
-  void RankNum(const vector<ValRowD> &valRow);
+  /**
+     @brief Stores ordered predictor column, entering uncompressed.
 
-  void FacSort(const unsigned int predCol[]);
+     @param valRow contains the value/row-number pairs.
 
-  void RankFac(const vector<ValRowI> &valRow);
+     @return void.
+  */
+  void rankNum(const vector<ValRowD> &valRow);
+
+  /**
+     @brief Sorts factors and stores as rank-ordered run-length encoding.
+
+     @param predCol is a single predictor's observations, by row.
+
+     @return void.
+  */
+  void facSort(const unsigned int predCol[]);
+
+  /**
+     @brief Builds rank-ordered run-length encoding to hold factor values.
+
+     Final "rank" values are the internal factor codes and may contain
+     gaps.  A dense numbering scheme would entail backmapping at LH bit
+     assignment following splitting (q.v.):  prediction and training
+     must map to the same factor levels.
+
+     @return void.
+  */ 
+  void rankFac(const vector<ValRowI> &valRow);
   
   
  public:
@@ -327,7 +399,7 @@ class RankedPre {
 
      @return void.
    */
-  void NumSparse(const double feValNum[],
+  void numSparse(const double feValNum[],
 		 const unsigned int feRowStart[],
 		 const unsigned int feRunLength[]);
 
@@ -335,13 +407,13 @@ class RankedPre {
   /**
      @brief Presorts dense numerical block supplied by front end.
    */
-  void NumDense(const double feNum[]);
+  void numDense(const double feNum[]);
 
   
   /**
      @brief Presorts dense factor block supplied by front end.
    */
-  void FacDense(const unsigned int feFac[]);
+  void facDense(const unsigned int feFac[]);
 };
 
 

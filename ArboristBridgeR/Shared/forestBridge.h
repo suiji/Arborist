@@ -46,22 +46,33 @@ class ForestBridge {
   const RawVector &feFacSplit;
 
 protected:
-  static SEXP Legal(const List &lForest);
-  unique_ptr<class Forest> forest;
+  /**
+     @brief Looks up and verifies forest member.
+
+     @return forest member.
+   */
+  static SEXP checkForest(const List &lTrain);
+
+  unique_ptr<class Forest> forest; // Pointer to core-level instance.
   
  public:
   ForestBridge(const IntegerVector& feHeight_,
                const RawVector &_feFacSplit,
-               //               const IntegerVector &_feFacOrig,
                const IntegerVector& feFacHeight_,
                const RawVector &_feNode);
 
 
+  /**
+     @brief Getter for raw pointer to core-level instance.
+   */
   const class Forest *getForest() const {
     return forest.get();
   }
 
-
+  
+  /**
+     @brief Getter for count of trees.
+   */
   const unsigned int getNTree() const {
     return feHeight.length();
   }
