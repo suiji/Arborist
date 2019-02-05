@@ -127,10 +127,9 @@ shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
 
 shared_ptr<SampleReg> Sample::factoryReg(const double y[],
                                          const RowRank *rowRank,
-                                         const unsigned int *row2Rank,
                                          BV *treeBag) {
   shared_ptr<SampleReg> sampleReg = make_shared<SampleReg>(rowRank);
-  sampleReg->bagSamples(y, row2Rank, treeBag);
+  sampleReg->bagSamples(y, treeBag);
 
   return sampleReg;
 }
@@ -141,7 +140,7 @@ SampleReg::SampleReg(const RowRank *rowRank) : Sample(rowRank) {
 
 
 
-void SampleReg::bagSamples(const double y[], const unsigned int *row2Rank, BV *treeBag) {
+void SampleReg::bagSamples(const double y[], BV *treeBag) {
   vector<unsigned int> ctgProxy(row2Sample.size());
   fill(ctgProxy.begin(), ctgProxy.end(), 0);
   Sample::bagSamples(y, &ctgProxy[0], treeBag);

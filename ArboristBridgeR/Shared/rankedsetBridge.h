@@ -53,6 +53,10 @@ class BlockRankedBridge final : public BlockRanked {
  public:
   BlockRankedBridge(const NumericVector &_numVal,
                     const IntegerVector &_numOff);
+
+  /**
+     @brief Unwraps a sparse numerical block.
+  */
   static unique_ptr<BlockRankedBridge> unwrap(SEXP sBlockNum);
 };
 
@@ -100,20 +104,34 @@ class RankedSetBridge {
   unique_ptr<RankedSet> rankedPair;
   
  public:
+  /**
+     @brief Static entry to block sorting.
+
+     @param predBlock summarizes the predictor blocking scheme.
+
+     @return R-style list of sorting summaries.
+   */
   static List presort(List &predBlock);
+
 
   RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
                   unique_ptr<BlockRankedBridge> _numRanked);
 
-  RankedSet *GetPair() {
+  /**
+     @brief Getter for pointer to core pair object.
+   */
+  RankedSet *getPair() {
     return rankedPair.get();
   }
 
+  
+  /**
+     @brief Unwraps an R-style representation of a RankedSet.
+   */
   static unique_ptr<RankedSetBridge> unwrap(SEXP sRowRank,
                                            double autoCompress,
                                            const class Coproc *coproc,
                                            const class FrameTrain *frameTrain);
-  
 };
 
 #endif

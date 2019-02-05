@@ -69,33 +69,29 @@ List TrainBridge::train(const List &argList,
   init(argList, frameTrain.get(), predMap);
   List outList;
 
-  auto nTree = as<unsigned int>(argList["nTree"]);
-  auto bag = make_unique<BagBridge>(nRow, nTree);
   if (nCtg > 0) {
     outList = classification(IntegerVector((SEXP) argList["y"]),
-                              NumericVector((SEXP) argList["classWeight"]),
-                              frameTrain.get(),
-                              rankedSet->GetPair(),
-                              predMap,
-                              nTree,
-                              bag.get(),
-                              diag);
+                             NumericVector((SEXP) argList["classWeight"]),
+                             frameTrain.get(),
+                             rankedSet->getPair(),
+                             predMap,
+                             as<unsigned int>(argList["nTree"]),
+                             diag);
   }
   else {
     outList = regression(NumericVector((SEXP) argList["y"]),
-                          frameTrain.get(),
-                          rankedSet->GetPair(),
-                          predMap,
-                          nTree,
-                          bag.get(),
-                          diag);
+                         frameTrain.get(),
+                         rankedSet->getPair(),
+                         predMap,
+                         as<unsigned int>(argList["nTree"]),
+                         diag);
   }
   if (verbose) {
     Rcout << "Training completed" << endl;
   }
 
   deInit();
-  return outList;
+  return move(outList);
 
   END_RCPP
 }
@@ -151,12 +147,6 @@ SEXP TrainBridge::deInit() {
 }
 
 
-// Class weighting constructs a proxy response from category frequency.
-// The response is then jittered to diminish the possibility of ties
-// during scoring.  The magnitude of the jitter, then, should be scaled
-// so that no combination of samples can "vote" themselves into a
-// false plurality.
-//
 NumericVector TrainBridge::ctgProxy(const IntegerVector &y,
                                     const NumericVector &classWeight) {
   BEGIN_RCPP
@@ -186,14 +176,13 @@ List TrainBridge::classification(const IntegerVector &y,
                                  const RankedSet *rankedPair,
                                  const IntegerVector &predMap,
                                  unsigned int nTree,
-                                 BagBridge *bag,
                                  vector<string> &diag) {
   BEGIN_RCPP
 
   IntegerVector yZero = y - 1; // Zero-based translation.
   auto proxy = ctgProxy(yZero, classWeight);
 
-  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(bag, nTree, predMap, y);
+  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainCtg =
@@ -241,21 +230,16 @@ List TrainBridge::regression(const NumericVector &y,
                              const RankedSet *rankedPair,
                              const IntegerVector &predMap,
                              unsigned int nTree,
-                             BagBridge *bag,
                              vector<string> &diag) {
   BEGIN_RCPP
     
-  auto yOrdered = clone(y).sort();
-  IntegerVector row2Rank = match(y, yOrdered) - 1;
-
-  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(bag, nTree, predMap, y);
+  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainReg =
       Train::regression(frameTrain,
                         rankedPair,
                         &y[0],
-                        &(as<vector<unsigned int> >(row2Rank))[0],
                         chunkThis);
     tb->consume(trainReg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
   }
@@ -265,12 +249,11 @@ List TrainBridge::regression(const NumericVector &y,
 }
 
 
-TrainBridge::TrainBridge(BagBridge* bag_,
-                         unsigned int nTree_,
+TrainBridge::TrainBridge(unsigned int nTree_,
                          const IntegerVector& predMap,
                          const NumericVector& yTrain) :
-  bag(bag_),
   nTree(nTree_),
+  bag(make_unique<BagBridge>(yTrain.length(), nTree)),
   forest(make_unique<FBTrain>(nTree)),
   predInfo(NumericVector(predMap.length())),
   leaf(make_unique<LBTrainReg>(yTrain, nTree)) {
@@ -278,12 +261,11 @@ TrainBridge::TrainBridge(BagBridge* bag_,
 }
 
 
-TrainBridge::TrainBridge(BagBridge* bag_,
-                         unsigned int nTree_,
+TrainBridge::TrainBridge(unsigned int nTree_,
                          const IntegerVector& predMap,
                          const IntegerVector& yTrain) :
-  bag(bag_),
   nTree(nTree_),
+  bag(make_unique<BagBridge>(yTrain.length(), nTree)),
   forest(make_unique<FBTrain>(nTree)),
   predInfo(NumericVector(predMap.length())),
   leaf(make_unique<LBTrainCtg>(yTrain, nTree)) {

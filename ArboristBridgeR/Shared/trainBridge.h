@@ -46,19 +46,29 @@ struct TrainBridge {
   static unsigned int nCtg; // # outcome categores:  classification iff > 0.
   static bool verbose; // Whether to report progress while training.
   
-  class BagBridge *bag;
   const unsigned int nTree; // # trees under training.
-  unique_ptr<class FBTrain> forest;
+  unique_ptr<class BagBridge> bag; // Summarizes row bagging, by tree.
+  unique_ptr<class FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
-  unique_ptr<class LBTrain> leaf;
+  unique_ptr<class LBTrain> leaf; // Pointer to core leaf frame.
 
-  TrainBridge(class BagBridge* bag_,
-              unsigned int nTree_,
+  /**
+     @brief Regression constructor.
+
+     @param nTree is the number of trees in the forest.
+
+     @param predMap maps core to front-end predictor indices.
+
+     @param yTrain is the training response vector.
+   */
+  TrainBridge(unsigned int nTree_,
               const IntegerVector& predMap,
               const NumericVector& yTrain);
-  
-  TrainBridge(class BagBridge* bag_,
-              unsigned int nTree_,
+
+  /**
+     @brief Classification constructor.  Parameters as above.
+   */
+  TrainBridge(unsigned int nTree_,
               const IntegerVector& predMap,
               const IntegerVector& yTrain);
 
@@ -69,17 +79,27 @@ struct TrainBridge {
 
      @return scale factor estimation for accommodating entire forest.
    */
-  double safeScale(unsigned int treesTot) {
+  inline double safeScale(unsigned int treesTot) const {
     return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
   }
 
 
   /**
-     @brief Constructs classification forest.
+     @brief Trains classification forest.
 
-     @param sNTree is the number of trees requested.
+     @param y is the categorical response vector.
 
-     @return Wrapped length of forest vector, with output parameters.
+     @param classWeight is the class-weighted response.
+
+     @param frameTrain summarizes the predictor set.
+
+     @param rankedPair contains the pre-formatted observation rankings.
+
+     @param predMap maps core to front-end predictor indices.
+
+     @param nTree is the number of trees in the forest.
+
+     @return R-style list of trained summaries.
   */
   static List classification(const IntegerVector &y,
                              const NumericVector &classWeight,
@@ -87,29 +107,58 @@ struct TrainBridge {
                              const class RankedSet *rankedPair,
                              const IntegerVector &predMap,
                              unsigned int nTree,
-                             class BagBridge *bag,
                              vector<string> &diag);
   
+  /**
+     @brief Trains regression forest.
+
+     @param y is the numeric response vector.
+
+     @param frameTrain summarizes the predictor set.
+
+     @param rankedPair contains the pre-formatted observation rankings.
+
+     @param predMap maps core to front-end predictor indices.
+
+     @param nTree is the number of trees in the forest.
+
+     @return R-style list of trained summaries.
+  */
   static List regression(const NumericVector &y,
                          const class FrameTrain *frameTrain,
                          const class RankedSet *rankedPair,
                          const IntegerVector &predMap,
                          unsigned int nTree,
-                         class BagBridge *bag,
                          vector<string> &diag);
 
   /**
       @brief R-language interface to response caching.
 
-      @parm sY is the response vector.
+      Class weighting constructs a proxy response from category frequency.
+      The response is then jittered to diminish the possibility of ties
+      during scoring.  The magnitude of the jitter, then, should be scaled
+      so that no combination of samples can "vote" themselves into a
+      false plurality.
 
-      @return Wrapped value of response cardinality, if applicable.
+      @param y is the (zero-based) categorical response vector.
+
+      @param classWeight are user-suppled weightings of the categories.
+
+      @return vector of final (i.e., jittered and scaled) class weights.
   */
   static NumericVector ctgProxy(const IntegerVector &y,
                                 const NumericVector &classWeight);
 
+  /**
+     @brief Scales the per-predictor information quantity by # trees.
+
+     @param predMap is the core-to-front map of predictor indices.
+
+     @return remapped vector of scaled information values.
+   */
   NumericVector scalePredInfo(const IntegerVector &predMap);
 
+  
   /**
      @return implicit R_NilValue.
    */
@@ -125,6 +174,19 @@ struct TrainBridge {
   static SEXP deInit();
   
 
+  /**
+     @brief Static entry into training.
+
+     @param argList is the user-supplied argument list.
+
+     @param predMap maps core to front-end predictor indices.
+
+     @param facCard gives the cardinality of a predictor, zero if numeric.
+
+     @param nRow is the number of observations being trained.
+
+     @return R-style list of trained summaries.
+   */
   static List train(const List &argList,
                     const IntegerVector &predMap,
                     const vector<unsigned int> &facCard,

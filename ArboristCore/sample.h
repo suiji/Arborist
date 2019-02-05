@@ -165,15 +165,12 @@ class Sample {
 
      @param rowRank summarizes the ranked observations.
 
-     @param row2Rank summarizes the ordered outcome.
-
      @param[out] treeBag outputs bit-encoded indicator of sampled rows.
 
      @return new SampleReg instance.
    */
   static shared_ptr<class SampleReg>factoryReg(const double y[],
                                                const class RowRank *rowRank,
-                                               const unsigned int *row2Rank,
                                                class BV *treeBag);
   
   virtual unique_ptr<class SplitNode> splitNodeFactory(const class FrameTrain *frameTrain) const = 0;
@@ -331,11 +328,9 @@ class SampleReg : public Sample {
 
      @param y is the response vector.
 
-     @param row2Rank is the response ranking, by row.
-
      @param[out] treeBag encodes the bagged rows for the tree.
   */
-  void bagSamples(const double y[], const unsigned int *row2Rank, class BV *treeBag);
+  void bagSamples(const double y[], class BV *treeBag);
 };
 
 

@@ -63,13 +63,6 @@ RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
 }
 
 
-/**
-   @brief Builds row/rank maps as parallel arrays.
-
-   @param sPredBlock is an (S3) PredBlock object.
-
-   @return parallel row and rank arrays and the inverse numeric mapping.
- */
 RcppExport SEXP Presort(SEXP sPredBlock) {
   BEGIN_RCPP
 
@@ -147,9 +140,6 @@ unique_ptr<RowRankBridge> RowRankBridge::unwrap(SEXP sRankedSet,
 }
 
 
-/**
-   @brief Unwraps a sparse numerical block.
- */
 unique_ptr<BlockRankedBridge> BlockRankedBridge::unwrap(SEXP sRankedSet) {
   List rankedSet(sRankedSet);
   List blockNum((SEXP) rankedSet["numRanked"]);

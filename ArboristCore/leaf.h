@@ -295,7 +295,6 @@ public:
                                                  unsigned int nTree);
 
   static unique_ptr<class LFTrainReg> factoryReg(const double* feResponse,
-                                                 const unsigned int* row2Rank_,
                                                  unsigned int treeChunk);
 
   
@@ -363,14 +362,12 @@ public:
 
 
 class LFTrainReg : public LFTrain {
-  const unsigned int* row2Rank; // Facilitates rank[] output.
 
   void setScores(const class Sample* sample,
                  const vector<unsigned int>& leafMap);
 
 public:
   LFTrainReg(const double*y,
-             const unsigned int* row2Rank_,
              unsigned int treeChunk);
 
   ~LFTrainReg();
@@ -560,12 +557,13 @@ public:
     return raw->getNMajor();
   };
   
-  /**
-     @brief Accumulates individual leaf extents across the block.
 
-     @param[out] offset associates a leaf index with accumulated extent.
+  /**
+     @brief Accumulates individual leaf extents across the forest.
+
+     @return forest-wide offset vector.
    */
-  void setOffsets(vector<unsigned int>& offset) const;
+  vector<size_t> setOffsets() const;
 
 
   void regAcross(const unsigned int* predictLeaves,
@@ -764,7 +762,7 @@ public:
 class LeafFrameReg : public LeafFrame {
   const double *yTrain;
   const double meanTrain; // Mean of training response.
-  vector<unsigned int> offset; // Accumulated extents.
+  const vector<size_t> offset; // Accumulated extents.
   double defaultScore;
   vector<double> yPred;
   
@@ -835,12 +833,10 @@ class LeafFrameReg : public LeafFrame {
   unsigned int getLeafIdx(unsigned int tIdx,
                           unsigned int bagIdx,
                           unsigned int &offset_) const {
-    size_t treeBase = leafBlock->treeBase(tIdx);
-    auto leafIdx = treeBase + blBlock->getLeafIdx(bagIdx);
+    auto leafIdx = leafBlock->treeBase(tIdx) + blBlock->getLeafIdx(bagIdx);
     offset_ = offset[leafIdx];
     return leafIdx;
   }
-
 };
 
 

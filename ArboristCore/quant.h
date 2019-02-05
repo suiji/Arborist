@@ -21,20 +21,30 @@
 
 #include "typeparam.h"
 
-typedef pair<double, unsigned int> RankedPair;
+/**
+   @brief Value and row of ranked response.
+ */
+struct ValRow {
+  double val;
+  unsigned int row;
+
+  void init(double val, unsigned int row) {
+    this->val = val;
+    this->row = row;
+  }
+};
 
 /**
    @brief Rank and sample-count values derived from BagSample.  Client:
    quantile inference.
  */
-class RankCount {
- public:
+struct RankCount {
   unsigned int rank;
   unsigned int sCount;
 
-  void Init(unsigned int _rank, unsigned int _sCount) {
-    rank = _rank;
-    sCount = _sCount;
+  void init(unsigned int rank, unsigned int sCount) {
+    this->rank = rank;
+    this->sCount = sCount;
   }
 };
 
@@ -45,7 +55,7 @@ class RankCount {
 class Quant {
   const class LeafFrameReg *leafReg;
   const double *yTrain;
-  vector<RankedPair> yRanked;
+  vector<ValRow> yRanked;
   const vector<double> &quantile;
   const unsigned int qCount;
   vector<double> qPred;

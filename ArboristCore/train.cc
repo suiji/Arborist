@@ -152,9 +152,8 @@ void Train::deInit() {
 unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
                                        const RankedSet *rankedPair,
                                        const double *y,
-                                       const unsigned int *row2Rank,
                                        unsigned int treeChunk) {
-  auto trainReg = make_unique<Train>(frameTrain, y, row2Rank, treeChunk);
+  auto trainReg = make_unique<Train>(frameTrain, y, treeChunk);
   trainReg->trainChunk(frameTrain, rankedPair);
 
   return trainReg;
@@ -166,14 +165,13 @@ unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
  */
 Train::Train(const FrameTrain *frameTrain,
              const double *y,
-             const unsigned int *row2Rank,
              unsigned int treeChunk_) :
   nRow(frameTrain->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
   predInfo(vector<double>(frameTrain->getNPred())),
-  leaf(LFTrain::factoryReg(y, row2Rank, treeChunk)) {
+  leaf(LFTrain::factoryReg(y, treeChunk)) {
 }
 
 

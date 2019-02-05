@@ -33,10 +33,9 @@ LeafFrameReg::LeafFrameReg(const unsigned int height[],
   LeafFrame(height, nTree_, leaf, bagHeight, bagSample),
   yTrain(yTrain_),
   meanTrain(meanTrain_),
-  offset(vector<unsigned int>(leafBlock->size())), // leafCount
+  offset(leafBlock->setOffsets()), // leafCount
   defaultScore(MeanTrain()),
   yPred(vector<double>(rowPredict)) {
-  leafBlock->setOffsets(offset);
 }
 
 
@@ -130,13 +129,16 @@ LeafFrame::~LeafFrame() {
 }
 
 
-void LeafBlock::setOffsets(vector<unsigned int>& offset) const {
+vector<size_t> LeafBlock::setOffsets() const {
+  vector<size_t> offset(raw->size());
   unsigned int countAccum = 0;
-  for (auto idx = 0ul; idx < raw->size(); idx++) {
-    offset[idx] = countAccum;
-    countAccum += getExtent(idx);
+  unsigned int idx = 0;
+  for (auto & off : offset) {
+    off = countAccum;
+    countAccum += getExtent(idx++);
   }
 
+  return move(offset);
   // Post-condition:  countAccum == total bag size.
 }
 
@@ -407,10 +409,8 @@ LFTrain::~LFTrain() {
 /**
  */
 LFTrainReg::LFTrainReg(const double* y,
-                       const unsigned int* row2Rank_,
                        unsigned int treeChunk) :
-  LFTrain(y, treeChunk),
-  row2Rank(row2Rank_) {
+  LFTrain(y, treeChunk) {
 }
 
 
@@ -458,9 +458,8 @@ unique_ptr<LFTrainCtg> LFTrain::factoryCtg(const unsigned int* feResponse,
 }
 
 unique_ptr<LFTrainReg> LFTrain::factoryReg(const double* feResponse,
-                                           const unsigned int* row2Rank,
                                            unsigned int treeChunk) {
-  return make_unique<LFTrainReg>(feResponse, row2Rank, treeChunk);
+  return make_unique<LFTrainReg>(feResponse, treeChunk);
 }
 
 
@@ -534,7 +533,7 @@ void LFTrainReg::setScores(const Sample* sample, const vector<unsigned int>& lea
 shared_ptr<Sample> LFTrainReg::rootSample(const RowRank* rowRank,
                                           BitMatrix* bag,
                                           unsigned int tIdx) const {
-  return Sample::factoryReg(y, rowRank, row2Rank, bag->BVRow(tIdx).get());
+  return Sample::factoryReg(y, rowRank, bag->BVRow(tIdx).get());
 }
 
 
@@ -659,7 +658,7 @@ void LFTrain::cacheBLRaw(unsigned char blRaw[]) const {
 
 void BBCresc::dumpRaw(unsigned char blRaw[]) const {
   for (size_t i = 0; i < bagSample.size() * sizeof(BagSample); i++) {
-    blRaw[i] = ((unsigned int*) &bagSample[0])[i];
+    blRaw[i] = ((unsigned char*) &bagSample[0])[i];
   }
 }
 

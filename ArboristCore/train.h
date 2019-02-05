@@ -52,7 +52,6 @@ public:
   */
   Train(const class FrameTrain *frameTrain,
         const double *y,
-        const unsigned int *row2Rank,
         unsigned int treeChunk_);
 
   
@@ -112,7 +111,6 @@ public:
        const class FrameTrain *frameTrain,
        const class RankedSet *rankedPair,
        const double *y,
-       const unsigned int *row2Rank,
        unsigned int treeChunk);
 
 
