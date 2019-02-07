@@ -52,9 +52,11 @@ using namespace Rcpp;
   @return wrapped frame containing separately-typed matrices.
 */
 RcppExport SEXP FrameMixed(SEXP sX,
-                           SEXP sNPredNum,
-                           SEXP sNPredFac,
-                           SEXP sCardFac,
+                           SEXP sXNum,
+                           SEXP sXFac,
+                           SEXP sPredMap,
+                           SEXP sFacCard,
+                           SEXP sLevels,
                            SEXP sSigTrain);
 
 RcppExport SEXP FrameNum(SEXP sX);

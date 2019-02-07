@@ -210,11 +210,11 @@
 
     argList$pvtBlock <- 8
 
-    RboristDeep(argList)
+    RFDeep(argList)
 }
 
 
-RboristDeep <- function(argList) {
+RFDeep <- function(argList) {
     train <- tryCatch(.Call("TrainForest", argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
@@ -261,13 +261,16 @@ PredBlock <- function(x, sigTrain = NULL) {
   # For now, only numeric and factor types supported.
   #
   if (is.data.frame(x)) { # As with "randomForest" package
-    facCard <- as.integer(sapply(x, function(col) ifelse(is.factor(col) && !is.ordered(col), length(levels(col)), 0)))
-    numCols <- sum(sapply(x, function(col) ifelse(is.numeric(col), 1, 0)))
-    facCols <- length(which(facCard > 0))
-    if (numCols + facCols != ncol(x)) {
-      stop("Frame column with unsupported data type")
-    }
-    return(tryCatch(.Call("FrameMixed", x, numCols, facCols, facCard, sigTrain), error = function(e) {stop(e)} ))
+      lv <- sapply(x, levels)
+      xFac <- data.matrix(Filter(function(col) ifelse(is.factor(col) && !is.ordered(col), TRUE, FALSE), x))
+      xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), x))
+      if (ncol(xNum) + ncol(xFac) != ncol(x)) {
+          stop("Frame column with unsupported data type")
+      }
+      colCard <- sapply(x, function(col) ifelse(is.numeric(col), 0, length(levels(col))))
+      predMap <- c(which(colCard == 0), which(colCard != 0))
+
+      return(tryCatch(.Call("FrameMixed", x, xNum, xFac, predMap, colCard[colCard != 0], lv[colCard != 0], sigTrain), error = function(e) {stop(e)} ))
   }
   else if (inherits(x, "dgCMatrix")) {
      return(tryCatch(.Call("FrameSparse", x), error= print))

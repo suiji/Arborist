@@ -27,70 +27,50 @@
 #include "framemapBridge.h"
 #include "blockBridge.h"
 
-
+#include <iostream>
 // TODO:  MOve column and row names to signature.
 RcppExport SEXP FrameMixed(SEXP sX,
-                           SEXP sNPredNum,
-                           SEXP sNPredFac,
-                           SEXP sCardFac,
+                           SEXP sXNum,
+                           SEXP sXFac,
+                           SEXP sPredMap,
+                           SEXP sFacCard,
+                           SEXP sLv,
                            SEXP sSigTrain) {
   BEGIN_RCPP
-  DataFrame xf(sX);
-  unsigned int nRow = xf.nrows();
-  unsigned int nPredNum = as<unsigned int>(sNPredNum);
-  unsigned int nPredFac = as<unsigned int>(sNPredFac);
 
-  IntegerVector predMap(nPredFac + nPredNum);
-  IntegerVector facCard(nPredFac);
-  IntegerMatrix xFac(nRow, nPredFac);
-  NumericMatrix xNum(nRow, nPredNum);
-
-  // Fills in matrix columns of numeric and integer components of frame.
-  // 'predMap' maps core indices to front-end counterparts.
-  unsigned int feIdx = 0;
-  int numIdx = 0;
-  int facIdx = 0;
-  List level(nPredFac);
-  for (auto card : as<vector<unsigned int> >(sCardFac)) {
-    if (card == 0) {
-      xNum(_, numIdx) = as<NumericVector>(xf[feIdx]);
-      predMap[numIdx++] = feIdx;
-    }
-    else {
-      facCard[facIdx] = card;
-      level[facIdx] = as<CharacterVector>(as<IntegerVector>(xf[feIdx]).attr("levels"));
-      xFac(_, facIdx) = as<IntegerVector>(xf[feIdx]) - 1;
-      predMap[nPredNum + facIdx++] = feIdx;
-    }
-    feIdx++;
-  }
+  IntegerVector predMap(sPredMap);
+  predMap = predMap - 1; // 1- to 0-based predictor indices.
 
   // Factor positions must match those from training and values must conform.
   //
-  if (!Rf_isNull(sSigTrain) && nPredFac > 0) {
+  IntegerVector facCard(sFacCard);
+  IntegerMatrix xFac(sXFac);
+  xFac = xFac - 1; // 1- to 0-based factor codes.
+  List lv(sLv);
+  if (!Rf_isNull(sSigTrain) && facCard.length() > 0) {
     List sigTrain(sSigTrain);
     IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
     if (!is_true(all(predMap == predTrain))) {
       stop("Training, prediction data types do not match");
     }
-
-    List levelTrain(as<List>(sigTrain["level"]));
-    FramemapBridge::factorRemap(xFac, level, levelTrain);
+    FramemapBridge::factorRemap(xFac, lv, as<List>(sigTrain["level"]));
   }
 
+  DataFrame x(sX);
+  NumericMatrix xNum(sXNum);
   List predBlock = List::create(
                                 _["blockNum"] = move(xNum),
-                                _["nPredNum"] = nPredNum,
+                                _["nPredNum"] = xNum.ncol(),
                                 _["blockNumSparse"] = List(), // For now.
                                 _["blockFacSparse"] = R_NilValue, // For now.
                                 _["blockFac"] = move(xFac),
-                                _["nPredFac"] = nPredFac,
-                                _["nRow"] = nRow,
-                                _["facCard"] = move(facCard),
+                                _["nPredFac"] = xFac.ncol(),
+                                _["nRow"] = x.nrow(),
+                                _["facCard"] = facCard,
             _["signature"] = move(FramemapBridge::wrapSignature(predMap,
-                                                          level,
-                                                          colnames(xf),
-                                                          rownames(xf)))
+                                                                lv,
+                                                                colnames(x),
+                                                                rownames(x)))
                                 );
   predBlock.attr("class") = "PredBlock";
 
