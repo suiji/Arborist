@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", oob = FALSE, ...) {
+"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", oob = FALSE, verbose = FALSE, ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
@@ -28,11 +28,11 @@
   if (quantiles && is.null(quantVec))
     quantVec <- DefaultQuantVec()
 
-  PredictForest(object, newdata, yTest, quantVec, qBin, ctgCensus, oob)
+  PredictDeep(object, newdata, yTest, quantVec, qBin, ctgCensus, oob, verbose)
 }
 
 
-PredictForest <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, oob) {
+PredictDeep <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, oob, verbose) {
   forest <- objTrain$forest
 
   if (is.null(forest$forestNode))
@@ -47,6 +47,9 @@ PredictForest <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, o
   if (!is.null(yTest) && nrow(newdata) != length(yTest)) {
     stop("Test vector must conform with observations")
   }
+
+  if (verbose)
+      print("Beginning prediction")
   
   # Checks test data for conformity with training data.
   sigTrain <- objTrain$signature
@@ -78,6 +81,9 @@ PredictForest <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, o
   else {
     stop("Unsupported leaf type")
   }
+
+  if (verbose)
+      print("Prediction completed")
 
   prediction
 }

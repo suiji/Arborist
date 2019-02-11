@@ -454,7 +454,7 @@ unique_ptr<LFTrainCtg> LFTrain::factoryCtg(const unsigned int* feResponse,
                                            unsigned int nRow,
                                            unsigned int nCtg,
                                            unsigned int nTree) {
-  return make_unique<LFTrainCtg>(feResponse, feProxy, treeChunk, nCtg, 1.0 / (static_cast<double>(nTree)) * nRow);
+  return make_unique<LFTrainCtg>(feResponse, feProxy, treeChunk, nCtg, 1.0 / (static_cast<double>(nTree) * nRow));
 }
 
 unique_ptr<LFTrainReg> LFTrain::factoryReg(const double* feResponse,
@@ -589,18 +589,19 @@ void ProbCresc::probabilities(const Sample* sample,
   // Accumulates sample sums by leaf.
   unsigned int sIdx = 0;
   for (auto leafIdx : leafMap) {
-    sample->accum(sIdx++, &leafSum[leafIdx], &prob[treeFloor + leafIdx*nCtg]);
+    sample->accum(sIdx++, leafSum[leafIdx], &prob[treeFloor + leafIdx*nCtg]);
   }
 
   unsigned int leafIdx = 0;
   for (auto sum : leafSum) {
-    normalize(leafIdx++, 1.0 / sum);
+    normalize(leafIdx++, sum);
   }
 }
 
-void ProbCresc::normalize(unsigned int leafIdx, double recipSum) {
+void ProbCresc::normalize(unsigned int leafIdx, double sum) {
+  double recipSum = 1.0 / sum;
   for (auto ctg = 0ul; ctg < nCtg; ctg++) {
-    normalize(leafIdx, ctg, recipSum);
+    prob[treeFloor + leafIdx*nCtg + ctg] *= recipSum;
   }
 }
 

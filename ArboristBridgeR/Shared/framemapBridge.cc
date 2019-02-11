@@ -27,7 +27,6 @@
 #include "framemapBridge.h"
 #include "blockBridge.h"
 
-#include <iostream>
 // TODO:  MOve column and row names to signature.
 RcppExport SEXP FrameMixed(SEXP sX,
                            SEXP sXNum,
@@ -38,15 +37,15 @@ RcppExport SEXP FrameMixed(SEXP sX,
                            SEXP sSigTrain) {
   BEGIN_RCPP
 
-  IntegerVector predMap(sPredMap);
-  predMap = predMap - 1; // 1- to 0-based predictor indices.
-
-  // Factor positions must match those from training and values must conform.
-  //
   IntegerVector facCard(sFacCard);
   IntegerMatrix xFac(sXFac);
   xFac = xFac - 1; // 1- to 0-based factor codes.
+  IntegerVector predMap(sPredMap);
+  predMap = predMap - 1; // 1- to 0-based factor codes.
   List lv(sLv);
+
+  // Factor positions must match those from training and values must conform.
+  //
   if (!Rf_isNull(sSigTrain) && facCard.length() > 0) {
     List sigTrain(sSigTrain);
     IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
@@ -99,25 +98,23 @@ SEXP FramemapBridge::wrapSignature(const IntegerVector &predMap,
   END_RCPP
 }
 
+
 void FramemapBridge::factorRemap(IntegerMatrix &xFac, const List &levelTest, const List &levelTrain) {
   for (int col = 0; col < xFac.ncol(); col++) {
     CharacterVector colTest(as<CharacterVector>(levelTest[col]));
     CharacterVector colTrain(as<CharacterVector>(levelTrain[col]));
     if (is_true(any(colTest != colTrain))) {
-      IntegerVector colMatch = match(colTest, colTrain);
-      IntegerVector sq = seq(0, colTest.length() - 1);
-      IntegerVector idxNonMatch = sq[is_na(colMatch)];
-      if (idxNonMatch.length() > 0) {
-        warning("Factor levels not observed in training:  employing proxy");
-        int proxy = colTrain.length() + 1;
-        colMatch[idxNonMatch] = proxy;
+      IntegerVector colMatch(match(colTest, colTrain));
+      // Rcpp match() does not offer specification of 'na' subsititute.
+      if (is_true(any(is_na(colMatch)))) {
+        warning("Test data contains labels unseen by training:  employing proxy");
+        colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
       }
+      colMatch = colMatch - 1;  // Rcpp match() is one-based.
 
-      colMatch = colMatch - 1;  // match() is one-based.
-      IntegerMatrix::Column xCol = xFac(_, col);
+      IntegerMatrix::Column xCol(xFac(_, col));
       IntegerVector colT(xCol);
-      IntegerVector colRemap = colMatch[colT];
-      xFac(_, col) = colRemap;
+      xFac(_, col) = as<IntegerVector>(colMatch[colT]);
     }
   }
 }

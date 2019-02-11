@@ -215,7 +215,7 @@
 
 
 RFDeep <- function(argList) {
-    train <- tryCatch(.Call("TrainForest", argList), error = function(e){stop(e)})
+    train <- tryCatch(.Call("TrainRF", argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
     names(predInfo) <- argList$predBlock$colnames
@@ -230,9 +230,7 @@ RFDeep <- function(argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin)
-        if (argList$verbose)
-            print("Validation completed.")
+        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin, argList$verbose)
     }
 
     arbOut <- list(

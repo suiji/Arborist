@@ -272,10 +272,6 @@ class LeafCtgBridge : public LeafBridge {
   }
 
 
-  SEXP CtgReconcile(IntegerVector &yOneTest);
-
-  SEXP MergeLevels(IntegerVector &yOneTest);
-
   /**
      @brief Instantiates front-end leaf.
 
@@ -284,6 +280,7 @@ class LeafCtgBridge : public LeafBridge {
   static unique_ptr<LeafCtgBridge> unwrap(const List &leaf,
                                           unsigned int nRow,
                                           bool doProb);
+
   static unique_ptr<LeafCtgBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
@@ -335,7 +332,10 @@ class TestCtg {
   static IntegerVector Reconcile(const IntegerVector &test2Train,
                                  const IntegerVector &yTestOne);
   
-  static IntegerVector MergeLevels(const CharacterVector &levelsTest,
+  /**
+     @brief Reconciles factor encodings of training and test responses.
+   */
+  static IntegerVector mergeLevels(const CharacterVector &levelsTest,
                                    const CharacterVector &levelsTrain);
 
 
@@ -346,7 +346,8 @@ class TestCtg {
 
      @param yPred contains the zero-based predictions.
   */
-  void validate(class LeafFrameCtg *leaf, const vector<unsigned int> &yPred);
+  void validate(class LeafFrameCtg *leaf,
+                const vector<unsigned int> &yPred);
 
 
   IntegerMatrix Confusion();

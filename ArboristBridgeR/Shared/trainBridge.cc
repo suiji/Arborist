@@ -37,7 +37,7 @@
 bool TrainBridge::verbose = false;
 unsigned int TrainBridge::nCtg = 0;
 
-RcppExport SEXP TrainForest(const SEXP sArgList) {
+RcppExport SEXP TrainRF(const SEXP sArgList) {
   BEGIN_RCPP
 
   List argList(sArgList);
@@ -69,6 +69,10 @@ List TrainBridge::train(const List &argList,
   init(argList, frameTrain.get(), predMap);
   List outList;
 
+  if (verbose) {
+    Rcout << "Beginning training" << endl;
+  }
+  
   if (nCtg > 0) {
     outList = classification(IntegerVector((SEXP) argList["y"]),
                              NumericVector((SEXP) argList["classWeight"]),
@@ -193,7 +197,7 @@ List TrainBridge::classification(const IntegerVector &y,
                             classWeight.size(),
                             chunkThis,
                             nTree);
-    tb->consume(trainCtg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
+    tb->consume(trainCtg.get(), treeOff, chunkThis);
   }
   return tb->summarize(predMap, diag);
 
@@ -241,7 +245,7 @@ List TrainBridge::regression(const NumericVector &y,
                         rankedPair,
                         &y[0],
                         chunkThis);
-    tb->consume(trainReg.get(), treeOff, tb->safeScale(treeOff + chunkThis));
+    tb->consume(trainReg.get(), treeOff, chunkThis);
   }
   return tb->summarize(predMap, diag);
 
@@ -275,7 +279,8 @@ TrainBridge::TrainBridge(unsigned int nTree_,
 
 void TrainBridge::consume(const Train* train,
                           unsigned int treeOff,
-                          double scale) {
+                          unsigned int chunkSize) {
+  double scale = safeScale(treeOff + chunkSize);
   bag->consume(train, treeOff);
   forest->consume(train->getForest(), treeOff, scale);
   leaf->consume(train->getLeaf(), treeOff, scale);
@@ -284,7 +289,7 @@ void TrainBridge::consume(const Train* train,
   predInfo = predInfo + infoChunk;
 
   if (verbose) {
-    Rcout << treeOff << "trees trained" << endl;
+    Rcout << treeOff + chunkSize << " trees trained" << endl;
   }
 }
 

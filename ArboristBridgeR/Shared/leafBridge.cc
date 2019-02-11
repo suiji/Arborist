@@ -349,7 +349,7 @@ TestCtg::TestCtg(SEXP sYTest,
   yTestOne(sYTest),
   levels(CharacterVector((SEXP) yTestOne.attr("levels"))),
   nCtg(levels.length()),
-  test2Merged(MergeLevels(levels, levelsTrain)),
+  test2Merged(mergeLevels(levels, levelsTrain)),
   yTestZero(Reconcile(test2Merged, yTestOne)),
   ctgMerged(max(yTestZero) + 1),
   misPred(NumericVector(ctgMerged)),
@@ -501,7 +501,7 @@ NumericMatrix LeafCtgBridge::Prob(const CharacterVector &rowNames) {
 }
 
 
-IntegerVector TestCtg::MergeLevels(const CharacterVector &levelsTest,
+IntegerVector TestCtg::mergeLevels(const CharacterVector &levelsTest,
                                    const CharacterVector &levelsTrain) {
   BEGIN_RCPP
   IntegerVector test2Merged(match(levelsTest, levelsTrain));

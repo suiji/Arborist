@@ -33,7 +33,7 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
-RcppExport SEXP TrainForest(const SEXP sArgList);
+RcppExport SEXP TrainRF(const SEXP sArgList);
 
 
 struct TrainBridge {
@@ -71,17 +71,6 @@ struct TrainBridge {
   TrainBridge(unsigned int nTree_,
               const IntegerVector& predMap,
               const IntegerVector& yTrain);
-
-  /**
-     @brief Estimates scale factor for full-forest reallocation.
-
-     @param treesTot is the total number of trees trained so far.
-
-     @return scale factor estimation for accommodating entire forest.
-   */
-  inline double safeScale(unsigned int treesTot) const {
-    return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
-  }
 
 
   /**
@@ -201,7 +190,7 @@ struct TrainBridge {
    */
   void consume(const class Train* train,
                unsigned int tIdx,
-               double scale);
+               unsigned int chunkSize);
 
   
   /**
@@ -215,5 +204,17 @@ struct TrainBridge {
    */
   List summarize(const IntegerVector& predMap,
                  const vector<string>& diag);
+
+private:
+  /**
+     @brief Estimates scale factor for full-forest reallocation.
+
+     @param treesTot is the total number of trees trained so far.
+
+     @return scale factor estimation for accommodating entire forest.
+   */
+  inline double safeScale(unsigned int treesTot) const {
+    return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
+  }
 };
 #endif

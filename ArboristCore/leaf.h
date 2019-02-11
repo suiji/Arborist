@@ -382,13 +382,16 @@ public:
    @brief Container for the crescent categorical probability vector.
  */
 class ProbCresc {
-  unsigned int nCtg;
+  const unsigned int nCtg;
   size_t treeFloor;
   unsigned int leafCount;
   vector<size_t> height;
   vector<double> prob;
   const double forestScale;  // Forest-wide scaling factor for score.
-  
+
+  constexpr unsigned int leafBase(unsigned int leafIdx) {
+    return nCtg * leafIdx;
+  }
 public:
 
   ProbCresc(unsigned int treeChunk,
@@ -463,41 +466,9 @@ public:
 
      @param leafIdx is the tree-relative leaf index.
 
-     @param recipSum is the normalization factor.
+     @param sum is the normalization factor.
    */
-  void normalize(unsigned int leafIdx, double recipSum);
-
-  
-  /**
-     @brief Accumulates (unnormalized) probability at a given coordinate.
-
-     @param leafIdx is the block relative leaf index.
-
-     @param ctg is the category.
-
-     @param incr is the quantity to accumulate.
-   */
-  inline void accum(unsigned int leafIdx,
-                    unsigned int ctg,
-                    double incr) {
-    prob[treeFloor + leafIdx*nCtg + ctg] += incr;
-  }
-
-  
-  /**
-     @brief Normalizes the probability at a given coordinate.
-
-     @param leafIdx is the block-relative leaf index.
-
-     @param ctg is the category.
-
-     @return final normalized probability at category.
-   */
-  inline void normalize(unsigned int leafIdx,
-                        unsigned int ctg,
-                        double recipSum) {
-    prob[treeFloor + leafIdx*nCtg + ctg] *= recipSum;
-  }
+  void normalize(unsigned int leafIdx, double sum);
 };
 
 

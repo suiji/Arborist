@@ -77,13 +77,13 @@ class SampleNux {
   /**
      @brief Compound accessor.
 
-     @param[out] sum is the sample sum.
+     @param[out] ctg is category value / default:  classification / regression.
 
-     @return Category value or default:  classification / regression.
+     @return sample sum.
   */
-  inline unsigned int refLeaf(FltVal &sum) const {
-    sum = ySum;
-    return getCtg();
+  inline FltVal refCtg(unsigned int &ctg) const {
+    ctg = getCtg();
+    return ySum;
   }
 
 

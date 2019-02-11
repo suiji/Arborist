@@ -16,7 +16,7 @@
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 "Validate.default" <- function(preFormat, train, y, ctgCensus = "votes",
                              quantVec = NULL, quantiles = !is.null(quantVec),
-                             qBin = 5000) {
+                             qBin = 5000, verbose = FALSE) {
   if (is.null(preFormat$predBlock)) {
     stop("Pre-formatted observations required for verification")
   }
@@ -29,11 +29,13 @@
   if (is.null(train$leaf)) {
     stop("Leaf information required for verification")
   }
-  ValidateDeep(preFormat$predBlock, train, y, ctgCensus, quantVec, quantiles, qBin)
+  ValidateDeep(preFormat$predBlock, train, y, ctgCensus, quantVec, quantiles, qBin, verbose)
 }
 
 
-ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, qBin) {
+ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, qBin, verbose) {
+  if (verbose)
+      print("Beginning validation");
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
       validation <- tryCatch(.Call("ValidateVotes", predBlock, objTrain, y), error = function(e) { stop(e) })
@@ -57,5 +59,8 @@ ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles,
     }
   }
 
+  if (verbose)
+      print("Validation complete")
+  
   validation
 }

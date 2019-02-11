@@ -27,9 +27,12 @@ PreFormat.default <- function(x, verbose = FALSE) {
             stop("Missing RankedSet")
         }
         if (verbose)
-            print("Training set already preformatted")
+            print("Training set already pre-formatted")
     }
     else {
+        if (verbose)
+            print("Beginning pre-formatting")
+
         predBlock <- PredBlock(x)
         preFormat <- list(
             predBlock = predBlock,
@@ -37,7 +40,7 @@ PreFormat.default <- function(x, verbose = FALSE) {
         )
         class(preFormat) <- "PreFormat"
         if (verbose)
-            print("Pre-formatting complete")
+            print("Pre-formatting completed")
     }
 
     preFormat

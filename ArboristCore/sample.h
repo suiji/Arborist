@@ -266,16 +266,16 @@ class Sample {
 
      @param sIdx is the sample index.
 
-     @param[in, out] bulkSum accumulates sums.
+     @param[in, out] bulkSum accumulates sums irrespective of category.
 
      @param[in, out] ctgSum accumulates sums by category.
    */
   inline void accum(unsigned int sIdx,
-                    double *bulkSum,
+                    double &bulkSum,
                     double *ctgSum) const {
-    FltVal sum;
-    unsigned int ctg = sampleNode[sIdx].refLeaf(sum);
-    *bulkSum += sum;
+    unsigned int ctg;
+    FltVal sum = sampleNode[sIdx].refCtg(ctg);
+    bulkSum += sum;
     ctgSum[ctg] += sum;
   }
 
