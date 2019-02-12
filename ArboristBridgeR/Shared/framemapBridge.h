@@ -34,30 +34,51 @@ using namespace Rcpp;
 #include "block.h"
 #include "framemap.h"
 
+
 /**
-  @brief Extracts contents of a data frame into separate numeric- and integer-valued blocks.
+  @brief Maps factor encodings of current observation set to those of training.
 
-  Potentially slow for large predictor counts, as a linked list is being walked.
+  Employs proxy values for any levels unseen during training.
 
-  @param sX is the raw data frame, with columns either factor or numeric.
+  @param sXFac is a (posibly empty) zero-based integer matrix.
 
-  @param sNPredNum is the number of numeric colums.
+  @param sPredMap associates (zero-based) core and front-end predictors.
 
-  @param sNPredFac is the number of factor-valued columns.
-
-  @param sCardFac is the cardinality of a factor, otherwise zero.
+  @param sLevels contain the level strings of core-indexed factor predictors.
 
   @param sSigTrain holds the training signature.
 
+  @return rewritten factor matrix.
+*/
+RcppExport SEXP FrameReconcile(SEXP sXFac,
+                               SEXP sPredMap,
+                               SEXP sLevels,
+                               SEXP sSigTrain);
+
+
+/**
+  @brief Wraps frame components supplied by front end.
+
+  @param sX is the raw data frame, with columns either factor or numeric.
+
+  @param sXNum is a (possibly empty numeric matrix.
+
+  @param sXFac is a (posibly empty) zero-based integer matrix.
+
+  @param sPredMap associates (zero-based) core and front-end predictors.
+
+  @param sFacCard is the cardinality of core-indexed factor predictors.
+
+  @param sLevels contain the level strings of core-indexed factor predictors.
+
   @return wrapped frame containing separately-typed matrices.
 */
-RcppExport SEXP FrameMixed(SEXP sX,
-                           SEXP sXNum,
-                           SEXP sXFac,
-                           SEXP sPredMap,
-                           SEXP sFacCard,
-                           SEXP sLevels,
-                           SEXP sSigTrain);
+RcppExport SEXP WrapFrame(SEXP sX,
+                          SEXP sXNum,
+                          SEXP sXFac,
+                          SEXP sPredMap,
+                          SEXP sFacCard,
+                          SEXP sLevels);
 
 RcppExport SEXP FrameNum(SEXP sX);
 
@@ -132,20 +153,6 @@ struct FramemapBridge {
                  const CharacterVector& colNames,
                  const CharacterVector& rowNames);
 
-  /**
-     @brief Matches internal codes of training and prediction factor levels.
-
-     @param[out] xFac contains the new codes.
-
-     @param levelTest encodes the prediction factor levels.
-
-     @param levelTrain encodes the training factor levels.
-   */
-  static void factorRemap(IntegerMatrix& xFac,
-                          const List& levelTest,
-                          const List& levelTrain);
-
-  
   /**
      @brief Singleton factory.
 

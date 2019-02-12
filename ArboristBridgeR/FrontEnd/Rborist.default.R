@@ -247,50 +247,6 @@ RFDeep <- function(argList) {
 }
 
 
-# Groups predictors into like-typed blocks and creates zero-based type
-# summaries.
-#
-PredBlock <- function(x, sigTrain = NULL) {
-  # Argument checking:
-  if (any(is.na(x))) {
-    stop("NA not supported in design matrix")
-  }
-
-  # For now, only numeric and factor types supported.
-  #
-  if (is.data.frame(x)) { # As with "randomForest" package
-      lv <- sapply(x, levels)
-      xFac <- data.matrix(Filter(function(col) ifelse(is.factor(col) && !is.ordered(col), TRUE, FALSE), x))
-      xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), x))
-      if (ncol(xNum) + ncol(xFac) != ncol(x)) {
-          stop("Frame column with unsupported data type")
-      }
-      colCard <- sapply(x, function(col) ifelse(is.numeric(col), 0, length(levels(col))))
-      predMap <- c(which(colCard == 0), which(colCard != 0))
-
-      return(tryCatch(.Call("FrameMixed", x, xNum, xFac, predMap, colCard[colCard != 0], lv[colCard != 0], sigTrain), error = function(e) {stop(e)} ))
-  }
-  else if (inherits(x, "dgCMatrix")) {
-     return(tryCatch(.Call("FrameSparse", x), error= print))
-  }
-  else if (is.matrix(x)) {
-    if (is.integer(x)) {
-      return(tryCatch(.Call("FrameNum", data.matrix(x)), error=function(e) {stop(e)} ))
-    }
-    else if (is.numeric(x)) {
-      return(tryCatch(.Call("FrameNum", x), error=function(e) {stop(e)}))
-    }
-    else if (is.character(x)) {
-      stop("Character data not yet supported")
-    }
-    else {
-      stop("Unsupported matrix type")
-    }
-  }
-  else {
-    stop("Expecting data frame or matrix")
-  }
-}
 
 
 # Uses quartiles by default.

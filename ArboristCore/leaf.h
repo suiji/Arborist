@@ -389,9 +389,6 @@ class ProbCresc {
   vector<double> prob;
   const double forestScale;  // Forest-wide scaling factor for score.
 
-  constexpr unsigned int leafBase(unsigned int leafIdx) {
-    return nCtg * leafIdx;
-  }
 public:
 
   ProbCresc(unsigned int treeChunk,

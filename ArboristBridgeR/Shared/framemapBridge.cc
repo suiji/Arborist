@@ -27,36 +27,58 @@
 #include "framemapBridge.h"
 #include "blockBridge.h"
 
-// TODO:  MOve column and row names to signature.
-RcppExport SEXP FrameMixed(SEXP sX,
-                           SEXP sXNum,
-                           SEXP sXFac,
-                           SEXP sPredMap,
-                           SEXP sFacCard,
-                           SEXP sLv,
-                           SEXP sSigTrain) {
+
+RcppExport SEXP FrameReconcile(SEXP sXFac,
+                               SEXP sPredMap,
+                               SEXP sLv,
+                               SEXP sSigTrain) {
   BEGIN_RCPP
 
-  IntegerVector facCard(sFacCard);
-  IntegerMatrix xFac(sXFac);
-  xFac = xFac - 1; // 1- to 0-based factor codes.
-  IntegerVector predMap(sPredMap);
-  predMap = predMap - 1; // 1- to 0-based factor codes.
-  List lv(sLv);
+  IntegerVector predMap(sPredMap); // 0-based predictor offsets.
+  List sigTrain(sSigTrain);
+  IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
+  if (!is_true(all(predMap == predTrain))) {
+    stop("Training, prediction data types do not match");
+  }
+  IntegerMatrix xFac(sXFac);// 0-based factor codes.
+  List levelTest(sLv);
+  List levelTrain((SEXP) sigTrain["level"]);
+  for (int col = 0; col < xFac.ncol(); col++) {
+    CharacterVector colTest(as<CharacterVector>(levelTest[col]));
+    CharacterVector colTrain(as<CharacterVector>(levelTrain[col]));
+    if (is_true(any(colTest != colTrain))) {
+      IntegerVector colMatch(match(colTest, colTrain));
+      // Rcpp match() does not offer specification of 'na' subsititute.
+      if (is_true(any(is_na(colMatch)))) {
+        warning("Test data contains labels unseen by training:  employing proxy");
+        colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
+      }
+      colMatch = colMatch - 1;  // Rcpp match() is one-based.
 
-  // Factor positions must match those from training and values must conform.
-  //
-  if (!Rf_isNull(sSigTrain) && facCard.length() > 0) {
-    List sigTrain(sSigTrain);
-    IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
-    if (!is_true(all(predMap == predTrain))) {
-      stop("Training, prediction data types do not match");
+      IntegerVector colT(IntegerMatrix::Column(xFac(_, col)));
+      xFac(_, col) = as<IntegerVector>(colMatch[colT]);
     }
-    FramemapBridge::factorRemap(xFac, lv, as<List>(sigTrain["level"]));
   }
 
-  DataFrame x(sX);
+  return xFac;
+  
+  END_RCPP
+}
+
+
+RcppExport SEXP WrapFrame(SEXP sX,
+                          SEXP sXNum,
+                          SEXP sXFac,
+                          SEXP sPredMap,
+                          SEXP sFacCard,
+                          SEXP sLv) {
+  BEGIN_RCPP
+
   NumericMatrix xNum(sXNum);
+  IntegerVector facCard(sFacCard);
+  IntegerMatrix xFac(sXFac);// 0-based factor codes.
+  IntegerVector predMap(sPredMap); // 0-based predictor offsets.
+  DataFrame x(sX);
   List predBlock = List::create(
                                 _["blockNum"] = move(xNum),
                                 _["nPredNum"] = xNum.ncol(),
@@ -67,7 +89,7 @@ RcppExport SEXP FrameMixed(SEXP sX,
                                 _["nRow"] = x.nrow(),
                                 _["facCard"] = facCard,
             _["signature"] = move(FramemapBridge::wrapSignature(predMap,
-                                                                lv,
+                                                                as<List>(sLv),
                                                                 colnames(x),
                                                                 rownames(x)))
                                 );
@@ -77,7 +99,8 @@ RcppExport SEXP FrameMixed(SEXP sX,
   END_RCPP
 }
 
-  // Signature contains front-end decorations not exposed to the
+
+// Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.
 SEXP FramemapBridge::wrapSignature(const IntegerVector &predMap,
@@ -96,27 +119,6 @@ SEXP FramemapBridge::wrapSignature(const IntegerVector &predMap,
 
   return signature;
   END_RCPP
-}
-
-
-void FramemapBridge::factorRemap(IntegerMatrix &xFac, const List &levelTest, const List &levelTrain) {
-  for (int col = 0; col < xFac.ncol(); col++) {
-    CharacterVector colTest(as<CharacterVector>(levelTest[col]));
-    CharacterVector colTrain(as<CharacterVector>(levelTrain[col]));
-    if (is_true(any(colTest != colTrain))) {
-      IntegerVector colMatch(match(colTest, colTrain));
-      // Rcpp match() does not offer specification of 'na' subsititute.
-      if (is_true(any(is_na(colMatch)))) {
-        warning("Test data contains labels unseen by training:  employing proxy");
-        colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
-      }
-      colMatch = colMatch - 1;  // Rcpp match() is one-based.
-
-      IntegerMatrix::Column xCol(xFac(_, col));
-      IntegerVector colT(xCol);
-      xFac(_, col) = as<IntegerVector>(colMatch[colT]);
-    }
-  }
 }
 
 
@@ -220,7 +222,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
         _["nPredFac"] = 0,
         _["nRow"] = nRow,
         _["facCard"] = facCard,
-        _["signature"] = move(FramemapBridge::wrapSignature(seq_len(nPred) -1,
+        _["signature"] = move(FramemapBridge::wrapSignature(seq_len(nPred) - 1,
                                         List::create(0),
                                         colName,
                                         rowName))
