@@ -25,6 +25,7 @@
 
 #include "leafBridge.h"
 #include "leaf.h"
+#include "framemapBridge.h"
 #include "predict.h"
 #include "quant.h"
 
@@ -154,9 +155,18 @@ LeafRegBridge::~LeafRegBridge() {
 }
 
 
+LeafFrame* LeafRegBridge::getLeaf() const {
+  return leaf.get();
+}
+
+
 LeafCtgBridge::~LeafCtgBridge() {
 }
 
+
+LeafFrame* LeafCtgBridge::getLeaf() const {
+  return leaf.get();
+}
 
 /**
    @brief Wraps core (regression) Leaf vectors for reference by front end.
@@ -201,15 +211,15 @@ List LBTrainCtg::wrap() {
    @brief References front-end member arrays and instantiates
    bridge-specific LeafReg handle.
  */
-unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
-                                                unsigned int nRow) {
+unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List& lTrain,
+                                                const List& sPredBlock) {
   List lLeaf = checkLeaf(lTrain);
   return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
                                     NumericVector((SEXP) lLeaf["yTrain"]),
-                                    nRow);
+                                    as<unsigned int>(sPredBlock["nRow"]));
 }
 
 
@@ -260,8 +270,8 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
 
    @return 
  */
-unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &sTrain,
-                                                unsigned int nRow,
+unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List& sTrain,
+                                                const List& sPredBlock,
                                                 bool doProb) {
   List lLeaf = checkLeaf(sTrain);
   return make_unique<LeafCtgBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
@@ -270,7 +280,7 @@ unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &sTrain,
                                     RawVector((SEXP) lLeaf["bagSample"]),
                                     NumericVector((SEXP) lLeaf["weight"]),
                                     CharacterVector((SEXP) lLeaf["levels"]),
-                                    nRow,
+                                    as<unsigned int>(sPredBlock["nRow"]),
                                     doProb);
 }
 
@@ -441,9 +451,10 @@ NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
 
    @return list of summary entries.   
  */
-List LeafCtgBridge::summary(SEXP sYTest, const List &signature) {
+List LeafCtgBridge::summary(SEXP sYTest, const List& sPredBlock) {
   BEGIN_RCPP
 
+  List signature = FramemapBridge::unwrapSignature(sPredBlock);
   leaf->vote();
   CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
   IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());

@@ -24,6 +24,7 @@
 #include "callback.h"
 #include "framemap.h"
 #include "rowrank.h"
+#include "ompthread.h"
 
 // Post-split consumption:
 #include "pretree.h"
@@ -323,10 +324,11 @@ vector<SplitCand> SplitNode::split(const SamplePred *samplePred) {
 
 void SPCtg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
+  OMPBound splitTop = splitCand.size();
 #pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < OMPBound(splitCand.size()); splitPos++) {
+    for (splitPos = 0; splitPos < splitTop; splitPos++) {
       splitCand[splitPos].split(this, samplePred);
     }
   }
@@ -335,10 +337,11 @@ void SPCtg::splitCandidates(const SamplePred *samplePred) {
 
 void SPReg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
+  OMPBound splitTop = splitCand.size();
 #pragma omp parallel default(shared) private(splitPos)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < OMPBound(splitCand.size()); splitPos++) {
+    for (splitPos = 0; splitPos < splitTop; splitPos++) {
       splitCand[splitPos].split(this, samplePred);
     }
   }
@@ -349,10 +352,11 @@ vector<SplitCand> SplitNode::maxCandidates() {
   vector<SplitCand> candMax(splitCount);
 
   OMPBound splitIdx;
+  OMPBound splitTop = splitCount;
 #pragma omp parallel default(shared) private(splitIdx)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitIdx = 0; splitIdx < OMPBound(splitCount); splitIdx++) {
+    for (splitIdx = 0; splitIdx < splitTop; splitIdx++) {
       maxSplit(candMax[splitIdx], candOff[splitIdx], nCand[splitIdx]);
     }
   }

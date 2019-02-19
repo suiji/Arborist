@@ -23,6 +23,7 @@
 #include "bottom.h"
 #include "path.h"
 #include "runset.h"
+#include "ompthread.h"
 
 #include <numeric>
 
@@ -388,10 +389,10 @@ void IndexLevel::nodeReindex() {
   vector<unsigned int> succST(idxLive);
   rel2PT = move(vector<unsigned int>(idxLive));
 
-  unsigned int splitIdx;
+  OMPBound splitIdx;
 #pragma omp parallel default(shared) private(splitIdx)
   {
-#pragma omp for schedule(dynamic, 1)
+#pragma omp for schedule(dynamic, 1) 
     for (splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
       indexSet[splitIdx].reindex(replayExpl, this, idxLive, succST);
     }
@@ -482,7 +483,7 @@ void IndexLevel::subtreeReindex(unsigned int splitNext) {
   unsigned int chunkSize = 1024;
   unsigned int nChunk = (bagCount + chunkSize - 1) / chunkSize;
 
-  unsigned int chunk;
+  OMPBound chunk;
 #pragma omp parallel default(shared) private(chunk)
   {
 #pragma omp for schedule(dynamic, 1)
@@ -630,8 +631,7 @@ void IndexSet::succInit(IndexLevel *indexLevel,
 void IndexLevel::sumsAndSquares(unsigned int ctgWidth,
                                 vector<double> &sumSquares,
                                 vector<double> &ctgSum) {
-  unsigned int splitIdx;
-  
+  OMPBound splitIdx;
 #pragma omp parallel default(shared) private(splitIdx)
   {
 #pragma omp for schedule(dynamic, 1)

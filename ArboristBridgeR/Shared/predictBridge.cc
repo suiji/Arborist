@@ -34,13 +34,11 @@
 #include "forest.h"
 #include "leaf.h"
 
-#include <algorithm>
-
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,
                             const SEXP sTrain,
                             SEXP sYTest) {
   BEGIN_RCPP
-  return PredictBridge::reg(List(sPredBlock), List(sTrain), sYTest, true);
+  return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, true);
   END_RCPP
 }
 
@@ -50,32 +48,66 @@ RcppExport SEXP TestReg(const SEXP sPredBlock,
                         SEXP sYTest,
                         SEXP sOOB) {
   BEGIN_RCPP
-  return PredictBridge::reg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB));
+  return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB));
   END_RCPP
 }
-
 
 /**
    @brief Predction for regression.
 
    @return Wrapped zero, with copy-out parameters.
  */
-List PredictBridge::reg(const List& sPredBlock,
+List PBBridgeReg::reg(const List& sPredBlock,
                         const List& lTrain,
                         SEXP sYTest,
                         bool validate) {
   BEGIN_RCPP
 
-  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
-  auto framePredict = frameMapBridge->getFrame();
-  auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
-  auto bag = BagBridge::unwrap(lTrain);
+  auto pbBridge = factory(sPredBlock, lTrain, validate);
+  return move(pbBridge->predict(sYTest));
 
-  Predict::reg(leafReg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
-
-  return move(leafReg->summary(sYTest));
   END_RCPP
+}
+
+
+List PBBridgeReg::predict(SEXP sYTest) const {
+  BEGIN_RCPP
+  Predict::predict(box.get());
+  return move(leaf->summary(sYTest));
+  END_RCPP
+}
+
+
+unique_ptr<PBBridgeReg> PBBridgeReg::factory(const List& sPredBlock,
+                                             const List& lTrain,
+                                             bool validate) {
+  return make_unique<PBBridgeReg>(move(FramemapBridge::factoryPredict(sPredBlock)),
+                               move(ForestBridge::unwrap(lTrain)),
+                               move(BagBridge::unwrap(lTrain)),
+                               move(LeafRegBridge::unwrap(lTrain, sPredBlock)),
+                               validate);
+}
+
+
+PBBridgeReg::PBBridgeReg(unique_ptr<FramePredictBridge> framePredict_,
+                         unique_ptr<ForestBridge> forest_,
+                         unique_ptr<BagBridge> bag_,
+                         unique_ptr<LeafRegBridge> leaf_,
+                         bool validate) :
+  PBBridge(move(framePredict_),
+           move(forest_),
+           move(bag_)),
+  leaf(move(leaf_)) {
+  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, 0);
+}
+
+
+PBBridge::PBBridge(unique_ptr<FramePredictBridge> framePredict_,
+                   unique_ptr<ForestBridge> forest_,
+                   unique_ptr<BagBridge> bag_) :
+  framePredict(move(framePredict_)),
+  forest(move(forest_)),
+  bag(move(bag_)) {
 }
 
 
@@ -83,7 +115,7 @@ RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest) {
   BEGIN_RCPP
-  return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, true, false);
+  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, false);
   END_RCPP
 }
 
@@ -92,7 +124,7 @@ RcppExport SEXP ValidateProb(const SEXP sPredBlock,
                              const SEXP sTrain,
                              SEXP sYTest) {
   BEGIN_RCPP
-  return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, true, true);
+  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, true);
   END_RCPP
 }
 
@@ -102,7 +134,7 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           SEXP sYTest,
                           SEXP sOOB) {
   BEGIN_RCPP
-  return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), false);
+  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), false);
   END_RCPP
 }
 
@@ -112,7 +144,7 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
                          SEXP sYTest,
                          SEXP sOOB) {
   BEGIN_RCPP
-  return PredictBridge::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), true);
+  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), true);
   END_RCPP
 }
 
@@ -122,24 +154,49 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
 
    @return predict list.
  */
-List PredictBridge::ctg(const List& sPredBlock,
+List PBBridgeCtg::ctg(const List& sPredBlock,
                         const List& lTrain,
                         SEXP sYTest,
                         bool validate,
                         bool doProb) {
   BEGIN_RCPP
-  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
-  auto framePredict = frameMapBridge->getFrame();
-  auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafCtg = LeafCtgBridge::unwrap(lTrain, framePredict->getNRow(), doProb);
-  auto bag = BagBridge::unwrap(lTrain);
 
-  Predict::ctg(leafCtg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate);
-
-  List signature = FramemapBridge::unwrapSignature(sPredBlock);
-  return move(leafCtg->summary(sYTest, signature));
+  auto pbBridge = factory(sPredBlock, lTrain, validate, doProb);
+  return move(pbBridge->predict(sYTest, sPredBlock));
 
   END_RCPP
+}
+
+List PBBridgeCtg::predict(SEXP sYTest, const List& sPredBlock) const {
+  BEGIN_RCPP
+  Predict::predict(box.get());
+  return move(leaf->summary(sYTest, sPredBlock));
+  END_RCPP
+}
+
+
+unique_ptr<PBBridgeCtg> PBBridgeCtg::factory(const List& sPredBlock,
+                                             const List& lTrain,
+                                             bool validate,
+                                             bool doProb) {
+  return make_unique<PBBridgeCtg>(move(FramemapBridge::factoryPredict(sPredBlock)),
+                               move(ForestBridge::unwrap(lTrain)),
+                               move(BagBridge::unwrap(lTrain)),
+                               move(LeafCtgBridge::unwrap(lTrain, sPredBlock, doProb)),
+                               validate);
+}
+
+
+PBBridgeCtg::PBBridgeCtg(unique_ptr<FramePredictBridge> framePredict_,
+                         unique_ptr<ForestBridge> forest_,
+                         unique_ptr<BagBridge> bag_,
+                         unique_ptr<LeafCtgBridge> leaf_,
+                         bool validate) :
+  PBBridge(move(framePredict_),
+           move(forest_),
+           move(bag_)),
+  leaf(move(leaf_)) {
+  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, 0);
 }
 
 
@@ -149,7 +206,7 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               SEXP sQuantVec,
                               SEXP sQBin) {
   BEGIN_RCPP
-  return PredictBridge::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true);
+  return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true);
   END_RCPP
 }
 
@@ -161,12 +218,12 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           SEXP sYTest,
                           SEXP sOOB) {
   BEGIN_RCPP
-  return PredictBridge::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB));
+  return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB));
   END_RCPP
 }
 
 
-List PredictBridge::quant(const List& sPredBlock,
+List PBBridgeReg::quant(const List& sPredBlock,
                           const List& lTrain,
                           SEXP sQuantVec,
                           SEXP sQBin,
@@ -174,19 +231,19 @@ List PredictBridge::quant(const List& sPredBlock,
                           bool validate) {
   BEGIN_RCPP
 
-  auto frameMapBridge = FramemapBridge::factoryPredict(sPredBlock);
-  auto framePredict = frameMapBridge->getFrame();
-  auto forestBridge = ForestBridge::unwrap(lTrain);
-  auto leafReg = LeafRegBridge::unwrap(lTrain, framePredict->getNRow());
-
-  auto bag = BagBridge::unwrap(lTrain);
-  const vector<double> qVec = as<vector<double> >(NumericVector(sQuantVec));
-  auto quant = make_unique<Quant>(leafReg->getLeaf(), bag->getRaw(), qVec, as<unsigned int>(sQBin));
-
-  Predict::reg(leafReg->getLeaf(), forestBridge->getForest(), bag->getRaw(), framePredict, validate, quant.get());
-
-  return move(leafReg->summary(sYTest, quant.get()));
+  NumericVector quantVec(sQuantVec);
+  auto pbBridge = factory(sPredBlock, lTrain, validate);
+  return move(pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest));
 
   END_RCPP
 }
-  
+
+
+List PBBridgeReg::predict(const double* quantile, unsigned int nQuant, unsigned int binSize, SEXP sYTest) const {
+  BEGIN_RCPP
+
+  auto quant = Predict::predictQuant(box.get(), quantile, nQuant, binSize);
+  return move(leaf->summary(sYTest, quant.get()));
+
+  END_RCPP
+}

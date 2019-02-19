@@ -93,6 +93,8 @@ public:
   static void initTree(unsigned int nSamp,
                        unsigned int minNode,
                        unsigned int leafMax);
+
+  static void initOmp(unsigned int nThread);
   
   static void initSample(unsigned int nSamp);
 

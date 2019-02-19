@@ -56,7 +56,7 @@ class Quant {
   const class LeafFrameReg *leafReg;
   const double *yTrain;
   vector<ValRow> yRanked;
-  const vector<double> &quantile;
+  const double* quantile;
   const unsigned int qCount;
   vector<double> qPred;
   vector<RankCount> rankCount; // forest-wide, by sample.
@@ -143,11 +143,12 @@ class Quant {
  public:
   Quant(const class LeafFrameReg *leafReg_,
         const class BitMatrix *baggedRows,
-        const vector<double> &quantile_,
+        const double* quantile_,
+        unsigned int qCount_,
         unsigned int qBin);
 
   unsigned int NQuant() const {
-    return quantile.size();
+    return qCount;
   }
 
   

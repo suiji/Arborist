@@ -36,7 +36,7 @@ IntegerVector rowSeqNull(0);
 IntegerVector &RcppSample::rowSeq = rowSeqNull;
 
 
-void RcppSample::Init(const NumericVector &feWeight, bool withRepl_) {
+void RcppSample::init(const NumericVector &feWeight, bool withRepl_) {
   weight = feWeight;
   rowSeq = seq(0, feWeight.length()-1);
 

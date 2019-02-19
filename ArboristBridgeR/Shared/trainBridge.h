@@ -200,7 +200,7 @@ struct TrainBridge {
 
      @param diag accumulates diagnostic messages.
 
-     @return
+     @return the summary.
    */
   List summarize(const IntegerVector& predMap,
                  const vector<string>& diag);
@@ -211,7 +211,7 @@ private:
 
      @param treesTot is the total number of trees trained so far.
 
-     @return scale factor estimation for accommodating entire forest.
+     @return scale estimation sufficient to accommodate entire forest.
    */
   inline double safeScale(unsigned int treesTot) const {
     return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;

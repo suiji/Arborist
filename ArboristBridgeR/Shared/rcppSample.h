@@ -36,7 +36,7 @@ using namespace Rcpp;
    @brief Row-sampling parameters supplied by the front end are invariant, so can be cached as static.
  */
 class RcppSample {
-  static bool withRepl;
+  static bool withRepl; // Whether sampling employs replacement.
   static NumericVector &weight; // Pinned vector[nRow] of weights.
   static IntegerVector &rowSeq; // Pinned sequence from 0 to nRow - 1.
 public:
@@ -50,7 +50,7 @@ public:
 
    @return void.
  */
-  static void Init(const NumericVector &feWeight,
+  static void init(const NumericVector &feWeight,
                    bool withRepl_);
 
   /**

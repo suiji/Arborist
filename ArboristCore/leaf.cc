@@ -16,6 +16,7 @@
 #include "leaf.h"
 #include "sample.h"
 #include "bv.h"
+#include "ompthread.h"
 
 #include <algorithm>
 

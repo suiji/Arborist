@@ -20,6 +20,7 @@
 #include "path.h"
 #include "bv.h"
 #include "level.h"
+#include "ompthread.h"
 
 #include <numeric>
 
@@ -86,10 +87,11 @@ vector<StageCount> SamplePred::stage(const RowRank* rowRank,
   vector<StageCount> stageCount(rowRank->getNPred());
 
   OMPBound predIdx;
+  OMPBound predTop = nPred;
 #pragma omp parallel default(shared) private(predIdx)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (predIdx = 0; predIdx < static_cast<OMPBound>(nPred); predIdx++) {
+    for (predIdx = 0; predIdx < predTop; predIdx++) {
       stage(rowRank, sampleNode, sample, predIdx, stageCount[predIdx]);
     }
   }

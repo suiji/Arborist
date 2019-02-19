@@ -79,6 +79,11 @@ class LeafBridge {
   const vector<unsigned int> &getExtentTree(unsigned int tIdx) const {
     return extentTree[tIdx];
   }
+
+  /**
+     @brief Subclasses forget their base leaf type.
+   */
+  virtual class LeafFrame* getLeaf() const = 0;
 };
 
 
@@ -126,18 +131,16 @@ class LeafRegBridge : public LeafBridge {
                          SEXP sYTest,
                          class Predict *predict);
 
-  static unique_ptr<LeafRegBridge> unwrap(const List &leaf,
-                                          unsigned int nRow);
+  static unique_ptr<LeafRegBridge> unwrap(const List& leaf,
+                                          const List& sPredBlock);
 
   static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   /**
-     @brief Getter for pointer to core leaf representation.
+     @brief Forgetful getter for pointer to core leaf representation.
    */
-  class LeafFrameReg *getLeaf() const {
-    return leaf.get();
-  }
+  class LeafFrame *getLeaf() const;
   
 
   const vector<double> &getScoreTree(unsigned int tIdx) const {
@@ -226,11 +229,11 @@ class LeafCtgBridge : public LeafBridge {
                 const class BitMatrix* bitMatrix);
 
   ~LeafCtgBridge();
-  
-  class LeafFrameCtg *getLeaf() const {
-    return leaf.get();
-  }
 
+  /**
+     @brief Forgetful getter to core leaf object.
+   */
+  class LeafFrame *getLeaf() const;
 
   static List predict(const List &list,
                   SEXP sYTest,
@@ -277,15 +280,15 @@ class LeafCtgBridge : public LeafBridge {
 
      @param lTrain is the R-style trained forest.
    */
-  static unique_ptr<LeafCtgBridge> unwrap(const List &leaf,
-                                          unsigned int nRow,
+  static unique_ptr<LeafCtgBridge> unwrap(const List& leaf,
+                                          const List& sPredBlock,
                                           bool doProb);
 
   static unique_ptr<LeafCtgBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   
-  List summary(SEXP sYTest, const List &signature);
+  List summary(SEXP sYTest, const List& sPredBlock);
 
 
   /**

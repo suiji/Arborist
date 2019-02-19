@@ -25,6 +25,7 @@
 #include "runset.h"
 #include "rowrank.h"
 #include "path.h"
+#include "ompthread.h"
 
 #include <numeric>
 #include <algorithm>
@@ -156,12 +157,13 @@ Bottom::~Bottom() {
 
 
 void Bottom::restage(SamplePred *samplePred) {
-  int nodeIdx;
-
+  OMPBound nodeIdx;
+  OMPBound idxTop = restageCoord.size();
+  
 #pragma omp parallel default(shared) private(nodeIdx)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (nodeIdx = 0; nodeIdx < int(restageCoord.size()); nodeIdx++) {
+    for (nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
       restage(samplePred, restageCoord[nodeIdx]);
     }
   }

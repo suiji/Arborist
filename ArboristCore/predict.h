@@ -21,6 +21,28 @@
 
 #include "typeparam.h"
 
+
+/**
+   @brief Consolidates common components required by all prediction entries.
+ */
+struct PredictBox {
+  const class FramePredict* framePredict;
+  const class Forest* forest;
+  const class BitMatrix* bag;
+  class LeafFrame* leafFrame; // Subclasses to regression or classification.
+  const bool validate;
+
+  PredictBox(const FramePredict* framePredict_,
+             const Forest* forest_,
+             const BitMatrix* bag_,
+             LeafFrame* leaf_,
+             bool validate_,
+             unsigned int nThread);
+
+  ~PredictBox();
+};
+
+
 class Predict {
   const bool useBag;
   unsigned int noLeaf; // Inattainable leaf index value.
@@ -44,66 +66,139 @@ class Predict {
   }
 
 
+  /**
+     @brief Manages row-blocked prediction across trees.
+
+     @param leaf records the predicted values.
+
+     @param bag summarizes the bagged rows.
+
+     @param quant is non-null iff quantile prediction specified.
+   */
   void predictAcross(class LeafFrame* leaf,
                      const class BitMatrix *bag,
                      class Quant *quant = nullptr);
 
+  
+  /**
+     @brief Dispatches prediction on a block of rows, by predictor type.
+
+     @param rowStart is the starting row over which to predict.
+
+     @param rowEnd is the final row over which to predict.
+
+     @param bag is the packed in-bag representation, if validating.
+  */
   void predictBlock(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
 
-  void predictBlockNum(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
+  /**
+     @brief Multi-row prediction with predictors of both numeric and factor type.
+     @param rowStart is the first row in the block.
 
-  void predictBlockFac(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
-  
+     @param rowEnd is the first row beyond the block.
+     
+     @param bag indicates whether prediction is restricted to out-of-bag data.
+ */
   void predictBlockMixed(unsigned int rowStart,
                     unsigned int rowEnd,
                     const class BitMatrix *bag);
   
-  void rowNum(unsigned int row,
-              unsigned int blockRow,
-              const class TreeNode *treeNode,
-              const class BitMatrix *bag);
 
-  void rowFac(unsigned int row,
-              unsigned int blockRow,
-              const class TreeNode *treeNode,
-              const class BVJagged *facSplit,
-              const class BitMatrix *bag);
+  /**
+     @brief Multi-row prediction with predictors of only numeric.
+
+     Parameters as with mixed case, above.
+  */
+  void predictBlockNum(unsigned int rowStart,
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
+
+/**
+   @brief Multi-row prediction with predictors of only factor type.
+
+   Parameters as with mixed case, above.
+ */
+  void predictBlockFac(unsigned int rowStart,
+                    unsigned int rowEnd,
+                    const class BitMatrix *bag);
   
+
+  /**
+     @brief Prediction of single row with mixed predictor types.
+
+     @param row is the absolute row of data over which a prediction is made.
+
+     @param blockRow is the row's block-relative row index.
+
+     @param treeNode is the base of the forest's tree nodes.
+
+     @param facSplit is the base of the forest's split-value vector.
+
+     @param bag indexes out-of-bag rows, and may be null.
+  */
   void rowMixed(unsigned int row,
                 unsigned int blockRow,
                 const class TreeNode *treeNode,
                 const class BVJagged *facSplit,
                 const class BitMatrix *bag);
 
- public:  
-  static const unsigned int rowBlock = 0x2000;
-  
-  Predict(const class FramePredict* framePredict_,
-          const class Forest* forest_,
-          bool validate_);
+  /**
+     @brief Prediction over a single row with factor-valued predictors only.
 
-
-  static void reg(class LeafFrameReg *leaf,
-                  const class Forest *forest,
-                  const class BitMatrix *bag,
-                  const class FramePredict* framePredict,
-                  bool validate,
-                  class Quant *quant = nullptr);
-  
-  static void ctg(class LeafFrameCtg *leaf,
-                  const class Forest *forest,
-                  const class BitMatrix *bag,
-                  const class FramePredict* framePredict,
-                  bool validate);
-  
+     Parameters as in mixed case, above.
+  */
+  void rowFac(unsigned int row,
+              unsigned int blockRow,
+              const class TreeNode *treeNode,
+              const class BVJagged *facSplit,
+              const class BitMatrix *bag);
   
   /**
+     @brief Prediction of a single row with numeric-valued predictors only.
+
+     Parameters as in mixed case, above.
+   */
+  void rowNum(unsigned int row,
+              unsigned int blockRow,
+              const class TreeNode *treeNode,
+              const class BitMatrix *bag);
+
+ public:  
+  static const unsigned int rowBlock = 0x2000; // Block size.
+  
+  Predict(const PredictBox* box);
+
+  /**
+     @brief Quantile prediction entry from bridge.
+
+     @param box summarizes the prediction environment.
+
+     @param quantile specifies the quantiles at which to predict.
+
+     @param nQuant are the number of quantiles specified.
+
+     @param qBin specifies granularity of prediction.
+
+     @return summary of predicted quantiles.
+   */
+  static unique_ptr<class Quant> predictQuant(const PredictBox* box,
+                                              const double* quantile,
+                                              unsigned int nQuant,
+                                              unsigned int qBin);
+
+  /**
+     @brief Generic entry from bridge.
+
+     @param box summarizes the prediction environment.
+   */
+  static void predict(const PredictBox* box);
+
+  
+  /**
+     @param[out] termIdx is the predicted tree-relative index.
+
      @return whether pair is bagged, plus output terminal index.
    */
   inline bool isBagged(unsigned int blockRow,

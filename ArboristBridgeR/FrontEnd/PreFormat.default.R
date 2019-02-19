@@ -58,14 +58,14 @@ PredBlock <- function(x, sigTrain = NULL) {
 
   # For now, only numeric and factor types supported.
   #
-  if (is.data.frame(x)) { # As with "randomForest" package
-      dt <- setDT(x)
-      lv <- sapply(dt, levels)
+  if (is.data.frame(x)) {
+      dt <- data.table::setDT(x)
       xFac <- data.matrix(Filter(function(col) ifelse(is.factor(col) && !is.ordered(col), TRUE, FALSE), dt)) - 1
       xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), dt))
       if (ncol(xNum) + ncol(xFac) != ncol(dt)) {
           stop("Frame column with unsupported data type")
       }
+      lv <- sapply(dt, levels)
       colCard <- sapply(dt, function(col) ifelse(is.numeric(col), 0, length(levels(col))))
       predMap <- c(which(colCard == 0), which(colCard != 0)) - 1
       if (!is.null(sigTrain) && any(colCard != 0)) {

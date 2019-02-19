@@ -43,9 +43,6 @@ struct RankRange {
 
 typedef unsigned char PathT;
 
-// Some versions of OpenMP will not parallelize on unsigned types.
-typedef int OMPBound;
-
 /**
    @brief Split/predictor coordinate pair.
  */

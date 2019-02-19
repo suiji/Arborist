@@ -118,7 +118,7 @@ SEXP TrainBridge::init(const List &argList,
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
   Train::initCDF(splitQuant);
 
-  RcppSample::Init(as<NumericVector>(argList["rowWeight"]),
+  RcppSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
   Train::initSample(as<unsigned int>(argList["nSamp"]));
   Train::initSplit(as<unsigned int>(argList["minNode"]),
@@ -128,7 +128,8 @@ SEXP TrainBridge::init(const List &argList,
                   as<unsigned int>(argList["minNode"]),
                   as<unsigned int>(argList["maxLeaf"]));
   Train::initBlock(as<unsigned int>(argList["treeBlock"]));
-
+  Train::initOmp(as<unsigned int>(argList["nThread"]));
+  
   nCtg = as<unsigned int>(argList["nCtg"]);
   Train::initCtgWidth(nCtg);
   if (nCtg == 0) { // Regression only.

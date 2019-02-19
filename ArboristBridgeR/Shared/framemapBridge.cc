@@ -296,12 +296,13 @@ unique_ptr<FramePredictBridge> FramemapBridge::factoryPredict(const List& sPredB
 
 
 FramePredictBridge::FramePredictBridge(
-               unique_ptr<BlockNumBridge> _blockNum,
-               unique_ptr<BlockFacBridge> _blockFac,
-               unsigned int nRow) :
-  blockNum(move(_blockNum)),
-  blockFac(move(_blockFac)) {
-  framePredict = move(make_unique<FramePredict>(blockNum->getNum(),
-                                                blockFac->getFac(),
-                                                nRow));
+               unique_ptr<BlockNumBridge> blockNum_,
+               unique_ptr<BlockFacBridge> blockFac_,
+               unsigned int nRow_) :
+  blockNum(move(blockNum_)),
+  blockFac(move(blockFac_)),
+  nRow(nRow_),
+  framePredict(move(make_unique<FramePredict>(blockNum->getNum(),
+                                              blockFac->getFac(),
+                                              nRow))) {
 }

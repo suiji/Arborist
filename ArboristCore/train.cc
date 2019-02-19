@@ -26,6 +26,7 @@
 #include "splitcand.h"
 #include "leaf.h"
 #include "level.h"
+#include "ompthread.h"
 #include "coproc.h"
 
 #include <algorithm>
@@ -73,6 +74,11 @@ void Train::initTree(unsigned int nSamp,
                      unsigned int minNode,
                      unsigned int leafMax) {
   PreTree::Immutables(nSamp, minNode, leafMax);
+}
+
+
+void Train::initOmp(unsigned int nThread) {
+  OmpThread::init(nThread);
 }
 
 
@@ -135,6 +141,7 @@ void Train::deInit() {
   SampleNux::deImmutables();
   Level::DeImmutables();
   SPReg::DeImmutables();
+  OmpThread::deInit();
 }
 
 

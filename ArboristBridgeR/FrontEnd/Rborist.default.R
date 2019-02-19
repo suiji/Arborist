@@ -28,6 +28,7 @@
                 minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
                 nSamp = 0,
+                nThread = 0,
                 nTree = 500,
                 noValidate = FALSE,
                 predFixed = 0,

@@ -88,16 +88,15 @@ RcppExport SEXP FrameSparse(SEXP sX);
    @brief Captures ownership of FramePredict and component Blocks.
  */
 class FramePredictBridge {
-  unique_ptr<class BlockNumBridge> blockNum;
-  unique_ptr<class BlockFacBridge> blockFac;
-  unique_ptr<FramePredict> framePredict;
+  const unique_ptr<class BlockNumBridge> blockNum;
+  const unique_ptr<class BlockFacBridge> blockFac;
+  const unsigned int nRow;
+  const unique_ptr<FramePredict> framePredict;
  public:
-
 
   FramePredictBridge(unique_ptr<class BlockNumBridge> blockNum_,
                      unique_ptr<class BlockFacBridge> blockFac_,
                      unsigned int nRow);
-
 
   /**
      @brief Getter for core object pointer.

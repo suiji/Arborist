@@ -17,6 +17,8 @@
 #include "bv.h"
 #include "leaf.h"
 #include "predict.h"
+#include "ompthread.h"
+
 #include <algorithm>
 
 
@@ -24,15 +26,16 @@
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const LeafFrameReg *leafReg_,
-             const BitMatrix *baggedRows,
-             const vector<double> &quantile_,
+Quant::Quant(const LeafFrameReg* leafReg_,
+             const BitMatrix* baggedRows,
+             const double* quantile_,
+             unsigned int qCount_,
              unsigned int qBin) :
   leafReg(leafReg_),
   yTrain(leafReg->YTrain()),
   yRanked(vector<ValRow>(baggedRows->getNRow())),
   quantile(quantile_),
-  qCount(quantile.size()),
+  qCount(qCount_),
   qPred(vector<double>(leafReg->rowPredict() * qCount)),
   rankCount(vector<RankCount>(leafReg->bagSampleTot())),
   logSmudge(0) {

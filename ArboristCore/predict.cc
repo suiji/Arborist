@@ -19,38 +19,53 @@
 #include "predict.h"
 #include "bv.h"
 #include "quant.h"
-
-#include <cfloat>
-#include <algorithm>
+#include "ompthread.h"
 
 
-Predict::Predict(const FramePredict *_framePredict,
-                 const Forest *_forest,
-                 bool validate) :
-  useBag(validate),
-  framePredict(_framePredict),
-  forest(_forest),
+PredictBox::PredictBox(const FramePredict* framePredict_,
+                       const Forest* forest_,
+                       const BitMatrix* bag_,
+                       LeafFrame* leafFrame_,
+                       bool validate_,
+                       unsigned int nThread) :
+  framePredict(framePredict_),
+  forest(forest_),
+  bag(bag_),
+  leafFrame(leafFrame_),
+  validate(validate_) {
+  OmpThread::init(nThread);
+}
+
+PredictBox::~PredictBox() {
+  OmpThread::deInit();
+}
+
+
+Predict::Predict(const PredictBox* box) :
+  useBag(box->validate),
+  framePredict(box->framePredict),
+  forest(box->forest),
   nTree(forest->getNTree()),
   nRow(framePredict->getNRow()),
   treeOrigin(forest->cacheOrigin()) {
   predictLeaves = make_unique<unsigned int[]>(rowBlock * nTree);
 }
 
-
-void Predict::reg(LeafFrameReg* leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate, Quant* quant) {
-  auto predict = make_unique<Predict>(framePredict, forest, validate);
-  predict->predictAcross(leaf, bag, quant);
+void Predict::predict(const PredictBox* box) {
+  auto predict = make_unique<Predict>(box);
+  predict->predictAcross(box->leafFrame, box->bag);
 }
 
 
-void Predict::ctg(LeafFrameCtg* leaf, const Forest* forest, const BitMatrix* bag, const FramePredict* framePredict, bool validate) {
-  auto predict = make_unique<Predict>(framePredict, forest, validate);
-  predict->predictAcross(leaf, bag, nullptr);
+unique_ptr<Quant> Predict::predictQuant(const PredictBox* box, const double* quantile, unsigned int nQuant, unsigned int qBin) {
+  auto quant = make_unique<Quant>(static_cast<LeafFrameReg*>(box->leafFrame), box->bag, quantile, nQuant, qBin);
+  auto predict = make_unique<Predict>(box);
+  predict->predictAcross(box->leafFrame, box->bag, quant.get());
+
+  return move(quant);
 }
 
 
-/**
- */
 void Predict::predictAcross(LeafFrame* leaf, const BitMatrix *bag, Quant *quant) {
   noLeaf = leaf->getNoLeaf();
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
@@ -65,13 +80,6 @@ void Predict::predictAcross(LeafFrame* leaf, const BitMatrix *bag, Quant *quant)
 }
 
 
-/**
-   @brief Dispatches prediction method based on available predictor types.
-
-   @param bag is the packed in-bag representation, if validating.
-
-   @return void.
- */
 void Predict::predictBlock(unsigned int rowStart,
                            unsigned int rowEnd,
                            const BitMatrix *bag) {
@@ -84,13 +92,6 @@ void Predict::predictBlock(unsigned int rowStart,
 }
 
 
-/**
-   @brief Multi-row prediction for regression tree, with predictors of only numeric.
-
-   @param bag enumerates the in-bag rows, if validating.
-
-   @return Void with output vector parameter.
- */
 void Predict::predictBlockNum(unsigned int rowStart,
                               unsigned int rowEnd,
                               const BitMatrix *bag) {
@@ -107,13 +108,6 @@ void Predict::predictBlockNum(unsigned int rowStart,
 }
 
 
-/**
-   @brief Multi-row prediction for regression tree, with predictors of both numeric and factor type.
-
-   @param bag enumerates the in-bag rows, if validating.
-
-   @return Void with output vector parameter.
- */
 void Predict::predictBlockFac(unsigned int rowStart,
                               unsigned int rowEnd,
                               const BitMatrix *bag) {
@@ -131,17 +125,6 @@ void Predict::predictBlockFac(unsigned int rowStart,
 }
 
 
-/**
-   @brief Multi-row prediction with predictors of both numeric and factor type.
-
-   @param rowStart is the first row in the block.
-
-   @param rowEnd is the first row beyond the block.
-
-   @param bag indicates whether prediction is restricted to out-of-bag data.
-
-   @return Void with output vector parameter.
- */
 void Predict::predictBlockMixed(unsigned int rowStart,
                                 unsigned int rowEnd,
                                 const BitMatrix *bag) {
@@ -156,7 +139,6 @@ void Predict::predictBlockMixed(unsigned int rowStart,
     }
   }
 }
-
 
 
 void Predict::rowNum(unsigned int row,
@@ -177,17 +159,6 @@ void Predict::rowNum(unsigned int row,
 }
 
 
-/**
-   @brief Prediction with factor-valued predictors only.
-
-   @param row is the row of data over which a prediction is made.
-
-   @param rowT is a factor data array section corresponding to the row.
-
-   @param bag indexes out-of-bag rows, and may be null.
-
-   @return Void with output vector parameter.
- */
 void Predict::rowFac(unsigned int row,
                      unsigned int blockRow,
                      const TreeNode *treeNode,
@@ -207,19 +178,6 @@ void Predict::rowFac(unsigned int row,
 }
 
 
-/**
-   @brief Prediction with predictors of both numeric and factor type.
-
-   @param row is the row of data over which a prediction is made.
-
-   @param rowNT is a numeric data array section corresponding to the row.
-
-   @param rowFT is a factor data array section corresponding to the row.
-
-   @param bag indexes out-of-bag rows, and may be null.
-
-   @return Void with output vector parameter.
- */
 void Predict::rowMixed(unsigned int row,
                        unsigned int blockRow,
                        const TreeNode *treeNode,
