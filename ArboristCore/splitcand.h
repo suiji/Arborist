@@ -67,11 +67,11 @@ struct ResidualCtg : public Residual {
  */
 class NumPersist {
 protected:
-  const unsigned int sCount;
+  const unsigned int sCount; // Total node sample count.
+  const double sum; // Total node response suum.
+  const unsigned int rankDense; // Rank of dense value, if any.
   unsigned int sCountL; // running sum of trial LHS sample counts.
-  const double sum;
   double sumL; // running sum of trial LHS response.
-  const unsigned int rankDense;
   unsigned int cutDense; // Rightmost position beyond implicit blob, if any.
   
   // Read locally but initialized, and possibly reset, externally.
@@ -83,10 +83,9 @@ protected:
   unsigned int lhSCount; // Sample count of split LHS:  > 0.
   unsigned int rankRH;
   unsigned int rankLH;
+  unsigned int rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
 
-  // Minimal RH index.  May be out of bounds:  [0, idxEnd+1].
-  unsigned int rhMin;
-
+  
 public:
   NumPersist(const class SplitCand* cand,
              unsigned int rankDense_);
@@ -103,12 +102,26 @@ public:
  */
 class NumPersistReg : public NumPersist {
   const int monoMode; // Presence/direction of monotone constraint.
-  const shared_ptr<Residual> resid;
+  const shared_ptr<Residual> resid; // Current residual, if any, else null.
+
+  /**
+     @brief Creates a residual summarizing implicit splitting state.
+
+     @param cand is the splitting candidate.
+
+     @param spn is the splitting data set.
+     
+     @return new residual based on the current splitting data set.
+   */
   shared_ptr<Residual> makeResidual(const class SplitCand* cand,
                                     const class SampleRank spn[]);
   /**
-     @brief Updates sums-of-squares accumulators as dictated
-     by the presence of a residual.
+     @brief Updates accumulators and possibly splits.
+
+     Current rank position assumed to be adjacent to dense rank, whence
+     the application of the residual immediately to the left.
+
+     @param rkThis is the rank of the current position.
    */
   void leftResidual(unsigned int rkThis);
 
@@ -117,6 +130,25 @@ public:
   NumPersistReg(const class SplitCand* splitCand,
                 const class SampleRank spn[],
                 const class SPReg* spReg);
+
+  /**
+     @brief Evaluates trial splitting information as weighted variance.
+
+     @param sumLeft is the sum of responses to the left of a trial split.
+
+     @param sumRight is the sum of responses to the right.
+
+     @param sCountLeft is number of samples to the left.
+
+     @param sCountRight is the number of samples to the right.
+   */
+  static constexpr double infoSplit(double sumLeft,
+                                    double sumRight,
+                                    unsigned int sCountLeft,
+                                    unsigned int sCountRight) {
+    return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
+  }
+
 
   /**
      @brief Dispatches appropriate splitting method.
@@ -166,6 +198,17 @@ class NumPersistCtg : public NumPersist {
   double ssL; // Left sum-of-squares accumulator.
   double ssR; // Right " ".
 
+  /**
+     @brief Imputes per-category dense rank statistics as residuals over cell.
+
+     @param cand is the splitting candidate.
+
+     @param spn is the splitting environment.
+
+     @param spCtg summarizes the categorical response.
+
+     @return new residual for categorical response over cell.
+  */
   shared_ptr<ResidualCtg>
   makeResidual(const class SplitCand* cand,
                const class SampleRank spn[],
@@ -176,6 +219,25 @@ public:
   NumPersistCtg(const class SplitCand* cand,
                 const class SampleRank spn[],
                 class SPCtg* spCtg);
+
+  /**
+     @brief Evaluates trial splitting information as Gini.
+
+     @param ssLeft is the sum of squared responses to the left of a trial split.
+
+     @param ssRight is the sum of squared responses to the right.
+
+     @param sumLeft is the sum of responses to the left.
+
+     @param sumRight is the sum of responses to the right.
+   */
+  static constexpr double infoSplit(double ssLeft,
+                                    double ssRight,
+                                    double sumLeft,
+                                    double sumRight) {
+    return ssLeft / sumLeft + ssRight / sumRight;
+  }
+
 
   /**
      @brief Dispatches appropriate splitting method.
@@ -471,6 +533,23 @@ public:
 		const class SampleRank spn[]);
 
   /**
+     @brief Splits blocks of categorical runs.
+
+     Nodes are now represented compactly as a collection of runs.
+     For each node, subsets of these collections are examined, looking for the
+     Gini argmax beginning from the pre-bias.
+
+     Iterates over nontrivial subsets, coded by integers as bit patterns.  By
+     convention, the final run is incorporated into RHS of the split, if any.
+     Excluding the final run, then, the number of candidate LHS subsets is
+     '2^(runCount-1) - 1'.
+
+     @param spCtg summarizes categorical response.
+  */
+  void splitRuns(class SPCtg *spCtg);
+
+
+  /**
      @brief Adapated from splitRuns().  Specialized for two-category case in
      which LH subsets accumulate.  This permits running LH 0/1 sums to be
      maintained, as opposed to recomputed, as the LH set grows.
@@ -479,11 +558,12 @@ public:
   */
   void splitBinary(class SPCtg *spCtg);
 
-  void splitRuns(class SPCtg *spCtg);
-
-
 
   /**
+     @brief Splits runs sorted by binary heap.
+
+     @param runSet contains all run parameters.
+
      @return slot index of split
    */
   unsigned int heapSplit(class RunSet *runSet);

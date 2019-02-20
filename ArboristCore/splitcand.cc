@@ -141,10 +141,10 @@ void SplitCand::splitNum(const SPReg *spReg,
 NumPersist::NumPersist(const SplitCand* cand,
                        unsigned int rankDense_) :
   sCount(cand->getSCount()),
-  sCountL(sCount),
   sum(cand->getSum()),
-  sumL(sum),
   rankDense(rankDense_),
+  sCountL(sCount),
+  sumL(sum),
   cutDense(cand->getIdxEnd() + 1),
   info(cand->getInfo()) {
 }
@@ -193,23 +193,19 @@ void NumPersistReg::splitImpl(const SampleRank spn[],
 
 void NumPersistReg::leftResidual(unsigned int rkThis) {
   // Rank exposed from previous invocation of splitExpl():
-  unsigned int rkRight = rkThis;
-
   sumL -= ySum;
   sCountL -= sCountThis;
   resid->apply(ySum, sCountThis);
-  rkThis = rankDense;
 
   unsigned int sCountR = sCount - sCountL;
   double sumR = sum - sumL;
-  double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
-
+  double infoTrial = infoSplit(sumL, sumR, sCountL, sCountR);
   if (infoTrial > info) {
     bool up = (sumL * sCountR <= sumR * sCountL);
     if (monoMode == 0 || (monoMode >0 && up) || (monoMode < 0 && !up)) {
       lhSCount = sCountL;
-      rankRH = rkRight;
-      rankLH = rkThis;
+      rankRH = rkThis;
+      rankLH = rankDense;
       rhMin = cutDense;
       info = infoTrial;
     }
@@ -233,9 +229,7 @@ void NumPersistReg::splitExpl(const SampleRank spn[],
     sCountL -= sCountThis;
     rkThis = spn[idx].regFields(ySum, sCountThis);
 
-    // localMax()
-    double sumR = sum - sumL;
-    double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / (sCount - sCountL);
+    double infoTrial = infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL);
     if (infoTrial > info && rkThis != rkRight) {
       info = infoTrial;
       lhSCount = sCountL;
@@ -263,7 +257,7 @@ void NumPersistReg::splitMono(const SampleRank spn[],
     //    localMax(nonDecreasing);
     unsigned int sCountR = sCount - sCountL;
     double sumR = sum - sumL;
-    double infoTrial = (sumL * sumL) / sCountL + (sumR * sumR) / sCountR;
+    double infoTrial = infoSplit(sumL, sumR, sCountL, sCountR);
     if (infoTrial > info && rkThis != rkRight) {
       bool up = (sumL * sCountR <= sumR * sCountL);
       if (nonDecreasing ? up : !up) {
@@ -357,8 +351,7 @@ void NumPersistCtg::splitExpl(const SampleRank spn[],
     unsigned int rkRight = rkThis;
     rkThis = spn[idx].getRank();
 
-    double sumR = sum - sumL;
-    double infoTrial = ssL / sumL + ssR / sumR;
+    double infoTrial = infoSplit(ssL, ssR, sumL, sum - sumL);
     if (infoTrial > info && rkThis != rkRight) {
       info = infoTrial;
       lhSCount = sCountL;
@@ -448,29 +441,18 @@ void SplitCand::splitFac(const SPReg *spReg,
 }
 
 
-/**
-   @brief Splits runs sorted by binary heap.
-
-   @param runSet contains all run parameters.
-
-   @param outputs computed split parameters.
-
-   @return initialized LH split signature.
-*/
 unsigned SplitCand::heapSplit(RunSet *runSet) {
   runSet->heapMean();
   runSet->dePop();
 
-  unsigned int lhSCountTrial = 0;
+  unsigned int sCountL = 0;
   double sumL = 0.0;
   unsigned int runSlot = runSet->getRunCount() - 1;
   for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
     unsigned int sCountRun;
     sumL += runSet->sumHeap(slotTrial, sCountRun);
-    lhSCountTrial += sCountRun;
-    unsigned int sCountR = sCount - lhSCountTrial;
-    double sumR = sum - sumL;
-    double infoTrial = (sumL * sumL) / lhSCountTrial + (sumR * sumR) / sCountR;
+    sCountL += sCountRun;
+    double infoTrial = NumPersistReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL);
     if (infoTrial > info) {
       info = infoTrial;
       runSlot = slotTrial;
@@ -527,20 +509,6 @@ void SplitCand::buildRuns(SPCtg *spCtg,
 }
 
 
-/**
-   @brief Splits blocks of categorical runs.
-
-   Nodes are now represented compactly as a collection of runs.
-   For each node, subsets of these collections are examined, looking for the
-   Gini argmax beginning from the pre-bias.
-
-   Iterates over nontrivial subsets, coded by integers as bit patterns.  By
-   convention, the final run is incorporated into the RHS of the split, if any.
-   Excluding the final run, then, the number of candidate LHS subsets is
-   '2^(runCount-1) - 1'.
-
-   @param spCtg summarizes categorical response.
-*/
 void SplitCand::splitRuns(SPCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(setIdx);
   const double *ctgSum = spCtg->getSumSlice(this);
@@ -565,8 +533,7 @@ void SplitCand::splitRuns(SPCtg *spCtg) {
       ssL += sumCtg * sumCtg;
       ssR += (nodeSumCtg - sumCtg) * (nodeSumCtg - sumCtg);
     }
-    double sumR = sum - sumL;
-    double infoTrial = ssR / sumR + ssL / sumL;
+    double infoTrial = NumPersistCtg::infoSplit(ssL, ssR, sumL, sum - sumL);
     if (infoTrial > info) {
       info = infoTrial;
       lhBits = subset;
@@ -598,14 +565,12 @@ void SplitCand::splitBinary(SPCtg *spCtg) {
   double sumL1 = 0.0; // ibid., category 1.
   unsigned int runSlot = runSet->getRunCount() - 1;
   for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
-    bool splitable = runSet->accumBinary(slotTrial, sumL0, sumL1);
-    FltVal sumL = sumL0 + sumL1;
-    FltVal sumR = sum - sumL;
-    // sumR, sumL magnitudes can be ignored if no large case/class weightings.
-    if (splitable) {
+    if (runSet->accumBinary(slotTrial, sumL0, sumL1)) { // Splitable
+      // sumR, sumL magnitudes can be ignored if no large case/class weightings.
+      FltVal sumL = sumL0 + sumL1;
       double ssL = sumL0 * sumL0 + sumL1 * sumL1;
       double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
-      double infoTrial = ssR / sumR + ssL / sumL;
+      double infoTrial = NumPersistCtg::infoSplit(ssL, ssR, sumL, sum - sumL);
       if (infoTrial > info) {
         info = infoTrial;
         runSlot = slotTrial;
@@ -645,17 +610,6 @@ Residual::Residual(const SplitCand* cand,
 }
 
 
-/**
-   @brief Imputes per-category dense rank statistics as residuals over the cell.
-
-   @param cand
-
-   @param spn
-
-   @param spCtg
-
-   @return new residual for categorical response over cell.
-*/
 shared_ptr<ResidualCtg>
 NumPersistCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],

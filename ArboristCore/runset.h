@@ -12,14 +12,8 @@
    runs, especially factor-valued predictors.
 
    @author Mark Seligman
-
  */
 
-// FRNodes hold field values accumulated from runs of factors having the
-// same value.  That is, they group factor-valued predictors into block
-// representations. These values live for a single level, so must be consumed
-// before a new level is started.
-//
 #ifndef ARBORIST_RUNSET_H
 #define ARBORIST_RUNSET_H
 
@@ -28,10 +22,16 @@
 #include "typeparam.h"
 
 /**
+   FRNodes hold field values accumulated from runs of factors having the
+   same value.
+
+   That is, they group factor-valued predictors into block representations.
+   These values live for a single level, so must be consumed before a new
+   level is started.
  */
 class FRNode {
  public:
-  unsigned int rank;
+  unsigned int rank; // Same 0-based value as internal code.
   unsigned int start; // Buffer position of start of factor run.
   unsigned int extent; // Total indices subsumed.
   unsigned int sCount; // Sample count of factor run:  not always same as length.
@@ -41,17 +41,20 @@ class FRNode {
 
   bool isImplicit();
 
-  
-  inline void init(unsigned int _rank,
-                   unsigned int _sCount,
-                   double _sum,
-                   unsigned int _start,
-                   unsigned int _extent) {
-    rank = _rank;
-    sCount = _sCount;
-    sum = _sum;
-    start = _start;
-    extent = _extent;
+
+  /**
+     @brief Initializer.
+   */
+  inline void init(unsigned int rank_,
+                   unsigned int sCount_,
+                   double sum_,
+                   unsigned int start_,
+                   unsigned int extent_) {
+    rank = rank_;
+    sCount = sCount_;
+    sum = sum_;
+    start = start_;
+    extent = extent_;
   }
 
   
@@ -59,18 +62,18 @@ class FRNode {
      @brief Replay accessor.  N.B.:  Should not be invoked on dense
      run, as 'start' will hold a reserved value.
 
-     @param _extent outputs the count of indices subsumed.
+     @param[out] start_ outputs the starting index.
 
-     @return void.
+     @param[out] extent_ outputs the count of indices subsumed.
    */
-  inline void replayRef(unsigned int &_start, unsigned int &_extent) {
-    _start = start;
-    _extent = extent;
+  inline void replayRef(unsigned int &start_, unsigned int &extent_) {
+    start_ = start;
+    extent_ = extent;
   }
 
 
   /**
-     @brief Rank accessor.
+     @brief Rank getter.
 
      @return rank.
    */
@@ -80,14 +83,44 @@ class FRNode {
 };
 
 
-class BHPair {
- public:
-  double key; unsigned int slot;
+/**
+   @brief Ad hoc container for simple priority queue.
+ */
+struct BHPair {
+  double key;  // Comparitor value.
+  unsigned int slot; // Slot index.
 };
 
+
 /**
-  @brief  Runs only:  caches pre-computed workspace starting indices to
-  economize on address recomputation during splitting.
+   RunSets live only during a single level, from argmax pass one (splitting)
+   through argmax pass two.  They accumulate summary information for split/
+   predictor pairs anticipated to have two or more distinct runs.  RunSets
+   are not yet built for numerical predictors, which have so far been
+   generally assumed to have dispersive values.
+
+   The runCounts[] vector tracks conservatively-estimated run lengths for
+   every split/predictor pair, regardless whether the pair is chosen for
+   splitting in a given level (cf., 'mtry' and 'predProb').  The vector
+   must be reallocated at each level, to accommodate changes in node numbering
+   introduced through splitting.
+
+   Run lengths for a given predictor decrease, although not necessarily
+   monotonically, with splitting.  Hence once a pair becomes a singleton, the
+   fact is worth preserving for the duration of training.  Numerical predictors
+   are assigned a nonsensical run length of zero, which is changed to a sticky
+   value of unity, should a singleton be identified.  Run lengths are
+   transmitted between levels duing restaging, which is the only phase to
+   maintain a map between split nodes and their descendants.  Similarly, new
+   singletons are very easy to identify during restaging.
+
+   Other than the "bottom" value of unity, run lengths can generally only be
+   known precisely by first walking the predictor ranks.  Hence a conservative
+   value is used for storage allocation, namely, that obtained during a previous
+   level.  Note that this value may be quite conservative, as the pair may not
+   have undergone a rank-walk in the previous level.  The one exception to this
+   is the case of an argmax split, for which both left and right run counts are
+   known from splitting.
 */
 class RunSet {
   bool hasImplicit; // Whether dense run present.
@@ -102,16 +135,62 @@ class RunSet {
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
   unsigned int runsLH; // Count of LH runs.
  public:
-  const static unsigned int maxWidth = 10;
-  static unsigned int ctgWidth;
-  static unsigned int noStart;
+  const static unsigned int maxWidth = 10; // Algorithmic threshold.
+  static unsigned int ctgWidth; // Response cardinality.
+  static unsigned int noStart; // Inattainable index.
   unsigned int safeRunCount;
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
+
+  /**
+     @brief Determines whether it is necessary to expose the right-hand runs.
+
+     Right-hand runs can often be omitted from consideration by
+     presetting a split's next-level contents all to the right-hand
+     index, then overwriting those known to lie in the left split.  The
+     left indices are always exposed, making this a convenient strategy.
+   
+     This cannot be done if the left contains an implicit run, as implicit
+     run indices are not directly recorded.  In such cases a complementary
+     strategy is employed, in which all indices are preset to the left
+     index, with known right-hand indices overwritten.  Hence the
+     right-hand runs must be enumerated in such instances.
+
+     @return true iff right-hand runs must be exposed.
+  */
   bool implicitLeft() const;
-  void writeImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[] = 0);
+
+  /**
+     @brief Builds a run for the dense rank using residual values.
+
+     @param denseRank is the rank corresponding to the dense factor.
+
+     @param sCountTot is the total sample count over the node.
+   
+     @param sumTot is the total sum of responses over the node.
+  */
+  void writeImplicit(unsigned int denseRank,
+                     unsigned int sCountTot,
+                     double sumTot,
+                     unsigned int denseCount,
+                     const double nodeSum[] = 0);
+  /**
+     @brief Hammers the pair's run contents with runs selected for
+     sampling.
+
+     Since the runs are to be read numerous times, performance
+     may benefit from this elimination of a level of indirection.
+
+     @return post-shrink run count.
+  */
   unsigned int deWide();
+
+  /**
+     @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
+
+     @param pop is the number of elements to pop from the heap.
+  */
   void dePop(unsigned int pop = 0);
 
   /**
@@ -124,9 +203,25 @@ class RunSet {
               vector<double> &ctgSum,
               vector<double> &rvWide);
 
+  /**
+     @brief Records only the (casted) relative vector offsets, as absolute
+     base addresses not yet known.
+  */
   void offsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
+
+  /**
+     @brief Writes to heap arbitrarily:  sampling w/o replacement.
+  */
   void heapRandom();
+
+  /**
+     @brief Writes to heap, weighting by slot mean response.
+  */
   void heapMean();
+
+  /**
+     @brief Writes to heap, weighting by category-1 probability.
+  */
   void heapBinary();
 
 
@@ -264,13 +359,50 @@ class RunSet {
     return runsLH;
   }
 
+
   unsigned int getRank(unsigned int outSlot) const;
+
+  /**
+     @brief Decodes bit vector of slot indices and stores LH indices.
+
+     @param lhBits encodes LH/RH slot indices as on/off bits, respectively.
+
+     @param lhSampCt outputs the LHS sample count.
+
+     @return LHS index count.
+  */
   unsigned int lHBits(unsigned int lhBits, unsigned int &lhSampCt);
+  
+  /**
+     @brief Dereferences out slots and accumulates splitting parameters.
+
+     @param cut is the final out slot of the LHS:  < 0 iff no split.
+
+     @param lhSampCt outputs the LHS sample count.
+
+     @return LHS index count.
+  */
   unsigned int lHSlots(unsigned int outPos, unsigned int &lhSampCt);
+
+  /**
+     @brief Looks up run parameters by indirection through output vector.
+     
+     N.B.:  should not be called with a dense run.
+
+     @param start outputs starting index of run.
+
+     @param extent outputs the index extent of the run.
+  */
   void bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const;
 };
 
 
+/**
+   @brief  Runs only:  caches pre-computed workspace starting indices to
+   economize on address recomputation during splitting.
+
+   Run objects are allocated per-tree, and live throughout training.
+*/
 class Run {
   const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
@@ -281,7 +413,11 @@ class Run {
   vector<double> ctgSum;
   vector<double> rvWide;
 
+  /**
+     @brief Adjusts offset and run-count fields of each RunSet.
+  */
   void reBase();
+
   void runSets(const vector<unsigned int>& safeCount);
 
 
@@ -303,28 +439,87 @@ class Run {
 
 
  public:
-  const unsigned int ctgWidth;
-  Run(unsigned int _ctgWidth, unsigned int nRow, unsigned int noCand);
+  const unsigned int ctgWidth;  // Response cardinality; zero iff numerical.
+
+  /**
+     @brief Constructor.
+
+     @param ctgWidth_ is the response cardinality.
+
+     @param nRow is the number of training rows:  inattainable offset.
+
+     @param noCand reserves an index value inattainable for any run.
+  */
+  Run(unsigned int ctgWidth_,
+      unsigned int nRow,
+      unsigned int noCand);
+
+  /**
+     @brief Clears workspace used by current level.
+   */
   void levelClear();
+
+  /**
+     @brief Regression:  all runs employ a heap.
+
+     @param safeCount enumerates conservative run counts.
+  */
   void offsetsReg(const vector<unsigned int> &safeCount);
+
+
+  /**
+     @brief Classification:  only wide run sets use the heap.
+
+     @param safeCount as above.
+  */
   void offsetsCtg(const vector<unsigned int> &safeCount);
+
+  /**
+     @brief Indicates whether splitting candidate contains runs.
+   */
   bool isRun(const class SplitCand& cand) const;
 
+  /**
+     @brief Redirects samples to left or right according.
+
+     @param cand is a splitting candidate.
+
+     @param iSet encodes the sample indices associated with the split.
+
+     @param preTree is the crescent pre-tree.
+
+     @param index is the index set environment for the current level.
+
+     @return true iff left-bound split contains implicit runs.
+   */
   bool replay(const class SplitCand& cand,
               class IndexSet* iSet,
               class PreTree* preTree,
               const class IndexLevel* index) const;
-  
+
+  /**
+     @brief Indicates whether index passed references a run.
+
+     @param setIdx is a putatitive run-set index.
+
+     @return true iff run referenced.
+   */
   inline bool isRun(unsigned int setIdx) const {
     return setIdx != noRun;
   }
 
 
+  /**
+     @brief Getter for noRun index.
+   */
   inline unsigned int getNoRun() const {
     return noRun;
   }
 
 
+  /**
+     @brief Accessor for RunSet at specified index.
+   */
   inline RunSet *rSet(unsigned int rsIdx) {
     return &runSet[rsIdx];
   }
@@ -333,41 +528,77 @@ class Run {
   /**
      @brief Presets runCount field to a conservative value for
      the purpose of allocating storage.
+
+     @param idx specifies an internal index.
+
+     @param count is the "safe" count value.
+   */
+  void setSafeCount(unsigned int idx, unsigned int count) {
+    runSet[idx].safeRunCount = count;
+  }
+
+  
+  /**
+     @brief Gets safe count associated with a given index.
    */
   unsigned int getSafeCount(unsigned int idx) const {
     return runSet[idx].safeRunCount;
   }
-
-  
-  void countSafe(unsigned int idx, unsigned int count) {
-    runSet[idx].safeRunCount = count;
-  }
-
-
 };
 
 
 /**
-   @brief Implementation of binary heap tailored to RunSets.  Not
-   so much a class as a collection of static methods.
+   @brief Implementation of binary heap tailored to RunSets.
 
+   Not so much a class as a collection of static methods.
    TODO:  Templatize and move elsewhere.
 */
 struct BHeap {
- public:
+  /**
+     @brief Determines index of parent.
+   */
   static inline int parent(int idx) { 
     return (idx-1) >> 1;
   };
 
 
+  /**
+     @brief Empties the queue.
+
+     @param pairVec are the queue records.
+
+     @param[out] lhOut outputs the popped slots, in increasing order.
+
+     @param pop is the number of elements to pop.  Caller enforces value > 0.
+  */
   static void depopulate(BHPair pairVec[],
                          unsigned int lhOut[],
                          unsigned int pop);
 
+  /**
+     @brief Inserts a key, value pair into the heap at next vacant slot.
+
+     Heap updates to move element with maximal key to the top.
+
+     @param pairVec are the queue records.
+
+     @param slot_ is the slot position.
+
+     @param key_ is the associated key.
+  */
   static void insert(BHPair pairVec[],
                      unsigned int slot_,
                      double key_);
 
+  /**
+     @brief Pops value at bottom of heap.
+
+     @param pairVec are the queue records.
+
+     @param bot indexes the current bottom.
+
+     @return popped value.
+  */
   static unsigned int slotPop(BHPair pairVec[],
                               int bot);
 };
