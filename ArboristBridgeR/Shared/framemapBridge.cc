@@ -186,7 +186,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
     stop("Sparse form i/j:  NYI");
   }
   else if (j.length() == 0) {
-    bsCresc->ip(&as<NumericVector>(spNum.slot("x"))[0], &i[0], &p[0]);
+    bsCresc->nzRow(&as<NumericVector>(spNum.slot("x"))[0], &i[0], &p[0]);
   }
   else {
     stop("Indeterminate sparse matrix format");

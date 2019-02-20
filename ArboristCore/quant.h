@@ -53,17 +53,17 @@ struct RankCount {
  @brief Quantile signature.
 */
 class Quant {
-  const class LeafFrameReg *leafReg;
-  const double *yTrain;
-  vector<ValRow> yRanked;
-  const double* quantile;
-  const unsigned int qCount;
-  vector<double> qPred;
+  const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
+  const double *yTrain; // Training response.
+  vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
+  const double* quantile; // quantile values over which to predict.
+  const unsigned int qCount; // # quantile values, above.
+  vector<double> qPred; // predicted quantiles
   vector<RankCount> rankCount; // forest-wide, by sample.
-  unsigned int logSmudge;
-  unsigned int binSize;
+  unsigned int logSmudge; // log2 of smudging factor, if smudging.
+  unsigned int binSize; // Width of binning parameter.
   vector<unsigned int> binTemp; // Helper vector.
-  vector<unsigned int> sCountSmudge;
+  vector<unsigned int> sCountSmudge; // Smudged sample counts.
 
   /**
      @brief Computes the count and rank of every bagged sample in the forest.
@@ -91,8 +91,6 @@ class Quant {
                              unsigned int &_logSmudge);
   /**
    @brief Builds a vector of binned sample counts for wide leaves.
-
-   @return void.
  */
   void smudgeLeaves();
 
@@ -102,8 +100,6 @@ class Quant {
      @param rowBlock is the block-relative row index.
 
      @param qRow[] outputs the 'qCount' quantile values.
-
-     @return void, with output vector parameter.
   */
   void predictRow(const class Predict *predict,
                   unsigned int rowBlock,
@@ -121,7 +117,9 @@ class Quant {
 
      @return count of samples subsumed by leaf.
   */
-  unsigned int ranksExact(unsigned int tIdx, unsigned int leafIdx, vector<unsigned int> &sampRanks);
+  unsigned int ranksExact(unsigned int tIdx,
+                          unsigned int leafIdx,
+                          vector<unsigned int> &sampRanks);
 
 
   /**
@@ -141,17 +139,32 @@ class Quant {
 
   
  public:
+  /**
+     @brief Constructor for invocation from within core.
+
+     Parameters mirror simililarly-named members.
+   */
   Quant(const class LeafFrameReg *leafReg_,
         const class BitMatrix *baggedRows,
         const double* quantile_,
         unsigned int qCount_,
         unsigned int qBin);
 
-  unsigned int NQuant() const {
+  /**
+     @brief Getter for number of quantiles.
+
+     @return qCount value.
+   */
+  unsigned int getNQuant() const {
     return qCount;
   }
 
-  
+
+  /**
+     @brief Accessor for predicted quantiles.
+
+     @return pointer to base of quantile predictions.
+   */
   const double *QPred() const {
     return &qPred[0];
   }
@@ -163,8 +176,6 @@ class Quant {
      @param rowStart is the first row at which to predict.
 
      @param rowEnd is first row at which not to predict.
-
-     @return void.
   */
   void predictAcross(const class Predict *predict,
                      unsigned int rowStart,

@@ -64,7 +64,19 @@ class SampleNux {
   static inline unsigned int getNCtg() {
     return nCtg;
   }
+
   
+  /**
+     @brief Initializes to summary values passed.
+
+     @param yVal is reponse value.
+
+     @param sampleCount (>0) is the number of times value sampled.
+
+     @param ctg is the response category, if classification.
+
+     @param return sum of sampled values.
+   */
   inline double init(FltVal yVal,
                      unsigned int sampleCount,
                      unsigned int ctg = 0) {
@@ -103,7 +115,9 @@ class SampleNux {
 
 
   /**
-     @brief Accessor for sampled sum.
+     @brief Getter for sampled sum.
+
+     @return ySum value.
    */
   inline double getSum() const {
     return ySum;
@@ -111,7 +125,9 @@ class SampleNux {
   
 
   /**
-     @brief Accessor for sample count.
+     @brief Derives sample count from internal encoding.
+
+     @return sample count.
    */
   inline unsigned int getSCount() const {
     return sCount >> ctgShift;
@@ -119,7 +135,9 @@ class SampleNux {
 
 
   /**
-     @brief Accessor for response category.
+     @brief Derives response category from internal encouding.
+
+     @return response category.
    */
   inline unsigned int getCtg() const {
     return sCount & ((1 << ctgShift) - 1);
@@ -128,6 +146,7 @@ class SampleNux {
 
 
 /**
+   @brief <Response value, observation rank> pair at row/predictor coordinate.
  */
 class SampleRank : public SampleNux {
  protected:
@@ -136,7 +155,7 @@ class SampleRank : public SampleNux {
  public:
 
   /**
-     @brief Accessor for 'rank' field
+     @brief Getter for rank or factor group.
 
      @return rank value.
    */
@@ -146,7 +165,7 @@ class SampleRank : public SampleNux {
 
 
   /**
-     @brief Accessor for 'ySum' field
+     @brief Getter for 'ySum' field
 
      @return sum of y-values for sample.
    */
@@ -161,8 +180,6 @@ class SampleRank : public SampleNux {
      @param rank is the predictor rank sampled at a given row.
 
      @param sNode summarizes response sampled at row.
-
-     @return void.
   */
   inline void join(unsigned int rank, const SampleNux &sNode) {
     this->rank = rank;

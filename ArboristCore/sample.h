@@ -23,25 +23,39 @@
 
 
 /**
-   @brief Sum / count record for categorical indices.
+   @brief Row sum / count record for categorical indices.
  */
 class SumCount {
   double sum;
   unsigned int sCount;
 
  public:
-  void Init() {
+  void init() {
     sum = 0.0;
     sCount = 0;
   }
 
-  inline void Ref(double &_sum, unsigned int &_sCount) const {
-    _sum = sum;
-    _sCount = sCount;
+  /**
+     @brief Dual accessor for sum and sample count values.
+
+     @param[out] sum_ outputs the sum of sampled values.
+
+     @param[out] sCount_ outputs the sample count.
+   */
+  inline void ref(double &sum_, unsigned int &sCount_) const {
+    sum_ = sum;
+    sCount_ = sCount;
   }
   
-  
-  inline void Accum(double _sum, unsigned int _sCount) {
+
+  /**
+     @brief Accumulates running sum and sample-count values.
+
+     @param[in, out] _sum accumulates response sum over sampled indices.
+
+     @param[in, out] _sCount accumulates sample count.
+   */
+  inline void accum(double _sum, unsigned int _sCount) {
     sum += _sum;
     sCount += _sCount;
   }
@@ -49,6 +63,8 @@ class SumCount {
 
   /**
      @brief Subtracts contents of vector passed.
+
+     @param subtrahend is the value to subtract.
    */
   void decr(const SumCount &subtrahend) {
     sum -= subtrahend.sum;
@@ -61,7 +77,8 @@ class SumCount {
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
-  // Experimental coarse-grained control of locality:
+  // Experimental coarse-grained control of locality:  Not quite
+  // coding-to-cache, but almost.
   static const unsigned int locExp = 18;  // Log of locality threshold.
 
   /**
@@ -77,11 +94,11 @@ class Sample {
 
   
  protected:
-  const class RowRank* rowRank;
+  const class RowRank* rowRank; // Summary of ranked predictors.
   
-  static unsigned int nSamp;
-  vector<SampleNux> sampleNode;
-  vector<SumCount> ctgRoot;
+  static unsigned int nSamp; // Number of row samples requested.
+  vector<SampleNux> sampleNode; // Per-sample summary of values.
+  vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<unsigned int> row2Sample; // Maps row index to sample index.
   unsigned int bagCount; // Number of distinct bagged (sampled) rows.
   double bagSum; // Sum of bagged responses.
@@ -136,12 +153,21 @@ class Sample {
                 const unsigned int yCtg[],
                 class BV *treeBag);
 
+  /**
+     @brief Appends summary node to crescent vector.
+
+     @param val is the sum of sampled responses.
+
+     @param sCount is the number of times sampled.
+
+     @param ctg is the category index:  unused if not categorical.
+   */
   virtual double addNode(double val, unsigned int sCount, unsigned int ctg) = 0;
 
  public:
 
   /**
-     @brief Static entry for discrete response.
+     @brief Static entry for discrete response (classification).
 
      @param y is a real-valued proxy for the training response.
 
@@ -159,7 +185,7 @@ class Sample {
                                                 class BV *treeBag);
 
   /**
-     @brief Static entry for continuous response.
+     @brief Static entry for continuous response (regression).
 
      @param y is the training response.
 
@@ -201,7 +227,7 @@ class Sample {
 
 
   /**
-     @brief
+     @brief Accessor for fully-sampled observation set.
 
      @return array of joined sample/predictor records.
   */
@@ -210,6 +236,8 @@ class Sample {
 
   /**
      @brief Invokes RowRank staging methods and caches compression map.
+
+     @param samplePred summarizes the observations.
   */
   vector<class StageCount> stage(class SamplePred* samplePred) const;
 
@@ -223,7 +251,7 @@ class Sample {
 
   
   /**
-     @brief Accessor for sample count.
+     @brief Getter for user-specified sample count.
    */
   static inline unsigned int getNSamp() {
     return nSamp;
@@ -231,7 +259,7 @@ class Sample {
 
 
   /**
-     @brief Getter for bag count.
+     @brief Getter for bag count:  # uniquely-sampled rows.
    */
   inline unsigned int getBagCount() const {
     return bagCount;
@@ -311,7 +339,14 @@ class SampleReg : public Sample {
   ~SampleReg();
   unique_ptr<class SplitNode> splitNodeFactory(const FrameTrain *frameTrain) const;
 
-  
+
+  /**
+     @brief Appends regression-style sampling record.
+
+     Parameters as described at virtual declaration.
+
+     @param ctg unused, as response is not categorical.
+   */
   inline double addNode(double yVal,
                         unsigned int sCount,
                         unsigned int ctg) {
@@ -346,7 +381,9 @@ class SampleCtg : public Sample {
   unique_ptr<class SplitNode> splitNodeFactory(const FrameTrain *frameTrain) const;
 
   /**
-     @brief Appends a sample summary to the node vector.
+     @brief Appends a sample summary record.
+
+     Parameters as described in virtual declaration.
 
      @return sum of sampled response values.
    */
@@ -354,7 +391,7 @@ class SampleCtg : public Sample {
     SampleNux sNode;
     double ySum = sNode.init(yVal, sCount, ctg);
     sampleNode.emplace_back(sNode);
-    ctgRoot[ctg].Accum(ySum, sCount);
+    ctgRoot[ctg].accum(ySum, sCount);
 
     return ySum;
   }

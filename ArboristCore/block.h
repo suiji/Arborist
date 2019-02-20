@@ -36,15 +36,19 @@ class BlockNum {
 
   static BlockNum *Factory(const vector<double> &_valNum, const vector<unsigned int> &_rowStart, const vector<unsigned int> &_runLength, const vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nCol);
 
-  virtual void Transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
+  virtual void transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
 
 
-  inline const unsigned int NCol() const {
+  inline const unsigned int getNCol() const {
     return nCol;
   }
 
-  
-  inline const double *Row(unsigned int rowOff) const {
+  /**
+     @param rowOff is the offset of a given row.
+
+     @return pointer to base of row contents.
+   */  
+  inline const double *rowBase(unsigned int rowOff) const {
     return blockNumT + nCol * rowOff;
   }
 };
@@ -73,7 +77,7 @@ class BlockSparse : public BlockNum {
 	      const unsigned int *_predStart,
 	      unsigned int _nCol);
   ~BlockSparse();
-  void Transpose(unsigned int rowStart, unsigned int rowEnd);
+  void transpose(unsigned int rowStart, unsigned int rowEnd);
 };
 
 
@@ -125,9 +129,9 @@ public:
      @param p has length nCol + 1: index i > 0 gives the raw nonzero offset for
      predictor i-1 and index i == 0 gives the base offset.
    */
-  void ip(const double eltsNZ[],
-          const int nz[],
-          const int p[]);
+  void nzRow(const double eltsNZ[],
+             const int nz[],
+             const int p[]);
 
   /**
      @brief Getter for run values.
@@ -187,7 +191,7 @@ class BlockNumDense : public BlockNum {
 
      @return void.
    */
-  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
+  inline void transpose(unsigned int rowStart, unsigned int rowEnd) {
     blockNumT = feNumT + nCol * rowStart;
   }
 };
@@ -218,10 +222,8 @@ class BlockFac {
      @param rowStart is the first row of the block.
 
      @param rowEnd is the sup row.  Unused here.
-
-     @return void.
    */
-  inline void Transpose(unsigned int rowStart, unsigned int rowEnd) {
+  inline void transpose(unsigned int rowStart, unsigned int rowEnd) {
     blockFacT = feFac + nCol * rowStart;
   }
 
@@ -234,12 +236,17 @@ class BlockFac {
 
      @return pointer to beginning of transposed row.
    */
-  inline const unsigned int *Row(unsigned int rowOff) const {
+  inline const unsigned int *rowBase(unsigned int rowOff) const {
     return blockFacT + rowOff * nCol;
   }
 
 
-  inline const unsigned int NCol() const {
+  /**
+     @brief Getter for column count.
+
+     @return value of nCol.
+   */
+  inline const unsigned int getNCol() const {
     return nCol;
   }
 };

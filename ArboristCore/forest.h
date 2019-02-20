@@ -26,15 +26,21 @@
    @brief To replace parallel array access.
  */
 class TreeNode : public DecNode {
-  static vector<double> splitQuant;
+  static vector<double> splitQuant; // Where within CDF to split.
 
  public:
 
   /**
-     @param[out] leafIdx outputs predictor index iff at leaf.
+     @brief Advances to next node when observations are all numerical.
+
+     @param rowT is a row base within the transposed numerical set.
+
+     @param[out] leafIdx outputs predictor index iff at terminal.
+
+     @return delta to next node, if nonterminal, else zero.
    */
   inline unsigned int advance(const double *rowT,
-		       unsigned int &leafIdx) const {
+                              unsigned int &leafIdx) const {
     if (lhDel == 0) {
       leafIdx = predIdx;
       return 0;
@@ -44,13 +50,33 @@ class TreeNode : public DecNode {
     }
   }
 
-  
+  /**
+     @brief Node advancer, as above, but for all-categorical observations.
+
+     @param facSplit accesses the per-tree packed factor-splitting vectors.
+
+     @param rowT holds the transposed factor-valued observations.
+
+     @param tIdx is the tree index.
+
+     @param leafIdx as above.
+
+     @return terminal/nonterminal : 0 / delta to next node.
+   */
   unsigned int advance(const class BVJagged *facSplit,
                        const unsigned int *rowT,
                        unsigned int tIdx,
                        unsigned int &leafIdx) const;
   
+  /**
+     @brief Node advancer, as above, but for mixed observation.
 
+     Parameters as above, along with:
+
+     @param rowNT contains the transponsed numerical observations.
+
+     @return terminal/nonterminal : 0 / delta to next node.
+   */
   unsigned int advance(const class FramePredict *framePredict,
                        const BVJagged *facSplit,
                        const unsigned int *rowFT,
@@ -60,13 +86,20 @@ class TreeNode : public DecNode {
 
 
 
+  /**
+     @brief Builds static quantile splitting vector from front-end specification.
+
+     @param feSplitQuant specifies the splitting quantiles for numerical predictors.
+   */
   static void Immutables(const vector<double> &feSplitQuant) {
     for (auto quant : feSplitQuant) {
       splitQuant.push_back(quant);
     }
   }
 
-  
+  /**
+     @brief Empties the static quantile splitting vector.
+   */
   static void DeImmutables() {
     splitQuant.clear();
   }
@@ -78,7 +111,7 @@ class TreeNode : public DecNode {
 
      @param frameTrain records the predictor types.
 
-     @return void
+     @param numRanked enumerates predictor ranks, by column.
   */
   void splitUpdate(const class FrameTrain *frameTrain,
                    const class BlockRanked *numRanked);
@@ -92,6 +125,11 @@ class TreeNode : public DecNode {
   }
 
 
+  /**
+     @brief Fills in rank-based splitting information.
+
+     @param decNode encodes the splitting specification.
+   */
   inline void setRank(const DecNode *decNode) {
     predIdx = decNode->predIdx;
     lhDel = decNode->lhDel;
@@ -103,7 +141,7 @@ class TreeNode : public DecNode {
   /**
      @brief Copies decision node, converting offset to numeric value.
 
-     @return void.
+     @param decNode encodes the splitting specification.
    */
   inline void setOffset(const DecNode *decNode) {
     predIdx = decNode->predIdx;
@@ -116,7 +154,7 @@ class TreeNode : public DecNode {
   /**
      @brief Initializes leaf node.
 
-     @return void.
+     @param leafIdx is the tree-relative leaf index.
    */
   inline void setLeaf(unsigned int leafIdx) {
     predIdx = leafIdx;
@@ -134,17 +172,31 @@ class TreeNode : public DecNode {
   }  
 
 
-  inline unsigned int Pred() const {
+  /**
+     @brief Getter for splitting predictor.
+
+     @return splitting predictor index.
+   */
+  inline unsigned int getPred() const {
     return predIdx;
   }
 
+  /**
+     @brief Getter for lh-delta value.
 
-  inline unsigned int LHDel() const {
+     @return lhDel value.
+   */
+  inline unsigned int getLHDel() const {
     return lhDel;
   }
 
 
-  inline double Split() const {
+  /**
+     @brief Getter for numeric splitting value.
+
+     @return splitting value.
+   */
+  inline double getSplitNum() const {
     return splitVal.num;
   }
 
@@ -245,6 +297,8 @@ class Forest {
 
   /**
      @brief Dumps forest-wide structure fields as per-tree vectors.
+     
+     Suitable for bridge-level diagnostic methods.
 
      @param[out] predTree outputs per-tree splitting predictors.
 
@@ -297,9 +351,9 @@ public:
 
 
   /**
-     @brief Post-pass to update numerical splitting values from ranks.
+     @brief Tree-level dispatch to low-level member.
 
-     @param rowRank holds the presorted predictor values.
+     Parameters as with low-level implementation.
   */
   void splitUpdate(const class FrameTrain *frameTrain,
                    const class BlockRanked* numRanked);
@@ -316,7 +370,11 @@ public:
   /**
      @brief Sets looked-up nonterminal node to values passed.
 
-     @return void.
+     @param nodeIdx is a tree-relative node index.
+
+     @param decNode contains the value to set.
+
+     @param isFactor is true iff the splitting predictor is categorical.
   */
   inline void branchProduce(unsigned int nodeIdx,
                             const DecNode *decNode,
@@ -393,8 +451,8 @@ public:
    @brief Class definition for crescent forest.
  */
 class ForestTrain {
-  unique_ptr<NBCresc> nbCresc;
-  unique_ptr<FBCresc> fbCresc;
+  unique_ptr<NBCresc> nbCresc; // Crescent node block.
+  unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
 
  public:
   /**
@@ -431,9 +489,23 @@ class ForestTrain {
   void treeInit(unsigned int tIdx,
                 unsigned int nodeCount);
 
+  /**
+     @brief Forest-level dispatcher to low-level method. 
+
+     Paramters as with low-level implementation.
+   */
   void splitUpdate(const class FrameTrain *frameTrain,
                    const class BlockRanked *numRanked);
 
+  /**
+     @brief Precipitates production of a branch node in the crescent forest.
+
+     @param frameTrain summarizes the training observations.
+
+     @param idx is a tree-relative node index.
+
+     @parm decNode contains the value to set.
+   */
   void nonTerminal(const class FrameTrain *frameTrain,
                    unsigned int idx,
                    const DecNode *decNode);
@@ -448,9 +520,9 @@ class ForestTrain {
   }
 
   /**
-     @brief Outputs raw byes of node vector.
+     @brief Dumps raw splitting values for factors.
 
-     @return void.
+     @param[out] rawOut outputs the raw bytes of factor split values.
    */
   void cacheFacRaw(unsigned char rawOut[]) const {
     fbCresc->dumpRaw(rawOut);
@@ -458,6 +530,9 @@ class ForestTrain {
 
 
   /**
+     @brief Accessor for vector of tree heights.
+
+     @return reference to tree-height vector.
    */
   const vector<size_t>& getNodeHeight() const {
     return nbCresc->getHeight();
@@ -465,11 +540,14 @@ class ForestTrain {
   
 
   /**
-     @brief Exposes fac-origin vector.
+     @brief Accessor for vector of factor-split heights.
+
+     @return reference to factor-height vector.
    */
   const vector<size_t>& getFacHeight() const {
     return fbCresc->getHeight();
   }
+
 
   /**
     @brief Sets tree node as terminal.
@@ -477,9 +555,6 @@ class ForestTrain {
     @param nodeIdx is a tree-relative node index.
 
     @param leafIdx is a tree-relative leaf index.
-
-    @return void.
-
   */
   void terminal(unsigned int nodeIdx,
                 unsigned int leafIdx);

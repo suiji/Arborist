@@ -34,8 +34,6 @@ SamplePred::SamplePred(unsigned int _nPred,
   nPred(_nPred),
   bagCount(_bagCount),
   bufferSize(_bufferSize),
-  pitchSP(bagCount * sizeof(SamplePred)),
-  pitchSIdx(bagCount * sizeof(unsigned int)),
   pathIdx(bufferSize),
   stageOffset(nPred),
   stageExtent(nPred) {
@@ -175,7 +173,7 @@ double SamplePred::blockReplay(const SplitCand& argMax,
       FltVal ySum;
       unsigned int yCtg;
       unsigned sCount = spn[spIdx].ctgFields(ySum, yCtg);
-      ctgExpl[yCtg].Accum(ySum, sCount);
+      ctgExpl[yCtg].accum(ySum, sCount);
       sumExpl += ySum;
       replayExpl->setBit(idx[spIdx]);
     }
@@ -191,12 +189,6 @@ double SamplePred::blockReplay(const SplitCand& argMax,
 }
 
 
-/**
-   @brief Pass-through to Path method.  Looks up reaching cell in appropriate
-   buffer.
-
-   @return void.
- */
 void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int reachBase[],
                          unsigned int predIdx,
@@ -209,31 +201,6 @@ void SamplePred::prepath(const IdxPath *idxPath,
   prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
 }
 
-/**
-   @brief Localizes copies of the paths to each index position.  Also
-   localizes index positions themselves, if in a node-relative regime.
-
-   @param reachBase is non-null iff index offsets enter as node relative.
-
-   @param idxUpdate is true iff the index is to be updated.
-
-   @param startIdx is the beginning index of the cell.
-
-   @param extent is the count of indices in the cell.
-
-   @param pathMask mask the relevant bits of the path value.
-
-   @param idxVec inputs the index offsets, relative either to the
-   current subtree or the containing node and may output an updated
-   value.
-
-   @param prePath outputs the (masked) path reaching the current index.
-
-   @param pathCount enumerates the number of times a path is hit.  Only
-   client is currently dense packing.
-
-   @return void.
- */
 void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int *reachBase,
                          bool idxUpdate,

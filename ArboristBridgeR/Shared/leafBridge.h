@@ -99,7 +99,13 @@ class LeafRegBridge : public LeafBridge {
 
   vector<vector<double > > scoreTree;
 
-  
+  /**
+     @brief Validates contents of front-end leaf object.
+
+     Exception thrown if contents invalid.
+
+     @return wrapped zero.
+   */  
   static SEXP checkLeaf(const List &lLeaf);
  protected:
   unique_ptr<class LeafFrameReg> leaf;
@@ -131,9 +137,15 @@ class LeafRegBridge : public LeafBridge {
                          SEXP sYTest,
                          class Predict *predict);
 
+  /**
+     @brief Builds bridge object from wrapped front-end data.
+   */
   static unique_ptr<LeafRegBridge> unwrap(const List& leaf,
                                           const List& sPredBlock);
 
+  /**
+     @brief Builds bridge object from wrapped front-end data.
+   */
   static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
@@ -388,14 +400,28 @@ private:
                     double scale);
 public:
   IntegerVector nodeHeight;  // Accumulated per-tree extent of Leaf vector.
-  RawVector nodeRaw;
+  RawVector nodeRaw; // Packed node structures as raw data.
 
   IntegerVector bagHeight; // Accumulated per-tree extent of BagSample vector.
-  RawVector blRaw;
+  RawVector blRaw; // Packed bag/sample structures as raw data.
 
+  /**
+     @brief Constructor.
+
+     @param nTree is the number of trees over which to train.
+   */
   LBTrain(unsigned int nTree);
 
+  /**
+     @brief Static initialization.
+
+     @param thin_ indicates whether certain annotations may be omitted.
+   */
   static void init(bool thin_);
+
+  /**
+     @brief Resets static initializations.
+   */
   static void deInit();
 
 
@@ -412,22 +438,30 @@ public:
                unsigned int treeOff,
                double scale);
 
-  
+  /**
+     @brief Packages contents for storage by front end.
 
+     @return named list of summary fields.
+   */
   virtual List wrap() = 0;
 };
 
 
 struct LBTrainReg : public LBTrain {
-  const NumericVector yTrain;
+  const NumericVector yTrain; // Training response.
 
   LBTrainReg(const NumericVector& yTrain_,
              unsigned int nTree);
-             
+
+  /**
+     @brief Description and parameters as with virutal declaration.
+   */
   void consume(const class LFTrain* leaf,
                unsigned int treeOff,
                double scale);
-
+  /**
+     @brief Description as with virtual declaration.s
+   */
   List wrap();
 };
 
@@ -437,6 +471,26 @@ struct LBTrainReg : public LBTrain {
    additional field for weights.
  */
 struct LBTrainCtg : public LBTrain {
+  NumericVector weight; // Per-category probabilities.
+  R_xlen_t weightSize; // Running Size of weight vector.  Not saved.
+  const IntegerVector& yTrain; // Training response.
+
+  LBTrainCtg(const IntegerVector& yTrain_,
+             unsigned int nTree);
+
+  /**
+     @brief Description and parameters as with virtual declaration.
+   */
+  void consume(const class LFTrain* leaf,
+               unsigned int treeOff,
+               double scale);
+
+  /**
+     @brief Description as with virtual declaration.
+   */
+  List wrap();
+
+
 private:
   /**
      @brief Writes leaf weights from core representation.
@@ -451,18 +505,5 @@ private:
                    unsigned int tIdx,
                    double scale);
 
-public:
-  NumericVector weight;
-  R_xlen_t weightSize; // Running Size of weight vector.  Not saved.
-  const IntegerVector& yTrain;
-
-  LBTrainCtg(const IntegerVector& yTrain_,
-             unsigned int nTree);
-  
-  void consume(const class LFTrain* leaf,
-               unsigned int treeOff,
-               double scale);
-
-  List wrap();
 };
 #endif

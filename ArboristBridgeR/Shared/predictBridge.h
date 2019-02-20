@@ -72,7 +72,7 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 
    @param sOOB indicates whether testing is out-of-bag.
 
-   @return predict object.
+   @return wrapped predict object.
  */
 RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
@@ -91,7 +91,7 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
 
    @param sOOB indicates whether testing is out-of-bag.
 
-   @return predict object.
+   @return wrapped predict object.
  */
 RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
@@ -102,14 +102,16 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
    @brief Bridge-variant PredictBox pins unwrapped front-end structures.
  */
 struct PBBridge {
-  unique_ptr<class FramePredictBridge> framePredict;
-  unique_ptr<class ForestBridge> forest;
-  unique_ptr<class BagBridge> bag;
-  unique_ptr<class PredictBox> box;
+  unique_ptr<class FramePredictBridge> framePredict; // Predictor layout.
+  unique_ptr<class ForestBridge> forest; // Trained forest.
+  unique_ptr<class BagBridge> bag; // Bagged row indicator.
+  unique_ptr<class PredictBox> box; // Core-level prediction frame.
 
 
   /**
      @brief Constructor.
+
+     Paramter names mirror member names.
    */
   PBBridge(unique_ptr<FramePredictBridge> framePredict_,
            unique_ptr<ForestBridge> forest_,
@@ -120,6 +122,11 @@ struct PBBridge {
 struct PBBridgeReg : public PBBridge {
   unique_ptr<class LeafRegBridge> leaf;
 
+  /**
+     @brief Constructor.
+
+     Parameter names mirror member names.
+   */
   PBBridgeReg(unique_ptr<FramePredictBridge> framePredict_,
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
@@ -141,7 +148,7 @@ struct PBBridgeReg : public PBBridge {
 
     @param validate is true iff validating.
 
-    @return predict list.
+    @return wrapped prediction list.
  */
   static List quant(const List& sPredBlock,
                     const List& sTrain,
@@ -169,7 +176,18 @@ struct PBBridgeReg : public PBBridge {
                                          bool validate);
 
 private:
+  /**
+     @brief Instantiates core prediction object and predicts means.
+
+     @return wrapped predictions.
+   */
   List predict(SEXP sYTest) const;
+
+  /**
+     @brief Instantiates core prediction object and predicts quantiles.
+
+     @return wrapped predictions.
+   */
   List predict(const double* quantile,
                unsigned int nQuant,
                unsigned int binSize,
@@ -207,6 +225,11 @@ struct PBBridgeCtg : public PBBridge {
                                          bool validate,
                                          bool doProb);
 private:
+  /**
+     @brief Instantiates core PredictBridge object, driving prediction.
+
+     @return wrapped prediction.
+   */
   List predict(SEXP sYTest, const List& sPredBlock) const;
 };
 

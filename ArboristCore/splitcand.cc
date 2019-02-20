@@ -547,7 +547,8 @@ void SplitCand::splitRuns(SPCtg *spCtg) {
   const unsigned int slotSup = runSet->deWide() - 1;// Uses post-shrink value.
   unsigned int lhBits = 0;
   unsigned int leftFull = (1 << slotSup) - 1;
-  // Nonempty subsets as binary-encoded integers:
+
+  // Nonempty subsets as binary-encoded unsigneds.
   for (unsigned int subset = 1; subset <= leftFull; subset++) {
     double sumL = 0.0;
     double ssL = 0.0;

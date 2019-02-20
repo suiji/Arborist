@@ -111,9 +111,6 @@ unsigned int Sample::countSamples(vector<unsigned int>& idx,
   return nz;
 }
 
-/**
-   @brief Static entry for classification.
- */
 shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
                                          const RowRank *rowRank,
                                          const unsigned int yCtg[],
@@ -154,7 +151,7 @@ unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameTrain *frameTrain) 
 
 SampleCtg::SampleCtg(const RowRank* rowRank) : Sample(rowRank) {
   SumCount scZero;
-  scZero.Init();
+  scZero.init();
 
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }

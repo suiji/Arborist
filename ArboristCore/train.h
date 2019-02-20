@@ -34,16 +34,23 @@ class Train {
   static constexpr double slopFactor = 1.2; // Estimates tree growth.
   static unsigned int trainBlock; // Front-end defined buffer size.
 
-  const unsigned int nRow;
-  const unsigned int treeChunk;
-  unique_ptr<class BitMatrix> bagRow; // treeChunk x nRow
-  unique_ptr<class ForestTrain> forest;
+  const unsigned int nRow; // Number of rows to train.
+  const unsigned int treeChunk; // Local number of trees to train.
+  unique_ptr<class BitMatrix> bagRow; // Local bag section:  treeChunk x nRow
+  unique_ptr<class ForestTrain> forest; // Locally-trained forest block.
   vector<double> predInfo; // E.g., Gini gain:  nPred.
 
+  /**
+     @brief Trains a chunk of trees.
+
+     @param frameTrain summarizes the predictor characteristics.
+
+     @param rankedPair contains the presorted observation statistics.
+  */
   void trainChunk(const class FrameTrain *frameTrain,
                   const class RankedSet *rankedPair);
 
-  unique_ptr<class LFTrain> leaf;
+  unique_ptr<class LFTrain> leaf; // Crescent leaf object.
 
 public:
 
@@ -68,45 +75,102 @@ public:
   ~Train();
 
 
-  class LFTrain *getLeaf() const {
+  /**
+     @brief Getter for raw leaf pointer.
+   */
+  const class LFTrain *getLeaf() const {
     return leaf.get();
   }
 
+
+  /**
+     @brief Getter for splitting information values.
+
+     @return reference to per-preditor information vector.
+   */
   const vector<double> &getPredInfo() const {
     return predInfo;
   }
 
 
   /**
-   @brief Static initializer.
+     @brief Static initialization methods.
+  */
 
-   @return void.
- */
+  /**
+     @brief Registers training tree-block count.
+
+     @param trainBlock_ is the number of trees by which to block.
+  */
   static void initBlock(unsigned int trainBlock);
 
+  /**
+     @brief Registers histogram of splitting ranges for numerical predictors.
+     
+     @param splitQuant is a per-predictor quantile specification.
+  */
   static void initCDF(const vector<double> &splitQuant);
 
+  /**
+     @brief Registers per-node probabilities of predictor selection.
+  */
   static void initProb(unsigned int predFixed,
                        const vector<double> &predProb);
 
 
+  /**
+     @brief Registers tree-shape parameters.
+  */
   static void initTree(unsigned int nSamp,
                        unsigned int minNode,
                        unsigned int leafMax);
 
+  /**
+     @brief Initializes static OMP thread state.
+
+     @param nThread is a user-specified thread request.
+   */
   static void initOmp(unsigned int nThread);
   
+  /**
+     @brief Registers response-sampling parameters.
+
+     @param nSamp is the number of samples requested.
+  */
   static void initSample(unsigned int nSamp);
 
+  /**
+     @brief Registers width of categorical response.
+
+     @pram ctgWidth is the number of training response categories.
+  */
   static void initCtgWidth(unsigned int ctgWidth);
 
+  /**
+     @brief Registers parameters governing splitting.
+     
+     @param minNode is the mininal number of sample indices represented by a tree node.
+
+     @param totLevels is the maximum tree depth to train.
+
+     @param minRatio is the minimum information ratio of a node to its parent.
+  */
   static void initSplit(unsigned int minNode,
                         unsigned int totLevels,
                         double minRatio);
   
+  /**
+     @brief Registers monotone specifications for regression.
+
+     @param regMono has length equal to the predictor count.  Only
+     numeric predictors may have nonzero entries.
+  */
   static void initMono(const class FrameTrain* frameTrain,
                        const vector<double> &regMono);
 
+  /**
+     @brief Static de-initializer.
+   */
   static void deInit();
 
   static unique_ptr<Train> regression(
@@ -124,12 +188,18 @@ public:
        unsigned int nCtg,
        unsigned int treeChunk,
        unsigned int nTree);
-  
+
+  /**
+     @brief Attempts to extimate storage requirements for block after
+     training first tree.
+   */
   void reserve(vector<TrainSet> &treeBlock);
 
   /**
      @brief Accumulates block size parameters as clues to forest-wide sizes.
-     Estimates improve with larger blocks, at the cost of higher memory footprint.
+
+     Estimates improve with larger blocks, at the cost of higher memory
+     footprint.  Obsolete:  about to exit.
 
      @return sum of tree sizes over block.
   */
@@ -159,7 +229,10 @@ public:
                                 unsigned int tStart,
                                 unsigned int tCount);
 
-  class ForestTrain *getForest() const {
+  /**
+     @brief Getter for raw forest pointer.
+   */
+  const class ForestTrain *getForest() const {
     return forest.get();
   }
 

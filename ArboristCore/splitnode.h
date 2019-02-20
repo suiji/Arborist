@@ -35,7 +35,7 @@ class SplitNode {
   const class FrameTrain *frameTrain;
   const unsigned int noSet; // Unreachable setIdx for SplitCand.
   unsigned int splitCount; // # subtree nodes at current level.
-  unique_ptr<class Run> run;
+  unique_ptr<class Run> run; // Run sets for the current level.
   vector<class SplitCand> splitCand; // Schedule of splits.
 
   vector<double> prebias; // Initial information threshold.
@@ -87,7 +87,11 @@ public:
    */
   bool isFactor(unsigned int predIdx) const;
 
-  class Run *getRuns() {
+  
+  /**
+     @brief Getter for raw pointer to Run collection.
+   */
+  const class Run *getRuns() const {
     return run.get();
   }
 
@@ -97,13 +101,27 @@ public:
   inline unsigned int getNoSet() const {
     return noSet;
   }
-  
+
+  /**
+     @brief Getter for pre-bias value, by index.
+
+     @param splitIdx is the index.
+
+     @param return pre-bias value.
+   */
   inline double getPrebias(unsigned int splitIdx) const {
     return prebias[splitIdx];
   }
 
+
   class RunSet *rSet(unsigned int setIdx) const;
+
+  /**
+     @brief Initializes state associated with current level.
+   */
   void levelInit(class IndexLevel *index);
+
+  
   vector<class SplitCand> split(const class SamplePred *samplePred);
 
 
@@ -194,20 +212,43 @@ class SPCtg : public SplitNode {
   static constexpr double minSumL = 1.0e-8;
   static constexpr double minSumR = 1.0e-5;
 
-  const unsigned int nCtg;
+  const unsigned int nCtg; // Response cardinality.
   vector<double> sumSquares; // Per-level sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
-  void levelPreset(class IndexLevel *index);
-  void levelClear();
-  void splitCandidates(const class SamplePred *samplePred);
-  void setRunOffsets(const vector<unsigned int> &safeCount);
-  unsigned int LHBits(unsigned int lhBits,
-		      unsigned int pairOffset,
-		      unsigned int depth,
-		      unsigned int &lhSampCt);
 
+  /**
+     @brief Initializer utility for new level.
+
+     @param index summarizes the index nodes associated with the level.
+   */
+  void levelPreset(class IndexLevel *index);
+
+  /**
+     @brief Clears summary state associated with this level.
+   */
+  void levelClear();
+
+  /**
+     @brief Collects splitable candidates from among all restaged cells.
+   */
+  void splitCandidates(const class SamplePred *samplePred);
+
+  /**
+     @brief RunSet initialization utitlity.
+
+     @param safeCount gives a conservative per-predictor count of distinct runs.
+   */
+  void setRunOffsets(const vector<unsigned int> &safeCount);
+
+
+  /**
+     @brief Initializes numerical sum accumulator for currently level.
+
+     @parm nPredNum is the number of numerical predictors.
+   */
   void levelInitSumR(unsigned int nPredNum);
 
+  
   /**
      @brief Gini pre-bias computation for categorical response.
 
@@ -236,7 +277,9 @@ class SPCtg : public SplitNode {
 
 
   /**
-     @return number of categories present in training response.
+     @brief Getter for training response cardinality.
+
+     @return nCtg value.
    */
   inline unsigned int getNCtg() const {
     return nCtg;
@@ -245,8 +288,14 @@ class SPCtg : public SplitNode {
   
   /**
      @brief Determine whether an ordered pair of sums is acceptably stable
-     to appear in the denominator.  Only relevant for instances of extreme
-     case weighting.  Currently unused.
+     to appear in the denominator.
+
+     Only relevant for instances of extreme case weighting.  Currently unused
+     and may be obsolete.
+
+     @param sumL is the left-hand sum.
+
+     @param sumR is the right-hand sum.
 
      @return true iff both sums suitably stable.
    */
@@ -258,8 +307,14 @@ class SPCtg : public SplitNode {
 
   /**
      @brief Determines whether a pair of sums is acceptably stable to appear
-     in the denominators.  Only relevant for instances of extreme case
-     weighting.  Currently unused.
+     in the denominators.
+
+     Only relevant for instances of extreme case weighting.  Currently unused
+     and may not be useful if training responses are normalized.
+
+     @param sumL is the left-hand sum.
+
+     @param sumR is the right-hand sum.
 
      @return true iff both sums suitably stable.
    */
@@ -270,9 +325,9 @@ class SPCtg : public SplitNode {
 
 
   /**
-     @brief Provides slice into sum vector for a node.
+     @brief Provides slice into sum vector for a splittin candidate.
 
-     @param splitIdx is the node index.
+     @param cand is the splitting candidate.
 
      @return raw pointer to per-category sum vector for node.
    */
@@ -280,12 +335,9 @@ class SPCtg : public SplitNode {
 
 
   /**
-     @brief Provides slice into accumulation vector for a node/predictor
-     pair.
+     @brief Provides slice into accumulation vector for a splitting candidate.
 
-     @param splitIdx is the node index.
-
-     @param predIdx is the predictor index.
+     @param cand is the splitting candidate.
 
      @return raw pointer to per-category accumulation vector for pair.
    */

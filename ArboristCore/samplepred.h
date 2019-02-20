@@ -49,8 +49,6 @@ class SamplePred {
   //
   const unsigned int bagCount;
   const unsigned int bufferSize; // <= nRow * nPred.
-  const unsigned int pitchSP; // Pitch of SampleRank vector, in bytes.
-  const unsigned int pitchSIdx; // Pitch of SIdx vector, in bytes.
 
   vector<PathT> pathIdx;
   vector<unsigned int> stageOffset;
@@ -139,16 +137,30 @@ class SamplePred {
                        const SPPair &mrra,
                        unsigned int bufIdx);
   
-  void prepath(const class IdxPath *idxPath,
-               const unsigned int reachBase[],
-               unsigned int predIdx,
-               unsigned int bufIdx,
-               unsigned int startIdx,
-               unsigned int extent,
-               unsigned int pathMask,
-               bool idxUpdate,
-               unsigned int pathCount[]);
+  /**
+     @brief Localizes copies of the paths to each index position.
 
+     Also localizes index positions themselves, if in a node-relative regime.
+
+     @param reachBase is non-null iff index offsets enter as node relative.
+
+     @param idxUpdate is true iff the index is to be updated.
+
+     @param startIdx is the beginning index of the cell.
+
+     @param extent is the count of indices in the cell.
+
+     @param pathMask mask the relevant bits of the path value.
+
+     @param idxVec inputs the index offsets, relative either to the
+     current subtree or the containing node and may output an updated
+     value.
+
+     @param[out] prePath outputs the (masked) path reaching the current index.
+
+     @param pathCount enumerates the number of times a path is hit.  Only
+     client is currently dense packing.
+  */
   void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
                bool idxUpdate,
@@ -158,6 +170,22 @@ class SamplePred {
                unsigned int idxVec[],
                PathT prepath[],
                unsigned int pathCount[]) const;
+
+  /**
+     @brief Pass-through to Path method.
+
+     Looks up reaching cell in appropriate buffer.
+     Parameters as above.
+  */
+  void prepath(const class IdxPath *idxPath,
+               const unsigned int reachBase[],
+               unsigned int predIdx,
+               unsigned int bufIdx,
+               unsigned int startIdx,
+               unsigned int extent,
+               unsigned int pathMask,
+               bool idxUpdate,
+               unsigned int pathCount[]);
 
   void rankRestage(unsigned int predIdx,
                    unsigned int bufIdx,
@@ -181,14 +209,6 @@ class SamplePred {
 
   inline unsigned int getBagCount() const {
     return bagCount;
-  }
-  
-  inline unsigned int PitchSP() {
-    return pitchSP;
-  }
-
-  inline unsigned int PitchSIdx() {
-    return pitchSIdx;
   }
 
 

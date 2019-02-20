@@ -76,7 +76,9 @@ class IndexSet {
                  double _minInfo,
                  unsigned int _ptId,
                  bool explHand) const;
-
+  /**
+     @brief Initializes index set as a successor node.
+  */
   void succInit(IndexLevel *indexLevel,
                 Bottom *bottom,
                 unsigned int _splitIdx,
@@ -397,7 +399,7 @@ class IndexLevel {
   bool nonTerminal(const class SplitCand &argMax,
                    class PreTree *preTree,
                    class IndexSet *iSet,
-                   class Run *run) const;
+                   const class Run *run) const;
 
   bool replayRun(const class SplitCand &argMax,
                  class IndexSet *iSet,

@@ -21,8 +21,6 @@
 #include <algorithm>
 
 
-/**
- */
 LeafFrameReg::LeafFrameReg(const unsigned int height[],
                  unsigned int nTree_,
                  const Leaf leaf[],
@@ -40,9 +38,6 @@ LeafFrameReg::LeafFrameReg(const unsigned int height[],
 }
 
 
-/**
-   @brief Constructor for trained forest:  vector lengths final.
- */
 LeafFrameCtg::LeafFrameCtg(const unsigned int leafHeight[],
                  unsigned int nTree,
                  const class Leaf leaf[],
@@ -95,10 +90,6 @@ vector<unsigned int> CtgProb::scaleHeight(const unsigned int* leafHeight,
 }
 
 
-
-/**
-   @brief Full-forest constructor.
- */
 LeafFrame::LeafFrame(const unsigned int* leafHeight,
            unsigned int nTree_,
            const Leaf* leaf,
@@ -143,11 +134,7 @@ vector<size_t> LeafBlock::setOffsets() const {
   // Post-condition:  countAccum == total bag size.
 }
 
-/**
-   @brief Exporter of BagSample vector into per-tree vector of vectors.
 
-   @return void, with output reference parameters.
- */
 void LeafFrame::dump(const BitMatrix* baggedRows,
                      vector< vector<unsigned int> > &rowTree,
                      vector< vector<unsigned int> > &sCountTree,
@@ -185,11 +172,6 @@ void BLBlock::dump(const BitMatrix* baggedRows,
 }
                                                             
 
-/**
-   @brief scores each row in a block independently.
-
-   @return void, with side-effected yPred vector.
- */
 void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
                               unsigned int rowStart,
                               unsigned int rowEnd) {
@@ -607,11 +589,6 @@ void ProbCresc::normalize(unsigned int leafIdx, double sum) {
 }
 
 
-/**
-     @brief Allocates and initializes for all leaf categories in a tree.
-
-     @param leafCount is the number of leaves in the tree.
-*/
 void ProbCresc::treeInit(unsigned int leafCount, unsigned int tIdx) {
   treeFloor = prob.size();
   height[tIdx] = treeFloor + leafCount * nCtg;

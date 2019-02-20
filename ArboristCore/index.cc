@@ -600,11 +600,6 @@ void IndexSet::successor(IndexLevel *indexLevel,
 }
 
 
-/**
-   @brief Initializes index set as a successor node.
-
-   @return void.
- */
 void IndexSet::succInit(IndexLevel *indexLevel,
                         Bottom *bottom,
                         unsigned int _splitIdx,
@@ -645,7 +640,7 @@ void IndexLevel::sumsAndSquares(unsigned int ctgWidth,
 void IndexSet::sumsAndSquares(double  &sumSquares, double *sumOut) {
   for (unsigned int ctg = 0; ctg < ctgSum.size(); ctg++) {
     unsigned int scSCount;
-    ctgSum[ctg].Ref(sumOut[ctg], scSCount);
+    ctgSum[ctg].ref(sumOut[ctg], scSCount);
     sumSquares += sumOut[ctg] * sumOut[ctg];
     if (scSCount == sCount)
       unsplitable = true;
@@ -656,7 +651,7 @@ void IndexSet::sumsAndSquares(double  &sumSquares, double *sumOut) {
 bool IndexLevel::nonTerminal(const SplitCand &argMax,
                              PreTree *preTree,
                              IndexSet *iSet,
-                             Run *run) const {
+                             const Run *run) const {
   return run->isRun(argMax) ? run->replay(argMax, iSet, preTree, this) : branchNum(argMax, iSet, preTree);
 }
 

@@ -439,7 +439,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
 NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
-  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->NQuant(), leaf->rowPredict(), quant->QPred()));
+  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), leaf->rowPredict(), quant->QPred()));
   END_RCPP
 }
 

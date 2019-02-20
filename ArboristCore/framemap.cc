@@ -37,36 +37,36 @@ FrameTrain::FrameTrain(const vector<unsigned int> &_feCard,
 
    @return void.
  */
-FramePredict::FramePredict(BlockNum *_blockNum,
-			   BlockFac *_blockFac,
-			   unsigned int _nRow) :
-  FrameMap(_nRow, _blockNum->NCol(), _blockFac->NCol()),
-  blockNum(_blockNum),
-  blockFac(_blockFac) {
+FramePredict::FramePredict(BlockNum *blockNum_,
+			   BlockFac *blockFac_,
+			   unsigned int nRow_) :
+  FrameMap(nRow_, blockNum_->getNCol(), blockFac_->getNCol()),
+  blockNum(blockNum_),
+  blockFac(blockFac_) {
 }
 
 
 FramePredict::~FramePredict() {
 }
 
-void FramePredict::BlockTranspose(unsigned int rowStart,
-			     unsigned int rowEnd) const {
-  blockNum->Transpose(rowStart, rowEnd);
-  blockFac->Transpose(rowStart, rowEnd);
+void FramePredict::transpose(unsigned int rowStart,
+                                  unsigned int rowEnd) const {
+  blockNum->transpose(rowStart, rowEnd);
+  blockFac->transpose(rowStart, rowEnd);
 }
 
 
   /**
      @return base address for (transposed) numeric values at row.
    */
-const double *FramePredict::RowNum(unsigned int rowOff) const {
-  return blockNum->Row(rowOff);
+const double *FramePredict::baseNum(unsigned int rowOff) const {
+  return blockNum->rowBase(rowOff);
 }
 
 
   /**
      @return base address for (transposed) factor values at row.
    */
-const unsigned int *FramePredict::RowFac(unsigned int rowOff) const {
-  return blockFac->Row(rowOff);
+const unsigned int *FramePredict::baseFac(unsigned int rowOff) const {
+  return blockFac->rowBase(rowOff);
 }

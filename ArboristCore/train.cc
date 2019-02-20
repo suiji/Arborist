@@ -34,42 +34,22 @@
 
 unsigned int Train::trainBlock = 0;
 
-/**
-   @brief Registers training tree-block count.
-
-   @param trainBlock_ is the number of trees by which to block.
-
-   @return void.
-*/
 void Train::initBlock(unsigned int trainBlock_) {
   trainBlock = trainBlock_;
 }
 
 
-/**
-   @brief Registers histogram of splitting ranges.
-
-   @return void.
- */
 void Train::initCDF(const vector<double> &feSplitQuant) {
   TreeNode::Immutables(feSplitQuant);
 }
 
 
-/**
-   @brief Registers per-node probabilities of predictor selection.
- */
 void Train::initProb(unsigned int predFixed,
                      const vector<double> &predProb) {
   Level::Immutables(predFixed, predProb);
 }
 
 
-/**
-   @brief Registers tree-shape parameters.
-
-   @return void.
- */
 void Train::initTree(unsigned int nSamp,
                      unsigned int minNode,
                      unsigned int leafMax) {
@@ -82,20 +62,10 @@ void Train::initOmp(unsigned int nThread) {
 }
 
 
-/**
-   @brief Registers response-sampling parameters.
-
-   @return void.
- */
 void Train::initSample(unsigned int nSamp) {
   Sample::immutables(nSamp);
 }
 
-/**
-   @brief Registers parameters governing splitting.
-
-   @return void.
- */
 void Train::initSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio) {
@@ -104,33 +74,17 @@ void Train::initSplit(unsigned int minNode,
 }
 
 
-/**
-   @brief Registers width of categorical response.
-
-   @return void.
- */
 void Train::initCtgWidth(unsigned int ctgWidth) {
   SampleNux::immutables(ctgWidth);
 }
 
 
-/**
-   @brief Registers monotone specifications for regression.
-
-   @param regMono has length equal to the predictor count.  Only
-   numeric predictors may have nonzero entries.
- */
 void Train::initMono(const FrameTrain* frameTrain,
                      const vector<double> &regMono) {
   SPReg::Immutables(frameTrain, regMono);
 }
 
 
-/**
-   @brief Unsets immutables.
-
-   @return void.
-*/
 void Train::deInit() {
   trainBlock = 0;
   TreeNode::DeImmutables();
@@ -145,17 +99,6 @@ void Train::deInit() {
 }
 
 
-/**
-   @brief Static entry for regression training.
-
-   @param trainBlock is the maximum number of trees trainable simultaneously.
-
-   @param minNode is the mininal number of sample indices represented by a tree node.
-
-   @param minRatio is the minimum information ratio of a node to its parent.
-
-   @return regression-style object.
-*/
 unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
                                        const RankedSet *rankedPair,
                                        const double *y,
@@ -167,9 +110,6 @@ unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
 }
 
 
-/**
-   @brief Regression constructor.
- */
 Train::Train(const FrameTrain *frameTrain,
              const double *y,
              unsigned int treeChunk_) :
@@ -182,13 +122,6 @@ Train::Train(const FrameTrain *frameTrain,
 }
 
 
-
-
-/**
-   @brief Static entry for regression training.
-
-   @return void.
-*/
 unique_ptr<Train> Train::classification(const FrameTrain *frameTrain,
                                         const RankedSet *rankedPair,
                                         const unsigned int *yCtg,
@@ -203,9 +136,6 @@ unique_ptr<Train> Train::classification(const FrameTrain *frameTrain,
 }
 
 
-/**
-   @brief Classification constructor.
- */
 Train::Train(const FrameTrain *frameTrain,
              const unsigned int *yCtg,
              unsigned int nCtg,
@@ -225,13 +155,6 @@ Train::~Train() {
 }
 
 
-/**
-  @brief Trains a chunk of trees.
-
-  @param trainBlock is the maximum count of trees to train en banc.
-
-  @return void.
-*/
 void Train::trainChunk(const FrameTrain *frameTrain,
                        const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
@@ -262,14 +185,6 @@ vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
 }
 
  
-/** 
-  @brief Estimates forest heights using size parameters from the first
-  trained block of trees.
-
-  @param ptBlock is a block of PreTree references.
-
-  @return void.
-*/
 void Train::reserve(vector<TrainSet> &treeBlock) {
   size_t blockFac, blockBag, blockLeaf;
   size_t maxHeight = 0;

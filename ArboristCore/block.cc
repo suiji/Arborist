@@ -63,13 +63,7 @@ BlockSparse::~BlockSparse() {
 }
 
 
-/**
-   @brief Requires sequential update by row, but could be parallelized by
-   chunking predictors independently.
-
-   @return void.
- */
-void BlockSparse::Transpose(unsigned int rowBegin, unsigned int rowEnd) {
+void BlockSparse::transpose(unsigned int rowBegin, unsigned int rowEnd) {
   for (unsigned int row = rowBegin; row < rowEnd; row++) {
     for (unsigned int predIdx = 0; predIdx < nCol; predIdx++) {
       if (row == rowNext[predIdx]) { // Assignments persist across invocations:
@@ -92,13 +86,9 @@ BSCresc::BSCresc(unsigned int nRow_,
 }
 
 
-// 'i' in [0, nRow-1] list rows with nonzero elements.
-// 'p' holds the starting offset for each column in 'eltsNZ'.
-//    Repeated values indicate full-zero columns. 
-//
-void BSCresc::ip(const double eltsNZ[],
-                 const int nz[],
-                 const int p[]) {
+void BSCresc::nzRow(const double eltsNZ[],
+                    const int nz[],
+                    const int p[]) {
   // Pre-scans column heights.
   const double zero = 0.0;
   vector<unsigned int> nzHeight(nPred + 1);

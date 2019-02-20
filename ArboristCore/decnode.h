@@ -18,6 +18,12 @@
 
 #include "typeparam.h"
 
+/**
+   @brief Untagged union of split encodings; fields keyed by predictor type.
+
+   Numerical splits begin as rank ranges and are later adjusted to double.
+   Factor splits are tree-relative offsets.
+ */
 typedef union {
   RankRange rankRange; // Range of splitting ranks:  numeric, pre-update.
   unsigned int offset; // Bit-vector offset:  factor.
@@ -31,8 +37,8 @@ typedef union {
 class DecNode {
  public:
   unsigned int lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
-  unsigned int predIdx; // Nonterminal only.
-  SplitVal splitVal;
+  unsigned int predIdx; // Predictor index: nonterminal only.
+  SplitVal splitVal; // Split encoding:  terminal only.
 
   /**
      @brief Constructor.  Defaults to terminal.

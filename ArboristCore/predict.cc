@@ -70,7 +70,7 @@ void Predict::predictAcross(LeafFrame* leaf, const BitMatrix *bag, Quant *quant)
   noLeaf = leaf->getNoLeaf();
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
     unsigned int rowEnd = min(rowStart + rowBlock, nRow);
-    framePredict->BlockTranspose(rowStart, rowEnd);
+    framePredict->transpose(rowStart, rowEnd);
     predictBlock(rowStart, rowEnd, bag);
     leaf->scoreBlock(predictLeaves.get(), rowStart, rowEnd);
     if (quant != nullptr) {
@@ -145,7 +145,7 @@ void Predict::rowNum(unsigned int row,
                      unsigned int blockRow,
                      const TreeNode *treeNode,
                      const class BitMatrix *bag) {
-  auto rowT = framePredict->RowNum(blockRow);
+  auto rowT = framePredict->baseNum(blockRow);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(useBag && bag->testBit(tIdx, row))) {
@@ -167,7 +167,7 @@ void Predict::rowFac(unsigned int row,
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(useBag && bag->testBit(tIdx, row))) {
-      auto rowT = framePredict->RowFac(blockRow);
+      auto rowT = framePredict->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
         idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
@@ -186,8 +186,8 @@ void Predict::rowMixed(unsigned int row,
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(useBag && bag->testBit(tIdx, row))) {
-      auto rowNT = framePredict->RowNum(blockRow);
-      auto rowFT = framePredict->RowFac(blockRow);
+      auto rowNT = framePredict->baseNum(blockRow);
+      auto rowFT = framePredict->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
         idx += treeNode[idx].advance(framePredict, facSplit, rowFT, rowNT, tIdx, leafIdx);

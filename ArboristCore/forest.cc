@@ -25,9 +25,6 @@
 vector<double> TreeNode::splitQuant;
 
 
-/**
-   @brief Crescent constructor for training.
-*/
 ForestTrain::ForestTrain(unsigned int treeChunk) :
   nbCresc(make_unique<NBCresc>(treeChunk)),
   fbCresc(make_unique<FBCresc>(treeChunk)) {
@@ -38,9 +35,6 @@ ForestTrain::~ForestTrain() {
 }
 
 
-/**
-   @brief Constructor for prediction.
-*/
 Forest::Forest(const unsigned int height_[],
 	       unsigned int nTree_,
                const TreeNode treeNode_[],
@@ -54,16 +48,14 @@ Forest::Forest(const unsigned int height_[],
 }
 
 
-/**
- */ 
 Forest::~Forest() {
 }
 
 
 unsigned int TreeNode::advance(const BVJagged *facSplit,
-                                 const unsigned int rowT[],
-                                 unsigned int tIdx,
-                                 unsigned int &leafIdx) const {
+                               const unsigned int rowT[],
+                               unsigned int tIdx,
+                               unsigned int &leafIdx) const {
   if (lhDel == 0) {
     leafIdx = predIdx;
     return 0;
@@ -76,11 +68,11 @@ unsigned int TreeNode::advance(const BVJagged *facSplit,
 
 
 unsigned int TreeNode::advance(const FramePredict *framePredict,
-                                 const BVJagged *facSplit,
-                                 const unsigned int *rowFT,
-                                 const double *rowNT,
-                                 unsigned int tIdx,
-                                 unsigned int &leafIdx) const {
+                               const BVJagged *facSplit,
+                               const unsigned int *rowFT,
+                               const double *rowNT,
+                               unsigned int tIdx,
+                               unsigned int &leafIdx) const {
   if (lhDel == 0) {
     leafIdx = predIdx;
     return 0;
@@ -93,8 +85,6 @@ unsigned int TreeNode::advance(const FramePredict *framePredict,
 }
 
 
-/**
- */
 void ForestTrain::treeInit(unsigned int tIdx, unsigned int nodeCount) {
   nbCresc->treeInit(tIdx, nodeCount);
 }
@@ -182,13 +172,6 @@ void NBCresc::splitUpdate(const FrameTrain* frameTrain,
 }
 
 
-/**
-   @brief Assigns value at quantile rank to numerical split.
-
-   @param rowRank holds the presorted predictor values.
-
-   @return void.
- */
 void TreeNode::splitUpdate(const FrameTrain *frameTrain,
                            const BlockRanked *numRanked) {
   if (Nonterminal() && !frameTrain->isFactor(predIdx)) {
@@ -215,21 +198,16 @@ void Forest::dump(vector<vector<unsigned int> > &predTree,
 }
 
 
-/**
-   @brief Unpacks node fields into vector of per-tree vectors.
-
-   @return void, with output reference vectors.
- */
 void Forest::dump(vector<vector<unsigned int> > &pred,
                   vector<vector<double> > &split,
                   vector<vector<unsigned int> > &lhDel) const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     for (unsigned int nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
-      pred[tIdx].push_back(treeNode[nodeIdx].Pred());
-      lhDel[tIdx].push_back(treeNode[nodeIdx].LHDel());
+      pred[tIdx].push_back(treeNode[nodeIdx].getPred());
+      lhDel[tIdx].push_back(treeNode[nodeIdx].getLHDel());
 
       // Not quite:  must distinguish numeric from bit-packed:
-      split[tIdx].push_back(treeNode[nodeIdx].Split());
+      split[tIdx].push_back(treeNode[nodeIdx].getSplitNum());
     }
   }
 }

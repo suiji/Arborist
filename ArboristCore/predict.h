@@ -26,12 +26,19 @@
    @brief Consolidates common components required by all prediction entries.
  */
 struct PredictBox {
-  const class FramePredict* framePredict;
-  const class Forest* forest;
-  const class BitMatrix* bag;
+  const class FramePredict* framePredict; // Frame of dense predictor blocks.
+  const class Forest* forest; // Trained forest.
+  const class BitMatrix* bag; // In-bag representation.
   class LeafFrame* leafFrame; // Subclasses to regression or classification.
-  const bool validate;
+  const bool validate; // Whether this is out-of-bag prediction.
 
+  /**
+     @brief Constructor boxes training and output summaries.
+
+     @param nThread is the number of OMP threads requested.
+
+     Remaining parameters mirror similarly-named members.
+   */
   PredictBox(const FramePredict* framePredict_,
              const Forest* forest_,
              const BitMatrix* bag_,
@@ -44,20 +51,24 @@ struct PredictBox {
 
 
 class Predict {
-  const bool useBag;
+  const bool useBag; // Whether prediction is to be out-of-bag.
   unsigned int noLeaf; // Inattainable leaf index value.
-  const class FramePredict *framePredict;
-  const class Forest *forest;
-  const unsigned int nTree;
-  const unsigned int nRow;
-  const vector<size_t> treeOrigin;
+  const class FramePredict *framePredict; // Frame of dense blocks.
+  const class Forest *forest; // Trained forest.
+  const unsigned int nTree; // # trees used in training.
+  const unsigned int nRow; // # rows to predict.
+  const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
 
 
   /**
      @brief Assigns a true leaf index at the prediction coordinates passed.
 
-     @return void.
+     @param blockRow is a block-relative row offset.
+
+     @param tc is the index of the current tree.
+
+     @param leafIdx is the leaf index to record.
    */
   inline void predictLeaf(unsigned int blockRow,
                       unsigned int tc,
@@ -197,9 +208,15 @@ class Predict {
 
   
   /**
+     @brief Indicates whether a given row and tree pair is in-bag.
+
+     @param blockRow is the block-relative row position.
+
+     @param tc is the absolute tree index.
+
      @param[out] termIdx is the predicted tree-relative index.
 
-     @return whether pair is bagged, plus output terminal index.
+     @return whether pair is bagged.
    */
   inline bool isBagged(unsigned int blockRow,
                        unsigned int tc,

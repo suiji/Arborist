@@ -52,20 +52,20 @@ class RestageCoord {
    @brief Class managing the most recent level of the tree.
  */
 class Bottom {
-  const unsigned int nPred;
-  const unsigned int nPredFac;
-  const unsigned int bagCount;
+  const unsigned int nPred; // Number of predictors.
+  const unsigned int nPredFac; // Number of factor-valued predictors.
+  const unsigned int bagCount; // Count of uniquely-sampled rows.
 
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
   class IdxPath *stPath; // IdxPath accessed by subtree.
-  unsigned int splitPrev;
+  unsigned int splitPrev; // # nodes in previous level.
   unsigned int splitCount; // # nodes in the level about to split.
   const class FrameTrain *frameTrain;
   const class RowRank *rowRank;
   const unsigned int noRank;
   class SplitNode* splitNode;
-  class Run *run;
+  const class Run *run;
 
   vector<unsigned int> history;
   vector<unsigned int> historyPrev;
@@ -295,7 +295,7 @@ class Bottom {
   /**
      @brief Accessor for 'run' field.  SSNode only client.
    */
-  inline class Run *getRuns() const {
+  const inline class Run *getRuns() const {
     return run;
   }
 

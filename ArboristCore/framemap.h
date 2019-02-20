@@ -198,18 +198,25 @@ class FramePredict : public FrameMap {
   ~FramePredict();
 
 
-  void BlockTranspose(unsigned int rowStart,
-			     unsigned int rowEnd) const;
+  /**
+     @brief Transposes each block of rows in the frame.
+
+     @param rowStart is the beginning row.
+
+     @param rowEnd is the final row.
+   */
+  void transpose(unsigned int rowStart,
+                 unsigned int rowEnd) const;
 
   /**
      @return base address for (transposed) numeric values at row.
    */
-  const double *RowNum(unsigned int rowOff) const;
+  const double *baseNum(unsigned int rowOff) const;
 
   /**
      @return base address for (transposed) factor values at row.
    */
-  const unsigned int *RowFac(unsigned int rowOff) const;
+  const unsigned int *baseFac(unsigned int rowOff) const;
 
 };
 
