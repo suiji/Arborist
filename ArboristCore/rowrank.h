@@ -277,12 +277,22 @@ class RowRank {
   }
 
 
-  inline unsigned int NPredDense() const {
+  /**
+     @brief Getter for count of dense predictors.
+
+     @return number of dense predictors.
+   */
+  inline unsigned int getNPredDense() const {
     return nPredDense;
   }
 
 
-  inline const vector<unsigned int> &DenseIdx() const {
+  /**
+     @brief Accessor for dense index vector.
+
+     @return reference to vector.
+   */
+  inline const vector<unsigned int> &getDenseIdx() const {
     return denseIdx;
   }
 };

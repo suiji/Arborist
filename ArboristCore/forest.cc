@@ -80,7 +80,10 @@ unsigned int TreeNode::advance(const FramePredict *framePredict,
   else {
     bool isFactor;
     unsigned int blockIdx = framePredict->FacIdx(predIdx, isFactor);
-    return isFactor ? (facSplit->testBit(tIdx, splitVal.offset + rowFT[blockIdx]) ? lhDel : lhDel + 1) : (rowNT[blockIdx] <= splitVal.num ? lhDel : lhDel + 1);
+    return isFactor ?
+      (facSplit->testBit(tIdx, splitVal.offset + rowFT[blockIdx]) ?
+       lhDel : lhDel + 1) : (rowNT[blockIdx] <= splitVal.num ?
+                             lhDel : lhDel + 1);
   }
 }
 

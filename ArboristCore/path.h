@@ -71,7 +71,10 @@ class NodePath {
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void Init(unsigned int _splitIdx, unsigned int _idxStart, unsigned int _extent, unsigned int _relBase) {
+  inline void init(unsigned int _splitIdx,
+                   unsigned int _idxStart,
+                   unsigned int _extent,
+                   unsigned int _relBase) {
     splitIdx = _splitIdx;
     idxStart = _idxStart;
     extent = _extent;
@@ -127,8 +130,6 @@ class IdxPath {
      @param idx is the index in question.
 
      @param path is the reaching path.
-
-     @return void.
    */
   inline void set(unsigned int idx, unsigned int path = maskExtinct) {
     pathFront[idx] = path;
@@ -164,7 +165,7 @@ class IdxPath {
 
      @return true iff path live.
    */
-  inline bool FrontLive(unsigned int idx, unsigned int &front) const {
+  inline bool frontLive(unsigned int idx, unsigned int &front) const {
     if (!isLive(idx)) {
       return false;
     }
@@ -228,8 +229,6 @@ class IdxPath {
      @param path is the reaching path.
 
      @param doesReach indicates whether the path reaches an actual successor.
-
-     @return void.
    */
   inline void setSuccessor(unsigned int idx,
                            unsigned int pathSucc,
@@ -256,8 +255,6 @@ class IdxPath {
      @param path is the revised path.
 
      @param targIdx is the revised relative index.
-
-     @return void.
   */
   inline void setLive(unsigned int idx,
                       unsigned int path,
@@ -274,8 +271,6 @@ class IdxPath {
      @param path
 
      @param targIdx is the revised index.
-
-     @return void.
   */
   inline void setLive(unsigned int idx,
                       unsigned int path,
@@ -290,8 +285,6 @@ class IdxPath {
      Other values undefined.
 
      @param idx is the index in question.
-
-     @return void.
    */
   inline void setExtinct(unsigned int idx) {
     set(idx, maskExtinct, idxLive);
@@ -335,13 +328,11 @@ class IdxPath {
      @brief Resets front coordinates using first level's map.
 
      @param one2Front maps first level's coordinates to front.
-
-     @return void.
    */
   inline void backdate(const IdxPath *one2Front) {
     for (unsigned int idx = 0; idx < idxLive; idx++) {
       unsigned int oneIdx;
-      if (FrontLive(idx, oneIdx)) {
+      if (frontLive(idx, oneIdx)) {
         if (!one2Front->copyLive(this, oneIdx, idx)) {
 	  setExtinct(idx);
 	}

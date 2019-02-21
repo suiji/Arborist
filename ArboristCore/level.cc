@@ -33,7 +33,8 @@ Level::Level(unsigned int _nSplit,
              unsigned int _nPredDense,
              unsigned int bagCount,
              unsigned int _idxLive,
-             bool _nodeRel, Bottom *_bottom) :
+             bool _nodeRel,
+             Bottom *_bottom) :
   nPred(_nPred),
   denseIdx(_denseIdx),
   nPredDense(_nPredDense),
@@ -50,7 +51,7 @@ Level::Level(unsigned int _nSplit,
   bottom(_bottom)
 {
   MRRA df;
-  df.Init();
+  df.init();
   // Coprocessor only.
   fill(def.begin(), def.end(), df);
   fill(offCand.begin(), offCand.end(), bagCount);
@@ -70,12 +71,7 @@ void Level::DeImmutables() {
 }
 
 
-/**
-   @brief Walks the definitions, purging those which no longer reach.
-
-   @return true iff a definition was purged at this level.
- */
-bool Level::NonreachPurge() {
+bool Level::nonreachPurge() {
   bool purged = false;
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     if (liveCount[mrraIdx] == 0) {
@@ -90,13 +86,6 @@ bool Level::NonreachPurge() {
 }
 
 
-/**
-   @brief Moves entire level's defnitions to restaging schedule.
-
-   @param bottom is the active bottom state.
-
-   @return void.
- */
 void Level::flush(bool forward) {
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -113,62 +102,38 @@ void Level::flush(bool forward) {
 }
 
 
-/**
-   @brief Removes definition from a back level and builds definition
-   for each descendant reached in current level.
-
-   @param mrra is the coordinate pair of the ancestor to flush.
-
-   @return void.
- */
 void Level::flushDef(unsigned int mrraIdx, unsigned int predIdx) {
   if (del == 0) // Already flushed to front level.
     return;
 
   unsigned int bufIdx;
   bool singleton;
-  Consume(mrraIdx, predIdx, bufIdx, singleton);
-  FrontDef(mrraIdx, predIdx, bufIdx, singleton);
+  consume(mrraIdx, predIdx, bufIdx, singleton);
+  frontDef(mrraIdx, predIdx, bufIdx, singleton);
   if (!singleton)
-    bottom->ScheduleRestage(del, mrraIdx, predIdx, bufIdx);
+    bottom->scheduleRestage(del, mrraIdx, predIdx, bufIdx);
 }
 
 
-void Level::FrontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton) {
+void Level::frontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton) {
   unsigned int pathStart = backScale(mrraIdx);
   for (unsigned int path = 0; path < backScale(1); path++) {
-    bottom->AddDef(nodePath[pathStart + path].Idx(), predIdx, 1 - bufIdx, singleton);
+    bottom->addDef(nodePath[pathStart + path].Idx(), predIdx, 1 - bufIdx, singleton);
   }
 }
 
 
-/**
-   @brief Looks up the ancestor cell built for the corresponding index
-   node and adjusts start and extent values by corresponding dense parameters.
- */
 void Level::getBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
   indexAnc[mrra.first].Ref(startIdx, extent);
   (void) adjustDense(mrra.first, mrra.second, startIdx, extent);
 }
 
 
-/**
-   @brief Heh heh.
- */
 Level::~Level() {
   delete relPath;
 }
 
 
-/**
-   @brief Clones offsets along path reaching from ancestor node.
-
-   @param mrra is an MRRA coordinate.
-
-   @param reachOffset holds the starting offset positions along the path.
-
-   @return path origin at the index passed.
- */
 void Level::offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]) {
   unsigned int nodeStart = backScale(mrra.first);
   for (unsigned int i = 0; i < backScale(1); i++) {
@@ -182,26 +147,12 @@ void Level::offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned
 }
 
 
-/**
-   @brief Sets the definition's heritable singleton bit and clears the
-   current level's splitable bit.
-
-   @return void.
-*/
 void Level::setSingleton(unsigned int levelIdx, unsigned int predIdx) {
-  def[PairOffset(levelIdx, predIdx)].setSingleton();
+  def[pairOffset(levelIdx, predIdx)].setSingleton();
 }
 
 
 
-/**
-   @brief Revises node-relative indices, as appropriae.  Irregular,
-   but data locality improves with tree depth.
-
-   @param one2Front maps first level to front indices.
-
-   @return true iff level employs node-relative indexing.
- */
 bool Level::backdate(const IdxPath *one2Front) {
   if (!nodeRel)
     return false;
@@ -211,17 +162,12 @@ bool Level::backdate(const IdxPath *one2Front) {
 }
 
 
-/**
-  @brief Initializes reaching paths:  back levels 1 and higher.
-
-  @return void.
- */
-void Level::Paths() {
+void Level::reachingPaths() {
   del++;
   vector<unsigned int> live(nSplit);
   vector<NodePath> path(backScale(nSplit));
   NodePath np;
-  np.Init(noIndex, 0, 0, 0);
+  np.init(noIndex, 0, 0, 0);
   fill(path.begin(), path.end(), np);
   fill(live.begin(), live.end(), 0);
   
@@ -235,40 +181,17 @@ void Level::setExtinct(unsigned int idx) {
 }
 
 
-void Level::PathInit(const Bottom *bottom, unsigned int splitIdx, unsigned int path, unsigned int start, unsigned int extent, unsigned int relBase) {
-  unsigned int mrraIdx = bottom->History(this, splitIdx);
+void Level::pathInit(const Bottom *bottom, unsigned int splitIdx, unsigned int path, unsigned int start, unsigned int extent, unsigned int relBase) {
+  unsigned int mrraIdx = bottom->getHistory(this, splitIdx);
   unsigned int pathOff = backScale(mrraIdx);
-  unsigned int pathBits = path & PathMask();
-  nodePath[pathOff + pathBits].Init(splitIdx, start, extent, relBase);
+  unsigned int pathBits = path & pathMask();
+  nodePath[pathOff + pathBits].init(splitIdx, start, extent, relBase);
   liveCount[mrraIdx]++;
 }
 
 
-/**
-   @brief Sets path, target and node-relative offse.
-
-   @return void.
- */
 void Level::setLive(unsigned int idx, unsigned int path, unsigned int targIdx, unsigned int ndBase) {
   relPath->setLive(idx, path, targIdx, targIdx - ndBase);
-}
-
-
-bool Level::preschedule(SplitNode *splitNode,
-                        unsigned int splitIdx,
-                        unsigned int predIdx,
-                        unsigned int extent,
-                        unsigned int &spanCand) {
-  bottom->reachFlush(splitIdx, predIdx);
-
-  unsigned int bufIdx;
-  if (!isSingleton(splitIdx, predIdx, bufIdx)) {
-    splitNode->preschedule(splitIdx, predIdx, bufIdx);
-    offCand[PairOffset(splitIdx, predIdx)] = spanCand;
-    spanCand += extent;
-    return true;
-  }
-  return false;
 }
 
 
@@ -338,6 +261,24 @@ void Level::candidateFixed(SplitNode *splitNode,
 }
 
 
+bool Level::preschedule(SplitNode *splitNode,
+                        unsigned int splitIdx,
+                        unsigned int predIdx,
+                        unsigned int extent,
+                        unsigned int &spanCand) {
+  bottom->reachFlush(splitIdx, predIdx);
+
+  unsigned int bufIdx;
+  if (!isSingleton(splitIdx, predIdx, bufIdx)) {
+    splitNode->preschedule(splitIdx, predIdx, bufIdx);
+    offCand[pairOffset(splitIdx, predIdx)] = spanCand;
+    spanCand += extent;
+    return true;
+  }
+  return false;
+}
+
+
 void Level::rankRestage(SamplePred *samplePred,
                         const SPPair &mrra,
                         Level *levelFront,
@@ -355,14 +296,6 @@ void Level::rankRestage(SamplePred *samplePred,
 }
 
 
-/**
-   @brief Precomputes path vector prior to restaging.  This is necessary
-   in the case of dense ranks, as cell sizes are not derivable directly
-   from index nodes.
-
-   Decomposition into two paths adds ~5% performance penalty, but
-   appears necessary for dense packing or for coprocessor loading.
- */
 void Level::rankRestage(SamplePred *samplePred,
                         const SPPair &mrra,
                         Level *levelFront,
@@ -373,39 +306,24 @@ void Level::rankRestage(SamplePred *samplePred,
   getBounds(mrra, startIdx, extent);
 
   unsigned int pathCount[NodePath::pathMax()];
-  for (unsigned int path = 0; path < backScale(1); path++) {
-    pathCount[path] = 0;
-  }
+  fill(pathCount, pathCount + backScale(1), 0);
 
   unsigned int predIdx = mrra.second;
-  samplePred->prepath(nodeRel ?  FrontPath() : bottom->subtreePath(), reachBase, predIdx, bufIdx, startIdx, extent, PathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
+  samplePred->prepath(nodeRel ?  getFrontPath() : bottom->subtreePath(), reachBase, predIdx, bufIdx, startIdx, extent, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
 
   // Successors may or may not themselves be dense.
   packDense(startIdx, pathCount, levelFront, mrra, reachOffset);
 
   unsigned int rankPrev[NodePath::pathMax()];
   unsigned int rankCount[NodePath::pathMax()];
-  for (unsigned int path = 0; path < backScale(1); path++) {
-    rankPrev[path] = bottom->getNoRank();
-    rankCount[path] = 0;
-  }
+  fill(rankPrev, rankPrev + backScale(1), bottom->getNoRank());
+  fill(rankCount, rankCount + backScale(1), 0);
+
   samplePred->rankRestage(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
   setRunCounts(bottom, mrra, pathCount, rankCount);
 }
 
 
-/**
-   @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
-   index numbering ut prevent cell boundaries from crossing.
-
-   @param idxLeft is the left-most index of the predecessor.
-
-   @param pathCount inputs the counts along each reaching path.
-
-   @param reachOffset outputs the dense starting offsets.
-
-   @return void.
- */
 void Level::packDense(unsigned int idxLeft,
                       const unsigned int pathCount[],
                       Level *levelFront,
@@ -429,12 +347,6 @@ void Level::packDense(unsigned int idxLeft,
 }
 
 
-/**
-   @brief Sets dense count on target MRRA and, if singleton, sets run count to
-   unity.
-
-   @return void.
- */
 void Level::setRunCounts(Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
   unsigned int predIdx = mrra.second;
   const NodePath *pathPos = &nodePath[backScale(mrra.first)];
@@ -455,8 +367,6 @@ void Level::setRunCounts(Bottom *bottom, const SPPair &mrra, const unsigned int 
    @param mrra is an MRRA coordinate.
 
    @param reachOffset holds the starting offset positions along the path.
-
-   @return path origin at the index passed.
  */
 void Level::offsetClone(const SPPair &mrra,
                         unsigned int reachOffset[],
@@ -465,7 +375,7 @@ void Level::offsetClone(const SPPair &mrra,
   unsigned int nodeStart = backScale(mrra.first);
   for (unsigned int i = 0; i < backScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].IdxStart();
-    splitOffset[i] = offCand[PairOffset(mrra.first, mrra.second)];
+    splitOffset[i] = offCand[pairOffset(mrra.first, mrra.second)];
   }
   if (reachBase != nullptr) {
     for (unsigned int i = 0; i < backScale(1); i++) {
@@ -503,5 +413,10 @@ void Level::indexRestage(SamplePred *samplePred,
   unsigned int startIdx, extent;
   getBounds(mrra, startIdx, extent);
 
-  samplePred->indexRestage(nodeRel ? FrontPath() : bottom->subtreePath(), reachBase, mrra.second, bufIdx, startIdx, extent, PathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, reachOffset, splitOffset);
+  samplePred->indexRestage(nodeRel ? getFrontPath() : bottom->subtreePath(),
+                           reachBase, mrra.second, bufIdx, startIdx, extent,
+                           pathMask(),
+                           reachBase == nullptr ? levelFront->isNodeRel() : true,
+                           reachOffset,
+                           splitOffset);
 }

@@ -303,8 +303,6 @@ void LeafFrameCtg::vote() {
 }
 
 
-/**
- */
 void LeafFrameCtg::dump(const BitMatrix *baggedRows,
                         vector<vector<unsigned int> > &rowTree,
                         vector<vector<unsigned int> > &sCountTree,
@@ -389,8 +387,6 @@ LFTrain::~LFTrain() {
 }
 
 
-/**
- */
 LFTrainReg::LFTrainReg(const double* y,
                        unsigned int treeChunk) :
   LFTrain(y, treeChunk) {
@@ -412,9 +408,7 @@ ProbCresc::ProbCresc(unsigned int treeChunk,
   forestScale(forestScale_) {
 }
 
-/**
-   @brief Constructor for crescent forest.
- */
+
 LFTrainCtg::LFTrainCtg(const unsigned int* yCtg_,
                        const double* proxy,
                        unsigned int treeChunk,
@@ -473,7 +467,6 @@ void LFTrainCtg::treeInit(const Sample* sample,
   
 
 
-// Allocating leaves for current tree.
 void LBCresc::treeInit(const vector<unsigned int> &leafMap,
                                  unsigned int tIdx) {
   leafCount = 1 + *max_element(leafMap.begin(), leafMap.end());
@@ -510,9 +503,6 @@ void LFTrainReg::setScores(const Sample* sample, const vector<unsigned int>& lea
 }
 
 
-/**
-   @return Regression-style Sample object.
- */
 shared_ptr<Sample> LFTrainReg::rootSample(const RowRank* rowRank,
                                           BitMatrix* bag,
                                           unsigned int tIdx) const {
@@ -546,9 +536,6 @@ void LFTrainCtg::setScores(const Sample* sample,
 }
 
 
-/**
-   @return Classification-style Sample object.
- */
 shared_ptr<Sample> LFTrainCtg::rootSample(const RowRank* rowRank,
                                           BitMatrix* bag,
                                           unsigned int tIdx) const {
@@ -606,7 +593,8 @@ double ProbCresc::leafScore(unsigned int leafIdx) const {
       argMax = ctg;
     }
   }
-
+  // Integer component of score is argMax.
+  // Fractional part is scaled probability value.
   return argMax + forestScale * probMax;
 }
 

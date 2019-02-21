@@ -47,11 +47,11 @@ Bottom::Bottom(const FrameTrain* frameTrain_,
   run(splitNode->getRuns()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
-  levelFront(new Level(1, nPred,rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, bagCount, false, this)),
+  levelFront(new Level(1, nPred, rowRank->getDenseIdx(), rowRank->getNPredDense(), bagCount, bagCount, false, this)),
   runCount(vector<unsigned int>(nPredFac))
 {
   level.push_front(levelFront);
-  levelFront->Ancestor(0, 0, bagCount);
+  levelFront->initAncestor(0, 0, bagCount);
   fill(levelDelta.begin(), levelDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
 }
@@ -63,7 +63,7 @@ void Bottom::rootDef(const vector<StageCount>& stageCount) {
   for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
     bool singleton = stageCount[predIdx].singleton;
     unsigned int expl = stageCount[predIdx].expl;
-    (void) levelFront->Define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
+    (void) levelFront->define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
     setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->getFacCard(predIdx));
   }
 }
@@ -109,7 +109,7 @@ unsigned int Bottom::flushRear() {
   // Stops when a level with no non-reaching nodes is encountered.
   //
   for (unsigned int off = supUnFlush; off > 0; off--) {
-    if (!level[off]->NonreachPurge())
+    if (!level[off]->nonreachPurge())
       break;
   }
 
@@ -134,13 +134,13 @@ unsigned int Bottom::flushRear() {
 }
 
 
-void Bottom::ScheduleRestage(unsigned int del,
+void Bottom::scheduleRestage(unsigned int del,
                              unsigned int mrraIdx,
                              unsigned int predIdx,
                              unsigned bufIdx) {
   SPPair mrra = make_pair(mrraIdx, predIdx);
   RestageCoord rsCoord;
-  rsCoord.Init(mrra, del, bufIdx);
+  rsCoord.init(mrra, del, bufIdx);
   restageCoord.push_back(rsCoord);
 }
 
@@ -184,7 +184,7 @@ bool Bottom::factorStride(unsigned int predIdx,
                           unsigned int nStride,
                           unsigned int &facStride) const {
   bool isFactor;
-  facStride = frameTrain->FacStride(predIdx, nStride, isFactor);
+  facStride = frameTrain->getFacStride(predIdx, nStride, isFactor);
   return isFactor;
 }
 
@@ -199,7 +199,7 @@ void Bottom::levelClear() {
 }
 
 
-void Bottom::Overlap(unsigned int splitNext,
+void Bottom::overlap(unsigned int splitNext,
                      unsigned int idxLive,
                      bool nodeRel) {
   splitPrev = splitCount;
@@ -207,7 +207,7 @@ void Bottom::Overlap(unsigned int splitNext,
   if (splitCount == 0) // No further splitting or restaging.
     return;
 
-  levelFront = new Level(splitCount, nPred, rowRank->DenseIdx(), rowRank->NPredDense(), bagCount, idxLive, nodeRel, this);
+  levelFront = new Level(splitCount, nPred, rowRank->getDenseIdx(), rowRank->getNPredDense(), bagCount, idxLive, nodeRel, this);
   level.push_front(levelFront);
 
   historyPrev = move(history);
@@ -219,10 +219,8 @@ void Bottom::Overlap(unsigned int splitNext,
   runCount = move(vector<unsigned int>(splitCount * nPredFac));
   fill(runCount.begin(), runCount.end(), 0);
 
-  // Recomputes paths reaching from non-front levels.
-  //
   for (unsigned int i = 1; i < level.size(); i++) {
-    level[i]->Paths();
+    level[i]->reachingPaths();
   }
 }
 
@@ -230,7 +228,7 @@ void Bottom::Overlap(unsigned int splitNext,
 void Bottom::backdate() const {
   if (level.size() > 2 && level[1]->isNodeRel()) {
     for (auto lv = level.begin() + 2; lv != level.end(); lv++) {
-      if (!(*lv)->backdate(FrontPath(1))) {
+      if (!(*lv)->backdate(getFrontPath(1))) {
         break;
       }
     }
@@ -238,24 +236,24 @@ void Bottom::backdate() const {
 }
 
   
-void Bottom::reachingPath(unsigned int levelIdx,
+void Bottom::reachingPath(unsigned int splitIdx,
                           unsigned int parIdx,
                           unsigned int start,
                           unsigned int extent,
                           unsigned int relBase,
                           unsigned int path) {
   for (unsigned int backLevel = 0; backLevel < level.size() - 1; backLevel++) {
-    history[levelIdx + splitCount * backLevel] = backLevel == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLevel - 1)];
+    history[splitIdx + splitCount * backLevel] = backLevel == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLevel - 1)];
   }
 
-  Inherit(levelIdx, parIdx);
-  levelFront->Ancestor(levelIdx, start, extent);
+  inherit(splitIdx, parIdx);
+  levelFront->initAncestor(splitIdx, start, extent);
   
-  // Places <levelIdx, start> pair at appropriate position in every
+  // Places <splitIdx, start> pair at appropriate position in every
   // reaching path.
   //
   for (unsigned int i = 1; i < level.size(); i++) {
-    level[i]->PathInit(this, levelIdx, path, start, extent, relBase);
+    level[i]->pathInit(this, splitIdx, path, start, extent, relBase);
   }
 }
 
@@ -292,44 +290,44 @@ unsigned int Bottom::getSplitCount(unsigned int del) const {
 }
 
 
-void Bottom::AddDef(unsigned int reachIdx,
+void Bottom::addDef(unsigned int reachIdx,
                     unsigned int predIdx,
                     unsigned int bufIdx,
                     bool singleton) {
-  if (levelFront->Define(reachIdx, predIdx, bufIdx, singleton)) {
+  if (levelFront->define(reachIdx, predIdx, bufIdx, singleton)) {
     levelDelta[reachIdx * nPred + predIdx] = 0;
   }
 }
   
 
-unsigned int Bottom::History(const Level *reachLevel,
-                             unsigned int splitIdx) const {
-  return reachLevel == levelFront ? splitIdx : history[splitIdx + (reachLevel->Del() - 1) * splitCount];
+unsigned int Bottom::getHistory(const Level *reachLevel,
+                                unsigned int splitIdx) const {
+  return reachLevel == levelFront ? splitIdx : history[splitIdx + (reachLevel->getDel() - 1) * splitCount];
 }
 
 
 /**
    Passes through to front level.
  */
-unsigned int Bottom::adjustDense(unsigned int levelIdx,
+unsigned int Bottom::adjustDense(unsigned int splitIdx,
                                  unsigned int predIdx,
                                  unsigned int &startIdx,
                                  unsigned int &extent) const {
-    return levelFront->adjustDense(levelIdx, predIdx, startIdx, extent);
+    return levelFront->adjustDense(splitIdx, predIdx, startIdx, extent);
 }
 
 
-IdxPath *Bottom::FrontPath(unsigned int del) const {
-  return level[del]->FrontPath();
+const IdxPath *Bottom::getFrontPath(unsigned int del) const {
+  return level[del]->getFrontPath();
 }
 
 
 /**
    Passes through to front level.
  */
-bool Bottom::isSingleton(unsigned int levelIdx,
-                       unsigned int predIdx) const {
-  return levelFront->isSingleton(levelIdx, predIdx);
+bool Bottom::isSingleton(unsigned int splitIdx,
+                         unsigned int predIdx) const {
+  return levelFront->isSingleton(splitIdx, predIdx);
 }
 
 
@@ -342,5 +340,5 @@ void Bottom::setSingleton(unsigned int splitIdx,
 void Bottom::reachFlush(unsigned int splitIdx,
                         unsigned int predIdx) const {
   Level *reachingLevel = reachLevel(splitIdx, predIdx);
-  reachingLevel->flushDef(History(reachingLevel, splitIdx), predIdx);
+  reachingLevel->flushDef(getHistory(reachingLevel, splitIdx), predIdx);
 }

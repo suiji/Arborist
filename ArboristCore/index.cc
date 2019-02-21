@@ -551,7 +551,7 @@ void IndexLevel::transitionReindex(unsigned int splitNext) {
    @return void.
  */
 void IndexLevel::produce(const PreTree *preTree, unsigned int splitNext) {
-  bottom->Overlap(splitNext, idxLive, nodeRel);
+  bottom->overlap(splitNext, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.produce(this, bottom.get(), preTree, indexNext);

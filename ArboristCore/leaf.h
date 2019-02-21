@@ -422,20 +422,11 @@ public:
 
   
   /**
-     @brief Accumulates the score at a given coordinate.
-   */
-  void accum(unsigned int tIdx,
-             size_t leafIdx,
-             unsigned int ctg,
-             double sum);
-
-
-  /**
      @brief Derives score at a given leaf index.
 
      @param leafIdx is a block-relative leaf index.
 
-     @return final score of leaf.
+     @return encoded score of leaf:  category + weight.
    */
   double leafScore(unsigned int leafIdx) const;
 
@@ -637,6 +628,15 @@ public:
   }
 
 
+  /**
+     @brief Derives forest-relative offset of tree/leaf coordinate.
+
+     @param tIdx is the tree index.
+
+     @param leafIdx is the leaf index.
+
+     @return absolute offset of leaf.
+   */
   const auto absOffset(unsigned int tIdx, unsigned int leafIdx) const {
     return raw->absOffset(tIdx, leafIdx);
   }
@@ -664,9 +664,17 @@ public:
   }
 
 
-  const unsigned int getExtent(unsigned int idx) const {
-    return raw->items[idx].getExtent();
+  /**
+     @brief Derives count of samples assigned to a leaf.
+
+     @param leafIdx is the absolute leaf index.
+
+     @return extent value.
+   */
+  const unsigned int getExtent(unsigned int leafIdx) const {
+    return raw->items[leafIdx].getExtent();
   }
+
 
   /**
      @brief Dumps leaf members into separate per-tree vectors.
@@ -692,6 +700,9 @@ public:
           const BagSample* bagSample_);
 
 
+  /**
+     @brief Derives size of raw contents.
+   */
   size_t size() const {
     return raw->size();
   }
@@ -829,19 +840,31 @@ class LeafFrameReg : public LeafFrame {
 
   ~LeafFrameReg() {}
 
+  /**
+     @brief Accesor for training response.
+
+     @return pointer to base of training response vector.
+   */
   inline const double *YTrain() const {
     return yTrain;
   }
 
 
   /**
-     @brief Getter for prediction.
+     @brief Getter for predicted values.
+
+     @return pointer to base of prediction vector.
    */
   const vector<double> &getYPred() const {
     return yPred;
   }
   
 
+  /**
+     @brief Getter for number of rows to predict.
+
+     @return size of prediction vector.
+   */
   const unsigned int rowPredict() const {
     return yPred.size();
   }
@@ -860,6 +883,14 @@ class LeafFrameReg : public LeafFrame {
   
   /**
      @brief Computes bag index bounds in forest setting (Quant only).
+
+     @param tIdx is the absolute tree index.
+
+     @param leafIdx is the block-relative leaf index.
+
+     @param[out] start outputs the staring sample offset.
+
+     @param[out] end outputs the final sample offset. 
   */
   void bagBounds(unsigned int tIdx,
                  unsigned int leafIdx,
@@ -906,6 +937,13 @@ public:
     Jagged3Base<const double*, const unsigned int*>(nCtg_, nTree_, height_, ctgProb_) {
   }
 
+  /**
+     @brief Getter for indexed item.
+
+     @param idx is the item index.
+
+     @return indexed item.
+   */
   double getItem(unsigned int idx) const {
     return items[idx];
   }
@@ -918,7 +956,7 @@ public:
    Intimately accesses the raw jagged array it contains.
  */
 class CtgProb {
-  const unsigned int nCtg;
+  const unsigned int nCtg; // Training cardinality.
   vector<double> probDefault; // Forest-wide default probability.
   const vector<unsigned int> ctgHeight; // Scaled from Leaf's height vector.
   const unique_ptr<Jagged3<const double*, const unsigned int*> > raw;
@@ -948,7 +986,7 @@ public:
 
      @param tIdx is the tree index.
 
-     @param leafIdx is the tree-relative leaf index.
+     @param leafIdx is the block-relative leaf index.
    */
   void addLeaf(double* probRow,
                unsigned int tIdx,
@@ -987,7 +1025,11 @@ public:
    */
   unsigned int ctgDefault() const;
 
-  
+  /**
+     @brief Dumps probability values.
+
+     @param[out] probTree outputs the per-tree tables.
+   */  
   void dump(vector<vector<double> >& probTree) const;
 };
 
@@ -1054,10 +1096,16 @@ class LeafFrameCtg : public LeafFrame {
                   unsigned int rowStart,
                   unsigned int rowEnd);
 
-  
+  /**
+     @brief Fills the vote table using predicted response.
+   */  
   void vote();
 
-  
+  /**
+     @brief Getter for training cardinality.
+
+     @return value of ctgTrain.
+   */
   inline unsigned int getCtgTrain() const {
     return ctgTrain;
   }

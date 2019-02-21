@@ -34,7 +34,7 @@ class RestageCoord {
   unsigned char bufIdx; // buffer index of mrra's SamplePred.
  public:
 
-  void inline Init(const SPPair &_mrra, unsigned int _del, unsigned int _bufIdx) {
+  void inline init(const SPPair &_mrra, unsigned int _del, unsigned int _bufIdx) {
     mrra = _mrra;
     del = _del;
     bufIdx = _bufIdx;
@@ -67,13 +67,13 @@ class Bottom {
   class SplitNode* splitNode;
   const class Run *run;
 
-  vector<unsigned int> history;
-  vector<unsigned int> historyPrev;
-  vector<unsigned char> levelDelta;
-  vector<unsigned char> deltaPrev;
+  vector<unsigned int> history; // Current level's history.
+  vector<unsigned int> historyPrev; // Previous level's history:  accum.
+  vector<unsigned char> levelDelta; // # levels back split was defined.
+  vector<unsigned char> deltaPrev; // Previous level's delta:  accum.
   class Level *levelFront; // Current level.
   vector<unsigned int> runCount;
-  deque<class Level *> level;
+  deque<class Level *> level; // However may levels are tracked by history.
   
   vector<RestageCoord> restageCoord;
 
@@ -85,18 +85,20 @@ class Bottom {
   /**
      @brief Pushes first level's path maps back to all back levels
      employing node-relative indexing.
-
-     @return void.
   */
   void backdate() const;
 
   
   /**
      @brief Increments reaching levels for all pairs involving node.
+
+     @param splitIdx is the index of a splitting node w.r.t. current level.
+
+     @param parIdx is the index of the parent w.r.t. previous level.
    */
-  inline void Inherit(unsigned int levelIdx, unsigned int par) {
-    unsigned char *colCur = &levelDelta[levelIdx * nPred];
-    unsigned char *colPrev = &deltaPrev[par * nPred];
+  inline void inherit(unsigned int splitIdx, unsigned int parIdx) {
+    unsigned char *colCur = &levelDelta[splitIdx * nPred];
+    unsigned char *colPrev = &deltaPrev[parIdx * nPred];
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
       colCur[predIdx] = colPrev[predIdx] + 1;
     }
@@ -104,11 +106,9 @@ class Bottom {
 
 
  public:
-  void FrontUpdate(unsigned int sIdx, bool isLeft, unsigned int relBase, unsigned int &relIdx);
-
 
   /**
-     @brief Adds a new definition at the root level.
+     @brief Adds new definitions for all predictors at the root level.
 
      @param stageCount is a vector of per-predictor staging statistics.
   */
@@ -126,7 +126,10 @@ class Bottom {
 
      @param bufIdx is the buffer in which the definition resides.
    */
-  void ScheduleRestage(unsigned int del, unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx);
+  void scheduleRestage(unsigned int del,
+                       unsigned int mrraIdx,
+                       unsigned int predIdx,
+                       unsigned int bufIdx);
 
 
   /**
@@ -150,19 +153,15 @@ class Bottom {
   /**
      @brief Passes through to SplitNode's level initializer.
 
-     @return void.
+     @param index summarizes the index decomposition of the current level.
   */
   void levelInit(class IndexLevel *index);
 
 
   /**
      @brief Passes through to SplitNode's level clearer.
-
-     @return void.
   */
   void levelClear();
-
-
   
   
   /**
@@ -185,32 +184,32 @@ class Bottom {
      @param idxLive is the number of live indices.
 
      @param nodeRel is true iff the indexing regime is node-relative.
-
-     @return void.
   */
-  void Overlap(unsigned int splitNext, unsigned int idxLive, bool nodeRel);
+  void overlap(unsigned int splitNext,
+               unsigned int idxLive,
+               bool nodeRel);
 
 
   /**
-     @brief Consumes all fields in current NodeCache item relevant to restaging.
+     @brief Consumes all fields from an IndexSet relevant to restaging.
 
-     @param par is the index of the parent.
+     @param levelIdx is the level-relative index of the successor node.
 
-     @param path is a unique path identifier.
-
-     @param levelIdx is the index of the heir.
+     @param par is the index of the splitting parent.
 
      @param start is the cell starting index.
 
      @param extent is the index count.
 
-     @return void.
+     @param relBase
+
+     @param path is a unique path identifier.
   */
   void reachingPath(unsigned int levelIdx,
                     unsigned int parIdx,
                     unsigned int start,
                     unsigned int extent,
-                    unsigned int ptId,
+                    unsigned int relBase,
                     unsigned int path);
   
   /**
@@ -225,7 +224,7 @@ class Bottom {
   /**
      @brief Restages predictors and splits as pairs with equal priority.
 
-     @return void, with side-effected restaging buffers.
+     @param samplePred contains the compressed observation set.
   */
   void restage(class SamplePred *samplePred);
 
@@ -237,7 +236,7 @@ class Bottom {
 
      @param nStride is the stride multiple.
 
-     @param[out] facStride is the strided factor index.
+     @param[out] facStride is the strided factor index for dense lookup.
 
      @return true iff predictor is factor-valude.
    */
@@ -259,8 +258,6 @@ class Bottom {
      @param path is the path reaching the target node.
 
      @param ndBase is the base index of the target node:  current level.
-
-     @return void.
    */
   void setLive(unsigned int ndx,
                unsigned int targIdx,
@@ -273,8 +270,6 @@ class Bottom {
      @brief Marks subtree-relative path as extinct, as required by back levels.
 
      @param stIdx is the subtree-relatlive index.
-
-     @return void.
   */
   void setExtinct(unsigned int stIdx);
 
@@ -286,8 +281,6 @@ class Bottom {
      @param nodeIdx is a node-relative index.
 
      @param stIdx is the subtree-relative index.
-
-     @return void.
   */
   void setExtinct(unsigned int nodeIdx, unsigned int stIdx);
 
@@ -330,10 +323,11 @@ class Bottom {
   
   /**
      @brief Flips source bit if a definition reaches to current level.
-
-     @return void
   */
-  void AddDef(unsigned int reachIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton);
+  void addDef(unsigned int reachIdx,
+              unsigned int predIdx,
+              unsigned int bufIdx,
+              bool singleton);
 
   
   /**
@@ -354,8 +348,6 @@ class Bottom {
      @param splitIdx is the level-relative node index.
 
      @param predIdx is the predictor index.
-
-     @return void.
   */
   void setSingleton(unsigned int levelIdx, unsigned int predIdx) const;
 
@@ -378,7 +370,7 @@ class Bottom {
 
      @return back level's front path.
   */
-  class IdxPath *FrontPath(unsigned int del) const;
+  const class IdxPath *getFrontPath(unsigned int del) const;
 
   
   /**
@@ -387,8 +379,6 @@ class Bottom {
    @param splitIdx is the level-relative node index.
 
    @param predIdx is the predictor index.
-
-   @return void.
  */
   void reachFlush(unsigned int splitIdx, unsigned int predIdx) const;
 
@@ -402,8 +392,8 @@ class Bottom {
 
      @return level-relative index of ancestor node.
  */
-  unsigned int History(const Level *reachLevel,
-                       unsigned int splitIdx) const;
+  unsigned int getHistory(const Level *reachLevel,
+                          unsigned int splitIdx) const;
 
   
   /**
@@ -417,6 +407,8 @@ class Bottom {
 
   /**
      @brief Accessof for splitable node count in front level.
+
+     @return split count.
    */
   inline unsigned int getSplitCount() const {
     return splitCount;
@@ -426,10 +418,10 @@ class Bottom {
   
   /**
      @brief Numeric run counts are constrained to be either 1, if singleton,
-     or zero otherwise.  Singleton iff dense and all indices implicit or
-     not dense and all indices have identical rank.
+     or zero otherwise.
 
-     @return void.
+     Singleton iff (dense and all indices implicit) or (not dense and all
+     indices have identical rank).
   */
   inline void setRunCount(unsigned int splitIdx,
                           unsigned int predIdx,

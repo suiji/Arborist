@@ -69,7 +69,18 @@ class FrameMap {
   }
 
 
-  inline unsigned int FacStride(unsigned int predIdx,
+  /**
+     @brief Determines a dense position for factor-valued predictors.
+
+     @param predIdx is a predictor index.
+
+     @param nStride is a stride value.
+
+     @param[out] thisIsFactor is true iff predictor is factor-valued.
+
+     @return strided factor offset, if factor, else predictor index.
+   */
+  inline unsigned int getFacStride(unsigned int predIdx,
 				unsigned int nStride,
 				bool &thisIsFactor) const {
     unsigned int facIdx = FacIdx(predIdx, thisIsFactor);
