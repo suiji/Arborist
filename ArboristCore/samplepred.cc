@@ -86,7 +86,7 @@ vector<StageCount> SamplePred::stage(const RowRank* rowRank,
 
   OMPBound predIdx;
   OMPBound predTop = nPred;
-#pragma omp parallel default(shared) private(predIdx)
+#pragma omp parallel default(shared) private(predIdx) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (predIdx = 0; predIdx < predTop; predIdx++) {
@@ -166,23 +166,34 @@ double SamplePred::blockReplay(const SplitCand& argMax,
                                vector<SumCount> &ctgExpl) {
   unsigned int* idx;
   SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
-
-  double sumExpl = 0.0;
   if (!ctgExpl.empty()) {
-    for (unsigned int spIdx = blockStart; spIdx < blockStart + blockExtent; spIdx++) {
-      FltVal ySum;
-      unsigned int yCtg;
-      unsigned sCount = spn[spIdx].ctgFields(ySum, yCtg);
-      ctgExpl[yCtg].accum(ySum, sCount);
-      sumExpl += ySum;
-      replayExpl->setBit(idx[spIdx]);
-    }
+    return replayCtg(spn, blockStart, blockExtent, idx, replayExpl, ctgExpl);
   }
   else {
-    for (unsigned int spIdx = blockStart; spIdx < blockStart + blockExtent; spIdx++) {
-      sumExpl += spn[spIdx].getYSum();
-      replayExpl->setBit(idx[spIdx]);
-    }
+    return replayNum(spn, blockStart, blockExtent, idx, replayExpl);
+  }
+}
+
+double SamplePred::replayCtg(const SampleRank spn[], unsigned int start, unsigned int extent, const unsigned int idx[], BV* replayExpl, vector<SumCount> &ctgExpl) {
+  double sumExpl = 0.0;
+  for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
+    FltVal ySum;
+    unsigned int yCtg;
+    unsigned sCount = spn[spIdx].ctgFields(ySum, yCtg);
+    ctgExpl[yCtg].accum(ySum, sCount);
+    sumExpl += ySum;
+    replayExpl->setBit(idx[spIdx]);
+  }
+
+  return sumExpl;
+}
+
+
+double SamplePred::replayNum(const SampleRank spn[], unsigned int start, unsigned int extent, const unsigned idx[], BV* replayExpl) {
+  double sumExpl = 0.0;
+  for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
+    sumExpl += spn[spIdx].getYSum();
+    replayExpl->setBit(idx[spIdx]);
   }
 
   return sumExpl;

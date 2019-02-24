@@ -99,14 +99,22 @@ class SamplePred {
              SampleRank spn[],
              unsigned int smpIdx[]) const;
 
+  /**
+     @brief Replays explicitly-reference samples associated with candidate.
+
+     @param cand is a splitting node.
+
+     @param[out] replayExpl sets bits associated with explicit side.
+
+     @param[out] ctgExpl stores explicit response sum and sample count by category.
+   */
+  double blockReplay(const class SplitCand& cand,
+                     class BV* replayExpl,
+                     vector<class SumCount>& ctgExpl);
+
 
   /**
-   @brief Walks a block of adjacent SampleRank records associated with
-   the explicit component of a split.
-
-   @param predIdx is the argmax predictor for the split.
-
-   @param sourceBit is a dual-buffer toggle.
+   @brief Looks up SampleRank block and dispatches appropriate replay method.
 
    @param blockStart is the starting SampleRank index for the split.
 
@@ -116,7 +124,9 @@ class SamplePred {
    by the split.  Indices are either node- or subtree-relative, depending
    on Bottom's current indexing mode.
 
-   @return sum of responses within the block.
+   @param ctgExpl summarizes explicit sum and sample count by category.
+
+   @return sum of explicit responses within the block.
 */
   double blockReplay(const class SplitCand& cand,
                      unsigned int blockStart,
@@ -126,16 +136,51 @@ class SamplePred {
 
 
   /**
-     @brief As above, but block start and extent taken from candidate.
-   */
-  double blockReplay(const class SplitCand& cand,
-                     class BV* replayExpl,
-                     vector<class SumCount>& ctgExpl);
+     @brief Replays a block of categorical sample ranks.
 
+     @param start is the beginning SampleRank index in the block.
+
+     @param extent is the number of indices in the block.
+
+     @param idx[] maps SampleRank indices to sample indices.
+
+     @param[out] replayExpl bits set high at each sample index in block.
+
+     @return sum of explict responses.
+   */
+  double replayCtg(const SampleRank spn[],
+                   unsigned int start,
+                   unsigned int extent,
+                   const unsigned int idx[],
+                   class BV* replayExpl,
+                   vector<class SumCount>& ctgExpl);
+
+  /**
+     @brief Replays a block of numerical sample ranks.
+
+     Parameters and return as above.
+   */
+  double replayNum(const SampleRank spn[],
+                   unsigned int start,
+                   unsigned int extent,
+                   const unsigned int idx[],
+                   class BV* replayExpl);
+
+  /**
+     @brief Drives restaging from an ancestor node and level to current level.
+
+     @param levelBack is the ancestor's level.
+
+     @param levelFront is the current level.
+
+     @param mrra is the ancestor.
+
+     @param bufIdx is the buffer indes of the ancestor.
+   */
   void restage(class Level *levelBack,
-                       class Level *levelFront,
-                       const SPPair &mrra,
-                       unsigned int bufIdx);
+               class Level *levelFront,
+               const SPPair &mrra,
+               unsigned int bufIdx);
   
   /**
      @brief Localizes copies of the paths to each index position.
@@ -334,7 +379,7 @@ class SamplePred {
 
      @return alignment size.
    */
-  static inline unsigned int AlignPow(unsigned int count, unsigned int pow) {
+  static constexpr unsigned int alignPow(unsigned int count, unsigned int pow) {
     return ((count + (1 << pow) - 1) >> pow) << pow;
   }
 

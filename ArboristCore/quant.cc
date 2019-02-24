@@ -90,7 +90,7 @@ void Quant::predictAcross(const Predict *predict,
  
   OMPBound row;
   OMPBound rowSup = (OMPBound) rowEnd;
-#pragma omp parallel default(shared) private(row)
+#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = rowStart; row < rowSup; row++) {

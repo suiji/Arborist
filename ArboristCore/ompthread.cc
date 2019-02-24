@@ -18,22 +18,17 @@
 #include "omp.h"
 #include <algorithm>
 
-unsigned int OmpThread::threadStart = OmpThread::nThreadDefault;
+unsigned int OmpThread::nThread = OmpThread::nThreadDefault;
 
 void OmpThread::init(unsigned int nThread_) {
-  threadStart = omp_get_max_threads();
-  unsigned int nThread;
-  if (nThread_ > 0) {
-    nThread = nThread_;
-  }
-  else { // Guards agains unreasonable value from system call.
-    nThread = std::min(threadStart, maxThreads);
-  }
-  omp_set_num_threads(nThread);
+  unsigned int ompMax = std::min(omp_get_max_threads(), omp_get_thread_limit());
+
+  // Guards agains unreasonable value from system calls:
+  unsigned int maxLocal = std::min(ompMax, maxThreads);
+  nThread = nThread_ > 0 ? std::min(nThread_, maxLocal) : maxLocal;
 }
 
 
 void OmpThread::deInit() {
-  omp_set_num_threads(threadStart);
-  threadStart = nThreadDefault;
+  nThread = nThreadDefault;
 }

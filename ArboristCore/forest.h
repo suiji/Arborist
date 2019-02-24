@@ -257,11 +257,11 @@ class Forest {
   }
 
   /**
-     @brief Accessor for node records.
+     @brief Getter for node records.
 
      @return pointer to base of node vector.
    */
-  inline const TreeNode *Node() const {
+  inline const TreeNode *getNode() const {
     return treeNode;
   }
 

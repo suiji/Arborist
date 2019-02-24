@@ -178,7 +178,7 @@ void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
   OMPBound blockRow;
   OMPBound blockSup = (OMPBound) (rowEnd - rowStart);
 
-#pragma omp parallel default(shared) private(blockRow)
+#pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
   for (blockRow = 0; blockRow < blockSup; blockRow++) {
@@ -209,7 +209,7 @@ void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
   OMPBound blockSup = (OMPBound) (rowEnd - rowStart);
 // TODO:  Recast loop by blocks, to avoid
 // false sharing.
-#pragma omp parallel default(shared) private(blockRow)
+#pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
   for (blockRow = 0; blockRow < blockSup; blockRow++) {
@@ -282,7 +282,7 @@ void LeafFrameCtg::vote() {
   OMPBound rowSup = yPred.size();
   OMPBound row;
 
-#pragma omp parallel default(shared) private(row)
+#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
   for (row = 0; row < rowSup; row++) {

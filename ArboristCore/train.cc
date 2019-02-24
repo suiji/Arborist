@@ -69,7 +69,7 @@ void Train::initSample(unsigned int nSamp) {
 void Train::initSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio) {
-  IndexLevel::Immutables(minNode, totLevels);
+  IndexLevel::immutables(minNode, totLevels);
   SplitCand::immutables(minRatio);
 }
 
@@ -89,7 +89,7 @@ void Train::deInit() {
   trainBlock = 0;
   TreeNode::DeImmutables();
   SplitCand::deImmutables();
-  IndexLevel::DeImmutables();
+  IndexLevel::deImmutables();
   PreTree::DeImmutables();
   Sample::deImmutables();
   SampleNux::deImmutables();

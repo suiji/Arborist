@@ -98,11 +98,11 @@ void Predict::predictBlockNum(unsigned int rowStart,
   OMPBound row;
   OMPBound rowSup = (OMPBound) rowEnd;
 
-#pragma omp parallel default(shared) private(row)
+#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      rowNum(row, row - rowStart, forest->Node(), bag);
+      rowNum(row, row - rowStart, forest->getNode(), bag);
     }
   }
 }
@@ -114,11 +114,11 @@ void Predict::predictBlockFac(unsigned int rowStart,
   OMPBound row;
   OMPBound rowSup = (OMPBound) rowEnd;
 
-#pragma omp parallel default(shared) private(row)
+#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      rowFac(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
+      rowFac(row, row - rowStart, forest->getNode(), forest->getFacSplit(), bag);
   }
   }
 
@@ -131,11 +131,11 @@ void Predict::predictBlockMixed(unsigned int rowStart,
   OMPBound row;
   OMPBound rowSup = (OMPBound) rowEnd;
 
-#pragma omp parallel default(shared) private(row)
+#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = (OMPBound) rowStart; row < rowSup; row++) {
-      rowMixed(row, row - rowStart, forest->Node(), forest->getFacSplit(), bag);
+      rowMixed(row, row - rowStart, forest->getNode(), forest->getFacSplit(), bag);
     }
   }
 }

@@ -160,7 +160,7 @@ void Bottom::restage(SamplePred *samplePred) {
   OMPBound nodeIdx;
   OMPBound idxTop = restageCoord.size();
   
-#pragma omp parallel default(shared) private(nodeIdx)
+#pragma omp parallel default(shared) private(nodeIdx) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {

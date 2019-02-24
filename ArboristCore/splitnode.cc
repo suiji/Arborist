@@ -325,7 +325,7 @@ vector<SplitCand> SplitNode::split(const SamplePred *samplePred) {
 void SPCtg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) private(splitPos)
+#pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitPos = 0; splitPos < splitTop; splitPos++) {
@@ -338,7 +338,7 @@ void SPCtg::splitCandidates(const SamplePred *samplePred) {
 void SPReg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) private(splitPos)
+#pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitPos = 0; splitPos < splitTop; splitPos++) {
@@ -353,7 +353,7 @@ vector<SplitCand> SplitNode::maxCandidates() {
 
   OMPBound splitIdx;
   OMPBound splitTop = splitCount;
-#pragma omp parallel default(shared) private(splitIdx)
+#pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitIdx = 0; splitIdx < splitTop; splitIdx++) {

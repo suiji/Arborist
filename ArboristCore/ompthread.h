@@ -26,8 +26,7 @@ typedef size_t OMPBound;
    @brief Static members parametrize implementation of thread parallelism.
  */
 struct OmpThread {
-  static unsigned int threadStart; // State on entry.
-
+  static unsigned int nThread;
   /**
      @brief Sets number of threads to safe value.
    */
