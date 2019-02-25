@@ -68,36 +68,15 @@ class IndexSet {
   unsigned int offOnly; // Increases:  accumulating successor offset.
   
   /**
-     @brief Appends one hand of a split onto next level's iSet list, if
-     splitable, otherwise dispatches a terminal iSet.
-  */
-  void successor(class IndexLevel *indexLevel,
-                 vector<IndexSet> &indexNext,
-                 class Bottom *bottom,
-                 unsigned int _sCount,
-                 unsigned int _lhStart,
-                 unsigned int _extent,
-                 double _minInfo,
-                 unsigned int _ptId,
-                 bool explHand) const;
-  /**
      @brief Initializes index set as a successor node.
   */
-  void succInit(IndexLevel *indexLevel,
-                Bottom *bottom,
-                unsigned int _splitIdx,
-                unsigned int _parIdx,
-                unsigned int _sCount,
-                unsigned int _lhStart,
-                unsigned int _extent,
-                double _minInfo,
-                unsigned int _ptId,
-                double _sum,
-                unsigned int _path,
-                const vector<class SumCount> &_ctgSum,
-                const vector<class SumCount> &_ctgExpl,
-                bool explHand);
+  void succInit(class IndexLevel *indexLevel,
+                class Bottom *bottom,
+                const class PreTree* preTree,
+                const IndexSet* par,
+                bool isLeft);
 
+  
   void nontermReindex(const class BV *replayExpl,
                       class IndexLevel *index,
                       unsigned int idxLive,
@@ -114,24 +93,6 @@ class IndexSet {
    */
   void initRoot(const class Sample* sample);
 
-
-  
-  /**
-     @brief Sets fields with values used immediately following splitting.
- */
-  void init(unsigned int _splitIdx,
-            unsigned int _sCount,
-            unsigned int _lhStart,
-            unsigned int _extent,
-            double _minInfo,
-            unsigned int _ptId,
-            double _sum,
-            unsigned int _path,
-            unsigned int _relBase,
-            unsigned int bagCount,
-            const vector<class SumCount> &_ctgTot,
-            const vector<SumCount> &_ctgExpl,
-            bool explHand);
 
   void decr(vector<class SumCount> &_ctgTot, const vector<class SumCount> &_ctgSub);
 
@@ -194,16 +155,6 @@ class IndexSet {
 
 
   /**
-     @brief Produces next level's iSets for LH and RH sides of a split.
-
-     @param indexNext is the crescent successor level of index sets.
-  */
-  void produce(class IndexLevel *indexLevel,
-               class Bottom *bottom,
-               const class PreTree *preTree,
-               vector<IndexSet> &indexNext) const;
-
-  /**
      @return count of splitable nodes precipitated in next level:  0/1.
   */
   static unsigned splitAccum(class IndexLevel *indexLevel,
@@ -225,6 +176,21 @@ class IndexSet {
     return unsplitable;
   }
 
+
+  /**
+     @brief Produces next level's iSets for LH and RH sides of a split.
+
+     @param indexNext is the crescent successor level of index sets.
+  */
+  void succHand(vector<IndexSet>& indexNext,
+                class Bottom* bottom,
+                IndexLevel* indexLevel,
+                const class PreTree* preTree,
+                bool isLeft) const;
+
+  unsigned int getPTIdSucc(const class PreTree* preTree,
+                           bool isLeft) const;
+
   
   /**
      @brief Getter for split index.
@@ -233,6 +199,50 @@ class IndexSet {
     return splitIdx;
   }
 
+
+  inline bool isExplHand(bool isLeft) const {
+    return leftExpl ? isLeft : !isLeft;
+  }
+
+  
+  inline const vector<class SumCount>& getCtgSum() const {
+    return ctgSum;
+  }
+
+
+  inline const vector<class SumCount>& getCtgExpl() const {
+    return ctgExpl;
+  }
+
+
+  inline unsigned int getIdxSucc(bool isLeft) const {
+    return isExplHand(isLeft) ? succExpl : succImpl;
+  }
+
+
+  inline double getSumSucc(bool isLeft) const {
+    return isExplHand(isLeft) ? sumExpl : sum - sumExpl;
+  }
+
+
+  inline unsigned int getPathSucc(bool isLeft) const {
+    return isExplHand(isLeft) ? pathExpl : pathImpl;
+  }
+
+  
+  inline unsigned int getSCountSucc(bool isLeft) const {
+    return isLeft ? lhSCount : sCount - lhSCount;
+  }
+
+  inline unsigned int getLHStartSucc(bool isLeft) const {
+    return isLeft ?  lhStart : lhStart + lhExtent;
+  }
+
+
+  inline unsigned int getExtentSucc(bool isLeft) const {
+    return isLeft ? lhExtent : extent - lhExtent;
+  }
+  
   /**
      @return 'lhStart' field.
    */
@@ -639,7 +649,10 @@ class IndexLevel {
   }
 
 
-  inline unsigned int RelBase(unsigned int splitIdx) {
+  /**
+     @brief Accessor for relative base of split.
+   */
+  inline unsigned int getRelBase(unsigned int splitIdx) {
     return relBase[splitIdx];
   }
 

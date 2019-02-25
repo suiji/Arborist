@@ -43,41 +43,6 @@ void IndexLevel::deImmutables() {
 }
 
 
-void IndexSet::init(unsigned int _splitIdx,
-                    unsigned int _sCount,
-                    unsigned int _lhStart,
-                    unsigned int _extent,
-                    double _minInfo,
-                    unsigned int _ptId,
-                    double _sum,
-                    unsigned int _path,
-                    unsigned int _relBase,
-                    unsigned int bagCount,
-                    const vector<SumCount> &_ctgSum,
-                    const vector<SumCount> &_ctgExpl,
-                    bool explHand) {
-    splitIdx = _splitIdx;
-    sCount = _sCount;
-    lhStart = _lhStart;
-    extent = _extent;
-    minInfo = _minInfo;
-    ptId = _ptId;
-    sum = _sum;
-    path = _path;
-    relBase = _relBase;
-    if (explHand) {
-      ctgSum = _ctgExpl;
-    }
-    else {
-      ctgSum = _ctgSum;
-      decr(ctgSum, _ctgExpl);
-    }
-    ctgExpl = move(vector<SumCount>(ctgSum.size()));
-
-    // Inattainable value.  Reset only when non-terminal:
-    succExpl = succImpl = offExpl = offImpl = bagCount;
-}
-
 void IndexSet::decr(vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgSub) {
   unsigned i = 0;
   for (auto & sc : _ctgSum) {
@@ -137,8 +102,21 @@ IndexLevel::IndexLevel(const FrameTrain* frameTrain,
 }
 
 void IndexSet::initRoot(const Sample* sample) {
-  init(0, sample->getNSamp(), 0, sample->getBagCount(), 0.0, 0, sample->getBagSum(), 0, 0, sample->getBagCount(), sample->getCtgRoot(), sample->getCtgRoot(), true);
+  splitIdx = 0;
+  sCount = sample->getNSamp();
+  lhStart = 0;
+  extent = sample->getBagCount();
+  minInfo = 0.0;
+  ptId = 0;
+  sum = sample->getBagSum();
+  path = 0;
+  relBase = 0;
+  ctgSum = sample->getCtgRoot();
+  ctgExpl = move(vector<SumCount>(ctgSum.size()));
+
+  succExpl = succImpl = offExpl = offImpl = sample->getBagCount();
 }
+
 
 shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain,
                                        const Sample* sample) {
@@ -147,7 +125,6 @@ shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain,
   shared_ptr<PreTree> preTree = make_shared<PreTree>(frameTrain, bagCount);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
-    //cout << "\nLevel " << level << "\n" << endl;
     bottom->levelInit(this);
     auto argMax = bottom->split(samplePred.get(), this);
 
@@ -209,7 +186,7 @@ void IndexSet::applySplit(const vector<SplitCand> &argMaxVec) {
 }
 
 
-unsigned IndexSet::splitAccum(class IndexLevel *indexLevel,
+unsigned IndexSet::splitAccum(IndexLevel *indexLevel,
                               unsigned int _extent,
                               unsigned int &_idxLive,
                               unsigned int &_idxMax) {
@@ -273,10 +250,10 @@ void IndexSet::terminal(IndexLevel *indexLevel) {
 
 void IndexSet::nonTerminal(IndexLevel *indexLevel, PreTree *preTree, const SplitCand &argMax) {
   leftExpl = indexLevel->nonTerminal(preTree, this, argMax);
-  ptExpl = leftExpl ? preTree->LHId(ptId) : preTree->RHId(ptId);
-  ptImpl = leftExpl ? preTree->RHId(ptId) : preTree->LHId(ptId);
-  succExpl = indexLevel->idxSucc(leftExpl ? lhExtent : extent - lhExtent, ptExpl, offExpl);
-  succImpl = indexLevel->idxSucc(leftExpl ? extent - lhExtent : lhExtent, ptImpl, offImpl);
+  ptExpl = getPTIdSucc(preTree, leftExpl);
+  ptImpl = getPTIdSucc(preTree, !leftExpl);
+  succExpl = indexLevel->idxSucc(getExtentSucc(leftExpl), ptExpl, offExpl);
+  succImpl = indexLevel->idxSucc(getExtentSucc(!leftExpl), ptImpl, offImpl);
 
   pathExpl = IdxPath::pathNext(path, leftExpl);
   pathImpl = IdxPath::pathNext(path, !leftExpl);
@@ -437,55 +414,53 @@ void IndexLevel::produce(const PreTree *preTree, unsigned int splitNext) {
   bottom->overlap(splitNext, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
-    iSet.produce(this, bottom.get(), preTree, indexNext);
+    iSet.succHand(indexNext, bottom.get(), this, preTree, true);
+    iSet.succHand(indexNext, bottom.get(), this, preTree, false);
   }
   indexSet = move(indexNext);
 }
 
 
-void IndexSet::produce(IndexLevel *indexLevel,
-                       Bottom *bottom,
-                       const PreTree *preTree,
-                       vector<IndexSet> &indexNext) const {
-  if (doesSplit) {
-    successor(indexLevel, indexNext, bottom, lhSCount, lhStart, lhExtent, minInfo, preTree->LHId(ptId), leftExpl);
-    successor(indexLevel, indexNext, bottom, sCount - lhSCount, lhStart + lhExtent, extent - lhExtent, minInfo, preTree->RHId(ptId), !leftExpl);
-  }
-}
-
-
-void IndexSet::successor(IndexLevel *indexLevel,
-                         vector<IndexSet> &indexNext,
-                         Bottom *bottom,
-                         unsigned int _sCount,
-                         unsigned int _lhStart,
-                         unsigned int _extent,
-                         double _minInfo,
-                         unsigned int _ptId,
-                         bool explHand) const {
-  unsigned int succIdx = explHand ? succExpl : succImpl;
-  if (succIdx < indexNext.size()) {
-    indexNext[succIdx].succInit(indexLevel, bottom, succIdx, splitIdx, _sCount, _lhStart, _extent, _minInfo, _ptId, explHand ? sumExpl : sum - sumExpl, explHand ? pathExpl : pathImpl, ctgSum, ctgExpl, explHand);
+void IndexSet::succHand(vector<IndexSet>& indexNext, Bottom* bottom, IndexLevel* indexLevel, const PreTree* preTree, bool isLeft) const {
+  unsigned int succIdx = getIdxSucc(isLeft);
+  if (doesSplit && succIdx < indexNext.size()){
+    indexNext[succIdx].succInit(indexLevel, bottom, preTree, this, isLeft);
   }
 }
 
 
 void IndexSet::succInit(IndexLevel *indexLevel,
                         Bottom *bottom,
-                        unsigned int _splitIdx,
-                        unsigned int parIdx,
-                        unsigned int _sCount,
-                        unsigned int _lhStart,
-                        unsigned int _extent,
-                        double _minInfo,
-                        unsigned int _ptId,
-                        double _sum,
-                        unsigned int _path,
-                        const vector<SumCount> &_ctgSum,
-                        const vector<SumCount> &_ctgExpl,
-                        bool explHand) {
-  init(_splitIdx, _sCount, _lhStart, _extent, _minInfo, _ptId, _sum, _path, indexLevel->RelBase(_splitIdx), indexLevel->getBagCount(), _ctgSum, _ctgExpl, explHand);
-  bottom->reachingPath(splitIdx, parIdx, lhStart, extent, relBase, path);
+                        const PreTree* preTree,
+                        const IndexSet* par,
+                        bool isLeft) {
+  splitIdx = par->getIdxSucc(isLeft);
+  sCount = par->getSCountSucc(isLeft);
+  lhStart = par->getLHStartSucc(isLeft);
+  extent = par->getExtentSucc(isLeft);
+  minInfo = par->getMinInfo();
+  ptId = par->getPTIdSucc(preTree, isLeft);
+  sum = par->getSumSucc(isLeft);
+  path = par->getPathSucc(isLeft);
+  relBase = indexLevel->getRelBase(splitIdx);
+  bottom->reachingPath(splitIdx, par->getSplitIdx(), lhStart, extent, relBase, path);
+
+  if (par->isExplHand(isLeft)) {
+    ctgSum = par->getCtgExpl();
+  }
+  else {
+    ctgSum = par->getCtgSum();
+    decr(ctgSum, par->getCtgExpl());
+  }
+  ctgExpl = move(vector<SumCount>(ctgSum.size()));
+
+  // Inattainable value.  Reset only when non-terminal:
+  succExpl = succImpl = offExpl = offImpl = indexLevel->getBagCount();
+}
+
+
+unsigned int IndexSet::getPTIdSucc(const PreTree* preTree, bool isLeft) const {
+  return isLeft ? preTree->getLHId(ptId) : preTree->getRHId(ptId); 
 }
 
 

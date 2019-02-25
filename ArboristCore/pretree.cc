@@ -346,10 +346,10 @@ unsigned int PreTree::LeafMerge() {
     merge->ptId = ptId;
     merge->idMerged = height;
     merge->root = height; // Merged away iff != height.
-    merge->descLH = ptId != 0 && LHId(merge->parId) == ptId;
-    merge->idSib = ptId == 0 ? 0 : (merge->descLH ? RHId(merge->parId) : LHId(merge->parId));
+    merge->descLH = ptId != 0 && getLHId(merge->parId) == ptId;
+    merge->idSib = ptId == 0 ? 0 : (merge->descLH ? getRHId(merge->parId) : getLHId(merge->parId));
     if (NonTerminal(ptId)) {
-      ptMerge[LHId(ptId)].parId = ptMerge[RHId(ptId)].parId = ptId;
+      ptMerge[getLHId(ptId)].parId = ptMerge[getRHId(ptId)].parId = ptId;
       if (Mergeable(ptId)) {
         infoQueue.push(merge);
       }
@@ -377,7 +377,7 @@ unsigned int PreTree::LeafMerge() {
   for (unsigned int ptId = 0; ptId < height; ptId++) {
     unsigned int root = ptMerge[ptId].root;
     if (root != height && NonTerminal(ptId)) {
-      ptMerge[LHId(ptId)].root = ptMerge[RHId(ptId)].root = root;
+      ptMerge[getLHId(ptId)].root = ptMerge[getRHId(ptId)].root = root;
     }
     if (root == height || root == ptId) { // Unmerged or root:  retained.
       nodeVec[ptId].setTerminal(); // Will reset if encountered as parent.

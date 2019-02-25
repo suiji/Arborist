@@ -63,12 +63,12 @@ class PTNode : public DecNode {
   }
 
 
-  inline unsigned int LHId(unsigned int ptId) const {
+  inline unsigned int getLHId(unsigned int ptId) const {
     return NonTerminal() ? ptId + lhDel : 0;
   }
 
-  inline unsigned int RHId(unsigned int ptId) const {
-    return NonTerminal() ? LHId(ptId) + 1 : 0;
+  inline unsigned int getRHId(unsigned int ptId) const {
+    return NonTerminal() ? getLHId(ptId) + 1 : 0;
   }
 
 
@@ -162,13 +162,13 @@ class PreTree {
   void SubtreeFrontier(const vector<unsigned int> &stTerm);
   unsigned int LeafMerge();
   
-  inline unsigned int LHId(unsigned int ptId) const {
-    return nodeVec[ptId].LHId(ptId);
+  inline unsigned int getLHId(unsigned int ptId) const {
+    return nodeVec[ptId].getLHId(ptId);
   }
 
   
-  inline unsigned int RHId(unsigned int ptId) const {
-    return nodeVec[ptId].RHId(ptId);
+  inline unsigned int getRHId(unsigned int ptId) const {
+    return nodeVec[ptId].getRHId(ptId);
   }
 
   
@@ -189,7 +189,7 @@ class PreTree {
        @return true iff node has two leaf children.
     */
   inline bool Mergeable(unsigned int ptId) const {
-    return !NonTerminal(LHId(ptId)) && !NonTerminal(RHId(ptId));
+    return !NonTerminal(getLHId(ptId)) && !NonTerminal(getRHId(ptId));
   }  
 
   

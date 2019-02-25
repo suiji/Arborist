@@ -47,6 +47,15 @@
                 ...) {
     argList <- mget(names(formals()), sys.frame(sys.nframe()))
 
+    if (nTree <= 0)
+        stop("Tree count must be positive")
+    if (nSamp < 0)
+        stop("Sample count must be nonnegative")
+    if (nThread < 0)
+        stop("Thread count must be nonnegative")
+    if (nLevel < 0)
+        stop("Level count must be nonnegative")
+    
     if (any(is.na(y)))
         stop("NA not supported in response")
     if (!is.numeric(y) && !is.factor(y))
@@ -231,7 +240,7 @@ RFDeep <- function(argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin, argList$verbose)
+        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin, argList$nThread, argList$verbose)
     }
 
     arbOut <- list(

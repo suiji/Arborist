@@ -33,33 +33,39 @@ using namespace std;
 
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,
                             const SEXP sTrain,
-                            SEXP sYTest);
+                            SEXP sYTest,
+                            SEXP sNThread);
 
 RcppExport SEXP TestReg(const SEXP sPredBlock,
                         const SEXP sTrain,
                         SEXP sYTest,
-                        SEXP sOOB);
+                        SEXP sOOB,
+                        SEXP sNThread);
 
 RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
                               const SEXP sTrain,
-                              SEXP sYTest);
+                              SEXP sYTest,
+                              SEXP sNThread);
 
 RcppExport SEXP ValidateProb(const SEXP sPredBlock,
                              const SEXP sTrain,
-                             SEXP sYTest);
+                             SEXP sYTest,
+                             SEXP sNThread);
 
 RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
-                              SEXP sQBin);
+                              SEXP sQBin,
+                              SEXP sNThread);
 
 RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sQuantVec,
                           SEXP sQBin,
                           SEXP sYTest,
-                          SEXP sOOB);
+                          SEXP sOOB,
+                          SEXP sNThread);
 
 /**
    @brief Predicts with class votes.
@@ -77,7 +83,8 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
                          SEXP sYTest,
-                         SEXP sOOB);
+                         SEXP sOOB,
+                         SEXP sNThread);
 
 
 /**
@@ -96,7 +103,8 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
 RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sYTest,
-                          SEXP sOOB);
+                          SEXP sOOB,
+                          SEXP sNThread);
 
 /**
    @brief Bridge-variant PredictBox pins unwrapped front-end structures.
@@ -131,7 +139,8 @@ struct PBBridgeReg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafRegBridge> leaf_,
-              bool validate);
+              bool validate,
+              unsigned int nThread);
 
  /**
     @brief Prediction with quantiles.
@@ -155,7 +164,8 @@ struct PBBridgeReg : public PBBridge {
                     SEXP sQuantVec,
                     SEXP sQBin,
                     SEXP sYTest,
-                    bool validate);
+                    bool validate,
+                    unsigned int nThread);
 
   /**
      @brief Prediction for regression.  Parameters as above.
@@ -163,7 +173,8 @@ struct PBBridgeReg : public PBBridge {
   static List reg(const List& sPredBlock,
                   const List& sTrain,
                   SEXP sYTest,
-                  bool validate);
+                  bool validate,
+                  unsigned int nThread);
 
 
   /**
@@ -173,7 +184,8 @@ struct PBBridgeReg : public PBBridge {
    */
   static unique_ptr<PBBridgeReg> factory(const List& sPredBlock,
                                          const List& lTrain,
-                                         bool validate);
+                                         bool validate,
+                                         unsigned int nThread);
 
 private:
   /**
@@ -202,7 +214,8 @@ struct PBBridgeCtg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafCtgBridge> leaf_,
-              bool validate);
+              bool validate,
+              unsigned int nThread);
 
   /**
      @brief Prediction for classification.  Paramters as above.
@@ -213,7 +226,8 @@ struct PBBridgeCtg : public PBBridge {
                   const List& sTrain,
                   SEXP sYTest,
                   bool validate,
-                  bool doProb);
+                  bool doProb,
+                  unsigned int nThread);
 
   /**
      @brief Unwraps regression data structurs and moves to box.
@@ -223,7 +237,8 @@ struct PBBridgeCtg : public PBBridge {
   static unique_ptr<PBBridgeCtg> factory(const List& sPredBlock,
                                          const List& lTrain,
                                          bool validate,
-                                         bool doProb);
+                                         bool doProb,
+                                         unsigned int nThread);
 private:
   /**
      @brief Instantiates core PredictBridge object, driving prediction.

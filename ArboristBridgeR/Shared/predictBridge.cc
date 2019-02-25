@@ -36,9 +36,10 @@
 
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,
                             const SEXP sTrain,
-                            SEXP sYTest) {
+                            SEXP sYTest,
+                            SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, true);
+    return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -46,9 +47,10 @@ RcppExport SEXP ValidateReg(const SEXP sPredBlock,
 RcppExport SEXP TestReg(const SEXP sPredBlock,
                         const SEXP sTrain,
                         SEXP sYTest,
-                        SEXP sOOB) {
+                        SEXP sOOB,
+                        SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB));
+    return PBBridgeReg::reg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -58,12 +60,13 @@ RcppExport SEXP TestReg(const SEXP sPredBlock,
    @return Wrapped zero, with copy-out parameters.
  */
 List PBBridgeReg::reg(const List& sPredBlock,
-                        const List& lTrain,
-                        SEXP sYTest,
-                        bool validate) {
+                      const List& lTrain,
+                      SEXP sYTest,
+                      bool validate,
+                      unsigned int nThread) {
   BEGIN_RCPP
 
-  auto pbBridge = factory(sPredBlock, lTrain, validate);
+    auto pbBridge = factory(sPredBlock, lTrain, validate, nThread);
   return move(pbBridge->predict(sYTest));
 
   END_RCPP
@@ -80,12 +83,14 @@ List PBBridgeReg::predict(SEXP sYTest) const {
 
 unique_ptr<PBBridgeReg> PBBridgeReg::factory(const List& sPredBlock,
                                              const List& lTrain,
-                                             bool validate) {
+                                             bool validate,
+                                             unsigned int nThread) {
   return make_unique<PBBridgeReg>(move(FramemapBridge::factoryPredict(sPredBlock)),
                                move(ForestBridge::unwrap(lTrain)),
                                move(BagBridge::unwrap(lTrain)),
                                move(LeafRegBridge::unwrap(lTrain, sPredBlock)),
-                               validate);
+                                  validate,
+                                  nThread);
 }
 
 
@@ -93,12 +98,13 @@ PBBridgeReg::PBBridgeReg(unique_ptr<FramePredictBridge> framePredict_,
                          unique_ptr<ForestBridge> forest_,
                          unique_ptr<BagBridge> bag_,
                          unique_ptr<LeafRegBridge> leaf_,
-                         bool validate) :
+                         bool validate,
+                         unsigned int nThread) :
   PBBridge(move(framePredict_),
            move(forest_),
            move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, 0);
+  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, nThread);
 }
 
 
@@ -113,18 +119,20 @@ PBBridge::PBBridge(unique_ptr<FramePredictBridge> framePredict_,
 
 RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
                               const SEXP sTrain,
-                              SEXP sYTest) {
+                              SEXP sYTest,
+                              SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, false);
+    return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, false, as<unsigned int>(sNThread));
   END_RCPP
 }
 
 
 RcppExport SEXP ValidateProb(const SEXP sPredBlock,
                              const SEXP sTrain,
-                             SEXP sYTest) {
+                             SEXP sYTest,
+                             SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, true);
+    return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, true, true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -132,9 +140,10 @@ RcppExport SEXP ValidateProb(const SEXP sPredBlock,
 RcppExport SEXP TestVotes(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sYTest,
-                          SEXP sOOB) {
+                          SEXP sOOB,
+                          SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), false);
+    return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), false, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -142,9 +151,10 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
 RcppExport SEXP TestProb(const SEXP sPredBlock,
                          const SEXP sTrain,
                          SEXP sYTest,
-                         SEXP sOOB) {
+                         SEXP sOOB,
+                         SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), true);
+    return PBBridgeCtg::ctg(List(sPredBlock), List(sTrain), sYTest, as<bool>(sOOB), true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -155,13 +165,14 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
    @return predict list.
  */
 List PBBridgeCtg::ctg(const List& sPredBlock,
-                        const List& lTrain,
-                        SEXP sYTest,
-                        bool validate,
-                        bool doProb) {
+                      const List& lTrain,
+                      SEXP sYTest,
+                      bool validate,
+                      bool doProb,
+                      unsigned int nThread) {
   BEGIN_RCPP
 
-  auto pbBridge = factory(sPredBlock, lTrain, validate, doProb);
+    auto pbBridge = factory(sPredBlock, lTrain, validate, doProb, nThread);
   return move(pbBridge->predict(sYTest, sPredBlock));
 
   END_RCPP
@@ -178,12 +189,14 @@ List PBBridgeCtg::predict(SEXP sYTest, const List& sPredBlock) const {
 unique_ptr<PBBridgeCtg> PBBridgeCtg::factory(const List& sPredBlock,
                                              const List& lTrain,
                                              bool validate,
-                                             bool doProb) {
+                                             bool doProb,
+                                             unsigned int nThread) {
   return make_unique<PBBridgeCtg>(move(FramemapBridge::factoryPredict(sPredBlock)),
                                move(ForestBridge::unwrap(lTrain)),
                                move(BagBridge::unwrap(lTrain)),
                                move(LeafCtgBridge::unwrap(lTrain, sPredBlock, doProb)),
-                               validate);
+                                  validate,
+                                  nThread);
 }
 
 
@@ -191,12 +204,13 @@ PBBridgeCtg::PBBridgeCtg(unique_ptr<FramePredictBridge> framePredict_,
                          unique_ptr<ForestBridge> forest_,
                          unique_ptr<BagBridge> bag_,
                          unique_ptr<LeafCtgBridge> leaf_,
-                         bool validate) :
+                         bool validate,
+                         unsigned int nThread) :
   PBBridge(move(framePredict_),
            move(forest_),
            move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, 0);
+  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), validate, nThread);
 }
 
 
@@ -204,9 +218,10 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
-                              SEXP sQBin) {
+                              SEXP sQBin,
+                              SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true);
+    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -216,9 +231,10 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           SEXP sQuantVec,
                           SEXP sQBin,
                           SEXP sYTest,
-                          SEXP sOOB) {
+                          SEXP sOOB,
+                          SEXP sNThread) {
   BEGIN_RCPP
-  return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB));
+    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -228,11 +244,12 @@ List PBBridgeReg::quant(const List& sPredBlock,
                           SEXP sQuantVec,
                           SEXP sQBin,
                           SEXP sYTest,
-                          bool validate) {
+                        bool validate,
+                        unsigned int nThread) {
   BEGIN_RCPP
 
   NumericVector quantVec(sQuantVec);
-  auto pbBridge = factory(sPredBlock, lTrain, validate);
+  auto pbBridge = factory(sPredBlock, lTrain, validate, nThread);
   return move(pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest));
 
   END_RCPP
