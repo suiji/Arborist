@@ -47,14 +47,12 @@ public:
    @param feWeight is user-specified weighting of row samples.
 
    @param withRepl_ is true iff sampling with replacement.
-
-   @return void.
  */
   static void init(const NumericVector &feWeight,
                    bool withRepl_);
 
   /**
-   @brief Samples row indices either with or without replacement using methods from RccpArmadillo.
+   @brief Samples row indices either with or without replacement using methods from Rccp base.
 
    @param nSamp is the number of samples to draw.
 

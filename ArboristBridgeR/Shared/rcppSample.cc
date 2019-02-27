@@ -23,7 +23,6 @@
    @author Mark Seligman
  */
 
-#include <RcppArmadilloExtensions/sample.h>
 #include "rcppSample.h"
 
 
@@ -47,6 +46,7 @@ void RcppSample::init(const NumericVector &feWeight, bool withRepl_) {
 IntegerVector RcppSample::sampleRows(unsigned int nSamp) {
   BEGIN_RCPP
   RNGScope scope;
-  return RcppArmadillo::sample(rowSeq, nSamp, withRepl, clone(weight));
+  return sample(rowSeq, nSamp, withRepl, clone(weight));
+
   END_RCPP
 }
