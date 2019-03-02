@@ -182,12 +182,12 @@ void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
   {
 #pragma omp for schedule(dynamic, 1)
   for (blockRow = 0; blockRow < blockSup; blockRow++) {
-    leafBlock->regAcross(&predictLeaves[nTree * blockRow], defaultScore, &yPred[rowStart + blockRow]);
+    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], defaultScore, &yPred[rowStart + blockRow]);
   }
   }
 }
 
-void LeafBlock::regAcross(const unsigned int* predictLeaves, double defaultScore, double* yPred) const {
+void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultScore, double* yPred) const {
   double score = 0.0;
   unsigned int treesSeen = 0;
   for (unsigned int tIdx = 0; tIdx < nTree(); tIdx++) {
@@ -213,7 +213,7 @@ void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
   {
 #pragma omp for schedule(dynamic, 1)
   for (blockRow = 0; blockRow < blockSup; blockRow++) {
-    leafBlock->ctgAcross(&predictLeaves[nTree * blockRow], ctgDefault, &votes[ctgIdx(rowStart + blockRow, 0)]);
+    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], ctgDefault, &votes[ctgIdx(rowStart + blockRow, 0)]);
     if (!prob.empty()) {
       ctgProb->probAcross(&predictLeaves[nTree * blockRow], &prob[ctgIdx(rowStart + blockRow, 0)], noLeaf);
     }
@@ -222,9 +222,9 @@ void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
 }
 
 
-void LeafBlock::ctgAcross(const unsigned int predictLeaves[],
+void LeafBlock::scoreAcross(const unsigned int predictLeaves[],
                           unsigned int ctgDefault,
-                          double prediction[]) const {
+                          double yCtg[]) const {
   unsigned int treesSeen = 0;
   for (unsigned int tIdx = 0; tIdx < nTree(); tIdx++) {
     unsigned int termIdx = predictLeaves[tIdx];
@@ -232,11 +232,11 @@ void LeafBlock::ctgAcross(const unsigned int predictLeaves[],
       treesSeen++;
       double val = getScore(tIdx, termIdx);
       unsigned int ctg = floor(val); // Truncates jittered score for indexing.
-      prediction[ctg] += (1.0 + val) - ctg; // 1 plus small jitter.
+      yCtg[ctg] += (1.0 + val) - ctg; // 1 plus small jitter.
     }
   }
   if (treesSeen == 0) {
-    prediction[ctgDefault] = 1.0; // Other slots all zero.
+    yCtg[ctgDefault] = 1.0; // Other slots all zero.
   }
 }
 

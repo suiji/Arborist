@@ -57,8 +57,7 @@ void SplitCand::initLate(const SplitNode *splitNode,
                          unsigned int setIdx) {
   this->vecIdx = vecIdx,
   this->setIdx = setIdx;
-  unsigned int extent;
-  index->getSplitFields(splitIdx, idxStart, extent, sCount, sum);
+  unsigned int extent = index->setCand(this);
   info = splitNode->getPrebias(splitIdx);
   implicit = levelFront->adjustDense(splitIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // Singletons invalid:  idxEnd < idxStart.

@@ -33,8 +33,7 @@
 
 Bottom::Bottom(const FrameTrain* frameTrain_,
                const RowRank* rowRank_,
-               unsigned int bagCount_,
-               SplitNode* splitNode_) :
+               unsigned int bagCount_) :
   nPred(frameTrain_->getNPred()),
   nPredFac(frameTrain_->getNPredFac()),
   bagCount(bagCount_),
@@ -43,8 +42,6 @@ Bottom::Bottom(const FrameTrain* frameTrain_,
   frameTrain(frameTrain_),
   rowRank(rowRank_),
   noRank(rowRank->NoRank()),
-  splitNode(splitNode_),
-  run(splitNode->getRuns()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
   levelFront(new Level(1, nPred, rowRank->getDenseIdx(), rowRank->getNPredDense(), bagCount, bagCount, false, this)),
@@ -59,7 +56,7 @@ Bottom::Bottom(const FrameTrain* frameTrain_,
 
 void Bottom::rootDef(const vector<StageCount>& stageCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
-  const unsigned int splitIdx = 0;
+  const unsigned int splitIdx = 0; // Root split index.
   for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
     bool singleton = stageCount[predIdx].singleton;
     unsigned int expl = stageCount[predIdx].expl;
@@ -69,8 +66,10 @@ void Bottom::rootDef(const vector<StageCount>& stageCount) {
 }
 
 
-vector<SplitCand> Bottom::split(SamplePred *samplePred,
-                                 IndexLevel *index) {
+void Bottom::scheduleSplits(SamplePred *samplePred,
+                            SplitNode* splitNode,
+                            IndexLevel *index) {
+  splitNode->levelInit(index);
   unsigned int supUnFlush = flushRear();
   levelFront->candidates(index, splitNode);
 
@@ -79,13 +78,11 @@ vector<SplitCand> Bottom::split(SamplePred *samplePred,
 
   // Reaching levels must persist through restaging ut allow path lookup.
   //
-  for (unsigned int off = level.size() -1 ; off > supUnFlush; off--) {
+  for (unsigned int off = level.size() - 1 ; off > supUnFlush; off--) {
     delete level[off];
     level.pop_back();
   }
   splitNode->scheduleSplits(index, levelFront);
-
-  return move(splitNode->split(samplePred));
 }
 
 
@@ -186,16 +183,6 @@ bool Bottom::factorStride(unsigned int predIdx,
   bool isFactor;
   facStride = frameTrain->getFacStride(predIdx, nStride, isFactor);
   return isFactor;
-}
-
-
-void Bottom::levelInit(IndexLevel *index) {
-  splitNode->levelInit(index);
-}
-
-
-void Bottom::levelClear() {
-  splitNode->levelClear();
 }
 
 

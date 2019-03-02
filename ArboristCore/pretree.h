@@ -157,9 +157,9 @@ class PreTree {
   void branchNum(const class SplitCand &argMax,
                  unsigned int id);
 
-  void Level(unsigned int splitNext, unsigned int leafNext);
+  void levelStorage(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
-  void SubtreeFrontier(const vector<unsigned int> &stTerm);
+  void subtreeFrontier(const vector<unsigned int> &stTerm);
   unsigned int LeafMerge();
   
   inline unsigned int getLHId(unsigned int ptId) const {

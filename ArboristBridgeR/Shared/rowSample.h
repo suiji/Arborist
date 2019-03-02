@@ -16,26 +16,28 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file rcppSample.h
+   @file rowSample.h
 
-   @brief C++ class definitions for invocation of R methods implementing response sampling.   Can be extended for other instances of sampling.
+   @brief C++ class definitions for invocation of R methods implementing response sampling.
+
+   Can be extended for other instances of sampling.
 
    @author Mark Seligman
 
  */
 
 
-#ifndef ARBORIST_RCPP_SAMPLE_H
-#define ARBORIST_RCPP_SAMPLE_H
+#ifndef ARBORIST_ROW_SAMPLE_H
+#define ARBORIST_ROW_SAMPLE_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
 
 /**
-   @brief Row-sampling parameters supplied by the front end are invariant, so can be cached as static.
+   @brief Caches row-sampling parameters specified by user.
  */
-class RcppSample {
+class RowSample {
   static bool withRepl; // Whether sampling employs replacement.
   static NumericVector &weight; // Pinned vector[nRow] of weights.
   static IntegerVector &rowSeq; // Pinned sequence from 0 to nRow - 1.

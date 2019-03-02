@@ -592,17 +592,17 @@ public:
   /**
      @brief Scores a numerical row across all trees.
 
-     @param predictLeaves holds the leaf predictions for a block of rows.
+     @param predictLeaves holds the leaf predictions for all trees
+     over a block of rows.
 
      @param defaultScore is the default score if all trees in-bag.
 
-     @param prediction is the prediction.
+     @param[out] yPred[] outputs scores over a block of rows.
    */
-  void regAcross(const unsigned int* predictLeaves,
-                 double defaultScore,
-                 double* yPred) const;
+  void scoreAcross(const unsigned int* predictLeaves,
+                   double defaultScore,
+                   double yPred[]) const;
 
-  
   /**
      @brief Scores a categorical row across all trees.
 
@@ -610,11 +610,11 @@ public:
 
      @param ctgDefault is the default category if all trees in-bag.
 
-     @param prediction is a per-category vector of predictions.
+     @param[out] yCtg[] outputs per-category scores over a block of rows.
    */
-  void ctgAcross(const unsigned int predictLeaves[],
-                 unsigned int ctgDefault,
-                 double prediction[]) const;
+  void scoreAcross(const unsigned int predictLeaves[],
+                   unsigned int ctgDefault,
+                   double yCtg[]) const;
 
   /**
      @brief Index-parametrized score getter.

@@ -24,7 +24,7 @@
  */
 
 #include "trainBridge.h"
-#include "rcppSample.h"
+#include "rowSample.h"
 #include "bagBridge.h"
 #include "framemapBridge.h"
 #include "rankedsetBridge.h"
@@ -118,7 +118,7 @@ SEXP TrainBridge::init(const List &argList,
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
   Train::initCDF(splitQuant);
 
-  RcppSample::init(as<NumericVector>(argList["rowWeight"]),
+  RowSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
   Train::initSample(as<unsigned int>(argList["nSamp"]));
   Train::initSplit(as<unsigned int>(argList["minNode"]),

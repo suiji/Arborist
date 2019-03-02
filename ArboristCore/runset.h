@@ -492,10 +492,10 @@ class Run {
 
      @return true iff left-bound split contains implicit runs.
    */
-  bool replay(const class SplitCand& cand,
-              class IndexSet* iSet,
-              class PreTree* preTree,
-              const class IndexLevel* index) const;
+  bool branchFac(const class SplitCand& cand,
+                 class IndexSet* iSet,
+                 class PreTree* preTree,
+                 class IndexLevel* index) const;
 
   /**
      @brief Indicates whether index passed references a run.

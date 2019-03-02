@@ -23,12 +23,12 @@
    @author Mark Seligman
  */
 
-#include "rcppSample.h"
+#include "rowSample.h"
 #include "callback.h"
 
 using namespace std;
 vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
-  IntegerVector rowSample(RcppSample::sampleRows(nSamp));
+  IntegerVector rowSample(RowSample::sampleRows(nSamp));
 
   vector<unsigned int> rowOut(rowSample.begin(), rowSample.end());
   return rowOut;

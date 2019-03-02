@@ -64,8 +64,6 @@ class Bottom {
   const class FrameTrain *frameTrain;
   const class RowRank *rowRank;
   const unsigned int noRank;
-  class SplitNode* splitNode;
-  const class Run *run;
 
   vector<unsigned int> history; // Current level's history.
   vector<unsigned int> historyPrev; // Previous level's history:  accum.
@@ -141,8 +139,7 @@ class Bottom {
   */
   Bottom(const class FrameTrain* frameTrain_,
          const class RowRank* rowRank_,
-         unsigned int bagCount_,
-         SplitNode* splitNode_);
+         unsigned int bagCount_);
 
   /**
      @brief Class finalizer.
@@ -151,26 +148,11 @@ class Bottom {
 
 
   /**
-     @brief Passes through to SplitNode's level initializer.
-
-     @param index summarizes the index decomposition of the current level.
+     @brief Entry to restaging and candidate scheduling.
   */
-  void levelInit(class IndexLevel *index);
-
-
-  /**
-     @brief Passes through to SplitNode's level clearer.
-  */
-  void levelClear();
-  
-  
-  /**
-     @brief Entry to spltting and restaging.
-
-     @return vector of maximal-information splitting candidates.
-  */
-  vector<class SplitCand> split(class SamplePred *samplePred,
-                                 class IndexLevel *index);
+  void scheduleSplits(class SamplePred *samplePred,
+                      class SplitNode* splitNode,
+                      class IndexLevel *index);
 
   
   /**
@@ -285,14 +267,6 @@ class Bottom {
   void setExtinct(unsigned int nodeIdx, unsigned int stIdx);
 
   
-  /**
-     @brief Accessor for 'run' field.  SSNode only client.
-   */
-  const inline class Run *getRuns() const {
-    return run;
-  }
-
-
   /**
      @brief Accessor for 'stPath' field.
    */

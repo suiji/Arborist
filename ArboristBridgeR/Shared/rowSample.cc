@@ -16,26 +16,26 @@
 // along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file rcppSample.cc
+   @file rowSample.cc
 
-   @brief Interface to front-end methods implementing (response) sampling.
+   @brief Interface to Rcpp base methods implementing sampling.
 
    @author Mark Seligman
  */
 
-#include "rcppSample.h"
+#include "rowSample.h"
 
 
-bool RcppSample::withRepl = false;
+bool RowSample::withRepl = false;
 
 NumericVector weightNull(0);
-NumericVector &RcppSample::weight = weightNull;
+NumericVector &RowSample::weight = weightNull;
 
 IntegerVector rowSeqNull(0);
-IntegerVector &RcppSample::rowSeq = rowSeqNull;
+IntegerVector &RowSample::rowSeq = rowSeqNull;
 
 
-void RcppSample::init(const NumericVector &feWeight, bool withRepl_) {
+void RowSample::init(const NumericVector &feWeight, bool withRepl_) {
   weight = feWeight;
   rowSeq = seq(0, feWeight.length()-1);
 
@@ -43,7 +43,7 @@ void RcppSample::init(const NumericVector &feWeight, bool withRepl_) {
 }
 
 
-IntegerVector RcppSample::sampleRows(unsigned int nSamp) {
+IntegerVector RowSample::sampleRows(unsigned int nSamp) {
   BEGIN_RCPP
   RNGScope scope;
   return sample(rowSeq, nSamp, withRepl, clone(weight));

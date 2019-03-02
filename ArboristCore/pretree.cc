@@ -183,7 +183,7 @@ void PTNode::splitNum(const SplitCand &cand, unsigned int lhDel) {
 
    @return current height;
 */
-void PreTree::Level(unsigned int splitNext, unsigned int leafNext) {
+void PreTree::levelStorage(unsigned int splitNext, unsigned int leafNext) {
   if (height + splitNext + leafNext > nodeCount) {
     ReNodes();
   }
@@ -259,7 +259,7 @@ void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *fores
 
    @return void, with side-effected frontier map.
  */
-void PreTree::SubtreeFrontier(const vector<unsigned int> &stTerm) {
+void PreTree::subtreeFrontier(const vector<unsigned int> &stTerm) {
   for (auto & stIdx : stTerm) {
     termST.push_back(stIdx);
   }

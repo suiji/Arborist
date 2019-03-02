@@ -373,6 +373,11 @@ public:
     return idxStart;
   }
 
+
+  inline void setIdxStart(unsigned int idxStart) {
+    this->idxStart = idxStart;
+  }
+  
   /**
      @brief Accessor for cell upper index.
    */
@@ -397,10 +402,22 @@ public:
 
 
   /**
+   */
+  inline void setSum(double sum) {
+    this->sum = sum;
+  }
+
+
+  /**
      @brief Sample count accessor.
    */
   auto getSCount() const {
     return sCount;
+  }
+
+
+  inline void setSCount(unsigned int sCount) {
+    this->sCount = sCount;
   }
   
   /**

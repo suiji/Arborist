@@ -129,10 +129,10 @@ void Run::reBase() {
   }
 }
 
-bool Run::replay(const SplitCand& argMax,
-                 IndexSet* iSet,
-                 PreTree* preTree,
-                 const IndexLevel* index) const {
+bool Run::branchFac(const SplitCand& argMax,
+                    IndexSet* iSet,
+                    PreTree* preTree,
+                    IndexLevel* index) const {
   preTree->branchFac(argMax, iSet->getPTId());
   auto setIdx = argMax.getSetIdx();
   if (runSet[setIdx].implicitLeft()) {// LH holds bits, RH holds replay indices.
@@ -143,7 +143,7 @@ bool Run::replay(const SplitCand& argMax,
       else {
         unsigned int runStart, runExtent;
         runBounds(setIdx, outSlot, runStart, runExtent);
-        index->blockReplay(iSet, argMax, runStart, runExtent);
+        iSet->blockReplay(argMax, runStart, runExtent, index);
       }
     }
     return false;
@@ -153,7 +153,7 @@ bool Run::replay(const SplitCand& argMax,
       preTree->LHBit(iSet->getPTId(), getRank(setIdx, outSlot));
       unsigned int runStart, runExtent;
       runBounds(setIdx, outSlot, runStart, runExtent);
-      index->blockReplay(iSet, argMax, runStart, runExtent);
+      iSet->blockReplay(argMax, runStart, runExtent, index);
     }
     return true;
   }

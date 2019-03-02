@@ -66,6 +66,16 @@ class IndexSet {
   // overlaid with above via a union.
   unsigned int succOnly; // Fixed:  successor iSet.
   unsigned int offOnly; // Increases:  accumulating successor offset.
+
+  
+  /**
+     @brief Initializes certain fields to a default terminal state.
+
+     @param inatt is an inattainable value.
+   */
+  void initInattainable(unsigned int inatt) {
+    succExpl = succImpl = offExpl = offImpl = inatt;
+  }
   
   /**
      @brief Initializes index set as a successor node.
@@ -119,6 +129,7 @@ class IndexSet {
      @brief Consumes iSet contents into pretree or terminal map.
   */
   void consume(class IndexLevel *indexlevel,
+               const class Run* run,
                class PreTree *preTree,
                const vector<class SplitCand> &argMax);
 
@@ -126,6 +137,7 @@ class IndexSet {
      @brief Caches state necessary for reindexing and useful subsequently.
   */
   void nonTerminal(class IndexLevel *indexLevel,
+                   const class Run* run,
                    class PreTree *preTree,
                    const class SplitCand &argMax);
 
@@ -134,16 +146,22 @@ class IndexSet {
   */
   void terminal(class IndexLevel *indexLevel);
 
-  
-  void blockReplay(class SamplePred *samplePred,
-                   const class SplitCand& argMax,
-                   BV *replayExpl);
+  /**
+     @brief Directs split-based repartitioning and precipitates creation of a branch node.
 
-  void blockReplay(class SamplePred *samplePred,
-                   const class SplitCand& argMax,
+     Remaining parameters as described above.
+
+     @return true iff left hand of the split is explicit.
+  */
+  bool branchNum(const class SplitCand& argMax,
+                 class PreTree* preTree,
+                 class IndexLevel* indexLevel);
+
+  
+  void blockReplay(const class SplitCand& argMax,
                    unsigned int blockStart,
                    unsigned int blockExtent,
-                   BV *replayExpl);
+                   class IndexLevel* indexLevel);
 
   /**
      @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
@@ -155,12 +173,20 @@ class IndexSet {
 
 
   /**
-     @return count of splitable nodes precipitated in next level:  0/1.
+     @brief Accumulates index parameters of successor level.
+
+     @param succExent is the index of extent of the putative successor set.
+
+     @param[out] idxLive outputs the number of live successor indices.
+
+     @param[out] idxMax outputs the maximum successor index.
+
+     @return count of splitable sets precipitated in next level:  0/1.
   */
   static unsigned splitAccum(class IndexLevel *indexLevel,
-                             unsigned int _extent,
-                             unsigned int &_idxLive,
-                             unsigned int &_idxMax);
+                             unsigned int succExtent,
+                             unsigned int &idxLive,
+                             unsigned int &idxMax);
 
   /**
      @brief Sums each category for a node splitable in the upcoming level.
@@ -178,9 +204,11 @@ class IndexSet {
 
 
   /**
-     @brief Produces next level's iSets for LH and RH sides of a split.
+     @brief Produces next level's iSets for given hand (LH or RH) of a split.
 
      @param indexNext is the crescent successor level of index sets.
+
+     @param isLeft is true iff this is the LH successor.
   */
   void succHand(vector<IndexSet>& indexNext,
                 class Bottom* bottom,
@@ -188,9 +216,16 @@ class IndexSet {
                 const class PreTree* preTree,
                 bool isLeft) const;
 
+  
+  /**
+     @param Determines pretree index of specified successor.
+
+     @return pretree index determined.
+   */
   unsigned int getPTIdSucc(const class PreTree* preTree,
                            bool isLeft) const;
 
+  
   
   /**
      @brief Getter for split index.
@@ -200,6 +235,11 @@ class IndexSet {
   }
 
 
+  /**
+     @brief Determines whether specified hand of split is explicit.
+
+     @return true iff this is the explicit hand.
+   */
   inline bool isExplHand(bool isLeft) const {
     return leftExpl ? isLeft : !isLeft;
   }
@@ -274,30 +314,16 @@ class IndexSet {
   inline unsigned int getPTId() const {
     return ptId;
   }
+
   
-
   /**
-     @brief Exposes fields relevant for SplitPred methods.
+     @brief Copies certain fields of an index set to a splitting candidate.
 
-     N.B.:  Not all methods use all fields.
+     @param[in, out] cand is the splitting candidate.
 
-     @param _lhStart outputs the left-most index.
-
-     @param _extent outputs the count of unique indices.
-
-     @param _sCount outputs the total sample count.
-
-     @param _sum outputs the sum.
-  */
-  void inline getSplitFields(unsigned int &lhStart,
-                            unsigned int &extent,
-                            unsigned int &sCount,
-                            double &sum) const {
-    lhStart = this->lhStart;
-    extent = this->extent;
-    sCount = this->sCount;
-    sum = this->sum;
-  }
+     @return extent of index set specified by candidate.
+   */
+  unsigned int setCand(class SplitCand* cand) const;
 
 
   /**
@@ -363,7 +389,6 @@ class IndexLevel {
   unique_ptr<class SamplePred> samplePred;
   vector<IndexSet> indexSet;
   const unsigned int bagCount;
-  unique_ptr<class SplitNode> splitNode;
   unique_ptr<class Bottom> bottom;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
@@ -378,54 +403,63 @@ class IndexLevel {
   vector<unsigned int> rel2PT; // Maps to pretree index.
   vector<unsigned int> st2Split; // Useful for subtree-relative indexing.
   vector<unsigned int> st2PT; // Frontier map.
-  class BV *replayExpl;
+  unique_ptr<class BV> replayExpl; // Per-sample partition direction:  L/R.
 
   /**
-     @brief Tallies previous level's splitting results.
+     @brief Applies splitting results to new level.
 
-     @param argMax is a vector of split signatures corresponding to the
-     nodes.
+     @param argMax are the per-node splitting candidates.
 
-     @return count of splitable nodes in the next level.
+     @param levelTerminal_ indicates whether new level marked as final.
   */
-  unsigned int splitCensus(const vector<class SplitCand> &argMax,
-                           unsigned int &leafNext,
-                           unsigned int &idxMax,
-                           bool _levelTerminal);
+  void splitDispatch(const class SplitNode* splitNode,
+                     const vector<class SplitCand> &argMax,
+                     class PreTree* preTree,
+                     bool levelTerminal_);
 
   /**
-     @brief Consumes current level of splits into new pretree level,
-     then replays successor mappings.
+     @brief Consumes current level of splits into crescent tree and sets repartitioning bits.
+
+     @param preTree represents the crescent tree.
+
+     @param splitNext is the number of splits in the new level.
+
+     Remaining parameters as described above.
   */
-  void consume(class PreTree *preTree,
+  void consume(const class SplitNode* splitNode,
+               class PreTree *preTree,
                const vector<class SplitCand> &argMax,
                unsigned int splitNext,
                unsigned int leafNext,
                unsigned int idxMax);
 
   /**
-     @brief Produces next level's index sets, as appropriate, and
-     dispatches extinct nodes to pretree frontier.
+     @brief Produces new level's index sets and dispatches extinct nodes to pretree frontier.
+
+     Parameters as described above.
   */
   void produce(const class PreTree *preTree,
                unsigned int splitNext);
 
 
  public:
+
   /**
-     @brief Initialization of static invariants.
+     @brief Initializes static invariants.
 
-     @param _minNode is the minimum node size for splitting.
+     @param minNode_ is the minimum node size for splitting.
 
-     @param _totLevels is the maximum number of levels to evaluate.
+     @param totLevels_ is the maximum number of levels to evaluate.
   */
-  static void immutables(unsigned int _minNode, unsigned int _totLevels);
+  static void immutables(unsigned int minNode_,
+                         unsigned int totLevels_);
 
 
   /**
-     @brief Resets statics.
+     @brief Resets statics to default values.
   */
   static void deImmutables();
+
 
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
@@ -437,13 +471,13 @@ class IndexLevel {
   ~IndexLevel();
 
   /**
-    @brief Performs sampling and level processing for a single tree.
+    @brief Trains one tree.
 
-    @param frameTrain contains the predictor frame mappings.
-
-    @param sample contains the bagging summary.
+    @param frameTrain contains the predictor type mappings.
 
     @param rowRank contains the per-predictor observation rankings.
+
+    @param sample contains the bagging summary.
 
     @return trained pretree object.
   */
@@ -453,24 +487,16 @@ class IndexLevel {
 
 
   /**
-     @brief Main loop for per-level splitting.  Assumes root node and
-     attendant per-tree data structures have been initialized.
+     @brief Drives breadth-first splitting.
 
-     @param frameTrain holds the predictor cardinality values.
-
+     Assumes root node and attendant per-tree data structures have been initialized.
+     Parameters as described above.
+     
      @return trained pretree object.
   */
   shared_ptr<class PreTree> levels(const class FrameTrain *frameTrain,
                                    const class Sample* sample);
   
-  /**
-     @param sumExpl outputs response sum over explicit hand of the split.
-
-     @return true iff left hand of the split is explicit.
-  */
-  bool nonTerminal(class PreTree *preTree,
-                   IndexSet *iSet,
-                   const class SplitCand &argMax);
 
   /**
      @brief Builds index base offsets to mirror crescent pretree level.
@@ -491,37 +517,16 @@ class IndexLevel {
                        unsigned int &outOff,
                        bool terminal = false);
 
-  void blockReplay(IndexSet *iSet,
-                   const class SplitCand& argMax,
-                   unsigned int blockStart,
-                   unsigned int blockExtent) const;
-
-  /**
-     @brief Dispatches nonterminal method based on predictor type.
-
-     @param argMax is the split candidate characterizing the nonterminal.
-
-     @param preTree is the crescent pretree.
+  double blockReplay(const class SplitCand& argMax,
+                     vector<SumCount>& ctgExpl);
   
-     @param iSet is the node being split.
-
-     @param run specifies the run sets associated with the node.
-
-     @return true iff left-hand of split is explicit.
-  */
-  bool nonTerminal(const class SplitCand &argMax,
-                   class PreTree *preTree,
-                   class IndexSet *iSet,
-                   const class Run *run) const;
-
   /**
-     @brief Precipitates nonterminal branch with numerical split value.
-
-     @return true iff LHS is explicit.
-   */
-  bool branchNum(const class SplitCand& argMax,
-                 class IndexSet *iSet,
-                 class PreTree *preTree) const;
+     @brief Repartitions sample map for a block of indices.
+  */
+  double blockReplay(const class SplitCand& argMax,
+                     unsigned int blockStart,
+                     unsigned int blockExtent,
+                     vector<SumCount>& ctgExpl) const;
 
   /**
      @brief Drives node-relative re-indexing.
@@ -589,7 +594,7 @@ class IndexLevel {
     Not only are these nonsensical, but they are also dangerous, as they violate
     various assumptions about the integrity of the intermediate respresentation.
 
-    @param _extent is the count of indices subsumed by the node.
+    @param extent is the count of indices subsumed by the node.
 
     @return true iff the node subsumes more than minimal count of buffer elements.
   */
@@ -599,9 +604,9 @@ class IndexLevel {
 
 
   /**
-     @brief 'bagCount' accessor.
+     @brief Getter for # of distinct in-bag samples.
 
-     @return in-bag count for current tree.
+     @return bagCount value.
    */
   inline unsigned int getBagCount() const {
     return bagCount;
@@ -609,44 +614,48 @@ class IndexLevel {
 
 
   /**
-     @brief Accessor for count of splitable nodes.
+     @brief Accessor for count of splitable sets.
    */
   inline unsigned int getNSplit() const {
     return indexSet.size();
   }
 
+  /**
+     @brief Accessor for sum of sampled responses over set.
+
+     @param splitIdx is the level-relative index of a set.
+
+     @return index set's sum value.
+   */
   inline double getSum(unsigned int splitIdx) const {
     return indexSet[splitIdx].getSum();
   }
 
-  
+
+  /**
+     @brief Accessor for count of sampled responses over set.
+   */
   inline unsigned int getSCount(unsigned int splitIdx) const {
     return indexSet[splitIdx].getSCount();
   }
 
 
+  /**
+     @brief Accessor for count of disinct indices over set.
+   */
   inline unsigned int getExtent(unsigned int splitIdx) const {
     return indexSet[splitIdx].getExtent();
   }
   
 
-  inline unsigned int StartIdx(unsigned int splitIdx) const {
-    return indexSet[splitIdx].getStart();
-  }
+  /**
+     @brief Copies certain fields of this set to a splitting candidate.
 
+     @param[in, out] is the splitting candidate.
 
-  inline void getSplitFields(unsigned int splitIdx,
-                            unsigned int &idxStart,
-                            unsigned int &extent,
-                            unsigned int &sCount,
-                            double &sum) const {
-    return indexSet[splitIdx].getSplitFields(idxStart, extent, sCount, sum);
-  }
-
-
-  inline unsigned int SuccBase(unsigned int splitIdx) {
-    return succBase[splitIdx];
-  }
+     @return index extent of this set.
+   */
+  unsigned int setCand(class SplitCand* cand) const;
 
 
   /**
@@ -657,6 +666,9 @@ class IndexLevel {
   }
 
 
+  /**
+     @brief Indicates whether index set is inherently unsplitable.
+   */
   inline bool isUnsplitable(unsigned int splitIdx) const {
     return indexSet[splitIdx].isUnsplitable();
   }

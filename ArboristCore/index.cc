@@ -52,7 +52,6 @@ void IndexSet::decr(vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgSub) 
 
 
 IndexLevel::~IndexLevel() {
-  delete replayExpl;
 }
 
 
@@ -85,15 +84,14 @@ IndexLevel::IndexLevel(const FrameTrain* frameTrain,
   samplePred(sample->predictors()),
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
-  splitNode(sample->splitNodeFactory(frameTrain)),
-  bottom(make_unique<Bottom>(frameTrain, rowRank, bagCount, splitNode.get())),
+  bottom(make_unique<Bottom>(frameTrain, rowRank, bagCount)),
   nodeRel(false),
   idxLive(bagCount),
   relBase(vector<unsigned int>(1)),
   rel2ST(vector<unsigned int>(bagCount)),
   st2Split(vector<unsigned int>(bagCount)),
   st2PT(vector<unsigned int>(bagCount)),
-  replayExpl(new BV(bagCount)) {
+  replayExpl(make_unique<BV>(bagCount)) {
   indexSet[0].initRoot(sample);
   relBase[0] = 0;
   iota(rel2ST.begin(), rel2ST.end(), 0);
@@ -114,7 +112,7 @@ void IndexSet::initRoot(const Sample* sample) {
   ctgSum = sample->getCtgRoot();
   ctgExpl = move(vector<SumCount>(ctgSum.size()));
 
-  succExpl = succImpl = offExpl = offImpl = sample->getBagCount();
+  initInattainable(sample->getBagCount());
 }
 
 
@@ -123,31 +121,28 @@ shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain,
   auto stageCount = sample->stage(samplePred.get());
   bottom->rootDef(stageCount);
   shared_ptr<PreTree> preTree = make_shared<PreTree>(frameTrain, bagCount);
+  auto splitNode = sample->splitNodeFactory(frameTrain);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
-    bottom->levelInit(this);
-    auto argMax = bottom->split(samplePred.get(), this);
-
-    unsigned int leafNext, idxMax;
-    unsigned int splitNext = splitCensus(argMax, leafNext, idxMax, level + 1 == totLevels);
-    consume(preTree.get(), argMax, splitNext, leafNext, idxMax);
-    produce(preTree.get(), splitNext);
-    bottom->levelClear();
+    bottom->scheduleSplits(samplePred.get(), splitNode.get(), this);
+    auto argMax = splitNode->split(samplePred.get());
+    splitDispatch(splitNode.get(), argMax, preTree.get(), level + 1 == totLevels);
+    splitNode->levelClear();
   }
 
   relFlush();
-  preTree->SubtreeFrontier(st2PT);
+  preTree->subtreeFrontier(st2PT);
 
   return preTree;
 }
 
 
-unsigned int IndexLevel::splitCensus(const vector<SplitCand> &argMax,
-                                     unsigned int &leafNext,
-                                     unsigned int &idxMax,
-                                     bool levelTerminal) {
+void IndexLevel::splitDispatch(const SplitNode* splitNode,
+                               const vector<SplitCand> &argMax,
+                               PreTree* preTree,
+                               bool levelTerminal) {
   this->levelTerminal = levelTerminal;
-  unsigned int splitNext, leafThis, idxExtent;
+  unsigned int leafNext, idxMax, splitNext, leafThis, idxExtent;
   idxExtent = idxLive; // Previous level's index space.
   leafThis = splitNext = idxLive = idxMax = 0;
   for (auto & iSet : indexSet) {
@@ -158,11 +153,11 @@ unsigned int IndexLevel::splitCensus(const vector<SplitCand> &argMax,
   // Restaging is implemented as a patient stable partition.
   //
   leafNext = 2 * (indexSet.size() - leafThis) - splitNext;
-
   succBase = move(vector<unsigned int>(splitNext + leafNext + leafThis));
   fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
 
-  return splitNext;
+  consume(splitNode, preTree, argMax, splitNext, leafNext, idxMax);
+  produce(preTree, splitNext);
 }
 
 
@@ -187,12 +182,12 @@ void IndexSet::applySplit(const vector<SplitCand> &argMaxVec) {
 
 
 unsigned IndexSet::splitAccum(IndexLevel *indexLevel,
-                              unsigned int _extent,
-                              unsigned int &_idxLive,
-                              unsigned int &_idxMax) {
-    if (indexLevel->isSplitable(_extent)) {
-      _idxLive += _extent;
-      _idxMax = _extent > _idxMax ? _extent : _idxMax;
+                              unsigned int succExtent,
+                              unsigned int &idxLive,
+                              unsigned int &idxMax) {
+    if (indexLevel->isSplitable(succExtent)) {
+      idxLive += succExtent;
+      idxMax = succExtent > idxMax ? succExtent : idxMax;
       return 1;
     }
     else {
@@ -201,19 +196,20 @@ unsigned IndexSet::splitAccum(IndexLevel *indexLevel,
   }
 
   
-void IndexLevel::consume(PreTree *preTree,
+void IndexLevel::consume(const SplitNode* splitNode,
+                         PreTree *preTree,
                          const vector<SplitCand> &argMax,
                          unsigned int splitNext,
                          unsigned int leafNext,
                          unsigned int idxMax) {
-  preTree->Level(splitNext, leafNext); // Overlap:  two levels co-exist.
+  preTree->levelStorage(splitNext, leafNext); // Overlap:  two levels co-exist.
   replayExpl->Clear();
   succLive = 0;
   succExtinct = splitNext; // Pseudo-indexing for extinct sets.
   liveBase = 0;
   extinctBase = idxLive;
   for (auto & iSet : indexSet) {
-    iSet.consume(this, preTree, argMax);
+    iSet.consume(this, splitNode->getRuns(), preTree, argMax);
   }
 
   if (nodeRel) {
@@ -233,9 +229,9 @@ void IndexLevel::consume(PreTree *preTree,
 }
 
 
-void IndexSet::consume(IndexLevel *indexLevel, PreTree *preTree, const vector<SplitCand> &argMax) {
+void IndexSet::consume(IndexLevel *indexLevel, const Run* run, PreTree *preTree, const vector<SplitCand> &argMax) {
   if (doesSplit) {
-    nonTerminal(indexLevel, preTree, argMax[splitIdx]);
+    nonTerminal(indexLevel, run, preTree, argMax[splitIdx]);
   }
   else {
     terminal(indexLevel);
@@ -248,8 +244,9 @@ void IndexSet::terminal(IndexLevel *indexLevel) {
 }
 
 
-void IndexSet::nonTerminal(IndexLevel *indexLevel, PreTree *preTree, const SplitCand &argMax) {
-  leftExpl = indexLevel->nonTerminal(preTree, this, argMax);
+void IndexSet::nonTerminal(IndexLevel *indexLevel, const Run* run, PreTree *preTree, const SplitCand &argMax) {
+  leftExpl =   run->isRun(argMax) ? run->branchFac(argMax, this, preTree, indexLevel) : branchNum(argMax, preTree, indexLevel);
+
   ptExpl = getPTIdSucc(preTree, leftExpl);
   ptImpl = getPTIdSucc(preTree, !leftExpl);
   succExpl = indexLevel->idxSucc(getExtentSucc(leftExpl), ptExpl, offExpl);
@@ -260,10 +257,34 @@ void IndexSet::nonTerminal(IndexLevel *indexLevel, PreTree *preTree, const Split
 }
 
 
-bool IndexLevel::nonTerminal(PreTree *preTree,
-                             IndexSet *iSet,
-                             const SplitCand &argMax) {
-  return nonTerminal(argMax, preTree, iSet, bottom->getRuns());
+bool IndexSet::branchNum(const SplitCand& argMax,
+                         PreTree *preTree,
+                         IndexLevel* indexLevel) {
+  preTree->branchNum(argMax, ptId);
+  sumExpl += indexLevel->blockReplay(argMax, ctgExpl);
+  
+  return argMax.leftIsExplicit();
+}
+
+
+double IndexLevel::blockReplay(const SplitCand& argMax, vector<SumCount>& ctgExpl) {
+  return samplePred->blockReplay(argMax, replayExpl.get(), ctgExpl);
+}
+
+
+void IndexSet::blockReplay(const SplitCand& argMax,
+                           unsigned int blockStart,
+                           unsigned int blockExtent,
+                           IndexLevel* indexLevel) {
+  sumExpl += indexLevel->blockReplay(argMax, blockStart, blockExtent, ctgExpl);
+}
+
+
+double IndexLevel::blockReplay(const SplitCand& argMax,
+                             unsigned int blockStart,
+                             unsigned int blockExtent,
+                             vector<SumCount>& ctgExpl) const {
+  return samplePred->blockReplay(argMax, blockStart, blockExtent, replayExpl.get(), ctgExpl);
 }
 
 
@@ -297,7 +318,7 @@ void IndexLevel::nodeReindex() {
   {
 #pragma omp for schedule(dynamic, 1) 
     for (splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
-      indexSet[splitIdx].reindex(replayExpl, this, idxLive, succST);
+      indexSet[splitIdx].reindex(replayExpl.get(), this, idxLive, succST);
     }
   }
   rel2ST = move(succST);
@@ -455,7 +476,7 @@ void IndexSet::succInit(IndexLevel *indexLevel,
   ctgExpl = move(vector<SumCount>(ctgSum.size()));
 
   // Inattainable value.  Reset only when non-terminal:
-  succExpl = succImpl = offExpl = offImpl = indexLevel->getBagCount();
+  initInattainable(indexLevel->getBagCount());
 }
 
 
@@ -489,43 +510,15 @@ void IndexSet::sumsAndSquares(double  &sumSquares, double *sumOut) {
 }
 
 
-bool IndexLevel::nonTerminal(const SplitCand &argMax,
-                             PreTree *preTree,
-                             IndexSet *iSet,
-                             const Run *run) const {
-  return run->isRun(argMax) ? run->replay(argMax, iSet, preTree, this) : branchNum(argMax, iSet, preTree);
+unsigned int IndexLevel::setCand(SplitCand* cand) const {
+  return indexSet[cand->getSplitIdx()].setCand(cand);
 }
 
 
-bool IndexLevel::branchNum(const SplitCand& argMax,
-                          IndexSet* iSet,
-                          PreTree* preTree) const {
-  preTree->branchNum(argMax, iSet->getPTId());
-  iSet->blockReplay(samplePred.get(), argMax, replayExpl);
+unsigned int IndexSet::setCand(SplitCand* cand) const {
+  cand->setIdxStart(lhStart);
+  cand->setSCount(sCount);
+  cand->setSum(sum);
 
-  return argMax.leftIsExplicit();
-}
-
-
-void IndexSet::blockReplay(SamplePred* samplePred,
-                           const SplitCand& argMax,
-                           BV* replayExpl) {
-  sumExpl += samplePred->blockReplay(argMax, replayExpl, ctgExpl);
-}
-
-
-void IndexLevel::blockReplay(IndexSet *iSet,
-                             const SplitCand& argMax,
-                             unsigned int blockStart,
-                             unsigned int blockExtent) const {
-  iSet->blockReplay(samplePred.get(), argMax, blockStart, blockExtent, replayExpl);
-}
-
-
-void IndexSet::blockReplay(SamplePred *samplePred,
-                           const SplitCand& argMax,
-                           unsigned int blockStart,
-                           unsigned int blockExtent,
-                           BV *replayExpl) {
-  sumExpl += samplePred->blockReplay(argMax, blockStart, blockExtent, replayExpl, ctgExpl);
+  return extent;
 }
