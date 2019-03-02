@@ -117,8 +117,8 @@ class PreTree {
  public:
   PreTree(const class FrameTrain *_frameTrain, unsigned int _bagCount);
   ~PreTree();
-  static void Immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
-  static void DeImmutables();
+  static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
+  static void deImmutables();
   static void reserve(size_t height);
 
 

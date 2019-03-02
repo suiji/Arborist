@@ -57,7 +57,7 @@ Level::Level(unsigned int _nSplit,
   fill(offCand.begin(), offCand.end(), bagCount);
 }
 
-void Level::Immutables(unsigned int feFixed, const vector<double> &feProb) {
+void Level::immutables(unsigned int feFixed, const vector<double> &feProb) {
   predFixed = feFixed;
   for (auto prob : feProb) {
     predProb.push_back(prob);
@@ -65,7 +65,7 @@ void Level::Immutables(unsigned int feFixed, const vector<double> &feProb) {
 }
 
 
-void Level::DeImmutables() {
+void Level::deImmutables() {
   predFixed = 0;
   predProb.clear();
 }

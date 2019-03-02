@@ -141,8 +141,7 @@ void RowRank::decompress(const unsigned int feRow[], const unsigned int feRank[]
 	break;
       runLength = runSlot(feRLE, feRow, feRank, rleIdx, row, rank);
     }
-    //    if (outIdx - rrStart[predIdx] != explicitCount[predIdx])
-    //cout << "Dense count mismatch" << endl;
+    // Post-condition:  outIdx - rrStart[predIdx] == explicitCount[predIdx]
   }
 }
 

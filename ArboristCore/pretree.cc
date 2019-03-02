@@ -43,7 +43,7 @@ size_t PreTree::leafMax = 0;
 
    @return void.
  */
-void PreTree::Immutables(size_t _nSamp, size_t _minH, size_t _leafMax) {
+void PreTree::immutables(size_t _nSamp, size_t _minH, size_t _leafMax) {
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
@@ -64,7 +64,7 @@ void PreTree::Immutables(size_t _nSamp, size_t _minH, size_t _leafMax) {
 }
 
 
-void PreTree::DeImmutables() {
+void PreTree::deImmutables() {
   leafMax = heightEst = 0;
 }
 

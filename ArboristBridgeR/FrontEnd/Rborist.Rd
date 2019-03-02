@@ -14,7 +14,8 @@
 }
 
 \usage{
-\method{Rborist}{default} (x, y, nTree=500, withRepl = TRUE,
+\method{Rborist}{default} (x,
+                y,
                 autoCompress = 0.25,
                 ctgCensus = "votes",
                 classWeight = NULL,
@@ -22,8 +23,10 @@
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
                 nLevel = 0,
-                noValidate = FALSE,
                 nSamp = 0,
+                nThread = 0,
+                nTree = 500,
+                noValidate = FALSE,
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
@@ -35,7 +38,9 @@
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
-                pvtBlock = 8, ...)
+                verbose = FALSE,
+                withRepl = TRUE,
+                ...)
 }
 
 \arguments{
@@ -44,8 +49,6 @@
   as a numeric matrix.}
   \item{y}{ the response (outcome) vector, either numerical or
   categorical.  Row count must conform with \code{x}.}
-  \item{nTree}{ the number of trees to train.}
-  \item{withRepl}{whether row sampling is by replacement.}
   \item{autoCompress}{plurality above which to compress predictor values.}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{classWeight}{proportional weighting of classification
@@ -55,8 +58,11 @@
   \item{minNode}{minimum number of distinct row references to split a node.}
   \item{nLevel}{maximum number of tree levels to train.  Zero denotes no
     limit.}
-  \item{noValidate}{whether to train without validation.}
   \item{nSamp}{number of rows to sample, per tree.}
+  \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes
+    the default processor setting.}
+  \item{nTree}{ the number of trees to train.}
+  \item{noValidate}{whether to train without validation.}
   \item{predFixed}{number of trial predictors for a split (\code{mtry}).}
   \item{predProb}{probability of selecting individual predictor as trial splitter.}
   \item{predWeight}{relative weighting of individual predictors as trial
@@ -73,8 +79,8 @@
   order to reduce memory footprint.}
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
-  \item{pvtBlock}{maximum number of trees to train in a block (e.g.,
-    cluster computing).}
+  \item{verbose}{indicates whether to output progress of training.}
+  \item{withRepl}{whether row sampling is by replacement.}
   \item{...}{not currently used.}
 }
 

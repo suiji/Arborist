@@ -46,14 +46,14 @@ void Train::initCDF(const vector<double> &feSplitQuant) {
 
 void Train::initProb(unsigned int predFixed,
                      const vector<double> &predProb) {
-  Level::Immutables(predFixed, predProb);
+  Level::immutables(predFixed, predProb);
 }
 
 
 void Train::initTree(unsigned int nSamp,
                      unsigned int minNode,
                      unsigned int leafMax) {
-  PreTree::Immutables(nSamp, minNode, leafMax);
+  PreTree::immutables(nSamp, minNode, leafMax);
 }
 
 
@@ -90,10 +90,10 @@ void Train::deInit() {
   TreeNode::DeImmutables();
   SplitCand::deImmutables();
   IndexLevel::deImmutables();
-  PreTree::DeImmutables();
+  PreTree::deImmutables();
   Sample::deImmutables();
   SampleNux::deImmutables();
-  Level::DeImmutables();
+  Level::deImmutables();
   SPReg::DeImmutables();
   OmpThread::deInit();
 }

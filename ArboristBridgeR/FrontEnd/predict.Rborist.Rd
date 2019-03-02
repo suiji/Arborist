@@ -10,7 +10,8 @@
 
 \usage{
 \method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", ...)
+quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", oob =
+FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
@@ -27,6 +28,10 @@ quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", ...)
   \item{ctgCensus}{whether/how to summarize per-category predictions.
   "votes" specifies the number of trees predicting a given class.
   "prob" specifies a normalized, probabilistic summary.}
+  \item{oob}{whether prediction is restricte to out-of-bag samples.}
+  \item{nThread}{suggests ans OpenMP-style thread count.  Zero denotes
+    default processor setting.}
+  \item{verbose}{whether to output progress of prediction.}
   \item{...}{not currently used.}
 }
 

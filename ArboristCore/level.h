@@ -255,7 +255,7 @@ class Level {
                    unsigned int extent,
                    unsigned int &spanCand);
   
- public:
+public:
   Level(unsigned int _nSplit,
         unsigned int _nPred,
         const vector<unsigned int> &_denseIdx,
@@ -266,8 +266,8 @@ class Level {
         class Bottom *bottom);
   ~Level();
 
-  static void Immutables(unsigned int feFixed, const vector<double> &feProb);
-  static void DeImmutables();
+  static void immutables(unsigned int feFixed, const vector<double> &feProb);
+  static void deImmutables();
 
 
   /**

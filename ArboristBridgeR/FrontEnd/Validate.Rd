@@ -12,7 +12,8 @@
 
 \usage{
 \method{Validate}{default}(preFormat, train, y, ctgCensus = "votes",
-quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000)
+quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000, nThread =
+0, verbose = FALSE)
 }
 
 \arguments{
@@ -26,6 +27,9 @@ quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000)
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}
   \item{qBin}{bin size for facilating quantiles at large sample count.}
+  \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes
+    the default processor setting.}
+  \item{verbose}{indicates whether to output progress of validation.}
 }
 
 \value{an object of class \code{validation}:

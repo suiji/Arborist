@@ -255,63 +255,59 @@ class IndexSet {
   }
 
 
-  inline unsigned int getIdxSucc(bool isLeft) const {
+  inline auto getIdxSucc(bool isLeft) const {
     return isExplHand(isLeft) ? succExpl : succImpl;
   }
 
 
-  inline double getSumSucc(bool isLeft) const {
+  inline auto getSumSucc(bool isLeft) const {
     return isExplHand(isLeft) ? sumExpl : sum - sumExpl;
   }
 
 
-  inline unsigned int getPathSucc(bool isLeft) const {
+  inline auto getPathSucc(bool isLeft) const {
     return isExplHand(isLeft) ? pathExpl : pathImpl;
   }
 
   
-  inline unsigned int getSCountSucc(bool isLeft) const {
+  inline auto getSCountSucc(bool isLeft) const {
     return isLeft ? lhSCount : sCount - lhSCount;
   }
 
-  inline unsigned int getLHStartSucc(bool isLeft) const {
+  inline auto getLHStartSucc(bool isLeft) const {
     return isLeft ?  lhStart : lhStart + lhExtent;
   }
 
 
-  inline unsigned int getExtentSucc(bool isLeft) const {
+  inline auto getExtentSucc(bool isLeft) const {
     return isLeft ? lhExtent : extent - lhExtent;
   }
   
   /**
-     @return 'lhStart' field.
+     @brief Getters returning like-named member value.
    */
-  inline unsigned int getStart() const {
+
+  inline auto getStart() const {
     return lhStart;
   }
 
   
-  /**
-     @brief Index node extent accessor.
-
-     @return index extent.
-   */
-  inline unsigned int getExtent() const {
+  inline auto getExtent() const {
     return extent;
   }
 
 
-  inline double getSum() const {
+  inline auto getSum() const {
     return sum;
   }
   
 
-  inline unsigned int getSCount() const {
+  inline auto getSCount() const {
     return sCount;
   }
 
 
-  inline unsigned int getPTId() const {
+  inline auto getPTId() const {
     return ptId;
   }
 
@@ -661,7 +657,7 @@ class IndexLevel {
   /**
      @brief Accessor for relative base of split.
    */
-  inline unsigned int getRelBase(unsigned int splitIdx) {
+  inline unsigned int getRelBase(unsigned int splitIdx) const {
     return relBase[splitIdx];
   }
 

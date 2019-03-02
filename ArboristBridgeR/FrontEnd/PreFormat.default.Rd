@@ -14,12 +14,14 @@
 
 
 \usage{
-\method{PreFormat}{default}(x)
+\method{PreFormat}{default}(x, verbose)
 }
 
 \arguments{
   \item{x}{the design matrix expressed as either a \code{data.frame}
-  object with numeric and/or \code{factor} columns or as a numeric matrix.}
+  object with numeric and/or \code{factor} columns or as a numeric
+  matrix.}
+  \item{verbose}{indicates whether to output progress of preformatting.}
 }
 
 \value{
