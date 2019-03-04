@@ -139,7 +139,6 @@ struct PBBridgeReg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafRegBridge> leaf_,
-              bool validate,
               unsigned int nThread);
 
  /**
@@ -155,7 +154,7 @@ struct PBBridgeReg : public PBBridge {
 
     @param sYTest is the test vector.
 
-    @param validate is true iff validating.
+    @param oob is true iff testing restricted to out-of-bag.
 
     @return wrapped prediction list.
  */
@@ -164,7 +163,7 @@ struct PBBridgeReg : public PBBridge {
                     SEXP sQuantVec,
                     SEXP sQBin,
                     SEXP sYTest,
-                    bool validate,
+                    bool oob,
                     unsigned int nThread);
 
   /**
@@ -173,7 +172,7 @@ struct PBBridgeReg : public PBBridge {
   static List reg(const List& sPredBlock,
                   const List& sTrain,
                   SEXP sYTest,
-                  bool validate,
+                  bool oob,
                   unsigned int nThread);
 
 
@@ -184,7 +183,7 @@ struct PBBridgeReg : public PBBridge {
    */
   static unique_ptr<PBBridgeReg> factory(const List& sPredBlock,
                                          const List& lTrain,
-                                         bool validate,
+                                         bool oob,
                                          unsigned int nThread);
 
 private:
@@ -214,7 +213,6 @@ struct PBBridgeCtg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafCtgBridge> leaf_,
-              bool validate,
               unsigned int nThread);
 
   /**
@@ -225,7 +223,7 @@ struct PBBridgeCtg : public PBBridge {
   static List ctg(const List& sPredBlock,
                   const List& sTrain,
                   SEXP sYTest,
-                  bool validate,
+                  bool oob,
                   bool doProb,
                   unsigned int nThread);
 
@@ -236,7 +234,7 @@ struct PBBridgeCtg : public PBBridge {
    */
   static unique_ptr<PBBridgeCtg> factory(const List& sPredBlock,
                                          const List& lTrain,
-                                         bool validate,
+                                         bool oob,
                                          bool doProb,
                                          unsigned int nThread);
 private:

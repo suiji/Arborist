@@ -26,13 +26,11 @@ PredictBox::PredictBox(const FramePredict* framePredict_,
                        const Forest* forest_,
                        const BitMatrix* bag_,
                        LeafFrame* leafFrame_,
-                       bool validate_,
                        unsigned int nThread) :
   framePredict(framePredict_),
   forest(forest_),
   bag(bag_),
-  leafFrame(leafFrame_),
-  validate(validate_) {
+  leafFrame(leafFrame_) {
   OmpThread::init(nThread);
 }
 
@@ -42,7 +40,6 @@ PredictBox::~PredictBox() {
 
 
 Predict::Predict(const PredictBox* box) :
-  useBag(box->validate),
   framePredict(box->framePredict),
   forest(box->forest),
   nTree(forest->getNTree()),
@@ -148,7 +145,7 @@ void Predict::rowNum(unsigned int row,
   auto rowT = framePredict->baseNum(blockRow);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
-    if (!(useBag && bag->testBit(tIdx, row))) {
+    if (!(bag != nullptr && bag->testBit(tIdx, row))) {
       auto idx = treeOrigin[tIdx];
       do {
         idx += treeNode[idx].advance(rowT, leafIdx);
@@ -166,7 +163,7 @@ void Predict::rowFac(unsigned int row,
                      const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
-    if (!(useBag && bag->testBit(tIdx, row))) {
+    if (!(bag != nullptr && bag->testBit(tIdx, row))) {
       auto rowT = framePredict->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
@@ -185,7 +182,7 @@ void Predict::rowMixed(unsigned int row,
                        const BitMatrix *bag) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
-    if (!(useBag && bag->testBit(tIdx, row))) {
+    if (!(bag != nullptr && bag->testBit(tIdx, row))) {
       auto rowNT = framePredict->baseNum(blockRow);
       auto rowFT = framePredict->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];

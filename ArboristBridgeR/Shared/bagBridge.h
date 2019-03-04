@@ -76,14 +76,46 @@ class BagBridge {
   List wrap();
 
   /**
-     @brief Read bundled bag information in front-end format.
+     @brief Reads bundled bag information in front-end format.
+
+     @param sBag contains the training bag.
+
+     @param sPredBlock summarizes the prediction data set.
+
+     @param oob indicates whether a non-null bag is requested.
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<BagBridge> unwrap(const List &sBag);
+  static unique_ptr<BagBridge> unwrap(const List& sBag,
+                                      const List& sPredBlock,
+                                      bool oob);
+
+  
+  /**
+     @brief Checks that bag and prediction data set have conforming rows.
+
+     @param sBag is the training bag.
+
+     @param sPredBlock summarizes the prediction data set.
+   */
+  static SEXP checkOOB(const List& sBag,
+                       const List& sPredBlock);
+  
+
+  /**
+     @brief Reads bundled bag information for export.
+
+     @param sBag contains the training bag.
+
+     @return instantiation containing baga raw data.
+   */
+  static unique_ptr<BagBridge> unwrap(const List& sBag);
+
 
   /**
      @brief Getter for raw data pointer.
+
+     @return raw pointer if non-empty, else nullptr.
    */
   const BitMatrix* getRaw();
 };

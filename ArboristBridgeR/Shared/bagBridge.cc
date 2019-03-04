@@ -54,7 +54,8 @@ void BagBridge::consume(const Train *train, unsigned int treeOff) {
 
 
 const BitMatrix *BagBridge::getRaw() {
-  return bmRaw.get();
+  // zero rows indicates an empty bit matrix.
+  return nRow > 0 ? bmRaw.get() : nullptr;
 }
 
 
@@ -70,6 +71,31 @@ List BagBridge::wrap() {
   END_RCPP
 }
 
+
+unique_ptr<BagBridge> BagBridge::unwrap(const List &sTrain, const List &sPredBlock, bool oob) {
+  if (!oob) {
+    return make_unique<BagBridge>(0, 0, RawVector(0));
+  }
+  else {
+    List sBag((SEXP) sTrain["bag"]);
+    checkOOB(sBag, sPredBlock);
+    return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
+                                as<unsigned int>(sBag["nTree"]),
+                                RawVector((SEXP) sBag["raw"]));
+  }
+}
+
+
+SEXP BagBridge::checkOOB(const List& sBag, const List& sPredBlock) {
+  BEGIN_RCPP
+  if (as<unsigned int>(sBag["nRow"]) == 0)
+    stop("Out-of-bag prediction requested but bag empty");
+
+  if (as<unsigned int>(sBag["nRow"]) != as<unsigned int>(sPredBlock["nRow"]))
+    stop("Bag and prediction row counts do not agree");
+
+  END_RCPP
+}
 
 unique_ptr<BagBridge> BagBridge::unwrap(const List &sTrain) {
   List sBag((SEXP) sTrain["bag"]);

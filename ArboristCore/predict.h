@@ -28,9 +28,8 @@
 struct PredictBox {
   const class FramePredict* framePredict; // Frame of dense predictor blocks.
   const class Forest* forest; // Trained forest.
-  const class BitMatrix* bag; // In-bag representation.
+  const class BitMatrix* bag; // In-bag representation (or nullptr).
   class LeafFrame* leafFrame; // Subclasses to regression or classification.
-  const bool validate; // Whether this is out-of-bag prediction.
 
   /**
      @brief Constructor boxes training and output summaries.
@@ -43,7 +42,6 @@ struct PredictBox {
              const Forest* forest_,
              const BitMatrix* bag_,
              LeafFrame* leaf_,
-             bool validate_,
              unsigned int nThread);
 
   ~PredictBox();
@@ -51,7 +49,6 @@ struct PredictBox {
 
 
 class Predict {
-  const bool useBag; // Whether prediction is to be out-of-bag.
   unsigned int noLeaf; // Inattainable leaf index value.
   const class FramePredict *framePredict; // Frame of dense blocks.
   const class Forest *forest; // Trained forest.

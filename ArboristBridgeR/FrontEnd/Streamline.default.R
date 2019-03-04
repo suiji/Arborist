@@ -20,8 +20,11 @@
   if (is.null(rb$leaf))
     stop("Forest state needed for prediction")
 
-  rb$leaf$bagBits <- raw(0)
-  rb$leaf$bagLeaf <- raw(0)
+  rb$leaf$bagSample <- raw(0)
+  rb$bag <- list(raw = raw(0),
+                 nRow = 0,
+                 nTree = 0,
+                 rowBytes = 0)
 
   rb
 }
