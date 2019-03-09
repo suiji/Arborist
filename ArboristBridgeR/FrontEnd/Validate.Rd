@@ -33,32 +33,38 @@ quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000, nThread =
 }
 
 \value{an object of class \code{validation}:
-  \item{validation}{ list containing the results of validation:
+  \item{validation}{ list containing either a:
     
     \code{ValidReg}{ list of validation results for regression:
-      
-    \code{yPred}{ vector containing the predicted response.}
 
-    \code{mse}{ the mean-square error of prediction.}
+      \code{yPred}{ vector containing the predicted response.}
 
-    \code{rsq}{ the r-squared statistic.}
+      \code{mae}{ the mean absolute error of prediction.}
+    
+      \code{mse}{ the mean-square error of prediction.}
 
-    \code{qPred}{ matrix containing the prediction quantiles, if requested.}
+      \code{rsq}{ the r-squared statistic.}
+
+      \code{qPred}{ matrix containing the prediction quantiles, if requested.}
   }
+  or a:
   \code{ValidCtg}{ list of validation results for classification:
       
     \code{yPred}{ vector containing the predicted response.}
 
     \code{misprediction}{ vector containing the classwise misprediction rates.}
       
-      \code{confusion}{ the confusion matrix.}
+    \code{confusion}{ the confusion matrix.}
 
-      \code{census}{ matrix of predictions, by category.}
+    \code{census}{ matrix of predictions, by category.}
 
-      \code{prob}{ matrix of prediction probabilities by category, if requested.}
+    \code{oobError}{ the out-of-bag error.}
+
+    \code{prob}{ matrix of prediction probabilities by category, if requested.}
+  }
 }
 }
-}
+  
 
 
 \examples{

@@ -244,7 +244,7 @@ void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) 
    @return void, with side-effected Forest.
  */
 void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
-  if (NonTerminal()) {
+  if (isNonTerminal()) {
     forest->nonTerminal(frameTrain, idx, this);
     predInfo[predIdx] += info;
   }
@@ -318,8 +318,8 @@ public:
 
 class InfoCompare {
 public:
-  bool operator() (const PTMerge *a , const PTMerge *b) {
-    return a->info > b->info;
+  bool operator() (const PTMerge &a , const PTMerge &b) {
+    return a.info > b.info;
   }
 };
 
@@ -329,44 +329,39 @@ unsigned int PreTree::LeafMerge() {
     return height;
   }
 
-  unsigned int leafDiff = leafCount - leafMax;
   vector<PTMerge> ptMerge(height);
+  priority_queue<PTMerge&, vector<PTMerge>, InfoCompare> infoQueue;
 
-  auto infoCompare = [](const PTMerge*a, const PTMerge* b) {
-                       return a->info > b->info;
-                     };
-  priority_queue<PTMerge*, vector<PTMerge*>, InfoCompare> infoQueue;
-
-  auto leafProb = CallBack::rUnif(leafCount);
-
+  auto leafProb = CallBack::rUnif(height);
   ptMerge[0].parId = 0;
-  for (unsigned int ptId = 0; ptId < height; ptId++) {
-    PTMerge *merge = &ptMerge[ptId];
-    merge->info = leafProb[ptId];
-    merge->ptId = ptId;
-    merge->idMerged = height;
-    merge->root = height; // Merged away iff != height.
-    merge->descLH = ptId != 0 && getLHId(merge->parId) == ptId;
-    merge->idSib = ptId == 0 ? 0 : (merge->descLH ? getRHId(merge->parId) : getLHId(merge->parId));
-    if (NonTerminal(ptId)) {
+  unsigned int ptId = 0;
+  for (auto & merge : ptMerge) {
+    merge.info = leafProb[ptId];
+    merge.ptId = ptId;
+    merge.idMerged = height;
+    merge.root = height; // Merged away iff != height.
+    merge.descLH = ptId != 0 && getLHId(merge.parId) == ptId;
+    merge.idSib = ptId == 0 ? 0 : (merge.descLH ? getRHId(merge.parId) : getLHId(merge.parId));
+    if (isNonTerminal(ptId)) {
       ptMerge[getLHId(ptId)].parId = ptMerge[getRHId(ptId)].parId = ptId;
-      if (Mergeable(ptId)) {
+      if (isMergeable(ptId)) {
         infoQueue.push(merge);
       }
     }
+    ptId++;
   }
 
   // Merges and pops mergeable nodes and pushes newly mergeable parents.
   //
-
+  unsigned int leafDiff = leafCount - leafMax;
   while (leafDiff-- > 0) {
-    unsigned int ptTop = infoQueue.top()->ptId;
+    unsigned int ptTop = infoQueue.top().ptId;
     infoQueue.pop();
     ptMerge[ptTop].root = ptTop;
     unsigned int parId = ptMerge[ptTop].parId;
     unsigned int idSib = ptMerge[ptTop].idSib;
-    if ((!NonTerminal(idSib) || ptMerge[idSib].root != height)) {
-      infoQueue.push(&ptMerge[parId]);
+    if ((!isNonTerminal(idSib) || ptMerge[idSib].root != height)) {
+      infoQueue.push(ptMerge[parId]);
     }
   }
 
@@ -376,7 +371,7 @@ unsigned int PreTree::LeafMerge() {
   unsigned int heightMerged = 0;
   for (unsigned int ptId = 0; ptId < height; ptId++) {
     unsigned int root = ptMerge[ptId].root;
-    if (root != height && NonTerminal(ptId)) {
+    if (root != height && isNonTerminal(ptId)) {
       ptMerge[getLHId(ptId)].root = ptMerge[getRHId(ptId)].root = root;
     }
     if (root == height || root == ptId) { // Unmerged or root:  retained.

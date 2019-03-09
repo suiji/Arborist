@@ -1,3 +1,23 @@
+Changes in 0.1-9:
+
+* Option 'nThread' limits OpenMP parallelization to maximum number of threads.
+
+* Option 'oob' specifies an out-of-bag constraint for prediction.
+
+* Row sampling now implemented using 'Rcpp', in place of 'rcppArmadillo'.
+
+* Package 'data.table' now implements block decomposition of 'data.frame'.
+
+
+Changes in 0.1-8:
+
+* Command 'Validate' enables separate execution of out-of-bag validation.
+
+* Command 'Streamline' shrinks trained Rborist objects by emptying unused fields.
+
+* Option 'maxLeaf' prunes trees during training to a maximum number of leaves.
+
+
 Changes in 0.1-4:
 
 * Sparse 'dcGMatrix' matrices accepted, if encoded in 'i/p' format.

@@ -25,39 +25,46 @@
 }
 
 \value{
-  \item{PreFormat}{ a list of presorted and formatted predictor
+  \item{PreFormat}{ a list consisting of two objects:
+
+    \code{predBlock}{ a list of presorted and formatted predictor
     information:
 
-    \code{colNames}{ a vector of strings containing the training column
-      names.}
+    \code{blockFac}{ a matrix of zero-based factor predictor values.}
 
-    \code{rowNames}{ a vector of strings containing the training row
-      names.}
+    \code{blockFacSparse}{ a sparse block of factor predictor values.}
 
-    \code{blockNum}{ a matrix containing all numeric predictor values.}
+    \code{blockNum}{ a matrix of dense numeric predictor values.}
 
-    \code{blockFac}{ a matrix containing all factor predictor values.}
-
+    \code{blockNumSparse}{ a sparse block of numeric predictor values.}
+    
     \code{nPredFac}{ the number of factor predictors.}
 
     \code{nRow}{ the number of training rows.}
 
+    \code{nPredFac}{ the number of factor-valued predictors.}
+
     \code{facCard}{ a vector of the factor cardinalities.}
 
-    \code{signature}{ a list consisting of training information needed
+    \code{nPredNum}{ the number of numerical predictors.}
+  }
+  \code{signature}{ a list consisting of training information needed
       for separate testing and prediction:
 
-      \code{nRow}{ the number of training rows.}
+      \code{predMap}{ a vector mapping core indices to front-end counterparts.}
 
-      \code{predMap}{ a vector mapping core predictor indices back to
-	their respective front-end positions.}
+      \code{colNames}{ a vector of strings containing the training column
+        names.}
 
-      \code{level}{ a vector of strings containing the training response
+      \code{rowNames}{ a vector of strings containing the training row
+      names.}
+
+    \code{level}{ a vector of strings containing the training response
       factor levels.}
-
-    }
   }
 }
+}
+
 
 \examples{
   \dontrun{

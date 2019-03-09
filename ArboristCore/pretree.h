@@ -58,17 +58,17 @@ class PTNode : public DecNode {
   }
 
   
-  inline bool NonTerminal() const {
+  inline bool isNonTerminal() const {
     return lhDel != 0;
   }
 
 
   inline unsigned int getLHId(unsigned int ptId) const {
-    return NonTerminal() ? ptId + lhDel : 0;
+    return isNonTerminal() ? ptId + lhDel : 0;
   }
 
   inline unsigned int getRHId(unsigned int ptId) const {
-    return NonTerminal() ? getLHId(ptId) + 1 : 0;
+    return isNonTerminal() ? getLHId(ptId) + 1 : 0;
   }
 
 
@@ -175,8 +175,8 @@ class PreTree {
   /**
      @return true iff node is nonterminal.
    */
-  inline bool NonTerminal(unsigned int ptId) const {
-    return nodeVec[ptId].NonTerminal();
+  inline bool isNonTerminal(unsigned int ptId) const {
+    return nodeVec[ptId].isNonTerminal();
   }
 
 
@@ -188,8 +188,8 @@ class PreTree {
 
        @return true iff node has two leaf children.
     */
-  inline bool Mergeable(unsigned int ptId) const {
-    return !NonTerminal(getLHId(ptId)) && !NonTerminal(getRHId(ptId));
+  inline bool isMergeable(unsigned int ptId) const {
+    return !isNonTerminal(getLHId(ptId)) && !isNonTerminal(getRHId(ptId));
   }  
 
   

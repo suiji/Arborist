@@ -342,7 +342,7 @@ double LeafRegBridge::mse(const vector<double> &yPred,
   for (unsigned int i = 0; i < rowPred; i++) {
     double error = yTest[i] - yPred[i];
     sse += error * error;
-    mae += abs(error);
+    mae += fabs(error);
   }
   rsq = 1.0 - sse / (var(yTest) * (rowPred - 1.0));
   mae /= rowPred;
