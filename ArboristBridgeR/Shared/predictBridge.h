@@ -29,6 +29,8 @@
 
 #include <Rcpp.h>
 using namespace Rcpp;
+
+#include <memory>
 using namespace std;
 
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,

@@ -1,11 +1,11 @@
 Package: Rborist
 Title: Extensible, Parallelizable Implementation of the Random Forest Algorithm
-Version: 0.1-11
-Date: 2019-3-9
+Version: 0.1-13
+Date: 2019-3-10
 Author: Mark Seligman
 Maintainer: Mark Seligman <mseligman@suiji.org>
 BugReports: https://github.com/suiji/Arborist/issues
-SystemRequirements: g++ (>= 4.9)
+SystemRequirements: g++ (>= 4.8)
 Description: Scalable decision tree training and prediction.
 URL: http://www.suiji.org/arborist, https://github.com/suiji/Arborist
 License: MPL (>= 2) | GPL (>= 2) | file LICENSE

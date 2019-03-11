@@ -26,6 +26,8 @@
 
 #include <Rcpp.h>
 using namespace Rcpp;
+
+#include <memory>
 using namespace std;
 
 /**

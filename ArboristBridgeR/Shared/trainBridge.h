@@ -29,6 +29,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include <memory>
 #include <string>
 #include <vector>
 using namespace std;

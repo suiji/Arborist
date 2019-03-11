@@ -541,7 +541,7 @@ IntegerVector TestCtg::Reconcile(const IntegerVector &test2Merged,
   BEGIN_RCPP
   IntegerVector yZero = yTestOne -1;
   IntegerVector yZeroOut(yZero.length());
-  for (unsigned int i = 0; i < yZero.length(); i++) {
+  for (R_len_t i = 0; i < yZero.length(); i++) {
     yZeroOut[i] = test2Merged[yZero[i]];
   }
   return yZeroOut;
