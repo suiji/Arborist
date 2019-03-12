@@ -34,8 +34,8 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.1-8 now on CRAN.
-- Rborist version 0.1-9 under development.
+- Rborist version 0.1-14 uploaded to CRAN, awaiting build confirmations.
+- Rborist version 0.2-0 under development.
 
 ### Python
 
@@ -59,13 +59,10 @@ Performance metrics will be measured soon using [benchm-ml](https://github.com/s
 
 
 ### News/Changes
-- New option 'maxLeaf' to bound the number of terminal (leaf) nodes.
-- New option 'autoCompress' to fine-tune sparse internal representation.
-- New function 'Streamline' to clear unused fields of trained forest.
-- Sparse R-style 'dcgMatrix' format now accepted, with "i/p" encoding.
-- Autocompression employed on a per-predictor basis.
-- Space-saving 'thinLeaves' option suppresses creation of summary data for narrow workflows.
-- Research-inspired option 'splitQuantile' provides fine-tuning of numeric split positions.
-- Improved scaling with row count.
-Correctness errors are being addressed as they are received.
+- New option 'nThread' enables specification of OpenMP thread count.
+- New option 'oob' constrains prediction to the out-of-bag set, essential for variable importance testing.
+- Improved memory footprint.
+
+Correctness errors are addressed as received.
+Feature requests addressed on a case-by-case basis.
 
