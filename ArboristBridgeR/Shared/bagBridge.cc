@@ -54,8 +54,7 @@ void BagBridge::consume(const Train *train, unsigned int treeOff) {
 
 
 const BitMatrix *BagBridge::getRaw() {
-  // zero rows indicates an empty bit matrix.
-  return nRow > 0 ? bmRaw.get() : nullptr;
+  return bmRaw.get();
 }
 
 
@@ -73,16 +72,15 @@ List BagBridge::wrap() {
 
 
 unique_ptr<BagBridge> BagBridge::unwrap(const List &sTrain, const List &sPredBlock, bool oob) {
-  if (!oob) {
-    return make_unique<BagBridge>(0, 0, RawVector(0));
-  }
-  else {
-    List sBag((SEXP) sTrain["bag"]);
+
+  List sBag((SEXP) sTrain["bag"]);
+  if (oob) {
     checkOOB(sBag, sPredBlock);
-    return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
+  }
+
+  return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
                                 as<unsigned int>(sBag["nTree"]),
                                 RawVector((SEXP) sBag["raw"]));
-  }
 }
 
 

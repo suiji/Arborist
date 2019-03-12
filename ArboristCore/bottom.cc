@@ -198,12 +198,12 @@ void Bottom::overlap(unsigned int splitNext,
   level.push_front(levelFront);
 
   historyPrev = move(history);
-  history = move(vector<unsigned int>(splitCount * (level.size()-1)));
+  history = vector<unsigned int>(splitCount * (level.size()-1));
 
   deltaPrev = move(levelDelta);
-  levelDelta = move(vector<unsigned char>(splitCount * nPred));
+  levelDelta = vector<unsigned char>(splitCount * nPred);
 
-  runCount = move(vector<unsigned int>(splitCount * nPredFac));
+  runCount = vector<unsigned int>(splitCount * nPredFac);
   fill(runCount.begin(), runCount.end(), 0);
 
   for (unsigned int i = 1; i < level.size(); i++) {

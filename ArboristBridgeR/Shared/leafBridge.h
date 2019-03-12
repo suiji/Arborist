@@ -44,7 +44,8 @@ class LeafBridge {
  public:
 
   LeafBridge(unsigned int exportLength);
-
+  virtual ~LeafBridge() {}
+  
   /**
      @brief Accessor for per-tree sampled row vector.
 
@@ -131,7 +132,7 @@ class LeafRegBridge : public LeafBridge {
                 const NumericVector& yTrain_,
                 const class BitMatrix* baggedRows);
 
-  ~LeafRegBridge();
+  ~LeafRegBridge() {}
   
   static List predict(const List &list,
                          SEXP sYTest,
@@ -240,7 +241,7 @@ class LeafCtgBridge : public LeafBridge {
                 const CharacterVector& feLevels_,
                 const class BitMatrix* bitMatrix);
 
-  ~LeafCtgBridge();
+  ~LeafCtgBridge() {}
 
   /**
      @brief Forgetful getter to core leaf object.
@@ -412,6 +413,8 @@ public:
    */
   LBTrain(unsigned int nTree);
 
+  virtual ~LBTrain() {}
+  
   /**
      @brief Static initialization.
 
@@ -453,6 +456,8 @@ struct LBTrainReg : public LBTrain {
   LBTrainReg(const NumericVector& yTrain_,
              unsigned int nTree);
 
+  ~LBTrainReg() {}
+
   /**
      @brief Description and parameters as with virutal declaration.
    */
@@ -477,6 +482,8 @@ struct LBTrainCtg : public LBTrain {
 
   LBTrainCtg(const IntegerVector& yTrain_,
              unsigned int nTree);
+
+  ~LBTrainCtg() {}
 
   /**
      @brief Description and parameters as with virtual declaration.

@@ -181,7 +181,7 @@ vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
   if (tStart == 0)
     reserve(block);
 
-  return move(block);
+  return block;
 }
 
  

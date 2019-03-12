@@ -49,9 +49,9 @@ struct TrainBridge {
   
   const unsigned int nTree; // # trees under training.
   unique_ptr<class BagBridge> bag; // Summarizes row bagging, by tree.
-  unique_ptr<class FBTrain> forest; // Pointer to core forest.
+  unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
-  unique_ptr<class LBTrain> leaf; // Pointer to core leaf frame.
+  unique_ptr<struct LBTrain> leaf; // Pointer to core leaf frame.
 
   /**
      @brief Regression constructor.

@@ -94,7 +94,7 @@ vector<StageCount> SamplePred::stage(const RowRank* rowRank,
     }
   }
 
-  return move(stageCount);
+  return stageCount;
 }
 
 

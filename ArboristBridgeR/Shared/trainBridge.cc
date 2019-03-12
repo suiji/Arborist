@@ -95,7 +95,7 @@ List TrainBridge::train(const List &argList,
   }
 
   deInit();
-  return move(outList);
+  return outList;
 
   END_RCPP
 }

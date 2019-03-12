@@ -229,7 +229,6 @@ class Forest {
   const unsigned int* nodeHeight;
   const unsigned int nTree;
   const TreeNode *treeNode;
-  const unsigned int nodeCount;
   unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
 
   void dump(vector<vector<unsigned int> > &predTree,

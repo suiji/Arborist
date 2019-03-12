@@ -67,7 +67,7 @@ List PBBridgeReg::reg(const List& sPredBlock,
   BEGIN_RCPP
 
     auto pbBridge = factory(sPredBlock, lTrain, oob, nThread);
-  return move(pbBridge->predict(sYTest));
+  return pbBridge->predict(sYTest);
 
   END_RCPP
 }
@@ -76,7 +76,7 @@ List PBBridgeReg::reg(const List& sPredBlock,
 List PBBridgeReg::predict(SEXP sYTest) const {
   BEGIN_RCPP
   Predict::predict(box.get());
-  return move(leaf->summary(sYTest));
+  return leaf->summary(sYTest);
   END_RCPP
 }
 
@@ -85,10 +85,11 @@ unique_ptr<PBBridgeReg> PBBridgeReg::factory(const List& sPredBlock,
                                              const List& lTrain,
                                              bool oob,
                                              unsigned int nThread) {
-  return make_unique<PBBridgeReg>(move(FramemapBridge::factoryPredict(sPredBlock)),
-                                  move(ForestBridge::unwrap(lTrain)),
-                                  move(BagBridge::unwrap(lTrain, sPredBlock, oob)),
-                                  move(LeafRegBridge::unwrap(lTrain, sPredBlock)),
+  return make_unique<PBBridgeReg>(FramemapBridge::factoryPredict(sPredBlock),
+                                  ForestBridge::unwrap(lTrain),
+                                  BagBridge::unwrap(lTrain, sPredBlock, oob),
+                                  LeafRegBridge::unwrap(lTrain, sPredBlock),
+                                  oob,
                                   nThread);
 }
 
@@ -97,12 +98,13 @@ PBBridgeReg::PBBridgeReg(unique_ptr<FramePredictBridge> framePredict_,
                          unique_ptr<ForestBridge> forest_,
                          unique_ptr<BagBridge> bag_,
                          unique_ptr<LeafRegBridge> leaf_,
+                         bool oob,
                          unsigned int nThread) :
   PBBridge(move(framePredict_),
            move(forest_),
            move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
 }
 
 
@@ -171,7 +173,7 @@ List PBBridgeCtg::ctg(const List& sPredBlock,
   BEGIN_RCPP
 
     auto pbBridge = factory(sPredBlock, lTrain, oob, doProb, nThread);
-  return move(pbBridge->predict(sYTest, sPredBlock));
+  return pbBridge->predict(sYTest, sPredBlock);
 
   END_RCPP
 }
@@ -179,7 +181,7 @@ List PBBridgeCtg::ctg(const List& sPredBlock,
 List PBBridgeCtg::predict(SEXP sYTest, const List& sPredBlock) const {
   BEGIN_RCPP
   Predict::predict(box.get());
-  return move(leaf->summary(sYTest, sPredBlock));
+  return leaf->summary(sYTest, sPredBlock);
   END_RCPP
 }
 
@@ -189,10 +191,11 @@ unique_ptr<PBBridgeCtg> PBBridgeCtg::factory(const List& sPredBlock,
                                              bool oob,
                                              bool doProb,
                                              unsigned int nThread) {
-  return make_unique<PBBridgeCtg>(move(FramemapBridge::factoryPredict(sPredBlock)),
-                                  move(ForestBridge::unwrap(lTrain)),
-                                  move(BagBridge::unwrap(lTrain, sPredBlock, oob)),
-                                  move(LeafCtgBridge::unwrap(lTrain, sPredBlock, doProb)),
+  return make_unique<PBBridgeCtg>(FramemapBridge::factoryPredict(sPredBlock),
+                                  ForestBridge::unwrap(lTrain),
+                                  BagBridge::unwrap(lTrain, sPredBlock, oob),
+                                  LeafCtgBridge::unwrap(lTrain, sPredBlock, doProb),
+                                  oob,
                                   nThread);
 }
 
@@ -201,12 +204,13 @@ PBBridgeCtg::PBBridgeCtg(unique_ptr<FramePredictBridge> framePredict_,
                          unique_ptr<ForestBridge> forest_,
                          unique_ptr<BagBridge> bag_,
                          unique_ptr<LeafCtgBridge> leaf_,
+                         bool oob,
                          unsigned int nThread) :
   PBBridge(move(framePredict_),
            move(forest_),
            move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
 }
 
 
@@ -246,17 +250,20 @@ List PBBridgeReg::quant(const List& sPredBlock,
 
   NumericVector quantVec(sQuantVec);
   auto pbBridge = factory(sPredBlock, lTrain, oob, nThread);
-  return move(pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest));
+  return pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest);
 
   END_RCPP
 }
 
 
+// TODO:  Quantile object always gets a bag.  Prediction box may or may not.
+
 List PBBridgeReg::predict(const double* quantile, unsigned int nQuant, unsigned int binSize, SEXP sYTest) const {
   BEGIN_RCPP
 
-  auto quant = Predict::predictQuant(box.get(), quantile, nQuant, binSize);
-  return move(leaf->summary(sYTest, quant.get()));
+  auto quant = make_unique<Quant>(box.get(), quantile, nQuant, binSize);
+  Predict::predict(box.get(), quant.get());
+  return leaf->summary(sYTest, quant.get());
 
   END_RCPP
 }

@@ -110,7 +110,7 @@ void IndexSet::initRoot(const Sample* sample) {
   path = 0;
   relBase = 0;
   ctgSum = sample->getCtgRoot();
-  ctgExpl = move(vector<SumCount>(ctgSum.size()));
+  ctgExpl = vector<SumCount>(ctgSum.size());
 
   initInattainable(sample->getBagCount());
 }
@@ -153,7 +153,7 @@ void IndexLevel::splitDispatch(const SplitNode* splitNode,
   // Restaging is implemented as a patient stable partition.
   //
   leafNext = 2 * (indexSet.size() - leafThis) - splitNext;
-  succBase = move(vector<unsigned int>(splitNext + leafNext + leafThis));
+  succBase = vector<unsigned int>(splitNext + leafNext + leafThis);
   fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
 
   consume(splitNode, preTree, argMax, splitNext, leafNext, idxMax);
@@ -311,7 +311,7 @@ unsigned int IndexLevel::idxSucc(unsigned int extent,
 
 void IndexLevel::nodeReindex() {
   vector<unsigned int> succST(idxLive);
-  rel2PT = move(vector<unsigned int>(idxLive));
+  rel2PT = vector<unsigned int>(idxLive);
 
   OMPBound splitIdx;
 #pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
@@ -473,7 +473,7 @@ void IndexSet::succInit(IndexLevel *indexLevel,
     ctgSum = par->getCtgSum();
     decr(ctgSum, par->getCtgExpl());
   }
-  ctgExpl = move(vector<SumCount>(ctgSum.size()));
+  ctgExpl = vector<SumCount>(ctgSum.size());
 
   // Inattainable value.  Reset only when non-terminal:
   initInattainable(indexLevel->getBagCount());

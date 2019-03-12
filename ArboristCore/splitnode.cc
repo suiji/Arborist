@@ -56,7 +56,7 @@ void SPReg::Immutables(const FrameTrain* frameTrain,
   auto numExtent = frameTrain->getNPredNum();
   auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [](double prob) { return prob != 0.0; });
   if (monoCount > 0) {
-    mono = move(vector<double>(frameTrain->getNPredNum()));
+    mono = vector<double>(frameTrain->getNPredNum());
     mono.assign(bridgeMono.begin() + frameTrain->NumFirst(), bridgeMono.begin() + frameTrain->NumFirst() + frameTrain->getNPredNum());
   }
 }
@@ -156,10 +156,10 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
  */
 void SplitNode::levelInit(IndexLevel *index) {
   splitCount = index->getNSplit();
-  prebias = move(vector<double>(splitCount));
-  nCand = move(vector<unsigned int>(splitCount));
+  prebias = vector<double>(splitCount);
+  nCand = vector<unsigned int>(splitCount);
   fill(nCand.begin(), nCand.end(), 0);
-  candOff = move(vector<unsigned int>(splitCount));
+  candOff = vector<unsigned int>(splitCount);
   fill(candOff.begin(), candOff.end(), splitCount); // inattainable.
 
   levelPreset(index); // virtual
@@ -253,7 +253,7 @@ void SPCtg::levelClear() {
 */
 void SPReg::levelPreset(IndexLevel *index) {
   if (!mono.empty()) {
-    ruMono = move(CallBack::rUnif(splitCount * mono.size()));
+    ruMono = CallBack::rUnif(splitCount * mono.size());
   }
 }
 
@@ -266,8 +266,8 @@ void SPReg::levelPreset(IndexLevel *index) {
 */
 void SPCtg::levelPreset(IndexLevel *index) {
   levelInitSumR(frameTrain->getNPredNum());
-  sumSquares = move(vector<double>(splitCount));
-  ctgSum = move(vector<double>(splitCount * nCtg));  
+  sumSquares = vector<double>(splitCount);
+  ctgSum = vector<double>(splitCount * nCtg);  
   fill(sumSquares.begin(), sumSquares.end(), 0.0);
   fill(ctgSum.begin(), ctgSum.end(), 0.0);
   // Hoist to replay().
@@ -285,7 +285,7 @@ void SPCtg::levelPreset(IndexLevel *index) {
  */
 void SPCtg::levelInitSumR(unsigned int nPredNum) {
   if (nPredNum > 0) {
-    ctgSumAccum = move(vector<double>(nPredNum * nCtg * splitCount));
+    ctgSumAccum = vector<double>(nPredNum * nCtg * splitCount);
     fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
   }
 }
@@ -318,7 +318,7 @@ int SPReg::getMonoMode(const SplitCand* cand) const {
 vector<SplitCand> SplitNode::split(const SamplePred *samplePred) {
   splitCandidates(samplePred);
 
-  return move(maxCandidates());
+  return maxCandidates();
 }
 
 
@@ -364,7 +364,7 @@ vector<SplitCand> SplitNode::maxCandidates() {
   candOff.clear();
   nCand.clear();
 
-  return move(candMax);
+  return candMax;
 }
 
 

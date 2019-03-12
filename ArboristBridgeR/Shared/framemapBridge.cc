@@ -289,8 +289,8 @@ unique_ptr<FrameTrain> FramemapBridge::factoryTrain(
 unique_ptr<FramePredictBridge> FramemapBridge::factoryPredict(const List& sPredBlock) {
   checkPredblock(sPredBlock);
   return make_unique<FramePredictBridge>(
-                 move(BlockNumBridge::Factory(sPredBlock)),
-                 move(BlockFacBridge::Factory(sPredBlock)),
+                 BlockNumBridge::Factory(sPredBlock),
+                 BlockFacBridge::Factory(sPredBlock),
                  as<unsigned int>(sPredBlock["nRow"]));
 }
 
@@ -302,7 +302,7 @@ FramePredictBridge::FramePredictBridge(
   blockNum(move(blockNum_)),
   blockFac(move(blockFac_)),
   nRow(nRow_),
-  framePredict(move(make_unique<FramePredict>(blockNum->getNum(),
-                                              blockFac->getFac(),
-                                              nRow))) {
+  framePredict(make_unique<FramePredict>(blockNum->getNum(),
+                                         blockFac->getFac(),
+                                         nRow)) {
 }

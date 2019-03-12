@@ -115,7 +115,7 @@ struct PBBridge {
   unique_ptr<class FramePredictBridge> framePredict; // Predictor layout.
   unique_ptr<class ForestBridge> forest; // Trained forest.
   unique_ptr<class BagBridge> bag; // Bagged row indicator.
-  unique_ptr<class PredictBox> box; // Core-level prediction frame.
+  unique_ptr<struct PredictBox> box; // Core-level prediction frame.
 
 
   /**
@@ -141,6 +141,7 @@ struct PBBridgeReg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafRegBridge> leaf_,
+              bool oob,
               unsigned int nThread);
 
  /**
@@ -215,6 +216,7 @@ struct PBBridgeCtg : public PBBridge {
               unique_ptr<ForestBridge> forest_,
               unique_ptr<BagBridge> bag_,
               unique_ptr<LeafCtgBridge> leaf_,
+              bool oob,
               unsigned int nThread);
 
   /**

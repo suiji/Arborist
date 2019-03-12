@@ -88,7 +88,7 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
     idxBinned[destIdx] = index;
   }
 
-  return move(idxBinned);
+  return idxBinned;
 }
 
 
@@ -99,7 +99,7 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
 unsigned int Sample::countSamples(vector<unsigned int>& idx,
                                   vector<unsigned int>& sc) {
   if (binIdx(sc.size()) > 0) {
-    idx = move(binIndices(idx));
+    idx = binIndices(idx);
   }
     
   unsigned int nz = 0;
@@ -205,7 +205,7 @@ unique_ptr<SamplePred> Sample::predictors() const {
 
 
 vector<StageCount> Sample::stage(SamplePred* samplePred) const {
-  return move(samplePred->stage(rowRank, sampleNode, this));
+  return samplePred->stage(rowRank, sampleNode, this);
 }
 
 

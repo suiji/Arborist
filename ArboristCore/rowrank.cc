@@ -53,7 +53,7 @@ RowRank::RowRank(const FrameTrain *frameTrain,
   unsigned int explCount = denseBlock(feRank, feRLE, rleLength);
   modeOffsets();
 
-  rrNode = move(vector<RRNode>(explCount));
+  rrNode = vector<RRNode>(explCount);
   decompress(feRow, feRank, feRLE, rleLength);
 }
 

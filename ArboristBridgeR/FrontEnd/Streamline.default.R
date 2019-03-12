@@ -14,11 +14,12 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
-"Streamline.default" <- function(rb) {
-  if (!inherits(rb, "Rborist"))
+"Streamline.default" <- function(rs) {
+  if (!inherits(rs, "Rborist"))
     stop("object not of class Rborist")
-  if (is.null(rb$leaf))
+  if (is.null(rs$leaf))
     stop("Forest state needed for prediction")
+  rb <- rs
 
   rb$leaf$bagSample <- raw(0)
   rb$bag <- list(raw = raw(0),

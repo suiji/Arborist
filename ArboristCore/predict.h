@@ -24,13 +24,16 @@
 
 /**
    @brief Consolidates common components required by all prediction entries.
+
+   These are typically unwrapped by the front end from several data structures.
  */
 struct PredictBox {
+  const bool oob; // Whether prediction is out-of-bag.
   const class FramePredict* framePredict; // Frame of dense predictor blocks.
   const class Forest* forest; // Trained forest.
-  const class BitMatrix* bag; // In-bag representation (or nullptr).
+  const class BitMatrix* bag; // In-bag summary.
   class LeafFrame* leafFrame; // Subclasses to regression or classification.
-
+  
   /**
      @brief Constructor boxes training and output summaries.
 
@@ -38,7 +41,8 @@ struct PredictBox {
 
      Remaining parameters mirror similarly-named members.
    */
-  PredictBox(const FramePredict* framePredict_,
+  PredictBox(bool oob_,
+             const FramePredict* framePredict_,
              const Forest* forest_,
              const BitMatrix* bag_,
              LeafFrame* leaf_,
@@ -49,12 +53,15 @@ struct PredictBox {
 
 
 class Predict {
-  unsigned int noLeaf; // Inattainable leaf index value.
   const class FramePredict *framePredict; // Frame of dense blocks.
   const class Forest *forest; // Trained forest.
   const unsigned int nTree; // # trees used in training.
   const unsigned int nRow; // # rows to predict.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
+  class LeafFrame* leaf; // Trained leaf summary.
+  const unsigned int noLeaf; // Inattainable leaf index value.
+  const class BitMatrix* bag; // In-bag representation.
+  bool oob; // Whether prediction constrained to out-of-bag.
   unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
 
 
@@ -77,15 +84,9 @@ class Predict {
   /**
      @brief Manages row-blocked prediction across trees.
 
-     @param leaf records the predicted values.
-
-     @param bag summarizes the bagged rows.
-
      @param quant is non-null iff quantile prediction specified.
    */
-  void predictAcross(class LeafFrame* leaf,
-                     const class BitMatrix *bag,
-                     class Quant *quant = nullptr);
+  void predictAcross(class Quant *quant = nullptr);
 
   
   /**
@@ -94,24 +95,18 @@ class Predict {
      @param rowStart is the starting row over which to predict.
 
      @param rowEnd is the final row over which to predict.
-
-     @param bag is the packed in-bag representation, if validating.
   */
   void predictBlock(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
+                    unsigned int rowEnd);
 
   /**
      @brief Multi-row prediction with predictors of both numeric and factor type.
      @param rowStart is the first row in the block.
 
      @param rowEnd is the first row beyond the block.
-     
-     @param bag indicates whether prediction is restricted to out-of-bag data.
  */
   void predictBlockMixed(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
+                         unsigned int rowEnd);
   
 
   /**
@@ -120,8 +115,7 @@ class Predict {
      Parameters as with mixed case, above.
   */
   void predictBlockNum(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
+                       unsigned int rowEnd);
 
 /**
    @brief Multi-row prediction with predictors of only factor type.
@@ -129,8 +123,7 @@ class Predict {
    Parameters as with mixed case, above.
  */
   void predictBlockFac(unsigned int rowStart,
-                    unsigned int rowEnd,
-                    const class BitMatrix *bag);
+                       unsigned int rowEnd);
   
 
   /**
@@ -143,14 +136,11 @@ class Predict {
      @param treeNode is the base of the forest's tree nodes.
 
      @param facSplit is the base of the forest's split-value vector.
-
-     @param bag indexes out-of-bag rows, and may be null.
   */
   void rowMixed(unsigned int row,
                 unsigned int blockRow,
                 const class TreeNode *treeNode,
-                const class BVJagged *facSplit,
-                const class BitMatrix *bag);
+                const class BVJagged *facSplit);
 
   /**
      @brief Prediction over a single row with factor-valued predictors only.
@@ -160,9 +150,8 @@ class Predict {
   void rowFac(unsigned int row,
               unsigned int blockRow,
               const class TreeNode *treeNode,
-              const class BVJagged *facSplit,
-              const class BitMatrix *bag);
-  
+              const class BVJagged *facSplit);
+
   /**
      @brief Prediction of a single row with numeric-valued predictors only.
 
@@ -170,38 +159,24 @@ class Predict {
    */
   void rowNum(unsigned int row,
               unsigned int blockRow,
-              const class TreeNode *treeNode,
-              const class BitMatrix *bag);
+              const class TreeNode *treeNode);
+
 
  public:  
   static const unsigned int rowBlock = 0x2000; // Block size.
   
   Predict(const PredictBox* box);
 
-  /**
-     @brief Quantile prediction entry from bridge.
-
-     @param box summarizes the prediction environment.
-
-     @param quantile specifies the quantiles at which to predict.
-
-     @param nQuant are the number of quantiles specified.
-
-     @param qBin specifies granularity of prediction.
-
-     @return summary of predicted quantiles.
-   */
-  static unique_ptr<class Quant> predictQuant(const PredictBox* box,
-                                              const double* quantile,
-                                              unsigned int nQuant,
-                                              unsigned int qBin);
 
   /**
      @brief Generic entry from bridge.
 
      @param box summarizes the prediction environment.
+
+     @param quant summarizes the quantile specification, if any.
    */
-  static void predict(const PredictBox* box);
+  static void predict(const PredictBox* box,
+                      class Quant* quant = nullptr);
 
   
   /**

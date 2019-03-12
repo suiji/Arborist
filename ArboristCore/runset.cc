@@ -49,7 +49,7 @@ Run::Run(unsigned int ctgWidth_,
  */
 void Run::runSets(const vector<unsigned int> &safeCount) {
   setCount = safeCount.size();
-  runSet = move(vector<RunSet>(setCount));
+  runSet = vector<RunSet>(setCount);
   for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
     setSafeCount(setIdx, safeCount[setIdx]);
   }
@@ -71,9 +71,9 @@ void Run::offsetsReg(const vector<unsigned int> &safeCount) {
     runCount += rs.getSafeCount();
   }
 
-  facRun = move(vector<FRNode>(runCount));
-  bHeap = move(vector<BHPair>(runCount));
-  lhOut = move(vector<unsigned int>(runCount));
+  facRun = vector<FRNode>(runCount);
+  bHeap = vector<BHPair>(runCount);
+  lhOut = vector<unsigned int>(runCount);
 
   reBase();
 }
@@ -108,16 +108,16 @@ void Run::offsetsCtg(const vector<unsigned int> &safeCount) {
   }
 
   unsigned int boardWidth = runCount * ctgWidth; // Checkerboard.
-  ctgSum = move(vector<double>(boardWidth));
+  ctgSum = vector<double>(boardWidth);
   fill(ctgSum.begin(), ctgSum.end(), 0.0);
 
   if (ctgWidth > 2 && heapRuns > 0) { // Wide non-binary:  w.o. replacement.
-    rvWide = move(CallBack::rUnif(heapRuns));
+    rvWide = CallBack::rUnif(heapRuns);
   }
 
-  facRun = move(vector<FRNode>(runCount));
-  bHeap = move(vector<BHPair>(runCount));
-  lhOut = move(vector<unsigned int>(runCount));
+  facRun = vector<FRNode>(runCount);
+  bHeap = vector<BHPair>(runCount);
+  lhOut = vector<unsigned int>(runCount);
 
   reBase();
 }

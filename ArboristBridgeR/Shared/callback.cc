@@ -31,7 +31,7 @@ vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
   IntegerVector rowSample(RowSample::sampleRows(nSamp));
 
   vector<unsigned int> rowOut(rowSample.begin(), rowSample.end());
-  return move(rowOut);
+  return rowOut;
 }
 
 
@@ -40,5 +40,5 @@ vector<double> CallBack::rUnif(size_t len) {
   NumericVector rn(runif(len));
 
   vector<double> rnOut(rn.begin(), rn.end());
-  return move(rnOut);
+  return rnOut;
 }

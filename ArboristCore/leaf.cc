@@ -86,7 +86,7 @@ vector<unsigned int> CtgProb::scaleHeight(const unsigned int* leafHeight,
     ht = nCtg * leafHeight[i++];
   }
 
-  return move(height);
+  return height;
 }
 
 
@@ -116,11 +116,6 @@ BLBlock::BLBlock(unsigned int nTree,
 }
                      
 
-
-LeafFrame::~LeafFrame() {
-}
-
-
 vector<size_t> LeafBlock::setOffsets() const {
   vector<size_t> offset(raw->size());
   unsigned int countAccum = 0;
@@ -130,7 +125,7 @@ vector<size_t> LeafBlock::setOffsets() const {
     countAccum += getExtent(idx++);
   }
 
-  return move(offset);
+  return offset;
   // Post-condition:  countAccum == total bag size.
 }
 
@@ -383,18 +378,9 @@ BBCresc::BBCresc(unsigned int nTree) :
 }
 
 
-LFTrain::~LFTrain() {
-}
-
-
 LFTrainReg::LFTrainReg(const double* y,
                        unsigned int treeChunk) :
   LFTrain(y, treeChunk) {
-}
-
-
-
-LFTrainReg::~LFTrainReg() {
 }
 
 
@@ -412,16 +398,11 @@ ProbCresc::ProbCresc(unsigned int treeChunk,
 LFTrainCtg::LFTrainCtg(const unsigned int* yCtg_,
                        const double* proxy,
                        unsigned int treeChunk,
-                       unsigned int nCtg_,
+                       unsigned int nCtg,
                        double scale) :
   LFTrain(proxy, treeChunk),
   yCtg(yCtg_),
-  probCresc(make_unique<ProbCresc>(treeChunk, nCtg_, scale)),
-  nCtg(nCtg_) {
-}
-
-
-LFTrainCtg::~LFTrainCtg() {
+  probCresc(make_unique<ProbCresc>(treeChunk, nCtg, scale)) {
 }
 
 

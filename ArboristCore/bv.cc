@@ -60,23 +60,6 @@ BV::~BV() {
 }
 
 
-CharV::CharV(unsigned int len) : nSlot(SlotAlign(len)), wrapper(false) {
-  raw = new unsigned int[nSlot];
-  for (unsigned int i = 0; i < nSlot; i++)
-    raw[i] = 0;
-}
-
-
-CharV::CharV(unsigned int *raw_, unsigned int _nSlot) : raw(raw_), nSlot(_nSlot), wrapper(true) {
-}
-
-
-CharV::~CharV() {
-  if (!wrapper)
-    delete [] raw;
-}
-
-
 /**
  @brief Resizes to next power of two, if needed.
 
@@ -230,8 +213,4 @@ void BitMatrix::dump(unsigned int nRow_, vector<vector<unsigned int> > &outCol) 
 void BitMatrix::colDump(unsigned int _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const {
   for (unsigned int row = 0; row < _nRow; row++)
     outCol[row] = testBit(row, colIdx) ? 1 : 0;
-}
-
-
-CharMatrix::CharMatrix(unsigned int nRow, unsigned int _nCol) : CharV(SlotAlign(nRow) * _nCol), stride(Stride(nRow)), nCol(_nCol) {
 }

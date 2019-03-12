@@ -309,7 +309,7 @@ public:
   void candidateFixed(class SplitNode *splitNode,
                       unsigned int splitIdx,
                       const double ruPred[],
-                      class BHPair heap[],
+                      struct BHPair heap[],
                       unsigned int extent,
                       unsigned int &offCand);
 

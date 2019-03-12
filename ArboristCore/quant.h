@@ -54,6 +54,7 @@ struct RankCount {
 */
 class Quant {
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
+  const class BitMatrix* baggedRows; // In-bag summary.
   const double *yTrain; // Training response.
   vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
   const double* quantile; // quantile values over which to predict.
@@ -144,8 +145,7 @@ class Quant {
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const class LeafFrameReg *leafReg_,
-        const class BitMatrix *baggedRows,
+  Quant(const struct PredictBox* box,
         const double* quantile_,
         unsigned int qCount_,
         unsigned int qBin);
@@ -160,6 +160,16 @@ class Quant {
   }
 
 
+  /**
+     @brief Getter for number of rows predicted.
+
+     Returns zero if empty bag precludes yRanked from initialization.
+   */
+  unsigned int getNRow() const {
+    return yRanked.size();
+  }
+
+  
   /**
      @brief Accessor for predicted quantiles.
 

@@ -278,6 +278,8 @@ public:
           unsigned int treeChunk);
 
 
+  virtual ~LFTrain() {}
+
   /**
      @base Copies front-end vectors and lights off initializations specific to classification.
 
@@ -298,9 +300,6 @@ public:
                                                  unsigned int treeChunk);
 
   
-  virtual ~LFTrain();
-
-
   /**
      @brief Samples (bags) the response to construct the tree root.
 
@@ -384,7 +383,7 @@ public:
   LFTrainReg(const double* y,
              unsigned int treeChunk);
 
-  ~LFTrainReg();
+  ~LFTrainReg(){}
 
   /**
      @brief Samples response of current tree.
@@ -409,7 +408,6 @@ public:
 class ProbCresc {
   const unsigned int nCtg; // Response cardinality.
   size_t treeFloor; // Running position of start of tree.
-  unsigned int leafCount; // Total number of leaves.
   vector<size_t> height; // Height, per tree.
   vector<double> prob; // Raw probability values.
   const double forestScale;  // Forest-wide scaling factor for score.
@@ -493,7 +491,7 @@ class LFTrainCtg : public LFTrain {
   const unsigned int* yCtg; // 0-based factor-valued response.
 
   unique_ptr<ProbCresc> probCresc; // Crescent probability matrix.
-  const unsigned int nCtg; // Response cardinality.
+
 
   /**
      @brief Sets the scores for leaves in a tree.
@@ -521,10 +519,10 @@ public:
   LFTrainCtg(const unsigned int* yCtg_,
              const double* proxy,
              unsigned int treeChunk,
-             unsigned int _nCtg,
+             unsigned int nCtg,
              double scale);
 
-  ~LFTrainCtg();
+  ~LFTrainCtg(){}
 
   /**
      @brief Dumps probability matrix.
@@ -699,7 +697,6 @@ public:
           const unsigned int*height_,
           const BagSample* bagSample_);
 
-
   /**
      @brief Derives size of raw contents.
    */
@@ -748,7 +745,7 @@ public:
 
   const size_t noLeaf; // Inattainable leaf index value.
 
-  virtual ~LeafFrame();
+  virtual ~LeafFrame() {}
   virtual const unsigned int rowPredict() const = 0;
 
   /**
@@ -845,7 +842,7 @@ class LeafFrameReg : public LeafFrame {
 
      @return pointer to base of training response vector.
    */
-  inline const double *YTrain() const {
+  inline const double *getYTrain() const {
     return yTrain;
   }
 
@@ -937,6 +934,9 @@ public:
     Jagged3Base<const double*, const unsigned int*>(nCtg_, nTree_, height_, ctgProb_) {
   }
 
+  ~Jagged3() {
+  }
+
   /**
      @brief Getter for indexed item.
 
@@ -978,6 +978,8 @@ public:
           unsigned int nTree,
           const unsigned int* leafHeight,
           const double* prob);
+
+  ~CtgProb() {}
 
   /**
      @brief Accumulates probabilities associated with a leaf.

@@ -26,22 +26,22 @@
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const LeafFrameReg* leafReg_,
-             const BitMatrix* baggedRows,
+Quant::Quant(const PredictBox* box,
              const double* quantile_,
              unsigned int qCount_,
              unsigned int qBin) :
-  leafReg(leafReg_),
-  yTrain(leafReg->YTrain()),
+  leafReg(static_cast<LeafFrameReg*>(box->leafFrame)),
+  baggedRows(box->bag),
+  yTrain(leafReg->getYTrain()),
   yRanked(vector<ValRow>(baggedRows->getNRow())),
   quantile(quantile_),
   qCount(qCount_),
-  qPred(vector<double>(leafReg->rowPredict() * qCount)),
-  rankCount(vector<RankCount>(leafReg->bagSampleTot())),
+  qPred(vector<double>(yRanked.size() == 0 ? 0 : leafReg->rowPredict() * qCount)),
+  rankCount(vector<RankCount>(yRanked.size() == 0 ? 0 : leafReg->bagSampleTot())),
   logSmudge(0) {
-  if (rankCount.size() == 0) // Short circuits if bag information absent.
+  if (yRanked.size() == 0) // Short circuits if bag information absent.
     return;
-
+ 
   rankCounts(baggedRows);
   binSize = imputeBinSize(yRanked.size(), qBin, logSmudge);
   if (binSize < yRanked.size()) {
@@ -51,8 +51,10 @@ Quant::Quant(const LeafFrameReg* leafReg_,
 
 
 void Quant::rankCounts(const BitMatrix *baggedRows) {
-  for (unsigned int row = 0; row < yRanked.size(); row++) {
-    yRanked[row].init(yTrain[row], row);
+  unsigned int row = 0;
+  for (auto & yr : yRanked) {
+    yr.init(yTrain[row], row);
+    row++;
   }
   sort(yRanked.begin(), yRanked.end(), [](const ValRow &a, const ValRow &b) -> bool {
                                          return a.val < b.val;
@@ -85,7 +87,7 @@ void Quant::rankCounts(const BitMatrix *baggedRows) {
 void Quant::predictAcross(const Predict *predict,
                           unsigned int rowStart,
                           unsigned int rowEnd) {
-  if (rankCount.size() == 0)
+  if (yRanked.size() == 0)
     return; // Insufficient leaf information.
  
   OMPBound row;
@@ -111,11 +113,11 @@ unsigned int Quant::imputeBinSize(unsigned int rowTrain,
 
 
 void Quant::smudgeLeaves() {
-  sCountSmudge = move(vector<unsigned int>(leafReg->bagSampleTot()));
+  sCountSmudge =vector<unsigned int>(leafReg->bagSampleTot());
   for (unsigned int i = 0; i < sCountSmudge.size(); i++)
     sCountSmudge[i] = rankCount[i].sCount;
 
-  binTemp = move(vector<unsigned int>(binSize));
+  binTemp = vector<unsigned int>(binSize);
   for (unsigned int leafIdx = 0; leafIdx < leafReg->leafCount(); leafIdx++) {
     unsigned int leafStart, leafEnd;
     leafReg->bagBounds(0, leafIdx, leafStart, leafEnd);

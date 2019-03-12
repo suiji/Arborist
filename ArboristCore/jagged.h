@@ -49,6 +49,9 @@ public:
     items(items_) {
   }
 
+  virtual ~Jagged() {}
+
+
   unsigned int getNMajor() const {
     return nMajor;
   }
@@ -82,6 +85,8 @@ public:
     Jagged<item_type, off_type>(nMajor_, height_, items_) {
   }
 
+  ~JaggedArrayBase() {}
+
   size_t size() const {
     return Jagged<item_type, off_type>::height[Jagged<item_type, off_type>::nMajor - 1];
   }
@@ -99,6 +104,8 @@ public:
               item_type items_) :
     JaggedArrayBase<item_type, off_type>(nMajor_, height_, items_) {
   }
+
+  ~JaggedArray() {}
 };
 
 
@@ -114,6 +121,8 @@ public:
               item_type items_) :
     JaggedArrayBase<item_type, off_type>(nMajor_, height_, items_), stride(stride_) {
   }
+
+  ~Jagged3Base() {}
 
   /**
      @brief Returns minor base offset associated with leaf coordinate.
@@ -134,6 +143,8 @@ public:
           item_type items_) :
     Jagged3Base<item_type, off_type>(stride_, nMajor_, height_, items_) {
   }
+
+  ~Jagged3() {}
 };
 
 #endif

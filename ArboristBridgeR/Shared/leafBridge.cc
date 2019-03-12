@@ -151,16 +151,8 @@ LeafBridge::LeafBridge(unsigned int exportLength) :
 }
 
 
-LeafRegBridge::~LeafRegBridge() {
-}
-
-
 LeafFrame* LeafRegBridge::getLeaf() const {
   return leaf.get();
-}
-
-
-LeafCtgBridge::~LeafCtgBridge() {
 }
 
 
@@ -253,14 +245,14 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
   feBagSample(feBagSample_),
   yTrain(yTrain_) {
 
-  leaf = move(make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
+  leaf = make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
                                    (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagSample*) &feBagSample[0],
-                                   &yTrain_[0],
-                                   mean(yTrain_),
-                                   rowPredict));
+                                   &yTrain[0],
+                                   mean(yTrain),
+                                   rowPredict);
 }
 
 
@@ -320,7 +312,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
   feBagSample(feBagSample_),
   feWeight(feWeight_),
   levelsTrain(feLevels_) {
-  leaf = move(make_unique<LeafFrameCtg>((unsigned int *) &feNodeHeight[0],
+  leaf = make_unique<LeafFrameCtg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
                                    (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
@@ -328,7 +320,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
                                    &feWeight[0],
                                    levelsTrain.length(),
                                    rowPredict,
-                                   doProb));
+                                   doProb);
 }
 
 
@@ -363,7 +355,7 @@ TestCtg::TestCtg(SEXP sYTest,
   yTestZero(Reconcile(test2Merged, yTestOne)),
   ctgMerged(max(yTestZero) + 1),
   misPred(NumericVector(ctgMerged)),
-  confusion(move(vector<unsigned int>(rowPredict * ctgMerged))) {
+  confusion(vector<unsigned int>(rowPredict * ctgMerged)) {
 }
 
 
@@ -439,7 +431,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
 NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
-  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), leaf->rowPredict(), quant->QPred()));
+  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
   END_RCPP
 }
 
@@ -611,7 +603,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
   levelsTrain(feLevels_),
   scoreTree(vector<vector<double > >(feNodeHeight.length())),
   weightTree(vector<vector<double> >(feNodeHeight.length())) {
-  leaf = move(make_unique<LeafFrameCtg>((unsigned int*) &feNodeHeight[0],
+  leaf = make_unique<LeafFrameCtg>((unsigned int*) &feNodeHeight[0],
                                    feNodeHeight.length(),
                                    (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
@@ -619,7 +611,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
                                    &feWeight[0],
                                    levelsTrain.length(),
                                    0,
-                                   false));
+                                   false);
   leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree, weightTree);
 }
 
@@ -653,13 +645,13 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
   feBagSample(feBagSample_),
   yTrain(yTrain_),
   scoreTree(vector<vector<double > >(feNodeHeight.length())) {
-  leaf = move(make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
+  leaf = make_unique<LeafFrameReg>((unsigned int *) &feNodeHeight[0],
                                    feNodeHeight.length(),
                                    (Leaf*) &feNode[0],
                                    (unsigned int*) &feBagHeight[0],
                                    (BagSample*) &feBagSample[0],
                                    &yTrain[0],
                                    mean(yTrain),
-                                   0));
+                                   0);
   leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
 }

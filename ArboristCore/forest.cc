@@ -43,7 +43,6 @@ Forest::Forest(const unsigned int height_[],
   nodeHeight(height_),
   nTree(nTree_),
   treeNode(treeNode_),
-  nodeCount(nodeHeight[nTree-1]),
   facSplit(make_unique<BVJagged>(facVec_, facHeight_, nTree)) {
 }
 
@@ -188,7 +187,7 @@ vector<size_t> Forest::cacheOrigin() const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     origin[tIdx] = tIdx == 0 ? 0 : nodeHeight[tIdx-1];
   }
-  return move(origin);
+  return origin;
 }
 
 

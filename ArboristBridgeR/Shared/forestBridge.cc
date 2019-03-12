@@ -160,11 +160,11 @@ ForestBridge::ForestBridge(const IntegerVector& feHeight_,
   feNode(feNode_),
   feFacHeight(feFacHeight_),
   feFacSplit(feFacSplit_),
-  forest(move(make_unique<Forest>((unsigned int*) &feHeight[0],
+  forest(make_unique<Forest>((unsigned int*) &feHeight[0],
                                   feHeight.length(),
                                   (TreeNode*) &feNode[0],
                                   (unsigned int *) &feFacSplit[0],
-                                  (unsigned int*) &feFacHeight[0]))) {
+                                  (unsigned int*) &feFacHeight[0])) {
 }
 
 
