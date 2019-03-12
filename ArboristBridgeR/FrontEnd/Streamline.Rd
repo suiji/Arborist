@@ -11,11 +11,11 @@
 }
 
 \usage{
-\method{Streamline}{default}(rb)
+\method{Streamline}{default}(rs)
 }
 
 \arguments{
-  \item{rb}{Trained forest object.}
+  \item{rs}{Trained forest object.}
 }
 
 \value{an object of class \code{Rborist} with certain fields cleared.
@@ -25,11 +25,11 @@
 
 \examples{
 \dontrun{
-    ## Trains without validation.
-    rb <- Rborist(x, y, noValidate=TRUE)
+    ## Trains.
+    rs <- Rborist(x, y)
     ...
-    ## Delayed validation using a PreFormat object.
-    rb <- Streamline(rb)
+    ## Replaces trained object with streamlined copy.
+    rs <- Streamline(rs)
  }
 }
 
