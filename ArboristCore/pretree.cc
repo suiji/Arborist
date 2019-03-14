@@ -330,7 +330,7 @@ unsigned int PreTree::LeafMerge() {
   }
 
   vector<PTMerge> ptMerge(height);
-  priority_queue<PTMerge&, vector<PTMerge>, InfoCompare> infoQueue;
+  priority_queue<const PTMerge&, vector<PTMerge>, InfoCompare> infoQueue;
 
   auto leafProb = CallBack::rUnif(height);
   ptMerge[0].parId = 0;
