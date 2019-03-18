@@ -34,7 +34,7 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.1-14 uploaded to CRAN, awaiting build confirmations.
+- Rborist version 0.1-16 uploaded to CRAN, awaiting build confirmations.
 - Rborist version 0.2-0 under development.
 
 ### Python
