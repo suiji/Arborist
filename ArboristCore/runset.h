@@ -135,7 +135,7 @@ class RunSet {
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
   unsigned int runsLH; // Count of LH runs.
  public:
-  const static unsigned int maxWidth = 10; // Algorithmic threshold.
+  static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
   static unsigned int ctgWidth; // Response cardinality.
   static unsigned int noStart; // Inattainable index.
   unsigned int safeRunCount;

@@ -38,8 +38,8 @@ struct OmpThread {
   static void deInit();
 
 private:
-  static const unsigned int nThreadDefault = 0; // Static initialization.
-  static const unsigned int maxThreads = 1024; // Stolen from data.table.
+  static constexpr unsigned int nThreadDefault = 0; // Static initialization.
+  static constexpr unsigned int maxThreads = 1024; // Stolen from data.table.
 };
 
 #endif

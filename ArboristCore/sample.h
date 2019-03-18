@@ -79,7 +79,7 @@ class SumCount {
 class Sample {
   // Experimental coarse-grained control of locality:  Not quite
   // coding-to-cache, but almost.
-  static const unsigned int locExp = 18;  // Log of locality threshold.
+  static constexpr unsigned int locExp = 18;  // Log of locality threshold.
 
   /**
      @brief Maps an index into its bin.

@@ -30,9 +30,9 @@ class BV {
   const bool wrapper;  // True iff an overlay onto pre-allocated memory.
   
  public:
-  static const unsigned int full = 1;
-  static const unsigned int eltSize = 1;
-  static const unsigned int slotSize = sizeof(unsigned int);
+  static constexpr unsigned int full = 1;
+  static constexpr unsigned int eltSize = 1;
+  static constexpr unsigned int slotSize = sizeof(unsigned int);
   static constexpr unsigned int slotElts = 8 * slotSize;
 
   BV(size_t len, bool slotWise = false);

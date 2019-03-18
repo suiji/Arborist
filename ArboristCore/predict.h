@@ -163,7 +163,7 @@ class Predict {
 
 
  public:  
-  static const unsigned int rowBlock = 0x2000; // Block size.
+  static constexpr unsigned int rowBlock = 0x2000; // Block size.
   
   Predict(const PredictBox* box);
 

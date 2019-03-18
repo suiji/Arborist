@@ -49,12 +49,12 @@ class IndexAnc {
    @brief Inherited state for most-recently-restaged ancestor.
  */
 class MRRA {
-  static const unsigned int defBit = 1;
-  static const unsigned int oneBit = 2;
-  static const unsigned int denseBit = 4;
+  static constexpr unsigned int defBit = 1;
+  static constexpr unsigned int oneBit = 2;
+  static constexpr unsigned int denseBit = 4;
 
   // Addition bits available for multiple buffers:
-  static const unsigned int bufBit = 8;
+  static constexpr unsigned int bufBit = 8;
 
   unsigned char raw;
  public:

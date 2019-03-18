@@ -41,7 +41,7 @@ struct TrainBridge {
 
   // Training granularity.  Values guesstimated to minimize footprint of
   // Core-to-Bridge copies while also not over-allocating:
-  static const unsigned int treeChunk = 20;
+  static constexpr unsigned int treeChunk = 20;
   static constexpr double allocSlop = 1.2;
 
   static unsigned int nCtg; // # outcome categores:  classification iff > 0.
