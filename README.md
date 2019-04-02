@@ -34,7 +34,7 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.1-17 uploaded to CRAN, awaiting build confirmations.
+- Rborist version 0.1-17 is passing the CRAN build series.  An [rchk] issue originating in bridge code will be addressed in the next release.
 - Rborist version 0.2-0 under development.
 
 ### Python
@@ -64,6 +64,7 @@ This paper compares several implementations of the Random Forest algorithm, incl
 - New option 'oob' constrains prediction to the out-of-bag set, essential for variable importance testing.
 - Improved memory footprint.
 
-Correctness errors are addressed as received.
-Feature requests addressed on a case-by-case basis.
+Correctness and runtime errors are addressed as received.  With reproducible test cases, repairs are typically uploaded to GitHub within several days.
+
+Feature requests are addressed on a case-by-case basis.
 
