@@ -119,7 +119,7 @@ void IndexSet::initRoot(const Sample* sample) {
 shared_ptr<PreTree> IndexLevel::levels(const FrameTrain *frameTrain,
                                        const Sample* sample) {
   auto stageCount = sample->stage(samplePred.get());
-  bottom->rootDef(stageCount);
+  bottom->rootDef(stageCount, bagCount);
   shared_ptr<PreTree> preTree = make_shared<PreTree>(frameTrain, bagCount);
   auto splitNode = sample->splitNodeFactory(frameTrain);
 
@@ -387,7 +387,7 @@ void IndexLevel::subtreeReindex(unsigned int splitNext) {
   {
 #pragma omp for schedule(dynamic, 1)
   for (chunk = 0; chunk < nChunk; chunk++) {
-    chunkReindex(bottom->subtreePath(), splitNext, chunk * chunkSize, (chunk + 1) * chunkSize);
+    chunkReindex(bottom->getSubtreePath(), splitNext, chunk * chunkSize, (chunk + 1) * chunkSize);
   }
   }
 }
@@ -412,7 +412,7 @@ void IndexLevel::chunkReindex(IdxPath *stPath,
 
 
 void IndexLevel::transitionReindex(unsigned int splitNext) {
-  IdxPath *stPath = bottom->subtreePath();
+  IdxPath *stPath = bottom->getSubtreePath();
   for (unsigned int stIdx = 0; stIdx < bagCount; stIdx++) {
     if (stPath->isLive(stIdx)) {
       unsigned int pathSucc, idxSucc, ptSucc;
@@ -432,7 +432,7 @@ void IndexLevel::transitionReindex(unsigned int splitNext) {
 
 
 void IndexLevel::produce(const PreTree *preTree, unsigned int splitNext) {
-  bottom->overlap(splitNext, idxLive, nodeRel);
+  bottom->overlap(splitNext, bagCount, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.succHand(indexNext, bottom.get(), this, preTree, true);
@@ -507,18 +507,4 @@ void IndexSet::sumsAndSquares(double  &sumSquares, double *sumOut) {
     if (scSCount == sCount)
       unsplitable = true;
   }
-}
-
-
-unsigned int IndexLevel::setCand(SplitCand* cand) const {
-  return indexSet[cand->getSplitIdx()].setCand(cand);
-}
-
-
-unsigned int IndexSet::setCand(SplitCand* cand) const {
-  cand->setIdxStart(lhStart);
-  cand->setSCount(sCount);
-  cand->setSum(sum);
-
-  return extent;
 }

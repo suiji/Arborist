@@ -231,7 +231,7 @@ class Level {
   vector<DenseCoord> denseCoord;
 
   // Recomputed:
-  class IdxPath *relPath;
+  unique_ptr<class IdxPath> relPath;
   vector<unsigned int> offCand;
   vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
   vector<unsigned int> liveCount; // Indexed by node.
@@ -258,8 +258,7 @@ class Level {
 public:
   Level(unsigned int _nSplit,
         unsigned int _nPred,
-        const vector<unsigned int> &_denseIdx,
-        unsigned int _nPredDense,
+        const class RowRank* rowRank,
         unsigned int _noIndex,
         unsigned int _idxLive,
         bool _nodeRel,
@@ -499,7 +498,7 @@ public:
      @return reference to front path.
    */
   const inline class IdxPath *getFrontPath() const {
-    return relPath;
+    return relPath.get();
   }
 
   
@@ -651,6 +650,15 @@ public:
   }
 
 
+  /**
+     @brief Adjusts starting index and extent if definition is dense.
+
+     @param[in, out] startIdx is adjust by the dense margin.
+
+     @param[in, out] extent is adjust by the implicit count.
+
+     @return count of implicit indices if dense, else zero.
+   */
   inline unsigned int adjustDense(unsigned int levelIdx,
                                   unsigned int predIdx,
                                   unsigned int &startIdx,

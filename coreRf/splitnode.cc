@@ -120,7 +120,7 @@ void SPCtg::setRunOffsets(const vector<unsigned int> &runCount) {
 void SplitNode::preschedule(unsigned int splitIdx,
 			    unsigned int predIdx,
 			    unsigned int bufIdx) {
-  splitCand.emplace_back(SplitCand(splitIdx, predIdx, bufIdx));
+  splitCand.emplace_back(SplitCand(splitIdx, predIdx, bufIdx, noSet));
 }
 
 
@@ -136,13 +136,14 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
   vector<SplitCand> sc2;
   unsigned int splitPrev = splitCount;
   for (auto & sg : splitCand) {
-    if (sg.schedule(this, levelFront, index, runCount, sc2)) {
+    if (sg.schedule(this, levelFront, index, runCount)) {
       unsigned int splitThis = sg.getSplitIdx();
       nCand[splitThis]++;
       if (splitPrev != splitThis) {
-        candOff[splitThis] = sg.getVecIdx();
+        candOff[splitThis] = sc2.size();
         splitPrev = splitThis;
       }
+      sc2.push_back(sg);
     }
   }
   splitCand = move(sc2);
@@ -349,7 +350,7 @@ void SPReg::splitCandidates(const SamplePred *samplePred) {
 
 
 vector<SplitCand> SplitNode::maxCandidates() {
-  vector<SplitCand> candMax(splitCount);
+  vector<SplitCand> candMax(splitCount); // Info initialized to zero.
 
   OMPBound splitIdx;
   OMPBound splitTop = splitCount;

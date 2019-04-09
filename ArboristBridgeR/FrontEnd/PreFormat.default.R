@@ -18,7 +18,7 @@
 # Pre-formats a data frame or buffer, if not already pre-formatted.
 # If already pre-formatted, verifies types of member fields.
 PreFormat.default <- function(x, verbose = FALSE) {
-    if (inherits(x, "PreFormat") || inherits(x, "PreTrain")) {
+    if (inherits(x, "PreFormat")) {
         preFormat <- x
         if (!inherits(preFormat$predBlock, "PredBlock")) {
             stop("Missing PredBlock")

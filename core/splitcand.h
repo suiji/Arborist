@@ -28,10 +28,23 @@ struct Residual {
   const double sum;  // Imputed response sum over dense indices.
   const unsigned int sCount; // Imputed sample count over dense indices.
 
-  Residual(const class SplitCand* cand,
-           double sumTot,
-           unsigned int sCountTot);
+  /**
+     @brief Constructor initializes contents to residual values.
 
+     @param sumExpl is the sum of explicit responses over the cell.
+
+     @param sCountExpl is the sum of explicit sample counts over the cell.
+   */
+  Residual(double sum_,
+           unsigned int sCount_);
+
+  /**
+     @brief Outputs residual contents.
+
+     @param[out] ySum outputs the residual response sum.
+
+     @param[out] sCount outputs the residual sample count.
+   */  
   void apply(FltVal& ySum,
              unsigned int& sCount) {
     ySum = this->sum;
@@ -43,9 +56,8 @@ struct Residual {
 struct ResidualCtg : public Residual {
   const vector<double> ctgImpl; // Imputed response sums, by category.
 
-  ResidualCtg(const class SplitCand *cand,
-              double sumTot,
-              unsigned int sCountTot,
+  ResidualCtg(double sum_,
+              unsigned int sCount_,
               const vector<double>& ctgExpl);
 
   /**
@@ -62,16 +74,16 @@ struct ResidualCtg : public Residual {
    @brief Persistent workspace for splittting a numerical predictor.
 
    Cells having implicit dense blobs are split in separate sections,
-   calling for a persistent data structure to hold intermediate state.
+   calling for a re-entrant data structure to cache intermediate state.
    NumPersist is tailored for right-to-left index traversal.
  */
 class NumPersist {
 protected:
-  const unsigned int sCount; // Total node sample count.
-  const double sum; // Total node response suum.
+  const unsigned int sCount; // Running sample count along node.
+  const double sum; // Running response along node.
   const unsigned int rankDense; // Rank of dense value, if any.
-  unsigned int sCountL; // running sum of trial LHS sample counts.
-  double sumL; // running sum of trial LHS response.
+  unsigned int sCountL; // Running sum of trial LHS sample counts.
+  double sumL; // Running sum of trial LHS response.
   unsigned int cutDense; // Rightmost position beyond implicit blob, if any.
   
   // Read locally but initialized, and possibly reset, externally.
@@ -81,8 +93,8 @@ protected:
   // Revised at each new local maximum of 'info':
   double info; // Information high watermark.  Precipitates split iff > 0.0.
   unsigned int lhSCount; // Sample count of split LHS:  > 0.
-  unsigned int rankRH;
-  unsigned int rankLH;
+  unsigned int rankRH; // Maximum rank characterizing split.
+  unsigned int rankLH; // Minimum rank charactersizing split.
   unsigned int rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
 
   
@@ -170,7 +182,7 @@ public:
 
 
   /**
-     @brief Low-level splitting method for explicity index block.
+     @brief Low-level splitting method for explicit block of indices.
    */
   void splitExpl(const SampleRank spn[],
                  unsigned int rkThis,
@@ -310,7 +322,6 @@ class SplitCand {
   static double minRatio;
 
   double info; // Tracks during splitting.
-  unsigned int vecIdx; // Container position; facilitates dense tables.
   unsigned int splitIdx;
   unsigned int predIdx;
   unsigned int idxStart; // Per node.
@@ -327,11 +338,14 @@ public:
   unsigned int lhImplicit; // LHS implicit index count:  numeric only.
   RankRange rankRange; // Numeric only.
 
+
+  // Information initilaized to zero, all other fields uninitialized:
   SplitCand() : info(0.0) {}
   
   SplitCand(unsigned int splitIdx_,
             unsigned int predIdx_,
-            unsigned int bufIdx_);
+            unsigned int bufIdx_,
+            unsigned int noSet);
 
   static void immutables(double minRatio_);
   static void deImmutables();
@@ -374,10 +388,6 @@ public:
   }
 
 
-  inline void setIdxStart(unsigned int idxStart) {
-    this->idxStart = idxStart;
-  }
-  
   /**
      @brief Accessor for cell upper index.
    */
@@ -401,30 +411,8 @@ public:
   }
 
 
-  /**
-   */
-  inline void setSum(double sum) {
-    this->sum = sum;
-  }
-
-
-  /**
-     @brief Sample count accessor.
-   */
   auto getSCount() const {
     return sCount;
-  }
-
-
-  inline void setSCount(unsigned int sCount) {
-    this->sCount = sCount;
-  }
-  
-  /**
-     @return position in containing vector, if applicable.
-   */
-  auto getVecIdx() const {
-    return vecIdx;
   }
 
 
@@ -501,15 +489,25 @@ public:
   bool schedule(const class SplitNode *splitNode,
                 const class Level *levelFront,
 		const class IndexLevel *indexLevel,
-		vector<unsigned int> &runCount,
-		vector<SplitCand> &sc2);
+		vector<unsigned int> &runCount);
 
-  void initLate(const class SplitNode *splitNode,
-                const class Level *levelFront,
-		const class IndexLevel *index,
-		unsigned int _splitPos,
-		unsigned int _setIdx);
+  void initLate(const class SplitNode* splitNode,
+                const class Level* levelFront,
+		const class IndexSet& iSet,
+                vector<unsigned int>& runCount,
+		unsigned int rCount);
 
+  /**
+     @brief Sets splitting fields from dense-adjusted index node contents.
+
+     @param levelFront summarizes the current front level.
+
+     @param iSet is the index node from which to initiliaze.
+   */
+  void indexInit(const class Level* levelFront,
+                 const class IndexSet& iSet);
+
+  
   void split(const class SPReg *spReg,
 	     const class SamplePred *samplePred);
   void split(class SPCtg *spCtg,
@@ -601,6 +599,12 @@ public:
 
      @param splitLHSCount is the sample count of the LHS.
 
+     @param rankLH is the left predictor rank of the split.
+
+     @param rankRH is the right predictor rank of the split.
+
+     @param lhDense is true iff the LHS contains a dense blob.
+
      @param rhMin is either the minimal index commencing the RHS.
    */
   void writeNum(double splitInfo,
@@ -628,8 +632,7 @@ public:
      @brief Writes the left-hand characterization of a factor-based
      split with categorical response.
 
-     @param lhBits is a copmressed representation of factor codes
-     corresponding the LHS.
+     @param lhBits is a compressed representation of factor codes for the LHS.
    */
   void writeBits(const class SplitNode *sp,
                  unsigned int lhBits);
@@ -638,7 +641,7 @@ public:
   /**
      @brief Reports whether potential split be informative with respect to a threshold.
 
-     @param[out] minInfo is the information threshold for successors' splitting.
+     @param[in, out] minInfo is the information threshold for splitting.
 
      @param[out] lhSCount is the number of samples in LHS.
 
@@ -647,10 +650,10 @@ public:
      @return true iff information content exceeds the threshold.
    */
   bool isInformative(double &minInfo,
-                   unsigned int &lhSCount,
-                   unsigned int &lhExtent) const {
+                     unsigned int &lhSCount,
+                     unsigned int &lhExtent) const {
     if (info > minInfo) {
-      minInfo = minRatio * info;
+      minInfo = minRatio * info; // Splitting threshold for succesors.
       lhSCount = this->lhSCount;
       lhExtent = this->lhExtent;
       return true;

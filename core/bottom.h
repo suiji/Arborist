@@ -54,11 +54,10 @@ class RestageCoord {
 class Bottom {
   const unsigned int nPred; // Number of predictors.
   const unsigned int nPredFac; // Number of factor-valued predictors.
-  const unsigned int bagCount; // Count of uniquely-sampled rows.
 
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
-  class IdxPath *stPath; // IdxPath accessed by subtree.
+  unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   unsigned int splitPrev; // # nodes in previous level.
   unsigned int splitCount; // # nodes in the level about to split.
   const class FrameTrain *frameTrain;
@@ -69,9 +68,8 @@ class Bottom {
   vector<unsigned int> historyPrev; // Previous level's history:  accum.
   vector<unsigned char> levelDelta; // # levels back split was defined.
   vector<unsigned char> deltaPrev; // Previous level's delta:  accum.
-  class Level *levelFront; // Current level.
+  deque<unique_ptr<class Level> > level; // Caches levels tracked by history.
   vector<unsigned int> runCount;
-  deque<class Level *> level; // However may levels are tracked by history.
   
   vector<RestageCoord> restageCoord;
 
@@ -110,7 +108,8 @@ class Bottom {
 
      @param stageCount is a vector of per-predictor staging statistics.
   */
-  void rootDef(const vector<class StageCount>& stageCount);
+  void rootDef(const vector<class StageCount>& stageCount,
+               unsigned int bagCount);
 
   
   /**
@@ -139,7 +138,7 @@ class Bottom {
   */
   Bottom(const class FrameTrain* frameTrain_,
          const class RowRank* rowRank_,
-         unsigned int bagCount_);
+         unsigned int bagCount);
 
   /**
      @brief Class finalizer.
@@ -168,6 +167,7 @@ class Bottom {
      @param nodeRel is true iff the indexing regime is node-relative.
   */
   void overlap(unsigned int splitNext,
+               unsigned int bagCount,
                unsigned int idxLive,
                bool nodeRel);
 
@@ -270,8 +270,8 @@ class Bottom {
   /**
      @brief Accessor for 'stPath' field.
    */
-  class IdxPath *subtreePath() const {
-    return stPath;
+  class IdxPath *getSubtreePath() const {
+    return stPath.get();
   }
   
 
@@ -375,7 +375,7 @@ class Bottom {
    */
   inline class Level *reachLevel(unsigned int levelIdx,
                                  unsigned int predIdx) const {
-    return level[levelDelta[levelIdx * nPred + predIdx]];
+    return level[levelDelta[levelIdx * nPred + predIdx]].get();
   }
 
 

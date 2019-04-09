@@ -161,8 +161,14 @@ Another way to control tree size is to specify its maximal depth.  The option *n
        rs <- Rborist(x, y, nLevel = 1)
 ```
 
-As with other size-based constraints, constraining level depth also results in faster execution.
+As with several other size-based constraints, constraining level depth also results in faster execution.
 
+Option *maxLeaf* limits the number of leaves (terminals) present in a tree.  Unlike other size constraints described so far, *maxLeaf* is enforced *after* training, so as not to bias tree shape.  While this pruning operation is quite fast, then, limiting the number of leaves will not speed the training process.
+
+```{r, eval = FALSE}
+       rs <- Rborist(x, y, maxLeaf = 13}
+```
+  
 
 Option *minInfo* sets a splitting threshold based on relative information gain.  A splitting candidate is rejected if the ratio of information content between a node and its potential successors lies below the threshold.
 

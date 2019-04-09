@@ -313,16 +313,6 @@ class IndexSet {
 
   
   /**
-     @brief Copies certain fields of an index set to a splitting candidate.
-
-     @param[in, out] cand is the splitting candidate.
-
-     @return extent of index set specified by candidate.
-   */
-  unsigned int setCand(class SplitCand* cand) const;
-
-
-  /**
      @brief Exposes minimum-information value for the node.
 
      @return minInfo value.
@@ -610,6 +600,17 @@ class IndexLevel {
 
 
   /**
+     @brief Getter for IndexSet at a given position.
+
+     @param splitIdx is the set's posistion.
+
+     @return reference to set at position.
+   */
+  inline const IndexSet& getISet(unsigned int splitIdx) const {
+    return indexSet[splitIdx];
+  }
+  
+  /**
      @brief Accessor for count of splitable sets.
    */
   inline unsigned int getNSplit() const {
@@ -643,16 +644,6 @@ class IndexLevel {
     return indexSet[splitIdx].getExtent();
   }
   
-
-  /**
-     @brief Copies certain fields of this set to a splitting candidate.
-
-     @param[in, out] is the splitting candidate.
-
-     @return index extent of this set.
-   */
-  unsigned int setCand(class SplitCand* cand) const;
-
 
   /**
      @brief Accessor for relative base of split.

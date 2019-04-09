@@ -18,7 +18,7 @@
 #include "bottom.h"
 #include "index.h"
 #include "callback.h"
-#include "bv.h"
+#include "rowrank.h"
 #include "runset.h"
 #include "samplepred.h"
 #include "splitnode.h"
@@ -29,15 +29,14 @@ vector<double> Level::predProb;
 
 Level::Level(unsigned int _nSplit,
              unsigned int _nPred,
-             const vector<unsigned int> &_denseIdx,
-             unsigned int _nPredDense,
+             const RowRank* rowRank,
              unsigned int bagCount,
              unsigned int _idxLive,
              bool _nodeRel,
              Bottom *_bottom) :
   nPred(_nPred),
-  denseIdx(_denseIdx),
-  nPredDense(_nPredDense),
+  denseIdx(rowRank->getDenseIdx()),
+  nPredDense(rowRank->getNPredDense()),
   nSplit(_nSplit),
   noIndex(bagCount),
   idxLive(_idxLive),
@@ -45,7 +44,7 @@ Level::Level(unsigned int _nSplit,
   indexAnc(vector<IndexAnc>(nSplit)),
   def(vector<MRRA>(nSplit * nPred)),
   denseCoord(vector<DenseCoord>(nSplit * nPredDense)),
-  relPath(new IdxPath(idxLive)),
+  relPath(make_unique<IdxPath>(idxLive)),
   offCand(vector<unsigned int>(nSplit * nPred)),
   nodeRel(_nodeRel),
   bottom(_bottom)
@@ -55,6 +54,9 @@ Level::Level(unsigned int _nSplit,
   // Coprocessor only.
   fill(def.begin(), def.end(), df);
   fill(offCand.begin(), offCand.end(), bagCount);
+}
+
+Level::~Level() {
 }
 
 void Level::immutables(unsigned int feFixed, const vector<double> &feProb) {
@@ -126,11 +128,6 @@ void Level::frontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bu
 void Level::getBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
   indexAnc[mrra.first].Ref(startIdx, extent);
   (void) adjustDense(mrra.first, mrra.second, startIdx, extent);
-}
-
-
-Level::~Level() {
-  delete relPath;
 }
 
 
@@ -309,7 +306,7 @@ void Level::rankRestage(SamplePred *samplePred,
   fill(pathCount, pathCount + backScale(1), 0);
 
   unsigned int predIdx = mrra.second;
-  samplePred->prepath(nodeRel ?  getFrontPath() : bottom->subtreePath(), reachBase, predIdx, bufIdx, startIdx, extent, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
+  samplePred->prepath(nodeRel ?  getFrontPath() : bottom->getSubtreePath(), reachBase, predIdx, bufIdx, startIdx, extent, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
 
   // Successors may or may not themselves be dense.
   packDense(startIdx, pathCount, levelFront, mrra, reachOffset);
@@ -413,7 +410,7 @@ void Level::indexRestage(SamplePred *samplePred,
   unsigned int startIdx, extent;
   getBounds(mrra, startIdx, extent);
 
-  samplePred->indexRestage(nodeRel ? getFrontPath() : bottom->subtreePath(),
+  samplePred->indexRestage(nodeRel ? getFrontPath() : bottom->getSubtreePath(),
                            reachBase, mrra.second, bufIdx, startIdx, extent,
                            pathMask(),
                            reachBase == nullptr ? levelFront->isNodeRel() : true,

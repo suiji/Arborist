@@ -33,14 +33,29 @@ void SplitCand::deImmutables() {
 
 
 SplitCand::SplitCand(unsigned int splitIdx_,
-                       unsigned int predIdx_,
-                       unsigned int bufIdx_) :
+                     unsigned int predIdx_,
+                     unsigned int bufIdx_,
+                     unsigned int noSet) :
   info(0.0),
   splitIdx(splitIdx_),
   predIdx(predIdx_),
+  setIdx(noSet),
   bufIdx(bufIdx_),
   lhSCount(0),
   lhImplicit(0) {
+}
+
+
+bool SplitCand::schedule(const SplitNode* splitNode,
+                         const Level* levelFront,
+                         const IndexLevel* index,
+                         vector<unsigned int>& runCount) {
+  unsigned int rCount;
+  if (levelFront->scheduleSplit(splitIdx, predIdx, rCount)) {
+    initLate(splitNode, levelFront, index->getISet(splitIdx), runCount, rCount);
+    return true;
+  }
+  return false;
 }
 
 
@@ -52,35 +67,27 @@ SplitCand::SplitCand(unsigned int splitIdx_,
  */
 void SplitCand::initLate(const SplitNode *splitNode,
                          const Level *levelFront,
-                         const IndexLevel *index,
-                         unsigned int vecIdx,
-                         unsigned int setIdx) {
-  this->vecIdx = vecIdx,
-  this->setIdx = setIdx;
-  unsigned int extent = index->setCand(this);
+                         const IndexSet& iSet,
+                         vector<unsigned int>& runCount,
+                         unsigned int rCount) {
+  if (rCount > 1) {
+    setIdx = runCount.size();
+    runCount.push_back(rCount);
+  }
   info = splitNode->getPrebias(splitIdx);
+  indexInit(levelFront, iSet);
+}
+
+
+void SplitCand::indexInit(const Level* levelFront, const IndexSet &iSet) {
+  idxStart = iSet.getStart();
+  sCount = iSet.getSCount();
+  sum = iSet.getSum();
+
+  unsigned int extent = iSet.getExtent();
   implicit = levelFront->adjustDense(splitIdx, predIdx, idxStart, extent);
   idxEnd = idxStart + extent - 1; // Singletons invalid:  idxEnd < idxStart.
 }
-
-bool SplitCand::schedule(const SplitNode *splitNode,
-                         const Level *levelFront,
-                         const IndexLevel *index,
-                         vector<unsigned int> &runCount,
-                         vector<SplitCand> &sc2) {
-  unsigned int rCount;
-  if (levelFront->scheduleSplit(splitIdx, predIdx, rCount)) {
-    initLate(splitNode, levelFront, index, sc2.size(), rCount > 1 ? runCount.size() : splitNode->getNoSet());
-    if (rCount > 1) {
-      runCount.push_back(rCount);
-    }
-    sc2.push_back(*this);
-    return true;
-  }
-  return false;
-}
-
-
 
 
 /**
@@ -153,7 +160,7 @@ NumPersistReg::NumPersistReg(const SplitCand* cand,
                              const SPReg* spReg) :
   NumPersist(cand, spReg->denseRank(cand)),
   monoMode(spReg->getMonoMode(cand)),
-  resid(cand->getImplicit() > 0 ? makeResidual(cand, spn) : nullptr) {
+  resid(makeResidual(cand, spn)) {
 }
 
 void NumPersistReg::split(const SampleRank spn[],
@@ -303,7 +310,7 @@ NumPersistCtg::NumPersistCtg(const SplitCand* cand,
                              SPCtg* spCtg) :
   NumPersist(cand, spCtg->denseRank(cand)),
   nCtg(spCtg->getNCtg()),
-  resid(cand->getImplicit() > 0 ? makeResidual(cand, spn, spCtg) : nullptr),
+  resid(makeResidual(cand, spn, spCtg)),
   ctgSum(spCtg->getSumSlice(cand)),
   ctgAccum(spCtg->getAccumSlice(cand)),
   ssL(spCtg->getSumSquares(cand)),
@@ -583,29 +590,27 @@ void SplitCand::splitBinary(SPCtg *spCtg) {
 
 shared_ptr<Residual> NumPersistReg::makeResidual(const SplitCand* cand,
                                                  const SampleRank spn[]) {
-  unsigned int cut = cand->getIdxEnd() + 1; // Unreachable position for cell.
-  double sumTot = 0.0;
-  unsigned int sCountTot = 0;
-  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
-    unsigned int sampleCount, rkThis;
-    FltVal ySum;
-    rkThis = spn[idx].regFields(ySum, sampleCount);
-    if (rkThis > rankDense) {
-      cut = idx;
-    }
-    sCountTot += sampleCount;
-    sumTot += ySum;
+  if (cand->getImplicit() == 0) {
+    return nullptr;
   }
-  cutDense = cut;
+  double sumExpl = 0.0;
+  unsigned int sCountExpl = 0;
+  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+    unsigned int rkThis = spn[idx].regFields(ySum, sCountThis);
+    if (rkThis > rankDense) {
+      cutDense = idx;
+    }
+    sCountExpl += sCountThis;
+    sumExpl += ySum;
+  }
   
-  return make_shared<Residual>(cand, sumTot, sCountTot);
+  return make_shared<Residual>(sum - sumExpl, sCount - sCountExpl);
 }
 
-Residual::Residual(const SplitCand* cand,
-                   double sumTot,
-                   unsigned int sCountTot) :
-  sum(cand->getSum() - sumTot),
-  sCount(cand->getSCount() - sCountTot) {
+Residual::Residual(double sum_,
+                   unsigned int sCount_) :
+  sum(sum_),
+  sCount(sCount_) {
 }
 
 
@@ -613,32 +618,32 @@ shared_ptr<ResidualCtg>
 NumPersistCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],
                             SPCtg* spCtg) {
-  vector<double> ctgExpl(nCtg);
-  ctgExpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgExpl.size());
+  if (cand->getImplicit() == 0) {
+    return nullptr;
+  }
 
-  unsigned int cut = cand->getIdxEnd() + 1; // Defaults to highest index.
-  double sumTot = 0.0;
-  unsigned int sCountTot = 0;
+  vector<double> ctgImpl(nCtg);
+  ctgImpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgImpl.size());
+
+  double sumExpl = 0.0;
+  unsigned int sCountExpl = 0;
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
     unsigned int yCtg;
-    FltVal ySum;
     unsigned int rkThis = spn[idx].ctgFields(ySum, sCountThis, yCtg);
-    sCountTot += sCountThis;
-    ctgExpl[yCtg] -= ySum;
     if (rkThis > rankDense) {
-      cut = idx;
+      cutDense = idx;
     }
-    sumTot += ySum;
+    sCountExpl += sCountThis;
+    ctgImpl[yCtg] -= ySum;
+    sumExpl += ySum;
   }
-  cutDense = cut;
 
-  return make_shared<ResidualCtg>(cand, sumTot, sCountTot, ctgExpl);
+  return make_shared<ResidualCtg>(sum - sumExpl, sCount - sCountExpl, ctgImpl);
 }
 
-ResidualCtg::ResidualCtg(const SplitCand *cand,
-                         double sumTot,
-                         unsigned int sCountTot,
-                         const vector<double>& ctgExpl) :
-  Residual(cand, sumTot, sCountTot),
-  ctgImpl(ctgExpl) {
+ResidualCtg::ResidualCtg(double sum_,
+                         unsigned int sCount_,
+                         const vector<double>& ctgImpl_) :
+  Residual(sum_, sCount_),
+  ctgImpl(ctgImpl_) {
 }

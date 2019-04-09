@@ -29,7 +29,7 @@ std::vector<double> CallBack::weight;
 
   @return void.
  */
-void CallBack::SampleInit(unsigned int _nRow, const double _weight[], bool _repl) {
+void CallBack::SampleInit(unsigned int _nRow, double _weight[], bool _repl) {
   nRow = _nRow;
   weight.assign(_weight, _weight+_nRow);
   withRepl = _repl;

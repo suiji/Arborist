@@ -21,6 +21,7 @@
 #ifdef _OPENMP
   #include <omp.h>
 #else
+
 constexpr unsigned int omp_get_max_threads() {
   return 1;
 }
@@ -31,7 +32,8 @@ constexpr unsigned int omp_get_thread_limit() {
 #endif
 
 unsigned int OmpThread::nThread = OmpThread::nThreadDefault;
-const unsigned int OmpThread::maxThreads = 1024;  // Cribbed from above.
+
+const unsigned int OmpThread::maxThreads = 1024; // Cribbed from above.
 
 void OmpThread::init(unsigned int nThread_) {
   unsigned int ompMax = std::min(omp_get_max_threads(), omp_get_thread_limit());

@@ -95,12 +95,6 @@ public:
     return run.get();
   }
 
-  /**
-     @brief Accessor for noSet member.
-   */
-  inline unsigned int getNoSet() const {
-    return noSet;
-  }
 
   /**
      @brief Getter for pre-bias value, by index.
@@ -304,7 +298,6 @@ class SPCtg : public SplitNode {
   }
 
 
-
   /**
      @brief Determines whether a pair of sums is acceptably stable to appear
      in the denominators.
@@ -322,7 +315,6 @@ class SPCtg : public SplitNode {
     return sumL > minDenom && sumR > minDenom;
   }
   
-
 
   /**
      @brief Provides slice into sum vector for a splittin candidate.
