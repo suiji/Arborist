@@ -134,9 +134,18 @@ class RunSet {
   double *rvZero; // Non-binary wide runs:  random variates for sampling.
   unsigned int runCount;  // Current high watermark:  not subject to shrinking.
   unsigned int runsLH; // Count of LH runs.
+
+
+  /**
+     @brief Caches response sums.
+
+     @param nodeSum is the per-category response over the node (IndexSet).
+   */
+  void setSumCtg(const vector<double> &nodeSum);
+
+
  public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
-  static unsigned int ctgWidth; // Response cardinality.
   static unsigned int noStart; // Inattainable index.
   unsigned int safeRunCount;
 
@@ -164,17 +173,16 @@ class RunSet {
   /**
      @brief Builds a run for the dense rank using residual values.
 
-     @param denseRank is the rank corresponding to the dense factor.
+     @param cand is the splitting candidate with potential implicit state.
 
-     @param sCountTot is the total sample count over the node.
-   
-     @param sumTot is the total sum of responses over the node.
+     @param denseRank is the rank of the implicit blob, if any.
+
+     @param ctgSum is the per-category response over the node (IndexSet).
   */
-  void writeImplicit(unsigned int denseRank,
-                     unsigned int sCountTot,
-                     double sumTot,
-                     unsigned int denseCount,
-                     const double nodeSum[] = 0);
+  void writeImplicit(const class SplitCand* cand,
+                     const class SplitNode* sp,
+                     const vector<double>& ctgSum = vector<double>(0));
+
   /**
      @brief Hammers the pair's run contents with runs selected for
      sampling.
@@ -184,7 +192,7 @@ class RunSet {
 
      @return post-shrink run count.
   */
-  unsigned int deWide();
+  unsigned int deWide(unsigned int nCtg);
 
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
@@ -201,6 +209,7 @@ class RunSet {
               vector<BHPair> &bHeap,
               vector<unsigned int> &lhOut,
               vector<double> &ctgSum,
+              unsigned int nCtg,
               vector<double> &rvWide);
 
   /**
@@ -223,6 +232,17 @@ class RunSet {
      @brief Writes to heap, weighting by category-1 probability.
   */
   void heapBinary();
+
+
+  /**
+     @brief Subtracts a run's per-category responses from the current run.
+
+     @param nCtg is the response cardinality.
+
+     @param runIdx is the run index.
+   */
+  void residCtg(unsigned int nCtg,
+                unsigned int runIdx);
 
 
   /**
@@ -274,20 +294,14 @@ class RunSet {
 
   /**
      @brief Sets run parameters and increments run count.
-
-     @return void.
    */
-  inline void write(unsigned int rank, unsigned int sCount, double sum, unsigned int extent, unsigned int start = noStart) {
+  inline void write(unsigned int rank,
+                    unsigned int sCount,
+                    double sum,
+                    unsigned int extent,
+                    unsigned int start = noStart) {
     runZero[runCount++].init(rank, sCount, sum, start, extent);
-    hasImplicit = (start == noStart ? true : false);
-  }
-
-
-  /**
-     @return checkerboard value at slot for category.
-   */
-  inline double getSumCtg(unsigned int slot, unsigned int yCtg) const {
-    return ctgZero[slot * ctgWidth + yCtg];
+    hasImplicit = (start == noStart);
   }
 
 
@@ -297,13 +311,18 @@ class RunSet {
 
      @return void.
    */
-  inline void accumCtg(unsigned int yCtg, double ySum) {
-    ctgZero[runCount * ctgWidth + yCtg] += ySum;
+  inline void accumCtg(unsigned int nCtg,
+                       double ySum,
+                       unsigned int yCtg) {
+    ctgZero[runCount * nCtg + yCtg] += ySum;
   }
 
 
-  inline void setSumCtg(unsigned int yCtg, double ySum) {
-    ctgZero[runCount * ctgWidth + yCtg] = ySum;
+  /**
+     @return checkerboard value at slot for category.
+   */
+  inline double getSumCtg(unsigned int slot, unsigned int nCtg, unsigned int yCtg) const {
+    return ctgZero[slot * nCtg + yCtg];
   }
 
 
@@ -321,9 +340,9 @@ class RunSet {
    */
   inline bool accumBinary(unsigned int outPos, double &sum0, double &sum1) {
     unsigned int slot = outZero[outPos];
-    double cell0 = getSumCtg(slot, 0);
+    double cell0 = getSumCtg(slot, 2, 0);
     sum0 += cell0;
-    double cell1 = getSumCtg(slot, 1);
+    double cell1 = getSumCtg(slot, 2, 1);
     sum1 += cell1;
 
     unsigned int sCount = runZero[slot].sCount;
@@ -333,7 +352,7 @@ class RunSet {
     // then checks whether the response values are likely different, given
     // some jittering.
     // TODO:  replace constant with value obtained from class weighting.
-    return sCount != runZero[slotNext].sCount ? true : getSumCtg(slotNext, 1) - cell1 > 0.9;
+    return sCount != runZero[slotNext].sCount ? true : getSumCtg(slotNext, 2, 1) - cell1 > 0.9;
   }
 
 
@@ -506,14 +525,6 @@ class Run {
    */
   inline bool isRun(unsigned int setIdx) const {
     return setIdx != noRun;
-  }
-
-
-  /**
-     @brief Getter for noRun index.
-   */
-  inline unsigned int getNoRun() const {
-    return noRun;
   }
 
 

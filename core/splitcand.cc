@@ -158,7 +158,7 @@ NumPersist::NumPersist(const SplitCand* cand,
 NumPersistReg::NumPersistReg(const SplitCand* cand,
                              const SampleRank spn[],
                              const SPReg* spReg) :
-  NumPersist(cand, spReg->denseRank(cand)),
+  NumPersist(cand, spReg->getDenseRank(cand)),
   monoMode(spReg->getMonoMode(cand)),
   resid(makeResidual(cand, spn)) {
 }
@@ -308,7 +308,7 @@ void SplitCand::splitNum(SPCtg *spCtg,
 NumPersistCtg::NumPersistCtg(const SplitCand* cand,
                              const SampleRank spn[],
                              SPCtg* spCtg) :
-  NumPersist(cand, spCtg->denseRank(cand)),
+  NumPersist(cand, spCtg->getDenseRank(cand)),
   nCtg(spCtg->getNCtg()),
   resid(makeResidual(cand, spn, spCtg)),
   ctgSum(spCtg->getSumSlice(cand)),
@@ -435,12 +435,10 @@ void SplitCand::splitFac(const SPReg *spReg,
     }
   }
   
-  // Flushes the remaining run.  Also flushes the implicit run, if dense.
+  // Flushes the remaining run and implicit run, if dense.
   //
   runSet->write(rkThis, sCountHeap, sumHeap, frEnd - idxStart + 1, idxStart);
-  if (implicit > 0) {
-    runSet->writeImplicit(spReg->denseRank(this), sCount, sum, implicit);
-  }
+  runSet->writeImplicit(this, spReg);
 
   unsigned int runSlot = heapSplit(runSet);
   writeSlots(spReg, runSet, runSlot);
@@ -503,22 +501,20 @@ void SplitCand::buildRuns(SPCtg *spCtg,
       sCountLoc = sampleCount;
       frEnd = i;
     }
-    runSet->accumCtg(yCtg, ySum);
+    runSet->accumCtg(spCtg->getNCtg(), ySum, yCtg);
   }
 
   
-  // Flushes remaining run.
+  // Flushes remaining run and implicit blob, if any.
   runSet->write(rkThis, sCountLoc, sumLoc, frEnd - idxStart + 1, idxStart);
-  if (implicit > 0) {
-    runSet->writeImplicit(spCtg->denseRank(this), sCount, sum, implicit, spCtg->getSumSlice(this));
-  }
+  runSet->writeImplicit(this, spCtg, spCtg->getSumSlice(this));
 }
 
 
 void SplitCand::splitRuns(SPCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(setIdx);
-  const double *ctgSum = spCtg->getSumSlice(this);
-  const unsigned int slotSup = runSet->deWide() - 1;// Uses post-shrink value.
+  const vector<double> ctgSum(spCtg->getSumSlice(this));
+  const unsigned int slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
   unsigned int lhBits = 0;
   unsigned int leftFull = (1 << slotSup) - 1;
 
@@ -527,11 +523,11 @@ void SplitCand::splitRuns(SPCtg *spCtg) {
     double sumL = 0.0;
     double ssL = 0.0;
     double ssR = 0.0;
-    for (unsigned int yCtg = 0; yCtg < spCtg->getNCtg(); yCtg++) {
+    for (unsigned int yCtg = 0; yCtg < ctgSum.size(); yCtg++) {
       double sumCtg = 0.0; // Sum at category 'yCtg' over subset slots.
       for (unsigned int slot = 0; slot < slotSup; slot++) {
-	if ((subset & (1 << slot)) != 0) {
-	  sumCtg += runSet->getSumCtg(slot, yCtg);
+	if ((subset & (1ul << slot)) != 0) {
+	  sumCtg += runSet->getSumCtg(slot, ctgSum.size(), yCtg);
 	}
       }
       const double nodeSumCtg = ctgSum[yCtg];
@@ -564,7 +560,7 @@ void SplitCand::splitBinary(SPCtg *spCtg) {
   runSet->heapBinary();
   runSet->dePop();
 
-  const double* ctgSum = spCtg->getSumSlice(this);
+  const vector<double> ctgSum(spCtg->getSumSlice(this));
   const double tot0 = ctgSum[0];
   const double tot1 = ctgSum[1];
   double sumL0 = 0.0; // Running left sum at category 0.
@@ -622,8 +618,8 @@ NumPersistCtg::makeResidual(const SplitCand* cand,
     return nullptr;
   }
 
-  vector<double> ctgImpl(nCtg);
-  ctgImpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgImpl.size());
+  vector<double> ctgImpl(spCtg->getSumSlice(cand));//nCtg);
+  //  ctgImpl.assign(spCtg->getSumSlice(cand), spCtg->getSumSlice(cand) + ctgImpl.size());
 
   double sumExpl = 0.0;
   unsigned int sCountExpl = 0;

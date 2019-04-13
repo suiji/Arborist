@@ -40,7 +40,7 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = FALSE,
+                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
                 treeBlock = 1,
                 verbose = FALSE,
                 withRepl = TRUE,

@@ -104,7 +104,8 @@ class IndexSet {
   void initRoot(const class Sample* sample);
 
 
-  void decr(vector<class SumCount> &_ctgTot, const vector<class SumCount> &_ctgSub);
+  void decr(vector<class SumCount> &_ctgTot,
+            const vector<class SumCount> &_ctgSub);
 
   /**
      @brief Absorbs parameters of informative splits.
@@ -191,12 +192,11 @@ class IndexSet {
   /**
      @brief Sums each category for a node splitable in the upcoming level.
 
-     @param[out] sumSquares accumulates the sum of squares over each category.
-     Assumed intialized to zero.
+     @param[out] sumSquares outputs the response sum of squares, over categories.
 
-     @param[in, out] sumOut records the response sums, by category.  Assumed initialized to zero.
+     @return per-category sums for the node.
   */
-  void sumsAndSquares(double &sumSquares, double *sumOut);
+  vector<double> sumsAndSquares(double& sumSquares);
 
   bool isUnsplitable() const {
     return unsplitable;
@@ -566,11 +566,12 @@ class IndexLevel {
   
   /**
      @brief Visits all live indices, so likely worth parallelizing.
-     TODO:  Build categorical sums within Replay().
+
+     @param[out] ctgSum outputs the per-category sum of responses, per node.
+
+     @return category-summed squares of responses, per node.
   */
-  void sumsAndSquares(unsigned int ctgWidth,
-                      vector<double> &sumSquares,
-                      vector<double> &ctgSum);
+  vector<double> sumsAndSquares(vector<vector<double> >&ctgSum);
 
 
   /**

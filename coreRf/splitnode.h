@@ -75,7 +75,7 @@ public:
 
      @return rank of dense value, if candidate's predictor has one.
    */
-  unsigned int denseRank(const SplitCand* cand) const;
+  unsigned int getDenseRank(const SplitCand* cand) const;
 
   
   /**
@@ -262,7 +262,8 @@ class SPCtg : public SplitNode {
 
 
  public:
-  vector<double> ctgSum; // Per-level sum, by split/category pair.
+  vector<vector<double> > ctgSum; // Per-category response sums, by node.
+
   SPCtg(const class FrameTrain *_frameTrain,
 	const class RowRank *_rowRank,
 	unsigned int bagCount,
@@ -317,13 +318,13 @@ class SPCtg : public SplitNode {
   
 
   /**
-     @brief Provides slice into sum vector for a splittin candidate.
+     @brief Accesses per-category sum vector associated with candidate's node.
 
      @param cand is the splitting candidate.
 
-     @return raw pointer to per-category sum vector for node.
+     @return reference vector of per-category sums.
    */
-  double* getSumSlice(const class SplitCand* cand);
+  const vector<double>& getSumSlice(const class SplitCand* cand);
 
 
   /**

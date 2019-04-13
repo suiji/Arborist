@@ -485,26 +485,28 @@ unsigned int IndexSet::getPTIdSucc(const PreTree* preTree, bool isLeft) const {
 }
 
 
-void IndexLevel::sumsAndSquares(unsigned int ctgWidth,
-                                vector<double> &sumSquares,
-                                vector<double> &ctgSum) {
+vector<double> IndexLevel::sumsAndSquares(vector<vector<double> >&ctgSum) {
+  vector<double> sumSquares(indexSet.size());
+
   OMPBound splitIdx;
 #pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
-      indexSet[splitIdx].sumsAndSquares(sumSquares[splitIdx], &ctgSum[splitIdx * ctgWidth]);
+      ctgSum[splitIdx] = indexSet[splitIdx].sumsAndSquares(sumSquares[splitIdx]);
     }
   }
+  return sumSquares;
 }
 
 
-void IndexSet::sumsAndSquares(double  &sumSquares, double *sumOut) {
+vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
+  vector<double> sumOut(ctgSum.size());
+  sumSquares =  0.0;
   for (unsigned int ctg = 0; ctg < ctgSum.size(); ctg++) {
-    unsigned int scSCount;
-    ctgSum[ctg].ref(sumOut[ctg], scSCount);
+    unsplitable |= !ctgSum[ctg].splitable(sCount, sumOut[ctg]);
     sumSquares += sumOut[ctg] * sumOut[ctg];
-    if (scSCount == sCount)
-      unsplitable = true;
   }
+
+  return sumOut;
 }

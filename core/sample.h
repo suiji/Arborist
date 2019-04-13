@@ -35,16 +35,19 @@ class SumCount {
     sCount = 0;
   }
 
+
   /**
-     @brief Dual accessor for sum and sample count values.
+     @brief Determines whether a node is splitable and accesses sum field.
 
-     @param[out] sum_ outputs the sum of sampled values.
+     @param sCount is the containing node's sample count.
 
-     @param[out] sCount_ outputs the sample count.
+     @param[out] sum_ outputs the sum at this category.
+
+     @return true iff not all samples belong to this category.
    */
-  inline void ref(double &sum_, unsigned int &sCount_) const {
+  inline bool splitable(unsigned int sCount_, double& sum_) const {
     sum_ = sum;
-    sCount_ = sCount;
+    return sCount_ != sCount;
   }
   
 

@@ -15,11 +15,11 @@
 
 #include "runset.h"
 #include "callback.h"
+#include "splitnode.h"
 #include "splitcand.h"
 #include "pretree.h"
 #include "index.h"
 
-unsigned int RunSet::ctgWidth = 0;
 unsigned int RunSet::noStart = 0;
 
 
@@ -35,7 +35,6 @@ Run::Run(unsigned int ctgWidth_,
   ctgSum(vector<double>(0)),
   rvWide(vector<double>(0)),
   ctgWidth(ctgWidth_) {
-  RunSet::ctgWidth = ctgWidth;
   RunSet::noStart = nRow; // Inattainable start value, irrespective of tree.
 }
 
@@ -125,7 +124,7 @@ void Run::offsetsCtg(const vector<unsigned int> &safeCount) {
 
 void Run::reBase() {
   for (auto & rs  : runSet) {
-    rs.reBase(facRun, bHeap, lhOut, ctgSum, rvWide);
+    rs.reBase(facRun, bHeap, lhOut, ctgSum, ctgWidth, rvWide);
   }
 }
 
@@ -186,12 +185,13 @@ void RunSet::reBase(vector<FRNode>& runBase,
                     vector<BHPair>& heapBase,
                     vector<unsigned int>& outBase,
                     vector<double>& ctgBase,
+                    unsigned int nCtg,
                     vector<double>& rvBase) {
   runZero = &runBase[runOff];
   heapZero = &heapBase[heapOff];
   outZero = &outBase[outOff];
   rvZero = rvBase.size() > 0 ? &rvBase[heapOff] : nullptr;
-  ctgZero = ctgBase.size() > 0 ?  &ctgBase[runOff * ctgWidth] : nullptr;
+  ctgZero = ctgBase.size() > 0 ?  &ctgBase[runOff * nCtg] : nullptr;
   runCount = 0;
 }
 
@@ -217,31 +217,43 @@ void RunSet::heapBinary() {
   // In the absence of class weighting, numerator can be (integer) slot
   // sample count, instead of slot sum.
   for (unsigned int slot = 0; slot < runCount; slot++) {
-    BHeap::insert(heapZero, slot, getSumCtg(slot, 1) / runZero[slot].sum);
+    BHeap::insert(heapZero, slot, getSumCtg(slot, 2, 1) / runZero[slot].sum);
   }
 }
 
 
-void RunSet::writeImplicit(unsigned int denseRank, unsigned int sCountTot, double sumTot, unsigned int denseCount, const double nodeSum[]) {
-  if (nodeSum != 0) {
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      setSumCtg(ctg, nodeSum[ctg]);
-    }
-  }
+void RunSet::writeImplicit(const SplitCand* cand, const SplitNode* sp,  const vector<double>& ctgSum) {
+  unsigned int implicit = cand->getImplicit();
+  if (implicit == 0)
+    return;
+
+  unsigned int sCount = cand->getSCount();
+  double sum = cand->getSum();
+  setSumCtg(ctgSum);
 
   for (unsigned int runIdx = 0; runIdx < runCount; runIdx++) {
-    sCountTot -= runZero[runIdx].sCount;
-    sumTot -= runZero[runIdx].sum;
-    if (nodeSum != 0) {
-      for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-        accumCtg(ctg, -getSumCtg(runIdx, ctg));
-      }
-    }
+    sCount -= runZero[runIdx].sCount;
+    sum -= runZero[runIdx].sum;
+    residCtg(ctgSum.size(), runIdx);
   }
 
-  write(denseRank, sCountTot, sumTot, denseCount);
+  write(sp->getDenseRank(cand), sCount, sum, implicit);
 }
 
+
+void RunSet::setSumCtg(const vector<double>& ctgSum) {
+  for (unsigned int ctg = 0; ctg < ctgSum.size(); ctg++) {
+    ctgZero[runCount * ctgSum.size() + ctg] = ctgSum[ctg];
+  }
+}
+
+
+void RunSet::residCtg(unsigned int nCtg, unsigned int runIdx) {
+  for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
+    ctgZero[runCount * nCtg + ctg] -= getSumCtg(runIdx, nCtg, ctg);
+  }
+}
+  
 
 /**
    @brief Implicit runs are characterized by a start value of 'noStart'.
@@ -273,22 +285,22 @@ void RunSet::dePop(unsigned int pop) {
 }
 
 
-unsigned int RunSet::deWide() {
+unsigned int RunSet::deWide(unsigned int nCtg) {
   if (runCount <= maxWidth)
     return runCount;
 
   heapRandom();
 
   vector<FRNode> tempRun(maxWidth);
-  vector<double> tempSum(ctgWidth * maxWidth); // Accessed as matrix.
+  vector<double> tempSum(nCtg * maxWidth); // Accessed as ctg-minor matrix.
 
   // Copies runs referenced by the slot list to a temporary area.
   dePop(maxWidth);
   unsigned i = 0;
   for (auto & tr : tempRun) {
     unsigned int outSlot = outZero[i];
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      tempSum[i * ctgWidth + ctg] = ctgZero[outSlot * ctgWidth + ctg];
+    for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
+      tempSum[i * nCtg + ctg] = ctgZero[outSlot * nCtg + ctg];
     }
     tr = runZero[outSlot];
     i++;
@@ -297,8 +309,8 @@ unsigned int RunSet::deWide() {
   // Overwrites existing runs with the shrunken list
   i = 0;
   for (auto tr : tempRun) {
-    for (unsigned int ctg = 0; ctg < ctgWidth; ctg++) {
-      ctgZero[i * ctgWidth + ctg] = tempSum[i * ctgWidth + ctg];
+    for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
+      ctgZero[i * nCtg + ctg] = tempSum[i * nCtg + ctg];
     }
     runZero[i] = tr;
     i++;

@@ -205,7 +205,7 @@ public:
 class NumPersistCtg : public NumPersist {
   const unsigned int nCtg; // Cadinality of response.
   const shared_ptr<ResidualCtg> resid;
-  double* ctgSum; // Slice of compressed response data structure.
+  const vector<double>& ctgSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
   double ssR; // Right " ".

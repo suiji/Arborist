@@ -94,7 +94,7 @@ RunSet *SplitNode::rSet(unsigned int setIdx) const {
 }
 
 
-unsigned int SplitNode::denseRank(const SplitCand* cand) const {
+unsigned int SplitNode::getDenseRank(const SplitCand* cand) const {
   return rowRank->getDenseRank(cand->getPredIdx());
 }
 
@@ -215,8 +215,8 @@ unsigned int SplitNode::getNumIdx(unsigned int predIdx) const {
 }
 
 
-double* SPCtg::getSumSlice(const SplitCand* cand) {
-  return &ctgSum[nCtg * cand->getSplitIdx()];
+const vector<double>& SPCtg::getSumSlice(const SplitCand* cand) {
+  return ctgSum[cand->getSplitIdx()];
 }
 
 
@@ -262,17 +262,13 @@ void SPReg::levelPreset(IndexLevel *index) {
 /**
    @brief As above, but categorical response.  Initializes per-level sum and
    FacRun vectors.
-
-   @return void.
 */
 void SPCtg::levelPreset(IndexLevel *index) {
   levelInitSumR(frameTrain->getNPredNum());
-  sumSquares = vector<double>(splitCount);
-  ctgSum = vector<double>(splitCount * nCtg);  
-  fill(sumSquares.begin(), sumSquares.end(), 0.0);
-  fill(ctgSum.begin(), ctgSum.end(), 0.0);
+  ctgSum = vector<vector<double> >(splitCount);
+
   // Hoist to replay().
-  index->sumsAndSquares(nCtg, sumSquares, ctgSum);
+  sumSquares = index->sumsAndSquares(ctgSum);
 }
 
 
@@ -281,8 +277,6 @@ void SPCtg::levelPreset(IndexLevel *index) {
    numerical predictors.
 
    @param nPredNum is the number of numerical predictors.
-
-   @return void.
  */
 void SPCtg::levelInitSumR(unsigned int nPredNum) {
   if (nPredNum > 0) {
