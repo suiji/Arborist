@@ -20,7 +20,7 @@ r:
 before_install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 100
   - Rscript -e 'install.packages("knitr")'
-  - cd ArboristBridgeR/Package/
+  - cd bridgeRfR/Package/
   - chmod u+x Rborist.travis.sh
   - ./Rborist.travis.sh
 
