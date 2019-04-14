@@ -33,13 +33,14 @@ Quant::Quant(const PredictBox* box,
   leafReg(static_cast<LeafFrameReg*>(box->leafFrame)),
   baggedRows(box->bag),
   yTrain(leafReg->getYTrain()),
-  yRanked(vector<ValRow>(baggedRows->getNRow())),
+  yRanked(baggedRows->getNRow()),
   quantile(quantile_),
   qCount(qCount_),
-  qPred(vector<double>(yRanked.size() == 0 ? 0 : leafReg->rowPredict() * qCount)),
-  rankCount(vector<RankCount>(yRanked.size() == 0 ? 0 : leafReg->bagSampleTot())),
+  nRow(baggedRows->getNRow() == 0 ? 0 : leafReg->rowPredict()),
+  qPred(vector<double>(nRow * qCount)),
+  rankCount(vector<RankCount>(nRow == 0 ? 0 : leafReg->bagSampleTot())),
   logSmudge(0) {
-  if (yRanked.size() == 0) // Short circuits if bag information absent.
+  if (nRow == 0) // Short circuits if bag information absent.
     return;
  
   rankCounts(baggedRows);
@@ -69,8 +70,8 @@ void Quant::rankCounts(const BitMatrix *baggedRows) {
 
   vector<unsigned int> leafSeen(leafReg->leafCount());
   fill(leafSeen.begin(), leafSeen.end(), 0);
-  unsigned int bagIdx = 0;
   for (unsigned int tIdx = 0; tIdx < leafReg->getNTree(); tIdx++) {
+    unsigned int bagIdx = 0;
     for (unsigned int row = 0; row < baggedRows->getNRow(); row++) {
       if (baggedRows->testBit(tIdx, row)) {
         unsigned int offset;
@@ -87,7 +88,7 @@ void Quant::rankCounts(const BitMatrix *baggedRows) {
 void Quant::predictAcross(const Predict *predict,
                           unsigned int rowStart,
                           unsigned int rowEnd) {
-  if (yRanked.size() == 0)
+  if (nRow == 0)
     return; // Insufficient leaf information.
  
   OMPBound row;
@@ -178,7 +179,7 @@ void Quant::predictRow(const Predict *predict,
 unsigned int Quant::ranksExact(unsigned int tIdx,
                                unsigned int leafIdx,
                                vector<unsigned int> &sampRanks) {
-  int rankTot = 0;
+  unsigned int rankTot = 0;
   unsigned int leafStart, leafEnd;
   leafReg->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
   for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {

@@ -135,8 +135,8 @@ class LeafRegBridge : public LeafBridge {
   ~LeafRegBridge() {}
   
   static List predict(const List &list,
-                         SEXP sYTest,
-                         class Predict *predict);
+                      SEXP sYTest,
+                      class Predict *predict);
 
   /**
      @brief Builds bridge object from wrapped front-end data.
@@ -189,7 +189,7 @@ class LeafRegBridge : public LeafBridge {
   double mse(const vector<double> &yPred,
              const NumericVector &yTest,
              double &rsq,
-             double &mse);
+             double &mae);
 };
 
 

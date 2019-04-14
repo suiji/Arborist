@@ -59,6 +59,7 @@ class Quant {
   vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
   const double* quantile; // quantile values over which to predict.
   const unsigned int qCount; // # quantile values, above.
+  const unsigned int nRow; // # rows under prediction.
   vector<double> qPred; // predicted quantiles
   vector<RankCount> rankCount; // forest-wide, by sample.
   unsigned int logSmudge; // log2 of smudging factor, if smudging.
@@ -166,7 +167,7 @@ class Quant {
      Returns zero if empty bag precludes yRanked from initialization.
    */
   unsigned int getNRow() const {
-    return yRanked.size();
+    return nRow;
   }
 
   

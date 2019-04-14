@@ -37,14 +37,16 @@
 
 
 ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, qBin, nThread, verbose) {
-  if (verbose)
-      print("Beginning validation");
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
-      validation <- tryCatch(.Call("ValidateVotes", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
+        if (verbose)
+            print("Validation:  census only");
+        validation <- tryCatch(.Call("ValidateVotes", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
     }
     else if (ctgCensus == "prob") {
-      validation <- tryCatch(.Call("ValidateProb", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
+        if (verbose)
+            print("Validation:  categorical probabilities");
+        validation <- tryCatch(.Call("ValidateProb", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
@@ -52,13 +54,17 @@ ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles,
   }
   else {
     if (quantiles) {
-      if (is.null(quantVec)) {
-        quantVec <- DefaultQuantVec()
-      }
-      validation <- tryCatch(.Call("ValidateQuant", predBlock, objTrain, y, quantVec, qBin, nThread), error = function(e) { stop(e) })
+        if (verbose)
+            print("ValidatIon:  quantiles");
+        if (is.null(quantVec)) {
+          quantVec <- DefaultQuantVec()
+        }
+        validation <- tryCatch(.Call("ValidateQuant", predBlock, objTrain, y, quantVec, qBin, nThread), error = function(e) { stop(e) })
     }
     else {
-      validation <- tryCatch(.Call("ValidateReg", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
+        if (verbose)
+            print("Validation:  ordinary regression");
+        validation <- tryCatch(.Call("ValidateReg", predBlock, objTrain, y, nThread), error = function(e) { stop(e) })
     }
   }
 

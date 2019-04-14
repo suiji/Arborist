@@ -247,17 +247,14 @@ List PBBridgeReg::quant(const List& sPredBlock,
                         bool oob,
                         unsigned int nThread) {
   BEGIN_RCPP
-
   NumericVector quantVec(sQuantVec);
   auto pbBridge = factory(sPredBlock, lTrain, oob, nThread);
   return pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest);
-
   END_RCPP
 }
 
 
 // TODO:  Quantile object always gets a bag.  Prediction box may or may not.
-
 List PBBridgeReg::predict(const double* quantile, unsigned int nQuant, unsigned int binSize, SEXP sYTest) const {
   BEGIN_RCPP
 

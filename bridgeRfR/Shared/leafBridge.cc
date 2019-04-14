@@ -432,6 +432,7 @@ NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
   return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
+
   END_RCPP
 }
 
