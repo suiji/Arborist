@@ -251,6 +251,7 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
                                    (unsigned int*) &feBagHeight[0],
                                    (BagSample*) &feBagSample[0],
                                    &yTrain[0],
+                                   yTrain.length(),
                                    mean(yTrain),
                                    rowPredict);
 }
@@ -431,7 +432,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
 NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
-  return  quant == nullptr ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
+    return (quant == nullptr || quant->getNRow() == 0) ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
 
   END_RCPP
 }
@@ -652,6 +653,7 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
                                    (unsigned int*) &feBagHeight[0],
                                    (BagSample*) &feBagSample[0],
                                    &yTrain[0],
+                                   yTrain.length(),
                                    mean(yTrain),
                                    0);
   leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);

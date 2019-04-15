@@ -36,7 +36,6 @@
                 predWeight = NULL, 
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
-                qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
@@ -240,7 +239,7 @@ RFDeep <- function(argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$qBin, argList$nThread, argList$verbose)
+        validation <- ValidateDeep(argList$predBlock, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
     }
 
     arbOut <- list(

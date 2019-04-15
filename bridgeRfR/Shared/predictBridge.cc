@@ -218,10 +218,9 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
-                              SEXP sQBin,
                               SEXP sNThread) {
   BEGIN_RCPP
-    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, true, as<unsigned int>(sNThread));
+    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sYTest, true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -229,12 +228,11 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
 RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sQuantVec,
-                          SEXP sQBin,
                           SEXP sYTest,
                           SEXP sOOB,
                           SEXP sNThread) {
   BEGIN_RCPP
-    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sQBin, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+    return PBBridgeReg::quant(sPredBlock, sTrain, sQuantVec, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -242,23 +240,22 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 List PBBridgeReg::quant(const List& sPredBlock,
                         const List& lTrain,
                         SEXP sQuantVec,
-                        SEXP sQBin,
                         SEXP sYTest,
                         bool oob,
                         unsigned int nThread) {
   BEGIN_RCPP
   NumericVector quantVec(sQuantVec);
   auto pbBridge = factory(sPredBlock, lTrain, oob, nThread);
-  return pbBridge->predict(&quantVec[0], quantVec.length(), as<unsigned int>(sQBin), sYTest);
+  return pbBridge->predict(&quantVec[0], quantVec.length(), sYTest);
   END_RCPP
 }
 
 
 // TODO:  Quantile object always gets a bag.  Prediction box may or may not.
-List PBBridgeReg::predict(const double* quantile, unsigned int nQuant, unsigned int binSize, SEXP sYTest) const {
+List PBBridgeReg::predict(const double* quantile, unsigned int nQuant, SEXP sYTest) const {
   BEGIN_RCPP
 
-  auto quant = make_unique<Quant>(box.get(), quantile, nQuant, binSize);
+  auto quant = make_unique<Quant>(box.get(), quantile, nQuant);
   Predict::predict(box.get(), quant.get());
   return leaf->summary(sYTest, quant.get());
 

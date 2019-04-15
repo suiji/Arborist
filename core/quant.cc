@@ -21,6 +21,7 @@
 
 #include <algorithm>
 
+const size_t Quant::binSize = 0x1000;
 
 /**
    @brief Constructor.  Caches parameter values and computes compressed
@@ -28,30 +29,25 @@
  */
 Quant::Quant(const PredictBox* box,
              const double* quantile_,
-             unsigned int qCount_,
-             unsigned int qBin) :
+             unsigned int qCount_) :
   leafReg(static_cast<LeafFrameReg*>(box->leafFrame)),
   baggedRows(box->bag),
   yTrain(leafReg->getYTrain()),
-  yRanked(baggedRows->getNRow()),
+  yRanked(leafReg->getRowTrain()),
   quantile(quantile_),
   qCount(qCount_),
   nRow(baggedRows->getNRow() == 0 ? 0 : leafReg->rowPredict()),
   qPred(vector<double>(nRow * qCount)),
   rankCount(vector<RankCount>(nRow == 0 ? 0 : leafReg->bagSampleTot())),
-  logSmudge(0) {
-  if (nRow == 0) // Short circuits if bag information absent.
-    return;
- 
+  rankScale(binScale()) {
   rankCounts(baggedRows);
-  binSize = imputeBinSize(yRanked.size(), qBin, logSmudge);
-  if (binSize < yRanked.size()) {
-    smudgeLeaves();
-  }
 }
 
 
 void Quant::rankCounts(const BitMatrix *baggedRows) {
+  if (nRow == 0) // Short circuits if bag information absent.
+    return;
+
   unsigned int row = 0;
   for (auto & yr : yRanked) {
     yr.init(yTrain[row], row);
@@ -75,15 +71,13 @@ void Quant::rankCounts(const BitMatrix *baggedRows) {
     for (unsigned int row = 0; row < baggedRows->getNRow(); row++) {
       if (baggedRows->testBit(tIdx, row)) {
         unsigned int offset;
-        unsigned int leafIdx = leafReg->getLeafIdx(tIdx, bagIdx, offset);
+        unsigned int leafIdx = leafReg->getLeafIdx(tIdx, bagIdx++, offset);
         unsigned int bagOff = offset + leafSeen[leafIdx]++;
         rankCount[bagOff].init(row2Rank[row], leafReg->getSCount(bagOff));
-        bagIdx++;
       }
     }
   }
 }
-
 
 void Quant::predictAcross(const Predict *predict,
                           unsigned int rowStart,
@@ -103,117 +97,84 @@ void Quant::predictAcross(const Predict *predict,
 }
 
 
-unsigned int Quant::imputeBinSize(unsigned int rowTrain,
-                            unsigned int qBin,
-                            unsigned int &_logSmudge) {
-  logSmudge = 0;
-  while ((rowTrain >> logSmudge) > qBin)
-    logSmudge++;
-  return (rowTrain + (1 << logSmudge) - 1) >> logSmudge;
+unsigned int Quant::binScale() {
+  unsigned int shiftVal = 0;
+  while ((binSize << shiftVal) < yRanked.size())
+    shiftVal++;
+
+  return shiftVal;
 }
 
-
-void Quant::smudgeLeaves() {
-  sCountSmudge =vector<unsigned int>(leafReg->bagSampleTot());
-  for (unsigned int i = 0; i < sCountSmudge.size(); i++)
-    sCountSmudge[i] = rankCount[i].sCount;
-
-  binTemp = vector<unsigned int>(binSize);
-  for (unsigned int leafIdx = 0; leafIdx < leafReg->leafCount(); leafIdx++) {
-    unsigned int leafStart, leafEnd;
-    leafReg->bagBounds(0, leafIdx, leafStart, leafEnd);
-    if (leafEnd - leafStart > binSize) {
-      fill(binTemp.begin(), binTemp.end(), 0);
-      for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
-        unsigned int sCount = rankCount[bagIdx].sCount;
-        unsigned int rank = rankCount[bagIdx].rank;
-        binTemp[rank >> logSmudge] += sCount;
-      }
-      for (unsigned int j = 0; j < binSize; j++) {
-        sCountSmudge[leafStart + j] = binTemp[j];
-      }
-    }
-  }
-}
 
 
 void Quant::predictRow(const Predict *predict,
                    unsigned int blockRow,
                    double qRow[]) {
-  vector<unsigned int> sampRanks(binSize);
+  vector<unsigned int> sampRanks(std::min(binSize, yRanked.size()));
   fill(sampRanks.begin(), sampRanks.end(), 0);
 
   // Scores each rank seen at every predicted leaf.
   //
-  unsigned int totRanks = 0;
+  unsigned int totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < leafReg->getNTree(); tIdx++) {
     unsigned int termIdx;
     if (!predict->isBagged(blockRow, tIdx, termIdx)) {
-      totRanks += (logSmudge == 0) ? ranksExact(tIdx, termIdx, sampRanks) : ranksSmudge(tIdx, termIdx, sampRanks);
+      totSamples += leafSample(tIdx, termIdx, sampRanks);
     }
   }
 
   vector<double> countThreshold(qCount);
-  for (unsigned int qSlot = 0; qSlot < qCount; qSlot++) {
-    countThreshold[qSlot] = totRanks * quantile[qSlot];  // Rounding properties?
+  unsigned int qSlot = 0;
+  for (auto & thresh : countThreshold) {
+    thresh = totSamples * quantile[qSlot++];  // Rounding properties?
   }
   
   unsigned int qIdx = 0;
-  unsigned int rkIdx = 0;
-  unsigned int rkCount = 0;
-  unsigned int smudge = (1 << logSmudge);
-  for (unsigned int i = 0; i < binSize && qIdx < qCount; i++) {
-    rkCount += sampRanks[i];
-    while (qIdx < qCount && rkCount >= countThreshold[qIdx]) {
-      qRow[qIdx++] = yRanked[rkIdx].val;
+  unsigned int binIdx = 0;
+  unsigned int samplesSeen = 0;
+  for (auto sCount : sampRanks) {
+    samplesSeen += sCount;
+    while (qIdx < qCount && samplesSeen >= countThreshold[qIdx]) {
+      qRow[qIdx++] = binMean(binIdx);
     }
-    rkIdx += smudge;
+    binIdx++;
+    if (qIdx >= qCount)
+      break;
   }
+}
+
+
+double Quant::binMean(unsigned int binIdx) {
+  size_t idxStart = binIdx << rankScale;
+  size_t idxEnd = min(yRanked.size(), idxStart + (1 << rankScale));
+  double sum = 0.0;
+  unsigned int count = 0;
+  for (auto idx = idxStart; idx < idxEnd; idx++) {
+    sum += yRanked[idx].val;
+    count++;
+  }
+  return count == 0 ? 0.0 : sum / count;
+}
+
 
   // TODO:  For binning, rerun, restricting to "hot" bins observed
   // over sample set.  This should improve resolution for hot
   // bins.
-}
 
 
-unsigned int Quant::ranksExact(unsigned int tIdx,
+unsigned int Quant::leafSample(unsigned int tIdx,
                                unsigned int leafIdx,
                                vector<unsigned int> &sampRanks) {
-  unsigned int rankTot = 0;
+  unsigned int sampleTot = 0;
   unsigned int leafStart, leafEnd;
   leafReg->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
   for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
     unsigned int sCount = rankCount[bagIdx].sCount;
-    unsigned int rank = rankCount[bagIdx].rank;
-    sampRanks[rank] += sCount;
-    rankTot += sCount;
+    unsigned int bin = binRank(rankCount[bagIdx].rank);
+    bin = 
+    sampRanks[bin] += sCount;
+    sampleTot += sCount;
   }
 
-  return rankTot;
-}
-
-
-unsigned int Quant::ranksSmudge(unsigned int tIdx,
-                                unsigned int leafIdx,
-                                vector<unsigned int> &sampRanks) {
-  unsigned int rankTot = 0;
-  unsigned int leafStart, leafEnd;
-  leafReg->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
-  if (leafEnd - leafStart <= binSize) {
-    for (auto bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
-      unsigned int rkIdx = (rankCount[bagIdx].rank >> logSmudge);
-      auto rkCount = sCountSmudge[bagIdx];
-      sampRanks[rkIdx] += rkCount;
-      rankTot += rkCount;
-    }
-  }
-  else {
-    for (unsigned int rkIdx = 0; rkIdx < binSize; rkIdx++) {
-      auto rkCount = sCountSmudge[leafStart + rkIdx];
-      sampRanks[rkIdx] += rkCount;
-      rankTot += rkCount;
-    }
-  }
-
-  return rankTot;
+  return sampleTot;
 }

@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", oob = FALSE, nThread = 0, verbose = FALSE, ...) {
+"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), ctgCensus = "votes", oob = FALSE, nThread = 0, verbose = FALSE, ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
@@ -30,11 +30,11 @@
   if (quantiles && is.null(quantVec))
     quantVec <- DefaultQuantVec()
 
-  PredictDeep(object, newdata, yTest, quantVec, qBin, ctgCensus, oob, nThread, verbose)
+  PredictDeep(object, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose)
 }
 
 
-PredictDeep <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, oob, nThread, verbose) {
+PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose) {
   forest <- objTrain$forest
 
   if (is.null(forest$forestNode))
@@ -63,7 +63,7 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, qBin, ctgCensus, oob
       prediction <- tryCatch(.Call("TestReg", predBlock, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
     }
     else {
-      prediction <- tryCatch(.Call("TestQuant", predBlock, objTrain, quantVec, qBin, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestQuant", predBlock, objTrain, quantVec, yTest, oob, nThread), error = function(e) {stop(e)})
     }
   }
   else if (inherits(leaf, "LeafCtg")) {

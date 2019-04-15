@@ -10,8 +10,8 @@
 
 \usage{
 \method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), qBin = 5000, ctgCensus = "votes", oob =
-FALSE, nThread = 0, verbose = FALSE, ...)
+quantiles = !is.null(quantVec), ctgCensus = "votes", oob = FALSE,
+nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
@@ -23,8 +23,6 @@ FALSE, nThread = 0, verbose = FALSE, ...)
     predictions.}
   \item{quantVec}{a vector of quantiles to predict.}
   \item{quantiles}{whether to predict quantiles.}
-  \item{qBin}{bin size for quantile etimation.  Performance scales with
-    bin size.  Smaller bins sacrifice precision.}
   \item{ctgCensus}{whether/how to summarize per-category predictions.
   "votes" specifies the number of trees predicting a given class.
   "prob" specifies a normalized, probabilistic summary.}
@@ -85,11 +83,6 @@ FALSE, nThread = 0, verbose = FALSE, ...)
   # Performs separate prediction with deciles:
   pred <- predict(rb, xx, quantVec = seq(0.1, 1.0, by = 0.10))
   qPred <- pred$qPred
-
-
-  # Performs separate quantile prediction with high binning factor:
-  pred <- predict(rb, xx, qBin=20000, quantiles="TRUE")
-  qPred <- pred$pPred
 
 
   # Classification examples:

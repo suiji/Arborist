@@ -820,6 +820,7 @@ public:
 
 class LeafFrameReg : public LeafFrame {
   const double *yTrain;
+  const size_t rowTrain;
   const double meanTrain; // Mean of training response.
   const vector<size_t> offset; // Accumulated extents.
   double defaultScore;
@@ -827,13 +828,14 @@ class LeafFrameReg : public LeafFrame {
   
  public:
   LeafFrameReg(const unsigned int nodeHeight_[],
-          unsigned int nTree_,
-          const class Leaf leaf_[],
-          const unsigned int bagHeight_[],
-          const class BagSample bagSample_[],
-          const double *yTrain_,
-          double meanTrain_,
-          unsigned int rowPredict_);
+               unsigned int nTree_,
+               const class Leaf leaf_[],
+               const unsigned int bagHeight_[],
+               const class BagSample bagSample_[],
+               const double *yTrain_,
+               size_t rowTrain,
+               double meanTrain_,
+               unsigned int rowPredict_);
 
   ~LeafFrameReg() {}
 
@@ -844,6 +846,14 @@ class LeafFrameReg : public LeafFrame {
    */
   inline const double *getYTrain() const {
     return yTrain;
+  }
+
+
+  /**
+     @brief Accessor for training response length.
+   */
+  inline const size_t getRowTrain() const {
+    return rowTrain;
   }
 
 

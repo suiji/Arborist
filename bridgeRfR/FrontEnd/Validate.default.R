@@ -16,7 +16,7 @@
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 "Validate.default" <- function(preFormat, train, y, ctgCensus = "votes",
                              quantVec = NULL, quantiles = !is.null(quantVec),
-                             qBin = 5000, nThread = 0, verbose = FALSE) {
+                             nThread = 0, verbose = FALSE) {
   if (is.null(preFormat$predBlock)) {
     stop("Pre-formatted observations required for verification")
   }
@@ -32,11 +32,11 @@
   if (nThread < 0)
     stop("Thread count must be nonnegative")
 
-  ValidateDeep(preFormat$predBlock, train, y, ctgCensus, quantVec, quantiles, qBin, nThread, verbose)
+  ValidateDeep(preFormat$predBlock, train, y, ctgCensus, quantVec, quantiles, nThread, verbose)
 }
 
 
-ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, qBin, nThread, verbose) {
+ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles, nThread, verbose) {
   if (is.factor(y)) {
     if (ctgCensus == "votes") {
         if (verbose)
@@ -59,7 +59,7 @@ ValidateDeep <- function(predBlock, objTrain, y, ctgCensus, quantVec, quantiles,
         if (is.null(quantVec)) {
           quantVec <- DefaultQuantVec()
         }
-        validation <- tryCatch(.Call("ValidateQuant", predBlock, objTrain, y, quantVec, qBin, nThread), error = function(e) { stop(e) })
+        validation <- tryCatch(.Call("ValidateQuant", predBlock, objTrain, y, quantVec, nThread), error = function(e) { stop(e) })
     }
     else {
         if (verbose)

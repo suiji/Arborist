@@ -22,15 +22,17 @@
 
 
 LeafFrameReg::LeafFrameReg(const unsigned int height[],
-                 unsigned int nTree_,
-                 const Leaf leaf[],
-                 const unsigned int bagHeight[],
-                 const class BagSample bagSample[],
-                 const double *yTrain_,
-                 double meanTrain_,
-                 unsigned int rowPredict) :
+                           unsigned int nTree_,
+                           const Leaf leaf[],
+                           const unsigned int bagHeight[],
+                           const class BagSample bagSample[],
+                           const double *yTrain_,
+                           size_t rowTrain_,
+                           double meanTrain_,
+                           unsigned int rowPredict) :
   LeafFrame(height, nTree_, leaf, bagHeight, bagSample),
   yTrain(yTrain_),
+  rowTrain(rowTrain_),
   meanTrain(meanTrain_),
   offset(leafBlock->setOffsets()), // leafCount
   defaultScore(MeanTrain()),

@@ -53,6 +53,7 @@ struct RankCount {
  @brief Quantile signature.
 */
 class Quant {
+  static const size_t binSize; // # slots to track.
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
   const class BitMatrix* baggedRows; // In-bag summary.
   const double *yTrain; // Training response.
@@ -62,11 +63,20 @@ class Quant {
   const unsigned int nRow; // # rows under prediction.
   vector<double> qPred; // predicted quantiles
   vector<RankCount> rankCount; // forest-wide, by sample.
-  unsigned int logSmudge; // log2 of smudging factor, if smudging.
-  unsigned int binSize; // Width of binning parameter.
-  vector<unsigned int> binTemp; // Helper vector.
-  vector<unsigned int> sCountSmudge; // Smudged sample counts.
+  unsigned int rankScale; // log2 of scaling factor.
 
+  /**
+     @brief Computes a bin offset for a given rank.
+
+     @param rank is the rank in question.
+
+     @return bin offset.
+   */
+  inline unsigned int binRank(size_t rank) {
+    return rank >> rankScale;
+  }
+
+  
   /**
      @brief Computes the count and rank of every bagged sample in the forest.
 
@@ -78,24 +88,23 @@ class Quant {
   
 
   /**
-     @brief Computes bin size and smudging factor.
+     @brief Determines scaling factor for training response.
 
-     @param nRow is the number of rows used to train.
+     @return power-of-two divisor for training response length.
+   */
+  unsigned int binScale();
 
-     @param qBin is the bin size specified by the front end.
 
-     @param[out] logSmudge outputs the log2 of the smudging factor.
-
-     @return bin size.
-  */
-  unsigned int imputeBinSize(unsigned int nRow,
-                             unsigned int qBin,
-                             unsigned int &_logSmudge);
   /**
-   @brief Builds a vector of binned sample counts for wide leaves.
- */
-  void smudgeLeaves();
+     @brief Computes the mean response corresponding to a bin index.
 
+     @param binIdx is a bin index.
+
+     @return mean value of responses.
+   */
+  double binMean(unsigned int binIdx);
+
+  
   /**
      @brief Writes the quantile values for a given row.
 
@@ -115,31 +124,15 @@ class Quant {
 
      @param leafIdx is a tree-relative leaf index.
 
-     @param[in,out] sampRanks counts the number of samples at a given rank.
+     @param[in,out] sampRanks counts the number of samples at a (binned) rank.
 
      @return count of samples subsumed by leaf.
   */
-  unsigned int ranksExact(unsigned int tIdx,
+  unsigned int leafSample(unsigned int tIdx,
                           unsigned int leafIdx,
                           vector<unsigned int> &sampRanks);
 
 
-  /**
-     @brief Accumulates binned ranks assocated with a predicted leaf.
-
-     @param tIdx is a tree index.
-
-     @param leafIdx is the tree-relative leaf index.
-
-     @param sampRanks[in,out] counts the number of samples at a given rank.
-     
-     @return count of samples subsumed by leaf.
- */
-  unsigned int ranksSmudge(unsigned int tIdx,
-                           unsigned int LeafIdx,
-                           vector<unsigned int> &sampRanks);
-
-  
  public:
   /**
      @brief Constructor for invocation from within core.
@@ -148,8 +141,7 @@ class Quant {
    */
   Quant(const struct PredictBox* box,
         const double* quantile_,
-        unsigned int qCount_,
-        unsigned int qBin);
+        unsigned int qCount_);
 
   /**
      @brief Getter for number of quantiles.

@@ -32,7 +32,6 @@
                 predWeight = NULL, 
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
-                qBin = 5000,
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
@@ -69,7 +68,6 @@
     splitters.}
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}
-  \item{qBin}{bin size for facilating quantiles at large sample count.}
   \item{regMono}{signed probability constraint for monotonic
     regression.}
   \item{rowWeight}{row weighting for initial sampling of tree.}
@@ -262,12 +260,6 @@
 
   # Causes specfied quantiles (deciles) to be computed at validation:
   rb <- Rborist(x, y, quantVec = seq(0.1, 1.0, by = 0.10))
-  qPred <- rb$validation$qPred
-
-
-  # Causes (default) quantile computation to be approximated by a
-  # small bin size of 100:  fast, but not as accurate:
-  rb <- Rborist(x, y, quantiles = TRUE, qBin = 100).
   qPred <- rb$validation$qPred
 
 

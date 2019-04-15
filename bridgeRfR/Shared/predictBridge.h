@@ -58,13 +58,11 @@ RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
-                              SEXP sQBin,
                               SEXP sNThread);
 
 RcppExport SEXP TestQuant(const SEXP sPredBlock,
                           const SEXP sTrain,
                           SEXP sQuantVec,
-                          SEXP sQBin,
                           SEXP sYTest,
                           SEXP sOOB,
                           SEXP sNThread);
@@ -153,8 +151,6 @@ struct PBBridgeReg : public PBBridge {
 
     @param sQuantVec is a vector of quantile training data.
    
-    @param sQBin is the bin parameter.
-
     @param sYTest is the test vector.
 
     @param oob is true iff testing restricted to out-of-bag.
@@ -164,7 +160,6 @@ struct PBBridgeReg : public PBBridge {
   static List quant(const List& sPredBlock,
                     const List& sTrain,
                     SEXP sQuantVec,
-                    SEXP sQBin,
                     SEXP sYTest,
                     bool oob,
                     unsigned int nThread);
@@ -204,7 +199,6 @@ private:
    */
   List predict(const double* quantile,
                unsigned int nQuant,
-               unsigned int binSize,
                SEXP sYTest) const;
 };
 
