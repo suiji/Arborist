@@ -169,6 +169,30 @@ void BLBlock::dump(const BitMatrix* baggedRows,
 }
                                                             
 
+vector<RankCount> LeafFrameReg::setRankCount(const BitMatrix* baggedRows,
+                               const vector<unsigned int>& row2Rank) const {
+  vector<RankCount> rankCount(blBlock->size());
+  if (baggedRows->isEmpty())
+    return rankCount; // Short circuits with empty vector.
+
+  vector<unsigned int> leafSeen(leafCount());
+  fill(leafSeen.begin(), leafSeen.end(), 0);
+  unsigned int bagIdx = 0;  // Absolute sample index.
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    for (unsigned int row = 0; row < rowTrain; row++) {
+      if (baggedRows->testBit(tIdx, row)) {
+        unsigned int leafAbs = getLeafAbs(tIdx, bagIdx);
+        unsigned int sIdx = offset[leafAbs] + leafSeen[leafAbs]++;
+        rankCount[sIdx].init(row2Rank[row], getSCount(bagIdx));
+        bagIdx++;
+      }
+    }
+  }
+
+  return rankCount;
+}
+
+
 void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
                               unsigned int rowStart,
                               unsigned int rowEnd) {

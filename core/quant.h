@@ -35,34 +35,17 @@ struct ValRow {
 };
 
 /**
-   @brief Rank and sample-count values derived from BagSample.  Client:
-   quantile inference.
- */
-struct RankCount {
-  unsigned int rank;
-  unsigned int sCount;
-
-  void init(unsigned int rank, unsigned int sCount) {
-    this->rank = rank;
-    this->sCount = sCount;
-  }
-};
-
-
-/**
  @brief Quantile signature.
 */
 class Quant {
   static const size_t binSize; // # slots to track.
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
   const class BitMatrix* baggedRows; // In-bag summary.
-  const double *yTrain; // Training response.
-  vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
+  const vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
+  const vector<class RankCount> rankCount; // forest-wide, by sample.
   const double* quantile; // quantile values over which to predict.
   const unsigned int qCount; // # quantile values, above.
-  const unsigned int nRow; // # rows under prediction.
   vector<double> qPred; // predicted quantiles
-  vector<RankCount> rankCount; // forest-wide, by sample.
   unsigned int rankScale; // log2 of scaling factor.
 
   /**
@@ -76,15 +59,23 @@ class Quant {
     return rank >> rankScale;
   }
 
+
+  /**
+     @brief Ranks the training response.
+
+     @param leafReg is the leaf frame.
+
+     @return ranked representation of response.
+   */
+  static vector<ValRow> rankResponse(const class LeafFrameReg* leafReg);
   
+
   /**
      @brief Computes the count and rank of every bagged sample in the forest.
-
-     @param baggedRows encodes whether a tree/row pair is bagged.
-
-     @return void, with side-effected rankCount vector.
   */
-  void rankCounts(const class BitMatrix *baggedRows);
+  static vector<class RankCount> baggedRanks(const class BitMatrix* baggedRows,
+                                             const class LeafFrameReg* leafReg,
+                                             const vector<ValRow>& yRanked);
   
 
   /**
@@ -110,12 +101,25 @@ class Quant {
 
      @param rowBlock is the block-relative row index.
 
-     @param qRow[] outputs the 'qCount' quantile values.
+     @param[out] qRow[] outputs the 'qCount' quantile values.
   */
   void predictRow(const class Predict *predict,
                   unsigned int rowBlock,
                   double qRow[]);
 
+
+  /**
+     @brief Writes quantile values a row of predictions.
+
+     @param sCount is a bin of ranked sample counts.
+
+     @param totSamples is the number of binned samples.
+
+     @param[out] qRow[] outputs the derived quantiles.
+   */
+  void quantSamples(const vector<unsigned int>& sCount,
+                    unsigned int totSamples,
+                    double qRow[]);
 
   /**
      @brief Accumulates the ranks assocated with predicted leaf.
@@ -158,9 +162,7 @@ class Quant {
 
      Returns zero if empty bag precludes yRanked from initialization.
    */
-  unsigned int getNRow() const {
-    return nRow;
-  }
+  unsigned int getNRow() const;
 
   
   /**

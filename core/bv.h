@@ -48,6 +48,14 @@ class BV {
     }
   }
 
+
+  /**
+     @brief Determines whether container is empty.
+   */
+  bool isEmpty() const {
+    return nSlot == 0;
+  }
+  
   /**
      @brief Accessor for position within the 'raw' buffer.
    */

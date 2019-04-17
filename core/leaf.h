@@ -99,16 +99,16 @@ class BagSample {
   }
   
   BagSample(unsigned int leafIdx_,
-          unsigned int sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
+            unsigned int sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
   }
 
-  
-  inline unsigned int getLeafIdx() const {
+
+  inline auto getLeafIdx() const {
     return leafIdx;
   }
 
   
-  inline unsigned int getSCount() const {
+  inline auto getSCount() const {
     return sCount;
   }
 };
@@ -631,7 +631,7 @@ public:
 
      @param tIdx is the tree index.
 
-     @param leafIdx is the leaf index.
+     @param leafIdx is a tree-local leaf index.
 
      @return absolute offset of leaf.
    */
@@ -669,8 +669,8 @@ public:
 
      @return extent value.
    */
-  const unsigned int getExtent(unsigned int leafIdx) const {
-    return raw->items[leafIdx].getExtent();
+  const unsigned int getExtent(unsigned int leafAbs) const {
+    return raw->items[leafAbs].getExtent();
   }
 
 
@@ -694,7 +694,7 @@ class BLBlock {
 
 public:
   BLBlock(const unsigned int nTree_,
-          const unsigned int*height_,
+          const unsigned int* height_,
           const BagSample* bagSample_);
 
   /**
@@ -713,16 +713,20 @@ public:
   /**
      @brief Index-parametrized sample-count getter.
    */
-  const unsigned int getSCount(unsigned int idx) const {
-    return raw->items[idx].getSCount();
+  const unsigned int getSCount(unsigned int absOff) const {
+    return raw->items[absOff].getSCount();
   };
 
 
   /**
      @brief Index-parametrized leaf-index getter.
+
+     @param absOff is the forest-relative bag offset.
+
+     @return associated tree-relative leaf index.
    */
-  const unsigned int getLeafIdx(unsigned int idx) const {
-    return raw->items[idx].getLeafIdx();
+  const unsigned int getLeafIdx(unsigned int absOff) const {
+    return raw->items[absOff].getLeafIdx();
   };
 };
 
@@ -768,21 +772,36 @@ public:
     return nTree;
   }
 
-  
+
   /**
-     @brief Accessor for #samples at a given index.
+     @brief Accessor for #samples at an absolute bag index.
    */
-  inline unsigned int getSCount(unsigned int sIdx) const {
-    return blBlock->getSCount(sIdx);
+  inline unsigned int getSCount(unsigned int bagIdx) const {
+    return blBlock->getSCount(bagIdx);
+  }
+
+
+  /**
+     @param bagIdx is an absolute sample index.
+
+     @return tree-relative leaf index of bagged sample.
+   */
+  inline auto getLeafLoc(unsigned int bagIdx) const {
+    return blBlock->getLeafIdx(bagIdx);
   }
 
   /**
-     @brief Computes sum of all bag sizes.
+     @brief Accessor for forest-relative leaf index .
 
-     @return size of information vector, which represents all bagged samples.
-  */
-  inline unsigned int bagSampleTot() const {
-    return blBlock->size();
+     @param tIdx is the tree index.
+
+     @param bagIdx is an absolute sample index.
+
+     @return forest-relative leaf index.
+   */
+  inline unsigned int getLeafAbs(unsigned int tIdx,
+                                 unsigned int bagIdx) const {
+    return leafBlock->absOffset(tIdx, getLeafLoc(bagIdx));
   }
 
 
@@ -818,6 +837,23 @@ public:
 };
 
 
+/**
+   @brief Rank and sample-counts associated with bagged rows.
+
+   Client:  quantile inference.
+ */
+struct RankCount {
+  unsigned int rank; // Training rank of row.
+  unsigned int sCount; // # times row sampled.
+
+  void init(unsigned int rank,
+            unsigned int sCount) {
+    this->rank = rank;
+    this->sCount = sCount;
+  }
+};
+
+
 class LeafFrameReg : public LeafFrame {
   const double *yTrain;
   const size_t rowTrain;
@@ -840,12 +876,14 @@ class LeafFrameReg : public LeafFrame {
   ~LeafFrameReg() {}
 
   /**
-     @brief Accesor for training response.
+     @brief Accesor for training response, by row.
 
-     @return pointer to base of training response vector.
+     @param row at which to access.
+
+     @return training value at row.
    */
-  inline const double *getYTrain() const {
-    return yTrain;
+  inline double getYTrain(unsigned int row) const {
+    return yTrain[row];
   }
 
 
@@ -881,6 +919,7 @@ class LeafFrameReg : public LeafFrame {
     return meanTrain;
   }
 
+
   /**
      @brief Description given in virtual declaration.
    */
@@ -899,35 +938,27 @@ class LeafFrameReg : public LeafFrame {
 
      @param[out] end outputs the final sample offset. 
   */
-  void bagBounds(unsigned int tIdx,
-                 unsigned int leafIdx,
-                 unsigned int &start,
-                 unsigned int &end) const {
-    auto absIdx = leafBlock->absOffset(tIdx, leafIdx);
-    start = offset[absIdx];
-    end = start + leafBlock->getExtent(absIdx);
+  inline void bagBounds(unsigned int tIdx,
+                        unsigned int leafLoc,
+                        unsigned int &start,
+                        unsigned int &end) const {
+    auto leafAbs = getLeafAbs(tIdx, leafLoc);
+    start = offset[leafAbs];
+    end = start + leafBlock->getExtent(leafAbs);
   }
 
 
   /**
-     @brief Derives an absolute leaf index for a given tree and
-     bag index.
-     
-     @param tIdx is a tree index.
+     @brief Builds row-ordered mapping of leaves to rank/count pairs.
 
-     @param bagIdx is an absolute index of a bagged row.
+     @param baggedRows encodes the forest-wide tree bagging.
 
-     @param[out] offset_ outputs the absolute extent offset.
+     @param row2Rank is the ranked training outcome.
 
-     @return absolute index of leaf containing the bagged row.
+     @return per-leaf vector expressing mapping.
    */
-  unsigned int getLeafIdx(unsigned int tIdx,
-                          unsigned int bagIdx,
-                          unsigned int &offset_) const {
-    auto leafIdx = leafBlock->treeBase(tIdx) + blBlock->getLeafIdx(bagIdx);
-    offset_ = offset[leafIdx];
-    return leafIdx;
-  }
+  vector<RankCount> setRankCount(const class BitMatrix* baggedRows,
+                                 const vector<unsigned int>& row2Rank) const;
 };
 
 
