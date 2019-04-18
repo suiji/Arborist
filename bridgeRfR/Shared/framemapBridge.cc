@@ -153,24 +153,25 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   S4 spNum(sX);
 
   IntegerVector i;
-  if (R_has_slot(sX, Rf_mkString("i"))) {
+  if (R_has_slot(sX, PROTECT(Rf_mkString("i")))) {
     i = spNum.slot("i");
   }
   IntegerVector j;
-  if (R_has_slot(sX, Rf_mkString("j"))) {
+  if (R_has_slot(sX, PROTECT(Rf_mkString("j")))) {
     j = spNum.slot("j");
   }
   IntegerVector p;
-  if (R_has_slot(sX, Rf_mkString("p"))) {
+  if (R_has_slot(sX, PROTECT(Rf_mkString("p")))) {
     p = spNum.slot("p");
   }
 
-  if (!R_has_slot(sX, Rf_mkString("Dim"))) {
+  if (!R_has_slot(sX, PROTECT(Rf_mkString("Dim")))) {
     stop("Expecting dimension slot");
   }
-  if (!R_has_slot(sX, Rf_mkString("x"))) {
+  if (!R_has_slot(sX, PROTECT(Rf_mkString("x")))) {
     stop("Pattern matrix:  NYI");
   }
+  UNPROTECT(5);
 
   IntegerVector dim = spNum.slot("Dim");
   unsigned int nRow = dim[0];
@@ -202,7 +203,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   List dimNames;
   CharacterVector rowName = CharacterVector(0);
   CharacterVector colName = CharacterVector(0);
-  if (R_has_slot(sX, Rf_mkString("Dimnames"))) {
+  if (R_has_slot(sX, PROTECT(Rf_mkString("Dimnames")))) {
     dimNames = spNum.slot("Dimnames");
     if (!Rf_isNull(dimNames[0])) {
       rowName = dimNames[0];
@@ -211,6 +212,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
       colName = dimNames[1];
     }
   }
+  UNPROTECT(1);
 
   IntegerVector facCard(0);
   List predBlock = List::create(
