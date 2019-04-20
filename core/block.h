@@ -34,8 +34,6 @@ class BlockNum {
  BlockNum(unsigned int _nCol) : nCol(_nCol) {}
   virtual ~BlockNum() {}
 
-  static BlockNum *Factory(const vector<double> &_valNum, const vector<unsigned int> &_rowStart, const vector<unsigned int> &_runLength, const vector<unsigned int> &_predStart, double *_feNumT, unsigned int _nCol);
-
   virtual void transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
 
 
@@ -57,7 +55,7 @@ class BlockNum {
 /**
    @brief Encodes block of sparse data.
  */
-class BlockSparse : public BlockNum {
+class BlockNumSparse : public BlockNum {
   const double *val;
   const unsigned int *rowStart;
   const unsigned int *runLength;
@@ -71,12 +69,12 @@ class BlockSparse : public BlockNum {
   /**
      @brief Sparse constructor.
    */
-  BlockSparse(const double *_val,
+  BlockNumSparse(const double *_val,
 	      const unsigned int *_rowStart,
 	      const unsigned int *__runLength,
 	      const unsigned int *_predStart,
 	      unsigned int _nCol);
-  ~BlockSparse();
+  ~BlockNumSparse();
   void transpose(unsigned int rowStart, unsigned int rowEnd);
 };
 
@@ -136,21 +134,21 @@ public:
   /**
      @brief Getter for run values.
    */
-  const vector<double>& getValNum() {
+  const vector<double>& getValNum() const {
     return valNum;
   }
 
   /**
      @brief Getter for starting row offsets;
    */
-  const vector<unsigned int>& getRowStart() {
+  const vector<unsigned int>& getRowStart() const {
     return rowStart;
   }
 
   /**
      @brief Getter for run lengths.
    */
-  const vector<unsigned int> getRunLength() {
+  const vector<unsigned int> getRunLength() const {
     return runLength;
   }
 
@@ -158,7 +156,7 @@ public:
   /**
      @brief Getter for predictor starting offsets.
    */
-  const vector<unsigned int> getPredStart() {
+  const vector<unsigned int> getPredStart() const {
     return predStart;
   }
 };
@@ -209,12 +207,11 @@ class BlockFac {
    */
  BlockFac(unsigned int *_feFacT,
 	  unsigned int _nCol) :
-  nCol(_nCol),
-    feFac(_feFacT) {
-    }
+   nCol(_nCol),
+   feFac(_feFacT) {
+ }
 
-  static BlockFac *Factory(unsigned int *_feFacT, unsigned int _nCol);
-  
+
   /**
      @brief Resets starting position to block within region previously
      transposed.

@@ -18,19 +18,10 @@
 #include <algorithm>
 
 
-
-/**
-   @brief RLE variant NYI.
- */
-BlockFac *BlockFac::Factory(unsigned int *_feFacT, unsigned int nCol) {
-  return new BlockFac(_feFacT, nCol);
-}
-
-
 /**
      @brief Sparse constructor for prediction frame.
    */
-BlockSparse::BlockSparse(const double *_val,
+BlockNumSparse::BlockNumSparse(const double *_val,
 			 const unsigned int *_rowStart,
 			 const unsigned int *_runLength,
 			 const unsigned int *_predStart,
@@ -55,7 +46,7 @@ BlockSparse::BlockSparse(const double *_val,
 }
 
 
-BlockSparse::~BlockSparse() {
+BlockNumSparse::~BlockNumSparse() {
   delete [] blockNumT;
   delete [] rowNext;
   delete [] idxNext;
@@ -63,7 +54,7 @@ BlockSparse::~BlockSparse() {
 }
 
 
-void BlockSparse::transpose(unsigned int rowBegin, unsigned int rowEnd) {
+void BlockNumSparse::transpose(unsigned int rowBegin, unsigned int rowEnd) {
   for (unsigned int row = rowBegin; row < rowEnd; row++) {
     for (unsigned int predIdx = 0; predIdx < nCol; predIdx++) {
       if (row == rowNext[predIdx]) { // Assignments persist across invocations:

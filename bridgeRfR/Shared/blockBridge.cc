@@ -36,7 +36,7 @@ BlockFacBridge::BlockFacBridge(const IntegerMatrix &fac) :
 /**
   @brief Sparse constructor.
  */
-BlockSparseBridge::BlockSparseBridge(const NumericVector &_val,
+BlockNumSparseBridge::BlockNumSparseBridge(const NumericVector &_val,
 				     const IntegerVector &_rowStart,
 				     const IntegerVector &_runLength,
 				     const IntegerVector &_predStart) :
@@ -44,7 +44,7 @@ BlockSparseBridge::BlockSparseBridge(const NumericVector &_val,
   rowStart(_rowStart),
   runLength(_runLength),
   predStart(_predStart) {
-  blockNum = make_unique<BlockSparse>(val.begin(),
+  blockNum = make_unique<BlockNumSparse>(val.begin(),
 				      (unsigned int *) rowStart.begin(),
 				      (unsigned int *) runLength.begin(),
 				      (unsigned int *) predStart.begin(),
@@ -55,7 +55,7 @@ BlockSparseBridge::BlockSparseBridge(const NumericVector &_val,
 /**
    @brief Dense constructor
  */
-BlockDenseBridge::BlockDenseBridge(const NumericMatrix &num) {
+BlockNumDenseBridge::BlockNumDenseBridge(const NumericMatrix &num) {
   numT = transpose(num);
   blockNum = make_unique<BlockNumDense>(numT.begin(), num.ncol());
 }
@@ -68,14 +68,14 @@ unique_ptr<BlockFacBridge> BlockFacBridge::Factory(const List &predBlock) {
 unique_ptr<BlockNumBridge> BlockNumBridge::Factory(const List &predBlock) {
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
   if (blockNumSparse.length() > 0) {
-    return make_unique<BlockSparseBridge>(
+    return make_unique<BlockNumSparseBridge>(
 		  NumericVector((SEXP) blockNumSparse["valNum"]),
 		  IntegerVector((SEXP) blockNumSparse["rowStart"]),
 		  IntegerVector((SEXP) blockNumSparse["runLength"]),
 		  IntegerVector((SEXP) blockNumSparse["predStart"]));
   }
   else {
-    return make_unique<BlockDenseBridge>(
+    return make_unique<BlockNumDenseBridge>(
 				 NumericMatrix((SEXP) predBlock["blockNum"])
 					 );
   }

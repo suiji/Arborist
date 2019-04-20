@@ -86,12 +86,12 @@ public:
 /**
    @brief Compressed representation of numeric data.
  */
-class BlockDenseBridge : public BlockNumBridge {
+class BlockNumDenseBridge : public BlockNumBridge {
   NumericMatrix numT; // Pins scope of numerical transpose.
 
  public:
 
-  BlockDenseBridge(const NumericMatrix &_num);
+  BlockNumDenseBridge(const NumericMatrix &_num);
 };
 
 
@@ -103,14 +103,14 @@ class BlockDenseBridge : public BlockNumBridge {
 /**
    @brief Core object with pinned front-end vectors.
  */
-class BlockSparseBridge : public BlockNumBridge {
+class BlockNumSparseBridge : public BlockNumBridge {
   const NumericVector &val;
   const IntegerVector &rowStart;
   const IntegerVector &runLength;
   const IntegerVector &predStart;
  public:
 
-  BlockSparseBridge(const NumericVector &_val,
+  BlockNumSparseBridge(const NumericVector &_val,
 		    const IntegerVector &_rowStart,
 		    const IntegerVector &_runLength,
 		    const IntegerVector &_predStart);
