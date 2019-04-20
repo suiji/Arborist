@@ -903,6 +903,10 @@ class LeafFrameReg : public LeafFrame {
   const vector<double> &getYPred() const {
     return yPred;
   }
+
+  inline const double getYPred(unsigned int row) const {
+    return yPred[row];
+  }
   
 
   /**

@@ -37,6 +37,7 @@ Quant::Quant(const PredictBox* box,
   quantile(quantile_),
   qCount(qCount_),
   qPred(vector<double>(getNRow() * qCount)),
+  qEst(vector<double>(getNRow())),
   rankScale(binScale()) {
 }
 
@@ -87,7 +88,8 @@ void Quant::predictAcross(const Predict *predict,
   {
 #pragma omp for schedule(dynamic, 1)
     for (row = rowStart; row < rowSup; row++) {
-      predictRow(predict, row - rowStart, &qPred[qCount * row]);
+      double yPred = leafReg->getYPred(row);
+      predictRow(predict, row - rowStart, yPred, &qPred[qCount * row], &qEst[row]);
     }
   }
 }
@@ -102,10 +104,11 @@ unsigned int Quant::binScale() {
 }
 
 
-
 void Quant::predictRow(const Predict *predict,
-                   unsigned int blockRow,
-                   double qRow[]) {
+                       unsigned int blockRow,
+                       double yPred,
+                       double qRow[],
+                       double *qEst) {
   vector<unsigned int> sCount(std::min(binSize, yRanked.size()));
   fill(sCount.begin(), sCount.end(), 0);
 
@@ -119,32 +122,41 @@ void Quant::predictRow(const Predict *predict,
     }
   }
 
-  quantSamples(sCount, totSamples, qRow);
-}
-
-
-void Quant::quantSamples(const vector<unsigned int>& sCount,
-                  unsigned int totSamples,
-                  double qRow[]) {
+  // Builds sample-count thresholds for each quantile.
   vector<double> countThreshold(qCount);
   unsigned int qSlot = 0;
   for (auto & thresh : countThreshold) {
     thresh = totSamples * quantile[qSlot++];  // Rounding properties?
   }
-  
-  qSlot = 0;
+
+  // Fills in quantile estimates.
+  unsigned int yQuant = quantSamples(sCount, countThreshold, yPred, qRow);
+  *qEst = static_cast<double>(yQuant) / totSamples;
+}
+
+
+unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
+                                 const vector<double> threshold,
+                                 double yPred,
+                                 double qRow[]) {
+  unsigned int qSlot = 0;
   unsigned int binIdx = 0;
   unsigned int samplesSeen = 0;
+  unsigned int yQuant = 0;
   for (auto sc : sCount) {
     samplesSeen += sc;
-    while (samplesSeen >= countThreshold[qSlot]) {
-      qRow[qSlot] = binMean(binIdx);
-      if (++qSlot == qCount) {
-        return;
-      }
+    while (qSlot < qCount && samplesSeen >= threshold[qSlot]) {
+      qRow[qSlot++] = binMean(binIdx);
     }
+    if (yPred > binMean(binIdx)) {
+      yQuant = samplesSeen;
+    }
+    else if (qSlot >= qCount)
+      return yQuant;
     binIdx++;
   }
+
+  return yQuant;
 }
 
 

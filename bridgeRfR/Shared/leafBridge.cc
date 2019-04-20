@@ -408,7 +408,8 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
   if (Rf_isNull(sYTest)) {
     prediction = List::create(
                               _["yPred"] = leaf->getYPred(),
-                              _["qPred"] = qPred(quant)
+                              _["qPred"] = qPred(quant),
+                              _["qEst"] = qEst(quant)
                               );
     prediction.attr("class") = "PredictReg";
   }
@@ -419,7 +420,8 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
                               _["mse"] = mse(leaf->getYPred(), as<NumericVector>(sYTest), rsq, mae),
                               _["mae"] = mae,
                               _["rsq"] = rsq,
-                              _["qPred"] = qPred(quant)
+                              _["qPred"] = qPred(quant),
+                              _["qEst"] = qEst(quant)
                               );
     prediction.attr("class") = "ValidReg";
   }
@@ -433,6 +435,14 @@ NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   BEGIN_RCPP
 
     return (quant == nullptr || quant->getNRow() == 0) ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
+
+  END_RCPP
+}
+
+NumericVector LeafRegBridge::qEst(const Quant *quant) {
+  BEGIN_RCPP
+
+    return (quant == nullptr || quant->getNRow() == 0) ? NumericVector(0) : NumericVector(quant->getQEst().begin(), quant->getQEst().end());
 
   END_RCPP
 }

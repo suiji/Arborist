@@ -174,6 +174,12 @@ class LeafRegBridge : public LeafBridge {
 
 
   /**
+     @brief Builds a NumericVector representation of the estimand quantiles.
+   */
+  NumericVector qEst(const class Quant* quant);
+
+  
+  /**
      @brief Utility for computing mean-square error of prediction.
    
      @param yPred is the prediction.

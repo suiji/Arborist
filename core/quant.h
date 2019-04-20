@@ -45,7 +45,8 @@ class Quant {
   const vector<class RankCount> rankCount; // forest-wide, by sample.
   const double* quantile; // quantile values over which to predict.
   const unsigned int qCount; // # quantile values, above.
-  vector<double> qPred; // predicted quantiles
+  vector<double> qPred; // predicted quantiles.
+  vector<double> qEst; // quantile of response estimates.
   unsigned int rankScale; // log2 of scaling factor.
 
   /**
@@ -105,7 +106,9 @@ class Quant {
   */
   void predictRow(const class Predict *predict,
                   unsigned int rowBlock,
-                  double qRow[]);
+                  double yPred,
+                  double qRow[],
+                  double* qEst);
 
 
   /**
@@ -113,13 +116,16 @@ class Quant {
 
      @param sCount is a bin of ranked sample counts.
 
-     @param totSamples is the number of binned samples.
+     @param threshold is the sample count threshold for a given quantile.
+
+     @param yPred is the predicted response for the current row.
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  void quantSamples(const vector<unsigned int>& sCount,
-                    unsigned int totSamples,
-                    double qRow[]);
+  unsigned int quantSamples(const vector<unsigned int>& sCount,
+                            const vector<double> threshold,
+                            double yPred,
+                            double qRow[]);
 
   /**
      @brief Accumulates the ranks assocated with predicted leaf.
@@ -172,6 +178,16 @@ class Quant {
    */
   const double *QPred() const {
     return &qPred[0];
+  }
+  
+  
+  /**
+     @brief Accessor for estimand quantiles.
+
+     @return pointer to base of estimand quantiles.
+   */
+  const vector<double> &getQEst() const {
+    return qEst;
   }
   
   
