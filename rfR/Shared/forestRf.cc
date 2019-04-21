@@ -1,29 +1,29 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file forestBridge.cc
+   @file forestRf.cc
 
    @brief C++ interface to R entry for Forest methods.
 
    @author Mark Seligman
  */
 
-#include "forestBridge.h"
+#include "forestRf.h"
 
 void FBTrain::consume(const ForestTrain* forestTrain,
                       unsigned int tIdx,
@@ -105,16 +105,16 @@ List FBTrain::wrap() {
 }
 
 
-unique_ptr<ForestBridge> ForestBridge::unwrap(const List& lTrain) {
+unique_ptr<ForestRf> ForestRf::unwrap(const List& lTrain) {
   List lForest = checkForest(lTrain);
-  return make_unique<ForestBridge>(IntegerVector((SEXP) lForest["height"]),
+  return make_unique<ForestRf>(IntegerVector((SEXP) lForest["height"]),
                                    RawVector((SEXP) lForest["facSplit"]),
                                    IntegerVector((SEXP) lForest["facHeight"]),
                                    RawVector((SEXP) lForest["forestNode"]));
 }
 
 
-SEXP ForestBridge::checkForest(const List &lTrain) {
+SEXP ForestRf::checkForest(const List &lTrain) {
   BEGIN_RCPP
 
   List lForest = List((SEXP) lTrain["forest"]);
@@ -136,7 +136,7 @@ unique_ptr<ForestExport> ForestExport::unwrap(const List &lTrain,
 
 ForestExport::ForestExport(List &lForest,
                            IntegerVector &predMap) :
-  ForestBridge(IntegerVector((SEXP) lForest["height"]),
+  ForestRf(IntegerVector((SEXP) lForest["height"]),
                RawVector((SEXP) lForest["facSplit"]),
                IntegerVector((SEXP) lForest["facHeight"]),
                RawVector((SEXP) lForest["forestNode"])),
@@ -151,7 +151,7 @@ ForestExport::ForestExport(List &lForest,
 
 // Alignment should be sufficient to guarantee safety of
 // the casted loads.
-ForestBridge::ForestBridge(const IntegerVector& feHeight_,
+ForestRf::ForestRf(const IntegerVector& feHeight_,
                            const RawVector &feFacSplit_,
                            const IntegerVector &feFacHeight_,
                            const RawVector &feNode_) :

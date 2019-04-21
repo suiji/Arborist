@@ -1,30 +1,30 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file bridgeTrain.h
+   @file trainRf.h
 
    @brief C++ interface to R entry for training.
 
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_TRAIN_BRIDGE_H
-#define ARBORIST_TRAIN_BRIDGE_H
+#ifndef ARBORIST_TRAIN_RF_H
+#define ARBORIST_TRAIN_RF_H
 
 #include "train.h"
 
@@ -39,7 +39,7 @@ using namespace std;
 RcppExport SEXP TrainRF(const SEXP sArgList);
 
 
-struct TrainBridge {
+struct TrainRf {
 
   // Training granularity.  Values guesstimated to minimize footprint of
   // Core-to-Bridge copies while also not over-allocating:
@@ -50,7 +50,7 @@ struct TrainBridge {
   static bool verbose; // Whether to report progress while training.
   
   const unsigned int nTree; // # trees under training.
-  unique_ptr<class BagBridge> bag; // Summarizes row bagging, by tree.
+  unique_ptr<class BagRf> bag; // Summarizes row bagging, by tree.
   unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
   unique_ptr<struct LBTrain> leaf; // Pointer to core leaf frame.
@@ -64,16 +64,16 @@ struct TrainBridge {
 
      @param yTrain is the training response vector.
    */
-  TrainBridge(unsigned int nTree_,
-              const IntegerVector& predMap,
-              const NumericVector& yTrain);
+  TrainRf(unsigned int nTree_,
+          const IntegerVector& predMap,
+          const NumericVector& yTrain);
 
   /**
      @brief Classification constructor.  Parameters as above.
    */
-  TrainBridge(unsigned int nTree_,
-              const IntegerVector& predMap,
-              const IntegerVector& yTrain);
+  TrainRf(unsigned int nTree_,
+          const IntegerVector& predMap,
+          const IntegerVector& yTrain);
 
 
   /**

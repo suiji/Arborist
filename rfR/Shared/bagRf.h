@@ -1,28 +1,31 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file bagBridge.h
+   @file bagRf.h
 
    @brief C++ interface to R entry for bagged rows.  There is no direct
    counterpart in Core, which records bagged rows using a bit matrix.
 
    @author Mark Seligman
  */
+
+#ifndef ARBORIST_BAG_RF_H
+#define ARBORIST_BAG_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -33,7 +36,7 @@ using namespace std;
 /**
    @brief Summary of bagged rows, by tree.
  */
-class BagBridge {
+class BagRf {
   const size_t nRow; // # rows trained.
   const unsigned int nTree; // # trees trained.
   const size_t rowBytes; // # count of raw bytes in summary object.
@@ -41,9 +44,9 @@ class BagBridge {
   unique_ptr<class BitMatrix> bmRaw; // Core instantiation of raw data.
 
  public:
-  BagBridge(unsigned int nRow_, unsigned int nTree_);
-  BagBridge(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_);
-  ~BagBridge();
+  BagRf(unsigned int nRow_, unsigned int nTree_);
+  BagRf(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_);
+  ~BagRf();
 
   /**
      @brief Getter for row count.
@@ -88,7 +91,7 @@ class BagBridge {
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<BagBridge> unwrap(const List& sBag,
+  static unique_ptr<BagRf> unwrap(const List& sBag,
                                       const List& sPredBlock,
                                       bool oob);
 
@@ -111,7 +114,7 @@ class BagBridge {
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<BagBridge> unwrap(const List& sBag);
+  static unique_ptr<BagRf> unwrap(const List& sBag);
 
 
   /**
@@ -121,3 +124,5 @@ class BagBridge {
    */
   const BitMatrix* getRaw();
 };
+
+#endif

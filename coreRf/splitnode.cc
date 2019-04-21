@@ -23,7 +23,7 @@
 #include "samplepred.h"
 #include "callback.h"
 #include "framemap.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "ompthread.h"
 
 // Post-split consumption:

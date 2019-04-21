@@ -16,7 +16,7 @@
 #include "samplepred.h"
 #include "splitcand.h"
 #include "sample.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "path.h"
 #include "bv.h"
 #include "level.h"

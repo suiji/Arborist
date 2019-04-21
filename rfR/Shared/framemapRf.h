@@ -1,22 +1,22 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file framemapBridge.h
+   @file framemapRf.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_FRAMEMAP_BRIDGE_H
-#define ARBORIST_FRAMEMAP_BRIDGE_H
+#ifndef ARBORIST_FRAMEMAP_RF_H
+#define ARBORIST_FRAMEMAP_RF_H
 
 #include "framemap.h"
 
@@ -86,15 +86,15 @@ RcppExport SEXP FrameSparse(SEXP sX);
 /**
    @brief Captures ownership of FramePredict and component Blocks.
  */
-class FramePredictBridge {
-  const unique_ptr<class BlockNumBridge> blockNum;
-  const unique_ptr<class BlockFacBridge> blockFac;
+class FramePredictRf {
+  const unique_ptr<class BlockNumRf> blockNum;
+  const unique_ptr<class BlockFacRf> blockFac;
   const unsigned int nRow;
   const unique_ptr<class FramePredict> framePredict;
  public:
 
-  FramePredictBridge(unique_ptr<class BlockNumBridge> blockNum_,
-                     unique_ptr<class BlockFacBridge> blockFac_,
+  FramePredictRf(unique_ptr<class BlockNumRf> blockNum_,
+                     unique_ptr<class BlockFacRf> blockFac_,
                      unsigned int nRow);
 
   /**
@@ -106,7 +106,7 @@ class FramePredictBridge {
 };
 
 
-struct FramemapBridge {
+struct FramemapRf {
 
   /**
      @brief Pulls signature member from a PredBlock object.
@@ -161,7 +161,7 @@ struct FramemapBridge {
                      unsigned int nPred,
                      unsigned int nRow);
 
-  static unique_ptr<FramePredictBridge> factoryPredict(const List& sPredBlock);
+  static unique_ptr<FramePredictRf> factoryPredict(const List& sPredBlock);
 };
 
 #endif

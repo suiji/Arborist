@@ -6,14 +6,14 @@
  */
 
 /**
-   @file rowrank.cc
+   @file rankedset.cc
 
-   @brief Methods for predictor-specific training.
+   @brief Methods for presorting and accessing predictors by rank.
 
    @author Mark Seligman
  */
 
-#include "rowrank.h"
+#include "rankedset.h"
 #include "framemap.h"
 #include "sample.h"
 #include "samplepred.h"

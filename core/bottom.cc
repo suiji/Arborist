@@ -23,7 +23,7 @@
 #include "sample.h"
 #include "framemap.h"
 #include "runset.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "path.h"
 #include "ompthread.h"
 

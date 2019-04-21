@@ -18,7 +18,7 @@
 #include "forest.h"
 #include "block.h"
 #include "framemap.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "predict.h"
 
 

@@ -1,22 +1,22 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file predictBridge.h
+   @file predictRf.h
 
    @brief C++ interface to R entry for prediction.
 
@@ -24,8 +24,8 @@
  */
 
 
-#ifndef ARBORIST_PREDICT_BRIDGE_H
-#define ARBORIST_PREDICT_BRIDGE_H
+#ifndef ARBORIST_PREDICT_RF_H
+#define ARBORIST_PREDICT_RF_H
 
 #include "predict.h"
 
@@ -111,10 +111,10 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
 /**
    @brief Bridge-variant PredictBox pins unwrapped front-end structures.
  */
-struct PBBridge {
-  unique_ptr<class FramePredictBridge> framePredict; // Predictor layout.
-  unique_ptr<class ForestBridge> forest; // Trained forest.
-  unique_ptr<class BagBridge> bag; // Bagged row indicator.
+struct PBRf {
+  unique_ptr<class FramePredictRf> framePredict; // Predictor layout.
+  unique_ptr<class ForestRf> forest; // Trained forest.
+  unique_ptr<class BagRf> bag; // Bagged row indicator.
   unique_ptr<struct PredictBox> box; // Core-level prediction frame.
 
 
@@ -123,24 +123,24 @@ struct PBBridge {
 
      Paramter names mirror member names.
    */
-  PBBridge(unique_ptr<FramePredictBridge> framePredict_,
-           unique_ptr<ForestBridge> forest_,
-           unique_ptr<BagBridge> bag_);
+  PBRf(unique_ptr<FramePredictRf> framePredict_,
+           unique_ptr<ForestRf> forest_,
+           unique_ptr<BagRf> bag_);
 };
 
 
-struct PBBridgeReg : public PBBridge {
-  unique_ptr<class LeafRegBridge> leaf;
+struct PBRfReg : public PBRf {
+  unique_ptr<class LeafRegRf> leaf;
 
   /**
      @brief Constructor.
 
      Parameter names mirror member names.
    */
-  PBBridgeReg(unique_ptr<FramePredictBridge> framePredict_,
-              unique_ptr<ForestBridge> forest_,
-              unique_ptr<BagBridge> bag_,
-              unique_ptr<LeafRegBridge> leaf_,
+  PBRfReg(unique_ptr<FramePredictRf> framePredict_,
+              unique_ptr<ForestRf> forest_,
+              unique_ptr<BagRf> bag_,
+              unique_ptr<LeafRegRf> leaf_,
               bool oob,
               unsigned int nThread);
 
@@ -181,7 +181,7 @@ struct PBBridgeReg : public PBBridge {
 
      @return unique pointer to bridge-variant PredictBox. 
    */
-  static unique_ptr<PBBridgeReg> factory(const List& sPredBlock,
+  static unique_ptr<PBRfReg> factory(const List& sPredBlock,
                                          const List& lTrain,
                                          bool oob,
                                          unsigned int nThread);
@@ -205,13 +205,13 @@ private:
 };
 
 
-struct PBBridgeCtg : public PBBridge {
-  unique_ptr<class LeafCtgBridge> leaf;
+struct PBRfCtg : public PBRf {
+  unique_ptr<class LeafCtgRf> leaf;
 
-  PBBridgeCtg(unique_ptr<FramePredictBridge> framePredict_,
-              unique_ptr<ForestBridge> forest_,
-              unique_ptr<BagBridge> bag_,
-              unique_ptr<LeafCtgBridge> leaf_,
+  PBRfCtg(unique_ptr<FramePredictRf> framePredict_,
+              unique_ptr<ForestRf> forest_,
+              unique_ptr<BagRf> bag_,
+              unique_ptr<LeafCtgRf> leaf_,
               bool oob,
               unsigned int nThread);
 
@@ -232,14 +232,14 @@ struct PBBridgeCtg : public PBBridge {
 
      @return unique pointer to bridge-variant PredictBox. 
    */
-  static unique_ptr<PBBridgeCtg> factory(const List& sPredBlock,
+  static unique_ptr<PBRfCtg> factory(const List& sPredBlock,
                                          const List& lTrain,
                                          bool oob,
                                          bool doProb,
                                          unsigned int nThread);
 private:
   /**
-     @brief Instantiates core PredictBridge object, driving prediction.
+     @brief Instantiates core PredictRf object, driving prediction.
 
      @return wrapped prediction.
    */

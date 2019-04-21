@@ -1,31 +1,31 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file leafBridge.cc
+   @file leafRf.cc
 
    @brief C++ interface to R entry for Leaf methods.
 
    @author Mark Seligman
  */
 
-#include "leafBridge.h"
-#include "framemapBridge.h"
-#include "predictBridge.h"
+#include "leafRf.h"
+#include "framemapRf.h"
+#include "predictRf.h"
 #include "quant.h"
 
 bool LBTrain::thin = false;
@@ -143,19 +143,19 @@ void LBTrainCtg::writeWeight(const LFTrainCtg* leaf,
 }
 
 
-LeafBridge::LeafBridge(unsigned int exportLength) :
+LeafRf::LeafRf(unsigned int exportLength) :
   rowTree(vector<vector<unsigned int> >(exportLength)),
   sCountTree(vector<vector<unsigned int> >(exportLength)),
   extentTree(vector<vector<unsigned int> >(exportLength)) {
 }
 
 
-LeafFrame* LeafRegBridge::getLeaf() const {
+LeafFrame* LeafRegRf::getLeaf() const {
   return leaf.get();
 }
 
 
-LeafFrame* LeafCtgBridge::getLeaf() const {
+LeafFrame* LeafCtgRf::getLeaf() const {
   return leaf.get();
 }
 
@@ -202,10 +202,10 @@ List LBTrainCtg::wrap() {
    @brief References front-end member arrays and instantiates
    bridge-specific LeafReg handle.
  */
-unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List& lTrain,
+unique_ptr<LeafRegRf> LeafRegRf::unwrap(const List& lTrain,
                                                 const List& sPredBlock) {
   List lLeaf = checkLeaf(lTrain);
-  return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
+  return make_unique<LeafRegRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
@@ -214,7 +214,7 @@ unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List& lTrain,
 }
 
 
-SEXP LeafRegBridge::checkLeaf(const List &lTrain) {
+SEXP LeafRegRf::checkLeaf(const List &lTrain) {
   BEGIN_RCPP
 
   List leaf = lTrain["leaf"];
@@ -231,13 +231,13 @@ SEXP LeafRegBridge::checkLeaf(const List &lTrain) {
 /**
    @brief Constructor caches front-end vectors and instantiates a Leaf member.
  */
-LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
+LeafRegRf::LeafRegRf(const IntegerVector& feNodeHeight_,
                              const RawVector &feNode_,
                              const IntegerVector& feBagHeight_,
                              const RawVector &feBagSample_,
                              const NumericVector &yTrain_,
                              unsigned int rowPredict) :
-  LeafBridge(0),
+  LeafRf(0),
   feNodeHeight(feNodeHeight_),
   feNode(feNode_),
   feBagHeight(feBagHeight_),
@@ -262,11 +262,11 @@ LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
 
    @return 
  */
-unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List& sTrain,
+unique_ptr<LeafCtgRf> LeafCtgRf::unwrap(const List& sTrain,
                                                 const List& sPredBlock,
                                                 bool doProb) {
   List lLeaf = checkLeaf(sTrain);
-  return make_unique<LeafCtgBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
+  return make_unique<LeafCtgRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
@@ -280,7 +280,7 @@ unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List& sTrain,
 /**
    @brief Ensures front end holds a LeafCtg.
  */
-SEXP LeafCtgBridge::checkLeaf(const List &lTrain) {
+SEXP LeafCtgRf::checkLeaf(const List &lTrain) {
   BEGIN_RCPP
 
   List leafCtg = lTrain["leaf"];
@@ -297,7 +297,7 @@ SEXP LeafCtgBridge::checkLeaf(const List &lTrain) {
 /**
    @brief Constructor caches front-end vectors and instantiates a Leaf member.
  */
-LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
+LeafCtgRf::LeafCtgRf(const IntegerVector& feNodeHeight_,
                              const RawVector &feNode_,
                              const IntegerVector& feBagHeight_,
                              const RawVector &feBagSample_,
@@ -305,7 +305,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
                              const CharacterVector &feLevels_,
                              unsigned int rowPredict,
                              bool doProb) :
-  LeafBridge(0),
+  LeafRf(0),
   feNodeHeight(feNodeHeight_),
   feNode(feNode_),
   feBagHeight(feBagHeight_),
@@ -324,7 +324,7 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
 }
 
 
-double LeafRegBridge::mse(const vector<double> &yPred,
+double LeafRegRf::mse(const vector<double> &yPred,
                           const NumericVector &yTest,
                           double &rsq,
                           double &mae) {
@@ -401,7 +401,7 @@ double TestCtg::OOB(const vector<unsigned int> &yPred) const {
 }
 
 
-List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
+List LeafRegRf::summary(SEXP sYTest, const Quant *quant) {
   BEGIN_RCPP
   List prediction;
   if (Rf_isNull(sYTest)) {
@@ -430,7 +430,7 @@ List LeafRegBridge::summary(SEXP sYTest, const Quant *quant) {
 }
 
 
-NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
+NumericMatrix LeafRegRf::qPred(const Quant *quant) {
   BEGIN_RCPP
 
     return (quant == nullptr || quant->getNRow() == 0) ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
@@ -438,7 +438,7 @@ NumericMatrix LeafRegBridge::qPred(const Quant *quant) {
   END_RCPP
 }
 
-NumericVector LeafRegBridge::qEst(const Quant *quant) {
+NumericVector LeafRegRf::qEst(const Quant *quant) {
   BEGIN_RCPP
 
     return (quant == nullptr || quant->getNRow() == 0) ? NumericVector(0) : NumericVector(quant->getQEst().begin(), quant->getQEst().end());
@@ -454,10 +454,10 @@ NumericVector LeafRegBridge::qEst(const Quant *quant) {
 
    @return list of summary entries.   
  */
-List LeafCtgBridge::summary(SEXP sYTest, const List& sPredBlock) {
+List LeafCtgRf::summary(SEXP sYTest, const List& sPredBlock) {
   BEGIN_RCPP
 
-  List signature = FramemapBridge::unwrapSignature(sPredBlock);
+  List signature = FramemapRf::unwrapSignature(sPredBlock);
   leaf->vote();
   CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
   IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());
@@ -492,7 +492,7 @@ List LeafCtgBridge::summary(SEXP sYTest, const List& sPredBlock) {
 }
 
 
-IntegerMatrix LeafCtgBridge::Census(const CharacterVector &rowNames) {
+IntegerMatrix LeafCtgRf::Census(const CharacterVector &rowNames) {
   BEGIN_RCPP
   IntegerMatrix census = transpose(IntegerMatrix(leaf->getCtgTrain(), leaf->rowPredict(), leaf->Census()));
   census.attr("dimnames") = List::create(rowNames, levelsTrain);
@@ -501,7 +501,7 @@ IntegerMatrix LeafCtgBridge::Census(const CharacterVector &rowNames) {
 }
 
 
-NumericMatrix LeafCtgBridge::Prob(const CharacterVector &rowNames) {
+NumericMatrix LeafCtgRf::Prob(const CharacterVector &rowNames) {
   BEGIN_RCPP
   if (!leaf->Prob().empty()) {
     NumericMatrix prob = transpose(NumericMatrix(leaf->getCtgTrain(), leaf->rowPredict(), &(leaf->Prob())[0]));
@@ -582,10 +582,10 @@ NumericVector TestCtg::MisPred() {
 }
 
 
-unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &lTrain,
+unique_ptr<LeafCtgRf> LeafCtgRf::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
   List lLeaf = checkLeaf(lTrain);
-  return make_unique<LeafCtgBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
+  return make_unique<LeafCtgRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
@@ -598,14 +598,14 @@ unique_ptr<LeafCtgBridge> LeafCtgBridge::unwrap(const List &lTrain,
 /**
    @brief Constructor caches front-end vectors and instantiates a Leaf member.
  */
-LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
+LeafCtgRf::LeafCtgRf(const IntegerVector& feNodeHeight_,
                              const RawVector& feNode_,
                              const IntegerVector& feBagHeight_,
                              const RawVector& feBagSample_,
                              const NumericVector& feWeight_,
                              const CharacterVector& feLevels_,
                              const BitMatrix* baggedRows) :
-  LeafBridge(feNodeHeight_.length()),
+  LeafRf(feNodeHeight_.length()),
   feNodeHeight(feNodeHeight_),
   feNode(feNode_),
   feBagHeight(feBagHeight_),
@@ -627,10 +627,10 @@ LeafCtgBridge::LeafCtgBridge(const IntegerVector& feNodeHeight_,
 }
 
 
-unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
+unique_ptr<LeafRegRf> LeafRegRf::unwrap(const List &lTrain,
                                                 const BitMatrix *baggedRows) {
   List lLeaf = checkLeaf(lTrain);
-  return make_unique<LeafRegBridge>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
+  return make_unique<LeafRegRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
@@ -643,13 +643,13 @@ unique_ptr<LeafRegBridge> LeafRegBridge::unwrap(const List &lTrain,
    @brief Constructor instantiates leaves for export only:
    no prediction.
  */
-LeafRegBridge::LeafRegBridge(const IntegerVector& feNodeHeight_,
+LeafRegRf::LeafRegRf(const IntegerVector& feNodeHeight_,
                              const RawVector &feNode_,
                              const IntegerVector& feBagHeight_,
                              const RawVector &feBagSample_,
                              const NumericVector &yTrain_,
                              const BitMatrix *baggedRows) :
-  LeafBridge(feNodeHeight_.length()),
+  LeafRf(feNodeHeight_.length()),
   feNodeHeight(feNodeHeight_),
   feNode(feNode_),
   feBagHeight(feBagHeight_),

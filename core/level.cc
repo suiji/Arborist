@@ -18,7 +18,7 @@
 #include "bottom.h"
 #include "index.h"
 #include "callback.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "runset.h"
 #include "samplepred.h"
 #include "splitnode.h"

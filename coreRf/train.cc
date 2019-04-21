@@ -17,7 +17,7 @@
 #include "sample.h"
 #include "train.h"
 #include "forest.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "framemap.h"
 #include "index.h"
 #include "pretree.h"

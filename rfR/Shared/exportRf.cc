@@ -1,34 +1,34 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file exportBridge.cc
+   @file exportRf.cc
 
    @brief C++ interface to R entry for export methods.
 
    @author Mark Seligman
  */
 
-#include "exportBridge.h"
-#include "bagBridge.h"
-#include "framemapBridge.h"
-#include "forestBridge.h"
+#include "exportRf.h"
+#include "bagRf.h"
+#include "framemapRf.h"
+#include "forestRf.h"
 #include "forest.h"
-#include "leafBridge.h"
+#include "leafRf.h"
 #include "leaf.h"
 #include "bv.h"
 #include <vector>
@@ -51,14 +51,14 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  FramemapBridge::signatureUnwrap(arbOut, predMap, predLevel);
+  FramemapRf::signatureUnwrap(arbOut, predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {
-    return ExportBridge::fFloorReg(arbOut, predMap, predLevel);
+    return ExportRf::fFloorReg(arbOut, predMap, predLevel);
   }
   else if (leaf.inherits("LeafCtg")) {
-    return ExportBridge::fFloorCtg(arbOut, predMap, predLevel);
+    return ExportRf::fFloorCtg(arbOut, predMap, predLevel);
   }
   else {
     warning("Unrecognized forest type.");
@@ -71,7 +71,7 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
 /**
  */
-List ExportBridge::fFloorForest(const ForestExport *forest,
+List ExportRf::fFloorForest(const ForestExport *forest,
                                 unsigned int tIdx) {
   BEGIN_RCPP
 
@@ -93,7 +93,7 @@ List ExportBridge::fFloorForest(const ForestExport *forest,
 }
 
 
-IntegerVector ExportBridge::fFloorBag(const LeafBridge *leaf,
+IntegerVector ExportRf::fFloorBag(const LeafRf *leaf,
                                       unsigned int tIdx,
                                       unsigned int rowTrain) {
   BEGIN_RCPP
@@ -120,7 +120,7 @@ IntegerVector ExportBridge::fFloorBag(const LeafBridge *leaf,
 
    @return Vector of score values.
  */
-List ExportBridge::fFloorLeafReg(const LeafRegBridge *leaf, unsigned int tIdx) {
+List ExportRf::fFloorLeafReg(const LeafRegRf *leaf, unsigned int tIdx) {
   BEGIN_RCPP
 
   const vector<double> &score = leaf->getScoreTree(tIdx);
@@ -137,8 +137,8 @@ List ExportBridge::fFloorLeafReg(const LeafRegBridge *leaf, unsigned int tIdx) {
 
 /**
  */
-List ExportBridge::fFloorTreeCtg(const ForestExport *forest,
-                                 const LeafCtgBridge *leaf,
+List ExportRf::fFloorTreeCtg(const ForestExport *forest,
+                                 const LeafCtgRf *leaf,
                                  unsigned int rowTrain) {
   BEGIN_RCPP
 
@@ -168,7 +168,7 @@ List ExportBridge::fFloorTreeCtg(const ForestExport *forest,
 
    @return Vector of score values.
  */
-List ExportBridge::fFloorLeafCtg(const LeafCtgBridge *leaf,
+List ExportRf::fFloorLeafCtg(const LeafCtgRf *leaf,
                                  unsigned int tIdx) {
   BEGIN_RCPP
 
@@ -189,7 +189,7 @@ List ExportBridge::fFloorLeafCtg(const LeafCtgBridge *leaf,
 
 /**
  */
-List ExportBridge::fFloorReg(const List &lTrain,
+List ExportRf::fFloorReg(const List &lTrain,
                              IntegerVector &predMap,
                              List &predLevel) {
   BEGIN_RCPP
@@ -210,12 +210,12 @@ List ExportBridge::fFloorReg(const List &lTrain,
 
 /**
  */
-List ExportBridge::fFloorTreeReg(const List &lTrain,
+List ExportRf::fFloorTreeReg(const List &lTrain,
                                  IntegerVector &predMap) {
   BEGIN_RCPP
 
-    auto bag = BagBridge::unwrap(lTrain);
-  auto leaf = LeafRegBridge::unwrap(lTrain, bag->getRaw());
+    auto bag = BagRf::unwrap(lTrain);
+  auto leaf = LeafRegRf::unwrap(lTrain, bag->getRaw());
   auto forest = ForestExport::unwrap(lTrain, predMap);
 
   auto nTree = bag->getNTree();
@@ -237,12 +237,12 @@ List ExportBridge::fFloorTreeReg(const List &lTrain,
 
 /**
  */
-List ExportBridge::fFloorCtg(const List &lTrain,
+List ExportRf::fFloorCtg(const List &lTrain,
                              IntegerVector &predMap,
                              List &predLevel) {
   BEGIN_RCPP
-    auto bag = BagBridge::unwrap(lTrain);
-  auto leaf = LeafCtgBridge::unwrap(lTrain, bag->getRaw());
+    auto bag = BagRf::unwrap(lTrain);
+  auto leaf = LeafCtgRf::unwrap(lTrain, bag->getRaw());
   auto forest = ForestExport::unwrap(lTrain, predMap);
   int facCount = predLevel.length();
   IntegerVector facMap(predMap.end() - facCount, predMap.end());

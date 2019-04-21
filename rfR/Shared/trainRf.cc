@@ -1,39 +1,39 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file trainBridge.cc
+   @file trainRf.cc
 
    @brief C++ interface to R entry for training.
 
    @author Mark Seligman
  */
 
-#include "trainBridge.h"
+#include "trainRf.h"
 #include "rowSample.h"
-#include "bagBridge.h"
-#include "framemapBridge.h"
-#include "rankedsetBridge.h"
-#include "forestBridge.h"
-#include "leafBridge.h"
+#include "bagRf.h"
+#include "framemapRf.h"
+#include "rankedsetRf.h"
+#include "forestRf.h"
+#include "leafRf.h"
 #include "coproc.h"
 
-bool TrainBridge::verbose = false;
-unsigned int TrainBridge::nCtg = 0;
+bool TrainRf::verbose = false;
+unsigned int TrainRf::nCtg = 0;
 
 RcppExport SEXP TrainRF(const SEXP sArgList) {
   BEGIN_RCPP
@@ -46,21 +46,21 @@ RcppExport SEXP TrainRF(const SEXP sArgList) {
   IntegerVector predMap((SEXP) signature["predMap"]);
   vector<unsigned int> facCard(as<vector<unsigned int> >(predBlock["facCard"]));
 
-  return TrainBridge::train(argList, predMap, facCard, as<unsigned int>(predBlock["nRow"]));
+  return TrainRf::train(argList, predMap, facCard, as<unsigned int>(predBlock["nRow"]));
   END_RCPP
 }
 
 
-List TrainBridge::train(const List &argList,
+List TrainRf::train(const List &argList,
                         const IntegerVector &predMap,
                         const vector<unsigned int> &facCard,
                         unsigned int nRow) {
   BEGIN_RCPP
 
-  auto frameTrain = FramemapBridge::factoryTrain(facCard, predMap.length(), nRow);
+  auto frameTrain = FramemapRf::factoryTrain(facCard, predMap.length(), nRow);
   vector<string> diag;
   auto coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diag);
-  auto rankedSet = RankedSetBridge::unwrap(argList["rankedSet"],
+  auto rankedSet = RankedSetRf::unwrap(argList["rankedSet"],
                                            as<double>(argList["autoCompress"]),
                                            coproc.get(),
                                            frameTrain.get());
@@ -101,7 +101,7 @@ List TrainBridge::train(const List &argList,
 
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
-SEXP TrainBridge::init(const List &argList,
+SEXP TrainRf::init(const List &argList,
                        const FrameTrain* frameTrain,
                        const IntegerVector &predMap) {
   BEGIN_RCPP
@@ -139,7 +139,7 @@ SEXP TrainBridge::init(const List &argList,
   END_RCPP
 }
 
-SEXP TrainBridge::deInit() {
+SEXP TrainRf::deInit() {
   BEGIN_RCPP
 
   nCtg = 0;
@@ -150,7 +150,7 @@ SEXP TrainBridge::deInit() {
 }
 
 
-NumericVector TrainBridge::ctgProxy(const IntegerVector &y,
+NumericVector TrainRf::ctgProxy(const IntegerVector &y,
                                     const NumericVector &classWeight) {
   BEGIN_RCPP
     
@@ -173,7 +173,7 @@ NumericVector TrainBridge::ctgProxy(const IntegerVector &y,
 }
 
 
-List TrainBridge::classification(const IntegerVector &y,
+List TrainRf::classification(const IntegerVector &y,
                                  const NumericVector &classWeight,
                                  const FrameTrain *frameTrain,
                                  const RankedSet *rankedPair,
@@ -185,7 +185,7 @@ List TrainBridge::classification(const IntegerVector &y,
   IntegerVector yZero = y - 1; // Zero-based translation.
   auto proxy = ctgProxy(yZero, classWeight);
 
-  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(nTree, predMap, y);
+  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainCtg =
@@ -204,7 +204,7 @@ List TrainBridge::classification(const IntegerVector &y,
 }
 
 
-List TrainBridge::summarize(const IntegerVector &predMap,
+List TrainRf::summarize(const IntegerVector &predMap,
                             const vector<string> &diag) {
   BEGIN_RCPP
   return List::create(
@@ -218,7 +218,7 @@ List TrainBridge::summarize(const IntegerVector &predMap,
 }
 
 
-NumericVector TrainBridge::scalePredInfo(const IntegerVector &predMap) {
+NumericVector TrainRf::scalePredInfo(const IntegerVector &predMap) {
   BEGIN_RCPP
 
   predInfo = predInfo / nTree; // Scales info per-tree.
@@ -228,7 +228,7 @@ NumericVector TrainBridge::scalePredInfo(const IntegerVector &predMap) {
 }
 
 
-List TrainBridge::regression(const NumericVector &y,
+List TrainRf::regression(const NumericVector &y,
                              const FrameTrain *frameTrain,
                              const RankedSet *rankedPair,
                              const IntegerVector &predMap,
@@ -236,7 +236,7 @@ List TrainBridge::regression(const NumericVector &y,
                              vector<string> &diag) {
   BEGIN_RCPP
     
-  unique_ptr<TrainBridge> tb = make_unique<TrainBridge>(nTree, predMap, y);
+  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainReg =
@@ -252,11 +252,11 @@ List TrainBridge::regression(const NumericVector &y,
 }
 
 
-TrainBridge::TrainBridge(unsigned int nTree_,
+TrainRf::TrainRf(unsigned int nTree_,
                          const IntegerVector& predMap,
                          const NumericVector& yTrain) :
   nTree(nTree_),
-  bag(make_unique<BagBridge>(yTrain.length(), nTree)),
+  bag(make_unique<BagRf>(yTrain.length(), nTree)),
   forest(make_unique<FBTrain>(nTree)),
   predInfo(NumericVector(predMap.length())),
   leaf(make_unique<LBTrainReg>(yTrain, nTree)) {
@@ -264,11 +264,11 @@ TrainBridge::TrainBridge(unsigned int nTree_,
 }
 
 
-TrainBridge::TrainBridge(unsigned int nTree_,
+TrainRf::TrainRf(unsigned int nTree_,
                          const IntegerVector& predMap,
                          const IntegerVector& yTrain) :
   nTree(nTree_),
-  bag(make_unique<BagBridge>(yTrain.length(), nTree)),
+  bag(make_unique<BagRf>(yTrain.length(), nTree)),
   forest(make_unique<FBTrain>(nTree)),
   predInfo(NumericVector(predMap.length())),
   leaf(make_unique<LBTrainCtg>(yTrain, nTree)) {
@@ -276,7 +276,7 @@ TrainBridge::TrainBridge(unsigned int nTree_,
 }
 
 
-void TrainBridge::consume(const Train* train,
+void TrainRf::consume(const Train* train,
                           unsigned int treeOff,
                           unsigned int chunkSize) {
   double scale = safeScale(treeOff + chunkSize);

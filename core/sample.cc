@@ -16,7 +16,7 @@
 #include "sample.h"
 #include "bv.h"
 #include "callback.h"
-#include "rowrank.h"
+#include "rankedset.h"
 #include "splitnode.h"
 #include "samplepred.h"
 

@@ -1,22 +1,22 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file forestBridge.h
+   @file forestRf.H
 
    @brief Bridge specializaton of Core Forest type.
 
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_FOREST_BRIDGE_H
-#define ARBORIST_FOREST_BRIDGE_H
+#ifndef ARBORIST_FOREST_RF_H
+#define ARBORIST_FOREST_RF_H
 
 #include "forest.h"
 
@@ -40,7 +40,7 @@ using namespace std;
 /**
    @brief Instantiates trained forest for prediction.
  */
-class ForestBridge {
+class ForestRf {
   // References to front end-style vectors:  can be pinned to preserve scope:
   const IntegerVector &feHeight; // Accumulated height up to end of each tree.
   const RawVector &feNode;
@@ -58,7 +58,7 @@ protected:
   unique_ptr<class Forest> forest; // Pointer to core-level instance.
   
  public:
-  ForestBridge(const IntegerVector& feHeight_,
+  ForestRf(const IntegerVector& feHeight_,
                const RawVector &_feFacSplit,
                const IntegerVector& feFacHeight_,
                const RawVector &_feNode);
@@ -87,7 +87,7 @@ protected:
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<ForestBridge> unwrap(const List &sTrain);
+  static unique_ptr<ForestRf> unwrap(const List &sTrain);
 };
 
 
@@ -95,7 +95,7 @@ protected:
    @brief As above, but with additional members to facilitate dumping on
    a per-tree basis.
  */
-class ForestExport final : public ForestBridge {
+class ForestExport final : public ForestRf {
   vector<vector<unsigned int> > predTree;
   vector<vector<unsigned int> > bumpTree;
   vector<vector<double > > splitTree;

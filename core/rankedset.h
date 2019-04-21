@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_ROWRANK_H
-#define ARBORIST_ROWRANK_H
+#ifndef ARBORIST_RANKEDSET_H
+#define ARBORIST_RANDEDSET_H
 
 #include <vector>
 #include <tuple>

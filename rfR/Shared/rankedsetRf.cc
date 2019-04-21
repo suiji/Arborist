@@ -1,35 +1,35 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file rowrankBridge.cc
+   @file rankedSetRf.cc
 
    @brief C++ interface to R entries for maintaining predictor data structures.
 
    @author Mark Seligman
 */
 
-#include "rankedsetBridge.h"
+#include "rankedsetRf.h"
 
 #include "coproc.h"
-#include "framemapBridge.h"
+#include "framemapRf.h"
 
 
-RowRankBridge::RowRankBridge(const Coproc *coproc,
+RowRankRf::RowRankRf(const Coproc *coproc,
                              const FrameTrain *frameTrain,
                              const IntegerVector &_row,
                              const IntegerVector &_rank,
@@ -47,7 +47,7 @@ RowRankBridge::RowRankBridge(const Coproc *coproc,
 }
 
 
-BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
+BlockRankedRf::BlockRankedRf(const NumericVector &_numVal,
                                      const IntegerVector &_numOff) :
   BlockRanked(&_numVal[0], (unsigned int*) &_numOff[0]),
   numVal(_numVal),
@@ -55,8 +55,8 @@ BlockRankedBridge::BlockRankedBridge(const NumericVector &_numVal,
 }
 
 
-RankedSetBridge::RankedSetBridge(unique_ptr<RowRankBridge> _rowRank,
-                                 unique_ptr<BlockRankedBridge> _numRanked) :
+RankedSetRf::RankedSetRf(unique_ptr<RowRankRf> _rowRank,
+                                 unique_ptr<BlockRankedRf> _numRanked) :
   rowRank(move(_rowRank)),
   numRanked(move(_numRanked)) {
   rankedPair = make_unique<RankedSet>(rowRank.get(), numRanked.get());
@@ -70,13 +70,13 @@ RcppExport SEXP Presort(SEXP sPredBlock) {
   if (!predBlock.inherits("PredBlock")) {
     stop("Expecting PredBlock");
   }
-  return RankedSetBridge::presort(predBlock);
+  return RankedSetRf::presort(predBlock);
 
   END_RCPP
 }
 
 
-List RankedSetBridge::presort(List &predBlock) {
+List RankedSetRf::presort(List &predBlock) {
   BEGIN_RCPP
 
   auto rankedPre = make_unique<RankedPre>(as<unsigned int>(predBlock["nRow"]),
@@ -125,13 +125,13 @@ List RankedSetBridge::presort(List &predBlock) {
 }
 
 
-unique_ptr<RowRankBridge> RowRankBridge::unwrap(SEXP sRankedSet,
+unique_ptr<RowRankRf> RowRankRf::unwrap(SEXP sRankedSet,
                                                 double autoCompress,
                                                 const Coproc *coproc,
                                                 const FrameTrain *frameTrain) {
   List rankedSet(sRankedSet);
   List rowRank = checkRowRank(rankedSet["rowRank"]);
-  return make_unique<RowRankBridge>(coproc,
+  return make_unique<RowRankRf>(coproc,
                            frameTrain,
                            IntegerVector((SEXP) rowRank["row"]),
                            IntegerVector((SEXP) rowRank["rank"]),
@@ -140,28 +140,28 @@ unique_ptr<RowRankBridge> RowRankBridge::unwrap(SEXP sRankedSet,
 }
 
 
-unique_ptr<BlockRankedBridge> BlockRankedBridge::unwrap(SEXP sRankedSet) {
+unique_ptr<BlockRankedRf> BlockRankedRf::unwrap(SEXP sRankedSet) {
   List rankedSet(sRankedSet);
   List blockNum((SEXP) rankedSet["numRanked"]);
-  return make_unique<BlockRankedBridge>(
+  return make_unique<BlockRankedRf>(
                                 NumericVector((SEXP) blockNum["numVal"]),
                                 IntegerVector((SEXP) blockNum["numOff"]));
 }
 
 
-unique_ptr<RankedSetBridge> RankedSetBridge::unwrap(
+unique_ptr<RankedSetRf> RankedSetRf::unwrap(
                     SEXP sRankedSet,
                     double autoCompress,
                     const Coproc *coproc,
                     const FrameTrain *frameTrain) {
-  return make_unique<RankedSetBridge>(
-      RowRankBridge::unwrap(sRankedSet,autoCompress, coproc, frameTrain),
-      BlockRankedBridge::unwrap(sRankedSet)
+  return make_unique<RankedSetRf>(
+      RowRankRf::unwrap(sRankedSet,autoCompress, coproc, frameTrain),
+      BlockRankedRf::unwrap(sRankedSet)
                                       );
 }
 
 
-List RowRankBridge::checkRowRank(SEXP sRowRank) {
+List RowRankRf::checkRowRank(SEXP sRowRank) {
   BEGIN_RCPP
 
   List rowRank(sRowRank);

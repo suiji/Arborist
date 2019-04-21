@@ -1,32 +1,32 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file blockBridge.cc
+   @file blockRf.cc
 
    @brief C++ interface to R entries for maintaining predictor data structures.
 
    @author Mark Seligman
 */
 
-#include "blockBridge.h"
+#include "blockRf.h"
 
 
-BlockFacBridge::BlockFacBridge(const IntegerMatrix &fac) :
+BlockFacRf::BlockFacRf(const IntegerMatrix &fac) :
   facT(transpose(fac)) {
   blockFac = make_unique<BlockFac>((unsigned int*)facT.begin(), fac.ncol());
 }
@@ -35,7 +35,7 @@ BlockFacBridge::BlockFacBridge(const IntegerMatrix &fac) :
 /**
   @brief Sparse constructor.
  */
-BlockNumSparseBridge::BlockNumSparseBridge(const NumericVector &_val,
+BlockNumSparseRf::BlockNumSparseRf(const NumericVector &_val,
 				     const IntegerVector &_rowStart,
 				     const IntegerVector &_runLength,
 				     const IntegerVector &_predStart) :
@@ -54,27 +54,27 @@ BlockNumSparseBridge::BlockNumSparseBridge(const NumericVector &_val,
 /**
    @brief Dense constructor
  */
-BlockNumDenseBridge::BlockNumDenseBridge(const NumericMatrix &num) {
+BlockNumDenseRf::BlockNumDenseRf(const NumericMatrix &num) {
   numT = transpose(num);
   blockNum = make_unique<BlockNumDense>(numT.begin(), num.ncol());
 }
 
 
-unique_ptr<BlockFacBridge> BlockFacBridge::Factory(const List &predBlock) {
-  return make_unique<BlockFacBridge>(IntegerMatrix((SEXP) predBlock["blockFac"]));
+unique_ptr<BlockFacRf> BlockFacRf::Factory(const List &predBlock) {
+  return make_unique<BlockFacRf>(IntegerMatrix((SEXP) predBlock["blockFac"]));
 }
 
-unique_ptr<BlockNumBridge> BlockNumBridge::Factory(const List &predBlock) {
+unique_ptr<BlockNumRf> BlockNumRf::Factory(const List &predBlock) {
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
   if (blockNumSparse.length() > 0) {
-    return make_unique<BlockNumSparseBridge>(
+    return make_unique<BlockNumSparseRf>(
 		  NumericVector((SEXP) blockNumSparse["valNum"]),
 		  IntegerVector((SEXP) blockNumSparse["rowStart"]),
 		  IntegerVector((SEXP) blockNumSparse["runLength"]),
 		  IntegerVector((SEXP) blockNumSparse["predStart"]));
   }
   else {
-    return make_unique<BlockNumDenseBridge>(
+    return make_unique<BlockNumDenseRf>(
 				 NumericMatrix((SEXP) predBlock["blockNum"])
 					 );
   }

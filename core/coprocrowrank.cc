@@ -14,7 +14,7 @@
  */
 
 #include "coproc.h"
-#include "rowrank.h"
+#include "rankedset.h"
 
 
 RowRank *RowRank::Factory(const Coproc *coproc,

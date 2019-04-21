@@ -1,22 +1,22 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of ArboristBridgeR.
+// This file is part of rfR.
 //
-// ArboristBridgeR is free software: you can redistribute it and/or modify it
+// rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// ArboristBridgeR is distributed in the hope that it will be useful, but
+// rfR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
+// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file leafBridge.h
+   @file leafRf.h
 
    @brief C++ class definitions for managing Leaf object.
 
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_LEAF_BRIDGE_H
-#define ARBORIST_LEAF_BRIDGE_H
+#ifndef ARBORIST_LEAF_RF_H
+#define ARBORIST_LEAF_RF_H
 
 #include "leaf.h"
 
@@ -37,7 +37,7 @@ using namespace Rcpp;
 #include <memory>
 using namespace std;
 
-class LeafBridge {
+class LeafRf {
  protected:
   vector<vector<unsigned int> > rowTree;
   vector<vector<unsigned int> > sCountTree;
@@ -45,8 +45,8 @@ class LeafBridge {
 
  public:
 
-  LeafBridge(unsigned int exportLength);
-  virtual ~LeafBridge() {}
+  LeafRf(unsigned int exportLength);
+  virtual ~LeafRf() {}
   
   /**
      @brief Accessor for per-tree sampled row vector.
@@ -91,9 +91,9 @@ class LeafBridge {
 
 
 /**
-   @brief Bridge specialization of Core LeafReg, q.v.
+   @brief Rf specialization of Core LeafReg, q.v.
  */
-class LeafRegBridge : public LeafBridge {
+class LeafRegRf : public LeafRf {
   const IntegerVector &feNodeHeight;
   const RawVector &feNode;
   const IntegerVector &feBagHeight;
@@ -117,7 +117,7 @@ class LeafRegBridge : public LeafBridge {
   /**
      @brief Constructor for prediction, no export.
    */
-  LeafRegBridge(const IntegerVector &feNodeHeight_,
+  LeafRegRf(const IntegerVector &feNodeHeight_,
                 const RawVector &feNode_,
                 const IntegerVector& feBagHeight_,
                 const RawVector& feBagSample_,
@@ -127,14 +127,14 @@ class LeafRegBridge : public LeafBridge {
   /**
     @brief Constructor for export, no prediction.
    */
-  LeafRegBridge(const IntegerVector& feNodeHeight_,
+  LeafRegRf(const IntegerVector& feNodeHeight_,
                 const RawVector& feNode_,
                 const IntegerVector& feBagHeight_,
                 const RawVector& feBagSample_,
                 const NumericVector& yTrain_,
                 const class BitMatrix* baggedRows);
 
-  ~LeafRegBridge() {}
+  ~LeafRegRf() {}
   
   static List predict(const List &list,
                       SEXP sYTest,
@@ -143,13 +143,13 @@ class LeafRegBridge : public LeafBridge {
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static unique_ptr<LeafRegBridge> unwrap(const List& leaf,
+  static unique_ptr<LeafRegRf> unwrap(const List& leaf,
                                           const List& sPredBlock);
 
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static unique_ptr<LeafRegBridge> unwrap(const List &lTrain,
+  static unique_ptr<LeafRegRf> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   /**
@@ -202,9 +202,9 @@ class LeafRegBridge : public LeafBridge {
 
 
 /**
-   @brief Bridge specialization of Core LeafCtg, q.v.
+   @brief Rf specialization of Core LeafCtg, q.v.
  */
-class LeafCtgBridge : public LeafBridge {
+class LeafCtgRf : public LeafRf {
   const IntegerVector& feNodeHeight;
   const RawVector& feNode;
   const IntegerVector& feBagHeight;
@@ -229,7 +229,7 @@ class LeafCtgBridge : public LeafBridge {
   /**
      @brief Constructor for prediction; no export.
    */
-  LeafCtgBridge(const IntegerVector& feNodeHeight_,
+  LeafCtgRf(const IntegerVector& feNodeHeight_,
                 const RawVector &feNode_,
                 const IntegerVector& feBagheight_,
                 const RawVector& feBagSample_,
@@ -241,7 +241,7 @@ class LeafCtgBridge : public LeafBridge {
   /**
      @brief Constructor for export; no prediction.
    */
-  LeafCtgBridge(const IntegerVector& feNodeHeight_,
+  LeafCtgRf(const IntegerVector& feNodeHeight_,
                 const RawVector& feNode_,
                 const IntegerVector& feBagHeight_,
                 const RawVector& feBagSample_,
@@ -249,7 +249,7 @@ class LeafCtgBridge : public LeafBridge {
                 const CharacterVector& feLevels_,
                 const class BitMatrix* bitMatrix);
 
-  ~LeafCtgBridge() {}
+  ~LeafCtgRf() {}
 
   /**
      @brief Forgetful getter to core leaf object.
@@ -301,11 +301,11 @@ class LeafCtgBridge : public LeafBridge {
 
      @param lTrain is the R-style trained forest.
    */
-  static unique_ptr<LeafCtgBridge> unwrap(const List& leaf,
+  static unique_ptr<LeafCtgRf> unwrap(const List& leaf,
                                           const List& sPredBlock,
                                           bool doProb);
 
-  static unique_ptr<LeafCtgBridge> unwrap(const List &lTrain,
+  static unique_ptr<LeafCtgRf> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
 
   
