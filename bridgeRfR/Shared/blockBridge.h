@@ -38,7 +38,7 @@ using namespace Rcpp;
  */
 class BlockFacBridge {
   const IntegerMatrix facT; // Pins scope of integer transpose.
-  unique_ptr<BlockFac> blockFac; // Core-level representation.
+  unique_ptr<class BlockFac> blockFac; // Core-level representation.
  public:
 
   BlockFacBridge(const IntegerMatrix &fac);
@@ -46,7 +46,7 @@ class BlockFacBridge {
   /**
      @brief Getter for raw core pointer.
    */
-  BlockFac *getFac() {
+  class BlockFac *getFac() {
     return blockFac.get();
   }
 
@@ -64,13 +64,13 @@ class BlockFacBridge {
 */
 class BlockNumBridge {
  protected:
-  unique_ptr<BlockNum> blockNum;
+  unique_ptr<class BlockNum> blockNum;
 public:
 
   /**
      @brief Getter for raw pointer to core object.
    */
-  BlockNum *getNum() {
+  class BlockNum *getNum() {
     return blockNum.get();
   }
 

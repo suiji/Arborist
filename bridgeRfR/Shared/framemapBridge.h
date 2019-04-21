@@ -31,7 +31,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "block.h"
 #include "framemap.h"
 
 
