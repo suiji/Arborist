@@ -27,11 +27,12 @@
 #ifndef ARBORIST_BLOCK_BRIDGE_H
 #define ARBORIST_BLOCK_BRIDGE_H
 
+#include "block.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
 #include <memory>
-#include "block.h"
 
 /**
    @brief Bridge-level manager for factor-valued observations.

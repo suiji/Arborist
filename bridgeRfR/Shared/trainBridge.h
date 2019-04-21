@@ -26,6 +26,8 @@
 #ifndef ARBORIST_TRAIN_BRIDGE_H
 #define ARBORIST_TRAIN_BRIDGE_H
 
+#include "train.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 

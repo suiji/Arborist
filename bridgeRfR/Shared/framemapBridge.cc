@@ -23,7 +23,6 @@
    @author Mark Seligman
 */
 
-
 #include "framemapBridge.h"
 #include "blockBridge.h"
 

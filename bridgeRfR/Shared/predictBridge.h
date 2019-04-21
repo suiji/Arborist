@@ -27,6 +27,8 @@
 #ifndef ARBORIST_PREDICT_BRIDGE_H
 #define ARBORIST_PREDICT_BRIDGE_H
 
+#include "predict.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 

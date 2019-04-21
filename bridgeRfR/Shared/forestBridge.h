@@ -28,6 +28,8 @@
 #ifndef ARBORIST_FOREST_BRIDGE_H
 #define ARBORIST_FOREST_BRIDGE_H
 
+#include "forest.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 

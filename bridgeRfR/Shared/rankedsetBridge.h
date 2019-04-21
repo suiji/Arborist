@@ -28,12 +28,13 @@
 #ifndef ARBORIST_ROWRANK_BRIDGE_H
 #define ARBORIST_ROWRANK_BRIDGE_H
 
+#include "rowrank.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
 #include <memory>
 
-#include "rowrank.h"
 
 /**
    @brief External entry to presorting RowRank builder.
@@ -53,8 +54,8 @@ class BlockRankedBridge final : public BlockRanked {
   const IntegerVector numOff; // pinned;
 
  public:
-  BlockRankedBridge(const NumericVector &_numVal,
-                    const IntegerVector &_numOff);
+  BlockRankedBridge(const NumericVector& numVal_,
+                    const IntegerVector& numOff_);
 
   /**
      @brief Unwraps a sparse numerical block.
@@ -74,9 +75,9 @@ class RowRankBridge : public RowRank {
  public:
   RowRankBridge(const class Coproc *coproc,
                 const class FrameTrain *frameTrain,
-                const IntegerVector &_row,
-                const IntegerVector &_rank,
-                const IntegerVector &_runLength,
+                const IntegerVector& row_,
+                const IntegerVector& rank_,
+                const IntegerVector& runLength_,
                 double _autoCompress);
 
   /**
@@ -92,8 +93,8 @@ class RowRankBridge : public RowRank {
    */
   static unique_ptr<RowRankBridge> unwrap(SEXP sRowRank,
                                           double autoCompress,
-                                          const class Coproc *coproc,
-                                          const class FrameTrain *frameTrain);
+                                          const class Coproc* coproc,
+                                          const class FrameTrain* frameTrain);
 };
 
 
@@ -132,8 +133,8 @@ class RankedSetBridge {
    */
   static unique_ptr<RankedSetBridge> unwrap(SEXP sRowRank,
                                            double autoCompress,
-                                           const class Coproc *coproc,
-                                           const class FrameTrain *frameTrain);
+                                           const class Coproc* coproc,
+                                           const class FrameTrain* frameTrain);
 };
 
 #endif

@@ -24,15 +24,12 @@
  */
 
 #include "predictBridge.h"
-#include "predict.h"
-#include "quant.h"
 #include "bagBridge.h"
 #include "blockBridge.h"
 #include "framemapBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
-#include "forest.h"
-#include "leaf.h"
+#include "quant.h"
 
 RcppExport SEXP ValidateReg(const SEXP sPredBlock,
                             const SEXP sTrain,

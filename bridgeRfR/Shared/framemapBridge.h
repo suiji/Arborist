@@ -28,10 +28,10 @@
 #ifndef ARBORIST_FRAMEMAP_BRIDGE_H
 #define ARBORIST_FRAMEMAP_BRIDGE_H
 
+#include "framemap.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
-
-#include "framemap.h"
 
 
 /**
@@ -90,7 +90,7 @@ class FramePredictBridge {
   const unique_ptr<class BlockNumBridge> blockNum;
   const unique_ptr<class BlockFacBridge> blockFac;
   const unsigned int nRow;
-  const unique_ptr<FramePredict> framePredict;
+  const unique_ptr<class FramePredict> framePredict;
  public:
 
   FramePredictBridge(unique_ptr<class BlockNumBridge> blockNum_,
@@ -156,7 +156,7 @@ struct FramemapBridge {
 
      @return allocated predictor map for training.
    */
-  static unique_ptr<FrameTrain> factoryTrain(
+  static unique_ptr<class FrameTrain> factoryTrain(
                      const vector<unsigned int>& facCard,
                      unsigned int nPred,
                      unsigned int nRow);

@@ -24,9 +24,8 @@
  */
 
 #include "leafBridge.h"
-#include "leaf.h"
 #include "framemapBridge.h"
-#include "predict.h"
+#include "predictBridge.h"
 #include "quant.h"
 
 bool LBTrain::thin = false;

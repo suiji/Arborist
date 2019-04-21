@@ -30,9 +30,7 @@
 #include "rankedsetBridge.h"
 #include "forestBridge.h"
 #include "leafBridge.h"
-#include "leaf.h"
 #include "coproc.h"
-#include "train.h"
 
 bool TrainBridge::verbose = false;
 unsigned int TrainBridge::nCtg = 0;

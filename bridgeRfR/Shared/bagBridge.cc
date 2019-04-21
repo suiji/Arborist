@@ -24,7 +24,7 @@
  */
 
 #include "bagBridge.h"
-#include "train.h"
+#include "trainBridge.h"
 #include "bv.h"
 
 BagBridge::BagBridge(unsigned int nRow_, unsigned int nTree_) :

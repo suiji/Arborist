@@ -24,7 +24,6 @@
  */
 
 #include "forestBridge.h"
-#include "forest.h"
 
 void FBTrain::consume(const ForestTrain* forestTrain,
                       unsigned int tIdx,

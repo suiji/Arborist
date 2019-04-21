@@ -23,7 +23,6 @@
    @author Mark Seligman
 */
 
-
 #include "blockBridge.h"
 
 

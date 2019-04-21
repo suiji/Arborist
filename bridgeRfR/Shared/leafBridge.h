@@ -28,6 +28,8 @@
 #ifndef ARBORIST_LEAF_BRIDGE_H
 #define ARBORIST_LEAF_BRIDGE_H
 
+#include "leaf.h"
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
