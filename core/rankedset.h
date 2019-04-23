@@ -14,7 +14,7 @@
  */
 
 #ifndef ARBORIST_RANKEDSET_H
-#define ARBORIST_RANDEDSET_H
+#define ARBORIST_RANKEDSET_H
 
 #include <vector>
 #include <tuple>
@@ -186,7 +186,7 @@ class RowRank {
 			  const unsigned int feRank[],
 			  const unsigned int feRLE[],
 			  unsigned int feRLELength,
-			  double _autCompress);
+			  double autoCompress_);
 
   virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int bagCount) const;
 

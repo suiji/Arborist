@@ -48,6 +48,7 @@ class Quant {
   vector<double> qPred; // predicted quantiles.
   vector<double> qEst; // quantile of response estimates.
   unsigned int rankScale; // log2 of scaling factor.
+  const vector<double> binMean;
 
   /**
      @brief Computes a bin offset for a given rank.
@@ -56,7 +57,7 @@ class Quant {
 
      @return bin offset.
    */
-  inline unsigned int binRank(size_t rank) {
+  inline unsigned int binRank(size_t rank) const {
     return rank >> rankScale;
   }
 
@@ -84,17 +85,20 @@ class Quant {
 
      @return power-of-two divisor for training response length.
    */
-  unsigned int binScale();
+  unsigned int binScale() const;
 
 
   /**
-     @brief Computes the mean response corresponding to a bin index.
+     @brief Bins response means.
 
-     @param binIdx is a bin index.
+     @param yRanked[] contains the ranked response/row pairs.
 
-     @return mean value of responses.
+     @param rankScale is the bin scaling factor.
+
+     @return binned vector of response means.
    */
-  double binMean(unsigned int binIdx);
+  static vector<double> binMeans(const vector<ValRow>& yRanked,
+                                 unsigned int rankScale);
 
   
   /**
@@ -125,7 +129,7 @@ class Quant {
   unsigned int quantSamples(const vector<unsigned int>& sCount,
                             const vector<double> threshold,
                             double yPred,
-                            double qRow[]);
+                            double qRow[]) const;
 
   /**
      @brief Accumulates the ranks assocated with predicted leaf.
@@ -140,7 +144,7 @@ class Quant {
   */
   unsigned int leafSample(unsigned int tIdx,
                           unsigned int leafIdx,
-                          vector<unsigned int> &sampRanks);
+                          vector<unsigned int> &sampRanks) const;
 
 
  public:

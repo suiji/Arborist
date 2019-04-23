@@ -38,7 +38,8 @@ Quant::Quant(const PredictBox* box,
   qCount(qCount_),
   qPred(vector<double>(getNRow() * qCount)),
   qEst(vector<double>(getNRow())),
-  rankScale(binScale()) {
+  rankScale(binScale()),
+  binMean(binMeans(yRanked, rankScale)) {
 }
 
 unsigned int Quant::getNRow() const {
@@ -95,7 +96,7 @@ void Quant::predictAcross(const Predict *predict,
 }
 
 
-unsigned int Quant::binScale() {
+unsigned int Quant::binScale() const {
   unsigned int shiftVal = 0;
   while ((binSize << shiftVal) < yRanked.size())
     shiftVal++;
@@ -138,7 +139,7 @@ void Quant::predictRow(const Predict *predict,
 unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
                                  const vector<double> threshold,
                                  double yPred,
-                                 double qRow[]) {
+                                 double qRow[]) const {
   unsigned int qSlot = 0;
   unsigned int binIdx = 0;
   unsigned int samplesSeen = 0;
@@ -146,9 +147,9 @@ unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
   for (auto sc : sCount) {
     samplesSeen += sc;
     while (qSlot < qCount && samplesSeen >= threshold[qSlot]) {
-      qRow[qSlot++] = binMean(binIdx);
+      qRow[qSlot++] = binMean[binIdx];
     }
-    if (yPred > binMean(binIdx)) {
+    if (yPred > binMean[binIdx]) {
       yQuant = samplesSeen;
     }
     else if (qSlot >= qCount)
@@ -160,16 +161,22 @@ unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
 }
 
 
-double Quant::binMean(unsigned int binIdx) {
-  size_t idxStart = binIdx << rankScale;
-  size_t idxEnd = min(yRanked.size(), idxStart + (1 << rankScale));
-  double sum = 0.0;
-  unsigned int count = 0;
-  for (auto idx = idxStart; idx < idxEnd; idx++) {
-    sum += yRanked[idx].val;
-    count++;
+vector<double> Quant::binMeans(const vector<ValRow>& yRanked, unsigned int rankScale) {
+  const auto slotWidth = 1 << rankScale;
+  size_t binIdx = 0;
+  vector<double> binMean(std::min(binSize, yRanked.size()));
+  for (size_t idxStart = 0; idxStart < yRanked.size(); idxStart += slotWidth) {
+    size_t idxEnd = min(yRanked.size(), idxStart + slotWidth);
+    double sum = 0.0;
+    unsigned int count = 0;
+    for (auto idx = idxStart; idx < idxEnd; idx++) {
+      sum += yRanked[idx].val;
+      count++;
+    }
+    binMean[binIdx++] =  sum / count;
   }
-  return count == 0 ? 0.0 : sum / count;
+
+  return binMean;
 }
 
 
@@ -179,7 +186,7 @@ double Quant::binMean(unsigned int binIdx) {
 
 unsigned int Quant::leafSample(unsigned int tIdx,
                                unsigned int leafIdx,
-                               vector<unsigned int> &sCount) {
+                               vector<unsigned int> &sCount) const {
   unsigned int sampleTot = 0;
   unsigned int leafStart, leafEnd;
   leafReg->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
