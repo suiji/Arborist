@@ -31,9 +31,12 @@ PreFormat.default <- function(x, verbose = FALSE) {
     }
     else {
         if (verbose)
-            print("Beginning pre-formatting")
+            print("Blocking frame")
 
         predBlock <- PredBlock(x)
+
+        if (verbose)
+            print("Pre-sorting")
         preFormat <- list(
             predBlock = predBlock,
             rankedSet = .Call("Presort", predBlock)

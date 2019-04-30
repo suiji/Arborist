@@ -18,7 +18,8 @@
 
 #include <vector>
 
-#include "typeparam.h"
+using namespace std;
+
 
 /**
    @brief Singleton subclass instances:  training or prediction.

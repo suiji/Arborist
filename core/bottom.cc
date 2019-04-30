@@ -56,11 +56,11 @@ Bottom::Bottom(const FrameTrain* frameTrain_,
 void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int splitIdx = 0; // Root split index.
-  for (unsigned int predIdx = 0; predIdx < stageCount.size(); predIdx++) {
-    bool singleton = stageCount[predIdx].singleton;
-    unsigned int expl = stageCount[predIdx].expl;
-    (void) level[0]->define(splitIdx, predIdx, bufIdx, singleton, bagCount - expl);
-    setRunCount(splitIdx, predIdx, false, singleton ? 1 : frameTrain->getFacCard(predIdx));
+  unsigned int predIdx = 0;
+  for (auto sc : stageCount) {
+    (void) level[0]->define(splitIdx, predIdx, bufIdx, sc.singleton, bagCount - sc.expl);
+    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frameTrain->getFacCard(predIdx));
+    predIdx++;
   }
 }
 

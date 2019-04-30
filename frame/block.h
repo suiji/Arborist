@@ -19,7 +19,7 @@
 #include <vector>
 #include <cmath>
 
-#include "typeparam.h"
+using namespace std;
 
 
 /**

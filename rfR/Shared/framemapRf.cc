@@ -78,6 +78,8 @@ RcppExport SEXP WrapFrame(SEXP sX,
   IntegerMatrix xFac(sXFac);// 0-based factor codes.
   IntegerVector predMap(sPredMap); // 0-based predictor offsets.
   DataFrame x(sX);
+  CharacterVector rowNames = Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x);
+  CharacterVector colNames = Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x);
   List predBlock = List::create(
                                 _["blockNum"] = move(xNum),
                                 _["nPredNum"] = xNum.ncol(),
@@ -88,9 +90,9 @@ RcppExport SEXP WrapFrame(SEXP sX,
                                 _["nRow"] = x.nrow(),
                                 _["facCard"] = facCard,
             _["signature"] = move(FramemapRf::wrapSignature(predMap,
-                                                                as<List>(sLv),
-                                                                colnames(x),
-                                                                rownames(x)))
+                                                            as<List>(sLv),
+                                                            colNames,
+                                                            rowNames))
                                 );
   predBlock.attr("class") = "PredBlock";
 
@@ -103,16 +105,16 @@ RcppExport SEXP WrapFrame(SEXP sX,
   // core.
 // Column and row names stubbed to zero-length vectors if null.
 SEXP FramemapRf::wrapSignature(const IntegerVector &predMap,
-               const List &level,
-               const CharacterVector &colNames,
-               const CharacterVector &rowNames) {
+                               const List &level,
+                               const CharacterVector &colNames,
+                               const CharacterVector &rowNames) {
   BEGIN_RCPP
   List signature =
     List::create(
                  _["predMap"] = predMap,
                  _["level"] = level,
-                 _["colNames"] = Rf_isNull(colNames) ? CharacterVector(0) : colNames,
-                 _["rowNames"] = Rf_isNull(rowNames) ? CharacterVector(0) : rowNames
+                 _["colNames"] = colNames,
+                 _["rowNames"] = rowNames
                  );
   signature.attr("class") = "Signature";
 
@@ -123,6 +125,8 @@ SEXP FramemapRf::wrapSignature(const IntegerVector &predMap,
 
 RcppExport SEXP FrameNum(SEXP sX) {
   NumericMatrix blockNum(sX);
+  CharacterVector rowNames = Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum);
+  CharacterVector colNames = Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum);
   List predBlock = List::create(
         _["blockNum"] = blockNum,
         _["blockNumSparse"] = List(), // For now.
@@ -135,9 +139,8 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["signature"] = move(FramemapRf::wrapSignature(
                                         seq_len(blockNum.ncol()) - 1,
                                         List::create(0),
-                                        colnames(blockNum),
-                                        rownames(blockNum)))
-                                );
+                                        colNames,
+                                        rowNames)));
   predBlock.attr("class") = "PredBlock";
 
   return predBlock;
@@ -260,9 +263,9 @@ SEXP FramemapRf::checkPredblock(const List &predBlock) {
 }
 
 void FramemapRf::signatureUnwrap(const List& sTrain, IntegerVector &predMap, List &level) {
-  List sSignature = checkSignature(sTrain);
+  List sSignature(checkSignature(sTrain));
 
-  predMap = as<IntegerVector>((SEXP) sSignature["predMap"]);
+  predMap = as<IntegerVector>(sSignature["predMap"]);
   level = as<List>(sSignature["level"]);
 }
 
