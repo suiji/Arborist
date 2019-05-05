@@ -202,7 +202,7 @@ class Sample {
                                                const class RowRank *rowRank,
                                                class BV *treeBag);
   
-  virtual unique_ptr<class SplitNode> splitNodeFactory(const class FrameTrain *frameTrain) const = 0;
+  virtual unique_ptr<class SplitNode> splitNodeFactory(const class FrameMap *frameMap) const = 0;
 
   /**
      @brief Lights off static initializations needed for sampling.
@@ -340,7 +340,7 @@ class SampleReg : public Sample {
  public:
   SampleReg(const class RowRank* rowRank_);
   ~SampleReg();
-  unique_ptr<class SplitNode> splitNodeFactory(const FrameTrain *frameTrain) const;
+  unique_ptr<class SplitNode> splitNodeFactory(const FrameMap *frameMap) const;
 
 
   /**
@@ -381,7 +381,7 @@ class SampleCtg : public Sample {
   SampleCtg(const class RowRank* rowRank_);
   ~SampleCtg();
 
-  unique_ptr<class SplitNode> splitNodeFactory(const FrameTrain *frameTrain) const;
+  unique_ptr<class SplitNode> splitNodeFactory(const FrameMap *frameMap) const;
 
   /**
      @brief Appends a sample summary record.

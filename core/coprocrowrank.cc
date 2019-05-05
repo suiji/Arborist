@@ -18,7 +18,7 @@
 
 
 RowRank *RowRank::Factory(const Coproc *coproc,
-			  const FrameTrain *frameTrain,
+			  const FrameMap *frameMap,
 			  const unsigned int _feRow[],
 			  const unsigned int _feRank[],
 			  //		  const unsigned int *_numOffset,
@@ -26,5 +26,5 @@ RowRank *RowRank::Factory(const Coproc *coproc,
 			  const unsigned int _feRLE[],
 			  unsigned int _feRLELength,
 			  double _autoCompress) {
-  return new RowRank(frameTrain, _feRow, _feRank, /*_numOffset, _numVal,*/ _feRLE, _feRLELength, _autoCompress);
+  return new RowRank(frameMap, _feRow, _feRank, /*_numOffset, _numVal,*/ _feRLE, _feRLELength, _autoCompress);
 }

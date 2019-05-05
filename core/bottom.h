@@ -60,7 +60,7 @@ class Bottom {
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   unsigned int splitPrev; // # nodes in previous level.
   unsigned int splitCount; // # nodes in the level about to split.
-  const class FrameTrain *frameTrain;
+  const class FrameMap *frameMap;
   const class RowRank *rowRank;
   const unsigned int noRank;
 
@@ -136,7 +136,7 @@ class Bottom {
 
      @param splitCount specifies the number of splits to map.
   */
-  Bottom(const class FrameTrain* frameTrain_,
+  Bottom(const class FrameMap* frameMap_,
          const class RowRank* rowRank_,
          unsigned int bagCount);
 

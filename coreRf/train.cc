@@ -79,9 +79,9 @@ void Train::initCtgWidth(unsigned int ctgWidth) {
 }
 
 
-void Train::initMono(const FrameTrain* frameTrain,
+void Train::initMono(const FrameMap* frameMap,
                      const vector<double> &regMono) {
-  SPReg::Immutables(frameTrain, regMono);
+  SPReg::Immutables(frameMap, regMono);
 }
 
 
@@ -99,54 +99,54 @@ void Train::deInit() {
 }
 
 
-unique_ptr<Train> Train::regression(const FrameTrain *frameTrain,
+unique_ptr<Train> Train::regression(const FrameMap *frameMap,
                                        const RankedSet *rankedPair,
                                        const double *y,
                                        unsigned int treeChunk) {
-  auto trainReg = make_unique<Train>(frameTrain, y, treeChunk);
-  trainReg->trainChunk(frameTrain, rankedPair);
+  auto trainReg = make_unique<Train>(frameMap, y, treeChunk);
+  trainReg->trainChunk(frameMap, rankedPair);
 
   return trainReg;
 }
 
 
-Train::Train(const FrameTrain *frameTrain,
+Train::Train(const FrameMap *frameMap,
              const double *y,
              unsigned int treeChunk_) :
-  nRow(frameTrain->getNRow()),
+  nRow(frameMap->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
-  predInfo(vector<double>(frameTrain->getNPred())),
+  predInfo(vector<double>(frameMap->getNPred())),
   leaf(LFTrain::factoryReg(y, treeChunk)) {
 }
 
 
-unique_ptr<Train> Train::classification(const FrameTrain *frameTrain,
+unique_ptr<Train> Train::classification(const FrameMap *frameMap,
                                         const RankedSet *rankedPair,
                                         const unsigned int *yCtg,
                                         const double *yProxy,
                                         unsigned int nCtg,
                                         unsigned int treeChunk,
                                         unsigned int nTree) {
-  auto trainCtg = make_unique<Train>(frameTrain, yCtg, nCtg, yProxy, nTree, treeChunk);
-  trainCtg->trainChunk(frameTrain, rankedPair);
+  auto trainCtg = make_unique<Train>(frameMap, yCtg, nCtg, yProxy, nTree, treeChunk);
+  trainCtg->trainChunk(frameMap, rankedPair);
 
   return trainCtg;
 }
 
 
-Train::Train(const FrameTrain *frameTrain,
+Train::Train(const FrameMap *frameMap,
              const unsigned int *yCtg,
              unsigned int nCtg,
              const double *yProxy,
              unsigned int nTree,
              unsigned int treeChunk_) :
-  nRow(frameTrain->getNRow()),
+  nRow(frameMap->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
   forest(make_unique<ForestTrain>(treeChunk)),
-  predInfo(vector<double>(frameTrain->getNPred())),
+  predInfo(vector<double>(frameMap->getNPred())),
   leaf(LFTrain::factoryCtg(yCtg, yProxy, treeChunk, nRow, nCtg, nTree)) {
 }
 
@@ -155,18 +155,18 @@ Train::~Train() {
 }
 
 
-void Train::trainChunk(const FrameTrain *frameTrain,
+void Train::trainChunk(const FrameMap *frameMap,
                        const RankedSet *rankedPair) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
-    auto treeBlock = blockProduce(frameTrain, rankedPair->getRowRank(), treeStart, treeEnd - treeStart);
+    auto treeBlock = blockProduce(frameMap, rankedPair->getRowRank(), treeStart, treeEnd - treeStart);
     blockConsume(treeBlock, treeStart);
   }
-  forest->splitUpdate(frameTrain, rankedPair->getNumRanked());
+  forest->splitUpdate(frameMap, rankedPair->getNumRanked());
 }
 
 
-vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
+vector<TrainSet> Train::blockProduce(const FrameMap *frameMap,
                                      const RowRank *rowRank,
                                      unsigned int tStart,
                                      unsigned int tCount) {
@@ -174,7 +174,7 @@ vector<TrainSet> Train::blockProduce(const FrameTrain *frameTrain,
   vector<TrainSet> block(tCount);
   for (auto & set : block) {
     auto sample = leaf->rootSample(rowRank, bagRow.get(), tIdx++);
-    auto preTree = IndexLevel::oneTree(frameTrain, rowRank, sample.get());
+    auto preTree = IndexLevel::oneTree(frameMap, rowRank, sample.get());
     set = make_pair(sample, preTree);
   }
 

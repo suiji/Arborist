@@ -30,7 +30,7 @@ class PTNode : public DecNode {
   FltVal info;  // Nonzero iff nonterminal.
  public:
   
-  void consumeNonterminal(const class FrameTrain *frameTrain,
+  void consumeNonterminal(const class FrameMap *frameMap,
                           class ForestTrain *forest,
                           vector<double> &predInfo,
                           unsigned int idx) const;
@@ -88,7 +88,7 @@ class PTNode : public DecNode {
 class PreTree {
   static size_t heightEst;
   static size_t leafMax; // User option:  maximum # leaves, if > 0.
-  const class FrameTrain *frameTrain;
+  const class FrameMap *frameMap;
   const unsigned int bagCount;
   size_t nodeCount; // Allocation height of node vector.
   PTNode *nodeVec; // Vector of tree nodes.
@@ -97,9 +97,9 @@ class PreTree {
   size_t bitEnd; // Next free slot in factor bit vector.
   class BV *splitBits;
   vector<unsigned int> termST;
-  class BV *BitFactory();
+  class BV *bitFactory();
   const vector<unsigned int> frontierConsume(class ForestTrain *forest) const;
-  unsigned int BitWidth();
+  unsigned int getBitWidth();
 
 
   /**
@@ -107,7 +107,7 @@ class PreTree {
 
      @return void, with incremented height and leaf count.
   */
-  inline void TerminalOffspring() {
+  inline void terminalOffspring() {
   // Two more leaves for offspring, one fewer for this.
     height += 2;
     leafCount++;
@@ -115,7 +115,7 @@ class PreTree {
 
 
  public:
-  PreTree(const class FrameTrain *_frameTrain, unsigned int _bagCount);
+  PreTree(const class FrameMap *_frameMap, unsigned int _bagCount);
   ~PreTree();
   static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
   static void deImmutables();
@@ -206,7 +206,7 @@ class PreTree {
                         size_t &_bagCount) {
     _height += height;
     _maxHeight = max(height, _maxHeight);
-    _bitWidth += BitWidth();
+    _bitWidth += getBitWidth();
     _leafCount += leafCount;
     _bagCount += bagCount;
   }

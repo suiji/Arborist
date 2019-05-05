@@ -181,7 +181,7 @@ class RowRank {
 
   // Factory parametrized by coprocessor state.
   static RowRank *Factory(const class Coproc *coproc,
-			  const class FrameTrain *frameTrain,
+			  const class FrameMap *frameMap,
 			  const unsigned int feRow[],
 			  const unsigned int feRank[],
 			  const unsigned int feRLE[],
@@ -191,14 +191,14 @@ class RowRank {
   virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int bagCount) const;
 
   virtual unique_ptr<class SPReg> SPRegFactory(
-			       const class FrameTrain *frameTrain,
+			       const class FrameMap *frameMap,
 			       unsigned int bagCount) const;
 
-  virtual unique_ptr<class SPCtg> SPCtgFactory(const class FrameTrain *frameTrain,
+  virtual unique_ptr<class SPCtg> SPCtgFactory(const class FrameMap *frameMap,
 				    unsigned int bagCount,
 				    unsigned int _nCtg) const; 
 
-  RowRank(const class FrameTrain *frameTrain,
+  RowRank(const class FrameMap *frameMap,
 	  const unsigned int feRow[],
 	  const unsigned int feRank[],
 	  const unsigned int feRLE[],
@@ -486,23 +486,19 @@ class RankedSet {
 
  public:
   RankedSet(const RowRank *_rowRank,
-	     const BlockRanked *_numRanked) :
-  rowRank(_rowRank),
-  numRanked(_numRanked) {
-  }
-
+            const BlockRanked *_numRanked);
 
   /**
      @brief Getter for rowRank.
    */
-  const RowRank *getRowRank() const {
+  inline const RowRank *getRowRank() const {
     return rowRank;
   }
 
   /**
      @brief Getter for numRanked.
    */
-  const BlockRanked *getNumRanked() const {
+  inline const BlockRanked *getNumRanked() const {
     return numRanked;
   }
 };

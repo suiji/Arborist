@@ -34,12 +34,12 @@ vector<double> SPReg::mono; // Numeric monotonicity constraints.
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitNode::SplitNode(const FrameTrain *frameTrain_,
+SplitNode::SplitNode(const FrameMap *frameMap_,
 		     const RowRank *rowRank_,
 		     unsigned int bagCount) :
   rowRank(rowRank_),
-  frameTrain(frameTrain_),
-  noSet(bagCount * frameTrain->getNPredFac()) {
+  frameMap(frameMap_),
+  noSet(bagCount * frameMap->getNPredFac()) {
 }
 
 
@@ -50,14 +50,14 @@ SplitNode::~SplitNode() {
 }
 
 
-void SPReg::Immutables(const FrameTrain* frameTrain,
+void SPReg::Immutables(const FrameMap* frameMap,
                        const vector<double> &bridgeMono) {
-  auto numFirst = frameTrain->NumFirst();
-  auto numExtent = frameTrain->getNPredNum();
+  auto numFirst = frameMap->NumFirst();
+  auto numExtent = frameMap->getNPredNum();
   auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [](double prob) { return prob != 0.0; });
   if (monoCount > 0) {
-    mono = vector<double>(frameTrain->getNPredNum());
-    mono.assign(bridgeMono.begin() + frameTrain->NumFirst(), bridgeMono.begin() + frameTrain->NumFirst() + frameTrain->getNPredNum());
+    mono = vector<double>(frameMap->getNPredNum());
+    mono.assign(bridgeMono.begin() + frameMap->NumFirst(), bridgeMono.begin() + frameMap->NumFirst() + frameMap->getNPredNum());
   }
 }
 
@@ -67,25 +67,25 @@ void SPReg::DeImmutables() {
 }
 
 
-SPReg::SPReg(const FrameTrain *_frameTrain,
+SPReg::SPReg(const FrameMap *_frameMap,
 	     const RowRank *_rowRank,
 	     unsigned int bagCount) :
-  SplitNode(_frameTrain, _rowRank, bagCount),
+  SplitNode(_frameMap, _rowRank, bagCount),
   ruMono(vector<double>(0)) {
-  run = make_unique<Run>(0, frameTrain->getNRow(), noSet);
+  run = make_unique<Run>(0, frameMap->getNRow(), noSet);
 }
 
 
 /**
    @brief Constructor.
  */
-SPCtg::SPCtg(const FrameTrain *frameTrain_,
+SPCtg::SPCtg(const FrameMap *frameMap_,
 	     const RowRank *rowRank_,
 	     unsigned int bagCount,
 	     unsigned int nCtg_):
-  SplitNode(frameTrain_, rowRank_, bagCount),
+  SplitNode(frameMap_, rowRank_, bagCount),
   nCtg(nCtg_) {
-  run = make_unique<Run>(nCtg, frameTrain->getNRow(), noSet);
+  run = make_unique<Run>(nCtg, frameMap->getNRow(), noSet);
 }
 
 
@@ -194,7 +194,7 @@ void SplitNode::levelClear() {
    @return true iff predictor is a factor.
  */
 bool SplitNode::isFactor(unsigned int predIdx) const {
-  return frameTrain->isFactor(predIdx);
+  return frameMap->isFactor(predIdx);
 }
 
 
@@ -211,7 +211,7 @@ double SPCtg::getSumSquares(const SplitCand *cand) const {
    @return true iff predictor is numeric.
  */
 unsigned int SplitNode::getNumIdx(unsigned int predIdx) const {
-  return frameTrain->getNumIdx(predIdx);
+  return frameMap->getNumIdx(predIdx);
 }
 
 
@@ -264,7 +264,7 @@ void SPReg::levelPreset(IndexLevel *index) {
    FacRun vectors.
 */
 void SPCtg::levelPreset(IndexLevel *index) {
-  levelInitSumR(frameTrain->getNPredNum());
+  levelInitSumR(frameMap->getNPredNum());
   ctgSum = vector<vector<double> >(splitCount);
 
   // Hoist to replay().

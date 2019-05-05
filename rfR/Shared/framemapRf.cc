@@ -78,8 +78,6 @@ RcppExport SEXP WrapFrame(SEXP sX,
   IntegerMatrix xFac(sXFac);// 0-based factor codes.
   IntegerVector predMap(sPredMap); // 0-based predictor offsets.
   DataFrame x(sX);
-  CharacterVector rowNames = Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x);
-  CharacterVector colNames = Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x);
   List predBlock = List::create(
                                 _["blockNum"] = move(xNum),
                                 _["nPredNum"] = xNum.ncol(),
@@ -91,8 +89,8 @@ RcppExport SEXP WrapFrame(SEXP sX,
                                 _["facCard"] = facCard,
             _["signature"] = move(FramemapRf::wrapSignature(predMap,
                                                             as<List>(sLv),
-                                                            colNames,
-                                                            rowNames))
+                                                            Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
+                                                            Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
                                 );
   predBlock.attr("class") = "PredBlock";
 
@@ -125,8 +123,6 @@ SEXP FramemapRf::wrapSignature(const IntegerVector &predMap,
 
 RcppExport SEXP FrameNum(SEXP sX) {
   NumericMatrix blockNum(sX);
-  CharacterVector rowNames = Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum);
-  CharacterVector colNames = Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum);
   List predBlock = List::create(
         _["blockNum"] = blockNum,
         _["blockNumSparse"] = List(), // For now.
@@ -139,8 +135,9 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["signature"] = move(FramemapRf::wrapSignature(
                                         seq_len(blockNum.ncol()) - 1,
                                         List::create(0),
-                                        colNames,
-                                        rowNames)));
+                                        Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
+                                        Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum)))
+                                );
   predBlock.attr("class") = "PredBlock";
 
   return predBlock;
@@ -282,31 +279,9 @@ SEXP FramemapRf::checkSignature(const List &sParent) {
 }
 
 
-unique_ptr<FrameTrain> FramemapRf::factoryTrain(
+unique_ptr<FrameMap> FramemapRf::factoryTrain(
                     const vector<unsigned int> &facCard,
                     unsigned int nPred,
                     unsigned int nRow) {
-  return make_unique<FrameTrain>(facCard, nPred, nRow);
-}
-
-
-unique_ptr<FramePredictRf> FramemapRf::factoryPredict(const List& sPredBlock) {
-  checkPredblock(sPredBlock);
-  return make_unique<FramePredictRf>(
-                 BlockNumRf::Factory(sPredBlock),
-                 BlockFacRf::Factory(sPredBlock),
-                 as<unsigned int>(sPredBlock["nRow"]));
-}
-
-
-FramePredictRf::FramePredictRf(
-               unique_ptr<BlockNumRf> blockNum_,
-               unique_ptr<BlockFacRf> blockFac_,
-               unsigned int nRow_) :
-  blockNum(move(blockNum_)),
-  blockFac(move(blockFac_)),
-  nRow(nRow_),
-  framePredict(make_unique<FramePredict>(blockNum->getNum(),
-                                         blockFac->getFac(),
-                                         nRow)) {
+  return make_unique<FrameMap>(facCard, nPred, nRow);
 }

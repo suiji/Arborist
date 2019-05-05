@@ -39,7 +39,7 @@ using namespace Rcpp;
  */
 class BlockFacRf {
   const IntegerMatrix facT; // Pins scope of integer transpose.
-  unique_ptr<class BlockFac> blockFac; // Core-level representation.
+  unique_ptr<class BlockDense<unsigned int> > blockFac; // Core-level representation.
  public:
 
   BlockFacRf(const IntegerMatrix &fac);
@@ -47,7 +47,7 @@ class BlockFacRf {
   /**
      @brief Getter for raw core pointer.
    */
-  class BlockFac *getFac() {
+  class BlockDense<unsigned int>* getFac() {
     return blockFac.get();
   }
 
@@ -56,7 +56,7 @@ class BlockFacRf {
 
      @param predBlock summarizes a block of factor-valued predictors.
    */
-  static unique_ptr<BlockFacRf> Factory(const List &predBlock);
+  static unique_ptr<BlockFacRf> factory(const List &predBlock);
 };
 
 
@@ -65,13 +65,13 @@ class BlockFacRf {
 */
 class BlockNumRf {
  protected:
-  unique_ptr<class BlockNum> blockNum;
+  unique_ptr<class Block<double> > blockNum;
 public:
 
   /**
      @brief Getter for raw pointer to core object.
    */
-  class BlockNum *getNum() {
+  class Block<double>* getNum() {
     return blockNum.get();
   }
 
@@ -80,7 +80,7 @@ public:
 
      @param predBlock summarizes a front-end block of numeric observations.
    */
-  static unique_ptr<BlockNumRf> Factory(const List& predBlock);
+  static unique_ptr<BlockNumRf> factory(const List& predBlock);
 };
 
 
@@ -117,5 +117,43 @@ class BlockNumSparseRf : public BlockNumRf {
 		    const IntegerVector &_predStart);
 
 };
+
+
+/**
+   @brief Captures ownership of BlockSet and component Blocks.
+ */
+class BlockSetRf {
+  const unique_ptr<class BlockNumRf> blockNum;
+  const unique_ptr<class BlockFacRf> blockFac;
+  const unsigned int nRow;
+  const unique_ptr<class BlockSet> blockSet;
+ public:
+
+  BlockSetRf(unique_ptr<class BlockNumRf> blockNum_,
+             unique_ptr<class BlockFacRf> blockFac_,
+             unsigned int nRow);
+
+
+  /**
+     @brief Ensures the passed object has PredBlock type.
+
+     @param predBlock is the object to be checked.
+   */
+  static SEXP checkPredblock(const List& predBlock);
+
+
+  /**
+     @brief Caches blocks from front end.
+   */
+  static unique_ptr<BlockSetRf> factory(const List& sPredBlock);
+
+  /**
+     @brief Getter for core object pointer.
+   */
+  const auto getSet() const {
+    return blockSet.get();
+  }
+};
+
 
 #endif

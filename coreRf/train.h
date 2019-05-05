@@ -43,11 +43,11 @@ class Train {
   /**
      @brief Trains a chunk of trees.
 
-     @param frameTrain summarizes the predictor characteristics.
+     @param frameMap summarizes the predictor characteristics.
 
      @param rankedPair contains the presorted observation statistics.
   */
-  void trainChunk(const class FrameTrain *frameTrain,
+  void trainChunk(const class FrameMap *frameMap,
                   const class RankedSet *rankedPair);
 
   unique_ptr<class LFTrain> leaf; // Crescent leaf object.
@@ -57,7 +57,7 @@ public:
   /**
      @brief Regression constructor.
   */
-  Train(const class FrameTrain *frameTrain,
+  Train(const class FrameMap *frameMap,
         const double *y,
         unsigned int treeChunk_);
 
@@ -65,7 +65,7 @@ public:
   /**
      @brief Classification constructor.
   */
-  Train(const class FrameTrain *frameTrain,
+  Train(const class FrameMap *frameMap,
         const unsigned int *yCtg,
         unsigned int nCtg,
         const double *yProxy,
@@ -165,7 +165,7 @@ public:
      @param regMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void initMono(const class FrameTrain* frameTrain,
+  static void initMono(const class FrameMap* frameMap,
                        const vector<double> &regMono);
 
   /**
@@ -174,14 +174,14 @@ public:
   static void deInit();
 
   static unique_ptr<Train> regression(
-       const class FrameTrain *frameTrain,
+       const class FrameMap *frameMap,
        const class RankedSet *rankedPair,
        const double *y,
        unsigned int treeChunk);
 
 
   static unique_ptr<Train> classification(
-       const class FrameTrain *frameTrain,
+       const class FrameMap *frameMap,
        const class RankedSet *rankedPair,
        const unsigned int *yCtg,
        const double *yProxy,
@@ -224,7 +224,7 @@ public:
 
      @return Wrapped collection of Sample, PreTree pairs.
   */
-  vector<TrainSet> blockProduce(const class FrameTrain *frameTrain,
+  vector<TrainSet> blockProduce(const class FrameMap *frameMap,
                                 const class RowRank *rowRank,
                                 unsigned int tStart,
                                 unsigned int tCount);

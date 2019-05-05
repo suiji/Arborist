@@ -32,15 +32,15 @@
    @param feRank is the vector of ranks allocated by the front end.
 
  */
-RowRank::RowRank(const FrameTrain *frameTrain,
+RowRank::RowRank(const FrameMap *frameMap,
 		 const unsigned int feRow[],
 		 const unsigned int feRank[],
 		 const unsigned int feRLE[],
 		 unsigned int rleLength,
 		 double _autoCompress) :
-  nRow(frameTrain->getNRow()),
-  nPred(frameTrain->getNPred()),
-  noRank(max(nRow, frameTrain->getCardMax())),
+  nRow(frameMap->getNRow()),
+  nPred(frameMap->getNPred()),
+  noRank(max(nRow, frameMap->getCardMax())),
   nPredDense(0),
   denseIdx(vector<unsigned int>(nPred)),
   nonCompact(0),
@@ -163,16 +163,16 @@ unique_ptr<SamplePred> RowRank::SamplePredFactory(unsigned int bagCount) const {
 }
 
 
-unique_ptr<SPCtg> RowRank::SPCtgFactory(const FrameTrain *frameTrain,
+unique_ptr<SPCtg> RowRank::SPCtgFactory(const FrameMap *frameMap,
 			     unsigned int bagCount,
 			     unsigned int _nCtg) const {
-  return make_unique<SPCtg>(frameTrain, this, bagCount, _nCtg);
+  return make_unique<SPCtg>(frameMap, this, bagCount, _nCtg);
 }
 
 
-unique_ptr<SPReg> RowRank::SPRegFactory(const FrameTrain *frameTrain,
+unique_ptr<SPReg> RowRank::SPRegFactory(const FrameMap *frameMap,
 			     unsigned int bagCount) const {
-  return make_unique<SPReg>(frameTrain, this, bagCount);
+  return make_unique<SPReg>(frameMap, this, bagCount);
 }
 
 
@@ -328,5 +328,11 @@ void RankedPre::rankFac(const vector<ValRowI> &valRow) {
     rankPrev = rankThis;
     rowPrev = rowThis;
   }
+}
+
+RankedSet::RankedSet(const RowRank *_rowRank,
+                     const BlockRanked *_numRanked) :
+  rowRank(_rowRank),
+  numRanked(_numRanked) {
 }
 

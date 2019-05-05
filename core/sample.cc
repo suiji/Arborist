@@ -144,8 +144,8 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameTrain *frameTrain) const {
-  return rowRank->SPRegFactory(frameTrain, bagCount);
+unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameMap *frameMap) const {
+  return rowRank->SPRegFactory(frameMap, bagCount);
 }
 
 
@@ -165,8 +165,8 @@ void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *tree
 }
 
 
-unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const FrameTrain *frameTrain) const {
-  return rowRank->SPCtgFactory(frameTrain, bagCount, SampleNux::getNCtg());
+unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const FrameMap *frameMap) const {
+  return rowRank->SPCtgFactory(frameMap, bagCount, SampleNux::getNCtg());
 }
 
 

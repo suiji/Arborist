@@ -105,9 +105,9 @@ Validation can be suppressed as follows:
 This option is primarily for the use of package maintainers, but may prove useful, for example, in instances when model fit is not a main concern.  The *validation* field will then have value NULL.
 
 
-# Quantile regression
+# Quantile prediction
 
-When training a regression forest, Rborist provides quantiles simply for the asking.  Leaf information, by default, is rich enough to make their computation quite easy.  Quantiles can be requested in either of two ways.  The simplest is to set option *quantiles* to *TRUE*:
+When predicting over a regression forest, Rborist provides quantiles simply for the asking.  Leaf information, by default, is rich enough to make their computation quite easy.  Quantiles can be requested in either of two ways.  The simplest is to set option *quantiles* to *TRUE*:
 
 ```{r, eval = FALSE}
        rs <- Rborist(x, y, quantiles = TRUE)
@@ -119,24 +119,25 @@ This default quantile vector consists of quartiles, which are given by the *qPre
        rs$validation$qPred
 ```
 
+Quantile prediction also estimates the quantile position at which the predicted mean, *yPred*, lies.  This estimate is reported by the *qEst* value, as follow:
+
+'''{r, eval = FALSE}
+       rs$validation$qEst
+'''
+
 Explicity specfiying the quantile vector, *quantVec*, yields quantiles of any desired type.  Deciles, for example, can be requested as follows:
 
 ```{r, eval = FALSE}
        rs <- Rborist(x, y, quantVec = seq(0.1, 1.0, by=0.1))
 ```
 
-The algorithm employed to compute the quantiles is exact, up to the granularity of the response vector.  It is an $\mathcal{O}(n^2)$ algorithm, however, and slows noticeably beyond roughly 10,000 rows.  For this reason an optional binning parameter can be specified to improve performance.  The following example turns on binning at 2000 rows:
-
-```{r, eval = FALSE}
-       rs <- Rborist(x, y, quantiles=TRUE, qBin=2000)
-```
+The algorithm employed to compute the quantiles is approximate, as bining is employed to improve performance.
 
 If, on the other hand, when training a regression forest, quantiles are not desired and it is intended that quantiles will not subsequently be requested *after* training, space can be saved by representing leaves in a sparser form:
 
 ```{r, eval = FALSE}
        rs <- Rborist(x, y, thinLeaves=TRUE)
 ```
-
 
 ## Tree and forest size
 

@@ -76,16 +76,16 @@ void PreTree::deImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const FrameTrain *frameTrain_,
+PreTree::PreTree(const FrameMap *frameMap_,
                  unsigned int bagCount_) :
-  frameTrain(frameTrain_),
+  frameMap(frameMap_),
   bagCount(bagCount_),
   nodeCount(heightEst), // Initial estimate.
   height(1),
   leafCount(1),
   bitEnd(0) {
   nodeVec = new PTNode[nodeCount];
-  splitBits = BitFactory();
+  splitBits = bitFactory();
 }
 
 
@@ -131,10 +131,10 @@ void PreTree::reserve(size_t height) {
 
    @return pointer to allocated vector, possibly zero-length.
 */
-BV *PreTree::BitFactory() {
+BV *PreTree::bitFactory() {
   // Should be wide enough to hold all factor bits for an entire tree:
   //    estimated #nodes * width of widest factor.
-  return new BV(nodeCount * frameTrain->getCardMax());
+  return new BV(nodeCount * frameMap->getCardMax());
 }
 
 
@@ -151,14 +151,14 @@ BV *PreTree::BitFactory() {
 */
 void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
   nodeVec[id].SplitFac(argMax.getPredIdx(), height - id, bitEnd, argMax.getInfo());
-  TerminalOffspring();
-  bitEnd += frameTrain->getFacCard(argMax.getPredIdx());
+  terminalOffspring();
+  bitEnd += frameMap->getFacCard(argMax.getPredIdx());
 }
 
 
 void PreTree::branchNum(const SplitCand &argMax, unsigned int id) {
   nodeVec[id].splitNum(argMax, height - id);
-  TerminalOffspring();
+  terminalOffspring();
 }
 
 
@@ -188,7 +188,7 @@ void PreTree::levelStorage(unsigned int splitNext, unsigned int leafNext) {
     ReNodes();
   }
 
-  unsigned int bitMin = bitEnd + splitNext * frameTrain->getCardMax();
+  unsigned int bitMin = bitEnd + splitNext * frameMap->getCardMax();
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
@@ -231,7 +231,7 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].consumeNonterminal(frameTrain, forest, predInfo, idx);
+    nodeVec[idx].consumeNonterminal(frameMap, forest, predInfo, idx);
   }
 }
 
@@ -243,9 +243,9 @@ void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) 
 
    @return void, with side-effected Forest.
  */
-void PTNode::consumeNonterminal(const FrameTrain *frameTrain, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
+void PTNode::consumeNonterminal(const FrameMap *frameMap, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
   if (isNonTerminal()) {
-    forest->nonTerminal(frameTrain, idx, this);
+    forest->nonTerminal(frameMap, idx, this);
     predInfo[predIdx] += info;
   }
 }
@@ -295,7 +295,7 @@ const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest) const {
 /**
    @return BV-aligned length of used portion of split vector.
  */
-unsigned int PreTree::BitWidth() {
+unsigned int PreTree::getBitWidth() {
   return BV::SlotAlign(bitEnd);
 }
 

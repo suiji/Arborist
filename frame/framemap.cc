@@ -16,57 +16,13 @@
 #include <algorithm>
 
 #include "framemap.h"
-#include "block.h"
 
-/**
-   @brief
-
-   @return void.
- */
-FrameTrain::FrameTrain(const vector<unsigned int> &_feCard,
-		 unsigned int _nPred,
-		 unsigned int _nRow) :
-  FrameMap(_nRow, _nPred - _feCard.size(), _feCard.size()),
-  feCard(_feCard),
+FrameMap::FrameMap(const vector<unsigned int> &feCard_,
+                   unsigned int nPred,
+                   unsigned int nRow_) :
+  nRow(nRow_),
+  feCard(feCard_),
+  nPredFac(feCard.size()),
+  nPredNum(nPred - feCard.size()),
   cardMax(nPredFac > 0 ? *max_element(feCard.begin(), feCard.end()) : 0) {
-}
-
-
-/**
-   @brief Static initialization for prediction.
-
-   @return void.
- */
-FramePredict::FramePredict(BlockNum *blockNum_,
-			   BlockFac *blockFac_,
-			   unsigned int nRow_) :
-  FrameMap(nRow_, blockNum_->getNCol(), blockFac_->getNCol()),
-  blockNum(blockNum_),
-  blockFac(blockFac_) {
-}
-
-
-FramePredict::~FramePredict() {
-}
-
-void FramePredict::transpose(unsigned int rowStart,
-                                  unsigned int rowEnd) const {
-  blockNum->transpose(rowStart, rowEnd);
-  blockFac->transpose(rowStart, rowEnd);
-}
-
-
-  /**
-     @return base address for (transposed) numeric values at row.
-   */
-const double *FramePredict::baseNum(unsigned int rowOff) const {
-  return blockNum->rowBase(rowOff);
-}
-
-
-  /**
-     @return base address for (transposed) factor values at row.
-   */
-const unsigned int *FramePredict::baseFac(unsigned int rowOff) const {
-  return blockFac->rowBase(rowOff);
 }

@@ -66,7 +66,7 @@ unsigned int TreeNode::advance(const BVJagged *facSplit,
 }
 
 
-unsigned int TreeNode::advance(const FramePredict *framePredict,
+unsigned int TreeNode::advance(const BlockSet* blockSet,
                                const BVJagged *facSplit,
                                const unsigned int *rowFT,
                                const double *rowNT,
@@ -78,7 +78,7 @@ unsigned int TreeNode::advance(const FramePredict *framePredict,
   }
   else {
     bool isFactor;
-    unsigned int blockIdx = framePredict->FacIdx(predIdx, isFactor);
+    unsigned int blockIdx = blockSet->getIdx(predIdx, isFactor);
     return isFactor ?
       (facSplit->testBit(tIdx, splitVal.offset + rowFT[blockIdx]) ?
        lhDel : lhDel + 1) : (rowNT[blockIdx] <= splitVal.num ?
@@ -147,10 +147,10 @@ void FBCresc::appendBits(const BV* splitBits,
 }
 
 
-void ForestTrain::nonTerminal(const FrameTrain *frameTrain,
+void ForestTrain::nonTerminal(const FrameMap *frameMap,
                               unsigned int nodeIdx,
                               const DecNode *decNode) {
-  nbCresc->branchProduce(nodeIdx, decNode, frameTrain->isFactor(decNode->predIdx));
+  nbCresc->branchProduce(nodeIdx, decNode, frameMap->isFactor(decNode->predIdx));
 }
 
 
@@ -160,23 +160,23 @@ void ForestTrain::terminal(unsigned int nodeIdx,
 }
 
 
-void ForestTrain::splitUpdate(const FrameTrain *frameTrain,
+void ForestTrain::splitUpdate(const FrameMap *frameMap,
                               const BlockRanked *numRanked) {
-  nbCresc->splitUpdate(frameTrain, numRanked);
+  nbCresc->splitUpdate(frameMap, numRanked);
 }
 
 
-void NBCresc::splitUpdate(const FrameTrain* frameTrain,
+void NBCresc::splitUpdate(const FrameMap* frameMap,
                           const BlockRanked* numRanked) {
   for (auto & tn : treeNode) {
-    tn.splitUpdate(frameTrain, numRanked);
+    tn.splitUpdate(frameMap, numRanked);
   }
 }
 
 
-void TreeNode::splitUpdate(const FrameTrain *frameTrain,
+void TreeNode::splitUpdate(const FrameMap *frameMap,
                            const BlockRanked *numRanked) {
-  if (Nonterminal() && !frameTrain->isFactor(predIdx)) {
+  if (Nonterminal() && !frameMap->isFactor(predIdx)) {
     splitVal.num = numRanked->QuantRank(predIdx, splitVal.rankRange, splitQuant);
   }
 }

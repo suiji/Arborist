@@ -32,7 +32,7 @@ class SplitNode {
   void setPrebias(class IndexLevel *index);
   
  protected:
-  const class FrameTrain *frameTrain;
+  const class FrameMap *frameMap;
   const unsigned int noSet; // Unreachable setIdx for SplitCand.
   unsigned int splitCount; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
@@ -54,7 +54,7 @@ class SplitNode {
 
 public:
 
-  SplitNode(const class FrameTrain *_frameTrain,
+  SplitNode(const class FrameMap *_frameMap,
 	    const class RowRank *_rowRank,
 	    unsigned int bagCount);
 
@@ -156,12 +156,12 @@ class SPReg : public SplitNode {
   /**
      @brief Caches a dense local copy of the mono[] vector.
 
-     @param frameTrain contains the predictor block mappings.
+     @param frameMap contains the predictor block mappings.
 
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void Immutables(const class FrameTrain* frameTrain,
+  static void Immutables(const class FrameMap* frameMap,
                          const vector<double> &feMono);
 
   /**
@@ -169,7 +169,7 @@ class SPReg : public SplitNode {
    */
   static void DeImmutables();
   
-  SPReg(const class FrameTrain *_frameTrain,
+  SPReg(const class FrameMap *_frameMap,
 	const class RowRank *_rowRank,
 	unsigned int bagCount);
   ~SPReg();
@@ -264,7 +264,7 @@ class SPCtg : public SplitNode {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SPCtg(const class FrameTrain *_frameTrain,
+  SPCtg(const class FrameMap *_frameMap,
 	const class RowRank *_rowRank,
 	unsigned int bagCount,
 	unsigned int _nCtg);

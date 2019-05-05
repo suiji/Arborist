@@ -25,19 +25,24 @@ using namespace std;
 /**
    @brief Abstract class for blocks of predictor values.
  */
-class BlockNum {
+
+template<class ty>
+class Block {
  protected:
-  double *blockNumT; // Iterator state
+  ty* blockT; // Iterator state
   const unsigned int nCol; // # columns in untransposed form.
  public:
 
- BlockNum(unsigned int _nCol) : nCol(_nCol) {}
-  virtual ~BlockNum() {}
+  Block(ty* blockT_,
+        unsigned int nCol_) : blockT(blockT_),
+                              nCol(nCol_) {}
+  virtual ~Block() {}
 
-  virtual void transpose(unsigned int rowStart, unsigned int rowEnd) = 0;
+  virtual void transpose(unsigned int rowStart,
+                         unsigned int rowEnd,
+                         unsigned int rowBlock) = 0;
 
-
-  inline const unsigned int getNCol() const {
+  inline const auto getNCol() const {
     return nCol;
   }
 
@@ -46,36 +51,110 @@ class BlockNum {
 
      @return pointer to base of row contents.
    */  
-  inline const double *rowBase(unsigned int rowOff) const {
-    return blockNumT + nCol * rowOff;
+  inline const auto rowBase(unsigned int rowOff) const {
+    return blockT + nCol * rowOff;
   }
 };
 
+template<class ty>
+class BlockDense : public Block<ty> {
+  ty* feT;
+
+public:
+
+  BlockDense(unsigned int nCol_,
+             ty* feT_) :
+    Block<ty>(feT_, nCol_),
+    feT(feT_) {
+  }
+
+  ~BlockDense() {
+  }
+
+  
+  /**
+     @brief Resets starting position to block within region previously
+     transposed.
+
+     @param rowStart is the first row of the block.
+
+     @param rowEnd is the sup row.  Unused here.
+   */
+  inline void transpose(unsigned int rowStart,
+                        unsigned int rowEnd,
+                        unsigned int rowBlock) {
+    Block<ty>::blockT = feT + Block<ty>::nCol * rowStart;
+  }
+};
 
 /**
    @brief Encodes block of sparse data.
  */
-class BlockNumSparse : public BlockNum {
-  const double *val;
-  const unsigned int *rowStart;
-  const unsigned int *runLength;
-  const unsigned int *predStart;
-  double *transVal;
-  unsigned int *rowNext;
-  unsigned int *idxNext;
+template<class ty>
+class BlockSparse : public Block<ty> {
+  const ty* val;
+  const unsigned int* rowStart;
+  const unsigned int* runLength;
+  const unsigned int* predStart;
+  ty* transVal;
+  unsigned int* rowNext;
+  unsigned int* idxNext;
 
- public:
+public:
 
-  /**
-     @brief Sparse constructor.
-   */
-  BlockNumSparse(const double *_val,
-	      const unsigned int *_rowStart,
-	      const unsigned int *__runLength,
-	      const unsigned int *_predStart,
-	      unsigned int _nCol);
-  ~BlockNumSparse();
-  void transpose(unsigned int rowStart, unsigned int rowEnd);
+ /**
+     @brief Sparse constructor for prediction frame.
+  */
+  BlockSparse(unsigned int nCol_,
+              const ty* val_,
+              const unsigned int* rowStart_,
+              const unsigned int* runLength_,
+              const unsigned int* predStart_) :
+    Block<ty>(nullptr, nCol_),
+    val(val_),
+    rowStart(rowStart_),
+    runLength(runLength_),
+    predStart(predStart_),
+    transVal(nullptr) {
+
+  // Both 'blockNumT' and 'valPrev' are updated before the next use, so
+  // need not be initialized.
+    rowNext = new unsigned int[Block<ty>::nCol];
+    idxNext = new unsigned int[Block<ty>::nCol];
+    for (unsigned int predIdx = 0; predIdx < Block<ty>::nCol; predIdx++) {
+      rowNext[predIdx] = 0; // Position of first update.
+      idxNext[predIdx] = predStart[predIdx]; // Current starting offset.
+    }
+  }
+
+  ~BlockSparse() {
+    if (transVal != nullptr) {
+      delete [] transVal;
+      delete [] Block<ty>::blockT;
+    }
+    delete [] rowNext;
+    delete [] idxNext;
+  }
+
+  void transpose(unsigned int rowBegin,
+                 unsigned int rowEnd,
+                 unsigned int rowBlock) {
+    if (Block<ty>::blockT == nullptr) {
+      Block<ty>::blockT = new ty[rowBlock * Block<ty>::nCol];
+      transVal = new ty[Block<ty>::nCol];
+    }
+    for (unsigned int row = rowBegin; row < rowEnd; row++) {
+      for (unsigned int predIdx = 0; predIdx < Block<ty>::nCol; predIdx++) {
+        if (row == rowNext[predIdx]) { // Assignments persist across invocations:
+          unsigned int vecIdx = idxNext[predIdx];
+          transVal[predIdx] = val[vecIdx];
+          rowNext[predIdx] = rowStart[vecIdx] + runLength[vecIdx];
+          idxNext[predIdx] = ++vecIdx;
+        }
+        Block<ty>::blockT[(row - rowBegin) * Block<ty>::nCol + predIdx] = transVal[predIdx];
+      }
+    }
+  }
 };
 
 
@@ -162,90 +241,89 @@ public:
 };
 
 
-class BlockNumDense : public BlockNum {
-  double *feNumT;
- public:
+/**
+   @brief Collection of variously typed blocks of contiguous storage.
 
+   Currently implemented as numeric and factor only, but may potentially
+   support arbitrary collections.
+ */
 
- BlockNumDense(double *_feNumT,
-	       unsigned int _nCol) :
-  BlockNum(_nCol) {
-    feNumT = _feNumT;
-    blockNumT = _feNumT;
+class BlockSet {
+  Block<double>* blockNum;
+  BlockDense<unsigned int>* blockFac;
+  unsigned int nRow;
+
+public:
+  BlockSet(Block<double>* blockNum_,
+           BlockDense<unsigned int>* blockFac,
+           unsigned nRow_);
+
+  /**
+     @brief Accessor for row count.
+   */
+  inline auto getNRow() const {
+    return nRow;
+  }
+  
+  /**
+     @brief Assumes numerical predictors packed in front of factor-valued.
+
+     @return Position of fist factor-valued predictor.
+  */
+  inline unsigned int getNPredFac() const {
+    return blockFac->getNCol();
   }
 
 
-  ~BlockNumDense() {
+  /**
+     @brief Assumes numerical predictors packed in front of factor-valued.
+
+     @return Position of fist factor-valued predictor.
+  */
+  inline unsigned int getNPredNum() const {
+    return blockNum->getNCol();
   }
 
   
   /**
-     @brief Resets starting position to block within region previously
-     transposed.
+     @brief Determines whether predictor is numeric or factor.
 
-     @param rowStart is the first row of the block.
+     @param predIdx is internal predictor index.
 
-     @param rowEnd is the sup row.  Unused here.
-
-     @return void.
+     @return true iff index references a factor.
    */
-  inline void transpose(unsigned int rowStart, unsigned int rowEnd) {
-    blockNumT = feNumT + nCol * rowStart;
-  }
-};
-
-
-class BlockFac {
-  const unsigned int nCol;
-  unsigned int *feFac; // Factors, may or may not already be transposed.
-  unsigned int *blockFacT; // Iterator state.
-
- public:
-
-  /**
-     @brief Dense constructor:  currently pre-transposed.
-   */
- BlockFac(unsigned int *_feFacT,
-	  unsigned int _nCol) :
-   nCol(_nCol),
-   feFac(_feFacT) {
- }
-
-
-  /**
-     @brief Resets starting position to block within region previously
-     transposed.
-
-     @param rowStart is the first row of the block.
-
-     @param rowEnd is the sup row.  Unused here.
-   */
-  inline void transpose(unsigned int rowStart, unsigned int rowEnd) {
-    blockFacT = feFac + nCol * rowStart;
+  inline bool isFactor(unsigned int predIdx)  const {
+    return predIdx >= getNPredNum();
   }
 
 
   /**
-     @brief Computes the starting position of a row of transposed
-     predictor values.
+     @brief Computes block-relative position for a predictor.
 
-     @param rowOff is the buffer offset for the row.
+     @param[out] thisIsFactor outputs true iff predictor is factor-valued.
 
-     @return pointer to beginning of transposed row.
+     @return block-relative index.
    */
-  inline const unsigned int *rowBase(unsigned int rowOff) const {
-    return blockFacT + rowOff * nCol;
+  inline unsigned int getIdx(unsigned int predIdx, bool &thisIsFactor) const{
+    thisIsFactor = isFactor(predIdx);
+    return thisIsFactor ? predIdx - getNPredNum() : predIdx;
   }
+
+
+  void transpose(unsigned int rowStart,
+                 unsigned int rowEnd,
+                 unsigned int rowBlock) const;
+
+  /**
+     @return base address for (transposed) numeric values at row.
+   */
+  const double* baseNum(unsigned int rowOff) const;
 
 
   /**
-     @brief Getter for column count.
-
-     @return value of nCol.
+     @return base address for (transposed) factor values at row.
    */
-  inline const unsigned int getNCol() const {
-    return nCol;
-  }
+  const unsigned int* baseFac(unsigned int rowOff) const;
 };
 
 #endif

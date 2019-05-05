@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "framemap.h"
+#include "block.h"
 #include "forest.h"
 #include "leaf.h"
 #include "predict.h"
@@ -23,13 +23,13 @@
 
 
 PredictBox::PredictBox(bool oob_,
-                       const FramePredict* framePredict_,
+                       const BlockSet* blockSet_,
                        const Forest* forest_,
                        const BitMatrix* bag_,
                        LeafFrame* leafFrame_,
                        unsigned int nThread) :
   oob(oob_),
-  framePredict(framePredict_),
+  blockSet(blockSet_),
   forest(forest_),
   bag(bag_),
   leafFrame(leafFrame_) {
@@ -42,10 +42,10 @@ PredictBox::~PredictBox() {
 
 
 Predict::Predict(const PredictBox* box) :
-  framePredict(box->framePredict),
+  blockSet(box->blockSet),
   forest(box->forest),
   nTree(forest->getNTree()),
-  nRow(framePredict->getNRow()),
+  nRow(blockSet->getNRow()),
   treeOrigin(forest->cacheOrigin()),
   leaf(box->leafFrame),
   noLeaf(leaf->getNoLeaf()),
@@ -64,7 +64,7 @@ void Predict::predict(const PredictBox* box, Quant* quant) {
 void Predict::predictAcross(Quant *quant) {
   for (unsigned int rowStart = 0; rowStart < nRow; rowStart += rowBlock) {
     unsigned int rowEnd = min(rowStart + rowBlock, nRow);
-    framePredict->transpose(rowStart, rowEnd);
+    blockSet->transpose(rowStart, rowEnd, rowBlock);
     predictBlock(rowStart, rowEnd);
     leaf->scoreBlock(predictLeaves.get(), rowStart, rowEnd);
     if (quant != nullptr) {
@@ -76,9 +76,9 @@ void Predict::predictAcross(Quant *quant) {
 
 void Predict::predictBlock(unsigned int rowStart,
                            unsigned int rowEnd) {
-  if (framePredict->getNPredFac() == 0)
+  if (blockSet->getNPredFac() == 0)
     predictBlockNum(rowStart, rowEnd);
-  else if (framePredict->getNPredNum() == 0)
+  else if (blockSet->getNPredNum() == 0)
     predictBlockFac(rowStart, rowEnd);
   else
     predictBlockMixed(rowStart, rowEnd);
@@ -134,7 +134,7 @@ void Predict::predictBlockMixed(unsigned int rowStart,
 void Predict::rowNum(unsigned int row,
                      unsigned int blockRow,
                      const TreeNode *treeNode) {
-  auto rowT = framePredict->baseNum(blockRow);
+  auto rowT = blockSet->baseNum(blockRow);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(oob && bag->testBit(tIdx, row))) {
@@ -155,7 +155,7 @@ void Predict::rowFac(unsigned int row,
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(oob && bag->testBit(tIdx, row))) {
-      auto rowT = framePredict->baseFac(blockRow);
+      auto rowT = blockSet->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
         idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
@@ -173,11 +173,11 @@ void Predict::rowMixed(unsigned int row,
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     auto leafIdx = noLeaf;
     if (!(oob && bag->testBit(tIdx, row))) {
-      auto rowNT = framePredict->baseNum(blockRow);
-      auto rowFT = framePredict->baseFac(blockRow);
+      auto rowNT = blockSet->baseNum(blockRow);
+      auto rowFT = blockSet->baseFac(blockRow);
       auto idx = treeOrigin[tIdx];
       do {
-        idx += treeNode[idx].advance(framePredict, facSplit, rowFT, rowNT, tIdx, leafIdx);
+        idx += treeNode[idx].advance(blockSet, facSplit, rowFT, rowNT, tIdx, leafIdx);
       } while (leafIdx == noLeaf);
     }
     predictLeaf(blockRow, tIdx, leafIdx);

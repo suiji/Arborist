@@ -102,7 +102,7 @@ List TrainRf::train(const List &argList,
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
 SEXP TrainRf::init(const List &argList,
-                       const FrameTrain* frameTrain,
+                       const FrameMap* frameTrain,
                        const IntegerVector &predMap) {
   BEGIN_RCPP
   verbose = as<bool>(argList["verbose"]);
@@ -175,7 +175,7 @@ NumericVector TrainRf::ctgProxy(const IntegerVector &y,
 
 List TrainRf::classification(const IntegerVector &y,
                                  const NumericVector &classWeight,
-                                 const FrameTrain *frameTrain,
+                                 const FrameMap *frameTrain,
                                  const RankedSet *rankedPair,
                                  const IntegerVector &predMap,
                                  unsigned int nTree,
@@ -229,7 +229,7 @@ NumericVector TrainRf::scalePredInfo(const IntegerVector &predMap) {
 
 
 List TrainRf::regression(const NumericVector &y,
-                             const FrameTrain *frameTrain,
+                             const FrameMap *frameTrain,
                              const RankedSet *rankedPair,
                              const IntegerVector &predMap,
                              unsigned int nTree,

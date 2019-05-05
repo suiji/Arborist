@@ -74,7 +74,7 @@ class RowRankRf : public RowRank {
 
  public:
   RowRankRf(const class Coproc *coproc,
-                const class FrameTrain *frameTrain,
+                const class FrameMap *frameTrain,
                 const IntegerVector& row_,
                 const IntegerVector& rank_,
                 const IntegerVector& runLength_,
@@ -94,7 +94,7 @@ class RowRankRf : public RowRank {
   static unique_ptr<RowRankRf> unwrap(SEXP sRowRank,
                                           double autoCompress,
                                           const class Coproc* coproc,
-                                          const class FrameTrain* frameTrain);
+                                          const class FrameMap* frameTrain);
 };
 
 
@@ -134,7 +134,7 @@ class RankedSetRf {
   static unique_ptr<RankedSetRf> unwrap(SEXP sRowRank,
                                            double autoCompress,
                                            const class Coproc* coproc,
-                                           const class FrameTrain* frameTrain);
+                                           const class FrameMap* frameTrain);
 };
 
 #endif

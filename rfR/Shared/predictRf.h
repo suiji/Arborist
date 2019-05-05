@@ -112,7 +112,7 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
    @brief Bridge-variant PredictBox pins unwrapped front-end structures.
  */
 struct PBRf {
-  unique_ptr<class FramePredictRf> framePredict; // Predictor layout.
+  unique_ptr<class BlockSetRf> blockSet; // Predictor layout.
   unique_ptr<class ForestRf> forest; // Trained forest.
   unique_ptr<class BagRf> bag; // Bagged row indicator.
   unique_ptr<struct PredictBox> box; // Core-level prediction frame.
@@ -123,7 +123,7 @@ struct PBRf {
 
      Paramter names mirror member names.
    */
-  PBRf(unique_ptr<FramePredictRf> framePredict_,
+  PBRf(unique_ptr<BlockSetRf> blockSet_,
            unique_ptr<ForestRf> forest_,
            unique_ptr<BagRf> bag_);
 };
@@ -137,7 +137,7 @@ struct PBRfReg : public PBRf {
 
      Parameter names mirror member names.
    */
-  PBRfReg(unique_ptr<FramePredictRf> framePredict_,
+  PBRfReg(unique_ptr<BlockSetRf> blockSet_,
               unique_ptr<ForestRf> forest_,
               unique_ptr<BagRf> bag_,
               unique_ptr<LeafRegRf> leaf_,
@@ -208,7 +208,7 @@ private:
 struct PBRfCtg : public PBRf {
   unique_ptr<class LeafCtgRf> leaf;
 
-  PBRfCtg(unique_ptr<FramePredictRf> framePredict_,
+  PBRfCtg(unique_ptr<BlockSetRf> blockSet_,
               unique_ptr<ForestRf> forest_,
               unique_ptr<BagRf> bag_,
               unique_ptr<LeafCtgRf> leaf_,

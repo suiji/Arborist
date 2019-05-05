@@ -83,29 +83,6 @@ RcppExport SEXP FrameNum(SEXP sX);
 
 RcppExport SEXP FrameSparse(SEXP sX);
 
-/**
-   @brief Captures ownership of FramePredict and component Blocks.
- */
-class FramePredictRf {
-  const unique_ptr<class BlockNumRf> blockNum;
-  const unique_ptr<class BlockFacRf> blockFac;
-  const unsigned int nRow;
-  const unique_ptr<class FramePredict> framePredict;
- public:
-
-  FramePredictRf(unique_ptr<class BlockNumRf> blockNum_,
-                     unique_ptr<class BlockFacRf> blockFac_,
-                     unsigned int nRow);
-
-  /**
-     @brief Getter for core object pointer.
-   */
-  const auto getFrame() const {
-    return framePredict.get();
-  }
-};
-
-
 struct FramemapRf {
 
   /**
@@ -156,12 +133,11 @@ struct FramemapRf {
 
      @return allocated predictor map for training.
    */
-  static unique_ptr<class FrameTrain> factoryTrain(
+  static unique_ptr<class FrameMap> factoryTrain(
                      const vector<unsigned int>& facCard,
                      unsigned int nPred,
                      unsigned int nRow);
 
-  static unique_ptr<FramePredictRf> factoryPredict(const List& sPredBlock);
 };
 
 #endif

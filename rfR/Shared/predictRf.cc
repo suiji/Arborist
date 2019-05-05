@@ -26,7 +26,6 @@
 #include "predictRf.h"
 #include "bagRf.h"
 #include "blockRf.h"
-#include "framemapRf.h"
 #include "forestRf.h"
 #include "leafRf.h"
 #include "quant.h"
@@ -82,33 +81,33 @@ unique_ptr<PBRfReg> PBRfReg::factory(const List& sPredBlock,
                                              const List& lTrain,
                                              bool oob,
                                              unsigned int nThread) {
-  return make_unique<PBRfReg>(FramemapRf::factoryPredict(sPredBlock),
-                                  ForestRf::unwrap(lTrain),
-                                  BagRf::unwrap(lTrain, sPredBlock, oob),
-                                  LeafRegRf::unwrap(lTrain, sPredBlock),
-                                  oob,
-                                  nThread);
+  return make_unique<PBRfReg>(BlockSetRf::factory(sPredBlock),
+                              ForestRf::unwrap(lTrain),
+                              BagRf::unwrap(lTrain, sPredBlock, oob),
+                              LeafRegRf::unwrap(lTrain, sPredBlock),
+                              oob,
+                              nThread);
 }
 
 
-PBRfReg::PBRfReg(unique_ptr<FramePredictRf> framePredict_,
+PBRfReg::PBRfReg(unique_ptr<BlockSetRf> blockSet_,
                          unique_ptr<ForestRf> forest_,
                          unique_ptr<BagRf> bag_,
                          unique_ptr<LeafRegRf> leaf_,
                          bool oob,
                          unsigned int nThread) :
-  PBRf(move(framePredict_),
+  PBRf(move(blockSet_),
            move(forest_),
            move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, blockSet->getSet(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
 }
 
 
-PBRf::PBRf(unique_ptr<FramePredictRf> framePredict_,
+PBRf::PBRf(unique_ptr<BlockSetRf> blockSet_,
                    unique_ptr<ForestRf> forest_,
                    unique_ptr<BagRf> bag_) :
-  framePredict(move(framePredict_)),
+  blockSet(move(blockSet_)),
   forest(move(forest_)),
   bag(move(bag_)) {
 }
@@ -184,30 +183,30 @@ List PBRfCtg::predict(SEXP sYTest, const List& sPredBlock) const {
 
 
 unique_ptr<PBRfCtg> PBRfCtg::factory(const List& sPredBlock,
-                                             const List& lTrain,
-                                             bool oob,
-                                             bool doProb,
-                                             unsigned int nThread) {
-  return make_unique<PBRfCtg>(FramemapRf::factoryPredict(sPredBlock),
-                                  ForestRf::unwrap(lTrain),
-                                  BagRf::unwrap(lTrain, sPredBlock, oob),
-                                  LeafCtgRf::unwrap(lTrain, sPredBlock, doProb),
-                                  oob,
-                                  nThread);
+                                     const List& lTrain,
+                                     bool oob,
+                                     bool doProb,
+                                     unsigned int nThread) {
+  return make_unique<PBRfCtg>(BlockSetRf::factory(sPredBlock),
+                              ForestRf::unwrap(lTrain),
+                              BagRf::unwrap(lTrain, sPredBlock, oob),
+                              LeafCtgRf::unwrap(lTrain, sPredBlock, doProb),
+                              oob,
+                              nThread);
 }
 
 
-PBRfCtg::PBRfCtg(unique_ptr<FramePredictRf> framePredict_,
-                         unique_ptr<ForestRf> forest_,
-                         unique_ptr<BagRf> bag_,
-                         unique_ptr<LeafCtgRf> leaf_,
-                         bool oob,
-                         unsigned int nThread) :
-  PBRf(move(framePredict_),
-           move(forest_),
-           move(bag_)),
+PBRfCtg::PBRfCtg(unique_ptr<BlockSetRf> blockSet_,
+                 unique_ptr<ForestRf> forest_,
+                 unique_ptr<BagRf> bag_,
+                 unique_ptr<LeafCtgRf> leaf_,
+                 bool oob,
+                 unsigned int nThread) :
+  PBRf(move(blockSet_),
+       move(forest_),
+       move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, framePredict->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, blockSet->getSet(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
 }
 
 

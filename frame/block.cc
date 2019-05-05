@@ -18,57 +18,6 @@
 #include <algorithm>
 
 
-/**
-     @brief Sparse constructor for prediction frame.
-   */
-BlockNumSparse::BlockNumSparse(const double *_val,
-			 const unsigned int *_rowStart,
-			 const unsigned int *_runLength,
-			 const unsigned int *_predStart,
-			 unsigned int _nCol) :
-  BlockNum(_nCol),
-  val(_val),
-  rowStart(_rowStart),
-  runLength(_runLength),
-  predStart(_predStart) {
-
-  // Both 'blockNumT' and 'valPrev' are updated before the next use, so
-  // need not be initialized.
-  blockNumT = new double[Predict::rowBlock * nCol];
-  transVal = new double[nCol];
-
-  rowNext = new unsigned int[nCol];
-  idxNext = new unsigned int[nCol];
-  for (unsigned int predIdx = 0; predIdx < nCol; predIdx++) {
-    rowNext[predIdx] = 0; // Position of first update.
-    idxNext[predIdx] = predStart[predIdx]; // Current starting offset.
-  }
-}
-
-
-BlockNumSparse::~BlockNumSparse() {
-  delete [] blockNumT;
-  delete [] rowNext;
-  delete [] idxNext;
-  delete [] transVal;
-}
-
-
-void BlockNumSparse::transpose(unsigned int rowBegin, unsigned int rowEnd) {
-  for (unsigned int row = rowBegin; row < rowEnd; row++) {
-    for (unsigned int predIdx = 0; predIdx < nCol; predIdx++) {
-      if (row == rowNext[predIdx]) { // Assignments persist across invocations:
-	unsigned int vecIdx = idxNext[predIdx];
-	transVal[predIdx] = val[vecIdx];
-	rowNext[predIdx] = rowStart[vecIdx] + runLength[vecIdx];
-	idxNext[predIdx] = ++vecIdx;
-      }
-      blockNumT[(row - rowBegin) * nCol + predIdx] = transVal[predIdx];
-    }
-  }
-}
-
-
 BSCresc::BSCresc(unsigned int nRow_,
                  unsigned int nCol_) :
   nRow(nRow_),
@@ -116,4 +65,36 @@ void BSCresc::nzRow(const double eltsNZ[],
       }
     }
   }
+}
+
+
+BlockSet::BlockSet(Block<double>* blockNum_,
+                   BlockDense<unsigned int>* blockFac_,
+                   unsigned int nRow_) :
+  blockNum(blockNum_),
+  blockFac(blockFac_),
+  nRow(nRow_) {
+}
+
+void BlockSet::transpose(unsigned int rowStart,
+                         unsigned int rowEnd,
+                         unsigned int rowBlock) const {
+  blockNum->transpose(rowStart, rowEnd, rowBlock);
+  blockFac->transpose(rowStart, rowEnd, rowBlock);
+}
+
+
+/**
+   @return base address for (transposed) numeric values at row.
+*/
+const double* BlockSet::baseNum(unsigned int rowOff) const {
+  return blockNum->rowBase(rowOff);
+}
+
+
+  /**
+     @return base address for (transposed) factor values at row.
+   */
+const unsigned int* BlockSet::baseFac(unsigned int rowOff) const {
+  return blockFac->rowBase(rowOff);
 }

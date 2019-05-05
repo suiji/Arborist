@@ -28,7 +28,7 @@
 
 BlockFacRf::BlockFacRf(const IntegerMatrix &fac) :
   facT(transpose(fac)) {
-  blockFac = make_unique<BlockFac>((unsigned int*)facT.begin(), fac.ncol());
+  blockFac = make_unique<BlockDense<unsigned int> >(fac.ncol(), (unsigned int*)facT.begin());
 }
 
 
@@ -36,18 +36,18 @@ BlockFacRf::BlockFacRf(const IntegerMatrix &fac) :
   @brief Sparse constructor.
  */
 BlockNumSparseRf::BlockNumSparseRf(const NumericVector &_val,
-				     const IntegerVector &_rowStart,
-				     const IntegerVector &_runLength,
-				     const IntegerVector &_predStart) :
+                                   const IntegerVector &_rowStart,
+                                   const IntegerVector &_runLength,
+                                   const IntegerVector &_predStart) :
   val(_val),
   rowStart(_rowStart),
   runLength(_runLength),
   predStart(_predStart) {
-  blockNum = make_unique<BlockNumSparse>(val.begin(),
-				      (unsigned int *) rowStart.begin(),
-				      (unsigned int *) runLength.begin(),
-				      (unsigned int *) predStart.begin(),
-				      predStart.length());
+  blockNum = make_unique<BlockSparse<double> >(predStart.length(),
+                                               val.begin(),
+                              (const unsigned int *) rowStart.begin(),
+			      (const unsigned int *) runLength.begin(),
+                              (const unsigned int *) predStart.begin());
 }
 
 
@@ -56,15 +56,15 @@ BlockNumSparseRf::BlockNumSparseRf(const NumericVector &_val,
  */
 BlockNumDenseRf::BlockNumDenseRf(const NumericMatrix &num) {
   numT = transpose(num);
-  blockNum = make_unique<BlockNumDense>(numT.begin(), num.ncol());
+  blockNum = make_unique<BlockDense<double> >(num.ncol(), numT.begin());
 }
 
 
-unique_ptr<BlockFacRf> BlockFacRf::Factory(const List &predBlock) {
+unique_ptr<BlockFacRf> BlockFacRf::factory(const List &predBlock) {
   return make_unique<BlockFacRf>(IntegerMatrix((SEXP) predBlock["blockFac"]));
 }
 
-unique_ptr<BlockNumRf> BlockNumRf::Factory(const List &predBlock) {
+unique_ptr<BlockNumRf> BlockNumRf::factory(const List &predBlock) {
   List blockNumSparse((SEXP) predBlock["blockNumSparse"]);
   if (blockNumSparse.length() > 0) {
     return make_unique<BlockNumSparseRf>(
@@ -78,4 +78,39 @@ unique_ptr<BlockNumRf> BlockNumRf::Factory(const List &predBlock) {
 				 NumericMatrix((SEXP) predBlock["blockNum"])
 					 );
   }
+}
+
+
+SEXP BlockSetRf::checkPredblock(const List &predBlock) {
+  BEGIN_RCPP
+  if (!predBlock.inherits("PredBlock")) {
+    stop("Expecting PredBlock");
+  }
+
+  if (!Rf_isNull(predBlock["blockFacSparse"])) {
+    stop ("Sparse factors:  NYI");
+  }
+  END_RCPP
+}
+
+
+unique_ptr<BlockSetRf> BlockSetRf::factory(const List& sPredBlock) {
+  checkPredblock(sPredBlock);
+  return make_unique<BlockSetRf>(
+                 BlockNumRf::factory(sPredBlock),
+                 BlockFacRf::factory(sPredBlock),
+                 as<unsigned int>(sPredBlock["nRow"]));
+}
+
+
+BlockSetRf::BlockSetRf(
+               unique_ptr<BlockNumRf> blockNum_,
+               unique_ptr<BlockFacRf> blockFac_,
+               unsigned int nRow_) :
+  blockNum(move(blockNum_)),
+  blockFac(move(blockFac_)),
+  nRow(nRow_),
+  blockSet(make_unique<BlockSet>(blockNum->getNum(),
+                                 blockFac->getFac(),
+                                 nRow)) {
 }

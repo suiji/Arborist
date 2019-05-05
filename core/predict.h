@@ -29,7 +29,7 @@
  */
 struct PredictBox {
   const bool oob; // Whether prediction is out-of-bag.
-  const class FramePredict* framePredict; // Frame of dense predictor blocks.
+  const class BlockSet* blockSet; // Frame of dense predictor blocks.
   const class Forest* forest; // Trained forest.
   const class BitMatrix* bag; // In-bag summary.
   class LeafFrame* leafFrame; // Subclasses to regression or classification.
@@ -42,7 +42,7 @@ struct PredictBox {
      Remaining parameters mirror similarly-named members.
    */
   PredictBox(bool oob_,
-             const FramePredict* framePredict_,
+             const BlockSet* blockSet_,
              const Forest* forest_,
              const BitMatrix* bag_,
              LeafFrame* leaf_,
@@ -53,7 +53,7 @@ struct PredictBox {
 
 
 class Predict {
-  const class FramePredict *framePredict; // Frame of dense blocks.
+  const class BlockSet *blockSet; // Frame of dense blocks.
   const class Forest *forest; // Trained forest.
   const unsigned int nTree; // # trees used in training.
   const unsigned int nRow; // # rows to predict.

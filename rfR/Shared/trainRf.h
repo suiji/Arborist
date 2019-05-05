@@ -95,7 +95,7 @@ struct TrainRf {
   */
   static List classification(const IntegerVector &y,
                              const NumericVector &classWeight,
-                             const class FrameTrain *frameTrain,
+                             const class FrameMap *frameTrain,
                              const class RankedSet *rankedPair,
                              const IntegerVector &predMap,
                              unsigned int nTree,
@@ -117,7 +117,7 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List regression(const NumericVector &y,
-                         const class FrameTrain *frameTrain,
+                         const class FrameMap *frameTrain,
                          const class RankedSet *rankedPair,
                          const IntegerVector &predMap,
                          unsigned int nTree,
@@ -155,7 +155,7 @@ struct TrainRf {
      @return implicit R_NilValue.
    */
   static SEXP init(const List &argList,
-                   const class FrameTrain* frameTrain,
+                   const class FrameMap* frameMap,
                    const IntegerVector &predMap);
 
   /**

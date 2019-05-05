@@ -31,14 +31,14 @@
 #include <algorithm>
 
 
-Bottom::Bottom(const FrameTrain* frameTrain_,
+Bottom::Bottom(const FrameMap* frameMap_,
                const RowRank* rowRank_,
                unsigned int bagCount) :
-  nPred(frameTrain_->getNPred()),
-  nPredFac(frameTrain_->getNPredFac()),
+  nPred(frameMap_->getNPred()),
+  nPredFac(frameMap_->getNPredFac()),
   stPath(make_unique<IdxPath>(bagCount)),
   splitPrev(0), splitCount(1),
-  frameTrain(frameTrain_),
+  frameMap(frameMap_),
   rowRank(rowRank_),
   noRank(rowRank->NoRank()),
   history(vector<unsigned int>(0)),
@@ -59,7 +59,7 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
   unsigned int predIdx = 0;
   for (auto sc : stageCount) {
     (void) level[0]->define(splitIdx, predIdx, bufIdx, sc.singleton, bagCount - sc.expl);
-    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frameTrain->getFacCard(predIdx));
+    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frameMap->getFacCard(predIdx));
     predIdx++;
   }
 }
@@ -176,7 +176,7 @@ bool Bottom::factorStride(unsigned int predIdx,
                           unsigned int nStride,
                           unsigned int &facStride) const {
   bool isFactor;
-  facStride = frameTrain->getFacStride(predIdx, nStride, isFactor);
+  facStride = frameMap->getFacStride(predIdx, nStride, isFactor);
   return isFactor;
 }
 

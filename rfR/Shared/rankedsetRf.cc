@@ -30,7 +30,7 @@
 
 
 RowRankRf::RowRankRf(const Coproc *coproc,
-                             const FrameTrain *frameTrain,
+                             const FrameMap *frameTrain,
                              const IntegerVector &_row,
                              const IntegerVector &_rank,
                              const IntegerVector &_runLength,
@@ -128,7 +128,7 @@ List RankedSetRf::presort(List &predBlock) {
 unique_ptr<RowRankRf> RowRankRf::unwrap(SEXP sRankedSet,
                                                 double autoCompress,
                                                 const Coproc *coproc,
-                                                const FrameTrain *frameTrain) {
+                                                const FrameMap *frameTrain) {
   List rankedSet(sRankedSet);
   List rowRank = checkRowRank(rankedSet["rowRank"]);
   return make_unique<RowRankRf>(coproc,
@@ -153,7 +153,7 @@ unique_ptr<RankedSetRf> RankedSetRf::unwrap(
                     SEXP sRankedSet,
                     double autoCompress,
                     const Coproc *coproc,
-                    const FrameTrain *frameTrain) {
+                    const FrameMap *frameTrain) {
   return make_unique<RankedSetRf>(
       RowRankRf::unwrap(sRankedSet,autoCompress, coproc, frameTrain),
       BlockRankedRf::unwrap(sRankedSet)
