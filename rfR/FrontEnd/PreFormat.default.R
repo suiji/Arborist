@@ -20,11 +20,11 @@
 PreFormat.default <- function(x, verbose = FALSE) {
     if (inherits(x, "PreFormat")) {
         preFormat <- x
-        if (!inherits(preFormat$predBlock, "PredBlock")) {
-            stop("Missing PredBlock")
+        if (!inherits(preFormat$predFrame, "Frame")) {
+            stop("Missing Frame")
         }
-        if (!inherits(preFormat$rankedSet, "RankedSet")) {
-            stop("Missing RankedSet")
+        if (!inherits(preFormat$summaryRLE, "RLEFrame")) {
+            stop("Missing RLEFrame")
         }
         if (verbose)
             print("Training set already pre-formatted")
@@ -33,13 +33,13 @@ PreFormat.default <- function(x, verbose = FALSE) {
         if (verbose)
             print("Blocking frame")
 
-        predBlock <- PredBlock(x)
+        predFrame <- PredFrame(x)
 
         if (verbose)
             print("Pre-sorting")
         preFormat <- list(
-            predBlock = predBlock,
-            rankedSet = .Call("Presort", predBlock)
+            predFrame = predFrame,
+            summaryRLE = .Call("Presort", predFrame)
         )
         class(preFormat) <- "PreFormat"
         if (verbose)
@@ -53,7 +53,7 @@ PreFormat.default <- function(x, verbose = FALSE) {
 # Groups predictors into like-typed blocks and creates zero-based type
 # summaries.
 #
-PredBlock <- function(x, sigTrain = NULL) {
+PredFrame <- function(x, sigTrain = NULL) {
   # Argument checking:
   if (any(is.na(x))) {
     stop("NA not supported in design matrix")

@@ -18,7 +18,7 @@
 #include "pretree.h"
 #include "splitcand.h"
 #include "forest.h"
-#include "framemap.h"
+#include "summaryframe.h"
 #include "callback.h"
 
 #include <queue>
@@ -76,9 +76,9 @@ void PreTree::deImmutables() {
 
    @return void.
  */
-PreTree::PreTree(const FrameMap *frameMap_,
+PreTree::PreTree(const SummaryFrame* frame_,
                  unsigned int bagCount_) :
-  frameMap(frameMap_),
+  frame(frame_),
   bagCount(bagCount_),
   nodeCount(heightEst), // Initial estimate.
   height(1),
@@ -134,7 +134,7 @@ void PreTree::reserve(size_t height) {
 BV *PreTree::bitFactory() {
   // Should be wide enough to hold all factor bits for an entire tree:
   //    estimated #nodes * width of widest factor.
-  return new BV(nodeCount * frameMap->getCardMax());
+  return new BV(nodeCount * frame->getCardExtent());
 }
 
 
@@ -152,7 +152,7 @@ BV *PreTree::bitFactory() {
 void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
   nodeVec[id].SplitFac(argMax.getPredIdx(), height - id, bitEnd, argMax.getInfo());
   terminalOffspring();
-  bitEnd += frameMap->getFacCard(argMax.getPredIdx());
+  bitEnd += frame->getCardinality(argMax.getPredIdx());
 }
 
 
@@ -188,7 +188,7 @@ void PreTree::levelStorage(unsigned int splitNext, unsigned int leafNext) {
     ReNodes();
   }
 
-  unsigned int bitMin = bitEnd + splitNext * frameMap->getCardMax();
+  unsigned int bitMin = bitEnd + splitNext * frame->getCardExtent();
   if (bitMin > 0) {
     splitBits = splitBits->Resize(bitMin);
   }
@@ -231,7 +231,7 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (unsigned int idx = 0; idx < height; idx++) {
-    nodeVec[idx].consumeNonterminal(frameMap, forest, predInfo, idx);
+    nodeVec[idx].consumeNonterminal(frame, forest, predInfo, idx);
   }
 }
 
@@ -243,9 +243,9 @@ void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) 
 
    @return void, with side-effected Forest.
  */
-void PTNode::consumeNonterminal(const FrameMap *frameMap, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
+void PTNode::consumeNonterminal(const SummaryFrame* frame, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
   if (isNonTerminal()) {
-    forest->nonTerminal(frameMap, idx, this);
+    forest->nonTerminal(frame, idx, this);
     predInfo[predIdx] += info;
   }
 }

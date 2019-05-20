@@ -16,7 +16,7 @@
 #include "samplepred.h"
 #include "splitcand.h"
 #include "sample.h"
-#include "rankedset.h"
+#include "rankedframe.h"
 #include "path.h"
 #include "bv.h"
 #include "level.h"
@@ -59,30 +59,16 @@ SamplePred::~SamplePred() {
 }
 
 
-/**
-   @brief Sets staging boundaries for a given predictor.
-
-   @return 
- */
-void SamplePred::setStageBounds(const RowRank* rowRank,
-                                unsigned int predIdx) {
-  unsigned int extent;
-  unsigned int safeOffset = rowRank->getSafeOffset(predIdx, bagCount, extent);
-  stageOffset[predIdx] = safeOffset;
-  stageExtent[predIdx] = extent;
-}
-
-
 
 /**
    @brief Loops through the predictors to stage.
 
    @return void.
  */
-vector<StageCount> SamplePred::stage(const RowRank* rowRank,
+vector<StageCount> SamplePred::stage(const RankedFrame* rankedFrame,
                                      const vector<SampleNux>  &sampleNode,
                                      const Sample* sample) {
-  vector<StageCount> stageCount(rowRank->getNPred());
+  vector<StageCount> stageCount(rankedFrame->getNPred());
 
   OMPBound predIdx;
   OMPBound predTop = nPred;
@@ -90,7 +76,7 @@ vector<StageCount> SamplePred::stage(const RowRank* rowRank,
   {
 #pragma omp for schedule(dynamic, 1)
     for (predIdx = 0; predIdx < predTop; predIdx++) {
-      stage(rowRank, sampleNode, sample, predIdx, stageCount[predIdx]);
+      stage(rankedFrame, sampleNode, sample, predIdx, stageCount[predIdx]);
     }
   }
 
@@ -105,17 +91,17 @@ vector<StageCount> SamplePred::stage(const RowRank* rowRank,
 
    @return void.
 */
-void SamplePred::stage(const RowRank* rowRank,
+void SamplePred::stage(const RankedFrame* rankedFrame,
                        const vector<SampleNux>& sampleNode,
                        const Sample* sample,
                        unsigned int predIdx,
                        StageCount& stageCount) {
-  setStageBounds(rowRank, predIdx);
+  setStageBounds(rankedFrame, predIdx);
   unsigned int *smpIdx;
   SampleRank *spn = buffers(predIdx, 0, smpIdx);
-  const RRNode* rrPred = rowRank->predStart(predIdx);
+  const RowRank* rrPred = rankedFrame->predStart(predIdx);
   unsigned int expl = 0;
-  for (unsigned int idx = 0; idx < rowRank->getExplicitCount(predIdx); idx++) {
+  for (unsigned int idx = 0; idx < rankedFrame->getExplicitCount(predIdx); idx++) {
     stage(sampleNode, rrPred[idx], sample, expl, spn, smpIdx);
   }
 
@@ -125,10 +111,24 @@ void SamplePred::stage(const RowRank* rowRank,
 
 
 /**
-   @brief Fills in sampled response summary and rank information associated
-   with an RRNode reference.
+   @brief Sets staging boundaries for a given predictor.
 
-   @param rrNode summarizes an element of the compressed design matrix.
+   @return 
+ */
+void SamplePred::setStageBounds(const RankedFrame* rankedFrame,
+                                unsigned int predIdx) {
+  unsigned int extent;
+  unsigned int safeOffset = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
+  stageOffset[predIdx] = safeOffset;
+  stageExtent[predIdx] = extent;
+}
+
+
+/**
+   @brief Fills in sampled response summary and rank information associated
+   with an RowRank reference.
+
+   @param rowRank summarizes an element of the compressed design matrix.
 
    @param spn is the cell to initialize.
 
@@ -139,14 +139,14 @@ void SamplePred::stage(const RowRank* rowRank,
    @return void.
  */
 void SamplePred::stage(const vector<SampleNux> &sampleNode,
-		       const RRNode &rrNode,
+		       const RowRank &rowRank,
                        const Sample* sample,
                        unsigned int &expl,
 		       SampleRank spn[],
 		       unsigned int smpIdx[]) const {
   unsigned int sIdx;
-  if (sample->sampledRow(rrNode.getRow(), sIdx)) {
-    spn[expl].join(rrNode.getRank(), sampleNode[sIdx]);
+  if (sample->sampledRow(rowRank.getRow(), sIdx)) {
+    spn[expl].join(rowRank.getRank(), sampleNode[sIdx]);
     smpIdx[expl] = sIdx;
     expl++;
   }

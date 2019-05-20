@@ -24,7 +24,7 @@
  */
 
 #include "leafRf.h"
-#include "framemapRf.h"
+#include "signatureRf.h"
 #include "predictRf.h"
 #include "quant.h"
 
@@ -203,14 +203,14 @@ List LBTrainCtg::wrap() {
    bridge-specific LeafReg handle.
  */
 unique_ptr<LeafRegRf> LeafRegRf::unwrap(const List& lTrain,
-                                                const List& sPredBlock) {
+                                                const List& sPredFrame) {
   List lLeaf = checkLeaf(lTrain);
   return make_unique<LeafRegRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
                                     RawVector((SEXP) lLeaf["node"]),
                                     IntegerVector((SEXP) lLeaf["bagHeight"]),
                                     RawVector((SEXP) lLeaf["bagSample"]),
                                     NumericVector((SEXP) lLeaf["yTrain"]),
-                                    as<unsigned int>(sPredBlock["nRow"]));
+                                    as<unsigned int>(sPredFrame["nRow"]));
 }
 
 
@@ -263,7 +263,7 @@ LeafRegRf::LeafRegRf(const IntegerVector& feNodeHeight_,
    @return 
  */
 unique_ptr<LeafCtgRf> LeafCtgRf::unwrap(const List& sTrain,
-                                                const List& sPredBlock,
+                                                const List& sPredFrame,
                                                 bool doProb) {
   List lLeaf = checkLeaf(sTrain);
   return make_unique<LeafCtgRf>(IntegerVector((SEXP) lLeaf["nodeHeight"]),
@@ -272,7 +272,7 @@ unique_ptr<LeafCtgRf> LeafCtgRf::unwrap(const List& sTrain,
                                     RawVector((SEXP) lLeaf["bagSample"]),
                                     NumericVector((SEXP) lLeaf["weight"]),
                                     CharacterVector((SEXP) lLeaf["levels"]),
-                                    as<unsigned int>(sPredBlock["nRow"]),
+                                    as<unsigned int>(sPredFrame["nRow"]),
                                     doProb);
 }
 
@@ -454,10 +454,10 @@ NumericVector LeafRegRf::qEst(const Quant *quant) {
 
    @return list of summary entries.   
  */
-List LeafCtgRf::summary(SEXP sYTest, const List& sPredBlock) {
+List LeafCtgRf::summary(SEXP sYTest, const List& sPredFrame) {
   BEGIN_RCPP
 
-  List signature = FramemapRf::unwrapSignature(sPredBlock);
+  List signature = SignatureRf::unwrapSignature(sPredFrame);
   leaf->vote();
   CharacterVector rowNames = CharacterVector((SEXP) signature["rowNames"]);
   IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());

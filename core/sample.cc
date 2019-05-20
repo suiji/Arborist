@@ -16,7 +16,7 @@
 #include "sample.h"
 #include "bv.h"
 #include "callback.h"
-#include "rankedset.h"
+#include "summaryframe.h"
 #include "splitnode.h"
 #include "samplepred.h"
 
@@ -34,10 +34,10 @@ void Sample::deImmutables() {
 }
 
 
-Sample::Sample(const RowRank* rowRank_) :
-  rowRank(rowRank_),
+Sample::Sample(const SummaryFrame* frame) :
+  frame(frame),
   ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
-  row2Sample(vector<unsigned int>(rowRank->getNRow())),
+  row2Sample(vector<unsigned int>(frame->getNRow())),
   bagCount(0),
   bagSum(0.0) {
 }
@@ -112,10 +112,10 @@ unsigned int Sample::countSamples(vector<unsigned int>& idx,
 }
 
 shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
-                                         const RowRank *rowRank,
+                                         const SummaryFrame* frame,
                                          const unsigned int yCtg[],
                                          BV *treeBag) {
-  shared_ptr<SampleCtg> sampleCtg = make_shared<SampleCtg>(rowRank);
+  shared_ptr<SampleCtg> sampleCtg = make_shared<SampleCtg>(frame);
   sampleCtg->bagSamples(yCtg, y, treeBag);
 
   return sampleCtg;
@@ -123,16 +123,16 @@ shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
 
 
 shared_ptr<SampleReg> Sample::factoryReg(const double y[],
-                                         const RowRank *rowRank,
+                                         const SummaryFrame* frame,
                                          BV *treeBag) {
-  shared_ptr<SampleReg> sampleReg = make_shared<SampleReg>(rowRank);
+  shared_ptr<SampleReg> sampleReg = make_shared<SampleReg>(frame);
   sampleReg->bagSamples(y, treeBag);
 
   return sampleReg;
 }
 
 
-SampleReg::SampleReg(const RowRank *rowRank) : Sample(rowRank) {
+SampleReg::SampleReg(const SummaryFrame *frame) : Sample(frame) {
 }
 
 
@@ -144,12 +144,12 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-unique_ptr<SplitNode> SampleReg::splitNodeFactory(const FrameMap *frameMap) const {
-  return rowRank->SPRegFactory(frameMap, bagCount);
+unique_ptr<SplitNode> SampleReg::splitNodeFactory(const SummaryFrame* frame) const {
+  return frame->SPRegFactory(bagCount);
 }
 
 
-SampleCtg::SampleCtg(const RowRank* rowRank) : Sample(rowRank) {
+SampleCtg::SampleCtg(const SummaryFrame* frame) : Sample(frame) {
   SumCount scZero;
   scZero.init();
 
@@ -165,8 +165,8 @@ void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *tree
 }
 
 
-unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const FrameMap *frameMap) const {
-  return rowRank->SPCtgFactory(frameMap, bagCount, SampleNux::getNCtg());
+unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const SummaryFrame* frame) const {
+  return frame->SPCtgFactory(bagCount, SampleNux::getNCtg());
 }
 
 
@@ -200,12 +200,12 @@ void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag
 
 
 unique_ptr<SamplePred> Sample::predictors() const {
-  return rowRank->SamplePredFactory(bagCount);
+  return frame->SamplePredFactory(bagCount);
 }
 
 
 vector<StageCount> Sample::stage(SamplePred* samplePred) const {
-  return samplePred->stage(rowRank, sampleNode, this);
+  return samplePred->stage(frame->getRankedFrame(), sampleNode, this);
 }
 
 

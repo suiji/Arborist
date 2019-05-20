@@ -25,7 +25,7 @@
 
 #include "exportRf.h"
 #include "bagRf.h"
-#include "framemapRf.h"
+#include "signatureRf.h"
 #include "forestRf.h"
 #include "forest.h"
 #include "leafRf.h"
@@ -51,7 +51,7 @@ RcppExport SEXP ForestFloorExport(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  FramemapRf::signatureUnwrap(arbOut, predMap, predLevel);
+  SignatureRf::signatureUnwrap(arbOut, predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

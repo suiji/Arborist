@@ -28,11 +28,11 @@
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitNode {
-  const class RowRank *rowRank;
   void setPrebias(class IndexLevel *index);
   
  protected:
-  const class FrameMap *frameMap;
+  const class SummaryFrame* frame;
+  const class RankedFrame *rankedFrame;
   const unsigned int noSet; // Unreachable setIdx for SplitCand.
   unsigned int splitCount; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
@@ -54,8 +54,7 @@ class SplitNode {
 
 public:
 
-  SplitNode(const class FrameMap *_frameMap,
-	    const class RowRank *_rowRank,
+  SplitNode(const class SummaryFrame *frame_,
 	    unsigned int bagCount);
 
   void scheduleSplits(const class IndexLevel *index,
@@ -161,7 +160,7 @@ class SPReg : public SplitNode {
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void Immutables(const class FrameMap* frameMap,
+  static void Immutables(const class SummaryFrame* frame,
                          const vector<double> &feMono);
 
   /**
@@ -169,8 +168,7 @@ class SPReg : public SplitNode {
    */
   static void DeImmutables();
   
-  SPReg(const class FrameMap *_frameMap,
-	const class RowRank *_rowRank,
+  SPReg(const class SummaryFrame* frame_,
 	unsigned int bagCount);
   ~SPReg();
   void setRunOffsets(const vector<unsigned int> &safeCount);
@@ -264,8 +262,7 @@ class SPCtg : public SplitNode {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SPCtg(const class FrameMap *_frameMap,
-	const class RowRank *_rowRank,
+  SPCtg(const class SummaryFrame* frame_,
 	unsigned int bagCount,
 	unsigned int _nCtg);
   ~SPCtg();

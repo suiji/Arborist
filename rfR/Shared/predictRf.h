@@ -35,34 +35,34 @@ using namespace Rcpp;
 #include <memory>
 using namespace std;
 
-RcppExport SEXP ValidateReg(const SEXP sPredBlock,
+RcppExport SEXP ValidateReg(const SEXP sPredFrame,
                             const SEXP sTrain,
                             SEXP sYTest,
                             SEXP sNThread);
 
-RcppExport SEXP TestReg(const SEXP sPredBlock,
+RcppExport SEXP TestReg(const SEXP sPredFrame,
                         const SEXP sTrain,
                         SEXP sYTest,
                         SEXP sOOB,
                         SEXP sNThread);
 
-RcppExport SEXP ValidateVotes(const SEXP sPredBlock,
+RcppExport SEXP ValidateVotes(const SEXP sPredFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sNThread);
 
-RcppExport SEXP ValidateProb(const SEXP sPredBlock,
+RcppExport SEXP ValidateProb(const SEXP sPredFrame,
                              const SEXP sTrain,
                              SEXP sYTest,
                              SEXP sNThread);
 
-RcppExport SEXP ValidateQuant(const SEXP sPredBlock,
+RcppExport SEXP ValidateQuant(const SEXP sPredFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
                               SEXP sNThread);
 
-RcppExport SEXP TestQuant(const SEXP sPredBlock,
+RcppExport SEXP TestQuant(const SEXP sPredFrame,
                           const SEXP sTrain,
                           SEXP sQuantVec,
                           SEXP sYTest,
@@ -72,7 +72,7 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 /**
    @brief Predicts with class votes.
 
-   @param sPredBlock contains the blocked observations.
+   @param sPredFrame contains the blocked observations.
 
    @param sTrain contains the trained object.
 
@@ -82,7 +82,7 @@ RcppExport SEXP TestQuant(const SEXP sPredBlock,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestProb(const SEXP sPredBlock,
+RcppExport SEXP TestProb(const SEXP sPredFrame,
                          const SEXP sTrain,
                          SEXP sYTest,
                          SEXP sOOB,
@@ -92,7 +92,7 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
 /**
    @brief Predicts with class votes.
 
-   @param sPredBlock contains the blocked observations.
+   @param sPredFrame contains the blocked observations.
 
    @param sTrain contains the trained object.
 
@@ -102,7 +102,7 @@ RcppExport SEXP TestProb(const SEXP sPredBlock,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestVotes(const SEXP sPredBlock,
+RcppExport SEXP TestVotes(const SEXP sPredFrame,
                           const SEXP sTrain,
                           SEXP sYTest,
                           SEXP sOOB,
@@ -112,7 +112,7 @@ RcppExport SEXP TestVotes(const SEXP sPredBlock,
    @brief Bridge-variant PredictBox pins unwrapped front-end structures.
  */
 struct PBRf {
-  unique_ptr<class BlockSetRf> blockSet; // Predictor layout.
+  unique_ptr<class BlockFrameR> blockFrame; // Predictor layout.
   unique_ptr<class ForestRf> forest; // Trained forest.
   unique_ptr<class BagRf> bag; // Bagged row indicator.
   unique_ptr<struct PredictBox> box; // Core-level prediction frame.
@@ -123,7 +123,7 @@ struct PBRf {
 
      Paramter names mirror member names.
    */
-  PBRf(unique_ptr<BlockSetRf> blockSet_,
+  PBRf(unique_ptr<BlockFrameR> blockFrame_,
            unique_ptr<ForestRf> forest_,
            unique_ptr<BagRf> bag_);
 };
@@ -137,7 +137,7 @@ struct PBRfReg : public PBRf {
 
      Parameter names mirror member names.
    */
-  PBRfReg(unique_ptr<BlockSetRf> blockSet_,
+  PBRfReg(unique_ptr<BlockFrameR> blockFrame_,
               unique_ptr<ForestRf> forest_,
               unique_ptr<BagRf> bag_,
               unique_ptr<LeafRegRf> leaf_,
@@ -147,7 +147,7 @@ struct PBRfReg : public PBRf {
  /**
     @brief Prediction with quantiles.
 
-    @param sPredBlock contains the blocked observations.
+    @param sPredFrame contains the blocked observations.
 
     @param sTrain contains the trained object.
 
@@ -159,7 +159,7 @@ struct PBRfReg : public PBRf {
 
     @return wrapped prediction list.
  */
-  static List quant(const List& sPredBlock,
+  static List quant(const List& sPredFrame,
                     const List& sTrain,
                     SEXP sQuantVec,
                     SEXP sYTest,
@@ -169,7 +169,7 @@ struct PBRfReg : public PBRf {
   /**
      @brief Prediction for regression.  Parameters as above.
    */
-  static List reg(const List& sPredBlock,
+  static List reg(const List& sPredFrame,
                   const List& sTrain,
                   SEXP sYTest,
                   bool oob,
@@ -181,7 +181,7 @@ struct PBRfReg : public PBRf {
 
      @return unique pointer to bridge-variant PredictBox. 
    */
-  static unique_ptr<PBRfReg> factory(const List& sPredBlock,
+  static unique_ptr<PBRfReg> factory(const List& sPredFrame,
                                          const List& lTrain,
                                          bool oob,
                                          unsigned int nThread);
@@ -208,7 +208,7 @@ private:
 struct PBRfCtg : public PBRf {
   unique_ptr<class LeafCtgRf> leaf;
 
-  PBRfCtg(unique_ptr<BlockSetRf> blockSet_,
+  PBRfCtg(unique_ptr<BlockFrameR> blockFrame_,
               unique_ptr<ForestRf> forest_,
               unique_ptr<BagRf> bag_,
               unique_ptr<LeafCtgRf> leaf_,
@@ -220,7 +220,7 @@ struct PBRfCtg : public PBRf {
 
      @param doProb is true iff class probabilities requested.
    */
-  static List ctg(const List& sPredBlock,
+  static List ctg(const List& sPredFrame,
                   const List& sTrain,
                   SEXP sYTest,
                   bool oob,
@@ -232,7 +232,7 @@ struct PBRfCtg : public PBRf {
 
      @return unique pointer to bridge-variant PredictBox. 
    */
-  static unique_ptr<PBRfCtg> factory(const List& sPredBlock,
+  static unique_ptr<PBRfCtg> factory(const List& sPredFrame,
                                          const List& lTrain,
                                          bool oob,
                                          bool doProb,
@@ -243,7 +243,7 @@ private:
 
      @return wrapped prediction.
    */
-  List predict(SEXP sYTest, const List& sPredBlock) const;
+  List predict(SEXP sYTest, const List& sPredFrame) const;
 };
 
 #endif

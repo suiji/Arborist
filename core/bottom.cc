@@ -21,9 +21,9 @@
 #include "splitcand.h"
 #include "samplepred.h"
 #include "sample.h"
-#include "framemap.h"
+#include "summaryframe.h"
 #include "runset.h"
-#include "rankedset.h"
+#include "rankedframe.h"
 #include "path.h"
 #include "ompthread.h"
 
@@ -31,22 +31,21 @@
 #include <algorithm>
 
 
-Bottom::Bottom(const FrameMap* frameMap_,
-               const RowRank* rowRank_,
+Bottom::Bottom(const SummaryFrame* frame_,
                unsigned int bagCount) :
-  nPred(frameMap_->getNPred()),
-  nPredFac(frameMap_->getNPredFac()),
+  frame(frame_),
+  nPred(frame->getNPred()),
+  nPredFac(frame->getNPredFac()),
   stPath(make_unique<IdxPath>(bagCount)),
   splitPrev(0), splitCount(1),
-  frameMap(frameMap_),
-  rowRank(rowRank_),
-  noRank(rowRank->NoRank()),
+  rankedFrame(frame->getRankedFrame()),
+  noRank(rankedFrame->NoRank()),
   history(vector<unsigned int>(0)),
   levelDelta(vector<unsigned char>(nPred)),
   runCount(vector<unsigned int>(nPredFac))
 {
 
-  level.push_front(make_unique<Level>(1, nPred, rowRank, bagCount, bagCount, false, this));
+  level.push_front(make_unique<Level>(1, nPred, rankedFrame, bagCount, bagCount, false, this));
   level[0]->initAncestor(0, 0, bagCount);
   fill(levelDelta.begin(), levelDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
@@ -59,7 +58,7 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
   unsigned int predIdx = 0;
   for (auto sc : stageCount) {
     (void) level[0]->define(splitIdx, predIdx, bufIdx, sc.singleton, bagCount - sc.expl);
-    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frameMap->getFacCard(predIdx));
+    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
     predIdx++;
   }
 }
@@ -176,7 +175,7 @@ bool Bottom::factorStride(unsigned int predIdx,
                           unsigned int nStride,
                           unsigned int &facStride) const {
   bool isFactor;
-  facStride = frameMap->getFacStride(predIdx, nStride, isFactor);
+  facStride = frame->getFacStride(predIdx, nStride, isFactor);
   return isFactor;
 }
 
@@ -190,7 +189,7 @@ void Bottom::overlap(unsigned int splitNext,
   if (splitCount == 0) // No further splitting or restaging.
     return;
 
-  level.push_front(make_unique<Level>(splitCount, nPred, rowRank, bagCount, idxLive, nodeRel, this));
+  level.push_front(make_unique<Level>(splitCount, nPred, rankedFrame, bagCount, idxLive, nodeRel, this));
 
   historyPrev = move(history);
   history = vector<unsigned int>(splitCount * (level.size()-1));

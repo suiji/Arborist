@@ -16,7 +16,7 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file framemapRf.h
+   @file signatureRf.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,10 +25,9 @@
  */
 
 
-#ifndef ARBORIST_FRAMEMAP_RF_H
-#define ARBORIST_FRAMEMAP_RF_H
+#ifndef ARBORIST_SIGNATURE_RF_H
+#define ARBORIST_SIGNATURE_RF_H
 
-#include "framemap.h"
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -83,23 +82,23 @@ RcppExport SEXP FrameNum(SEXP sX);
 
 RcppExport SEXP FrameSparse(SEXP sX);
 
-struct FramemapRf {
+struct SignatureRf {
 
   /**
-     @brief Pulls signature member from a PredBlock object.
+     @brief Pulls signature member from a Frame object.
 
-     @param sPredBlock contains the parent PredBlock.
+     @param sFrame contains the parent Frame.
 
      @return member of type Signature.
    */
-  static List unwrapSignature(const List& sPredBlock);
+  static List unwrapSignature(const List& sFrame);
 
   /**
-     @brief Ensures the passed object has PredBlock type.
+     @brief Ensures the passed object has Frame type.
 
-     @param predBlock is the object to be checked.
+     @param frame is the object to be checked.
    */
-  static SEXP checkPredblock(const List& predBlock);
+  static SEXP checkFrame(const List& frame);
 
 
   /**
@@ -128,16 +127,7 @@ struct FramemapRf {
                  const CharacterVector& colNames,
                  const CharacterVector& rowNames);
 
-  /**
-     @brief Singleton factory.
-
-     @return allocated predictor map for training.
-   */
-  static unique_ptr<class FrameMap> factoryTrain(
-                     const vector<unsigned int>& facCard,
-                     unsigned int nPred,
-                     unsigned int nRow);
-
 };
+
 
 #endif

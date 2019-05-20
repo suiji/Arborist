@@ -258,7 +258,7 @@ class Level {
 public:
   Level(unsigned int _nSplit,
         unsigned int _nPred,
-        const class RowRank* rowRank,
+        const class RankedFrame* rankedFrame,
         unsigned int _noIndex,
         unsigned int _idxLive,
         bool _nodeRel,

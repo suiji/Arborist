@@ -27,7 +27,7 @@
 \value{
   \item{PreFormat}{ a list consisting of two objects:
 
-    \code{predBlock}{ a list of presorted and formatted predictor
+    \code{predFrame}{ a list of presorted and formatted predictor
     information:
 
     \code{blockFac}{ a matrix of zero-based factor predictor values.}

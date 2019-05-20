@@ -18,7 +18,7 @@
 #include "bottom.h"
 #include "index.h"
 #include "callback.h"
-#include "rankedset.h"
+#include "rankedframe.h"
 #include "runset.h"
 #include "samplepred.h"
 #include "splitnode.h"
@@ -29,14 +29,14 @@ vector<double> Level::predProb;
 
 Level::Level(unsigned int _nSplit,
              unsigned int _nPred,
-             const RowRank* rowRank,
+             const RankedFrame* rankedFrame,
              unsigned int bagCount,
              unsigned int _idxLive,
              bool _nodeRel,
              Bottom *_bottom) :
   nPred(_nPred),
-  denseIdx(rowRank->getDenseIdx()),
-  nPredDense(rowRank->getNPredDense()),
+  denseIdx(rankedFrame->getDenseIdx()),
+  nPredDense(rankedFrame->getNPredDense()),
   nSplit(_nSplit),
   noIndex(bagCount),
   idxLive(_idxLive),

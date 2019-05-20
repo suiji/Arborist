@@ -6,7 +6,7 @@
  */
 
 /**
-   @file typetypeparam.h
+   @file typeparam.h
 
    @brief Definitions for parameterization of internal types and classes.
 
@@ -47,5 +47,6 @@ typedef unsigned char PathT;
    @brief Split/predictor coordinate pair.
  */
 typedef pair<unsigned int, unsigned int> SPPair;
+
 
 #endif

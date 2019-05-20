@@ -55,15 +55,15 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
   
   # Checks test data for conformity with training data.
   sigTrain <- objTrain$signature
-  predBlock <- PredBlock(newdata, sigTrain)
+  predFrame <- PredFrame(newdata, sigTrain)
 
   leaf <- objTrain$leaf
   if (inherits(leaf, "LeafReg")) {
     if (is.null(quantVec)) {
-      prediction <- tryCatch(.Call("TestReg", predBlock, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestReg", predFrame, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
     }
     else {
-      prediction <- tryCatch(.Call("TestQuant", predBlock, objTrain, quantVec, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestQuant", predFrame, objTrain, quantVec, yTest, oob, nThread), error = function(e) {stop(e)})
     }
   }
   else if (inherits(leaf, "LeafCtg")) {
@@ -71,10 +71,10 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
       stop("Quantiles not supported for classifcation")
 
     if (ctgCensus == "votes") {
-      prediction <- tryCatch(.Call("TestVotes", predBlock, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestVotes", predFrame, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
     }
     else if (ctgCensus == "prob") {
-      prediction <- tryCatch(.Call("TestProb", predBlock, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestProb", predFrame, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))

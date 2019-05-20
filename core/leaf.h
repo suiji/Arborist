@@ -303,13 +303,13 @@ public:
   /**
      @brief Samples (bags) the response to construct the tree root.
 
-     @param rowRank summarizes the predictor orderings.
+     @param frame summarizes the predictor orderings.
 
      @param treeBag encodes the bagged rows.
 
      @param tIdx is the block-relative tree index.
    */
-  virtual shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+  virtual shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                               class BitMatrix* bag,
                                               unsigned int tIdx) const = 0;
 
@@ -388,7 +388,7 @@ public:
   /**
      @brief Samples response of current tree.
 
-     @param rowRank summarizes the presorted observations.
+     @param frame summarizes the presorted observations.
 
      @param bag summarizes the in-bag rows for a collection of trees.
 
@@ -396,7 +396,7 @@ public:
 
      @return summary of sampled response.
    */
-  shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+  shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                       class BitMatrix* bag,
                                       unsigned int tIdx) const;
 };
@@ -541,7 +541,7 @@ public:
   /**
      @brief Samples response of current tree.
 
-     @param rowRank summarizes the presorted observations.
+     @param frame summarizes the presorted observations.
 
      @param bag summarizes the in-bag rows for a collection of trees.
 
@@ -549,7 +549,7 @@ public:
 
      @return summary of sampled response.
    */
-  shared_ptr<class Sample> rootSample(const class RowRank* rowRank,
+  shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                       class BitMatrix* bag,
                                       unsigned int tIdx) const;
 };
@@ -878,12 +878,10 @@ class LeafFrameReg : public LeafFrame {
   /**
      @brief Accesor for training response, by row.
 
-     @param row at which to access.
-
      @return training value at row.
    */
-  inline double getYTrain(unsigned int row) const {
-    return yTrain[row];
+  inline const double* getYTrain() const {
+    return yTrain;
   }
 
 

@@ -18,21 +18,9 @@
 #define ARBORIST_QUANT_H
 
 #include <vector>
+using namespace std;
 
-#include "typeparam.h"
-
-/**
-   @brief Value and row of ranked response.
- */
-struct ValRow {
-  double val;
-  unsigned int row;
-
-  void init(double val, unsigned int row) {
-    this->val = val;
-    this->row = row;
-  }
-};
+#include "valrank.h"
 
 /**
  @brief Quantile signature.
@@ -41,7 +29,7 @@ class Quant {
   static const size_t binSize; // # slots to track.
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
   const class BitMatrix* baggedRows; // In-bag summary.
-  const vector<ValRow> yRanked; // ordered version of yTrain, with ranks.
+  ValRank<double> valRank;
   const vector<class RankCount> rankCount; // forest-wide, by sample.
   const double* quantile; // quantile values over which to predict.
   const unsigned int qCount; // # quantile values, above.
@@ -63,24 +51,6 @@ class Quant {
 
 
   /**
-     @brief Ranks the training response.
-
-     @param leafReg is the leaf frame.
-
-     @return ranked representation of response.
-   */
-  static vector<ValRow> rankResponse(const class LeafFrameReg* leafReg);
-  
-
-  /**
-     @brief Computes the count and rank of every bagged sample in the forest.
-  */
-  static vector<class RankCount> baggedRanks(const class BitMatrix* baggedRows,
-                                             const class LeafFrameReg* leafReg,
-                                             const vector<ValRow>& yRanked);
-  
-
-  /**
      @brief Determines scaling factor for training response.
 
      @return power-of-two divisor for training response length.
@@ -91,13 +61,13 @@ class Quant {
   /**
      @brief Bins response means.
 
-     @param yRanked[] contains the ranked response/row pairs.
+     @param valRank contains the ranked response/row pairs.
 
      @param rankScale is the bin scaling factor.
 
      @return binned vector of response means.
    */
-  static vector<double> binMeans(const vector<ValRow>& yRanked,
+  static vector<double> binMeans(const ValRank<double>& valRank,
                                  unsigned int rankScale);
 
   
@@ -170,7 +140,7 @@ class Quant {
   /**
      @brief Getter for number of rows predicted.
 
-     Returns zero if empty bag precludes yRanked from initialization.
+     Returns zero if empty bag precludes valRank from initialization.
    */
   unsigned int getNRow() const;
 

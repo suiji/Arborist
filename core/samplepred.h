@@ -73,27 +73,27 @@ class SamplePred {
   virtual ~SamplePred();
 
 
-  void setStageBounds(const class RowRank* rowRank,
+  void setStageBounds(const class RankedFrame* rankedFrame,
                    unsigned int predIdx);
 
-  vector<StageCount> stage(const class RowRank* rowRank,
+  vector<StageCount> stage(const class RankedFrame* rankedFrame,
                            const vector<SampleNux> &sampleNode,
                            const class Sample* sample);
 
-  void stage(const class RowRank* rowRank,
+  void stage(const class RankedFrame* rankedFrame,
              const vector<SampleNux> &sampleNode,
              const class Sample* sample,
              unsigned int predIdx,
              StageCount& stageCount);
 
-  void stage(const class RowRank* rowRank,
+  void stage(const class RankedFrame* rankedFrame,
              unsigned int rrTot,
              const vector<class SampleNux> &sampleNode,
              const class Sample* sample,
              vector<class StageCount> &stageCount);
 
   void stage(const vector<class SampleNux> &sampleNode,
-             const class RRNode &rrNode,
+             const class RowRank &rowRank,
              const class Sample *sample,
              unsigned int &expl,
              SampleRank spn[],

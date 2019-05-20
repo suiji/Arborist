@@ -77,7 +77,7 @@ class TreeNode : public DecNode {
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  unsigned int advance(const class BlockSet* blockSet,
+  unsigned int advance(const class BlockFrame* blockFrame,
                        const BVJagged *facSplit,
                        const unsigned int *rowFT,
                        const double *rowNT,
@@ -109,12 +109,11 @@ class TreeNode : public DecNode {
   /**
      @brief Post-pass to update numerical splitting values from ranks.
 
-     @param frameMap records the predictor types.
+     @param summaryFrame records the predictor types.
 
      @param numRanked enumerates predictor ranks, by column.
   */
-  void splitUpdate(const class FrameMap *frameMap,
-                   const class BlockRanked *numRanked);
+  void splitUpdate(const class SummaryFrame* sf);
 
   /**
      @brief Initializer for tree node.
@@ -354,8 +353,7 @@ public:
 
      Parameters as with low-level implementation.
   */
-  void splitUpdate(const class FrameMap *frameMap,
-                   const class BlockRanked* numRanked);
+  void splitUpdate(const class SummaryFrame* sf);
 
   
   /**
@@ -493,19 +491,18 @@ class ForestTrain {
 
      Paramters as with low-level implementation.
    */
-  void splitUpdate(const class FrameMap *frameMap,
-                   const class BlockRanked *numRanked);
+  void splitUpdate(const class SummaryFrame* sf);
 
   /**
      @brief Precipitates production of a branch node in the crescent forest.
 
-     @param frameMap summarizes the training observations.
+     @param frame summarizes the training observations.
 
      @param idx is a tree-relative node index.
 
      @parm decNode contains the value to set.
    */
-  void nonTerminal(const class FrameMap *frameMap,
+  void nonTerminal(const class SummaryFrame* frame,
                    unsigned int idx,
                    const DecNode *decNode);
 

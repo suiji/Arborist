@@ -1,4 +1,4 @@
-// This file is part of ArboristCore.
+// This file is part of framemap.
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,7 +8,7 @@
 /**
    @file framemap.h
 
-   @brief Class definitions for maintenance of type-based data blocks.
+   @brief Data frame representations built from type-parametrized blocks.
 
    @author Mark Seligman
  */
@@ -17,7 +17,7 @@
 #define ARBORIST_FRAMEMAP_H
 
 #include <vector>
-
+#include <algorithm> // max()
 using namespace std;
 
 
@@ -30,20 +30,28 @@ class FrameMap {
   unsigned int nPredFac;
   unsigned int nPredNum;
 
-  const unsigned int cardMax;  // High watermark of factor cardinalities.
+  // Greatest cardinality extent, irrespective of gaps.  Useful for packing.
+  const unsigned int cardExtent;
 
  public:
+
   FrameMap(const vector<unsigned int> &feCard_,
-	  unsigned int nPred_,
-	  unsigned int nRow_);
+           unsigned int nPred,
+           unsigned int nRow_) :
+    nRow(nRow_),
+    feCard(feCard_),
+    nPredFac(feCard.size()),
+    nPredNum(nPred - feCard.size()),
+    cardExtent(nPredFac > 0 ? *max_element(feCard.begin(), feCard.end()) : 0) {
+  }
 
-
+  
   /**
      @brief Assumes numerical predictors packed in front of factor-valued.
 
      @return Position of fist factor-valued predictor.
   */
-  inline unsigned int FacFirst() const {
+  inline unsigned int getFacFirst() const {
     return nPredNum;
   }
 
@@ -56,7 +64,7 @@ class FrameMap {
      @return true iff index references a factor.
    */
   inline bool isFactor(unsigned int predIdx)  const {
-    return predIdx >= FacFirst();
+    return predIdx >= getFacFirst();
   }
 
 
@@ -69,26 +77,7 @@ class FrameMap {
   */
   inline unsigned int getIdx(unsigned int predIdx, bool &thisIsFactor) const{
     thisIsFactor = isFactor(predIdx);
-    return thisIsFactor ? predIdx - FacFirst() : predIdx;
-  }
-
-
-  /**
-     @brief Determines a dense position for factor-valued predictors.
-
-     @param predIdx is a predictor index.
-
-     @param nStride is a stride value.
-
-     @param[out] thisIsFactor is true iff predictor is factor-valued.
-
-     @return strided factor offset, if factor, else predictor index.
-   */
-  inline unsigned int getFacStride(unsigned int predIdx,
-				unsigned int nStride,
-				bool &thisIsFactor) const {
-    unsigned int facIdx = getIdx(predIdx, thisIsFactor);
-    return thisIsFactor ? nStride * nPredFac + facIdx : predIdx;
+    return thisIsFactor ? predIdx - getFacFirst() : predIdx;
   }
 
 
@@ -126,8 +115,8 @@ class FrameMap {
 
      @return Position of first numerical predictor.
   */
-  inline unsigned int NumFirst() const {
-    return 0;
+  auto constexpr getNumFirst() const {
+    return 0ul;
   }
 
 
@@ -138,31 +127,29 @@ class FrameMap {
 
      @return Position of predictor within numerical block.
   */
-  inline unsigned int getNumIdx(int predIdx) const {
-    return predIdx - NumFirst();
+  inline unsigned int getNumIdx(unsigned int predIdx) const {
+    return predIdx - getNumFirst();
   }
 
 
   /**
-   @brief Computes cardinality of factor-valued predictor, or zero if not a
-   factor.
+     @brief Computes cardinality of factor-valued predictor, or zero if not a
+     factor.
 
-   @param predIdx is the internal predictor index.
+     @param predIdx is the internal predictor index.
 
-   @return factor cardinality or zero.
+     @return factor cardinality or zero.
   */
-  inline int getFacCard(int predIdx) const {
-    return isFactor(predIdx) ? feCard[predIdx - FacFirst()] : 0;
+  inline auto getFacCard(unsigned int predIdx) const {
+    return isFactor(predIdx) ? feCard[predIdx - getFacFirst()] : 0;
   }
 
   
   /**
-     @brief Maximal predictor cardinality.  Useful for packing.
-
-     @return highest cardinality, if any, among factor predictors.
-   */
-  inline unsigned int getCardMax() const {
-    return cardMax;
+     @brief Accessor for greatest cardinality extent.
+  */
+  inline auto getCardExtent() const {
+    return cardExtent;
   }
 };
 

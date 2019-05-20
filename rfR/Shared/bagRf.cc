@@ -71,11 +71,11 @@ List BagRf::wrap() {
 }
 
 
-unique_ptr<BagRf> BagRf::unwrap(const List &sTrain, const List &sPredBlock, bool oob) {
+unique_ptr<BagRf> BagRf::unwrap(const List &sTrain, const List &sPredFrame, bool oob) {
 
   List sBag((SEXP) sTrain["bag"]);
   if (oob) {
-    checkOOB(sBag, sPredBlock);
+    checkOOB(sBag, sPredFrame);
   }
 
   return make_unique<BagRf>(as<unsigned int>(sBag["nRow"]),
@@ -84,12 +84,12 @@ unique_ptr<BagRf> BagRf::unwrap(const List &sTrain, const List &sPredBlock, bool
 }
 
 
-SEXP BagRf::checkOOB(const List& sBag, const List& sPredBlock) {
+SEXP BagRf::checkOOB(const List& sBag, const List& sPredFrame) {
   BEGIN_RCPP
   if (as<unsigned int>(sBag["nRow"]) == 0)
     stop("Out-of-bag prediction requested but bag empty");
 
-  if (as<unsigned int>(sBag["nRow"]) != as<unsigned int>(sPredBlock["nRow"]))
+  if (as<unsigned int>(sBag["nRow"]) != as<unsigned int>(sPredFrame["nRow"]))
     stop("Bag and prediction row counts do not agree");
 
   END_RCPP

@@ -13,8 +13,10 @@ cp ../FrontEnd/NEWS Rborist/inst/
 cp ../FrontEnd/*R Rborist/R/
 cp ../Shared/*.cc Rborist/src/
 cp ../Shared/*.h Rborist/src/
-cp ../../frame/*.cc Rborist/src/
-cp ../../frame/*.h Rborist/src/
+cp ../../framemapR/*.cc Rborist/src/
+cp ../../framemapR/*.h Rborist/src/
+cp ../../framemap/*.cc Rborist/src/
+cp ../../framemap/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../coreRf/*.cc Rborist/src/

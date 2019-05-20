@@ -52,6 +52,7 @@ class RestageCoord {
    @brief Class managing the most recent level of the tree.
  */
 class Bottom {
+  const class SummaryFrame* frame;
   const unsigned int nPred; // Number of predictors.
   const unsigned int nPredFac; // Number of factor-valued predictors.
 
@@ -60,8 +61,7 @@ class Bottom {
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   unsigned int splitPrev; // # nodes in previous level.
   unsigned int splitCount; // # nodes in the level about to split.
-  const class FrameMap *frameMap;
-  const class RowRank *rowRank;
+  const class RankedFrame *rankedFrame;
   const unsigned int noRank;
 
   vector<unsigned int> history; // Current level's history.
@@ -136,8 +136,7 @@ class Bottom {
 
      @param splitCount specifies the number of splits to map.
   */
-  Bottom(const class FrameMap* frameMap_,
-         const class RowRank* rowRank_,
+  Bottom(const class SummaryFrame* frame,
          unsigned int bagCount);
 
   /**

@@ -24,12 +24,12 @@
  */
 
 #include "trainRf.h"
-#include "rowSample.h"
 #include "bagRf.h"
-#include "framemapRf.h"
-#include "rankedsetRf.h"
+#include "rleframeR.h"
 #include "forestRf.h"
 #include "leafRf.h"
+#include "rowSample.h"
+#include "summaryframe.h"
 #include "coproc.h"
 
 bool TrainRf::verbose = false;
@@ -39,32 +39,28 @@ RcppExport SEXP TrainRF(const SEXP sArgList) {
   BEGIN_RCPP
 
   List argList(sArgList);
-  List predBlock(as<List>(argList["predBlock"]));
-  List signature(as<List>(predBlock["signature"]));
+  List predFrame(as<List>(argList["predFrame"]));
+  List signature(as<List>(predFrame["signature"]));
 
   // Temporary IntegerVector copy for subscripted access.
   IntegerVector predMap((SEXP) signature["predMap"]);
-  vector<unsigned int> facCard(as<vector<unsigned int> >(predBlock["facCard"]));
 
-  return TrainRf::train(argList, predMap, facCard, as<unsigned int>(predBlock["nRow"]));
+  return TrainRf::train(argList, predMap, as<unsigned int>(predFrame["nRow"]));
   END_RCPP
 }
 
 
 List TrainRf::train(const List &argList,
-                        const IntegerVector &predMap,
-                        const vector<unsigned int> &facCard,
-                        unsigned int nRow) {
+                    const IntegerVector &predMap,
+                    unsigned int nRow) {
   BEGIN_RCPP
 
-  auto frameTrain = FramemapRf::factoryTrain(facCard, predMap.length(), nRow);
   vector<string> diag;
   auto coproc = Coproc::Factory(as<bool>(argList["enableCoproc"]), diag);
-  auto rankedSet = RankedSetRf::unwrap(argList["rankedSet"],
-                                           as<double>(argList["autoCompress"]),
-                                           coproc.get(),
-                                           frameTrain.get());
-  init(argList, frameTrain.get(), predMap);
+  auto rleFrame = RLEFrameR::factory(argList["summaryRLE"], nRow);
+  unique_ptr<SummaryFrame> frame = make_unique<SummaryFrame>(rleFrame.get(), as<double>(argList["autoCompress"]), coproc.get());
+
+  init(argList, frame.get(), predMap);
   List outList;
 
   if (verbose) {
@@ -74,16 +70,14 @@ List TrainRf::train(const List &argList,
   if (nCtg > 0) {
     outList = classification(IntegerVector((SEXP) argList["y"]),
                              NumericVector((SEXP) argList["classWeight"]),
-                             frameTrain.get(),
-                             rankedSet->getPair(),
+                             frame.get(),
                              predMap,
                              as<unsigned int>(argList["nTree"]),
                              diag);
   }
   else {
     outList = regression(NumericVector((SEXP) argList["y"]),
-                         frameTrain.get(),
-                         rankedSet->getPair(),
+                         frame.get(),
                          predMap,
                          as<unsigned int>(argList["nTree"]),
                          diag);
@@ -101,9 +95,9 @@ List TrainRf::train(const List &argList,
 
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
-SEXP TrainRf::init(const List &argList,
-                       const FrameMap* frameTrain,
-                       const IntegerVector &predMap) {
+SEXP TrainRf::init(const List& argList,
+                   const SummaryFrame* summaryFrame,
+                   const IntegerVector& predMap) {
   BEGIN_RCPP
   verbose = as<bool>(argList["verbose"]);
   LBTrain::init(as<bool>(argList["thinLeaves"]));
@@ -133,7 +127,7 @@ SEXP TrainRf::init(const List &argList,
   if (nCtg == 0) { // Regression only.
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
-    Train::initMono(frameTrain, regMono);
+    Train::initMono(summaryFrame, regMono);
   }
 
   END_RCPP
@@ -174,12 +168,11 @@ NumericVector TrainRf::ctgProxy(const IntegerVector &y,
 
 
 List TrainRf::classification(const IntegerVector &y,
-                                 const NumericVector &classWeight,
-                                 const FrameMap *frameTrain,
-                                 const RankedSet *rankedPair,
-                                 const IntegerVector &predMap,
-                                 unsigned int nTree,
-                                 vector<string> &diag) {
+                             const NumericVector &classWeight,
+                             const SummaryFrame* summaryFrame,
+                             const IntegerVector &predMap,
+                             unsigned int nTree,
+                             vector<string> &diag) {
   BEGIN_RCPP
 
   IntegerVector yZero = y - 1; // Zero-based translation.
@@ -189,8 +182,7 @@ List TrainRf::classification(const IntegerVector &y,
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainCtg =
-      Train::classification(frameTrain,
-                            rankedPair,
+      Train::classification(summaryFrame,
                             &(as<vector<unsigned int> >(yZero))[0],
                             &proxy[0],
                             classWeight.size(),
@@ -205,7 +197,7 @@ List TrainRf::classification(const IntegerVector &y,
 
 
 List TrainRf::summarize(const IntegerVector &predMap,
-                            const vector<string> &diag) {
+                        const vector<string> &diag) {
   BEGIN_RCPP
   return List::create(
                       _["predInfo"] = scalePredInfo(predMap),
@@ -229,19 +221,17 @@ NumericVector TrainRf::scalePredInfo(const IntegerVector &predMap) {
 
 
 List TrainRf::regression(const NumericVector &y,
-                             const FrameMap *frameTrain,
-                             const RankedSet *rankedPair,
-                             const IntegerVector &predMap,
-                             unsigned int nTree,
-                             vector<string> &diag) {
+                         const SummaryFrame* summaryFrame,
+                         const IntegerVector &predMap,
+                         unsigned int nTree,
+                         vector<string> &diag) {
   BEGIN_RCPP
     
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     auto trainReg =
-      Train::regression(frameTrain,
-                        rankedPair,
+      Train::regression(summaryFrame,
                         &y[0],
                         chunkThis);
     tb->consume(trainReg.get(), treeOff, chunkThis);

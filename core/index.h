@@ -450,8 +450,7 @@ class IndexLevel {
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
-  IndexLevel(const class FrameMap* frameMap,
-             const class RowRank* rowRank,
+  IndexLevel(const class SummaryFrame* frame,
              const class Sample* sample);
 
   ~IndexLevel();
@@ -459,16 +458,13 @@ class IndexLevel {
   /**
     @brief Trains one tree.
 
-    @param frameMap contains the predictor type mappings.
-
-    @param rowRank contains the per-predictor observation rankings.
+    @param summaryFrame contains the predictor type mappings.
 
     @param sample contains the bagging summary.
 
     @return trained pretree object.
   */
-  static shared_ptr<class PreTree> oneTree(const class FrameMap* frameMap,
-                                           const class RowRank* rowRank,
+  static shared_ptr<class PreTree> oneTree(const class SummaryFrame* frame,
                                            const class Sample* sample);
 
 
@@ -480,7 +476,7 @@ class IndexLevel {
      
      @return trained pretree object.
   */
-  shared_ptr<class PreTree> levels(const class FrameMap *frameMap,
+  shared_ptr<class PreTree> levels(const class SummaryFrame* frame,
                                    const class Sample* sample);
   
 

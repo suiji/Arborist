@@ -30,7 +30,7 @@ class PTNode : public DecNode {
   FltVal info;  // Nonzero iff nonterminal.
  public:
   
-  void consumeNonterminal(const class FrameMap *frameMap,
+  void consumeNonterminal(const class SummaryFrame *frame,
                           class ForestTrain *forest,
                           vector<double> &predInfo,
                           unsigned int idx) const;
@@ -88,7 +88,7 @@ class PTNode : public DecNode {
 class PreTree {
   static size_t heightEst;
   static size_t leafMax; // User option:  maximum # leaves, if > 0.
-  const class FrameMap *frameMap;
+  const class SummaryFrame* frame;
   const unsigned int bagCount;
   size_t nodeCount; // Allocation height of node vector.
   PTNode *nodeVec; // Vector of tree nodes.
@@ -115,7 +115,8 @@ class PreTree {
 
 
  public:
-  PreTree(const class FrameMap *_frameMap, unsigned int _bagCount);
+  PreTree(const class SummaryFrame* frame_,
+          unsigned int _bagCount);
   ~PreTree();
   static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
   static void deImmutables();

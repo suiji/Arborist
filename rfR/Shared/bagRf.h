@@ -85,14 +85,14 @@ class BagRf {
 
      @param sBag contains the training bag.
 
-     @param sPredBlock summarizes the prediction data set.
+     @param sPredFrame summarizes the prediction data set.
 
      @param oob indicates whether a non-null bag is requested.
 
      @return instantiation containing baga raw data.
    */
   static unique_ptr<BagRf> unwrap(const List& sBag,
-                                      const List& sPredBlock,
+                                      const List& sPredFrame,
                                       bool oob);
 
   
@@ -101,10 +101,10 @@ class BagRf {
 
      @param sBag is the training bag.
 
-     @param sPredBlock summarizes the prediction data set.
+     @param sPredFrame summarizes the prediction data set.
    */
   static SEXP checkOOB(const List& sBag,
-                       const List& sPredBlock);
+                       const List& sPredFrame);
   
 
   /**

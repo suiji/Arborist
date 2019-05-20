@@ -69,22 +69,20 @@ IndexSet::IndexSet() :
 }
 
 
-shared_ptr<PreTree> IndexLevel::oneTree(const FrameMap *frameMap,
-                                        const RowRank* rowRank,
+shared_ptr<PreTree> IndexLevel::oneTree(const SummaryFrame* frame,
                                         const Sample *sample) {
-  auto index = make_unique<IndexLevel>(frameMap, rowRank, sample);
-  return index->levels(frameMap, sample);
+  auto index = make_unique<IndexLevel>(frame, sample);
+  return index->levels(frame, sample);
 }
 
 
 
-IndexLevel::IndexLevel(const FrameMap* frameMap,
-                       const RowRank* rowRank,
+IndexLevel::IndexLevel(const SummaryFrame* frame,
                        const Sample* sample) :
   samplePred(sample->predictors()),
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
-  bottom(make_unique<Bottom>(frameMap, rowRank, bagCount)),
+  bottom(make_unique<Bottom>(frame, bagCount)),
   nodeRel(false),
   idxLive(bagCount),
   relBase(vector<unsigned int>(1)),
@@ -116,12 +114,12 @@ void IndexSet::initRoot(const Sample* sample) {
 }
 
 
-shared_ptr<PreTree> IndexLevel::levels(const FrameMap *frameMap,
+shared_ptr<PreTree> IndexLevel::levels(const SummaryFrame* frame,
                                        const Sample* sample) {
   auto stageCount = sample->stage(samplePred.get());
   bottom->rootDef(stageCount, bagCount);
-  shared_ptr<PreTree> preTree = make_shared<PreTree>(frameMap, bagCount);
-  auto splitNode = sample->splitNodeFactory(frameMap);
+  shared_ptr<PreTree> preTree = make_shared<PreTree>(frame, bagCount);
+  auto splitNode = sample->splitNodeFactory(frame);
 
   for (unsigned int level = 0; !indexSet.empty(); level++) {
     bottom->scheduleSplits(samplePred.get(), splitNode.get(), this);

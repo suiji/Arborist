@@ -23,6 +23,7 @@
 
 const size_t Quant::binSize = 0x1000;
 
+
 /**
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
@@ -32,49 +33,19 @@ Quant::Quant(const PredictBox* box,
              unsigned int qCount_) :
   leafReg(static_cast<LeafFrameReg*>(box->leafFrame)),
   baggedRows(box->bag),
-  yRanked(rankResponse(leafReg)),
-  rankCount(baggedRanks(baggedRows, leafReg, yRanked)),
+  valRank(ValRank<double>(leafReg->getYTrain(), leafReg->getRowTrain())),
+  rankCount(leafReg->setRankCount(baggedRows, valRank.rank())),
   quantile(quantile_),
   qCount(qCount_),
   qPred(vector<double>(getNRow() * qCount)),
   qEst(vector<double>(getNRow())),
   rankScale(binScale()),
-  binMean(binMeans(yRanked, rankScale)) {
+  binMean(binMeans(valRank, rankScale)) {
 }
 
 unsigned int Quant::getNRow() const {
   return baggedRows->isEmpty() ? 0 : leafReg->rowPredict();
 }
-
-vector<ValRow> Quant::rankResponse(const LeafFrameReg* leafReg) {
-  vector<ValRow> valRow(leafReg->getRowTrain());
-
-  unsigned int row = 0;
-  for (auto & yr : valRow) {
-    yr.init(leafReg->getYTrain(row), row);
-    row++;
-  }
-  sort(valRow.begin(), valRow.end(), [] (const ValRow &a, const ValRow &b) -> bool {
-                                         return a.val < b.val;
-                                     }
-    );
-
-  return valRow;
-}
-
-
-vector<RankCount> Quant::baggedRanks(const BitMatrix* baggedRows,
-                                     const LeafFrameReg* leafReg,
-                                     const vector<ValRow>& yRanked) {
-  vector<unsigned int> row2Rank(yRanked.size());
-  unsigned int rank = 0;
-  for (auto yr : yRanked) {
-    row2Rank[yr.row] = rank++;
-  }
-
-  return leafReg->setRankCount(baggedRows, row2Rank);
-}
-
 
 
 void Quant::predictAcross(const Predict *predict,
@@ -98,7 +69,7 @@ void Quant::predictAcross(const Predict *predict,
 
 unsigned int Quant::binScale() const {
   unsigned int shiftVal = 0;
-  while ((binSize << shiftVal) < yRanked.size())
+  while ((binSize << shiftVal) < valRank.getNRow())
     shiftVal++;
 
   return shiftVal;
@@ -110,7 +81,7 @@ void Quant::predictRow(const Predict *predict,
                        double yPred,
                        double qRow[],
                        double *qEst) {
-  vector<unsigned int> sCount(std::min(binSize, yRanked.size()));
+  vector<unsigned int> sCount(std::min(binSize, valRank.getNRow()));
   fill(sCount.begin(), sCount.end(), 0);
 
   // Scores each rank seen at every predicted leaf.
@@ -161,16 +132,16 @@ unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
 }
 
 
-vector<double> Quant::binMeans(const vector<ValRow>& yRanked, unsigned int rankScale) {
+vector<double> Quant::binMeans(const ValRank<double>& valRank, unsigned int rankScale) {
   const auto slotWidth = 1 << rankScale;
   size_t binIdx = 0;
-  vector<double> binMean(std::min(binSize, yRanked.size()));
-  for (size_t idxStart = 0; idxStart < yRanked.size(); idxStart += slotWidth) {
-    size_t idxEnd = min(yRanked.size(), idxStart + slotWidth);
+  vector<double> binMean(std::min(binSize, valRank.getNRow()));
+  for (size_t idxStart = 0; idxStart < valRank.getNRow(); idxStart += slotWidth) {
+    size_t idxEnd = min(valRank.getNRow(), idxStart + slotWidth);
     double sum = 0.0;
     unsigned int count = 0;
     for (auto idx = idxStart; idx < idxEnd; idx++) {
-      sum += yRanked[idx].val;
+      sum += valRank.getVal(idx);
       count++;
     }
     binMean[binIdx++] =  sum / count;

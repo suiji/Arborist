@@ -97,7 +97,7 @@ class Sample {
 
   
  protected:
-  const class RowRank* rowRank; // Summary of ranked predictors.
+  const class SummaryFrame* frame; // Summary of ranked predictors.
   
   static unsigned int nSamp; // Number of row samples requested.
   vector<SampleNux> sampleNode; // Per-sample summary of values.
@@ -174,7 +174,7 @@ class Sample {
 
      @param y is a real-valued proxy for the training response.
 
-     @param rowRank summarizes the ranked observations.
+     @param frame summarizes the ranked observations.
 
      @param yCtg is the training response.
 
@@ -183,7 +183,7 @@ class Sample {
      @return new SampleCtg instance.
    */
   static shared_ptr<class SampleCtg> factoryCtg(const double y[],
-                                                const class RowRank *rowRank,
+                                                const class SummaryFrame *frame,
                                                 const unsigned int yCtg[],
                                                 class BV *treeBag);
 
@@ -192,17 +192,17 @@ class Sample {
 
      @param y is the training response.
 
-     @param rowRank summarizes the ranked observations.
+     @param frame summarizes the ranked observations.
 
      @param[out] treeBag outputs bit-encoded indicator of sampled rows.
 
      @return new SampleReg instance.
    */
   static shared_ptr<class SampleReg>factoryReg(const double y[],
-                                               const class RowRank *rowRank,
+                                               const class SummaryFrame *frame,
                                                class BV *treeBag);
   
-  virtual unique_ptr<class SplitNode> splitNodeFactory(const class FrameMap *frameMap) const = 0;
+  virtual unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const = 0;
 
   /**
      @brief Lights off static initializations needed for sampling.
@@ -221,9 +221,9 @@ class Sample {
   /**
      @brief Constructor.
 
-     @param rowRank summarizes predictor ranks by row.
+     @param frame summarizes predictor ranks by row.
    */
-  Sample(const class RowRank* rowRank_);
+  Sample(const class SummaryFrame* frame);
 
 
   virtual ~Sample();
@@ -238,7 +238,7 @@ class Sample {
   
 
   /**
-     @brief Invokes RowRank staging methods and caches compression map.
+     @brief Invokes RankedFrame staging methods and caches compression map.
 
      @param samplePred summarizes the observations.
   */
@@ -338,9 +338,9 @@ class Sample {
 class SampleReg : public Sample {
 
  public:
-  SampleReg(const class RowRank* rowRank_);
+  SampleReg(const class SummaryFrame* frame);
   ~SampleReg();
-  unique_ptr<class SplitNode> splitNodeFactory(const FrameMap *frameMap) const;
+  unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const;
 
 
   /**
@@ -378,10 +378,10 @@ class SampleReg : public Sample {
 class SampleCtg : public Sample {
 
  public:
-  SampleCtg(const class RowRank* rowRank_);
+  SampleCtg(const class SummaryFrame* frame);
   ~SampleCtg();
 
-  unique_ptr<class SplitNode> splitNodeFactory(const FrameMap *frameMap) const;
+  unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const;
 
   /**
      @brief Appends a sample summary record.

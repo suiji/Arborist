@@ -144,7 +144,7 @@ class LeafRegRf : public LeafRf {
      @brief Builds bridge object from wrapped front-end data.
    */
   static unique_ptr<LeafRegRf> unwrap(const List& leaf,
-                                          const List& sPredBlock);
+                                          const List& sPredFrame);
 
   /**
      @brief Builds bridge object from wrapped front-end data.
@@ -302,14 +302,14 @@ class LeafCtgRf : public LeafRf {
      @param lTrain is the R-style trained forest.
    */
   static unique_ptr<LeafCtgRf> unwrap(const List& leaf,
-                                          const List& sPredBlock,
-                                          bool doProb);
+                                      const List& sPredFrame,
+                                      bool doProb);
 
   static unique_ptr<LeafCtgRf> unwrap(const List &lTrain,
-                                          const class BitMatrix *baggedRows);
+                                      const class BitMatrix *baggedRows);
 
   
-  List summary(SEXP sYTest, const List& sPredBlock);
+  List summary(SEXP sYTest, const List& sPredFrame);
 
 
   /**

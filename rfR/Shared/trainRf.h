@@ -83,9 +83,7 @@ struct TrainRf {
 
      @param classWeight is the class-weighted response.
 
-     @param frameTrain summarizes the predictor set.
-
-     @param rankedPair contains the pre-formatted observation rankings.
+     @param summaryFrame summarizes the predictor frame.
 
      @param predMap maps core to front-end predictor indices.
 
@@ -95,8 +93,7 @@ struct TrainRf {
   */
   static List classification(const IntegerVector &y,
                              const NumericVector &classWeight,
-                             const class FrameMap *frameTrain,
-                             const class RankedSet *rankedPair,
+                             const class SummaryFrame* summaryFrame,
                              const IntegerVector &predMap,
                              unsigned int nTree,
                              vector<string> &diag);
@@ -106,9 +103,7 @@ struct TrainRf {
 
      @param y is the numeric response vector.
 
-     @param frameTrain summarizes the predictor set.
-
-     @param rankedPair contains the pre-formatted observation rankings.
+     @param summaryFrame summarizes the predictor frame.
 
      @param predMap maps core to front-end predictor indices.
 
@@ -117,8 +112,7 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List regression(const NumericVector &y,
-                         const class FrameMap *frameTrain,
-                         const class RankedSet *rankedPair,
+                         const class SummaryFrame* summaryFrame,
                          const IntegerVector &predMap,
                          unsigned int nTree,
                          vector<string> &diag);
@@ -155,7 +149,7 @@ struct TrainRf {
      @return implicit R_NilValue.
    */
   static SEXP init(const List &argList,
-                   const class FrameMap* frameMap,
+                   const class SummaryFrame* frameMap,
                    const IntegerVector &predMap);
 
   /**
@@ -173,15 +167,13 @@ struct TrainRf {
 
      @param predMap maps core to front-end predictor indices.
 
-     @param facCard gives the cardinality of a predictor, zero if numeric.
-
      @param nRow is the number of observations being trained.
 
      @return R-style list of trained summaries.
    */
   static List train(const List &argList,
                     const IntegerVector &predMap,
-                    const vector<unsigned int> &facCard,
+                    //                    const vector<unsigned int> &facCard,
                     unsigned int nRow);
 
   /**
