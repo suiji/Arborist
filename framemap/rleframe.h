@@ -18,6 +18,7 @@
 
 #include "rle.h"
 #include "rowrank.h"
+#include "valrank.h"
 
 #include <vector>
 using namespace std;
@@ -39,7 +40,7 @@ class RLECresc {
   vector<unsigned int> row;
   vector<unsigned int> runLength;
   // TODO:  replace separate vectors with single vector 'rle'.
-  // vector<RLE<RowRank> > rle;
+  //vector<RLE<RowRank> > rle;
 
 
   // Sparse numerical representation for split interpolation.
@@ -59,8 +60,20 @@ class RLECresc {
 
      @param rleNum is a sparse representation of the value/row-number pairs.
   */
-  void rankNum(const vector<NumRLE> &rleNum);
+  void encode(const vector<NumRLE> &rleNum);
 
+
+  /**
+     @brief Emits a run-length encoding of a sorted list.
+
+     @param vr is a stable sorted vector with ranks.
+
+     @param[out] val outputs values associated with the runs.
+
+     @param valUnique is true iff only unique values are to be output.
+   */
+  template<typename tn>
+  void encode(ValRank<tn>& vr, vector<tn>& val, bool valUnique = true);
 
  public:
 
@@ -80,6 +93,14 @@ class RLECresc {
     return cardinality.size();
   }
 
+  /**
+     @brief Computes unit size for cross-compatibility of serialization.
+   */
+  static constexpr size_t unitSize() {
+    return sizeof(RLE<RowRank>);
+  }
+
+  
   /**
      @brief Accessor for copyable rank vector.
    */

@@ -27,7 +27,7 @@ RLECresc::RLECresc(size_t nRow_,
   rank(vector<unsigned int>(0)),
   row(vector<unsigned int>(0)),
   runLength(vector<unsigned int>(0)),
-  //  rle(vector<RLE<RowRank> >(0),
+  //rle(vector<RLE<RowRank> >(0)),
   numOff(vector<unsigned int>(nPredNum)),
   numVal(vector<double>(0)) {
 }
@@ -45,35 +45,38 @@ void RLECresc::numSparse(const double feValNum[],
 }
 
 unsigned int RLECresc::numSortSparse(const double feColNum[],
-                                      const unsigned int feRowStart[],
-                                      const unsigned int feRunLength[]) {
+                                     const unsigned int feRowStart[],
+                                     const unsigned int feRunLength[]) {
   vector<NumRLE> rleNum;
-  for (unsigned int rleIdx = 0, rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
+  unsigned int rleIdx = 0;
+  for (unsigned int rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx]) {
     rleNum.push_back(make_tuple(feColNum[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
+    rleIdx++;
   }
 
   sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
-  rankNum(rleNum);
+  encode(rleNum);
 
   return rleNum.size();
 }
 
-void RLECresc::rankNum(const vector<NumRLE> &rleNum) {
+void RLECresc::encode(const vector<NumRLE> &rleNum) {
   NumRLE elt = rleNum[0];
   unsigned int rk = 0;
   rank.push_back(rk);
   numVal.push_back(get<0>(elt));
   row.push_back(get<1>(elt));
   runLength.push_back(get<2>(elt));
-  //  rle.emplace_back(get<1>(elt), rk, get<2>(elt));
+  //  rle.emplace_back(RLE<RowRank>(RowRank(get<1>(elt), rk), get<2>(elt)));
   for (unsigned int idx = 1; idx < rleNum.size(); idx++) {
     elt = rleNum[idx];
     double valThis = get<0>(elt);
     unsigned int rowThis = get<1>(elt);
     unsigned int runCount = get<2>(elt);
+    //    if (valThis == numVal.back() && rle.back().val.getRow() + rle.back().runLength) {
     if (valThis == numVal.back() && rowThis == row.back() + runLength.back()) {
       runLength.back() += runCount;
-      //rle.bump(runCount);
+      //rle.back().bumpLength(runCount);
     }
     else { // New RLE, rank entries regardless whether tied.
       if (valThis != numVal.back()) {
@@ -83,7 +86,7 @@ void RLECresc::rankNum(const vector<NumRLE> &rleNum) {
       rank.push_back(rk);
       row.push_back(rowThis);
       runLength.push_back(runCount);
-      //      rle.emplace_back(rowThis, rk, runCount);
+      //rle.emplace_back(RLE<RowRank>(RowRank(rowThis, rk), runCount));
     }
   }
 }
@@ -93,8 +96,39 @@ void RLECresc::numDense(const double feNum[]) {
   unsigned int numIdx = 0;
   for (auto & num : numOff) {
     num = numVal.size();
+
     ValRank<double> valRank(&feNum[numIdx++ * nRow], nRow);
-    valRank.encodeRuns(numVal, rank, row, runLength);
+    encode(valRank, numVal);
+  }
+}
+
+template<typename tn>
+void RLECresc::encode(ValRank<tn>& vr, vector<tn>& val, bool valUnique) {
+  unsigned int rowThis = vr.getRow(0);
+  tn valThis = vr.getVal(0); // Assumes >= 1 row.
+  val.push_back(valThis);
+  runLength.push_back(1);
+  rank.push_back(vr.getRank(0));
+  row.push_back(rowThis);
+  //  rle.emplace_back(RLE<RowRank>(RowRank(rowThis, vr.getRank(0)), 1));
+  for (size_t idx = 1; idx < nRow; idx++) {
+    unsigned int rowPrev = rowThis;
+    rowThis = vr.getRow(idx);
+    tn valPrev = valThis;
+    valThis = vr.getVal(idx);
+    bool sameVal = valThis == valPrev;
+    if (sameVal && rowThis == (rowPrev + 1)) {
+      runLength.back()++;
+    }
+    else {
+      if (!valUnique || !sameVal) {
+        val.push_back(valThis);
+      }
+      runLength.push_back(1);
+      rank.push_back(vr.getRank(idx));
+      row.push_back(rowThis);
+      //  rle.emplace_back(RLE<RowRank>(RowRank(rowThis, vr.getRank(idx)), 1));
+    }
   }
 }
 
@@ -107,7 +141,7 @@ void RLECresc::facDense(const unsigned int feFac[]) {
     // Actual factor values are assigned to the 'rank' vector,
     // while a dummy collects the true ranks.
     vector<unsigned int> dummy;
-    valRank.encodeRuns(rank, dummy, row, runLength, false);
+    encode(valRank, dummy, false);
 
     card = 1 + valRank.getVal(nRow - 1);
   }

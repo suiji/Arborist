@@ -83,6 +83,7 @@ List RLEFrameR::wrap(const RLECresc *rleCresc) {
   numRanked.attr("class") = "NumRanked";
 
   List rankedFrame = List::create(
+                              _["unitSize"] = RLECresc::unitSize(),
                               _["row"] = rleCresc->getRow(),
                               _["rank"] = rleCresc->getRank(),
                               _["runLength"] = rleCresc->getRunLength()
@@ -147,6 +148,12 @@ List RLEFrameR::checkRankedFrame(SEXP sRankedFrame) {
   if (Rf_isNull(rankedFrame["row"])) {
     stop("Empty run encoding");
   }
+
+  // Ensures compatibility across systems.
+  if (as<int>(rankedFrame["unitSize"]) != RLECresc::unitSize()) {
+    stop("Packing unit mismatch");
+  }
+                  
   return rankedFrame;
 
  END_RCPP

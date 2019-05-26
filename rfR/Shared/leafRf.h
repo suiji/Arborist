@@ -25,10 +25,8 @@
  */
 
 
-#ifndef ARBORIST_LEAF_RF_H
-#define ARBORIST_LEAF_RF_H
-
-#include "leaf.h"
+#ifndef RFR_LEAF_RF_H
+#define RFR_LEAF_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -37,17 +35,19 @@ using namespace Rcpp;
 #include <memory>
 using namespace std;
 
-class LeafRf {
- protected:
-  vector<vector<unsigned int> > rowTree;
+class LeafExport {
+protected:
+  unsigned int nTree;
+  vector<vector<size_t> > rowTree;
   vector<vector<unsigned int> > sCountTree;
   vector<vector<unsigned int> > extentTree;
 
- public:
+public:
 
-  LeafRf(unsigned int exportLength);
-  virtual ~LeafRf() {}
-  
+  LeafExport(unsigned int nTree_);
+
+  virtual ~LeafExport() {}
+
   /**
      @brief Accessor for per-tree sampled row vector.
 
@@ -55,7 +55,7 @@ class LeafRf {
 
      @return sampled row vector.
    */
-  const vector<unsigned int> &getRowTree(unsigned int tIdx) const {
+  const vector<size_t> &getRowTree(unsigned int tIdx) const {
     return rowTree[tIdx];
   }
 
@@ -82,186 +82,55 @@ class LeafRf {
   const vector<unsigned int> &getExtentTree(unsigned int tIdx) const {
     return extentTree[tIdx];
   }
-
-  /**
-     @brief Subclasses forget their base leaf type.
-   */
-  virtual class LeafFrame* getLeaf() const = 0;
 };
 
 
-/**
-   @brief Rf specialization of Core LeafReg, q.v.
- */
-class LeafRegRf : public LeafRf {
-  const IntegerVector &feNodeHeight;
-  const RawVector &feNode;
-  const IntegerVector &feBagHeight;
-  const RawVector &feBagSample;
+class LeafExportReg : public LeafExport {
   const NumericVector &yTrain;
-
   vector<vector<double > > scoreTree;
 
-  /**
-     @brief Validates contents of front-end leaf object.
-
-     Exception thrown if contents invalid.
-
-     @return wrapped zero.
-   */  
-  static SEXP checkLeaf(const List &lLeaf);
- protected:
-  unique_ptr<class LeafFrameReg> leaf;
-  
- public:
-  /**
-     @brief Constructor for prediction, no export.
-   */
-  LeafRegRf(const IntegerVector &feNodeHeight_,
-                const RawVector &feNode_,
-                const IntegerVector& feBagHeight_,
-                const RawVector& feBagSample_,
-                const NumericVector& yTrain_,
-                unsigned int rowPredict);
+public:
 
   /**
     @brief Constructor for export, no prediction.
    */
-  LeafRegRf(const IntegerVector& feNodeHeight_,
-                const RawVector& feNode_,
-                const IntegerVector& feBagHeight_,
-                const RawVector& feBagSample_,
-                const NumericVector& yTrain_,
+  LeafExportReg(const List& lLeaf,
                 const class BitMatrix* baggedRows);
 
-  ~LeafRegRf() {}
-  
-  static List predict(const List &list,
-                      SEXP sYTest,
-                      class Predict *predict);
+  ~LeafExportReg() {}
 
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static unique_ptr<LeafRegRf> unwrap(const List& leaf,
-                                          const List& sPredFrame);
-
-  /**
-     @brief Builds bridge object from wrapped front-end data.
-   */
-  static unique_ptr<LeafRegRf> unwrap(const List &lTrain,
+  static unique_ptr<LeafExportReg> unwrap(const List &lTrain,
                                           const class BitMatrix *baggedRows);
-
-  /**
-     @brief Forgetful getter for pointer to core leaf representation.
-   */
-  class LeafFrame *getLeaf() const;
-  
 
   const vector<double> &getScoreTree(unsigned int tIdx) const {
     return scoreTree[tIdx];
   }
-  
-  List summary(SEXP sYTest, const class Quant *quant = nullptr);
-
-
-  /**
-     @brief Builds a NumericMatrix representation of the quantile predictions.
-     
-     @param quant is a quantile prediction summary.
-
-     @return transposed core matrix if quantiles requested, else empty matrix.
-  */
-  NumericMatrix qPred(const class Quant *quant);
-
-
-  /**
-     @brief Builds a NumericVector representation of the estimand quantiles.
-   */
-  NumericVector qEst(const class Quant* quant);
-
-  
-  /**
-     @brief Utility for computing mean-square error of prediction.
-   
-     @param yPred is the prediction.
-
-     @param yTest is the observed response.
-
-     @param rsq[out] is the r-squared statistic.
-
-     @param mae[out] is the mean absolute error.
-
-     @return mean squared error.
-  */
-  double mse(const vector<double> &yPred,
-             const NumericVector &yTest,
-             double &rsq,
-             double &mae);
 };
 
 
-/**
-   @brief Rf specialization of Core LeafCtg, q.v.
- */
-class LeafCtgRf : public LeafRf {
-  const IntegerVector& feNodeHeight;
-  const RawVector& feNode;
-  const IntegerVector& feBagHeight;
-  const RawVector& feBagSample;
-  const NumericVector& feWeight;
+class LeafExportCtg : public LeafExport {
   const CharacterVector levelsTrain; // Pinned for summary reuse.
-
   vector<vector<double > > scoreTree;
   vector<vector<double> > weightTree;
 
-  /**
-     @brief Exception-throwing guard ensuring valid encapsulation.
-
-     @return R-style List representing Core-generated LeafCtg.
-   */
-  static SEXP checkLeaf(const List &lLeaf);
-
- protected:
-  unique_ptr<class LeafFrameCtg> leaf;
-
  public:
-  /**
-     @brief Constructor for prediction; no export.
-   */
-  LeafCtgRf(const IntegerVector& feNodeHeight_,
-                const RawVector &feNode_,
-                const IntegerVector& feBagheight_,
-                const RawVector& feBagSample_,
-                const NumericVector& feWeight_,
-                const CharacterVector& feLevels_,
-                unsigned int rowPredict_,
-                bool doProb);
 
   /**
      @brief Constructor for export; no prediction.
    */
-  LeafCtgRf(const IntegerVector& feNodeHeight_,
-                const RawVector& feNode_,
-                const IntegerVector& feBagHeight_,
-                const RawVector& feBagSample_,
-                const NumericVector& feWeight_,
-                const CharacterVector& feLevels_,
+  LeafExportCtg(const List& lLeaf,
                 const class BitMatrix* bitMatrix);
 
-  ~LeafCtgRf() {}
+  ~LeafExportCtg() {}
 
-  /**
-     @brief Forgetful getter to core leaf object.
-   */
-  class LeafFrame *getLeaf() const;
+  static unique_ptr<LeafExportCtg> unwrap(const List &lTrain,
+                                          const class BitMatrix *baggedRows);
 
-  static List predict(const List &list,
-                  SEXP sYTest,
-                  const List &signature,
-                  class Predict *predict,
-                  bool doProb);
   
+
   /**
      @brief Accessor exposes category name strings.
 
@@ -294,22 +163,101 @@ class LeafCtgRf : public LeafRf {
   const vector<double> &getWeightTree(unsigned int tIdx) const {
     return weightTree[tIdx];
   }
+};
 
+
+/**
+   @brief Rf specialization of Core LeafReg, q.v.
+ */
+struct LeafRegRf {
+  /**
+     @brief Validates contents of front-end leaf object.
+
+     Exception thrown if contents invalid.
+
+     @return wrapped List representing core-generated leaf.
+   */  
+  static List checkLeaf(const List &lTrain);
+
+  static List predict(const List &list,
+                      SEXP sYTest,
+                      class Predict *predict);
+
+  /**
+     @brief Builds bridge object from wrapped front-end data.
+   */
+  static unique_ptr<class LeafRegBridge> unwrap(const List& leaf,
+                                      const List& sPredFrame);
+
+  static List summary(SEXP sYTest, class LeafRegBridge* leaf, const class Quant *quant = nullptr);
+
+
+  /**
+     @brief Builds a NumericMatrix representation of the quantile predictions.
+     
+     @param quant is a quantile prediction summary.
+
+     @return transposed core matrix if quantiles requested, else empty matrix.
+  */
+  static NumericMatrix qPred(const class Quant *quant);
+
+
+  /**
+     @brief Builds a NumericVector representation of the estimand quantiles.
+   */
+  static NumericVector qEst(const class Quant* quant);
+
+  
+  /**
+     @brief Utility for computing mean-square error of prediction.
+   
+     @param yPred is the prediction.
+
+     @param yTest is the observed response.
+
+     @param rsq[out] is the r-squared statistic.
+
+     @param mae[out] is the mean absolute error.
+
+     @return mean squared error.
+  */
+  static double mse(const vector<double> &yPred,
+             const NumericVector &yTest,
+             double &rsq,
+             double &mae);
+};
+
+
+/**
+   @brief Rf specialization of Core LeafCtg, q.v.
+ */
+struct LeafCtgRf {
+  /**
+     @brief Exception-throwing guard ensuring valid encapsulation.
+
+     @return wrapped List representing Core-generated LeafCtg.
+   */
+  static List checkLeaf(const List &lTrain);
+
+  static List predict(const List &list,
+                  SEXP sYTest,
+                  const List &signature,
+                  class Predict *predict,
+                  bool doProb);
 
   /**
      @brief Instantiates front-end leaf.
 
      @param lTrain is the R-style trained forest.
    */
-  static unique_ptr<LeafCtgRf> unwrap(const List& leaf,
-                                      const List& sPredFrame,
-                                      bool doProb);
+  static unique_ptr<class LeafCtgBridge> unwrap(const List& leaf,
+                                                const List& sPredFrame,
+                                                bool doProb);
 
-  static unique_ptr<LeafCtgRf> unwrap(const List &lTrain,
-                                      const class BitMatrix *baggedRows);
-
-  
-  List summary(SEXP sYTest, const List& sPredFrame);
+  static List summary(const List& sPredFrame,
+                      const List& lTrain,
+                      class LeafCtgBridge* leaf,
+                      SEXP sYTest);
 
 
   /**
@@ -320,7 +268,9 @@ class LeafCtgRf : public LeafRf {
 
      @return matrix of predicted categorical responses, by row.
   */
-  IntegerMatrix Census(const CharacterVector &rowNames);
+  static IntegerMatrix getCensus(const LeafCtgBridge* leaf,
+                                 const CharacterVector& levelsTrain,
+                                 const CharacterVector& rowNames);
 
   
   /**
@@ -328,7 +278,9 @@ class LeafCtgRf : public LeafRf {
 
      @return probability matrix if requested, otherwise empty matrix.
   */
-  NumericMatrix Prob(const CharacterVector &rowNames);
+  static NumericMatrix getProb(const LeafCtgBridge* leaf,
+                               const CharacterVector& levelsTrain,
+                               const CharacterVector &rowNames);
 };
 
 
@@ -367,14 +319,11 @@ class TestCtg {
      @brief Fills in confusion matrix and misprediction vector.
 
      @param leaf summarizes the trained leaf frame.
-
-     @param yPred contains the zero-based predictions.
   */
-  void validate(class LeafFrameCtg *leaf,
-                const vector<unsigned int> &yPred);
+  void validate(class LeafCtgBridge* leaf);
 
 
-  IntegerMatrix Confusion();
+  IntegerMatrix Confusion(const CharacterVector& levelsTrain);
   NumericVector MisPred();
   double OOB(const vector<unsigned int> &yPred) const;
 };
@@ -397,14 +346,22 @@ private:
 
      @param scale estimates a resizing factor.
    */
-  void writeNode(const class LFTrain* leaf,
+  void writeNode(const class TrainBridge* train,
                  unsigned int tIdx,
                  double scale);
+
   
+  /**
+   */
+  RawVector rawResize(const unsigned char raw[],
+                      size_t nodeOff,
+                      size_t nodeBytes,
+                      double scale);
+
   /**
      @brief Consumes the BagSample records and writes as raw data.
    */
-  void writeBagSample(const class LFTrain* leaf,
+  void writeBagSample(const class TrainBridge* train,
                     unsigned int treeOff,
                     double scale);
 public:
@@ -445,7 +402,7 @@ public:
 
      @param scale estimates a resizing factor.
    */
-  virtual void consume(const class LFTrain* leaf,
+  virtual void consume(const class TrainBridge* train,
                unsigned int treeOff,
                double scale);
 
@@ -469,7 +426,7 @@ struct LBTrainReg : public LBTrain {
   /**
      @brief Description and parameters as with virutal declaration.
    */
-  void consume(const class LFTrain* leaf,
+  void consume(const class TrainBridge* train,
                unsigned int treeOff,
                double scale);
   /**
@@ -496,7 +453,7 @@ struct LBTrainCtg : public LBTrain {
   /**
      @brief Description and parameters as with virtual declaration.
    */
-  void consume(const class LFTrain* leaf,
+  void consume(const class TrainBridge* train,
                unsigned int treeOff,
                double scale);
 
@@ -506,18 +463,24 @@ struct LBTrainCtg : public LBTrain {
   List wrap();
 
 
+    /**
+   */
+  NumericVector numericResize(const double num[],
+                          size_t nodeOff,
+                          size_t elts,
+                          double scale);
+
 private:
   /**
      @brief Writes leaf weights from core representation.
 
-     @param leaf is the core representation of a tree's leaves.
+     Not jagged, so tree index parameter unneeded.
 
-     @param tIdx is the absolute tree index.
+     @param leaf is the core representation of a tree's leaves.
 
      @double scale estimates a resizing factor.
    */
-  void writeWeight(const class LFTrainCtg* leaf,
-                   unsigned int tIdx,
+  void writeWeight(const class TrainBridge* train,
                    double scale);
 
 };

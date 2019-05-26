@@ -43,9 +43,9 @@ struct PredictBox {
    */
   PredictBox(bool oob_,
              const BlockFrame* blockFrame_,
-             const Forest* forest_,
+             const class ForestBridge* forest_,
              const BitMatrix* bag_,
-             LeafFrame* leaf_,
+             const class LeafBridge* leaf_,
              unsigned int nThread);
 
   ~PredictBox();

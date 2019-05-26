@@ -22,11 +22,19 @@
  */
 
 template<typename rec>
-class RLE {
+struct RLE {
   rec val;
   unsigned int runLength;
 
- public:
+  RLE() {
+  }
+
+  
+  RLE(const rec& val_,
+      unsigned int runLength_) : val(val_),
+                                 runLength(runLength_) {
+  }
+  
   void bumpLength(unsigned int bump) {
     runLength += bump;
   }

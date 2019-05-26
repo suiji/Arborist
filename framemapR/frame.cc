@@ -1,22 +1,22 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of framemapR
 //
-// rfR is free software: you can redistribute it and/or modify it
+// framemapR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// frameampR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file signatureRf.cc
+   @file frame.cc
 
    @brief C++ interface to R entries for maintaining predictor data structures.
 
@@ -24,12 +24,13 @@
 */
 
 #include "signatureRf.h"
+#include "frame.h"
 #include "blockR.h"
 
 
 RcppExport SEXP FrameReconcile(SEXP sXFac,
                                SEXP sPredMap,
-                               SEXP sLv,
+                               SEXP sLevel,
                                SEXP sSigTrain) {
   BEGIN_RCPP
 
@@ -40,8 +41,8 @@ RcppExport SEXP FrameReconcile(SEXP sXFac,
     stop("Training, prediction data types do not match");
   }
   IntegerMatrix xFac(sXFac);// 0-based factor codes.
-  List levelTest(sLv);
-  List levelTrain((SEXP) sigTrain["level"]);
+  List levelTest(sLevel);
+  List levelTrain((SEXP) sigTrain["level"]); // SignatureRf::unwrapLevel()
   for (int col = 0; col < xFac.ncol(); col++) {
     CharacterVector colTest(as<CharacterVector>(levelTest[col]));
     CharacterVector colTrain(as<CharacterVector>(levelTrain[col]));
@@ -70,7 +71,7 @@ RcppExport SEXP WrapFrame(SEXP sX,
                           SEXP sXFac,
                           SEXP sPredMap,
                           SEXP sFacCard,
-                          SEXP sLv) {
+                          SEXP sLevel) {
   BEGIN_RCPP
 
   NumericMatrix xNum(sXNum);
@@ -88,35 +89,13 @@ RcppExport SEXP WrapFrame(SEXP sX,
                                 _["nRow"] = x.nrow(),
                                 _["facCard"] = facCard,
             _["signature"] = move(SignatureRf::wrapSignature(predMap,
-                                                            as<List>(sLv),
+                                                            as<List>(sLevel),
                                                             Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
                                                             Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
                                 );
   frame.attr("class") = "Frame";
 
   return frame;
-  END_RCPP
-}
-
-
-// Signature contains front-end decorations not exposed to the
-  // core.
-// Column and row names stubbed to zero-length vectors if null.
-SEXP SignatureRf::wrapSignature(const IntegerVector &predMap,
-                               const List &level,
-                               const CharacterVector &colNames,
-                               const CharacterVector &rowNames) {
-  BEGIN_RCPP
-  List signature =
-    List::create(
-                 _["predMap"] = predMap,
-                 _["level"] = level,
-                 _["colNames"] = colNames,
-                 _["rowNames"] = rowNames
-                 );
-  signature.attr("class") = "Signature";
-
-  return signature;
   END_RCPP
 }
 
@@ -232,49 +211,5 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   frame.attr("class") = "Frame";
 
   return frame;
-  END_RCPP
-}
-
-
-/**
-   @brief Unwraps field values useful for prediction.
- */
-List SignatureRf::unwrapSignature(const List& sFrame) {
-  BEGIN_RCPP
-  checkFrame(sFrame);
-  return checkSignature(sFrame);
-  END_RCPP
-}
-
-
-SEXP SignatureRf::checkSignature(const List &sParent) {
-  BEGIN_RCPP
-  List signature((SEXP) sParent["signature"]);
-  if (!signature.inherits("Signature")) {
-    stop("Expecting Signature");
-  }
-
-  return signature;
-  END_RCPP
-}
-
-
-void SignatureRf::signatureUnwrap(const List& sTrain, IntegerVector &predMap, List &level) {
-  List sSignature(checkSignature(sTrain));
-
-  predMap = as<IntegerVector>(sSignature["predMap"]);
-  level = as<List>(sSignature["level"]);
-}
-
-
-SEXP SignatureRf::checkFrame(const List &frame) {
-  BEGIN_RCPP
-  if (!frame.inherits("Frame")) {
-    stop("Expecting Frame");
-  }
-
-  if (!Rf_isNull(frame["blockFacSparse"])) {
-    stop ("Sparse factors:  NYI");
-  }
   END_RCPP
 }

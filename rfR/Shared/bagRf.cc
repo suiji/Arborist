@@ -24,7 +24,7 @@
  */
 
 #include "bagRf.h"
-#include "trainRf.h"
+#include "trainbridge.h"
 #include "bv.h"
 
 BagRf::BagRf(unsigned int nRow_, unsigned int nTree_) :
@@ -48,8 +48,8 @@ BagRf::~BagRf() {
 }
 
 
-void BagRf::consume(const Train *train, unsigned int treeOff) {
-  train->cacheBagRaw((unsigned char*) &raw[treeOff * rowBytes]);
+void BagRf::consume(const TrainBridge *train, unsigned int treeOff) {
+  train->dumpBagRaw((unsigned char*) &raw[treeOff * rowBytes]);
 }
 
 

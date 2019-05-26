@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_RLEFRAME_R_H
-#define ARBORIST_RLEFRAME_R_H
+#ifndef FRAMEMAPR_RLEFRAME_R_H
+#define FRAMEMAPR_RLEFRAME_R_H
 
 #include "rleframe.h"
 #include "summaryframe.h"

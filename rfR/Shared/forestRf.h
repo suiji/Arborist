@@ -18,7 +18,7 @@
 /**
    @file forestRf.H
 
-   @brief Bridge specializaton of Core Forest type.
+   @brief Bridge access to core Forest type for Random Forest algorithm.
 
    @author Mark Seligman
 
@@ -28,7 +28,6 @@
 #ifndef ARBORIST_FOREST_RF_H
 #define ARBORIST_FOREST_RF_H
 
-#include "forest.h"
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -38,48 +37,18 @@ using namespace Rcpp;
 using namespace std;
 
 /**
-   @brief Instantiates trained forest for prediction.
+   @brief Front-end access to ForestBridge.
  */
-class ForestRf {
-  // References to front end-style vectors:  can be pinned to preserve scope:
-  const IntegerVector &feHeight; // Accumulated height up to end of each tree.
-  const RawVector &feNode;
-  const IntegerVector& feFacHeight; // Accumulated factor height.
-  const RawVector &feFacSplit;
+struct ForestRf {
 
-protected:
   /**
      @brief Looks up and verifies forest member.
 
      @return forest member.
    */
-  static SEXP checkForest(const List &lTrain);
-
-  unique_ptr<class Forest> forest; // Pointer to core-level instance.
-  
- public:
-  ForestRf(const IntegerVector& feHeight_,
-               const RawVector &_feFacSplit,
-               const IntegerVector& feFacHeight_,
-               const RawVector &_feNode);
-
-
-  /**
-     @brief Getter for raw pointer to core-level instance.
-   */
-  const class Forest *getForest() const {
-    return forest.get();
-  }
+  static List checkForest(const List& lTrain);
 
   
-  /**
-     @brief Getter for count of trees.
-   */
-  const unsigned int getNTree() const {
-    return feHeight.length();
-  }
-
-
   /**
      @brief Factory incorporating trained forest cached by front end.
 
@@ -87,7 +56,7 @@ protected:
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<ForestRf> unwrap(const List &sTrain);
+  static unique_ptr<class ForestBridge> unwrap(const List &sTrain);
 };
 
 
@@ -95,7 +64,8 @@ protected:
    @brief As above, but with additional members to facilitate dumping on
    a per-tree basis.
  */
-class ForestExport final : public ForestRf {
+class ForestExport {
+  unique_ptr<ForestBridge> forestBridge;
   vector<vector<unsigned int> > predTree;
   vector<vector<unsigned int> > bumpTree;
   vector<vector<double > > splitTree;
@@ -103,16 +73,18 @@ class ForestExport final : public ForestRf {
 
   void predExport(const int predMap[]);
   void treeExport(const int predMap[],
-           vector<unsigned int> &pred,
-           const vector<unsigned int> &bump);
+                  vector<unsigned int> &pred,
+                  const vector<unsigned int> &bump);
 
  public:
-  ForestExport(List &forestList,
-               IntegerVector &predMap);
+  ForestExport(const List& forestList,
+               const IntegerVector& predMap);
 
   static unique_ptr<ForestExport> unwrap(const List &lTrain,
-                                         IntegerVector &predMap);
+                                         const IntegerVector &predMap);
 
+  unsigned int getNTree() const;
+  
   /**
      @brief Exportation methods for unpacking per-tree node contents
      as separate vectors.
@@ -144,18 +116,28 @@ class ForestExport final : public ForestRf {
    training.
  */
 struct FBTrain {
-  RawVector nodeRaw; // Packed representation of decision tree.
-  RawVector facRaw; // Bit-vector representation of factor splits.
+  RawVector nodeRaw; // Packed representation of decision tree nodes.
+  IntegerVector height; // Accumulated tree heights, by node.
 
-  IntegerVector height;
-  IntegerVector facHeight;
+  RawVector facRaw; // Bit-vector representation of factor splits.
+  IntegerVector facHeight; // Accumulated tree heights, by factor split.
 
   FBTrain(unsigned int nTree);
 
-  void consume(const class ForestTrain* forest,
+  /**
+     @brief Copies core representation of a chunk of trained trees.
+
+     @param treeOff is the beginning tree index of the trained chunk.
+
+     @param fraction is a scaling factor used to estimate buffer size.
+   */
+  void consume(const class TrainBridge* train,
                unsigned int treeOff,
                double fraction);
 
+  /**
+     @brief Decorates trained forest for storage by front end.
+   */
   List wrap();
 };
 

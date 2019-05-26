@@ -133,7 +133,7 @@ vector<size_t> LeafBlock::setOffsets() const {
 
 
 void LeafFrame::dump(const BitMatrix* baggedRows,
-                     vector< vector<unsigned int> > &rowTree,
+                     vector< vector<size_t> > &rowTree,
                      vector< vector<unsigned int> > &sCountTree,
                      vector<vector<double> >& scoreTree,
                      vector<vector<unsigned int> >& extentTree) const {
@@ -155,7 +155,7 @@ void LeafBlock::dump(vector<vector<double> >& score,
 
 
 void BLBlock::dump(const BitMatrix* baggedRows,
-                   vector<vector<unsigned int> >& rowTree,
+                   vector<vector<size_t> >& rowTree,
                    vector<vector<unsigned int> >& sCountTree) const {
   size_t bagIdx = 0;
   for (auto tIdx = 0ul; tIdx < raw->getNMajor(); tIdx++) {
@@ -325,7 +325,7 @@ void LeafFrameCtg::vote() {
 
 
 void LeafFrameCtg::dump(const BitMatrix *baggedRows,
-                        vector<vector<unsigned int> > &rowTree,
+                        vector<vector<size_t> > &rowTree,
                         vector<vector<unsigned int> > &sCountTree,
                         vector<vector<double> > &scoreTree,
                         vector<vector<unsigned int> > &extentTree,
@@ -636,6 +636,6 @@ void BBCresc::dumpRaw(unsigned char blRaw[]) const {
   }
 }
 
-void LFTrainCtg::dumpProb(double probOut[]) const {
+void LFTrainCtg::dumpWeight(double probOut[]) const {
   probCresc->dump(probOut);
 }

@@ -23,10 +23,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_TRAIN_RF_H
-#define ARBORIST_TRAIN_RF_H
-
-#include "train.h"
+#ifndef RFR_TRAIN_RF_H
+#define RFR_TRAIN_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -173,7 +171,6 @@ struct TrainRf {
    */
   static List train(const List &argList,
                     const IntegerVector &predMap,
-                    //                    const vector<unsigned int> &facCard,
                     unsigned int nRow);
 
   /**
@@ -183,7 +180,7 @@ struct TrainRf {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const class Train* train,
+  void consume(const class TrainBridge* train,
                unsigned int tIdx,
                unsigned int chunkSize);
 

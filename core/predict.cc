@@ -15,7 +15,9 @@
 
 #include "blockframe.h"
 #include "forest.h"
+#include "forestbridge.h"
 #include "leaf.h"
+#include "leafbridge.h"
 #include "predict.h"
 #include "bv.h"
 #include "quant.h"
@@ -24,15 +26,15 @@
 
 PredictBox::PredictBox(bool oob_,
                        const BlockFrame* blockFrame_,
-                       const Forest* forest_,
+                       const ForestBridge* forest_,
                        const BitMatrix* bag_,
-                       LeafFrame* leafFrame_,
+                       const LeafBridge* leafBridge,
                        unsigned int nThread) :
   oob(oob_),
   blockFrame(blockFrame_),
-  forest(forest_),
+  forest(forest_->getForest()),
   bag(bag_),
-  leafFrame(leafFrame_) {
+  leafFrame(leafBridge->getLeaf()) {
   OmpThread::init(nThread);
 }
 

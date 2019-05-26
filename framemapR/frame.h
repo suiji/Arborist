@@ -1,19 +1,19 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of framemapR.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// framemapR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// framemapR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file signatureRf.h
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_SIGNATURE_RF_H
-#define ARBORIST_SIGNATURE_RF_H
+#ifndef FRAMEMAPR_FRAME_H
+#define FRAMEMAPR_FRAME_H
 
 
 #include <Rcpp.h>
@@ -81,53 +81,5 @@ RcppExport SEXP WrapFrame(SEXP sX,
 RcppExport SEXP FrameNum(SEXP sX);
 
 RcppExport SEXP FrameSparse(SEXP sX);
-
-struct SignatureRf {
-
-  /**
-     @brief Pulls signature member from a Frame object.
-
-     @param sFrame contains the parent Frame.
-
-     @return member of type Signature.
-   */
-  static List unwrapSignature(const List& sFrame);
-
-  /**
-     @brief Ensures the passed object has Frame type.
-
-     @param frame is the object to be checked.
-   */
-  static SEXP checkFrame(const List& frame);
-
-
-  /**
-     @brief Ensures passed object contains member of class Signature.
-
-     @param sParent is the parent object.
-
-     @return signature object. 
-   */
-  static SEXP checkSignature(const List& sParent);
-
-  
-  /**
-     @brief Unwraps field values useful for export.
-
-     @param[out] predMap outputs the core predictor mapping.
-
-     @param[out] level outputs the training factor levels.
-   */
-  static void signatureUnwrap(const List& sTrain,
-                              IntegerVector& predMap,
-                              List& level);
-
-  static SEXP wrapSignature(const IntegerVector& predMap,
-                 const List& level,
-                 const CharacterVector& colNames,
-                 const CharacterVector& rowNames);
-
-};
-
 
 #endif

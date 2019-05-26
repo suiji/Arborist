@@ -339,6 +339,13 @@ public:
   void treeInit(unsigned int tIdx,
                 unsigned int nodeCount);
 
+  /**
+     @brief Computes unit size for cross-compatibility of serialization.
+   */
+  static constexpr size_t nodeSize() {
+    return sizeof(TreeNode);
+  }
+  
 
   /**
      @brief Copies treeNode contents by byte.
@@ -426,6 +433,14 @@ public:
                   unsigned int bitEnd,
                   unsigned int tIdx);
 
+
+  /**
+     @brief Computes unit size for cross-compatibility of serialization.
+   */
+  static constexpr size_t unitSize() {
+    return sizeof(unsigned int);
+  }
+  
   /**
      @brief Dumps factor bits as raw data.
 

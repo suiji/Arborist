@@ -327,6 +327,10 @@ public:
                         const vector<unsigned int>& leafMap,
                         unsigned int tIdx);
 
+  virtual void dumpWeight(double weightOut[]) const = 0;
+
+  virtual size_t getWeightSize() const = 0;
+  
   /**
      @brief Appends this tree's leaves to the current block.
 
@@ -399,6 +403,19 @@ public:
   shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                       class BitMatrix* bag,
                                       unsigned int tIdx) const;
+
+  /**
+     @brief Returns zero, indicating no weight matrix for this class.
+   */
+  size_t getWeightSize() const {
+    return 0;
+  }
+
+  /**
+     @brief Dummy:  no weight matrix.
+   */
+  void dumpWeight(double weightOut[]) const {
+  }
 };
 
 
@@ -529,12 +546,12 @@ public:
 
      @param[out] probOut exports the dumped values.
    */
-  void dumpProb(double probOut[]) const;
+  void dumpWeight(double probOut[]) const;
 
   /**
      @brief Gets the size of the probability vector.
    */
-  inline size_t getProbSize() const {
+  size_t getWeightSize() const {
     return probCresc->size();
   }
 
@@ -706,7 +723,7 @@ public:
 
 
   void dump(const class BitMatrix* baggedRows,
-            vector<vector<unsigned int> >& rowTree,
+            vector<vector<size_t> >& rowTree,
             vector<vector<unsigned int> >& sCountTree) const;
 
 
@@ -750,7 +767,7 @@ public:
   const size_t noLeaf; // Inattainable leaf index value.
 
   virtual ~LeafFrame() {}
-  virtual const unsigned int rowPredict() const = 0;
+  virtual const unsigned int getRowPredict() const = 0;
 
   /**
      @brief Sets scores for a block of rows.
@@ -829,9 +846,9 @@ public:
   /**
      @brief Dumps block components into separate tree-based vectors.
    */
-  void dump(const class BitMatrix *baggedRows,
-            vector< vector<unsigned int> > &rowTree,
-            vector< vector<unsigned int> > &sCountTree,
+  void dump(const class BitMatrix* baggedRows,
+            vector< vector<size_t> >& rowTree,
+            vector< vector<unsigned int> >& sCountTree,
             vector<vector<double> >& scoreTree,
             vector<vector<unsigned int> >& extentTree) const;
 };
@@ -902,6 +919,7 @@ class LeafFrameReg : public LeafFrame {
     return yPred;
   }
 
+  
   inline const double getYPred(unsigned int row) const {
     return yPred[row];
   }
@@ -912,7 +930,7 @@ class LeafFrameReg : public LeafFrame {
 
      @return size of prediction vector.
    */
-  const unsigned int rowPredict() const {
+  const unsigned int getRowPredict() const {
     return yPred.size();
   }
 
@@ -1112,10 +1130,16 @@ class LeafFrameCtg : public LeafFrame {
     return yPred;
   }
 
+
+  const unsigned int getYPred(size_t row) {
+    return yPred[row];
+  }
+  
+
   /**
      @brief Getter for number of rows to predict.
    */
-  const unsigned int rowPredict() const {
+  const unsigned int getRowPredict() const {
     return yPred.size();
   }
 
@@ -1123,14 +1147,14 @@ class LeafFrameCtg : public LeafFrame {
   /**
      @brief Getter for census.
    */
-  const unsigned int *Census() const {
+  const unsigned int* getCensus() const {
     return &census[0];
   }
 
   /**
      @brief Getter for probability matrix.
    */
-  const vector<double> &Prob() const {
+  const vector<double>& getProb() const {
     return prob;
   }
   
@@ -1175,7 +1199,7 @@ class LeafFrameCtg : public LeafFrame {
      @brief Dumps bagging and leaf information into per-tree vectors.
    */
   void dump(const BitMatrix *baggedRows,
-            vector<vector<unsigned int> > &rowTree,
+            vector<vector<size_t> > &rowTree,
             vector<vector<unsigned int> > &sCountTree,
             vector<vector<double> > &scoreTree,
             vector<vector<unsigned int> > &extentTree,

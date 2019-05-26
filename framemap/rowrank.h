@@ -22,7 +22,13 @@ class RowRank {
   unsigned int rank;
 
  public:
-
+  RowRank() {}
+  
+  RowRank(unsigned int row_,
+          unsigned int rank_) : row(row_),
+                                rank(rank_) {
+  }
+  
   void init(unsigned int row, unsigned int rank) {
     this->row = row;
     this->rank = rank;

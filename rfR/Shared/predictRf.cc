@@ -26,7 +26,10 @@
 #include "predictRf.h"
 #include "bagRf.h"
 #include "forestRf.h"
+#include "forestbridge.h"
+#include "leaf.h"
 #include "leafRf.h"
+#include "leafbridge.h"
 #include "blockframeR.h"
 #include "quant.h"
 
@@ -72,7 +75,7 @@ List PBRfReg::reg(const List& sPredFrame,
 List PBRfReg::predict(SEXP sYTest) const {
   BEGIN_RCPP
   Predict::predict(box.get());
-  return leaf->summary(sYTest);
+  return LeafRegRf::summary(sYTest, leaf.get());
   END_RCPP
 }
 
@@ -91,21 +94,21 @@ unique_ptr<PBRfReg> PBRfReg::factory(const List& sPredFrame,
 
 
 PBRfReg::PBRfReg(unique_ptr<BlockFrameR> blockFrame_,
-                 unique_ptr<ForestRf> forest_,
+                 unique_ptr<ForestBridge> forest_,
                  unique_ptr<BagRf> bag_,
-                 unique_ptr<LeafRegRf> leaf_,
+                 unique_ptr<LeafRegBridge> leaf_,
                  bool oob,
                  unsigned int nThread) :
   PBRf(move(blockFrame_),
-           move(forest_),
-           move(bag_)),
+       move(forest_),
+       move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest.get(), bag->getRaw(), leaf.get(), nThread);
 }
 
 
 PBRf::PBRf(unique_ptr<BlockFrameR> blockFrame_,
-                   unique_ptr<ForestRf> forest_,
+                   unique_ptr<ForestBridge> forest_,
                    unique_ptr<BagRf> bag_) :
   blockFrame(move(blockFrame_)),
   forest(move(forest_)),
@@ -169,15 +172,15 @@ List PBRfCtg::ctg(const List& sPredFrame,
   BEGIN_RCPP
 
     auto pbRf = factory(sPredFrame, lTrain, oob, doProb, nThread);
-  return pbRf->predict(sYTest, sPredFrame);
+  return pbRf->predict(sYTest, LeafCtgRf::checkLeaf(lTrain), sPredFrame);
 
   END_RCPP
 }
 
-List PBRfCtg::predict(SEXP sYTest, const List& sPredFrame) const {
+List PBRfCtg::predict(SEXP sYTest, const List& lLeaf, const List& sPredFrame) const {
   BEGIN_RCPP
   Predict::predict(box.get());
-  return leaf->summary(sYTest, sPredFrame);
+  return LeafCtgRf::summary(sPredFrame, lLeaf, leaf.get(), sYTest);
   END_RCPP
 }
 
@@ -197,16 +200,16 @@ unique_ptr<PBRfCtg> PBRfCtg::factory(const List& sPredFrame,
 
 
 PBRfCtg::PBRfCtg(unique_ptr<BlockFrameR> blockFrame_,
-                 unique_ptr<ForestRf> forest_,
+                 unique_ptr<ForestBridge> forest_,
                  unique_ptr<BagRf> bag_,
-                 unique_ptr<LeafCtgRf> leaf_,
+                 unique_ptr<LeafCtgBridge> leaf_,
                  bool oob,
                  unsigned int nThread) :
   PBRf(move(blockFrame_),
        move(forest_),
        move(bag_)),
   leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest->getForest(), bag->getRaw(), leaf->getLeaf(), nThread);
+  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest.get(), bag->getRaw(), leaf.get(), nThread);
 }
 
 
@@ -253,7 +256,6 @@ List PBRfReg::predict(const double* quantile, unsigned int nQuant, SEXP sYTest) 
 
   auto quant = make_unique<Quant>(box.get(), quantile, nQuant);
   Predict::predict(box.get(), quant.get());
-  return leaf->summary(sYTest, quant.get());
-
+  return LeafRegRf::summary(sYTest, leaf.get(), quant.get());
   END_RCPP
 }

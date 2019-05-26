@@ -50,7 +50,8 @@ class ValRank {
 public:
 
   ValRank(const tn val[],
-          unsigned int nRow_) : nRow(nRow_), valRow(vector<ValRow<tn> >(nRow)) {
+          unsigned int nRow_) : nRow(nRow_),
+                                valRow(vector<ValRow<tn> >(nRow)) {
     unsigned int row = 0;
     for (auto & vr : valRow) {
       vr.init(val[row], row);
@@ -118,49 +119,6 @@ public:
       row2Rank[vr.row] = vr.rank;
     }
     return row2Rank;
-  }
-
-  
-  /**
-     @brief Recasts contents as runs over consecutive rows.
-
-     @param[out] rank assigns ranks to distinctly-valued runs.
-
-     @param[out] row gives the starting row of a run.
-
-     @param[out] runLength is the length of a given run.
-
-     @param valUniq is true iff values are to be emitted uniquely.
-   */
-  void encodeRuns(vector<tn>& val,
-                  vector<unsigned int>& rank,
-                  vector<unsigned int>& row,
-                  vector<unsigned int>& runLength,
-                  bool valUnique = true) {
-    unsigned int rowThis = getRow(0);
-    tn valThis = getVal(0); // Assumes >= 1 row.
-    val.push_back(valThis);
-    runLength.push_back(1);
-    rank.push_back(getRank(0));
-    row.push_back(rowThis);
-    for (size_t idx = 1; idx < nRow; idx++) {
-      unsigned int rowPrev = rowThis;
-      rowThis = getRow(idx);
-      tn valPrev = valThis;
-      valThis = getVal(idx);
-      bool sameVal = valThis == valPrev;
-      if (sameVal && rowThis == (rowPrev + 1)) {
-        runLength.back()++;
-      }
-      else {
-        if (!valUnique || !sameVal) {
-          val.push_back(valThis);
-        }
-        runLength.push_back(1);
-        rank.push_back(getRank(idx));
-        row.push_back(rowThis);
-      }
-    }
   }
 };
 #endif

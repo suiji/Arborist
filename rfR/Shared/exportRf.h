@@ -31,37 +31,37 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP ForestFloorExport(SEXP sArbOut);
+RcppExport SEXP ForestFloorExport(SEXP sTrain);
 
 struct ExportRf {
 
-  static List fFloorLeafReg(const class LeafRegRf *leaf,
+  static List fFloorLeafReg(const class LeafExportReg* leaf,
                             unsigned int tIdx);
 
-  static List fFloorLeafCtg(const class LeafCtgRf *leaf,
+  static List fFloorLeafCtg(const class LeafExportCtg* leaf,
                             unsigned int tIdx);
 
-  static List fFloorForest(const class ForestExport *forestExport,
+  static List fFloorForest(const class ForestExport* forestExport,
                            unsigned int tIdx);
 
-  static IntegerVector fFloorBag(const class LeafRf *leaf,
+  static IntegerVector fFloorBag(const class LeafExport* leaf,
                                  unsigned int tIdx,
                                  unsigned int rowTrain);
 
-  static List fFloorTreeReg(const List &sTrain,
-                            IntegerVector &predMap);
+  static List fFloorTreeReg(const List& sTrain,
+                            const IntegerVector& predMap);
 
-  static List fFloorTreeCtg(const class ForestExport *forest,
-                            const class LeafCtgRf *leaf,
+  static List fFloorTreeCtg(const class ForestExport* forest,
+                            const class LeafExportCtg* leaf,
                             unsigned int rowTrain);
 
   static List fFloorReg(const List& sTrain,
-                        IntegerVector &predMap,
-                        List &predLevel);
+                        const IntegerVector& predMap,
+                        const List& predLevel);
 
   static List fFloorCtg(const List& sTrain,
-                        IntegerVector &predMap,
-                        List &predLevel);
+                        const IntegerVector& predMap,
+                        const List& predLevel);
 };
 
 #endif

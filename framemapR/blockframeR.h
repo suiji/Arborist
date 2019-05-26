@@ -24,8 +24,8 @@
 
  */
 
-#ifndef ARBORIST_BLOCKFRAME_R_H
-#define ARBORIST_BLOCKFRAME_R_H
+#ifndef FRAMEMAPR_BLOCKFRAME_R_H
+#define FRAMEMAPR_BLOCKFRAME_R_H
 
 #include "blockframe.h"
 #include "blockR.h"

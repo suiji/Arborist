@@ -44,7 +44,7 @@ Quant::Quant(const PredictBox* box,
 }
 
 unsigned int Quant::getNRow() const {
-  return baggedRows->isEmpty() ? 0 : leafReg->rowPredict();
+  return baggedRows->isEmpty() ? 0 : leafReg->getRowPredict();
 }
 
 

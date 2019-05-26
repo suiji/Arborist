@@ -113,7 +113,7 @@ RcppExport SEXP TestVotes(const SEXP sPredFrame,
  */
 struct PBRf {
   unique_ptr<class BlockFrameR> blockFrame; // Predictor layout.
-  unique_ptr<class ForestRf> forest; // Trained forest.
+  unique_ptr<class ForestBridge> forest; // Trained forest.
   unique_ptr<class BagRf> bag; // Bagged row indicator.
   unique_ptr<struct PredictBox> box; // Core-level prediction frame.
 
@@ -124,13 +124,13 @@ struct PBRf {
      Paramter names mirror member names.
    */
   PBRf(unique_ptr<BlockFrameR> blockFrame_,
-           unique_ptr<ForestRf> forest_,
-           unique_ptr<BagRf> bag_);
+       unique_ptr<class ForestBridge> forest_,
+       unique_ptr<BagRf> bag_);
 };
 
 
 struct PBRfReg : public PBRf {
-  unique_ptr<class LeafRegRf> leaf;
+  unique_ptr<class LeafRegBridge> leaf;
 
   /**
      @brief Constructor.
@@ -138,9 +138,9 @@ struct PBRfReg : public PBRf {
      Parameter names mirror member names.
    */
   PBRfReg(unique_ptr<BlockFrameR> blockFrame_,
-              unique_ptr<ForestRf> forest_,
+              unique_ptr<class ForestBridge> forest_,
               unique_ptr<BagRf> bag_,
-              unique_ptr<LeafRegRf> leaf_,
+              unique_ptr<LeafRegBridge> leaf_,
               bool oob,
               unsigned int nThread);
 
@@ -206,14 +206,14 @@ private:
 
 
 struct PBRfCtg : public PBRf {
-  unique_ptr<class LeafCtgRf> leaf;
+  unique_ptr<class LeafCtgBridge> leaf;
 
   PBRfCtg(unique_ptr<BlockFrameR> blockFrame_,
-              unique_ptr<ForestRf> forest_,
-              unique_ptr<BagRf> bag_,
-              unique_ptr<LeafCtgRf> leaf_,
-              bool oob,
-              unsigned int nThread);
+          unique_ptr<class ForestBridge> forest_,
+          unique_ptr<BagRf> bag_,
+          unique_ptr<LeafCtgBridge> leaf_,
+          bool oob,
+          unsigned int nThread);
 
   /**
      @brief Prediction for classification.  Paramters as above.
@@ -243,7 +243,7 @@ private:
 
      @return wrapped prediction.
    */
-  List predict(SEXP sYTest, const List& sPredFrame) const;
+  List predict(SEXP sYTest, const List& lTrain, const List& sPredFrame) const;
 };
 
 #endif
