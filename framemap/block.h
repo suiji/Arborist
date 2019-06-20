@@ -30,11 +30,11 @@ template<class ty>
 class Block {
  protected:
   const ty* raw;
-  const unsigned int nCol; // # columns in untransposed form.
+  const size_t nCol; // # columns.
  public:
 
   Block(const ty raw_[],
-        unsigned int nCol_) :
+        size_t nCol_) :
     raw(raw_),
     nCol(nCol_) {}
 
@@ -43,23 +43,43 @@ class Block {
   inline const auto getNCol() const {
     return nCol;
   }
-
 };
 
 
+/**
+   @brief Rectangular block, parametrized by row and column.
+
+   Row-major access.
+ */
 template<class ty>
 class BlockDense : public Block<ty> {
+  size_t nRow;
+
 public:
 
-  BlockDense(unsigned int nCol,
+  BlockDense(size_t nRow_,
+             size_t nCol_,
              const ty raw_[]) :
-    Block<ty>(raw_, nCol) {
+    Block<ty>(raw_, nCol_), nRow(nRow_) {
   }
 
   ~BlockDense() {
   }
 
-  
+  size_t getNRow() const {
+    return nRow;
+  }
+
+  /**
+     @brief Exposes contents of a given row.
+
+     @param row is the given row.
+
+     @return pointer to base of row contents.
+   */  
+  inline const ty* rowBase(size_t row) const {
+    return Block<ty>::raw + Block<ty>::nCol * row;
+  }
 };
 
 
@@ -73,7 +93,7 @@ class BlockJagged : public Block<ty> {
  public:
   BlockJagged(const ty raw_[],
 	      const unsigned int colOffset_[],
-              unsigned int nCol_) :
+              size_t nCol_) :
     Block<ty>(raw_, nCol_),
     colOffset(colOffset_) {
   }
@@ -89,79 +109,36 @@ class BlockJagged : public Block<ty> {
 };
 
 
-/**
-   @brief Variant offering sub-block windowing.  Temporary workaround
-   to be removed when blocked transposition is available.
- */
-template<class ty>
-class BlockWindow : public Block<ty> {
-protected:
-  unsigned int rowWindow; // Iterator state.
-
-public:
-  
-  /**
-     @brief Updates window offset.
-   */
-  virtual inline void reWindow(unsigned int rowStart,
-                               unsigned int rowEnd,
-                               unsigned int rowBlock) {
-    rowWindow = rowStart;
-  }
-
-
-  /**
-     @brief Determines position of row within window.
-
-     @param rowOff is the offset of a given row.
-
-     @return pointer to base of row contents.
-   */  
-  virtual inline const ty* rowBase(unsigned int rowOff) const {
-    return Block<ty>::raw + Block<ty>::nCol * (rowWindow + rowOff);
-  }
-
-  BlockWindow(unsigned int nCol,
-              const ty raw_[]) :
-    Block<ty>(raw_, nCol) {
-  }
-
-
-  ~BlockWindow() {
-  }
-};
-  
 
 /**
    @brief Runlength-encoded sparse representation.
  */
 template<class ty>
-class BlockWindowRLE : public BlockWindow<ty> {
-  const unsigned int* rowStart;
+class BlockRLE : public Block<ty> {
+  const unsigned int* rowOff;
   const unsigned int* runLength;
   const unsigned int* predStart;
+  // Persistent transpose state:
   vector<unsigned int> rowNext;
   vector<unsigned int> idxNext;
-  ty* window;  // iterator state.
-  vector<ty> transVal; // iterator work space.
+  vector<ty> transVal;
 
 public:
 
  /**
      @brief Sparse constructor for prediction frame.
   */
-  BlockWindowRLE(unsigned int nCol_,
+  BlockRLE(size_t nCol_,
            const ty* raw_,
-           const unsigned int* rowStart_,
+           const unsigned int* rowOff_,
            const unsigned int* runLength_,
            const unsigned int* predStart_) :
-    BlockWindow<ty>(nCol_, raw_),
-    rowStart(rowStart_),
+    Block<ty>(raw_, nCol_),
+    rowOff(rowOff_),
     runLength(runLength_),
     predStart(predStart_),
     rowNext(vector<unsigned int>(Block<ty>::nCol)),
     idxNext(vector<unsigned int>(Block<ty>::nCol)),
-    window(nullptr),
     transVal(vector<ty>(Block<ty>::nCol)) {
     fill(rowNext.begin(), rowNext.end(), 0ul); // Position of first update.
     unsigned int predIdx = 0;
@@ -170,41 +147,31 @@ public:
     }
   }
 
-  ~BlockWindowRLE() {
-    if (window != nullptr) {
-      delete [] window;
-    }
+  ~BlockRLE() {
   }
 
-  inline void reWindow(unsigned int rowWindow,
-                       unsigned int rowEnd,
-                       unsigned int rowBlock) {
-    BlockWindow<ty>::rowWindow = rowWindow;
-    if (window == nullptr) {
-      window = new ty[rowBlock * Block<ty>::nCol];
-    }
-    for (unsigned int row = rowWindow; row < rowEnd; row++) {
-      for (unsigned int predIdx = 0; predIdx < Block<ty>::nCol; predIdx++) {
-        if (row == rowNext[predIdx]) { // Assignments persist across invocations:
-          unsigned int vecIdx = idxNext[predIdx];
-          transVal[predIdx] = Block<ty>::raw[vecIdx];
-          rowNext[predIdx] = rowStart[vecIdx] + runLength[vecIdx];
-          idxNext[predIdx] = ++vecIdx;
-        }
-        window[(row - rowWindow) * Block<ty>::nCol + predIdx] = transVal[predIdx];
-      }
-    }
-  }
 
   /**
-     @brief Determines position of row within window.
+     @brief Transposes a block of rows into a dense sub-block.
 
-     @param rowOff is the window-relative offset of a given row.
-
-     @return pointer to base of row contents.
+     @param[out] window outputs the densely-transposed values.
    */  
-  inline const ty* rowBase(unsigned int rowOff) const {
-    return window + Block<ty>::nCol * rowOff;
+  inline void transpose(ty* window,
+                        size_t rowStart,
+                        size_t extent) {
+    ty* winRow = window;
+    for (size_t row = rowStart; row < rowStart + extent; row++) {
+      for (unsigned int predIdx = 0; predIdx < Block<ty>::nCol; predIdx++) {
+        if (row == rowNext[predIdx]) { // Assignments persist across invocations:
+          unsigned int valIdx = idxNext[predIdx];
+          transVal[predIdx] = Block<ty>::raw[valIdx];
+          rowNext[predIdx] = rowOff[valIdx] + runLength[valIdx];
+          idxNext[predIdx] = valIdx + 1;
+        }
+        winRow[predIdx] = transVal[predIdx];
+      }
+      winRow += Block<ty>::nCol;
+    }
   }
 };
 
@@ -241,8 +208,8 @@ class BlockIPCresc {
 
 public:
 
-  BlockIPCresc(unsigned int nRow_,
-                unsigned int nCol) :
+  BlockIPCresc(size_t nRow_,
+               size_t nCol) :
     nRow(nRow_),
     nPred(nCol),
     predStart(vector<unsigned int>(nPred)) {

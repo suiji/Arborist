@@ -24,8 +24,10 @@
  */
 
 #include "bagRf.h"
-#include "trainbridge.h"
+#include "bagbridge.h"
 #include "bv.h"
+#include "trainbridge.h"
+
 
 BagRf::BagRf(unsigned int nRow_, unsigned int nTree_) :
   nRow(nRow_),
@@ -35,26 +37,12 @@ BagRf::BagRf(unsigned int nRow_, unsigned int nTree_) :
 }
 
 
-BagRf::BagRf(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_) :
-  nRow(nRow_),
-  nTree(nTree_),
-  rowBytes(BitMatrix::strideBytes(nRow)),
-  raw(raw_),
-  bmRaw(raw.length() > 0 ? make_unique<BitMatrix>((unsigned int*) &raw[0], nTree, nRow) : make_unique<BitMatrix>(0, 0)) {
-}
-
-
 BagRf::~BagRf() {
 }
 
 
 void BagRf::consume(const TrainBridge *train, unsigned int treeOff) {
   train->dumpBagRaw((unsigned char*) &raw[treeOff * rowBytes]);
-}
-
-
-const BitMatrix *BagRf::getRaw() {
-  return bmRaw.get();
 }
 
 
@@ -71,16 +59,22 @@ List BagRf::wrap() {
 }
 
 
-unique_ptr<BagRf> BagRf::unwrap(const List &sTrain, const List &sPredFrame, bool oob) {
+unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain, const List &sPredFrame, bool oob) {
 
   List sBag((SEXP) sTrain["bag"]);
   if (oob) {
     checkOOB(sBag, sPredFrame);
   }
 
-  return make_unique<BagRf>(as<unsigned int>(sBag["nRow"]),
-                                as<unsigned int>(sBag["nTree"]),
-                                RawVector((SEXP) sBag["raw"]));
+  RawVector raw((SEXP) sBag["raw"]);
+  if (raw.length() > 0) {
+    return make_unique<BagBridge>(as<unsigned int>(sBag["nTree"]),
+                                  as<unsigned int>(sBag["nRow"]),
+                                  RawVector((SEXP) sBag["raw"]).begin());
+  }
+  else {
+    return make_unique<BagBridge>();
+  }
 }
 
 
@@ -95,10 +89,11 @@ SEXP BagRf::checkOOB(const List& sBag, const List& sPredFrame) {
   END_RCPP
 }
 
-unique_ptr<BagRf> BagRf::unwrap(const List &sTrain) {
+
+unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain) {
   List sBag((SEXP) sTrain["bag"]);
-  return make_unique<BagRf>(as<unsigned int>(sBag["nRow"]),
+  return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
                                 as<unsigned int>(sBag["nTree"]),
-                                RawVector((SEXP) sBag["raw"]));
+                                (unsigned char*) RawVector((SEXP) sBag["raw"]).begin());
 }
 

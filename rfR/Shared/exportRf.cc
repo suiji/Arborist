@@ -25,11 +25,13 @@
 
 #include "exportRf.h"
 #include "bagRf.h"
+#include "bagbridge.h"
 #include "signatureRf.h"
 #include "forestRf.h"
 #include "forestbridge.h"
 #include "leafRf.h"
-#include "leaf.h"
+#include "leafbridge.h"
+
 #include "bv.h"
 #include <vector>
 
@@ -191,7 +193,7 @@ List ExportRf::fFloorLeafCtg(const LeafExportCtg* leaf,
 
 /**
  */
-List ExportRf::fFloorReg(const List& lTrain,
+List ExportRf::fFloorReg(const List& lArb,
                          const IntegerVector& predMap,
                          const List& predLevel) {
   BEGIN_RCPP
@@ -201,7 +203,7 @@ List ExportRf::fFloorReg(const List& lTrain,
     List::create(
                  _["facMap"] = IntegerVector(predMap.end() - facCount, predMap.end()),
                  _["predLevel"] = predLevel,
-                 _["tree"] = fFloorTreeReg(lTrain, predMap)
+                 _["tree"] = fFloorTreeReg(lArb, predMap)
                  );
   ffe.attr("class") = "ForestFloorReg";
   return ffe;
@@ -212,13 +214,13 @@ List ExportRf::fFloorReg(const List& lTrain,
 
 /**
  */
-List ExportRf::fFloorTreeReg(const List& lTrain,
+List ExportRf::fFloorTreeReg(const List& lArb,
                              const IntegerVector& predMap) {
   BEGIN_RCPP
 
-  auto bag(BagRf::unwrap(lTrain));
-  auto leaf(LeafExportReg::unwrap(lTrain, bag->getRaw()));
-  auto forest(ForestExport::unwrap(lTrain, predMap));
+  auto bag(BagRf::unwrap(lArb));
+  auto leaf(LeafExportReg::unwrap(lArb, bag->getRaw()));
+  auto forest(ForestExport::unwrap(lArb, predMap));
 
   auto nTree = bag->getNTree();
   List trees(nTree);
@@ -240,14 +242,14 @@ List ExportRf::fFloorTreeReg(const List& lTrain,
 
 /**
  */
-List ExportRf::fFloorCtg(const List& lTrain,
+List ExportRf::fFloorCtg(const List& lArb,
                          const IntegerVector& predMap,
                          const List& predLevel) {
   BEGIN_RCPP
 
-  auto bag(BagRf::unwrap(lTrain));
-  auto leaf(LeafExportCtg::unwrap(lTrain, bag->getRaw()));
-  auto forest(ForestExport::unwrap(lTrain, predMap));
+  auto bag(BagRf::unwrap(lArb));
+  auto leaf(LeafExportCtg::unwrap(lArb, bag->getRaw()));
+  auto forest(ForestExport::unwrap(lArb, predMap));
   int facCount = predLevel.length();
   List ffe =
     List::create(
@@ -262,4 +264,70 @@ List ExportRf::fFloorCtg(const List& lTrain,
   END_RCPP
 }
 
+
+unique_ptr<LeafExportCtg> LeafExportCtg::unwrap(const List &lTrain,
+                                                const BitMatrix *baggedRows) {
+  List lLeaf(LeafCtgRf::checkLeaf(lTrain));
+  return make_unique<LeafExportCtg>(lLeaf, baggedRows);
+}
+
+LeafExport::LeafExport(unsigned int nTree_) :
+  nTree(nTree_),
+  rowTree(vector<vector<size_t> >(nTree)),
+  sCountTree(vector<vector<unsigned int> >(nTree)),
+  extentTree(vector<vector<unsigned int> >(nTree)) {
+}
+
+
+/**
+   @brief Constructor caches front-end vectors and instantiates a Leaf member.
+ */
+LeafExportCtg::LeafExportCtg(const List& lLeaf,
+                             const BitMatrix* baggedRows) :
+  LeafExport((unsigned int) IntegerVector((SEXP) lLeaf["nodeHeight"]).length()),
+  levelsTrain(CharacterVector((SEXP) lLeaf["levels"])),
+  scoreTree(vector<vector<double > >(nTree)),
+  weightTree(vector<vector<double> >(nTree)) {
+  unique_ptr<LeafCtgBridge>  leaf =
+    make_unique<LeafCtgBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
+                               nTree,
+                               (unsigned char*) RawVector((SEXP) lLeaf["node"]).begin(),
+                               (unsigned int*) IntegerVector((SEXP) lLeaf["bagHeight"]).begin(),
+                               (unsigned char*) RawVector((SEXP) lLeaf["bagSample"]).begin(),
+                               (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
+                               (unsigned int) CharacterVector((SEXP) lLeaf["levels"]).length(),
+                               0,
+                               false);
+  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree, weightTree);
+}
+
+
+unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain,
+                                                const BitMatrix *baggedRows) {
+  List lLeaf(LeafRegRf::checkLeaf(lTrain));
+  return make_unique<LeafExportReg>(lLeaf, baggedRows);
+}
+ 
+
+/**
+   @brief Constructor instantiates leaves for export only:
+   no prediction.
+ */
+LeafExportReg::LeafExportReg(const List& lLeaf,
+                             const BitMatrix* baggedRows) :
+  LeafExport((unsigned int) IntegerVector((SEXP) lLeaf["nodeHeight"]).length()),
+  yTrain(NumericVector((SEXP) lLeaf["yTrain"])),
+  scoreTree(vector<vector<double > >(nTree)) {
+  unique_ptr<LeafRegBridge> leaf =
+    make_unique<LeafRegBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
+                               (unsigned int) IntegerVector((SEXP) lLeaf["nodeHeight"]).length(),
+                               (unsigned char*) RawVector((SEXP) lLeaf["node"]).begin(),
+                               (unsigned int*) IntegerVector((SEXP) lLeaf["bagHeight"]).begin(),
+                               (unsigned char*) RawVector((SEXP) lLeaf["bagSample"]).begin(),
+                               (double*) yTrain.begin(),
+                               (size_t) yTrain.length(),
+                               mean(yTrain),
+                               0);
+  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
+}
 

@@ -43,12 +43,11 @@ List RLEFrameR::presort(const List& frame) {
   BEGIN_RCPP
 
   auto rleCresc = make_unique<RLECresc>(as<unsigned int>(frame["nRow"]),
-                                       as<unsigned int>(frame["nPredNum"]),
-                                       as<unsigned int>(frame["nPredFac"])
-                                       );
+                                        as<unsigned int>(frame["nPredNum"]),
+                                        as<unsigned int>(frame["nPredFac"]));
   // Numeric block currently either dense or sparse, with a run-length
   // characterization.
-  List blockNumIP((SEXP) frame["blockNumSparse"]);
+  List blockNumIP((SEXP) frame["blockNumRLE"]);
   if (blockNumIP.length() > 0) {
     if (!blockNumIP.inherits("BlockNumIP")) {
       stop("Expecting BlockNumIP");
@@ -78,7 +77,7 @@ List RLEFrameR::wrap(const RLECresc *rleCresc) {
   //
   List numRanked = List::create(
                                 _["numVal"] = rleCresc->getNumVal(),
-                                _["numOff"] = rleCresc->getNumOff()
+                                _["numOff"] = rleCresc->getValOff()
                                 );
   numRanked.attr("class") = "NumRanked";
 

@@ -77,7 +77,7 @@ class TreeNode : public DecNode {
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  unsigned int advance(const class BlockFrame* blockFrame,
+  unsigned int advance(const class PredictFrame* blockFrame,
                        const BVJagged *facSplit,
                        const unsigned int *rowFT,
                        const double *rowNT,
@@ -269,7 +269,7 @@ class Forest {
 
      @return pointer to base of split-encoding vector.
    */
-  inline const BVJagged *getFacSplit() const {
+  inline const BVJagged* getFacSplit() const {
     return facSplit.get();
   }
   

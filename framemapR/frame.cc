@@ -25,7 +25,7 @@
 
 #include "signatureRf.h"
 #include "frame.h"
-#include "blockR.h"
+#include "block.h"
 
 
 RcppExport SEXP FrameReconcile(SEXP sXFac,
@@ -82,8 +82,8 @@ RcppExport SEXP WrapFrame(SEXP sX,
   List frame = List::create(
                                 _["blockNum"] = move(xNum),
                                 _["nPredNum"] = xNum.ncol(),
-                                _["blockNumSparse"] = List(), // For now.
-                                _["blockFacSparse"] = R_NilValue, // For now.
+                                _["blockNumRLE"] = List(), // For now.
+                                _["blockFacRLE"] = R_NilValue, // For now.
                                 _["blockFac"] = move(xFac),
                                 _["nPredFac"] = xFac.ncol(),
                                 _["nRow"] = x.nrow(),
@@ -104,8 +104,8 @@ RcppExport SEXP FrameNum(SEXP sX) {
   NumericMatrix blockNum(sX);
   List frame = List::create(
         _["blockNum"] = blockNum,
-        _["blockNumSparse"] = List(), // For now.
-        _["blockFacSparse"] = R_NilValue, // For now.
+        _["blockNumRLE"] = List(), // For now.
+        _["blockFacRLE"] = R_NilValue, // For now.
         _["nPredNum"] = blockNum.ncol(),
         _["blockFac"] = IntegerMatrix(0),
         _["nPredFac"] = 0,
@@ -196,8 +196,8 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   List frame = List::create(
         _["blockNum"] = NumericMatrix(0),
         _["nPredNum"] = nPred,
-        _["blockNumSparse"] = move(blockNumIP),
-        _["blockFacSparse"] = R_NilValue, // For now.
+        _["blockNumRLE"] = move(blockNumIP),
+        _["blockFacRLE"] = R_NilValue, // For now.
         _["blockFac"] = IntegerMatrix(0),
         _["nPredFac"] = 0,
         _["nRow"] = nRow,

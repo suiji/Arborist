@@ -243,7 +243,7 @@ void IndexSet::terminal(IndexLevel *indexLevel) {
 
 
 void IndexSet::nonTerminal(IndexLevel *indexLevel, const Run* run, PreTree *preTree, const SplitCand &argMax) {
-  leftExpl =   run->isRun(argMax) ? run->branchFac(argMax, this, preTree, indexLevel) : branchNum(argMax, preTree, indexLevel);
+  leftExpl = run->isRun(argMax) ? run->branchFac(argMax, this, preTree, indexLevel) : branchNum(argMax, preTree, indexLevel);
 
   ptExpl = getPTIdSucc(preTree, leftExpl);
   ptImpl = getPTIdSucc(preTree, !leftExpl);
@@ -441,9 +441,11 @@ void IndexLevel::produce(const PreTree *preTree, unsigned int splitNext) {
 
 
 void IndexSet::succHand(vector<IndexSet>& indexNext, Bottom* bottom, IndexLevel* indexLevel, const PreTree* preTree, bool isLeft) const {
-  unsigned int succIdx = getIdxSucc(isLeft);
-  if (doesSplit && succIdx < indexNext.size()){
-    indexNext[succIdx].succInit(indexLevel, bottom, preTree, this, isLeft);
+  if (doesSplit) {
+    unsigned int succIdx = getIdxSucc(isLeft);
+    if (succIdx < indexNext.size()) {
+      indexNext[succIdx].succInit(indexLevel, bottom, preTree, this, isLeft);
+    }
   }
 }
 

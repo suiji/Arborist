@@ -40,7 +40,7 @@ SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
                                        rleFrame->rleLength,
                                        autoCompress)),
   numRanked(make_unique<BlockJagged<double> >(rleFrame->numVal,
-                                              rleFrame->numOff,
+                                              rleFrame->valOff,
                                               rleFrame->nPredNum)) {
 }
 

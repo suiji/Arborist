@@ -16,7 +16,6 @@
 
 #include "bv.h"
 #include "forest.h"
-#include "blockframe.h"
 #include "summaryframe.h"
 #include "rankedframe.h"
 #include "predict.h"
@@ -66,7 +65,7 @@ unsigned int TreeNode::advance(const BVJagged *facSplit,
 }
 
 
-unsigned int TreeNode::advance(const BlockFrame* blockFrame,
+unsigned int TreeNode::advance(const PredictFrame* blockFrame,
                                const BVJagged *facSplit,
                                const unsigned int *rowFT,
                                const double *rowNT,

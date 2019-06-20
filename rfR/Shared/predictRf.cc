@@ -23,33 +23,37 @@
    @author Mark Seligman
  */
 
+#include "predictbridge.h"
 #include "predictRf.h"
+#include "bagbridge.h"
 #include "bagRf.h"
 #include "forestRf.h"
 #include "forestbridge.h"
-#include "leaf.h"
 #include "leafRf.h"
 #include "leafbridge.h"
-#include "blockframeR.h"
-#include "quant.h"
 
-RcppExport SEXP ValidateReg(const SEXP sPredFrame,
+#include <algorithm>
+RcppExport SEXP ValidateReg(const SEXP sFrame,
                             const SEXP sTrain,
                             SEXP sYTest,
                             SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfReg::reg(List(sPredFrame), List(sTrain), sYTest, true, as<unsigned int>(sNThread));
+
+  return PBRf::predictReg(List(sFrame), List(sTrain), sYTest, true, as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
 
-RcppExport SEXP TestReg(const SEXP sPredFrame,
+RcppExport SEXP TestReg(const SEXP sFrame,
                         const SEXP sTrain,
                         SEXP sYTest,
                         SEXP sOOB,
                         SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfReg::reg(List(sPredFrame), List(sTrain), sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+
+  return PBRf::predictReg(List(sFrame), List(sTrain), sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
@@ -58,102 +62,124 @@ RcppExport SEXP TestReg(const SEXP sPredFrame,
 
    @return Wrapped zero, with copy-out parameters.
  */
-List PBRfReg::reg(const List& sPredFrame,
-                      const List& lTrain,
-                      SEXP sYTest,
-                      bool oob,
-                      unsigned int nThread) {
+List PBRf::predictReg(const List& lFrame,
+                  const List& lTrain,
+                  SEXP sYTest,
+                  bool oob,
+                  unsigned int nThread) {
   BEGIN_RCPP
 
-    auto pbRf = factory(sPredFrame, lTrain, oob, nThread);
-  return pbRf->predict(sYTest);
+  unique_ptr<PredictBridge> pBridge(unwrapReg(lFrame, lTrain, oob, nThread));
+  predict(pBridge.get(), BlockBatch<NumericMatrix>::unwrap(lFrame).get(), BlockBatch<IntegerMatrix>::unwrap(lFrame).get(), getNRow(lFrame));
 
+  return LeafRegRf::summary(sYTest, pBridge.get());
+  
   END_RCPP
 }
 
 
-List PBRfReg::predict(SEXP sYTest) const {
+size_t PBRf::getNRow(const List& lFrame) {
+  return as<size_t>((SEXP) lFrame["nRow"]);
+}
+  
+
+
+unique_ptr<PredictBridge> PBRf::unwrapCtg(const List& lFrame,
+                                          const List& lTrain,
+                                          bool oob,
+                                          bool doProb,
+                                          unsigned int nThread) {
+  checkFrame(lFrame);
+  return make_unique<PredictBridge>(oob,
+                                    ForestRf::unwrap(lTrain),
+                                    BagRf::unwrap(lTrain, lFrame, oob),
+                                    LeafCtgRf::unwrap(lTrain, lFrame, doProb),
+                                    nThread);
+}
+
+
+SEXP PBRf::checkFrame(const List &frame) {
   BEGIN_RCPP
-  Predict::predict(box.get());
-  return LeafRegRf::summary(sYTest, leaf.get());
+  if (!frame.inherits("Frame")) {
+    stop("Expecting Frame");
+  }
+
+  if (!Rf_isNull(frame["blockFacRLE"])) {
+    stop ("Sparse factors:  NYI");
+  }
   END_RCPP
 }
 
 
-unique_ptr<PBRfReg> PBRfReg::factory(const List& sPredFrame,
-                                     const List& lTrain,
-                                     bool oob,
-                                     unsigned int nThread) {
-  return make_unique<PBRfReg>(BlockFrameR::factory(sPredFrame),
-                              ForestRf::unwrap(lTrain),
-                              BagRf::unwrap(lTrain, sPredFrame, oob),
-                              LeafRegRf::unwrap(lTrain, sPredFrame),
-                              oob,
-                              nThread);
+unique_ptr<PredictBridge> PBRf::unwrapReg(const List& lFrame,
+                                          const List& lTrain,
+                                          bool oob,
+                                          unsigned int nThread) {
+  checkFrame(lFrame);
+  return make_unique<PredictBridge>(oob,
+                                    ForestRf::unwrap(lTrain),
+                                    BagRf::unwrap(lTrain, lFrame, oob),
+                                    LeafRegRf::unwrap(lTrain, lFrame),
+                                    nThread);
 }
 
 
-PBRfReg::PBRfReg(unique_ptr<BlockFrameR> blockFrame_,
-                 unique_ptr<ForestBridge> forest_,
-                 unique_ptr<BagRf> bag_,
-                 unique_ptr<LeafRegBridge> leaf_,
-                 bool oob,
-                 unsigned int nThread) :
-  PBRf(move(blockFrame_),
-       move(forest_),
-       move(bag_)),
-  leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest.get(), bag->getRaw(), leaf.get(), nThread);
+unique_ptr<PredictBridge> PBRf::unwrapReg(const List& lFrame,
+                                          const List& lTrain,
+                                          bool oob,
+                                          unsigned int nThread,
+                                          const vector<double>& quantile) {
+  return make_unique<PredictBridge>(oob,
+                                    ForestRf::unwrap(lTrain),
+                                    BagRf::unwrap(lTrain, lFrame, oob),
+                                    LeafRegRf::unwrap(lTrain, lFrame),
+                                    quantile,
+                                    nThread);
 }
 
 
-PBRf::PBRf(unique_ptr<BlockFrameR> blockFrame_,
-                   unique_ptr<ForestBridge> forest_,
-                   unique_ptr<BagRf> bag_) :
-  blockFrame(move(blockFrame_)),
-  forest(move(forest_)),
-  bag(move(bag_)) {
-}
-
-
-RcppExport SEXP ValidateVotes(const SEXP sPredFrame,
+RcppExport SEXP ValidateVotes(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfCtg::ctg(List(sPredFrame), List(sTrain), sYTest, true, false, as<unsigned int>(sNThread));
+
+  return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, true, false, as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
 
-RcppExport SEXP ValidateProb(const SEXP sPredFrame,
+RcppExport SEXP ValidateProb(const SEXP sFrame,
                              const SEXP sTrain,
                              SEXP sYTest,
                              SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfCtg::ctg(List(sPredFrame), List(sTrain), sYTest, true, true, as<unsigned int>(sNThread));
+
+  return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, true, true, as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
 
-RcppExport SEXP TestVotes(const SEXP sPredFrame,
+RcppExport SEXP TestVotes(const SEXP sFrame,
                           const SEXP sTrain,
                           SEXP sYTest,
                           SEXP sOOB,
                           SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfCtg::ctg(List(sPredFrame), List(sTrain), sYTest, as<bool>(sOOB), false, as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, as<bool>(sOOB), false, as<unsigned int>(sNThread));
   END_RCPP
 }
 
 
-RcppExport SEXP TestProb(const SEXP sPredFrame,
+RcppExport SEXP TestProb(const SEXP sFrame,
                          const SEXP sTrain,
                          SEXP sYTest,
                          SEXP sOOB,
                          SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfCtg::ctg(List(sPredFrame), List(sTrain), sYTest, as<bool>(sOOB), true, as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, as<bool>(sOOB), true, as<unsigned int>(sNThread));
   END_RCPP
 }
 
@@ -163,99 +189,92 @@ RcppExport SEXP TestProb(const SEXP sPredFrame,
 
    @return predict list.
  */
-List PBRfCtg::ctg(const List& sPredFrame,
-                  const List& lTrain,
-                  SEXP sYTest,
-                  bool oob,
-                  bool doProb,
-                  unsigned int nThread) {
+List PBRf::predictCtg(const List& lFrame,
+                      const List& lTrain,
+                      SEXP sYTest,
+                      bool oob,
+                      bool doProb,
+                      unsigned int nThread) {
   BEGIN_RCPP
 
-    auto pbRf = factory(sPredFrame, lTrain, oob, doProb, nThread);
-  return pbRf->predict(sYTest, LeafCtgRf::checkLeaf(lTrain), sPredFrame);
+  unique_ptr<PredictBridge> pBridge(unwrapCtg(lFrame, lTrain, oob, doProb, nThread));
+  predict(pBridge.get(), BlockBatch<NumericMatrix>::unwrap(lFrame).get(), BlockBatch<IntegerMatrix>::unwrap(lFrame).get(), getNRow(lFrame));
+
+  return LeafCtgRf::summary(lFrame, lTrain, pBridge.get(), sYTest);
 
   END_RCPP
 }
 
-List PBRfCtg::predict(SEXP sYTest, const List& lLeaf, const List& sPredFrame) const {
-  BEGIN_RCPP
-  Predict::predict(box.get());
-  return LeafCtgRf::summary(sPredFrame, lLeaf, leaf.get(), sYTest);
-  END_RCPP
-}
-
-
-unique_ptr<PBRfCtg> PBRfCtg::factory(const List& sPredFrame,
-                                     const List& lTrain,
-                                     bool oob,
-                                     bool doProb,
-                                     unsigned int nThread) {
-  return make_unique<PBRfCtg>(BlockFrameR::factory(sPredFrame),
-                              ForestRf::unwrap(lTrain),
-                              BagRf::unwrap(lTrain, sPredFrame, oob),
-                              LeafCtgRf::unwrap(lTrain, sPredFrame, doProb),
-                              oob,
-                              nThread);
-}
-
-
-PBRfCtg::PBRfCtg(unique_ptr<BlockFrameR> blockFrame_,
-                 unique_ptr<ForestBridge> forest_,
-                 unique_ptr<BagRf> bag_,
-                 unique_ptr<LeafCtgBridge> leaf_,
-                 bool oob,
-                 unsigned int nThread) :
-  PBRf(move(blockFrame_),
-       move(forest_),
-       move(bag_)),
-  leaf(move(leaf_)) {
-  box = make_unique<PredictBox>(oob, blockFrame->getFrame(), forest.get(), bag->getRaw(), leaf.get(), nThread);
-}
-
-
-RcppExport SEXP ValidateQuant(const SEXP sPredFrame,
+RcppExport SEXP ValidateQuant(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
                               SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfReg::quant(sPredFrame, sTrain, sQuantVec, sYTest, true, as<unsigned int>(sNThread));
+
+  return PBRf::predictQuant(sFrame, sTrain, sQuantVec, sYTest, true, as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
 
-RcppExport SEXP TestQuant(const SEXP sPredFrame,
+RcppExport SEXP TestQuant(const SEXP sFrame,
                           const SEXP sTrain,
                           SEXP sQuantVec,
                           SEXP sYTest,
                           SEXP sOOB,
                           SEXP sNThread) {
   BEGIN_RCPP
-    return PBRfReg::quant(sPredFrame, sTrain, sQuantVec, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+
+  return PBRf::predictQuant(sFrame, sTrain, sQuantVec, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+
   END_RCPP
 }
 
 
-List PBRfReg::quant(const List& sPredFrame,
-                    const List& lTrain,
-                    SEXP sQuantVec,
-                    SEXP sYTest,
-                    bool oob,
-                    unsigned int nThread) {
+List PBRf::predictQuant(const List& lFrame,
+                        const List& lTrain,
+                        SEXP sQuantVec,
+                        SEXP sYTest,
+                        bool oob,
+                        unsigned int nThread) {
   BEGIN_RCPP
+
   NumericVector quantVec(sQuantVec);
-  auto pbRf = factory(sPredFrame, lTrain, oob, nThread);
-  return pbRf->predict(&quantVec[0], quantVec.length(), sYTest);
+  vector<double> quantile(quantVec.begin(), quantVec.end());
+  unique_ptr<PredictBridge> pBridge(unwrapReg(lFrame, lTrain, oob, nThread, quantile));
+  predict(pBridge.get(), BlockBatch<NumericMatrix>::unwrap(lFrame).get(), BlockBatch<IntegerMatrix>::unwrap(lFrame).get(), getNRow(lFrame));
+
+  return LeafRegRf::summary(sYTest, pBridge.get());
+  
   END_RCPP
 }
 
 
-// TODO:  Quantile object always gets a bag.  Prediction box may or may not.
-List PBRfReg::predict(const double* quantile, unsigned int nQuant, SEXP sYTest) const {
-  BEGIN_RCPP
+void PBRf::predict(PredictBridge* pBridge,
+                   BlockBatch<NumericMatrix>* blockNum,
+                   BlockBatch<IntegerMatrix>* blockFac,
+                   size_t nRow) {
+  size_t row = predictBlock(pBridge, blockNum, blockFac, 0, nRow);
+  // Remainder rows handled in custom-fitted block.
+  if (nRow > row) {
+    (void) predictBlock(pBridge, blockNum, blockFac, row, nRow);
+  }
+}
 
-  auto quant = make_unique<Quant>(box.get(), quantile, nQuant);
-  Predict::predict(box.get(), quant.get());
-  return LeafRegRf::summary(sYTest, leaf.get(), quant.get());
-  END_RCPP
+
+size_t PBRf::predictBlock(PredictBridge* pBridge,
+                          BlockBatch<NumericMatrix>* blockNum,
+                          BlockBatch<IntegerMatrix>* blockFac,
+                          size_t rowStart,
+                          size_t rowEnd) {
+  size_t blockRows = PredictBridge::getBlockRows(rowEnd - rowStart);
+  size_t row = rowStart;
+  for (; row + blockRows <= rowEnd; row += blockRows) {
+    NumericMatrix tpNum(blockNum->transpose(row, blockRows));
+    IntegerMatrix tpFac(blockFac->transpose(row, blockRows));
+    pBridge->predictBlock(BlockBatch<NumericMatrix>::coreBlock(tpNum).get(), BlockBatch<IntegerMatrix>::coreBlock(tpFac).get(), row);
+  }
+
+  return row;
 }

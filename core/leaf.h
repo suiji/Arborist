@@ -32,7 +32,7 @@ class Leaf {
   
  public:
 
-  inline void init() {
+  Leaf() {
     score = 0.0;
     extent = 0;
   }
@@ -776,11 +776,11 @@ public:
 
      @param rowStart is the beginning row index.
 
-     @param rowEnd is the final row index.
+     @param extent is the number of rows indexed.
   */
   virtual void scoreBlock(const unsigned int* predictLeaves,
-                          unsigned int rowStart,
-                          unsigned int rowEnd) = 0;
+                          size_t rowStart,
+                          size_t extent) = 0;
 
   /**
      @brief Accessor for # trees in forest.
@@ -944,8 +944,8 @@ class LeafFrameReg : public LeafFrame {
      @brief Description given in virtual declaration.
    */
   void scoreBlock(const unsigned int* predictLeaves,
-                  unsigned int rowStart,
-                  unsigned int rowEnd);
+                  size_t rowStart,
+                  size_t extent);
   
   /**
      @brief Computes bag index bounds in forest setting (Quant only).
@@ -1162,8 +1162,8 @@ class LeafFrameCtg : public LeafFrame {
      @brief Description given in virtual declartion.
    */
   void scoreBlock(const unsigned int* predictLeaves,
-                  unsigned int rowStart,
-                  unsigned int rowEnd);
+                  size_t rowStart,
+                  size_t extent);
 
   /**
      @brief Fills the vote table using predicted response.

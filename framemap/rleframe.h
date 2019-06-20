@@ -39,13 +39,14 @@ class RLECresc {
   vector<unsigned int> rank;
   vector<unsigned int> row;
   vector<unsigned int> runLength;
+
   // TODO:  replace separate vectors with single vector 'rle'.
   //vector<RLE<RowRank> > rle;
 
 
   // Sparse numerical representation for split interpolation.
   // Empty iff no numerical predictors.
-  vector<unsigned int> numOff; // Per-predictor offset within RLE vectors.
+  vector<unsigned int> valOff; // Per-predictor offset within RLE vectors.
   vector<double> numVal; // Rank-indexable predictor values.
 
   unsigned int numSortSparse(const double feColNum[],
@@ -86,7 +87,7 @@ class RLECresc {
   }
 
   auto getNPredNum() const {
-    return numOff.size();
+    return valOff.size();
   }
 
   auto getNPredFac() const {
@@ -126,8 +127,8 @@ class RLECresc {
   /** 
       @brief Accessor for copyable offset vector.
    */
-  const vector<unsigned int>& getNumOff() const {
-    return numOff;
+  const vector<unsigned int>& getValOff() const {
+    return valOff;
   }
 
   /**
@@ -196,7 +197,7 @@ struct RLEFrame {
   const unsigned int* runLength;
   const unsigned int nPredNum;
   const double* numVal;
-  const unsigned int* numOff;
+  const unsigned int* valOff;
 
   RLEFrame(size_t nRow_,
            const vector<unsigned int>& cardinality_,
@@ -206,7 +207,7 @@ struct RLEFrame {
            const unsigned int* runLength_,
            unsigned int nPredNum_,
            const double* numVal_,
-           const unsigned int* numOff_);
+           const unsigned int* valOff_);
 
   /**
      @brief Row count getter.

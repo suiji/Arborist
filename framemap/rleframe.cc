@@ -19,6 +19,7 @@
 
 #include <tuple>
 
+
 RLECresc::RLECresc(size_t nRow_,
                    unsigned int nPredNum,
                    unsigned int nPredFac) :
@@ -28,7 +29,7 @@ RLECresc::RLECresc(size_t nRow_,
   row(vector<unsigned int>(0)),
   runLength(vector<unsigned int>(0)),
   //rle(vector<RLE<RowRank> >(0)),
-  numOff(vector<unsigned int>(nPredNum)),
+  valOff(vector<unsigned int>(nPredNum)),
   numVal(vector<double>(0)) {
 }
 
@@ -37,28 +38,30 @@ void RLECresc::numSparse(const double feValNum[],
                          const unsigned int feRowStart[],
                          const unsigned int feRunLength[]) {
   unsigned int colOff = 0;
-  for (auto & num : numOff) {
+  for (auto & num : valOff) {
     num = numVal.size();
     unsigned int idxCol = numSortSparse(&feValNum[colOff], &feRowStart[colOff], &feRunLength[colOff]);
     colOff += idxCol;
   }
 }
 
+
 unsigned int RLECresc::numSortSparse(const double feColNum[],
                                      const unsigned int feRowStart[],
                                      const unsigned int feRunLength[]) {
   vector<NumRLE> rleNum;
   unsigned int rleIdx = 0;
-  for (unsigned int rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx]) {
-    rleNum.push_back(make_tuple(feColNum[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
-    rleIdx++;
+  for (size_t rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
+    rleNum.emplace_back(make_tuple(feColNum[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
   }
+  // Postcondition:  rleNum.size() == caller's vector length.
 
   sort(rleNum.begin(), rleNum.end()); // runlengths silent, as rows unique.
   encode(rleNum);
 
   return rleNum.size();
 }
+
 
 void RLECresc::encode(const vector<NumRLE> &rleNum) {
   NumRLE elt = rleNum[0];
@@ -92,15 +95,16 @@ void RLECresc::encode(const vector<NumRLE> &rleNum) {
 }
 
 
-void RLECresc::numDense(const double feNum[]) {
-  unsigned int numIdx = 0;
-  for (auto & num : numOff) {
+void RLECresc::numDense(const double feVal[]) {
+  unsigned int valIdx = 0;
+  for (auto & num : valOff) {
     num = numVal.size();
 
-    ValRank<double> valRank(&feNum[numIdx++ * nRow], nRow);
+    ValRank<double> valRank(&feVal[valIdx++ * nRow], nRow);
     encode(valRank, numVal);
   }
 }
+
 
 template<typename tn>
 void RLECresc::encode(ValRank<tn>& vr, vector<tn>& val, bool valUnique) {
@@ -156,7 +160,7 @@ RLEFrame::RLEFrame(size_t nRow_,
                    const unsigned int* runLength_,
                    unsigned int nPredNum_,
                    const double* numVal_,
-                   const unsigned int* numOff_) :
+                   const unsigned int* valOff_) :
   nRow(nRow_),
   cardinality(cardinality_),
   rleLength(rleLength_),
@@ -165,5 +169,5 @@ RLEFrame::RLEFrame(size_t nRow_,
   runLength(runLength_),
   nPredNum(nPredNum_),
   numVal(numVal_),
-  numOff(numOff_) {
+  valOff(valOff_) {
 }

@@ -194,10 +194,10 @@ vector<RankCount> LeafFrameReg::setRankCount(const BitMatrix* baggedRows,
 
 
 void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
-                              unsigned int rowStart,
-                              unsigned int rowEnd) {
+                              size_t rowStart,
+                              size_t extent) {
   OMPBound blockRow;
-  OMPBound blockSup = (OMPBound) (rowEnd - rowStart);
+  OMPBound blockSup = (OMPBound) extent;
 
 #pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
   {
@@ -224,10 +224,10 @@ void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultSco
 
 // Scores each row independently, in parallel.
 void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
-                              unsigned int rowStart,
-                              unsigned int rowEnd) {
+                              size_t rowStart,
+                              size_t extent) {
   OMPBound blockRow;
-  OMPBound blockSup = (OMPBound) (rowEnd - rowStart);
+  OMPBound blockSup = (OMPBound) extent;
 // TODO:  Recast loop by blocks, to avoid
 // false sharing.
 #pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
@@ -480,7 +480,6 @@ void LBCresc::treeInit(const vector<unsigned int> &leafMap,
   treeFloor = leaf.size();
   height[tIdx] = treeFloor + leafCount;
   Leaf init;
-  init.init();
   leaf.insert(leaf.end(), leafCount, init);
 }
 

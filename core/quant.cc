@@ -14,6 +14,7 @@
  */
 
 #include "quant.h"
+#include "bag.h"
 #include "bv.h"
 #include "leaf.h"
 #include "predict.h"
@@ -28,15 +29,15 @@ const size_t Quant::binSize = 0x1000;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictBox* box,
-             const double* quantile_,
-             unsigned int qCount_) :
-  leafReg(static_cast<LeafFrameReg*>(box->leafFrame)),
-  baggedRows(box->bag),
+Quant::Quant(const LeafFrameReg* leaf,
+             const Bag* bag_,
+             const vector<double>& quantile_) :
+  leafReg(leaf),
+  baggedRows(bag_->getBitMatrix()),
   valRank(ValRank<double>(leafReg->getYTrain(), leafReg->getRowTrain())),
   rankCount(leafReg->setRankCount(baggedRows, valRank.rank())),
   quantile(quantile_),
-  qCount(qCount_),
+  qCount(quantile.size()),
   qPred(vector<double>(getNRow() * qCount)),
   qEst(vector<double>(getNRow())),
   rankScale(binScale()),
@@ -49,13 +50,13 @@ unsigned int Quant::getNRow() const {
 
 
 void Quant::predictAcross(const Predict *predict,
-                          unsigned int rowStart,
-                          unsigned int rowEnd) {
+                          size_t rowStart,
+                          size_t extent) {
   if (baggedRows->isEmpty())
     return; // Insufficient leaf information.
  
   OMPBound row;
-  OMPBound rowSup = (OMPBound) rowEnd;
+  OMPBound rowSup = (OMPBound) (rowStart + extent);
 #pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)

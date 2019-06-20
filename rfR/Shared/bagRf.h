@@ -24,8 +24,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_BAG_RF_H
-#define ARBORIST_BAG_RF_H
+#ifndef RFR_BAG_RF_H
+#define RFR_BAG_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -91,9 +91,9 @@ class BagRf {
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<BagRf> unwrap(const List& sBag,
-                                      const List& sPredFrame,
-                                      bool oob);
+  static unique_ptr<class BagBridge> unwrap(const List& sBag,
+                                            const List& sPredFrame,
+                                            bool oob);
 
   
   /**
@@ -114,15 +114,9 @@ class BagRf {
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<BagRf> unwrap(const List& sBag);
+  static unique_ptr<class BagBridge> unwrap(const List& sBag);
 
 
-  /**
-     @brief Getter for raw data pointer.
-
-     @return raw pointer if non-empty, else nullptr.
-   */
-  const BitMatrix* getRaw();
 };
 
 #endif

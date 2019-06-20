@@ -98,7 +98,7 @@ SEXP SignatureRf::checkFrame(const List &frame) {
     stop("Expecting Frame");
   }
 
-  if (!Rf_isNull(frame["blockFacSparse"])) {
+  if (!Rf_isNull(frame["blockFacRLE"])) {
     stop ("Sparse factors:  NYI");
   }
   END_RCPP

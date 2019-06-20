@@ -24,45 +24,40 @@
  */
 
 
-#ifndef ARBORIST_PREDICT_RF_H
-#define ARBORIST_PREDICT_RF_H
+#ifndef RFR_PREDICT_RF_H
+#define RFR_PREDICT_RF_H
 
-#include "predict.h"
+#include "blockbatch.h"
 
-#include <Rcpp.h>
-using namespace Rcpp;
 
-#include <memory>
-using namespace std;
-
-RcppExport SEXP ValidateReg(const SEXP sPredFrame,
+RcppExport SEXP ValidateReg(const SEXP sFrame,
                             const SEXP sTrain,
                             SEXP sYTest,
                             SEXP sNThread);
 
-RcppExport SEXP TestReg(const SEXP sPredFrame,
+RcppExport SEXP TestReg(const SEXP sFrame,
                         const SEXP sTrain,
                         SEXP sYTest,
                         SEXP sOOB,
                         SEXP sNThread);
 
-RcppExport SEXP ValidateVotes(const SEXP sPredFrame,
+RcppExport SEXP ValidateVotes(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sNThread);
 
-RcppExport SEXP ValidateProb(const SEXP sPredFrame,
+RcppExport SEXP ValidateProb(const SEXP sFrame,
                              const SEXP sTrain,
                              SEXP sYTest,
                              SEXP sNThread);
 
-RcppExport SEXP ValidateQuant(const SEXP sPredFrame,
+RcppExport SEXP ValidateQuant(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
                               SEXP sNThread);
 
-RcppExport SEXP TestQuant(const SEXP sPredFrame,
+RcppExport SEXP TestQuant(const SEXP sFrame,
                           const SEXP sTrain,
                           SEXP sQuantVec,
                           SEXP sYTest,
@@ -72,7 +67,7 @@ RcppExport SEXP TestQuant(const SEXP sPredFrame,
 /**
    @brief Predicts with class votes.
 
-   @param sPredFrame contains the blocked observations.
+   @param sFrame contains the blocked observations.
 
    @param sTrain contains the trained object.
 
@@ -82,7 +77,7 @@ RcppExport SEXP TestQuant(const SEXP sPredFrame,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestProb(const SEXP sPredFrame,
+RcppExport SEXP TestProb(const SEXP sFrame,
                          const SEXP sTrain,
                          SEXP sYTest,
                          SEXP sOOB,
@@ -92,7 +87,7 @@ RcppExport SEXP TestProb(const SEXP sPredFrame,
 /**
    @brief Predicts with class votes.
 
-   @param sPredFrame contains the blocked observations.
+   @param sFrame contains the blocked observations.
 
    @param sTrain contains the trained object.
 
@@ -102,52 +97,48 @@ RcppExport SEXP TestProb(const SEXP sPredFrame,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestVotes(const SEXP sPredFrame,
+RcppExport SEXP TestVotes(const SEXP sFrame,
                           const SEXP sTrain,
                           SEXP sYTest,
                           SEXP sOOB,
                           SEXP sNThread);
 
 /**
-   @brief Bridge-variant PredictBox pins unwrapped front-end structures.
+   @brief Bridge-variant PredictBridge pins unwrapped front-end structures.
  */
 struct PBRf {
-  unique_ptr<class BlockFrameR> blockFrame; // Predictor layout.
-  unique_ptr<class ForestBridge> forest; // Trained forest.
-  unique_ptr<class BagRf> bag; // Bagged row indicator.
-  unique_ptr<struct PredictBox> box; // Core-level prediction frame.
 
+  static SEXP checkFrame(const List& frame);
+  
+  /**
+     @brief Obtains the number of observations.
+
+     @param lFrame is an R-style frame summarizing the data layout.
+
+     @return number of rows.
+   */
+  static size_t getNRow(const List& lFrame);
+
+  static List predictCtg(const List& lFrame,
+                  const List& lTrain,
+                  SEXP sYTest,
+                  bool oob,
+                  bool doProb,
+                  unsigned int nThread);
 
   /**
-     @brief Constructor.
-
-     Paramter names mirror member names.
+     @brief Prediction for regression.  Parameters as above.
    */
-  PBRf(unique_ptr<BlockFrameR> blockFrame_,
-       unique_ptr<class ForestBridge> forest_,
-       unique_ptr<BagRf> bag_);
-};
-
-
-struct PBRfReg : public PBRf {
-  unique_ptr<class LeafRegBridge> leaf;
-
-  /**
-     @brief Constructor.
-
-     Parameter names mirror member names.
-   */
-  PBRfReg(unique_ptr<BlockFrameR> blockFrame_,
-              unique_ptr<class ForestBridge> forest_,
-              unique_ptr<BagRf> bag_,
-              unique_ptr<LeafRegBridge> leaf_,
-              bool oob,
-              unsigned int nThread);
+  static List predictReg(const List& sFrame,
+                         const List& sTrain,
+                         SEXP sYTest,
+                         bool oob,
+                         unsigned int nThread);
 
  /**
     @brief Prediction with quantiles.
 
-    @param sPredFrame contains the blocked observations.
+    @param sFrame contains the blocked observations.
 
     @param sTrain contains the trained object.
 
@@ -159,7 +150,7 @@ struct PBRfReg : public PBRf {
 
     @return wrapped prediction list.
  */
-  static List quant(const List& sPredFrame,
+  static List predictQuant(const List& sFrame,
                     const List& sTrain,
                     SEXP sQuantVec,
                     SEXP sYTest,
@@ -167,24 +158,48 @@ struct PBRfReg : public PBRf {
                     unsigned int nThread);
 
   /**
-     @brief Prediction for regression.  Parameters as above.
-   */
-  static List reg(const List& sPredFrame,
-                  const List& sTrain,
-                  SEXP sYTest,
-                  bool oob,
-                  unsigned int nThread);
+     @brief Unwraps regression data structurs and moves to box.
 
+     @return unique pointer to bridge-variant PredictBridge. 
+   */
+  static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
+                                                   const List& lTrain,
+                                                   bool oob,
+                                                   //unique_ptr<class LeafRegBridge> leaf,
+                                                   unsigned int nThread,
+                                                   const vector<double>& quantile);
 
   /**
      @brief Unwraps regression data structurs and moves to box.
 
-     @return unique pointer to bridge-variant PredictBox. 
+     @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<PBRfReg> factory(const List& sPredFrame,
-                                         const List& lTrain,
-                                         bool oob,
-                                         unsigned int nThread);
+  static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
+                                                   const List& lTrain,
+                                                   bool oob,
+                                                   //unique_ptr<class LeafRegBridge> leaf,
+                                                   unsigned int nThread);
+
+
+  /**
+     @brief Instantiates core prediction object and predicts quantiles.
+
+     @return wrapped predictions.
+   */
+  List predict(SEXP sYTest,
+               const vector<double>& quantile) const;
+
+  /**
+     @brief Unwraps regression data structurs and moves to box.
+
+     @return unique pointer to bridge-variant PredictBridge. 
+   */
+  static unique_ptr<class PredictBridge> unwrapCtg(const List& sFrame,
+                                                   const List& lTrain,
+                                                   bool oob,
+                                                   //   unique_ptr<class LeafCtgBridge> leaf,
+                                                   bool doProb,
+                                                   unsigned int nThread);
 
 private:
   /**
@@ -192,58 +207,25 @@ private:
 
      @return wrapped predictions.
    */
-  List predict(SEXP sYTest) const;
+  static List predictReg(SEXP sYTest);
 
-  /**
-     @brief Instantiates core prediction object and predicts quantiles.
-
-     @return wrapped predictions.
-   */
-  List predict(const double* quantile,
-               unsigned int nQuant,
-               SEXP sYTest) const;
-};
-
-
-struct PBRfCtg : public PBRf {
-  unique_ptr<class LeafCtgBridge> leaf;
-
-  PBRfCtg(unique_ptr<BlockFrameR> blockFrame_,
-          unique_ptr<class ForestBridge> forest_,
-          unique_ptr<BagRf> bag_,
-          unique_ptr<LeafCtgBridge> leaf_,
-          bool oob,
-          unsigned int nThread);
-
-  /**
-     @brief Prediction for classification.  Paramters as above.
-
-     @param doProb is true iff class probabilities requested.
-   */
-  static List ctg(const List& sPredFrame,
-                  const List& sTrain,
-                  SEXP sYTest,
-                  bool oob,
-                  bool doProb,
-                  unsigned int nThread);
-
-  /**
-     @brief Unwraps regression data structurs and moves to box.
-
-     @return unique pointer to bridge-variant PredictBox. 
-   */
-  static unique_ptr<PBRfCtg> factory(const List& sPredFrame,
-                                         const List& lTrain,
-                                         bool oob,
-                                         bool doProb,
-                                         unsigned int nThread);
-private:
   /**
      @brief Instantiates core PredictRf object, driving prediction.
 
      @return wrapped prediction.
    */
-  List predict(SEXP sYTest, const List& lTrain, const List& sPredFrame) const;
-};
+  static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
 
+
+  static void predict(class PredictBridge* pBridge,
+                      BlockBatch<NumericMatrix>* blockNum,
+                      BlockBatch<IntegerMatrix>* blockFac,
+                      size_t nRow);
+
+  static size_t predictBlock(PredictBridge* pBridge,
+                             BlockBatch<NumericMatrix>* blockNum,
+                             BlockBatch<IntegerMatrix>* blockFac,
+                             size_t rowStart,
+                             size_t rowCount);
+};
 #endif

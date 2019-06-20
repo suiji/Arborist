@@ -35,137 +35,6 @@ using namespace Rcpp;
 #include <memory>
 using namespace std;
 
-class LeafExport {
-protected:
-  unsigned int nTree;
-  vector<vector<size_t> > rowTree;
-  vector<vector<unsigned int> > sCountTree;
-  vector<vector<unsigned int> > extentTree;
-
-public:
-
-  LeafExport(unsigned int nTree_);
-
-  virtual ~LeafExport() {}
-
-  /**
-     @brief Accessor for per-tree sampled row vector.
-
-     @param tIdx is the tree index.
-
-     @return sampled row vector.
-   */
-  const vector<size_t> &getRowTree(unsigned int tIdx) const {
-    return rowTree[tIdx];
-  }
-
-
-  /**
-     @brief Accessor for per-tree sample-count vector.
-
-     @param tIdx is the tree index.
-
-     @return sample-count vector.
-   */
-  const vector<unsigned int> &getSCountTree(unsigned int tIdx) const {
-    return sCountTree[tIdx];
-  }
-
-
-  /**
-     @brief Accessor for per-tree extent vector.
-
-     @param tIdx is the tree index.
-
-     @return extent vector.
-   */
-  const vector<unsigned int> &getExtentTree(unsigned int tIdx) const {
-    return extentTree[tIdx];
-  }
-};
-
-
-class LeafExportReg : public LeafExport {
-  const NumericVector &yTrain;
-  vector<vector<double > > scoreTree;
-
-public:
-
-  /**
-    @brief Constructor for export, no prediction.
-   */
-  LeafExportReg(const List& lLeaf,
-                const class BitMatrix* baggedRows);
-
-  ~LeafExportReg() {}
-
-  /**
-     @brief Builds bridge object from wrapped front-end data.
-   */
-  static unique_ptr<LeafExportReg> unwrap(const List &lTrain,
-                                          const class BitMatrix *baggedRows);
-
-  const vector<double> &getScoreTree(unsigned int tIdx) const {
-    return scoreTree[tIdx];
-  }
-};
-
-
-class LeafExportCtg : public LeafExport {
-  const CharacterVector levelsTrain; // Pinned for summary reuse.
-  vector<vector<double > > scoreTree;
-  vector<vector<double> > weightTree;
-
- public:
-
-  /**
-     @brief Constructor for export; no prediction.
-   */
-  LeafExportCtg(const List& lLeaf,
-                const class BitMatrix* bitMatrix);
-
-  ~LeafExportCtg() {}
-
-  static unique_ptr<LeafExportCtg> unwrap(const List &lTrain,
-                                          const class BitMatrix *baggedRows);
-
-  
-
-  /**
-     @brief Accessor exposes category name strings.
-
-     @return level names vector.
-   */
-  const CharacterVector &getLevelsTrain() const {
-    return levelsTrain;
-  }
-
-
-  /**
-     @brief Accessor for per-tree score vector.
-
-     @param tIdx is the tree index.
-
-     @return score vector.
-   */
-  const vector<double> &getScoreTree(unsigned int tIdx) const {
-    return scoreTree[tIdx];
-  }
-
-
-  /**
-     @brief Accessor for per-tree weight vector.
-
-     @param tIdx is the tree index.
-
-     @return weight vector.
-   */
-  const vector<double> &getWeightTree(unsigned int tIdx) const {
-    return weightTree[tIdx];
-  }
-};
-
-
 /**
    @brief Rf specialization of Core LeafReg, q.v.
  */
@@ -189,7 +58,8 @@ struct LeafRegRf {
   static unique_ptr<class LeafRegBridge> unwrap(const List& leaf,
                                       const List& sPredFrame);
 
-  static List summary(SEXP sYTest, class LeafRegBridge* leaf, const class Quant *quant = nullptr);
+  static List summary(SEXP sYTest,
+                      const class PredictBridge* pBridge);
 
 
   /**
@@ -256,7 +126,7 @@ struct LeafCtgRf {
 
   static List summary(const List& sPredFrame,
                       const List& lTrain,
-                      class LeafCtgBridge* leaf,
+                      const class PredictBridge* pBridge,
                       SEXP sYTest);
 
 

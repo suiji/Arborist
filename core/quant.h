@@ -31,8 +31,8 @@ class Quant {
   const class BitMatrix* baggedRows; // In-bag summary.
   ValRank<double> valRank;
   const vector<class RankCount> rankCount; // forest-wide, by sample.
-  const double* quantile; // quantile values over which to predict.
-  const unsigned int qCount; // # quantile values, above.
+  const vector<double> quantile; // quantile values over which to predict.
+  const unsigned int qCount; // caches quantile size for quick reference.
   vector<double> qPred; // predicted quantiles.
   vector<double> qEst; // quantile of response estimates.
   unsigned int rankScale; // log2 of scaling factor.
@@ -123,9 +123,9 @@ class Quant {
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const struct PredictBox* box,
-        const double* quantile_,
-        unsigned int qCount_);
+  Quant(const class LeafFrameReg* leaf,
+        const class Bag* bag,
+        const vector<double>& quantile_);
 
   /**
      @brief Getter for number of quantiles.
@@ -170,11 +170,11 @@ class Quant {
 
      @param rowStart is the first row at which to predict.
 
-     @param rowEnd is first row at which not to predict.
+     @param extent is the number of rows to predict.
   */
   void predictAcross(const class Predict *predict,
-                     unsigned int rowStart,
-                     unsigned int rowEnd);
+                     size_t rowStart,
+                     size_t extent);
 };
 
 #endif

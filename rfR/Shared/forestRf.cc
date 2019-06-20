@@ -114,8 +114,21 @@ List ForestRf::checkForest(const List& lTrain) {
 
 unique_ptr<ForestExport> ForestExport::unwrap(const List& lTrain,
                                               const IntegerVector& predMap) {
-  List lForest(ForestRf::checkForest(lTrain));
+  List lForest(checkForest(lTrain));
   return make_unique<ForestExport>(lForest, predMap);
+}
+
+
+List ForestExport::checkForest(const List& lTrain) {
+  BEGIN_RCPP
+
+  List lForest((SEXP) lTrain["forest"]);
+  if (!lForest.inherits("Forest")) {
+    stop("Expecting Forest");
+  }
+  return lForest;
+  
+  END_RCPP
 }
 
 
