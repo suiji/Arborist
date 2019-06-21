@@ -25,14 +25,13 @@
 
 #include "bagRf.h"
 #include "bagbridge.h"
-#include "bv.h"
 #include "trainbridge.h"
 
 
-BagRf::BagRf(unsigned int nRow_, unsigned int nTree_) :
-  nRow(nRow_),
+BagRf::BagRf(size_t nObs_, unsigned int nTree_) :
+  nObs(nObs_),
   nTree(nTree_),
-  rowBytes(BitMatrix::strideBytes(nRow)),
+  rowBytes(BagBridge::strideBytes(nObs)),
   raw(RawVector(nTree * rowBytes)) {
 }
 
@@ -50,7 +49,7 @@ List BagRf::wrap() {
   BEGIN_RCPP
   return List::create(
                       _["raw"] = move(raw),
-                      _["nRow"] = nRow,
+                      _["nRow"] = nObs,
                       _["rowBytes"] = rowBytes,
                       _["nTree"] = nTree
                       );

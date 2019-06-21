@@ -120,7 +120,7 @@ struct LeafExportReg : public LeafExport {
     @brief Constructor for export, no prediction.
    */
   LeafExportReg(const List& lLeaf,
-                const class BitMatrix* baggedRows);
+                const class BagBridge* bagBridge);
 
   ~LeafExportReg() {}
 
@@ -128,7 +128,7 @@ struct LeafExportReg : public LeafExport {
      @brief Builds bridge object from wrapped front-end data.
    */
   static unique_ptr<LeafExportReg> unwrap(const List &lTrain,
-                                          const class BitMatrix *baggedRows);
+                                          const class BagBridge* bagBridge);
 
   const vector<double> &getScoreTree(unsigned int tIdx) const {
     return scoreTree[tIdx];
@@ -145,15 +145,14 @@ struct LeafExportCtg : public LeafExport {
      @brief Constructor for export; no prediction.
    */
   LeafExportCtg(const List& lLeaf,
-                const class BitMatrix* bitMatrix);
+                const class BagBridge* bagBridge);
 
   ~LeafExportCtg() {}
 
   static unique_ptr<LeafExportCtg> unwrap(const List &lTrain,
-                                          const class BitMatrix *baggedRows);
+                                          const class BagBridge* bagBridge);
 
   
-
   /**
      @brief Accessor exposes category name strings.
 

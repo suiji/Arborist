@@ -24,7 +24,7 @@ using namespace std;
  */
 struct BagBridge {
 
-  BagBridge(unsigned int nRow_,
+  BagBridge(size_t nObs,
             unsigned int nTree_,
             unsigned char* raw);
 
@@ -36,25 +36,31 @@ struct BagBridge {
   ~BagBridge();
 
 
-  class Bag* getBag() const;
+  /**
+     @return core bag.
+   */
+  const class Bag* getBag() const;
   
+  
+  /**
+     @brief Computes stride size subsumed by a given observation count.
+
+     @return stride size, in bytes.
+   */
+  static size_t strideBytes(size_t nObs);
+  
+
   /**
      @brief Getter for number of training rows.
    */
-  unsigned int getNRow() const;
+  unsigned int getNObs() const;
 
   /**
      @brief Getter for number of trained trees.
    */
   unsigned int getNTree() const;
   
-  
-  /**
-     @brief Getter for raw data pointer.
 
-     @return raw pointer if non-empty, else nullptr.
-   */
-  const class BitMatrix* getRaw() const;
 private:
 
   unique_ptr<class Bag> bag; // Core-level instantiation.

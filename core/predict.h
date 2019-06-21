@@ -32,7 +32,11 @@ using namespace std;
    class is parametrized by two blocks instead of a more general frame.
  */
 class PredictFrame {
+  static constexpr size_t rowBlock = 0x2000; // Block size.
+  
   class Predict* predict;
+  const unsigned int nTree;
+  const unsigned int noLeaf;
   const class BlockDense<double>* blockNum;
   const class BlockDense<unsigned int>* blockFac;
 
@@ -40,12 +44,14 @@ class PredictFrame {
      @brief Aliases a row-prediction method tailored for the frame's
      block structure.
    */
-  void (PredictFrame::* predictRow)(size_t, size_t) const;
+  void (PredictFrame::* predictRow)(size_t, size_t);
+
+  unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
 
   /**
      @brief Dispatches row prediction in parallel.
    */
-  void predictBlock(size_t rowStart) const;
+  void predictBlock(size_t rowStart);
   
   /**
      @brief Multi-row prediction with predictors of only numeric.
@@ -54,27 +60,55 @@ class PredictFrame {
 
      @param rowOff is the block-relative row offset.
   */
-  void predictNum(size_t rowStart, size_t rowOff) const;
+  void predictNum(size_t rowStart, size_t rowOff);
 
   /**
      @brief Multi-row prediction with predictors of only factor type.
 
      Parameters as above.
   */
-  void predictFac(size_t rowStart, size_t rowOff) const;
+  void predictFac(size_t rowStart, size_t rowOff);
   
 
   /**
      @brief Prediction with predictors of both numeric and factor type.
      Parameters as above.
   */
-  void predictMixed(size_t rowStart, size_t rowOff) const;
+  void predictMixed(size_t rowStart, size_t rowOff);
   
+
+  /**
+     @brief Assigns a true leaf index at the prediction coordinates passed.
+
+     @param blockRow is a block-relative row offset.
+
+     @param tc is the index of the current tree.
+
+     @param leafIdx is the leaf index to record.
+   */
+  inline void predictLeaf(unsigned int blockRow,
+                          unsigned int tc,
+                          unsigned int leafIdx) {
+    predictLeaves[nTree * blockRow + tc] = leafIdx;
+  }
+
 
 public:
   PredictFrame(class Predict* predict,
                const BlockDense<double>* blockNum_,
                const BlockDense<unsigned int>* blockFac_);
+
+  
+  /**
+     @brief Specifies size of blocks to be passed by front end.
+
+     @param nRow is the total number of observations.
+
+     @return lesser of internal parameter and number of observations.
+   */
+  static constexpr size_t getBlockRows(size_t nRow) {
+    return min(nRow, rowBlock);
+  }
 
 
   /**
@@ -82,7 +116,7 @@ public:
 
      @param rowStart is the starting row over which to predict.
   */
-  void predictAcross(size_t rowStart) const;
+  void predictAcross(size_t rowStart);
 
 
   /**
@@ -135,6 +169,24 @@ public:
 
   
   /**
+     @brief Indicates whether a given row and tree pair is in-bag.
+
+     @param blockRow is the block-relative row position.
+
+     @param tc is the absolute tree index.
+
+     @param[out] termIdx is the predicted tree-relative index.
+
+     @return whether pair is bagged.
+   */
+  inline bool isBagged(unsigned int blockRow,
+                       unsigned int tc,
+                       unsigned int &termIdx) const {
+    termIdx = predictLeaves[nTree * blockRow + tc];
+    return termIdx == noLeaf;
+  }
+
+  /**
      @return base address for (transposed) numeric values at row.
    */
   const double* baseNum(size_t rowOff) const;
@@ -152,37 +204,21 @@ public:
    predictions.
  */
 class Predict {
-  static constexpr size_t rowBlock = 0x2000; // Block size.
-  
   const class Bag* bag; // In-bag representation.
-  const unsigned int nTree; // # trees used in training.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   const class TreeNode* treeNode; // Pointer to base of tree nodes.
   const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
   class LeafFrame* leaf; // Terminal section of forest.
-  const unsigned int noLeaf; // Inattainable leaf index value.
   class Quant* quant;  // Quantile workplace, as needed.
   const bool oob; // Whether prediction constrained to out-of-bag.
-  unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
 
   unique_ptr<PredictFrame> frame;
 
-  /**
-     @brief Assigns a true leaf index at the prediction coordinates passed.
-
-     @param blockRow is a block-relative row offset.
-
-     @param tc is the index of the current tree.
-
-     @param leafIdx is the leaf index to record.
-   */
-  inline void predictLeaf(unsigned int blockRow,
-                          unsigned int tc,
-                          unsigned int leafIdx) {
-    predictLeaves[nTree * blockRow + tc] = leafIdx;
-  }
-
  public:
+
+  const unsigned int nTree; // # trees used in training.
+  const unsigned int noLeaf; // Inattainable leaf index value.
+  
   Predict(const class Bag* bag_,
           const class Forest* forest_,
           class LeafFrame* leaf_,
@@ -190,29 +226,19 @@ class Predict {
           bool oob_);
 
 
-
-  /**
-     @brief Specifies size of blocks to be passed by front end.
-
-     @param nRow is the total number of observations.
-
-     @return lesser of internal parameter and number of observations.
-   */
-  static constexpr size_t getBlockRows(size_t nRow) {
-    return min(nRow, rowBlock);
-  }
-
-
   /**
      @brief Generic entry from bridge.
 
      @param frame contains the observations.
    */
-  //  void predict(const PredictFrame* frame, size_t rowStart);
+  void scoreBlock(const unsigned int predictLeaves[],
+                  size_t rowStart,
+                  size_t extent) const;
 
-  void scoreBlock(size_t rowStart, size_t extent) const;
-
-  void quantBlock(size_t rowStart, size_t extent) const;
+  
+  void quantBlock(const PredictFrame* frame,
+                  size_t rowStart,
+                  size_t extent) const;
 
   /**
      @brief Prediction of single row with mixed predictor types.
@@ -220,48 +246,32 @@ class Predict {
      @param row is the absolute row of data over which a prediction is made.
 
      @param blockRow is the row's block-relative row index.
-
   */
-  void rowMixed(const PredictFrame* frame,
-                size_t row,
-                size_t extent);
+  unsigned int rowMixed(unsigned int tIdx,
+                        const PredictFrame* frame,
+                        const double* rowNT,
+                        const unsigned int* rowFT,
+                        size_t row);
 
+  
   /**
      @brief Prediction over a single row with factor-valued predictors only.
 
      Parameters as in mixed case, above.
   */
-  void rowFac(const PredictFrame* frame,
-              size_t row,
-              size_t extent);
+  unsigned int rowFac(unsigned int tIdx,
+              const unsigned int* rowT,
+              size_t row);
+
 
   /**
      @brief Prediction of a single row with numeric-valued predictors only.
 
      Parameters as in mixed case, above.
    */
-  void rowNum(const PredictFrame* frame,
-              size_t row,
-              size_t extent);
-
-
-  /**
-     @brief Indicates whether a given row and tree pair is in-bag.
-
-     @param blockRow is the block-relative row position.
-
-     @param tc is the absolute tree index.
-
-     @param[out] termIdx is the predicted tree-relative index.
-
-     @return whether pair is bagged.
-   */
-  inline bool isBagged(unsigned int blockRow,
-                       unsigned int tc,
-                       unsigned int &termIdx) const {
-    termIdx = predictLeaves[nTree * blockRow + tc];
-    return termIdx == noLeaf;
-  }
+  unsigned int rowNum(unsigned int tIdx,
+                      const double* rowT,
+                      size_t row);
 };
 
 #endif

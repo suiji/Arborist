@@ -63,13 +63,19 @@ LeafBridge* PredictBridge::getLeaf() const {
 }
 
 
-const Quant* PredictBridge::getQuant() const {
-  return quant.get();
+const vector<double> PredictBridge::getQPred() const {
+
+  return (quant == nullptr || quant->getNRow() == 0) ? vector<double>(0) : quant->getQPred();
+}
+
+
+const vector<double> PredictBridge::getQEst() const {
+  return (quant == nullptr || quant->getNRow() == 0) ? vector<double>(0) : quant->getQEst();
 }
 
 
 size_t PredictBridge::getBlockRows(size_t rowCount) {
-  return Predict::getBlockRows(rowCount);
+  return PredictFrame::getBlockRows(rowCount);
 }
 
 

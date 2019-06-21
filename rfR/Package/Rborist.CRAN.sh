@@ -5,8 +5,8 @@
 
 bash Rborist.common.sh
 
-cp ../Shared/Makevars Rborist/src/
-cp ../Shared/Makevars.win Rborist/src/
+cp ../src/Makevars Rborist/src/
+cp ../src/Makevars.win Rborist/src/
 
 R CMD build Rborist
 rm -rf Rborist

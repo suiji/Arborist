@@ -78,7 +78,7 @@ class Quant {
 
      @param[out] qRow[] outputs the 'qCount' quantile values.
   */
-  void predictRow(const class Predict *predict,
+  void predictRow(const class PredictFrame* frame,
                   unsigned int rowBlock,
                   double yPred,
                   double qRow[],
@@ -148,10 +148,10 @@ class Quant {
   /**
      @brief Accessor for predicted quantiles.
 
-     @return pointer to base of quantile predictions.
+     @return vector of quantile predictions.
    */
-  const double *QPred() const {
-    return &qPred[0];
+  const vector<double> getQPred() const {
+    return qPred;
   }
   
   
@@ -160,7 +160,7 @@ class Quant {
 
      @return pointer to base of estimand quantiles.
    */
-  const vector<double> &getQEst() const {
+  const vector<double> getQEst() const {
     return qEst;
   }
   
@@ -172,7 +172,7 @@ class Quant {
 
      @param extent is the number of rows to predict.
   */
-  void predictAcross(const class Predict *predict,
+  void predictAcross(const class PredictFrame* frame,
                      size_t rowStart,
                      size_t extent);
 };

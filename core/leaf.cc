@@ -15,6 +15,7 @@
 
 #include "leaf.h"
 #include "sample.h"
+#include "bag.h"
 #include "bv.h"
 #include "ompthread.h"
 
@@ -132,12 +133,12 @@ vector<size_t> LeafBlock::setOffsets() const {
 }
 
 
-void LeafFrame::dump(const BitMatrix* baggedRows,
+void LeafFrame::dump(const Bag* bag,
                      vector< vector<size_t> > &rowTree,
                      vector< vector<unsigned int> > &sCountTree,
                      vector<vector<double> >& scoreTree,
                      vector<vector<unsigned int> >& extentTree) const {
-  blBlock->dump(baggedRows, rowTree, sCountTree);
+  blBlock->dump(bag, rowTree, sCountTree);
   leafBlock->dump(scoreTree, extentTree);
 }
 
@@ -154,10 +155,11 @@ void LeafBlock::dump(vector<vector<double> >& score,
 }
 
 
-void BLBlock::dump(const BitMatrix* baggedRows,
+void BLBlock::dump(const Bag* bag,
                    vector<vector<size_t> >& rowTree,
                    vector<vector<unsigned int> >& sCountTree) const {
   size_t bagIdx = 0;
+  const BitMatrix* baggedRows(bag->getBitMatrix());
   for (auto tIdx = 0ul; tIdx < raw->getNMajor(); tIdx++) {
     for (auto row = 0ul; row < baggedRows->getStride(); row++) {
       if (baggedRows->testBit(tIdx, row)) {
@@ -324,13 +326,13 @@ void LeafFrameCtg::vote() {
 }
 
 
-void LeafFrameCtg::dump(const BitMatrix *baggedRows,
+void LeafFrameCtg::dump(const Bag* bag,
                         vector<vector<size_t> > &rowTree,
                         vector<vector<unsigned int> > &sCountTree,
                         vector<vector<double> > &scoreTree,
                         vector<vector<unsigned int> > &extentTree,
                         vector<vector<double> > &probTree) const {
-  LeafFrame::dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
+  LeafFrame::dump(bag, rowTree, sCountTree, scoreTree, extentTree);
   ctgProb->dump(probTree);
 }
 

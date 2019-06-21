@@ -65,17 +65,24 @@ struct LeafRegRf {
   /**
      @brief Builds a NumericMatrix representation of the quantile predictions.
      
-     @param quant is a quantile prediction summary.
+     @param leafBridge is the leaf handle.
+
+     @param pBridge is the prediction handle.
 
      @return transposed core matrix if quantiles requested, else empty matrix.
   */
-  static NumericMatrix qPred(const class Quant *quant);
+  static NumericMatrix getQPred(const class LeafRegBridge* leafBridge,
+                                const class PredictBridge* pBridge);
 
 
   /**
      @brief Builds a NumericVector representation of the estimand quantiles.
+     
+     @param pBridge is the prediction handle.
+
+     @return quantile of predictions if quantiles requesed, else empty vector.
    */
-  static NumericVector qEst(const class Quant* quant);
+  static NumericVector getQEst(const class PredictBridge* pBridge);
 
   
   /**

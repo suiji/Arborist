@@ -74,10 +74,18 @@ struct PredictBridge {
                     const BlockDense<unsigned int>* blockFac,
                     size_t row) const;
 
-  const class Quant* getQuant() const;
-  
   LeafBridge* getLeaf() const;
 
+  /**
+     @return vector of predection quantiles iff quant non-null else empty.
+   */
+  const vector<double> getQPred() const;
+
+  /**
+     @return vector of estimate quantiles iff quant non-null else empty.
+   */
+  const vector<double> getQEst() const;
+  
 private:
   unique_ptr<class BagBridge> bag;
   unique_ptr<class ForestBridge> forest;

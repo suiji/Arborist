@@ -32,7 +32,6 @@
 #include "leafRf.h"
 #include "leafbridge.h"
 
-#include "bv.h"
 #include <vector>
 
 /**
@@ -219,7 +218,7 @@ List ExportRf::fFloorTreeReg(const List& lArb,
   BEGIN_RCPP
 
   auto bag(BagRf::unwrap(lArb));
-  auto leaf(LeafExportReg::unwrap(lArb, bag->getRaw()));
+  auto leaf(LeafExportReg::unwrap(lArb, bag.get()));
   auto forest(ForestExport::unwrap(lArb, predMap));
 
   auto nTree = bag->getNTree();
@@ -229,7 +228,7 @@ List ExportRf::fFloorTreeReg(const List& lArb,
       List::create(
                    _["internal"] = fFloorForest(forest.get(), tIdx),
                    _["leaf"] = fFloorLeafReg(leaf.get(), tIdx),
-                   _["bag"] = fFloorBag(leaf.get(), tIdx, bag->getNRow())
+                   _["bag"] = fFloorBag(leaf.get(), tIdx, bag->getNObs())
                    );
       ffReg.attr("class") = "fFloorTreeReg";
       trees[tIdx] = move(ffReg);
@@ -248,7 +247,7 @@ List ExportRf::fFloorCtg(const List& lArb,
   BEGIN_RCPP
 
   auto bag(BagRf::unwrap(lArb));
-  auto leaf(LeafExportCtg::unwrap(lArb, bag->getRaw()));
+  auto leaf(LeafExportCtg::unwrap(lArb, bag.get()));
   auto forest(ForestExport::unwrap(lArb, predMap));
   int facCount = predLevel.length();
   List ffe =
@@ -256,7 +255,7 @@ List ExportRf::fFloorCtg(const List& lArb,
                  _["facMap"] = IntegerVector(predMap.end() - facCount, predMap.end()),
                  _["predLevel"] = predLevel,
                  _["yLevel"] = leaf->getLevelsTrain(),
-                 _["tree"] = fFloorTreeCtg(forest.get(), leaf.get(), bag->getNRow())
+                 _["tree"] = fFloorTreeCtg(forest.get(), leaf.get(), bag->getNObs())
   );
   ffe.attr("class") = "ForestFloorCtg";
   return ffe;
@@ -266,9 +265,9 @@ List ExportRf::fFloorCtg(const List& lArb,
 
 
 unique_ptr<LeafExportCtg> LeafExportCtg::unwrap(const List &lTrain,
-                                                const BitMatrix *baggedRows) {
+                                                const BagBridge* bag) {
   List lLeaf(LeafCtgRf::checkLeaf(lTrain));
-  return make_unique<LeafExportCtg>(lLeaf, baggedRows);
+  return make_unique<LeafExportCtg>(lLeaf, bag);
 }
 
 LeafExport::LeafExport(unsigned int nTree_) :
@@ -283,7 +282,7 @@ LeafExport::LeafExport(unsigned int nTree_) :
    @brief Constructor caches front-end vectors and instantiates a Leaf member.
  */
 LeafExportCtg::LeafExportCtg(const List& lLeaf,
-                             const BitMatrix* baggedRows) :
+                             const BagBridge* bagBridge) :
   LeafExport((unsigned int) IntegerVector((SEXP) lLeaf["nodeHeight"]).length()),
   levelsTrain(CharacterVector((SEXP) lLeaf["levels"])),
   scoreTree(vector<vector<double > >(nTree)),
@@ -298,14 +297,14 @@ LeafExportCtg::LeafExportCtg(const List& lLeaf,
                                (unsigned int) CharacterVector((SEXP) lLeaf["levels"]).length(),
                                0,
                                false);
-  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree, weightTree);
+  leaf->dump(bagBridge, rowTree, sCountTree, scoreTree, extentTree, weightTree);
 }
 
 
 unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain,
-                                                const BitMatrix *baggedRows) {
+                                                const BagBridge *bag) {
   List lLeaf(LeafRegRf::checkLeaf(lTrain));
-  return make_unique<LeafExportReg>(lLeaf, baggedRows);
+  return make_unique<LeafExportReg>(lLeaf, bag);
 }
  
 
@@ -314,7 +313,7 @@ unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain,
    no prediction.
  */
 LeafExportReg::LeafExportReg(const List& lLeaf,
-                             const BitMatrix* baggedRows) :
+                             const BagBridge* bagBridge) :
   LeafExport((unsigned int) IntegerVector((SEXP) lLeaf["nodeHeight"]).length()),
   yTrain(NumericVector((SEXP) lLeaf["yTrain"])),
   scoreTree(vector<vector<double > >(nTree)) {
@@ -328,6 +327,6 @@ LeafExportReg::LeafExportReg(const List& lLeaf,
                                (size_t) yTrain.length(),
                                mean(yTrain),
                                0);
-  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
+  leaf->dump(bagBridge, rowTree, sCountTree, scoreTree, extentTree);
 }
 

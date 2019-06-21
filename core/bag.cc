@@ -3,15 +3,15 @@
 
 Bag::Bag(unsigned int* raw,
          unsigned int nTree_,
-         unsigned int nRow_) :
+         size_t nObs_) :
   nTree(nTree_),
-  nRow(nRow_),
-  bitMatrix(make_unique<BitMatrix>(raw, nTree, nRow)) {
+  nObs(nObs_),
+  bitMatrix(make_unique<BitMatrix>(raw, nTree, nObs)) {
 }
 
 Bag::Bag() :
   nTree(0),
-  nRow(0),
+  nObs(0),
   bitMatrix(make_unique<BitMatrix>(0, 0)) {
 }
 

@@ -49,7 +49,7 @@ unsigned int Quant::getNRow() const {
 }
 
 
-void Quant::predictAcross(const Predict *predict,
+void Quant::predictAcross(const PredictFrame* frame,
                           size_t rowStart,
                           size_t extent) {
   if (baggedRows->isEmpty())
@@ -62,7 +62,7 @@ void Quant::predictAcross(const Predict *predict,
 #pragma omp for schedule(dynamic, 1)
     for (row = rowStart; row < rowSup; row++) {
       double yPred = leafReg->getYPred(row);
-      predictRow(predict, row - rowStart, yPred, &qPred[qCount * row], &qEst[row]);
+      predictRow(frame, row - rowStart, yPred, &qPred[qCount * row], &qEst[row]);
     }
   }
 }
@@ -77,7 +77,7 @@ unsigned int Quant::binScale() const {
 }
 
 
-void Quant::predictRow(const Predict *predict,
+void Quant::predictRow(const PredictFrame *frame,
                        unsigned int blockRow,
                        double yPred,
                        double qRow[],
@@ -90,7 +90,7 @@ void Quant::predictRow(const Predict *predict,
   unsigned int totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < leafReg->getNTree(); tIdx++) {
     unsigned int termIdx;
-    if (!predict->isBagged(blockRow, tIdx, termIdx)) {
+    if (!frame->isBagged(blockRow, tIdx, termIdx)) {
       totSamples += leafSample(tIdx, termIdx, sCount);
     }
   }

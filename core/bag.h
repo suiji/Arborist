@@ -23,20 +23,20 @@ using namespace std;
 
 class Bag {
   unsigned int nTree;
-  unsigned int nRow;
+  size_t nObs;
   unique_ptr<class BitMatrix> bitMatrix;
 
  public:
 
-  auto getNRow() const {
-    return nRow;
+  auto getNObs() const {
+    return nObs;
   }
 
   auto getNTree() const {
     return nTree;
   }
   
-  Bag(unsigned int* raw_, unsigned int nRow_, unsigned int nTree_);
+  Bag(unsigned int* raw_, unsigned int nTree_, size_t nObs_);
 
   /**
      @brief Constructor for empty bag.

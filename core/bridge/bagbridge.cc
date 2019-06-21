@@ -13,17 +13,16 @@
    @author Mark Seligman
  */
 
-#include "bv.h"
 #include "bagbridge.h"
 #include "bag.h"
 
 #include <memory>
 using namespace std;
 
-BagBridge::BagBridge(unsigned int nRow,
+BagBridge::BagBridge(size_t nObs,
                      unsigned int nTree,
                      unsigned char* raw) :
-  bag(make_unique<Bag>((unsigned int*) raw, nRow, nTree)) {
+  bag(make_unique<Bag>((unsigned int*) raw, nObs, nTree)) {
 }
 
 
@@ -35,16 +34,18 @@ BagBridge::~BagBridge() {
 }
 
 
-Bag* BagBridge::getBag() const {
+size_t BagBridge::strideBytes(size_t nObs) {
+  return BitMatrix::strideBytes(nObs);
+}
+
+
+const Bag* BagBridge::getBag() const {
   return bag.get();
 }
 
-const BitMatrix* BagBridge::getRaw() const {
-  return bag->getBitMatrix();
-}
 
-unsigned int BagBridge::getNRow() const {
-  return bag->getNRow();
+unsigned int BagBridge::getNObs() const {
+  return bag->getNObs();
 }
 
 

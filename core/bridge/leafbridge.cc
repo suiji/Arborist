@@ -15,6 +15,7 @@
 
 #include "leaf.h"
 #include "leafbridge.h"
+#include "bagbridge.h"
 
 // For now, cloned implementations:
 size_t LeafBridge::getRowPredict() const {
@@ -50,22 +51,22 @@ const vector<double>& LeafRegBridge::getYPred() const {
 }
 
 
-void LeafRegBridge::dump(const class BitMatrix* baggedRows,
+void LeafRegBridge::dump(const class BagBridge* bagBridge,
                          vector<vector<size_t> >& rowTree,
                          vector<vector<unsigned int> >& sCountTree,
                          vector<vector<double> >& scoreTree,
                          vector<vector<unsigned int> >& extentTree) const {
-  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree);
+  leaf->dump(bagBridge->getBag(), rowTree, sCountTree, scoreTree, extentTree);
 }
 
 
-void LeafCtgBridge::dump(const BitMatrix *baggedRows,
+void LeafCtgBridge::dump(const BagBridge* bagBridge,
                          vector<vector<size_t> > &rowTree,
                          vector<vector<unsigned int> > &sCountTree,
                          vector<vector<double> > &scoreTree,
                          vector<vector<unsigned int> > &extentTree,
                          vector<vector<double> > &probTree) const {
-  leaf->dump(baggedRows, rowTree, sCountTree, scoreTree, extentTree, probTree);
+  leaf->dump(bagBridge->getBag(), rowTree, sCountTree, scoreTree, extentTree, probTree);
 }
 
 

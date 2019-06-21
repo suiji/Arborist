@@ -722,7 +722,7 @@ public:
   }
 
 
-  void dump(const class BitMatrix* baggedRows,
+  void dump(const class Bag* bag,
             vector<vector<size_t> >& rowTree,
             vector<vector<unsigned int> >& sCountTree) const;
 
@@ -846,7 +846,7 @@ public:
   /**
      @brief Dumps block components into separate tree-based vectors.
    */
-  void dump(const class BitMatrix* baggedRows,
+  void dump(const class Bag* bag,
             vector< vector<size_t> >& rowTree,
             vector< vector<unsigned int> >& sCountTree,
             vector<vector<double> >& scoreTree,
@@ -1198,7 +1198,7 @@ class LeafFrameCtg : public LeafFrame {
   /**
      @brief Dumps bagging and leaf information into per-tree vectors.
    */
-  void dump(const BitMatrix *baggedRows,
+  void dump(const class Bag* bag,
             vector<vector<size_t> > &rowTree,
             vector<vector<unsigned int> > &sCountTree,
             vector<vector<double> > &scoreTree,

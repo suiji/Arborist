@@ -40,7 +40,7 @@ struct LeafRegBridge : public LeafBridge {
 
   ~LeafRegBridge();
 
-  void dump(const class BitMatrix* baggedRows,
+  void dump(const class BagBridge* bagBridge,
             vector<vector<size_t> >& rowTree,
             vector<vector<unsigned int> >& sCountTree,
             vector<vector<double> >& scoreTree,
@@ -76,7 +76,7 @@ struct LeafCtgBridge : public LeafBridge {
   /**
      @brief Dumps bagging and leaf information into per-tree vectors.
    */
-  void dump(const BitMatrix *baggedRows,
+  void dump(const class BagBridge* bagBridge,
             vector<vector<size_t> > &rowTree,
             vector<vector<unsigned int> > &sCountTree,
             vector<vector<double> > &scoreTree,

@@ -37,22 +37,22 @@ using namespace std;
    @brief Summary of bagged rows, by tree.
  */
 class BagRf {
-  const size_t nRow; // # rows trained.
+  const size_t nObs; // # rows trained.
   const unsigned int nTree; // # trees trained.
   const size_t rowBytes; // # count of raw bytes in summary object.
   RawVector raw; // Allocated OTF and moved.
-  unique_ptr<class BitMatrix> bmRaw; // Core instantiation of raw data.
+  //  unique_ptr<class BitMatrix> bmRaw; // Core instantiation of raw data.
 
  public:
-  BagRf(unsigned int nRow_, unsigned int nTree_);
-  BagRf(unsigned int nRow_, unsigned int nTree_, const RawVector &raw_);
+  BagRf(size_t nObs_, unsigned int nTree_);
+  BagRf(size_t nObs_, unsigned int nTree_, const RawVector &raw_);
   ~BagRf();
 
   /**
      @brief Getter for row count.
    */
-  const size_t getNRow() const {
-    return nRow;
+  const auto getNObs() const {
+    return nObs;
   }
 
 

@@ -28,7 +28,6 @@
 #include "trainbridge.h"
 #include "predictbridge.h"
 #include "signatureRf.h"
-#include "quant.h"
 
 bool LBTrain::thin = false;
 
@@ -346,8 +345,8 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
   if (Rf_isNull(sYTest)) {
     prediction = List::create(
                               _["yPred"] = leaf->getYPred(),
-                              _["qPred"] = qPred(pBridge->getQuant()),
-                              _["qEst"] = qEst(pBridge->getQuant())
+                              _["qPred"] = getQPred(leaf, pBridge),
+                              _["qEst"] = getQEst(pBridge)
                               );
     prediction.attr("class") = "PredictReg";
   }
@@ -358,8 +357,8 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
                               _["mse"] = mse(leaf->getYPred(), as<NumericVector>(sYTest), rsq, mae),
                               _["mae"] = mae,
                               _["rsq"] = rsq,
-                              _["qPred"] = qPred(pBridge->getQuant()),
-                              _["qEst"] = qEst(pBridge->getQuant())
+                              _["qPred"] = getQPred(leaf, pBridge),
+                              _["qEst"] = getQEst(pBridge)
                               );
     prediction.attr("class") = "ValidReg";
   }
@@ -369,18 +368,23 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
 }
 
 
-NumericMatrix LeafRegRf::qPred(const Quant *quant) {
+NumericMatrix LeafRegRf::getQPred(const LeafRegBridge* leaf,
+                                  const PredictBridge* pBridge) {
   BEGIN_RCPP
 
-    return (quant == nullptr || quant->getNRow() == 0) ? NumericMatrix(0) : transpose(NumericMatrix(quant->getNQuant(), quant->getNRow(), quant->QPred()));
-
+  size_t nRow(leaf->getRowPredict());
+  vector<double> qPred(pBridge->getQPred());
+  return qPred.empty() ? NumericMatrix(0) : transpose(NumericMatrix(qPred.size() / nRow, nRow, qPred.begin()));
+    
   END_RCPP
 }
 
-NumericVector LeafRegRf::qEst(const Quant *quant) {
+
+NumericVector LeafRegRf::getQEst(const PredictBridge* pBridge) {
   BEGIN_RCPP
 
-    return (quant == nullptr || quant->getNRow() == 0) ? NumericVector(0) : NumericVector(quant->getQEst().begin(), quant->getQEst().end());
+  vector<double> qEst(pBridge->getQEst());
+  return NumericVector(qEst.begin(), qEst.end());
 
   END_RCPP
 }
