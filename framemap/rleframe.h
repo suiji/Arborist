@@ -23,6 +23,33 @@
 #include <vector>
 using namespace std;
 
+/**
+  @brief Sparse representation imposed by front-end.
+*/
+template<typename valType>
+struct RLEVal {
+  valType val;
+  unsigned int row;
+  unsigned int runLength;
+
+  RLEVal(valType val_,
+         unsigned int row_,
+         unsigned int runLength_) : val(val_),
+                                    row(row_),
+                                    runLength(runLength_) {
+  }
+};
+
+
+/**
+   @brief Value comparator.
+ */
+template<typename valType>
+auto RLECompare = [] (const RLEVal<valType> &a, const RLEVal<valType>& b) -> bool {
+                    return a.val < b.val;
+
+                  };
+
 
 /**
    @brief Run length-encoded representation of pre-sorted frame.
@@ -36,13 +63,7 @@ class RLECresc {
   vector<unsigned int> cardinality;
 
   // Error if empty.
-  vector<unsigned int> rank;
-  vector<unsigned int> row;
-  vector<unsigned int> runLength;
-
-  // TODO:  replace separate vectors with single vector 'rle'.
-  //vector<RLE<RowRank> > rle;
-
+  vector<RLEVal<unsigned int> > rle;
 
   // Sparse numerical representation for split interpolation.
   // Empty iff no numerical predictors.
@@ -53,15 +74,14 @@ class RLECresc {
 			     const unsigned int feRowStart[],
 			     const unsigned int feRunLength[]);
 
-  // Sparse representation imposed by front-end.
-  typedef tuple<double, unsigned int, unsigned int> NumRLE;
+  //  typedef tuple<double, unsigned int, unsigned int> NumRLE;
 
   /**
      @brief Stores ordered predictor column, entering uncompressed.
 
      @param rleNum is a sparse representation of the value/row-number pairs.
   */
-  void encode(const vector<NumRLE> &rleNum);
+  void encode(const vector<RLEVal<double> > &rleNum);
 
 
   /**
@@ -101,7 +121,7 @@ class RLECresc {
     return sizeof(RLE<RowRank>);
   }
 
-  
+  #ifdef restore
   /**
      @brief Accessor for copyable rank vector.
    */
@@ -122,6 +142,7 @@ class RLECresc {
   const vector<unsigned int>& getRunLength() const {
     return runLength;
   }
+  #endif
 
 
   /** 
@@ -145,7 +166,15 @@ class RLECresc {
   const vector<unsigned int>& getCardinality() const {
     return cardinality;
   }
+
+
+  size_t getRLEBytes() const {
+    return sizeof(RLEVal<unsigned int>) * rle.size();
+  }
+
   
+  void dumpRLE(unsigned char rleRaw[]) const;
+
 
   /**
      @brief Presorts runlength-encoded numerical block supplied by front end.
@@ -192,9 +221,7 @@ struct RLEFrame {
   const size_t nRow;
   const vector<unsigned int> cardinality;
   const size_t rleLength;
-  const unsigned int* rank;
-  const unsigned int* row;
-  const unsigned int* runLength;
+  const RLEVal<unsigned int>* rle;
   const unsigned int nPredNum;
   const double* numVal;
   const unsigned int* valOff;
@@ -202,9 +229,7 @@ struct RLEFrame {
   RLEFrame(size_t nRow_,
            const vector<unsigned int>& cardinality_,
            size_t rlLength_,
-           const unsigned int* row_,
-           const unsigned int* rank_,
-           const unsigned int* runLength_,
+           const RLEVal<unsigned int>* rle_,
            unsigned int nPredNum_,
            const double* numVal_,
            const unsigned int* valOff_);

@@ -81,11 +81,11 @@ List RLEFrameR::wrap(const RLECresc *rleCresc) {
                                 );
   numRanked.attr("class") = "NumRanked";
 
+  RawVector rleOut(rleCresc->getRLEBytes());
+  rleCresc->dumpRLE(rleOut.begin());
   List rankedFrame = List::create(
                               _["unitSize"] = RLECresc::unitSize(),
-                              _["row"] = rleCresc->getRow(),
-                              _["rank"] = rleCresc->getRank(),
-                              _["runLength"] = rleCresc->getRunLength()
+                              _["rle"] = rleOut
                               );
   rankedFrame.attr("class") = "RankedFrame";
 
@@ -108,9 +108,7 @@ unique_ptr<RLEFrame> RLEFrameR::factory(SEXP sRLEFrame,
   List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
   auto rleFrame = factory(Rf_isNull(rleList["cardinality"]) ? IntegerVector(0) : IntegerVector((SEXP) rleList["cardinality"]), 
                           nRow,
-                          IntegerVector((SEXP) rankedFrame["row"]),
-                          IntegerVector((SEXP) rankedFrame["rank"]),
-                          IntegerVector((SEXP) rankedFrame["runLength"]),
+                          RawVector((SEXP) rankedFrame["rle"]),
                           Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]),
                           Rf_isNull(blockNum["numOff"]) ? IntegerVector(0) : IntegerVector((SEXP) blockNum["numOff"]));
   return rleFrame;
@@ -119,18 +117,14 @@ unique_ptr<RLEFrame> RLEFrameR::factory(SEXP sRLEFrame,
 
 unique_ptr<RLEFrame> RLEFrameR::factory(const IntegerVector& card,
                                         size_t nRow,
-                                        const IntegerVector& row,
-                                        const IntegerVector& rank,
-                                        const IntegerVector& runLength,
+                                        const RawVector& rle,
                                         const NumericVector& numVal,
                                         const IntegerVector& numOff) {
   vector<unsigned int> cardinality(card.begin(), card.end());
   return make_unique<RLEFrame>(nRow,
                                cardinality,
-                               row.length(),
-                               (const unsigned int*) &row[0],
-                               (const unsigned int*) &rank[0],
-                               (const unsigned int*) &runLength[0],
+                               rle.length(),
+                               (const RLEVal<unsigned int>*) &rle[0],
                                (unsigned int) numOff.size(),
                                (const double*) &numVal[0],
                                (const unsigned int*) &numOff[0]);
@@ -144,7 +138,7 @@ List RLEFrameR::checkRankedFrame(SEXP sRankedFrame) {
   if (!rankedFrame.inherits("RankedFrame")) {
     stop("Expecting RankedFrame");
   }
-  if (Rf_isNull(rankedFrame["row"])) {
+  if (Rf_isNull(rankedFrame["rle"])) {
     stop("Empty run encoding");
   }
 

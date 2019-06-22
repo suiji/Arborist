@@ -19,12 +19,15 @@
 #include <vector>
 #include <cmath>
 
+#include "rleframe.h"
 #include "rowrank.h"
+
+using namespace std;
+
 #include "typeparam.h"
 
 /**
   @brief Rank orderings of predictors.
-
 */
 class RankedFrame {
   const unsigned int nRow;
@@ -43,38 +46,6 @@ class RankedFrame {
 
   // Move to SummaryFrame:
   vector<unsigned int> cardinality;
-  
-  /**
-     @brief Looks up run characteristics at a given index.
-
-     @param rleIdx is the index.
-
-     @param[out] row outputs the row number.
-
-     @param[out] rank outputs the rank
-
-     @return run length.
-   */
-  static inline unsigned int runSlot(const unsigned int feRLE[],
-				     const unsigned int feRow[],
-				     const unsigned int feRank[],
-				     unsigned int rleIdx,
-				     unsigned int &row,
-				     unsigned int &rank) {
-    row = feRow[rleIdx];
-    rank = feRank[rleIdx];
-    return feRLE[rleIdx];
-  };
-
-  
-  static inline unsigned int runSlot(const unsigned int feRLE[],
-				     const unsigned int feRank[],
-				     unsigned int rleIdx,
-				     unsigned int &rank) {
-    rank = feRank[rleIdx];
-    return feRLE[rleIdx];
-  };
-
 
   /**
      @brief Walks the design matrix as RLE entries, merging adjacent
@@ -86,9 +57,8 @@ class RankedFrame {
 
      @return total count of explicit slots.
   */
-  unsigned int denseBlock(const unsigned int feRank[],
-			  const unsigned int feRLE[],
-			  unsigned int feRLELength);
+  unsigned int denseBlock(const RLEVal<unsigned int> feRLE[],
+			  size_t feRLELength);
 
   /**
      @brief Determines whether predictor to be stored densely and updates
@@ -126,10 +96,8 @@ class RankedFrame {
 
      @param rleLength is the total count of RLE entries.
   */
-  void decompress(const unsigned int feRow[],
-		  const unsigned int feRank[],
-		  const unsigned int feRLE[],
-		  unsigned int feRLELength);
+  void decompress(const RLEVal<unsigned int> feRLE[],
+		  size_t feRLELength);
 
  protected:
   vector<RowRank> rrNode; // Row/rank pairs associated with explicit items.
@@ -141,19 +109,15 @@ class RankedFrame {
                               unsigned int nRow,
                               const vector<unsigned int>& cardinality,
                               unsigned int nPred,
-                              const unsigned int feRow[],
-                              const unsigned int feRank[],
-                              const unsigned int feRLE[],
-                              unsigned int feRLELength,
+                              const RLEVal<unsigned int> feRLE[],
+                              size_t feRLELength,
                               double autoCompress);
 
   RankedFrame(unsigned int nRow_,
               const vector<unsigned int>& cardinality,
               const unsigned int nPred,
-              const unsigned int feRow[],
-              const unsigned int feRank[],
-              const unsigned int feRLE[],
-              unsigned int feRLELength,
+              const RLEVal<unsigned int> feRLE[],
+              size_t feRLELength,
               double autoCompress);
 
   virtual ~RankedFrame();

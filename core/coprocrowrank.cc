@@ -21,12 +21,10 @@ RankedFrame *RankedFrame::Factory(const Coproc *coproc,
                                   unsigned int nRow,
                                   const vector<unsigned int>& cardinality,
                                   unsigned int nPred,
-                                  const unsigned int _feRow[],
-                                  const unsigned int _feRank[],
+                                  const RLEVal<unsigned int> feRLE_[],
 			  //		  const unsigned int *_numOffset,
 			  //const double *_numVal,
-                                  const unsigned int _feRLE[],
-                                  unsigned int _feRLELength,
+                                  size_t _feRLELength,
                                   double _autoCompress) {
-  return new RankedFrame(nRow, cardinality, nPred, _feRow, _feRank, /*_numOffset, _numVal,*/ _feRLE, _feRLELength, _autoCompress);
+  return new RankedFrame(nRow, cardinality, nPred, feRLE_, _feRLELength, _autoCompress);
 }

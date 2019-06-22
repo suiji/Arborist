@@ -33,10 +33,8 @@
 RankedFrame::RankedFrame(unsigned int nRow_,
                          const vector<unsigned int>& cardinality,
                          unsigned int nPred_,
-                         const unsigned int feRow[],
-                         const unsigned int feRank[],
-                         const unsigned int feRLE[],
-                         unsigned int rleLength,
+                         const RLEVal<unsigned int> feRLE[],
+                         size_t rleLength,
                          double autoCompress) :
   nRow(nRow_),
   nPred(nPred_),
@@ -54,15 +52,15 @@ RankedFrame::RankedFrame(unsigned int nRow_,
   fill(denseIdx.begin(), denseIdx.end(), nPred);
   fill(denseRank.begin(), denseRank.end(), noRank);
   fill(explicitCount.begin(), explicitCount.end(), nRow);
-  unsigned int explCount = denseBlock(feRank, feRLE, rleLength);
+  unsigned int explCount = denseBlock(feRLE, rleLength);
   modeOffsets();
 
   rrNode = vector<RowRank>(explCount);
-  decompress(feRow, feRank, feRLE, rleLength);
+  decompress(feRLE, rleLength);
 }
 
 
-unsigned int RankedFrame::denseBlock(const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+unsigned int RankedFrame::denseBlock(const RLEVal<unsigned int> feRLE[], size_t rleLength) {
   unsigned int explCount = 0;
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -70,8 +68,8 @@ unsigned int RankedFrame::denseBlock(const unsigned int feRank[], const unsigned
     unsigned int argMax = noRank;
     unsigned int runCount = 0; // Runs across adjacent rle entries.
     unsigned int rankPrev = noRank;
-    unsigned int rank;
-    unsigned int runLength = runSlot(feRLE, feRank, rleIdx, rank);
+    unsigned int rank = feRLE[rleIdx].val;
+    unsigned int runLength = feRLE[rleIdx].runLength;
 
     for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank == rankPrev) {
@@ -87,7 +85,8 @@ unsigned int RankedFrame::denseBlock(const unsigned int feRank[], const unsigned
       }
       if (++rleIdx == rleLength)
 	break;
-      runLength = runSlot(feRLE, feRank, rleIdx, rank);
+      rank = feRLE[rleIdx].val;
+      runLength = feRLE[rleIdx].runLength;
     }
     // Post condition:  rowTot == nRow.
 
@@ -125,12 +124,13 @@ void RankedFrame::modeOffsets() {
 }
 
 
-void RankedFrame::decompress(const unsigned int feRow[], const unsigned int feRank[], const unsigned int feRLE[], unsigned int rleLength) {
+void RankedFrame::decompress(const RLEVal<unsigned int> feRLE[], size_t rleLength) {
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int outIdx = rrStart[predIdx];
-    unsigned int row, rank;
-    unsigned int runLength = runSlot(feRLE, feRow, feRank, rleIdx, row, rank);
+    unsigned int row = feRLE[rleIdx].row;
+    unsigned int rank = feRLE[rleIdx].val;
+    unsigned int runLength = feRLE[rleIdx].runLength;
     for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank != denseRank[predIdx]) { // Non-dense runs expanded.
 	for (unsigned int i = 0; i < runLength; i++) {
@@ -139,7 +139,9 @@ void RankedFrame::decompress(const unsigned int feRow[], const unsigned int feRa
       }
       if (++rleIdx == rleLength)
 	break;
-      runLength = runSlot(feRLE, feRow, feRank, rleIdx, row, rank);
+      row = feRLE[rleIdx].row;
+      rank = feRLE[rleIdx].val;
+      runLength = feRLE[rleIdx].runLength;
     }
     // Post-condition:  outIdx - rrStart[predIdx] == explicitCount[predIdx]
   }

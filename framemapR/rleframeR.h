@@ -80,9 +80,7 @@ struct RLEFrameR {
 
   static unique_ptr<RLEFrame> factory(const IntegerVector& card,
                                       size_t nRow,
-                                      const IntegerVector& row,
-                                      const IntegerVector& rank,
-                                      const IntegerVector& runLength,
+                                      const RawVector& rle,
                                       const NumericVector& numVal,
                                       const IntegerVector& numOff);
   /**
