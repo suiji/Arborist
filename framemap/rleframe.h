@@ -42,11 +42,11 @@ struct RLEVal {
 
 
 /**
-   @brief Value comparator.
+   @brief Sorts on value, then rows, for stability.
  */
 template<typename valType>
 auto RLECompare = [] (const RLEVal<valType> &a, const RLEVal<valType>& b) -> bool {
-                    return a.val < b.val;
+                    return (a.val < b.val) || (a.val == b.val && a.row < b.row);
 
                   };
 
