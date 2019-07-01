@@ -71,7 +71,6 @@ class ForestExport {
   vector<vector<double > > splitTree;
   vector<vector<unsigned int> > facSplitTree;
 
-  static List checkForest(const List& lTrain);
   void predExport(const int predMap[]);
   void treeExport(const int predMap[],
                   vector<unsigned int> &pred,

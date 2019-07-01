@@ -13,67 +13,15 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_SAMPLE_H
-#define ARBORIST_SAMPLE_H
+#ifndef CORE_SAMPLE_H
+#define CORE_SAMPLE_H
+
+#include "sumcount.h"
 
 #include <vector>
 #include "typeparam.h"
 
 #include "samplenux.h" // For now.
-
-
-/**
-   @brief Row sum / count record for categorical indices.
- */
-class SumCount {
-  double sum;
-  unsigned int sCount;
-
- public:
-  void init() {
-    sum = 0.0;
-    sCount = 0;
-  }
-
-
-  /**
-     @brief Determines whether a node is splitable and accesses sum field.
-
-     @param sCount is the containing node's sample count.
-
-     @param[out] sum_ outputs the sum at this category.
-
-     @return true iff not all samples belong to this category.
-   */
-  inline bool splitable(unsigned int sCount_, double& sum_) const {
-    sum_ = sum;
-    return sCount_ != sCount;
-  }
-  
-
-  /**
-     @brief Accumulates running sum and sample-count values.
-
-     @param[in, out] _sum accumulates response sum over sampled indices.
-
-     @param[in, out] _sCount accumulates sample count.
-   */
-  inline void accum(double _sum, unsigned int _sCount) {
-    sum += _sum;
-    sCount += _sCount;
-  }
-
-
-  /**
-     @brief Subtracts contents of vector passed.
-
-     @param subtrahend is the value to subtract.
-   */
-  void decr(const SumCount &subtrahend) {
-    sum -= subtrahend.sum;
-    sCount -= subtrahend.sCount;
-  }
-};
 
 
 /**

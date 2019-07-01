@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef ARBORIST_SPLITNODE_H
-#define ARBORIST_SPLITNODE_H
+#ifndef CORE_RF_SPLITNODE_H
+#define CORE_RF_SPLITNODE_H
 
 /**
    @file splitnode.h
@@ -18,6 +18,7 @@
 
  */
 
+#include "splitcoord.h"
 #include "typeparam.h"
 #include <vector>
 
@@ -63,8 +64,7 @@ public:
   /**
      @brief Emplaces new candidate with specified coordinates.
    */
-  void preschedule(unsigned int splitIdx,
-		   unsigned int predIdx,
+  void preschedule(const SplitCoord& splitCoord,
 		   unsigned int bufIdx);
 
   /**
@@ -84,7 +84,7 @@ public:
 
      @return true iff predictor is a factor.
    */
-  bool isFactor(unsigned int predIdx) const;
+  bool isFactor(const SplitCoord& splitCoord) const;
 
   
   /**
@@ -102,8 +102,8 @@ public:
 
      @param return pre-bias value.
    */
-  inline double getPrebias(unsigned int splitIdx) const {
-    return prebias[splitIdx];
+  inline double getPrebias(const SplitCoord& splitCoord) const {
+    return prebias[splitCoord.nodeIdx];
   }
 
 

@@ -11,10 +11,10 @@ cp ../FrontEnd/NAMESPACE Rborist/
 cp ../FrontEnd/*.Rd Rborist/man/
 cp ../FrontEnd/NEWS Rborist/inst/
 cp ../FrontEnd/*R Rborist/R/
-cp ../src/*.cc Rborist/src/
-cp ../src/*.h Rborist/src/
-cp ../../framemapR/*.cc Rborist/src/
-cp ../../framemapR/*.h Rborist/src/
+cp ../src/rf/*.cc Rborist/src/
+cp ../src/rf/*.h Rborist/src/
+cp ../src/framemap/*.cc Rborist/src/
+cp ../src/framemap/*.h Rborist/src/
 cp ../../framemap/*.cc Rborist/src/
 cp ../../framemap/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/

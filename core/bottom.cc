@@ -57,8 +57,9 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
   const unsigned int splitIdx = 0; // Root split index.
   unsigned int predIdx = 0;
   for (auto sc : stageCount) {
-    (void) level[0]->define(splitIdx, predIdx, bufIdx, sc.singleton, bagCount - sc.expl);
-    setRunCount(splitIdx, predIdx, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
+    SplitCoord splitCoord(splitIdx, predIdx);
+    (void) level[0]->define(splitCoord, bufIdx, sc.singleton, bagCount - sc.expl);
+    setRunCount(splitCoord, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
     predIdx++;
   }
 }
@@ -129,13 +130,9 @@ unsigned int Bottom::flushRear() {
 
 
 void Bottom::scheduleRestage(unsigned int del,
-                             unsigned int mrraIdx,
-                             unsigned int predIdx,
+                             const SplitCoord& splitCoord,
                              unsigned bufIdx) {
-  SPPair mrra = make_pair(mrraIdx, predIdx);
-  RestageCoord rsCoord;
-  rsCoord.init(mrra, del, bufIdx);
-  restageCoord.push_back(rsCoord);
+  restageCoord.emplace_back(RestageCoord(splitCoord, del, bufIdx));
 }
 
 
@@ -165,8 +162,7 @@ void Bottom::restage(SamplePred *samplePred) {
 
 void Bottom::restage(SamplePred *samplePred, RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
-  SPPair mrra;
-  rsCoord.Ref(mrra, del, bufIdx);
+  SplitCoord mrra = rsCoord.Ref(del, bufIdx);
   samplePred->restage(level[del].get(), level[0].get(), mrra, bufIdx);
 }
 
@@ -271,12 +267,11 @@ unsigned int Bottom::getSplitCount(unsigned int del) const {
 }
 
 
-void Bottom::addDef(unsigned int reachIdx,
-                    unsigned int predIdx,
+void Bottom::addDef(const SplitCoord& splitCoord,
                     unsigned int bufIdx,
                     bool singleton) {
-  if (level[0]->define(reachIdx, predIdx, bufIdx, singleton)) {
-    levelDelta[reachIdx * nPred + predIdx] = 0;
+  if (level[0]->define(splitCoord, bufIdx, singleton)) {
+    levelDelta[splitCoord.strideOffset(nPred)] = 0;
   }
 }
   
@@ -287,39 +282,18 @@ unsigned int Bottom::getHistory(const Level *reachLevel,
 }
 
 
-/**
-   Passes through to front level.
- */
-unsigned int Bottom::adjustDense(unsigned int splitIdx,
-                                 unsigned int predIdx,
-                                 unsigned int &startIdx,
-                                 unsigned int &extent) const {
-    return level[0]->adjustDense(splitIdx, predIdx, startIdx, extent);
-}
-
-
 const IdxPath *Bottom::getFrontPath(unsigned int del) const {
   return level[del]->getFrontPath();
 }
 
 
-/**
-   Passes through to front level.
- */
-bool Bottom::isSingleton(unsigned int splitIdx,
-                         unsigned int predIdx) const {
-  return level[0]->isSingleton(splitIdx, predIdx);
-}
-
-
-void Bottom::setSingleton(unsigned int splitIdx,
-                          unsigned int predIdx) const {
-  level[0]->setSingleton(splitIdx, predIdx);
+void Bottom::setSingleton(const SplitCoord& splitCoord) const {
+  level[0]->setSingleton(splitCoord);
 }
 
 
 void Bottom::reachFlush(unsigned int splitIdx,
                         unsigned int predIdx) const {
   Level *reachingLevel = reachLevel(splitIdx, predIdx);
-  reachingLevel->flushDef(getHistory(reachingLevel, splitIdx), predIdx);
+  reachingLevel->flushDef(SplitCoord(getHistory(reachingLevel, splitIdx), predIdx));
 }

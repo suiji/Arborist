@@ -15,8 +15,8 @@
  */
 
 
-#ifndef ARBORIST_TYPEPARAM_H
-#define ARBORIST_TYPEPARAM_H
+#ifndef CORE_TYPEPARAM_H
+#define CORE_TYPEPARAM_H
 
 #include <memory>
 #include <utility>
@@ -29,24 +29,43 @@ typedef float FltVal;
 // Floating accumulator type, viz. arithmetic.
 typedef double FltAccum;
 
-struct RankRange {
-  unsigned int rankLow;
-  unsigned int rankHigh;
 
-  void set(unsigned int rankLow,
-           unsigned int rankHigh) {
-    this->rankLow = rankLow;
-    this->rankHigh = rankHigh;
+// Index type:  rows, samples, ranks.
+typedef unsigned int IndexType;
+
+// Low/extent pair definining range of indices.
+struct IndexRange {
+  IndexType idxLow;
+  IndexType idxExtent;
+
+
+  void set(IndexType idxLow,
+           IndexType extent) {
+    this->idxLow = idxLow;
+    this->idxExtent = extent;
   }
+
+
+  void adjust(IndexType margin,
+              IndexType implicit) {
+    idxLow -= margin;
+    idxExtent -= implicit;
+  }
+
+  IndexType getStart() const {
+    return idxLow;
+  }
+  
+  /**
+     @return end position.
+   */
+  IndexType getEnd() const {
+    return idxLow + idxExtent;
+  }
+
 };
 
 
 typedef unsigned char PathT;
-
-/**
-   @brief Split/predictor coordinate pair.
- */
-typedef pair<unsigned int, unsigned int> SPPair;
-
 
 #endif

@@ -15,11 +15,11 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-ForestFloorExport <- function(arbOut) {
-    UseMethod("ForestFloorExport")
+Export <- function(arbOut) {
+    UseMethod("Export")
 }
 
 
-"ForestFloorExport.Rborist" <- function(arbOut) {
-  return (tryCatch(.Call("ForestFloorExport", arbOut), error = function(e) {stop(e)}))
+"Export.Rborist" <- function(arbOut) {
+  return (tryCatch(.Call("Export", arbOut), error = function(e) {stop(e)}))
 }

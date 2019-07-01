@@ -192,9 +192,9 @@ public:
      @return interpolated predictor value at synthesized rank.
   */
   inline double getQuantRank(unsigned int predIdx,
-                             RankRange rankRange,
+                             IndexRange rankRange,
                              const vector<double> &splitQuant) const {
-    double rankNum = rankRange.rankLow + splitQuant[predIdx] * (rankRange.rankHigh - rankRange.rankLow);
+    double rankNum = rankRange.idxLow + splitQuant[predIdx] * rankRange.idxExtent;
     unsigned int rankFloor = floor(rankNum);
     unsigned int rankCeil = ceil(rankNum);
     double valFloor = numRanked->getVal(predIdx, rankFloor);

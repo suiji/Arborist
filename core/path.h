@@ -14,8 +14,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_PATH_H
-#define ARBORIST_PATH_H
+#ifndef CORE_PATH_H
+#define CORE_PATH_H
 
 #include <cstdint>
 #include <vector>

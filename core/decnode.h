@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_DECNODE_H
-#define ARBORIST_DECNODE_H
+#ifndef CORE_DECNODE_H
+#define CORE_DECNODE_H
 
 #include "typeparam.h"
 
@@ -25,7 +25,7 @@
    Factor splits are tree-relative offsets.
  */
 typedef union {
-  RankRange rankRange; // Range of splitting ranks:  numeric, pre-update.
+  IndexRange rankRange; // Range of splitting ranks:  numeric, pre-update.
   unsigned int offset; // Bit-vector offset:  factor.
   double num; // Rank-derived splitting value, post-update.
 } SplitVal;

@@ -11,13 +11,13 @@
    @brief Class definitions supporting maintenance of per-predictor sample orderings.
 
    @author Mark Seligman
-
  */
 
+#ifndef CORE_SAMPLEPRED_H
+#define CORE_SAMPLEPRED_H
 
-#ifndef ARBORIST_SAMPLEPRED_H
-#define ARBORIST_SAMPLEPRED_H
 
+#include "splitcoord.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -179,7 +179,7 @@ class SamplePred {
    */
   void restage(class Level *levelBack,
                class Level *levelFront,
-               const SPPair &mrra,
+               const SplitCoord &mrra,
                unsigned int bufIdx);
   
   /**
@@ -209,8 +209,7 @@ class SamplePred {
   void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
                bool idxUpdate,
-               unsigned int startIdx,
-               unsigned int extent,
+               const IndexRange& idxRange,
                unsigned int pathMask,
                unsigned int idxVec[],
                PathT prepath[],
@@ -226,16 +225,14 @@ class SamplePred {
                const unsigned int reachBase[],
                unsigned int predIdx,
                unsigned int bufIdx,
-               unsigned int startIdx,
-               unsigned int extent,
+               const IndexRange& idxRange,
                unsigned int pathMask,
                bool idxUpdate,
                unsigned int pathCount[]);
 
   void rankRestage(unsigned int predIdx,
                    unsigned int bufIdx,
-                   unsigned int start,
-                   unsigned int extent,
+                   const IndexRange& idxRange,
                    unsigned int reachOffset[],
                    unsigned int rankPrev[],
                    unsigned int rankCount[]);
@@ -244,8 +241,7 @@ class SamplePred {
                     const unsigned int reachBase[],
                     unsigned int predIdx,
                     unsigned int bufIdx,
-                    unsigned int startIdx,
-                    unsigned int extent,
+                    const IndexRange& idxRange,
                     unsigned int pathMask,
                     bool idxUpdate,
                     unsigned int reachOffset[],
@@ -329,8 +325,8 @@ class SamplePred {
 
      @return node vector section for this predictor.
    */
-  SampleRank* PredBase(unsigned int predIdx, unsigned int bufBit) const {
-    return nodeVec + bufferOff(predIdx, bufBit);
+  SampleRank* PredBase(const SplitCoord& splitCoord, unsigned int bufBit) const {
+    return nodeVec + bufferOff(splitCoord.predIdx, bufBit);
   }
   
 

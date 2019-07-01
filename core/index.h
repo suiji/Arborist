@@ -14,9 +14,11 @@
 
  */
 
-#ifndef ARBORIST_INDEX_H
-#define ARBORIST_INDEX_H
+#ifndef CORE_INDEX_H
+#define CORE_INDEX_H
 
+#include "splitcoord.h"
+#include "sumcount.h"
 #include "typeparam.h"
 #include <vector>
 
@@ -39,7 +41,7 @@ class IndexSet {
   double minInfo; // Split threshold:  reset after splitting.
   unsigned int relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
-  vector<class SumCount> ctgSum;  // Per-category response sums.
+  vector<SumCount> ctgSum;  // Per-category response sums.
 
   // Post-splitting fields:  (Set iff argMax nontrivial.)
   bool doesSplit; // iff argMax nontrivial.
@@ -59,7 +61,7 @@ class IndexSet {
   unsigned int offImpl; // Increases:  accumulating implicit offset.
   unsigned char pathExpl;  // Fixed:  path to explicit successor, if any.
   unsigned char pathImpl; // Fixed:  path to implicit successor, if any.
-  vector<class SumCount> ctgExpl; // Per-category sums.
+  vector<SumCount> ctgExpl; // Per-category sums.
   bool leftExpl; // Fixed:  whether left split explicit (else right).
 
   // These fields pertain only to non-splitting sets, so can be
@@ -104,8 +106,8 @@ class IndexSet {
   void initRoot(const class Sample* sample);
 
 
-  void decr(vector<class SumCount> &_ctgTot,
-            const vector<class SumCount> &_ctgSub);
+  void decr(vector<SumCount> &_ctgTot,
+            const vector<SumCount> &_ctgSub);
 
   /**
      @brief Absorbs parameters of informative splits.
@@ -245,12 +247,12 @@ class IndexSet {
   }
 
   
-  inline const vector<class SumCount>& getCtgSum() const {
+  inline const vector<SumCount>& getCtgSum() const {
     return ctgSum;
   }
 
 
-  inline const vector<class SumCount>& getCtgExpl() const {
+  inline const vector<SumCount>& getCtgExpl() const {
     return ctgExpl;
   }
 
@@ -597,14 +599,14 @@ class IndexLevel {
 
 
   /**
-     @brief Getter for IndexSet at a given position.
+     @brief Getter for IndexSet at a given coordinate.
 
-     @param splitIdx is the set's posistion.
+     @param splitCoord is the coordinate.
 
-     @return reference to set at position.
+     @return reference to set at coordinate.
    */
-  inline const IndexSet& getISet(unsigned int splitIdx) const {
-    return indexSet[splitIdx];
+  inline const IndexSet& getISet(const SplitCoord& splitCoord) const {
+    return indexSet[splitCoord.nodeIdx];
   }
   
   /**

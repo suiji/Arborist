@@ -165,7 +165,7 @@ double SamplePred::blockReplay(const SplitCand& argMax,
                                BV* replayExpl,
                                vector<SumCount> &ctgExpl) {
   unsigned int* idx;
-  SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
+  SampleRank* spn = buffers(argMax.getSplitCoord().predIdx, argMax.getBufIdx(), idx);
   if (!ctgExpl.empty()) {
     return replayCtg(spn, blockStart, blockExtent, idx, replayExpl, ctgExpl);
   }
@@ -204,24 +204,22 @@ void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int reachBase[],
                          unsigned int predIdx,
                          unsigned int bufIdx,
-                         unsigned int startIdx,
-                         unsigned int extent,
+                         const IndexRange& idxRange,
                          unsigned int pathMask,
                          bool idxUpdate,
                          unsigned int pathCount[]) {
-  prepath(idxPath, reachBase, idxUpdate, startIdx, extent, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
+  prepath(idxPath, reachBase, idxUpdate, idxRange, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
 }
 
 void SamplePred::prepath(const IdxPath *idxPath,
                          const unsigned int *reachBase,
                          bool idxUpdate,
-                         unsigned int startIdx,
-                         unsigned int extent,
+                         const IndexRange& idxRange,
                          unsigned int pathMask,
                          unsigned int idxVec[],
                          PathT prepath[],
                          unsigned int pathCount[]) const {
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+  for (IndexType idx = idxRange.getStart(); idx < idxRange.getEnd(); idx++) {
     PathT path = idxPath->update(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
     if (NodePath::isActive(path)) {
@@ -238,7 +236,7 @@ void SamplePred::prepath(const IdxPath *idxPath,
  */
 void SamplePred::restage(Level *levelBack,
                          Level *levelFront,
-                         const SPPair &mrra,
+                         const SplitCoord &mrra,
                          unsigned int bufIdx) {
   levelBack->rankRestage(this, mrra, levelFront, bufIdx);
 }
@@ -251,8 +249,7 @@ void SamplePred::restage(Level *levelBack,
  */
 void SamplePred::rankRestage(unsigned int predIdx,
                              unsigned int bufIdx,
-                             unsigned int startIdx,
-                             unsigned int extent,
+                             const IndexRange& idxRange,
                              unsigned int reachOffset[],
                              unsigned int rankPrev[],
                              unsigned int rankCount[]) {
@@ -261,7 +258,7 @@ void SamplePred::rankRestage(unsigned int predIdx,
   buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
 
   PathT *pathBlock = &pathIdx[getStageOffset(predIdx)];
-  for (unsigned int idx = startIdx; idx < startIdx + extent; idx++) {
+  for (IndexType idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
       SampleRank spNode = source[idx];
@@ -280,8 +277,7 @@ void SamplePred::indexRestage(const IdxPath *idxPath,
                               const unsigned int reachBase[],
                               unsigned int predIdx,
                               unsigned int bufIdx,
-                              unsigned int idxStart,
-                              unsigned int extent,
+                              const IndexRange& idxRange,
                               unsigned int pathMask,
                               bool idxUpdate,
                               unsigned int reachOffset[],
@@ -289,7 +285,7 @@ void SamplePred::indexRestage(const IdxPath *idxPath,
   unsigned int *idxSource, *idxTarg;
   indexBuffers(predIdx, bufIdx, idxSource, idxTarg);
 
-  for (unsigned int idx = idxStart; idx < idxStart + extent; idx++) {
+  for (IndexType idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
     unsigned int sIdx = idxSource[idx];
     PathT path = idxPath->update(sIdx, pathMask, reachBase, idxUpdate);
     if (NodePath::isActive(path)) {

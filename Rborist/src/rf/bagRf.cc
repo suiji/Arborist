@@ -91,8 +91,8 @@ SEXP BagRf::checkOOB(const List& sBag, const List& sPredFrame) {
 
 unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain) {
   List sBag((SEXP) sTrain["bag"]);
-  return make_unique<BagBridge>(as<unsigned int>(sBag["nRow"]),
-                                as<unsigned int>(sBag["nTree"]),
+  return make_unique<BagBridge>(as<unsigned int>(sBag["nTree"]),
+                                as<unsigned int>(sBag["nRow"]),
                                 (unsigned char*) RawVector((SEXP) sBag["raw"]).begin());
 }
 

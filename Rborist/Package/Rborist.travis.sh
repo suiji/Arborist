@@ -5,7 +5,7 @@
 
 bash Rborist.common.sh
 
-cp ../Shared/Makevars.travis Rborist/src/Makevars
+cp ../src/rf/Makevars.travis Rborist/src/Makevars
 
 R CMD build Rborist --no-build-vignettes
 rm -rf Rborist

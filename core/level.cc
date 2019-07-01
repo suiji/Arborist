@@ -41,7 +41,7 @@ Level::Level(unsigned int _nSplit,
   noIndex(bagCount),
   idxLive(_idxLive),
   defCount(0), del(0),
-  indexAnc(vector<IndexAnc>(nSplit)),
+  indexAnc(vector<IndexRange>(nSplit)),
   def(vector<MRRA>(nSplit * nPred)),
   denseCoord(vector<DenseCoord>(nSplit * nPredDense)),
   relPath(make_unique<IdxPath>(idxLive)),
@@ -78,7 +78,7 @@ bool Level::nonreachPurge() {
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     if (liveCount[mrraIdx] == 0) {
       for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-        undefine(mrraIdx, predIdx); // Harmless if already undefined.
+        undefine(SplitCoord(mrraIdx, predIdx)); // Harmless if already undefined.
         purged = true;
       }
     }
@@ -91,48 +91,72 @@ bool Level::nonreachPurge() {
 void Level::flush(bool forward) {
   for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      if (!isDefined(mrraIdx, predIdx))
+      SplitCoord splitCoord(mrraIdx, predIdx);
+      if (!isDefined(splitCoord))
         continue;
       if (forward) {
-        flushDef(mrraIdx, predIdx);
+        flushDef(splitCoord);
       }
       else {
-        undefine(mrraIdx, predIdx);
+        undefine(splitCoord);
       }
     }
   }
 }
 
 
-void Level::flushDef(unsigned int mrraIdx, unsigned int predIdx) {
+void Level::flushDef(const SplitCoord& splitCoord) {
   if (del == 0) // Already flushed to front level.
     return;
 
   unsigned int bufIdx;
   bool singleton;
-  consume(mrraIdx, predIdx, bufIdx, singleton);
-  frontDef(mrraIdx, predIdx, bufIdx, singleton);
+  consume(splitCoord, bufIdx, singleton);
+  frontDef(splitCoord, bufIdx, singleton);
   if (!singleton)
-    bottom->scheduleRestage(del, mrraIdx, predIdx, bufIdx);
+    bottom->scheduleRestage(del, splitCoord, bufIdx);
 }
 
 
-void Level::frontDef(unsigned int mrraIdx, unsigned int predIdx, unsigned int bufIdx, bool singleton) {
-  unsigned int pathStart = backScale(mrraIdx);
+void Level::frontDef(const SplitCoord& splitCoord, unsigned int bufIdx, bool singleton) {
+  unsigned int pathStart = splitCoord.backScale(del);
   for (unsigned int path = 0; path < backScale(1); path++) {
-    bottom->addDef(nodePath[pathStart + path].Idx(), predIdx, 1 - bufIdx, singleton);
+    bottom->addDef(SplitCoord(nodePath[pathStart + path].Idx(), splitCoord.predIdx), 1 - bufIdx, singleton);
   }
 }
 
 
-void Level::getBounds(const SPPair &mrra, unsigned int &startIdx, unsigned int &extent) {
-  indexAnc[mrra.first].Ref(startIdx, extent);
-  (void) adjustDense(mrra.first, mrra.second, startIdx, extent);
+IndexRange Level::getRange(const SplitCoord &mrra) {
+  IndexRange idxRange = indexAnc[mrra.nodeIdx];
+  adjustRange(mrra, idxRange);
+  return idxRange;
 }
 
 
-void Level::offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned int reachBase[]) {
-  unsigned int nodeStart = backScale(mrra.first);
+IndexRange Level::adjustRange(const SplitCoord& splitCoord,
+                              const IndexSet& iSet,
+                              unsigned int& implicit) const {
+  //                                IndexRange& idxRange) const {
+  IndexRange idxRange;
+  idxRange.set(iSet.getStart(), iSet.getExtent());
+  implicit = isDense(splitCoord) ? denseCoord[denseOffset(splitCoord)].adjustRange(idxRange) : 0;
+
+  return idxRange;
+}
+
+
+
+void Level::adjustRange(const SplitCoord& splitCoord,
+                        IndexRange& idxRange) const {
+  if (isDense(splitCoord)) {
+    (void) denseCoord[denseOffset(splitCoord)].adjustRange(idxRange);
+  }
+}
+
+
+
+void Level::offsetClone(const SplitCoord &mrra, unsigned int reachOffset[], unsigned int reachBase[]) {
+  unsigned int nodeStart = mrra.backScale(del);
   for (unsigned int i = 0; i < backScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].IdxStart();
   }
@@ -144,8 +168,8 @@ void Level::offsetClone(const SPPair &mrra, unsigned int reachOffset[], unsigned
 }
 
 
-void Level::setSingleton(unsigned int levelIdx, unsigned int predIdx) {
-  def[pairOffset(levelIdx, predIdx)].setSingleton();
+void Level::setSingleton(const SplitCoord& splitCoord) {
+  def[splitCoord.strideOffset(nPred)].setSingleton();
 }
 
 
@@ -192,13 +216,13 @@ void Level::setLive(unsigned int idx, unsigned int path, unsigned int targIdx, u
 }
 
 
-bool Level::scheduleSplit(unsigned int splitIdx, unsigned int predIdx, unsigned int &rCount) const {
-  rCount = bottom->getRunCount(splitIdx, predIdx);
-  return !isSingleton(splitIdx, predIdx);
+bool Level::scheduleSplit(const SplitCoord& splitCoord, unsigned int &rCount) const {
+  rCount = bottom->getRunCount(splitCoord);
+  return !isSingleton(splitCoord);
 }
 
 
-// TODO:  Preempt overflow by walking wide subtrees depth-first.
+// TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
 void Level::candidates(const IndexLevel *index, SplitNode *splitNode) {
   int cellCount = nSplit * nPred;
 
@@ -230,7 +254,7 @@ void Level::candidateProb(SplitNode *splitNode,
                           unsigned int &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) preschedule(splitNode, splitIdx, predIdx, extent, spanCand);
+      (void) preschedule(splitNode, SplitCoord(splitIdx, predIdx), extent, spanCand);
     }
   }
 }
@@ -251,7 +275,7 @@ void Level::candidateFixed(SplitNode *splitNode,
   unsigned int schedCount = 0;
   for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
     unsigned int predIdx = BHeap::slotPop(heap, heapSize - 1);
-    schedCount += preschedule(splitNode, splitIdx, predIdx, extent, spanCand) ? 1 : 0;
+    schedCount += preschedule(splitNode, SplitCoord(splitIdx, predIdx), extent, spanCand) ? 1 : 0;
     if (schedCount == predFixed)
       break;
   }
@@ -259,16 +283,15 @@ void Level::candidateFixed(SplitNode *splitNode,
 
 
 bool Level::preschedule(SplitNode *splitNode,
-                        unsigned int splitIdx,
-                        unsigned int predIdx,
+                        const SplitCoord& splitCoord,
                         unsigned int extent,
                         unsigned int &spanCand) {
-  bottom->reachFlush(splitIdx, predIdx);
+  bottom->reachFlush(splitCoord.nodeIdx, splitCoord.predIdx);
 
   unsigned int bufIdx;
-  if (!isSingleton(splitIdx, predIdx, bufIdx)) {
-    splitNode->preschedule(splitIdx, predIdx, bufIdx);
-    offCand[pairOffset(splitIdx, predIdx)] = spanCand;
+  if (!isSingleton(splitCoord, bufIdx)) {
+    splitNode->preschedule(splitCoord, bufIdx);
+    offCand[splitCoord.strideOffset(nPred)] = spanCand;
     spanCand += extent;
     return true;
   }
@@ -277,7 +300,7 @@ bool Level::preschedule(SplitNode *splitNode,
 
 
 void Level::rankRestage(SamplePred *samplePred,
-                        const SPPair &mrra,
+                        const SplitCoord &mrra,
                         Level *levelFront,
                         unsigned int bufIdx) {
   unsigned int reachOffset[NodePath::pathMax()];
@@ -294,29 +317,27 @@ void Level::rankRestage(SamplePred *samplePred,
 
 
 void Level::rankRestage(SamplePred *samplePred,
-                        const SPPair &mrra,
+                        const SplitCoord &mrra,
                         Level *levelFront,
                         unsigned int bufIdx,
                         unsigned int reachOffset[],
                         const unsigned int reachBase[]) {
-  unsigned int startIdx, extent;
-  getBounds(mrra, startIdx, extent);
-
+  IndexRange idxRange = getRange(mrra);
   unsigned int pathCount[NodePath::pathMax()];
   fill(pathCount, pathCount + backScale(1), 0);
 
-  unsigned int predIdx = mrra.second;
-  samplePred->prepath(nodeRel ?  getFrontPath() : bottom->getSubtreePath(), reachBase, predIdx, bufIdx, startIdx, extent, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
+  unsigned int predIdx = mrra.predIdx;
+  samplePred->prepath(nodeRel ?  getFrontPath() : bottom->getSubtreePath(), reachBase, predIdx, bufIdx, idxRange, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
 
   // Successors may or may not themselves be dense.
-  packDense(startIdx, pathCount, levelFront, mrra, reachOffset);
+  packDense(idxRange.getStart(), pathCount, levelFront, mrra, reachOffset);
 
   unsigned int rankPrev[NodePath::pathMax()];
   unsigned int rankCount[NodePath::pathMax()];
   fill(rankPrev, rankPrev + backScale(1), bottom->getNoRank());
   fill(rankCount, rankCount + backScale(1), 0);
 
-  samplePred->rankRestage(predIdx, bufIdx, startIdx, extent, reachOffset, rankPrev, rankCount);
+  samplePred->rankRestage(predIdx, bufIdx, idxRange, reachOffset, rankPrev, rankCount);
   setRunCounts(bottom, mrra, pathCount, rankCount);
 }
 
@@ -324,19 +345,19 @@ void Level::rankRestage(SamplePred *samplePred,
 void Level::packDense(unsigned int idxLeft,
                       const unsigned int pathCount[],
                       Level *levelFront,
-                      const SPPair &mrra,
+                      const SplitCoord &mrra,
                       unsigned int reachOffset[]) const {
-  if (!isDense(mrra.first, mrra.second)) {
+  if (!isDense(mrra)) {
     return;
   }
-  const NodePath *pathPos = &nodePath[backScale(mrra.first)];
+  const NodePath *pathPos = &nodePath[mrra.backScale(del)];
   for (unsigned int path = 0; path < backScale(1); path++) {
     unsigned int levelIdx, idxStart, extent;
     pathPos[path].getCoords(levelIdx, idxStart, extent);
     if (levelIdx != noIndex) {
       unsigned int margin = idxStart - idxLeft;
       unsigned int extentDense = pathCount[path];
-      levelFront->setDense(levelIdx, mrra.second, extent - extentDense, margin);
+      levelFront->setDense(SplitCoord(levelIdx, mrra.predIdx), extent - extentDense, margin);
       reachOffset[path] -= margin;
       idxLeft += extentDense;
     }
@@ -344,14 +365,14 @@ void Level::packDense(unsigned int idxLeft,
 }
 
 
-void Level::setRunCounts(Bottom *bottom, const SPPair &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
-  unsigned int predIdx = mrra.second;
-  const NodePath *pathPos = &nodePath[backScale(mrra.first)];
+void Level::setRunCounts(Bottom *bottom, const SplitCoord &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
+  unsigned int predIdx = mrra.predIdx;
+  const NodePath *pathPos = &nodePath[mrra.backScale(del)];
   for (unsigned int path = 0; path < backScale(1); path++) {
     unsigned int levelIdx, idxStart, extent;
     pathPos[path].getCoords(levelIdx, idxStart, extent);
     if (levelIdx != noIndex) {
-      bottom->setRunCount(levelIdx, predIdx, pathCount[path] != extent, rankCount[path]);
+      bottom->setRunCount(SplitCoord(levelIdx, predIdx), pathCount[path] != extent, rankCount[path]);
     }
   }
 }
@@ -365,14 +386,14 @@ void Level::setRunCounts(Bottom *bottom, const SPPair &mrra, const unsigned int 
 
    @param reachOffset holds the starting offset positions along the path.
  */
-void Level::offsetClone(const SPPair &mrra,
+void Level::offsetClone(const SplitCoord &mrra,
                         unsigned int reachOffset[],
                         unsigned int splitOffset[],
                         unsigned int reachBase[]) {
-  unsigned int nodeStart = backScale(mrra.first);
+  unsigned int nodeStart = mrra.backScale(del);
   for (unsigned int i = 0; i < backScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].IdxStart();
-    splitOffset[i] = offCand[pairOffset(mrra.first, mrra.second)];
+    splitOffset[i] = offCand[mrra.strideOffset(nPred)];
   }
   if (reachBase != nullptr) {
     for (unsigned int i = 0; i < backScale(1); i++) {
@@ -383,7 +404,7 @@ void Level::offsetClone(const SPPair &mrra,
 
 
 void Level::indexRestage(SamplePred *samplePred,
-                         const SPPair &mrra,
+                         const SplitCoord &mrra,
                          const Level *levelFront,
                          unsigned int bufIdx) {
   unsigned int reachOffset[NodePath::pathMax()];
@@ -401,17 +422,14 @@ void Level::indexRestage(SamplePred *samplePred,
 
 
 void Level::indexRestage(SamplePred *samplePred,
-                         const SPPair &mrra,
+                         const SplitCoord &mrra,
                          const Level *levelFront,
                          unsigned int bufIdx,
                          const unsigned int reachBase[],
                          unsigned int reachOffset[],
                          unsigned int splitOffset[]) {
-  unsigned int startIdx, extent;
-  getBounds(mrra, startIdx, extent);
-
   samplePred->indexRestage(nodeRel ? getFrontPath() : bottom->getSubtreePath(),
-                           reachBase, mrra.second, bufIdx, startIdx, extent,
+                           reachBase, mrra.predIdx, bufIdx, getRange(mrra), 
                            pathMask(),
                            reachBase == nullptr ? levelFront->isNodeRel() : true,
                            reachOffset,

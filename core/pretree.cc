@@ -150,9 +150,9 @@ BV *PreTree::bitFactory() {
    @return void.
 */
 void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
-  nodeVec[id].SplitFac(argMax.getPredIdx(), height - id, bitEnd, argMax.getInfo());
+  nodeVec[id].SplitFac(argMax.getSplitCoord().predIdx, height - id, bitEnd, argMax.getInfo());
   terminalOffspring();
-  bitEnd += frame->getCardinality(argMax.getPredIdx());
+  bitEnd += frame->getCardinality(argMax.getSplitCoord().predIdx);
 }
 
 
@@ -163,7 +163,7 @@ void PreTree::branchNum(const SplitCand &argMax, unsigned int id) {
 
 
 void PTNode::splitNum(const SplitCand &cand, unsigned int lhDel) {
-  this->predIdx = cand.getPredIdx();
+  this->predIdx = cand.getSplitCoord().predIdx;
   this->lhDel = lhDel;
   this->splitVal.rankRange = cand.getRankRange();
   this->info = cand.getInfo();

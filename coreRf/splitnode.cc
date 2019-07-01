@@ -92,7 +92,7 @@ RunSet *SplitNode::rSet(unsigned int setIdx) const {
 
 
 unsigned int SplitNode::getDenseRank(const SplitCand* cand) const {
-  return rankedFrame->getDenseRank(cand->getPredIdx());
+  return rankedFrame->getDenseRank(cand->getSplitCoord().predIdx);
 }
 
 
@@ -114,10 +114,9 @@ void SPCtg::setRunOffsets(const vector<unsigned int> &runCount) {
 }
 
 
-void SplitNode::preschedule(unsigned int splitIdx,
-			    unsigned int predIdx,
+void SplitNode::preschedule(const SplitCoord& splitCoord,
 			    unsigned int bufIdx) {
-  splitCand.emplace_back(SplitCand(splitIdx, predIdx, bufIdx, noSet));
+  splitCand.emplace_back(SplitCand(splitCoord, bufIdx, noSet));
 }
 
 
@@ -134,7 +133,7 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
   unsigned int splitPrev = splitCount;
   for (auto & sg : splitCand) {
     if (sg.schedule(this, levelFront, index, runCount)) {
-      unsigned int splitThis = sg.getSplitIdx();
+      unsigned int splitThis = sg.getSplitCoord().nodeIdx;
       nCand[splitThis]++;
       if (splitPrev != splitThis) {
         candOff[splitThis] = sc2.size();
@@ -190,13 +189,13 @@ void SplitNode::levelClear() {
 
    @return true iff predictor is a factor.
  */
-bool SplitNode::isFactor(unsigned int predIdx) const {
-  return frame->isFactor(predIdx);
+bool SplitNode::isFactor(const SplitCoord& splitCoord) const {
+  return frame->isFactor(splitCoord.predIdx);
 }
 
 
 double SPCtg::getSumSquares(const SplitCand *cand) const {
-  return sumSquares[cand->getSplitIdx()];
+  return sumSquares[cand->getSplitCoord().nodeIdx];
 }
 
 
@@ -213,12 +212,12 @@ unsigned int SplitNode::getNumIdx(unsigned int predIdx) const {
 
 
 const vector<double>& SPCtg::getSumSlice(const SplitCand* cand) {
-  return ctgSum[cand->getSplitIdx()];
+  return ctgSum[cand->getSplitCoord().nodeIdx];
 }
 
 
 double* SPCtg::getAccumSlice(const SplitCand *cand) {
-  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * splitCount * nCtg + cand->getSplitIdx() * nCtg];
+  return &ctgSumAccum[getNumIdx(cand->getSplitCoord().predIdx) * splitCount * nCtg + cand->getSplitCoord().nodeIdx * nCtg];
 }
 
 /**
@@ -292,9 +291,9 @@ int SPReg::getMonoMode(const SplitCand* cand) const {
   if (mono.empty())
     return 0;
 
-  unsigned int numIdx = getNumIdx(cand->getPredIdx());
+  unsigned int numIdx = getNumIdx(cand->getSplitCoord().predIdx);
   double monoProb = mono[numIdx];
-  double prob = ruMono[cand->getSplitIdx() * mono.size() + numIdx];
+  double prob = ruMono[cand->getSplitCoord().nodeIdx * mono.size() + numIdx];
   if (monoProb > 0 && prob < monoProb) {
     return 1;
   }

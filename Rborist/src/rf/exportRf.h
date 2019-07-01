@@ -25,8 +25,8 @@
  */
 
 
-#ifndef ARBORIST_EXPORT_RF_H
-#define ARBORIST_EXPORT_RF_H
+#ifndef RFR_EXPORT_RF_H
+#define RFR_EXPORT_RF_H
 
 #include <vector>
 using namespace std;
@@ -34,35 +34,35 @@ using namespace std;
 #include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP ForestFloorExport(SEXP sTrain);
+RcppExport SEXP Export(SEXP sTrain);
 
 struct ExportRf {
 
-  static List fFloorLeafReg(const class LeafExportReg* leaf,
+  static List exportLeafReg(const class LeafExportReg* leaf,
                             unsigned int tIdx);
 
-  static List fFloorLeafCtg(const class LeafExportCtg* leaf,
+  static List exportLeafCtg(const class LeafExportCtg* leaf,
                             unsigned int tIdx);
 
-  static List fFloorForest(const class ForestExport* forestExport,
+  static List exportForest(const class ForestExport* forestExport,
                            unsigned int tIdx);
 
-  static IntegerVector fFloorBag(const class LeafExport* leaf,
+  static IntegerVector exportBag(const class LeafExport* leaf,
                                  unsigned int tIdx,
                                  unsigned int rowTrain);
 
-  static List fFloorTreeReg(const List& sTrain,
+  static List exportTreeReg(const List& sTrain,
                             const IntegerVector& predMap);
 
-  static List fFloorTreeCtg(const class ForestExport* forest,
+  static List exportTreeCtg(const class ForestExport* forest,
                             const class LeafExportCtg* leaf,
                             unsigned int rowTrain);
 
-  static List fFloorReg(const List& sTrain,
+  static List exportReg(const List& sTrain,
                         const IntegerVector& predMap,
                         const List& predLevel);
 
-  static List fFloorCtg(const List& sTrain,
+  static List exportCtg(const List& sTrain,
                         const IntegerVector& predMap,
                         const List& predLevel);
 };

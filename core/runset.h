@@ -34,7 +34,7 @@ class FRNode {
   unsigned int rank; // Same 0-based value as internal code.
   unsigned int start; // Buffer position of start of factor run.
   unsigned int extent; // Total indices subsumed.
-  unsigned int sCount; // Sample count of factor run:  not always same as length.
+  unsigned int sCount; // Sample count of factor run:  need not equal length.
   double sum; // Sum of responses associated with run.
 
   FRNode() : start(0), extent(0), sCount(0), sum(0.0) {}
@@ -66,18 +66,27 @@ class FRNode {
 
      @param[out] extent_ outputs the count of indices subsumed.
    */
-  inline void replayRef(unsigned int &start_, unsigned int &extent_) {
-    start_ = start;
-    extent_ = extent;
+  inline void replayRef(unsigned int &start, unsigned int &extent) const {
+    start = this->start;
+    extent = this->extent;
   }
 
+
+  /**
+     @brief Accumulates run contents into caller.
+   */
+  inline void accum(unsigned int &sCount,
+                    double &sum) const {
+    sCount += this->sCount;
+    sum += this->sum;
+  }
 
   /**
      @brief Rank getter.
 
      @return rank.
    */
-  inline unsigned int getRank() const {
+  inline auto getRank() const {
     return rank;
   }
 };
@@ -277,19 +286,17 @@ class RunSet {
 
 
   /**
-     @brief Looks up sum and sample count associated with a given output slot.
+     @brief Accumulates contents at position referenced by a given index.
 
-     @param outPos is a position in the output vector.
+     @param outPos is an index in the output vector.
 
-     @param sCount outputs the sample count at the dereferenced output slot.
+     @param sCount[in, out] accumulates sample count using the output position.
 
-     @return sum at dereferenced position, with output reference parameter.
+     @param sum[in, out] accumulates the sum using the output position.
    */
-  inline double sumHeap(unsigned int outPos, unsigned int &sCount) {
+  inline void sumAccum(unsigned int outPos, unsigned int& sCount, double& sum) {
     unsigned int slot = outZero[outPos];
-    sCount = runZero[slot].sCount;
-    
-    return runZero[slot].sum;
+    runZero[slot].accum(sCount, sum);
   }
 
   /**

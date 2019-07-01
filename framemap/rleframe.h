@@ -118,31 +118,8 @@ class RLECresc {
      @brief Computes unit size for cross-compatibility of serialization.
    */
   static constexpr size_t unitSize() {
-    return sizeof(RLE<RowRank>);
+    return sizeof(RLEVal<unsigned int>);
   }
-
-  #ifdef restore
-  /**
-     @brief Accessor for copyable rank vector.
-   */
-  const vector<unsigned int>& getRank() const {
-    return rank;
-  }
-
-  /**
-     @brief Accessor for copyable row vector.
-   */
-  const vector<unsigned int>& getRow() const {
-    return row;
-  }
-
-  /**
-     @brief Accessor for copyable run-length vector.
-   */
-  const vector<unsigned int>& getRunLength() const {
-    return runLength;
-  }
-  #endif
 
 
   /** 
