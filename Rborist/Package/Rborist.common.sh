@@ -11,8 +11,12 @@ cp ../FrontEnd/NAMESPACE Rborist/
 cp ../FrontEnd/*.Rd Rborist/man/
 cp ../FrontEnd/NEWS Rborist/inst/
 cp ../FrontEnd/*R Rborist/R/
+cp ../src/*.cc Rborist/src/
+cp ../src/*.h Rborist/src/
 cp ../src/rf/*.cc Rborist/src/
 cp ../src/rf/*.h Rborist/src/
+cp ../src/callback/*.cc Rborist/src/
+cp ../src/callback/*.h Rborist/src/
 cp ../src/framemap/*.cc Rborist/src/
 cp ../src/framemap/*.h Rborist/src/
 cp ../../framemap/*.cc Rborist/src/
@@ -21,9 +25,9 @@ cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../core/bridge/*.cc Rborist/src/
 cp ../../core/bridge/*.h Rborist/src/
-cp ../../coreRf/*.cc Rborist/src/
-cp ../../coreRf/*.h Rborist/src/
-cp ../../coreRf/bridge/*.cc Rborist/src/
-cp ../../coreRf/bridge/*.h Rborist/src/
+cp ../../rf/*.cc Rborist/src/
+cp ../../rf/*.h Rborist/src/
+cp ../../rf/bridge/*.cc Rborist/src/
+cp ../../rf/bridge/*.h Rborist/src/
 cp -r ../tests Rborist
 cp -r ../vignettes Rborist
