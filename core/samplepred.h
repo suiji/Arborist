@@ -108,7 +108,7 @@ class SamplePred {
 
      @param[out] ctgExpl stores explicit response sum and sample count by category.
    */
-  double blockReplay(const class SplitCand& cand,
+  double blockReplay(const class SplitNux& cand,
                      class BV* replayExpl,
                      vector<class SumCount>& ctgExpl);
 
@@ -127,45 +127,13 @@ class SamplePred {
    @param ctgExpl summarizes explicit sum and sample count by category.
 
    @return sum of explicit responses within the block.
-*/
-  double blockReplay(const class SplitCand& cand,
-                     unsigned int blockStart,
-                     unsigned int blockExtent,
+  */
+  double blockReplay(const class SplitNux& cand,
+                     const IndexRange& range,
                      class BV *replayExpl,
                      vector<class SumCount> &ctgExpl);
 
-
-  /**
-     @brief Replays a block of categorical sample ranks.
-
-     @param start is the beginning SampleRank index in the block.
-
-     @param extent is the number of indices in the block.
-
-     @param idx[] maps SampleRank indices to sample indices.
-
-     @param[out] replayExpl bits set high at each sample index in block.
-
-     @return sum of explict responses.
-   */
-  double replayCtg(const SampleRank spn[],
-                   unsigned int start,
-                   unsigned int extent,
-                   const unsigned int idx[],
-                   class BV* replayExpl,
-                   vector<class SumCount>& ctgExpl);
-
-  /**
-     @brief Replays a block of numerical sample ranks.
-
-     Parameters and return as above.
-   */
-  double replayNum(const SampleRank spn[],
-                   unsigned int start,
-                   unsigned int extent,
-                   const unsigned int idx[],
-                   class BV* replayExpl);
-
+  
   /**
      @brief Drives restaging from an ancestor node and level to current level.
 

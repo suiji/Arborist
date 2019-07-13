@@ -37,21 +37,25 @@ SplitAccumReg::SplitAccumReg(const SplitCand* cand,
   resid(makeResidual(cand, spn)) {
 }
 
-void SplitAccumReg::split(const SampleRank spn[],
-                          unsigned int idxEnd,
-                          unsigned int idxStart) {
+void SplitAccumReg::split(const SPReg* spReg,
+                          const SampleRank spn[],
+                          SplitCand* cand) {
   if (resid != nullptr) {
-    splitImpl(spn, idxEnd, idxStart);
+    splitImpl(spn, cand);
   }
   else {
+    IndexType idxEnd = cand->getIdxEnd();
+    IndexType idxStart = cand->getIdxStart();
     unsigned int rkThis = spn[idxEnd].regFields(ySum, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
+  write(spReg, cand);
 }
 
 void SplitAccumReg::splitImpl(const SampleRank spn[],
-                              unsigned int idxEnd,
-                              unsigned int idxStart) {
+                              const SplitCand* cand) {
+  IndexType idxEnd = cand->getIdxEnd();
+  IndexType idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) {
     // Checks resid/idxEnd, ..., idxStart+1/idxStart.
     resid->apply(ySum, sCountThis);
@@ -152,23 +156,9 @@ void SplitAccumReg::splitMono(const SampleRank spn[],
 }
 
 
-void SplitAccum::write(SplitCand* cand) {
-  cand->writeNum(info, lhSCount, rankLH, rankRH, rankDense <= rankLH, rhMin);
-}
-
-void SplitCand::writeNum(double splitInfo,
-                         unsigned int lhSCount,
-                         unsigned int rankLH,
-                         unsigned int rankRH,
-                         bool lhDense,
-                         unsigned int rhMin) {
-  info = splitInfo - info;
-  if (info > 0.0) {
-    rankRange.set(rankLH, rankRH - rankLH);
-    this->lhSCount = lhSCount;
-    lhImplicit = lhDense ? implicit : 0;
-    lhExtent = lhImplicit + (rhMin - idxStart);
-  }
+void SplitAccum::write(const SplitNode* spNode, SplitCand* cand) {
+  cand->setInfo(info);
+  cand->writeNum(spNode, lhSCount, rankLH, rankRH, rankDense <= rankLH, rhMin);
 }
 
 
@@ -186,16 +176,19 @@ SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
 
 
 // Initializes from final index and loops over remaining indices.
-void SplitAccumCtg::split(const SampleRank spn[],
-                          unsigned int idxEnd,
-                          unsigned int idxStart) {
+void SplitAccumCtg::split(const SPCtg* spCtg,
+                          const SampleRank spn[],
+                          SplitCand* cand) {
   if (resid != nullptr) {
-    splitImpl(spn, idxEnd, idxStart);
+    splitImpl(spn, cand);
   }
   else {
+    IndexType idxEnd = cand->getIdxEnd();
+    IndexType idxStart = cand->getIdxStart();
     unsigned int rkThis = stateNext(spn, idxEnd);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
+  write(spCtg, cand);
 }
 
 
@@ -238,8 +231,9 @@ void SplitAccumCtg::splitExpl(const SampleRank spn[],
 
 
 void SplitAccumCtg::splitImpl(const SampleRank spn[],
-                              unsigned int idxStart,
-                              unsigned int idxEnd) {
+                              const SplitCand* cand) {
+  IndexType idxEnd = cand->getIdxEnd();
+  IndexType idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) {
     resid->apply(ySum, sCountThis, ssR, ssL, this);
     splitExpl(spn, rankDense, idxEnd, idxStart);

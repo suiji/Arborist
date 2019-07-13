@@ -1,13 +1,13 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of rf.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// rf is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// rf is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -24,8 +24,8 @@
  */
 
 
-#ifndef RFR_PREDICT_RF_H
-#define RFR_PREDICT_RF_H
+#ifndef RF_PREDICT_RF_H
+#define RF_PREDICT_RF_H
 
 #include "blockbatch.h"
 
@@ -165,7 +165,6 @@ struct PBRf {
   static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
                                                    const List& lTrain,
                                                    bool oob,
-                                                   //unique_ptr<class LeafRegBridge> leaf,
                                                    unsigned int nThread,
                                                    const vector<double>& quantile);
 
@@ -177,7 +176,6 @@ struct PBRf {
   static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
                                                    const List& lTrain,
                                                    bool oob,
-                                                   //unique_ptr<class LeafRegBridge> leaf,
                                                    unsigned int nThread);
 
 
@@ -197,7 +195,6 @@ struct PBRf {
   static unique_ptr<class PredictBridge> unwrapCtg(const List& sFrame,
                                                    const List& lTrain,
                                                    bool oob,
-                                                   //   unique_ptr<class LeafCtgBridge> leaf,
                                                    bool doProb,
                                                    unsigned int nThread);
 

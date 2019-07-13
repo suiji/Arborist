@@ -39,7 +39,7 @@ class IndexSet {
   unsigned int sCount;  // # samples subsumed by this set.
   double sum; // Sum of all responses in set.
   double minInfo; // Split threshold:  reset after splitting.
-  unsigned int relBase; // Local copy of indexLevel's value.
+  IndexType relBase; // Local copy of indexLevel's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
   vector<SumCount> ctgSum;  // Per-category response sums.
 
@@ -55,10 +55,10 @@ class IndexSet {
   //
   unsigned int ptExpl;
   unsigned int ptImpl;
-  unsigned int succExpl; // Fixed:  level index of explicit successor, if any.
-  unsigned int succImpl; // Fixed:  " " implicit " "
-  unsigned int offExpl; // Increases:  accumulating explicit offset.
-  unsigned int offImpl; // Increases:  accumulating implicit offset.
+  IndexType succExpl; // Fixed:  level index of explicit successor, if any.
+  IndexType succImpl; // Fixed:  " " implicit " "
+  IndexType offExpl; // Increases:  accumulating explicit offset.
+  IndexType offImpl; // Increases:  accumulating implicit offset.
   unsigned char pathExpl;  // Fixed:  path to explicit successor, if any.
   unsigned char pathImpl; // Fixed:  path to implicit successor, if any.
   vector<SumCount> ctgExpl; // Per-category sums.
@@ -75,7 +75,7 @@ class IndexSet {
 
      @param inatt is an inattainable value.
    */
-  void initInattainable(unsigned int inatt) {
+  void initInattainable(IndexType inatt) {
     succExpl = succImpl = offExpl = offImpl = inatt;
   }
   
@@ -114,7 +114,7 @@ class IndexSet {
 
      @param argMax contains the successful splitting candidates.
   */
-  void applySplit(const vector<class SplitCand> &argMax);
+  void applySplit(const vector<class SplitNux> &argMax);
   
   /**
      @brief Consumes relevant contents of split signature, if any, and accumulates leaf and splitting census.
@@ -134,7 +134,7 @@ class IndexSet {
   void consume(class IndexLevel *indexlevel,
                const class Run* run,
                class PreTree *preTree,
-               const vector<class SplitCand> &argMax);
+               const vector<class SplitNux> &argMax);
 
   /**
      @brief Caches state necessary for reindexing and useful subsequently.
@@ -142,7 +142,7 @@ class IndexSet {
   void nonTerminal(class IndexLevel *indexLevel,
                    const class Run* run,
                    class PreTree *preTree,
-                   const class SplitCand &argMax);
+                   const class SplitNux &argMax);
 
   /**
      @brief Dispatches index set to frontier.
@@ -156,14 +156,13 @@ class IndexSet {
 
      @return true iff left hand of the split is explicit.
   */
-  bool branchNum(const class SplitCand& argMax,
+  bool branchNum(const class SplitNux& argMax,
                  class PreTree* preTree,
                  class IndexLevel* indexLevel);
 
   
-  void blockReplay(const class SplitCand& argMax,
-                   unsigned int blockStart,
-                   unsigned int blockExtent,
+  void blockReplay(const class SplitNux& argMax,
+                   const IndexRange& range,
                    class IndexLevel* indexLevel);
 
   /**
@@ -336,9 +335,9 @@ class IndexSet {
 
      @return index (possibly pseudo) of successor index set.
    */
-  inline unsigned int offspring(bool expl,
-                                unsigned int &pathSucc,
-                                unsigned int &ptSucc) {
+  inline IndexType offspring(bool expl,
+                             unsigned int &pathSucc,
+                             unsigned int &ptSucc) {
     unsigned int iSetSucc;
     if (!doesSplit) {  // Terminal from previous level.
       iSetSucc = succOnly;
@@ -358,10 +357,10 @@ class IndexSet {
      @brief As above, but also tracks (pseudo) successor indices.  State
      is side-effected, moreover, so must be invoked sequentially.
    */
-  inline unsigned int offspring(bool expl,
-                                unsigned int &pathSucc,
-                                unsigned int &idxSucc,
-                                unsigned int &ptSucc) {
+  inline IndexType offspring(bool expl,
+                             unsigned int &pathSucc,
+                             unsigned int &idxSucc,
+                             unsigned int &ptSucc) {
     idxSucc = !doesSplit ? offOnly++ : (expl ? offExpl++ : offImpl++);
     return offspring(expl, pathSucc, ptSucc);
   }
@@ -376,7 +375,7 @@ class IndexLevel {
   static unsigned int totLevels;
   unique_ptr<class SamplePred> samplePred;
   vector<IndexSet> indexSet;
-  const unsigned int bagCount;
+  const IndexType bagCount;
   unique_ptr<class Bottom> bottom;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
@@ -385,7 +384,7 @@ class IndexLevel {
   unsigned int extinctBase; // Accumulates extinct index offset.
   unsigned int succLive; // Accumulates live indices for upcoming level.
   unsigned int succExtinct; // " " extinct "
-  vector<unsigned int> relBase; // Node-to-relative index.
+  vector<IndexType> relBase; // Node-to-relative index.
   vector<unsigned int> succBase; // Overlaps, then moves to relBase.
   vector<unsigned int> rel2ST; // Maps to subtree index.
   vector<unsigned int> rel2PT; // Maps to pretree index.
@@ -400,15 +399,16 @@ class IndexLevel {
 
      @param levelTerminal_ indicates whether new level marked as final.
   */
-  void splitDispatch(const class SplitNode* splitNode,
-                     const vector<class SplitCand> &argMax,
-                     class PreTree* preTree,
-                     bool levelTerminal_);
+  vector<IndexSet> splitDispatch(class SplitNode* splitNode,
+                                 class PreTree* preTree,
+                                 unsigned int level);
 
   /**
      @brief Consumes current level of splits into crescent tree and sets repartitioning bits.
 
      @param preTree represents the crescent tree.
+
+     @param idxMax is the maximum live index value.
 
      @param splitNext is the number of splits in the new level.
 
@@ -416,18 +416,29 @@ class IndexLevel {
   */
   void consume(const class SplitNode* splitNode,
                class PreTree *preTree,
-               const vector<class SplitCand> &argMax,
-               unsigned int splitNext,
+               const vector<class SplitNux> &argMax,
+               IndexType splitNext,
                unsigned int leafNext,
-               unsigned int idxMax);
+               IndexType idxMax);
 
+  /**
+     @brief Reindexes by level modes: node-relative, subtree-relative, mixed.
+
+     Parameters as above.
+   */
+  void reindex(IndexType idxMax,
+               IndexType splitNext);
+
+  
   /**
      @brief Produces new level's index sets and dispatches extinct nodes to pretree frontier.
 
      Parameters as described above.
+
+     @return next level's splitable index set.
   */
-  void produce(const class PreTree *preTree,
-               unsigned int splitNext);
+  vector<IndexSet> produce(const class PreTree *preTree,
+                           IndexType splitNext);
 
 
  public:
@@ -501,15 +512,14 @@ class IndexLevel {
                        unsigned int &outOff,
                        bool terminal = false);
 
-  double blockReplay(const class SplitCand& argMax,
+  double blockReplay(const class SplitNux& argMax,
                      vector<SumCount>& ctgExpl);
   
   /**
      @brief Repartitions sample map for a block of indices.
   */
-  double blockReplay(const class SplitCand& argMax,
-                     unsigned int blockStart,
-                     unsigned int blockExtent,
+  double blockReplay(const class SplitNux& argMax,
+                     const IndexRange& range,
                      vector<SumCount>& ctgExpl) const;
 
   /**
@@ -593,7 +603,7 @@ class IndexLevel {
 
      @return bagCount value.
    */
-  inline unsigned int getBagCount() const {
+  inline auto getBagCount() const {
     return bagCount;
   }
 
@@ -647,7 +657,7 @@ class IndexLevel {
   /**
      @brief Accessor for relative base of split.
    */
-  inline unsigned int getRelBase(unsigned int splitIdx) const {
+  inline auto getRelBase(unsigned int splitIdx) const {
     return relBase[splitIdx];
   }
 
@@ -664,10 +674,10 @@ class IndexLevel {
      @brief Dispatches consecutive node-relative indices to frontier map for
      final pre-tree node assignment.
   */
-  void relExtinct(unsigned int relBase,
+  void relExtinct(IndexType relBase,
                   unsigned int extent,
                   unsigned int ptId) {
-    for (unsigned int relIdx = relBase; relIdx < relBase + extent; relIdx++) {
+    for (IndexType relIdx = relBase; relIdx < relBase + extent; relIdx++) {
       relExtinct(relIdx, ptId);
     }
   }

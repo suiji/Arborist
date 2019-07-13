@@ -17,6 +17,7 @@
 #include "index.h"
 #include "splitnode.h"
 #include "splitcand.h"
+#include "splitnux.h"
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
@@ -114,9 +115,11 @@ void SPCtg::setRunOffsets(const vector<unsigned int> &runCount) {
 }
 
 
-void SplitNode::preschedule(const SplitCoord& splitCoord,
+IndexType SplitNode::preschedule(const IndexLevel* index,
+                            const SplitCoord& splitCoord,
 			    unsigned int bufIdx) {
-  splitCand.emplace_back(SplitCand(splitCoord, bufIdx, noSet));
+  splitCand.emplace_back(SplitCand(this, index, splitCoord, bufIdx, noSet));
+  return index->getExtent(splitCoord.nodeIdx);
 }
 
 
@@ -132,7 +135,7 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
   vector<SplitCand> sc2;
   unsigned int splitPrev = splitCount;
   for (auto & sg : splitCand) {
-    if (sg.schedule(this, levelFront, index, runCount)) {
+    if (sg.schedule(levelFront, index, runCount)) {
       unsigned int splitThis = sg.getSplitCoord().nodeIdx;
       nCand[splitThis]++;
       if (splitPrev != splitThis) {
@@ -306,7 +309,7 @@ int SPReg::getMonoMode(const SplitCand* cand) const {
 }
 
 
-vector<SplitCand> SplitNode::split(const SamplePred *samplePred) {
+vector<SplitNux> SplitNode::split(const SamplePred *samplePred) {
   splitCandidates(samplePred);
 
   return maxCandidates();
@@ -339,8 +342,8 @@ void SPReg::splitCandidates(const SamplePred *samplePred) {
 }
 
 
-vector<SplitCand> SplitNode::maxCandidates() {
-  vector<SplitCand> candMax(splitCount); // Info initialized to zero.
+vector<SplitNux> SplitNode::maxCandidates() {
+  vector<SplitNux> nuxMax(splitCount); // Info initialized to zero.
 
   OMPBound splitIdx;
   OMPBound splitTop = splitCount;
@@ -348,20 +351,19 @@ vector<SplitCand> SplitNode::maxCandidates() {
   {
 #pragma omp for schedule(dynamic, 1)
     for (splitIdx = 0; splitIdx < splitTop; splitIdx++) {
-      maxSplit(candMax[splitIdx], candOff[splitIdx], nCand[splitIdx]);
+      nuxMax[splitIdx] = maxSplit(candOff[splitIdx], nCand[splitIdx]);
     }
   }
   splitCand.clear();
   candOff.clear();
   nCand.clear();
 
-  return candMax;
+  return nuxMax;
 }
 
 
-void SplitNode::maxSplit(SplitCand &candMax,
-                         unsigned int splitOff,
-                         unsigned int nCandSplit) const {
+SplitNux SplitNode::maxSplit(unsigned int splitOff,
+                             unsigned int nCandSplit) const {
   const auto slotSup = splitOff + nCandSplit;
   unsigned int argMax = slotSup;
   double maxInfo = 0.0;
@@ -373,6 +375,9 @@ void SplitNode::maxSplit(SplitCand &candMax,
   }
 
   if (argMax != slotSup) {
-    candMax = splitCand[argMax];
+    return SplitNux(splitCand[argMax]);
+  }
+  else {
+    return SplitNux();
   }
 }

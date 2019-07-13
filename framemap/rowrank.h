@@ -16,20 +16,23 @@
 #ifndef FRAMEMAP_ROWRANK_H
 #define FRAMEMAP_ROWRANK_H
 
+#include "typeparam.h"
+
 class RowRank {
  protected:
-  unsigned int row;
-  unsigned int rank;
+  IndexType row;
+  IndexType rank;
 
  public:
   RowRank() {}
   
-  RowRank(unsigned int row_,
-          unsigned int rank_) : row(row_),
-                                rank(rank_) {
+  RowRank(IndexType row_,
+          IndexType rank_) : row(row_),
+                             rank(rank_) {
   }
   
-  void init(unsigned int row, unsigned int rank) {
+  void init(IndexType row,
+            IndexType rank) {
     this->row = row;
     this->rank = rank;
   }

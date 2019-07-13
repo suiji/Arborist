@@ -14,8 +14,8 @@
 
  */
 
-#ifndef ARBORIST_PRETREE_H
-#define ARBORIST_PRETREE_H
+#ifndef CORE_PRETREE_H
+#define CORE_PRETREE_H
 
 #include <vector>
 #include <algorithm>
@@ -35,13 +35,14 @@ class PTNode : public DecNode {
                           vector<double> &predInfo,
                           unsigned int idx) const;
 
-  void splitNum(const class SplitCand &cand,
+  /**
+     @brief Builds cut-based split.
+   */
+  void splitCut(const class SplitNux &argMax,
                 unsigned int lhDel);
 
   /**
      @brief Resets to default terminal status.
-
-     @return void.
    */
   inline void setTerminal() {
     lhDel = 0;
@@ -63,16 +64,21 @@ class PTNode : public DecNode {
   }
 
 
-  inline unsigned int getLHId(unsigned int ptId) const {
+  inline IndexType getLHId(IndexType ptId) const {
     return isNonTerminal() ? ptId + lhDel : 0;
   }
 
-  inline unsigned int getRHId(unsigned int ptId) const {
+  inline IndexType getRHId(IndexType ptId) const {
     return isNonTerminal() ? getLHId(ptId) + 1 : 0;
   }
 
-
-  inline void SplitFac(unsigned int predIdx, unsigned int lhDel, unsigned int bitEnd, double info) {
+  /**
+     @brief Builds bit-based split.
+   */
+  inline void splitBits(unsigned int predIdx,
+                        unsigned int lhDel,
+                        unsigned int bitEnd,
+                        double info) {
     this->predIdx = predIdx;
     this->lhDel = lhDel;
     this->splitVal.offset = bitEnd;
@@ -143,10 +149,18 @@ class PreTree {
 
   void BitConsume(unsigned int *outBits);
 
-  void LHBit(int idx, unsigned int pos);
+  /**
+     @brief Sets specified bit in splitting bit vector.
 
-  void branchFac(const class SplitCand& argMax,
-                 unsigned int _id);
+     @param iSet is the index node for which the LH bit is set.
+
+     @param pos is the bit position beyond to set.
+  */
+  void LHBit(const class IndexSet* iSet,
+             unsigned int pos);
+
+  void branchFac(const class SplitNux& argMax,
+                 const class IndexSet* iSet);
 
   /**
      @brief Finalizes numeric-valued nonterminal.
@@ -155,28 +169,33 @@ class PreTree {
 
      @param id is the node index.
   */
-  void branchNum(const class SplitCand &argMax,
+  void branchNum(const class SplitNux &argMax,
                  unsigned int id);
 
   void levelStorage(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();
   void subtreeFrontier(const vector<unsigned int> &stTerm);
   unsigned int LeafMerge();
+
   
-  inline unsigned int getLHId(unsigned int ptId) const {
+  inline IndexType getLHId(IndexType ptId) const {
     return nodeVec[ptId].getLHId(ptId);
   }
 
   
-  inline unsigned int getRHId(unsigned int ptId) const {
+  inline IndexType getRHId(IndexType ptId) const {
     return nodeVec[ptId].getRHId(ptId);
   }
 
+
+  inline IndexType getSuccId(IndexType ptId, bool isLeft) const {
+    return isLeft ? nodeVec[ptId].getLHId(ptId) : nodeVec[ptId].getRHId(ptId);
+  }
   
   /**
      @return true iff node is nonterminal.
    */
-  inline bool isNonTerminal(unsigned int ptId) const {
+  inline bool isNonTerminal(IndexType ptId) const {
     return nodeVec[ptId].isNonTerminal();
   }
 
@@ -189,7 +208,7 @@ class PreTree {
 
        @return true iff node has two leaf children.
     */
-  inline bool isMergeable(unsigned int ptId) const {
+  inline bool isMergeable(IndexType ptId) const {
     return !isNonTerminal(getLHId(ptId)) && !isNonTerminal(getRHId(ptId));
   }  
 

@@ -17,6 +17,7 @@
  */
 
 #include "samplenux.h"
+#include "sumcount.h"
 
 unsigned int SampleNux::nCtg = 0;
 unsigned int SampleNux::ctgShift = 0;
@@ -37,4 +38,12 @@ void SampleNux::immutables(unsigned int ctgWidth) {
 
 void SampleNux::deImmutables() {
   ctgShift = 0;
+}
+
+
+FltVal SampleRank::accum(vector<SumCount>& ctgExpl) const {
+  if (!ctgExpl.empty()) {
+    ctgExpl[getCtg()].accum(ySum, getSCount());
+  }
+  return ySum;
 }

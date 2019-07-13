@@ -59,16 +59,15 @@ class FRNode {
 
   
   /**
-     @brief Replay accessor.  N.B.:  Should not be invoked on dense
+     @brief Range accessor.  N.B.:  Should not be invoked on dense
      run, as 'start' will hold a reserved value.
 
-     @param[out] start_ outputs the starting index.
-
-     @param[out] extent_ outputs the count of indices subsumed.
+     @return range of indices subsumed by run.
    */
-  inline void replayRef(unsigned int &start, unsigned int &extent) const {
-    start = this->start;
-    extent = this->extent;
+  inline IndexRange getRange() const {
+    IndexRange range;
+    range.set(start, extent);
+    return range;
   }
 
 
@@ -244,6 +243,24 @@ class RunSet {
 
 
   /**
+     @brief Redirects samples to left or right according.
+
+     @param cand is a splitting candidate.
+
+     @param iSet encodes the sample indices associated with the split.
+
+     @param preTree is the crescent pre-tree.
+
+     @param index is the index set environment for the current level.
+
+     @return true iff left-bound split contains implicit runs.
+   */
+  bool branch(const class SplitNux& argMax,
+              class IndexSet* iSet,
+              class PreTree* preTree,
+              class IndexLevel* index) const;
+
+  /**
      @brief Subtracts a run's per-category responses from the current run.
 
      @param nCtg is the response cardinality.
@@ -259,7 +276,7 @@ class RunSet {
 
      @return reference to run count.
    */
-  inline unsigned int getRunCount() const {
+  inline auto getRunCount() const {
     return runCount;
   }
 
@@ -381,7 +398,7 @@ class RunSet {
   }
 
 
-  inline unsigned int getRunsLH() const {
+  inline auto getRunsLH() const {
     return runsLH;
   }
 
@@ -415,11 +432,9 @@ class RunSet {
      
      N.B.:  should not be called with a dense run.
 
-     @param start outputs starting index of run.
-
-     @param extent outputs the index extent of the run.
+     @return index range associated with run.
   */
-  void bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const;
+  IndexRange bounds(unsigned int outSlot) const;
 };
 
 
@@ -447,24 +462,7 @@ class Run {
   void runSets(const vector<unsigned int>& safeCount);
 
 
-  inline unsigned int getRunCount(unsigned int rsIdx) const {
-    return runSet[rsIdx].getRunCount();
-  }
-
-  inline unsigned int getRank(unsigned int idx, unsigned int outSlot) const {
-    return runSet[idx].getRank(outSlot);
-  }
-
-  inline void runBounds(unsigned int idx, unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
-    runSet[idx].bounds(outSlot, start, extent);
-  }
-
-  inline unsigned int getRunsLH(unsigned int rsIdx) const {
-    return runSet[rsIdx].getRunsLH();
-  }
-
-
- public:
+public:
   const unsigned int ctgWidth;  // Response cardinality; zero iff numerical.
 
   /**
@@ -503,7 +501,7 @@ class Run {
   /**
      @brief Indicates whether splitting candidate contains runs.
    */
-  bool isRun(const class SplitCand& cand) const;
+  bool isRun(const class SplitNux& argMax) const;
 
   /**
      @brief Redirects samples to left or right according.
@@ -518,10 +516,10 @@ class Run {
 
      @return true iff left-bound split contains implicit runs.
    */
-  bool branchFac(const class SplitCand& cand,
-                 class IndexSet* iSet,
-                 class PreTree* preTree,
-                 class IndexLevel* index) const;
+  bool branch(const class SplitNux& argMax,
+              class IndexSet* iSet,
+              class PreTree* preTree,
+              class IndexLevel* index) const;
 
   /**
      @brief Indicates whether index passed references a run.

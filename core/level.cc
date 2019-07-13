@@ -134,9 +134,9 @@ IndexRange Level::getRange(const SplitCoord &mrra) {
 
 
 IndexRange Level::adjustRange(const SplitCoord& splitCoord,
-                              const IndexSet& iSet,
+                              const IndexLevel* index,
                               unsigned int& implicit) const {
-  //                                IndexRange& idxRange) const {
+  IndexSet iSet(index->getISet(splitCoord));
   IndexRange idxRange;
   idxRange.set(iSet.getStart(), iSet.getExtent());
   implicit = isDense(splitCoord) ? denseCoord[denseOffset(splitCoord)].adjustRange(idxRange) : 0;
@@ -237,10 +237,10 @@ void Level::candidates(const IndexLevel *index, SplitNode *splitNode) {
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(splitNode, splitIdx, &ruPred[splitOff], index->getExtent(splitIdx), spanCand);
+      candidateProb(splitNode, splitIdx, &ruPred[splitOff], index, spanCand);
     }
     else { // Fixed number of predictors splitable.
-      candidateFixed(splitNode, splitIdx, &ruPred[splitOff], &heap[splitOff], index->getExtent(splitIdx), spanCand);
+      candidateFixed(splitNode, splitIdx, &ruPred[splitOff], &heap[splitOff], index, spanCand);
     }
   }
   setSpan(spanCand);
@@ -250,11 +250,11 @@ void Level::candidates(const IndexLevel *index, SplitNode *splitNode) {
 void Level::candidateProb(SplitNode *splitNode,
                           unsigned int splitIdx,
                           const double ruPred[],
-                          unsigned int extent,
+                          const IndexLevel* index,
                           unsigned int &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) preschedule(splitNode, SplitCoord(splitIdx, predIdx), extent, spanCand);
+      (void) preschedule(splitNode, SplitCoord(splitIdx, predIdx), index, spanCand);
     }
   }
 }
@@ -264,7 +264,7 @@ void Level::candidateFixed(SplitNode *splitNode,
                            unsigned int splitIdx,
                            const double ruPred[],
                            BHPair heap[],
-                           unsigned int extent,
+                           const IndexLevel* index,
                            unsigned int &spanCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -275,7 +275,7 @@ void Level::candidateFixed(SplitNode *splitNode,
   unsigned int schedCount = 0;
   for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
     unsigned int predIdx = BHeap::slotPop(heap, heapSize - 1);
-    schedCount += preschedule(splitNode, SplitCoord(splitIdx, predIdx), extent, spanCand) ? 1 : 0;
+    schedCount += preschedule(splitNode, SplitCoord(splitIdx, predIdx), index, spanCand) ? 1 : 0;
     if (schedCount == predFixed)
       break;
   }
@@ -284,15 +284,14 @@ void Level::candidateFixed(SplitNode *splitNode,
 
 bool Level::preschedule(SplitNode *splitNode,
                         const SplitCoord& splitCoord,
-                        unsigned int extent,
+                        const IndexLevel* index,
                         unsigned int &spanCand) {
   bottom->reachFlush(splitCoord.nodeIdx, splitCoord.predIdx);
 
   unsigned int bufIdx;
   if (!isSingleton(splitCoord, bufIdx)) {
-    splitNode->preschedule(splitCoord, bufIdx);
     offCand[splitCoord.strideOffset(nPred)] = spanCand;
-    spanCand += extent;
+    spanCand += splitNode->preschedule(index, splitCoord, bufIdx);
     return true;
   }
   return false;

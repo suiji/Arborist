@@ -24,58 +24,55 @@
    @brief Encapsulates information needed to drive splitting.
  */
 class SplitCand {
-  static constexpr double minRatioDefault = 0.0;
-  static double minRatio;
-
-  SplitCoord splitCoord; // Node, predictor coordinates.  Persists to replay.
+  const SplitCoord splitCoord; // Node, predictor coordinates.
+  const unsigned int sCount;  // Tree node property.
+  const double sum; // Tree node property.
+  const unsigned char bufIdx; // Per coordinate.  Persists to replay.
   double info; // Tracks during splitting.
-  unsigned int idxStart; // Per node.
-  unsigned int sCount;  // Per node.
-  double sum; // Per node.
+
+  // Initialized or reset after candidate sampling:
   unsigned int setIdx;  // Per coord.
+  IndexRange idxRange; // Per coordinate:  post restage.
   unsigned int implicit;  // Per coord:  post restage.
-  unsigned int idxEnd; // Per coord:  post restage.
-  unsigned char bufIdx; // Per coordinate.  Persists to replay.
 
-  /**
-     @brief decrements 'info' value by information of parent node.
-
-     @return true iff net information gain over parent..
-   */
-  bool infoGain(const class SplitNode*);
-  
-public:
-  // Data members persisting through replay:
+  // Copied to SplitNux, if arg-max:
+  //
   unsigned int lhSCount; // # samples subsumed by split LHS:  > 0 iff split.
   unsigned int lhExtent; // Index count of split LHS.
   unsigned int lhImplicit; // LHS implicit index count:  numeric only.
 
-  // Persists through training:
-  IndexRange rankRange; // Numeric only.
+  // Copied to decision node, if arg-max.  Numeric only:
+  //
+  IndexRange rankRange;
 
+  /**
+     @brief decrements 'info' value by information of parent node.
 
-  // Information initilaized to zero, all other fields uninitialized:
-  SplitCand() : splitCoord(), info(0.0) {}
+     @return true iff net information gain over parent.
+   */
+  bool infoGain(const class SplitNode*);
   
-  SplitCand(const SplitCoord& splitCoord_,
+public:
+
+  SplitCand(const class SplitNode* splitNode,
+            const class IndexLevel* index,
+            const SplitCoord& splitCoord_,
             unsigned int bufIdx_,
             unsigned int noSet);
-  
-  static void immutables(double minRatio_);
-  static void deImmutables();
 
   /**
-     @brief Getter for information field.
-   */
-  auto getInfo() const {
-    return info;
-  }
-
-  /**
-     @brief Setter for information field.
+     @brief info field setter.
    */
   void setInfo(double info) {
     this->info = info;
+  }
+
+  
+  /**
+     @brief Getters.
+   */
+  auto getInfo() const {
+    return info;
   }
 
   auto getSplitCoord() const {
@@ -94,7 +91,7 @@ public:
      @brief Accessor for cell lower index.
    */
   auto getIdxStart() const {
-    return idxStart;
+    return idxRange.getStart();
   }
 
 
@@ -102,7 +99,7 @@ public:
      @brief Accessor for cell upper index.
    */
   auto getIdxEnd() const {
-    return idxEnd;
+    return idxRange.getEnd() - 1;
   }
 
 
@@ -126,63 +123,33 @@ public:
   }
 
 
-  /**
-     @return Count of indices corresponding to LHS.  Only applies
-     to rank-based splits.
-   */
-  auto getLHExplicit() const {
-    return lhExtent - lhImplicit;
+  auto getLhSCount() const {
+    return lhSCount;
   }
 
+  auto getLhExtent() const {
+    return lhExtent;
+  }
+
+  auto getLhImplicit() const {
+    return lhImplicit;
+  }
+
+  auto getIdxRange() const {
+    return idxRange;
+  }
+
+  auto getRankRange() const {
+    return rankRange;
+  }
+  
   /**
      @return Count of indices in cell:  equals node size iff no implicit
      indices.
    */
   auto getExtent() const {
-    return idxEnd - idxStart + 1;
+    return getIdxEnd()- getIdxStart() + 1;
   }
-  
-  /**
-     @return Count of indices corresponding to RHS.  Rank-based splits
-     only.
-   */  
-  auto getRHExplicit() const {
-    return getExtent() - getLHExplicit();
-  }
-
-  /**
-     @return Starting index of an explicit branch.  Defaults to left if
-     both branches explicit.  Rank-based splits only.
-   */
-  auto getExplicitBranchStart() const {
-    return lhImplicit == 0 ? idxStart : idxStart + getLHExplicit();
-  }
-
-
-  /**
-     @return Extent of an explicit branch.  Defaults to left if both
-     branches explicit.  Rank-based splits only.
-   */
-  auto getExplicitBranchExtent() const {
-    return lhImplicit == 0 ? getLHExplicit() : getRHExplicit();
-  }
-  
-  /**
-     @return true iff left side has no implicit indices.  Rank-based
-     splits only.
-   */
-  bool leftIsExplicit() const {
-    return lhImplicit == 0;
-  }
-
-
-  /**
-     @return rank split object.
-   */
-  IndexRange getRankRange() const {
-    return rankRange;
-  }
-  
 
   /**
      @brief Retains split coordinate iff target is not a singleton.  Pushes
@@ -196,8 +163,7 @@ public:
 
      @return true iff candidate remains splitable.
   */
-  bool schedule(const class SplitNode *splitNode,
-                const class Level *levelFront,
+  bool schedule(const class Level *levelFront,
 		const class IndexLevel *indexLevel,
 		vector<unsigned int> &runCount);
 
@@ -206,25 +172,16 @@ public:
 
      Entry singletons should not reach here.
   */
-  void initLate(const class SplitNode* splitNode,
-                const class Level* levelFront,
+  void initLate(const class Level* levelFront,
 		const class IndexLevel* iLevel,
                 vector<unsigned int>& runCount,
 		unsigned int rCount);
 
-  /**
-     @brief Sets splitting fields from dense-adjusted index node contents.
-
-     @param levelFront summarizes the current front level.
-
-     @param iSet is the index node from which to initiliaze.
-   */
-  void indexInit(const class Level* levelFront,
-                 const class IndexLevel* iLeve);
-
   
   void split(const class SPReg *spReg,
 	     const class SamplePred *samplePred);
+
+
   void split(class SPCtg *spCtg,
 	     const class SamplePred *samplePred);
 
@@ -310,8 +267,6 @@ public:
      @brief Writes the left-hand characterization of an order-based
      regression split.
 
-     @param splitInfo is the information gain induced by the split.
-
      @param splitLHSCount is the sample count of the LHS.
 
      @param rankLH is the left predictor rank of the split.
@@ -322,7 +277,7 @@ public:
 
      @param rhMin is either the minimal index commencing the RHS.
    */
-  void writeNum(double splitInfo,
+  void writeNum(const class SplitNode* spNode,
                 unsigned int splitLHSCount,
                 unsigned int rankLH,
                 unsigned int rankRH,
@@ -351,32 +306,6 @@ public:
    */
   void writeBits(const class SplitNode *sp,
                  unsigned int lhBits);
-
-
-  /**
-     @brief Reports whether potential split be informative with respect to a threshold.
-
-     @param[in, out] minInfo is the information threshold for splitting.
-
-     @param[out] lhSCount is the number of samples in LHS.
-
-     @param[out] lhExtent is the number of indices in LHS.
-
-     @return true iff information content exceeds the threshold.
-   */
-  bool isInformative(double &minInfo,
-                     unsigned int &lhSCount,
-                     unsigned int &lhExtent) const {
-    if (info > minInfo) {
-      minInfo = minRatio * info; // Splitting threshold for succesors.
-      lhSCount = this->lhSCount;
-      lhExtent = this->lhExtent;
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
 };
 
 #endif

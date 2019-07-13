@@ -222,7 +222,7 @@ class Level {
  */
   bool preschedule(class SplitNode *splitNode,
                    const SplitCoord& splitCoord,
-                   unsigned int extent,
+                   const class IndexLevel* index,
                    unsigned int &spanCand);
   
 public:
@@ -261,7 +261,7 @@ public:
   void candidateProb(class SplitNode *splitNode,
                      unsigned int splitIdx,
                      const double ruPred[],
-                     unsigned int extent,
+                     const class IndexLevel* index,
                      unsigned int &offCand);
 
   /**
@@ -279,13 +279,16 @@ public:
                       unsigned int splitIdx,
                       const double ruPred[],
                       struct BHPair heap[],
-                      unsigned int extent,
+                      const class IndexLevel* index,
                       unsigned int &offCand);
+
 
   void rankRestage(class SamplePred *samplePred,
                    const SplitCoord &mrra,
                    Level *levelFront,
                    unsigned int bufIdx);
+
+
   void indexRestage(class SamplePred *samplePred,
                     const SplitCoord &mrra,
                     const Level *levelFront,
@@ -622,7 +625,7 @@ public:
      @return adjusted index range.
    */
   IndexRange adjustRange(const SplitCoord& splitCoord,
-                         const class IndexSet& iSet,
+                         const class IndexLevel* index,
                          unsigned int& implicit) const;
   
 

@@ -18,7 +18,6 @@
 #include "bv.h"
 #include "index.h"
 #include "splitnode.h"
-#include "splitcand.h"
 #include "samplepred.h"
 #include "sample.h"
 #include "summaryframe.h"

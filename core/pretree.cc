@@ -16,7 +16,8 @@
 
 #include "bv.h"
 #include "pretree.h"
-#include "splitcand.h"
+#include "index.h"
+#include "splitnux.h"
 #include "forest.h"
 #include "summaryframe.h"
 #include "callback.h"
@@ -98,17 +99,8 @@ PreTree::~PreTree() {
 }
 
 
-/**
-   @brief Sets specified bit in splitting bit vector.
-
-   @param id is the index node for which the LH bit is set.
-
-   @param pos is the bit position beyond to set.
-
-   @return void.
-*/
-void PreTree::LHBit(int idx, unsigned int pos) {
-  splitBits->setBit(nodeVec[idx].splitVal.offset + pos);
+void PreTree::LHBit(const IndexSet* iSet, unsigned int pos) {
+  splitBits->setBit(nodeVec[iSet->getPTId()].splitVal.offset + pos);
 }
 
 
@@ -149,24 +141,26 @@ BV *PreTree::bitFactory() {
 
    @return void.
 */
-void PreTree::branchFac(const SplitCand& argMax, unsigned int id) {
-  nodeVec[id].SplitFac(argMax.getSplitCoord().predIdx, height - id, bitEnd, argMax.getInfo());
+void PreTree::branchFac(const SplitNux& argMax, const IndexSet* iSet) {
+  auto predIdx = argMax.getPredIdx();
+  auto id = iSet->getPTId();
+  nodeVec[id].splitBits(predIdx, height - id, bitEnd, argMax.getInfo());
   terminalOffspring();
-  bitEnd += frame->getCardinality(argMax.getSplitCoord().predIdx);
+  bitEnd += frame->getCardinality(predIdx);
 }
 
 
-void PreTree::branchNum(const SplitCand &argMax, unsigned int id) {
-  nodeVec[id].splitNum(argMax, height - id);
+void PreTree::branchNum(const SplitNux &argMax, unsigned int id) {
+  nodeVec[id].splitCut(argMax, height - id);
   terminalOffspring();
 }
 
 
-void PTNode::splitNum(const SplitCand &cand, unsigned int lhDel) {
-  this->predIdx = cand.getSplitCoord().predIdx;
+void PTNode::splitCut(const SplitNux &argMax, unsigned int lhDel) {
+  this->predIdx = argMax.getPredIdx();
   this->lhDel = lhDel;
-  this->splitVal.rankRange = cand.getRankRange();
-  this->info = cand.getInfo();
+  this->splitVal.rankRange = argMax.getRankRange();
+  this->info = argMax.getInfo();
 }
 
 

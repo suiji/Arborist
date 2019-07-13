@@ -14,7 +14,7 @@
  */
 
 #include "samplepred.h"
-#include "splitcand.h"
+#include "splitnux.h"
 #include "sample.h"
 #include "rankedframe.h"
 #include "path.h"
@@ -152,47 +152,21 @@ void SamplePred::stage(const vector<SampleNux> &sampleNode,
   }
 }
 
-double SamplePred::blockReplay(const SplitCand& argMax,
+double SamplePred::blockReplay(const SplitNux& argMax,
                                BV* replayExpl,
                                vector<SumCount>& ctgExpl) {
-  return blockReplay(argMax, argMax.getExplicitBranchStart(), argMax.getExplicitBranchExtent(), replayExpl, ctgExpl);
+  return blockReplay(argMax, argMax.getExplicitRange(), replayExpl, ctgExpl);
 }
 
-
-double SamplePred::blockReplay(const SplitCand& argMax,
-                               unsigned int blockStart,
-                               unsigned int blockExtent,
+double SamplePred::blockReplay(const SplitNux& argMax,
+                               const IndexRange& range,
                                BV* replayExpl,
                                vector<SumCount> &ctgExpl) {
   unsigned int* idx;
-  SampleRank* spn = buffers(argMax.getSplitCoord().predIdx, argMax.getBufIdx(), idx);
-  if (!ctgExpl.empty()) {
-    return replayCtg(spn, blockStart, blockExtent, idx, replayExpl, ctgExpl);
-  }
-  else {
-    return replayNum(spn, blockStart, blockExtent, idx, replayExpl);
-  }
-}
-
-double SamplePred::replayCtg(const SampleRank spn[], unsigned int start, unsigned int extent, const unsigned int idx[], BV* replayExpl, vector<SumCount> &ctgExpl) {
+  SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
   double sumExpl = 0.0;
-  for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
-    FltVal ySum;
-    unsigned int yCtg;
-    unsigned sCount = spn[spIdx].ctgFields(ySum, yCtg);
-    ctgExpl[yCtg].accum(ySum, sCount);
-    sumExpl += ySum;
-    replayExpl->setBit(idx[spIdx]);
-  }
-
-  return sumExpl;
-}
-
-
-double SamplePred::replayNum(const SampleRank spn[], unsigned int start, unsigned int extent, const unsigned idx[], BV* replayExpl) {
-  double sumExpl = 0.0;
-  for (unsigned int spIdx = start; spIdx < start + extent; spIdx++) {
-    sumExpl += spn[spIdx].getYSum();
+  for (IndexType spIdx = range.getStart(); spIdx < range.getEnd(); spIdx++) {
+    sumExpl += spn[spIdx].accum(ctgExpl);
     replayExpl->setBit(idx[spIdx]);
   }
 

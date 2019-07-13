@@ -80,10 +80,10 @@ unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain, const List &sPredFrame, 
 SEXP BagRf::checkOOB(const List& sBag, const List& sPredFrame) {
   BEGIN_RCPP
   if (as<unsigned int>(sBag["nRow"]) == 0)
-    stop("Out-of-bag prediction requested but bag empty");
+    stop("Out-of-bag prediction requested with empty bag.");
 
   if (as<unsigned int>(sBag["nRow"]) != as<unsigned int>(sPredFrame["nRow"]))
-    stop("Bag and prediction row counts do not agree");
+    stop("Bag and prediction row counts do not agree.");
 
   END_RCPP
 }

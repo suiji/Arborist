@@ -38,7 +38,6 @@ struct IndexRange {
   IndexType idxLow;
   IndexType idxExtent;
 
-
   void set(IndexType idxLow,
            IndexType extent) {
     this->idxLow = idxLow;
@@ -52,6 +51,7 @@ struct IndexRange {
     idxExtent -= implicit;
   }
 
+
   IndexType getStart() const {
     return idxLow;
   }
@@ -62,7 +62,6 @@ struct IndexRange {
   IndexType getEnd() const {
     return idxLow + idxExtent;
   }
-
 };
 
 

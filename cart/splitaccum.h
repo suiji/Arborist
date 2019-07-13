@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CORE_RF_SPLITACCUM_H
-#define CORE_RF_SPLITACCUM_H
+#ifndef CART_SPLITACCUM_H
+#define CART_SPLITACCUM_H
 
 /**
    @file splitaccum.h
@@ -108,7 +108,8 @@ public:
   /**
      @brief Derives LHS statistics and dispatches to candidate.
    */
-  void write(class SplitCand* splitCand);
+  void write(const class SplitNode* spNode,
+             class SplitCand* splitCand);
 };
 
 
@@ -186,9 +187,9 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SampleRank spn[],
-             unsigned int idxEnd,
-             unsigned int idxStart);
+  void split(const class SPReg* spReg,
+             const class SampleRank spn[],
+             class SplitCand* cand);
   
 
   /**
@@ -198,8 +199,7 @@ public:
      @param resid summarizes the blob's residual statistics.
    */
   void splitImpl(const class SampleRank spn[],
-                 unsigned int idxEnd,
-                 unsigned int idxStart);
+                 const class SplitCand* cand);
 
 
   /**
@@ -291,10 +291,11 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SampleRank spn[],
-             unsigned int idxInit,
-             unsigned int idxFinal);
+  void split(const class SPCtg* spCtg,
+             const class SampleRank spn[],
+             class SplitCand* cand);
 
+  
   /**
      @brief Splitting method for categorical response over an explicit
      block of numerical observation indices.
@@ -311,8 +312,7 @@ public:
      @brief As above, but with implicit dense blob.
    */
   void splitImpl(const class SampleRank spn[],
-                 unsigned int idxInit,
-                 unsigned int idxFinal);
+                 const class SplitCand* cand);
 
   /**
      @brief Accumulates right and left sums-of-squares from

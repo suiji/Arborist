@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CORE_RF_SPLITNODE_H
-#define CORE_RF_SPLITNODE_H
+#ifndef CART_SPLITNODE_H
+#define CART_SPLITNODE_H
 
 /**
    @file splitnode.h
@@ -64,8 +64,9 @@ public:
   /**
      @brief Emplaces new candidate with specified coordinates.
    */
-  void preschedule(const SplitCoord& splitCoord,
-		   unsigned int bufIdx);
+  IndexType preschedule(const IndexLevel* index,
+                        const SplitCoord& splitCoord,
+                        unsigned int bufIdx);
 
   /**
      @brief Pass-through to row-rank method.
@@ -115,14 +116,13 @@ public:
   void levelInit(class IndexLevel *index);
 
   
-  vector<class SplitCand> split(const class SamplePred *samplePred);
+  vector<class SplitNux> split(const class SamplePred *samplePred);
 
 
-  vector<class SplitCand> maxCandidates();
+  vector<class SplitNux> maxCandidates();
   
-  void maxSplit(SplitCand &candMax,
-                unsigned int splitOff,
-                unsigned int nSplitNode) const;
+  class SplitNux maxSplit(unsigned int splitOff,
+                          unsigned int nSplitNode) const;
   
   virtual void splitCandidates(const class SamplePred *samplePred) = 0;
   virtual ~SplitNode();

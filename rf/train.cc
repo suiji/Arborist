@@ -22,7 +22,7 @@
 #include "pretree.h"
 #include "samplepred.h"
 #include "splitnode.h"
-#include "splitcand.h"
+#include "splitnux.h"
 #include "leaf.h"
 #include "level.h"
 #include "ompthread.h"
@@ -69,7 +69,7 @@ void Train::initSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio) {
   IndexLevel::immutables(minNode, totLevels);
-  SplitCand::immutables(minRatio);
+  SplitNux::immutables(minRatio);
 }
 
 
@@ -87,7 +87,7 @@ void Train::initMono(const SummaryFrame *frame,
 void Train::deInit() {
   trainBlock = 0;
   TreeNode::DeImmutables();
-  SplitCand::deImmutables();
+  SplitNux::deImmutables();
   IndexLevel::deImmutables();
   PreTree::deImmutables();
   Sample::deImmutables();

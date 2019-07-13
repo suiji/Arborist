@@ -16,6 +16,7 @@
 #include "runset.h"
 #include "callback.h"
 #include "splitnode.h"
+#include "splitnux.h"
 #include "splitcand.h"
 #include "pretree.h"
 #include "index.h"
@@ -54,8 +55,8 @@ void Run::runSets(const vector<unsigned int> &safeCount) {
   }
 }
 
-bool Run::isRun(const SplitCand& cand) const {
-  return isRun(cand.getSetIdx());
+bool Run::isRun(const SplitNux& argMax) const {
+  return isRun(argMax.getSetIdx());
 }
 
 
@@ -128,31 +129,34 @@ void Run::reBase() {
   }
 }
 
-bool Run::branchFac(const SplitCand& argMax,
+bool Run::branch(const SplitNux& argMax,
+                 IndexSet* iSet,
+                 PreTree* preTree,
+                 IndexLevel* index) const {
+  return runSet[argMax.getSetIdx()].branch(argMax, iSet, preTree, index);
+}
+
+
+bool RunSet::branch(const SplitNux& argMax,
                     IndexSet* iSet,
                     PreTree* preTree,
                     IndexLevel* index) const {
-  preTree->branchFac(argMax, iSet->getPTId());
-  auto setIdx = argMax.getSetIdx();
-  if (runSet[setIdx].implicitLeft()) {// LH holds bits, RH holds replay indices.
-    for (unsigned int outSlot = 0; outSlot < getRunCount(setIdx); outSlot++) {
-      if (outSlot < getRunsLH(setIdx)) {
-        preTree->LHBit(iSet->getPTId(), getRank(setIdx, outSlot));
+  preTree->branchFac(argMax, iSet);
+  if (implicitLeft()) {// LH holds bits, RH holds replay indices.
+    for (unsigned int outSlot = 0; outSlot < getRunCount(); outSlot++) {
+      if (outSlot < getRunsLH()) {
+        preTree->LHBit(iSet, getRank(outSlot));
       }
       else {
-        unsigned int runStart, runExtent;
-        runBounds(setIdx, outSlot, runStart, runExtent);
-        iSet->blockReplay(argMax, runStart, runExtent, index);
+        iSet->blockReplay(argMax, bounds(outSlot), index);
       }
     }
     return false;
   }
   else { // LH runs hold both bits and replay indices.
-    for (unsigned int outSlot = 0; outSlot < getRunsLH(setIdx); outSlot++) {
-      preTree->LHBit(iSet->getPTId(), getRank(setIdx, outSlot));
-      unsigned int runStart, runExtent;
-      runBounds(setIdx, outSlot, runStart, runExtent);
-      iSet->blockReplay(argMax, runStart, runExtent, index);
+    for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
+      preTree->LHBit(iSet, getRank(outSlot));
+      iSet->blockReplay(argMax, bounds(outSlot), index);
     }
     return true;
   }
@@ -424,9 +428,9 @@ unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
 }
 
 
-void RunSet::bounds(unsigned int outSlot, unsigned int &start, unsigned int &extent) const {
+IndexRange RunSet::bounds(unsigned int outSlot) const {
   unsigned int slot = outZero[outSlot];
-  runZero[slot].replayRef(start, extent);
+  return runZero[slot].getRange();
 }
 
 

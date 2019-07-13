@@ -1,13 +1,13 @@
 // Copyright (C)  2012-2019   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of rf.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// rf is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// rf is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -24,8 +24,8 @@
    @author Mark Seligman
  */
 
-#ifndef RFR_BAG_RF_H
-#define RFR_BAG_RF_H
+#ifndef RF_BAG_RF_H
+#define RF_BAG_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -41,7 +41,6 @@ class BagRf {
   const unsigned int nTree; // # trees trained.
   const size_t rowBytes; // # count of raw bytes in summary object.
   RawVector raw; // Allocated OTF and moved.
-  //  unique_ptr<class BitMatrix> bmRaw; // Core instantiation of raw data.
 
  public:
   BagRf(size_t nObs_, unsigned int nTree_);
@@ -59,9 +58,10 @@ class BagRf {
   /**
      @brief Getter for tree count.
    */
-  const unsigned int getNTree() const {
+  const auto getNTree() const {
     return nTree;
   }
+
 
   /**
      @brief Consumes a chunk of tree bags following training.
@@ -89,7 +89,7 @@ class BagRf {
 
      @param oob indicates whether a non-null bag is requested.
 
-     @return instantiation containing baga raw data.
+     @return instantiation containing bag raw data.
    */
   static unique_ptr<class BagBridge> unwrap(const List& sBag,
                                             const List& sPredFrame,
@@ -115,8 +115,6 @@ class BagRf {
      @return instantiation containing baga raw data.
    */
   static unique_ptr<class BagBridge> unwrap(const List& sBag);
-
-
 };
 
 #endif

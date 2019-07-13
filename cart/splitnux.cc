@@ -1,0 +1,41 @@
+// This file is part of ArboristCore.
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+/**
+   @file splitnux.cc
+
+   @brief Methods belonging to the minimal splitting representation.
+
+   @author Mark Seligman
+ */
+
+
+#include "splitnux.h"
+#include "splitcand.h"
+
+double SplitNux::minRatio = minRatioDefault;
+
+void SplitNux::immutables(double minRatio) {
+  SplitNux::minRatio = minRatio;
+}
+
+void SplitNux::deImmutables() {
+  minRatio = minRatioDefault;
+}
+
+
+SplitNux::SplitNux(const SplitCand& cand) :
+  info(cand.getInfo()),
+  predIdx(cand.getSplitCoord().predIdx),
+  bufIdx(cand.getBufIdx()),
+  setIdx(cand.getSetIdx()),
+  lhSCount(cand.getLhSCount()),
+  lhExtent(cand.getLhExtent()),
+  lhImplicit(cand.getLhImplicit()),
+  idxRange(cand.getIdxRange()),
+  rankRange(cand.getRankRange()) {
+}
