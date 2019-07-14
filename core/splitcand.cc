@@ -112,6 +112,7 @@ void SplitCand::splitNum(const SPReg *spReg,
                          const SampleRank spn[]) {
   SplitAccumReg numPersist(this, spn, spReg);
   numPersist.split(spReg, spn, this);
+  writeNum(spReg, numPersist);
 }
 
 
@@ -119,20 +120,18 @@ void SplitCand::splitNum(SPCtg *spCtg,
                          const SampleRank spn[]) {
   SplitAccumCtg numPersist(this, spn, spCtg);
   numPersist.split(spCtg, spn, this);
+  writeNum(spCtg, numPersist);
 }
 
 
 void SplitCand::writeNum(const SplitNode* spNode,
-                         unsigned int lhSCount,
-                         unsigned int rankLH,
-                         unsigned int rankRH,
-                         bool lhDense,
-                         unsigned int rhMin) {
+                         const SplitAccum& accum) {
+  info = accum.info;
   if (infoGain(spNode)) {
-    rankRange.set(rankLH, rankRH - rankLH);
-    this->lhSCount = lhSCount;
-    lhImplicit = lhDense ? implicit : 0;
-    lhExtent = lhImplicit + (rhMin - getIdxStart());
+    rankRange.set(accum.rankLH, accum.rankRH - accum.rankLH);
+    this->lhSCount = accum.lhSCount;
+    lhImplicit = accum.lhDense() ? implicit : 0;
+    lhExtent = lhImplicit + (accum.rhMin - getIdxStart());
   }
 }
 

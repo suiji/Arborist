@@ -115,7 +115,7 @@ class FrameMap {
 
      @return Position of first numerical predictor.
   */
-  auto constexpr getNumFirst() const {
+  static unsigned int constexpr getNumFirst() {
     return 0ul;
   }
 

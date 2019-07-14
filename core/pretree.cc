@@ -18,6 +18,8 @@
 #include "pretree.h"
 #include "index.h"
 #include "splitnux.h"
+#include "splitnode.h"
+#include "runset.h"
 #include "forest.h"
 #include "summaryframe.h"
 #include "callback.h"
@@ -130,37 +132,46 @@ BV *PreTree::bitFactory() {
 }
 
 
-/**
-   @brief Fills in some fields for (generic) node found splitable.
-
-   @param _id is the node index.
-
-   @param _info is the information content.
-
-   @param _predIdx is the splitting predictor index.
-
-   @return void.
-*/
-void PreTree::branchFac(const SplitNux& argMax, const IndexSet* iSet) {
-  auto predIdx = argMax.getPredIdx();
+bool PreTree::nonterminal(const SplitNode* splitNode, const SplitNux& argMax, IndexLevel* iLevel, IndexSet* iSet) {
+  const Run* run = splitNode->getRuns();
   auto id = iSet->getPTId();
-  nodeVec[id].splitBits(predIdx, height - id, bitEnd, argMax.getInfo());
-  terminalOffspring();
-  bitEnd += frame->getCardinality(predIdx);
+  if (run->isRun(argMax)) {
+    branchRun(argMax, id);
+    return run->branch(argMax, iSet, this, iLevel);
+  }
+  else {
+    branchCut(argMax, id);
+    return iSet->branchCut(argMax, iLevel);
+  }
 }
 
 
-void PreTree::branchNum(const SplitNux &argMax, unsigned int id) {
+void PreTree::branchRun(const SplitNux& argMax, unsigned int id) {
+  nodeVec[id].splitBits(argMax, height - id, bitEnd);
+  terminalOffspring();
+  bitEnd += frame->getCardinality(argMax.getPredIdx());
+}
+
+
+void PTNode::splitBits(const SplitNux& argMax, unsigned int lhDel, unsigned int bitEnd) {
+  predIdx = argMax.getPredIdx();
+  splitVal.offset = bitEnd;
+  info = argMax.getInfo();
+  this->lhDel = lhDel;
+}
+
+
+void PreTree::branchCut(const SplitNux &argMax, unsigned int id) {
   nodeVec[id].splitCut(argMax, height - id);
   terminalOffspring();
 }
 
 
 void PTNode::splitCut(const SplitNux &argMax, unsigned int lhDel) {
-  this->predIdx = argMax.getPredIdx();
+  predIdx = argMax.getPredIdx();
+  splitVal.rankRange = argMax.getRankRange();
+  info = argMax.getInfo();
   this->lhDel = lhDel;
-  this->splitVal.rankRange = argMax.getRankRange();
-  this->info = argMax.getInfo();
 }
 
 
@@ -216,11 +227,13 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
 
 
 /**
-   @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.  Leaf information is post-assigned by the response-dependent Sample methods.
+   @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.
+
+   Leaf information is post-assigned by the response-dependent Sample methods.
 
    @param forest inputs/outputs the updated forest.
 
-   @return void, with output reference parameter.
+   @param[out] predInfo outputs the predictor-specific information values.
 */
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
@@ -233,9 +246,7 @@ void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) 
 /**
    @brief Consumes the node fields of nonterminals (splits).
 
-   @param forest outputs the growing forest node vector.
-
-   @return void, with side-effected Forest.
+   @param forest[in, out] accumulates the growing forest node vector.
  */
 void PTNode::consumeNonterminal(const SummaryFrame* frame, ForestTrain *forest, vector<double> &predInfo, unsigned int idx) const {
   if (isNonTerminal()) {
@@ -263,9 +274,9 @@ void PreTree::subtreeFrontier(const vector<unsigned int> &stTerm) {
 /**
    @brief Constructs mapping from sample indices to leaf indices.
 
-   @param tIdx is the index of the tree being produced.
+   @param[in, out] forest accumulates the growing forest.
 
-   @return Reference to rewritten map, with side-effected Forest.
+   @return Rewritten map.
  */
 const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest) const {
   vector<unsigned int> frontierMap(termST.size());
@@ -310,6 +321,9 @@ public:
 };
 
 
+/**
+   @brief Information-base comparator for queue ordering.
+*/
 class InfoCompare {
 public:
   bool operator() (const PTMerge &a , const PTMerge &b) {

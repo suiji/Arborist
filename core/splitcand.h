@@ -52,6 +52,16 @@ class SplitCand {
    */
   bool infoGain(const class SplitNode*);
   
+  /**
+     @brief Writes the left-hand characterization of a cut-based split.
+
+     @param spNode contains the tree-node summary.
+
+     @param accum contains the split characterization.
+   */
+  void writeNum(const class SplitNode* spNode,
+                const class SplitAccum& accum);
+  
 public:
 
   SplitCand(const class SplitNode* splitNode,
@@ -59,13 +69,6 @@ public:
             const SplitCoord& splitCoord_,
             unsigned int bufIdx_,
             unsigned int noSet);
-
-  /**
-     @brief info field setter.
-   */
-  void setInfo(double info) {
-    this->info = info;
-  }
 
   
   /**
@@ -263,28 +266,6 @@ public:
   void buildRuns(class SPCtg *spCtg,
                  const SampleRank spn[]) const;
 
-  /**
-     @brief Writes the left-hand characterization of an order-based
-     regression split.
-
-     @param splitLHSCount is the sample count of the LHS.
-
-     @param rankLH is the left predictor rank of the split.
-
-     @param rankRH is the right predictor rank of the split.
-
-     @param lhDense is true iff the LHS contains a dense blob.
-
-     @param rhMin is either the minimal index commencing the RHS.
-   */
-  void writeNum(const class SplitNode* spNode,
-                unsigned int splitLHSCount,
-                unsigned int rankLH,
-                unsigned int rankRH,
-                bool lhDense,
-                unsigned int rhMin);
-
-  
   /**
      @brief Writes the left-hand characterization of a factor-based
      split with numerical or binary response.

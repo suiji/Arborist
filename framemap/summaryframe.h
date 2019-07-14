@@ -165,7 +165,7 @@ public:
 
      @return Position of first numerical predictor.
   */
-  auto constexpr getNumFirst() const {
+  static constexpr unsigned int getNumFirst() {
     return 0ul;
   }
 

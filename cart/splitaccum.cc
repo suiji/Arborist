@@ -49,7 +49,7 @@ void SplitAccumReg::split(const SPReg* spReg,
     unsigned int rkThis = spn[idxEnd].regFields(ySum, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
-  write(spReg, cand);
+  //  write(spReg, cand);
 }
 
 void SplitAccumReg::splitImpl(const SampleRank spn[],
@@ -156,12 +156,6 @@ void SplitAccumReg::splitMono(const SampleRank spn[],
 }
 
 
-void SplitAccum::write(const SplitNode* spNode, SplitCand* cand) {
-  cand->setInfo(info);
-  cand->writeNum(spNode, lhSCount, rankLH, rankRH, rankDense <= rankLH, rhMin);
-}
-
-
 SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
                              const SampleRank spn[],
                              SPCtg* spCtg) :
@@ -188,7 +182,7 @@ void SplitAccumCtg::split(const SPCtg* spCtg,
     unsigned int rkThis = stateNext(spn, idxEnd);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
-  write(spCtg, cand);
+  //  write(spCtg, cand);
 }
 
 

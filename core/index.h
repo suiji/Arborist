@@ -132,7 +132,7 @@ class IndexSet {
      @brief Consumes iSet contents into pretree or terminal map.
   */
   void consume(class IndexLevel *indexlevel,
-               const class Run* run,
+               const class SplitNode* splitNode,
                class PreTree *preTree,
                const vector<class SplitNux> &argMax);
 
@@ -140,7 +140,7 @@ class IndexSet {
      @brief Caches state necessary for reindexing and useful subsequently.
   */
   void nonTerminal(class IndexLevel *indexLevel,
-                   const class Run* run,
+                   const class SplitNode* splitNode,
                    class PreTree *preTree,
                    const class SplitNux &argMax);
 
@@ -150,14 +150,13 @@ class IndexSet {
   void terminal(class IndexLevel *indexLevel);
 
   /**
-     @brief Directs split-based repartitioning and precipitates creation of a branch node.
+     @brief Directs split-based repartitioning and precipitates creation of a branch node for cut-valued split.
 
      Remaining parameters as described above.
 
      @return true iff left hand of the split is explicit.
   */
-  bool branchNum(const class SplitNux& argMax,
-                 class PreTree* preTree,
+  bool branchCut(const class SplitNux& argMax,
                  class IndexLevel* indexLevel);
 
   

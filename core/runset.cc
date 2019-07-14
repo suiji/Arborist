@@ -141,7 +141,6 @@ bool RunSet::branch(const SplitNux& argMax,
                     IndexSet* iSet,
                     PreTree* preTree,
                     IndexLevel* index) const {
-  preTree->branchFac(argMax, iSet);
   if (implicitLeft()) {// LH holds bits, RH holds replay indices.
     for (unsigned int outSlot = 0; outSlot < getRunCount(); outSlot++) {
       if (outSlot < getRunsLH()) {

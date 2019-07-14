@@ -36,7 +36,22 @@ class PTNode : public DecNode {
                           unsigned int idx) const;
 
   /**
+     @builds bit-based split.
+
+     @param argMax characterizes the split.
+
+     @param lhDel is the distance to the lh-descendant.
+
+     @param bitEnd is the current top of the bit encoding.
+   */
+  void splitBits(const class SplitNux& argMax,
+                 unsigned int lhDel,
+                 unsigned int bitEnd);
+
+  /**
      @brief Builds cut-based split.
+
+     Parameters as above.
    */
   void splitCut(const class SplitNux &argMax,
                 unsigned int lhDel);
@@ -72,18 +87,6 @@ class PTNode : public DecNode {
     return isNonTerminal() ? getLHId(ptId) + 1 : 0;
   }
 
-  /**
-     @brief Builds bit-based split.
-   */
-  inline void splitBits(unsigned int predIdx,
-                        unsigned int lhDel,
-                        unsigned int bitEnd,
-                        double info) {
-    this->predIdx = predIdx;
-    this->lhDel = lhDel;
-    this->splitVal.offset = bitEnd;
-    this->info = info;
-  }
 };
 
 
@@ -120,6 +123,25 @@ class PreTree {
   }
 
 
+  /**
+     @brief Finalizes run-based nonterminal.
+
+     @param argMax characterizes the branch.
+
+     @param id is the nonterminal node offset.
+  */
+  void branchRun(const class SplitNux& argMax,
+                 unsigned int id);
+
+
+  /**
+     @brief Finalizes cut-based nonterminal.
+     
+     Arguments as above.
+  */
+  void branchCut(const class SplitNux &argMax,
+                 unsigned int id);
+
  public:
   PreTree(const class SummaryFrame* frame_,
           unsigned int _bagCount);
@@ -129,6 +151,15 @@ class PreTree {
   static void reserve(size_t height);
 
 
+  /**
+     @brief Dispatches nonterminal method according to split type.
+   */
+  bool nonterminal(const class SplitNode* splitNode,
+                   const class SplitNux& argMax,
+                   class IndexLevel* iLevel,
+                   class IndexSet* iSet);
+
+  
   /**
      @brief Consumes all pretree nonterminal information into crescent forest.
 
@@ -158,19 +189,6 @@ class PreTree {
   */
   void LHBit(const class IndexSet* iSet,
              unsigned int pos);
-
-  void branchFac(const class SplitNux& argMax,
-                 const class IndexSet* iSet);
-
-  /**
-     @brief Finalizes numeric-valued nonterminal.
-
-     @param argMax is the split candidate characterizing the branch.
-
-     @param id is the node index.
-  */
-  void branchNum(const class SplitNux &argMax,
-                 unsigned int id);
 
   void levelStorage(unsigned int splitNext, unsigned int leafNext);
   void ReNodes();

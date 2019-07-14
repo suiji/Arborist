@@ -22,7 +22,6 @@
 #include "splitnode.h"
 #include "bottom.h"
 #include "path.h"
-#include "runset.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -120,9 +119,10 @@ shared_ptr<PreTree> IndexLevel::levels(const SummaryFrame* frame,
   shared_ptr<PreTree> preTree = make_shared<PreTree>(frame, bagCount);
   unique_ptr<SplitNode> splitNode = sample->splitNodeFactory(frame);
 
-  for (unsigned int level = 0; !indexSet.empty(); level++) {
+  unsigned int level = 0;
+  while (!indexSet.empty()) {
     bottom->scheduleSplits(samplePred.get(), splitNode.get(), this);
-    indexSet = move(splitDispatch(splitNode.get(), preTree.get(), level));
+    indexSet = move(splitDispatch(splitNode.get(), preTree.get(), level++));
   }
 
   relFlush();
@@ -135,7 +135,7 @@ shared_ptr<PreTree> IndexLevel::levels(const SummaryFrame* frame,
 vector<IndexSet> IndexLevel::splitDispatch(SplitNode* splitNode,
                                            PreTree* preTree,
                                            unsigned int level) {
-  this->levelTerminal = (level + 1 == totLevels);
+  levelTerminal = (level + 1 == totLevels);
   unsigned int idxMax, splitNext, leafThis, idxExtent;
   idxExtent = idxLive; // Previous level's index space.
   leafThis = splitNext = idxLive = idxMax = 0;
@@ -207,7 +207,7 @@ void IndexLevel::consume(const SplitNode* splitNode,
   liveBase = 0;
   extinctBase = idxLive;
   for (auto & iSet : indexSet) {
-    iSet.consume(this, splitNode->getRuns(), preTree, argMax);
+    iSet.consume(this, splitNode, preTree, argMax);
   }
 
   reindex(idxMax, splitNext);
@@ -232,9 +232,9 @@ void IndexLevel::reindex(IndexType idxMax, IndexType splitNext) {
 
 
 
-void IndexSet::consume(IndexLevel *indexLevel, const Run* run, PreTree *preTree, const vector<SplitNux> &argMax) {
+void IndexSet::consume(IndexLevel *indexLevel, const SplitNode* splitNode, PreTree *preTree, const vector<SplitNux> &argMax) {
   if (doesSplit) {
-    nonTerminal(indexLevel, run, preTree, argMax[splitIdx]);
+    nonTerminal(indexLevel, splitNode, preTree, argMax[splitIdx]);
   }
   else {
     terminal(indexLevel);
@@ -247,8 +247,8 @@ void IndexSet::terminal(IndexLevel *indexLevel) {
 }
 
 
-void IndexSet::nonTerminal(IndexLevel *indexLevel, const Run* run, PreTree *preTree, const SplitNux &argMax) {
-  leftExpl = run->isRun(argMax) ? run->branch(argMax, this, preTree, indexLevel) : branchNum(argMax, preTree, indexLevel);
+void IndexSet::nonTerminal(IndexLevel *indexLevel, const SplitNode* splitNode, PreTree *preTree, const SplitNux &argMax) {
+  leftExpl = preTree->nonterminal(splitNode, argMax, indexLevel, this);
 
   ptExpl = getPTIdSucc(preTree, leftExpl);
   ptImpl = getPTIdSucc(preTree, !leftExpl);
@@ -260,10 +260,8 @@ void IndexSet::nonTerminal(IndexLevel *indexLevel, const Run* run, PreTree *preT
 }
 
 
-bool IndexSet::branchNum(const SplitNux& argMax,
-                         PreTree *preTree,
+bool IndexSet::branchCut(const SplitNux& argMax,
                          IndexLevel* indexLevel) {
-  preTree->branchNum(argMax, ptId);
   sumExpl += indexLevel->blockReplay(argMax, ctgExpl);
   
   return argMax.leftIsExplicit();

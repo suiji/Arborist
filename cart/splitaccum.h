@@ -11,7 +11,7 @@
 /**
    @file splitaccum.h
 
-   @brief Class definitions for splitting workspaces.
+   @brief Accumulator classes for cut-based (numeric) splitting workspaces.
 
    @author Mark Seligman
 
@@ -22,9 +22,9 @@
 #include <vector>
 using namespace std;
 
+
 /**
-   @brief Encapsulates imputed residual values for cut-based (numerical)
-   splitting methods.
+   @brief Encapsulates imputed residual values.
  */
 struct Residual {
   const double sum;  // Imputed response sum over dense indices.
@@ -74,7 +74,7 @@ struct ResidualCtg : public Residual {
 
 
 /**
-   @brief Persistent workspace for splittting a numerical predictor.
+   @brief Persistent workspace for computing optimal split.
 
    Cells having implicit dense blobs are split in separate sections,
    calling for a re-entrant data structure to cache intermediate state.
@@ -92,7 +92,8 @@ protected:
   // Read locally but initialized, and possibly reset, externally.
   unsigned int sCountThis; // Current sample count.
   FltVal ySum; // Current response value.
-  
+
+public:
   // Revised at each new local maximum of 'info':
   double info; // Information high watermark.  Precipitates split iff > 0.0.
   unsigned int lhSCount; // Sample count of split LHS:  > 0.
@@ -100,16 +101,12 @@ protected:
   unsigned int rankLH; // Minimum rank charactersizing split.
   unsigned int rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
 
-  
-public:
   SplitAccum(const class SplitCand* cand,
              unsigned int rankDense_);
 
-  /**
-     @brief Derives LHS statistics and dispatches to candidate.
-   */
-  void write(const class SplitNode* spNode,
-             class SplitCand* splitCand);
+  bool lhDense() const {
+    return rankDense <= rankLH;
+  }
 };
 
 

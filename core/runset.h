@@ -14,8 +14,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_RUNSET_H
-#define ARBORIST_RUNSET_H
+#ifndef CORE_RUNSET_H
+#define CORE_RUNSET_H
 
 #include <vector>
 

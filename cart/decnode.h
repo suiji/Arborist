@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_DECNODE_H
-#define CORE_DECNODE_H
+#ifndef CART_DECNODE_H
+#define CART_DECNODE_H
 
 #include "typeparam.h"
 
@@ -26,8 +26,8 @@
  */
 typedef union {
   IndexRange rankRange; // Range of splitting ranks:  numeric, pre-update.
-  unsigned int offset; // Bit-vector offset:  factor.
-  double num; // Rank-derived splitting value, post-update.
+  double num; // Rank-derived splitting value:  numeric, post-update.
+  unsigned int offset; // Tree-relative bit-vector offset:  factor.
 } SplitVal;
 
 

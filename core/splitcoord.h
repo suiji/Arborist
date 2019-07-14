@@ -41,7 +41,7 @@ struct SplitCoord {
   /**
      @brief Computes node-major offset using passed stride value.
    */
-  constexpr size_t strideOffset(unsigned int stride) const {
+  inline size_t strideOffset(unsigned int stride) const {
     return nodeIdx * stride + predIdx;
   }
 
@@ -53,7 +53,7 @@ struct SplitCoord {
 
      @return node index scaled by level difference.
    */
-  constexpr size_t backScale(unsigned int del) const {
+  inline size_t backScale(unsigned int del) const {
     return nodeIdx << del;
   }
 };
