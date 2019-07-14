@@ -14,5 +14,4 @@ Depends: R(>= 3.3)
 Imports: Rcpp (>= 0.12.2), data.table (>= 1.9.8)
 Suggests: testthat, knitr, rmarkdown
 VignetteBuilder: knitr
-Enhances: forestFloor
 LinkingTo: Rcpp
