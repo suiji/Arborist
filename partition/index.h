@@ -8,14 +8,14 @@
 /**
    @file index.h
 
-   @brief Definitions for classes maintaining the index-tree representation.
+   @brief Response partition tree represented by sampled indices.
 
    @author Mark Seligman
 
  */
 
-#ifndef CORE_INDEX_H
-#define CORE_INDEX_H
+#ifndef PARTITION_INDEX_H
+#define PARTITION_INDEX_H
 
 #include "splitcoord.h"
 #include "sumcount.h"

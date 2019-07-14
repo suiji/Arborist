@@ -21,12 +21,14 @@ cp ../src/framemap/*.cc Rborist/src/
 cp ../src/framemap/*.h Rborist/src/
 cp ../../framemap/*.cc Rborist/src/
 cp ../../framemap/*.h Rborist/src/
+cp ../../cart/*.cc Rborist/src/
+cp ../../cart/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../core/bridge/*.cc Rborist/src/
 cp ../../core/bridge/*.h Rborist/src/
-cp ../../cart/*.cc Rborist/src/
-cp ../../cart/*.h Rborist/src/
+cp ../../partition/*.cc Rborist/src/
+cp ../../partition/*.h Rborist/src/
 cp ../../rf/*.cc Rborist/src/
 cp ../../rf/*.h Rborist/src/
 cp ../../rf/bridge/*.cc Rborist/src/

@@ -8,7 +8,7 @@
 /**
    @file samplepred.cc
 
-   @brief Methods to maintain predictor-wise orderings of sampled response indices.
+   @brief Observation matrix, partitioned by tree node.
 
    @author Mark Seligman
  */
@@ -28,12 +28,12 @@
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int _nPred,
-                       unsigned int _bagCount,
-                       unsigned int _bufferSize) :
-  nPred(_nPred),
-  bagCount(_bagCount),
-  bufferSize(_bufferSize),
+SamplePred::SamplePred(unsigned int nPred_,
+                       unsigned int bagCount_,
+                       unsigned int bufferSize_) :
+  nPred(nPred_),
+  bagCount(bagCount_),
+  bufferSize(bufferSize_),
   pathIdx(bufferSize),
   stageOffset(nPred),
   stageExtent(nPred) {
@@ -43,7 +43,6 @@ SamplePred::SamplePred(unsigned int _nPred,
   // Coprocessor variants:
   destRestage = new unsigned int[bufferSize];
   destSplit = new unsigned int[bufferSize];
-  
 }
 
 
