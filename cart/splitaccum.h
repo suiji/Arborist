@@ -142,7 +142,7 @@ class SplitAccumReg : public SplitAccum {
 public:
   SplitAccumReg(const class SplitCand* splitCand,
                 const class SampleRank spn[],
-                const class SPReg* spReg);
+                const class SFReg* spReg);
 
   /**
      @brief Evaluates trial splitting information as weighted variance.
@@ -184,7 +184,7 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SPReg* spReg,
+  void split(const class SFReg* spReg,
              const class SampleRank spn[],
              class SplitCand* cand);
   
@@ -242,13 +242,13 @@ class SplitAccumCtg : public SplitAccum {
   shared_ptr<ResidualCtg>
   makeResidual(const class SplitCand* cand,
                const class SampleRank spn[],
-               class SPCtg* spCtg);
+               class SFCtg* spCtg);
 
 public:
 
   SplitAccumCtg(const class SplitCand* cand,
                 const class SampleRank spn[],
-                class SPCtg* spCtg);
+                class SFCtg* spCtg);
 
   /**
      @brief Evaluates trial splitting information as Gini.
@@ -288,7 +288,7 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SPCtg* spCtg,
+  void split(const class SFCtg* spCtg,
              const class SampleRank spn[],
              class SplitCand* cand);
 

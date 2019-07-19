@@ -15,7 +15,7 @@
 
 #include "splitaccum.h"
 #include "splitcand.h"
-#include "splitnode.h"
+#include "splitfrontier.h"
 #include "samplepred.h"
 
 SplitAccum::SplitAccum(const SplitCand* cand,
@@ -31,13 +31,13 @@ SplitAccum::SplitAccum(const SplitCand* cand,
 
 SplitAccumReg::SplitAccumReg(const SplitCand* cand,
                              const SampleRank spn[],
-                             const SPReg* spReg) :
+                             const SFReg* spReg) :
   SplitAccum(cand, spReg->getDenseRank(cand)),
   monoMode(spReg->getMonoMode(cand)),
   resid(makeResidual(cand, spn)) {
 }
 
-void SplitAccumReg::split(const SPReg* spReg,
+void SplitAccumReg::split(const SFReg* spReg,
                           const SampleRank spn[],
                           SplitCand* cand) {
   if (resid != nullptr) {
@@ -158,7 +158,7 @@ void SplitAccumReg::splitMono(const SampleRank spn[],
 
 SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
                              const SampleRank spn[],
-                             SPCtg* spCtg) :
+                             SFCtg* spCtg) :
   SplitAccum(cand, spCtg->getDenseRank(cand)),
   nCtg(spCtg->getNCtg()),
   resid(makeResidual(cand, spn, spCtg)),
@@ -170,7 +170,7 @@ SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
 
 
 // Initializes from final index and loops over remaining indices.
-void SplitAccumCtg::split(const SPCtg* spCtg,
+void SplitAccumCtg::split(const SFCtg* spCtg,
                           const SampleRank spn[],
                           SplitCand* cand) {
   if (resid != nullptr) {
@@ -265,7 +265,7 @@ shared_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
 shared_ptr<ResidualCtg>
 SplitAccumCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],
-                            SPCtg* spCtg) {
+                            SFCtg* spCtg) {
   if (cand->getImplicit() == 0) {
     return nullptr;
   }

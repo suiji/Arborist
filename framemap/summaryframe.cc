@@ -18,9 +18,6 @@
 #include "summaryframe.h"
 #include "rleframe.h"
 
-#include "splitnode.h"
-#include "samplepred.h"
-
 
 SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
                            double autoCompress,
@@ -43,22 +40,6 @@ SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
 }
 
 
-/**
-   @brief Static entry for sample staging.
-
-   @return SamplePred object for tree.
- */
-unique_ptr<SamplePred> SummaryFrame::SamplePredFactory(unsigned int bagCount) const {
-  return make_unique<SamplePred>(nPred, bagCount, rankedFrame->safeSize(bagCount));
-}
-
-
-unique_ptr<SPCtg> SummaryFrame::SPCtgFactory(unsigned int bagCount,
-                                             unsigned int _nCtg) const {
-  return make_unique<SPCtg>(this, bagCount, _nCtg);
-}
-
-
-unique_ptr<SPReg> SummaryFrame::SPRegFactory(unsigned int bagCount) const {
-  return make_unique<SPReg>(this, bagCount);
+IndexType SummaryFrame::safeSize(IndexType bagCount) const {
+  return rankedFrame->safeSize(bagCount);
 }

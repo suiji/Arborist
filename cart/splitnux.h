@@ -26,13 +26,14 @@ class SplitNux {
   double info; // Weighted variance or Gini, currently.
   unsigned int predIdx;  // Core-order predictor index.
   unsigned char bufIdx;
-  unsigned int setIdx; // Index into runSet vector for factor split.
   unsigned int lhSCount;
   unsigned int lhExtent;
   unsigned int lhImplicit;
-
   IndexRange idxRange;
-  IndexRange rankRange;  // Rank bounds for numeric split.
+
+  IndexRange rankRange;  // Rank bounds:  numeric only.
+  unsigned int setIdx; // Index into runSet vector for factor split.
+  unsigned int cardinality; // Cardinality iff factor else zero.
 
 public:
   static void immutables(double minRatio_);
@@ -44,14 +45,14 @@ public:
    */
   SplitNux() :
   info(0.0),
-    predIdx(0),
-    bufIdx(0),
-    setIdx(0),
-    lhSCount(0),
-    lhExtent(0),
-    lhImplicit(0),
-    idxRange(IndexRange()),
-    rankRange(IndexRange()) {
+  predIdx(0),
+  bufIdx(0),
+  lhSCount(0),
+  lhExtent(0),
+  lhImplicit(0),
+  idxRange(IndexRange()),
+  rankRange(IndexRange()),
+  setIdx(0) {
   }
 
   /**
@@ -59,7 +60,8 @@ public:
 
      @param argMax is the chosen splitting candidate.
    */
-  SplitNux(const class SplitCand& argMax);
+  SplitNux(const class SplitCand& argMax,
+           const class SummaryFrame* frame);
 
 
   /**
@@ -108,10 +110,6 @@ public:
     return bufIdx;
   }
 
-  auto getSetIdx() const {
-    return setIdx;
-  }
-
   auto getPredIdx() const {
     return predIdx;
   }
@@ -120,6 +118,13 @@ public:
     return rankRange;
   }  
 
+  auto getSetIdx() const {
+    return setIdx;
+  }
+
+  auto getCardinality() const {
+    return cardinality;
+  }
 
   auto getExtent() const {
     return idxRange.getEnd() - idxRange.getStart() - 1;

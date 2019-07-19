@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_TRAIN_H
-#define ARBORIST_TRAIN_H
+#ifndef RF_TRAIN_H
+#define RF_TRAIN_H
 
 #include <string>
 #include <vector>
@@ -24,7 +24,7 @@
 /**
    @brief Short-lived bundle of objects created for training a block of trees.
  */
-typedef pair<shared_ptr<class Sample>, shared_ptr<class PreTree> > TrainSet;
+typedef pair<unique_ptr<class Sample>, unique_ptr<class PreTree> > TrainSet;
 
 /**
    @brief Interface class for front end.  Holds simulation-specific parameters

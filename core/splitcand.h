@@ -50,7 +50,7 @@ class SplitCand {
 
      @return true iff net information gain over parent.
    */
-  bool infoGain(const class SplitNode*);
+  bool infoGain(const class SplitFrontier*);
   
   /**
      @brief Writes the left-hand characterization of a cut-based split.
@@ -59,13 +59,13 @@ class SplitCand {
 
      @param accum contains the split characterization.
    */
-  void writeNum(const class SplitNode* spNode,
+  void writeNum(const class SplitFrontier* spNode,
                 const class SplitAccum& accum);
   
 public:
 
-  SplitCand(const class SplitNode* splitNode,
-            const class IndexLevel* index,
+  SplitCand(const class SplitFrontier* splitNode,
+            const class Frontier* index,
             const SplitCoord& splitCoord_,
             unsigned int bufIdx_,
             unsigned int noSet);
@@ -167,7 +167,7 @@ public:
      @return true iff candidate remains splitable.
   */
   bool schedule(const class Level *levelFront,
-		const class IndexLevel *indexLevel,
+		const class Frontier *indexLevel,
 		vector<unsigned int> &runCount);
 
   /**
@@ -176,34 +176,34 @@ public:
      Entry singletons should not reach here.
   */
   void initLate(const class Level* levelFront,
-		const class IndexLevel* iLevel,
+		const class Frontier* iLevel,
                 vector<unsigned int>& runCount,
 		unsigned int rCount);
 
   
-  void split(const class SPReg *spReg,
+  void split(const class SFReg *spReg,
 	     const class SamplePred *samplePred);
 
 
-  void split(class SPCtg *spCtg,
+  void split(class SFCtg *spCtg,
 	     const class SamplePred *samplePred);
 
   /**
      @brief Main entry for classification numerical split.
    */
-  void splitNum(class SPCtg *spCtg,
+  void splitNum(class SFCtg *spCtg,
                 const class SampleRank spn[]);
 
   /**
      @brief Main entry for regression numerical split.
    */
-  void splitNum(const class SPReg *spReg,
+  void splitNum(const class SFReg *spReg,
                 const class SampleRank spn[]);
 
-  void numCtgDense(class SPCtg *spCtg,
+  void numCtgDense(class SFCtg *spCtg,
                    const class SampleRank spn[]);
 
-  void numCtgGini(SPCtg *spCtg,
+  void numCtgGini(SFCtg *spCtg,
                   const class SampleRank spn[],
                   unsigned int idxInit,
                   unsigned int idxFinal,
@@ -216,10 +216,10 @@ public:
                   unsigned int &rankRH,
                   unsigned int &rhMin);
 
-  void splitFac(const class SPReg *spReg,
+  void splitFac(const class SFReg *spReg,
                 const class SampleRank spn[]);
 
-  void splitFac(class SPCtg *spCtg,
+  void splitFac(class SFCtg *spCtg,
 		const class SampleRank spn[]);
 
   /**
@@ -236,7 +236,7 @@ public:
 
      @param spCtg summarizes categorical response.
   */
-  void splitRuns(class SPCtg *spCtg);
+  void splitRuns(class SFCtg *spCtg);
 
 
   /**
@@ -246,7 +246,7 @@ public:
 
      @param spCtg is a categorical response summary.
   */
-  void splitBinary(class SPCtg *spCtg);
+  void splitBinary(class SFCtg *spCtg);
 
 
   /**
@@ -263,7 +263,7 @@ public:
      @brief Builds categorical runs.  Very similar to regression case, but
      the runs also resolve response sum by category.
   */
-  void buildRuns(class SPCtg *spCtg,
+  void buildRuns(class SFCtg *spCtg,
                  const SampleRank spn[]) const;
 
   /**
@@ -275,7 +275,7 @@ public:
      @param cut is the LHS/RHS separator position in the vector of
      factor codes maintained by the run-set.
    */
-  void writeSlots(const class SplitNode *splitNode,
+  void writeSlots(const class SplitFrontier *splitNode,
                   class RunSet *runSet,
                   unsigned int cut);
 
@@ -285,7 +285,7 @@ public:
 
      @param lhBits is a compressed representation of factor codes for the LHS.
    */
-  void writeBits(const class SplitNode *sp,
+  void writeBits(const class SplitFrontier *sp,
                  unsigned int lhBits);
 };
 

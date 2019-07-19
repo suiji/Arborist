@@ -309,7 +309,7 @@ public:
 
      @param tIdx is the block-relative tree index.
    */
-  virtual shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
+  virtual unique_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                               class BitMatrix* bag,
                                               unsigned int tIdx) const = 0;
 
@@ -400,7 +400,7 @@ public:
 
      @return summary of sampled response.
    */
-  shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
+  unique_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                       class BitMatrix* bag,
                                       unsigned int tIdx) const;
 
@@ -566,7 +566,7 @@ public:
 
      @return summary of sampled response.
    */
-  shared_ptr<class Sample> rootSample(const class SummaryFrame* frame,
+  unique_ptr<class Sample> rootSample(const class SummaryFrame* frame,
                                       class BitMatrix* bag,
                                       unsigned int tIdx) const;
 };

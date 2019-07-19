@@ -17,7 +17,7 @@
 #include "bv.h"
 #include "callback.h"
 #include "summaryframe.h"
-#include "splitnode.h"
+#include "splitfrontier.h"
 #include "samplepred.h"
 
 // Simulation-invariant values.
@@ -111,21 +111,21 @@ unsigned int Sample::countSamples(vector<unsigned int>& idx,
   return nz;
 }
 
-shared_ptr<SampleCtg> Sample::factoryCtg(const double y[],
+unique_ptr<SampleCtg> Sample::factoryCtg(const double y[],
                                          const SummaryFrame* frame,
                                          const unsigned int yCtg[],
                                          BV *treeBag) {
-  shared_ptr<SampleCtg> sampleCtg = make_shared<SampleCtg>(frame);
+  unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(frame);
   sampleCtg->bagSamples(yCtg, y, treeBag);
 
   return sampleCtg;
 }
 
 
-shared_ptr<SampleReg> Sample::factoryReg(const double y[],
+unique_ptr<SampleReg> Sample::factoryReg(const double y[],
                                          const SummaryFrame* frame,
                                          BV *treeBag) {
-  shared_ptr<SampleReg> sampleReg = make_shared<SampleReg>(frame);
+  unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(frame);
   sampleReg->bagSamples(y, treeBag);
 
   return sampleReg;
@@ -144,8 +144,8 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-unique_ptr<SplitNode> SampleReg::splitNodeFactory(const SummaryFrame* frame) const {
-  return frame->SPRegFactory(bagCount);
+unique_ptr<SplitFrontier> SampleReg::frontierFactory(const SummaryFrame* frame) const {
+  return make_unique<SFReg>(frame, bagCount);
 }
 
 
@@ -165,8 +165,8 @@ void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *tree
 }
 
 
-unique_ptr<SplitNode> SampleCtg::splitNodeFactory(const SummaryFrame* frame) const {
-  return frame->SPCtgFactory(bagCount, SampleNux::getNCtg());
+unique_ptr<SplitFrontier> SampleCtg::frontierFactory(const SummaryFrame* frame) const {
+  return make_unique<SFCtg>(frame, bagCount, SampleNux::getNCtg());
 }
 
 
@@ -200,7 +200,7 @@ void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag
 
 
 unique_ptr<SamplePred> Sample::predictors() const {
-  return frame->SamplePredFactory(bagCount);
+  return make_unique<SamplePred>(frame, bagCount);
 }
 
 

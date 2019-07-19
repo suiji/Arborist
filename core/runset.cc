@@ -15,11 +15,11 @@
 
 #include "runset.h"
 #include "callback.h"
-#include "splitnode.h"
+#include "splitfrontier.h"
 #include "splitnux.h"
 #include "splitcand.h"
 #include "pretree.h"
-#include "index.h"
+#include "frontier.h"
 
 unsigned int RunSet::noStart = 0;
 
@@ -53,10 +53,6 @@ void Run::runSets(const vector<unsigned int> &safeCount) {
   for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
     setSafeCount(setIdx, safeCount[setIdx]);
   }
-}
-
-bool Run::isRun(const SplitNux& argMax) const {
-  return isRun(argMax.getSetIdx());
 }
 
 
@@ -132,7 +128,7 @@ void Run::reBase() {
 bool Run::branch(const SplitNux& argMax,
                  IndexSet* iSet,
                  PreTree* preTree,
-                 IndexLevel* index) const {
+                 Frontier* index) const {
   return runSet[argMax.getSetIdx()].branch(argMax, iSet, preTree, index);
 }
 
@@ -140,11 +136,11 @@ bool Run::branch(const SplitNux& argMax,
 bool RunSet::branch(const SplitNux& argMax,
                     IndexSet* iSet,
                     PreTree* preTree,
-                    IndexLevel* index) const {
+                    Frontier* index) const {
   if (implicitLeft()) {// LH holds bits, RH holds replay indices.
     for (unsigned int outSlot = 0; outSlot < getRunCount(); outSlot++) {
       if (outSlot < getRunsLH()) {
-        preTree->LHBit(iSet, getRank(outSlot));
+        preTree->setBit(iSet, getRank(outSlot));
       }
       else {
         iSet->blockReplay(argMax, bounds(outSlot), index);
@@ -154,7 +150,7 @@ bool RunSet::branch(const SplitNux& argMax,
   }
   else { // LH runs hold both bits and replay indices.
     for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
-      preTree->LHBit(iSet, getRank(outSlot));
+      preTree->setBit(iSet, getRank(outSlot));
       iSet->blockReplay(argMax, bounds(outSlot), index);
     }
     return true;
@@ -225,7 +221,7 @@ void RunSet::heapBinary() {
 }
 
 
-void RunSet::writeImplicit(const SplitCand* cand, const SplitNode* sp,  const vector<double>& ctgSum) {
+void RunSet::writeImplicit(const SplitCand* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
   unsigned int implicit = cand->getImplicit();
   if (implicit == 0)
     return;

@@ -188,7 +188,7 @@ class RunSet {
      @param ctgSum is the per-category response over the node (IndexSet).
   */
   void writeImplicit(const class SplitCand* cand,
-                     const class SplitNode* sp,
+                     const class SplitFrontier* sp,
                      const vector<double>& ctgSum = vector<double>(0));
 
   /**
@@ -258,7 +258,7 @@ class RunSet {
   bool branch(const class SplitNux& argMax,
               class IndexSet* iSet,
               class PreTree* preTree,
-              class IndexLevel* index) const;
+              class Frontier* index) const;
 
   /**
      @brief Subtracts a run's per-category responses from the current run.
@@ -499,11 +499,6 @@ public:
   void offsetsCtg(const vector<unsigned int> &safeCount);
 
   /**
-     @brief Indicates whether splitting candidate contains runs.
-   */
-  bool isRun(const class SplitNux& argMax) const;
-
-  /**
      @brief Redirects samples to left or right according.
 
      @param cand is a splitting candidate.
@@ -519,19 +514,7 @@ public:
   bool branch(const class SplitNux& argMax,
               class IndexSet* iSet,
               class PreTree* preTree,
-              class IndexLevel* index) const;
-
-  /**
-     @brief Indicates whether index passed references a run.
-
-     @param setIdx is a putatitive run-set index.
-
-     @return true iff run referenced.
-   */
-  inline bool isRun(unsigned int setIdx) const {
-    return setIdx != noRun;
-  }
-
+              class Frontier* index) const;
 
   /**
      @brief Accessor for RunSet at specified index.

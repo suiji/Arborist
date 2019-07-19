@@ -62,6 +62,18 @@ struct IndexRange {
   IndexType getEnd() const {
     return idxLow + idxExtent;
   }
+
+
+  /**
+     @brief Interpolates an intermediate position.
+
+     @param scale should lie in [0.0, 1.0].
+
+     @return fractional scaled position.
+   */
+  double interpolate(double scale) const {
+    return idxLow + scale * idxExtent;
+  }
 };
 
 

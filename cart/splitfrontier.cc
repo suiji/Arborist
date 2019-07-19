@@ -14,8 +14,8 @@
  */
 
 
-#include "index.h"
-#include "splitnode.h"
+#include "frontier.h"
+#include "splitfrontier.h"
 #include "splitcand.h"
 #include "splitnux.h"
 #include "level.h"
@@ -30,12 +30,12 @@
 // Post-split consumption:
 #include "pretree.h"
 
-vector<double> SPReg::mono; // Numeric monotonicity constraints.
+vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 /**
   @brief Constructor.  Initializes 'runFlags' to zero for the single-split root.
  */
-SplitNode::SplitNode(const SummaryFrame* frame_,
+SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
 		     unsigned int bagCount) :
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
@@ -43,14 +43,11 @@ SplitNode::SplitNode(const SummaryFrame* frame_,
 }
 
 
-/**
-   @brief Destructor.
- */
-SplitNode::~SplitNode() {
+SplitFrontier::~SplitFrontier() {
 }
 
 
-void SPReg::Immutables(const SummaryFrame* frame,
+void SFReg::Immutables(const SummaryFrame* frame,
                        const vector<double> &bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
@@ -62,14 +59,14 @@ void SPReg::Immutables(const SummaryFrame* frame,
 }
 
 
-void SPReg::DeImmutables() {
+void SFReg::DeImmutables() {
   mono.clear();
 }
 
 
-SPReg::SPReg(const SummaryFrame* frame,
+SFReg::SFReg(const SummaryFrame* frame,
 	     unsigned int bagCount) :
-  SplitNode(frame, bagCount),
+  SplitFrontier(frame, bagCount),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frame->getNRow(), noSet);
 }
@@ -78,21 +75,21 @@ SPReg::SPReg(const SummaryFrame* frame,
 /**
    @brief Constructor.
  */
-SPCtg::SPCtg(const SummaryFrame* frame,
+SFCtg::SFCtg(const SummaryFrame* frame,
 	     unsigned int bagCount,
 	     unsigned int nCtg_):
-  SplitNode(frame, bagCount),
+  SplitFrontier(frame, bagCount),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frame->getNRow(), noSet);
 }
 
 
-RunSet *SplitNode::rSet(unsigned int setIdx) const {
+RunSet *SplitFrontier::rSet(unsigned int setIdx) const {
   return run->rSet(setIdx);
 }
 
 
-unsigned int SplitNode::getDenseRank(const SplitCand* cand) const {
+unsigned int SplitFrontier::getDenseRank(const SplitCand* cand) const {
   return rankedFrame->getDenseRank(cand->getSplitCoord().predIdx);
 }
 
@@ -102,7 +99,7 @@ unsigned int SplitNode::getDenseRank(const SplitCand* cand) const {
 
    @return void.
  */
-void SPReg::setRunOffsets(const vector<unsigned int> &runCount) {
+void SFReg::setRunOffsets(const vector<unsigned int> &runCount) {
   run->offsetsReg(runCount);
 }
 
@@ -110,12 +107,12 @@ void SPReg::setRunOffsets(const vector<unsigned int> &runCount) {
 /**
    @brief Sets quick lookup offsets for Run object.
  */
-void SPCtg::setRunOffsets(const vector<unsigned int> &runCount) {
+void SFCtg::setRunOffsets(const vector<unsigned int> &runCount) {
   run->offsetsCtg(runCount);
 }
 
 
-IndexType SplitNode::preschedule(const IndexLevel* index,
+IndexType SplitFrontier::preschedule(const Frontier* index,
                             const SplitCoord& splitCoord,
 			    unsigned int bufIdx) {
   splitCand.emplace_back(SplitCand(this, index, splitCoord, bufIdx, noSet));
@@ -129,7 +126,7 @@ IndexType SplitNode::preschedule(const IndexLevel* index,
    initialization or as a result of bagging.  Fills in run counts, which
    values restaging has established precisely.
 */
-void SplitNode::scheduleSplits(const IndexLevel *index,
+void SplitFrontier::scheduleSplits(const Frontier *index,
 			       const Level *levelFront) {
   vector<unsigned int> runCount;
   vector<SplitCand> sc2;
@@ -154,7 +151,7 @@ void SplitNode::scheduleSplits(const IndexLevel *index,
 /**
    @brief Initializes level about to be split
  */
-void SplitNode::levelInit(IndexLevel *index) {
+void SplitFrontier::levelInit(Frontier *index) {
   splitCount = index->getNSplit();
   prebias = vector<double>(splitCount);
   nCand = vector<unsigned int>(splitCount);
@@ -167,7 +164,7 @@ void SplitNode::levelInit(IndexLevel *index) {
 }
 
 
-void SplitNode::setPrebias(IndexLevel *index) {
+void SplitFrontier::setPrebias(Frontier *index) {
   for (unsigned int splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     setPrebias(splitIdx, index->getSum(splitIdx), index->getSCount(splitIdx));
   }
@@ -179,7 +176,7 @@ void SplitNode::setPrebias(IndexLevel *index) {
 
    @return void.
  */
-void SplitNode::levelClear() {
+void SplitFrontier::levelClear() {
   prebias.clear();
   run->levelClear();
 }
@@ -192,12 +189,12 @@ void SplitNode::levelClear() {
 
    @return true iff predictor is a factor.
  */
-bool SplitNode::isFactor(const SplitCoord& splitCoord) const {
+bool SplitFrontier::isFactor(const SplitCoord& splitCoord) const {
   return frame->isFactor(splitCoord.predIdx);
 }
 
 
-double SPCtg::getSumSquares(const SplitCand *cand) const {
+double SFCtg::getSumSquares(const SplitCand *cand) const {
   return sumSquares[cand->getSplitCoord().nodeIdx];
 }
 
@@ -209,38 +206,46 @@ double SPCtg::getSumSquares(const SplitCand *cand) const {
 
    @return true iff predictor is numeric.
  */
-unsigned int SplitNode::getNumIdx(unsigned int predIdx) const {
+unsigned int SplitFrontier::getNumIdx(unsigned int predIdx) const {
   return frame->getNumIdx(predIdx);
 }
 
 
-const vector<double>& SPCtg::getSumSlice(const SplitCand* cand) {
+bool SplitFrontier::branch(const SplitNux& argMax,
+                       IndexSet* iSet,
+                       PreTree* preTree,
+                       Frontier* frontier) const {
+  return run->branch(argMax, iSet, preTree, frontier);
+}
+
+
+const vector<double>& SFCtg::getSumSlice(const SplitCand* cand) {
   return ctgSum[cand->getSplitCoord().nodeIdx];
 }
 
 
-double* SPCtg::getAccumSlice(const SplitCand *cand) {
+double* SFCtg::getAccumSlice(const SplitCand *cand) {
   return &ctgSumAccum[getNumIdx(cand->getSplitCoord().predIdx) * splitCount * nCtg + cand->getSplitCoord().nodeIdx * nCtg];
 }
 
 /**
    @brief Run objects should not be deleted until after splits have been consumed.
  */
-void SPReg::levelClear() {
-  SplitNode::levelClear();
+void SFReg::levelClear() {
+  SplitFrontier::levelClear();
 }
 
 
-SPReg::~SPReg() {
+SFReg::~SFReg() {
 }
 
 
-SPCtg::~SPCtg() {
+SFCtg::~SFCtg() {
 }
 
 
-void SPCtg::levelClear() {
-  SplitNode::levelClear();
+void SFCtg::levelClear() {
+  SplitFrontier::levelClear();
 }
 
 
@@ -251,7 +256,7 @@ void SPCtg::levelClear() {
 
    @return void.
 */
-void SPReg::levelPreset(IndexLevel *index) {
+void SFReg::levelPreset(Frontier *index) {
   if (!mono.empty()) {
     ruMono = CallBack::rUnif(splitCount * mono.size());
   }
@@ -262,7 +267,7 @@ void SPReg::levelPreset(IndexLevel *index) {
    @brief As above, but categorical response.  Initializes per-level sum and
    FacRun vectors.
 */
-void SPCtg::levelPreset(IndexLevel *index) {
+void SFCtg::levelPreset(Frontier *index) {
   levelInitSumR(frame->getNPredNum());
   ctgSum = vector<vector<double> >(splitCount);
 
@@ -277,7 +282,7 @@ void SPCtg::levelPreset(IndexLevel *index) {
 
    @param nPredNum is the number of numerical predictors.
  */
-void SPCtg::levelInitSumR(unsigned int nPredNum) {
+void SFCtg::levelInitSumR(unsigned int nPredNum) {
   if (nPredNum > 0) {
     ctgSumAccum = vector<double>(nPredNum * nCtg * splitCount);
     fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
@@ -290,7 +295,7 @@ void SPCtg::levelInitSumR(unsigned int nPredNum) {
 
    @return The sign of the constraint, if within the splitting probability, else zero.
 */
-int SPReg::getMonoMode(const SplitCand* cand) const {
+int SFReg::getMonoMode(const SplitCand* cand) const {
   if (mono.empty())
     return 0;
 
@@ -309,14 +314,14 @@ int SPReg::getMonoMode(const SplitCand* cand) const {
 }
 
 
-vector<SplitNux> SplitNode::split(const SamplePred *samplePred) {
+vector<SplitNux> SplitFrontier::split(const SamplePred *samplePred) {
   splitCandidates(samplePred);
 
   return maxCandidates();
 }
 
 
-void SPCtg::splitCandidates(const SamplePred *samplePred) {
+void SFCtg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
 #pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
@@ -329,7 +334,7 @@ void SPCtg::splitCandidates(const SamplePred *samplePred) {
 }
 
 
-void SPReg::splitCandidates(const SamplePred *samplePred) {
+void SFReg::splitCandidates(const SamplePred *samplePred) {
   OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
 #pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
@@ -342,7 +347,7 @@ void SPReg::splitCandidates(const SamplePred *samplePred) {
 }
 
 
-vector<SplitNux> SplitNode::maxCandidates() {
+vector<SplitNux> SplitFrontier::maxCandidates() {
   vector<SplitNux> nuxMax(splitCount); // Info initialized to zero.
 
   OMPBound splitIdx;
@@ -362,7 +367,7 @@ vector<SplitNux> SplitNode::maxCandidates() {
 }
 
 
-SplitNux SplitNode::maxSplit(unsigned int splitOff,
+SplitNux SplitFrontier::maxSplit(unsigned int splitOff,
                              unsigned int nCandSplit) const {
   const auto slotSup = splitOff + nCandSplit;
   unsigned int argMax = slotSup;
@@ -375,7 +380,7 @@ SplitNux SplitNode::maxSplit(unsigned int splitOff,
   }
 
   if (argMax != slotSup) {
-    return SplitNux(splitCand[argMax]);
+    return SplitNux(splitCand[argMax], frame);
   }
   else {
     return SplitNux();

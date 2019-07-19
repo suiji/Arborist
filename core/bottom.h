@@ -151,8 +151,8 @@ class Bottom {
      @brief Entry to restaging and candidate scheduling.
   */
   void scheduleSplits(class SamplePred *samplePred,
-                      class SplitNode* splitNode,
-                      class IndexLevel *index);
+                      class SplitFrontier* splitNode,
+                      class Frontier *index);
 
   
   /**

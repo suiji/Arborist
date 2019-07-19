@@ -16,7 +16,7 @@
 #include "samplepred.h"
 #include "splitnux.h"
 #include "sample.h"
-#include "rankedframe.h"
+#include "summaryframe.h"
 #include "path.h"
 #include "bv.h"
 #include "level.h"
@@ -28,12 +28,11 @@
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(unsigned int nPred_,
-                       unsigned int bagCount_,
-                       unsigned int bufferSize_) :
-  nPred(nPred_),
+SamplePred::SamplePred(const SummaryFrame* frame,
+                       IndexType bagCount_) :
+  nPred(frame->getNPred()),
   bagCount(bagCount_),
-  bufferSize(bufferSize_),
+  bufferSize(frame->safeSize(bagCount)),
   pathIdx(bufferSize),
   stageOffset(nPred),
   stageExtent(nPred) {
@@ -59,11 +58,6 @@ SamplePred::~SamplePred() {
 
 
 
-/**
-   @brief Loops through the predictors to stage.
-
-   @return void.
- */
 vector<StageCount> SamplePred::stage(const RankedFrame* rankedFrame,
                                      const vector<SampleNux>  &sampleNode,
                                      const Sample* sample) {
@@ -83,21 +77,14 @@ vector<StageCount> SamplePred::stage(const RankedFrame* rankedFrame,
 }
 
 
-/**
-   @brief Stages SamplePred objects in non-decreasing predictor order.
-
-   @param predIdx is the predictor index.
-
-   @return void.
-*/
 void SamplePred::stage(const RankedFrame* rankedFrame,
                        const vector<SampleNux>& sampleNode,
                        const Sample* sample,
                        unsigned int predIdx,
                        StageCount& stageCount) {
   setStageBounds(rankedFrame, predIdx);
-  unsigned int *smpIdx;
-  SampleRank *spn = buffers(predIdx, 0, smpIdx);
+  unsigned int* smpIdx;
+  SampleRank* spn = buffers(predIdx, 0, smpIdx);
   const RowRank* rrPred = rankedFrame->predStart(predIdx);
   unsigned int expl = 0;
   for (unsigned int idx = 0; idx < rankedFrame->getExplicitCount(predIdx); idx++) {
@@ -109,41 +96,21 @@ void SamplePred::stage(const RankedFrame* rankedFrame,
 }
 
 
-/**
-   @brief Sets staging boundaries for a given predictor.
-
-   @return 
- */
 void SamplePred::setStageBounds(const RankedFrame* rankedFrame,
                                 unsigned int predIdx) {
   unsigned int extent;
-  unsigned int safeOffset = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
-  stageOffset[predIdx] = safeOffset;
+  stageOffset[predIdx] = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
   stageExtent[predIdx] = extent;
 }
 
 
-/**
-   @brief Fills in sampled response summary and rank information associated
-   with an RowRank reference.
-
-   @param rowRank summarizes an element of the compressed design matrix.
-
-   @param spn is the cell to initialize.
-
-   @param smpIdx is the associated sample index.
-
-   @param expl accumulates the current explicitly staged offset.
-
-   @return void.
- */
 void SamplePred::stage(const vector<SampleNux> &sampleNode,
 		       const RowRank &rowRank,
                        const Sample* sample,
                        unsigned int &expl,
 		       SampleRank spn[],
 		       unsigned int smpIdx[]) const {
-  unsigned int sIdx;
+  IndexType sIdx;
   if (sample->sampledRow(rowRank.getRow(), sIdx)) {
     spn[expl].join(rowRank.getRank(), sampleNode[sIdx]);
     smpIdx[expl] = sIdx;
@@ -151,17 +118,12 @@ void SamplePred::stage(const vector<SampleNux> &sampleNode,
   }
 }
 
-double SamplePred::blockReplay(const SplitNux& argMax,
-                               BV* replayExpl,
-                               vector<SumCount>& ctgExpl) {
-  return blockReplay(argMax, argMax.getExplicitRange(), replayExpl, ctgExpl);
-}
 
 double SamplePred::blockReplay(const SplitNux& argMax,
                                const IndexRange& range,
                                BV* replayExpl,
                                vector<SumCount> &ctgExpl) {
-  unsigned int* idx;
+  IndexType* idx;
   SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
   double sumExpl = 0.0;
   for (IndexType spIdx = range.getStart(); spIdx < range.getEnd(); spIdx++) {
@@ -202,11 +164,6 @@ void SamplePred::prepath(const IdxPath *idxPath,
 }
 
 
-/**
-   @brief Virtual pass-through to appropriate restaging method.
-
-   @return void.
- */
 void SamplePred::restage(Level *levelBack,
                          Level *levelFront,
                          const SplitCoord &mrra,
@@ -215,11 +172,6 @@ void SamplePred::restage(Level *levelBack,
 }
 
 
-/**
-   @brief Restages and tabulates rank counts.
-
-   @return void.
- */
 void SamplePred::rankRestage(unsigned int predIdx,
                              unsigned int bufIdx,
                              const IndexRange& idxRange,
@@ -259,7 +211,7 @@ void SamplePred::indexRestage(const IdxPath *idxPath,
   indexBuffers(predIdx, bufIdx, idxSource, idxTarg);
 
   for (IndexType idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
-    unsigned int sIdx = idxSource[idx];
+    IndexType sIdx = idxSource[idx];
     PathT path = idxPath->update(sIdx, pathMask, reachBase, idxUpdate);
     if (NodePath::isActive(path)) {
       unsigned int targOff = reachOffset[path]++;

@@ -13,13 +13,13 @@
    @author Mark Seligman
  */
 
-#include "index.h"
+#include "frontier.h"
 #include "bv.h"
 #include "pretree.h"
 #include "sample.h"
 #include "samplepred.h"
 #include "splitnux.h"
-#include "splitnode.h"
+#include "splitfrontier.h"
 #include "bottom.h"
 #include "path.h"
 #include "ompthread.h"
@@ -27,16 +27,16 @@
 #include <numeric>
 
 
-unsigned int IndexLevel::totLevels = 0;
-unsigned int IndexLevel::minNode = 0;
+unsigned int Frontier::totLevels = 0;
+unsigned int Frontier::minNode = 0;
 
-void IndexLevel::immutables(unsigned int _minNode, unsigned int _totLevels) {
+void Frontier::immutables(unsigned int _minNode, unsigned int _totLevels) {
   minNode = _minNode;
   totLevels = _totLevels;
 }
 
 
-void IndexLevel::deImmutables() {
+void Frontier::deImmutables() {
   totLevels = 0;
   minNode = 0;
 }
@@ -50,7 +50,7 @@ void IndexSet::decr(vector<SumCount> &_ctgSum, const vector<SumCount> &_ctgSub) 
 }
 
 
-IndexLevel::~IndexLevel() {
+Frontier::~Frontier() {
 }
 
 
@@ -68,15 +68,15 @@ IndexSet::IndexSet() :
 }
 
 
-shared_ptr<PreTree> IndexLevel::oneTree(const SummaryFrame* frame,
-                                        const Sample *sample) {
-  auto index = make_unique<IndexLevel>(frame, sample);
+unique_ptr<PreTree> Frontier::oneTree(const SummaryFrame* frame,
+                                      const Sample *sample) {
+  auto index = make_unique<Frontier>(frame, sample);
   return index->levels(frame, sample);
 }
 
 
 
-IndexLevel::IndexLevel(const SummaryFrame* frame,
+Frontier::Frontier(const SummaryFrame* frame,
                        const Sample* sample) :
   samplePred(sample->predictors()),
   indexSet(vector<IndexSet>(1)),
@@ -113,16 +113,16 @@ void IndexSet::initRoot(const Sample* sample) {
 }
 
 
-shared_ptr<PreTree> IndexLevel::levels(const SummaryFrame* frame,
+unique_ptr<PreTree> Frontier::levels(const SummaryFrame* frame,
                                        const Sample* sample) {
   bottom->rootDef(sample->stage(samplePred.get()), bagCount);
-  shared_ptr<PreTree> preTree = make_shared<PreTree>(frame, bagCount);
-  unique_ptr<SplitNode> splitNode = sample->splitNodeFactory(frame);
+  unique_ptr<PreTree> preTree = make_unique<PreTree>(frame, bagCount);
+  unique_ptr<SplitFrontier> splitFrontier(sample->frontierFactory(frame));
 
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    bottom->scheduleSplits(samplePred.get(), splitNode.get(), this);
-    indexSet = move(splitDispatch(splitNode.get(), preTree.get(), level++));
+    bottom->scheduleSplits(samplePred.get(), splitFrontier.get(), this);
+    indexSet = move(splitDispatch(splitFrontier.get(), preTree.get(), level++));
   }
 
   relFlush();
@@ -132,7 +132,7 @@ shared_ptr<PreTree> IndexLevel::levels(const SummaryFrame* frame,
 }
 
 
-vector<IndexSet> IndexLevel::splitDispatch(SplitNode* splitNode,
+vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
                                            PreTree* preTree,
                                            unsigned int level) {
   levelTerminal = (level + 1 == totLevels);
@@ -140,7 +140,7 @@ vector<IndexSet> IndexLevel::splitDispatch(SplitNode* splitNode,
   idxExtent = idxLive; // Previous level's index space.
   leafThis = splitNext = idxLive = idxMax = 0;
 
-  vector<SplitNux> argMax(splitNode->split(samplePred.get()));
+  vector<SplitNux> argMax(splitFrontier->split(samplePred.get()));
   for (auto & iSet : indexSet) {
     iSet.applySplit(argMax);
     iSet.splitCensus(this, leafThis, splitNext, idxLive, idxMax);
@@ -152,21 +152,21 @@ vector<IndexSet> IndexLevel::splitDispatch(SplitNode* splitNode,
   succBase = vector<unsigned int>(splitNext + leafNext + leafThis);
   fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
 
-  consume(splitNode, preTree, argMax, splitNext, leafNext, idxMax);
-  splitNode->levelClear();
+  consume(splitFrontier, preTree, argMax, splitNext, idxMax);
+  splitFrontier->levelClear();
 
   return produce(preTree, splitNext);
 }
 
 
-void IndexSet::splitCensus(IndexLevel *indexLevel,
+void IndexSet::splitCensus(Frontier *frontier,
                            unsigned int &leafThis,
                            unsigned int &splitNext,
                            unsigned int &idxLive,
                            unsigned int &idxMax) {
   if (doesSplit) {
-    splitNext += splitAccum(indexLevel, lhExtent, idxLive, idxMax);
-    splitNext += splitAccum(indexLevel, extent - lhExtent, idxLive, idxMax);
+    splitNext += splitAccum(frontier, lhExtent, idxLive, idxMax);
+    splitNext += splitAccum(frontier, extent - lhExtent, idxLive, idxMax);
   }
   else {
     leafThis++;
@@ -179,11 +179,11 @@ void IndexSet::applySplit(const vector<SplitNux> &argMaxVec) {
 }
 
 
-unsigned IndexSet::splitAccum(IndexLevel *indexLevel,
+unsigned IndexSet::splitAccum(Frontier *frontier,
                               unsigned int succExtent,
                               unsigned int &idxLive,
                               unsigned int &idxMax) {
-  if (indexLevel->isSplitable(succExtent)) {
+  if (frontier->isSplitable(succExtent)) {
     idxLive += succExtent;
     idxMax = succExtent > idxMax ? succExtent : idxMax;
     return 1;
@@ -194,20 +194,18 @@ unsigned IndexSet::splitAccum(IndexLevel *indexLevel,
 }
 
   
-void IndexLevel::consume(const SplitNode* splitNode,
+void Frontier::consume(const SplitFrontier* splitFrontier,
                          PreTree *preTree,
                          const vector<SplitNux> &argMax,
                          IndexType splitNext,
-                         unsigned int leafNext,
                          IndexType idxMax) {
-  preTree->levelStorage(splitNext, leafNext); // Overlap:  two levels co-exist.
   replayExpl->Clear();
   succLive = 0;
   succExtinct = splitNext; // Pseudo-indexing for extinct sets.
   liveBase = 0;
   extinctBase = idxLive;
   for (auto & iSet : indexSet) {
-    iSet.consume(this, splitNode, preTree, argMax);
+    iSet.consume(this, splitFrontier, preTree, argMax);
   }
 
   reindex(idxMax, splitNext);
@@ -215,7 +213,7 @@ void IndexLevel::consume(const SplitNode* splitNode,
 }
 
 
-void IndexLevel::reindex(IndexType idxMax, IndexType splitNext) {
+void Frontier::reindex(IndexType idxMax, IndexType splitNext) {
   if (nodeRel) {
     nodeReindex();
   }
@@ -232,62 +230,49 @@ void IndexLevel::reindex(IndexType idxMax, IndexType splitNext) {
 
 
 
-void IndexSet::consume(IndexLevel *indexLevel, const SplitNode* splitNode, PreTree *preTree, const vector<SplitNux> &argMax) {
+void IndexSet::consume(Frontier *frontier, const SplitFrontier* splitFrontier, PreTree *preTree, const vector<SplitNux> &argMax) {
   if (doesSplit) {
-    nonTerminal(indexLevel, splitNode, preTree, argMax[splitIdx]);
+    nonTerminal(frontier, splitFrontier, preTree, argMax[splitIdx]);
   }
   else {
-    terminal(indexLevel);
+    terminal(frontier);
   }
 }
 
 
-void IndexSet::terminal(IndexLevel *indexLevel) {
-  succOnly = indexLevel->idxSucc(extent, ptId, offOnly, true);
+void IndexSet::terminal(Frontier *frontier) {
+  succOnly = frontier->idxSucc(extent, ptId, offOnly, true);
 }
 
 
-void IndexSet::nonTerminal(IndexLevel *indexLevel, const SplitNode* splitNode, PreTree *preTree, const SplitNux &argMax) {
-  leftExpl = preTree->nonterminal(splitNode, argMax, indexLevel, this);
+void IndexSet::nonTerminal(Frontier *frontier, const SplitFrontier* splitFrontier, PreTree *preTree, const SplitNux &argMax) {
+  leftExpl = preTree->nonterminal(splitFrontier, argMax, frontier, this);
 
   ptExpl = getPTIdSucc(preTree, leftExpl);
   ptImpl = getPTIdSucc(preTree, !leftExpl);
-  succExpl = indexLevel->idxSucc(getExtentSucc(leftExpl), ptExpl, offExpl);
-  succImpl = indexLevel->idxSucc(getExtentSucc(!leftExpl), ptImpl, offImpl);
+  succExpl = frontier->idxSucc(getExtentSucc(leftExpl), ptExpl, offExpl);
+  succImpl = frontier->idxSucc(getExtentSucc(!leftExpl), ptImpl, offImpl);
 
   pathExpl = IdxPath::pathNext(path, leftExpl);
   pathImpl = IdxPath::pathNext(path, !leftExpl);
 }
 
 
-bool IndexSet::branchCut(const SplitNux& argMax,
-                         IndexLevel* indexLevel) {
-  sumExpl += indexLevel->blockReplay(argMax, ctgExpl);
-  
-  return argMax.leftIsExplicit();
-}
-
-
-double IndexLevel::blockReplay(const SplitNux& argMax, vector<SumCount>& ctgExpl) {
-  return samplePred->blockReplay(argMax, replayExpl.get(), ctgExpl);
-}
-
-
 void IndexSet::blockReplay(const SplitNux& argMax,
                            const IndexRange& range,
-                           IndexLevel* indexLevel) {
-  sumExpl += indexLevel->blockReplay(argMax, range, ctgExpl);
+                           Frontier* frontier) {
+  sumExpl += frontier->blockReplay(argMax, range, ctgExpl);
 }
 
 
-double IndexLevel::blockReplay(const SplitNux& argMax,
+double Frontier::blockReplay(const SplitNux& argMax,
                                const IndexRange& range,
                                vector<SumCount>& ctgExpl) const {
   return samplePred->blockReplay(argMax, range, replayExpl.get(), ctgExpl);
 }
 
 
-unsigned int IndexLevel::idxSucc(unsigned int extent,
+unsigned int Frontier::idxSucc(unsigned int extent,
                                  unsigned int ptId,
                                  unsigned int &offOut,
                                  bool predTerminal) {
@@ -308,7 +293,7 @@ unsigned int IndexLevel::idxSucc(unsigned int extent,
 }
 
 
-void IndexLevel::nodeReindex() {
+void Frontier::nodeReindex() {
   vector<unsigned int> succST(idxLive);
   rel2PT = vector<unsigned int>(idxLive);
 
@@ -325,7 +310,7 @@ void IndexLevel::nodeReindex() {
 
 
 void IndexSet::reindex(const BV* replayExpl,
-                       IndexLevel* index,
+                       Frontier* index,
                        unsigned int idxLive,
                        vector<unsigned int>& succST) {
   if (!doesSplit) {
@@ -338,7 +323,7 @@ void IndexSet::reindex(const BV* replayExpl,
 
 
 void IndexSet::nontermReindex(const BV *replayExpl,
-                              IndexLevel *index,
+                              Frontier *index,
                               unsigned int idxLive,
                               vector<unsigned int> &succST) {
   unsigned int baseExpl = offExpl;
@@ -357,7 +342,7 @@ void IndexSet::nontermReindex(const BV *replayExpl,
 }
 
 
-unsigned int IndexLevel::relLive(unsigned int relIdx,
+unsigned int Frontier::relLive(unsigned int relIdx,
                                  unsigned int targIdx,
                                  unsigned int path,
                                  unsigned int base,
@@ -370,14 +355,14 @@ unsigned int IndexLevel::relLive(unsigned int relIdx,
 }
 
 
-void IndexLevel::relExtinct(unsigned int relIdx, unsigned int ptId) {
+void Frontier::relExtinct(unsigned int relIdx, unsigned int ptId) {
   unsigned int stIdx = rel2ST[relIdx];
   st2PT[stIdx] = ptId;
   bottom->setExtinct(relIdx, stIdx);
 }
 
 
-void IndexLevel::subtreeReindex(unsigned int splitNext) {
+void Frontier::subtreeReindex(unsigned int splitNext) {
   unsigned int chunkSize = 1024;
   unsigned int nChunk = (bagCount + chunkSize - 1) / chunkSize;
 
@@ -392,7 +377,7 @@ void IndexLevel::subtreeReindex(unsigned int splitNext) {
 }
 
 
-void IndexLevel::chunkReindex(IdxPath *stPath,
+void Frontier::chunkReindex(IdxPath *stPath,
                               unsigned int splitNext,
                               unsigned int chunkStart,
                               unsigned int chunkNext) {
@@ -410,7 +395,7 @@ void IndexLevel::chunkReindex(IdxPath *stPath,
 }
 
 
-void IndexLevel::transitionReindex(unsigned int splitNext) {
+void Frontier::transitionReindex(unsigned int splitNext) {
   IdxPath *stPath = bottom->getSubtreePath();
   for (unsigned int stIdx = 0; stIdx < bagCount; stIdx++) {
     if (stPath->isLive(stIdx)) {
@@ -430,7 +415,7 @@ void IndexLevel::transitionReindex(unsigned int splitNext) {
 }
 
 
-vector<IndexSet> IndexLevel::produce(const PreTree *preTree, IndexType splitNext) {
+vector<IndexSet> Frontier::produce(const PreTree *preTree, IndexType splitNext) {
   bottom->overlap(splitNext, bagCount, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
@@ -441,17 +426,17 @@ vector<IndexSet> IndexLevel::produce(const PreTree *preTree, IndexType splitNext
 }
 
 
-void IndexSet::succHand(vector<IndexSet>& indexNext, Bottom* bottom, IndexLevel* indexLevel, const PreTree* preTree, bool isLeft) const {
+void IndexSet::succHand(vector<IndexSet>& indexNext, Bottom* bottom, Frontier* frontier, const PreTree* preTree, bool isLeft) const {
   if (doesSplit) {
     IndexType succIdx = getIdxSucc(isLeft);
     if (succIdx < indexNext.size()) {
-      indexNext[succIdx].succInit(indexLevel, bottom, preTree, this, isLeft);
+      indexNext[succIdx].succInit(frontier, bottom, preTree, this, isLeft);
     }
   }
 }
 
 
-void IndexSet::succInit(IndexLevel *indexLevel,
+void IndexSet::succInit(Frontier *frontier,
                         Bottom *bottom,
                         const PreTree* preTree,
                         const IndexSet* par,
@@ -464,7 +449,7 @@ void IndexSet::succInit(IndexLevel *indexLevel,
   ptId = par->getPTIdSucc(preTree, isLeft);
   sum = par->getSumSucc(isLeft);
   path = par->getPathSucc(isLeft);
-  relBase = indexLevel->getRelBase(splitIdx);
+  relBase = frontier->getRelBase(splitIdx);
   bottom->reachingPath(splitIdx, par->getSplitIdx(), lhStart, extent, relBase, path);
 
   if (par->isExplHand(isLeft)) {
@@ -477,7 +462,7 @@ void IndexSet::succInit(IndexLevel *indexLevel,
   ctgExpl = vector<SumCount>(ctgSum.size());
 
   // Inattainable value.  Reset only when non-terminal:
-  initInattainable(indexLevel->getBagCount());
+  initInattainable(frontier->getBagCount());
 }
 
 
@@ -486,7 +471,7 @@ IndexType IndexSet::getPTIdSucc(const PreTree* preTree, bool isLeft) const {
 }
 
 
-vector<double> IndexLevel::sumsAndSquares(vector<vector<double> >&ctgSum) {
+vector<double> Frontier::sumsAndSquares(vector<vector<double> >&ctgSum) {
   vector<double> sumSquares(indexSet.size());
 
   OMPBound splitIdx;

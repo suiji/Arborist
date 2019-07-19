@@ -181,35 +181,21 @@ public:
     return predIdx - getNumFirst();
   }
 
-  /**
-     @brief Derives split values for a numerical predictor by synthesizing
-     a fractional intermediate rank and interpolating.
 
-     @param predIdx is the predictor index.
-
-     @param rankRange is the range of ranks.
-
-     @return interpolated predictor value at synthesized rank.
-  */
-  inline double getQuantRank(unsigned int predIdx,
-                             IndexRange rankRange,
-                             const vector<double> &splitQuant) const {
-    double rankNum = rankRange.idxLow + splitQuant[predIdx] * rankRange.idxExtent;
-    unsigned int rankFloor = floor(rankNum);
-    unsigned int rankCeil = ceil(rankNum);
-    double valFloor = numRanked->getVal(predIdx, rankFloor);
-    double valCeil = numRanked->getVal(predIdx, rankCeil);
-    return valFloor + (rankNum - rankFloor) * (valCeil - valFloor);
+  inline double getNumVal(unsigned int predIdx,
+                          IndexType rank) const {
+    return numRanked->getVal(predIdx, rank);
   }
 
 
-  virtual unique_ptr<class SamplePred> SamplePredFactory(unsigned int bagCount) const;
+  /**
+     @brief Pass-through to rankedFrame method.
 
-  virtual unique_ptr<class SPReg> SPRegFactory(unsigned int bagCount) const;
+     @param bagCount is the unique sample count for the tree.
 
-
-  virtual unique_ptr<class SPCtg> SPCtgFactory(unsigned int bagCount,
-                                               unsigned int _nCtg) const; 
+     @return conservative staging bound.
+   */
+  IndexType safeSize(IndexType bagCount) const;
 };
 
 #endif

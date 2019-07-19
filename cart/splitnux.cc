@@ -16,6 +16,7 @@
 
 #include "splitnux.h"
 #include "splitcand.h"
+#include "summaryframe.h"
 
 double SplitNux::minRatio = minRatioDefault;
 
@@ -28,14 +29,15 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const SplitCand& cand) :
+SplitNux::SplitNux(const SplitCand& cand, const SummaryFrame* frame) :
   info(cand.getInfo()),
   predIdx(cand.getSplitCoord().predIdx),
   bufIdx(cand.getBufIdx()),
-  setIdx(cand.getSetIdx()),
   lhSCount(cand.getLhSCount()),
   lhExtent(cand.getLhExtent()),
   lhImplicit(cand.getLhImplicit()),
   idxRange(cand.getIdxRange()),
-  rankRange(cand.getRankRange()) {
+  rankRange(cand.getRankRange()),
+  setIdx(cand.getSetIdx()),
+  cardinality(frame->getCardinality(predIdx)) {
 }

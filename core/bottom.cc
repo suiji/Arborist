@@ -16,8 +16,8 @@
 #include "bottom.h"
 #include "level.h"
 #include "bv.h"
-#include "index.h"
-#include "splitnode.h"
+#include "frontier.h"
+#include "splitfrontier.h"
 #include "samplepred.h"
 #include "sample.h"
 #include "summaryframe.h"
@@ -65,8 +65,8 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
 
 
 void Bottom::scheduleSplits(SamplePred *samplePred,
-                            SplitNode* splitNode,
-                            IndexLevel *index) {
+                            SplitFrontier* splitNode,
+                            Frontier *index) {
   splitNode->levelInit(index);
   unsigned int unflushTop = flushRear();
   level[0]->candidates(index, splitNode);

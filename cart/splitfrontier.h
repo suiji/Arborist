@@ -5,14 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CART_SPLITNODE_H
-#define CART_SPLITNODE_H
+#ifndef CART_SPLITFRONTIER_H
+#define CART_SPLITFRONTIER_H
 
 /**
    @file splitnode.h
 
-   @brief Maintains per-node splitting parameters and directs splitting
-   of nodes across selected predictors.
+   @brief Manages node splitting across the tree frontier, by response type.
 
    @author Mark Seligman
 
@@ -28,8 +27,8 @@
 // Currently implemented in four flavours depending on response type of node and data
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
-class SplitNode {
-  void setPrebias(class IndexLevel *index);
+class SplitFrontier {
+  void setPrebias(class Frontier *index);
   
  protected:
   const class SummaryFrame* frame;
@@ -55,16 +54,16 @@ class SplitNode {
 
 public:
 
-  SplitNode(const class SummaryFrame *frame_,
+  SplitFrontier(const class SummaryFrame *frame_,
 	    unsigned int bagCount);
 
-  void scheduleSplits(const class IndexLevel *index,
+  void scheduleSplits(const class Frontier *index,
 		      const class Level *levelFront);
 
   /**
      @brief Emplaces new candidate with specified coordinates.
    */
-  IndexType preschedule(const IndexLevel* index,
+  IndexType preschedule(const Frontier* index,
                         const SplitCoord& splitCoord,
                         unsigned int bufIdx);
 
@@ -87,14 +86,16 @@ public:
    */
   bool isFactor(const SplitCoord& splitCoord) const;
 
-  
-  /**
-     @brief Getter for raw pointer to Run collection.
-   */
-  const class Run *getRuns() const {
-    return run.get();
-  }
 
+  /**
+     @brief Passes through to run member.
+
+     @return true iff split is left-explicit
+   */
+  bool branch(const class SplitNux& argMax,
+              class IndexSet* iSet,
+              class PreTree* preTree,
+              class Frontier* frontier) const;
 
   /**
      @brief Getter for pre-bias value, by index.
@@ -113,7 +114,7 @@ public:
   /**
      @brief Initializes state associated with current level.
    */
-  void levelInit(class IndexLevel *index);
+  void levelInit(class Frontier *index);
 
   
   vector<class SplitNux> split(const class SamplePred *samplePred);
@@ -122,12 +123,12 @@ public:
   vector<class SplitNux> maxCandidates();
   
   class SplitNux maxSplit(unsigned int splitOff,
-                          unsigned int nSplitNode) const;
+                          unsigned int nSplitFrontier) const;
   
   virtual void splitCandidates(const class SamplePred *samplePred) = 0;
-  virtual ~SplitNode();
+  virtual ~SplitFrontier();
   virtual void setRunOffsets(const vector<unsigned int> &safeCounts) = 0;
-  virtual void levelPreset(class IndexLevel *index) = 0;
+  virtual void levelPreset(class Frontier *index) = 0;
 
   virtual void setPrebias(unsigned int splitIdx,
                             double sum,
@@ -140,7 +141,7 @@ public:
 /**
    @brief Splitting facilities specific regression trees.
  */
-class SPReg : public SplitNode {
+class SFReg : public SplitFrontier {
   // Bridge-supplied monotone constraints.  Length is # numeric predictors
   // or zero, if none so constrained.
   static vector<double> mono;
@@ -168,11 +169,11 @@ class SPReg : public SplitNode {
    */
   static void DeImmutables();
   
-  SPReg(const class SummaryFrame* frame_,
+  SFReg(const class SummaryFrame* frame_,
 	unsigned int bagCount);
-  ~SPReg();
+  ~SFReg();
   void setRunOffsets(const vector<unsigned int> &safeCount);
-  void levelPreset(class IndexLevel *index);
+  void levelPreset(class Frontier *index);
   void levelClear();
 
   int getMonoMode(const class SplitCand* cand) const;
@@ -198,7 +199,7 @@ class SPReg : public SplitNode {
 /**
    @brief Splitting facilities for categorical trees.
  */
-class SPCtg : public SplitNode {
+class SFCtg : public SplitFrontier {
 // Numerical tolerances taken from A. Liaw's code:
   static constexpr double minDenom = 1.0e-5;
   static constexpr double minSumL = 1.0e-8;
@@ -213,7 +214,7 @@ class SPCtg : public SplitNode {
 
      @param index summarizes the index nodes associated with the level.
    */
-  void levelPreset(class IndexLevel *index);
+  void levelPreset(class Frontier *index);
 
   /**
      @brief Clears summary state associated with this level.
@@ -262,10 +263,10 @@ class SPCtg : public SplitNode {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SPCtg(const class SummaryFrame* frame_,
+  SFCtg(const class SummaryFrame* frame_,
 	unsigned int bagCount,
 	unsigned int _nCtg);
-  ~SPCtg();
+  ~SFCtg();
 
 
   /**

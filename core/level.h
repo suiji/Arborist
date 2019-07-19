@@ -220,9 +220,9 @@ class Level {
 
    @return true iff pair scheduled for splitting.
  */
-  bool preschedule(class SplitNode *splitNode,
+  bool preschedule(class SplitFrontier *splitNode,
                    const SplitCoord& splitCoord,
-                   const class IndexLevel* index,
+                   const class Frontier* index,
                    unsigned int &spanCand);
   
 public:
@@ -240,14 +240,14 @@ public:
 
 
   /**
-     @brief Signals SplitNode to schedule splitable pairs.
+     @brief Signals SplitFrontier to schedule splitable pairs.
 
      @param index summarizes the index sets at the current level.
 
      @param splitNode maintains the candidate list.
   */
-  void candidates(const class IndexLevel *index,
-                  class SplitNode *splitNode);
+  void candidates(const class Frontier *index,
+                  class SplitFrontier *splitNode);
 
   /**
    @brief Determines splitable candidates by Bernoulli sampling.
@@ -258,10 +258,10 @@ public:
 
    @param offCand accumulates offsets for splitable pairs.
  */
-  void candidateProb(class SplitNode *splitNode,
+  void candidateProb(class SplitFrontier *splitNode,
                      unsigned int splitIdx,
                      const double ruPred[],
-                     const class IndexLevel* index,
+                     const class Frontier* index,
                      unsigned int &offCand);
 
   /**
@@ -275,11 +275,11 @@ public:
 
    @param offCand accumulates offsets for splitable pairs.
  */
-  void candidateFixed(class SplitNode *splitNode,
+  void candidateFixed(class SplitFrontier *splitNode,
                       unsigned int splitIdx,
                       const double ruPred[],
                       struct BHPair heap[],
-                      const class IndexLevel* index,
+                      const class Frontier* index,
                       unsigned int &offCand);
 
 
@@ -625,7 +625,7 @@ public:
      @return adjusted index range.
    */
   IndexRange adjustRange(const SplitCoord& splitCoord,
-                         const class IndexLevel* index,
+                         const class Frontier* index,
                          unsigned int& implicit) const;
   
 

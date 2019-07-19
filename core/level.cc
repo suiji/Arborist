@@ -16,12 +16,12 @@
 #include "level.h"
 #include "path.h"
 #include "bottom.h"
-#include "index.h"
+#include "frontier.h"
 #include "callback.h"
 #include "rankedframe.h"
 #include "runset.h"
 #include "samplepred.h"
-#include "splitnode.h"
+#include "splitfrontier.h"
 
 
 unsigned int Level::predFixed = 0;
@@ -134,7 +134,7 @@ IndexRange Level::getRange(const SplitCoord &mrra) {
 
 
 IndexRange Level::adjustRange(const SplitCoord& splitCoord,
-                              const IndexLevel* index,
+                              const Frontier* index,
                               unsigned int& implicit) const {
   IndexSet iSet(index->getISet(splitCoord));
   IndexRange idxRange;
@@ -223,7 +223,7 @@ bool Level::scheduleSplit(const SplitCoord& splitCoord, unsigned int &rCount) co
 
 
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-void Level::candidates(const IndexLevel *index, SplitNode *splitNode) {
+void Level::candidates(const Frontier *index, SplitFrontier *splitNode) {
   int cellCount = nSplit * nPred;
 
   auto ruPred = CallBack::rUnif(cellCount);
@@ -247,10 +247,10 @@ void Level::candidates(const IndexLevel *index, SplitNode *splitNode) {
 }
 
 
-void Level::candidateProb(SplitNode *splitNode,
+void Level::candidateProb(SplitFrontier *splitNode,
                           unsigned int splitIdx,
                           const double ruPred[],
-                          const IndexLevel* index,
+                          const Frontier* index,
                           unsigned int &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
@@ -260,11 +260,11 @@ void Level::candidateProb(SplitNode *splitNode,
 }
 
  
-void Level::candidateFixed(SplitNode *splitNode,
+void Level::candidateFixed(SplitFrontier *splitNode,
                            unsigned int splitIdx,
                            const double ruPred[],
                            BHPair heap[],
-                           const IndexLevel* index,
+                           const Frontier* index,
                            unsigned int &spanCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -282,9 +282,9 @@ void Level::candidateFixed(SplitNode *splitNode,
 }
 
 
-bool Level::preschedule(SplitNode *splitNode,
+bool Level::preschedule(SplitFrontier *splitNode,
                         const SplitCoord& splitCoord,
-                        const IndexLevel* index,
+                        const Frontier* index,
                         unsigned int &spanCand) {
   bottom->reachFlush(splitCoord.nodeIdx, splitCoord.predIdx);
 

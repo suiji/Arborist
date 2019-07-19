@@ -14,81 +14,14 @@
 
  */
 
-#ifndef CORE_PRETREE_H
-#define CORE_PRETREE_H
+#ifndef PARTITION_PRETREE_H
+#define PARTITION_PRETREE_H
 
 #include <vector>
 #include <algorithm>
 
-#include "decnode.h"
-
-
-/**
-  @brief DecNode specialized for training.
- */
-class PTNode : public DecNode {
-  FltVal info;  // Nonzero iff nonterminal.
- public:
-  
-  void consumeNonterminal(const class SummaryFrame *frame,
-                          class ForestTrain *forest,
-                          vector<double> &predInfo,
-                          unsigned int idx) const;
-
-  /**
-     @builds bit-based split.
-
-     @param argMax characterizes the split.
-
-     @param lhDel is the distance to the lh-descendant.
-
-     @param bitEnd is the current top of the bit encoding.
-   */
-  void splitBits(const class SplitNux& argMax,
-                 unsigned int lhDel,
-                 unsigned int bitEnd);
-
-  /**
-     @brief Builds cut-based split.
-
-     Parameters as above.
-   */
-  void splitCut(const class SplitNux &argMax,
-                unsigned int lhDel);
-
-  /**
-     @brief Resets to default terminal status.
-   */
-  inline void setTerminal() {
-    lhDel = 0;
-  }
-
-
-  /**
-     @brief Resets to nonterminal with specified lh-delta.
-
-     @return void.
-   */
-  inline void setNonterminal(unsigned int lhDel) {
-    this->lhDel = lhDel;
-  }
-
-  
-  inline bool isNonTerminal() const {
-    return lhDel != 0;
-  }
-
-
-  inline IndexType getLHId(IndexType ptId) const {
-    return isNonTerminal() ? ptId + lhDel : 0;
-  }
-
-  inline IndexType getRHId(IndexType ptId) const {
-    return isNonTerminal() ? getLHId(ptId) + 1 : 0;
-  }
-
-};
-
+#include "ptnode.h" // Algorithm-dependent definition.
+#include "decnode.h" 
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
@@ -97,18 +30,29 @@ class PTNode : public DecNode {
 class PreTree {
   static size_t heightEst;
   static size_t leafMax; // User option:  maximum # leaves, if > 0.
-  const class SummaryFrame* frame;
   const unsigned int bagCount;
-  size_t nodeCount; // Allocation height of node vector.
-  PTNode *nodeVec; // Vector of tree nodes.
   size_t height;
   size_t leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
+  vector<class PTNode> nodeVec; // Vector of tree nodes.
+  vector<class SplitCrit> splitCrit;
   class BV *splitBits;
   vector<unsigned int> termST;
-  class BV *bitFactory();
+
+  /**
+     @brief Constructs mapping from sample indices to leaf indices.
+
+     @param[in, out] forest accumulates the growing forest.
+
+     @return rewritten map.
+  */
   const vector<unsigned int> frontierConsume(class ForestTrain *forest) const;
-  unsigned int getBitWidth();
+
+
+  /**
+     @return BV-aligned length of used portion of split vector.
+  */
+  IndexType getBitWidth();
 
 
   /**
@@ -127,11 +71,11 @@ class PreTree {
      @brief Finalizes run-based nonterminal.
 
      @param argMax characterizes the branch.
-
-     @param id is the nonterminal node offset.
   */
-  void branchRun(const class SplitNux& argMax,
-                 unsigned int id);
+  bool branchRun(const class SplitFrontier* splitNode,
+                 const class SplitNux& argMax,
+                 class Frontier* frontier,
+                 class IndexSet* iSet);
 
 
   /**
@@ -139,24 +83,32 @@ class PreTree {
      
      Arguments as above.
   */
-  void branchCut(const class SplitNux &argMax,
-                 unsigned int id);
+  bool branchCut(const class SplitNux &argMax, class Frontier* frontier, class IndexSet* iSet);
+
 
  public:
-  PreTree(const class SummaryFrame* frame_,
+  PreTree(const class SummaryFrame* frame,
           unsigned int _bagCount);
   ~PreTree();
   static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
   static void deImmutables();
+
+
+  /**
+     @brief Refines the height estimate using the actual height of a
+     constructed PreTree.
+
+     @param height is an actual height value.
+  */
   static void reserve(size_t height);
 
 
   /**
      @brief Dispatches nonterminal method according to split type.
    */
-  bool nonterminal(const class SplitNode* splitNode,
+  bool nonterminal(const class SplitFrontier* splitNode,
                    const class SplitNux& argMax,
-                   class IndexLevel* iLevel,
+                   class Frontier* frontier,
                    class IndexSet* iSet);
 
   
@@ -174,11 +126,20 @@ class PreTree {
   const vector<unsigned int> consume(class ForestTrain *forest,
                                      unsigned int tIdx,
                                      vector<double> &predInfo);
+  /**
+     @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.
 
+     Leaf information is post-assigned by the response-dependent Sample methods.
+
+     @param[in, out]  forest inputs/outputs the updated forest.
+
+     @param[out] predInfo outputs the predictor-specific information values.
+  */
   void consumeNonterminal(class ForestTrain *forest,
                           vector<double> &predInfo) const;
 
   void BitConsume(unsigned int *outBits);
+
 
   /**
      @brief Sets specified bit in splitting bit vector.
@@ -187,12 +148,21 @@ class PreTree {
 
      @param pos is the bit position beyond to set.
   */
-  void LHBit(const class IndexSet* iSet,
-             unsigned int pos);
+  void setBit(const class IndexSet* iSet,
+              IndexType pos);
 
-  void levelStorage(unsigned int splitNext, unsigned int leafNext);
-  void ReNodes();
+
+  /**
+     @brief Absorbs the terminal list from a completed subtree.
+
+     Side-effects the frontier map.
+
+     @param stTerm are subtree-relative indices.  These must be mapped to
+     sample indices if the subtree is proper.
+  */
   void subtreeFrontier(const vector<unsigned int> &stTerm);
+
+  
   unsigned int LeafMerge();
 
   

@@ -130,7 +130,7 @@ class Sample {
 
      @return new SampleCtg instance.
    */
-  static shared_ptr<class SampleCtg> factoryCtg(const double y[],
+  static unique_ptr<class SampleCtg> factoryCtg(const double y[],
                                                 const class SummaryFrame *frame,
                                                 const unsigned int yCtg[],
                                                 class BV *treeBag);
@@ -146,11 +146,12 @@ class Sample {
 
      @return new SampleReg instance.
    */
-  static shared_ptr<class SampleReg>factoryReg(const double y[],
+  static unique_ptr<class SampleReg>factoryReg(const double y[],
                                                const class SummaryFrame *frame,
                                                class BV *treeBag);
   
-  virtual unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const = 0;
+
+  virtual unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const = 0;
 
   /**
      @brief Lights off static initializations needed for sampling.
@@ -288,7 +289,9 @@ class SampleReg : public Sample {
  public:
   SampleReg(const class SummaryFrame* frame);
   ~SampleReg();
-  unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const;
+
+
+  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const;
 
 
   /**
@@ -329,7 +332,7 @@ class SampleCtg : public Sample {
   SampleCtg(const class SummaryFrame* frame);
   ~SampleCtg();
 
-  unique_ptr<class SplitNode> splitNodeFactory(const class SummaryFrame* frame) const;
+  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const;
 
   /**
      @brief Appends a sample summary record.

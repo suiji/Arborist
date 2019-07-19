@@ -27,18 +27,69 @@
 typedef union {
   IndexRange rankRange; // Range of splitting ranks:  numeric, pre-update.
   double num; // Rank-derived splitting value:  numeric, post-update.
-  unsigned int offset; // Tree-relative bit-vector offset:  factor.
+  IndexType offset; // Tree-relative bit-vector offset:  factor.
 } SplitVal;
+
+
+
+/**
+   @brief Splitting criterion.
+ */
+struct SplitCrit {
+  unsigned int predIdx;
+  SplitVal val;
+
+  SplitCrit(unsigned int predIdx_,
+            const IndexRange& rankRange) :
+  predIdx(predIdx_) {
+    val.rankRange = rankRange;
+  }
+
+
+  SplitCrit(unsigned int predIdx_,
+            IndexType bitPos) :
+  predIdx(predIdx_) {
+    val.offset = bitPos;
+  }
+
+  SplitCrit() : predIdx(0) {
+    val.num = 0.0;
+  }
+
+  void setNum(double num) {
+    this->val.num = num;
+  }
+
+
+  auto getNumVal() const {
+    return val.num;
+  }
+
+  
+  auto getBitOffset() const {
+    return val.offset;
+  }
+  
+
+  /**
+     @brief Imputes an intermediate rank.
+
+     @param scale is a proportion value in [0.0, 1.0].
+
+     @return fractional rank at the scaled position.
+   */
+  double imputeRank(double scale) const {
+    return val.rankRange.interpolate(scale);
+  }
+};
 
 
 /**
    @brief Decision tree node.
 */
-class DecNode {
- public:
-  unsigned int lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
-  unsigned int predIdx; // Predictor index: nonterminal only.
-  SplitVal splitVal; // Split encoding:  terminal only.
+struct DecNode {
+  IndexType lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
+  SplitCrit criterion;
 
   /**
      @brief Constructor.  Defaults to terminal.
