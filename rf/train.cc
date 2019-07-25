@@ -20,7 +20,7 @@
 #include "summaryframe.h"
 #include "frontier.h"
 #include "pretree.h"
-#include "samplepred.h"
+#include "obspart.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "leaf.h"
