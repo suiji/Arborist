@@ -6,15 +6,15 @@
  */
 
 /**
-   @file samplepred.h
+   @file obspart.h
 
-   @brief Observation matrix, partitioned by tree node.
+   @brief Observation frame, partitioned by tree node.
 
    @author Mark Seligman
  */
 
-#ifndef PARTITION_SAMPLEPRED_H
-#define PARTITION_SAMPLEPRED_H
+#ifndef PARTITION_OBSPART_H
+#define PARTITION_OBSPART_H
 
 
 #include "splitcoord.h"
@@ -38,9 +38,9 @@ class StageCount {
 /**
  @brief Contains the sample data used by predictor-specific sample-walking pass.
 */
-class SamplePred {
+class ObsPart {
   const unsigned int nPred;
-  // SamplePred appear in predictor order, grouped by node.  They store the
+  // ObsPart appear in predictor order, grouped by node.  They store the
   // y-value, run class and sample index for the predictor position to which they
   // correspond.
 
@@ -69,8 +69,8 @@ class SamplePred {
 
   
  public:
-  SamplePred(const class SummaryFrame* frame, IndexType bagCount_);
-  virtual ~SamplePred();
+  ObsPart(const class SummaryFrame* frame, IndexType bagCount_);
+  virtual ~ObsPart();
 
 
   /**
@@ -88,7 +88,7 @@ class SamplePred {
                            const class Sample* sample);
 
   /**
-     @brief Stages SamplePred objects in non-decreasing predictor order.
+     @brief Stages ObsPart objects in non-decreasing predictor order.
 
      @param predIdx is the predictor index.
   */
@@ -139,7 +139,8 @@ class SamplePred {
 
    @return sum of explicit responses within the block.
   */
-  double blockReplay(const class SplitNux& cand,
+  double blockReplay(const class SplitFrontier* splitFrontier,
+                     const class IndexSet* iSet,
                      const IndexRange& range,
                      class BV *replayExpl,
                      vector<class SumCount> &ctgExpl);
@@ -244,9 +245,9 @@ class SamplePred {
 
 
   // The category could, alternatively, be recorded in an object subclassed
-  // under class SamplePred.  This would require that the value be restaged,
+  // under class ObsPart.  This would require that the value be restaged,
   // which happens for all predictors at all splits.  It would also require
-  // that distinct SamplePred classes be maintained for SampleReg and
+  // that distinct ObsPart classes be maintained for SampleReg and
   // SampleCtg.  Recomputing the category value on demand, then, seems an
   // easier way to go.
   //
@@ -297,6 +298,14 @@ class SamplePred {
     return nodeVec + offset;
   }
 
+
+  /**
+     @brief Passes through to above after looking up splitting parameters.
+   */
+  SampleRank* buffers(const class SplitFrontier* splitFrontier,
+                      const class IndexSet* iSet,
+                      IndexType*& sIdx);
+  
 
   /**
      @brief Allows lightweight lookup of predictor's SampleRank vector.

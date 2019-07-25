@@ -67,28 +67,10 @@ class PreTree {
   }
 
 
-  /**
-     @brief Finalizes run-based nonterminal.
-
-     @param argMax characterizes the branch.
-  */
-  bool branchRun(const class SplitFrontier* splitNode,
-                 const class SplitNux& argMax,
-                 class Frontier* frontier,
-                 class IndexSet* iSet);
-
-
-  /**
-     @brief Finalizes cut-based nonterminal.
-     
-     Arguments as above.
-  */
-  bool branchCut(const class SplitNux &argMax, class Frontier* frontier, class IndexSet* iSet);
-
-
  public:
   PreTree(const class SummaryFrame* frame,
-          unsigned int _bagCount);
+          const class Frontier* frontier);
+
   ~PreTree();
   static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
   static void deImmutables();
@@ -106,12 +88,32 @@ class PreTree {
   /**
      @brief Dispatches nonterminal method according to split type.
    */
-  bool nonterminal(const class SplitFrontier* splitNode,
-                   const class SplitNux& argMax,
+  void nonterminal(double info,
                    class Frontier* frontier,
                    class IndexSet* iSet);
 
   
+  /**
+     @brief Appends criterion for bit-based branch.
+
+     @param predIdx is the criterion predictor.
+
+     @param cardinality is the predictor's cardinality.
+  */
+  void critBits(const class IndexSet* iSet,
+                unsigned int predIdx,
+                unsigned int cardinality);
+
+  /**
+     @brief Appends criterion for cut-based branch.
+     
+     @param rankRange bounds the cut-defining ranks.
+  */
+  void critCut(const class IndexSet* iSet,
+               unsigned int predIdx,
+               const IndexRange& rankRange);
+
+
   /**
      @brief Consumes all pretree nonterminal information into crescent forest.
 

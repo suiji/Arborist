@@ -16,7 +16,6 @@
 #include "runset.h"
 #include "callback.h"
 #include "splitfrontier.h"
-#include "splitnux.h"
 #include "splitcand.h"
 #include "pretree.h"
 #include "frontier.h"
@@ -125,25 +124,24 @@ void Run::reBase() {
   }
 }
 
-bool Run::branch(const SplitNux& argMax,
+bool Run::branch(const SplitFrontier* splitFrontier,
                  IndexSet* iSet,
                  PreTree* preTree,
-                 Frontier* index) const {
-  return runSet[argMax.getSetIdx()].branch(argMax, iSet, preTree, index);
+                 Frontier* frontier) const {
+  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, frontier);
 }
 
 
-bool RunSet::branch(const SplitNux& argMax,
-                    IndexSet* iSet,
+bool RunSet::branch(IndexSet* iSet,
                     PreTree* preTree,
-                    Frontier* index) const {
+                    Frontier* frontier) const {
   if (implicitLeft()) {// LH holds bits, RH holds replay indices.
     for (unsigned int outSlot = 0; outSlot < getRunCount(); outSlot++) {
       if (outSlot < getRunsLH()) {
         preTree->setBit(iSet, getRank(outSlot));
       }
       else {
-        iSet->blockReplay(argMax, bounds(outSlot), index);
+        iSet->blockReplay(frontier, bounds(outSlot));
       }
     }
     return false;
@@ -151,14 +149,14 @@ bool RunSet::branch(const SplitNux& argMax,
   else { // LH runs hold both bits and replay indices.
     for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
       preTree->setBit(iSet, getRank(outSlot));
-      iSet->blockReplay(argMax, bounds(outSlot), index);
+      iSet->blockReplay(frontier, bounds(outSlot));
     }
     return true;
   }
 }
 
 
-void Run::levelClear() {
+void Run::clear() {
   runSet.clear();
   facRun.clear();
   lhOut.clear();

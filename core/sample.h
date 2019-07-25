@@ -183,7 +183,7 @@ class Sample {
 
      @return array of joined sample/predictor records.
   */
-  unique_ptr<class SamplePred> predictors() const;
+  unique_ptr<class ObsPart> predictors() const;
   
 
   /**
@@ -191,7 +191,7 @@ class Sample {
 
      @param samplePred summarizes the observations.
   */
-  vector<class StageCount> stage(class SamplePred* samplePred) const;
+  vector<class StageCount> stage(class ObsPart* samplePred) const;
 
 
   /**

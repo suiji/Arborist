@@ -18,7 +18,7 @@
 #include "bv.h"
 #include "frontier.h"
 #include "splitfrontier.h"
-#include "samplepred.h"
+#include "obspart.h"
 #include "sample.h"
 #include "summaryframe.h"
 #include "runset.h"
@@ -64,12 +64,12 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
 }
 
 
-void Bottom::scheduleSplits(SamplePred *samplePred,
-                            SplitFrontier* splitNode,
-                            Frontier *index) {
-  splitNode->levelInit(index);
+void Bottom::scheduleSplits(ObsPart *samplePred,
+                            SplitFrontier* splitFrontier,
+                            Frontier *frontier) {
+  splitFrontier->init(frontier);
   unsigned int unflushTop = flushRear();
-  level[0]->candidates(index, splitNode);
+  level[0]->candidates(frontier, splitFrontier);
 
   backdate();
   restage(samplePred);
@@ -79,7 +79,7 @@ void Bottom::scheduleSplits(SamplePred *samplePred,
   for (unsigned int off = level.size() - 1; off > unflushTop; off--) {
     level.erase(level.end());
   }
-  splitNode->scheduleSplits(index, level[0].get());
+  splitFrontier->scheduleSplits(frontier, level[0].get());
 }
 
 
@@ -143,7 +143,7 @@ Bottom::~Bottom() {
 }
 
 
-void Bottom::restage(SamplePred *samplePred) {
+void Bottom::restage(ObsPart *samplePred) {
   OMPBound nodeIdx;
   OMPBound idxTop = restageCoord.size();
   
@@ -159,7 +159,7 @@ void Bottom::restage(SamplePred *samplePred) {
 }
 
 
-void Bottom::restage(SamplePred *samplePred, RestageCoord &rsCoord) {
+void Bottom::restage(ObsPart *samplePred, RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
   SplitCoord mrra = rsCoord.Ref(del, bufIdx);
   samplePred->restage(level[del].get(), level[0].get(), mrra, bufIdx);

@@ -20,6 +20,7 @@
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "typeparam.h"
+
 #include <vector>
 
 
@@ -32,11 +33,11 @@
    IndexSets only live within a single level.
 */
 class IndexSet {
-  unsigned int splitIdx; // Unique level identifier.
-  unsigned int ptId; // Index of associated PTSerial node.
-  unsigned int lhStart; // Start position of LH in buffer:  Swiss cheese.
-  unsigned int extent; // # distinct indices in the set.
-  unsigned int sCount;  // # samples subsumed by this set.
+  IndexType splitIdx; // Unique level identifier.
+  IndexType ptId; // Index of associated PTSerial node.
+  IndexType lhStart; // Start position of LH in buffer:  Swiss cheese.
+  IndexType extent; // # distinct indices in the set.
+  IndexType sCount;  // # samples subsumed by this set.
   double sum; // Sum of all responses in set.
   double minInfo; // Split threshold:  reset after splitting.
   IndexType relBase; // Local copy of frontier's value.
@@ -44,17 +45,17 @@ class IndexSet {
   vector<SumCount> ctgSum;  // Per-category response sums.
 
   // Post-splitting fields:  (Set iff argMax nontrivial.)
-  bool doesSplit; // iff argMax nontrivial and local conditions satisfied.
+  bool doesSplit; // iff local conditions satisfied.
   bool unsplitable;  // Candidate found to have single response value.
-  unsigned int lhExtent; // Total indices over LH.
-  unsigned int lhSCount; // Total samples over LH.
+  IndexType lhExtent; // Total indices over LH.
+  IndexType lhSCount; // Total samples over LH.
   double sumExpl; // Sum of explicit index responses.
 
   // State repeatedly polled and/or updated by Reindex methods.  Hence
   // appropriate to cache.
   //
-  unsigned int ptExpl;
-  unsigned int ptImpl;
+  IndexType ptExpl;
+  IndexType ptImpl;
   IndexType succExpl; // Fixed:  level index of explicit successor, if any.
   IndexType succImpl; // Fixed:  " " implicit " "
   IndexType offExpl; // Increases:  accumulating explicit offset.
@@ -91,8 +92,8 @@ class IndexSet {
   
   void nontermReindex(const class BV *replayExpl,
                       class Frontier *index,
-                      unsigned int idxLive,
-                      vector<unsigned int> &succST);
+                      IndexType idxLive,
+                      vector<IndexType> &succST);
   
  public:
   IndexSet();
@@ -109,86 +110,51 @@ class IndexSet {
   void decr(vector<SumCount> &_ctgTot,
             const vector<SumCount> &_ctgSub);
 
-  /**
-     @brief Absorbs parameters of informative splits.
-
-     @param argMax contains the successful splitting candidates.
-  */
-  void applySplit(const vector<class SplitNux> &argMax);
-  
-  /**
-     @brief Consumes relevant contents of split signature, if any, and accumulates leaf and splitting census.
-
-     @param splitNext counts splitable nodes precipitated in the next level.
-  */
-  void splitCensus(class Frontier *frontier,
-                   unsigned int &leafThis,
-                   unsigned int &splitNext,
-                   unsigned int &idxLive,
-                   unsigned int &idxMax);
-
   
   /**
      @brief Consumes iSet contents into pretree or terminal map.
   */
   void consume(class Frontier *indexlevel,
-               const class SplitFrontier* splitNode,
-               class PreTree *preTree,
-               const vector<class SplitNux> &argMax);
+               const class SplitFrontier* splitFrontier,
+               class PreTree *preTree);
 
   /**
      @brief Caches state necessary for reindexing and useful subsequently.
   */
-  void nonTerminal(class Frontier *frontier,
-                   const class SplitFrontier* splitNode,
-                   class PreTree *preTree,
-                   const class SplitNux &argMax);
+  void nonterminal(class Frontier *frontier,
+                   const class SplitFrontier* splitFrontier,
+                   class PreTree *preTree);
 
+  
+  inline void nonterminal(double minInfo,
+                          IndexType lhSCount,
+                          IndexType lhExtent) {
+    this->minInfo = minInfo;
+    this->lhSCount = lhSCount;
+    this->lhExtent = lhExtent;
+  }
+  
   /**
      @brief Dispatches index set to frontier.
+
+     @param frontier holds the partitioned data.
   */
   void terminal(class Frontier *frontier);
 
 
-  /**
-     @brief Replays associated sample indices over split.
+  void blockReplay(class Frontier* frontier,
+                   const IndexRange& range);
 
-     @param argMax characterizes split and index range.
-
-     @param range characterizes the index range.
-
-     @param frontier holds the partitioned data.
-
-     'sumExpl' accumulates explicit response sum on each call.
-   */
-  void blockReplay(const class SplitNux& argMax,
-                   const IndexRange& range,
-                   class Frontier* frontier);
-
+  
+  
   /**
      @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
   */
   void reindex(const class BV *replayExpl,
                class Frontier *index,
-               unsigned int idxLive,
-               vector<unsigned int> &succST);
+               IndexType idxLive,
+               vector<IndexType> &succST);
 
-
-  /**
-     @brief Accumulates index parameters of successor level.
-
-     @param succExent is the index of extent of the putative successor set.
-
-     @param[out] idxLive outputs the number of live successor indices.
-
-     @param[out] idxMax outputs the maximum successor index.
-
-     @return count of splitable sets precipitated in next level:  0/1.
-  */
-  static unsigned splitAccum(class Frontier *frontier,
-                             unsigned int succExtent,
-                             unsigned int &idxLive,
-                             unsigned int &idxMax);
 
   /**
      @brief Sums each category for a node splitable in the upcoming level.
@@ -223,15 +189,15 @@ class IndexSet {
 
      @return pretree index determined.
    */
-  unsigned int getPTIdSucc(const class PreTree* preTree,
-                           bool isLeft) const;
+  IndexType getPTIdSucc(const class PreTree* preTree,
+                        bool isLeft) const;
 
   
   
   /**
      @brief Getter for split index.
    */
-  inline unsigned int getSplitIdx() const {
+  inline auto getSplitIdx() const {
     return splitIdx;
   }
 
@@ -318,7 +284,7 @@ class IndexSet {
 
      @return minInfo value.
    */
-  inline double getMinInfo() const {
+  inline auto getMinInfo() const {
     return minInfo;
   }
 
@@ -336,9 +302,9 @@ class IndexSet {
      @return index (possibly pseudo) of successor index set.
    */
   inline IndexType offspring(bool expl,
-                             unsigned int &pathSucc,
-                             unsigned int &ptSucc) {
-    unsigned int iSetSucc;
+                             IndexType& pathSucc,
+                             IndexType& ptSucc) {
+    IndexType iSetSucc;
     if (!doesSplit) {  // Terminal from previous level.
       iSetSucc = succOnly;
       ptSucc = ptId;
@@ -373,9 +339,10 @@ class IndexSet {
 class Frontier {
   static unsigned int minNode;
   static unsigned int totLevels;
-  unique_ptr<class SamplePred> samplePred;
+  unique_ptr<class ObsPart> obsPart;
   vector<IndexSet> indexSet;
   const IndexType bagCount;
+  unique_ptr<class SplitFrontier> splitFrontier;
   unique_ptr<class Bottom> bottom;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
@@ -399,10 +366,26 @@ class Frontier {
 
      @param levelTerminal_ indicates whether new level marked as final.
   */
-  vector<IndexSet> splitDispatch(class SplitFrontier* splitNode,
-                                 class PreTree* preTree,
+  vector<IndexSet> splitDispatch(class PreTree* preTree,
                                  unsigned int level);
 
+  /**
+     @brief Counts offspring of this node, assumed not to be a leaf.
+
+     @return count of offspring nodes.
+  */
+  unsigned int splitCensus(const IndexSet& iSet,
+                           IndexType& idxMax);
+
+  /**
+     @brief Establishes splitting parameters for next frontier level.
+
+     @param[out] idxMax is the index high watermark of the next level.
+
+     @return the number of splitable nodes in the next level.
+   */
+  IndexType nextLevel(IndexType& idxMax);
+  
   /**
      @brief Consumes current level of splits into crescent tree and sets repartitioning bits.
 
@@ -414,11 +397,8 @@ class Frontier {
 
      Remaining parameters as described above.
   */
-  void consume(const class SplitFrontier* splitNode,
-               class PreTree *preTree,
-               const vector<class SplitNux> &argMax,
-               IndexType splitNext,
-               IndexType idxMax);
+  void consume(class PreTree *preTree,
+               IndexType splitNext);
 
   /**
      @brief Reindexes by level modes: node-relative, subtree-relative, mixed.
@@ -485,12 +465,21 @@ class Frontier {
 
      Assumes root node and attendant per-tree data structures have been initialized.
      Parameters as described above.
-     
-     @return trained pretree object.
   */
-  unique_ptr<class PreTree> levels(const class SummaryFrame* frame,
-                                   const class Sample* sample);
+  void levels(class PreTree* preTree);
   
+
+  /**
+     @brief Accumulates index parameters of successor level.
+
+     @param succExent is the index of extent of the putative successor set.
+
+     @param[out] idxMax outputs the maximum successor index.
+
+     @return count of splitable sets precipitated in next level:  0 or 1.
+  */
+  unsigned int splitAccum(IndexType succExtent,
+                          IndexType& idxMax);
 
   /**
      @brief Builds index base offsets to mirror crescent pretree level.
@@ -506,20 +495,23 @@ class Frontier {
 
      @return successor index count.
   */
-  unsigned int idxSucc(unsigned int extent,
-                       unsigned int ptId,
-                       unsigned int &outOff,
+  IndexType idxSucc(IndexType extent,
+                       IndexType ptId,
+                       IndexType &outOff,
                        bool terminal = false);
 
-  
+
   /**
      @brief Repartitions sample map for a block of indices.
 
-     Passes through to SamplePred method.
+     @param range is the range of indices defining the block.
+
+     Passes through to ObsPart method.
   */
-  double blockReplay(const class SplitNux& argMax,
+  double blockReplay(const IndexSet* iSet,
                      const IndexRange& range,
                      vector<SumCount>& ctgExpl) const;
+
 
   /**
      @brief Drives node-relative re-indexing.
@@ -530,7 +522,7 @@ class Frontier {
      @brief Subtree-relative reindexing:  indices randomly distributed
      among nodes (i.e., index sets).
   */
-  void subtreeReindex(unsigned int splitNext);
+  void subtreeReindex(IndexType splitNext);
 
   /**
      @brief Updates the split/path/pretree state of an extant index based on
@@ -539,15 +531,15 @@ class Frontier {
      @param stPath is a subtree-relative path.
   */
   void chunkReindex(class IdxPath *stPath,
-                    unsigned int splitNext,
-                    unsigned int chunkStart,
-                    unsigned int chunkNext);
+                    IndexType splitNext,
+                    IndexType chunkStart,
+                    IndexType chunkNext);
 
   /**
      @brief As above, but initializes node-relative mappings for subsequent
      levels.  Employs accumulated state and cannot be parallelized.
   */
-  void transitionReindex(unsigned int splitNext);
+  void transitionReindex(IndexType splitNext);
 
   /**
      @brief Updates the mapping from live relative indices to associated
@@ -555,11 +547,11 @@ class Frontier {
 
      @return corresponding subtree-relative index.
   */
-  unsigned int relLive(unsigned int relIdx,
-                       unsigned int targIdx,
-                       unsigned int path,
-                       unsigned int base,
-                       unsigned int ptIdx);
+  IndexType relLive(IndexType relIdx,
+                       IndexType targIdx,
+                       IndexType path,
+                       IndexType base,
+                       IndexType ptIdx);
   /**
      @brief Translates node-relative back to subtree-relative indices on 
      terminatinal node.
@@ -568,7 +560,8 @@ class Frontier {
 
      @param ptId is the pre-tree index of the associated node.
   */
-  void relExtinct(unsigned int relIdx, unsigned int ptId);
+  void relExtinct(IndexType relIdx,
+                  IndexType ptId);
 
   
   /**
@@ -592,7 +585,7 @@ class Frontier {
 
     @return true iff the node subsumes more than minimal count of buffer elements.
   */
-  inline bool isSplitable(unsigned int extent) {
+  inline bool isSplitable(IndexType extent) const {
     return !levelTerminal && extent >= minNode;
   }
 
@@ -621,7 +614,7 @@ class Frontier {
   /**
      @brief Accessor for count of splitable sets.
    */
-  inline unsigned int getNSplit() const {
+  inline IndexType getNSplit() const {
     return indexSet.size();
   }
 
@@ -632,7 +625,7 @@ class Frontier {
 
      @return index set's sum value.
    */
-  inline double getSum(unsigned int splitIdx) const {
+  inline auto getSum(IndexType splitIdx) const {
     return indexSet[splitIdx].getSum();
   }
 
@@ -640,7 +633,7 @@ class Frontier {
   /**
      @brief Accessor for count of sampled responses over set.
    */
-  inline unsigned int getSCount(unsigned int splitIdx) const {
+  inline auto getSCount(IndexType splitIdx) const {
     return indexSet[splitIdx].getSCount();
   }
 
@@ -648,7 +641,7 @@ class Frontier {
   /**
      @brief Accessor for count of disinct indices over set.
    */
-  inline unsigned int getExtent(unsigned int splitIdx) const {
+  inline auto getExtent(IndexType splitIdx) const {
     return indexSet[splitIdx].getExtent();
   }
   
@@ -656,7 +649,7 @@ class Frontier {
   /**
      @brief Accessor for relative base of split.
    */
-  inline auto getRelBase(unsigned int splitIdx) const {
+  inline auto getRelBase(IndexType splitIdx) const {
     return relBase[splitIdx];
   }
 
@@ -664,7 +657,7 @@ class Frontier {
   /**
      @brief Indicates whether index set is inherently unsplitable.
    */
-  inline bool isUnsplitable(unsigned int splitIdx) const {
+  inline bool isUnsplitable(IndexType splitIdx) const {
     return indexSet[splitIdx].isUnsplitable();
   }
 
@@ -674,8 +667,8 @@ class Frontier {
      final pre-tree node assignment.
   */
   void relExtinct(IndexType relBase,
-                  unsigned int extent,
-                  unsigned int ptId) {
+                  IndexType extent,
+                  IndexType ptId) {
     for (IndexType relIdx = relBase; relIdx < relBase + extent; relIdx++) {
       relExtinct(relIdx, ptId);
     }
@@ -687,7 +680,7 @@ class Frontier {
   */
   void relFlush() {
     if (nodeRel) {
-      for (unsigned int relIdx = 0; relIdx < idxLive; relIdx++) {
+      for (IndexType relIdx = 0; relIdx < idxLive; relIdx++) {
         relExtinct(relIdx, rel2PT[relIdx]);
       }
     }

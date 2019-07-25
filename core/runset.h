@@ -255,10 +255,9 @@ class RunSet {
 
      @return true iff left-bound split contains implicit runs.
    */
-  bool branch(const class SplitNux& argMax,
-              class IndexSet* iSet,
+  bool branch(class IndexSet* iSet,
               class PreTree* preTree,
-              class Frontier* index) const;
+              class Frontier* frontier) const;
 
   /**
      @brief Subtracts a run's per-category responses from the current run.
@@ -481,7 +480,7 @@ public:
   /**
      @brief Clears workspace used by current level.
    */
-  void levelClear();
+  void clear();
 
   /**
      @brief Regression:  all runs employ a heap.
@@ -511,10 +510,10 @@ public:
 
      @return true iff left-bound split contains implicit runs.
    */
-  bool branch(const class SplitNux& argMax,
+  bool branch(const class SplitFrontier* splitFrontier,
               class IndexSet* iSet,
               class PreTree* preTree,
-              class Frontier* index) const;
+              class Frontier* frontier) const;
 
   /**
      @brief Accessor for RunSet at specified index.

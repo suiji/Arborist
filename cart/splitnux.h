@@ -26,9 +26,9 @@ class SplitNux {
   double info; // Weighted variance or Gini, currently.
   unsigned int predIdx;  // Core-order predictor index.
   unsigned char bufIdx;
-  unsigned int lhSCount;
-  unsigned int lhExtent;
-  unsigned int lhImplicit;
+  IndexType lhSCount;
+  IndexType lhExtent;
+  IndexType lhImplicit;
   IndexRange idxRange;
 
   IndexRange rankRange;  // Rank bounds:  numeric only.
@@ -67,26 +67,30 @@ public:
   /**
      @brief Reports whether potential split be informative with respect to a threshold.
 
-     @param[in, out] minInfo is the information threshold for splitting.
-
-     @param[out] lhSCount is the number of samples in LHS.
-
-     @param[out] lhExtent is the number of indices in LHS.
+     @param minInfo is an information threshold.
 
      @return true iff information content exceeds the threshold.
    */
-  bool isInformative(double &minInfo,
-                     unsigned int &lhSCount,
-                     unsigned int &lhExtent) const {
-    if (info > minInfo) {
-      minInfo = minRatio * info; // Splitting threshold for succesors.
-      lhSCount = this->lhSCount;
-      lhExtent = this->lhExtent;
-      return true;
-    }
-    else {
-      return false;
-    }
+  bool isInformative(double minInfo) const {
+    return info > minInfo;
+  }
+
+
+  /**
+     @brief Sets frontier node parameters associated with nonterminal.
+
+     @param[out] minInfo outputs the information threshold for splitting.
+
+     @param[out] lhSCount outputs the number of samples in LHS.
+
+     @param[out] lhExtent outputs the number of indices in LHS.
+  */
+  void nonterminal(double& minInfo,
+                   IndexType& lhSCount,
+                   IndexType& lhExtent) const {
+    minInfo = minRatio * info; // Splitting threshold for succesors.
+    lhSCount = this->lhSCount;
+    lhExtent = this->lhExtent;
   }
 
 
@@ -128,6 +132,11 @@ public:
 
   auto getExtent() const {
     return idxRange.getEnd() - idxRange.getStart() - 1;
+  }
+
+
+  auto getLHExtent() const {
+    return lhExtent;
   }
 
   

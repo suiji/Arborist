@@ -16,7 +16,7 @@
 #include "splitaccum.h"
 #include "splitcand.h"
 #include "splitfrontier.h"
-#include "samplepred.h"
+#include "obspart.h"
 
 SplitAccum::SplitAccum(const SplitCand* cand,
                        unsigned int rankDense_) :

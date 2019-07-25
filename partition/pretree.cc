@@ -19,9 +19,6 @@
 #include "ptnode.h"
 #include "decnode.h"
 #include "frontier.h"
-#include "splitnux.h"
-#include "splitfrontier.h"
-#include "runset.h"
 #include "forest.h"
 #include "summaryframe.h"
 #include "callback.h"
@@ -83,8 +80,8 @@ void PreTree::deImmutables() {
  */
 
 PreTree::PreTree(const SummaryFrame* frame,
-                 unsigned int bagCount_) :
-  bagCount(bagCount_),
+                 const Frontier* frontier) :
+  bagCount(frontier->getBagCount()),
   height(1),
   leafCount(1),
   bitEnd(0),
@@ -117,38 +114,30 @@ void PreTree::reserve(size_t height) {
 }
 
 
-bool PreTree::nonterminal(const SplitFrontier* splitNode, const SplitNux& argMax, Frontier* frontier, IndexSet* iSet) {
-  auto id = iSet->getPTId();
-  nodeVec[id].nonterminal(argMax, height - id, splitCrit.size());
+void PreTree::nonterminal(double info, Frontier* frontier, IndexSet* iSet) {
+  nodeVec[iSet->getPTId()].nonterminal(info, iSet, height, splitCrit.size());
   terminalOffspring();
-  if (argMax.getCardinality() > 0) {
-    return branchRun(splitNode, argMax, frontier, iSet);
-  }
-  else {
-    return branchCut(argMax, frontier, iSet);
-  }
 }
 
 
-void PTNode::nonterminal(const SplitNux &argMax, IndexType lhDel, IndexType critOffset) {
-  info = argMax.getInfo();
-  this->lhDel = lhDel;
+void PTNode::nonterminal(double info, const IndexSet* iSet, IndexType height, IndexType critOffset) {
+  this->info = info;
+  this->lhDel = height - iSet->getPTId();
   this->critOffset = critOffset;
 }
 
 
-bool PreTree::branchRun(const SplitFrontier* splitNode, const SplitNux& argMax, Frontier* frontier, IndexSet* iSet) {
-  splitCrit.emplace_back(argMax.getPredIdx(), bitEnd);
-  bitEnd += argMax.getCardinality();
+void PreTree::critBits(const IndexSet* iSet, unsigned int predIdx, unsigned int cardinality) {
+  nodeVec[iSet->getPTId()].bumpCriterion();
+  splitCrit.emplace_back(predIdx, bitEnd);
+  bitEnd += cardinality;
   splitBits = splitBits->Resize(bitEnd);
-  return splitNode->branch(argMax, iSet, this, frontier);
 }
 
 
-bool PreTree::branchCut(const SplitNux &argMax, Frontier* frontier, IndexSet* iSet) {
-  splitCrit.emplace_back(argMax.getPredIdx(), argMax.getRankRange());
-  iSet->blockReplay(argMax, argMax.getExplicitRange(), frontier);
-  return argMax.leftIsExplicit();
+void PreTree::critCut(const IndexSet* iSet, unsigned int predIdx, const IndexRange& rankRange) {
+  nodeVec[iSet->getPTId()].bumpCriterion();
+  splitCrit.emplace_back(predIdx, rankRange);
 }
 
 

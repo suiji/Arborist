@@ -20,7 +20,7 @@
 #include "callback.h"
 #include "rankedframe.h"
 #include "runset.h"
-#include "samplepred.h"
+#include "obspart.h"
 #include "splitfrontier.h"
 
 
@@ -45,12 +45,12 @@ Level::Level(unsigned int _nSplit,
   def(vector<MRRA>(nSplit * nPred)),
   denseCoord(vector<DenseCoord>(nSplit * nPredDense)),
   relPath(make_unique<IdxPath>(idxLive)),
-  offCand(vector<unsigned int>(nSplit * nPred)),
+  offCand(vector<IndexType>(nSplit * nPred)),
   nodeRel(_nodeRel),
   bottom(_bottom)
 {
   MRRA df;
-  df.init();
+
   // Coprocessor only.
   fill(def.begin(), def.end(), df);
   fill(offCand.begin(), offCand.end(), bagCount);
@@ -134,9 +134,9 @@ IndexRange Level::getRange(const SplitCoord &mrra) {
 
 
 IndexRange Level::adjustRange(const SplitCoord& splitCoord,
-                              const Frontier* index,
+                              const Frontier* frontier,
                               unsigned int& implicit) const {
-  IndexSet iSet(index->getISet(splitCoord));
+  IndexSet iSet(frontier->getISet(splitCoord));
   IndexRange idxRange;
   idxRange.set(iSet.getStart(), iSet.getExtent());
   implicit = isDense(splitCoord) ? denseCoord[denseOffset(splitCoord)].adjustRange(idxRange) : 0;
@@ -223,48 +223,48 @@ bool Level::scheduleSplit(const SplitCoord& splitCoord, unsigned int &rCount) co
 
 
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-void Level::candidates(const Frontier *index, SplitFrontier *splitNode) {
-  int cellCount = nSplit * nPred;
+void Level::candidates(const Frontier *frontier, SplitFrontier *splitFrontier) {
+  IndexType cellCount = nSplit * nPred;
 
   auto ruPred = CallBack::rUnif(cellCount);
 
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
 
   unsigned int spanCand = 0;
-  for (unsigned int splitIdx = 0; splitIdx < nSplit; splitIdx++) {
-    unsigned int splitOff = splitIdx * nPred;
-    if (index->isUnsplitable(splitIdx)) { // Node cannot split.
+  for (IndexType splitIdx = 0; splitIdx < nSplit; splitIdx++) {
+    IndexType splitOff = splitIdx * nPred;
+    if (frontier->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(splitNode, splitIdx, &ruPred[splitOff], index, spanCand);
+      candidateProb(splitFrontier, splitIdx, &ruPred[splitOff], frontier, spanCand);
     }
     else { // Fixed number of predictors splitable.
-      candidateFixed(splitNode, splitIdx, &ruPred[splitOff], &heap[splitOff], index, spanCand);
+      candidateFixed(splitFrontier, splitIdx, &ruPred[splitOff], &heap[splitOff], frontier, spanCand);
     }
   }
   setSpan(spanCand);
 }
 
 
-void Level::candidateProb(SplitFrontier *splitNode,
+void Level::candidateProb(SplitFrontier *splitFrontier,
                           unsigned int splitIdx,
                           const double ruPred[],
-                          const Frontier* index,
+                          const Frontier* frontier,
                           unsigned int &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) preschedule(splitNode, SplitCoord(splitIdx, predIdx), index, spanCand);
+      (void) preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), frontier, spanCand);
     }
   }
 }
 
  
-void Level::candidateFixed(SplitFrontier *splitNode,
+void Level::candidateFixed(SplitFrontier *splitFrontier,
                            unsigned int splitIdx,
                            const double ruPred[],
                            BHPair heap[],
-                           const Frontier* index,
+                           const Frontier* frontier,
                            unsigned int &spanCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
@@ -275,30 +275,30 @@ void Level::candidateFixed(SplitFrontier *splitNode,
   unsigned int schedCount = 0;
   for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
     unsigned int predIdx = BHeap::slotPop(heap, heapSize - 1);
-    schedCount += preschedule(splitNode, SplitCoord(splitIdx, predIdx), index, spanCand) ? 1 : 0;
+    schedCount += preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), frontier, spanCand) ? 1 : 0;
     if (schedCount == predFixed)
       break;
   }
 }
 
 
-bool Level::preschedule(SplitFrontier *splitNode,
+bool Level::preschedule(SplitFrontier *splitFrontier,
                         const SplitCoord& splitCoord,
-                        const Frontier* index,
+                        const Frontier* frontier,
                         unsigned int &spanCand) {
   bottom->reachFlush(splitCoord.nodeIdx, splitCoord.predIdx);
 
   unsigned int bufIdx;
   if (!isSingleton(splitCoord, bufIdx)) {
     offCand[splitCoord.strideOffset(nPred)] = spanCand;
-    spanCand += splitNode->preschedule(index, splitCoord, bufIdx);
+    spanCand += splitFrontier->preschedule(frontier, splitCoord, bufIdx);
     return true;
   }
   return false;
 }
 
 
-void Level::rankRestage(SamplePred *samplePred,
+void Level::rankRestage(ObsPart *samplePred,
                         const SplitCoord &mrra,
                         Level *levelFront,
                         unsigned int bufIdx) {
@@ -315,7 +315,7 @@ void Level::rankRestage(SamplePred *samplePred,
 }
 
 
-void Level::rankRestage(SamplePred *samplePred,
+void Level::rankRestage(ObsPart *samplePred,
                         const SplitCoord &mrra,
                         Level *levelFront,
                         unsigned int bufIdx,
@@ -402,7 +402,7 @@ void Level::offsetClone(const SplitCoord &mrra,
 }
 
 
-void Level::indexRestage(SamplePred *samplePred,
+void Level::indexRestage(ObsPart *samplePred,
                          const SplitCoord &mrra,
                          const Level *levelFront,
                          unsigned int bufIdx) {
@@ -420,7 +420,7 @@ void Level::indexRestage(SamplePred *samplePred,
 }
 
 
-void Level::indexRestage(SamplePred *samplePred,
+void Level::indexRestage(ObsPart *samplePred,
                          const SplitCoord &mrra,
                          const Level *levelFront,
                          unsigned int bufIdx,

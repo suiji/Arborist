@@ -14,8 +14,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_BOTTOM_H
-#define CORE_BOTTOM_H
+#ifndef PARTITION_BOTTOM_H
+#define PARTITION_BOTTOM_H
 
 #include <deque>
 #include <vector>
@@ -31,7 +31,7 @@
 class RestageCoord {
   SplitCoord mrra; // Level-relative coordinates of reaching ancestor.
   unsigned char del; // # levels back to referencing level.
-  unsigned char bufIdx; // buffer index of mrra's SamplePred.
+  unsigned char bufIdx; // buffer index of mrra's ObsPart.
  public:
 
   RestageCoord(const SplitCoord& splitCoord,
@@ -78,7 +78,7 @@ class Bottom {
   /**
      @brief General, multi-level restaging.
   */
-  void restage(class SamplePred *samplePred,
+  void restage(class ObsPart *samplePred,
                RestageCoord &rsCoord);
 
   /**
@@ -150,8 +150,8 @@ class Bottom {
   /**
      @brief Entry to restaging and candidate scheduling.
   */
-  void scheduleSplits(class SamplePred *samplePred,
-                      class SplitFrontier* splitNode,
+  void scheduleSplits(class ObsPart *samplePred,
+                      class SplitFrontier* splitFrontier,
                       class Frontier *index);
 
   
@@ -209,7 +209,7 @@ class Bottom {
 
      @param samplePred contains the compressed observation set.
   */
-  void restage(class SamplePred *samplePred);
+  void restage(class ObsPart *samplePred);
 
 
   /**

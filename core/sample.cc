@@ -18,7 +18,7 @@
 #include "callback.h"
 #include "summaryframe.h"
 #include "splitfrontier.h"
-#include "samplepred.h"
+#include "obspart.h"
 
 // Simulation-invariant values.
 //
@@ -199,12 +199,12 @@ void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag
 }
 
 
-unique_ptr<SamplePred> Sample::predictors() const {
-  return make_unique<SamplePred>(frame, bagCount);
+unique_ptr<ObsPart> Sample::predictors() const {
+  return make_unique<ObsPart>(frame, bagCount);
 }
 
 
-vector<StageCount> Sample::stage(SamplePred* samplePred) const {
+vector<StageCount> Sample::stage(ObsPart* samplePred) const {
   return samplePred->stage(frame->getRankedFrame(), sampleNode, this);
 }
 

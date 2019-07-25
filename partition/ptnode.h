@@ -17,6 +17,8 @@
 #ifndef PARTITION_PTNODE_H
 #define PARTITION_PTNODE_H
 
+#include "typeparam.h"
+
 #include <vector>
 #include <algorithm>
 
@@ -33,6 +35,10 @@ class PTNode {
   PTNode() : lhDel(0), critCount(0), info(0.0) { // defaults to terminal.
   }
 
+
+  inline void bumpCriterion() {
+    critCount++;
+  }
 
   /**
      @return starting bit of split value.
@@ -59,7 +65,8 @@ class PTNode {
 
      @param critOffset is the begining criterion offset.
    */
-  void nonterminal(const class SplitNux &argMax,
+  void nonterminal(double info,
+                   const class IndexSet* iSet,
                    IndexType lhDel,
                    IndexType critOffset);
 

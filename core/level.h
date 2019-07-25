@@ -36,12 +36,10 @@ class MRRA {
   unsigned char raw;
  public:
 
- 
-  inline void init() {
-    raw = 0;
+  MRRA() : raw(0) {
   }
 
-
+  
   /**
      @brief Initializes as live and sets descriptor values.
 
@@ -203,11 +201,11 @@ class Level {
 
   // Recomputed:
   unique_ptr<class IdxPath> relPath;
-  vector<unsigned int> offCand;
+  vector<IndexType> offCand;
   vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
-  vector<unsigned int> liveCount; // Indexed by node.
+  vector<IndexType> liveCount; // Indexed by node.
 
-  unsigned int candExtent; // Total candidate index extent.
+  IndexType candExtent; // Total candidate index extent.
   const bool nodeRel;  // Subtree- or node-relative indexing.
   class Bottom *bottom;
 
@@ -259,10 +257,10 @@ public:
    @param offCand accumulates offsets for splitable pairs.
  */
   void candidateProb(class SplitFrontier *splitNode,
-                     unsigned int splitIdx,
+                     IndexType splitIdx,
                      const double ruPred[],
                      const class Frontier* index,
-                     unsigned int &offCand);
+                     IndexType &offCand);
 
   /**
    @brief Determines splitable candidates from fixed number of predictors.
@@ -276,20 +274,20 @@ public:
    @param offCand accumulates offsets for splitable pairs.
  */
   void candidateFixed(class SplitFrontier *splitNode,
-                      unsigned int splitIdx,
+                      IndexType splitIdx,
                       const double ruPred[],
                       struct BHPair heap[],
                       const class Frontier* index,
-                      unsigned int &offCand);
+                      IndexType& offCand);
 
 
-  void rankRestage(class SamplePred *samplePred,
+  void rankRestage(class ObsPart *samplePred,
                    const SplitCoord &mrra,
                    Level *levelFront,
                    unsigned int bufIdx);
 
 
-  void indexRestage(class SamplePred *samplePred,
+  void indexRestage(class ObsPart *samplePred,
                     const SplitCoord &mrra,
                     const Level *levelFront,
                     unsigned int bufIdx);
@@ -303,14 +301,14 @@ public:
      Decomposition into two paths adds ~5% performance penalty, but
      appears necessary for dense packing or for coprocessor loading.
   */
-  void rankRestage(class SamplePred *samplePred,
+  void rankRestage(class ObsPart *samplePred,
                    const SplitCoord &mrra,
                    Level *levelFront,
                    unsigned int bufIdx,
                    unsigned int reachOffset[], 
                    const unsigned int reachBase[] = nullptr);
 
-  void indexRestage(class SamplePred *samplePred,
+  void indexRestage(class ObsPart *samplePred,
                     const SplitCoord &mrra,
                     const Level *levelFront,
                     unsigned int bufIdx,

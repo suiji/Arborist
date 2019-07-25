@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_SAMPLENUX_H
-#define ARBORIST_SAMPLENUX_H
+#ifndef CORE_SAMPLENUX_H
+#define CORE_SAMPLENUX_H
 
 #include "typeparam.h"
 #include <vector>

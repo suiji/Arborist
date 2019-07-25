@@ -182,11 +182,11 @@ public:
 
   
   void split(const class SFReg *spReg,
-	     const class SamplePred *samplePred);
+	     const class ObsPart *samplePred);
 
 
   void split(class SFCtg *spCtg,
-	     const class SamplePred *samplePred);
+	     const class ObsPart *samplePred);
 
   /**
      @brief Main entry for classification numerical split.

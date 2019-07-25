@@ -6,17 +6,17 @@
  */
 
 /**
-   @file samplepred.cc
+   @file obspart.cc
 
-   @brief Observation matrix, partitioned by tree node.
+   @brief Methods to repartition observation frame by tree node.
 
    @author Mark Seligman
  */
 
-#include "samplepred.h"
-#include "splitnux.h"
+#include "obspart.h"
 #include "sample.h"
 #include "summaryframe.h"
+#include "splitfrontier.h"
 #include "path.h"
 #include "bv.h"
 #include "level.h"
@@ -28,7 +28,7 @@
 /**
    @brief Base class constructor.
  */
-SamplePred::SamplePred(const SummaryFrame* frame,
+ObsPart::ObsPart(const SummaryFrame* frame,
                        IndexType bagCount_) :
   nPred(frame->getNPred()),
   bagCount(bagCount_),
@@ -48,7 +48,7 @@ SamplePred::SamplePred(const SummaryFrame* frame,
 /**
   @brief Base class destructor.
  */
-SamplePred::~SamplePred() {
+ObsPart::~ObsPart() {
   delete [] nodeVec;
   delete [] indexBase;
 
@@ -58,7 +58,7 @@ SamplePred::~SamplePred() {
 
 
 
-vector<StageCount> SamplePred::stage(const RankedFrame* rankedFrame,
+vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
                                      const vector<SampleNux>  &sampleNode,
                                      const Sample* sample) {
   vector<StageCount> stageCount(rankedFrame->getNPred());
@@ -77,7 +77,7 @@ vector<StageCount> SamplePred::stage(const RankedFrame* rankedFrame,
 }
 
 
-void SamplePred::stage(const RankedFrame* rankedFrame,
+void ObsPart::stage(const RankedFrame* rankedFrame,
                        const vector<SampleNux>& sampleNode,
                        const Sample* sample,
                        unsigned int predIdx,
@@ -96,7 +96,7 @@ void SamplePred::stage(const RankedFrame* rankedFrame,
 }
 
 
-void SamplePred::setStageBounds(const RankedFrame* rankedFrame,
+void ObsPart::setStageBounds(const RankedFrame* rankedFrame,
                                 unsigned int predIdx) {
   unsigned int extent;
   stageOffset[predIdx] = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
@@ -104,7 +104,7 @@ void SamplePred::setStageBounds(const RankedFrame* rankedFrame,
 }
 
 
-void SamplePred::stage(const vector<SampleNux> &sampleNode,
+void ObsPart::stage(const vector<SampleNux> &sampleNode,
 		       const RowRank &rowRank,
                        const Sample* sample,
                        unsigned int &expl,
@@ -119,12 +119,13 @@ void SamplePred::stage(const vector<SampleNux> &sampleNode,
 }
 
 
-double SamplePred::blockReplay(const SplitNux& argMax,
-                               const IndexRange& range,
-                               BV* replayExpl,
-                               vector<SumCount> &ctgExpl) {
+double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
+                            const IndexSet* iSet,
+                            const IndexRange& range,
+                            BV* replayExpl,
+                            vector<SumCount> &ctgExpl) {
   IndexType* idx;
-  SampleRank* spn = buffers(argMax.getPredIdx(), argMax.getBufIdx(), idx);
+  SampleRank* spn = buffers(splitFrontier, iSet, idx);
   double sumExpl = 0.0;
   for (IndexType spIdx = range.getStart(); spIdx < range.getEnd(); spIdx++) {
     sumExpl += spn[spIdx].accum(ctgExpl);
@@ -135,7 +136,14 @@ double SamplePred::blockReplay(const SplitNux& argMax,
 }
 
 
-void SamplePred::prepath(const IdxPath *idxPath,
+SampleRank* ObsPart::buffers(const SplitFrontier* splitFrontier,
+                             const IndexSet* iSet,
+                             IndexType*& sIdx) {
+  return buffers(splitFrontier->getPredIdx(iSet), splitFrontier->getBufIdx(iSet), sIdx);
+}
+
+
+void ObsPart::prepath(const IdxPath *idxPath,
                          const unsigned int reachBase[],
                          unsigned int predIdx,
                          unsigned int bufIdx,
@@ -146,7 +154,7 @@ void SamplePred::prepath(const IdxPath *idxPath,
   prepath(idxPath, reachBase, idxUpdate, idxRange, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
 }
 
-void SamplePred::prepath(const IdxPath *idxPath,
+void ObsPart::prepath(const IdxPath *idxPath,
                          const unsigned int *reachBase,
                          bool idxUpdate,
                          const IndexRange& idxRange,
@@ -164,7 +172,7 @@ void SamplePred::prepath(const IdxPath *idxPath,
 }
 
 
-void SamplePred::restage(Level *levelBack,
+void ObsPart::restage(Level *levelBack,
                          Level *levelFront,
                          const SplitCoord &mrra,
                          unsigned int bufIdx) {
@@ -172,7 +180,7 @@ void SamplePred::restage(Level *levelBack,
 }
 
 
-void SamplePred::rankRestage(unsigned int predIdx,
+void ObsPart::rankRestage(unsigned int predIdx,
                              unsigned int bufIdx,
                              const IndexRange& idxRange,
                              unsigned int reachOffset[],
@@ -198,7 +206,7 @@ void SamplePred::rankRestage(unsigned int predIdx,
 }
 
 
-void SamplePred::indexRestage(const IdxPath *idxPath,
+void ObsPart::indexRestage(const IdxPath *idxPath,
                               const unsigned int reachBase[],
                               unsigned int predIdx,
                               unsigned int bufIdx,

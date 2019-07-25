@@ -20,7 +20,7 @@
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
-#include "samplepred.h"
+#include "obspart.h"
 
 SplitCand::SplitCand(const SplitFrontier* splitNode,
                      const Frontier* index,
@@ -66,7 +66,7 @@ void SplitCand::initLate(const Level* levelFront,
    @brief  Regression splitting based on type:  numeric or factor.
  */
 void SplitCand::split(const SFReg *spReg,
-                      const SamplePred *samplePred) {
+                      const ObsPart *samplePred) {
   if (spReg->isFactor(splitCoord)) {
     splitFac(spReg, samplePred->PredBase(splitCoord, bufIdx));
   }
@@ -80,7 +80,7 @@ void SplitCand::split(const SFReg *spReg,
    @brief Categorical splitting based on type:  numeric or factor.
  */
 void SplitCand::split(SFCtg *spCtg,
-                      const SamplePred *samplePred) {
+                      const ObsPart *samplePred) {
   if (spCtg->isFactor(splitCoord)) {
     splitFac(spCtg, samplePred->PredBase(splitCoord, bufIdx));
   }
