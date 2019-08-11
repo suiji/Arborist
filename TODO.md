@@ -1,5 +1,5 @@
 	Incorporate Pyborist build within Travis script.
-	ArboristCu:  regression.
+	ArboristG:  regression.
 	Employ integer division in the absence of class weighting (classification).
 	Support for combining trained forests.
 	Out-of-memory "streaming".
