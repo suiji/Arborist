@@ -29,7 +29,7 @@ Installation of Release Version:
 
 Installation of Development Version:
 
-    > ./ArboristBridgeR/Package/Rborist.CRAN.sh
+    > ./Rborist/Package/Rborist.CRAN.sh
     > R CMD INSTALL Rborist_*.*-*.tar.gz
 
 
