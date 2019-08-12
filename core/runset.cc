@@ -135,24 +135,21 @@ bool Run::branch(const SplitFrontier* splitFrontier,
 bool RunSet::branch(IndexSet* iSet,
                     PreTree* preTree,
                     Frontier* frontier) const {
-  if (implicitLeft()) {// LH holds bits, RH holds replay indices.
-    for (unsigned int outSlot = 0; outSlot < getRunCount(); outSlot++) {
-      if (outSlot < getRunsLH()) {
-        preTree->setBit(iSet, getRank(outSlot));
-      }
-      else {
-        iSet->blockReplay(frontier, bounds(outSlot));
-      }
-    }
-    return false;
-  }
-  else { // LH runs hold both bits and replay indices.
-    for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
-      preTree->setBit(iSet, getRank(outSlot));
+  bool replayLeft = !implicitLeft(); // true iff left-explicit replay indices.
+  for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
+    preTree->setBit(iSet, getRank(outSlot));
+    if (replayLeft) {
       iSet->blockReplay(frontier, bounds(outSlot));
     }
-    return true;
   }
+
+  if (!replayLeft) { // Replay indices explicit on right.
+    for (auto outSlot = getRunsLH(); outSlot < getRunCount(); outSlot++) {
+      iSet->blockReplay(frontier, bounds(outSlot));
+    }
+  }
+
+  return replayLeft;
 }
 
 

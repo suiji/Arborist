@@ -123,7 +123,7 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
                             const IndexSet* iSet,
                             const IndexRange& range,
                             BV* replayExpl,
-                            vector<SumCount> &ctgExpl) {
+                            vector<SumCount>& ctgExpl) {
   IndexType* idx;
   SampleRank* spn = buffers(splitFrontier, iSet, idx);
   double sumExpl = 0.0;

@@ -311,10 +311,10 @@ void IndexSet::reindex(const BV* replayExpl,
 }
 
 
-void IndexSet::nontermReindex(const BV *replayExpl,
-                              Frontier *index,
+void IndexSet::nontermReindex(const BV* replayExpl,
+                              Frontier* index,
                               IndexType idxLive,
-                              vector<IndexType> &succST) {
+                              vector<IndexType>&succST) {
   IndexType baseExpl = offExpl;
   IndexType baseImpl = offImpl;
   for (IndexType relIdx = relBase; relIdx < relBase + extent; relIdx++) {
