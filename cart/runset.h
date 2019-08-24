@@ -14,12 +14,13 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_RUNSET_H
-#define CORE_RUNSET_H
+#ifndef CART_RUNSET_H
+#define CART_RUNSET_H
 
 #include <vector>
 
 #include "typeparam.h"
+#include "sumcount.h"
 
 /**
    FRNodes hold field values accumulated from runs of factors having the
@@ -32,12 +33,13 @@
 class FRNode {
  public:
   unsigned int rank; // Same 0-based value as internal code.
-  unsigned int start; // Buffer position of start of factor run.
-  unsigned int extent; // Total indices subsumed.
-  unsigned int sCount; // Sample count of factor run:  need not equal length.
+  IndexT sCount; // Sample count of factor run:  need not equal length.
   double sum; // Sum of responses associated with run.
+  IndexRange range;
 
-  FRNode() : start(0), extent(0), sCount(0), sum(0.0) {}
+  FRNode() : sCount(0), sum(0.0) {
+    range.set(0, 0);
+  }
 
   bool isImplicit();
 
@@ -45,16 +47,15 @@ class FRNode {
   /**
      @brief Initializer.
    */
-  inline void init(unsigned int rank_,
-                   unsigned int sCount_,
-                   double sum_,
-                   unsigned int start_,
-                   unsigned int extent_) {
-    rank = rank_;
-    sCount = sCount_;
-    sum = sum_;
-    start = start_;
-    extent = extent_;
+  inline void init(unsigned int rank,
+                   IndexT sCount,
+                   double sum,
+                   IndexT start,
+                   IndexT extent) {
+    this->rank = rank;
+    this->sCount = sCount;
+    this->sum = sum;
+    this->range.set(start, extent);
   }
 
   
@@ -65,8 +66,6 @@ class FRNode {
      @return range of indices subsumed by run.
    */
   inline IndexRange getRange() const {
-    IndexRange range;
-    range.set(start, extent);
     return range;
   }
 
@@ -74,8 +73,8 @@ class FRNode {
   /**
      @brief Accumulates run contents into caller.
    */
-  inline void accum(unsigned int &sCount,
-                    double &sum) const {
+  inline void accum(IndexT& sCount,
+                    double& sum) const {
     sCount += this->sCount;
     sum += this->sum;
   }
@@ -154,7 +153,7 @@ class RunSet {
 
  public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
-  static unsigned int noStart; // Inattainable index.
+  static IndexT noStart; // Inattainable index.
   unsigned int safeRunCount;
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
@@ -253,11 +252,18 @@ class RunSet {
 
      @param index is the index set environment for the current level.
 
-     @return true iff left-bound split contains implicit runs.
+     @param[out] replayLeft outputs true iff split LHS contains implicit runs.
+
+     @return sum of replayed response.
    */
-  bool branch(class IndexSet* iSet,
-              class PreTree* preTree,
-              class Frontier* frontier) const;
+  double branch(class IndexSet* iSet,
+                class PreTree* preTree,
+                const class SplitFrontier* splitFrontier,
+                class BV* bvLeft,
+                class BV* bvRight,
+                vector<SumCount>& ctgCrit,
+                bool& replayLeft) const;
+
 
   /**
      @brief Subtracts a run's per-category responses from the current run.
@@ -310,7 +316,7 @@ class RunSet {
 
      @param sum[in, out] accumulates the sum using the output position.
    */
-  inline void sumAccum(unsigned int outPos, unsigned int& sCount, double& sum) {
+  inline void sumAccum(unsigned int outPos, IndexT& sCount, double& sum) {
     unsigned int slot = outZero[outPos];
     runZero[slot].accum(sCount, sum);
   }
@@ -319,10 +325,10 @@ class RunSet {
      @brief Sets run parameters and increments run count.
    */
   inline void write(unsigned int rank,
-                    unsigned int sCount,
+                    IndexT sCount,
                     double sum,
-                    unsigned int extent,
-                    unsigned int start = noStart) {
+                    IndexT extent,
+                    IndexT start = noStart) {
     runZero[runCount++].init(rank, sCount, sum, start, extent);
     hasImplicit = (start == noStart);
   }
@@ -368,7 +374,7 @@ class RunSet {
     double cell1 = getSumCtg(slot, 2, 1);
     sum1 += cell1;
 
-    unsigned int sCount = runZero[slot].sCount;
+    IndexT sCount = runZero[slot].sCount;
     unsigned int slotNext = outZero[outPos+1];
     // Cannot test for floating point equality.  If sCount values are unequal,
     // then assumes the two slots are significantly different.  If identical,
@@ -386,14 +392,14 @@ class RunSet {
 
     @param pos is the position to dereference in the rank vector.
 
-    @param count outputs the sample count.
+    @param sCount outputs the sample count.
 
     @return total index count subsumed, with reference accumulator.
   */
-  inline unsigned int lHCounts(unsigned int slot, unsigned int &sCount) const {
+  inline IndexT lHCounts(unsigned int slot, IndexT& sCount) const {
     FRNode *fRun = &runZero[slot];
     sCount = fRun->sCount;
-    return  fRun->extent;
+    return  fRun->range.getExtent();
   }
 
 
@@ -433,7 +439,7 @@ class RunSet {
 
      @return index range associated with run.
   */
-  IndexRange bounds(unsigned int outSlot) const;
+  IndexRange getBounds(unsigned int outSlot) const;
 };
 
 
@@ -508,13 +514,19 @@ public:
 
      @param index is the index set environment for the current level.
 
-     @return true iff left-bound split contains implicit runs.
-   */
-  bool branch(const class SplitFrontier* splitFrontier,
-              class IndexSet* iSet,
-              class PreTree* preTree,
-              class Frontier* frontier) const;
+     @param[out] replay left outputs true iff split LHS contains implicit runs.
 
+     @return sum of replayed response.
+   */
+  double branch(const class SplitFrontier* splitFrontier,
+                class IndexSet* iSet,
+                class PreTree* preTree,
+                class BV* bvLeft,
+                class BV* bvRight,
+                vector<SumCount>& ctgCrit,
+                bool& replayLeft) const;
+
+  
   /**
      @brief Accessor for RunSet at specified index.
    */

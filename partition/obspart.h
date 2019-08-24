@@ -47,8 +47,8 @@ class ObsPart {
 
   // Predictor-based sample orderings, double-buffered by level value.
   //
-  const IndexType bagCount;
-  const IndexType bufferSize; // <= nRow * nPred.
+  const IndexT bagCount;
+  const IndexT bufferSize; // <= nRow * nPred.
 
   vector<PathT> pathIdx;
   vector<unsigned int> stageOffset;
@@ -61,7 +61,7 @@ class ObsPart {
   // significantly, it reduces memory traffic incurred by transposition on the
   // coprocessor.
   //
-  IndexType* indexBase; // RV index for this row.  Used by CTG as well as on replay.
+  IndexT* indexBase; // RV index for this row.  Used by CTG as well as on replay.
 
  protected:
   unsigned int *destRestage; // Coprocessor restaging.
@@ -69,7 +69,7 @@ class ObsPart {
 
   
  public:
-  ObsPart(const class SummaryFrame* frame, IndexType bagCount_);
+  ObsPart(const class SummaryFrame* frame, IndexT bagCount_);
   virtual ~ObsPart();
 
 
@@ -140,10 +140,13 @@ class ObsPart {
    @return sum of explicit responses within the block.
   */
   double blockReplay(const class SplitFrontier* splitFrontier,
-                     const class IndexSet* iSet,
+                     class IndexSet* iSet,
                      const IndexRange& range,
+                     bool leftExpl,
                      class BV *replayExpl,
-                     vector<class SumCount> &ctgExpl);
+                     class BV* replayLeft,
+                     vector<SumCount>& ctgCrit);
+
 
   
   /**
@@ -222,7 +225,7 @@ class ObsPart {
 
   void indexRestage(const class IdxPath *idxPath,
                     const unsigned int reachBase[],
-                    unsigned int predIdx,
+                    const SplitCoord& mrra,
                     unsigned int bufIdx,
                     const IndexRange& idxRange,
                     unsigned int pathMask,
@@ -231,7 +234,7 @@ class ObsPart {
                     unsigned int splitOffset[]);
 
 
-  inline IndexType getBagCount() const {
+  inline IndexT getBagCount() const {
     return bagCount;
   }
 
@@ -257,7 +260,7 @@ class ObsPart {
 
      @return workspace starting position for this level.
    */
-  inline IndexType buffOffset(unsigned int bufferBit) const {
+  inline IndexT buffOffset(unsigned int bufferBit) const {
     return (bufferBit & 1) == 0 ? 0 : bufferSize;
   }
 
@@ -269,7 +272,7 @@ class ObsPart {
 
      @return starting position within workspace.
    */
-  inline IndexType bufferOff(unsigned int predIdx, unsigned int bufBit) const {
+  inline IndexT bufferOff(unsigned int predIdx, unsigned int bufBit) const {
     return stageOffset[predIdx] + buffOffset(bufBit);
   }
 
@@ -277,7 +280,7 @@ class ObsPart {
   /**
      @return base of the index buffer.
    */
-  inline IndexType *bufferIndex(unsigned int predIdx, unsigned int bufBit) const {
+  inline IndexT *bufferIndex(unsigned int predIdx, unsigned int bufBit) const {
     return indexBase + bufferOff(predIdx, bufBit);
   }
 
@@ -292,10 +295,18 @@ class ObsPart {
   
   /**
    */
-  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, IndexType*& sIdx) const {
-    IndexType offset = bufferOff(predIdx, bufBit);
+  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, IndexT*& sIdx) const {
+    IndexT offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
     return nodeVec + offset;
+  }
+
+
+  
+
+  inline IndexT* indexBuffer(unsigned int predIdx, unsigned int bufBit) const {
+    IndexT offset = bufferOff(predIdx, bufBit);
+    return indexBase + offset;
   }
 
 
@@ -304,9 +315,18 @@ class ObsPart {
    */
   SampleRank* buffers(const class SplitFrontier* splitFrontier,
                       const class IndexSet* iSet,
-                      IndexType*& sIdx);
-  
+                      IndexT*& sIdx);
 
+
+  /**
+     @brief As above, but outputs only the index base.
+
+     @return index base associated with the tree node.
+   */
+  IndexT* indexBuffer(const class SplitFrontier* splitFrontier,
+                         const class IndexSet* iSet);
+
+  
   /**
      @brief Allows lightweight lookup of predictor's SampleRank vector.
 
@@ -340,10 +360,10 @@ class ObsPart {
  */
   inline void buffers(int predIdx,
                       unsigned int bufBit,
-                      SampleRank *&source,
-                      IndexType*& sIdxSource,
-                      SampleRank *&targ,
-                      IndexType*& sIdxTarg) {
+                      SampleRank*& source,
+                      IndexT*& sIdxSource,
+                      SampleRank*& targ,
+                      IndexT*& sIdxTarg) {
     source = buffers(predIdx, bufBit, sIdxSource);
     targ = buffers(predIdx, 1 - bufBit, sIdxTarg);
   }
@@ -351,8 +371,8 @@ class ObsPart {
   // To coprocessor subclass:
   inline void indexBuffers(unsigned int predIdx,
                            unsigned int bufBit,
-                           IndexType*& sIdxSource,
-                           IndexType*& sIdxTarg) {
+                           IndexT*& sIdxSource,
+                           IndexT*& sIdxTarg) {
     sIdxSource = indexBase + bufferOff(predIdx, bufBit);
     sIdxTarg = indexBase + bufferOff(predIdx, 1 - bufBit);
   }
@@ -399,8 +419,8 @@ class ObsPart {
      @return true iff entire staged set has single rank.  This might be
      a property of the training data or may arise from bagging. 
   */
-  bool singleton(unsigned int stageCount,
-                 unsigned int predIdx) const {
+  bool singleton(IndexT stageCount,
+                 PredictorT predIdx) const {
     return bagCount == stageCount ? singleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
   }
 };

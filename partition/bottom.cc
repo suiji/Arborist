@@ -18,12 +18,12 @@
 #include "bv.h"
 #include "frontier.h"
 #include "splitfrontier.h"
-#include "obspart.h"
 #include "sample.h"
 #include "summaryframe.h"
 #include "runset.h"
 #include "rankedframe.h"
 #include "path.h"
+#include "obspart.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -31,7 +31,7 @@
 
 
 Bottom::Bottom(const SummaryFrame* frame_,
-               unsigned int bagCount) :
+               IndexT bagCount) :
   frame(frame_),
   nPred(frame->getNPred()),
   nPredFac(frame->getNPredFac()),
@@ -45,13 +45,15 @@ Bottom::Bottom(const SummaryFrame* frame_,
 {
 
   level.push_front(make_unique<Level>(1, nPred, rankedFrame, bagCount, bagCount, false, this));
-  level[0]->initAncestor(0, 0, bagCount);
+  IndexRange bufRange;
+  bufRange.set(0, bagCount);
+  level[0]->initAncestor(0, bufRange);
   fill(levelDelta.begin(), levelDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
 }
 
 
-void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount) {
+void Bottom::rootDef(const vector<StageCount>& stageCount, IndexT bagCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
   const unsigned int splitIdx = 0; // Root split index.
   unsigned int predIdx = 0;
@@ -64,22 +66,21 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, unsigned int bagCount
 }
 
 
-void Bottom::scheduleSplits(ObsPart *samplePred,
-                            SplitFrontier* splitFrontier,
+void Bottom::scheduleSplits(SplitFrontier* splitFrontier,
                             Frontier *frontier) {
-  splitFrontier->init(frontier);
+  splitFrontier->init();
   unsigned int unflushTop = flushRear();
   level[0]->candidates(frontier, splitFrontier);
 
   backdate();
-  restage(samplePred);
+  restage(splitFrontier);
 
   // Reaching levels must persist through restaging ut allow path lookup.
   //
   for (unsigned int off = level.size() - 1; off > unflushTop; off--) {
     level.erase(level.end());
   }
-  splitFrontier->scheduleSplits(frontier, level[0].get());
+  splitFrontier->scheduleSplits(level[0].get());
 }
 
 
@@ -143,7 +144,7 @@ Bottom::~Bottom() {
 }
 
 
-void Bottom::restage(ObsPart *samplePred) {
+void Bottom::restage(const SplitFrontier* splitFrontier) {
   OMPBound nodeIdx;
   OMPBound idxTop = restageCoord.size();
   
@@ -151,7 +152,7 @@ void Bottom::restage(ObsPart *samplePred) {
   {
 #pragma omp for schedule(dynamic, 1)
     for (nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
-      restage(samplePred, restageCoord[nodeIdx]);
+      restage(splitFrontier, restageCoord[nodeIdx]);
     }
   }
 
@@ -159,10 +160,10 @@ void Bottom::restage(ObsPart *samplePred) {
 }
 
 
-void Bottom::restage(ObsPart *samplePred, RestageCoord &rsCoord) {
+void Bottom::restage(const SplitFrontier* splitFrontier, RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
   SplitCoord mrra = rsCoord.Ref(del, bufIdx);
-  samplePred->restage(level[del].get(), level[0].get(), mrra, bufIdx);
+  splitFrontier->restage(level[del].get(), level[0].get(), mrra, bufIdx);
 }
 
 
@@ -214,8 +215,7 @@ void Bottom::backdate() const {
   
 void Bottom::reachingPath(unsigned int splitIdx,
                           unsigned int parIdx,
-                          unsigned int start,
-                          unsigned int extent,
+                          const IndexRange& bufRange,
                           unsigned int relBase,
                           unsigned int path) {
   for (unsigned int backLevel = 0; backLevel < level.size() - 1; backLevel++) {
@@ -223,18 +223,18 @@ void Bottom::reachingPath(unsigned int splitIdx,
   }
 
   inherit(splitIdx, parIdx);
-  level[0]->initAncestor(splitIdx, start, extent);
+  level[0]->initAncestor(splitIdx, bufRange);
   
   // Places <splitIdx, start> pair at appropriate position in every
   // reaching path.
   //
   for (auto lv = level.begin() + 1; lv != level.end(); lv++) {
-    (*lv)->pathInit(this, splitIdx, path, start, extent, relBase);
+    (*lv)->pathInit(this, splitIdx, path, bufRange, relBase);
   }
 }
 
 
-void Bottom::setLive(unsigned int ndx,
+void Bottom::setLive(IndexT ndx,
                      unsigned int targIdx,
                      unsigned int stx,
                      unsigned int path,
@@ -248,13 +248,13 @@ void Bottom::setLive(unsigned int ndx,
 
 
 void Bottom::setExtinct(unsigned int nodeIdx,
-                        unsigned int stIdx) {
+                        IndexT stIdx) {
   level[0]->setExtinct(nodeIdx);
   setExtinct(stIdx);
 }
 
 
-void Bottom::setExtinct(unsigned int stIdx) {
+void Bottom::setExtinct(IndexT stIdx) {
   if (!level.back()->isNodeRel()) {
     stPath->setExtinct(stIdx);
   }

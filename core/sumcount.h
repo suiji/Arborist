@@ -16,6 +16,9 @@
 #ifndef CORE_SUMCOUNT_H
 #define CORE_SUMCOUNT_H
 
+#include <vector>
+using namespace std;
+
 /**
    @brief Row sum / count record for categorical indices.
  */
@@ -24,12 +27,25 @@ class SumCount {
   unsigned int sCount;
 
  public:
-  void init() {
-    sum = 0.0;
-    sCount = 0;
+
+  SumCount(double sum_,
+           unsigned int sCount_) : sum(sum_), sCount(sCount_) {
+  }
+
+  SumCount() : sum(0.0), sCount(0) {
   }
 
 
+  inline auto getSum() const {
+    return sum;
+  }
+
+
+  inline auto getSCount() const {
+    return sCount;
+  }
+
+  
   /**
      @brief Determines whether a node is splitable and accesses sum field.
 
@@ -44,28 +60,65 @@ class SumCount {
     return sCount != this->sCount;
   }
   
-
-  /**
-     @brief Accumulates running sum and sample-count values.
-
-     @param[in, out] _sum accumulates response sum over sampled indices.
-
-     @param[in, out] _sCount accumulates sample count.
-   */
-  inline void accum(double sum, unsigned int sCount) {
-    this->sum += sum;
-    this->sCount += sCount;
+  static SumCount minus(const SumCount& minuend,
+                 const SumCount& subtrahend) {
+    return SumCount(minuend.sum - subtrahend.sum, minuend.sCount - subtrahend.sCount);
   }
 
-
+  
   /**
      @brief Subtracts contents of vector passed.
 
      @param subtrahend is the value to subtract.
+
+     @return difference.
    */
-  void decr(const SumCount &subtrahend) {
+  SumCount& operator-=(const SumCount &subtrahend) {
     sum -= subtrahend.sum;
     sCount -= subtrahend.sCount;
+
+    return *this;
+  }
+
+
+  /**
+     @brief As above, with addition.
+
+     @return sum.
+   */
+  SumCount& operator+=(const SumCount& addend) {
+    sum += addend.sum;
+    sCount += addend.sCount;
+
+    return *this;
+  }
+
+
+  static void decr(vector<SumCount>& minuend,
+                   const vector<SumCount>& subtrahend) {
+    size_t idx = 0;
+    for (auto & sc : minuend) {
+      sc -= subtrahend[idx++];
+    }
+  }
+
+  static void incr(vector<SumCount>& sum,
+                   const vector<SumCount>& addend) {
+    size_t idx = 0;
+    for (auto & sc : sum) {
+      sc += addend[idx++];
+    }
+  }
+
+
+  static vector<SumCount> minus(const vector<SumCount>& minuend,
+                                const vector<SumCount>& subtrahend) {
+    vector<SumCount> difference(minuend.size());
+    for (size_t idx = 0; idx < difference.size(); idx++) {
+      difference[idx] = minus(minuend[idx], subtrahend[idx]);
+    }
+
+    return difference;
   }
 };
 

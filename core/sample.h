@@ -151,7 +151,7 @@ class Sample {
                                                class BV *treeBag);
   
 
-  virtual unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const = 0;
+  virtual unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame, class Frontier* frontier) const = 0;
 
   /**
      @brief Lights off static initializations needed for sampling.
@@ -291,7 +291,7 @@ class SampleReg : public Sample {
   ~SampleReg();
 
 
-  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const;
+  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame, class Frontier* frontier) const;
 
 
   /**
@@ -304,11 +304,8 @@ class SampleReg : public Sample {
   inline double addNode(double yVal,
                         unsigned int sCount,
                         unsigned int ctg) {
-    SampleNux sNode;
-    double ySum = sNode.init(yVal, sCount);
-    sampleNode.emplace_back(sNode);
-
-    return ySum;
+    sampleNode.emplace_back(yVal, sCount);
+    return sampleNode.back().getSum();
   }
   
 
@@ -332,7 +329,7 @@ class SampleCtg : public Sample {
   SampleCtg(const class SummaryFrame* frame);
   ~SampleCtg();
 
-  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame) const;
+  unique_ptr<class SplitFrontier> frontierFactory(const class SummaryFrame* frame, class Frontier* frontier) const;
 
   /**
      @brief Appends a sample summary record.
@@ -342,10 +339,9 @@ class SampleCtg : public Sample {
      @return sum of sampled response values.
    */
   inline double addNode(double yVal, unsigned int sCount, unsigned int ctg) {
-    SampleNux sNode;
-    double ySum = sNode.init(yVal, sCount, ctg);
-    sampleNode.emplace_back(sNode);
-    ctgRoot[ctg].accum(ySum, sCount);
+    sampleNode.emplace_back(yVal, sCount, ctg);
+    double ySum = sampleNode.back().getSum();
+    ctgRoot[ctg] += SumCount(ySum, sCount);
 
     return ySum;
   }

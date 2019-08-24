@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-
+#include "frontier.h"
 #include "splitnux.h"
 #include "splitcand.h"
 #include "summaryframe.h"
@@ -40,4 +40,9 @@ SplitNux::SplitNux(const SplitCand& cand, const SummaryFrame* frame) :
   rankRange(cand.getRankRange()),
   setIdx(cand.getSetIdx()),
   cardinality(frame->getCardinality(predIdx)) {
+}
+
+
+void SplitNux::consume(IndexSet* iSet) const {
+  iSet->consumeCriterion(minRatio * info, lhSCount, lhExtent);
 }

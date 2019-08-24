@@ -30,36 +30,49 @@ typedef float FltVal;
 typedef double FltAccum;
 
 
-// Index type:  rows, samples, ranks.
-typedef unsigned int IndexType;
+// Index type:  rows, samples, ranks, run counts.
+// Should be wide enough to accommodate values approaching # observations.
+typedef unsigned int IndexType; // EXIT
+typedef unsigned int IndexT; 
+
+// Predictor type:  columns, num runs, caridinalities.
+// Should accommodate values approaching # predictors or properties.
+typedef unsigned int PredictorT;
 
 // Low/extent pair definining range of indices.
 struct IndexRange {
-  IndexType idxLow;
-  IndexType idxExtent;
+  IndexT idxLow;
+  IndexT idxExtent;
 
-  void set(IndexType idxLow,
-           IndexType extent) {
+  void set(IndexT idxLow,
+           IndexT extent) {
     this->idxLow = idxLow;
     this->idxExtent = extent;
   }
 
 
-  void adjust(IndexType margin,
-              IndexType implicit) {
+  void adjust(IndexT margin,
+              IndexT implicit) {
     idxLow -= margin;
     idxExtent -= implicit;
   }
 
 
-  IndexType getStart() const {
+  IndexT getStart() const {
     return idxLow;
   }
   
+
+  
+  IndexT getExtent() const {
+    return idxExtent;
+  }
+
+
   /**
      @return end position.
    */
-  IndexType getEnd() const {
+  IndexT getEnd() const {
     return idxLow + idxExtent;
   }
 

@@ -61,8 +61,8 @@ class Bottom {
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
-  unsigned int splitPrev; // # nodes in previous level.
-  unsigned int splitCount; // # nodes in the level about to split.
+  IndexT splitPrev; // # nodes in previous level.
+  IndexT splitCount; // # nodes in the level about to split.
   const class RankedFrame *rankedFrame;
   const unsigned int noRank;
 
@@ -78,7 +78,7 @@ class Bottom {
   /**
      @brief General, multi-level restaging.
   */
-  void restage(class ObsPart *samplePred,
+  void restage(const class SplitFrontier* splitFrontier,
                RestageCoord &rsCoord);
 
   /**
@@ -150,8 +150,7 @@ class Bottom {
   /**
      @brief Entry to restaging and candidate scheduling.
   */
-  void scheduleSplits(class ObsPart *samplePred,
-                      class SplitFrontier* splitFrontier,
+  void scheduleSplits(class SplitFrontier* splitFrontier,
                       class Frontier *index);
 
   
@@ -188,11 +187,10 @@ class Bottom {
 
      @param path is a unique path identifier.
   */
-  void reachingPath(unsigned int levelIdx,
-                    unsigned int parIdx,
-                    unsigned int start,
-                    unsigned int extent,
-                    unsigned int relBase,
+  void reachingPath(IndexT levelIdx,
+                    IndexT parIdx,
+                    const IndexRange& bufRange,
+                    IndexT relBase,
                     unsigned int path);
   
   /**
@@ -209,7 +207,7 @@ class Bottom {
 
      @param samplePred contains the compressed observation set.
   */
-  void restage(class ObsPart *samplePred);
+  void restage(const class SplitFrontier* splitFrontier);
 
 
   /**
@@ -254,7 +252,7 @@ class Bottom {
 
      @param stIdx is the subtree-relatlive index.
   */
-  void setExtinct(unsigned int stIdx);
+  void setExtinct(IndexT stIdx);
 
 
   /**
@@ -265,7 +263,7 @@ class Bottom {
 
      @param stIdx is the subtree-relative index.
   */
-  void setExtinct(unsigned int nodeIdx, unsigned int stIdx);
+  void setExtinct(unsigned int nodeIdx, IndexT stIdx);
 
   
   /**

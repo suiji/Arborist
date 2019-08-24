@@ -70,12 +70,23 @@ public:
             unsigned int bufIdx_,
             unsigned int noSet);
 
-  
-  /**
-     @brief Getters.
-   */
   auto getInfo() const {
     return info;
+  }
+  
+  /**
+     @brief Resets trial information value of this greater.
+
+     @param[out] runningMax holds the running maximum value.
+
+     @return true iff value revised.
+   */
+  bool maxInfo(double& runningMax) const {
+    if (info > runningMax) {
+      runningMax = info;
+      return true;
+    }
+    return false;
   }
 
   auto getSplitCoord() const {

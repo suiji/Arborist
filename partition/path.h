@@ -30,9 +30,8 @@ class NodePath {
   // Maximal path length is also an inattainable path index.
   static constexpr unsigned int noPath = 1 << logPathMax;
 
-  unsigned int splitIdx; // < noIndex iff path extinct.
-  unsigned int idxStart; // Target offset for path.
-  unsigned int extent;
+  IndexType splitIdx; // < noIndex iff path extinct.
+  IndexRange bufRange; // buffer target range for path.
   unsigned int relBase; // Dense starting position.
  public:
 
@@ -71,52 +70,47 @@ class NodePath {
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void init(unsigned int _splitIdx,
-                   unsigned int _idxStart,
-                   unsigned int _extent,
-                   unsigned int _relBase) {
-    splitIdx = _splitIdx;
-    idxStart = _idxStart;
-    extent = _extent;
-    relBase = _relBase;
+  inline void init(IndexType splitIdx,
+                   const IndexRange& bufRange,
+                   unsigned int relBase) {
+    this->splitIdx = splitIdx;
+    this->bufRange = bufRange;
+    this->relBase = relBase;
   }
   
 
   /**
      @brief Multiple accessor for path coordinates.
    */
-  inline void getCoords(unsigned int &_splitIdx,
-                        unsigned int &_idxStart,
-                        unsigned int &_extent) const {
-    _splitIdx = splitIdx;
-    _idxStart = idxStart;
-    _extent = extent;
+  inline IndexType getCoords(IndexRange& idxRange) const {
+    idxRange = bufRange;
+    return splitIdx;
   }
 
   
-  inline unsigned int IdxStart() const {
-    return idxStart;
+  inline IndexType getIdxStart() const {
+    return bufRange.getStart();
   }
 
 
-  inline unsigned int Extent() const {
-    return extent;
+  inline IndexType getExtent() const {
+    return bufRange.getExtent();
   }
   
 
-  inline unsigned int RelBase() const {
+  inline unsigned int getRelBase() const {
     return relBase;
   }
 
 
-  inline unsigned int Idx() const {
+  inline IndexType getSplitIdx() const {
     return splitIdx;
   }
 };
 
 
 class IdxPath {
-  const unsigned int idxLive; // Inattainable index.
+  const IndexT idxLive; // Inattainable index.
   static constexpr unsigned int noPath = NodePath::pathMax();
   static constexpr unsigned int maskExtinct = noPath;
   static constexpr unsigned int maskLive = maskExtinct - 1;
@@ -131,13 +125,13 @@ class IdxPath {
 
      @param path is the reaching path.
    */
-  inline void set(unsigned int idx, unsigned int path = maskExtinct) {
+  inline void set(IndexT idx, unsigned int path = maskExtinct) {
     pathFront[idx] = path;
   }
 
   /**
    */
-  inline void set(unsigned int idx,
+  inline void set(IndexT idx,
                   unsigned int path,
                   unsigned int relThis,
                   unsigned int ndOff = 0) {
@@ -147,11 +141,11 @@ class IdxPath {
   }
 
 
-  inline PathT PathSucc(unsigned int idx,
+  inline PathT PathSucc(IndexT idx,
                         unsigned int pathMask,
-                        bool &isLive_) const {
-    isLive_ = isLive(idx);
-    return isLive_ ? pathFront[idx] & pathMask : noPath;
+                        bool& isLive) const {
+    isLive = this->isLive(idx);
+    return isLive ? pathFront[idx] & pathMask : noPath;
   }
   
   
@@ -165,7 +159,7 @@ class IdxPath {
 
      @return true iff path live.
    */
-  inline bool frontLive(unsigned int idx, unsigned int &front) const {
+  inline bool frontLive(IndexT idx, unsigned int &front) const {
     if (!isLive(idx)) {
       return false;
     }
@@ -186,7 +180,7 @@ class IdxPath {
      @return true iff contents copied.
    */
   inline bool copyLive(IdxPath *backRef,
-                       unsigned int idx,
+                       IndexT idx,
                        unsigned int backIdx) const {
     if (!isLive(idx)) {
       return false;
@@ -208,7 +202,7 @@ class IdxPath {
   
  public:
 
-  IdxPath(unsigned int _idxLive);
+  IdxPath(IndexT idxLive_);
 
   /**
      @brief When appropriate, introduces node-relative indexing at the
@@ -230,7 +224,7 @@ class IdxPath {
 
      @param doesReach indicates whether the path reaches an actual successor.
    */
-  inline void setSuccessor(unsigned int idx,
+  inline void setSuccessor(IndexT idx,
                            unsigned int pathSucc,
                            bool doesReach) {
     set(idx, doesReach ? pathSucc : noPath);
@@ -272,7 +266,7 @@ class IdxPath {
 
      @param targIdx is the revised index.
   */
-  inline void setLive(unsigned int idx,
+  inline void setLive(IndexT idx,
                       unsigned int path,
                       unsigned int targIdx,
                       unsigned int ndOff) {
@@ -286,7 +280,7 @@ class IdxPath {
 
      @param idx is the index in question.
    */
-  inline void setExtinct(unsigned int idx) {
+  inline void setExtinct(IndexT idx) {
     set(idx, maskExtinct, idxLive);
   }
 
@@ -298,7 +292,7 @@ class IdxPath {
 
      @return true iff reaching path is not extinct.
    */
-  inline bool isLive(unsigned idx) const {
+  inline bool isLive(IndexT idx) const {
     return (pathFront[idx] & maskExtinct) == 0;
   }
 
@@ -330,8 +324,8 @@ class IdxPath {
      @param one2Front maps first level's coordinates to front.
    */
   inline void backdate(const IdxPath *one2Front) {
-    for (unsigned int idx = 0; idx < idxLive; idx++) {
-      unsigned int oneIdx;
+    for (IndexT idx = 0; idx < idxLive; idx++) {
+      IndexT oneIdx;
       if (frontLive(idx, oneIdx)) {
         if (!one2Front->copyLive(this, oneIdx, idx)) {
 	  setExtinct(idx);

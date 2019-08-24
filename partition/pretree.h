@@ -52,7 +52,7 @@ class PreTree {
   /**
      @return BV-aligned length of used portion of split vector.
   */
-  IndexType getBitWidth();
+  IndexT getBitWidth();
 
 
   /**
@@ -89,7 +89,6 @@ class PreTree {
      @brief Dispatches nonterminal method according to split type.
    */
   void nonterminal(double info,
-                   class Frontier* frontier,
                    class IndexSet* iSet);
 
   
@@ -144,14 +143,14 @@ class PreTree {
 
 
   /**
-     @brief Sets specified bit in splitting bit vector.
+     @brief Sets specified bit in (left) splitting bit vector.
 
      @param iSet is the index node for which the LH bit is set.
 
      @param pos is the bit position beyond to set.
   */
-  void setBit(const class IndexSet* iSet,
-              IndexType pos);
+  void setLeft(const class IndexSet* iSet,
+               IndexT pos);
 
 
   /**
@@ -168,24 +167,24 @@ class PreTree {
   unsigned int LeafMerge();
 
   
-  inline IndexType getLHId(IndexType ptId) const {
+  inline IndexT getLHId(IndexT ptId) const {
     return nodeVec[ptId].getLHId(ptId);
   }
 
   
-  inline IndexType getRHId(IndexType ptId) const {
+  inline IndexT getRHId(IndexT ptId) const {
     return nodeVec[ptId].getRHId(ptId);
   }
 
 
-  inline IndexType getSuccId(IndexType ptId, bool isLeft) const {
+  inline IndexT getSuccId(IndexT ptId, bool isLeft) const {
     return isLeft ? nodeVec[ptId].getLHId(ptId) : nodeVec[ptId].getRHId(ptId);
   }
   
   /**
      @return true iff node is nonterminal.
    */
-  inline bool isNonTerminal(IndexType ptId) const {
+  inline bool isNonTerminal(IndexT ptId) const {
     return nodeVec[ptId].isNonTerminal();
   }
 
@@ -198,7 +197,7 @@ class PreTree {
 
        @return true iff node has two leaf children.
     */
-  inline bool isMergeable(IndexType ptId) const {
+  inline bool isMergeable(IndexT ptId) const {
     return !isNonTerminal(getLHId(ptId)) && !isNonTerminal(getRHId(ptId));
   }  
 

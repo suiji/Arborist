@@ -177,11 +177,11 @@ class DenseCoord {
  */
 class Level {
   const unsigned int nPred; // Predictor count.
-  const vector<unsigned int> &denseIdx; // Compressed mapping to dense offsets.
+  const vector<unsigned int>& denseIdx; // Compressed mapping to dense offsets.
   const unsigned int nPredDense; // # dense predictors.
-  const unsigned int nSplit; // # splitable nodes at level.
-  const unsigned int noIndex; // Inattainable node index value.
-  const unsigned int idxLive; // Total # sample indices at level.
+  const IndexType nSplit; // # splitable nodes at level.
+  const IndexType noIndex; // Inattainable node index value.
+  const IndexType idxLive; // Total # sample indices at level.
 
   unsigned int defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
@@ -220,7 +220,6 @@ class Level {
  */
   bool preschedule(class SplitFrontier *splitNode,
                    const SplitCoord& splitCoord,
-                   const class Frontier* index,
                    unsigned int &spanCand);
   
 public:
@@ -259,7 +258,6 @@ public:
   void candidateProb(class SplitFrontier *splitNode,
                      IndexType splitIdx,
                      const double ruPred[],
-                     const class Frontier* index,
                      IndexType &offCand);
 
   /**
@@ -277,19 +275,18 @@ public:
                       IndexType splitIdx,
                       const double ruPred[],
                       struct BHPair heap[],
-                      const class Frontier* index,
                       IndexType& offCand);
 
 
   void rankRestage(class ObsPart *samplePred,
-                   const SplitCoord &mrra,
+                   const SplitCoord& mrra,
                    Level *levelFront,
                    unsigned int bufIdx);
 
 
-  void indexRestage(class ObsPart *samplePred,
-                    const SplitCoord &mrra,
-                    const Level *levelFront,
+  void indexRestage(class ObsPart* obsPart,
+                    const SplitCoord& mrra,
+                    const Level* levelFront,
                     unsigned int bufIdx);
 
   /**
@@ -302,14 +299,14 @@ public:
      appears necessary for dense packing or for coprocessor loading.
   */
   void rankRestage(class ObsPart *samplePred,
-                   const SplitCoord &mrra,
+                   const SplitCoord& mrra,
                    Level *levelFront,
                    unsigned int bufIdx,
                    unsigned int reachOffset[], 
                    const unsigned int reachBase[] = nullptr);
 
   void indexRestage(class ObsPart *samplePred,
-                    const SplitCoord &mrra,
+                    const SplitCoord& mrra,
                     const Level *levelFront,
                     unsigned int bufIdx,
                     const unsigned int reachBase[],
@@ -349,8 +346,7 @@ public:
   void pathInit(const class Bottom *bottom,
                 unsigned int levelIdx,
                 unsigned int path,
-                unsigned int start,
-                unsigned int extent,
+                const IndexRange& bufRange,
                 unsigned int relBase);
 
   /**
@@ -374,7 +370,7 @@ public:
      @brief Looks up the ancestor cell built for the corresponding index
      node and adjusts start and extent values by corresponding dense parameters.
   */
-  IndexRange getRange(const SplitCoord &mrra);
+  IndexRange getRange(const SplitCoord& mrra);
 
   void frontDef(const SplitCoord& splitCoord,
                 unsigned int bufIdx,
@@ -391,11 +387,11 @@ public:
 
      @return path origin at the index passed.
   */
-  void offsetClone(const SplitCoord &mrra,
+  void offsetClone(const SplitCoord& mrra,
                    unsigned int reachOffset[],
                    unsigned int reachBase[] = nullptr);
 
-  void offsetClone(const SplitCoord &mrra,
+  void offsetClone(const SplitCoord& mrra,
                    unsigned int reachOffset[],
                    unsigned int splitOffset[],
                    unsigned int reachBase[]);
@@ -405,7 +401,7 @@ public:
    unity.
  */
   void setRunCounts(class Bottom *bottom,
-                    const SplitCoord &mrra,
+                    const SplitCoord& mrra,
                     const unsigned int pathCount[],
                     const unsigned int rankCount[]) const;
 
@@ -419,10 +415,10 @@ public:
 
    @param[out] reachOffset outputs the dense starting offsets.
  */
-  void packDense(unsigned int idxLeft,
+  void packDense(IndexType idxLeft,
                  const unsigned int pathCount[],
                  Level *levelFront,
-                 const SplitCoord &mrra,
+                 const SplitCoord& mrra,
                  unsigned int reachOffset[]) const;
 
   void setExtinct(unsigned int idx);
@@ -601,7 +597,7 @@ public:
      @param[out] bufIdx is the buffer index for the cell.
    */
   inline bool isSingleton(const SplitCoord& splitCoord,
-                          unsigned int &bufIdx) const {
+                          unsigned int& bufIdx) const {
     return def[splitCoord.strideOffset(nPred)].isSingleton(bufIdx);
   }
 
@@ -655,9 +651,8 @@ public:
      @brief Establishes front-level IndexSet as future ancestor.
   */
   void initAncestor(unsigned int splitIdx,
-                unsigned int start,
-                unsigned int extent) {
-    indexAnc[splitIdx].set(start, extent);
+                    const IndexRange& bufRange) {
+    indexAnc[splitIdx].set(bufRange.getStart(), bufRange.getExtent());
   }
 
 

@@ -20,7 +20,7 @@
 #include "pretree.h"
 #include "frontier.h"
 
-unsigned int RunSet::noStart = 0;
+IndexT RunSet::noStart = 0;
 
 
 Run::Run(unsigned int ctgWidth_,
@@ -124,32 +124,41 @@ void Run::reBase() {
   }
 }
 
-bool Run::branch(const SplitFrontier* splitFrontier,
-                 IndexSet* iSet,
-                 PreTree* preTree,
-                 Frontier* frontier) const {
-  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, frontier);
+
+double Run::branch(const SplitFrontier* splitFrontier,
+                   IndexSet* iSet,
+                   PreTree* preTree,
+                   BV* bvLeft,
+                   BV* bvRight,
+                   vector<SumCount>& ctgCrit,
+                   bool& replayLeft) const {
+  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, splitFrontier, bvLeft, bvRight, ctgCrit, replayLeft);
 }
 
 
-bool RunSet::branch(IndexSet* iSet,
-                    PreTree* preTree,
-                    Frontier* frontier) const {
-  bool replayLeft = !implicitLeft(); // true iff left-explicit replay indices.
+double RunSet::branch(IndexSet* iSet,
+                      PreTree* preTree,
+                      const SplitFrontier* splitFrontier,
+                      BV* replayExpl,
+                      BV* replayLeft,
+                      vector<SumCount>& ctgCrit,
+                      bool& leftExpl) const {
+  double sumExpl = 0.0;
+  leftExpl = !implicitLeft(); // true iff left-explicit replay indices.
   for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
-    preTree->setBit(iSet, getRank(outSlot));
-    if (replayLeft) {
-      iSet->blockReplay(frontier, bounds(outSlot));
+    preTree->setLeft(iSet, getRank(outSlot));
+    if (leftExpl) {
+      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), true, replayExpl, replayLeft, ctgCrit);
     }
   }
 
-  if (!replayLeft) { // Replay indices explicit on right.
+  if (!leftExpl) { // Replay indices explicit on right.
     for (auto outSlot = getRunsLH(); outSlot < getRunCount(); outSlot++) {
-      iSet->blockReplay(frontier, bounds(outSlot));
+      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), false, replayExpl, replayLeft, ctgCrit);
     }
   }
 
-  return replayLeft;
+  return sumExpl;
 }
 
 
@@ -217,11 +226,11 @@ void RunSet::heapBinary() {
 
 
 void RunSet::writeImplicit(const SplitCand* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
-  unsigned int implicit = cand->getImplicit();
+  IndexT implicit = cand->getImplicit();
   if (implicit == 0)
     return;
 
-  unsigned int sCount = cand->getSCount();
+  IndexT sCount = cand->getSCount();
   double sum = cand->getSum();
   setSumCtg(ctgSum);
 
@@ -255,7 +264,7 @@ void RunSet::residCtg(unsigned int nCtg, unsigned int runIdx) {
    @return Whether this run is dense.
  */
 bool FRNode::isImplicit() {
-  return start == RunSet::noStart;
+  return range.getStart() == RunSet::noStart;
 }
 
 
@@ -418,7 +427,7 @@ unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
 }
 
 
-IndexRange RunSet::bounds(unsigned int outSlot) const {
+IndexRange RunSet::getBounds(unsigned int outSlot) const {
   unsigned int slot = outZero[outSlot];
   return runZero[slot].getRange();
 }

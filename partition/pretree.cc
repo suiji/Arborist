@@ -98,12 +98,12 @@ PreTree::~PreTree() {
 }
 
 
-void PreTree::setBit(const IndexSet* iSet, IndexType pos) {
+void PreTree::setLeft(const IndexSet* iSet, IndexT pos) {
   splitBits->setBit(pos + nodeVec[iSet->getPTId()].getBitOffset(splitCrit));
 }
 
 
-IndexType PTNode::getBitOffset(const vector<SplitCrit>& splitCrit) const {
+IndexT PTNode::getBitOffset(const vector<SplitCrit>& splitCrit) const {
   return splitCrit[critOffset].getBitOffset();
 }
     
@@ -114,16 +114,9 @@ void PreTree::reserve(size_t height) {
 }
 
 
-void PreTree::nonterminal(double info, Frontier* frontier, IndexSet* iSet) {
-  nodeVec[iSet->getPTId()].nonterminal(info, iSet, height, splitCrit.size());
+void PreTree::nonterminal(double info, IndexSet* iSet) {
+  nodeVec[iSet->getPTId()].nonterminal(info, height - iSet->getPTId(), splitCrit.size());
   terminalOffspring();
-}
-
-
-void PTNode::nonterminal(double info, const IndexSet* iSet, IndexType height, IndexType critOffset) {
-  this->info = info;
-  this->lhDel = height - iSet->getPTId();
-  this->critOffset = critOffset;
 }
 
 
@@ -141,7 +134,7 @@ void PreTree::critCut(const IndexSet* iSet, unsigned int predIdx, const IndexRan
 }
 
 
-const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tIdx, vector<double> &predInfo) {
+const vector<unsigned int> PreTree::consume(ForestTrain* forest, unsigned int tIdx, vector<double>& predInfo) {
   height = LeafMerge();
   forest->treeInit(tIdx, height);
   consumeNonterminal(forest, predInfo);
@@ -153,13 +146,13 @@ const vector<unsigned int> PreTree::consume(ForestTrain *forest, unsigned int tI
 
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
-  for (unsigned int idx = 0; idx < height; idx++) {
+  for (IndexT idx = 0; idx < height; idx++) {
     nodeVec[idx].consumeNonterminal(forest, predInfo, idx, splitCrit);
   }
 }
 
 
-void PTNode::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo, unsigned int idx, const vector<SplitCrit> &splitCrit) const {
+void PTNode::consumeNonterminal(ForestTrain* forest, vector<double>& predInfo, unsigned int idx, const vector<SplitCrit>& splitCrit) const {
   if (isNonTerminal()) {
     SplitCrit crit(splitCrit[critOffset]);
     forest->nonTerminal(idx, lhDel, crit);
@@ -168,14 +161,14 @@ void PTNode::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo, u
 }
 
 
-void PreTree::subtreeFrontier(const vector<unsigned int> &stTerm) {
+void PreTree::subtreeFrontier(const vector<unsigned int>& stTerm) {
   for (auto & stIdx : stTerm) {
     termST.push_back(stIdx);
   }
 }
 
 
-const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest) const {
+const vector<unsigned int> PreTree::frontierConsume(ForestTrain* forest) const {
   vector<unsigned int> frontierMap(termST.size());
   vector<unsigned int> pt2Leaf(height);
   fill(pt2Leaf.begin(), pt2Leaf.end(), height); // Inattainable leaf index.
@@ -195,7 +188,7 @@ const vector<unsigned int> PreTree::frontierConsume(ForestTrain *forest) const {
 
 
 unsigned int PreTree::getBitWidth() {
-  return BV::SlotAlign(bitEnd);
+  return BV::slotAlign(bitEnd);
 }
 
 

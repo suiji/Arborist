@@ -77,7 +77,7 @@ public:
 
 
   /**
-     @brief Sets frontier node parameters associated with nonterminal.
+     @brief Consumes frontier node parameters associated with nonterminal.
 
      @param[out] minInfo outputs the information threshold for splitting.
 
@@ -85,13 +85,7 @@ public:
 
      @param[out] lhExtent outputs the number of indices in LHS.
   */
-  void nonterminal(double& minInfo,
-                   IndexType& lhSCount,
-                   IndexType& lhExtent) const {
-    minInfo = minRatio * info; // Splitting threshold for succesors.
-    lhSCount = this->lhSCount;
-    lhExtent = this->lhExtent;
-  }
+  void consume(IndexSet* iSet) const;
 
 
   /**

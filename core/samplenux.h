@@ -74,15 +74,15 @@ class SampleNux {
      @param sampleCount (>0) is the number of times value sampled.
 
      @param ctg is the response category, if classification.
+  */ 
+  SampleNux(FltVal yVal,
+            unsigned int sampleCount,
+            unsigned int ctg = 0) :
+    sCount((sampleCount << ctgShift) | ctg),
+    ySum(yVal * sampleCount) {
+  }
 
-     @param return sum of sampled values.
-   */
-  inline double init(FltVal yVal,
-                     unsigned int sampleCount,
-                     unsigned int ctg = 0) {
-    ySum = yVal * sampleCount;
-    sCount = (sampleCount << ctgShift) | ctg; 
-    return ySum;
+  SampleNux() {
   }
 
 

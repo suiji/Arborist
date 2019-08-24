@@ -65,10 +65,14 @@ class PTNode {
 
      @param critOffset is the begining criterion offset.
    */
-  void nonterminal(double info,
-                   const class IndexSet* iSet,
-                   IndexType lhDel,
-                   IndexType critOffset);
+  inline void nonterminal(double info,
+                          IndexType lhDel,
+                          IndexType critOffset) {
+    this->info = info;
+    this->lhDel = lhDel;
+    this->critOffset = critOffset;
+  }
+  
 
   /**
      @brief Resets to default terminal status.

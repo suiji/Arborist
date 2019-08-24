@@ -18,18 +18,16 @@
 
 /**
  */
-BV::BV(size_t len, bool slotWise) : nSlot(slotWise ? len : SlotAlign(len)), raw(new unsigned int[nSlot]), wrapper(false) {
-  for (unsigned int i = 0; i < nSlot; i++) {
-    raw[i] = 0;
-  }
+BV::BV(size_t len, bool slotWise) : nSlot(slotWise ? len : slotAlign(len)), raw(new RawType[nSlot]), wrapper(false) {
+  clear();
 }
 
 
 /**
    @brief Copies contents of constant vector.
  */
-BV::BV(const vector<unsigned int> &raw_) : nSlot(raw_.size()), raw(new unsigned int[nSlot]), wrapper(false) {
-  for (unsigned int i = 0; i < nSlot; i++) {
+BV::BV(const vector<RawType> &raw_) : nSlot(raw_.size()), raw(new RawType[nSlot]), wrapper(false) {
+  for (size_t i = 0; i < nSlot; i++) {
     raw[i] = raw_[i];
   }
 }
@@ -38,9 +36,9 @@ BV::BV(const vector<unsigned int> &raw_) : nSlot(raw_.size()), raw(new unsigned 
 /**
    @brief Wrapper constructor.  Initializes external container if empty.
  */
-BV::BV(vector<unsigned int> &raw_, unsigned int _nSlot) : nSlot(_nSlot), wrapper(true) {
+BV::BV(vector<RawType>& raw_, size_t _nSlot) : nSlot(_nSlot), wrapper(true) {
   if (raw_.size() == 0) {
-    for (unsigned int slot = 0; slot < nSlot; slot++) {
+    for (size_t slot = 0; slot < nSlot; slot++) {
       raw_.push_back(0);
     }
   }
@@ -48,7 +46,7 @@ BV::BV(vector<unsigned int> &raw_, unsigned int _nSlot) : nSlot(_nSlot), wrapper
 }
 
 
-BV::BV(unsigned int raw_[], size_t nSlot_) : nSlot(nSlot_), raw(raw_), wrapper(true) {
+BV::BV(RawType raw_[], size_t nSlot_) : nSlot(nSlot_), raw(raw_), wrapper(true) {
 }
 
 
@@ -68,16 +66,16 @@ BV::~BV() {
  @return resized vector or this.
 */
 BV *BV::Resize(size_t bitMin) {
-  unsigned int slotMin = SlotAlign(bitMin);
+  size_t slotMin = slotAlign(bitMin);
   if (nSlot >= slotMin)
     return this;
 
-  unsigned int slotsNext = nSlot;
+  size_t slotsNext = nSlot;
   while (slotsNext < slotMin)
     slotsNext <<= 1;
   
   BV *bvNew = new BV(slotsNext, true);
-  for (unsigned int i = 0; i < nSlot; i++) {
+  for (size_t i = 0; i < nSlot; i++) {
     bvNew->raw[i] = raw[i];
   }
 
@@ -87,18 +85,18 @@ BV *BV::Resize(size_t bitMin) {
 }
 
 
-void BV::consume(vector<unsigned int> &out, unsigned int bitEnd) const {
-  unsigned int slots = bitEnd == 0 ? nSlot : SlotAlign(bitEnd);
+void BV::consume(vector<RawType> &out, unsigned int bitEnd) const {
+  size_t slots = bitEnd == 0 ? nSlot : slotAlign(bitEnd);
   out.reserve(slots);
   out.insert(out.end(), raw, raw + slots);
 }
 
 
-unsigned int BV::PopCount() const {
-  unsigned int pop = 0;
-  for (unsigned int i = 0; i < nSlot; i++) {
-    unsigned int val = raw[i];
-    for (unsigned int j = 0; j < 8 * sizeof(unsigned int); j++) {
+size_t BV::popCount() const {
+  size_t pop = 0;
+  for (size_t i = 0; i < nSlot; i++) {
+    RawType val = raw[i];
+    for (unsigned int j = 0; j < 8 * sizeof(RawType); j++) {
       pop += val & 1;
       val >>= 1;
     }

@@ -43,7 +43,7 @@ void SampleNux::deImmutables() {
 
 FltVal SampleRank::accum(vector<SumCount>& ctgExpl) const {
   if (!ctgExpl.empty()) {
-    ctgExpl[getCtg()].accum(ySum, getSCount());
+    ctgExpl[getCtg()] += SumCount(ySum, getSCount());
   }
   return ySum;
 }

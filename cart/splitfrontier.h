@@ -19,7 +19,35 @@
 
 #include "splitcoord.h"
 #include "typeparam.h"
+#include "sumcount.h"
+
 #include <vector>
+
+/**
+   @brief Enumerates split characteristics over a trained frontier.
+ */
+struct SplitSurvey {
+  IndexT leafCount; // Number of terminals in this level.
+  IndexT idxLive; // Extent of live buffer indices.
+  IndexT splitNext; // Number of splitable nodes in next level.
+  IndexT idxMax; // Maximum index.
+
+  SplitSurvey() :
+    leafCount(0),
+    idxLive(0),
+    splitNext(0),
+    idxMax(0){
+  }
+
+
+  /**
+     brief Imputes the number of leaves at the next level.
+   */
+  IndexT leafNext(IndexT splitCount) {
+    return 2 * (splitCount - leafCount) - splitNext;
+  }
+};
+
 
 /**
    @brief Per-predictor splitting facilities.
@@ -29,13 +57,16 @@
 //
 class SplitFrontier {
   vector<class SplitNux> nuxMax; // Rewritten following each splitting event.
-  void setPrebias(class Frontier *index);
+  void setPrebias();//class Frontier *index);
   
  protected:
   const class SummaryFrame* frame;
-  const class RankedFrame *rankedFrame;
-  const unsigned int noSet; // Unreachable setIdx for SplitCand.
-  unsigned int splitCount; // # subtree nodes at current level.
+  const class RankedFrame* rankedFrame;
+  class Frontier* frontier;
+  IndexT bagCount; 
+  const IndexT noSet; // Unreachable setIdx for SplitCand.
+  unique_ptr<class ObsPart> obsPart;
+  IndexT splitCount; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
   vector<class SplitCand> splitCand; // Schedule of splits.
 
@@ -48,25 +79,55 @@ class SplitFrontier {
   /**
      @brief Retrieves the type-relative index of a numerical predictor.
 
+     @param predIdx is the predictor index.
+
      @return placement-adjusted index.
    */
-  unsigned int getNumIdx(unsigned int predIdx) const;
+  PredictorT getNumIdx(PredictorT predIdx) const;
 
 
 public:
 
+  
   SplitFrontier(const class SummaryFrame *frame_,
-	    unsigned int bagCount);
+                class Frontier* frontier_,
+                const class Sample* sample);
 
-  void scheduleSplits(const class Frontier *index,
+
+  void scheduleSplits(//const class Frontier *index,
 		      const class Level *levelFront);
 
   /**
      @brief Emplaces new candidate with specified coordinates.
    */
-  IndexType preschedule(const Frontier* index,
-                        const SplitCoord& splitCoord,
-                        unsigned int bufIdx);
+  IndexT preschedule(//const Frontier* index,
+                     const SplitCoord& splitCoord,
+                     unsigned int bufIdx);
+
+  /**
+     @brief Passes through to ObsPart method.
+   */
+  double blockReplay(class IndexSet* iSet,
+                     const IndexRange& range,
+                     bool leftExpl,
+                     class BV* replayExpl,
+                     class BV* replayLeft,
+                     vector<SumCount>& ctgCrit) const;
+
+  /**
+     @brief Passes ObsPart through to Sample method.
+   */
+  vector<class StageCount> stage(const class Sample* sample);
+  
+  
+  /**
+     @brief Passes through to ObsPart method.
+   */
+  void restage(class Level* levelFrom,
+               class Level* levelTo,
+               const class SplitCoord& splitCoord,
+               unsigned int bufIdx) const;
+
 
   /**
      @brief Pass-through to row-rank method.
@@ -85,6 +146,13 @@ public:
 
      @return true iff predictor is a factor.
    */
+/**
+   @brief Determines whether split coordinate references a factor value.
+
+   @param splitCoord is the split coordinate.
+
+   @return true iff predictor is a factor.
+ */
   bool isFactor(const SplitCoord& splitCoord) const;
 
 
@@ -93,12 +161,12 @@ public:
 
      @param iSet is the index set absorbing the split parameters.
    */
-  void nonterminal(class IndexSet* iSet) const;
+  void consumeCriterion(class IndexSet* iSet) const;
 
   void nonterminal(const class IndexSet* iSet,
                    double& minInfo,
-                   IndexType& lhsCount,
-                   IndexType& lhExtent) const;
+                   IndexT& lhsCount,
+                   IndexT& lhExtent) const;
   
   /**
      @brief Determines whether a potential split is sufficiently informative.
@@ -119,13 +187,13 @@ public:
 
      @return descendant extent.
    */
-  IndexType getLHExtent(const class IndexSet& iSet) const;
+  IndexT getLHExtent(const class IndexSet& iSet) const;
 
-  IndexType getPredIdx(const class IndexSet* iSet) const;
+  IndexT getPredIdx(const class IndexSet* iSet) const;
 
   unsigned int getBufIdx(const class IndexSet* iSet) const;
 
-  unsigned int getCardinality(const class IndexSet* iSet) const;
+  PredictorT getCardinality(const class IndexSet* iSet) const;
 
   double getInfo(const class IndexSet* iSet) const;
 
@@ -136,30 +204,54 @@ public:
   bool leftIsExplicit(const class IndexSet* iSet) const;
 
   unsigned int getSetIdx(const class IndexSet* iSet) const;
+
+
+  void consume(class PreTree* pretree,
+               vector<class IndexSet>& indexSet,
+               class BV* replayExpl,
+               class BV* replayLeft,
+               IndexT& leafThis,
+               IndexT& idxLive,
+               IndexT& splitNext,
+               IndexT& idxMax);
+
+  
+  void consume(class PreTree* pretree,
+               class IndexSet& iSet,
+               class BV* replayExpl,
+               class BV* replayLeft,
+               IndexT& leafThis,
+               IndexT& idxLive,
+               IndexT& splitNext,
+               IndexT& idxMax) const;
+
   
   /**
      @brief Passes through to run member.
 
      @return true iff split is left-explicit
    */
-  bool branch(class Frontier* frontier,
-              class PreTree* pretree,
-              class IndexSet* iSet) const;
+  void branch(class PreTree* pretree,
+              class IndexSet* iSet,
+              class BV* bvLeft,
+              class BV* bvRight) const;
 
 
   /**
      @brief Replays run-based criterion and updates pretree.
    */
-  bool critRun(class Frontier* frontier,
-               class PreTree* pretree,
-               class IndexSet* iSet) const;
+  void critRun(class PreTree* pretree,
+               class IndexSet* iSet,
+               class BV* bvLeft,
+               class BV* bvRight) const;
 
   /**
      @brief Replays cut-based criterion and updates pretree.
    */
-  bool critCut(class Frontier* frontier,
-               class PreTree* pretree,
-               class IndexSet* iSet) const;
+  void critCut(class PreTree* pretree,
+               class IndexSet* iSet,
+               BV* bvLeft,
+               BV* bvRight) const;
 
 
   /**
@@ -180,18 +272,14 @@ public:
 
   /**
      @brief Initializes state associated with current level.
-
-     @param frontier is the frontier of the sample-index tree.
    */
-  void init(class Frontier *frontier);
+  void init();
 
   
   /**
      @brief Invokes algorithm-specific splitting methods.
-
-     @param obsPart is the repartitioned data set.
    */
-  void split(const class ObsPart *obsPart);
+  void split();
 
 
   vector<class SplitNux> maxCandidates();
@@ -199,14 +287,14 @@ public:
   class SplitNux maxSplit(unsigned int splitOff,
                           unsigned int nSplitFrontier) const;
   
-  virtual void splitCandidates(const class ObsPart *samplePred) = 0;
+  virtual void splitCandidates() = 0;
   virtual ~SplitFrontier();
   virtual void setRunOffsets(const vector<unsigned int> &safeCounts) = 0;
-  virtual void levelPreset(class Frontier *index) = 0;
+  virtual void levelPreset() = 0;
 
-  virtual void setPrebias(unsigned int splitIdx,
-                            double sum,
-                          unsigned int sCount) = 0;
+  virtual void setPrebias(IndexT splitIdx,
+                          double sum,
+                          IndexT sCount) = 0;
 
   virtual void clear();
 };
@@ -223,7 +311,7 @@ class SFReg : public SplitFrontier {
   // Per-level vector of uniform variates.
   vector<double> ruMono;
 
-  void splitCandidates(const class ObsPart *samplePred);
+  void splitCandidates();
 
  public:
 
@@ -244,12 +332,18 @@ class SFReg : public SplitFrontier {
   static void DeImmutables();
   
   SFReg(const class SummaryFrame* frame_,
-	unsigned int bagCount);
+        class Frontier* frontier_,
+	const class Sample* sample);
+
   ~SFReg();
   void setRunOffsets(const vector<unsigned int> &safeCount);
-  void levelPreset(class Frontier *index);
+  void levelPreset();
   void clear();
 
+  /**
+     @brief Determines whether a regression pair undergoes constrained splitting.
+     @return The sign of the constraint, if within the splitting probability, else zero.
+*/
   int getMonoMode(const class SplitCand* cand) const;
 
   /**
@@ -261,9 +355,9 @@ class SFReg : public SplitFrontier {
 
      @return sum squared, divided by sample count.
   */
-  inline void setPrebias(unsigned int splitIdx,
-			double sum,
-			unsigned int sCount) {
+  inline void setPrebias(IndexT splitIdx,
+			 double sum,
+			 IndexT sCount) {
     prebias[splitIdx] = (sum * sum) / sCount;
   }
 
@@ -279,16 +373,14 @@ class SFCtg : public SplitFrontier {
   static constexpr double minSumL = 1.0e-8;
   static constexpr double minSumR = 1.0e-5;
 
-  const unsigned int nCtg; // Response cardinality.
+  const PredictorT nCtg; // Response cardinality.
   vector<double> sumSquares; // Per-level sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
 
   /**
-     @brief Initializer utility for new level.
-
-     @param index summarizes the index nodes associated with the level.
-   */
-  void levelPreset(class Frontier *index);
+     @brief Initializes per-level sum and FacRun vectors.
+  */
+  void levelPreset();
 
   /**
      @brief Clears summary state associated with this level.
@@ -298,7 +390,7 @@ class SFCtg : public SplitFrontier {
   /**
      @brief Collects splitable candidates from among all restaged cells.
    */
-  void splitCandidates(const class ObsPart *samplePred);
+  void splitCandidates();
 
   /**
      @brief RunSet initialization utitlity.
@@ -313,7 +405,7 @@ class SFCtg : public SplitFrontier {
 
      @parm nPredNum is the number of numerical predictors.
    */
-  void levelInitSumR(unsigned int nPredNum);
+  void levelInitSumR(PredictorT nPredNum);
 
   
   /**
@@ -327,9 +419,9 @@ class SFCtg : public SplitFrontier {
 
      @return sum of squares divided by sum.
   */
-  inline void setPrebias(unsigned int splitIdx,
-			double sum,
-			unsigned int sCount) {
+  inline void setPrebias(IndexT splitIdx,
+                         double sum,
+                         IndexT sCount) {
     prebias[splitIdx] = sumSquares[splitIdx] / sum;
   }
 
@@ -338,8 +430,9 @@ class SFCtg : public SplitFrontier {
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
   SFCtg(const class SummaryFrame* frame_,
-	unsigned int bagCount,
-	unsigned int _nCtg);
+        class Frontier* frontier_,
+	const class Sample* sample,
+	PredictorT nCtg_);
   ~SFCtg();
 
 
@@ -348,7 +441,7 @@ class SFCtg : public SplitFrontier {
 
      @return nCtg value.
    */
-  inline unsigned int getNCtg() const {
+  inline PredictorT getNCtg() const {
     return nCtg;
   }
 

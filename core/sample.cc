@@ -144,15 +144,13 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-unique_ptr<SplitFrontier> SampleReg::frontierFactory(const SummaryFrame* frame) const {
-  return make_unique<SFReg>(frame, bagCount);
+unique_ptr<SplitFrontier> SampleReg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
+  return make_unique<SFReg>(frame, frontier, this);
 }
 
 
 SampleCtg::SampleCtg(const SummaryFrame* frame) : Sample(frame) {
   SumCount scZero;
-  scZero.init();
-
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
 
@@ -165,8 +163,8 @@ void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *tree
 }
 
 
-unique_ptr<SplitFrontier> SampleCtg::frontierFactory(const SummaryFrame* frame) const {
-  return make_unique<SFCtg>(frame, bagCount, SampleNux::getNCtg());
+unique_ptr<SplitFrontier> SampleCtg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
+  return make_unique<SFCtg>(frame, frontier, this, SampleNux::getNCtg());
 }
 
 

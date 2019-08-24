@@ -19,7 +19,7 @@
 #include "path.h"
 
 
-IdxPath::IdxPath(unsigned int idxLive_) :
+IdxPath::IdxPath(IndexType idxLive_) :
   idxLive(idxLive_),
   relFront(vector<unsigned int>(idxLive)),
   pathFront(vector<unsigned char>(idxLive)),
