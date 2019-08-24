@@ -12,10 +12,10 @@ env:
   - COMPILER=g++-6
 
 r:
+  # devel
   - oldrel
-  - release
-  # devel disabled until source of c++11 specification identified:
-  #  - devel
+  # release
+  # devel, release disabled until source of c++11 specification identified:
 
 before_install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 100
