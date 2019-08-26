@@ -14,8 +14,8 @@
  */
 
 
-#ifndef ARBORIST_VALRANK_H
-#define ARBORIST_VALRANK_H
+#ifndef CORE_VALRANK_H
+#define CORE_VALRANK_H
 
 #include <algorithm>
 #include <vector>
@@ -92,11 +92,13 @@ public:
      @brief Orders and assigns ranks.
      
      Ensures a stable sort ut identify maximal runs.
+
+     N.B.:  extraneous parentheses work around parser error in older g++.
    */
   void order() {
-    sort(valRow.begin(), valRow.end(), [] (const ValRow<tn> &a,
-                                           const ValRow<tn> &b) -> bool {
-          return a.val < b.val || ((a.val == b.val) && (a.row < b.row));
+    sort(valRow.begin(), valRow.end(), [] (const ValRow<tn>& a,
+                                           const ValRow<tn>& b) -> bool {
+                                         return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
                                        }
       );
 

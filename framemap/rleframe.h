@@ -43,12 +43,13 @@ struct RLEVal {
 
 /**
    @brief Sorts on value, then rows, for stability.
+
+   N.B:  extraneous parentheses work around parser error in older g++.
  */
 template<typename valType>
-auto RLECompare = [] (const RLEVal<valType> &a, const RLEVal<valType>& b) -> bool {
-                    return (a.val < b.val) || (a.val == b.val && a.row < b.row);
-
-                  };
+bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
+  return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
+};
 
 
 /**

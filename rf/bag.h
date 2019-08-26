@@ -17,9 +17,7 @@
 #define CORE_BAG_H
 
 #include "bv.h"
-
-#include <memory>
-using namespace std;
+#include "typeparam.h"
 
 class Bag {
   unsigned int nTree;

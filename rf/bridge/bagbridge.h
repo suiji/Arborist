@@ -13,10 +13,10 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_BAGBRIDGE_H
-#define CORE_BAGBRIDGE_H
+#ifndef RF_BAGBRIDGE_H
+#define RF_BAGBRIDGE_H
 
-#include<memory>
+#include <memory>
 using namespace std;
 
 /**

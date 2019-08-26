@@ -14,11 +14,12 @@
  */
 
 
-#ifndef CORERF_TRAINBRIDGE_H
-#define CORERF_TRAINBRIDGE_H
+#ifndef RF_TRAINBRIDGE_H
+#define RF_TRAINBRIDGE_H
 
 #include<vector>
 #include<memory>
+
 using namespace std;
 
 struct TrainBridge {

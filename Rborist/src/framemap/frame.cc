@@ -27,6 +27,7 @@
 #include "frame.h"
 #include "block.h"
 
+#include<memory>
 
 RcppExport SEXP FrameReconcile(SEXP sXFac,
                                SEXP sPredMap,

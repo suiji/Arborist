@@ -16,6 +16,9 @@
 #ifndef CORE_FORESTBRIDGE_H
 #define CORE_FORESTBRIDGE_H
 
+#include <memory>
+using namespace std;
+
 /**
    @brief Hides class Forest internals from bridge via forward declarations.
  */

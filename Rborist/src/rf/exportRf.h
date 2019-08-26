@@ -29,6 +29,7 @@
 #define RF_EXPORT_RF_H
 
 #include <vector>
+#include <memory>
 using namespace std;
 
 #include <Rcpp.h>

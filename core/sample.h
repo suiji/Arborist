@@ -17,9 +17,9 @@
 #define CORE_SAMPLE_H
 
 #include "sumcount.h"
+#include "typeparam.h"
 
 #include <vector>
-#include "typeparam.h"
 
 #include "samplenux.h" // For now.
 

@@ -14,11 +14,11 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_JAGGED_H
-#define ARBORIST_JAGGED_H
+#ifndef CORE_JAGGED_H
+#define CORE_JAGGED_H
 
 #include <vector>
-
+using namespace std;
 
 template<class item_type, class off_type>
 class Jagged {

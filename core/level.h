@@ -17,10 +17,10 @@
 #ifndef CORE_LEVEL_H
 #define CORE_LEVEL_H
 
-#include <vector>
-
 #include "splitcoord.h"
 #include "typeparam.h"
+
+#include <vector>
 
 /**
    @brief Inherited state for most-recently-restaged ancestor.

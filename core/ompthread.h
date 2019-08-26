@@ -14,10 +14,11 @@
  */
 
 
-#ifndef ARBORIST_OMPTHREAD_H
-#define ARBORIST_OMPTHREAD_H
+#ifndef CORE_OMPTHREAD_H
+#define CORE_OMPTHREAD_H
 
 #include <memory>
+using namespace std;
 
 // Some versions of OpenMP will not parallelize on unsigned types.
 typedef size_t OMPBound;

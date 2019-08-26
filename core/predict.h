@@ -17,11 +17,10 @@
 #define CORE_PREDICT_H
 
 #include "block.h"
+#include "typeparam.h"
 
 #include <vector>
 #include <algorithm>
-
-using namespace std;
 
 
 /**
@@ -106,7 +105,7 @@ public:
 
      @return lesser of internal parameter and number of observations.
    */
-  static constexpr size_t getBlockRows(size_t nRow) {
+  static inline size_t getBlockRows(size_t nRow) {
     return min(nRow, rowBlock);
   }
 

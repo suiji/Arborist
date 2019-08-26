@@ -13,13 +13,13 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_COPROC_H
-#define ARBORIST_COPROC_H
+#ifndef CORE_COPROC_H
+#define CORE_COPROC_H
+
+#include "typeparam.h"
 
 #include <string>
 #include <vector>
-
-#include "typeparam.h"
 
 class Coproc {
   const unsigned int nCoproc; // Number of coprocessors detected.

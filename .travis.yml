@@ -12,9 +12,9 @@ env:
   - COMPILER=g++-6
 
 r:
-  # devel
+  - devel
   - oldrel
-  # release
+  - release
   # devel, release disabled until source of c++11 specification identified:
 
 before_install:

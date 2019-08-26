@@ -35,7 +35,7 @@
 using namespace Rcpp;
 
 #include <memory>
-
+using namespace std;
 
 /**
    @brief External entry to presorting RankedFrame builder.

@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_PREDICT_BRIDGE_H
-#define CORE_PREDICT_BRIDGE_H
+#ifndef CORE_PREDICTBRIDGE_H
+#define CORE_PREDICTBRIDGE_H
 
 #include "block.h"
 

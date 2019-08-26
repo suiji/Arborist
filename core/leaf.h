@@ -13,12 +13,12 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_LEAF_H
-#define ARBORIST_LEAF_H
+#ifndef CORE_LEAF_H
+#define CORE_LEAF_H
 
-#include "typeparam.h"
 #include "jagged.h"
 #include "sample.h"
+#include "typeparam.h"
 
 #include <vector>
 #include "math.h"
