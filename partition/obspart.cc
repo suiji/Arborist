@@ -81,7 +81,7 @@ vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
 void ObsPart::stage(const RankedFrame* rankedFrame,
                        const vector<SampleNux>& sampleNode,
                        const Sample* sample,
-                       unsigned int predIdx,
+                       PredictorT predIdx,
                        StageCount& stageCount) {
   setStageBounds(rankedFrame, predIdx);
   IndexT* sIdx;
@@ -98,7 +98,7 @@ void ObsPart::stage(const RankedFrame* rankedFrame,
 
 
 void ObsPart::setStageBounds(const RankedFrame* rankedFrame,
-                                unsigned int predIdx) {
+                                PredictorT predIdx) {
   unsigned int extent;
   stageOffset[predIdx] = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
   stageExtent[predIdx] = extent;
@@ -121,12 +121,12 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
 
 
 double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
-                            IndexSet* iSet,
+                            const IndexSet* iSet,
                             const IndexRange& range,
                             bool leftExpl,
                             BV* replayExpl,
                             BV* replayLeft,
-                            vector<SumCount>& ctgCrit) {
+                            vector<SumCount>& ctgCrit) const {
   IndexT* sIdx;
   SampleRank* spn = buffers(splitFrontier, iSet, sIdx);
   double sumExpl = 0.0;
@@ -134,8 +134,8 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
     sumExpl += spn[opIdx].accum(ctgCrit);
     IndexT bitIdx = sIdx[opIdx];
     replayExpl->setBit(bitIdx);
-    if (leftExpl) { // Preset to empty.
-      replayLeft->setBit(bitIdx);
+    if (!leftExpl) { // Preset to full.
+      replayLeft->setBit(bitIdx, false);
     }
   }
 
@@ -145,7 +145,7 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
 
 SampleRank* ObsPart::buffers(const SplitFrontier* splitFrontier,
                              const IndexSet* iSet,
-                             IndexT*& sIdx) {
+                             IndexT*& sIdx) const {
   return buffers(splitFrontier->getPredIdx(iSet), splitFrontier->getBufIdx(iSet), sIdx);
 }
 
@@ -158,7 +158,7 @@ IndexT* ObsPart::indexBuffer(const SplitFrontier* splitFrontier,
 
 void ObsPart::prepath(const IdxPath *idxPath,
                          const unsigned int reachBase[],
-                         unsigned int predIdx,
+                         PredictorT predIdx,
                          unsigned int bufIdx,
                          const IndexRange& idxRange,
                          unsigned int pathMask,
@@ -193,7 +193,7 @@ void ObsPart::restage(Level *levelBack,
 }
 
 
-void ObsPart::rankRestage(unsigned int predIdx,
+void ObsPart::rankRestage(PredictorT predIdx,
                           unsigned int bufIdx,
                           const IndexRange& idxRange,
                           unsigned int reachOffset[],

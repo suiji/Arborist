@@ -17,5 +17,5 @@
 "Validate" <-
 "Validate" <- function(preFormat, train, y, ctgCensus = "votes",
                              quantVec = NULL, quantiles = !is.null(quantVec),
-                             qBin = 5000, nThread = 0, verbose = FALSE)
+                             nThread = 0, verbose = FALSE)
     UseMethod("Validate")

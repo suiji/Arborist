@@ -1,8 +1,8 @@
 PKG_LIBS= $(SHLIB_OPENMP_CXXFLAGS)
 PKG_CXXFLAGS=$(SHLIB_OPENMP_CXXFLAGS)
-CC='gcc-6 -std=gnu99'
-CXX='g++-6 -std=c++14'
+CXX_STD = CXX14
+CXX='g++-6 -std=c++1y'
 CXX14=g++-6
-CXX14STD='-std=c++14'
+CXX14STD='-std=c++1y'
 CXX11=g++-6
-CXX11STD='-std=c++14'
+CXX11STD='-std=c++1y'

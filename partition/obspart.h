@@ -77,7 +77,7 @@ class ObsPart {
      @brief Sets staging boundaries for a given predictor.
   */
   void setStageBounds(const class RankedFrame* rankedFrame,
-                      unsigned int predIdx);
+                      PredictorT predIdx);
 
 
   /**
@@ -95,7 +95,7 @@ class ObsPart {
   void stage(const class RankedFrame* rankedFrame,
              const vector<SampleNux> &sampleNode,
              const class Sample* sample,
-             unsigned int predIdx,
+             PredictorT predIdx,
              StageCount& stageCount);
 
   void stage(const class RankedFrame* rankedFrame,
@@ -140,12 +140,12 @@ class ObsPart {
    @return sum of explicit responses within the block.
   */
   double blockReplay(const class SplitFrontier* splitFrontier,
-                     class IndexSet* iSet,
+                     const class IndexSet* iSet,
                      const IndexRange& range,
                      bool leftExpl,
                      class BV *replayExpl,
                      class BV* replayLeft,
-                     vector<SumCount>& ctgCrit);
+                     vector<SumCount>& ctgCrit) const;
 
 
   
@@ -206,7 +206,7 @@ class ObsPart {
   */
   void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
-               unsigned int predIdx,
+               PredictorT predIdx,
                unsigned int bufIdx,
                const IndexRange& idxRange,
                unsigned int pathMask,
@@ -216,7 +216,7 @@ class ObsPart {
   /**
      @brief Restages and tabulates rank counts.
   */
-  void rankRestage(unsigned int predIdx,
+  void rankRestage(PredictorT predIdx,
                    unsigned int bufIdx,
                    const IndexRange& idxRange,
                    unsigned int reachOffset[],
@@ -242,7 +242,7 @@ class ObsPart {
   /**
      @brief Returns the staging position for a dense predictor.
    */
-  inline unsigned int getStageOffset(unsigned int predIdx) const {
+  inline unsigned int getStageOffset(PredictorT predIdx) const {
     return stageOffset[predIdx];
   }
 
@@ -272,7 +272,7 @@ class ObsPart {
 
      @return starting position within workspace.
    */
-  inline IndexT bufferOff(unsigned int predIdx, unsigned int bufBit) const {
+  inline IndexT bufferOff(PredictorT predIdx, unsigned int bufBit) const {
     return stageOffset[predIdx] + buffOffset(bufBit);
   }
 
@@ -280,7 +280,7 @@ class ObsPart {
   /**
      @return base of the index buffer.
    */
-  inline IndexT *bufferIndex(unsigned int predIdx, unsigned int bufBit) const {
+  inline IndexT *bufferIndex(PredictorT predIdx, unsigned int bufBit) const {
     return indexBase + bufferOff(predIdx, bufBit);
   }
 
@@ -288,14 +288,14 @@ class ObsPart {
   /**
      @return base of node buffer.
    */
-  inline SampleRank *bufferNode(unsigned int predIdx, unsigned int bufBit) const {
+  inline SampleRank *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
     return nodeVec + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
-  inline SampleRank* buffers(unsigned int predIdx, unsigned int bufBit, IndexT*& sIdx) const {
+  inline SampleRank* buffers(PredictorT predIdx, unsigned int bufBit, IndexT*& sIdx) const {
     IndexT offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
     return nodeVec + offset;
@@ -304,7 +304,7 @@ class ObsPart {
 
   
 
-  inline IndexT* indexBuffer(unsigned int predIdx, unsigned int bufBit) const {
+  inline IndexT* indexBuffer(PredictorT predIdx, unsigned int bufBit) const {
     IndexT offset = bufferOff(predIdx, bufBit);
     return indexBase + offset;
   }
@@ -315,7 +315,7 @@ class ObsPart {
    */
   SampleRank* buffers(const class SplitFrontier* splitFrontier,
                       const class IndexSet* iSet,
-                      IndexT*& sIdx);
+                      IndexT*& sIdx) const;
 
 
   /**
@@ -344,7 +344,7 @@ class ObsPart {
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline SampleRank* Splitbuffer(unsigned int predIdx, unsigned int bufBit) {
+  inline SampleRank* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
     return nodeVec + bufferOff(predIdx, bufBit);
   }
 
@@ -358,7 +358,7 @@ class ObsPart {
 
    @return void, with output parameter vectors.
  */
-  inline void buffers(int predIdx,
+  inline void buffers(PredictorT predIdx,
                       unsigned int bufBit,
                       SampleRank*& source,
                       IndexT*& sIdxSource,
@@ -369,7 +369,7 @@ class ObsPart {
   }
 
   // To coprocessor subclass:
-  inline void indexBuffers(unsigned int predIdx,
+  inline void indexBuffers(PredictorT predIdx,
                            unsigned int bufBit,
                            IndexT*& sIdxSource,
                            IndexT*& sIdxTarg) {
@@ -399,7 +399,7 @@ class ObsPart {
 
      @return true iff cell consists of a single rank.
    */
-  inline bool singleRank(unsigned int predIdx,
+  inline bool singleRank(PredictorT predIdx,
                          unsigned int bufIdx,
                          unsigned int idxStart,
                          unsigned int extent) const {

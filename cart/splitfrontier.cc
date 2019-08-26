@@ -360,15 +360,16 @@ SplitNux SplitFrontier::maxSplit(IndexT splitBase,
 }
 
 
-void SplitFrontier::consume(PreTree* pretree, vector<IndexSet>& indexSet, BV* replayExpl, BV* replayLeft, IndexT& leafThis, IndexT& idxLive, IndexT& splitNext, IndexT& idxMax)  {
+SplitSurvey SplitFrontier::consume(PreTree* pretree, vector<IndexSet>& indexSet, BV* replayExpl, BV* replayLeft) {
   replayExpl->clear();
-  replayLeft->clear();
-  leafThis = idxLive = splitNext = idxMax = 0;
+  replayLeft->saturate();
+  SplitSurvey survey;
   for (auto & iSet : indexSet) {
-    consume(pretree, iSet, replayExpl, replayLeft, leafThis, idxLive, splitNext, idxMax);
+    consume(pretree, iSet, replayExpl, replayLeft, survey);
   }
-  
   clear();
+
+  return survey;
 }
 
 
@@ -376,16 +377,13 @@ void SplitFrontier::consume(PreTree* pretree,
                             IndexSet& iSet,
                             BV* replayExpl,
                             BV* replayLeft,
-                            IndexT& leafThis,
-                            IndexT& idxLive,
-                            IndexT& splitNext,
-                            IndexT& idxMax) const {
+                            SplitSurvey& survey) const {
   if (isInformative(&iSet)) {
     branch(pretree, &iSet, replayExpl, replayLeft);
-    splitNext += frontier->splitCensus(iSet, idxLive, idxMax);
+    survey.splitNext += frontier->splitCensus(iSet, survey);
   }
   else {
-    leafThis++;
+    survey.leafCount++;
   }
 }
 
@@ -419,9 +417,6 @@ void SplitFrontier::critCut(PreTree* pretree,
   vector<SumCount> ctgCrit(iSet->getCtgLeft().size());
   double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replayExpl, replayLeft, ctgCrit);
   iSet->criterionLR(sumExpl, ctgCrit, leftIsExplicit(iSet));
-  // CART-based splits generate one criterion per tree node, allowing
-  // range, left-explicitness, and information to be looked up by the node.
-  // In general, though, these properties must be looked up by criterion.
 }
 
 

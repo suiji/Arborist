@@ -41,10 +41,11 @@ struct SplitSurvey {
 
 
   /**
-     brief Imputes the number of leaves at the next level.
+     brief Imputes the number of successor nodes, including pseudosplits.
    */
-  IndexT leafNext(IndexT splitCount) {
-    return 2 * (splitCount - leafCount) - splitNext;
+  IndexT succCount(IndexT splitCount) const {
+    IndexT leafNext = 2 * (splitCount - leafCount) - splitNext;
+    return splitNext + leafNext + leafCount;
   }
 };
 
@@ -206,24 +207,17 @@ public:
   unsigned int getSetIdx(const class IndexSet* iSet) const;
 
 
-  void consume(class PreTree* pretree,
-               vector<class IndexSet>& indexSet,
-               class BV* replayExpl,
-               class BV* replayLeft,
-               IndexT& leafThis,
-               IndexT& idxLive,
-               IndexT& splitNext,
-               IndexT& idxMax);
+  SplitSurvey consume(class PreTree* pretree,
+                      vector<class IndexSet>& indexSet,
+                      class BV* replayExpl,
+                      class BV* replayLeft);
 
   
   void consume(class PreTree* pretree,
                class IndexSet& iSet,
                class BV* replayExpl,
                class BV* replayLeft,
-               IndexT& leafThis,
-               IndexT& idxLive,
-               IndexT& splitNext,
-               IndexT& idxMax) const;
+               SplitSurvey& survey) const;
 
   
   /**

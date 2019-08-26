@@ -178,7 +178,7 @@ void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag
   // Copies contents of sampled outcomes and builds mapping vectors.
   //
   fill(row2Sample.begin(), row2Sample.end(), bagCount);
-  const unsigned int slotBits = BV::SlotElts();
+  const unsigned int slotBits = BV::getSlotElts();
   unsigned int slot = 0;
   unsigned int sIdx = 0;
   for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {

@@ -127,19 +127,17 @@ vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
                                          unsigned int level) {
   levelTerminal = (level + 1 == totLevels);
 
-  IndexT idxMax, leafThis, splitNext;
-  IndexT idxExtent = idxLive; // Previous level's index extent.
-  splitFrontier->consume(pretree.get(), indexSet, replayExpl.get(), replayLeft.get(), leafThis, idxLive, splitNext, idxMax);
+  SplitSurvey survey = splitFrontier->consume(pretree.get(), indexSet, replayExpl.get(), replayLeft.get());
 
-  nextLevel(idxExtent, leafThis, splitNext);
+  nextLevel(survey);
   for (auto & iSet : indexSet) {
     iSet.dispatch(this);
   }
 
-  reindex(idxMax, splitNext);
+  reindex(survey);
   relBase = move(succBase);
 
-  return produce(splitNext);
+  return produce(survey.splitNext);
 }
 
 
@@ -153,31 +151,29 @@ void IndexSet::dispatch(Frontier* frontier) {
 }
 
 
-void Frontier::nextLevel(IndexT idxExtent, IndexT leafThis, IndexT splitNext) {
-  succLive = 0;
-  succExtinct = splitNext; // Pseudo-indexing for extinct sets.
-  liveBase = 0;
-  extinctBase = idxLive;
+void Frontier::nextLevel(const SplitSurvey& survey) {
+  succBase = vector<IndexT>(survey.succCount(indexSet.size()));
+  fill(succBase.begin(), succBase.end(), idxLive); // Previous level's extent
 
-  IndexT leafNext = 2 * (indexSet.size() - leafThis) - splitNext;
-  succBase = vector<IndexT>(splitNext + leafNext + leafThis);
-  fill(succBase.begin(), succBase.end(), idxExtent); // Inattainable base.
+  succLive = 0;
+  succExtinct = survey.splitNext; // Pseudo-indexing for extinct sets.
+  liveBase = 0;
+  extinctBase = survey.idxLive;
+  idxLive = survey.idxLive;
 }
 
 
 unsigned int Frontier::splitCensus(const IndexSet& iSet,
-                                   IndexT& idxLive,
-                                   IndexT& idxMax) {
-  return splitAccum(iSet.getExtentSucc(true), idxLive, idxMax) + splitAccum(iSet.getExtentSucc(false), idxLive, idxMax);
+                                   SplitSurvey& survey) {
+  return splitAccum(iSet.getExtentSucc(true), survey) + splitAccum(iSet.getExtentSucc(false), survey);
 }
 
 
 unsigned int Frontier::splitAccum(IndexT succExtent,
-                                  IndexT& idxLive,
-                                  IndexT& idxMax) {
+                                  SplitSurvey& survey) {
   if (isSplitable(succExtent)) {
-    idxLive += succExtent;
-    idxMax = max(idxMax, succExtent);
+    survey.idxLive += succExtent;
+    survey.idxMax = max(survey.idxMax, succExtent);
     return 1;
   }
   else {
@@ -223,17 +219,17 @@ IndexT Frontier::idxSucc(IndexT extent,
 }
 
 
-void Frontier::reindex(IndexT idxMax, IndexT splitNext) {
+void Frontier::reindex(const SplitSurvey& survey) {
   if (nodeRel) {
     nodeReindex();
   }
   else {
-    nodeRel = IdxPath::localizes(bagCount, idxMax);
+    nodeRel = IdxPath::localizes(bagCount, survey.idxMax);
     if (nodeRel) {
-      transitionReindex(splitNext);
+      transitionReindex(survey.splitNext);
     }
     else {
-      stReindex(splitNext);
+      stReindex(survey.splitNext);
     }
   }
 }

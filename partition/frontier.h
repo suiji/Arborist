@@ -338,13 +338,18 @@ class IndexSet {
                           IndexT sIdx,
                           IndexT& pathSucc,
                           IndexT& ptSucc) {
+    return offspring(senseLeft(replayExpl, replayLeft, sIdx), pathSucc, ptSucc);
+  }
+
+  inline IndexT offspring(bool isLeft,
+                          IndexT& pathSucc,
+                          IndexT& ptSucc) {
     if (!doesSplit) {  // Terminal from previous level.
       pathSucc = 0; // Dummy:  overwritten by caller.
       ptSucc = ptId;
       return succOnly;
     }
     else {
-      bool isLeft = senseLeft(replayExpl, replayLeft, sIdx);
       pathSucc = getPathSucc(isLeft);
       ptSucc = getPTSucc(isLeft);
       return getIdxSucc(isLeft);
@@ -364,7 +369,7 @@ class IndexSet {
                           IndexT& ptSucc) {
     bool isLeft = senseLeft(replayExpl, replayLeft, sIdx);
     idxSucc = !doesSplit ? offOnly++ : getOffSucc(isLeft);
-    return offspring(replayExpl, replayLeft, sIdx, pathSucc, ptSucc);
+    return offspring(isLeft, pathSucc, ptSucc);
   }
 };
 
@@ -409,7 +414,7 @@ class Frontier {
   /**
      @brief Establishes splitting parameters for next frontier level.
    */
-  void nextLevel(IndexT idxExtent, IndexT leafThis, IndexT splitNext);
+  void nextLevel(const class SplitSurvey& survey);
   
 
   /**
@@ -425,8 +430,7 @@ class Frontier {
 
      Parameters as above.
    */
-  void reindex(IndexT idxMax,
-               IndexT splitNext);
+  void reindex(const class SplitSurvey& survey);
 
   
   /**
@@ -495,8 +499,8 @@ class Frontier {
      @return count of offspring nodes.
   */
   unsigned int splitCensus(const IndexSet& iSet,
-                           IndexT& idxLive,
-                           IndexT& idxMax);
+                           class SplitSurvey& survey);
+
 
   /**
      @brief Accumulates index parameters of successor level.
@@ -508,8 +512,8 @@ class Frontier {
      @return count of splitable sets precipitated in next level:  0 or 1.
   */
   unsigned int splitAccum(IndexT succExtent,
-                          IndexT& idxLive,
-                          IndexT& idxMax);
+                          class SplitSurvey& survey);
+
 
 
   /**
