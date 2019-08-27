@@ -91,7 +91,7 @@
     }
     if (length(splitQuant) != nPred)
         stop("Split quantile specification differs from predictor count.")
-    if (any(splitQuant > 1 || splitQuant < 0))
+    if (any(splitQuant > 1) || any(splitQuant < 0))
         stop("Split specification contains invalid quantile values.")
 
 
