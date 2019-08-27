@@ -82,14 +82,14 @@ void Quant::predictRow(const PredictFrame *frame,
                        double yPred,
                        double qRow[],
                        double *qEst) {
-  vector<unsigned int> sCount(std::min(binSize, valRank.getNRow()));
+  vector<PredictorT> sCount(std::min(binSize, valRank.getNRow()));
   fill(sCount.begin(), sCount.end(), 0);
 
   // Scores each rank seen at every predicted leaf.
   //
-  unsigned int totSamples = 0;
+  IndexT totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < leafReg->getNTree(); tIdx++) {
-    unsigned int termIdx;
+    IndexT termIdx;
     if (!frame->isBagged(blockRow, tIdx, termIdx)) {
       totSamples += leafSample(tIdx, termIdx, sCount);
     }
@@ -103,19 +103,19 @@ void Quant::predictRow(const PredictFrame *frame,
   }
 
   // Fills in quantile estimates.
-  unsigned int yQuant = quantSamples(sCount, countThreshold, yPred, qRow);
+  IndexT yQuant = quantSamples(sCount, countThreshold, yPred, qRow);
   *qEst = static_cast<double>(yQuant) / totSamples;
 }
 
 
-unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
-                                 const vector<double> threshold,
-                                 double yPred,
-                                 double qRow[]) const {
+IndexT Quant::quantSamples(const vector<PredictorT>& sCount,
+                           const vector<double> threshold,
+                           double yPred,
+                           double qRow[]) const {
   unsigned int qSlot = 0;
   unsigned int binIdx = 0;
-  unsigned int samplesSeen = 0;
-  unsigned int yQuant = 0;
+  IndexT samplesSeen = 0;
+  IndexT yQuant = 0;
   for (auto sc : sCount) {
     samplesSeen += sc;
     while (qSlot < qCount && samplesSeen >= threshold[qSlot]) {
@@ -134,35 +134,33 @@ unsigned int Quant::quantSamples(const vector<unsigned int>& sCount,
 
 
 vector<double> Quant::binMeans(const ValRank<double>& valRank, unsigned int rankScale) {
-  const auto slotWidth = 1 << rankScale;
-  size_t binIdx = 0;
   vector<double> binMean(std::min(binSize, valRank.getNRow()));
-  for (size_t idxStart = 0; idxStart < valRank.getNRow(); idxStart += slotWidth) {
-    size_t idxEnd = min(valRank.getNRow(), idxStart + slotWidth);
-    double sum = 0.0;
-    unsigned int count = 0;
-    for (auto idx = idxStart; idx < idxEnd; idx++) {
-      sum += valRank.getVal(idx);
-      count++;
-    }
-    binMean[binIdx++] =  sum / count;
+  fill(binMean.begin(), binMean.end(), 0.0);
+  vector<size_t> binCount(binMean.size());
+  fill(binCount.begin(), binCount.end(), 0);
+  for (size_t idx = 0; idx < valRank.getNRow(); idx++) {
+    unsigned int binIdx = valRank.getRank(idx) >> rankScale;
+    binMean[binIdx] += valRank.getVal(idx);
+    binCount[binIdx]++;
+  }
+  unsigned int binIdx = 0;
+  for (auto bc : binCount) {
+    if (bc == 0)
+      break;
+    binMean[binIdx++] /= bc;
   }
 
   return binMean;
 }
 
 
-  // TODO:  For binning, rerun, restricting to "hot" bins observed
-  // over sample set.  This should improve resolution for hot
-  // bins.
-
-unsigned int Quant::leafSample(unsigned int tIdx,
-                               unsigned int leafIdx,
-                               vector<unsigned int> &sCount) const {
-  unsigned int sampleTot = 0;
-  unsigned int leafStart, leafEnd;
+IndexT Quant::leafSample(unsigned int tIdx,
+                         IndexT leafIdx,
+                         vector<PredictorT> &sCount) const {
+  IndexT sampleTot = 0;
+  IndexT leafStart, leafEnd;
   leafReg->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
-  for (unsigned int bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
+  for (IndexT bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
     unsigned int sc = rankCount[bagIdx].sCount;
     unsigned int bin = binRank(rankCount[bagIdx].rank);
     sCount[bin] += sc;

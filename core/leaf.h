@@ -860,7 +860,7 @@ public:
    Client:  quantile inference.
  */
 struct RankCount {
-  unsigned int rank; // Training rank of row.
+  IndexT rank; // Training rank of row.
   unsigned int sCount; // # times row sampled.
 
   void init(unsigned int rank,
@@ -978,7 +978,7 @@ class LeafFrameReg : public LeafFrame {
      @return per-leaf vector expressing mapping.
    */
   vector<RankCount> setRankCount(const class BitMatrix* baggedRows,
-                                 const vector<unsigned int>& row2Rank) const;
+                                 const vector<IndexT>& row2Rank) const;
 };
 
 

@@ -27,10 +27,10 @@ using namespace std;
 template<typename tn>
 struct ValRow {
   tn val;
-  unsigned int row;
-  unsigned int rank;
+  size_t row;
+  unsigned int rank; // For now.
 
-  void init(tn val, unsigned int row) {
+  void init(tn val, size_t row) {
     this->val = val;
     this->row = row;
     rank = 0; // Assigned separately.
@@ -50,9 +50,9 @@ class ValRank {
 public:
 
   ValRank(const tn val[],
-          unsigned int nRow_) : nRow(nRow_),
-                                valRow(vector<ValRow<tn> >(nRow)) {
-    unsigned int row = 0;
+          size_t nRow_) : nRow(nRow_),
+                          valRow(vector<ValRow<tn> >(nRow)) {
+    size_t row = 0;
     for (auto & vr : valRow) {
       vr.init(val[row], row);
       row++;
@@ -69,7 +69,7 @@ public:
   }
 
 
-  auto getRow(unsigned int idx) const {
+  auto getRow(size_t idx) const {
     return valRow[idx].row;
   }
   
@@ -78,12 +78,12 @@ public:
 
      @return looked up value.
    */
-  tn getVal(unsigned int idx) const {
+  tn getVal(size_t idx) const {
     return valRow[idx].val;
   }
 
 
-  auto getRank(unsigned int idx) const {
+  auto getRank(size_t idx) const {
     return valRow[idx].rank;
   }
 
@@ -123,4 +123,5 @@ public:
     return row2Rank;
   }
 };
+
 #endif

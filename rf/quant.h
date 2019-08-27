@@ -14,13 +14,14 @@
 
  */
 
-#ifndef ARBORIST_QUANT_H
-#define ARBORIST_QUANT_H
+#ifndef RF_QUANT_H
+#define RF_QUANT_H
+
+#include "typeparam.h"
+#include "valrank.h"
 
 #include <vector>
-using namespace std;
 
-#include "valrank.h"
 
 /**
  @brief Quantile signature.
@@ -86,7 +87,7 @@ class Quant {
 
 
   /**
-     @brief Writes quantile values a row of predictions.
+     @brief Writes quantile values for a row of predictions.
 
      @param sCount is a bin of ranked sample counts.
 
@@ -96,10 +97,10 @@ class Quant {
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  unsigned int quantSamples(const vector<unsigned int>& sCount,
-                            const vector<double> threshold,
-                            double yPred,
-                            double qRow[]) const;
+  IndexT quantSamples(const vector<PredictorT>& sCount,
+                      const vector<double> threshold,
+                      double yPred,
+                      double qRow[]) const;
 
   /**
      @brief Accumulates the ranks assocated with predicted leaf.
@@ -108,13 +109,13 @@ class Quant {
 
      @param leafIdx is a tree-relative leaf index.
 
-     @param[in,out] sampRanks counts the number of samples at a (binned) rank.
+     @param[in,out] sCount counts the number of samples at a (binned) rank.
 
      @return count of samples subsumed by leaf.
   */
-  unsigned int leafSample(unsigned int tIdx,
-                          unsigned int leafIdx,
-                          vector<unsigned int> &sampRanks) const;
+  IndexT leafSample(unsigned int tIdx,
+                    IndexT leafIdx,
+                    vector<unsigned int> &sampRanks) const;
 
 
  public:
