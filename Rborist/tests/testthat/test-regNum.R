@@ -13,7 +13,7 @@ regNumPass <-function(m, nrow, ncol) {
   }
 
   rs <- Rborist(x, y, nTree = 500)
-  pass <- ifelse(rs$rsq >= 0.7, 1, 0)
+  pass <- ifelse(rs$validation$rsq >= 0.7, 1, 0)
 }
 
 test_that("Numeric-only regression accuracy", {
