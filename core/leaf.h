@@ -32,16 +32,14 @@ class Leaf {
   
  public:
 
-  Leaf() {
-    score = 0.0;
-    extent = 0;
+  Leaf() : score(0.0), extent(0) {
   }
 
   
   /**
      @brief Getter for fully-accumulated extent value.
    */
-  inline unsigned int getExtent() const {
+  inline auto getExtent() const {
     return extent;
   }
 
@@ -799,12 +797,12 @@ public:
 
 
   /**
-     @param bagIdx is an absolute sample index.
+     @param absSIdx is an absolute bagged sample index.
 
      @return tree-relative leaf index of bagged sample.
    */
-  inline auto getLeafLoc(unsigned int bagIdx) const {
-    return blBlock->getLeafIdx(bagIdx);
+  inline auto getLeafLoc(unsigned int absSIdx) const {
+    return blBlock->getLeafIdx(absSIdx);
   }
 
   /**
@@ -812,13 +810,13 @@ public:
 
      @param tIdx is the tree index.
 
-     @param bagIdx is an absolute sample index.
+     @param absSIdx is a forest-relative sample index.
 
      @return forest-relative leaf index.
    */
   inline unsigned int getLeafAbs(unsigned int tIdx,
-                                 unsigned int bagIdx) const {
-    return leafBlock->absOffset(tIdx, getLeafLoc(bagIdx));
+                                 unsigned int absSIdx) const {
+    return leafBlock->absOffset(tIdx, getLeafLoc(absSIdx));
   }
 
 
@@ -952,21 +950,21 @@ class LeafFrameReg : public LeafFrame {
 
      @param tIdx is the absolute tree index.
 
-     @param leafIdx is the block-relative leaf index.
+     @param leafIdx is the tree-relative leaf index.
 
      @param[out] start outputs the staring sample offset.
 
      @param[out] end outputs the final sample offset. 
   */
   inline void bagBounds(unsigned int tIdx,
-                        unsigned int leafLoc,
+                        unsigned int leafIdx,
                         unsigned int &start,
                         unsigned int &end) const {
-    auto leafAbs = getLeafAbs(tIdx, leafLoc);
+    auto leafAbs = leafBlock->absOffset(tIdx, leafIdx);
     start = offset[leafAbs];
     end = start + leafBlock->getExtent(leafAbs);
   }
-
+  
 
   /**
      @brief Builds row-ordered mapping of leaves to rank/count pairs.

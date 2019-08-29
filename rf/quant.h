@@ -27,7 +27,7 @@
  @brief Quantile signature.
 */
 class Quant {
-  static const size_t binSize; // # slots to track.
+  static const unsigned int binSize; // # slots to track.
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
   const class BitMatrix* baggedRows; // In-bag summary.
   ValRank<double> valRank;
@@ -46,7 +46,7 @@ class Quant {
 
      @return bin offset.
    */
-  inline unsigned int binRank(size_t rank) const {
+  inline unsigned int binRank(unsigned int rank) const {
     return rank >> rankScale;
   }
 
@@ -68,8 +68,8 @@ class Quant {
 
      @return binned vector of response means.
    */
-  static vector<double> binMeans(const ValRank<double>& valRank,
-                                 unsigned int rankScale);
+  vector<double> binMeans(const ValRank<double>& valRank,
+                          unsigned int rankScale);
 
   
   /**

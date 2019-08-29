@@ -87,6 +87,14 @@ public:
     return valRow[idx].rank;
   }
 
+
+  /**
+     @return number of distinct rank values.
+   */
+  auto getRankCount() const {
+    return valRow[valRow.size() - 1].rank + 1;
+  }
+  
   
   /**
      @brief Orders and assigns ranks.
