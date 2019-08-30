@@ -6,21 +6,25 @@
  */
 
 /**
-   @file leafBridge.h
+   @file leafbridge.h
 
    @brief Front-end wrappers for core Leaf objects.
 
    @author Mark Seligman
  */
 
-#ifndef CORE_LEAFBRIDGE_H
-#define CORE_LEAFBRIDGE_H
+#ifndef CORE_BRIDGE_LEAFBRIDGE_H
+#define CORE_BRIDGE_LEAFBRIDGE_H
 
 struct LeafBridge {
   /**
      @brief Getter for number of rows under prediction.
    */
   size_t getRowPredict() const;
+
+  virtual ~LeafBridge() {
+  }
+
 
   virtual class LeafFrame* getLeaf() const = 0;
 };
@@ -39,6 +43,7 @@ struct LeafRegBridge : public LeafBridge {
                 size_t predictRow);
 
   ~LeafRegBridge();
+
 
   void dump(const class BagBridge* bagBridge,
             vector<vector<size_t> >& rowTree,
@@ -73,6 +78,7 @@ struct LeafCtgBridge : public LeafBridge {
 
   ~LeafCtgBridge();
 
+  
   /**
      @brief Dumps bagging and leaf information into per-tree vectors.
    */

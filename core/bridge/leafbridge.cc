@@ -40,7 +40,6 @@ LeafRegBridge::~LeafRegBridge() {
 }
 
 
-
 LeafFrame* LeafRegBridge::getLeaf() const {
   return leaf.get();
 }
@@ -85,6 +84,7 @@ LeafCtgBridge::LeafCtgBridge(const unsigned int* height,
 
 LeafCtgBridge::~LeafCtgBridge() {
 }
+
 
 
 LeafFrame* LeafCtgBridge::getLeaf() const {

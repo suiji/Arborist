@@ -59,6 +59,9 @@ struct BlockBatch {
   }
   static unique_ptr<BlockBatch<batchType> > unwrap(const List& frame);
 
+  virtual ~BlockBatch() {
+  }
+  
   virtual batchType transpose(size_t rowStart,
                               size_t extent) = 0;
 };
@@ -77,8 +80,12 @@ struct BlockBatchDense : public BlockBatch<batchType> {
    */
   BlockBatchDense<batchType>(batchType val_) : val(move(val_)) {
   }
-  
 
+
+  ~BlockBatchDense() {
+  }
+
+  
   /**
      @brief Extracts full-column submatrix over specified rows and transposes.
 
@@ -132,6 +139,11 @@ struct BlockBatchSparse : public BlockBatchRLE<NumericMatrix> {
                                             runLength,
                                             predStart)) {
   };
+
+
+  ~BlockBatchSparse() {
+  }
+
 
   /**
      @brief Transposes a subblock of values copied from this.
