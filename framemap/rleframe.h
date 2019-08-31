@@ -49,7 +49,7 @@ struct RLEVal {
 template<typename valType>
 bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
   return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
-};
+}
 
 
 /**
