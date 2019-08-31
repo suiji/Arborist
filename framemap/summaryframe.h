@@ -39,7 +39,7 @@ class SummaryFrame {
 
 public:
 
-  SummaryFrame(const class RLEFrame* rleFrame,
+  SummaryFrame(const struct RLEFrame* rleFrame,
                double autoCompress,
                const class Coproc* coproc);
 

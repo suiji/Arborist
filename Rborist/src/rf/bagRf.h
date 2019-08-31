@@ -70,7 +70,7 @@ class BagRf {
 
      @param chunkOff is the offset of the current chunk.
    */
-  void consume(const class TrainBridge* train,
+  void consume(const struct TrainBridge* train,
                unsigned int chunkOff);
 
   /**
@@ -91,7 +91,7 @@ class BagRf {
 
      @return instantiation containing bag raw data.
    */
-  static unique_ptr<class BagBridge> unwrap(const List& sBag,
+  static unique_ptr<struct BagBridge> unwrap(const List& sBag,
                                             const List& sPredFrame,
                                             bool oob);
 
@@ -114,7 +114,7 @@ class BagRf {
 
      @return instantiation containing baga raw data.
    */
-  static unique_ptr<class BagBridge> unwrap(const List& sBag);
+  static unique_ptr<struct BagBridge> unwrap(const List& sBag);
 };
 
 #endif

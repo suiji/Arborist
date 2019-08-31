@@ -126,7 +126,7 @@ public:
    */
   void restage(class Level* levelFrom,
                class Level* levelTo,
-               const class SplitCoord& splitCoord,
+               const SplitCoord& splitCoord,
                unsigned int bufIdx) const;
 
 

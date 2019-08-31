@@ -50,7 +50,7 @@ const vector<double>& LeafRegBridge::getYPred() const {
 }
 
 
-void LeafRegBridge::dump(const class BagBridge* bagBridge,
+void LeafRegBridge::dump(const BagBridge* bagBridge,
                          vector<vector<size_t> >& rowTree,
                          vector<vector<unsigned int> >& sCountTree,
                          vector<vector<double> >& scoreTree,

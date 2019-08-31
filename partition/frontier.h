@@ -414,7 +414,7 @@ class Frontier {
   /**
      @brief Establishes splitting parameters for next frontier level.
    */
-  void nextLevel(const class SplitSurvey& survey);
+  void nextLevel(const struct SplitSurvey& survey);
   
 
   /**
@@ -430,7 +430,7 @@ class Frontier {
 
      Parameters as above.
    */
-  void reindex(const class SplitSurvey& survey);
+  void reindex(const struct SplitSurvey& survey);
 
   
   /**
@@ -499,7 +499,7 @@ class Frontier {
      @return count of offspring nodes.
   */
   unsigned int splitCensus(const IndexSet& iSet,
-                           class SplitSurvey& survey);
+                           struct SplitSurvey& survey);
 
 
   /**
@@ -512,7 +512,7 @@ class Frontier {
      @return count of splitable sets precipitated in next level:  0 or 1.
   */
   unsigned int splitAccum(IndexT succExtent,
-                          class SplitSurvey& survey);
+                          struct SplitSurvey& survey);
 
 
 

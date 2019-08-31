@@ -31,7 +31,7 @@ class Quant {
   const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
   const class BitMatrix* baggedRows; // In-bag summary.
   ValRank<double> valRank;
-  const vector<class RankCount> rankCount; // forest-wide, by sample.
+  const vector<struct RankCount> rankCount; // forest-wide, by sample.
   const vector<double> quantile; // quantile values over which to predict.
   const unsigned int qCount; // caches quantile size for quick reference.
   vector<double> qPred; // predicted quantiles.

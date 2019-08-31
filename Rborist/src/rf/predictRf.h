@@ -162,7 +162,7 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
+  static unique_ptr<struct PredictBridge> unwrapReg(const List& lFrame,
                                                    const List& lTrain,
                                                    bool oob,
                                                    unsigned int nThread,
@@ -173,7 +173,7 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<class PredictBridge> unwrapReg(const List& lFrame,
+  static unique_ptr<struct PredictBridge> unwrapReg(const List& lFrame,
                                                    const List& lTrain,
                                                    bool oob,
                                                    unsigned int nThread);
@@ -192,7 +192,7 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<class PredictBridge> unwrapCtg(const List& sFrame,
+  static unique_ptr<struct PredictBridge> unwrapCtg(const List& sFrame,
                                                    const List& lTrain,
                                                    bool oob,
                                                    bool doProb,
@@ -214,7 +214,7 @@ private:
   static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
 
 
-  static void predict(class PredictBridge* pBridge,
+  static void predict(struct PredictBridge* pBridge,
                       BlockBatch<NumericMatrix>* blockNum,
                       BlockBatch<IntegerMatrix>* blockFac,
                       size_t nRow);

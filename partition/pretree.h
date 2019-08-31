@@ -35,7 +35,7 @@ class PreTree {
   size_t leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
   vector<class PTNode> nodeVec; // Vector of tree nodes.
-  vector<class SplitCrit> splitCrit;
+  vector<struct SplitCrit> splitCrit;
   class BV *splitBits;
   vector<unsigned int> termST;
 

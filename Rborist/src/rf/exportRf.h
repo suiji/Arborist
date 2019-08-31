@@ -39,16 +39,16 @@ RcppExport SEXP Export(SEXP sTrain);
 
 struct ExportRf {
 
-  static List exportLeafReg(const class LeafExportReg* leaf,
+  static List exportLeafReg(const struct LeafExportReg* leaf,
                             unsigned int tIdx);
 
-  static List exportLeafCtg(const class LeafExportCtg* leaf,
+  static List exportLeafCtg(const struct LeafExportCtg* leaf,
                             unsigned int tIdx);
 
   static List exportForest(const class ForestExport* forestExport,
                            unsigned int tIdx);
 
-  static IntegerVector exportBag(const class LeafExport* leaf,
+  static IntegerVector exportBag(const struct LeafExport* leaf,
                                  unsigned int tIdx,
                                  unsigned int rowTrain);
 
@@ -56,7 +56,7 @@ struct ExportRf {
                             const IntegerVector& predMap);
 
   static List exportTreeCtg(const class ForestExport* forest,
-                            const class LeafExportCtg* leaf,
+                            const struct LeafExportCtg* leaf,
                             unsigned int rowTrain);
 
   static List exportReg(const List& sTrain,
@@ -121,7 +121,7 @@ struct LeafExportReg : public LeafExport {
     @brief Constructor for export, no prediction.
    */
   LeafExportReg(const List& lLeaf,
-                const class BagBridge* bagBridge);
+                const struct BagBridge* bagBridge);
 
   ~LeafExportReg() {}
 
@@ -129,7 +129,7 @@ struct LeafExportReg : public LeafExport {
      @brief Builds bridge object from wrapped front-end data.
    */
   static unique_ptr<LeafExportReg> unwrap(const List &lTrain,
-                                          const class BagBridge* bagBridge);
+                                          const struct BagBridge* bagBridge);
 
   const vector<double> &getScoreTree(unsigned int tIdx) const {
     return scoreTree[tIdx];
@@ -146,12 +146,12 @@ struct LeafExportCtg : public LeafExport {
      @brief Constructor for export; no prediction.
    */
   LeafExportCtg(const List& lLeaf,
-                const class BagBridge* bagBridge);
+                const struct BagBridge* bagBridge);
 
   ~LeafExportCtg() {}
 
   static unique_ptr<LeafExportCtg> unwrap(const List &lTrain,
-                                          const class BagBridge* bagBridge);
+                                          const struct BagBridge* bagBridge);
 
   
   /**

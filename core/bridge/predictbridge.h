@@ -37,15 +37,15 @@ struct PredictBridge {
      Remaining parameters mirror similarly-named members.
    */
   PredictBridge(bool oob,
-                unique_ptr<class ForestBridge> forest_,
-                unique_ptr<class BagBridge> bag_,
-                unique_ptr<class LeafBridge> leaf_,
+                unique_ptr<struct ForestBridge> forest_,
+                unique_ptr<struct BagBridge> bag_,
+                unique_ptr<struct LeafBridge> leaf_,
                 unsigned int nThread);
 
   PredictBridge(bool oob,
-                unique_ptr<class ForestBridge> forest_,
-                unique_ptr<class BagBridge> bag_,
-                unique_ptr<class LeafBridge> leaf_,
+                unique_ptr<struct ForestBridge> forest_,
+                unique_ptr<struct BagBridge> bag_,
+                unique_ptr<struct LeafBridge> leaf_,
                 const vector<double>& quantile,
                 unsigned int nThread);
 
@@ -74,7 +74,7 @@ struct PredictBridge {
                     const BlockDense<unsigned int>* blockFac,
                     size_t row) const;
 
-  LeafBridge* getLeaf() const;
+  struct LeafBridge* getLeaf() const;
 
   /**
      @return vector of predection quantiles iff quant non-null else empty.
@@ -87,9 +87,9 @@ struct PredictBridge {
   const vector<double> getQEst() const;
   
 private:
-  unique_ptr<class BagBridge> bag;
-  unique_ptr<class ForestBridge> forest;
-  unique_ptr<class LeafBridge> leaf;
+  unique_ptr<struct BagBridge> bag;
+  unique_ptr<struct ForestBridge> forest;
+  unique_ptr<struct LeafBridge> leaf;
   unique_ptr<class Quant> quant;
   unique_ptr<class Predict> predictCore;
 };

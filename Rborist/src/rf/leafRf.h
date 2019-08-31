@@ -54,11 +54,11 @@ struct LeafRegRf {
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static unique_ptr<class LeafRegBridge> unwrap(const List& leaf,
+  static unique_ptr<struct LeafRegBridge> unwrap(const List& leaf,
                                       const List& sPredFrame);
 
   static List summary(SEXP sYTest,
-                      const class PredictBridge* pBridge);
+                      const struct PredictBridge* pBridge);
 
 
   /**
@@ -70,8 +70,8 @@ struct LeafRegRf {
 
      @return transposed core matrix if quantiles requested, else empty matrix.
   */
-  static NumericMatrix getQPred(const class LeafRegBridge* leafBridge,
-                                const class PredictBridge* pBridge);
+  static NumericMatrix getQPred(const struct LeafRegBridge* leafBridge,
+                                const struct PredictBridge* pBridge);
 
 
   /**
@@ -81,7 +81,7 @@ struct LeafRegRf {
 
      @return quantile of predictions if quantiles requesed, else empty vector.
    */
-  static NumericVector getQEst(const class PredictBridge* pBridge);
+  static NumericVector getQEst(const struct PredictBridge* pBridge);
 
   
   /**
@@ -126,13 +126,13 @@ struct LeafCtgRf {
 
      @param lTrain is the R-style trained forest.
    */
-  static unique_ptr<class LeafCtgBridge> unwrap(const List& leaf,
+  static unique_ptr<struct LeafCtgBridge> unwrap(const List& leaf,
                                                 const List& sPredFrame,
                                                 bool doProb);
 
   static List summary(const List& sPredFrame,
                       const List& lTrain,
-                      const class PredictBridge* pBridge,
+                      const struct PredictBridge* pBridge,
                       SEXP sYTest);
 
 
@@ -144,7 +144,7 @@ struct LeafCtgRf {
 
      @return matrix of predicted categorical responses, by row.
   */
-  static IntegerMatrix getCensus(const LeafCtgBridge* leaf,
+  static IntegerMatrix getCensus(const struct LeafCtgBridge* leaf,
                                  const CharacterVector& levelsTrain,
                                  const CharacterVector& rowNames);
 
@@ -154,7 +154,7 @@ struct LeafCtgRf {
 
      @return probability matrix if requested, otherwise empty matrix.
   */
-  static NumericMatrix getProb(const LeafCtgBridge* leaf,
+  static NumericMatrix getProb(const struct LeafCtgBridge* leaf,
                                const CharacterVector& levelsTrain,
                                const CharacterVector &rowNames);
 };
@@ -196,7 +196,7 @@ class TestCtg {
 
      @param leaf summarizes the trained leaf frame.
   */
-  void validate(class LeafCtgBridge* leaf);
+  void validate(struct LeafCtgBridge* leaf);
 
 
   IntegerMatrix Confusion(const CharacterVector& levelsTrain);
@@ -222,7 +222,7 @@ private:
 
      @param scale estimates a resizing factor.
    */
-  void writeNode(const class TrainBridge* train,
+  void writeNode(const struct TrainBridge* train,
                  unsigned int tIdx,
                  double scale);
 
@@ -237,7 +237,7 @@ private:
   /**
      @brief Consumes the BagSample records and writes as raw data.
    */
-  void writeBagSample(const class TrainBridge* train,
+  void writeBagSample(const struct TrainBridge* train,
                     unsigned int treeOff,
                     double scale);
 public:
@@ -278,7 +278,7 @@ public:
 
      @param scale estimates a resizing factor.
    */
-  virtual void consume(const class TrainBridge* train,
+  virtual void consume(const struct TrainBridge* train,
                unsigned int treeOff,
                double scale);
 
@@ -302,7 +302,7 @@ struct LBTrainReg : public LBTrain {
   /**
      @brief Description and parameters as with virutal declaration.
    */
-  void consume(const class TrainBridge* train,
+  void consume(const struct TrainBridge* train,
                unsigned int treeOff,
                double scale);
   /**
@@ -329,7 +329,7 @@ struct LBTrainCtg : public LBTrain {
   /**
      @brief Description and parameters as with virtual declaration.
    */
-  void consume(const class TrainBridge* train,
+  void consume(const struct TrainBridge* train,
                unsigned int treeOff,
                double scale);
 
@@ -356,7 +356,7 @@ private:
 
      @double scale estimates a resizing factor.
    */
-  void writeWeight(const class TrainBridge* train,
+  void writeWeight(const struct TrainBridge* train,
                    double scale);
 
 };

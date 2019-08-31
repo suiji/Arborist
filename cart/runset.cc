@@ -24,9 +24,7 @@ IndexT RunSet::noStart = 0;
 
 
 Run::Run(unsigned int ctgWidth_,
-         unsigned int nRow,
-         unsigned int noCand) :
-  noRun(noCand),
+         unsigned int nRow) :
   setCount(0),
   runSet(vector<RunSet>(0)),
   facRun(vector<FRNode>(0)),

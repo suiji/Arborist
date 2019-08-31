@@ -55,7 +55,7 @@ struct ForestRf {
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<class ForestBridge> unwrap(const List &sTrain);
+  static unique_ptr<struct ForestBridge> unwrap(const List &sTrain);
 };
 
 
@@ -64,7 +64,7 @@ struct ForestRf {
    a per-tree basis.
  */
 class ForestExport {
-  unique_ptr<ForestBridge> forestBridge;
+  unique_ptr<struct ForestBridge> forestBridge;
   vector<vector<unsigned int> > predTree;
   vector<vector<unsigned int> > bumpTree;
   vector<vector<double > > splitTree;
@@ -130,7 +130,7 @@ struct FBTrain {
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void consume(const class TrainBridge* train,
+  void consume(const struct TrainBridge* train,
                unsigned int treeOff,
                double fraction);
 

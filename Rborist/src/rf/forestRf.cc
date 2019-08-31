@@ -121,7 +121,7 @@ unique_ptr<ForestExport> ForestExport::unwrap(const List& lTrain,
 
 ForestExport::ForestExport(const List &lTrain,
                            const IntegerVector &predMap) :
-  forestBridge(move(ForestRf::unwrap(lTrain))),
+  forestBridge(ForestRf::unwrap(lTrain)),
   predTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
   bumpTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
   splitTree(vector<vector<double > >(forestBridge->getNTree())),

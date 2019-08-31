@@ -180,7 +180,7 @@ struct TrainRf {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const class TrainBridge* train,
+  void consume(const struct TrainBridge* train,
                unsigned int tIdx,
                unsigned int chunkSize);
 

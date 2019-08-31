@@ -73,7 +73,7 @@ SFReg::SFReg(const SummaryFrame* frame,
 	     const Sample* sample) :
   SplitFrontier(frame, frontier, sample),
   ruMono(vector<double>(0)) {
-  run = make_unique<Run>(0, frame->getNRow(), noSet);
+  run = make_unique<Run>(0, frame->getNRow());
 }
 
 
@@ -86,7 +86,7 @@ SFCtg::SFCtg(const SummaryFrame* frame,
 	     PredictorT nCtg_):
   SplitFrontier(frame, frontier, sample),
   nCtg(nCtg_) {
-  run = make_unique<Run>(nCtg, frame->getNRow(), noSet);
+  run = make_unique<Run>(nCtg, frame->getNRow());
 }
 
 
@@ -296,7 +296,7 @@ int SFReg::getMonoMode(const SplitCand* cand) const {
 void SplitFrontier::split() {
   splitCandidates();
 
-  nuxMax = move(maxCandidates());
+  nuxMax = maxCandidates();
 }
 
 

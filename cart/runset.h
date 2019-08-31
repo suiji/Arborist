@@ -450,7 +450,6 @@ class RunSet {
    Run objects are allocated per-tree, and live throughout training.
 */
 class Run {
-  const unsigned int noRun;  // Inattainable run index for tree.
   unsigned int setCount;
   vector<RunSet> runSet;
   vector<FRNode> facRun; // Workspace for FRNodes used along level.
@@ -476,12 +475,9 @@ public:
      @param ctgWidth_ is the response cardinality.
 
      @param nRow is the number of training rows:  inattainable offset.
-
-     @param noCand reserves an index value inattainable for any run.
   */
   Run(unsigned int ctgWidth_,
-      unsigned int nRow,
-      unsigned int noCand);
+      unsigned int nRow);
 
   /**
      @brief Clears workspace used by current level.
