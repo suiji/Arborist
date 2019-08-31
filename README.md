@@ -34,8 +34,7 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.1-17 is passing the CRAN build series.
-- Rborist version 0.2-0 is being readied for release to CRAN.
+- Rborist version 0.2-0 has been sent to CRAN.
 
 ### Python
 
