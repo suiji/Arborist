@@ -105,11 +105,9 @@ public:
 
      @return lesser of internal parameter and number of observations.
    */
-  static inline size_t getBlockRows(size_t nRow) {
-    return min(nRow, rowBlock);
-  }
+  static size_t getBlockRows(size_t nRow);
 
-
+  
   /**
      @brief Dispatches prediction on a block of rows, by predictor type.
 

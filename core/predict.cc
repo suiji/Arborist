@@ -53,6 +53,11 @@ PredictFrame::PredictFrame(Predict* predict_,
 }
 
 
+size_t PredictFrame::getBlockRows(size_t nRow) {
+  return min(nRow, rowBlock);
+}
+
+
 void PredictFrame::predictAcross(size_t rowStart) {
   predictBlock(rowStart);
   predict->scoreBlock(predictLeaves.get(), rowStart, getExtent());
@@ -73,13 +78,12 @@ void Predict::quantBlock(const PredictFrame* frame, size_t rowStart, size_t exte
 
 
 void PredictFrame::predictBlock(size_t rowStart) {
-  OMPBound row;
   OMPBound rowSup = (OMPBound) (rowStart + getExtent());
 
-#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (row = (OMPBound) rowStart; row < rowSup; row++) {
+    for (OMPBound row = (OMPBound) rowStart; row < rowSup; row++) {
       (this->*PredictFrame::predictRow)(row, row - rowStart);
     }
   }

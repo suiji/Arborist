@@ -239,11 +239,10 @@ void Frontier::nodeReindex() {
   vector<IndexT> succST(idxLive);
   rel2PT = vector<IndexT>(idxLive);
 
-  OMPBound splitIdx;
-#pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1) 
-    for (splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
+    for (OMPBound splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
       indexSet[splitIdx].reindex(replayExpl.get(), replayLeft.get(), this, idxLive, succST);
     }
   }
@@ -309,11 +308,10 @@ void Frontier::stReindex(unsigned int splitNext) {
   unsigned int chunkSize = 1024;
   IndexT nChunk = (bagCount + chunkSize - 1) / chunkSize;
 
-  OMPBound chunk;
-#pragma omp parallel default(shared) private(chunk) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (chunk = 0; chunk < nChunk; chunk++) {
+  for (OMPBound chunk = 0; chunk < nChunk; chunk++) {
     stReindex(bottom->getSubtreePath(), splitNext, chunk * chunkSize, (chunk + 1) * chunkSize);
   }
   }
@@ -427,11 +425,10 @@ void Frontier::reachingPath(IndexT splitIdx,
 vector<double> Frontier::sumsAndSquares(vector<vector<double> >&ctgSum) {
   vector<double> sumSquares(indexSet.size());
 
-  OMPBound splitIdx;
-#pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
+    for (OMPBound splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
       ctgSum[splitIdx] = indexSet[splitIdx].sumsAndSquares(sumSquares[splitIdx]);
     }
   }

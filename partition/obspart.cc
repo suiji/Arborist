@@ -64,12 +64,11 @@ vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
                                      const Sample* sample) {
   vector<StageCount> stageCount(rankedFrame->getNPred());
 
-  OMPBound predIdx;
   OMPBound predTop = nPred;
-#pragma omp parallel default(shared) private(predIdx) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (predIdx = 0; predIdx < predTop; predIdx++) {
+    for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
       stage(rankedFrame, sampleNode, sample, predIdx, stageCount[predIdx]);
     }
   }

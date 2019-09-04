@@ -145,13 +145,12 @@ Bottom::~Bottom() {
 
 
 void Bottom::restage(const SplitFrontier* splitFrontier) {
-  OMPBound nodeIdx;
   OMPBound idxTop = restageCoord.size();
   
-#pragma omp parallel default(shared) private(nodeIdx) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
+    for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
       restage(splitFrontier, restageCoord[nodeIdx]);
     }
   }

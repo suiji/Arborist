@@ -301,12 +301,11 @@ void SplitFrontier::split() {
 
 
 void SFCtg::splitCandidates() {
-  OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < splitTop; splitPos++) {
+    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
       splitCand[splitPos].split(this, obsPart.get());
     }
   }
@@ -314,12 +313,11 @@ void SFCtg::splitCandidates() {
 
 
 void SFReg::splitCandidates() {
-  OMPBound splitPos;
   OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) private(splitPos) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitPos = 0; splitPos < splitTop; splitPos++) {
+    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
       splitCand[splitPos].split(this, obsPart.get());
     }
   }
@@ -329,12 +327,11 @@ void SFReg::splitCandidates() {
 vector<SplitNux> SplitFrontier::maxCandidates() {
   vector<SplitNux> nuxMax(splitCount); // Info initialized to zero.
 
-  OMPBound splitIdx;
   OMPBound splitTop = splitCount;
-#pragma omp parallel default(shared) private(splitIdx) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (splitIdx = 0; splitIdx < splitTop; splitIdx++) {
+    for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
       nuxMax[splitIdx] = maxSplit(candOff[splitIdx], nCand[splitIdx]);
     }
   }

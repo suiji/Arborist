@@ -55,12 +55,11 @@ void Quant::predictAcross(const PredictFrame* frame,
   if (baggedRows->isEmpty())
     return; // Insufficient leaf information.
  
-  OMPBound row;
   OMPBound rowSup = (OMPBound) (rowStart + extent);
-#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (row = rowStart; row < rowSup; row++) {
+    for (OMPBound row = rowStart; row < rowSup; row++) {
       double yPred = leafReg->getYPred(row);
       predictRow(frame, row - rowStart, yPred, &qPred[qCount * row], &qEst[row]);
     }

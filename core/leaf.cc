@@ -198,13 +198,12 @@ vector<RankCount> LeafFrameReg::setRankCount(const BitMatrix* baggedRows,
 void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
                               size_t rowStart,
                               size_t extent) {
-  OMPBound blockRow;
   OMPBound blockSup = (OMPBound) extent;
 
-#pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (blockRow = 0; blockRow < blockSup; blockRow++) {
+  for (OMPBound blockRow = 0; blockRow < blockSup; blockRow++) {
     leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], defaultScore, &yPred[rowStart + blockRow]);
   }
   }
@@ -228,14 +227,13 @@ void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultSco
 void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
                               size_t rowStart,
                               size_t extent) {
-  OMPBound blockRow;
   OMPBound blockSup = (OMPBound) extent;
 // TODO:  Recast loop by blocks, to avoid
 // false sharing.
-#pragma omp parallel default(shared) private(blockRow) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (blockRow = 0; blockRow < blockSup; blockRow++) {
+  for (OMPBound blockRow = 0; blockRow < blockSup; blockRow++) {
     leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], ctgDefault, &votes[ctgIdx(rowStart + blockRow, 0)]);
     if (!prob.empty()) {
       ctgProb->probAcross(&predictLeaves[nTree * blockRow], &prob[ctgIdx(rowStart + blockRow, 0)], noLeaf);
@@ -303,12 +301,11 @@ void CtgProb::probAcross(const unsigned int* predictRow,
 */
 void LeafFrameCtg::vote() {
   OMPBound rowSup = yPred.size();
-  OMPBound row;
 
-#pragma omp parallel default(shared) private(row) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (row = 0; row < rowSup; row++) {
+  for (OMPBound row = 0; row < rowSup; row++) {
     unsigned int argMax = ctgTrain;
     double scoreMax = 0.0;
     double *scoreRow = &votes[ctgIdx(row,0)];
