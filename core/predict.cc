@@ -23,6 +23,8 @@
 #include "ompthread.h"
 
 
+const size_t PredictFrame::rowBlock = 0x2000;
+
 Predict::Predict(const Bag* bag_,
                  const Forest* forest,
                  LeafFrame* leaf_,

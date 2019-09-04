@@ -31,7 +31,7 @@
    class is parametrized by two blocks instead of a more general frame.
  */
 class PredictFrame {
-  static constexpr size_t rowBlock = 0x2000; // Block size.
+  static const size_t rowBlock; // Block size.
   
   class Predict* predict;
   const unsigned int nTree;
