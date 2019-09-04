@@ -34,6 +34,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include <vector>
 #include <memory>
 using namespace std;
 
@@ -65,24 +66,24 @@ struct RLEFrameR {
      @return List object containing valid representation.
    */
   static List checkNumRanked(SEXP sNumRanked);
-  
+
+
   /**
-     @brief Unwraps an R-style run-length encoding.
+     @brief Pins frame vectors locally and passes through to TrainRf method.
 
-     @param autoCompress is the percentage threshold for predictor sparsity.
+     @param argList is the front-end argument list.
 
-     @param coproc summarizes the coprocessor configuration, if any.
+     @param predmap is the predictor map.
 
-     @return summary-style representation of frame.
+     @param nRow is the number of observations.
+
+     @return list of trained forest objects.
    */
-  static unique_ptr<RLEFrame> factory(SEXP sRLEFrame,
-                                      unsigned int nRow);
+  static List train(const List& argList,
+		    const IntegerVector& predmap,
+		    unsigned int nRow);
+  
 
-  static unique_ptr<RLEFrame> factory(const IntegerVector& card,
-                                      size_t nRow,
-                                      const RawVector& rle,
-                                      const NumericVector& numVal,
-                                      const IntegerVector& numOff);
   /**
      @brief Static entry to block sorting.
 

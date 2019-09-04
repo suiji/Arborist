@@ -13,21 +13,32 @@
    @author Mark Seligman
  */
 
-#include <algorithm>
 
 #include "summaryframe.h"
 #include "rleframe.h"
+#include "coproc.h"
+
+#include <algorithm>
+
+unique_ptr<SummaryFrame> SummaryFrame::factory(const RLEFrame* rleFrame,
+					       double autoCompress,
+					       bool enableCoproc,
+					       vector<string>& diag) {
+  return make_unique<SummaryFrame>(rleFrame, autoCompress, enableCoproc, diag);
+}
 
 
 SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
                            double autoCompress,
-                           const Coproc* coproc) :
+			   bool enableCoproc,
+			   vector<string>& diag) : 
   nRow(rleFrame->nRow),
   nPredNum(rleFrame->nPredNum),
   cardinality(rleFrame->cardinality),
   nPredFac(cardinality.size()),
   cardExtent(nPredFac == 0 ? 0 : *max_element(cardinality.begin(), cardinality.end())),
   nPred(nPredFac + nPredNum),
+  coproc(Coproc::Factory(enableCoproc, diag)),
   rankedFrame(make_unique<RankedFrame>(rleFrame->nRow,
                                        rleFrame->cardinality,
                                        nPred,

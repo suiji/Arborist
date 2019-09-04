@@ -52,7 +52,7 @@ SplitFrontier::~SplitFrontier() {
 
 
 void SFReg::Immutables(const SummaryFrame* frame,
-                       const vector<double> &bridgeMono) {
+                       const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
   auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [] (double prob) { return prob != 0.0; });

@@ -21,7 +21,7 @@
 #include "rleframe.h"
 
 #include <vector>
-
+#include <memory>
 using namespace std;
 
 /**
@@ -34,6 +34,7 @@ class SummaryFrame {
   const unsigned int nPredFac;
   const unsigned int cardExtent; // Greatest factor footprint.
   const unsigned int nPred;
+  const unique_ptr<class Coproc> coproc; // Stubbed, for now.
   const unique_ptr<RankedFrame> rankedFrame;
   const unique_ptr<BlockJagged<double> > numRanked;
 
@@ -41,8 +42,16 @@ public:
 
   SummaryFrame(const struct RLEFrame* rleFrame,
                double autoCompress,
-               const class Coproc* coproc);
+	       bool enableCoproc,
+	       vector<string>& diag);
 
+  
+  static unique_ptr<SummaryFrame> factory(const struct RLEFrame* rleFrame,
+					  double autocompress,
+					  bool enableCoproc,
+					  vector<string>& diag);
+
+  
   /**
      @brief Getter for rankedFrame.
    */

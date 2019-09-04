@@ -44,7 +44,6 @@ struct TrainRf {
   static constexpr unsigned int treeChunk = 20;
   static constexpr double allocSlop = 1.2;
 
-  static unsigned int nCtg; // # outcome categores:  classification iff > 0.
   static bool verbose; // Whether to report progress while training.
   
   const unsigned int nTree; // # trees under training.
@@ -77,42 +76,29 @@ struct TrainRf {
   /**
      @brief Trains classification forest.
 
-     @param y is the categorical response vector.
-
-     @param classWeight is the class-weighted response.
-
      @param summaryFrame summarizes the predictor frame.
 
      @param predMap maps core to front-end predictor indices.
 
-     @param nTree is the number of trees in the forest.
-
      @return R-style list of trained summaries.
   */
-  static List classification(const IntegerVector &y,
-                             const NumericVector &classWeight,
+  static List classification(const List& argList,
                              const class SummaryFrame* summaryFrame,
                              const IntegerVector &predMap,
-                             unsigned int nTree,
                              vector<string> &diag);
   
   /**
      @brief Trains regression forest.
 
-     @param y is the numeric response vector.
-
      @param summaryFrame summarizes the predictor frame.
 
      @param predMap maps core to front-end predictor indices.
 
-     @param nTree is the number of trees in the forest.
-
      @return R-style list of trained summaries.
   */
-  static List regression(const NumericVector &y,
+  static List regression(const List& argList,
                          const class SummaryFrame* summaryFrame,
                          const IntegerVector &predMap,
-                         unsigned int nTree,
                          vector<string> &diag);
 
   /**
@@ -171,8 +157,9 @@ struct TrainRf {
    */
   static List train(const List &argList,
                     const IntegerVector &predMap,
-                    unsigned int nRow);
+                    const class RLEFrame* summaryFrame);
 
+  
   /**
      @brief Consumes core representation of a trained tree for writing.
 
