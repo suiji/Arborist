@@ -61,6 +61,12 @@ void Train::initOmp(unsigned int nThread) {
 }
 
 
+void Train::initFrame(double autoCompress,
+		      bool enableCoproc) {
+  SummaryFrame::init(autoCompress, enableCoproc);
+}
+
+
 void Train::initSample(unsigned int nSamp) {
   Sample::immutables(nSamp);
 }
@@ -78,9 +84,9 @@ void Train::initCtgWidth(unsigned int ctgWidth) {
 }
 
 
-void Train::initMono(const SummaryFrame *frame,
+void Train::initMono(const RLEFrame* frame,
                      const vector<double> &regMono) {
-  SFReg::Immutables(frame, regMono);
+  SFReg::immutables(frame, regMono);
 }
 
 
@@ -93,16 +99,19 @@ void Train::deInit() {
   Sample::deImmutables();
   SampleNux::deImmutables();
   Level::deImmutables();
-  SFReg::DeImmutables();
+  SFReg::deImmutables();
   OmpThread::deInit();
+  SummaryFrame::deInit();
 }
 
 
-unique_ptr<Train> Train::regression(const SummaryFrame* frame,
+unique_ptr<Train> Train::regression(const RLEFrame* rleFrame,
+				    vector<string>& diag,
                                     const double* y,
                                     unsigned int treeChunk) {
-  auto trainReg = make_unique<Train>(frame, y, treeChunk);
-  trainReg->trainChunk(frame);
+  unique_ptr<SummaryFrame> frame(SummaryFrame::factory(rleFrame, diag));
+  auto trainReg = make_unique<Train>(frame.get(), y, treeChunk);
+  trainReg->trainChunk(frame.get());
 
   return trainReg;
 }
@@ -120,14 +129,16 @@ Train::Train(const SummaryFrame* frame,
 }
 
 
-unique_ptr<Train> Train::classification(const SummaryFrame* frame,
+unique_ptr<Train> Train::classification(const RLEFrame* rleFrame,
+					vector<string>& diag,
                                         const unsigned int* yCtg,
                                         const double* yProxy,
                                         unsigned int nCtg,
                                         unsigned int treeChunk,
                                         unsigned int nTree) {
-  auto trainCtg = make_unique<Train>(frame, yCtg, nCtg, yProxy, nTree, treeChunk);
-  trainCtg->trainChunk(frame);
+  unique_ptr<SummaryFrame> frame(SummaryFrame::factory(rleFrame, diag));
+  auto trainCtg = make_unique<Train>(frame.get(), yCtg, nCtg, yProxy, nTree, treeChunk);
+  trainCtg->trainChunk(frame.get());
 
   return trainCtg;
 }

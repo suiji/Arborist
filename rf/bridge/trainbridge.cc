@@ -27,21 +27,23 @@ TrainBridge::~TrainBridge() {
 }
 
 
-unique_ptr<TrainBridge> TrainBridge::classification(const class SummaryFrame* frame,
+unique_ptr<TrainBridge> TrainBridge::classification(const struct RLEFrame* frame,
+						    vector<string>& diag,
                                                     const unsigned int *yCtg,
                                                     const double *yProxy,
                                                     unsigned int nCtg,
                                                     unsigned int treeChunk,
                                                     unsigned int nTree) {
-  auto train = Train::classification(frame, yCtg, yProxy, nCtg, treeChunk, nTree);
+  auto train = Train::classification(frame, diag, yCtg, yProxy, nCtg, treeChunk, nTree);
 
   return make_unique<TrainBridge>(move(train));
 }
 
-unique_ptr<TrainBridge> TrainBridge::regression(const class SummaryFrame* frame,
+unique_ptr<TrainBridge> TrainBridge::regression(const struct RLEFrame* frame,
+						vector<string>& diag,
                                                 const double* y,
                                                 unsigned int treeChunk) {
-  auto train = Train::regression(frame, y, treeChunk);
+  auto train = Train::regression(frame, diag, y, treeChunk);
   return make_unique<TrainBridge>(move(train));
 }
 
@@ -154,6 +156,15 @@ void TrainBridge::initTree(unsigned int nSamp,
 void TrainBridge::initOmp(unsigned int nThread) {
   Train::initOmp(nThread);
 }
+
+
+void TrainBridge::initFrame(double autoCompress,
+			    bool enableCoproc) {
+  Train::initFrame(autoCompress,
+		   enableCoproc);
+};
+
+
   
 
 void TrainBridge::initSample(unsigned int nSamp) {
@@ -172,10 +183,11 @@ void TrainBridge::initSplit(unsigned int minNode,
 }
   
 
-void TrainBridge::initMono(const class SummaryFrame* frame,
+void TrainBridge::initMono(const struct RLEFrame* frame,
                            const vector<double> &regMono) {
   Train::initMono(frame, regMono);
 }
+
 
 void TrainBridge::deInit() {
   Train::deInit();

@@ -27,19 +27,23 @@ struct TrainBridge {
   
   ~TrainBridge();
 
-  static unique_ptr<TrainBridge> classification(
-       const class SummaryFrame* summaryFrame,
-       const unsigned int *yCtg,
-       const double *yProxy,
-       unsigned int nCtg,
-       unsigned int treeChunk,
-       unsigned int nTree);
+  static unique_ptr<TrainBridge>
+  classification(
+		 const struct RLEFrame* frame,
+		 vector<string>& diag,
+		 const unsigned int *yCtg,
+		 const double *yProxy,
+		 unsigned int nCtg,
+		 unsigned int treeChunk,
+		 unsigned int nTree);
 
 
-  static unique_ptr<TrainBridge> regression(
-       const class SummaryFrame* summaryFrame,
-       const double *y,
-       unsigned int treeChunk);
+  static unique_ptr<TrainBridge>
+  regression(
+	     const struct RLEFrame* frame,
+	     vector<string>& diag,
+	     const double *y,
+	     unsigned int treeChunk);
 
 
   void writeHeight(unsigned int height[],
@@ -150,6 +154,17 @@ struct TrainBridge {
      @param nThread is a user-specified thread request.
    */
   static void initOmp(unsigned int nThread);
+
+
+  /**
+     @brief Intializes static SummaryFrame state.
+
+     @param autoCompress is per-predictor percentage threshold for autoCompression.
+     @param enableCoproc indicates whether frame is to reside on a coprocessor.
+   */
+  static void initFrame(double autoCompress,
+			bool enableCoproc);
+  
   
   /**
      @brief Registers response-sampling parameters.
@@ -184,7 +199,7 @@ struct TrainBridge {
      @param regMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void initMono(const class SummaryFrame* frame,
+  static void initMono(const struct RLEFrame* rleFrame,
                        const vector<double> &regMono);
 
   /**

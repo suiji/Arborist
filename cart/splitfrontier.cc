@@ -51,7 +51,7 @@ SplitFrontier::~SplitFrontier() {
 }
 
 
-void SFReg::Immutables(const SummaryFrame* frame,
+void SFReg::immutables(const RLEFrame* frame,
                        const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
@@ -63,7 +63,7 @@ void SFReg::Immutables(const SummaryFrame* frame,
 }
 
 
-void SFReg::DeImmutables() {
+void SFReg::deImmutables() {
   mono.clear();
 }
 

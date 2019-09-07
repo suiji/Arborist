@@ -312,18 +312,18 @@ class SFReg : public SplitFrontier {
   /**
      @brief Caches a dense local copy of the mono[] vector.
 
-     @param frameMap contains the predictor block mappings.
+     @param rleFrame contains the predictor block mappings.
 
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void Immutables(const class SummaryFrame* frame,
-                         const vector<double> &feMono);
+  static void immutables(const struct RLEFrame* rleFrame,
+                         const vector<double>& feMono);
 
   /**
      @brief Resets the monotone constraint vector.
    */
-  static void DeImmutables();
+  static void deImmutables();
   
   SFReg(const class SummaryFrame* frame_,
         class Frontier* frontier_,

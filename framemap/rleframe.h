@@ -228,6 +228,14 @@ struct RLEFrame {
 
 
   /**
+     @return position of first numerical predictor.
+   */
+  const auto getNumFirst() const {
+    return 0;
+  }
+
+  
+  /**
      @brief Numeric predictor count getter.
    */
   const auto getNPredNum() const {

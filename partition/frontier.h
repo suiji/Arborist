@@ -52,7 +52,11 @@ class IndexSet {
 
   // Revised per criterion, assumed registered in order.
   double sumL; // Acummulates sum of left index responses.
-  bool leftImpl;  // Revised many times.  Last set value wins.
+
+  // Whether node is implicitly left:  defined iff doesSplit.
+  // May be updated multiple times by successive criteria.  Final
+  // criterion prevails, assuming criteria accrue conditionally.
+  bool leftImpl;
 
   // State repeatedly polled and/or updated by Reindex methods.  Hence
   // appropriate to cache.
@@ -205,6 +209,10 @@ class IndexSet {
   
   
   /**
+     @brief Determines whether sample assigned to left successor.
+
+     N.B.:  Undefined if 'doesSplit' is false.
+
      @param replayExpl bit set iff sample is explictly replayed.
 
      @param leftExpl defined iff sample also replayed:  L/R as defined.
@@ -338,22 +346,30 @@ class IndexSet {
                           IndexT sIdx,
                           IndexT& pathSucc,
                           IndexT& ptSucc) {
-    return offspring(senseLeft(replayExpl, replayLeft, sIdx), pathSucc, ptSucc);
+    return doesSplit ? offspringLive(senseLeft(replayExpl, replayLeft, sIdx), pathSucc, ptSucc) : offspringTerm(pathSucc, ptSucc);
   }
 
-  inline IndexT offspring(bool isLeft,
+  /**
+     @brief Set path and pretree successor of nonterminal.
+
+     @param isLeft indicates branch sense.
+
+     @return (possibly psuedo-) index of successor IndexSet.
+   */
+  inline IndexT offspringLive(bool isLeft,
                           IndexT& pathSucc,
                           IndexT& ptSucc) {
-    if (!doesSplit) {  // Terminal from previous level.
-      pathSucc = 0; // Dummy:  overwritten by caller.
-      ptSucc = ptId;
-      return succOnly;
-    }
-    else {
       pathSucc = getPathSucc(isLeft);
       ptSucc = getPTSucc(isLeft);
       return getIdxSucc(isLeft);
-    }
+  }
+
+
+  inline IndexT offspringTerm(IndexT& pathSucc,
+			      IndexT& ptSucc) {
+    pathSucc = 0; // Dummy:  overwritten by caller.
+    ptSucc = ptId;
+    return succOnly;
   }
 
   
@@ -367,9 +383,15 @@ class IndexSet {
                           unsigned int& pathSucc,
                           IndexT& idxSucc,
                           IndexT& ptSucc) {
-    bool isLeft = senseLeft(replayExpl, replayLeft, sIdx);
-    idxSucc = !doesSplit ? offOnly++ : getOffSucc(isLeft);
-    return offspring(isLeft, pathSucc, ptSucc);
+    if (doesSplit) {
+      bool isLeft = senseLeft(replayExpl, replayLeft, sIdx);
+      idxSucc = getOffSucc(isLeft);
+      return offspringLive(isLeft, pathSucc, ptSucc);
+    }
+    else {
+      idxSucc = offOnly++;
+      return offspringTerm(pathSucc, ptSucc);
+    }
   }
 };
 

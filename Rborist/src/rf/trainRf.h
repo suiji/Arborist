@@ -83,7 +83,7 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List classification(const List& argList,
-                             const class SummaryFrame* summaryFrame,
+                             const struct RLEFrame* rleFrame,
                              const IntegerVector &predMap,
                              vector<string> &diag);
   
@@ -97,7 +97,7 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List regression(const List& argList,
-                         const class SummaryFrame* summaryFrame,
+                         const struct RLEFrame* rleFrame,
                          const IntegerVector &predMap,
                          vector<string> &diag);
 
@@ -133,7 +133,7 @@ struct TrainRf {
      @return implicit R_NilValue.
    */
   static SEXP init(const List &argList,
-                   const class SummaryFrame* frameMap,
+                   const struct RLEFrame* rleFrame,
                    const IntegerVector &predMap);
 
   /**
@@ -155,9 +155,9 @@ struct TrainRf {
 
      @return R-style list of trained summaries.
    */
-  static List train(const List &argList,
-                    const IntegerVector &predMap,
-                    const class RLEFrame* summaryFrame);
+  static List train(const List& argList,
+                    const IntegerVector& predMap,
+                    const struct RLEFrame* rleFrame);
 
   
   /**

@@ -30,8 +30,6 @@
 #include "leafRf.h"
 #include "rowSample.h"
 #include "rleframeR.h"
-#include "summaryframe.h"
-#include "coproc.h"
 
 bool TrainRf::verbose = false;
 
@@ -60,20 +58,18 @@ List TrainRf::train(const List &argList,
     Rcout << "Beginning training" << endl;
   }
   vector<string> diag;
-  unique_ptr<SummaryFrame> frame(SummaryFrame::factory(rleFrame, as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag));
-
-  init(argList, frame.get(), predMap);
+  init(argList, rleFrame, predMap);
 
   List outList;
   if (as<unsigned int>(argList["nCtg"]) > 0) {
     outList = classification(argList,
-                             frame.get(),
+                             rleFrame,
                              predMap,
                              diag);
   }
   else {
     outList = regression(argList,
-                         frame.get(),
+                         rleFrame,
                          predMap,
                          diag);
   }
@@ -91,7 +87,7 @@ List TrainRf::train(const List &argList,
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
 SEXP TrainRf::init(const List& argList,
-                   const SummaryFrame* summaryFrame,
+                   const RLEFrame* rleFrame,
                    const IntegerVector& predMap) {
   BEGIN_RCPP
   verbose = as<bool>(argList["verbose"]);
@@ -116,13 +112,15 @@ SEXP TrainRf::init(const List& argList,
                   as<unsigned int>(argList["maxLeaf"]));
   TrainBridge::initBlock(as<unsigned int>(argList["treeBlock"]));
   TrainBridge::initOmp(as<unsigned int>(argList["nThread"]));
+  TrainBridge::initFrame(as<double>(argList["autoCompress"]),
+			 as<bool>(argList["enableCoproc"]));
   
   unsigned int nCtg = as<unsigned int>(argList["nCtg"]);
   TrainBridge::initCtgWidth(nCtg);
   if (nCtg == 0) { // Regression only.
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
-    TrainBridge::initMono(summaryFrame, regMono);
+    TrainBridge::initMono(rleFrame, regMono);
   }
 
   END_RCPP
@@ -162,7 +160,7 @@ NumericVector TrainRf::ctgProxy(const IntegerVector &y,
 
 
 List TrainRf::classification(const List& argList,
-                             const SummaryFrame* summaryFrame,
+                             const RLEFrame* rleFrame,
                              const IntegerVector &predMap,
                              vector<string> &diag) {
   BEGIN_RCPP
@@ -178,7 +176,8 @@ List TrainRf::classification(const List& argList,
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainCtg = TrainBridge::classification(summaryFrame,
+    auto trainCtg = TrainBridge::classification(rleFrame,
+						diag,
                                                 &yzVec[0],
                                                 &proxy[0],
                                                 classWeight.size(),
@@ -235,7 +234,7 @@ NumericVector TrainRf::scalePredInfo(const IntegerVector& predMap) {
 
 
 List TrainRf::regression(const List& argList,
-                         const SummaryFrame* summaryFrame,
+                         const RLEFrame* rleFrame,
                          const IntegerVector &predMap,
                          vector<string> &diag) {
   BEGIN_RCPP
@@ -246,7 +245,8 @@ List TrainRf::regression(const List& argList,
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainReg = TrainBridge::regression(summaryFrame,
+    auto trainReg = TrainBridge::regression(rleFrame,
+					    diag,
                                             &y[0],
                                             chunkThis);
     tb->consume(trainReg.get(), treeOff, chunkThis);
