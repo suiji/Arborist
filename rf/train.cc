@@ -61,12 +61,6 @@ void Train::initOmp(unsigned int nThread) {
 }
 
 
-void Train::initFrame(double autoCompress,
-		      bool enableCoproc) {
-  SummaryFrame::init(autoCompress, enableCoproc);
-}
-
-
 void Train::initSample(unsigned int nSamp) {
   Sample::immutables(nSamp);
 }
@@ -84,7 +78,7 @@ void Train::initCtgWidth(unsigned int ctgWidth) {
 }
 
 
-void Train::initMono(const RLEFrame* frame,
+void Train::initMono(const SummaryFrame* frame,
                      const vector<double> &regMono) {
   SFReg::immutables(frame, regMono);
 }
@@ -101,17 +95,14 @@ void Train::deInit() {
   Level::deImmutables();
   SFReg::deImmutables();
   OmpThread::deInit();
-  SummaryFrame::deInit();
 }
 
 
-unique_ptr<Train> Train::regression(const RLEFrame* rleFrame,
-				    vector<string>& diag,
+unique_ptr<Train> Train::regression(const SummaryFrame* frame,
                                     const double* y,
                                     unsigned int treeChunk) {
-  unique_ptr<SummaryFrame> frame(SummaryFrame::factory(rleFrame, diag));
-  auto trainReg = make_unique<Train>(frame.get(), y, treeChunk);
-  trainReg->trainChunk(frame.get());
+  auto trainReg = make_unique<Train>(frame, y, treeChunk);
+  trainReg->trainChunk(frame);
 
   return trainReg;
 }
@@ -129,16 +120,14 @@ Train::Train(const SummaryFrame* frame,
 }
 
 
-unique_ptr<Train> Train::classification(const RLEFrame* rleFrame,
-					vector<string>& diag,
+unique_ptr<Train> Train::classification(const SummaryFrame* frame,
                                         const unsigned int* yCtg,
                                         const double* yProxy,
                                         unsigned int nCtg,
                                         unsigned int treeChunk,
                                         unsigned int nTree) {
-  unique_ptr<SummaryFrame> frame(SummaryFrame::factory(rleFrame, diag));
-  auto trainCtg = make_unique<Train>(frame.get(), yCtg, nCtg, yProxy, nTree, treeChunk);
-  trainCtg->trainChunk(frame.get());
+  auto trainCtg = make_unique<Train>(frame, yCtg, nCtg, yProxy, nTree, treeChunk);
+  trainCtg->trainChunk(frame);
 
   return trainCtg;
 }

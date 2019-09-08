@@ -326,6 +326,7 @@ class SampleReg : public Sample {
 class SampleCtg : public Sample {
 
  public:
+  
   SampleCtg(const class SummaryFrame* frame);
   ~SampleCtg();
 

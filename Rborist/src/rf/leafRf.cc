@@ -62,7 +62,7 @@ LBTrainCtg::LBTrainCtg(const IntegerVector& yTrain_,
   yTrain(yTrain_) {
 }
 
-void LBTrain::consume(const TrainBridge* train,
+void LBTrain::consume(const TrainChunk* train,
                       unsigned int tIdx,
                       double scale) {
   writeNode(train, tIdx, scale);
@@ -70,7 +70,7 @@ void LBTrain::consume(const TrainBridge* train,
 }
 
 
-void LBTrain::writeNode(const TrainBridge* train,
+void LBTrain::writeNode(const TrainChunk* train,
                         unsigned int tIdx,
                         double scale) {
   // Accumulates node heights.
@@ -96,7 +96,7 @@ RawVector LBTrain::rawResize(const unsigned char* raw, size_t offset, size_t byt
 }
 
 
-void LBTrain::writeBagSample(const TrainBridge* train,
+void LBTrain::writeBagSample(const TrainChunk* train,
                              unsigned int tIdx,
                              double scale) {
   // Thin leaves forgo writing bag state.
@@ -114,14 +114,14 @@ void LBTrain::writeBagSample(const TrainBridge* train,
 }
 
 
-void LBTrainReg::consume(const TrainBridge* train,
+void LBTrainReg::consume(const TrainChunk* train,
                          unsigned int tIdx,
                          double scale) {
   LBTrain::consume(train, tIdx, scale);
 }
 
 
-void LBTrainCtg::consume(const TrainBridge* train,
+void LBTrainCtg::consume(const TrainChunk* train,
                          unsigned int tIdx,
                          double scale) {
   LBTrain::consume(train, tIdx, scale);
@@ -129,7 +129,7 @@ void LBTrainCtg::consume(const TrainBridge* train,
 }
 
 
-void LBTrainCtg::writeWeight(const TrainBridge* train,
+void LBTrainCtg::writeWeight(const TrainChunk* train,
                              double scale) {
   auto sizeLoc = train->getWeightSize();
   if (weightSize + sizeLoc > static_cast<size_t>(weight.length())) {

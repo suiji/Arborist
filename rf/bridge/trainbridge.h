@@ -14,8 +14,8 @@
  */
 
 
-#ifndef RF_TRAINBRIDGE_H
-#define RF_TRAINBRIDGE_H
+#ifndef RF_BRIDGE_TRAINBRIDGE_H
+#define RF_BRIDGE_TRAINBRIDGE_H
 
 #include<vector>
 #include<memory>
@@ -23,28 +23,111 @@
 using namespace std;
 
 struct TrainBridge {
-  TrainBridge(unique_ptr<class Train>);
+  TrainBridge(const struct RLEFrame* rleFrame,
+	      double autoCompress,
+	      bool enableCoproc,
+	      vector<string>& diag);
   
   ~TrainBridge();
 
-  static unique_ptr<TrainBridge>
-  classification(
-		 const struct RLEFrame* frame,
-		 vector<string>& diag,
-		 const unsigned int *yCtg,
+  unique_ptr<struct TrainChunk>
+  classification(const unsigned int *yCtg,
 		 const double *yProxy,
 		 unsigned int nCtg,
 		 unsigned int treeChunk,
-		 unsigned int nTree);
+		 unsigned int nTree) const;
 
 
-  static unique_ptr<TrainBridge>
-  regression(
-	     const struct RLEFrame* frame,
-	     vector<string>& diag,
-	     const double *y,
-	     unsigned int treeChunk);
+  unique_ptr<struct TrainChunk>
+  regression(const double *y,
+	     unsigned int treeChunk) const;
 
+  /**
+     @brief Registers training tree-block count.
+
+     @param trainBlock_ is the number of trees by which to block.
+  */
+  static void initBlock(unsigned int trainBlock);
+
+  /**
+     @brief Registers histogram of splitting ranges for numerical predictors.
+     
+     @param splitQuant is a per-predictor quantile specification.
+  */
+  static void initCDF(const vector<double> &splitQuant);
+
+  /**
+     @brief Registers per-node probabilities of predictor selection.
+  */
+  static void initProb(unsigned int predFixed,
+                       const vector<double> &predProb);
+
+
+  /**
+     @brief Registers tree-shape parameters.
+  */
+  static void initTree(unsigned int nSamp,
+                       unsigned int minNode,
+                       unsigned int leafMax);
+
+  /**
+     @brief Initializes static OMP thread state.
+
+     @param nThread is a user-specified thread request.
+   */
+  static void initOmp(unsigned int nThread);
+
+
+  /**
+     @brief Registers response-sampling parameters.
+
+     @param nSamp is the number of samples requested.
+  */
+  static void initSample(unsigned int nSamp);
+
+  /**
+     @brief Registers width of categorical response.
+
+     @pram ctgWidth is the number of training response categories.
+  */
+  static void initCtgWidth(unsigned int ctgWidth);
+
+  /**
+     @brief Registers parameters governing splitting.
+     
+     @param minNode is the mininal number of sample indices represented by a tree node.
+
+     @param totLevels is the maximum tree depth to train.
+
+     @param minRatio is the minimum information ratio of a node to its parent.
+  */
+  static void initSplit(unsigned int minNode,
+                        unsigned int totLevels,
+                        double minRatio);
+  
+  /**
+     @brief Registers monotone specifications for regression.
+
+     @param regMono has length equal to the predictor count.  Only
+     numeric predictors may have nonzero entries.
+  */
+  void initMono(const vector<double> &regMono);
+
+  /**
+     @brief Static de-initializer.
+   */
+  static void deInit();
+
+private:
+  unique_ptr<class SummaryFrame> summaryFrame;
+};
+
+
+struct TrainChunk {
+  TrainChunk(unique_ptr<class Train>);
+
+  ~TrainChunk();
+  
 
   void writeHeight(unsigned int height[],
                    unsigned int tIdx) const;
@@ -109,105 +192,6 @@ struct TrainBridge {
 
 
   /**
-     @brief Sends trained Leaf components to front end.
-   */
-  void consumeLeaf();
-
-
-  /**
-     @brief Sends trained Bag rows to front end.
-   */
-  void consumeBag();
-
-
-  /**
-     @brief Registers training tree-block count.
-
-     @param trainBlock_ is the number of trees by which to block.
-  */
-  static void initBlock(unsigned int trainBlock);
-
-  /**
-     @brief Registers histogram of splitting ranges for numerical predictors.
-     
-     @param splitQuant is a per-predictor quantile specification.
-  */
-  static void initCDF(const vector<double> &splitQuant);
-
-  /**
-     @brief Registers per-node probabilities of predictor selection.
-  */
-  static void initProb(unsigned int predFixed,
-                       const vector<double> &predProb);
-
-
-  /**
-     @brief Registers tree-shape parameters.
-  */
-  static void initTree(unsigned int nSamp,
-                       unsigned int minNode,
-                       unsigned int leafMax);
-
-  /**
-     @brief Initializes static OMP thread state.
-
-     @param nThread is a user-specified thread request.
-   */
-  static void initOmp(unsigned int nThread);
-
-
-  /**
-     @brief Intializes static SummaryFrame state.
-
-     @param autoCompress is per-predictor percentage threshold for autoCompression.
-     @param enableCoproc indicates whether frame is to reside on a coprocessor.
-   */
-  static void initFrame(double autoCompress,
-			bool enableCoproc);
-  
-  
-  /**
-     @brief Registers response-sampling parameters.
-
-     @param nSamp is the number of samples requested.
-  */
-  static void initSample(unsigned int nSamp);
-
-  /**
-     @brief Registers width of categorical response.
-
-     @pram ctgWidth is the number of training response categories.
-  */
-  static void initCtgWidth(unsigned int ctgWidth);
-
-  /**
-     @brief Registers parameters governing splitting.
-     
-     @param minNode is the mininal number of sample indices represented by a tree node.
-
-     @param totLevels is the maximum tree depth to train.
-
-     @param minRatio is the minimum information ratio of a node to its parent.
-  */
-  static void initSplit(unsigned int minNode,
-                        unsigned int totLevels,
-                        double minRatio);
-  
-  /**
-     @brief Registers monotone specifications for regression.
-
-     @param regMono has length equal to the predictor count.  Only
-     numeric predictors may have nonzero entries.
-  */
-  static void initMono(const struct RLEFrame* rleFrame,
-                       const vector<double> &regMono);
-
-  /**
-     @brief Static de-initializer.
-   */
-  static void deInit();
-
-  /**
      @brief Getter for raw leaf pointer.
    */
   const class LFTrain *getLeaf() const;
@@ -230,7 +214,7 @@ struct TrainBridge {
 
 private:
 
-  unique_ptr<class Train> train;
+    unique_ptr<class Train> train;
 };
 
 

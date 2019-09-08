@@ -222,7 +222,7 @@ private:
 
      @param scale estimates a resizing factor.
    */
-  void writeNode(const struct TrainBridge* train,
+  void writeNode(const struct TrainChunk* train,
                  unsigned int tIdx,
                  double scale);
 
@@ -237,7 +237,7 @@ private:
   /**
      @brief Consumes the BagSample records and writes as raw data.
    */
-  void writeBagSample(const struct TrainBridge* train,
+  void writeBagSample(const struct TrainChunk* train,
                     unsigned int treeOff,
                     double scale);
 public:
@@ -278,7 +278,7 @@ public:
 
      @param scale estimates a resizing factor.
    */
-  virtual void consume(const struct TrainBridge* train,
+  virtual void consume(const struct TrainChunk* train,
                unsigned int treeOff,
                double scale);
 
@@ -302,7 +302,7 @@ struct LBTrainReg : public LBTrain {
   /**
      @brief Description and parameters as with virutal declaration.
    */
-  void consume(const struct TrainBridge* train,
+  void consume(const struct TrainChunk* train,
                unsigned int treeOff,
                double scale);
   /**
@@ -329,7 +329,7 @@ struct LBTrainCtg : public LBTrain {
   /**
      @brief Description and parameters as with virtual declaration.
    */
-  void consume(const struct TrainBridge* train,
+  void consume(const struct TrainChunk* train,
                unsigned int treeOff,
                double scale);
 
@@ -356,7 +356,7 @@ private:
 
      @double scale estimates a resizing factor.
    */
-  void writeWeight(const struct TrainBridge* train,
+  void writeWeight(const struct TrainChunk* train,
                    double scale);
 
 };

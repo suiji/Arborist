@@ -8,13 +8,13 @@
 /**
    @file predictbridge.h
 
-   @brief Data structures and methods for prediction.
+   @brief Bridge data structures and methods for prediction.
 
    @author Mark Seligman
  */
 
-#ifndef CORE_PREDICTBRIDGE_H
-#define CORE_PREDICTBRIDGE_H
+#ifndef CORE_BRIDGE_PREDICTBRIDGE_H
+#define CORE_BRIDGE_PREDICTBRIDGE_H
 
 #include "block.h"
 

@@ -70,7 +70,7 @@ class BagRf {
 
      @param chunkOff is the offset of the current chunk.
    */
-  void consume(const struct TrainBridge* train,
+  void consume(const struct TrainChunk* train,
                unsigned int chunkOff);
 
   /**

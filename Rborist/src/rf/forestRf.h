@@ -130,7 +130,7 @@ struct FBTrain {
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void consume(const struct TrainBridge* train,
+  void consume(const struct TrainChunk* train,
                unsigned int treeOff,
                double fraction);
 

@@ -49,8 +49,8 @@ RcppExport SEXP TrainRF(const SEXP sArgList) {
 }
 
 
-List TrainRf::train(const List &argList,
-                    const IntegerVector &predMap,
+List TrainRf::train(const List& argList,
+                    const IntegerVector& predMap,
 		    const RLEFrame* rleFrame) {
   BEGIN_RCPP
 
@@ -58,26 +58,27 @@ List TrainRf::train(const List &argList,
     Rcout << "Beginning training" << endl;
   }
   vector<string> diag;
-  init(argList, rleFrame, predMap);
+  unique_ptr<TrainBridge> trainBridge(make_unique<TrainBridge>(rleFrame, as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag));
+  initFromArgs(argList, trainBridge.get(), predMap);
 
   List outList;
   if (as<unsigned int>(argList["nCtg"]) > 0) {
     outList = classification(argList,
-                             rleFrame,
+                             trainBridge.get(),
                              predMap,
-                             diag);
+			     diag);
   }
   else {
     outList = regression(argList,
-                         rleFrame,
+			 trainBridge.get(),
                          predMap,
-                         diag);
+			 diag);
   }
   if (verbose) {
     Rcout << "Training completed" << endl;
   }
 
-  deInit();
+  deInit(trainBridge.get());
   return outList;
 
   END_RCPP
@@ -86,8 +87,8 @@ List TrainRf::train(const List &argList,
 
 // Employs Rcpp-style temporaries for ease of indexing through
 // the predMap[] vector.
-SEXP TrainRf::init(const List& argList,
-                   const RLEFrame* rleFrame,
+SEXP TrainRf::initFromArgs(const List& argList,
+                   TrainBridge* trainBridge,
                    const IntegerVector& predMap) {
   BEGIN_RCPP
   verbose = as<bool>(argList["verbose"]);
@@ -95,43 +96,41 @@ SEXP TrainRf::init(const List& argList,
   
   NumericVector probVecNV((SEXP) argList["probVec"]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
-  TrainBridge::initProb(as<unsigned int>(argList["predFixed"]), predProb);
+  trainBridge->initProb(as<unsigned int>(argList["predFixed"]), predProb);
 
   NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
-  TrainBridge::initCDF(splitQuant);
+  trainBridge->initCDF(splitQuant);
 
   RowSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
-  TrainBridge::initSample(as<unsigned int>(argList["nSamp"]));
-  TrainBridge::initSplit(as<unsigned int>(argList["minNode"]),
+  trainBridge->initSample(as<unsigned int>(argList["nSamp"]));
+  trainBridge->initSplit(as<unsigned int>(argList["minNode"]),
                    as<unsigned int>(argList["nLevel"]),
                    as<double>(argList["minInfo"]));
-  TrainBridge::initTree(as<unsigned int>(argList["nSamp"]),
+  trainBridge->initTree(as<unsigned int>(argList["nSamp"]),
                   as<unsigned int>(argList["minNode"]),
                   as<unsigned int>(argList["maxLeaf"]));
-  TrainBridge::initBlock(as<unsigned int>(argList["treeBlock"]));
-  TrainBridge::initOmp(as<unsigned int>(argList["nThread"]));
-  TrainBridge::initFrame(as<double>(argList["autoCompress"]),
-			 as<bool>(argList["enableCoproc"]));
+  trainBridge->initBlock(as<unsigned int>(argList["treeBlock"]));
+  trainBridge->initOmp(as<unsigned int>(argList["nThread"]));
   
   unsigned int nCtg = as<unsigned int>(argList["nCtg"]);
-  TrainBridge::initCtgWidth(nCtg);
+  trainBridge->initCtgWidth(nCtg);
   if (nCtg == 0) { // Regression only.
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
-    TrainBridge::initMono(rleFrame, regMono);
+    trainBridge->initMono(regMono);
   }
 
   END_RCPP
 }
 
-SEXP TrainRf::deInit() {
+SEXP TrainRf::deInit(TrainBridge* trainBridge) {
   BEGIN_RCPP
 
   verbose = false;
   LBTrain::deInit();
-  TrainBridge::deInit();
+  trainBridge->deInit();
   END_RCPP
 }
 
@@ -160,7 +159,7 @@ NumericVector TrainRf::ctgProxy(const IntegerVector &y,
 
 
 List TrainRf::classification(const List& argList,
-                             const RLEFrame* rleFrame,
+                             const TrainBridge* trainBridge,
                              const IntegerVector &predMap,
                              vector<string> &diag) {
   BEGIN_RCPP
@@ -176,14 +175,12 @@ List TrainRf::classification(const List& argList,
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainCtg = TrainBridge::classification(rleFrame,
-						diag,
-                                                &yzVec[0],
+    auto trainChunk = trainBridge->classification(&yzVec[0],
                                                 &proxy[0],
                                                 classWeight.size(),
                                                 chunkThis,
                                                 nTree);
-    tb->consume(trainCtg.get(), treeOff, chunkThis);
+    tb->consume(trainChunk.get(), treeOff, chunkThis);
   }
   return tb->summarize(predMap, diag);
 
@@ -191,7 +188,7 @@ List TrainRf::classification(const List& argList,
 }
 
 
-void TrainRf::consume(const TrainBridge* train,
+void TrainRf::consume(const TrainChunk* train,
                       unsigned int treeOff,
                       unsigned int chunkSize) {
   bag->consume(train, treeOff);
@@ -234,9 +231,9 @@ NumericVector TrainRf::scalePredInfo(const IntegerVector& predMap) {
 
 
 List TrainRf::regression(const List& argList,
-                         const RLEFrame* rleFrame,
-                         const IntegerVector &predMap,
-                         vector<string> &diag) {
+                         const TrainBridge* trainBridge,
+                         const IntegerVector& predMap,
+                         vector<string>& diag) {
   BEGIN_RCPP
 
   NumericVector y((SEXP) argList["y"]);
@@ -245,11 +242,8 @@ List TrainRf::regression(const List& argList,
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, predMap, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainReg = TrainBridge::regression(rleFrame,
-					    diag,
-                                            &y[0],
-                                            chunkThis);
-    tb->consume(trainReg.get(), treeOff, chunkThis);
+    auto trainChunk = trainBridge->regression(&y[0], chunkThis);
+    tb->consume(trainChunk.get(), treeOff, chunkThis);
   }
   return tb->summarize(predMap, diag);
 

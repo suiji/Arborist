@@ -131,16 +131,6 @@ public:
 
 
   /**
-     @brief Initializes static SummaryFrame state.
-
-     @param autoCompress is the per-predictor compression threshold.
-
-     @param enableCoproc is true iff frame is to reside on coprocessor.
-   */
-  static void initFrame(double autoCompress,
-			bool enableCoproc);
-  
-  /**
      @brief Registers response-sampling parameters.
 
      @param nSamp is the number of samples requested.
@@ -173,7 +163,7 @@ public:
      @param regMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void initMono(const struct RLEFrame* frame,
+  static void initMono(const class SummaryFrame* frame,
                        const vector<double> &regMono);
 
   /**
@@ -182,17 +172,13 @@ public:
   static void deInit();
 
   static unique_ptr<Train>
-  regression(
-	     const struct RLEFrame* rleFrame,
-	     vector<string>& diag,
+  regression(const class SummaryFrame* frame,
 	     const double *y,
 	     unsigned int treeChunk);
 
 
   static unique_ptr<Train>
-  classification(
-		 const struct RLEFrame* rleFrame,
-		 vector<string>& diag,
+  classification(const class SummaryFrame* frame,
 		 const unsigned int *yCtg,
 		 const double *yProxy,
 		 unsigned int nCtg,

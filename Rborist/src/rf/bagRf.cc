@@ -40,7 +40,7 @@ BagRf::~BagRf() {
 }
 
 
-void BagRf::consume(const TrainBridge *train, unsigned int treeOff) {
+void BagRf::consume(const TrainChunk* train, unsigned int treeOff) {
   train->dumpBagRaw((unsigned char*) &raw[treeOff * rowBytes]);
 }
 

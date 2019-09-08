@@ -83,9 +83,9 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List classification(const List& argList,
-                             const struct RLEFrame* rleFrame,
-                             const IntegerVector &predMap,
-                             vector<string> &diag);
+                             const struct TrainBridge* trainBridge,
+                             const IntegerVector& predMap,
+                             vector<string>& diag);
   
   /**
      @brief Trains regression forest.
@@ -97,9 +97,9 @@ struct TrainRf {
      @return R-style list of trained summaries.
   */
   static List regression(const List& argList,
-                         const struct RLEFrame* rleFrame,
-                         const IntegerVector &predMap,
-                         vector<string> &diag);
+                         const struct TrainBridge* trainBridge,
+                         const IntegerVector& predMap,
+                         vector<string>& diag);
 
   /**
       @brief R-language interface to response caching.
@@ -132,16 +132,18 @@ struct TrainRf {
   /**
      @return implicit R_NilValue.
    */
-  static SEXP init(const List &argList,
-                   const struct RLEFrame* rleFrame,
-                   const IntegerVector &predMap);
+  static SEXP initFromArgs(const List &argList,
+			   struct TrainBridge* trainBridge,
+			   const IntegerVector &predMap);
 
   /**
      @brief Unsets static initializations.
 
+     @param trainBridge is a persistent training handle.
+
      @return implicit R_NilValue.
    */
-  static SEXP deInit();
+  static SEXP deInit(struct TrainBridge* trainBridge);
   
 
   /**
@@ -167,7 +169,7 @@ struct TrainRf {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const struct TrainBridge* train,
+  void consume(const struct TrainChunk* train,
                unsigned int tIdx,
                unsigned int chunkSize);
 

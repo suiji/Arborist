@@ -36,7 +36,7 @@ FBTrain::FBTrain(unsigned int nTree) :
 }
 
 
-void FBTrain::consume(const TrainBridge* train,
+void FBTrain::consume(const TrainChunk* train,
                       unsigned int tIdx,
                       double scale) {
   unsigned int i = tIdx;

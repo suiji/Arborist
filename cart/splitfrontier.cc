@@ -51,7 +51,7 @@ SplitFrontier::~SplitFrontier() {
 }
 
 
-void SFReg::immutables(const RLEFrame* frame,
+void SFReg::immutables(const SummaryFrame* frame,
                        const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
