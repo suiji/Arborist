@@ -197,7 +197,7 @@ class Bottom {
      @brief Flushes non-reaching definitions as well as those about
      to fall off the level deque.
 
-     @return highest level not flushed.
+     @return count of levels to flush.
   */
   unsigned int flushRear();
 

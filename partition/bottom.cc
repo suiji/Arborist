@@ -69,7 +69,7 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, IndexT bagCount) {
 void Bottom::scheduleSplits(SplitFrontier* splitFrontier,
                             Frontier *frontier) {
   splitFrontier->init();
-  unsigned int unflushTop = flushRear();
+  unsigned int flushCount = flushRear();
   level[0]->candidates(frontier, splitFrontier);
 
   backdate();
@@ -77,8 +77,8 @@ void Bottom::scheduleSplits(SplitFrontier* splitFrontier,
 
   // Reaching levels must persist through restaging ut allow path lookup.
   //
-  for (unsigned int off = level.size() - 1; off > unflushTop; off--) {
-    level.erase(level.end());
+  if (flushCount > 0) {
+    level.erase(level.end() - flushCount, level.end());
   }
   splitFrontier->scheduleSplits(level[0].get());
 }
@@ -125,7 +125,8 @@ unsigned int Bottom::flushRear() {
     }
   }
 
-  return unflushTop;
+  // assert(unflushTop < level.size();
+  return level.size() - 1 - unflushTop;
 }
 
 
