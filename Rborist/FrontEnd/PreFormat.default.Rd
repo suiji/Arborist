@@ -25,7 +25,7 @@
 }
 
 \value{
-  \item{PreFormat}{ a list consisting of two objects:
+  \item{PreFormat}{ a list consisting of three objects:
 
     \code{predFrame}{ a list of presorted and formatted predictor
     information:
@@ -48,20 +48,11 @@
 
     \code{nPredNum}{ the number of numerical predictors.}
   }
-  \code{signature}{ a list consisting of training information needed
-      for separate testing and prediction:
-
-      \code{predMap}{ a vector mapping core indices to front-end counterparts.}
-
-      \code{colNames}{ a vector of strings containing the training column
-        names.}
-
-      \code{rowNames}{ a vector of strings containing the training row
-      names.}
-
-    \code{level}{ a vector of strings containing the training response
-      factor levels.}
-  }
+  \code{summaryRLE}{ a run-length encoded version of the training
+    observations.}
+  \code{obsHash}{ a hashed version of the training observations, used to
+  ensure that subsequent invocations of Rborist employ the same
+  observations used to train.}
 }
 }
 

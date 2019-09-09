@@ -231,7 +231,7 @@ RFDeep <- function(argList) {
     training = list(
         call = match.call(),
         info = predInfo,
-        version = "0.2-0",
+        version = "0.2-2",
         diag = train[["diag"]]
     )
 

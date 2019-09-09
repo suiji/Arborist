@@ -56,7 +56,8 @@ IndexSet::IndexSet() :
   unsplitable(false),
   lhExtent(0),
   lhSCount(0),
-  sumL(0.0) {
+  sumL(0.0),
+  leftImpl(false) {
 }
 
 

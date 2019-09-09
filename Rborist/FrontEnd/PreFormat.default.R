@@ -39,7 +39,8 @@ PreFormat.default <- function(x, verbose = FALSE) {
             print("Pre-sorting")
         preFormat <- list(
             predFrame = predFrame,
-            summaryRLE = .Call("Presort", predFrame)
+            summaryRLE = .Call("Presort", predFrame),
+            obsHash = digest::digest(x)
         )
         class(preFormat) <- "PreFormat"
         if (verbose)
