@@ -46,8 +46,8 @@ Installation of Development Version:
 
 Performance metrics have been measured using [benchm-ml](https://github.com/szilard/benchm-ml). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
 
-This paper compares several implementations of the Random Forest algorithm, including the Arborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  The paper does not include the code on which timings were benchmarked, however, despite the journal's claim to promote reproducible research.  As the Arborist has undergone several updates since the paper was written, then, there is unfortunately no way to gauge whether the authors' original findings remain relevant.
-
+This paper compares several implementations of the Random Forest algorithm, including the Arborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  Benchmarks used in the study are also provided at 
+https://www.jstatsoft.org/article/view/v077i01.
     
 ### References
 
