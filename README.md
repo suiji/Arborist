@@ -34,7 +34,10 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.2-2 has been sent to CRAN.
+- Rborist version 0.2-2 passes all 12 CRAN builds.
+
+#### Known issues in 0.2-2
+- An autocompression error yields low-quality predictions for two-valued numerical predictors with categorical response.  A suitable workaround is to turn off autocompression by specifying "autoCompress = 1.0" at training.
 
 ### Python
 
