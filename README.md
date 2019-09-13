@@ -34,7 +34,10 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.2-1 has been sent to CRAN.
+- Rborist version 0.2-2 passes all 12 CRAN builds.
+
+#### Known issues in 0.2-2
+- An autocompression error yields low-quality predictions for two-valued numerical predictors with categorical response.  A suitable workaround is to turn off autocompression by specifying "autoCompress = 1.0" at training.
 
 ### Python
 
@@ -46,8 +49,8 @@ Installation of Development Version:
 
 Performance metrics have been measured using [benchm-ml](https://github.com/szilard/benchm-ml). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
 
-This paper compares several implementations of the Random Forest algorithm, including the Arborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  The paper does not include the code on which timings were benchmarked, however, despite the journal's claim to promote reproducible research.  As the Arborist has undergone several updates since the paper was written, then, there is unfortunately no way to gauge whether the authors' original findings remain relevant.
-
+This paper compares several implementations of the Random Forest algorithm, including the Arborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  Benchmarks used in the study are also provided at 
+https://www.jstatsoft.org/article/view/v077i01.
     
 ### References
 
