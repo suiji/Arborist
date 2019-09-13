@@ -188,7 +188,7 @@ public:
 
      @return descendant extent.
    */
-  IndexT getLHExtent(const class IndexSet& iSet) const;
+  IndexT getLHExtent(const class IndexSet* iSet) const;
 
   IndexT getPredIdx(const class IndexSet* iSet) const;
 

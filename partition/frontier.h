@@ -63,19 +63,19 @@ class IndexSet {
   //
   IndexT ptLeft;
   IndexT ptRight;
-  IndexT succLeft; // Fixed:  level index of explicit successor, if any.
-  IndexT succRight; // Fixed:  " " implicit " "
-  IndexT offLeft; // Increases:  accumulating explicit offset.
-  IndexT offRight; // Increases:  accumulating implicit offset.
-  unsigned char pathLeft;  // Fixed:  path to explicit successor, if any.
-  unsigned char pathRight; // Fixed:  path to implicit successor, if any.
+  IndexT succLeft; // Fixed:  level index of left successor, if any.
+  IndexT succRight; // Fixed:  " " right " "
+  IndexT offLeft; // Increases:  accumulating left offset.
+  IndexT offRight; // " "                     right offset.
+  unsigned char pathLeft;  // Fixed:  path to left successor, if any.
+  unsigned char pathRight; // Fixed:  " " right " ".
 
   // These fields pertain only to non-splitting sets, so can be
   // overlaid with above via a union.
-  unsigned int succOnly; // Fixed:  successor iSet.
-  unsigned int offOnly; // Increases:  accumulating successor offset.
+  IndexT succOnly; // Fixed:  successor IndexSet.
+  IndexT offOnly; // Increases:  accumulating successor offset.
 
-  vector<SumCount> ctgLeft; // Per-category sums.
+  vector<SumCount> ctgLeft; // Per-category sums inherited from criterion.
 
   
   /**
@@ -130,18 +130,21 @@ class IndexSet {
   /**
      @brief Revises L/R state according to criterion characteristics.
 
-     @param sumExpl is an explicit summand.
+     @param sumExpl is the explicit summand.
+
+     @param ctgExpl are the explicit per-category sums and counts.
 
      @param leftExpl is true iff explicit hand is left.
    */
+
   inline void criterionLR(double sumExpl,
-                          vector<SumCount>& ctgExpl,
+                          const vector<SumCount>& ctgExpl,
                           bool leftExpl) {
-    leftImpl = !leftExpl; // Final state is most recently registered.
-    sumL += leftExpl ? sumExpl : sum - sumExpl;
+    sumL += (leftExpl ? sumExpl : sum - sumExpl);
     SumCount::incr(ctgLeft, leftExpl ? ctgExpl : SumCount::minus(ctgSum, ctgExpl));
+    leftImpl = !leftExpl; // Final state is most recently registered.
   }
-  
+
 
   /**
      @brief Updates splitting state supplied by a criterion.
@@ -238,11 +241,6 @@ class IndexSet {
 
   inline const vector<SumCount>& getCtgSum() const {
     return ctgSum;
-  }
-
-
-  inline const vector<SumCount>& getCtgLeft() const {
-    return ctgLeft;
   }
 
 
@@ -648,7 +646,7 @@ class Frontier {
 
      @return category-summed squares of responses, per node.
   */
-  vector<double> sumsAndSquares(vector<vector<double> >&ctgSum);
+  vector<double> sumsAndSquares(vector<vector<double> >& ctgSum);
 
 
   /**

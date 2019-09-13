@@ -58,7 +58,7 @@ void SplitCand::initLate(const Level* levelFront,
     setIdx = runCount.size();
     runCount.push_back(rCount);
   }
-  idxRange = levelFront->adjustRange(splitCoord, index, implicit);
+  idxRange = levelFront->adjustRange(splitCoord, index, implicitCount);
 }
 
 
@@ -66,12 +66,12 @@ void SplitCand::initLate(const Level* levelFront,
    @brief  Regression splitting based on type:  numeric or factor.
  */
 void SplitCand::split(const SFReg *spReg,
-                      const ObsPart *samplePred) {
+                      const ObsPart *obsPart) {
   if (spReg->isFactor(splitCoord)) {
-    splitFac(spReg, samplePred->PredBase(splitCoord, bufIdx));
+    splitFac(spReg, obsPart->PredBase(splitCoord, bufIdx));
   }
   else {
-    splitNum(spReg, samplePred->PredBase(splitCoord, bufIdx));
+    splitNum(spReg, obsPart->PredBase(splitCoord, bufIdx));
   }
 }
 
@@ -80,12 +80,12 @@ void SplitCand::split(const SFReg *spReg,
    @brief Categorical splitting based on type:  numeric or factor.
  */
 void SplitCand::split(SFCtg *spCtg,
-                      const ObsPart *samplePred) {
+                      const ObsPart *obsPart) {
   if (spCtg->isFactor(splitCoord)) {
-    splitFac(spCtg, samplePred->PredBase(splitCoord, bufIdx));
+    splitFac(spCtg, obsPart->PredBase(splitCoord, bufIdx));
   }
   else {
-    splitNum(spCtg, samplePred->PredBase(splitCoord, bufIdx));
+    splitNum(spCtg, obsPart->PredBase(splitCoord, bufIdx));
   }
 }
 
@@ -108,7 +108,7 @@ void SplitCand::splitFac(SFCtg *spCtg,
 
    @return void.
 */
-void SplitCand::splitNum(const SFReg *spReg,
+void SplitCand::splitNum(const SFReg* spReg,
                          const SampleRank spn[]) {
   SplitAccumReg numPersist(this, spn, spReg);
   numPersist.split(spReg, spn, this);
@@ -116,7 +116,7 @@ void SplitCand::splitNum(const SFReg *spReg,
 }
 
 
-void SplitCand::splitNum(SFCtg *spCtg,
+void SplitCand::splitNum(SFCtg* spCtg,
                          const SampleRank spn[]) {
   SplitAccumCtg numPersist(this, spn, spCtg);
   numPersist.split(spCtg, spn, this);
@@ -130,7 +130,7 @@ void SplitCand::writeNum(const SplitFrontier* spNode,
   if (infoGain(spNode)) {
     rankRange.set(accum.rankLH, accum.rankRH - accum.rankLH);
     this->lhSCount = accum.lhSCount;
-    lhImplicit = accum.lhDense() ? implicit : 0;
+    lhImplicit = accum.lhDense() ? implicitCount : 0;
     lhExtent = lhImplicit + (accum.rhMin - getIdxStart());
   }
 }

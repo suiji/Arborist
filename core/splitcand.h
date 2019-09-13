@@ -33,7 +33,7 @@ class SplitCand {
   // Initialized or reset after candidate sampling:
   unsigned int setIdx;  // Per coord.
   IndexRange idxRange; // Per coordinate:  post restage.
-  unsigned int implicit;  // Per coord:  post restage.
+  IndexT implicitCount;  // Per coord:  post restage.
 
   // Copied to SplitNux, if arg-max:
   //
@@ -120,8 +120,8 @@ public:
   /**
     @brief Accessor for implicit index count.
    */
-  auto getImplicit() const {
-    return implicit;
+  auto getImplicitCount() const {
+    return implicitCount;
   }
 
   /**
@@ -192,26 +192,26 @@ public:
 		unsigned int rCount);
 
   
-  void split(const class SFReg *spReg,
-	     const class ObsPart *samplePred);
+  void split(const class SFReg* spReg,
+	     const class ObsPart* obsPart);
 
 
-  void split(class SFCtg *spCtg,
-	     const class ObsPart *samplePred);
+  void split(class SFCtg* spCtg,
+	     const class ObsPart* obsPart);
 
   /**
      @brief Main entry for classification numerical split.
    */
-  void splitNum(class SFCtg *spCtg,
+  void splitNum(class SFCtg* spCtg,
                 const class SampleRank spn[]);
 
   /**
      @brief Main entry for regression numerical split.
    */
-  void splitNum(const class SFReg *spReg,
+  void splitNum(const class SFReg* spReg,
                 const class SampleRank spn[]);
 
-  void numCtgDense(class SFCtg *spCtg,
+  void numCtgDense(class SFCtg* spCtg,
                    const class SampleRank spn[]);
 
   void numCtgGini(SFCtg *spCtg,

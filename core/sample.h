@@ -197,7 +197,7 @@ class Sample {
   /**
      @brief Getter for root category census vector.
    */
-  inline const vector<SumCount> &getCtgRoot() const {
+  inline const vector<SumCount> getCtgRoot() const {
     return ctgRoot;
   }
 

@@ -28,7 +28,7 @@ using namespace std;
  */
 struct Residual {
   const double sum;  // Imputed response sum over dense indices.
-  const unsigned int sCount; // Imputed sample count over dense indices.
+  const IndexT sCount; // Imputed sample count over dense indices.
 
   /**
      @brief Constructor initializes contents to residual values.
@@ -38,7 +38,7 @@ struct Residual {
      @param sCountExpl is the sum of explicit sample counts over the cell.
    */
   Residual(double sum_,
-           unsigned int sCount_);
+           IndexT sCount_);
 
   /**
      @brief Outputs residual contents.
@@ -48,7 +48,7 @@ struct Residual {
      @param[out] sCount outputs the residual sample count.
    */  
   void apply(FltVal& ySum,
-             unsigned int& sCount) {
+             IndexT& sCount) {
     ySum = this->sum;
     sCount = this->sCount;
   }
@@ -59,14 +59,14 @@ struct ResidualCtg : public Residual {
   const vector<double> ctgImpl; // Imputed response sums, by category.
 
   ResidualCtg(double sum_,
-              unsigned int sCount_,
+              IndexT sCount_,
               const vector<double>& ctgExpl);
 
   /**
      @brief Applies state from residual encountered to the left.
    */
   void apply(FltVal& ySum,
-             unsigned int& sCount,
+             IndexT& sCount,
              double& ssR,
              double& ssL,
              class SplitAccumCtg* np);
@@ -82,27 +82,27 @@ struct ResidualCtg : public Residual {
  */
 class SplitAccum {
 protected:
-  const unsigned int sCount; // Running sample count along node.
+  const IndexT sCount; // Running sample count along node.
   const double sum; // Running response along node.
-  const unsigned int rankDense; // Rank of dense value, if any.
-  unsigned int sCountL; // Running sum of trial LHS sample counts.
+  const IndexT rankDense; // Rank of dense value, if any.
+  IndexT sCountL; // Running sum of trial LHS sample counts.
   double sumL; // Running sum of trial LHS response.
-  unsigned int cutDense; // Rightmost position beyond implicit blob, if any.
+  IndexT cutDense; // Rightmost position beyond implicit blob, if any.
   
   // Read locally but initialized, and possibly reset, externally.
-  unsigned int sCountThis; // Current sample count.
+  IndexT sCountThis; // Current sample count.
   FltVal ySum; // Current response value.
 
 public:
   // Revised at each new local maximum of 'info':
   double info; // Information high watermark.  Precipitates split iff > 0.0.
-  unsigned int lhSCount; // Sample count of split LHS:  > 0.
-  unsigned int rankRH; // Maximum rank characterizing split.
-  unsigned int rankLH; // Minimum rank charactersizing split.
-  unsigned int rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
+  IndexT lhSCount; // Sample count of split LHS:  > 0.
+  IndexT rankRH; // Maximum rank characterizing split.
+  IndexT rankLH; // Minimum rank charactersizing split.
+  IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
 
   SplitAccum(const class SplitCand* cand,
-             unsigned int rankDense_);
+             IndexT rankDense_);
 
   bool lhDense() const {
     return rankDense <= rankLH;
@@ -136,7 +136,7 @@ class SplitAccumReg : public SplitAccum {
 
      @param rkThis is the rank of the current position.
    */
-  void leftResidual(unsigned int rkThis);
+  void leftResidual(IndexT rkThis);
 
 
 public:
@@ -159,16 +159,16 @@ public:
    */
   static constexpr double infoSplit(double sumLeft,
                                     double sumRight,
-                                    unsigned int sCountLeft,
-                                    unsigned int sCountRight) {
+                                    IndexT sCountLeft,
+                                    IndexT sCountRight) {
     return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
   }
 
 
   static bool infoSplit(double sumLeft,
                         double sumRight,
-                        unsigned int sCountLeft,
-                        unsigned int sCountRight,
+                        IndexT sCountLeft,
+                        IndexT sCountRight,
                         double& info) {
     double infoTemp = infoSplit(sumLeft, sumRight, sCountLeft, sCountRight);
     if (infoTemp > info) {
@@ -203,17 +203,17 @@ public:
      @brief Low-level splitting method for explicit block of indices.
    */
   void splitExpl(const SampleRank spn[],
-                 unsigned int rkThis,
-                 unsigned int idxInit,
-                 unsigned int idxFinal);
+                 IndexT rkThis,
+                 IndexT idxInit,
+                 IndexT idxFinal);
 
   /**
      @brief As above, but specialized for monotonicty constraint.
    */
   void splitMono(const SampleRank spn[],
-                 unsigned int rkThis,
-                 unsigned int idxInit,
-                 unsigned int idxFinal);
+                 IndexT rkThis,
+                 IndexT idxInit,
+                 IndexT idxFinal);
 };
 
 
@@ -221,7 +221,7 @@ public:
    @brief Splitting accumulator for classification.
  */
 class SplitAccumCtg : public SplitAccum {
-  const unsigned int nCtg; // Cadinality of response.
+  const PredictorT nCtg; // Cadinality of response.
   const shared_ptr<ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
@@ -299,11 +299,13 @@ public:
 
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
+
+     @return final rank encountered in range.
    */
-  void splitExpl(const class SampleRank spn[],
-                 unsigned int rkThs,
-                 unsigned int idxInit,
-                 unsigned int idxFinal);
+  IndexT splitExpl(const class SampleRank spn[],
+                   IndexT rkThs,
+                   IndexT idxInit,
+                   IndexT idxFinal);
 
   /**
      @brief As above, but with implicit dense blob.
@@ -315,8 +317,8 @@ public:
      @brief Accumulates right and left sums-of-squares from
      exposed state.
    */
-inline unsigned int stateNext(const class SampleRank spn[],
-                         unsigned int idx);
+inline IndexT stateNext(const class SampleRank spn[],
+                        IndexT idx);
 
   /**
      @brief Accessor for node-wide sum for a given category.
@@ -325,7 +327,7 @@ inline unsigned int stateNext(const class SampleRank spn[],
 
      @return sum at category over node.
    */
-  double getCtgSum(unsigned int ctg) {
+  inline double getCtgSum(PredictorT ctg) const {
     return ctgSum[ctg];
   }
 
@@ -339,12 +341,57 @@ inline unsigned int stateNext(const class SampleRank spn[],
      
      @return value of accumulated sum prior to incrementing.
    */
-  double accumCtgSum(unsigned int yCtg,
+  double accumCtgSum(PredictorT yCtg,
                      double sumCtg) {
     double val = ctgAccum[yCtg];
     ctgAccum[yCtg] += sumCtg;
     return val;
   }
+
+
+  /**
+     @brief Accumulates running sums of squares.
+
+     @param ctgSum is the response sum for a category.
+
+     @param yCtt is the response category.
+
+     @param[out] ssL accumulates sums of squares from the left.
+
+     @param[out] ssR accumulates sums of squares to the right.
+   */
+  void accumCtgSS(double ctgSum,
+                  PredictorT yCtg,
+                  double& ssL_,
+                  double& ssR_) {
+    double sumRCtg = accumCtgSum(yCtg, ySum);
+    ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
+    double sumLCtg = getCtgSum(yCtg) - sumRCtg;
+    ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
+  }
+
+
+  inline void trialSplit(IndexT idx,
+                         IndexT rkThis,
+                         IndexT rkRight) {
+    if (rkThis == rkRight) {
+      return;
+    }
+    double infoTrial = infoSplit(ssL, ssR, sumL, sum - sumL);
+    if (infoTrial > info) {
+      info = infoTrial;
+      lhSCount = sCountL;
+      rankRH = rkRight;
+      rankLH = rkThis;
+      rhMin = rkRight == rankDense ? cutDense : idx + 1;
+    }
+  }
+
+
+  /**
+     @brief Specialized to lower-bounding dense cuts.
+   */
+  void trialSplitLower(IndexT rkRight);
 };
 
 #endif

@@ -138,6 +138,7 @@ IndexRange Level::adjustRange(const SplitCoord& splitCoord,
                               unsigned int& implicit) const {
   IndexSet iSet = frontier->getISet(splitCoord);
   IndexRange idxRange;
+
   idxRange.set(iSet.getStart(), iSet.getExtent());
   implicit = isDense(splitCoord) ? denseCoord[denseOffset(splitCoord)].adjustRange(idxRange) : 0;
 

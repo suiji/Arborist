@@ -101,9 +101,9 @@ void IndexSet::initRoot(const Sample* sample) {
   sum = sample->getBagSum();
   path = 0;
   relBase = 0;
-  ctgSum = sample->getCtgRoot();
+  ctgSum = move(sample->getCtgRoot());
   ctgLeft = vector<SumCount>(ctgSum.size());
-
+  
   initInattainable(sample->getBagCount());
 }
 
@@ -396,7 +396,7 @@ void IndexSet::succInit(Frontier *frontier,
   relBase = frontier->getRelBase(splitIdx);
   frontier->reachingPath(splitIdx, par->getSplitIdx(), bufRange, relBase, path);
 
-  ctgSum = isLeft ? move(par->ctgLeft) : SumCount::minus(par->getCtgSum(), par->getCtgLeft());
+  ctgSum = isLeft ? par->ctgLeft : SumCount::minus(par->ctgSum, par->ctgLeft);
   ctgLeft = vector<SumCount>(ctgSum.size());
 
   // Inattainable value.  Reset only when non-terminal:
@@ -423,7 +423,7 @@ void Frontier::reachingPath(IndexT splitIdx,
 }
 
 
-vector<double> Frontier::sumsAndSquares(vector<vector<double> >&ctgSum) {
+vector<double> Frontier::sumsAndSquares(vector<vector<double> >& ctgSum) {
   vector<double> sumSquares(indexSet.size());
 
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -440,7 +440,7 @@ vector<double> Frontier::sumsAndSquares(vector<vector<double> >&ctgSum) {
 vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
   vector<double> sumOut(ctgSum.size());
   sumSquares =  0.0;
-  for (unsigned int ctg = 0; ctg < ctgSum.size(); ctg++) {
+  for (PredictorT ctg = 0; ctg < ctgSum.size(); ctg++) {
     unsplitable |= !ctgSum[ctg].splitable(sCount, sumOut[ctg]);
     sumSquares += sumOut[ctg] * sumOut[ctg];
   }

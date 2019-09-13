@@ -141,8 +141,8 @@ class MRRA {
    of cells no longer requiring dense representation.
  */
 class DenseCoord {
-  unsigned int margin; // # unused slots in cell.
-  unsigned int implicit; // Nonincreasing value.
+  IndexT margin; // # unused slots in cell.
+  IndexT implicit; // Nonincreasing value.
 
  public:
 
@@ -153,7 +153,7 @@ class DenseCoord {
 
      @return count of implicit indices, i.e., size of dense blob..
    */
-  inline unsigned int adjustRange(IndexRange& idxRange) const {
+  inline IndexT adjustRange(IndexRange& idxRange) const {
     idxRange.adjust(margin, implicit);
     return implicit;
   }
@@ -164,8 +164,8 @@ class DenseCoord {
 
      @return void.
    */
-  inline void init(unsigned int implicit,
-                   unsigned int margin = 0) {
+  inline void init(IndexT implicit,
+                   IndexT margin = 0) {
     this->implicit = implicit;
     this->margin = margin;
   }

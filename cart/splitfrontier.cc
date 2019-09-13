@@ -390,7 +390,7 @@ void SplitFrontier::branch(PreTree* pretree,
                            BV* replayExpl,
                            BV* replayLeft) const {
   consumeCriterion(iSet);
-  pretree->nonterminal(getInfo(iSet), iSet);
+  pretree->nonterminal(getInfo(iSet), iSet); // :  Lower.
 
   if (getCardinality(iSet) > 0) {
     critRun(pretree, iSet, replayExpl, replayLeft);
@@ -411,7 +411,7 @@ void SplitFrontier::critCut(PreTree* pretree,
                             BV* replayExpl,
                             BV* replayLeft) const {
   pretree->critCut(iSet, getPredIdx(iSet), getRankRange(iSet));
-  vector<SumCount> ctgCrit(iSet->getCtgLeft().size());
+  vector<SumCount> ctgCrit(iSet->getCtgSum().size());
   double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replayExpl, replayLeft, ctgCrit);
   iSet->criterionLR(sumExpl, ctgCrit, leftIsExplicit(iSet));
 }
@@ -433,7 +433,7 @@ void SplitFrontier::critRun(PreTree* pretree,
                             BV* replayLeft) const {
   pretree->critBits(iSet, getPredIdx(iSet), getCardinality(iSet));
   bool leftExpl;
-  vector<SumCount> ctgCrit(iSet->getCtgLeft().size());
+  vector<SumCount> ctgCrit(iSet->getCtgSum().size());
   double sumExpl = run->branch(this, iSet, pretree, replayExpl, replayLeft, ctgCrit, leftExpl);
   iSet->criterionLR(sumExpl, ctgCrit, leftExpl);
 }
@@ -444,8 +444,8 @@ bool SplitFrontier::isInformative(const IndexSet* iSet) const {
 }
 
 
-IndexT SplitFrontier::getLHExtent(const IndexSet& iSet) const {
-  return nuxMax[iSet.getSplitIdx()].getLHExtent();
+IndexT SplitFrontier::getLHExtent(const IndexSet* iSet) const {
+  return nuxMax[iSet->getSplitIdx()].getLHExtent();
 }
 
 

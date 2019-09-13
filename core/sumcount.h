@@ -61,7 +61,7 @@ class SumCount {
   }
   
   static SumCount minus(const SumCount& minuend,
-                 const SumCount& subtrahend) {
+                        const SumCount& subtrahend) {
     return SumCount(minuend.sum - subtrahend.sum, minuend.sCount - subtrahend.sCount);
   }
 

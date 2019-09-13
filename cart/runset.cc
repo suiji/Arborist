@@ -224,7 +224,7 @@ void RunSet::heapBinary() {
 
 
 void RunSet::writeImplicit(const SplitCand* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
-  IndexT implicit = cand->getImplicit();
+  IndexT implicit = cand->getImplicitCount();
   if (implicit == 0)
     return;
 

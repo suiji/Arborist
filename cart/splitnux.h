@@ -78,12 +78,6 @@ public:
 
   /**
      @brief Consumes frontier node parameters associated with nonterminal.
-
-     @param[out] minInfo outputs the information threshold for splitting.
-
-     @param[out] lhSCount outputs the number of samples in LHS.
-
-     @param[out] lhExtent outputs the number of indices in LHS.
   */
   void consume(IndexSet* iSet) const;
 
@@ -124,8 +118,9 @@ public:
     return cardinality;
   }
 
+
   auto getExtent() const {
-    return idxRange.getEnd() - idxRange.getStart() - 1;
+    return idxRange.getExtent();
   }
 
 
