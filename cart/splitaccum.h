@@ -41,7 +41,7 @@ struct Residual {
            IndexT sCount_);
 
   /**
-     @brief Outputs residual contents.
+     @brief Applies residual to left-moving splitting state.
 
      @param[out] ySum outputs the residual response sum.
 
@@ -63,7 +63,7 @@ struct ResidualCtg : public Residual {
               const vector<double>& ctgExpl);
 
   /**
-     @brief Applies state from residual encountered to the left.
+     @brief Applies residual to left-moving splitting state.
    */
   void apply(FltVal& ySum,
              IndexT& sCount,
@@ -93,6 +93,37 @@ protected:
   IndexT sCountThis; // Current sample count.
   FltVal ySum; // Current response value.
 
+
+  /**
+     @brief Updates split anywhere left of a residual, if any.
+   */
+  inline void trialRight(double infoTrial,
+			 IndexT idx,
+			 IndexT rkThis,
+			 IndexT rkRight) {
+    if (infoTrial > info) {
+      info = infoTrial;
+      lhSCount = sCountL;
+      rankRH = rkRight;
+      rankLH = rkThis;
+      rhMin = rkRight == rankDense ? cutDense : idx + 1;
+    }
+  }
+
+  /**
+     @brief Updates split just to the right of a residual.
+   */
+  inline void leftResidual(double infoTrial,
+			   IndexT rkRight) {
+    if (infoTrial > info) {
+      info = infoTrial;
+      lhSCount = sCountL;
+      rankRH = rkRight;
+      rankLH = rankDense;
+      rhMin = cutDense;
+    }
+  }
+  
 public:
   // Revised at each new local maximum of 'info':
   double info; // Information high watermark.  Precipitates split iff > 0.0.
@@ -117,6 +148,15 @@ class SplitAccumReg : public SplitAccum {
   const int monoMode; // Presence/direction of monotone constraint.
   const shared_ptr<Residual> resid; // Current residual, if any, else null.
 
+  inline void trialSplit(IndexT idx,
+			 IndexT rkThis,
+			 IndexT rkRight) {
+    if (rkThis != rkRight) {
+      SplitAccum::trialRight(infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL), idx, rkThis, rkRight);
+    }
+  }
+
+  
   /**
      @brief Creates a residual summarizing implicit splitting state.
 
@@ -228,6 +268,25 @@ class SplitAccumCtg : public SplitAccum {
   double ssL; // Left sum-of-squares accumulator.
   double ssR; // Right " ".
 
+
+  /**
+     @brief Updates a split if not tied and information increases.
+   */
+  inline void trialSplit(IndexT idx,
+                         IndexT rkThis,
+                         IndexT rkRight) {
+    if (rkThis != rkRight) {
+      SplitAccum::trialRight(infoSplit(ssL, ssR, sumL, sum - sumL), idx, rkThis, rkRight);
+    }
+  }
+
+  
+  /**
+     @brief Accumulates state from the residual.
+   */
+  void applyResidual();
+
+  
   /**
      @brief Imputes per-category dense rank statistics as residuals over cell.
 
@@ -299,13 +358,11 @@ public:
 
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
-
-     @return final rank encountered in range.
    */
-  IndexT splitExpl(const class SampleRank spn[],
-                   IndexT rkThs,
-                   IndexT idxInit,
-                   IndexT idxFinal);
+  void splitExpl(const class SampleRank spn[],
+	    IndexT rkThs,
+	    IndexT idxInit,
+	    IndexT idxFinal);
 
   /**
      @brief As above, but with implicit dense blob.
@@ -317,8 +374,9 @@ public:
      @brief Accumulates right and left sums-of-squares from
      exposed state.
    */
-inline IndexT stateNext(const class SampleRank spn[],
-                        IndexT idx);
+  inline void stateNext(const class SampleRank spn[],
+			IndexT idx);
+
 
   /**
      @brief Accessor for node-wide sum for a given category.
@@ -370,28 +428,6 @@ inline IndexT stateNext(const class SampleRank spn[],
     ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
   }
 
-
-  inline void trialSplit(IndexT idx,
-                         IndexT rkThis,
-                         IndexT rkRight) {
-    if (rkThis == rkRight) {
-      return;
-    }
-    double infoTrial = infoSplit(ssL, ssR, sumL, sum - sumL);
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      rankRH = rkRight;
-      rankLH = rkThis;
-      rhMin = rkRight == rankDense ? cutDense : idx + 1;
-    }
-  }
-
-
-  /**
-     @brief Specialized to lower-bounding dense cuts.
-   */
-  void trialSplitLower(IndexT rkRight);
 };
 
 #endif

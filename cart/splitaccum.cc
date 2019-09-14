@@ -68,7 +68,7 @@ void SplitAccumReg::splitImpl(const SampleRank spn[],
     leftResidual(spn[cutDense].getRank()); // Checks denseCut/resid.
 
     // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
-    if (cutDense > 0) {
+    if (cutDense > idxStart) {
       splitExpl(spn, rankDense, cutDense - 1, idxStart);
     }
   }
@@ -113,14 +113,7 @@ void SplitAccumReg::splitExpl(const SampleRank spn[],
     sCountL -= sCountThis;
     rkThis = spn[idx].regFields(ySum, sCountThis);
 
-    double infoTrial = infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL);
-    if (infoTrial > info && rkThis != rkRight) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      rankRH = rkRight;
-      rankLH = rkThis;
-      rhMin = rkRight == rankDense ? cutDense : idx + 1;
-    }
+    trialSplit(idx, rkThis, rkRight);
   }
 }
 
@@ -179,35 +172,33 @@ void SplitAccumCtg::split(const SFCtg* spCtg,
   else {
     IndexT idxEnd = cand->getIdxEnd();
     IndexT idxStart = cand->getIdxStart();
-    IndexT rkThis = stateNext(spn, idxEnd);
-    (void) splitExpl(spn, rkThis, idxEnd-1, idxStart);
+    stateNext(spn, idxEnd);
+    splitExpl(spn, spn[idxEnd].getRank(), idxEnd-1, idxStart);
   }
 }
 
 
-inline IndexT SplitAccumCtg::stateNext(const SampleRank spn[],
-                                       IndexT idx) {
+inline void SplitAccumCtg::stateNext(const SampleRank spn[],
+				     IndexT idx) {
   PredictorT yCtg;
-  IndexT rkThis = spn[idx].ctgFields(ySum, sCountThis, yCtg);
+  (void) spn[idx].ctgFields(ySum, sCountThis, yCtg);
 
   sumL -= ySum;
   sCountL -= sCountThis;
   accumCtgSS(ySum, yCtg, ssL, ssR);
-
-  return rkThis;
 }
 
 
-IndexT SplitAccumCtg::splitExpl(const SampleRank spn[],
+void SplitAccumCtg::splitExpl(const SampleRank spn[],
                               IndexT rkThis,
                               IndexT idxInit,
                               IndexT idxFinal) {
-  IndexT rkRight = rkThis;
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
-    trialSplit(idx, spn[idx].getRank(), rkRight);
-    rkRight = stateNext(spn, idx);
+    IndexT rkRight = rkThis;
+    rkThis = spn[idx].getRank();
+    trialSplit(idx, rkThis, rkRight);
+    stateNext(spn, idx);
   }
-  return rkRight;
 }
 
 
@@ -216,33 +207,24 @@ void SplitAccumCtg::splitImpl(const SampleRank spn[],
   IndexT idxEnd = cand->getIdxEnd();
   IndexT idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) { // Far right residual.
-    resid->apply(ySum, sCountThis, ssR, ssL, this);
-    sumL -= ySum;
-    sCountL -= sCountThis;
-    (void) splitExpl(spn, rankDense, idxEnd, idxStart);
+    applyResidual();
+    splitExpl(spn, rankDense, idxEnd, idxStart); // Everything below residual.
   }
   else {
-    if (cutDense == idxStart) { // Far left residual
-      IndexT rkThis = splitExpl(spn, spn[idxEnd].getRank(), idxEnd, cutDense);
-      trialSplitLower(rkThis);
-    }
-    else { // Internal residual.
-      resid->apply(ySum, sCountThis, ssR, ssL, this);
-      (void) splitExpl(spn, rankDense, cutDense - 1, idxStart);
+    splitExpl(spn, spn[idxEnd].getRank(), idxEnd, cutDense); // Everything above residual.
+    leftResidual(infoSplit(ssL, ssR, sumL, sum - sumL), spn[cutDense].getRank());
+    if (cutDense > idxStart) { // Internal residual:  apply and keep splitting
+      applyResidual();
+      splitExpl(spn, rankDense, cutDense - 1, idxStart); // Everything below residual.
     }
   }
 }
 
 
-void SplitAccumCtg::trialSplitLower(IndexT rkRight) {
-  double infoTrial = infoSplit(ssL, ssR, sumL, sum - sumL);
-  if (infoTrial > info) {
-    info = infoTrial;
-    lhSCount = sCountL;
-    rankRH = rkRight;
-    rankLH = rankDense;
-    rhMin = cutDense;
-  }
+void SplitAccumCtg::applyResidual() {
+  resid->apply(ySum, sCountThis, ssR, ssL, this);
+  sumL -= ySum;
+  sCountL -= sCountThis;
 }
 
 
