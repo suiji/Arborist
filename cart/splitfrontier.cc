@@ -41,8 +41,7 @@ SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
-  bagCount(sample->getBagCount()),
-  noSet(bagCount * frame->getNPredFac()),
+  noSet(sample->getBagCount() * frame->getNPredFac()),
   obsPart(sample->predictors()) {
 }
 
@@ -105,7 +104,7 @@ IndexT SplitFrontier::getDenseRank(const SplitCand* cand) const {
 
    @return void.
  */
-void SFReg::setRunOffsets(const vector<unsigned int> &runCount) {
+void SFReg::setRunOffsets(const vector<unsigned int>& runCount) {
   run->offsetsReg(runCount);
 }
 
@@ -113,7 +112,7 @@ void SFReg::setRunOffsets(const vector<unsigned int> &runCount) {
 /**
    @brief Sets quick lookup offsets for Run object.
  */
-void SFCtg::setRunOffsets(const vector<unsigned int> &runCount) {
+void SFCtg::setRunOffsets(const vector<unsigned int>& runCount) {
   run->offsetsCtg(runCount);
 }
 
@@ -159,9 +158,9 @@ void SplitFrontier::scheduleSplits(const Level* levelFront) {
 void SplitFrontier::init() {
   splitCount = frontier->getNSplit();
   prebias = vector<double>(splitCount);
-  nCand = vector<unsigned int>(splitCount);
+  nCand = vector<IndexT>(splitCount);
   fill(nCand.begin(), nCand.end(), 0);
-  candOff = vector<unsigned int>(splitCount);
+  candOff = vector<IndexT>(splitCount);
   fill(candOff.begin(), candOff.end(), splitCount); // inattainable.
 
   levelPreset(); // virtual
@@ -245,10 +244,6 @@ void SFCtg::clear() {
 
 /**
    @brief Sets level-specific values for the subclass.
-
-   @param index contains the current level's index sets and state.
-
-   @return void.
 */
 void SFReg::levelPreset() {
   if (!mono.empty()) {
@@ -389,9 +384,10 @@ void SplitFrontier::branch(PreTree* pretree,
                            IndexSet* iSet,
                            BV* replayExpl,
                            BV* replayLeft) const {
-  consumeCriterion(iSet);
-  pretree->nonterminal(getInfo(iSet), iSet); // :  Lower.
+  pretree->nonterminal(getInfo(iSet), iSet); // Once per node.
 
+  // Once per criterion:
+  consumeCriterion(iSet);
   if (getCardinality(iSet) > 0) {
     critRun(pretree, iSet, replayExpl, replayLeft);
   }
@@ -411,7 +407,7 @@ void SplitFrontier::critCut(PreTree* pretree,
                             BV* replayExpl,
                             BV* replayLeft) const {
   pretree->critCut(iSet, getPredIdx(iSet), getRankRange(iSet));
-  vector<SumCount> ctgCrit(iSet->getCtgSum().size());
+  vector<SumCount> ctgCrit(iSet->getNCtg());
   double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replayExpl, replayLeft, ctgCrit);
   iSet->criterionLR(sumExpl, ctgCrit, leftIsExplicit(iSet));
 }
@@ -433,7 +429,7 @@ void SplitFrontier::critRun(PreTree* pretree,
                             BV* replayLeft) const {
   pretree->critBits(iSet, getPredIdx(iSet), getCardinality(iSet));
   bool leftExpl;
-  vector<SumCount> ctgCrit(iSet->getCtgSum().size());
+  vector<SumCount> ctgCrit(iSet->getNCtg());
   double sumExpl = run->branch(this, iSet, pretree, replayExpl, replayLeft, ctgCrit, leftExpl);
   iSet->criterionLR(sumExpl, ctgCrit, leftExpl);
 }

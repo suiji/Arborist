@@ -30,6 +30,14 @@ struct Residual {
   const double sum;  // Imputed response sum over dense indices.
   const IndexT sCount; // Imputed sample count over dense indices.
 
+
+  /**
+     @brief Empty construtor.
+   */
+  Residual() : sum(0.0), sCount(0) {
+  }
+
+  
   /**
      @brief Constructor initializes contents to residual values.
 
@@ -40,6 +48,11 @@ struct Residual {
   Residual(double sum_,
            IndexT sCount_);
 
+
+  bool isEmpty() const {
+    return sCount == 0;
+  }
+  
   /**
      @brief Applies residual to left-moving splitting state.
 
@@ -62,6 +75,13 @@ struct ResidualCtg : public Residual {
               IndexT sCount_,
               const vector<double>& ctgExpl);
 
+  /**
+     @brief Empty constructor.
+   */
+  ResidualCtg() : Residual() {
+  }
+
+  
   /**
      @brief Applies residual to left-moving splitting state.
    */
@@ -113,7 +133,7 @@ protected:
   /**
      @brief Updates split just to the right of a residual.
    */
-  inline void leftResidual(double infoTrial,
+  inline void splitResidual(double infoTrial,
 			   IndexT rkRight) {
     if (infoTrial > info) {
       info = infoTrial;
@@ -146,7 +166,7 @@ public:
  */
 class SplitAccumReg : public SplitAccum {
   const int monoMode; // Presence/direction of monotone constraint.
-  const shared_ptr<Residual> resid; // Current residual, if any, else null.
+  const unique_ptr<Residual> resid; // Current residual, if any, else null.
 
   inline void trialSplit(IndexT idx,
 			 IndexT rkThis,
@@ -166,17 +186,18 @@ class SplitAccumReg : public SplitAccum {
      
      @return new residual based on the current splitting data set.
    */
-  shared_ptr<Residual> makeResidual(const class SplitCand* cand,
+  unique_ptr<Residual> makeResidual(const class SplitCand* cand,
                                     const class SampleRank spn[]);
+
   /**
-     @brief Updates accumulators and possibly splits.
+     @brief Updates with residual and possibly splits.
 
      Current rank position assumed to be adjacent to dense rank, whence
      the application of the residual immediately to the left.
 
      @param rkThis is the rank of the current position.
    */
-  void leftResidual(IndexT rkThis);
+  void splitResidual(IndexT rkThis);
 
 
 public:
@@ -262,7 +283,7 @@ public:
  */
 class SplitAccumCtg : public SplitAccum {
   const PredictorT nCtg; // Cadinality of response.
-  const shared_ptr<ResidualCtg> resid;
+  const unique_ptr<ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
@@ -282,9 +303,11 @@ class SplitAccumCtg : public SplitAccum {
 
   
   /**
-     @brief Accumulates state from the residual.
+     @brief Applies residual state and continues splitting left.
    */
-  void applyResidual();
+  void residualAndLeft(const class SampleRank spn[],
+		       IndexT idxLeft,
+		       IndexT idxStart);
 
   
   /**
@@ -298,7 +321,7 @@ class SplitAccumCtg : public SplitAccum {
 
      @return new residual for categorical response over cell.
   */
-  shared_ptr<ResidualCtg>
+  unique_ptr<ResidualCtg>
   makeResidual(const class SplitCand* cand,
                const class SampleRank spn[],
                class SFCtg* spCtg);

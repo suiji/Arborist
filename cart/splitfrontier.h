@@ -64,7 +64,6 @@ class SplitFrontier {
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
-  IndexT bagCount; 
   const IndexT noSet; // Unreachable setIdx for SplitCand.
   unique_ptr<class ObsPart> obsPart;
   IndexT splitCount; // # subtree nodes at current level.
@@ -74,8 +73,8 @@ class SplitFrontier {
   vector<double> prebias; // Initial information threshold.
   // Per-split accessors for candidate vector.  Set to splitCount
   // and cleared after use:
-  vector<unsigned int> candOff;  // Lead candidate position.
-  vector<unsigned int> nCand;  // Number of candidates.
+  vector<IndexT> candOff;  // Lead candidate position.
+  vector<IndexT> nCand;  // Number of candidates.
 
   /**
      @brief Retrieves the type-relative index of a numerical predictor.
@@ -137,7 +136,7 @@ public:
 
      @return rank of dense value, if candidate's predictor has one.
    */
-  unsigned int getDenseRank(const SplitCand* cand) const;
+  IndexT getDenseRank(const SplitCand* cand) const;
 
   
   /**
@@ -204,7 +203,7 @@ public:
 
   bool leftIsExplicit(const class IndexSet* iSet) const;
 
-  unsigned int getSetIdx(const class IndexSet* iSet) const;
+  IndexT getSetIdx(const class IndexSet* iSet) const;
 
 
   SplitSurvey consume(class PreTree* pretree,
@@ -278,12 +277,12 @@ public:
 
   vector<class SplitNux> maxCandidates();
   
-  class SplitNux maxSplit(unsigned int splitOff,
-                          unsigned int nSplitFrontier) const;
+  class SplitNux maxSplit(IndexT splitOff,
+                          IndexT nSplitFrontier) const;
   
   virtual void splitCandidates() = 0;
   virtual ~SplitFrontier();
-  virtual void setRunOffsets(const vector<unsigned int> &safeCounts) = 0;
+  virtual void setRunOffsets(const vector<unsigned int>& safeCounts) = 0;
   virtual void levelPreset() = 0;
 
   virtual void setPrebias(IndexT splitIdx,
@@ -330,7 +329,7 @@ class SFReg : public SplitFrontier {
 	const class Sample* sample);
 
   ~SFReg();
-  void setRunOffsets(const vector<unsigned int> &safeCount);
+  void setRunOffsets(const vector<unsigned int>& safeCount);
   void levelPreset();
   void clear();
 
@@ -391,7 +390,7 @@ class SFCtg : public SplitFrontier {
 
      @param safeCount gives a conservative per-predictor count of distinct runs.
    */
-  void setRunOffsets(const vector<unsigned int> &safeCount);
+  void setRunOffsets(const vector<unsigned int>& safeCount);
 
 
   /**

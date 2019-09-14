@@ -15,7 +15,6 @@
 
 #include "bottom.h"
 #include "level.h"
-#include "bv.h"
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "sample.h"

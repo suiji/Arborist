@@ -305,7 +305,7 @@ void Frontier::relExtinct(IndexT relIdx, IndexT ptId) {
 }
 
 
-void Frontier::stReindex(unsigned int splitNext) {
+void Frontier::stReindex(IndexT splitNext) {
   unsigned int chunkSize = 1024;
   IndexT nChunk = (bagCount + chunkSize - 1) / chunkSize;
 

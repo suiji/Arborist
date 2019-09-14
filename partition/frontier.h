@@ -238,12 +238,15 @@ class IndexSet {
     return splitIdx;
   }
 
-
-  inline const vector<SumCount>& getCtgSum() const {
-    return ctgSum;
+  
+  /**
+     @brief Getter for number of response categories.
+   */
+  inline auto getNCtg() const {
+    return ctgSum.size();
   }
 
-
+  
   inline auto getIdxSucc(bool isLeft) const {
     return isLeft ? succLeft : succRight;
   }
@@ -325,7 +328,6 @@ class IndexSet {
   }
 
   
-
   /**
      @brief L/R accessor for subtree-relative reindexing.
 
@@ -347,6 +349,7 @@ class IndexSet {
     return doesSplit ? offspringLive(senseLeft(replayExpl, replayLeft, sIdx), pathSucc, ptSucc) : offspringTerm(pathSucc, ptSucc);
   }
 
+  
   /**
      @brief Set path and pretree successor of nonterminal.
 
@@ -411,11 +414,11 @@ class Frontier {
   IndexT succLive; // Accumulates live indices for upcoming level.
   IndexT succExtinct; // " " extinct "
   vector<IndexT> relBase; // Node-to-relative index.
-  vector<unsigned int> succBase; // Overlaps, then moves to relBase.
-  vector<unsigned int> rel2ST; // Node-relative mapping to subtree index.
-  vector<unsigned int> rel2PT; // Node-relative mapping to pretree index.
-  vector<unsigned int> st2Split; // Subtree-relative mapping to split index.
-  vector<unsigned int> st2PT; // Subtree-relative mapping to pretree index.
+  vector<IndexT> succBase; // Overlaps, then moves to relBase.
+  vector<IndexT> rel2ST; // Node-relative mapping to subtree index.
+  vector<IndexT> rel2PT; // Node-relative mapping to pretree index.
+  vector<IndexT> st2Split; // Subtree-relative mapping to split index.
+  vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
   unique_ptr<class BV> replayExpl; // Whether index is explicity replayed.
   unique_ptr<class BV> replayLeft; // If explicit, whether L/R; else undefined.
   unique_ptr<class PreTree> pretree; // Augmented per frontier.

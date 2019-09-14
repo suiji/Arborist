@@ -41,7 +41,7 @@ SplitAccumReg::SplitAccumReg(const SplitCand* cand,
 void SplitAccumReg::split(const SFReg* spReg,
                           const SampleRank spn[],
                           SplitCand* cand) {
-  if (resid != nullptr) {
+  if (!resid->isEmpty()) {
     splitImpl(spn, cand);
   }
   else {
@@ -65,17 +65,18 @@ void SplitAccumReg::splitImpl(const SampleRank spn[],
     // Checks idxEnd/idxEnd-1, ..., denseCut+1/denseCut.
     IndexT rkThis = spn[idxEnd].regFields(ySum, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, cutDense);
-    leftResidual(spn[cutDense].getRank()); // Checks denseCut/resid.
+    splitResidual(spn[cutDense].getRank()); // Checks denseCut/resid.
 
     // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
     if (cutDense > idxStart) {
+      resid->apply(ySum, sCountThis);
       splitExpl(spn, rankDense, cutDense - 1, idxStart);
     }
   }
 }
 
 
-void SplitAccumReg::leftResidual(IndexT rkThis) {
+void SplitAccumReg::splitResidual(IndexT rkThis) {
   // Rank exposed from previous invocation of splitExpl():
   sumL -= ySum;
   sCountL -= sCountThis;
@@ -166,7 +167,7 @@ SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
 void SplitAccumCtg::split(const SFCtg* spCtg,
                           const SampleRank spn[],
                           SplitCand* cand) {
-  if (resid != nullptr) {
+  if (!resid->isEmpty()) {
     splitImpl(spn, cand);
   }
   else {
@@ -206,33 +207,35 @@ void SplitAccumCtg::splitImpl(const SampleRank spn[],
                               const SplitCand* cand) {
   IndexT idxEnd = cand->getIdxEnd();
   IndexT idxStart = cand->getIdxStart();
-  if (cutDense > idxEnd) { // Far right residual.
-    applyResidual();
-    splitExpl(spn, rankDense, idxEnd, idxStart); // Everything below residual.
+  if (cutDense > idxEnd) { // Far right residual:  apply and split to left.
+    residualAndLeft(spn, idxEnd, idxStart);
   }
-  else {
-    splitExpl(spn, spn[idxEnd].getRank(), idxEnd, cutDense); // Everything above residual.
-    leftResidual(infoSplit(ssL, ssR, sumL, sum - sumL), spn[cutDense].getRank());
-    if (cutDense > idxStart) { // Internal residual:  apply and keep splitting
-      applyResidual();
-      splitExpl(spn, rankDense, cutDense - 1, idxStart); // Everything below residual.
+  else { // Split far right, then residual, then possibly left.
+    splitExpl(spn, spn[idxEnd].getRank(), idxEnd, cutDense);
+    splitResidual(infoSplit(ssL, ssR, sumL, sum - sumL), spn[cutDense].getRank());
+    if (cutDense > idxStart) { // Internal residual:  apply and split to left.
+      residualAndLeft(spn, cutDense - 1, idxStart);
     }
   }
 }
 
 
-void SplitAccumCtg::applyResidual() {
+void SplitAccumCtg::residualAndLeft(const SampleRank spn[],
+				    IndexT idxLeft,
+				    IndexT idxStart) {
   resid->apply(ySum, sCountThis, ssR, ssL, this);
   sumL -= ySum;
   sCountL -= sCountThis;
+  splitExpl(spn, rankDense, idxLeft, idxStart);
 }
 
 
-shared_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
+unique_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
                                                  const SampleRank spn[]) {
   if (cand->getImplicitCount() == 0) {
-    return nullptr;
+    return make_unique<Residual>();
   }
+
   double sumExpl = 0.0;
   IndexT sCountExpl = 0;
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
@@ -244,16 +247,16 @@ shared_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
     sumExpl += ySum;
   }
   
-  return make_shared<Residual>(sum - sumExpl, sCount - sCountExpl);
+  return make_unique<Residual>(sum - sumExpl, sCount - sCountExpl);
 }
 
 
-shared_ptr<ResidualCtg>
+unique_ptr<ResidualCtg>
 SplitAccumCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],
                             SFCtg* spCtg) {
   if (cand->getImplicitCount() == 0) {
-    return nullptr;
+    return make_unique<ResidualCtg>();
   }
 
   vector<double> ctgImpl(spCtg->getSumSlice(cand));
@@ -270,7 +273,7 @@ SplitAccumCtg::makeResidual(const SplitCand* cand,
     sumExpl += ySum;
   }
 
-  return make_shared<ResidualCtg>(sum - sumExpl, sCount - sCountExpl, ctgImpl);
+  return make_unique<ResidualCtg>(sum - sumExpl, sCount - sCountExpl, ctgImpl);
 }
 
 
