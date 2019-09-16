@@ -14,8 +14,8 @@
    @author Mark Seligman
  */
 
-#ifndef CART_RUNSET_H
-#define CART_RUNSET_H
+#ifndef SPLIT_RUNSET_H
+#define SPLIT_RUNSET_H
 
 #include <vector>
 
@@ -199,7 +199,7 @@ class RunSet {
 
      @return post-shrink run count.
   */
-  unsigned int deWide(unsigned int nCtg);
+  unsigned int deWide(PredictorT nCtg);
 
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
@@ -216,7 +216,7 @@ class RunSet {
               vector<BHPair> &bHeap,
               vector<unsigned int> &lhOut,
               vector<double> &ctgSum,
-              unsigned int nCtg,
+              PredictorT nCtg,
               vector<double> &rvWide);
 
   /**
@@ -259,8 +259,7 @@ class RunSet {
   double branch(class IndexSet* iSet,
                 class PreTree* preTree,
                 const class SplitFrontier* splitFrontier,
-                class BV* bvLeft,
-                class BV* bvRight,
+		class Replay* replay,
                 vector<SumCount>& ctgCrit,
                 bool& replayLeft) const;
 
@@ -272,7 +271,7 @@ class RunSet {
 
      @param runIdx is the run index.
    */
-  void residCtg(unsigned int nCtg,
+  void residCtg(PredictorT nCtg,
                 unsigned int runIdx);
 
 
@@ -302,7 +301,7 @@ class RunSet {
 
      @return effective run count
    */
-  inline unsigned int effCount() const {
+  inline PredictorT effCount() const {
     return runCount > maxWidth ? maxWidth : runCount;
   }
 
@@ -324,7 +323,7 @@ class RunSet {
   /**
      @brief Sets run parameters and increments run count.
    */
-  inline void write(unsigned int rank,
+  inline void write(PredictorT rank,
                     IndexT sCount,
                     double sum,
                     IndexT extent,
@@ -340,9 +339,9 @@ class RunSet {
 
      @return void.
    */
-  inline void accumCtg(unsigned int nCtg,
+  inline void accumCtg(PredictorT nCtg,
                        double ySum,
-                       unsigned int yCtg) {
+                       PredictorT yCtg) {
     ctgZero[runCount * nCtg + yCtg] += ySum;
   }
 
@@ -350,7 +349,9 @@ class RunSet {
   /**
      @return checkerboard value at slot for category.
    */
-  inline double getSumCtg(unsigned int slot, unsigned int nCtg, unsigned int yCtg) const {
+  inline double getSumCtg(PredictorT slot,
+			  PredictorT nCtg,
+			  PredictorT yCtg) const {
     return ctgZero[slot * nCtg + yCtg];
   }
 
@@ -367,7 +368,9 @@ class RunSet {
 
      @return true iff slot counts differ by at least unity.
    */
-  inline bool accumBinary(unsigned int outPos, double &sum0, double &sum1) {
+  inline bool accumBinary(unsigned int outPos,
+			  double& sum0,
+			  double& sum1) {
     unsigned int slot = outZero[outPos];
     double cell0 = getSumCtg(slot, 2, 0);
     sum0 += cell0;
@@ -419,7 +422,7 @@ class RunSet {
 
      @return LHS index count.
   */
-  unsigned int lHBits(unsigned int lhBits, unsigned int &lhSampCt);
+  unsigned int lHBits(unsigned int lhBits, IndexT& lhSampCt);
   
   /**
      @brief Dereferences out slots and accumulates splitting parameters.
@@ -430,7 +433,7 @@ class RunSet {
 
      @return LHS index count.
   */
-  unsigned int lHSlots(unsigned int outPos, unsigned int &lhSampCt);
+  unsigned int lHSlots(unsigned int outPos, IndexT& lhSampCt);
 
   /**
      @brief Looks up run parameters by indirection through output vector.
@@ -517,8 +520,7 @@ public:
   double branch(const class SplitFrontier* splitFrontier,
                 class IndexSet* iSet,
                 class PreTree* preTree,
-                class BV* bvLeft,
-                class BV* bvRight,
+		class Replay* replay,
                 vector<SumCount>& ctgCrit,
                 bool& replayLeft) const;
 

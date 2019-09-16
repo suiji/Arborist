@@ -23,6 +23,8 @@ cp ../../framemap/*.cc Rborist/src/
 cp ../../framemap/*.h Rborist/src/
 cp ../../cart/*.cc Rborist/src/
 cp ../../cart/*.h Rborist/src/
+cp ../../cart/bridge/*.cc Rborist/src/
+cp ../../cart/bridge/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../core/bridge/*.cc Rborist/src/
@@ -33,5 +35,7 @@ cp ../../rf/*.cc Rborist/src/
 cp ../../rf/*.h Rborist/src/
 cp ../../rf/bridge/*.cc Rborist/src/
 cp ../../rf/bridge/*.h Rborist/src/
+cp ../../split/*.cc Rborist/src/
+cp ../../split/*.h Rborist/src/
 cp -r ../tests Rborist
 cp -r ../vignettes Rborist

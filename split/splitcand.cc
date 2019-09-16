@@ -17,61 +17,38 @@
 #include "splitaccum.h"
 #include "frontier.h"
 #include "splitfrontier.h"
+#include "sfcart.h" // Temporary.
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
-#include "obspart.h"
 
 SplitCand::SplitCand(const SplitFrontier* splitNode,
-                     const Frontier* index,
-                     const SplitCoord& splitCoord_,
-                     unsigned int bufIdx_,
-                     unsigned int noSet) :
-  splitCoord(splitCoord_),
-  sCount(index->getSCount(splitCoord.nodeIdx)),
-  sum(index->getSum(splitCoord.nodeIdx)),
-  bufIdx(bufIdx_),
-  info(splitNode->getPrebias(splitCoord)),
-  setIdx(noSet),
-  lhSCount(0),
-  lhImplicit(0) {
+                     const Frontier* frontier,
+                     const SplitCoord& splitCoord,
+                     unsigned int bufIdx,
+                     IndexT noSet) :
+  sCount(frontier->getSCount(splitCoord.nodeIdx)),
+  sum(frontier->getSum(splitCoord.nodeIdx)),
+  splitNux(SplitNux(splitCoord, noSet, bufIdx, splitNode->getPrebias(splitCoord))) {
 }
 
 
 bool SplitCand::schedule(const Level* levelFront,
-                         const Frontier* iLevel,
+                         const Frontier* frontier,
                          vector<unsigned int>& runCount) {
-  unsigned int rCount;
-  if (levelFront->scheduleSplit(splitCoord, rCount)) {
-    initLate(levelFront, iLevel, runCount, rCount);
-    return true;
-  }
-  return false;
-}
-
-
-void SplitCand::initLate(const Level* levelFront,
-                         const Frontier* index,
-                         vector<unsigned int>& runCount,
-                         unsigned int rCount) {
-  if (rCount > 1) {
-    setIdx = runCount.size();
-    runCount.push_back(rCount);
-  }
-  idxRange = levelFront->adjustRange(splitCoord, index, implicitCount);
+  return levelFront->scheduleSplit(frontier, runCount, splitNux, implicitCount);
 }
 
 
 /**
    @brief  Regression splitting based on type:  numeric or factor.
  */
-void SplitCand::split(const SFReg *spReg,
-                      const ObsPart *obsPart) {
-  if (spReg->isFactor(splitCoord)) {
-    splitFac(spReg, obsPart->PredBase(splitCoord, bufIdx));
+void SplitCand::split(const SFReg *spReg) {
+  if (spReg->isFactor(splitNux.splitCoord)) {
+    splitFac(spReg);
   }
   else {
-    splitNum(spReg, obsPart->PredBase(splitCoord, bufIdx));
+    splitNum(spReg);
   }
 }
 
@@ -79,20 +56,18 @@ void SplitCand::split(const SFReg *spReg,
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCand::split(SFCtg *spCtg,
-                      const ObsPart *obsPart) {
-  if (spCtg->isFactor(splitCoord)) {
-    splitFac(spCtg, obsPart->PredBase(splitCoord, bufIdx));
+void SplitCand::split(SFCtg *spCtg) {
+  if (spCtg->isFactor(splitNux.splitCoord)) {
+    splitFac(spCtg);
   }
   else {
-    splitNum(spCtg, obsPart->PredBase(splitCoord, bufIdx));
+    splitNum(spCtg);
   }
 }
 
 
-void SplitCand::splitFac(SFCtg *spCtg,
-                         const SampleRank spn[]) {
-  buildRuns(spCtg, spn);
+void SplitCand::splitFac(SFCtg *spCtg) {
+  buildRuns(spCtg);
 
   if (spCtg->getNCtg() == 2) {
     splitBinary(spCtg);
@@ -105,19 +80,17 @@ void SplitCand::splitFac(SFCtg *spCtg,
 
 /**
    @brief Main entry for numerical split.
-
-   @return void.
 */
-void SplitCand::splitNum(const SFReg* spReg,
-                         const SampleRank spn[]) {
+void SplitCand::splitNum(const SFReg* spReg) {
+  SampleRank* spn = spReg->getPredBase(this);
   SplitAccumReg numPersist(this, spn, spReg);
   numPersist.split(spReg, spn, this);
   writeNum(spReg, numPersist);
 }
 
 
-void SplitCand::splitNum(SFCtg* spCtg,
-                         const SampleRank spn[]) {
+void SplitCand::splitNum(SFCtg* spCtg) {
+  SampleRank* spn = spCtg->getPredBase(this);
   SplitAccumCtg numPersist(this, spn, spCtg);
   numPersist.split(spCtg, spn, this);
   writeNum(spCtg, numPersist);
@@ -126,12 +99,12 @@ void SplitCand::splitNum(SFCtg* spCtg,
 
 void SplitCand::writeNum(const SplitFrontier* spNode,
                          const SplitAccum& accum) {
-  info = accum.info;
+  splitNux.info = accum.info;
   if (infoGain(spNode)) {
-    rankRange.set(accum.rankLH, accum.rankRH - accum.rankLH);
-    this->lhSCount = accum.lhSCount;
-    lhImplicit = accum.lhDense() ? implicitCount : 0;
-    lhExtent = lhImplicit + (accum.rhMin - getIdxStart());
+    splitNux.rankRange.set(accum.rankLH, accum.rankRH - accum.rankLH);
+    splitNux.lhSCount = accum.lhSCount;
+    splitNux.lhImplicit = accum.lhDense() ? implicitCount : 0;
+    splitNux.lhExtent = splitNux.lhImplicit + (accum.rhMin - getIdxStart());
   }
 }
 
@@ -139,18 +112,17 @@ void SplitCand::writeNum(const SplitFrontier* spNode,
 /**
    Regression runs always maintained by heap.
 */
-void SplitCand::splitFac(const SFReg *spReg,
-                         const SampleRank spn[]) {
-  RunSet *runSet = spReg->rSet(setIdx);
-  
+void SplitCand::splitFac(const SFReg *spReg) {
+  RunSet *runSet = spReg->rSet(splitNux.setIdx);
+  SampleRank* spn = spReg->getPredBase(this);
   double sumHeap = 0.0;
-  unsigned int sCountHeap = 0;
-  auto idxEnd = getIdxEnd();
-  unsigned int rkThis = spn[idxEnd].getRank();
-  unsigned int frEnd = idxEnd;
-  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(idxRange.getStart()); i--) {
-    unsigned int rkRight = rkThis;
-    unsigned int sampleCount;
+  IndexT sCountHeap = 0;
+  IndexT idxEnd = getIdxEnd();
+  IndexT rkThis = spn[idxEnd].getRank();
+  IndexT frEnd = idxEnd;
+  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(splitNux.idxRange.getStart()); i--) {
+    IndexT rkRight = rkThis;
+    IndexT sampleCount;
     FltVal ySum;
     rkThis = spn[i].regFields(ySum, sampleCount);
 
@@ -169,24 +141,24 @@ void SplitCand::splitFac(const SFReg *spReg,
   
   // Flushes the remaining run and implicit run, if dense.
   //
-  runSet->write(rkThis, sCountHeap, sumHeap, frEnd - idxRange.getStart() + 1, idxRange.getStart());
+  runSet->write(rkThis, sCountHeap, sumHeap, frEnd - splitNux.idxRange.getStart() + 1, splitNux.idxRange.getStart());
   runSet->writeImplicit(this, spReg);
 
-  unsigned int runSlot = heapSplit(runSet);
+  PredictorT runSlot = heapSplit(runSet);
   writeSlots(spReg, runSet, runSlot);
 }
 
 
-unsigned SplitCand::heapSplit(RunSet *runSet) {
+PredictorT SplitCand::heapSplit(RunSet *runSet) {
   runSet->heapMean();
   runSet->dePop();
 
-  unsigned int sCountL = 0;
+  IndexT sCountL = 0;
   double sumL = 0.0;
-  unsigned int runSlot = runSet->getRunCount() - 1;
-  for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
+  PredictorT runSlot = runSet->getRunCount() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
     runSet->sumAccum(slotTrial, sCountL, sumL);
-    if (SplitAccumReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL, info)) {
+    if (SplitAccumReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL, splitNux.info)) {
       runSlot = slotTrial;
     }
   }
@@ -194,33 +166,35 @@ unsigned SplitCand::heapSplit(RunSet *runSet) {
   return runSlot;
 }
 
-void SplitCand::writeSlots(const SplitFrontier *splitNode,
-                           RunSet *runSet,
-                           unsigned int cut) {
+
+void SplitCand::writeSlots(const SplitFrontier* splitNode,
+                           RunSet* runSet,
+                           PredictorT cutSlot) {
   if (infoGain(splitNode)) {
-    lhExtent = runSet->lHSlots(cut, lhSCount);
+    splitNux.lhExtent = runSet->lHSlots(cutSlot, splitNux.lhSCount);
   }
 }
 
 
 bool SplitCand::infoGain(const SplitFrontier* splitNode) {
-  info -= splitNode->getPrebias(splitCoord);
-  return info > 0.0;
+  splitNux.info -= splitNode->getPrebias(splitNux.splitCoord);
+  return splitNux.info > 0.0;
 }
 
 
-void SplitCand::buildRuns(SFCtg *spCtg,
-                          const SampleRank spn[]) const {
+void SplitCand::buildRuns(SFCtg *spCtg) const {
+  SampleRank* spn = spCtg->getPredBase(this);
   double sumLoc = 0.0;
-  unsigned int sCountLoc = 0;
-  auto idxEnd = getIdxEnd();
-  unsigned int rkThis = spn[idxEnd].getRank();
-  auto runSet = spCtg->rSet(setIdx);
+  IndexT sCountLoc = 0;
+  IndexT idxEnd = getIdxEnd();
+  IndexT rkThis = spn[idxEnd].getRank();
+  auto runSet = spCtg->rSet(splitNux.setIdx);
 
-  unsigned int frEnd = idxEnd;
+  IndexT frEnd = idxEnd;
   for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(getIdxStart()); i--) {
-    unsigned int rkRight = rkThis;
-    unsigned int yCtg, sampleCount;
+    IndexT rkRight = rkThis;
+    PredictorT yCtg;
+    IndexT sampleCount;
     FltVal ySum;
     rkThis = spn[i].ctgFields(ySum, sampleCount, yCtg);
 
@@ -246,10 +220,10 @@ void SplitCand::buildRuns(SFCtg *spCtg,
 
 
 void SplitCand::splitRuns(SFCtg *spCtg) {
-  RunSet *runSet = spCtg->rSet(setIdx);
+  RunSet *runSet = spCtg->rSet(splitNux.setIdx);
   const vector<double> ctgSum(spCtg->getSumSlice(this));
-  const unsigned int slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
-  unsigned int lhBits = 0;
+  const PredictorT slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
+  PredictorT lhBits = 0;
 
   // Nonempty subsets as binary-encoded unsigneds.
   unsigned int leftFull = (1 << slotSup) - 1;
@@ -257,10 +231,10 @@ void SplitCand::splitRuns(SFCtg *spCtg) {
     double sumL = 0.0;
     double ssL = 0.0;
     double ssR = 0.0;
-    unsigned int yCtg = 0;
+    PredictorT yCtg = 0;
     for (auto nodeSum : ctgSum) {
       double slotSum = 0.0; // Sum at category 'yCtg' over subset slots.
-      for (unsigned int slot = 0; slot < slotSup; slot++) {
+      for (PredictorT slot = 0; slot < slotSup; slot++) {
 	if ((subset & (1ul << slot)) != 0) {
 	  slotSum += runSet->getSumCtg(slot, ctgSum.size(), yCtg);
 	}
@@ -270,7 +244,7 @@ void SplitCand::splitRuns(SFCtg *spCtg) {
       ssL += slotSum * slotSum;
       ssR += (nodeSum - slotSum) * (nodeSum - slotSum);
     }
-    if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, info)) {
+    if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, splitNux.info)) {
       lhBits = subset;
     }
   }
@@ -279,16 +253,16 @@ void SplitCand::splitRuns(SFCtg *spCtg) {
 }
 
 void SplitCand::writeBits(const SplitFrontier* splitNode,
-                          unsigned int lhBits) {
+                          PredictorT lhBits) {
   if (infoGain(splitNode)) {
-    RunSet *runSet = splitNode->rSet(setIdx);
-    lhExtent = runSet->lHBits(lhBits, lhSCount);
+    RunSet *runSet = splitNode->rSet(splitNux.setIdx);
+    splitNux.lhExtent = runSet->lHBits(lhBits, splitNux.lhSCount);
   }
 }
 
 
 void SplitCand::splitBinary(SFCtg *spCtg) {
-  RunSet *runSet = spCtg->rSet(setIdx);
+  RunSet *runSet = spCtg->rSet(splitNux.setIdx);
   runSet->heapBinary();
   runSet->dePop();
 
@@ -296,15 +270,15 @@ void SplitCand::splitBinary(SFCtg *spCtg) {
   const double tot0 = ctgSum[0];
   const double tot1 = ctgSum[1];
   double sumL0 = 0.0; // Running left sum at category 0.
-  double sumL1 = 0.0; // ibid., category 1.
-  unsigned int runSlot = runSet->getRunCount() - 1;
-  for (unsigned int slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
+  double sumL1 = 0.0; // " " category 1.
+  PredictorT runSlot = runSet->getRunCount() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
     if (runSet->accumBinary(slotTrial, sumL0, sumL1)) { // Splitable
       // sumR, sumL magnitudes can be ignored if no large case/class weightings.
       FltVal sumL = sumL0 + sumL1;
       double ssL = sumL0 * sumL0 + sumL1 * sumL1;
       double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
-      if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, info)) {
+      if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, splitNux.info)) {
         runSlot = slotTrial;
       }
     } 

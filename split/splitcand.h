@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CORE_SPLITCAND_H
-#define CORE_SPLITCAND_H
+#ifndef SPLIT_SPLITCAND_H
+#define SPLIT_SPLITCAND_H
 
 /**
    @file splitcand.h
@@ -16,35 +16,24 @@
    @author Mark Seligman
 
  */
+#include "splitnux.h"
 #include "splitcoord.h"
 #include "typeparam.h"
+
+#include <memory>
 #include <vector>
 
 /**
    @brief Encapsulates information needed to drive splitting.
  */
 class SplitCand {
-  const SplitCoord splitCoord; // Node, predictor coordinates.
-  const unsigned int sCount;  // Tree node property.
+  const IndexT sCount;  // Tree node property.
   const double sum; // Tree node property.
-  const unsigned char bufIdx; // Per coordinate.  Persists to replay.
-  double info; // Tracks during splitting.
-
-  // Initialized or reset after candidate sampling:
-  unsigned int setIdx;  // Per coord.
-  IndexRange idxRange; // Per coordinate:  post restage.
   IndexT implicitCount;  // Per coord:  post restage.
 
-  // Copied to SplitNux, if arg-max:
-  //
-  unsigned int lhSCount; // # samples subsumed by split LHS:  > 0 iff split.
-  unsigned int lhExtent; // Index count of split LHS.
-  unsigned int lhImplicit; // LHS implicit index count:  numeric only.
+  SplitNux splitNux; // Copied out on argmax.
 
-  // Copied to decision node, if arg-max.  Numeric only:
-  //
-  IndexRange rankRange;
-
+  
   /**
      @brief decrements 'info' value by information of parent node.
 
@@ -66,12 +55,22 @@ public:
 
   SplitCand(const class SplitFrontier* splitNode,
             const class Frontier* index,
-            const SplitCoord& splitCoord_,
+            const SplitCoord& splitCoord,
             unsigned int bufIdx_,
-            unsigned int noSet);
+            IndexT noSet);
 
+
+  ~SplitCand() {
+  }
+
+
+  auto getSplitNux() const {
+    return splitNux;
+  }
+
+  
   auto getInfo() const {
-    return info;
+    return splitNux.info;
   }
   
   /**
@@ -82,30 +81,30 @@ public:
      @return true iff value revised.
    */
   bool maxInfo(double& runningMax) const {
-    if (info > runningMax) {
-      runningMax = info;
+    if (splitNux.info > runningMax) {
+      runningMax = splitNux.info;
       return true;
     }
     return false;
   }
 
   auto getSplitCoord() const {
-    return splitCoord;
+    return splitNux.splitCoord;
   }
 
   auto getSetIdx() const {
-    return setIdx;
+    return splitNux.setIdx;
   }
 
   auto getBufIdx() const {
-    return bufIdx;
+    return splitNux.bufIdx;
   }
 
   /**
      @brief Accessor for cell lower index.
    */
   auto getIdxStart() const {
-    return idxRange.getStart();
+    return splitNux.idxRange.getStart();
   }
 
 
@@ -113,7 +112,7 @@ public:
      @brief Accessor for cell upper index.
    */
   auto getIdxEnd() const {
-    return idxRange.getEnd() - 1;
+    return splitNux.idxRange.getEnd() - 1;
   }
 
 
@@ -138,23 +137,23 @@ public:
 
 
   auto getLhSCount() const {
-    return lhSCount;
+    return splitNux.lhSCount;
   }
 
   auto getLhExtent() const {
-    return lhExtent;
+    return splitNux.lhExtent;
   }
 
   auto getLhImplicit() const {
-    return lhImplicit;
+    return splitNux.lhImplicit;
   }
 
   auto getIdxRange() const {
-    return idxRange;
+    return splitNux.idxRange;
   }
 
   auto getRankRange() const {
-    return rankRange;
+    return splitNux.rankRange;
   }
   
   /**
@@ -181,57 +180,43 @@ public:
 		const class Frontier *indexLevel,
 		vector<unsigned int> &runCount);
 
-  /**
-     @brief Initializes field values known only following restaging.
-
-     Entry singletons should not reach here.
-  */
-  void initLate(const class Level* levelFront,
-		const class Frontier* iLevel,
-                vector<unsigned int>& runCount,
-		unsigned int rCount);
-
   
-  void split(const class SFReg* spReg,
-	     const class ObsPart* obsPart);
+  void split(const class SFReg* spReg);
 
 
-  void split(class SFCtg* spCtg,
-	     const class ObsPart* obsPart);
+  void split(class SFCtg* spCtg);
 
   /**
      @brief Main entry for classification numerical split.
    */
-  void splitNum(class SFCtg* spCtg,
-                const class SampleRank spn[]);
+  void splitNum(class SFCtg* spCtg);
+
 
   /**
      @brief Main entry for regression numerical split.
    */
-  void splitNum(const class SFReg* spReg,
-                const class SampleRank spn[]);
+  void splitNum(const class SFReg* spReg);
 
   void numCtgDense(class SFCtg* spCtg,
                    const class SampleRank spn[]);
 
   void numCtgGini(SFCtg *spCtg,
                   const class SampleRank spn[],
-                  unsigned int idxInit,
-                  unsigned int idxFinal,
-                  unsigned int &sCountL,
-                  unsigned int &rkRight,
-                  double &sumL,
-                  double &ssL,
-                  double &ssR,
-                  unsigned int &rankLH,
-                  unsigned int &rankRH,
-                  unsigned int &rhMin);
+                  IndexT idxInit,
+                  IndexT idxFinal,
+                  IndexT& sCountL,
+                  IndexT& rkRight,
+                  double& sumL,
+                  double& ssL,
+                  double& ssR,
+                  IndexT& rankLH,
+                  IndexT& rankRH,
+                  IndexT& rhMin);
 
-  void splitFac(const class SFReg *spReg,
-                const class SampleRank spn[]);
+  void splitFac(const class SFReg *spReg);
 
-  void splitFac(class SFCtg *spCtg,
-		const class SampleRank spn[]);
+  
+  void splitFac(class SFCtg *spCtg);
 
   /**
      @brief Splits blocks of categorical runs.
@@ -267,15 +252,14 @@ public:
 
      @return slot index of split
    */
-  unsigned int heapSplit(class RunSet *runSet);
+  PredictorT heapSplit(class RunSet *runSet);
 
 
   /**
      @brief Builds categorical runs.  Very similar to regression case, but
      the runs also resolve response sum by category.
   */
-  void buildRuns(class SFCtg *spCtg,
-                 const SampleRank spn[]) const;
+  void buildRuns(class SFCtg *spCtg) const;
 
   /**
      @brief Writes the left-hand characterization of a factor-based
@@ -283,12 +267,12 @@ public:
 
      @param runSet organizes responsed statistics by factor code.
 
-     @param cut is the LHS/RHS separator position in the vector of
+     @param cutSlot is the LHS/RHS separator position in the vector of
      factor codes maintained by the run-set.
    */
   void writeSlots(const class SplitFrontier *splitNode,
                   class RunSet *runSet,
-                  unsigned int cut);
+                  PredictorT cutSlot);
 
   /**
      @brief Writes the left-hand characterization of a factor-based
@@ -297,7 +281,7 @@ public:
      @param lhBits is a compressed representation of factor codes for the LHS.
    */
   void writeBits(const class SplitFrontier *sp,
-                 unsigned int lhBits);
+                 PredictorT lhBits);
 };
 
 #endif

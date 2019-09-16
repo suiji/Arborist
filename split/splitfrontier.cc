@@ -6,7 +6,7 @@
  */
 
 /**
-   @file splitnode.cc
+   @file splitfrontier.cc
 
    @brief Methods to implement splitting of index-tree levels.
 
@@ -17,7 +17,6 @@
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitcand.h"
-#include "splitnux.h"
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
@@ -26,14 +25,10 @@
 #include "summaryframe.h"
 #include "rankedframe.h"
 #include "sample.h"
-#include "bv.h"
 #include "ompthread.h"
 
 // Post-split consumption:
 #include "pretree.h"
-
-vector<double> SFReg::mono; // Numeric monotonicity constraints.
-
 
 SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
                              Frontier* frontier_,
@@ -50,70 +45,18 @@ SplitFrontier::~SplitFrontier() {
 }
 
 
-void SFReg::immutables(const SummaryFrame* frame,
-                       const vector<double>& bridgeMono) {
-  auto numFirst = frame->getNumFirst();
-  auto numExtent = frame->getNPredNum();
-  auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [] (double prob) { return prob != 0.0; });
-  if (monoCount > 0) {
-    mono = vector<double>(frame->getNPredNum());
-    mono.assign(bridgeMono.begin() + frame->getNumFirst(), bridgeMono.begin() + frame->getNumFirst() + frame->getNPredNum());
-  }
-}
-
-
-void SFReg::deImmutables() {
-  mono.clear();
-}
-
-
-SFReg::SFReg(const SummaryFrame* frame,
-             Frontier* frontier,
-	     const Sample* sample) :
-  SplitFrontier(frame, frontier, sample),
-  ruMono(vector<double>(0)) {
-  run = make_unique<Run>(0, frame->getNRow());
-}
-
-
-/**
-   @brief Constructor.
- */
-SFCtg::SFCtg(const SummaryFrame* frame,
-             Frontier* frontier,
-	     const Sample* sample,
-	     PredictorT nCtg_):
-  SplitFrontier(frame, frontier, sample),
-  nCtg(nCtg_) {
-  run = make_unique<Run>(nCtg, frame->getNRow());
-}
-
-
 RunSet *SplitFrontier::rSet(IndexT setIdx) const {
   return run->rSet(setIdx);
 }
 
 
+SampleRank* SplitFrontier::getPredBase(const SplitCand* cand) const {
+  return obsPart->getPredBase(cand);
+}
+
+
 IndexT SplitFrontier::getDenseRank(const SplitCand* cand) const {
   return rankedFrame->getDenseRank(cand->getSplitCoord().predIdx);
-}
-
-
-/**
-   @brief Sets quick lookup offets for Run object.
-
-   @return void.
- */
-void SFReg::setRunOffsets(const vector<unsigned int>& runCount) {
-  run->offsetsReg(runCount);
-}
-
-
-/**
-   @brief Sets quick lookup offsets for Run object.
- */
-void SFCtg::setRunOffsets(const vector<unsigned int>& runCount) {
-  run->offsetsCtg(runCount);
 }
 
 
@@ -148,7 +91,7 @@ void SplitFrontier::scheduleSplits(const Level* levelFront) {
   splitCand = move(sc2);
 
   setRunOffsets(runCount);
-  split();
+  splitCandidates();
 }
 
 
@@ -189,11 +132,6 @@ bool SplitFrontier::isFactor(const SplitCoord& splitCoord) const {
 }
 
 
-double SFCtg::getSumSquares(const SplitCand *cand) const {
-  return sumSquares[cand->getSplitCoord().nodeIdx];
-}
-
-
 PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
   return frame->getNumIdx(predIdx);
 }
@@ -212,110 +150,17 @@ void SplitFrontier::restage(Level* levelFrom,
 }
 
 
-const vector<double>& SFCtg::getSumSlice(const SplitCand* cand) {
-  return ctgSum[cand->getSplitCoord().nodeIdx];
-}
-
-
-double* SFCtg::getAccumSlice(const SplitCand *cand) {
-  return &ctgSumAccum[getNumIdx(cand->getSplitCoord().predIdx) * splitCount * nCtg + cand->getSplitCoord().nodeIdx * nCtg];
-}
-
-/**
-   @brief Run objects should not be deleted until after splits have been consumed.
- */
-void SFReg::clear() {
-  SplitFrontier::clear();
-}
-
-
-SFReg::~SFReg() {
-}
-
-
-SFCtg::~SFCtg() {
-}
-
-
-void SFCtg::clear() {
-  SplitFrontier::clear();
-}
-
-
-/**
-   @brief Sets level-specific values for the subclass.
-*/
-void SFReg::levelPreset() {
-  if (!mono.empty()) {
-    ruMono = CallBack::rUnif(splitCount * mono.size());
+void SplitFrontier::splitCandidates() {
+  OMPBound splitTop = splitCand.size();
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
+      split(splitCand[splitPos]);
+    }
   }
-}
-
-
-void SFCtg::levelPreset() {
-  levelInitSumR(frame->getNPredNum());
-  ctgSum = vector<vector<double> >(splitCount);
-
-  // Hoist to replay().
-  sumSquares = frontier->sumsAndSquares(ctgSum);
-}
-
-
-void SFCtg::levelInitSumR(PredictorT nPredNum) {
-  if (nPredNum > 0) {
-    ctgSumAccum = vector<double>(nPredNum * nCtg * splitCount);
-    fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
-  }
-}
-
-
-int SFReg::getMonoMode(const SplitCand* cand) const {
-  if (mono.empty())
-    return 0;
-
-  PredictorT numIdx = getNumIdx(cand->getSplitCoord().predIdx);
-  double monoProb = mono[numIdx];
-  double prob = ruMono[cand->getSplitCoord().nodeIdx * mono.size() + numIdx];
-  if (monoProb > 0 && prob < monoProb) {
-    return 1;
-  }
-  else if (monoProb < 0 && prob < -monoProb) {
-    return -1;
-  }
-  else {
-    return 0;
-  }
-}
-
-
-void SplitFrontier::split() {
-  splitCandidates();
 
   nuxMax = maxCandidates();
-}
-
-
-void SFCtg::splitCandidates() {
-  OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      splitCand[splitPos].split(this, obsPart.get());
-    }
-  }
-}
-
-
-void SFReg::splitCandidates() {
-  OMPBound splitTop = splitCand.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      splitCand[splitPos].split(this, obsPart.get());
-    }
-  }
 }
 
 
@@ -348,16 +193,14 @@ SplitNux SplitFrontier::maxSplit(IndexT splitBase,
     }
   }
 
-  return runningMax > 0.0 ? SplitNux(splitCand[argMax], frame) : SplitNux();
+  return runningMax > 0.0 ? SplitNux(splitCand[argMax].getSplitNux()) : SplitNux();
 }
 
 
-SplitSurvey SplitFrontier::consume(PreTree* pretree, vector<IndexSet>& indexSet, BV* replayExpl, BV* replayLeft) {
-  replayExpl->clear();
-  replayLeft->saturate();
+SplitSurvey SplitFrontier::consume(PreTree* pretree, vector<IndexSet>& indexSet, Replay* replay) {
   SplitSurvey survey;
   for (auto & iSet : indexSet) {
-    consume(pretree, iSet, replayExpl, replayLeft, survey);
+    consume(pretree, iSet, replay, survey);
   }
   clear();
 
@@ -367,11 +210,10 @@ SplitSurvey SplitFrontier::consume(PreTree* pretree, vector<IndexSet>& indexSet,
 
 void SplitFrontier::consume(PreTree* pretree,
                             IndexSet& iSet,
-                            BV* replayExpl,
-                            BV* replayLeft,
+                            Replay* replay,
                             SplitSurvey& survey) const {
   if (isInformative(&iSet)) {
-    branch(pretree, &iSet, replayExpl, replayLeft);
+    branch(pretree, &iSet, replay);
     survey.splitNext += frontier->splitCensus(iSet, survey);
   }
   else {
@@ -382,17 +224,16 @@ void SplitFrontier::consume(PreTree* pretree,
 
 void SplitFrontier::branch(PreTree* pretree,
                            IndexSet* iSet,
-                           BV* replayExpl,
-                           BV* replayLeft) const {
+                           Replay* replay) const {
   pretree->nonterminal(getInfo(iSet), iSet); // Once per node.
 
   // Once per criterion:
   consumeCriterion(iSet);
   if (getCardinality(iSet) > 0) {
-    critRun(pretree, iSet, replayExpl, replayLeft);
+    critRun(pretree, iSet, replay);
   }
   else {
-    critCut(pretree, iSet, replayExpl, replayLeft);
+    critCut(pretree, iSet, replay);
   }
 }
 
@@ -404,11 +245,10 @@ void SplitFrontier::consumeCriterion(IndexSet* iSet) const {
 
 void SplitFrontier::critCut(PreTree* pretree,
                             IndexSet* iSet,
-                            BV* replayExpl,
-                            BV* replayLeft) const {
+			    Replay* replay) const {
   pretree->critCut(iSet, getPredIdx(iSet), getRankRange(iSet));
   vector<SumCount> ctgCrit(iSet->getNCtg());
-  double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replayExpl, replayLeft, ctgCrit);
+  double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replay, ctgCrit);
   iSet->criterionLR(sumExpl, ctgCrit, leftIsExplicit(iSet));
 }
 
@@ -416,51 +256,49 @@ void SplitFrontier::critCut(PreTree* pretree,
 double SplitFrontier::blockReplay(IndexSet* iSet,
                                   const IndexRange& range,
                                   bool leftExpl,
-                                  BV* replayExpl,
-                                  BV* replayLeft,
+                                  Replay* replay,
                                   vector<SumCount>& ctgCrit) const {
-  return obsPart->blockReplay(this, iSet, range, leftExpl, replayExpl, replayLeft, ctgCrit);
+  return obsPart->blockReplay(this, iSet, range, leftExpl, replay, ctgCrit);
 }
 
 
 void SplitFrontier::critRun(PreTree* pretree,
-                              IndexSet* iSet,
-                            BV* replayExpl,
-                            BV* replayLeft) const {
+			    IndexSet* iSet,
+			    Replay* replay) const {
   pretree->critBits(iSet, getPredIdx(iSet), getCardinality(iSet));
   bool leftExpl;
   vector<SumCount> ctgCrit(iSet->getNCtg());
-  double sumExpl = run->branch(this, iSet, pretree, replayExpl, replayLeft, ctgCrit, leftExpl);
+  double sumExpl = run->branch(this, iSet, pretree, replay, ctgCrit, leftExpl);
   iSet->criterionLR(sumExpl, ctgCrit, leftExpl);
 }
 
 
 bool SplitFrontier::isInformative(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getInfo() > iSet->getMinInfo();
+  return nuxMax[iSet->getSplitIdx()].info > iSet->getMinInfo();
 }
 
 
 IndexT SplitFrontier::getLHExtent(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getLHExtent();
+  return nuxMax[iSet->getSplitIdx()].lhExtent;
 }
 
 
 IndexT SplitFrontier::getPredIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getPredIdx();
+  return nuxMax[iSet->getSplitIdx()].splitCoord.predIdx;
 }
 
 unsigned int SplitFrontier::getBufIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getBufIdx();
+  return nuxMax[iSet->getSplitIdx()].bufIdx;
 }
 
 
 PredictorT SplitFrontier::getCardinality(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getCardinality();
+  return nuxMax[iSet->getSplitIdx()].getCardinality(frame);
 }
 
 
 double SplitFrontier::getInfo(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getInfo();
+  return nuxMax[iSet->getSplitIdx()].info;
 }
 
 
@@ -470,7 +308,7 @@ IndexRange SplitFrontier::getExplicitRange(const IndexSet* iSet) const {
 
 
 IndexRange SplitFrontier::getRankRange(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getRankRange();
+  return nuxMax[iSet->getSplitIdx()].rankRange;
 }
 
 
@@ -480,6 +318,6 @@ bool SplitFrontier::leftIsExplicit(const IndexSet* iSet) const {
 
 
 IndexT SplitFrontier::getSetIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getSetIdx();
+  return nuxMax[iSet->getSplitIdx()].setIdx;
 }
   

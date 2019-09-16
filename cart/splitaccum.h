@@ -24,76 +24,6 @@ using namespace std;
 
 
 /**
-   @brief Encapsulates imputed residual values.
- */
-struct Residual {
-  const double sum;  // Imputed response sum over dense indices.
-  const IndexT sCount; // Imputed sample count over dense indices.
-
-
-  /**
-     @brief Empty construtor.
-   */
-  Residual() : sum(0.0), sCount(0) {
-  }
-
-  
-  /**
-     @brief Constructor initializes contents to residual values.
-
-     @param sumExpl is the sum of explicit responses over the cell.
-
-     @param sCountExpl is the sum of explicit sample counts over the cell.
-   */
-  Residual(double sum_,
-           IndexT sCount_);
-
-
-  bool isEmpty() const {
-    return sCount == 0;
-  }
-  
-  /**
-     @brief Applies residual to left-moving splitting state.
-
-     @param[out] ySum outputs the residual response sum.
-
-     @param[out] sCount outputs the residual sample count.
-   */  
-  void apply(FltVal& ySum,
-             IndexT& sCount) {
-    ySum = this->sum;
-    sCount = this->sCount;
-  }
-};
-
-
-struct ResidualCtg : public Residual {
-  const vector<double> ctgImpl; // Imputed response sums, by category.
-
-  ResidualCtg(double sum_,
-              IndexT sCount_,
-              const vector<double>& ctgExpl);
-
-  /**
-     @brief Empty constructor.
-   */
-  ResidualCtg() : Residual() {
-  }
-
-  
-  /**
-     @brief Applies residual to left-moving splitting state.
-   */
-  void apply(FltVal& ySum,
-             IndexT& sCount,
-             double& ssR,
-             double& ssL,
-             class SplitAccumCtg* np);
-};
-
-
-/**
    @brief Persistent workspace for computing optimal split.
 
    Cells having implicit dense blobs are split in separate sections,
@@ -151,10 +81,15 @@ public:
   IndexT rankRH; // Maximum rank characterizing split.
   IndexT rankLH; // Minimum rank charactersizing split.
   IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
-
+  
   SplitAccum(const class SplitCand* cand,
              IndexT rankDense_);
 
+  
+  ~SplitAccum() {
+  }
+
+  
   bool lhDense() const {
     return rankDense <= rankLH;
   }
@@ -166,7 +101,7 @@ public:
  */
 class SplitAccumReg : public SplitAccum {
   const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<Residual> resid; // Current residual, if any, else null.
+  const unique_ptr<class Residual> resid; // Current residual, if any, else null.
 
   inline void trialSplit(IndexT idx,
 			 IndexT rkThis,
@@ -186,7 +121,7 @@ class SplitAccumReg : public SplitAccum {
      
      @return new residual based on the current splitting data set.
    */
-  unique_ptr<Residual> makeResidual(const class SplitCand* cand,
+  unique_ptr<class Residual> makeResidual(const class SplitCand* cand,
                                     const class SampleRank spn[]);
 
   /**
@@ -205,6 +140,9 @@ public:
                 const class SampleRank spn[],
                 const class SFReg* spReg);
 
+  ~SplitAccumReg();
+
+  
   /**
      @brief Evaluates trial splitting information as weighted variance.
 
@@ -283,7 +221,7 @@ public:
  */
 class SplitAccumCtg : public SplitAccum {
   const PredictorT nCtg; // Cadinality of response.
-  const unique_ptr<ResidualCtg> resid;
+  const unique_ptr<class ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
@@ -321,7 +259,7 @@ class SplitAccumCtg : public SplitAccum {
 
      @return new residual for categorical response over cell.
   */
-  unique_ptr<ResidualCtg>
+  unique_ptr<class ResidualCtg>
   makeResidual(const class SplitCand* cand,
                const class SampleRank spn[],
                class SFCtg* spCtg);
@@ -332,6 +270,9 @@ public:
                 const class SampleRank spn[],
                 class SFCtg* spCtg);
 
+  ~SplitAccumCtg();
+
+  
   /**
      @brief Evaluates trial splitting information as Gini.
 

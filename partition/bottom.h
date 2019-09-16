@@ -324,11 +324,9 @@ class Bottom {
   /**
    @brief Flushes MRRA for a pair and instantiates definition at front level.
 
-   @param splitIdx is the level-relative node index.
-
-   @param predIdx is the predictor index.
+   @param spliCoord is the level-relative coordinate.
  */
-  void reachFlush(unsigned int splitIdx, unsigned int predIdx) const;
+  void reachFlush(const SplitCoord& splitCoord) const;
 
 
   /**
@@ -395,7 +393,7 @@ class Bottom {
 
      @return run count associated with the node, if factor, otherwise zero.
    */
-  inline unsigned int getRunCount(const SplitCoord& splitCoord) const {
+  inline PredictorT getRunCount(const SplitCoord& splitCoord) const {
     unsigned int facStride;
     return factorStride(splitCoord.predIdx, splitCoord.nodeIdx, facStride) ? runCount[facStride] : 0;
   }

@@ -143,8 +143,7 @@ class ObsPart {
                      const class IndexSet* iSet,
                      const IndexRange& range,
                      bool leftExpl,
-                     class BV *replayExpl,
-                     class BV* replayLeft,
+		     class Replay* replay,
                      vector<SumCount>& ctgCrit) const;
 
 
@@ -311,6 +310,12 @@ class ObsPart {
 
 
   /**
+     @brief Extracts object components and invokes inlined version.
+   */
+  IndexT bufferOff(const class SplitCand* cand) const;
+
+  
+  /**
      @brief Passes through to above after looking up splitting parameters.
    */
   SampleRank* buffers(const class SplitFrontier* splitFrontier,
@@ -336,11 +341,9 @@ class ObsPart {
 
      @return node vector section for this predictor.
    */
-  SampleRank* PredBase(const SplitCoord& splitCoord, unsigned int bufBit) const {
-    return nodeVec + bufferOff(splitCoord.predIdx, bufBit);
-  }
-  
+  SampleRank* getPredBase(const class SplitCand* cand) const;
 
+  
   /**
      @brief Returns buffer containing splitting information.
    */

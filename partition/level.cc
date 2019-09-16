@@ -22,19 +22,20 @@
 #include "runset.h"
 #include "obspart.h"
 #include "splitfrontier.h"
+#include "splitnux.h"
 
 
-unsigned int Level::predFixed = 0;
+PredictorT Level::predFixed = 0;
 vector<double> Level::predProb;
 
 Level::Level(IndexType nSplit_,
-             unsigned int _nPred,
+             PredictorT nPred_,
              const RankedFrame* rankedFrame,
              IndexType bagCount,
              IndexType idxLive_,
              bool _nodeRel,
              Bottom *_bottom) :
-  nPred(_nPred),
+  nPred(nPred_),
   denseIdx(rankedFrame->getDenseIdx()),
   nPredDense(rankedFrame->getNPredDense()),
   nSplit(nSplit_),
@@ -59,7 +60,7 @@ Level::Level(IndexType nSplit_,
 Level::~Level() {
 }
 
-void Level::immutables(unsigned int feFixed, const vector<double> &feProb) {
+void Level::immutables(PredictorT feFixed, const vector<double> &feProb) {
   predFixed = feFixed;
   for (auto prob : feProb) {
     predProb.push_back(prob);
@@ -75,9 +76,9 @@ void Level::deImmutables() {
 
 bool Level::nonreachPurge() {
   bool purged = false;
-  for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
+  for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     if (liveCount[mrraIdx] == 0) {
-      for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+      for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
         undefine(SplitCoord(mrraIdx, predIdx)); // Harmless if already undefined.
         purged = true;
       }
@@ -89,8 +90,8 @@ bool Level::nonreachPurge() {
 
 
 void Level::flush(bool forward) {
-  for (unsigned int mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
+    for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
       SplitCoord splitCoord(mrraIdx, predIdx);
       if (!isDefined(splitCoord))
         continue;
@@ -131,20 +132,6 @@ IndexRange Level::getRange(const SplitCoord &mrra) {
   adjustRange(mrra, idxRange);
   return idxRange;
 }
-
-
-IndexRange Level::adjustRange(const SplitCoord& splitCoord,
-                              const Frontier* frontier,
-                              unsigned int& implicit) const {
-  IndexSet iSet = frontier->getISet(splitCoord);
-  IndexRange idxRange;
-
-  idxRange.set(iSet.getStart(), iSet.getExtent());
-  implicit = isDense(splitCoord) ? denseCoord[denseOffset(splitCoord)].adjustRange(idxRange) : 0;
-
-  return idxRange;
-}
-
 
 
 void Level::adjustRange(const SplitCoord& splitCoord,
@@ -219,12 +206,48 @@ void Level::setLive(unsigned int idx, unsigned int path, unsigned int targIdx, u
 }
 
 
-bool Level::scheduleSplit(const SplitCoord& splitCoord, unsigned int &rCount) const {
-  rCount = bottom->getRunCount(splitCoord);
-  return !isSingleton(splitCoord);
+bool Level::scheduleSplit(const Frontier* frontier, vector<PredictorT>& runCount, SplitNux& splitNux, IndexT& implicitCount) const {
+  if (!isSingleton(splitNux.splitCoord)) {
+    PredictorT rCount = bottom->getRunCount(splitNux.splitCoord);
+    if (rCount > 1) {
+      splitNux.setIdx = runCount.size();
+      runCount.push_back(rCount);
+    }
+    splitNux.idxRange = adjustRange(splitNux, frontier);
+    implicitCount = getImplicit(splitNux);
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 
+IndexRange Level::adjustRange(const SplitNux& splitNux,
+			      const Frontier* frontier) const {
+  IndexRange idxRange = frontier->getBufRange(splitNux);
+  if (isDense(splitNux)) {
+    denseCoord[denseOffset(splitNux)].adjustRange(idxRange);
+  }
+  return idxRange;
+}
+
+
+IndexT Level::getImplicit(const SplitNux& splitNux) const {
+  return isDense(splitNux) ? denseCoord[denseOffset(splitNux)].getImplicit() : 0;
+}
+
+
+IndexT Level::denseOffset(const SplitNux& splitNux) const {
+  return denseOffset(splitNux.splitCoord);
+}
+
+
+bool Level::isDense(const SplitNux& splitNux) const {
+  return isDense(splitNux.splitCoord);
+}
+
+  
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
 void Level::candidates(const Frontier* frontier, SplitFrontier *splitFrontier) {
   IndexType cellCount = nSplit * nPred;
@@ -251,9 +274,9 @@ void Level::candidates(const Frontier* frontier, SplitFrontier *splitFrontier) {
 
 
 void Level::candidateProb(SplitFrontier *splitFrontier,
-                          unsigned int splitIdx,
+                          IndexT splitIdx,
                           const double ruPred[],
-                          unsigned int &spanCand) {
+                          IndexT &spanCand) {
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
       (void) preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), spanCand);
@@ -263,19 +286,19 @@ void Level::candidateProb(SplitFrontier *splitFrontier,
 
  
 void Level::candidateFixed(SplitFrontier *splitFrontier,
-                           unsigned int splitIdx,
+                           IndexT splitIdx,
                            const double ruPred[],
                            BHPair heap[],
-                           unsigned int &spanCand) {
+                           IndexT &spanCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
   }
 
   // Pops 'predFixed' items in order of increasing value.
-  unsigned int schedCount = 0;
-  for (unsigned int heapSize = nPred; heapSize > 0; heapSize--) {
-    unsigned int predIdx = BHeap::slotPop(heap, heapSize - 1);
+  PredictorT schedCount = 0;
+  for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
+    PredictorT predIdx = BHeap::slotPop(heap, heapSize - 1);
     schedCount += preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), spanCand) ? 1 : 0;
     if (schedCount == predFixed)
       break;
@@ -285,8 +308,8 @@ void Level::candidateFixed(SplitFrontier *splitFrontier,
 
 bool Level::preschedule(SplitFrontier *splitFrontier,
                         const SplitCoord& splitCoord,
-                        unsigned int &spanCand) {
-  bottom->reachFlush(splitCoord.nodeIdx, splitCoord.predIdx);
+                        IndexT& spanCand) {
+  bottom->reachFlush(splitCoord);
 
   unsigned int bufIdx;
   if (!isSingleton(splitCoord, bufIdx)) {

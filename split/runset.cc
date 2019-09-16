@@ -16,7 +16,8 @@
 #include "runset.h"
 #include "callback.h"
 #include "splitfrontier.h"
-#include "splitcand.h"
+#include "splitcand.h" // EXIT
+#include "splitnux.h"
 #include "pretree.h"
 #include "frontier.h"
 
@@ -126,19 +127,17 @@ void Run::reBase() {
 double Run::branch(const SplitFrontier* splitFrontier,
                    IndexSet* iSet,
                    PreTree* preTree,
-                   BV* bvLeft,
-                   BV* bvRight,
+		   Replay* replay,
                    vector<SumCount>& ctgCrit,
                    bool& replayLeft) const {
-  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, splitFrontier, bvLeft, bvRight, ctgCrit, replayLeft);
+  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, splitFrontier, replay, ctgCrit, replayLeft);
 }
 
 
 double RunSet::branch(IndexSet* iSet,
                       PreTree* preTree,
                       const SplitFrontier* splitFrontier,
-                      BV* replayExpl,
-                      BV* replayLeft,
+                      Replay* replay,
                       vector<SumCount>& ctgCrit,
                       bool& leftExpl) const {
   double sumExpl = 0.0;
@@ -146,13 +145,13 @@ double RunSet::branch(IndexSet* iSet,
   for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
     preTree->setLeft(iSet, getRank(outSlot));
     if (leftExpl) {
-      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), true, replayExpl, replayLeft, ctgCrit);
+      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), true, replay, ctgCrit);
     }
   }
 
   if (!leftExpl) { // Replay indices explicit on right.
     for (auto outSlot = getRunsLH(); outSlot < getRunCount(); outSlot++) {
-      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), false, replayExpl, replayLeft, ctgCrit);
+      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), false, replay, ctgCrit);
     }
   }
 
@@ -333,7 +332,7 @@ unsigned int RunSet::lHBits(unsigned int lhBits, unsigned int &lhSampCt) {
       // sample and index counts are accumulated and its index
       // is recorded in the out-set.
       //
-      if ((lhBits & (1 << slot)) != 0) {
+      if ((lhBits & (1ul << slot)) != 0) {
         unsigned int sCount;
         lhExtent += lHCounts(slot, sCount);
         lhSampCt += sCount;
@@ -344,8 +343,8 @@ unsigned int RunSet::lHBits(unsigned int lhBits, unsigned int &lhSampCt) {
 
   if (implicitLeft()) {
     unsigned int rhIdx = runsLH;
-    for (unsigned int slot = 0; slot < effCount(); slot++) {
-      if ((lhBits & (1 << slot)) == 0) {
+    for (PredictorT slot = 0; slot < effCount(); slot++) {
+      if ((lhBits & (1ul << slot)) == 0) {
         outZero[rhIdx++] = slot;
       }
     }

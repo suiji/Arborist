@@ -9,7 +9,7 @@
 #define CART_SPLITFRONTIER_H
 
 /**
-   @file splitnode.h
+   @file splitfrontier.h
 
    @brief Manages node splitting across the tree frontier, by response type.
 
@@ -110,8 +110,7 @@ public:
   double blockReplay(class IndexSet* iSet,
                      const IndexRange& range,
                      bool leftExpl,
-                     class BV* replayExpl,
-                     class BV* replayLeft,
+		     class Replay* replay,
                      vector<SumCount>& ctgCrit) const;
 
   /**
@@ -129,6 +128,16 @@ public:
                unsigned int bufIdx) const;
 
 
+  /**
+     @brief Pass-through to data partition method.
+
+     @param cand is a splitting candidate.
+
+     @return pointer to beginning of partition associated with the candidate.
+   */
+  class SampleRank* getPredBase(const SplitCand* cand) const;
+
+  
   /**
      @brief Pass-through to row-rank method.
 
@@ -193,8 +202,10 @@ public:
 
   unsigned int getBufIdx(const class IndexSet* iSet) const;
 
+  
   PredictorT getCardinality(const class IndexSet* iSet) const;
 
+  
   double getInfo(const class IndexSet* iSet) const;
 
   IndexRange getExplicitRange(const class IndexSet* iSet) const;
@@ -208,14 +219,12 @@ public:
 
   SplitSurvey consume(class PreTree* pretree,
                       vector<class IndexSet>& indexSet,
-                      class BV* replayExpl,
-                      class BV* replayLeft);
+                      class Replay* replay);
 
   
   void consume(class PreTree* pretree,
                class IndexSet& iSet,
-               class BV* replayExpl,
-               class BV* replayLeft,
+               class Replay* replay,
                SplitSurvey& survey) const;
 
   
@@ -226,8 +235,7 @@ public:
    */
   void branch(class PreTree* pretree,
               class IndexSet* iSet,
-              class BV* bvLeft,
-              class BV* bvRight) const;
+	      class Replay* replay) const;
 
 
   /**
@@ -235,16 +243,14 @@ public:
    */
   void critRun(class PreTree* pretree,
                class IndexSet* iSet,
-               class BV* bvLeft,
-               class BV* bvRight) const;
+	       class Replay* replay) const;
 
   /**
      @brief Replays cut-based criterion and updates pretree.
    */
   void critCut(class PreTree* pretree,
                class IndexSet* iSet,
-               BV* bvLeft,
-               BV* bvRight) const;
+	       class Replay* replay) const;
 
 
   /**
@@ -268,19 +274,17 @@ public:
    */
   void init();
 
-  
-  /**
-     @brief Invokes algorithm-specific splitting methods.
-   */
-  void split();
-
-
   vector<class SplitNux> maxCandidates();
   
   class SplitNux maxSplit(IndexT splitOff,
                           IndexT nSplitFrontier) const;
+
+  /**
+     @brief Invokes algorithm-specific splitting methods.
+   */
+  void splitCandidates();
   
-  virtual void splitCandidates() = 0;
+  virtual void split(class SplitCand& cand) = 0;
   virtual ~SplitFrontier();
   virtual void setRunOffsets(const vector<unsigned int>& safeCounts) = 0;
   virtual void levelPreset() = 0;
@@ -290,219 +294,6 @@ public:
                           IndexT sCount) = 0;
 
   virtual void clear();
-};
-
-
-/**
-   @brief Splitting facilities specific regression trees.
- */
-class SFReg : public SplitFrontier {
-  // Bridge-supplied monotone constraints.  Length is # numeric predictors
-  // or zero, if none so constrained.
-  static vector<double> mono;
-
-  // Per-level vector of uniform variates.
-  vector<double> ruMono;
-
-  void splitCandidates();
-
- public:
-
-  /**
-     @brief Caches a dense local copy of the mono[] vector.
-
-     @param summaryFrame contains the predictor block mappings.
-
-     @param bridgeMono has length equal to the predictor count.  Only
-     numeric predictors may have nonzero entries.
-  */
-  static void immutables(const class SummaryFrame* summaryFrame,
-                         const vector<double>& feMono);
-
-  /**
-     @brief Resets the monotone constraint vector.
-   */
-  static void deImmutables();
-  
-  SFReg(const class SummaryFrame* frame_,
-        class Frontier* frontier_,
-	const class Sample* sample);
-
-  ~SFReg();
-  void setRunOffsets(const vector<unsigned int>& safeCount);
-  void levelPreset();
-  void clear();
-
-  /**
-     @brief Determines whether a regression pair undergoes constrained splitting.
-     @return The sign of the constraint, if within the splitting probability, else zero.
-*/
-  int getMonoMode(const class SplitCand* cand) const;
-
-  /**
-     @brief Weighted-variance pre-bias computation for regression response.
-
-     @param sum is the sum of samples subsumed by the index node.
-
-     @param sCount is the number of samples subsumed by the index node.
-
-     @return sum squared, divided by sample count.
-  */
-  inline void setPrebias(IndexT splitIdx,
-			 double sum,
-			 IndexT sCount) {
-    prebias[splitIdx] = (sum * sum) / sCount;
-  }
-
-};
-
-
-/**
-   @brief Splitting facilities for categorical trees.
- */
-class SFCtg : public SplitFrontier {
-// Numerical tolerances taken from A. Liaw's code:
-  static constexpr double minDenom = 1.0e-5;
-  static constexpr double minSumL = 1.0e-8;
-  static constexpr double minSumR = 1.0e-5;
-
-  const PredictorT nCtg; // Response cardinality.
-  vector<double> sumSquares; // Per-level sum of squares, by split.
-  vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
-
-  /**
-     @brief Initializes per-level sum and FacRun vectors.
-  */
-  void levelPreset();
-
-  /**
-     @brief Clears summary state associated with this level.
-   */
-  void clear();
-
-  /**
-     @brief Collects splitable candidates from among all restaged cells.
-   */
-  void splitCandidates();
-
-  /**
-     @brief RunSet initialization utitlity.
-
-     @param safeCount gives a conservative per-predictor count of distinct runs.
-   */
-  void setRunOffsets(const vector<unsigned int>& safeCount);
-
-
-  /**
-     @brief Initializes numerical sum accumulator for currently level.
-
-     @parm nPredNum is the number of numerical predictors.
-   */
-  void levelInitSumR(PredictorT nPredNum);
-
-  
-  /**
-     @brief Gini pre-bias computation for categorical response.
-
-     @param splitIdx is the level-relative node index.
-
-     @param sum is the sum of samples subsumed by the index node.
-
-     @param sCount is the number of samples subsumed by the index node.
-
-     @return sum of squares divided by sum.
-  */
-  inline void setPrebias(IndexT splitIdx,
-                         double sum,
-                         IndexT sCount) {
-    prebias[splitIdx] = sumSquares[splitIdx] / sum;
-  }
-
-
- public:
-  vector<vector<double> > ctgSum; // Per-category response sums, by node.
-
-  SFCtg(const class SummaryFrame* frame_,
-        class Frontier* frontier_,
-	const class Sample* sample,
-	PredictorT nCtg_);
-  ~SFCtg();
-
-
-  /**
-     @brief Getter for training response cardinality.
-
-     @return nCtg value.
-   */
-  inline PredictorT getNCtg() const {
-    return nCtg;
-  }
-
-  
-  /**
-     @brief Determine whether an ordered pair of sums is acceptably stable
-     to appear in the denominator.
-
-     Only relevant for instances of extreme case weighting.  Currently unused
-     and may be obsolete.
-
-     @param sumL is the left-hand sum.
-
-     @param sumR is the right-hand sum.
-
-     @return true iff both sums suitably stable.
-   */
-  inline bool stableSum(double sumL, double sumR) const {
-    return sumL > minSumL && sumR > minSumR;
-  }
-
-
-  /**
-     @brief Determines whether a pair of sums is acceptably stable to appear
-     in the denominators.
-
-     Only relevant for instances of extreme case weighting.  Currently unused
-     and may not be useful if training responses are normalized.
-
-     @param sumL is the left-hand sum.
-
-     @param sumR is the right-hand sum.
-
-     @return true iff both sums suitably stable.
-   */
-  inline bool stableDenom(double sumL, double sumR) const {
-    return sumL > minDenom && sumR > minDenom;
-  }
-  
-
-  /**
-     @brief Accesses per-category sum vector associated with candidate's node.
-
-     @param cand is the splitting candidate.
-
-     @return reference vector of per-category sums.
-   */
-  const vector<double>& getSumSlice(const class SplitCand* cand);
-
-
-  /**
-     @brief Provides slice into accumulation vector for a splitting candidate.
-
-     @param cand is the splitting candidate.
-
-     @return raw pointer to per-category accumulation vector for pair.
-   */
-  double* getAccumSlice(const class SplitCand* cand);
-
-
-  /**
-     @brief Per-node accessor for sum of response squares.
-
-     @param cand is a splitting candidate.
-
-     @return sum, over categories, of node reponse values.
-   */
-  double getSumSquares(const class SplitCand *cand) const;
 };
 
 

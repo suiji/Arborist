@@ -29,17 +29,8 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const SplitCand& cand, const SummaryFrame* frame) :
-  info(cand.getInfo()),
-  predIdx(cand.getSplitCoord().predIdx),
-  bufIdx(cand.getBufIdx()),
-  lhSCount(cand.getLhSCount()),
-  lhExtent(cand.getLhExtent()),
-  lhImplicit(cand.getLhImplicit()),
-  idxRange(cand.getIdxRange()),
-  rankRange(cand.getRankRange()),
-  setIdx(cand.getSetIdx()),
-  cardinality(frame->getCardinality(predIdx)) {
+PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
+  return frame->getCardinality(splitCoord.predIdx);
 }
 
 

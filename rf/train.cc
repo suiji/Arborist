@@ -21,7 +21,7 @@
 #include "frontier.h"
 #include "pretree.h"
 #include "obspart.h"
-#include "splitfrontier.h"
+#include "sfcart.h"
 #include "splitnux.h"
 #include "leaf.h"
 #include "level.h"

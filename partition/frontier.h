@@ -20,7 +20,7 @@
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "typeparam.h"
-#include "bv.h"
+#include "replay.h"
 
 #include <vector>
 
@@ -95,8 +95,7 @@ class IndexSet {
                 bool isLeft);
 
   
-  void nontermReindex(const class BV* replayExpl,
-                      const class BV* replayLeft,
+  void nontermReindex(const Replay* replay,
                       class Frontier *index,
                       IndexT idxLive,
                       vector<IndexT> &succST);
@@ -167,8 +166,7 @@ class IndexSet {
   /**
      @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
   */
-  void reindex(const class BV* replayExpl,
-               const class BV* replayLeft,
+  void reindex(const Replay* replay,
                class Frontier *index,
                IndexT idxLive,
                vector<IndexT> &succST);
@@ -210,27 +208,6 @@ class IndexSet {
                      bool isLeft) const;
 
   
-  
-  /**
-     @brief Determines whether sample assigned to left successor.
-
-     N.B.:  Undefined if 'doesSplit' is false.
-
-     @param replayExpl bit set iff sample is explictly replayed.
-
-     @param leftExpl defined iff sample also replayed:  L/R as defined.
-
-     @param sIdx indexes the sample in question.
-
-     @return true iff sample index is assigned to the left successor.
-   */
-  inline bool senseLeft(const class BV* replayExpl,
-                        const class BV* replayLeft,
-                        IndexT sIdx) const {
-    return replayExpl->testBit(sIdx) ? replayLeft->testBit(sIdx) : leftImpl;
-  }
-
-
   /**
      @brief Getter for split index.
    */
@@ -317,6 +294,11 @@ class IndexSet {
     return ptId;
   }
 
+
+  inline auto getBufRange() const {
+    return bufRange;
+  }
+  
   
   /**
      @brief Exposes minimum-information value for the node.
@@ -341,12 +323,11 @@ class IndexSet {
 
      @return index (possibly pseudo) of successor index set.
    */
-  inline IndexT offspring(const BV* replayExpl,
-                          const BV* replayLeft,
+  inline IndexT offspring(const Replay* replay,
                           IndexT sIdx,
                           IndexT& pathSucc,
                           IndexT& ptSucc) {
-    return doesSplit ? offspringLive(senseLeft(replayExpl, replayLeft, sIdx), pathSucc, ptSucc) : offspringTerm(pathSucc, ptSucc);
+    return doesSplit ? offspringLive(replay->senseLeft(sIdx, leftImpl), pathSucc, ptSucc) : offspringTerm(pathSucc, ptSucc);
   }
 
   
@@ -378,14 +359,13 @@ class IndexSet {
      @brief As above, but also tracks (pseudo) successor indices.  State
      is side-effected, moreover, so must be invoked sequentially.
    */
-  inline IndexT offspring(const BV* replayExpl,
-                          const BV* replayLeft,
+  inline IndexT offspring(const Replay* replay,
                           IndexT sIdx,
                           unsigned int& pathSucc,
                           IndexT& idxSucc,
                           IndexT& ptSucc) {
     if (doesSplit) {
-      bool isLeft = senseLeft(replayExpl, replayLeft, sIdx);
+      bool isLeft = replay->senseLeft(sIdx, leftImpl);
       idxSucc = getOffSucc(isLeft);
       return offspringLive(isLeft, pathSucc, ptSucc);
     }
@@ -419,8 +399,7 @@ class Frontier {
   vector<IndexT> rel2PT; // Node-relative mapping to pretree index.
   vector<IndexT> st2Split; // Subtree-relative mapping to split index.
   vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
-  unique_ptr<class BV> replayExpl; // Whether index is explicity replayed.
-  unique_ptr<class BV> replayLeft; // If explicit, whether L/R; else undefined.
+  unique_ptr<class Replay> replay;
   unique_ptr<class PreTree> pretree; // Augmented per frontier.
   
   
@@ -651,6 +630,15 @@ class Frontier {
   */
   vector<double> sumsAndSquares(vector<vector<double> >& ctgSum);
 
+  /**
+     @brief Getter for IndexRange at a given coordinate.
+
+     @param splitNux contains the coordinate.
+
+     @return index range of referenced split coordinate.
+   */
+  IndexRange getBufRange(const class SplitNux& splitNux) const;
+  
 
   /**
     @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
@@ -678,17 +666,6 @@ class Frontier {
   }
 
 
-  /**
-     @brief Getter for IndexSet at a given coordinate.
-
-     @param splitCoord is the coordinate.
-
-     @return reference to set at coordinate.
-   */
-  inline const IndexSet& getISet(const SplitCoord& splitCoord) const {
-    return indexSet[splitCoord.nodeIdx];
-  }
-  
   /**
      @brief Accessor for count of splitable sets.
    */

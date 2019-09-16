@@ -18,6 +18,7 @@
 #include "callback.h"
 #include "summaryframe.h"
 #include "splitfrontier.h"
+#include "sfcart.h" // Temporary
 #include "obspart.h"
 
 // Simulation-invariant values.

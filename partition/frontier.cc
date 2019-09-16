@@ -14,7 +14,6 @@
  */
 
 #include "frontier.h"
-#include "bv.h"
 #include "pretree.h"
 #include "sample.h"
 #include "obspart.h"
@@ -22,6 +21,8 @@
 #include "bottom.h"
 #include "path.h"
 #include "ompthread.h"
+#include "replay.h"
+#include "splitnux.h"
 
 #include <numeric>
 
@@ -81,8 +82,7 @@ Frontier::Frontier(const SummaryFrame* frame,
   rel2ST(vector<IndexT>(bagCount)),
   st2Split(vector<IndexT>(bagCount)),
   st2PT(vector<IndexT>(bagCount)),
-  replayExpl(make_unique<BV>(bagCount)),
-  replayLeft(make_unique<BV>(bagCount)),
+  replay(make_unique<Replay>(bagCount)),
   pretree(make_unique<PreTree>(frame, this)) {
   indexSet[0].initRoot(sample);
   relBase[0] = 0;
@@ -128,7 +128,8 @@ vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
                                          unsigned int level) {
   levelTerminal = (level + 1 == totLevels);
 
-  SplitSurvey survey = splitFrontier->consume(pretree.get(), indexSet, replayExpl.get(), replayLeft.get());
+  replay->reset();
+  SplitSurvey survey = splitFrontier->consume(pretree.get(), indexSet, replay.get());
 
   nextLevel(survey);
   for (auto & iSet : indexSet) {
@@ -244,15 +245,14 @@ void Frontier::nodeReindex() {
   {
 #pragma omp for schedule(dynamic, 1) 
     for (OMPBound splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
-      indexSet[splitIdx].reindex(replayExpl.get(), replayLeft.get(), this, idxLive, succST);
+      indexSet[splitIdx].reindex(replay.get(), this, idxLive, succST);
     }
   }
   rel2ST = move(succST);
 }
 
 
-void IndexSet::reindex(const BV* replayExpl,
-                       const BV* replayLeft,
+void IndexSet::reindex(const Replay* replay,
                        Frontier* index,
                        IndexT idxLive,
                        vector<IndexT>& succST) {
@@ -260,20 +260,19 @@ void IndexSet::reindex(const BV* replayExpl,
     index->relExtinct(relBase, bufRange.getExtent(), ptId);
   }
   else {
-    nontermReindex(replayExpl, replayLeft, index, idxLive, succST);
+    nontermReindex(replay, index, idxLive, succST);
   }
 }
 
 
-void IndexSet::nontermReindex(const BV* replayExpl,
-                              const BV* replayLeft,
+void IndexSet::nontermReindex(const Replay* replay,
                               Frontier* index,
                               IndexT idxLive,
                               vector<IndexT>&succST) {
   IndexT baseLeft = offLeft;
   IndexT baseRight = offRight;
   for (IndexT relIdx = relBase; relIdx < relBase + bufRange.getExtent(); relIdx++) {
-    bool isLeft = senseLeft(replayExpl, replayLeft, relIdx);
+    bool isLeft = replay->senseLeft(relIdx, leftImpl);
     IndexT targIdx = getOffSucc(isLeft);
     if (targIdx < idxLive) {
       succST[targIdx] = index->relLive(relIdx, targIdx, getPathSucc(isLeft), isLeft ? baseLeft : baseRight, getPTSucc(isLeft));
@@ -328,7 +327,7 @@ void Frontier::stReindex(IdxPath* stPath,
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, ptSucc;
       IndexT splitIdx = st2Split[stIdx];
-      IndexT splitSucc = indexSet[splitIdx].offspring(replayExpl.get(), replayLeft.get(), stIdx, pathSucc, ptSucc);
+      IndexT splitSucc = indexSet[splitIdx].offspring(replay.get(), stIdx, pathSucc, ptSucc);
       st2Split[stIdx] = splitSucc;
       stPath->setSuccessor(stIdx, pathSucc, splitSucc < splitNext);
       st2PT[stIdx] = ptSucc;
@@ -343,7 +342,7 @@ void Frontier::transitionReindex(IndexT splitNext) {
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, idxSucc, ptSucc;
       IndexT splitIdx = st2Split[stIdx];
-      IndexT splitSucc = indexSet[splitIdx].offspring(replayExpl.get(), replayLeft.get(), stIdx, pathSucc, idxSucc, ptSucc);
+      IndexT splitSucc = indexSet[splitIdx].offspring(replay.get(), stIdx, pathSucc, idxSucc, ptSucc);
       if (splitSucc < splitNext) {
         stPath->setLive(stIdx, pathSucc, idxSucc);
         rel2ST[idxSucc] = stIdx;
@@ -411,6 +410,11 @@ IndexT IndexSet::getPTIdSucc(const Frontier* frontier, bool isLeft) const {
 
 IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
   return pretree->getSuccId(ptId, isLeft);
+}
+
+
+IndexRange Frontier::getBufRange(const SplitNux& splitNux) const {
+  return indexSet[splitNux.splitCoord.nodeIdx].getBufRange();
 }
 
 

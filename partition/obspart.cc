@@ -19,9 +19,10 @@
 #include "splitfrontier.h"
 #include "frontier.h"
 #include "path.h"
-#include "bv.h"
 #include "level.h"
 #include "ompthread.h"
+#include "splitnux.h"
+#include "splitcand.h" // EXIT
 
 #include <numeric>
 
@@ -119,12 +120,22 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
 }
 
 
+IndexT ObsPart::bufferOff(const SplitCand* cand) const {
+  return bufferOff(cand->getSplitCoord().predIdx, cand->getBufIdx());
+}
+
+
+SampleRank* ObsPart::getPredBase(const SplitCand* cand) const {
+  return nodeVec + bufferOff(cand);
+}
+
+
+
 double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
                             const IndexSet* iSet,
                             const IndexRange& range,
                             bool leftExpl,
-                            BV* replayExpl,
-                            BV* replayLeft,
+                            Replay* replay,
                             vector<SumCount>& ctgCrit) const {
   IndexT* sIdx;
   SampleRank* spn = buffers(splitFrontier, iSet, sIdx);
@@ -132,10 +143,7 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
   for (IndexT opIdx = range.getStart(); opIdx < range.getEnd(); opIdx++) {
     sumExpl += spn[opIdx].accum(ctgCrit);
     IndexT bitIdx = sIdx[opIdx];
-    replayExpl->setBit(bitIdx);
-    if (!leftExpl) { // Preset to full.
-      replayLeft->setBit(bitIdx, false);
-    }
+    replay->set(bitIdx, leftExpl);
   }
 
   return sumExpl;

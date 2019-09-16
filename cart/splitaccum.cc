@@ -15,9 +15,10 @@
 
 #include "splitaccum.h"
 #include "splitcand.h"
-#include "splitfrontier.h"
+#include "splitnux.h"
+#include "sfcart.h"
 #include "obspart.h"
-
+#include "residual.h"
 
 SplitAccum::SplitAccum(const SplitCand* cand,
                        IndexT rankDense_) :
@@ -37,6 +38,11 @@ SplitAccumReg::SplitAccumReg(const SplitCand* cand,
   monoMode(spReg->getMonoMode(cand)),
   resid(makeResidual(cand, spn)) {
 }
+
+
+SplitAccumReg::~SplitAccumReg() {
+}
+
 
 void SplitAccumReg::split(const SFReg* spReg,
                           const SampleRank spn[],
@@ -160,6 +166,10 @@ SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
   ctgAccum(spCtg->getAccumSlice(cand)),
   ssL(spCtg->getSumSquares(cand)),
   ssR(0.0) {
+}
+
+
+SplitAccumCtg::~SplitAccumCtg() {
 }
 
 

@@ -290,8 +290,7 @@ void Bottom::setSingleton(const SplitCoord& splitCoord) const {
 }
 
 
-void Bottom::reachFlush(unsigned int splitIdx,
-                        unsigned int predIdx) const {
-  Level *reachingLevel = reachLevel(splitIdx, predIdx);
-  reachingLevel->flushDef(SplitCoord(getHistory(reachingLevel, splitIdx), predIdx));
+void Bottom::reachFlush(const SplitCoord& splitCoord) const {
+  Level *reachingLevel = reachLevel(splitCoord.nodeIdx, splitCoord.predIdx);
+  reachingLevel->flushDef(SplitCoord(getHistory(reachingLevel, splitCoord.nodeIdx), splitCoord.predIdx));
 }

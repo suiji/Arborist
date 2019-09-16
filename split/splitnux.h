@@ -14,55 +14,55 @@
    @brief Minimal container capable of characterizing split.
 
    @author Mark Seligman
-
  */
 
+#include "splitcoord.h"
 #include "typeparam.h"
 
-class SplitNux {
-  static constexpr double minRatioDefault = 0.0;
-  static double minRatio;
+struct SplitNux {
+  SplitCoord splitCoord;
+  IndexRange idxRange; // Indices into compressed ObsPart buffer.
+  PredictorT setIdx; // Index into runSet vector for factor split.
+  unsigned char bufIdx;
 
   double info; // Weighted variance or Gini, currently.
-  unsigned int predIdx;  // Core-order predictor index.
-  unsigned char bufIdx;
-  IndexType lhSCount;
-  IndexType lhExtent;
-  IndexType lhImplicit;
-  IndexRange idxRange;
 
-  IndexRange rankRange;  // Rank bounds:  numeric only.
-  unsigned int setIdx; // Index into runSet vector for factor split.
-  unsigned int cardinality; // Cardinality iff factor else zero.
+  // Accumulated during splitting:
+  IndexT lhSCount; // # samples subsumed by split LHS:  > 0 iff split.
+  IndexT lhExtent; // # " " indices " ".
+  IndexT lhImplicit; // LHS implicit index count:  numeric only.
 
-public:
+  // Copied to decision node, if arg-max.  Numeric only:
+  //
+  IndexRange rankRange;  // Rank bounds.
+  
   static void immutables(double minRatio_);
   static void deImmutables();
 
 
   /**
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
-   */
-  SplitNux() :
-  info(0.0),
-  predIdx(0),
-  bufIdx(0),
-  lhSCount(0),
-  lhExtent(0),
-  lhImplicit(0),
-  idxRange(IndexRange()),
-  rankRange(IndexRange()),
-  setIdx(0) {
+  */
+  SplitNux() : info(0.0) {
   }
 
+  
   /**
-     @brief Constructor copies essential candidate components.
-
-     @param argMax is the chosen splitting candidate.
+     @brief Called by SplitCand constructor.
    */
-  SplitNux(const class SplitCand& argMax,
-           const class SummaryFrame* frame);
+  SplitNux(SplitCoord splitCoord_,
+	   PredictorT setIdx_,
+	   unsigned char bufIdx_,
+	   double info_) :
+  splitCoord(splitCoord_),
+    setIdx(setIdx_),
+    bufIdx(bufIdx_),
+    info(info_) {
+  }
 
+  
+  ~SplitNux() {
+  }
 
   /**
      @brief Reports whether potential split be informative with respect to a threshold.
@@ -79,7 +79,7 @@ public:
   /**
      @brief Consumes frontier node parameters associated with nonterminal.
   */
-  void consume(IndexSet* iSet) const;
+  void consume(class IndexSet* iSet) const;
 
 
   /**
@@ -92,31 +92,11 @@ public:
 
 
   /**
-     @brief Getters:
+     @brief Passes through to frame method.
+
+     @return cardinality iff factor-valued predictor else zero.
    */
-  auto getInfo() const {
-    return info;
-  }
-
-  auto getBufIdx() const {
-    return bufIdx;
-  }
-
-  auto getPredIdx() const {
-    return predIdx;
-  }
-
-  auto getRankRange() const {
-    return rankRange;
-  }  
-
-  auto getSetIdx() const {
-    return setIdx;
-  }
-
-  auto getCardinality() const {
-    return cardinality;
-  }
+  PredictorT getCardinality(const class SummaryFrame*) const;
 
 
   auto getExtent() const {
@@ -173,6 +153,10 @@ public:
     range.set(getExplicitBranchStart(), getExplicitBranchExtent());
     return range;
   }
+
+private:
+  static constexpr double minRatioDefault = 0.0;
+  static double minRatio;
 };
 
 
