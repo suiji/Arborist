@@ -33,7 +33,7 @@ SplitAccum::SplitAccum(const SplitCand* cand,
 
 SplitAccumReg::SplitAccumReg(const SplitCand* cand,
                              const SampleRank spn[],
-                             const SFReg* spReg) :
+                             const SFCartReg* spReg) :
   SplitAccum(cand, spReg->getDenseRank(cand)),
   monoMode(spReg->getMonoMode(cand)),
   resid(makeResidual(cand, spn)) {
@@ -44,7 +44,7 @@ SplitAccumReg::~SplitAccumReg() {
 }
 
 
-void SplitAccumReg::split(const SFReg* spReg,
+void SplitAccumReg::split(const SFCartReg* spReg,
                           const SampleRank spn[],
                           SplitCand* cand) {
   if (!resid->isEmpty()) {
@@ -56,7 +56,14 @@ void SplitAccumReg::split(const SFReg* spReg,
     IndexT rkThis = spn[idxEnd].regFields(ySum, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
+  cand->writeNum(spReg, info, rankLH, rankRH, lhSCount, lhImplicit(cand), rhMin);
 }
+
+
+IndexT SplitAccum::lhImplicit(const SplitCand* cand) const {
+  return rankDense <= rankLH ? cand->getImplicitCount() : 0;
+}
+
 
 void SplitAccumReg::splitImpl(const SampleRank spn[],
                               const SplitCand* cand) {
@@ -158,7 +165,7 @@ void SplitAccumReg::splitMono(const SampleRank spn[],
 
 SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
                              const SampleRank spn[],
-                             SFCtg* spCtg) :
+                             SFCartCtg* spCtg) :
   SplitAccum(cand, spCtg->getDenseRank(cand)),
   nCtg(spCtg->getNCtg()),
   resid(makeResidual(cand, spn, spCtg)),
@@ -174,7 +181,7 @@ SplitAccumCtg::~SplitAccumCtg() {
 
 
 // Initializes from final index and loops over remaining indices.
-void SplitAccumCtg::split(const SFCtg* spCtg,
+void SplitAccumCtg::split(const SFCartCtg* spCtg,
                           const SampleRank spn[],
                           SplitCand* cand) {
   if (!resid->isEmpty()) {
@@ -186,6 +193,7 @@ void SplitAccumCtg::split(const SFCtg* spCtg,
     stateNext(spn, idxEnd);
     splitExpl(spn, spn[idxEnd].getRank(), idxEnd-1, idxStart);
   }
+  cand->writeNum(spCtg, info, rankLH, rankRH, lhSCount, lhImplicit(cand), rhMin);
 }
 
 
@@ -264,7 +272,7 @@ unique_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
 unique_ptr<ResidualCtg>
 SplitAccumCtg::makeResidual(const SplitCand* cand,
                             const SampleRank spn[],
-                            SFCtg* spCtg) {
+                            SFCartCtg* spCtg) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<ResidualCtg>();
   }

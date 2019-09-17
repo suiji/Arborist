@@ -320,8 +320,8 @@ unsigned int RunSet::deWide(unsigned int nCtg) {
 }
 
 
-unsigned int RunSet::lHBits(unsigned int lhBits, unsigned int &lhSampCt) {
-  unsigned int lhExtent = 0;
+IndexT RunSet::lHBits(unsigned int lhBits, IndexT& lhSampCt) {
+  IndexT lhExtent = 0;
   unsigned int slotSup = effCount() - 1;
   runsLH = 0;
   lhSampCt = 0;

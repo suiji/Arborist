@@ -43,7 +43,7 @@ bool SplitCand::schedule(const Level* levelFront,
 /**
    @brief  Regression splitting based on type:  numeric or factor.
  */
-void SplitCand::split(const SFReg *spReg) {
+void SplitCand::split(const SFCartReg *spReg) {
   if (spReg->isFactor(splitNux.splitCoord)) {
     splitFac(spReg);
   }
@@ -56,7 +56,7 @@ void SplitCand::split(const SFReg *spReg) {
 /**
    @brief Categorical splitting based on type:  numeric or factor.
  */
-void SplitCand::split(SFCtg *spCtg) {
+void SplitCand::split(SFCartCtg *spCtg) {
   if (spCtg->isFactor(splitNux.splitCoord)) {
     splitFac(spCtg);
   }
@@ -66,7 +66,7 @@ void SplitCand::split(SFCtg *spCtg) {
 }
 
 
-void SplitCand::splitFac(SFCtg *spCtg) {
+void SplitCand::splitFac(SFCartCtg *spCtg) {
   buildRuns(spCtg);
 
   if (spCtg->getNCtg() == 2) {
@@ -81,38 +81,35 @@ void SplitCand::splitFac(SFCtg *spCtg) {
 /**
    @brief Main entry for numerical split.
 */
-void SplitCand::splitNum(const SFReg* spReg) {
+void SplitCand::splitNum(const SFCartReg* spReg) {
   SampleRank* spn = spReg->getPredBase(this);
   SplitAccumReg numPersist(this, spn, spReg);
   numPersist.split(spReg, spn, this);
-  writeNum(spReg, numPersist);
 }
 
 
-void SplitCand::splitNum(SFCtg* spCtg) {
+void SplitCand::splitNum(SFCartCtg* spCtg) {
   SampleRank* spn = spCtg->getPredBase(this);
   SplitAccumCtg numPersist(this, spn, spCtg);
   numPersist.split(spCtg, spn, this);
-  writeNum(spCtg, numPersist);
 }
 
 
-void SplitCand::writeNum(const SplitFrontier* spNode,
-                         const SplitAccum& accum) {
-  splitNux.info = accum.info;
-  if (infoGain(spNode)) {
-    splitNux.rankRange.set(accum.rankLH, accum.rankRH - accum.rankLH);
-    splitNux.lhSCount = accum.lhSCount;
-    splitNux.lhImplicit = accum.lhDense() ? implicitCount : 0;
-    splitNux.lhExtent = splitNux.lhImplicit + (accum.rhMin - getIdxStart());
-  }
+void SplitCand::writeNum(const SplitFrontier* splitFrontier,
+			 double info,
+			 IndexT rankLH,
+			 IndexT rankRH,
+			 IndexT lhSCount,
+			 IndexT lhImplicit,
+			 IndexT rhMin) {
+  splitNux.writeNum(splitFrontier, info, rankLH, rankRH, lhSCount, lhImplicit, rhMin);
 }
 
 
 /**
    Regression runs always maintained by heap.
 */
-void SplitCand::splitFac(const SFReg *spReg) {
+void SplitCand::splitFac(const SFCartReg *spReg) {
   RunSet *runSet = spReg->rSet(splitNux.setIdx);
   SampleRank* spn = spReg->getPredBase(this);
   double sumHeap = 0.0;
@@ -170,19 +167,13 @@ PredictorT SplitCand::heapSplit(RunSet *runSet) {
 void SplitCand::writeSlots(const SplitFrontier* splitNode,
                            RunSet* runSet,
                            PredictorT cutSlot) {
-  if (infoGain(splitNode)) {
+  if (splitNux.infoGain(splitNode)) {
     splitNux.lhExtent = runSet->lHSlots(cutSlot, splitNux.lhSCount);
   }
 }
 
 
-bool SplitCand::infoGain(const SplitFrontier* splitNode) {
-  splitNux.info -= splitNode->getPrebias(splitNux.splitCoord);
-  return splitNux.info > 0.0;
-}
-
-
-void SplitCand::buildRuns(SFCtg *spCtg) const {
+void SplitCand::buildRuns(SFCartCtg *spCtg) const {
   SampleRank* spn = spCtg->getPredBase(this);
   double sumLoc = 0.0;
   IndexT sCountLoc = 0;
@@ -219,7 +210,7 @@ void SplitCand::buildRuns(SFCtg *spCtg) const {
 }
 
 
-void SplitCand::splitRuns(SFCtg *spCtg) {
+void SplitCand::splitRuns(SFCartCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(splitNux.setIdx);
   const vector<double> ctgSum(spCtg->getSumSlice(this));
   const PredictorT slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
@@ -249,19 +240,11 @@ void SplitCand::splitRuns(SFCtg *spCtg) {
     }
   }
 
-  writeBits(spCtg, lhBits);
-}
-
-void SplitCand::writeBits(const SplitFrontier* splitNode,
-                          PredictorT lhBits) {
-  if (infoGain(splitNode)) {
-    RunSet *runSet = splitNode->rSet(splitNux.setIdx);
-    splitNux.lhExtent = runSet->lHBits(lhBits, splitNux.lhSCount);
-  }
+  splitNux.writeBits(spCtg, lhBits);
 }
 
 
-void SplitCand::splitBinary(SFCtg *spCtg) {
+void SplitCand::splitBinary(SFCartCtg *spCtg) {
   RunSet *runSet = spCtg->rSet(splitNux.setIdx);
   runSet->heapBinary();
   runSet->dePop();

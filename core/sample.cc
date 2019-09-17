@@ -146,7 +146,7 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 
 
 unique_ptr<SplitFrontier> SampleReg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
-  return make_unique<SFReg>(frame, frontier, this);
+  return make_unique<SFCartReg>(frame, frontier, this);
 }
 
 
@@ -165,7 +165,7 @@ void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *tree
 
 
 unique_ptr<SplitFrontier> SampleCtg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
-  return make_unique<SFCtg>(frame, frontier, this, SampleNux::getNCtg());
+  return make_unique<SFCartCtg>(frame, frontier, this, SampleNux::getNCtg());
 }
 
 

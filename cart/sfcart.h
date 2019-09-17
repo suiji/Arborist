@@ -27,7 +27,7 @@
 /**
    @brief Splitting facilities specific regression trees.
  */
-class SFReg : public SplitFrontier {
+class SFCartReg : public SplitFrontier {
   // Bridge-supplied monotone constraints.  Length is # numeric predictors
   // or zero, if none so constrained.
   static vector<double> mono;
@@ -55,11 +55,11 @@ class SFReg : public SplitFrontier {
    */
   static void deImmutables();
   
-  SFReg(const class SummaryFrame* frame_,
+  SFCartReg(const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample);
 
-  ~SFReg();
+  ~SFCartReg();
   void setRunOffsets(const vector<unsigned int>& safeCount);
   void levelPreset();
   void clear();
@@ -91,7 +91,7 @@ class SFReg : public SplitFrontier {
 /**
    @brief Splitting facilities for categorical trees.
  */
-class SFCtg : public SplitFrontier {
+class SFCartCtg : public SplitFrontier {
 // Numerical tolerances taken from A. Liaw's code:
   static constexpr double minDenom = 1.0e-5;
   static constexpr double minSumL = 1.0e-8;
@@ -153,11 +153,11 @@ class SFCtg : public SplitFrontier {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SFCtg(const class SummaryFrame* frame_,
+  SFCartCtg(const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample,
 	PredictorT nCtg_);
-  ~SFCtg();
+  ~SFCartCtg();
 
 
   /**

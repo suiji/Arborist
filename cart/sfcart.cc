@@ -31,10 +31,10 @@
 // Post-split consumption:
 #include "pretree.h"
 
-vector<double> SFReg::mono; // Numeric monotonicity constraints.
+vector<double> SFCartReg::mono; // Numeric monotonicity constraints.
 
 
-void SFReg::immutables(const SummaryFrame* frame,
+void SFCartReg::immutables(const SummaryFrame* frame,
                        const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
@@ -46,12 +46,12 @@ void SFReg::immutables(const SummaryFrame* frame,
 }
 
 
-void SFReg::deImmutables() {
+void SFCartReg::deImmutables() {
   mono.clear();
 }
 
 
-SFReg::SFReg(const SummaryFrame* frame,
+SFCartReg::SFCartReg(const SummaryFrame* frame,
              Frontier* frontier,
 	     const Sample* sample) :
   SplitFrontier(frame, frontier, sample),
@@ -63,7 +63,7 @@ SFReg::SFReg(const SummaryFrame* frame,
 /**
    @brief Constructor.
  */
-SFCtg::SFCtg(const SummaryFrame* frame,
+SFCartCtg::SFCartCtg(const SummaryFrame* frame,
              Frontier* frontier,
 	     const Sample* sample,
 	     PredictorT nCtg_):
@@ -78,7 +78,7 @@ SFCtg::SFCtg(const SummaryFrame* frame,
 
    @return void.
  */
-void SFReg::setRunOffsets(const vector<unsigned int>& runCount) {
+void SFCartReg::setRunOffsets(const vector<unsigned int>& runCount) {
   run->offsetsReg(runCount);
 }
 
@@ -86,42 +86,42 @@ void SFReg::setRunOffsets(const vector<unsigned int>& runCount) {
 /**
    @brief Sets quick lookup offsets for Run object.
  */
-void SFCtg::setRunOffsets(const vector<unsigned int>& runCount) {
+void SFCartCtg::setRunOffsets(const vector<unsigned int>& runCount) {
   run->offsetsCtg(runCount);
 }
 
 
-double SFCtg::getSumSquares(const SplitCand *cand) const {
+double SFCartCtg::getSumSquares(const SplitCand *cand) const {
   return sumSquares[cand->getSplitCoord().nodeIdx];
 }
 
 
-const vector<double>& SFCtg::getSumSlice(const SplitCand* cand) {
+const vector<double>& SFCartCtg::getSumSlice(const SplitCand* cand) {
   return ctgSum[cand->getSplitCoord().nodeIdx];
 }
 
 
-double* SFCtg::getAccumSlice(const SplitCand *cand) {
+double* SFCartCtg::getAccumSlice(const SplitCand *cand) {
   return &ctgSumAccum[getNumIdx(cand->getSplitCoord().predIdx) * splitCount * nCtg + cand->getSplitCoord().nodeIdx * nCtg];
 }
 
 /**
    @brief Run objects should not be deleted until after splits have been consumed.
  */
-void SFReg::clear() {
+void SFCartReg::clear() {
   SplitFrontier::clear();
 }
 
 
-SFReg::~SFReg() {
+SFCartReg::~SFCartReg() {
 }
 
 
-SFCtg::~SFCtg() {
+SFCartCtg::~SFCartCtg() {
 }
 
 
-void SFCtg::clear() {
+void SFCartCtg::clear() {
   SplitFrontier::clear();
 }
 
@@ -129,14 +129,14 @@ void SFCtg::clear() {
 /**
    @brief Sets level-specific values for the subclass.
 */
-void SFReg::levelPreset() {
+void SFCartReg::levelPreset() {
   if (!mono.empty()) {
     ruMono = CallBack::rUnif(splitCount * mono.size());
   }
 }
 
 
-void SFCtg::levelPreset() {
+void SFCartCtg::levelPreset() {
   levelInitSumR(frame->getNPredNum());
   ctgSum = vector<vector<double> >(splitCount);
 
@@ -144,7 +144,7 @@ void SFCtg::levelPreset() {
 }
 
 
-void SFCtg::levelInitSumR(PredictorT nPredNum) {
+void SFCartCtg::levelInitSumR(PredictorT nPredNum) {
   if (nPredNum > 0) {
     ctgSumAccum = vector<double>(nPredNum * nCtg * splitCount);
     fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
@@ -152,7 +152,7 @@ void SFCtg::levelInitSumR(PredictorT nPredNum) {
 }
 
 
-int SFReg::getMonoMode(const SplitCand* cand) const {
+int SFCartReg::getMonoMode(const SplitCand* cand) const {
   if (mono.empty())
     return 0;
 
@@ -171,11 +171,11 @@ int SFReg::getMonoMode(const SplitCand* cand) const {
 }
 
 
-void SFCtg::split(SplitCand& cand) {
+void SFCartCtg::split(SplitCand& cand) {
   cand.split(this);
 }
 
 
-void SFReg::split(SplitCand& cand) {
+void SFCartReg::split(SplitCand& cand) {
   cand.split(this);
 }

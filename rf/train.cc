@@ -80,7 +80,7 @@ void Train::initCtgWidth(unsigned int ctgWidth) {
 
 void Train::initMono(const SummaryFrame* frame,
                      const vector<double> &regMono) {
-  SFReg::immutables(frame, regMono);
+  SFCartReg::immutables(frame, regMono);
 }
 
 
@@ -93,7 +93,7 @@ void Train::deInit() {
   Sample::deImmutables();
   SampleNux::deImmutables();
   Level::deImmutables();
-  SFReg::deImmutables();
+  SFCartReg::deImmutables();
   OmpThread::deInit();
 }
 

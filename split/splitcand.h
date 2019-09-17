@@ -32,27 +32,22 @@ class SplitCand {
   IndexT implicitCount;  // Per coord:  post restage.
 
   SplitNux splitNux; // Copied out on argmax.
-
-  
-  /**
-     @brief decrements 'info' value by information of parent node.
-
-     @return true iff net information gain over parent.
-   */
-  bool infoGain(const class SplitFrontier*);
-  
-  /**
-     @brief Writes the left-hand characterization of a cut-based split.
-
-     @param spNode contains the tree-node summary.
-
-     @param accum contains the split characterization.
-   */
-  void writeNum(const class SplitFrontier* spNode,
-                const class SplitAccum& accum);
   
 public:
 
+  
+  /**
+     @brief Writes the left-hand characterization of a cut-based split.
+  */
+  void writeNum(const SplitFrontier* splitFrontier,
+		double info,
+		IndexT rankLH,
+		IndexT rankRH,
+		IndexT lhScount,
+		IndexT lhImplicit,
+		IndexT rhMin);
+
+  
   SplitCand(const class SplitFrontier* splitNode,
             const class Frontier* index,
             const SplitCoord& splitCoord,
@@ -181,26 +176,26 @@ public:
 		vector<unsigned int> &runCount);
 
   
-  void split(const class SFReg* spReg);
+  void split(const class SFCartReg* spReg);
 
 
-  void split(class SFCtg* spCtg);
+  void split(class SFCartCtg* spCtg);
 
   /**
      @brief Main entry for classification numerical split.
    */
-  void splitNum(class SFCtg* spCtg);
+  void splitNum(class SFCartCtg* spCtg);
 
 
   /**
      @brief Main entry for regression numerical split.
    */
-  void splitNum(const class SFReg* spReg);
+  void splitNum(const class SFCartReg* spReg);
 
-  void numCtgDense(class SFCtg* spCtg,
+  void numCtgDense(class SFCartCtg* spCtg,
                    const class SampleRank spn[]);
 
-  void numCtgGini(SFCtg *spCtg,
+  void numCtgGini(SFCartCtg *spCtg,
                   const class SampleRank spn[],
                   IndexT idxInit,
                   IndexT idxFinal,
@@ -213,10 +208,10 @@ public:
                   IndexT& rankRH,
                   IndexT& rhMin);
 
-  void splitFac(const class SFReg *spReg);
+  void splitFac(const class SFCartReg *spReg);
 
   
-  void splitFac(class SFCtg *spCtg);
+  void splitFac(class SFCartCtg *spCtg);
 
   /**
      @brief Splits blocks of categorical runs.
@@ -232,7 +227,7 @@ public:
 
      @param spCtg summarizes categorical response.
   */
-  void splitRuns(class SFCtg *spCtg);
+  void splitRuns(class SFCartCtg *spCtg);
 
 
   /**
@@ -242,7 +237,7 @@ public:
 
      @param spCtg is a categorical response summary.
   */
-  void splitBinary(class SFCtg *spCtg);
+  void splitBinary(class SFCartCtg *spCtg);
 
 
   /**
@@ -259,7 +254,7 @@ public:
      @brief Builds categorical runs.  Very similar to regression case, but
      the runs also resolve response sum by category.
   */
-  void buildRuns(class SFCtg *spCtg) const;
+  void buildRuns(class SFCartCtg *spCtg) const;
 
   /**
      @brief Writes the left-hand characterization of a factor-based
@@ -273,15 +268,6 @@ public:
   void writeSlots(const class SplitFrontier *splitNode,
                   class RunSet *runSet,
                   PredictorT cutSlot);
-
-  /**
-     @brief Writes the left-hand characterization of a factor-based
-     split with categorical response.
-
-     @param lhBits is a compressed representation of factor codes for the LHS.
-   */
-  void writeBits(const class SplitFrontier *sp,
-                 PredictorT lhBits);
 };
 
 #endif

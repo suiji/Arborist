@@ -27,8 +27,6 @@ cp ../../cart/bridge/*.cc Rborist/src/
 cp ../../cart/bridge/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
-cp ../../core/bridge/*.cc Rborist/src/
-cp ../../core/bridge/*.h Rborist/src/
 cp ../../partition/*.cc Rborist/src/
 cp ../../partition/*.h Rborist/src/
 cp ../../rf/*.cc Rborist/src/

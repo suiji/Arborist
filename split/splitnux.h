@@ -65,6 +65,48 @@ struct SplitNux {
   }
 
   /**
+     @brief Passes through to frame method.
+
+     @return cardinality iff factor-valued predictor else zero.
+   */
+  PredictorT getCardinality(const class SummaryFrame*) const;
+
+
+  /**
+     @brief Decrements information field and reports whether still positive.
+
+     @param splitFrontier determines pre-existing information value to subtract.
+
+     @bool true iff decremented information field positive.
+   */
+  bool infoGain(const class SplitFrontier* splitFrontier);
+  
+
+  /**
+     @brief Writes the left-hand characterization of a factor-based
+     split with categorical response.
+
+     @param lhBits is a compressed representation of factor codes for the LHS.
+   */
+  void writeBits(const class SplitFrontier* splitFrontier,
+		 PredictorT lhBits);
+  
+
+  void writeNum(const SplitFrontier* splitFrontier,
+		double info,
+		IndexT rankLH,
+		IndexT rankRH,
+		IndexT lhScount,
+		IndexT lhImplicit,
+		IndexT rhMin);
+
+  /**
+     @brief Consumes frontier node parameters associated with nonterminal.
+  */
+  void consume(class IndexSet* iSet) const;
+
+
+  /**
      @brief Reports whether potential split be informative with respect to a threshold.
 
      @param minInfo is an information threshold.
@@ -77,26 +119,12 @@ struct SplitNux {
 
 
   /**
-     @brief Consumes frontier node parameters associated with nonterminal.
-  */
-  void consume(class IndexSet* iSet) const;
-
-
-  /**
      @return true iff left side has no implicit indices.  Rank-based
      splits only.
    */
   bool leftIsExplicit() const {
     return lhImplicit == 0;
   }
-
-
-  /**
-     @brief Passes through to frame method.
-
-     @return cardinality iff factor-valued predictor else zero.
-   */
-  PredictorT getCardinality(const class SummaryFrame*) const;
 
 
   auto getExtent() const {

@@ -13,9 +13,10 @@
    @author Mark Seligman
  */
 
+#include "runset.h"
 #include "frontier.h"
+#include "splitfrontier.h"
 #include "splitnux.h"
-#include "splitcand.h"
 #include "summaryframe.h"
 
 double SplitNux::minRatio = minRatioDefault;
@@ -26,6 +27,37 @@ void SplitNux::immutables(double minRatio) {
 
 void SplitNux::deImmutables() {
   minRatio = minRatioDefault;
+}
+
+
+bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
+  info -= splitFrontier->getPrebias(splitCoord);
+  return info > 0.0;
+}
+
+void SplitNux::writeBits(const SplitFrontier* splitFrontier,
+			 PredictorT lhBits) {
+  if (infoGain(splitFrontier)) {
+    RunSet* runSet = splitFrontier->rSet(setIdx);
+    lhExtent = runSet->lHBits(lhBits, lhSCount);
+  }
+}
+
+
+void SplitNux::writeNum(const SplitFrontier* splitFrontier,
+			double info,
+			IndexT rankLH,
+			IndexT rankRH,
+			IndexT lhSCount,
+			IndexT lhImplicit,
+			IndexT rhMin) {
+  this->info = info;
+  if (infoGain(splitFrontier)) {
+    rankRange.set(rankLH, rankRH - rankLH);
+    this->lhSCount = lhSCount;
+    this->lhImplicit = lhImplicit;
+    lhExtent = lhImplicit + (rhMin - idxRange.getStart());
+  }
 }
 
 

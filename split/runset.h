@@ -422,7 +422,7 @@ class RunSet {
 
      @return LHS index count.
   */
-  unsigned int lHBits(unsigned int lhBits, IndexT& lhSampCt);
+  IndexT lHBits(unsigned int lhBits, IndexT& lhSampCt);
   
   /**
      @brief Dereferences out slots and accumulates splitting parameters.

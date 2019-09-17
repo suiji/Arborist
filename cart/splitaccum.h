@@ -90,9 +90,7 @@ public:
   }
 
   
-  bool lhDense() const {
-    return rankDense <= rankLH;
-  }
+  IndexT lhImplicit(const class SplitCand* cand) const;
 };
 
 
@@ -138,7 +136,7 @@ class SplitAccumReg : public SplitAccum {
 public:
   SplitAccumReg(const class SplitCand* splitCand,
                 const class SampleRank spn[],
-                const class SFReg* spReg);
+                const class SFCartReg* spReg);
 
   ~SplitAccumReg();
 
@@ -183,7 +181,7 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SFReg* spReg,
+  void split(const class SFCartReg* spReg,
              const class SampleRank spn[],
              class SplitCand* cand);
   
@@ -262,13 +260,13 @@ class SplitAccumCtg : public SplitAccum {
   unique_ptr<class ResidualCtg>
   makeResidual(const class SplitCand* cand,
                const class SampleRank spn[],
-               class SFCtg* spCtg);
+               class SFCartCtg* spCtg);
 
 public:
 
   SplitAccumCtg(const class SplitCand* cand,
                 const class SampleRank spn[],
-                class SFCtg* spCtg);
+                class SFCartCtg* spCtg);
 
   ~SplitAccumCtg();
 
@@ -311,7 +309,7 @@ public:
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SFCtg* spCtg,
+  void split(const class SFCartCtg* spCtg,
              const class SampleRank spn[],
              class SplitCand* cand);
 
