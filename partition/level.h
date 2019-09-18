@@ -369,9 +369,9 @@ public:
   */
   bool scheduleSplit(const class Frontier* frontier,
 		     vector<PredictorT>& runCount,
-		     class SplitNux& splitNux,
-		     IndexT& implicitCount) const;
+		     class SplitNux* cand) const;
 
+  
   /**
      @brief Looks up the ancestor cell built for the corresponding index
      node and adjusts start and extent values by corresponding dense parameters.
@@ -454,9 +454,9 @@ public:
                unsigned int ndBase);
 
 
-  IndexT denseOffset(const SplitNux& splitNux) const;
+  IndexT denseOffset(const SplitNux* cand) const;
 
-  bool isDense(const SplitNux& splitNux) const;
+  bool isDense(const SplitNux* cand) const;
 
   
   /**
@@ -625,17 +625,17 @@ public:
 
 
   /**
-     @param[in, out] splitNux may have modified run position and index range.
+     @param[in, out] cand may have modified run position and index range.
 
      @param[out] implicit outputs the number of implicit indices.
 
      @return adjusted index range.
    */
-  IndexRange adjustRange(const SplitNux& splitNux,
+  IndexRange adjustRange(const SplitNux* cand,
 			 const class Frontier* index) const;
 
 
-  IndexT getImplicit(const SplitNux& splitNux) const;
+  IndexT getImplicit(const SplitNux* cand) const;
   
 
   inline bool isDefined(const SplitCoord& splitCoord) const {

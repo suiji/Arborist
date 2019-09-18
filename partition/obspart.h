@@ -312,7 +312,7 @@ class ObsPart {
   /**
      @brief Extracts object components and invokes inlined version.
    */
-  IndexT bufferOff(const class SplitCand* cand) const;
+  IndexT bufferOff(const class SplitNux* cand) const;
 
   
   /**
@@ -341,7 +341,7 @@ class ObsPart {
 
      @return node vector section for this predictor.
    */
-  SampleRank* getPredBase(const class SplitCand* cand) const;
+  SampleRank* getPredBase(const class SplitNux* cand) const;
 
   
   /**

@@ -35,7 +35,7 @@ class SFCartReg : public SplitFrontier {
   // Per-level vector of uniform variates.
   vector<double> ruMono;
 
-  void split(class SplitCand& cand);
+  void split(class SplitNux* cand);
 
  public:
 
@@ -68,8 +68,28 @@ class SFCartReg : public SplitFrontier {
      @brief Determines whether a regression pair undergoes constrained splitting.
      @return The sign of the constraint, if within the splitting probability, else zero.
 */
-  int getMonoMode(const class SplitCand* cand) const;
+  int getMonoMode(const class SplitNux* cand) const;
 
+  /**
+     @brief Main entry for regression numerical split.
+   */
+  void splitNum(class SplitNux* cand) const;
+
+  
+  void splitFac(class SplitNux* cand) const;
+
+
+  /**
+     @brief Splits runs sorted by binary heap.
+
+     @param runSet contains all run parameters.
+
+     @return slot index of split
+   */
+  PredictorT heapSplit(class RunSet *runSet,
+		       class SplitNux* cand) const;
+
+  
   /**
      @brief Weighted-variance pre-bias computation for regression response.
 
@@ -114,7 +134,7 @@ class SFCartCtg : public SplitFrontier {
   /**
      @brief Collects splitable candidates from among all restaged cells.
    */
-  void split(class SplitCand& cand);
+  void split(class SplitNux* cand);
 
   /**
      @brief RunSet initialization utitlity.
@@ -169,7 +189,49 @@ class SFCartCtg : public SplitFrontier {
     return nCtg;
   }
 
+  /**
+     @brief Main entry for categoreical numerical split.
+   */
+  void splitNum(class SplitNux* cand);
   
+
+  void splitFac(class SplitNux* cand) const;
+
+  
+  /**
+     @brief Builds categorical runs.  Very similar to regression case, but
+     the runs also resolve response sum by category.
+  */
+  void buildRuns(class SplitNux* cand) const;
+
+
+  /**
+     @brief Adapated from splitRuns().  Specialized for two-category case in
+     which LH subsets accumulate.  This permits running LH 0/1 sums to be
+     maintained, as opposed to recomputed, as the LH set grows.
+
+     @param cand is the splitting candidate.
+  */
+  void splitBinary(class SplitNux* cand) const;
+
+  
+  /**
+     @brief Splits blocks of categorical runs.
+
+     Nodes are now represented compactly as a collection of runs.
+     For each node, subsets of these collections are examined, looking for the
+     Gini argmax beginning from the pre-bias.
+
+     Iterates over nontrivial subsets, coded by integers as bit patterns.  By
+     convention, the final run is incorporated into RHS of the split, if any.
+     Excluding the final run, then, the number of candidate LHS subsets is
+     '2^(runCount-1) - 1'.
+
+     @param spCtg summarizes categorical response.
+  */
+  void splitRuns(class SplitNux* cand) const;
+
+
   /**
      @brief Determine whether an ordered pair of sums is acceptably stable
      to appear in the denominator.
@@ -213,7 +275,7 @@ class SFCartCtg : public SplitFrontier {
 
      @return reference vector of per-category sums.
    */
-  const vector<double>& getSumSlice(const class SplitCand* cand);
+  const vector<double>& getSumSlice(const struct SplitNux* cand) const;
 
 
   /**
@@ -223,7 +285,7 @@ class SFCartCtg : public SplitFrontier {
 
      @return raw pointer to per-category accumulation vector for pair.
    */
-  double* getAccumSlice(const class SplitCand* cand);
+  double* getAccumSlice(const struct SplitNux* cand);
 
 
   /**
@@ -233,7 +295,7 @@ class SFCartCtg : public SplitFrontier {
 
      @return sum, over categories, of node reponse values.
    */
-  double getSumSquares(const class SplitCand *cand) const;
+  double getSumSquares(const class SplitNux* cand) const;
 };
 
 

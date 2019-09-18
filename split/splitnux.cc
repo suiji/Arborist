@@ -18,6 +18,8 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "summaryframe.h"
+#include "level.h"
+
 
 double SplitNux::minRatio = minRatioDefault;
 
@@ -30,6 +32,20 @@ void SplitNux::deImmutables() {
 }
 
 
+SplitNux::SplitNux(const class SplitFrontier* splitFrontier,
+		   const class Frontier* frontier,
+		   const SplitCoord splitCoord_,
+		   unsigned char bufIdx_,
+		   IndexT noSet) :
+  splitCoord(splitCoord_),
+  setIdx(noSet),
+  bufIdx(bufIdx_),
+  lhSum(frontier->getSum(splitCoord.nodeIdx)),
+  lhSCount(frontier->getSCount(splitCoord.nodeIdx)),
+  info(splitFrontier->getPrebias(splitCoord))  {
+}
+  
+  
 bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
   info -= splitFrontier->getPrebias(splitCoord);
   return info > 0.0;
@@ -66,6 +82,31 @@ PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
 }
 
 
+bool SplitNux::schedule(const Level* levelFront,
+			const Frontier* frontier,
+			vector<unsigned int>& runCount) {
+  return levelFront->scheduleSplit(frontier, runCount, this);
+}
+
+
 void SplitNux::consume(IndexSet* iSet) const {
   iSet->consumeCriterion(minRatio * info, lhSCount, lhExtent);
+}
+
+
+  /**
+     @brief Writes the left-hand characterization of a factor-based
+     split with numerical or binary response.
+
+     @param runSet organizes responsed statistics by factor code.
+
+     @param cutSlot is the LHS/RHS separator position in the vector of
+     factor codes maintained by the run-set.
+   */
+void SplitNux::writeSlots(const SplitFrontier* splitFrontier,
+                          RunSet* runSet,
+                          PredictorT cutSlot) {
+  if (infoGain(splitFrontier)) {
+    lhExtent = runSet->lHSlots(cutSlot, lhSCount);
+  }
 }

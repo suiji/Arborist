@@ -14,13 +14,12 @@
  */
 
 #include "splitaccum.h"
-#include "splitcand.h"
 #include "splitnux.h"
 #include "sfcart.h"
 #include "obspart.h"
 #include "residual.h"
 
-SplitAccum::SplitAccum(const SplitCand* cand,
+SplitAccum::SplitAccum(const SplitNux* cand,
                        IndexT rankDense_) :
   sCount(cand->getSCount()),
   sum(cand->getSum()),
@@ -31,7 +30,7 @@ SplitAccum::SplitAccum(const SplitCand* cand,
   info(cand->getInfo()) {
 }
 
-SplitAccumReg::SplitAccumReg(const SplitCand* cand,
+SplitAccumReg::SplitAccumReg(const SplitNux* cand,
                              const SampleRank spn[],
                              const SFCartReg* spReg) :
   SplitAccum(cand, spReg->getDenseRank(cand)),
@@ -46,7 +45,7 @@ SplitAccumReg::~SplitAccumReg() {
 
 void SplitAccumReg::split(const SFCartReg* spReg,
                           const SampleRank spn[],
-                          SplitCand* cand) {
+                          SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(spn, cand);
   }
@@ -60,13 +59,13 @@ void SplitAccumReg::split(const SFCartReg* spReg,
 }
 
 
-IndexT SplitAccum::lhImplicit(const SplitCand* cand) const {
+IndexT SplitAccum::lhImplicit(const SplitNux* cand) const {
   return rankDense <= rankLH ? cand->getImplicitCount() : 0;
 }
 
 
 void SplitAccumReg::splitImpl(const SampleRank spn[],
-                              const SplitCand* cand) {
+                              const SplitNux* cand) {
   IndexT idxEnd = cand->getIdxEnd();
   IndexT idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) {
@@ -163,7 +162,7 @@ void SplitAccumReg::splitMono(const SampleRank spn[],
 }
 
 
-SplitAccumCtg::SplitAccumCtg(const SplitCand* cand,
+SplitAccumCtg::SplitAccumCtg(const SplitNux* cand,
                              const SampleRank spn[],
                              SFCartCtg* spCtg) :
   SplitAccum(cand, spCtg->getDenseRank(cand)),
@@ -183,7 +182,7 @@ SplitAccumCtg::~SplitAccumCtg() {
 // Initializes from final index and loops over remaining indices.
 void SplitAccumCtg::split(const SFCartCtg* spCtg,
                           const SampleRank spn[],
-                          SplitCand* cand) {
+                          SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(spn, cand);
   }
@@ -222,7 +221,7 @@ void SplitAccumCtg::splitExpl(const SampleRank spn[],
 
 
 void SplitAccumCtg::splitImpl(const SampleRank spn[],
-                              const SplitCand* cand) {
+                              const SplitNux* cand) {
   IndexT idxEnd = cand->getIdxEnd();
   IndexT idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) { // Far right residual:  apply and split to left.
@@ -248,7 +247,7 @@ void SplitAccumCtg::residualAndLeft(const SampleRank spn[],
 }
 
 
-unique_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
+unique_ptr<Residual> SplitAccumReg::makeResidual(const SplitNux* cand,
                                                  const SampleRank spn[]) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<Residual>();
@@ -270,9 +269,9 @@ unique_ptr<Residual> SplitAccumReg::makeResidual(const SplitCand* cand,
 
 
 unique_ptr<ResidualCtg>
-SplitAccumCtg::makeResidual(const SplitCand* cand,
+SplitAccumCtg::makeResidual(const SplitNux* cand,
                             const SampleRank spn[],
-                            SFCartCtg* spCtg) {
+                            const SFCartCtg* spCtg) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<ResidualCtg>();
   }

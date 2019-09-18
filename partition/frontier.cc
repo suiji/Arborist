@@ -413,8 +413,8 @@ IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
 }
 
 
-IndexRange Frontier::getBufRange(const SplitNux& splitNux) const {
-  return indexSet[splitNux.splitCoord.nodeIdx].getBufRange();
+IndexRange Frontier::getBufRange(const SplitNux* splitNux) const {
+  return indexSet[splitNux->getNodeIdx()].getBufRange();
 }
 
 

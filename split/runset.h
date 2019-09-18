@@ -186,7 +186,7 @@ class RunSet {
 
      @param ctgSum is the per-category response over the node (IndexSet).
   */
-  void writeImplicit(const class SplitCand* cand,
+  void writeImplicit(const class SplitNux* cand,
                      const class SplitFrontier* sp,
                      const vector<double>& ctgSum = vector<double>(0));
 

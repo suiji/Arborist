@@ -22,7 +22,6 @@
 #include "level.h"
 #include "ompthread.h"
 #include "splitnux.h"
-#include "splitcand.h" // EXIT
 
 #include <numeric>
 
@@ -120,12 +119,12 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
 }
 
 
-IndexT ObsPart::bufferOff(const SplitCand* cand) const {
+IndexT ObsPart::bufferOff(const SplitNux* cand) const {
   return bufferOff(cand->getSplitCoord().predIdx, cand->getBufIdx());
 }
 
 
-SampleRank* ObsPart::getPredBase(const SplitCand* cand) const {
+SampleRank* ObsPart::getPredBase(const SplitNux* cand) const {
   return nodeVec + bufferOff(cand);
 }
 

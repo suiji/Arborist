@@ -64,11 +64,11 @@ class SplitFrontier {
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
-  const IndexT noSet; // Unreachable setIdx for SplitCand.
+  const IndexT noSet; // Unreachable setIdx for SplitNux.
   unique_ptr<class ObsPart> obsPart;
   IndexT splitCount; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
-  vector<class SplitCand> splitCand; // Schedule of splits.
+  vector<class SplitNux> splitCand; // Schedule of splits.
 
   vector<double> prebias; // Initial information threshold.
   // Per-split accessors for candidate vector.  Set to splitCount
@@ -135,7 +135,7 @@ public:
 
      @return pointer to beginning of partition associated with the candidate.
    */
-  class SampleRank* getPredBase(const SplitCand* cand) const;
+  class SampleRank* getPredBase(const SplitNux* cand) const;
 
   
   /**
@@ -145,7 +145,7 @@ public:
 
      @return rank of dense value, if candidate's predictor has one.
    */
-  IndexT getDenseRank(const SplitCand* cand) const;
+  IndexT getDenseRank(const SplitNux* cand) const;
 
   
   /**
@@ -284,7 +284,7 @@ public:
    */
   void splitCandidates();
   
-  virtual void split(class SplitCand& cand) = 0;
+  virtual void split(class SplitNux* cand) = 0;
   virtual ~SplitFrontier();
   virtual void setRunOffsets(const vector<unsigned int>& safeCounts) = 0;
   virtual void levelPreset() = 0;

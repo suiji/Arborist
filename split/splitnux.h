@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CART_SPLITNUX_H
-#define CART_SPLITNUX_H
+#ifndef SPLIT_SPLITNUX_H
+#define SPLIT_SPLITNUX_H
 
 /**
    @file splitnux.h
@@ -19,23 +19,30 @@
 #include "splitcoord.h"
 #include "typeparam.h"
 
-struct SplitNux {
+#include <vector>
+
+class SplitNux {
+  static constexpr double minRatioDefault = 0.0;
+  static double minRatio;
+
   SplitCoord splitCoord;
   IndexRange idxRange; // Indices into compressed ObsPart buffer.
   PredictorT setIdx; // Index into runSet vector for factor split.
   unsigned char bufIdx;
+  double lhSum; // # sum of left split:  Initialized to node value.
+  IndexT lhSCount; // # samples in left split:  initialized to node value.
 
   double info; // Weighted variance or Gini, currently.
+  IndexT lhImplicit; // # implicit indices in LHS:  initialized to node value at scheduling.
 
   // Accumulated during splitting:
-  IndexT lhSCount; // # samples subsumed by split LHS:  > 0 iff split.
-  IndexT lhExtent; // # " " indices " ".
-  IndexT lhImplicit; // LHS implicit index count:  numeric only.
+  IndexT lhExtent; // total # indices in LHS.  Written on arg-max.
 
   // Copied to decision node, if arg-max.  Numeric only:
   //
   IndexRange rankRange;  // Rank bounds.
-  
+
+ public:  
   static void immutables(double minRatio_);
   static void deImmutables();
 
@@ -53,12 +60,23 @@ struct SplitNux {
   SplitNux(SplitCoord splitCoord_,
 	   PredictorT setIdx_,
 	   unsigned char bufIdx_,
+	   double sum,
+	   IndexT sCount,
 	   double info_) :
   splitCoord(splitCoord_),
     setIdx(setIdx_),
     bufIdx(bufIdx_),
+    lhSum(sum),
+    lhSCount(sCount),
     info(info_) {
   }
+
+
+  SplitNux(const class SplitFrontier* splitFrontier,
+	   const class Frontier* frontier,
+	   const SplitCoord splitCoord_,
+	   unsigned char bufIdx_,
+	   IndexT noSet);
 
   
   ~SplitNux() {
@@ -90,15 +108,25 @@ struct SplitNux {
    */
   void writeBits(const class SplitFrontier* splitFrontier,
 		 PredictorT lhBits);
+
+
+  void writeSlots(const class SplitFrontier* splitFrontier,
+                  class RunSet* runSet,
+                  PredictorT cutSlot);
   
 
-  void writeNum(const SplitFrontier* splitFrontier,
+  void writeNum(const class SplitFrontier* splitFrontier,
 		double info,
 		IndexT rankLH,
 		IndexT rankRH,
 		IndexT lhScount,
 		IndexT lhImplicit,
 		IndexT rhMin);
+
+  
+  bool schedule(const class Level* levelFront,
+		const class Frontier* frontier,
+		vector<PredictorT>& runCount);
 
   /**
      @brief Consumes frontier node parameters associated with nonterminal.
@@ -119,6 +147,54 @@ struct SplitNux {
 
 
   /**
+     @brief Resets trial information value of this greater.
+
+     @param[out] runningMax holds the running maximum value.
+
+     @return true iff value revised.
+   */
+  bool maxInfo(double& runningMax) const {
+    if (info > runningMax) {
+      runningMax = info;
+      return true;
+    }
+    return false;
+  }
+
+
+  auto getPredIdx() const {
+    return splitCoord.predIdx;
+  }
+
+  auto getNodeIdx() const {
+    return splitCoord.nodeIdx;
+  }
+  
+
+  auto getSplitCoord() const {
+    return splitCoord;
+  }
+
+  auto getBufIdx() const {
+    return bufIdx;
+  }
+  
+  auto getSetIdx() const {
+    return setIdx;
+  }
+
+  /**
+     @brief Reference getter for over-writing info member.
+   */
+  double& refInfo() {
+    return info;
+  }
+  
+  auto getInfo() const {
+    return info;
+  }
+  
+  /**
      @return true iff left side has no implicit indices.  Rank-based
      splits only.
    */
@@ -126,16 +202,42 @@ struct SplitNux {
     return lhImplicit == 0;
   }
 
+  auto getIdxStart() const {
+    return idxRange.getStart();
+  }
 
   auto getExtent() const {
     return idxRange.getExtent();
   }
 
+  auto getIdxEnd() const {
+    return idxRange.getEnd() - 1;
+  }
+  
+  auto getRankRange() const {
+    return rankRange;
+  }
+  
+
+  auto getSCount() const {
+    return lhSCount;
+  }
+
+  
+  auto getSum() const {
+    return lhSum;
+  }
+  
 
   auto getLHExtent() const {
     return lhExtent;
   }
 
+  
+  auto getImplicitCount() const {
+    return lhImplicit;
+  }
+  
   
   /**
      @return Count of indices corresponding to LHS.
@@ -182,9 +284,17 @@ struct SplitNux {
     return range;
   }
 
-private:
-  static constexpr double minRatioDefault = 0.0;
-  static double minRatio;
+  void setImplicit(IndexT implicitCount) {
+    lhImplicit = implicitCount;
+  }
+
+  void setIndexRange(const IndexRange& range) {
+    idxRange = range;
+  }
+
+  void setSetIdx(PredictorT setIdx) {
+    this->setIdx = setIdx;
+  }
 };
 
 

@@ -82,7 +82,7 @@ public:
   IndexT rankLH; // Minimum rank charactersizing split.
   IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
   
-  SplitAccum(const class SplitCand* cand,
+  SplitAccum(const class SplitNux* cand,
              IndexT rankDense_);
 
   
@@ -90,7 +90,7 @@ public:
   }
 
   
-  IndexT lhImplicit(const class SplitCand* cand) const;
+  IndexT lhImplicit(const class SplitNux* cand) const;
 };
 
 
@@ -119,7 +119,7 @@ class SplitAccumReg : public SplitAccum {
      
      @return new residual based on the current splitting data set.
    */
-  unique_ptr<class Residual> makeResidual(const class SplitCand* cand,
+  unique_ptr<class Residual> makeResidual(const class SplitNux* cand,
                                     const class SampleRank spn[]);
 
   /**
@@ -134,7 +134,7 @@ class SplitAccumReg : public SplitAccum {
 
 
 public:
-  SplitAccumReg(const class SplitCand* splitCand,
+  SplitAccumReg(const class SplitNux* splitCand,
                 const class SampleRank spn[],
                 const class SFCartReg* spReg);
 
@@ -183,7 +183,7 @@ public:
    */
   void split(const class SFCartReg* spReg,
              const class SampleRank spn[],
-             class SplitCand* cand);
+             class SplitNux* cand);
   
 
   /**
@@ -193,7 +193,7 @@ public:
      @param resid summarizes the blob's residual statistics.
    */
   void splitImpl(const class SampleRank spn[],
-                 const class SplitCand* cand);
+                 const class SplitNux* cand);
 
 
   /**
@@ -258,13 +258,13 @@ class SplitAccumCtg : public SplitAccum {
      @return new residual for categorical response over cell.
   */
   unique_ptr<class ResidualCtg>
-  makeResidual(const class SplitCand* cand,
+  makeResidual(const class SplitNux* cand,
                const class SampleRank spn[],
-               class SFCartCtg* spCtg);
+               const class SFCartCtg* spCtg);
 
 public:
 
-  SplitAccumCtg(const class SplitCand* cand,
+  SplitAccumCtg(const class SplitNux* cand,
                 const class SampleRank spn[],
                 class SFCartCtg* spCtg);
 
@@ -311,7 +311,7 @@ public:
    */
   void split(const class SFCartCtg* spCtg,
              const class SampleRank spn[],
-             class SplitCand* cand);
+             class SplitNux* cand);
 
   
   /**
@@ -330,7 +330,7 @@ public:
      @brief As above, but with implicit dense blob.
    */
   void splitImpl(const class SampleRank spn[],
-                 const class SplitCand* cand);
+                 const class SplitNux* cand);
 
   /**
      @brief Accumulates right and left sums-of-squares from

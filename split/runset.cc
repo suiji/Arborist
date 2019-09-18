@@ -16,7 +16,6 @@
 #include "runset.h"
 #include "callback.h"
 #include "splitfrontier.h"
-#include "splitcand.h" // EXIT
 #include "splitnux.h"
 #include "pretree.h"
 #include "frontier.h"
@@ -222,7 +221,7 @@ void RunSet::heapBinary() {
 }
 
 
-void RunSet::writeImplicit(const SplitCand* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
+void RunSet::writeImplicit(const SplitNux* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
   IndexT implicit = cand->getImplicitCount();
   if (implicit == 0)
     return;

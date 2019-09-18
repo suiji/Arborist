@@ -14,9 +14,9 @@
  */
 
 
+#include "splitaccum.h"
 #include "frontier.h"
 #include "sfcart.h"
-#include "splitcand.h"
 #include "splitnux.h"
 #include "level.h"
 #include "runset.h"
@@ -91,18 +91,18 @@ void SFCartCtg::setRunOffsets(const vector<unsigned int>& runCount) {
 }
 
 
-double SFCartCtg::getSumSquares(const SplitCand *cand) const {
-  return sumSquares[cand->getSplitCoord().nodeIdx];
+double SFCartCtg::getSumSquares(const SplitNux *cand) const {
+  return sumSquares[cand->getNodeIdx()];
 }
 
 
-const vector<double>& SFCartCtg::getSumSlice(const SplitCand* cand) {
-  return ctgSum[cand->getSplitCoord().nodeIdx];
+const vector<double>& SFCartCtg::getSumSlice(const SplitNux* cand) const {
+  return ctgSum[cand->getNodeIdx()];
 }
 
 
-double* SFCartCtg::getAccumSlice(const SplitCand *cand) {
-  return &ctgSumAccum[getNumIdx(cand->getSplitCoord().predIdx) * splitCount * nCtg + cand->getSplitCoord().nodeIdx * nCtg];
+double* SFCartCtg::getAccumSlice(const SplitNux* cand) {
+  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * splitCount * nCtg + cand->getNodeIdx() * nCtg];
 }
 
 /**
@@ -152,7 +152,7 @@ void SFCartCtg::levelInitSumR(PredictorT nPredNum) {
 }
 
 
-int SFCartReg::getMonoMode(const SplitCand* cand) const {
+int SFCartReg::getMonoMode(const SplitNux* cand) const {
   if (mono.empty())
     return 0;
 
@@ -171,11 +171,207 @@ int SFCartReg::getMonoMode(const SplitCand* cand) const {
 }
 
 
-void SFCartCtg::split(SplitCand& cand) {
-  cand.split(this);
+void SFCartCtg::split(SplitNux* cand) {
+  if (isFactor(cand->getSplitCoord())) {
+      splitFac(cand);
+  }
+  else {
+    splitNum(cand);
+  }
 }
 
 
-void SFCartReg::split(SplitCand& cand) {
-  cand.split(this);
+void SFCartReg::split(SplitNux* cand) {
+  if (isFactor(cand->getSplitCoord())) {
+    splitFac(cand);
+  }
+  else {
+    splitNum(cand);
+  }
+}
+
+void SFCartReg::splitNum(SplitNux* cand) const {
+  SampleRank* spn = getPredBase(cand);
+  SplitAccumReg numPersist(cand, spn, this);
+  numPersist.split(this, spn, cand);
+}
+
+
+/**
+   Regression runs always maintained by heap.
+*/
+void SFCartReg::splitFac(SplitNux* cand) const {
+  RunSet *runSet = rSet(cand->getSetIdx());
+  SampleRank* spn = getPredBase(cand);
+  double sumHeap = 0.0;
+  IndexT sCountHeap = 0;
+  IndexT idxEnd = cand->getIdxEnd();
+  IndexT rkThis = spn[idxEnd].getRank();
+  IndexT frEnd = idxEnd;
+  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(cand->getIdxStart()); i--) {
+    IndexT rkRight = rkThis;
+    IndexT sampleCount;
+    FltVal ySum;
+    rkThis = spn[i].regFields(ySum, sampleCount);
+
+    if (rkThis == rkRight) { // Same run:  counters accumulate.
+      sumHeap += ySum;
+      sCountHeap += sampleCount;
+    }
+    else { // New run:  flush accumulated counters and reset.
+      runSet->write(rkRight, sCountHeap, sumHeap, frEnd - i, i+1);
+
+      sumHeap = ySum;
+      sCountHeap = sampleCount;
+      frEnd = i;
+    }
+  }
+  
+  // Flushes the remaining run and implicit run, if dense.
+  //
+  runSet->write(rkThis, sCountHeap, sumHeap, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
+  runSet->writeImplicit(cand, this);
+
+  PredictorT runSlot = heapSplit(runSet, cand);
+  cand->writeSlots(this, runSet, runSlot);
+}
+
+
+PredictorT SFCartReg::heapSplit(RunSet *runSet,
+				SplitNux* cand) const {
+  runSet->heapMean();
+  runSet->dePop();
+
+  const double sum = cand->getSum();
+  const IndexT sCount = cand->getSCount();
+  IndexT sCountL = 0;
+  double sumL = 0.0;
+  PredictorT runSlot = runSet->getRunCount() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
+    runSet->sumAccum(slotTrial, sCountL, sumL);
+    if (SplitAccumReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL, cand->refInfo())) {
+      runSlot = slotTrial;
+    }
+  }
+
+  return runSlot;
+}
+
+
+void SFCartCtg::splitNum(SplitNux* cand) {
+  SampleRank* spn = getPredBase(cand);
+  SplitAccumCtg numPersist(cand, spn, this);
+  numPersist.split(this, spn, cand);
+}
+
+
+void SFCartCtg::splitFac(SplitNux* cand) const {
+  buildRuns(cand);
+
+  if (nCtg == 2) {
+    splitBinary(cand);
+  }
+  else {
+    splitRuns(cand);
+  }
+}
+
+
+void SFCartCtg::buildRuns(SplitNux* cand) const {
+  SampleRank* spn = getPredBase(cand);
+  double sumLoc = 0.0;
+  IndexT sCountLoc = 0;
+  IndexT idxEnd = cand->getIdxEnd();
+  IndexT rkThis = spn[idxEnd].getRank();
+  auto runSet = rSet(cand->getSetIdx());
+
+  IndexT frEnd = idxEnd;
+  for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(cand->getIdxStart()); i--) {
+    IndexT rkRight = rkThis;
+    PredictorT yCtg;
+    IndexT sampleCount;
+    FltVal ySum;
+    rkThis = spn[i].ctgFields(ySum, sampleCount, yCtg);
+
+    if (rkThis == rkRight) { // Current run's counters accumulate.
+      sumLoc += ySum;
+      sCountLoc += sampleCount;
+    }
+    else { // Flushes current run and resets counters for next run.
+      runSet->write(rkRight, sCountLoc, sumLoc, frEnd - i, i + 1);
+
+      sumLoc = ySum;
+      sCountLoc = sampleCount;
+      frEnd = i;
+    }
+    runSet->accumCtg(nCtg, ySum, yCtg);
+  }
+
+  
+  // Flushes remaining run and implicit blob, if any.
+  runSet->write(rkThis, sCountLoc, sumLoc, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
+  runSet->writeImplicit(cand, this, getSumSlice(cand));
+}
+
+
+void SFCartCtg::splitBinary(SplitNux* cand) const {
+  RunSet *runSet = rSet(cand->getSetIdx());
+  runSet->heapBinary();
+  runSet->dePop();
+
+  const vector<double> ctgSum(getSumSlice(cand));
+  const double tot0 = ctgSum[0];
+  const double tot1 = ctgSum[1];
+  double sum = cand->getSum();
+  double sumL0 = 0.0; // Running left sum at category 0.
+  double sumL1 = 0.0; // " " category 1.
+  PredictorT runSlot = runSet->getRunCount() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
+    if (runSet->accumBinary(slotTrial, sumL0, sumL1)) { // Splitable
+      // sumR, sumL magnitudes can be ignored if no large case/class weightings.
+      FltVal sumL = sumL0 + sumL1;
+      double ssL = sumL0 * sumL0 + sumL1 * sumL1;
+      double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
+      if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
+        runSlot = slotTrial;
+      }
+    } 
+  }
+
+  cand->writeSlots(this, runSet, runSlot);
+}
+
+
+void SFCartCtg::splitRuns(SplitNux* cand) const {
+  RunSet *runSet = rSet(cand->getSetIdx());
+  const vector<double> ctgSum(getSumSlice(cand));
+  const PredictorT slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
+  PredictorT lhBits = 0;
+
+  // Nonempty subsets as binary-encoded unsigneds.
+  double sum = cand->getSum();
+  unsigned int leftFull = (1 << slotSup) - 1;
+  for (unsigned int subset = 1; subset <= leftFull; subset++) {
+    double sumL = 0.0;
+    double ssL = 0.0;
+    double ssR = 0.0;
+    PredictorT yCtg = 0;
+    for (auto nodeSum : ctgSum) {
+      double slotSum = 0.0; // Sum at category 'yCtg' over subset slots.
+      for (PredictorT slot = 0; slot < slotSup; slot++) {
+	if ((subset & (1ul << slot)) != 0) {
+	  slotSum += runSet->getSumCtg(slot, ctgSum.size(), yCtg);
+	}
+      }
+      yCtg++;
+      sumL += slotSum;
+      ssL += slotSum * slotSum;
+      ssR += (nodeSum - slotSum) * (nodeSum - slotSum);
+    }
+    if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
+      lhBits = subset;
+    }
+  }
+
+  cand->writeBits(this, lhBits);
 }

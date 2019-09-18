@@ -206,15 +206,15 @@ void Level::setLive(unsigned int idx, unsigned int path, unsigned int targIdx, u
 }
 
 
-bool Level::scheduleSplit(const Frontier* frontier, vector<PredictorT>& runCount, SplitNux& splitNux, IndexT& implicitCount) const {
-  if (!isSingleton(splitNux.splitCoord)) {
-    PredictorT rCount = bottom->getRunCount(splitNux.splitCoord);
+bool Level::scheduleSplit(const Frontier* frontier, vector<PredictorT>& runCount, SplitNux* cand) const {
+  if (!isSingleton(cand->getSplitCoord())) {
+    PredictorT rCount = bottom->getRunCount(cand->getSplitCoord());
     if (rCount > 1) {
-      splitNux.setIdx = runCount.size();
+      cand->setSetIdx(runCount.size());
       runCount.push_back(rCount);
     }
-    splitNux.idxRange = adjustRange(splitNux, frontier);
-    implicitCount = getImplicit(splitNux);
+    cand->setIndexRange(adjustRange(cand, frontier));
+    cand->setImplicit(getImplicit(cand));
     return true;
   }
   else {
@@ -223,28 +223,28 @@ bool Level::scheduleSplit(const Frontier* frontier, vector<PredictorT>& runCount
 }
 
 
-IndexRange Level::adjustRange(const SplitNux& splitNux,
+IndexRange Level::adjustRange(const SplitNux* cand,
 			      const Frontier* frontier) const {
-  IndexRange idxRange = frontier->getBufRange(splitNux);
-  if (isDense(splitNux)) {
-    denseCoord[denseOffset(splitNux)].adjustRange(idxRange);
+  IndexRange idxRange = frontier->getBufRange(cand);
+  if (isDense(cand)) {
+    denseCoord[denseOffset(cand)].adjustRange(idxRange);
   }
   return idxRange;
 }
 
 
-IndexT Level::getImplicit(const SplitNux& splitNux) const {
-  return isDense(splitNux) ? denseCoord[denseOffset(splitNux)].getImplicit() : 0;
+IndexT Level::getImplicit(const SplitNux* cand) const {
+  return isDense(cand) ? denseCoord[denseOffset(cand)].getImplicit() : 0;
 }
 
 
-IndexT Level::denseOffset(const SplitNux& splitNux) const {
-  return denseOffset(splitNux.splitCoord);
+IndexT Level::denseOffset(const SplitNux* cand) const {
+  return denseOffset(cand->getSplitCoord());
 }
 
 
-bool Level::isDense(const SplitNux& splitNux) const {
-  return isDense(splitNux.splitCoord);
+bool Level::isDense(const SplitNux* cand) const {
+  return isDense(cand->getSplitCoord());
 }
 
   

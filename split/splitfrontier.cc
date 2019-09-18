@@ -16,7 +16,7 @@
 
 #include "frontier.h"
 #include "splitfrontier.h"
-#include "splitcand.h"
+#include "splitnux.h"
 #include "level.h"
 #include "runset.h"
 #include "samplenux.h"
@@ -50,19 +50,19 @@ RunSet *SplitFrontier::rSet(IndexT setIdx) const {
 }
 
 
-SampleRank* SplitFrontier::getPredBase(const SplitCand* cand) const {
+SampleRank* SplitFrontier::getPredBase(const SplitNux* cand) const {
   return obsPart->getPredBase(cand);
 }
 
 
-IndexT SplitFrontier::getDenseRank(const SplitCand* cand) const {
-  return rankedFrame->getDenseRank(cand->getSplitCoord().predIdx);
+IndexT SplitFrontier::getDenseRank(const SplitNux* cand) const {
+  return rankedFrame->getDenseRank(cand->getPredIdx());
 }
 
 
 IndexT SplitFrontier::preschedule(const SplitCoord& splitCoord,
                                   unsigned int bufIdx) {
-  splitCand.emplace_back(SplitCand(this, frontier, splitCoord, bufIdx, noSet));
+  splitCand.emplace_back(SplitNux(this, frontier, splitCoord, bufIdx, noSet));
   return frontier->getExtent(splitCoord.nodeIdx);
 }
 
@@ -75,7 +75,7 @@ IndexT SplitFrontier::preschedule(const SplitCoord& splitCoord,
 */
 void SplitFrontier::scheduleSplits(const Level* levelFront) {
   vector<unsigned int> runCount;
-  vector<SplitCand> sc2;
+  vector<SplitNux> sc2;
   IndexT splitPrev = splitCount;
   for (auto & sg : splitCand) {
     if (sg.schedule(levelFront, frontier, runCount)) {
@@ -156,7 +156,7 @@ void SplitFrontier::splitCandidates() {
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(splitCand[splitPos]);
+      split(&splitCand[splitPos]);
     }
   }
 
@@ -193,7 +193,7 @@ SplitNux SplitFrontier::maxSplit(IndexT splitBase,
     }
   }
 
-  return runningMax > 0.0 ? SplitNux(splitCand[argMax].getSplitNux()) : SplitNux();
+  return runningMax > 0.0 ? SplitNux(splitCand[argMax]) : SplitNux();
 }
 
 
@@ -274,21 +274,21 @@ void SplitFrontier::critRun(PreTree* pretree,
 
 
 bool SplitFrontier::isInformative(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].info > iSet->getMinInfo();
+  return nuxMax[iSet->getSplitIdx()].getInfo() > iSet->getMinInfo();
 }
 
 
 IndexT SplitFrontier::getLHExtent(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].lhExtent;
+  return nuxMax[iSet->getSplitIdx()].getExtent();
 }
 
 
 IndexT SplitFrontier::getPredIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].splitCoord.predIdx;
+  return nuxMax[iSet->getSplitIdx()].getPredIdx();
 }
 
 unsigned int SplitFrontier::getBufIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].bufIdx;
+  return nuxMax[iSet->getSplitIdx()].getBufIdx();
 }
 
 
@@ -298,7 +298,7 @@ PredictorT SplitFrontier::getCardinality(const IndexSet* iSet) const {
 
 
 double SplitFrontier::getInfo(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].info;
+  return nuxMax[iSet->getSplitIdx()].getInfo();
 }
 
 
@@ -308,7 +308,7 @@ IndexRange SplitFrontier::getExplicitRange(const IndexSet* iSet) const {
 
 
 IndexRange SplitFrontier::getRankRange(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].rankRange;
+  return nuxMax[iSet->getSplitIdx()].getRankRange();
 }
 
 
@@ -318,6 +318,6 @@ bool SplitFrontier::leftIsExplicit(const IndexSet* iSet) const {
 
 
 IndexT SplitFrontier::getSetIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].setIdx;
+  return nuxMax[iSet->getSplitIdx()].getSetIdx();
 }
   
