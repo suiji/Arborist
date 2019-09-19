@@ -31,6 +31,28 @@
 // Post-split consumption:
 #include "pretree.h"
 
+
+SFCart::SFCart(const SummaryFrame* frame,
+	       Frontier* frontier,
+	       const Sample* sample) :
+  SplitFrontier(frame, frontier, sample) {
+}
+
+
+unique_ptr<SplitFrontier>
+SFCart::splitFactory(const SummaryFrame* frame,
+		     Frontier* frontier,
+		     const Sample* sample,
+		     PredictorT nCtg) {
+  if (nCtg > 0) {
+    return make_unique<SFCartCtg>(frame, frontier, sample, nCtg);
+  }
+  else {
+    return make_unique<SFCartReg>(frame, frontier, sample);
+  }
+}
+
+
 vector<double> SFCartReg::mono; // Numeric monotonicity constraints.
 
 
@@ -54,7 +76,8 @@ void SFCartReg::deImmutables() {
 SFCartReg::SFCartReg(const SummaryFrame* frame,
              Frontier* frontier,
 	     const Sample* sample) :
-  SplitFrontier(frame, frontier, sample),
+  SFCart(frame, frontier, sample),
+  //  SplitFrontier(frame, frontier, sample),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frame->getNRow());
 }
@@ -67,7 +90,8 @@ SFCartCtg::SFCartCtg(const SummaryFrame* frame,
              Frontier* frontier,
 	     const Sample* sample,
 	     PredictorT nCtg_):
-  SplitFrontier(frame, frontier, sample),
+  SFCart(frame, frontier, sample),
+  //  SplitFrontier(frame, frontier, sample),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frame->getNRow());
 }

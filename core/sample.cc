@@ -17,8 +17,6 @@
 #include "bv.h"
 #include "callback.h"
 #include "summaryframe.h"
-#include "splitfrontier.h"
-#include "sfcart.h" // Temporary
 #include "obspart.h"
 
 // Simulation-invariant values.
@@ -145,11 +143,6 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-unique_ptr<SplitFrontier> SampleReg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
-  return make_unique<SFCartReg>(frame, frontier, this);
-}
-
-
 SampleCtg::SampleCtg(const SummaryFrame* frame) : Sample(frame) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
@@ -161,11 +154,6 @@ SampleCtg::SampleCtg(const SummaryFrame* frame) : Sample(frame) {
 //
 void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *treeBag) {
   Sample::bagSamples(y, yCtg, treeBag);
-}
-
-
-unique_ptr<SplitFrontier> SampleCtg::frontierFactory(const SummaryFrame* frame, class Frontier* frontier) const {
-  return make_unique<SFCartCtg>(frame, frontier, this, SampleNux::getNCtg());
 }
 
 

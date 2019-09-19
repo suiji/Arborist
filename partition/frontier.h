@@ -481,8 +481,10 @@ class Frontier {
 
     @return trained pretree object.
   */
-  static unique_ptr<class PreTree> oneTree(const class SummaryFrame* frame,
-                                           const class Sample* sample);
+  static unique_ptr<class PreTree>
+  oneTree(const class Train* train,
+	  const class SummaryFrame* frame,
+	  const class Sample* sample);
 
 
   /**
@@ -708,7 +710,7 @@ class Frontier {
     return relBase[splitIdx];
   }
 
-
+  
   /**
      @brief Indicates whether index set is inherently unsplitable.
    */

@@ -24,10 +24,28 @@
 
 #include <vector>
 
+
+/**
+   @brief Abstract class with parametrized factory.
+ */
+class SFCart : public SplitFrontier {
+public:
+  SFCart(const class SummaryFrame* frame,
+	 class Frontier* frontier,
+	 const class Sample* sample);
+
+
+  static unique_ptr<SplitFrontier> splitFactory(const class SummaryFrame* frame,
+						class Frontier* frontier,
+						const class Sample* sample,
+						PredictorT nCtg);
+};
+
+  
 /**
    @brief Splitting facilities specific regression trees.
  */
-class SFCartReg : public SplitFrontier {
+class SFCartReg : public SFCart {
   // Bridge-supplied monotone constraints.  Length is # numeric predictors
   // or zero, if none so constrained.
   static vector<double> mono;
@@ -111,7 +129,7 @@ class SFCartReg : public SplitFrontier {
 /**
    @brief Splitting facilities for categorical trees.
  */
-class SFCartCtg : public SplitFrontier {
+class SFCartCtg : public SFCart {
 // Numerical tolerances taken from A. Liaw's code:
   static constexpr double minDenom = 1.0e-5;
   static constexpr double minSumL = 1.0e-8;

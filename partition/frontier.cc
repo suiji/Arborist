@@ -16,6 +16,7 @@
 #include "frontier.h"
 #include "pretree.h"
 #include "sample.h"
+#include "train.h"
 #include "obspart.h"
 #include "splitfrontier.h"
 #include "bottom.h"
@@ -62,10 +63,11 @@ IndexSet::IndexSet() :
 }
 
 
-unique_ptr<PreTree> Frontier::oneTree(const SummaryFrame* frame,
+unique_ptr<PreTree> Frontier::oneTree(const Train* train,
+				      const SummaryFrame* frame,
                                       const Sample *sample) {
   unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
-  unique_ptr<SplitFrontier> splitFrontier(sample->frontierFactory(frame, frontier.get()));
+  unique_ptr<SplitFrontier> splitFrontier(train->splitFactory(frame, frontier.get(), sample, SampleNux::getNCtg()));
   return frontier->levels(sample, splitFrontier.get());
 }
 

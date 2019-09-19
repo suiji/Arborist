@@ -169,7 +169,7 @@ vector<TrainSet> Train::blockProduce(const SummaryFrame* frame,
   vector<TrainSet> block(tCount);
   for (auto & set : block) {
     unique_ptr<Sample> sample(leaf->rootSample(frame, bagRow.get(), tIdx++));
-    unique_ptr<PreTree> preTree(Frontier::oneTree(frame, sample.get()));
+    unique_ptr<PreTree> preTree(Frontier::oneTree(this, frame, sample.get()));
     set = make_pair(move(sample), move(preTree));
   }
 
@@ -215,4 +215,13 @@ unsigned int Train::blockPeek(vector<TrainSet>& treeBlock,
  
 void Train::cacheBagRaw(unsigned char* bbRaw) const {
   bagRow->Serialize(bbRaw);
+}
+
+
+unique_ptr<SplitFrontier>
+Train::splitFactory(const SummaryFrame* frame,
+		    Frontier* frontier,
+		    const Sample* sample,
+		    PredictorT nCtg) const {
+  return SFCart::splitFactory(frame, frontier, sample, nCtg);
 }

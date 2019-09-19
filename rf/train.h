@@ -237,6 +237,18 @@ public:
      @param[out] bbRaw
    */
   void cacheBagRaw(unsigned char bbRaw[]) const;
+
+
+  /**
+     @brief Fixes splitting regime:  CART, survival, entropy, usw.
+
+     @nCtg is the reponse categoricity.
+   */
+  unique_ptr<class SplitFrontier>
+  splitFactory(const class SummaryFrame* frame,
+	       class Frontier* frontier,
+	       const class Sample* sample,
+	       PredictorT nCtg) const;
 };
 
 #endif
