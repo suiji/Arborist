@@ -18,7 +18,7 @@
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "level.h"
+#include "bottom.h"
 #include "runset.h"
 #include "samplenux.h"
 #include "obspart.h"
@@ -30,6 +30,26 @@
 
 // Post-split consumption:
 #include "pretree.h"
+
+
+PredictorT SFCart::predFixed = 0;
+vector<double> SFCart::predProb;
+
+void
+SFCart::init(PredictorT feFixed,
+	     const vector<double>& feProb) {
+  predFixed = feFixed;
+  for (auto prob : feProb) {
+    predProb.push_back(prob);
+  }
+}
+
+
+void
+SFCart::deInit() {
+  predFixed = 0;
+  predProb.clear();
+}
 
 
 SFCart::SFCart(const SummaryFrame* frame,
@@ -56,8 +76,9 @@ SFCart::splitFactory(const SummaryFrame* frame,
 vector<double> SFCartReg::mono; // Numeric monotonicity constraints.
 
 
-void SFCartReg::immutables(const SummaryFrame* frame,
-                       const vector<double>& bridgeMono) {
+void
+SFCartReg::immutables(const SummaryFrame* frame,
+		      const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
   auto monoCount = count_if(bridgeMono.begin() + numFirst, bridgeMono.begin() + numExtent, [] (double prob) { return prob != 0.0; });
@@ -77,7 +98,6 @@ SFCartReg::SFCartReg(const SummaryFrame* frame,
              Frontier* frontier,
 	     const Sample* sample) :
   SFCart(frame, frontier, sample),
-  //  SplitFrontier(frame, frontier, sample),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frame->getNRow());
 }
@@ -91,10 +111,94 @@ SFCartCtg::SFCartCtg(const SummaryFrame* frame,
 	     const Sample* sample,
 	     PredictorT nCtg_):
   SFCart(frame, frontier, sample),
-  //  SplitFrontier(frame, frontier, sample),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frame->getNRow());
 }
+
+
+void
+SFCart::candidates(const Frontier* frontier,
+		   const Bottom* bottom) {
+// TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
+  IndexT cellCount = splitCount * nPred;
+  vector<IndexT> offCand(cellCount);
+  fill(offCand.begin(), offCand.end(), cellCount);
+  
+  auto ruPred = CallBack::rUnif(cellCount);
+
+  vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
+
+  IndexT spanCand = 0;
+  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+    IndexT splitOff = splitIdx * nPred;
+    if (frontier->isUnsplitable(splitIdx)) { // Node cannot split.
+      continue;
+    }
+    else if (predFixed == 0) { // Probability of predictor splitable.
+      candidateProb(bottom, splitIdx, &ruPred[splitOff], offCand, spanCand);
+    }
+    else { // Fixed number of predictors splitable.
+      candidateFixed(bottom, splitIdx, &ruPred[splitOff], &heap[splitOff], offCand, spanCand);
+    }
+  }
+  cacheOffsets(offCand);
+}
+
+
+void
+SFCart::candidateProb(const Bottom* bottom,
+		      IndexT splitIdx,
+		      const double ruPred[],
+		      vector<IndexT>& offCand,
+		      IndexT& spanCand) {
+  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
+    if (ruPred[predIdx] < predProb[predIdx]) {
+      SplitCoord splitCoord(splitIdx, predIdx);
+      (void) preschedule(bottom, splitCoord, offCand, spanCand);
+    }
+  }
+}
+
+ 
+void
+SFCart::candidateFixed(const Bottom* bottom,
+		       IndexT splitIdx,
+		       const double ruPred[],
+		       BHPair heap[],
+		       vector<IndexT>& offCand,
+		       IndexT &spanCand) {
+  // Inserts negative, weighted probability value:  choose from lowest.
+  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
+    BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
+  }
+
+  // Pops 'predFixed' items in order of increasing value.
+  PredictorT schedCount = 0;
+  for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
+    SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
+    schedCount += preschedule(bottom, splitCoord, offCand, spanCand);
+    if (schedCount == predFixed)
+      break;
+  }
+}
+
+
+unsigned int
+SFCart::preschedule(const Bottom* bottom,
+		    const SplitCoord& splitCoord,
+		    vector<IndexT>& offCand,
+		    IndexT& spanCand) {
+  unsigned int bufIdx;
+  bottom->reachFlush(splitCoord);
+  if (!bottom->isSingleton(splitCoord, bufIdx)) {
+    offCand[splitCoord.strideOffset(nPred)] = spanCand;
+    spanCand += SplitFrontier::preschedule(splitCoord, bufIdx);
+    return 1;
+  }
+  return 0;
+}
+
+
 
 
 /**

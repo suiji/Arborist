@@ -18,8 +18,7 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "summaryframe.h"
-#include "level.h"
-
+#include "bottom.h"
 
 double SplitNux::minRatio = minRatioDefault;
 
@@ -82,10 +81,22 @@ PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
 }
 
 
-bool SplitNux::schedule(const Level* levelFront,
+bool SplitNux::schedule(const Bottom* bottom,
 			const Frontier* frontier,
 			vector<unsigned int>& runCount) {
-  return levelFront->scheduleSplit(frontier, runCount, this);
+  if (!bottom->isSingleton(splitCoord)) {
+    PredictorT rCount = bottom->getRunCount(splitCoord);
+    if (rCount > 1) {
+      setSetIdx(runCount.size());
+      runCount.push_back(rCount);
+    }
+    setIndexRange(bottom->adjustRange(this, frontier));
+    setImplicit(bottom->getImplicitCount(this));
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 

@@ -18,21 +18,12 @@
 
 
 #include "splitcoord.h"
+#include "stagecount.h"
 #include "typeparam.h"
 
 #include <vector>
 
 #include "samplenux.h" // Temporary
-
-
-/**
-   @brief Summarizes staging operation.
- */
-class StageCount {
- public:
-  unsigned int expl;
-  bool singleton;
-};
 
 
 /**

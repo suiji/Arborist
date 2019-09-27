@@ -153,6 +153,32 @@ class Bottom {
   void scheduleSplits(class SplitFrontier* splitFrontier,
                       class Frontier *index);
 
+
+  /**
+     @brief Passes through to front level.
+   */
+  bool
+  isSingleton(const SplitCoord& splitCoord) const;
+
+
+  bool
+  isSingleton(const SplitCoord& splitCoord,
+	      unsigned int& bufIdx) const;
+
+  
+  /**
+     @brief Passes through to front level.
+   */
+  IndexRange
+  adjustRange(const class SplitNux* nux,
+	      const class Frontier* frontier) const;
+
+  /**
+     @brief Passes through to front level.
+   */
+  IndexT
+  getImplicitCount(const class SplitNux* nux) const;
+
   
   /**
      @brief Updates subtree and pretree mappings from temporaries constructed
@@ -338,16 +364,22 @@ class Bottom {
 
      @return level-relative index of ancestor node.
  */
-  unsigned int getHistory(const Level *reachLevel,
-                          unsigned int splitIdx) const;
+  IndexT
+  getHistory(const Level *reachLevel,
+	     IndexT splitIdx) const;
 
+
+  SplitCoord
+  getHistory(const Level* reachLevel,
+	     const SplitCoord& coord) const;
+  
   
   /**
      @brief Looks up the level containing the MRRA of a pair.
    */
-  inline class Level *reachLevel(unsigned int levelIdx,
-                                 unsigned int predIdx) const {
-    return level[levelDelta[levelIdx * nPred + predIdx]].get();
+  inline class Level*
+  reachLevel(const SplitCoord& coord) const {
+    return level[levelDelta[coord.nodeIdx * nPred + coord.predIdx]].get();
   }
 
 

@@ -18,6 +18,7 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "level.h"
+#include "bottom.h"
 #include "runset.h"
 #include "samplenux.h"
 #include "obspart.h"
@@ -36,6 +37,7 @@ SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
+  nPred(frame->getNPred()),
   noSet(sample->getBagCount() * frame->getNPredFac()),
   obsPart(sample->predictors()) {
 }
@@ -73,12 +75,12 @@ IndexT SplitFrontier::preschedule(const SplitCoord& splitCoord,
    initialization or as a result of bagging.  Fills in run counts, which
    values restaging has established precisely.
 */
-void SplitFrontier::scheduleSplits(const Level* levelFront) {
+void SplitFrontier::scheduleSplits(const Bottom* bottom) {
   vector<unsigned int> runCount;
   vector<SplitNux> sc2;
   IndexT splitPrev = splitCount;
   for (auto & sg : splitCand) {
-    if (sg.schedule(levelFront, frontier, runCount)) {
+    if (sg.schedule(bottom, frontier, runCount)) {
       IndexT splitThis = sg.getSplitCoord().nodeIdx;
       nCand[splitThis]++;
       if (splitPrev != splitThis) {
@@ -92,6 +94,12 @@ void SplitFrontier::scheduleSplits(const Level* levelFront) {
 
   setRunOffsets(runCount);
   splitCandidates();
+}
+
+
+void
+SplitFrontier::cacheOffsets(vector<IndexT>& candOffset) {
+  this->candOffset = move(candOffset);
 }
 
 

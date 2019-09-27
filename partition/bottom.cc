@@ -17,12 +17,10 @@
 #include "level.h"
 #include "frontier.h"
 #include "splitfrontier.h"
-#include "sample.h"
 #include "summaryframe.h"
-#include "runset.h"
 #include "rankedframe.h"
 #include "path.h"
-#include "obspart.h"
+#include "stagecount.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -52,10 +50,12 @@ Bottom::Bottom(const SummaryFrame* frame_,
 }
 
 
-void Bottom::rootDef(const vector<StageCount>& stageCount, IndexT bagCount) {
+void
+Bottom::rootDef(const vector<StageCount>& stageCount,
+		IndexT bagCount) {
   const unsigned int bufIdx = 0; // Initial staging buffer index.
-  const unsigned int splitIdx = 0; // Root split index.
-  unsigned int predIdx = 0;
+  const IndexT splitIdx = 0; // Root split index.
+  PredictorT predIdx = 0;
   for (auto sc : stageCount) {
     SplitCoord splitCoord(splitIdx, predIdx);
     (void) level[0]->define(splitCoord, bufIdx, sc.singleton, bagCount - sc.expl);
@@ -65,11 +65,13 @@ void Bottom::rootDef(const vector<StageCount>& stageCount, IndexT bagCount) {
 }
 
 
-void Bottom::scheduleSplits(SplitFrontier* splitFrontier,
-                            Frontier *frontier) {
+void
+Bottom::scheduleSplits(SplitFrontier* splitFrontier,
+		       Frontier *frontier) {
   splitFrontier->init();
   unsigned int flushCount = flushRear();
-  level[0]->candidates(frontier, splitFrontier);
+  splitFrontier->candidates(frontier, this);
+    //level[0]->candidates(frontier, splitFrontier);
 
   backdate();
   restage(splitFrontier);
@@ -79,12 +81,39 @@ void Bottom::scheduleSplits(SplitFrontier* splitFrontier,
   if (flushCount > 0) {
     level.erase(level.end() - flushCount, level.end());
   }
-  splitFrontier->scheduleSplits(level[0].get());
+  splitFrontier->scheduleSplits(this);
+}
+
+
+bool
+Bottom::isSingleton(const SplitCoord& splitCoord) const {
+  return level[0]->isSingleton(splitCoord);
+}
+
+
+bool
+Bottom::isSingleton(const SplitCoord& splitCoord,
+		    unsigned int& bufIdx) const {
+  return level[0]->isSingleton(splitCoord, bufIdx);
+}
+
+
+IndexRange
+Bottom::adjustRange(const SplitNux* nux,
+		    const Frontier* frontier) const {
+  return level[0]->adjustRange(nux, frontier);
+}
+
+
+IndexT
+Bottom::getImplicitCount(const SplitNux* nux) const {
+  return level[0]->getImplicit(nux);
 }
 
 
 
-unsigned int Bottom::flushRear() {
+unsigned int
+Bottom::flushRear() {
   unsigned int unflushTop = level.size() - 1;
 
   // Capacity:  1 front level + 'pathMax' back levels.
@@ -129,9 +158,10 @@ unsigned int Bottom::flushRear() {
 }
 
 
-void Bottom::scheduleRestage(unsigned int del,
-                             const SplitCoord& splitCoord,
-                             unsigned bufIdx) {
+void
+Bottom::scheduleRestage(unsigned int del,
+			const SplitCoord& splitCoord,
+			unsigned bufIdx) {
   restageCoord.emplace_back(RestageCoord(splitCoord, del, bufIdx));
 }
 
@@ -144,7 +174,8 @@ Bottom::~Bottom() {
 }
 
 
-void Bottom::restage(const SplitFrontier* splitFrontier) {
+void
+Bottom::restage(const SplitFrontier* splitFrontier) {
   OMPBound idxTop = restageCoord.size();
   
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -159,26 +190,30 @@ void Bottom::restage(const SplitFrontier* splitFrontier) {
 }
 
 
-void Bottom::restage(const SplitFrontier* splitFrontier, RestageCoord &rsCoord) {
+void
+Bottom::restage(const SplitFrontier* splitFrontier,
+		RestageCoord &rsCoord) {
   unsigned int del, bufIdx;
   SplitCoord mrra = rsCoord.Ref(del, bufIdx);
   splitFrontier->restage(level[del].get(), level[0].get(), mrra, bufIdx);
 }
 
 
-bool Bottom::factorStride(unsigned int predIdx,
-                          unsigned int nStride,
-                          unsigned int &facStride) const {
+bool
+Bottom::factorStride(PredictorT predIdx,
+		     unsigned int nStride,
+		     unsigned int& facStride) const {
   bool isFactor;
   facStride = frame->getFacStride(predIdx, nStride, isFactor);
   return isFactor;
 }
 
 
-void Bottom::overlap(unsigned int splitNext,
-                     unsigned int bagCount,
-                     unsigned int idxLive,
-                     bool nodeRel) {
+void
+Bottom::overlap(IndexT splitNext,
+                IndexT bagCount,
+                IndexT idxLive,
+		bool nodeRel) {
   splitPrev = splitCount;
   splitCount = splitNext;
   if (splitCount == 0) // No further splitting or restaging.
@@ -192,7 +227,7 @@ void Bottom::overlap(unsigned int splitNext,
   deltaPrev = move(levelDelta);
   levelDelta = vector<unsigned char>(splitCount * nPred);
 
-  runCount = vector<unsigned int>(splitCount * nPredFac);
+  runCount = vector<PredictorT>(splitCount * nPredFac);
   fill(runCount.begin(), runCount.end(), 0);
 
   for (auto lv = level.begin() + 1; lv != level.end(); lv++) {
@@ -201,7 +236,8 @@ void Bottom::overlap(unsigned int splitNext,
 }
 
 
-void Bottom::backdate() const {
+void
+Bottom::backdate() const {
   if (level.size() > 2 && level[1]->isNodeRel()) {
     for (auto lv = level.begin() + 2; lv != level.end(); lv++) {
       if (!(*lv)->backdate(getFrontPath(1))) {
@@ -212,11 +248,12 @@ void Bottom::backdate() const {
 }
 
   
-void Bottom::reachingPath(unsigned int splitIdx,
-                          unsigned int parIdx,
-                          const IndexRange& bufRange,
-                          unsigned int relBase,
-                          unsigned int path) {
+void
+Bottom::reachingPath(IndexT splitIdx,
+		     IndexT parIdx,
+		     const IndexRange& bufRange,
+		     IndexT relBase,
+		     unsigned int path) {
   for (unsigned int backLevel = 0; backLevel < level.size() - 1; backLevel++) {
     history[splitIdx + splitCount * backLevel] = backLevel == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLevel - 1)];
   }
@@ -228,16 +265,17 @@ void Bottom::reachingPath(unsigned int splitIdx,
   // reaching path.
   //
   for (auto lv = level.begin() + 1; lv != level.end(); lv++) {
-    (*lv)->pathInit(this, splitIdx, path, bufRange, relBase);
+    (*lv)->pathInit(splitIdx, path, bufRange, relBase);
   }
 }
 
 
-void Bottom::setLive(IndexT ndx,
-                     unsigned int targIdx,
-                     unsigned int stx,
-                     unsigned int path,
-                     unsigned int ndBase) {
+void
+Bottom::setLive(IndexT ndx,
+		IndexT targIdx,
+		IndexT stx,
+		unsigned int path,
+		IndexT ndBase) {
   level[0]->setLive(ndx, path, targIdx, ndBase);
 
   if (!level.back()->isNodeRel()) {
@@ -246,51 +284,66 @@ void Bottom::setLive(IndexT ndx,
 }
 
 
-void Bottom::setExtinct(unsigned int nodeIdx,
-                        IndexT stIdx) {
+void
+Bottom::setExtinct(IndexT nodeIdx,
+		   IndexT stIdx) {
   level[0]->setExtinct(nodeIdx);
   setExtinct(stIdx);
 }
 
 
-void Bottom::setExtinct(IndexT stIdx) {
+void
+Bottom::setExtinct(IndexT stIdx) {
   if (!level.back()->isNodeRel()) {
     stPath->setExtinct(stIdx);
   }
 }
 
 
-unsigned int Bottom::getSplitCount(unsigned int del) const {
+IndexT
+Bottom::getSplitCount(unsigned int del) const {
   return level[del]->getSplitCount();
 }
 
 
-void Bottom::addDef(const SplitCoord& splitCoord,
-                    unsigned int bufIdx,
-                    bool singleton) {
+void
+Bottom::addDef(const SplitCoord& splitCoord,
+	       unsigned int bufIdx,
+	       bool singleton) {
   if (level[0]->define(splitCoord, bufIdx, singleton)) {
     levelDelta[splitCoord.strideOffset(nPred)] = 0;
   }
 }
   
 
-unsigned int Bottom::getHistory(const Level *reachLevel,
-                                unsigned int splitIdx) const {
+IndexT
+Bottom::getHistory(const Level *reachLevel,
+                   IndexT splitIdx) const {
   return reachLevel == level[0].get() ? splitIdx : history[splitIdx + (reachLevel->getDel() - 1) * splitCount];
 }
 
 
-const IdxPath *Bottom::getFrontPath(unsigned int del) const {
+SplitCoord
+Bottom::getHistory(const Level* reachLevel,
+		   const SplitCoord& coord) const {
+  return reachLevel == level[0].get() ? coord :
+    SplitCoord(history[coord.nodeIdx + splitCount * (reachLevel->getDel() - 1)], coord.predIdx);
+}
+
+const IdxPath*
+Bottom::getFrontPath(unsigned int del) const {
   return level[del]->getFrontPath();
 }
 
 
-void Bottom::setSingleton(const SplitCoord& splitCoord) const {
+void
+Bottom::setSingleton(const SplitCoord& splitCoord) const {
   level[0]->setSingleton(splitCoord);
 }
 
 
-void Bottom::reachFlush(const SplitCoord& splitCoord) const {
-  Level *reachingLevel = reachLevel(splitCoord.nodeIdx, splitCoord.predIdx);
-  reachingLevel->flushDef(SplitCoord(getHistory(reachingLevel, splitCoord.nodeIdx), splitCoord.predIdx));
+void
+Bottom::reachFlush(const SplitCoord& splitCoord) const {
+  Level *reachingLevel = reachLevel(splitCoord);
+  reachingLevel->flushDef(getHistory(reachingLevel, splitCoord));
 }

@@ -24,7 +24,7 @@
 #include "sfcart.h"
 #include "splitnux.h"
 #include "leaf.h"
-#include "level.h"
+//#include "level.h"
 #include "ompthread.h"
 #include "coproc.h"
 
@@ -45,7 +45,7 @@ void Train::initCDF(const vector<double> &feSplitQuant) {
 
 void Train::initProb(unsigned int predFixed,
                      const vector<double> &predProb) {
-  Level::immutables(predFixed, predProb);
+  SFCart::init(predFixed, predProb);
 }
 
 
@@ -92,7 +92,7 @@ void Train::deInit() {
   PreTree::deImmutables();
   Sample::deImmutables();
   SampleNux::deImmutables();
-  Level::deImmutables();
+  SFCart::deInit();
   SFCartReg::deImmutables();
   OmpThread::deInit();
 }

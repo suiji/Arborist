@@ -59,11 +59,13 @@ struct SplitSurvey {
 class SplitFrontier {
   vector<class SplitNux> nuxMax; // Rewritten following each splitting event.
   void setPrebias();//class Frontier *index);
-  
- protected:
+  vector<IndexT> candOffset; // Offset indices for each scheduled candidate.
+
+protected:
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
+  const PredictorT nPred;
   const IndexT noSet; // Unreachable setIdx for SplitNux.
   unique_ptr<class ObsPart> obsPart;
   IndexT splitCount; // # subtree nodes at current level.
@@ -93,15 +95,18 @@ public:
                 class Frontier* frontier_,
                 const class Sample* sample);
 
+  void
+  cacheOffsets(vector<IndexT>& candOffset);
 
-  void scheduleSplits(//const class Frontier *index,
-		      const class Level *levelFront);
+  
+  void
+  scheduleSplits(const class Bottom* bottom);
 
+  
   /**
      @brief Emplaces new candidate with specified coordinates.
    */
-  IndexT preschedule(//const Frontier* index,
-                     const SplitCoord& splitCoord,
+  IndexT preschedule(const SplitCoord& splitCoord,
                      unsigned int bufIdx);
 
   /**
@@ -283,6 +288,13 @@ public:
      @brief Invokes algorithm-specific splitting methods.
    */
   void splitCandidates();
+
+  /**
+     @brief Determines splitting candidates.
+   */
+  virtual void
+  candidates(const class Frontier* frontier,
+	     const class Bottom* bottom) = 0;
   
   virtual void split(class SplitNux* cand) = 0;
   virtual ~SplitFrontier();

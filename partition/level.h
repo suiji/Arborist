@@ -47,7 +47,8 @@ class MRRA {
 
      @param singleton is true iff the value is singleton.
    */
-  inline void init(unsigned int bufIdx, bool singleton) {
+  inline void
+  init(unsigned int bufIdx, bool singleton) {
     raw = defBit | (singleton ? oneBit : 0) | (bufIdx == 0 ? 0 : bufBit);
   }
 
@@ -57,7 +58,8 @@ class MRRA {
 
      @return true iff value is singleton.
    */
-  inline bool isSingleton() const {
+  inline bool
+  isSingleton() const {
     return (raw & oneBit) != 0;
   }
 
@@ -69,13 +71,15 @@ class MRRA {
 
      @return true iff singleton.
    */
-  inline bool isSingleton(unsigned int& bufIdx) const {
+  inline bool
+  isSingleton(unsigned int& bufIdx) const {
     bufIdx = (raw & bufBit) == 0 ? 0 : 1;
     return isSingleton();
   }
   
 
-  inline void setDense() {
+  inline void
+  setDense() {
     raw |= denseBit;
   }
 
@@ -86,7 +90,8 @@ class MRRA {
 
      @return true iff dense bit set.
    */
-  inline bool isDense() const {
+  inline bool
+  isDense() const {
     return (raw & denseBit) != 0;
   }
 
@@ -94,7 +99,8 @@ class MRRA {
   /**
      @brief Sets the singleton bit.
    */
-  inline void setSingleton() {
+  inline void
+  setSingleton() {
     raw |= oneBit;
   }
 
@@ -102,7 +108,8 @@ class MRRA {
   /**
      @brief Indicates whether value is live.
    */
-  inline bool isDefined() const {
+  inline bool
+  isDefined() const {
     return (raw & defBit) != 0;
   }
   
@@ -112,7 +119,8 @@ class MRRA {
      
      @return true iff the value was live on entry.
    */
-  inline bool undefine() {
+  inline bool
+  undefine() {
     bool wasDefined = isDefined();
     raw &= ~defBit;
     return wasDefined;
@@ -126,7 +134,8 @@ class MRRA {
 
      @param[out] singleton outputs whether the value is singleton.
   */
-  inline void consume(unsigned int& bufIdx, bool& singleton) {
+  inline void
+  consume(unsigned int& bufIdx, bool& singleton) {
     singleton = isSingleton(bufIdx);
     (void) undefine();
   }
@@ -146,7 +155,8 @@ class DenseCoord {
 
  public:
 
-  inline IndexT getImplicit() const {
+  inline IndexT
+  getImplicit() const {
     return implicit;
   }
 
@@ -158,7 +168,8 @@ class DenseCoord {
 
      @return count of implicit indices, i.e., size of dense blob..
    */
-  inline void adjustRange(IndexRange& idxRange) const {
+  inline void
+  adjustRange(IndexRange& idxRange) const {
     idxRange.adjust(margin, implicit);
   }
 
@@ -168,8 +179,9 @@ class DenseCoord {
 
      @return void.
    */
-  inline void init(IndexT implicit,
-                   IndexT margin = 0) {
+  inline void
+  init(IndexT implicit,
+       IndexT margin = 0) {
     this->implicit = implicit;
     this->margin = margin;
   }
@@ -183,17 +195,12 @@ class Level {
   const PredictorT nPred; // Predictor count.
   const vector<IndexT>& denseIdx; // Compressed mapping to dense offsets.
   const PredictorT nPredDense; // # dense predictors.
-  const IndexType nSplit; // # splitable nodes at level.
-  const IndexType noIndex; // Inattainable node index value.
-  const IndexType idxLive; // Total # sample indices at level.
+  const IndexT nSplit; // # splitable nodes at level.
+  const IndexT noIndex; // Inattainable node index value.
+  const IndexT idxLive; // Total # sample indices at level.
 
   IndexT defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
-
-  // Immutable:
-  //
-  static PredictorT predFixed;
-  static vector<double> predProb;
 
   // Persistent:
   vector<IndexRange> indexAnc; // Stage coordinates, by node.
@@ -205,26 +212,24 @@ class Level {
 
   // Recomputed:
   unique_ptr<class IdxPath> relPath;
-  vector<IndexType> offCand;
   vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
-  vector<IndexType> liveCount; // Indexed by node.
+  vector<IndexT> liveCount; // Indexed by node.
 
-  IndexType candExtent; // Total candidate index extent.
+  IndexT candExtent; // Total candidate index extent.
   const bool nodeRel;  // Subtree- or node-relative indexing.
   class Bottom *bottom;
 
-/**
-   @brief Schedules a non-singleton splitting candidate.
+  /**
+     @brief Schedules a non-singleton splitting candidate.
 
-   @param splitIdx
+     @param splitCoord is the pair.
 
-   @param predIdx
-
-   @return true iff pair scheduled for splitting.
- */
-  bool preschedule(class SplitFrontier *splitNode,
-                   const SplitCoord& splitCoord,
-                   IndexT& spanCand);
+     @return 1 if pair scheduled else 0.
+  */
+  unsigned int
+  preschedule(class SplitFrontier* splitNode,
+	      const SplitCoord& splitCoord,
+	      IndexT& spanCand);
   
 public:
   Level(IndexT nSplit_,
@@ -236,51 +241,6 @@ public:
         class Bottom* bottom);
   ~Level();
 
-  static void immutables(PredictorT feFixed, const vector<double>& feProb);
-  static void deImmutables();
-
-
-  /**
-     @brief Signals SplitFrontier to schedule splitable pairs.
-
-     @param index summarizes the index sets at the current level.
-
-     @param splitNode maintains the candidate list.
-  */
-  void candidates(const class Frontier *index,
-                  class SplitFrontier *splitNode);
-
-  /**
-   @brief Determines splitable candidates by Bernoulli sampling.
-
-   @param splitIdx is the level-relative node index.
-
-   @param ruPred is a vector of uniformly-sampled variates.
-
-   @param offCand accumulates offsets for splitable pairs.
- */
-  void candidateProb(class SplitFrontier *splitNode,
-                     IndexType splitIdx,
-                     const double ruPred[],
-                     IndexType& offCand);
-
-  /**
-   @brief Determines splitable candidates from fixed number of predictors.
-
-   @param ruPred is a vector of uniformly-sampled variates.
-
-   @param heap orders probability-weighted variates.
-
-   @param extent is the index count of the splitting node.
-
-   @param offCand accumulates offsets for splitable pairs.
- */
-  void candidateFixed(class SplitFrontier *splitNode,
-                      IndexType splitIdx,
-                      const double ruPred[],
-                      struct BHPair heap[],
-                      IndexType& offCand);
-
 
   void rankRestage(class ObsPart *samplePred,
                    const SplitCoord& mrra,
@@ -291,7 +251,8 @@ public:
   void indexRestage(class ObsPart* obsPart,
                     const SplitCoord& mrra,
                     const Level* levelFront,
-                    unsigned int bufIdx);
+                    unsigned int bufIdx,
+		    const vector<IndexT>& offCand);
 
   /**
      @brief Precomputes path vector prior to restaging.
@@ -321,8 +282,6 @@ public:
      @brief Moves entire level's defnitions to restaging schedule.
 
      @param bottom is the active bottom state.
-
-     @return void.
   */
   void flush(bool forward = true);
 
@@ -332,7 +291,8 @@ public:
 
      @param mrra is the coordinate pair of the ancestor to flush.
   */
-  void flushDef(const SplitCoord& splitCoord);
+  void
+  flushDef(const SplitCoord& splitCoord);
 
 
   /**
@@ -340,47 +300,33 @@ public:
 
      @return true iff a definition was purged at this level.
   */
-  bool nonreachPurge();
+  bool
+  nonreachPurge();
 
   /**
      @brief Initializes paths reaching from non-front levels.
    */
-  void reachingPaths();
+  void
+  reachingPaths();
 
-  void pathInit(const class Bottom *bottom,
-                IndexT levelIdx,
-                unsigned int path,
-                const IndexRange& bufRange,
-                unsigned int relBase);
-
-  /**
-     @brief Determines whether a cell is suitable for splitting.
-
-     It may, for example, have become unsplitiable as a result of restaging's
-     precipitating a singleton instance.
-
-     @param splitIdx is the split index.
-
-     @param predIdx is the predictor index.
-
-     @param[out] rCount outputs the run count iff not singleton.
-
-     @return true iff candidate remains splitable.
-  */
-  bool scheduleSplit(const class Frontier* frontier,
-		     vector<PredictorT>& runCount,
-		     class SplitNux* cand) const;
+  void
+  pathInit(IndexT levelIdx,
+	   unsigned int path,
+	   const IndexRange& bufRange,
+	   IndexT relBase);
 
   
   /**
      @brief Looks up the ancestor cell built for the corresponding index
      node and adjusts start and extent values by corresponding dense parameters.
   */
-  IndexRange getRange(const SplitCoord& mrra);
+  IndexRange
+  getRange(const SplitCoord& mrra);
 
-  void frontDef(const SplitCoord& splitCoord,
-                unsigned int bufIdx,
-                bool singleton);
+  void
+  frontDef(const SplitCoord& splitCoord,
+	   unsigned int bufIdx,
+	   bool singleton);
 
   /**
      @brief Clones offsets along path reaching from ancestor node.
@@ -390,26 +336,27 @@ public:
      @param[out] reachOffset outputs node starting offsets.
 
      @param[out] reachBase outputs node-relative offsets, iff nonnull.
-
-     @return path origin at the index passed.
   */
-  void offsetClone(const SplitCoord& mrra,
-                   unsigned int reachOffset[],
-                   unsigned int reachBase[] = nullptr);
+  void
+  offsetClone(const SplitCoord& mrra,
+	      IndexT reachOffset[],
+	      IndexT reachBase[] = nullptr);
 
-  void offsetClone(const SplitCoord& mrra,
-                   unsigned int reachOffset[],
-                   unsigned int splitOffset[],
-                   unsigned int reachBase[]);
+  void
+  offsetClone(const SplitCoord& mrra,
+	      const vector<IndexT>& offCand,
+	      IndexT reachOffset[],
+	      IndexT splitOffset[],
+	      IndexT reachBase[] = nullptr);
 
 /**
    @brief Sets dense count on target MRRA and, if singleton, sets run count to
    unity.
  */
-  void setRunCounts(class Bottom *bottom,
-                    const SplitCoord& mrra,
-                    const unsigned int pathCount[],
-                    const unsigned int rankCount[]) const;
+  void
+  setRunCounts(const SplitCoord& mrra,
+	       const unsigned int pathCount[],
+	       const unsigned int rankCount[]) const;
 
 /**
    @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
@@ -421,13 +368,15 @@ public:
 
    @param[out] reachOffset outputs the dense starting offsets.
  */
-  void packDense(IndexType idxLeft,
-                 const unsigned int pathCount[],
-                 Level *levelFront,
-                 const SplitCoord& mrra,
-                 unsigned int reachOffset[]) const;
+  void
+  packDense(IndexT idxLeft,
+	    const unsigned int pathCount[],
+	    Level *levelFront,
+	    const SplitCoord& mrra,
+	    unsigned int reachOffset[]) const;
 
-  void setExtinct(IndexT idx);
+  void
+  setExtinct(IndexT idx);
 
   /**
      @brief Revises node-relative indices, as appropriae.  Irregular,
@@ -437,39 +386,46 @@ public:
 
      @return true iff level employs node-relative indexing.
   */
-  bool backdate(const class IdxPath *one2Front);
+  bool
+  backdate(const class IdxPath *one2Front);
 
   /**
      @brief Sets the definition's heritable singleton bit and clears the
      current level's splitable bit.
   */
-  void setSingleton(const SplitCoord& splitCoord);
+  void
+  setSingleton(const SplitCoord& splitCoord);
 
   /**
      @brief Sets path, target and node-relative offse.
   */
-  void setLive(IndexT idx,
-               unsigned int path,
-               unsigned int targIdx,
-               unsigned int ndBase);
+  void
+  setLive(IndexT idx,
+	  unsigned int path,
+	  unsigned int targIdx,
+	  unsigned int ndBase);
 
 
-  IndexT denseOffset(const SplitNux* cand) const;
+  IndexT
+  denseOffset(const class SplitNux* cand) const;
 
-  bool isDense(const SplitNux* cand) const;
+  bool
+  isDense(const class SplitNux* cand) const;
 
   
   /**
      @brief Getter for level delta.
    */
-  inline unsigned int getDel() const {
+  inline unsigned int
+  getDel() const {
     return del;
   }
 
   /**
      @brief Accessor for indexing mode.  Currently two-valued.
    */
-  inline bool isNodeRel() const {
+  inline bool
+  isNodeRel() const {
     return nodeRel;
   }
 
@@ -479,7 +435,8 @@ public:
 
      @return reference to front path.
    */
-  const inline class IdxPath *getFrontPath() const {
+  const inline class IdxPath*
+  getFrontPath() const {
     return relPath.get();
   }
 
@@ -487,7 +444,8 @@ public:
   /**
      @brief Getter for count of live sample indices.
   */
-  inline IndexT IdxLive() {
+  inline IndexT
+  IdxLive() {
     return idxLive;
   }
 
@@ -497,7 +455,8 @@ public:
 
      @return offset strided by 'nPredDense'.
    */
-  inline IndexT denseOffset(const SplitCoord& splitCoord) const {
+  inline IndexT
+  denseOffset(const SplitCoord& splitCoord) const {
     return splitCoord.nodeIdx * nPredDense + denseIdx[splitCoord.predIdx];
   }
 
@@ -510,7 +469,8 @@ public:
 
      @return shifted value.
    */  
-  inline unsigned int backScale(unsigned int val) const {
+  inline unsigned int
+  backScale(unsigned int val) const {
     return val << (unsigned int) del;
   }
 
@@ -520,7 +480,8 @@ public:
 
      @return bit mask value.
    */
-  inline unsigned int pathMask() const {
+  inline unsigned int
+  pathMask() const {
     return backScale(1) - 1;
   }
   
@@ -530,7 +491,8 @@ public:
 
      @return definition count at this level.
   */
-  inline IndexT getDefCount() {
+  inline IndexT
+  getDefCount() {
     return defCount;
   }
 
@@ -546,10 +508,11 @@ public:
      @param implicit is only set directly by staging.  Otherwise it has a
      default setting of zero, which is later reset by restaging.
    */
-  inline bool define(const SplitCoord& splitCoord,
-                     unsigned int bufIdx,
-                     bool singleton,
-                     IndexT implicit = 0) {
+  inline bool
+  define(const SplitCoord& splitCoord,
+	 unsigned int bufIdx,
+	 bool singleton,
+	 IndexT implicit = 0) {
     if (splitCoord.nodeIdx != noIndex) {
       def[splitCoord.strideOffset(nPred)].init(bufIdx, singleton);
       setDense(splitCoord, implicit);
@@ -569,7 +532,8 @@ public:
 
      @param predIdx is the predictor index.
   */
-  inline void undefine(const SplitCoord& splitCoord) {
+  inline void
+  undefine(const SplitCoord& splitCoord) {
     defCount -= def[splitCoord.strideOffset(nPred)].undefine() ? 1 : 0;
   }
 
@@ -580,7 +544,8 @@ public:
 
      @param[out] singleton outputs whether the definition is singleton.
    */
-  inline void consume(const SplitCoord& splitCoord,
+  inline void
+  consume(const SplitCoord& splitCoord,
                       unsigned int& bufIdx,
                       bool& singleton) {
     def[splitCoord.strideOffset(nPred)].consume(bufIdx, singleton);
@@ -597,7 +562,8 @@ public:
 
      @return true iff a singleton.
    */
-  inline bool isSingleton(const SplitCoord& splitCoord) const {
+  inline bool
+  isSingleton(const SplitCoord& splitCoord) const {
     return def[splitCoord.strideOffset(nPred)].isSingleton();
   }
 
@@ -607,8 +573,9 @@ public:
 
      @param[out] bufIdx is the buffer index for the cell.
    */
-  inline bool isSingleton(const SplitCoord& splitCoord,
-                          unsigned int& bufIdx) const {
+  inline bool
+  isSingleton(const SplitCoord& splitCoord,
+	      unsigned int& bufIdx) const {
     return def[splitCoord.strideOffset(nPred)].isSingleton(bufIdx);
   }
 
@@ -620,8 +587,9 @@ public:
 
      @param[in, out] extent is adjust by the implicit count.
    */
-  void adjustRange(const SplitCoord& splitCoord,
-                   IndexRange& idxRange) const;
+  void
+  adjustRange(const SplitCoord& splitCoord,
+	      IndexRange& idxRange) const;
 
 
   /**
@@ -631,19 +599,23 @@ public:
 
      @return adjusted index range.
    */
-  IndexRange adjustRange(const SplitNux* cand,
-			 const class Frontier* index) const;
+  IndexRange
+  adjustRange(const SplitNux* cand,
+	      const class Frontier* index) const;
 
 
-  IndexT getImplicit(const SplitNux* cand) const;
+  IndexT
+  getImplicit(const SplitNux* cand) const;
   
 
-  inline bool isDefined(const SplitCoord& splitCoord) const {
+  inline bool
+  isDefined(const SplitCoord& splitCoord) const {
     return def[splitCoord.strideOffset(nPred)].isDefined();
   }
 
 
-  inline bool isDense(const SplitCoord& splitCoord) const {
+  inline bool
+  isDense(const SplitCoord& splitCoord) const {
     return def[splitCoord.strideOffset(nPred)].isDense();
   }
 
@@ -653,9 +625,10 @@ public:
 
      @return void.
   */
-  inline void setDense(const SplitCoord& splitCoord,
-                       IndexT implicit,
-                       IndexT margin = 0) {
+  inline void
+  setDense(const SplitCoord& splitCoord,
+	   IndexT implicit,
+	   IndexT margin = 0) {
     if (implicit > 0 || margin > 0) {
       def[splitCoord.strideOffset(nPred)].setDense();
       denseCoord[denseOffset(splitCoord)].init(implicit, margin);
@@ -666,8 +639,9 @@ public:
   /**
      @brief Establishes front-level IndexSet as future ancestor.
   */
-  void initAncestor(IndexT splitIdx,
-                    const IndexRange& bufRange) {
+  void
+  initAncestor(IndexT splitIdx,
+	       const IndexRange& bufRange) {
     indexAnc[splitIdx].set(bufRange.getStart(), bufRange.getExtent());
   }
 
@@ -675,7 +649,8 @@ public:
   /**
      @brief Sets the number of span candidates.
    */
-  void setSpan(IndexT spanCand) {
+  void
+  setSpan(IndexT spanCand) {
     candExtent = spanCand;
   }
 };

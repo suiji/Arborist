@@ -124,9 +124,10 @@ class SplitNux {
 		IndexT rhMin);
 
   
-  bool schedule(const class Level* levelFront,
-		const class Frontier* frontier,
-		vector<PredictorT>& runCount);
+  bool
+  schedule(const class Bottom* bottom,
+	   const class Frontier* frontier,
+	   vector<PredictorT>& runCount);
 
   /**
      @brief Consumes frontier node parameters associated with nonterminal.

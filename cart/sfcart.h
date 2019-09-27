@@ -29,16 +29,51 @@
    @brief Abstract class with parametrized factory.
  */
 class SFCart : public SplitFrontier {
+  void
+  candidateProb(const class Bottom* bottom,
+		IndexT splitIdx,
+		const double ruPred[],
+		vector<IndexT>& offCand,
+		IndexT& spanCand);
+
+  void
+  candidateFixed(const class Bottom* bottom,
+		 IndexT splitIdx,
+		 const double ruPred[],
+		 class BHPair heap[],
+		 vector<IndexT>& offCand,
+		 IndexT& spanCand);
+
+  unsigned int
+  preschedule(const class Bottom* bottom,
+	      const SplitCoord& splitCoord,
+	      vector<IndexT>& offCand,
+	      IndexT& spanCand);
+
 public:
+  // Predictor sampling paraemters.
+  static PredictorT predFixed;
+  static vector<double> predProb;
+
   SFCart(const class SummaryFrame* frame,
 	 class Frontier* frontier,
 	 const class Sample* sample);
 
+  static void
+  init(PredictorT feFixed,
+       const vector<double>& feProb);
+
+  static void
+  deInit();
 
   static unique_ptr<SplitFrontier> splitFactory(const class SummaryFrame* frame,
 						class Frontier* frontier,
 						const class Sample* sample,
 						PredictorT nCtg);
+
+  void
+  candidates(const class Frontier* frontier,
+	     const class Bottom* bottom);
 };
 
   
