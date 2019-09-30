@@ -639,7 +639,7 @@ class Frontier {
 
      @return index range of referenced split coordinate.
    */
-  IndexRange getBufRange(const class SplitNux* splitNux) const;
+  IndexRange getBufRange(const class SplitNux& splitNux) const;
   
 
   /**

@@ -116,7 +116,7 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample,
   
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    bottom->scheduleSplits(splitFrontier, this);
+    bottom->scheduleSplits(splitFrontier);
     indexSet = splitDispatch(splitFrontier, level++);
   }
 
@@ -415,8 +415,8 @@ IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
 }
 
 
-IndexRange Frontier::getBufRange(const SplitNux* splitNux) const {
-  return indexSet[splitNux->getNodeIdx()].getBufRange();
+IndexRange Frontier::getBufRange(const SplitNux& splitNux) const {
+  return indexSet[splitNux.getNodeIdx()].getBufRange();
 }
 
 

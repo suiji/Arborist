@@ -15,8 +15,8 @@
 
 #include "bottom.h"
 #include "level.h"
-#include "frontier.h"
 #include "splitfrontier.h"
+#include "splitnux.h"
 #include "summaryframe.h"
 #include "rankedframe.h"
 #include "path.h"
@@ -66,12 +66,10 @@ Bottom::rootDef(const vector<StageCount>& stageCount,
 
 
 void
-Bottom::scheduleSplits(SplitFrontier* splitFrontier,
-		       Frontier *frontier) {
+Bottom::scheduleSplits(SplitFrontier* splitFrontier) {
   splitFrontier->init();
   unsigned int flushCount = flushRear();
-  splitFrontier->candidates(frontier, this);
-    //level[0]->candidates(frontier, splitFrontier);
+  vector<SplitNux> preCand = splitFrontier->precandidates(this);
 
   backdate();
   restage(splitFrontier);
@@ -81,7 +79,56 @@ Bottom::scheduleSplits(SplitFrontier* splitFrontier,
   if (flushCount > 0) {
     level.erase(level.end() - flushCount, level.end());
   }
-  splitFrontier->scheduleSplits(this);
+  vector<SplitNux> postCand = postSchedule(splitFrontier, preCand);
+  splitFrontier->splitCandidates(postCand);
+}
+
+
+vector<SplitNux>
+Bottom::postSchedule(SplitFrontier* splitFrontier, vector<SplitNux>& preCand) {
+  vector<PredictorT> runCount;
+  vector<SplitNux> postCand;
+  vector<PredictorT> nCand(splitFrontier->getNSplit());
+  fill(nCand.begin(), nCand.end(), 0);
+  for (auto & sg : preCand) {
+    postSchedule(splitFrontier, sg, runCount, nCand, postCand);
+  }
+
+  splitFrontier->setCandOff(nCand);
+  splitFrontier->setRunOffsets(runCount);
+
+  return postCand;
+}
+
+
+void
+Bottom::postSchedule(const SplitFrontier* splitFrontier,
+		     SplitNux& nux,
+		     vector<PredictorT>& runCount,
+		     vector<PredictorT>& nCand,
+		     vector<SplitNux>& postCand) const {
+  SplitCoord splitCoord = nux.getSplitCoord();
+  if (!isSingleton(splitCoord)) {
+    nux.schedule(getRunCount(splitCoord), runCount, adjustRange(nux, splitFrontier), getImplicitCount(nux));
+    nCand[splitCoord.nodeIdx]++;
+    postCand.push_back(nux);
+  }
+}
+
+
+unsigned int
+Bottom::preschedule(SplitFrontier* splitFrontier,
+		    const SplitCoord& splitCoord,
+		    vector<SplitNux>& preCand) const {
+  reachFlush(splitCoord);
+  unsigned int bufIdx;
+  if (!isSingleton(splitCoord, bufIdx)) {
+    splitFrontier->preschedule(splitCoord, bufIdx, preCand);
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }
 
 
@@ -99,14 +146,14 @@ Bottom::isSingleton(const SplitCoord& splitCoord,
 
 
 IndexRange
-Bottom::adjustRange(const SplitNux* nux,
-		    const Frontier* frontier) const {
-  return level[0]->adjustRange(nux, frontier);
+Bottom::adjustRange(const SplitNux& nux,
+		    const SplitFrontier* splitFrontier) const {
+  return level[0]->adjustRange(nux, splitFrontier);
 }
 
 
 IndexT
-Bottom::getImplicitCount(const SplitNux* nux) const {
+Bottom::getImplicitCount(const SplitNux& nux) const {
   return level[0]->getImplicit(nux);
 }
 
@@ -136,16 +183,14 @@ Bottom::flushRear() {
       break;
   }
 
-  unsigned int backDef = 0;
+  IndexT backDef = 0;
   for (auto lv = level.begin() + unflushTop; lv != level.begin(); lv--) {
     backDef += (*lv)->getDefCount();
   }
 
-  unsigned int thresh = backDef * efficiency;
+  IndexT thresh = backDef * efficiency;
   for (auto lv = level.begin() + unflushTop; lv != level.begin(); lv--) {
-    if ((*lv)->getDefCount() <= thresh) {
-      thresh -= (*lv)->getDefCount();
-      (*lv)->flush();
+    if ((*lv)->flush(thresh)) {
       unflushTop--;
     }
     else {
@@ -192,7 +237,7 @@ Bottom::restage(const SplitFrontier* splitFrontier) {
 
 void
 Bottom::restage(const SplitFrontier* splitFrontier,
-		RestageCoord &rsCoord) {
+		RestageCoord& rsCoord) {
   unsigned int del, bufIdx;
   SplitCoord mrra = rsCoord.Ref(del, bufIdx);
   splitFrontier->restage(level[del].get(), level[0].get(), mrra, bufIdx);

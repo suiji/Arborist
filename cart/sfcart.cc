@@ -18,7 +18,6 @@
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "bottom.h"
 #include "runset.h"
 #include "samplenux.h"
 #include "obspart.h"
@@ -32,43 +31,25 @@
 #include "pretree.h"
 
 
-PredictorT SFCart::predFixed = 0;
-vector<double> SFCart::predProb;
-
-void
-SFCart::init(PredictorT feFixed,
-	     const vector<double>& feProb) {
-  predFixed = feFixed;
-  for (auto prob : feProb) {
-    predProb.push_back(prob);
-  }
-}
-
-
-void
-SFCart::deInit() {
-  predFixed = 0;
-  predProb.clear();
-}
-
-
-SFCart::SFCart(const SummaryFrame* frame,
+SFCart::SFCart(const class Cand* cand,
+	       const SummaryFrame* frame,
 	       Frontier* frontier,
 	       const Sample* sample) :
-  SplitFrontier(frame, frontier, sample) {
+  SplitFrontier(cand, frame, frontier, sample) {
 }
 
 
 unique_ptr<SplitFrontier>
-SFCart::splitFactory(const SummaryFrame* frame,
+SFCart::splitFactory(const class Cand* cand,
+		     const SummaryFrame* frame,
 		     Frontier* frontier,
 		     const Sample* sample,
 		     PredictorT nCtg) {
   if (nCtg > 0) {
-    return make_unique<SFCartCtg>(frame, frontier, sample, nCtg);
+    return make_unique<SFCartCtg>(cand, frame, frontier, sample, nCtg);
   }
   else {
-    return make_unique<SFCartReg>(frame, frontier, sample);
+    return make_unique<SFCartReg>(cand, frame, frontier, sample);
   }
 }
 
@@ -94,10 +75,11 @@ void SFCartReg::deImmutables() {
 }
 
 
-SFCartReg::SFCartReg(const SummaryFrame* frame,
-             Frontier* frontier,
-	     const Sample* sample) :
-  SFCart(frame, frontier, sample),
+SFCartReg::SFCartReg(const class Cand* cand,
+		     const SummaryFrame* frame,
+		     Frontier* frontier,
+		     const Sample* sample) :
+  SFCart(cand, frame, frontier, sample),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frame->getNRow());
 }
@@ -106,99 +88,15 @@ SFCartReg::SFCartReg(const SummaryFrame* frame,
 /**
    @brief Constructor.
  */
-SFCartCtg::SFCartCtg(const SummaryFrame* frame,
-             Frontier* frontier,
-	     const Sample* sample,
-	     PredictorT nCtg_):
-  SFCart(frame, frontier, sample),
+SFCartCtg::SFCartCtg(const class Cand* cand,
+		     const SummaryFrame* frame,
+		     Frontier* frontier,
+		     const Sample* sample,
+		     PredictorT nCtg_):
+  SFCart(cand, frame, frontier, sample),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frame->getNRow());
 }
-
-
-void
-SFCart::candidates(const Frontier* frontier,
-		   const Bottom* bottom) {
-// TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-  IndexT cellCount = splitCount * nPred;
-  vector<IndexT> offCand(cellCount);
-  fill(offCand.begin(), offCand.end(), cellCount);
-  
-  auto ruPred = CallBack::rUnif(cellCount);
-
-  vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
-
-  IndexT spanCand = 0;
-  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    IndexT splitOff = splitIdx * nPred;
-    if (frontier->isUnsplitable(splitIdx)) { // Node cannot split.
-      continue;
-    }
-    else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(bottom, splitIdx, &ruPred[splitOff], offCand, spanCand);
-    }
-    else { // Fixed number of predictors splitable.
-      candidateFixed(bottom, splitIdx, &ruPred[splitOff], &heap[splitOff], offCand, spanCand);
-    }
-  }
-  cacheOffsets(offCand);
-}
-
-
-void
-SFCart::candidateProb(const Bottom* bottom,
-		      IndexT splitIdx,
-		      const double ruPred[],
-		      vector<IndexT>& offCand,
-		      IndexT& spanCand) {
-  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-    if (ruPred[predIdx] < predProb[predIdx]) {
-      SplitCoord splitCoord(splitIdx, predIdx);
-      (void) preschedule(bottom, splitCoord, offCand, spanCand);
-    }
-  }
-}
-
- 
-void
-SFCart::candidateFixed(const Bottom* bottom,
-		       IndexT splitIdx,
-		       const double ruPred[],
-		       BHPair heap[],
-		       vector<IndexT>& offCand,
-		       IndexT &spanCand) {
-  // Inserts negative, weighted probability value:  choose from lowest.
-  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-    BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
-  }
-
-  // Pops 'predFixed' items in order of increasing value.
-  PredictorT schedCount = 0;
-  for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
-    SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
-    schedCount += preschedule(bottom, splitCoord, offCand, spanCand);
-    if (schedCount == predFixed)
-      break;
-  }
-}
-
-
-unsigned int
-SFCart::preschedule(const Bottom* bottom,
-		    const SplitCoord& splitCoord,
-		    vector<IndexT>& offCand,
-		    IndexT& spanCand) {
-  unsigned int bufIdx;
-  bottom->reachFlush(splitCoord);
-  if (!bottom->isSingleton(splitCoord, bufIdx)) {
-    offCand[splitCoord.strideOffset(nPred)] = spanCand;
-    spanCand += SplitFrontier::preschedule(splitCoord, bufIdx);
-    return 1;
-  }
-  return 0;
-}
-
-
 
 
 /**
@@ -230,7 +128,7 @@ const vector<double>& SFCartCtg::getSumSlice(const SplitNux* cand) const {
 
 
 double* SFCartCtg::getAccumSlice(const SplitNux* cand) {
-  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * splitCount * nCtg + cand->getNodeIdx() * nCtg];
+  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * nSplit * nCtg + cand->getNodeIdx() * nCtg];
 }
 
 /**
@@ -259,14 +157,14 @@ void SFCartCtg::clear() {
 */
 void SFCartReg::levelPreset() {
   if (!mono.empty()) {
-    ruMono = CallBack::rUnif(splitCount * mono.size());
+    ruMono = CallBack::rUnif(nSplit * mono.size());
   }
 }
 
 
 void SFCartCtg::levelPreset() {
   levelInitSumR(frame->getNPredNum());
-  ctgSum = vector<vector<double> >(splitCount);
+  ctgSum = vector<vector<double> >(nSplit);
 
   sumSquares = frontier->sumsAndSquares(ctgSum);
 }
@@ -274,7 +172,7 @@ void SFCartCtg::levelPreset() {
 
 void SFCartCtg::levelInitSumR(PredictorT nPredNum) {
   if (nPredNum > 0) {
-    ctgSumAccum = vector<double>(nPredNum * nCtg * splitCount);
+    ctgSumAccum = vector<double>(nPredNum * nCtg * nSplit);
     fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
   }
 }

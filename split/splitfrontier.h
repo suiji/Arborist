@@ -58,25 +58,24 @@ struct SplitSurvey {
 //
 class SplitFrontier {
   vector<class SplitNux> nuxMax; // Rewritten following each splitting event.
-  void setPrebias();//class Frontier *index);
-  vector<IndexT> candOffset; // Offset indices for each scheduled candidate.
+  void setPrebias();
 
 protected:
+  const class Cand* cand;
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
   const PredictorT nPred;
   const IndexT noSet; // Unreachable setIdx for SplitNux.
   unique_ptr<class ObsPart> obsPart;
-  IndexT splitCount; // # subtree nodes at current level.
+  IndexT nSplit; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
-  vector<class SplitNux> splitCand; // Schedule of splits.
-
+  
   vector<double> prebias; // Initial information threshold.
-  // Per-split accessors for candidate vector.  Set to splitCount
-  // and cleared after use:
-  vector<IndexT> candOff;  // Lead candidate position.
-  vector<IndexT> nCand;  // Number of candidates.
+
+  // Per-split accessors for candidate vector.  Reset by Bottom.
+  vector<IndexT> candOff;  // Lead candidate position:  cumulative
+  vector<PredictorT> nCand;  // At most nPred etries per candidate.
 
   /**
      @brief Retrieves the type-relative index of a numerical predictor.
@@ -91,24 +90,18 @@ protected:
 public:
 
   
-  SplitFrontier(const class SummaryFrame *frame_,
+  SplitFrontier(const class Cand* cand_,
+		const class SummaryFrame* frame_,
                 class Frontier* frontier_,
                 const class Sample* sample);
 
+
   void
-  cacheOffsets(vector<IndexT>& candOffset);
+  preschedule(const SplitCoord& splitCoord,
+	      unsigned int bufIdx,
+	      vector<class SplitNux>& preCand) const;
 
   
-  void
-  scheduleSplits(const class Bottom* bottom);
-
-  
-  /**
-     @brief Emplaces new candidate with specified coordinates.
-   */
-  IndexT preschedule(const SplitCoord& splitCoord,
-                     unsigned int bufIdx);
-
   /**
      @brief Passes through to ObsPart method.
    */
@@ -270,6 +263,31 @@ public:
   }
 
 
+  inline PredictorT getNPred() const {
+    return nPred;
+  }
+
+
+  inline IndexT getNSplit() const {
+    return nSplit;
+  }
+
+
+  /**
+     @brief Passes through to Frontier method.
+
+     @return true iff indexed split is not splitable.
+   */
+  bool isUnsplitable(IndexT splitIdx) const;
+
+
+  /**
+     @return buffer range of indexed split.
+  */
+
+  IndexRange getBufRange(const class SplitNux& nux) const;
+  
+
   /**
    */
   class RunSet *rSet(unsigned int setIdx) const;
@@ -279,22 +297,26 @@ public:
    */
   void init();
 
-  vector<class SplitNux> maxCandidates();
+  vector<class SplitNux>
+  maxCandidates(const vector<class SplitNux>& sc);
   
-  class SplitNux maxSplit(IndexT splitOff,
+  class SplitNux maxSplit(const vector<class SplitNux>& sc,
+			  IndexT splitOff,
                           IndexT nSplitFrontier) const;
 
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
-  void splitCandidates();
+  void splitCandidates(vector<class SplitNux>& sc);
+
 
   /**
-     @brief Determines splitting candidates.
+     @brief Passes through to Cand method.
    */
-  virtual void
-  candidates(const class Frontier* frontier,
-	     const class Bottom* bottom) = 0;
+  vector<class SplitNux>
+  precandidates(const class Bottom* bottom);
+
+  void setCandOff(const vector<PredictorT>& ncand);
   
   virtual void split(class SplitNux* cand) = 0;
   virtual ~SplitFrontier();

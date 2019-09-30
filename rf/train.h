@@ -34,6 +34,7 @@ class Train {
   static constexpr double slopFactor = 1.2; // Estimates tree growth.
   static unsigned int trainBlock; // Front-end defined buffer size.
 
+  const unique_ptr<class CandRF> cand; // Pre-candidate choice methods.
   const unsigned int nRow; // Number of rows to train.
   const unsigned int treeChunk; // Local number of trees to train.
   unique_ptr<class BitMatrix> bagRow; // Local bag section:  treeChunk x nRow

@@ -81,7 +81,19 @@ class Bottom {
   void restage(const class SplitFrontier* splitFrontier,
                RestageCoord &rsCoord);
 
-  /**
+   /**
+     @brief Initializes "late" member of non-singleton candidate.
+
+     @return true iff candidate is not singleton.
+   */
+  void postSchedule(const class SplitFrontier* SplitFrontier,
+		    class SplitNux& nux,
+		    vector<PredictorT>& runCount,
+		    vector<PredictorT>& nCand,
+		    vector<SplitNux>& postCand) const;
+
+  
+ /**
      @brief Pushes first level's path maps back to all back levels
      employing node-relative indexing.
   */
@@ -150,10 +162,32 @@ class Bottom {
   /**
      @brief Entry to restaging and candidate scheduling.
   */
-  void scheduleSplits(class SplitFrontier* splitFrontier,
-                      class Frontier *index);
+  void scheduleSplits(class SplitFrontier* splitFrontier);
+
+  
+  /**
+     @brief Flushes reaching definition and preschedules.
+
+     @return 1 iff not singleton else 0.
+  */
+  unsigned int 
+  preschedule(class SplitFrontier* splitFrontier,
+	      const SplitCoord& splitCoord,
+	      vector<class SplitNux>& preCand) const;
 
 
+
+  /**
+     @brief Walks the list of split candidates and invalidates those which
+     restaging has marked unsplitable as well as singletons persisting since
+     initialization or as a result of bagging.  Fills in run counts, which
+     values restaging has established precisely.
+  */
+  vector<class SplitNux>
+  postSchedule(class SplitFrontier* splitFrontier,
+	       vector<SplitNux>& preCand);
+  
+  
   /**
      @brief Passes through to front level.
    */
@@ -170,14 +204,14 @@ class Bottom {
      @brief Passes through to front level.
    */
   IndexRange
-  adjustRange(const class SplitNux* nux,
-	      const class Frontier* frontier) const;
+  adjustRange(const class SplitNux& nux,
+	      const class SplitFrontier* splitFrontier) const;
 
   /**
      @brief Passes through to front level.
    */
   IndexT
-  getImplicitCount(const class SplitNux* nux) const;
+  getImplicitCount(const class SplitNux& nux) const;
 
   
   /**

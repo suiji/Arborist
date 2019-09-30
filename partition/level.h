@@ -321,7 +321,7 @@ public:
      node and adjusts start and extent values by corresponding dense parameters.
   */
   IndexRange
-  getRange(const SplitCoord& mrra);
+  getRange(const SplitCoord& mrra) const;
 
   void
   frontDef(const SplitCoord& splitCoord,
@@ -407,10 +407,28 @@ public:
 
 
   IndexT
-  denseOffset(const class SplitNux* cand) const;
+  denseOffset(const class SplitNux& cand) const;
 
   bool
-  isDense(const class SplitNux* cand) const;
+  isDense(const class SplitNux& cand) const;
+
+
+  /**
+     @param[in, out] threshold below which not to flush:  decremented.
+
+     @retun true iff flush occurs.
+   */
+  bool
+  flush(IndexT& thresh) {
+    if (defCount <= thresh) {
+      flush();
+      thresh -= defCount;
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
 
   
   /**
@@ -600,12 +618,12 @@ public:
      @return adjusted index range.
    */
   IndexRange
-  adjustRange(const SplitNux* cand,
-	      const class Frontier* index) const;
+  adjustRange(const class SplitNux& cand,
+	      const class SplitFrontier* splitFrontier) const;
 
 
   IndexT
-  getImplicit(const SplitNux* cand) const;
+  getImplicit(const class SplitNux& cand) const;
   
 
   inline bool

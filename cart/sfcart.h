@@ -29,51 +29,19 @@
    @brief Abstract class with parametrized factory.
  */
 class SFCart : public SplitFrontier {
-  void
-  candidateProb(const class Bottom* bottom,
-		IndexT splitIdx,
-		const double ruPred[],
-		vector<IndexT>& offCand,
-		IndexT& spanCand);
-
-  void
-  candidateFixed(const class Bottom* bottom,
-		 IndexT splitIdx,
-		 const double ruPred[],
-		 class BHPair heap[],
-		 vector<IndexT>& offCand,
-		 IndexT& spanCand);
-
-  unsigned int
-  preschedule(const class Bottom* bottom,
-	      const SplitCoord& splitCoord,
-	      vector<IndexT>& offCand,
-	      IndexT& spanCand);
-
 public:
-  // Predictor sampling paraemters.
-  static PredictorT predFixed;
-  static vector<double> predProb;
 
-  SFCart(const class SummaryFrame* frame,
+  SFCart(const class Cand* cand_,
+	 const class SummaryFrame* frame,
 	 class Frontier* frontier,
 	 const class Sample* sample);
 
-  static void
-  init(PredictorT feFixed,
-       const vector<double>& feProb);
-
-  static void
-  deInit();
-
-  static unique_ptr<SplitFrontier> splitFactory(const class SummaryFrame* frame,
-						class Frontier* frontier,
-						const class Sample* sample,
-						PredictorT nCtg);
-
-  void
-  candidates(const class Frontier* frontier,
-	     const class Bottom* bottom);
+  static unique_ptr<SplitFrontier>
+  splitFactory(const class Cand* cand_,
+	       const class SummaryFrame* frame,
+	       class Frontier* frontier,
+	       const class Sample* sample,
+	       PredictorT nCtg);
 };
 
   
@@ -108,7 +76,8 @@ class SFCartReg : public SFCart {
    */
   static void deImmutables();
   
-  SFCartReg(const class SummaryFrame* frame_,
+  SFCartReg(const class Cand* cand_,
+	    const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample);
 
@@ -226,7 +195,8 @@ class SFCartCtg : public SFCart {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SFCartCtg(const class SummaryFrame* frame_,
+  SFCartCtg(const class Cand* cand_,
+	    const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample,
 	PredictorT nCtg_);

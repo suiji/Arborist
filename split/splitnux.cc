@@ -18,7 +18,7 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "summaryframe.h"
-#include "bottom.h"
+
 
 double SplitNux::minRatio = minRatioDefault;
 
@@ -50,6 +50,21 @@ bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
   return info > 0.0;
 }
 
+
+void
+SplitNux::schedule(PredictorT rCount,
+		   vector<PredictorT>& runCount,
+		   IndexRange range,
+		   IndexT implicitCount) {
+  if (rCount > 1) {
+    setSetIdx(runCount.size());
+    runCount.push_back(rCount);
+  }
+  setIndexRange(range);
+  setImplicit(implicitCount);
+}
+
+
 void SplitNux::writeBits(const SplitFrontier* splitFrontier,
 			 PredictorT lhBits) {
   if (infoGain(splitFrontier)) {
@@ -78,25 +93,6 @@ void SplitNux::writeNum(const SplitFrontier* splitFrontier,
 
 PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
   return frame->getCardinality(splitCoord.predIdx);
-}
-
-
-bool SplitNux::schedule(const Bottom* bottom,
-			const Frontier* frontier,
-			vector<unsigned int>& runCount) {
-  if (!bottom->isSingleton(splitCoord)) {
-    PredictorT rCount = bottom->getRunCount(splitCoord);
-    if (rCount > 1) {
-      setSetIdx(runCount.size());
-      runCount.push_back(rCount);
-    }
-    setIndexRange(bottom->adjustRange(this, frontier));
-    setImplicit(bottom->getImplicitCount(this));
-    return true;
-  }
-  else {
-    return false;
-  }
 }
 
 

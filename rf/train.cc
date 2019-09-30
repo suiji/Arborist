@@ -24,7 +24,7 @@
 #include "sfcart.h"
 #include "splitnux.h"
 #include "leaf.h"
-//#include "level.h"
+#include "candrf.h"
 #include "ompthread.h"
 #include "coproc.h"
 
@@ -43,9 +43,9 @@ void Train::initCDF(const vector<double> &feSplitQuant) {
 }
 
 
-void Train::initProb(unsigned int predFixed,
+void Train::initProb(PredictorT predFixed,
                      const vector<double> &predProb) {
-  SFCart::init(predFixed, predProb);
+  CandRF::init(predFixed, predProb);
 }
 
 
@@ -92,7 +92,7 @@ void Train::deInit() {
   PreTree::deImmutables();
   Sample::deImmutables();
   SampleNux::deImmutables();
-  SFCart::deInit();
+  CandRF::deInit();
   SFCartReg::deImmutables();
   OmpThread::deInit();
 }
@@ -111,6 +111,7 @@ unique_ptr<Train> Train::regression(const SummaryFrame* frame,
 Train::Train(const SummaryFrame* frame,
              const double* y,
              unsigned int treeChunk_) :
+  cand(make_unique<CandRF>()),
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
@@ -139,6 +140,7 @@ Train::Train(const SummaryFrame* frame,
              const double* yProxy,
              unsigned int nTree,
              unsigned int treeChunk_) :
+  cand(make_unique<CandRF>()),
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
@@ -223,5 +225,5 @@ Train::splitFactory(const SummaryFrame* frame,
 		    Frontier* frontier,
 		    const Sample* sample,
 		    PredictorT nCtg) const {
-  return SFCart::splitFactory(frame, frontier, sample, nCtg);
+  return SFCart::splitFactory(cand.get(), frame, frontier, sample, nCtg);
 }

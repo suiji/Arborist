@@ -109,7 +109,7 @@ void Level::frontDef(const SplitCoord& splitCoord, unsigned int bufIdx, bool sin
 }
 
 
-IndexRange Level::getRange(const SplitCoord &mrra) {
+IndexRange Level::getRange(const SplitCoord& mrra) const {
   IndexRange idxRange = indexAnc[mrra.nodeIdx];
   adjustRange(mrra, idxRange);
   return idxRange;
@@ -178,9 +178,9 @@ Level::setLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) {
 
 
 IndexRange
-Level::adjustRange(const SplitNux* cand,
-		   const Frontier* frontier) const {
-  IndexRange idxRange = frontier->getBufRange(cand);
+Level::adjustRange(const SplitNux& cand,
+		   const SplitFrontier* splitFrontier) const {
+  IndexRange idxRange = splitFrontier->getBufRange(cand);
   if (isDense(cand)) {
     denseCoord[denseOffset(cand)].adjustRange(idxRange);
   }
@@ -189,20 +189,20 @@ Level::adjustRange(const SplitNux* cand,
 
 
 IndexT
-Level::getImplicit(const SplitNux* cand) const {
+Level::getImplicit(const SplitNux& cand) const {
   return isDense(cand) ? denseCoord[denseOffset(cand)].getImplicit() : 0;
 }
 
 
 IndexT
-Level::denseOffset(const SplitNux* cand) const {
-  return denseOffset(cand->getSplitCoord());
+Level::denseOffset(const SplitNux& cand) const {
+  return denseOffset(cand.getSplitCoord());
 }
 
 
 bool
-Level::isDense(const SplitNux* cand) const {
-  return isDense(cand->getSplitCoord());
+Level::isDense(const SplitNux& cand) const {
+  return isDense(cand.getSplitCoord());
 }
 
 

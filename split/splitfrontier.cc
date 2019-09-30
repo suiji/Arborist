@@ -19,6 +19,7 @@
 #include "splitnux.h"
 #include "level.h"
 #include "bottom.h"
+#include "cand.h"
 #include "runset.h"
 #include "samplenux.h"
 #include "obspart.h"
@@ -31,9 +32,11 @@
 // Post-split consumption:
 #include "pretree.h"
 
-SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
+SplitFrontier::SplitFrontier(const Cand* cand_,
+			     const SummaryFrame* frame_,
                              Frontier* frontier_,
                              const Sample* sample) :
+  cand(cand_),
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
@@ -62,57 +65,38 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* cand) const {
 }
 
 
-IndexT SplitFrontier::preschedule(const SplitCoord& splitCoord,
-                                  unsigned int bufIdx) {
-  splitCand.emplace_back(SplitNux(this, frontier, splitCoord, bufIdx, noSet));
-  return frontier->getExtent(splitCoord.nodeIdx);
-}
-
-
-/**
-   @brief Walks the list of split candidates and invalidates those which
-   restaging has marked unsplitable as well as singletons persisting since
-   initialization or as a result of bagging.  Fills in run counts, which
-   values restaging has established precisely.
-*/
-void SplitFrontier::scheduleSplits(const Bottom* bottom) {
-  vector<unsigned int> runCount;
-  vector<SplitNux> sc2;
-  IndexT splitPrev = splitCount;
-  for (auto & sg : splitCand) {
-    if (sg.schedule(bottom, frontier, runCount)) {
-      IndexT splitThis = sg.getSplitCoord().nodeIdx;
-      nCand[splitThis]++;
-      if (splitPrev != splitThis) {
-        candOff[splitThis] = sc2.size();
-        splitPrev = splitThis;
-      }
-      sc2.push_back(sg);
-    }
-  }
-  splitCand = move(sc2);
-
-  setRunOffsets(runCount);
-  splitCandidates();
+vector<SplitNux>
+SplitFrontier::precandidates(const Bottom* bottom) {
+  return cand->precandidates(this, bottom);
 }
 
 
 void
-SplitFrontier::cacheOffsets(vector<IndexT>& candOffset) {
-  this->candOffset = move(candOffset);
+SplitFrontier::preschedule(const SplitCoord& splitCoord,
+			  unsigned int bufIdx,
+			  vector<SplitNux>& preCand) const {
+  preCand.emplace_back(SplitNux(this, frontier, splitCoord, bufIdx, noSet));
+}
+
+
+void SplitFrontier::setCandOff(const vector<PredictorT>& nCand) {
+  candOff = vector<IndexT>(nCand.size());
+  IndexT tot = 0;
+  IndexT i = 0;
+  for (auto nc : nCand) {
+    candOff[i++] = tot;
+    tot += nc;
+  }
+  this->nCand = move(nCand);
 }
 
 
 /**
-   @brief Initializes level about to be split
+   @brief Initializes frontier about to be split
  */
 void SplitFrontier::init() {
-  splitCount = frontier->getNSplit();
-  prebias = vector<double>(splitCount);
-  nCand = vector<IndexT>(splitCount);
-  fill(nCand.begin(), nCand.end(), 0);
-  candOff = vector<IndexT>(splitCount);
-  fill(candOff.begin(), candOff.end(), splitCount); // inattainable.
+  nSplit = frontier->getNSplit();
+  prebias = vector<double>(nSplit);
 
   levelPreset(); // virtual
   setPrebias();
@@ -120,7 +104,7 @@ void SplitFrontier::init() {
 
 
 void SplitFrontier::setPrebias() {
-  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     setPrebias(splitIdx, frontier->getSum(splitIdx), frontier->getSCount(splitIdx));
   }
 }
@@ -158,50 +142,49 @@ void SplitFrontier::restage(Level* levelFrom,
 }
 
 
-void SplitFrontier::splitCandidates() {
-  OMPBound splitTop = splitCand.size();
+void
+SplitFrontier::splitCandidates(vector<SplitNux>& sc) {
+  OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(&splitCand[splitPos]);
+      split(&sc[splitPos]);
     }
   }
 
-  nuxMax = maxCandidates();
+  nuxMax = maxCandidates(sc);
 }
 
 
-vector<SplitNux> SplitFrontier::maxCandidates() {
-  vector<SplitNux> nuxMax(splitCount); // Info initialized to zero.
+vector<SplitNux> SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
+  vector<SplitNux> nuxMax(nSplit); // Info initialized to zero.
 
-  OMPBound splitTop = splitCount;
+  OMPBound splitTop = nSplit;
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
-      nuxMax[splitIdx] = maxSplit(candOff[splitIdx], nCand[splitIdx]);
+      nuxMax[splitIdx] = maxSplit(sc, candOff[splitIdx], nCand[splitIdx]);
     }
   }
-  splitCand.clear();
-  candOff.clear();
-  nCand.clear();
 
   return nuxMax;
 }
 
 
-SplitNux SplitFrontier::maxSplit(IndexT splitBase,
+SplitNux SplitFrontier::maxSplit(const vector<SplitNux>& sc,
+				 IndexT splitBase,
                                  IndexT nCandSplit) const {
   IndexT argMax = splitBase + nCandSplit;
   double runningMax = 0.0;
   for (IndexT splitOff = splitBase; splitOff < splitBase + nCandSplit; splitOff++) {
-    if (splitCand[splitOff].maxInfo(runningMax)) {
+    if (sc[splitOff].maxInfo(runningMax)) {
       argMax = splitOff;
     }
   }
 
-  return runningMax > 0.0 ? SplitNux(splitCand[argMax]) : SplitNux();
+  return runningMax > 0.0 ? SplitNux(sc[argMax]) : SplitNux();
 }
 
 
@@ -278,6 +261,16 @@ void SplitFrontier::critRun(PreTree* pretree,
   vector<SumCount> ctgCrit(iSet->getNCtg());
   double sumExpl = run->branch(this, iSet, pretree, replay, ctgCrit, leftExpl);
   iSet->criterionLR(sumExpl, ctgCrit, leftExpl);
+}
+
+
+bool SplitFrontier::isUnsplitable(IndexT splitIdx) const {
+  return frontier->isUnsplitable(splitIdx);
+}
+
+
+IndexRange SplitFrontier::getBufRange(const SplitNux& nux) const {
+  return frontier->getBufRange(nux);
 }
 
 

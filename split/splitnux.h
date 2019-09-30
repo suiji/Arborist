@@ -98,7 +98,23 @@ class SplitNux {
      @bool true iff decremented information field positive.
    */
   bool infoGain(const class SplitFrontier* splitFrontier);
+
   
+  /**
+     @brief Sets candidate splitting fields for cell.
+
+     @param rCount is this cell's run count.
+
+     @param[in, out] runCount accumulates per-cell run counts.
+
+     @param range is the buffer range.
+
+     @param implicit count is the implicit count.
+   */
+  void schedule(PredictorT rCount,
+		vector<PredictorT>& runCount,
+		IndexRange range,
+		IndexT implicitCount);
 
   /**
      @brief Writes the left-hand characterization of a factor-based
@@ -124,10 +140,6 @@ class SplitNux {
 		IndexT rhMin);
 
   
-  bool
-  schedule(const class Bottom* bottom,
-	   const class Frontier* frontier,
-	   vector<PredictorT>& runCount);
 
   /**
      @brief Consumes frontier node parameters associated with nonterminal.
