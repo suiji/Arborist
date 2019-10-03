@@ -41,7 +41,6 @@ SplitFrontier::SplitFrontier(const Cand* cand_,
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
   nPred(frame->getNPred()),
-  noSet(sample->getBagCount() * frame->getNPredFac()),
   obsPart(sample->predictors()) {
 }
 
@@ -56,7 +55,7 @@ RunSet *SplitFrontier::rSet(IndexT setIdx) const {
 
 
 SampleRank* SplitFrontier::getPredBase(const SplitNux* cand) const {
-  return obsPart->getPredBase(cand);
+  return obsPart->getPredBase(cand->getDefCoord());
 }
 
 
@@ -65,17 +64,16 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* cand) const {
 }
 
 
-vector<SplitNux>
+vector<DefCoord>
 SplitFrontier::precandidates(const Bottom* bottom) {
   return cand->precandidates(this, bottom);
 }
 
 
 void
-SplitFrontier::preschedule(const SplitCoord& splitCoord,
-			  unsigned int bufIdx,
-			  vector<SplitNux>& preCand) const {
-  preCand.emplace_back(SplitNux(this, frontier, splitCoord, bufIdx, noSet));
+SplitFrontier::preschedule(const DefCoord& defCoord,
+			  vector<DefCoord>& preCand) const {
+  preCand.emplace_back(defCoord);
 }
 
 
@@ -100,6 +98,11 @@ void SplitFrontier::init() {
 
   levelPreset(); // virtual
   setPrebias();
+}
+
+
+IndexT SplitFrontier::getNoSet() const {
+  return frame->getNPredFac() * nSplit;
 }
 
 
@@ -136,14 +139,13 @@ vector<StageCount> SplitFrontier::stage(const Sample* sample) {
 
 void SplitFrontier::restage(Level* levelFrom,
                             Level* levelTo,
-                            const SplitCoord& mrra,
-                            unsigned int bufIdx) const {
-  obsPart->restage(levelFrom, levelTo, mrra, bufIdx);
+			    const DefCoord& mrra) const {
+  obsPart->restage(levelFrom, levelTo, mrra);
 }
 
 
 void
-SplitFrontier::splitCandidates(vector<SplitNux>& sc) {
+SplitFrontier::split(vector<SplitNux>& sc) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -244,13 +246,15 @@ void SplitFrontier::critCut(PreTree* pretree,
 }
 
 
-double SplitFrontier::blockReplay(IndexSet* iSet,
-                                  const IndexRange& range,
-                                  bool leftExpl,
-                                  Replay* replay,
-                                  vector<SumCount>& ctgCrit) const {
+double
+SplitFrontier::blockReplay(class IndexSet* iSet,
+			   const IndexRange& range,
+			   bool leftExpl,
+			   class Replay* replay,
+			   vector<SumCount>& ctgCrit) const {
   return obsPart->blockReplay(this, iSet, range, leftExpl, replay, ctgCrit);
 }
+
 
 
 void SplitFrontier::critRun(PreTree* pretree,
@@ -269,8 +273,20 @@ bool SplitFrontier::isUnsplitable(IndexT splitIdx) const {
 }
 
 
-IndexRange SplitFrontier::getBufRange(const SplitNux& nux) const {
-  return frontier->getBufRange(nux);
+IndexRange SplitFrontier::getBufRange(const DefCoord& preCand) const {
+  return frontier->getBufRange(preCand);
+}
+
+
+double
+SplitFrontier::getSum(const SplitCoord& splitCoord) const {
+  return frontier->getSum(splitCoord.nodeIdx);
+}
+
+
+IndexT
+SplitFrontier::getSCount(const SplitCoord& splitCoord) const {
+  return frontier->getSCount(splitCoord.nodeIdx);
 }
 
 
@@ -290,6 +306,11 @@ IndexT SplitFrontier::getPredIdx(const IndexSet* iSet) const {
 
 unsigned int SplitFrontier::getBufIdx(const IndexSet* iSet) const {
   return nuxMax[iSet->getSplitIdx()].getBufIdx();
+}
+
+
+DefCoord SplitFrontier::getDefCoord(const IndexSet* iSet) const {
+  return DefCoord(SplitCoord(iSet->getSplitIdx(), nuxMax[iSet->getSplitIdx()].getPredIdx()), nuxMax[iSet->getSplitIdx()].getBufIdx());
 }
 
 

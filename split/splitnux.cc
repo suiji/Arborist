@@ -31,37 +31,25 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const class SplitFrontier* splitFrontier,
-		   const class Frontier* frontier,
-		   const SplitCoord splitCoord_,
-		   unsigned char bufIdx_,
-		   IndexT noSet) :
-  splitCoord(splitCoord_),
-  setIdx(noSet),
-  bufIdx(bufIdx_),
-  lhSum(frontier->getSum(splitCoord.nodeIdx)),
-  lhSCount(frontier->getSCount(splitCoord.nodeIdx)),
-  info(splitFrontier->getPrebias(splitCoord))  {
+SplitNux::SplitNux(const DefCoord& preCand,
+		   const SplitFrontier* splitFrontier,
+		   PredictorT setIdx_,
+		   IndexRange range,
+		   IndexT implicitCount) :
+  splitCoord(preCand.splitCoord),
+  bufIdx(preCand.bufIdx),
+  idxRange(range),
+  setIdx(setIdx_),
+  lhSum(splitFrontier->getSum(splitCoord)),
+  lhSCount(splitFrontier->getSCount(splitCoord)),
+  info(splitFrontier->getPrebias(splitCoord)),
+  lhImplicit(implicitCount) {
 }
-  
+
   
 bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
   info -= splitFrontier->getPrebias(splitCoord);
   return info > 0.0;
-}
-
-
-void
-SplitNux::schedule(PredictorT rCount,
-		   vector<PredictorT>& runCount,
-		   IndexRange range,
-		   IndexT implicitCount) {
-  if (rCount > 1) {
-    setSetIdx(runCount.size());
-    runCount.push_back(rCount);
-  }
-  setIndexRange(range);
-  setImplicit(implicitCount);
 }
 
 
@@ -101,15 +89,6 @@ void SplitNux::consume(IndexSet* iSet) const {
 }
 
 
-  /**
-     @brief Writes the left-hand characterization of a factor-based
-     split with numerical or binary response.
-
-     @param runSet organizes responsed statistics by factor code.
-
-     @param cutSlot is the LHS/RHS separator position in the vector of
-     factor codes maintained by the run-set.
-   */
 void SplitNux::writeSlots(const SplitFrontier* splitFrontier,
                           RunSet* runSet,
                           PredictorT cutSlot) {

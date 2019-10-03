@@ -23,7 +23,6 @@
 #include "path.h"
 #include "ompthread.h"
 #include "replay.h"
-#include "splitnux.h"
 
 #include <numeric>
 
@@ -415,8 +414,8 @@ IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
 }
 
 
-IndexRange Frontier::getBufRange(const SplitNux& splitNux) const {
-  return indexSet[splitNux.getNodeIdx()].getBufRange();
+IndexRange Frontier::getBufRange(const DefCoord& preCand) const {
+  return indexSet[preCand.splitCoord.nodeIdx].getBufRange();
 }
 
 

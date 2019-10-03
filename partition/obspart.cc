@@ -21,7 +21,6 @@
 #include "path.h"
 #include "level.h"
 #include "ompthread.h"
-#include "splitnux.h"
 
 #include <numeric>
 
@@ -119,17 +118,6 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
 }
 
 
-IndexT ObsPart::bufferOff(const SplitNux* cand) const {
-  return bufferOff(cand->getSplitCoord().predIdx, cand->getBufIdx());
-}
-
-
-SampleRank* ObsPart::getPredBase(const SplitNux* cand) const {
-  return nodeVec + bufferOff(cand);
-}
-
-
-
 double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
                             const IndexSet* iSet,
                             const IndexRange& range,
@@ -137,7 +125,7 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
                             Replay* replay,
                             vector<SumCount>& ctgCrit) const {
   IndexT* sIdx;
-  SampleRank* spn = buffers(splitFrontier, iSet, sIdx);
+  SampleRank* spn = buffers(splitFrontier->getDefCoord(iSet), sIdx);
   double sumExpl = 0.0;
   for (IndexT opIdx = range.getStart(); opIdx < range.getEnd(); opIdx++) {
     sumExpl += spn[opIdx].accum(ctgCrit);
@@ -149,28 +137,20 @@ double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
 }
 
 
-SampleRank* ObsPart::buffers(const SplitFrontier* splitFrontier,
-                             const IndexSet* iSet,
-                             IndexT*& sIdx) const {
-  return buffers(splitFrontier->getPredIdx(iSet), splitFrontier->getBufIdx(iSet), sIdx);
-}
-
-
 IndexT* ObsPart::indexBuffer(const SplitFrontier* splitFrontier,
                                 const IndexSet* iSet) {
-  return indexBuffer(splitFrontier->getPredIdx(iSet), splitFrontier->getBufIdx(iSet));
+  return indexBuffer(splitFrontier->getDefCoord(iSet));
 }
 
 
 void ObsPart::prepath(const IdxPath *idxPath,
-                         const unsigned int reachBase[],
-                         PredictorT predIdx,
-                         unsigned int bufIdx,
-                         const IndexRange& idxRange,
-                         unsigned int pathMask,
-                         bool idxUpdate,
-                         unsigned int pathCount[]) {
-  prepath(idxPath, reachBase, idxUpdate, idxRange, pathMask, bufferIndex(predIdx, bufIdx), &pathIdx[getStageOffset(predIdx)], pathCount);
+		      const unsigned int reachBase[],
+		      const DefCoord& mrra,
+		      const IndexRange& idxRange,
+		      unsigned int pathMask,
+		      bool idxUpdate,
+		      unsigned int pathCount[]) {
+  prepath(idxPath, reachBase, idxUpdate, idxRange, pathMask, bufferIndex(mrra), &pathIdx[getStageOffset(mrra.splitCoord.predIdx)], pathCount);
 }
 
 void ObsPart::prepath(const IdxPath *idxPath,
@@ -192,24 +172,22 @@ void ObsPart::prepath(const IdxPath *idxPath,
 
 
 void ObsPart::restage(Level *levelBack,
-                         Level *levelFront,
-                         const SplitCoord &mrra,
-                         unsigned int bufIdx) {
-  levelBack->rankRestage(this, mrra, levelFront, bufIdx);
+		      Level *levelFront,
+		      const DefCoord& mrra) {
+  levelBack->rankRestage(this, mrra, levelFront);
 }
 
 
-void ObsPart::rankRestage(PredictorT predIdx,
-                          unsigned int bufIdx,
+void ObsPart::rankRestage(const DefCoord& mrra,
                           const IndexRange& idxRange,
                           unsigned int reachOffset[],
                           unsigned int rankPrev[],
                           unsigned int rankCount[]) {
   SampleRank *source, *targ;
   IndexT *idxSource, *idxTarg;
-  buffers(predIdx, bufIdx, source, idxSource, targ, idxTarg);
+  buffers(mrra, source, idxSource, targ, idxTarg);
 
-  PathT *pathBlock = &pathIdx[getStageOffset(predIdx)];
+  PathT *pathBlock = &pathIdx[getStageOffset(mrra.splitCoord.predIdx)];
   for (IndexT idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
@@ -227,15 +205,14 @@ void ObsPart::rankRestage(PredictorT predIdx,
 
 void ObsPart::indexRestage(const IdxPath *idxPath,
                            const unsigned int reachBase[],
-                           const SplitCoord& mrra,
-                           unsigned int bufIdx,
+                           const DefCoord& mrra,
                            const IndexRange& idxRange,
                            unsigned int pathMask,
                            bool idxUpdate,
                            unsigned int reachOffset[],
                            unsigned int splitOffset[]) {
   unsigned int *idxSource, *idxTarg;
-  indexBuffers(mrra.predIdx, bufIdx, idxSource, idxTarg);
+  indexBuffers(mrra, idxSource, idxTarg);
 
   for (IndexT idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
     IndexT sIdx = idxSource[idx];

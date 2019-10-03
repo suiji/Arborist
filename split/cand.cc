@@ -17,14 +17,13 @@
 #include "splitfrontier.h"
 #include "bottom.h"
 #include "splitcoord.h"
-#include "splitnux.h"
 
-vector<SplitNux>
+vector<DefCoord>
 Cand::precandidates(SplitFrontier* splitFrontier,
 		    const Bottom* bottom) const {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
 
-  vector<SplitNux> preCand;
+  vector<DefCoord> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {
     if (!splitFrontier->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {

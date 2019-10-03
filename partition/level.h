@@ -243,15 +243,13 @@ public:
 
 
   void rankRestage(class ObsPart *samplePred,
-                   const SplitCoord& mrra,
-                   Level *levelFront,
-                   unsigned int bufIdx);
+                   const DefCoord& mrra,
+                   Level *levelFront);
 
 
   void indexRestage(class ObsPart* obsPart,
-                    const SplitCoord& mrra,
+                    const DefCoord& mrra,
                     const Level* levelFront,
-                    unsigned int bufIdx,
 		    const vector<IndexT>& offCand);
 
   /**
@@ -264,16 +262,14 @@ public:
      appears necessary for dense packing or for coprocessor loading.
   */
   void rankRestage(class ObsPart *samplePred,
-                   const SplitCoord& mrra,
+                   const DefCoord& mrra,
                    Level *levelFront,
-                   unsigned int bufIdx,
                    unsigned int reachOffset[], 
                    const unsigned int reachBase[] = nullptr);
 
   void indexRestage(class ObsPart *samplePred,
-                    const SplitCoord& mrra,
+                    const DefCoord& mrra,
                     const Level *levelFront,
-                    unsigned int bufIdx,
                     const unsigned int reachBase[],
                     unsigned int reachOffset[],
                     unsigned int splitOffset[]);
@@ -321,11 +317,10 @@ public:
      node and adjusts start and extent values by corresponding dense parameters.
   */
   IndexRange
-  getRange(const SplitCoord& mrra) const;
+  getRange(const DefCoord& mrra) const;
 
   void
-  frontDef(const SplitCoord& splitCoord,
-	   unsigned int bufIdx,
+  frontDef(const DefCoord& defCoord,
 	   bool singleton);
 
   /**
@@ -372,7 +367,7 @@ public:
   packDense(IndexT idxLeft,
 	    const unsigned int pathCount[],
 	    Level *levelFront,
-	    const SplitCoord& mrra,
+	    const DefCoord& mrra,
 	    unsigned int reachOffset[]) const;
 
   void
@@ -407,10 +402,7 @@ public:
 
 
   IndexT
-  denseOffset(const class SplitNux& cand) const;
-
-  bool
-  isDense(const class SplitNux& cand) const;
+  denseOffset(const DefCoord& cand) const;
 
 
   /**
@@ -527,13 +519,12 @@ public:
      default setting of zero, which is later reset by restaging.
    */
   inline bool
-  define(const SplitCoord& splitCoord,
-	 unsigned int bufIdx,
+  define(const DefCoord& defCoord,
 	 bool singleton,
 	 IndexT implicit = 0) {
-    if (splitCoord.nodeIdx != noIndex) {
-      def[splitCoord.strideOffset(nPred)].init(bufIdx, singleton);
-      setDense(splitCoord, implicit);
+    if (defCoord.splitCoord.nodeIdx != noIndex) {
+      def[defCoord.splitCoord.strideOffset(nPred)].init(defCoord.bufIdx, singleton);
+      setDense(defCoord.splitCoord, implicit);
       defCount++;
       return true;
     }
@@ -562,12 +553,13 @@ public:
 
      @param[out] singleton outputs whether the definition is singleton.
    */
-  inline void
+  inline DefCoord
   consume(const SplitCoord& splitCoord,
-                      unsigned int& bufIdx,
-                      bool& singleton) {
+	  bool& singleton) {
+    unsigned int bufIdx;
     def[splitCoord.strideOffset(nPred)].consume(bufIdx, singleton);
     defCount--;
+    return DefCoord(splitCoord, bufIdx);
   }
 
 
@@ -593,8 +585,15 @@ public:
    */
   inline bool
   isSingleton(const SplitCoord& splitCoord,
-	      unsigned int& bufIdx) const {
-    return def[splitCoord.strideOffset(nPred)].isSingleton(bufIdx);
+	      DefCoord& defCoord) const {
+    unsigned int bufIdx;
+    if (def[splitCoord.strideOffset(nPred)].isSingleton(bufIdx)) {
+      return true;
+    }
+    else {
+      defCoord = DefCoord(splitCoord, bufIdx);
+      return false;
+    }
   }
 
 
@@ -618,12 +617,12 @@ public:
      @return adjusted index range.
    */
   IndexRange
-  adjustRange(const class SplitNux& cand,
+  adjustRange(const DefCoord& cand,
 	      const class SplitFrontier* splitFrontier) const;
 
 
   IndexT
-  getImplicit(const class SplitNux& cand) const;
+  getImplicit(const DefCoord& cand) const;
   
 
   inline bool
@@ -636,6 +635,12 @@ public:
   isDense(const SplitCoord& splitCoord) const {
     return def[splitCoord.strideOffset(nPred)].isDense();
   }
+
+  bool
+  isDense(const DefCoord& cand) const {
+    return isDense(cand.splitCoord);
+  }
+
 
 
   /**

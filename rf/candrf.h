@@ -33,7 +33,7 @@ class CandRF : public Cand {
 		const class Bottom* bottom,
 		IndexT splitIdx,
 		const double ruPred[],
-		vector<class SplitNux>& preCand) const;
+		vector<DefCoord>& preCand) const;
 
   void
   candidateFixed(class SplitFrontier* splitFrontier,
@@ -41,7 +41,7 @@ class CandRF : public Cand {
 		 IndexT splitIdx,
 		 const double ruPred[],
 		 class BHPair heap[],
-		 vector<class SplitNux>& preCand) const;
+		 vector<DefCoord>& preCand) const;
 
  public:
   
@@ -52,7 +52,7 @@ class CandRF : public Cand {
   static void
   deInit();
 
-  vector<class SplitNux>
+  vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
 		const class Bottom* bottom) const;
 };

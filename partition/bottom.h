@@ -29,22 +29,18 @@
    @brief Coordinates referencing most-recently restaged ancester (MRRA).
  */
 class RestageCoord {
-  SplitCoord mrra; // Level-relative coordinates of reaching ancestor.
+  DefCoord mrra; // Level-relative coordinates of reaching ancestor.
   unsigned char del; // # levels back to referencing level.
-  unsigned char bufIdx; // buffer index of mrra's ObsPart.
  public:
 
-  RestageCoord(const SplitCoord& splitCoord,
-               unsigned int del_,
-               unsigned int bufIdx_) :
-    mrra(splitCoord),
-    del(del_),
-    bufIdx(bufIdx_) {
+  RestageCoord(const DefCoord& defCoord,
+	       unsigned int del_) :
+    mrra(defCoord),
+    del(del_) {
   }
 
-  inline SplitCoord Ref(unsigned int &del, unsigned int &bufIdx) {
+  inline DefCoord Ref(unsigned int &del) {
     del = this->del;
-    bufIdx = this->bufIdx;
     return mrra;
   }
 };
@@ -87,10 +83,10 @@ class Bottom {
      @return true iff candidate is not singleton.
    */
   void postSchedule(const class SplitFrontier* SplitFrontier,
-		    class SplitNux& nux,
+		    const struct DefCoord& preCand,
 		    vector<PredictorT>& runCount,
 		    vector<PredictorT>& nCand,
-		    vector<SplitNux>& postCand) const;
+		    vector<class SplitNux>& postCand) const;
 
   
  /**
@@ -132,15 +128,10 @@ class Bottom {
 
      @param del is the number of levels back that the definition resides.
 
-     @param mrraIdx is the level-relative index of the defining node.
-
-     @param predIdx is the predictor index.
-
-     @param bufIdx is the buffer in which the definition resides.
+     @param mrra summarizes the reaching definition.
    */
   void scheduleRestage(unsigned int del,
-                       const SplitCoord& splitCoord,
-                       unsigned int bufIdx);
+                       const DefCoord& mrra);
 
 
   /**
@@ -173,7 +164,7 @@ class Bottom {
   unsigned int 
   preschedule(class SplitFrontier* splitFrontier,
 	      const SplitCoord& splitCoord,
-	      vector<class SplitNux>& preCand) const;
+	      vector<struct DefCoord>& preCand) const;
 
 
 
@@ -185,7 +176,7 @@ class Bottom {
   */
   vector<class SplitNux>
   postSchedule(class SplitFrontier* splitFrontier,
-	       vector<SplitNux>& preCand);
+	       vector<DefCoord>& preCand);
   
   
   /**
@@ -197,21 +188,21 @@ class Bottom {
 
   bool
   isSingleton(const SplitCoord& splitCoord,
-	      unsigned int& bufIdx) const;
+	      DefCoord& defCoord) const;
 
   
   /**
      @brief Passes through to front level.
    */
   IndexRange
-  adjustRange(const class SplitNux& nux,
+  adjustRange(const struct DefCoord& preCand,
 	      const class SplitFrontier* splitFrontier) const;
 
   /**
      @brief Passes through to front level.
    */
   IndexT
-  getImplicitCount(const class SplitNux& nux) const;
+  getImplicitCount(const struct DefCoord& preCand) const;
 
   
   /**
@@ -357,8 +348,7 @@ class Bottom {
   /**
      @brief Flips source bit if a definition reaches to current level.
   */
-  void addDef(const SplitCoord& splitCoord,
-              unsigned int bufIdx,
+  void addDef(const DefCoord& splitCoord,
               bool singleton);
 
   /**
@@ -453,16 +443,13 @@ class Bottom {
   /**
      @brief Looks up the run count associated with a given node, predictor pair.
      
-     @param splitIdx is the level-relative node index.
-
-     @param predIdx is the predictor index.
+     @param splitCoord specifies the node, predictor candidate pair.
 
      @return run count associated with the node, if factor, otherwise zero.
    */
-  inline PredictorT getRunCount(const SplitCoord& splitCoord) const {
-    unsigned int facStride;
-    return factorStride(splitCoord.predIdx, splitCoord.nodeIdx, facStride) ? runCount[facStride] : 0;
-  }
+  PredictorT getSetIdx(const class SplitFrontier* splitFrontier,
+		       const SplitCoord& splitCoord,
+		       vector<PredictorT>& runCount) const;
 };
 
 

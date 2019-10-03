@@ -26,12 +26,12 @@ class SplitNux {
   static double minRatio;
 
   SplitCoord splitCoord;
+  unsigned char bufIdx;
   IndexRange idxRange; // Indices into compressed ObsPart buffer.
   PredictorT setIdx; // Index into runSet vector for factor split.
-  unsigned char bufIdx;
+
   double lhSum; // # sum of left split:  Initialized to node value.
   IndexT lhSCount; // # samples in left split:  initialized to node value.
-
   double info; // Weighted variance or Gini, currently.
   IndexT lhImplicit; // # implicit indices in LHS:  initialized to node value at scheduling.
 
@@ -64,19 +64,19 @@ class SplitNux {
 	   IndexT sCount,
 	   double info_) :
   splitCoord(splitCoord_),
-    setIdx(setIdx_),
-    bufIdx(bufIdx_),
-    lhSum(sum),
-    lhSCount(sCount),
-    info(info_) {
+  bufIdx(bufIdx_),
+  setIdx(setIdx_),
+  lhSum(sum),
+  lhSCount(sCount),
+  info(info_) {
   }
 
-
-  SplitNux(const class SplitFrontier* splitFrontier,
-	   const class Frontier* frontier,
-	   const SplitCoord splitCoord_,
-	   unsigned char bufIdx_,
-	   IndexT noSet);
+  
+  SplitNux(const DefCoord& preCand,
+	   const class SplitFrontier* splitFrontier,
+	   PredictorT setIdx_,
+	   IndexRange range,
+	   IndexT implicitCount);
 
   
   ~SplitNux() {
@@ -99,22 +99,6 @@ class SplitNux {
    */
   bool infoGain(const class SplitFrontier* splitFrontier);
 
-  
-  /**
-     @brief Sets candidate splitting fields for cell.
-
-     @param rCount is this cell's run count.
-
-     @param[in, out] runCount accumulates per-cell run counts.
-
-     @param range is the buffer range.
-
-     @param implicit count is the implicit count.
-   */
-  void schedule(PredictorT rCount,
-		vector<PredictorT>& runCount,
-		IndexRange range,
-		IndexT implicitCount);
 
   /**
      @brief Writes the left-hand characterization of a factor-based
@@ -126,6 +110,15 @@ class SplitNux {
 		 PredictorT lhBits);
 
 
+  /**
+     @brief Writes the left-hand characterization of a factor-based
+     split with numerical or binary response.
+
+     @param runSet organizes responsed statistics by factor code.
+
+     @param cutSlot is the LHS/RHS separator position in the vector of
+     factor codes maintained by the run-set.
+   */
   void writeSlots(const class SplitFrontier* splitFrontier,
                   class RunSet* runSet,
                   PredictorT cutSlot);
@@ -184,6 +177,11 @@ class SplitNux {
   }
   
 
+  auto getDefCoord() const {
+    return DefCoord(splitCoord, bufIdx);
+  }
+
+  
   auto getSplitCoord() const {
     return splitCoord;
   }
@@ -295,18 +293,6 @@ class SplitNux {
     IndexRange range;
     range.set(getExplicitBranchStart(), getExplicitBranchExtent());
     return range;
-  }
-
-  void setImplicit(IndexT implicitCount) {
-    lhImplicit = implicitCount;
-  }
-
-  void setIndexRange(const IndexRange& range) {
-    idxRange = range;
-  }
-
-  void setSetIdx(PredictorT setIdx) {
-    this->setIdx = setIdx;
   }
 };
 

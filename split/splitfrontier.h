@@ -66,7 +66,6 @@ protected:
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
   const PredictorT nPred;
-  const IndexT noSet; // Unreachable setIdx for SplitNux.
   unique_ptr<class ObsPart> obsPart;
   IndexT nSplit; // # subtree nodes at current level.
   unique_ptr<class Run> run; // Run sets for the current level.
@@ -97,14 +96,9 @@ public:
 
 
   void
-  preschedule(const SplitCoord& splitCoord,
-	      unsigned int bufIdx,
-	      vector<class SplitNux>& preCand) const;
+  preschedule(const DefCoord& defCoord,
+	      vector<DefCoord>& preCand) const;
 
-  
-  /**
-     @brief Passes through to ObsPart method.
-   */
   double blockReplay(class IndexSet* iSet,
                      const IndexRange& range,
                      bool leftExpl,
@@ -122,8 +116,7 @@ public:
    */
   void restage(class Level* levelFrom,
                class Level* levelTo,
-               const SplitCoord& splitCoord,
-               unsigned int bufIdx) const;
+               const DefCoord& defCoord) const;
 
 
   /**
@@ -200,6 +193,8 @@ public:
 
   unsigned int getBufIdx(const class IndexSet* iSet) const;
 
+  DefCoord getDefCoord(const class IndexSet* iSet) const;
+  
   
   PredictorT getCardinality(const class IndexSet* iSet) const;
 
@@ -249,8 +244,7 @@ public:
   void critCut(class PreTree* pretree,
                class IndexSet* iSet,
 	       class Replay* replay) const;
-
-
+  
   /**
      @brief Getter for pre-bias value, by index.
 
@@ -274,6 +268,12 @@ public:
 
 
   /**
+     @return unreachable run-set index.
+   */
+  IndexT getNoSet() const;
+
+
+  /**
      @brief Passes through to Frontier method.
 
      @return true iff indexed split is not splitable.
@@ -282,11 +282,16 @@ public:
 
 
   /**
+     @brief Pass-through to Frontier getters.
+   */
+  double getSum(const SplitCoord& splitCoord) const;
+
+  IndexT getSCount(const SplitCoord& splitCoord) const;
+
+  /**
      @return buffer range of indexed split.
   */
-
-  IndexRange getBufRange(const class SplitNux& nux) const;
-  
+  IndexRange getBufRange(const DefCoord& preCand) const; 
 
   /**
    */
@@ -307,13 +312,13 @@ public:
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
-  void splitCandidates(vector<class SplitNux>& sc);
+  void split(vector<class SplitNux>& sc);
 
 
   /**
      @brief Passes through to Cand method.
    */
-  vector<class SplitNux>
+  vector<DefCoord>
   precandidates(const class Bottom* bottom);
 
   void setCandOff(const vector<PredictorT>& ncand);

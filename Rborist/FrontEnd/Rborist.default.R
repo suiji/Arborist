@@ -180,22 +180,25 @@
             stop("Quantile range must be increasing")
     }
 
-    # Normalizes vector of pointwise predictor probabilites.
     if (predProb != 0.0 && predFixed != 0)
       stop("Conflicting sampling specifications:  Bernoulli vs. fixed.")
+    if (length(predProb) > 1)
+        stop("'predProb' must have a scalar value")
+    if (length(predFixed) > 1)
+        stop("'predFixed' must have a scalar value")
+
     if (predFixed == 0) {
         predFixed <- ifelse(predProb != 0.0, 0, ifelse(nPred >= 16, 0, ifelse(!is.factor(y), max(floor(nPred/3), 1), floor(sqrt(nPred)))))
     }
     if (predProb == 0.0) {
         predProb <- ifelse(predFixed != 0, 0.0, ifelse(!is.factor(y), 0.4, ceiling(sqrt(nPred))/nPred))
     }
-    if (length(predProb) > 1)
-        stop("'predProb' must have a scalar value")
     if (predProb < 0 || predProb > 1.0)
         stop("'predProb' value must lie in [0,1]")
     if (predFixed < 0 || predFixed > nPred)
         stop("'predFixed' must be positive integer <= predictor count")
 
+    # Normalizes vector of pointwise predictor probabilites.
     meanWeight <- ifelse(predProb == 0.0, 1.0, predProb)
     argList$probVec <- predWeight * (nPred * meanWeight) / sum(predWeight)
     argList$predWeight <- NULL

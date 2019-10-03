@@ -17,15 +17,19 @@
 
  */
 
+#include "splitcoord.h"
 #include "typeparam.h"
 
 #include <vector>
 
-class Cand {
+/**
+   @brief Minimal information needed to preschedule a splitting candidate.
+ */
 
+class Cand {
 public:
   
-  virtual vector<class SplitNux>
+  virtual vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
 		const class Bottom* bottom) const;
 };

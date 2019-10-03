@@ -635,12 +635,11 @@ class Frontier {
   /**
      @brief Getter for IndexRange at a given coordinate.
 
-     @param splitNux contains the coordinate.
+     @param preCand contains the splitting candidate's coordinate.
 
      @return index range of referenced split coordinate.
    */
-  IndexRange getBufRange(const class SplitNux& splitNux) const;
-  
+  IndexRange getBufRange(const DefCoord& preCand) const;
 
   /**
     @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.

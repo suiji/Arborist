@@ -58,4 +58,27 @@ struct SplitCoord {
   }
 };
 
+
+/**
+   @brief Includes the index of the buffer containing the cell's definition.
+ */
+struct DefCoord {
+  SplitCoord splitCoord;
+  unsigned char bufIdx;
+
+  DefCoord(const SplitCoord& splitCoord_,
+	   unsigned int bufIdx_) :
+  splitCoord(splitCoord_),
+    bufIdx(bufIdx_) {
+  }
+
+  
+  /**
+     @return index of complementary buffer.
+   */
+  unsigned int compBuffer() const {
+    return 1 - bufIdx;
+  }
+};
+
 #endif

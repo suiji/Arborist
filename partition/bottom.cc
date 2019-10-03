@@ -53,12 +53,12 @@ Bottom::Bottom(const SummaryFrame* frame_,
 void
 Bottom::rootDef(const vector<StageCount>& stageCount,
 		IndexT bagCount) {
-  const unsigned int bufIdx = 0; // Initial staging buffer index.
+  const unsigned int bufRoot = 0; // Initial staging buffer index.
   const IndexT splitIdx = 0; // Root split index.
   PredictorT predIdx = 0;
   for (auto sc : stageCount) {
     SplitCoord splitCoord(splitIdx, predIdx);
-    (void) level[0]->define(splitCoord, bufIdx, sc.singleton, bagCount - sc.expl);
+    (void) level[0]->define(DefCoord(splitCoord, bufRoot), sc.singleton, bagCount - sc.expl);
     setRunCount(splitCoord, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
     predIdx++;
   }
@@ -69,7 +69,7 @@ void
 Bottom::scheduleSplits(SplitFrontier* splitFrontier) {
   splitFrontier->init();
   unsigned int flushCount = flushRear();
-  vector<SplitNux> preCand = splitFrontier->precandidates(this);
+  vector<DefCoord> preCand = splitFrontier->precandidates(this);
 
   backdate();
   restage(splitFrontier);
@@ -80,18 +80,18 @@ Bottom::scheduleSplits(SplitFrontier* splitFrontier) {
     level.erase(level.end() - flushCount, level.end());
   }
   vector<SplitNux> postCand = postSchedule(splitFrontier, preCand);
-  splitFrontier->splitCandidates(postCand);
+  splitFrontier->split(postCand);
 }
 
 
 vector<SplitNux>
-Bottom::postSchedule(SplitFrontier* splitFrontier, vector<SplitNux>& preCand) {
+Bottom::postSchedule(SplitFrontier* splitFrontier, vector<DefCoord>& preCand) {
   vector<PredictorT> runCount;
   vector<SplitNux> postCand;
   vector<PredictorT> nCand(splitFrontier->getNSplit());
   fill(nCand.begin(), nCand.end(), 0);
-  for (auto & sg : preCand) {
-    postSchedule(splitFrontier, sg, runCount, nCand, postCand);
+  for (auto & pc : preCand) {
+    postSchedule(splitFrontier, pc, runCount, nCand, postCand);
   }
 
   splitFrontier->setCandOff(nCand);
@@ -103,27 +103,45 @@ Bottom::postSchedule(SplitFrontier* splitFrontier, vector<SplitNux>& preCand) {
 
 void
 Bottom::postSchedule(const SplitFrontier* splitFrontier,
-		     SplitNux& nux,
+		     const DefCoord& preCand,
 		     vector<PredictorT>& runCount,
 		     vector<PredictorT>& nCand,
 		     vector<SplitNux>& postCand) const {
-  SplitCoord splitCoord = nux.getSplitCoord();
+  SplitCoord splitCoord = preCand.splitCoord;
   if (!isSingleton(splitCoord)) {
-    nux.schedule(getRunCount(splitCoord), runCount, adjustRange(nux, splitFrontier), getImplicitCount(nux));
+    PredictorT setIdx = getSetIdx(splitFrontier, splitCoord, runCount);
+    postCand.emplace_back(preCand, splitFrontier, setIdx, adjustRange(preCand, splitFrontier), getImplicitCount(preCand));
     nCand[splitCoord.nodeIdx]++;
-    postCand.push_back(nux);
   }
+}
+
+
+PredictorT
+Bottom::getSetIdx(const SplitFrontier* splitFrontier,
+		  const SplitCoord& splitCoord,
+		  vector<PredictorT>& outCount) const {
+  IndexT facStride;
+  PredictorT rCount = factorStride(splitCoord.predIdx, splitCoord.nodeIdx, facStride) ? runCount[facStride] : 0;
+  PredictorT setIdx;
+  if (rCount > 1) {
+    setIdx = outCount.size();
+    outCount.push_back(rCount);
+  }
+  else {
+    setIdx = splitFrontier->getNoSet();
+  }
+  return setIdx;
 }
 
 
 unsigned int
 Bottom::preschedule(SplitFrontier* splitFrontier,
 		    const SplitCoord& splitCoord,
-		    vector<SplitNux>& preCand) const {
+		    vector<DefCoord>& preCand) const {
   reachFlush(splitCoord);
-  unsigned int bufIdx;
-  if (!isSingleton(splitCoord, bufIdx)) {
-    splitFrontier->preschedule(splitCoord, bufIdx, preCand);
+  DefCoord defCoord(splitCoord, 0); // Dummy initialization.
+  if (!isSingleton(splitCoord, defCoord)) {
+    splitFrontier->preschedule(defCoord, preCand);
     return 1;
   }
   else {
@@ -140,23 +158,22 @@ Bottom::isSingleton(const SplitCoord& splitCoord) const {
 
 bool
 Bottom::isSingleton(const SplitCoord& splitCoord,
-		    unsigned int& bufIdx) const {
-  return level[0]->isSingleton(splitCoord, bufIdx);
-}
-
-
-IndexRange
-Bottom::adjustRange(const SplitNux& nux,
-		    const SplitFrontier* splitFrontier) const {
-  return level[0]->adjustRange(nux, splitFrontier);
+		    DefCoord& defCoord) const {
+  return level[0]->isSingleton(splitCoord, defCoord);
 }
 
 
 IndexT
-Bottom::getImplicitCount(const SplitNux& nux) const {
-  return level[0]->getImplicit(nux);
+Bottom::getImplicitCount(const DefCoord& preCand) const {
+  return level[0]->getImplicit(preCand);
 }
 
+
+IndexRange
+Bottom::adjustRange(const DefCoord& preCand,
+		    const SplitFrontier* splitFrontier) const {
+  return level[0]->adjustRange(preCand, splitFrontier);
+}
 
 
 unsigned int
@@ -205,9 +222,8 @@ Bottom::flushRear() {
 
 void
 Bottom::scheduleRestage(unsigned int del,
-			const SplitCoord& splitCoord,
-			unsigned bufIdx) {
-  restageCoord.emplace_back(RestageCoord(splitCoord, del, bufIdx));
+			const DefCoord& defCoord) {
+  restageCoord.emplace_back(RestageCoord(defCoord, del));
 }
 
 
@@ -238,9 +254,9 @@ Bottom::restage(const SplitFrontier* splitFrontier) {
 void
 Bottom::restage(const SplitFrontier* splitFrontier,
 		RestageCoord& rsCoord) {
-  unsigned int del, bufIdx;
-  SplitCoord mrra = rsCoord.Ref(del, bufIdx);
-  splitFrontier->restage(level[del].get(), level[0].get(), mrra, bufIdx);
+  unsigned int del;
+  DefCoord mrra = rsCoord.Ref(del);
+  splitFrontier->restage(level[del].get(), level[0].get(), mrra);
 }
 
 
@@ -352,11 +368,10 @@ Bottom::getSplitCount(unsigned int del) const {
 
 
 void
-Bottom::addDef(const SplitCoord& splitCoord,
-	       unsigned int bufIdx,
+Bottom::addDef(const DefCoord& defCoord,
 	       bool singleton) {
-  if (level[0]->define(splitCoord, bufIdx, singleton)) {
-    levelDelta[splitCoord.strideOffset(nPred)] = 0;
+  if (level[0]->define(defCoord, singleton)) {
+    levelDelta[defCoord.splitCoord.strideOffset(nPred)] = 0;
   }
 }
   
