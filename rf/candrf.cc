@@ -16,7 +16,7 @@
 #include "runset.h"
 #include "candrf.h"
 #include "splitfrontier.h"
-#include "bottom.h"
+#include "defmap.h"
 #include "callback.h"
 
 
@@ -43,7 +43,7 @@ CandRF::deInit() {
 
 vector<DefCoord>
 CandRF::precandidates(SplitFrontier* splitFrontier,
-		      const Bottom* bottom) const {
+		      const DefMap* bottom) const {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
   IndexT splitCount = splitFrontier->getNSplit();
   PredictorT nPred = splitFrontier->getNPred();
@@ -72,7 +72,7 @@ CandRF::precandidates(SplitFrontier* splitFrontier,
 
 void
 CandRF::candidateProb(SplitFrontier* splitFrontier,
-		      const Bottom* bottom,
+		      const DefMap* bottom,
 		      IndexT splitIdx,
 		      const double ruPred[],
 		      vector<DefCoord>& preCand) const {
@@ -86,7 +86,7 @@ CandRF::candidateProb(SplitFrontier* splitFrontier,
 
 void
 CandRF::candidateFixed(SplitFrontier* splitFrontier,
-		       const Bottom* bottom,
+		       const DefMap* bottom,
 		       IndexT splitIdx,
 		       const double ruPred[],
 		       BHPair heap[],

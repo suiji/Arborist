@@ -385,7 +385,7 @@ class Frontier {
   static unsigned int totLevels;
   vector<IndexSet> indexSet;
   const IndexT bagCount;
-  unique_ptr<class Bottom> bottom;
+  unique_ptr<class DefMap> defMap;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
   IndexT idxLive; // Total live indices.
@@ -554,7 +554,7 @@ class Frontier {
   
 
   /**
-     @brief Bottom pass-through to register reaching path.
+     @brief DefMap pass-through to register reaching path.
 
      @param splitIdx is the level-relative node index.
 

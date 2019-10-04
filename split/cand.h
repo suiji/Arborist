@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef SPLIT_CANDRF_H
-#define SPLIT_CANDRF_H
+#ifndef SPLIT_CAND_H
+#define SPLIT_CAND_H
 
 /**
    @file cand.h
@@ -31,7 +31,7 @@ public:
   
   virtual vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
-		const class Bottom* bottom) const;
+		const class DefMap* bottom) const;
 };
 
 #endif

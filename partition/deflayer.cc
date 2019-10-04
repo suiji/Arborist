@@ -6,16 +6,16 @@
  */
 
 /**
-   @file level.cc
+   @file deflayer.cc
 
-   @brief Methods involving individual tree levels during training.
+   @brief Methods involving individual definition layers.
 
    @author Mark Seligman
  */
 
-#include "level.h"
+#include "deflayer.h"
 #include "path.h"
-#include "bottom.h"
+#include "defmap.h"
 #include "frontier.h"
 #include "callback.h"
 #include "rankedframe.h"
@@ -24,13 +24,13 @@
 #include "splitfrontier.h"
 
 
-Level::Level(IndexT nSplit_,
+DefLayer::DefLayer(IndexT nSplit_,
              PredictorT nPred_,
              const RankedFrame* rankedFrame,
              IndexT bagCount,
              IndexT idxLive_,
              bool _nodeRel,
-             Bottom *_bottom) :
+             DefMap *_defMap) :
   nPred(nPred_),
   denseIdx(rankedFrame->getDenseIdx()),
   nPredDense(rankedFrame->getNPredDense()),
@@ -43,7 +43,7 @@ Level::Level(IndexT nSplit_,
   denseCoord(vector<DenseCoord>(nSplit * nPredDense)),
   relPath(make_unique<IdxPath>(idxLive)),
   nodeRel(_nodeRel),
-  bottom(_bottom)
+  defMap(_defMap)
 {
   MRRA df;
 
@@ -51,11 +51,11 @@ Level::Level(IndexT nSplit_,
   fill(def.begin(), def.end(), df);
 }
 
-Level::~Level() {
+DefLayer::~DefLayer() {
 }
 
 
-bool Level::nonreachPurge() {
+bool DefLayer::nonreachPurge() {
   bool purged = false;
   for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     if (liveCount[mrraIdx] == 0) {
@@ -70,14 +70,14 @@ bool Level::nonreachPurge() {
 }
 
 
-void Level::flush(bool forward) {
+void DefLayer::flush(SplitFrontier* splitFrontier) {
   for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
       SplitCoord splitCoord(mrraIdx, predIdx);
       if (!isDefined(splitCoord))
         continue;
-      if (forward) {
-        flushDef(splitCoord);
+      if (splitFrontier != nullptr) {
+        flushDef(splitFrontier, splitCoord);
       }
       else {
         undefine(splitCoord);
@@ -87,7 +87,8 @@ void Level::flush(bool forward) {
 }
 
 
-void Level::flushDef(const SplitCoord& splitCoord) {
+void DefLayer::flushDef(SplitFrontier* splitFrontier,
+		     const SplitCoord& splitCoord) {
   if (del == 0) // Already flushed to front level.
     return;
 
@@ -95,26 +96,26 @@ void Level::flushDef(const SplitCoord& splitCoord) {
   DefCoord defCoord = consume(splitCoord, singleton);
   frontDef(defCoord, singleton);
   if (!singleton)
-    bottom->scheduleRestage(del, defCoord);
+    splitFrontier->scheduleRestage(defCoord);
 }
 
 
-void Level::frontDef(const DefCoord& defCoord, bool singleton) {
+void DefLayer::frontDef(const DefCoord& defCoord, bool singleton) {
   unsigned int pathStart = defCoord.splitCoord.backScale(del);
   for (unsigned int path = 0; path < backScale(1); path++) {
-    bottom->addDef(DefCoord(SplitCoord(nodePath[pathStart + path].getSplitIdx(), defCoord.splitCoord.predIdx), defCoord.compBuffer()), singleton);
+    defMap->addDef(DefCoord(SplitCoord(nodePath[pathStart + path].getSplitIdx(), defCoord.splitCoord.predIdx), defCoord.compBuffer()), singleton);
   }
 }
 
 
-IndexRange Level::getRange(const DefCoord& mrra) const {
+IndexRange DefLayer::getRange(const DefCoord& mrra) const {
   IndexRange idxRange = indexAnc[mrra.splitCoord.nodeIdx];
   adjustRange(mrra.splitCoord, idxRange);
   return idxRange;
 }
 
 
-void Level::adjustRange(const SplitCoord& splitCoord,
+void DefLayer::adjustRange(const SplitCoord& splitCoord,
                         IndexRange& idxRange) const {
   if (isDense(splitCoord)) {
     (void) denseCoord[denseOffset(splitCoord)].adjustRange(idxRange);
@@ -123,13 +124,13 @@ void Level::adjustRange(const SplitCoord& splitCoord,
 
 
 
-void Level::setSingleton(const SplitCoord& splitCoord) {
+void DefLayer::setSingleton(const SplitCoord& splitCoord) {
   def[splitCoord.strideOffset(nPred)].setSingleton();
 }
 
 
 
-bool Level::backdate(const IdxPath *one2Front) {
+bool DefLayer::backdate(const IdxPath *one2Front) {
   if (!nodeRel)
     return false;
 
@@ -138,7 +139,7 @@ bool Level::backdate(const IdxPath *one2Front) {
 }
 
 
-void Level::reachingPaths() {
+void DefLayer::reachingPaths() {
   del++;
   vector<unsigned int> live(nSplit);
   vector<NodePath> path(backScale(nSplit));
@@ -154,14 +155,14 @@ void Level::reachingPaths() {
 }
 
 
-void Level::setExtinct(unsigned int idx) {
+void DefLayer::setExtinct(unsigned int idx) {
   relPath->setExtinct(idx);
 }
 
 
 void
-Level::pathInit(IndexT splitIdx, unsigned int path, const IndexRange& bufRange, IndexT relBase) {
-  IndexT mrraIdx = bottom->getHistory(this, splitIdx);
+DefLayer::pathInit(IndexT splitIdx, unsigned int path, const IndexRange& bufRange, IndexT relBase) {
+  IndexT mrraIdx = defMap->getHistory(this, splitIdx);
   unsigned int pathOff = backScale(mrraIdx);
   unsigned int pathBits = path & pathMask();
   nodePath[pathOff + pathBits].init(splitIdx, bufRange, relBase);
@@ -170,13 +171,13 @@ Level::pathInit(IndexT splitIdx, unsigned int path, const IndexRange& bufRange, 
 
 
 void
-Level::setLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) {
+DefLayer::setLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) {
   relPath->setLive(idx, path, targIdx, targIdx - ndBase);
 }
 
 
 IndexRange
-Level::adjustRange(const DefCoord& cand,
+DefLayer::adjustRange(const DefCoord& cand,
 		   const SplitFrontier* splitFrontier) const {
   IndexRange idxRange = splitFrontier->getBufRange(cand);
   if (isDense(cand)) {
@@ -187,21 +188,21 @@ Level::adjustRange(const DefCoord& cand,
 
 
 IndexT
-Level::getImplicit(const DefCoord& cand) const {
+DefLayer::getImplicit(const DefCoord& cand) const {
   return isDense(cand) ? denseCoord[denseOffset(cand)].getImplicit() : 0;
 }
 
 
 IndexT
-Level::denseOffset(const DefCoord& cand) const {
+DefLayer::denseOffset(const DefCoord& cand) const {
   return denseOffset(cand.splitCoord);
 }
 
 
 void
-Level::rankRestage(ObsPart* obsPart,
+DefLayer::rankRestage(ObsPart* obsPart,
 		   const DefCoord& mrra,
-		   Level* levelFront) {
+		   DefLayer* levelFront) {
   unsigned int reachOffset[NodePath::pathMax()];
   if (nodeRel) { // Both levels employ node-relative indexing.
     unsigned int reachBase[NodePath::pathMax()];
@@ -216,7 +217,7 @@ Level::rankRestage(ObsPart* obsPart,
 
 
 void
-Level::offsetClone(const SplitCoord &mrra,
+DefLayer::offsetClone(const SplitCoord &mrra,
 		   IndexT reachOffset[],
 		   IndexT reachBase[]) {
   unsigned int nodeStart = mrra.backScale(del);
@@ -232,23 +233,23 @@ Level::offsetClone(const SplitCoord &mrra,
 
 
 void
-Level::rankRestage(ObsPart* obsPart,
+DefLayer::rankRestage(ObsPart* obsPart,
 		   const DefCoord& mrra,
-		   Level* levelFront,
+		   DefLayer* levelFront,
 		   unsigned int reachOffset[],
 		   const unsigned int reachBase[]) {
   IndexRange idxRange = getRange(mrra);
   unsigned int pathCount[NodePath::pathMax()];
   fill(pathCount, pathCount + backScale(1), 0);
 
-  obsPart->prepath(nodeRel ?  getFrontPath() : bottom->getSubtreePath(), reachBase, mrra, idxRange, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
+  obsPart->prepath(nodeRel ?  getFrontPath() : defMap->getSubtreePath(), reachBase, mrra, idxRange, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
 
   // Successors may or may not themselves be dense.
   packDense(idxRange.getStart(), pathCount, levelFront, mrra, reachOffset);
 
   IndexT rankPrev[NodePath::pathMax()];
   IndexT rankCount[NodePath::pathMax()];
-  fill(rankPrev, rankPrev + backScale(1), bottom->getNoRank());
+  fill(rankPrev, rankPrev + backScale(1), defMap->getNoRank());
   fill(rankCount, rankCount + backScale(1), 0);
 
   obsPart->rankRestage(mrra, idxRange, reachOffset, rankPrev, rankCount);
@@ -257,9 +258,9 @@ Level::rankRestage(ObsPart* obsPart,
 
 
 void
-Level::packDense(IndexT idxStart,
+DefLayer::packDense(IndexT idxStart,
                       const unsigned int pathCount[],
-                      Level* levelFront,
+                      DefLayer* levelFront,
                       const DefCoord& mrra,
                       unsigned int reachOffset[]) const {
   if (!isDense(mrra)) {
@@ -281,23 +282,23 @@ Level::packDense(IndexT idxStart,
 
 
 void
-Level::setRunCounts(const SplitCoord &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
+DefLayer::setRunCounts(const SplitCoord &mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
   PredictorT predIdx = mrra.predIdx;
   const NodePath* pathPos = &nodePath[mrra.backScale(del)];
   for (unsigned int path = 0; path < backScale(1); path++) {
     IndexRange idxRange;
     IndexT splitIdx = pathPos[path].getCoords(idxRange);
     if (splitIdx != noIndex) {
-      bottom->setRunCount(SplitCoord(splitIdx, predIdx), pathCount[path] != idxRange.getExtent(), rankCount[path]);
+      defMap->setRunCount(SplitCoord(splitIdx, predIdx), pathCount[path] != idxRange.getExtent(), rankCount[path]);
     }
   }
 }
 
 
 void
-Level::indexRestage(ObsPart *obsPart,
+DefLayer::indexRestage(ObsPart *obsPart,
 		    const DefCoord &mrra,
-		    const Level *levelFront,
+		    const DefLayer *levelFront,
 		    const vector<IndexT>& offCand) {
   unsigned int reachOffset[NodePath::pathMax()];
   unsigned int splitOffset[NodePath::pathMax()];
@@ -322,7 +323,7 @@ Level::indexRestage(ObsPart *obsPart,
    @param reachOffset holds the starting offset positions along the path.
  */
 void
-Level::offsetClone(const SplitCoord& mrra,
+DefLayer::offsetClone(const SplitCoord& mrra,
 		   const vector<IndexT>& offCand,
 		   IndexT reachOffset[],
 		   IndexT splitOffset[],
@@ -341,13 +342,13 @@ Level::offsetClone(const SplitCoord& mrra,
 
 
 void
-Level::indexRestage(ObsPart* obsPart,
+DefLayer::indexRestage(ObsPart* obsPart,
 		    const DefCoord& mrra,
-		    const Level *levelFront,
+		    const DefLayer *levelFront,
 		    const unsigned int reachBase[],
 		    unsigned int reachOffset[],
 		    unsigned int splitOffset[]) {
-  obsPart->indexRestage(nodeRel ? getFrontPath() : bottom->getSubtreePath(),
+  obsPart->indexRestage(nodeRel ? getFrontPath() : defMap->getSubtreePath(),
                         reachBase, mrra, getRange(mrra),
                         pathMask(),
                         reachBase == nullptr ? levelFront->isNodeRel() : true,

@@ -6,16 +6,16 @@
  */
 
 /**
-   @file level.h
+   @file deflayer.h
 
-   @brief Definitions for the classes managing a single tree level.
+   @brief Definitions for the classes managing a single definition layer.
 
    @author Mark Seligman
 
  */
 
-#ifndef PARTITION_LEVEL_H
-#define PARTITION_LEVEL_H
+#ifndef PARTITION_DEFLAYER_H
+#define PARTITION_DEFLAYER_H
 
 #include "splitcoord.h"
 #include "typeparam.h"
@@ -115,6 +115,22 @@ class MRRA {
   
 
   /**
+     @brief Looks up position parameters and resets definition bit.
+
+     @param[out] singleton outputs whether the value is singleton.
+  */
+  inline DefCoord
+  consume(const SplitCoord& splitCoord,
+	  unsigned int del,
+	  bool& singleton) {
+    unsigned int bufIdx;
+    singleton = isSingleton(bufIdx);
+    (void) undefine();
+    return DefCoord(splitCoord, bufIdx, del);
+  }
+
+
+  /**
      @brief Marks value as extinct.
      
      @return true iff the value was live on entry.
@@ -124,20 +140,6 @@ class MRRA {
     bool wasDefined = isDefined();
     raw &= ~defBit;
     return wasDefined;
-  }
-
-
-  /**
-     @brief Looks up position parameters and resets definition bit.
-
-     @param[out] bufIdx outputs the buffer index containing the definition.
-
-     @param[out] singleton outputs whether the value is singleton.
-  */
-  inline void
-  consume(unsigned int& bufIdx, bool& singleton) {
-    singleton = isSingleton(bufIdx);
-    (void) undefine();
   }
 };
 
@@ -191,7 +193,7 @@ class DenseCoord {
 /**
    @brief Per-level reaching definitions.
  */
-class Level {
+class DefLayer {
   const PredictorT nPred; // Predictor count.
   const vector<IndexT>& denseIdx; // Compressed mapping to dense offsets.
   const PredictorT nPredDense; // # dense predictors.
@@ -217,7 +219,7 @@ class Level {
 
   IndexT candExtent; // Total candidate index extent.
   const bool nodeRel;  // Subtree- or node-relative indexing.
-  class Bottom *bottom;
+  class DefMap *defMap;
 
   /**
      @brief Schedules a non-singleton splitting candidate.
@@ -232,24 +234,24 @@ class Level {
 	      IndexT& spanCand);
   
 public:
-  Level(IndexT nSplit_,
+  DefLayer(IndexT nSplit_,
         PredictorT nPred_,
         const class RankedFrame* rankedFrame,
         IndexT noIndex_,
         IndexT idxLive_,
         bool nodeRel_,
-        class Bottom* bottom);
-  ~Level();
+        class DefMap* defMap);
+  ~DefLayer();
 
 
   void rankRestage(class ObsPart *samplePred,
                    const DefCoord& mrra,
-                   Level *levelFront);
+                   DefLayer *levelFront);
 
 
   void indexRestage(class ObsPart* obsPart,
                     const DefCoord& mrra,
-                    const Level* levelFront,
+                    const DefLayer* levelFront,
 		    const vector<IndexT>& offCand);
 
   /**
@@ -263,13 +265,13 @@ public:
   */
   void rankRestage(class ObsPart *samplePred,
                    const DefCoord& mrra,
-                   Level *levelFront,
+                   DefLayer *levelFront,
                    unsigned int reachOffset[], 
                    const unsigned int reachBase[] = nullptr);
 
   void indexRestage(class ObsPart *samplePred,
                     const DefCoord& mrra,
-                    const Level *levelFront,
+                    const DefLayer *levelFront,
                     const unsigned int reachBase[],
                     unsigned int reachOffset[],
                     unsigned int splitOffset[]);
@@ -277,9 +279,9 @@ public:
   /**
      @brief Moves entire level's defnitions to restaging schedule.
 
-     @param bottom is the active bottom state.
+     @param defMap is the active defMap state.
   */
-  void flush(bool forward = true);
+  void flush(class SplitFrontier* splitFrontier = nullptr);
 
   /**
      @brief Removes definition from a back level and builds definition
@@ -288,7 +290,8 @@ public:
      @param mrra is the coordinate pair of the ancestor to flush.
   */
   void
-  flushDef(const SplitCoord& splitCoord);
+  flushDef(class SplitFrontier* splitFrontier,
+	   const SplitCoord& splitCoord);
 
 
   /**
@@ -366,7 +369,7 @@ public:
   void
   packDense(IndexT idxLeft,
 	    const unsigned int pathCount[],
-	    Level *levelFront,
+	    DefLayer *levelFront,
 	    const DefCoord& mrra,
 	    unsigned int reachOffset[]) const;
 
@@ -411,9 +414,10 @@ public:
      @retun true iff flush occurs.
    */
   bool
-  flush(IndexT& thresh) {
+  flush(class SplitFrontier* splitFrontier,
+	IndexT& thresh) {
     if (defCount <= thresh) {
-      flush();
+      flush(splitFrontier);
       thresh -= defCount;
       return true;
     }
@@ -556,10 +560,8 @@ public:
   inline DefCoord
   consume(const SplitCoord& splitCoord,
 	  bool& singleton) {
-    unsigned int bufIdx;
-    def[splitCoord.strideOffset(nPred)].consume(bufIdx, singleton);
     defCount--;
-    return DefCoord(splitCoord, bufIdx);
+    return def[splitCoord.strideOffset(nPred)].consume(splitCoord, del, singleton);
   }
 
 

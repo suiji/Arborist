@@ -19,7 +19,7 @@
 #include "train.h"
 #include "obspart.h"
 #include "splitfrontier.h"
-#include "bottom.h"
+#include "defmap.h"
 #include "path.h"
 #include "ompthread.h"
 #include "replay.h"
@@ -76,7 +76,7 @@ Frontier::Frontier(const SummaryFrame* frame,
                    const Sample* sample) :
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
-  bottom(make_unique<Bottom>(frame, bagCount)),
+  defMap(make_unique<DefMap>(frame, bagCount)),
   nodeRel(false),
   idxLive(bagCount),
   relBase(vector<IndexT>(1)),
@@ -111,11 +111,11 @@ void IndexSet::initRoot(const Sample* sample) {
 
 unique_ptr<PreTree> Frontier::levels(const Sample* sample,
                                      SplitFrontier* splitFrontier) {
-  bottom->rootDef(splitFrontier->stage(sample), bagCount);
+  defMap->rootDef(splitFrontier->stage(sample), bagCount);
   
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    bottom->scheduleSplits(splitFrontier);
+    splitFrontier->restageAndSplit(defMap.get());
     indexSet = splitDispatch(splitFrontier, level++);
   }
 
@@ -292,7 +292,7 @@ IndexT Frontier::relLive(IndexT relIdx,
                             IndexT ptIdx) {
   IndexT stIdx = rel2ST[relIdx];
   rel2PT[targIdx] = ptIdx;
-  bottom->setLive(relIdx, targIdx, stIdx, path, base);
+  defMap->setLive(relIdx, targIdx, stIdx, path, base);
 
   return stIdx;
 }
@@ -301,7 +301,7 @@ IndexT Frontier::relLive(IndexT relIdx,
 void Frontier::relExtinct(IndexT relIdx, IndexT ptId) {
   IndexT stIdx = rel2ST[relIdx];
   st2PT[stIdx] = ptId;
-  bottom->setExtinct(relIdx, stIdx);
+  defMap->setExtinct(relIdx, stIdx);
 }
 
 
@@ -313,7 +313,7 @@ void Frontier::stReindex(IndexT splitNext) {
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound chunk = 0; chunk < nChunk; chunk++) {
-    stReindex(bottom->getSubtreePath(), splitNext, chunk * chunkSize, (chunk + 1) * chunkSize);
+    stReindex(defMap->getSubtreePath(), splitNext, chunk * chunkSize, (chunk + 1) * chunkSize);
   }
   }
 }
@@ -338,7 +338,7 @@ void Frontier::stReindex(IdxPath* stPath,
 
 
 void Frontier::transitionReindex(IndexT splitNext) {
-  IdxPath *stPath = bottom->getSubtreePath();
+  IdxPath *stPath = defMap->getSubtreePath();
   for (IndexT stIdx = 0; stIdx < bagCount; stIdx++) {
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, idxSucc, ptSucc;
@@ -358,7 +358,7 @@ void Frontier::transitionReindex(IndexT splitNext) {
 
 
 vector<IndexSet> Frontier::produce(IndexT splitNext) {
-  bottom->overlap(splitNext, bagCount, idxLive, nodeRel);
+  defMap->overlap(splitNext, bagCount, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.succHands(this, indexNext);
@@ -424,7 +424,7 @@ void Frontier::reachingPath(IndexT splitIdx,
                             const IndexRange& bufRange,
                             IndexT relBase,
                             unsigned int path) const {
-  bottom->reachingPath(splitIdx, parIdx, bufRange, relBase, path);
+  defMap->reachingPath(splitIdx, parIdx, bufRange, relBase, path);
 }
 
 

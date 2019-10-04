@@ -53,7 +53,7 @@ class SFCartReg : public SFCart {
   // or zero, if none so constrained.
   static vector<double> mono;
 
-  // Per-level vector of uniform variates.
+  // Per-layer vector of uniform variates.
   vector<double> ruMono;
 
   void split(class SplitNux* cand);
@@ -83,7 +83,7 @@ class SFCartReg : public SFCart {
 
   ~SFCartReg();
   void setRunOffsets(const vector<unsigned int>& safeCount);
-  void levelPreset();
+  void layerPreset();
   void clear();
 
   /**
@@ -140,16 +140,16 @@ class SFCartCtg : public SFCart {
   static constexpr double minSumR = 1.0e-5;
 
   const PredictorT nCtg; // Response cardinality.
-  vector<double> sumSquares; // Per-level sum of squares, by split.
+  vector<double> sumSquares; // Per-layer sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
 
   /**
-     @brief Initializes per-level sum and FacRun vectors.
+     @brief Initializes per-layer sum and FacRun vectors.
   */
-  void levelPreset();
+  void layerPreset();
 
   /**
-     @brief Clears summary state associated with this level.
+     @brief Clears summary state associated with this layer.
    */
   void clear();
 
@@ -167,17 +167,17 @@ class SFCartCtg : public SFCart {
 
 
   /**
-     @brief Initializes numerical sum accumulator for currently level.
+     @brief Initializes numerical sum accumulator for currently layer.
 
      @parm nPredNum is the number of numerical predictors.
    */
-  void levelInitSumR(PredictorT nPredNum);
+  void layerInitSumR(PredictorT nPredNum);
 
   
   /**
      @brief Gini pre-bias computation for categorical response.
 
-     @param splitIdx is the level-relative node index.
+     @param splitIdx is the layer-relative node index.
 
      @param sum is the sum of samples subsumed by the index node.
 

@@ -64,12 +64,15 @@ struct SplitCoord {
  */
 struct DefCoord {
   SplitCoord splitCoord;
-  unsigned char bufIdx;
-
+  unsigned char bufIdx; // Double-buffer containing definition.
+  unsigned char del; // Delta between current level and level of definition.
+  
   DefCoord(const SplitCoord& splitCoord_,
-	   unsigned int bufIdx_) :
+	   unsigned int bufIdx_,
+	   unsigned int del_ = 0) :
   splitCoord(splitCoord_),
-    bufIdx(bufIdx_) {
+    bufIdx(bufIdx_),
+    del(del_) {
   }
 
   

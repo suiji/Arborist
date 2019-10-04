@@ -19,7 +19,6 @@
 #include "splitfrontier.h"
 #include "frontier.h"
 #include "path.h"
-#include "level.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -168,13 +167,6 @@ void ObsPart::prepath(const IdxPath *idxPath,
       pathCount[path]++;
     }
   }
-}
-
-
-void ObsPart::restage(Level *levelBack,
-		      Level *levelFront,
-		      const DefCoord& mrra) {
-  levelBack->rankRestage(this, mrra, levelFront);
 }
 
 

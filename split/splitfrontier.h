@@ -5,8 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CART_SPLITFRONTIER_H
-#define CART_SPLITFRONTIER_H
+#ifndef SPLIT_SPLITFRONTIER_H
+#define SPLIT_SPLITFRONTIER_H
 
 /**
    @file splitfrontier.h
@@ -27,9 +27,9 @@
    @brief Enumerates split characteristics over a trained frontier.
  */
 struct SplitSurvey {
-  IndexT leafCount; // Number of terminals in this level.
+  IndexT leafCount; // Number of terminals in this layer.
   IndexT idxLive; // Extent of live buffer indices.
-  IndexT splitNext; // Number of splitable nodes in next level.
+  IndexT splitNext; // Number of splitable nodes in next layer.
   IndexT idxMax; // Maximum index.
 
   SplitSurvey() :
@@ -67,12 +67,14 @@ protected:
   class Frontier* frontier;
   const PredictorT nPred;
   unique_ptr<class ObsPart> obsPart;
-  IndexT nSplit; // # subtree nodes at current level.
-  unique_ptr<class Run> run; // Run sets for the current level.
+  IndexT nSplit; // # subtree nodes at current layer.
+  unique_ptr<class Run> run; // Run sets for the current layer.
   
   vector<double> prebias; // Initial information threshold.
 
-  // Per-split accessors for candidate vector.  Reset by Bottom.
+  vector<DefCoord> restageCoord;
+
+  // Per-split accessors for candidate vector.  Reset by DefMap.
   vector<IndexT> candOff;  // Lead candidate position:  cumulative
   vector<PredictorT> nCand;  // At most nPred etries per candidate.
 
@@ -86,9 +88,39 @@ protected:
   PredictorT getNumIdx(PredictorT predIdx) const;
 
 
-public:
+  /**
+     @brief Walks the list of split candidates and invalidates those which
+     restaging has marked unsplitable as well as singletons persisting since
+     initialization or as a result of bagging.  Fills in run counts, which
+     values restaging has established precisely.
+  */
+  vector<SplitNux>
+  postSchedule(class DefMap* defMap,
+	       vector<DefCoord>& preCand);
+
+
+  void
+  postSchedule(const DefMap* defMap,
+	       const DefCoord& preCand,
+	       vector<PredictorT>& runCount,
+	       vector<PredictorT>& nCand,
+	       vector<SplitNux>& postCand) const;
 
   
+  /**
+     @brief Looks up the run count associated with a given node, predictor pair.
+     
+     @param splitCoord specifies the node, predictor candidate pair.
+
+     @return run count associated with the node, if factor, otherwise zero.
+   */
+  PredictorT getSetIdx(PredictorT rCount,
+		       vector<PredictorT>& runCount) const;
+
+
+  
+public:
+
   SplitFrontier(const class Cand* cand_,
 		const class SummaryFrame* frame_,
                 class Frontier* frontier_,
@@ -109,15 +141,23 @@ public:
      @brief Passes ObsPart through to Sample method.
    */
   vector<class StageCount> stage(const class Sample* sample);
-  
+
+
+  /**
+     @brief Main entry from frontier loop.
+   */
+  void restageAndSplit(class DefMap* defMap);
   
   /**
      @brief Passes through to ObsPart method.
    */
-  void restage(class Level* levelFrom,
-               class Level* levelTo,
-               const DefCoord& defCoord) const;
+  void scheduleRestage(const DefCoord& mrra) {
+    restageCoord.push_back(mrra);
+  }
 
+  void restage(const class DefMap* defMap);
+
+  
 
   /**
      @brief Pass-through to data partition method.
@@ -298,7 +338,7 @@ public:
   class RunSet *rSet(unsigned int setIdx) const;
 
   /**
-     @brief Initializes state associated with current level.
+     @brief Initializes state associated with current layer.
    */
   void init();
 
@@ -319,14 +359,14 @@ public:
      @brief Passes through to Cand method.
    */
   vector<DefCoord>
-  precandidates(const class Bottom* bottom);
+  precandidates(const class DefMap* defMap);
 
   void setCandOff(const vector<PredictorT>& ncand);
   
   virtual void split(class SplitNux* cand) = 0;
   virtual ~SplitFrontier();
   virtual void setRunOffsets(const vector<unsigned int>& safeCounts) = 0;
-  virtual void levelPreset() = 0;
+  virtual void layerPreset() = 0;
 
   virtual void setPrebias(IndexT splitIdx,
                           double sum,

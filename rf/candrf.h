@@ -30,14 +30,14 @@ class CandRF : public Cand {
 
   void
   candidateProb(class SplitFrontier* splitFroniter,
-		const class Bottom* bottom,
+		const class DefMap* bottom,
 		IndexT splitIdx,
 		const double ruPred[],
 		vector<DefCoord>& preCand) const;
 
   void
   candidateFixed(class SplitFrontier* splitFrontier,
-		 const class Bottom* bottom,
+		 const class DefMap* bottom,
 		 IndexT splitIdx,
 		 const double ruPred[],
 		 class BHPair heap[],
@@ -54,7 +54,7 @@ class CandRF : public Cand {
 
   vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
-		const class Bottom* bottom) const;
+		const class DefMap* bottom) const;
 };
 
 #endif

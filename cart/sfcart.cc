@@ -8,7 +8,7 @@
 /**
    @file splitfrontier.cc
 
-   @brief Methods to implement splitting of index-tree levels.
+   @brief Methods to implement CART-specific splitting of frontier.
 
    @author Mark Seligman
  */
@@ -153,24 +153,24 @@ void SFCartCtg::clear() {
 
 
 /**
-   @brief Sets level-specific values for the subclass.
+   @brief Sets layer-specific values for the subclass.
 */
-void SFCartReg::levelPreset() {
+void SFCartReg::layerPreset() {
   if (!mono.empty()) {
     ruMono = CallBack::rUnif(nSplit * mono.size());
   }
 }
 
 
-void SFCartCtg::levelPreset() {
-  levelInitSumR(frame->getNPredNum());
+void SFCartCtg::layerPreset() {
+  layerInitSumR(frame->getNPredNum());
   ctgSum = vector<vector<double> >(nSplit);
 
   sumSquares = frontier->sumsAndSquares(ctgSum);
 }
 
 
-void SFCartCtg::levelInitSumR(PredictorT nPredNum) {
+void SFCartCtg::layerInitSumR(PredictorT nPredNum) {
   if (nPredNum > 0) {
     ctgSumAccum = vector<double>(nPredNum * nCtg * nSplit);
     fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);

@@ -15,12 +15,12 @@
 
 #include "cand.h"
 #include "splitfrontier.h"
-#include "bottom.h"
+#include "defmap.h"
 #include "splitcoord.h"
 
 vector<DefCoord>
 Cand::precandidates(SplitFrontier* splitFrontier,
-		    const Bottom* bottom) const {
+		    const DefMap* bottom) const {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
 
   vector<DefCoord> preCand;

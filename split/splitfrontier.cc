@@ -8,7 +8,7 @@
 /**
    @file splitfrontier.cc
 
-   @brief Methods to implement splitting of index-tree levels.
+   @brief Methods to implement splitting of frontier.
 
    @author Mark Seligman
  */
@@ -17,8 +17,7 @@
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "level.h"
-#include "bottom.h"
+#include "defmap.h"
 #include "cand.h"
 #include "runset.h"
 #include "samplenux.h"
@@ -65,8 +64,8 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* cand) const {
 
 
 vector<DefCoord>
-SplitFrontier::precandidates(const Bottom* bottom) {
-  return cand->precandidates(this, bottom);
+SplitFrontier::precandidates(const DefMap* defMap) {
+  return cand->precandidates(this, defMap);
 }
 
 
@@ -96,7 +95,7 @@ void SplitFrontier::init() {
   nSplit = frontier->getNSplit();
   prebias = vector<double>(nSplit);
 
-  levelPreset(); // virtual
+  layerPreset(); // virtual
   setPrebias();
 }
 
@@ -137,10 +136,79 @@ vector<StageCount> SplitFrontier::stage(const Sample* sample) {
 }
 
 
-void SplitFrontier::restage(Level* levelFrom,
-                            Level* levelTo,
-			    const DefCoord& mrra) const {
-  obsPart->restage(levelFrom, levelTo, mrra);
+void SplitFrontier::restageAndSplit(DefMap* defMap) {
+  init();
+  unsigned int flushCount = defMap->flushRear(this);
+  vector<DefCoord> preCand = precandidates(defMap);
+
+  defMap->backdate();
+  restage(defMap);
+
+  defMap->eraseLayers(flushCount);
+  vector<SplitNux> postCand = postSchedule(defMap, preCand);
+  split(postCand);
+}
+
+
+
+vector<SplitNux>
+SplitFrontier::postSchedule(class DefMap* defMap, vector<DefCoord>& preCand) {
+  vector<PredictorT> runCount;
+  vector<SplitNux> postCand;
+  vector<PredictorT> nCand(nSplit);
+  fill(nCand.begin(), nCand.end(), 0);
+  for (auto & pc : preCand) {
+    postSchedule(defMap, pc, runCount, nCand, postCand);
+  }
+
+  setCandOff(nCand);
+  setRunOffsets(runCount);
+
+  return postCand;
+}
+
+void
+SplitFrontier::postSchedule(const DefMap* defMap,
+			    const DefCoord& preCand,
+			    vector<PredictorT>& runCount,
+			    vector<PredictorT>& nCand,
+			    vector<SplitNux>& postCand) const {
+  if (!defMap->isSingleton(preCand)) {
+    PredictorT setIdx = getSetIdx(defMap->getRunCount(preCand), runCount);
+    postCand.emplace_back(preCand, this, setIdx, defMap->adjustRange(preCand, this), defMap->getImplicitCount(preCand));
+    nCand[preCand.splitCoord.nodeIdx]++;
+  }
+}
+
+
+PredictorT
+SplitFrontier::getSetIdx(PredictorT rCount,
+			 vector<PredictorT>& runCount) const {
+  PredictorT setIdx;
+  if (rCount > 1) {
+    setIdx = runCount.size();
+    runCount.push_back(rCount);
+  }
+  else {
+    setIdx = getNoSet();
+  }
+  return setIdx;
+}
+
+
+void
+SplitFrontier::restage(const DefMap* defMap) {
+  OMPBound idxTop = restageCoord.size();
+  
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
+      defMap->restage(obsPart.get(), restageCoord[nodeIdx]);
+    }
+  }
+
+  restageCoord.clear();
 }
 
 

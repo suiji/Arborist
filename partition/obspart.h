@@ -137,21 +137,6 @@ class ObsPart {
 		     class Replay* replay,
                      vector<SumCount>& ctgCrit) const;
 
-
-  
-  /**
-     @brief Drives restaging from an ancestor node and level to current level.
-
-     @param levelBack is the ancestor's level.
-
-     @param levelFront is the current level.
-
-     @param mrra is the ancestor.
-   */
-  void restage(class Level *levelBack,
-               class Level *levelFront,
-               const DefCoord& mrra);
-
   
   /**
      @brief Localizes copies of the paths to each index position.
