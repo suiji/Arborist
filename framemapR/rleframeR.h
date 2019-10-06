@@ -25,8 +25,8 @@
  */
 
 
-#ifndef FRAMEMAPR_RLEFRAME_R_H
-#define FRAMEMAPR_RLEFRAME_R_H
+#ifndef FRAMEMAPR_RLEFRAMER_H
+#define FRAMEMAPR_RLEFRAMER_H
 
 #include "rleframe.h"
 #include "summaryframe.h"
@@ -67,22 +67,6 @@ struct RLEFrameR {
    */
   static List checkNumRanked(SEXP sNumRanked);
 
-
-  /**
-     @brief Pins frame vectors locally and passes through to TrainRf method.
-
-     @param argList is the front-end argument list.
-
-     @param predmap is the predictor map.
-
-     @param nRow is the number of observations.
-
-     @return list of trained forest objects.
-   */
-  static List train(const List& argList,
-		    const IntegerVector& predmap,
-		    unsigned int nRow);
-  
 
   /**
      @brief Static entry to block sorting.

@@ -16,7 +16,7 @@
 // along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file signatureRf.h
+   @file signature.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,14 +25,14 @@
  */
 
 
-#ifndef FRAMEMAPR_SIGNATURE_RF_H
-#define FRAMEMAPR_SIGNATURE_RF_H
+#ifndef FRAMEMAPR_SIGNATURE_H
+#define FRAMEMAPR_SIGNATURE_H
 
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
-struct SignatureRf {
+struct Signature {
 
   /**
      @brief Derives or creates vector of row names for frame.

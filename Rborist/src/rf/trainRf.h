@@ -147,6 +147,22 @@ struct TrainRf {
   
 
   /**
+     @brief Pins frame vectors locally and passes through to TrainRf method.
+
+     @param argList is the front-end argument list.
+
+     @param predmap is the predictor map.
+
+     @param nRow is the number of observations.
+
+     @return list of trained forest objects.
+   */
+  static List train(const List& argList,
+		    const IntegerVector& predmap,
+		    unsigned int nRow);
+
+
+  /**
      @brief Static entry into training.
 
      @param argList is the user-supplied argument list.
@@ -187,6 +203,8 @@ struct TrainRf {
                  const vector<string>& diag);
 
 private:
+  
+
   /**
      @brief Estimates scale factor for full-forest reallocation.
 

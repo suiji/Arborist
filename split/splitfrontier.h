@@ -363,9 +363,9 @@ public:
 
   void setCandOff(const vector<PredictorT>& ncand);
   
-  virtual void split(class SplitNux* cand) = 0;
   virtual ~SplitFrontier();
-  virtual void setRunOffsets(const vector<unsigned int>& safeCounts) = 0;
+  virtual void split(class SplitNux* cand) = 0;
+  virtual void setRunOffsets(const vector<PredictorT>& safeCounts) = 0;
   virtual void layerPreset() = 0;
 
   virtual void setPrebias(IndexT splitIdx,

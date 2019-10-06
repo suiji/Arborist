@@ -17,87 +17,15 @@
 
  */
 
-#include "typeparam.h"
+#include "accum.h"
 
 #include <vector>
-using namespace std;
-
-
-/**
-   @brief Persistent workspace for computing optimal split.
-
-   Cells having implicit dense blobs are split in separate sections,
-   calling for a re-entrant data structure to cache intermediate state.
-   SplitAccum is tailored for right-to-left index traversal.
- */
-class SplitAccum {
-protected:
-  const IndexT sCount; // Running sample count along node.
-  const double sum; // Running response along node.
-  const IndexT rankDense; // Rank of dense value, if any.
-  IndexT sCountL; // Running sum of trial LHS sample counts.
-  double sumL; // Running sum of trial LHS response.
-  IndexT cutDense; // Rightmost position beyond implicit blob, if any.
-  
-  // Read locally but initialized, and possibly reset, externally.
-  IndexT sCountThis; // Current sample count.
-  FltVal ySum; // Current response value.
-
-
-  /**
-     @brief Updates split anywhere left of a residual, if any.
-   */
-  inline void trialRight(double infoTrial,
-			 IndexT idx,
-			 IndexT rkThis,
-			 IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      rankRH = rkRight;
-      rankLH = rkThis;
-      rhMin = rkRight == rankDense ? cutDense : idx + 1;
-    }
-  }
-
-  /**
-     @brief Updates split just to the right of a residual.
-   */
-  inline void splitResidual(double infoTrial,
-			   IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      rankRH = rkRight;
-      rankLH = rankDense;
-      rhMin = cutDense;
-    }
-  }
-  
-public:
-  // Revised at each new local maximum of 'info':
-  double info; // Information high watermark.  Precipitates split iff > 0.0.
-  IndexT lhSCount; // Sample count of split LHS:  > 0.
-  IndexT rankRH; // Maximum rank characterizing split.
-  IndexT rankLH; // Minimum rank charactersizing split.
-  IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
-  
-  SplitAccum(const class SplitNux* cand,
-             IndexT rankDense_);
-
-  
-  ~SplitAccum() {
-  }
-
-  
-  IndexT lhImplicit(const class SplitNux* cand) const;
-};
 
 
 /**
    @brief Auxiliary workspace information specific to regression.
  */
-class SplitAccumReg : public SplitAccum {
+class AccumCartReg : public Accum {
   const int monoMode; // Presence/direction of monotone constraint.
   const unique_ptr<class Residual> resid; // Current residual, if any, else null.
 
@@ -105,23 +33,11 @@ class SplitAccumReg : public SplitAccum {
 			 IndexT rkThis,
 			 IndexT rkRight) {
     if (rkThis != rkRight) {
-      SplitAccum::trialRight(infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL), idx, rkThis, rkRight);
+      Accum::trialRight(infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL), idx, rkThis, rkRight);
     }
   }
 
   
-  /**
-     @brief Creates a residual summarizing implicit splitting state.
-
-     @param cand is the splitting candidate.
-
-     @param spn is the splitting data set.
-     
-     @return new residual based on the current splitting data set.
-   */
-  unique_ptr<class Residual> makeResidual(const class SplitNux* cand,
-                                    const class SampleRank spn[]);
-
   /**
      @brief Updates with residual and possibly splits.
 
@@ -134,11 +50,11 @@ class SplitAccumReg : public SplitAccum {
 
 
 public:
-  SplitAccumReg(const class SplitNux* splitCand,
+  AccumCartReg(const class SplitNux* splitCand,
                 const class SampleRank spn[],
                 const class SFCartReg* spReg);
 
-  ~SplitAccumReg();
+  ~AccumCartReg();
 
   
   /**
@@ -217,7 +133,7 @@ public:
 /**
    @brief Splitting accumulator for classification.
  */
-class SplitAccumCtg : public SplitAccum {
+class AccumCartCtg : public Accum {
   const PredictorT nCtg; // Cadinality of response.
   const unique_ptr<class ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
@@ -233,7 +149,7 @@ class SplitAccumCtg : public SplitAccum {
                          IndexT rkThis,
                          IndexT rkRight) {
     if (rkThis != rkRight) {
-      SplitAccum::trialRight(infoSplit(ssL, ssR, sumL, sum - sumL), idx, rkThis, rkRight);
+      Accum::trialRight(infoSplit(ssL, ssR, sumL, sum - sumL), idx, rkThis, rkRight);
     }
   }
 
@@ -264,11 +180,11 @@ class SplitAccumCtg : public SplitAccum {
 
 public:
 
-  SplitAccumCtg(const class SplitNux* cand,
+  AccumCartCtg(const class SplitNux* cand,
                 const class SampleRank spn[],
                 class SFCartCtg* spCtg);
 
-  ~SplitAccumCtg();
+  ~AccumCartCtg();
 
   
   /**

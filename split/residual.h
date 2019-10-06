@@ -17,8 +17,9 @@
 
  */
 
-
 #include "typeparam.h"
+#include <vector>
+
 
 /**
    @brief Encapsulates imputed residual values.
@@ -91,7 +92,7 @@ struct ResidualCtg : public Residual {
              IndexT& sCount,
              double& ssR,
              double& ssL,
-             class SplitAccumCtg* np);
+             class AccumCartCtg* np);
 };
 
 #endif

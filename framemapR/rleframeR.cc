@@ -24,7 +24,7 @@
 */
 
 #include "rleframeR.h"
-#include "trainRf.h"
+
 
 RcppExport SEXP Presort(SEXP sFrame) {
   BEGIN_RCPP
@@ -98,30 +98,6 @@ List RLEFrameR::wrap(const RLECresc *rleCresc) {
   return setOut;
 
   END_RCPP
-}
-
-
-List RLEFrameR::train(const List& argList,
-		      const IntegerVector& predMap,
-		      unsigned int nRow) {
-  SEXP sRLEFrame(argList["summaryRLE"]);
-  List rleList(sRLEFrame);
-  List rankedFrame = checkRankedFrame(rleList["rankedFrame"]);
-  List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
-  IntegerVector cardFE(Rf_isNull(rleList["cardinality"]) ? IntegerVector(0) : IntegerVector((SEXP) rleList["cardinality"]));
-
-  vector<unsigned int> cardinality(cardFE.begin(), cardFE.end());
-  RawVector rleRaw((SEXP) rankedFrame["rle"]);
-  NumericVector numVal(Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]));
-  IntegerVector numOff(Rf_isNull(blockNum["numOff"]) ? IntegerVector(0) : IntegerVector((SEXP) blockNum["numOff"]));
-  unique_ptr<RLEFrame> rleFrame(make_unique<RLEFrame>(nRow,
-						      cardinality,
-						      rleRaw.length() / RLECresc::unitSize(),
-						      (const RLEVal<unsigned int>*) &rleRaw[0],
-						      (unsigned int) numOff.size(),
-						      (const double*) &numVal[0],
-						      (const unsigned int*) &numOff[0]));
-  return TrainRf::train(argList, predMap, rleFrame.get());
 }
 
 

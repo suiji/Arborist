@@ -26,7 +26,7 @@
 #include "exportRf.h"
 #include "bagRf.h"
 #include "bagbridge.h"
-#include "signatureRf.h"
+#include "signature.h"
 #include "forestRf.h"
 #include "forestbridge.h"
 #include "leafRf.h"
@@ -53,7 +53,7 @@ RcppExport SEXP Export(SEXP sArbOut) {
 
   IntegerVector predMap;
   List predLevel;
-  SignatureRf::unwrapExport(arbOut, predMap, predLevel);
+  Signature::unwrapExport(arbOut, predMap, predLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

@@ -27,7 +27,7 @@
 #include "leafbridge.h"
 #include "trainbridge.h"
 #include "predictbridge.h"
-#include "signatureRf.h"
+#include "signature.h"
 
 bool LBTrain::thin = false;
 
@@ -404,7 +404,7 @@ List LeafCtgRf::summary(const List& sPredFrame, const List& lTrain, const Predic
     leaf->vote();
   List lLeaf(checkLeaf(lTrain));
   CharacterVector levelsTrain((SEXP) lLeaf["levels"]);
-  CharacterVector rowNames(SignatureRf::unwrapRowNames(sPredFrame));
+  CharacterVector rowNames(Signature::unwrapRowNames(sPredFrame));
   IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());
   IntegerVector yPredOne(yPredZero + 1);
   yPredOne.attr("class") = "factor";

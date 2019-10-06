@@ -16,20 +16,20 @@
 // along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file signatureRf.cc
+   @file signature.cc
 
    @brief C++ interface to R entries for maintaining predictor data structures.
 
    @author Mark Seligman
 */
 
-#include "signatureRf.h"
+#include "signature.h"
 
 
 // Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.
-SEXP SignatureRf::wrapSignature(const IntegerVector &predMap,
+SEXP Signature::wrapSignature(const IntegerVector &predMap,
                                 const List &level,
                                 const CharacterVector &colNames,
                                 const CharacterVector &rowNames) {
@@ -51,7 +51,7 @@ SEXP SignatureRf::wrapSignature(const IntegerVector &predMap,
 /**
    @brief Unwraps field values useful for prediction.
  */
-CharacterVector SignatureRf::unwrapRowNames(const List& sFrame) {
+CharacterVector Signature::unwrapRowNames(const List& sFrame) {
   BEGIN_RCPP
   checkFrame(sFrame);
   List signature = checkSignature(sFrame);
@@ -66,7 +66,7 @@ CharacterVector SignatureRf::unwrapRowNames(const List& sFrame) {
 }
 
 
-SEXP SignatureRf::checkSignature(const List &sParent) {
+SEXP Signature::checkSignature(const List &sParent) {
   BEGIN_RCPP
   List signature((SEXP) sParent["signature"]);
   if (!signature.inherits("Signature")) {
@@ -77,14 +77,14 @@ SEXP SignatureRf::checkSignature(const List &sParent) {
   END_RCPP
 }
 
-List SignatureRf::unwrapLevel(const List& sTrain) {
+List Signature::unwrapLevel(const List& sTrain) {
  List sSignature(checkSignature(sTrain));
 
  return as<List>(sSignature["level"]);
 }
 
 
-void SignatureRf::unwrapExport(const List& sTrain, IntegerVector &predMap, List &level) {
+void Signature::unwrapExport(const List& sTrain, IntegerVector &predMap, List &level) {
   List sSignature(checkSignature(sTrain));
 
   predMap = as<IntegerVector>(sSignature["predMap"]);
@@ -92,7 +92,7 @@ void SignatureRf::unwrapExport(const List& sTrain, IntegerVector &predMap, List 
 }
 
 
-SEXP SignatureRf::checkFrame(const List &frame) {
+SEXP Signature::checkFrame(const List &frame) {
   BEGIN_RCPP
   if (!frame.inherits("Frame")) {
     stop("Expecting Frame");

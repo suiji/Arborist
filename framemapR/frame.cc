@@ -23,7 +23,7 @@
    @author Mark Seligman
 */
 
-#include "signatureRf.h"
+#include "signature.h"
 #include "frame.h"
 #include "block.h"
 
@@ -89,7 +89,7 @@ RcppExport SEXP WrapFrame(SEXP sX,
                                 _["nPredFac"] = xFac.ncol(),
                                 _["nRow"] = x.nrow(),
                                 _["facCard"] = facCard,
-            _["signature"] = move(SignatureRf::wrapSignature(predMap,
+            _["signature"] = move(Signature::wrapSignature(predMap,
                                                             as<List>(sLevel),
                                                             Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
                                                             Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
@@ -112,7 +112,7 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["nPredFac"] = 0,
         _["nRow"] = blockNum.nrow(),
         _["facCard"] = IntegerVector(0),
-        _["signature"] = move(SignatureRf::wrapSignature(
+        _["signature"] = move(Signature::wrapSignature(
                                         seq_len(blockNum.ncol()) - 1,
                                         List::create(0),
                                         Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
@@ -203,7 +203,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
         _["nPredFac"] = 0,
         _["nRow"] = nRow,
         _["facCard"] = facCard,
-        _["signature"] = move(SignatureRf::wrapSignature(seq_len(nPred) - 1,
+        _["signature"] = move(Signature::wrapSignature(seq_len(nPred) - 1,
                                         List::create(0),
                                         colName,
                                         rowName))

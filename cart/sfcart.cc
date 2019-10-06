@@ -14,7 +14,7 @@
  */
 
 
-#include "splitaccum.h"
+#include "accumcart.h"
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
@@ -218,7 +218,7 @@ void SFCartReg::split(SplitNux* cand) {
 
 void SFCartReg::splitNum(SplitNux* cand) const {
   SampleRank* spn = getPredBase(cand);
-  SplitAccumReg numPersist(cand, spn, this);
+  AccumCartReg numPersist(cand, spn, this);
   numPersist.split(this, spn, cand);
 }
 
@@ -275,7 +275,7 @@ PredictorT SFCartReg::heapSplit(RunSet *runSet,
   PredictorT runSlot = runSet->getRunCount() - 1;
   for (PredictorT slotTrial = 0; slotTrial < runSet->getRunCount() - 1; slotTrial++) {
     runSet->sumAccum(slotTrial, sCountL, sumL);
-    if (SplitAccumReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL, cand->refInfo())) {
+    if (AccumCartReg::infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL, cand->refInfo())) {
       runSlot = slotTrial;
     }
   }
@@ -286,7 +286,7 @@ PredictorT SFCartReg::heapSplit(RunSet *runSet,
 
 void SFCartCtg::splitNum(SplitNux* cand) {
   SampleRank* spn = getPredBase(cand);
-  SplitAccumCtg numPersist(cand, spn, this);
+  AccumCartCtg numPersist(cand, spn, this);
   numPersist.split(this, spn, cand);
 }
 
@@ -358,7 +358,7 @@ void SFCartCtg::splitBinary(SplitNux* cand) const {
       FltVal sumL = sumL0 + sumL1;
       double ssL = sumL0 * sumL0 + sumL1 * sumL1;
       double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
-      if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
+      if (AccumCartCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
         runSlot = slotTrial;
       }
     } 
@@ -394,7 +394,7 @@ void SFCartCtg::splitRuns(SplitNux* cand) const {
       ssL += slotSum * slotSum;
       ssR += (nodeSum - slotSum) * (nodeSum - slotSum);
     }
-    if (SplitAccumCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
+    if (AccumCartCtg::infoSplit(ssL, ssR, sumL, sum - sumL, cand->refInfo())) {
       lhBits = subset;
     }
   }
