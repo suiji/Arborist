@@ -30,7 +30,7 @@ class NodePath {
   // Maximal path length is also an inattainable path index.
   static constexpr unsigned int noPath = 1 << logPathMax;
 
-  IndexType splitIdx; // < noIndex iff path extinct.
+  IndexT splitIdx; // < noIndex iff path extinct.
   IndexRange bufRange; // buffer target range for path.
   unsigned int relBase; // Dense starting position.
  public:
@@ -70,7 +70,7 @@ class NodePath {
   /**
      @brief Sets to non-extinct path coordinates.
    */
-  inline void init(IndexType splitIdx,
+  inline void init(IndexT splitIdx,
                    const IndexRange& bufRange,
                    unsigned int relBase) {
     this->splitIdx = splitIdx;
@@ -82,18 +82,18 @@ class NodePath {
   /**
      @brief Multiple accessor for path coordinates.
    */
-  inline IndexType getCoords(IndexRange& idxRange) const {
+  inline IndexT getCoords(IndexRange& idxRange) const {
     idxRange = bufRange;
     return splitIdx;
   }
 
   
-  inline IndexType getIdxStart() const {
+  inline IndexT getIdxStart() const {
     return bufRange.getStart();
   }
 
 
-  inline IndexType getExtent() const {
+  inline IndexT getExtent() const {
     return bufRange.getExtent();
   }
   
@@ -103,7 +103,7 @@ class NodePath {
   }
 
 
-  inline IndexType getSplitIdx() const {
+  inline IndexT getSplitIdx() const {
     return splitIdx;
   }
 };

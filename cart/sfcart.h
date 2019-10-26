@@ -42,6 +42,10 @@ public:
 	       class Frontier* frontier,
 	       const class Sample* sample,
 	       PredictorT nCtg);
+
+  void split(vector<class SplitNux>& sc);
+
+  virtual void split(class SplitNux* cand) = 0;
 };
 
   

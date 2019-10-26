@@ -21,9 +21,6 @@
 #include "predict.h"
 
 
-vector<double> TreeNode::splitQuant;
-
-
 ForestTrain::ForestTrain(unsigned int treeChunk) :
   nbCresc(make_unique<NBCresc>(treeChunk)),
   fbCresc(make_unique<FBCresc>(treeChunk)) {
@@ -36,7 +33,7 @@ ForestTrain::~ForestTrain() {
 
 Forest::Forest(const unsigned int height_[],
 	       unsigned int nTree_,
-               const TreeNode treeNode_[],
+               const CartNode treeNode_[],
 	       unsigned int facVec_[],
                const unsigned int facHeight_[]) :
   nodeHeight(height_),
@@ -50,7 +47,7 @@ Forest::~Forest() {
 }
 
 
-unsigned int TreeNode::advance(const BVJagged *facSplit,
+unsigned int CartNode::advance(const BVJagged *facSplit,
                                const unsigned int rowT[],
                                unsigned int tIdx,
                                unsigned int &leafIdx) const {
@@ -60,13 +57,13 @@ unsigned int TreeNode::advance(const BVJagged *facSplit,
     return 0;
   }
   else {
-    IndexType bitOff = getSplitBit() + rowT[predIdx];
+    IndexT bitOff = getSplitBit() + rowT[predIdx];
     return facSplit->testBit(tIdx, bitOff) ? lhDel : lhDel + 1;
   }
 }
 
 
-unsigned int TreeNode::advance(const PredictFrame* blockFrame,
+unsigned int CartNode::advance(const PredictFrame* blockFrame,
                                const BVJagged *facSplit,
                                const unsigned int *rowFT,
                                const double *rowNT,
@@ -94,7 +91,7 @@ void ForestTrain::treeInit(unsigned int tIdx, unsigned int nodeCount) {
 
 
 NBCresc::NBCresc(unsigned int treeChunk) :
-  treeNode(vector<TreeNode>(0)),
+  treeNode(vector<CartNode>(0)),
   height(vector<size_t>(treeChunk)) {
 }
 
@@ -108,7 +105,7 @@ FBCresc::FBCresc(unsigned int treeChunk) :
 void NBCresc::treeInit(unsigned int tIdx, unsigned int nodeCount) {
   treeFloor = treeNode.size();
   height[tIdx] = treeFloor + nodeCount;
-  TreeNode tn;
+  CartNode tn;
   treeNode.insert(treeNode.end(), nodeCount, tn);
 }
 
@@ -119,7 +116,7 @@ void FBCresc::treeCap(unsigned int tIdx) {
 
 
 void NBCresc::dumpRaw(unsigned char nodeRaw[]) const {
-  for (size_t i = 0; i < treeNode.size() * sizeof(TreeNode); i++) {
+  for (size_t i = 0; i < treeNode.size() * sizeof(CartNode); i++) {
     nodeRaw[i] = ((unsigned char*) &treeNode[0])[i];
   }
 }
@@ -147,9 +144,9 @@ void FBCresc::appendBits(const BV* splitBits,
 }
 
 
-void ForestTrain::nonTerminal(IndexType nodeIdx,
-                              IndexType lhDel,
-                              const SplitCrit& crit) {
+void ForestTrain::nonTerminal(IndexT nodeIdx,
+                              IndexT lhDel,
+                              const CartCrit& crit) {
   nbCresc->branchProduce(nodeIdx, lhDel, crit);
 }
 
@@ -172,14 +169,14 @@ void NBCresc::splitUpdate(const SummaryFrame* sf) {
 }
 
 
-void TreeNode::setQuantRank(const SummaryFrame* sf) {
+void CartNode::setQuantRank(const SummaryFrame* sf) {
   auto predIdx = getPredIdx();
   if (!Nonterminal() || sf->isFactor(predIdx))
     return;
 
-  double rankNum = criterion.imputeRank(splitQuant[predIdx]);
-  IndexType rankFloor = floor(rankNum);
-  IndexType rankCeil = ceil(rankNum);
+  double rankNum = criterion.getNumVal();
+  IndexT rankFloor = floor(rankNum);
+  IndexT rankCeil = ceil(rankNum);
   double valFloor = sf->getNumVal(predIdx, rankFloor);
   double valCeil = sf->getNumVal(predIdx, rankCeil);
   criterion.setNum(valFloor + (rankNum - rankFloor) * (valCeil - valFloor));

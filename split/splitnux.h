@@ -24,13 +24,14 @@
 class SplitNux {
   static constexpr double minRatioDefault = 0.0;
   static double minRatio;
+  static vector<double> splitQuant; // Where within CDF to split.
 
-  SplitCoord splitCoord;
-  unsigned char bufIdx;
-  IndexRange idxRange; // Indices into compressed ObsPart buffer.
-  PredictorT setIdx; // Index into runSet vector for factor split.
+  const SplitCoord splitCoord;
+  const unsigned char bufIdx;
+  const IndexRange idxRange; // Indices into compressed ObsPart buffer.
+  const PredictorT setIdx; // Index into runSet vector for factor split.
+  const double sum; // node sum.
 
-  double lhSum; // # sum of left split:  Initialized to node value.
   IndexT lhSCount; // # samples in left split:  initialized to node value.
   double info; // Weighted variance or Gini, currently.
   IndexT lhImplicit; // # implicit indices in LHS:  initialized to node value at scheduling.
@@ -40,17 +41,43 @@ class SplitNux {
 
   // Copied to decision node, if arg-max.  Numeric only:
   //
-  IndexRange rankRange;  // Rank bounds.
+  double quantRank;
+  
+  /**
+     @brief Decrements information field and reports whether still positive.
+
+     @param splitFrontier determines pre-existing information value to subtract.
+
+     @bool true iff decremented information field positive.
+   */
+  bool infoGain(const class SplitFrontier* splitFrontier);
+
 
  public:  
-  static void immutables(double minRatio_);
+/**
+   @brief Builds static quantile splitting vector from front-end specification.
+
+   @param feSplitQuant specifies the splitting quantiles for numerical predictors.
+  */
+  static void immutables(double minRatio_,
+			 const vector<double>& feSplitQuant);
+
+  
+  /**
+     @brief Empties the static quantile splitting vector.
+   */
   static void deImmutables();
 
 
   /**
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
   */
-  SplitNux() : info(0.0) {
+  SplitNux() : splitCoord(SplitCoord(0,0)),
+	       bufIdx(0),
+	       setIdx(0),
+	       sum(0.0),
+	       lhSCount(0),
+	       info(0.0) {
   }
 
   
@@ -66,12 +93,12 @@ class SplitNux {
   splitCoord(splitCoord_),
   bufIdx(bufIdx_),
   setIdx(setIdx_),
-  lhSum(sum),
+  sum(sum),
   lhSCount(sCount),
   info(info_) {
   }
 
-  
+
   SplitNux(const DefCoord& preCand,
 	   const class SplitFrontier* splitFrontier,
 	   PredictorT setIdx_,
@@ -82,22 +109,13 @@ class SplitNux {
   ~SplitNux() {
   }
 
+
   /**
      @brief Passes through to frame method.
 
      @return cardinality iff factor-valued predictor else zero.
    */
   PredictorT getCardinality(const class SummaryFrame*) const;
-
-
-  /**
-     @brief Decrements information field and reports whether still positive.
-
-     @param splitFrontier determines pre-existing information value to subtract.
-
-     @bool true iff decremented information field positive.
-   */
-  bool infoGain(const class SplitFrontier* splitFrontier);
 
 
   /**
@@ -114,25 +132,16 @@ class SplitNux {
      @brief Writes the left-hand characterization of a factor-based
      split with numerical or binary response.
 
-     @param runSet organizes responsed statistics by factor code.
-
      @param cutSlot is the LHS/RHS separator position in the vector of
      factor codes maintained by the run-set.
    */
   void writeSlots(const class SplitFrontier* splitFrontier,
-                  class RunSet* runSet,
                   PredictorT cutSlot);
   
 
-  void writeNum(const class SplitFrontier* splitFrontier,
-		double info,
-		IndexT rankLH,
-		IndexT rankRH,
-		IndexT lhScount,
-		IndexT lhImplicit,
-		IndexT rhMin);
+  void writeNum(const class SplitFrontier* sf,
+		const class Accum* accum);
 
-  
 
   /**
      @brief Consumes frontier node parameters associated with nonterminal.
@@ -196,7 +205,7 @@ class SplitNux {
 
   /**
      @brief Reference getter for over-writing info member.
-   */
+  */
   double& refInfo() {
     return info;
   }
@@ -224,9 +233,10 @@ class SplitNux {
   auto getIdxEnd() const {
     return idxRange.getEnd() - 1;
   }
-  
-  auto getRankRange() const {
-    return rankRange;
+
+
+  auto getQuantRank() const {
+    return quantRank;
   }
   
 
@@ -236,7 +246,7 @@ class SplitNux {
 
   
   auto getSum() const {
-    return lhSum;
+    return sum;
   }
   
 
@@ -290,8 +300,7 @@ class SplitNux {
      @return coordinate range of the explicit sample indices.
    */
   auto getExplicitRange() const {
-    IndexRange range;
-    range.set(getExplicitBranchStart(), getExplicitBranchExtent());
+    IndexRange range(getExplicitBranchStart(), getExplicitBranchExtent());
     return range;
   }
 };

@@ -182,7 +182,7 @@ public:
 
 
   inline double getNumVal(unsigned int predIdx,
-                          IndexType rank) const {
+                          IndexT rank) const {
     return numRanked->getVal(predIdx, rank);
   }
 
@@ -194,7 +194,7 @@ public:
 
      @return conservative staging bound.
    */
-  IndexType safeSize(IndexType bagCount) const;
+  IndexT safeSize(IndexT bagCount) const;
 };
 
 #endif

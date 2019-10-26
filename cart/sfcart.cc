@@ -197,6 +197,21 @@ int SFCartReg::getMonoMode(const SplitNux* cand) const {
 }
 
 
+void
+SFCart::split(vector<SplitNux>& sc) {
+  OMPBound splitTop = sc.size();
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
+      split(&sc[splitPos]);
+    }
+  }
+
+  nuxMax = maxCandidates(sc);
+}
+
+
 void SFCartCtg::split(SplitNux* cand) {
   if (isFactor(cand->getSplitCoord())) {
       splitFac(cand);
@@ -259,7 +274,7 @@ void SFCartReg::splitFac(SplitNux* cand) const {
   runSet->writeImplicit(cand, this);
 
   PredictorT runSlot = heapSplit(runSet, cand);
-  cand->writeSlots(this, runSet, runSlot);
+  cand->writeSlots(this, runSlot);
 }
 
 
@@ -364,7 +379,7 @@ void SFCartCtg::splitBinary(SplitNux* cand) const {
     } 
   }
 
-  cand->writeSlots(this, runSet, runSlot);
+  cand->writeSlots(this, runSlot);
 }
 
 

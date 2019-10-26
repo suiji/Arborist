@@ -41,8 +41,7 @@ DefMap::DefMap(const SummaryFrame* frame_,
 {
 
   layer.push_front(make_unique<DefLayer>(1, nPred, rankedFrame, bagCount, bagCount, false, this));
-  IndexRange bufRange;
-  bufRange.set(0, bagCount);
+  IndexRange bufRange = IndexRange(0, bagCount);
   layer[0]->initAncestor(0, bufRange);
   fill(layerDelta.begin(), layerDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);

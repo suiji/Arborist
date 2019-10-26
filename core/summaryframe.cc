@@ -21,12 +21,6 @@
 #include <algorithm>
 
 
-/*unique_ptr<SummaryFrame> SummaryFrame::factory(const RLEFrame* rleFrame,
-					       vector<string>& diag) {
-  return make_unique<SummaryFrame>(rleFrame, diag);
-  }*/
-
-
 SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
 			   double autoCompress,
 			   bool enableCoproc,
@@ -54,6 +48,6 @@ SummaryFrame::~SummaryFrame() {
 }
 
 
-IndexType SummaryFrame::safeSize(IndexType bagCount) const {
+IndexT SummaryFrame::safeSize(IndexT bagCount) const {
   return rankedFrame->safeSize(bagCount);
 }

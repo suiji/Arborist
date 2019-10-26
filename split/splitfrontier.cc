@@ -196,6 +196,20 @@ SplitFrontier::getSetIdx(PredictorT rCount,
 }
 
 
+IndexT SplitFrontier::lHBits(PredictorT setIdx,
+			     PredictorT lhBits,
+			     IndexT& lhSCount) const {
+  return rSet(setIdx)->lHBits(lhBits, lhSCount);
+}
+
+
+IndexT SplitFrontier::lHSlots(PredictorT setIdx,
+			      PredictorT lhBits,
+			      IndexT& lhSCount) const {
+  return rSet(setIdx)->lHSlots(lhBits, lhSCount);
+}
+
+
 void
 SplitFrontier::restage(const DefMap* defMap) {
   OMPBound idxTop = restageCoord.size();
@@ -212,23 +226,8 @@ SplitFrontier::restage(const DefMap* defMap) {
 }
 
 
-void
-SplitFrontier::split(vector<SplitNux>& sc) {
-  OMPBound splitTop = sc.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(&sc[splitPos]);
-    }
-  }
-
-  nuxMax = maxCandidates(sc);
-}
-
-
-vector<SplitNux> SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
-  vector<SplitNux> nuxMax(nSplit); // Info initialized to zero.
+vector<unique_ptr<SplitNux> > SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
+  vector<unique_ptr<SplitNux> > nuxMax(nSplit); // Info initialized to zero.
 
   OMPBound splitTop = nSplit;
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -243,9 +242,10 @@ vector<SplitNux> SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
 }
 
 
-SplitNux SplitFrontier::maxSplit(const vector<SplitNux>& sc,
-				 IndexT splitBase,
-                                 IndexT nCandSplit) const {
+unique_ptr<SplitNux>
+SplitFrontier::maxSplit(const vector<SplitNux>& sc,
+			IndexT splitBase,
+			IndexT nCandSplit) const {
   IndexT argMax = splitBase + nCandSplit;
   double runningMax = 0.0;
   for (IndexT splitOff = splitBase; splitOff < splitBase + nCandSplit; splitOff++) {
@@ -254,7 +254,7 @@ SplitNux SplitFrontier::maxSplit(const vector<SplitNux>& sc,
     }
   }
 
-  return runningMax > 0.0 ? SplitNux(sc[argMax]) : SplitNux();
+  return runningMax > 0.0 ? make_unique<SplitNux>(sc[argMax]) : make_unique<SplitNux>();
 }
 
 
@@ -300,14 +300,14 @@ void SplitFrontier::branch(PreTree* pretree,
 
 
 void SplitFrontier::consumeCriterion(IndexSet* iSet) const {
-  nuxMax[iSet->getSplitIdx()].consume(iSet);
+  nuxMax[iSet->getSplitIdx()]->consume(iSet);
 }
 
 
 void SplitFrontier::critCut(PreTree* pretree,
                             IndexSet* iSet,
 			    Replay* replay) const {
-  pretree->critCut(iSet, getPredIdx(iSet), getRankRange(iSet));
+  pretree->critCut(iSet, getPredIdx(iSet), getQuantRank(iSet));
   vector<SumCount> ctgCrit(iSet->getNCtg());
   double sumExpl = blockReplay(iSet, getExplicitRange(iSet), leftIsExplicit(iSet), replay, ctgCrit);
   iSet->criterionLR(sumExpl, ctgCrit, leftIsExplicit(iSet));
@@ -359,55 +359,55 @@ SplitFrontier::getSCount(const SplitCoord& splitCoord) const {
 
 
 bool SplitFrontier::isInformative(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getInfo() > iSet->getMinInfo();
+  return nuxMax[iSet->getSplitIdx()]->getInfo() > iSet->getMinInfo();
 }
 
 
 IndexT SplitFrontier::getLHExtent(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getExtent();
+  return nuxMax[iSet->getSplitIdx()]->getExtent();
 }
 
 
 IndexT SplitFrontier::getPredIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getPredIdx();
+  return nuxMax[iSet->getSplitIdx()]->getPredIdx();
 }
 
 unsigned int SplitFrontier::getBufIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getBufIdx();
+  return nuxMax[iSet->getSplitIdx()]->getBufIdx();
 }
 
 
 DefCoord SplitFrontier::getDefCoord(const IndexSet* iSet) const {
-  return DefCoord(SplitCoord(iSet->getSplitIdx(), nuxMax[iSet->getSplitIdx()].getPredIdx()), nuxMax[iSet->getSplitIdx()].getBufIdx());
+  return DefCoord(SplitCoord(iSet->getSplitIdx(), nuxMax[iSet->getSplitIdx()]->getPredIdx()), nuxMax[iSet->getSplitIdx()]->getBufIdx());
 }
 
 
 PredictorT SplitFrontier::getCardinality(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getCardinality(frame);
+  return nuxMax[iSet->getSplitIdx()]->getCardinality(frame);
 }
 
 
 double SplitFrontier::getInfo(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getInfo();
+  return nuxMax[iSet->getSplitIdx()]->getInfo();
 }
 
 
 IndexRange SplitFrontier::getExplicitRange(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getExplicitRange();
+  return nuxMax[iSet->getSplitIdx()]->getExplicitRange();
 }
 
 
-IndexRange SplitFrontier::getRankRange(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getRankRange();
+double SplitFrontier::getQuantRank(const IndexSet* iSet) const {
+  return nuxMax[iSet->getSplitIdx()]->getQuantRank();
 }
 
 
 bool SplitFrontier::leftIsExplicit(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].leftIsExplicit();
+  return nuxMax[iSet->getSplitIdx()]->leftIsExplicit();
 }
 
 
 IndexT SplitFrontier::getSetIdx(const IndexSet* iSet) const {
-  return nuxMax[iSet->getSplitIdx()].getSetIdx();
+  return nuxMax[iSet->getSplitIdx()]->getSetIdx();
 }
   

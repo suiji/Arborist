@@ -96,7 +96,7 @@ Frontier::Frontier(const SummaryFrame* frame,
 void IndexSet::initRoot(const Sample* sample) {
   splitIdx = 0;
   sCount = sample->getNSamp();
-  bufRange.set(0, sample->getBagCount());
+  bufRange = IndexRange(0, sample->getBagCount());
   minInfo = 0.0;
   ptId = 0;
   sum = sample->getBagSum();
@@ -388,7 +388,7 @@ void IndexSet::succInit(Frontier *frontier,
                         bool isLeft) {
   splitIdx = par->getIdxSucc(isLeft);
   sCount = par->getSCountSucc(isLeft);
-  bufRange.set(par->getStartSucc(isLeft), par->getExtentSucc(isLeft));
+  bufRange = IndexRange(par->getStartSucc(isLeft), par->getExtentSucc(isLeft));
   minInfo = par->getMinInfo();
   ptId = par->getPTIdSucc(frontier, isLeft);
   sum = par->getSumSucc(isLeft);

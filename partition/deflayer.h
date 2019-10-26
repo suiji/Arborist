@@ -667,7 +667,7 @@ public:
   void
   initAncestor(IndexT splitIdx,
 	       const IndexRange& bufRange) {
-    indexAnc[splitIdx].set(bufRange.getStart(), bufRange.getExtent());
+    indexAnc[splitIdx] = IndexRange(bufRange.getStart(), bufRange.getExtent());
   }
 
 

@@ -20,16 +20,22 @@
 #include <vector>
 #include <algorithm>
 
-#include "decnode.h"
+#include "cartcrit.h"
+
 
 /**
    @brief To replace parallel array access.
  */
-class TreeNode : public DecNode {
-  static vector<double> splitQuant; // Where within CDF to split.
+class CartNode {
+  IndexT lhDel;  // Delta to LH subnode. Nonzero iff non-terminal.
+  CartCrit criterion;
 
  public:
 
+
+  CartNode() : lhDel(0) {
+  }
+  
   /**
      @brief Getter for splitting predictor.
 
@@ -114,26 +120,6 @@ class TreeNode : public DecNode {
                        unsigned int &leafIdx) const;
 
 
-
-  /**
-     @brief Builds static quantile splitting vector from front-end specification.
-
-     @param feSplitQuant specifies the splitting quantiles for numerical predictors.
-   */
-  static void Immutables(const vector<double> &feSplitQuant) {
-    for (auto quant : feSplitQuant) {
-      splitQuant.push_back(quant);
-    }
-  }
-
-  /**
-     @brief Empties the static quantile splitting vector.
-   */
-  static void DeImmutables() {
-    splitQuant.clear();
-  }
-  
-  
   /**
      @brief Derives split values for a numerical predictor by synthesizing
      a fractional intermediate rank and interpolating.
@@ -147,8 +133,8 @@ class TreeNode : public DecNode {
 
      @param decNode encodes the splitting specification.
    */
-  inline void setBranch(IndexType lhDel,
-                        const SplitCrit& crit) {
+  inline void setBranch(IndexT lhDel,
+                        const CartCrit& crit) {
     this->lhDel = lhDel;
     criterion = crit;
   }
@@ -197,7 +183,7 @@ class TreeNode : public DecNode {
      @return void, with output reference parameters.
    */
   inline void RefNum(unsigned int &pred,
-                     IndexType &lhDel,
+                     IndexT &lhDel,
                      double &num) const {
     pred = getPredIdx();
     lhDel = this->lhDel;
@@ -212,19 +198,19 @@ class TreeNode : public DecNode {
 class Forest {
   const unsigned int* nodeHeight;
   const unsigned int nTree;
-  const TreeNode *treeNode;
+  const CartNode *treeNode;
   unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
 
   void dump(vector<vector<unsigned int> > &predTree,
             vector<vector<double> > &splitTree,
-            vector<vector<IndexType> > &lhDelTree) const;
+            vector<vector<IndexT> > &lhDelTree) const;
 
   
  public:
 
   Forest(const unsigned int height_[],
          unsigned int _nTree,
-         const TreeNode _treeNode[],
+         const CartNode _treeNode[],
          unsigned int _facVec[],
          const unsigned int facHeight_[]);
 
@@ -244,7 +230,7 @@ class Forest {
 
      @return pointer to base of node vector.
    */
-  inline const TreeNode *getNode() const {
+  inline const CartNode *getNode() const {
     return treeNode;
   }
 
@@ -293,16 +279,16 @@ class Forest {
    */
   void dump(vector<vector<unsigned int> > &predTree,
             vector<vector<double> > &splitTree,
-            vector<vector<IndexType> > &lhDelTree,
+            vector<vector<IndexT> > &lhDelTree,
             vector<vector<unsigned int> > &facSplitTree) const;
 };
 
 
 /**
-   @brief TreeNode block for crescent frame;
+   @brief CartNode block for crescent frame;
  */
 class NBCresc {
-  vector<TreeNode> treeNode;
+  vector<CartNode> treeNode;
   vector<size_t> height;
   size_t treeFloor; // Block-relative index of current tree floor.
 
@@ -328,7 +314,7 @@ public:
      @brief Computes unit size for cross-compatibility of serialization.
    */
   static constexpr size_t nodeSize() {
-    return sizeof(TreeNode);
+    return sizeof(CartNode);
   }
   
 
@@ -366,8 +352,8 @@ public:
      @param isFactor is true iff the splitting predictor is categorical.
   */
   inline void branchProduce(unsigned int nodeIdx,
-                            IndexType lhDel,
-                            const SplitCrit& crit) {
+                            IndexT lhDel,
+                            const CartCrit& crit) {
     treeNode[treeFloor + nodeIdx].setBranch(lhDel, crit);
   }
 
@@ -493,9 +479,9 @@ class ForestTrain {
 
      @parm decNode contains the value to set.
    */
-  void nonTerminal(IndexType idx,
-                   IndexType lhDel,
-                   const SplitCrit& crit);
+  void nonTerminal(IndexT idx,
+                   IndexT lhDel,
+                   const CartCrit& crit);
 
   /**
      @brief Outputs raw byes of node vector.

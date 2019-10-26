@@ -44,7 +44,7 @@ void AccumCartReg::split(const SFCartReg* spReg,
     IndexT rkThis = spn[idxEnd].regFields(ySum, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
-  cand->writeNum(spReg, info, rankLH, rankRH, lhSCount, lhImplicit(cand), rhMin);
+  cand->writeNum(spReg, this);
 }
 
 
@@ -176,7 +176,7 @@ void AccumCartCtg::split(const SFCartCtg* spCtg,
     stateNext(spn, idxEnd);
     splitExpl(spn, spn[idxEnd].getRank(), idxEnd-1, idxStart);
   }
-  cand->writeNum(spCtg, info, rankLH, rankRH, lhSCount, lhImplicit(cand), rhMin);
+  cand->writeNum(spCtg, this);
 }
 
 

@@ -122,16 +122,17 @@ SEXP TrainRf::initFromArgs(const List& argList,
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
   trainBridge->initProb(as<unsigned int>(argList["predFixed"]), predProb);
 
-  NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
-  vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
-  trainBridge->initCDF(splitQuant);
-
   RowSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
   trainBridge->initSample(as<unsigned int>(argList["nSamp"]));
+
+  NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
+  vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
   trainBridge->initSplit(as<unsigned int>(argList["minNode"]),
                    as<unsigned int>(argList["nLevel"]),
-                   as<double>(argList["minInfo"]));
+			 as<double>(argList["minInfo"]),
+			 splitQuant);
+
   trainBridge->initTree(as<unsigned int>(argList["nSamp"]),
                   as<unsigned int>(argList["minNode"]),
                   as<unsigned int>(argList["maxLeaf"]));

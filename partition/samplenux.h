@@ -150,7 +150,7 @@ class SampleNux {
  */
 class SampleRank : public SampleNux {
  protected:
-  IndexType rank; // Rank, up to tie, or factor group.
+  IndexT rank; // Rank, up to tie, or factor group.
 
  public:
 
@@ -181,7 +181,8 @@ class SampleRank : public SampleNux {
 
      @param sNode summarizes response sampled at row.
   */
-  inline void join(IndexType rank, const SampleNux &sNode) {
+  inline void join(IndexT rank,
+		   const SampleNux &sNode) {
     this->rank = rank;
     sNode.ref(ySum, sCount);
   }

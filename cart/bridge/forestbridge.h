@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_FORESTBRIDGE_H
-#define CORE_FORESTBRIDGE_H
+#ifndef CART_FORESTBRIDGE_H
+#define CART_FORESTBRIDGE_H
 
 #include <memory>
 using namespace std;
@@ -49,7 +49,7 @@ struct ForestBridge {
 
 
   /**
-     @brief Returns size of TreeNode.
+     @brief Returns size of CartNode.
    */
   static size_t nodeSize();
 

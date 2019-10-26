@@ -20,19 +20,19 @@
 
 class RowRank {
  protected:
-  IndexType row;
-  IndexType rank;
+  IndexT row;
+  IndexT rank;
 
  public:
   RowRank() {}
   
-  RowRank(IndexType row_,
-          IndexType rank_) : row(row_),
+  RowRank(IndexT row_,
+          IndexT rank_) : row(row_),
                              rank(rank_) {
   }
   
-  void init(IndexType row,
-            IndexType rank) {
+  void init(IndexT row,
+            IndexT rank) {
     this->row = row;
     this->rank = rank;
   }

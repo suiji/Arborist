@@ -144,8 +144,7 @@ void DefLayer::reachingPaths() {
   vector<unsigned int> live(nSplit);
   vector<NodePath> path(backScale(nSplit));
   NodePath np;
-  IndexRange bufRange;
-  bufRange.set(0,0);
+  IndexRange bufRange = IndexRange();
   np.init(noIndex, bufRange, 0);
   fill(path.begin(), path.end(), np);
   fill(live.begin(), live.end(), 0);

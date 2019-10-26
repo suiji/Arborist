@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "runset.h"
+#include "accum.h"
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
@@ -22,12 +22,21 @@
 
 double SplitNux::minRatio = minRatioDefault;
 
-void SplitNux::immutables(double minRatio) {
+vector<double> SplitNux::splitQuant;
+
+
+void SplitNux::immutables(double minRatio,
+			  const vector<double>& feSplitQuant) {
   SplitNux::minRatio = minRatio;
+  for (auto quant : feSplitQuant) {
+    splitQuant.push_back(quant);
+  }
 }
+
 
 void SplitNux::deImmutables() {
   minRatio = minRatioDefault;
+  splitQuant.clear();
 }
 
 
@@ -40,7 +49,7 @@ SplitNux::SplitNux(const DefCoord& preCand,
   bufIdx(preCand.bufIdx),
   idxRange(range),
   setIdx(setIdx_),
-  lhSum(splitFrontier->getSum(splitCoord)),
+  sum(splitFrontier->getSum(splitCoord)),
   lhSCount(splitFrontier->getSCount(splitCoord)),
   info(splitFrontier->getPrebias(splitCoord)),
   lhImplicit(implicitCount) {
@@ -56,25 +65,28 @@ bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
 void SplitNux::writeBits(const SplitFrontier* splitFrontier,
 			 PredictorT lhBits) {
   if (infoGain(splitFrontier)) {
-    RunSet* runSet = splitFrontier->rSet(setIdx);
-    lhExtent = runSet->lHBits(lhBits, lhSCount);
+    lhExtent = splitFrontier->lHBits(setIdx, lhBits, lhSCount);
   }
 }
 
 
-void SplitNux::writeNum(const SplitFrontier* splitFrontier,
-			double info,
-			IndexT rankLH,
-			IndexT rankRH,
-			IndexT lhSCount,
-			IndexT lhImplicit,
-			IndexT rhMin) {
-  this->info = info;
+void SplitNux::writeSlots(const SplitFrontier* splitFrontier,
+                          PredictorT cutSlot) {
   if (infoGain(splitFrontier)) {
-    rankRange.set(rankLH, rankRH - rankLH);
-    this->lhSCount = lhSCount;
-    this->lhImplicit = lhImplicit;
-    lhExtent = lhImplicit + (rhMin - idxRange.getStart());
+    lhExtent = splitFrontier->lHSlots(setIdx, cutSlot, lhSCount);
+  }
+}
+
+
+void SplitNux::writeNum(const SplitFrontier* sf,
+			const Accum* accum) {
+  info = accum->info;
+  if (infoGain(sf)) {
+    IndexRange range = IndexRange(accum->rankLH, accum->rankRH - accum->rankLH);
+    quantRank = range.interpolate(splitQuant[splitCoord.predIdx]);
+    lhSCount = accum->lhSCount;
+    lhImplicit = accum->lhImplicit(this);
+    lhExtent = lhImplicit + (accum->rhMin - idxRange.getStart());
   }
 }
 
@@ -86,13 +98,4 @@ PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
 
 void SplitNux::consume(IndexSet* iSet) const {
   iSet->consumeCriterion(minRatio * info, lhSCount, lhExtent);
-}
-
-
-void SplitNux::writeSlots(const SplitFrontier* splitFrontier,
-                          RunSet* runSet,
-                          PredictorT cutSlot) {
-  if (infoGain(splitFrontier)) {
-    lhExtent = runSet->lHSlots(cutSlot, lhSCount);
-  }
 }

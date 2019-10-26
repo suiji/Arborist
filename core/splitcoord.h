@@ -21,14 +21,14 @@
 /**
    @brief Split/predictor coordinate pair.
  */
-//typedef pair<IndexType, unsigned int> SPPair;
+
 
 struct SplitCoord {
-  IndexType nodeIdx;
-  unsigned int predIdx;
+  IndexT nodeIdx;
+  PredictorT predIdx;
 
-  SplitCoord(IndexType nodeIdx_,
-             unsigned int predIdx_) :
+  SplitCoord(IndexT nodeIdx_,
+             PredictorT predIdx_) :
   nodeIdx(nodeIdx_),
     predIdx(predIdx_) {
   }
@@ -37,6 +37,7 @@ struct SplitCoord {
   nodeIdx(0),
     predIdx(0) {
   }
+
   
   /**
      @brief Computes node-major offset using passed stride value.

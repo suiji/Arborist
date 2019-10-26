@@ -57,10 +57,10 @@ struct SplitSurvey {
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitFrontier {
-  vector<class SplitNux> nuxMax; // Rewritten following each splitting event.
   void setPrebias();
 
 protected:
+  vector<unique_ptr<class SplitNux> > nuxMax; // Rewritten following each splitting event.
   const class Cand* cand;
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
@@ -118,7 +118,7 @@ protected:
 		       vector<PredictorT>& runCount) const;
 
 
-  
+
 public:
 
   SplitFrontier(const class Cand* cand_,
@@ -155,6 +155,21 @@ public:
     restageCoord.push_back(mrra);
   }
 
+  /**
+     @brief Passes through to RunSet method.
+
+     @param setIdx is the Runset index.
+   */
+  IndexT lHBits(PredictorT setIdx,
+		PredictorT lhBits,
+		IndexT& lhSCount) const;
+
+  
+  IndexT lHSlots(PredictorT setIdx,
+		 PredictorT cutSlot,
+		 IndexT& lhSCount) const;
+  
+  
   void restage(const class DefMap* defMap);
 
   
@@ -243,7 +258,7 @@ public:
 
   IndexRange getExplicitRange(const class IndexSet* iSet) const;
 
-  IndexRange getRankRange(const class IndexSet* iSet) const;
+  double getQuantRank(const class IndexSet* iSet) const;
 
   bool leftIsExplicit(const class IndexSet* iSet) const;
 
@@ -342,17 +357,19 @@ public:
    */
   void init();
 
-  vector<class SplitNux>
+  vector<unique_ptr<class SplitNux> >
   maxCandidates(const vector<class SplitNux>& sc);
   
-  class SplitNux maxSplit(const vector<class SplitNux>& sc,
+  unique_ptr<class SplitNux>
+  maxSplit(const vector<class SplitNux>& sc,
 			  IndexT splitOff,
                           IndexT nSplitFrontier) const;
 
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
-  void split(vector<class SplitNux>& sc);
+  virtual void
+  split(vector<class SplitNux>& sc) = 0;
 
 
   /**
@@ -364,7 +381,6 @@ public:
   void setCandOff(const vector<PredictorT>& ncand);
   
   virtual ~SplitFrontier();
-  virtual void split(class SplitNux* cand) = 0;
   virtual void setRunOffsets(const vector<PredictorT>& safeCounts) = 0;
   virtual void layerPreset() = 0;
 

@@ -21,7 +21,7 @@
 #include <algorithm>
 
 #include "ptnode.h" // Algorithm-dependent definition.
-#include "decnode.h" 
+#include "cartcrit.h"
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
@@ -35,7 +35,7 @@ class PreTree {
   size_t leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
   vector<class PTNode> nodeVec; // Vector of tree nodes.
-  vector<struct SplitCrit> splitCrit;
+  vector<struct CartCrit> cartCrit;
   class BV *splitBits;
   vector<unsigned int> termST;
 
@@ -100,8 +100,8 @@ class PreTree {
      @param cardinality is the predictor's cardinality.
   */
   void critBits(const class IndexSet* iSet,
-                unsigned int predIdx,
-                unsigned int cardinality);
+                PredictorT predIdx,
+                PredictorT cardinality);
 
   /**
      @brief Appends criterion for cut-based branch.
@@ -109,8 +109,9 @@ class PreTree {
      @param rankRange bounds the cut-defining ranks.
   */
   void critCut(const class IndexSet* iSet,
-               unsigned int predIdx,
-               const IndexRange& rankRange);
+               PredictorT predIdx,
+	       double quantRank);
+  //               const IndexRange& rankRange);
 
 
   /**

@@ -37,8 +37,7 @@ class FRNode {
   double sum; // Sum of responses associated with run.
   IndexRange range;
 
-  FRNode() : sCount(0), sum(0.0) {
-    range.set(0, 0);
+  FRNode() : sCount(0), sum(0.0), range(IndexRange()) {
   }
 
   bool isImplicit();
@@ -55,7 +54,7 @@ class FRNode {
     this->rank = rank;
     this->sCount = sCount;
     this->sum = sum;
-    this->range.set(start, extent);
+    this->range = IndexRange(start, extent);
   }
 
   

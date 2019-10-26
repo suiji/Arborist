@@ -38,11 +38,6 @@ void Train::initBlock(unsigned int trainBlock_) {
 }
 
 
-void Train::initCDF(const vector<double> &feSplitQuant) {
-  TreeNode::Immutables(feSplitQuant);
-}
-
-
 void Train::initProb(PredictorT predFixed,
                      const vector<double> &predProb) {
   CandRF::init(predFixed, predProb);
@@ -67,9 +62,10 @@ void Train::initSample(unsigned int nSamp) {
 
 void Train::initSplit(unsigned int minNode,
                       unsigned int totLevels,
-                      double minRatio) {
+                      double minRatio,
+		      const vector<double>& feSplitQuant) {
   Frontier::immutables(minNode, totLevels);
-  SplitNux::immutables(minRatio);
+  SplitNux::immutables(minRatio, feSplitQuant);
 }
 
 
@@ -86,7 +82,6 @@ void Train::initMono(const SummaryFrame* frame,
 
 void Train::deInit() {
   trainBlock = 0;
-  TreeNode::DeImmutables();
   SplitNux::deImmutables();
   Frontier::deImmutables();
   PreTree::deImmutables();

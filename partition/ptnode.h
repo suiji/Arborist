@@ -26,9 +26,9 @@
   @brief Decision node specialized for training.
  */
 class PTNode {
-  IndexType lhDel; // zero iff terminal.
-  IndexType critCount; // Number of associated criteria; 0 iff terminal.
-  IndexType critOffset;  // Index of first criterion.
+  IndexT lhDel; // zero iff terminal.
+  IndexT critCount; // Number of associated criteria; 0 iff terminal.
+  IndexT critOffset;  // Index of first criterion.
   FltVal info;  // Zero iff terminal.
  public:
 
@@ -43,7 +43,7 @@ class PTNode {
   /**
      @return starting bit of split value.
    */
-  IndexType getBitOffset(const vector<struct SplitCrit>& splitCrit) const;
+  IndexT getBitOffset(const vector<struct CartCrit>& splitCrit) const;
   
   
   /**
@@ -53,8 +53,8 @@ class PTNode {
   */
   void consumeNonterminal(class ForestTrain *forest,
                           vector<double> &predInfo,
-                          IndexType idx,
-                          const vector<struct SplitCrit>& splitCriterion) const;
+                          IndexT idx,
+                          const vector<struct CartCrit>& splitCriterion) const;
 
   /**
      @builds bit-based split.
@@ -66,8 +66,8 @@ class PTNode {
      @param critOffset is the begining criterion offset.
    */
   inline void nonterminal(double info,
-                          IndexType lhDel,
-                          IndexType critOffset) {
+                          IndexT lhDel,
+                          IndexT critOffset) {
     this->info = info;
     this->lhDel = lhDel;
     this->critOffset = critOffset;
@@ -87,7 +87,7 @@ class PTNode {
 
      @return void.
    */
-  inline void setNonterminal(IndexType lhDel) {
+  inline void setNonterminal(IndexT lhDel) {
     this->lhDel = lhDel;
   }
 
@@ -97,11 +97,11 @@ class PTNode {
   }
 
 
-  inline IndexType getLHId(IndexType ptId) const {
+  inline IndexT getLHId(IndexT ptId) const {
     return isNonTerminal() ? ptId + lhDel : 0;
   }
 
-  inline IndexType getRHId(IndexType ptId) const {
+  inline IndexT getRHId(IndexT ptId) const {
     return isNonTerminal() ? getLHId(ptId) + 1 : 0;
   }
 };

@@ -17,7 +17,6 @@
 #include "bv.h"
 #include "pretree.h"
 #include "ptnode.h"
-#include "decnode.h"
 #include "frontier.h"
 #include "forest.h"
 #include "summaryframe.h"
@@ -99,12 +98,12 @@ PreTree::~PreTree() {
 
 
 void PreTree::setLeft(const IndexSet* iSet, IndexT pos) {
-  splitBits->setBit(pos + nodeVec[iSet->getPTId()].getBitOffset(splitCrit));
+  splitBits->setBit(pos + nodeVec[iSet->getPTId()].getBitOffset(cartCrit));
 }
 
 
-IndexT PTNode::getBitOffset(const vector<SplitCrit>& splitCrit) const {
-  return splitCrit[critOffset].getBitOffset();
+IndexT PTNode::getBitOffset(const vector<CartCrit>& cartCrit) const {
+  return cartCrit[critOffset].getBitOffset();
 }
     
     
@@ -115,22 +114,22 @@ void PreTree::reserve(size_t height) {
 
 
 void PreTree::nonterminal(double info, IndexSet* iSet) {
-  nodeVec[iSet->getPTId()].nonterminal(info, height - iSet->getPTId(), splitCrit.size());
+  nodeVec[iSet->getPTId()].nonterminal(info, height - iSet->getPTId(), cartCrit.size());
   terminalOffspring();
 }
 
 
-void PreTree::critBits(const IndexSet* iSet, unsigned int predIdx, unsigned int cardinality) {
+void PreTree::critBits(const IndexSet* iSet, PredictorT predIdx, PredictorT cardinality) {
   nodeVec[iSet->getPTId()].bumpCriterion();
-  splitCrit.emplace_back(predIdx, bitEnd);
+  cartCrit.emplace_back(predIdx, bitEnd);
   bitEnd += cardinality;
   splitBits = splitBits->Resize(bitEnd);
 }
 
 
-void PreTree::critCut(const IndexSet* iSet, unsigned int predIdx, const IndexRange& rankRange) {
+void PreTree::critCut(const IndexSet* iSet, PredictorT predIdx, double quantRank) {//const IndexRange& rankRange) {
   nodeVec[iSet->getPTId()].bumpCriterion();
-  splitCrit.emplace_back(predIdx, rankRange);
+  cartCrit.emplace_back(predIdx, quantRank);//rankRange);
 }
 
 
@@ -147,14 +146,14 @@ const vector<unsigned int> PreTree::consume(ForestTrain* forest, unsigned int tI
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (IndexT idx = 0; idx < height; idx++) {
-    nodeVec[idx].consumeNonterminal(forest, predInfo, idx, splitCrit);
+    nodeVec[idx].consumeNonterminal(forest, predInfo, idx, cartCrit);
   }
 }
 
 
-void PTNode::consumeNonterminal(ForestTrain* forest, vector<double>& predInfo, unsigned int idx, const vector<SplitCrit>& splitCrit) const {
+void PTNode::consumeNonterminal(ForestTrain* forest, vector<double>& predInfo, unsigned int idx, const vector<CartCrit>& cartCrit) const {
   if (isNonTerminal()) {
-    SplitCrit crit(splitCrit[critOffset]);
+    CartCrit crit(cartCrit[critOffset]);
     forest->nonTerminal(idx, lhDel, crit);
     predInfo[crit.predIdx] += info;
   }
