@@ -18,7 +18,7 @@
 #include "pretree.h"
 #include "ptnode.h"
 #include "frontier.h"
-#include "forest.h"
+#include "foresttrain.h"
 #include "summaryframe.h"
 #include "callback.h"
 
@@ -31,8 +31,8 @@
 // the need to revise dangling non-terminals from an earlier level.
 //
 
-size_t PreTree::heightEst = 0;
-size_t PreTree::leafMax = 0;
+IndexT PreTree::heightEst = 0;
+IndexT PreTree::leafMax = 0;
 
 
 /**
@@ -44,7 +44,7 @@ size_t PreTree::leafMax = 0;
 
    @param leafMax is a user-specified limit on the number of leaves.
  */
-void PreTree::immutables(size_t _nSamp, size_t _minH, size_t leafMax) {
+void PreTree::immutables(IndexT _nSamp, IndexT _minH, IndexT leafMax) {
   // Static initial estimate of pre-tree heights employs a minimal enclosing
   // balanced tree.  This is probably naive, given that decision trees
   // are not generally balanced.
@@ -53,7 +53,7 @@ void PreTree::immutables(size_t _nSamp, size_t _minH, size_t leafMax) {
   // first PreTree block.  Hence the value is not really immutable.  Nodes
   // can also be reallocated during the interlevel pass as needed.
   //
-  size_t twoL = 1; // 2^level, beginning from level zero (root).
+  IndexT twoL = 1; // 2^level, beginning from level zero (root).
   while (twoL * _minH < _nSamp) {
     twoL <<= 1;
   }
@@ -98,30 +98,30 @@ PreTree::~PreTree() {
 
 
 void PreTree::setLeft(const IndexSet* iSet, IndexT pos) {
-  splitBits->setBit(pos + nodeVec[iSet->getPTId()].getBitOffset(cartCrit));
+  splitBits->setBit(pos + nodeVec[iSet->getPTId()].getBitOffset(crit));
 }
 
 
-IndexT PTNode::getBitOffset(const vector<CartCrit>& cartCrit) const {
-  return cartCrit[critOffset].getBitOffset();
+IndexT PTNode::getBitOffset(const vector<Crit>& crit) const {
+  return crit[critOffset].getBitOffset();
 }
     
     
-void PreTree::reserve(size_t height) {
+void PreTree::reserve(IndexT height) {
   while (heightEst <= height) // Assigns next power-of-two above 'height'.
     heightEst <<= 1;
 }
 
 
 void PreTree::nonterminal(double info, IndexSet* iSet) {
-  nodeVec[iSet->getPTId()].nonterminal(info, height - iSet->getPTId(), cartCrit.size());
+  nodeVec[iSet->getPTId()].nonterminal(info, height - iSet->getPTId(), crit.size());
   terminalOffspring();
 }
 
 
 void PreTree::critBits(const IndexSet* iSet, PredictorT predIdx, PredictorT cardinality) {
   nodeVec[iSet->getPTId()].bumpCriterion();
-  cartCrit.emplace_back(predIdx, bitEnd);
+  crit.emplace_back(predIdx, bitEnd);
   bitEnd += cardinality;
   splitBits = splitBits->Resize(bitEnd);
 }
@@ -129,7 +129,7 @@ void PreTree::critBits(const IndexSet* iSet, PredictorT predIdx, PredictorT card
 
 void PreTree::critCut(const IndexSet* iSet, PredictorT predIdx, double quantRank) {//const IndexRange& rankRange) {
   nodeVec[iSet->getPTId()].bumpCriterion();
-  cartCrit.emplace_back(predIdx, quantRank);//rankRange);
+  crit.emplace_back(predIdx, quantRank);//rankRange);
 }
 
 
@@ -146,16 +146,16 @@ const vector<unsigned int> PreTree::consume(ForestTrain* forest, unsigned int tI
 void PreTree::consumeNonterminal(ForestTrain *forest, vector<double> &predInfo) const {
   fill(predInfo.begin(), predInfo.end(), 0.0);
   for (IndexT idx = 0; idx < height; idx++) {
-    nodeVec[idx].consumeNonterminal(forest, predInfo, idx, cartCrit);
+    nodeVec[idx].consumeNonterminal(forest, predInfo, idx, crit);
   }
 }
 
 
-void PTNode::consumeNonterminal(ForestTrain* forest, vector<double>& predInfo, unsigned int idx, const vector<CartCrit>& cartCrit) const {
+void PTNode::consumeNonterminal(ForestTrain* forest, vector<double>& predInfo, unsigned int idx, const vector<Crit>& crit) const {
   if (isNonTerminal()) {
-    CartCrit crit(cartCrit[critOffset]);
-    forest->nonTerminal(idx, lhDel, crit);
-    predInfo[crit.predIdx] += info;
+    Crit critCart(crit[critOffset]);
+    forest->nonTerminal(idx, lhDel, critCart);
+    predInfo[critCart.predIdx] += info;
   }
 }
 

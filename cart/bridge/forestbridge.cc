@@ -15,6 +15,7 @@
 
 #include "forest.h"
 #include "forestbridge.h"
+#include "cartnode.h"
 
 #include <memory>
 using namespace std;

@@ -15,7 +15,7 @@
 
 #include "trainbridge.h"
 
-#include "forest.h"
+#include "foresttrain.h"
 #include "leaf.h"
 #include "train.h"
 #include "summaryframe.h"

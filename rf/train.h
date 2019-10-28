@@ -197,10 +197,10 @@ public:
      @return sum of tree sizes over block.
   */
   unsigned int blockPeek(vector<TrainSet> &treeBlock,
-                         size_t &blockFac,
-                         size_t &blockBag,
-                         size_t &blockLeaf,
-                         size_t &maxHeight);
+                         size_t& blockFac,
+                         IndexT& blockBag,
+                         IndexT& blockLeaf,
+                         IndexT& maxHeight);
 
   /**
      @brief Builds segment of decision forest for a block of trees.

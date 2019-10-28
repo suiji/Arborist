@@ -6,15 +6,15 @@
  */
 
 /**
-   @file cartcrit.h
+   @file crit.h
 
-   @brief Class defintion for CART splitting criterion.
+   @brief Class defintion for generic splitting criteria.
 
    @author Mark Seligman
  */
 
-#ifndef CART_CARTCRIT_H
-#define CART_CARTCRIT_H
+#ifndef SPLIT_CRIT_H
+#define SPLIT_CRIT_H
 
 #include "typeparam.h"
 
@@ -26,7 +26,7 @@
  */
 typedef union {
   double num; // Rank-derived splitting value:  quantile or cut.
-  IndexT offset; // Tree-relative bit-vector offset:  factor.
+  size_t offset; // Tree-relative bit-vector offset:  factor.
 
   void setNum(double numVal) {
     num = numVal;
@@ -41,28 +41,31 @@ typedef union {
 
 /**
    @brief Splitting criterion.
+
+   Branch sense implicitly less-than-equal left.
  */
-struct CartCrit {
+struct Crit {
   PredictorT predIdx;
   SplitVal val;
 
-  CartCrit(PredictorT predIdx_,
+  Crit(PredictorT predIdx_,
 	   double quantRank) :
   predIdx(predIdx_) {
     val.setNum(quantRank);
   }
 
 
-  CartCrit(PredictorT predIdx_,
+  Crit(PredictorT predIdx_,
 	   size_t bitPos) :
   predIdx(predIdx_) {
     val.setOffset(bitPos);
   }
 
-  CartCrit() : predIdx(0) {
+  Crit() : predIdx(0) {
     val.setNum(0.0);
   }
 
+  
   void setNum(double num) {
     val.setNum(num);
   }
@@ -76,6 +79,10 @@ struct CartCrit {
   auto getBitOffset() const {
     return val.offset;
   }
+
+  
+  void setQuantRank(const class SummaryFrame* sf,
+		    PredictorT predIdx);
 };
 
 

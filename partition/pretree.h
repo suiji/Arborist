@@ -21,21 +21,21 @@
 #include <algorithm>
 
 #include "ptnode.h" // Algorithm-dependent definition.
-#include "cartcrit.h"
+#include "crit.h"
 
 /**
  @brief Serialized representation of the pre-tree, suitable for tranfer between
  devices such as coprocessors, disks and nodes.
 */
 class PreTree {
-  static size_t heightEst;
-  static size_t leafMax; // User option:  maximum # leaves, if > 0.
+  static IndexT heightEst;
+  static IndexT leafMax; // User option:  maximum # leaves, if > 0.
   const unsigned int bagCount;
-  size_t height;
-  size_t leafCount;
+  IndexT height;
+  IndexT leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
   vector<class PTNode> nodeVec; // Vector of tree nodes.
-  vector<struct CartCrit> cartCrit;
+  vector<struct Crit> crit;
   class BV *splitBits;
   vector<unsigned int> termST;
 
@@ -72,7 +72,9 @@ class PreTree {
           const class Frontier* frontier);
 
   ~PreTree();
-  static void immutables(size_t _nSamp, size_t _minH, size_t _leafMax);
+  static void immutables(IndexT _nSamp,
+			 IndexT _minH,
+			 IndexT _leafMax);
   static void deImmutables();
 
 
@@ -82,7 +84,7 @@ class PreTree {
 
      @param height is an actual height value.
   */
-  static void reserve(size_t height);
+  static void reserve(IndexT height);
 
 
   /**
@@ -209,11 +211,11 @@ class PreTree {
 
      @return void.
    */
-  inline void blockBump(size_t &_height,
-                        size_t &_maxHeight,
-                        size_t &_bitWidth,
-                        size_t &_leafCount,
-                        size_t &_bagCount) {
+  inline void blockBump(IndexT& _height,
+                        IndexT& _maxHeight,
+                        size_t& _bitWidth,
+                        IndexT& _leafCount,
+                        IndexT& _bagCount) {
     _height += height;
     _maxHeight = max(height, _maxHeight);
     _bitWidth += getBitWidth();

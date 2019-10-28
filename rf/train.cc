@@ -16,7 +16,7 @@
 #include "bv.h"
 #include "sample.h"
 #include "train.h"
-#include "forest.h"
+#include "foresttrain.h"
 #include "summaryframe.h"
 #include "frontier.h"
 #include "pretree.h"
@@ -188,8 +188,9 @@ void Train::blockConsume(vector<TrainSet>& treeBlock,
 
 
 void Train::reserve(vector<TrainSet>& treeBlock) {
-  size_t blockFac, blockBag, blockLeaf;
-  size_t maxHeight = 0;
+  size_t blockFac;
+  IndexT blockBag, blockLeaf;
+  IndexT maxHeight = 0;
   (void) blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
   PreTree::reserve(maxHeight);
 }
@@ -197,10 +198,10 @@ void Train::reserve(vector<TrainSet>& treeBlock) {
 
 unsigned int Train::blockPeek(vector<TrainSet>& treeBlock,
                               size_t& blockFac,
-                              size_t& blockBag,
-                              size_t& blockLeaf,
-                              size_t& maxHeight) {
-  size_t blockHeight = 0;
+                              IndexT& blockBag,
+                              IndexT& blockLeaf,
+                              IndexT& maxHeight) {
+  IndexT blockHeight = 0;
   blockLeaf = blockFac = blockBag = 0;
   for (auto & set : treeBlock) {
     get<1>(set)->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);

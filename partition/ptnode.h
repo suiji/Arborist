@@ -43,7 +43,7 @@ class PTNode {
   /**
      @return starting bit of split value.
    */
-  IndexT getBitOffset(const vector<struct CartCrit>& splitCrit) const;
+  IndexT getBitOffset(const vector<struct Crit>& splitCrit) const;
   
   
   /**
@@ -54,7 +54,7 @@ class PTNode {
   void consumeNonterminal(class ForestTrain *forest,
                           vector<double> &predInfo,
                           IndexT idx,
-                          const vector<struct CartCrit>& splitCriterion) const;
+                          const vector<struct Crit>& splitCriterion) const;
 
   /**
      @builds bit-based split.

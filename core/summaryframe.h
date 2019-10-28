@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef FRAMEMAP_SUMMARYFRAME_H
-#define FRAMEMAP_SUMMARYFRAME_H
+#ifndef CORE_SUMMARYFRAME_H
+#define CORE_SUMMARYFRAME_H
 
 #include "block.h"
 #include "rankedframe.h"
@@ -186,6 +186,25 @@ public:
     return numRanked->getVal(predIdx, rank);
   }
 
+
+  /**
+     @brief Interpolates a numerical value from a fractional "rank".
+
+     @param predIdx is the index of a numerical predictor.
+
+     @param rank is a fractional rank value.
+
+     @return interpolated value.
+   */
+  inline double interpolate(PredictorT predIdx,
+			    double rank) const {
+    IndexT rankFloor = floor(rank);
+    IndexT rankCeil = ceil(rank);
+    double valFloor = getNumVal(predIdx, rankFloor);
+    double valCeil = getNumVal(predIdx, rankCeil);
+
+    return valFloor + (rank - rankFloor) * (valCeil - valFloor);
+  }
 
   /**
      @brief Pass-through to rankedFrame method.
