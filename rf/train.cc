@@ -16,7 +16,6 @@
 #include "bv.h"
 #include "sample.h"
 #include "train.h"
-#include "foresttrain.h"
 #include "summaryframe.h"
 #include "frontier.h"
 #include "pretree.h"
@@ -110,7 +109,7 @@ Train::Train(const SummaryFrame* frame,
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
-  forest(make_unique<ForestTrain>(treeChunk)),
+  forest(make_unique<ForestCresc<DecNode> >(treeChunk)),
   predInfo(vector<double>(frame->getNPred())),
   leaf(LFTrain::factoryReg(y, treeChunk)) {
 }
@@ -139,7 +138,7 @@ Train::Train(const SummaryFrame* frame,
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
-  forest(make_unique<ForestTrain>(treeChunk)),
+  forest(make_unique<ForestCresc<DecNode> >(treeChunk)),
   predInfo(vector<double>(frame->getNPred())),
   leaf(LFTrain::factoryCtg(yCtg, yProxy, treeChunk, nRow, nCtg, nTree)) {
 }
@@ -181,7 +180,7 @@ void Train::blockConsume(vector<TrainSet>& treeBlock,
                          unsigned int blockStart) {
   unsigned int blockIdx = blockStart;
   for (auto & trainSet : treeBlock) {
-    const vector<unsigned int> leafMap = get<1>(trainSet)->consume(forest.get(), blockIdx, predInfo);
+    const vector<IndexT> leafMap = get<1>(trainSet)->consume(forest.get(), blockIdx, predInfo);
     leaf->blockLeaves(get<0>(trainSet).get(), leafMap, blockIdx++);
   }
 }

@@ -18,7 +18,7 @@
  */
 
 #include "splitcoord.h"
-#include "typeparam.h"
+#include "pretree.h"
 #include "sumcount.h"
 
 #include <vector>

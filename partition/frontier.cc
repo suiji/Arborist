@@ -14,7 +14,8 @@
  */
 
 #include "frontier.h"
-#include "pretree.h"
+#include "indexset.h"
+#include "summaryframe.h"
 #include "sample.h"
 #include "train.h"
 #include "obspart.h"
@@ -46,22 +47,6 @@ Frontier::~Frontier() {
 }
 
 
-IndexSet::IndexSet() :
-  splitIdx(0),
-  ptId(0),
-  sCount(0),
-  sum(0.0),
-  minInfo(0.0),
-  path(0),
-  doesSplit(false),
-  unsplitable(false),
-  lhExtent(0),
-  lhSCount(0),
-  sumL(0.0),
-  leftImpl(false) {
-}
-
-
 unique_ptr<PreTree> Frontier::oneTree(const Train* train,
 				      const SummaryFrame* frame,
                                       const Sample *sample) {
@@ -84,28 +69,12 @@ Frontier::Frontier(const SummaryFrame* frame,
   st2Split(vector<IndexT>(bagCount)),
   st2PT(vector<IndexT>(bagCount)),
   replay(make_unique<Replay>(bagCount)),
-  pretree(make_unique<PreTree>(frame, this)) {
+  pretree(make_unique<PreTree>(frame->getCardExtent(), bagCount)) {
   indexSet[0].initRoot(sample);
   relBase[0] = 0;
   iota(rel2ST.begin(), rel2ST.end(), 0);
   fill(st2Split.begin(), st2Split.end(), 0);
   fill(st2PT.begin(), st2PT.end(), 0);
-}
-
-
-void IndexSet::initRoot(const Sample* sample) {
-  splitIdx = 0;
-  sCount = sample->getNSamp();
-  bufRange = IndexRange(0, sample->getBagCount());
-  minInfo = 0.0;
-  ptId = 0;
-  sum = sample->getBagSum();
-  path = 0;
-  relBase = 0;
-  ctgSum = move(sample->getCtgRoot());
-  ctgLeft = vector<SumCount>(ctgSum.size());
-  
-  initInattainable(sample->getBagCount());
 }
 
 
@@ -120,7 +89,7 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample,
   }
 
   relFlush();
-  pretree->subtreeFrontier(st2PT);
+  pretree->finish(st2PT);
   return move(pretree);
 }
 
@@ -141,16 +110,6 @@ vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
   relBase = move(succBase);
 
   return produce(survey.splitNext);
-}
-
-
-void IndexSet::dispatch(Frontier* frontier) {
-  if (doesSplit) {
-    nonterminal(frontier);
-  }
-  else {
-    terminal(frontier);
-  }
 }
 
 
@@ -185,22 +144,6 @@ unsigned int Frontier::splitAccum(IndexT succExtent,
 }
 
   
-void IndexSet::terminal(Frontier *frontier) {
-  succOnly = frontier->idxSucc(bufRange.getExtent(), ptId, offOnly, true);
-}
-
-
-void IndexSet::nonterminal(Frontier* frontier) {
-  ptLeft = getPTIdSucc(frontier, true);
-  ptRight = getPTIdSucc(frontier, false);
-  succLeft = frontier->idxSucc(getExtentSucc(true), ptLeft, offLeft);
-  succRight = frontier->idxSucc(getExtentSucc(false), ptRight, offRight);
-
-  pathLeft = IdxPath::pathNext(path, true);
-  pathRight = IdxPath::pathNext(path, false);
-}
-
-
 IndexT Frontier::idxSucc(IndexT extent,
                          IndexT ptId,
                          IndexT& offOut,
@@ -250,38 +193,6 @@ void Frontier::nodeReindex() {
     }
   }
   rel2ST = move(succST);
-}
-
-
-void IndexSet::reindex(const Replay* replay,
-                       Frontier* index,
-                       IndexT idxLive,
-                       vector<IndexT>& succST) {
-  if (!doesSplit) {
-    index->relExtinct(relBase, bufRange.getExtent(), ptId);
-  }
-  else {
-    nontermReindex(replay, index, idxLive, succST);
-  }
-}
-
-
-void IndexSet::nontermReindex(const Replay* replay,
-                              Frontier* index,
-                              IndexT idxLive,
-                              vector<IndexT>&succST) {
-  IndexT baseLeft = offLeft;
-  IndexT baseRight = offRight;
-  for (IndexT relIdx = relBase; relIdx < relBase + bufRange.getExtent(); relIdx++) {
-    bool isLeft = replay->senseLeft(relIdx, leftImpl);
-    IndexT targIdx = getOffSucc(isLeft);
-    if (targIdx < idxLive) {
-      succST[targIdx] = index->relLive(relIdx, targIdx, getPathSucc(isLeft), isLeft ? baseLeft : baseRight, getPTSucc(isLeft));
-    }
-    else {
-      index->relExtinct(relIdx, getPTSucc(isLeft));
-    }
-  }
 }
 
 
@@ -367,48 +278,6 @@ vector<IndexSet> Frontier::produce(IndexT splitNext) {
 }
 
 
-void IndexSet::succHands(Frontier* frontier, vector<IndexSet>& indexNext) const {
-  if (doesSplit) {
-    succHand(frontier, indexNext, true);
-    succHand(frontier, indexNext, false);
-  }
-}
-
-
-void IndexSet::succHand(Frontier* frontier, vector<IndexSet>& indexNext, bool isLeft) const {
-  IndexT succIdx = getIdxSucc(isLeft);
-  if (succIdx < indexNext.size()) { // Otherwise terminal in next level.
-    indexNext[succIdx].succInit(frontier, this, isLeft);
-  }
-}
-
-
-void IndexSet::succInit(Frontier *frontier,
-                        const IndexSet* par,
-                        bool isLeft) {
-  splitIdx = par->getIdxSucc(isLeft);
-  sCount = par->getSCountSucc(isLeft);
-  bufRange = IndexRange(par->getStartSucc(isLeft), par->getExtentSucc(isLeft));
-  minInfo = par->getMinInfo();
-  ptId = par->getPTIdSucc(frontier, isLeft);
-  sum = par->getSumSucc(isLeft);
-  path = par->getPathSucc(isLeft);
-  relBase = frontier->getRelBase(splitIdx);
-  frontier->reachingPath(splitIdx, par->getSplitIdx(), bufRange, relBase, path);
-
-  ctgSum = isLeft ? par->ctgLeft : SumCount::minus(par->ctgSum, par->ctgLeft);
-  ctgLeft = vector<SumCount>(ctgSum.size());
-
-  // Inattainable value.  Reset only when non-terminal:
-  initInattainable(frontier->getBagCount());
-}
-
-
-IndexT IndexSet::getPTIdSucc(const Frontier* frontier, bool isLeft) const {
-  return frontier->getPTIdSucc(ptId, isLeft);
-}
-
-
 IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
   return pretree->getSuccId(ptId, isLeft);
 }
@@ -439,16 +308,4 @@ vector<double> Frontier::sumsAndSquares(vector<vector<double> >& ctgSum) {
     }
   }
   return sumSquares;
-}
-
-
-vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
-  vector<double> sumOut(ctgSum.size());
-  sumSquares =  0.0;
-  for (PredictorT ctg = 0; ctg < ctgSum.size(); ctg++) {
-    unsplitable |= !ctgSum[ctg].splitable(sCount, sumOut[ctg]);
-    sumSquares += sumOut[ctg] * sumOut[ctg];
-  }
-
-  return sumOut;
 }

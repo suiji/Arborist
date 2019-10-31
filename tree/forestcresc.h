@@ -6,26 +6,28 @@
  */
 
 /**
-   @file foresttrain.h
+   @file forestcresc.h
 
-   @brief Data structures and methods for training the decision forest.
+   @brief Data structures and methods for growing the decision forest.
 
    @author Mark Seligman
  */
 
-#ifndef CART_FORESTTRAIN_H
-#define CART_FORESTTRAIN_H
+#ifndef TREE_FORESTCRESC_H
+#define TREE_FORESTCRESC_H
 
 #include <vector>
 
-#include "typeparam.h"
+#include "fbcresc.h"
+
 
 
 /**
    @brief struct CartNode block for crescent frame;
  */
+template<typename treeType>
 class NBCresc {
-  vector<struct CartNode> treeNode;
+  vector<treeType> treeNode;
   vector<size_t> height;
   size_t treeFloor; // Block-relative index of current tree floor.
 
@@ -35,7 +37,11 @@ public:
 
      @param treeChunk is the number of trees in the current block.
    */
-  NBCresc(unsigned int treeChunk);
+  NBCresc(unsigned int treeChunk) :
+    treeNode(vector<treeType>(0)),
+    height(vector<size_t>(treeChunk)) {
+  }
+
 
   /**
      @brief Allocates and initializes nodes for current tree.
@@ -45,14 +51,25 @@ public:
      @param nodeCount is the number of tree nodes.
    */
   void treeInit(unsigned int tIdx,
-                unsigned int nodeCount);
+                unsigned int nodeCount) {
+    treeFloor = treeNode.size();
+    height[tIdx] = treeFloor + nodeCount;
+    treeType tn;
+    treeNode.insert(treeNode.end(), nodeCount, tn);
+  }
+
+
 
   /**
      @brief Copies treeNode contents by byte.
 
      @param[out] nodeRaw outputs the raw contents.
    */
-  void dumpRaw(unsigned char nodeRaw[]) const;
+  void dumpRaw(unsigned char nodeRaw[]) const {
+    for (size_t i = 0; i < treeNode.size() * sizeof(treeType); i++) {
+      nodeRaw[i] = ((unsigned char*) &treeNode[0])[i];
+    }
+  }
 
 
   /**
@@ -60,7 +77,12 @@ public:
 
      Parameters as with low-level implementation.
   */
-  void splitUpdate(const class SummaryFrame* sf);
+  void splitUpdate(const class SummaryFrame* sf) {
+    for (auto & tn : treeNode) {
+      tn.setQuantRank(sf);
+    }
+  }
+
 
   
   /**
@@ -81,8 +103,10 @@ public:
      @param isFactor is true iff the splitting predictor is categorical.
   */
   void branchProduce(unsigned int nodeIdx,
-                            IndexT lhDel,
-		     const struct Crit& crit);
+		     IndexT lhDel,
+		     const struct Crit& crit) {
+    treeNode[treeFloor + nodeIdx].setBranch(lhDel, crit);
+  }
 
 
   /**
@@ -92,63 +116,8 @@ public:
 
   */
   void leafProduce(unsigned int nodeIdx,
-		   unsigned int leafIdx);
-};
-
-
-/**
-   @brief Manages the crescent factor blocks.
- */
-class FBCresc {
-  vector<unsigned int> fac;  // Factor-encoding bit vector.
-  vector<size_t> height; // Cumulative vector heights, per tree.
-
-public:
-
-  FBCresc(unsigned int treeChunk);
-
-  /**
-     @brief Sets the height of the current tree, storage now being known.
-
-     @param tIdx is the tree index.
-   */
-  void treeCap(unsigned int tIdx);
-
-  /**
-     @brief Consumes factor bit vector and notes height.
-
-     @param splitBits is the bit vector.
-
-     @param bitEnd is the final bit position referenced.
-
-     @param tIdx is the current tree index.
-   */
-  void appendBits(const class BV* splitBIts,
-                  size_t bitEnd,
-                  unsigned int tIdx);
-
-
-  /**
-     @brief Computes unit size for cross-compatibility of serialization.
-   */
-  static constexpr size_t unitSize() {
-    return sizeof(unsigned int);
-  }
-  
-  /**
-     @brief Dumps factor bits as raw data.
-
-     @param[out] facRaw outputs the raw factor data.
-   */
-  void dumpRaw(unsigned char facRaw[]) const;
-  
-  /**
-     @brief Accessor for the per-tree height vector.
-
-     @return reference to height vector.
-   */
-  const vector<size_t>& getHeight() const {
-    return height;
+		   unsigned int leafIdx) {
+    treeNode[treeFloor + nodeIdx].setLeaf(leafIdx);
   }
 };
 
@@ -156,8 +125,9 @@ public:
 /**
    @brief Class definition for crescent forest.
  */
-class ForestTrain {
-  unique_ptr<NBCresc> nbCresc; // Crescent node block.
+template<typename treeType>
+class ForestCresc {
+  unique_ptr<NBCresc<treeType> > nbCresc; // Crescent node block.
   unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
 
  public:
@@ -167,10 +137,14 @@ class ForestTrain {
 
      @param treeChunk is the number of trees to train.
    */
-  ForestTrain(unsigned int treeChunk);
+  ForestCresc(unsigned int treeChunk) :
+    nbCresc(make_unique<NBCresc<treeType>>(treeChunk)),
+    fbCresc(make_unique<FBCresc>(treeChunk)) {
+  }
 
   
-  ~ForestTrain();
+  ~ForestCresc() {
+  }
 
   
   /**
@@ -184,8 +158,11 @@ class ForestTrain {
    */
   void appendBits(const class BV *splitBits,
                   size_t bitEnd,
-                  unsigned int tIdx);
+                  unsigned int tIdx) {
+    fbCresc->appendBits(splitBits, bitEnd, tIdx);
+  }
 
+  
   /**
      @brief Allocates and initializes sufficient nodes for current tree.
 
@@ -194,7 +171,10 @@ class ForestTrain {
      @param nodeCount is the number of nodes.
    */
   void treeInit(unsigned int tIdx,
-                unsigned int nodeCount);
+                unsigned int nodeCount) {
+    nbCresc->treeInit(tIdx, nodeCount);
+  }
+
 
   /**
      @brief Precipitates production of a branch node in the crescent forest.
@@ -205,9 +185,13 @@ class ForestTrain {
 
      @parm decNode contains the value to set.
    */
-  void nonTerminal(IndexT idx,
+  void nonTerminal(IndexT nodeIdx,
                    IndexT lhDel,
-                   const struct Crit& crit);
+                   const struct Crit& crit) {
+    nbCresc->branchProduce(nodeIdx, lhDel, crit);
+  }
+
+
 
   /**
      @brief Outputs raw byes of node vector.
@@ -256,14 +240,19 @@ class ForestTrain {
     @param leafIdx is a tree-relative leaf index.
   */
   void terminal(unsigned int nodeIdx,
-                unsigned int leafIdx);
+                unsigned int leafIdx) {
+    nbCresc->leafProduce(nodeIdx, leafIdx);
+  }
 
+  
   /**
      @brief Post-pass to update numerical splitting values from ranks.
 
      @param summaryFrame records the predictor types.
   */
-  void splitUpdate(const class SummaryFrame* sf);
+  void splitUpdate(const class SummaryFrame* sf) {
+    nbCresc->splitUpdate(sf);
+  }
 };
 
 #endif

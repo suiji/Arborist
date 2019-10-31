@@ -19,29 +19,30 @@
 
 #include <vector>
 
+#include "decnode.h"
 #include "typeparam.h"
 
 /**
    @brief The decision forest as a read-only collection.
 */
 class Forest {
-  const unsigned int* nodeHeight;
+  const IndexT* nodeHeight;
   const unsigned int nTree;
-  const struct CartNode* treeNode;
+  const DecNode* treeNode;
   unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
 
-  void dump(vector<vector<unsigned int> > &predTree,
+  void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<IndexT> > &lhDelTree) const;
 
   
  public:
 
-  Forest(const unsigned int height_[],
+  Forest(const IndexT height_[],
          unsigned int _nTree,
-         const struct CartNode _treeNode[],
-         unsigned int _facVec[],
-         const unsigned int facHeight_[]);
+         const DecNode _treeNode[],
+         PredictorT _facVec[],
+         const IndexT facHeight_[]);
 
   ~Forest();
 
@@ -59,7 +60,7 @@ class Forest {
 
      @return pointer to base of node vector.
    */
-  inline const struct CartNode* getNode() const {
+  inline const DecNode* getNode() const {
     return treeNode;
   }
 
@@ -106,9 +107,9 @@ class Forest {
 
      @param[out] facSplitTree outputs per-tree factor encodings.
    */
-  void dump(vector<vector<unsigned int> > &predTree,
+  void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<IndexT> > &lhDelTree,
-            vector<vector<unsigned int> > &facSplitTree) const;
+            vector<vector<PredictorT> > &facSplitTree) const;
 };
 #endif

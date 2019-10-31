@@ -14,10 +14,12 @@
 
  */
 
-#ifndef PARTITION_PTNODE_H
-#define PARTITION_PTNODE_H
+#ifndef TREE_PTNODE_H
+#define TREE_PTNODE_H
 
 #include "typeparam.h"
+#include "forestcresc.h"
+#include "crit.h"
 
 #include <vector>
 #include <algorithm>
@@ -25,6 +27,7 @@
 /**
   @brief Decision node specialized for training.
  */
+template<typename nodeType>
 class PTNode {
   IndexT lhDel; // zero iff terminal.
   IndexT critCount; // Number of associated criteria; 0 iff terminal.
@@ -43,7 +46,9 @@ class PTNode {
   /**
      @return starting bit of split value.
    */
-  IndexT getBitOffset(const vector<struct Crit>& splitCrit) const;
+  IndexT getBitOffset(const vector<Crit>& crit) const {
+    return crit[critOffset].getBitOffset();
+  }
   
   
   /**
@@ -51,10 +56,18 @@ class PTNode {
 
      @param forest[in, out] accumulates the growing forest node vector.
   */
-  void consumeNonterminal(class ForestTrain *forest,
-                          vector<double> &predInfo,
+  void consumeNonterminal(ForestCresc<nodeType>* forest,
+                          vector<double>& predInfo,
                           IndexT idx,
-                          const vector<struct Crit>& splitCriterion) const;
+                          const vector<Crit>& crit) const {
+    if (isNonTerminal()) {
+      Crit criterion(crit[critOffset]);
+      forest->nonTerminal(idx, lhDel, criterion);
+      predInfo[criterion.predIdx] += info;
+    }
+  }
+
+
 
   /**
      @builds bit-based split.

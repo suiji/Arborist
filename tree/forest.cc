@@ -16,14 +16,13 @@
 
 #include "bv.h"
 #include "forest.h"
-#include "cartnode.h"
 
 
-Forest::Forest(const unsigned int height_[],
+Forest::Forest(const IndexT height_[],
 	       unsigned int nTree_,
-               const CartNode treeNode_[],
-	       unsigned int facVec_[],
-               const unsigned int facHeight_[]) :
+               const DecNode treeNode_[],
+	       PredictorT facVec_[],
+               const IndexT facHeight_[]) :
   nodeHeight(height_),
   nTree(nTree_),
   treeNode(treeNode_),
@@ -44,20 +43,20 @@ vector<size_t> Forest::cacheOrigin() const {
 }
 
 
-void Forest::dump(vector<vector<unsigned int> > &predTree,
+void Forest::dump(vector<vector<PredictorT> > &predTree,
                   vector<vector<double> > &splitTree,
-                  vector<vector<unsigned int> > &lhDelTree,
-                  vector<vector<unsigned int> > &facSplitTree) const {
+                  vector<vector<IndexT> > &lhDelTree,
+                  vector<vector<IndexT> > &facSplitTree) const {
   dump(predTree, splitTree, lhDelTree);
   facSplit->dump(facSplitTree);
 }
 
 
-void Forest::dump(vector<vector<unsigned int> > &pred,
+void Forest::dump(vector<vector<PredictorT> > &pred,
                   vector<vector<double> > &split,
-                  vector<vector<unsigned int> > &lhDel) const {
+                  vector<vector<IndexT> > &lhDel) const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (unsigned int nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
+    for (IndexT nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
       pred[tIdx].push_back(treeNode[nodeIdx].getPredIdx());
       lhDel[tIdx].push_back(treeNode[nodeIdx].getLHDel());
 

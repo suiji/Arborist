@@ -17,6 +17,9 @@
 #ifndef RF_BRIDGE_TRAINBRIDGE_H
 #define RF_BRIDGE_TRAINBRIDGE_H
 
+#include "forestcresc.h"
+#include "cartnode.h"
+
 #include<vector>
 #include<memory>
 
@@ -197,7 +200,7 @@ struct TrainChunk {
   /**
      @brief Getter for raw forest pointer.
    */
-  const class ForestTrain *getForest() const;
+  const class ForestCresc<struct CartNode>* getForest() const;
 
   
   /**

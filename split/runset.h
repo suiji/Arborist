@@ -19,7 +19,7 @@
 
 #include <vector>
 
-#include "typeparam.h"
+#include "pretree.h"
 #include "sumcount.h"
 
 /**

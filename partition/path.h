@@ -14,13 +14,14 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_PATH_H
-#define CORE_PATH_H
+#ifndef PARTITION_PATH_H
+#define PARTITION_PATH_H
 
 #include <cstdint>
 #include <vector>
 
 #include "typeparam.h"
+
 
 /**
    @brief Records index, start and extent for path reached from MRRA.
@@ -116,7 +117,7 @@ class IdxPath {
   static constexpr unsigned int maskLive = maskExtinct - 1;
   static constexpr unsigned int relMax = 1 << 15;
   vector<unsigned int> relFront;
-  vector<unsigned char> pathFront;
+  vector<PathT> pathFront;
 
   /**
      @brief Setter for path reaching an index.
@@ -208,7 +209,7 @@ class IdxPath {
      @brief When appropriate, introduces node-relative indexing at the
      cost of trebling span of memory accesses:  char vs. char + uint16.
 
-     @return True iff node-relative indexing expected to be profitable.
+     @return true iff node-relative indexing expected to be profitable.
    */
   static inline bool localizes(unsigned int bagCount, unsigned int idxMax) {
     return idxMax > relMax || bagCount <= 3 * relMax ? false : true;

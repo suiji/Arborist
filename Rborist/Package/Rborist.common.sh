@@ -29,6 +29,8 @@ cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../partition/*.cc Rborist/src/
 cp ../../partition/*.h Rborist/src/
+cp ../../tree/*.cc Rborist/src/
+cp ../../tree/*.h Rborist/src/
 cp ../../rf/*.cc Rborist/src/
 cp ../../rf/*.h Rborist/src/
 cp ../../rf/bridge/*.cc Rborist/src/

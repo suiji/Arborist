@@ -14,19 +14,26 @@
 
  */
 
-#ifndef PARTITION_PRETREE_H
-#define PARTITION_PRETREE_H
+#ifndef TREE_PRETREE_H
+#define TREE_PRETREE_H
+
+#include "decnode.h"
+#include "bv.h"
+#include "ptnode.h"
+#include "crit.h"
+#include "indexset.h"
 
 #include <vector>
-#include <algorithm>
 
-#include "ptnode.h" // Algorithm-dependent definition.
-#include "crit.h"
 
 /**
- @brief Serialized representation of the pre-tree, suitable for tranfer between
- devices such as coprocessors, disks and nodes.
+   @brief Workspace for merging PTNodes:  copies 'info' and records
+   offsets and merge state.
+ */
+/**
+   @brief Serialized representation of the pre-tree, suitable for tranfer between devices such as coprocessors, disks and nodes.
 */
+
 class PreTree {
   static IndexT heightEst;
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
@@ -34,7 +41,7 @@ class PreTree {
   IndexT height;
   IndexT leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
-  vector<class PTNode> nodeVec; // Vector of tree nodes.
+  vector<PTNode<DecNode>> nodeVec; // Vector of tree nodes.
   vector<struct Crit> crit;
   class BV *splitBits;
   vector<unsigned int> termST;
@@ -46,13 +53,12 @@ class PreTree {
 
      @return rewritten map.
   */
-  const vector<unsigned int> frontierConsume(class ForestTrain *forest) const;
-
+  const vector<IndexT> frontierConsume(ForestCresc<DecNode> *forest) const;
 
   /**
      @return BV-aligned length of used portion of split vector.
   */
-  IndexT getBitWidth();
+  size_t getBitWidth();
 
 
   /**
@@ -68,13 +74,29 @@ class PreTree {
 
 
  public:
-  PreTree(const class SummaryFrame* frame,
-          const class Frontier* frontier);
+  /**
+   */
+  PreTree(PredictorT cardExtent,
+	  IndexT bagCount_);
 
+
+  /**
+  */
   ~PreTree();
-  static void immutables(IndexT _nSamp,
-			 IndexT _minH,
-			 IndexT _leafMax);
+
+
+  /**
+   @brief Caches the row count and computes an initial estimate of node count.
+
+   @param _nSamp is the number of samples.
+
+   @param _minH is the minimal splitable index node size.
+
+   @param leafMax is a user-specified limit on the number of leaves.
+ */
+  static void immutables(IndexT nSamp, IndexT minH, IndexT leafMax_);
+
+
   static void deImmutables();
 
 
@@ -105,6 +127,7 @@ class PreTree {
                 PredictorT predIdx,
                 PredictorT cardinality);
 
+  
   /**
      @brief Appends criterion for cut-based branch.
      
@@ -113,9 +136,8 @@ class PreTree {
   void critCut(const class IndexSet* iSet,
                PredictorT predIdx,
 	       double quantRank);
-  //               const IndexRange& rankRange);
 
-
+  
   /**
      @brief Consumes all pretree nonterminal information into crescent forest.
 
@@ -127,9 +149,11 @@ class PreTree {
 
      @return leaf map from consumed frontier.
   */
-  const vector<unsigned int> consume(class ForestTrain *forest,
+  const vector<unsigned int> consume(ForestCresc<DecNode> *forest,
                                      unsigned int tIdx,
                                      vector<double> &predInfo);
+
+  
   /**
      @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.
 
@@ -139,12 +163,10 @@ class PreTree {
 
      @param[out] predInfo outputs the predictor-specific information values.
   */
-  void consumeNonterminal(class ForestTrain *forest,
-                          vector<double> &predInfo) const;
+  void consumeNonterminal(ForestCresc<DecNode> *forest,
+                          vector<double> &predInfo);
 
-  void BitConsume(unsigned int *outBits);
-
-
+  
   /**
      @brief Sets specified bit in (left) splitting bit vector.
 
@@ -156,18 +178,18 @@ class PreTree {
                IndexT pos);
 
 
+  IndexT leafMerge();
+
+  
   /**
-     @brief Absorbs the terminal list from a completed subtree.
+     @brief Absorbs the terminal list and merges, if requested.
 
      Side-effects the frontier map.
 
      @param stTerm are subtree-relative indices.  These must be mapped to
      sample indices if the subtree is proper.
   */
-  void subtreeFrontier(const vector<unsigned int> &stTerm);
-
-  
-  unsigned int LeafMerge();
+  void finish(const vector<IndexT>& stTerm);
 
   
   inline IndexT getLHId(IndexT ptId) const {
@@ -208,20 +230,42 @@ class PreTree {
   /**
      @brief Fills in references to values known to be useful for building
      a block of PreTree objects.
-
-     @return void.
    */
-  inline void blockBump(IndexT& _height,
-                        IndexT& _maxHeight,
-                        size_t& _bitWidth,
-                        IndexT& _leafCount,
-                        IndexT& _bagCount) {
-    _height += height;
-    _maxHeight = max(height, _maxHeight);
-    _bitWidth += getBitWidth();
-    _leafCount += leafCount;
-    _bagCount += bagCount;
+  void blockBump(IndexT& _height,
+		 IndexT& _maxHeight,
+		 size_t& _bitWidth,
+		 IndexT& _leafCount,
+		 IndexT& _bagCount);
+};
+
+
+template<typename nodeType>
+struct PTMerge {
+  FltVal info;
+  IndexT ptId;
+  IndexT idMerged;
+  IndexT root;
+  IndexT parId;
+  IndexT idSib; // Sibling id, if not root else zero.
+  bool descLH; // Whether this is left descendant of some node.
+
+  static vector<PTMerge<nodeType>> merge(const PreTree* preTree,
+				  IndexT height,
+				  IndexT leafDiff);
+
+};
+
+
+/**
+   @brief Information-base comparator for queue ordering.
+*/
+template<typename nodeType>
+class InfoCompare {
+public:
+  bool operator() (const PTMerge<nodeType>& a, const PTMerge<nodeType>& b) {
+    return a.info > b.info;
   }
 };
+
 
 #endif
