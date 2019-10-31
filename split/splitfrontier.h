@@ -140,7 +140,7 @@ public:
   /**
      @brief Passes ObsPart through to Sample method.
    */
-  vector<class StageCount> stage(const class Sample* sample);
+  vector<struct StageCount> stage(const class Sample* sample);
 
 
   /**

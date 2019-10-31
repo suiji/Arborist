@@ -72,7 +72,7 @@ class DefMap {
 
      @param stageCount is a vector of per-predictor staging statistics.
   */
-  void rootDef(const vector<class StageCount>& stageCount,
+  void rootDef(const vector<struct StageCount>& stageCount,
                unsigned int bagCount);
 
 

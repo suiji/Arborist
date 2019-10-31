@@ -42,7 +42,7 @@ void IndexSet::initRoot(const Sample* sample) {
   sum = sample->getBagSum();
   path = 0;
   relBase = 0;
-  ctgSum = move(sample->getCtgRoot());
+  ctgSum = sample->getCtgRoot();
   ctgLeft = vector<SumCount>(ctgSum.size());
   
   initInattainable(sample->getBagCount());

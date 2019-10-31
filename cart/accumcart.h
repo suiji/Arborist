@@ -27,7 +27,7 @@
  */
 class AccumCartReg : public Accum {
   const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<class Residual> resid; // Current residual, if any, else null.
+  const unique_ptr<struct Residual> resid; // Current residual, if any, else null.
 
   inline void trialSplit(IndexT idx,
 			 IndexT rkThis,
@@ -135,7 +135,7 @@ public:
  */
 class AccumCartCtg : public Accum {
   const PredictorT nCtg; // Cadinality of response.
-  const unique_ptr<class ResidualCtg> resid;
+  const unique_ptr<struct ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
@@ -173,7 +173,7 @@ class AccumCartCtg : public Accum {
 
      @return new residual for categorical response over cell.
   */
-  unique_ptr<class ResidualCtg>
+  unique_ptr<struct ResidualCtg>
   makeResidual(const class SplitNux* cand,
                const class SampleRank spn[],
                const class SFCartCtg* spCtg);

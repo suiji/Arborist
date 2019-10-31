@@ -189,7 +189,7 @@ class Sample {
 
      @param samplePred summarizes the observations.
   */
-  vector<class StageCount> stage(class ObsPart* samplePred) const;
+  vector<struct StageCount> stage(class ObsPart* samplePred) const;
 
 
   /**

@@ -94,7 +94,7 @@ public:
      
      @return new residual based on the current splitting data set.
    */
-  unique_ptr<class Residual> makeResidual(const class SplitNux* cand,
+  unique_ptr<struct Residual> makeResidual(const class SplitNux* cand,
                                           const class SampleRank spn[]);
 
 

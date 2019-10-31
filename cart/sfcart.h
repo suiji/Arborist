@@ -302,7 +302,7 @@ class SFCartCtg : public SFCart {
 
      @return reference vector of per-category sums.
    */
-  const vector<double>& getSumSlice(const struct SplitNux* cand) const;
+  const vector<double>& getSumSlice(const class SplitNux* cand) const;
 
 
   /**
@@ -312,7 +312,7 @@ class SFCartCtg : public SFCart {
 
      @return raw pointer to per-category accumulation vector for pair.
    */
-  double* getAccumSlice(const struct SplitNux* cand);
+  double* getAccumSlice(const class SplitNux* cand);
 
 
   /**

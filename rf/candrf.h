@@ -40,10 +40,13 @@ class CandRF : public Cand {
 		 const class DefMap* bottom,
 		 IndexT splitIdx,
 		 const double ruPred[],
-		 class BHPair heap[],
+		 struct BHPair heap[],
 		 vector<DefCoord>& preCand) const;
 
  public:
+
+  ~CandRF() {
+  }
   
   static void
   init(PredictorT feFixed,

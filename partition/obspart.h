@@ -93,7 +93,7 @@ class ObsPart {
              unsigned int rrTot,
              const vector<class SampleNux> &sampleNode,
              const class Sample* sample,
-             vector<class StageCount> &stageCount);
+             vector<struct StageCount> &stageCount);
 
   /**
      @brief Fills in sampled response summary and rank information associated
