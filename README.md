@@ -34,10 +34,7 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.2-2 passes all 12 CRAN builds.
-
-#### Known issues in 0.2-2
-- An autocompression error may yield low-quality predictions or, in some instances, execution failures.  A suitable workaround is to turn off autocompression by specifying "autoCompress = 1.0" at training.  The error has been repaired with version 0.2-3.
+- Rborist version 0.2-3 has been submitted to CRAN.
 
 ### Python
 
