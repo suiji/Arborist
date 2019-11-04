@@ -61,7 +61,7 @@ class SplitFrontier {
 
 protected:
   vector<unique_ptr<class SplitNux> > nuxMax; // Rewritten following each splitting event.
-  const class Cand* cand;
+  //  const class Cand* cand;
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
@@ -121,12 +121,10 @@ protected:
 
 public:
 
-  SplitFrontier(const class Cand* cand_,
-		const class SummaryFrame* frame_,
+  SplitFrontier(const class SummaryFrame* frame_,
                 class Frontier* frontier_,
                 const class Sample* sample);
-
-
+  
   void
   preschedule(const DefCoord& defCoord,
 	      vector<DefCoord>& preCand) const;

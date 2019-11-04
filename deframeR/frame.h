@@ -1,6 +1,6 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of framemapR.
+// This file is part of deframeR.
 //
 // framemapR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 // along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file signatureRf.h
+   @file frame.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef FRAMEMAPR_FRAME_H
-#define FRAMEMAPR_FRAME_H
+#ifndef DEFRAMER_FRAME_H
+#define DEFRAMER_FRAME_H
 
 
 #include <Rcpp.h>

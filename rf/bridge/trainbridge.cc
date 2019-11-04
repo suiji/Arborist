@@ -17,6 +17,7 @@
 
 #include "leaf.h"
 #include "train.h"
+#include "rftrain.h"
 #include "summaryframe.h"
 
 
@@ -53,27 +54,27 @@ void TrainBridge::initBlock(unsigned int trainBlock) {
 
 void TrainBridge::initProb(unsigned int predFixed,
                            const vector<double> &predProb) {
-  Train::initProb(predFixed, predProb);
+  RfTrain::initProb(predFixed, predProb);
 }
 
 
 void TrainBridge::initTree(unsigned int nSamp,
                            unsigned int minNode,
                            unsigned int leafMax) {
-  Train::initTree(nSamp, minNode, leafMax);
+  RfTrain::initTree(nSamp, minNode, leafMax);
 }
 
 void TrainBridge::initOmp(unsigned int nThread) {
-  Train::initOmp(nThread);
+  RfTrain::initOmp(nThread);
 }
 
 
 void TrainBridge::initSample(unsigned int nSamp) {
-  Train::initSample(nSamp);
+  RfTrain::initSample(nSamp);
 }
 
 void TrainBridge::initCtgWidth(unsigned int ctgWidth) {
-  Train::initCtgWidth(ctgWidth);
+  RfTrain::initCtgWidth(ctgWidth);
 }
 
 
@@ -81,16 +82,17 @@ void TrainBridge::initSplit(unsigned int minNode,
                             unsigned int totLevels,
                             double minRatio,
 			    const vector<double>& feSplitQuant) {
-  Train::initSplit(minNode, totLevels, minRatio, feSplitQuant);
+  RfTrain::initSplit(minNode, totLevels, minRatio, feSplitQuant);
 }
   
 
 void TrainBridge::initMono(const vector<double> &regMono) {
-  Train::initMono(summaryFrame.get(), regMono);
+  RfTrain::initMono(summaryFrame.get(), regMono);
 }
 
 
 void TrainBridge::deInit() {
+  RfTrain::deInit();
   Train::deInit();
 }
 

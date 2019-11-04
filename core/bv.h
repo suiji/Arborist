@@ -46,7 +46,7 @@ class BV {
 
   ~BV();
 
-  inline void Serialize(unsigned char *bbRaw) const {
+  inline void dumpRaw(unsigned char *bbRaw) const {
     for (size_t i = 0; i < nSlot * sizeof(RawT); i++) {
       bbRaw[i] = *((unsigned char *) &raw[0] + i);
     }
@@ -289,9 +289,9 @@ class BitMatrix : public BV {
   }
   
 
-  static void dump(const vector<RawT> &raw_,
+  static void dump(const vector<RawT>& raw_,
                    size_t _nRow,
-                   vector<vector<RawT> > &vecOut);
+                   vector<vector<RawT> >& vecOut);
 
 
   /**

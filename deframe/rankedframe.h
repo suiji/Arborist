@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_RANKEDFRAME_H
-#define ARBORIST_RANKEDFRAME_H
+#ifndef DEFRAME_RANKEDFRAME_H
+#define DEFRAME_RANKEDFRAME_H
 
 #include <vector>
 #include <cmath>

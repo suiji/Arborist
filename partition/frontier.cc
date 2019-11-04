@@ -20,6 +20,7 @@
 #include "train.h"
 #include "obspart.h"
 #include "splitfrontier.h"
+#include "algparam.h"
 #include "defmap.h"
 #include "path.h"
 #include "ompthread.h"
@@ -51,7 +52,7 @@ unique_ptr<PreTree> Frontier::oneTree(const Train* train,
 				      const SummaryFrame* frame,
                                       const Sample *sample) {
   unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
-  unique_ptr<SplitFrontier> splitFrontier(train->splitFactory(frame, frontier.get(), sample, SampleNux::getNCtg()));
+  unique_ptr<SplitFrontier> splitFrontier = SFType::factory(frame, frontier.get(), sample, SampleNux::getNCtg());
   return frontier->levels(sample, splitFrontier.get());
 }
 

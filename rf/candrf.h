@@ -22,32 +22,7 @@
 #include <vector>
 
 
-class CandRF : public Cand {
-  // Predictor sampling paraemters.
-  static PredictorT predFixed;
-  static vector<double> predProb;
-
-
-  void
-  candidateProb(class SplitFrontier* splitFroniter,
-		const class DefMap* bottom,
-		IndexT splitIdx,
-		const double ruPred[],
-		vector<DefCoord>& preCand) const;
-
-  void
-  candidateFixed(class SplitFrontier* splitFrontier,
-		 const class DefMap* bottom,
-		 IndexT splitIdx,
-		 const double ruPred[],
-		 struct BHPair heap[],
-		 vector<DefCoord>& preCand) const;
-
- public:
-
-  ~CandRF() {
-  }
-  
+struct CandRF : public Cand {
   static void
   init(PredictorT feFixed,
        const vector<double>& feProb);
@@ -55,9 +30,31 @@ class CandRF : public Cand {
   static void
   deInit();
 
-  vector<DefCoord>
+  static vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
-		const class DefMap* bottom) const;
+		const class DefMap* bottom);
+
+private:
+  // Predictor sampling paraemters.
+  static PredictorT predFixed;
+  static vector<double> predProb;
+
+
+  static void
+  candidateProb(class SplitFrontier* splitFroniter,
+		const class DefMap* bottom,
+		IndexT splitIdx,
+		const double ruPred[],
+		vector<DefCoord>& preCand);
+
+  static void
+  candidateFixed(class SplitFrontier* splitFrontier,
+		 const class DefMap* bottom,
+		 IndexT splitIdx,
+		 const double ruPred[],
+		 struct BHPair heap[],
+		 vector<DefCoord>& preCand);
+
 };
 
 #endif

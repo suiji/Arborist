@@ -15,7 +15,7 @@
 
 #include "runset.h"
 #include "candrf.h"
-#include "splitfrontier.h"
+#include "sfcart.h"
 #include "defmap.h"
 #include "callback.h"
 
@@ -43,7 +43,7 @@ CandRF::deInit() {
 
 vector<DefCoord>
 CandRF::precandidates(SplitFrontier* splitFrontier,
-		      const DefMap* bottom) const {
+		      const DefMap* bottom) {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
   IndexT splitCount = splitFrontier->getNSplit();
   PredictorT nPred = splitFrontier->getNPred();
@@ -75,7 +75,7 @@ CandRF::candidateProb(SplitFrontier* splitFrontier,
 		      const DefMap* bottom,
 		      IndexT splitIdx,
 		      const double ruPred[],
-		      vector<DefCoord>& preCand) const {
+		      vector<DefCoord>& preCand) {
   for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
       (void) bottom->preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), preCand);
@@ -90,7 +90,7 @@ CandRF::candidateFixed(SplitFrontier* splitFrontier,
 		       IndexT splitIdx,
 		       const double ruPred[],
 		       BHPair heap[],
-		       vector<DefCoord>& preCand) const {
+		       vector<DefCoord>& preCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
   PredictorT nPred = splitFrontier->getNPred();
   for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {

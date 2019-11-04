@@ -31,17 +31,15 @@
 class SFCart : public SplitFrontier {
 public:
 
-  SFCart(const class Cand* cand_,
-	 const class SummaryFrame* frame,
+  SFCart(const class SummaryFrame* frame,
 	 class Frontier* frontier,
 	 const class Sample* sample);
 
   static unique_ptr<SplitFrontier>
-  splitFactory(const class Cand* cand_,
-	       const class SummaryFrame* frame,
-	       class Frontier* frontier,
-	       const class Sample* sample,
-	       PredictorT nCtg);
+  factory(const class SummaryFrame* frame,
+	  class Frontier* frontier,
+	  const class Sample* sample,
+	  PredictorT nCtg);
 
   void split(vector<class SplitNux>& sc);
 
@@ -80,8 +78,7 @@ class SFCartReg : public SFCart {
    */
   static void deImmutables();
   
-  SFCartReg(const class Cand* cand_,
-	    const class SummaryFrame* frame_,
+  SFCartReg(const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample);
 
@@ -199,8 +196,7 @@ class SFCartCtg : public SFCart {
  public:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
-  SFCartCtg(const class Cand* cand_,
-	    const class SummaryFrame* frame_,
+  SFCartCtg(const class SummaryFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample,
 	PredictorT nCtg_);

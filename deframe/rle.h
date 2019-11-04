@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef FRAMEMAP_RLE_H
-#define FRAMEMAP_RLE_H
+#ifndef DEFRAME_RLE_H
+#define DEFRAME_RLE_H
 
 
 /**

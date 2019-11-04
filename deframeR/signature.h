@@ -1,6 +1,6 @@
 // Copyright (C)  2012-2019  Mark Seligman
 //
-// This file is part of framemapR.
+// This file is part of deframeR.
 //
 // framemapR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef FRAMEMAPR_SIGNATURE_H
-#define FRAMEMAPR_SIGNATURE_H
+#ifndef DEFRAMER_SIGNATURE_H
+#define DEFRAMER_SIGNATURE_H
 
 
 #include <Rcpp.h>

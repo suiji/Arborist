@@ -13,13 +13,13 @@
    @author Mark Seligman
  */
 
-#ifndef RF_TRAIN_H
-#define RF_TRAIN_H
+#ifndef TREE_TRAIN_H
+#define TREE_TRAIN_H
 
 #include <string>
 #include <vector>
 
-#include "decnode.h"
+#include "decnode.h" // Algorithm-specific typedef.
 #include "forestcresc.h"
 #include "pretree.h"
 
@@ -37,7 +37,6 @@ class Train {
   static constexpr double slopFactor = 1.2; // Estimates tree growth.
   static unsigned int trainBlock; // Front-end defined buffer size.
 
-  const unique_ptr<class CandRF> cand; // Pre-candidate choice methods.
   const unsigned int nRow; // Number of rows to train.
   const unsigned int treeChunk; // Local number of trees to train.
   unique_ptr<class BitMatrix> bagRow; // Local bag section:  treeChunk x nRow
@@ -93,79 +92,9 @@ public:
     return predInfo;
   }
 
+  static void initBlock(unsigned int trainBlock_);
 
-  /**
-     @brief Static initialization methods.
-  */
-
-  /**
-     @brief Registers training tree-block count.
-
-     @param trainBlock_ is the number of trees by which to block.
-  */
-  static void initBlock(unsigned int trainBlock);
-
-  /**
-     @brief Registers per-node probabilities of predictor selection.
-  */
-  static void initProb(unsigned int predFixed,
-                       const vector<double> &predProb);
-
-
-  /**
-     @brief Registers tree-shape parameters.
-  */
-  static void initTree(unsigned int nSamp,
-                       unsigned int minNode,
-                       unsigned int leafMax);
-
-  /**
-     @brief Initializes static OMP thread state.
-
-     @param nThread is a user-specified thread request.
-   */
-  static void initOmp(unsigned int nThread);
-
-
-  /**
-     @brief Registers response-sampling parameters.
-
-     @param nSamp is the number of samples requested.
-  */
-  static void initSample(unsigned int nSamp);
-
-  /**
-     @brief Registers width of categorical response.
-
-     @pram ctgWidth is the number of training response categories.
-  */
-  static void initCtgWidth(unsigned int ctgWidth);
-
-  /**
-     @brief Registers parameters governing splitting.
-     
-     @param minNode is the mininal number of sample indices represented by a tree node.
-
-     @param totLevels is the maximum tree depth to train.
-
-     @param minRatio is the minimum information ratio of a node to its parent.
-     
-     @param splitQuant is a per-predictor quantile specification.
-  */
-  static void initSplit(unsigned int minNode,
-                        unsigned int totLevels,
-                        double minRatio,
-			const vector<double>& feSplitQuant);
-  
-  /**
-     @brief Registers monotone specifications for regression.
-
-     @param regMono has length equal to the predictor count.  Only
-     numeric predictors may have nonzero entries.
-  */
-  static void initMono(const class SummaryFrame* frame,
-                       const vector<double> &regMono);
-
+ 
   /**
      @brief Static de-initializer.
    */
@@ -231,24 +160,13 @@ public:
     return forest.get();
   }
 
+
   /**
      @brief Dumps bag contents as raw characters.
 
      @param[out] bbRaw
    */
   void cacheBagRaw(unsigned char bbRaw[]) const;
-
-
-  /**
-     @brief Fixes splitting regime:  CART, survival, entropy, usw.
-
-     @nCtg is the reponse categoricity.
-   */
-  unique_ptr<class SplitFrontier>
-  splitFactory(const class SummaryFrame* frame,
-	       class Frontier* frontier,
-	       const class Sample* sample,
-	       PredictorT nCtg) const;
 };
 
 #endif

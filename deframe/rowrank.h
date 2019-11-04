@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef FRAMEMAP_ROWRANK_H
-#define FRAMEMAP_ROWRANK_H
+#ifndef DEFRAME_ROWRANK_H
+#define DEFRAME_ROWRANK_H
 
 #include "typeparam.h"
 

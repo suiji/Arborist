@@ -9,14 +9,15 @@
 #define SPLIT_CAND_H
 
 /**
-   @file cand.h
+   @file candcart.h
 
-   @brief Manages non-specific splitting candidate selection.
+   @brief Manages generic splitting candidate selection.
 
    @author Mark Seligman
 
  */
 
+#include "cand.h"
 #include "splitcoord.h"
 #include "typeparam.h"
 
@@ -26,12 +27,10 @@
    @brief Minimal information needed to preschedule a splitting candidate.
  */
 
-class Cand {
-public:
-  
-  virtual vector<DefCoord>
+struct Cand {
+  static vector<DefCoord>
   precandidates(class SplitFrontier* splitFrontier,
-		const class DefMap* bottom) const;
+		const class DefMap* bottom);
 };
 
 #endif

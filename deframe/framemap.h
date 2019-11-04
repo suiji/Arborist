@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef ARBORIST_FRAMEMAP_H
-#define ARBORIST_FRAMEMAP_H
+#ifndef DEFRAME_FRAMEMAP_H
+#define DEFRAME_FRAMEMAP_H
 
 #include <vector>
 #include <algorithm> // max()

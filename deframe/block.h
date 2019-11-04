@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef FRAMEMAP_BLOCK_H
-#define FRAMEMAP_BLOCK_H
+#ifndef DEFRAME_BLOCK_H
+#define DEFRAME_BLOCK_H
 
 #include <vector>
 #include <cmath>

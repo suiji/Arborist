@@ -19,13 +19,7 @@
 #include "summaryframe.h"
 #include "frontier.h"
 #include "pretree.h"
-#include "obspart.h"
-#include "sfcart.h"
-#include "splitnux.h"
 #include "leaf.h"
-#include "candrf.h"
-#include "ompthread.h"
-#include "coproc.h"
 
 #include <algorithm>
 
@@ -37,58 +31,8 @@ void Train::initBlock(unsigned int trainBlock_) {
 }
 
 
-void Train::initProb(PredictorT predFixed,
-                     const vector<double> &predProb) {
-  CandRF::init(predFixed, predProb);
-}
-
-
-void Train::initTree(unsigned int nSamp,
-                     unsigned int minNode,
-                     unsigned int leafMax) {
-  PreTree::immutables(nSamp, minNode, leafMax);
-}
-
-
-void Train::initOmp(unsigned int nThread) {
-  OmpThread::init(nThread);
-}
-
-
-void Train::initSample(unsigned int nSamp) {
-  Sample::immutables(nSamp);
-}
-
-void Train::initSplit(unsigned int minNode,
-                      unsigned int totLevels,
-                      double minRatio,
-		      const vector<double>& feSplitQuant) {
-  Frontier::immutables(minNode, totLevels);
-  SplitNux::immutables(minRatio, feSplitQuant);
-}
-
-
-void Train::initCtgWidth(unsigned int ctgWidth) {
-  SampleNux::immutables(ctgWidth);
-}
-
-
-void Train::initMono(const SummaryFrame* frame,
-                     const vector<double> &regMono) {
-  SFCartReg::immutables(frame, regMono);
-}
-
-
 void Train::deInit() {
   trainBlock = 0;
-  SplitNux::deImmutables();
-  Frontier::deImmutables();
-  PreTree::deImmutables();
-  Sample::deImmutables();
-  SampleNux::deImmutables();
-  CandRF::deInit();
-  SFCartReg::deImmutables();
-  OmpThread::deInit();
 }
 
 
@@ -105,7 +49,6 @@ unique_ptr<Train> Train::regression(const SummaryFrame* frame,
 Train::Train(const SummaryFrame* frame,
              const double* y,
              unsigned int treeChunk_) :
-  cand(make_unique<CandRF>()),
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
@@ -134,7 +77,6 @@ Train::Train(const SummaryFrame* frame,
              const double* yProxy,
              unsigned int nTree,
              unsigned int treeChunk_) :
-  cand(make_unique<CandRF>()),
   nRow(frame->getNRow()),
   treeChunk(treeChunk_),
   bagRow(make_unique<BitMatrix>(treeChunk, nRow)),
@@ -211,14 +153,5 @@ unsigned int Train::blockPeek(vector<TrainSet>& treeBlock,
 
  
 void Train::cacheBagRaw(unsigned char* bbRaw) const {
-  bagRow->Serialize(bbRaw);
-}
-
-
-unique_ptr<SplitFrontier>
-Train::splitFactory(const SummaryFrame* frame,
-		    Frontier* frontier,
-		    const Sample* sample,
-		    PredictorT nCtg) const {
-  return SFCart::splitFactory(cand.get(), frame, frontier, sample, nCtg);
+  bagRow->dumpRaw(bbRaw);
 }

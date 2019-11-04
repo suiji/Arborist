@@ -61,7 +61,7 @@ class SampleNux {
   /**
      @brief Accessor for number of response training categories.
    */
-  static inline unsigned int getNCtg() {
+  static inline PredictorT getNCtg() {
     return nCtg;
   }
 

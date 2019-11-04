@@ -17,10 +17,10 @@ cp ../src/rf/*.cc Rborist/src/
 cp ../src/rf/*.h Rborist/src/
 cp ../src/callback/*.cc Rborist/src/
 cp ../src/callback/*.h Rborist/src/
-cp ../../framemapR/*.cc Rborist/src/
-cp ../../framemapR/*.h Rborist/src/
-cp ../../framemap/*.cc Rborist/src/
-cp ../../framemap/*.h Rborist/src/
+cp ../../deframeR/*.cc Rborist/src/
+cp ../../deframeR/*.h Rborist/src/
+cp ../../deframe/*.cc Rborist/src/
+cp ../../deframe/*.h Rborist/src/
 cp ../../cart/*.cc Rborist/src/
 cp ../../cart/*.h Rborist/src/
 cp ../../cart/bridge/*.cc Rborist/src/

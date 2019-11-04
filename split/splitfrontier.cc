@@ -18,11 +18,10 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "defmap.h"
-#include "cand.h"
+#include "algparam.h"
 #include "runset.h"
 #include "samplenux.h"
 #include "obspart.h"
-#include "callback.h"
 #include "summaryframe.h"
 #include "rankedframe.h"
 #include "sample.h"
@@ -31,11 +30,9 @@
 // Post-split consumption:
 #include "pretree.h"
 
-SplitFrontier::SplitFrontier(const Cand* cand_,
-			     const SummaryFrame* frame_,
+SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
                              Frontier* frontier_,
                              const Sample* sample) :
-  cand(cand_),
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
@@ -65,7 +62,7 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* cand) const {
 
 vector<DefCoord>
 SplitFrontier::precandidates(const DefMap* defMap) {
-  return cand->precandidates(this, defMap);
+  return CandType::/*cand->*/precandidates(this, defMap);
 }
 
 

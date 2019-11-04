@@ -20,8 +20,8 @@
 
 vector<DefCoord>
 Cand::precandidates(SplitFrontier* splitFrontier,
-		    const DefMap* bottom) const {
-// TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
+			const DefMap* bottom) {
+  // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
 
   vector<DefCoord> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {

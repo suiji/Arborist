@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_BAG_H
-#define CORE_BAG_H
+#ifndef RF_BAG_H
+#define RF_BAG_H
 
 #include "bv.h"
 #include "typeparam.h"

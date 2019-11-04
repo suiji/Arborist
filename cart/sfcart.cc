@@ -14,6 +14,7 @@
  */
 
 
+#include "train.h"
 #include "accumcart.h"
 #include "frontier.h"
 #include "sfcart.h"
@@ -31,25 +32,23 @@
 #include "pretree.h"
 
 
-SFCart::SFCart(const class Cand* cand,
-	       const SummaryFrame* frame,
+SFCart::SFCart(const SummaryFrame* frame,
 	       Frontier* frontier,
 	       const Sample* sample) :
-  SplitFrontier(cand, frame, frontier, sample) {
+  SplitFrontier(frame, frontier, sample) {
 }
 
 
 unique_ptr<SplitFrontier>
-SFCart::splitFactory(const class Cand* cand,
-		     const SummaryFrame* frame,
-		     Frontier* frontier,
-		     const Sample* sample,
-		     PredictorT nCtg) {
+SFCart::factory(const SummaryFrame* frame,
+		Frontier* frontier,
+		const Sample* sample,
+		PredictorT nCtg) {
   if (nCtg > 0) {
-    return make_unique<SFCartCtg>(cand, frame, frontier, sample, nCtg);
+    return make_unique<SFCartCtg>(frame, frontier, sample, nCtg);
   }
   else {
-    return make_unique<SFCartReg>(cand, frame, frontier, sample);
+    return make_unique<SFCartReg>(frame, frontier, sample);
   }
 }
 
@@ -75,11 +74,10 @@ void SFCartReg::deImmutables() {
 }
 
 
-SFCartReg::SFCartReg(const class Cand* cand,
-		     const SummaryFrame* frame,
+SFCartReg::SFCartReg(const SummaryFrame* frame,
 		     Frontier* frontier,
 		     const Sample* sample) :
-  SFCart(cand, frame, frontier, sample),
+  SFCart(frame, frontier, sample),
   ruMono(vector<double>(0)) {
   run = make_unique<Run>(0, frame->getNRow());
 }
@@ -88,12 +86,11 @@ SFCartReg::SFCartReg(const class Cand* cand,
 /**
    @brief Constructor.
  */
-SFCartCtg::SFCartCtg(const class Cand* cand,
-		     const SummaryFrame* frame,
+SFCartCtg::SFCartCtg(const SummaryFrame* frame,
 		     Frontier* frontier,
 		     const Sample* sample,
 		     PredictorT nCtg_):
-  SFCart(cand, frame, frontier, sample),
+  SFCart(frame, frontier, sample),
   nCtg(nCtg_) {
   run = make_unique<Run>(nCtg, frame->getNRow());
 }
