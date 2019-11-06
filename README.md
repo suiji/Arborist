@@ -49,7 +49,7 @@ Performance metrics have been measured using [benchm-ml](https://github.com/szil
 This paper compares several implementations of the Random Forest algorithm, including Rborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  Benchmarks used in the study are also provided at 
 https://www.jstatsoft.org/article/view/v077i01.
     
-A recent paper compares several categories of regression tools, including Random Forests.  Rborist is among the faster packages having with high prediction accuracy: (https://doi.org/10.1109/ACCESS.2019.2933261).
+A recent paper compares several categories of regression tools, including Random Forests.  Rborist is among the faster packages offering high prediction accuracy: (https://doi.org/10.1109/ACCESS.2019.2933261).
     
 ### References
 
