@@ -39,7 +39,7 @@ Installation of Development Version:
 ### Python
 
  - Version 0.1-0 has been archived.
- - Version 0.2-0 is under active development.
+ - Version 0.2-4 is under active development.
  - Test cases sought.
 
 ### Performance 
