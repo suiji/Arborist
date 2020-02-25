@@ -138,7 +138,9 @@ void LeafFrame::dump(const Bag* bag,
                      vector< vector<unsigned int> > &sCountTree,
                      vector<vector<double> >& scoreTree,
                      vector<vector<unsigned int> >& extentTree) const {
-  blBlock->dump(bag, rowTree, sCountTree);
+  if (bag != nullptr) {
+    blBlock->dump(bag, rowTree, sCountTree);
+  }
   leafBlock->dump(scoreTree, extentTree);
 }
 

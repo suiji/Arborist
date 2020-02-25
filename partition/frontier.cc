@@ -24,23 +24,20 @@
 #include "defmap.h"
 #include "path.h"
 #include "ompthread.h"
-#include "replay.h"
+#include "branchsense.h"
 
 #include <numeric>
 
 
 unsigned int Frontier::totLevels = 0;
-unsigned int Frontier::minNode = 0;
 
-void Frontier::immutables(unsigned int minNode, unsigned int totLevels) {
-  Frontier::minNode = minNode;
+void Frontier::immutables(unsigned int totLevels) {
   Frontier::totLevels = totLevels;
 }
 
 
 void Frontier::deImmutables() {
   totLevels = 0;
-  minNode = 0;
 }
 
 
@@ -52,16 +49,15 @@ unique_ptr<PreTree> Frontier::oneTree(const Train* train,
 				      const SummaryFrame* frame,
                                       const Sample *sample) {
   unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
-  unique_ptr<SplitFrontier> splitFrontier = SFType::factory(frame, frontier.get(), sample, SampleNux::getNCtg());
-  return frontier->levels(sample, splitFrontier.get());
+  return frontier->levels(sample, frame);
 }
-
 
 
 Frontier::Frontier(const SummaryFrame* frame,
                    const Sample* sample) :
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
+  nCtg(sample->getNCtg()),
   defMap(make_unique<DefMap>(frame, bagCount)),
   nodeRel(false),
   idxLive(bagCount),
@@ -69,7 +65,7 @@ Frontier::Frontier(const SummaryFrame* frame,
   rel2ST(vector<IndexT>(bagCount)),
   st2Split(vector<IndexT>(bagCount)),
   st2PT(vector<IndexT>(bagCount)),
-  replay(make_unique<Replay>(bagCount)),
+  branchSense(make_unique<BranchSense>(bagCount)),
   pretree(make_unique<PreTree>(frame->getCardExtent(), bagCount)) {
   indexSet[0].initRoot(sample);
   relBase[0] = 0;
@@ -80,13 +76,14 @@ Frontier::Frontier(const SummaryFrame* frame,
 
 
 unique_ptr<PreTree> Frontier::levels(const Sample* sample,
-                                     SplitFrontier* splitFrontier) {
+                                     const SummaryFrame* frame) {
+  unique_ptr<SplitFrontier> splitFrontier = SFType::factory(frame, this, sample, SampleNux::getNCtg());
   defMap->rootDef(splitFrontier->stage(sample), bagCount);
   
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    splitFrontier->restageAndSplit(defMap.get());
-    indexSet = splitDispatch(splitFrontier, level++);
+    splitFrontier->restageAndSplit(indexSet, defMap.get(), branchSense.get(), pretree.get());
+    indexSet = splitDispatch(level++);
   }
 
   relFlush();
@@ -95,14 +92,10 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample,
 }
 
 
-vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
-                                         unsigned int level) {
+vector<IndexSet> Frontier::splitDispatch(unsigned int level) {
   levelTerminal = (level + 1 == totLevels);
 
-  replay->reset();
-  SplitSurvey survey = splitFrontier->consume(pretree.get(), indexSet, replay.get());
-
-  nextLevel(survey);
+  SplitSurvey survey = nextLevel();
   for (auto & iSet : indexSet) {
     iSet.dispatch(this);
   }
@@ -114,7 +107,8 @@ vector<IndexSet> Frontier::splitDispatch(SplitFrontier* splitFrontier,
 }
 
 
-void Frontier::nextLevel(const SplitSurvey& survey) {
+SplitSurvey Frontier::nextLevel() {//const SplitSurvey& survey) {
+  SplitSurvey survey = surveyNodes(indexSet);
   succBase = vector<IndexT>(survey.succCount(indexSet.size()));
   fill(succBase.begin(), succBase.end(), idxLive); // Previous level's extent
 
@@ -123,46 +117,38 @@ void Frontier::nextLevel(const SplitSurvey& survey) {
   liveBase = 0;
   extinctBase = survey.idxLive;
   idxLive = survey.idxLive;
+
+  return survey;
 }
 
 
-unsigned int Frontier::splitCensus(const IndexSet& iSet,
-                                   SplitSurvey& survey) {
-  return splitAccum(iSet.getExtentSucc(true), survey) + splitAccum(iSet.getExtentSucc(false), survey);
-}
-
-
-unsigned int Frontier::splitAccum(IndexT succExtent,
-                                  SplitSurvey& survey) {
-  if (isSplitable(succExtent)) {
-    survey.idxLive += succExtent;
-    survey.idxMax = max(survey.idxMax, succExtent);
-    return 1;
+SplitSurvey Frontier::surveyNodes(vector<IndexSet>& indexSet) {
+  SplitSurvey survey;
+  for (auto iSet : indexSet) {
+    iSet.surveySplit(levelTerminal, survey);
   }
-  else {
-    return 0;
-  }
+
+  return survey;
 }
 
-  
+
 IndexT Frontier::idxSucc(IndexT extent,
-                         IndexT ptId,
                          IndexT& offOut,
-                         bool predTerminal) {
-  IndexT idxSucc_;
-  if (predTerminal || !isSplitable(extent)) { // Pseudo split caches settings.
-    idxSucc_ = succExtinct++;
+                         bool extinct) {
+  IndexT succIdx;
+  if (extinct || levelTerminal) { // Pseudo split caches settings.
+    succIdx = succExtinct++;
     offOut = extinctBase;
     extinctBase += extent;
   }
   else {
-    idxSucc_ = succLive++;
+    succIdx = succLive++;
     offOut = liveBase;
     liveBase += extent;
   }
-  succBase[idxSucc_] = offOut;
+  succBase[succIdx] = offOut;
 
-  return idxSucc_;
+  return succIdx;
 }
 
 
@@ -190,7 +176,7 @@ void Frontier::nodeReindex() {
   {
 #pragma omp for schedule(dynamic, 1) 
     for (OMPBound splitIdx = 0; splitIdx < indexSet.size(); splitIdx++) {
-      indexSet[splitIdx].reindex(replay.get(), this, idxLive, succST);
+      indexSet[splitIdx].reindex(branchSense.get(), this, idxLive, succST);
     }
   }
   rel2ST = move(succST);
@@ -240,7 +226,7 @@ void Frontier::stReindex(IdxPath* stPath,
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, ptSucc;
       IndexT splitIdx = st2Split[stIdx];
-      IndexT splitSucc = indexSet[splitIdx].offspring(replay.get(), stIdx, pathSucc, ptSucc);
+      IndexT splitSucc = indexSet[splitIdx].offspring(branchSense.get(), stIdx, pathSucc, ptSucc);
       st2Split[stIdx] = splitSucc;
       stPath->setSuccessor(stIdx, pathSucc, splitSucc < splitNext);
       st2PT[stIdx] = ptSucc;
@@ -255,7 +241,7 @@ void Frontier::transitionReindex(IndexT splitNext) {
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, idxSucc, ptSucc;
       IndexT splitIdx = st2Split[stIdx];
-      IndexT splitSucc = indexSet[splitIdx].offspring(replay.get(), stIdx, pathSucc, idxSucc, ptSucc);
+      IndexT splitSucc = indexSet[splitIdx].offspring(branchSense.get(), stIdx, pathSucc, idxSucc, ptSucc);
       if (splitSucc < splitNext) {
         stPath->setLive(stIdx, pathSucc, idxSucc);
         rel2ST[idxSucc] = stIdx;
@@ -279,8 +265,13 @@ vector<IndexSet> Frontier::produce(IndexT splitNext) {
 }
 
 
-IndexT Frontier::getPTIdSucc(IndexT ptId, bool isLeft) const {
-  return pretree->getSuccId(ptId, isLeft);
+IndexT Frontier::getPTIdSucc(IndexT ptId, bool senseTrue) const {
+  return pretree->getSuccId(ptId, senseTrue);
+}
+
+
+void Frontier::getPTIdTF(IndexT ptId, IndexT& ptTrue, IndexT& ptFalse) const {
+  pretree->getSuccTF(ptId, ptTrue, ptFalse);
 }
 
 

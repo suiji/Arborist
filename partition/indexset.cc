@@ -15,8 +15,22 @@
 
 #include "indexset.h"
 #include "sample.h"
+#include "splitnux.h"
 #include "frontier.h"
 #include "path.h"
+
+IndexT IndexSet::minNode = 0;
+
+
+void IndexSet::immutables(IndexT minNode) {
+  IndexSet::minNode = minNode;
+}
+
+
+void IndexSet::deImmutables() {
+  minNode = 0;
+}
+
 
 IndexSet::IndexSet() :
   splitIdx(0),
@@ -27,11 +41,14 @@ IndexSet::IndexSet() :
   path(0),
   doesSplit(false),
   unsplitable(false),
-  lhExtent(0),
-  lhSCount(0),
-  sumL(0.0),
-  leftImpl(false) {
+  extentTrue(0),
+  sCountTrue(0),
+  sumTrue(0.0),
+  trueEncoding(true),
+  trueExtinct(false),
+  falseExtinct(false) {
 }
+
 
 void IndexSet::initRoot(const Sample* sample) {
   splitIdx = 0;
@@ -43,7 +60,7 @@ void IndexSet::initRoot(const Sample* sample) {
   path = 0;
   relBase = 0;
   ctgSum = sample->getCtgRoot();
-  ctgLeft = vector<SumCount>(ctgSum.size());
+  ctgTrue = vector<SumCount>(ctgSum.size());
   
   initInattainable(sample->getBagCount());
 }
@@ -60,22 +77,24 @@ void IndexSet::dispatch(Frontier* frontier) {
 
 
 void IndexSet::terminal(Frontier *frontier) {
-  succOnly = frontier->idxSucc(bufRange.getExtent(), ptId, offOnly, true);
+  succOnly = frontier->idxSucc(bufRange.getExtent(), offOnly, true);
 }
 
 
 void IndexSet::nonterminal(Frontier* frontier) {
-  ptLeft = getPTIdSucc(frontier, true);
-  ptRight = getPTIdSucc(frontier, false);
-  succLeft = frontier->idxSucc(getExtentSucc(true), ptLeft, offLeft);
-  succRight = frontier->idxSucc(getExtentSucc(false), ptRight, offRight);
+  frontier->getPTIdTF(ptId, ptTrue, ptFalse);
+  IndexT succExtent;
+  bool extinct;
+  extinct = !succSplitable(true, succExtent);
+  succTrue = frontier->idxSucc(succExtent, offTrue, extinct);
 
-  pathLeft = IdxPath::pathNext(path, true);
-  pathRight = IdxPath::pathNext(path, false);
+  extinct = !succSplitable(false, succExtent);
+  succFalse = frontier->idxSucc(succExtent, offFalse, extinct);
+  IdxPath::pathLR(path, pathTrue, pathFalse);
 }
 
 
-void IndexSet::reindex(const Replay* replay,
+void IndexSet::reindex(const BranchSense* branchSense,
                        Frontier* index,
                        IndexT idxLive,
                        vector<IndexT>& succST) {
@@ -83,25 +102,25 @@ void IndexSet::reindex(const Replay* replay,
     index->relExtinct(relBase, bufRange.getExtent(), ptId);
   }
   else {
-    nontermReindex(replay, index, idxLive, succST);
+    nontermReindex(branchSense, index, idxLive, succST);
   }
 }
 
 
-void IndexSet::nontermReindex(const Replay* replay,
+void IndexSet::nontermReindex(const BranchSense* branchSense,
                               Frontier* index,
                               IndexT idxLive,
                               vector<IndexT>&succST) {
-  IndexT baseLeft = offLeft;
-  IndexT baseRight = offRight;
+  IndexT baseTrue = offTrue;
+  IndexT baseFalse = offFalse;
   for (IndexT relIdx = relBase; relIdx < relBase + bufRange.getExtent(); relIdx++) {
-    bool isLeft = replay->senseLeft(relIdx, leftImpl);
-    IndexT targIdx = getOffSucc(isLeft);
+    bool trueBranch = branchSense->senseTrue(relIdx, !trueEncoding);
+    IndexT targIdx = getOffSucc(trueBranch);
     if (targIdx < idxLive) {
-      succST[targIdx] = index->relLive(relIdx, targIdx, getPathSucc(isLeft), isLeft ? baseLeft : baseRight, getPTSucc(isLeft));
+      succST[targIdx] = index->relLive(relIdx, targIdx, getPathSucc(trueBranch), trueBranch ? baseTrue : baseFalse, getPTSucc(trueBranch));
     }
     else {
-      index->relExtinct(relIdx, getPTSucc(isLeft));
+      index->relExtinct(relIdx, getPTSucc(trueBranch));
     }
   }
 }
@@ -115,37 +134,40 @@ void IndexSet::succHands(Frontier* frontier, vector<IndexSet>& indexNext) const 
 }
 
 
-void IndexSet::succHand(Frontier* frontier, vector<IndexSet>& indexNext, bool isLeft) const {
-  IndexT succIdx = getIdxSucc(isLeft);
+void IndexSet::succHand(Frontier* frontier, vector<IndexSet>& indexNext, bool trueBranch) const {
+  IndexT succIdx = getIdxSucc(trueBranch);
   if (succIdx < indexNext.size()) { // Otherwise terminal in next level.
-    indexNext[succIdx].succInit(frontier, this, isLeft);
+    indexNext[succIdx].succInit(frontier, this, trueBranch);
   }
 }
 
 
 void IndexSet::succInit(Frontier *frontier,
                         const IndexSet* par,
-                        bool isLeft) {
-  splitIdx = par->getIdxSucc(isLeft);
-  sCount = par->getSCountSucc(isLeft);
-  bufRange = IndexRange(par->getStartSucc(isLeft), par->getExtentSucc(isLeft));
+                        bool trueBranch) {
+  splitIdx = par->getIdxSucc(trueBranch);
+  sCount = par->getSCountSucc(trueBranch);
+  bufRange = IndexRange(par->getStartSucc(trueBranch), par->getExtentSucc(trueBranch));
   minInfo = par->getMinInfo();
-  ptId = par->getPTIdSucc(frontier, isLeft);
-  sum = par->getSumSucc(isLeft);
-  path = par->getPathSucc(isLeft);
+  ptId = par->getPTIdSucc(frontier, trueBranch);
+
+  unsplitable = (trueBranch && par->trueExtinct) || (!trueBranch && par->falseExtinct);
+  
+  sum = par->getSumSucc(trueBranch);
+  path = par->getPathSucc(trueBranch);
   relBase = frontier->getRelBase(splitIdx);
   frontier->reachingPath(splitIdx, par->getSplitIdx(), bufRange, relBase, path);
 
-  ctgSum = isLeft ? par->ctgLeft : SumCount::minus(par->ctgSum, par->ctgLeft);
-  ctgLeft = vector<SumCount>(ctgSum.size());
-
+  ctgSum = trueBranch ? par->ctgTrue : SumCount::minus(par->ctgSum, par->ctgTrue);
+  ctgTrue = vector<SumCount>(ctgSum.size());
+  
   // Inattainable value.  Reset only when non-terminal:
   initInattainable(frontier->getBagCount());
 }
 
 
-IndexT IndexSet::getPTIdSucc(const Frontier* frontier, bool isLeft) const {
-  return frontier->getPTIdSucc(ptId, isLeft);
+IndexT IndexSet::getPTIdSucc(const Frontier* frontier, bool trueBranch) const {
+  return frontier->getPTIdSucc(ptId, trueBranch);
 }
 
 
@@ -160,3 +182,62 @@ vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
   return sumOut;
 }
 
+
+void IndexSet::true2True(const SplitNux* nux,
+			 vector<SumCount>& ctgExpl) {
+  doesSplit = true;
+  trueEncoding = nux->trueEncoding(); // Final state is most recent update.
+  minInfo = nux->getMinInfo(); // REVISE as update
+  sCountTrue += nux->getSCountTrue();
+  extentTrue += nux->getExtentTrue();
+  sumTrue += nux->getSumTrue();
+  SumCount::incr(ctgTrue, trueEncoding ? ctgExpl : SumCount::minus(ctgSum, ctgExpl));
+}
+
+
+void IndexSet::encoded2True(const SplitNux* nux,
+				vector<SumCount>& ctgExpl) {
+  doesSplit = true;
+  trueEncoding = nux->trueEncoding(); // Final state is most recent update.
+  minInfo = nux->getMinInfo(); // REVISE as update
+  sCountTrue += nux->getEncodedSCount();
+  extentTrue += nux->getEncodedExtent();
+  sumTrue += nux->getEncodedSum();
+  SumCount::incr(ctgTrue, trueEncoding ? ctgExpl : SumCount::minus(ctgSum, ctgExpl));
+}
+
+
+void IndexSet::surveySplit(bool levelTerminal,
+			   SplitSurvey& survey) const {
+  if (isTerminal()) {
+    survey.leafCount++;
+  }
+  else if (!levelTerminal) {
+    survey.splitNext += splitCensus(survey);
+  }
+}
+
+
+unsigned int IndexSet::splitCensus(SplitSurvey& survey) const {
+  return splitAccum(true, survey) + splitAccum(false, survey);
+}
+
+
+unsigned int IndexSet::splitAccum(bool sense,
+                                  SplitSurvey& survey) const {
+  IndexT succExtent;
+  if (succSplitable(sense, succExtent)) {
+    survey.idxLive += succExtent;
+    survey.idxMax = max(survey.idxMax, succExtent);
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+  
+
+bool IndexSet::isInformative(const SplitNux* nux) const {
+  return nux->getInfo() > minInfo;
+}

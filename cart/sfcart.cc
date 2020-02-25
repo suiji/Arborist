@@ -21,7 +21,6 @@
 #include "splitnux.h"
 #include "runset.h"
 #include "samplenux.h"
-#include "obspart.h"
 #include "callback.h"
 #include "summaryframe.h"
 #include "rankedframe.h"
@@ -79,7 +78,6 @@ SFCartReg::SFCartReg(const SummaryFrame* frame,
 		     const Sample* sample) :
   SFCart(frame, frontier, sample),
   ruMono(vector<double>(0)) {
-  run = make_unique<Run>(0, frame->getNRow());
 }
 
 
@@ -92,25 +90,6 @@ SFCartCtg::SFCartCtg(const SummaryFrame* frame,
 		     PredictorT nCtg_):
   SFCart(frame, frontier, sample),
   nCtg(nCtg_) {
-  run = make_unique<Run>(nCtg, frame->getNRow());
-}
-
-
-/**
-   @brief Sets quick lookup offets for Run object.
-
-   @return void.
- */
-void SFCartReg::setRunOffsets(const vector<unsigned int>& runCount) {
-  run->offsetsReg(runCount);
-}
-
-
-/**
-   @brief Sets quick lookup offsets for Run object.
- */
-void SFCartCtg::setRunOffsets(const vector<unsigned int>& runCount) {
-  run->offsetsCtg(runCount);
 }
 
 
@@ -194,8 +173,9 @@ int SFCartReg::getMonoMode(const SplitNux* cand) const {
 }
 
 
-void
-SFCart::split(vector<SplitNux>& sc) {
+void SFCart::split(vector<IndexSet>& indexSet,
+		   vector<SplitNux>& sc,
+		   class BranchSense* branchSense) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -206,12 +186,71 @@ SFCart::split(vector<SplitNux>& sc) {
   }
 
   nuxMax = maxCandidates(sc);
+  for (auto & iSet : indexSet) {
+    SplitNux* nux = nuxMax[iSet.getSplitIdx()].get();
+    if (iSet.isInformative(nux)) {
+      encodeCriterion(&iSet, nux, branchSense);
+    }
+  }
+}
+
+
+void SFCart::encodeCriterion(IndexSet* iSet,
+			     SplitNux* nux,
+			     BranchSense* branchSense) const {
+
+  vector<SumCount> ctgCrit(frontier->getNCtg());
+  nuxReplay(nux, branchSense, ctgCrit);
+  iSet->true2True(nux, ctgCrit);
+}
+
+
+vector<unique_ptr<SplitNux> >
+SFCart::maxCandidates(const vector<SplitNux>& sc) {
+  vector<unique_ptr<SplitNux> > nuxMax(nSplit); // Info initialized to zero.
+
+  OMPBound splitTop = nSplit;
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
+      nuxMax[splitIdx] = maxSplit(sc, candOff[splitIdx], nCand[splitIdx]);
+    }
+  }
+
+  return nuxMax;
+}
+
+
+unique_ptr<SplitNux>
+SFCart::maxSplit(const vector<SplitNux>& cand,
+		 IndexT splitBase,
+		 IndexT nCandSplit) const {
+  IndexT argMax = splitBase + nCandSplit;
+  double runningMax = 0.0;
+  for (IndexT splitOff = splitBase; splitOff < splitBase + nCandSplit; splitOff++) {
+    if (cand[splitOff].maxInfo(runningMax)) {
+      argMax = splitOff;
+    }
+  }
+
+  return runningMax > 0.0 ? make_unique<SplitNux>(cand[argMax]) : make_unique<SplitNux>();
+}
+
+
+void SFCart::consumeNodes(PreTree* pretree) const {
+  for (auto & nux : nuxMax) {
+    if (!nux->noNux()) {
+      pretree->nonterminal(nux.get());
+      consumeCriterion(pretree, nux.get());
+    }
+  }
 }
 
 
 void SFCartCtg::split(SplitNux* cand) {
   if (isFactor(cand->getSplitCoord())) {
-      splitFac(cand);
+    splitFac(cand);
   }
   else {
     splitNum(cand);
@@ -239,7 +278,7 @@ void SFCartReg::splitNum(SplitNux* cand) const {
    Regression runs always maintained by heap.
 */
 void SFCartReg::splitFac(SplitNux* cand) const {
-  RunSet *runSet = rSet(cand->getSetIdx());
+  RunSet *runSet = getRunSet(cand->getSetIdx());
   SampleRank* spn = getPredBase(cand);
   double sumHeap = 0.0;
   IndexT sCountHeap = 0;
@@ -257,7 +296,7 @@ void SFCartReg::splitFac(SplitNux* cand) const {
       sCountHeap += sampleCount;
     }
     else { // New run:  flush accumulated counters and reset.
-      runSet->write(rkRight, sCountHeap, sumHeap, frEnd - i, i+1);
+      runSet->append(rkRight, sCountHeap, sumHeap, frEnd - i, i+1);
 
       sumHeap = ySum;
       sCountHeap = sampleCount;
@@ -267,16 +306,15 @@ void SFCartReg::splitFac(SplitNux* cand) const {
   
   // Flushes the remaining run and implicit run, if dense.
   //
-  runSet->write(rkThis, sCountHeap, sumHeap, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
-  runSet->writeImplicit(cand, this);
+  runSet->append(rkThis, sCountHeap, sumHeap, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
+  runSet->appendImplicit(cand, this);
 
-  PredictorT runSlot = heapSplit(runSet, cand);
-  cand->writeSlots(this, runSlot);
+  cand->writeSlots(this, heapSplit(cand));
 }
 
 
-PredictorT SFCartReg::heapSplit(RunSet *runSet,
-				SplitNux* cand) const {
+PredictorT SFCartReg::heapSplit(SplitNux* cand) const {
+  RunSet *runSet = getRunSet(cand->getSetIdx());
   runSet->heapMean();
   runSet->dePop();
 
@@ -321,7 +359,7 @@ void SFCartCtg::buildRuns(SplitNux* cand) const {
   IndexT sCountLoc = 0;
   IndexT idxEnd = cand->getIdxEnd();
   IndexT rkThis = spn[idxEnd].getRank();
-  auto runSet = rSet(cand->getSetIdx());
+  auto runSet = getRunSet(cand->getSetIdx());
 
   IndexT frEnd = idxEnd;
   for (int i = static_cast<int>(idxEnd); i >= static_cast<int>(cand->getIdxStart()); i--) {
@@ -336,7 +374,7 @@ void SFCartCtg::buildRuns(SplitNux* cand) const {
       sCountLoc += sampleCount;
     }
     else { // Flushes current run and resets counters for next run.
-      runSet->write(rkRight, sCountLoc, sumLoc, frEnd - i, i + 1);
+      runSet->append(rkRight, sCountLoc, sumLoc, frEnd - i, i + 1);
 
       sumLoc = ySum;
       sCountLoc = sampleCount;
@@ -347,20 +385,21 @@ void SFCartCtg::buildRuns(SplitNux* cand) const {
 
   
   // Flushes remaining run and implicit blob, if any.
-  runSet->write(rkThis, sCountLoc, sumLoc, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
-  runSet->writeImplicit(cand, this, getSumSlice(cand));
+  runSet->append(rkThis, sCountLoc, sumLoc, frEnd - cand->getIdxStart() + 1, cand->getIdxStart());
+  runSet->appendImplicit(cand, this, getSumSlice(cand));
 }
 
 
 void SFCartCtg::splitBinary(SplitNux* cand) const {
-  RunSet *runSet = rSet(cand->getSetIdx());
+  // runSlot = run->splitBinary(cand, getSumSlice(cand), AccumCartCtg::infoSplit);
+  const vector<double> ctgSum(getSumSlice(cand));
+  const double sum = cand->getSum();
+
+  RunSet *runSet = getRunSet(cand->getSetIdx());
   runSet->heapBinary();
   runSet->dePop();
-
-  const vector<double> ctgSum(getSumSlice(cand));
   const double tot0 = ctgSum[0];
   const double tot1 = ctgSum[1];
-  double sum = cand->getSum();
   double sumL0 = 0.0; // Running left sum at category 0.
   double sumL1 = 0.0; // " " category 1.
   PredictorT runSlot = runSet->getRunCount() - 1;
@@ -381,7 +420,7 @@ void SFCartCtg::splitBinary(SplitNux* cand) const {
 
 
 void SFCartCtg::splitRuns(SplitNux* cand) const {
-  RunSet *runSet = rSet(cand->getSetIdx());
+  RunSet *runSet = getRunSet(cand->getSetIdx());
   const vector<double> ctgSum(getSumSlice(cand));
   const PredictorT slotSup = runSet->deWide(ctgSum.size()) - 1;// Uses post-shrink value.
   PredictorT lhBits = 0;

@@ -200,7 +200,7 @@ struct TrainChunk {
   /**
      @brief Getter for raw forest pointer.
    */
-  const class ForestCresc<struct CartNode>* getForest() const;
+  const class ForestCresc<struct TreeNode>* getForest() const;
 
   
   /**

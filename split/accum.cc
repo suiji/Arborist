@@ -15,16 +15,17 @@
 
 #include "splitnux.h"
 #include "accum.h"
-#include "splitnux.h"
+#include "splitfrontier.h"
 #include "obspart.h"
 #include "residual.h"
 
 
 Accum::Accum(const SplitNux* cand,
-             IndexT rankDense_) :
+             const SplitFrontier* splitFrontier_) :
+  splitFrontier(splitFrontier_),
   sCount(cand->getSCount()),
   sum(cand->getSum()),
-  rankDense(rankDense_),
+  rankDense(splitFrontier->getDenseRank(cand)),
   sCountL(sCount),
   sumL(sum),
   cutDense(cand->getIdxEnd() + 1),
@@ -37,9 +38,8 @@ IndexT Accum::lhImplicit(const SplitNux* cand) const {
 }
 
 
-unique_ptr<Residual>
-Accum::makeResidual(const SplitNux* cand,
-                      const SampleRank spn[]) {
+unique_ptr<Residual> Accum::makeResidual(const SplitNux* cand,
+					 const SampleRank spn[]) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<Residual>();
   }
@@ -47,13 +47,19 @@ Accum::makeResidual(const SplitNux* cand,
   double sumExpl = 0.0;
   IndexT sCountExpl = 0;
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
-    IndexT rkThis = spn[idx].regFields(ySum, sCountThis);
+    IndexT rkThis = spn[idx].regFields(ySumThis, sCountThis);
     if (rkThis > rankDense) {
       cutDense = idx;
     }
     sCountExpl += sCountThis;
-    sumExpl += ySum;
+    sumExpl += ySumThis;
   }
   
   return make_unique<Residual>(sum - sumExpl, sCount - sCountExpl);
+}
+
+
+double Accum::interpolateRank(double splitQuant) const {
+  IndexRange range(rankLH, rankRH - rankLH);
+  return range.interpolate(splitQuant);
 }

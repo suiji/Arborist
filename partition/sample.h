@@ -47,7 +47,8 @@ class Sample {
  protected:
   const class SummaryFrame* frame; // Summary of ranked predictors.
   
-  static unsigned int nSamp; // Number of row samples requested.
+  static IndexT nSamp; // Number of row samples requested.
+  static bool bagging; // Whether to bag samples.
   vector<SampleNux> sampleNode; // Per-sample summary of values.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<unsigned int> row2Sample; // Maps row index to sample index.
@@ -64,7 +65,7 @@ class Sample {
 
      @return count of bagged rows.
   */
-  static unsigned int rowSample(vector<unsigned int> &sCountRow);
+  static IndexT rowSample(vector<unsigned int> &sCountRow);
 
   
   /**
@@ -85,10 +86,10 @@ class Sample {
 
      @param sampleCount tabulates the occurrence count of each index.
 
-     @return count of distinctly-sampled elements.
+     @return count of uniquely-sampled elements.
    */
-  static unsigned int countSamples(vector<unsigned int>& idx,
-                                   vector<unsigned int>& sampleCount);
+  static IndexT countSamples(vector<unsigned int>& idx,
+			     vector<unsigned int>& sampleCount);
 
   
   /**
@@ -104,6 +105,15 @@ class Sample {
                 const unsigned int yCtg[],
                 class BV *treeBag);
 
+  
+  /**
+     @brief As above, but bypasses slow trivial sampling.
+   */
+  void bagTrivial(const double y[],
+		  const unsigned int yCtg[],
+		  class BV *treeBag);
+
+  
   /**
      @brief Appends summary node to crescent vector.
 
@@ -155,8 +165,11 @@ class Sample {
      @brief Lights off static initializations needed for sampling.
 
      @param nSamp_ is the number of samples.
+
+     @param bagging_ is true iff bagging is requested.
   */
-  static void immutables(unsigned int nSamp_);
+  static void immutables(IndexT nSamp_,
+			 bool bagging_ = true);
 
 
   /**
@@ -199,6 +212,11 @@ class Sample {
     return ctgRoot;
   }
 
+
+  inline auto getNCtg() const {
+    return ctgRoot.size();
+  }
+  
   
   /**
      @brief Getter for user-specified sample count.
@@ -248,9 +266,9 @@ class Sample {
 
      @param[in, out] ctgSum accumulates sums by category.
    */
-  inline void accum(unsigned int sIdx,
-                    double &bulkSum,
-                    double *ctgSum) const {
+  inline void accum(IndexT sIdx,
+                    double& bulkSum,
+                    double* ctgSum) const {
     unsigned int ctg;
     FltVal sum = sampleNode[sIdx].refCtg(ctg);
     bulkSum += sum;
@@ -263,7 +281,7 @@ class Sample {
 
      @param sIdx is the sample index.
    */
-  inline unsigned int getSCount(unsigned int sIdx) const {
+  inline unsigned int getSCount(IndexT sIdx) const {
     return sampleNode[sIdx].getSCount();
   }
 
@@ -273,7 +291,7 @@ class Sample {
 
      @param sIdx is the sample index.
    */
-  inline FltVal getSum(int sIdx) const {
+  inline FltVal getSum(IndexT sIdx) const {
     return sampleNode[sIdx].getSum();
   }
 };
@@ -298,7 +316,7 @@ class SampleReg : public Sample {
    */
   inline double addNode(double yVal,
                         unsigned int sCount,
-                        unsigned int ctg) {
+                        PredictorT ctg) {
     sampleNode.emplace_back(yVal, sCount);
     return sampleNode.back().getSum();
   }
@@ -333,7 +351,7 @@ class SampleCtg : public Sample {
 
      @return sum of sampled response values.
    */
-  inline double addNode(double yVal, unsigned int sCount, unsigned int ctg) {
+  inline double addNode(double yVal, unsigned int sCount, PredictorT ctg) {
     sampleNode.emplace_back(yVal, sCount, ctg);
     double ySum = sampleNode.back().getSum();
     ctgRoot[ctg] += SumCount(ySum, sCount);

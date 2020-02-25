@@ -6,21 +6,21 @@
  */
 
 /**
-   @file cartnode.cc
+   @file tree.cc
 
-   @brief Methods implementing CART tree nodes.
+   @brief Methods implementing generic tree nodes.
 
    @author Mark Seligman
  */
 
 
-#include "cartnode.h"
+#include "treenode.h"
 #include "summaryframe.h"
 #include "bv.h"
 #include "predict.h"
 
 
-void CartNode::setQuantRank(const SummaryFrame* sf) {
+void TreeNode::setQuantRank(const SummaryFrame* sf) {
   auto predIdx = getPredIdx();
   if (isNonterminal() && !sf->isFactor(predIdx)) {
     criterion.setQuantRank(sf, predIdx);
@@ -28,30 +28,30 @@ void CartNode::setQuantRank(const SummaryFrame* sf) {
 }
 
 
-IndexT CartNode::advance(const BVJagged *facSplit,
+IndexT TreeNode::advance(const BVJagged *facSplit,
                          const IndexT rowT[],
 			 unsigned int tIdx,
 			 IndexT& leafIdx) const {
   auto predIdx = getPredIdx();
-  if (lhDel == 0) {
+  if (delIdx == 0) {
     leafIdx = predIdx;
     return 0;
   }
   else {
-    IndexT bitOff = getSplitBit() + rowT[predIdx];
-    return facSplit->testBit(tIdx, bitOff) ? lhDel : lhDel + 1;
+    IndexT bitOff = getBitOffset() + rowT[predIdx];
+    return facSplit->testBit(tIdx, bitOff) ? delIdx : delIdx + 1;
   }
 }
 
 
-IndexT CartNode::advance(const PredictFrame* blockFrame,
+IndexT TreeNode::advance(const PredictFrame* blockFrame,
                          const BVJagged* facSplit,
 			 const IndexT* rowFT,
 			 const double* rowNT,
 			 unsigned int tIdx,
 			 IndexT& leafIdx) const {
   auto predIdx = getPredIdx();
-  if (lhDel == 0) {
+  if (delIdx == 0) {
     leafIdx = predIdx;
     return 0;
   }
@@ -59,8 +59,8 @@ IndexT CartNode::advance(const PredictFrame* blockFrame,
     bool isFactor;
     IndexT blockIdx = blockFrame->getIdx(predIdx, isFactor);
     return isFactor ?
-      (facSplit->testBit(tIdx, getSplitBit() + rowFT[blockIdx]) ?
-       lhDel : lhDel + 1) : (rowNT[blockIdx] <= getSplitNum() ?
-                             lhDel : lhDel + 1);
+      (facSplit->testBit(tIdx, getBitOffset() + rowFT[blockIdx]) ?
+       delIdx : delIdx + 1) : (rowNT[blockIdx] <= getSplitNum() ?
+                             delIdx : delIdx + 1);
   }
 }

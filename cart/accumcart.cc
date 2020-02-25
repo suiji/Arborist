@@ -22,7 +22,7 @@
 AccumCartReg::AccumCartReg(const SplitNux* cand,
                              const SampleRank spn[],
                              const SFCartReg* spReg) :
-  Accum(cand, spReg->getDenseRank(cand)),
+  Accum(cand, spReg),
   monoMode(spReg->getMonoMode(cand)),
   resid(Accum::makeResidual(cand, spn)) {
 }
@@ -33,15 +33,15 @@ AccumCartReg::~AccumCartReg() {
 
 
 void AccumCartReg::split(const SFCartReg* spReg,
-                          const SampleRank spn[],
-                          SplitNux* cand) {
+			 const SampleRank spn[],
+			 SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(spn, cand);
   }
   else {
     IndexT idxEnd = cand->getIdxEnd();
     IndexT idxStart = cand->getIdxStart();
-    IndexT rkThis = spn[idxEnd].regFields(ySum, sCountThis);
+    IndexT rkThis = spn[idxEnd].regFields(ySumThis, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, idxStart);
   }
   cand->writeNum(spReg, this);
@@ -54,18 +54,18 @@ void AccumCartReg::splitImpl(const SampleRank spn[],
   IndexT idxStart = cand->getIdxStart();
   if (cutDense > idxEnd) {
     // Checks resid/idxEnd, ..., idxStart+1/idxStart.
-    resid->apply(ySum, sCountThis);
+    resid->apply(ySumThis, sCountThis);
     splitExpl(spn, rankDense, idxEnd, idxStart);
   }
   else {
     // Checks idxEnd/idxEnd-1, ..., denseCut+1/denseCut.
-    IndexT rkThis = spn[idxEnd].regFields(ySum, sCountThis);
+    IndexT rkThis = spn[idxEnd].regFields(ySumThis, sCountThis);
     splitExpl(spn, rkThis, idxEnd-1, cutDense);
     splitResidual(spn[cutDense].getRank()); // Checks denseCut/resid.
 
     // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
     if (cutDense > idxStart) {
-      resid->apply(ySum, sCountThis);
+      resid->apply(ySumThis, sCountThis);
       splitExpl(spn, rankDense, cutDense - 1, idxStart);
     }
   }
@@ -74,9 +74,9 @@ void AccumCartReg::splitImpl(const SampleRank spn[],
 
 void AccumCartReg::splitResidual(IndexT rkThis) {
   // Rank exposed from previous invocation of splitExpl():
-  sumL -= ySum;
+  sumL -= ySumThis;
   sCountL -= sCountThis;
-  resid->apply(ySum, sCountThis);
+  resid->apply(ySumThis, sCountThis);
 
   IndexT sCountR = sCount - sCountL;
   double sumR = sum - sumL;
@@ -106,9 +106,9 @@ void AccumCartReg::splitExpl(const SampleRank spn[],
 
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
     IndexT rkRight = rkThis;
-    sumL -= ySum;
+    sumL -= ySumThis;
     sCountL -= sCountThis;
-    rkThis = spn[idx].regFields(ySum, sCountThis);
+    rkThis = spn[idx].regFields(ySumThis, sCountThis);
 
     trialSplit(idx, rkThis, rkRight);
   }
@@ -124,9 +124,9 @@ void AccumCartReg::splitMono(const SampleRank spn[],
   bool nonDecreasing = monoMode > 0;
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
     IndexT rkRight = rkThis;
-    sumL -= ySum;
+    sumL -= ySumThis;
     sCountL -= sCountThis;
-    rkThis = spn[idx].regFields(ySum, sCountThis);
+    rkThis = spn[idx].regFields(ySumThis, sCountThis);
 
     //    localMax(nonDecreasing);
     IndexT sCountR = sCount - sCountL;
@@ -149,7 +149,7 @@ void AccumCartReg::splitMono(const SampleRank spn[],
 AccumCartCtg::AccumCartCtg(const SplitNux* cand,
                              const SampleRank spn[],
                              SFCartCtg* spCtg) :
-  Accum(cand, spCtg->getDenseRank(cand)),
+  Accum(cand, spCtg),
   nCtg(spCtg->getNCtg()),
   resid(makeResidual(cand, spn, spCtg)),
   ctgSum(spCtg->getSumSlice(cand)),
@@ -183,11 +183,11 @@ void AccumCartCtg::split(const SFCartCtg* spCtg,
 inline void AccumCartCtg::stateNext(const SampleRank spn[],
 				     IndexT idx) {
   PredictorT yCtg;
-  (void) spn[idx].ctgFields(ySum, sCountThis, yCtg);
+  (void) spn[idx].ctgFields(ySumThis, sCountThis, yCtg);
 
-  sumL -= ySum;
+  sumL -= ySumThis;
   sCountL -= sCountThis;
-  accumCtgSS(ySum, yCtg, ssL, ssR);
+  accumCtgSS(ySumThis, yCtg, ssL, ssR);
 }
 
 
@@ -224,8 +224,8 @@ void AccumCartCtg::splitImpl(const SampleRank spn[],
 void AccumCartCtg::residualAndLeft(const SampleRank spn[],
 				    IndexT idxLeft,
 				    IndexT idxStart) {
-  resid->apply(ySum, sCountThis, ssR, ssL, this);
-  sumL -= ySum;
+  resid->apply(ySumThis, sCountThis, ssR, ssL, this);
+  sumL -= ySumThis;
   sCountL -= sCountThis;
   splitExpl(spn, rankDense, idxLeft, idxStart);
 }
@@ -244,13 +244,13 @@ AccumCartCtg::makeResidual(const SplitNux* cand,
   IndexT sCountExpl = 0;
   for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
     PredictorT yCtg;
-    IndexT rkThis = spn[idx].ctgFields(ySum, sCountThis, yCtg);
+    IndexT rkThis = spn[idx].ctgFields(ySumThis, sCountThis, yCtg);
     if (rkThis > rankDense) {
       cutDense = idx;
     }
     sCountExpl += sCountThis;
-    ctgImpl[yCtg] -= ySum;
-    sumExpl += ySum;
+    ctgImpl[yCtg] -= ySumThis;
+    sumExpl += ySumThis;
   }
 
   return make_unique<ResidualCtg>(sum - sumExpl, sCount - sCountExpl, ctgImpl);

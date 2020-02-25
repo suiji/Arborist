@@ -32,7 +32,7 @@
  */
 class FRNode {
  public:
-  unsigned int rank; // Same 0-based value as internal code.
+  PredictorT rank; // Same 0-based value as internal code.
   IndexT sCount; // Sample count of factor run:  need not equal length.
   double sum; // Sum of responses associated with run.
   IndexRange range;
@@ -40,13 +40,19 @@ class FRNode {
   FRNode() : sCount(0), sum(0.0), range(IndexRange()) {
   }
 
+
+  /**
+     @brief Implicit runs are characterized by a start value of 'noStart'.
+
+     @return Whether this run is dense.
+  */
   bool isImplicit();
 
 
   /**
      @brief Initializer.
    */
-  inline void init(unsigned int rank,
+  inline void init(PredictorT rank,
                    IndexT sCount,
                    double sum,
                    IndexT start,
@@ -133,13 +139,13 @@ class RunSet {
   int runOff; // Temporary offset storage.
   int heapOff; //
   int outOff; //
-  FRNode *runZero; // Base for this run set.
-  BHPair *heapZero; // Heap workspace.
-  unsigned int *outZero; // Final LH and/or output for heap-ordered slots.
-  double *ctgZero; // Categorical:  run x ctg checkerboard.
-  double *rvZero; // Non-binary wide runs:  random variates for sampling.
-  unsigned int runCount;  // Current high watermark:  not subject to shrinking.
-  unsigned int runsLH; // Count of LH runs.
+  FRNode* runZero; // Base for this run set.
+  BHPair* heapZero; // Heap workspace.
+  PredictorT* outZero; // Final LH and/or output for heap-ordered slots.
+  double* ctgZero; // Categorical:  run x ctg checkerboard.
+  double* rvZero; // Non-binary wide runs:  random variates for sampling.
+  PredictorT runCount;  // Current high watermark:  not subject to shrinking.
+  PredictorT runsLH; // Count of LH runs.
 
 
   /**
@@ -153,7 +159,7 @@ class RunSet {
  public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
   static IndexT noStart; // Inattainable index.
-  unsigned int safeRunCount;
+  PredictorT safeRunCount;
 
   RunSet() : hasImplicit(false), runOff(0), heapOff(0), outOff(0), runZero(0), heapZero(0), outZero(0), ctgZero(0), rvZero(0), runCount(0), runsLH(0), safeRunCount(0) {}
 
@@ -174,7 +180,7 @@ class RunSet {
 
      @return true iff right-hand runs must be exposed.
   */
-  bool implicitLeft() const;
+  IndexT implicitLeft() const;
 
   /**
      @brief Builds a run for the dense rank using residual values.
@@ -185,9 +191,9 @@ class RunSet {
 
      @param ctgSum is the per-category response over the node (IndexSet).
   */
-  void writeImplicit(const class SplitNux* cand,
-                     const class SplitFrontier* sp,
-                     const vector<double>& ctgSum = vector<double>(0));
+  void appendImplicit(const class SplitNux* cand,
+		      const class SplitFrontier* sp,
+		      const vector<double>& ctgSum = vector<double>(0));
 
   /**
      @brief Hammers the pair's run contents with runs selected for
@@ -211,18 +217,20 @@ class RunSet {
      @brief Updates local vector bases with their respective offsets,
      addresses, now known.
   */
-  void reBase(vector<FRNode> &facRun,
-              vector<BHPair> &bHeap,
-              vector<unsigned int> &lhOut,
-              vector<double> &ctgSum,
+  void reBase(vector<FRNode>& facRun,
+              vector<BHPair>& bHeap,
+              vector<unsigned int>& lhOut,
+              vector<double>& ctgSum,
               PredictorT nCtg,
-              vector<double> &rvWide);
+              vector<double>& rvWide);
 
   /**
      @brief Records only the (casted) relative vector offsets, as absolute
      base addresses not yet known.
   */
-  void offsetCache(unsigned int _runOff, unsigned int _heapOff, unsigned int _outOff);
+  void offsetCache(unsigned int _runOff,
+		   unsigned int _heapOff,
+		   unsigned int _outOff);
 
   /**
      @brief Writes to heap arbitrarily:  sampling w/o replacement.
@@ -238,29 +246,6 @@ class RunSet {
      @brief Writes to heap, weighting by category-1 probability.
   */
   void heapBinary();
-
-
-  /**
-     @brief Redirects samples to left or right according.
-
-     @param cand is a splitting candidate.
-
-     @param iSet encodes the sample indices associated with the split.
-
-     @param preTree is the crescent pre-tree.
-
-     @param index is the index set environment for the current level.
-
-     @param[out] replayLeft outputs true iff split LHS contains implicit runs.
-
-     @return sum of replayed response.
-   */
-  double branch(class IndexSet* iSet,
-                class PreTree* preTree,
-                const class SplitFrontier* splitFrontier,
-		class Replay* replay,
-                vector<SumCount>& ctgCrit,
-                bool& replayLeft) const;
 
 
   /**
@@ -289,7 +274,7 @@ class RunSet {
   }
   
   
-  inline unsigned int getSafeCount() const {
+  inline auto getSafeCount() const {
     return safeRunCount;
   }
   
@@ -314,19 +299,36 @@ class RunSet {
 
      @param sum[in, out] accumulates the sum using the output position.
    */
-  inline void sumAccum(unsigned int outPos, IndexT& sCount, double& sum) {
-    unsigned int slot = outZero[outPos];
+  inline void sumAccum(unsigned int outPos, IndexT& sCount, double& sum) const {
+    PredictorT slot = outZero[outPos];
     runZero[slot].accum(sCount, sum);
   }
 
+
+  /**
+     @brief Writes state of top run, possibly multiple times.
+
+     @param topPos is the current top position.
+   */
+  inline void writeTop(PredictorT topPos,
+		       PredictorT rank,
+		       IndexT sCount,
+		       double sum,
+		       IndexT start,
+		       IndexT extent) {
+    runZero[topPos].init(rank, sCount, sum, start, extent);
+    runCount = topPos + 1;
+  }
+
+  
   /**
      @brief Sets run parameters and increments run count.
    */
-  inline void write(PredictorT rank,
-                    IndexT sCount,
-                    double sum,
-                    IndexT extent,
-                    IndexT start = noStart) {
+  inline void append(PredictorT rank,
+		     IndexT sCount,
+		     double sum,
+		     IndexT extent,
+		     IndexT start = noStart) {
     runZero[runCount++].init(rank, sCount, sum, start, extent);
     hasImplicit = (start == noStart);
   }
@@ -410,7 +412,7 @@ class RunSet {
   }
 
 
-  unsigned int getRank(unsigned int outSlot) const;
+  PredictorT getRank(PredictorT outSlot) const;
 
   /**
      @brief Decodes bit vector of slot indices and stores LH indices.
@@ -418,21 +420,37 @@ class RunSet {
      @param lhBits encodes LH/RH slot indices as on/off bits, respectively.
 
      @param lhSampCt outputs the LHS sample count.
-
-     @return LHS index count.
   */
-  IndexT lHBits(unsigned int lhBits, IndexT& lhSampCt);
+  void lHBits(PredictorT lhBits,
+	      IndexT& lhExtent,
+	      IndexT& lhSampCt,
+	      IndexT& lhImplicit);
+
   
   /**
-     @brief Dereferences out slots and accumulates splitting parameters.
+     @brief Initializes a block of output slots from the left.
 
      @param cut is the final out slot of the LHS:  < 0 iff no split.
 
      @param lhSampCt outputs the LHS sample count.
-
-     @return LHS index count.
   */
-  unsigned int lHSlots(unsigned int outPos, IndexT& lhSampCt);
+  void lHSlots(PredictorT cut,
+	       IndexT& lhExtent,
+	       IndexT& lhSampCt,
+	       IndexT& lhImplicit);
+
+
+  /**
+     @brief Appends a single output slot.
+
+     @param[out] sCount outputs the sample count of the slot.
+
+     @return buffer index extent of slot.
+   */
+  void appendSlot(IndexT& lhExtent,
+		  IndexT& lhSampCt,
+		  IndexT& lhImplicit);
+  
 
   /**
      @brief Looks up run parameters by indirection through output vector.
@@ -441,7 +459,7 @@ class RunSet {
 
      @return index range associated with run.
   */
-  IndexRange getBounds(unsigned int outSlot) const;
+  IndexRange getBounds(PredictorT outSlot) const;
 };
 
 
@@ -467,25 +485,6 @@ class Run {
 
   void runSets(const vector<unsigned int>& safeCount);
 
-
-public:
-  const unsigned int ctgWidth;  // Response cardinality; zero iff numerical.
-
-  /**
-     @brief Constructor.
-
-     @param ctgWidth_ is the response cardinality.
-
-     @param nRow is the number of training rows:  inattainable offset.
-  */
-  Run(unsigned int ctgWidth_,
-      unsigned int nRow);
-
-  /**
-     @brief Clears workspace used by current level.
-   */
-  void clear();
-
   /**
      @brief Regression:  all runs employ a heap.
 
@@ -501,34 +500,35 @@ public:
   */
   void offsetsCtg(const vector<unsigned int> &safeCount);
 
+  
+
+public:
+  const PredictorT ctgWidth;  // Response cardinality; zero iff numerical.
+
   /**
-     @brief Redirects samples to left or right according.
+     @brief Constructor.
 
-     @param cand is a splitting candidate.
+     @param ctgWidth_ is the response cardinality.
 
-     @param iSet encodes the sample indices associated with the split.
+     @param nRow is the number of training rows:  inattainable offset.
+  */
+  Run(PredictorT ctgWidth_,
+      IndexT nRow);
 
-     @param preTree is the crescent pre-tree.
-
-     @param index is the index set environment for the current level.
-
-     @param[out] replay left outputs true iff split LHS contains implicit runs.
-
-     @return sum of replayed response.
+  /**
+     @brief Clears workspace used by current level.
    */
-  double branch(const class SplitFrontier* splitFrontier,
-                class IndexSet* iSet,
-                class PreTree* preTree,
-		class Replay* replay,
-                vector<SumCount>& ctgCrit,
-                bool& replayLeft) const;
+  void clear();
 
+
+  void setOffsets(const vector<unsigned int>& safeCount,
+		  PredictorT nCtg);
   
   /**
      @brief Accessor for RunSet at specified index.
    */
-  inline RunSet *rSet(unsigned int rsIdx) {
-    return &runSet[rsIdx];
+  inline RunSet *rSet(PredictorT setIdx) {
+    return &runSet[setIdx];
   }
 
   
@@ -540,17 +540,44 @@ public:
 
      @param count is the "safe" count value.
    */
-  void setSafeCount(unsigned int idx, unsigned int count) {
-    runSet[idx].safeRunCount = count;
+  void setSafeCount(PredictorT setIdx,
+		    PredictorT count) {
+    runSet[setIdx].safeRunCount = count;
   }
 
   
   /**
      @brief Gets safe count associated with a given index.
    */
-  unsigned int getSafeCount(unsigned int idx) const {
-    return runSet[idx].safeRunCount;
+  auto getSafeCount(PredictorT setIdx) const {
+    return runSet[setIdx].safeRunCount;
   }
+
+  /**
+     @brief Passes through to RunSet method.
+   */
+  IndexRange getBounds(const class SplitNux* nux,
+		       PredictorT outSlot) const;
+
+
+  vector<PredictorT> getLHBits(const class SplitNux* nux) const;
+  
+  
+  PredictorT getRunsLH(const class SplitNux* nux) const;
+
+  
+  PredictorT getRunCount(const class SplitNux* nux) const;
+
+  
+  void lHBits(class SplitNux* nux,
+	      PredictorT lhBits);
+
+  
+  void lHSlots(class SplitNux* nux,
+	       PredictorT cut);
+
+  
+  void appendSlot(class SplitNux* nux);
 };
 
 

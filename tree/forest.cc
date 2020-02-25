@@ -21,12 +21,12 @@
 Forest::Forest(const IndexT height_[],
 	       unsigned int nTree_,
                const DecNode treeNode_[],
-	       PredictorT facVec_[],
-               const IndexT facHeight_[]) :
+	       PredictorT facVec[],
+               const IndexT facHeight[]) :
   nodeHeight(height_),
   nTree(nTree_),
   treeNode(treeNode_),
-  facSplit(make_unique<BVJagged>(facVec_, facHeight_, nTree)) {
+  facSplit(make_unique<BVJagged>(facVec, facHeight, nTree)) {
 }
 
 
@@ -43,22 +43,22 @@ vector<size_t> Forest::cacheOrigin() const {
 }
 
 
-void Forest::dump(vector<vector<PredictorT> > &predTree,
-                  vector<vector<double> > &splitTree,
-                  vector<vector<IndexT> > &lhDelTree,
-                  vector<vector<IndexT> > &facSplitTree) const {
-  dump(predTree, splitTree, lhDelTree);
+void Forest::dump(vector<vector<PredictorT> >& predTree,
+                  vector<vector<double> >& splitTree,
+                  vector<vector<IndexT> >& delIdxTree,
+                  vector<vector<IndexT> >& facSplitTree) const {
+  dump(predTree, splitTree, delIdxTree);
   facSplit->dump(facSplitTree);
 }
 
 
-void Forest::dump(vector<vector<PredictorT> > &pred,
-                  vector<vector<double> > &split,
-                  vector<vector<IndexT> > &lhDel) const {
+void Forest::dump(vector<vector<PredictorT> >& pred,
+                  vector<vector<double> >& split,
+                  vector<vector<IndexT> >& delIdx) const {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     for (IndexT nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
       pred[tIdx].push_back(treeNode[nodeIdx].getPredIdx());
-      lhDel[tIdx].push_back(treeNode[nodeIdx].getLHDel());
+      delIdx[tIdx].push_back(treeNode[nodeIdx].getDelIdx());
 
       // Not quite:  must distinguish numeric from bit-packed:
       split[tIdx].push_back(treeNode[nodeIdx].getSplitNum());

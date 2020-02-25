@@ -17,34 +17,122 @@
 #ifndef TREE_PRETREE_H
 #define TREE_PRETREE_H
 
-#include "decnode.h"
 #include "bv.h"
-#include "ptnode.h"
-#include "crit.h"
-#include "indexset.h"
+#include "typeparam.h"
+#include "forestcresc.h"
+#include "decnode.h"
 
 #include <vector>
 
-
 /**
-   @brief Workspace for merging PTNodes:  copies 'info' and records
-   offsets and merge state.
+  @brief Decision node specialized for training.
+
+  Information member consumed during forest production.
  */
+struct PTNode {
+private:
+  FltVal info;  // Zero iff terminal.
+  DecNode decNode;
+
+public:
+  /**
+     @brief Constructor.  Decision node set to terminal by its constructor.
+   */
+  PTNode() : info(0.0) {
+  }
+
+
+  static void setNonterminal(vector<PTNode>& nodeVec,
+			     const class SplitNux* nux,
+			     IndexT targ);
+
+  
+  auto getPredIdx() const {
+    return decNode.getPredIdx();
+  }
+  
+
+  auto getIdFalse(IndexT ptIdx) const {
+    return decNode.getIdFalse(ptIdx);
+  }
+
+
+  auto getIdTrue(IndexT ptIdx) const {
+    return decNode.getIdTrue(ptIdx);
+  }
+
+
+  bool isNonterminal() const {
+    return decNode.isNonterminal();
+  }
+
+
+  void setDelIdx(IndexT ptIdx) {
+    decNode.setDelIdx(ptIdx);
+  }
+
+
+  void critBits(const class SplitNux* nux,
+		size_t bitEnd) {
+    decNode.critBits(nux, bitEnd);
+  }
+
+
+  auto getBitOffset() const {
+    return decNode.getBitOffset();
+  }
+
+  
+  void critCut(const class SplitNux* nux) {
+    decNode.critCut(nux);
+  }
+
+
+  void setTerminal() {
+    decNode.setTerminal();
+  }
+  
+  
+  /**
+     @brief Consumes the node fields of nonterminals (splits).
+
+     @param forest[in, out] accumulates the growing forest node vector.
+  */
+  void consumeNonterminal(ForestCresc<DecNode>* forest,
+                          vector<double>& predInfo,
+                          IndexT idx) const {
+    if (isNonterminal()) {
+      forest->nonterminal(idx, decNode);
+      predInfo[getPredIdx()] += info;
+    }
+  }
+
+
+  /**
+     @brief Sets node to nonterminal.
+
+     @param nux contains the splitting information.
+
+     @param height is the current tree height.
+   */
+  inline void setNonterminal(const SplitNux* nux,
+                             IndexT height);
+};
+
+
 /**
    @brief Serialized representation of the pre-tree, suitable for tranfer between devices such as coprocessors, disks and nodes.
 */
-
 class PreTree {
   static IndexT heightEst;
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
-  const unsigned int bagCount;
+  const IndexT bagCount;
   IndexT height;
   IndexT leafCount;
   size_t bitEnd; // Next free slot in factor bit vector.
-  vector<PTNode<DecNode>> nodeVec; // Vector of tree nodes.
-  vector<struct Crit> crit;
-  class BV *splitBits;
-  vector<unsigned int> termST;
+  vector<PTNode> nodeVec; // Vector of tree nodes.
+  class BV* splitBits;
+  vector<IndexT> termST;
 
   /**
      @brief Constructs mapping from sample indices to leaf indices.
@@ -59,18 +147,6 @@ class PreTree {
      @return BV-aligned length of used portion of split vector.
   */
   size_t getBitWidth();
-
-
-  /**
-     @brief Accounts for the addition of two terminals to the tree.
-
-     @return void, with incremented height and leaf count.
-  */
-  inline void terminalOffspring() {
-  // Two more leaves for offspring, one fewer for this.
-    height += 2;
-    leafCount++;
-  }
 
 
  public:
@@ -110,32 +186,39 @@ class PreTree {
 
 
   /**
-     @brief Dispatches nonterminal method according to split type.
+     @brief Dispatches nonterminal and offspring.
    */
-  void nonterminal(double info,
-                   class IndexSet* iSet);
+  void nonterminal(const class SplitNux* nux);
 
+
+  /**
+     @brief As above, but invoked incrementally.
+
+     Assumes offspring already dispatched.
+   */
+  void nonterminalInc(const class SplitNux* nux);
+  
   
   /**
      @brief Appends criterion for bit-based branch.
 
-     @param predIdx is the criterion predictor.
+     @param nux summarizes the criterion bits.
 
      @param cardinality is the predictor's cardinality.
+
+     @param bitsTrue are the bit positions taking the true branch.
   */
-  void critBits(const class IndexSet* iSet,
-                PredictorT predIdx,
-                PredictorT cardinality);
+  void critBits(const class SplitNux* nux,
+                PredictorT cardinality,
+		const vector<PredictorT> bitsTrue);
 
   
   /**
      @brief Appends criterion for cut-based branch.
      
-     @param rankRange bounds the cut-defining ranks.
+     @param nux summarizes the the cut.
   */
-  void critCut(const class IndexSet* iSet,
-               PredictorT predIdx,
-	       double quantRank);
+  void critCut(const class SplitNux* nux);
 
   
   /**
@@ -149,9 +232,9 @@ class PreTree {
 
      @return leaf map from consumed frontier.
   */
-  const vector<unsigned int> consume(ForestCresc<DecNode> *forest,
-                                     unsigned int tIdx,
-                                     vector<double> &predInfo);
+  const vector<IndexT> consume(ForestCresc<DecNode> *forest,
+			       unsigned int tIdx,
+			       vector<double> &predInfo);
 
   
   /**
@@ -165,17 +248,6 @@ class PreTree {
   */
   void consumeNonterminal(ForestCresc<DecNode> *forest,
                           vector<double> &predInfo);
-
-  
-  /**
-     @brief Sets specified bit in (left) splitting bit vector.
-
-     @param iSet is the index node for which the LH bit is set.
-
-     @param pos is the bit position beyond to set.
-  */
-  void setLeft(const class IndexSet* iSet,
-               IndexT pos);
 
 
   IndexT leafMerge();
@@ -191,26 +263,43 @@ class PreTree {
   */
   void finish(const vector<IndexT>& stTerm);
 
+
+  inline IndexT getHeight() const {
+    return height;
+  }
   
-  inline IndexT getLHId(IndexT ptId) const {
-    return nodeVec[ptId].getLHId(ptId);
+  
+  inline IndexT getIdTrue(IndexT ptId) const {
+    return nodeVec[ptId].getIdTrue(ptId);
   }
 
   
-  inline IndexT getRHId(IndexT ptId) const {
-    return nodeVec[ptId].getRHId(ptId);
+  inline IndexT getIdFalse(IndexT ptId) const {
+    return nodeVec[ptId].getIdFalse(ptId);
   }
 
 
   inline IndexT getSuccId(IndexT ptId, bool isLeft) const {
-    return isLeft ? nodeVec[ptId].getLHId(ptId) : nodeVec[ptId].getRHId(ptId);
+    return isLeft ? nodeVec[ptId].getIdTrue(ptId) : nodeVec[ptId].getIdFalse(ptId);
   }
+
+
+  /**
+     @brief Obtains true and false branch target indices.
+   */
+  inline void getSuccTF(IndexT ptId,
+                        IndexT& ptLeft,
+                        IndexT& ptRight) const {
+    ptLeft = nodeVec[ptId].getIdTrue(ptId);
+    ptRight = nodeVec[ptId].getIdFalse(ptId);
+  }
+  
   
   /**
      @return true iff node is nonterminal.
    */
-  inline bool isNonTerminal(IndexT ptId) const {
-    return nodeVec[ptId].isNonTerminal();
+  inline bool isNonterminal(IndexT ptId) const {
+    return nodeVec[ptId].isNonterminal();
   }
 
 
@@ -223,10 +312,23 @@ class PreTree {
        @return true iff node has two leaf children.
     */
   inline bool isMergeable(IndexT ptId) const {
-    return !isNonTerminal(getLHId(ptId)) && !isNonTerminal(getRHId(ptId));
+    return !isNonterminal(getIdTrue(ptId)) && !isNonterminal(getIdFalse(ptId));
   }  
 
   
+
+  /**
+     @brief Accounts for a block of new criteria.
+
+     Pre-existing placeholder node for leading criterion converted to nonterminal.
+
+     @param nCrit is the number of criteria in the block.
+  */
+  inline void offspring(IndexT nCrit) {
+    height += nCrit + 1; // Two new terminals plus nCrit - 1 new nonterminals.
+    leafCount++; // Two new terminals, minus one for conversion of lead criterion.
+  }
+
   /**
      @brief Fills in references to values known to be useful for building
      a block of PreTree objects.
@@ -247,7 +349,7 @@ struct PTMerge {
   IndexT root;
   IndexT parId;
   IndexT idSib; // Sibling id, if not root else zero.
-  bool descLH; // Whether this is left descendant of some node.
+  bool descTrue; // Whether this is true-branch descendant of some node.
 
   static vector<PTMerge<nodeType>> merge(const PreTree* preTree,
 				  IndexT height,

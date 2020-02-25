@@ -300,7 +300,7 @@ public:
                   PredictorT yCtg,
                   double& ssL_,
                   double& ssR_) {
-    double sumRCtg = accumCtgSum(yCtg, ySum);
+    double sumRCtg = accumCtgSum(yCtg, ySumThis);
     ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
     double sumLCtg = getCtgSum(yCtg) - sumRCtg;
     ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);

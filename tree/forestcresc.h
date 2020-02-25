@@ -21,13 +21,12 @@
 #include "fbcresc.h"
 
 
-
 /**
    @brief struct CartNode block for crescent frame;
  */
-template<typename treeType>
+template<typename NodeType>
 class NBCresc {
-  vector<treeType> treeNode;
+  vector<NodeType> treeNode;
   vector<size_t> height;
   size_t treeFloor; // Block-relative index of current tree floor.
 
@@ -38,7 +37,7 @@ public:
      @param treeChunk is the number of trees in the current block.
    */
   NBCresc(unsigned int treeChunk) :
-    treeNode(vector<treeType>(0)),
+    treeNode(vector<NodeType>(0)),
     height(vector<size_t>(treeChunk)) {
   }
 
@@ -51,10 +50,10 @@ public:
      @param nodeCount is the number of tree nodes.
    */
   void treeInit(unsigned int tIdx,
-                unsigned int nodeCount) {
+                IndexT nodeCount) {
     treeFloor = treeNode.size();
     height[tIdx] = treeFloor + nodeCount;
-    treeType tn;
+    NodeType tn;
     treeNode.insert(treeNode.end(), nodeCount, tn);
   }
 
@@ -64,10 +63,11 @@ public:
      @brief Copies treeNode contents by byte.
 
      @param[out] nodeRaw outputs the raw contents.
-   */
+  */
   void dumpRaw(unsigned char nodeRaw[]) const {
-    for (size_t i = 0; i < treeNode.size() * sizeof(treeType); i++) {
-      nodeRaw[i] = ((unsigned char*) &treeNode[0])[i];
+    unsigned char* nodeBase = (unsigned char*) &treeNode[0];
+    for (size_t i = 0; i < treeNode.size() * sizeof(NodeType); i++) {
+      nodeRaw[i] = nodeBase[i];
     }
   }
 
@@ -84,7 +84,6 @@ public:
   }
 
 
-  
   /**
      @brief Accessor for height vector.
    */
@@ -99,13 +98,10 @@ public:
      @param nodeIdx is a tree-relative node index.
 
      @param decNode contains the value to set.
-
-     @param isFactor is true iff the splitting predictor is categorical.
   */
-  void branchProduce(unsigned int nodeIdx,
-		     IndexT lhDel,
-		     const struct Crit& crit) {
-    treeNode[treeFloor + nodeIdx].setBranch(lhDel, crit);
+  void branchProduce(IndexT nodeIdx,
+		     const NodeType& decNode) {
+    treeNode[treeFloor + nodeIdx] = decNode;
   }
 
 
@@ -115,8 +111,8 @@ public:
     @return void.
 
   */
-  void leafProduce(unsigned int nodeIdx,
-		   unsigned int leafIdx) {
+  void leafProduce(IndexT nodeIdx,
+		   IndexT leafIdx) {
     treeNode[treeFloor + nodeIdx].setLeaf(leafIdx);
   }
 };
@@ -125,9 +121,9 @@ public:
 /**
    @brief Class definition for crescent forest.
  */
-template<typename treeType>
+template<typename NodeType>
 class ForestCresc {
-  unique_ptr<NBCresc<treeType> > nbCresc; // Crescent node block.
+  unique_ptr<NBCresc<NodeType> > nbCresc; // Crescent node block.
   unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
 
  public:
@@ -138,7 +134,7 @@ class ForestCresc {
      @param treeChunk is the number of trees to train.
    */
   ForestCresc(unsigned int treeChunk) :
-    nbCresc(make_unique<NBCresc<treeType>>(treeChunk)),
+    nbCresc(make_unique<NBCresc<NodeType>>(treeChunk)),
     fbCresc(make_unique<FBCresc>(treeChunk)) {
   }
 
@@ -171,27 +167,9 @@ class ForestCresc {
      @param nodeCount is the number of nodes.
    */
   void treeInit(unsigned int tIdx,
-                unsigned int nodeCount) {
+                IndexT nodeCount) {
     nbCresc->treeInit(tIdx, nodeCount);
   }
-
-
-  /**
-     @brief Precipitates production of a branch node in the crescent forest.
-
-     @param frame summarizes the training observations.
-
-     @param idx is a tree-relative node index.
-
-     @parm decNode contains the value to set.
-   */
-  void nonTerminal(IndexT nodeIdx,
-                   IndexT lhDel,
-                   const struct Crit& crit) {
-    nbCresc->branchProduce(nodeIdx, lhDel, crit);
-  }
-
-
 
   /**
      @brief Outputs raw byes of node vector.
@@ -232,6 +210,20 @@ class ForestCresc {
   }
 
 
+
+  /**
+     @brief Precipitates production of a branch node in the crescent forest.
+
+     @param nodeIdx is a tree-relative node index.
+
+     @parm decNode contains the value to set.
+  */
+  void nonterminal(IndexT nodeIdx,
+		   const NodeType& decNode) {
+    nbCresc->branchProduce(nodeIdx, decNode);
+  }
+
+
   /**
     @brief Sets tree node as terminal.
 
@@ -239,8 +231,8 @@ class ForestCresc {
 
     @param leafIdx is a tree-relative leaf index.
   */
-  void terminal(unsigned int nodeIdx,
-                unsigned int leafIdx) {
+  void terminal(IndexT nodeIdx,
+                IndexT leafIdx) {
     nbCresc->leafProduce(nodeIdx, leafIdx);
   }
 

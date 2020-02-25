@@ -258,11 +258,11 @@ class SampleRank : public SampleNux {
   /**
      @brief Accumulates this cell's contents in per-category vector.
 
-     @param[in, out] ctgExpl accumulates sample counts and values by category.
+     @param nux accumulates sample counts and values en banc.
 
-     @return ySum value.
+     @param[in, out] ctgExpl accumulates sample counts and values by category.
    */
-  FltVal accum(vector<class SumCount>& ctgExpl) const;
+  void accum(class SplitNux* nux, vector<class SumCount>& ctgExpl) const;
 };
 
 #endif

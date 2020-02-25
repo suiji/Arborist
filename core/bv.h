@@ -333,16 +333,20 @@ class BitMatrix : public BV {
 class BVJagged : public BV {
   const unsigned int *rowExtent;
   const size_t nRow;
-  vector<unsigned int> rowDump(size_t rowIdx) const;
-
  public:
   BVJagged(RawT raw_[],
            const unsigned int height_[], // Cumulative extent per row.
            size_t nRow_);
   ~BVJagged();
+
+  /**
+     @brief Dumps each row into a separate vector.
+   */
   void dump(vector<vector<unsigned int> > &outVec);
 
 
+  vector<unsigned int> rowDump(size_t rowIdx) const;
+  
   /**
      @brief Bit test for jagged matrix.
 

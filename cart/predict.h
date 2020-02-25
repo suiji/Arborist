@@ -203,7 +203,7 @@ public:
 class Predict {
   const class Bag* bag; // In-bag representation.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
-  const struct CartNode* treeNode; // Pointer to base of tree nodes.
+  const struct TreeNode* treeNode; // Pointer to base of tree nodes.
   const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
   class LeafFrame* leaf; // Terminal section of forest.
   class Quant* quant;  // Quantile workplace, as needed.

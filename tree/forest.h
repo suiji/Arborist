@@ -14,8 +14,8 @@
    @author Mark Seligman
  */
 
-#ifndef CART_FOREST_H
-#define CART_FOREST_H
+#ifndef TREE_FOREST_H
+#define TREE_FOREST_H
 
 #include <vector>
 
@@ -41,8 +41,8 @@ class Forest {
   Forest(const IndexT height_[],
          unsigned int _nTree,
          const DecNode _treeNode[],
-         PredictorT _facVec[],
-         const IndexT facHeight_[]);
+         PredictorT facVec[],
+         const IndexT facHeight[]);
 
   ~Forest();
 

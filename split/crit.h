@@ -17,6 +17,8 @@
 #define SPLIT_CRIT_H
 
 #include "typeparam.h"
+#include "splitnux.h"
+
 
 /**
    @brief Untagged union of split encodings; fields keyed by predictor type.
@@ -28,12 +30,12 @@ typedef union {
   double num; // Rank-derived splitting value:  quantile or cut.
   size_t offset; // Tree-relative bit-vector offset:  factor.
 
-  void setNum(double numVal) {
-    num = numVal;
+  void setNum(double num) {
+    this->num = num;
   }
 
-  void setOffset(size_t bitPos) {
-    offset = bitPos;
+  void setOffset(size_t offset) {
+    this->offset = offset;
   }
   
 } SplitVal;
@@ -45,26 +47,22 @@ typedef union {
    Branch sense implicitly less-than-equal left.
  */
 struct Crit {
-  PredictorT predIdx;
   SplitVal val;
+  PredictorT predIdx;
 
-  Crit(PredictorT predIdx_,
-	   double quantRank) :
-  predIdx(predIdx_) {
-    val.setNum(quantRank);
+  
+  void critCut(const SplitNux* nux) {
+    predIdx = nux->getPredIdx();
+    val.setNum(nux->getQuantRank());
   }
 
 
-  Crit(PredictorT predIdx_,
-	   size_t bitPos) :
-  predIdx(predIdx_) {
+  void critBits(const SplitNux* nux,
+		size_t bitPos) {
+    this->predIdx = nux->getPredIdx(),
     val.setOffset(bitPos);
   }
-
-  Crit() : predIdx(0) {
-    val.setNum(0.0);
-  }
-
+  
   
   void setNum(double num) {
     val.setNum(num);

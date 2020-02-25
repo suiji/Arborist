@@ -27,6 +27,7 @@
  */
 class Accum {
 protected:
+  const class SplitFrontier* splitFrontier;
   const IndexT sCount; // Running sample count along node.
   const double sum; // Running response along node.
   const IndexT rankDense; // Rank of dense value, if any.
@@ -36,7 +37,7 @@ protected:
   
   // Read locally but initialized, and possibly reset, externally.
   IndexT sCountThis; // Current sample count.
-  FltVal ySum; // Current response value.
+  FltVal ySumThis; // Current response value.
 
 
   /**
@@ -49,6 +50,7 @@ protected:
     if (infoTrial > info) {
       info = infoTrial;
       lhSCount = sCountL;
+      lhSum = sumL;
       rankRH = rkRight;
       rankLH = rkThis;
       rhMin = rkRight == rankDense ? cutDense : idx + 1;
@@ -63,6 +65,7 @@ protected:
     if (infoTrial > info) {
       info = infoTrial;
       lhSCount = sCountL;
+      lhSum = sumL;
       rankRH = rkRight;
       rankLH = rankDense;
       rhMin = cutDense;
@@ -73,14 +76,19 @@ public:
   // Revised at each new local maximum of 'info':
   double info; // Information high watermark.  Precipitates split iff > 0.0.
   IndexT lhSCount; // Sample count of split LHS:  > 0.
+  double lhSum; // Response sum of split LHS.
   IndexT rankRH; // Maximum rank characterizing split.
   IndexT rankLH; // Minimum rank charactersizing split.
   IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
-  
-  Accum(const class SplitNux* cand,
-        IndexT rankDense_);
 
-  
+  /**
+     @param cand encapsulates candidate splitting parameters.
+
+     @param splitFrontier looks up dense rank.
+   */
+  Accum(const class SplitNux* cand,
+        const class SplitFrontier* splitFrontier);
+
   ~Accum() {
   }
 
@@ -99,6 +107,9 @@ public:
 
 
   IndexT lhImplicit(const class SplitNux* cand) const;
+
+
+  double interpolateRank(double splitQuant) const;
 };
 
 #endif

@@ -29,6 +29,20 @@
    @brief Abstract class with parametrized factory.
  */
 class SFCart : public SplitFrontier {
+  vector<unique_ptr<class SplitNux> > nuxMax; // Rewritten following each splitting event.
+
+  vector<unique_ptr<class SplitNux> >
+  maxCandidates(const vector<class SplitNux>& sc);
+  
+  unique_ptr<class SplitNux>
+  maxSplit(const vector<class SplitNux>& sc,
+			  IndexT splitOff,
+                          IndexT nSplitFrontier) const;
+
+  
+  void consumeNodes(PreTree* pretree) const;
+
+  
 public:
 
   SFCart(const class SummaryFrame* frame,
@@ -41,8 +55,21 @@ public:
 	  const class Sample* sample,
 	  PredictorT nCtg);
 
-  void split(vector<class SplitNux>& sc);
+  void split(vector<class IndexSet>& indexSet,
+	     vector<class SplitNux>& sc,
+	     class BranchSense* branchSense);
 
+
+  /**
+     @brief Collects nonterminal parameters from nux and passes to index set.
+
+     @param iSet is the index set absorbing the split parameters.
+   */
+  void encodeCriterion(class IndexSet* iSet,
+		       class SplitNux* nux,
+		       class BranchSense* branchSense) const;
+
+  
   virtual void split(class SplitNux* cand) = 0;
 };
 
@@ -83,7 +110,6 @@ class SFCartReg : public SFCart {
 	const class Sample* sample);
 
   ~SFCartReg();
-  void setRunOffsets(const vector<unsigned int>& safeCount);
   void layerPreset();
   void clear();
 
@@ -105,12 +131,9 @@ class SFCartReg : public SFCart {
   /**
      @brief Splits runs sorted by binary heap.
 
-     @param runSet contains all run parameters.
-
      @return slot index of split
    */
-  PredictorT heapSplit(class RunSet *runSet,
-		       class SplitNux* cand) const;
+  PredictorT heapSplit(class SplitNux* cand) const;
 
   
   /**
@@ -158,13 +181,6 @@ class SFCartCtg : public SFCart {
      @brief Collects splitable candidates from among all restaged cells.
    */
   void split(class SplitNux* cand);
-
-  /**
-     @brief RunSet initialization utitlity.
-
-     @param safeCount gives a conservative per-predictor count of distinct runs.
-   */
-  void setRunOffsets(const vector<unsigned int>& safeCount);
 
 
   /**

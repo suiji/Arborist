@@ -57,7 +57,8 @@ void RfTrain::initSplit(unsigned int minNode,
                       unsigned int totLevels,
                       double minRatio,
 		      const vector<double>& feSplitQuant) {
-  Frontier::immutables(minNode, totLevels);
+  IndexSet::immutables(minNode);
+  Frontier::immutables(totLevels);
   SplitNux::immutables(minRatio, feSplitQuant);
 }
 
@@ -75,6 +76,7 @@ void RfTrain::initMono(const SummaryFrame* frame,
 
 void RfTrain::deInit() {
   SplitNux::deImmutables();
+  IndexSet::deImmutables();
   Frontier::deImmutables();
   PreTree::deImmutables();
   Sample::deImmutables();

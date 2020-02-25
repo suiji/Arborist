@@ -18,6 +18,7 @@
 #include "summaryframe.h"
 #include "splitfrontier.h"
 #include "frontier.h"
+#include "splitnux.h"
 #include "path.h"
 #include "ompthread.h"
 
@@ -55,6 +56,10 @@ ObsPart::~ObsPart() {
   delete [] destSplit;
 }
 
+
+IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
+  return bufferIndex(nux->getDefCoord());
+}
 
 
 vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
@@ -114,31 +119,6 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
     smpIdx[expl] = sIdx;
     expl++;
   }
-}
-
-
-double ObsPart::blockReplay(const SplitFrontier* splitFrontier,
-                            const IndexSet* iSet,
-                            const IndexRange& range,
-                            bool leftExpl,
-                            Replay* replay,
-                            vector<SumCount>& ctgCrit) const {
-  IndexT* sIdx;
-  SampleRank* spn = buffers(splitFrontier->getDefCoord(iSet), sIdx);
-  double sumExpl = 0.0;
-  for (IndexT opIdx = range.getStart(); opIdx < range.getEnd(); opIdx++) {
-    sumExpl += spn[opIdx].accum(ctgCrit);
-    IndexT bitIdx = sIdx[opIdx];
-    replay->set(bitIdx, leftExpl);
-  }
-
-  return sumExpl;
-}
-
-
-IndexT* ObsPart::indexBuffer(const SplitFrontier* splitFrontier,
-                                const IndexSet* iSet) {
-  return indexBuffer(splitFrontier->getDefCoord(iSet));
 }
 
 

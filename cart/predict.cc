@@ -19,7 +19,7 @@
 #include "leaf.h"
 #include "predict.h"
 #include "bv.h"
-#include "cartnode.h"
+#include "treenode.h"
 #include "quant.h"
 #include "ompthread.h"
 

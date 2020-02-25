@@ -16,8 +16,8 @@
 #include "runset.h"
 #include "callback.h"
 #include "splitfrontier.h"
+#include "obspart.h"
 #include "splitnux.h"
-#include "pretree.h"
 #include "frontier.h"
 
 
@@ -50,6 +50,16 @@ void Run::runSets(const vector<unsigned int> &safeCount) {
   runSet = vector<RunSet>(setCount);
   for (unsigned int setIdx = 0; setIdx < setCount; setIdx++) {
     setSafeCount(setIdx, safeCount[setIdx]);
+  }
+}
+
+
+void Run::setOffsets(const vector<unsigned int>& safeCount, PredictorT nCtg) {
+  if (nCtg > 0) {
+    offsetsCtg(safeCount);
+  }
+  else {
+    offsetsReg(safeCount);
   }
 }
 
@@ -124,38 +134,52 @@ void Run::reBase() {
 }
 
 
-double Run::branch(const SplitFrontier* splitFrontier,
-                   IndexSet* iSet,
-                   PreTree* preTree,
-		   Replay* replay,
-                   vector<SumCount>& ctgCrit,
-                   bool& replayLeft) const {
-  return runSet[splitFrontier->getSetIdx(iSet)].branch(iSet, preTree, splitFrontier, replay, ctgCrit, replayLeft);
+vector<PredictorT> Run::getLHBits(const SplitNux* nux) const {
+  PredictorT setIdx = nux->getSetIdx();
+  vector<PredictorT> lhBits(runSet[setIdx].getRunsLH());
+  PredictorT outSlot = 0;
+  for (auto & bit : lhBits) {
+    bit = runSet[setIdx].getRank(outSlot++);
+  }
+
+  return lhBits;
 }
 
 
-double RunSet::branch(IndexSet* iSet,
-                      PreTree* preTree,
-                      const SplitFrontier* splitFrontier,
-                      Replay* replay,
-                      vector<SumCount>& ctgCrit,
-                      bool& leftExpl) const {
-  double sumExpl = 0.0;
-  leftExpl = !implicitLeft(); // true iff left-explicit replay indices.
-  for (unsigned int outSlot = 0; outSlot < getRunsLH(); outSlot++) {
-    preTree->setLeft(iSet, getRank(outSlot));
-    if (leftExpl) {
-      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), true, replay, ctgCrit);
-    }
-  }
+IndexRange Run::getBounds(const SplitNux* nux,
+			  PredictorT outSlot) const {
+  return runSet[nux->getSetIdx()].getBounds(outSlot);
+}
 
-  if (!leftExpl) { // Replay indices explicit on right.
-    for (auto outSlot = getRunsLH(); outSlot < getRunCount(); outSlot++) {
-      sumExpl += splitFrontier->blockReplay(iSet, getBounds(outSlot), false, replay, ctgCrit);
-    }
-  }
 
-  return sumExpl;
+PredictorT Run::getRunsLH(const SplitNux* nux) const {
+  return runSet[nux->getSetIdx()].getRunsLH();
+}
+
+
+PredictorT Run::getRunCount(const SplitNux* nux) const {
+  return runSet[nux->getSetIdx()].getRunCount();
+}
+
+
+void Run::lHBits(SplitNux* nux, PredictorT lhBits) {
+  IndexT lhExtent, lhSampCt, lhImplicit;
+  runSet[nux->getSetIdx()].lHBits(lhBits, lhExtent, lhSampCt, lhImplicit);
+  nux->writeFac(lhSampCt, lhExtent, lhImplicit);
+}
+
+
+void Run::lHSlots(SplitNux* nux, PredictorT cut) {
+  IndexT lhExtent, lhSampCt, lhImplicit;
+  runSet[nux->getSetIdx()].lHSlots(cut, lhExtent, lhSampCt, lhImplicit);
+  nux->writeFac(lhSampCt, lhExtent, lhImplicit);
+}
+
+
+void Run::appendSlot(SplitNux* nux) {
+  IndexT lhExtent, lhSampCt, lhImplicit;
+  runSet[nux->getSetIdx()].appendSlot(lhExtent, lhSampCt, lhImplicit);
+  nux->writeFac(lhSampCt, lhExtent, lhImplicit);
 }
 
 
@@ -185,7 +209,7 @@ void RunSet::reBase(vector<FRNode>& runBase,
                     vector<BHPair>& heapBase,
                     vector<unsigned int>& outBase,
                     vector<double>& ctgBase,
-                    unsigned int nCtg,
+                    PredictorT nCtg,
                     vector<double>& rvBase) {
   runZero = &runBase[runOff];
   heapZero = &heapBase[heapOff];
@@ -222,12 +246,12 @@ void RunSet::heapBinary() {
 }
 
 
-void RunSet::writeImplicit(const SplitNux* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
+void RunSet::appendImplicit(const SplitNux* cand, const SplitFrontier* sp,  const vector<double>& ctgSum) {
   IndexT implicit = cand->getImplicitCount();
   if (implicit == 0)
     return;
 
-  IndexT sCount = cand->getSCount();
+  IndexT sCount = cand->getSCountTrue();
   double sum = cand->getSum();
   setSumCtg(ctgSum);
 
@@ -237,46 +261,43 @@ void RunSet::writeImplicit(const SplitNux* cand, const SplitFrontier* sp,  const
     residCtg(ctgSum.size(), runIdx);
   }
 
-  write(sp->getDenseRank(cand), sCount, sum, implicit);
+  append(sp->getDenseRank(cand), sCount, sum, implicit);
 }
 
 
 void RunSet::setSumCtg(const vector<double>& ctgSum) {
-  for (unsigned int ctg = 0; ctg < ctgSum.size(); ctg++) {
+  for (PredictorT ctg = 0; ctg < ctgSum.size(); ctg++) {
     ctgZero[runCount * ctgSum.size() + ctg] = ctgSum[ctg];
   }
 }
 
 
-void RunSet::residCtg(unsigned int nCtg, unsigned int runIdx) {
+void RunSet::residCtg(PredictorT nCtg, PredictorT setIdx) {
   for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
-    ctgZero[runCount * nCtg + ctg] -= getSumCtg(runIdx, nCtg, ctg);
+    ctgZero[runCount * nCtg + ctg] -= getSumCtg(setIdx, nCtg, ctg);
   }
 }
   
 
-/**
-   @brief Implicit runs are characterized by a start value of 'noStart'.
-
-   @return Whether this run is dense.
- */
 bool FRNode::isImplicit() {
   return range.getStart() == RunSet::noStart;
 }
 
 
-bool RunSet::implicitLeft() const {
+IndexT RunSet::implicitLeft() const {
   if (!hasImplicit)
-    return false;
+    return 0;
 
-  for (unsigned int runIdx = 0; runIdx < runsLH; runIdx++) {
+  IndexT lhImplicit = 0;
+  for (PredictorT runIdx = 0; runIdx < runsLH; runIdx++) {
     unsigned int outSlot = outZero[runIdx];
     if (runZero[outSlot].isImplicit()) {
-      return true;
+      IndexT dummy;
+      lhImplicit += lHCounts(outZero[outSlot], dummy);
     }
   }
 
-  return false;
+  return lhImplicit;
 }
 
 
@@ -309,7 +330,7 @@ unsigned int RunSet::deWide(unsigned int nCtg) {
   // Overwrites existing runs with the shrunken list
   i = 0;
   for (auto tr : tempRun) {
-    for (unsigned int ctg = 0; ctg < nCtg; ctg++) {
+    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
       ctgZero[i * nCtg + ctg] = tempSum[i * nCtg + ctg];
     }
     runZero[i] = tr;
@@ -320,11 +341,11 @@ unsigned int RunSet::deWide(unsigned int nCtg) {
 }
 
 
-IndexT RunSet::lHBits(unsigned int lhBits, IndexT& lhSampCt) {
-  IndexT lhExtent = 0;
+void RunSet::lHBits(PredictorT lhBits, IndexT& lhExtent, IndexT& lhSampCt, IndexT& lhImplicit) {
+  lhExtent = 0;
+  lhSampCt = 0;
   unsigned int slotSup = effCount() - 1;
   runsLH = 0;
-  lhSampCt = 0;
   if (lhBits != 0) {
     for (unsigned int slot = 0; slot < slotSup; slot++) {
       // If bit # 'slot' set in 'lhBits', then the run at index
@@ -333,7 +354,7 @@ IndexT RunSet::lHBits(unsigned int lhBits, IndexT& lhSampCt) {
       // is recorded in the out-set.
       //
       if ((lhBits & (1ul << slot)) != 0) {
-        unsigned int sCount;
+        IndexT sCount;
         lhExtent += lHCounts(slot, sCount);
         lhSampCt += sCount;
         outZero[runsLH++] = slot;
@@ -341,7 +362,8 @@ IndexT RunSet::lHBits(unsigned int lhBits, IndexT& lhSampCt) {
     }
   }
 
-  if (implicitLeft()) {
+  lhImplicit = implicitLeft();
+  if (lhImplicit > 0) {
     unsigned int rhIdx = runsLH;
     for (PredictorT slot = 0; slot < effCount(); slot++) {
       if ((lhBits & (1ul << slot)) == 0) {
@@ -349,36 +371,53 @@ IndexT RunSet::lHBits(unsigned int lhBits, IndexT& lhSampCt) {
       }
     }
   }
-
-  return lhExtent;
 }
 
 
-unsigned int RunSet::lHSlots(unsigned int cut, unsigned int &lhSampCt) {
-  unsigned int lhExtent = 0;
+void RunSet::lHSlots(PredictorT cut, IndexT& lhExtent, IndexT& lhSampCt, IndexT& lhImplicit) {
+  lhExtent = 0;
   lhSampCt = 0;
+  lhImplicit = 0;
 
   // Accumulates LH statistics from leading cut + 1 run entries.
-  for (unsigned int outSlot = 0; outSlot <= cut; outSlot++) {
-    unsigned int sCount;
-    lhExtent += lHCounts(outZero[outSlot], sCount);
+  for (PredictorT outSlot = 0; outSlot <= cut; outSlot++) {
+    IndexT sCount, extent, impCount;
+    appendSlot(extent, sCount, impCount);
+    lhExtent += extent;
     lhSampCt += sCount;
+    lhImplicit += impCount;
   }
-
-  runsLH = cut + 1;
-  return lhExtent;  
 }
 
 
-void BHeap::insert(BHPair pairVec[], unsigned int _slot, double _key) {
-  unsigned int idx = _slot;
+void RunSet::appendSlot(IndexT& extent, IndexT& sCount, IndexT& implicitCount) {
+  extent = lHCounts(outZero[runsLH], sCount);
+  implicitCount = runZero[runsLH].isImplicit() ? extent : 0;
+  runsLH++;
+}
+
+
+IndexRange RunSet::getBounds(PredictorT outSlot) const {
+  PredictorT slot = outZero[outSlot];
+  return runZero[slot].getRange();
+}
+
+
+PredictorT RunSet::getRank(PredictorT outSlot) const {
+  PredictorT slot = outZero[outSlot];
+  return runZero[slot].getRank();
+}
+
+
+void BHeap::insert(BHPair pairVec[], unsigned int slot_, double key_) {
+  unsigned int idx = slot_;
   BHPair input;
-  input.key = _key;
-  input.slot = _slot;
+  input.key = key_;
+  input.slot = slot_;
   pairVec[idx] = input;
 
   int parIdx = parent(idx);
-  while (parIdx >= 0 && pairVec[parIdx].key > _key) {
+  while (parIdx >= 0 && pairVec[parIdx].key > key_) {
     pairVec[idx] = pairVec[parIdx];
     pairVec[parIdx] = input;
     idx = parIdx;
@@ -421,16 +460,4 @@ unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
   }
 
   return ret;
-}
-
-
-IndexRange RunSet::getBounds(unsigned int outSlot) const {
-  unsigned int slot = outZero[outSlot];
-  return runZero[slot].getRange();
-}
-
-
-unsigned int RunSet::getRank(unsigned int outSlot) const {
-  unsigned int slot = outZero[outSlot];
-  return runZero[slot].getRank();
 }

@@ -22,6 +22,8 @@
    @brief Split/predictor coordinate pair.
  */
 
+// Blunt assignment of inattainable predictor index.
+static constexpr PredictorT noPred = 0xffffffff;
 
 struct SplitCoord {
   IndexT nodeIdx;
@@ -35,9 +37,15 @@ struct SplitCoord {
 
   SplitCoord() :
   nodeIdx(0),
-    predIdx(0) {
+    predIdx(noPred) {
   }
 
+  /**
+     @brief Indicates whether coord has been initialized to an actual predictor.
+   */
+  inline bool noCoord() const {
+    return predIdx == noPred;
+  }
   
   /**
      @brief Computes node-major offset using passed stride value.

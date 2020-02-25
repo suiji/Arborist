@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2019   Mark Seligman
+# Copyright (C)  2012-2020   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -197,7 +197,7 @@
         stop("'predProb' value must lie in [0,1]")
     if (predFixed < 0 || predFixed > nPred)
         stop("'predFixed' must be positive integer <= predictor count")
-
+    
     # Normalizes vector of pointwise predictor probabilites.
     meanWeight <- ifelse(predProb == 0.0, 1.0, predProb)
     argList$probVec <- predWeight * (nPred * meanWeight) / sum(predWeight)

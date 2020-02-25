@@ -114,29 +114,6 @@ class ObsPart {
              SampleRank spn[],
              unsigned int smpIdx[]) const;
 
-
-  /**
-   @brief Looks up SampleRank block and dispatches appropriate replay method.
-
-   @param blockStart is the starting SampleRank index for the split.
-
-   @param blockExtent is the number of explicit such indices subsumed.
-
-   @param replayExpl sets bits corresponding to explicit indices defined
-   by the split.  Indices are either node- or subtree-relative, depending
-   on Bottom's current indexing mode.
-
-   @param ctgExpl summarizes explicit sum and sample count by category.
-
-   @return sum of explicit responses within the block.
-  */
-  double blockReplay(const class SplitFrontier* splitFrontier,
-                     const class IndexSet* iSet,
-                     const IndexRange& range,
-                     bool leftExpl,
-		     class Replay* replay,
-                     vector<SumCount>& ctgCrit) const;
-
   
   /**
      @brief Localizes copies of the paths to each index position.
@@ -203,6 +180,12 @@ class ObsPart {
                     unsigned int reachOffset[],
                     unsigned int splitOffset[]);
 
+  
+  /**
+     @brief Passes through to bufferOff() using definition coordinate.
+   */
+  IndexT* getBufferIndex(const class SplitNux* nux) const;
+  
 
   inline IndexT getBagCount() const {
     return bagCount;
@@ -282,9 +265,8 @@ class ObsPart {
 
   
 
-  inline IndexT* indexBuffer(const DefCoord& defCoord) {
-    IndexT offset = bufferOff(defCoord.splitCoord.predIdx, defCoord.bufIdx);
-    return indexBase + offset;
+  inline IndexT* indexBuffer(const DefCoord& defCoord) const {
+    return indexBase + bufferOff(defCoord.splitCoord.predIdx, defCoord.bufIdx);
   }
 
 
@@ -297,15 +279,6 @@ class ObsPart {
   }
 
 
-  /**
-     @brief As above, but outputs only the index base.
-
-     @return index base associated with the tree node.
-   */
-  IndexT* indexBuffer(const class SplitFrontier* splitFrontier,
-                         const class IndexSet* iSet);
-
-  
   /**
      @brief Allows lightweight lookup of predictor's SampleRank vector.
 

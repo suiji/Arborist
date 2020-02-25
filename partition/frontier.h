@@ -18,19 +18,47 @@
 #define PARTITION_FRONTIER_H
 
 #include "pretree.h"
+#include "indexset.h"
 #include "typeparam.h"
 
 #include <vector>
 
 
 /**
+   @brief Enumerates split characteristics over a trained frontier.
+ */
+struct SplitSurvey {
+  IndexT leafCount; // Number of terminals in this layer.
+  IndexT idxLive; // Extent of live buffer indices.
+  IndexT splitNext; // Number of splitable nodes in next layer.
+  IndexT idxMax; // Maximum index.
+
+  SplitSurvey() :
+    leafCount(0),
+    idxLive(0),
+    splitNext(0),
+    idxMax(0){
+  }
+
+
+  /**
+     brief Imputes the number of successor nodes, including pseudosplits.
+   */
+  IndexT succCount(IndexT splitCount) const {
+    IndexT leafNext = 2 * (splitCount - leafCount) - splitNext;
+    return splitNext + leafNext + leafCount;
+  }
+};
+
+
+/**
    @brief The index sets associated with nodes at a single subtree level.
  */
 class Frontier {
-  static unsigned int minNode;
   static unsigned int totLevels;
   vector<IndexSet> indexSet;
   const IndexT bagCount;
+  const PredictorT nCtg;
   unique_ptr<class DefMap> defMap;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   bool levelTerminal; // Whether this level must exit.
@@ -45,10 +73,14 @@ class Frontier {
   vector<IndexT> rel2PT; // Node-relative mapping to pretree index.
   vector<IndexT> st2Split; // Subtree-relative mapping to split index.
   vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
-  unique_ptr<class Replay> replay;
+  unique_ptr<class BranchSense> branchSense;
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
   
+  SplitSurvey surveyNodes(vector<IndexSet>& indexSet);
+
+  
+
   /**
      @brief Applies splitting results to new level.
 
@@ -56,13 +88,12 @@ class Frontier {
 
      @param levelTerminal_ indicates whether new level marked as final.
   */
-  vector<IndexSet> splitDispatch(class SplitFrontier* splitFrontier,
-                                 unsigned int level);
+  vector<IndexSet> splitDispatch(unsigned int level);
 
   /**
      @brief Establishes splitting parameters for next frontier level.
    */
-  void nextLevel(const struct SplitSurvey& survey);
+  SplitSurvey nextLevel();
   
 
   /**
@@ -78,7 +109,7 @@ class Frontier {
 
      Parameters as above.
    */
-  void reindex(const struct SplitSurvey& survey);
+  void reindex(const SplitSurvey& survey);
 
   
   /**
@@ -100,8 +131,7 @@ class Frontier {
 
      @param totLevels_ is the maximum number of levels to evaluate.
   */
-  static void immutables(unsigned int minNode_,
-                         unsigned int totLevels_);
+  static void immutables(unsigned int totLevels);
 
 
   /**
@@ -118,6 +148,7 @@ class Frontier {
 
   ~Frontier();
 
+  
   /**
     @brief Trains one tree.
 
@@ -140,64 +171,50 @@ class Frontier {
      Parameters as described above.
   */
   unique_ptr<class PreTree> levels(const class Sample* sample,
-                                   class SplitFrontier* splitFrontier);
+                                   const class SummaryFrame* frame);
   
-
-  /**
-     @brief Counts offspring of this node, assumed not to be a leaf.
-
-     @return count of offspring nodes.
-  */
-  unsigned int splitCensus(const IndexSet& iSet,
-                           struct SplitSurvey& survey);
-
-
-  /**
-     @brief Accumulates index parameters of successor level.
-
-     @param succExent is the index of extent of the putative successor set.
-
-     @param[out] idxMax outputs the maximum successor index.
-
-     @return count of splitable sets precipitated in next level:  0 or 1.
-  */
-  unsigned int splitAccum(IndexT succExtent,
-                          struct SplitSurvey& survey);
-
-
 
   /**
      @brief Builds index base offsets to mirror crescent pretree level.
 
      @param extent is the count of the index range.
 
-     @param ptId is the index of the corresponding pretree node.
-
      @param offOut outputs the node-relative starting index.  Should not
      exceed 'idxExtent', the live high watermark of the previous level.
 
-     @param terminal is true iff predecessor node is terminal.
+     @param terminal is true iff successor is known a priori to be terminal.
 
      @return successor index count.
   */
   IndexT idxSucc(IndexT extent,
-                       IndexT ptId,
-                       IndexT &outOff,
-                       bool terminal = false);
+                 IndexT &outOff,
+                 bool terminal = false);
 
+
+  IndexT getPTId(const SplitCoord& splitCoord) const {
+    return indexSet[splitCoord.nodeIdx].getPTId();
+  }
+  
 
   /**
      @brief PreTree pass-through to obtain successor index.
 
      @param ptId is the parent pretree index.
 
-     @param isLeft indicates the successor handedness.
+     @param senseTrue is true iff true branch sense requested.
 
      @return successor index.
    */
   IndexT getPTIdSucc(IndexT ptId,
-                     bool isLeft) const;
-  
+                     bool senseTrue) const;
+
+
+  /**
+     @brief Obtains pretree indices for true and false branch targets.
+   */
+  void getPTIdTF(IndexT ptId,
+                 IndexT& ptTrue,
+                 IndexT& ptFalse) const;
 
   /**
      @brief DefMap pass-through to register reaching path.
@@ -287,21 +304,6 @@ class Frontier {
    */
   IndexRange getBufRange(const DefCoord& preCand) const;
 
-  /**
-    @brief Invoked from the RHS or LHS of a split to determine whether the node persists to the next level.
-    
-    MUST guarantee that no zero-length "splits" have been introduced.
-    Not only are these nonsensical, but they are also dangerous, as they violate
-    various assumptions about the integrity of the intermediate respresentation.
-
-    @param extent is the count of indices subsumed by the node.
-
-    @return true iff the node subsumes more than minimal count of buffer elements.
-  */
-  inline bool isSplitable(IndexT extent) const {
-    return !levelTerminal && extent >= minNode;
-  }
-
 
   /**
      @brief Getter for # of distinct in-bag samples.
@@ -312,6 +314,10 @@ class Frontier {
     return bagCount;
   }
 
+
+  inline auto getNCtg() const {
+    return nCtg;
+  }
 
   /**
      @brief Accessor for count of splitable sets.
@@ -332,11 +338,21 @@ class Frontier {
   }
 
 
+  inline auto getSum(const SplitCoord& splitCoord) const {
+    return getSum(splitCoord.nodeIdx);
+  }
+
+
   /**
      @brief Accessor for count of sampled responses over set.
    */
   inline auto getSCount(IndexT splitIdx) const {
     return indexSet[splitIdx].getSCount();
+  }
+
+
+  inline auto getSCount(const SplitCoord& splitCoord) const {
+    return getSCount(splitCoord.nodeIdx);
   }
 
 

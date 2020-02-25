@@ -24,33 +24,6 @@
 #include <vector>
 
 /**
-   @brief Enumerates split characteristics over a trained frontier.
- */
-struct SplitSurvey {
-  IndexT leafCount; // Number of terminals in this layer.
-  IndexT idxLive; // Extent of live buffer indices.
-  IndexT splitNext; // Number of splitable nodes in next layer.
-  IndexT idxMax; // Maximum index.
-
-  SplitSurvey() :
-    leafCount(0),
-    idxLive(0),
-    splitNext(0),
-    idxMax(0){
-  }
-
-
-  /**
-     brief Imputes the number of successor nodes, including pseudosplits.
-   */
-  IndexT succCount(IndexT splitCount) const {
-    IndexT leafNext = 2 * (splitCount - leafCount) - splitNext;
-    return splitNext + leafNext + leafCount;
-  }
-};
-
-
-/**
    @brief Per-predictor splitting facilities.
  */
 // Currently implemented in four flavours depending on response type of node and data
@@ -59,9 +32,31 @@ struct SplitSurvey {
 class SplitFrontier {
   void setPrebias();
 
+  void consumeFrontier(class PreTree* pretree);
+
+  
+  void runReplay(class SplitNux* nux,
+		 class BranchSense* branchSense,
+		 vector<SumCount>& ctgCrit,
+		 bool exculsive = false) const;
+
+  void rangeReplay(class SplitNux* nux,
+		   const IndexRange& range,
+		   class BranchSense* branchSense,
+		   vector<SumCount>& ctgCrit) const;
+  /**
+     @brief As above, but does not assume observations have been restaged.
+
+     @param branchSense modified by exclusive or.
+   */
+  void rangeReplayExcl(class SplitNux* nux,
+		       class BranchSense* branchSense,
+		       vector<SumCount>& ctgCrit) const;
+  
+
+
+
 protected:
-  vector<unique_ptr<class SplitNux> > nuxMax; // Rewritten following each splitting event.
-  //  const class Cand* cand;
   const class SummaryFrame* frame;
   const class RankedFrame* rankedFrame;
   class Frontier* frontier;
@@ -117,6 +112,12 @@ protected:
   PredictorT getSetIdx(PredictorT rCount,
 		       vector<PredictorT>& runCount) const;
 
+  
+  /**
+     @brief Dispatches splitting criterion to pretree according to predictor type.
+   */
+  void consumeCriterion(class PreTree* pretree,
+			const class SplitNux* nux) const;
 
 
 public:
@@ -129,11 +130,6 @@ public:
   preschedule(const DefCoord& defCoord,
 	      vector<DefCoord>& preCand) const;
 
-  double blockReplay(class IndexSet* iSet,
-                     const IndexRange& range,
-                     bool leftExpl,
-		     class Replay* replay,
-                     vector<SumCount>& ctgCrit) const;
 
   /**
      @brief Passes ObsPart through to Sample method.
@@ -142,9 +138,23 @@ public:
 
 
   /**
+     @brief Replays true/false branch sense vector according to SplitNux contents.
+
+     @param exclusive is true iff branch sense to be exclusive-or'ed, otherwise or'ed.
+   */
+  void nuxReplay(class SplitNux* nux,
+		 class BranchSense* branchSense,
+		 vector<SumCount>& ctgCrit,
+		 bool exclusive = false) const;
+  
+
+  /**
      @brief Main entry from frontier loop.
    */
-  void restageAndSplit(class DefMap* defMap);
+  void restageAndSplit(vector<class IndexSet>& indexSet,
+		       class DefMap* defMap,
+		       class BranchSense* branchSense,
+		       class PreTree* pretree);
   
   /**
      @brief Passes through to ObsPart method.
@@ -154,19 +164,21 @@ public:
   }
 
   /**
-     @brief Passes through to RunSet method.
-
-     @param setIdx is the Runset index.
+     @brief Passes through to RunSet counterpart.
    */
-  IndexT lHBits(PredictorT setIdx,
-		PredictorT lhBits,
-		IndexT& lhSCount) const;
+  void lHBits(SplitNux* nux,
+	      PredictorT lhBits) const;
 
   
-  IndexT lHSlots(PredictorT setIdx,
-		 PredictorT cutSlot,
-		 IndexT& lhSCount) const;
-  
+  /**
+     @brief Passes through to RunSet counterpart.
+   */
+  void lHSlots(SplitNux* nux,
+	       PredictorT cutSlot) const;
+
+
+  void appendSlot(class SplitNux* nux) const;
+
   
   void restage(const class DefMap* defMap);
 
@@ -209,95 +221,9 @@ public:
   bool isFactor(const SplitCoord& splitCoord) const;
 
 
-  /**
-     @brief Collects nonterminal parameters from nux and passes to index set.
-
-     @param iSet is the index set absorbing the split parameters.
-   */
-  void consumeCriterion(class IndexSet* iSet) const;
-
-  void nonterminal(const class IndexSet* iSet,
-                   double& minInfo,
-                   IndexT& lhsCount,
-                   IndexT& lhExtent) const;
-  
-  /**
-     @brief Determines whether a potential split is sufficiently informative.
-
-     @param splitIdx is the split position.
-
-     @bool true iff threshold exceeded.
-   */
-  bool isInformative(const class IndexSet* iSet) const;
+  virtual void consumeNodes(PreTree* pretree) const = 0;
 
 
-  /**
-     @brief Gives the extent of one a split's descendants.
-
-     Which descendant must not be relevant to the caller.
-     
-     @param splitIdx is the split position.
-
-     @return descendant extent.
-   */
-  IndexT getLHExtent(const class IndexSet* iSet) const;
-
-  IndexT getPredIdx(const class IndexSet* iSet) const;
-
-  unsigned int getBufIdx(const class IndexSet* iSet) const;
-
-  DefCoord getDefCoord(const class IndexSet* iSet) const;
-  
-  
-  PredictorT getCardinality(const class IndexSet* iSet) const;
-
-  
-  double getInfo(const class IndexSet* iSet) const;
-
-  IndexRange getExplicitRange(const class IndexSet* iSet) const;
-
-  double getQuantRank(const class IndexSet* iSet) const;
-
-  bool leftIsExplicit(const class IndexSet* iSet) const;
-
-  IndexT getSetIdx(const class IndexSet* iSet) const;
-
-
-  SplitSurvey consume(class PreTree* pretree,
-                      vector<class IndexSet>& indexSet,
-                      class Replay* replay);
-
-  
-  void consume(class PreTree* pretree,
-               class IndexSet& iSet,
-               class Replay* replay,
-               SplitSurvey& survey) const;
-
-  
-  /**
-     @brief Passes through to run member.
-
-     @return true iff split is left-explicit
-   */
-  void branch(class PreTree* pretree,
-              class IndexSet* iSet,
-	      class Replay* replay) const;
-
-
-  /**
-     @brief Replays run-based criterion and updates pretree.
-   */
-  void critRun(class PreTree* pretree,
-               class IndexSet* iSet,
-	       class Replay* replay) const;
-
-  /**
-     @brief Replays cut-based criterion and updates pretree.
-   */
-  void critCut(class PreTree* pretree,
-               class IndexSet* iSet,
-	       class Replay* replay) const;
-  
   /**
      @brief Getter for pre-bias value, by index.
 
@@ -318,6 +244,9 @@ public:
   inline IndexT getNSplit() const {
     return nSplit;
   }
+
+
+  IndexT getPTId(const SplitCoord& splitCoord) const;
 
 
   /**
@@ -346,28 +275,33 @@ public:
   */
   IndexRange getBufRange(const DefCoord& preCand) const; 
 
+
+  /**
+     @brief Passes through to ObsPart method.
+   */
+  IndexT* getBufferIndex(const class SplitNux* nux) const;
+  
+  
   /**
    */
-  class RunSet *rSet(unsigned int setIdx) const;
+  class RunSet* getRunSet(PredictorT setIdx) const;
 
+
+  IndexRange getRunBounds(const class SplitNux* nux,
+			  PredictorT slot) const;
+  
   /**
      @brief Initializes state associated with current layer.
    */
-  void init();
+  void init(class BranchSense* branchSense);
 
-  vector<unique_ptr<class SplitNux> >
-  maxCandidates(const vector<class SplitNux>& sc);
   
-  unique_ptr<class SplitNux>
-  maxSplit(const vector<class SplitNux>& sc,
-			  IndexT splitOff,
-                          IndexT nSplitFrontier) const;
-
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
-  virtual void
-  split(vector<class SplitNux>& sc) = 0;
+  virtual void split(vector<class IndexSet>& indexSet,
+		     vector<class SplitNux>& sc,
+		     class BranchSense* branchSense) = 0;
 
 
   /**
@@ -379,13 +313,16 @@ public:
   void setCandOff(const vector<PredictorT>& ncand);
   
   virtual ~SplitFrontier();
-  virtual void setRunOffsets(const vector<PredictorT>& safeCounts) = 0;
+
   virtual void layerPreset() = 0;
 
   virtual void setPrebias(IndexT splitIdx,
                           double sum,
                           IndexT sCount) = 0;
 
+  /**
+     @brief Clears per-frontier vectors.
+   */
   virtual void clear();
 };
 

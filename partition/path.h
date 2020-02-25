@@ -240,6 +240,14 @@ class IdxPath {
   inline static unsigned int pathNext(unsigned int pathPrev, bool isLeft) {
     return maskLive & ((pathPrev << 1) | (isLeft ? 0 : 1));
   }
+
+
+  inline static void pathLR(unsigned int pathPrev,
+                            PathT& pathL,
+                            PathT& pathR) {
+    pathL = maskLive & (pathPrev << 1);
+    pathR = maskLive & ((pathPrev << 1) | 1);
+  }
   
 
   /**
