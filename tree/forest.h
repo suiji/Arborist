@@ -41,7 +41,7 @@ class Forest {
   Forest(const IndexT height_[],
          unsigned int _nTree,
          const DecNode _treeNode[],
-         PredictorT facVec[],
+         unsigned int facVec[],
          const IndexT facHeight[]);
 
   ~Forest();

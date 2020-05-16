@@ -157,8 +157,7 @@ class DenseCoord {
 
  public:
 
-  inline IndexT
-  getImplicit() const {
+  inline IndexT getImplicit() const {
     return implicit;
   }
 
@@ -170,8 +169,7 @@ class DenseCoord {
 
      @return count of implicit indices, i.e., size of dense blob..
    */
-  inline void
-  adjustRange(IndexRange& idxRange) const {
+  inline void adjustRange(IndexRange& idxRange) const {
     idxRange.adjust(margin, implicit);
   }
 
@@ -181,9 +179,8 @@ class DenseCoord {
 
      @return void.
    */
-  inline void
-  init(IndexT implicit,
-       IndexT margin = 0) {
+  inline void init(IndexT implicit,
+		   IndexT margin = 0) {
     this->implicit = implicit;
     this->margin = margin;
   }

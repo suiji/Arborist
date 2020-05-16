@@ -51,15 +51,13 @@ struct Crit {
   PredictorT predIdx;
 
   
-  void critCut(const SplitNux* nux) {
-    predIdx = nux->getPredIdx();
-    val.setNum(nux->getQuantRank());
-  }
+  void critCut(const SplitNux* nux,
+	       const SplitFrontier* splitFrontier);
 
 
   void critBits(const SplitNux* nux,
 		size_t bitPos) {
-    this->predIdx = nux->getPredIdx(),
+    predIdx = nux->getPredIdx(),
     val.setOffset(bitPos);
   }
   

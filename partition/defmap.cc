@@ -80,10 +80,9 @@ DefMap::factorStride(const SplitCoord& splitCoord,
 }
 
 
-unsigned int
-DefMap::preschedule(SplitFrontier* splitFrontier,
-		    const SplitCoord& splitCoord,
-		    vector<DefCoord>& preCand) const {
+unsigned int DefMap::preschedule(SplitFrontier* splitFrontier,
+				 const SplitCoord& splitCoord,
+				 vector<DefCoord>& preCand) const {
   reachFlush(splitFrontier, splitCoord);
   DefCoord defCoord(splitCoord, 0); // Dummy initialization.
   if (!isSingleton(splitCoord, defCoord)) {
@@ -96,8 +95,14 @@ DefMap::preschedule(SplitFrontier* splitFrontier,
 }
 
 
-bool
-DefMap::isSingleton(const DefCoord& defCoord) const {
+bool DefMap::isSingleton(const DefCoord& defCoord) const {
+  return layer[0]->isSingleton(defCoord.splitCoord);
+}
+
+
+bool DefMap::isSingleton(const DefCoord& defCoord,
+			 PredictorT& runCount) const {
+  runCount = getRunCount(defCoord);
   return layer[0]->isSingleton(defCoord.splitCoord);
 }
 
@@ -115,9 +120,8 @@ DefMap::getImplicitCount(const DefCoord& preCand) const {
 }
 
 
-IndexRange
-DefMap::adjustRange(const DefCoord& preCand,
-		    const SplitFrontier* splitFrontier) const {
+IndexRange DefMap::adjustRange(const DefCoord& preCand,
+			       const SplitFrontier* splitFrontier) const {
   return layer[0]->adjustRange(preCand, splitFrontier);
 }
 

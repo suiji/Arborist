@@ -20,6 +20,7 @@
 #include "frontier.h"
 #include "splitnux.h"
 #include "path.h"
+#include "branchsense.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -60,6 +61,13 @@ ObsPart::~ObsPart() {
 IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
   return bufferIndex(nux->getDefCoord());
 }
+
+
+SampleRank* ObsPart::getBuffers(const class SplitNux* nux, IndexT*& sIdx) const {
+  return buffers(nux->getDefCoord(), sIdx);
+}
+
+  
 
 
 vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
@@ -150,6 +158,69 @@ void ObsPart::prepath(const IdxPath *idxPath,
 }
 
 
+void ObsPart::branchUpdate(const SplitNux* nux,
+			   const vector<IndexRange>& range,
+			   BranchSense* branchSense,
+			   CritEncoding& enc) const {
+  for (auto rg : range) {
+    branchUpdate(nux, rg, branchSense, enc);
+  }
+}
+
+
+void ObsPart::branchUpdate(const SplitNux* nux,
+			   const IndexRange& range,
+			   BranchSense* branchSense,
+			   CritEncoding& enc) const {
+  enc.increment ? branchSet(nux, range, branchSense, enc) : branchUnset(nux, range, branchSense, enc);
+}
+
+
+void ObsPart::branchSet(const SplitNux* nux,
+			const IndexRange& range,
+			BranchSense* branchSense,
+			CritEncoding& enc) const {
+  IndexT* sIdx;
+  SampleRank* spn = getBuffers(nux, sIdx);
+  if (enc.exclusive) {
+    for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
+      if (branchSense->setExclusive(sIdx[opIdx], enc.trueEncoding())) {
+	spn[opIdx].encode(enc);
+      }
+    }
+  }
+  else {
+    for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
+      branchSense->set(sIdx[opIdx], enc.trueEncoding());
+      spn[opIdx].encode(enc);
+    }
+  }
+}
+
+
+void ObsPart::branchUnset(const SplitNux* nux,
+			   const IndexRange& range,
+			   BranchSense* branchSense,
+			   CritEncoding& enc) const {
+  IndexT* sIdx;
+  SampleRank* spn = getBuffers(nux, sIdx);
+  if (enc.exclusive) {
+    for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
+      if (branchSense->isExplicit(sIdx[opIdx])) {
+	branchSense->unset(sIdx[opIdx], enc.trueEncoding());
+	spn[opIdx].encode(enc);
+      }
+    }
+  }
+  else {
+    for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
+      branchSense->unset(sIdx[opIdx], enc.trueEncoding());
+      spn[opIdx].encode(enc);
+    }
+  }
+}
+
+
 void ObsPart::rankRestage(const DefCoord& mrra,
                           const IndexRange& idxRange,
                           unsigned int reachOffset[],
@@ -160,7 +231,7 @@ void ObsPart::rankRestage(const DefCoord& mrra,
   buffers(mrra, source, idxSource, targ, idxTarg);
 
   PathT *pathBlock = &pathIdx[getStageOffset(mrra.splitCoord.predIdx)];
-  for (IndexT idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
+  for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
       SampleRank spNode = source[idx];
@@ -186,7 +257,7 @@ void ObsPart::indexRestage(const IdxPath *idxPath,
   unsigned int *idxSource, *idxTarg;
   indexBuffers(mrra, idxSource, idxTarg);
 
-  for (IndexT idx = idxRange.idxLow; idx < idxRange.getEnd(); idx++) {
+  for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
     IndexT sIdx = idxSource[idx];
     PathT path = idxPath->update(sIdx, pathMask, reachBase, idxUpdate);
     if (NodePath::isActive(path)) {

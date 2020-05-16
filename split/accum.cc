@@ -1,5 +1,3 @@
-// This file is part of ArboristCore.
-
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -8,58 +6,55 @@
 /**
    @file accum.cc
 
-   @brief Base class for splitting workspace.
+   @brief Methods implementing a generic split accumulator.
 
    @author Mark Seligman
+
  */
 
-#include "splitnux.h"
 #include "accum.h"
 #include "splitfrontier.h"
-#include "obspart.h"
-#include "residual.h"
+#include "splitnux.h"
+#include "branchsense.h"
 
 
-Accum::Accum(const SplitNux* cand,
-             const SplitFrontier* splitFrontier_) :
-  splitFrontier(splitFrontier_),
-  sCount(cand->getSCount()),
-  sum(cand->getSum()),
+Accum::Accum(const SplitFrontier* splitFrontier,
+	     const SplitNux* cand) :
+  sampleRank(splitFrontier->getPredBase(cand)),
+  sampleIndex(splitFrontier->getBufferIndex(cand)),
   rankDense(splitFrontier->getDenseRank(cand)),
-  sCountL(sCount),
-  sumL(sum),
-  cutDense(cand->getIdxEnd() + 1),
+  sumCand(cand->getSum()),
+  sCountCand(cand->getSCount()),
   info(cand->getInfo()) {
 }
 
 
-IndexT Accum::lhImplicit(const SplitNux* cand) const {
-  return rankDense <= rankLH ? cand->getImplicitCount() : 0;
-}
-
-
-unique_ptr<Residual> Accum::makeResidual(const SplitNux* cand,
-					 const SampleRank spn[]) {
-  if (cand->getImplicitCount() == 0) {
-    return make_unique<Residual>();
-  }
-
-  double sumExpl = 0.0;
-  IndexT sCountExpl = 0;
-  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
-    IndexT rkThis = spn[idx].regFields(ySumThis, sCountThis);
-    if (rkThis > rankDense) {
-      cutDense = idx;
+bool Accum::findEdge(const SplitNux* cand,
+		     const BranchSense* branchSense,
+		     bool leftward,
+		     IndexT idxTerm,
+		     bool sense,
+		     IndexT& edge) const {
+  // Breaks out and returns true iff matching-sense sample found.
+  if (leftward) { // Decrement to start.
+    for (edge = idxTerm; edge > cand->getIdxStart(); edge--) {
+      if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
+	return true;
+      }
     }
-    sCountExpl += sCountThis;
-    sumExpl += ySumThis;
+    if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
+      return true;
+    }
   }
-  
-  return make_unique<Residual>(sum - sumExpl, sCount - sCountExpl);
+  else { // Increment to end.
+    for (edge = idxTerm; edge <= cand->getIdxEnd(); edge++) {
+      if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
+	return true;
+      }
+    }
+  }
+
+  return false; // No match.
 }
 
 
-double Accum::interpolateRank(double splitQuant) const {
-  IndexRange range(rankLH, rankRH - rankLH);
-  return range.interpolate(splitQuant);
-}

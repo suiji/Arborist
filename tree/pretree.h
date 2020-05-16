@@ -83,8 +83,9 @@ public:
   }
 
   
-  void critCut(const class SplitNux* nux) {
-    decNode.critCut(nux);
+  void critCut(const class SplitNux* nux,
+	       const class SplitFrontier* splitFrontier) {
+    decNode.critCut(nux, splitFrontier);
   }
 
 
@@ -218,7 +219,8 @@ class PreTree {
      
      @param nux summarizes the the cut.
   */
-  void critCut(const class SplitNux* nux);
+  void critCut(const class SplitNux* nux,
+	       const class SplitFrontier* splitFrontier);
 
   
   /**

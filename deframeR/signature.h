@@ -70,24 +70,34 @@ struct Signature {
    */
   static void unwrapExport(const List& sTrain,
                            IntegerVector& predMap,
-                           List& level);
+                           List& level,
+			   List& factor);
 
   /**
      @brief Unwraps level field.
 
-     @param[out] level outputs the training factor levels.
+     @param[out] level outputs the training factor levels, regardless of realization.
 
      @return List of level CharacterVectors for each categorical predictor. 
    */
   static List unwrapLevel(const List& sTrain);
 
 
+  /**
+     @brief Unwraps factor field.
+
+     @param[out] level outputs the realized training factor encodings.
+
+     @return List of realized factors for each categorical predictor. 
+   */
+  static List unwrapFactor(const List& sTrain);
+
 
   static SEXP wrapSignature(const IntegerVector& predMap,
-                 const List& level,
-                 const CharacterVector& colNames,
-                 const CharacterVector& rowNames);
-
+			    const List& level,
+			    const List& factor,
+			    const CharacterVector& colNames,
+			    const CharacterVector& rowNames);
 };
 
 

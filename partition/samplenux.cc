@@ -18,7 +18,7 @@
 
 #include "samplenux.h"
 #include "sumcount.h"
-#include "splitnux.h"
+#include "splitfrontier.h"
 
 unsigned int SampleNux::nCtg = 0;
 unsigned int SampleNux::ctgShift = 0;
@@ -42,9 +42,6 @@ void SampleNux::deImmutables() {
 }
 
 
-void SampleRank::accum(SplitNux* nux, vector<SumCount>& ctgExpl) const {
-  nux->encAccum(ySum, getSCount());
-  if (!ctgExpl.empty()) {
-    ctgExpl[getCtg()] += SumCount(ySum, getSCount());
-  }
+void SampleRank::encode(CritEncoding& enc) const {
+  enc.accum(ySum, getSCount(), getCtg());
 }

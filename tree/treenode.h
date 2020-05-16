@@ -71,8 +71,9 @@ public:
   }
 
 
-  inline void critCut(const SplitNux* nux) {
-    criterion.critCut(nux);
+  inline void critCut(const SplitNux* nux,
+		      const class SplitFrontier* splitFrontier) {
+    criterion.critCut(nux, splitFrontier);
   }
 
 

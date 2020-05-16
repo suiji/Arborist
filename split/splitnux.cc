@@ -13,11 +13,13 @@
    @author Mark Seligman
  */
 
-#include "accum.h"
+#include "cutaccum.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "summaryframe.h"
 #include "branchsense.h"
+#include "indexset.h"
+#include "defmap.h"
 
 
 double SplitNux::minRatio = minRatioDefault;
@@ -42,86 +44,72 @@ void SplitNux::deImmutables() {
 
 SplitNux::SplitNux(const DefCoord& preCand,
 		   const SplitFrontier* splitFrontier,
-		   PredictorT setIdx_,
-		   IndexRange range,
-		   IndexT implicitCount) :
+		   const DefMap* defMap,
+		   PredictorT runCount) :
   splitCoord(preCand.splitCoord),
-  idxRange(range),
-  setIdx(setIdx_),
+  idxRange(defMap->adjustRange(preCand, splitFrontier)),
   sum(splitFrontier->getSum(splitCoord)),
   sCount(splitFrontier->getSCount(splitCoord)),
   bufIdx(preCand.bufIdx),
-  encTrue(true),
-  implicitTrue(implicitCount),
+  implicitCount(defMap->getImplicitCount(preCand)),
   ptId(splitFrontier->getPTId(splitCoord)),
   info(splitFrontier->getPrebias(splitCoord)) {
-  enc.init();
+  accumIdx = splitFrontier->addAccumulator(this, runCount);
 }
 
 
-bool SplitNux::infoGain(const SplitFrontier* splitFrontier) {
-  info -= splitFrontier->getPrebias(splitCoord);
-  return info > 0.0;
+SplitNux::SplitNux(const SplitNux& parent,
+		   const class IndexSet* iSet,
+		   bool sense,
+		   IndexT idx) :
+    splitCoord(parent.splitCoord),
+    idxRange(parent.idxRange),
+    accumIdx(parent.accumIdx),
+    sum(iSet->getSumSucc(sense)),
+    sCount(iSet->getSCountSucc(sense)),
+    bufIdx(parent.bufIdx),
+    implicitCount(parent.implicitCount),
+    ptId(parent.ptId + idx) {
 }
 
 
-void SplitNux::writeBits(const SplitFrontier* splitFrontier,
-			 PredictorT lhBits) {
-  if (infoGain(splitFrontier)) {
-    splitFrontier->lHBits(this, lhBits);
-  }
+void SplitNux::infoGain(const SplitFrontier* sf) {
+  info -= sf->getPrebias(splitCoord);
 }
 
 
-void SplitNux::writeSlots(const SplitFrontier* splitFrontier,
-                          PredictorT cutSlot) {
-  if (infoGain(splitFrontier)) {
-    splitFrontier->lHSlots(this, cutSlot);
-  }
+void SplitNux::infoGain(const CutAccum* accum) {
+  info = accum->info - info;
 }
 
 
-void SplitNux::appendSlot(const SplitFrontier* splitFrontier) {
-  if (infoGain(splitFrontier)) {
-    splitFrontier->appendSlot(this);
-  }
-}			  
-
-
-void SplitNux::writeNum(const SplitFrontier* sf,
-			const Accum* accum) {
+void SplitNux::infoGain(const SplitFrontier* sf,
+			const CutAccum* accum) {
   info = accum->info;
-  if (infoGain(sf)) {
-    quantRank = accum->interpolateRank(splitQuant[splitCoord.predIdx]);
-    implicitTrue = accum->lhImplicit(this);
-    encTrue = implicitTrue == 0;
-    cutExtent = implicitTrue + (accum->rhMin - idxRange.getStart());
-  }
+  info -= sf->getPrebias(splitCoord);
 }
 
 
-void SplitNux::writeNum(const Accum* accum,
-			bool cutLeft,
-                        bool encTrue) {
-  info = accum->info;
-  if (info > 0.0) {
-    this->cutLeft = cutLeft;
-    this->encTrue = encTrue;
-    quantRank = accum->interpolateRank(splitQuant[splitCoord.predIdx]);
-    implicitTrue = accum->lhImplicit(this);
-    cutExtent = implicitTrue + (accum->rhMin - idxRange.getStart());
-  }
+IndexRange SplitNux::cutRange(const CutSet* cutSet, bool leftRange) const {
+  return leftRange ? cutRangeLeft(cutSet) : cutRangeRight(cutSet);
 }
 
 
-void SplitNux::writeFac(IndexT sCountTrue,
-			IndexT cutExtent,
-			IndexT implicitTrue) {
-  this->cutExtent = cutExtent,
-  this->implicitTrue = implicitTrue;
-  encTrue = implicitTrue == 0;
+IndexRange SplitNux::cutRangeLeft(const CutSet* cutSet) const {
+  return IndexRange(idxRange.getStart(), cutSet->getIdxLeft(this) - idxRange.getStart() + 1);
 }
-			 
+
+
+IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
+  IndexT idxRight = cutSet->getIdxRight(this);
+  return IndexRange(idxRight, idxRange.getExtent() - (idxRight - idxRange.getStart()));
+}
+
+
+bool SplitNux::isFactor(const SummaryFrame* frame) const {
+  return frame->isFactor(splitCoord.predIdx);
+}
+
 
 PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
   return frame->getCardinality(splitCoord.predIdx);

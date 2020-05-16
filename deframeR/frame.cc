@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of framemapR
 //
@@ -72,7 +72,8 @@ RcppExport SEXP WrapFrame(SEXP sX,
                           SEXP sXFac,
                           SEXP sPredMap,
                           SEXP sFacCard,
-                          SEXP sLevel) {
+                          SEXP sLevel,
+			  SEXP sFactor) {
   BEGIN_RCPP
 
   NumericMatrix xNum(sXNum);
@@ -90,9 +91,10 @@ RcppExport SEXP WrapFrame(SEXP sX,
                                 _["nRow"] = x.nrow(),
                                 _["facCard"] = facCard,
             _["signature"] = move(Signature::wrapSignature(predMap,
-                                                            as<List>(sLevel),
-                                                            Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
-                                                            Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
+							   as<List>(sLevel),
+							   as<List>(sFactor),
+							   Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
+							   Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
                                 );
   frame.attr("class") = "Frame";
 
@@ -115,6 +117,7 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["signature"] = move(Signature::wrapSignature(
                                         seq_len(blockNum.ncol()) - 1,
                                         List::create(0),
+					List::create(0),
                                         Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
                                         Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum)))
                                 );
@@ -205,6 +208,7 @@ RcppExport SEXP FrameSparse(SEXP sX) {
         _["facCard"] = facCard,
         _["signature"] = move(Signature::wrapSignature(seq_len(nPred) - 1,
                                         List::create(0),
+						       List::create(0),
                                         colName,
                                         rowName))
                                 );

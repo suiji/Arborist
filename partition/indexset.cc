@@ -16,6 +16,7 @@
 #include "indexset.h"
 #include "sample.h"
 #include "splitnux.h"
+#include "splitfrontier.h"
 #include "frontier.h"
 #include "path.h"
 
@@ -183,36 +184,37 @@ vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
 }
 
 
-void IndexSet::true2True(const SplitNux* nux,
-			 vector<SumCount>& ctgExpl) {
-  doesSplit = true;
-  trueEncoding = nux->trueEncoding(); // Final state is most recent update.
-  minInfo = nux->getMinInfo(); // REVISE as update
-  sCountTrue += nux->getSCountTrue();
-  extentTrue += nux->getExtentTrue();
-  sumTrue += nux->getSumTrue();
-  SumCount::incr(ctgTrue, trueEncoding ? ctgExpl : SumCount::minus(ctgSum, ctgExpl));
+void IndexSet::updateTrue(const SplitFrontier* splitFrontier,
+			 const SplitNux* nux,
+			  const CritEncoding& enc) {
+  encodeUpdate(splitFrontier, nux, enc);
+  enc.accumTrue(nux, sCountTrue, sumTrue, extentTrue);
 }
 
 
-void IndexSet::encoded2True(const SplitNux* nux,
-				vector<SumCount>& ctgExpl) {
-  doesSplit = true;
-  trueEncoding = nux->trueEncoding(); // Final state is most recent update.
-  minInfo = nux->getMinInfo(); // REVISE as update
-  sCountTrue += nux->getEncodedSCount();
-  extentTrue += nux->getEncodedExtent();
-  sumTrue += nux->getEncodedSum();
-  SumCount::incr(ctgTrue, trueEncoding ? ctgExpl : SumCount::minus(ctgSum, ctgExpl));
+void IndexSet::updateDirect(const SplitFrontier* splitFrontier,
+			    const SplitNux& nux,
+			    const CritEncoding& enc) {
+  encodeUpdate(splitFrontier, &nux, enc);
+  enc.accumDirect(sCountTrue, sumTrue, extentTrue);
 }
 
 
-void IndexSet::surveySplit(bool levelTerminal,
-			   SplitSurvey& survey) const {
+void IndexSet::encodeUpdate(const SplitFrontier* splitFrontier,
+			    const SplitNux* nux,
+			    const CritEncoding& enc) {
+  doesSplit = true;
+  trueEncoding = enc.trueEncoding(); // Final state is most recent update.
+  minInfo = nux->getMinInfo(); // REVISE as update
+  SumCount::incr(ctgTrue, trueEncoding ? enc.scCtg : SumCount::minus(ctgSum, enc.scCtg));
+}
+
+
+void IndexSet::surveySplit(SplitSurvey& survey) const {
   if (isTerminal()) {
     survey.leafCount++;
   }
-  else if (!levelTerminal) {
+  else {
     survey.splitNext += splitCensus(survey);
   }
 }

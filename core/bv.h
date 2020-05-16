@@ -52,6 +52,15 @@ class BV {
     }
   }
 
+  inline vector<RawT> dumpVec(size_t base, size_t extent) const {
+    vector<RawT> outVec(extent);
+    IndexT idx = 0;
+    for (auto & cell : outVec) {
+      cell = raw[base + idx++];
+    }
+    return outVec;
+  }
+
 
   /**
      @brief Determines whether container is empty.
@@ -342,10 +351,12 @@ class BVJagged : public BV {
   /**
      @brief Dumps each row into a separate vector.
    */
-  void dump(vector<vector<unsigned int> > &outVec);
+  vector<vector<RawT>> dump() const;
 
-
-  vector<unsigned int> rowDump(size_t rowIdx) const;
+  /**
+     @brief Outputs a row of bits as a packed integer vector.
+   */
+  vector<RawT> rowDumpRaw(size_t rowIdx) const;
   
   /**
      @brief Bit test for jagged matrix.

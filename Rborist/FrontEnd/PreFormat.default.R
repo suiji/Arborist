@@ -69,14 +69,15 @@ PredFrame <- function(x, sigTrain = NULL) {
       if (ncol(xNum) + ncol(xFac) != ncol(dt)) {
           stop("Frame column with unsupported data type")
       }
-      lv <- sapply(dt, levels)
+      lv <- sapply(dt, levels) # All string levels, regardless whether realized.
+      codes <- sapply(dt, factor) # Realized levels only.
       colCard <- sapply(dt, function(col) ifelse(is.numeric(col), 0, length(levels(col))))
       predMap <- c(which(colCard == 0), which(colCard != 0)) - 1
       if (!is.null(sigTrain) && any(colCard != 0)) {
           xFac <- tryCatch(.Call("FrameReconcile", xFac, predMap, lv[colCard != 0], sigTrain), error = function(e) {stop(e)} )
       }      
 
-      return(tryCatch(.Call("WrapFrame", dt, xNum, xFac, predMap, colCard[colCard != 0], lv[colCard != 0]), error = function(e) {stop(e)} ))
+      return(tryCatch(.Call("WrapFrame", dt, xNum, xFac, predMap, colCard[colCard != 0], lv[colCard != 0], codes[colCard != 0]), error = function(e) {stop(e)} ))
   }
   else if (inherits(x, "dgCMatrix")) {
      return(tryCatch(.Call("FrameSparse", x), error= print))

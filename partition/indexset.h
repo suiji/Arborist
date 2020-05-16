@@ -91,6 +91,17 @@ class IndexSet {
     succTrue = succFalse = offTrue = offFalse = inatt;
   }
   
+
+  /**
+     @brief Updates members associated with split encoding.
+
+     @param nux holds encoding and information values.
+   */
+  void encodeUpdate(const class SplitFrontier* splitFrontier,
+		    const class SplitNux* nux,
+		    const class CritEncoding& enc);
+
+  
   /**
      @brief Initializes index set as a successor node.
   */
@@ -159,36 +170,35 @@ class IndexSet {
 
 
   /**
-     @brief Revises true branch state from nux's true state.
+     @brief Updates true branch state from nux's true state.
 
      @param nux encapsulates the splitting description.
 
-     @param ctgExpl are the explicit per-category sums and counts.
+     @param accum is true iff accumulating state, else decrementing.
    */
-  void true2True(const class SplitNux* nux,
-		 vector<SumCount>& ctgExpl);
+  void updateTrue(const class SplitFrontier* splitFrontier,
+		  const class SplitNux* nux,
+		  const class CritEncoding& enc);
   
 
   /**
-     @brief As above, but revises true branch state from nux's encoded state.
+     @brief As above, but update true branch state from nux's encoded state.
    */
-  void encoded2True(const class SplitNux* nux,
-		    vector<SumCount>& ctgExpl);
+  void updateDirect(const class SplitFrontier* splitFrontier,
+		    const class SplitNux& nux,
+		    const class CritEncoding& enc);
 
 
   /**
      @brief Accumulates leaf and split counts.
 
-     @param levelTerminal indicates whether the current level is terminal.
-
      @param[in, out] survey accumulates the census.
    */
-  void surveySplit(bool levelTerminal,
-		   struct SplitSurvey& survey) const;
-  
-  bool isInformative(const SplitNux* nux) const;
+  void surveySplit(struct SplitSurvey& survey) const;
   
 
+  bool isInformative(const SplitNux* nux) const;
+  
 
   /**
      @brief Dispatches according to terminal/nonterminal state.
@@ -230,6 +240,12 @@ class IndexSet {
     else {
       falseExtinct = true;
     }
+  }
+
+
+  void setExtinct() {
+    setExtinct(true);
+    setExtinct(false);
   }
 
 

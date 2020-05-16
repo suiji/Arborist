@@ -20,14 +20,13 @@
 
 vector<DefCoord>
 Cand::precandidates(SplitFrontier* splitFrontier,
-			const DefMap* bottom) {
+		    const DefMap* defMap) {
   // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-
   vector<DefCoord> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {
     if (!splitFrontier->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
-	(void) bottom->preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), preCand);
+	(void) defMap->preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), preCand);
       }
     }
   }

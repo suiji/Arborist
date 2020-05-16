@@ -115,21 +115,21 @@ class DefMap {
   
   /**
      @brief Flushes reaching definition and preschedules.
-
-     @return 1 iff not singleton else 0.
   */
-  unsigned int 
-  preschedule(class SplitFrontier* splitFrontier,
-	      const SplitCoord& splitCoord,
-	      vector<struct DefCoord>& preCand) const;
-
+  unsigned int preschedule(class SplitFrontier* splitFrontier,
+			   const SplitCoord& splitCoord,
+			   vector<struct DefCoord>& preCand) const;
   
   /**
      @brief Passes through to front layer.
    */
-  bool
-  isSingleton(const DefCoord& defCoord) const;
+  bool isSingleton(const DefCoord& defCoord) const;
 
+
+  
+  bool isSingleton(const DefCoord& defCoord,
+		   PredictorT& runCount) const;
+  
 
   bool
   isSingleton(const SplitCoord& splitCoord,
@@ -387,7 +387,7 @@ class DefMap {
 
   
   /**
-     @brief Determines run count currently associated with a predictor.
+     @brief Determines run count currently associated with a split coordinate.
    */
   inline PredictorT getRunCount(const DefCoord& defCoord) const {
     IndexT facStride;

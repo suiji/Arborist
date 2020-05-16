@@ -40,31 +40,44 @@ typedef unsigned int PredictorT;
 
 // Low/extent pair definining range of indices.
 struct IndexRange {
-  IndexT idxLow;
+  IndexT idxStart;
   IndexT idxExtent;
 
 
   IndexRange() :
-    idxLow(0),
+    idxStart(0),
     idxExtent(0) {
   }
 
-  IndexRange(IndexT idxLow_,
+  IndexRange(IndexT idxStart_,
 	     IndexT idxExtent_) :
-    idxLow(idxLow_),
+    idxStart(idxStart_),
     idxExtent(idxExtent_) {
   }
 
 
+  /**
+     @brief Tests for uninitialized range.
+
+     @return true iff extent has value zero.
+   */
+  inline bool empty() const {
+    return idxExtent == 0;
+  }
+
+
+  /**
+     @brief Decrements bounds incurred through sparsification.
+   */
   void adjust(IndexT margin,
               IndexT implicit) {
-    idxLow -= margin;
+    idxStart -= margin;
     idxExtent -= implicit;
   }
 
 
   IndexT getStart() const {
-    return idxLow;
+    return idxStart;
   }
   
 
@@ -75,10 +88,12 @@ struct IndexRange {
 
 
   /**
+     @brief Computes iterator-style end position.
+
      @return end position.
    */
   IndexT getEnd() const {
-    return idxLow + idxExtent;
+    return idxStart + idxExtent;
   }
 
 
@@ -90,7 +105,7 @@ struct IndexRange {
      @return fractional scaled position.
    */
   double interpolate(double scale) const {
-    return idxLow + scale * idxExtent;
+    return idxStart + scale * idxExtent;
   }
 };
 

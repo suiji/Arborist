@@ -19,7 +19,6 @@
 #include "frontier.h"
 #include "callback.h"
 #include "rankedframe.h"
-#include "runset.h"
 #include "obspart.h"
 #include "splitfrontier.h"
 
@@ -116,7 +115,7 @@ IndexRange DefLayer::getRange(const DefCoord& mrra) const {
 
 
 void DefLayer::adjustRange(const SplitCoord& splitCoord,
-                        IndexRange& idxRange) const {
+			   IndexRange& idxRange) const {
   if (isDense(splitCoord)) {
     (void) denseCoord[denseOffset(splitCoord)].adjustRange(idxRange);
   }
@@ -175,9 +174,8 @@ DefLayer::setLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) 
 }
 
 
-IndexRange
-DefLayer::adjustRange(const DefCoord& cand,
-		   const SplitFrontier* splitFrontier) const {
+IndexRange DefLayer::adjustRange(const DefCoord& cand,
+				 const SplitFrontier* splitFrontier) const {
   IndexRange idxRange = splitFrontier->getBufRange(cand);
   if (isDense(cand)) {
     denseCoord[denseOffset(cand)].adjustRange(idxRange);

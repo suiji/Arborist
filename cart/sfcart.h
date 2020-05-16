@@ -73,6 +73,8 @@ public:
   virtual void split(class SplitNux* cand) = 0;
 };
 
+
+enum class SplitStyle;
   
 /**
    @brief Splitting facilities specific regression trees.
@@ -110,7 +112,17 @@ class SFCartReg : public SFCart {
 	const class Sample* sample);
 
   ~SFCartReg();
+
+
+  /**
+     @return enumeration indicating slot-style encoding.
+   */
+  SplitStyle getFactorStyle() const;
+  
+
   void layerPreset();
+
+
   void clear();
 
   /**
@@ -129,11 +141,9 @@ class SFCartReg : public SFCart {
 
 
   /**
-     @brief Splits runs sorted by binary heap.
-
-     @return slot index of split
+     @brief Splits runs sorted by mean response.
    */
-  PredictorT heapSplit(class SplitNux* cand) const;
+  void splitMean(class SplitNux* cand) const;
 
   
   /**
@@ -167,6 +177,13 @@ class SFCartCtg : public SFCart {
   vector<double> sumSquares; // Per-layer sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
 
+
+  /**
+     @return slot-style for binary response, otherwise bit-style.
+   */
+  SplitStyle getFactorStyle() const;
+
+  
   /**
      @brief Initializes per-layer sum and FacRun vectors.
   */
@@ -237,13 +254,6 @@ class SFCartCtg : public SFCart {
   void splitFac(class SplitNux* cand) const;
 
   
-  /**
-     @brief Builds categorical runs.  Very similar to regression case, but
-     the runs also resolve response sum by category.
-  */
-  void buildRuns(class SplitNux* cand) const;
-
-
   /**
      @brief Adapated from splitRuns().  Specialized for two-category case in
      which LH subsets accumulate.  This permits running LH 0/1 sums to be

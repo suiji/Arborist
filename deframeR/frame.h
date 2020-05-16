@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -76,7 +76,8 @@ RcppExport SEXP WrapFrame(SEXP sX,
                           SEXP sXFac,
                           SEXP sPredMap,
                           SEXP sFacCard,
-                          SEXP sLevels);
+                          SEXP sLevels,
+			  SEXP sFactor);
 
 RcppExport SEXP FrameNum(SEXP sX);
 

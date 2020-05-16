@@ -74,6 +74,10 @@ public:
   void set(IndexT idx,
 	   bool explicitTrue);
   
+
+  void unset(IndexT idx,
+	     bool explicitTrue);
+  
 };
 
 #endif

@@ -21,7 +21,7 @@
 Forest::Forest(const IndexT height_[],
 	       unsigned int nTree_,
                const DecNode treeNode_[],
-	       PredictorT facVec[],
+	       unsigned int facVec[],
                const IndexT facHeight[]) :
   nodeHeight(height_),
   nTree(nTree_),
@@ -48,7 +48,7 @@ void Forest::dump(vector<vector<PredictorT> >& predTree,
                   vector<vector<IndexT> >& delIdxTree,
                   vector<vector<IndexT> >& facSplitTree) const {
   dump(predTree, splitTree, delIdxTree);
-  facSplit->dump(facSplitTree);
+  facSplitTree = facSplit->dump();
 }
 
 

@@ -16,9 +16,19 @@
 
 #include "crit.h"
 #include "summaryframe.h"
+#include "splitfrontier.h"
 
 
 void Crit::setQuantRank(const SummaryFrame* sf,
 			PredictorT predIdx) {
   setNum(sf->interpolate(predIdx, getNumVal()));
 }
+
+
+void Crit::critCut(const SplitNux* nux,
+		   const SplitFrontier* splitFrontier) {
+  predIdx = nux->getPredIdx();
+  val.setNum(splitFrontier->getQuantRank(nux));
+}
+
+

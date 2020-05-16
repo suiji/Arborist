@@ -93,9 +93,7 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample,
 
 
 vector<IndexSet> Frontier::splitDispatch(unsigned int level) {
-  levelTerminal = (level + 1 == totLevels);
-
-  SplitSurvey survey = nextLevel();
+  SplitSurvey survey = nextLevel(level);
   for (auto & iSet : indexSet) {
     iSet.dispatch(this);
   }
@@ -107,8 +105,14 @@ vector<IndexSet> Frontier::splitDispatch(unsigned int level) {
 }
 
 
-SplitSurvey Frontier::nextLevel() {//const SplitSurvey& survey) {
-  SplitSurvey survey = surveyNodes(indexSet);
+SplitSurvey Frontier::nextLevel(unsigned int level) {
+  if (level + 1 == totLevels) {
+    for (auto & iSet : indexSet) {
+      iSet.setExtinct();
+    }
+  }
+
+  SplitSurvey survey = surveySet(indexSet);
   succBase = vector<IndexT>(survey.succCount(indexSet.size()));
   fill(succBase.begin(), succBase.end(), idxLive); // Previous level's extent
 
@@ -122,10 +126,10 @@ SplitSurvey Frontier::nextLevel() {//const SplitSurvey& survey) {
 }
 
 
-SplitSurvey Frontier::surveyNodes(vector<IndexSet>& indexSet) {
+SplitSurvey Frontier::surveySet(vector<IndexSet>& indexSet) {
   SplitSurvey survey;
   for (auto iSet : indexSet) {
-    iSet.surveySplit(levelTerminal, survey);
+    iSet.surveySplit(survey);
   }
 
   return survey;
@@ -136,7 +140,7 @@ IndexT Frontier::idxSucc(IndexT extent,
                          IndexT& offOut,
                          bool extinct) {
   IndexT succIdx;
-  if (extinct || levelTerminal) { // Pseudo split caches settings.
+  if (extinct) { // Pseudo split caches settings.
     succIdx = succExtinct++;
     offOut = extinctBase;
     extinctBase += extent;

@@ -31,14 +31,14 @@
    'nSamp' * sizeof(uint).
  */
 class SampleNux {
-  static unsigned int nCtg; // Number of categories; 0 for regression.
+  static PredictorT nCtg; // Number of categories; 0 for regression.
 
  protected:
   static unsigned int ctgShift; // Pack:  nonzero iff categorical.
 
   // Integer-sized container is likely overkill:  typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
-  unsigned int sCount;
+  IndexT sCount;
   FltVal ySum; // Sum of values selected:  sCount * y-value.
 
   
@@ -129,7 +129,7 @@ class SampleNux {
 
      @return sample count.
    */
-  inline unsigned int getSCount() const {
+  inline IndexT getSCount() const {
     return sCount >> ctgShift;
   }
 
@@ -139,7 +139,7 @@ class SampleNux {
 
      @return response category.
    */
-  inline unsigned int getCtg() const {
+  inline PredictorT getCtg() const {
     return sCount & ((1 << ctgShift) - 1);
   }
 };
@@ -256,13 +256,11 @@ class SampleRank : public SampleNux {
 
   
   /**
-     @brief Accumulates this cell's contents in per-category vector.
+     @brief Encodes this cell's contents in per-category vector.
 
-     @param nux accumulates sample counts and values en banc.
-
-     @param[in, out] ctgExpl accumulates sample counts and values by category.
+     @param[in, out] accumulates the response decomposition.
    */
-  void accum(class SplitNux* nux, vector<class SumCount>& ctgExpl) const;
+  void encode(class CritEncoding& enc) const;
 };
 
 #endif

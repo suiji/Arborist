@@ -17,7 +17,7 @@
 
  */
 
-#include "accum.h"
+#include "cutaccum.h"
 
 #include <vector>
 
@@ -25,18 +25,9 @@
 /**
    @brief Auxiliary workspace information specific to regression.
  */
-class AccumCartReg : public Accum {
+class AccumCartReg : public CutAccum {
   const int monoMode; // Presence/direction of monotone constraint.
   const unique_ptr<struct Residual> resid; // Current residual, if any, else null.
-
-  inline void trialSplit(IndexT idx,
-			 IndexT rkThis,
-			 IndexT rkRight) {
-    if (rkThis != rkRight) {
-      Accum::trialRight(infoSplit(sumL, sum - sumL, sCountL, sCount - sCountL), idx, rkThis, rkRight);
-    }
-  }
-
   
   /**
      @brief Updates with residual and possibly splits.
@@ -51,39 +42,13 @@ class AccumCartReg : public Accum {
 
 public:
   AccumCartReg(const class SplitNux* splitCand,
-                const class SampleRank spn[],
                 const class SFCartReg* spReg);
 
   ~AccumCartReg();
 
-  
-  /**
-     @brief Evaluates trial splitting information as weighted variance.
 
-     @param sumLeft is the sum of responses to the left of a trial split.
-
-     @param sumRight is the sum of responses to the right.
-
-     @param sCountLeft is number of samples to the left.
-
-     @param sCountRight is the number of samples to the right.
-
-     @param info[in, out] outputs max of input and new information 
-   */
-  static constexpr double infoSplit(double sumLeft,
-                                    double sumRight,
-                                    IndexT sCountLeft,
-                                    IndexT sCountRight) {
-    return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
-  }
-
-
-  static bool infoSplit(double sumLeft,
-                        double sumRight,
-                        IndexT sCountLeft,
-                        IndexT sCountRight,
+  static bool infoSplit(double infoTemp,
                         double& info) {
-    double infoTemp = infoSplit(sumLeft, sumRight, sCountLeft, sCountRight);
     if (infoTemp > info) {
       info = infoTemp;
       return true;
@@ -98,7 +63,6 @@ public:
      @brief Dispatches appropriate splitting method.
    */
   void split(const class SFCartReg* spReg,
-             const class SampleRank spn[],
              class SplitNux* cand);
   
 
@@ -108,23 +72,20 @@ public:
 
      @param resid summarizes the blob's residual statistics.
    */
-  void splitImpl(const class SampleRank spn[],
-                 const class SplitNux* cand);
+  void splitImpl(const class SplitNux* cand);
 
 
   /**
      @brief Low-level splitting method for explicit block of indices.
    */
-  void splitExpl(const SampleRank spn[],
-                 IndexT rkThis,
+  void splitExpl(IndexT rkThis,
                  IndexT idxInit,
                  IndexT idxFinal);
 
   /**
      @brief As above, but specialized for monotonicty constraint.
    */
-  void splitMono(const SampleRank spn[],
-                 IndexT rkThis,
+  void splitMono(IndexT rkThis,
                  IndexT idxInit,
                  IndexT idxFinal);
 };
@@ -133,7 +94,7 @@ public:
 /**
    @brief Splitting accumulator for classification.
  */
-class AccumCartCtg : public Accum {
+class AccumCartCtg : public CutAccum {
   const PredictorT nCtg; // Cadinality of response.
   const unique_ptr<struct ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
@@ -143,22 +104,9 @@ class AccumCartCtg : public Accum {
 
 
   /**
-     @brief Updates a split if not tied and information increases.
-   */
-  inline void trialSplit(IndexT idx,
-                         IndexT rkThis,
-                         IndexT rkRight) {
-    if (rkThis != rkRight) {
-      Accum::trialRight(infoSplit(ssL, ssR, sumL, sum - sumL), idx, rkThis, rkRight);
-    }
-  }
-
-  
-  /**
      @brief Applies residual state and continues splitting left.
    */
-  void residualAndLeft(const class SampleRank spn[],
-		       IndexT idxLeft,
+  void residualAndLeft(IndexT idxLeft,
 		       IndexT idxStart);
 
   
@@ -175,13 +123,11 @@ class AccumCartCtg : public Accum {
   */
   unique_ptr<struct ResidualCtg>
   makeResidual(const class SplitNux* cand,
-               const class SampleRank spn[],
                const class SFCartCtg* spCtg);
 
 public:
 
   AccumCartCtg(const class SplitNux* cand,
-                const class SampleRank spn[],
                 class SFCartCtg* spCtg);
 
   ~AccumCartCtg();
@@ -198,7 +144,7 @@ public:
 
      @param sumRight is the sum of responses to the right.
    */
-  static constexpr double infoSplit(double ssLeft,
+  static constexpr double infoGini(double ssLeft,
                                     double ssRight,
                                     double sumLeft,
                                     double sumRight) {
@@ -206,12 +152,8 @@ public:
   }
 
 
-  static bool infoSplit(double ssLeft,
-                        double ssRight,
-                        double sumLeft,
-                        double sumRight,
+  static bool infoSplit(double infoTemp,
                         double& info) {
-    double infoTemp = infoSplit(ssLeft, ssRight, sumLeft, sumRight);
     if (infoTemp > info) {
       info = infoTemp;
       return true;
@@ -226,7 +168,6 @@ public:
      @brief Dispatches appropriate splitting method.
    */
   void split(const class SFCartCtg* spCtg,
-             const class SampleRank spn[],
              class SplitNux* cand);
 
   
@@ -237,23 +178,20 @@ public:
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
    */
-  void splitExpl(const class SampleRank spn[],
-	    IndexT rkThs,
-	    IndexT idxInit,
-	    IndexT idxFinal);
+  void splitExpl(IndexT rkThs,
+		 IndexT idxInit,
+		 IndexT idxFinal);
 
   /**
      @brief As above, but with implicit dense blob.
    */
-  void splitImpl(const class SampleRank spn[],
-                 const class SplitNux* cand);
+  void splitImpl(const class SplitNux* cand);
 
   /**
      @brief Accumulates right and left sums-of-squares from
      exposed state.
    */
-  inline void stateNext(const class SampleRank spn[],
-			IndexT idx);
+  inline void stateNext(IndexT idx);
 
 
   /**

@@ -22,58 +22,25 @@
 
 #include <vector>
 
-struct SplitEncoding {
-  double sum;
-  IndexT sCount;
-  IndexT extent;
-
-  void init() {
-    sum = 0.0;
-    sCount = 0;
-    extent = 0;
-  }
-};
-
 
 class SplitNux {
   static constexpr double minRatioDefault = 0.0;
   static double minRatio;
-  static vector<double> splitQuant; // Where within CDF to split.
 
-  const SplitCoord splitCoord;
-  const IndexRange idxRange; // Index range of lower ObsPart buffer.
-  const PredictorT setIdx; // Index into runSet vector for factor split.
-  const double sum; // Initial sum, fixed by index set.
-  const IndexT sCount; // Initial sample count, fixed by index set.
-  const unsigned char bufIdx;
-
-  unsigned char cutLeft; // True iff <= cut encoded, else > cut.
-  unsigned char encTrue; // Whether split encoding characterizes true branch.
-  IndexT implicitTrue; // # implicit indices on true branch:  initialized from index set at scheduling.
+  SplitCoord splitCoord;
+  IndexRange idxRange; // Fixed from IndexSet.
+  IndexT accumIdx; // Index into accumulator workspace.
+  double sum; // Initial sum, fixed by index set.
+  IndexT sCount; // Initial sample count, fixed by index set.
+  unsigned char bufIdx; // Base buffer for SR indices.
+  IndexT implicitCount; // Initialized from IndexSet.
   IndexT ptId; // Index into tree:  offset from position given by index set.
+
+  // Set during splitting:
   double info; // Weighted variance or Gini, currently.
-
-  // Accumulated during splitting:
-  IndexT cutExtent; // Left extent of cut point, in indices.
-
-  // Accumulated during replay.
-  SplitEncoding enc;
   
-  // Copied to decision node, if arg-max.  Numeric only:
-  //
-  double quantRank;
-  
-  /**
-     @brief Decrements information field and reports whether still positive.
-
-     @param splitFrontier determines pre-existing information value to subtract.
-
-     @bool true iff decremented information field positive.
-   */
-  bool infoGain(const class SplitFrontier* splitFrontier);
-
-
- public:  
+public:  
+  static vector<double> splitQuant; // Where within CDF to cut.  MOVE to CutSet.
 /**
    @brief Builds static quantile splitting vector from front-end specification.
 
@@ -89,135 +56,121 @@ class SplitNux {
   static void deImmutables();
 
 
-  void encAccum(double ySum,
-		IndexT sCount) {
-    enc.sum += ySum;
-    enc.sCount += sCount;
-  }
-
-
-  void bumpExtent() {
-    enc.extent++;
-  }
-
-  
-  void encExtent(const IndexRange& range) {
-    enc.extent += range.getExtent();
-  }
-  
-
-  auto getEncodedSum() const {
-    return enc.sum;
-  }
-
-
-  auto getEncodedSCount() const {
-    return enc.sCount;
-  }
+  /**
+     @brief Computes information gain using pre-bias and accumulator.
+   */
+  void infoGain(const class SplitFrontier* sf,
+		const class CutAccum* accum);
 
 
   /**
-     @return range associated with cut inequality.
-   */
-  auto getCutRange() const {
-    return cutLeft ? IndexRange(idxRange.getStart(), cutExtent) :
-      IndexRange(idxRange.getStart() + cutExtent, idxRange.getExtent() - cutExtent);
-  }
+     @brief As above, but only employs pre-bias.
 
+     @return true iff gain greater than zero.
+   */
+  void infoGain(const class SplitFrontier* splitFrontier);
+
+
+  /**
+     @brief As above, but only employs accumulator.
+   */
+  void infoGain(const class CutAccum* accum);
   
+
+  /**
+     @return desired cut range.
+   */
+  IndexRange cutRange(const class CutSet* cutSet,
+		      bool leftRange) const;
+  
+
+  /**
+     @brief Computes cut-based left range for numeric splits.
+   */
+  IndexRange cutRangeLeft(const class CutSet* cutSet) const;
+
+
+  /**
+     @brief Computes cut-based right range for numeric splits.
+   */
+  IndexRange cutRangeRight(const class CutSet* cutSet) const;
+
+
   /**
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
   */  
   SplitNux() : splitCoord(SplitCoord()),
-	       setIdx(0),
+	       accumIdx(0),
 	       sum(0.0),
 	       sCount(0),
 	       bufIdx(0),
-	       cutLeft(true),
-	       encTrue(true),
-	       implicitTrue(0),
+	       implicitCount(0),
+	       ptId(0),
 	       info(0.0) {
-    enc.init();
   }
 
   
   /**
-     @brief Called by SplitCand constructor.
+     @brief Copy constructor:  post splitting.
    */
-  SplitNux(SplitCoord splitCoord_,
-	   PredictorT setIdx_,
-	   unsigned char bufIdx_,
-	   double sum,
-	   IndexT sCount_,
-	   double info_) :
-  splitCoord(splitCoord_),
-  setIdx(setIdx_),
-  sum(sum),
-  sCount(sCount_),
-  bufIdx(bufIdx_),
-  cutLeft(true),
-  encTrue(true),
-  implicitTrue(0),
-  info(info_) {
-    enc.init();
+  SplitNux(const SplitNux& nux) :
+    splitCoord(nux.splitCoord),
+    idxRange(nux.idxRange),
+    accumIdx(nux.accumIdx),
+    sum(nux.sum),
+    sCount(nux.sCount),
+    bufIdx(nux.bufIdx),
+    implicitCount(nux.implicitCount),
+    ptId(nux.ptId),
+    info(nux.info) {
   }
 
+  SplitNux& operator= (const SplitNux& nux) {
+    splitCoord = nux.splitCoord;
+    idxRange = nux.idxRange;
+    accumIdx = nux.accumIdx;
+    sum = nux.sum;
+    sCount = nux.sCount;
+    bufIdx = nux.bufIdx;
+    implicitCount = nux.implicitCount;
+    ptId = nux.ptId;
+    info = nux.info;
 
+    return *this;
+  }
+
+  
   /**
-     @brief Post-split constructor for compund criteria.
-   */
-  SplitNux(const SplitNux* parent,
-	   IndexT idx) :
-    splitCoord(parent->splitCoord),
-    idxRange(parent->getCutRange()),
-    setIdx(parent->setIdx),
-    sum(parent->getEncodedSum()),
-    sCount(parent->getEncodedSCount()),
-    bufIdx(parent->bufIdx),
-    cutLeft(parent->cutLeft),
-    encTrue(parent->encTrue),
-    implicitTrue(parent->implicitTrue),
-    ptId(parent->ptId + idx),
-    info(sum / sCount), // ?
-    cutExtent(0),
-    quantRank(parent->quantRank) {
-    enc.init();
-  }
+     @brief Transfer constructor over iteratively-encoded IndexSet.
 
-  /**
-     @brief Transfer constructor over specified support.
+     @param idx positions nux within a multi-criterion set.
    */
-  SplitNux(const SplitNux* parent,
-	   double supportSum,
-	   IndexT supportSCount) :
-    splitCoord(parent->splitCoord),
-    idxRange(parent->idxRange),
-    setIdx(parent->setIdx),
-    sum(supportSum),
-    sCount(supportSCount),
-    bufIdx(parent->bufIdx),
-    cutLeft(parent->cutLeft),
-    encTrue(parent->encTrue),
-    implicitTrue(parent->implicitTrue),
-    ptId(parent->ptId),
-    info(sum/sCount),
-    cutExtent(0) {
-    enc.init();
-  }
+  SplitNux(const SplitNux& parent,
+	   const class IndexSet* iSet,
+	   bool sense,
+	   IndexT idx = 0);
+
 
   /**
      @brief Pre-split constructor.
    */
   SplitNux(const DefCoord& preCand,
 	   const class SplitFrontier* splitFrontier,
-	   PredictorT setIdx_,
-	   IndexRange range,
-	   IndexT implicitCount);
+	   const class DefMap* defMap,
+	   PredictorT runCount);
 
   
   ~SplitNux() {
   }
 
+
+  /**
+     @brief Reports whether frame identifies underlying predictor as factor-valued.
+
+     @return true iff splitting predictor is a factor.
+   */
+  bool isFactor(const class SummaryFrame* frame) const;
+  
 
   /**
      @brief Passes through to frame method.
@@ -227,59 +180,7 @@ class SplitNux {
   PredictorT getCardinality(const class SummaryFrame*) const;
 
 
-  /**
-     @brief Writes the true-branch characterization of a factor-based
-     split with categorical response.
-
-     @param lhBits is a compressed representation of factor codes for the LHS.
-   */
-
-  void writeBits(const class SplitFrontier* splitFrontier,
-		 PredictorT lhBits);
-
   
-  /**
-     @brief Writes the true-branch characterization of a factor-based
-     split with numerical or binary response.
-
-     @param cutSlot is the LHS/RHS separator position in the vector of
-     factor codes maintained by the run-set.
-   */
-  void writeSlots(const class SplitFrontier* splitFrontier,
-                  PredictorT cutSlot);
-
-
-  void appendSlot(const class SplitFrontier* splitFrontier);
-
-  
-  /**
-     @brief Fills out remaining data members from numeric split, if any.
-   */
-  void writeNum(const class SplitFrontier* sf,
-		const class Accum* accum);
-
-
-  /**
-     @brief As above, but specifies sense of encoding.
-   */
-  void writeNum(const class Accum* accum,
-		bool cutLeft,
-                bool encTrue);
-
-
-  /**
-     @brief As above, but for factor-valued predictors.
-   */
-  void writeFac(IndexT sCountTrue,
-		IndexT cutExtent,
-		IndexT implicitTrue);
-
-  /**
-     @brief Consumes frontier node parameters associated with nonterminal.
-  */
-  void consume(class IndexSet* iSet) const;
-
-
   /**
      @brief Reports whether potential split be informative with respect to a threshold.
 
@@ -343,8 +244,8 @@ class SplitNux {
     return bufIdx;
   }
   
-  auto getSetIdx() const {
-    return setIdx;
+  auto getAccumIdx() const {
+    return accumIdx;
   }
 
   /**
@@ -358,6 +259,11 @@ class SplitNux {
     return info;
   }
 
+  
+  void setInfo(double info) {
+    this->info = info;
+  }
+
 
   /**
      @brief Indicates whether this is an empty placeholder.
@@ -366,128 +272,41 @@ class SplitNux {
     return splitCoord.noCoord();
   }
 
+
+  auto getRange() const {
+    return idxRange;
+  }
   
-  /**
-     @return true iff true branch is encoded.  Rank-based splits only.
-   */
-  inline bool trueEncoding() const {
-    return encTrue != 0;
-  }
-
-
-  inline bool leftCut() const {
-    return cutLeft != 0;
-  }
-
+  
   auto getIdxStart() const {
     return idxRange.getStart();
   }
 
+  
   auto getExtent() const {
     return idxRange.getExtent();
   }
 
+  
   auto getIdxEnd() const {
     return idxRange.getEnd() - 1;
   }
-
-
-  auto getQuantRank() const {
-    return quantRank;
-  }
-
 
   auto getSCount() const {
     return sCount;
   }
   
 
-  auto getSCountTrue() const {
-    return encTrue ? getEncodedSCount() : sCount - getEncodedSCount();
-  }
-
-
   auto getSum() const {
     return sum;
   }
 
-
-  auto getSumTrue() const {
-    return encTrue ? getEncodedSum() : sum - getEncodedSum();
-  }
-
-  
-  auto getExtentTrue() const {
-    return cutExtent;
-  }
-
   
   /**
-     @brief Getter for extent of encoded portion.
-   */
-  auto getEncodedExtent() const {
-    return enc.extent;
-  }
-
-  
-  auto getImplicitCount() const {
-    return implicitTrue;
-  }
-  
-  
-  /**
-     @return Count of indices corresponding to LHS of a rank-based split.
-   */
-  auto getTrueExplicit() const {
-    return getExtentTrue() - implicitTrue;
-  }
-
-  /**
-     @return Count of indices corresponding to FalseS of a rank-based split.
-   */  
-  auto getFalseExplicit() const {
-    return getExtent() - getTrueExplicit();
-  }
-
-
-  auto getStartFalse() const {
-    return idxRange.getStart() + getTrueExplicit();
-  }
-
-  
-  /**
-     @return Starting index of an explicit branch.  Defaults to left if
-     both branches explicit.  Rank-based splits only.
-   */
-  auto getExplicitBranchStart() const {
-    return trueEncoding() ? idxRange.getStart() : getStartFalse();
-  }
-
-
-  /**
-     @return Extent of an explicit branch.  Defaults to left if both
-     branches explicit.  Rank-based splits only.
-   */
-  auto getExplicitBranchExtent() const {
-    return trueEncoding() ? getTrueExplicit() : getFalseExplicit();
-  }
-
-
-  /**
-     @brief Accessor for left index range.
-   */
-  auto getRangeTrue() const {
-    return IndexRange(idxRange.getStart(), getExtentTrue());
-  }
-
-
-  auto getRangeFalse() const {
-    return IndexRange(getStartFalse(), getFalseExplicit());
-  }
-  
-
-  auto getEncodedRange() const {
-    return encTrue ? getRangeTrue() : getRangeFalse();
+     @return Count of implicit indices associated with IndexSet.
+  */   
+  IndexT getImplicitCount() const {
+    return implicitCount;
   }
 };
 

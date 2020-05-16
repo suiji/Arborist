@@ -54,6 +54,27 @@ class ObsPart {
   //
   IndexT* indexBase; // RV index for this row.  Used by CTG as well as on replay.
 
+  /**
+     @brief Sets branch sense over specified range.
+
+     @param[in, out] enc accumulates sampled response statistics.
+   */  
+  void branchSet(const class SplitNux* nux,
+		 const IndexRange& range,
+		 class BranchSense* branchSense,
+		 CritEncoding& enc) const;
+
+  /**
+     @brief Unsets branch sense over specified range.
+
+     Parameters as above.
+   */
+  void branchUnset(const class SplitNux* nux,
+		   const IndexRange& range,
+		   class BranchSense* branchSense,
+		   CritEncoding& enc) const;
+
+  
  protected:
   unsigned int *destRestage; // Coprocessor restaging.
   unsigned int *destSplit; // Coprocessor restaging.
@@ -162,6 +183,19 @@ class ObsPart {
                bool idxUpdate,
                unsigned int pathCount[]);
 
+
+  void branchUpdate(const class SplitNux* nux,
+		    const vector<IndexRange>& range,
+		    class BranchSense* branchSense,
+		    CritEncoding& enc) const;
+
+
+  void branchUpdate(const class SplitNux* nux,
+		    const IndexRange& range,
+		    class BranchSense* branchSense,
+		    CritEncoding& enc) const;
+
+
   /**
      @brief Restages and tabulates rank counts.
   */
@@ -185,8 +219,11 @@ class ObsPart {
      @brief Passes through to bufferOff() using definition coordinate.
    */
   IndexT* getBufferIndex(const class SplitNux* nux) const;
-  
 
+
+  SampleRank* getBuffers(const class SplitNux* nux, IndexT*& sIdx) const;
+
+  
   inline IndexT getBagCount() const {
     return bagCount;
   }

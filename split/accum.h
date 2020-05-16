@@ -9,108 +9,85 @@
 /**
    @file accum.h
 
-   @brief Base accumulator classes for cut-based (numeric) splitting workspaces.
+   @brief Generic accumulator class for computing splits.
 
    @author Mark Seligman
-
  */
 
 #include "typeparam.h"
 
-
-/**
-   @brief Persistent workspace for computing optimal split.
-
-   Cells having implicit dense blobs are split in separate sections,
-   calling for a re-entrant data structure to cache intermediate state.
-   Accum is tailored for right-to-left index traversal.
- */
-class Accum {
-protected:
-  const class SplitFrontier* splitFrontier;
-  const IndexT sCount; // Running sample count along node.
-  const double sum; // Running response along node.
+struct Accum {
+  const class SampleRank* sampleRank;
+  const IndexT* sampleIndex;
   const IndexT rankDense; // Rank of dense value, if any.
-  IndexT sCountL; // Running sum of trial LHS sample counts.
-  double sumL; // Running sum of trial LHS response.
-  IndexT cutDense; // Rightmost position beyond implicit blob, if any.
-  
-  // Read locally but initialized, and possibly reset, externally.
-  IndexT sCountThis; // Current sample count.
-  FltVal ySumThis; // Current response value.
+  const double sumCand;
+  const IndexT sCountCand;
 
+  double info; // Information high watermark.  Precipitates split iff > 0.0 after update.
+
+  Accum(const class SplitFrontier* splitFrontier,
+	const class SplitNux* cand);
 
   /**
-     @brief Updates split anywhere left of a residual, if any.
+     @brief Computes weighted-variance for trial split.
+
+     @param sumLeft is the sum of responses to the left of a trial split.
+
+     @param sumRight is the sum of responses to the right.
+
+     @param sCountLeft is number of samples to the left.
+
+     @param sCountRight is the number of samples to the right.
+
+     @param info[in, out] outputs max of input and new information 
    */
-  inline void trialRight(double infoTrial,
-			 IndexT idx,
-			 IndexT rkThis,
-			 IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      lhSum = sumL;
-      rankRH = rkRight;
-      rankLH = rkThis;
-      rhMin = rkRight == rankDense ? cutDense : idx + 1;
-    }
+  static constexpr double infoVar(double sumLeft,
+                                    double sumRight,
+                                    IndexT sCountLeft,
+                                    IndexT sCountRight) {
+    return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
   }
 
-  /**
-     @brief Updates split just to the right of a residual.
-   */
-  inline void splitResidual(double infoTrial,
-			   IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCountL;
-      lhSum = sumL;
-      rankRH = rkRight;
-      rankLH = rankDense;
-      rhMin = cutDense;
-    }
-  }
-  
-public:
-  // Revised at each new local maximum of 'info':
-  double info; // Information high watermark.  Precipitates split iff > 0.0.
-  IndexT lhSCount; // Sample count of split LHS:  > 0.
-  double lhSum; // Response sum of split LHS.
-  IndexT rankRH; // Maximum rank characterizing split.
-  IndexT rankLH; // Minimum rank charactersizing split.
-  IndexT rhMin; // Min RH index, possibly out of bounds:  [0, idxEnd+1].
 
   /**
-     @param cand encapsulates candidate splitting parameters.
+     @brief Evaluates trial splitting information as Gini.
 
-     @param splitFrontier looks up dense rank.
+     @param ssLeft is the sum of squared responses to the left of a trial split.
+
+     @param ssRight is the sum of squared responses to the right.
+
+     @param sumLeft is the sum of responses to the left.
+
+     @param sumRight is the sum of responses to the right.
    */
-  Accum(const class SplitNux* cand,
-        const class SplitFrontier* splitFrontier);
-
-  ~Accum() {
+  static constexpr double infoGini(double ssLeft,
+                                    double ssRight,
+                                    double sumLeft,
+                                    double sumRight) {
+    return ssLeft / sumLeft + ssRight / sumRight;
   }
 
-  
+
   /**
-     @brief Creates a residual summarizing implicit splitting state.
+     @brief Walks SampleRank index range in specified direction to match given branch sens.
 
-     @param cand is the splitting candidate.
+     @param branchSense encodes branch sense for each SR index.
 
-     @param spn is the splitting data set.
-     
-     @return new residual based on the current splitting data set.
+     @param idxTerm is the terminus index from which to start.
+
+     @param sense is the branch sense value to match.
+
+     @param[out] edge is the first index matching sense, if any, else undefined.
+
+     @return whether a match was found.
    */
-  unique_ptr<struct Residual> makeResidual(const class SplitNux* cand,
-                                          const class SampleRank spn[]);
-
-
-  IndexT lhImplicit(const class SplitNux* cand) const;
-
-
-  double interpolateRank(double splitQuant) const;
+  bool findEdge(const class SplitNux* cand,
+		const class BranchSense* branchSense,
+		bool leftward,
+		IndexT idxTerm,
+		bool sense,
+		IndexT& edge) const;
 };
 
-#endif
 
+#endif

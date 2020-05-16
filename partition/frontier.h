@@ -61,7 +61,6 @@ class Frontier {
   const PredictorT nCtg;
   unique_ptr<class DefMap> defMap;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
-  bool levelTerminal; // Whether this level must exit.
   IndexT idxLive; // Total live indices.
   IndexT liveBase; // Accumulates live index offset.
   IndexT extinctBase; // Accumulates extinct index offset.
@@ -77,23 +76,22 @@ class Frontier {
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
   
-  SplitSurvey surveyNodes(vector<IndexSet>& indexSet);
+  SplitSurvey surveySet(vector<IndexSet>& indexSet);
 
   
 
   /**
      @brief Applies splitting results to new level.
 
-     @param argMax are the per-node splitting candidates.
+     @param level is the current zero-based level.
 
-     @param levelTerminal_ indicates whether new level marked as final.
   */
   vector<IndexSet> splitDispatch(unsigned int level);
 
   /**
      @brief Establishes splitting parameters for next frontier level.
    */
-  SplitSurvey nextLevel();
+  SplitSurvey nextLevel(unsigned int level);
   
 
   /**

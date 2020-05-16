@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -52,8 +52,8 @@ RcppExport SEXP Export(SEXP sArbOut) {
   }
 
   IntegerVector predMap;
-  List predLevel;
-  Signature::unwrapExport(arbOut, predMap, predLevel);
+  List predLevel, factorLevel;
+  Signature::unwrapExport(arbOut, predMap, predLevel, factorLevel);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

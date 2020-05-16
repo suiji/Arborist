@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -15,13 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
+
 /**
    @file exportRf.h
 
-   @brief C++ class definitions for managing class export serializtion.
+   @brief Export class representing decision forest in a "normal form" suitable for downstream utilities.
 
    @author Mark Seligman
-
  */
 
 

@@ -133,23 +133,23 @@ BVJagged::~BVJagged() {
 
 /**
    @brief Exports contents of a forest.
- */
-void BVJagged::dump(vector<vector<unsigned int> > &outVec) {
+*/
+vector<vector<RawT>> BVJagged::dump() const {
+  vector<vector<RawT>> outVec(nRow);
   for (IndexT row = 0; row < nRow; row++) {
-    outVec[row] = rowDump(row);
+    outVec[row] = rowDumpRaw(row);
   }
+  return outVec;
 }
 
 
 /**
    @brief Exports contents for an individual row.
  */
-vector<unsigned int> BVJagged::rowDump(size_t rowIdx) const {
-  vector<unsigned int> outVec(rowExtent[rowIdx]);
-  for (IndexT idx = 0; idx < outVec.size(); idx++) {
-    outVec[idx] = testBit(rowIdx, idx);
-  }
-  return outVec;
+vector<RawT> BVJagged::rowDumpRaw(size_t rowIdx) const {
+  unsigned int base = rowIdx == 0 ? 0 : rowExtent[rowIdx-1];
+  unsigned int extent = rowExtent[rowIdx] - base;
+  return dumpVec(base, extent);
 }
 
 
@@ -160,12 +160,9 @@ vector<unsigned int> BVJagged::rowDump(size_t rowIdx) const {
 
    @return void, with output vector parameter.
  */
-void BitMatrix::dump(const vector<unsigned int> &raw_, size_t _nRow, vector<vector<unsigned int> > &vecOut) {
-  unsigned int _nCol = vecOut.size();
-  BitMatrix *bm = new BitMatrix(_nRow, _nCol, raw_);
-  bm->dump(_nRow, vecOut);
-
-  delete bm;
+void BitMatrix::dump(const vector<unsigned int> &raw_, size_t nRow_, vector<vector<unsigned int> > &vecOut) {
+  unique_ptr<BitMatrix> bm = make_unique<BitMatrix>(nRow_, vecOut.size(), raw_);
+  bm->dump(nRow_, vecOut);
 }
 
 

@@ -34,3 +34,11 @@ void BranchSense::set(IndexT idx, bool explTrueExpl) {
     explTrue->setBit(idx, false);
   }
 }
+
+
+void BranchSense::unset(IndexT idx, bool explTrueExpl) {
+  expl->setBit(idx, false);
+  if (!explTrueExpl) { // ExplTrue has been preset to full.
+    explTrue->setBit(idx, true);
+  }
+}

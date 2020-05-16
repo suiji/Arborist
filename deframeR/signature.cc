@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of framemapR.
 //
@@ -30,14 +30,16 @@
   // core.
 // Column and row names stubbed to zero-length vectors if null.
 SEXP Signature::wrapSignature(const IntegerVector &predMap,
-                                const List &level,
-                                const CharacterVector &colNames,
-                                const CharacterVector &rowNames) {
+                              const List& level,
+			      const List& factor,
+			      const CharacterVector &colNames,
+			      const CharacterVector &rowNames) {
   BEGIN_RCPP
   List signature =
     List::create(
                  _["predMap"] = predMap,
                  _["level"] = level,
+		 _["factor"] = factor,
                  _["colNames"] = colNames,
                  _["rowNames"] = rowNames
                  );
@@ -79,16 +81,22 @@ SEXP Signature::checkSignature(const List &sParent) {
 
 List Signature::unwrapLevel(const List& sTrain) {
  List sSignature(checkSignature(sTrain));
-
  return as<List>(sSignature["level"]);
 }
 
 
-void Signature::unwrapExport(const List& sTrain, IntegerVector &predMap, List &level) {
+List Signature::unwrapFactor(const List& sTrain) {
+  List sSignature(checkSignature(sTrain));
+  return as<List>(sSignature["factor"]);
+}
+
+
+void Signature::unwrapExport(const List& sTrain, IntegerVector& predMap, List& level, List& factor) {
   List sSignature(checkSignature(sTrain));
 
   predMap = as<IntegerVector>(sSignature["predMap"]);
   level = as<List>(sSignature["level"]);
+  factor = as<List>(sSignature["factor"]);
 }
 
 
