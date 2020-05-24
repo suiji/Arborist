@@ -184,29 +184,14 @@ vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
 }
 
 
-void IndexSet::updateTrue(const SplitFrontier* splitFrontier,
-			 const SplitNux* nux,
-			  const CritEncoding& enc) {
-  encodeUpdate(splitFrontier, nux, enc);
-  enc.accumTrue(nux, sCountTrue, sumTrue, extentTrue);
-}
-
-
-void IndexSet::updateDirect(const SplitFrontier* splitFrontier,
-			    const SplitNux& nux,
-			    const CritEncoding& enc) {
-  encodeUpdate(splitFrontier, &nux, enc);
-  enc.accumDirect(sCountTrue, sumTrue, extentTrue);
-}
-
-
-void IndexSet::encodeUpdate(const SplitFrontier* splitFrontier,
-			    const SplitNux* nux,
-			    const CritEncoding& enc) {
+void IndexSet::update(const SplitFrontier* splitFrontier,
+		      const SplitNux* nux,
+		      const CritEncoding& enc) {
   doesSplit = true;
   trueEncoding = enc.trueEncoding(); // Final state is most recent update.
   minInfo = nux->getMinInfo(); // REVISE as update
   SumCount::incr(ctgTrue, trueEncoding ? enc.scCtg : SumCount::minus(ctgSum, enc.scCtg));
+  enc.getISetVals(nux, sCountTrue, sumTrue, extentTrue);
 }
 
 

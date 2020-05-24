@@ -70,7 +70,7 @@ void RfTrain::initCtgWidth(unsigned int ctgWidth) {
 
 void RfTrain::initMono(const SummaryFrame* frame,
                      const vector<double> &regMono) {
-  SFCartReg::immutables(frame, regMono);
+  SFRegCart::immutables(frame, regMono);
 }
 
 
@@ -82,6 +82,6 @@ void RfTrain::deInit() {
   Sample::deImmutables();
   SampleNux::deImmutables();
   CandRF::deInit();
-  SFCartReg::deImmutables();
+  SFRegCart::deImmutables();
   OmpThread::deInit();
 }

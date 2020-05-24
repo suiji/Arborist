@@ -77,7 +77,7 @@ Frontier::Frontier(const SummaryFrame* frame,
 
 unique_ptr<PreTree> Frontier::levels(const Sample* sample,
                                      const SummaryFrame* frame) {
-  unique_ptr<SplitFrontier> splitFrontier = SFType::factory(frame, this, sample, SampleNux::getNCtg());
+  unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frame, this, sample, SampleNux::getNCtg());
   defMap->rootDef(splitFrontier->stage(sample), bagCount);
   
   unsigned int level = 0;

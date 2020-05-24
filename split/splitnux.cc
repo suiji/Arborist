@@ -73,20 +73,8 @@ SplitNux::SplitNux(const SplitNux& parent,
 }
 
 
-void SplitNux::infoGain(const SplitFrontier* sf) {
-  info -= sf->getPrebias(splitCoord);
-}
-
-
-void SplitNux::infoGain(const CutAccum* accum) {
+void SplitNux::infoGain(const Accum* accum) {
   info = accum->info - info;
-}
-
-
-void SplitNux::infoGain(const SplitFrontier* sf,
-			const CutAccum* accum) {
-  info = accum->info;
-  info -= sf->getPrebias(splitCoord);
 }
 
 

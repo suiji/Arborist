@@ -52,12 +52,12 @@ RcppExport SEXP Export(SEXP sArbOut) {
   }
 
   IntegerVector predMap;
-  List predLevel, factorLevel;
-  Signature::unwrapExport(arbOut, predMap, predLevel, factorLevel);
+  List predLevel, predFactor;
+  Signature::unwrapExport(arbOut, predMap, predLevel, predFactor);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {
-    return ExportRf::exportReg(arbOut, predMap, predLevel);
+    return ExportRf::exportReg(arbOut, predMap, predLevel, predFactor);
   }
   else if (leaf.inherits("LeafCtg")) {
     return ExportRf::exportCtg(arbOut, predMap, predLevel);
@@ -196,14 +196,15 @@ List ExportRf::exportLeafCtg(const LeafExportCtg* leaf,
  */
 List ExportRf::exportReg(const List& lArb,
                          const IntegerVector& predMap,
-                         const List& predLevel) {
+                         const List& predLevel,
+			 const List& predFactor) {
   BEGIN_RCPP
 
-  int facCount = predLevel.length();
   List ffe =
-    List::create(
-                 _["facMap"] = IntegerVector(predMap.end() - facCount, predMap.end()),
+    List::create(_["predMap"] = IntegerVector(predMap),
+                 _["factorMap"] = IntegerVector(predMap.end() - predLevel.length(), predMap.end()),
                  _["predLevel"] = predLevel,
+		 _["predFactor"] = predFactor,
                  _["tree"] = exportTreeReg(lArb, predMap)
                  );
   ffe.attr("class") = "ExportReg";

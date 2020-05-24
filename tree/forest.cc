@@ -60,7 +60,7 @@ void Forest::dump(vector<vector<PredictorT> >& pred,
       pred[tIdx].push_back(treeNode[nodeIdx].getPredIdx());
       delIdx[tIdx].push_back(treeNode[nodeIdx].getDelIdx());
 
-      // Not quite:  must distinguish numeric from bit-packed:
+      // N.B.:  split field must fit within a double.
       split[tIdx].push_back(treeNode[nodeIdx].getSplitNum());
     }
   }

@@ -132,10 +132,11 @@ class RunAccum : public Accum {
   const PredictorT rcSafe; // Conservative run count.
   vector<FRNode> runZero;
   vector<BHPair> heapZero;
-  vector<PredictorT> idxOrdered;
+  vector<PredictorT> idxRank; // Slot rank, according to ad-hoc ordering.
   vector<double> ctgZero; // Categorical:  run x ctg checkerboard.
   double* rvZero; // Non-binary wide runs:  random variates for sampling.
 
+  PredictorT implicitSlot;
   PredictorT runCount;  // Current high watermark.
   PredictorT runsLH; // Count of LH runs.
   PredictorT splitToken; // Cut or bits.
@@ -226,10 +227,32 @@ public:
   /**
      @brief Determines whether it is necessary to expose the right-hand runs.
 
-     By convention, runs corresponding to the true-sense branch lie to the left.
+     Suitable for multi-criterion splits, for which there may be more than
+     one implicit slot.
   */
   void implicitLeft();
 
+  /**
+     @brief Computes extent of left-implicit runs.
+     
+     @param lhBits is a bit representation of the LH slots.
+
+     @return extent of implicit slot iff encoded in the LH else zero.
+   */
+  IndexT getImplicitLeftBits(PredictorT lhBits) {
+    return implicitSlot < rcSafe && (lhBits & (1ul << implicitSlot)) ? getExtent(implicitSlot) : 0;
+  }
+
+  
+  /**
+     @return extent of implicit slot iff it lies left else zero.
+
+     @param cut is the greatest LH slot index.
+   */
+  IndexT getImplicitLeftSlots(PredictorT cut) const {
+    return implicitSlot <= cut ? getExtent(implicitSlot) : 0;
+  }
+  
 
   /**
      @brief Hammers the pair's run contents with runs selected for
@@ -249,6 +272,36 @@ public:
   void ctgReorder(PredictorT leadCount,
 		  PredictorT nCtg);
 
+
+  /**
+     @brief Determines split having highest weighted variance.
+
+     Runs initially sorted by mean response.
+   */
+  void maxVar();
+  
+  
+  /**
+     @brief Gini-based splitting for categorical response and predictor.
+
+     Nodes are now represented compactly as a collection of runs.
+     For each node, subsets of these collections are examined, looking for the
+     Gini argmax beginning from the pre-bias.
+
+     Iterates over nontrivial subsets, coded by unsigneds as bit patterns.  By
+     convention, the final run is incorporated into RHS of the split, if any.
+     Excluding the final run, then, the number of candidate LHS subsets is
+     '2^(runCount-1) - 1'.
+
+     @param ctgSum is the per-category sum of responses.
+  */
+  void ctgGini(const vector<double>& ctgSum);
+
+  
+  /**
+     @brief As above, but specialized for binary response.
+   */
+  void binaryGini(const vector<double>& ctgSum);
   
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
@@ -409,8 +462,6 @@ public:
   /**
      @brief Resets top index and contents, if applicable.
      
-     Appends or overwrites highest run.  Ensures idxOrdered ordered trivially.
-
      @param runStart is the previous top position.
 
      @param runIdx is the index from which to copy the top position.
@@ -516,6 +567,11 @@ public:
 
   
   /**
+     @brief Emits the left-most codes as true-branch bit positions.
+
+     True codes are enumerated from the left, regardless whether implicits present.
+     Implicit codes affect sample-index (SR) update, but not final branch encoding.
+     
      @return vector of indices corresponding to true-branch bits.
    */
   vector<PredictorT> getTrueBits() const;

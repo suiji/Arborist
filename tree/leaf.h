@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_LEAF_H
-#define CORE_LEAF_H
+#ifndef TREE_LEAF_H
+#define TREE_LEAF_H
 
 #include "jagged.h"
 #include "sample.h"
@@ -28,7 +28,7 @@
  */
 class Leaf {
   double score;
-  unsigned int extent; // # distinct samples mapped to this leaf.
+  IndexT extent; // # distinct samples mapped to this leaf.
   
  public:
 
@@ -89,15 +89,15 @@ class Leaf {
 
 
 class BagSample {
-  unsigned int leafIdx; // Leaf index within tree.
-  unsigned int sCount; // # times bagged:  > 0
+  IndexT leafIdx; // Leaf index within tree.
+  IndexT sCount; // # times bagged:  > 0
 
  public:
   BagSample() {
   }
   
-  BagSample(unsigned int leafIdx_,
-            unsigned int sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
+  BagSample(IndexT leafIdx_,
+            IndexT sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
   }
 
 
@@ -118,7 +118,7 @@ class BagSample {
 class LBCresc {
   vector<Leaf> leaf;
   vector<size_t> height;
-  unsigned int leafCount; // Count of leaves in current tree.
+  IndexT leafCount; // Count of leaves in current tree.
   size_t treeFloor; // Block-relative index of current tree floor.
 
 public:
@@ -144,7 +144,7 @@ public:
 
      @param tIdx is the block-relative tree index.
    */
-  void treeInit(const vector<unsigned int> &leafMap,
+  void treeInit(const vector<IndexT> &leafMap,
                 unsigned int tIdx);
   
 
@@ -153,7 +153,7 @@ public:
 
      @param leafMap maps sample indices to tree indices.
   */
-  void setExtents(const vector<unsigned int> &leafMap);
+  void setExtents(const vector<IndexT> &leafMap);
 
 
   /**
@@ -164,7 +164,7 @@ public:
      @param leafMap maps sample indices to leaf indices.
    */
   void setScoresReg(const Sample* sample,
-                    const vector<unsigned int>& leafMap);
+                    const vector<IndexT>& leafMap);
 
 
   void setScoresCtg(const class ProbCresc* probCresc);
@@ -176,8 +176,8 @@ public:
 
      @param sum is the value to add to the leaf's score.
    */
-  inline void scoreAccum(unsigned int leafIdx,
-                        double sum) {
+  inline void scoreAccum(IndexT leafIdx,
+			 double sum) {
     leaf[treeFloor + leafIdx].scoreAccum(sum);
   }
 
@@ -189,7 +189,7 @@ public:
 
      @param recipSum is the value by which to scale the score.
    */
-  inline void scoreScale(unsigned int leafIdx,
+  inline void scoreScale(IndexT leafIdx,
                          double recipSum) {
     leaf[treeFloor + leafIdx].scoreScale(recipSum);
   }
@@ -202,7 +202,7 @@ public:
 
      @param score is the value to set.
    */
-  inline void setScore(unsigned int leafIdx, double score) {
+  inline void setScore(IndexT leafIdx, double score) {
     leaf[treeFloor + leafIdx].setScore(score);
   }
   
@@ -211,7 +211,7 @@ public:
 
      @param leafIdx is a tree-relative leaf index.
    */
-  inline double getScore(unsigned int leafIdx) const {
+  inline double getScore(IndexT leafIdx) const {
     return leaf[treeFloor + leafIdx].getScore();
   }
 
@@ -253,7 +253,7 @@ public:
      @return void.
   */
   void bagLeaves(const class Sample *sample,
-                 const vector<unsigned int> &leafMap);
+                 const vector<IndexT> &leafMap);
 
 
   void dumpRaw(unsigned char blRaw[]) const; 
@@ -313,7 +313,7 @@ public:
 
 
   virtual void setScores(const class Sample* sample,
-                         const vector<unsigned int>& leafMap) = 0;
+                         const vector<IndexT>& leafMap) = 0;
 
   
   /**
@@ -322,7 +322,7 @@ public:
      @param tIdx is the block-relative tree index.
    */
   virtual void treeInit(const class Sample* sample,
-                        const vector<unsigned int>& leafMap,
+                        const vector<IndexT>& leafMap,
                         unsigned int tIdx);
 
   virtual void dumpWeight(double weightOut[]) const = 0;
@@ -339,7 +339,7 @@ public:
      @param tIdx is the block-relative tree index.
    */
   void blockLeaves(const class Sample *sample,
-                   const vector<unsigned int> &leafMap,
+                   const vector<IndexT> &leafMap,
                    unsigned int tIdx);
 
 
@@ -347,7 +347,7 @@ public:
     @brief Serializes the internally-typed objects, 'Leaf', as well
     as the unsigned integer (packed bit) vector, "bagBits".
   */
-  void cacheNodeRaw(unsigned char *leafRaw) const;
+  void cacheLeafRaw(unsigned char *leafRaw) const;
   void cacheBLRaw(unsigned char *blRaw) const;
   
 
@@ -372,7 +372,7 @@ class LFTrainReg : public LFTrain {
      @param leafMap maps sample indices to leaf indices.
    */
   void setScores(const class Sample* sample,
-                 const vector<unsigned int>& leafMap);
+                 const vector<IndexT>& leafMap);
 
 public:
   /**
@@ -441,7 +441,7 @@ public:
 
      @return encoded score of leaf:  category + weight.
    */
-  double leafScore(unsigned int leafIdx) const;
+  double leafScore(IndexT leafIdx) const;
 
   
   /**
@@ -484,7 +484,7 @@ public:
      @param leafCount is the number of leaves in the tree.
    */
   void probabilities(const Sample* sample,
-                     const vector<unsigned int>& leafMap,
+                     const vector<IndexT>& leafMap,
                      unsigned int leafCount);
   
 
@@ -495,7 +495,7 @@ public:
 
      @param sum is the normalization factor.
    */
-  void normalize(unsigned int leafIdx, double sum);
+  void normalize(IndexT leafIdx, double sum);
 };
 
 
@@ -516,7 +516,7 @@ class LFTrainCtg : public LFTrain {
      @param leafMap maps sample indices into leaf indices.
    */
   void setScores(const class Sample* sample,
-                 const vector<unsigned int>& leafMap);
+                 const vector<IndexT>& leafMap);
 
   /**
      @brief Initialzes leaf state for current tree.
@@ -528,7 +528,7 @@ class LFTrainCtg : public LFTrain {
      @param tIdx is the block-relative tree index.
    */
   void treeInit(const Sample* sample,
-                const vector<unsigned int>& leafMap,
+                const vector<IndexT>& leafMap,
                 unsigned int tIdx);
 public:
   LFTrainCtg(const unsigned int* yCtg_,
@@ -650,7 +650,7 @@ public:
 
      @return absolute offset of leaf.
    */
-  const auto absOffset(unsigned int tIdx, unsigned int leafIdx) const {
+  const auto absOffset(unsigned int tIdx, IndexT leafIdx) const {
     return raw->absOffset(tIdx, leafIdx);
   }
 
@@ -722,13 +722,13 @@ public:
 
   void dump(const class Bag* bag,
             vector<vector<size_t> >& rowTree,
-            vector<vector<unsigned int> >& sCountTree) const;
+            vector<vector<IndexT> >& sCountTree) const;
 
 
   /**
      @brief Index-parametrized sample-count getter.
    */
-  const unsigned int getSCount(unsigned int absOff) const {
+  const IndexT getSCount(IndexT absOff) const {
     return raw->items[absOff].getSCount();
   };
 
@@ -791,7 +791,7 @@ public:
   /**
      @brief Accessor for #samples at an absolute bag index.
    */
-  inline unsigned int getSCount(unsigned int bagIdx) const {
+  inline IndexT getSCount(IndexT bagIdx) const {
     return blBlock->getSCount(bagIdx);
   }
 
@@ -846,7 +846,7 @@ public:
    */
   void dump(const class Bag* bag,
             vector< vector<size_t> >& rowTree,
-            vector< vector<unsigned int> >& sCountTree,
+            vector< vector<IndexT> >& sCountTree,
             vector<vector<double> >& scoreTree,
             vector<vector<unsigned int> >& extentTree) const;
 };
@@ -859,7 +859,7 @@ public:
  */
 struct RankCount {
   IndexT rank; // Training rank of row.
-  unsigned int sCount; // # times row sampled.
+  IndexT sCount; // # times row sampled.
 
   void init(unsigned int rank,
             unsigned int sCount) {
@@ -957,7 +957,7 @@ class LeafFrameReg : public LeafFrame {
      @param[out] end outputs the final sample offset. 
   */
   inline void bagBounds(unsigned int tIdx,
-                        unsigned int leafIdx,
+                        IndexT leafIdx,
                         unsigned int &start,
                         unsigned int &end) const {
     auto leafAbs = leafBlock->absOffset(tIdx, leafIdx);
@@ -1051,7 +1051,7 @@ public:
    */
   void addLeaf(double* probRow,
                unsigned int tIdx,
-               unsigned int leafIdx) const;
+               IndexT leafIdx) const;
 
   /**
      @brief Predicts probabilities across all trees.
@@ -1198,7 +1198,7 @@ class LeafFrameCtg : public LeafFrame {
    */
   void dump(const class Bag* bag,
             vector<vector<size_t> > &rowTree,
-            vector<vector<unsigned int> > &sCountTree,
+            vector<vector<IndexT> > &sCountTree,
             vector<vector<double> > &scoreTree,
             vector<vector<unsigned int> > &extentTree,
             vector<vector<double> > &_probTree) const;

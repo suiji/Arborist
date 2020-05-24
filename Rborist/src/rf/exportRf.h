@@ -61,7 +61,8 @@ struct ExportRf {
 
   static List exportReg(const List& sTrain,
                         const IntegerVector& predMap,
-                        const List& predLevel);
+                        const List& predLevel,
+			const List& predFactor);
 
   static List exportCtg(const List& sTrain,
                         const IntegerVector& predMap,

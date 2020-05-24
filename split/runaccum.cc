@@ -50,9 +50,10 @@ RunAccum::RunAccum(const SplitFrontier* splitFrontier,
   rcSafe(rcSafe_),
   runZero(vector<FRNode>(rcSafe)),
   heapZero(vector<BHPair>((style == SplitStyle::slots || rcSafe > maxWidth) ? rcSafe : 0)),
-  idxOrdered(vector<PredictorT>(rcSafe)),
+  idxRank(vector<PredictorT>(rcSafe)),
   ctgZero(vector<double>(nCtg * rcSafe)),
   rvZero(nullptr),
+  implicitSlot(rcSafe), // Inattainable slot index.
   runCount(0),
   runsLH(0),
   implicitTrue(0) {
@@ -132,22 +133,6 @@ IndexRange RunAccum::getTopRange(const CritEncoding& enc) const {
 }
 
 
-vector<PredictorT> RunSet::getTrueBits(const SplitNux* nux) const {
-  return runAccum[nux->getAccumIdx()].getTrueBits();
-}
-
-
-vector<PredictorT> RunAccum::getTrueBits() const {
-  vector<PredictorT> trueBits(runsLH);
-  PredictorT outSlot = 0; // True-branch bits lie to the left;
-  for (auto & bit : trueBits) {
-    bit = getCode(outSlot++);
-  }
-
-  return trueBits;
-}
-
-
 IndexT RunSet::getImplicitTrue(const SplitNux* nux) const {
   return runAccum[nux->getAccumIdx()].getImplicitTrue();
 }
@@ -188,8 +173,8 @@ void RunAccum::topSlot() {
 
 
 void RunAccum::leadSlots(PredictorT cut) {
+  implicitTrue = getImplicitLeftSlots(cut);
   runsLH = cut + 1;
-  implicitLeft();
 }
 
 
@@ -203,13 +188,9 @@ void RunAccum::implicitLeft() {
 void RunAccum::leadBits(PredictorT lhBits) {
   //  assert(lhBits != 0); // Argmax'd bits should never get here.
 
-  // runsLH = popcount(lhBits); // Awaits C++20.
+  implicitTrue = getImplicitLeftBits(lhBits);
 
   // effCount() sufficient to capture all true bits.
-  for (PredictorT slot = 0; slot < effCount(); slot++) {
-    runsLH += (lhBits & (1ul << slot)) ? 1 : 0;
-  }
-  implicitLeft(); // runsLH now final.
 
   vector<FRNode> frTemp(runCount);
   // Places true-sense runs to the left for range and code capture.
@@ -219,6 +200,7 @@ void RunAccum::leadBits(PredictorT lhBits) {
       frTemp[off++] = runZero[runIdx];
     }
   }
+  runsLH = off;
 
   // Places false-sense runs to the right for range capture only.
   // Can be omitted if the LHS is explicit.
@@ -231,6 +213,22 @@ void RunAccum::leadBits(PredictorT lhBits) {
   for (PredictorT runIdx = 0; runIdx < off; runIdx++) {
     runZero[runIdx] = frTemp[runIdx];
   }
+}
+
+
+vector<PredictorT> RunSet::getTrueBits(const SplitNux* nux) const {
+  return runAccum[nux->getAccumIdx()].getTrueBits();
+}
+
+
+vector<PredictorT> RunAccum::getTrueBits() const {
+  vector<PredictorT> trueBits(runsLH);
+  PredictorT outSlot = 0;
+  for (auto & bit : trueBits) {
+    bit = getCode(outSlot++);
+  }
+
+  return trueBits;
 }
 
 
@@ -275,8 +273,8 @@ void RunAccum::appendImplicit(const SplitNux* cand, const vector<double>& ctgSum
     return;
   }
   
-  IndexT sCount = cand->getSCount();
-  double sum = cand->getSum();
+  IndexT sCount = sCountCand;
+  double sum = sumCand;
   setSumCtg(ctgSum);
 
   for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
@@ -285,9 +283,24 @@ void RunAccum::appendImplicit(const SplitNux* cand, const vector<double>& ctgSum
     residCtg(ctgSum.size(), runIdx);
   }
 
+  implicitSlot = runCount;
   append(cand, sCount, sum);
 }
 
+
+void RunAccum::setSumCtg(const vector<double>& ctgSum) {
+  for (PredictorT ctg = 0; ctg < ctgSum.size(); ctg++) {
+    ctgZero[runCount * ctgSum.size() + ctg] = ctgSum[ctg];
+  }
+}
+
+
+void RunAccum::residCtg(PredictorT nCtg, PredictorT accumIdx) {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+    ctgZero[runCount * nCtg + ctg] -= getSumCtg(accumIdx, nCtg, ctg);
+  }
+}
+  
 
 void RunAccum::append(const SplitNux* cand,
 		      IndexT sCount,
@@ -381,7 +394,7 @@ void RunAccum::deWide(PredictorT nCtg) {
 void RunAccum::ctgReorder(PredictorT leadCount, PredictorT nCtg) {
   vector<double> tempSum(nCtg * leadCount); // Accessed as ctg-minor matrix.
   for (PredictorT slot = 0; slot < leadCount; slot++) {
-    PredictorT outSlot = idxOrdered[slot];
+    PredictorT outSlot = idxRank[slot];
     for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
       tempSum[slot * nCtg + ctg] = ctgZero[outSlot * nCtg + ctg];
     }
@@ -414,13 +427,23 @@ void RunAccum::heapRandom() {
 
 void RunAccum::slotReorder(PredictorT leadCount) {
   vector<FRNode> frOrdered(leadCount == 0 ? runCount : leadCount);
-  BHeap::depopulate(&heapZero[0], &idxOrdered[0], frOrdered.size());
+  BHeap::depopulate(&heapZero[0], &idxRank[0], frOrdered.size());
 
   for (PredictorT slot = 0; slot < frOrdered.size(); slot++) {
-    frOrdered[slot] = runZero[idxOrdered[slot]];
+    frOrdered[idxRank[slot]] = runZero[slot];
   }
   for (PredictorT slot = 0; slot < frOrdered.size(); slot++) {
     runZero[slot] = frOrdered[slot];
+  }
+  if (implicitSlot < runCount) {
+    implicitSlot = idxRank[implicitSlot];
+  }
+}
+
+
+void BHeap::depopulate(BHPair pairVec[], PredictorT idxRank[], PredictorT pop) {
+  for (int bot = pop - 1; bot >= 0; bot--) {
+    idxRank[slotPop(pairVec, bot)] = pop - (1 + bot);
   }
 }
 
@@ -456,20 +479,6 @@ void RunAccum::heapBinary() {
 }
 
 
-void RunAccum::setSumCtg(const vector<double>& ctgSum) {
-  for (PredictorT ctg = 0; ctg < ctgSum.size(); ctg++) {
-    ctgZero[runCount * ctgSum.size() + ctg] = ctgSum[ctg];
-  }
-}
-
-
-void RunAccum::residCtg(PredictorT nCtg, PredictorT accumIdx) {
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    ctgZero[runCount * nCtg + ctg] -= getSumCtg(accumIdx, nCtg, ctg);
-  }
-}
-  
-
 struct RunDump RunAccum::dump() const {
   PredictorT startTrue = implicitTrue ? runsLH : 0;
   PredictorT runsTrue = implicitTrue ? (runCount - runsLH) : runsLH;
@@ -490,13 +499,6 @@ void BHeap::insert(BHPair pairVec[], unsigned int slot_, double key_) {
     pairVec[parIdx] = input;
     idx = parIdx;
     parIdx = parent(idx);
-  }
-}
-
-
-void BHeap::depopulate(BHPair pairVec[], PredictorT lhOut[], PredictorT pop) {
-  for (int bot = pop - 1; bot >= 0; bot--) {
-    lhOut[pop - (1 + bot)] = slotPop(pairVec, bot);
   }
 }
 
@@ -530,3 +532,73 @@ unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
   return ret;
 }
 
+
+void RunAccum::maxVar() {
+  orderMean();
+
+  IndexT sCountL = 0;
+  double sumL = 0.0;
+  PredictorT runSlot = getRunCount() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < getRunCount() - 1; slotTrial++) {
+    sumAccum(slotTrial, sCountL, sumL);
+    if (trialSplit(infoVar(sumL, sumCand - sumL, sCountL, sCountCand - sCountL))) {
+      runSlot = slotTrial;
+    }
+  }
+  setToken(runSlot);
+}
+
+
+void RunAccum::ctgGini(const vector<double>& ctgSum) {
+  deWide(ctgSum.size());
+
+  PredictorT highSlot = effCount() - 1;
+  unsigned int allOnes = (1ul << effCount()) - 1;
+  // Nonempty subsets as binary-encoded unsigneds.
+  
+  PredictorT trueSlots = 0; // Slot offsets of codes taking true branch.
+  // Empty and saturated subsets yield zero-valued denominators.
+  for (unsigned int subset = 1; subset < allOnes; subset++) { // All nontrivial subsets.
+    double sumL = 0.0;
+    double ssL = 0.0;
+    double ssR = 0.0;
+    for (PredictorT slot = 0; slot <= highSlot; slot++) {
+      if (subset & (1ul << slot)) {
+	for (PredictorT yCtg = 0; yCtg < ctgSum.size(); yCtg++) {
+	  double cellSum = getSumCtg(slot, ctgSum.size(), yCtg);
+	  sumL += cellSum;
+	  ssL += cellSum * cellSum;
+	  ssR += (ctgSum[yCtg] - cellSum) * (ctgSum[yCtg] - cellSum);
+	}
+      }
+    }
+    if (trialSplit(infoGini(ssL, ssR, sumL, sumCand - sumL))) {
+      trueSlots = subset;
+    }
+  }
+
+  setToken(trueSlots);
+}
+
+
+void RunAccum::binaryGini(const vector<double>& ctgSum) {
+  orderBinary();
+
+  const double tot0 = ctgSum[0];
+  const double tot1 = ctgSum[1];
+  double sumL0 = 0.0; // Running left sum at category 0.
+  double sumL1 = 0.0; // " " category 1.
+  PredictorT runSlot = getRunCount() - 1;
+  for (PredictorT slot = 0; slot < getRunCount() - 1; slot++) {
+    if (accumBinary(slot, sumL0, sumL1)) { // Splitable
+      // sumR, sumL magnitudes can be ignored if no large case/class weightings.
+      FltVal sumL = sumL0 + sumL1;
+      double ssL = sumL0 * sumL0 + sumL1 * sumL1;
+      double ssR = (tot0 - sumL0) * (tot0 - sumL0) + (tot1 - sumL1) * (tot1 - sumL1);
+      if (trialSplit(infoGini(ssL, ssR, sumL, sumCand - sumL))) {
+        runSlot = slot;
+      }
+    } 
+  }
+  setToken(runSlot);
+}

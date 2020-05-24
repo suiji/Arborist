@@ -17,6 +17,7 @@
 #ifndef PARTITION_DEFMAP_H
 #define PARTITION_DEFMAP_H
 
+
 #include <deque>
 #include <vector>
 #include <map>
@@ -46,7 +47,7 @@ class DefMap {
   vector<unsigned char> layerDelta; // # layers back split was defined.
   vector<unsigned char> deltaPrev; // Previous layer's delta:  accum.
   deque<unique_ptr<class DefLayer> > layer; // Caches layers tracked by history.
-  vector<unsigned int> runCount;
+  vector<PredictorT> runCount;
   
 
   /**

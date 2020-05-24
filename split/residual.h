@@ -92,7 +92,7 @@ struct ResidualCtg : public Residual {
              IndexT& sCount,
              double& ssR,
              double& ssL,
-             class AccumCartCtg* np);
+             class CutAccumCtg* np);
 };
 
 #endif

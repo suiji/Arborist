@@ -159,7 +159,7 @@ const vector<size_t>& TrainChunk::getLeafHeight() const {
 
 
 void TrainChunk::dumpLeafRaw(unsigned char leafOut[]) const {
-  train->getLeaf()->cacheNodeRaw(leafOut);
+  train->getLeaf()->cacheLeafRaw(leafOut);
 }
 
 

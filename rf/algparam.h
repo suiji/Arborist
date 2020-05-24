@@ -19,9 +19,9 @@
 #define RF_ALGPARAM_H
 
 #include "candrf.h"
-#include "sfcart.h"
+#include "splitcart.h"
 
 typedef CandRF CandType; // RF-specific predictor sampling.
-typedef SFCart SFType; // CART-specific split mechanism.
+typedef SplitCart SplitFactoryT; // CART-specific split dispatch.
 
 #endif

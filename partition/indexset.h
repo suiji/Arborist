@@ -93,16 +93,6 @@ class IndexSet {
   
 
   /**
-     @brief Updates members associated with split encoding.
-
-     @param nux holds encoding and information values.
-   */
-  void encodeUpdate(const class SplitFrontier* splitFrontier,
-		    const class SplitNux* nux,
-		    const class CritEncoding& enc);
-
-  
-  /**
      @brief Initializes index set as a successor node.
   */
   void succInit(class Frontier *frontier,
@@ -170,24 +160,16 @@ class IndexSet {
 
 
   /**
-     @brief Updates true branch state from nux's true state.
+     @brief Updates branch state from nux.
 
      @param nux encapsulates the splitting description.
 
-     @param accum is true iff accumulating state, else decrementing.
+     @param enc encapsulates the splitting criteria.
    */
-  void updateTrue(const class SplitFrontier* splitFrontier,
+  void update(const class SplitFrontier* splitFrontier,
 		  const class SplitNux* nux,
 		  const class CritEncoding& enc);
   
-
-  /**
-     @brief As above, but update true branch state from nux's encoded state.
-   */
-  void updateDirect(const class SplitFrontier* splitFrontier,
-		    const class SplitNux& nux,
-		    const class CritEncoding& enc);
-
 
   /**
      @brief Accumulates leaf and split counts.

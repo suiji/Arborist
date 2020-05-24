@@ -42,9 +42,9 @@ struct Accum {
      @param info[in, out] outputs max of input and new information 
    */
   static constexpr double infoVar(double sumLeft,
-                                    double sumRight,
-                                    IndexT sCountLeft,
-                                    IndexT sCountRight) {
+				  double sumRight,
+				  IndexT sCountLeft,
+				  IndexT sCountRight) {
     return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
   }
 
@@ -65,6 +65,22 @@ struct Accum {
                                     double sumLeft,
                                     double sumRight) {
     return ssLeft / sumLeft + ssRight / sumRight;
+  }
+
+
+  /**
+     @brief Maintains maximum 'info' value.
+
+     @return true iff value passed exceeds current information value.
+  */
+  bool trialSplit(double infoTemp) {
+    if (infoTemp > info) {
+      info = infoTemp;
+      return true;
+    }
+    else {
+      return false;
+    }
   }
 
 

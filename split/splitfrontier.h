@@ -23,6 +23,8 @@
 
 #include <vector>
 
+enum class EncodingStyle { direct, trueBranch };
+
 
 /**
    @brief Enapsulates contributions of an individual split to frontier.
@@ -35,12 +37,13 @@ struct CritEncoding {
   const IndexT implicitTrue; // # implicit SR indices.
   const bool increment; // True iff encoding is additive else subtractive.
   const bool exclusive; // True iff update is masked.
-
+  const EncodingStyle style; // Whether direct or true-branch.
+  
   CritEncoding(const class SplitFrontier* frontier,
 	       const class SplitNux* nux,
 	       PredictorT nCtg,
-	       bool incr,
-	       bool excl);
+	       bool excl,
+	       bool incr = true);
 
 
   ~CritEncoding() {}
@@ -81,7 +84,14 @@ struct CritEncoding {
     }
   }
 
+
+  void getISetVals(const class SplitNux* nux,
+		   IndexT& sCountTrue,
+		   double& sumTrue,
+		   IndexT& extentTrue) const;
+
   
+private:  
   /**
      @brief Outputs the internal contents.
    */
@@ -120,6 +130,9 @@ protected:
   class Frontier* frontier;  // Current frontier of the partition tree.
   const PredictorT nPred;
   unique_ptr<class ObsPart> obsPart;  // Partitioned observatsion.
+  bool compoundCriteria; // True iff criteria may be multiple-valued.
+  EncodingStyle encodingStyle; // How to update observation tree.
+
   IndexT nSplit; // # subtree nodes at current layer.
   unique_ptr<class RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<class CutSet> cutSet; // Cut accumulators for the current frontier.
@@ -132,6 +145,30 @@ protected:
   vector<IndexT> candOff;  // Lead candidate position:  cumulative
   vector<PredictorT> nCand;  // At most nPred etries per candidate.
 
+  vector<vector<class SplitNux>> nuxCompound; // Used iff compound criteria enabled.
+
+  vector<class SplitNux> nuxMax;  // Used iff simple criteria enabled.
+
+  vector<class SplitNux> maxCandidates(const vector<class SplitNux>& sc);
+  
+  class SplitNux candMax(const vector<class SplitNux>& sc,
+			 IndexT splitOff,
+			 IndexT nSplitFrontier) const;
+
+  
+  void consumeSimple(const vector<class SplitNux>& critSimple,
+		     PreTree* pretree) const;
+
+  
+  void consumeCompound(const vector<vector<class SplitNux>>& critCompound,
+		       PreTree* preTre) const;
+
+  /**
+     @brief Consumes each criterion in the vector.
+   */
+  void consumeCriteria(class PreTree* pretree,
+		       const vector<class SplitNux>& nuxCrit) const;
+  
   /**
      @brief Retrieves the type-relative index of a numerical predictor.
 
@@ -162,7 +199,14 @@ public:
 
   SplitFrontier(const class SummaryFrame* frame_,
                 class Frontier* frontier_,
-                const class Sample* sample);
+                const class Sample* sample,
+		bool compoundCriteria_,
+		EncodingStyle encodingStyle_);
+
+
+  auto getEncodingStyle() const {
+    return encodingStyle;
+  }
 
   
   /**
@@ -190,7 +234,7 @@ public:
   /**
      @brief Records splitting state associated with cut.
    */
-  void writeCut(class SplitNux* nux,
+  void writeCut(const class SplitNux* nux,
 		const class CutAccum* accum) const;
 
 
@@ -211,12 +255,15 @@ public:
 
      @parm range is the SR range of the split, if specified.
    */
-  void nuxEncode(const class SplitNux* nux,
-		 class BranchSense* branchSense,
-		 class CritEncoding& enc,
-		 bool topOnly,
-		 const IndexRange& range = IndexRange()) const;
+  CritEncoding nuxEncode(const class SplitNux* nux,
+			 class BranchSense* branchSense,
+			 const IndexRange& range = IndexRange()) const;
 
+
+
+  void encodeCriterion(class IndexSet* iSet,
+		       class SplitNux* nuxMax,
+		       class BranchSense* branchSense) const;
 
 
   /**
@@ -320,9 +367,6 @@ public:
   bool isFactor(const SplitCoord& splitCoord) const;
 
 
-  virtual void consumeNodes(PreTree* pretree) const = 0;
-
-
   /**
      @brief Getter for pre-bias value, by index.
 
@@ -400,7 +444,7 @@ public:
 		     vector<class SplitNux>& sc,
 		     class BranchSense* branchSense) = 0;
 
-  
+
   /**
      @brief Fixes factor splitting style.
    */
@@ -442,6 +486,89 @@ public:
      TODO:  Allocate new frontiers and deprecate persistance.
    */
   virtual void clear();
+};
+
+
+struct SFReg : public SplitFrontier {
+  // Bridge-supplied monotone constraints.  Length is # numeric predictors
+  // or zero, if none so constrained.
+  static vector<double> mono;
+
+  // Per-layer vector of uniform variates.
+  vector<double> ruMono;
+
+  SFReg(const class SummaryFrame* frame,
+	class Frontier* frontier,
+	const class Sample* sample,
+	bool compoundCriteria,
+	EncodingStyle encodingStyle);
+
+  ~SFReg();
+
+  /**
+     @brief Caches a dense local copy of the mono[] vector.
+
+     @param summaryFrame contains the predictor block mappings.
+
+     @param bridgeMono has length equal to the predictor count.  Only
+     numeric predictors may have nonzero entries.
+  */
+  static void immutables(const class SummaryFrame* summaryFrame,
+                         const vector<double>& feMono);
+
+  /**
+     @brief Resets the monotone constraint vector.
+   */
+  static void deImmutables();
+  
+
+  /**
+     @brief Determines whether a regression pair undergoes constrained splitting.
+
+     @return constraint sign, if within the splitting probability, else zero.
+  */
+  int getMonoMode(const class SplitNux* cand) const;
+
+  
+  /**
+     @brief Sets layer-specific values for the subclass.
+  */
+  void layerPreset();
+};
+
+
+class SFCtg : public SplitFrontier {
+protected:
+  const PredictorT nCtg;
+  vector<vector<double> > ctgSum; // Per-category response sums, by node.
+
+public:
+  SFCtg(const class SummaryFrame* frame,
+	class Frontier* frontier,
+	const class Sample* sample,
+	bool compoundCriteria,
+	EncodingStyle encodingStyle,
+	PredictorT nCtg_);
+
+
+  /**
+     @brief Getter for training response cardinality.
+
+     @return nCtg value.
+   */
+  inline PredictorT getNCtg() const {
+    return nCtg;
+  }
+
+
+  /**
+     @brief Accesses per-category sum vector associated with candidate's node.
+
+     @param cand is the splitting candidate.
+
+     @return reference vector of per-category sums.
+   */
+  const vector<double>& getSumSlice(const class SplitNux* cand) const;
 };
 
 

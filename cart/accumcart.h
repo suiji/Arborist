@@ -25,10 +25,10 @@
 /**
    @brief Auxiliary workspace information specific to regression.
  */
-class AccumCartReg : public CutAccum {
+class CutAccumReg : public CutAccum {
   const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<struct Residual> resid; // Current residual, if any, else null.
-  
+  const unique_ptr<struct Residual> resid; // Current residual or null.
+
   /**
      @brief Updates with residual and possibly splits.
 
@@ -41,28 +41,15 @@ class AccumCartReg : public CutAccum {
 
 
 public:
-  AccumCartReg(const class SplitNux* splitCand,
-                const class SFCartReg* spReg);
+  CutAccumReg(const class SplitNux* splitCand,
+                const class SFRegCart* spReg);
 
-  ~AccumCartReg();
-
-
-  static bool infoSplit(double infoTemp,
-                        double& info) {
-    if (infoTemp > info) {
-      info = infoTemp;
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-
+  ~CutAccumReg();
 
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SFCartReg* spReg,
+  void split(const class SFRegCart* spReg,
              class SplitNux* cand);
   
 
@@ -94,7 +81,7 @@ public:
 /**
    @brief Splitting accumulator for classification.
  */
-class AccumCartCtg : public CutAccum {
+class CutAccumCtg : public CutAccum {
   const PredictorT nCtg; // Cadinality of response.
   const unique_ptr<struct ResidualCtg> resid;
   const vector<double>& ctgSum; // Per-category response sum at node.
@@ -123,51 +110,20 @@ class AccumCartCtg : public CutAccum {
   */
   unique_ptr<struct ResidualCtg>
   makeResidual(const class SplitNux* cand,
-               const class SFCartCtg* spCtg);
+               const class SFCtgCart* spCtg);
 
 public:
 
-  AccumCartCtg(const class SplitNux* cand,
-                class SFCartCtg* spCtg);
+  CutAccumCtg(const class SplitNux* cand,
+	      class SFCtgCart* spCtg);
 
-  ~AccumCartCtg();
-
-  
-  /**
-     @brief Evaluates trial splitting information as Gini.
-
-     @param ssLeft is the sum of squared responses to the left of a trial split.
-
-     @param ssRight is the sum of squared responses to the right.
-
-     @param sumLeft is the sum of responses to the left.
-
-     @param sumRight is the sum of responses to the right.
-   */
-  static constexpr double infoGini(double ssLeft,
-                                    double ssRight,
-                                    double sumLeft,
-                                    double sumRight) {
-    return ssLeft / sumLeft + ssRight / sumRight;
-  }
-
-
-  static bool infoSplit(double infoTemp,
-                        double& info) {
-    if (infoTemp > info) {
-      info = infoTemp;
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
+  ~CutAccumCtg();
 
 
   /**
      @brief Dispatches appropriate splitting method.
    */
-  void split(const class SFCartCtg* spCtg,
+  void split(const class SFCtgCart* spCtg,
              class SplitNux* cand);
 
   

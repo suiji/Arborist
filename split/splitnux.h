@@ -57,24 +57,9 @@ public:
 
 
   /**
-     @brief Computes information gain using pre-bias and accumulator.
+     @brief Revises information value from accumulator's contents.
    */
-  void infoGain(const class SplitFrontier* sf,
-		const class CutAccum* accum);
-
-
-  /**
-     @brief As above, but only employs pre-bias.
-
-     @return true iff gain greater than zero.
-   */
-  void infoGain(const class SplitFrontier* splitFrontier);
-
-
-  /**
-     @brief As above, but only employs accumulator.
-   */
-  void infoGain(const class CutAccum* accum);
+  void infoGain(const class Accum* accum);
   
 
   /**
@@ -248,12 +233,6 @@ public:
     return accumIdx;
   }
 
-  /**
-     @brief Reference getter for over-writing info member.
-  */
-  double& refInfo() {
-    return info;
-  }
   
   auto getInfo() const {
     return info;
