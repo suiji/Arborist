@@ -43,7 +43,7 @@ void SplitCart::splitReg(const SFRegCart* sf, SplitNux* cand) {
     cand->infoGain(runAccum);
   }
   else {
-    CutAccumReg numPersist(cand, sf);
+    CutAccumRegCart numPersist(cand, sf);
     numPersist.split(sf, cand);
     cand->infoGain(&numPersist);
   }
@@ -53,7 +53,7 @@ void SplitCart::splitReg(const SFRegCart* sf, SplitNux* cand) {
 void SplitCart::splitCtg(SFCtgCart* sf, SplitNux* cand) {
   if (sf->isFactor(cand->getSplitCoord())) {
     RunAccum* runAccum = sf->getRunAccum(cand->getAccumIdx());
-    runAccum->ctgRuns(cand, sf->getNCtg(), sf->getSumSlice(cand));
+    runAccum->ctgRuns(cand, sf->getSumSlice(cand));
 
     if (sf->getNCtg() == 2) {
       runAccum->binaryGini(sf->getSumSlice(cand));
@@ -64,7 +64,7 @@ void SplitCart::splitCtg(SFCtgCart* sf, SplitNux* cand) {
     cand->infoGain(runAccum);
   }
   else {
-    CutAccumCtg numPersist(cand, sf);
+    CutAccumCtgCart numPersist(cand, sf);
     numPersist.split(sf, cand);
     cand->infoGain(&numPersist);
   }

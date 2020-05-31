@@ -6,25 +6,20 @@
  */
 
 /**
-   @file algparam.h
+   @file algsf.h
 
-   @brief Algorithm-specific typedefs.
+   @brief Algorithm-specific typedef for frontier splitting.
 
    @author Mark Seligman
 
  */
 
 
-#ifndef RF_ALGPARAM_H
-#define RF_ALGPARAM_H
+#ifndef RF_ALGSF_H
+#define RF_ALGSF_H
 
-#include "candrf.h"
 #include "splitcart.h"
-#include "runaccum.h"
-#include "cutaccum.h"
 
-typedef CandRF CandType; // RF-specific predictor sampling.
 typedef SplitCart SplitFactoryT; // CART-specific split dispatch.
-typedef RunAccum RunAccumT; // Until RunAccumCart completed.
-typedef CutAccum CutAccumT; // Until CutAccumCart completed.
+
 #endif

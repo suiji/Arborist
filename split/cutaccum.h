@@ -30,9 +30,6 @@
  */
 class CutAccum : public Accum {
 protected:
-  const class SplitFrontier* splitFrontier;
-  IndexT sCount; // Running sum of trial LHS sample counts.
-  double sum; // Running sum of trial LHS response.
   IndexT cutDense; // Rightmost position beyond implicit blob, if any.
   
   // Read locally but initialized, and possibly reset, externally.
@@ -103,6 +100,109 @@ public:
   }
 
   
+  IndexT lhImplicit(const class SplitNux* cand) const;
+
+
+  double interpolateRank(double splitQuant) const;
+};
+
+
+class CutAccumCtg : public CutAccum {
+protected:
+
+  const PredictorT nCtg; // Cadinality of response.
+  const unique_ptr<struct ResidualCtg> resid;
+  const vector<double>& ctgSum; // Per-category response sum at node.
+  double* ctgAccum; // Slice of compressed accumulation data structure.
+  double ssL; // Left sum-of-squares accumulator.
+  double ssR; // Right " ".
+
+
+  /**
+     @brief Accessor for node-wide sum for a given category.
+
+     @param ctg is the category in question
+
+     @return sum at category over node.
+   */
+  inline double getCtgSum(PredictorT ctg) const {
+    return ctgSum[ctg];
+  }
+
+
+  /**
+     @brief Post-increments accumulated sum.
+
+     @param yCtg is the category at which to increment.
+
+     @param sumCtg is the sum by which to increment.
+     
+     @return value of accumulated sum prior to incrementing.
+   */
+  inline double accumCtgSum(PredictorT yCtg,
+                     double sumCtg) {
+    double val = ctgAccum[yCtg];
+    ctgAccum[yCtg] += sumCtg;
+    return val;
+  }
+
+
+  /**
+     @brief Imputes per-category dense rank statistics as residuals over cell.
+
+     @param cand is the splitting candidate.
+
+     @param spn is the splitting environment.
+
+     @param spCtg summarizes the categorical response.
+
+     @return new residual for categorical response over cell.
+  */
+  unique_ptr<struct ResidualCtg> makeResidual(const class SplitNux* cand,
+					      const class SFCtg* sfCtg);
+
+
+
+public:
+  CutAccumCtg(const class SplitNux* cand,
+	      class SFCtg* sfCtg);
+
+
+  /**
+     @brief Accumulates running sums of squares.
+
+     @param ctgSum is the response sum for a category.
+
+     @param yCtt is the response category.
+
+     @param[in, out] ssL accumulates sums of squares from the left.
+
+     @param[in, out] ssR accumulates sums of squares to the right.
+   */
+  inline void accumCtgSS(double ctgSum,
+                  PredictorT yCtg,
+                  double& ssL_,
+                  double& ssR_) {
+    double sumRCtg = accumCtgSum(yCtg, ySumThis);
+    ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
+    double sumLCtg = getCtgSum(yCtg) - sumRCtg;
+    ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
+  }
+};
+
+
+class CutAccumReg : public CutAccum {
+
+
+protected:
+  const int monoMode; // Presence/direction of monotone constraint.
+  const unique_ptr<struct Residual> resid; // Current residual or null.
+
+public:
+  CutAccumReg(const class SplitNux* splitCand,
+	      const class SFReg* spReg);
+
+  ~CutAccumReg();
   /**
      @brief Creates a residual summarizing implicit splitting state.
 
@@ -115,16 +215,11 @@ public:
   unique_ptr<struct Residual> makeResidual(const class SplitNux* cand,
                                           const class SampleRank spn[]);
 
-
-  IndexT lhImplicit(const class SplitNux* cand) const;
-
-
-  double interpolateRank(double splitQuant) const;
 };
 
 
 /**
-   @brief Minimal informatoin needed to reconstruct cut.
+   @brief Minimal information needed to reconstruct cut.
  */
 struct CutSig {
   // In CART-like implementations, idxLeft and idxRight are adjacent.
@@ -143,69 +238,6 @@ struct CutSig {
     cutLeft(true) {
   }
 };
-
-
-
-
-class CutSet {
-  vector<CutSig> cutSig;
-
-public:
-  CutSet();
-
-
-  CutSig getCut(IndexT accumIdx) const {
-    return cutSig[accumIdx];
-  }
-
-
-  /**
-     @brief Same as above, but looks up from nux accum index.
-   */
-  CutSig getCut(const SplitNux& nux) const;
-
-  
-  void setCut(IndexT accumIdx, const CutSig& sig) {
-    cutSig[accumIdx] = sig;
-  }
-  
-  
-  IndexT addCut(const class SplitNux* cand);
-
-  
-  IndexT getAccumCount() const {
-    return cutSig.size();
-  }
-  
-
-  void write(const class SplitNux* nux,
-	     const CutAccum* accum);
-
-  
-  /**
-     @return true iff cut associated with split has left sense.
-   */
-  bool leftCut(const class SplitNux* nux) const;
-
-
-  /**
-     @brief Sets the sense of a given cut.
-   */
-  void setCutSense(IndexT cutIdx,
-		   bool sense);
-
-  double getQuantRank(const class SplitNux* nux) const;
-
-
-  IndexT getIdxRight(const class SplitNux* nux) const;
-
-  
-  IndexT getIdxLeft(const class SplitNux* nux) const;
-
-  
-  IndexT getImplicitTrue(const class SplitNux* nux) const;
-};
-
 
 #endif
 

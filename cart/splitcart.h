@@ -20,7 +20,7 @@
 struct SplitCart {
   static unique_ptr<class SplitFrontier> factory(const class SummaryFrame* frame,
 						 class Frontier* frontier,
-						 const Sample* sample,
+						 const class Sample* sample,
 						 PredictorT nCtg);
 
   

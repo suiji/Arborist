@@ -41,15 +41,6 @@ SFCtgCart::SFCtgCart(const SummaryFrame* frame,
 }
 
 
-double SFCtgCart::getSumSquares(const SplitNux *cand) const {
-  return sumSquares[cand->getNodeIdx()];
-}
-
-
-double* SFCtgCart::getAccumSlice(const SplitNux* cand) {
-  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * nSplit * nCtg + cand->getNodeIdx() * nCtg];
-}
-
 /**
    @brief Run objects should not be deleted until after splits have been consumed.
  */

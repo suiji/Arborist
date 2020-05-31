@@ -18,9 +18,8 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "defmap.h"
-#include "algparam.h"
-#include "cutaccum.h"
-#include "runaccum.h"
+#include "runset.h"
+#include "cutset.h"
 #include "samplenux.h"
 #include "obspart.h"
 #include "summaryframe.h"
@@ -80,7 +79,7 @@ IndexT* SplitFrontier::getBufferIndex(const SplitNux* nux) const {
 }
 
 
-RunAccum* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
+RunAccumT* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
   return runSet->getAccumulator(accumIdx);
 }
 
@@ -282,7 +281,7 @@ void SplitFrontier::setOffsets(const vector<SplitNux>& sched) {
 
 IndexT SplitFrontier::addAccumulator(const SplitNux* cand,
 				     PredictorT runCount) const {
-  return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(cand);
+  return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(this, cand);
 }
 
 
@@ -523,3 +522,14 @@ void SplitFrontier::consumeCriteria(PreTree* pretree,
     consumeCriterion(pretree, &nux);
   }
 }
+
+
+double SFCtg::getSumSquares(const SplitNux *cand) const {
+  return sumSquares[cand->getNodeIdx()];
+}
+
+
+double* SFCtg::getAccumSlice(const SplitNux* cand) {
+  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * nSplit * nCtg + cand->getNodeIdx() * nCtg];
+}
+

@@ -23,21 +23,24 @@ Accum::Accum(const SplitFrontier* splitFrontier,
   sampleRank(splitFrontier->getPredBase(cand)),
   sampleIndex(splitFrontier->getBufferIndex(cand)),
   rankDense(splitFrontier->getDenseRank(cand)),
+  idxStart(cand->getIdxStart()),
+  idxEnd(cand->getIdxEnd()),
   sumCand(cand->getSum()),
   sCountCand(cand->getSCount()),
+  sCount(sCountCand),
+  sum(sumCand),
   info(cand->getInfo()) {
 }
 
 
-bool Accum::findEdge(const SplitNux* cand,
-		     const BranchSense* branchSense,
+bool Accum::findEdge(const BranchSense* branchSense,
 		     bool leftward,
 		     IndexT idxTerm,
 		     bool sense,
 		     IndexT& edge) const {
   // Breaks out and returns true iff matching-sense sample found.
   if (leftward) { // Decrement to start.
-    for (edge = idxTerm; edge > cand->getIdxStart(); edge--) {
+    for (edge = idxTerm; edge > idxStart; edge--) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }
@@ -47,7 +50,7 @@ bool Accum::findEdge(const SplitNux* cand,
     }
   }
   else { // Increment to end.
-    for (edge = idxTerm; edge <= cand->getIdxEnd(); edge++) {
+    for (edge = idxTerm; edge <= idxEnd; edge++) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }

@@ -6,7 +6,7 @@
  */
 
 /**
-   @file runset.h
+   @file runaccum.h
 
    @brief Definitions for the Run classes, which maintain predictor
    runs, especially factor-valued predictors.
@@ -105,12 +105,6 @@ enum class SplitStyle;
    are not yet built for numerical predictors, which have so far been
    generally assumed to have dispersive values.
 
-   The runCounts[] vector tracks conservatively-estimated run lengths for
-   every split/predictor pair, regardless whether the pair is chosen for
-   splitting in a given level (cf., 'mtry' and 'predProb').  The vector
-   must be reallocated at each level, to accommodate changes in node numbering
-   introduced through splitting.
-
    Run lengths for a given predictor decrease, although not necessarily
    monotonically, with splitting.  Hence once a pair becomes a singleton, the
    fact is worth preserving for the duration of training.  Numerical predictors
@@ -121,28 +115,30 @@ enum class SplitStyle;
    singletons are very easy to identify when updating the partition.
 
    Other than the "bottom" value of unity, run lengths can generally only be
-   known precisely by first walking the predictor ranks.  Hence a conservative
-   value is used for storage allocation, namely, that obtained during a previous
-   level.  Note that this value may be quite conservative, as the pair may not
-   have undergone a rank-walk in the previous level.  The one exception to this
-   is the case of an argmax split, for which both left and right run counts are
-   known from splitting.
+   known precisely by first walking the predictor codes.  Hence a conservative
+   value is used for storage allocation.
 */
 class RunAccum : public Accum {
+protected:
   const PredictorT rcSafe; // Conservative run count.
-  vector<FRNode> runZero;
-  vector<BHPair> heapZero;
+  vector<FRNode> runZero; // SR block, partitioned by code.
+  vector<BHPair> heapZero; // Sorting workspace.
   vector<PredictorT> idxRank; // Slot rank, according to ad-hoc ordering.
-  vector<double> ctgZero; // Categorical:  run x ctg checkerboard.
+  vector<double> cellSum; // Categorical:  run x ctg checkerboard.
   double* rvZero; // Non-binary wide runs:  random variates for sampling.
 
-  PredictorT implicitSlot;
+  PredictorT implicitSlot; // Which run, if any has no explicit SR range.
   PredictorT runCount;  // Current high watermark.
   PredictorT runsLH; // Count of LH runs.
   PredictorT splitToken; // Cut or bits.
   IndexT implicitTrue; // # implicit true-sense indices:  post-encoding.
-  
 
+  // Temporal values read from SampleRank:
+  IndexT codeSR;
+  IndexT sCountSR;
+  FltVal ySumSR;
+  PredictorT ctgSR;
+  
   /**
      @brief Sets run parameters and increments run count.
    */
@@ -188,19 +184,20 @@ class RunAccum : public Accum {
 
 
   /**
-     @brief Caches response sums.
-
-     @param nodeSum is the per-category response over the node (IndexSet).
+     @brief Sorts by random variate ut effect sampling w/o replacement.
    */
-  void setSumCtg(const vector<double>& nodeSum);
-
-
   void heapRandom();
-  
 
+  
+  /**
+     @brief Sorts by probability, binary response.
+   */
   void heapBinary();
 
-
+  
+  /**
+     @brief Sorts by mean response.
+   */
   void heapMean();
 
 public:
@@ -232,6 +229,7 @@ public:
   */
   void implicitLeft();
 
+
   /**
      @brief Computes extent of left-implicit runs.
      
@@ -255,19 +253,15 @@ public:
   
 
   /**
-     @brief Hammers the pair's run contents with runs selected for
-     sampling.
-
-     Since the runs are to be read numerous times, performance
-     may benefit from this elimination of a level of indirection.
+     @brief Overwrites leading slots with sampled subset of runs.
   */
   void deWide(PredictorT nCtg);
 
 
   /**
-     @brief Reorders the per-predictor response decomposition to compensate for run reordering.
+     @brief Reorders the per-category response decomposition to compensate for run reordering.
 
-     @param topCount is the number of leading runs reordered.
+     @param leadCount is the number of leading runs reordered.
    */
   void ctgReorder(PredictorT leadCount,
 		  PredictorT nCtg);
@@ -302,6 +296,7 @@ public:
      @brief As above, but specialized for binary response.
    */
   void binaryGini(const vector<double>& ctgSum);
+
   
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
@@ -309,6 +304,7 @@ public:
      @param pop is the number of elements to pop from the heap.
   */
   void slotReorder(PredictorT pop = 0);
+
 
   /**
      @brief Revises slot or bit contents for argmax accumulator.
@@ -342,12 +338,11 @@ public:
 
   
   /**
-     @brief Builds categorical runs.
+     @brief Accumulates runs for classification.
 
-     Very similar to regression case, but with per-category decomposition.
+     @param sumSlice is the per-category response decomposition.
   */
   void ctgRuns(const class SplitNux* cand,
-	       PredictorT nCtg,
 	       const vector<double>& sumSlice);
 
   
@@ -369,17 +364,6 @@ public:
      @brief Writes to heap, weighting by category-1 probability.
   */
   void orderBinary();
-
-
-  /**
-     @brief Subtracts a run's per-category responses from the current run.
-
-     @param nCtg is the response cardinality.
-
-     @param runIdx is the run index.
-   */
-  void residCtg(PredictorT nCtg,
-                PredictorT runIdx);
 
 
   /**
@@ -447,14 +431,13 @@ public:
   /**
      @brief Accumulates contents at position referenced by a given index.
 
-     @param outPos is an index in the output vector.
+     @param slot is a run index.
 
      @param sCount[in, out] accumulates sample count using the output position.
 
      @param sum[in, out] accumulates the sum using the output position.
    */
-  inline void sumAccum(PredictorT outPos, IndexT& sCount, double& sum) const {
-    PredictorT slot = outPos;
+  inline void sumAccum(PredictorT slot, IndexT& sCount, double& sum) const {
     runZero[slot].accum(sCount, sum);
   }
 
@@ -478,29 +461,58 @@ public:
 
 
   /**
-     @brief Accumulates checkerboard values prior to writing topmost run.
+     @brief Accumulates checkerboard values prior to writing next run.
    */
   inline void ctgAccum(PredictorT nCtg,
                        double ySum,
                        PredictorT yCtg) {
-    ctgZero[runCount * nCtg + yCtg] += ySum;
+    cellSum[runCount * nCtg + yCtg] += ySum;
   }
 
 
   /**
      @return checkerboard value at slot for category.
    */
-  inline double getSumCtg(PredictorT slot,
+  inline double getCellSum(PredictorT runIdx,
 			  PredictorT nCtg,
 			  PredictorT yCtg) const {
-    return ctgZero[slot * nCtg + yCtg];
+    return cellSum[runIdx * nCtg + yCtg];
   }
 
 
   /**
+     @brief Initializes category sums of the next run.
+
+     @param nodeSum is the per-category response over the node (IndexSet).
+   */
+  inline void initCtg(const vector<double>& sumSlice) {
+    double* ctgBase = &cellSum[runCount * sumSlice.size()];
+    for (auto val : sumSlice) {
+      *ctgBase++ = val;
+    }
+  }
+
+
+  /**
+     @brief Subtracts a run's per-category responses from the current run.
+
+     @param nCtg is the response cardinality.
+
+     @param runIdx is the run index.
+   */
+  inline void residCtg(PredictorT nCtg,
+		       PredictorT runIdx) {
+    double* ctgBase = &cellSum[runCount * nCtg];
+    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+      ctgBase[ctg] -= cellSum[runIdx * nCtg + ctg];
+    }
+  }
+  
+
+  /**
      @brief Accumulates the two binary response sums associated with a slot.
 
-     @param outPos is a position in the output vector.
+     @param slot is a run index.
 
      @param[in, out] sum0 accumulates the response at rank 0.
 
@@ -508,23 +520,22 @@ public:
 
      @return true iff slot counts differ by at least unity.
    */
-  inline bool accumBinary(PredictorT outPos,
+  inline bool accumBinary(PredictorT slot,
 			  double& sum0,
 			  double& sum1) {
-    PredictorT slot = outPos;
-    double cell0 = getSumCtg(slot, 2, 0);
+    double cell0 = getCellSum(slot, 2, 0);
     sum0 += cell0;
-    double cell1 = getSumCtg(slot, 2, 1);
+    double cell1 = getCellSum(slot, 2, 1);
     sum1 += cell1;
 
     IndexT sCount = runZero[slot].sCount;
-    PredictorT slotNext = outPos+1;
+    PredictorT slotNext = slot+1;
     // Cannot test for floating point equality.  If sCount values are unequal,
     // then assumes the two slots are significantly different.  If identical,
     // then checks whether the response values are likely different, given
     // some jittering.
     // TODO:  replace constant with value obtained from class weighting.
-    return sCount != runZero[slotNext].sCount ? true : getSumCtg(slotNext, 2, 1) - cell1 > 0.9;
+    return sCount != runZero[slotNext].sCount ? true : getCellSum(slotNext, 2, 1) - cell1 > 0.9;
   }
 
 
@@ -564,6 +575,11 @@ public:
      @param lhBits encodes sampled LH/RH slot indices as on/off bits, respectively.
   */
   void leadBits(PredictorT lhBits);
+
+
+  double subsetGini(const vector<double>& sumSlice,
+		    unsigned int subset) const;
+
 
   
   /**
@@ -636,128 +652,6 @@ struct RunDump {
     }
   }
 };
-
-/**
-   @brief  Runs only:  caches pre-computed workspace starting indices to
-   economize on address recomputation during splitting.
-
-   Run objects are allocated per-tree, and live throughout training.
-*/
-class RunSet {
-  vector<RunAccum> runAccum;
-  vector<double> rvWide;
-  const SplitStyle style; // Splitting style, fixed by frontier class.
-
-
-  /**
-     @brief Classification:  only wide run sets use the heap.
-  */
-  void offsetsCtg();
-  
-
-public:
-  const PredictorT nCtg;  // Response cardinality; zero iff numerical.
-
-  /**
-     @brief Constructor.
-
-     @param nCtg_ is the response cardinality.
-
-     @param nRow is the number of training rows:  inattainable offset.
-  */
-  RunSet(const class SplitFrontier* splitFrontier,
-	 PredictorT nCtg_,
-	 IndexT nRow);
-
-
-  /**
-     @brief Consolidates the safe count vector.
-   */
-  void setOffsets();
-
-  
-  /**
-     @brief Adds local run count to vector of safe counts.
-
-     @return offset of run just appended.
-   */
-  IndexT addRun(const class SplitFrontier* splitFrontier,
-		const class SplitNux* cand,
-		PredictorT runCount);
-
-  
-  /**
-     @brief Accessor for RunAccum at specified index.
-   */
-  inline RunAccum* getAccumulator(PredictorT accumIdx) {
-    return &runAccum[accumIdx];
-  }
-
-
-  auto getAccumCount() {
-    return runAccum.size();
-  }
-  
-  
-  /**
-     @brief Gets safe count associated with a given index.
-   */
-  auto getSafeCount(PredictorT accumIdx) const {
-    return runAccum[accumIdx].getSafeCount();
-  }
-
-
-  vector<IndexRange> getRange(const class SplitNux* nux,
-				 const class CritEncoding& enc) const;
-
-  
-  /**
-     @retrun SR index range of top run.
-   */
-  IndexRange getTopRange(const class SplitNux* nux,
-			 const class CritEncoding& enc) const;
-
-
-
-  struct RunDump dumpRun(PredictorT accumIdx) const {
-    return runAccum[accumIdx].dump();
-  }
-
-  
-
-  /**
-     @brief Accumulates sum of implicit LH (true-sense) slots.
-
-     @return sum of implicit extents over LH runs.
-   */
-  IndexT getImplicitTrue(const class SplitNux* nux) const;
-  
-
-  /**
-     @return vector of codes corresponding to true-sense branch.
-   */
-  vector<PredictorT> getTrueBits(const class SplitNux* nux) const;
-
-
-  PredictorT getRunCount(const class SplitNux* nux) const;
-
-
-  void resetRunCount(PredictorT accumIdx,
-		   PredictorT runCount);
- 
-
-  /**
-     @brief Passes through to RunAccum method.
-   */
-  void topSlot(const class SplitNux* nux);
-
-
-  /**
-     @brief Dispatches candidate finalizer.
-   */
-  void updateAccum(const class SplitNux* cand);
-};
-
 
 /**
    @brief Implementation of binary heap tailored to RunAccums.

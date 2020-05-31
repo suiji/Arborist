@@ -20,9 +20,13 @@ struct Accum {
   const class SampleRank* sampleRank;
   const IndexT* sampleIndex;
   const IndexT rankDense; // Rank of dense value, if any.
+  const IndexT idxStart;
+  const IndexT idxEnd;
   const double sumCand;
   const IndexT sCountCand;
 
+  IndexT sCount; // Running sum of trial LHS sample counts.
+  double sum; // Running sum of trial LHS response.
   double info; // Information high watermark.  Precipitates split iff > 0.0 after update.
 
   Accum(const class SplitFrontier* splitFrontier,
@@ -97,8 +101,7 @@ struct Accum {
 
      @return whether a match was found.
    */
-  bool findEdge(const class SplitNux* cand,
-		const class BranchSense* branchSense,
+  bool findEdge(const class BranchSense* branchSense,
 		bool leftward,
 		IndexT idxTerm,
 		bool sense,

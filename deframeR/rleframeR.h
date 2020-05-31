@@ -29,7 +29,6 @@
 #define DEFRAMER_RLEFRAMER_H
 
 #include "rleframe.h"
-#include "summaryframe.h"
 
 #include <Rcpp.h>
 using namespace Rcpp;

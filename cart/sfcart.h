@@ -82,10 +82,6 @@ class SFCtgCart : public SFCtg {
   static constexpr double minSumL = 1.0e-8;
   static constexpr double minSumR = 1.0e-5;
 
-  vector<double> sumSquares; // Per-layer sum of squares, by split.
-  vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
-
-
   /**
      @return slot-style for binary response, otherwise bit-style.
    */
@@ -184,24 +180,6 @@ class SFCtgCart : public SFCtg {
   }
   
 
-  /**
-     @brief Provides slice into accumulation vector for a splitting candidate.
-
-     @param cand is the splitting candidate.
-
-     @return raw pointer to per-category accumulation vector for pair.
-   */
-  double* getAccumSlice(const class SplitNux* cand);
-
-
-  /**
-     @brief Per-node accessor for sum of response squares.
-
-     @param cand is a splitting candidate.
-
-     @return sum, over categories, of node reponse values.
-   */
-  double getSumSquares(const class SplitNux* cand) const;
 };
 
 

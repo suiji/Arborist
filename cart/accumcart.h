@@ -25,10 +25,7 @@
 /**
    @brief Auxiliary workspace information specific to regression.
  */
-class CutAccumReg : public CutAccum {
-  const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<struct Residual> resid; // Current residual or null.
-
+class CutAccumRegCart : public CutAccumReg {
   /**
      @brief Updates with residual and possibly splits.
 
@@ -41,10 +38,10 @@ class CutAccumReg : public CutAccum {
 
 
 public:
-  CutAccumReg(const class SplitNux* splitCand,
+  CutAccumRegCart(const class SplitNux* splitCand,
                 const class SFRegCart* spReg);
 
-  ~CutAccumReg();
+  ~CutAccumRegCart();
 
   /**
      @brief Dispatches appropriate splitting method.
@@ -81,15 +78,7 @@ public:
 /**
    @brief Splitting accumulator for classification.
  */
-class CutAccumCtg : public CutAccum {
-  const PredictorT nCtg; // Cadinality of response.
-  const unique_ptr<struct ResidualCtg> resid;
-  const vector<double>& ctgSum; // Per-category response sum at node.
-  double* ctgAccum; // Slice of compressed accumulation data structure.
-  double ssL; // Left sum-of-squares accumulator.
-  double ssR; // Right " ".
-
-
+class CutAccumCtgCart : public CutAccumCtg {
   /**
      @brief Applies residual state and continues splitting left.
    */
@@ -97,27 +86,12 @@ class CutAccumCtg : public CutAccum {
 		       IndexT idxStart);
 
   
-  /**
-     @brief Imputes per-category dense rank statistics as residuals over cell.
-
-     @param cand is the splitting candidate.
-
-     @param spn is the splitting environment.
-
-     @param spCtg summarizes the categorical response.
-
-     @return new residual for categorical response over cell.
-  */
-  unique_ptr<struct ResidualCtg>
-  makeResidual(const class SplitNux* cand,
-               const class SFCtgCart* spCtg);
-
 public:
 
-  CutAccumCtg(const class SplitNux* cand,
+  CutAccumCtgCart(const class SplitNux* cand,
 	      class SFCtgCart* spCtg);
 
-  ~CutAccumCtg();
+  ~CutAccumCtgCart();
 
 
   /**
@@ -148,57 +122,6 @@ public:
      exposed state.
    */
   inline void stateNext(IndexT idx);
-
-
-  /**
-     @brief Accessor for node-wide sum for a given category.
-
-     @param ctg is the category in question
-
-     @return sum at category over node.
-   */
-  inline double getCtgSum(PredictorT ctg) const {
-    return ctgSum[ctg];
-  }
-
-
-  /**
-     @brief Post-increments accumulated sum.
-
-     @param yCtg is the category at which to increment.
-
-     @param sumCtg is the sum by which to increment.
-     
-     @return value of accumulated sum prior to incrementing.
-   */
-  double accumCtgSum(PredictorT yCtg,
-                     double sumCtg) {
-    double val = ctgAccum[yCtg];
-    ctgAccum[yCtg] += sumCtg;
-    return val;
-  }
-
-
-  /**
-     @brief Accumulates running sums of squares.
-
-     @param ctgSum is the response sum for a category.
-
-     @param yCtt is the response category.
-
-     @param[out] ssL accumulates sums of squares from the left.
-
-     @param[out] ssR accumulates sums of squares to the right.
-   */
-  void accumCtgSS(double ctgSum,
-                  PredictorT yCtg,
-                  double& ssL_,
-                  double& ssR_) {
-    double sumRCtg = accumCtgSum(yCtg, ySumThis);
-    ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
-    double sumLCtg = getCtgSum(yCtg) - sumRCtg;
-    ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
-  }
 
 };
 

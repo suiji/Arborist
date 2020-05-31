@@ -18,8 +18,8 @@
  */
 
 #include "splitcoord.h"
-#include "pretree.h"
 #include "sumcount.h"
+#include "algparam.h"
 
 #include <vector>
 
@@ -428,7 +428,7 @@ public:
   
   /**
    */
-  class RunAccum* getRunAccum(PredictorT setIdx) const;
+  RunAccumT* getRunAccum(PredictorT setIdx) const;
 
 
   /**
@@ -539,6 +539,10 @@ struct SFReg : public SplitFrontier {
 
 class SFCtg : public SplitFrontier {
 protected:
+  vector<double> sumSquares; // Per-layer sum of squares, by split.
+  vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
+
+
   const PredictorT nCtg;
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
@@ -569,6 +573,26 @@ public:
      @return reference vector of per-category sums.
    */
   const vector<double>& getSumSlice(const class SplitNux* cand) const;
+
+
+  /**
+     @brief Provides slice into accumulation vector for a splitting candidate.
+
+     @param cand is the splitting candidate.
+
+     @return raw pointer to per-category accumulation vector for pair.
+   */
+  double* getAccumSlice(const class SplitNux* cand);
+
+
+  /**
+     @brief Per-node accessor for sum of response squares.
+
+     @param cand is a splitting candidate.
+
+     @return sum, over categories, of node reponse values.
+   */
+  double getSumSquares(const class SplitNux* cand) const;
 };
 
 

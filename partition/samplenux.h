@@ -155,6 +155,32 @@ class SampleRank : public SampleNux {
  public:
 
   /**
+     @brief Copies members appropriate for classification.
+   */
+  inline void refAccum(PredictorT& codeSR,
+		       IndexT& sCountSR,
+		       FltVal& sumSR,
+		       PredictorT& ctgSR) const {
+    codeSR = rank;
+    sCountSR = getSCount();
+    sumSR = ySum;
+    ctgSR = getCtg();
+  }
+
+  
+  /**
+     @brief Copies members appropriate for regression.
+   */
+  inline void refAccum(PredictorT& codeSR,
+		       IndexT& sCountSR,
+		       FltVal& sumSR) const {
+    codeSR = rank;
+    sCountSR = getSCount();
+    sumSR = ySum;
+  }
+
+  
+  /**
      @brief Getter for rank or factor group.
 
      @return rank value.

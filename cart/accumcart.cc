@@ -19,26 +19,22 @@
 #include "obspart.h"
 #include "residual.h"
 
-CutAccumReg::CutAccumReg(const SplitNux* cand,
-			 const SFRegCart* spReg) :
-  CutAccum(cand, spReg),
-  monoMode(spReg->getMonoMode(cand)),
-  resid(CutAccum::makeResidual(cand, sampleRank)) {
+CutAccumRegCart::CutAccumRegCart(const SplitNux* cand,
+				 const SFRegCart* spReg) :
+  CutAccumReg(cand, spReg) {
 }
 
 
-CutAccumReg::~CutAccumReg() {
+CutAccumRegCart::~CutAccumRegCart() {
 }
 
 
-void CutAccumReg::split(const SFRegCart* spReg,
+void CutAccumRegCart::split(const SFRegCart* spReg,
 			 SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(cand);
   }
   else {
-    IndexT idxEnd = cand->getIdxEnd();
-    IndexT idxStart = cand->getIdxStart();
     IndexT rkThis = sampleRank[idxEnd].regFields(ySumThis, sCountThis);
     splitExpl(rkThis, idxEnd-1, idxStart);
   }
@@ -46,9 +42,7 @@ void CutAccumReg::split(const SFRegCart* spReg,
 }
 
 
-void CutAccumReg::splitImpl(const SplitNux* cand) {
-  IndexT idxEnd = cand->getIdxEnd();
-  IndexT idxStart = cand->getIdxStart();
+void CutAccumRegCart::splitImpl(const SplitNux* cand) {
   if (cutDense > idxEnd) {
     // Checks resid/idxEnd, ..., idxStart+1/idxStart.
     resid->apply(ySumThis, sCountThis);
@@ -69,7 +63,7 @@ void CutAccumReg::splitImpl(const SplitNux* cand) {
 }
 
 
-void CutAccumReg::splitResidual(IndexT rkThis) {
+void CutAccumRegCart::splitResidual(IndexT rkThis) {
   // Rank exposed from previous invocation of splitExpl():
   sum -= ySumThis;
   sCount -= sCountThis;
@@ -91,7 +85,7 @@ void CutAccumReg::splitResidual(IndexT rkThis) {
 }
 
 
-void CutAccumReg::splitExpl(IndexT rkThis,
+void CutAccumRegCart::splitExpl(IndexT rkThis,
                               IndexT idxInit,
                               IndexT idxFinal) {
   // Per-sample monotonicity constraint confined to specialized method:
@@ -114,7 +108,7 @@ void CutAccumReg::splitExpl(IndexT rkThis,
 /**
    @brief As above, but checks monotonicity at every index.
  */
-void CutAccumReg::splitMono(IndexT rkThis,
+void CutAccumRegCart::splitMono(IndexT rkThis,
 			    IndexT idxInit,
 			    IndexT idxFinal) {
   bool nonDecreasing = monoMode > 0;
@@ -142,31 +136,23 @@ void CutAccumReg::splitMono(IndexT rkThis,
 }
 
 
-CutAccumCtg::CutAccumCtg(const SplitNux* cand,
-			 SFCtgCart* spCtg) :
-  CutAccum(cand, spCtg),
-  nCtg(spCtg->getNCtg()),
-  resid(makeResidual(cand, spCtg)),
-  ctgSum(spCtg->getSumSlice(cand)),
-  ctgAccum(spCtg->getAccumSlice(cand)),
-  ssL(spCtg->getSumSquares(cand)),
-  ssR(0.0) {
+CutAccumCtgCart::CutAccumCtgCart(const SplitNux* cand,
+				 SFCtgCart* spCtg) :
+  CutAccumCtg(cand, spCtg) {
 }
 
 
-CutAccumCtg::~CutAccumCtg() {
+CutAccumCtgCart::~CutAccumCtgCart() {
 }
 
 
 // Initializes from final index and loops over remaining indices.
-void CutAccumCtg::split(const SFCtgCart* spCtg,
+void CutAccumCtgCart::split(const SFCtgCart* spCtg,
                           SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(cand);
   }
   else {
-    IndexT idxEnd = cand->getIdxEnd();
-    IndexT idxStart = cand->getIdxStart();
     stateNext(idxEnd);
     splitExpl(sampleRank[idxEnd].getRank(), idxEnd-1, idxStart);
   }
@@ -174,7 +160,7 @@ void CutAccumCtg::split(const SFCtgCart* spCtg,
 }
 
 
-inline void CutAccumCtg::stateNext(IndexT idx) {
+inline void CutAccumCtgCart::stateNext(IndexT idx) {
   PredictorT yCtg;
   (void) sampleRank[idx].ctgFields(ySumThis, sCountThis, yCtg);
 
@@ -184,7 +170,7 @@ inline void CutAccumCtg::stateNext(IndexT idx) {
 }
 
 
-void CutAccumCtg::splitExpl(IndexT rkThis,
+void CutAccumCtgCart::splitExpl(IndexT rkThis,
 			     IndexT idxInit,
 			     IndexT idxFinal) {
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
@@ -197,9 +183,7 @@ void CutAccumCtg::splitExpl(IndexT rkThis,
 }
 
 
-void CutAccumCtg::splitImpl(const SplitNux* cand) {
-  IndexT idxEnd = cand->getIdxEnd();
-  IndexT idxStart = cand->getIdxStart();
+void CutAccumCtgCart::splitImpl(const SplitNux* cand) {
   if (cutDense > idxEnd) { // Far right residual:  apply and split to left.
     residualAndLeft(idxEnd, idxStart);
   }
@@ -213,55 +197,10 @@ void CutAccumCtg::splitImpl(const SplitNux* cand) {
 }
 
 
-void CutAccumCtg::residualAndLeft(IndexT idxLeft,
+void CutAccumCtgCart::residualAndLeft(IndexT idxLeft,
 				   IndexT idxStart) {
   resid->apply(ySumThis, sCountThis, ssR, ssL, this);
   sum -= ySumThis;
   sCount -= sCountThis;
   splitExpl(rankDense, idxLeft, idxStart);
-}
-
-
-unique_ptr<ResidualCtg> CutAccumCtg::makeResidual(const SplitNux* cand,
-						   const SFCtgCart* spCtg) {
-  if (cand->getImplicitCount() != 0) {
-    return make_unique<ResidualCtg>();
-  }
-
-  vector<double> ctgImpl(spCtg->getSumSlice(cand));
-  double sumExpl = 0.0;
-  IndexT sCountExpl = 0;
-  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
-    PredictorT yCtg;
-    IndexT rkThis = sampleRank[idx].ctgFields(ySumThis, sCountThis, yCtg);
-    if (rkThis > rankDense) {
-      cutDense = idx;
-    }
-    ctgImpl[yCtg] -= ySumThis;
-    sumExpl += ySumThis;
-    sCountExpl += sCountThis;
-  }
-
-  return make_unique<ResidualCtg>(sumCand - sumExpl, sCountCand - sCountExpl, ctgImpl);
-}
-
-
-ResidualCtg::ResidualCtg(double sum_,
-                         IndexT sCount_,
-                         const vector<double>& ctgImpl_) :
-  Residual(sum_, sCount_),
-  ctgImpl(ctgImpl_) {
-}
-
-
-void ResidualCtg::apply(FltVal& sum,
-                        IndexT& sCount,
-                        double& ssR,
-                        double& ssL,
-                        CutAccumCtg* np) {
-  sum = this->sum;
-  sCount = this->sCount;
-  for (PredictorT ctg = 0; ctg < ctgImpl.size(); ctg++) {
-    np->accumCtgSS(ctgImpl[ctg], ctg, ssL, ssR);
-  }
 }

@@ -15,17 +15,15 @@
 
 #include "splitnux.h"
 #include "cutaccum.h"
+#include "cutset.h"
 #include "splitfrontier.h"
 #include "obspart.h"
 #include "residual.h"
 
 
 CutAccum::CutAccum(const SplitNux* cand,
-		   const SplitFrontier* splitFrontier_) :
-  Accum(splitFrontier_, cand),
-  splitFrontier(splitFrontier_),
-  sCount(sCountCand),
-  sum(sumCand),
+		   const SplitFrontier* splitFrontier) :
+  Accum(splitFrontier, cand),
   cutDense(cand->getIdxEnd() + 1) { // Unrealizeable index.
 }
 
@@ -35,15 +33,15 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
 }
 
 
-unique_ptr<Residual> CutAccum::makeResidual(const SplitNux* cand,
-					 const SampleRank spn[]) {
+unique_ptr<Residual> CutAccumReg::makeResidual(const SplitNux* cand,
+					       const SampleRank spn[]) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<Residual>();
   }
 
   double sumExpl = 0.0;
   IndexT sCountExpl = 0;
-  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+  for (int idx = static_cast<int>(idxEnd); idx >= static_cast<int>(idxStart); idx--) {
     IndexT rkThis = spn[idx].regFields(ySumThis, sCountThis);
     if (rkThis > rankDense) {
       cutDense = idx;
@@ -58,21 +56,6 @@ unique_ptr<Residual> CutAccum::makeResidual(const SplitNux* cand,
 
 double CutAccum::interpolateRank(double splitQuant) const {
   return IndexRange(rankLH, rankRH - rankLH).interpolate(splitQuant);
-}
-
-
-CutSet::CutSet() {
-}
-
-
-CutSig CutSet::getCut(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()];
-}
-
-
-IndexT CutSet::addCut(const SplitNux* cand) {
-  cutSig.emplace_back<CutSig>(cand->getRange());
-  return cutSig.size() - 1;
 }
 
 
@@ -91,42 +74,73 @@ void CutAccum::trialSplit(double infoTrial,
     rankLH = rkLeft;
   }
 }
-  
 
-void CutSet::write(const SplitNux* nux, const CutAccum* accum) {
-  IndexT accumIdx = nux->getAccumIdx();
-  cutSig[accumIdx].idxLeft = accum->idxLeft;
-  cutSig[accumIdx].idxRight = accum->idxRight;
-  cutSig[accumIdx].implicitTrue = accum->lhImplicit(nux);
-  cutSig[accumIdx].quantRank = accum->interpolateRank(nux->splitQuant[nux->getPredIdx()]);
+
+CutAccumReg::CutAccumReg(const SplitNux* cand,
+			 const SFReg* sfReg) :
+  CutAccum(cand, sfReg),
+  monoMode(sfReg->getMonoMode(cand)),
+  resid(CutAccumReg::makeResidual(cand, sampleRank)) {
+}
+
+CutAccumReg::~CutAccumReg() {
 }
 
 
-bool CutSet::leftCut(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].cutLeft;
+CutAccumCtg::CutAccumCtg(const SplitNux* cand,
+			 SFCtg* sfCtg) :
+  CutAccum(cand, sfCtg),
+  nCtg(sfCtg->getNCtg()),
+  resid(makeResidual(cand, sfCtg)),
+  ctgSum(sfCtg->getSumSlice(cand)),
+  ctgAccum(sfCtg->getAccumSlice(cand)),
+  ssL(sfCtg->getSumSquares(cand)),
+  ssR(0.0) {
 }
 
 
-void CutSet::setCutSense(IndexT cutIdx, bool sense) {
-  cutSig[cutIdx].cutLeft = sense;
+
+unique_ptr<ResidualCtg> CutAccumCtg::makeResidual(const SplitNux* cand,
+						  const SFCtg* spCtg) {
+  if (cand->getImplicitCount() != 0) {
+    return make_unique<ResidualCtg>();
+  }
+
+  vector<double> ctgImpl(spCtg->getSumSlice(cand));
+  double sumExpl = 0.0;
+  IndexT sCountExpl = 0;
+  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+    PredictorT yCtg;
+    IndexT rkThis = sampleRank[idx].ctgFields(ySumThis, sCountThis, yCtg);
+    if (rkThis > rankDense) {
+      cutDense = idx;
+    }
+    ctgImpl[yCtg] -= ySumThis;
+    sumExpl += ySumThis;
+    sCountExpl += sCountThis;
+  }
+
+  return make_unique<ResidualCtg>(sumCand - sumExpl, sCountCand - sCountExpl, ctgImpl);
 }
 
 
-double CutSet::getQuantRank(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].quantRank;
+ResidualCtg::ResidualCtg(double sum_,
+                         IndexT sCount_,
+                         const vector<double>& ctgImpl_) :
+  Residual(sum_, sCount_),
+  ctgImpl(ctgImpl_) {
 }
 
 
-IndexT CutSet::getIdxRight(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].idxRight;
+void ResidualCtg::apply(FltVal& sum,
+                        IndexT& sCount,
+                        double& ssR,
+                        double& ssL,
+                        CutAccumCtg* np) {
+  sum = this->sum;
+  sCount = this->sCount;
+  for (PredictorT ctg = 0; ctg < ctgImpl.size(); ctg++) {
+    np->accumCtgSS(ctgImpl[ctg], ctg, ssL, ssR);
+  }
 }
 
-
-IndexT CutSet::getIdxLeft(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].idxLeft;
-}
-
-
-IndexT CutSet::getImplicitTrue(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].implicitTrue;
-}

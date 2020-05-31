@@ -20,7 +20,7 @@
 #include "train.h"
 #include "obspart.h"
 #include "splitfrontier.h"
-#include "algparam.h"
+#include "algsf.h"
 #include "defmap.h"
 #include "path.h"
 #include "ompthread.h"
