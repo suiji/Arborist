@@ -189,8 +189,8 @@ class Frontier {
                  bool terminal = false);
 
 
-  IndexT getPTId(const SplitCoord& splitCoord) const {
-    return indexSet[splitCoord.nodeIdx].getPTId();
+  IndexT getPTId(const PreCand& preCand) const {
+    return indexSet[preCand.splitCoord.nodeIdx].getPTId();
   }
   
 
@@ -300,7 +300,7 @@ class Frontier {
 
      @return index range of referenced split coordinate.
    */
-  IndexRange getBufRange(const DefCoord& preCand) const;
+  IndexRange getBufRange(const PreCand& preCand) const;
 
 
   /**
@@ -336,8 +336,8 @@ class Frontier {
   }
 
 
-  inline auto getSum(const SplitCoord& splitCoord) const {
-    return getSum(splitCoord.nodeIdx);
+  inline auto getSum(const PreCand& preCand) const {
+    return getSum(preCand.splitCoord.nodeIdx);
   }
 
 
@@ -349,8 +349,8 @@ class Frontier {
   }
 
 
-  inline auto getSCount(const SplitCoord& splitCoord) const {
-    return getSCount(splitCoord.nodeIdx);
+  inline auto getSCount(const PreCand& preCand) const {
+    return getSCount(preCand.splitCoord.nodeIdx);
   }
 
 

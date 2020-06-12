@@ -30,22 +30,22 @@ using namespace std;
   @brief Rank orderings of predictors.
 */
 class RankedFrame {
-  const unsigned int nRow;
-  const unsigned int nPred;
-  const unsigned int noRank; // Inattainable rank value.
-  unsigned int nPredDense;
+  const IndexT nRow;
+  const PredictorT nPred;
+  const PredictorT noRank; // Inattainable rank value.
+  PredictorT nPredDense;
   vector<unsigned int> denseIdx;
 
-  unsigned int nonCompact;  // Total count of uncompactified predictors.
+  PredictorT nonCompact;  // Total count of uncompactified predictors.
   unsigned int accumCompact;  // Sum of compactified lengths.
-  vector<unsigned int> denseRank;
-  vector<unsigned int> explicitCount; // Per predictor
+  vector<PredictorT> denseRank;
+  vector<IndexT> explicitCount; // Per predictor
   vector<unsigned int> rrStart;   // Predictor offset within rrNode[].
   vector<unsigned int> safeOffset; // Predictor offset within SamplePred[].
   const unsigned int denseThresh; // Threshold run length for autocompression.
 
   // Move to SummaryFrame:
-  vector<unsigned int> cardinality;
+  vector<PredictorT> cardinality;
 
   /**
      @brief Walks the design matrix as RLE entries, merging adjacent
@@ -57,8 +57,8 @@ class RankedFrame {
 
      @return total count of explicit slots.
   */
-  unsigned int denseBlock(const RLEVal<unsigned int> feRLE[],
-			  size_t feRLELength);
+  IndexT denseBlock(const RLEVal<unsigned int> feRLE[],
+		    size_t feRLELength);
 
   /**
      @brief Determines whether predictor to be stored densely and updates
@@ -71,9 +71,9 @@ class RankedFrame {
 
      @param argMax is an argmax rank value corresponding to denseMax.
   */
-  unsigned int denseMode(unsigned int predIdx,
-			 unsigned int denseMax,
-			 unsigned int argMax);
+  IndexT denseMode(PredictorT predIdx,
+		   unsigned int denseMax,
+		   PredictorT argMax);
 
   /**
      @brief Assigns predictor offsets according to storage mode:
@@ -113,9 +113,9 @@ class RankedFrame {
                               size_t feRLELength,
                               double autoCompress);
 
-  RankedFrame(unsigned int nRow_,
-              const vector<unsigned int>& cardinality,
-              const unsigned int nPred,
+  RankedFrame(IndexT nRow_,
+              const vector<PredictorT>& cardinality,
+              const PredictorT nPred,
               const RLEVal<unsigned int> feRLE[],
               size_t feRLELength,
               double autoCompress);

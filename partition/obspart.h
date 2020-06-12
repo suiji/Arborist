@@ -129,9 +129,9 @@ class ObsPart {
      @param expl accumulates the current explicitly staged offset.
  */
   void stage(const vector<class SampleNux> &sampleNode,
-             const class RowRank &rowRank,
-             const class Sample *sample,
-             unsigned int &expl,
+             const class RowRank& rowRank,
+             const class Sample* sample,
+             IndexT& expl,
              SampleRank spn[],
              unsigned int smpIdx[]) const;
 
@@ -177,7 +177,7 @@ class ObsPart {
   */
   void prepath(const class IdxPath *idxPath,
                const unsigned int reachBase[],
-	       const DefCoord& mrra,
+	       const PreCand& mrra,
                const IndexRange& idxRange,
                unsigned int pathMask,
                bool idxUpdate,
@@ -199,7 +199,7 @@ class ObsPart {
   /**
      @brief Restages and tabulates rank counts.
   */
-  void rankRestage(const DefCoord& defCoord,
+  void rankRestage(const PreCand& defCoord,
                    const IndexRange& idxRange,
                    unsigned int reachOffset[],
                    unsigned int rankPrev[],
@@ -207,7 +207,7 @@ class ObsPart {
 
   void indexRestage(const class IdxPath *idxPath,
                     const unsigned int reachBase[],
-                    const DefCoord& mrra,
+                    const PreCand& mrra,
                     const IndexRange& idxRange,
                     unsigned int pathMask,
                     bool idxUpdate,
@@ -223,6 +223,9 @@ class ObsPart {
 
   SampleRank* getBuffers(const class SplitNux* nux, IndexT*& sIdx) const;
 
+
+  SampleRank* getPredBase(const class SplitNux* nux) const;
+  
   
   inline IndexT getBagCount() const {
     return bagCount;
@@ -267,7 +270,7 @@ class ObsPart {
   }
 
 
-  inline IndexT bufferOff(const DefCoord& defCoord,
+  inline IndexT bufferOff(const PreCand& defCoord,
 			  bool comp = false) const {
     return bufferOff(defCoord.splitCoord.predIdx, comp ? defCoord.compBuffer() : defCoord.bufIdx);
   }
@@ -276,7 +279,7 @@ class ObsPart {
   /**
      @return base of the index buffer.
    */
-  inline IndexT* bufferIndex(const DefCoord& mrra) const {
+  inline IndexT* bufferIndex(const PreCand& mrra) const {
     return indexBase + bufferOff(mrra);
   }
 
@@ -302,7 +305,7 @@ class ObsPart {
 
   
 
-  inline IndexT* indexBuffer(const DefCoord& defCoord) const {
+  inline IndexT* indexBuffer(const PreCand& defCoord) const {
     return indexBase + bufferOff(defCoord.splitCoord.predIdx, defCoord.bufIdx);
   }
 
@@ -310,7 +313,7 @@ class ObsPart {
   /**
      @brief Passes through to above after looking up splitting parameters.
    */
-  SampleRank* buffers(const DefCoord& defCoord,
+  SampleRank* buffers(const PreCand& defCoord,
                       IndexT*& sIdx) const {
     return buffers(defCoord.splitCoord.predIdx, defCoord.bufIdx, sIdx);
   }
@@ -325,7 +328,7 @@ class ObsPart {
 
      @return node vector section for this predictor.
    */
-  SampleRank* getPredBase(const DefCoord& defCoord) const {
+  SampleRank* getPredBase(const PreCand& defCoord) const {
     return nodeVec + bufferOff(defCoord);
   }
   
@@ -337,7 +340,7 @@ class ObsPart {
   }
 
 
-  inline void buffers(const DefCoord& mrra,
+  inline void buffers(const PreCand& mrra,
 		      SampleRank*& source,
 		      IndexT*& sIdxSource,
 		      SampleRank*& targ,
@@ -348,7 +351,7 @@ class ObsPart {
 
   
   // To coprocessor subclass:
-  inline void indexBuffers(const DefCoord& mrra,
+  inline void indexBuffers(const PreCand& mrra,
                            IndexT*& sIdxSource,
                            IndexT*& sIdxTarg) {
     sIdxSource = indexBase + bufferOff(mrra);

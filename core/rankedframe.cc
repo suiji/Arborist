@@ -30,9 +30,9 @@
    @param feRank is the vector of ranks allocated by the front end.
 
  */
-RankedFrame::RankedFrame(unsigned int nRow_,
-                         const vector<unsigned int>& cardinality,
-                         unsigned int nPred_,
+RankedFrame::RankedFrame(IndexT nRow_,
+                         const vector<PredictorT>& cardinality,
+                         PredictorT nPred_,
                          const RLEVal<unsigned int> feRLE[],
                          size_t rleLength,
                          double autoCompress) :
@@ -52,7 +52,7 @@ RankedFrame::RankedFrame(unsigned int nRow_,
   fill(denseIdx.begin(), denseIdx.end(), nPred);
   fill(denseRank.begin(), denseRank.end(), noRank);
   fill(explicitCount.begin(), explicitCount.end(), nRow);
-  unsigned int explCount = denseBlock(feRLE, rleLength);
+  IndexT explCount = denseBlock(feRLE, rleLength);
   modeOffsets();
 
   rrNode = vector<RowRank>(explCount);
@@ -60,18 +60,18 @@ RankedFrame::RankedFrame(unsigned int nRow_,
 }
 
 
-unsigned int RankedFrame::denseBlock(const RLEVal<unsigned int> feRLE[], size_t rleLength) {
-  unsigned int explCount = 0;
+IndexT RankedFrame::denseBlock(const RLEVal<unsigned int> feRLE[], size_t rleLength) {
+  IndexT explCount = 0;
   unsigned int rleIdx = 0;
   for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int denseMax = 0; // Running maximum of run counts.
-    unsigned int argMax = noRank;
+    PredictorT argMax = noRank;
     unsigned int runCount = 0; // Runs across adjacent rle entries.
-    unsigned int rankPrev = noRank;
-    unsigned int rank = feRLE[rleIdx].val;
+    PredictorT rankPrev = noRank;
+    PredictorT rank = feRLE[rleIdx].val;
     unsigned int runLength = feRLE[rleIdx].runLength;
 
-    for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
+    for (IndexT rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank == rankPrev) {
 	runCount += runLength;
       }
@@ -97,7 +97,7 @@ unsigned int RankedFrame::denseBlock(const RLEVal<unsigned int> feRLE[], size_t 
 }
 
 
-unsigned int RankedFrame::denseMode(unsigned int predIdx, unsigned int denseMax, unsigned int argMax) {
+IndexT RankedFrame::denseMode(PredictorT predIdx, unsigned int denseMax, PredictorT argMax) {
   if (denseMax <= denseThresh) {
     safeOffset[predIdx] = nonCompact++; // Index:  non-dense storage.
     return nRow; // All elements explicit.
@@ -106,7 +106,7 @@ unsigned int RankedFrame::denseMode(unsigned int predIdx, unsigned int denseMax,
   // Sufficiently long run found:
   denseRank[predIdx] = argMax;
   safeOffset[predIdx] = accumCompact; // Accumulated offset:  dense.
-  unsigned int rowCount = nRow - denseMax;
+  IndexT rowCount = nRow - denseMax;
   accumCompact += rowCount;
   denseIdx[predIdx] = nPredDense++;
   explicitCount[predIdx] = rowCount;
@@ -126,12 +126,12 @@ void RankedFrame::modeOffsets() {
 
 void RankedFrame::decompress(const RLEVal<unsigned int> feRLE[], size_t rleLength) {
   unsigned int rleIdx = 0;
-  for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     unsigned int outIdx = rrStart[predIdx];
-    unsigned int row = feRLE[rleIdx].row;
-    unsigned int rank = feRLE[rleIdx].val;
+    IndexT row = feRLE[rleIdx].row;
+    PredictorT rank = feRLE[rleIdx].val;
     unsigned int runLength = feRLE[rleIdx].runLength;
-    for (unsigned int rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
+    for (IndexT rowTot = runLength; rowTot <= nRow; rowTot += runLength) {
       if (rank != denseRank[predIdx]) { // Non-dense runs expanded.
 	for (unsigned int i = 0; i < runLength; i++) {
 	  rrNode[outIdx++].init(row + i, rank);

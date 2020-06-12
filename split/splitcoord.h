@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_SPLITCOORD_H
-#define CORE_SPLITCOORD_H
+#ifndef SPLIT_SPLITCOORD_H
+#define SPLIT_SPLITCOORD_H
 
 #include "typeparam.h"
 
@@ -71,12 +71,20 @@ struct SplitCoord {
 /**
    @brief Includes the index of the buffer containing the cell's definition.
  */
-struct DefCoord {
+struct PreCand {
   SplitCoord splitCoord;
   unsigned char bufIdx; // Double-buffer containing definition.
   unsigned char del; // Delta between current level and level of definition.
+
+
+  PreCand() :
+  splitCoord(SplitCoord()),
+    bufIdx(0),
+    del(0) {
+  }
+
   
-  DefCoord(const SplitCoord& splitCoord_,
+  PreCand(const SplitCoord& splitCoord_,
 	   unsigned int bufIdx_,
 	   unsigned int del_ = 0) :
   splitCoord(splitCoord_),

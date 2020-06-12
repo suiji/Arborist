@@ -193,7 +193,6 @@ public:
 
 class CutAccumReg : public CutAccum {
 
-
 protected:
   const int monoMode; // Presence/direction of monotone constraint.
   const unique_ptr<struct Residual> resid; // Current residual or null.
@@ -227,9 +226,10 @@ struct CutSig {
   IndexT idxRight;  // inf of right SampleRank indices.
   IndexT implicitTrue; // # implicit SampleRank indices associated with true sense.
   double quantRank; // Interpolated cut rank.
-  bool cutLeft; // True iff cut encoded by left portion.
+  bool cutLeft; // True iff cut encodes left portion.
 
   CutSig(const IndexRange& idxRange) :
+    idxLeft(idxRange.getStart()),
     idxRight(idxRange.getEnd() - 1),
     cutLeft(true) { // Default.
   }

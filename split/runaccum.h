@@ -23,68 +23,7 @@
 #include "sumcount.h"
 #include "accum.h"
 
-/**
-   @brief Accumulates statistics for runs of factors having the same internal code.
-
-   Allocated in bulk by Fortran-style workspace, the RunSet.
- */
-struct FRNode {
-  static IndexT noStart; // Inattainable starting index.
-  PredictorT code; // Same 0-based value as internal code.
-  IndexT sCount; // Sample count of factor run:  need not equal length.
-  double sum; // Sum of responses associated with run.
-  IndexRange range;
-
-  FRNode() : sCount(0), sum(0.0), range(IndexRange()) {
-  }
-
-
-  /**
-     @brief Initializer.
-   */
-  inline void set(PredictorT code,
-                   IndexT sCount,
-                   double sum,
-                   IndexT start,
-                   IndexT extent) {
-    this->code = code;
-    this->sCount = sCount;
-    this->sum = sum;
-    this->range = IndexRange(start, extent);
-  }
-
-  
-  /**
-     @brief Range accessor.  N.B.:  Should not be invoked on dense
-     run, as 'start' will hold a reserved value.
-
-     @return range of indices subsumed by run.
-   */
-  inline IndexRange getRange() const {
-    return range;
-  }
-
-
-  /**
-     @brief Accumulates run contents into caller.
-   */
-  inline void accum(IndexT& sCount,
-                    double& sum) const {
-    sCount += this->sCount;
-    sum += this->sum;
-  }
-
-
-  /**
-     @brief Implicit runs are characterized by a start value of 'noStart'.
-
-     @return Whether this run is dense.
-  */
-  bool isImplicit() const {
-    return range.getStart() == noStart;
-  }
-};
-
+#include "runnux.h"
 
 /**
    @brief Ad hoc container for simple priority queue.
@@ -121,7 +60,7 @@ enum class SplitStyle;
 class RunAccum : public Accum {
 protected:
   const PredictorT rcSafe; // Conservative run count.
-  vector<FRNode> runZero; // SR block, partitioned by code.
+  vector<RunNux> runZero; // SR block, partitioned by code.
   vector<BHPair> heapZero; // Sorting workspace.
   vector<PredictorT> idxRank; // Slot rank, according to ad-hoc ordering.
   vector<double> cellSum; // Categorical:  run x ctg checkerboard.
@@ -133,42 +72,22 @@ protected:
   PredictorT splitToken; // Cut or bits.
   IndexT implicitTrue; // # implicit true-sense indices:  post-encoding.
 
-  // Temporal values read from SampleRank:
-  IndexT codeSR;
-  IndexT sCountSR;
-  FltVal ySumSR;
-  PredictorT ctgSR;
+  
+  inline void endRun(IndexT idxEnd) {
+    sCount -= runZero[runCount].sCount;
+    sum -= runZero[runCount].sum;
+    runZero[runCount++].endRange(idxEnd);
+  }
+  
   
   /**
-     @brief Sets run parameters and increments run count.
-   */
-  inline void append(PredictorT code,
-		     IndexT sCount,
-		     double sum,
-		     IndexT start,
-		     IndexT extent) {
-    runZero[runCount++].set(code, sCount, sum, start, extent);
-  }
-
-
-  /**
-     @brief As above, with implicit rank and extent suppled by the nux.
-   */
-  void append(const class SplitNux* cand,
-	      IndexT sCount,
-	      double sum);
-
-  /**
      @brief Appends a run for the dense rank using residual values.
-
-     @param cand is the splitting candidate with potential implicit state.
 
      @param sp is the frontier splitting environment.
 
      @param ctgSum is the per-category response over the frontier node.
   */
-  void appendImplicit(const class SplitNux* cand,
-		      const vector<double>& ctgSum = vector<double>(0));
+  void appendImplicit(const vector<double>& sumSlice = vector<double>(0));
 
 
   /**
@@ -238,7 +157,7 @@ public:
      @return extent of implicit slot iff encoded in the LH else zero.
    */
   IndexT getImplicitLeftBits(PredictorT lhBits) {
-    return implicitSlot < rcSafe && (lhBits & (1ul << implicitSlot)) ? getExtent(implicitSlot) : 0;
+    return (implicitSlot < runCount && (lhBits & (1ul << implicitSlot))) ? getExtent(implicitSlot) : 0;
   }
 
   
@@ -321,20 +240,29 @@ public:
   void reWide(vector<double>& rvWide,
 	      IndexT& rvOff);
 
+
+  void initReg(IndexT runLeft);
+
+  
+  double* initCtg(IndexT runLeft,
+		  PredictorT nCtg);
+
   
   /**
      @brief Accumulates runs for regression.
    */
-  void regRuns(const class SplitNux* cand);
+  void regRuns();
 
   
   /**
      @brief As above, but skips masked SR indices.
+
+     @param maskSense indicates whether to screen set or unset mask.
    */  
-  void regRunsMasked(const class SplitNux* cand,
-		     const class BranchSense* branchSense,
+  void regRunsMasked(const class BranchSense* branchSense,
 		     IndexT edgeRight,
-		     IndexT edgeLeft);
+		     IndexT edgeLeft,
+		     bool maskSense);
 
   
   /**
@@ -342,8 +270,7 @@ public:
 
      @param sumSlice is the per-category response decomposition.
   */
-  void ctgRuns(const class SplitNux* cand,
-	       const vector<double>& sumSlice);
+  void ctgRuns(const vector<double>& sumSlice);
 
   
   /**
@@ -386,22 +313,6 @@ public:
 
   inline auto getImplicitTrue() const {
     return implicitTrue;
-  }
-  
-
-  /**
-     @return sCount value of input slot.
-   */
-  inline auto getInputSCount(PredictorT slot) const {
-    return runZero[slot].sCount;
-  }
-
-
-  /**
-     @return sum value of input slot.
-   */
-  inline auto getInputSum(PredictorT slot) const {
-    return runZero[slot].sum;
   }
   
 
@@ -461,16 +372,6 @@ public:
 
 
   /**
-     @brief Accumulates checkerboard values prior to writing next run.
-   */
-  inline void ctgAccum(PredictorT nCtg,
-                       double ySum,
-                       PredictorT yCtg) {
-    cellSum[runCount * nCtg + yCtg] += ySum;
-  }
-
-
-  /**
      @return checkerboard value at slot for category.
    */
   inline double getCellSum(PredictorT runIdx,
@@ -481,32 +382,11 @@ public:
 
 
   /**
-     @brief Initializes category sums of the next run.
-
-     @param nodeSum is the per-category response over the node (IndexSet).
-   */
-  inline void initCtg(const vector<double>& sumSlice) {
-    double* ctgBase = &cellSum[runCount * sumSlice.size()];
-    for (auto val : sumSlice) {
-      *ctgBase++ = val;
-    }
-  }
-
-
-  /**
      @brief Subtracts a run's per-category responses from the current run.
 
-     @param nCtg is the response cardinality.
-
-     @param runIdx is the run index.
+     @param sumSlice decomposes the response by category.
    */
-  inline void residCtg(PredictorT nCtg,
-		       PredictorT runIdx) {
-    double* ctgBase = &cellSum[runCount * nCtg];
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-      ctgBase[ctg] -= cellSum[runIdx * nCtg + ctg];
-    }
-  }
+  inline void residCtg(const vector<double>& sumSlice);
   
 
   /**
@@ -620,7 +500,11 @@ public:
    */
   vector<IndexRange> getRange(const class CritEncoding& enc) const;
 
+
+  vector<IndexRange> getRange(PredictorT slotStart,
+			      PredictorT slotEnd) const;
   
+
   /**
      @return top-most block range associated with encoding.
    */

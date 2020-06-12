@@ -19,13 +19,15 @@
 #include "splitnux.h"
 #include "runset.h"
 
+IndexT RunNux::noStart = 0;
+
 
 RunSet::RunSet(const SplitFrontier* splitFrontier,
 	       PredictorT nCtg_,
 	       IndexT nRow) :
   style(splitFrontier->getFactorStyle()),
   nCtg(nCtg_) {
-  FRNode::noStart = nRow; // Inattainable start value, irrespective of tree.
+  RunNux::noStart = nRow; // Inattainable start value, irrespective of tree.
 }
 
 

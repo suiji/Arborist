@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "typeparam.h"
-
+#include "splitcoord.h"
 
 /**
    @brief Records index, start and extent for path reached from MRRA.
@@ -31,11 +31,19 @@ class NodePath {
   // Maximal path length is also an inattainable path index.
   static constexpr unsigned int noPath = 1 << logPathMax;
 
+  static IndexT noSplit;
+  
   IndexT splitIdx; // < noIndex iff path extinct.
   IndexRange bufRange; // buffer target range for path.
   unsigned int relBase; // Dense starting position.
  public:
 
+
+  NodePath() : splitIdx(noSplit),
+	       bufRange(IndexRange()),
+	       relBase(0) {
+  }
+  
   /**
      @return maximal path length.
    */
@@ -44,6 +52,12 @@ class NodePath {
   }
 
 
+  /**
+     @brief Sets noSplit to inattainable split index.
+   */
+  static void setNoSplit(IndexT bagCount);
+
+  
   /**
      @brief Determines whether a path size is representable within
      container.
@@ -83,9 +97,17 @@ class NodePath {
   /**
      @brief Multiple accessor for path coordinates.
    */
-  inline IndexT getCoords(IndexRange& idxRange) const {
-    idxRange = bufRange;
-    return splitIdx;
+  inline bool getCoords(PredictorT predIdx,
+			SplitCoord& coord,
+			IndexRange& idxRange) const {
+    if (splitIdx == noSplit) {
+      return false;
+    }
+    else {
+      idxRange = bufRange;
+      coord = SplitCoord(splitIdx, predIdx);
+      return true;
+    }
   }
 
   

@@ -18,6 +18,13 @@
 
 #include "path.h"
 
+IndexT NodePath::noSplit = 0;
+
+
+void NodePath::setNoSplit(IndexT bagCount) {
+  noSplit = bagCount;
+}
+
 
 IdxPath::IdxPath(IndexT idxLive_) :
   idxLive(idxLive_),

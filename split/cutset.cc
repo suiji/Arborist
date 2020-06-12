@@ -38,7 +38,7 @@ CutSig CutSet::getCut(IndexT accumIdx) const {
 IndexT CutSet::addCut(const SplitFrontier* splitFrontier,
 		      const SplitNux* cand) {
   cutAccum.emplace_back(cand, splitFrontier);
-  cutSig.emplace_back<CutSig>(cand->getRange());
+  cutSig.emplace_back(cand->getRange());
   return cutSig.size() - 1;
 }
 

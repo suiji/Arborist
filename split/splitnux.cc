@@ -43,18 +43,17 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const DefCoord& preCand,
+SplitNux::SplitNux(const PreCand& preCand_,
 		   const SplitFrontier* splitFrontier,
 		   const DefMap* defMap,
 		   PredictorT runCount) :
-  splitCoord(preCand.splitCoord),
-  idxRange(defMap->adjustRange(preCand, splitFrontier)),
-  sum(splitFrontier->getSum(splitCoord)),
-  sCount(splitFrontier->getSCount(splitCoord)),
-  bufIdx(preCand.bufIdx),
+  preCand(preCand_),
+  idxRange(splitFrontier->getRange(defMap, preCand)),
+  sum(splitFrontier->getSum(preCand)),
+  sCount(splitFrontier->getSCount(preCand)),
   implicitCount(defMap->getImplicitCount(preCand)),
-  ptId(splitFrontier->getPTId(splitCoord)),
-  info(splitFrontier->getPrebias(splitCoord)) {
+  ptId(splitFrontier->getPTId(preCand)),
+  info(splitFrontier->getPrebias(preCand)) {
   accumIdx = splitFrontier->addAccumulator(this, runCount);
 }
 
@@ -63,14 +62,13 @@ SplitNux::SplitNux(const SplitNux& parent,
 		   const class IndexSet* iSet,
 		   bool sense,
 		   IndexT idx) :
-    splitCoord(parent.splitCoord),
-    idxRange(parent.idxRange),
-    accumIdx(parent.accumIdx),
-    sum(iSet->getSumSucc(sense)),
-    sCount(iSet->getSCountSucc(sense)),
-    bufIdx(parent.bufIdx),
-    implicitCount(parent.implicitCount),
-    ptId(parent.ptId + idx) {
+  preCand(parent.preCand),
+  idxRange(parent.idxRange),
+  accumIdx(parent.accumIdx),
+  sum(iSet->getSumSucc(sense)),
+  sCount(iSet->getSCountSucc(sense)),
+  implicitCount(parent.implicitCount),
+  ptId(parent.ptId + idx) {
 }
 
 
@@ -96,10 +94,10 @@ IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
 
 
 bool SplitNux::isFactor(const SummaryFrame* frame) const {
-  return frame->isFactor(splitCoord.predIdx);
+  return frame->isFactor(preCand.splitCoord.predIdx);
 }
 
 
 PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
-  return frame->getCardinality(splitCoord.predIdx);
+  return frame->getCardinality(preCand.splitCoord.predIdx);
 }

@@ -29,7 +29,7 @@ public:
   CutSet();
 
 
-  CutSig getCut(IndexT accumIdx) const;
+  struct CutSig getCut(IndexT accumIdx) const;
 
 
   /**

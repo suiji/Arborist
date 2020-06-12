@@ -85,7 +85,7 @@ RunAccumT* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
 
 
 SampleRank* SplitFrontier::getPredBase(const SplitNux* nux) const {
-  return obsPart->getPredBase(nux->getDefCoord());
+  return obsPart->getPredBase(nux);
 }
 
 
@@ -94,14 +94,8 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* nux) const {
 }
 
 
-vector<DefCoord> SplitFrontier::precandidates(const DefMap* defMap) {
-  return CandType::precandidates(this, defMap);
-}
-
-
-void SplitFrontier::preschedule(const DefCoord& defCoord,
-				vector<DefCoord>& preCand) const {
-  preCand.emplace_back(defCoord);
+vector<PreCand> SplitFrontier::precandidates(const DefMap* defMap) {
+  return CandType::precandidates(this, defMap, restageCand);
 }
 
 
@@ -112,8 +106,8 @@ void SplitFrontier::setPrebias() {
 }
 
 
-bool SplitFrontier::isFactor(const SplitCoord& splitCoord) const {
-  return frame->isFactor(splitCoord.predIdx);
+bool SplitFrontier::isFactor(const SplitNux* nux) const {
+  return nux->isFactor(frame);
 }
 
 
@@ -135,9 +129,11 @@ void SplitFrontier::accumUpdate(const SplitNux* cand) const {
 
 
 CritEncoding SplitFrontier::nuxEncode(const SplitNux* nux,
-			      BranchSense* branchSense,
-			      const IndexRange& range) const {
-  CritEncoding enc(this, nux, frontier->getNCtg(), compoundCriteria);
+				      BranchSense* branchSense,
+				      const IndexRange& range,
+				      bool increment) const {
+  CritEncoding enc(this, nux, frontier->getNCtg(), compoundCriteria, increment);
+
   if (!range.empty()) {
     obsPart->branchUpdate(nux, range, branchSense, enc);
   }
@@ -219,7 +215,7 @@ void CritEncoding::accumTrue(const SplitNux* nux,
 void SplitFrontier::restageAndSplit(vector<IndexSet>& indexSet, DefMap* defMap, BranchSense* branchSense, PreTree* pretree) {
   init(branchSense);
   unsigned int flushCount = defMap->flushRear(this);
-  vector<DefCoord> preCand = precandidates(defMap);
+  vector<PreCand> preCand = precandidates(defMap);
 
   defMap->backdate();
   restage(defMap);
@@ -248,7 +244,7 @@ void SplitFrontier::init(BranchSense* branchSense) {
 }
 
 
-vector<SplitNux> SplitFrontier::postSchedule(class DefMap* defMap, vector<DefCoord>& preCand) {
+vector<SplitNux> SplitFrontier::postSchedule(class DefMap* defMap, vector<PreCand>& preCand) {
   vector<SplitNux> postCand;
   for (auto pc : preCand) {
     PredictorT runCount;
@@ -302,17 +298,17 @@ void SplitFrontier::writeCut(const SplitNux* nux,
 
 
 void SplitFrontier::restage(const DefMap* defMap) {
-  OMPBound idxTop = restageCoord.size();
+  OMPBound idxTop = restageCand.size();
   
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
-      defMap->restage(obsPart.get(), restageCoord[nodeIdx]);
+      defMap->restage(obsPart.get(), restageCand[nodeIdx]);
     }
   }
 
-  restageCoord.clear();
+  restageCand.clear();
 }
 
 
@@ -363,23 +359,26 @@ bool SplitFrontier::isUnsplitable(IndexT splitIdx) const {
 }
 
 
-IndexRange SplitFrontier::getBufRange(const DefCoord& preCand) const {
-  return frontier->getBufRange(preCand);
+IndexRange SplitFrontier::getRange(const DefMap* defMap,
+				   const PreCand& preCand) const {
+  IndexRange idxRange = frontier->getBufRange(preCand);
+  defMap->adjustRange(preCand, idxRange);
+  return idxRange;
 }
 
 
-double SplitFrontier::getSum(const SplitCoord& splitCoord) const {
-  return frontier->getSum(splitCoord);
+double SplitFrontier::getSum(const PreCand& preCand) const {
+  return frontier->getSum(preCand);
 }
 
 
-IndexT SplitFrontier::getSCount(const SplitCoord& splitCoord) const {
-  return frontier->getSCount(splitCoord);
+IndexT SplitFrontier::getSCount(const PreCand& preCand) const {
+  return frontier->getSCount(preCand);
 }
 
 
-IndexT SplitFrontier::getPTId(const SplitCoord& splitCoord) const {
-  return frontier->getPTId(splitCoord);
+IndexT SplitFrontier::getPTId(const PreCand& preCand) const {
+  return frontier->getPTId(preCand);
 }
 
 
@@ -418,9 +417,9 @@ int SFReg::getMonoMode(const SplitNux* cand) const {
   if (mono.empty())
     return 0;
 
-  PredictorT numIdx = getNumIdx(cand->getSplitCoord().predIdx);
+  PredictorT numIdx = getNumIdx(cand->getPredIdx());
   double monoProb = mono[numIdx];
-  double prob = ruMono[cand->getSplitCoord().nodeIdx * mono.size() + numIdx];
+  double prob = ruMono[cand->getNodeIdx() * mono.size() + numIdx];
   if (monoProb > 0 && prob < monoProb) {
     return 1;
   }

@@ -27,6 +27,7 @@ Accum::Accum(const SplitFrontier* splitFrontier,
   idxEnd(cand->getIdxEnd()),
   sumCand(cand->getSum()),
   sCountCand(cand->getSCount()),
+  implicitCand(cand->getImplicitCount()),
   sCount(sCountCand),
   sum(sumCand),
   info(cand->getInfo()) {

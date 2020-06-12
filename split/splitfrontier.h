@@ -139,7 +139,7 @@ protected:
   
   vector<double> prebias; // Initial information threshold.
 
-  vector<DefCoord> restageCoord;
+  vector<PreCand> restageCand;
 
   // Per-split accessors for candidate vector.  Reset by DefMap.
   vector<IndexT> candOff;  // Lead candidate position:  cumulative
@@ -185,7 +185,7 @@ protected:
      @return splitNux candidates corresponding to splitable coordinates.
   */
   virtual vector<SplitNux> postSchedule(class DefMap* defMap,
-					vector<DefCoord>& preCand);
+					vector<PreCand>& preCand);
 
   
   /**
@@ -207,14 +207,7 @@ public:
   auto getEncodingStyle() const {
     return encodingStyle;
   }
-
   
-  /**
-     @brief Filters out unschedulable reaching definitions.
-   */
-  void preschedule(const DefCoord& defCoord,
-		   vector<DefCoord>& preCand) const;
-
 
   /**
      @brief Passes ObsPart through to Sample method.
@@ -257,7 +250,8 @@ public:
    */
   CritEncoding nuxEncode(const class SplitNux* nux,
 			 class BranchSense* branchSense,
-			 const IndexRange& range = IndexRange()) const;
+			 const IndexRange& range = IndexRange(),
+			 bool increment = true) const;
 
 
 
@@ -284,11 +278,8 @@ public:
 		       class PreTree* pretree);
 
 
-  /**
-     @brief Passes through to ObsPart method.
-   */
-  void scheduleRestage(const DefCoord& mrra) {
-    restageCoord.push_back(mrra);
+  vector<PreCand>& getRestageCand() {
+    return restageCand;
   }
 
   
@@ -364,7 +355,7 @@ public:
 
    @return true iff predictor is a factor.
  */
-  bool isFactor(const SplitCoord& splitCoord) const;
+  bool isFactor(const class SplitNux* nux) const;
 
 
   /**
@@ -374,8 +365,8 @@ public:
 
      @param return pre-bias value.
    */
-  inline double getPrebias(const SplitCoord& splitCoord) const {
-    return prebias[splitCoord.nodeIdx];
+  inline double getPrebias(const PreCand& preCand) const {
+    return prebias[preCand.splitCoord.nodeIdx];
   }
 
 
@@ -395,7 +386,7 @@ public:
   /**
      @brief Getter for induced pretree index.
    */
-  IndexT getPTId(const SplitCoord& splitCoord) const;
+  IndexT getPTId(const PreCand& preCand) const;
 
 
   /**
@@ -409,15 +400,17 @@ public:
   /**
      @brief Pass-through to Frontier getters.
    */
-  double getSum(const SplitCoord& splitCoord) const;
+  double getSum(const PreCand& preCand) const;
 
-  IndexT getSCount(const SplitCoord& splitCoord) const;
+  
+  IndexT getSCount(const PreCand& preCand) const;
 
   
   /**
-     @return buffer range of indexed split.
+     @return SR range of indexed split.
   */
-  IndexRange getBufRange(const DefCoord& preCand) const; 
+  IndexRange getRange(const class DefMap* defMap,
+		      const PreCand& preCand) const; 
 
 
   /**
@@ -454,7 +447,7 @@ public:
   /**
      @brief Passes through to Cand method.
    */
-  vector<DefCoord> precandidates(const class DefMap* defMap);
+  vector<PreCand> precandidates(const class DefMap* defMap);
 
 
   /**

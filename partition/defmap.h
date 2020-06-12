@@ -117,38 +117,30 @@ class DefMap {
   /**
      @brief Flushes reaching definition and preschedules.
   */
-  unsigned int preschedule(class SplitFrontier* splitFrontier,
-			   const SplitCoord& splitCoord,
-			   vector<struct DefCoord>& preCand) const;
+  unsigned int preschedule(const SplitCoord& splitCoord,
+			   vector<PreCand>& restageCand,
+			   vector<PreCand>& preCand) const;
   
   /**
      @brief Passes through to front layer.
    */
-  bool isSingleton(const DefCoord& defCoord) const;
-
+  bool isSingleton(const PreCand& defCoord) const;
 
   
-  bool isSingleton(const DefCoord& defCoord,
+  bool isSingleton(const PreCand& defCoord,
 		   PredictorT& runCount) const;
   
-
-  bool
-  isSingleton(const SplitCoord& splitCoord,
-	      DefCoord& defCoord) const;
-
   
   /**
      @brief Passes through to front layer.
    */
-  IndexRange
-  adjustRange(const struct DefCoord& preCand,
-	      const class SplitFrontier* splitFrontier) const;
+  void adjustRange(const PreCand& preCand,
+		   IndexRange& idxRange) const;
 
   /**
      @brief Passes through to front layer.
    */
-  IndexT
-  getImplicitCount(const struct DefCoord& preCand) const;
+  IndexT getImplicitCount(const PreCand& preCand) const;
 
 
   /**
@@ -158,7 +150,7 @@ class DefMap {
    */
   void
   restage(class ObsPart* obsPart,
-	  const DefCoord& mrra) const;
+	  const PreCand& mrra) const;
   
   /**
      @brief Updates subtree and pretree mappings from temporaries constructed
@@ -294,7 +286,7 @@ class DefMap {
   /**
      @brief Flips source bit if a definition reaches to current layer.
   */
-  void addDef(const DefCoord& splitCoord,
+  void addDef(const PreCand& splitCoord,
               bool singleton);
 
   /**
@@ -322,8 +314,8 @@ class DefMap {
 
    @param spliCoord is the layer-relative coordinate.
  */
-  void reachFlush(class SplitFrontier* splitFrontier,
-		  const SplitCoord& splitCoord) const;
+  void reachFlush(const SplitCoord& splitCoord,
+		  vector<PreCand>& restageCand) const;
 
 
   /**
@@ -340,16 +332,14 @@ class DefMap {
 	     IndexT splitIdx) const;
 
 
-  SplitCoord
-  getHistory(const DefLayer* reachLayer,
-	     const SplitCoord& coord) const;
+  SplitCoord getHistory(const DefLayer* reachLayer,
+			 const SplitCoord& coord) const;
   
   
   /**
      @brief Looks up the layer containing the MRRA of a pair.
    */
-  inline class DefLayer*
-  reachLayer(const SplitCoord& coord) const {
+  inline class DefLayer* reachLayer(const SplitCoord& coord) const {
     return layer[layerDelta[coord.strideOffset(nPred)]].get();
   }
 
@@ -390,7 +380,7 @@ class DefMap {
   /**
      @brief Determines run count currently associated with a split coordinate.
    */
-  inline PredictorT getRunCount(const DefCoord& defCoord) const {
+  inline PredictorT getRunCount(const PreCand& defCoord) const {
     IndexT facStride;
     return factorStride(defCoord.splitCoord, facStride) ? runCount[facStride] : 0;
   }

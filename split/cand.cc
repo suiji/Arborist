@@ -18,15 +18,15 @@
 #include "defmap.h"
 #include "splitcoord.h"
 
-vector<DefCoord>
-Cand::precandidates(SplitFrontier* splitFrontier,
-		    const DefMap* defMap) {
+vector<PreCand> Cand::precandidates(SplitFrontier* splitFrontier,
+				    const DefMap* defMap,
+				    vector<PreCand>& restageCand) {
   // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-  vector<DefCoord> preCand;
+  vector<PreCand> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {
     if (!splitFrontier->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
-	(void) defMap->preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), preCand);
+	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), restageCand, preCand);
       }
     }
   }

@@ -59,20 +59,23 @@ ObsPart::~ObsPart() {
 
 
 IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
-  return bufferIndex(nux->getDefCoord());
+  return bufferIndex(nux->getPreCand());
 }
 
 
-SampleRank* ObsPart::getBuffers(const class SplitNux* nux, IndexT*& sIdx) const {
-  return buffers(nux->getDefCoord(), sIdx);
+SampleRank* ObsPart::getBuffers(const SplitNux* nux, IndexT*& sIdx) const {
+  return buffers(nux->getPreCand(), sIdx);
 }
 
-  
+
+SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
+  return getPredBase(nux->getPreCand());
+}
 
 
 vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
-                                     const vector<SampleNux>  &sampleNode,
-                                     const Sample* sample) {
+				  const vector<SampleNux>  &sampleNode,
+				  const Sample* sample) {
   vector<StageCount> stageCount(rankedFrame->getNPred());
 
   OMPBound predTop = nPred;
@@ -89,15 +92,15 @@ vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
 
 
 void ObsPart::stage(const RankedFrame* rankedFrame,
-                       const vector<SampleNux>& sampleNode,
-                       const Sample* sample,
-                       PredictorT predIdx,
-                       StageCount& stageCount) {
+		    const vector<SampleNux>& sampleNode,
+		    const Sample* sample,
+		    PredictorT predIdx,
+		    StageCount& stageCount) {
   setStageBounds(rankedFrame, predIdx);
   IndexT* sIdx;
   SampleRank* spn = buffers(predIdx, 0, sIdx);
   const RowRank* rrPred = rankedFrame->predStart(predIdx);
-  unsigned int expl = 0;
+  IndexT expl = 0;
   for (IndexT idx = 0; idx < rankedFrame->getExplicitCount(predIdx); idx++) {
     stage(sampleNode, rrPred[idx], sample, expl, spn, sIdx);
   }
@@ -108,7 +111,7 @@ void ObsPart::stage(const RankedFrame* rankedFrame,
 
 
 void ObsPart::setStageBounds(const RankedFrame* rankedFrame,
-                                PredictorT predIdx) {
+			     PredictorT predIdx) {
   unsigned int extent;
   stageOffset[predIdx] = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
   stageExtent[predIdx] = extent;
@@ -116,11 +119,11 @@ void ObsPart::setStageBounds(const RankedFrame* rankedFrame,
 
 
 void ObsPart::stage(const vector<SampleNux> &sampleNode,
-		       const RowRank &rowRank,
-                       const Sample* sample,
-                       unsigned int &expl,
-		       SampleRank spn[],
-		       unsigned int smpIdx[]) const {
+		    const RowRank &rowRank,
+		    const Sample* sample,
+		    IndexT &expl,
+		    SampleRank spn[],
+		    unsigned int smpIdx[]) const {
   IndexT sIdx;
   if (sample->sampledRow(rowRank.getRow(), sIdx)) {
     spn[expl].join(rowRank.getRank(), sampleNode[sIdx]);
@@ -132,7 +135,7 @@ void ObsPart::stage(const vector<SampleNux> &sampleNode,
 
 void ObsPart::prepath(const IdxPath *idxPath,
 		      const unsigned int reachBase[],
-		      const DefCoord& mrra,
+		      const PreCand& mrra,
 		      const IndexRange& idxRange,
 		      unsigned int pathMask,
 		      bool idxUpdate,
@@ -221,7 +224,7 @@ void ObsPart::branchUnset(const SplitNux* nux,
 }
 
 
-void ObsPart::rankRestage(const DefCoord& mrra,
+void ObsPart::rankRestage(const PreCand& mrra,
                           const IndexRange& idxRange,
                           unsigned int reachOffset[],
                           unsigned int rankPrev[],
@@ -248,7 +251,7 @@ void ObsPart::rankRestage(const DefCoord& mrra,
 
 void ObsPart::indexRestage(const IdxPath *idxPath,
                            const unsigned int reachBase[],
-                           const DefCoord& mrra,
+                           const PreCand& mrra,
                            const IndexRange& idxRange,
                            unsigned int pathMask,
                            bool idxUpdate,

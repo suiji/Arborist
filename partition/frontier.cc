@@ -279,7 +279,7 @@ void Frontier::getPTIdTF(IndexT ptId, IndexT& ptTrue, IndexT& ptFalse) const {
 }
 
 
-IndexRange Frontier::getBufRange(const DefCoord& preCand) const {
+IndexRange Frontier::getBufRange(const PreCand& preCand) const {
   return indexSet[preCand.splitCoord.nodeIdx].getBufRange();
 }
 

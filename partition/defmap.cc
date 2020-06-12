@@ -48,15 +48,14 @@ DefMap::DefMap(const SummaryFrame* frame_,
 }
 
 
-void
-DefMap::rootDef(const vector<StageCount>& stageCount,
+void DefMap::rootDef(const vector<StageCount>& stageCount,
 		IndexT bagCount) {
   const unsigned int bufRoot = 0; // Initial staging buffer index.
   const IndexT splitIdx = 0; // Root split index.
   PredictorT predIdx = 0;
   for (auto sc : stageCount) {
     SplitCoord splitCoord(splitIdx, predIdx);
-    (void) layer[0]->define(DefCoord(splitCoord, bufRoot), sc.singleton, bagCount - sc.expl);
+    (void) layer[0]->define(PreCand(splitCoord, bufRoot), sc.singleton, bagCount - sc.expl);
     setRunCount(splitCoord, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
     predIdx++;
   }
@@ -71,8 +70,7 @@ DefMap::eraseLayers(unsigned int flushCount) {
 }
 
 
-bool
-DefMap::factorStride(const SplitCoord& splitCoord,
+bool DefMap::factorStride(const SplitCoord& splitCoord,
 		     unsigned int& facStride) const {
   bool isFactor;
   facStride = frame->getFacStride(splitCoord.predIdx, splitCoord.nodeIdx, isFactor);
@@ -80,54 +78,45 @@ DefMap::factorStride(const SplitCoord& splitCoord,
 }
 
 
-unsigned int DefMap::preschedule(SplitFrontier* splitFrontier,
-				 const SplitCoord& splitCoord,
-				 vector<DefCoord>& preCand) const {
-  reachFlush(splitFrontier, splitCoord);
-  DefCoord defCoord(splitCoord, 0); // Dummy initialization.
-  if (!isSingleton(splitCoord, defCoord)) {
-    splitFrontier->preschedule(defCoord, preCand);
-    return 1;
-  }
-  else {
-    return 0;
-  }
+unsigned int DefMap::preschedule(const SplitCoord& splitCoord,
+				 vector<PreCand>& restageCand,
+				 vector<PreCand>& preCand) const {
+  reachFlush(splitCoord, restageCand);
+  return layer[0]->preschedule(splitCoord, preCand) ? 1 : 0;
 }
 
 
-bool DefMap::isSingleton(const DefCoord& defCoord) const {
+void DefMap::reachFlush(const SplitCoord& splitCoord,
+			vector<PreCand>& restageCand) const {
+  DefLayer *reachingLayer = reachLayer(splitCoord);
+  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), restageCand);
+}
+
+
+bool DefMap::isSingleton(const PreCand& defCoord) const {
   return layer[0]->isSingleton(defCoord.splitCoord);
 }
 
 
-bool DefMap::isSingleton(const DefCoord& defCoord,
+bool DefMap::isSingleton(const PreCand& defCoord,
 			 PredictorT& runCount) const {
   runCount = getRunCount(defCoord);
   return layer[0]->isSingleton(defCoord.splitCoord);
 }
 
 
-bool
-DefMap::isSingleton(const SplitCoord& splitCoord,
-		    DefCoord& defCoord) const {
-  return layer[0]->isSingleton(splitCoord, defCoord);
-}
-
-
-IndexT
-DefMap::getImplicitCount(const DefCoord& preCand) const {
+IndexT DefMap::getImplicitCount(const PreCand& preCand) const {
   return layer[0]->getImplicit(preCand);
 }
 
 
-IndexRange DefMap::adjustRange(const DefCoord& preCand,
-			       const SplitFrontier* splitFrontier) const {
-  return layer[0]->adjustRange(preCand, splitFrontier);
+void DefMap::adjustRange(const PreCand& preCand,
+			 IndexRange& idxRange) const {
+  layer[0]->adjustRange(preCand, idxRange);
 }
 
 
-unsigned int
-DefMap::flushRear(SplitFrontier* splitFrontier) {
+unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
   unsigned int unflushTop = layer.size() - 1;
 
   // Capacity:  1 front layer + 'pathMax' back layers.
@@ -172,7 +161,7 @@ DefMap::flushRear(SplitFrontier* splitFrontier) {
 
 void
 DefMap::restage(ObsPart* obsPart,
-		const DefCoord& mrra) const {
+		const PreCand& mrra) const {
   layer[mrra.del]->rankRestage(obsPart, mrra, layer[0].get());
 }
 
@@ -185,8 +174,7 @@ DefMap::~DefMap() {
 }
 
 
-void
-DefMap::overlap(IndexT splitNext,
+void DefMap::overlap(IndexT splitNext,
                 IndexT bagCount,
                 IndexT idxLive,
 		bool nodeRel) {
@@ -283,7 +271,7 @@ DefMap::getSplitCount(unsigned int del) const {
 
 
 void
-DefMap::addDef(const DefCoord& defCoord,
+DefMap::addDef(const PreCand& defCoord,
 	       bool singleton) {
   if (layer[0]->define(defCoord, singleton)) {
     layerDelta[defCoord.splitCoord.strideOffset(nPred)] = 0;
@@ -311,15 +299,6 @@ DefMap::getFrontPath(unsigned int del) const {
 }
 
 
-void
-DefMap::setSingleton(const SplitCoord& splitCoord) const {
+void DefMap::setSingleton(const SplitCoord& splitCoord) const {
   layer[0]->setSingleton(splitCoord);
-}
-
-
-void
-DefMap::reachFlush(SplitFrontier* splitFrontier,
-		   const SplitCoord& splitCoord) const {
-  DefLayer *reachingLayer = reachLayer(splitCoord);
-  reachingLayer->flushDef(splitFrontier, getHistory(reachingLayer, splitCoord));
 }

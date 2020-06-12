@@ -17,6 +17,7 @@
 #define CORE_SAMPLENUX_H
 
 #include "typeparam.h"
+#include "runnux.h"
 #include <vector>
 
 /**
@@ -154,29 +155,68 @@ class SampleRank : public SampleNux {
 
  public:
 
+
   /**
-     @brief Copies members appropriate for classification.
+     @brief Outputs statistics appropriate for regression.
+
+     @return true iff run state changes.
    */
-  inline void refAccum(PredictorT& codeSR,
-		       IndexT& sCountSR,
-		       FltVal& sumSR,
-		       PredictorT& ctgSR) const {
-    codeSR = rank;
-    sCountSR = getSCount();
-    sumSR = ySum;
-    ctgSR = getCtg();
+  inline void regInit(RunNux& nux) const {
+    nux.code = rank;
+    nux.sum = ySum;
+    nux.sCount = getSCount();
   }
 
   
   /**
-     @brief Copies members appropriate for regression.
+     @brief Outputs statistics appropriate for classification.
+
+     @param[out] nux accumulates run statistics.
+
+     @param[in, out] sumBase accumulates run response by category.
    */
-  inline void refAccum(PredictorT& codeSR,
-		       IndexT& sCountSR,
-		       FltVal& sumSR) const {
-    codeSR = rank;
-    sCountSR = getSCount();
-    sumSR = ySum;
+  inline void ctgInit(RunNux& nux,
+		      double* sumBase) const {
+    nux.code = rank;
+    nux.sum = ySum;
+    nux.sCount = getSCount();
+    sumBase[getCtg()] = ySum;
+  }
+
+
+  /**
+     @brief Accumulates statistics for an existing run.
+
+     @return true iff the current cell continues a run.
+   */
+  inline bool regAccum(RunNux& nux) const {
+    if (nux.code == rank) {
+      nux.sum += ySum;
+      nux.sCount += getSCount();
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  
+  /**
+     @brief Accumulates statistics for an existing run.
+
+     @return true iff the current cell continues a run.
+   */
+  inline bool ctgAccum(RunNux& nux,
+		       double* sumBase) const {
+    if (nux.code == rank) {
+      nux.sum += ySum;
+      nux.sCount += getSCount();
+      sumBase[getCtg()] += ySum;
+      return true;
+    }
+    else {
+      return false;
+    }
   }
 
   

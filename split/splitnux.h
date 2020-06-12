@@ -27,12 +27,11 @@ class SplitNux {
   static constexpr double minRatioDefault = 0.0;
   static double minRatio;
 
-  SplitCoord splitCoord;
+  PreCand preCand;
   IndexRange idxRange; // Fixed from IndexSet.
   IndexT accumIdx; // Index into accumulator workspace.
   double sum; // Initial sum, fixed by index set.
   IndexT sCount; // Initial sample count, fixed by index set.
-  unsigned char bufIdx; // Base buffer for SR indices.
   IndexT implicitCount; // Initialized from IndexSet.
   IndexT ptId; // Index into tree:  offset from position given by index set.
 
@@ -84,11 +83,11 @@ public:
   /**
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
   */  
-  SplitNux() : splitCoord(SplitCoord()),
+  SplitNux() :
+    preCand(PreCand()),
 	       accumIdx(0),
 	       sum(0.0),
 	       sCount(0),
-	       bufIdx(0),
 	       implicitCount(0),
 	       ptId(0),
 	       info(0.0) {
@@ -99,24 +98,22 @@ public:
      @brief Copy constructor:  post splitting.
    */
   SplitNux(const SplitNux& nux) :
-    splitCoord(nux.splitCoord),
+    preCand(nux.preCand),
     idxRange(nux.idxRange),
     accumIdx(nux.accumIdx),
     sum(nux.sum),
     sCount(nux.sCount),
-    bufIdx(nux.bufIdx),
     implicitCount(nux.implicitCount),
     ptId(nux.ptId),
     info(nux.info) {
   }
 
   SplitNux& operator= (const SplitNux& nux) {
-    splitCoord = nux.splitCoord;
+    preCand = nux.preCand;
     idxRange = nux.idxRange;
     accumIdx = nux.accumIdx;
     sum = nux.sum;
     sCount = nux.sCount;
-    bufIdx = nux.bufIdx;
     implicitCount = nux.implicitCount;
     ptId = nux.ptId;
     info = nux.info;
@@ -139,7 +136,7 @@ public:
   /**
      @brief Pre-split constructor.
    */
-  SplitNux(const DefCoord& preCand,
+  SplitNux(const PreCand& preCand,
 	   const class SplitFrontier* splitFrontier,
 	   const class DefMap* defMap,
 	   PredictorT runCount);
@@ -208,25 +205,19 @@ public:
 
   
   auto getPredIdx() const {
-    return splitCoord.predIdx;
+    return preCand.splitCoord.predIdx;
   }
 
   auto getNodeIdx() const {
-    return splitCoord.nodeIdx;
+    return preCand.splitCoord.nodeIdx;
   }
   
-
-  auto getDefCoord() const {
-    return DefCoord(splitCoord, bufIdx);
-  }
-
-  
-  auto getSplitCoord() const {
-    return splitCoord;
+  auto getPreCand() const {
+    return preCand;
   }
 
   auto getBufIdx() const {
-    return bufIdx;
+    return preCand.bufIdx;
   }
   
   auto getAccumIdx() const {
@@ -248,7 +239,7 @@ public:
      @brief Indicates whether this is an empty placeholder.
    */
   inline bool noNux() const {
-    return splitCoord.noCoord();
+    return preCand.splitCoord.noCoord();
   }
 
 

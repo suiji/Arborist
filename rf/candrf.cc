@@ -24,8 +24,7 @@ PredictorT CandRF::predFixed = 0;
 vector<double> CandRF::predProb;
 
 
-void
-CandRF::init(PredictorT feFixed,
+void CandRF::init(PredictorT feFixed,
 	     const vector<double>& feProb) {
   predFixed = feFixed;
   for (auto prob : feProb) {
@@ -34,15 +33,15 @@ CandRF::init(PredictorT feFixed,
 }
 
 
-void
-CandRF::deInit() {
+void CandRF::deInit() {
   predFixed = 0;
   predProb.clear();
 }
 
 
-vector<DefCoord> CandRF::precandidates(SplitFrontier* splitFrontier,
-				       const DefMap* defMap) {
+vector<PreCand> CandRF::precandidates(SplitFrontier* splitFrontier,
+				      const DefMap* defMap,
+				      vector<PreCand>& restageCand) {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
   IndexT splitCount = splitFrontier->getNSplit();
   PredictorT nPred = splitFrontier->getNPred();
@@ -51,17 +50,17 @@ vector<DefCoord> CandRF::precandidates(SplitFrontier* splitFrontier,
   auto ruPred = CallBack::rUnif(cellCount);
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
 
-  vector<DefCoord> preCand;
+  vector<PreCand> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     IndexT splitOff = splitIdx * nPred;
     if (splitFrontier->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(splitFrontier, defMap, splitIdx, &ruPred[splitOff], preCand);
+      candidateProb(nPred, defMap, splitIdx, &ruPred[splitOff], restageCand, preCand);
     }
     else { // Fixed number of predictors splitable.
-      candidateFixed(splitFrontier, defMap, splitIdx, &ruPred[splitOff], &heap[splitOff], preCand);
+      candidateFixed(nPred, defMap, splitIdx, &ruPred[splitOff], &heap[splitOff], restageCand, preCand);
     }
   }
 
@@ -69,27 +68,28 @@ vector<DefCoord> CandRF::precandidates(SplitFrontier* splitFrontier,
 }
 
 
-void CandRF::candidateProb(SplitFrontier* splitFrontier,
-		      const DefMap* defMap,
-		      IndexT splitIdx,
-		      const double ruPred[],
-		      vector<DefCoord>& preCand) {
-  for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
+void CandRF::candidateProb(PredictorT nPred,
+			   const DefMap* defMap,
+			   IndexT splitIdx,
+			   const double ruPred[],
+			   vector<PreCand>& restageCand,
+			   vector<PreCand>& preCand) {
+  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) defMap->preschedule(splitFrontier, SplitCoord(splitIdx, predIdx), preCand);
+      (void) defMap->preschedule(SplitCoord(splitIdx, predIdx), restageCand, preCand);
     }
   }
 }
 
 
-void CandRF::candidateFixed(SplitFrontier* splitFrontier,
-		       const DefMap* defMap,
-		       IndexT splitIdx,
-		       const double ruPred[],
-		       BHPair heap[],
-		       vector<DefCoord>& preCand) {
+void CandRF::candidateFixed(PredictorT nPred,
+			    const DefMap* defMap,
+			    IndexT splitIdx,
+			    const double ruPred[],
+			    BHPair heap[],
+			    vector<PreCand>& restageCand,
+			    vector<PreCand>& preCand) {
   // Inserts negative, weighted probability value:  choose from lowest.
-  PredictorT nPred = splitFrontier->getNPred();
   for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
   }
@@ -98,7 +98,7 @@ void CandRF::candidateFixed(SplitFrontier* splitFrontier,
   PredictorT schedCount = 0;
   for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
     SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
-    schedCount += defMap->preschedule(splitFrontier, splitCoord, preCand);
+    schedCount += defMap->preschedule(splitCoord, restageCand, preCand);
     if (schedCount == predFixed)
       break;
   }

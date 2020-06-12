@@ -24,6 +24,7 @@ struct Accum {
   const IndexT idxEnd;
   const double sumCand;
   const IndexT sCountCand;
+  const IndexT implicitCand;
 
   IndexT sCount; // Running sum of trial LHS sample counts.
   double sum; // Running sum of trial LHS response.

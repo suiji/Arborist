@@ -36,9 +36,9 @@ unique_ptr<SplitFrontier> SplitCart::factory(const SummaryFrame* frame,
 
 
 void SplitCart::splitReg(const SFRegCart* sf, SplitNux* cand) {
-  if (sf->isFactor(cand->getSplitCoord())) {
+  if (sf->isFactor(cand)) {
     RunAccum *runAccum = sf->getRunAccum(cand->getAccumIdx());
-    runAccum->regRuns(cand);
+    runAccum->regRuns();
     runAccum->maxVar();
     cand->infoGain(runAccum);
   }
@@ -51,9 +51,9 @@ void SplitCart::splitReg(const SFRegCart* sf, SplitNux* cand) {
 
 
 void SplitCart::splitCtg(SFCtgCart* sf, SplitNux* cand) {
-  if (sf->isFactor(cand->getSplitCoord())) {
+  if (sf->isFactor(cand)) {
     RunAccum* runAccum = sf->getRunAccum(cand->getAccumIdx());
-    runAccum->ctgRuns(cand, sf->getSumSlice(cand));
+    runAccum->ctgRuns(sf->getSumSlice(cand));
 
     if (sf->getNCtg() == 2) {
       runAccum->binaryGini(sf->getSumSlice(cand));
