@@ -151,7 +151,7 @@ public:
 
      @return true iff splitting predictor is a factor.
    */
-  bool isFactor(const class SummaryFrame* frame) const;
+  bool isFactor(const class TrainFrame* frame) const;
   
 
   /**
@@ -159,7 +159,7 @@ public:
 
      @return cardinality iff factor-valued predictor else zero.
    */
-  PredictorT getCardinality(const class SummaryFrame*) const;
+  PredictorT getCardinality(const class TrainFrame*) const;
 
 
   

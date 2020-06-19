@@ -17,16 +17,15 @@
 #include "deflayer.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "rankedframe.h"
 #include "path.h"
-#include "stagecount.h"
 
 #include <numeric>
 #include <algorithm>
 
 
-DefMap::DefMap(const SummaryFrame* frame_,
+DefMap::DefMap(const TrainFrame* frame_,
                IndexT bagCount) :
   frame(frame_),
   nPred(frame->getNPred()),
@@ -48,22 +47,16 @@ DefMap::DefMap(const SummaryFrame* frame_,
 }
 
 
-void DefMap::rootDef(const vector<StageCount>& stageCount,
-		IndexT bagCount) {
-  const unsigned int bufRoot = 0; // Initial staging buffer index.
-  const IndexT splitIdx = 0; // Root split index.
-  PredictorT predIdx = 0;
-  for (auto sc : stageCount) {
-    SplitCoord splitCoord(splitIdx, predIdx);
-    (void) layer[0]->define(PreCand(splitCoord, bufRoot), sc.singleton, bagCount - sc.expl);
-    setRunCount(splitCoord, false, sc.singleton ? 1 : frame->getCardinality(predIdx));
-    predIdx++;
-  }
+void DefMap::rootDef(PredictorT predIdx,
+		     bool singleton,
+		     IndexT implicitCount) {
+  PreCand cand(SplitCoord(0, predIdx), 0); // Root node and buffer both zero.
+  (void) layer[0]->define(cand, singleton, implicitCount);
+  setRunCount(cand.splitCoord, false, singleton ? 1 : frame->getCardinality(predIdx));
 }
 
 
-void
-DefMap::eraseLayers(unsigned int flushCount) {
+void DefMap::eraseLayers(unsigned int flushCount) {
   if (flushCount > 0) {
     layer.erase(layer.end() - flushCount, layer.end());
   }
@@ -159,8 +152,7 @@ unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
 }
 
 
-void
-DefMap::restage(ObsPart* obsPart,
+void DefMap::restage(ObsPart* obsPart,
 		const PreCand& mrra) const {
   layer[mrra.del]->rankRestage(obsPart, mrra, layer[0].get());
 }

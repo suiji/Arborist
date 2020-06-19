@@ -141,7 +141,7 @@ class Frontier {
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
-  Frontier(const class SummaryFrame* frame,
+  Frontier(const class TrainFrame* frame,
            const class Sample* sample);
 
   ~Frontier();
@@ -158,7 +158,7 @@ class Frontier {
   */
   static unique_ptr<class PreTree>
   oneTree(const class Train* train,
-	  const class SummaryFrame* frame,
+	  const class TrainFrame* frame,
 	  const class Sample* sample);
 
 
@@ -169,7 +169,7 @@ class Frontier {
      Parameters as described above.
   */
   unique_ptr<class PreTree> levels(const class Sample* sample,
-                                   const class SummaryFrame* frame);
+                                   const class TrainFrame* frame);
   
 
   /**

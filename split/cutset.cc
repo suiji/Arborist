@@ -47,13 +47,15 @@ void CutSet::setCut(IndexT accumIdx, const CutSig& sig) {
   cutSig[accumIdx] = sig;
 }
 
-  
+
 void CutSet::write(const SplitNux* nux, const CutAccum* accum) {
-  IndexT accumIdx = nux->getAccumIdx();
-  cutSig[accumIdx].idxLeft = accum->idxLeft;
-  cutSig[accumIdx].idxRight = accum->idxRight;
-  cutSig[accumIdx].implicitTrue = accum->lhImplicit(nux);
-  cutSig[accumIdx].quantRank = accum->interpolateRank(nux->splitQuant[nux->getPredIdx()]);
+  if (accum->info <= nux->getInfo())
+    return; // TOGO
+  CutSig& sig = cutSig[nux->getAccumIdx()];
+  sig.idxLeft = accum->idxLeft;
+  sig.idxRight = accum->idxRight;
+  sig.implicitTrue = accum->lhImplicit(nux);
+  sig.quantRank = accum->interpolateRank(nux->splitQuant[nux->getPredIdx()]);
 }
 
 

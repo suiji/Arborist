@@ -125,9 +125,10 @@ class SplitFrontier {
 
 
 protected:
-  const class SummaryFrame* frame; // Summarizes the internal predictor reordering.
+  const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   const class RankedFrame* rankedFrame; // Represents observations as RLEs.
   class Frontier* frontier;  // Current frontier of the partition tree.
+  const class Sample* sample;  // Sampling statistics.
   const PredictorT nPred;
   unique_ptr<class ObsPart> obsPart;  // Partitioned observatsion.
   bool compoundCriteria; // True iff criteria may be multiple-valued.
@@ -197,7 +198,7 @@ protected:
 
 public:
 
-  SplitFrontier(const class SummaryFrame* frame_,
+  SplitFrontier(const class TrainFrame* frame_,
                 class Frontier* frontier_,
                 const class Sample* sample,
 		bool compoundCriteria_,
@@ -212,7 +213,7 @@ public:
   /**
      @brief Passes ObsPart through to Sample method.
    */
-  vector<struct StageCount> stage(const class Sample* sample);
+  void stage(class DefMap*);
 
 
   /**
@@ -490,7 +491,7 @@ struct SFReg : public SplitFrontier {
   // Per-layer vector of uniform variates.
   vector<double> ruMono;
 
-  SFReg(const class SummaryFrame* frame,
+  SFReg(const class TrainFrame* frame,
 	class Frontier* frontier,
 	const class Sample* sample,
 	bool compoundCriteria,
@@ -506,7 +507,7 @@ struct SFReg : public SplitFrontier {
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void immutables(const class SummaryFrame* summaryFrame,
+  static void immutables(const class TrainFrame* summaryFrame,
                          const vector<double>& feMono);
 
   /**
@@ -540,7 +541,7 @@ protected:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
 public:
-  SFCtg(const class SummaryFrame* frame,
+  SFCtg(const class TrainFrame* frame,
 	class Frontier* frontier,
 	const class Sample* sample,
 	bool compoundCriteria,

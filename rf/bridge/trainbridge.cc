@@ -18,10 +18,10 @@
 #include "leaf.h"
 #include "train.h"
 #include "rftrain.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 
 
-TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : summaryFrame(make_unique<SummaryFrame>(rleFrame, autoCompress, enableCoproc, diag)) {
+TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : trainFrame(make_unique<TrainFrame>(rleFrame, autoCompress, rleFrame->getNPred(), enableCoproc, diag)) {
 }
 
 
@@ -34,7 +34,7 @@ unique_ptr<TrainChunk> TrainBridge::classification(const unsigned int *yCtg,
                                                    unsigned int nCtg,
                                                    unsigned int treeChunk,
                                                    unsigned int nTree) const {
-  auto train = Train::classification(summaryFrame.get(), yCtg, yProxy, nCtg, treeChunk, nTree);
+  auto train = Train::classification(trainFrame.get(), yCtg, yProxy, nCtg, treeChunk, nTree);
 
   return make_unique<TrainChunk>(move(train));
 }
@@ -42,7 +42,7 @@ unique_ptr<TrainChunk> TrainBridge::classification(const unsigned int *yCtg,
 
 unique_ptr<TrainChunk> TrainBridge::regression(const double* y,
                                                unsigned int treeChunk) const {
-  auto train = Train::regression(summaryFrame.get(), y, treeChunk);
+  auto train = Train::regression(trainFrame.get(), y, treeChunk);
   return make_unique<TrainChunk>(move(train));
 }
 
@@ -87,7 +87,7 @@ void TrainBridge::initSplit(unsigned int minNode,
   
 
 void TrainBridge::initMono(const vector<double> &regMono) {
-  RfTrain::initMono(summaryFrame.get(), regMono);
+  RfTrain::initMono(trainFrame.get(), regMono);
 }
 
 

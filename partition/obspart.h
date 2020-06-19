@@ -18,7 +18,6 @@
 
 
 #include "splitcoord.h"
-#include "stagecount.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -42,8 +41,6 @@ class ObsPart {
   const IndexT bufferSize; // <= nRow * nPred.
 
   vector<PathT> pathIdx;
-  vector<unsigned int> stageOffset;
-  vector<unsigned int> stageExtent; // Client:  debugging only.
   SampleRank* nodeVec;
 
   // 'indexBase' could be boxed with SampleRank.  While it is used in both
@@ -81,59 +78,10 @@ class ObsPart {
 
   
  public:
-  ObsPart(const class SummaryFrame* frame, IndexT bagCount_);
+  vector<IndexRange> stageRange;
+
+  ObsPart(const class TrainFrame* frame, IndexT bagCount_);
   virtual ~ObsPart();
-
-
-  /**
-     @brief Sets staging boundaries for a given predictor.
-  */
-  void setStageBounds(const class RankedFrame* rankedFrame,
-                      PredictorT predIdx);
-
-
-  /**
-     @brief Loops through the predictors to stage.
-  */
-  vector<StageCount> stage(const class RankedFrame* rankedFrame,
-                           const vector<SampleNux> &sampleNode,
-                           const class Sample* sample);
-
-  /**
-     @brief Stages ObsPart objects in non-decreasing predictor order.
-
-     @param predIdx is the predictor index.
-  */
-  void stage(const class RankedFrame* rankedFrame,
-             const vector<SampleNux> &sampleNode,
-             const class Sample* sample,
-             PredictorT predIdx,
-             StageCount& stageCount);
-
-  void stage(const class RankedFrame* rankedFrame,
-             unsigned int rrTot,
-             const vector<class SampleNux> &sampleNode,
-             const class Sample* sample,
-             vector<struct StageCount> &stageCount);
-
-  /**
-     @brief Fills in sampled response summary and rank information associated
-     with an RowRank reference.
-
-     @param rowRank summarizes an element of the compressed design matrix.
-
-     @param spn is the cell to initialize.
-
-     @param smpIdx is the associated sample index.
-
-     @param expl accumulates the current explicitly staged offset.
- */
-  void stage(const vector<class SampleNux> &sampleNode,
-             const class RowRank& rowRank,
-             const class Sample* sample,
-             IndexT& expl,
-             SampleRank spn[],
-             unsigned int smpIdx[]) const;
 
   
   /**
@@ -235,8 +183,8 @@ class ObsPart {
   /**
      @brief Returns the staging position for a dense predictor.
    */
-  inline unsigned int getStageOffset(PredictorT predIdx) const {
-    return stageOffset[predIdx];
+  inline auto getStageOffset(PredictorT predIdx) const {
+    return stageRange[predIdx].idxStart;
   }
 
 
@@ -266,7 +214,7 @@ class ObsPart {
      @return starting position within workspace.
    */
   inline IndexT bufferOff(PredictorT predIdx, unsigned int bufBit) const {
-    return stageOffset[predIdx] + buffOffset(bufBit);
+    return stageRange[predIdx].idxStart + buffOffset(bufBit);
   }
 
 

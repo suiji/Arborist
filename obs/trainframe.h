@@ -6,19 +6,18 @@
  */
 
 /**
-   @file summaryframe.h
+   @file trainframe.h
 
    @brief Data frame representations for preformatting and training.
 
    @author Mark Seligman
  */
 
-#ifndef CORE_SUMMARYFRAME_H
-#define CORE_SUMMARYFRAME_H
+#ifndef PARTITION_TRAINFRAME_H
+#define PARTITION_TRAINFRAME_H
 
 #include "block.h"
 #include "rankedframe.h"
-#include "rleframe.h"
 
 #include <vector>
 #include <memory>
@@ -27,26 +26,33 @@ using namespace std;
 /**
    @brief Frame represented as row/rank summaries, with numeric block.
  */
-class SummaryFrame {
-  const unsigned int nRow;
-  const unsigned int nPredNum;
-  const vector<unsigned int> cardinality; // Factor predictor cardinalities.
-  const unsigned int nPredFac;
-  const unsigned int cardExtent; // Greatest factor footprint.
-  const unsigned int nPred;
+class TrainFrame {
+  const IndexT nRow;
+  const PredictorT nPredNum;
+  const vector<PredictorT> cardinality; // Factor predictor cardinalities.
+  const PredictorT nPredFac;
+  const PredictorT cardExtent; // Greatest factor footprint.
+  const PredictorT nPred;
   const unique_ptr<class Coproc> coproc; // Stubbed, for now.
   const unique_ptr<RankedFrame> rankedFrame;
   const unique_ptr<BlockJagged<double> > numRanked;
 
+
+  inline double getNumVal(PredictorT predIdx,
+                          IndexT rank) const {
+    return numRanked->getVal(predIdx, rank);
+  }
+
 public:
 
-  SummaryFrame(const struct RLEFrame* rleFrame,
-	       double autoCompress,
-	       bool enableCoproc,
-	       vector<string>& diag);
+  TrainFrame(const struct RLEFrame* rleFrame,
+	     double autoCompress,
+	     PredictorT predPermute,
+	     bool enableCoproc,
+	     vector<string>& diag);
 
   
-  ~SummaryFrame();
+  ~TrainFrame();
 
   
   /**
@@ -62,7 +68,7 @@ public:
 
      @return Position of fist factor-valued predictor.
   */
-  inline unsigned int getFacFirst() const {
+  inline PredictorT getFacFirst() const {
     return nPredNum;
   }
 
@@ -74,7 +80,7 @@ public:
 
      @return true iff index references a factor.
    */
-  inline bool isFactor(unsigned int predIdx)  const {
+  inline bool isFactor(PredictorT predIdx)  const {
     return predIdx >= getFacFirst();
   }
 
@@ -85,7 +91,7 @@ public:
 
      @return cardinality iff factor else 0.
    */
-  inline unsigned int getCardinality(unsigned int predIdx) const {
+  inline PredictorT getCardinality(PredictorT predIdx) const {
     return predIdx < getFacFirst() ? 0 : cardinality[predIdx - getFacFirst()];
   }
 
@@ -105,7 +111,7 @@ public:
 
      @return block-relative index.
   */
-  inline unsigned int getIdx(unsigned int predIdx, bool &thisIsFactor) const{
+  inline PredictorT getIdx(PredictorT predIdx, bool &thisIsFactor) const{
     thisIsFactor = isFactor(predIdx);
     return thisIsFactor ? predIdx - getFacFirst() : predIdx;
   }
@@ -122,10 +128,10 @@ public:
 
      @return strided factor offset, if factor, else predictor index.
    */
-  inline unsigned int getFacStride(unsigned int predIdx,
+  inline unsigned int getFacStride(PredictorT predIdx,
 				unsigned int nStride,
 				bool &thisIsFactor) const {
-    unsigned int facIdx = getIdx(predIdx, thisIsFactor);
+    PredictorT facIdx = getIdx(predIdx, thisIsFactor);
     return thisIsFactor ? nStride * getNPredFac() + facIdx : predIdx;
   }
 
@@ -133,28 +139,28 @@ public:
   /**
      @return number or observation rows.
    */
-  inline unsigned int getNRow() const {
+  inline IndexT getNRow() const {
     return nRow;
   }
 
   /**
      @return number of observation predictors.
   */
-  inline unsigned int getNPred() const {
+  inline PredictorT getNPred() const {
     return nPred;
   }
 
   /**
      @return number of factor predictors.
    */
-  inline unsigned int getNPredFac() const {
+  inline PredictorT getNPredFac() const {
     return nPredFac;
   }
 
   /**
      @return number of numerical predictors.
    */
-  inline unsigned int getNPredNum() const {
+  inline PredictorT getNPredNum() const {
     return nPredNum;
   }
 
@@ -164,7 +170,7 @@ public:
 
      @return Position of first numerical predictor.
   */
-  static constexpr unsigned int getNumFirst() {
+  static constexpr PredictorT getNumFirst() {
     return 0ul;
   }
 
@@ -176,14 +182,8 @@ public:
 
      @return Position of predictor within numerical block.
   */
-  inline unsigned int getNumIdx(unsigned int predIdx) const {
+  inline PredictorT getNumIdx(PredictorT predIdx) const {
     return predIdx - getNumFirst();
-  }
-
-
-  inline double getNumVal(unsigned int predIdx,
-                          IndexT rank) const {
-    return numRanked->getVal(predIdx, rank);
   }
 
 

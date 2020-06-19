@@ -15,7 +15,7 @@
 
 #include "obspart.h"
 #include "sample.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "splitfrontier.h"
 #include "frontier.h"
 #include "splitnux.h"
@@ -29,14 +29,13 @@
 /**
    @brief Base class constructor.
  */
-ObsPart::ObsPart(const SummaryFrame* frame,
+ObsPart::ObsPart(const TrainFrame* frame,
                        IndexT bagCount_) :
   nPred(frame->getNPred()),
   bagCount(bagCount_),
   bufferSize(frame->safeSize(bagCount)),
   pathIdx(bufferSize),
-  stageOffset(nPred),
-  stageExtent(nPred) {
+  stageRange(nPred) {
   indexBase = new unsigned int[2* bufferSize];
   nodeVec = new SampleRank[2 * bufferSize];
 
@@ -70,66 +69,6 @@ SampleRank* ObsPart::getBuffers(const SplitNux* nux, IndexT*& sIdx) const {
 
 SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
   return getPredBase(nux->getPreCand());
-}
-
-
-vector<StageCount> ObsPart::stage(const RankedFrame* rankedFrame,
-				  const vector<SampleNux>  &sampleNode,
-				  const Sample* sample) {
-  vector<StageCount> stageCount(rankedFrame->getNPred());
-
-  OMPBound predTop = nPred;
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
-      stage(rankedFrame, sampleNode, sample, predIdx, stageCount[predIdx]);
-    }
-  }
-
-  return stageCount;
-}
-
-
-void ObsPart::stage(const RankedFrame* rankedFrame,
-		    const vector<SampleNux>& sampleNode,
-		    const Sample* sample,
-		    PredictorT predIdx,
-		    StageCount& stageCount) {
-  setStageBounds(rankedFrame, predIdx);
-  IndexT* sIdx;
-  SampleRank* spn = buffers(predIdx, 0, sIdx);
-  const RowRank* rrPred = rankedFrame->predStart(predIdx);
-  IndexT expl = 0;
-  for (IndexT idx = 0; idx < rankedFrame->getExplicitCount(predIdx); idx++) {
-    stage(sampleNode, rrPred[idx], sample, expl, spn, sIdx);
-  }
-
-  stageCount.singleton = singleton(expl, predIdx);
-  stageCount.expl = expl;
-}
-
-
-void ObsPart::setStageBounds(const RankedFrame* rankedFrame,
-			     PredictorT predIdx) {
-  unsigned int extent;
-  stageOffset[predIdx] = rankedFrame->getSafeOffset(predIdx, bagCount, extent);
-  stageExtent[predIdx] = extent;
-}
-
-
-void ObsPart::stage(const vector<SampleNux> &sampleNode,
-		    const RowRank &rowRank,
-		    const Sample* sample,
-		    IndexT &expl,
-		    SampleRank spn[],
-		    unsigned int smpIdx[]) const {
-  IndexT sIdx;
-  if (sample->sampledRow(rowRank.getRow(), sIdx)) {
-    spn[expl].join(rowRank.getRank(), sampleNode[sIdx]);
-    smpIdx[expl] = sIdx;
-    expl++;
-  }
 }
 
 

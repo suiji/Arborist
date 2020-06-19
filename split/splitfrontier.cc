@@ -20,9 +20,8 @@
 #include "defmap.h"
 #include "runset.h"
 #include "cutset.h"
-#include "samplenux.h"
 #include "obspart.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "rankedframe.h"
 #include "sample.h"
 #include "ompthread.h"
@@ -35,16 +34,17 @@
 vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 
-SplitFrontier::SplitFrontier(const SummaryFrame* frame_,
+SplitFrontier::SplitFrontier(const TrainFrame* frame_,
                              Frontier* frontier_,
-                             const Sample* sample,
+                             const Sample* sample_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_) :
   frame(frame_),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
+  sample(sample_),
   nPred(frame->getNPred()),
-  obsPart(sample->predictors()),
+  obsPart(sample->predictors(frame)),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_) {
 }
@@ -116,8 +116,14 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-vector<StageCount> SplitFrontier::stage(const Sample* sample) {
-  return sample->stage(obsPart.get());
+void SplitFrontier::stage(DefMap* defMap) {
+  vector<IndexT> stageCount = rankedFrame->stage(sample, obsPart.get());
+  IndexT predIdx = 0;
+  IndexT bagCount = sample->getBagCount();
+  for (auto sc : stageCount) {
+    defMap->rootDef(predIdx, obsPart->singleton(sc, predIdx), bagCount - sc);
+    predIdx++;
+  }
 }
 
 
@@ -382,7 +388,7 @@ IndexT SplitFrontier::getPTId(const PreCand& preCand) const {
 }
 
 
-SFReg::SFReg(const class SummaryFrame* frame,
+SFReg::SFReg(const class TrainFrame* frame,
 	     class Frontier* frontier,
 	     const class Sample* sample,
 	     bool compoundCriteria,
@@ -396,7 +402,7 @@ SFReg::~SFReg() {
 }
 
 
-void SFReg::immutables(const SummaryFrame* frame,
+void SFReg::immutables(const TrainFrame* frame,
 		      const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
@@ -439,7 +445,7 @@ void SFReg::layerPreset() {
 }
 
 
-SFCtg::SFCtg(const class SummaryFrame* frame,
+SFCtg::SFCtg(const class TrainFrame* frame,
 	     class Frontier* frontier,
 	     const class Sample* sample,
 	     bool compoundCriteria,

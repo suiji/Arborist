@@ -6,7 +6,7 @@
  */
 
 /**
-   @file summaryframe.cc
+   @file trainframe.cc
 
    @brief Methods associated with ranked frame representations.
 
@@ -14,17 +14,18 @@
  */
 
 
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "rleframe.h"
 #include "coproc.h"
 
 #include <algorithm>
 
 
-SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
-			   double autoCompress,
-			   bool enableCoproc,
-			   vector<string>& diag) : 
+TrainFrame::TrainFrame(const RLEFrame* rleFrame,
+		       double autoCompress,
+		       PredictorT predPermute,
+		       bool enableCoproc,
+		       vector<string>& diag) : 
   nRow(rleFrame->nRow),
   nPredNum(rleFrame->nPredNum),
   cardinality(rleFrame->cardinality),
@@ -32,22 +33,19 @@ SummaryFrame::SummaryFrame(const RLEFrame* rleFrame,
   cardExtent(nPredFac == 0 ? 0 : *max_element(cardinality.begin(), cardinality.end())),
   nPred(nPredFac + nPredNum),
   coproc(Coproc::Factory(enableCoproc, diag)),
-  rankedFrame(make_unique<RankedFrame>(rleFrame->nRow,
-                                       rleFrame->cardinality,
-                                       nPred,
-                                       rleFrame->rle,
-                                       rleFrame->rleLength,
-                                       autoCompress)),
+  rankedFrame(make_unique<RankedFrame>(rleFrame,
+                                       autoCompress,
+				       predPermute)),
   numRanked(make_unique<BlockJagged<double> >(rleFrame->numVal,
                                               rleFrame->valOff,
                                               rleFrame->nPredNum)) {
 }
 
 
-SummaryFrame::~SummaryFrame() {
+TrainFrame::~TrainFrame() {
 }
 
 
-IndexT SummaryFrame::safeSize(IndexT bagCount) const {
+IndexT TrainFrame::safeSize(IndexT bagCount) const {
   return rankedFrame->safeSize(bagCount);
 }

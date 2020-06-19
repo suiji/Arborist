@@ -104,31 +104,24 @@ void RunAccum::leadSlots(PredictorT cut) {
 }
 
 
-void RunAccum::implicitLeft() {
-  for (PredictorT runIdx = 0; runIdx < runsLH; runIdx++) {
-    implicitTrue += getImplicitExtent(runIdx);
-  }
-}
-
-
 void RunAccum::leadBits(PredictorT lhBits) {
   //  assert(lhBits != 0); // Argmax'd bits should never get here.
 
-  implicitTrue = getImplicitLeftBits(lhBits);
-
   // Places true-sense runs to the left for range and code capture.
+  // Implicit slot, if any, guaranteed not set.
   vector<RunNux> frTemp(rcSafe);
   PredictorT off = 0;
-  // effCount() - 1 captures all true bits.
-  for (PredictorT runIdx = 0; runIdx < effCount() - 1; runIdx++) {
+
+  // effCount() captures all true bits.
+  for (PredictorT runIdx = 0; runIdx < effCount(); runIdx++) {
     if (lhBits & (1ul << runIdx)) {
       frTemp[off++] = runZero[runIdx];
     }
   }
   runsLH = off;
 
-  // Places false-sense runs to the right.
-  // Range capture is the only client, so may be omitted for explicit LH.
+  // No client for indices >= 'runsLH', but rebuilds entire vector for
+  // consistency.
   for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
     if (!(lhBits & (1ul << runIdx))) {
       frTemp[off++] = runZero[runIdx];
@@ -311,13 +304,6 @@ void RunAccum::slotReorder(PredictorT leadCount) {
 }
 
 
-void BHeap::depopulate(BHPair pairVec[], PredictorT idxRank[], PredictorT pop) {
-  for (int bot = pop - 1; bot >= 0; bot--) {
-    idxRank[slotPop(pairVec, bot)] = pop - (1 + bot);
-  }
-}
-
-
 void RunAccum::orderMean() {
   heapMean();
   slotReorder();
@@ -356,53 +342,6 @@ struct RunDump RunAccum::dump() const {
 }
 
 
-void BHeap::insert(BHPair pairVec[], unsigned int slot_, double key_) {
-  unsigned int idx = slot_;
-  BHPair input;
-  input.key = key_;
-  input.slot = slot_;
-  pairVec[idx] = input;
-
-  int parIdx = parent(idx);
-  while (parIdx >= 0 && pairVec[parIdx].key > key_) {
-    pairVec[idx] = pairVec[parIdx];
-    pairVec[parIdx] = input;
-    idx = parIdx;
-    parIdx = parent(idx);
-  }
-}
-
-
-unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
-  unsigned int ret = pairVec[0].slot;
-  if (bot == 0)
-    return ret;
-  
-  // Places bottom element at head and refiles.
-  unsigned int idx = 0;
-  int slotRefile = pairVec[idx].slot = pairVec[bot].slot;
-  double keyRefile = pairVec[idx].key = pairVec[bot].key;
-  int descL = 1;
-  int descR = 2;
-
-    // 'descR' remains the lower of the two descendant indices.
-    //  Some short-circuiting below.
-    //
-  while((descR <= bot && keyRefile > pairVec[descR].key) || (descL <= bot && keyRefile > pairVec[descL].key)) {
-    int chIdx =  (descR <= bot && pairVec[descR].key < pairVec[descL].key) ?  descR : descL;
-    pairVec[idx].key = pairVec[chIdx].key;
-    pairVec[idx].slot = pairVec[chIdx].slot;
-    pairVec[chIdx].key = keyRefile;
-    pairVec[chIdx].slot = slotRefile;
-    idx = chIdx;
-    descL = 1 + (idx << 1);
-    descR = (1 + idx) << 1;
-  }
-
-  return ret;
-}
-
-
 void RunAccum::maxVar() {
   orderMean();
 
@@ -433,17 +372,20 @@ void RunAccum::ctgGini(const vector<double>& sumSlice) {
     }
   }
 
+  // Employs complement to guarantee true bits do not reference implicit runs.
+  if (implicitSlot < effCount() && (trueSlots & (1ul << implicitSlot))) {
+    trueSlots = slotComplement(trueSlots);
+  }
+
   setToken(trueSlots);
 }
 
 
-// Symmetric w.r.t. complement:  (~subset << (32 - effCount())) >> (32 - effCount()).
-//    equivalently, (1 << effCount()) - (subset + 1).
 double RunAccum::subsetGini(const vector<double>& sumSlice,
 			    unsigned int subset) const {
-  // sumSlice[ctg] decomposes the 'sumCand' by category.
-  // getSum(runIdx) decomposes 'sumCand' by run.
   // getCellSum(..., ctg) decomposes 'sumCand' by category x run.
+  // getSum(runIdx) decomposes 'sumCand' by run, so may be used
+  // as a cross-check.
   PredictorT nCtg = sumSlice.size();
   vector<double> sumSampled(nCtg);
   for (PredictorT runIdx = 0; runIdx < effCount() - 1; runIdx++) {
@@ -464,7 +406,6 @@ double RunAccum::subsetGini(const vector<double>& sumSlice,
     ssR += (sumSlice[ctg] - maskedSum) * (sumSlice[ctg] - maskedSum);
     ctg++;
   }
-
 
   return infoGini(ssL, ssR, sumL, sumCand - sumL);
 }

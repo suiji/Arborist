@@ -17,7 +17,7 @@
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "ompthread.h"
 #include "splitcart.h"
 
@@ -26,14 +26,14 @@
 #include "pretree.h"
 
 
-SFRegCart::SFRegCart(const SummaryFrame* frame,
+SFRegCart::SFRegCart(const TrainFrame* frame,
 		     Frontier* frontier,
 		     const Sample* sample) :
   SFReg(frame, frontier, sample, false, EncodingStyle::trueBranch) {
 }
 
 
-SFCtgCart::SFCtgCart(const SummaryFrame* frame,
+SFCtgCart::SFCtgCart(const TrainFrame* frame,
 		     Frontier* frontier,
 		     const Sample* sample,
 		     PredictorT nCtg):

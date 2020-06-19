@@ -30,7 +30,7 @@
    @brief Class managing the most recent level of the tree.
  */
 class DefMap {
-  const class SummaryFrame* frame;
+  const class TrainFrame* frame;
   const unsigned int nPred; // Number of predictors.
   const unsigned int nPredFac; // Number of factor-valued predictors.
 
@@ -70,11 +70,10 @@ class DefMap {
 
   /**
      @brief Adds new definitions for all predictors at the root layer.
-
-     @param stageCount is a vector of per-predictor staging statistics.
   */
-  void rootDef(const vector<struct StageCount>& stageCount,
-               unsigned int bagCount);
+  void rootDef(PredictorT predIdx,
+	       bool singleton,
+	       IndexT implicitCount);
 
 
   /**
@@ -84,7 +83,7 @@ class DefMap {
 
      @param splitCount specifies the number of splits to map.
   */
-  DefMap(const class SummaryFrame* frame,
+  DefMap(const class TrainFrame* frame,
          unsigned int bagCount);
 
   /**
@@ -148,9 +147,8 @@ class DefMap {
 
      @param mrra contains the coordinates of the originating cell.
    */
-  void
-  restage(class ObsPart* obsPart,
-	  const PreCand& mrra) const;
+  void restage(class ObsPart* obsPart,
+	       const PreCand& mrra) const;
   
   /**
      @brief Updates subtree and pretree mappings from temporaries constructed

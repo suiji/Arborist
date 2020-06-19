@@ -17,7 +17,7 @@
 #include "sample.h"
 #include "bv.h"
 #include "callback.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "obspart.h"
 
 #include <numeric>
@@ -40,8 +40,7 @@ void Sample::deImmutables() {
 }
 
 
-Sample::Sample(const SummaryFrame* frame) :
-  frame(frame),
+Sample::Sample(const TrainFrame* frame) :
   ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
   row2Sample(vector<unsigned int>(frame->getNRow())),
   bagCount(0),
@@ -54,7 +53,7 @@ Sample::~Sample() {
 
 
 unique_ptr<SampleCtg> Sample::factoryCtg(const double y[],
-                                         const SummaryFrame* frame,
+                                         const TrainFrame* frame,
                                          const unsigned int yCtg[],
                                          BV *treeBag) {
   unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(frame);
@@ -65,7 +64,7 @@ unique_ptr<SampleCtg> Sample::factoryCtg(const double y[],
 
 
 unique_ptr<SampleReg> Sample::factoryReg(const double y[],
-                                         const SummaryFrame* frame,
+                                         const TrainFrame* frame,
                                          BV *treeBag) {
   unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(frame);
   sampleReg->bagSamples(y, treeBag);
@@ -73,7 +72,7 @@ unique_ptr<SampleReg> Sample::factoryReg(const double y[],
 }
 
 
-SampleReg::SampleReg(const SummaryFrame *frame) : Sample(frame) {
+SampleReg::SampleReg(const TrainFrame *frame) : Sample(frame) {
 }
 
 
@@ -85,7 +84,7 @@ void SampleReg::bagSamples(const double y[], BV *treeBag) {
 }
 
 
-SampleCtg::SampleCtg(const SummaryFrame* frame) : Sample(frame) {
+SampleCtg::SampleCtg(const TrainFrame* frame) : Sample(frame) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -207,13 +206,8 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
 }
 
 
-unique_ptr<ObsPart> Sample::predictors() const {
+unique_ptr<ObsPart> Sample::predictors(const TrainFrame* frame) const {
   return make_unique<ObsPart>(frame, bagCount);
-}
-
-
-vector<StageCount> Sample::stage(ObsPart* samplePred) const {
-  return samplePred->stage(frame->getRankedFrame(), sampleNode, this);
 }
 
 

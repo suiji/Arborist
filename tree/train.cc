@@ -16,7 +16,7 @@
 #include "bv.h"
 #include "sample.h"
 #include "train.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "frontier.h"
 #include "pretree.h"
 #include "leaf.h"
@@ -36,7 +36,7 @@ void Train::deInit() {
 }
 
 
-unique_ptr<Train> Train::regression(const SummaryFrame* frame,
+unique_ptr<Train> Train::regression(const TrainFrame* frame,
                                     const double* y,
                                     unsigned int treeChunk) {
   auto trainReg = make_unique<Train>(frame, y, treeChunk);
@@ -46,7 +46,7 @@ unique_ptr<Train> Train::regression(const SummaryFrame* frame,
 }
 
 
-Train::Train(const SummaryFrame* frame,
+Train::Train(const TrainFrame* frame,
              const double* y,
              unsigned int treeChunk_) :
   nRow(frame->getNRow()),
@@ -58,7 +58,7 @@ Train::Train(const SummaryFrame* frame,
 }
 
 
-unique_ptr<Train> Train::classification(const SummaryFrame* frame,
+unique_ptr<Train> Train::classification(const TrainFrame* frame,
                                         const unsigned int* yCtg,
                                         const double* yProxy,
                                         unsigned int nCtg,
@@ -71,7 +71,7 @@ unique_ptr<Train> Train::classification(const SummaryFrame* frame,
 }
 
 
-Train::Train(const SummaryFrame* frame,
+Train::Train(const TrainFrame* frame,
              const unsigned int* yCtg,
              unsigned int nCtg,
              const double* yProxy,
@@ -90,7 +90,7 @@ Train::~Train() {
 }
 
 
-void Train::trainChunk(const SummaryFrame* frame) {
+void Train::trainChunk(const TrainFrame* frame) {
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
     auto treeBlock = blockProduce(frame, treeStart, treeEnd - treeStart);
@@ -100,7 +100,7 @@ void Train::trainChunk(const SummaryFrame* frame) {
 }
 
 
-vector<TrainSet> Train::blockProduce(const SummaryFrame* frame,
+vector<TrainSet> Train::blockProduce(const TrainFrame* frame,
                                      unsigned int tStart,
                                      unsigned int tCount) {
   unsigned int tIdx = tStart;

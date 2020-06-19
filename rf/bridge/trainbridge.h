@@ -119,7 +119,7 @@ struct TrainBridge {
   static void deInit();
 
 private:
-  unique_ptr<class SummaryFrame> summaryFrame;
+  unique_ptr<class TrainFrame> trainFrame;
 };
 
 

@@ -18,11 +18,11 @@
 #include "sfcart.h"
 #include "splitnux.h"
 #include "runaccum.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "splitcart.h"
 
 
-unique_ptr<SplitFrontier> SplitCart::factory(const SummaryFrame* frame,
+unique_ptr<SplitFrontier> SplitCart::factory(const TrainFrame* frame,
 					     Frontier* frontier,
 					     const Sample* sample,
 					     PredictorT nCtg) {

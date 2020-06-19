@@ -248,9 +248,9 @@ class SampleRank : public SampleNux {
      @param sNode summarizes response sampled at row.
   */
   inline void join(IndexT rank,
-		   const SampleNux &sNode) {
+		   const SampleNux* sNode) {
     this->rank = rank;
-    sNode.ref(ySum, sCount);
+    sNode->ref(ySum, sCount);
   }
 
 

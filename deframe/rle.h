@@ -16,28 +16,49 @@
 #ifndef DEFRAME_RLE_H
 #define DEFRAME_RLE_H
 
+#include<cstddef>
+using namespace std;
 
 /**
    @brief Run-length encoding class for parametrized type.
  */
 
-template<typename rec>
+template<typename valType>
 struct RLE {
-  rec val;
-  unsigned int runLength;
+  valType val;
+  size_t extent;
 
   RLE() {
   }
 
   
-  RLE(const rec& val_,
-      unsigned int runLength_) : val(val_),
-                                 runLength(runLength_) {
+  RLE(const valType& val_,
+      size_t extent_) : val(val_),
+			extent(extent_) {
   }
   
-  void bumpLength(unsigned int bump) {
-    runLength += bump;
+  void bumpLength(size_t bump) {
+    extent += bump;
   }
 };
+
+
+/**
+  @brief Sparse representation imposed by front-end.
+*/
+template<typename valType>
+struct RLEVal {
+  valType val;
+  size_t row;
+  size_t extent;
+
+  RLEVal(valType val_,
+         size_t row_,
+         size_t extent_) : val(val_),
+			   row(row_),
+			   extent(extent_) {
+  }
+};
+
 
 #endif

@@ -77,7 +77,7 @@ struct Crit {
   }
 
   
-  void setQuantRank(const class SummaryFrame* sf,
+  void setQuantRank(const class TrainFrame* sf,
 		    PredictorT predIdx);
 };
 

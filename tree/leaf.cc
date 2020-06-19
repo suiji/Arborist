@@ -510,7 +510,7 @@ void LFTrainReg::setScores(const Sample* sample, const vector<IndexT>& leafMap) 
 }
 
 
-unique_ptr<Sample> LFTrainReg::rootSample(const SummaryFrame* frame,
+unique_ptr<Sample> LFTrainReg::rootSample(const TrainFrame* frame,
                                           BitMatrix* bag,
                                           unsigned int tIdx) const {
   return Sample::factoryReg(y, frame, bag->BVRow(tIdx).get());
@@ -543,7 +543,7 @@ void LFTrainCtg::setScores(const Sample* sample,
 }
 
 
-unique_ptr<Sample> LFTrainCtg::rootSample(const SummaryFrame* frame,
+unique_ptr<Sample> LFTrainCtg::rootSample(const TrainFrame* frame,
                                           BitMatrix* bag,
                                           unsigned int tIdx) const {
   return Sample::factoryCtg(y, frame, &yCtg[0], bag->BVRow(tIdx).get());

@@ -22,17 +22,8 @@
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "accum.h"
-
+#include "bheap.h"
 #include "runnux.h"
-
-/**
-   @brief Ad hoc container for simple priority queue.
- */
-struct BHPair {
-  double key;  // Comparitor value.
-  PredictorT slot; // Slot index.
-};
-
 
 enum class SplitStyle;
 
@@ -140,27 +131,6 @@ public:
   }
 
 
-  /**
-     @brief Determines whether it is necessary to expose the right-hand runs.
-
-     Suitable for multi-criterion splits, for which there may be more than
-     one implicit slot.
-  */
-  void implicitLeft();
-
-
-  /**
-     @brief Computes extent of left-implicit runs.
-     
-     @param lhBits is a bit representation of the LH slots.
-
-     @return extent of implicit slot iff encoded in the LH else zero.
-   */
-  IndexT getImplicitLeftBits(PredictorT lhBits) {
-    return (implicitSlot < runCount && (lhBits & (1ul << implicitSlot))) ? getExtent(implicitSlot) : 0;
-  }
-
-  
   /**
      @return extent of implicit slot iff it lies left else zero.
 
@@ -457,6 +427,34 @@ public:
   void leadBits(PredictorT lhBits);
 
 
+  /**
+     @brief Determines the complement of a bit pattern of fixed size.
+
+     Equivalent to  (~subset << (32 - effCount())) >> (32 - effCount()).
+     
+     @param subset is a collection of effCount()-many bits.
+
+     @return bit (ones) complement of subset.
+  */
+  inline unsigned int slotComplement(unsigned int subset) const {
+    return (1 << effCount()) - (subset + 1);
+  }
+
+
+  /**
+     @brief Determines Gini of a subset of runs encoded as bits.
+
+     @param sumSlice decomposes the partition node response by category.
+
+     @param subset bit-encodes a collection of runs.
+
+     N.B.:  Gini value should be symmetric w.r.t. fixed-size complements.
+     
+     N.B.:  trivial subsets, beside being uninformative, may precipitate
+     division by zero.
+
+     @return Gini coefficient of subset.
+   */
   double subsetGini(const vector<double>& sumSlice,
 		    unsigned int subset) const;
 
@@ -465,8 +463,8 @@ public:
   /**
      @brief Emits the left-most codes as true-branch bit positions.
 
-     True codes are enumerated from the left, regardless whether implicits present.
-     Implicit codes affect sample-index (SR) update, but not final branch encoding.
+     True codes are enumerated from the left, by convention.  Implicit runs are
+     guranteed not to lie on the left.
      
      @return vector of indices corresponding to true-branch bits.
    */
@@ -536,62 +534,5 @@ struct RunDump {
     }
   }
 };
-
-/**
-   @brief Implementation of binary heap tailored to RunAccums.
-
-   Not so much a class as a collection of static methods.
-   TODO:  Templatize and move elsewhere.
-*/
-struct BHeap {
-  /**
-     @brief Determines index of parent.
-   */
-  static inline int parent(int idx) { 
-    return (idx-1) >> 1;
-  };
-
-
-  /**
-     @brief Empties the queue.
-
-     @param pairVec are the queue records.
-
-     @param[out] lhOut outputs the popped slots, in increasing order.
-
-     @param pop is the number of elements to pop.  Caller enforces value > 0.
-  */
-  static void depopulate(BHPair pairVec[],
-                         unsigned int lhOut[],
-                         unsigned int pop);
-
-  /**
-     @brief Inserts a key, value pair into the heap at next vacant slot.
-
-     Heap updates to move element with maximal key to the top.
-
-     @param pairVec are the queue records.
-
-     @param slot_ is the slot position.
-
-     @param key_ is the associated key.
-  */
-  static void insert(BHPair pairVec[],
-                     unsigned int slot_,
-                     double key_);
-
-  /**
-     @brief Pops value at bottom of heap.
-
-     @param pairVec are the queue records.
-
-     @param bot indexes the current bottom.
-
-     @return popped value.
-  */
-  static unsigned int slotPop(BHPair pairVec[],
-                              int bot);
-};
-
 
 #endif

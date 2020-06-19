@@ -15,7 +15,7 @@
 
 #include "frontier.h"
 #include "indexset.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "sample.h"
 #include "train.h"
 #include "obspart.h"
@@ -46,14 +46,14 @@ Frontier::~Frontier() {
 
 
 unique_ptr<PreTree> Frontier::oneTree(const Train* train,
-				      const SummaryFrame* frame,
+				      const TrainFrame* frame,
                                       const Sample *sample) {
   unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
   return frontier->levels(sample, frame);
 }
 
 
-Frontier::Frontier(const SummaryFrame* frame,
+Frontier::Frontier(const TrainFrame* frame,
                    const Sample* sample) :
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
@@ -76,10 +76,9 @@ Frontier::Frontier(const SummaryFrame* frame,
 
 
 unique_ptr<PreTree> Frontier::levels(const Sample* sample,
-                                     const SummaryFrame* frame) {
+                                     const TrainFrame* frame) {
   unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frame, this, sample, SampleNux::getNCtg());
-  defMap->rootDef(splitFrontier->stage(sample), bagCount);
-  
+  splitFrontier->stage(defMap.get());
   unsigned int level = 0;
   while (!indexSet.empty()) {
     splitFrontier->restageAndSplit(indexSet, defMap.get(), branchSense.get(), pretree.get());

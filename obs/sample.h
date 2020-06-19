@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_SAMPLE_H
-#define CORE_SAMPLE_H
+#ifndef OBS_SAMPLE_H
+#define OBS_SAMPLE_H
 
 #include "sumcount.h"
 #include "typeparam.h"
@@ -45,14 +45,12 @@ class Sample {
 
   
  protected:
-  const class SummaryFrame* frame; // Summary of ranked predictors.
-  
   static IndexT nSamp; // Number of row samples requested.
   static bool bagging; // Whether to bag samples.
-  vector<SampleNux> sampleNode; // Per-sample summary of values.
+  vector<SampleNux> sampleNux; // Per-sample summary of values.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<unsigned int> row2Sample; // Maps row index to sample index.
-  unsigned int bagCount; // Number of distinct bagged (sampled) rows.
+  IndexT bagCount; // Number of distinct bagged (sampled) rows.
   double bagSum; // Sum of bagged responses.
 
 
@@ -141,7 +139,7 @@ class Sample {
      @return new SampleCtg instance.
    */
   static unique_ptr<class SampleCtg> factoryCtg(const double y[],
-                                                const class SummaryFrame *frame,
+                                                const class TrainFrame *frame,
                                                 const unsigned int yCtg[],
                                                 class BV *treeBag);
 
@@ -157,7 +155,7 @@ class Sample {
      @return new SampleReg instance.
    */
   static unique_ptr<class SampleReg>factoryReg(const double y[],
-                                               const class SummaryFrame *frame,
+                                               const class TrainFrame *frame,
                                                class BV *treeBag);
   
 
@@ -183,7 +181,7 @@ class Sample {
 
      @param frame summarizes predictor ranks by row.
    */
-  Sample(const class SummaryFrame* frame);
+  Sample(const class TrainFrame* frame);
 
 
   virtual ~Sample();
@@ -194,16 +192,8 @@ class Sample {
 
      @return array of joined sample/predictor records.
   */
-  unique_ptr<class ObsPart> predictors() const;
+  unique_ptr<class ObsPart> predictors(const class TrainFrame* frame) const;
   
-
-  /**
-     @brief Invokes RankedFrame staging methods and caches compression map.
-
-     @param samplePred summarizes the observations.
-  */
-  vector<struct StageCount> stage(class ObsPart* samplePred) const;
-
 
   /**
      @brief Getter for root category census vector.
@@ -251,9 +241,18 @@ class Sample {
 
      @return true iff row is sampled.
    */
-  inline bool sampledRow(unsigned int row, unsigned int &sIdx) const {
-    sIdx = row2Sample[row];
-    return sIdx < bagCount;
+  inline bool sampledRow(IndexT row,
+			 IndexT*& sIdx,
+			 const SampleNux*& sNux) const {
+    IndexT smpIdx = row2Sample[row];
+    if (smpIdx < bagCount) {
+      *sIdx++ = smpIdx;
+      sNux = &sampleNux[smpIdx];
+      return true;
+    }
+    else {
+      return false;
+    }
   }
 
 
@@ -270,7 +269,7 @@ class Sample {
                     double& bulkSum,
                     double* ctgSum) const {
     unsigned int ctg;
-    FltVal sum = sampleNode[sIdx].refCtg(ctg);
+    FltVal sum = sampleNux[sIdx].refCtg(ctg);
     bulkSum += sum;
     ctgSum[ctg] += sum;
   }
@@ -282,7 +281,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline unsigned int getSCount(IndexT sIdx) const {
-    return sampleNode[sIdx].getSCount();
+    return sampleNux[sIdx].getSCount();
   }
 
 
@@ -292,7 +291,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline FltVal getSum(IndexT sIdx) const {
-    return sampleNode[sIdx].getSum();
+    return sampleNux[sIdx].getSum();
   }
 };
 
@@ -303,7 +302,7 @@ class Sample {
 class SampleReg : public Sample {
 
  public:
-  SampleReg(const class SummaryFrame* frame);
+  SampleReg(const class TrainFrame* frame);
   ~SampleReg();
 
 
@@ -317,8 +316,8 @@ class SampleReg : public Sample {
   inline double addNode(double yVal,
                         unsigned int sCount,
                         PredictorT ctg) {
-    sampleNode.emplace_back(yVal, sCount);
-    return sampleNode.back().getSum();
+    sampleNux.emplace_back(yVal, sCount);
+    return sampleNux.back().getSum();
   }
   
 
@@ -340,7 +339,7 @@ class SampleCtg : public Sample {
 
  public:
   
-  SampleCtg(const class SummaryFrame* frame);
+  SampleCtg(const class TrainFrame* frame);
   ~SampleCtg();
 
   
@@ -352,8 +351,8 @@ class SampleCtg : public Sample {
      @return sum of sampled response values.
    */
   inline double addNode(double yVal, unsigned int sCount, PredictorT ctg) {
-    sampleNode.emplace_back(yVal, sCount, ctg);
-    double ySum = sampleNode.back().getSum();
+    sampleNux.emplace_back(yVal, sCount, ctg);
+    double ySum = sampleNux.back().getSum();
     ctgRoot[ctg] += SumCount(ySum, sCount);
 
     return ySum;

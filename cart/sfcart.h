@@ -30,7 +30,7 @@
  */
 struct SFRegCart : public SFReg {
 
-  SFRegCart(const class SummaryFrame* frame_,
+  SFRegCart(const class TrainFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample);
 
@@ -137,7 +137,7 @@ class SFCtgCart : public SFCtg {
 
 
  public:
-  SFCtgCart(const class SummaryFrame* frame_,
+  SFCtgCart(const class TrainFrame* frame_,
         class Frontier* frontier_,
 	const class Sample* sample,
 	PredictorT nCtg_);

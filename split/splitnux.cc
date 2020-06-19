@@ -17,7 +17,7 @@
 #include "cutaccum.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "branchsense.h"
 #include "indexset.h"
 #include "defmap.h"
@@ -93,11 +93,11 @@ IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
 }
 
 
-bool SplitNux::isFactor(const SummaryFrame* frame) const {
+bool SplitNux::isFactor(const TrainFrame* frame) const {
   return frame->isFactor(preCand.splitCoord.predIdx);
 }
 
 
-PredictorT SplitNux::getCardinality(const SummaryFrame* frame) const {
+PredictorT SplitNux::getCardinality(const TrainFrame* frame) const {
   return frame->getCardinality(preCand.splitCoord.predIdx);
 }

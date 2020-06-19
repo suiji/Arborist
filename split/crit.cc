@@ -15,11 +15,11 @@
 
 
 #include "crit.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "splitfrontier.h"
 
 
-void Crit::setQuantRank(const SummaryFrame* sf,
+void Crit::setQuantRank(const TrainFrame* sf,
 			PredictorT predIdx) {
   setNum(sf->interpolate(predIdx, getNumVal()));
 }

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -83,6 +83,10 @@ struct RLEFrameR {
      @param rleCresc is the crescent encoding.
    */
   static List wrap(const class RLECresc* rleCresc);
+
+
+  static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame,
+				     unsigned int nRow);
 };
 
 #endif

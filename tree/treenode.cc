@@ -15,12 +15,12 @@
 
 
 #include "treenode.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "bv.h"
 #include "predict.h"
 
 
-void TreeNode::setQuantRank(const SummaryFrame* sf) {
+void TreeNode::setQuantRank(const TrainFrame* sf) {
   auto predIdx = getPredIdx();
   if (isNonterminal() && !sf->isFactor(predIdx)) {
     criterion.setQuantRank(sf, predIdx);

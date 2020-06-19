@@ -17,7 +17,7 @@
 #include "bv.h"
 #include "sample.h"
 #include "train.h"
-#include "summaryframe.h"
+#include "trainframe.h"
 #include "frontier.h"
 #include "pretree.h"
 #include "obspart.h"
@@ -68,7 +68,7 @@ void RfTrain::initCtgWidth(unsigned int ctgWidth) {
 }
 
 
-void RfTrain::initMono(const SummaryFrame* frame,
+void RfTrain::initMono(const TrainFrame* frame,
                      const vector<double> &regMono) {
   SFRegCart::immutables(frame, regMono);
 }

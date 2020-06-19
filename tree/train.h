@@ -48,7 +48,7 @@ class Train {
 
      @param summaryFrame summarizes the predictor characteristics.
   */
-  void trainChunk(const class SummaryFrame* frame);
+  void trainChunk(const class TrainFrame* frame);
 
   unique_ptr<class LFTrain> leaf; // Crescent leaf object.
 
@@ -57,7 +57,7 @@ public:
   /**
      @brief Regression constructor.
   */
-  Train(const class SummaryFrame* frame,
+  Train(const class TrainFrame* frame,
         const double* y,
         unsigned int treeChunk_);
 
@@ -65,7 +65,7 @@ public:
   /**
      @brief Classification constructor.
   */
-  Train(const class SummaryFrame* frame,
+  Train(const class TrainFrame* frame,
         const unsigned int* yCtg,
         unsigned int nCtg,
         const double* yProxy,
@@ -101,13 +101,13 @@ public:
   static void deInit();
 
   static unique_ptr<Train>
-  regression(const class SummaryFrame* frame,
+  regression(const class TrainFrame* frame,
 	     const double *y,
 	     unsigned int treeChunk);
 
 
   static unique_ptr<Train>
-  classification(const class SummaryFrame* frame,
+  classification(const class TrainFrame* frame,
 		 const unsigned int *yCtg,
 		 const double *yProxy,
 		 unsigned int nCtg,
@@ -149,7 +149,7 @@ public:
 
      @return Wrapped collection of Sample, PreTree pairs.
   */
-  vector<TrainSet> blockProduce(const class SummaryFrame* frame,
+  vector<TrainSet> blockProduce(const class TrainFrame* frame,
                                 unsigned int tStart,
                                 unsigned int tCount);
 
