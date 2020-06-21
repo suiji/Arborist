@@ -138,7 +138,6 @@ public:
    */
   SplitNux(const PreCand& preCand,
 	   const class SplitFrontier* splitFrontier,
-	   const class DefMap* defMap,
 	   PredictorT runCount);
 
   

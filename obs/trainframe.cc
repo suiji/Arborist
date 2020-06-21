@@ -44,8 +44,3 @@ TrainFrame::TrainFrame(const RLEFrame* rleFrame,
 
 TrainFrame::~TrainFrame() {
 }
-
-
-IndexT TrainFrame::safeSize(IndexT bagCount) const {
-  return rankedFrame->safeSize(bagCount);
-}

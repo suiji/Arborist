@@ -8,8 +8,12 @@
 /**
    @file defmap.h
 
-   @brief Definitions for the classes managing the most recently
-   trained frontier layers.
+   @brief Manages the lazy repartitioning of the observation set.
+
+   Splitting requires accessing the observations in sorted or grouped
+   form.  Algorithms that do not attempt to split every node/predictor
+   pair, such as Random Forest, can improve training speed by restaging
+   (repartitioning) lazily.
 
    @author Mark Seligman
  */
@@ -39,8 +43,10 @@ class DefMap {
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   IndexT splitPrev; // # nodes in previous layer.
   IndexT splitCount; // # nodes in the layer about to split.
-  const class RankedFrame *rankedFrame;
+  class RankedFrame *rankedFrame;
   const unsigned int noRank;
+  vector<class PreCand> restageCand;
+  unique_ptr<class ObsPart> obsPart;
 
   vector<unsigned int> history; // Current layer's history.
   vector<unsigned int> historyPrev; // Previous layer's history:  accum.
@@ -110,15 +116,13 @@ class DefMap {
      Reaching layers must persist through restaging ut allow path lookup.
      @param flushCount is the number of rear layers to erase.
   */
-  void
-  eraseLayers(unsigned int flushCount);
+  void eraseLayers(unsigned int flushCount);
   
   /**
      @brief Flushes reaching definition and preschedules.
   */
   unsigned int preschedule(const SplitCoord& splitCoord,
-			   vector<PreCand>& restageCand,
-			   vector<PreCand>& preCand) const;
+			   vector<PreCand>& preCand);
   
   /**
      @brief Passes through to front layer.
@@ -136,6 +140,13 @@ class DefMap {
   void adjustRange(const PreCand& preCand,
 		   IndexRange& idxRange) const;
 
+
+  IndexT* getBufferIndex(const class SplitNux* nux) const;
+
+  
+  class SampleRank* getPredBase(const SplitNux* nux) const;
+
+  
   /**
      @brief Passes through to front layer.
    */
@@ -143,12 +154,40 @@ class DefMap {
 
 
   /**
+     @brief Passes ObsPart through to Sample method.
+   */
+  void stage(const class Sample* sample);
+
+
+  void branchUpdate(const class SplitNux* nux,
+		    const vector<IndexRange>& range,
+		    class BranchSense* branchSense,
+		    struct CritEncoding& enc) const;
+
+
+  void branchUpdate(const class SplitNux* nux,
+		    const IndexRange& range,
+		    class BranchSense* branchSense,
+		    struct CritEncoding& enc) const;
+
+  /**
+     @brief Appends a restaging candidate.
+   */
+  void restageAppend(const class PreCand& cand);
+
+  /**
+     @brief Updates the data (observation) partition.
+   */
+  vector<class PreCand> restage(class SplitFrontier* splitFrontier);
+
+
+
+  /**
      @brief Repartitions observations at a specified cell.
 
      @param mrra contains the coordinates of the originating cell.
    */
-  void restage(class ObsPart* obsPart,
-	       const PreCand& mrra) const;
+  void restage(const PreCand& mrra) const;
   
   /**
      @brief Updates subtree and pretree mappings from temporaries constructed
@@ -195,7 +234,7 @@ class DefMap {
 
      @return count of layers to flush.
   */
-  unsigned int flushRear(class SplitFrontier* splitFrontier);
+  unsigned int flushRear();
 
 
   /**
@@ -312,8 +351,7 @@ class DefMap {
 
    @param spliCoord is the layer-relative coordinate.
  */
-  void reachFlush(const SplitCoord& splitCoord,
-		  vector<PreCand>& restageCand) const;
+  void reachFlush(const SplitCoord& splitCoord);
 
 
   /**
@@ -325,9 +363,8 @@ class DefMap {
 
      @return layer-relative index of ancestor node.
  */
-  IndexT
-  getHistory(const DefLayer *reachLayer,
-	     IndexT splitIdx) const;
+  IndexT getHistory(const DefLayer *reachLayer,
+		    IndexT splitIdx) const;
 
 
   SplitCoord getHistory(const DefLayer* reachLayer,

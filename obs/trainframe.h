@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef PARTITION_TRAINFRAME_H
-#define PARTITION_TRAINFRAME_H
+#ifndef OBS_TRAINFRAME_H
+#define OBS_TRAINFRAME_H
 
 #include "block.h"
 #include "rankedframe.h"
@@ -34,7 +34,7 @@ class TrainFrame {
   const PredictorT cardExtent; // Greatest factor footprint.
   const PredictorT nPred;
   const unique_ptr<class Coproc> coproc; // Stubbed, for now.
-  const unique_ptr<RankedFrame> rankedFrame;
+  unique_ptr<RankedFrame> rankedFrame;
   const unique_ptr<BlockJagged<double> > numRanked;
 
 
@@ -58,7 +58,7 @@ public:
   /**
      @brief Getter for rankedFrame.
    */
-  inline const RankedFrame* getRankedFrame() const {
+  inline RankedFrame* getRankedFrame() const {
     return rankedFrame.get();
   }
 
@@ -205,15 +205,6 @@ public:
 
     return valFloor + (rank - rankFloor) * (valCeil - valFloor);
   }
-
-  /**
-     @brief Pass-through to rankedFrame method.
-
-     @param bagCount is the unique sample count for the tree.
-
-     @return conservative staging bound.
-   */
-  IndexT safeSize(IndexT bagCount) const;
 };
 
 #endif

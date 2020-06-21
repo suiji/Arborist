@@ -80,7 +80,7 @@ class ObsPart {
  public:
   vector<IndexRange> stageRange;
 
-  ObsPart(const class TrainFrame* frame, IndexT bagCount_);
+  ObsPart(const class RankedFrame* frame, IndexT bagCount_);
   virtual ~ObsPart();
 
   

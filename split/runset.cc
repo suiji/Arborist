@@ -22,10 +22,10 @@
 IndexT RunNux::noStart = 0;
 
 
-RunSet::RunSet(const SplitFrontier* splitFrontier,
+RunSet::RunSet(SplitStyle factorStyle,
 	       PredictorT nCtg_,
 	       IndexT nRow) :
-  style(splitFrontier->getFactorStyle()),
+  style(factorStyle),
   nCtg(nCtg_) {
   RunNux::noStart = nRow; // Inattainable start value, irrespective of tree.
 }

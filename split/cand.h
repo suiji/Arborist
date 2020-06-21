@@ -29,8 +29,7 @@
 
 struct Cand {
   static vector<PreCand> precandidates(class SplitFrontier* splitFrontier,
-				       const class DefMap* bottom,
-				       vector<PreCand>& restageCand);
+				       class DefMap* bottom);
 };
 
 #endif

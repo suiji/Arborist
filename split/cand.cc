@@ -19,14 +19,13 @@
 #include "splitcoord.h"
 
 vector<PreCand> Cand::precandidates(SplitFrontier* splitFrontier,
-				    const DefMap* defMap,
-				    vector<PreCand>& restageCand) {
+				    DefMap* defMap) {
   // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
   vector<PreCand> preCand;
   for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {
     if (!splitFrontier->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
-	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), restageCand, preCand);
+	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), preCand);
       }
     }
   }

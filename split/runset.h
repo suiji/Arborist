@@ -51,7 +51,7 @@ public:
 
      @param nRow is the number of training rows:  inattainable offset.
   */
-  RunSet(const class SplitFrontier* splitFrontier,
+  RunSet(SplitStyle factorStyle,
 	 PredictorT nCtg_,
 	 IndexT nRow);
 

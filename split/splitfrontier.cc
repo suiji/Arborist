@@ -23,9 +23,9 @@
 #include "obspart.h"
 #include "trainframe.h"
 #include "rankedframe.h"
-#include "sample.h"
 #include "ompthread.h"
 #include "callback.h"
+#include "algsf.h"
 
 // Post-split consumption:
 #include "pretree.h"
@@ -34,19 +34,29 @@
 vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 
-SplitFrontier::SplitFrontier(const TrainFrame* frame_,
-                             Frontier* frontier_,
-                             const Sample* sample_,
+unique_ptr<BranchSense> SplitFrontier::split(Frontier* frontier,
+					     vector<IndexSet>& indexSet,
+					     PreTree* preTree) {
+  unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frontier);
+  return move(splitFrontier->restageAndSplit(indexSet, preTree));
+}
+
+
+SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_) :
-  frame(frame_),
+  frame(frontier_->getFrame()),
   rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
-  sample(sample_),
+  defMap(frontier->getDefMap()),
   nPred(frame->getNPred()),
-  obsPart(sample->predictors(frame)),
   compoundCriteria(compoundCriteria_),
-  encodingStyle(encodingStyle_) {
+  encodingStyle(encodingStyle_),
+  nSplit(frontier->getNSplit()),
+  cutSet(make_unique<CutSet>()),
+  prebias(vector<double>(nSplit)),
+  branchSense(make_unique<BranchSense>(frontier->getBagCount())) {
+  branchSense->frontierReset();
 }
 
 
@@ -75,7 +85,12 @@ IndexT CritEncoding::getExtentTrue(const SplitNux* nux) const {
 
 
 IndexT* SplitFrontier::getBufferIndex(const SplitNux* nux) const {
-  return obsPart->getBufferIndex(nux);
+  return defMap->getBufferIndex(nux);
+}
+
+
+SampleRank* SplitFrontier::getPredBase(const SplitNux* nux) const {
+  return defMap->getPredBase(nux);
 }
 
 
@@ -84,18 +99,8 @@ RunAccumT* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
 }
 
 
-SampleRank* SplitFrontier::getPredBase(const SplitNux* nux) const {
-  return obsPart->getPredBase(nux);
-}
-
-
 IndexT SplitFrontier::getDenseRank(const SplitNux* nux) const {
   return rankedFrame->getDenseRank(nux->getPredIdx());
-}
-
-
-vector<PreCand> SplitFrontier::precandidates(const DefMap* defMap) {
-  return CandType::precandidates(this, defMap, restageCand);
 }
 
 
@@ -116,17 +121,6 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-void SplitFrontier::stage(DefMap* defMap) {
-  vector<IndexT> stageCount = rankedFrame->stage(sample, obsPart.get());
-  IndexT predIdx = 0;
-  IndexT bagCount = sample->getBagCount();
-  for (auto sc : stageCount) {
-    defMap->rootDef(predIdx, obsPart->singleton(sc, predIdx), bagCount - sc);
-    predIdx++;
-  }
-}
-
-
 void SplitFrontier::accumUpdate(const SplitNux* cand) const {
   if (cand->isFactor(frame)) { // Only factor accumulators currently require an update.
     runSet->updateAccum(cand);
@@ -135,25 +129,24 @@ void SplitFrontier::accumUpdate(const SplitNux* cand) const {
 
 
 CritEncoding SplitFrontier::nuxEncode(const SplitNux* nux,
-				      BranchSense* branchSense,
 				      const IndexRange& range,
 				      bool increment) const {
   CritEncoding enc(this, nux, frontier->getNCtg(), compoundCriteria, increment);
 
   if (!range.empty()) {
-    obsPart->branchUpdate(nux, range, branchSense, enc);
+    defMap->branchUpdate(nux, range, branchSense.get(), enc);
   }
   else {
     if (nux->isFactor(frame)) {
       if (getFactorStyle() == SplitStyle::topSlot) {
-	obsPart->branchUpdate(nux, runSet->getTopRange(nux, enc), branchSense, enc);
+	defMap->branchUpdate(nux, runSet->getTopRange(nux, enc), branchSense.get(), enc);
       }
       else {
-	obsPart->branchUpdate(nux, runSet->getRange(nux, enc), branchSense, enc);
+	defMap->branchUpdate(nux, runSet->getRange(nux, enc), branchSense.get(), enc);
       }
     }
     else {
-      obsPart->branchUpdate(nux, getCutRange(nux, enc), branchSense, enc);
+      defMap->branchUpdate(nux, getCutRange(nux, enc), branchSense.get(), enc);
     }
   }
 
@@ -162,10 +155,9 @@ CritEncoding SplitFrontier::nuxEncode(const SplitNux* nux,
 
 
 void SplitFrontier::encodeCriterion(IndexSet* iSet,
-			     SplitNux* nux,
-			     BranchSense* branchSense) const {
+				    SplitNux* nux) const {
   accumUpdate(nux);
-  CritEncoding enc = nuxEncode(nux, branchSense);
+  CritEncoding enc = nuxEncode(nux);
   iSet->update(this, nux, enc);
 }
 
@@ -218,44 +210,32 @@ void CritEncoding::accumTrue(const SplitNux* nux,
 }
 
 
-void SplitFrontier::restageAndSplit(vector<IndexSet>& indexSet, DefMap* defMap, BranchSense* branchSense, PreTree* pretree) {
-  init(branchSense);
-  unsigned int flushCount = defMap->flushRear(this);
-  vector<PreCand> preCand = precandidates(defMap);
-
-  defMap->backdate();
-  restage(defMap);
-  defMap->eraseLayers(flushCount);
-
-  cutSet = make_unique<CutSet>();
-  runSet = make_unique<RunSet>(this, frontier->getNCtg(), frame->getNRow());
-  vector<SplitNux> postCand = postSchedule(defMap, preCand);
+unique_ptr<BranchSense> SplitFrontier::restageAndSplit(vector<IndexSet>& indexSet, PreTree* pretree) {
+  init();
+  vector<PreCand> preCand = defMap->restage(this);
+  vector<SplitNux> postCand = postSchedule(preCand);
   setOffsets(postCand);
 
-  split(indexSet, postCand, branchSense);
+  split(indexSet, postCand);
   consumeFrontier(pretree);
+
+  return move(branchSense);
 }
 
 
-/**
-   @brief Initializes frontier about to be split
- */
-void SplitFrontier::init(BranchSense* branchSense) {
-  branchSense->frontierReset();
-  nSplit = frontier->getNSplit();
-  prebias = vector<double>(nSplit);
-
-  layerPreset(); // virtual
+void SplitFrontier::init() {
+  runSet = make_unique<RunSet>(getFactorStyle(), frontier->getNCtg(), frame->getNRow());
+  layerPreset();
   setPrebias();
 }
 
 
-vector<SplitNux> SplitFrontier::postSchedule(class DefMap* defMap, vector<PreCand>& preCand) {
+vector<SplitNux> SplitFrontier::postSchedule(vector<PreCand>& preCand) {
   vector<SplitNux> postCand;
   for (auto pc : preCand) {
     PredictorT runCount;
     if (!defMap->isSingleton(pc, runCount)) {
-      postCand.emplace_back(pc, this, defMap, runCount);
+      postCand.emplace_back(pc, this, runCount);
     }
   }
   return postCand;
@@ -300,21 +280,6 @@ RunDump SplitFrontier::dumpRun(PredictorT accumIdx) const {
 void SplitFrontier::writeCut(const SplitNux* nux,
 			     const CutAccum* accum) const {
   cutSet->write(nux, accum);
-}
-
-
-void SplitFrontier::restage(const DefMap* defMap) {
-  OMPBound idxTop = restageCand.size();
-  
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
-      defMap->restage(obsPart.get(), restageCand[nodeIdx]);
-    }
-  }
-
-  restageCand.clear();
 }
 
 
@@ -365,8 +330,7 @@ bool SplitFrontier::isUnsplitable(IndexT splitIdx) const {
 }
 
 
-IndexRange SplitFrontier::getRange(const DefMap* defMap,
-				   const PreCand& preCand) const {
+IndexRange SplitFrontier::getRange(const PreCand& preCand) const {
   IndexRange idxRange = frontier->getBufRange(preCand);
   defMap->adjustRange(preCand, idxRange);
   return idxRange;
@@ -388,12 +352,15 @@ IndexT SplitFrontier::getPTId(const PreCand& preCand) const {
 }
 
 
-SFReg::SFReg(const class TrainFrame* frame,
-	     class Frontier* frontier,
-	     const class Sample* sample,
+IndexT SplitFrontier::getImplicitCount(const PreCand& preCand) const {
+  return defMap->getImplicitCount(preCand);
+}
+
+
+SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle):
-  SplitFrontier(frame, frontier, sample, compoundCriteria, encodingStyle),
+  SplitFrontier(frontier, compoundCriteria, encodingStyle),
   ruMono(vector<double>(0)) {
 }
 
@@ -445,14 +412,11 @@ void SFReg::layerPreset() {
 }
 
 
-SFCtg::SFCtg(const class TrainFrame* frame,
-	     class Frontier* frontier,
-	     const class Sample* sample,
+SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
-	     EncodingStyle encodingStyle,
-	     PredictorT nCtg_):
-  SplitFrontier(frame, frontier, sample, compoundCriteria, encodingStyle),
-  nCtg(nCtg_) {
+	     EncodingStyle encodingStyle) :
+  SplitFrontier(frontier, compoundCriteria, encodingStyle),
+  nCtg(frontier->getNCtg()) {
 }
 
 

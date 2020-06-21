@@ -34,14 +34,14 @@ RankedFrame::RankedFrame(const RLEFrame* rleFrame_,
   noRank(rleFrame->cardinality.empty() ? nRow : max(nRow, *max_element(rleFrame->cardinality.begin(), rleFrame->cardinality.end()))),
   predPermute(predPermute_),
   nPredDense(0),
-  denseIdx(vector<unsigned int>(nPred)),
+  denseIdx(vector<IndexT>(nPred)),
   nonCompact(0),
   lengthCompact(0),
   denseRank(vector<IndexT>(nPred)),
-  rrPred(vector<vector<RowRank>>(nPred)),
+  explicitCount(vector<IndexT>(nPred)),
   safeOffset(vector<IndexT>(nPred)),
   denseThresh(autoCompress * nRow) {
-  denseBlock();
+  denseBlock(); // Call must proceed ObsPart constructor.
 }
 
 
@@ -51,7 +51,7 @@ void RankedFrame::denseBlock() {
   {
 #pragma omp for schedule(dynamic, 1)
     for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-      countExplicit(predIdx);
+      setDense(predIdx);
     }
   }
 
@@ -62,7 +62,7 @@ void RankedFrame::denseBlock() {
 }
 
 
-void RankedFrame::countExplicit(PredictorT predIdx) {
+void RankedFrame::setDense(PredictorT predIdx) {
   IndexT denseMax = 0; // Running maximum of run counts.
   PredictorT argMax = noRank;
   PredictorT rankPrev = noRank; // Forces write on first iteration.
@@ -87,23 +87,7 @@ void RankedFrame::countExplicit(PredictorT predIdx) {
   // Post condition:  rowTot == nRow.
 
   denseRank[predIdx] = denseMax <= denseThresh ? noRank : argMax;
-  rrExplicit(predIdx);
-}
-
-
-void RankedFrame::rrExplicit(PredictorT predIdx) {
-  vector<RowRank>& rrOut = rrPred[predIdx];
-  IndexT rankDense = denseRank[predIdx];
-  for (size_t rleIdx = rleFrame->idxStart(predIdx); rleIdx != rleFrame->idxEnd(predIdx); rleIdx++) {
-    IndexT rank = rleFrame->getVal(rleIdx);
-    if (rank != rankDense) { // Non-dense runs expanded.
-      IndexT row = rleFrame->getRow(rleIdx);
-      for (IndexT i = 0; i < rleFrame->getExtent(rleIdx); i++) {
-	rrOut.emplace_back(row + i, rank);
-      }
-    }
-  }
-  // Post-condition:  rrOut.size() == explicitCount[predIdx]
+  explicitCount[predIdx] = denseMax <= denseThresh ? nRow : nRow - denseMax;
 }
 
 
@@ -114,7 +98,7 @@ void RankedFrame::accumOffsets(PredictorT predIdx) {
   }
   else {  // Sufficiently long run found:
     safeOffset[predIdx] = lengthCompact; // Accumulated offset:  dense.
-    lengthCompact += rrPred[predIdx].size();
+    lengthCompact += explicitCount[predIdx];
     denseIdx[predIdx] = nPredDense++;
   }
 }
@@ -125,7 +109,8 @@ RankedFrame::~RankedFrame() {
 
 
 vector<IndexT> RankedFrame::stage(const Sample* sample,
-				      ObsPart* obsPart) const {
+				  ObsPart* obsPart) {
+  // denseBlock();
   vector<IndexT> stageCount(nPred);
 
   OMPBound predTop = nPred;
@@ -143,18 +128,25 @@ vector<IndexT> RankedFrame::stage(const Sample* sample,
 
 
 IndexT RankedFrame::stage(const Sample* sample,
-			      PredictorT predIdx,
-			      ObsPart* obsPart) const {
+			  PredictorT predIdx,
+			  ObsPart* obsPart) const {
+  IndexT rankDense = denseRank[predIdx];
   IndexT* idxStart;
   SampleRank* spn = obsPart->buffers(predIdx, 0, idxStart);
   IndexT* sIdx = idxStart;
-  for (auto rr : rrPred[predIdx]) {
-    const SampleNux* sNux;
-    if (sample->sampledRow(rr.row, sIdx, sNux)) {
-      spn++->join(rr.rank, sNux);
+  for (size_t rleIdx = rleFrame->idxStart(predIdx); rleIdx != rleFrame->idxEnd(predIdx); rleIdx++) {
+    IndexT rank = rleFrame->getVal(rleIdx);
+    if (rank != rankDense) { // Non-dense runs expanded.
+      IndexT row = rleFrame->getRow(rleIdx);
+      for (IndexT i = 0; i < rleFrame->getExtent(rleIdx); i++) {
+	const SampleNux* sNux;
+	if (sample->sampledRow(row + i, sIdx, sNux)) {
+	  spn++->join(rank, sNux);
+	}
+      }
     }
   }
+
   return sIdx - idxStart;
+  // Post-condition:  rrOut.size() == explicitCount[predIdx]
 }
-
-

@@ -31,8 +31,8 @@ struct CandRF : public Cand {
   deInit();
 
   static vector<PreCand> precandidates(class SplitFrontier* splitFrontier,
-				       const class DefMap* bottom,
-				       vector<PreCand>& restageCand);
+				       class DefMap* bottom);
+
 
 private:
   // Predictor sampling paraemters.
@@ -41,18 +41,16 @@ private:
 
 
   static void candidateProb(PredictorT nPred,
-			    const class DefMap* bottom,
+			    class DefMap* bottom,
 			    IndexT splitIdx,
 			    const double ruPred[],
-			    vector<PreCand>& restageCand,
 			    vector<PreCand>& preCand);
 
   static void candidateFixed(PredictorT nPred,
-			     const class DefMap* bottom,
+			     class DefMap* bottom,
 			     IndexT splitIdx,
 			     const double ruPred[],
 			     struct BHPair heap[],
-			     vector<PreCand>& restageCand,
 			     vector<PreCand>& preCand);
 };
 

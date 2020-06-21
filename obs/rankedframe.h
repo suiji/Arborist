@@ -25,24 +25,6 @@ using namespace std;
 
 #include "typeparam.h"
 
-struct RowRank {
-  IndexT row;
-  IndexT rank;
-
-  RowRank() {}
-  
-  RowRank(IndexT row_,
-          IndexT rank_) : row(row_),
-                             rank(rank_) {
-  }
-  
-  void init(IndexT row,
-            IndexT rank) {
-    this->row = row;
-    this->rank = rank;
-  }
-};
-
 
 /**
   @brief Rank orderings of predictors.
@@ -59,7 +41,7 @@ class RankedFrame {
   PredictorT nonCompact;  // Total count of uncompactified predictors.
   IndexT lengthCompact;  // Sum of compactified lengths.
   vector<PredictorT> denseRank;
-  vector<vector<RowRank>> rrPred;
+  vector<IndexT> explicitCount; // Refreshed at each tree.
   vector<IndexT> safeOffset; // Predictor offset within SamplePred[].
   const IndexT denseThresh; // Threshold run length for autocompression.
 
@@ -70,9 +52,9 @@ class RankedFrame {
 
 
   /**
-     @brief Counts implictly- and explicitly-referenced sample indices.
+     @brief Determines a dense rank for the predictor, if any.
    */
-  void countExplicit(PredictorT predIdx);
+  void setDense(PredictorT predIdx);
 
 
   /**
@@ -83,16 +65,6 @@ class RankedFrame {
   */
   void accumOffsets(PredictorT predIdx);
 
-
-  /**
-     @brief Builds RowRank vectors for explicit ranks.
-  */
-  void rrExplicit(PredictorT predIdx);
-
-
- protected:
-  //  vector<RowRank> rrNode; // Row/rank pairs associated with explicit items.
-  
  public:
 
   // Factory parametrized by coprocessor state.
@@ -173,13 +145,8 @@ class RankedFrame {
       return IndexRange(safeOffset[predIdx] * stride, stride);
     }
     else {
-      return IndexRange(nonCompact * stride + safeOffset[predIdx], rrPred[predIdx].size());
+      return IndexRange(nonCompact * stride + safeOffset[predIdx], explicitCount[predIdx]);
     }
-  }
-
-  
-  const vector<RowRank>& getRRPred(PredictorT predIdx) const {
-    return rrPred[predIdx];
   }
 
 
@@ -206,7 +173,7 @@ class RankedFrame {
      @brief Loops through the predictors to stage.
   */
   vector<IndexT> stage(const class Sample* sample,
-			   class ObsPart* obsPart) const;
+		       class ObsPart* obsPart);
 
   
   /**

@@ -15,7 +15,7 @@
 
 #include "obspart.h"
 #include "sample.h"
-#include "trainframe.h"
+#include "rankedframe.h"
 #include "splitfrontier.h"
 #include "frontier.h"
 #include "splitnux.h"
@@ -29,14 +29,14 @@
 /**
    @brief Base class constructor.
  */
-ObsPart::ObsPart(const TrainFrame* frame,
-                       IndexT bagCount_) :
+ObsPart::ObsPart(const RankedFrame* frame,
+		 IndexT bagCount_) :
   nPred(frame->getNPred()),
   bagCount(bagCount_),
   bufferSize(frame->safeSize(bagCount)),
   pathIdx(bufferSize),
   stageRange(nPred) {
-  indexBase = new unsigned int[2* bufferSize];
+  indexBase = new IndexT[2* bufferSize];
   nodeVec = new SampleRank[2 * bufferSize];
 
   // Coprocessor variants:

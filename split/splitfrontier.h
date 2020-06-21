@@ -128,19 +128,17 @@ protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   const class RankedFrame* rankedFrame; // Represents observations as RLEs.
   class Frontier* frontier;  // Current frontier of the partition tree.
-  const class Sample* sample;  // Sampling statistics.
+  class DefMap* defMap;
   const PredictorT nPred;
-  unique_ptr<class ObsPart> obsPart;  // Partitioned observatsion.
   bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
 
-  IndexT nSplit; // # subtree nodes at current layer.
+  const IndexT nSplit; // # subtree nodes at current layer.
   unique_ptr<class RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<class CutSet> cutSet; // Cut accumulators for the current frontier.
   
   vector<double> prebias; // Initial information threshold.
-
-  vector<PreCand> restageCand;
+  unique_ptr<class BranchSense> branchSense;
 
   // Per-split accessors for candidate vector.  Reset by DefMap.
   vector<IndexT> candOff;  // Lead candidate position:  cumulative
@@ -185,8 +183,7 @@ protected:
 
      @return splitNux candidates corresponding to splitable coordinates.
   */
-  virtual vector<SplitNux> postSchedule(class DefMap* defMap,
-					vector<PreCand>& preCand);
+  virtual vector<SplitNux> postSchedule(vector<PreCand>& preCand);
 
   
   /**
@@ -198,23 +195,20 @@ protected:
 
 public:
 
-  SplitFrontier(const class TrainFrame* frame_,
-                class Frontier* frontier_,
-                const class Sample* sample,
+  SplitFrontier(class Frontier* frontier_,
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_);
 
+
+  static unique_ptr<class BranchSense> split(class Frontier* frontier,
+					     vector<class IndexSet>& indexSet,
+					     class PreTree* preTree);
+  
 
   auto getEncodingStyle() const {
     return encodingStyle;
   }
   
-
-  /**
-     @brief Passes ObsPart through to Sample method.
-   */
-  void stage(class DefMap*);
-
 
   /**
      @brief Builds an accumulator of the appropriate type.
@@ -250,15 +244,13 @@ public:
      @parm range is the SR range of the split, if specified.
    */
   CritEncoding nuxEncode(const class SplitNux* nux,
-			 class BranchSense* branchSense,
 			 const IndexRange& range = IndexRange(),
 			 bool increment = true) const;
 
 
 
   void encodeCriterion(class IndexSet* iSet,
-		       class SplitNux* nuxMax,
-		       class BranchSense* branchSense) const;
+		       class SplitNux* nuxMax) const;
 
 
   /**
@@ -273,23 +265,11 @@ public:
 
      Main entry.
    */
-  void restageAndSplit(vector<class IndexSet>& indexSet,
-		       class DefMap* defMap,
-		       class BranchSense* branchSense,
-		       class PreTree* pretree);
+  unique_ptr<class BranchSense> restageAndSplit(vector<class IndexSet>& indexSet,
+						class PreTree* pretree);
 
-
-  vector<PreCand>& getRestageCand() {
-    return restageCand;
-  }
 
   
-  /**
-     @brief Updates the data (observation) partition.
-   */
-  void restage(const class DefMap* defMap);
-
-
   /**
      @brief Pass-through to data partition method.
 
@@ -391,6 +371,11 @@ public:
 
 
   /**
+     @brief Getter:  passes through to DefMap method.
+   */
+  IndexT getImplicitCount(const PreCand& preCand) const;
+
+  /**
      @brief Passes through to Frontier method.
 
      @return true iff indexed split is not splitable.
@@ -410,8 +395,7 @@ public:
   /**
      @return SR range of indexed split.
   */
-  IndexRange getRange(const class DefMap* defMap,
-		      const PreCand& preCand) const; 
+  IndexRange getRange(const PreCand& preCand) const; 
 
 
   /**
@@ -426,30 +410,23 @@ public:
 
 
   /**
-     @brief Initializes state associated with current layer.
+     @brief Initializations employing virutal methods.
    */
-  void init(class BranchSense* branchSense);
+  void init();
 
   
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
   virtual void split(vector<class IndexSet>& indexSet,
-		     vector<class SplitNux>& sc,
-		     class BranchSense* branchSense) = 0;
+		     vector<class SplitNux>& sc) = 0;
 
-
+  
   /**
      @brief Fixes factor splitting style.
    */
   virtual SplitStyle getFactorStyle() const = 0;
   
-
-  /**
-     @brief Passes through to Cand method.
-   */
-  vector<PreCand> precandidates(const class DefMap* defMap);
-
 
   /**
      @brief Dumps run-vector contents for diagnostics.
@@ -491,9 +468,7 @@ struct SFReg : public SplitFrontier {
   // Per-layer vector of uniform variates.
   vector<double> ruMono;
 
-  SFReg(const class TrainFrame* frame,
-	class Frontier* frontier,
-	const class Sample* sample,
+  SFReg(class Frontier* frontier,
 	bool compoundCriteria,
 	EncodingStyle encodingStyle);
 
@@ -541,12 +516,9 @@ protected:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
 
 public:
-  SFCtg(const class TrainFrame* frame,
-	class Frontier* frontier,
-	const class Sample* sample,
+  SFCtg(class Frontier* frontier,
 	bool compoundCriteria,
-	EncodingStyle encodingStyle,
-	PredictorT nCtg_);
+	EncodingStyle encodingStyle);
 
 
   /**

@@ -56,6 +56,7 @@ struct SplitSurvey {
  */
 class Frontier {
   static unsigned int totLevels;
+  const class TrainFrame* frame;
   vector<IndexSet> indexSet;
   const IndexT bagCount;
   const PredictorT nCtg;
@@ -72,7 +73,6 @@ class Frontier {
   vector<IndexT> rel2PT; // Node-relative mapping to pretree index.
   vector<IndexT> st2Split; // Subtree-relative mapping to split index.
   vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
-  unique_ptr<class BranchSense> branchSense;
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
   
@@ -86,7 +86,8 @@ class Frontier {
      @param level is the current zero-based level.
 
   */
-  vector<IndexSet> splitDispatch(unsigned int level);
+  vector<IndexSet> splitDispatch(const class BranchSense* branchSense,
+				 unsigned int level);
 
   /**
      @brief Establishes splitting parameters for next frontier level.
@@ -107,7 +108,8 @@ class Frontier {
 
      Parameters as above.
    */
-  void reindex(const SplitSurvey& survey);
+  void reindex(const class BranchSense* branchSense,
+	       const SplitSurvey& survey);
 
   
   /**
@@ -156,8 +158,7 @@ class Frontier {
 
     @return trained pretree object.
   */
-  static unique_ptr<class PreTree>
-  oneTree(const class Train* train,
+  static unique_ptr<class PreTree> oneTree(const class Train* train,
 	  const class TrainFrame* frame,
 	  const class Sample* sample);
 
@@ -168,8 +169,7 @@ class Frontier {
      Assumes root node and attendant per-tree data structures have been initialized.
      Parameters as described above.
   */
-  unique_ptr<class PreTree> levels(const class Sample* sample,
-                                   const class TrainFrame* frame);
+  unique_ptr<class PreTree> levels(const class Sample* sample);
   
 
   /**
@@ -236,13 +236,14 @@ class Frontier {
   /**
      @brief Drives node-relative re-indexing.
    */
-  void nodeReindex();
+  void nodeReindex(const class BranchSense* branchSense);
 
   /**
      @brief Subtree-relative reindexing:  indices randomly distributed
      among nodes (i.e., index sets).
   */
-  void stReindex(IndexT splitNext);
+  void stReindex(const class BranchSense* branchSense,
+		 IndexT splitNext);
 
   /**
      @brief Updates the split/path/pretree state of an extant index based on
@@ -250,7 +251,8 @@ class Frontier {
 
      @param stPath is a subtree-relative path.
   */
-  void stReindex(class IdxPath *stPath,
+  void stReindex(const class BranchSense* branchSense,
+		 class IdxPath *stPath,
                  IndexT splitNext,
                  IndexT chunkStart,
                  IndexT chunkNext);
@@ -259,7 +261,8 @@ class Frontier {
      @brief As above, but initializes node-relative mappings for subsequent
      levels.  Employs accumulated state and cannot be parallelized.
   */
-  void transitionReindex(IndexT splitNext);
+  void transitionReindex(const class BranchSense* branchSense,
+			 IndexT splitNext);
 
   /**
      @brief Updates the mapping from live relative indices to associated
@@ -302,6 +305,16 @@ class Frontier {
    */
   IndexRange getBufRange(const PreCand& preCand) const;
 
+
+  auto getDefMap() const {
+    return defMap.get();
+  }
+
+
+  auto getFrame() const {
+    return frame;
+  }
+  
 
   /**
      @brief Getter for # of distinct in-bag samples.

@@ -114,8 +114,8 @@ class MRRA {
      @param[out] singleton outputs whether the value is singleton.
   */
   inline PreCand consume(const SplitCoord& splitCoord,
-	  unsigned int del,
-	  bool& singleton) {
+			 unsigned int del,
+			 bool& singleton) {
     unsigned int bufIdx;
     singleton = isSingleton(bufIdx);
     (void) undefine();
@@ -206,17 +206,6 @@ class DefLayer {
   const bool nodeRel;  // Subtree- or node-relative indexing.
   class DefMap *defMap;
 
-  /**
-     @brief Schedules a non-singleton splitting candidate.
-
-     @param splitCoord is the pair.
-
-     @return 1 if pair scheduled else 0.
-  */
-  unsigned int preschedule(class SplitFrontier* splitNode,
-			   const SplitCoord& splitCoord,
-			   IndexT& spanCand);
-  
 public:
   DefLayer(IndexT nSplit_,
         PredictorT nPred_,
@@ -265,7 +254,7 @@ public:
 
      @param defMap is the active defMap state.
   */
-  void flush(class SplitFrontier* splitFrontier = nullptr);
+  void flush(class DefMap* defMap = nullptr);
 
 
   /**
@@ -319,7 +308,7 @@ public:
      @param[in, out] restageCand collects precandidates for restaging.
    */
   void flushDef(const SplitCoord& splitCoord,
-		vector<PreCand>& restageCand);
+		class DefMap* defMap);
 
 
   /**
@@ -397,10 +386,10 @@ public:
 
      @retun true iff flush occurs.
    */
-  bool flush(class SplitFrontier* splitFrontier,
+  bool flush(class DefMap* defMap,
 	     IndexT& thresh) {
     if (defCount <= thresh) {
-      flush(splitFrontier);
+      flush(defMap);
       thresh -= defCount;
       return true;
     }

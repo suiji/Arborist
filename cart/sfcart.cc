@@ -20,24 +20,19 @@
 #include "trainframe.h"
 #include "ompthread.h"
 #include "splitcart.h"
-
+#include "branchsense.h"
 
 // Post-split consumption:
 #include "pretree.h"
 
 
-SFRegCart::SFRegCart(const TrainFrame* frame,
-		     Frontier* frontier,
-		     const Sample* sample) :
-  SFReg(frame, frontier, sample, false, EncodingStyle::trueBranch) {
+SFRegCart::SFRegCart(Frontier* frontier) :
+  SFReg(frontier, false, EncodingStyle::trueBranch) {
 }
 
 
-SFCtgCart::SFCtgCart(const TrainFrame* frame,
-		     Frontier* frontier,
-		     const Sample* sample,
-		     PredictorT nCtg):
-  SFCtg(frame, frontier, sample, false, EncodingStyle::trueBranch, nCtg) {
+SFCtgCart::SFCtgCart(Frontier* frontier) :
+  SFCtg(frontier, false, EncodingStyle::trueBranch) {
 }
 
 
@@ -92,8 +87,7 @@ void SFCtgCart::layerInitSumR(PredictorT nPredNum) {
 
 
 void SFRegCart::split(vector<IndexSet>& indexSet,
-		   vector<SplitNux>& sc,
-		   class BranchSense* branchSense) {
+		      vector<SplitNux>& sc) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -107,15 +101,14 @@ void SFRegCart::split(vector<IndexSet>& indexSet,
   for (auto & iSet : indexSet) {
     SplitNux* nux = &nuxMax[iSet.getSplitIdx()];
     if (iSet.isInformative(nux)) {
-      encodeCriterion(&iSet, nux, branchSense);
+      encodeCriterion(&iSet, nux);
     }
   }
 }
 
 
 void SFCtgCart::split(vector<IndexSet>& indexSet,
-		   vector<SplitNux>& sc,
-		   class BranchSense* branchSense) {
+		      vector<SplitNux>& sc) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -129,7 +122,7 @@ void SFCtgCart::split(vector<IndexSet>& indexSet,
   for (auto & iSet : indexSet) {
     SplitNux* nux = &nuxMax[iSet.getSplitIdx()];
     if (iSet.isInformative(nux)) {
-      encodeCriterion(&iSet, nux, branchSense);
+      encodeCriterion(&iSet, nux);
     }
   }
 }

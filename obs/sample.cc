@@ -18,7 +18,6 @@
 #include "bv.h"
 #include "callback.h"
 #include "trainframe.h"
-#include "obspart.h"
 
 #include <numeric>
 
@@ -203,11 +202,6 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
   }
 
   return idxBinned;
-}
-
-
-unique_ptr<ObsPart> Sample::predictors(const TrainFrame* frame) const {
-  return make_unique<ObsPart>(frame, bagCount);
 }
 
 

@@ -15,11 +15,15 @@
 
 #include "defmap.h"
 #include "deflayer.h"
-#include "splitfrontier.h"
+#include "obspart.h"
 #include "splitnux.h"
+#include "sample.h"
 #include "trainframe.h"
 #include "rankedframe.h"
 #include "path.h"
+#include "ompthread.h"
+
+#include "algparam.h"
 
 #include <numeric>
 #include <algorithm>
@@ -34,25 +38,15 @@ DefMap::DefMap(const TrainFrame* frame_,
   splitPrev(0), splitCount(1),
   rankedFrame(frame->getRankedFrame()),
   noRank(rankedFrame->NoRank()),
+  obsPart(make_unique<ObsPart>(rankedFrame, bagCount)),
   history(vector<unsigned int>(0)),
   layerDelta(vector<unsigned char>(nPred)),
   runCount(vector<unsigned int>(nPredFac))
 {
-
   layer.push_front(make_unique<DefLayer>(1, nPred, rankedFrame, bagCount, bagCount, false, this));
-  IndexRange bufRange = IndexRange(0, bagCount);
-  layer[0]->initAncestor(0, bufRange);
+  layer[0]->initAncestor(0, IndexRange(0, bagCount));
   fill(layerDelta.begin(), layerDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
-}
-
-
-void DefMap::rootDef(PredictorT predIdx,
-		     bool singleton,
-		     IndexT implicitCount) {
-  PreCand cand(SplitCoord(0, predIdx), 0); // Root node and buffer both zero.
-  (void) layer[0]->define(cand, singleton, implicitCount);
-  setRunCount(cand.splitCoord, false, singleton ? 1 : frame->getCardinality(predIdx));
 }
 
 
@@ -64,7 +58,7 @@ void DefMap::eraseLayers(unsigned int flushCount) {
 
 
 bool DefMap::factorStride(const SplitCoord& splitCoord,
-		     unsigned int& facStride) const {
+			  unsigned int& facStride) const {
   bool isFactor;
   facStride = frame->getFacStride(splitCoord.predIdx, splitCoord.nodeIdx, isFactor);
   return isFactor;
@@ -72,17 +66,15 @@ bool DefMap::factorStride(const SplitCoord& splitCoord,
 
 
 unsigned int DefMap::preschedule(const SplitCoord& splitCoord,
-				 vector<PreCand>& restageCand,
-				 vector<PreCand>& preCand) const {
-  reachFlush(splitCoord, restageCand);
+				 vector<PreCand>& preCand) {
+  reachFlush(splitCoord);
   return layer[0]->preschedule(splitCoord, preCand) ? 1 : 0;
 }
 
 
-void DefMap::reachFlush(const SplitCoord& splitCoord,
-			vector<PreCand>& restageCand) const {
+void DefMap::reachFlush(const SplitCoord& splitCoord) {
   DefLayer *reachingLayer = reachLayer(splitCoord);
-  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), restageCand);
+  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), this);
 }
 
 
@@ -98,6 +90,16 @@ bool DefMap::isSingleton(const PreCand& defCoord,
 }
 
 
+IndexT* DefMap::getBufferIndex(const SplitNux* nux) const {
+  return obsPart->getBufferIndex(nux);
+}
+
+
+SampleRank* DefMap::getPredBase(const SplitNux* nux) const {
+  return obsPart->getPredBase(nux);
+}
+
+
 IndexT DefMap::getImplicitCount(const PreCand& preCand) const {
   return layer[0]->getImplicit(preCand);
 }
@@ -109,7 +111,7 @@ void DefMap::adjustRange(const PreCand& preCand,
 }
 
 
-unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
+unsigned int DefMap::flushRear() {
   unsigned int unflushTop = layer.size() - 1;
 
   // Capacity:  1 front layer + 'pathMax' back layers.
@@ -120,7 +122,7 @@ unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
   // now at current layer.
   //
   if (!NodePath::isRepresentable(layer.size())) {
-    layer.back()->flush(splitFrontier);
+    layer.back()->flush(this);
     unflushTop--;
   }
 
@@ -139,7 +141,7 @@ unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
 
   IndexT thresh = backDef * efficiency;
   for (auto lv = layer.begin() + unflushTop; lv != layer.begin(); lv--) {
-    if ((*lv)->flush(splitFrontier, thresh)) {
+    if ((*lv)->flush(this, thresh)) {
       unflushTop--;
     }
     else {
@@ -152,9 +154,73 @@ unsigned int DefMap::flushRear(SplitFrontier* splitFrontier) {
 }
 
 
-void DefMap::restage(ObsPart* obsPart,
-		const PreCand& mrra) const {
-  layer[mrra.del]->rankRestage(obsPart, mrra, layer[0].get());
+void DefMap::stage(const Sample* sample) {
+  vector<IndexT> stageCount = rankedFrame->stage(sample, obsPart.get());
+  IndexT predIdx = 0;
+  IndexT bagCount = sample->getBagCount();
+  for (auto sc : stageCount) {
+    rootDef(predIdx, obsPart->singleton(sc, predIdx), bagCount - sc);
+    predIdx++;
+  }
+}
+
+
+void DefMap::rootDef(PredictorT predIdx,
+		     bool singleton,
+		     IndexT implicitCount) {
+  PreCand cand(SplitCoord(0, predIdx), 0); // Root node and buffer both zero.
+  (void) layer[0]->define(cand, singleton, implicitCount);
+  setRunCount(cand.splitCoord, false, singleton ? 1 : frame->getCardinality(predIdx));
+}
+
+
+void DefMap::branchUpdate(const class SplitNux* nux,
+			  const vector<IndexRange>& range,
+			  class BranchSense* branchSense,
+			  CritEncoding& enc) const {
+  obsPart->branchUpdate(nux, range, branchSense, enc);
+}
+
+
+void DefMap::branchUpdate(const class SplitNux* nux,
+			  const IndexRange& range,
+			  class BranchSense* branchSense,
+			  CritEncoding& enc) const {
+  obsPart->branchUpdate(nux, range, branchSense, enc);
+}
+
+
+void DefMap::restageAppend(const PreCand& cand) {
+  restageCand.push_back(cand);
+}
+
+
+vector<PreCand> DefMap::restage(SplitFrontier* splitFrontier) {
+  // Precandidates precipitate restaging candidates at this level,
+  // as do all non-singleton definitions arising from flushes.
+  unsigned int flushCount = flushRear();
+  vector<PreCand> preCand = CandType::precandidates(splitFrontier, this);
+  backdate();
+
+  OMPBound idxTop = restageCand.size();
+  
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
+      restage(restageCand[nodeIdx]);
+    }
+  }
+
+  restageCand.clear();
+  eraseLayers(flushCount);
+
+  return preCand;
+}
+
+
+void DefMap::restage(const PreCand& mrra) const {
+  layer[mrra.del]->rankRestage(obsPart.get(), mrra, layer[0].get());
 }
 
 

@@ -188,14 +188,6 @@ class Sample {
 
 
   /**
-     @brief Accessor for fully-sampled observation set.
-
-     @return array of joined sample/predictor records.
-  */
-  unique_ptr<class ObsPart> predictors(const class TrainFrame* frame) const;
-  
-
-  /**
      @brief Getter for root category census vector.
    */
   inline const vector<SumCount> getCtgRoot() const {

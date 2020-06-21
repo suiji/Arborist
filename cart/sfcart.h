@@ -30,9 +30,7 @@
  */
 struct SFRegCart : public SFReg {
 
-  SFRegCart(const class TrainFrame* frame_,
-        class Frontier* frontier_,
-	const class Sample* sample);
+  SFRegCart(class Frontier* frontier_);
 
   ~SFRegCart();
 
@@ -62,8 +60,7 @@ struct SFRegCart : public SFReg {
 
 
   void split(vector<IndexSet>& indexSet,
-	     vector<SplitNux>& sc,
-	     class BranchSense* branchSense);
+	     vector<SplitNux>& sc);
 
 
   /**
@@ -100,8 +97,7 @@ class SFCtgCart : public SFCtg {
 
 
   void split(vector<IndexSet>& indexSet,
-	     vector<SplitNux>& sc,
-	     class BranchSense* branchSense);
+	     vector<SplitNux>& sc);
 
 
   /**
@@ -137,10 +133,9 @@ class SFCtgCart : public SFCtg {
 
 
  public:
-  SFCtgCart(const class TrainFrame* frame_,
-        class Frontier* frontier_,
-	const class Sample* sample,
-	PredictorT nCtg_);
+  SFCtgCart(class Frontier* frontier_);
+
+
   ~SFCtgCart();
 
 

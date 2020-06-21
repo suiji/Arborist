@@ -20,17 +20,15 @@
 #include "runaccum.h"
 #include "trainframe.h"
 #include "splitcart.h"
+#include "frontier.h"
 
 
-unique_ptr<SplitFrontier> SplitCart::factory(const TrainFrame* frame,
-					     Frontier* frontier,
-					     const Sample* sample,
-					     PredictorT nCtg) {
-  if (nCtg > 0) {
-    return make_unique<SFCtgCart>(frame, frontier, sample, nCtg);
+unique_ptr<SplitFrontier> SplitCart::factory(Frontier* frontier) {
+  if (frontier->getNCtg() > 0) {
+    return make_unique<SFCtgCart>(frontier);
   }
   else {
-    return make_unique<SFRegCart>(frame, frontier, sample);
+    return make_unique<SFRegCart>(frontier);
   }
 }
 

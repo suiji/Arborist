@@ -20,7 +20,6 @@
 #include "trainframe.h"
 #include "branchsense.h"
 #include "indexset.h"
-#include "defmap.h"
 
 
 double SplitNux::minRatio = minRatioDefault;
@@ -45,13 +44,12 @@ void SplitNux::deImmutables() {
 
 SplitNux::SplitNux(const PreCand& preCand_,
 		   const SplitFrontier* splitFrontier,
-		   const DefMap* defMap,
 		   PredictorT runCount) :
   preCand(preCand_),
-  idxRange(splitFrontier->getRange(defMap, preCand)),
+  idxRange(splitFrontier->getRange(preCand)),
   sum(splitFrontier->getSum(preCand)),
   sCount(splitFrontier->getSCount(preCand)),
-  implicitCount(defMap->getImplicitCount(preCand)),
+  implicitCount(splitFrontier->getImplicitCount(preCand)),
   ptId(splitFrontier->getPTId(preCand)),
   info(splitFrontier->getPrebias(preCand)) {
   accumIdx = splitFrontier->addAccumulator(this, runCount);

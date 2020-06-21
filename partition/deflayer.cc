@@ -18,7 +18,6 @@
 #include "defmap.h"
 #include "rankedframe.h"
 #include "obspart.h"
-#include "splitfrontier.h"
 
 
 DefLayer::DefLayer(IndexT nSplit_,
@@ -69,13 +68,13 @@ bool DefLayer::nonreachPurge() {
 }
 
 
-void DefLayer::flush(SplitFrontier* splitFrontier) {
+void DefLayer::flush(DefMap* defMap) {
   for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
     for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
       SplitCoord splitCoord(mrraIdx, predIdx);
       if (isDefined(splitCoord)) {
-	if (splitFrontier != nullptr) {
-	  flushDef(splitCoord, splitFrontier->getRestageCand());
+	if (defMap != nullptr) {
+	  flushDef(splitCoord, defMap);
 	}
 	else {
 	  undefine(splitCoord);
@@ -87,7 +86,7 @@ void DefLayer::flush(SplitFrontier* splitFrontier) {
 
 
 void DefLayer::flushDef(const SplitCoord& splitCoord,
-			vector<PreCand>& restageCand) {
+			DefMap* defMap) {
   if (del == 0) {
     return;
   }
@@ -98,7 +97,7 @@ void DefLayer::flushDef(const SplitCoord& splitCoord,
     defMap->addDef(PreCand(SplitCoord(nodePath[pathStart + path].getSplitIdx(), preCand.splitCoord.predIdx), preCand.compBuffer()), singleton);
   }
   if (!singleton) {
-    restageCand.push_back(preCand);
+    defMap->restageAppend(preCand);
   }
 }
 
