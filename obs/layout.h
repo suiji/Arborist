@@ -6,15 +6,15 @@
  */
 
 /**
-   @file rankedframe.h
+   @file layout.h
 
-   @brief Class definitions for maintenance of predictor ordering.
+   @brief Lays out observations for staging.
 
    @author Mark Seligman
  */
 
-#ifndef PARTITION_RANKEDFRAME_H
-#define PARTITION_RANKEDFRAME_H
+#ifndef OBS_LAYOUT_H
+#define OBS_LAYOUT_H
 
 #include <vector>
 #include <cmath>
@@ -27,48 +27,106 @@ using namespace std;
 
 
 /**
+   @brief Characterizes predictor contents via implicit rank and explicit count.
+ */
+struct ImplExpl {
+  IndexT rankImpl; // Implicit rank, if any.
+  IndexT countExpl; // Count of explicit samples.
+  IndexT denseIdx;
+  IndexT safeOffset; // Base of staged predictor.
+
+  ImplExpl() {
+  }
+  
+  ImplExpl(IndexT rankImpl_,
+	   IndexT countExpl_) :
+    rankImpl(rankImpl_),
+    countExpl(countExpl_) {
+  }
+};
+
+
+
+/**
   @brief Rank orderings of predictors.
 */
-class RankedFrame {
+class Layout {
   const class RLEFrame* rleFrame;
   const IndexT nRow;
   const PredictorT nPred;
   const PredictorT noRank; // Inattainable rank value.
   const PredictorT predPermute; // Predictor undergoing permutation.
+  vector<RLEVal<unsigned int>> framePermute;
   PredictorT nPredDense;
-  vector<IndexT> denseIdx;
 
   PredictorT nonCompact;  // Total count of uncompactified predictors.
   IndexT lengthCompact;  // Sum of compactified lengths.
-  vector<PredictorT> denseRank;
-  vector<IndexT> explicitCount; // Refreshed at each tree.
-  vector<IndexT> safeOffset; // Predictor offset within SamplePred[].
   const IndexT denseThresh; // Threshold run length for autocompression.
 
+  vector<ImplExpl> implExpl;
+  
   /**
      @brief Walks the design matrix as RLE entries, merging adjacent entries of identical rank.
   */
-  void denseBlock();
+  vector<ImplExpl> denseBlock(const class RLEFrame* rleFrame);
 
 
   /**
      @brief Determines a dense rank for the predictor, if any.
    */
-  void setDense(PredictorT predIdx);
+  ImplExpl setDense(const class RLEFrame* rleFrame,
+		    PredictorT predIdx);
 
+  /**
+     @brief Computes conservative offset for storing predictor-based
+     information.
+
+     @param predIdx is the predictor index.
+
+     @param bagCount serves as a multiplier for strided access.
+
+     @return safe range.
+  */
+  IndexRange getSafeRange(PredictorT predIdx,
+			  IndexT bagCount) const {
+    if (implExpl[predIdx].rankImpl == noRank) {
+      return IndexRange(implExpl[predIdx].safeOffset * bagCount, bagCount);
+    }
+    else {
+      return IndexRange(nonCompact * bagCount + implExpl[predIdx].safeOffset, implExpl[predIdx].countExpl);
+    }
+  }
+
+
+  /**
+     @brief Stages ObsPart objects in non-decreasing predictor order.
+
+     @param predIdx is the predictor index.
+  */
+  IndexT stage(const class Sample* sample,
+	       PredictorT predIdx,
+	       class ObsPart* obsPart) const;
+
+
+  /**
+     @return permuted row indices.
+   */
+  vector<size_t> shuffleRows() const;
+  
+
+  const vector<RLEVal<unsigned int>>& getStageFrame(PredictorT predIdx) const;
+  
+public:
 
   /**
      @brief Determines whether predictor to be stored densely and updates
      storage accumulators accordingly.
-
-     @param predIdx is the predictor under consideration.
   */
-  void accumOffsets(PredictorT predIdx);
+  void accumOffsets();
 
- public:
 
   // Factory parametrized by coprocessor state.
-  static RankedFrame *Factory(const class Coproc *coproc,
+  static Layout *Factory(const class Coproc *coproc,
 			      const class RLEFrame* rleFrame,
                               double autoCompress,
 			      PredictorT predPermute);
@@ -80,11 +138,11 @@ class RankedFrame {
 
      @param feRank is the vector of ranks allocated by the front end.
  */
-  RankedFrame(const class RLEFrame* rleFrame,
+  Layout(const class RLEFrame* rleFrame,
               double autoCompress,
 	      PredictorT predPermute);
 
-  virtual ~RankedFrame();
+  virtual ~Layout();
 
 
   inline IndexT getNRow() const {
@@ -110,7 +168,7 @@ class RankedFrame {
      @return dense rank assignment for predictor.
    */
   IndexT getDenseRank(PredictorT predIdx) const{
-    return denseRank[predIdx];
+    return implExpl[predIdx].rankImpl;
   }
 
   
@@ -118,38 +176,15 @@ class RankedFrame {
      @brief Computes a conservative buffer size, allowing strided access
      for noncompact predictors but full-width access for compact predictors.
 
-     @param stride is the desired strided access length.
+     @param bagCount is the desired strided access length.
 
      @return buffer size conforming to conservative constraints.
    */
-  IndexT safeSize(IndexT stride) const {
-    return nonCompact * stride + lengthCompact; // TODO:  align.
+  IndexT getSafeSize(IndexT bagCount) const {
+    return nonCompact * bagCount + lengthCompact; // TODO:  align.
   }
 
   
-  /**
-     @brief Computes conservative offset for storing predictor-based
-     information.
-
-     @param predIdx is the predictor index.
-
-     @param stride is the multiplier for strided access.
-
-     @param extent outputs the number of slots avaiable for staging.
-
-     @return safe range.
-  */
-  IndexRange getSafeRange(PredictorT predIdx,
-			  IndexT stride) const {
-    if (denseRank[predIdx] == noRank) {
-      return IndexRange(safeOffset[predIdx] * stride, stride);
-    }
-    else {
-      return IndexRange(nonCompact * stride + safeOffset[predIdx], explicitCount[predIdx]);
-    }
-  }
-
-
   /**
      @brief Getter for count of dense predictors.
 
@@ -165,25 +200,21 @@ class RankedFrame {
 
      @return reference to vector.
    */
-  inline const vector<IndexT> &getDenseIdx() const {
+  inline vector<IndexT> getDenseIdx() const {
+    vector<IndexT> denseIdx(nPred);
+    PredictorT predIdx = 0;
+    for (auto ie : implExpl) {
+      denseIdx[predIdx++] = ie.denseIdx;
+    }
     return denseIdx;
   }
+
 
   /**
      @brief Loops through the predictors to stage.
   */
   vector<IndexT> stage(const class Sample* sample,
-		       class ObsPart* obsPart);
-
-  
-  /**
-     @brief Stages ObsPart objects in non-decreasing predictor order.
-
-     @param predIdx is the predictor index.
-  */
-  IndexT stage(const class Sample* sample,
-	       PredictorT predIdx,
-	       class ObsPart* obsPart) const;
+		       class ObsPart* obsPart) const;
 };
 
 

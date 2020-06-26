@@ -19,7 +19,7 @@
 #include "splitnux.h"
 #include "sample.h"
 #include "trainframe.h"
-#include "rankedframe.h"
+#include "layout.h"
 #include "path.h"
 #include "ompthread.h"
 
@@ -36,14 +36,16 @@ DefMap::DefMap(const TrainFrame* frame_,
   nPredFac(frame->getNPredFac()),
   stPath(make_unique<IdxPath>(bagCount)),
   splitPrev(0), splitCount(1),
-  rankedFrame(frame->getRankedFrame()),
-  noRank(rankedFrame->NoRank()),
-  obsPart(make_unique<ObsPart>(rankedFrame, bagCount)),
+  layout(frame->getLayout()),
+  noRank(layout->NoRank()),
+  nPredDense(layout->getNPredDense()),
+  denseIdx(layout->getDenseIdx()),
+  obsPart(make_unique<ObsPart>(layout, bagCount)),
   history(vector<unsigned int>(0)),
   layerDelta(vector<unsigned char>(nPred)),
   runCount(vector<unsigned int>(nPredFac))
 {
-  layer.push_front(make_unique<DefLayer>(1, nPred, rankedFrame, bagCount, bagCount, false, this));
+  layer.push_front(make_unique<DefLayer>(1, nPred, bagCount, bagCount, false, this));
   layer[0]->initAncestor(0, IndexRange(0, bagCount));
   fill(layerDelta.begin(), layerDelta.end(), 0);
   fill(runCount.begin(), runCount.end(), 0);
@@ -155,7 +157,7 @@ unsigned int DefMap::flushRear() {
 
 
 void DefMap::stage(const Sample* sample) {
-  vector<IndexT> stageCount = rankedFrame->stage(sample, obsPart.get());
+  vector<IndexT> stageCount = layout->stage(sample, obsPart.get());
   IndexT predIdx = 0;
   IndexT bagCount = sample->getBagCount();
   for (auto sc : stageCount) {
@@ -241,7 +243,7 @@ void DefMap::overlap(IndexT splitNext,
   if (splitCount == 0) // No further splitting or restaging.
     return;
 
-  layer.push_front(make_unique<DefLayer>(splitCount, nPred, rankedFrame, bagCount, idxLive, nodeRel, this));
+  layer.push_front(make_unique<DefLayer>(splitCount, nPred, bagCount, idxLive, nodeRel, this));
 
   historyPrev = move(history);
   history = vector<unsigned int>(splitCount * (layer.size()-1));

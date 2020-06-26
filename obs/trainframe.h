@@ -17,7 +17,7 @@
 #define OBS_TRAINFRAME_H
 
 #include "block.h"
-#include "rankedframe.h"
+#include "layout.h"
 
 #include <vector>
 #include <memory>
@@ -34,7 +34,7 @@ class TrainFrame {
   const PredictorT cardExtent; // Greatest factor footprint.
   const PredictorT nPred;
   const unique_ptr<class Coproc> coproc; // Stubbed, for now.
-  unique_ptr<RankedFrame> rankedFrame;
+  unique_ptr<Layout> layout;
   const unique_ptr<BlockJagged<double> > numRanked;
 
 
@@ -54,12 +54,20 @@ public:
   
   ~TrainFrame();
 
+  /**
+     brief Completes layout for staging.
+   */
+  void obsLayout() const;
+
+
+  IndexT getDenseRank(PredictorT predIdx) const;
   
+
   /**
      @brief Getter for rankedFrame.
    */
-  inline RankedFrame* getRankedFrame() const {
-    return rankedFrame.get();
+  inline Layout* getLayout() const {
+    return layout.get();
   }
 
 

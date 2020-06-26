@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of framemapR.
 //
@@ -70,32 +70,13 @@ List RLEFrameR::presort(const List& frame) {
 }
 
 
-List RLEFrameR::wrap(const RLECresc *rleCresc) {
+List RLEFrameR::wrap(const RLECresc *rleCresc, bool packed) {
   BEGIN_RCPP
-
-  // Ranked numerical values for splitting-value interpolation.
-  //
-  List numRanked = List::create(
-                                _["numVal"] = rleCresc->getNumVal(),
-                                _["numOff"] = rleCresc->getValOff()
-                                );
-  numRanked.attr("class") = "NumRanked";
-
-  RawVector rleOut(rleCresc->getRLEBytes());
-  vector<size_t> heightInternal(rleCresc->getHeight());
-  NumericVector rleHeight(heightInternal.begin(), heightInternal.end());
-  rleCresc->dumpRLE(rleOut.begin());
-  List rankedFrame = List::create(
-                              _["unitSize"] = RLECresc::unitSize(),
-                              _["rle"] = rleOut,
-			      _["rleHeight"] = rleHeight
-                              );
-  rankedFrame.attr("class") = "RankedFrame";
 
   List setOut = List::create(
                              _["cardinality"] = rleCresc->getCardinality(),
-                             _["rankedFrame"] = move(rankedFrame),
-                             _["numRanked"] = move(numRanked)
+                             _["rankedFrame"] = packed ? wrapRFPacked(rleCresc) : wrapRF(rleCresc),
+                             _["numRanked"] = wrapNR(rleCresc)
                              );
   setOut.attr("class") = "RLEFrame";
   return setOut;
@@ -104,27 +85,96 @@ List RLEFrameR::wrap(const RLECresc *rleCresc) {
 }
 
 
-unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& sRLEFrame, unsigned int nRow) {
-  List rleList(sRLEFrame);
-  List rankedFrame = checkRankedFrame(rleList["rankedFrame"]);
-  List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
-  IntegerVector cardFE(Rf_isNull(rleList["cardinality"]) ? IntegerVector(0) : IntegerVector((SEXP) rleList["cardinality"]));
+List RLEFrameR::wrapNR(const RLECresc* rleCresc) {
+  BEGIN_RCPP
+  // Ranked numerical values for splitting-value interpolation.
+  //
+  List numRanked = List::create(
+                                _["numVal"] = rleCresc->getNumVal(),
+                                _["numOff"] = rleCresc->getNumOff()
+                                );
+  numRanked.attr("class") = "NumRanked";
 
+  return numRanked;
+  END_RCPP
+}
+
+
+List RLEFrameR::wrapRFPacked(const RLECresc* rleCresc) {
+  BEGIN_RCPP
+  RawVector rleOut(rleCresc->getRLEBytes());
+  vector<size_t> heightInternal(rleCresc->getHeight());
+  NumericVector rleHeight(heightInternal.begin(), heightInternal.end());
+  rleCresc->dumpRaw(rleOut.begin());
+  List rankedFrame = List::create(
+                              _["unitSize"] = RLECresc::unitSize(),
+                              _["rle"] = rleOut,
+			      _["rleHeight"] = rleHeight
+                              );
+  rankedFrame.attr("class") = "RankedFramePacked";
+  return rankedFrame;
+  END_RCPP
+}
+
+
+List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
+  BEGIN_RCPP
+
+  vector<size_t> rleHeight(rleCresc->getHeight());
+  size_t height = rleHeight.back();
+  vector<size_t> valOut(height);
+  vector<size_t> lengthOut(height);
+  vector<size_t> rowOut(height);
+  rleCresc->dump(valOut, lengthOut, rowOut);
+  List rankedFrame = List::create(
+                              _["runVal"] = valOut,
+			      _["runLength"] = lengthOut,
+			      _["runRow"] = rowOut,
+			      _["rleHeight"] = rleHeight
+                              );
+  rankedFrame.attr("class") = "RankedFrame";
+  return rankedFrame;
+  END_RCPP
+}
+
+
+unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& sRLEFrame, size_t nRow) {
+  List rleList(sRLEFrame);
+
+  IntegerVector cardFE(Rf_isNull(rleList["cardinality"]) ? IntegerVector(0) : IntegerVector((SEXP) rleList["cardinality"]));
   vector<unsigned int> cardinality(cardFE.begin(), cardFE.end());
+
+  List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
+  NumericVector numVal(Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]));
+  NumericVector numOff(Rf_isNull(blockNum["numOff"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numOff"]));
+
+  List rankedFrame((SEXP) rleList["rankedFrame"]);
+  if (rankedFrame.inherits("RankedFramePacked")) {
+    return unwrapFramePacked(rankedFrame, cardinality, nRow, numVal, numOff);
+  }
+  else {
+    stop("Expecting RankedFrame");
+  }
+}
+
+
+unique_ptr<RLEFrame> RLEFrameR::unwrapFramePacked(const List& rankedFrame,
+						  vector<unsigned int>& cardinality,
+						  size_t nRow,
+						  const NumericVector& numVal_,
+						  const NumericVector& numOff_) {
   RawVector rleRaw((SEXP) rankedFrame["rle"]);
   NumericVector rleFE((SEXP) rankedFrame["rleHeight"]);
   vector<size_t> rleHeight(rleFE.begin(), rleFE.end());
-  
-  NumericVector numVal(Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]));
-  IntegerVector numOff(Rf_isNull(blockNum["numOff"]) ? IntegerVector(0) : IntegerVector((SEXP) blockNum["numOff"]));
-  return
-    make_unique<RLEFrame>(nRow,
-			  cardinality,
-			  (const RLEVal<unsigned int>*) &rleRaw[0],
-			  (unsigned int) numOff.size(),
-			  (const double*) &numVal[0],
-			  (const unsigned int*) &numOff[0],
-			  rleHeight);
+
+  vector<double> numVal(numVal_.begin(), numVal_.end());
+  vector<size_t> numOff(numOff_.begin(), numOff_.end());
+  return make_unique<RLEFrame>(nRow,
+			       cardinality,
+			       (const RLEVal<unsigned int>*) &rleRaw[0],
+			       rleHeight,
+			       numVal,
+			       numOff);;
 }
 
 

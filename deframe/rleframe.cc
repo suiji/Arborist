@@ -16,13 +16,42 @@
 
 #include "rleframe.h"
 
+  /**
+     @brief Constructor from packed representation.
+   */
+RLEFrame::RLEFrame(size_t nRow_,
+		   const vector<unsigned int>& cardinality_,
+		   const RLEVal<unsigned int>* rle,
+		   const vector<size_t>& rleHeight,
+		   const vector<double>& numVal_,
+		   const vector<size_t>& numOff_) :
+  nRow(nRow_),
+  cardinality(cardinality_),
+  nPred(rleHeight.size()),
+  rlePred(vector<vector<RLEVal<unsigned int>>>(nPred)),
+  nPredNum(numOff_.size()),
+  numVal(numVal_),
+  numOff(numOff_) {
+  size_t heightPrev = 0;
+  size_t off = 0;
+  unsigned int predIdx = 0;
+  for (auto height : rleHeight) {
+    for (size_t i = heightPrev; i < height; i++) {
+      RLEVal<unsigned int> rleElt = rle[off++];
+      rlePred[predIdx].emplace_back(rleElt.val, rleElt.row, rleElt.extent);
+    }
+    heightPrev = height;
+    predIdx++;
+  }
+}
+
+
 vector<RLEVal<unsigned int>> RLEFrame::permute(unsigned int predIdx,
 					       const vector<size_t>& idxPerm) const {
   vector<size_t> row2Rank(nRow);
-  for (size_t idx = idxStart(predIdx); idx != idxEnd(predIdx); idx++) {
-    auto rleThis = rle[idx];
-    for (size_t row = rleThis.row; row != rleThis.row + rleThis.extent; row++) {
-      row2Rank[row] = rleThis.val;
+  for (auto rle : rlePred[predIdx]) {
+    for (size_t row = rle.row; row != rle.row + rle.extent; row++) {
+      row2Rank[row] = rle.val;
     }
   }
 

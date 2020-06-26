@@ -16,6 +16,7 @@
 
 #include "trainframe.h"
 #include "rleframe.h"
+#include "layout.h"
 #include "coproc.h"
 
 #include <algorithm>
@@ -33,14 +34,23 @@ TrainFrame::TrainFrame(const RLEFrame* rleFrame,
   cardExtent(nPredFac == 0 ? 0 : *max_element(cardinality.begin(), cardinality.end())),
   nPred(nPredFac + nPredNum),
   coproc(Coproc::Factory(enableCoproc, diag)),
-  rankedFrame(make_unique<RankedFrame>(rleFrame,
-                                       autoCompress,
-				       predPermute)),
+  layout(make_unique<Layout>(rleFrame,
+			     autoCompress,
+			     predPermute)),
   numRanked(make_unique<BlockJagged<double> >(rleFrame->numVal,
-                                              rleFrame->valOff,
-                                              rleFrame->nPredNum)) {
+                                              rleFrame->numOff)) {
 }
 
 
 TrainFrame::~TrainFrame() {
+}
+
+
+void TrainFrame::obsLayout() const {
+  layout->accumOffsets();
+}
+
+
+IndexT TrainFrame::getDenseRank(PredictorT predIdx) const {
+  return layout->getDenseRank(predIdx);
 }

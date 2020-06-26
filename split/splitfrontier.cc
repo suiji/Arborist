@@ -22,7 +22,6 @@
 #include "cutset.h"
 #include "obspart.h"
 #include "trainframe.h"
-#include "rankedframe.h"
 #include "ompthread.h"
 #include "callback.h"
 #include "algsf.h"
@@ -46,7 +45,6 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_) :
   frame(frontier_->getFrame()),
-  rankedFrame(frame->getRankedFrame()),
   frontier(frontier_),
   defMap(frontier->getDefMap()),
   nPred(frame->getNPred()),
@@ -100,7 +98,7 @@ RunAccumT* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
 
 
 IndexT SplitFrontier::getDenseRank(const SplitNux* nux) const {
-  return rankedFrame->getDenseRank(nux->getPredIdx());
+  return frame->getDenseRank(nux->getPredIdx());
 }
 
 

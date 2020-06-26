@@ -111,7 +111,7 @@ class RLECresc {
   /** 
       @brief Accessor for copyable offset vector.
    */
-  const vector<size_t>& getValOff() const {
+  const vector<size_t>& getNumOff() const {
     return valOff;
   }
 
@@ -142,8 +142,16 @@ class RLECresc {
     return rleHeight;
   }
 
+
+  void dump(vector<size_t>& valOut,
+	    vector<size_t>& lengthOut,
+	    vector<size_t>& rowOut) const;
   
-  void dumpRLE(unsigned char rleRaw[]) const;
+
+  /**
+     @brief Dumps packed structures as raw bytes.
+   */
+  void dumpRaw(unsigned char rleRaw[]) const;
 
 
   /**

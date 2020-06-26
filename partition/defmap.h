@@ -35,16 +35,18 @@
  */
 class DefMap {
   const class TrainFrame* frame;
-  const unsigned int nPred; // Number of predictors.
-  const unsigned int nPredFac; // Number of factor-valued predictors.
+  const PredictorT nPred; // Number of predictors.
+  const PredictorT nPredFac; // Number of factor-valued predictors.
 
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   IndexT splitPrev; // # nodes in previous layer.
   IndexT splitCount; // # nodes in the layer about to split.
-  class RankedFrame *rankedFrame;
-  const unsigned int noRank;
+  const class Layout* layout;
+  const IndexT noRank;
+  const PredictorT nPredDense; // Number of predictors using dense indexing.
+  const vector<IndexT> denseIdx; // # Compressed mapping to dense offsets.
   vector<class PreCand> restageCand;
   unique_ptr<class ObsPart> obsPart;
 
@@ -103,7 +105,26 @@ class DefMap {
   */
   void backdate() const;
 
-  
+
+  /**
+     @brief Dense offsets maintained separately, as a special case.
+
+     @return offset strided by 'nPredDense'.
+   */
+  inline IndexT denseOffset(const SplitCoord& splitCoord) const {
+    return splitCoord.nodeIdx * nPredDense + denseIdx[splitCoord.predIdx];
+  }
+
+
+  inline IndexT denseOffset(const PreCand& cand) const {
+    return denseOffset(cand.splitCoord);
+  }
+
+
+  PredictorT getNPredDense() const {
+    return nPredDense;
+  }
+
 
   class DefLayer* getLayer(unsigned int del) const {
     return layer[del].get();

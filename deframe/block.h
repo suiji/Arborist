@@ -88,13 +88,12 @@ public:
  */
 template<class ty>
 class BlockJagged : public Block<ty> {
-  const unsigned int* colOffset;
+  const vector<size_t> colOffset;
 
  public:
-  BlockJagged(const ty raw_[],
-	      const unsigned int colOffset_[],
-              size_t nCol_) :
-    Block<ty>(raw_, nCol_),
+  BlockJagged(const vector<ty>& raw_,
+	      const vector<size_t>& colOffset_) :
+    Block<ty>(&raw_[0], raw_.size()),
     colOffset(colOffset_) {
   }
 

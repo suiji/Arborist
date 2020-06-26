@@ -126,7 +126,6 @@ class SplitFrontier {
 
 protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
-  const class RankedFrame* rankedFrame; // Represents observations as RLEs.
   class Frontier* frontier;  // Current frontier of the partition tree.
   class DefMap* defMap;
   const PredictorT nPred;

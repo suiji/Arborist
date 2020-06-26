@@ -91,6 +91,7 @@ Train::~Train() {
 
 
 void Train::trainChunk(const TrainFrame* frame) {
+  frame->obsLayout();
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     unsigned int treeEnd = min(treeStart + trainBlock, treeChunk); // one beyond.
     auto treeBlock = blockProduce(frame, treeStart, treeEnd - treeStart);

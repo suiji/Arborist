@@ -29,7 +29,6 @@
  @brief Contains the sample data used by predictor-specific sample-walking pass.
 */
 class ObsPart {
-  const unsigned int nPred;
   // ObsPart appear in predictor order, grouped by node.  They store the
   // y-value, run class and sample index for the predictor position to which they
   // correspond.
@@ -73,14 +72,14 @@ class ObsPart {
 
   
  protected:
-  unsigned int *destRestage; // Coprocessor restaging.
-  unsigned int *destSplit; // Coprocessor restaging.
+  unsigned int *destRestage;
+  //unsigned int *destSplit; // Coprocessor restaging.
 
   
  public:
   vector<IndexRange> stageRange;
 
-  ObsPart(const class RankedFrame* frame, IndexT bagCount_);
+  ObsPart(const class Layout* frame, IndexT bagCount_);
   virtual ~ObsPart();
 
   

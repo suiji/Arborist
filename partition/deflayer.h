@@ -179,9 +179,8 @@ class DenseCoord {
    @brief Per-level reaching definitions.
  */
 class DefLayer {
+  class DefMap *defMap;
   const PredictorT nPred; // Predictor count.
-  const vector<IndexT>& denseIdx; // Compressed mapping to dense offsets.
-  const PredictorT nPredDense; // # dense predictors.
   const IndexT nSplit; // # splitable nodes at level.
   const IndexT noIndex; // Inattainable node index value.
   const IndexT idxLive; // Total # sample indices at level.
@@ -204,12 +203,10 @@ class DefLayer {
 
   IndexT candExtent; // Total candidate index extent.
   const bool nodeRel;  // Subtree- or node-relative indexing.
-  class DefMap *defMap;
 
 public:
   DefLayer(IndexT nSplit_,
         PredictorT nPred_,
-        const class RankedFrame* rankedFrame,
         IndexT noIndex_,
         IndexT idxLive_,
         bool nodeRel_,
@@ -274,20 +271,15 @@ public:
 	   const IndexRange& bufRange,
 	   IndexT relBase);
 
-  
   /**
      @param[in, out] cand may have modified run position and index range.
 
      @param[out] implicit outputs the number of implicit indices.
-   */
+  */
   void adjustRange(const PreCand& cand,
-		   IndexRange& idxRange) const {
-    if (isDense(cand)) {
-      denseCoord[denseOffset(cand)].adjustRange(idxRange);
-    }
-  }
+		   IndexRange& idxRange) const;
 
-  
+
   /**
      @brief Looks up the ancestor cell built for the corresponding index
      node and adjusts start and extent values by corresponding dense parameters.
@@ -433,21 +425,6 @@ public:
 
 
   /**
-     @brief Dense offsets maintained separately, as a special case.
-
-     @return offset strided by 'nPredDense'.
-   */
-  inline IndexT denseOffset(const SplitCoord& splitCoord) const {
-    return splitCoord.nodeIdx * nPredDense + denseIdx[splitCoord.predIdx];
-  }
-
-
-  inline IndexT denseOffset(const PreCand& cand) const {
-    return denseOffset(cand.splitCoord);
-  }
-
-
-  /**
      @brief Shifts a value by the number of back-levels to compensate for
      effects of binary branching.
 
@@ -563,10 +540,7 @@ public:
   }
 
 
-  IndexT getImplicit(const PreCand& cand) const {
-    return isDense(cand) ? denseCoord[denseOffset(cand)].getImplicit() : 0;
-  }
-
+  IndexT getImplicit(const PreCand& cand) const;
 
   inline bool isDefined(const SplitCoord& splitCoord) const {
     return def[splitCoord.strideOffset(nPred)].isDefined();
@@ -582,18 +556,9 @@ public:
   }
 
 
-
-  /**
-     @brief Sets the density-associated parameters for a reached node.
-  */
-  inline void setDense(const SplitCoord& splitCoord,
-		       IndexT implicit,
-		       IndexT margin = 0) {
-    if (implicit > 0 || margin > 0) {
-      def[splitCoord.strideOffset(nPred)].setDense();
-      denseCoord[denseOffset(splitCoord)].init(implicit, margin);
-    }
-  }
+  void setDense(const SplitCoord& splitCoord,
+		IndexT implicit,
+		IndexT margin = 0);
 
 
   /**

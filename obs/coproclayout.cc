@@ -14,12 +14,12 @@
  */
 
 #include "coproc.h"
-#include "rankedframe.h"
+#include "layout.h"
 
 
-RankedFrame *RankedFrame::Factory(const Coproc *coproc,
+Layout *Layout::Factory(const Coproc *coproc,
 				  const RLEFrame* rleFrame,
                                   double autoCompress,
 				  PredictorT predPermute) {
-  return new RankedFrame(rleFrame, autoCompress, predPermute);
+  return new Layout(rleFrame, autoCompress, predPermute);
 }

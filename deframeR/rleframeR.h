@@ -81,12 +81,31 @@ struct RLEFrameR {
      @brief Produces an R-style run-length encoding of the frame.
 
      @param rleCresc is the crescent encoding.
+
+     @param packed is true iff writing packed structures as raw.
    */
-  static List wrap(const class RLECresc* rleCresc);
+  static List wrap(const class RLECresc* rleCresc,
+		   bool packed = true);
+
+  
+  static List wrapRFPacked(const class RLECresc* rleCresc);
 
 
+  static List wrapRF(const class RLECresc* rleCresc);
+
+
+  static List wrapNR(const class RLECresc* rleCresc);
+
+  
   static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame,
-				     unsigned int nRow);
+				     size_t nRow);
+
+
+  static unique_ptr<RLEFrame> unwrapFramePacked(const List& rankedFrame,
+					       vector<unsigned int>& cardinality,
+					       size_t nRow,
+					       const NumericVector& numVal,
+					       const NumericVector& numOff);
 };
 
 #endif

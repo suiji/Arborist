@@ -130,7 +130,21 @@ void RLECresc::facDense(const unsigned int feFac[]) {
 }
 
 
-void RLECresc::dumpRLE(unsigned char rleRaw[]) const {
+void RLECresc::dump(vector<size_t>& valOut,
+		    vector<size_t>& extentOut,
+		    vector<size_t>& rowOut) const {
+  size_t i = 0;
+  for (auto rlEnc : rle) {
+    valOut[i] = rlEnc.val;
+    extentOut[i] = rlEnc.extent;
+    rowOut[i] = rlEnc.row;
+    i++;
+  }
+}
+
+
+
+void RLECresc::dumpRaw(unsigned char rleRaw[]) const {
   for (size_t i = 0; i < getRLEBytes(); i++) {
     rleRaw[i] = ((unsigned char*) &rle[0])[i];
   }

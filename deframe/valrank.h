@@ -14,8 +14,8 @@
  */
 
 
-#ifndef CORE_VALRANK_H
-#define CORE_VALRANK_H
+#ifndef DEFRAME_VALRANK_H
+#define DEFRAME_VALRANK_H
 
 #include <algorithm>
 #include <vector>
@@ -30,7 +30,8 @@ struct ValRow {
   size_t row;
   unsigned int rank; // For now.
 
-  void init(tn val, size_t row) {
+  void init(tn val,
+	    size_t row) {
     this->val = val;
     this->row = row;
     rank = 0; // Assigned separately.

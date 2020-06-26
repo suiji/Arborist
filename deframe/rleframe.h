@@ -25,27 +25,22 @@
 struct RLEFrame {
   const size_t nRow;
   const vector<unsigned int> cardinality;
-  const RLEVal<unsigned int>* rle;
-  const vector<size_t> rleHeight;
+  const unsigned int nPred;
+  vector<vector<RLEVal<unsigned int>>> rlePred;
   const unsigned int nPredNum;
-  const double* numVal;
-  const unsigned int* valOff;
+  const vector<double> numVal;
+  const vector<size_t> numOff;
 
+
+  /**
+     @brief Constructor from packed representation.
+   */
   RLEFrame(size_t nRow_,
 	   const vector<unsigned int>& cardinality_,
 	   const RLEVal<unsigned int>* rle_,
-	   unsigned int nPredNum_,
-	   const double* numVal_,
-	   const unsigned int* valOff_,
-	   const vector<size_t>& rleHeight_) :
-  nRow(nRow_),
-    cardinality(cardinality_),
-    rle(rle_),
-    rleHeight(rleHeight_),
-    nPredNum(nPredNum_),
-    numVal(numVal_),
-    valOff(valOff_) {
-  }
+	   const vector<size_t>& rleHeight_,
+	   const vector<double>& numVal_,
+	   const vector<size_t>& numOff_);
 
 
   /**
@@ -59,7 +54,7 @@ struct RLEFrame {
      @brief Predictor count getter.
    */
   const auto getNPred() const {
-    return nPredNum + cardinality.size();
+    return nPred;
   }
 
 
@@ -84,30 +79,10 @@ struct RLEFrame {
   }
 
 
-  const auto getVal(size_t idx) const {
-    return rle[idx].val;
+  const vector<RLEVal<unsigned int>>& getRLE(unsigned int predIdx) const {
+    return rlePred[predIdx];
   }
 
-  
-  const auto getRow(size_t idx) const {
-    return rle[idx].row;
-  }
-
-  
-  const auto getExtent(size_t idx) const {
-    return rle[idx].extent;
-  }
-
-  
-  size_t idxStart(unsigned int predIdx) const {
-    return predIdx == 0 ? 0 : rleHeight[predIdx-1];
-  }
-
-
-  size_t idxEnd(unsigned int predIdx) const {
-    return rleHeight[predIdx];
-  }
-  
   
   vector<RLEVal<unsigned int>> permute(unsigned int predIdx,
 	       const vector<size_t>& idxPerm) const;

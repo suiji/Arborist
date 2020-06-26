@@ -16,38 +16,33 @@
 #include "deflayer.h"
 #include "path.h"
 #include "defmap.h"
-#include "rankedframe.h"
 #include "obspart.h"
 
 
 DefLayer::DefLayer(IndexT nSplit_,
-             PredictorT nPred_,
-             const RankedFrame* rankedFrame,
-             IndexT bagCount,
-             IndexT idxLive_,
-             bool _nodeRel,
-             DefMap *_defMap) :
+		   PredictorT nPred_,
+		   IndexT bagCount,
+		   IndexT idxLive_,
+		   bool nodeRel_,
+		   DefMap* defMap_) :
+  defMap(defMap_),
   nPred(nPred_),
-  denseIdx(rankedFrame->getDenseIdx()),
-  nPredDense(rankedFrame->getNPredDense()),
   nSplit(nSplit_),
   noIndex(bagCount),
   idxLive(idxLive_),
   defCount(0), del(0),
   indexAnc(vector<IndexRange>(nSplit)),
   def(vector<MRRA>(nSplit * nPred)),
-  denseCoord(vector<DenseCoord>(nSplit * nPredDense)),
+  denseCoord(vector<DenseCoord>(nSplit * defMap->getNPredDense())),
   relPath(make_unique<IdxPath>(idxLive)),
-  nodeRel(_nodeRel),
-  defMap(_defMap)
-{
+  nodeRel(nodeRel_) {
   NodePath::setNoSplit(bagCount);
-  
   MRRA df;
+
   // Coprocessor only.
   fill(def.begin(), def.end(), df);
 }
-
+    
 
 DefLayer::~DefLayer() {
 }
@@ -294,3 +289,30 @@ void DefLayer::indexRestage(ObsPart* obsPart,
                         reachOffset,
                         splitOffset);
 }
+
+
+/**
+     @brief Sets the density-associated parameters for a reached node.
+  */
+void DefLayer::setDense(const SplitCoord& splitCoord,
+			IndexT implicit,
+			IndexT margin) {
+  if (implicit > 0 || margin > 0) {
+    def[splitCoord.strideOffset(nPred)].setDense();
+    denseCoord[defMap->denseOffset(splitCoord)].init(implicit, margin);
+  }
+}
+
+void DefLayer::adjustRange(const PreCand& cand,
+			   IndexRange& idxRange) const {
+  if (isDense(cand)) {
+    denseCoord[defMap->denseOffset(cand)].adjustRange(idxRange);
+  }
+}
+
+  
+IndexT DefLayer::getImplicit(const PreCand& cand) const {
+  return isDense(cand) ? denseCoord[defMap->denseOffset(cand)].getImplicit() : 0;
+}
+
+
