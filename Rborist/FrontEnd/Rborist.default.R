@@ -73,7 +73,7 @@
     if (autoCompress < 0.0 || autoCompress > 1.0)
         stop("Autocompression plurality must be a percentage.")
     
-    nPred <- length(predFrame$signature$predMap)
+    nPred <- predFrame$signature$nPred
 
     if (is.null(regMono)) {
         regMono <- rep(0.0, nPred)
@@ -249,6 +249,7 @@ RFDeep <- function(argList) {
         bag = train$bag,
         forest = train$forest,
         leaf = train$leaf,
+        predMap = train$predMap,
         signature = argList$predFrame$signature,
         training = training,
         validation = validation

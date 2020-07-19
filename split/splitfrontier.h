@@ -189,7 +189,7 @@ protected:
      @brief Dispatches splitting criterion to pretree according to predictor type.
    */
   void consumeCriterion(class PreTree* pretree,
-			const class SplitNux* nux) const;
+			const class SplitNux& nux) const;
 
 
 public:

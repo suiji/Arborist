@@ -13,34 +13,32 @@
    @author Mark Seligman
  */
 
-
 #include "rleframe.h"
 
-  /**
-     @brief Constructor from packed representation.
-   */
+
 RLEFrame::RLEFrame(size_t nRow_,
-		   const vector<unsigned int>& cardinality_,
-		   const RLEVal<unsigned int>* rle,
+		   const vector<PredictorForm>& predForm_,
+		   const vector<size_t>& runVal,
+		   const vector<size_t>& runLength,
+		   const vector<size_t>& runRow,
 		   const vector<size_t>& rleHeight,
 		   const vector<double>& numVal_,
-		   const vector<size_t>& numOff_) :
+		   const vector<size_t>& numHeight_,
+		   const vector<unsigned int>& facVal_,
+		   const vector<size_t>& facHeight_) :
   nRow(nRow_),
-  cardinality(cardinality_),
-  nPred(rleHeight.size()),
-  rlePred(vector<vector<RLEVal<unsigned int>>>(nPred)),
-  nPredNum(numOff_.size()),
+  predForm(predForm_),
+  rlePred(vector<vector<RLEVal<unsigned int>>>(rleHeight.size())),
   numVal(numVal_),
-  numOff(numOff_) {
-  size_t heightPrev = 0;
+  numHeight(numHeight_),
+  facVal(facVal_),
+  facHeight(facHeight_) {
   size_t off = 0;
   unsigned int predIdx = 0;
   for (auto height : rleHeight) {
-    for (size_t i = heightPrev; i < height; i++) {
-      RLEVal<unsigned int> rleElt = rle[off++];
-      rlePred[predIdx].emplace_back(rleElt.val, rleElt.row, rleElt.extent);
+    for (; off < height; off++) {
+      rlePred[predIdx].emplace_back(runVal[off], runRow[off], runLength[off]);
     }
-    heightPrev = height;
     predIdx++;
   }
 }

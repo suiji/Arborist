@@ -43,7 +43,7 @@ public:
 
 
   static void setNonterminal(vector<PTNode>& nodeVec,
-			     const class SplitNux* nux,
+			     const class SplitNux& nux,
 			     IndexT targ);
 
   
@@ -116,7 +116,7 @@ public:
 
      @param height is the current tree height.
    */
-  inline void setNonterminal(const SplitNux* nux,
+  inline void setNonterminal(const SplitNux& nux,
                              IndexT height);
 };
 
@@ -189,7 +189,7 @@ class PreTree {
   /**
      @brief Dispatches nonterminal and offspring.
    */
-  void nonterminal(const class SplitNux* nux);
+  void nonterminal(const class SplitNux& nux);
 
 
   /**
@@ -197,7 +197,7 @@ class PreTree {
 
      Assumes offspring already dispatched.
    */
-  void nonterminalInc(const class SplitNux* nux);
+  void nonterminalInc(const class SplitNux& nux);
   
   
   /**

@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_PREDICT_H
-#define CORE_PREDICT_H
+#ifndef CART_PREDICT_H
+#define CART_PREDICT_H
 
 #include "block.h"
 #include "typeparam.h"
@@ -35,9 +35,9 @@ class PredictFrame {
   
   class Predict* predict;
   const unsigned int nTree;
-  const unsigned int noLeaf;
+  const PredictorT noLeaf;
   const class BlockDense<double>* blockNum;
-  const class BlockDense<unsigned int>* blockFac;
+  const class BlockDense<PredictorT>* blockFac;
 
   /**
      @brief Aliases a row-prediction method tailored for the frame's
@@ -45,7 +45,7 @@ class PredictFrame {
    */
   void (PredictFrame::* predictRow)(size_t, size_t);
 
-  unique_ptr<unsigned int[]> predictLeaves; // Tree-relative leaf indices.
+  unique_ptr<IndexT[]> predictLeaves; // Tree-relative leaf indices.
 
   /**
      @brief Dispatches row prediction in parallel.
@@ -87,7 +87,7 @@ class PredictFrame {
    */
   inline void predictLeaf(unsigned int blockRow,
                           unsigned int tc,
-                          unsigned int leafIdx) {
+                          IndexT leafIdx) {
     predictLeaves[nTree * blockRow + tc] = leafIdx;
   }
 
@@ -95,7 +95,7 @@ class PredictFrame {
 public:
   PredictFrame(class Predict* predict,
                const BlockDense<double>* blockNum_,
-               const BlockDense<unsigned int>* blockFac_);
+               const BlockDense<PredictorT>* blockFac_);
 
   
   /**
@@ -178,7 +178,7 @@ public:
    */
   inline bool isBagged(unsigned int blockRow,
                        unsigned int tc,
-                       unsigned int &termIdx) const {
+                       IndexT& termIdx) const {
     termIdx = predictLeaves[nTree * blockRow + tc];
     return termIdx == noLeaf;
   }
@@ -192,7 +192,7 @@ public:
   /**
      @return base address for (transposed) factor values at row.
    */
-  const unsigned int* baseFac(size_t rowOff) const;
+  const PredictorT* baseFac(size_t rowOff) const;
 };
 
 
@@ -214,7 +214,7 @@ class Predict {
  public:
 
   const unsigned int nTree; // # trees used in training.
-  const unsigned int noLeaf; // Inattainable leaf index value.
+  const IndexT noLeaf; // Inattainable leaf index value.
   
   Predict(const class Bag* bag_,
           const class Forest* forest_,
@@ -228,7 +228,7 @@ class Predict {
 
      @param frame contains the observations.
    */
-  void scoreBlock(const unsigned int predictLeaves[],
+  void scoreBlock(const IndexT predictLeaves[],
                   size_t rowStart,
                   size_t extent) const;
 
@@ -243,12 +243,14 @@ class Predict {
      @param row is the absolute row of data over which a prediction is made.
 
      @param blockRow is the row's block-relative row index.
+
+     @return index of leaf predicted.
   */
-  unsigned int rowMixed(unsigned int tIdx,
-                        const PredictFrame* frame,
-                        const double* rowNT,
-                        const unsigned int* rowFT,
-                        size_t row);
+  IndexT rowMixed(unsigned int tIdx,
+		  const PredictFrame* frame,
+		  const double* rowNT,
+		  const unsigned int* rowFT,
+		  size_t row);
 
   
   /**
@@ -256,9 +258,9 @@ class Predict {
 
      Parameters as in mixed case, above.
   */
-  unsigned int rowFac(unsigned int tIdx,
-              const unsigned int* rowT,
-              size_t row);
+  IndexT rowFac(unsigned int tIdx,
+		const unsigned int* rowT,
+		size_t row);
 
 
   /**
@@ -266,9 +268,9 @@ class Predict {
 
      Parameters as in mixed case, above.
    */
-  unsigned int rowNum(unsigned int tIdx,
-                      const double* rowT,
-                      size_t row);
+  IndexT rowNum(unsigned int tIdx,
+		const double* rowT,
+		size_t row);
 };
 
 #endif

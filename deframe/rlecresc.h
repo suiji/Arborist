@@ -41,65 +41,67 @@ bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
 class RLECresc {
   const size_t nRow;
 
-  // Empty iff no factor-valued predictors.
-  vector<unsigned int> cardinality;
+  vector<PredictorForm> predForm; // Maps predictor index to its form.
 
-  // Encodes run characteristics, not values.
+  vector<unsigned int> typedIdx; // Maps index to typed offset.
+
+  unsigned int nFactor; // Count of factor predictors.
+
+  unsigned int nNumeric; // Count of numeric predictors.
+
+  
+  // Encodes observations as run characteristics, not values.
   // Error if empty.
   vector<RLEVal<unsigned int> > rle;
 
   // Per-predictor (blocked) cumulative heights.
   vector<size_t> rleHeight;
   
-  // Sparse numerical representation for split interpolation.
-  // Empty iff no numerical predictors.
-  vector<size_t> valOff; // Per-predictor offset within RLE vectors.
-  vector<double> numVal; // Rank-indexable predictor values.
-
-  size_t numSortSparse(const double feColNum[],
-		       const unsigned int feRowStart[],
-		       const unsigned int feRunLength[]);
-
-  //  typedef tuple<double, unsigned int, unsigned int> NumRLE;
-
-  /**
-     @brief Stores ordered predictor column, entering uncompressed.
-
-     @param rleNum is a sparse representation of the value/row-number pairs.
-  */
-  void encode(const vector<RLEVal<double> >& rleNum);
-
-
   /**
      @brief Emits a run-length encoding of a sorted list.
 
-     @param vr is a stable sorted vector with ranks.
+     @param valPred is a stably-sorted vector of values and ranks.
 
-     @param[out] val outputs values associated with the runs.
-
-     @param valUnique is true iff only unique values are to be output.
+     @param[out] val outputs unique values in sorted order.
    */
   template<typename tn>
-  void encode(ValRank<tn>& vr, vector<tn>& val, bool valUnique = true);
+  void encode(const ValRank<tn>& vr, vector<tn>& valPred) {
+    size_t rowNext = nRow; // Inattainable row number.
+
+    tn valPrev = vr.getVal(0); // Ensures intial rle pushed at first iteration.
+    valPred.push_back(valPrev); // Ensures initial value pushed at first iteration.
+    for (size_t idx = 0; idx < nRow; idx++) {
+      auto rowThis = vr.getRow(idx);
+      auto valThis = vr.getVal(idx);
+      if (valThis != valPrev) {
+	valPred.push_back(valThis);
+	rle.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+      }
+      else if (rowThis != rowNext) {
+	rle.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+      }
+      else {
+	rle.back().extent++;
+      }
+      valPrev = valThis;
+      rowNext = rowThis + 1;
+    }
+    rleHeight.push_back(rle.size());
+  }
+
+
 
  public:
 
   RLECresc(size_t nRow_,
-           unsigned int nPredNum,
-           unsigned int nPredFac);
+	   unsigned int nPred);
+
 
   auto getNRow() const {
     return nRow;
   }
 
-  auto getNPredNum() const {
-    return valOff.size();
-  }
-
-  auto getNPredFac() const {
-    return cardinality.size();
-  }
-
+  
   /**
      @brief Computes unit size for cross-compatibility of serialization.
    */
@@ -108,32 +110,42 @@ class RLECresc {
   }
 
 
-  /** 
-      @brief Accessor for copyable offset vector.
-   */
-  const vector<size_t>& getNumOff() const {
-    return valOff;
-  }
-
-  /**
-     @brief Accessor for copyable numerical value vector.
-   */
-  const vector<double>& getNumVal() const {
-    return numVal;
+  void setFactor(unsigned int predIdx, bool isFactor) {
+    if (isFactor) {
+      predForm[predIdx] = PredictorForm::factor;
+      typedIdx[predIdx] = nFactor++;
+    }
+    else {
+      predForm[predIdx] = PredictorForm::numeric;
+      typedIdx[predIdx] = nNumeric++;
+    }
   }
   
 
-  /**
-     @brief Accessor for copyable cardinality vector.
-   */
-  const vector<unsigned int>& getCardinality() const {
-    return cardinality;
+  auto getNFactor() const {
+    return nFactor;
   }
 
-
-  size_t getRLEBytes() const {
-    return sizeof(RLEVal<unsigned int>) * rle.size();
+  
+  auto getNNumeric() const {
+    return nNumeric;
   }
+
+  
+  vector<unsigned int> dumpPredForm() const {
+    vector<unsigned int> predFormOut(predForm.size());
+    unsigned int i = 0;
+    for (auto pf : predForm) {
+      predFormOut[i++] = static_cast<unsigned int>(pf);
+    }
+    return predFormOut;
+  }
+
+  
+  auto getTypedIdx(unsigned int predIdx) const {
+    return typedIdx[predIdx];
+  }
+  
 
   /**
      @brief Accessor for copyable height vector.
@@ -157,38 +169,100 @@ class RLECresc {
   /**
      @brief Presorts runlength-encoded numerical block supplied by front end.
 
-     @param feValNum[] is a vector of numerical values.
+     @param feVal[] is a vector of valType values.
 
      @param feRowStart[] maps row indices to offset within value vector.
 
      @param feRunLength[] is length of each run of values.
    */
-  void numSparse(const double feValNum[],
-		 const unsigned int feRowStart[],
-		 const unsigned int feRunLength[]);
+  template<typename valType>
+  vector<vector<valType>> encodeSparse(unsigned int nPredType,
+				      const vector<valType>&  feVal,
+				      const vector<size_t>&  feRowStart,
+				      const vector<size_t>&  feRunLength) {
+    vector<vector<valType>> val(nPredType);
+    size_t colOff = 0;
+    for (auto & valPred : val) {
+      colOff += sortSparse(valPred, &feVal[colOff], &feRowStart[colOff], &feRunLength[colOff]);
+    }
+    return val;
+  }
 
 
-  /**
-     @brief Presorts dense numerical block supplied by front end.
+  template<typename valType>
+  size_t sortSparse(vector<valType>& valPred,
+		    const double feCol[],
+		    const size_t feRowStart[],
+		    const size_t feRunLength[]) {
+    vector<RLEVal<valType> > rleVal;
+    size_t rleIdx = 0;
+    for (size_t rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
+      rleVal.emplace_back(RLEVal<double>(feCol[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
+    }
+    // Postcondition:  rleNum.size() == caller's vector length.
 
-     @param feNum references a block of factor-valued data.
-   */
-  void numDense(const double feNum[]);
+    sort(rleVal.begin(), rleVal.end(), RLECompare<valType>);
+    encode(valPred, rleVal);
+
+    return rleVal.size();
+  }
 
   
   /**
-     @brief Presorts factors and stores as rank-ordered run-length encoding.
+     @brief Stores ordered predictor column, entering uncompressed.
 
-     Assumes 0-justification ensured by bridge.
+     @param rleVal is a sparse representation of the value/row-number pairs.
+  */
+  template<typename valType>
+  void encode(vector<valType>& valPred,
+	      const vector<RLEVal<valType> >& rleVal) {
+    size_t rowNext = nRow; // Inattainable row number.
+    size_t rk = 0;
+    valPred.push_back(rleVal[0].val);
+    for (auto elt : rleVal) {
+      valType valThis = elt.val;
+      auto rowThis = elt.row;
+      auto runCount = elt.extent;
+      if (valThis == valPred.back() && rowThis == rowNext) { // Run continues.
+	rle.back().extent += runCount;
+      }
+      else { // New RLE, rank entries regardless whether tied.
+	if (valThis != valPred.back()) {
+	  rk++;
+	  valPred.push_back(valThis);
+	}
+	rle.emplace_back(RLEVal<unsigned int>(rk, rowThis, runCount));
+      }
+      rowNext = rle.back().row + rle.back().extent;
+    }
+    rleHeight.push_back(rle.size());
+  }
 
-     @param feFac references a block of factor-valued data.
 
-     Final "rank" values are the internal factor codes and may contain
-     gaps.  A dense numbering scheme would entail backmapping at LH bit
-     assignment following splitting (q.v.):  prediction and training
-     must be able to reconcile separately-assigned factor levels.
-  */ 
-  void facDense(const unsigned int feFac[]);
+  template<typename valType>
+  void encodeColumn(const vector<valType>& val,
+		    vector<valType>& valOut) {
+    ValRank<valType> valRank(&val[0], nRow);
+    encode(valRank, valOut);
+  }
+  
+
+  /**
+     @brief Presorts dense predictor block supplied by front end.
+
+     @return vector of presorted vectors.
+   */
+  template<typename valType>
+  vector<vector<valType>> encodeDense(unsigned int nType,
+				      const valType feVal[]) {
+    vector<vector<valType>> val(nType);
+    size_t valIdx = 0;
+    for (auto & valPred : val) {
+      ValRank<valType> valRank(&feVal[valIdx++ * nRow], nRow);
+      encode(valRank, valPred);
+    }
+    return val;
+  }
 };
 #endif
 

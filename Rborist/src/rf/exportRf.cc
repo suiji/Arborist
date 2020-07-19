@@ -51,9 +51,10 @@ RcppExport SEXP Export(SEXP sArbOut) {
     return List::create(0);
   }
 
-  IntegerVector predMap;
+  IntegerVector predMap((SEXP) arbOut["predMap"]);
   List predLevel, predFactor;
-  Signature::unwrapExport(arbOut, predMap, predLevel, predFactor);
+  StringVector predNames;
+  Signature::unwrapExport(arbOut, predLevel, predFactor, predNames);
 
   List leaf((SEXP) arbOut["leaf"]);
   if (leaf.inherits("LeafReg"))  {

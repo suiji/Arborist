@@ -162,7 +162,7 @@ public:
 
      @param summaryFrame identifies numeric-valued predictors.
    */
-  void setQuantRank(const class TrainFrame* summaryFrame);
+  void setQuantRank(const class TrainFrame* trainFrame);
 
   
   inline void setTerminal() {

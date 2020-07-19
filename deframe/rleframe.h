@@ -18,31 +18,34 @@
 
 #include "rlecresc.h"
 
-
 /**
    @brief Completed form, constructed from front end representation.
  */
 struct RLEFrame {
   const size_t nRow;
-  const vector<unsigned int> cardinality;
-  const unsigned int nPred;
+  const vector<PredictorForm> predForm;
   vector<vector<RLEVal<unsigned int>>> rlePred;
-  const unsigned int nPredNum;
   const vector<double> numVal;
-  const vector<size_t> numOff;
+  const vector<size_t> numHeight;
+  const vector<unsigned int> facVal;
+  const vector<size_t> facHeight;
 
-
+  
   /**
-     @brief Constructor from packed representation.
+     @brief Constructor from unpacked representation.
    */
   RLEFrame(size_t nRow_,
-	   const vector<unsigned int>& cardinality_,
-	   const RLEVal<unsigned int>* rle_,
+	   const vector<PredictorForm>& predForm_,
+	   const vector<size_t>& runVal,
+	   const vector<size_t>& runLenght,
+	   const vector<size_t>& runRow,
 	   const vector<size_t>& rleHeight_,
 	   const vector<double>& numVal_,
-	   const vector<size_t>& numOff_);
+	   const vector<size_t>& numHeight_,
+	   const vector<unsigned int>& facVal_,
+	   const vector<size_t>& facHeight_);
 
-
+  
   /**
      @brief Row count getter.
    */
@@ -54,7 +57,7 @@ struct RLEFrame {
      @brief Predictor count getter.
    */
   const auto getNPred() const {
-    return nPred;
+    return rlePred.size();
   }
 
 
@@ -70,12 +73,7 @@ struct RLEFrame {
      @brief Numeric predictor count getter.
    */
   const auto getNPredNum() const {
-    return nPredNum;
-  }
-
-  
-  const vector<unsigned int>& getCardinality() const {
-    return cardinality;
+    return numHeight.size();
   }
 
 

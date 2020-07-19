@@ -48,17 +48,6 @@ void CutSet::setCut(IndexT accumIdx, const CutSig& sig) {
 }
 
 
-void CutSet::write(const SplitNux* nux, const CutAccum* accum) {
-  if (accum->info <= nux->getInfo())
-    return; // TOGO
-  CutSig& sig = cutSig[nux->getAccumIdx()];
-  sig.idxLeft = accum->idxLeft;
-  sig.idxRight = accum->idxRight;
-  sig.implicitTrue = accum->lhImplicit(nux);
-  sig.quantRank = accum->interpolateRank(nux->splitQuant[nux->getPredIdx()]);
-}
-
-
 bool CutSet::leftCut(const SplitNux* nux) const {
   return cutSig[nux->getAccumIdx()].cutLeft;
 }
@@ -86,4 +75,20 @@ IndexT CutSet::getIdxLeft(const SplitNux* nux) const {
 
 IndexT CutSet::getImplicitTrue(const SplitNux* nux) const {
   return cutSig[nux->getAccumIdx()].implicitTrue;
+}
+
+
+void CutSet::write(const SplitNux* nux, const CutAccum* accum) {
+  if (accum->info > nux->getInfo()) {
+    cutSig[nux->getAccumIdx()].write(nux, accum);
+  }
+}
+
+
+void CutSig::write(const SplitNux* nux,
+		   const CutAccum* accum) {
+  idxLeft = accum->idxLeft;
+  idxRight = accum->idxRight;
+  implicitTrue = accum->lhImplicit(nux);
+  quantRank = accum->interpolateRank(nux);
 }

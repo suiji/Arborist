@@ -18,8 +18,7 @@
 
 
 Layout *Layout::Factory(const Coproc *coproc,
-				  const RLEFrame* rleFrame,
-                                  double autoCompress,
-				  PredictorT predPermute) {
-  return new Layout(rleFrame, autoCompress, predPermute);
+			const TrainFrame* trainFrame,
+			double autoCompress) {
+  return new Layout(trainFrame, autoCompress);
 }

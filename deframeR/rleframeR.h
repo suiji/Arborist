@@ -44,7 +44,10 @@ using namespace std;
 
    @return R-style representation of run-length encoding.
  */
-RcppExport SEXP Presort(SEXP sFrame);
+RcppExport SEXP PresortNum(SEXP sFrame);
+
+
+RcppExport SEXP PresortDF(SEXP sDF);
 
 
 /**
@@ -66,6 +69,10 @@ struct RLEFrameR {
    */
   static List checkNumRanked(SEXP sNumRanked);
 
+  /**
+     @brief As above, but checks factor representation.
+   */
+  static List checkFacRanked(SEXP sFacRanked);
 
   /**
      @brief Static entry to block sorting.
@@ -74,38 +81,39 @@ struct RLEFrameR {
 
      @return R-style list of sorting summaries.
    */
-  static List presort(const List& frame);
+  static List presortNum(const List& frame);
 
 
+  static List presortDF(const DataFrame& df);
+
+  
   /**
      @brief Produces an R-style run-length encoding of the frame.
 
      @param rleCresc is the crescent encoding.
-
-     @param packed is true iff writing packed structures as raw.
    */
-  static List wrap(const class RLECresc* rleCresc,
-		   bool packed = true);
+  static List wrap(const vector<vector<unsigned int>>& valCode,
+		   const vector<vector<double>>& valNum,
+		   const class RLECresc* rleCresc);
 
   
-  static List wrapRFPacked(const class RLECresc* rleCresc);
-
-
   static List wrapRF(const class RLECresc* rleCresc);
 
 
-  static List wrapNR(const class RLECresc* rleCresc);
+  static List wrapNum(const vector<vector<double>>& valNum);
 
   
-  static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame,
-				     size_t nRow);
+  static List wrapFac(const vector<vector<unsigned int>>& valFac);
+
+  
+  static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame);
 
 
-  static unique_ptr<RLEFrame> unwrapFramePacked(const List& rankedFrame,
-					       vector<unsigned int>& cardinality,
-					       size_t nRow,
-					       const NumericVector& numVal,
-					       const NumericVector& numOff);
+  static unique_ptr<RLEFrame> unwrapFrame(const List& rankedFrame,
+					  const NumericVector& numVal,
+					  const IntegerVector& numHeight,
+					  const IntegerVector& facVal,
+					  const IntegerVector& facHeight);
 };
 
 #endif

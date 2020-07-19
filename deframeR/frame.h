@@ -63,19 +63,14 @@ RcppExport SEXP FrameReconcile(SEXP sXFac,
 
   @param sXFac is a (posibly empty) zero-based integer matrix.
 
-  @param sPredMap associates (zero-based) core and front-end predictors.
-
-  @param sFacCard is the cardinality of core-indexed factor predictors.
-
   @param sLevels contain the level strings of core-indexed factor predictors.
 
   @return wrapped frame containing separately-typed matrices.
 */
 RcppExport SEXP WrapFrame(SEXP sX,
                           SEXP sXNum,
+			  SEXP sPredForm,
                           SEXP sXFac,
-                          SEXP sPredMap,
-                          SEXP sFacCard,
                           SEXP sLevels,
 			  SEXP sFactor);
 

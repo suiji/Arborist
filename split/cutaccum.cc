@@ -54,8 +54,8 @@ unique_ptr<Residual> CutAccumReg::makeResidual(const SplitNux* cand,
 }
 
 
-double CutAccum::interpolateRank(double splitQuant) const {
-  return IndexRange(rankLH, rankRH - rankLH).interpolate(splitQuant);
+double CutAccum::interpolateRank(const SplitNux* cand) const {
+  return IndexRange(rankLH, rankRH - rankLH).interpolate(cand->getSplitQuant());
 }
 
 

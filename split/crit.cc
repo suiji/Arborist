@@ -19,9 +19,9 @@
 #include "splitfrontier.h"
 
 
-void Crit::setQuantRank(const TrainFrame* sf,
+void Crit::setQuantRank(const TrainFrame* trainFrame,
 			PredictorT predIdx) {
-  setNum(sf->interpolate(predIdx, getNumVal()));
+  setNum(trainFrame->interpolate(predIdx, getNumVal()));
 }
 
 

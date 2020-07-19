@@ -29,11 +29,11 @@ using namespace std;
 template<class ty>
 class Block {
  protected:
-  const ty* raw;
+  const vector<ty> raw;
   const size_t nCol; // # columns.
  public:
 
-  Block(const ty raw_[],
+  Block(const vector<ty> raw_,
         size_t nCol_) :
     raw(raw_),
     nCol(nCol_) {}
@@ -59,7 +59,7 @@ public:
 
   BlockDense(size_t nRow_,
              size_t nCol_,
-             const ty raw_[]) :
+             const vector<ty> raw_) :
     Block<ty>(raw_, nCol_), nRow(nRow_) {
   }
 
@@ -78,7 +78,7 @@ public:
      @return pointer to base of row contents.
    */  
   inline const ty* rowBase(size_t row) const {
-    return Block<ty>::raw + Block<ty>::nCol * row;
+    return &Block<ty>::raw[Block<ty>::nCol * row];
   }
 };
 
@@ -88,22 +88,40 @@ public:
  */
 template<class ty>
 class BlockJagged : public Block<ty> {
-  const vector<size_t> colOffset;
+  const vector<size_t> height; // Accumulated length of each column.
 
  public:
   BlockJagged(const vector<ty>& raw_,
-	      const vector<size_t>& colOffset_) :
-    Block<ty>(&raw_[0], raw_.size()),
-    colOffset(colOffset_) {
+	      const vector<size_t>& height_) :
+    Block<ty>(raw_, raw_.size()),
+    height(height_) {
   }
 
+
+  /**
+     @brief Instantiates contents as vector-of-vectors rather than BlockJagged object.
+   */
+  static vector<vector<ty>> unwrap(const vector<ty>& val,
+				   const vector<size_t>& height) {
+    vector<vector<ty>> vv(height.size());
+    size_t col = 0;
+    size_t i = 0;
+    const ty* valptr = &val[0];
+    for (auto count : height) {
+      for (; i < count; i++) {
+	vv[col].push_back(*valptr++);
+      }
+      col++;
+    }
+    return vv;
+  }
 
   /**
      @return rank of specified predictor at specified rank.
    */
   inline auto getVal(unsigned int predIdx,
-                     unsigned int rk) const {
-    return Block<ty>::raw[colOffset[predIdx] + rk];
+                     size_t rk) const {
+    return Block<ty>::raw[rk + (predIdx == 0 ? 0 : height[predIdx-1])];
   }
 };
 
@@ -114,12 +132,12 @@ class BlockJagged : public Block<ty> {
  */
 template<class ty>
 class BlockRLE : public Block<ty> {
-  const unsigned int* rowOff;
-  const unsigned int* runLength;
-  const unsigned int* predStart;
+  const vector<size_t> runStart;
+  const vector<size_t> runLength;
+  const vector<size_t> predStart;
   // Persistent transpose state:
-  vector<unsigned int> rowNext;
-  vector<unsigned int> idxNext;
+  vector<size_t> rowNext;
+  vector<size_t> idxNext;
   vector<ty> transVal;
 
 public:
@@ -127,17 +145,16 @@ public:
  /**
      @brief Sparse constructor for prediction frame.
   */
-  BlockRLE(size_t nCol_,
-           const ty* raw_,
-           const unsigned int* rowOff_,
-           const unsigned int* runLength_,
-           const unsigned int* predStart_) :
-    Block<ty>(raw_, nCol_),
-    rowOff(rowOff_),
+  BlockRLE(const vector<ty>& raw_,
+           const vector<size_t>& runStart_,
+           const vector<size_t>& runLength_,
+           const vector<size_t>& predStart_) :
+    Block<ty>(raw_, predStart_.size()),
+    runStart(runStart_),
     runLength(runLength_),
     predStart(predStart_),
-    rowNext(vector<unsigned int>(Block<ty>::nCol)),
-    idxNext(vector<unsigned int>(Block<ty>::nCol)),
+    rowNext(vector<size_t>(Block<ty>::nCol)),
+    idxNext(vector<size_t>(Block<ty>::nCol)),
     transVal(vector<ty>(Block<ty>::nCol)) {
     fill(rowNext.begin(), rowNext.end(), 0ul); // Position of first update.
     unsigned int predIdx = 0;
@@ -159,12 +176,12 @@ public:
                         size_t rowStart,
                         size_t extent) {
     ty* winRow = window;
-    for (size_t row = rowStart; row < rowStart + extent; row++) {
+    for (size_t row = rowStart; row != rowStart + extent; row++) {
       for (unsigned int predIdx = 0; predIdx < Block<ty>::nCol; predIdx++) {
         if (row == rowNext[predIdx]) { // Assignments persist across invocations:
-          unsigned int valIdx = idxNext[predIdx];
+          size_t valIdx = idxNext[predIdx];
           transVal[predIdx] = Block<ty>::raw[valIdx];
-          rowNext[predIdx] = rowOff[valIdx] + runLength[valIdx];
+          rowNext[predIdx] = runStart[valIdx] + runLength[valIdx];
           idxNext[predIdx] = valIdx + 1;
         }
         winRow[predIdx] = transVal[predIdx];
@@ -180,13 +197,13 @@ public:
  */
 template<class ty>
 class BlockIPCresc {
-  const unsigned int nRow;
+  const size_t nRow;
   const unsigned int nPred;
 
-  vector<unsigned int> predStart; // Starting offset for predictor.
-  vector<unsigned int> rowStart; // Starting row of run.
+  vector<size_t> predStart; // Starting element per predictor.
+  vector<size_t> runStart; // Starting row of run.
   vector<ty> val; // Value of run.
-  vector<unsigned int> runLength; // Length of run.
+  vector<size_t> runLength; // Length of run.
 
   /**
      @brief Pushes a run onto individual component vectors.
@@ -198,11 +215,11 @@ class BlockIPCresc {
      @param row is the starting row of the run.
    */
   inline void pushRun(ty runVal,
-                      unsigned int rl,
-                      unsigned int row) {
+                      size_t rl,
+                      size_t row) {
     val.push_back(runVal);
     runLength.push_back(rl);
-    rowStart.push_back(row);
+    runStart.push_back(row);
   }
 
 public:
@@ -211,7 +228,7 @@ public:
                size_t nCol) :
     nRow(nRow_),
     nPred(nCol),
-    predStart(vector<unsigned int>(nPred)) {
+    predStart(vector<size_t>(nPred)) {
   }
 
 
@@ -225,14 +242,14 @@ public:
   /**
      @brief Getter for starting row offsets;
    */
-  const vector<unsigned int>& getRowStart() const {
-    return rowStart;
+  const vector<size_t>& getRunStart() const {
+    return runStart;
   }
 
   /**
      @brief Getter for run lengths.
    */
-  const vector<unsigned int> getRunLength() const {
+  const vector<size_t> getRunLength() const {
     return runLength;
   }
 
@@ -240,7 +257,7 @@ public:
   /**
      @brief Getter for predictor starting offsets.
    */
-  const vector<unsigned int> getPredStart() const {
+  const vector<size_t> getPredStart() const {
     return predStart;
   }
 
@@ -253,36 +270,25 @@ public:
 
      @param eltsNZ hold the nonzero elements of the sparse representation.
 
-     @param nz are row numbers corresponding to nonzero values.
+     @param rowNZ are row numbers corresponding to nonzero values.
 
-     @param p has length nCol + 1: index i > 0 gives the raw nonzero offset for
+     @param idxPred has length nCol + 1: index i > 0 gives the raw nonzero offset for
      predictor i-1 and index i == 0 gives the base offset.
    */
   void nzRow(const ty eltsNZ[],
-             const int nz[],
-             const int p[]) {
-  // Pre-scans column heights.
+             const vector<size_t>& rowNZ,
+             const vector<size_t>& idxPred) {
     const ty zero = 0.0;
-    vector<unsigned int> nzHeight(nPred + 1);
-    unsigned int idxStart = p[0];
-    for (unsigned int colIdx = 1; colIdx <= nPred; colIdx++) {
-      nzHeight[colIdx - 1] = p[colIdx] - idxStart;
-      idxStart = p[colIdx];
-    }
-
-    for (unsigned int colIdx = 0; colIdx < predStart.size(); colIdx++) {
-      unsigned int colHeight = nzHeight[colIdx]; // # nonzero values in column.
+    for (unsigned int colIdx = 0; colIdx < nPred; colIdx++) {
       predStart[colIdx] = val.size();
-      if (colHeight == 0) { // No nonzero values for predictor.
+      auto nzHeight = idxPred[colIdx + 1] - idxPred[colIdx];
+      if (nzHeight == 0) { // No nonzero values for predictor.
         pushRun(zero, nRow, 0);
       }
       else {
-        unsigned int nzPrev = nRow; // Inattainable row value.
-        // Row indices into 'i' and 'x' are zero-based.
-        unsigned int idxStart = p[colIdx];
-        unsigned int idxEnd = idxStart + colHeight;
-        for (unsigned int rowIdx = idxStart; rowIdx < idxEnd; rowIdx++) {
-          unsigned int nzRow = nz[rowIdx]; // row # of nonzero element.
+        auto nzPrev = nRow; // Inattainable row value.
+        for (size_t rowIdx = idxPred[colIdx]; rowIdx != idxPred[colIdx] + nzHeight; rowIdx++) {
+          auto nzRow = rowNZ[rowIdx]; // row # of nonzero element.
           if (nzPrev == nRow && nzRow > 0) { // Zeroes lead.
             pushRun(zero, nzRow, 0);
           }

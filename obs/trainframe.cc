@@ -15,34 +15,57 @@
 
 
 #include "trainframe.h"
-#include "rleframe.h"
 #include "layout.h"
 #include "coproc.h"
 
 #include <algorithm>
 
 
-TrainFrame::TrainFrame(const RLEFrame* rleFrame,
+TrainFrame::TrainFrame(const RLEFrame* rleFrame_,
 		       double autoCompress,
-		       PredictorT predPermute,
 		       bool enableCoproc,
-		       vector<string>& diag) : 
+		       vector<string>& diag) :
+  rleFrame(rleFrame_),
   nRow(rleFrame->nRow),
-  nPredNum(rleFrame->nPredNum),
-  cardinality(rleFrame->cardinality),
-  nPredFac(cardinality.size()),
-  cardExtent(nPredFac == 0 ? 0 : *max_element(cardinality.begin(), cardinality.end())),
-  nPred(nPredFac + nPredNum),
   coproc(Coproc::Factory(enableCoproc, diag)),
-  layout(make_unique<Layout>(rleFrame,
-			     autoCompress,
-			     predPermute)),
-  numRanked(make_unique<BlockJagged<double> >(rleFrame->numVal,
-                                              rleFrame->numOff)) {
+  numRanked(BlockJagged<double>::unwrap(rleFrame->numVal, rleFrame->numHeight)),
+  facRanked(BlockJagged<unsigned int>::unwrap(rleFrame->facVal, rleFrame->facHeight)),
+  nPredNum(numRanked.size()),
+  cardinality(cardinalities(facRanked)),
+  nPredFac(cardinality.size()),
+  nPred(nPredFac + nPredNum),
+  predMap(mapPredictors(rleFrame->predForm)) {
+  layout = make_unique<Layout>(this, autoCompress);
 }
 
 
 TrainFrame::~TrainFrame() {
+}
+
+
+vector<PredictorT> TrainFrame::cardinalities(const vector<vector<unsigned int>>& facRanked_)  const {
+  vector<PredictorT> cardPred;
+  for (auto facUnique : facRanked_) {
+    cardPred.push_back(facUnique.size());
+  }
+  return cardPred;
+}
+
+
+vector<PredictorT> TrainFrame::mapPredictors(const vector<PredictorForm>& predForm_) const {
+  vector<PredictorT> core2FE(nPred);
+  PredictorT predIdx = 0;
+  PredictorT facIdx = nPredNum;
+  PredictorT numIdx = 0;
+  for (auto form : predForm_) {
+    if (form == PredictorForm::factor) {
+      core2FE[facIdx++] = predIdx++;
+    }
+    else {
+      core2FE[numIdx++] = predIdx++;
+    }
+  }
+  return core2FE;
 }
 
 

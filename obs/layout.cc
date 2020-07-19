@@ -18,57 +18,34 @@
 #include "obspart.h"
 #include "sample.h"
 #include "ompthread.h"
-#include "bheap.h"
-#include "callback.h"
+#include "trainframe.h"
 
 #include <algorithm>
 #include <numeric>
 
 
-Layout::Layout(const RLEFrame* rleFrame_,
-	       double autoCompress,
-	       PredictorT predPermute_) :
-  rleFrame(rleFrame_),
-  nRow(rleFrame->getNRow()),
-  nPred(rleFrame->getNPred()),
-  noRank(rleFrame->cardinality.empty() ? nRow : max(nRow, *max_element(rleFrame->cardinality.begin(), rleFrame->cardinality.end()))),
-  predPermute(predPermute_),
+Layout::Layout(const TrainFrame* trainFrame_,
+	       double autoCompress) :
+  trainFrame(trainFrame_),
+  nRow(trainFrame->getNRow()),
+  nPred(trainFrame->getNPred()),
+  noRank(trainFrame->cardinality.empty() ? nRow : max(nRow, *max_element(trainFrame->cardinality.begin(), trainFrame->cardinality.end()))),
   nPredDense(0),
   nonCompact(0),
   lengthCompact(0),
   denseThresh(autoCompress * nRow),
-  implExpl(denseBlock(rleFrame)) {
-  if (predPermute < nPred) {
-    framePermute = rleFrame->permute(predPermute, shuffleRows());
-  }
+  implExpl(denseBlock(trainFrame)) {
 }
 
 
-vector<size_t> Layout::shuffleRows() const {
-  auto vUnif = CallBack::rUnif(nRow);
-  vector<BHPair> heap(nRow);
-  for (IndexT row = 0; row < nRow; row++) {
-    BHeap::insert(&heap[0], row, vUnif[row]);
-  }
-
-  IndexT i = 0;
-  vector<size_t> shuffle(nRow);
-  for (IndexT heapSize = nRow; heapSize > 0; heapSize--) {
-    shuffle[i++] = BHeap::slotPop(&heap[0], heapSize - 1);
-  }
-
-  return shuffle;
-}
-
-
-vector<ImplExpl> Layout::denseBlock(const RLEFrame* rleFrame) {
+vector<ImplExpl> Layout::denseBlock(const TrainFrame* trainFrame) {
   vector<ImplExpl> implExpl(nPred);
 
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-      implExpl[predIdx] = setDense(rleFrame, predIdx);
+      implExpl[predIdx] = setDense(trainFrame, predIdx);
     }
   }
 
@@ -76,12 +53,12 @@ vector<ImplExpl> Layout::denseBlock(const RLEFrame* rleFrame) {
 }
 
 
-ImplExpl Layout::setDense(const RLEFrame* rleFrame, PredictorT predIdx) {
+ImplExpl Layout::setDense(const TrainFrame* trainFrame, PredictorT predIdx) {
   IndexT denseMax = 0; // Running maximum of run counts.
   PredictorT argMax = noRank;
   PredictorT rankPrev = noRank; // Forces write on first iteration.
   IndexT runCount = 0; // Dummy value:  written before read.
-  for (auto rle : rleFrame->getRLE(predIdx)) {
+  for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;
     IndexT extent = rle.extent;
 
@@ -147,7 +124,7 @@ IndexT Layout::stage(const Sample* sample,
   IndexT* idxStart;
   SampleRank* spn = obsPart->buffers(predIdx, 0, idxStart);
   IndexT* sIdx = idxStart;
-  for (auto rle : getStageFrame(predIdx)) {
+  for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;
     if (rank != rankDense) {
       IndexT row = rle.row;
@@ -162,14 +139,4 @@ IndexT Layout::stage(const Sample* sample,
 
   return sIdx - idxStart;
   // Post-condition:  rrOut.size() == explicitCount[predIdx]
-}
-
-
-const vector<RLEVal<unsigned int>>& Layout::getStageFrame(PredictorT predIdx) const {
-  if (predIdx == predPermute) {
-    return framePermute;
-  }
-  else {
-    return rleFrame->getRLE(predIdx);
-  }
 }

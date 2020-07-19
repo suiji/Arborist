@@ -20,7 +20,6 @@
 #include "splitnux.h"
 #include "path.h"
 #include "branchsense.h"
-#include "ompthread.h"
 
 #include <numeric>
 

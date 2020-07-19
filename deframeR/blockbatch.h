@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -47,7 +47,8 @@ struct BlockBatch {
      @brief Wraps column-major R-style matrix as row-major core-style block.
    */
   static unique_ptr<BlockDense<double> > coreBlock(NumericMatrix& blockNum) {
-    return make_unique<BlockDense<double> >(blockNum.ncol(), blockNum.nrow(), blockNum.begin());
+    vector<double> blVec(blockNum.begin(), blockNum.end());
+    return make_unique<BlockDense<double> >(blockNum.ncol(), blockNum.nrow(), move(blVec));
   }
 
 
@@ -55,7 +56,8 @@ struct BlockBatch {
      @brief Wraps column-major R-style matrix as row-major core-style block.
    */
   static unique_ptr<BlockDense<unsigned int> > coreBlock(IntegerMatrix& blockFac) {
-    return make_unique<BlockDense<unsigned int> >(blockFac.ncol(), blockFac.nrow(), (unsigned int*) blockFac.begin());
+    vector<unsigned int> blVec(blockFac.begin(), blockFac.end());
+    return make_unique<BlockDense<unsigned int> >(blockFac.ncol(), blockFac.nrow(), move(blVec));
   }
   static unique_ptr<BlockBatch<batchType> > unwrap(const List& frame);
 
@@ -128,14 +130,12 @@ struct BlockBatchRLE : public BlockBatch<batchType> {
 struct BlockBatchSparse : public BlockBatchRLE<NumericMatrix> {
   unique_ptr<BlockRLE<double> > blockRLE; // Internal encoding.
 
-  BlockBatchSparse(size_t nPred,
-                   const double* runVal,
-                   const unsigned int* rowStart,
-                   const unsigned int* runLength,
-                   const unsigned int* predStart) :
-    blockRLE(make_unique<BlockRLE<double> >(nPred,
-                                            runVal,
-                                            rowStart,
+  BlockBatchSparse(const vector<double>& runVal,
+                   const vector<size_t>& runStart,
+                   const vector<size_t>& runLength,
+                   const vector<size_t>& predStart) :
+    blockRLE(make_unique<BlockRLE<double> >(runVal,
+                                            runStart,
                                             runLength,
                                             predStart)) {
   };

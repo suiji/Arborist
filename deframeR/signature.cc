@@ -29,15 +29,16 @@
 // Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.
-SEXP Signature::wrapSignature(const IntegerVector &predMap,
-                              const List& level,
-			      const List& factor,
-			      const CharacterVector &colNames,
-			      const CharacterVector &rowNames) {
+SEXP Signature::wrap(unsigned int nPred,
+		     const CharacterVector& predForm,
+		     const List& level,
+		     const List& factor,
+		     const CharacterVector& colNames,
+		     const CharacterVector& rowNames) {
   BEGIN_RCPP
   List signature =
-    List::create(
-                 _["predMap"] = predMap,
+    List::create(_["nPred"] = nPred,
+		 _["predForm"] = predForm,
                  _["level"] = level,
 		 _["factor"] = factor,
                  _["colNames"] = colNames,
@@ -79,6 +80,7 @@ SEXP Signature::checkSignature(const List &sParent) {
   END_RCPP
 }
 
+
 List Signature::unwrapLevel(const List& sTrain) {
  List sSignature(checkSignature(sTrain));
  return as<List>(sSignature["level"]);
@@ -91,10 +93,9 @@ List Signature::unwrapFactor(const List& sTrain) {
 }
 
 
-void Signature::unwrapExport(const List& sTrain, IntegerVector& predMap, List& level, List& factor) {
+void Signature::unwrapExport(const List& sTrain, List& level, List& factor, StringVector& names) {
   List sSignature(checkSignature(sTrain));
-
-  predMap = as<IntegerVector>(sSignature["predMap"]);
+  names = as<CharacterVector>(sSignature["colNames"]);
   level = as<List>(sSignature["level"]);
   factor = as<List>(sSignature["factor"]);
 }

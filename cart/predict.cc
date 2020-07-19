@@ -45,14 +45,14 @@ Predict::Predict(const Bag* bag_,
 
 PredictFrame::PredictFrame(Predict* predict_,
                            const BlockDense<double>* blockNum_,
-                           const BlockDense<unsigned int>* blockFac_) :
+                           const BlockDense<PredictorT>* blockFac_) :
   predict(predict_),
   nTree(predict->nTree),
   noLeaf(predict->noLeaf),
   blockNum(blockNum_),
   blockFac(blockFac_),
   predictRow(getNPredFac() == 0 ? &PredictFrame::predictNum : (getNPredNum() == 0 ? &PredictFrame::predictFac : &PredictFrame::predictMixed)),
-  predictLeaves(make_unique<unsigned int[]>(getExtent() * nTree)) {
+  predictLeaves(make_unique<IndexT[]>(getExtent() * nTree)) {
 }
 
 
@@ -68,7 +68,7 @@ void PredictFrame::predictAcross(size_t rowStart) {
 }
 
 
-void Predict::scoreBlock(const unsigned int predictLeaves[], size_t rowStart, size_t extent) const {
+void Predict::scoreBlock(const IndexT predictLeaves[], size_t rowStart, size_t extent) const {
   leaf->scoreBlock(predictLeaves, rowStart, extent);
 }
 
@@ -96,7 +96,7 @@ void PredictFrame::predictBlock(size_t rowStart) {
 void PredictFrame::predictNum(size_t row, size_t rowOff) {
   auto rowT = baseNum(rowOff);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    unsigned int leafIdx = predict->rowNum(tIdx, rowT, row);
+    IndexT leafIdx = predict->rowNum(tIdx, rowT, row);
     predictLeaf(rowOff, tIdx, leafIdx);
   }
 }
@@ -105,7 +105,7 @@ void PredictFrame::predictNum(size_t row, size_t rowOff) {
 void PredictFrame::predictFac(size_t row, size_t rowOff)  {
   auto rowT = baseFac(rowOff);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    unsigned int leafIdx = predict->rowFac(tIdx, rowT, row);
+    IndexT leafIdx = predict->rowFac(tIdx, rowT, row);
     predictLeaf(rowOff, tIdx, leafIdx);
   }
 }
@@ -113,20 +113,20 @@ void PredictFrame::predictFac(size_t row, size_t rowOff)  {
 
 void PredictFrame::predictMixed(size_t row, size_t rowOff) {
   const double* rowNT = baseNum(rowOff);
-  const unsigned int* rowFT = baseFac(rowOff);
+  const PredictorT* rowFT = baseFac(rowOff);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    unsigned int leafIdx = predict->rowMixed(tIdx, this, rowNT, rowFT, row);
+    IndexT leafIdx = predict->rowMixed(tIdx, this, rowNT, rowFT, row);
     predictLeaf(rowOff, tIdx, leafIdx);
   }
 }
 
 
-unsigned int Predict::rowNum(unsigned int tIdx,
-                             const double* rowT,
-                             size_t row) {
-  unsigned int leafIdx = noLeaf;
+IndexT Predict::rowNum(unsigned int tIdx,
+		       const double* rowT,
+		       size_t row) {
+  IndexT leafIdx = noLeaf;
   if (!bag->isBagged(oob, tIdx, row)) {
-    auto idx = treeOrigin[tIdx];//orig;
+    auto idx = treeOrigin[tIdx];
     do {
       idx += treeNode[idx].advance(rowT, leafIdx);
     } while (leafIdx == noLeaf);
@@ -135,12 +135,12 @@ unsigned int Predict::rowNum(unsigned int tIdx,
 }
 
 
-unsigned int Predict::rowFac(const unsigned int tIdx,
-                             const unsigned int* rowT,
-                             size_t row) {
-  unsigned int leafIdx = noLeaf;
+IndexT Predict::rowFac(const unsigned int tIdx,
+		       const unsigned int* rowT,
+		       size_t row) {
+  IndexT leafIdx = noLeaf;
   if (!bag->isBagged(oob, tIdx, row)) {
-    auto idx = treeOrigin[tIdx];//orig;
+    auto idx = treeOrigin[tIdx];
     do {
       idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
     } while (leafIdx == noLeaf);
@@ -149,12 +149,12 @@ unsigned int Predict::rowFac(const unsigned int tIdx,
 }
 
 
-unsigned int Predict::rowMixed(unsigned int tIdx,
-                               const PredictFrame* frame,
-                               const double* rowNT,
-                               const unsigned int* rowFT,
-                               size_t row) {
-  unsigned int leafIdx = noLeaf;
+IndexT Predict::rowMixed(unsigned int tIdx,
+                         const PredictFrame* frame,
+			 const double* rowNT,
+			 const unsigned int* rowFT,
+			 size_t row) {
+  IndexT leafIdx = noLeaf;
   if (!bag->isBagged(oob, tIdx, row)) {
     auto idx = treeOrigin[tIdx];
     do {
@@ -185,6 +185,6 @@ const double* PredictFrame::baseNum(size_t rowOff) const {
 
    @return base address for factor values at row.
 */
-const unsigned int* PredictFrame::baseFac(size_t rowOff) const {
+const PredictorT* PredictFrame::baseFac(size_t rowOff) const {
   return blockFac->rowBase(rowOff);
 }

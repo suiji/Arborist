@@ -103,7 +103,7 @@ public:
   IndexT lhImplicit(const class SplitNux* cand) const;
 
 
-  double interpolateRank(double splitQuant) const;
+  double interpolateRank(const class SplitNux* cand) const;
 };
 
 
@@ -237,6 +237,9 @@ struct CutSig {
   CutSig() :
     cutLeft(true) {
   }
+
+  void write(const class SplitNux* nux,
+	     const class CutAccum* accum);
 };
 
 #endif

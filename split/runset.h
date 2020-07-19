@@ -122,7 +122,7 @@ public:
   /**
      @return vector of codes corresponding to true-sense branch.
    */
-  vector<PredictorT> getTrueBits(const class SplitNux* nux) const;
+  vector<PredictorT> getTrueBits(const class SplitNux& nux) const;
 
 
   PredictorT getRunCount(const class SplitNux* nux) const;

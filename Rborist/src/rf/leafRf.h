@@ -319,7 +319,7 @@ struct LBTrainReg : public LBTrain {
 struct LBTrainCtg : public LBTrain {
   NumericVector weight; // Per-category probabilities.
   R_xlen_t weightSize; // Running Size of weight vector.  Not saved.
-  const IntegerVector& yTrain; // Training response.
+  const IntegerVector yTrain; // Training response.
 
   LBTrainCtg(const IntegerVector& yTrain_,
              unsigned int nTree);

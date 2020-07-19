@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of framemapR.
 //
@@ -39,13 +39,18 @@ unique_ptr<BlockBatch<NumericMatrix> > BlockBatch<NumericMatrix>::unwrap(const L
   List blockNumRLE((SEXP) frame["blockNumRLE"]);
 
   if (blockNumRLE.length() > 0) {
-    return make_unique<BlockBatchSparse>(
-                                         (size_t) IntegerVector((SEXP) blockNumRLE["predStart"]).length(),
-                                         (double*) NumericVector((SEXP) blockNumRLE["valNum"]).begin(),
-                                         (unsigned int*) IntegerVector((SEXP) blockNumRLE["rowStart"]).begin(),
-                                         (unsigned int*) IntegerVector((SEXP) blockNumRLE["runLength"]).begin(),
-                                         (unsigned int*) IntegerVector((SEXP) blockNumRLE["predStart"]).begin()
-                                         );
+    NumericVector valNumFE((SEXP) blockNumRLE["valNum"]);
+    vector<double> valNum(valNumFE.begin(), valNumFE.end());
+    IntegerVector runStartFE((SEXP) blockNumRLE["rowStart"]);
+    vector<size_t> runStart(runStartFE.begin(), runStartFE.end());
+    IntegerVector runLengthFE((SEXP) blockNumRLE["runLength"]);
+    vector<size_t> runLength(runLengthFE.begin(), runLengthFE.end());
+    IntegerVector predStartFE((SEXP) blockNumRLE["predStart"]);
+    vector<size_t> predStart(predStartFE.begin(), predStartFE.end());
+    return make_unique<BlockBatchSparse>(move(valNum),
+					 move(runStart),
+					 move(runLength),
+					 move(predStart));
   }
   else {
     NumericMatrix blockNum((SEXP) frame["blockNum"]);

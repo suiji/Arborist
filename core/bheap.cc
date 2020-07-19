@@ -15,7 +15,7 @@
 
 
 #include "bheap.h"
-
+#include "callback.h"
 
 unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
   unsigned int ret = pairVec[0].slot;
@@ -68,4 +68,21 @@ void BHeap::insert(BHPair pairVec[], unsigned int slot_, double key_) {
     idx = parIdx;
     parIdx = parent(idx);
   }
+}
+
+
+vector<size_t> BHeap::permute(IndexT nSlot) {
+  auto vUnif = CallBack::rUnif(nSlot);
+  vector<BHPair> heap(nSlot);
+  for (IndexT slot = 0; slot < nSlot; slot++) {
+    BHeap::insert(&heap[0], slot, vUnif[slot]);
+  }
+
+  IndexT i = 0;
+  vector<size_t> shuffle(nSlot);
+  for (IndexT heapSize = nSlot; heapSize > 0; heapSize--) {
+    shuffle[i++] = BHeap::slotPop(&heap[0], heapSize - 1);
+  }
+
+  return shuffle;
 }

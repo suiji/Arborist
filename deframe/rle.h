@@ -20,6 +20,15 @@
 using namespace std;
 
 /**
+   @brief Characterization of predictor type, irrespective of
+   storage class.
+
+   Not an appropriate contract for the long term.
+ */
+enum class PredictorForm { numeric, factor };
+
+
+/**
    @brief Run-length encoding class for parametrized type.
  */
 
@@ -54,9 +63,15 @@ struct RLEVal {
 
   RLEVal(valType val_,
          size_t row_,
-         size_t extent_) : val(val_),
+         size_t extent_ = 1) : val(val_),
 			   row(row_),
 			   extent(extent_) {
+  }
+
+  RLEVal(const RLEVal<valType>& rle) :
+    val(rle.val),
+    row(rle.row),
+    extent(rle.extent) {
   }
 };
 

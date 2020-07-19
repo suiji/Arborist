@@ -308,12 +308,12 @@ IndexT SplitFrontier::getImplicitTrue(const SplitNux* cand) const {
 
 
 void SplitFrontier::consumeCriterion(PreTree* pretree,
-				     const SplitNux* nux) const {
-  if (nux->isFactor(frame)) {
-    pretree->critBits(nux, nux->getCardinality(frame), runSet->getTrueBits(nux));
+				     const SplitNux& nux) const {
+  if (nux.isFactor(frame)) {
+    pretree->critBits(&nux, nux.getCardinality(frame), runSet->getTrueBits(nux));
   }
   else {
-    pretree->critCut(nux, this);
+    pretree->critCut(&nux, this);
   }
 }
 
@@ -460,8 +460,8 @@ void SplitFrontier::consumeSimple(const vector<SplitNux>& nuxSimple,
 				  PreTree* pretree) const {
   for (auto nux : nuxSimple) {
     if (!nux.noNux()) {
-      pretree->nonterminal(&nux);
-      consumeCriterion(pretree, &nux);
+      pretree->nonterminal(nux);
+      consumeCriterion(pretree, nux);
     }
   }
 }
@@ -484,9 +484,9 @@ void SplitFrontier::consumeCriteria(PreTree* pretree,
   // True branches target box exterior.
   // False branches target next criterion or box terminal.
   pretree->offspring(nuxCrit.size());
-  for (auto & nux : nuxCrit) {
-    pretree->nonterminalInc(&nux);
-    consumeCriterion(pretree, &nux);
+  for (auto nux : nuxCrit) {
+    pretree->nonterminalInc(nux);
+    consumeCriterion(pretree, nux);
   }
 }
 

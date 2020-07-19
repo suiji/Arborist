@@ -277,6 +277,11 @@ public:
   IndexT getImplicitCount() const {
     return implicitCount;
   }
+
+
+  auto getSplitQuant() const {
+    return splitQuant[getPredIdx()];
+  }
 };
 
 

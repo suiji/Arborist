@@ -30,15 +30,15 @@
 #include<memory>
 
 RcppExport SEXP FrameReconcile(SEXP sXFac,
-                               SEXP sPredMap,
+                               SEXP sPredForm,
                                SEXP sLevel,
                                SEXP sSigTrain) {
   BEGIN_RCPP
 
-  IntegerVector predMap(sPredMap); // 0-based predictor offsets.
+  CharacterVector predForm(sPredForm); // String representation of predictor types.
   List sigTrain(sSigTrain);
-  IntegerVector predTrain(as<IntegerVector>(sigTrain["predMap"]));
-  if (!is_true(all(predMap == predTrain))) {
+  CharacterVector formTrain(as<CharacterVector>(sigTrain["predForm"]));
+  if (!is_true(all(predForm == formTrain))) {
     stop("Training, prediction data types do not match");
   }
   IntegerMatrix xFac(sXFac);// 0-based factor codes.
@@ -70,32 +70,29 @@ RcppExport SEXP FrameReconcile(SEXP sXFac,
 RcppExport SEXP WrapFrame(SEXP sX,
                           SEXP sXNum,
                           SEXP sXFac,
-                          SEXP sPredMap,
-                          SEXP sFacCard,
+			  SEXP sPredForm,
                           SEXP sLevel,
 			  SEXP sFactor) {
   BEGIN_RCPP
 
   NumericMatrix xNum(sXNum);
-  IntegerVector facCard(sFacCard);
   IntegerMatrix xFac(sXFac);// 0-based factor codes.
-  IntegerVector predMap(sPredMap); // 0-based predictor offsets.
   DataFrame x(sX);
   List frame = List::create(
-                                _["blockNum"] = move(xNum),
-                                _["nPredNum"] = xNum.ncol(),
-                                _["blockNumRLE"] = List(), // For now.
-                                _["blockFacRLE"] = R_NilValue, // For now.
-                                _["blockFac"] = move(xFac),
-                                _["nPredFac"] = xFac.ncol(),
-                                _["nRow"] = x.nrow(),
-                                _["facCard"] = facCard,
-            _["signature"] = move(Signature::wrapSignature(predMap,
-							   as<List>(sLevel),
-							   as<List>(sFactor),
-							   Rf_isNull(colnames(x)) ? CharacterVector(0) : colnames(x),
-							   Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
-                                );
+			    _["nPredNum"] = xNum.ncol(),
+			    _["blockNum"] = move(xNum),
+			    _["blockNumRLE"] = List(), // For now.
+			    _["blockFacRLE"] = R_NilValue, // For now.
+			    _["nPredFac"] = xFac.ncol(),
+			    _["blockFac"] = move(xFac),
+			    _["nRow"] = x.nrow(),
+			    _["signature"] = move(Signature::wrap(x.ncol(),
+								  as<CharacterVector>(sPredForm),
+								  as<List>(sLevel),
+								  as<List>(sFactor),
+								  Rf_isNull(x.names()) ? CharacterVector(0) : x.names(),
+								  Rf_isNull(rownames(x)) ? CharacterVector(0) : rownames(x)))
+			    );
   frame.attr("class") = "Frame";
 
   return frame;
@@ -105,6 +102,7 @@ RcppExport SEXP WrapFrame(SEXP sX,
 
 RcppExport SEXP FrameNum(SEXP sX) {
   NumericMatrix blockNum(sX);
+  unsigned int nPred = blockNum.ncol();
   List frame = List::create(
         _["blockNum"] = blockNum,
         _["blockNumRLE"] = List(), // For now.
@@ -113,14 +111,13 @@ RcppExport SEXP FrameNum(SEXP sX) {
         _["blockFac"] = IntegerMatrix(0),
         _["nPredFac"] = 0,
         _["nRow"] = blockNum.nrow(),
-        _["facCard"] = IntegerVector(0),
-        _["signature"] = move(Signature::wrapSignature(
-                                        seq_len(blockNum.ncol()) - 1,
-                                        List::create(0),
-					List::create(0),
-                                        Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
-                                        Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum)))
-                                );
+        _["signature"] = move(Signature::wrap(nPred,
+					      rep(CharacterVector("numeric"), nPred),
+					      List::create(0),
+					      List::create(0),
+					      Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
+					      Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum)))
+			    );
   frame.attr("class") = "Frame";
 
   return frame;
@@ -134,19 +131,34 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   BEGIN_RCPP
   S4 spNum(sX);
 
+  // Divines the encoding format and packs appropriately.
+  //
   IntegerVector i;
   if (R_has_slot(sX, PROTECT(Rf_mkString("i")))) {
     i = spNum.slot("i");
+    if (i.length() == 0) {
+      stop("Sparse form j/p:  NYI");
+    }
   }
+
+  
   IntegerVector j;
   if (R_has_slot(sX, PROTECT(Rf_mkString("j")))) {
     j = spNum.slot("j");
+    if (j.length() != 0) {
+      stop("Indeterminate sparse matrix format");
+    }
   }
+
   IntegerVector p;
   if (R_has_slot(sX, PROTECT(Rf_mkString("p")))) {
     p = spNum.slot("p");
+    if (p.length() == 0) {
+      stop("Sparse form i/j:  NYI");
+    }
   }
 
+  
   if (!R_has_slot(sX, PROTECT(Rf_mkString("Dim")))) {
     stop("Expecting dimension slot");
   }
@@ -156,28 +168,16 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   UNPROTECT(5);
 
   IntegerVector dim = spNum.slot("Dim"); // #row, #pred
-  unsigned int nRow = dim[0];
+  size_t nRow = dim[0];
   unsigned int nPred = dim[1];
   unique_ptr<BlockIPCresc<double> > rleCresc = make_unique<BlockIPCresc<double> >(nRow, nPred);
 
-  // Divines the encoding format and packs appropriately.
-  //
-  if (i.length() == 0) {
-    stop("Sparse form j/p:  NYI");
-  }
-  else if (p.length() == 0) {
-    stop("Sparse form i/j:  NYI");
-  }
-  else if (j.length() == 0) {
-    rleCresc->nzRow(&as<NumericVector>(spNum.slot("x"))[0], &i[0], &p[0]);
-  }
-  else {
-    stop("Indeterminate sparse matrix format");
-  }
-
+  vector<size_t> rowNZ(i.begin(), i.end());
+  vector<size_t> idxPred(p.begin(), p.end());
+  rleCresc->nzRow(&as<NumericVector>(spNum.slot("x"))[0], rowNZ, idxPred);
   List blockNumIP = List::create(
                                  _["valNum"] = rleCresc->getVal(),
-                                 _["rowStart"] = rleCresc->getRowStart(),
+                                 _["rowStart"] = rleCresc->getRunStart(),
                                  _["runLength"] = rleCresc->getRunLength(),
                                  _["predStart"] = rleCresc->getPredStart());
   blockNumIP.attr("class") = "BlockNumIP";
@@ -196,7 +196,6 @@ RcppExport SEXP FrameSparse(SEXP sX) {
   }
   UNPROTECT(1);
 
-  IntegerVector facCard(0);
   List frame = List::create(
         _["blockNum"] = NumericMatrix(0),
         _["nPredNum"] = nPred,
@@ -205,13 +204,12 @@ RcppExport SEXP FrameSparse(SEXP sX) {
         _["blockFac"] = IntegerMatrix(0),
         _["nPredFac"] = 0,
         _["nRow"] = nRow,
-        _["facCard"] = facCard,
-        _["signature"] = move(Signature::wrapSignature(seq_len(nPred) - 1,
-                                        List::create(0),
-						       List::create(0),
-                                        colName,
-                                        rowName))
-                                );
+        _["signature"] = move(Signature::wrap(nPred,
+					      rep(CharacterVector("numeric"), nPred),
+					      List::create(0),
+					      List::create(0),
+					      colName,
+					      rowName)));
 
   frame.attr("class") = "Frame";
 

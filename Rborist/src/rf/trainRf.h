@@ -57,19 +57,15 @@ struct TrainRf {
 
      @param nTree is the number of trees in the forest.
 
-     @param predMap maps core to front-end predictor indices.
-
      @param yTrain is the training response vector.
    */
   TrainRf(unsigned int nTree_,
-          const IntegerVector& predMap,
           const NumericVector& yTrain);
 
   /**
      @brief Classification constructor.  Parameters as above.
    */
   TrainRf(unsigned int nTree_,
-          const IntegerVector& predMap,
           const IntegerVector& yTrain);
 
 
@@ -78,29 +74,23 @@ struct TrainRf {
 
      @param summaryFrame summarizes the predictor frame.
 
-     @param predMap maps core to front-end predictor indices.
-
      @return R-style list of trained summaries.
   */
-  static List classification(const List& argList,
-                             const struct TrainBridge* trainBridge,
-                             const IntegerVector& predMap,
-                             vector<string>& diag);
+  static unique_ptr<TrainRf> classification(const List& argList,
+					    const struct TrainBridge* trainBridge);
+
   
   /**
      @brief Trains regression forest.
 
      @param summaryFrame summarizes the predictor frame.
 
-     @param predMap maps core to front-end predictor indices.
-
      @return R-style list of trained summaries.
   */
-  static List regression(const List& argList,
-                         const struct TrainBridge* trainBridge,
-                         const IntegerVector& predMap,
-                         vector<string>& diag);
+  static unique_ptr<TrainRf> regression(const List& argList,
+					const struct TrainBridge* trainBridge);
 
+  
   /**
       @brief R-language interface to response caching.
 
@@ -119,22 +109,21 @@ struct TrainRf {
   static NumericVector ctgProxy(const IntegerVector &y,
                                 const NumericVector &classWeight);
 
+
   /**
      @brief Scales the per-predictor information quantity by # trees.
 
-     @param predMap is the core-to-front map of predictor indices.
-
      @return remapped vector of scaled information values.
    */
-  NumericVector scalePredInfo(const IntegerVector &predMap);
+  NumericVector scaleInfo(const TrainBridge* trainBridge);
 
   
   /**
      @return implicit R_NilValue.
    */
   static SEXP initFromArgs(const List &argList,
-			   struct TrainBridge* trainBridge,
-			   const IntegerVector &predMap);
+			   struct TrainBridge* trainBridge);
+
 
   /**
      @brief Unsets static initializations.
@@ -151,15 +140,9 @@ struct TrainRf {
 
      @param argList is the front-end argument list.
 
-     @param predmap is the predictor map.
-
-     @param nRow is the number of observations.
-
      @return list of trained forest objects.
    */
-  static List train(const List& argList,
-		    const IntegerVector& predmap,
-		    unsigned int nRow);
+  static List train(const List& argList);
 
 
   /**
@@ -167,14 +150,9 @@ struct TrainRf {
 
      @param argList is the user-supplied argument list.
 
-     @param predMap maps core to front-end predictor indices.
-
-     @param nRow is the number of observations being trained.
-
      @return R-style list of trained summaries.
    */
   static List train(const List& argList,
-                    const IntegerVector& predMap,
                     const struct RLEFrame* rleFrame);
 
   
@@ -193,13 +171,13 @@ struct TrainRf {
   /**
      @brief Whole-forest summary of trained chunks.
 
-     @param predMap[] maps core predictor indices to front-end.
+     @param trainBridge contains trained summary from core.
 
      @param diag accumulates diagnostic messages.
 
      @return the summary.
    */
-  List summarize(const IntegerVector& predMap,
+  List summarize(const TrainBridge* trainBridge,
                  const vector<string>& diag);
 
 private:

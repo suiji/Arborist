@@ -21,11 +21,17 @@
 #include "trainframe.h"
 
 
-TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : trainFrame(make_unique<TrainFrame>(rleFrame, autoCompress, rleFrame->getNPred(), enableCoproc, diag)) {
+TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : trainFrame(make_unique<TrainFrame>(rleFrame, autoCompress, enableCoproc, diag)) {
 }
 
 
 TrainBridge::~TrainBridge() {
+}
+
+
+vector<PredictorT> TrainBridge::getPredMap() const {
+  vector<PredictorT> predMap(trainFrame->getPredMap());
+  return predMap;
 }
 
 

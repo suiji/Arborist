@@ -78,26 +78,26 @@ void PreTree::reserve(IndexT height) {
 }
 
 
-void PreTree::nonterminalInc(const SplitNux* nux) {
+void PreTree::nonterminalInc(const SplitNux& nux) {
   PTNode::setNonterminal(nodeVec, nux, height);
 }
 
 
-void PreTree::nonterminal(const SplitNux* nux) {
+void PreTree::nonterminal(const SplitNux& nux) {
   offspring(1);
   PTNode::setNonterminal(nodeVec, nux, height);
 }
 
 
-void PTNode::setNonterminal(vector<PTNode>& nodeVec, const SplitNux* nux, IndexT height) {
-  nodeVec[nux->getPTId()].setNonterminal(nux, height);
+void PTNode::setNonterminal(vector<PTNode>& nodeVec, const SplitNux& nux, IndexT height) {
+  nodeVec[nux.getPTId()].setNonterminal(nux, height);
 }
 
 
-void PTNode::setNonterminal(const SplitNux* nux,
+void PTNode::setNonterminal(const SplitNux& nux,
                             IndexT height) {
-  setDelIdx(height - 2 - nux->getPTId());
-  info = nux->getInfo();
+  setDelIdx(height - 2 - nux.getPTId());
+  info = nux.getInfo();
 }
 
 

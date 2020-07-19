@@ -37,11 +37,20 @@ PreFormat.default <- function(x, verbose = FALSE) {
 
         if (verbose)
             print("Pre-sorting")
-        preFormat <- list(
-            predFrame = predFrame,
-            summaryRLE = .Call("Presort", predFrame),
-            obsHash = digest::digest(x)
-        )
+        if (is.data.frame(x)) {
+            preFormat <- list(
+                predFrame = predFrame,
+                summaryRLE = tryCatch(.Call("PresortDF", data.table::setDT(x))),
+                obsHash = digest::digest(x)
+            )
+        }
+        else {
+            preFormat <- list(
+                predFrame = predFrame,
+                summaryRLE = tryCatch(.Call("PresortNum", predFrame)),
+                obsHash = digest::digest(x)
+            )
+        }
         class(preFormat) <- "PreFormat"
         if (verbose)
             print("Pre-formatting completed")
@@ -60,24 +69,29 @@ PredFrame <- function(x, sigTrain = NULL) {
     stop("NA not supported in design matrix")
   }
 
-  # For now, only numeric and factor types supported.
+  # For now, only numeric and unordered factor types supported.
   #
   if (is.data.frame(x)) {
       dt <- data.table::setDT(x)
-      xFac <- data.matrix(Filter(function(col) ifelse(is.factor(col) && !is.ordered(col), TRUE, FALSE), dt)) - 1
-      xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), dt))
-      if (ncol(xNum) + ncol(xFac) != ncol(dt)) {
-          stop("Frame column with unsupported data type")
+      colSurvey <- sapply(dt, function(col) ifelse(is.numeric(col) || (is.factor(col) && !is.ordered(col)), TRUE, FALSE))
+      if (length(which(colSurvey)) != ncol(dt)) {
+          stop("Frame columns must be either numeric or unordered factor")
       }
-      lv <- sapply(dt, levels) # All string levels, regardless whether realized.
-      codes <- sapply(dt, factor) # Realized levels only.
-      colCard <- sapply(dt, function(col) ifelse(is.numeric(col), 0, length(levels(col))))
-      predMap <- c(which(colCard == 0), which(colCard != 0)) - 1
-      if (!is.null(sigTrain) && any(colCard != 0)) {
-          xFac <- tryCatch(.Call("FrameReconcile", xFac, predMap, lv[colCard != 0], sigTrain), error = function(e) {stop(e)} )
-      }      
-
-      return(tryCatch(.Call("WrapFrame", dt, xNum, xFac, predMap, colCard[colCard != 0], lv[colCard != 0], codes[colCard != 0]), error = function(e) {stop(e)} ))
+      predForm <- sapply(dt, function(col) ifelse(is.numeric(col), "numeric", "factor"))
+      lv <- lapply(dt, levels) # All string levels, regardless whether realized.
+      hasFactor <- sapply(dt, function(col) ifelse(is.numeric(col), FALSE, TRUE))
+      if (!is.null(sigTrain) && any(hasFactor)) { # Already trained:  extract factors and reconcile.
+          xFac <- data.matrix(Filter(function(col) ifelse(is.numeric(col), FALSE, TRUE), dt)) - 1
+          xFac <- tryCatch(.Call("FrameReconcile", xFac, predForm, lv[hasFactor], sigTrain), error = function(e) {stop(e)} )
+      }
+      else { # Training
+          # Only recorded for validation:  reconstruct internally and eliminate.
+          xFac <- data.matrix(Filter(function(col) ifelse(is.numeric(col), FALSE, TRUE), dt)) - 1
+      }
+      # As with xFac, xNum should be reconstructed internally for validation.
+      xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), dt))
+      codes <- lapply(dt, factor) # Realized levels only.
+      return(tryCatch(.Call("WrapFrame", dt, xNum, xFac, predForm, lv[hasFactor], codes[hasFactor]), error = function(e) {stop(e)} ))
   }
   else if (inherits(x, "dgCMatrix")) {
      return(tryCatch(.Call("FrameSparse", x), error= print))

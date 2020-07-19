@@ -16,44 +16,79 @@
 #ifndef OBS_TRAINFRAME_H
 #define OBS_TRAINFRAME_H
 
-#include "block.h"
-#include "layout.h"
-
+#include <algorithm>
 #include <vector>
 #include <memory>
+
 using namespace std;
+
+#include "block.h"
+#include "rleframe.h"
+#include "typeparam.h"
+
 
 /**
    @brief Frame represented as row/rank summaries, with numeric block.
  */
 class TrainFrame {
+  const struct RLEFrame* rleFrame;
   const IndexT nRow;
+  const unique_ptr<class Coproc> coproc; // Stubbed, for now.
+  const vector<vector<double>> numRanked; // Ordered numeric values.
+  const vector<vector<unsigned int>> facRanked; // Ordered factor codes.
+
+  
+  unique_ptr<class Layout> layout;
+
+  
+  inline double getNumVal(PredictorT predIdx,
+                          IndexT rank) const {
+    return numRanked[predIdx][rank];
+  }
+
+  /**
+     @brief Assigns factor cardinalities from number of unique factor levels.
+
+     @return vector of factor cardinalities.
+   */
+  vector<PredictorT> cardinalities(const vector<vector<unsigned int>>& facRanked_)  const;
+
+  
+  /**
+     @brief Assigns mapping from core to front-end predictor index.
+
+     @return vector of index mappings.
+   */
+  vector<PredictorT> mapPredictors(const vector<PredictorForm>& predForm_) const;
+
+  
+public:
+
   const PredictorT nPredNum;
   const vector<PredictorT> cardinality; // Factor predictor cardinalities.
   const PredictorT nPredFac;
-  const PredictorT cardExtent; // Greatest factor footprint.
   const PredictorT nPred;
-  const unique_ptr<class Coproc> coproc; // Stubbed, for now.
-  unique_ptr<Layout> layout;
-  const unique_ptr<BlockJagged<double> > numRanked;
-
-
-  inline double getNumVal(PredictorT predIdx,
-                          IndexT rank) const {
-    return numRanked->getVal(predIdx, rank);
-  }
-
-public:
-
+  const vector<PredictorT> predMap; // Maps core predictor index to user position.
+  
   TrainFrame(const struct RLEFrame* rleFrame,
 	     double autoCompress,
-	     PredictorT predPermute,
 	     bool enableCoproc,
 	     vector<string>& diag);
 
   
   ~TrainFrame();
 
+
+  const vector<PredictorT>& getPredMap() const {
+    return predMap;
+  }
+  
+
+  const vector<RLEVal<unsigned int>>& getRLE(PredictorT predIdx) const {
+    return rleFrame->getRLE(predMap[predIdx]);
+  }
+
+  
   /**
      brief Completes layout for staging.
    */
@@ -66,7 +101,7 @@ public:
   /**
      @brief Getter for rankedFrame.
    */
-  inline Layout* getLayout() const {
+  inline class Layout* getLayout() const {
     return layout.get();
   }
 
@@ -108,7 +143,7 @@ public:
      @brief Accessor for cardinality footprint.
    */
   inline auto getCardExtent() const {
-    return cardExtent;
+    return cardinality.empty() ? 0 : *max_element(cardinality.begin(), cardinality.end());
   }
   
 
@@ -137,8 +172,8 @@ public:
      @return strided factor offset, if factor, else predictor index.
    */
   inline unsigned int getFacStride(PredictorT predIdx,
-				unsigned int nStride,
-				bool &thisIsFactor) const {
+				   unsigned int nStride,
+				   bool& thisIsFactor) const {
     PredictorT facIdx = getIdx(predIdx, thisIsFactor);
     return thisIsFactor ? nStride * getNPredFac() + facIdx : predIdx;
   }

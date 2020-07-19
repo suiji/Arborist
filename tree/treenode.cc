@@ -20,10 +20,10 @@
 #include "predict.h"
 
 
-void TreeNode::setQuantRank(const TrainFrame* sf) {
+void TreeNode::setQuantRank(const TrainFrame* trainFrame) {
   auto predIdx = getPredIdx();
-  if (isNonterminal() && !sf->isFactor(predIdx)) {
-    criterion.setQuantRank(sf, predIdx);
+  if (isNonterminal() && !trainFrame->isFactor(predIdx)) {
+    criterion.setQuantRank(trainFrame, predIdx);
   }
 }
 

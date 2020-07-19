@@ -19,6 +19,9 @@
 
 #include "typeparam.h"
 
+#include <vector>
+
+using namespace std;
 
 /**
    @brief Ad hoc container for simple priority queue.
@@ -82,6 +85,15 @@ struct BHeap {
   */
   static unsigned int slotPop(BHPair pairVec[],
                               int bot);
+
+  /**
+     @brief Permutes a zero-based set of contiguous values.
+
+     @param nSlot is the number of values.
+
+     @return vector of permuted indices.
+   */
+  static vector<size_t> permute(IndexT nSlot);
 };
 
 #endif

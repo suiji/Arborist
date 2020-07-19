@@ -17,9 +17,6 @@
 #define OBS_LAYOUT_H
 
 #include <vector>
-#include <cmath>
-
-#include "rleframe.h"
 
 using namespace std;
 
@@ -51,12 +48,10 @@ struct ImplExpl {
   @brief Rank orderings of predictors.
 */
 class Layout {
-  const class RLEFrame* rleFrame;
+  const class TrainFrame* trainFrame;
   const IndexT nRow;
   const PredictorT nPred;
   const PredictorT noRank; // Inattainable rank value.
-  const PredictorT predPermute; // Predictor undergoing permutation.
-  vector<RLEVal<unsigned int>> framePermute;
   PredictorT nPredDense;
 
   PredictorT nonCompact;  // Total count of uncompactified predictors.
@@ -68,13 +63,13 @@ class Layout {
   /**
      @brief Walks the design matrix as RLE entries, merging adjacent entries of identical rank.
   */
-  vector<ImplExpl> denseBlock(const class RLEFrame* rleFrame);
+  vector<ImplExpl> denseBlock(const class TrainFrame* trainFrame);
 
 
   /**
      @brief Determines a dense rank for the predictor, if any.
    */
-  ImplExpl setDense(const class RLEFrame* rleFrame,
+  ImplExpl setDense(const class TrainFrame* trainFrame,
 		    PredictorT predIdx);
 
   /**
@@ -107,14 +102,6 @@ class Layout {
 	       PredictorT predIdx,
 	       class ObsPart* obsPart) const;
 
-
-  /**
-     @return permuted row indices.
-   */
-  vector<size_t> shuffleRows() const;
-  
-
-  const vector<RLEVal<unsigned int>>& getStageFrame(PredictorT predIdx) const;
   
 public:
 
@@ -127,10 +114,10 @@ public:
 
   // Factory parametrized by coprocessor state.
   static Layout *Factory(const class Coproc *coproc,
-			      const class RLEFrame* rleFrame,
-                              double autoCompress,
-			      PredictorT predPermute);
+			      const class TrainFrame* trainFrame,
+			 double autoCompress);
 
+  
   /**
      @brief Constructor for row, rank passed from front end as parallel arrays.
 
@@ -138,9 +125,9 @@ public:
 
      @param feRank is the vector of ranks allocated by the front end.
  */
-  Layout(const class RLEFrame* rleFrame,
-              double autoCompress,
-	      PredictorT predPermute);
+  Layout(const class TrainFrame* trainFrame,
+	 double autoCompress);
+
 
   virtual ~Layout();
 

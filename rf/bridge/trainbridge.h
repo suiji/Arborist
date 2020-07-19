@@ -33,8 +33,15 @@ struct TrainBridge {
   
   ~TrainBridge();
 
-  unique_ptr<struct TrainChunk>
-  classification(const unsigned int *yCtg,
+  /**
+     @brief Copies internal-to-external predictor map.
+
+     @return copy of trainFrame's predMap.
+   */
+  vector<PredictorT> getPredMap() const;
+  
+
+  unique_ptr<struct TrainChunk> classification(const unsigned int *yCtg,
 		 const double *yProxy,
 		 unsigned int nCtg,
 		 unsigned int treeChunk,

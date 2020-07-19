@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -43,6 +43,7 @@ struct Signature {
    */
   static CharacterVector unwrapRowNames(const List& sFrame);
 
+
   /**
      @brief Ensures the passed object has Frame type.
 
@@ -64,14 +65,14 @@ struct Signature {
   /**
      @brief Unwraps field values useful for export.
 
-     @param[out] predMap outputs the core predictor mapping.
+     @param[out] level outputs all training factor levels.
 
-     @param[out] level outputs the training factor levels.
+     @param[out] factor outputs only realized factor levels.
    */
   static void unwrapExport(const List& sTrain,
-                           IntegerVector& predMap,
                            List& level,
-			   List& factor);
+			   List& factor,
+			   StringVector& names);
 
   /**
      @brief Unwraps level field.
@@ -93,11 +94,12 @@ struct Signature {
   static List unwrapFactor(const List& sTrain);
 
 
-  static SEXP wrapSignature(const IntegerVector& predMap,
-			    const List& level,
-			    const List& factor,
-			    const CharacterVector& colNames,
-			    const CharacterVector& rowNames);
+  static SEXP wrap(unsigned int nPred,
+		   const CharacterVector& predForm,
+		   const List& level,
+		   const List& factor,
+		   const CharacterVector& colNames,
+		   const CharacterVector& rowNames);
 };
 
 
