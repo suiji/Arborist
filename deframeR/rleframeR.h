@@ -74,6 +74,10 @@ struct RLEFrameR {
    */
   static List checkFacRanked(SEXP sFacRanked);
 
+
+  static List presortDF(const DataFrame& df);
+
+  
   /**
      @brief Static entry to block sorting.
 
@@ -84,26 +88,21 @@ struct RLEFrameR {
   static List presortNum(const List& frame);
 
 
-  static List presortDF(const DataFrame& df);
-
-  
   /**
      @brief Produces an R-style run-length encoding of the frame.
 
      @param rleCresc is the crescent encoding.
    */
-  static List wrap(const vector<vector<unsigned int>>& valCode,
-		   const vector<vector<double>>& valNum,
-		   const class RLECresc* rleCresc);
+  static List wrap(const class RLECresc* rleCresc);
 
   
   static List wrapRF(const class RLECresc* rleCresc);
 
 
-  static List wrapNum(const vector<vector<double>>& valNum);
+  static List wrapNum(const class RLECresc* rleCresc);
 
   
-  static List wrapFac(const vector<vector<unsigned int>>& valFac);
+  static List wrapFac(const class RLECresc* rleCresc);
 
   
   static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame);

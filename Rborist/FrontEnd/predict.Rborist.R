@@ -55,7 +55,7 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
   
   # Checks test data for conformity with training data.
   sigTrain <- objTrain$signature
-  predFrame <- PredFrame(newdata, sigTrain)
+  predFrame <- deframe(newdata, sigTrain)
 
   leaf <- objTrain$leaf
   if (inherits(leaf, "LeafReg")) {

@@ -100,7 +100,7 @@ RcppExport SEXP WrapFrame(SEXP sX,
 }
 
 
-RcppExport SEXP FrameNum(SEXP sX) {
+RcppExport SEXP WrapNum(SEXP sX) {
   NumericMatrix blockNum(sX);
   unsigned int nPred = blockNum.ncol();
   List frame = List::create(
@@ -123,11 +123,11 @@ RcppExport SEXP FrameNum(SEXP sX) {
   return frame;
 }
 
-// TODO:  Move column and row names to signature.
+
 /**
    @brief Reads an S4 object containing (sparse) dgCMatrix.
  */
-RcppExport SEXP FrameSparse(SEXP sX) {
+RcppExport SEXP WrapSparse(SEXP sX) {
   BEGIN_RCPP
   S4 spNum(sX);
 

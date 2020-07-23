@@ -222,11 +222,11 @@
 
     argList$pvtBlock <- 8
 
-    RFDeep(argList)
+    RFDeep(preFormat, argList)
 }
 
 
-RFDeep <- function(argList) {
+RFDeep <- function(preFormat, argList) {
     train <- tryCatch(.Call("TrainRF", argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
@@ -242,7 +242,7 @@ RFDeep <- function(argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(argList$predFrame, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
+        validation <- ValidateDeep(preFormat, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
     }
 
     arbOut <- list(

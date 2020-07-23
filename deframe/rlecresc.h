@@ -45,17 +45,21 @@ class RLECresc {
 
   vector<unsigned int> typedIdx; // Maps index to typed offset.
 
+  // Encodes observations as run characteristics, not values.
+  // Error if empty.
+  vector<vector<RLEVal<unsigned int>>> rle;
+
+
+  vector<vector<unsigned int>> valFac;
+
+
+  vector<vector<double>> valNum;
+
+
   unsigned int nFactor; // Count of factor predictors.
 
   unsigned int nNumeric; // Count of numeric predictors.
 
-  
-  // Encodes observations as run characteristics, not values.
-  // Error if empty.
-  vector<RLEVal<unsigned int> > rle;
-
-  // Per-predictor (blocked) cumulative heights.
-  vector<size_t> rleHeight;
   
   /**
      @brief Emits a run-length encoding of a sorted list.
@@ -65,7 +69,7 @@ class RLECresc {
      @param[out] val outputs unique values in sorted order.
    */
   template<typename tn>
-  void encode(const ValRank<tn>& vr, vector<tn>& valPred) {
+  void encode(const ValRank<tn>& vr, vector<tn>& valPred, vector<RLEVal<unsigned int>>& rlePred) {
     size_t rowNext = nRow; // Inattainable row number.
 
     tn valPrev = vr.getVal(0); // Ensures intial rle pushed at first iteration.
@@ -75,18 +79,17 @@ class RLECresc {
       auto valThis = vr.getVal(idx);
       if (valThis != valPrev) {
 	valPred.push_back(valThis);
-	rle.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+	rlePred.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
       }
       else if (rowThis != rowNext) {
-	rle.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+	rlePred.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
       }
       else {
-	rle.back().extent++;
+	rlePred.back().extent++;
       }
       valPrev = valThis;
       rowNext = rowThis + 1;
     }
-    rleHeight.push_back(rle.size());
   }
 
 
@@ -120,6 +123,12 @@ class RLECresc {
       typedIdx[predIdx] = nNumeric++;
     }
   }
+
+  unsigned int getTypedIdx(unsigned int predIdx,
+			   bool& isFactor) const {
+    isFactor = predForm[predIdx] == PredictorForm::factor;
+    return typedIdx[predIdx];
+  }
   
 
   auto getNFactor() const {
@@ -145,15 +154,55 @@ class RLECresc {
   auto getTypedIdx(unsigned int predIdx) const {
     return typedIdx[predIdx];
   }
+
+
+  const vector<vector<unsigned int>>& getValFac() const {
+    return valFac;
+  }
+
+
+  const vector<vector<double>>& getValNum() const {
+    return valNum;
+  }
   
 
   /**
      @brief Accessor for copyable height vector.
    */
-  const vector<size_t>& getHeight() const {
+  const vector<size_t> getHeight() const {
+    vector<size_t> rleHeight(rle.size());
+    unsigned int predIdx = 0;
+    size_t totHeight = 0;
+    for (auto & height : rleHeight) {
+      totHeight += rle[predIdx++].size();
+      height = totHeight;
+    }
+    
     return rleHeight;
   }
 
+
+  /**
+     @brief Encodes a frame consisting of factors and/or numeric values.
+
+     @param colBase is the base address of each column (predictor).
+   */
+  void encodeFrame(const vector<void*>& colBase);
+
+
+  /**
+     @brief Encodes entire frame from sparse numeric specification.
+   */
+  void encodeFrameNum(const vector<double>&  feVal,
+		      const vector<size_t>&  feRowStart,
+		      const vector<size_t>&  feRunLength);
+
+
+  /**
+     @brief Encodes entire frame from dense numeric block.
+   */
+  void encodeFrameNum(const double*  feVal);
+  
 
   void dump(vector<size_t>& valOut,
 	    vector<size_t>& lengthOut,
@@ -182,8 +231,9 @@ class RLECresc {
 				      const vector<size_t>&  feRunLength) {
     vector<vector<valType>> val(nPredType);
     size_t colOff = 0;
+    unsigned int predIdx = 0;
     for (auto & valPred : val) {
-      colOff += sortSparse(valPred, &feVal[colOff], &feRowStart[colOff], &feRunLength[colOff]);
+      colOff += sortSparse(valPred, predIdx++, &feVal[colOff], &feRowStart[colOff], &feRunLength[colOff]);
     }
     return val;
   }
@@ -191,6 +241,7 @@ class RLECresc {
 
   template<typename valType>
   size_t sortSparse(vector<valType>& valPred,
+		    unsigned int predIdx,
 		    const double feCol[],
 		    const size_t feRowStart[],
 		    const size_t feRunLength[]) {
@@ -202,7 +253,7 @@ class RLECresc {
     // Postcondition:  rleNum.size() == caller's vector length.
 
     sort(rleVal.begin(), rleVal.end(), RLECompare<valType>);
-    encode(valPred, rleVal);
+    encode(valPred, rleVal, rle[predIdx]);
 
     return rleVal.size();
   }
@@ -215,7 +266,8 @@ class RLECresc {
   */
   template<typename valType>
   void encode(vector<valType>& valPred,
-	      const vector<RLEVal<valType> >& rleVal) {
+	      const vector<RLEVal<valType> >& rleVal,
+	      vector<RLEVal<unsigned int>>& rlePred) {
     size_t rowNext = nRow; // Inattainable row number.
     size_t rk = 0;
     valPred.push_back(rleVal[0].val);
@@ -224,44 +276,35 @@ class RLECresc {
       auto rowThis = elt.row;
       auto runCount = elt.extent;
       if (valThis == valPred.back() && rowThis == rowNext) { // Run continues.
-	rle.back().extent += runCount;
+	rlePred.back().extent += runCount;
       }
       else { // New RLE, rank entries regardless whether tied.
 	if (valThis != valPred.back()) {
 	  rk++;
 	  valPred.push_back(valThis);
 	}
-	rle.emplace_back(RLEVal<unsigned int>(rk, rowThis, runCount));
+	rlePred.emplace_back(RLEVal<unsigned int>(rk, rowThis, runCount));
       }
-      rowNext = rle.back().row + rle.back().extent;
+      rowNext = rlePred.back().row + rlePred.back().extent;
     }
-    rleHeight.push_back(rle.size());
   }
 
-
-  template<typename valType>
-  void encodeColumn(const vector<valType>& val,
-		    vector<valType>& valOut) {
-    ValRank<valType> valRank(&val[0], nRow);
-    encode(valRank, valOut);
-  }
-  
 
   /**
-     @brief Presorts dense predictor block supplied by front end.
+     @brief Sorts and run-encodes a contiguous column of values.
 
-     @return vector of presorted vectors.
+     @param val points to the base of the column.
+
+     @param[out] valOut is the vector of encoded values.
+
+     @param predIdx is the predictor (column) index.
    */
   template<typename valType>
-  vector<vector<valType>> encodeDense(unsigned int nType,
-				      const valType feVal[]) {
-    vector<vector<valType>> val(nType);
-    size_t valIdx = 0;
-    for (auto & valPred : val) {
-      ValRank<valType> valRank(&feVal[valIdx++ * nRow], nRow);
-      encode(valRank, valPred);
-    }
-    return val;
+  void encodeColumn(const valType* val,
+		    vector<valType>& valOut,
+		    unsigned int predIdx) {
+    ValRank<valType> valRank(&val[0], nRow);
+    encode(valRank, valOut, rle[predIdx]);
   }
 };
 #endif

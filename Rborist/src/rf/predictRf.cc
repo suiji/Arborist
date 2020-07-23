@@ -33,13 +33,15 @@
 #include "leafbridge.h"
 
 #include <algorithm>
-RcppExport SEXP ValidateReg(const SEXP sFrame,
+RcppExport SEXP ValidateReg(const SEXP sPreFormat,
                             const SEXP sTrain,
                             SEXP sYTest,
                             SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictReg(List(sFrame), List(sTrain), sYTest, true, as<unsigned int>(sNThread));
+  List lPreFormat(sPreFormat);
+  List lFrame((SEXP) lPreFormat["predFrame"]);
+  return PBRf::predictReg(lFrame, List(sTrain), sYTest, true, as<unsigned int>(sNThread));
 
   END_RCPP
 }
@@ -63,10 +65,10 @@ RcppExport SEXP TestReg(const SEXP sFrame,
    @return Wrapped zero, with copy-out parameters.
  */
 List PBRf::predictReg(const List& lFrame,
-                  const List& lTrain,
-                  SEXP sYTest,
-                  bool oob,
-                  unsigned int nThread) {
+		      const List& lTrain,
+		      SEXP sYTest,
+		      bool oob,
+		      unsigned int nThread) {
   BEGIN_RCPP
 
   unique_ptr<PredictBridge> pBridge(unwrapReg(lFrame, lTrain, oob, nThread));
@@ -138,25 +140,29 @@ unique_ptr<PredictBridge> PBRf::unwrapReg(const List& lFrame,
 }
 
 
-RcppExport SEXP ValidateVotes(const SEXP sFrame,
+RcppExport SEXP ValidateVotes(const SEXP sPreFormat,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sNThread) {
   BEGIN_RCPP
-
-  return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, true, false, as<unsigned int>(sNThread));
+    List lPreFormat(sPreFormat);
+  List lFrame((SEXP) lPreFormat["predFrame"]);
+  return PBRf::predictCtg(lFrame, List(sTrain), sYTest, true, false, as<unsigned int>(sNThread));
 
   END_RCPP
 }
 
 
-RcppExport SEXP ValidateProb(const SEXP sFrame,
+RcppExport SEXP ValidateProb(const SEXP sPreFormat,
                              const SEXP sTrain,
                              SEXP sYTest,
                              SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictCtg(List(sFrame), List(sTrain), sYTest, true, true, as<unsigned int>(sNThread));
+  List lPreFormat(sPreFormat);
+  List lFrame((SEXP) lPreFormat["predFrame"]);
+    
+  return PBRf::predictCtg(lFrame, List(sTrain), sYTest, true, true, as<unsigned int>(sNThread));
 
   END_RCPP
 }
@@ -205,14 +211,16 @@ List PBRf::predictCtg(const List& lFrame,
   END_RCPP
 }
 
-RcppExport SEXP ValidateQuant(const SEXP sFrame,
+RcppExport SEXP ValidateQuant(const SEXP sPreFormat,
                               const SEXP sTrain,
                               SEXP sYTest,
                               SEXP sQuantVec,
                               SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictQuant(sFrame, sTrain, sQuantVec, sYTest, true, as<unsigned int>(sNThread));
+  List lPreFormat(sPreFormat);
+  List lFrame((SEXP) lPreFormat["predFrame"]);
+  return PBRf::predictQuant(lFrame, sTrain, sQuantVec, sYTest, true, as<unsigned int>(sNThread));
 
   END_RCPP
 }
@@ -226,7 +234,8 @@ RcppExport SEXP TestQuant(const SEXP sFrame,
                           SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictQuant(sFrame, sTrain, sQuantVec, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
+  List lFrame(sFrame);
+  return PBRf::predictQuant(lFrame, sTrain, sQuantVec, sYTest, as<bool>(sOOB), as<unsigned int>(sNThread));
 
   END_RCPP
 }

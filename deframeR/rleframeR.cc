@@ -24,7 +24,6 @@
 */
 
 #include "rleframeR.h"
-#include "ompthread.h"
 
 
 RcppExport SEXP PresortNum(SEXP sFrame) {
@@ -55,28 +54,28 @@ List RLEFrameR::presortDF(const DataFrame& df) {
 
   auto rleCresc = make_unique<RLECresc>(df.nrow(), df.length());
 
+  // 'df' already screened for factor and numeric only.  In particular,
+  // integer values are 32-bit nonnegative.
+  // Caches column base addresses to avoid using Rcpp in OpenMP
+  // loop.
+  // N.B.:  According to Rcpp documentation, this style of Vector
+  // constructor acts as a wrapper, rather than copying to memory.
+  // Otherwise, we would be caching the addresses of temporaries.
+  vector<void*> colBase(df.length());
   for (unsigned int predIdx = 0; predIdx < df.length(); predIdx++) {
-    rleCresc->setFactor(predIdx, Rf_isFactor(df[predIdx]));
-  }
-
-  vector<vector<unsigned int>> valFac(rleCresc->getNFactor());
-  vector<vector<double>> valNum(rleCresc->getNNumeric());
-
-  for (unsigned int predIdx = 0; predIdx < df.length(); predIdx++) {
-    unsigned int typedIdx = rleCresc->getTypedIdx(predIdx);
-    if (Rf_isFactor(df[predIdx])) { // Only factors and numerics present.
-      IntegerVector factors(df[predIdx]);
-      vector<unsigned int> vals(factors.begin(), factors.end());
-      rleCresc->encodeColumn<unsigned int>(vals, valFac[typedIdx]);
+    if (Rf_isFactor(df[predIdx])) {
+      rleCresc->setFactor(predIdx, true);
+      colBase[predIdx] = IntegerVector(df[predIdx]).begin();
     }
     else {
-      NumericVector numVals(df[predIdx]);
-      vector<double> vals(numVals.begin(), numVals.end());
-      rleCresc->encodeColumn<double>(vals, valNum[typedIdx]);
+      rleCresc->setFactor(predIdx, false);
+      colBase[predIdx] = NumericVector(df[predIdx]).begin();
     }
   }
 
-  return wrap(valFac, valNum, rleCresc.get());
+  rleCresc->encodeFrame(colBase);
+
+  return wrap(rleCresc.get());
 
   END_RCPP
 }
@@ -103,29 +102,25 @@ List RLEFrameR::presortNum(const List& frame) {
     vector<size_t> rowStart(rowStartFE.begin(), rowStartFE.end());
     IntegerVector runLengthFE((SEXP) blockNumIP["runLength"]);
     vector<size_t> runLength(runLengthFE.begin(), runLengthFE.end());
-    numVal = rleCresc->encodeSparse<double>(nPredNum, move(valNum), move(rowStart), move(runLength));
+    rleCresc->encodeFrameNum(move(valNum), move(rowStart), move(runLength));
   }
   else {
-    numVal = rleCresc->encodeDense<double>(nPredNum, NumericMatrix((SEXP) frame["blockNum"]).begin());
+    rleCresc->encodeFrameNum(NumericMatrix((SEXP) frame["blockNum"]).begin());
   }
 
-  // Null Factor block.
-  vector<vector<unsigned int>> valFac(0);
-  return wrap(valFac, numVal, rleCresc.get());
+  return wrap(rleCresc.get());
 
   END_RCPP
 }
 
 
-List RLEFrameR::wrap(const vector<vector<unsigned int>>& valFac,
-		     const vector<vector<double>>& valNum,
-		     const RLECresc* rleCresc) {
+List RLEFrameR::wrap(const RLECresc* rleCresc) {
   BEGIN_RCPP
 
   List setOut = List::create(
                              _["rankedFrame"] =  wrapRF(rleCresc),
-                             _["numRanked"] = wrapNum(valNum),
-			     _["facRanked"] = wrapFac(valFac)
+                             _["numRanked"] = wrapNum(rleCresc),
+			     _["facRanked"] = wrapFac(rleCresc)
                              );
   setOut.attr("class") = "RLEFrame";
   return setOut;
@@ -134,12 +129,12 @@ List RLEFrameR::wrap(const vector<vector<unsigned int>>& valFac,
 }
 
 
-List RLEFrameR::wrapFac(const vector<vector<unsigned int>>& valFac) {
+List RLEFrameR::wrapFac(const RLECresc* rleCresc) {
   BEGIN_RCPP
 
   vector<size_t> facHeight;
   vector<unsigned int> facValOut;
-  for (auto facPred : valFac) {
+  for (auto facPred : rleCresc->getValFac()) {
     for (auto val : facPred) {
       facValOut.push_back(val);
     }
@@ -160,12 +155,12 @@ List RLEFrameR::wrapFac(const vector<vector<unsigned int>>& valFac) {
 }
 
 
-List RLEFrameR::wrapNum(const vector<vector<double>>& valNum) {
+List RLEFrameR::wrapNum(const RLECresc* rleCresc) {
   BEGIN_RCPP
 
   vector<size_t> numHeight;
   vector<double> numValOut;
-  for (auto numPred : valNum) {
+  for (auto numPred : rleCresc->getValNum()) {
     for (auto val : numPred) {
       numValOut.push_back(val);
     }

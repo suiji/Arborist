@@ -11,6 +11,7 @@ cp ../FrontEnd/NAMESPACE Rborist/
 cp ../FrontEnd/*.Rd Rborist/man/
 cp ../FrontEnd/NEWS Rborist/inst/
 cp ../FrontEnd/*R Rborist/R/
+cp ../../deframeR/*.R Rborist/R/
 cp ../src/*.cc Rborist/src/
 cp ../src/*.h Rborist/src/
 cp ../src/rf/*.cc Rborist/src/
