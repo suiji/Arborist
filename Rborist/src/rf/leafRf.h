@@ -53,9 +53,13 @@ struct LeafRegRf {
 
   /**
      @brief Builds bridge object from wrapped front-end data.
+
+     @param lLeaf references the leaf object.
+
+     @param lRLE references the RLE frame
    */
-  static unique_ptr<struct LeafRegBridge> unwrap(const List& leaf,
-                                      const List& sPredFrame);
+  static unique_ptr<struct LeafRegBridge> unwrap(const List& lLeaf,
+						 size_t nRow);
 
   static List summary(SEXP sYTest,
                       const struct PredictBridge* pBridge);
@@ -124,13 +128,17 @@ struct LeafCtgRf {
   /**
      @brief Instantiates front-end leaf.
 
-     @param lTrain is the R-style trained forest.
-   */
-  static unique_ptr<struct LeafCtgBridge> unwrap(const List& leaf,
-                                                const List& sPredFrame,
-                                                bool doProb);
+     @param lLeaf references the leaf.
 
-  static List summary(const List& sPredFrame,
+     @param lRLE references the RLE frame.
+
+     @param doProb indicates whether a probability matrix is requested.
+   */
+  static unique_ptr<struct LeafCtgBridge> unwrap(const List& lLeaf,
+						 size_t nRow,
+						 bool doProb);
+
+  static List summary(const List& lDeframe,
                       const List& lTrain,
                       const struct PredictBridge* pBridge,
                       SEXP sYTest);

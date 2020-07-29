@@ -31,13 +31,10 @@
    class is parametrized by two blocks instead of a more general frame.
  */
 class PredictFrame {
-  static const size_t rowBlock; // Block size.
-  
   class Predict* predict;
   const unsigned int nTree;
-  const PredictorT noLeaf;
-  const class BlockDense<double>* blockNum;
-  const class BlockDense<PredictorT>* blockFac;
+  const IndexT noLeaf;
+  IndexT extent; // # rows in block
 
   /**
      @brief Aliases a row-prediction method tailored for the frame's
@@ -94,20 +91,9 @@ class PredictFrame {
 
 public:
   PredictFrame(class Predict* predict,
-               const BlockDense<double>* blockNum_,
-               const BlockDense<PredictorT>* blockFac_);
+	       IndexT extent);
 
-  
-  /**
-     @brief Specifies size of blocks to be passed by front end.
 
-     @param nRow is the total number of observations.
-
-     @return lesser of internal parameter and number of observations.
-   */
-  static size_t getBlockRows(size_t nRow);
-
-  
   /**
      @brief Dispatches prediction on a block of rows, by predictor type.
 
@@ -116,55 +102,6 @@ public:
   void predictAcross(size_t rowStart);
 
 
-  /**
-     @brief Computes number of rows in frame.
-
-     Relies on the property that at least one of the (transposed) blocks has
-     non-zero row count and that, if both do, the values agree.
-
-     @return number of rows in frame.
-   */
-  inline auto getExtent() const {
-    return blockNum->getNRow() > 0 ? blockNum->getNRow() : blockFac->getNRow();
-  }
-  
-  /**
-     @brief Assumes numerical predictors packed in front of factor-valued.
-
-     @return Position of fist factor-valued predictor.
-  */
-  inline auto getNPredFac() const {
-    return blockFac->getNCol(); // Transposed.
-  }
-
-
-  /**
-     @brief Assumes numerical predictors packed in front of factor-valued.
-
-     @return Position of fist factor-valued predictor.
-  */
-  inline auto getNPredNum() const {
-    return blockNum->getNCol(); // Transposed.
-  }
-
-
-  inline bool isFactor(unsigned int predIdx) const {
-    return predIdx >= getNPredNum();
-  }
-  
-  /**
-     @brief Computes block-relative position for a predictor.
-
-     @param[out] thisIsFactor outputs true iff predictor is factor-valued.
-
-     @return block-relative index.
-   */
-  inline unsigned int getIdx(unsigned int predIdx, bool &predIsFactor) const{
-    predIsFactor = isFactor(predIdx);
-    return predIsFactor ? predIdx - getNPredNum() : predIdx;
-  }
-
-  
   /**
      @brief Indicates whether a given row and tree pair is in-bag.
 
@@ -182,17 +119,6 @@ public:
     termIdx = predictLeaves[nTree * blockRow + tc];
     return termIdx == noLeaf;
   }
-
-  /**
-     @return base address for (transposed) numeric values at row.
-   */
-  const double* baseNum(size_t rowOff) const;
-
-
-  /**
-     @return base address for (transposed) factor values at row.
-   */
-  const PredictorT* baseFac(size_t rowOff) const;
 };
 
 
@@ -201,11 +127,14 @@ public:
    predictions.
  */
 class Predict {
+  static const size_t rowBlock; // Block size.
+  
   const class Bag* bag; // In-bag representation.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   const struct TreeNode* treeNode; // Pointer to base of tree nodes.
   const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
   class LeafFrame* leaf; // Terminal section of forest.
+  struct RLEFrame* rleFrame; // Frame of observations.
   class Quant* quant;  // Quantile workplace, as needed.
   const bool oob; // Whether prediction constrained to out-of-bag.
 
@@ -213,14 +142,73 @@ class Predict {
 
  public:
 
+  const PredictorT nPredNum;
+  const PredictorT nPredFac;
   const unsigned int nTree; // # trees used in training.
   const IndexT noLeaf; // Inattainable leaf index value.
-  
+  vector<unsigned int> trFac; // OTF transposed factor observations.
+  vector<double> trNum; // OTF transposed numeric observations.
+  vector<size_t> trIdx; // Most recent RLE index accessed by predictor.
+
   Predict(const class Bag* bag_,
           const class Forest* forest_,
           class LeafFrame* leaf_,
+	  struct RLEFrame* rleFrame_,
           class Quant* quant_,
           bool oob_);
+
+
+    /**
+     @brief Computes block-relative position for a predictor.
+
+     @param[out] thisIsFactor outputs true iff predictor is factor-valued.
+
+     @return block-relative index.
+   */
+  inline unsigned int getIdx(unsigned int predIdx, bool &predIsFactor) const {
+    predIsFactor = isFactor(predIdx);
+    return predIsFactor ? predIdx - nPredNum : predIdx;
+  }
+
+  
+  inline bool isFactor(unsigned int predIdx) const {
+    return predIdx >= nPredNum;
+  }
+
+  
+  /**
+     @brief Computes pointer to base of row of numeric values.
+
+     @param rowOff is a block-relative row offset.
+
+     @return base address for numeric values at row.
+  */
+  const double* baseNum(size_t rowOff) const;
+
+
+  /**
+     @brief As above, but factor varlues.
+
+     @return base address for (transposed) factor values at row.
+   */
+  const PredictorT* baseFac(size_t rowOff) const;
+
+  /**
+     @brief Specifies size of blocks to be passed by front end.
+
+     @param nRow is the total number of observations.
+
+     @return lesser of internal parameter and number of observations.
+   */
+  static size_t getBlockRows(size_t nRow);
+
+  
+  /**
+     @brief Transposes a block of observations to row-major.
+
+     @param rowStart is the starting observation row.
+   */
+  void transpose(size_t rowStart);
 
 
   /**
@@ -247,7 +235,6 @@ class Predict {
      @return index of leaf predicted.
   */
   IndexT rowMixed(unsigned int tIdx,
-		  const PredictFrame* frame,
 		  const double* rowNT,
 		  const unsigned int* rowFT,
 		  size_t row);

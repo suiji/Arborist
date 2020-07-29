@@ -34,21 +34,18 @@
 
 bool TrainRf::verbose = false;
 
-RcppExport SEXP TrainRF(const SEXP sArgList) {
+RcppExport SEXP TrainRF(const SEXP sRLEFrame, const SEXP sArgList) {
   BEGIN_RCPP
 
-  return TrainRf::train(List(sArgList));
+    return TrainRf::train(List(sRLEFrame), List(sArgList));
 
   END_RCPP
 }
 
 
-List TrainRf::train(const List& argList) {
+List TrainRf::train(const List& lRLEFrame, const List& argList) {
   BEGIN_RCPP
-  SEXP sRLEFrame(argList["summaryRLE"]);
-  List rleList(sRLEFrame);
-
-  return train(argList, RLEFrameR::unwrap(sRLEFrame).get());
+  return train(argList, RLEFrameR::unwrap(lRLEFrame).get());
   END_RCPP
 }
 

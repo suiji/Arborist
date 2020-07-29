@@ -106,10 +106,9 @@ class BlockJagged : public Block<ty> {
     vector<vector<ty>> vv(height.size());
     size_t col = 0;
     size_t i = 0;
-    const ty* valptr = &val[0];
     for (auto count : height) {
       for (; i < count; i++) {
-	vv[col].push_back(*valptr++);
+	vv[col].push_back(val[i]);
       }
       col++;
     }

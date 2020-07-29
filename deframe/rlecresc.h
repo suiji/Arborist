@@ -34,6 +34,15 @@ bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
 
 
 /**
+   @brief Sorts on row, for reorder.
+ */
+template<typename valType>
+bool RLECompareRow (const RLEVal<valType> &a, const RLEVal<valType>& b) {
+  return (a.row < b.row);
+}
+
+
+/**
    @brief Run length-encoded representation of pre-sorted frame.
 
    Crescent form.

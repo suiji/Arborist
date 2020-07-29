@@ -193,7 +193,7 @@ List LBTrainCtg::wrap() {
    bridge-specific LeafReg handle.
  */
 unique_ptr<LeafRegBridge> LeafRegRf::unwrap(const List& lTrain,
-                                        const List& sPredFrame) {
+					    size_t nRow) {
   List lLeaf(checkLeaf(lTrain));
   return make_unique<LeafRegBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
                                     (size_t) IntegerVector((SEXP) lLeaf["nodeHeight"]).length(),
@@ -203,7 +203,7 @@ unique_ptr<LeafRegBridge> LeafRegRf::unwrap(const List& lTrain,
                                     (double*) NumericVector((SEXP) lLeaf["yTrain"]).begin(),
                                     (size_t) NumericVector((SEXP) lLeaf["yTrain"]).length(),
                                     mean(NumericVector((SEXP) lLeaf["yTrain"])),
-                                    as<size_t>(sPredFrame["nRow"]));
+				    nRow);
 }
 
 
@@ -229,7 +229,7 @@ List LeafRegRf::checkLeaf(const List &lTrain) {
    @return 
  */
 unique_ptr<LeafCtgBridge> LeafCtgRf::unwrap(const List& lTrain,
-                                            const List& sPredFrame,
+					    size_t nRow,
                                             bool doProb) {
   List lLeaf(checkLeaf(lTrain));
   return make_unique<LeafCtgBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
@@ -239,7 +239,7 @@ unique_ptr<LeafCtgBridge> LeafCtgRf::unwrap(const List& lTrain,
                                     (unsigned char*) RawVector((SEXP) lLeaf["bagSample"]).begin(),
                                     (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
                                     (unsigned int) CharacterVector((SEXP) lLeaf["levels"]).length(),
-                                    as<size_t>(sPredFrame["nRow"]),
+                                    nRow,
                                     doProb);
 }
 
@@ -397,14 +397,14 @@ NumericVector LeafRegRf::getQEst(const PredictBridge* pBridge) {
 
    @return list of summary entries.   
  */
-List LeafCtgRf::summary(const List& sPredFrame, const List& lTrain, const PredictBridge* pBridge, SEXP sYTest) {
+List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictBridge* pBridge, SEXP sYTest) {
   BEGIN_RCPP
 
   LeafCtgBridge* leaf = static_cast<LeafCtgBridge*>(pBridge->getLeaf());
     leaf->vote();
   List lLeaf(checkLeaf(lTrain));
   CharacterVector levelsTrain((SEXP) lLeaf["levels"]);
-  CharacterVector rowNames(Signature::unwrapRowNames(sPredFrame));
+  CharacterVector rowNames(Signature::unwrapRowNames(lDeframe));
   IntegerVector yPredZero(leaf->getYPred().begin(), leaf->getYPred().end());
   IntegerVector yPredOne(yPredZero + 1);
   yPredOne.attr("class") = "factor";

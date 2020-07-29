@@ -44,7 +44,7 @@ IndexT TreeNode::advance(const BVJagged *facSplit,
 }
 
 
-IndexT TreeNode::advance(const PredictFrame* blockFrame,
+IndexT TreeNode::advance(const Predict* predict,
                          const BVJagged* facSplit,
 			 const IndexT* rowFT,
 			 const double* rowNT,
@@ -57,7 +57,7 @@ IndexT TreeNode::advance(const PredictFrame* blockFrame,
   }
   else {
     bool isFactor;
-    IndexT blockIdx = blockFrame->getIdx(predIdx, isFactor);
+    IndexT blockIdx = predict->getIdx(predIdx, isFactor);
     return isFactor ?
       (facSplit->testBit(tIdx, getBitOffset() + rowFT[blockIdx]) ?
        delIdx : delIdx + 1) : (rowNT[blockIdx] <= getSplitNum() ?

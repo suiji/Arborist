@@ -34,7 +34,8 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
-RcppExport SEXP TrainRF(const SEXP sArgList);
+RcppExport SEXP TrainRF(const SEXP sRLEFrame,
+			const SEXP sArgList);
 
 
 struct TrainRf {
@@ -142,7 +143,8 @@ struct TrainRf {
 
      @return list of trained forest objects.
    */
-  static List train(const List& argList);
+  static List train(const List& lRLEFrame,
+		    const List& argList);
 
 
   /**

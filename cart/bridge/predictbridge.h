@@ -13,10 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_BRIDGE_PREDICTBRIDGE_H
-#define CORE_BRIDGE_PREDICTBRIDGE_H
-
-#include "block.h"
+#ifndef CART_BRIDGE_PREDICTBRIDGE_H
+#define CART_BRIDGE_PREDICTBRIDGE_H
 
 #include <vector>
 #include <memory>
@@ -37,12 +35,14 @@ struct PredictBridge {
      Remaining parameters mirror similarly-named members.
    */
   PredictBridge(bool oob,
+		unique_ptr<struct RLEFrame> rleFrame_,
                 unique_ptr<struct ForestBridge> forest_,
                 unique_ptr<struct BagBridge> bag_,
                 unique_ptr<struct LeafBridge> leaf_,
                 unsigned int nThread);
 
   PredictBridge(bool oob,
+		unique_ptr<struct RLEFrame> rleFrame_,
                 unique_ptr<struct ForestBridge> forest_,
                 unique_ptr<struct BagBridge> bag_,
                 unique_ptr<struct LeafBridge> leaf_,
@@ -64,15 +64,10 @@ struct PredictBridge {
   /**
      @brief Predicts over a block of observations.
 
-     @param blockNum collects numerical observations.
-
-     @param blockFac collects factor-valued observations.
-
      @param row is the beginning row index of the block.
    */
-  void predictBlock(const BlockDense<double>* blockNum,
-                    const BlockDense<unsigned int>* blockFac,
-                    size_t row) const;
+  void predictBlock(size_t row,
+		    size_t extent) const;
 
   struct LeafBridge* getLeaf() const;
 
@@ -87,6 +82,7 @@ struct PredictBridge {
   const vector<double> getQEst() const;
   
 private:
+  unique_ptr<struct RLEFrame> rleFrame;
   unique_ptr<struct BagBridge> bag;
   unique_ptr<struct ForestBridge> forest;
   unique_ptr<struct LeafBridge> leaf;

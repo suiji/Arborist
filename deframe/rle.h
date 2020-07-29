@@ -73,6 +73,16 @@ struct RLEVal {
     row(rle.row),
     extent(rle.extent) {
   }
+
+
+  /**
+     @brief Computes end position.
+
+     @return row index beyond end.
+   */
+  size_t getRowEnd() const {
+    return row + extent;
+  }
 };
 
 

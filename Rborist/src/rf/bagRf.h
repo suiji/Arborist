@@ -83,17 +83,17 @@ class BagRf {
   /**
      @brief Reads bundled bag information in front-end format.
 
-     @param sBag contains the training bag.
+     @param lTrain contains the training summary.
 
-     @param sPredFrame summarizes the prediction data set.
+     @param lRLE contains the RLE frame.
 
      @param oob indicates whether a non-null bag is requested.
 
      @return instantiation containing bag raw data.
    */
-  static unique_ptr<struct BagBridge> unwrap(const List& sBag,
-                                            const List& sPredFrame,
-                                            bool oob);
+  static unique_ptr<struct BagBridge> unwrap(const List& sTrain,
+					     size_t nRow,
+					     bool oob);
 
   
   /**
@@ -104,7 +104,7 @@ class BagRf {
      @param sPredFrame summarizes the prediction data set.
    */
   static SEXP checkOOB(const List& sBag,
-                       const List& sPredFrame);
+                       const size_t nRow);
   
 
   /**

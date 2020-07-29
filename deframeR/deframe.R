@@ -19,26 +19,6 @@
 # summaries.
 #
 
-presort <- function(x, predFrame) {
-    if (is.data.frame(x)) {
-        preFormat <- list(
-            predFrame = predFrame,
-            summaryRLE = tryCatch(.Call("PresortDF", data.table::setDT(x))),
-            obsHash = digest::digest(x)
-        )
-    }
-    else {
-        preFormat <- list(
-            predFrame = predFrame,
-            summaryRLE = tryCatch(.Call("PresortNum", predFrame)),
-            obsHash = digest::digest(x)
-        )
-    }
-    class(preFormat) <- "PreFormat"
-    return(preFormat)
-}
-
-
 deframe <- function(x, sigTrain = NULL) {
   # Argument checking:
   if (any(is.na(x))) {
@@ -47,6 +27,7 @@ deframe <- function(x, sigTrain = NULL) {
 
   # For now, only numeric and unordered factor types supported.
   #
+  # For now, RLE frame is ranked on both training and prediction.
   if (is.data.frame(x)) {
       dt <- data.table::setDT(x)
       colSurvey <- sapply(dt, function(col) ifelse(is.numeric(col) || (is.factor(col) && !is.ordered(col)), TRUE, FALSE))
@@ -54,27 +35,18 @@ deframe <- function(x, sigTrain = NULL) {
           stop("Frame columns must be either numeric or unordered factor")
       }
       predForm <- sapply(dt, function(col) ifelse(is.numeric(col), "numeric", "factor"))
-      lv <- lapply(dt, levels) # All string levels, regardless whether realized.
-      xFac <- data.matrix(Filter(function(col) ifelse(is.numeric(col), FALSE, TRUE), dt)) - 1
       hasFactor <- sapply(dt, function(col) ifelse(is.numeric(col), FALSE, TRUE))
-      # If already trained, extract factors and reconcile:
-      if (!is.null(sigTrain) && any(hasFactor)) {
-          xFac <- tryCatch(.Call("FrameReconcile", xFac, predForm, lv[hasFactor], sigTrain), error = function(e) {stop(e)} )
-      }
-      # As with xFac, xNum should be reconstructed internally for validation.
-      xNum <- data.matrix(Filter(function(col) ifelse(is.numeric(col), TRUE, FALSE), dt))
-      codes <- lapply(dt, factor) # Realized levels only.
-      predFrame <- tryCatch(.Call("WrapFrame", dt, xNum, xFac, predForm, lv[hasFactor], codes[hasFactor]), error = function(e) {stop(e)} )
+      return(tryCatch(.Call("DeframeDF", dt, predForm, lapply(dt, levels)[hasFactor], lapply(dt, factor)[hasFactor], sigTrain), error = function(e) {stop(e)} ))
   }
   else if (inherits(x, "dgCMatrix")) {
-     predFrame <- tryCatch(.Call("WrapSparse", x), error= print)
+     return(tryCatch(.Call("DeframeIP", x), error= print))
   }
   else if (is.matrix(x)) {
     if (is.integer(x)) {
-      predFrame <- tryCatch(.Call("WrapNum", data.matrix(x)), error=function(e) {stop(e)} )
+      return(tryCatch(.Call("DeframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.numeric(x)) {
-      predFrame <- tryCatch(.Call("WrapNum", x), error=function(e) {stop(e)})
+      return(tryCatch(.Call("DeframeNum", x), error=function(e) {stop(e)}))
     }
     else if (is.character(x)) {
       stop("Character data not yet supported")
@@ -87,10 +59,11 @@ deframe <- function(x, sigTrain = NULL) {
     stop("Expecting data frame or matrix")
   }
 
-    if (is.null(sigTrain)) {
-        return(presort(x, predFrame));
-    }
-    else {
-        return(predFrame);
-    }
+    preFormat <- list(
+        predFrame = predFrame,
+        rankedFrame = rankedFrame,
+        obsHash = digest::digest(x)
+    )
+    class(preFormat) <- "Deframe"
+    return(preFormat)
 }

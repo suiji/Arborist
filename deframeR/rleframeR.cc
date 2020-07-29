@@ -26,31 +26,13 @@
 #include "rleframeR.h"
 
 
-RcppExport SEXP PresortNum(SEXP sFrame) {
+List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
   BEGIN_RCPP
 
-  List frame(sFrame);
-  if (!frame.inherits("Frame")) {
-    stop("Expecting Frame");
+  IntegerMatrix factorRemap;
+  if (!Rf_isNull(sSigTrain)) {
+    factorRemap = factorReconcile(df, List(sSigTrain), List(sLevel));
   }
-  return RLEFrameR::presortNum(frame);
-
-  END_RCPP
-}
-
-
-RcppExport SEXP PresortDF(SEXP sDF) {
-  BEGIN_RCPP
-    
-  List df(sDF);
-  return RLEFrameR::presortDF(df);
-  
-  END_RCPP
-}
-
-
-List RLEFrameR::presortDF(const DataFrame& df) {
-  BEGIN_RCPP
 
   auto rleCresc = make_unique<RLECresc>(df.nrow(), df.length());
 
@@ -61,11 +43,13 @@ List RLEFrameR::presortDF(const DataFrame& df) {
   // N.B.:  According to Rcpp documentation, this style of Vector
   // constructor acts as a wrapper, rather than copying to memory.
   // Otherwise, we would be caching the addresses of temporaries.
+  unsigned int nFac = 0;
   vector<void*> colBase(df.length());
   for (unsigned int predIdx = 0; predIdx < df.length(); predIdx++) {
     if (Rf_isFactor(df[predIdx])) {
       rleCresc->setFactor(predIdx, true);
-      colBase[predIdx] = IntegerVector(df[predIdx]).begin();
+      colBase[predIdx] = !Rf_isNull(sSigTrain) ? IntegerVector(factorRemap(_, nFac)).begin() : IntegerVector(df[predIdx]).begin();
+      nFac++;
     }
     else {
       rleCresc->setFactor(predIdx, false);
@@ -81,32 +65,83 @@ List RLEFrameR::presortDF(const DataFrame& df) {
 }
 
 
-List RLEFrameR::presortNum(const List& frame) {
+IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
+					 const List& lSigTrain,
+					 const List& levelTest) {
   BEGIN_RCPP
 
-  unsigned int nPredNum = as<unsigned int>(frame["nPredNum"]);
-  auto rleCresc = make_unique<RLECresc>(as<size_t>(frame["nRow"]),
-					nPredNum);
-
-  vector<vector<double>> numVal;
-  // Numeric block currently either dense or sparse, with a run-length
-  // characterization.
-  List blockNumIP((SEXP) frame["blockNumRLE"]);
-  if (blockNumIP.length() > 0) {
-    if (!blockNumIP.inherits("BlockNumIP")) {
-      stop("Expecting BlockNumIP");
+    List levelTrain((SEXP) lSigTrain["level"]);
+  IntegerMatrix mappedFactor(df.nrow(), levelTrain.length());
+  unsigned int nFac = 0;
+  for (int col = 0; col < df.length(); col++) {
+    if (Rf_isFactor(df[col])) {
+      mappedFactor(_, nFac) = columnReconcile(IntegerVector(df[col]), as<CharacterVector>(levelTest[nFac]), as<CharacterVector>(levelTrain[nFac]));
+      nFac++;
     }
-    NumericVector valNumFE((SEXP) blockNumIP["valNum"]);
-    vector<double> valNum(valNumFE.begin(), valNumFE.end());
-    IntegerVector rowStartFE((SEXP) blockNumIP["rowStart"]);
-    vector<size_t> rowStart(rowStartFE.begin(), rowStartFE.end());
-    IntegerVector runLengthFE((SEXP) blockNumIP["runLength"]);
-    vector<size_t> runLength(runLengthFE.begin(), runLengthFE.end());
-    rleCresc->encodeFrameNum(move(valNum), move(rowStart), move(runLength));
+  }
+  return mappedFactor;
+
+  END_RCPP
+}
+
+
+IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
+					 const CharacterVector& colTest,
+					 const CharacterVector& colTrain) {
+  BEGIN_RCPP
+    
+  if (is_true(any(colTest != colTrain))) {
+    IntegerVector colMatch(match(colTest, colTrain));
+    // Rcpp match() does not offer specification of 'na' subsititute.
+    if (is_true(any(is_na(colMatch)))) {
+      warning("Test data contains labels absent from training:  employing proxy");
+      colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
+    }
+
+    // N.B.:  Rcpp::match() indices are one-based.
+    IntegerVector dfZero(dfCol - 1); // R factor indices are one-based.
+    IntegerVector colOut = colMatch[dfZero]; // Rcpp subscripting is zero-based.
+    /*
+    // Checks whether non-proxy output recovers the original string indices.
+    for (int i = 0; i < colOut.length(); i++) {
+      if (colOut[i] < colTrain.length()) {
+	if (colTest[dfZero[i]] != colTrain[colOut[i]] - 1)
+	  Rcout << "mismatch"<< endl;
+      }
+    }
+    */
+    return colOut;
   }
   else {
-    rleCresc->encodeFrameNum(NumericMatrix((SEXP) frame["blockNum"]).begin());
+    return dfCol;
   }
+
+  END_RCPP
+}
+
+
+List RLEFrameR::presortIP(const BlockIPCresc<double>* rleCrescIP, size_t nRow, unsigned int nPred) {
+  BEGIN_RCPP
+
+    auto rleCresc = make_unique<RLECresc>(nRow, nPred);
+
+  vector<double> valNum(rleCrescIP->getVal());
+  vector<size_t> rowStart(rleCrescIP->getRunStart());
+  vector<size_t> runLength(rleCrescIP->getRunLength());
+  rleCresc->encodeFrameNum(move(valNum), move(rowStart), move(runLength));
+
+  return wrap(rleCresc.get());
+
+  END_RCPP
+}
+
+
+List RLEFrameR::presortNum(const SEXP sX) {
+  BEGIN_RCPP
+
+  NumericMatrix x(sX);
+  auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
+  rleCresc->encodeFrameNum(x.begin());
 
   return wrap(rleCresc.get());
 
@@ -204,9 +239,7 @@ List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
 }
 
 
-unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& sRLEFrame) {
-  List rleList(sRLEFrame);
-
+unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& rleList) {
   List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
   NumericVector numVal(Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]));
   IntegerVector numHeight(Rf_isNull(blockNum["numHeight"]) ? IntegerVector(0) : IntegerVector((SEXP) blockNum["numHeight"]));

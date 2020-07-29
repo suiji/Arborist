@@ -22,17 +22,15 @@ RLEFrame::RLEFrame(size_t nRow_,
 		   const vector<size_t>& runLength,
 		   const vector<size_t>& runRow,
 		   const vector<size_t>& rleHeight,
-		   const vector<double>& numVal_,
-		   const vector<size_t>& numHeight_,
-		   const vector<unsigned int>& facVal_,
-		   const vector<size_t>& facHeight_) :
+		   const vector<double>& numVal,
+		   const vector<size_t>& numHeight,
+		   const vector<unsigned int>& facVal,
+		   const vector<size_t>& facHeight) :
   nRow(nRow_),
   predForm(predForm_),
   rlePred(vector<vector<RLEVal<unsigned int>>>(rleHeight.size())),
-  numVal(numVal_),
-  numHeight(numHeight_),
-  facVal(facVal_),
-  facHeight(facHeight_) {
+  numRanked(vector<vector<double>>(numHeight.size())),
+  facRanked(vector<vector<unsigned int>>(facHeight.size())) {
   size_t off = 0;
   unsigned int predIdx = 0;
   for (auto height : rleHeight) {
@@ -40,6 +38,53 @@ RLEFrame::RLEFrame(size_t nRow_,
       rlePred[predIdx].emplace_back(runVal[off], runRow[off], runLength[off]);
     }
     predIdx++;
+  }
+  off = predIdx = 0;
+  for (auto height : numHeight) {
+    for (; off < height; off++) {
+      numRanked[predIdx].emplace_back(numVal[off]);
+    }
+    predIdx++;
+  }
+  off = predIdx = 0;
+  for (auto height : facHeight) {
+    for (; off < height; off++) {
+      facRanked[predIdx].emplace_back(facVal[off]);
+    }
+    predIdx++;
+  }
+}
+
+
+void RLEFrame::reorderRow() {
+  for (auto & rleVal : rlePred) {
+    sort(rleVal.begin(), rleVal.end(), RLECompareRow<unsigned int>);
+  }
+}
+
+
+void RLEFrame::transpose(vector<size_t>& idxTr,
+			 size_t rowStart,
+			 size_t rowExtent,
+			 vector<unsigned int>& trFac,
+			 vector<double>& trNumeric) {
+  size_t rowOff = 0;
+  size_t rowEnd = min(nRow, rowStart + rowExtent);
+  for (size_t row = rowStart; row != rowEnd; row++) {
+    unsigned int numIdx = 0;
+    unsigned int facIdx = 0;
+    for (unsigned int predIdx = 0; predIdx < idxTr.size(); predIdx++) {
+      unsigned int rank = idxRank(rlePred[predIdx], idxTr[predIdx], row);
+      if (predForm[predIdx] == PredictorForm::numeric) {
+	trNumeric[rowOff * getNPredNum() + numIdx] = numRanked[numIdx][rank];
+	numIdx++;
+      }
+      else {// TODO:  Replace subtraction with (front end)::fac2Rank()
+	trFac[rowOff * getNPredFac() + facIdx] = facRanked[facIdx][rank] - 1;
+	facIdx++;
+      }
+    }
+    rowOff++;
   }
 }
 

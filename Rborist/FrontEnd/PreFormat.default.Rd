@@ -48,7 +48,7 @@
 
     \code{nPredNum}{ the number of numerical predictors.}
   }
-  \code{summaryRLE}{ a run-length encoded version of the training
+  \code{rankedFrame}{ a run-length encoded version of the training
     observations.}
   \code{obsHash}{ a hashed version of the training observations, used to
   ensure that subsequent invocations of Rborist employ the same

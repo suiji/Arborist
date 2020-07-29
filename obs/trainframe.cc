@@ -28,11 +28,9 @@ TrainFrame::TrainFrame(const RLEFrame* rleFrame_,
   rleFrame(rleFrame_),
   nRow(rleFrame->nRow),
   coproc(Coproc::Factory(enableCoproc, diag)),
-  numRanked(BlockJagged<double>::unwrap(rleFrame->numVal, rleFrame->numHeight)),
-  facRanked(BlockJagged<unsigned int>::unwrap(rleFrame->facVal, rleFrame->facHeight)),
-  nPredNum(numRanked.size()),
-  cardinality(cardinalities(facRanked)),
-  nPredFac(cardinality.size()),
+  nPredNum(rleFrame->getNPredNum()),
+  cardinality(cardinalities()),
+  nPredFac(rleFrame->getNPredFac()),
   nPred(nPredFac + nPredNum),
   predMap(mapPredictors(rleFrame->predForm)) {
   layout = make_unique<Layout>(this, autoCompress);
@@ -43,10 +41,10 @@ TrainFrame::~TrainFrame() {
 }
 
 
-vector<PredictorT> TrainFrame::cardinalities(const vector<vector<unsigned int>>& facRanked_)  const {
+vector<PredictorT> TrainFrame::cardinalities() const {
   vector<PredictorT> cardPred;
-  for (auto facUnique : facRanked_) {
-    cardPred.push_back(facUnique.size());
+  for (auto facRanked : rleFrame->facRanked) {
+    cardPred.push_back(facRanked.size());
   }
   return cardPred;
 }

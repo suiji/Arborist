@@ -149,7 +149,7 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advance(const class PredictFrame* blockFrame,
+  IndexT advance(const class Predict* predict,
 		 const BVJagged *facSplit,
 		 const IndexT* rowFT,
 		 const double *rowNT,

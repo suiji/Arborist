@@ -94,7 +94,12 @@ struct Signature {
   static List unwrapFactor(const List& sTrain);
 
 
-  static SEXP wrap(unsigned int nPred,
+  static List wrapNum(unsigned int nPred,
+		      const CharacterVector& colNames,
+		      const CharacterVector& rowNames);
+  
+
+  static List wrap(unsigned int nPred,
 		   const CharacterVector& predForm,
 		   const List& level,
 		   const List& factor,

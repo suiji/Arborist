@@ -28,8 +28,6 @@
 #ifndef DEFRAMER_RLEFRAMER_H
 #define DEFRAMER_RLEFRAMER_H
 
-#include "rleframe.h"
-
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -37,17 +35,8 @@ using namespace Rcpp;
 #include <memory>
 using namespace std;
 
-/**
-   @brief External entry to presorting RankedFrame builder.
-
-   @param sFrame is an R-style List containing frame block.
-
-   @return R-style representation of run-length encoding.
- */
-RcppExport SEXP PresortNum(SEXP sFrame);
-
-
-RcppExport SEXP PresortDF(SEXP sDF);
+#include "rleframe.h"
+#include "block.h"
 
 
 /**
@@ -75,8 +64,42 @@ struct RLEFrameR {
   static List checkFacRanked(SEXP sFacRanked);
 
 
-  static List presortDF(const DataFrame& df);
+  /**
+     @brief Sorts data frame in blocks of like type.
 
+     @param df is the data frame.
+
+     @param lSigTrain is a training signature, possibly null.
+
+     @param lLevel are factor levels, if any.
+   */
+  static List presortDF(const DataFrame& df,
+		        SEXP sSigTrain,
+			SEXP sLevel);
+
+  /**
+     @brief Maps factor encodings of current observation set to those of training.
+
+     Employs proxy values for any levels unseen during training.
+
+     @param df is a data frame.
+
+     @param sLevel contain the level strings of core-indexed factor predictors.
+
+     @param sSigTrain holds the training signature.
+
+     @return rewritten data frame.
+  */
+  static IntegerMatrix factorReconcile(const DataFrame& df,
+				       const List& lSigTrain,
+				       const List& lLevel);
+
+
+  static IntegerVector columnReconcile(const IntegerVector& dfCol,
+				       const CharacterVector& colTest,
+				       const CharacterVector& colTrain);
+
+  
   
   /**
      @brief Static entry to block sorting.
@@ -85,8 +108,15 @@ struct RLEFrameR {
 
      @return R-style list of sorting summaries.
    */
-  static List presortNum(const List& frame);
+  static List presortNum(SEXP sX);
 
+
+  /**
+     @brief Presorts a dcgMatrix encoded with 'I' and 'P' descriptors.
+   */
+  static List presortIP(const class BlockIPCresc<double>* rleCrescIP,
+			size_t nRow,
+			unsigned int nPred);
 
   /**
      @brief Produces an R-style run-length encoding of the frame.

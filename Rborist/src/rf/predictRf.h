@@ -27,7 +27,8 @@
 #ifndef RF_PREDICT_RF_H
 #define RF_PREDICT_RF_H
 
-#include "blockbatch.h"
+#include <Rcpp.h>
+using namespace Rcpp;
 
 
 RcppExport SEXP ValidateReg(const SEXP sFrame,
@@ -113,24 +114,25 @@ struct PBRf {
   /**
      @brief Obtains the number of observations.
 
-     @param lFrame is an R-style frame summarizing the data layout.
+     @param lDeframe is an R-style frame summarizing the data layout.
 
      @return number of rows.
    */
-  static size_t getNRow(const List& lFrame);
+  static size_t getNRow(const List& lDeframe);
 
-  static List predictCtg(const List& lFrame,
-                  const List& lTrain,
-                  SEXP sYTest,
-                  bool oob,
-                  bool doProb,
-                  unsigned int nThread);
+  static List predictCtg(const List& lDeframe,
+			 const List& lTrain,
+			 SEXP sYTest,
+			 bool oob,
+			 bool doProb,
+			 unsigned int nThread);
 
+  
   /**
      @brief Prediction for regression.  Parameters as above.
    */
-  static List predictReg(const List& sFrame,
-                         const List& sTrain,
+  static List predictReg(const List& lDeframe,
+                         const List& lTrain,
                          SEXP sYTest,
                          bool oob,
                          unsigned int nThread);
@@ -150,19 +152,19 @@ struct PBRf {
 
     @return wrapped prediction list.
  */
-  static List predictQuant(const List& sFrame,
-                    const List& sTrain,
-                    SEXP sQuantVec,
-                    SEXP sYTest,
-                    bool oob,
-                    unsigned int nThread);
+  static List predictQuant(const List& lDeframe,
+			   const List& sTrain,
+			   SEXP sQuantVec,
+			   SEXP sYTest,
+			   bool oob,
+			   unsigned int nThread);
 
   /**
      @brief Unwraps regression data structurs and moves to box.
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<struct PredictBridge> unwrapReg(const List& lFrame,
+  static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
                                                    const List& lTrain,
                                                    bool oob,
                                                    unsigned int nThread,
@@ -173,10 +175,10 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<struct PredictBridge> unwrapReg(const List& lFrame,
-                                                   const List& lTrain,
-                                                   bool oob,
-                                                   unsigned int nThread);
+  static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
+						    const List& lTrain,
+						    bool oob,
+						    unsigned int nThread);
 
 
   /**
@@ -192,11 +194,11 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<struct PredictBridge> unwrapCtg(const List& sFrame,
-                                                   const List& lTrain,
-                                                   bool oob,
-                                                   bool doProb,
-                                                   unsigned int nThread);
+  static unique_ptr<struct PredictBridge> unwrapCtg(const List& lDeframe,
+						    const List& lTrain,
+						    bool oob,
+						    bool doProb,
+						    unsigned int nThread);
 
 private:
   /**
@@ -215,13 +217,9 @@ private:
 
 
   static void predict(struct PredictBridge* pBridge,
-                      BlockBatch<NumericMatrix>* blockNum,
-                      BlockBatch<IntegerMatrix>* blockFac,
                       size_t nRow);
 
   static size_t predictBlock(PredictBridge* pBridge,
-                             BlockBatch<NumericMatrix>* blockNum,
-                             BlockBatch<IntegerMatrix>* blockFac,
                              size_t rowStart,
                              size_t rowCount);
 };

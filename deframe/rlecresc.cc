@@ -53,12 +53,14 @@ void RLECresc::encodeFrame(const vector<void*>& colBase) {
 void RLECresc::encodeFrameNum(const vector<double>&  feVal,
 			      const vector<size_t>&  feRowStart,
 			      const vector<size_t>&  feRunLength) {
+  valFac = vector<vector<unsigned int>>(0);
   valNum = encodeSparse<double>(predForm.size(), feVal, feRowStart, feRunLength);
 }
 
 
 void RLECresc::encodeFrameNum(const double*  feVal) {
   OMPBound nPred = predForm.size();
+  valFac = vector<vector<unsigned int>>(0);
   valNum = vector<vector<double>>(nPred);
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {

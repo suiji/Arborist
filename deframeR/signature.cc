@@ -25,11 +25,19 @@
 
 #include "signature.h"
 
+List Signature::wrapNum(unsigned int nPred,
+			const CharacterVector& colNames,
+			const CharacterVector& rowNames) {
+  BEGIN_RCPP
+  return wrap(nPred, rep(CharacterVector("numeric"), nPred), List::create(0), List::create(0), colNames, rowNames);
+  END_RCPP
+}
+
 
 // Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.
-SEXP Signature::wrap(unsigned int nPred,
+List Signature::wrap(unsigned int nPred,
 		     const CharacterVector& predForm,
 		     const List& level,
 		     const List& factor,
@@ -54,10 +62,10 @@ SEXP Signature::wrap(unsigned int nPred,
 /**
    @brief Unwraps field values useful for prediction.
  */
-CharacterVector Signature::unwrapRowNames(const List& sFrame) {
+CharacterVector Signature::unwrapRowNames(const List& lDeframe) {
   BEGIN_RCPP
-  checkFrame(sFrame);
-  List signature = checkSignature(sFrame);
+  checkFrame(lDeframe);
+  List signature = checkSignature(lDeframe);
 
   if (Rf_isNull(signature["rowNames"])) {
     return CharacterVector(0);
@@ -69,9 +77,9 @@ CharacterVector Signature::unwrapRowNames(const List& sFrame) {
 }
 
 
-SEXP Signature::checkSignature(const List &sParent) {
+SEXP Signature::checkSignature(const List &lDeframe) {
   BEGIN_RCPP
-  List signature((SEXP) sParent["signature"]);
+  List signature((SEXP) lDeframe["signature"]);
   if (!signature.inherits("Signature")) {
     stop("Expecting Signature");
   }
@@ -101,14 +109,11 @@ void Signature::unwrapExport(const List& sTrain, List& level, List& factor, Stri
 }
 
 
-SEXP Signature::checkFrame(const List &frame) {
+SEXP Signature::checkFrame(const List &lDeframe) {
   BEGIN_RCPP
-  if (!frame.inherits("Frame")) {
-    stop("Expecting Frame");
+  if (!lDeframe.inherits("Deframe")) {
+    stop("Expecting Derame");
   }
 
-  if (!Rf_isNull(frame["blockFacRLE"])) {
-    stop ("Sparse factors:  NYI");
-  }
   END_RCPP
 }

@@ -19,10 +19,10 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+#include <cmath>
 
 using namespace std;
 
-#include "block.h"
 #include "rleframe.h"
 #include "typeparam.h"
 
@@ -34,16 +34,13 @@ class TrainFrame {
   const struct RLEFrame* rleFrame;
   const IndexT nRow;
   const unique_ptr<class Coproc> coproc; // Stubbed, for now.
-  const vector<vector<double>> numRanked; // Ordered numeric values.
-  const vector<vector<unsigned int>> facRanked; // Ordered factor codes.
-
   
   unique_ptr<class Layout> layout;
 
   
   inline double getNumVal(PredictorT predIdx,
                           IndexT rank) const {
-    return numRanked[predIdx][rank];
+    return rleFrame->numRanked[predIdx][rank];
   }
 
   /**
@@ -51,7 +48,7 @@ class TrainFrame {
 
      @return vector of factor cardinalities.
    */
-  vector<PredictorT> cardinalities(const vector<vector<unsigned int>>& facRanked_)  const;
+  vector<PredictorT> cardinalities() const;
 
   
   /**

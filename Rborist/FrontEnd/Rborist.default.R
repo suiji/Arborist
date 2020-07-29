@@ -61,19 +61,17 @@
         stop("Expecting numeric or factor response")
 
     preFormat <- PreFormat(x, verbose)
-    predFrame <- preFormat$predFrame
-
     
   # Argument checking:
 
-    nRow <- predFrame$nRow
+    nRow <- preFormat$nRow
     if (length(y) != nRow)
         stop("Nonconforming design matrix and response")
 
     if (autoCompress < 0.0 || autoCompress > 1.0)
         stop("Autocompression plurality must be a percentage.")
     
-    nPred <- predFrame$signature$nPred
+    nPred <- preFormat$signature$nPred
 
     if (is.null(regMono)) {
         regMono <- rep(0.0, nPred)
@@ -207,8 +205,6 @@
     # Replaces predictor frame with preformat summaries.
     # Updates argument list with new or recomputed parameters.
     argList$x <- NULL
-    argList$predFrame <- predFrame
-    argList$summaryRLE <- preFormat$summaryRLE
     argList$nCtg <- nCtg
     argList$nSamp <- nSamp
     argList$predFixed <- predFixed
@@ -227,10 +223,10 @@
 
 
 RFDeep <- function(preFormat, argList) {
-    train <- tryCatch(.Call("TrainRF", argList), error = function(e){stop(e)})
+    train <- tryCatch(.Call("TrainRF", preFormat$rleFrame, argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
-    names(predInfo) <- argList$predFrame$colnames
+    names(predInfo) <- preFormat$signature$colNames
     training = list(
         call = match.call(),
         info = predInfo,
@@ -250,7 +246,7 @@ RFDeep <- function(preFormat, argList) {
         forest = train$forest,
         leaf = train$leaf,
         predMap = train$predMap,
-        signature = argList$predFrame$signature,
+        signature = preFormat$signature,
         training = training,
         validation = validation
     )

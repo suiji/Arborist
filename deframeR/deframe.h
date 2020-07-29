@@ -34,30 +34,7 @@ using namespace Rcpp;
 
 
 /**
-  @brief Maps factor encodings of current observation set to those of training.
-
-  Employs proxy values for any levels unseen during training.
-
-  @param sXFac is a (posibly empty) zero-based integer matrix.
-
-  @param sPredMap associates (zero-based) core and front-end predictors.
-
-  @param sLevels contain the level strings of core-indexed factor predictors.
-
-  @param sSigTrain holds the training signature.
-
-  @return rewritten factor matrix.
-*/
-RcppExport SEXP FrameReconcile(SEXP sXFac,
-                               SEXP sPredMap,
-                               SEXP sLevels,
-                               SEXP sSigTrain);
-
-
-/**
   @brief Wraps frame components supplied by front end.
-
-  @param sX is the raw data frame, with columns either factor or numeric.
 
   @param sXNum is a (possibly empty numeric matrix.
 
@@ -67,15 +44,20 @@ RcppExport SEXP FrameReconcile(SEXP sXFac,
 
   @return wrapped frame containing separately-typed matrices.
 */
-RcppExport SEXP WrapFrame(SEXP sX,
-                          SEXP sXNum,
+RcppExport SEXP DeframeDF(SEXP sX,
 			  SEXP sPredForm,
-                          SEXP sXFac,
                           SEXP sLevels,
-			  SEXP sFactor);
+			  SEXP sFactor,
+			  SEXP sSigTrain);
 
-RcppExport SEXP FrameNum(SEXP sX);
 
-RcppExport SEXP FrameSparse(SEXP sX);
+SEXP CheckFrame(const List& lSigTrain,
+		const CharacterVector& predForm);
+
+
+RcppExport SEXP DeframeNum(SEXP sX);
+
+
+RcppExport SEXP DeframeIP(SEXP sX);
 
 #endif
