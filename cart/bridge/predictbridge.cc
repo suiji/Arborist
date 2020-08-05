@@ -25,35 +25,35 @@
 #include "ompthread.h"
 
 
-PredictBridge::PredictBridge(bool oob,
-			     unique_ptr<RLEFrame> rleFrame_,
-                             unique_ptr<ForestBridge> forest_,
-                             unique_ptr<BagBridge> bag_,
-                             unique_ptr<LeafBridge> leaf_,
+PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
+                             unique_ptr<ForestBridge> forestBridge_,
+                             unique_ptr<BagBridge> bagBridge_,
+                             unique_ptr<LeafBridge> leafBridge_,
+			     bool importance_,
                              const vector<double>& quantile,
                              unsigned int nThread) :
   rleFrame(move(rleFrame_)),
-  bag(move(bag_)),
-  forest(move(forest_)),
-  leaf(move(leaf_)),
-  quant(make_unique<Quant>(static_cast<LeafFrameReg*>(leaf->getLeaf()), bag->getBag(), quantile)),
-  predictCore(make_unique<Predict>(bag->getBag(), forest->getForest(), leaf->getLeaf(), rleFrame.get(), quant.get(), oob)) {
+  bagBridge(move(bagBridge_)),
+  forestBridge(move(forestBridge_)),
+  leafBridge(move(leafBridge_)),
+  importance(importance_),
+  quant(make_unique<Quant>(static_cast<LeafFrameReg*>(leafBridge->getLeaf()), bagBridge->getBag(), quantile)) {
   OmpThread::init(nThread);
 }
 
 
-PredictBridge::PredictBridge(bool oob,
-			     unique_ptr<RLEFrame> rleFrame_,
-                             unique_ptr<ForestBridge> forest_,
-                             unique_ptr<BagBridge> bag_,
-                             unique_ptr<LeafBridge> leaf_,
+PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
+                             unique_ptr<ForestBridge> forestBridge_,
+                             unique_ptr<BagBridge> bagBridge_,
+                             unique_ptr<LeafBridge> leafBridge_,
+			     bool importance_,
                              unsigned int nThread) :
   rleFrame(move(rleFrame_)),
-  bag(move(bag_)),
-  forest(move(forest_)),
-  leaf(move(leaf_)),
-  quant(nullptr),
-  predictCore(make_unique<Predict>(bag->getBag(), forest->getForest(), leaf->getLeaf(), rleFrame.get(), quant.get(), oob)) {
+  bagBridge(move(bagBridge_)),
+  forestBridge(move(forestBridge_)),
+  leafBridge(move(leafBridge_)),
+  importance(importance_),
+  quant(nullptr) {
   OmpThread::init(nThread);
 }
 
@@ -63,8 +63,14 @@ PredictBridge::~PredictBridge() {
 }
 
 
+void PredictBridge::predict() const {
+  unique_ptr<Predict> predictCore  = make_unique<Predict>(bagBridge->getBag(), forestBridge->getForest(), leafBridge->getLeaf(), rleFrame.get(), quant.get());
+  predictCore->predict(importance);
+}
+
+
 LeafBridge* PredictBridge::getLeaf() const {
-  return leaf.get();
+  return leafBridge.get();
 }
 
 
@@ -76,16 +82,4 @@ const vector<double> PredictBridge::getQPred() const {
 
 const vector<double> PredictBridge::getQEst() const {
   return (quant == nullptr || quant->getNRow() == 0) ? vector<double>(0) : quant->getQEst();
-}
-
-
-size_t PredictBridge::getBlockRows(size_t rowCount) {
-  return Predict::getBlockRows(rowCount);
-}
-
-
-void PredictBridge::predictBlock(size_t rowStart,
-				 size_t extent) const {
-  unique_ptr<PredictFrame> frame(make_unique<PredictFrame>(predictCore.get(), extent));
-  frame->predictAcross(rowStart);
 }

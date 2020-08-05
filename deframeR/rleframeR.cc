@@ -239,7 +239,8 @@ List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
 }
 
 
-unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& rleList) {
+unique_ptr<RLEFrame> RLEFrameR::unwrap(const List& lDeframe) {
+  List rleList((SEXP) lDeframe["rleFrame"]);
   List blockNum = checkNumRanked((SEXP) rleList["numRanked"]);
   NumericVector numVal(Rf_isNull(blockNum["numVal"]) ? NumericVector(0) : NumericVector((SEXP) blockNum["numVal"]));
   IntegerVector numHeight(Rf_isNull(blockNum["numHeight"]) ? IntegerVector(0) : IntegerVector((SEXP) blockNum["numHeight"]));

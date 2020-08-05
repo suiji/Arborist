@@ -22,6 +22,8 @@
 #include "quant.h"
 #include "ompthread.h"
 #include "rleframe.h"
+#include "bheap.h"
+
 
 const size_t Predict::rowBlock = 0x2000;
 
@@ -29,8 +31,7 @@ Predict::Predict(const Bag* bag_,
                  const Forest* forest,
                  LeafFrame* leaf_,
 		 RLEFrame* rleFrame_,
-                 Quant* quant_,
-                 bool oob_) :
+                 Quant* quant_) :
   bag(bag_),
   treeOrigin(forest->cacheOrigin()),
   treeNode(forest->getNode()),
@@ -38,7 +39,6 @@ Predict::Predict(const Bag* bag_,
   leaf(leaf_),
   rleFrame(rleFrame_),
   quant(quant_),
-  oob(oob_),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
   nTree(forest->getNTree()),
@@ -61,8 +61,55 @@ PredictFrame::PredictFrame(Predict* predict_,
 }
 
 
-size_t Predict::getBlockRows(size_t nRow) {
-  return min(nRow, rowBlock);
+void Predict::predict(bool importance) {
+  leaf->setPredictTarget();
+  predictRows();
+
+  if (importance) {
+    predictPermute();
+  }
+}
+
+
+void Predict::predictPermute() {
+  leaf->initPermute(rleFrame->getNPred());
+  for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
+    leaf->setPermuteTarget(predIdx);
+    vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
+    rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, BHeap::permute(rleFrame->getNRow()));
+    predictRows();
+    rleFrame->rlePred[predIdx] = move(rleTemp);
+  }
+}
+
+
+void Predict::predictRows() {
+  fill(trIdx.begin(), trIdx.end(), 0); // Resets row indices.
+  size_t nRow = rleFrame->getNRow();
+  size_t row = predictBlock(0, nRow);
+  // Remainder rows handled in custom-fitted block.
+  if (nRow > row) {
+    (void) predictBlock(row, nRow);
+  }
+}
+
+
+size_t Predict::predictBlock(size_t rowStart,
+			     size_t rowEnd) {
+  size_t blockRows = min(rowBlock, rowEnd - rowStart);
+  size_t row = rowStart;
+  for (; row + blockRows <= rowEnd; row += blockRows) {
+    framePredict(row, blockRows);
+  }
+
+  return row;
+}
+
+
+void Predict::framePredict(size_t rowStart,
+			   size_t extent) {
+  unique_ptr<PredictFrame> frame(make_unique<PredictFrame>(this, extent));
+  frame->predictAcross(rowStart);
 }
 
 
@@ -136,7 +183,7 @@ IndexT Predict::rowNum(unsigned int tIdx,
 		       const double* rowT,
 		       size_t row) {
   IndexT leafIdx = noLeaf;
-  if (!bag->isBagged(oob, tIdx, row)) {
+  if (!bag->isBagged(tIdx, row)) {
     auto idx = treeOrigin[tIdx];
     do {
       idx += treeNode[idx].advance(rowT, leafIdx);
@@ -150,7 +197,7 @@ IndexT Predict::rowFac(const unsigned int tIdx,
 		       const unsigned int* rowT,
 		       size_t row) {
   IndexT leafIdx = noLeaf;
-  if (!bag->isBagged(oob, tIdx, row)) {
+  if (!bag->isBagged(tIdx, row)) {
     auto idx = treeOrigin[tIdx];
     do {
       idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
@@ -165,7 +212,7 @@ IndexT Predict::rowMixed(unsigned int tIdx,
 			 const unsigned int* rowFT,
 			 size_t row) {
   IndexT leafIdx = noLeaf;
-  if (!bag->isBagged(oob, tIdx, row)) {
+  if (!bag->isBagged(tIdx, row)) {
     auto idx = treeOrigin[tIdx];
     do {
       idx += treeNode[idx].advance(this, facSplit, rowFT, rowNT, tIdx, leafIdx);
@@ -177,10 +224,10 @@ IndexT Predict::rowMixed(unsigned int tIdx,
 
 
 const double* Predict::baseNum(size_t rowOff) const {
-  return &trNum[rowOff * rleFrame->getNPredNum()];
+  return &trNum[rowOff * nPredNum];
 }
   
 
 const PredictorT* Predict::baseFac(size_t rowOff) const {
-  return &trFac[rowOff * rleFrame->getNPredFac()];
+  return &trFac[rowOff * nPredFac];
 }

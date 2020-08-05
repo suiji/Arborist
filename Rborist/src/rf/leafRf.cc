@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2020   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -193,7 +193,7 @@ List LBTrainCtg::wrap() {
    bridge-specific LeafReg handle.
  */
 unique_ptr<LeafRegBridge> LeafRegRf::unwrap(const List& lTrain,
-					    size_t nRow) {
+					    const List& lDeframe) {
   List lLeaf(checkLeaf(lTrain));
   return make_unique<LeafRegBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
                                     (size_t) IntegerVector((SEXP) lLeaf["nodeHeight"]).length(),
@@ -203,7 +203,7 @@ unique_ptr<LeafRegBridge> LeafRegRf::unwrap(const List& lTrain,
                                     (double*) NumericVector((SEXP) lLeaf["yTrain"]).begin(),
                                     (size_t) NumericVector((SEXP) lLeaf["yTrain"]).length(),
                                     mean(NumericVector((SEXP) lLeaf["yTrain"])),
-				    nRow);
+				    as<size_t>((SEXP) lDeframe["nRow"]));
 }
 
 
@@ -229,7 +229,7 @@ List LeafRegRf::checkLeaf(const List &lTrain) {
    @return 
  */
 unique_ptr<LeafCtgBridge> LeafCtgRf::unwrap(const List& lTrain,
-					    size_t nRow,
+					    const List& lDeframe,
                                             bool doProb) {
   List lLeaf(checkLeaf(lTrain));
   return make_unique<LeafCtgBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
@@ -239,7 +239,7 @@ unique_ptr<LeafCtgBridge> LeafCtgRf::unwrap(const List& lTrain,
                                     (unsigned char*) RawVector((SEXP) lLeaf["bagSample"]).begin(),
                                     (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
                                     (unsigned int) CharacterVector((SEXP) lLeaf["levels"]).length(),
-                                    nRow,
+                                    as<size_t>((SEXP) lDeframe["nRow"]),
                                     doProb);
 }
 
@@ -258,24 +258,6 @@ List LeafCtgRf::checkLeaf(const List &lTrain) {
   return leafCtg;
 
   END_RCPP
-}
-
-double LeafRegRf::mse(const vector<double> &yPred,
-                          const NumericVector &yTest,
-                          double &rsq,
-                          double &mae) {
-  double sse = 0.0;
-  mae = 0.0;
-  unsigned int rowPred = yTest.length();
-  for (unsigned int i = 0; i < rowPred; i++) {
-    double error = yTest[i] - yPred[i];
-    sse += error * error;
-    mae += fabs(error);
-  }
-  rsq = 1.0 - sse / (var(yTest) * (rowPred - 1.0));
-  mae /= rowPred;
-
-  return sse / rowPred;
 }
 
 
@@ -351,20 +333,59 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
     prediction.attr("class") = "PredictReg";
   }
   else { // Validation/testing
+    NumericVector yTest((SEXP) sYTest);
     double rsq, mae;
+    double msePred = mse(leaf->getYPred(), yTest, rsq, mae);
     prediction = List::create(
                               _["yPred"] = leaf->getYPred(),
-                              _["mse"] = mse(leaf->getYPred(), as<NumericVector>(sYTest), rsq, mae),
-                              _["mae"] = mae,
                               _["rsq"] = rsq,
                               _["qPred"] = getQPred(leaf, pBridge),
-                              _["qEst"] = getQEst(pBridge)
+                              _["qEst"] = getQEst(pBridge),
+                              _["mse"] = msePred,
+                              _["mae"] = mae,
+			      _["importance"] = importance(leaf, yTest, msePred)
                               );
     prediction.attr("class") = "ValidReg";
   }
 
   return prediction;
   END_RCPP
+}
+
+
+NumericVector LeafRegRf::importance(const LeafRegBridge* leaf,
+				    const NumericVector& yTest,
+				    double msePred) {
+  double rsq, mae;
+  const vector<vector<double>>& yPermute = leaf->getYPermute();
+  NumericVector importanceOut(yPermute.size());
+  size_t i = 0;
+  for (auto yPerm : yPermute) {
+    double msePerm = mse(yPerm, yTest, rsq, mae);
+    importanceOut[i++] = (msePerm - msePred);
+  }
+
+  return importanceOut;
+}
+
+
+double LeafRegRf::mse(const vector<double>& yPred,
+		      const NumericVector& yTest,
+		      double& rsq,
+		      double& mae) {
+  double sse = 0.0;
+  mae = 0.0;
+  IndexT rowPred = yTest.length();
+  IndexT i = 0;
+  for (auto yP : yPred) {
+    double error = yP - yTest[i++];
+    sse += error * error;
+    mae += fabs(error);
+  }
+  rsq = 1.0 - sse / (var(yTest) * (rowPred - 1.0));
+  mae /= rowPred;
+
+  return sse / rowPred;
 }
 
 
@@ -401,7 +422,7 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictB
   BEGIN_RCPP
 
   LeafCtgBridge* leaf = static_cast<LeafCtgBridge*>(pBridge->getLeaf());
-    leaf->vote();
+  leaf->vote();
   List lLeaf(checkLeaf(lTrain));
   CharacterVector levelsTrain((SEXP) lLeaf["levels"]);
   CharacterVector rowNames(Signature::unwrapRowNames(lDeframe));

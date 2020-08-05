@@ -45,16 +45,14 @@ class Bag {
   /**
      @brief Determines whether a given forest coordinate is bagged.
 
-     @param oob is true iff out-of-bag sampling is specified.
-
      @param tIdx is the tree index.
 
      @param row is the row index.
 
      @return true iff oob sampling specified and the coordinate bit is set.
    */
-  inline bool isBagged(bool oob, unsigned int tIdx, size_t row) const {
-    return oob && bitMatrix->testBit(tIdx, row);
+  inline bool isBagged(unsigned int tIdx, size_t row) const {
+    return nTree != 0 && bitMatrix->testBit(tIdx, row);
   }
 
 

@@ -37,6 +37,16 @@ class PredictFrame {
   IndexT extent; // # rows in block
 
   /**
+     @brief Gets an acceptable block row count.
+
+     @param rowCount is a requested count.
+
+     @return count of rows in block.
+   */
+  static size_t getBlockRows(size_t rowCount);
+
+
+  /**
      @brief Aliases a row-prediction method tailored for the frame's
      block structure.
    */
@@ -136,11 +146,39 @@ class Predict {
   class LeafFrame* leaf; // Terminal section of forest.
   struct RLEFrame* rleFrame; // Frame of observations.
   class Quant* quant;  // Quantile workplace, as needed.
-  const bool oob; // Whether prediction constrained to out-of-bag.
 
   unique_ptr<PredictFrame> frame;
 
- public:
+
+  /**
+     @brief Driver for all-row prediction.
+   */
+  void predictRows();
+
+
+  /**
+     @brief Performs prediction on separately-permuted predictor columns.
+   */
+  void predictPermute();
+  
+
+  /**
+     @brief Strip-mines prediction by fixed-size blocks.
+   */
+  size_t predictBlock(size_t row,
+		      size_t extent);
+
+
+  /**
+     @brief Predicts over a single frame of observations.
+
+     @param row is the beginning row index of the block.
+   */
+  void framePredict(size_t row,
+		    size_t extent);
+
+
+public:
 
   const PredictorT nPredNum;
   const PredictorT nPredFac;
@@ -154,10 +192,19 @@ class Predict {
           const class Forest* forest_,
           class LeafFrame* leaf_,
 	  struct RLEFrame* rleFrame_,
-          class Quant* quant_,
-          bool oob_);
+          class Quant* quant_);
 
+  
+  /**
+     @brief Main entry from bridge.
 
+     @param importance is true iff permutation importance is specified.
+
+     Distributed prediction will require start and extent parameters.
+   */
+  void predict(bool importance);
+
+  
     /**
      @brief Computes block-relative position for a predictor.
 
@@ -192,15 +239,6 @@ class Predict {
      @return base address for (transposed) factor values at row.
    */
   const PredictorT* baseFac(size_t rowOff) const;
-
-  /**
-     @brief Specifies size of blocks to be passed by front end.
-
-     @param nRow is the total number of observations.
-
-     @return lesser of internal parameter and number of observations.
-   */
-  static size_t getBlockRows(size_t nRow);
 
   
   /**

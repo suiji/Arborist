@@ -85,14 +85,14 @@ class BagRf {
 
      @param lTrain contains the training summary.
 
-     @param lRLE contains the RLE frame.
+     @param lDeframe contains the deframed observations.
 
      @param oob indicates whether a non-null bag is requested.
 
      @return instantiation containing bag raw data.
    */
   static unique_ptr<struct BagBridge> unwrap(const List& sTrain,
-					     size_t nRow,
+					     const List& lDeframe,
 					     bool oob);
 
   

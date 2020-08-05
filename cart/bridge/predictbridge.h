@@ -34,43 +34,35 @@ struct PredictBridge {
 
      Remaining parameters mirror similarly-named members.
    */
-  PredictBridge(bool oob,
-		unique_ptr<struct RLEFrame> rleFrame_,
+  PredictBridge(unique_ptr<struct RLEFrame> rleFrame_,
                 unique_ptr<struct ForestBridge> forest_,
                 unique_ptr<struct BagBridge> bag_,
                 unique_ptr<struct LeafBridge> leaf_,
+		bool importance,
                 unsigned int nThread);
 
-  PredictBridge(bool oob,
-		unique_ptr<struct RLEFrame> rleFrame_,
+  PredictBridge(unique_ptr<struct RLEFrame> rleFrame_,
                 unique_ptr<struct ForestBridge> forest_,
                 unique_ptr<struct BagBridge> bag_,
                 unique_ptr<struct LeafBridge> leaf_,
+		bool importance,
                 const vector<double>& quantile,
                 unsigned int nThread);
 
   ~PredictBridge();
 
-  /**
-     @brief Gets an acceptable block row count.
-
-     @param rowCount is a requested count.
-
-     @return count of rows in block.
-   */
-  static size_t getBlockRows(size_t rowCount);
-
 
   /**
-     @brief Predicts over a block of observations.
+     @brief External entry for prediction.
 
-     @param row is the beginning row index of the block.
+     May be parametrized for separate entry in distributed setting.
    */
-  void predictBlock(size_t row,
-		    size_t extent) const;
+  void predict() const;
+
 
   struct LeafBridge* getLeaf() const;
 
+  
   /**
      @return vector of predection quantiles iff quant non-null else empty.
    */
@@ -83,12 +75,11 @@ struct PredictBridge {
   
 private:
   unique_ptr<struct RLEFrame> rleFrame;
-  unique_ptr<struct BagBridge> bag;
-  unique_ptr<struct ForestBridge> forest;
-  unique_ptr<struct LeafBridge> leaf;
+  unique_ptr<struct BagBridge> bagBridge;
+  unique_ptr<struct ForestBridge> forestBridge;
+  unique_ptr<struct LeafBridge> leafBridge;
+  const bool importance; // Whether permutation importance is requested.
   unique_ptr<class Quant> quant;
-  unique_ptr<class Predict> predictCore;
 };
-
 
 #endif

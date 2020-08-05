@@ -300,7 +300,7 @@ LeafExportCtg::LeafExportCtg(const List& lLeaf,
                                (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
                                (unsigned int) CharacterVector((SEXP) lLeaf["levels"]).length(),
                                0,
-                               false);
+			       false);
   leaf->dump(bagBridge, rowTree, sCountTree, scoreTree, extentTree, weightTree);
 }
 

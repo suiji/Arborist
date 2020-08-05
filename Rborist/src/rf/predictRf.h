@@ -34,7 +34,9 @@ using namespace Rcpp;
 RcppExport SEXP ValidateReg(const SEXP sFrame,
                             const SEXP sTrain,
                             SEXP sYTest,
+			    SEXP sImportance,
                             SEXP sNThread);
+
 
 RcppExport SEXP TestReg(const SEXP sFrame,
                         const SEXP sTrain,
@@ -42,21 +44,28 @@ RcppExport SEXP TestReg(const SEXP sFrame,
                         SEXP sOOB,
                         SEXP sNThread);
 
+
 RcppExport SEXP ValidateVotes(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
+			      SEXP sImportance,
                               SEXP sNThread);
+
 
 RcppExport SEXP ValidateProb(const SEXP sFrame,
                              const SEXP sTrain,
                              SEXP sYTest,
+			     SEXP sImportance,
                              SEXP sNThread);
+
 
 RcppExport SEXP ValidateQuant(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
+			      SEXP sImportance,
                               SEXP sQuantVec,
                               SEXP sNThread);
+
 
 RcppExport SEXP TestQuant(const SEXP sFrame,
                           const SEXP sTrain,
@@ -109,22 +118,12 @@ RcppExport SEXP TestVotes(const SEXP sFrame,
  */
 struct PBRf {
 
-  static SEXP checkFrame(const List& frame);
-  
-  /**
-     @brief Obtains the number of observations.
-
-     @param lDeframe is an R-style frame summarizing the data layout.
-
-     @return number of rows.
-   */
-  static size_t getNRow(const List& lDeframe);
-
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
 			 SEXP sYTest,
 			 bool oob,
 			 bool doProb,
+			 bool importance,
 			 unsigned int nThread);
 
   
@@ -135,10 +134,12 @@ struct PBRf {
                          const List& lTrain,
                          SEXP sYTest,
                          bool oob,
+			 bool importance,
                          unsigned int nThread);
 
- /**
-    @brief Prediction with quantiles.
+
+  /**
+  @brief Prediction with quantiles.
 
     @param sFrame contains the blocked observations.
 
@@ -150,6 +151,8 @@ struct PBRf {
 
     @param oob is true iff testing restricted to out-of-bag.
 
+    @param importance is true iff permutation testing is specified.
+
     @return wrapped prediction list.
  */
   static List predictQuant(const List& lDeframe,
@@ -157,6 +160,7 @@ struct PBRf {
 			   SEXP sQuantVec,
 			   SEXP sYTest,
 			   bool oob,
+			   bool importance,
 			   unsigned int nThread);
 
   /**
@@ -167,6 +171,7 @@ struct PBRf {
   static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
                                                    const List& lTrain,
                                                    bool oob,
+						    bool importance,
                                                    unsigned int nThread,
                                                    const vector<double>& quantile);
 
@@ -178,6 +183,7 @@ struct PBRf {
   static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
 						    const List& lTrain,
 						    bool oob,
+						    bool importance,
 						    unsigned int nThread);
 
 
@@ -198,6 +204,7 @@ struct PBRf {
 						    const List& lTrain,
 						    bool oob,
 						    bool doProb,
+						    bool importance,
 						    unsigned int nThread);
 
 private:
@@ -214,13 +221,5 @@ private:
      @return wrapped prediction.
    */
   static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
-
-
-  static void predict(struct PredictBridge* pBridge,
-                      size_t nRow);
-
-  static size_t predictBlock(PredictBridge* pBridge,
-                             size_t rowStart,
-                             size_t rowCount);
 };
 #endif

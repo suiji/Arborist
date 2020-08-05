@@ -23,6 +23,7 @@
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,
+                importance = FALSE,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
@@ -60,6 +61,9 @@
     if (!is.numeric(y) && !is.factor(y))
         stop("Expecting numeric or factor response")
 
+    if (importance && noValidate)
+        stop("Variable importance requires validation")
+    
     preFormat <- PreFormat(x, verbose)
     
   # Argument checking:
@@ -223,7 +227,7 @@
 
 
 RFDeep <- function(preFormat, argList) {
-    train <- tryCatch(.Call("TrainRF", preFormat$rleFrame, argList), error = function(e){stop(e)})
+    train <- tryCatch(.Call("TrainRF", preFormat, argList), error = function(e){stop(e)})
 
     predInfo <- train[["predInfo"]]
     names(predInfo) <- preFormat$signature$colNames
@@ -238,7 +242,7 @@ RFDeep <- function(preFormat, argList) {
         validation <- NULL
     }
     else {
-        validation <- ValidateDeep(preFormat, train, argList$y, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
+        validation <- ValidateDeep(preFormat, train, argList$y, argList$importance, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
     }
 
     arbOut <- list(

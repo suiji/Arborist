@@ -58,15 +58,15 @@ List BagRf::wrap() {
 }
 
 
-unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain, size_t nRow, bool oob) {
+unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain, const List& lDeframe, bool oob) {
 
   List sBag((SEXP) sTrain["bag"]);
   if (oob) {
-    checkOOB(sBag, nRow);
+    checkOOB(sBag, as<size_t>((SEXP) lDeframe["nRow"]));
   }
 
   RawVector raw((SEXP) sBag["raw"]);
-  if (raw.length() > 0) {
+  if (oob && raw.length() > 0) {
     return make_unique<BagBridge>(as<unsigned int>(sBag["nTree"]),
                                   as<unsigned int>(sBag["nRow"]),
                                   RawVector((SEXP) sBag["raw"]).begin());

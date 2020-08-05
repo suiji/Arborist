@@ -50,6 +50,11 @@ const vector<double>& LeafRegBridge::getYPred() const {
 }
 
 
+const vector<vector<double>>& LeafRegBridge::getYPermute() const {
+  return leaf->getYPermute();
+}
+
+
 void LeafRegBridge::dump(const BagBridge* bagBridge,
                          vector<vector<size_t> >& rowTree,
                          vector<vector<unsigned int> >& sCountTree,

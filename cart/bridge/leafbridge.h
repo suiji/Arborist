@@ -22,6 +22,7 @@ struct LeafBridge {
    */
   size_t getRowPredict() const;
 
+
   virtual ~LeafBridge() {
   }
 
@@ -42,6 +43,7 @@ struct LeafRegBridge : public LeafBridge {
                 double trainMean,
                 size_t predictRow);
 
+
   ~LeafRegBridge();
 
 
@@ -56,6 +58,13 @@ struct LeafRegBridge : public LeafBridge {
      @brief Pass-through to core method.
    */
   const vector<double>& getYPred() const;
+
+
+  /**
+     @brief Pass-through to core.
+   */
+  const vector<vector<double>>& getYPermute() const;
+
 
   class LeafFrame* getLeaf() const;
 

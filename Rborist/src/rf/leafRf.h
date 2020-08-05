@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2020  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -56,11 +56,12 @@ struct LeafRegRf {
 
      @param lLeaf references the leaf object.
 
-     @param lRLE references the RLE frame
+     @param lDeframe references the deframed observations.
    */
   static unique_ptr<struct LeafRegBridge> unwrap(const List& lLeaf,
-						 size_t nRow);
+						 const List& lDeframe);
 
+  
   static List summary(SEXP sYTest,
                       const struct PredictBridge* pBridge);
 
@@ -105,6 +106,19 @@ struct LeafRegRf {
              const NumericVector &yTest,
              double &rsq,
              double &mae);
+
+  /**
+     @brief Computes predictor importances by permutation.
+
+     @param yTest is the test calibration.
+
+     @param msePred is the MSE of the unpermuted prediction.
+
+     @return vector of permutation importances, by predictor.
+   */
+  static NumericVector importance(const LeafRegBridge* leaf,
+				  const NumericVector& yTest,
+				  double msePred);
 };
 
 
@@ -130,14 +144,15 @@ struct LeafCtgRf {
 
      @param lLeaf references the leaf.
 
-     @param lRLE references the RLE frame.
+     @param lDeframe references the deframed observations.
 
      @param doProb indicates whether a probability matrix is requested.
    */
   static unique_ptr<struct LeafCtgBridge> unwrap(const List& lLeaf,
-						 size_t nRow,
+						 const List& lDeframe,
 						 bool doProb);
 
+  
   static List summary(const List& lDeframe,
                       const List& lTrain,
                       const struct PredictBridge* pBridge,

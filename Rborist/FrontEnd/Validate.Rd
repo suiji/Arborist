@@ -21,7 +21,8 @@ quantVec = NULL, quantiles = !is.null(quantVec), nThread = 0, verbose = FALSE)
   \item{train}{an object of class \code{Rborist} obtained from previous
     training.}
   \item{y}{the response (outcome) vector, either numerical or
-  categorical.  Row count must conform with \code{x}.}
+    categorical.  Row count must conform with \code{x}.}
+  \item{importance} indicates whether permutation importance is to be computed.
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}

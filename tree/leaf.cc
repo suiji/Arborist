@@ -42,19 +42,19 @@ LeafFrameReg::LeafFrameReg(const unsigned int height[],
 
 
 LeafFrameCtg::LeafFrameCtg(const unsigned int leafHeight[],
-                 unsigned int nTree,
-                 const class Leaf leaf[],
-                 const unsigned int bagHeight[],
-                 const class BagSample bagSample[],
-                 const double ctgProb_[],
-                 unsigned int ctgTrain_,
-                 unsigned int rowPredict,
-                 bool doProb) :
+			   unsigned int nTree,
+			   const class Leaf leaf[],
+			   const unsigned int bagHeight[],
+			   const class BagSample bagSample[],
+			   const double ctgProb_[],
+			   unsigned int ctgTrain_,
+			   unsigned int rowPredict,
+			   bool doProb) :
   LeafFrame(leafHeight,
-       nTree,
-       leaf,
-       bagHeight,
-       bagSample),
+	    nTree,
+	    leaf,
+	    bagHeight,
+	    bagSample),
   ctgTrain(ctgTrain_),
   ctgProb(make_unique<CtgProb>(ctgTrain, nTree, leafHeight, ctgProb_)),
   yPred(vector<unsigned int>(rowPredict)),
@@ -206,12 +206,12 @@ void LeafFrameReg::scoreBlock(const unsigned int* predictLeaves,
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound blockRow = 0; blockRow < blockSup; blockRow++) {
-    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], defaultScore, &yPred[rowStart + blockRow]);
+    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], defaultScore, &yTarg[rowStart + blockRow]);
   }
   }
 }
 
-void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultScore, double* yPred) const {
+void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultScore, double* yOut) const {
   double score = 0.0;
   unsigned int treesSeen = 0;
   for (unsigned int tIdx = 0; tIdx < nTree(); tIdx++) {
@@ -221,7 +221,7 @@ void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultSco
       score += getScore(tIdx, termIdx);
     }
   }
-  *yPred = treesSeen > 0 ? score / treesSeen : defaultScore;
+  *yOut = treesSeen > 0 ? score / treesSeen : defaultScore;
 }
 
 
@@ -319,7 +319,7 @@ void LeafFrameCtg::vote() {
       }
       census[ctgIdx(row, ctg)] = ctgScore; // De-jittered.
     }
-    yPred[row] = argMax;
+    yTarg[row] = argMax;
   }
   }
 }

@@ -135,7 +135,7 @@ struct RLEFrameR {
   static List wrapFac(const class RLECresc* rleCresc);
 
   
-  static unique_ptr<RLEFrame> unwrap(const List& sRLEFrame);
+  static unique_ptr<RLEFrame> unwrap(const List& lDeframe);
 
 
   static unique_ptr<RLEFrame> unwrapFrame(const List& rankedFrame,

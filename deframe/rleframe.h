@@ -115,7 +115,7 @@ struct RLEFrame {
   
   
   vector<RLEVal<unsigned int>> permute(unsigned int predIdx,
-	       const vector<size_t>& idxPerm) const;
+				       const vector<size_t>& idxPerm) const;
 
 private:
 

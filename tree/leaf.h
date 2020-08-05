@@ -35,7 +35,7 @@ class Leaf {
   Leaf() : score(0.0), extent(0) {
   }
 
-  
+
   /**
      @brief Getter for fully-accumulated extent value.
    */
@@ -58,6 +58,7 @@ class Leaf {
   inline auto getScore() const {
     return score;
   }
+
 
   /**
      @brief Setter for score.
@@ -757,15 +758,26 @@ protected:
 
 public:
   LeafFrame(const unsigned int* nodeHeight_,
-       unsigned int nTree_,
-       const class Leaf* leaf_,
-       const unsigned int bagHeight_[],
-       const class BagSample* bagSample_);
+	    unsigned int nTree_,
+	    const class Leaf* leaf_,
+	    const unsigned int bagHeight_[],
+	    const class BagSample* bagSample_);
 
   const size_t noLeaf; // Inattainable leaf index value.
 
   virtual ~LeafFrame() {}
   virtual const unsigned int getRowPredict() const = 0;
+
+
+  /**
+     @brief Sets the score target to the appropriate vector.
+  */
+  virtual void setPredictTarget() = 0;
+
+  virtual void initPermute(PredictorT nPred) = 0;
+
+  virtual void setPermuteTarget(PredictorT predIdx) = 0;
+
 
   /**
      @brief Sets scores for a block of rows.
@@ -876,6 +888,8 @@ class LeafFrameReg : public LeafFrame {
   const vector<size_t> offset; // Accumulated extents.
   double defaultScore;
   vector<double> yPred;
+  vector<vector<double>> yPermute;
+  double *yTarg; // Points to vector being scored.
   
  public:
   LeafFrameReg(const unsigned int nodeHeight_[],
@@ -888,8 +902,26 @@ class LeafFrameReg : public LeafFrame {
                double meanTrain_,
                unsigned int rowPredict_);
 
+
   ~LeafFrameReg() {}
 
+
+  void setPredictTarget() {
+    yTarg = &yPred[0];
+  }
+
+
+  void initPermute(PredictorT nPred) {
+    yPermute = vector<vector<double>>(nPred);
+  }
+  
+  
+  void setPermuteTarget(PredictorT predIdx) {
+    yPermute[predIdx] = vector<double>(yPred.size());
+    yTarg = &yPermute[predIdx][0];
+  }
+
+  
   /**
      @brief Accesor for training response, by row.
 
@@ -920,6 +952,11 @@ class LeafFrameReg : public LeafFrame {
   
   inline const double getYPred(unsigned int row) const {
     return yPred[row];
+  }
+
+
+  inline const vector<vector<double>>& getYPermute() const {
+    return yPermute;
   }
   
 
@@ -1094,13 +1131,16 @@ public:
   void dump(vector<vector<double> >& probTree) const;
 };
 
+
 class LeafFrameCtg : public LeafFrame {
   const unsigned int ctgTrain; // Response training cardinality.
   unique_ptr<CtgProb> ctgProb; // Matrix (row * ctg) of predicted probabilities.
   
   vector<unsigned int> yPred; // Per-row vector of predicted categories.
+  vector<vector<unsigned int>> yPermute;
   unsigned int ctgDefault; // Default score for rows with no out-of-bag trees.
-
+  unsigned int* yTarg;
+  
  public:
   // Sized to zero by constructor.
   // Resized by bridge and filled in by prediction.
@@ -1120,6 +1160,22 @@ class LeafFrameCtg : public LeafFrame {
 
   ~LeafFrameCtg(){}
 
+
+  void setPredictTarget() {
+    yTarg = &yPred[0];
+  }
+
+
+  void initPermute(PredictorT nPred) {
+    yPermute = vector<vector<unsigned int>>(nPred);
+  }
+  
+
+  void setPermuteTarget(PredictorT predIdx) {
+    yPermute[predIdx] = vector<unsigned int>(yPred.size());
+    yTarg = &yPermute[predIdx][0];
+  }
+  
 
   /**
      @brief Getter for prediction.
