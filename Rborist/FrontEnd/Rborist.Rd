@@ -19,6 +19,7 @@
                 autoCompress = 0.25,
                 ctgCensus = "votes",
                 classWeight = NULL,
+                importance = FALSE,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
@@ -52,6 +53,7 @@
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{classWeight}{proportional weighting of classification
     categories.}
+  \item{importance}{whether permutation importance is to be computed.}
   \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
   \item{minNode}{minimum number of distinct row references to split a node.}
