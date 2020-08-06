@@ -27,32 +27,11 @@
 \value{
   \item{PreFormat}{ a list consisting of three objects:
 
-    \code{predFrame}{ a list of presorted and formatted predictor
-    information:
-
-    \code{blockFac}{ a matrix of zero-based factor predictor values.}
-
-    \code{blockFacSparse}{ a sparse block of factor predictor values.}
-
-    \code{blockNum}{ a matrix of dense numeric predictor values.}
-
-    \code{blockNumSparse}{ a sparse block of numeric predictor values.}
-    
-    \code{nPredFac}{ the number of factor predictors.}
+    \code{rleFrame}{ a run-length encoded representation of the observations.}
 
     \code{nRow}{ the number of training rows.}
 
-    \code{nPredFac}{ the number of factor-valued predictors.}
-
-    \code{facCard}{ a vector of the factor cardinalities.}
-
-    \code{nPredNum}{ the number of numerical predictors.}
-  }
-  \code{rankedFrame}{ a run-length encoded version of the training
-    observations.}
-  \code{obsHash}{ a hashed version of the training observations, used to
-  ensure that subsequent invocations of Rborist employ the same
-  observations used to train.}
+    \code{signature}{ a list of predictor characteristics.}
 }
 }
 

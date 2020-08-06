@@ -58,12 +58,4 @@ deframe <- function(x, sigTrain = NULL) {
   else {
     stop("Expecting data frame or matrix")
   }
-
-    preFormat <- list(
-        predFrame = predFrame,
-        rankedFrame = rankedFrame,
-        obsHash = digest::digest(x)
-    )
-    class(preFormat) <- "Deframe"
-    return(preFormat)
 }

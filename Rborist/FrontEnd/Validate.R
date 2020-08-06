@@ -15,7 +15,8 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 "Validate" <-
-"Validate" <- function(preFormat, train, y, ctgCensus = "votes",
-                             quantVec = NULL, quantiles = !is.null(quantVec),
-                             nThread = 0, verbose = FALSE)
+    "Validate" <- function(preFormat, train, y, ctgCensus = "votes",
+                           importance = FALSE, quantVec = NULL,
+                           quantiles = !is.null(quantVec), nThread = 0,
+                           verbose = FALSE)
     UseMethod("Validate")
