@@ -61,7 +61,7 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
-- Version 0.2-4 to offer permutation-based variable importance as new option.
+- Version 0.2-4 offers permutation-based variable importance as new option.
 - New option 'nThread' enables specification of OpenMP thread count.
 - New option 'oob' constrains prediction to the out-of-bag set, essential for variable importance testing.
 
