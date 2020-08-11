@@ -149,6 +149,19 @@ List RLEFrameR::presortNum(const SEXP sX) {
 }
 
 
+List RLEFrameR::presortFac(const SEXP sX) {
+  BEGIN_RCPP
+
+  IntegerMatrix x(sX);
+  auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
+  rleCresc->encodeFrameFac((uint32_t*)(x.begin()));
+
+  return wrap(rleCresc.get());
+
+  END_RCPP
+}
+
+
 List RLEFrameR::wrap(const RLECresc* rleCresc) {
   BEGIN_RCPP
 

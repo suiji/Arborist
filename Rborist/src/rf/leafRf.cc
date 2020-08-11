@@ -262,60 +262,34 @@ List LeafCtgRf::checkLeaf(const List &lTrain) {
 
 
 TestCtg::TestCtg(SEXP sYTest,
-                 unsigned int rowPredict_,
                  const CharacterVector &levelsTrain_) :
-  rowPredict(rowPredict_),
   levelsTrain(levelsTrain_),
   yTestOne(IntegerVector((SEXP) sYTest)),
   levels(CharacterVector((SEXP) yTestOne.attr("levels"))),
   nCtg(levels.length()),
   test2Merged(mergeLevels(levels, levelsTrain)),
   yTestZero(Reconcile(test2Merged, yTestOne)),
-  ctgMerged(max(yTestZero) + 1),
-  misPred(NumericVector(ctgMerged)),
-  confusion(vector<unsigned int>(rowPredict * ctgMerged)) {
+  ctgMerged(max(yTestZero) + 1) {
 }
 
 
-void TestCtg::validate(LeafCtgBridge *leaf) {
-  fill(confusion.begin(), confusion.end(), 0);
-  for (unsigned int row = 0; row < rowPredict; row++) {
-    confusion[leaf->ctgIdx(yTestZero[row], leaf->getYPred(row))]++;
+vector<unsigned int> TestCtg::buildConfusion(const LeafCtgBridge* leaf,
+					     const vector<unsigned int>& yPred) const {
+  vector<unsigned int> confusion(leaf->getRowPredict() * ctgMerged);
+  for (unsigned int row = 0; row < leaf->getRowPredict(); row++) {
+    confusion[leaf->ctgIdx(yTestZero[row], yPred[row])]++;
   }
-
-  // Fills in misprediction rates for all 'ctgMerged' testing categories.
-  // Polls all 'ctgTrain' possible predictions.
-  //
-  for (unsigned int ctgRec = 0; ctgRec < ctgMerged; ctgRec++) {
-    unsigned int numWrong = 0;
-    unsigned int numRight = 0;
-    for (unsigned int ctgPred = 0; ctgPred < leaf->getCtgTrain(); ctgPred++) {
-      if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
-        numWrong += confusion[leaf->ctgIdx(ctgRec, ctgPred)];
-      }
-      else {
-        numRight = confusion[leaf->ctgIdx(ctgRec, ctgPred)];
-      }
-    }
-    misPred[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
-  }
+  return confusion;
 }
 
 
-/**
-   @brief Computes the mean number of mispredictions.
-
-   @param yPred is the zero-based prediction vector derived by the core.
-
-   @return OOB as mean number of mispredictions, if testing, otherwise 0.0.
- */
-double TestCtg::OOB(const vector<unsigned int> &yPred) const {
+double TestCtg::oobError(const vector<unsigned int>& yPred) const {
   unsigned int missed = 0;
-  for (unsigned int i = 0; i < rowPredict; i++) {
-    missed += (unsigned int) yTestZero[i] != yPred[i];
+  for (unsigned int i = 0; i < yPred.size(); i++) {
+    missed += static_cast<unsigned int>(yTestZero[i]) == yPred[i] ? 0 : 1;
   }
 
-  return double(missed) / rowPredict;  // Caller precludes zero length.
+  return double(missed) / yPred.size();  // Caller precludes zero length.
 }
 
 
@@ -338,12 +312,12 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
     double msePred = mse(leaf->getYPred(), yTest, rsq, mae);
     prediction = List::create(
                               _["yPred"] = leaf->getYPred(),
-                              _["rsq"] = rsq,
                               _["qPred"] = getQPred(leaf, pBridge),
                               _["qEst"] = getQEst(pBridge),
+                              _["rsq"] = rsq,
                               _["mse"] = msePred,
                               _["mae"] = mae,
-			      _["importance"] = importance(leaf, yTest, msePred)
+			      _["msePermuted"] = msePermute(leaf, yTest)
                               );
     prediction.attr("class") = "ValidReg";
   }
@@ -353,16 +327,14 @@ List LeafRegRf::summary(SEXP sYTest, const PredictBridge* pBridge) {
 }
 
 
-NumericVector LeafRegRf::importance(const LeafRegBridge* leaf,
-				    const NumericVector& yTest,
-				    double msePred) {
+NumericVector LeafRegRf::msePermute(const LeafRegBridge* leaf,
+				    const NumericVector& yTest) {
   double rsq, mae;
   const vector<vector<double>>& yPermute = leaf->getYPermute();
   NumericVector importanceOut(yPermute.size());
   size_t i = 0;
   for (auto yPerm : yPermute) {
-    double msePerm = mse(yPerm, yTest, rsq, mae);
-    importanceOut[i++] = (msePerm - msePred);
+    importanceOut[i++] = mse(yPerm, yTest, rsq, mae);
   }
 
   return importanceOut;
@@ -411,18 +383,10 @@ NumericVector LeafRegRf::getQEst(const PredictBridge* pBridge) {
 }
 
 
-/**
-   @param sYTest is the one-based test vector, possibly null.
-
-   @param rowNames are the row names of the test data.
-
-   @return list of summary entries.   
- */
 List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictBridge* pBridge, SEXP sYTest) {
   BEGIN_RCPP
 
   LeafCtgBridge* leaf = static_cast<LeafCtgBridge*>(pBridge->getLeaf());
-  leaf->vote();
   List lLeaf(checkLeaf(lTrain));
   CharacterVector levelsTrain((SEXP) lLeaf["levels"]);
   CharacterVector rowNames(Signature::unwrapRowNames(lDeframe));
@@ -432,15 +396,16 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictB
   yPredOne.attr("levels") = levelsTrain;
   List prediction;
   if (!Rf_isNull(sYTest)) {
-    auto testCtg = make_unique<TestCtg>(sYTest, leaf->getRowPredict(), levelsTrain);
-    testCtg->validate(leaf);
+    auto testCtg = make_unique<TestCtg>(sYTest, levelsTrain);
     prediction = List::create(
                               _["yPred"] = yPredOne,
                               _["census"] = getCensus(leaf, levelsTrain, rowNames),
                               _["prob"] = getProb(leaf, levelsTrain, rowNames),
-                              _["confusion"] = testCtg->Confusion(levelsTrain),
-                              _["misprediction"] = testCtg->MisPred(),
-                              _["oobError"] = testCtg->OOB(leaf->getYPred())
+                              _["confusion"] = testCtg->getConfusion(leaf, levelsTrain),
+                              _["misprediction"] = testCtg->misprediction(leaf, leaf->getYPred()),
+                              _["oobError"] = testCtg->oobError(leaf->getYPred()),
+			      _["mispredPermuted"] = testCtg->mispredPermute(leaf),
+			      _["oobErrPermuted"] = testCtg->oobErrPermute(leaf)
     );
     prediction.attr("class") = "ValidCtg";
   }
@@ -458,9 +423,65 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictB
 }
 
 
+NumericVector TestCtg::misprediction(const LeafCtgBridge* leaf,
+				     const vector<unsigned int>& yPred) const {
+  BEGIN_RCPP
+  NumericVector misPred(ctgMerged);
+  vector<unsigned int> confusion = buildConfusion(leaf, yPred);
+  for (unsigned int ctgRec = 0; ctgRec < ctgMerged; ctgRec++) {
+    unsigned int numWrong = 0;
+    unsigned int numRight = 0;
+    for (unsigned int ctgPred = 0; ctgPred < leaf->getCtgTrain(); ctgPred++) {
+      unsigned int numConf = confusion[leaf->ctgIdx(ctgRec, ctgPred)];
+      if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
+        numWrong += numConf;
+      }
+      else {
+        numRight = numConf;
+      }
+    }
+    misPred[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
+  }
+
+  NumericVector misPredOut = misPred[test2Merged];
+  misPredOut.attr("names") = levels;
+  return misPredOut;
+  END_RCPP
+}
+
+
+
+NumericMatrix TestCtg::mispredPermute(const LeafCtgBridge* leaf) const {
+  BEGIN_RCPP
+  const vector<vector<unsigned int>>& yPermute = leaf->getYPermute();
+  NumericMatrix importanceOut(ctgMerged, yPermute.size());
+
+  size_t i = 0;
+  for (auto yPerm : yPermute) {
+    importanceOut(_, i++) = misprediction(leaf, yPerm);
+  }
+
+  return importanceOut;
+  END_RCPP
+}
+
+
+NumericVector TestCtg::oobErrPermute(const LeafCtgBridge* leaf) const {
+  BEGIN_RCPP
+  NumericVector errOut(leaf->getYPermute().size());
+  size_t i = 0;
+  for (auto yPerm : leaf->getYPermute()) {
+    errOut[i++] = oobError(yPerm);
+  }
+
+  return errOut;
+  END_RCPP
+}
+
+
 IntegerMatrix LeafCtgRf::getCensus(const LeafCtgBridge* leaf,
                                    const CharacterVector& levelsTrain,
-                                   const CharacterVector &rowNames) {
+                                   const CharacterVector& rowNames) {
   BEGIN_RCPP
   IntegerMatrix census = transpose(IntegerMatrix(leaf->getCtgTrain(), leaf->getRowPredict(), leaf->getCensus()));
   census.attr("dimnames") = List::create(rowNames, levelsTrain);
@@ -503,12 +524,7 @@ IntegerVector TestCtg::mergeLevels(const CharacterVector &levelsTest,
   END_RCPP
 }
 
-/**
-   @brief Determines summary array dimensions by reconciling cardinalities
-   of training and test reponses.
 
-   @return reconciled test vector.
- */
 IntegerVector TestCtg::Reconcile(const IntegerVector &test2Merged,
                                  const IntegerVector &yTestOne) {
   BEGIN_RCPP
@@ -522,14 +538,10 @@ IntegerVector TestCtg::Reconcile(const IntegerVector &test2Merged,
 }
 
 
-/**
-   @brief Produces summary information specific to testing:  mispredction
-   vector and confusion matrix.
-
-   @return void.
- */
-IntegerMatrix TestCtg::Confusion(const CharacterVector& levelsTrain) {
+IntegerMatrix TestCtg::getConfusion(const LeafCtgBridge* leaf,
+				    const CharacterVector& levelsTrain) {
   BEGIN_RCPP
+  vector<unsigned int> confusion = buildConfusion(leaf, leaf->getYPred());
   unsigned int ctgTrain = levelsTrain.length();
   IntegerMatrix conf = transpose(IntegerMatrix(ctgTrain, nCtg, &confusion[0]));
   IntegerMatrix confOut(nCtg, ctgTrain);
@@ -539,14 +551,5 @@ IntegerMatrix TestCtg::Confusion(const CharacterVector& levelsTrain) {
   confOut.attr("dimnames") = List::create(levels, levelsTrain);
 
   return confOut;
-  END_RCPP
-}
-
-
-NumericVector TestCtg::MisPred() {
-  BEGIN_RCPP
-  NumericVector misPredOut = misPred[test2Merged];
-  misPredOut.attr("names") = levels;
-  return misPredOut;
   END_RCPP
 }

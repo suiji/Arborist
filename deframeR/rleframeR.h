@@ -99,16 +99,23 @@ struct RLEFrameR {
 				       const CharacterVector& colTest,
 				       const CharacterVector& colTrain);
 
-  
-  
-  /**
-     @brief Static entry to block sorting.
 
-     @param frame summarizes the predictor blocking scheme.
+  /**
+     @brief Presorts a block of numeric values.
+
+     @param sX is the front end's matrix representation.
 
      @return R-style list of sorting summaries.
    */
   static List presortNum(SEXP sX);
+
+
+  /**
+     @brief Presorts a block of factor values.
+
+     Parameters as above.
+   */
+  static List presortFac(SEXP sX);
 
 
   /**

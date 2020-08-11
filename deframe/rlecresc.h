@@ -19,6 +19,7 @@
 #include "rle.h"
 #include "valrank.h"
 
+#include <cstdint>
 #include <vector>
 using namespace std;
 
@@ -212,6 +213,12 @@ class RLECresc {
    */
   void encodeFrameNum(const double*  feVal);
   
+
+  /**
+     @brief As above, but encodes factor-valued frame.
+   */
+  void encodeFrameFac(const uint32_t* feVal);
+
 
   void dump(vector<size_t>& valOut,
 	    vector<size_t>& lengthOut,

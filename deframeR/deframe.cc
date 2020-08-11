@@ -73,6 +73,20 @@ SEXP CheckFrame(const List& lSigTrain,
 }
 
 
+RcppExport SEXP DeframeFac(SEXP sX) {
+  IntegerMatrix blockFac(sX);
+  List deframe = List::create(
+			      _["rleFrame"] = RLEFrameR::presortFac(blockFac),
+			      _["nRow"] = blockFac.nrow(),
+			      _["signature"] = Signature::wrapFac(blockFac.ncol(),
+								  colnames(blockFac),
+								  rownames(blockFac))
+			      );
+  deframe.attr("class") = "Deframe";
+  return deframe;
+}
+
+
 RcppExport SEXP DeframeNum(SEXP sX) {
   NumericMatrix blockNum(sX);
   List deframe = List::create(

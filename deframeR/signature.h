@@ -94,6 +94,24 @@ struct Signature {
   static List unwrapFactor(const List& sTrain);
 
 
+  /**
+     @brief Provides a signature for a factor-valued matrix.
+
+     @param nPred is the number of predictors (columns).
+
+     @param colNames are the column names.
+
+     @param rowNames are the row names.
+   */
+  static List wrapFac(unsigned int nPred,
+		      const CharacterVector& colNames,
+		      const CharacterVector& rowNames);
+  
+  /**
+     @brief Provides a signature for a numeric matrix.
+
+     Parameters as above.
+   */
   static List wrapNum(unsigned int nPred,
 		      const CharacterVector& colNames,
 		      const CharacterVector& rowNames);

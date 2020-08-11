@@ -888,7 +888,7 @@ class LeafFrameReg : public LeafFrame {
   const vector<size_t> offset; // Accumulated extents.
   double defaultScore;
   vector<double> yPred;
-  vector<vector<double>> yPermute;
+  vector<vector<double>> yPermute; // Prediction on permuted features.
   double *yTarg; // Points to vector being scored.
   
  public:
@@ -1136,17 +1136,17 @@ class LeafFrameCtg : public LeafFrame {
   const unsigned int ctgTrain; // Response training cardinality.
   unique_ptr<CtgProb> ctgProb; // Matrix (row * ctg) of predicted probabilities.
   
-  vector<unsigned int> yPred; // Per-row vector of predicted categories.
-  vector<vector<unsigned int>> yPermute;
-  unsigned int ctgDefault; // Default score for rows with no out-of-bag trees.
-  unsigned int* yTarg;
-  
- public:
-  // Sized to zero by constructor.
-  // Resized by bridge and filled in by prediction.
-  vector<double> votes;
-  vector<unsigned int> census;
+  vector<PredictorT> yPred; // Per-row vector of predicted categories.
+  vector<vector<PredictorT>> yPermute; // Prediction on permuted features.
+  PredictorT ctgDefault; // Default score for rows with no out-of-bag trees.
+  PredictorT* yTarg; // Destination of predicted values.
+  vector<double> votes; // Jittered prediction counts.
+  vector<PredictorT> census;
+  vector<PredictorT> censusPermute; // Unsaved census for permutations.
+  PredictorT* censusTarg; // Destination of prediction census.
   vector<double> prob;
+
+public:
 
   LeafFrameCtg(const unsigned int leafHeight_[],
           unsigned int nTree_,
@@ -1163,37 +1163,45 @@ class LeafFrameCtg : public LeafFrame {
 
   void setPredictTarget() {
     yTarg = &yPred[0];
+    censusTarg = &census[0];
   }
 
 
   void initPermute(PredictorT nPred) {
-    yPermute = vector<vector<unsigned int>>(nPred);
+    yPermute = vector<vector<PredictorT>>(nPred);
+    censusPermute = vector<PredictorT>(census.size());
   }
   
 
   void setPermuteTarget(PredictorT predIdx) {
-    yPermute[predIdx] = vector<unsigned int>(yPred.size());
+    yPermute[predIdx] = vector<PredictorT>(yPred.size());
     yTarg = &yPermute[predIdx][0];
+    censusTarg = &censusPermute[0];
   }
   
 
   /**
      @brief Getter for prediction.
    */
-  const vector<unsigned int> &getYPred() {
+  const vector<PredictorT>& getYPred() {
     return yPred;
   }
 
 
-  const unsigned int getYPred(size_t row) {
+  const PredictorT getYPred(size_t row) {
     return yPred[row];
+  }
+  
+
+  inline const vector<vector<PredictorT>>& getYPermute() const {
+    return yPermute;
   }
   
 
   /**
      @brief Getter for number of rows to predict.
    */
-  const unsigned int getRowPredict() const {
+  const IndexT getRowPredict() const {
     return yPred.size();
   }
 
@@ -1201,7 +1209,7 @@ class LeafFrameCtg : public LeafFrame {
   /**
      @brief Getter for census.
    */
-  const unsigned int* getCensus() const {
+  const PredictorT* getCensus() const {
     return &census[0];
   }
 
@@ -1219,17 +1227,19 @@ class LeafFrameCtg : public LeafFrame {
                   size_t rowStart,
                   size_t extent);
 
+  
   /**
-     @brief Fills the vote table using predicted response.
-   */  
-  void vote();
+     @Brief Assignes categorical score by plurality vote.
+   */
+  PredictorT ctgArgMax(IndexT row);
 
+  
   /**
      @brief Getter for training cardinality.
 
      @return value of ctgTrain.
    */
-  inline unsigned int getCtgTrain() const {
+  inline PredictorT getCtgTrain() const {
     return ctgTrain;
   }
   
@@ -1240,11 +1250,9 @@ class LeafFrameCtg : public LeafFrame {
      
      @param row is the row coordinate.
 
-     @param col is the column coordinate.
-
      @return derived strided index.
    */
-  unsigned int ctgIdx(unsigned int row, unsigned int col) const {
+  size_t ctgIdx(IndexT row, PredictorT col = 0) const {
     return row * ctgTrain + col;
   }
 

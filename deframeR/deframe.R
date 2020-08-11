@@ -42,7 +42,11 @@ deframe <- function(x, sigTrain = NULL) {
      return(tryCatch(.Call("DeframeIP", x), error= print))
   }
   else if (is.matrix(x)) {
-    if (is.integer(x)) {
+    if (is.integer(x) && is.factor(x) && !is.ordered(x)) {
+      return(tryCatch(.Call("DeframeFac", data.matrix(x) ), error=function(e) {stop(e)} ))
+    }
+    else if (is.integer(x)) {
+      warning("Integer matrix values intepreted as numeric");
       return(tryCatch(.Call("DeframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.numeric(x)) {

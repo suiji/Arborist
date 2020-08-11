@@ -91,6 +91,10 @@ struct LeafRegRf {
   
   /**
      @brief Utility for computing mean-square error of prediction.
+
+     Error is estimated using the prediction and test vectors.  This is somewhat
+     different from the approach of the "randomForest" package, which estimates
+     a per-tree mean of mean-square oob errors.
    
      @param yPred is the prediction.
 
@@ -102,23 +106,24 @@ struct LeafRegRf {
 
      @return mean squared error.
   */
-  static double mse(const vector<double> &yPred,
-             const NumericVector &yTest,
-             double &rsq,
-             double &mae);
+  static double mse(const vector<double>& yPred,
+		    const NumericVector& yTest,
+		    double& rsq,
+		    double& mae);
 
+  
   /**
      @brief Computes predictor importances by permutation.
 
+     Importance is given as the diffence between the permuted and test
+     MSE values, computed as above.
+
      @param yTest is the test calibration.
 
-     @param msePred is the MSE of the unpermuted prediction.
-
-     @return vector of permutation importances, by predictor.
+     @return vector of mse values under permutation, by predictor.
    */
-  static NumericVector importance(const LeafRegBridge* leaf,
-				  const NumericVector& yTest,
-				  double msePred);
+  static NumericVector msePermute(const LeafRegBridge* leaf,
+				  const NumericVector& yTest);
 };
 
 
@@ -153,6 +158,13 @@ struct LeafCtgRf {
 						 bool doProb);
 
   
+  /**
+     @param sYTest is the one-based test vector, possibly null.
+
+     @param rowNames are the row names of the test data.
+
+     @return list of summary entries.   
+  */
   static List summary(const List& lDeframe,
                       const List& lTrain,
                       const struct PredictBridge* pBridge,
@@ -188,7 +200,6 @@ struct LeafCtgRf {
    per-tree access.
  */
 class TestCtg {
-  const unsigned int rowPredict;
   const CharacterVector levelsTrain;
   const IntegerVector yTestOne;
   const CharacterVector levels;
@@ -196,17 +207,22 @@ class TestCtg {
   const IntegerVector test2Merged;
   const IntegerVector yTestZero;
   const unsigned int ctgMerged;
-  NumericVector misPred;
-  vector<unsigned int> confusion;
 
  public:
   TestCtg(SEXP sYTest,
-          unsigned int rowPredict_,
           const CharacterVector &levelsTrain_);
 
+  
+  /**
+     @brief Determines summary array dimensions by reconciling cardinalities
+     of training and test reponses.
+
+     @return reconciled test vector.
+  */
   static IntegerVector Reconcile(const IntegerVector &test2Train,
                                  const IntegerVector &yTestOne);
   
+
   /**
      @brief Reconciles factor encodings of training and test responses.
    */
@@ -215,16 +231,46 @@ class TestCtg {
 
 
   /**
-     @brief Fills in confusion matrix and misprediction vector.
+     @brief Fills in misprediction vector.
 
      @param leaf summarizes the trained leaf frame.
   */
-  void validate(struct LeafCtgBridge* leaf);
+  NumericVector misprediction(const struct LeafCtgBridge* leaf,
+			      const vector<unsigned int>& yPred) const;
+  
+
+  NumericMatrix mispredPermute(const LeafCtgBridge* leaf) const;
 
 
-  IntegerMatrix Confusion(const CharacterVector& levelsTrain);
-  NumericVector MisPred();
-  double OOB(const vector<unsigned int> &yPred) const;
+  NumericVector oobErrPermute(const LeafCtgBridge* leaf) const;
+
+
+  vector<unsigned int> buildConfusion(const LeafCtgBridge* leaf,
+				      const vector<unsigned int>& yPred) const;
+  
+  
+/**
+   @brief Produces summary information specific to testing:  mispredction
+   vector and confusion matrix.
+
+   @param confusion is the internal confusion matrix.
+
+   @param levelsTrain are the levels encountered during training.
+
+   @return output confusion matrix.
+ */
+  IntegerMatrix getConfusion(const LeafCtgBridge* leaf,
+			     const CharacterVector& levelsTrain);
+
+
+  /**
+     @brief Estimates the out-of-bag error.
+
+     @param yPred is the zero-based prediction vector derived by the core.
+
+     @return mean number of mispredictions.
+  */
+  double oobError(const vector<unsigned int>& yPred) const;
 };
 
 

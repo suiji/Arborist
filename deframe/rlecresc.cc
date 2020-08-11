@@ -72,6 +72,20 @@ void RLECresc::encodeFrameNum(const double*  feVal) {
 }
 
 
+void RLECresc::encodeFrameFac(const uint32_t*  feVal) {
+  OMPBound nPred = predForm.size();
+  valFac = vector<vector<unsigned int>>(nPred);
+  valNum = vector<vector<double>>(0);
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {
+      encodeColumn(&feVal[predIdx * nRow], valFac[predIdx], predIdx);
+    }
+  }
+}
+
+
 void RLECresc::dump(vector<size_t>& valOut,
 		    vector<size_t>& extentOut,
 		    vector<size_t>& rowOut) const {

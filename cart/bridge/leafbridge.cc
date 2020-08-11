@@ -97,10 +97,6 @@ LeafFrame* LeafCtgBridge::getLeaf() const {
 }
 
 
-void LeafCtgBridge::vote() {
-  leaf->vote();
-}
-
 const unsigned int* LeafCtgBridge::getCensus() const {
   return leaf->getCensus();
 }
@@ -119,11 +115,17 @@ unsigned int LeafCtgBridge::getYPred(size_t row) const {
 }
 
 
+const vector<vector<unsigned int>>& LeafCtgBridge::getYPermute() const {
+  return leaf->getYPermute();
+}
+
+
 unsigned int LeafCtgBridge::getCtgTrain() const {
   return leaf->getCtgTrain();
 }
 
+
 unsigned int LeafCtgBridge::ctgIdx(unsigned int ctgTest,
-                    unsigned int ctgPred) const {
+				   unsigned int ctgPred) const {
   return leaf->ctgIdx(ctgTest, ctgPred);
 }

@@ -34,6 +34,15 @@ List Signature::wrapNum(unsigned int nPred,
 }
 
 
+List Signature::wrapFac(unsigned int nPred,
+			const CharacterVector& colNames,
+			const CharacterVector& rowNames) {
+  BEGIN_RCPP
+  return wrap(nPred, rep(CharacterVector("factor"), nPred), List::create(0), List::create(0), colNames, rowNames);
+  END_RCPP
+}
+
+
 // Signature contains front-end decorations not exposed to the
   // core.
 // Column and row names stubbed to zero-length vectors if null.

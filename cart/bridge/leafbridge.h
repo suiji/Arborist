@@ -100,7 +100,6 @@ struct LeafCtgBridge : public LeafBridge {
 
   class LeafFrame* getLeaf() const;
 
-  void vote();
 
   const unsigned int* getCensus() const;
   
@@ -112,6 +111,12 @@ struct LeafCtgBridge : public LeafBridge {
   
   unsigned int getYPred(size_t row) const;
   
+  /**
+     @brief Pass-through to core.
+   */
+  const vector<vector<unsigned int>>& getYPermute() const;
+
+
   unsigned int ctgIdx(unsigned int ctgTest,
                       unsigned int ctgPred) const;
   

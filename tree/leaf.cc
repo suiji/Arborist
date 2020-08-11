@@ -229,16 +229,19 @@ void LeafBlock::scoreAcross(const unsigned int* predictLeaves, double defaultSco
 void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
                               size_t rowStart,
                               size_t extent) {
-  OMPBound blockSup = (OMPBound) extent;
+  OMPBound blockSup = static_cast<OMPBound>(extent);
 // TODO:  Recast loop by blocks, to avoid
 // false sharing.
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound blockRow = 0; blockRow < blockSup; blockRow++) {
-    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], ctgDefault, &votes[ctgIdx(rowStart + blockRow, 0)]);
+    size_t row = rowStart + blockRow;
+    size_t ctgBase = ctgIdx(row);
+    leafBlock->scoreAcross(&predictLeaves[nTree * blockRow], ctgDefault, &votes[ctgBase]);
+    yTarg[row] = ctgArgMax(ctgBase);
     if (!prob.empty()) {
-      ctgProb->probAcross(&predictLeaves[nTree * blockRow], &prob[ctgIdx(rowStart + blockRow, 0)], noLeaf);
+      ctgProb->probAcross(&predictLeaves[nTree * blockRow], &prob[ctgBase], noLeaf);
     }
   }
   }
@@ -246,8 +249,8 @@ void LeafFrameCtg::scoreBlock(const unsigned int* predictLeaves,
 
 
 void LeafBlock::scoreAcross(const unsigned int predictLeaves[],
-                          unsigned int ctgDefault,
-                          double yCtg[]) const {
+			    PredictorT ctgDefault,
+			    double yCtg[]) const {
   unsigned int treesSeen = 0;
   for (unsigned int tIdx = 0; tIdx < nTree(); tIdx++) {
     IndexT termIdx = predictLeaves[tIdx];
@@ -261,6 +264,21 @@ void LeafBlock::scoreAcross(const unsigned int predictLeaves[],
   if (treesSeen == 0) {
     yCtg[ctgDefault] = 1.0; // Other slots all zero.
   }
+}
+
+
+PredictorT LeafFrameCtg::ctgArgMax(IndexT ctgBase) {
+  PredictorT argMax = ctgTrain; // Unrealizeable.
+  double scoreMax = 0.0; // Unrealizeable.
+  for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
+    double ctgScore = votes[ctgBase + ctg]; // Jittered vote count.
+    censusTarg[ctgBase + ctg] = ctgScore; // De-jittered.
+    if (ctgScore > scoreMax) {
+      scoreMax = ctgScore;
+      argMax = ctg;
+    }
+  }
+  return argMax;
 }
 
 
@@ -292,35 +310,6 @@ void CtgProb::probAcross(const unsigned int* predictRow,
     double scale = 1.0 / treesSeen;
     for (auto ctg = 0ul; ctg < nCtg; ctg++)
       probRow[ctg] *= scale;
-  }
-}
-
-
-/**
-   @brief Voting for non-bagged prediction.  Rounds jittered scores to category.
-
-   @return void, with side-effected census.
-*/
-void LeafFrameCtg::vote() {
-  OMPBound rowSup = yPred.size();
-
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = 0; row < rowSup; row++) {
-    unsigned int argMax = ctgTrain;
-    double scoreMax = 0.0;
-    double *scoreRow = &votes[ctgIdx(row,0)];
-    for (unsigned int ctg = 0; ctg < ctgTrain; ctg++) {
-      double ctgScore = scoreRow[ctg]; // Jittered vote count.
-      if (ctgScore > scoreMax) {
-        scoreMax = ctgScore;
-        argMax = ctg;
-      }
-      census[ctgIdx(row, ctg)] = ctgScore; // De-jittered.
-    }
-    yTarg[row] = argMax;
-  }
   }
 }
 

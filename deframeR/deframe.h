@@ -55,6 +55,19 @@ SEXP CheckFrame(const List& lSigTrain,
 		const CharacterVector& predForm);
 
 
+/**
+   @brief Encodes a factor-valued matrix into internal RLE format.
+
+   @param sX is the matrix.
+ */
+RcppExport SEXP DeframeFac(SEXP sX);
+
+
+/**
+   @brief Encodes a numeric-valued matrix into internal RLE format.
+
+   @param sX is the matrix.
+ */
 RcppExport SEXP DeframeNum(SEXP sX);
 
 
