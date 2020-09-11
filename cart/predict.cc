@@ -159,7 +159,7 @@ void PredictReg::predictBlock() {
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = rowStart; row != rowEnd; row++) {
+  for (OMPBound row = rowStart; row < rowEnd; row++) {
     (this->*Predict::walkTree)(row);
     yTest.empty() ? scoreRow(row) : testRow(row);
   }
@@ -178,7 +178,7 @@ void PredictCtg::predictBlock() {
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = rowStart; row != rowEnd; row++) {
+  for (OMPBound row = rowStart; row < rowEnd; row++) {
     (this->*Predict::walkTree)(row);
     /* yTest.empty() ? */ scoreRow(row);
     if (!prob.empty()) {
