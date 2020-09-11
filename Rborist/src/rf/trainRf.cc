@@ -27,7 +27,7 @@
 #include "trainbridge.h"
 #include "bagRf.h"
 #include "forestRf.h"
-#include "leafRf.h"
+#include "leaftrainRf.h"
 #include "rowSample.h"
 #include "rleframeR.h"
 #include "rleframe.h"

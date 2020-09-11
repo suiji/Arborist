@@ -23,7 +23,6 @@
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,
-                importance = FALSE,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = ifelse(is.factor(y), 2, 3),
@@ -32,6 +31,7 @@
                 nThread = 0,
                 nTree = 500,
                 noValidate = FALSE,
+                impPermute = 0,
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
@@ -61,7 +61,10 @@
     if (!is.numeric(y) && !is.factor(y))
         stop("Expecting numeric or factor response")
 
-    if (importance && noValidate)
+    if (impPermute < 0 || impPermute > 1)
+        stop("Importance permutations limited to zero or one.")
+    
+    if (impPermute > 0 && noValidate)
         stop("Variable importance requires validation")
     
     preFormat <- PreFormat(x, verbose)
@@ -208,7 +211,6 @@
     
     # Replaces predictor frame with preformat summaries.
     # Updates argument list with new or recomputed parameters.
-    argList$x <- NULL
     argList$nCtg <- nCtg
     argList$nSamp <- nSamp
     argList$predFixed <- predFixed
@@ -239,21 +241,37 @@ RFDeep <- function(preFormat, argList) {
     )
 
     if (argList$noValidate) {
-        validation <- NULL
+        summaryPredict <- NULL
     }
     else {
-        validation <- ValidateDeep(preFormat, train, argList$y, argList$importance, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
+        summaryPredict <- ValidateDeep(preFormat, train, argList$y, argList$impPermute, argList$ctgCensus, argList$quantVec, argList$quantiles, argList$nThread, argList$verbose)
     }
 
-    arbOut <- list(
-        bag = train$bag,
-        forest = train$forest,
-        leaf = train$leaf,
-        predMap = train$predMap,
-        signature = preFormat$signature,
-        training = training,
-        validation = validation
-    )
+    if (argList$impPermute > 0) {
+        arbOut <- list(
+            bag = train$bag,
+            forest = train$forest,
+            leaf = train$leaf,
+            predMap = train$predMap,
+            signature = preFormat$signature,
+            training = training,
+            prediction = summaryPredict$prediction,
+            validation = summaryPredict$validation,
+            importance = summaryPredict$importance
+        )
+    }
+    else {
+        arbOut <- list(
+            bag = train$bag,
+            forest = train$forest,
+            leaf = train$leaf,
+            predMap = train$predMap,
+            signature = preFormat$signature,
+            training = training,
+            prediction = summaryPredict$prediction,
+            validation = summaryPredict$validation
+        )
+    }
     class(arbOut) <- "Rborist"
 
     arbOut

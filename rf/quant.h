@@ -28,8 +28,10 @@
 */
 class Quant {
   static const unsigned int binSize; // # slots to track.
-  const class LeafFrameReg *leafReg; // Summary of trained terminal nodes.
+  const class PredictReg* predictReg; // Summary of trained terminal nodes.
+  const class LeafPredict* leaf; // EXIT
   const class BitMatrix* baggedRows; // In-bag summary.
+  size_t nRow;
   ValRank<double> valRank;
   const vector<struct RankCount> rankCount; // forest-wide, by sample.
   const vector<double> quantile; // quantile values over which to predict.
@@ -75,12 +77,9 @@ class Quant {
   /**
      @brief Writes the quantile values for a given row.
 
-     @param rowBlock is the block-relative row index.
-
      @param[out] qRow[] outputs the 'qCount' quantile values.
   */
-  void predictRow(const class PredictFrame* frame,
-                  unsigned int rowBlock,
+  void predictRow(size_t row,
                   double yPred,
                   double qRow[],
                   double* qEst);
@@ -97,7 +96,7 @@ class Quant {
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  IndexT quantSamples(const vector<PredictorT>& sCount,
+  IndexT quantSamples(const vector<IndexT>& sCount,
                       const vector<double> threshold,
                       double yPred,
                       double qRow[]) const;
@@ -115,7 +114,7 @@ class Quant {
   */
   IndexT leafSample(unsigned int tIdx,
                     IndexT leafIdx,
-                    vector<unsigned int> &sampRanks) const;
+                    vector<IndexT>& scountBin) const;
 
 
  public:
@@ -124,9 +123,12 @@ class Quant {
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const class LeafFrameReg* leaf,
+  Quant(const class PredictReg* predictReg,
+	const class LeafPredict* leaf,
         const class Bag* bag,
-        const vector<double>& quantile_);
+	const class RLEFrame* rleFrame,
+	vector<double> yTrain,
+        vector<double> quantile_);
 
   /**
      @brief Getter for number of quantiles.
@@ -143,7 +145,9 @@ class Quant {
 
      Returns zero if empty bag precludes valRank from initialization.
    */
-  unsigned int getNRow() const;
+  auto getNRow() const{
+    return nRow;
+  }
 
   
   /**
@@ -168,14 +172,9 @@ class Quant {
   
   /**
      @brief Fills in the quantile leaves for each row within a contiguous block.
-
-     @param rowStart is the first row at which to predict.
-
-     @param extent is the number of rows to predict.
   */
-  void predictAcross(const class PredictFrame* frame,
-                     size_t rowStart,
-                     size_t extent);
+  void predictBlock(size_t rowStart,
+		    size_t rowEnd);
 };
 
 #endif

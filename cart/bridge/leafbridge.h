@@ -22,29 +22,17 @@ struct LeafBridge {
    */
   size_t getRowPredict() const;
 
+  /**
+     @brief Constructor for regression prediction.
+   */
+  LeafBridge(const unsigned int* height,
+	     unsigned int nTree,
+	     const unsigned char* node,
+	     const unsigned int* bagHeight,
+	     const unsigned char* bagSample);
 
-  virtual ~LeafBridge() {
-  }
-
-
-  virtual class LeafFrame* getLeaf() const = 0;
-};
-
-
-struct LeafRegBridge : public LeafBridge {
-
-  LeafRegBridge(const unsigned int* height,
-                unsigned int nTree,
-                const unsigned char* node,
-                const unsigned int* bagHeight,
-                const unsigned char* bagSample,
-                const double* yTrain,
-                size_t rowTrain,
-                double trainMean,
-                size_t predictRow);
-
-
-  ~LeafRegBridge();
+  
+  ~LeafBridge();
 
 
   void dump(const struct BagBridge* bagBridge,
@@ -53,75 +41,10 @@ struct LeafRegBridge : public LeafBridge {
             vector<vector<double> >& scoreTree,
             vector<vector<unsigned int> >& extentTree) const;
 
-
-  /**
-     @brief Pass-through to core method.
-   */
-  const vector<double>& getYPred() const;
-
-
-  /**
-     @brief Pass-through to core.
-   */
-  const vector<vector<double>>& getYPermute() const;
-
-
-  class LeafFrame* getLeaf() const;
+  class LeafPredict* getLeaf();
 
 private:
-  unique_ptr<class LeafFrameReg> leaf;
-};
-
-
-struct LeafCtgBridge : public LeafBridge {
-
-  LeafCtgBridge(const unsigned int* height,
-                unsigned int nTree,
-                const unsigned char* node,
-                const unsigned int* bagHeight,
-                const unsigned char* bagSample,
-                const double* weight,
-                unsigned int ctgTrain,
-                size_t rowPredict,
-                bool doProb);
-
-  ~LeafCtgBridge();
-
-  
-  /**
-     @brief Dumps bagging and leaf information into per-tree vectors.
-   */
-  void dump(const struct BagBridge* bagBridge,
-            vector<vector<size_t> > &rowTree,
-            vector<vector<unsigned int> > &sCountTree,
-            vector<vector<double> > &scoreTree,
-            vector<vector<unsigned int> > &extentTree,
-            vector<vector<double> > &_probTree) const;
-
-  class LeafFrame* getLeaf() const;
-
-
-  const unsigned int* getCensus() const;
-  
-  const vector<unsigned int>& getYPred() const;
-
-  unsigned int getCtgTrain() const;
-
-  const vector<double>& getProb() const;
-  
-  unsigned int getYPred(size_t row) const;
-  
-  /**
-     @brief Pass-through to core.
-   */
-  const vector<vector<unsigned int>>& getYPermute() const;
-
-
-  unsigned int ctgIdx(unsigned int ctgTest,
-                      unsigned int ctgPred) const;
-  
-private:
-  unique_ptr<class LeafFrameCtg> leaf;
+  unique_ptr<class LeafPredict> leaf;
 };
 
 #endif

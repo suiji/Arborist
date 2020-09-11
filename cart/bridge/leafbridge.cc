@@ -13,49 +13,25 @@
    @author Mark Seligman
  */
 
-#include "leaf.h"
+#include "leafpredict.h"
 #include "leafbridge.h"
 #include "bagbridge.h"
 
-// For now, cloned implementations:
-size_t LeafBridge::getRowPredict() const {
-  return getLeaf()->getRowPredict();
-}
 
-
-LeafRegBridge::LeafRegBridge(const unsigned int* height,
+LeafBridge::LeafBridge(const unsigned int* height,
                              unsigned int nTree,
                              const unsigned char* node,
                              const unsigned int* bagHeight,
-                             const unsigned char* bagSample,
-                             const double* yTrain,
-                             size_t rowTrain,
-                             double trainMean,
-                             size_t rowPredict) :
-  leaf(make_unique<LeafFrameReg>(height, nTree, (const Leaf*) node, bagHeight, (const BagSample*) bagSample, yTrain, rowTrain, trainMean, rowPredict)) {
+                             const unsigned char* bagSample) :
+  leaf(make_unique<LeafPredict>(height, nTree, (const Leaf*) node, bagHeight, (const BagSample*) bagSample)) {
 }
 
 
-LeafRegBridge::~LeafRegBridge() {
+LeafBridge::~LeafBridge() {
 }
 
 
-LeafFrame* LeafRegBridge::getLeaf() const {
-  return leaf.get();
-}
-
-
-const vector<double>& LeafRegBridge::getYPred() const {
-  return leaf->getYPred();
-}
-
-
-const vector<vector<double>>& LeafRegBridge::getYPermute() const {
-  return leaf->getYPermute();
-}
-
-
-void LeafRegBridge::dump(const BagBridge* bagBridge,
+void LeafBridge::dump(const BagBridge* bagBridge,
                          vector<vector<size_t> >& rowTree,
                          vector<vector<unsigned int> >& sCountTree,
                          vector<vector<double> >& scoreTree,
@@ -64,68 +40,7 @@ void LeafRegBridge::dump(const BagBridge* bagBridge,
 }
 
 
-void LeafCtgBridge::dump(const BagBridge* bagBridge,
-                         vector<vector<size_t> > &rowTree,
-                         vector<vector<unsigned int> > &sCountTree,
-                         vector<vector<double> > &scoreTree,
-                         vector<vector<unsigned int> > &extentTree,
-                         vector<vector<double> > &probTree) const {
-  leaf->dump(bagBridge->getBag(), rowTree, sCountTree, scoreTree, extentTree, probTree);
-}
 
-
-LeafCtgBridge::LeafCtgBridge(const unsigned int* height,
-                             unsigned int nTree,
-                             const unsigned char* node,
-                             const unsigned int* bagHeight,
-                             const unsigned char* bagSample,
-                             const double* weight,
-                             unsigned int ctgTrain,
-                             size_t rowPredict,
-                             bool doProb) :
-  leaf(make_unique<LeafFrameCtg>(height, nTree, (const Leaf*) node, bagHeight, (const BagSample*) bagSample, weight, ctgTrain, rowPredict, doProb)) {
-}
-
-
-LeafCtgBridge::~LeafCtgBridge() {
-}
-
-
-
-LeafFrame* LeafCtgBridge::getLeaf() const {
+LeafPredict* LeafBridge::getLeaf() {
   return leaf.get();
-}
-
-
-const unsigned int* LeafCtgBridge::getCensus() const {
-  return leaf->getCensus();
-}
-
-const vector<double>& LeafCtgBridge::getProb() const {
-  return leaf->getProb();
-}
-
-const vector<unsigned int>& LeafCtgBridge::getYPred() const {
-  return leaf->getYPred();
-}
-
-
-unsigned int LeafCtgBridge::getYPred(size_t row) const {
-  return leaf->getYPred(row);
-}
-
-
-const vector<vector<unsigned int>>& LeafCtgBridge::getYPermute() const {
-  return leaf->getYPermute();
-}
-
-
-unsigned int LeafCtgBridge::getCtgTrain() const {
-  return leaf->getCtgTrain();
-}
-
-
-unsigned int LeafCtgBridge::ctgIdx(unsigned int ctgTest,
-				   unsigned int ctgPred) const {
-  return leaf->ctgIdx(ctgTest, ctgPred);
 }

@@ -12,7 +12,7 @@
 
 \usage{
 \method{Validate}{default}(preFormat, train, y, ctgCensus = "votes",
-importance = FALSE, quantVec = NULL, quantiles = !is.null(quantVec),
+permute = 0, quantVec = NULL, quantiles = !is.null(quantVec),
 nThread = 0, verbose = FALSE)
 }
 
@@ -24,7 +24,7 @@ nThread = 0, verbose = FALSE)
   \item{y}{the response (outcome) vector, either numerical or
     categorical.  Row count must conform with \code{x}.}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
-  \item{importance}{indicates whether permutation importance is to be computed.}
+  \item{permute}{specifies the number of importance permutations.}
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}
   \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes

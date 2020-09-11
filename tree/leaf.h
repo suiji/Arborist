@@ -16,19 +16,18 @@
 #ifndef TREE_LEAF_H
 #define TREE_LEAF_H
 
-#include "jagged.h"
-#include "sample.h"
+
 #include "typeparam.h"
 
 #include <vector>
-#include "math.h"
+
 
 /**
    @brief The essential contents of a leaf.
  */
 class Leaf {
   double score;
-  IndexT extent; // # distinct samples mapped to this leaf.
+  IndexT extent; // # distinct observations mapped to this leaf.
   
  public:
 
@@ -89,30 +88,6 @@ class Leaf {
 };
 
 
-class BagSample {
-  IndexT leafIdx; // Leaf index within tree.
-  IndexT sCount; // # times bagged:  > 0
-
- public:
-  BagSample() {
-  }
-  
-  BagSample(IndexT leafIdx_,
-            IndexT sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
-  }
-
-
-  inline auto getLeafIdx() const {
-    return leafIdx;
-  }
-
-  
-  inline auto getSCount() const {
-    return sCount;
-  }
-};
-
-
 /**
    @brief Leaf block for the crescent frame.
  */
@@ -164,7 +139,7 @@ public:
 
      @param leafMap maps sample indices to leaf indices.
    */
-  void setScoresReg(const Sample* sample,
+  void setScoresReg(const class Sample* sample,
                     const vector<IndexT>& leafMap);
 
 
@@ -226,6 +201,31 @@ public:
 };
 
 
+// EXIT:  sCount should bw subsumable within actual Bag structure.
+class BagSample {
+  IndexT leafIdx; // Leaf index within tree.
+  IndexT sCount; // # times bagged:  > 0
+
+ public:
+  BagSample() {
+  }
+  
+  BagSample(IndexT leafIdx_,
+            IndexT sCount_) : leafIdx(leafIdx_), sCount(sCount_) {
+  }
+
+
+  inline auto getLeafIdx() const {
+    return leafIdx;
+  }
+
+  
+  inline auto getSCount() const {
+    return sCount;
+  }
+};
+
+
 /**
    @brief BagSample block for crescent frame.
  */
@@ -248,9 +248,7 @@ public:
      @brief Records multiplicity and leaf index for bagged samples
      within a tree.  Accessed by bag vector, so sample indices must
      reference consecutive bagged rows.
-
      @param leafMap maps sample indices to leaves.
-
      @return void.
   */
   void bagLeaves(const class Sample *sample,
@@ -262,7 +260,7 @@ public:
 
 
 /**
-   @brief Crescent LeafFrame implementation for training.
+   @brief Crescent LeafPredict implementation for training.
  */
 class LFTrain {
 protected:
@@ -570,702 +568,5 @@ public:
                                       unsigned int tIdx) const;
 };
 
-
-class LeafBlock {
-  const unique_ptr<JaggedArray<const Leaf*, const unsigned int*> > raw;
-  const size_t noLeaf; // Inattainable leaf index value.
-
-public:
-  LeafBlock(const unsigned int nTree_,
-            const unsigned int* height_,
-            const Leaf* leaf_);
-
-  /**
-     @brief Accessor for size of raw vector.
-   */
-  size_t size() const {
-    return raw->size();
-  }
-
-  /**
-     @brief Accessor for tree count.
-   */
-  unsigned int nTree() const {
-    return raw->getNMajor();
-  };
-  
-
-  /**
-     @brief Accumulates individual leaf extents across the forest.
-
-     @return forest-wide offset vector.
-   */
-  vector<size_t> setOffsets() const;
-
-
-  /**
-     @brief Scores a numerical row across all trees.
-
-     @param predictLeaves holds the leaf predictions for all trees
-     over a block of rows.
-
-     @param defaultScore is the default score if all trees in-bag.
-
-     @param[out] yPred[] outputs scores over a block of rows.
-   */
-  void scoreAcross(const unsigned int* predictLeaves,
-                   double defaultScore,
-                   double yPred[]) const;
-
-  /**
-     @brief Scores a categorical row across all trees.
-
-     @param predictLeaves holds the leaf predictions for a block of rows.
-
-     @param ctgDefault is the default category if all trees in-bag.
-
-     @param[out] yCtg[] outputs per-category scores over a block of rows.
-   */
-  void scoreAcross(const unsigned int predictLeaves[],
-                   unsigned int ctgDefault,
-                   double yCtg[]) const;
-
-  /**
-     @brief Index-parametrized score getter.
-
-     @param idx is the absolute index of a leaf.
-
-     @return score at leaf.
-   */
-  const double getScore(unsigned int idx) const {
-    return raw->items[idx].getScore();
-  }
-
-
-  /**
-     @brief Derives forest-relative offset of tree/leaf coordinate.
-
-     @param tIdx is the tree index.
-
-     @param leafIdx is a tree-local leaf index.
-
-     @return absolute offset of leaf.
-   */
-  const auto absOffset(unsigned int tIdx, IndexT leafIdx) const {
-    return raw->absOffset(tIdx, leafIdx);
-  }
-
-
-  /**
-     @return beginning leaf offset for tree.
-   */
-  const auto treeBase(unsigned int tIdx) const {
-    return raw->majorOffset(tIdx);
-  }
-
-  /**
-     @brief Coordinate-parametrized score getter.
-
-     @param tIdx is the tree index.
-
-     @param idx is the tree-relative index of a leaf.
-
-     @return score at leaf.
-   */
-  inline double getScore(unsigned int tIdx, unsigned int idx) const {
-    auto absOff = raw->absOffset(tIdx, idx);
-    return raw->items[absOff].getScore();
-  }
-
-
-  /**
-     @brief Derives count of samples assigned to a leaf.
-
-     @param leafIdx is the absolute leaf index.
-
-     @return extent value.
-   */
-  const unsigned int getExtent(unsigned int leafAbs) const {
-    return raw->items[leafAbs].getExtent();
-  }
-
-
-  /**
-     @brief Dumps leaf members into separate per-tree vectors.
-
-     @param[out] score ouputs per-tree vectors of leaf scores.
-
-     @param[out] extent outputs per-tree vectors of leaf extents.
-   */
-  void dump(vector<vector<double> >& score,
-            vector<vector<unsigned int> >& extent) const;
-};
-
-
-/**
-   @brief Jagged vector of bagging summaries.
- */
-class BLBlock {
-  const unique_ptr<JaggedArray<const BagSample*, const unsigned int*> > raw;
-
-public:
-  BLBlock(const unsigned int nTree_,
-          const unsigned int* height_,
-          const BagSample* bagSample_);
-
-  /**
-     @brief Derives size of raw contents.
-   */
-  size_t size() const {
-    return raw->size();
-  }
-
-
-  void dump(const class Bag* bag,
-            vector<vector<size_t> >& rowTree,
-            vector<vector<IndexT> >& sCountTree) const;
-
-
-  /**
-     @brief Index-parametrized sample-count getter.
-   */
-  const IndexT getSCount(IndexT absOff) const {
-    return raw->items[absOff].getSCount();
-  };
-
-
-  /**
-     @brief Index-parametrized leaf-index getter.
-
-     @param absOff is the forest-relative bag offset.
-
-     @return associated tree-relative leaf index.
-   */
-  const unsigned int getLeafIdx(unsigned int absOff) const {
-    return raw->items[absOff].getLeafIdx();
-  };
-};
-
-
-/**
-   @brief Block of leaves for fully-trained forest.
- */
-class LeafFrame {
-protected:
-  const unsigned int nTree;  // # trees used to train.
-  unique_ptr<LeafBlock> leafBlock; // Leaves.
-  unique_ptr<BLBlock> blBlock; // Bag-sample summaries.
-
-public:
-  LeafFrame(const unsigned int* nodeHeight_,
-	    unsigned int nTree_,
-	    const class Leaf* leaf_,
-	    const unsigned int bagHeight_[],
-	    const class BagSample* bagSample_);
-
-  const size_t noLeaf; // Inattainable leaf index value.
-
-  virtual ~LeafFrame() {}
-  virtual const unsigned int getRowPredict() const = 0;
-
-
-  /**
-     @brief Sets the score target to the appropriate vector.
-  */
-  virtual void setPredictTarget() = 0;
-
-  virtual void initPermute(PredictorT nPred) = 0;
-
-  virtual void setPermuteTarget(PredictorT predIdx) = 0;
-
-
-  /**
-     @brief Sets scores for a block of rows.
-
-     @param predictLeaves are the leaf indices predicted at each row/tree pair.
-
-     @param rowStart is the beginning row index.
-
-     @param extent is the number of rows indexed.
-  */
-  virtual void scoreBlock(const unsigned int* predictLeaves,
-                          size_t rowStart,
-                          size_t extent) = 0;
-
-  /**
-     @brief Accessor for # trees in forest.
-   */
-  inline unsigned int getNTree() const {
-    return nTree;
-  }
-
-
-  /**
-     @brief Accessor for #samples at an absolute bag index.
-   */
-  inline IndexT getSCount(IndexT bagIdx) const {
-    return blBlock->getSCount(bagIdx);
-  }
-
-
-  /**
-     @param absSIdx is an absolute bagged sample index.
-
-     @return tree-relative leaf index of bagged sample.
-   */
-  inline auto getLeafLoc(unsigned int absSIdx) const {
-    return blBlock->getLeafIdx(absSIdx);
-  }
-
-  /**
-     @brief Accessor for forest-relative leaf index .
-
-     @param tIdx is the tree index.
-
-     @param absSIdx is a forest-relative sample index.
-
-     @return forest-relative leaf index.
-   */
-  inline unsigned int getLeafAbs(unsigned int tIdx,
-                                 unsigned int absSIdx) const {
-    return leafBlock->absOffset(tIdx, getLeafLoc(absSIdx));
-  }
-
-
-  /**
-     @brief Determines inattainable leaf index value from leaf
-     vector.
-
-     @return inattainable leaf index value.
-   */
-  inline auto getNoLeaf() const {
-    return noLeaf;
-  }
-
-
-  /**
-     @brief computes total number of leaves in forest.
-
-     @return size of leaf vector.
-   */
-  inline auto leafCount() const {
-    return leafBlock->size();
-  }
-
-  
-  /**
-     @brief Dumps block components into separate tree-based vectors.
-   */
-  void dump(const class Bag* bag,
-            vector< vector<size_t> >& rowTree,
-            vector< vector<IndexT> >& sCountTree,
-            vector<vector<double> >& scoreTree,
-            vector<vector<unsigned int> >& extentTree) const;
-};
-
-
-/**
-   @brief Rank and sample-counts associated with bagged rows.
-
-   Client:  quantile inference.
- */
-struct RankCount {
-  IndexT rank; // Training rank of row.
-  IndexT sCount; // # times row sampled.
-
-  void init(unsigned int rank,
-            unsigned int sCount) {
-    this->rank = rank;
-    this->sCount = sCount;
-  }
-};
-
-
-class LeafFrameReg : public LeafFrame {
-  const double *yTrain;
-  const size_t rowTrain;
-  const double meanTrain; // Mean of training response.
-  const vector<size_t> offset; // Accumulated extents.
-  double defaultScore;
-  vector<double> yPred;
-  vector<vector<double>> yPermute; // Prediction on permuted features.
-  double *yTarg; // Points to vector being scored.
-  
- public:
-  LeafFrameReg(const unsigned int nodeHeight_[],
-               unsigned int nTree_,
-               const class Leaf leaf_[],
-               const unsigned int bagHeight_[],
-               const class BagSample bagSample_[],
-               const double *yTrain_,
-               size_t rowTrain,
-               double meanTrain_,
-               unsigned int rowPredict_);
-
-
-  ~LeafFrameReg() {}
-
-
-  void setPredictTarget() {
-    yTarg = &yPred[0];
-  }
-
-
-  void initPermute(PredictorT nPred) {
-    yPermute = vector<vector<double>>(nPred);
-  }
-  
-  
-  void setPermuteTarget(PredictorT predIdx) {
-    yPermute[predIdx] = vector<double>(yPred.size());
-    yTarg = &yPermute[predIdx][0];
-  }
-
-  
-  /**
-     @brief Accesor for training response, by row.
-
-     @return training value at row.
-   */
-  inline const double* getYTrain() const {
-    return yTrain;
-  }
-
-
-  /**
-     @brief Accessor for training response length.
-   */
-  inline const size_t getRowTrain() const {
-    return rowTrain;
-  }
-
-
-  /**
-     @brief Getter for predicted values.
-
-     @return pointer to base of prediction vector.
-   */
-  const vector<double> &getYPred() const {
-    return yPred;
-  }
-
-  
-  inline const double getYPred(unsigned int row) const {
-    return yPred[row];
-  }
-
-
-  inline const vector<vector<double>>& getYPermute() const {
-    return yPermute;
-  }
-  
-
-  /**
-     @brief Getter for number of rows to predict.
-
-     @return size of prediction vector.
-   */
-  const unsigned int getRowPredict() const {
-    return yPred.size();
-  }
-
-  
-  inline double MeanTrain() const {
-    return meanTrain;
-  }
-
-
-  /**
-     @brief Description given in virtual declaration.
-   */
-  void scoreBlock(const unsigned int* predictLeaves,
-                  size_t rowStart,
-                  size_t extent);
-  
-  /**
-     @brief Computes bag index bounds in forest setting (Quant only).
-
-     @param tIdx is the absolute tree index.
-
-     @param leafIdx is the tree-relative leaf index.
-
-     @param[out] start outputs the staring sample offset.
-
-     @param[out] end outputs the final sample offset. 
-  */
-  inline void bagBounds(unsigned int tIdx,
-                        IndexT leafIdx,
-                        unsigned int &start,
-                        unsigned int &end) const {
-    auto leafAbs = leafBlock->absOffset(tIdx, leafIdx);
-    start = offset[leafAbs];
-    end = start + leafBlock->getExtent(leafAbs);
-  }
-  
-
-  /**
-     @brief Builds row-ordered mapping of leaves to rank/count pairs.
-
-     @param baggedRows encodes the forest-wide tree bagging.
-
-     @param row2Rank is the ranked training outcome.
-
-     @return per-leaf vector expressing mapping.
-   */
-  vector<RankCount> setRankCount(const class BitMatrix* baggedRows,
-                                 const vector<IndexT>& row2Rank) const;
-};
-
-
-/**
-   @brief Specialization providing a subscript operation.
- */
-template<>
-class Jagged3<const double*, const unsigned int*> : public Jagged3Base<const double*, const unsigned int*> {
-public:
-  Jagged3(const unsigned int nCtg_,
-          const unsigned int nTree_,
-          const unsigned int* height_,
-          const double *ctgProb_) :
-    Jagged3Base<const double*, const unsigned int*>(nCtg_, nTree_, height_, ctgProb_) {
-  }
-
-  ~Jagged3() {
-  }
-
-  /**
-     @brief Getter for indexed item.
-
-     @param idx is the item index.
-
-     @return indexed item.
-   */
-  double getItem(unsigned int idx) const {
-    return items[idx];
-  }
-};
-
-
-/**
-   @brief Categorical probabilities associated with indivdual leaves.
-
-   Intimately accesses the raw jagged array it contains.
- */
-class CtgProb {
-  const unsigned int nCtg; // Training cardinality.
-  vector<double> probDefault; // Forest-wide default probability.
-  const vector<unsigned int> ctgHeight; // Scaled from Leaf's height vector.
-  const unique_ptr<Jagged3<const double*, const unsigned int*> > raw;
-
-  /**
-     @brief Scales a vector of offsets by category count.
-
-     @param leafHeight is the leaf-relative height vector.
-
-     @param nTree is the number of trees.
-
-     @return ad-hoc scaled vector.
-   */
-  vector<unsigned int> scaleHeight(const unsigned int* leafHeight,
-                                   unsigned int nTree) const;
-
-public:
-  CtgProb(unsigned int ctgTrain,
-          unsigned int nTree,
-          const unsigned int* leafHeight,
-          const double* prob);
-
-  ~CtgProb() {}
-
-  /**
-     @brief Accumulates probabilities associated with a leaf.
-
-     @param[in, out] probRow accumulates (unnormalized) probabilities across leaves.
-
-     @param tIdx is the tree index.
-
-     @param leafIdx is the block-relative leaf index.
-   */
-  void addLeaf(double* probRow,
-               unsigned int tIdx,
-               IndexT leafIdx) const;
-
-  /**
-     @brief Predicts probabilities across all trees.
-
-     @param predictRow are the categorical predictions, per tree.
-
-     @param noLeaf characterizes an unscored tree.
-
-     @param[out] probRow outputs the per-category probabilities.
-   */
-  void probAcross(const unsigned int* predictRow,
-                  double* probRow,
-                  unsigned int noLeaf) const;
-
-
-  /**
-     @brief Constructs the vector of default probabilities.
-  */
-  void setDefault();
-
-  
-  /**
-     @brief Copies default probability vector into argument.
-
-     @param[out] probPredict outputs the default category probabilities.
-   */
-  void applyDefault(double* probPredict) const;
-  
-
-  /**
-     @return highest probability category of default vector.
-   */
-  unsigned int ctgDefault() const;
-
-  /**
-     @brief Dumps probability values.
-
-     @param[out] probTree outputs the per-tree tables.
-   */  
-  void dump(vector<vector<double> >& probTree) const;
-};
-
-
-class LeafFrameCtg : public LeafFrame {
-  const unsigned int ctgTrain; // Response training cardinality.
-  unique_ptr<CtgProb> ctgProb; // Matrix (row * ctg) of predicted probabilities.
-  
-  vector<PredictorT> yPred; // Per-row vector of predicted categories.
-  vector<vector<PredictorT>> yPermute; // Prediction on permuted features.
-  PredictorT ctgDefault; // Default score for rows with no out-of-bag trees.
-  PredictorT* yTarg; // Destination of predicted values.
-  vector<double> votes; // Jittered prediction counts.
-  vector<PredictorT> census;
-  vector<PredictorT> censusPermute; // Unsaved census for permutations.
-  PredictorT* censusTarg; // Destination of prediction census.
-  vector<double> prob;
-
-public:
-
-  LeafFrameCtg(const unsigned int leafHeight_[],
-          unsigned int nTree_,
-          const class Leaf leaf_[],
-          const unsigned int bagHeight_[],
-          const class BagSample bagSample_[],
-          const double prob_[],
-          unsigned int ctgTrain_,
-          unsigned int rowPredict_,
-          bool doProb);
-
-  ~LeafFrameCtg(){}
-
-
-  void setPredictTarget() {
-    yTarg = &yPred[0];
-    censusTarg = &census[0];
-  }
-
-
-  void initPermute(PredictorT nPred) {
-    yPermute = vector<vector<PredictorT>>(nPred);
-    censusPermute = vector<PredictorT>(census.size());
-  }
-  
-
-  void setPermuteTarget(PredictorT predIdx) {
-    yPermute[predIdx] = vector<PredictorT>(yPred.size());
-    yTarg = &yPermute[predIdx][0];
-    censusTarg = &censusPermute[0];
-  }
-  
-
-  /**
-     @brief Getter for prediction.
-   */
-  const vector<PredictorT>& getYPred() {
-    return yPred;
-  }
-
-
-  const PredictorT getYPred(size_t row) {
-    return yPred[row];
-  }
-  
-
-  inline const vector<vector<PredictorT>>& getYPermute() const {
-    return yPermute;
-  }
-  
-
-  /**
-     @brief Getter for number of rows to predict.
-   */
-  const IndexT getRowPredict() const {
-    return yPred.size();
-  }
-
-
-  /**
-     @brief Getter for census.
-   */
-  const PredictorT* getCensus() const {
-    return &census[0];
-  }
-
-  /**
-     @brief Getter for probability matrix.
-   */
-  const vector<double>& getProb() const {
-    return prob;
-  }
-  
-  /**
-     @brief Description given in virtual declartion.
-   */
-  void scoreBlock(const unsigned int* predictLeaves,
-                  size_t rowStart,
-                  size_t extent);
-
-  
-  /**
-     @Brief Assignes categorical score by plurality vote.
-   */
-  PredictorT ctgArgMax(IndexT row);
-
-  
-  /**
-     @brief Getter for training cardinality.
-
-     @return value of ctgTrain.
-   */
-  inline PredictorT getCtgTrain() const {
-    return ctgTrain;
-  }
-  
-
-  /**
-     @brief Derives an index into a matrix having stride equal to the
-     number of training categories.
-     
-     @param row is the row coordinate.
-
-     @return derived strided index.
-   */
-  size_t ctgIdx(IndexT row, PredictorT col = 0) const {
-    return row * ctgTrain + col;
-  }
-
-
-  /**
-     @brief Dumps bagging and leaf information into per-tree vectors.
-   */
-  void dump(const class Bag* bag,
-            vector<vector<size_t> > &rowTree,
-            vector<vector<IndexT> > &sCountTree,
-            vector<vector<double> > &scoreTree,
-            vector<vector<unsigned int> > &extentTree,
-            vector<vector<double> > &_probTree) const;
-};
 
 #endif

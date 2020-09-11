@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef RF_BAG_H
-#define RF_BAG_H
+#ifndef OBS_BAG_H
+#define OBS_BAG_H
 
 #include "bv.h"
 #include "typeparam.h"
@@ -49,7 +49,7 @@ class Bag {
 
      @param row is the row index.
 
-     @return true iff oob sampling specified and the coordinate bit is set.
+     @return true iff matrix is nonempty and the coordinate bit is set.
    */
   inline bool isBagged(unsigned int tIdx, size_t row) const {
     return nTree != 0 && bitMatrix->testBit(tIdx, row);

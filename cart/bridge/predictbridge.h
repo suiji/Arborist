@@ -38,20 +38,46 @@ struct PredictBridge {
                 unique_ptr<struct ForestBridge> forest_,
                 unique_ptr<struct BagBridge> bag_,
                 unique_ptr<struct LeafBridge> leaf_,
-		bool importance,
-                unsigned int nThread);
+		bool oob,
+		unsigned int nPermute,
+		unsigned int nThread);
 
-  PredictBridge(unique_ptr<struct RLEFrame> rleFrame_,
-                unique_ptr<struct ForestBridge> forest_,
-                unique_ptr<struct BagBridge> bag_,
-                unique_ptr<struct LeafBridge> leaf_,
-		bool importance,
-                const vector<double>& quantile,
-                unsigned int nThread);
 
   ~PredictBridge();
 
+  size_t getNRow() const;
 
+
+  bool permutes() const;
+
+  
+  struct LeafBridge* getLeaf() const;
+
+protected:
+  unique_ptr<struct RLEFrame> rleFrame;
+  unique_ptr<struct BagBridge> bagBridge;
+  unique_ptr<struct ForestBridge> forestBridge;
+  unique_ptr<struct LeafBridge> leafBridge;
+  const bool oob; // Whether to ignore in-bag row/tree pairs.
+  const unsigned int nPermute; // # times to permute.
+};
+
+
+struct PredictRegBridge : public PredictBridge {
+  PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
+		   unique_ptr<ForestBridge> forestBridge_,
+		   unique_ptr<BagBridge> bagBridge_,
+		    unique_ptr<class LeafBridge> leafBridge_,
+		   vector<double> yTrain,
+		    double meanTrain,
+		   vector<double> yTest,
+		   bool oob_,
+		   unsigned int nPermute_,
+		   unsigned int nThread,
+		   vector<double> quantile_);
+
+  ~PredictRegBridge();
+  
   /**
      @brief External entry for prediction.
 
@@ -60,9 +86,18 @@ struct PredictBridge {
   void predict() const;
 
 
-  struct LeafBridge* getLeaf() const;
-
+  const vector<double>& getYTest() const;
   
+
+  const vector<double>& getYPred() const;
+  
+  
+  /**
+     @brief Pass-through to core.
+   */
+  const vector<vector<double>>& getYPermute() const;
+
+
   /**
      @return vector of predection quantiles iff quant non-null else empty.
    */
@@ -74,12 +109,60 @@ struct PredictBridge {
   const vector<double> getQEst() const;
   
 private:
-  unique_ptr<struct RLEFrame> rleFrame;
-  unique_ptr<struct BagBridge> bagBridge;
-  unique_ptr<struct ForestBridge> forestBridge;
-  unique_ptr<struct LeafBridge> leafBridge;
-  const bool importance; // Whether permutation importance is requested.
-  unique_ptr<class Quant> quant;
+  unique_ptr<class PredictReg> predictRegCore;
 };
+
+
+struct PredictCtgBridge : public PredictBridge {
+  PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
+		   unique_ptr<ForestBridge> forestBridge_,
+		   unique_ptr<BagBridge> bagBridge_,
+		    unique_ptr<class LeafBridge> leafBridge_,
+		   const unsigned int* leafHeight,
+		   const double* leafProb,
+		    unsigned int nCtgTrain,
+		   vector<unsigned int> yTest,
+		   bool oob_,
+		   unsigned int nPermute_,
+		    bool doProb,
+		   unsigned int nThread);
+
+  ~PredictCtgBridge();
+
+  
+  const vector<unsigned int>& getYPred() const;
+
+
+  unsigned int getNCtgTrain() const;
+
+  
+  /**
+     @brief External entry for prediction.
+
+     May be parametrized for separate entry in distributed setting.
+   */
+  void predict() const;
+
+  unsigned int ctgIdx(unsigned int ctgTest,
+                      unsigned int ctgPred) const;
+  
+
+  const unsigned int* getCensus() const;
+  
+
+  const vector<double>& getProb() const;
+  
+
+  /**
+     @brief Pass-through to core.
+   */
+  const vector<vector<unsigned int>>& getYPermute() const;
+
+private:
+  unique_ptr<class PredictCtg> predictCtgCore;
+
+
+};
+
 
 #endif

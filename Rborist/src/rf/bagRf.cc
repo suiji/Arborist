@@ -66,7 +66,7 @@ unique_ptr<BagBridge> BagRf::unwrap(const List &sTrain, const List& lDeframe, bo
   }
 
   RawVector raw((SEXP) sBag["raw"]);
-  if (oob && raw.length() > 0) {
+  if (raw.length() > 0) {
     return make_unique<BagBridge>(as<unsigned int>(sBag["nTree"]),
                                   as<unsigned int>(sBag["nRow"]),
                                   RawVector((SEXP) sBag["raw"]).begin());

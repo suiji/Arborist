@@ -30,7 +30,15 @@
   if (quantiles && is.null(quantVec))
     quantVec <- DefaultQuantVec()
 
-  PredictDeep(object, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose)
+  summaryPredict <- PredictDeep(object, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose)
+
+  if (!is.null(yTest)) { # Validation (test) included.
+      predictOut <- c(summaryPredict$prediction, summaryPredict$validation)
+  }
+  else {
+      predictOut <- summaryPredict$prediction
+  }
+  predictOut
 }
 
 

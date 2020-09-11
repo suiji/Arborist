@@ -34,7 +34,7 @@ using namespace Rcpp;
 RcppExport SEXP ValidateReg(const SEXP sFrame,
                             const SEXP sTrain,
                             SEXP sYTest,
-			    SEXP sImportance,
+			    SEXP sPermute,
                             SEXP sNThread);
 
 
@@ -48,21 +48,21 @@ RcppExport SEXP TestReg(const SEXP sFrame,
 RcppExport SEXP ValidateVotes(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
-			      SEXP sImportance,
+			      SEXP sPermute,
                               SEXP sNThread);
 
 
 RcppExport SEXP ValidateProb(const SEXP sFrame,
                              const SEXP sTrain,
                              SEXP sYTest,
-			     SEXP sImportance,
+			     SEXP sPermute,
                              SEXP sNThread);
 
 
 RcppExport SEXP ValidateQuant(const SEXP sFrame,
                               const SEXP sTrain,
                               SEXP sYTest,
-			      SEXP sImportance,
+			      SEXP sPermute,
                               SEXP sQuantVec,
                               SEXP sNThread);
 
@@ -118,12 +118,27 @@ RcppExport SEXP TestVotes(const SEXP sFrame,
  */
 struct PBRf {
 
+  /**
+     @brief Exception-throwing guard ensuring valid encapsulation.
+
+     @return wrapped List representing Core-generated PredictCtg.
+   */
+  static List checkLeafReg(const List &lTrain);
+
+  /**
+     @brief Exception-throwing guard ensuring valid encapsulation.
+
+     @return wrapped List representing Core-generated PredictCtg.
+   */
+  static List checkLeafCtg(const List &lTrain);
+
+
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
 			 SEXP sYTest,
 			 bool oob,
 			 bool doProb,
-			 bool importance,
+			 unsigned int permute,
 			 unsigned int nThread);
 
   
@@ -134,7 +149,7 @@ struct PBRf {
                          const List& lTrain,
                          SEXP sYTest,
                          bool oob,
-			 bool importance,
+			 unsigned int permute,
                          unsigned int nThread);
 
 
@@ -151,7 +166,7 @@ struct PBRf {
 
     @param oob is true iff testing restricted to out-of-bag.
 
-    @param importance is true iff permutation testing is specified.
+    @param permute is positive iff permutation testing is specified.
 
     @return wrapped prediction list.
  */
@@ -160,7 +175,7 @@ struct PBRf {
 			   SEXP sQuantVec,
 			   SEXP sYTest,
 			   bool oob,
-			   bool importance,
+			   unsigned int permute,
 			   unsigned int nThread);
 
   /**
@@ -168,24 +183,13 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
-                                                   const List& lTrain,
-                                                   bool oob,
-						    bool importance,
-                                                   unsigned int nThread,
-                                                   const vector<double>& quantile);
-
-  /**
-     @brief Unwraps regression data structurs and moves to box.
-
-     @return unique pointer to bridge-variant PredictBridge. 
-   */
-  static unique_ptr<struct PredictBridge> unwrapReg(const List& lDeframe,
+  static unique_ptr<struct PredictRegBridge> unwrapReg(const List& lDeframe,
 						    const List& lTrain,
+						    SEXP sYTest,
 						    bool oob,
-						    bool importance,
-						    unsigned int nThread);
-
+						    unsigned int permute,
+						    unsigned int nThread,
+						    vector<double> quantile = vector<double>(0));
 
   /**
      @brief Instantiates core prediction object and predicts quantiles.
@@ -200,12 +204,86 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static unique_ptr<struct PredictBridge> unwrapCtg(const List& lDeframe,
-						    const List& lTrain,
-						    bool oob,
-						    bool doProb,
-						    bool importance,
-						    unsigned int nThread);
+  static unique_ptr<struct PredictCtgBridge> unwrapCtg(const List& lDeframe,
+						       const List& lTrain,
+						       SEXP sYTest,
+						       bool oob,
+						       bool doProb,
+						       unsigned int permute,
+						       unsigned int nThread);
+
+
+  static List summary(SEXP sYTest,
+                      const struct PredictRegBridge* pBridge);
+
+
+  /**
+     @brief Builds a NumericMatrix representation of the quantile predictions.
+     
+     @param leafBridge is the leaf handle.
+
+     @param pBridge is the prediction handle.
+
+     @return transposed core matrix if quantiles requested, else empty matrix.
+  */
+  static NumericMatrix getQPred(const struct PredictRegBridge* pBridge);
+
+
+  /**
+     @brief Builds a NumericVector representation of the estimand quantiles.
+     
+     @param pBridge is the prediction handle.
+
+     @return quantile of predictions if quantiles requesed, else empty vector.
+   */
+  static NumericVector getQEst(const struct PredictRegBridge* pBridge);
+
+
+  static List getPrediction(const PredictRegBridge* pBridge);
+
+
+  /**
+     @param varTest is the variance of the test vector.
+   */  
+  static List getValidation(const PredictRegBridge* pBridge,
+			    double varTest);
+  
+
+  /**
+     @brief Utility for computing mean-square error of prediction.
+
+     Error is estimated using the prediction and test vectors.  This is somewhat
+     different from the approach of the "randomForest" package, which estimates
+     a per-tree mean of mean-square oob errors.
+   
+     @param yPred is the prediction.
+
+     @param yTest is the observed response.
+
+     @param ae[out] is the sum of absolute errors.
+
+     @return sum-squared error.
+  */
+  static double mse(const vector<double>& yPred,
+		    const vector<double>& yTest,
+		    double& ae);
+
+  
+  static List getImportance(const class PredictRegBridge* pBridge);
+
+
+  /**
+     @brief Computes predictor importances by permutation.
+
+     Importance is given as the diffence between the permuted and test
+     MSE values, computed as above.
+
+     @param yTest is the test calibration.
+
+     @return vector of mse values under permutation, by predictor.
+   */
+  static NumericVector msePermute(const class PredictRegBridge* pBridge);
+
 
 private:
   /**
@@ -221,5 +299,200 @@ private:
      @return wrapped prediction.
    */
   static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
+
+  
+  static vector<double> regTest(SEXP sYTest);
+
+  
+  static vector<double> regTrain(const List& lList);
+
+  
+  /**
+     @param train is a previously-verified RegLeaf list.
+
+     @return mean of training response.
+   */
+  static double meanTrain(const List& lLeaf);
+
+
+  static vector<unsigned int> ctgTest(const List& lLeaf,
+				      SEXP sYTest);
+
+  
+  /**
+     @param train is a previously-verified CtgLeaf list.
+
+     @return cardinaltiy of training response.
+   */
+  static unsigned int ctgTrain(const List& lLeaf);
 };
+
+
+/**
+   @brief Rf specialization of Core PredictReg, q.v.
+ */
+struct LeafRegRf {
+
+  static List predict(const List &list,
+                      SEXP sYTest,
+                      class Predict *predict);
+
+  /**
+     @brief Builds bridge object from wrapped front-end data.
+
+     @param lLeaf references the leaf object.
+
+     @param lDeframe references the deframed observations.
+   */
+  static unique_ptr<struct LeafBridge> unwrap(const List& lLeaf,
+						    const List& lDeframe);
+};
+
+
+struct LeafPredictRf {
+  /**
+     @brief Instantiates front-end leaf.
+
+     @param lLeaf references the leaf.
+
+     @param lDeframe references the deframed observations.
+
+     @param doProb indicates whether a probability matrix is requested.
+   */
+  static unique_ptr<struct LeafBridge> unwrap(const List& lLeaf,
+						 const List& lDeframe);
+};
+
+  
+/**
+   @brief Rf specialization of Core PredictCtg, q.v.
+ */
+struct LeafCtgRf {
+  static List predict(const List &list,
+		      SEXP sYTest,
+		      const List &signature,
+		      class Predict *predict,
+		      bool doProb);
+  /**
+     @param sYTest is the one-based test vector, possibly null.
+
+     @param rowNames are the row names of the test data.
+
+     @return list of summary entries.   
+  */
+  static List summary(const List& lDeframe,
+                      const List& lTrain,
+                      const struct PredictCtgBridge* pBridge,
+                      SEXP sYTest);
+
+
+  /**
+     @brief Produces census summary, which is common to all categorical
+     prediction.
+
+     @param rowNames is the user-supplied specification of row names.
+
+     @return matrix of predicted categorical responses, by row.
+  */
+  static IntegerMatrix getCensus(const PredictCtgBridge* pBridge,
+                                 const CharacterVector& levelsTrain,
+                                 const CharacterVector& rowNames);
+
+  
+  /**
+     @param rowNames is the user-supplied collection of row names.
+
+     @return probability matrix if requested, otherwise empty matrix.
+  */
+  static NumericMatrix getProb(const PredictCtgBridge* pBridge,
+                               const CharacterVector& levelsTrain,
+                               const CharacterVector &rowNames);
+
+  
+  static List getPrediction(const PredictCtgBridge* pBridge,
+			    const CharacterVector& levelsTrain,
+			    const CharacterVector& ctgNames);
+};
+
+
+/**
+   @brief Internal back end-style vectors cache annotations for
+   per-tree access.
+ */
+struct TestCtg {
+  const CharacterVector levelsTrain;
+  const CharacterVector levels;
+  const IntegerVector test2Merged;
+  const vector<unsigned int> yTestZero;
+  const unsigned int ctgMerged;
+
+  TestCtg(const IntegerVector& yTest,
+          const CharacterVector &levelsTrain_);
+
+  
+  /**
+     @brief Determines summary array dimensions by reconciling cardinalities
+     of training and test reponses.
+
+     @return reconciled test vector.
+  */
+  static vector<unsigned int> reconcile(const IntegerVector& test2Train,
+					const IntegerVector& yTestOne);
+  
+
+  /**
+     @brief Reconciles factor encodings of training and test responses.
+   */
+  IntegerVector mergeLevels(const CharacterVector& levelsTest);
+
+
+  List getValidation(const PredictCtgBridge* pBridge);
+
+
+  List getImportance(const PredictCtgBridge* pBridge);
+
+  
+  /**
+     @brief Fills in misprediction vector.
+
+     @param leaf summarizes the trained leaf frame.
+  */
+  NumericVector misprediction(const struct PredictCtgBridge* pBridge,
+			      const vector<unsigned int>& yPred) const;
+  
+
+  vector<unsigned int> buildConfusion(const PredictCtgBridge* pBridge,
+				      const vector<unsigned int>& yPred) const;
+  
+  
+/**
+   @brief Produces summary information specific to testing:  mispredction
+   vector and confusion matrix.
+
+   @param confusion is the internal confusion matrix.
+
+   @param levelsTrain are the levels encountered during training.
+
+   @return output confusion matrix.
+ */
+  IntegerMatrix getConfusion(const PredictCtgBridge* pBridge,
+			     const CharacterVector& levelsTrain) const;
+
+
+  /**
+     @brief Estimates the out-of-bag error.
+
+     @param yPred is the zero-based prediction vector derived by the core.
+
+     @return mean number of mispredictions.
+  */
+  double oobError(const vector<unsigned int>& yPred) const;
+
+
+  NumericMatrix mispredPermute(const PredictCtgBridge* pBridge) const;
+
+
+  NumericVector oobErrPermute(const PredictCtgBridge* pBridge) const;
+};
+
 #endif

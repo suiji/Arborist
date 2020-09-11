@@ -18,118 +18,10 @@
 
 #include "block.h"
 #include "typeparam.h"
+#include "leafpredict.h" // Temporary:  Jagged3Base.
 
 #include <vector>
 #include <algorithm>
-
-
-/**
-   @brief Data frame specialized for prediction.
-
-   The current implementation supports at most one block of factor-valued
-   observations and one block of numeric-valued observations.  Hence the
-   class is parametrized by two blocks instead of a more general frame.
- */
-class PredictFrame {
-  class Predict* predict;
-  const unsigned int nTree;
-  const IndexT noLeaf;
-  IndexT extent; // # rows in block
-
-  /**
-     @brief Gets an acceptable block row count.
-
-     @param rowCount is a requested count.
-
-     @return count of rows in block.
-   */
-  static size_t getBlockRows(size_t rowCount);
-
-
-  /**
-     @brief Aliases a row-prediction method tailored for the frame's
-     block structure.
-   */
-  void (PredictFrame::* predictRow)(size_t, size_t);
-
-  unique_ptr<IndexT[]> predictLeaves; // Tree-relative leaf indices.
-
-  /**
-     @brief Dispatches row prediction in parallel.
-   */
-  void predictBlock(size_t rowStart);
-  
-  /**
-     @brief Multi-row prediction with predictors of only numeric.
-
-     @param rowStart is the absolute starting row for the block.
-
-     @param rowOff is the block-relative row offset.
-  */
-  void predictNum(size_t rowStart, size_t rowOff);
-
-  /**
-     @brief Multi-row prediction with predictors of only factor type.
-
-     Parameters as above.
-  */
-  void predictFac(size_t rowStart, size_t rowOff);
-  
-
-  /**
-     @brief Prediction with predictors of both numeric and factor type.
-     Parameters as above.
-  */
-  void predictMixed(size_t rowStart, size_t rowOff);
-  
-
-  /**
-     @brief Assigns a true leaf index at the prediction coordinates passed.
-
-     @param blockRow is a block-relative row offset.
-
-     @param tc is the index of the current tree.
-
-     @param leafIdx is the leaf index to record.
-   */
-  inline void predictLeaf(unsigned int blockRow,
-                          unsigned int tc,
-                          IndexT leafIdx) {
-    predictLeaves[nTree * blockRow + tc] = leafIdx;
-  }
-
-
-public:
-  PredictFrame(class Predict* predict,
-	       IndexT extent);
-
-
-  /**
-     @brief Dispatches prediction on a block of rows, by predictor type.
-
-     @param rowStart is the starting row over which to predict.
-  */
-  void predictAcross(size_t rowStart);
-
-
-  /**
-     @brief Indicates whether a given row and tree pair is in-bag.
-
-     @param blockRow is the block-relative row position.
-
-     @param tc is the absolute tree index.
-
-     @param[out] termIdx is the predicted tree-relative index.
-
-     @return whether pair is bagged.
-   */
-  inline bool isBagged(unsigned int blockRow,
-                       unsigned int tc,
-                       IndexT& termIdx) const {
-    termIdx = predictLeaves[nTree * blockRow + tc];
-    return termIdx == noLeaf;
-  }
-};
 
 
 /**
@@ -137,17 +29,39 @@ public:
    predictions.
  */
 class Predict {
-  static const size_t rowBlock; // Block size.
+protected:
+  static const size_t rowChunk; // Block size.
   
   const class Bag* bag; // In-bag representation.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   const struct TreeNode* treeNode; // Pointer to base of tree nodes.
   const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
-  class LeafFrame* leaf; // Terminal section of forest.
   struct RLEFrame* rleFrame; // Frame of observations.
-  class Quant* quant;  // Quantile workplace, as needed.
+  const bool oob; // Whether to ignore in-bag rows.
+  const unsigned int nPermute; // # times to permute each predictor.
 
-  unique_ptr<PredictFrame> frame;
+  vector<IndexT> predictLeaves; // Tree-relative leaf indices.
+
+  size_t blockStart; // Stripmine bound.
+  size_t blockEnd; // "" ""
+  vector<IndexT> accumNEst;
+
+  size_t nEst; // Total number of estimands.
+
+  /**
+     @brief Assigns a true leaf index at the prediction coordinates passed.
+
+     @param row is the row number.
+
+     @param tc is the index of the current tree.
+
+     @param leafIdx is the leaf index to record.
+   */
+  inline void predictLeaf(size_t row,
+                          unsigned int tIdx,
+                          IndexT leafIdx) {
+    predictLeaves[nTree * (row - blockStart) + tIdx] = leafIdx;
+  }
 
 
   /**
@@ -158,10 +72,18 @@ class Predict {
 
   /**
      @brief Performs prediction on separately-permuted predictor columns.
+
+     @param permute is the number of times to permute each predictor.
    */
   void predictPermute();
   
 
+  /**
+     @brief Drives prediction strip-mining and residual.
+   */
+  void blocks();
+  
+  
   /**
      @brief Strip-mines prediction by fixed-size blocks.
    */
@@ -170,39 +92,75 @@ class Predict {
 
 
   /**
-     @brief Predicts over a single frame of observations.
+     @brief Multi-row prediction with predictors of only numeric.
 
-     @param row is the beginning row index of the block.
+     @param rowStart is the absolute starting row for the block.
+  */
+  void walkNum(size_t rowStart);
+
+  /**
+     @brief Multi-row prediction with predictors of only factor type.
+
+     Parameters as above.
+  */
+  void walkFac(size_t rowStart);
+  
+
+  /**
+     @brief Prediction with predictors of both numeric and factor type.
+     Parameters as above.
+  */
+  void walkMixed(size_t rowStart);
+  
+
+  virtual void predictBlock() = 0;
+
+
+  /**
+     @brief Accumulates type-based estimates.
    */
-  void framePredict(size_t row,
-		    size_t extent);
+  virtual void estAccum();
 
+  
+  virtual void setPredictTarget() = 0;
+
+  virtual void initPermute(PredictorT nPred) = 0;
+  
+  virtual void setPermuteTarget(PredictorT predIdx) = 0;
 
 public:
 
+  class LeafBlock* leafBlock; // 
   const PredictorT nPredNum;
   const PredictorT nPredFac;
+  const size_t nRow;
   const unsigned int nTree; // # trees used in training.
   const IndexT noLeaf; // Inattainable leaf index value.
+
+  /**
+     @brief Aliases a row-prediction method tailored for the frame's
+     block structure.
+   */
+  void (Predict::* walkTree)(size_t);
+
   vector<unsigned int> trFac; // OTF transposed factor observations.
   vector<double> trNum; // OTF transposed numeric observations.
   vector<size_t> trIdx; // Most recent RLE index accessed by predictor.
 
   Predict(const class Bag* bag_,
           const class Forest* forest_,
-          class LeafFrame* leaf_,
+          const class LeafPredict* leaf_,
 	  struct RLEFrame* rleFrame_,
-          class Quant* quant_);
+	  bool oob_,
+	  unsigned int nPredict_);
 
   
   /**
      @brief Main entry from bridge.
 
-     @param importance is true iff permutation importance is specified.
-
      Distributed prediction will require start and extent parameters.
    */
-  void predict(bool importance);
+  void predict();
 
   
     /**
@@ -222,47 +180,46 @@ public:
     return predIdx >= nPredNum;
   }
 
+
+  inline unsigned int getNTree() const {
+    return nTree;
+  }
+
+  
+  /**
+     @param[out] termIdx is the terminal index of prediction.
+
+     @return true iff the predicted terminal index references a leaf.
+   */
+  inline bool isLeafIdx(size_t row,
+			unsigned int tIdx,
+			IndexT& termIdx) const {
+    termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+
+    // Non-oob scenarios should always see a leaf.
+    //    if (!oob) assert(termIdx != noLeaf);
+    return termIdx != noLeaf;
+  }
+
   
   /**
      @brief Computes pointer to base of row of numeric values.
 
-     @param rowOff is a block-relative row offset.
+     @param row is the row number.
 
      @return base address for numeric values at row.
   */
-  const double* baseNum(size_t rowOff) const;
+  const double* baseNum(size_t row) const;
 
 
   /**
      @brief As above, but factor varlues.
 
-     @return base address for (transposed) factor values at row.
+     @return row is the row number.
    */
-  const PredictorT* baseFac(size_t rowOff) const;
+  const PredictorT* baseFac(size_t row) const;
 
   
-  /**
-     @brief Transposes a block of observations to row-major.
-
-     @param rowStart is the starting observation row.
-   */
-  void transpose(size_t rowStart);
-
-
-  /**
-     @brief Generic entry from bridge.
-
-     @param frame contains the observations.
-   */
-  void scoreBlock(const IndexT predictLeaves[],
-                  size_t rowStart,
-                  size_t extent) const;
-
-  
-  void quantBlock(const PredictFrame* frame,
-                  size_t rowStart,
-                  size_t extent) const;
-
   /**
      @brief Prediction of single row with mixed predictor types.
 
@@ -272,7 +229,7 @@ public:
 
      @return index of leaf predicted.
   */
-  IndexT rowMixed(unsigned int tIdx,
+  void rowMixed(unsigned int tIdx,
 		  const double* rowNT,
 		  const unsigned int* rowFT,
 		  size_t row);
@@ -283,7 +240,7 @@ public:
 
      Parameters as in mixed case, above.
   */
-  IndexT rowFac(unsigned int tIdx,
+  void rowFac(unsigned int tIdx,
 		const unsigned int* rowT,
 		size_t row);
 
@@ -293,9 +250,329 @@ public:
 
      Parameters as in mixed case, above.
    */
-  IndexT rowNum(unsigned int tIdx,
+  void rowNum(unsigned int tIdx,
 		const double* rowT,
 		size_t row);
 };
+
+
+class PredictReg : public Predict {
+  const double defaultScore;
+  const vector<double> yTest;
+  vector<double> yPred;
+  vector<vector<double>> yPermute;
+
+  double* yTarg; // Target of current prediction.
+  vector<double> accumAbsErr;
+  vector<double> accumSSE;
+
+  double absErr;
+  double sse;
+  
+  unique_ptr<class Quant> quant;  // Quantile workplace, as needed.
+
+  void testRow(size_t row);
+
+
+  void scoreRow(size_t row);
+
+public:
+  PredictReg(const class Bag* bag_,
+	      const class Forest* forest_,
+	      const class LeafPredict* leaf_,
+	      struct RLEFrame* rleFrame_,
+	      vector<double> yTrain,
+	      double default_,
+	      vector<double> yTest_,
+	      bool oob_,
+	      unsigned int nPredict_,
+	      vector<double> quantile);
+
+  ~PredictReg();
+
+
+  double getDefault() const {
+    return defaultScore;
+  }
+
+  
+  /**
+     @brief Description given in virtual declartion.
+   */
+  void predictBlock();
+
+
+  void estAccum();
+  
+  
+  void setPredictTarget() {
+    yTarg = &yPred[0];
+  }
+
+
+  void initPermute(PredictorT nPred) {
+    yPermute = vector<vector<double>>(nPred);
+  }
+  
+  
+  void setPermuteTarget(PredictorT predIdx) {
+    yPermute[predIdx] = vector<double>(yPred.size());
+    yTarg = &yPermute[predIdx][0];
+  }
+
+
+  const vector<double>& getYTest() const {
+    return yTest;
+  }
+  
+  
+  const vector<double>& getYPred() const {
+    return yPred;
+  }
+
+
+  inline double getYPred(size_t row) const {
+    return yPred[row];
+  }
+  
+  
+  inline const vector<vector<double>>& getYPermute() const {
+    return yPermute;
+  }
+  
+
+ /**
+     @return vector of estimated quantile means.
+   */
+  const vector<double> getQEst() const;
+
+
+  /**
+     @return vector quantile predictions.
+  */
+  const vector<double> getQPred() const;
+};
+
+
+class PredictCtg : public Predict {
+  vector<PredictorT> yTest;
+  vector<PredictorT> yPred;
+  const PredictorT nCtgTrain; // Cardiality of training response.
+  unique_ptr<class CtgProb> ctgProb; // Matrix (row * ctg) of predicted probabilities.
+  const PredictorT ctgDefault; // Default prediction when nothing is out-of-bag.
+
+  vector<vector<PredictorT>> yPermute;
+  PredictorT* yTarg; // Target of current prediction.
+  vector<double> votes; // Jittered prediction counts.
+  vector<PredictorT> census;
+  vector<PredictorT> censusPermute; // Unsaved census for permutations.
+  PredictorT* censusTarg; // Destination of prediction census.
+  vector<double> prob;
+
+  void testRow(size_t row);
+
+
+  void scoreRow(size_t row);
+
+  
+public:
+
+  PredictCtg(const class Bag* bag_,
+	      const class Forest* forest_,
+	      const class LeafPredict* leaf_,
+	      struct RLEFrame* rleFrame_,
+	      const unsigned int* leafHeight,
+	      const double* leafProbs,
+	      unsigned int nCtgTrain_,
+	      bool oob_,
+	      unsigned int nPredict_,
+	      bool doProb);
+
+  ~PredictCtg() {}
+
+
+  /**
+     @brief Description given in virtual declartion.
+   */
+  void predictBlock();
+
+  
+  /**
+     @Brief Assignes categorical score by plurality vote.
+   */
+  PredictorT argMax(size_t row);
+
+
+  /**
+     @brief Derives an index into a matrix having stride equal to the
+     number of training categories.
+     
+     @param row is the row coordinate.
+
+     @return derived strided index.
+   */
+  size_t ctgIdx(size_t row, PredictorT ctg = 0) const {
+    return row * nCtgTrain + ctg;
+  }
+
+
+  const vector<PredictorT>& getYPred() const {
+    return yPred;
+  }
+
+
+  PredictorT getNCtgTrain() const {
+    return nCtgTrain;
+  }
+
+
+  void estAccum();
+  
+  
+  void setPredictTarget() {
+    yTarg = &yPred[0];
+    censusTarg = &census[0];
+  }
+
+
+  void initPermute(PredictorT nPred) {
+    yPermute = vector<vector<PredictorT>>(nPred);
+    censusPermute = vector<PredictorT>(census.size());
+  }
+  
+
+  void setPermuteTarget(PredictorT predIdx) {
+    yPermute[predIdx] = vector<PredictorT>(yPred.size());
+    yTarg = &yPermute[predIdx][0];
+    censusTarg = &censusPermute[0];
+  }
+
+
+  inline const vector<vector<PredictorT>>& getYPermute() const {
+    return yPermute;
+  }
+  
+
+  /**
+     @brief Getter for census.
+   */
+  const PredictorT* getCensus() const {
+    return &census[0];
+  }
+
+  /**
+     @brief Getter for probability matrix.
+   */
+  const vector<double>& getProb() const {
+    return prob;
+  }
+};
+
+
+/**
+   @brief Specialization providing a subscript operation.
+ */
+template<>
+class Jagged3<const double*, const unsigned int*> : public Jagged3Base<const double*, const unsigned int*> {
+public:
+  Jagged3(const unsigned int nCtg_,
+          const unsigned int nTree_,
+          const unsigned int* height_,
+          const double *ctgProb_) :
+    Jagged3Base<const double*, const unsigned int*>(nCtg_, nTree_, height_, ctgProb_) {
+  }
+
+  ~Jagged3() {
+  }
+
+  /**
+     @brief Getter for indexed item.
+
+     @param idx is the item index.
+
+     @return indexed item.
+   */
+  double getItem(unsigned int idx) const {
+    return items[idx];
+  }
+};
+
+
+/**
+   @brief Categorical probabilities associated with indivdual leaves.
+
+   Intimately accesses the raw jagged array it contains.
+ */
+class CtgProb {
+  const unsigned int nCtg; // Training cardinality.
+  vector<double> probDefault; // Forest-wide default probability.
+  const vector<unsigned int> ctgHeight; // Scaled from Leaf's height vector.
+  const unique_ptr<Jagged3<const double*, const unsigned int*> > raw;
+
+  /**
+     @brief Scales a vector of offsets by category count.
+
+     @param leafHeight is the leaf-relative height vector.
+
+     @param nTree is the number of trees.
+
+     @return ad-hoc scaled vector.
+   */
+  vector<unsigned int> scaleHeight(const unsigned int* leafHeight,
+                                   unsigned int nTree) const;
+
+public:
+  CtgProb(PredictorT ctgTrain,
+          unsigned int nTree,
+          const unsigned int* leafHeight,
+          const double* prob);
+
+  ~CtgProb() {}
+
+  /**
+     @brief Accumulates probabilities associated with a leaf.
+
+     @param[in, out] probRow accumulates (unnormalized) probabilities across leaves.
+
+     @param tIdx is the tree index.
+
+     @param leafIdx is the block-relative leaf index.
+   */
+  void addLeaf(double* probRow,
+               unsigned int tIdx,
+               IndexT leafIdx) const;
+
+  /**
+     @brief Predicts probabilities across all trees.
+
+     @param predictRow are the categorical predictions, per tree.
+
+     @param[out] probRow outputs the per-category probabilities.
+   */
+  void probAcross(const class PredictCtg* predict,
+		  size_t row,
+                  double* probRow) const;
+
+
+  /**
+     @brief Constructs the vector of default probabilities.
+  */
+  void setDefault();
+
+  
+  /**
+     @brief Copies default probability vector into argument.
+
+     @param[out] probPredict outputs the default category probabilities.
+   */
+  void applyDefault(double* probPredict) const;
+  
+
+  /**
+     @return highest probability category of default vector.
+   */
+  PredictorT ctgDefault() const;
+};
+
 
 #endif

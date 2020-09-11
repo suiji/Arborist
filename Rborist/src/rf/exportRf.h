@@ -137,7 +137,7 @@ struct LeafExportReg : public LeafExport {
   }
 
  private:
-  const NumericVector yTrain;
+
   vector<vector<double > > scoreTree;
 };
 
