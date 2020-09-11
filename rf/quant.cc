@@ -60,7 +60,7 @@ void Quant::predictBlock(size_t blockStart, size_t blockEnd) {
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (OMPBound row = rowStart; row != rowEnd; row++) {
+    for (OMPBound row = rowStart; row < rowEnd; row++) {
       double yPred = predictReg->getYPred(row);
       predictRow(row, yPred, &qPred[qCount * row], &qEst[row]);
     }
