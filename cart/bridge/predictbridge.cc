@@ -57,7 +57,7 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				     bool doProb,
 				     unsigned int nThread) :
   PredictBridge(move(rleFrame_), move(forestBridge_), move(bagBridge_), move(leafBridge_), oob_, nPermute_, nThread),
-  predictCtgCore(make_unique<PredictCtg>(bagBridge->getBag(), forestBridge->getForest(), leafBridge->getLeaf(), rleFrame.get(), leafHeight, leafProb, nCtgTrain, oob, nPermute, doProb)) {
+  predictCtgCore(make_unique<PredictCtg>(bagBridge->getBag(), forestBridge->getForest(), leafBridge->getLeaf(), rleFrame.get(), leafHeight, leafProb, nCtgTrain, move(yTest), oob, nPermute, doProb)) {
 }
 
 
@@ -112,6 +112,31 @@ const vector<unsigned int>& PredictCtgBridge::getYPred() const {
 }
 
 
+const vector<size_t>& PredictCtgBridge::getConfusion() const {
+  return predictCtgCore->getConfusion();
+}
+
+
+const vector<double>& PredictCtgBridge::getMisprediction() const {
+  return predictCtgCore->getMisprediction();
+}
+
+
+const vector<vector<double>>& PredictCtgBridge::getMispredPermute() const {
+  return predictCtgCore->getMispredPermute();
+}
+
+
+double PredictCtgBridge::getOOBError() const {
+  return predictCtgCore->getOOBError();
+}
+
+
+const vector<double>& PredictCtgBridge::getOOBErrorPermute() const {
+  return predictCtgCore->getOOBErrorPermute();
+}
+
+
 unsigned int PredictCtgBridge::getNCtgTrain() const {
   return predictCtgCore->getNCtgTrain();
 }
@@ -138,8 +163,18 @@ const vector<double>& PredictCtgBridge::getProb() const {
 }
 
 
-const vector<vector<unsigned int>>& PredictCtgBridge::getYPermute() const {
-  return predictCtgCore->getYPermute();
+double PredictRegBridge::getSAE() const {
+  return predictRegCore->getSAE();
+}
+
+
+double PredictRegBridge::getSSE() const {
+  return predictRegCore->getSSE();
+}
+
+
+const vector<double>& PredictRegBridge::getSSEPermute() const {
+  return predictRegCore->getSSEPermute();
 }
 
 
@@ -150,11 +185,6 @@ const vector<double>& PredictRegBridge::getYTest() const {
 
 const vector<double>& PredictRegBridge::getYPred() const {
   return predictRegCore->getYPred();
-}
-
-
-const vector<vector<double>>& PredictRegBridge::getYPermute() const {
-  return predictRegCore->getYPermute();
 }
 
 

@@ -73,13 +73,13 @@ unsigned int LeafBlock::treeBase(unsigned int tIdx) const {
 }
 
 
-double LeafBlock::getScore(unsigned int tIdx, unsigned int idx) const {
-  auto absOff = raw->absOffset(tIdx, idx);
+double LeafBlock::getScore(unsigned int tIdx, IndexT idx) const {
+  size_t absOff = raw->absOffset(tIdx, idx);
   return raw->items[absOff].getScore();
 }
 
 
-unsigned int LeafBlock::getExtent(unsigned int leafAbs) const {
+unsigned int LeafBlock::getExtent(size_t leafAbs) const {
   return raw->items[leafAbs].getExtent();
 }
 

@@ -77,12 +77,9 @@ class Quant {
   /**
      @brief Writes the quantile values for a given row.
 
-     @param[out] qRow[] outputs the 'qCount' quantile values.
+     @param row is the row over which to build prediction quantiles.
   */
-  void predictRow(size_t row,
-                  double yPred,
-                  double qRow[],
-                  double* qEst);
+  void predictRow(size_t row);
 
 
   /**
@@ -96,10 +93,11 @@ class Quant {
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  IndexT quantSamples(const vector<IndexT>& sCount,
-                      const vector<double> threshold,
-                      double yPred,
-                      double qRow[]) const;
+  void quantSamples(const vector<IndexT>& sCount,
+		    const vector<double> threshold,
+		    IndexT totSample,
+		    size_t row);
+  
 
   /**
      @brief Accumulates the ranks assocated with predicted leaf.

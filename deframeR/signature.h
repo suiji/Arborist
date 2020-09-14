@@ -45,6 +45,12 @@ struct Signature {
 
 
   /**
+     @return vector of column (predictor) names.
+   */
+  static CharacterVector unwrapColNames(const List& sFrame);
+
+
+  /**
      @brief Ensures the passed object has Frame type.
 
      @param frame is the object to be checked.

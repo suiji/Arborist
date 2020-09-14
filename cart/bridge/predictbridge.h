@@ -86,18 +86,21 @@ struct PredictRegBridge : public PredictBridge {
   void predict() const;
 
 
+  double getSAE() const;
+
+
+  double getSSE() const;
+
+
+  const vector<double>& getSSEPermute() const;
+
+  
   const vector<double>& getYTest() const;
   
 
   const vector<double>& getYPred() const;
   
   
-  /**
-     @brief Pass-through to core.
-   */
-  const vector<vector<double>>& getYPermute() const;
-
-
   /**
      @return vector of predection quantiles iff quant non-null else empty.
    */
@@ -133,6 +136,21 @@ struct PredictCtgBridge : public PredictBridge {
   const vector<unsigned int>& getYPred() const;
 
 
+  const vector<size_t>& getConfusion() const;
+
+
+  const vector<double>& getMisprediction() const;
+
+
+  const vector<vector<double>>& getMispredPermute() const;
+  
+
+  double getOOBError() const;
+
+
+  const vector<double>& getOOBErrorPermute() const;
+  
+  
   unsigned int getNCtgTrain() const;
 
   
@@ -152,11 +170,6 @@ struct PredictCtgBridge : public PredictBridge {
 
   const vector<double>& getProb() const;
   
-
-  /**
-     @brief Pass-through to core.
-   */
-  const vector<vector<unsigned int>>& getYPermute() const;
 
 private:
   unique_ptr<class PredictCtg> predictCtgCore;

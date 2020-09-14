@@ -213,7 +213,8 @@ struct PBRf {
 						       unsigned int nThread);
 
 
-  static List summary(SEXP sYTest,
+  static List summary(const List& lDeframe,
+		      SEXP sYTest,
                       const struct PredictRegBridge* pBridge);
 
 
@@ -246,43 +247,13 @@ struct PBRf {
      @param varTest is the variance of the test vector.
    */  
   static List getValidation(const PredictRegBridge* pBridge,
-			    double varTest);
+			    const NumericVector& yTestFE);
   
 
-  /**
-     @brief Utility for computing mean-square error of prediction.
+  static List getImportance(const class PredictRegBridge* pBridge,
+			    const NumericVector& yTestFE,
+			    const CharacterVector& predNames);
 
-     Error is estimated using the prediction and test vectors.  This is somewhat
-     different from the approach of the "randomForest" package, which estimates
-     a per-tree mean of mean-square oob errors.
-   
-     @param yPred is the prediction.
-
-     @param yTest is the observed response.
-
-     @param ae[out] is the sum of absolute errors.
-
-     @return sum-squared error.
-  */
-  static double mse(const vector<double>& yPred,
-		    const vector<double>& yTest,
-		    double& ae);
-
-  
-  static List getImportance(const class PredictRegBridge* pBridge);
-
-
-  /**
-     @brief Computes predictor importances by permutation.
-
-     Importance is given as the diffence between the permuted and test
-     MSE values, computed as above.
-
-     @param yTest is the test calibration.
-
-     @return vector of mse values under permutation, by predictor.
-   */
-  static NumericVector msePermute(const class PredictRegBridge* pBridge);
 
 
 private:
@@ -449,50 +420,40 @@ struct TestCtg {
   List getValidation(const PredictCtgBridge* pBridge);
 
 
-  List getImportance(const PredictCtgBridge* pBridge);
+  List getImportance(const PredictCtgBridge* pBridge,
+		     const CharacterVector& predNames);
 
   
   /**
      @brief Fills in misprediction vector.
 
-     @param leaf summarizes the trained leaf frame.
+     @param pBridge is the bridge handle.
   */
-  NumericVector misprediction(const struct PredictCtgBridge* pBridge,
-			      const vector<unsigned int>& yPred) const;
+  NumericVector getMisprediction(const struct PredictCtgBridge* pBridge) const;
   
 
-  vector<unsigned int> buildConfusion(const PredictCtgBridge* pBridge,
-				      const vector<unsigned int>& yPred) const;
-  
-  
 /**
    @brief Produces summary information specific to testing:  mispredction
    vector and confusion matrix.
 
-   @param confusion is the internal confusion matrix.
+   @param pBridge is the bridge handle.
 
    @param levelsTrain are the levels encountered during training.
 
-   @return output confusion matrix.
+   @return numeric matrix to accommodate wide count values.
  */
-  IntegerMatrix getConfusion(const PredictCtgBridge* pBridge,
+  NumericMatrix getConfusion(const PredictCtgBridge* pBridge,
 			     const CharacterVector& levelsTrain) const;
 
 
-  /**
-     @brief Estimates the out-of-bag error.
 
-     @param yPred is the zero-based prediction vector derived by the core.
-
-     @return mean number of mispredictions.
-  */
-  double oobError(const vector<unsigned int>& yPred) const;
+  NumericMatrix mispredPermute(const PredictCtgBridge* pBridge,
+			       const CharacterVector& predNames) const;
 
 
-  NumericMatrix mispredPermute(const PredictCtgBridge* pBridge) const;
 
-
-  NumericVector oobErrPermute(const PredictCtgBridge* pBridge) const;
+  NumericVector oobErrPermute(const PredictCtgBridge* pBridge,
+			      const CharacterVector& predNames) const;
 };
 
 #endif

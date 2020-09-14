@@ -72,7 +72,7 @@ List PBRf::predictReg(const List& lDeframe,
   unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, sYTest, oob, nPermute, nThread));
   pBridge->predict();
 
-  return summary(sYTest, pBridge.get());
+  return summary(lDeframe, sYTest, pBridge.get());
   
   END_RCPP
 }
@@ -123,7 +123,7 @@ double PBRf::meanTrain(const List& lLeaf) {
 }
 
 
-List PBRf::summary(SEXP sYTest, const PredictRegBridge* pBridge) {
+List PBRf::summary(const List& lDeframe, SEXP sYTest, const PredictRegBridge* pBridge) {
   BEGIN_RCPP
 
   List summaryReg;
@@ -135,14 +135,15 @@ List PBRf::summary(SEXP sYTest, const PredictRegBridge* pBridge) {
   else if (!pBridge->permutes()) { // Validation, no importance.
     summaryReg = List::create(
 			      _["prediction"] = getPrediction(pBridge),
-			      _["validation"] = getValidation(pBridge, var(NumericVector((SEXP)sYTest)))
+			      _["validation"] = getValidation(pBridge, NumericVector((SEXP)sYTest))
 			      );
   }
   else { // Validation + importance
+    CharacterVector predNames(Signature::unwrapColNames(lDeframe));
     summaryReg = List::create(
 			      _["prediction"] = getPrediction(pBridge),
-			      _["validation"] = getValidation(pBridge, var(NumericVector((SEXP)sYTest))),
-			      _["importance"] = getImportance(pBridge)
+			      _["validation"] = getValidation(pBridge, NumericVector((SEXP)sYTest)),
+			      _["importance"] = getImportance(pBridge, NumericVector((SEXP) sYTest), predNames)
 			      );
   }
   summaryReg.attr("class") = "SummaryReg";
@@ -302,7 +303,7 @@ List PBRf::predictQuant(const List& lDeframe,
   unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, sYTest, oob, permute, nThread, move(quantile)));
   pBridge->predict();
 
-  return summary(sYTest, pBridge.get());
+  return summary(lDeframe, sYTest, pBridge.get());
   
   END_RCPP
 }
@@ -346,16 +347,16 @@ NumericVector PBRf::getQEst(const PredictRegBridge* pBridge) {
 
 
 List PBRf::getValidation(const PredictRegBridge* pBridge,
-			 double varTest) {
+			 const NumericVector& yTestFE) {
   BEGIN_RCPP
 
-  const vector<double>& yTest = pBridge->getYTest();
-  double ae;
-  double sse = mse(pBridge->getYPred(), yTest, ae);
-  size_t rowDOF = yTest.size() - 1;
-  List validation = List::create(_["mse"] = sse / yTest.size(),
-				 _["rsq"] = rowDOF == 0 ? 0.0 : 1.0 - sse / (varTest * rowDOF),
-				 _["mae"] = ae / yTest.size());
+    //  const vector<double>& yTest = pBridge->getYTest();
+  double sse = pBridge->getSSE();
+  size_t nRow = yTestFE.length();
+  List validation = List::create(_["mse"] = sse / nRow,
+				 _["rsq"] = nRow == 1 ? 0.0 : 1.0 - sse / (var(yTestFE) * (nRow - 1)),
+				 _["mae"] = pBridge->getSAE() / nRow
+				 );
   validation.attr("class") = "ValidReg";
   return validation;
 
@@ -363,47 +364,22 @@ List PBRf::getValidation(const PredictRegBridge* pBridge,
 }
 
 
-// TODO:  transfer to core PredictReg.
-double PBRf::mse(const vector<double>& yPred,
-		 const vector<double>& yTest,
-		 double& ae) {
-  double sse = 0.0;
-  ae = 0.0;
-  size_t i = 0;
-  for (auto yP : yPred) {
-    double error = yP - yTest[i++];
-    sse += error * error;
-    ae += fabs(error);
-  }
-
-  return sse;
-}
-
-
-List PBRf::getImportance(const PredictRegBridge* pBridge) {
+List PBRf::getImportance(const PredictRegBridge* pBridge,
+			 const NumericVector& yTestFE,
+			 const CharacterVector& predNames) {
   BEGIN_RCPP
 
-    List importance = List::create(_["msePermuted"] = msePermute(pBridge));
+  const vector<double>& ssePerm = pBridge->getSSEPermute();
+  NumericVector mseOut(ssePerm.begin(), ssePerm.end());
+  mseOut = mseOut / yTestFE.length();
+  mseOut.attr("names") = predNames;
+
+  List importance = List::create(_["msePermuted"] = mseOut);
   importance("class") = "ImportanceReg";
   return importance;
 
   END_RCPP
 }
-
-
-NumericVector PBRf::msePermute(const PredictRegBridge* pBridge) {
-  double ae; // Unused.
-  const vector<double>& yTest = pBridge->getYTest();
-  const vector<vector<double>>& yPermute = pBridge->getYPermute();
-  NumericVector importanceOut(yPermute.size());
-  size_t i = 0;
-  for (auto yPerm : yPermute) {
-    importanceOut[i++] = mse(yPerm, yTest, ae) / yTest.size();
-  }
-
-  return importanceOut;
-}
-
 
 /**
    @brief References front-end member arrays and instantiates
@@ -490,17 +466,6 @@ vector<unsigned int> TestCtg::reconcile(const IntegerVector& test2Merged,
 }
 
 
-// TODO:  transfer to PredictCtg in core.
-double TestCtg::oobError(const vector<unsigned int>& yPred) const {
-  unsigned int missed = 0;
-  for (unsigned int i = 0; i < yPred.size(); i++) {
-    missed += yTestZero[i] == yPred[i] ? 0 : 1;
-  }
-
-  return double(missed) / yPred.size();  // Caller precludes zero length.
-}
-
-
 List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictCtgBridge* pBridge, SEXP sYTest) {
   BEGIN_RCPP
 
@@ -523,10 +488,11 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictC
   }
   else {
     TestCtg testCtg(IntegerVector((SEXP) sYTest), levelsTrain);
+    CharacterVector predNames(Signature::unwrapColNames(lDeframe));
     summaryCtg = List::create(
 			      _["prediction"] = getPrediction(pBridge, levelsTrain, ctgNames),
 			      _["validation"] = testCtg.getValidation(pBridge),
-			      _["importance"] = testCtg.getImportance(pBridge)
+			      _["importance"] = testCtg.getImportance(pBridge, predNames)
 			      );
   }
 
@@ -562,8 +528,8 @@ List TestCtg::getValidation(const PredictCtgBridge* pBridge) {
   BEGIN_RCPP
   List validCtg = List::create(
 			       _["confusion"] = getConfusion(pBridge, levelsTrain),
-			       _["misprediction"] = misprediction(pBridge, pBridge->getYPred()),
-			       _["oobError"] = oobError(pBridge->getYPred())
+			       _["misprediction"] = getMisprediction(pBridge),
+			       _["oobError"] = pBridge->getOOBError()
 			       );
   validCtg.attr("class") = "ValidCtg";
   return validCtg;
@@ -572,12 +538,13 @@ List TestCtg::getValidation(const PredictCtgBridge* pBridge) {
 }
 
 
-List TestCtg::getImportance(const PredictCtgBridge* pBridge) {
+List TestCtg::getImportance(const PredictCtgBridge* pBridge,
+			    const CharacterVector& predNames) {
   BEGIN_RCPP
 
   List importanceCtg = List::create(
-				    _["mispredPermuted"] = mispredPermute(pBridge),
-				    _["oobErrPermuted"] = oobErrPermute(pBridge)
+				    _["mispredPermuted"] = mispredPermute(pBridge, predNames),
+				    _["oobErrPermuted"] = oobErrPermute(pBridge, predNames)
 				    );
   importanceCtg.attr("class") = "importanceCtg";
   return importanceCtg;
@@ -586,69 +553,47 @@ List TestCtg::getImportance(const PredictCtgBridge* pBridge) {
 }
 
 
-// TODO:  transfer to core PredictCtg.
-NumericVector TestCtg::misprediction(const PredictCtgBridge* pBridge,
-				     const vector<unsigned int>& yPred) const {
+NumericVector TestCtg::getMisprediction(const PredictCtgBridge* pBridge) const {
   BEGIN_RCPP
-  NumericVector misPred(ctgMerged);
-  // TODO:  internalize main loop within core's PredictCtg.
-  vector<unsigned int> confusion = buildConfusion(pBridge, yPred);
-  for (unsigned int ctgRec = 0; ctgRec < ctgMerged; ctgRec++) {
-    unsigned int numWrong = 0;
-    unsigned int numRight = 0;
-    for (unsigned int ctgPred = 0; ctgPred < pBridge->getNCtgTrain(); ctgPred++) {
-      unsigned int numConf = confusion[pBridge->ctgIdx(ctgRec, ctgPred)];
-      if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
-        numWrong += numConf;
-      }
-      else {
-        numRight = numConf;
-      }
-    }
-    misPred[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
-  }
 
+  const vector<double>& mispred = pBridge->getMisprediction();
+  NumericVector misPred(mispred.begin(), mispred.end());
   NumericVector misPredOut = misPred[test2Merged];
   misPredOut.attr("names") = levels;
   return misPredOut;
+
   END_RCPP
 }
 
 
-// TODO:  internalize within core PredictCtg.
-vector<unsigned int> TestCtg::buildConfusion(const PredictCtgBridge* pBridge,
-					     const vector<unsigned int>& yPred) const {
-  vector<unsigned int> confusion(pBridge->getNRow() * ctgMerged);
-  for (unsigned int row = 0; row < pBridge->getNRow(); row++) {
-    confusion[pBridge->ctgIdx(yTestZero[row], yPred[row])]++;
-  }
-  return confusion;
-}
 
-// TODO:  transfer to core PredictCtg.
-NumericMatrix TestCtg::mispredPermute(const PredictCtgBridge* pBridge) const {
+NumericMatrix TestCtg::mispredPermute(const PredictCtgBridge* pBridge,
+				      const CharacterVector& predNames) const {
   BEGIN_RCPP
 
-  const vector<vector<unsigned int>>& yPermute = pBridge->getYPermute();
-  NumericMatrix importanceOut(ctgMerged, yPermute.size());
-  size_t i = 0;
-  for (auto yPerm : yPermute) {
-    importanceOut(_, i++) = misprediction(pBridge, yPerm);
-  }
+  const vector<vector<double>> impCore(pBridge->getMispredPermute());
 
-  return importanceOut;
+  unsigned int i = 0;
+  NumericMatrix impOut(levels.length(), impCore.size());
+  for (auto mispred : impCore) {
+    NumericVector m(mispred.begin(), mispred.end());
+    NumericVector mispredOut = m[test2Merged];
+    impOut.column(i++) = mispredOut;
+  }
+  impOut.attr("dimnames") = List::create(levels, predNames);
+  
+  return impOut;
   END_RCPP
 }
 
 
-NumericVector TestCtg::oobErrPermute(const PredictCtgBridge* pBridge) const {
+NumericVector TestCtg::oobErrPermute(const PredictCtgBridge* pBridge,
+				     const CharacterVector& predNames) const {
   BEGIN_RCPP
 
-  NumericVector errOut(pBridge->getYPermute().size());
-  size_t i = 0;
-  for (auto yPerm : pBridge->getYPermute()) {
-    errOut[i++] = oobError(yPerm);
-  }
+  const vector<double>& oobPerm = pBridge->getOOBErrorPermute();
+  NumericVector errOut(oobPerm.begin(), oobPerm.end());
+  errOut.attr("names") = predNames;
 
   return errOut;
   END_RCPP
@@ -682,14 +627,17 @@ NumericMatrix LeafCtgRf::getProb(const PredictCtgBridge* pBridge,
 }
 
 
-IntegerMatrix TestCtg::getConfusion(const PredictCtgBridge* pBridge,
+NumericMatrix TestCtg::getConfusion(const PredictCtgBridge* pBridge,
 				    const CharacterVector& levelsTrain) const {
   BEGIN_RCPP
-    vector<unsigned int> confusion = buildConfusion(pBridge, pBridge->getYPred());
-  unsigned int ctgTrain = pBridge->getNCtgTrain();//levelsTrain.length();
+
+  // Converts to numeric vector to accommodate wide rows in R.
+  const vector<size_t>& confusion = pBridge->getConfusion();
+  NumericVector confNum(confusion.begin(), confusion.end());
+  unsigned int ctgTrain = pBridge->getNCtgTrain();
   unsigned int ctgTest = levels.length();
-  IntegerMatrix conf = transpose(IntegerMatrix(ctgTrain, ctgTest, &confusion[0]));
-  IntegerMatrix confOut(ctgTest, ctgTrain);
+  NumericMatrix conf = transpose(NumericMatrix(ctgTrain, ctgTest, &confNum[0]));
+  NumericMatrix confOut(ctgTest, ctgTrain);
   for (unsigned int i = 0; i < ctgTest; i++) {
     confOut(i, _) = conf(test2Merged[i], _);
   }

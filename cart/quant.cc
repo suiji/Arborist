@@ -61,8 +61,7 @@ void Quant::predictBlock(size_t blockStart, size_t blockEnd) {
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound row = rowStart; row < rowEnd; row++) {
-      double yPred = predictReg->getYPred(row);
-      predictRow(row, yPred, &qPred[qCount * row], &qEst[row]);
+      predictRow(row);
     }
   }
 }
@@ -77,12 +76,8 @@ unsigned int Quant::binScale() const {
 }
 
 
-void Quant::predictRow(size_t row,
-                       double yPred,
-                       double qRow[],
-                       double *qEst) {
+void Quant::predictRow(size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
-  fill(sCountBin.begin(), sCountBin.end(), 0);
 
   // Scores each rank seen at every predicted leaf.
   //
@@ -102,19 +97,35 @@ void Quant::predictRow(size_t row,
   }
 
   // Fills in quantile estimates.
-  IndexT samplesLeft = quantSamples(sCountBin, countThreshold, yPred, qRow);
-  *qEst = static_cast<double>(samplesLeft) / totSamples;
+  quantSamples(sCountBin, countThreshold, totSamples, row);
 }
 
 
-IndexT Quant::quantSamples(const vector<IndexT>& sCountBin,
-                           const vector<double> threshold,
-                           double yPred,
-                           double qRow[]) const {
+IndexT Quant::leafSample(unsigned int tIdx,
+                         IndexT leafIdx,
+                         vector<IndexT>& sCountBin) const {
+  IndexT sampleTot = 0;
+  size_t leafStart, leafEnd; // Forest-relative leaf indices.
+  leaf->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
+  for (size_t bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
+    const RankCount& rc = rankCount[bagIdx];
+    sCountBin[binRank(rc.rank)] += rc.sCount;
+    sampleTot += rc.sCount;
+  }
+  return sampleTot;
+}
+
+
+void Quant::quantSamples(const vector<IndexT>& sCountBin,
+                         const vector<double> threshold,
+			 IndexT totSample,
+			 size_t row) {
   unsigned int qSlot = 0;
   unsigned int binIdx = 0;
   IndexT samplesSeen = 0;
   IndexT leftSamples = 0; // Samples with y-values <= yPred.
+  double yPred = predictReg->getYPred(row);
+  double* qRow = &qPred[qCount * row];
   for (auto sc : sCountBin) {
     samplesSeen += sc;
     while (qSlot < qCount && samplesSeen >= threshold[qSlot]) {
@@ -128,15 +139,13 @@ IndexT Quant::quantSamples(const vector<IndexT>& sCountBin,
     binIdx++;
   }
 
-  return leftSamples;
+  qEst[row] = static_cast<double>(leftSamples) / totSample;
 }
 
 
 vector<double> Quant::binMeans(const ValRank<double>& valRank, unsigned int rankScale) {
   vector<double> binMean(std::min(binSize, valRank.getRankCount()));
-  fill(binMean.begin(), binMean.end(), 0.0);
   vector<size_t> binCount(binMean.size());
-  fill(binCount.begin(), binCount.end(), 0);
   for (IndexT idx = 0; idx < valRank.getNRow(); idx++) {
     unsigned int binIdx = binRank(valRank.getRank(idx));
     binMean[binIdx] += valRank.getVal(idx);
@@ -150,20 +159,4 @@ vector<double> Quant::binMeans(const ValRank<double>& valRank, unsigned int rank
   }
 
   return binMean;
-}
-
-
-IndexT Quant::leafSample(unsigned int tIdx,
-                         IndexT leafIdx,
-                         vector<IndexT>& sCountBin) const {
-  IndexT sampleTot = 0;
-  size_t leafStart, leafEnd; // Forest-relative leaf indices.
-  leaf->bagBounds(tIdx, leafIdx, leafStart, leafEnd);
-  for (size_t bagIdx = leafStart; bagIdx < leafEnd; bagIdx++) {
-    IndexT sc = rankCount[bagIdx].sCount;
-    IndexT binIdx = binRank(rankCount[bagIdx].rank);
-    sCountBin[binIdx] += sc;
-    sampleTot += sc;
-  }
-  return sampleTot;
 }

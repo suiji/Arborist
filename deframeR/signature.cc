@@ -86,6 +86,21 @@ CharacterVector Signature::unwrapRowNames(const List& lDeframe) {
 }
 
 
+CharacterVector Signature::unwrapColNames(const List& lDeframe) {
+  BEGIN_RCPP
+  checkFrame(lDeframe);
+  List signature = checkSignature(lDeframe);
+
+  if (Rf_isNull(signature["colNames"])) {
+    return CharacterVector(0);
+  }
+  else {
+    return CharacterVector((SEXP) signature["colNames"]);
+  }
+  END_RCPP
+}
+
+
 SEXP Signature::checkSignature(const List &lDeframe) {
   BEGIN_RCPP
   List signature((SEXP) lDeframe["signature"]);

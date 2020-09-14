@@ -121,11 +121,7 @@ protected:
    */
   virtual void estAccum();
 
-  
-  virtual void setPredictTarget() = 0;
 
-  virtual void initPermute(PredictorT nPred) = 0;
-  
   virtual void setPermuteTarget(PredictorT predIdx) = 0;
 
 public:
@@ -201,6 +197,25 @@ public:
     return termIdx != noLeaf;
   }
 
+
+  /**
+     @brief As above, but outputs leaf score.
+   */
+  inline bool isLeafIdx(size_t row,
+			unsigned int tIdx,
+			double& score) const {
+    IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    if (termIdx != noLeaf) {
+      score = leafBlock->getScore(tIdx, termIdx);
+      return true;
+    }
+    else {
+      return false;
+    }
+    // Non-oob scenarios should always see a leaf.
+    //    if (!oob) assert(termIdx != noLeaf);
+  }
+
   
   /**
      @brief Computes pointer to base of row of numeric values.
@@ -260,17 +275,22 @@ class PredictReg : public Predict {
   const double defaultScore;
   const vector<double> yTest;
   vector<double> yPred;
-  vector<vector<double>> yPermute;
+  vector<double> yPermute; // Reused.
 
-  double* yTarg; // Target of current prediction.
-  vector<double> accumAbsErr;
-  vector<double> accumSSE;
+  vector<double> accumAbsErr; // One slot per predictor.
+  vector<double> accumSSE; // " "
 
-  double absErr;
-  double sse;
-  
+  double saePredict;
+  double ssePredict;
+  vector<double> saePermute;
+  vector<double> ssePermute;
+
   unique_ptr<class Quant> quant;  // Quantile workplace, as needed.
 
+  vector<double>* yTarg; // Target of current prediction.
+  double* saeTarg;
+  double* sseTarg;
+  
   void testRow(size_t row);
 
 
@@ -303,23 +323,31 @@ public:
 
 
   void estAccum();
-  
-  
-  void setPredictTarget() {
-    yTarg = &yPred[0];
+
+
+  void setPermuteTarget(PredictorT predIdx);
+
+
+  double getSSE() const {
+    return ssePredict;
   }
 
 
-  void initPermute(PredictorT nPred) {
-    yPermute = vector<vector<double>>(nPred);
-  }
-  
-  
-  void setPermuteTarget(PredictorT predIdx) {
-    yPermute[predIdx] = vector<double>(yPred.size());
-    yTarg = &yPermute[predIdx][0];
+  const vector<double>& getSSEPermute() const {
+    return ssePermute;
   }
 
+
+  
+  double getSAE() const {
+    return saePredict;
+  }
+
+
+  const vector<double>& getSAEPermute() const {
+    return saePermute;
+  }
+  
 
   const vector<double>& getYTest() const {
     return yTest;
@@ -333,11 +361,6 @@ public:
 
   inline double getYPred(size_t row) const {
     return yPred[row];
-  }
-  
-  
-  inline const vector<vector<double>>& getYPermute() const {
-    return yPermute;
   }
   
 
@@ -358,16 +381,26 @@ class PredictCtg : public Predict {
   vector<PredictorT> yTest;
   vector<PredictorT> yPred;
   const PredictorT nCtgTrain; // Cardiality of training response.
+  const PredictorT nCtgMerged; // Cardinality of merged test response.
   unique_ptr<class CtgProb> ctgProb; // Matrix (row * ctg) of predicted probabilities.
   const PredictorT ctgDefault; // Default prediction when nothing is out-of-bag.
 
-  vector<vector<PredictorT>> yPermute;
-  PredictorT* yTarg; // Target of current prediction.
+  vector<PredictorT> yPermute; // Reused.
   vector<double> votes; // Jittered prediction counts.
   vector<PredictorT> census;
-  vector<PredictorT> censusPermute; // Unsaved census for permutations.
-  PredictorT* censusTarg; // Destination of prediction census.
+  vector<size_t> confusion; // Confusion matrix; saved.
+  vector<double> misprediction; // Mispredction, by merged category; saved.
+  double oobPredict; // Out-of-bag error:  % mispredicted rows.
   vector<double> prob;
+  vector<PredictorT> censusPermute; // Workspace census for permutations.
+  vector<size_t> confusionPermute; // Workspace for permutation.
+  vector<vector<double>> mispredPermute; // Saved values for permutation.
+  vector<double> oobPermute;
+  vector<PredictorT>* yTarg; // Target of current prediction.
+  vector<size_t>* confusionTarg;
+  vector<PredictorT>* censusTarg; // Destination of prediction census.
+  vector<double>* mispredTarg;
+  double *oobTarg;
 
   void testRow(size_t row);
 
@@ -383,7 +416,8 @@ public:
 	      struct RLEFrame* rleFrame_,
 	      const unsigned int* leafHeight,
 	      const double* leafProbs,
-	      unsigned int nCtgTrain_,
+	     unsigned int nCtgTrain_,
+	     vector<PredictorT> yTest_,
 	      bool oob_,
 	      unsigned int nPredict_,
 	      bool doProb);
@@ -421,38 +455,44 @@ public:
   }
 
 
+  const vector<size_t>& getConfusion() const {
+    return confusion;
+  }
+
+
+  const vector<double>& getMisprediction() const {
+    return misprediction;
+  }
+
+
+  const vector<vector<double>>& getMispredPermute() const {
+    return mispredPermute;
+  }
+
+
+  double getOOBError() const {
+    return oobPredict;
+  }    
+
+
+  const vector<double>& getOOBErrorPermute() const {
+    return oobPermute;
+  }
+  
+  
   PredictorT getNCtgTrain() const {
     return nCtgTrain;
   }
 
 
   void estAccum();
+
+
+  void setMisprediction();
+
+  void setPermuteTarget(PredictorT predIdx);
+
   
-  
-  void setPredictTarget() {
-    yTarg = &yPred[0];
-    censusTarg = &census[0];
-  }
-
-
-  void initPermute(PredictorT nPred) {
-    yPermute = vector<vector<PredictorT>>(nPred);
-    censusPermute = vector<PredictorT>(census.size());
-  }
-  
-
-  void setPermuteTarget(PredictorT predIdx) {
-    yPermute[predIdx] = vector<PredictorT>(yPred.size());
-    yTarg = &yPermute[predIdx][0];
-    censusTarg = &censusPermute[0];
-  }
-
-
-  inline const vector<vector<PredictorT>>& getYPermute() const {
-    return yPermute;
-  }
-  
-
   /**
      @brief Getter for census.
    */

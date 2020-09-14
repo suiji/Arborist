@@ -71,9 +71,15 @@ PredictReg::PredictReg(const Bag* bag_,
   defaultScore(defaultScore_),
   yTest(move(yTest_)),
   yPred(vector<double>(nRow)),
+  yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
   accumAbsErr(vector<double>(rowChunk)),
   accumSSE(vector<double>(rowChunk)),
-  quant(quantile.empty() ? nullptr : make_unique<Quant>(this, leaf, bag, rleFrame, move(yTrain), move(quantile))) {
+  saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
+  ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
+  quant(quantile.empty() ? nullptr : make_unique<Quant>(this, leaf, bag, rleFrame, move(yTrain), move(quantile))),
+  yTarg(&yPred),
+  saeTarg(&saePredict),
+  sseTarg(&ssePredict) {
 }
 
 
@@ -87,23 +93,39 @@ PredictCtg::PredictCtg(const Bag* bag_,
 			 const unsigned int* leafHeight,
 			 const double* leafProbs,
 			 unsigned int nCtgTrain_,
+		       vector<PredictorT> yTest_,
 			 bool oob_,
 			 unsigned int nPermute_,
 			 bool doProb) :
   Predict(bag_, forest, leaf, rleFrame, oob_, nPermute_),
+  yTest(move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
   nCtgTrain(nCtgTrain_),
+  nCtgMerged(yTest.empty() ? 0 : 1 + *max_element(yTest.begin(), yTest.end())),
   ctgProb(make_unique<CtgProb>(nCtgTrain, nTree, leafHeight, leafProbs)),
   ctgDefault(ctgProb->ctgDefault()),
   // Can only predict trained categories, so census and
-  // probability matrices have 'ctgTrain' columns.
+  // probability matrices have 'nCtgTrain' columns.
+  yPermute(vector<PredictorT>(nPermute > 0 ? nRow : 0)),
   votes(vector<double>(nRow * nCtgTrain)),
-  census(vector<unsigned int>(nRow * nCtgTrain)),
-  prob(vector<double>(doProb ? nRow * nCtgTrain : 0)) {
+  census(vector<PredictorT>(nRow * nCtgTrain)),
+  confusion(vector<size_t>(nCtgTrain * nCtgMerged)),
+  misprediction(vector<double>(nCtgMerged)),
+  oobPredict(0.0),
+  prob(vector<double>(doProb ? votes.size() : 0)),
+  censusPermute(vector<PredictorT>(nPermute > 0 ? census.size() : 0)),
+  confusionPermute(vector<size_t>(nPermute > 0 ? confusion.size() : 0)),
+  mispredPermute(vector<vector<double>>(nPermute > 0 ? rleFrame->getNPred(): 0)),
+  oobPermute(vector<double>(nPermute > 0 ? rleFrame->getNPred() : 0)),
+  yTarg(&yPred),
+  confusionTarg(&confusion),
+  censusTarg(&census),
+  mispredTarg(&misprediction),
+  oobTarg(&oobPredict) {
 }
 
+
 void Predict::predict() {
-  setPredictTarget();
   blocks();
   predictPermute();
 }
@@ -114,16 +136,35 @@ void Predict::predictPermute() {
     return;
   }
   
-  initPermute(rleFrame->getNPred());
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     setPermuteTarget(predIdx);
     vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
     rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, BHeap::permute(nRow));
     fill(trIdx.begin(), trIdx.end(), 0); // Resets trace counters.
-    // TODO:  also reset accumulated statistics;
     blocks();
     rleFrame->rlePred[predIdx] = move(rleTemp);
   }
+}
+
+
+void PredictReg::setPermuteTarget(PredictorT predIdx) {
+  yTarg = &yPermute;
+  sseTarg = &ssePermute[predIdx];
+  saeTarg = &saePermute[predIdx];
+  fill(accumSSE.begin(), accumSSE.end(), 0.0);
+  fill(accumAbsErr.begin(), accumAbsErr.end(), 0.0);
+}
+
+
+void PredictCtg::setPermuteTarget(PredictorT predIdx) {
+  mispredPermute[predIdx] = vector<double>(nCtgMerged);
+  yTarg = &yPermute;
+  confusionTarg = &confusionPermute;
+  censusTarg = &censusPermute;
+  mispredTarg = &mispredPermute[predIdx];
+  oobTarg = &oobPermute[predIdx];
+  fill(confusionPermute.begin(), confusionPermute.end(), 0);
+  fill(censusPermute.begin(), censusPermute.end(), 0);
 }
 
 
@@ -193,14 +234,14 @@ void PredictReg::scoreRow(size_t row) {
   double sumScore = 0.0;
   IndexT nEst = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    unsigned int termIdx;
-    if (isLeafIdx(row, tIdx, termIdx)) {
+    double score;
+    if (isLeafIdx(row, tIdx, score)) {
       nEst++;
-      sumScore += leafBlock->getScore(tIdx, termIdx);
+      sumScore += score;
     }
   }
 
-  yTarg[row] = nEst > 0 ? sumScore / nEst : defaultScore;
+  (*yTarg)[row] = nEst > 0 ? sumScore / nEst : defaultScore;
 }
 
 
@@ -212,18 +253,17 @@ void PredictReg::testRow(size_t row) {
   double& sse = accumSSE[rowIdx];
   double sumScore = 0.0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    unsigned int termIdx;
-    if (isLeafIdx(row, tIdx, termIdx)) {
+    double score;
+    if (isLeafIdx(row, tIdx, score)) {
       nEst++;
-      double score= leafBlock->getScore(tIdx, termIdx);
       sumScore += score;
-      double testError = fabs(yTest[row] - score);
-      absError += testError;
-      sse += testError * testError;
     }
   }
 
-  yTarg[row] = nEst > nEstStart ? sumScore / (nEst - nEstStart) : defaultScore;
+  (*yTarg)[row] = nEst > nEstStart ? sumScore / (nEst - nEstStart) : defaultScore;
+  double testError = fabs(yTest[row] - (*yTarg)[row]);
+  absError += testError;
+  sse += testError * testError;
 }
 
 
@@ -231,18 +271,17 @@ void PredictCtg::scoreRow(size_t row) {
   unsigned int treesSeen = 0;
   double* blockVotes = &votes[ctgIdx(row)];
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    IndexT termIdx;
-    if (isLeafIdx(row, tIdx, termIdx)) {
+    double score;
+    if (isLeafIdx(row, tIdx, score)) {
       treesSeen++;
-      double val = leafBlock->getScore(tIdx, termIdx);
-      PredictorT ctg = floor(val); // Truncates jittered score for indexing.
-      blockVotes[ctg] += (1.0 + val) - ctg; // 1 plus small jitter.
+      PredictorT ctg = floor(score); // Truncates jittered score for indexing.
+      blockVotes[ctg] += (1.0 + score) - ctg; // 1 plus small jitter.
     }
   }
   if (treesSeen == 0) { // Default category unity, all others zero.
     blockVotes[ctgDefault] = 1.0;
   }
-  yTarg[row] = argMax(row);
+  (*yTarg)[row] = argMax(row);
 }
 
 
@@ -361,13 +400,41 @@ void Predict::estAccum() {
 
 void PredictReg::estAccum() {
   Predict::estAccum();
-  absErr = accumulate(accumAbsErr.begin(), accumAbsErr.end(), 0.0);
-  sse = accumulate(accumSSE.begin(), accumSSE.end(), 0.0);
+  *saeTarg = accumulate(accumAbsErr.begin(), accumAbsErr.end(), 0.0);
+  *sseTarg = accumulate(accumSSE.begin(), accumSSE.end(), 0.0);
 }
 
 
 void PredictCtg::estAccum() {
   Predict::estAccum();
+  if (!(*confusionTarg).empty()) {
+    for (size_t row = 0; row < nRow; row++) {
+      (*confusionTarg)[ctgIdx(yTest[row], yPred[row])]++;
+    }
+    setMisprediction();
+  }
+}
+
+
+void PredictCtg::setMisprediction() {
+  size_t totRight = 0;
+  for (unsigned int ctgRec = 0; ctgRec < nCtgMerged; ctgRec++) {
+    size_t numWrong = 0;
+    size_t numRight = 0;
+    for (unsigned int ctgPred = 0; ctgPred < nCtgTrain; ctgPred++) {
+      size_t numConf = (*confusionTarg)[ctgIdx(ctgRec, ctgPred)];
+      if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
+        numWrong += numConf;
+      }
+      else {
+        numRight = numConf;
+      }
+    }
+    
+    (*mispredTarg)[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
+    totRight += numRight;
+  }
+  *oobTarg = double(totRight) / nRow;
 }
 
 
@@ -398,7 +465,7 @@ vector<unsigned int> CtgProb::scaleHeight(const unsigned int* leafHeight,
 void CtgProb::addLeaf(double* probRow,
                       unsigned int tIdx,
                       unsigned int leafIdx) const {
-  auto idxBase = raw->minorOffset(tIdx, leafIdx);
+  size_t idxBase = raw->minorOffset(tIdx, leafIdx);
   for (auto ctg = 0ul; ctg < nCtg; ctg++) {
     probRow[ctg] += raw->getItem(idxBase + ctg);
   }

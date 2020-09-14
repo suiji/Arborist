@@ -97,7 +97,7 @@ public:
 
      @return score at leaf.
    */
-  double getScore(unsigned int tIdx, unsigned int idx) const;
+  double getScore(unsigned int tIdx, IndexT idx) const;
 
 
   /**
@@ -107,7 +107,7 @@ public:
 
      @return extent value.
    */
-  IndexT getExtent(unsigned int leafAbs) const;
+  IndexT getExtent(size_t leafAbs) const;
 
 
   /**
