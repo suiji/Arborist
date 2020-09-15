@@ -62,7 +62,7 @@ A recent paper compares several categories of regression tools, including Random
 
 ### News/Changes
 - Version 0.2-4 to support prediction/validation for large (> 32 bits) observation counts.
-- New option 'impPermute' introducess permutation-based variable importance.
+- New option 'impPermute' introduces permutation-based variable importance.
 - New option 'nThread' enables specification of OpenMP thread count.
 - New option 'oob' constrains prediction to the out-of-bag set, essential for variable importance testing.
 
