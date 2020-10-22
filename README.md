@@ -46,6 +46,8 @@ Installation of Development Version:
 
 Performance metrics have been measured using [benchm-ml](https://github.com/szilard/benchm-ml). Partial results can be found [here](https://github.com/szilard/benchm-ml/tree/master/z-other-tools)
 
+Some users have reported diminished performance when running single-threaded.  We recommend running with at least two cores, as frequently-executed inner loops have been cast specifically take advantage of multiple cores.  In particular, when using a scaffold such as __caret__, please prefer allocating cores to Rborist instead of the scaffold.
+
 This paper compares several implementations of the Random Forest algorithm, including Rborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  Benchmarks used in the study are also provided at 
 https://www.jstatsoft.org/article/view/v077i01.
     
