@@ -6,7 +6,7 @@ warnings_are_errors: true
 addons:
   apt:
     sources: ['ubuntu-toolchain-r-test']
-    packages: ['g++-6','libgit2-devel']
+    packages: ['g++-6','libgit2-dev']
 
 env:
   - COMPILER=g++-6
