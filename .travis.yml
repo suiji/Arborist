@@ -15,7 +15,6 @@ r:
   - devel
   - oldrel
   - release
-  # devel, release disabled until source of c++11 specification identified:
 
 before_install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 100
@@ -26,12 +25,12 @@ before_install:
 
 install:
   - tar -xzvf Rborist_*.*-*.tar.gz
-  - Rscript -e 'install.packages("rmarkdown")'
-  - Rscript -e 'install.packages("roxygen2")'
-  - Rscript -e 'install.packages("devtools")'
-  #- Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
+  #- Rscript -e 'install.packages("rmarkdown")'
+  #- Rscript -e 'install.packages("roxygen2")'
+  #- Rscript -e 'install.packages("devtools")'
+  - Rscript -e 'remotes::install_deps("Rborist", dependencies = T)'
 script:
-  #- Rscript -e 'devtools::check("Rborist", manual = FALSE)'
+  - Rscript -e 'remotes::check("Rborist", manual = FALSE)'
   
 notifications:
   email:
