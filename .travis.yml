@@ -19,7 +19,6 @@ r:
 
 before_install:
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 100
-  - R -e 'source("https://install-github.me/r-lib/remotes")'
   - Rscript -e 'install.packages("knitr")'
   - cd Rborist/Package/
   - chmod u+x Rborist.travis.sh
@@ -30,9 +29,9 @@ install:
   - Rscript -e 'install.packages("rmarkdown")'
   - Rscript -e 'install.packages("roxygen2")'
   - Rscript -e 'install.packages("devtools")'
-  - Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
+  #- Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
 script:
-  - Rscript -e 'devtools::check("Rborist", manual = FALSE)'
+  #- Rscript -e 'devtools::check("Rborist", manual = FALSE)'
   
 notifications:
   email:
