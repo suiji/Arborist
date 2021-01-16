@@ -420,7 +420,7 @@ public:
    @brief Container for the crescent categorical probability vector.
  */
 class ProbCresc {
-  const unsigned int nCtg; // Response cardinality.
+  const PredictorT nCtg; // Response cardinality.
   size_t treeFloor; // Running position of start of tree.
   vector<size_t> height; // Height, per tree.
   vector<double> prob; // Raw probability values.
@@ -429,7 +429,7 @@ class ProbCresc {
 public:
 
   ProbCresc(unsigned int treeChunk,
-            unsigned int nCtg_,
+            PredictorT nCtg_,
             double scale_);
 
   
@@ -529,11 +529,12 @@ class LFTrainCtg : public LFTrain {
   void treeInit(const Sample* sample,
                 const vector<IndexT>& leafMap,
                 unsigned int tIdx);
+
 public:
   LFTrainCtg(const unsigned int* yCtg_,
              const double* proxy,
              unsigned int treeChunk,
-             unsigned int nCtg,
+             PredictorT nCtg,
              double scale);
 
   ~LFTrainCtg(){}

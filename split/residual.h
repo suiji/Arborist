@@ -84,15 +84,6 @@ struct ResidualCtg : public Residual {
 
   ~ResidualCtg() {
   }
-  
-  /**
-     @brief Applies residual to left-moving splitting state.
-   */
-  void apply(FltVal& ySum,
-             IndexT& sCount,
-             double& ssR,
-             double& ssL,
-             class CutAccumCtg* np);
 };
 
 #endif

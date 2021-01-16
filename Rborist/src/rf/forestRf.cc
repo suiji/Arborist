@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -30,9 +30,9 @@
 
 FBTrain::FBTrain(unsigned int nTree) :
   nodeRaw(RawVector(0)),
-  height(IntegerVector(nTree)),
+  height(vector<size_t>(nTree)),
   facRaw(RawVector(0)),
-  facHeight(IntegerVector(nTree)) {
+  facHeight(vector<size_t>(nTree)) {
 }
 
 
@@ -76,8 +76,8 @@ List FBTrain::wrap() {
   List forest =
     List::create(
                  _["forestNode"] = move(nodeRaw),
-                 _["height"] = move(height),
-                 _["facHeight"] = move(facHeight),
+                 _["height"] = move(NumericVector(height.begin(), height.end())),
+                 _["facHeight"] = move(NumericVector(facHeight.begin(), facHeight.end())),
                  _["facSplit"] = move(facRaw)
                  );
   nodeRaw = RawVector(0);
@@ -91,11 +91,12 @@ List FBTrain::wrap() {
 
 unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
   List lForest(checkForest(lTrain));
-  return make_unique<ForestBridge>((unsigned int*) IntegerVector((SEXP) lForest["height"]).begin(),
-                                   (size_t) IntegerVector((SEXP) lForest["height"]).length(),
+  NumericVector nodeHeight((SEXP) lForest["height"]);
+  NumericVector facHeight((SEXP) lForest["facHeight"]);
+  return make_unique<ForestBridge>(move(vector<size_t>(nodeHeight.begin(), nodeHeight.end())),
                                    RawVector((SEXP) lForest["forestNode"]).begin(),
                                    (unsigned int*) RawVector((SEXP) lForest["facSplit"]).begin(),
-                                   (unsigned int*) IntegerVector((SEXP) lForest["facHeight"]).begin());
+                                   move(vector<size_t>(facHeight.begin(), facHeight.end())));
 }
 
 

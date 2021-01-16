@@ -121,7 +121,6 @@ struct PredictCtgBridge : public PredictBridge {
 		   unique_ptr<ForestBridge> forestBridge_,
 		   unique_ptr<BagBridge> bagBridge_,
 		    unique_ptr<class LeafBridge> leafBridge_,
-		   const unsigned int* leafHeight,
 		   const double* leafProb,
 		    unsigned int nCtgTrain,
 		   vector<unsigned int> yTest,

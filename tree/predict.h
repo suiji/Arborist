@@ -30,12 +30,13 @@
  */
 class Predict {
 protected:
-  static const size_t rowChunk; // Block size.
+  static const size_t scoreChunk; // Score block dimension.
+  static const unsigned int seqChunk;  // Effort to minimize false sharing.
   
   const class Bag* bag; // In-bag representation.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   const struct TreeNode* treeNode; // Pointer to base of tree nodes.
-  const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
+  const class BVJaggedV* facSplit; // Jagged accessor of factor-valued splits.
   struct RLEFrame* rleFrame; // Frame of observations.
   const bool oob; // Whether to ignore in-bag rows.
   const unsigned int nPermute; // # times to permute each predictor.
@@ -113,7 +114,17 @@ protected:
   void walkMixed(size_t rowStart);
   
 
-  virtual void predictBlock() = 0;
+  /**
+     @brief Strip-mines prediction by block.
+   */
+  void predictBlock();
+
+  
+  /**
+     @brief Predicts sequentially to minimize false sharing.
+   */
+  virtual void scoreSeq(size_t rowStart,
+			size_t rowEnd) = 0;
 
 
   /**
@@ -319,7 +330,8 @@ public:
   /**
      @brief Description given in virtual declartion.
    */
-  void predictBlock();
+  void scoreSeq(size_t rowStart,
+		size_t rowEnd);
 
 
   void estAccum();
@@ -414,9 +426,8 @@ public:
 	      const class Forest* forest_,
 	      const class LeafPredict* leaf_,
 	      struct RLEFrame* rleFrame_,
-	      const unsigned int* leafHeight,
 	      const double* leafProbs,
-	     unsigned int nCtgTrain_,
+	     PredictorT nCtgTrain_,
 	     vector<PredictorT> yTest_,
 	      bool oob_,
 	      unsigned int nPredict_,
@@ -428,7 +439,8 @@ public:
   /**
      @brief Description given in virtual declartion.
    */
-  void predictBlock();
+  void scoreSeq(size_t rowStart,
+		size_t rowEnd);
 
   
   /**
@@ -513,13 +525,13 @@ public:
    @brief Specialization providing a subscript operation.
  */
 template<>
-class Jagged3<const double*, const unsigned int*> : public Jagged3Base<const double*, const unsigned int*> {
+class Jagged3<const double*, const size_t*> : public Jagged3Base<const double*, const size_t*> {
 public:
   Jagged3(const unsigned int nCtg_,
           const unsigned int nTree_,
-          const unsigned int* height_,
-          const double *ctgProb_) :
-    Jagged3Base<const double*, const unsigned int*>(nCtg_, nTree_, height_, ctgProb_) {
+          const size_t* height_,
+          const double* ctgProb_) :
+    Jagged3Base<const double*, const size_t*>(nCtg_, nTree_, height_, ctgProb_) {
   }
 
   ~Jagged3() {
@@ -546,8 +558,8 @@ public:
 class CtgProb {
   const unsigned int nCtg; // Training cardinality.
   vector<double> probDefault; // Forest-wide default probability.
-  const vector<unsigned int> ctgHeight; // Scaled from Leaf's height vector.
-  const unique_ptr<Jagged3<const double*, const unsigned int*> > raw;
+  const vector<size_t> ctgHeight; // Scaled from Leaf's height vector.
+  const unique_ptr<Jagged3<const double*, const size_t*> > raw;
 
   /**
      @brief Scales a vector of offsets by category count.
@@ -558,13 +570,11 @@ class CtgProb {
 
      @return ad-hoc scaled vector.
    */
-  vector<unsigned int> scaleHeight(const unsigned int* leafHeight,
-                                   unsigned int nTree) const;
+  vector<size_t> scaleHeight(const LeafPredict* leaf) const;
 
 public:
   CtgProb(PredictorT ctgTrain,
-          unsigned int nTree,
-          const unsigned int* leafHeight,
+	  const LeafPredict* leaf,
           const double* prob);
 
   ~CtgProb() {}
@@ -591,7 +601,7 @@ public:
    */
   void probAcross(const class PredictCtg* predict,
 		  size_t row,
-                  double* probRow) const;
+                  double probRow[]) const;
 
 
   /**
@@ -605,7 +615,7 @@ public:
 
      @param[out] probPredict outputs the default category probabilities.
    */
-  void applyDefault(double* probPredict) const;
+  void applyDefault(double probPredict[]) const;
   
 
   /**

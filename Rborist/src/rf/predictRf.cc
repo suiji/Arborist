@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2020  Mark Seligman
+// Copyright (C)  2012-2021  Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -89,7 +89,7 @@ unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
   return make_unique<PredictRegBridge>(RLEFrameR::unwrap(lDeframe),
 				       ForestRf::unwrap(lTrain),
 				       BagRf::unwrap(lTrain, lDeframe, oob),
-				       LeafPredictRf::unwrap(lTrain, lDeframe),
+				       LeafPredictRf::unwrap(lLeaf),
 				       move(regTrain(lLeaf)),
 				       meanTrain(lLeaf),
 				       move(regTest(sYTest)),
@@ -230,11 +230,10 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 
   List lLeaf(checkLeafCtg(lTrain));
  return make_unique<PredictCtgBridge>(RLEFrameR::unwrap(lDeframe),
-				       ForestRf::unwrap(lTrain),
-				       BagRf::unwrap(lTrain, lDeframe, oob),
-				       LeafPredictRf::unwrap(lTrain, lDeframe),
-				       (unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
-				       (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
+				      ForestRf::unwrap(lTrain),
+				      BagRf::unwrap(lTrain, lDeframe, oob),
+				      LeafPredictRf::unwrap(lLeaf),
+				      (double*) NumericVector((SEXP) lLeaf["weight"]).begin(),
 				      ctgTrain(lLeaf),
 				       move(ctgTest(lLeaf, sYTest)),
 				       oob,
@@ -385,13 +384,13 @@ List PBRf::getImportance(const PredictRegBridge* pBridge,
    @brief References front-end member arrays and instantiates
    bridge-specific PredictReg handle.
  */
-unique_ptr<LeafBridge> LeafPredictRf::unwrap(const List& lTrain,
-					     const List& lDeframe) {
-  List lLeaf((SEXP) lTrain["leaf"]);
-  return make_unique<LeafBridge>((unsigned int*) IntegerVector((SEXP) lLeaf["nodeHeight"]).begin(),
-				 (size_t) IntegerVector((SEXP) lLeaf["nodeHeight"]).length(),
+unique_ptr<LeafBridge> LeafPredictRf::unwrap(const List& lLeaf) {
+  NumericVector nodeHeight((SEXP) lLeaf["nodeHeight"]);
+  NumericVector bagHeight((SEXP) lLeaf["bagHeight"]);
+  return make_unique<LeafBridge>(
+				 move(vector<size_t>(nodeHeight.begin(), nodeHeight.end())),
 				 (unsigned char*) RawVector((SEXP) lLeaf["node"]).begin(),
-				 (unsigned int*) IntegerVector((SEXP) lLeaf["bagHeight"]).begin(),
+				 move(vector<size_t>(bagHeight.begin(), bagHeight.end())),
 				 (unsigned char*) RawVector((SEXP) lLeaf["bagSample"]).begin());
 }
 

@@ -20,12 +20,11 @@
 #include <memory>
 using namespace std;
 
-ForestBridge::ForestBridge(const unsigned int* height,
-                           size_t nTree,
+ForestBridge::ForestBridge(const vector<size_t>& nodeHeight,
                            const unsigned char* node,
                            unsigned int* facSplit,
-                           const unsigned int* facHeight) :
-  forest(make_unique<Forest>(height, nTree, (const CartNode*) node, facSplit, facHeight)) {
+                           const vector<size_t>& facHeight) :
+  forest(make_unique<Forest>(move(nodeHeight), (const CartNode*) node, facSplit, move(facHeight))) {
 }
 
 

@@ -136,11 +136,11 @@ struct TrainChunk {
   ~TrainChunk();
   
 
-  void writeHeight(unsigned int height[],
+  void writeHeight(vector<size_t>& height,
                    unsigned int tIdx) const;
 
 
-  void writeBagHeight(unsigned int bagHeight[],
+  void writeBagHeight(vector<size_t>& bagHeight,
                       unsigned int tIdx) const;
 
 
@@ -155,16 +155,16 @@ struct TrainChunk {
 
      @return true iff upcoming write fits within current capacity.
    */
-  bool leafFits(unsigned int height[],
+  bool leafFits(const vector<size_t>& height,
                 unsigned int tIdx,
                 size_t capacity,
                 size_t& offset,
-                size_t& bytest) const;
+                size_t& bytes) const;
 
   /**
      @brief As above, but BagSample.
    */
-  bool bagSampleFits(unsigned int height[],
+  bool bagSampleFits(const vector<size_t>& height,
                      unsigned int tIdx,
                      size_t capacity,
                      size_t& offset,

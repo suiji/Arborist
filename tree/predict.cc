@@ -26,7 +26,8 @@
 
 #include <numeric>
 
-const size_t Predict::rowChunk = 0x2000;
+const size_t Predict::scoreChunk = 0x2000;
+const unsigned int Predict::seqChunk = 0x20;
 
 Predict::Predict(const Bag* bag_,
                  const Forest* forest,
@@ -41,8 +42,8 @@ Predict::Predict(const Bag* bag_,
   rleFrame(rleFrame_),
   oob(oob_),
   nPermute(nPermute_),
-  predictLeaves(vector<IndexT>(rowChunk * forest->getNTree())),
-  accumNEst(vector<IndexT>(rowChunk)),
+  predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
+  accumNEst(vector<IndexT>(scoreChunk)),
   leafBlock(leaf->getLeafBlock()),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
@@ -50,8 +51,8 @@ Predict::Predict(const Bag* bag_,
   nTree(forest->getNTree()),
   noLeaf(leaf->getNoLeaf()),
   walkTree(nPredFac == 0 ? &Predict::walkNum : (nPredNum == 0 ? &Predict::walkFac : &Predict::walkMixed)),
-  trFac(vector<unsigned int>(rowChunk * nPredFac)),
-  trNum(vector<double>(rowChunk * nPredNum)),
+  trFac(vector<unsigned int>(scoreChunk * nPredFac)),
+  trNum(vector<double>(scoreChunk * nPredNum)),
   trIdx(vector<size_t>(nPredNum + nPredFac)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
 }
@@ -72,11 +73,11 @@ PredictReg::PredictReg(const Bag* bag_,
   yTest(move(yTest_)),
   yPred(vector<double>(nRow)),
   yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
-  accumAbsErr(vector<double>(rowChunk)),
-  accumSSE(vector<double>(rowChunk)),
+  accumAbsErr(vector<double>(scoreChunk)),
+  accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(quantile.empty() ? nullptr : make_unique<Quant>(this, leaf, bag, rleFrame, move(yTrain), move(quantile))),
+  quant(make_unique<Quant>(leaf, bag, rleFrame, move(yTrain), move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {
@@ -87,22 +88,21 @@ PredictReg::~PredictReg() {
 }
 
 PredictCtg::PredictCtg(const Bag* bag_,
-			 const Forest* forest,
-			 const LeafPredict* leaf,
-			 RLEFrame* rleFrame,
-			 const unsigned int* leafHeight,
-			 const double* leafProbs,
-			 unsigned int nCtgTrain_,
+		       const Forest* forest,
+		       const LeafPredict* leaf,
+		       RLEFrame* rleFrame,
+		       const double* leafProbs,
+		       PredictorT nCtgTrain_,
 		       vector<PredictorT> yTest_,
-			 bool oob_,
-			 unsigned int nPermute_,
-			 bool doProb) :
+		       bool oob_,
+		       unsigned int nPermute_,
+		       bool doProb) :
   Predict(bag_, forest, leaf, rleFrame, oob_, nPermute_),
   yTest(move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
   nCtgTrain(nCtgTrain_),
   nCtgMerged(yTest.empty() ? 0 : 1 + *max_element(yTest.begin(), yTest.end())),
-  ctgProb(make_unique<CtgProb>(nCtgTrain, nTree, leafHeight, leafProbs)),
+  ctgProb(make_unique<CtgProb>(nCtgTrain, leaf, leafProbs)),
   ctgDefault(ctgProb->ctgDefault()),
   // Can only predict trained categories, so census and
   // probability matrices have 'nCtgTrain' columns.
@@ -181,10 +181,10 @@ void Predict::blocks() {
 
 size_t Predict::predictBlock(size_t rowStart,
 			     size_t rowEnd) {
-  size_t blockRows = min(rowChunk, rowEnd - rowStart);
+  size_t blockRows = min(scoreChunk, rowEnd - rowStart);
   size_t row = rowStart;
   for (; row + blockRows <= rowEnd; row += blockRows) {
-    rleFrame->transpose(trIdx, row, rowChunk, trFac, trNum);
+    rleFrame->transpose(trIdx, row, scoreChunk, trFac, trNum);
     fill(predictLeaves.begin(), predictLeaves.end(), noLeaf);
     blockStart = row;
     blockEnd = row + blockRows;
@@ -194,40 +194,42 @@ size_t Predict::predictBlock(size_t rowStart,
 }
 
 
-void PredictReg::predictBlock() {
+void Predict::predictBlock() {
   OMPBound rowEnd = static_cast<OMPBound>(blockEnd);
   OMPBound rowStart = static_cast<OMPBound>(blockStart);
+
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = rowStart; row < rowEnd; row++) {
-    (this->*Predict::walkTree)(row);
-    yTest.empty() ? scoreRow(row) : testRow(row);
+  for (OMPBound row = rowStart; row < rowEnd; row += seqChunk) {
+    scoreSeq(row, min(rowEnd, row + seqChunk));
   }
-  }
-  if (quant != nullptr) {
-    quant->predictBlock(blockStart, blockEnd);
   }
 }
 
 
-// Scores each row independently, in parallel.
-void PredictCtg::predictBlock() {
-  OMPBound rowEnd = static_cast<OMPBound>(blockEnd);
-  OMPBound rowStart = static_cast<OMPBound>(blockStart);
+// Sequential inner loop to avoid false sharing.
+void PredictReg::scoreSeq(size_t rowStart, size_t rowEnd) {
+  for (size_t row = rowStart; row != rowEnd; row++) {
+    (this->*Predict::walkTree)(row);
+    yTest.empty() ? scoreRow(row) : testRow(row);
+    if (!quant->isEmpty()) {
+      quant->predictRow(this, row);
+    }
+  }
+}
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = rowStart; row < rowEnd; row++) {
+
+void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
+  for (size_t row = rowStart; row != rowEnd; row++) {
     (this->*Predict::walkTree)(row);
     /* yTest.empty() ? */ scoreRow(row);
     if (!prob.empty()) {
       ctgProb->probAcross(this, row, &prob[ctgIdx(row)]);
     }
   }
-  }
 }
+
 
 
 void PredictReg::scoreRow(size_t row) {
@@ -303,12 +305,12 @@ PredictorT PredictCtg::argMax(size_t row) {
 
 
 const vector<double>  PredictReg::getQPred() const {
-  return (quant == nullptr || quant->getNRow() == 0) ? vector<double>(0) : quant->getQPred();
+  return quant->getQPred();
 }
 
 
 const vector<double> PredictReg::getQEst() const {
-  return (quant == nullptr || quant->getNRow() == 0) ? vector<double>(0) : quant->getQEst();
+  return quant->getQEst();
 }
 
 
@@ -418,10 +420,10 @@ void PredictCtg::estAccum() {
 
 void PredictCtg::setMisprediction() {
   size_t totRight = 0;
-  for (unsigned int ctgRec = 0; ctgRec < nCtgMerged; ctgRec++) {
+  for (PredictorT ctgRec = 0; ctgRec < nCtgMerged; ctgRec++) {
     size_t numWrong = 0;
     size_t numRight = 0;
-    for (unsigned int ctgPred = 0; ctgPred < nCtgTrain; ctgPred++) {
+    for (PredictorT ctgPred = 0; ctgPred < nCtgTrain; ctgPred++) {
       size_t numConf = (*confusionTarg)[ctgIdx(ctgRec, ctgPred)];
       if (ctgPred != ctgRec) {  // Misprediction iff off-diagonal.
         numWrong += numConf;
@@ -439,23 +441,21 @@ void PredictCtg::setMisprediction() {
 
 
 CtgProb::CtgProb(PredictorT ctgTrain,
-                 unsigned int nTree,
-                 const unsigned int* leafHeight,
+		 const LeafPredict* leaf,
                  const double* prob) :
   nCtg(ctgTrain),
   probDefault(vector<double>(nCtg)),
-  ctgHeight(scaleHeight(leafHeight, nTree)),
-  raw(make_unique<Jagged3<const double*, const unsigned int*> >(nCtg, nTree, &ctgHeight[0], prob)) {
+  ctgHeight(scaleHeight(leaf)),
+  raw(make_unique<Jagged3<const double*, const size_t*> >(nCtg, ctgHeight.size(), &ctgHeight[0], prob)) {
   setDefault();
 }
 
 
-vector<unsigned int> CtgProb::scaleHeight(const unsigned int* leafHeight,
-                                          unsigned int nTree) const {
-  vector<unsigned int> height(nTree);
+vector<size_t> CtgProb::scaleHeight(const LeafPredict* leaf) const {
+  vector<size_t> height(leaf->getNTree());
   unsigned int i = 0;
   for (auto & ht : height) {
-    ht = nCtg * leafHeight[i++];
+    ht = nCtg * leaf->getHeight(i++);
   }
 
   return height;
@@ -466,7 +466,7 @@ void CtgProb::addLeaf(double* probRow,
                       unsigned int tIdx,
                       unsigned int leafIdx) const {
   size_t idxBase = raw->minorOffset(tIdx, leafIdx);
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     probRow[ctg] += raw->getItem(idxBase + ctg);
   }
 }
@@ -474,7 +474,7 @@ void CtgProb::addLeaf(double* probRow,
 
 void CtgProb::probAcross(const PredictCtg* predict,
 			 size_t row,
-                         double* probRow) const {
+                         double probRow[]) const {
   unsigned int treesSeen = 0;
   for (auto tc = 0ul; tc < raw->getNMajor(); tc++) {
     IndexT termIdx;
@@ -488,7 +488,7 @@ void CtgProb::probAcross(const PredictCtg* predict,
   }
   else {
     double scale = 1.0 / treesSeen;
-    for (auto ctg = 0ul; ctg < nCtg; ctg++)
+    for (PredictorT ctg = 0; ctg < nCtg; ctg++)
       probRow[ctg] *= scale;
   }
 }
@@ -502,16 +502,16 @@ void CtgProb::setDefault() {
 
   // Scales by recip leaf count.
   double scale = 1.0 / (raw->size() / nCtg);
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     probDefault[ctg] *= scale;
   }
 }
 
 
-unsigned int CtgProb::ctgDefault() const {
-  unsigned int argMax = 0;
+PredictorT CtgProb::ctgDefault() const {
+  PredictorT argMax = 0;
   double probMax = 0.0;
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     if (probDefault[ctg] > probMax) {
       probMax = probDefault[ctg];
       argMax = ctg;
@@ -522,9 +522,8 @@ unsigned int CtgProb::ctgDefault() const {
 }
 
 
-void CtgProb::applyDefault(double *probPredict) const {
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
+void CtgProb::applyDefault(double probPredict[]) const {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     probPredict[ctg] = probDefault[ctg];
   }
 }
-

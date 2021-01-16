@@ -112,22 +112,10 @@ protected:
 
   const PredictorT nCtg; // Cadinality of response.
   const unique_ptr<struct ResidualCtg> resid;
-  const vector<double>& ctgSum; // Per-category response sum at node.
+  const vector<double>& nodeSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
   double ssR; // Right " ".
-
-
-  /**
-     @brief Accessor for node-wide sum for a given category.
-
-     @param ctg is the category in question
-
-     @return sum at category over node.
-   */
-  inline double getCtgSum(PredictorT ctg) const {
-    return ctgSum[ctg];
-  }
 
 
   /**
@@ -140,10 +128,8 @@ protected:
      @return value of accumulated sum prior to incrementing.
    */
   inline double accumCtgSum(PredictorT yCtg,
-                     double sumCtg) {
-    double val = ctgAccum[yCtg];
-    ctgAccum[yCtg] += sumCtg;
-    return val;
+			    double sumCtg) {
+    return exchange(ctgAccum[yCtg], ctgAccum[yCtg] + sumCtg);
   }
 
 
@@ -168,24 +154,26 @@ public:
 	      class SFCtg* sfCtg);
 
 
+  inline void applyResid(const vector<double>& ctgResid) {
+    for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
+      accumCtgSS(ctgResid[ctg], ctg);
+    }
+  }
+  
+  
+
   /**
-     @brief Accumulates running sums of squares.
+     @brief Accumulates running sums of squares by category.
 
      @param ctgSum is the response sum for a category.
 
      @param yCtt is the response category.
-
-     @param[in, out] ssL accumulates sums of squares from the left.
-
-     @param[in, out] ssR accumulates sums of squares to the right.
    */
   inline void accumCtgSS(double ctgSum,
-                  PredictorT yCtg,
-                  double& ssL_,
-                  double& ssR_) {
-    double sumRCtg = accumCtgSum(yCtg, ySumThis);
+			 PredictorT yCtg) {
+    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumThis);
     ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
-    double sumLCtg = getCtgSum(yCtg) - sumRCtg;
+    double sumLCtg = nodeSum[yCtg] - sumRCtg;
     ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
   }
 };

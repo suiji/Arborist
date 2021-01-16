@@ -55,6 +55,11 @@ class Bag {
     return nTree != 0 && bitMatrix->testBit(tIdx, row);
   }
 
+  
+  bool isEmpty() const {
+    return bitMatrix->isEmpty();
+  }
+  
 
   class BitMatrix* getBitMatrix() const;
 };

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2020  Mark Seligman
+// Copyright (C)  2012-2021  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -70,10 +70,10 @@ private:
                     unsigned int treeOff,
                     double scale);
 public:
-  IntegerVector nodeHeight;  // Accumulated per-tree extent of Leaf vector.
+  vector<size_t> nodeHeight;  // Accumulated per-tree extent of Leaf vector.
   RawVector nodeRaw; // Packed node structures as raw data.
 
-  IntegerVector bagHeight; // Accumulated per-tree extent of BagSample vector.
+  vector<size_t> bagHeight; // Accumulated per-tree extent of BagSample vector.
   RawVector blRaw; // Packed bag/sample structures as raw data.
 
   /**

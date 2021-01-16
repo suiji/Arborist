@@ -18,15 +18,13 @@
 #include "forest.h"
 
 
-Forest::Forest(const IndexT height_[],
-	       unsigned int nTree_,
+Forest::Forest(const vector<size_t>& nodeHeight_,
                const DecNode treeNode_[],
 	       unsigned int facVec[],
-               const IndexT facHeight[]) :
-  nodeHeight(height_),
-  nTree(nTree_),
+               const vector<size_t>& facHeight) :
+  nodeHeight(move(nodeHeight_)),
   treeNode(treeNode_),
-  facSplit(make_unique<BVJagged>(facVec, facHeight, nTree)) {
+  facSplit(make_unique<BVJaggedV>(facVec, facHeight)) {
 }
 
 
@@ -35,8 +33,8 @@ Forest::~Forest() {
 
 
 vector<size_t> Forest::cacheOrigin() const {
-  vector<size_t> origin(nTree);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+  vector<size_t> origin(getNTree());//nTree);
+  for (unsigned int tIdx = 0; tIdx < origin.size(); tIdx++) {
     origin[tIdx] = tIdx == 0 ? 0 : nodeHeight[tIdx-1];
   }
   return origin;
@@ -55,8 +53,8 @@ void Forest::dump(vector<vector<PredictorT> >& predTree,
 void Forest::dump(vector<vector<PredictorT> >& pred,
                   vector<vector<double> >& split,
                   vector<vector<IndexT> >& delIdx) const {
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    for (IndexT nodeIdx = 0; nodeIdx < getNodeHeight(tIdx); nodeIdx++) {
+  for (unsigned int tIdx = 0; tIdx < getNTree(); tIdx++) {
+    for (IndexT nodeIdx = 0; nodeIdx < nodeHeight[tIdx]; nodeIdx++) {
       pred[tIdx].push_back(treeNode[nodeIdx].getPredIdx());
       delIdx[tIdx].push_back(treeNode[nodeIdx].getDelIdx());
 

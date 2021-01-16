@@ -53,7 +53,7 @@ class MRRA {
 
 
   /**
-     @brief Getter for singleton bit.
+     @brief Singleton indicator.
 
      @return true iff value is singleton.
    */
@@ -63,7 +63,7 @@ class MRRA {
 
 
   /**
-     @brief Determines both buffer index and singleton state.
+     @brief Singleton and buffer indicator.
 
      @param[out] bufIdx outputs the resident buffer index.
 
@@ -75,8 +75,7 @@ class MRRA {
   }
   
 
-  inline void
-  setDense() {
+  inline void setDense() {
     raw |= denseBit;
   }
 
@@ -183,7 +182,6 @@ class DefLayer {
   const PredictorT nPred; // Predictor count.
   const IndexT nSplit; // # splitable nodes at level.
   const IndexT noIndex; // Inattainable node index value.
-  const IndexT idxLive; // Total # sample indices at level.
 
   IndexT defCount; // # live definitions.
   unsigned char del; // Position in deque.  Increments.
@@ -417,14 +415,6 @@ public:
 
   
   /**
-     @brief Getter for count of live sample indices.
-  */
-  inline IndexT IdxLive() {
-    return idxLive;
-  }
-
-
-  /**
      @brief Shifts a value by the number of back-levels to compensate for
      effects of binary branching.
 
@@ -551,6 +541,7 @@ public:
     return def[splitCoord.strideOffset(nPred)].isDense();
   }
 
+  
   bool isDense(const PreCand& cand) const {
     return isDense(cand.splitCoord);
   }

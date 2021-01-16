@@ -13,8 +13,10 @@
    @author Mark Seligman
  */
 
-#ifndef CORE_BRIDGE_LEAFBRIDGE_H
-#define CORE_BRIDGE_LEAFBRIDGE_H
+#ifndef TREE_BRIDGE_LEAFBRIDGE_H
+#define TREE_BRIDGE_LEAFBRIDGE_H
+
+#include "bagbridge.h"
 
 struct LeafBridge {
   /**
@@ -25,21 +27,20 @@ struct LeafBridge {
   /**
      @brief Constructor for regression prediction.
    */
-  LeafBridge(const unsigned int* height,
-	     unsigned int nTree,
+  LeafBridge(const vector<size_t>& height,
 	     const unsigned char* node,
-	     const unsigned int* bagHeight,
+	     const vector<size_t>& bagHeight,
 	     const unsigned char* bagSample);
 
   
   ~LeafBridge();
 
 
-  void dump(const struct BagBridge* bagBridge,
-            vector<vector<size_t> >& rowTree,
+  void dump(vector<vector<size_t> >& rowTree,
             vector<vector<unsigned int> >& sCountTree,
             vector<vector<double> >& scoreTree,
-            vector<vector<unsigned int> >& extentTree) const;
+            vector<vector<unsigned int> >& extentTree,
+	    const struct BagBridge& bag = BagBridge()) const;
 
   class LeafPredict* getLeaf();
 

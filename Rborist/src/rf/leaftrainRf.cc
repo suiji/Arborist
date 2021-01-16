@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2020   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -30,9 +30,9 @@
 bool LBTrain::thin = false;
 
 LBTrain::LBTrain(unsigned int nTree) :
-  nodeHeight(IntegerVector(nTree)),
+  nodeHeight(vector<size_t>(nTree)),
   nodeRaw(RawVector(0)),
-  bagHeight(IntegerVector(nTree)),
+  bagHeight(vector<size_t>(nTree)),
   blRaw(RawVector(0)) {
   fill(bagHeight.begin(), bagHeight.end(), 0ul);
 }
@@ -74,11 +74,11 @@ void LBTrain::writeNode(const TrainChunk* train,
                         unsigned int tIdx,
                         double scale) {
   // Accumulates node heights.
-  train->writeHeight((unsigned int*) &nodeHeight[0], tIdx);
+  train->writeHeight(nodeHeight, tIdx);
 
   // Reallocates forest-wide buffer if estimated size insufficient.
   size_t nodeOff, nodeBytes;
-  if (!train->leafFits((unsigned int*) &nodeHeight[0], tIdx, static_cast<size_t>(nodeRaw.length()), nodeOff, nodeBytes)) {
+  if (!train->leafFits(nodeHeight, tIdx, static_cast<size_t>(nodeRaw.length()), nodeOff, nodeBytes)) {
     nodeRaw = move(rawResize(&nodeRaw[0], nodeOff, nodeBytes, scale));
   }
 
@@ -103,11 +103,11 @@ void LBTrain::writeBagSample(const TrainChunk* train,
   if (thin)
     return;
 
-  train->writeBagHeight((unsigned int*) &bagHeight[0], tIdx);
+  train->writeBagHeight(bagHeight, tIdx);
 
   // Writes BagSample records as raw.
   size_t blOff, bagBytes;
-  if (!train->bagSampleFits((unsigned int*) &bagHeight[0], tIdx, static_cast<size_t>(blRaw.length()), blOff, bagBytes)) {
+  if (!train->bagSampleFits(bagHeight, tIdx, static_cast<size_t>(blRaw.length()), blOff, bagBytes)) {
     blRaw = move(rawResize(&blRaw[0], blOff, bagBytes, scale));
   }
   train->dumpBagLeafRaw(&blRaw[blOff]);
@@ -154,10 +154,11 @@ NumericVector LBTrainCtg::numericResize(const double* num, size_t offset, size_t
  */
 List LBTrainReg::wrap() {
   BEGIN_RCPP
+
   List leaf =
-    List::create(_["nodeHeight"] = move(nodeHeight),
+    List::create(_["nodeHeight"] = move(NumericVector(nodeHeight.begin(), nodeHeight.end())),
                  _["node"] = move(nodeRaw),
-                 _["bagHeight"] = move(bagHeight),
+                 _["bagHeight"] = move(NumericVector(bagHeight.begin(), bagHeight.end())),
                  _["bagSample"] = move(blRaw),
                  _["yTrain"] = yTrain
   );
@@ -173,10 +174,11 @@ List LBTrainReg::wrap() {
  */
 List LBTrainCtg::wrap() {
   BEGIN_RCPP
+
   List leaf =
-    List::create(_["nodeHeight"] = move(nodeHeight),
+    List::create(_["nodeHeight"] = move(NumericVector(nodeHeight.begin(), nodeHeight.end())),
                  _["node"] = move(nodeRaw),
-                 _["bagHeight"] = move(bagHeight),
+                 _["bagHeight"] = move(NumericVector(bagHeight.begin(), bagHeight.end())),
                  _["bagSample"] = move(blRaw),
                  _["weight"] = move(weight),
                  _["levels"] = as<CharacterVector>(yTrain.attr("levels"))

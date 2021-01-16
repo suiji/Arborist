@@ -110,14 +110,14 @@ TrainChunk::~TrainChunk() {
 }
 
 
-void TrainChunk::writeHeight(unsigned int height[], unsigned int tIdx) const {
+void TrainChunk::writeHeight(vector<size_t>& height, unsigned int tIdx) const {
   unsigned int idx = tIdx;
   for (auto th : getLeafHeight()) {
     height[idx++] = th + (tIdx == 0 ? 0 : height[tIdx - 1]);
   }
 }
 
-void TrainChunk::writeBagHeight(unsigned int bagHeight[], unsigned int tIdx) const {
+void TrainChunk::writeBagHeight(vector<size_t>& bagHeight, unsigned int tIdx) const {
   unsigned int idx = tIdx;
   for (auto th : leafBagHeight()) {
     bagHeight[idx++] = th + (tIdx == 0 ? 0 : bagHeight[tIdx - 1]);
@@ -125,14 +125,14 @@ void TrainChunk::writeBagHeight(unsigned int bagHeight[], unsigned int tIdx) con
 }
 
 
-bool TrainChunk::leafFits(unsigned int height[], unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
+bool TrainChunk::leafFits(const vector<size_t>& height, unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
   offset = tIdx == 0 ? 0 : height[tIdx - 1] * sizeof(Leaf);
   bytes = getLeafHeight().back() * sizeof(Leaf);
   return offset + bytes <= capacity;
 }
 
 
-bool TrainChunk::bagSampleFits(unsigned int height[], unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
+bool TrainChunk::bagSampleFits(const vector<size_t>& height, unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
   offset = tIdx == 0 ? 0 : height[tIdx - 1] * sizeof(BagSample);
   bytes = leafBagHeight().back() * sizeof(BagSample);
   return offset + bytes <= capacity;

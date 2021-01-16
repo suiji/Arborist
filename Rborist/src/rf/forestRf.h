@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2021  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -116,10 +116,10 @@ class ForestExport {
  */
 struct FBTrain {
   RawVector nodeRaw; // Packed representation of decision tree nodes.
-  IntegerVector height; // Accumulated tree heights, by node.
+  vector<size_t> height; // Accumulated tree heights, by node.
 
   RawVector facRaw; // Bit-vector representation of factor splits.
-  IntegerVector facHeight; // Accumulated tree heights, by factor split.
+  vector<size_t> facHeight; // Accumulated tree heights, by factor split.
 
   FBTrain(unsigned int nTree);
 

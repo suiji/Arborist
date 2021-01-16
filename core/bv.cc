@@ -115,43 +115,6 @@ BitMatrix::~BitMatrix() {
 }
 
 
-/**
- */
-BVJagged::BVJagged(RawT raw_[],
-                   const unsigned int rowExtent_[],
-                   size_t nRow_) : BV(raw_, rowExtent_[nRow_-1]),
-                                         rowExtent(rowExtent_),
-                                         nRow(nRow_) {
-}
-
-
-/**
- */
-BVJagged::~BVJagged() {
-}
-
-
-/**
-   @brief Exports contents of a forest.
-*/
-vector<vector<RawT>> BVJagged::dump() const {
-  vector<vector<RawT>> outVec(nRow);
-  for (IndexT row = 0; row < nRow; row++) {
-    outVec[row] = rowDumpRaw(row);
-  }
-  return outVec;
-}
-
-
-/**
-   @brief Exports contents for an individual row.
- */
-vector<RawT> BVJagged::rowDumpRaw(size_t rowIdx) const {
-  unsigned int base = rowIdx == 0 ? 0 : rowExtent[rowIdx-1];
-  unsigned int extent = rowExtent[rowIdx] - base;
-  return dumpVec(base, extent);
-}
-
 
 /**
    @brief Static entry.  Exports matrix as vector of vectors.
@@ -196,3 +159,78 @@ void BitMatrix::colDump(size_t _nRow, vector<unsigned int> &outCol, unsigned int
   for (size_t row = 0; row < _nRow; row++)
     outCol[row] = testBit(row, colIdx) ? 1 : 0;
 }
+/**
+ */
+BVJagged::BVJagged(RawT raw_[],
+                   const unsigned int rowExtent_[],
+                   size_t nRow_) : BV(raw_, rowExtent_[nRow_-1]),
+                                         rowExtent(rowExtent_),
+                                         nRow(nRow_) {
+}
+
+
+/**
+ */
+BVJagged::~BVJagged() {
+}
+
+
+/**
+   @brief Exports contents of a forest.
+*/
+vector<vector<RawT>> BVJagged::dump() const {
+  vector<vector<RawT>> outVec(nRow);
+  for (IndexT row = 0; row < nRow; row++) {
+    outVec[row] = rowDumpRaw(row);
+  }
+  return outVec;
+}
+
+
+/**
+   @brief Exports contents for an individual row.
+ */
+vector<RawT> BVJagged::rowDumpRaw(size_t rowIdx) const {
+  unsigned int base = rowIdx == 0 ? 0 : rowExtent[rowIdx-1];
+  unsigned int extent = rowExtent[rowIdx] - base;
+  return dumpVec(base, extent);
+}
+
+
+/**
+ */
+BVJaggedV::BVJaggedV(RawT raw_[],
+		     const vector<size_t>& rowExtent_) :
+  BV(raw_, rowExtent_.back()),
+  rowExtent(move(rowExtent_)),
+  nRow(rowExtent_.size()) {
+}
+
+
+/**
+ */
+BVJaggedV::~BVJaggedV() {
+}
+
+
+/**
+   @brief Exports contents of a forest.
+*/
+vector<vector<RawT>> BVJaggedV::dump() const {
+  vector<vector<RawT>> outVec(nRow);
+  for (IndexT row = 0; row < nRow; row++) {
+    outVec[row] = rowDumpRaw(row);
+  }
+  return outVec;
+}
+
+
+/**
+   @brief Exports contents for an individual row.
+ */
+vector<RawT> BVJaggedV::rowDumpRaw(size_t rowIdx) const {
+  unsigned int base = rowIdx == 0 ? 0 : rowExtent[rowIdx-1];
+  unsigned int extent = rowExtent[rowIdx] - base;
+  return dumpVec(base, extent);
+}
+

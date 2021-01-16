@@ -28,7 +28,7 @@ void TreeNode::setQuantRank(const TrainFrame* trainFrame) {
 }
 
 
-IndexT TreeNode::advance(const BVJagged *facSplit,
+IndexT TreeNode::advance(const BVJaggedV *facSplit,
                          const IndexT rowT[],
 			 unsigned int tIdx,
 			 IndexT& leafIdx) const {
@@ -45,7 +45,7 @@ IndexT TreeNode::advance(const BVJagged *facSplit,
 
 
 IndexT TreeNode::advance(const Predict* predict,
-                         const BVJagged* facSplit,
+                         const BVJaggedV* facSplit,
 			 const IndexT* rowFT,
 			 const double* rowNT,
 			 unsigned int tIdx,

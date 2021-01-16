@@ -28,19 +28,18 @@
 */
 class Quant {
   static const unsigned int binSize; // # slots to track.
-  const class PredictReg* predictReg; // Summary of trained terminal nodes.
-  const class LeafPredict* leaf; // EXIT
-  const class BitMatrix* baggedRows; // In-bag summary.
-  size_t nRow;
-  ValRank<double> valRank;
-  const vector<struct RankCount> rankCount; // forest-wide, by sample.
+  const class LeafPredict* leaf;
   const vector<double> quantile; // quantile values over which to predict.
   const unsigned int qCount; // caches quantile size for quick reference.
+  const bool empty; // if so, bail.
+  const ValRank<double> valRank;
   vector<double> qPred; // predicted quantiles.
   vector<double> qEst; // quantile of response estimates.
+  vector<struct RankCount> rankCount; // forest-wide, by sample.
   unsigned int rankScale; // log2 of scaling factor.
-  const vector<double> binMean;
+  vector<double> binMean;
 
+  
   /**
      @brief Computes a bin offset for a given rank.
 
@@ -70,18 +69,9 @@ class Quant {
 
      @return binned vector of response means.
    */
-  vector<double> binMeans(const ValRank<double>& valRank,
-                          unsigned int rankScale);
+  vector<double> binMeans(const ValRank<double>& valRank);
 
   
-  /**
-     @brief Writes the quantile values for a given row.
-
-     @param row is the row over which to build prediction quantiles.
-  */
-  void predictRow(size_t row);
-
-
   /**
      @brief Writes quantile values for a row of predictions.
 
@@ -93,7 +83,8 @@ class Quant {
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  void quantSamples(const vector<IndexT>& sCount,
+  void quantSamples(const class PredictReg* predictReg,
+		    const vector<IndexT>& sCount,
 		    const vector<double> threshold,
 		    IndexT totSample,
 		    size_t row);
@@ -121,12 +112,20 @@ class Quant {
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const class PredictReg* predictReg,
-	const class LeafPredict* leaf,
+  Quant(const class LeafPredict* leaf,
         const class Bag* bag,
 	const class RLEFrame* rleFrame,
 	vector<double> yTrain,
         vector<double> quantile_);
+
+
+  /**
+     @brief Determines whether to bail on quantile estimation.
+   */
+  inline bool isEmpty() const {
+    return empty;
+  };
+
 
   /**
      @brief Getter for number of quantiles.
@@ -138,16 +137,6 @@ class Quant {
   }
 
 
-  /**
-     @brief Getter for number of rows predicted.
-
-     Returns zero if empty bag precludes valRank from initialization.
-   */
-  auto getNRow() const{
-    return nRow;
-  }
-
-  
   /**
      @brief Accessor for predicted quantiles.
 
@@ -169,10 +158,12 @@ class Quant {
   
   
   /**
-     @brief Fills in the quantile leaves for each row within a contiguous block.
+     @brief Writes the quantile values for a given row.
+
+     @param row is the row over which to build prediction quantiles.
   */
-  void predictBlock(size_t rowStart,
-		    size_t rowEnd);
+  void predictRow(const class PredictReg* predictReg,
+		  size_t row);
 };
 
 #endif

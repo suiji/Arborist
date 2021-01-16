@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2020   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -63,7 +63,7 @@ List TrainRf::train(const List& argList,
   initFromArgs(argList, trainBridge.get());
 
   unique_ptr<TrainRf> trainRF;
-  if (as<unsigned int>(argList["nCtg"]) > 0) {
+  if (as<PredictorT>(argList["nCtg"]) > 0) {
     trainRF = classification(argList, trainBridge.get());
   }
   else {
@@ -97,11 +97,11 @@ SEXP TrainRf::initFromArgs(const List& argList,
   
   NumericVector probVecNV((SEXP) argList["probVec"]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
-  trainBridge->initProb(as<unsigned int>(argList["predFixed"]), predProb);
+  trainBridge->initProb(as<PredictorT>(argList["predFixed"]), predProb);
 
   RowSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
-  trainBridge->initSample(as<unsigned int>(argList["nSamp"]));
+  trainBridge->initSample(as<IndexT>(argList["nSamp"]));
 
   NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
@@ -110,7 +110,7 @@ SEXP TrainRf::initFromArgs(const List& argList,
 			 as<double>(argList["minInfo"]),
 			 splitQuant);
 
-  trainBridge->initTree(as<unsigned int>(argList["nSamp"]),
+  trainBridge->initTree(as<IndexT>(argList["nSamp"]),
                   as<unsigned int>(argList["minNode"]),
                   as<unsigned int>(argList["maxLeaf"]));
   trainBridge->initBlock(as<unsigned int>(argList["treeBlock"]));
@@ -138,8 +138,8 @@ SEXP TrainRf::deInit(TrainBridge* trainBridge) {
 }
 
 
-NumericVector TrainRf::ctgProxy(const IntegerVector &y,
-                                const NumericVector &classWeight) {
+NumericVector TrainRf::ctgProxy(const IntegerVector& y,
+                                const NumericVector& classWeight) {
   BEGIN_RCPP
     
   auto scaledWeight = clone(classWeight);
@@ -169,7 +169,7 @@ unique_ptr<TrainRf> TrainRf::classification(const List& argList,
 
   IntegerVector yZero = y - 1; // Zero-based translation.
   vector<unsigned int> yzVec(yZero.begin(), yZero.end());
-  auto proxy = ctgProxy(yZero, classWeight);
+  NumericVector proxy(ctgProxy(yZero, classWeight));
 
   unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, y);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {

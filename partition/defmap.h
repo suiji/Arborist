@@ -31,7 +31,7 @@
 
 
 /**
-   @brief Class managing the most recent level of the tree.
+   @brief Manages definitions reaching the frontier.
  */
 class DefMap {
   const class TrainFrame* frame;

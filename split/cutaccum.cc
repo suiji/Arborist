@@ -92,7 +92,7 @@ CutAccumCtg::CutAccumCtg(const SplitNux* cand,
   CutAccum(cand, sfCtg),
   nCtg(sfCtg->getNCtg()),
   resid(makeResidual(cand, sfCtg)),
-  ctgSum(sfCtg->getSumSlice(cand)),
+  nodeSum(sfCtg->getSumSlice(cand)),
   ctgAccum(sfCtg->getAccumSlice(cand)),
   ssL(sfCtg->getSumSquares(cand)),
   ssR(0.0) {
@@ -130,17 +130,3 @@ ResidualCtg::ResidualCtg(double sum_,
   Residual(sum_, sCount_),
   ctgImpl(ctgImpl_) {
 }
-
-
-void ResidualCtg::apply(FltVal& sum,
-                        IndexT& sCount,
-                        double& ssR,
-                        double& ssL,
-                        CutAccumCtg* np) {
-  sum = this->sum;
-  sCount = this->sCount;
-  for (PredictorT ctg = 0; ctg < ctgImpl.size(); ctg++) {
-    np->accumCtgSS(ctgImpl[ctg], ctg, ssL, ssR);
-  }
-}
-

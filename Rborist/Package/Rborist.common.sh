@@ -6,11 +6,11 @@
 mkdir Rborist
 cd Rborist; mkdir src; mkdir R; mkdir man; mkdir inst; cd ..
 cp ../LICENSE Rborist/
-cp ../FrontEnd/DESCRIPTION Rborist/
-cp ../FrontEnd/NAMESPACE Rborist/
-cp ../FrontEnd/*.Rd Rborist/man/
-cp ../FrontEnd/NEWS Rborist/inst/
-cp ../FrontEnd/*R Rborist/R/
+cp ../R/DESCRIPTION Rborist/
+cp ../R/NAMESPACE Rborist/
+cp ../R/*.Rd Rborist/man/
+cp ../R/NEWS Rborist/inst/
+cp ../R/*R Rborist/R/
 cp ../../deframeR/*.R Rborist/R/
 cp ../src/*.cc Rborist/src/
 cp ../src/*.h Rborist/src/
@@ -24,8 +24,6 @@ cp ../../deframe/*.cc Rborist/src/
 cp ../../deframe/*.h Rborist/src/
 cp ../../cart/*.cc Rborist/src/
 cp ../../cart/*.h Rborist/src/
-cp ../../cart/bridge/*.cc Rborist/src/
-cp ../../cart/bridge/*.h Rborist/src/
 cp ../../core/*.cc Rborist/src/
 cp ../../core/*.h Rborist/src/
 cp ../../obs/*.cc Rborist/src/
@@ -34,6 +32,8 @@ cp ../../partition/*.cc Rborist/src/
 cp ../../partition/*.h Rborist/src/
 cp ../../tree/*.cc Rborist/src/
 cp ../../tree/*.h Rborist/src/
+cp ../../tree/bridge/*.cc Rborist/src/
+cp ../../tree/bridge/*.h Rborist/src/
 cp ../../rf/*.cc Rborist/src/
 cp ../../rf/*.h Rborist/src/
 cp ../../rf/bridge/*.cc Rborist/src/

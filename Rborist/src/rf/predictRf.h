@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rf.
 //
@@ -326,12 +326,9 @@ struct LeafPredictRf {
 
      @param lLeaf references the leaf.
 
-     @param lDeframe references the deframed observations.
-
      @param doProb indicates whether a probability matrix is requested.
    */
-  static unique_ptr<struct LeafBridge> unwrap(const List& lLeaf,
-						 const List& lDeframe);
+  static unique_ptr<struct LeafBridge> unwrap(const List& lLeaf);
 };
 
   

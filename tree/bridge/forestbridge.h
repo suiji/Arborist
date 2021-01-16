@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CART_FORESTBRIDGE_H
-#define CART_FORESTBRIDGE_H
+#ifndef TREE_FORESTBRIDGE_H
+#define TREE_FORESTBRIDGE_H
 
 #include <memory>
 using namespace std;
@@ -39,11 +39,10 @@ struct ForestBridge {
      @param facHeight is the accumated factor splitting height.
 
    */
-  ForestBridge(const unsigned int* height,
-               size_t nTree,
+  ForestBridge(const vector<size_t>& nodeHeight,
                const unsigned char* node,
                unsigned int* facSplit,
-               const unsigned int* facHeight);
+               const vector<size_t>& facHeight);
 
   ~ForestBridge();
 

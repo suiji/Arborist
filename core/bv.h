@@ -377,4 +377,46 @@ class BVJagged : public BV {
   }
 };
 
+/**
+   @brief As above, but caches extent vector.
+ */
+class BVJaggedV : public BV {
+  const vector<size_t> rowExtent;
+  const size_t nRow;
+
+public:
+  BVJaggedV(RawT raw_[],
+           const vector<size_t>& height); // Cumulative extent per row.
+
+  ~BVJaggedV();
+
+  /**
+     @brief Dumps each row into a separate vector.
+   */
+  vector<vector<RawT>> dump() const;
+
+  /**
+     @brief Outputs a row of bits as a packed integer vector.
+   */
+  vector<RawT> rowDumpRaw(size_t rowIdx) const;
+  
+  /**
+     @brief Bit test for jagged matrix.
+
+     @param row is the (nonstrided) row.
+
+     @param pos is the bit position within the row.
+
+     @return true iff bit set.
+
+   */
+  inline bool testBit(size_t row, size_t pos) const {
+    RawT mask;
+    size_t slot = slotMask(pos, mask);
+    unsigned int base = row == 0 ? 0 : rowExtent[row-1];
+    
+    return test(base + slot, mask);
+  }
+};
+
 #endif

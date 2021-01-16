@@ -25,9 +25,9 @@
 
 
 PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
-				     unique_ptr<ForestBridge> forestBridge_,
-				     unique_ptr<BagBridge> bagBridge_,
-				     unique_ptr<LeafBridge> leafBridge_,
+				   unique_ptr<ForestBridge> forestBridge_,
+				   unique_ptr<BagBridge> bagBridge_,
+				   unique_ptr<LeafBridge> leafBridge_,
 				   vector<double> yTrain,
 				     double meanTrain,
 				     vector<double> yTest,
@@ -45,19 +45,18 @@ PredictRegBridge::~PredictRegBridge() {
 
 
 PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
-				     unique_ptr<ForestBridge> forestBridge_,
-				     unique_ptr<BagBridge> bagBridge_,
-				     unique_ptr<LeafBridge> leafBridge_,
-				   const unsigned int* leafHeight,
+				   unique_ptr<ForestBridge> forestBridge_,
+				   unique_ptr<BagBridge> bagBridge_,
+				   unique_ptr<LeafBridge> leafBridge_,
 				   const double* leafProb,
-				     unsigned int nCtgTrain,
-				     vector<unsigned int> yTest,
-				     bool oob_,
-				     unsigned int nPermute_,
-				     bool doProb,
-				     unsigned int nThread) :
+				   unsigned int nCtgTrain,
+				   vector<unsigned int> yTest,
+				   bool oob_,
+				   unsigned int nPermute_,
+				   bool doProb,
+				   unsigned int nThread) :
   PredictBridge(move(rleFrame_), move(forestBridge_), move(bagBridge_), move(leafBridge_), oob_, nPermute_, nThread),
-  predictCtgCore(make_unique<PredictCtg>(bagBridge->getBag(), forestBridge->getForest(), leafBridge->getLeaf(), rleFrame.get(), leafHeight, leafProb, nCtgTrain, move(yTest), oob, nPermute, doProb)) {
+  predictCtgCore(make_unique<PredictCtg>(bagBridge->getBag(), forestBridge->getForest(), leafBridge->getLeaf(), rleFrame.get(), leafProb, nCtgTrain, move(yTest), oob, nPermute, doProb)) {
 }
 
 

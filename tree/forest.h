@@ -26,10 +26,9 @@
    @brief The decision forest as a read-only collection.
 */
 class Forest {
-  const IndexT* nodeHeight;
-  const unsigned int nTree;
+  const vector<size_t> nodeHeight;
   const DecNode* treeNode;
-  unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
+  unique_ptr<class BVJaggedV> facSplit; // Consolidation of per-tree values.
 
   void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
@@ -38,11 +37,10 @@ class Forest {
   
  public:
 
-  Forest(const IndexT height_[],
-         unsigned int _nTree,
+  Forest(const vector<size_t>& nodeHeight_,
          const DecNode _treeNode[],
          unsigned int facVec[],
-         const IndexT facHeight[]);
+         const vector<size_t>& facHeight);
 
   ~Forest();
 
@@ -52,7 +50,7 @@ class Forest {
      @return number of trees in the forest.
    */
   inline unsigned int getNTree() const {
-    return nTree;
+    return nodeHeight.size();
   }
 
   /**
@@ -70,7 +68,7 @@ class Forest {
 
      @return pointer to base of split-encoding vector.
    */
-  inline const BVJagged* getFacSplit() const {
+  inline const BVJaggedV* getFacSplit() const {
     return facSplit.get();
   }
   

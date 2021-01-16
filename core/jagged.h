@@ -63,6 +63,76 @@ public:
 
 
 /**
+   @brief As above, but height as vector.
+ */
+template<class item_type, class off_type>
+class JaggedV {
+public:
+  item_type items;
+  const vector<off_type> height; // Major offsets.
+
+  
+  /**
+     @brief Returns the item count.
+   */
+  virtual size_t size() const = 0;
+
+
+  /**
+     @brief Returns the base offset associated with the major dimension.
+   */
+  virtual size_t majorOffset(unsigned int maj) const = 0;
+
+  JaggedV(item_type items_,
+	  const vector<off_type> height_) :
+    items(items_),
+    height(move(height_)) {
+  }
+
+  virtual ~JaggedV() {}
+
+
+  unsigned int getNMajor() const {
+    return height.size();
+  }
+
+  auto getHeight(unsigned int idx) const {
+    return height[idx];
+  }
+};
+
+
+/**
+   @brief Two-dimensional jagged array.
+   Height records row high-watermarks.
+ */
+template <class item_type, class off_type>
+class JaggedArrayV : public JaggedV<item_type, off_type> {
+public:
+
+  size_t majorOffset(unsigned int maj) const {
+    return maj == 0 ? 0 : JaggedV<item_type, off_type>::height[maj-1];
+  }
+
+
+  size_t absOffset(unsigned int maj, unsigned int idx) const {
+    return majorOffset(maj) + idx;
+  }
+
+  JaggedArrayV(item_type items_,
+	       const vector<off_type>& height_) :
+    JaggedV<item_type, off_type>(items_, move(height_)) {
+  }
+
+  ~JaggedArrayV() {}
+
+  size_t size() const {
+    return JaggedV<item_type, off_type>::height[JaggedV<item_type, off_type>::getNMajor() - 1];
+  }
+};
+
+
+/**
    @brief Two-dimensional jagged array.
    Height records row high-watermarks.
  */

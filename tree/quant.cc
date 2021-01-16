@@ -19,7 +19,6 @@
 #include "leafpredict.h"
 #include "predict.h"
 #include "rleframe.h"
-#include "ompthread.h"
 
 #include <algorithm>
 
@@ -30,39 +29,22 @@ const unsigned int Quant::binSize = 0x1000;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const PredictReg* predictReg_,
-	     const LeafPredict* leaf_,
-             const Bag* bag_,
+Quant::Quant(const LeafPredict* leaf_,
+             const Bag* bag,
 	     const RLEFrame* rleFrame,
 	     vector<double> yTrain,
              vector<double> quantile_) :
-  predictReg(predictReg_),
   leaf(leaf_),
-  baggedRows(bag_->getBitMatrix()),
-  nRow(baggedRows->isEmpty() ? 0 : rleFrame->getNRow()),
-  valRank(ValRank<double>(&yTrain[0], yTrain.size())),
-  rankCount(leaf->setRankCount(baggedRows, valRank.rank())),
   quantile(move(quantile_)),
   qCount(quantile.size()),
-  qPred(vector<double>(nRow * qCount)),
-  qEst(vector<double>(nRow)),
-  rankScale(binScale()),
-  binMean(binMeans(valRank, rankScale)) {
-}
-
-
-void Quant::predictBlock(size_t blockStart, size_t blockEnd) {
-  if (baggedRows->isEmpty())
-    return; // Insufficient leaf information.
-
-  OMPBound rowStart = static_cast<OMPBound>(blockStart);
-  OMPBound rowEnd = static_cast<OMPBound>(blockEnd);
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound row = rowStart; row < rowEnd; row++) {
-      predictRow(row);
-    }
+  empty(bag->isEmpty() || quantile.empty()),
+  valRank(ValRank<double>(&yTrain[0], empty ? 0 : yTrain.size())),
+  qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
+  qEst(vector<double>(empty ? 0 : rleFrame->getNRow())) {
+  if (!empty) {
+    rankCount = leaf->setRankCount(bag, valRank.rank());
+    rankScale = binScale();
+    binMean = binMeans(valRank);
   }
 }
 
@@ -76,7 +58,7 @@ unsigned int Quant::binScale() const {
 }
 
 
-void Quant::predictRow(size_t row) {
+void Quant::predictRow(const PredictReg* predictReg, size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
 
   // Scores each rank seen at every predicted leaf.
@@ -97,7 +79,7 @@ void Quant::predictRow(size_t row) {
   }
 
   // Fills in quantile estimates.
-  quantSamples(sCountBin, countThreshold, totSamples, row);
+  quantSamples(predictReg, sCountBin, countThreshold, totSamples, row);
 }
 
 
@@ -116,7 +98,8 @@ IndexT Quant::leafSample(unsigned int tIdx,
 }
 
 
-void Quant::quantSamples(const vector<IndexT>& sCountBin,
+void Quant::quantSamples(const PredictReg* predictReg,
+			 const vector<IndexT>& sCountBin,
                          const vector<double> threshold,
 			 IndexT totSample,
 			 size_t row) {
@@ -143,7 +126,7 @@ void Quant::quantSamples(const vector<IndexT>& sCountBin,
 }
 
 
-vector<double> Quant::binMeans(const ValRank<double>& valRank, unsigned int rankScale) {
+vector<double> Quant::binMeans(const ValRank<double>& valRank) {
   vector<double> binMean(std::min(binSize, valRank.getRankCount()));
   vector<size_t> binCount(binMean.size());
   for (IndexT idx = 0; idx < valRank.getNRow(); idx++) {

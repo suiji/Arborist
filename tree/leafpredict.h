@@ -13,8 +13,8 @@
    @author Mark Seligman
  */
 
-#ifndef CART_LEAFPREDICT_H
-#define CART_LEAFPREDICT_H
+#ifndef TREE_LEAFPREDICT_H
+#define TREE_LEAFPREDICT_H
 
 #include "jagged.h"
 #include "typeparam.h"
@@ -22,24 +22,35 @@
 #include <vector>
 
 class LeafBlock {
-  const unique_ptr<JaggedArray<const class Leaf*, const unsigned int*> > raw;
+  const unique_ptr<JaggedArrayV<const class Leaf*, size_t>> raw;
 
 public:
-  LeafBlock(const unsigned int nTree_,
-            const unsigned int* height_,
+  LeafBlock(const vector<size_t>& height_,
             const Leaf* leaf_);
 
   /**
-     @brief Accessor for size of raw vector.
-   */
-  size_t size() const;
+   @brief Gets the size of the jagged array.
 
-  /**
-     @brief Accessor for tree count.
-   */
-  unsigned int nTree() const;
+   @return total number of leaves in the block.
+  */
+  size_t size() const {
+    return raw->size();
+  }
+
+
+  unsigned int nTree() const {
+    return raw->getNMajor();
+  }
+
   
+  /**
+     @brief Accessor for height vector.
+   */
+  size_t getHeight(unsigned int tIdx) const {
+    return raw->getHeight(tIdx);
+  }
 
+  
   /**
      @brief Accumulates individual leaf extents across the forest.
 
@@ -126,11 +137,10 @@ public:
    @brief Jagged vector of bagging summaries.
  */
 class BLBlock {
-  const unique_ptr<JaggedArray<const class BagSample*, const unsigned int*> > raw;
+  const unique_ptr<JaggedArrayV<const class BagSample*, size_t> > raw;
 
 public:
-  BLBlock(const unsigned int nTree_,
-          const unsigned int* height_,
+  BLBlock(const vector<size_t>& height_,
           const BagSample* bagSample_);
 
   /**
@@ -189,14 +199,27 @@ protected:
   vector<size_t> offset; // Accumulated offsets
 
 public:
-  LeafPredict(const unsigned int* nodeHeight_,
-	      unsigned int nTree_,
+  LeafPredict(const vector<size_t>& height,
 	      const class Leaf* leaf_,
-	      const unsigned int bagHeight_[],
+	      const vector<size_t>& bagHeight_,
 	      const class BagSample* bagSample_);
 
 
   virtual ~LeafPredict();
+
+  /**
+     @brief Accessor for height vector.
+   */
+  size_t getHeight(unsigned int tIdx) const {
+    return leafBlock->getHeight(tIdx);
+  }
+
+  
+
+  const unsigned int getNTree() const {
+    return leafBlock->nTree();
+  }
+  
   
   /**
      @brief Accessor for #samples at an absolute bag index.
@@ -253,7 +276,7 @@ public:
 
      @return per-leaf vector expressing mapping.
    */
-  vector<RankCount> setRankCount(const class BitMatrix* baggedRows,
+  vector<RankCount> setRankCount(const class Bag* bag,
                                  const vector<IndexT>& row2Rank) const;
 
 

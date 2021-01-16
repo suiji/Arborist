@@ -19,22 +19,11 @@
 #include "bag.h"
 
 
-LeafBlock::LeafBlock(unsigned int nTree,
-                     const unsigned int* height,
+LeafBlock::LeafBlock(const vector<size_t>& height,
                      const Leaf* leaf) :
-  raw(make_unique<JaggedArray<const Leaf*, const unsigned int*> >(nTree, height, leaf)) {
+  raw(make_unique<JaggedArrayV<const Leaf*, size_t>>(leaf, move(height))) {
 }
 
-
-size_t LeafBlock::size() const {
-  return raw->size();
-}
-
-
-unsigned int LeafBlock::nTree() const {
-  return raw->getNMajor();
-}
-  
 
 vector<size_t> LeafBlock::setOffsets() const {
   vector<size_t> offset(raw->size());
@@ -96,10 +85,9 @@ void LeafBlock::dump(vector<vector<double> >& score,
 }
 
 
-BLBlock::BLBlock(unsigned int nTree,
-                 const unsigned int* height,
+BLBlock::BLBlock(const vector<size_t>& height,
                  const BagSample* bagSample) :
-  raw(make_unique<JaggedArray<const BagSample*, const unsigned int*> >(nTree, height, bagSample)) {
+  raw(make_unique<JaggedArrayV<const BagSample*, size_t>>(bagSample, move(height))) {
 }
                      
 
@@ -134,13 +122,12 @@ void BLBlock::dump(const Bag* bag,
 }
 
 
-LeafPredict::LeafPredict(const unsigned int* leafHeight,
-			 unsigned int nTree,
+LeafPredict::LeafPredict(const vector<size_t>& height,
 			 const Leaf* leaf,
-			 const unsigned int* bagHeight,
+			 const vector<size_t>& bagHeight,
 			 const BagSample *bagSample) :
-  leafBlock(make_unique<LeafBlock>(nTree, leafHeight, leaf)),
-  blBlock(make_unique<BLBlock>(nTree, bagHeight, bagSample)),
+  leafBlock(make_unique<LeafBlock>(move(height), leaf)),
+  blBlock(make_unique<BLBlock>(move(bagHeight), bagSample)),
   offset(leafBlock->setOffsets()) {
 }
 
@@ -233,14 +220,15 @@ void LeafPredict::bagBounds(unsigned int tIdx,
 }
 
 
-vector<RankCount> LeafPredict::setRankCount(const BitMatrix* baggedRows,
+vector<RankCount> LeafPredict::setRankCount(const Bag* bag,
 					    const vector<IndexT>& row2Rank) const {
-  vector<RankCount> rankCount(blBlock->size());
-  if (baggedRows->isEmpty())
-    return rankCount; // Short circuits with empty vector.
+  if (bag->isEmpty())
+    return vector<RankCount>(0); // Short circuits with empty vector.
 
+  vector<RankCount> rankCount(blBlock->size());
   vector<unsigned int> leafSeen(leafCount());
   unsigned int bagIdx = 0;  // Absolute sample index.
+  const BitMatrix* baggedRows = bag->getBitMatrix();
   for (unsigned int tIdx = 0; tIdx < baggedRows->getNRow(); tIdx++) {
     for (IndexT row = 0; row < row2Rank.size(); row++) {
       if (baggedRows->testBit(tIdx, row)) {

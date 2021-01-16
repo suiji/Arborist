@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2020  Mark Seligman
+// Copyright (C)  2012-2021  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -70,7 +70,7 @@ struct ExportRf {
 };
 
 struct LeafExport {
-  LeafExport(unsigned int nTree_);
+  LeafExport(const List& lLeaf);
 
   virtual ~LeafExport() {}
 
@@ -109,11 +109,20 @@ struct LeafExport {
     return extentTree[tIdx];
   }
 
+  
+  /**
+     @brief Accessor for per-tree score vector.
+   */
+  const vector<double> &getScoreTree(unsigned int tIdx) const {
+    return scoreTree[tIdx];
+  }
+
  protected:
   unsigned int nTree;
   vector<vector<size_t> > rowTree;
   vector<vector<unsigned int> > sCountTree;
   vector<vector<unsigned int> > extentTree;
+  vector<vector<double > > scoreTree;
 };
 
 
@@ -132,13 +141,6 @@ struct LeafExportReg : public LeafExport {
   static unique_ptr<LeafExportReg> unwrap(const List &lTrain,
                                           const struct BagBridge* bagBridge);
 
-  const vector<double> &getScoreTree(unsigned int tIdx) const {
-    return scoreTree[tIdx];
-  }
-
- private:
-
-  vector<vector<double > > scoreTree;
 };
 
 
@@ -166,18 +168,6 @@ struct LeafExportCtg : public LeafExport {
 
 
   /**
-     @brief Accessor for per-tree score vector.
-
-     @param tIdx is the tree index.
-
-     @return score vector.
-   */
-  const vector<double> &getScoreTree(unsigned int tIdx) const {
-    return scoreTree[tIdx];
-  }
-
-
-  /**
      @brief Accessor for per-tree weight vector.
 
      @param tIdx is the tree index.
@@ -191,7 +181,6 @@ struct LeafExportCtg : public LeafExport {
 
  private:
   const CharacterVector levelsTrain; // Pinned for summary reuse.
-  vector<vector<double > > scoreTree;
   vector<vector<double> > weightTree;
 };
 

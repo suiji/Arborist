@@ -135,7 +135,7 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advance(const class BVJagged *facSplit,
+  IndexT advance(const class BVJaggedV *facSplit,
 		 const IndexT* rowT,
 		 unsigned int tIdx,
 		 IndexT& leafIdx) const;
@@ -150,7 +150,7 @@ public:
      @return terminal/nonterminal : 0 / delta to next node.
    */
   IndexT advance(const class Predict* predict,
-		 const BVJagged *facSplit,
+		 const BVJaggedV *facSplit,
 		 const IndexT* rowFT,
 		 const double *rowNT,
 		 unsigned int tIdx,

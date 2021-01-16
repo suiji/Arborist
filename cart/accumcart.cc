@@ -166,7 +166,7 @@ inline void CutAccumCtgCart::stateNext(IndexT idx) {
 
   sum -= ySumThis;
   sCount -= sCountThis;
-  accumCtgSS(ySumThis, yCtg, ssL, ssR);
+  accumCtgSS(ySumThis, yCtg);
 }
 
 
@@ -199,7 +199,9 @@ void CutAccumCtgCart::splitImpl(const SplitNux* cand) {
 
 void CutAccumCtgCart::residualAndLeft(IndexT idxLeft,
 				   IndexT idxStart) {
-  resid->apply(ySumThis, sCountThis, ssR, ssL, this);
+  ySumThis = resid->sum;
+  sCountThis = resid->sCount;
+  applyResid(resid->ctgImpl);
   sum -= ySumThis;
   sCount -= sCountThis;
   splitExpl(rankDense, idxLeft, idxStart);
