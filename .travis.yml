@@ -22,15 +22,16 @@ before_install:
   - cd Rborist/Package/
   - chmod u+x Rborist.travis.sh
   - ./Rborist.travis.sh
-
-install:
   - tar -xzvf Rborist_*.*-*.tar.gz
+  
+#install:
+  #- tar -xzvf Rborist_*.*-*.tar.gz
   #- Rscript -e 'install.packages("rmarkdown")'
   #- Rscript -e 'install.packages("roxygen2")'
   #- Rscript -e 'install.packages("devtools")'
-  - Rscript -e 'remotes::install_deps("Rborist", dependencies = T)'
-script:
-  - Rscript -e 'remotes::check("Rborist", manual = FALSE)'
+  #- Rscript -e 'remotes::install_deps("Rborist", dependencies = T)'
+#script:
+ # - Rscript -e 'remotes::check("Rborist", manual = FALSE)'
   
 notifications:
   email:
