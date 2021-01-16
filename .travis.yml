@@ -21,17 +21,17 @@ before_install:
   - Rscript -e 'install.packages("knitr")'
   - cd Rborist/Package/
   - chmod u+x Rborist.travis.sh
+   
+install:
   - ./Rborist.travis.sh
   - tar -xzvf Rborist_*.*-*.tar.gz
+  - Rscript -e 'install.packages("rmarkdown")'
+  - Rscript -e 'install.packages("roxygen2")'
+  - Rscript -e 'install.packages("devtools")'
+  - Rscript -e 'devtools::install_deps("Rborist", dependencies = T)'
   
-#install:
-  #- tar -xzvf Rborist_*.*-*.tar.gz
-  #- Rscript -e 'install.packages("rmarkdown")'
-  #- Rscript -e 'install.packages("roxygen2")'
-  #- Rscript -e 'install.packages("devtools")'
-  #- Rscript -e 'remotes::install_deps("Rborist", dependencies = T)'
-#script:
- # - Rscript -e 'remotes::check("Rborist", manual = FALSE)'
+script:
+  - Rscript -e 'devtools::check("Rborist", manual = FALSE)'
   
 notifications:
   email:
