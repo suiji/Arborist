@@ -63,10 +63,10 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
+- Forest sizes may exceed 32 bits, although individual trees retain this size constraint.
 - New option 'keyed' identifies predictors by name, rather than position within frame.
 - Version 0.2-4 to support prediction/validation for large (> 32 bits) observation counts.
 - New option 'impPermute' introduces permutation-based variable importance.
-- New option 'nThread' enables specification of OpenMP thread count.
 
 Correctness and runtime errors are addressed as received.  With reproducible test cases, repairs are typically uploaded to GitHub within several days.
 
