@@ -1,5 +1,5 @@
 language: r
-cache: packages
+#cache: packages
 sudo: required
 warnings_are_errors: true
 
