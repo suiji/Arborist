@@ -1,12 +1,12 @@
 language: r
-#cache: packages
+cache: packages
 sudo: required
 warnings_are_errors: true
 
 addons:
   apt:
     sources: ['ubuntu-toolchain-r-test']
-    packages: ['g++-6']
+    packages: ['g++-6','libgit2-devel']
 
 env:
   - COMPILER=g++-6
