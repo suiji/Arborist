@@ -51,7 +51,7 @@ Some users have reported diminished performance when running single-threaded.  W
 This paper compares several implementations of the Random Forest algorithm, including Rborist: (https://www.jstatsoft.org/article/view/v077i01/v77i01.pdf).  Benchmarks used in the study are also provided at 
 https://www.jstatsoft.org/article/view/v077i01.
     
-A recent paper compares several categories of regression tools, including Random Forests.  Rborist is among the faster packages offering high prediction accuracy: (https://doi.org/10.1109/ACCESS.2019.2933261).  Based on the findings, we are investigating changes to the package's default settings.  In particular, fixed-number predictor sampling (__mtry__) appears to provide more accurate predictions at low dimension than the current approach of Bernoulli sampling.
+A recent paper compares several categories of regression tools, including Random Forests.  Rborist is among the faster packages offering high prediction accuracy: (https://doi.org/10.1109/ACCESS.2019.2933261).  Based on the findings, we have updated the package's default settings.  In particular, fixed-number predictor sampling (__mtry__) appears to provide more accurate predictions at low dimension than the current approach of Bernoulli sampling.
     
 ### References
 
