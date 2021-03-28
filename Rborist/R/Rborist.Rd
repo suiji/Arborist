@@ -101,14 +101,9 @@
   a list containing either of:
   \code{LeafReg}{ a list consisting of regression leaf data:
       
-    \code{node}{ a packed structure expressing leaf scores and node counts.}
+    \code{score}{ a vector of leaf scores.}
 
-    \code{nodeHeight}{ a vector of accumulated tree heights within
-      \code{node}.}
-
-    \code{bagHeight}{ a vector of accumulated bag counts, per tree.}
-
-    \code{bagSample}{ a vector of packed data structures, one per
+    \code{sampler}{ a vector of packed data structures, one per
       unique row sample, containing the row index and number of times sampled.}
 
     \code{yTrain}{ the training response.}
@@ -116,15 +111,10 @@
   or
   \code{LeafCtg}{ a list consisting of classification leaf data:
       
-    \code{node}{ a packed structure expressing leaf scores and node counts.}
+    \code{score}{ a vector of leaf scores.}
 
-    \code{nodeHeight}{ a vector of accumulated tree heights within
-      \code{node}.}
-
-    \code{bagHeight}{ a vector of accumulated bag counts, per tree.}
-
-    \code{bagSample}{ a vector of packed data structures, one per
-        unique row sample, containing the row index and number of times sampled.}
+    \code{sampler}{ a vector of packed data structures, one per
+        unique row sample, containing the leaf index and number of times sampled.}
       \code{weight}{ a vector of per-category probabilities, one set for
         each sampled row.}    
     

@@ -15,6 +15,7 @@
 
 #include "trainbridge.h"
 
+#include "sampler.h"
 #include "leaf.h"
 #include "train.h"
 #include "rftrain.h"
@@ -35,18 +36,18 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 }
 
 
-unique_ptr<TrainChunk> TrainBridge::classification(const unsigned int *yCtg,
-                                                   const double *yProxy,
+unique_ptr<TrainChunk> TrainBridge::classification(const vector<unsigned int>& yCtg,
+                                                   const vector<double>& classWeight,
                                                    unsigned int nCtg,
                                                    unsigned int treeChunk,
                                                    unsigned int nTree) const {
-  auto train = Train::classification(trainFrame.get(), yCtg, yProxy, nCtg, treeChunk, nTree);
+  auto train = Train::classification(trainFrame.get(), yCtg, classWeight, nCtg, treeChunk, nTree);
 
   return make_unique<TrainChunk>(move(train));
 }
 
 
-unique_ptr<TrainChunk> TrainBridge::regression(const double* y,
+unique_ptr<TrainChunk> TrainBridge::regression(const vector<double>& y,
                                                unsigned int treeChunk) const {
   auto train = Train::regression(trainFrame.get(), y, treeChunk);
   return make_unique<TrainChunk>(move(train));
@@ -106,35 +107,23 @@ void TrainBridge::deInit() {
 TrainChunk::TrainChunk(unique_ptr<Train> train_) : train(move(train_)) {
 }
 
+
 TrainChunk::~TrainChunk() {
 }
 
 
-void TrainChunk::writeHeight(vector<size_t>& height, unsigned int tIdx) const {
+void TrainChunk::writeSamplerBlockHeight(vector<size_t>& outHeight, unsigned int tIdx) const {
+  size_t baseHeight = tIdx == 0 ? 0 : outHeight[tIdx - 1];
   unsigned int idx = tIdx;
-  for (auto th : getLeafHeight()) {
-    height[idx++] = th + (tIdx == 0 ? 0 : height[tIdx - 1]);
-  }
-}
-
-void TrainChunk::writeBagHeight(vector<size_t>& bagHeight, unsigned int tIdx) const {
-  unsigned int idx = tIdx;
-  for (auto th : leafBagHeight()) {
-    bagHeight[idx++] = th + (tIdx == 0 ? 0 : bagHeight[tIdx - 1]);
+  for (auto th : samplerHeight()) {
+    outHeight[idx++] = th + baseHeight;
   }
 }
 
 
-bool TrainChunk::leafFits(const vector<size_t>& height, unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
-  offset = tIdx == 0 ? 0 : height[tIdx - 1] * sizeof(Leaf);
-  bytes = getLeafHeight().back() * sizeof(Leaf);
-  return offset + bytes <= capacity;
-}
-
-
-bool TrainChunk::bagSampleFits(const vector<size_t>& height, unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
-  offset = tIdx == 0 ? 0 : height[tIdx - 1] * sizeof(BagSample);
-  bytes = leafBagHeight().back() * sizeof(BagSample);
+bool TrainChunk::samplerBlockFits(const vector<size_t>& height, unsigned int tIdx, size_t capacity, size_t& offset, size_t& bytes) const {
+  offset = tIdx == 0 ? 0 : height[tIdx - 1] * sizeof(SamplerNux);
+  bytes = samplerHeight().back() * sizeof(SamplerNux);
   return offset + bytes <= capacity;
 }
 
@@ -159,43 +148,13 @@ void TrainChunk::dumpFactorRaw(unsigned char facOut[]) const {
 }
 
 
-const vector<size_t>& TrainChunk::getLeafHeight() const {
-  return train->getLeaf()->getLeafHeight();
+const vector<size_t>& TrainChunk::samplerHeight() const {
+  return train->getSamplerHeight();
 }
 
 
-void TrainChunk::dumpLeafRaw(unsigned char leafOut[]) const {
-  train->getLeaf()->cacheLeafRaw(leafOut);
-}
-
-
-const vector<size_t>& TrainChunk::leafBagHeight() const {
-  return train->getLeaf()->getBagHeight();
-}
-
-
-void TrainChunk::dumpBagLeafRaw(unsigned char blOut[]) const {
-  train->getLeaf()->cacheBLRaw(blOut);
-}
-
-
-size_t TrainChunk::getWeightSize() const {
-  return train->getLeaf()->getWeightSize();
-}
-
-
-void TrainChunk::dumpLeafWeight(double weightOut[]) const {
-  train->getLeaf()->dumpWeight(weightOut);
-}
-
-
-void TrainChunk::dumpBagRaw(unsigned char bbRaw[]) const {
-  train->cacheBagRaw(bbRaw);
-}
-
-
-const class LFTrain* TrainChunk::getLeaf() const {
-  return train->getLeaf();
+void TrainChunk::dumpSamplerBlockRaw(unsigned char blOut[]) const {
+  train->cacheSamplerRaw(blOut);
 }
 
 

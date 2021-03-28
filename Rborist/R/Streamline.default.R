@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2020   Mark Seligman
+# Copyright (C)  2012-2021   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -17,15 +17,14 @@
 "Streamline.default" <- function(rs) {
   if (!inherits(rs, "Rborist"))
     stop("object not of class Rborist")
-  if (is.null(rs$leaf))
-    stop("Forest state needed for prediction")
+  if (is.null(rs$sampler))
+    stop("Sampler state needed for prediction")
   rb <- rs
-
-  rb$leaf$bagSample <- raw(0)
-  rb$bag <- list(raw = raw(0),
-                 nRow = 0,
-                 nTree = 0,
-                 rowBytes = 0)
+  rb$sampler <- list(
+      yTrain = rs$yTrain,
+      samplerBlock= raw(0),
+      nTree = rs$sampler$nTree
+      )
 
   rb
 }

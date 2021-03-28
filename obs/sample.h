@@ -39,7 +39,7 @@ class Sample {
 
      @return bin index.
    */
-  static constexpr unsigned int binIdx(unsigned int idx) {
+  static constexpr unsigned int binIdx(IndexT idx) {
     return idx >> locExp;
   }
 
@@ -49,21 +49,9 @@ class Sample {
   static bool bagging; // Whether to bag samples.
   vector<SampleNux> sampleNux; // Per-sample summary of values.
   vector<SumCount> ctgRoot; // Root census of categorical response.
-  vector<unsigned int> row2Sample; // Maps row index to sample index.
-  IndexT bagCount; // Number of distinct bagged (sampled) rows.
+  vector<IndexT> row2Sample; // Maps row index to sample index.
+  vector<IndexT> delRow; // Difference from previous bagged row #, beginning with implicit zero.
   double bagSum; // Sum of bagged responses.
-
-
-  /**
-     @brief Samples and counts occurrences of each sampled row
-     index.
-
-     @param[out] sCountRow outputs the number of times a given row is
-     sampled.
-
-     @return count of bagged rows.
-  */
-  static IndexT rowSample(vector<unsigned int> &sCountRow);
 
   
   /**
@@ -74,20 +62,17 @@ class Sample {
 
      @return binned version of index vector passed.
    */
-  static vector<unsigned int> binIndices(const vector<unsigned int>& idx);
+  static vector<unsigned int> binIndices(const vector<IndexT>& idx);
 
 
   /**
      @brief Tabulates a collection of indices by occurrence.
 
-     @param idx is the vector of indices to be tabulated.
-
      @param sampleCount tabulates the occurrence count of each index.
 
      @return count of uniquely-sampled elements.
    */
-  static IndexT countSamples(vector<unsigned int>& idx,
-			     vector<unsigned int>& sampleCount);
+  static IndexT countSamples(vector<IndexT>& sampleCount);
 
   
   /**
@@ -96,20 +81,16 @@ class Sample {
      @param y is the proxy / response:  classification / summary.
 
      @param yCtg is true response / zero:  classification / regression.
-
-     @param[out] treeBag records the bagged rows as high bits.
   */
-  void bagSamples(const double y[],
-                const unsigned int yCtg[],
-                class BV *treeBag);
+  void bagSamples(const vector<double>& y,
+		  const vector<PredictorT>& yCtg);
 
   
   /**
      @brief As above, but bypasses slow trivial sampling.
    */
-  void bagTrivial(const double y[],
-		  const unsigned int yCtg[],
-		  class BV *treeBag);
+  void bagTrivial(const vector<double>& y,
+		  const vector<PredictorT>& yCtg);
 
   
   /**
@@ -121,7 +102,10 @@ class Sample {
 
      @param ctg is the category index:  unused if not categorical.
    */
-  virtual double addNode(double val, unsigned int sCount, unsigned int ctg) = 0;
+  virtual double addNode(IndexT delRow,
+			 double val,
+			 IndexT sCount,
+			 PredictorT ctg) = 0;
 
  public:
 
@@ -134,14 +118,11 @@ class Sample {
 
      @param yCtg is the training response.
 
-     @param[out] treeBag outputs bit-encoded indicator of sampled rows.
-
      @return new SampleCtg instance.
    */
-  static unique_ptr<class SampleCtg> factoryCtg(const double y[],
+  static unique_ptr<class SampleCtg> factoryCtg(const vector<double>&  y,
                                                 const class TrainFrame *frame,
-                                                const unsigned int yCtg[],
-                                                class BV *treeBag);
+                                                const vector<PredictorT>& yCtg);
 
   /**
      @brief Static entry for continuous response (regression).
@@ -150,13 +131,10 @@ class Sample {
 
      @param frame summarizes the ranked observations.
 
-     @param[out] treeBag outputs bit-encoded indicator of sampled rows.
-
      @return new SampleReg instance.
    */
-  static unique_ptr<class SampleReg>factoryReg(const double y[],
-                                               const class TrainFrame *frame,
-                                               class BV *treeBag);
+  static unique_ptr<class SampleReg>factoryReg(const vector<double>& y,
+                                               const class TrainFrame *frame);
   
 
   /**
@@ -187,6 +165,12 @@ class Sample {
   virtual ~Sample();
 
 
+  // EXIT
+  const vector<IndexT>& getDelRow() const {
+    return delRow;
+  }
+
+  
   /**
      @brief Getter for root category census vector.
    */
@@ -203,7 +187,7 @@ class Sample {
   /**
      @brief Getter for user-specified sample count.
    */
-  static inline unsigned int getNSamp() {
+  static inline IndexT getNSamp() {
     return nSamp;
   }
 
@@ -211,8 +195,8 @@ class Sample {
   /**
      @brief Getter for bag count:  # uniquely-sampled rows.
    */
-  inline unsigned int getBagCount() const {
-    return bagCount;
+  inline IndexT getBagCount() const {
+    return delRow.size();
   }
 
 
@@ -237,7 +221,7 @@ class Sample {
 			 IndexT*& sIdx,
 			 const SampleNux*& sNux) const {
     IndexT smpIdx = row2Sample[row];
-    if (smpIdx < bagCount) {
+    if (smpIdx < getBagCount()) {
       *sIdx++ = smpIdx;
       sNux = &sampleNux[smpIdx];
       return true;
@@ -249,21 +233,12 @@ class Sample {
 
 
   /**
-     @brief Accumulates 'sum' field into various containers.
+     @brief Getter for sample count.
 
      @param sIdx is the sample index.
-
-     @param[in, out] bulkSum accumulates sums irrespective of category.
-
-     @param[in, out] ctgSum accumulates sums by category.
    */
-  inline void accum(IndexT sIdx,
-                    double& bulkSum,
-                    double* ctgSum) const {
-    unsigned int ctg;
-    FltVal sum = sampleNux[sIdx].refCtg(ctg);
-    bulkSum += sum;
-    ctgSum[ctg] += sum;
+  inline IndexT getSCount(IndexT sIdx) const {
+    return sampleNux[sIdx].getSCount();
   }
 
 
@@ -272,8 +247,8 @@ class Sample {
 
      @param sIdx is the sample index.
    */
-  inline unsigned int getSCount(IndexT sIdx) const {
-    return sampleNux[sIdx].getSCount();
+  inline IndexT getDelRow(IndexT sIdx) const {
+    return sampleNux[sIdx].getDelRow();
   }
 
 
@@ -284,6 +259,14 @@ class Sample {
    */
   inline FltVal getSum(IndexT sIdx) const {
     return sampleNux[sIdx].getSum();
+  }
+
+  
+  /**
+     @return response category at index passed.
+   */
+  inline PredictorT getCtg(IndexT sIdx) const {
+    return sampleNux[sIdx].getCtg();
   }
 };
 
@@ -305,10 +288,11 @@ class SampleReg : public Sample {
 
      @param ctg unused, as response is not categorical.
    */
-  inline double addNode(double yVal,
-                        unsigned int sCount,
+  inline double addNode(IndexT delRow,
+			double yVal,
+                        IndexT sCount,
                         PredictorT ctg) {
-    sampleNux.emplace_back(yVal, sCount);
+    sampleNux.emplace_back(delRow, yVal, sCount);
     return sampleNux.back().getSum();
   }
   
@@ -317,10 +301,8 @@ class SampleReg : public Sample {
      @brief Inverts the randomly-sampled vector of rows.
 
      @param y is the response vector.
-
-     @param[out] treeBag encodes the bagged rows for the tree.
   */
-  void bagSamples(const double y[], class BV *treeBag);
+  void bagSamples(const vector<double>& y);
 };
 
 
@@ -342,8 +324,11 @@ class SampleCtg : public Sample {
 
      @return sum of sampled response values.
    */
-  inline double addNode(double yVal, unsigned int sCount, PredictorT ctg) {
-    sampleNux.emplace_back(yVal, sCount, ctg);
+  inline double addNode(IndexT delRow,
+			double yVal,
+			IndexT sCount,
+			PredictorT ctg) {
+    sampleNux.emplace_back(delRow, yVal, sCount, ctg);
     double ySum = sampleNux.back().getSum();
     ctgRoot[ctg] += SumCount(ySum, sCount);
 
@@ -357,12 +342,9 @@ class SampleCtg : public Sample {
      @param yCtg is the response vector.
 
      @param y is the proxy response vector.
-
-     @param[out] treeBag records the bagged rows.
   */
-  void bagSamples(const unsigned int yCtg[],
-                const double y[],
-                class BV *treeBag);
+  void bagSamples(const vector<PredictorT>& yCtg,
+		  const vector<double>& y);
 };
 
 

@@ -23,6 +23,7 @@
 #include "obspart.h"
 #include "sfcart.h"
 #include "splitnux.h"
+#include "sampler.h"
 #include "leaf.h"
 #include "candrf.h"
 #include "ompthread.h"

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -47,7 +47,8 @@ struct CallBack {
 
     @return std::vector copy of R-generated random variates.
   */
-  static vector<double> rUnif(size_t len);
+  static vector<double> rUnif(size_t len,
+			      double scale = 1.0);
 };
 
 #endif

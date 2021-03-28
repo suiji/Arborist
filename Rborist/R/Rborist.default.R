@@ -249,9 +249,8 @@ RFDeep <- function(preFormat, argList) {
 
     if (argList$impPermute > 0) {
         arbOut <- list(
-            bag = train$bag,
+            sampler = train$sampler,
             forest = train$forest,
-            leaf = train$leaf,
             predMap = train$predMap,
             signature = preFormat$signature,
             training = training,
@@ -262,9 +261,8 @@ RFDeep <- function(preFormat, argList) {
     }
     else {
         arbOut <- list(
-            bag = train$bag,
+            sampler = train$sampler,
             forest = train$forest,
-            leaf = train$leaf,
             predMap = train$predMap,
             signature = preFormat$signature,
             training = training,

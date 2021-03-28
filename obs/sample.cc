@@ -15,7 +15,6 @@
 
 
 #include "sample.h"
-#include "bv.h"
 #include "callback.h"
 #include "trainframe.h"
 
@@ -41,8 +40,7 @@ void Sample::deImmutables() {
 
 Sample::Sample(const TrainFrame* frame) :
   ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
-  row2Sample(vector<unsigned int>(frame->getNRow())),
-  bagCount(0),
+  row2Sample(vector<IndexT>(frame->getNRow())),
   bagSum(0.0) {
 }
 
@@ -51,22 +49,20 @@ Sample::~Sample() {
 }
 
 
-unique_ptr<SampleCtg> Sample::factoryCtg(const double y[],
+unique_ptr<SampleCtg> Sample::factoryCtg(const vector<double>& y,
                                          const TrainFrame* frame,
-                                         const unsigned int yCtg[],
-                                         BV *treeBag) {
+                                         const vector<PredictorT>& yCtg) {
   unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(frame);
-  sampleCtg->bagSamples(yCtg, y, treeBag);
+  sampleCtg->bagSamples(yCtg, y);
 
   return sampleCtg;
 }
 
 
-unique_ptr<SampleReg> Sample::factoryReg(const double y[],
-                                         const TrainFrame* frame,
-                                         BV *treeBag) {
+unique_ptr<SampleReg> Sample::factoryReg(const vector<double>& y,
+                                         const TrainFrame* frame) {
   unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(frame);
-  sampleReg->bagSamples(y, treeBag);
+  sampleReg->bagSamples(y);
   return sampleReg;
 }
 
@@ -76,10 +72,9 @@ SampleReg::SampleReg(const TrainFrame *frame) : Sample(frame) {
 
 
 
-void SampleReg::bagSamples(const double y[], BV *treeBag) {
-  vector<unsigned int> ctgProxy(row2Sample.size());
-  fill(ctgProxy.begin(), ctgProxy.end(), 0);
-  Sample::bagSamples(y, &ctgProxy[0], treeBag);
+void SampleReg::bagSamples(const vector<double>& y) {
+  vector<PredictorT> ctgProxy(row2Sample.size());
+  Sample::bagSamples(y, ctgProxy);
 }
 
 
@@ -92,59 +87,52 @@ SampleCtg::SampleCtg(const TrainFrame* frame) : Sample(frame) {
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::bagSamples(const unsigned int yCtg[], const double y[], BV *treeBag) {
-  Sample::bagSamples(y, yCtg, treeBag);
+void SampleCtg::bagSamples(const vector<PredictorT>& yCtg,
+			   const vector<double>& y) {
+  Sample::bagSamples(y, yCtg);
 }
 
 
-void Sample::bagSamples(const double y[], const unsigned int yCtg[], BV *treeBag) {
+void Sample::bagSamples(const vector<double>&  y,
+			const vector<PredictorT>& yCtg) {
   if (!bagging) {
-    bagTrivial(y, yCtg, treeBag);
+    bagTrivial(y, yCtg);
     return;
   }
 
   // Samples row indices and counts occurrences.
   //
   const IndexT nRow = row2Sample.size();
-  vector<unsigned int> sCountRow(nRow);
-  bagCount = rowSample(sCountRow);
+  vector<IndexT> sCountRow(nRow);
+  IndexT bagCount = countSamples(sCountRow);
 
   // Copies contents of sampled outcomes and builds mapping vectors.
   //
   fill(row2Sample.begin(), row2Sample.end(), bagCount);
-  const unsigned int slotBits = BV::getSlotElts();
-  unsigned int slot = 0;
-  unsigned int sIdx = 0;
-  for (unsigned int base = 0; base < nRow; base += slotBits, slot++) {
-    unsigned int bits = 0ul;
-    unsigned int mask = 1ul;
-    unsigned int supRow = nRow < base + slotBits ? nRow : base + slotBits;
-    for (unsigned int row = base; row < supRow; row++, mask <<= 1) {
-      if (sCountRow[row] > 0) {
-        row2Sample[row] = sIdx++;
-        bagSum += addNode(y[row], sCountRow[row], yCtg[row]);
-        bits |= mask;
-      }
+  delRow = vector<IndexT>(bagCount);
+  IndexT sIdx = 0;
+  IndexT rowPrev = 0;
+  for (IndexT row = 0; row < nRow; row++) {
+    if (sCountRow[row] > 0) {
+      row2Sample[row] = sIdx;
+      delRow[sIdx] = row - rowPrev;
+      bagSum += addNode(delRow[sIdx], y[row], sCountRow[row], yCtg[row]);
+      rowPrev = row;
+      sIdx++;
     }
-    treeBag->setSlot(slot, bits);
   }
 }
 
 
-void Sample::bagTrivial(const double y[], const unsigned int yCtg[], BV *treeBag) {
-  bagCount = row2Sample.size();
+void Sample::bagTrivial(const vector<double>& y,
+			const vector<PredictorT>& yCtg) {
+  IndexT bagCount = row2Sample.size();
+  delRow = vector<IndexT>(bagCount);
+  fill(delRow.begin() + 1, delRow.end(), 1); // Saturates bag row.
   iota(row2Sample.begin(), row2Sample.end(), 0);
   for (IndexT row = 0; row < bagCount; row++) {
-    bagSum += addNode(y[row], 1, yCtg[row]);
+    bagSum += addNode(delRow[row], y[row], 1, yCtg[row]);
   }
-  // Saturate bag section?
-}
-
-
-IndexT Sample::rowSample(vector<unsigned int> &sCountRow) {
-  vector<IndexT> rvRow(CallBack::sampleRows(nSamp));
-  fill(sCountRow.begin(), sCountRow.end(), 0);
-  return countSamples(rvRow, sCountRow);
 }
 
 
@@ -152,8 +140,8 @@ IndexT Sample::rowSample(vector<unsigned int> &sCountRow) {
 // binning, access is random.  Larger bins improve locality, but
 // performance begins to degrade when bin size exceeds available
 // cache.
-IndexT Sample::countSamples(vector<IndexT>& idx,
-			    vector<unsigned int>& sc) {
+IndexT Sample::countSamples(vector<IndexT>& sc) {
+  vector<IndexT> idx(CallBack::sampleRows(nSamp));
   if (binIdx(sc.size()) > 0) {
     idx = binIndices(idx);
   }
@@ -174,7 +162,6 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
   // Performance not sensitive to bin width.
   //
   vector<unsigned int> binPop(1 + binIdx(idx.size()));
-  fill(binPop.begin(), binPop.end(), 0);
   for (auto val : idx) {
     binPop[binIdx(val)]++;
   }

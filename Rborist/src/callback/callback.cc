@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -35,9 +35,10 @@ vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
 }
 
 
-vector<double> CallBack::rUnif(size_t len) {
+vector<double> CallBack::rUnif(size_t len, double scale) {
   RNGScope scope;
   NumericVector rn(runif(len));
+  rn = rn * scale;
 
   vector<double> rnOut(rn.begin(), rn.end());
   return rnOut;

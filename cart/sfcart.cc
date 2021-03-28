@@ -22,9 +22,6 @@
 #include "splitcart.h"
 #include "branchsense.h"
 
-// Post-split consumption:
-#include "pretree.h"
-
 
 SFRegCart::SFRegCart(Frontier* frontier) :
   SFReg(frontier, false, EncodingStyle::trueBranch) {
@@ -97,13 +94,7 @@ void SFRegCart::split(vector<IndexSet>& indexSet,
     }
   }
 
-  nuxMax = maxCandidates(sc);
-  for (auto & iSet : indexSet) {
-    SplitNux* nux = &nuxMax[iSet.getSplitIdx()];
-    if (iSet.isInformative(nux)) {
-      encodeCriterion(&iSet, nux);
-    }
-  }
+  nuxMax = maxCandidates(indexSet, sc);
 }
 
 
@@ -118,13 +109,7 @@ void SFCtgCart::split(vector<IndexSet>& indexSet,
     }
   }
 
-  nuxMax = maxCandidates(sc);
-  for (auto & iSet : indexSet) {
-    SplitNux* nux = &nuxMax[iSet.getSplitIdx()];
-    if (iSet.isInformative(nux)) {
-      encodeCriterion(&iSet, nux);
-    }
-  }
+  nuxMax = maxCandidates(indexSet, sc);
 }
 
 

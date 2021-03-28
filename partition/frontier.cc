@@ -43,8 +43,7 @@ Frontier::~Frontier() {
 }
 
 
-unique_ptr<PreTree> Frontier::oneTree(const Train* train,
-				      const TrainFrame* frame,
+unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
                                       const Sample *sample) {
   unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
   return frontier->levels(sample);
@@ -68,8 +67,6 @@ Frontier::Frontier(const TrainFrame* frame_,
   indexSet[0].initRoot(sample);
   relBase[0] = 0;
   iota(rel2ST.begin(), rel2ST.end(), 0);
-  fill(st2Split.begin(), st2Split.end(), 0);
-  fill(st2PT.begin(), st2PT.end(), 0);
 }
 
 
@@ -79,11 +76,12 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample) {
   unsigned int level = 0;
   while (!indexSet.empty()) {
     unique_ptr<BranchSense> branchSense = SplitFrontier::split(this, indexSet, pretree.get());
-    indexSet = splitDispatch(branchSense.get(), level++);
+    indexSet = splitDispatch(branchSense.get(), level);
+    level++;
   }
 
   relFlush();
-  pretree->finish(st2PT);
+  pretree->cacheSampleMap(move(st2PT));
   return move(pretree);
 }
 
@@ -225,11 +223,10 @@ void Frontier::stReindex(const BranchSense* branchSense,
                          IndexT splitNext,
                          IndexT chunkStart,
                          IndexT chunkNext) {
-  IndexT chunkEnd = min(chunkNext, bagCount);
-  for (IndexT stIdx = chunkStart; stIdx < chunkEnd; stIdx++) {
+  for (IndexT stIdx = chunkStart; stIdx < min(chunkNext, bagCount); stIdx++) {
+    IndexT splitIdx = st2Split[stIdx];
     if (stPath->isLive(stIdx)) {
       IndexT pathSucc, ptSucc;
-      IndexT splitIdx = st2Split[stIdx];
       IndexT splitSucc = indexSet[splitIdx].offspring(branchSense, stIdx, pathSucc, ptSucc);
       st2Split[stIdx] = splitSucc;
       stPath->setSuccessor(stIdx, pathSucc, splitSucc < splitNext);

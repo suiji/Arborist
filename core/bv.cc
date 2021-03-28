@@ -85,10 +85,33 @@ BV *BV::Resize(size_t bitMin) {
 }
 
 
-void BV::consume(vector<RawT> &out, size_t bitEnd) const {
+void BV::consume(vector<RawT>& out, size_t bitEnd) const {
   size_t slots = bitEnd == 0 ? nSlot : slotAlign(bitEnd);
   out.reserve(slots);
   out.insert(out.end(), raw, raw + slots);
+}
+
+
+void BV::delEncode(const vector<IndexT>& delPos) {
+  const unsigned int slotBits = getSlotElts();
+  unsigned int log2Bits = 0ul;
+  while (slotBits > (1ul << log2Bits))
+    log2Bits++;
+
+  IndexT pos = 0;
+  IndexT slotPrev = 0;
+  unsigned int bits = 0ul;
+  for (IndexT sIdx = 0; sIdx < delPos.size(); sIdx++) {
+    pos += delPos[sIdx];
+    IndexT slot = pos >> log2Bits;
+    if (slot != slotPrev) {
+      setSlot(slotPrev, bits);
+      bits = 0ul;
+    }
+    bits |= (1ul << (pos & (slotBits - 1)));
+    slotPrev = slot;
+  }
+  setSlot(slotPrev, bits); // Flushes remaining bits.
 }
 
 

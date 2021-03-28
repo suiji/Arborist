@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2020   Mark Seligman
+# Copyright (C)  2012-2021   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -20,8 +20,8 @@
     stop("object not of class Rborist")
   if (is.null(object$forest))
     stop("Forest state needed for prediction")
-  if (is.null(object$leaf))
-    stop("Leaf state needed for prediction")
+  if (is.null(object$sampler))
+    stop("Sampler state needed for prediction")
   if (is.null(object$signature))
     stop("Training signature missing")
   if (nThread < 0)
@@ -65,8 +65,8 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
   sigTrain <- objTrain$signature
   deframeRow <- deframe(newdata, sigTrain)
 
-  leaf <- objTrain$leaf
-  if (inherits(leaf, "LeafReg")) {
+  sampler <- objTrain$sampler
+  if (inherits(sampler, "SamplerReg")) {
     if (is.null(quantVec)) {
       prediction <- tryCatch(.Call("TestReg", deframeRow, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
     }
@@ -74,7 +74,7 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
       prediction <- tryCatch(.Call("TestQuant", deframeRow, objTrain, quantVec, yTest, oob, nThread), error = function(e) {stop(e)})
     }
   }
-  else if (inherits(leaf, "LeafCtg")) {
+  else if (inherits(sampler, "SamplerCtg")) {
     if (!is.null(quantVec))
       stop("Quantiles not supported for classifcation")
 
@@ -89,7 +89,7 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
     }
   }
   else {
-    stop("Unsupported leaf type")
+    stop("Unsupported sampler type")
   }
 
   if (verbose)

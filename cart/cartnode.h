@@ -51,7 +51,7 @@ struct CartNode : public TreeNode {
      @return pretree index of false branch target.
    */
   inline IndexT getIdFalse(IndexT ptId) const {
-    return isNonterminal() ? getIdTrue(ptId) + 1 : 0;
+    return isNonterminal() ? ptId + delIdx + 1 : 0;
   }
 
 

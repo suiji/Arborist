@@ -41,15 +41,15 @@ struct TrainBridge {
   vector<PredictorT> getPredMap() const;
   
 
-  unique_ptr<struct TrainChunk> classification(const unsigned int *yCtg,
-		 const double *yProxy,
+  unique_ptr<struct TrainChunk> classification(const vector<unsigned int>& yCtg,
+		 const vector<double>& yProxy,
 		 unsigned int nCtg,
 		 unsigned int treeChunk,
 		 unsigned int nTree) const;
 
 
   unique_ptr<struct TrainChunk>
-  regression(const double *y,
+  regression(const vector<double>& y,
 	     unsigned int treeChunk) const;
 
   /**
@@ -60,9 +60,6 @@ struct TrainBridge {
   static void initBlock(unsigned int trainBlock);
 
 
-  /**
-     @brief Registers per-node probabilities of predictor selection.
-  */
   static void initProb(unsigned int predFixed,
                        const vector<double> &predProb);
 
@@ -118,7 +115,7 @@ struct TrainBridge {
      @param regMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  void initMono(const vector<double> &regMono);
+  void initMono(const vector<double>& regMono);
 
   /**
      @brief Static de-initializer.
@@ -136,35 +133,13 @@ struct TrainChunk {
   ~TrainChunk();
   
 
-  void writeHeight(vector<size_t>& height,
-                   unsigned int tIdx) const;
-
-
-  void writeBagHeight(vector<size_t>& bagHeight,
-                      unsigned int tIdx) const;
-
+  void writeSamplerBlockHeight(vector<size_t>& samplerHeight,
+			  unsigned int tIdx) const;
 
   /**
-     @brief Determines whether buffer size is sufficient to accommodate Leaf.
-
-     @param capacity is the current buffer capacity.
-
-     @param[out] offset is the offset of the upcoming write.
-
-     @param[out] bytes is the number of bytes in the upcoming write.
-
-     @return true iff upcoming write fits within current capacity.
+     @brief As above, but Sampler.
    */
-  bool leafFits(const vector<size_t>& height,
-                unsigned int tIdx,
-                size_t capacity,
-                size_t& offset,
-                size_t& bytes) const;
-
-  /**
-     @brief As above, but BagSample.
-   */
-  bool bagSampleFits(const vector<size_t>& height,
+  bool samplerBlockFits(const vector<size_t>& height,
                      unsigned int tIdx,
                      size_t capacity,
                      size_t& offset,
@@ -182,26 +157,10 @@ struct TrainChunk {
   void dumpFactorRaw(unsigned char facOut[]) const;
 
 
-  /**
-     @brief Sends trained Leaf components to front end.
-   */
-  const vector<size_t>& getLeafHeight() const;
-
-  void dumpLeafRaw(unsigned char leafOut[]) const;
-
-  const vector<size_t>& leafBagHeight() const;
-
-  void dumpBagLeafRaw(unsigned char blOut[]) const;
-
-  size_t getWeightSize() const;
-
-  void dumpLeafWeight(double weightOut[]) const;
+  const vector<size_t>& samplerHeight() const;
 
 
-  /**
-     @brief Getter for raw leaf pointer.
-   */
-  const class LFTrain *getLeaf() const;
+  void dumpSamplerBlockRaw(unsigned char blOut[]) const;
 
 
   /**
@@ -215,9 +174,8 @@ struct TrainChunk {
 
      @return reference to per-preditor information vector.
    */
-  const vector<double> &getPredInfo() const;
+  const vector<double>& getPredInfo() const;
 
-  void dumpBagRaw(unsigned char bbRaw[]) const;
 
 private:
 

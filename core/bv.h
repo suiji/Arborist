@@ -46,6 +46,11 @@ class BV {
 
   ~BV();
 
+  /**
+     @brief Sets slots from a vector position deltas.
+   */
+  void delEncode(const vector<IndexT>& delPos);
+  
   inline void dumpRaw(unsigned char *bbRaw) const {
     for (size_t i = 0; i < nSlot * sizeof(RawT); i++) {
       bbRaw[i] = *((unsigned char *) &raw[0] + i);

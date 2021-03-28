@@ -214,7 +214,7 @@ unique_ptr<BranchSense> SplitFrontier::restageAndSplit(vector<IndexSet>& indexSe
   vector<SplitNux> postCand = postSchedule(preCand);
   setOffsets(postCand);
 
-  split(indexSet, postCand);
+  split(indexSet, postCand); // virtual
   consumeFrontier(pretree);
 
   return move(branchSense);
@@ -425,7 +425,8 @@ const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
 }
 
 
-vector<SplitNux> SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
+vector<SplitNux> SplitFrontier::maxCandidates(vector<IndexSet>& indexSet,
+					      const vector<SplitNux>& sc) {
   vector<SplitNux> nuxMax(nSplit); // Info initialized to zero.
 
   OMPBound splitTop = nSplit;
@@ -437,6 +438,17 @@ vector<SplitNux> SplitFrontier::maxCandidates(const vector<SplitNux>& sc) {
     }
   }
 
+  for (auto & iSet : indexSet) {
+    IndexT splitIdx = iSet.getSplitIdx();
+    SplitNux* nux = &nuxMax[splitIdx];
+    if (iSet.isInformative(nux)) {
+      encodeCriterion(&iSet, nux);
+    }
+    else {
+      SplitNux noNux;
+      nuxMax[splitIdx] = noNux;
+    }
+  }
   return nuxMax;
 }
 
@@ -460,7 +472,7 @@ void SplitFrontier::consumeSimple(const vector<SplitNux>& nuxSimple,
 				  PreTree* pretree) const {
   for (auto nux : nuxSimple) {
     if (!nux.noNux()) {
-      pretree->nonterminal(nux);
+      pretree->setNonterminal(nux);
       consumeCriterion(pretree, nux);
     }
   }

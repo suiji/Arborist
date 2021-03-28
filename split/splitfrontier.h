@@ -147,7 +147,8 @@ protected:
 
   vector<class SplitNux> nuxMax;  // Used iff simple criteria enabled.
 
-  vector<class SplitNux> maxCandidates(const vector<class SplitNux>& sc);
+  vector<class SplitNux> maxCandidates(vector <class IndexSet>& indexSet,
+				       const vector<class SplitNux>& sc);
   
   class SplitNux candMax(const vector<class SplitNux>& sc,
 			 IndexT splitOff,

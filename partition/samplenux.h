@@ -36,6 +36,7 @@ class SampleNux {
 
  protected:
   static unsigned int ctgShift; // Pack:  nonzero iff categorical.
+  IndexT delRow; // Difference in row number.
 
   // Integer-sized container is likely overkill:  typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
@@ -76,9 +77,11 @@ class SampleNux {
 
      @param ctg is the response category, if classification.
   */ 
-  SampleNux(FltVal yVal,
-            unsigned int sampleCount,
-            unsigned int ctg = 0) :
+  SampleNux(IndexT delRow_,
+	    FltVal yVal,
+            IndexT sampleCount,
+            PredictorT ctg = 0) :
+    delRow(delRow_),
     sCount((sampleCount << ctgShift) | ctg),
     ySum(yVal * sampleCount) {
   }
@@ -94,7 +97,7 @@ class SampleNux {
 
      @return sample sum.
   */
-  inline FltVal refCtg(unsigned int &ctg) const {
+  inline FltVal refCtg(PredictorT& ctg) const {
     ctg = getCtg();
     return ySum;
   }
@@ -109,7 +112,7 @@ class SampleNux {
 
      @return void.
    */
-  inline void ref(FltVal &ySum, unsigned int &sCount) const {
+  inline void ref(FltVal& ySum, IndexT& sCount) const {
     ySum = this->ySum;
     sCount = this->sCount;
   }
@@ -122,6 +125,11 @@ class SampleNux {
    */
   inline double getSum() const {
     return ySum;
+  }
+
+
+  inline auto getDelRow() const {
+    return delRow;
   }
   
 
@@ -269,8 +277,8 @@ class SampleRank : public SampleNux {
 
      @return rank of predictor value at sample.
    */
-  inline auto regFields(FltVal &ySum,
-                        unsigned int &sCount) const {
+  inline auto regFields(FltVal& ySum,
+                        IndexT& sCount) const {
     ySum = this->ySum;
     sCount = this->sCount;
 
@@ -293,7 +301,7 @@ class SampleRank : public SampleNux {
      @return sample count.
    */
   inline auto ctgFields(FltVal &ySum,
-                        unsigned int &yCtg) const {
+                        PredictorT& yCtg) const {
     ySum = this->ySum;
     yCtg = getCtg();
 
@@ -313,9 +321,9 @@ class SampleRank : public SampleNux {
 
      @return predictor rank.
    */
-  inline auto ctgFields(FltVal &ySum_,
-                        unsigned int &sCount_,
-                        unsigned int &yCtg_) const {
+  inline auto ctgFields(FltVal& ySum_,
+                        IndexT& sCount_,
+                        PredictorT& yCtg_) const {
     sCount_ = ctgFields(ySum_, yCtg_);
     return rank;
   }

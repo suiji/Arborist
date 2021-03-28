@@ -158,9 +158,8 @@ class Frontier {
 
     @return trained pretree object.
   */
-  static unique_ptr<class PreTree> oneTree(const class Train* train,
-	  const class TrainFrame* frame,
-	  const class Sample* sample);
+  static unique_ptr<class PreTree> oneTree(const class TrainFrame* frame,
+					   const class Sample* sample);
 
 
   /**
