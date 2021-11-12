@@ -23,6 +23,8 @@
    @author Mark Seligman
  */
 
+#include "forestbridge.h"
+#include "samplerbridge.h"
 #include "trainR.h"
 #include "trainbridge.h"
 #include "samplerR.h"
@@ -61,14 +63,13 @@ List TrainRf::train(const List& argList,
 
   initFromArgs(argList, trainBridge.get());
 
-  unique_ptr<TrainRf> trainRF;
+  List outList;
   if (as<PredictorT>(argList["nCtg"]) > 0) {
-    trainRF = classification(argList, trainBridge.get());
+    outList = classification(argList, trainBridge.get(), diag);
   }
   else {
-    trainRF = regression(argList, trainBridge.get());
+    outList = regression(argList, trainBridge.get(), diag);
   }
-  List outList = trainRF->summarize(trainBridge.get(), diag);
 
   if (verbose) {
     Rcout << "Training completed" << endl;
@@ -92,15 +93,12 @@ SEXP TrainRf::initFromArgs(const List& argList,
   IntegerVector predMap(pm.begin(), pm.end());
 
   verbose = as<bool>(argList["verbose"]);
-  SamplerR::init(as<bool>(argList["thinLeaves"]));
-  
   NumericVector probVecNV((SEXP) argList["probVec"]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
   trainBridge->initProb(as<PredictorT>(argList["predFixed"]), predProb);
 
   RowSample::init(as<NumericVector>(argList["rowWeight"]),
                    as<bool>(argList["withRepl"]));
-  trainBridge->initSample(as<IndexT>(argList["nSamp"]));
 
   NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
@@ -109,9 +107,7 @@ SEXP TrainRf::initFromArgs(const List& argList,
 			 as<double>(argList["minInfo"]),
 			 splitQuant);
 
-  trainBridge->initTree(as<IndexT>(argList["nSamp"]),
-                  as<unsigned int>(argList["minNode"]),
-                  as<unsigned int>(argList["maxLeaf"]));
+  trainBridge->initTree(as<unsigned int>(argList["maxLeaf"]));
   trainBridge->initBlock(as<unsigned int>(argList["treeBlock"]));
   trainBridge->initOmp(as<unsigned int>(argList["nThread"]));
   
@@ -131,14 +127,14 @@ SEXP TrainRf::deInit(TrainBridge* trainBridge) {
   BEGIN_RCPP
 
   verbose = false;
-  SamplerR::deInit();
   trainBridge->deInit();
   END_RCPP
 }
 
 
-unique_ptr<TrainRf> TrainRf::classification(const List& argList,
-					    const TrainBridge* trainBridge) {
+List TrainRf::classification(const List& argList,
+			     const TrainBridge* trainBridge,
+			     vector<string>& diag) {
   IntegerVector yTrain((SEXP) argList["y"]);
   NumericVector classWeight((SEXP) argList["classWeight"]);
   unsigned int nTree = as<unsigned int>(argList["nTree"]);
@@ -147,19 +143,22 @@ unique_ptr<TrainRf> TrainRf::classification(const List& argList,
   vector<unsigned int> yzVec(yZero.begin(), yZero.end());
   NumericVector weight = ctgWeight(yZero, classWeight);
   vector<double> weightVec(weight.begin(), weight.end());
+
+  IndexT nSamp = as<IndexT>(argList["nSamp"]);
+  bool thin = as<bool>(argList["thinSamples"]);
   
-  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, yTrain);
+  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nSamp, nTree, thin);
+  unsigned int nCtg = CharacterVector(yTrain.attr("levels")).length();
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainChunk = trainBridge->classification(yzVec,
-						  weightVec,
-						  CharacterVector(yTrain.attr("levels")).length(),
-						  chunkThis,
-						  nTree);
-    tb->consume(trainChunk.get(), treeOff, chunkThis);
+    SamplerBridge sb(yzVec, nSamp, chunkThis, !thin, nCtg, weightVec);
+    ForestBridge fb(chunkThis);
+    auto trainChunk = trainBridge->train(&fb, &sb);
+    tb->consume(&fb, &sb, treeOff, chunkThis);
+    tb->consumeInfo(trainChunk.get());
   }
 
-  return tb;
+  return tb->summarize(trainBridge, yTrain, diag);
 }
 
 
@@ -185,20 +184,13 @@ NumericVector TrainRf::ctgWeight(const IntegerVector& y,
 }
 
 
-void TrainRf::consume(const TrainChunk* train,
+void TrainRf::consume(const ForestBridge* fb,
+		      const SamplerBridge* sb,
                       unsigned int treeOff,
-                      unsigned int chunkSize) {
+                      unsigned int chunkSize) const {
   double scale = safeScale(treeOff + chunkSize);
-  sampler->consume(train, treeOff, scale);
-  forest->consume(train, treeOff, scale);
-
-  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
-  if (predInfo.length() == 0) {
-    predInfo = infoChunk;
-  }
-  else {
-    predInfo = predInfo + infoChunk;
-  }
+  sampler->consume(sb, scale);
+  forest->consume(fb, treeOff, scale);
   
   if (verbose) {
     Rcout << treeOff + chunkSize << " trees trained" << endl;
@@ -206,15 +198,42 @@ void TrainRf::consume(const TrainChunk* train,
 }
 
 
+void TrainRf::consumeInfo(const TrainChunk* train) {
+  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
+  if (predInfo.length() == 0) {
+    predInfo = infoChunk;
+  }
+  else {
+    predInfo = predInfo + infoChunk;
+  }
+}
+
+
 List TrainRf::summarize(const TrainBridge* trainBridge,
-                        const vector<string>& diag) {
+			const IntegerVector& yTrain,
+			const vector<string>& diag) {
   BEGIN_RCPP
   return List::create(
                       _["predInfo"] = scaleInfo(trainBridge),
                       _["diag"] = diag,
                       _["forest"] = move(forest->wrap()),
 		      _["predMap"] = move(trainBridge->getPredMap()),
-                      _["sampler"] = move(sampler->wrap())
+                      _["sampler"] = move(sampler->wrap(yTrain))
+                      );
+  END_RCPP
+}
+
+
+List TrainRf::summarize(const TrainBridge* trainBridge,
+			const NumericVector& yTrain,
+			const vector<string>& diag) {
+  BEGIN_RCPP
+  return List::create(
+                      _["predInfo"] = scaleInfo(trainBridge),
+                      _["diag"] = diag,
+                      _["forest"] = move(forest->wrap()),
+		      _["predMap"] = move(trainBridge->getPredMap()),
+                      _["sampler"] = move(sampler->wrap(yTrain))
                       );
   END_RCPP
 }
@@ -234,36 +253,33 @@ NumericVector TrainRf::scaleInfo(const TrainBridge* trainBridge) {
 }
 
 
-unique_ptr<TrainRf> TrainRf::regression(const List& argList,
-					const TrainBridge* trainBridge) {
-  NumericVector y(as<NumericVector>(argList["y"]));
+List TrainRf::regression(const List& argList,
+			 const TrainBridge* trainBridge,
+			 vector<string>& diag) {
+  NumericVector yTrain(as<NumericVector>(argList["y"]));
   unsigned int nTree = as<unsigned int>(argList["nTree"]);
+  IndexT nSamp = as<IndexT>(argList["nSamp"]);
+  bool thin = as<bool>(argList["thinSamples"]);
 
-  vector<double> yVec(y.begin(), y.end());
-  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nTree, y);
+  vector<double> yVec(yTrain.begin(), yTrain.end());
+  unique_ptr<TrainRf> tb = make_unique<TrainRf>(nSamp, nTree, thin);
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    auto trainChunk = trainBridge->regression(yVec, chunkThis);
-    tb->consume(trainChunk.get(), treeOff, chunkThis);
+    SamplerBridge sb(yVec, nSamp, chunkThis, !thin);
+    ForestBridge fb(chunkThis);
+    auto trainChunk = trainBridge->train(&fb, &sb);
+    tb->consume(&fb, &sb, treeOff, chunkThis);
+    tb->consumeInfo(trainChunk.get());
   }
-  return tb;
+  return tb->summarize(trainBridge, yTrain, diag);
 }
 
 
-TrainRf::TrainRf(unsigned int nTree_,
-                 const NumericVector& yTrain) :
+TrainRf::TrainRf(unsigned int nSamp_,
+		 unsigned int nTree_,
+		 bool thinSamples) :
+  nSamp(nSamp_),
   nTree(nTree_),
-  sampler(make_unique<SamplerRegR>(yTrain, nTree)),
+  sampler(make_unique<SamplerR>(nSamp, nTree, !thinSamples)),
   forest(make_unique<FBTrain>(nTree)) {
 }
-
-
-TrainRf::TrainRf(unsigned int nTree_,
-                 const IntegerVector& yZero) :
-  nTree(nTree_),
-  sampler(make_unique<SamplerCtgR>(yZero, nTree)),
-  forest(make_unique<FBTrain>(nTree)) {
-}
-
-
-

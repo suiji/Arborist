@@ -22,10 +22,10 @@
 
 RunAccum::RunAccum(const SplitFrontier* splitFrontier,
 		   const SplitNux* cand,
-		   PredictorT nCtg,
 		   SplitStyle style,
 		   PredictorT rcSafe_) :
   Accum(splitFrontier, cand),
+  nCtg(splitFrontier->getNCtg()),
   rcSafe(rcSafe_),
   runZero(vector<RunNux>(rcSafe)),
   heapZero(vector<BHPair>((style == SplitStyle::slots || rcSafe > maxWidth) ? rcSafe : 0)),
@@ -75,8 +75,10 @@ vector<IndexRange> RunAccum::getRange(PredictorT slotStart,
 }
 
 
-IndexRange RunAccum::getTopRange(const CritEncoding& enc) const {
-  return IndexRange(getBounds(enc.trueEncoding() ? runsLH - 1 : runCount - 1));
+vector<IndexRange> RunAccum::getTopRange(const CritEncoding& enc) const {
+  vector<IndexRange> rangeVec;
+  rangeVec.push_back(IndexRange(getBounds(enc.trueEncoding() ? runsLH - 1 : runCount - 1)));
+  return rangeVec;
 }
 
 
@@ -120,8 +122,6 @@ void RunAccum::leadBits(PredictorT lhBits) {
   }
   runsLH = off;
 
-  // No client for indices >= 'runsLH', but rebuilds entire vector for
-  // consistency.
   for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
     if (!(lhBits & (1ul << runIdx))) {
       frTemp[off++] = runZero[runIdx];
@@ -185,50 +185,22 @@ void RunAccum::regRunsMasked(const BranchSense* branchSense,
 }
 
 
-void RunAccum::ctgRuns(const vector<double>& sumSlice) {
-  PredictorT nCtg = sumSlice.size();
-  double* sumBase = initCtg(idxStart, nCtg);
+void RunAccum::ctgRuns(const SFCtg* sf, const SplitNux* cand) {
+  double* sumBase = initCtg(idxStart);
   for (IndexT idx = idxStart + 1; idx <= idxEnd; idx++) {
     if (!sampleRank[idx].ctgAccum(runZero[runCount], sumBase)) {
       endRun(idx - 1);
-      sumBase = initCtg(idx, nCtg);
+      sumBase = initCtg(idx);
     }
   }
+  endRun(idxEnd); // Flushes remaining run.
   
-  // Flushes remaining run and implicit blob, if any.
-  endRun(idxEnd);
-  appendImplicit(sumSlice);
+  // Flushes implicit blob, if any.
+  appendImplicit(sf->getSumSlice(cand));
 }
 
 
-void RunAccum::appendImplicit(const vector<double>& sumSlice) {
-  implicitSlot = runCount;
-  if (implicitCand) {
-    residCtg(sumSlice);
-    runZero[runCount++].set(rankDense, sCount, sum, implicitCand);
-  }
-}
-
-
-void RunAccum::residCtg(const vector<double>& sumSlice) {
-  if (sumSlice.empty()) { // Shortcut.
-    return;
-  }
-  PredictorT nCtg = sumSlice.size();
-  double* ctgBase = &cellSum[runCount * nCtg];
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    ctgBase[ctg] = sumSlice[ctg];
-  }
-  for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-      ctgBase[ctg] -= cellSum[runIdx * nCtg + ctg];
-    }
-  }
-}
-
-
-double* RunAccum::initCtg(IndexT runLeft,
-			 PredictorT nCtg) {
+double* RunAccum::initCtg(IndexT runLeft) {
   double* sumBase = &cellSum[runCount * nCtg];
   runZero[runCount].startRange(runLeft);
   sampleRank[runLeft].ctgInit(runZero[runCount], sumBase);
@@ -242,19 +214,44 @@ void RunAccum::initReg(IndexT runLeft) {
 }
 
 
-void RunAccum::deWide(PredictorT nCtg) {
+void RunAccum::appendImplicit(const vector<double>& sumSlice) {
+  implicitSlot = runCount;
+  if (implicitCand) {
+    residCtg(sumSlice);
+    runZero[runCount++].set(rankDense, sCount, sum, implicitCand);
+  }
+}
+
+
+void RunAccum::residCtg(const vector<double>& sumSlice) {
+  if (nCtg == 0) {
+    return;
+  }
+  double* ctgBase = &cellSum[runCount * nCtg];
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+    ctgBase[ctg] = sumSlice[ctg];
+  }
+  for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
+    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+      ctgBase[ctg] -= cellSum[runIdx * nCtg + ctg];
+    }
+  }
+}
+
+
+void RunAccum::deWide() {
   if (runCount > maxWidth) {
     // Randomly samples maxWidth-many runs and reorders.
     orderRandom(maxWidth);
 
     // Updates the per-category response contributions to reflect the run
     // reordering.
-    ctgReorder(maxWidth, nCtg);
+    ctgReorder(maxWidth);
   }
 }
 
 
-void RunAccum::ctgReorder(PredictorT leadCount, PredictorT nCtg) {
+void RunAccum::ctgReorder(PredictorT leadCount) {
   vector<double> tempSum(nCtg * leadCount); // Accessed as ctg-minor matrix.
   for (PredictorT slot = 0; slot < leadCount; slot++) {
     PredictorT outSlot = idxRank[slot];
@@ -274,9 +271,6 @@ void RunAccum::ctgReorder(PredictorT leadCount, PredictorT nCtg) {
 
 void RunAccum::orderRandom(PredictorT leadCount) {
   heapRandom();
-  // If an implicit run is present, the entire set of runs must be permuted
-  // in order to retain the full complement of right-hand ranges.
-  // For now, permutes the entire set regardless whether any runs be implicit.
   slotReorder(runCount);
 }
 
@@ -298,7 +292,7 @@ void RunAccum::slotReorder(PredictorT leadCount) {
   for (PredictorT slot = 0; slot < frOrdered.size(); slot++) {
     runZero[slot] = frOrdered[slot];
   }
-  if (implicitSlot < runCount) {
+  if (implicitSlot < runCount) { // Tracks movement of implicit slot, if any.
     implicitSlot = idxRank[implicitSlot];
   }
 }
@@ -330,7 +324,7 @@ void RunAccum::heapBinary() {
   // In the absence of class weighting, numerator can be (integer) slot
   // sample count, instead of slot sum.
   for (PredictorT slot = 0; slot < runCount; slot++) {
-    BHeap::insert(&heapZero[0], slot, getCellSum(slot, 2, 1) / runZero[slot].sum);
+    BHeap::insert(&heapZero[0], slot, getCellSum(slot, 1) / runZero[slot].sum);
   }
 }
 
@@ -358,20 +352,66 @@ void RunAccum::maxVar() {
 }
 
 
-void RunAccum::ctgGini(const vector<double>& sumSlice) {
-  deWide(sumSlice.size());
+void RunAccum::split(const SFReg* sf, SplitNux* cand) {
+  RunAccum* runAccum = sf->getRunAccum(cand);
+  runAccum->splitReg(cand);
+}
+
+
+void RunAccum::splitReg(SplitNux* cand) {
+  regRuns();
+  maxVar();
+  cand->infoGain(this);
+}
+
+
+void RunAccum::split(const SFCtg* sf, SplitNux* cand) {
+  RunAccum* runAccum = sf->getRunAccum(cand);
+  runAccum->splitCtg(sf, cand);
+}
+
+
+void RunAccum::splitCtg(const SFCtg* sf, SplitNux* cand) {
+  ctgRuns(sf, cand);
+  if (nCtg == 2)
+    binaryGini(sf, cand);
+  else
+    ctgGini(sf, cand);
+  cand->infoGain(this);
+}
+
+
+void RunAccum::ctgGini(const SFCtg* sf, const SplitNux* cand) {
+  deWide();
 
   // Run index subsets as binary-encoded unsigneds.
   PredictorT trueSlots = 0; // Slot offsets of codes taking true branch.
-  PredictorT lowSet = (1ul << (effCount() - 1)) - 1; // High bit unset, remainder set.
+
+  // High bit unset, remainder set.
+  PredictorT lowSet = (1ul << (effCount() - 1)) - 1;
+
+  // Only categories present at this node can be incorporated into the
+  // splitting decision.  By convention, the categories resident in 'true'
+  // slots will take the true branch during prediction.  All other categories,
+  // regardless whether present at this node, will take the false branch.
+  // This includes not only categories eclipsed by bagging or conditioning,
+  // but also proxy categories not present during training.
+
+  // It may be tempting to swap the implicit slot, should it exist, with the
+  // unused high slot excluded from 'lowSet'.  This would guarantee its
+  // omission from the true slots and simplify computation of the node's
+  // successor bits by avoding a complementation step.  Doing so would,
+  // however, introduce a bias during prediction as categories not present
+  // during training would then always take the same branch as the implicit
+  // category.
 
   // All nontrivial subsets, up to complement:
-  for (unsigned int subset = 1; subset <= lowSet; subset++) {
+   const vector<double>& sumSlice = sf->getSumSlice(cand);
+   for (unsigned int subset = 1; subset <= lowSet; subset++) {
     if (trialSplit(subsetGini(sumSlice, subset))) {
       trueSlots = subset;
     }
   }
-
   // Employs complement to guarantee true bits do not reference implicit runs.
   if (implicitSlot < effCount() && (trueSlots & (1ul << implicitSlot))) {
     trueSlots = slotComplement(trueSlots);
@@ -386,12 +426,11 @@ double RunAccum::subsetGini(const vector<double>& sumSlice,
   // getCellSum(..., ctg) decomposes 'sumCand' by category x run.
   // getSum(runIdx) decomposes 'sumCand' by run, so may be used
   // as a cross-check.
-  PredictorT nCtg = sumSlice.size();
   vector<double> sumSampled(nCtg);
   for (PredictorT runIdx = 0; runIdx < effCount() - 1; runIdx++) {
     if (subset & (1ul << runIdx)) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-	sumSampled[ctg] += getCellSum(runIdx, nCtg, ctg);
+	sumSampled[ctg] += getCellSum(runIdx, ctg);
       }
     }
   }
@@ -411,7 +450,8 @@ double RunAccum::subsetGini(const vector<double>& sumSlice,
 }
 
 
-void RunAccum::binaryGini(const vector<double>& sumSlice) {
+void RunAccum::binaryGini(const SFCtg* sf, const SplitNux* cand) {
+  const vector<double>& sumSlice = sf->getSumSlice(cand);
   orderBinary();
 
   const double tot0 = sumSlice[0];

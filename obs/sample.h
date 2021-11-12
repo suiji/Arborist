@@ -45,8 +45,8 @@ class Sample {
 
   
  protected:
-  static IndexT nSamp; // Number of row samples requested.
-  static bool bagging; // Whether to bag samples.
+  const IndexT nSamp; // Number of row samples requested.
+  const bool bagging; // Whether bagging required.
   vector<SampleNux> sampleNux; // Per-sample summary of values.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
@@ -72,7 +72,8 @@ class Sample {
 
      @return count of uniquely-sampled elements.
    */
-  static IndexT countSamples(vector<IndexT>& sampleCount);
+  static IndexT countSamples(vector<IndexT>& sampleCount,
+			     IndexT nSamp);
 
   
   /**
@@ -120,10 +121,12 @@ class Sample {
 
      @return new SampleCtg instance.
    */
-  static unique_ptr<class SampleCtg> factoryCtg(const vector<double>&  y,
+  static unique_ptr<class SampleCtg> factoryCtg(const class Sampler* sampler,
+						const vector<double>&  y,
                                                 const class TrainFrame *frame,
                                                 const vector<PredictorT>& yCtg);
 
+  
   /**
      @brief Static entry for continuous response (regression).
 
@@ -133,25 +136,9 @@ class Sample {
 
      @return new SampleReg instance.
    */
-  static unique_ptr<class SampleReg>factoryReg(const vector<double>& y,
+  static unique_ptr<class SampleReg>factoryReg(const class Sampler* sampler,
+					       const vector<double>& y,
                                                const class TrainFrame *frame);
-  
-
-  /**
-     @brief Lights off static initializations needed for sampling.
-
-     @param nSamp_ is the number of samples.
-
-     @param bagging_ is true iff bagging is requested.
-  */
-  static void immutables(IndexT nSamp_,
-			 bool bagging_ = true);
-
-
-  /**
-     @brief Resets statics.
-  */
-  static void deImmutables();
 
 
   /**
@@ -159,16 +146,8 @@ class Sample {
 
      @param frame summarizes predictor ranks by row.
    */
-  Sample(const class TrainFrame* frame);
-
-
-  virtual ~Sample();
-
-
-  // EXIT
-  const vector<IndexT>& getDelRow() const {
-    return delRow;
-  }
+  Sample(const class TrainFrame* frame,
+	 const class Sampler* sampler);
 
   
   /**
@@ -187,7 +166,7 @@ class Sample {
   /**
      @brief Getter for user-specified sample count.
    */
-  static inline IndexT getNSamp() {
+  inline IndexT getNSamp() const {
     return nSamp;
   }
 
@@ -213,7 +192,9 @@ class Sample {
 
      @param row is the row number in question.
 
-     @param[out] sIdx is the (possibly default) sample index for row.
+     @param[in, out] sIdx addresses the sample index, if any, associated with row.
+
+     @param[out] sNux addresses the sampled nux, if any, associated with row.
 
      @return true iff row is sampled.
    */
@@ -274,11 +255,10 @@ class Sample {
 /**
    @brief Regression-specific methods and members.
 */
-class SampleReg : public Sample {
+struct SampleReg : public Sample {
 
- public:
-  SampleReg(const class TrainFrame* frame);
-  ~SampleReg();
+  SampleReg(const class TrainFrame* frame,
+	    const class Sampler* sampler);
 
 
   /**
@@ -309,12 +289,10 @@ class SampleReg : public Sample {
 /**
  @brief Classification-specific sampling.
 */
-class SampleCtg : public Sample {
-
- public:
+struct SampleCtg : public Sample {
   
-  SampleCtg(const class TrainFrame* frame);
-  ~SampleCtg();
+  SampleCtg(const class TrainFrame* frame,
+	    const class Sampler* sampler);
 
   
   /**

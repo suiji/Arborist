@@ -13,13 +13,13 @@
    @author Mark Seligman
  */
 
+#include "deffrontier.h" // PreCand
 #include "cutset.h"
 #include "cutaccum.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "trainframe.h"
 #include "branchsense.h"
-#include "indexset.h"
 
 
 double SplitNux::minRatio = minRatioDefault;
@@ -42,30 +42,29 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const PreCand& preCand_,
-		   const SplitFrontier* splitFrontier,
-		   PredictorT runCount) :
-  preCand(preCand_),
-  idxRange(splitFrontier->getRange(preCand)),
-  sum(splitFrontier->getSum(preCand)),
-  sCount(splitFrontier->getSCount(preCand)),
-  implicitCount(splitFrontier->getImplicitCount(preCand)),
-  ptId(splitFrontier->getPTId(preCand)),
-  info(splitFrontier->getPrebias(preCand)) {
-  accumIdx = splitFrontier->addAccumulator(this, runCount);
+SplitNux::SplitNux(const PreCand& preCand,
+		   const SplitFrontier* splitFrontier) :
+  mrra(preCand.mrra),
+  implicitCount(preCand.stageCount.idxImplicit),
+  idxRange(splitFrontier->getRange(mrra)),
+  sum(splitFrontier->getSum(mrra)),
+  sCount(splitFrontier->getSCount(mrra)),
+  ptId(splitFrontier->getPTId(mrra)),
+  info(splitFrontier->getPrebias(mrra)) {
+  accumIdx = splitFrontier->addAccumulator(this, preCand);
 }
 
 
 SplitNux::SplitNux(const SplitNux& parent,
-		   const class IndexSet* iSet,
+		   const SplitFrontier* sf,
 		   bool sense,
 		   IndexT idx) :
-  preCand(parent.preCand),
+  mrra(parent.mrra),
+  implicitCount(parent.implicitCount),
   idxRange(parent.idxRange),
   accumIdx(parent.accumIdx),
-  sum(iSet->getSumSucc(sense)),
-  sCount(iSet->getSCountSucc(sense)),
-  implicitCount(parent.implicitCount),
+  sum(sf->getSumSucc(mrra, sense)),
+  sCount(sf->getSCountSucc(mrra, sense)),
   ptId(parent.ptId + idx) {
 }
 
@@ -91,11 +90,11 @@ IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
 }
 
 
-bool SplitNux::isFactor(const TrainFrame* frame) const {
-  return frame->isFactor(preCand.splitCoord.predIdx);
+bool SplitNux::isFactor(const SplitFrontier* sf) const {
+  return sf->isFactor(mrra.splitCoord.predIdx);
 }
 
 
 PredictorT SplitNux::getCardinality(const TrainFrame* frame) const {
-  return frame->getCardinality(preCand.splitCoord.predIdx);
+  return frame->getCardinality(mrra.splitCoord.predIdx);
 }

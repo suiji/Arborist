@@ -1,22 +1,22 @@
-// Copyright (C)  2012-2020   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
-// This file is part of framemapR
+// This file is part of deframeR.
 //
-// framemapR is free software: you can redistribute it and/or modify it
+// deframeR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// frameampR is distributed in the hope that it will be useful, but
+// deframeR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with framemapR.  If not, see <http://www.gnu.org/licenses/>.
+// along with deframeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file frame.cc
+   @file deframe.cc
 
    @brief C++ interface to R entries for maintaining predictor data structures.
 
@@ -63,7 +63,6 @@ SEXP CheckFrame(const List& lSigTrain,
 		const CharacterVector& predForm) {
   BEGIN_RCPP
     
-    //CharacterVector predForm(sPredForm); // String representation of predictor types.
   CharacterVector formTrain(as<CharacterVector>(lSigTrain["predForm"]));
   if (!is_true(all(predForm == formTrain))) {
     stop("Training, prediction data types do not match");

@@ -16,6 +16,7 @@
 #ifndef FOREST_FORESTBRIDGE_H
 #define FOREST_FORESTBRIDGE_H
 
+#include <vector>
 #include <memory>
 using namespace std;
 
@@ -32,20 +33,31 @@ struct ForestBridge {
 
      @param height is the accumulated tree height preceding a given tree.
 
-     @param node contains the packed decision trees.
-
      @param facSplit contains the splitting bits for factors.
 
      @param facHeight is the accumated factor splitting height.
 
    */
-  ForestBridge(size_t forestHeight,
-               const unsigned char* node,
-               unsigned int* facSplit,
-               const vector<size_t>& facHeight);
+  ForestBridge(unsigned int nTree,
+	       const unsigned char* node,
+               unsigned char* facSplit);
 
+
+  /**
+     @brief Training constructor.
+   */
+  ForestBridge(unsigned int treeChunk);
+
+  
   ~ForestBridge();
 
+
+  /**
+     @brief Passes through to core method.
+
+     @return # bytes subsumed by this chunk of nodes.
+   */
+  size_t getNodeBytes() const;
 
   /**
      @brief Returns size of CartNode.
@@ -63,6 +75,20 @@ struct ForestBridge {
      @brief Getter for tree count;
    */
   unsigned int getNTree() const;
+
+
+  /**
+     @brief Passes through to Forest method.
+
+     @return # bytes in current chunk of factors.
+   */
+  size_t getFactorBytes() const;
+  
+
+  void dumpTreeRaw(unsigned char treeOut[]) const;
+
+
+  void dumpFactorRaw(unsigned char facOut[]) const;
 
 
   /**

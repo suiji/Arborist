@@ -84,11 +84,12 @@ unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
 					  unsigned int nPermute,
                                           unsigned int nThread,
                                           vector<double> quantile) {
-  return make_unique<PredictRegBridge>(move(RLEFrameR::unwrap(lDeframe)),
-				       move(ForestRf::unwrap(lTrain)),
-				       move(SamplerRegR::unwrap(lTrain, lDeframe, bagging)),
+  unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
+  unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
+  return make_unique<PredictRegBridge>(move(rleFrame),
+				       move(forestBridge),
+				       move(SamplerR::unwrap(lTrain, lDeframe, bagging)),
 				       move(regTest(sYTest)),
-				       bagging,
 				       nPermute,
 				       nThread,
 				       move(quantile));
@@ -208,11 +209,12 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 					     bool doProb,
 					     unsigned int permute,
 					     unsigned int nThread) {
-  return make_unique<PredictCtgBridge>(move(RLEFrameR::unwrap(lDeframe)),
-				       move(ForestRf::unwrap(lTrain)),
-				       move(SamplerCtgR::unwrap(lTrain, lDeframe, bagging)),
+  unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
+  unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
+  return make_unique<PredictCtgBridge>(move(rleFrame),
+				       move(forestBridge),
+				       move(SamplerR::unwrap(lTrain, lDeframe, bagging)),
 				       move(ctgTest(lTrain, sYTest)),
-				       bagging,
 				       permute,
 				       doProb,
 				       nThread);
@@ -222,7 +224,8 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 vector<unsigned int> PBRf::ctgTest(const List& lTrain, SEXP sYTest) {
   List lSampler((SEXP) lTrain["sampler"]);
   if (!Rf_isNull(sYTest)) { // Makes zero-based copy.
-    TestCtg testCtg(sYTest, as<CharacterVector>(lSampler["levels"]));
+    IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
+    TestCtg testCtg(sYTest, as<CharacterVector>(yTrain.attr("levels")));
     return testCtg.yTestZero;
   }
   else {
@@ -355,7 +358,7 @@ List PBRf::getImportance(const PredictRegBridge* pBridge,
 TestCtg::TestCtg(const IntegerVector& yTestOne,
                  const CharacterVector& levelsTrain_) :
   levelsTrain(levelsTrain_),
-  levels(CharacterVector((SEXP) yTestOne.attr("levels"))),
+  levels(CharacterVector(as<CharacterVector>(yTestOne.attr("levels")))),
   test2Merged(mergeLevels(levels)),
   yTestZero(reconcile(test2Merged, yTestOne)),
   ctgMerged(*max_element(yTestZero.begin(), yTestZero.end()) + 1) {
@@ -395,7 +398,8 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictC
   BEGIN_RCPP
 
   List lSampler((SEXP) lTrain["sampler"]);
-  CharacterVector levelsTrain(as<CharacterVector>(lSampler["levels"]));
+  IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
+  CharacterVector levelsTrain(as<CharacterVector>(yTrain.attr("levels")));
   CharacterVector ctgNames(Signature::unwrapRowNames(lDeframe));
 
   List summaryCtg;

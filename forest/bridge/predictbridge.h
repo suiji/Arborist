@@ -40,13 +40,12 @@ struct PredictBridge {
    */
   PredictBridge(unique_ptr<struct RLEFrame> rleFrame_,
                 unique_ptr<struct ForestBridge> forest_,
-		bool bagging,
 		unsigned int nPermute,
 		unsigned int nThread);
 
+  virtual ~PredictBridge();
 
-  ~PredictBridge();
-
+  
   size_t getNRow() const;
 
 
@@ -56,7 +55,6 @@ struct PredictBridge {
 protected:
   unique_ptr<struct RLEFrame> rleFrame; // Local ownership
   unique_ptr<struct ForestBridge> forestBridge; // Local ownership.
-  const bool bagging; // Whether to ignore in-bag row/tree pairs.
   const unsigned int nPermute; // # times to permute.
 };
 
@@ -66,13 +64,13 @@ struct PredictRegBridge : public PredictBridge {
 		   unique_ptr<ForestBridge> forestBridge_,
 		   unique_ptr<SamplerBridge> samplerBridge_,
 		   vector<double> yTest,
-		   bool bagging_,
 		   unsigned int nPermute_,
 		   unsigned int nThread,
 		   vector<double> quantile_);
 
-  ~PredictRegBridge();
-  
+  ~PredictRegBridge(); // Forward declaration:  not specified default.
+
+
   /**
      @brief External entry for prediction.
 
@@ -117,14 +115,13 @@ struct PredictCtgBridge : public PredictBridge {
 		   unique_ptr<ForestBridge> forestBridge_,
 		   unique_ptr<SamplerBridge> samplerBridge_,
 		   vector<unsigned int> yTest,
-		   bool bagging_,
 		   unsigned int nPermute_,
-		    bool doProb,
+		   bool doProb,
 		   unsigned int nThread);
 
-  ~PredictCtgBridge();
+  ~PredictCtgBridge(); // Forward declaration:  not specified default.
 
-  
+
   const vector<unsigned int>& getYPred() const;
 
 

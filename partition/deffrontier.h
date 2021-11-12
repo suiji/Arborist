@@ -6,48 +6,86 @@
  */
 
 /**
-   @file defmap.h
+   @file deffrontier.h
 
    @brief Manages the lazy repartitioning of the observation set.
 
-   Splitting requires accessing the observations in sorted or grouped
+   Splitting requires accessing the observations in sorted/grouped
    form.  Algorithms that do not attempt to split every node/predictor
-   pair, such as Random Forest, can improve training speed by restaging
-   (repartitioning) lazily.
+   pair, such as Random Forest, can improve training speed by performing
+   this updating (repartitioning) lazily.
 
    @author Mark Seligman
  */
 
-#ifndef PARTITION_DEFMAP_H
-#define PARTITION_DEFMAP_H
+#ifndef PARTITION_DEFFRONTIER_H
+#define PARTITION_DEFFRONTIER_H
 
 
 #include <deque>
 #include <vector>
 #include <map>
 
+#include "mrra.h"
 #include "splitcoord.h"
+#include "stagecount.h"
 #include "typeparam.h"
+
+
+/**
+   @brief Minimal information needed to define a splitting pre=candidate.
+ */
+struct PreCand {
+  MRRA mrra; // delIdx implicitly zero, but buf-bit needed.
+  StageCount stageCount; // Shared between candidate and accumulator, if cand.
+
+  /**
+     @brief MRRA component initialized at construction, StageCount at (re)staging.
+   */
+  PreCand(const SplitCoord& splitCoord,
+	  unsigned int bufIdx) :
+    mrra(MRRA(splitCoord, bufIdx, 0)) {
+  }
+
+  
+  void setStageCount(const StageCount& sc) {
+    stageCount = sc;
+  }
+
+
+  bool isSingleton() const {
+    return stageCount.isSingleton();
+  }
+
+  
+  /**
+     @brief Checks whether StageCount member has been initialized.
+
+     Testing only.
+   */
+  bool isInitialized() const {
+    return stageCount.isInitialized();
+  }
+};
 
 
 /**
    @brief Manages definitions reaching the frontier.
  */
-class DefMap {
-  const class TrainFrame* frame;
+class DefFrontier {
   const PredictorT nPred; // Number of predictors.
-  const PredictorT nPredFac; // Number of factor-valued predictors.
-
+  const class Frontier* frontier;
+  const IndexT bagCount;
+  
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
   unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
   IndexT splitPrev; // # nodes in previous layer.
   IndexT splitCount; // # nodes in the layer about to split.
   const class Layout* layout;
-  const IndexT noRank;
   const PredictorT nPredDense; // Number of predictors using dense indexing.
   const vector<IndexT> denseIdx; // # Compressed mapping to dense offsets.
-  vector<class PreCand> restageCand;
+  vector<MRRA> ancestor; // Collection of ancestors to restage.
   unique_ptr<class ObsPart> obsPart;
 
   vector<unsigned int> history; // Current layer's history.
@@ -55,7 +93,8 @@ class DefMap {
   vector<unsigned char> layerDelta; // # layers back split was defined.
   vector<unsigned char> deltaPrev; // Previous layer's delta:  accum.
   deque<unique_ptr<class DefLayer> > layer; // Caches layers tracked by history.
-  vector<PredictorT> runCount;
+  vector<vector<PreCand>> preCand; // Restageable, possibly splitable, coordinates.
+  //  vector<PredictorT> runCount;
   
 
   /**
@@ -77,27 +116,20 @@ class DefMap {
  public:
 
   /**
-     @brief Adds new definitions for all predictors at the root layer.
-  */
-  void rootDef(PredictorT predIdx,
-	       bool singleton,
-	       IndexT implicitCount);
-
-
-  /**
      @brief Class constructor.
 
-     @param bagCount enables sizing of predicate bit vectors.
+     @param frame_ is the training frame.
 
-     @param splitCount specifies the number of splits to map.
+     @param frontier_ tracks the frontier nodes.
   */
-  DefMap(const class TrainFrame* frame,
-         unsigned int bagCount);
+  DefFrontier(const class TrainFrame* frame,
+	      const class Frontier* frontier);
 
+  
   /**
      @brief Class finalizer.
   */
-  ~DefMap();
+  ~DefFrontier();
 
  /**
      @brief Pushes first layer's path maps back to all back layers
@@ -116,8 +148,18 @@ class DefMap {
   }
 
 
-  inline IndexT denseOffset(const PreCand& cand) const {
+  inline IndexT denseOffset(const MRRA& cand) const {
     return denseOffset(cand.splitCoord);
+  }
+
+
+  inline PredictorT getNPred() const {
+    return nPred;
+  }
+
+
+  inline IndexT getNSplit() const {
+    return splitCount;
   }
 
 
@@ -132,33 +174,75 @@ class DefMap {
 
 
   /**
-     @brief Delayed erasure of rear layers.
+     @brief Passes through to Frontier method.
+
+     @return true iff indexed split is not splitable.
+   */
+  bool isUnsplitable(IndexT splitIdx) const;
+
+
+  /**
+     @brief Rebuilds the precandidate vector using CandT method.
+   */
+  void initPrecand();
+
+  
+  const vector<vector<PreCand>>& getPrecand() const {
+    return preCand;
+  }
+
+
+  /**
+     @brief Gleans singletons from precandidate set.
+
+     @return vector of candidates.
+   */
+  vector<class SplitNux> getCandidates(const class SplitFrontier* sf) const;
+  
+
+  /**
+     @brief Clears ancestor list and lazily erases rear layers.
 
      Reaching layers must persist through restaging ut allow path lookup.
      @param flushCount is the number of rear layers to erase.
   */
-  void eraseLayers(unsigned int flushCount);
-  
+  void clearDefs(unsigned int flushCount);
+
+
   /**
-     @brief Flushes reaching definition and preschedules.
+     @brief Flushes reaching definition and reports schulability.
+     
+     @param[out] outputs the cell's buffer index, if splitable.
+
+     @return true iff cell at coordinate is splitable.
   */
-  unsigned int preschedule(const SplitCoord& splitCoord,
-			   vector<PreCand>& preCand);
-  
+  bool preschedule(const SplitCoord& splitCoord,
+		   unsigned int& bufIdx);
+
+
   /**
-     @brief Passes through to front layer.
+     @brief As above, but discovers buffer via lookup.
    */
-  bool isSingleton(const PreCand& defCoord) const;
+  bool preschedule(const SplitCoord& splitCoord);
 
   
-  bool isSingleton(const PreCand& defCoord,
-		   PredictorT& runCount) const;
-  
-  
   /**
      @brief Passes through to front layer.
    */
-  void adjustRange(const PreCand& preCand,
+  bool isSingleton(const MRRA& defCoord) const;
+
+
+  /**
+     @brief Flips source bit if a definition reaches to current layer.
+  */
+  void addDef(const MRRA& splitCoord,
+              bool singleton);
+
+
+  /**
+     @brief Passes through to front layer.
+   */
+  void adjustRange(const MRRA& preCand,
 		   IndexRange& idxRange) const;
 
 
@@ -171,7 +255,7 @@ class DefMap {
   /**
      @brief Passes through to front layer.
    */
-  IndexT getImplicitCount(const PreCand& preCand) const;
+  IndexT getImplicitCount(const MRRA& preCand) const;
 
 
   /**
@@ -180,26 +264,22 @@ class DefMap {
   void stage(const class Sample* sample);
 
 
-  void branchUpdate(const class SplitNux* nux,
-		    const vector<IndexRange>& range,
-		    class BranchSense* branchSense,
-		    struct CritEncoding& enc) const;
+  class CritEncoding branchUpdate(const SplitFrontier* sf,
+				  const SplitNux& nux,
+				  const IndexRange& range = IndexRange(),
+				  bool increment = true) const;
 
-
-  void branchUpdate(const class SplitNux* nux,
-		    const IndexRange& range,
-		    class BranchSense* branchSense,
-		    struct CritEncoding& enc) const;
 
   /**
-     @brief Appends a restaging candidate.
+     @brief Appends restaged ancestor.
    */
-  void restageAppend(const class PreCand& cand);
+  void appendAncestor(const MRRA& mrra);
+
 
   /**
      @brief Updates the data (observation) partition.
    */
-  vector<class PreCand> restage(class SplitFrontier* splitFrontier);
+  void restage();
 
 
 
@@ -208,7 +288,7 @@ class DefMap {
 
      @param mrra contains the coordinates of the originating cell.
    */
-  void restage(const PreCand& mrra) const;
+  void restage(const MRRA& mrra) const;
   
   /**
      @brief Updates subtree and pretree mappings from temporaries constructed
@@ -261,16 +341,14 @@ class DefMap {
   /**
      @brief Pass-through for strided factor offset.
 
-     @param predIdx is the predictor index.
-
-     @param nStride is the stride multiple.
+     @param splitCoord is the node/predictor pair.
 
      @param[out] facStride is the strided factor index for dense lookup.
 
-     @return true iff predictor is factor-valude.
+     @return true iff predictor is factor-valued.
    */
-  bool factorStride(const SplitCoord& splitCoord,
-                    unsigned int& facStride) const;
+  //  bool isFactor(const SplitCoord& splitCoord,
+  //		unsigned int& facStride) const; // EXIT
 
 
   /**
@@ -319,15 +397,6 @@ class DefMap {
   class IdxPath *getSubtreePath() const {
     return stPath.get();
   }
-  
-
-  /**
-     @return 'noRank' value for the current subtree.
-   */
-  inline unsigned int getNoRank() const {
-    return noRank;
-  }
-
 
 
   /**
@@ -341,22 +410,6 @@ class DefMap {
   unsigned int getSplitCount(unsigned int del) const;
 
   
-  /**
-     @brief Flips source bit if a definition reaches to current layer.
-  */
-  void addDef(const PreCand& splitCoord,
-              bool singleton);
-
-  /**
-     @brief Sets pair as singleton at the front layer.
-
-     @param splitIdx is the layer-relative node index.
-
-     @param predIdx is the predictor index.
-  */
-  void setSingleton(const SplitCoord& splitCoord) const;
-
-
   /**
      @brief Looks up front path belonging to a back layer.
 
@@ -410,36 +463,14 @@ class DefMap {
   }
 
 
-  
-  /**
-     @brief Numeric run counts are constrained to be either 1, if singleton,
-     or zero otherwise.
-
-     Singleton iff (dense and all indices implicit) or (not dense and all
-     indices have identical rank).
-  */
-  inline void setRunCount(const SplitCoord& splitCoord,
-                          bool hasImplicit,
-                          PredictorT rankCount) {
-    PredictorT rCount = rankCount + (hasImplicit ? 1 : 0);
-    if (rCount == 1) {
-      setSingleton(splitCoord);
-    }
-
-    IndexT facStride;
-    if (factorStride(splitCoord, facStride)) {
-      runCount[facStride] = rCount;
-    }
-  }
+  void setStageCount(const SplitCoord& splitCoord,
+		     IndexT idxImplicit,
+		     IndexT rankCount);
 
   
-  /**
-     @brief Determines run count currently associated with a split coordinate.
-   */
-  inline PredictorT getRunCount(const PreCand& defCoord) const {
-    IndexT facStride;
-    return factorStride(defCoord.splitCoord, facStride) ? runCount[facStride] : 0;
-  }
+  void setStageCount(const SplitCoord& splitCoord,
+		     const StageCount& sc) const;
+
 };
 
 

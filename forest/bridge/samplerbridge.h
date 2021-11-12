@@ -16,6 +16,8 @@
 #ifndef FOREST_BRIDGE_SAMPLERBRIDGE_H
 #define FOREST_BRIDGE_SAMPLERBRIDGE_H
 
+#include "typeparam.h"
+
 #include <memory>
 #include <vector>
 
@@ -38,26 +40,54 @@ struct SamplerBridge {
 
 
   /**
-     @brief Regression constructor.
+     @brief Regression constructor:  training.
    */
   SamplerBridge(const vector<double>& yTrain,
-		unsigned int nTree_,
-		const unsigned char* samplerNux);
+		IndexT nSamp,
+		unsigned int treeChunk,
+		bool thin);
 
 
   /**
-     @brief Categorical constructor.
+     @brief Regression constructor:  post-training.
+   */
+  SamplerBridge(const vector<double>& yTrain,
+		IndexT nSamp,
+		unsigned int nTree_,
+		bool nux,
+		unsigned char* samples,
+		bool bagging);
+
+
+  /**
+     @brief Classification constructor:  training.
+   */
+  SamplerBridge(const vector<PredictorT>& yTrain,
+		IndexT nSamp,
+		unsigned int treeChunk,
+		bool thin,
+		PredictorT nCtg,
+		const vector<double>& classWeight);
+
+
+  /**
+     @brief Categorical constructor:  post-training.
    */
   SamplerBridge(const vector<unsigned int>& yTrain,
 		unsigned int nCtg,
+		IndexT nSamp,
 		unsigned int nTree,
-		const unsigned char* samplerNux);
+		bool nux,
+		unsigned char* samples,
+		bool bagging);
 
 
   /**
+     @brief Gets core Sampler.  Non-constant for training.
+
      @return core sampler.
     */
-  const struct Sampler* getSampler() const;
+  struct Sampler* getSampler() const;
 
   /**
      @brief Getter for number of training rows.
@@ -69,9 +99,20 @@ struct SamplerBridge {
    */
   unsigned int getNTree() const;
 
+
+  size_t getBlockBytes() const;
+
+  
+  /**
+     @brief Copies the sampling records to the buffer passed.
+   */
+  void dumpRaw(unsigned char blOut[]) const;
+
+
 private:
 
   unique_ptr<class Sampler> sampler; // Core-level instantiation.
+
 };
 
 

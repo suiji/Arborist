@@ -222,7 +222,7 @@ List ExportRf::exportTreeReg(const List& lTrain,
   auto leaf(LeafExportReg::unwrap(lTrain));
   auto forest(ForestExport::unwrap(lTrain, predMap));
 
-  auto bag(SamplerRegR::unwrap(lTrain));
+  auto bag(SamplerR::unwrap(lTrain));
   auto nTree = forest->getNTree();
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -250,7 +250,7 @@ List ExportRf::exportCtg(const List& lTrain,
 
   auto leaf(LeafExportCtg::unwrap(lTrain));
   auto forest(ForestExport::unwrap(lTrain, predMap));
-  auto bag(SamplerCtgR::unwrap(lTrain));
+  auto bag(SamplerR::unwrap(lTrain));
   int facCount = predLevel.length();
   List ffe =
     List::create(
@@ -289,7 +289,7 @@ LeafExportCtg::LeafExportCtg(const List& lTrain,
   LeafExport(lSampler),
   levelsTrain(CharacterVector(as<IntegerVector>(lSampler["yTrain"]).attr("levels"))),
   weightTree(vector<vector<double> >(nTree)) {
-  unique_ptr<SamplerBridge> samplerBridge = SamplerCtgR::unwrap(lTrain);
+  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrap(lTrain);
   // scoreTree given by Forest; sCount, extent, row given by Sampler.
   //  leafBridge->dump(rowTree, sCountTree, scoreTree, extentTree);
 }
@@ -314,7 +314,7 @@ unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain) {
 LeafExportReg::LeafExportReg(const List& lTrain,
 			     const List& lSampler) :
   LeafExport(lSampler) {
-  unique_ptr<SamplerBridge> samplerBridge = SamplerRegR::unwrap(lTrain);
+  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrap(lTrain);
   // scoreTree given by Forest;
   // extent, sCount and row trees given by Sampler.
   //unique_ptr<LeafBridge> leafBridge = LeafExport::unwrap(samplerBridge.get(), lLeaf);

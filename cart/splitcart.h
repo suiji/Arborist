@@ -8,6 +8,7 @@
 #ifndef CART_SPLITCART_H
 #define CART_SPLITCART_H
 
+
 /**
    @file splitcart.h
 
@@ -19,14 +20,6 @@
 
 struct SplitCart {
   static unique_ptr<class SplitFrontier> factory(class Frontier* frontier);
-
-  
-  static void splitReg(const class SFRegCart* sf,
-		       class SplitNux* cand);
-
-  
-  static void splitCtg(class SFCtgCart* sf,
-		       class SplitNux* cand);
 };
 
 

@@ -1,6 +1,6 @@
 Package: Rborist
 Title: Extensible, Parallelizable Implementation of the Random Forest Algorithm
-Version: 0.2-4
+Version: 0.3-0
 Date: 2019-11-4
 Author: Mark Seligman
 Maintainer: Mark Seligman <mseligman@suiji.org>

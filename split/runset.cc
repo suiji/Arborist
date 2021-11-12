@@ -22,34 +22,26 @@
 IndexT RunNux::noStart = 0;
 
 
-RunSet::RunSet(SplitStyle factorStyle,
-	       PredictorT nCtg_,
+RunSet::RunSet(const SplitFrontier* sf,
 	       IndexT nRow) :
-  style(factorStyle),
-  nCtg(nCtg_) {
+  style(sf->getFactorStyle()) {
   RunNux::noStart = nRow; // Inattainable start value, irrespective of tree.
+  setOffsets(sf);
 }
 
 
 IndexT RunSet::addRun(const SplitFrontier* splitFrontier,
 		      const SplitNux* cand,
 		      PredictorT rc) {
-  runAccum.emplace_back(splitFrontier, cand, nCtg, style, rc);
+  runAccum.emplace_back(splitFrontier, cand, style, rc);
   return runAccum.size() - 1; // Top position.
 }
 
 
-void RunSet::setOffsets() {
-  if (runAccum.empty()) {
+void RunSet::setOffsets(const SplitFrontier* sf) {
+  if (runAccum.empty() || sf->getNCtg() == 0)
     return;
-  }
 
-  if (nCtg > 0)
-    offsetsCtg();
-}
-
-
-void RunSet::offsetsCtg() {
   IndexT rvRuns = 0;
   for (auto accum : runAccum) {
     rvRuns += accum.countWide();
@@ -67,13 +59,13 @@ void RunSet::offsetsCtg() {
 }
 
 
-vector<IndexRange> RunSet::getRange(const SplitNux* nux, const CritEncoding& enc) const {
-  return runAccum[nux->getAccumIdx()].getRange(enc);
+vector<IndexRange> RunSet::getRange(const SplitNux& nux, const CritEncoding& enc) const {
+  return runAccum[nux.getAccumIdx()].getRange(enc);
 }
 
 
-IndexRange RunSet::getTopRange(const SplitNux* nux, const CritEncoding& enc) const {
-  return runAccum[nux->getAccumIdx()].getTopRange(enc);
+vector<IndexRange> RunSet::getTopRange(const SplitNux& nux, const CritEncoding& enc) const {
+  return runAccum[nux.getAccumIdx()].getTopRange(enc);
 }
 
 
@@ -93,8 +85,8 @@ void RunSet::resetRunCount(PredictorT accumIdx,
 }
 
 
-void RunSet::updateAccum(const SplitNux* cand) {
-  runAccum[cand->getAccumIdx()].update(style);
+void RunSet::updateAccum(const SplitNux& cand) {
+  runAccum[cand.getAccumIdx()].update(style);
 }
 
 

@@ -49,7 +49,7 @@ enum class SplitStyle;
    value is used for storage allocation.
 */
 class RunAccum : public Accum {
-protected:
+  const PredictorT nCtg; // Non-zero iff classification.
   const PredictorT rcSafe; // Conservative run count.
   vector<RunNux> runZero; // SR block, partitioned by code.
   vector<BHPair> heapZero; // Sorting workspace.
@@ -63,20 +63,28 @@ protected:
   PredictorT splitToken; // Cut or bits.
   IndexT implicitTrue; // # implicit true-sense indices:  post-encoding.
 
-  
+
+  /**
+     @brief Subtracts contents of top run from accumulators and sets its
+     high terminal index.
+
+     'runCount' is incremented.  The value on entry is the index of
+     the next available run.
+
+     @param idxEnd is the high terminal index of the run.
+   */
   inline void endRun(IndexT idxEnd) {
     sCount -= runZero[runCount].sCount;
     sum -= runZero[runCount].sum;
-    runZero[runCount++].endRange(idxEnd);
+    runZero[runCount].endRange(idxEnd);
+    runCount++;
   }
   
   
   /**
      @brief Appends a run for the dense rank using residual values.
 
-     @param sp is the frontier splitting environment.
-
-     @param ctgSum is the per-category response over the frontier node.
+     @param sumSlic is the per-category response over the frontier node.
   */
   void appendImplicit(const vector<double>& sumSlice = vector<double>(0));
 
@@ -92,7 +100,54 @@ protected:
     return runZero[slot].getRange();
   }
 
+  
+  /**
+     @brief Accumulates runs for regression.
+   */
+  void regRuns();
 
+  
+  /**
+     @brief Determines split having highest weighted variance.
+
+     Runs initially sorted by mean response.
+   */
+  void maxVar();
+  
+
+  /**
+     @brief Accumulates runs for classification.
+
+     @param sumSlice is the per-category response decomposition.
+  */
+  void ctgRuns(const class SFCtg* sf,
+	       const class SplitNux* cand);
+
+  
+
+  /**
+     @brief Gini-based splitting for categorical response and predictor.
+
+     Nodes are now represented compactly as a collection of runs.
+     For each node, subsets of these collections are examined, looking for the
+     Gini argmax beginning from the pre-bias.
+
+     Iterates over nontrivial subsets, coded by unsigneds as bit patterns.  By
+     convention, the final run is incorporated into RHS of the split, if any.
+     Excluding the final run, then, the number of candidate LHS subsets is
+     '2^(runCount-1) - 1'.
+
+     @param ctgSum is the per-category sum of responses.
+  */
+  void ctgGini(const class SFCtg* sf, const SplitNux* cand);
+
+  
+  /**
+     @brief As above, but specialized for binary response.
+   */
+  void binaryGini(const class SFCtg* sf, const SplitNux* cand);
+
+  
   /**
      @brief Sorts by random variate ut effect sampling w/o replacement.
    */
@@ -116,7 +171,6 @@ public:
   
   RunAccum(const class SplitFrontier* splitFrontier,
 	   const class SplitNux* cand,
-	   PredictorT nCtg,
 	   SplitStyle style,
 	   PredictorT rcSafe_);
 
@@ -144,7 +198,7 @@ public:
   /**
      @brief Overwrites leading slots with sampled subset of runs.
   */
-  void deWide(PredictorT nCtg);
+  void deWide();
 
 
   /**
@@ -152,41 +206,36 @@ public:
 
      @param leadCount is the number of leading runs reordered.
    */
-  void ctgReorder(PredictorT leadCount,
-		  PredictorT nCtg);
+  void ctgReorder(PredictorT leadCount);
 
 
   /**
-     @brief Determines split having highest weighted variance.
-
-     Runs initially sorted by mean response.
+     @breif Static entry for regression splitting.
    */
-  void maxVar();
-  
-  
-  /**
-     @brief Gini-based splitting for categorical response and predictor.
-
-     Nodes are now represented compactly as a collection of runs.
-     For each node, subsets of these collections are examined, looking for the
-     Gini argmax beginning from the pre-bias.
-
-     Iterates over nontrivial subsets, coded by unsigneds as bit patterns.  By
-     convention, the final run is incorporated into RHS of the split, if any.
-     Excluding the final run, then, the number of candidate LHS subsets is
-     '2^(runCount-1) - 1'.
-
-     @param ctgSum is the per-category sum of responses.
-  */
-  void ctgGini(const vector<double>& ctgSum);
+  static void split(const class SFReg* sf,
+		    class SplitNux* cand);
 
   
   /**
-     @brief As above, but specialized for binary response.
+     @brief Private entry for regression splitting.
    */
-  void binaryGini(const vector<double>& ctgSum);
+  void splitReg(class SplitNux* cand);
 
+
+  /**
+     @brief Static entry for classification splitting.
+   */
+  static void split(const class SFCtg* sf,
+		    class SplitNux* cand);
   
+
+  /**
+     @brief Private entry for categorical splitting.
+   */
+  void splitCtg(const class SFCtg* sf,
+		class SplitNux* cand);
+
+
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
 
@@ -214,14 +263,7 @@ public:
   void initReg(IndexT runLeft);
 
   
-  double* initCtg(IndexT runLeft,
-		  PredictorT nCtg);
-
-  
-  /**
-     @brief Accumulates runs for regression.
-   */
-  void regRuns();
+  double* initCtg(IndexT runLeft);
 
   
   /**
@@ -234,15 +276,7 @@ public:
 		     IndexT edgeLeft,
 		     bool maskSense);
 
-  
-  /**
-     @brief Accumulates runs for classification.
 
-     @param sumSlice is the per-category response decomposition.
-  */
-  void ctgRuns(const vector<double>& sumSlice);
-
-  
   /**
      @brief Writes to heap arbitrarily:  sampling w/o replacement.
 
@@ -318,7 +352,9 @@ public:
 
      @param sum[in, out] accumulates the sum using the output position.
    */
-  inline void sumAccum(PredictorT slot, IndexT& sCount, double& sum) const {
+  inline void sumAccum(PredictorT slot,
+		       IndexT& sCount,
+		       double& sum) const {
     runZero[slot].accum(sCount, sum);
   }
 
@@ -330,7 +366,8 @@ public:
 
      @param runIdx is the index from which to copy the top position.
    */
-  inline void reset(PredictorT runStart, PredictorT runIdx) {
+  inline void reset(PredictorT runStart,
+		    PredictorT runIdx) {
     if (runIdx != runCount) {
       runZero[runStart] = runZero[runIdx]; // New top value.
       runCount = runStart + 1;
@@ -345,7 +382,6 @@ public:
      @return checkerboard value at slot for category.
    */
   inline double getCellSum(PredictorT runIdx,
-			  PredictorT nCtg,
 			  PredictorT yCtg) const {
     return cellSum[runIdx * nCtg + yCtg];
   }
@@ -373,9 +409,9 @@ public:
   inline bool accumBinary(PredictorT slot,
 			  double& sum0,
 			  double& sum1) {
-    double cell0 = getCellSum(slot, 2, 0);
+    double cell0 = getCellSum(slot, 0);
     sum0 += cell0;
-    double cell1 = getCellSum(slot, 2, 1);
+    double cell1 = getCellSum(slot, 1);
     sum1 += cell1;
 
     IndexT sCount = runZero[slot].sCount;
@@ -385,7 +421,7 @@ public:
     // then checks whether the response values are likely different, given
     // some jittering.
     // TODO:  replace constant with value obtained from class weighting.
-    return sCount != runZero[slotNext].sCount ? true : getCellSum(slotNext, 2, 1) - cell1 > 0.9;
+    return sCount != runZero[slotNext].sCount ? true : getCellSum(slotNext, 1) - cell1 > 0.9;
   }
 
 
@@ -506,7 +542,7 @@ public:
   /**
      @return top-most block range associated with encoding.
    */
-  IndexRange getTopRange(const class CritEncoding& enc) const;
+  vector<IndexRange> getTopRange(const class CritEncoding& enc) const;
 
 
   struct RunDump dump() const;

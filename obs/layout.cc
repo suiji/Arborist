@@ -13,6 +13,8 @@
    @author Mark Seligman
  */
 
+
+#include "stagecount.h"
 #include "layout.h"
 #include "valrank.h"
 #include "obspart.h"
@@ -95,21 +97,16 @@ void Layout::accumOffsets() {
 }
 
 
-Layout::~Layout() {
-}
-
-
-vector<IndexT> Layout::stage(const Sample* sample,
-			     ObsPart* obsPart) const {
-  vector<IndexT> stageCount(nPred);
+vector<StageCount> Layout::stage(const Sample* sample,
+				 ObsPart* obsPart) const {
+  vector<StageCount> stageCount(nPred);
 
   OMPBound predTop = nPred;
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
-      obsPart->stageRange[predIdx] = getSafeRange(predIdx, sample->getBagCount());
-      stageCount[predIdx] = stage(sample, predIdx, obsPart);
+      stageCount[predIdx] = stage(sample, obsPart, predIdx);
     }
   }
 
@@ -117,12 +114,14 @@ vector<IndexT> Layout::stage(const Sample* sample,
 }
 
 
-IndexT Layout::stage(const Sample* sample,
-		     PredictorT predIdx,
-		     ObsPart* obsPart) const {
+StageCount Layout::stage(const Sample* sample,
+			 ObsPart* obsPart,
+			 PredictorT predIdx) const {
+  obsPart->setStageRange(predIdx, getSafeRange(predIdx, sample->getBagCount()));
   IndexT rankDense = implExpl[predIdx].rankImpl;
   IndexT* idxStart;
-  SampleRank* spn = obsPart->buffers(predIdx, 0, idxStart);
+  SampleRank* srStart = obsPart->buffers(predIdx, 0, idxStart);
+  SampleRank* spn = srStart;
   IndexT* sIdx = idxStart;
   for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;
@@ -136,7 +135,20 @@ IndexT Layout::stage(const Sample* sample,
       }
     }
   }
-
-  return sIdx - idxStart;
+  IndexT idxExplicit = spn - srStart;
+  return StageCount(sample->getBagCount() - idxExplicit, obsPart->countRanks(predIdx, 0, noRank, idxExplicit));
   // Post-condition:  rrOut.size() == explicitCount[predIdx]
 }
+
+
+IndexRange Layout::getSafeRange(PredictorT predIdx,
+				IndexT bagCount) const {
+  if (implExpl[predIdx].rankImpl == noRank) {
+    return IndexRange(implExpl[predIdx].safeOffset * bagCount, bagCount);
+  }
+  else {
+    return IndexRange(nonCompact * bagCount + implExpl[predIdx].safeOffset, implExpl[predIdx].countExpl);
+    }
+}
+
+

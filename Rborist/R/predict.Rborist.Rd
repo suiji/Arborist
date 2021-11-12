@@ -25,7 +25,9 @@ nThread = 0, verbose = FALSE, ...)
   \item{quantiles}{whether to predict quantiles.}
   \item{ctgCensus}{whether/how to summarize per-category predictions.
   "votes" specifies the number of trees predicting a given class.
-  "prob" specifies a normalized, probabilistic summary.}
+  "prob" specifies a normalized, probabilistic summary.
+  "probSample" specifies sample-weighted probabilities, similar to
+  quantile histogramming.}
   \item{oob}{whether prediction is restricte to out-of-bag samples.}
   \item{nThread}{suggests ans OpenMP-style thread count.  Zero denotes
     default processor setting.}

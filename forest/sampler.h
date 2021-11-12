@@ -20,9 +20,10 @@
 #include "bv.h"
 #include "typeparam.h"
 #include "leaf.h"
+#include "sample.h"
 
-#include "samplernux.h"
-
+#include <memory>
+#include <vector>
 /**
    @brief Rank and sample-counts associated with sampled rows.
 
@@ -36,6 +37,40 @@ struct RankCount {
             IndexT sCount) {
     this->rank = rank;
     this->sCount = sCount;
+  }
+};
+
+
+class SamplerNux {
+  IndexT sCount; // # times bagged:  == 0 iff marker.
+  IndexT leafIdx; // Leaf index within tree, iff non-marker
+  IndexT delRow; // Difference in adjacent row numbers, iff non-marker.
+
+public:
+  SamplerNux() :
+    sCount(0) {
+  }
+  
+  SamplerNux(IndexT delRow_,
+	     IndexT leafIdx_,
+	     IndexT sCount_) :
+    sCount(sCount_),
+    leafIdx(leafIdx_),
+    delRow(delRow_) {
+  }
+
+  inline auto getDelRow() const {
+    return delRow;
+  }
+  
+
+  inline auto getLeafIdx() const {
+    return leafIdx;
+  }
+
+  
+  inline auto getSCount() const {
+    return sCount;
   }
 };
 
@@ -103,8 +138,16 @@ public:
     return raw->items[absOff].getLeafIdx();
   }
 
-  vector<IndexT> ctgSamples(const class Predict* predict,
-			    const LeafCtg* leaf) const;
+  
+  /**
+     @brief Enumerates the number of samples at each leaf's category.
+
+     'probSample' is the only client.
+
+     @return forest-wide vector of category counts, by leaf.
+   */
+  vector<IndexT> countLeafCtg(const class Predict* predict,
+			      const LeafCtg* leaf) const;
 
     
   vector<RankCount> countLeafRanks(const class Predict* predict,
@@ -136,41 +179,146 @@ public:
 };
 
 
-struct Sampler {
+class Sampler {
   const unsigned int nTree;
   const size_t nObs; // # training observations
   const size_t nSamp;  // # samples requested per tree.
   const PredictorT nCtg; // Cardinality of training response.
+  const bool bagging; // Whether bagging required.
+  const bool nuxSamples;  // Whether SamplerNux are emited/read:  training/prediction.
+  
   const unique_ptr<class Leaf> leaf;
-  unique_ptr<class BitMatrix> bitMatrix;
-  const unique_ptr<SamplerBlock> samplerBlock;
+  unique_ptr<class BitMatrix> bagMatrix; // Empty if samplerBlock empty.
+  unique_ptr<SamplerBlock> samplerBlock;
+
+  // Crescent only:
+  vector<SamplerNux> sbCresc; // Crescent block.
+  unique_ptr<class Sample> sample; // Reset at each tree.
+  unsigned int tIdx; // Block-relative index of current tree.
+
+
+  /**
+     @brief Constructs bag according to encoding.
+   */
+  static unique_ptr<BitMatrix> bagRaw(unsigned char* raWSamples,
+				      bool nuxSamples,
+				      bool bagging,
+				      unsigned int nTree,
+				      IndexT nObs);
+
+  /**
+     @brief Surveys leaf contents.
+
+     @return SamplerBlock constructed from internal survey.
+   */
+  unique_ptr<SamplerBlock> readRaw(unsigned char* samplesRaw);
+
+
+public:
+
+
+  bool isBagging() const {
+    return bagging;
+  }
+
+  
+  class Sample* getSample() const;
+
+  
+  void rootSample(const class TrainFrame* frame);
+
+
+  /**
+     @brief Copies samples to the block, if 'thin' not specified.
+   */
+  void blockSamples(const vector<IndexT>& leafMap);
+
+
+  vector<double> scoreTree(const vector<IndexT>& leafMap) const;
+
+
+  /**
+     @brief Computes # bytes subsumed by samples.
+   */
+  size_t getBlockBytes() const;
+  
+  
+  /**
+     @brief Records multiplicity and leaf index for bagged samples
+     within a tree.  Accessed by bag vector, so sample indices must
+     reference consecutive bagged rows.
+     @param leafMap maps sample indices to leaves.
+  */
+  void bagLeaves(const class Sample *sample,
+                 const vector<IndexT> &leafMap,
+		 unsigned int tIdx);
+
+
+  /**
+     @brief Generic entry for serialization.
+   */
+  void dumpRaw(unsigned char snRaw[]) const; 
+
+
+
+  /**
+     @brief Serializes sampler block.
+   */
+  void dumpNuxRaw(unsigned char bagRaw[]) const; 
 
   
   /**
-     @brief Classification constructor.
+     Classification constructor:  training.
    */
   Sampler(const vector<PredictorT>& yTrain,
-	  const SamplerNux* samples,
-	  unsigned int nTree_,
-	  PredictorT nCtg_);
+	  bool nuxSamples_,
+	  IndexT nSamp_,
+	  unsigned int treeChunk,
+	  PredictorT nCtg_,
+	  const vector<double>& classWeight_,
+	  bool bagging_ = true);
 
 
   /**
-     @brief Regression constructor.
+     @brief Classification constructor:  post training.
+   */
+  Sampler(const vector<PredictorT>& yTrain,
+	  bool nux,
+	  unsigned char* samples,
+	  IndexT nSamp_,
+	  unsigned int nTree_,
+	  PredictorT nCtg_,
+	  bool bagging_);
+
+
+  /**
+     @brief Regression constructor: training.
    */
   Sampler(const vector<double>& yTrain,
-	  const SamplerNux* samples,
-	  unsigned int nTree_);
+	  bool nuxSamples_,
+	  IndexT nSamp_,
+	  unsigned int treeChunk,
+	  bool bagging_ = true);
 
   
   /**
-     @brief Constructor for empty bag.
+     @brief Regression constructor:  post-training.
    */
-  Sampler();
+  Sampler(const vector<double>& yTrain,
+	  bool nuxSamples_,
+	  unsigned char* samples,
+	  IndexT nSamp_,
+	  unsigned int nTree_,
+	  bool bagging_);
 
   
   const Leaf* getLeaf() const {
     return leaf.get();
+  }
+
+
+  auto getNSamp() const {
+    return nSamp;
   }
   
 
@@ -196,37 +344,26 @@ struct Sampler {
 
      @param row is the row index.
 
-     @return true iff matrix is nonempty and the coordinate bit is set.
+     @return true iff bagging and the coordinate bit is set.
    */
   inline bool isBagged(unsigned int tIdx, size_t row) const {
-    return nTree != 0 && bitMatrix->testBit(tIdx, row);
+    return bagging && bagMatrix->testBit(tIdx, row);
   }
 
   
-  bool isEmpty() const {
-    return samplerBlock->size() == 0;
+  bool hasSamples() const {
+    return samplerBlock != nullptr && samplerBlock->size() != 0;
   }
 
   
-  /**
-     @brief Surveys leaf contents.  Side-effects bit-matrix.
-
-     @return SamplerBlock constructed from internal survey.
-   */
-  unique_ptr<SamplerBlock> setExtents(const SamplerNux* samples);
-
-  
-  class BitMatrix* getBitMatrix() const;
-
-
   /**
      @brief Counts samples at each leaf, by category.
 
      @return per-leaf vector enumerating samples at each category.
    */
-  vector<IndexT> ctgSamples(const class Predict* predict,
-			    const LeafCtg* leaf) const {
-    return samplerBlock->ctgSamples(predict, leaf);
+  vector<IndexT> countLeafCtg(const class Predict* predict,
+			      const LeafCtg* leaf) const {
+    return hasSamples() ? samplerBlock->countLeafCtg(predict, leaf) : vector<IndexT>(0);
   }
   
   

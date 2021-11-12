@@ -60,7 +60,7 @@ class Frontier {
   vector<IndexSet> indexSet;
   const IndexT bagCount;
   const PredictorT nCtg;
-  unique_ptr<class DefMap> defMap;
+  unique_ptr<class DefFrontier> defMap;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
   IndexT idxLive; // Total live indices.
   IndexT liveBase; // Accumulates live index offset.
@@ -75,8 +75,13 @@ class Frontier {
   vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
-  
-  SplitSurvey surveySet(vector<IndexSet>& indexSet);
+
+  /**
+     @brief Determines splitability of frontier nodes just split.
+
+     @param indexSet holds the index-set representation of the nodes.
+   */
+  SplitSurvey surveySet(vector<IndexSet>& indexSet) const;
 
   
 
@@ -88,6 +93,7 @@ class Frontier {
   */
   vector<IndexSet> splitDispatch(const class BranchSense* branchSense,
 				 unsigned int level);
+
 
   /**
      @brief Establishes splitting parameters for next frontier level.
@@ -146,8 +152,6 @@ class Frontier {
   Frontier(const class TrainFrame* frame,
            const class Sample* sample);
 
-  ~Frontier();
-
   
   /**
     @brief Trains one tree.
@@ -159,7 +163,7 @@ class Frontier {
     @return trained pretree object.
   */
   static unique_ptr<class PreTree> oneTree(const class TrainFrame* frame,
-					   const class Sample* sample);
+					   class Sampler* sampler);
 
 
   /**
@@ -169,7 +173,30 @@ class Frontier {
      Parameters as described above.
   */
   unique_ptr<class PreTree> levels(const class Sample* sample);
+
+
+  /**
+     @brief Passes through to IndexSet method.
+
+     @param[out] argMax most informative split associated with node, if any.
+   */
+  void candMax(class SplitNux& argMax,
+	       const vector<SplitNux>& candV) const;
+
   
+  /**
+     @brief Updates both index set and pretree states for a set of simple splits.
+   */
+  void updateSimple(const class SplitFrontier* sf,
+		    const vector<class SplitNux>& nuxMax);
+
+
+  /**
+     @brief Updates only pretree states for a set of compound splits.
+   */
+  void updateCompound(const class SplitFrontier* sf,
+		      const vector<vector<class SplitNux>>& nuxMax);
+
 
   /**
      @brief Builds index base offsets to mirror crescent pretree level.
@@ -187,9 +214,11 @@ class Frontier {
                  IndexT &outOff,
                  bool terminal = false);
 
-
-  IndexT getPTId(const PreCand& preCand) const {
-    return indexSet[preCand.splitCoord.nodeIdx].getPTId();
+  /**
+     @return pre-tree index associated with node.
+   */
+  IndexT getPTId(const MRRA& mrra) const {
+    return indexSet[mrra.splitCoord.nodeIdx].getPTId();
   }
   
 
@@ -200,7 +229,7 @@ class Frontier {
 
      @param senseTrue is true iff true branch sense requested.
 
-     @return successor index.
+     @return successor pre-tree index.
    */
   IndexT getPTIdSucc(IndexT ptId,
                      bool senseTrue) const;
@@ -214,7 +243,7 @@ class Frontier {
                  IndexT& ptFalse) const;
 
   /**
-     @brief DefMap pass-through to register reaching path.
+     @brief DefFrontier pass-through to register reaching path.
 
      @param splitIdx is the level-relative node index.
 
@@ -295,17 +324,20 @@ class Frontier {
   */
   vector<double> sumsAndSquares(vector<vector<double> >& ctgSum);
 
+  
   /**
-     @brief Getter for IndexRange at a given coordinate.
+     @brief Obtains the IndexRange for a splitting candidate's location.
 
-     @param preCand contains the splitting candidate's coordinate.
+     @param mrra contains candidate's coordinate.
 
      @return index range of referenced split coordinate.
    */
-  IndexRange getBufRange(const PreCand& preCand) const;
+  IndexRange getBufRange(const MRRA& mrra) const {
+    return indexSet[mrra.splitCoord.nodeIdx].getBufRange();
+  }
 
 
-  auto getDefMap() const {
+  auto getDefFrontier() const {
     return defMap.get();
   }
 
@@ -325,16 +357,21 @@ class Frontier {
   }
 
 
+  /**
+     @brief Getter for # categories in response.
+   */
   inline auto getNCtg() const {
     return nCtg;
   }
 
+  
   /**
      @brief Accessor for count of splitable sets.
    */
   inline IndexT getNSplit() const {
     return indexSet.size();
   }
+
 
   /**
      @brief Accessor for sum of sampled responses over set.
@@ -348,8 +385,11 @@ class Frontier {
   }
 
 
-  inline auto getSum(const PreCand& preCand) const {
-    return getSum(preCand.splitCoord.nodeIdx);
+  /**
+     @brief As above, but parametrized by candidate location.
+   */
+  inline auto getSum(const MRRA& mrra) const {
+    return getSum(mrra.splitCoord.nodeIdx);
   }
 
 
@@ -361,8 +401,38 @@ class Frontier {
   }
 
 
-  inline auto getSCount(const PreCand& preCand) const {
-    return getSCount(preCand.splitCoord.nodeIdx);
+  inline auto getSCount(const MRRA& mrra) const {
+    return getSCount(mrra.splitCoord.nodeIdx);
+  }
+
+
+  /**
+     @brief Accessor for count of sampled responses over set.
+   */
+  inline auto getSCountSucc(IndexT splitIdx,
+			    bool sense) const {
+    return indexSet[splitIdx].getSCountSucc(sense);
+  }
+
+
+  inline auto getSCountSucc(const MRRA& mrra,
+			    bool sense) const {
+    return getSCountSucc(mrra.splitCoord.nodeIdx, sense);
+  }
+
+
+  /**
+     @brief Accessor for count of sampled responses over set.
+   */
+  inline auto getSumSucc(IndexT splitIdx,
+			    bool sense) const {
+    return indexSet[splitIdx].getSumSucc(sense);
+  }
+
+
+  inline auto getSumSucc(const MRRA& mrra,
+			    bool sense) const {
+    return getSumSucc(mrra.splitCoord.nodeIdx, sense);
   }
 
 

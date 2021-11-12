@@ -9,16 +9,14 @@
 #define SPLIT_CAND_H
 
 /**
-   @file candcart.h
+   @file cand.h
 
    @brief Manages generic splitting candidate selection.
 
    @author Mark Seligman
-
  */
 
-#include "cand.h"
-#include "splitcoord.h"
+
 #include "typeparam.h"
 
 #include <vector>
@@ -28,8 +26,7 @@
  */
 
 struct Cand {
-  static vector<PreCand> precandidates(class SplitFrontier* splitFrontier,
-				       class DefMap* bottom);
+  static void precandidates(class DefFrontier* defFrontier);
 };
 
 #endif

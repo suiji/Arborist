@@ -184,12 +184,29 @@ vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
 }
 
 
-void IndexSet::update(const SplitFrontier* splitFrontier,
-		      const SplitNux* nux,
-		      const CritEncoding& enc) {
+void IndexSet::candMax(const vector<SplitNux>& cand,
+		       SplitNux& argMaxNux) const {
+  IndexT argMax = cand.size();
+  double runningMax = 0.0;
+  for (IndexT splitOff = 0; splitOff < cand.size(); splitOff++) {
+    if (cand[splitOff].maxInfo(runningMax)) {
+      argMax = splitOff;
+    }
+  }
+
+  if (runningMax > 0.0 && isInformative(cand[argMax])) {
+    argMaxNux = cand[argMax];
+  }
+}
+
+
+void IndexSet::update(const SplitFrontier* sf,
+		      const SplitNux& nux) {
+  CritEncoding enc = sf->encodeCriterion(nux); // virtual
   doesSplit = true;
   trueEncoding = enc.trueEncoding(); // Final state is most recent update.
-  minInfo = nux->getMinInfo(); // REVISE as update
+  double oldMinInfo = minInfo;
+  minInfo = nux.getMinInfo(); // REVISE as update
   SumCount::incr(ctgTrue, trueEncoding ? enc.scCtg : SumCount::minus(ctgSum, enc.scCtg));
   enc.getISetVals(nux, sCountTrue, sumTrue, extentTrue);
 }
@@ -225,6 +242,6 @@ unsigned int IndexSet::splitAccum(bool sense,
 
   
 
-bool IndexSet::isInformative(const SplitNux* nux) const {
-  return nux->getInfo() > minInfo;
+bool IndexSet::isInformative(const SplitNux& nux) const {
+  return nux.getInfo() > minInfo;
 }

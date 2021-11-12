@@ -32,16 +32,12 @@ struct SFRegCart : public SFReg {
 
   SFRegCart(class Frontier* frontier_);
 
-  ~SFRegCart();
-
 
   /**
      @return enumeration indicating slot-style encoding.
    */
   SplitStyle getFactorStyle() const;
   
-
-  void clear();
 
   /**
      @brief Weighted-variance pre-bias computation for regression response.
@@ -59,8 +55,7 @@ struct SFRegCart : public SFReg {
   }
 
 
-  void split(vector<IndexSet>& indexSet,
-	     vector<SplitNux>& sc);
+  void split();
 
 
   /**
@@ -90,14 +85,8 @@ class SFCtgCart : public SFCtg {
   */
   void layerPreset();
 
-  /**
-     @brief Clears summary state associated with this layer.
-   */
-  void clear();
-
-
-  void split(vector<IndexSet>& indexSet,
-	     vector<SplitNux>& sc);
+  
+  void split();
 
 
   /**
@@ -135,8 +124,6 @@ class SFCtgCart : public SFCtg {
  public:
   SFCtgCart(class Frontier* frontier_);
 
-
-  ~SFCtgCart();
 
 
   /**

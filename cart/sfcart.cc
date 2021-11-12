@@ -14,6 +14,7 @@
  */
 
 
+#include "deffrontier.h"
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
@@ -21,7 +22,8 @@
 #include "ompthread.h"
 #include "splitcart.h"
 #include "branchsense.h"
-
+#include "runaccum.h"
+#include "accumcart.h"
 
 SFRegCart::SFRegCart(Frontier* frontier) :
   SFReg(frontier, false, EncodingStyle::trueBranch) {
@@ -30,27 +32,6 @@ SFRegCart::SFRegCart(Frontier* frontier) :
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
   SFCtg(frontier, false, EncodingStyle::trueBranch) {
-}
-
-
-/**
-   @brief Run objects should not be deleted until after splits have been consumed.
- */
-void SFRegCart::clear() {
-  SplitFrontier::clear();
-}
-
-
-SFRegCart::~SFRegCart() {
-}
-
-
-SFCtgCart::~SFCtgCart() {
-}
-
-
-void SFCtgCart::clear() {
-  SplitFrontier::clear();
 }
 
 
@@ -78,13 +59,12 @@ void SFCtgCart::layerPreset() {
 void SFCtgCart::layerInitSumR(PredictorT nPredNum) {
   if (nPredNum > 0) {
     ctgSumAccum = vector<double>(nPredNum * nCtg * nSplit);
-    fill(ctgSumAccum.begin(), ctgSumAccum.end(), 0.0);
   }
 }
 
 
-void SFRegCart::split(vector<IndexSet>& indexSet,
-		      vector<SplitNux>& sc) {
+void SFRegCart::split() {
+  vector<SplitNux> sc = defMap->getCandidates(this);
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -94,12 +74,12 @@ void SFRegCart::split(vector<IndexSet>& indexSet,
     }
   }
 
-  nuxMax = maxCandidates(indexSet, sc);
+  maxSimple(sc);
 }
 
 
-void SFCtgCart::split(vector<IndexSet>& indexSet,
-		      vector<SplitNux>& sc) {
+void SFCtgCart::split() {
+  vector<SplitNux> sc = defMap->getCandidates(this);
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -109,15 +89,25 @@ void SFCtgCart::split(vector<IndexSet>& indexSet,
     }
   }
 
-  nuxMax = maxCandidates(indexSet, sc);
+  maxSimple(sc);
 }
 
 
 void SFCtgCart::split(SplitNux* cand) {
-  SplitCart::splitCtg(this, cand);
+  if (cand->isFactor(this)) {
+    RunAccum::split(this, cand);
+  }
+  else {
+    CutAccumCtgCart::split(this, cand);
+  }
 }
 
 
 void SFRegCart::split(SplitNux* cand) {
-  SplitCart::splitReg(this, cand);
+  if (cand->isFactor(this)) {
+    RunAccum::split(this, cand);
+  }
+  else {
+    CutAccumRegCart::split(this, cand);
+  }
 }

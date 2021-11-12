@@ -28,11 +28,11 @@
 const size_t Predict::scoreChunk = 0x2000;
 const unsigned int Predict::seqChunk = 0x20;
 
+
 Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
 		 RLEFrame* rleFrame_,
 		 bool testing_,
-		 bool bagging_,
 		 unsigned int nPermute_) :
   sampler(sampler_),
   treeOrigin(forest->treeOrigins()),
@@ -40,12 +40,11 @@ Predict::Predict(const Forest* forest,
   facSplit(forest->getFacSplit()),
   rleFrame(rleFrame_),
   testing(testing_),
-  bagging(bagging_),
   nPermute(nPermute_),
   predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
   accumNEst(vector<IndexT>(scoreChunk)),
   scoreBlock(forest->getScores()),
-  scoreHeight(scoreHeights()),
+  scoreHeight(scoreHeights(scoreBlock)),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
   nRow(rleFrame->getNRow()),
@@ -59,7 +58,7 @@ Predict::Predict(const Forest* forest,
 }
 
 
-vector<size_t> Predict::scoreHeights() const {
+vector<size_t> Predict::scoreHeights(const vector<vector<double>>& scoreBlock) {
   vector<size_t> scoreHeight;
   size_t height = 0; // Accumulated height.
   for (auto treeScores : scoreBlock) {
@@ -83,12 +82,10 @@ PredictReg::PredictReg(const Forest* forest,
 		       const Sampler* sampler_,
 		       RLEFrame* rleFrame,
 		       const vector<double>& yTest_,
-		       bool bagging_,
 		       unsigned int nPermute_,
 		       const vector<double>& quantile) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), bagging_, nPermute_),
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_),
   leaf(reinterpret_cast<const LeafReg*>(sampler->getLeaf())),
-  defaultScore(leaf->meanTrain()),
   yTest(move(yTest_)),
   yPred(vector<double>(nRow)),
   yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
@@ -103,29 +100,22 @@ PredictReg::PredictReg(const Forest* forest,
 }
 
 
-PredictReg::~PredictReg() {
-}
-
-
 PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
 		       RLEFrame* rleFrame,
 		       const vector<PredictorT>& yTest_,
-		       bool bagging_,
 		       unsigned int nPermute_,
 		       bool doProb) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), bagging_, nPermute_),
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_),
   leaf(reinterpret_cast<const LeafCtg*>(sampler->getLeaf())),
   yTest(move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
   nCtgTrain(leaf->getNCtg()),
   nCtgMerged(testing ? 1 + *max_element(yTest.begin(), yTest.end()) : 0),
   ctgProb(make_unique<CtgProb>(this, leaf, sampler, doProb)),
-  ctgDefault(),//ctgProb->ctgDefault()),
   // Can only predict trained categories, so census and
   // probability matrices have 'nCtgTrain' columns.
   yPermute(vector<PredictorT>(nPermute > 0 ? nRow : 0)),
-  votes(vector<double>(nRow * nCtgTrain)),
   census(vector<PredictorT>(nRow * nCtgTrain)),
   confusion(vector<size_t>(nCtgTrain * nCtgMerged)),
   misprediction(vector<double>(nCtgMerged)),
@@ -244,20 +234,18 @@ void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
 
 
 unsigned int PredictReg::scoreRow(size_t row) {
-  double sumScore = 0.0;
-  unsigned int nEst = 0;
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    double score;
-    if (isLeafIdx(row, tIdx, score)) {
-      nEst++;
-      sumScore += score;
-    }
-  }
-  (*yTarg)[row] = nEst > 0 ? sumScore / nEst : defaultScore;
+  (*yTarg)[row] = leaf->predictObs(this, row);
   if (!quant->isEmpty()) {
     quant->predictRow(this, row);
   }
   return nEst;
+}
+
+
+void PredictCtg::scoreRow(size_t row) {
+  (*yTarg)[row] = leaf->predictObs(this, row, &census[ctgIdx(row)]);
+  if (!ctgProb->isEmpty())
+    ctgProb->predictRow(this, row, &census[ctgIdx(row)]);
 }
 
 
@@ -267,31 +255,6 @@ void PredictReg::testRow(size_t row) {
   double testError = fabs(yTest[row] - (*yTarg)[row]);
   accumAbsErr[rowIdx] += testError;
   accumSSE[rowIdx] += testError * testError;
-}
-
-
-void PredictCtg::scoreRow(size_t row) {
-  unsigned int nEst = 0;
-  double* blockVotes = &votes[ctgIdx(row)];
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    double score;
-    if (isLeafIdx(row, tIdx, score)) {
-      nEst++;
-      PredictorT ctg = floor(score); // Truncates jittered score for indexing.
-      blockVotes[ctg] += (1.0 + score) - ctg; // 1 plus small jitter.
-    }
-  }
-  if (nEst == 0) { // Default category unity, all others zero.
-    blockVotes[ctgDefault] = 1.0;
-  }
-  PredictorT* blockCensus = &census[ctgIdx(row)];
-  // Assigns de-jittered vote count to each category:
-  for (PredictorT ctg = 0; ctg < nCtgTrain; ctg++) {
-    blockCensus[ctg] = blockVotes[ctg];
-  }
-  (*yTarg)[row] = argMaxCtg(blockVotes);
-  if (!ctgProb->isEmpty())
-    ctgProb->predictRow(this, row);
 }
 
 
@@ -313,7 +276,7 @@ const vector<double> PredictReg::getQEst() const {
 void Predict::walkNum(size_t row) {
   auto rowT = baseNum(row);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!bagging || !sampler->isBagged(tIdx, row)) {
+    if (!sampler->isBagged(tIdx, row)) {
       rowNum(tIdx, rowT, row);
     }
   }
@@ -323,7 +286,7 @@ void Predict::walkNum(size_t row) {
 void Predict::walkFac(size_t row) {
   auto rowT = baseFac(row);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!bagging || !sampler->isBagged(tIdx, row)) {
+    if (!sampler->isBagged(tIdx, row)) {
       rowFac(tIdx, rowT, row);
     }
   }
@@ -334,7 +297,7 @@ void Predict::walkMixed(size_t row) {
   const double* rowNT = baseNum(row);
   const PredictorT* rowFT = baseFac(row);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!bagging || !sampler->isBagged(tIdx, row)) {
+    if (!sampler->isBagged(tIdx, row)) {
       rowMixed(tIdx, rowNT, rowFT, row);
     }
   }

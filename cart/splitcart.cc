@@ -8,17 +8,14 @@
 /**
    @file splitcart.cc
 
-   @brief Directs splitting via accumaltors.
+   @brief Directs splitting via accumulators.
 
    @author Mark Seligman
  */
 
 
-#include "accumcart.h"
+#include "splitfrontier.h"
 #include "sfcart.h"
-#include "splitnux.h"
-#include "runaccum.h"
-#include "trainframe.h"
 #include "splitcart.h"
 #include "frontier.h"
 
@@ -31,42 +28,3 @@ unique_ptr<SplitFrontier> SplitCart::factory(Frontier* frontier) {
     return make_unique<SFRegCart>(frontier);
   }
 }
-
-
-void SplitCart::splitReg(const SFRegCart* sf, SplitNux* cand) {
-  if (sf->isFactor(cand)) {
-    RunAccum *runAccum = sf->getRunAccum(cand->getAccumIdx());
-    runAccum->regRuns();
-    runAccum->maxVar();
-    cand->infoGain(runAccum);
-  }
-  else {
-    CutAccumRegCart numPersist(cand, sf);
-    numPersist.split(sf, cand);
-    cand->infoGain(&numPersist);
-  }
-}
-
-
-void SplitCart::splitCtg(SFCtgCart* sf, SplitNux* cand) {
-  if (sf->isFactor(cand)) {
-    RunAccum* runAccum = sf->getRunAccum(cand->getAccumIdx());
-    runAccum->ctgRuns(sf->getSumSlice(cand));
-
-    if (sf->getNCtg() == 2) {
-      runAccum->binaryGini(sf->getSumSlice(cand));
-    }
-    else {
-      runAccum->ctgGini(sf->getSumSlice(cand));
-    }
-    cand->infoGain(runAccum);
-  }
-  else {
-    CutAccumCtgCart numPersist(cand, sf);
-    numPersist.split(sf, cand);
-    cand->infoGain(&numPersist);
-  }
-}
-
-
-

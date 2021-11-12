@@ -72,8 +72,8 @@ public:
 	     bool enableCoproc,
 	     vector<string>& diag);
 
-  
-  ~TrainFrame();
+
+  ~TrainFrame(); // Forward declaration:  not coded as default.
 
 
   const vector<PredictorT>& getPredMap() const {

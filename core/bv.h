@@ -21,31 +21,62 @@
 #include <algorithm>
 #include <stdexcept>
 
-
 #include "typeparam.h"
 
-// TODO: Reparametrize with templates.
 
+// TODO: Reparametrize with templates.
 typedef unsigned int RawT;
 
 class BV {
-  const size_t nSlot; // Number of typed (uint) slots.
-  RawT* raw;
-  const bool wrapper;  // True iff an overlay onto pre-allocated memory.
+  size_t nSlot; // Number of typed (RawT) slots.
+  vector<RawT> rawV; // Internal manager for writable instances.
+  const RawT* raw; // Points to rawV iff writable, else external buffer.
   
  public:
+  static constexpr unsigned int allOnes = 0xffffffff;
   static constexpr unsigned int full = 1;
   static constexpr unsigned int eltSize = 1;
   static constexpr size_t slotSize = sizeof(RawT);
-  static constexpr size_t slotElts = 8 * slotSize;
+  static constexpr size_t slotElts = 8 * slotSize; // # bits in slot.
 
-  BV(size_t len, bool slotWise = false);
-  BV(const vector<RawT> &raw_);
-  BV(RawT raw_[], size_t nSlot_);
-  BV(vector<RawT>& raw_, size_t nSlot_);
+  BV(const BV* bv) :
+    nSlot(bv->nSlot),
+    rawV(vector<RawT>(nSlot)),
+    raw(nSlot == 0 ? nullptr : &rawV[0]) {
+  }
 
-  ~BV();
+  
+  BV(size_t bitLen) :
+    nSlot(slotAlign(bitLen)),
+    rawV(vector<RawT>(nSlot)),
+    raw(nSlot == 0 ? nullptr : &rawV[0]) {
+  }
 
+  /**
+     @brief Copies contents of constant vector.
+  */
+  BV(const vector<RawT>& raw_) :
+    nSlot(raw_.size()),
+    rawV(raw_.begin(), raw_.end()),
+    raw(nSlot == 0 ? nullptr : &rawV[0]) {
+  }
+
+
+  /**
+     @brief Wraps external buffer:  unwritable.
+
+     @param raw_ points to an external buffer.
+
+     @param nSlot_ is the number of readable RawT slots in the buffer.
+   */
+   BV(RawT raw_[],
+      size_t nSlot_) : nSlot(nSlot_),
+		       raw(raw_) {  }
+
+  
+  ~BV(){}
+
+  
   /**
      @brief Sets slots from a vector position deltas.
    */
@@ -53,10 +84,11 @@ class BV {
   
   inline void dumpRaw(unsigned char *bbRaw) const {
     for (size_t i = 0; i < nSlot * sizeof(RawT); i++) {
-      bbRaw[i] = *((unsigned char *) &raw[0] + i);
+      bbRaw[i] = reinterpret_cast<const unsigned char*>(&raw[0])[i];
     }
   }
 
+  
   inline vector<RawT> dumpVec(size_t base, size_t extent) const {
     vector<RawT> outVec(extent);
     IndexT idx = 0;
@@ -76,23 +108,19 @@ class BV {
 
   
   /**
-     @brief Accessor for position within the 'raw' buffer.
-   */
-  inline RawT* Raw(size_t off) {
-    return raw + off;
-  }
-
-  /**
-     @brief Appends contents onto output vector.
+     @brief Appends whole slots onto output vector.
 
      @param[out] out outputs the raw bit vector contents.
 
-     @param bitEnd specifies a known end position if positive, otherwise
-     indicates that a default value be used.
+     @param bitEnd specifies a known end position.
 
-     @return void, with output vector parameter.
+     @retun number of native slots consumed.
   */
-  void consume(vector<RawT>& out, size_t bitEnd = 0) const;
+  size_t appendSlots(vector<RawT>& out, size_t bitEnd) const {
+    size_t slotEnd = slotAlign(bitEnd);
+    out.insert(out.end(), raw, raw + slotEnd);
+    return slotEnd;
+  }
 
 
   BV operator|(const BV& bvR) {
@@ -100,9 +128,9 @@ class BV {
     if (bvR.getNSlot() != nSlot) {
       throw std::invalid_argument("mismatched bit vector | operation");
       }*/
-    BV bvOr(nSlot, true);
+    BV bvOr(this);
     for (size_t i = 0; i < nSlot; i++) {
-      bvOr.raw[i] = raw[i] | bvR.raw[i];
+      bvOr.rawV[i] = raw[i] | bvR.raw[i];
     }
     return bvOr;
   }
@@ -115,7 +143,7 @@ class BV {
       }*/
 
     for (size_t i = 0; i < nSlot; i++) {
-      raw[i] &= bvR.raw[i];
+      rawV[i] &= bvR.raw[i];
     }
     return *this;
   }
@@ -128,23 +156,32 @@ class BV {
       }*/
 
     for (size_t i = 0; i < nSlot; i++) {
-      raw[i] |= bvR.raw[i];
+      rawV[i] |= bvR.raw[i];
     }
     return *this;
   }
 
 
   BV operator~() {
-    BV bvTilde(nSlot, true);
+    BV bvTilde(this);
     for (size_t i = 0; i < nSlot; i++) {
-      bvTilde.raw[i] = ~raw[i];
+      bvTilde.rawV[i] = ~raw[i];
     }
     return bvTilde;
   }
 
   
-  BV *Resize(size_t bitMin);
+  /**
+     @brief Resizes to accommodate desired bit size.
 
+     N.B.:  Should not be used for wrappers, as external vector
+     not copied.
+
+     @param bitMin is the minimum count of raw bits.
+  */
+  void resize(size_t bitMin);
+
+  
   /**
      @brief Accessor for slot count.
    */
@@ -231,36 +268,28 @@ class BV {
   /**
      @brief Sets the bit at position 'pos'.
 
-     @param bv is the bit vector implementation.
-
      @param pos is the position to set.
 
-     @return void.
+     @param on indicates whether to set the bit on/off.
    */
-  inline void setBit(size_t pos, bool on = true) {
+  inline void setBit(size_t pos,
+		     bool on = true) {
     RawT mask;
     size_t slot = slotMask(pos, mask);
-    RawT val = raw[slot];
-    raw[slot] = on ? (val | mask) : (val & ~mask);
+    RawT val = rawV[slot];
+    rawV[slot] = on ? (val | mask) : (val & ~mask);
   }
 
-
-  inline auto Slot(size_t slot) const {
-    return raw[slot];
-  }
-  
   
   inline void setSlot(size_t slot, RawT val) {
-    raw[slot] = val;
+    rawV[slot] = val;
   }
 
   /**
      @brief Sets all slots to zero.
    */
   inline void clear() {
-    for (size_t i = 0; i < nSlot; i++) {
-      raw[i] = 0;
-    }
+    fill(rawV.begin(), rawV.end(), 0ul);
   }
 
 
@@ -268,9 +297,7 @@ class BV {
      @brief Sets all slots high.
    */
   inline void saturate() {
-    for (size_t i = 0; i < nSlot; i++) {
-      raw[i] = 0xffffffff;
-    }
+    fill(rawV.begin(), rawV.end(), allOnes);
   }
 };
 
@@ -282,15 +309,36 @@ class BV {
 class BitMatrix : public BV {
   const size_t nRow;
   const unsigned int stride; // Number of uint cells per row.
+
+  /**
+     @brief Exports matrix as vector of column vectors.
+
+     @param _nRow is the external row count.
+
+     @return void, with output reference parameter.
+  */
   void dump(size_t _nRow, vector<vector<unsigned int> > &bmOut) const;
+
+
+  /**
+     @brief Exports an individual column to a uint vector.
+   @param _nRow is the external row count.
+
+   @param outCol outputs the column.
+
+   @param colIdx is the column index.
+
+   @return void, with output reference vector.
+  */
   void colDump(size_t _nRow,
                vector<unsigned int> &outCol,
                unsigned int colIdx) const;
 
  public:
   BitMatrix(size_t _nRow, unsigned int _nCol);
-  BitMatrix(size_t _nRow, unsigned int _nCol, const vector<RawT> &raw_);
+
   BitMatrix(RawT raw_[], size_t _nRow, size_t _nCol);
+
   ~BitMatrix();
 
   inline size_t getNRow() const {
@@ -301,25 +349,8 @@ class BitMatrix : public BV {
   inline size_t getStride() const {
     return stride;
   }
+
   
-
-  static void dump(const vector<RawT>& raw_,
-                   size_t _nRow,
-                   vector<vector<RawT> >& vecOut);
-
-
-  /**
-     @brief Wraps a row section as a bit vector.
-
-     @param row is the row number being accessed.
-
-     @return wrapped bit vector.
-   */
-  inline shared_ptr<BV> BVRow(size_t row) {
-    return make_shared<BV>(Raw((row * stride) / slotElts), stride);
-  }
-
-
   /**
      @brief Bit test with short-circuit for zero-length matrix.
 
@@ -342,68 +373,23 @@ class BitMatrix : public BV {
 
 
 /**
-   @brief Jagged bit matrix:  unstrided access.
+   @brief Jagged bit matrix, caches extent vector.
  */
 class BVJagged : public BV {
-  const unsigned int *rowExtent;
-  const size_t nRow;
- public:
-  BVJagged(RawT raw_[],
-           const unsigned int height_[], // Cumulative extent per row.
-           size_t nRow_);
-  ~BVJagged();
-
-  /**
-     @brief Dumps each row into a separate vector.
-   */
-  vector<vector<RawT>> dump() const;
-
-  /**
-     @brief Outputs a row of bits as a packed integer vector.
-   */
-  vector<RawT> rowDumpRaw(size_t rowIdx) const;
-  
-  /**
-     @brief Bit test for jagged matrix.
-
-     @param row is the (nonstrided) row.
-
-     @param pos is the bit position within the row.
-
-     @return true iff bit set.
-
-   */
-  inline bool testBit(size_t row, size_t pos) const {
-    RawT mask;
-    size_t slot = slotMask(pos, mask);
-    unsigned int base = row == 0 ? 0 : rowExtent[row-1];
-    
-    return test(base + slot, mask);
-  }
-};
-
-/**
-   @brief As above, but caches extent vector.
- */
-class BVJaggedV : public BV {
-  const vector<size_t> rowExtent;
+  const vector<size_t> rowHeight;
   const size_t nRow;
 
 public:
-  BVJaggedV(RawT raw_[],
+  BVJagged(RawT raw_[],
            const vector<size_t>& height); // Cumulative extent per row.
 
-  ~BVJaggedV();
+  ~BVJagged();
 
-  /**
-     @brief Dumps each row into a separate vector.
-   */
-  vector<vector<RawT>> dump() const;
-
-  /**
-     @brief Outputs a row of bits as a packed integer vector.
-   */
-  vector<RawT> rowDumpRaw(size_t rowIdx) const;
+  
+  size_t getRowHeight(size_t row) const {
+    return rowHeight[row];
+  }
+  
   
   /**
      @brief Bit test for jagged matrix.
@@ -418,10 +404,23 @@ public:
   inline bool testBit(size_t row, size_t pos) const {
     RawT mask;
     size_t slot = slotMask(pos, mask);
-    unsigned int base = row == 0 ? 0 : rowExtent[row-1];
+    unsigned int base = row == 0 ? 0 : rowHeight[row-1];
     
     return test(base + slot, mask);
   }
+
+
+  /**
+     @brief Dumps each row into a separate vector.
+   */
+  vector<vector<RawT>> dump() const;
+
+
+  /**
+     @brief Outputs a row of bits as a packed integer vector.
+   */
+  vector<RawT> rowDumpRaw(size_t rowIdx) const;
+  
 };
 
 #endif

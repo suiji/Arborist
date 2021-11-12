@@ -37,14 +37,6 @@ protected:
 		   const vector<double>& jitters,
 		   IndexT leafIdx);
 
-  
-  /** 
-    @brief Writes out the internal score.
-
-    @param[out] scoreOut outputs the score.
-  */
-  void dumpScore(double scoreOut[]) const;
-
 
 public:
 
@@ -61,6 +53,11 @@ public:
      @return void.
   */
   static unique_ptr<class LeafCtg> factoryCtg(const vector<unsigned int>& yCtg,
+					      PredictorT nCtg,
+					      const vector<double>& classWeight);
+
+  
+  static unique_ptr<class LeafCtg> factoryCtg(const vector<unsigned int>& yCtg,
 					      PredictorT nCtg);
 
   
@@ -73,7 +70,7 @@ public:
      @param frame summarizes the predictor orderings.
    */
   virtual unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-					      const vector<double>& yProxy) const = 0;
+					      const class Sampler* sampler) const = 0;
 
 
   /**
@@ -87,18 +84,23 @@ public:
    */
   virtual vector<double> scoreTree(const class Sample* sample,
 				   const vector<IndexT>& leafMap) = 0;
-
-  
-    /** 
-    @brief Serializes the internally-typed objects, 'Leaf', as well
-    as the unsigned integer (packed bit) vector, "bagBits".
-  */
-  void cacheScore(double scoreOut[]) const;
 };
 
 
 class LeafReg : public Leaf {
   const vector<double> yTrain; // Training response.
+
+  const double defaultPrediction; // Prediction value when no trees bagged.
+   
+  /**
+     @brief Determines mean training value.
+
+     @return mean trainig value.
+   */
+  double meanTrain() const {
+    return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
+  }
+
 
   /**
      @brief Sets scores for current tree's leaves.
@@ -119,7 +121,7 @@ public:
   LeafReg(const vector<double>& y);
 
 
-  ~LeafReg(){}
+  ~LeafReg() = default;
 
 
   const vector<double>& getYTrain() const {
@@ -135,17 +137,14 @@ public:
      @return summary of sampled response.
    */
   unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-				      const vector<double>& yProxy) const;
+				      const class Sampler* sampler) const;
 
-
+  
   /**
-     @brief Determines mean training value.
-
-     @return mean trainig value.
+     @brief Derives a prediction value for an observation.
    */
-  double meanTrain() const {
-    return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
-  }
+  double predictObs(const class Predict* predict,
+		    size_t row) const;
 };
 
 
@@ -155,7 +154,14 @@ public:
 class LeafCtg : public Leaf {
   const vector<PredictorT> yCtg; // 0-based factor-valued response.
   const PredictorT nCtg;
-  
+  const vector<double> classWeight; // Category weights:  cresecent only.
+  const PredictorT defaultPrediction; // Default prediction when nothing is out-of-bag.
+
+
+  /**
+     @return highest probability category of default vector.
+  */
+  PredictorT ctgDefault() const;
   
   /**
      @brief Counts the categories, by leaf.
@@ -185,11 +191,22 @@ class LeafCtg : public Leaf {
 
 
 public:
+  /**
+     @breif Training constructor:  class weights needed.
+   */
+  LeafCtg(const vector<PredictorT>& yCtg_,
+	  PredictorT nCtg,
+	  const vector<double>& classWeight);
+
+
+  /**
+     @brief Post-training constructor.
+   */
   LeafCtg(const vector<PredictorT>& yCtg_,
 	  PredictorT nCtg);
 
 
-  ~LeafCtg(){}
+  ~LeafCtg() = default;
 
 
   inline auto getCtg(IndexT row) const {
@@ -210,7 +227,7 @@ public:
      @return summary of sampled response.
    */
   unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-				      const vector<double>& yProxy) const;
+				      const class Sampler* sampler) const;
 
 
   /**
@@ -228,6 +245,26 @@ public:
      @return vector of scaled heights.
   */
   vector<size_t> ctgHeight(const Predict* predict) const;
+
+
+  
+  PredictorT predictObs(const class Predict* predict,
+			size_t row,
+			PredictorT* census) const;
+  
+  
+  PredictorT argMaxJitter(const IndexT* census,
+			  const double* jitter) const;
+
+
+  /**
+     @brief Constructs a vector of default probabilities.
+
+     @param leaf is the forest leaf object.
+
+     @return empircal cdf over training response categories.
+  */
+  vector<double> defaultProb() const;
 };
 
 
@@ -244,8 +281,8 @@ public:
     Jagged3Base<const IndexT*, const size_t*>(nCtg_, nTree_, height_, ctgProb_) {
   }
 
-  ~Jagged3() {
-  }
+  ~Jagged3() = default;
+
 
   /**
      @brief Getter for indexed item.
@@ -267,20 +304,8 @@ public:
  */
 class CtgProb {
   const PredictorT nCtg; // Training cardinality.
-  const vector<IndexT> ctgCount; // Category census, per leaf.
-  const vector<size_t> ctgHeight; // Scaled from Leaf's height vector.
-  const unique_ptr<Jagged3<const IndexT*, const size_t*> > raw;
   const vector<double> probDefault; // Forest-wide default probability.
   vector<double> probs; // Per-row probabilties.
-
-  /**
-     @brief Constructs a vector of default probabilities.
-
-     @param leafCount is the number of leaves in the forest.
-
-     @return empircal cdf over training response categories.
-  */
-  vector<double> ctgECDF(size_t leafCount);
 
   
   /**
@@ -311,9 +336,7 @@ public:
 	  const class Sampler* sampler,
 	  bool doProb);
 
-  ~CtgProb() {}
-
-
+  
   /**
      @brief Predicts probabilities across all trees.
 
@@ -322,17 +345,9 @@ public:
      @param[out] probRow outputs the per-category probabilities.
    */
   void predictRow(const class Predict* predict,
-		  size_t row);
+		  size_t row,
+		  PredictorT* ctgRow);
 
-  
-  /**
-     @return highest probability category of default vector.
-   */
-  PredictorT ctgDefault() const {
-    return max_element(probDefault.begin(), probDefault.end()) - probDefault.begin();
-  }
-
-  
   bool isEmpty() const {
     return probs.empty();
   }

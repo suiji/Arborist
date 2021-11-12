@@ -115,13 +115,20 @@ class ForestExport {
    training.
  */
 struct FBTrain {
+  const unsigned int nTree; // Total # trees under training.
+  size_t rawTop; // Next available index in raw buffer.
   RawVector nodeRaw; // Packed representation of decision tree nodes.
-  vector<size_t> height; // Accumulated tree heights, by node.
 
+  size_t facTop; // Next available index in factor buffer.
   RawVector facRaw; // Bit-vector representation of factor splits.
-  vector<size_t> facHeight; // Accumulated tree heights, by factor split.
+
 
   FBTrain(unsigned int nTree);
+
+  static RawVector resizeRaw(const unsigned char raw[],
+			     size_t nodeOff,
+			     size_t nodeBytes,
+			     double scale);
 
   /**
      @brief Copies core representation of a chunk of trained trees.
@@ -130,7 +137,7 @@ struct FBTrain {
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void consume(const struct TrainChunk* train,
+  void consume(const struct ForestBridge* fb,
                unsigned int treeOff,
                double fraction);
 

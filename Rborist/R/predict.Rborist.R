@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristBridgeR.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), ctgCensus = "votes", oob = FALSE, nThread = 0, verbose = FALSE, ...) {
+"predict.Rborist" <- function(object, newdata, yTest=NULL, quantVec = NULL, quantiles = !is.null(quantVec), ctgCensus = "votes", bagging = FALSE, nThread = 0, verbose = FALSE, ...) {
   if (!inherits(object, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(object$forest))
@@ -30,7 +30,7 @@
   if (quantiles && is.null(quantVec))
     quantVec <- DefaultQuantVec()
 
-  summaryPredict <- PredictDeep(object, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose)
+  summaryPredict <- PredictDeep(object, newdata, yTest, quantVec, ctgCensus, bagging, nThread, verbose)
 
   if (!is.null(yTest)) { # Validation (test) included.
       predictOut <- c(summaryPredict$prediction, summaryPredict$validation)
@@ -42,7 +42,7 @@
 }
 
 
-PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThread, verbose) {
+PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, bagging, nThread, verbose) {
   forest <- objTrain$forest
 
   if (is.null(forest$forestNode))
@@ -63,26 +63,29 @@ PredictDeep <- function(objTrain, newdata, yTest, quantVec, ctgCensus, oob, nThr
   
   # Checks test data for conformity with training data.
   sigTrain <- objTrain$signature
-  deframeRow <- deframe(newdata, sigTrain)
+  deframeNew <- deframe(newdata, sigTrain)
 
-  sampler <- objTrain$sampler
-  if (inherits(sampler, "SamplerReg")) {
+  yTrain <- objTrain$sampler$yTrain
+  if (is.numeric(yTrain)) {
     if (is.null(quantVec)) {
-      prediction <- tryCatch(.Call("TestReg", deframeRow, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestReg", deframeNew, objTrain, yTest, bagging, nThread), error = function(e) {stop(e)})
     }
     else {
-      prediction <- tryCatch(.Call("TestQuant", deframeRow, objTrain, quantVec, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestQuant", deframeNew, objTrain, quantVec, yTest, bagging, nThread), error = function(e) {stop(e)})
     }
   }
-  else if (inherits(sampler, "SamplerCtg")) {
+  else if (is.factor(yTrain)) {
     if (!is.null(quantVec))
       stop("Quantiles not supported for classifcation")
 
     if (ctgCensus == "votes") {
-      prediction <- tryCatch(.Call("TestVotes", deframeRow, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestVotes", deframeNew, objTrain, yTest, bagging, nThread), error = function(e) {stop(e)})
     }
     else if (ctgCensus == "prob") {
-      prediction <- tryCatch(.Call("TestProb", deframeRow, objTrain, yTest, oob, nThread), error = function(e) {stop(e)})
+      prediction <- tryCatch(.Call("TestProb", deframeNew, objTrain, yTest, bagging, nThread), error = function(e) {stop(e)})
+    }
+    else if (ctgCensus == "probSample") {
+        stop("Sample weighting NYI")
     }
     else {
       stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))

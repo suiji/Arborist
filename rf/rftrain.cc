@@ -15,7 +15,6 @@
 
 #include "rftrain.h"
 #include "bv.h"
-#include "sample.h"
 #include "train.h"
 #include "trainframe.h"
 #include "frontier.h"
@@ -37,20 +36,13 @@ void RfTrain::initProb(PredictorT predFixed,
 }
 
 
-void RfTrain::initTree(unsigned int nSamp,
-                     unsigned int minNode,
-                     unsigned int leafMax) {
-  PreTree::immutables(nSamp, minNode, leafMax);
+void RfTrain::initTree(IndexT leafMax) {
+  PreTree::init(leafMax);
 }
 
 
 void RfTrain::initOmp(unsigned int nThread) {
   OmpThread::init(nThread);
-}
-
-
-void RfTrain::initSample(unsigned int nSamp) {
-  Sample::immutables(nSamp);
 }
 
 
@@ -79,8 +71,7 @@ void RfTrain::deInit() {
   SplitNux::deImmutables();
   IndexSet::deImmutables();
   Frontier::deImmutables();
-  PreTree::deImmutables();
-  Sample::deImmutables();
+  PreTree::deInit();
   SampleNux::deImmutables();
   CandRF::deInit();
   SFRegCart::deImmutables();

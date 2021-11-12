@@ -17,9 +17,10 @@
 #include "indexset.h"
 #include "trainframe.h"
 #include "sample.h"
+#include "sampler.h"
 #include "train.h"
 #include "splitfrontier.h"
-#include "defmap.h"
+#include "deffrontier.h"
 #include "path.h"
 #include "ompthread.h"
 #include "branchsense.h"
@@ -39,14 +40,11 @@ void Frontier::deImmutables() {
 }
 
 
-Frontier::~Frontier() {
-}
-
-
 unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
-                                      const Sample *sample) {
-  unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sample));
-  return frontier->levels(sample);
+                                      Sampler* sampler) {
+  sampler->rootSample(frame);
+  unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sampler->getSample()));
+  return frontier->levels(sampler->getSample());
 }
 
 
@@ -56,7 +54,7 @@ Frontier::Frontier(const TrainFrame* frame_,
   indexSet(vector<IndexSet>(1)),
   bagCount(sample->getBagCount()),
   nCtg(sample->getNCtg()),
-  defMap(make_unique<DefMap>(frame, bagCount)),
+  defMap(make_unique<DefFrontier>(frame, this)),
   nodeRel(false),
   idxLive(bagCount),
   relBase(vector<IndexT>(1)),
@@ -75,8 +73,9 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample) {
 
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    unique_ptr<BranchSense> branchSense = SplitFrontier::split(this, indexSet, pretree.get());
+    unique_ptr<BranchSense> branchSense = SplitFrontier::split(this);
     indexSet = splitDispatch(branchSense.get(), level);
+    defMap->initPrecand();
     level++;
   }
 
@@ -95,6 +94,7 @@ vector<IndexSet> Frontier::splitDispatch(const BranchSense* branchSense,
 
   reindex(branchSense, survey);
   relBase = move(succBase);
+  defMap->overlap(survey.splitNext, bagCount, idxLive, nodeRel);
 
   return produce(survey.splitNext);
 }
@@ -121,13 +121,38 @@ SplitSurvey Frontier::nextLevel(unsigned int level) {
 }
 
 
-SplitSurvey Frontier::surveySet(vector<IndexSet>& indexSet) {
+SplitSurvey Frontier::surveySet(vector<IndexSet>& indexSet) const {
   SplitSurvey survey;
   for (auto iSet : indexSet) {
     iSet.surveySplit(survey);
   }
 
   return survey;
+}
+
+
+void Frontier::candMax(SplitNux& argMax,
+		       const vector<SplitNux>& candV) const {
+  if (!candV.empty()) {
+    indexSet[candV.front().getNodeIdx()].candMax(candV, argMax);
+  }
+}
+
+
+void Frontier::updateSimple(const SplitFrontier* sf,
+			    const vector<SplitNux>& nuxMax) {
+  for (auto nux : nuxMax) {
+    if (!nux.noNux()) {
+      indexSet[nux.getNodeIdx()].update(sf, nux);
+      pretree->addCriterion(sf, nux);
+    }
+  }
+}
+
+
+void Frontier::updateCompound(const SplitFrontier* sf,
+			      const vector<vector<SplitNux>>& nuxMax) {
+  pretree->consumeCompound(sf, nuxMax);
 }
 
 
@@ -258,7 +283,6 @@ void Frontier::transitionReindex(const BranchSense* branchSense,
 
 
 vector<IndexSet> Frontier::produce(IndexT splitNext) {
-  defMap->overlap(splitNext, bagCount, idxLive, nodeRel);
   vector<IndexSet> indexNext(splitNext);
   for (auto & iSet : indexSet) {
     iSet.succHands(this, indexNext);
@@ -274,11 +298,6 @@ IndexT Frontier::getPTIdSucc(IndexT ptId, bool senseTrue) const {
 
 void Frontier::getPTIdTF(IndexT ptId, IndexT& ptTrue, IndexT& ptFalse) const {
   pretree->getSuccTF(ptId, ptTrue, ptFalse);
-}
-
-
-IndexRange Frontier::getBufRange(const PreCand& preCand) const {
-  return indexSet[preCand.splitCoord.nodeIdx].getBufRange();
 }
 
 

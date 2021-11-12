@@ -18,25 +18,32 @@
 
 #include "splitcoord.h"
 #include "sumcount.h"
+#include "mrra.h"
 #include "typeparam.h"
 
 #include <vector>
 
 
+/**
+   @brief Coordinates and node summary for a splitting candidate.
+
+   Summary and coordinate members initialized and not changed.  Information
+   value updated by splitting method.
+ */
 class SplitNux {
   static constexpr double minRatioDefault = 0.0;
   static double minRatio;
 
-  PreCand preCand;
-  IndexRange idxRange; // Fixed from IndexSet.
+  MRRA mrra; // Cell coordinates of pre-cand; delIdx implicitly zero.
+  IndexT implicitCount; // Extracted from StageCount; rank count to accumulator.
+  IndexRange idxRange; // SampleRank index range of cell column.
   IndexT accumIdx; // Index into accumulator workspace.
-  double sum; // Initial sum, fixed by index set.
+  double sum; // Initial sum, fixed by index set (node).
   IndexT sCount; // Initial sample count, fixed by index set.
-  IndexT implicitCount; // Initialized from IndexSet.
   IndexT ptId; // Index into tree:  offset from position given by index set.
 
   // Set during splitting:
-  double info; // Weighted variance or Gini, currently.
+  double info; // CART employs Weighted variance or Gini.
   
 public:  
   static vector<double> splitQuant; // Where within CDF to cut.  MOVE to CutSet.
@@ -84,13 +91,13 @@ public:
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
   */  
   SplitNux() :
-    preCand(PreCand()),
-	       accumIdx(0),
-	       sum(0.0),
-	       sCount(0),
-	       implicitCount(0),
-	       ptId(0),
-	       info(0.0) {
+    mrra(MRRA()),
+    implicitCount(0),
+    accumIdx(0),
+    sum(0.0),
+    sCount(0),
+    ptId(0),
+    info(0.0) {
   }
 
   
@@ -98,23 +105,23 @@ public:
      @brief Copy constructor:  post splitting.
    */
   SplitNux(const SplitNux& nux) :
-    preCand(nux.preCand),
+    mrra(nux.mrra),
+    implicitCount(nux.implicitCount),
     idxRange(nux.idxRange),
     accumIdx(nux.accumIdx),
     sum(nux.sum),
     sCount(nux.sCount),
-    implicitCount(nux.implicitCount),
     ptId(nux.ptId),
     info(nux.info) {
   }
 
   SplitNux& operator= (const SplitNux& nux) {
-    preCand = nux.preCand;
+    mrra = nux.mrra;
+    implicitCount = nux.implicitCount;
     idxRange = nux.idxRange;
     accumIdx = nux.accumIdx;
     sum = nux.sum;
     sCount = nux.sCount;
-    implicitCount = nux.implicitCount;
     ptId = nux.ptId;
     info = nux.info;
 
@@ -128,7 +135,7 @@ public:
      @param idx positions nux within a multi-criterion set.
    */
   SplitNux(const SplitNux& parent,
-	   const class IndexSet* iSet,
+	   const class SplitFrontier* sf,
 	   bool sense,
 	   IndexT idx = 0);
 
@@ -136,13 +143,8 @@ public:
   /**
      @brief Pre-split constructor.
    */
-  SplitNux(const PreCand& preCand,
-	   const class SplitFrontier* splitFrontier,
-	   PredictorT runCount);
-
-  
-  ~SplitNux() {
-  }
+  SplitNux(const class PreCand& preCand,
+	   const class SplitFrontier* splitFrontier);
 
 
   /**
@@ -150,7 +152,7 @@ public:
 
      @return true iff splitting predictor is a factor.
    */
-  bool isFactor(const class TrainFrame* frame) const;
+  bool isFactor(const class SplitFrontier* sf) const;
   
 
   /**
@@ -204,19 +206,19 @@ public:
 
   
   auto getPredIdx() const {
-    return preCand.splitCoord.predIdx;
+    return mrra.splitCoord.predIdx;
   }
 
   auto getNodeIdx() const {
-    return preCand.splitCoord.nodeIdx;
+    return mrra.splitCoord.nodeIdx;
   }
   
-  auto getPreCand() const {
-    return preCand;
+  auto getMRRA() const {
+    return mrra;
   }
 
   auto getBufIdx() const {
-    return preCand.bufIdx;
+    return mrra.bufIdx;
   }
   
   auto getAccumIdx() const {
@@ -238,7 +240,7 @@ public:
      @brief Indicates whether this is an empty placeholder.
    */
   inline bool noNux() const {
-    return preCand.splitCoord.noCoord();
+    return mrra.splitCoord.noCoord();
   }
 
 

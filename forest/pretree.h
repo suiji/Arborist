@@ -19,7 +19,7 @@
 
 #include "bv.h"
 #include "typeparam.h"
-#include "forestcresc.h"
+#include "forest.h"
 #include "decnode.h"
 
 #include <vector>
@@ -102,7 +102,7 @@ public:
 
      @param forest[in, out] accumulates the growing forest node vector.
   */
-  void consume(ForestCresc<DecNode>* forest,
+  void consume(Forest* forest,
 	       vector<double>& predInfo,
 	       IndexT idx,
 	       IndexT& leafIdx) {
@@ -115,7 +115,6 @@ public:
     }
     forest->nodeProduce(idx, decNode);
   }
-
 
   /**
      @brief Sets node to nonterminal.
@@ -130,17 +129,16 @@ public:
 
 
 /**
-   @brief Serialized representation of the pre-tree, suitable for tranfer between devices such as coprocessors, disks and nodes.
+   @brief Serialized representation of the pre-tree, suitable for tranfer between devices such as coprocessors, disks and compute nodes.
 */
 class PreTree {
-  static IndexT heightEst;
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
   const IndexT bagCount;
   IndexT height; // Running count of nodes.
   IndexT leafCount; // Running count of leaves.
-  size_t bitEnd; // Next free slot in factor bit vector.
   vector<PTNode> nodeVec; // Vector of tree nodes.
-  class BV* splitBits;
+  class BV splitBits; // Bit encoding of factor splits.
+  size_t bitEnd; // Next free slot in factor bit vector.
   vector<IndexT> sampleMap; // Frontier mapping of sIdx to ptIdx.
 
   
@@ -151,13 +149,6 @@ class PreTree {
   */
   const vector<IndexT> sample2Leaf() const;
 
-  
-  /**
-     @return BV-aligned length of used portion of split vector.
-  */
-  size_t getBitWidth() const;
-
-
  public:
   /**
    */
@@ -166,23 +157,14 @@ class PreTree {
 
 
   /**
-  */
-  ~PreTree();
-
-
-  /**
    @brief Caches the row count and computes an initial estimate of node count.
-
-   @param _nSamp is the number of samples.
-
-   @param _minH is the minimal splitable index node size.
 
    @param leafMax is a user-specified limit on the number of leaves.
  */
-  static void immutables(IndexT nSamp, IndexT minH, IndexT leafMax_);
+  static void init(IndexT leafMax_);
 
 
-  static void deImmutables();
+  static void deInit();
 
   
   /**
@@ -194,28 +176,33 @@ class PreTree {
 
 
   /**
-     @brief Refines the height estimate using the actual height of a
-     constructed PreTree.
+     @brief Consumes a collection of compound criteria.
+   */
+  void consumeCompound(const class SplitFrontier* sf,
+		       const vector<vector<SplitNux>>& nuxMax);
 
-     @param height is an actual height value.
-  */
-  static void reserve(IndexT height);
+  
+  /**
+     @brief Consumes each criterion in a collection.
+
+     @param critVec collects splits defining criteria.
+
+     @param compound is true iff collection is compound.
+   */
+  void consumeCriteria(const class SplitFrontier* sf,
+		       const vector<class SplitNux>& critVec);
 
 
   /**
      @brief Dispatches nonterminal and offspring.
+
+     @param preallocate indicates whether criteria block has been preallocated.
    */
-  void setNonterminal(const class SplitNux& nux);
+  void addCriterion(const class SplitFrontier* sf,
+		    const class SplitNux& nux,
+		    bool preallocated = false);
 
 
-  /**
-     @brief As above, but invoked incrementally.
-
-     Assumes offspring already dispatched.
-   */
-  void nonterminalInc(const class SplitNux& nux);
-  
-  
   /**
      @brief Appends criterion for bit-based branch.
 
@@ -225,9 +212,8 @@ class PreTree {
 
      @param bitsTrue are the bit positions taking the true branch.
   */
-  void critBits(const class SplitNux* nux,
-                PredictorT cardinality,
-		const vector<PredictorT>& bitsTrue);
+  void critBits(const class SplitFrontier* sf,
+		const class SplitNux& nux);
 
   
   /**
@@ -235,8 +221,8 @@ class PreTree {
      
      @param nux summarizes the the cut.
   */
-  void critCut(const class SplitNux* nux,
-	       const class SplitFrontier* splitFrontier);
+  void critCut(const class SplitFrontier* sf,
+	       const class SplitNux& nux);
 
   
   /**
@@ -244,14 +230,11 @@ class PreTree {
 
      @param forest grows by producing nodes and splits consumed from pre-tree.
 
-     @param tIdx is the index of the tree being consumed/produced.
-
      @param predInfo accumulates the information contribution of each predictor.
 
      @return leaf map from consumed frontier.
   */
-  const vector<IndexT> consume(ForestCresc<DecNode> *forest,
-			       unsigned int tIdx,
+  const vector<IndexT> consume(Forest *forest,
 			       vector<double> &predInfo);
 
   
@@ -264,7 +247,7 @@ class PreTree {
 
      @param[out] predInfo outputs the predictor-specific information values.
   */
-  void consumeNodes(ForestCresc<DecNode> *forest,
+  void consumeNodes(Forest *forest,
 		    vector<double> &predInfo);
 
 
@@ -340,25 +323,16 @@ class PreTree {
   /**
      @brief Accounts for a block of new criteria.
 
-     Pre-existing placeholder node for leading criterion converted to nonterminal.
+     Pre-existing terminal node converted to nonterminal for leading criterion.
 
-     @param nCrit is the number of criteria in the block.
+     @param nCrit is the number of criteria in the block; zero iff block preallocated.
   */
   inline void offspring(IndexT nCrit) {
-    height += nCrit + 1; // Two new terminals plus nCrit - 1 new nonterminals.
-    leafCount++; // Two new terminals, minus one for conversion of lead criterion.
+    if (nCrit > 0) {
+      height += nCrit + 1; // Two new terminals plus nCrit - 1 new nonterminals.
+      leafCount++; // Two new terminals, minus one for conversion of lead criterion.
+    }
   }
-
-  
-  /**
-     @brief Fills in references to values known to be useful for building
-     a block of PreTree objects.
-   */
-  void blockBump(IndexT& _height,
-		 IndexT& _maxHeight,
-		 size_t& _bitWidth,
-		 IndexT& _leafCount,
-		 IndexT& _bagCount);
 };
 
 

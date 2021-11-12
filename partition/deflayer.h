@@ -17,26 +17,26 @@
 #ifndef PARTITION_DEFLAYER_H
 #define PARTITION_DEFLAYER_H
 
-#include "splitcoord.h"
+#include "mrra.h"
 #include "typeparam.h"
 
 #include <vector>
 
 /**
-   @brief Inherited state for most-recently-restaged ancestor.
+   @brief Minimal liveness information for most-recently-restaged ancestor.
  */
-class MRRA {
+class LiveBits {
   static constexpr unsigned int defBit = 1;
-  static constexpr unsigned int oneBit = 2;
+  static constexpr unsigned int singletonBit = 2;
   static constexpr unsigned int denseBit = 4;
 
   // Additional bits available for multiple buffers:
   static constexpr unsigned int bufBit = 8;
 
-  unsigned char raw;
+  unsigned char raw; // Encodes liveness, denseness and whether singleton.
  public:
 
-  MRRA() : raw(0) {
+  LiveBits() : raw(0) {
   }
 
   
@@ -48,7 +48,7 @@ class MRRA {
      @param singleton is true iff the value is singleton.
    */
   inline void init(unsigned int bufIdx, bool singleton) {
-    raw = defBit | (singleton ? oneBit : 0) | (bufIdx == 0 ? 0 : bufBit);
+    raw = defBit | (singleton ? singletonBit : 0) | (bufIdx == 0 ? 0 : bufBit);
   }
 
 
@@ -58,7 +58,7 @@ class MRRA {
      @return true iff value is singleton.
    */
   inline bool isSingleton() const {
-    return (raw & oneBit) != 0;
+    return (raw & singletonBit) != 0;
   }
 
 
@@ -91,11 +91,12 @@ class MRRA {
   }
 
 
+
   /**
      @brief Sets the singleton bit.
    */
-  inline void setSingleton() {
-    raw |= oneBit;
+  inline void setSingleton(bool isSingleton) {
+    raw |= isSingleton ? singletonBit : 0;
   }
 
 
@@ -104,21 +105,6 @@ class MRRA {
    */
   inline bool isDefined() const {
     return (raw & defBit) != 0;
-  }
-  
-
-  /**
-     @brief Looks up position parameters and resets definition bit.
-
-     @param[out] singleton outputs whether the value is singleton.
-  */
-  inline PreCand consume(const SplitCoord& splitCoord,
-			 unsigned int del,
-			 bool& singleton) {
-    unsigned int bufIdx;
-    singleton = isSingleton(bufIdx);
-    (void) undefine();
-    return PreCand(splitCoord, bufIdx, del);
   }
 
 
@@ -132,6 +118,24 @@ class MRRA {
     raw &= ~defBit;
     return wasDefined;
   }
+
+
+  /**
+     @brief Looks up position parameters and resets definition bit.
+
+     @param[out] singleton outputs whether the value is singleton.
+  */
+  inline MRRA consume(const SplitCoord& splitCoord,
+			 unsigned int del,
+			 bool& singleton) {
+    unsigned int bufIdx;
+    singleton = isSingleton(bufIdx);
+    (void) undefine();
+    return MRRA(splitCoord, bufIdx, del);
+  }
+
+
+  void setSingleton(const class StageCount& stageCount);
 };
 
 
@@ -175,10 +179,10 @@ class DenseCoord {
 
 
 /**
-   @brief Per-level reaching definitions.
+   @brief Caches previous frontier definitiions by layer.
  */
 class DefLayer {
-  class DefMap *defMap;
+  class DefFrontier *defMap;
   const PredictorT nPred; // Predictor count.
   const IndexT nSplit; // # splitable nodes at level.
   const IndexT noIndex; // Inattainable node index value.
@@ -187,11 +191,11 @@ class DefLayer {
   unsigned char del; // Position in deque.  Increments.
 
   // Persistent:
-  vector<IndexRange> indexAnc; // Stage coordinates, by node.
+  vector<IndexRange> rangeAnc; // Stage coordinates, by node.
 
   // More elegant and parsimonious to use map from pair to node,
   // but hashing much too slow.
-  vector<MRRA> def; // Indexed by pair-offset.
+  vector<LiveBits> mrra; // Indexed by pair-offset.
   vector<DenseCoord> denseCoord;
 
   // Recomputed:
@@ -208,17 +212,16 @@ public:
         IndexT noIndex_,
         IndexT idxLive_,
         bool nodeRel_,
-        class DefMap* defMap);
-  ~DefLayer();
+        class DefFrontier* defMap);
 
-
+  
   void rankRestage(class ObsPart *samplePred,
-                   const PreCand& mrra,
+                   const MRRA& mrra,
                    DefLayer *levelFront);
 
 
   void indexRestage(class ObsPart* obsPart,
-                    const PreCand& mrra,
+                    const MRRA& mrra,
                     const DefLayer* levelFront,
 		    const vector<IndexT>& offCand);
 
@@ -232,13 +235,13 @@ public:
      appears necessary for dense packing or for coprocessor loading.
   */
   void rankRestage(class ObsPart *samplePred,
-                   const PreCand& mrra,
+                   const MRRA& mrra,
                    DefLayer *levelFront,
                    unsigned int reachOffset[], 
                    const unsigned int reachBase[] = nullptr);
 
   void indexRestage(class ObsPart *samplePred,
-                    const PreCand& mrra,
+                    const MRRA& mrra,
                     const DefLayer *levelFront,
                     const unsigned int reachBase[],
                     unsigned int reachOffset[],
@@ -249,7 +252,7 @@ public:
 
      @param defMap is the active defMap state.
   */
-  void flush(class DefMap* defMap = nullptr);
+  void flush(class DefFrontier* defMap = nullptr);
 
 
   /**
@@ -274,7 +277,7 @@ public:
 
      @param[out] implicit outputs the number of implicit indices.
   */
-  void adjustRange(const PreCand& cand,
+  void adjustRange(const MRRA& cand,
 		   IndexRange& idxRange) const;
 
 
@@ -282,8 +285,8 @@ public:
      @brief Looks up the ancestor cell built for the corresponding index
      node and adjusts start and extent values by corresponding dense parameters.
   */
-  IndexRange getRange(const PreCand& mrra) const {
-    IndexRange idxRange = indexAnc[mrra.splitCoord.nodeIdx];
+  IndexRange getRange(const MRRA& mrra) const {
+    IndexRange idxRange = rangeAnc[mrra.splitCoord.nodeIdx];
     adjustRange(mrra, idxRange);
 
     return idxRange;
@@ -298,7 +301,7 @@ public:
      @param[in, out] restageCand collects precandidates for restaging.
    */
   void flushDef(const SplitCoord& splitCoord,
-		class DefMap* defMap);
+		class DefFrontier* defMap);
 
 
   /**
@@ -321,28 +324,24 @@ public:
 	      IndexT reachBase[] = nullptr);
 
 /**
-   @brief Sets dense count on target MRRA and, if singleton, sets run count to
-   unity.
+   @brief Sets stage counts on successor cells.
  */
-  void setRunCounts(const SplitCoord& mrra,
-	       const unsigned int pathCount[],
-	       const unsigned int rankCount[]) const;
+  void setStageCounts(const class MRRA& preCand,
+		      const unsigned int pathCount[],
+		      const unsigned int rankCount[]) const;
 
 /**
    @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
    index numbering ut prevent cell boundaries from crossing.
 
-   @param idxLeft is the left-most index of the predecessor.
-
    @param pathCount inputs the counts along each reaching path.
 
    @param[out] reachOffset outputs the dense starting offsets.
  */
-  void packDense(IndexT idxLeft,
-	    const unsigned int pathCount[],
-	    DefLayer *levelFront,
-	    const PreCand& mrra,
-	    unsigned int reachOffset[]) const;
+  void packDense(const unsigned int pathCount[],
+		 DefLayer *levelFront,
+		 const MRRA& mrra,
+		 unsigned int reachOffset[]) const;
 
   void setExtinct(IndexT idx);
 
@@ -356,11 +355,12 @@ public:
   */
   bool backdate(const class IdxPath *one2Front);
 
+  
   /**
-     @brief Sets the definition's heritable singleton bit and clears the
-     current level's splitable bit.
+     @brief Sets the definition's heritable singleton bit according to StageCount.
   */
-  void setSingleton(const SplitCoord& splitCoord);
+  void setStageCount(const SplitCoord& splitCoord,
+		     const class StageCount& stageCount);
 
   /**
      @brief Sets path, target and node-relative offse.
@@ -376,7 +376,7 @@ public:
 
      @retun true iff flush occurs.
    */
-  bool flush(class DefMap* defMap,
+  bool flush(class DefFrontier* defMap,
 	     IndexT& thresh) {
     if (defCount <= thresh) {
       flush(defMap);
@@ -453,21 +453,31 @@ public:
 
 
   /**
-     @brief
+     @brief Creates the root definition for a predictor following staging.
 
-     @param implicit is only set directly by staging.  Otherwise it has a
-     default setting of zero, which is later reset by restaging.
+     @param predIdx is the predictor index.
+
+     @param stageCount enumerates the staging sample and rank counts.
    */
-  inline bool define(const PreCand& defCoord,
-	 bool singleton,
-	 IndexT implicit = 0) {
+  void rootDefine(PredictorT predIdx,
+		  const struct StageCount& stageCount);
+
+
+  /**
+     @brief As above, but for not-root case:  general split coordinate.
+
+     The implicit count is only set directly in the root case.  Otherwise it has an
+     initial setting of zero, which is later updated by restaging.
+   */
+  inline bool define(const MRRA& defCoord,
+		     bool singleton) {
     if (defCoord.splitCoord.nodeIdx != noIndex) {
-      def[defCoord.splitCoord.strideOffset(nPred)].init(defCoord.bufIdx, singleton);
-      setDense(defCoord.splitCoord, implicit);
+      mrra[defCoord.splitCoord.strideOffset(nPred)].init(defCoord.bufIdx, singleton);
+      setDense(defCoord.splitCoord, 0); // Initial implicit count of zero, later updated.
       defCount++;
       return true;
     }
-    else {
+    else { // Dummy case.
       return false;
     }
   }
@@ -481,7 +491,7 @@ public:
      @param predIdx is the predictor index.
   */
   inline void undefine(const SplitCoord& splitCoord) {
-    defCount -= def[splitCoord.strideOffset(nPred)].undefine() ? 1 : 0;
+    defCount -= mrra[splitCoord.strideOffset(nPred)].undefine() ? 1 : 0;
   }
 
   /**
@@ -491,10 +501,10 @@ public:
 
      @param[out] singleton outputs whether the definition is singleton.
    */
-  inline PreCand consume(const SplitCoord& splitCoord,
+  inline MRRA consume(const SplitCoord& splitCoord,
 			  bool& singleton) {
     defCount--;
-    return def[splitCoord.strideOffset(nPred)].consume(splitCoord, del, singleton);
+    return mrra[splitCoord.strideOffset(nPred)].consume(splitCoord, del, singleton);
   }
 
 
@@ -508,41 +518,34 @@ public:
      @return true iff a singleton.
    */
   inline bool isSingleton(const SplitCoord& splitCoord) const {
-    return def[splitCoord.strideOffset(nPred)].isSingleton();
+    return mrra[splitCoord.strideOffset(nPred)].isSingleton();
   }
 
 
   /**
      @brief As above, but with output buffer index parameter.
 
-     @return true iff non-singleton precandidate appended.
+     @return true iff non-singleton precandidate appendable.
    */
-  inline bool preschedule(const SplitCoord& splitCoord,
-			  vector<PreCand>& preCand) const {
-    unsigned int bufIdx;
-    if (def[splitCoord.strideOffset(nPred)].isSingleton(bufIdx)) {
-      return false;
-    }
-    else {
-      preCand.emplace_back(splitCoord, bufIdx);
-      return true;
-    }
+  inline bool isSingleton(const SplitCoord& splitCoord,
+			  unsigned int& bufIdx) const {
+    return mrra[splitCoord.strideOffset(nPred)].isSingleton(bufIdx);
   }
 
 
-  IndexT getImplicit(const PreCand& cand) const;
+  IndexT getImplicit(const MRRA& cand) const;
 
   inline bool isDefined(const SplitCoord& splitCoord) const {
-    return def[splitCoord.strideOffset(nPred)].isDefined();
+    return mrra[splitCoord.strideOffset(nPred)].isDefined();
   }
 
 
   inline bool isDense(const SplitCoord& splitCoord) const {
-    return def[splitCoord.strideOffset(nPred)].isDense();
+    return mrra[splitCoord.strideOffset(nPred)].isDense();
   }
 
   
-  bool isDense(const PreCand& cand) const {
+  bool isDense(const MRRA& cand) const {
     return isDense(cand.splitCoord);
   }
 
@@ -557,7 +560,7 @@ public:
   */
   void initAncestor(IndexT splitIdx,
 	       const IndexRange& bufRange) {
-    indexAnc[splitIdx] = IndexRange(bufRange.getStart(), bufRange.getExtent());
+    rangeAnc[splitIdx] = IndexRange(bufRange.getStart(), bufRange.getExtent());
   }
 
 

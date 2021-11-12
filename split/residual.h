@@ -35,9 +35,6 @@ struct Residual {
   Residual() : sum(0.0), sCount(0) {
   }
 
-  ~Residual() {
-  }
-
   
   /**
      @brief Constructor initializes contents to residual values.
@@ -80,9 +77,6 @@ struct ResidualCtg : public Residual {
      @brief Empty constructor.
    */
   ResidualCtg() : Residual() {
-  }
-
-  ~ResidualCtg() {
   }
 };
 

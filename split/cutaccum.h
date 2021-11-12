@@ -17,6 +17,7 @@
 
 #include "typeparam.h"
 #include "accum.h"
+#include "residual.h"
 
 #include <vector>
 
@@ -96,9 +97,6 @@ public:
   CutAccum(const class SplitNux* cand,
 	   const class SplitFrontier* splitFrontier);
 
-  ~CutAccum() {
-  }
-
   
   IndexT lhImplicit(const class SplitNux* cand) const;
 
@@ -111,7 +109,7 @@ class CutAccumCtg : public CutAccum {
 protected:
 
   const PredictorT nCtg; // Cadinality of response.
-  const unique_ptr<struct ResidualCtg> resid;
+  const unique_ptr<ResidualCtg> resid;
   const vector<double>& nodeSum; // Per-category response sum at node.
   double* ctgAccum; // Slice of compressed accumulation data structure.
   double ssL; // Left sum-of-squares accumulator.
@@ -144,7 +142,7 @@ protected:
 
      @return new residual for categorical response over cell.
   */
-  unique_ptr<struct ResidualCtg> makeResidual(const class SplitNux* cand,
+  unique_ptr<ResidualCtg> makeResidual(const class SplitNux* cand,
 					      const class SFCtg* sfCtg);
 
 
@@ -183,13 +181,13 @@ class CutAccumReg : public CutAccum {
 
 protected:
   const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<struct Residual> resid; // Current residual or null.
+  const unique_ptr<Residual> resid; // Current residual or null.
 
 public:
   CutAccumReg(const class SplitNux* splitCand,
 	      const class SFReg* spReg);
 
-  ~CutAccumReg();
+
   /**
      @brief Creates a residual summarizing implicit splitting state.
 
@@ -199,7 +197,7 @@ public:
      
      @return new residual based on the current splitting data set.
    */
-  unique_ptr<struct Residual> makeResidual(const class SplitNux* cand,
+  unique_ptr<Residual> makeResidual(const class SplitNux* cand,
                                           const class SampleRank spn[]);
 
 };

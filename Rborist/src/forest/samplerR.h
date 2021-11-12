@@ -36,33 +36,28 @@ using namespace std;
    @brief Summary of bagged rows, by tree.
  */
 struct SamplerR {
+  static const string strYTrain;
+  static const string strNSamp;
+  static const string strNTree;
+  static const string strSamples; // Output field name of sample.
+
+  const unsigned int nSamp; // # samples specified.
   const unsigned int nTree; // # trees trained.
+  const bool nux; // Style of Sample emission.
 
-  static bool trainThin; // Whether to record full sample contents.
+  size_t rawTop; // First available index in raw buffer.
+  RawVector blockRaw; // Packed bag/sample structures as raw data.
 
-  SamplerR(unsigned int nTree_);
 
-
-  ~SamplerR();
-
-  static void init(bool thin) {
-    trainThin = thin;
-  };
+  SamplerR(unsigned int nSamp_,
+	   unsigned int nTree_,
+	   bool nux_);
 
   
-  static void deInit() {
-    trainThin = false;
-  };
-
-  
-  RawVector resizeRaw(const unsigned char raw[],
-                      size_t nodeOff,
-                      size_t nodeBytes,
-                      double scale);
-
-  vector<size_t> samplerBlockHeight; // Accumulated per-tree extent of BagSample vector.
-  RawVector samplerBlockRaw; // Packed bag/sample structures as raw data.
-
+  static RawVector resizeRaw(const unsigned char raw[],
+			     size_t nodeOff,
+			     size_t nodeBytes,
+			     double scale);
 
   /**
      @brief Getter for tree count.
@@ -71,19 +66,25 @@ struct SamplerR {
     return nTree;
   }
 
-
-  virtual List wrap() = 0;
-
+  
   /**
-     @brief Consumes a chunk of tree bags following training.
+     @brief Bundles trained bag into format suitable for front end.
 
-     @param train is the trained object.
-
-     @param chunkOff is the offset of the current chunk.
+     @return list containing raw data and summary information.
    */
-  virtual void consume(const struct TrainChunk* train,
-		       unsigned int tIdx,
-		       double scale);
+  List wrap(const IntegerVector& yTrain);
+  
+  
+  List wrap(const NumericVector& yTrain);
+  
+  
+  /**
+     @brief Consumes a block of samples following training.
+
+     @param scale is a fudge-factor for resizing.
+   */
+  void consume(const struct SamplerBridge* sb,
+	       double scale);
   
   /**
      @brief Checks that bag and prediction data set have conforming rows.
@@ -93,24 +94,6 @@ struct SamplerR {
   static SEXP checkOOB(const List& lBag,
                        const size_t nRow);
   
-};
-
-
-struct SamplerRegR : public SamplerR {
-  const NumericVector yTrain; // Training response.
-
-  SamplerRegR(const NumericVector& yTrain_, unsigned int nTree_);
-
-
-  ~SamplerRegR();
-
-
-  /**
-     @brief Bundles trained bag into format suitable for front end.
-
-     @return list containing raw data and summary information.
-   */
-  List wrap();
 
   /**
      @brief Reads bundled bag information in front-end format.
@@ -124,53 +107,20 @@ struct SamplerRegR : public SamplerR {
      @return instantiation containing bag raw data.
    */
   static unique_ptr<struct SamplerBridge> unwrap(const List& lTrain,
-						       const List& lDeframe,
-						       bool bagging);
-
-  static unique_ptr<struct SamplerBridge> unwrap(const List& lTrain);
-};
-
-
-struct SamplerCtgR : public SamplerR {
-  const IntegerVector yTrain; // Zero-based training response.
-  
-
-  SamplerCtgR(const IntegerVector& yTrain_,
-	      unsigned int nTree_);
-
-
-  ~SamplerCtgR();
+						 const List& lDeframe,
+						 bool bagging);
 
   
-  /**
-     @brief Specialized for writing probability vector. EXIT?
-   */
-  void consume(const struct TrainChunk* train,
-	       unsigned int tIdx,
-	       double scale);
-  
-  /**
-     @brief Bundles trained bag into format suitable for front end.
+  static unique_ptr<struct SamplerBridge> unwrap(const List& lSampler,
+						 bool bagging = false);
 
-     @return list containing raw data and summary information.
-   */
-  List wrap();
 
-  
-  /**
-     @return cardinality of training respone.
-   */
-  static unsigned int getNCtg(const List& lSampler);
-  
-  /**
-     @brief As above, but categorical.
-   */  
-  static unique_ptr<struct SamplerBridge> unwrap(const List& lTrain,
-						    const List& lDeframe,
+  static unique_ptr<struct SamplerBridge> unwrapNum(const List& lSampler,
 						    bool bagging);
 
-  
-  static unique_ptr<struct SamplerBridge> unwrap(const List& lTrain);
+
+  static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
+						    bool bagging);
 };
 
 #endif

@@ -36,23 +36,58 @@ unsigned int SamplerBridge::getNTree() const {
 
 
 SamplerBridge::SamplerBridge(const vector<double>& yTrain,
+			     IndexT nSamp,
+			     unsigned int treeChunk,
+			     bool nux) :
+  sampler(make_unique<Sampler>(yTrain, nux, nSamp, treeChunk)) {
+}
+
+
+SamplerBridge::SamplerBridge(const vector<double>& yTrain,
+			     IndexT nSamp,
 			     unsigned int nTree,
-			     const unsigned char* samplerNux) :
-  sampler(make_unique<Sampler>(yTrain, (const SamplerNux*) samplerNux, nTree)) {
+			     bool nux,
+			     unsigned char* samples,
+			     bool bagging) :
+  sampler(make_unique<Sampler>(yTrain, nux, samples, nSamp, nTree, bagging)) {
 }
 
 
 SamplerBridge::~SamplerBridge() {}
 
 
-const Sampler* SamplerBridge::getSampler() const {
+Sampler* SamplerBridge::getSampler() const {
   return sampler.get();
 }
 
 
+SamplerBridge::SamplerBridge(const vector<PredictorT>& yTrain,
+			     IndexT nSamp,
+			     unsigned int treeChunk,
+			     bool nux,
+			     PredictorT nCtg,
+			     const vector<double>& classWeight) :
+  sampler(make_unique<Sampler>(yTrain, nux, nSamp, treeChunk, nCtg, classWeight)) {
+}
+  
+
+
 SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
 			     unsigned int nCtg,
+			     IndexT nSamp,
 			     unsigned int nTree,
-			     const unsigned char* samplerNux) :
-  sampler(make_unique<Sampler>(yTrain, (const SamplerNux*) samplerNux, nTree, nCtg)) {
+			     bool nux,
+			     unsigned char* samples,
+			     bool bagging) :
+  sampler(make_unique<Sampler>(yTrain, nux, samples, nSamp, nTree, nCtg, bagging)) {
+}
+
+
+size_t SamplerBridge::getBlockBytes() const {
+  return sampler->getBlockBytes();
+}
+
+
+void SamplerBridge::dumpRaw(unsigned char blOut[]) const {
+  sampler->dumpRaw(blOut);
 }

@@ -14,12 +14,10 @@
 */
 
 #include "bv.h"
-#include "sample.h"
 #include "train.h"
 #include "trainframe.h"
 #include "frontier.h"
 #include "pretree.h"
-#include "samplercresc.h"
 
 #include <algorithm>
 
@@ -36,125 +34,52 @@ void Train::deInit() {
 }
 
 
-unique_ptr<Train> Train::regression(const TrainFrame* frame,
-                                    const vector<double>& y,
-                                    unsigned int treeChunk) {
-  auto trainReg = make_unique<Train>(frame, y, treeChunk);
-  trainReg->trainChunk(frame);
+unique_ptr<Train> Train::train(const TrainFrame* frame,
+			       Forest* forest,
+			       Sampler* sampler) {
+  auto train = make_unique<Train>(frame, forest, sampler);
+  train->trainChunk(frame);
 
-  return trainReg;
+  return train;
 }
 
 
 Train::Train(const TrainFrame* frame,
-             const vector<double>& y,
-             unsigned int treeChunk_) :
-  nRow(frame->getNRow()),
-  treeChunk(treeChunk_),
-  forest(make_unique<ForestCresc<DecNode> >(treeChunk)),
+	     Forest* forest_,
+	     Sampler* sampler_) :
   predInfo(vector<double>(frame->getNPred())),
-  sampler(make_unique<SamplerCresc>(y, treeChunk)) {
-}
-
-
-unique_ptr<Train> Train::classification(const TrainFrame* frame,
-                                        const vector<unsigned int>& yCtg,
-                                        const vector<double>& yProxy,
-                                        unsigned int nCtg,
-                                        unsigned int treeChunk,
-                                        unsigned int nTree) {
-  auto trainCtg = make_unique<Train>(frame, yCtg, nCtg, yProxy, nTree, treeChunk);
-  trainCtg->trainChunk(frame);
-
-  return trainCtg;
-}
-
-
-Train::Train(const TrainFrame* frame,
-             const vector<unsigned int>& yCtg,
-             unsigned int nCtg,
-             const vector<double>& classWeight,
-             unsigned int nTree,
-             unsigned int treeChunk_) :
-  nRow(frame->getNRow()),
-  treeChunk(treeChunk_),
-  forest(make_unique<ForestCresc<DecNode> >(treeChunk)),
-  predInfo(vector<double>(frame->getNPred())),
-  sampler(make_unique<SamplerCresc>(yCtg, nCtg, classWeight, treeChunk)) {
-}
-
-
-Train::~Train() {
+  forest(forest_),
+  sampler(sampler_) {
 }
 
 
 void Train::trainChunk(const TrainFrame* frame) {
   frame->obsLayout();
+  unsigned int treeChunk = sampler->getNTree();
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
-    unsigned int treeEnd = min(treeStart + trainBlock, treeChunk);
-    auto treeBlock = blockProduce(frame, treeStart, treeEnd - treeStart);
-    blockConsume(treeBlock, treeStart);
+    auto treeBlock = blockProduce(frame, treeStart, min(treeStart + trainBlock, treeChunk));
+    blockConsume(treeBlock);
   }
   forest->splitUpdate(frame);
 }
 
 
 vector<unique_ptr<PreTree>> Train::blockProduce(const TrainFrame* frame,
-                                     unsigned int tStart,
-                                     unsigned int tCount) {
+						unsigned int treeStart,
+						unsigned int treeEnd) {
   vector<unique_ptr<PreTree>> block;
-  for (unsigned int tIdx = 0; tIdx < tCount; tIdx++) {
-    sampler->rootSample(frame);
-    block.emplace_back(move(Frontier::oneTree(frame, sampler->getSample())));
+  for (unsigned int tIdx = treeStart; tIdx < treeEnd; tIdx++) {
+    block.emplace_back(move(Frontier::oneTree(frame, sampler)));
   }
-
-  if (tStart == 0)
-    reserve(block);
 
   return block;
 }
 
  
-void Train::blockConsume(vector<unique_ptr<PreTree>>& treeBlock,
-                         unsigned int blockStart) {
-  unsigned int blockIdx = blockStart;
+void Train::blockConsume(vector<unique_ptr<PreTree>>& treeBlock) {
   for (auto & pretree : treeBlock) {
-    const vector<IndexT> leafMap = pretree->consume(forest.get(), blockIdx, predInfo);
-    vector<double> scores = sampler->bagLeaves(leafMap, blockIdx++);
-    forest->setScores(scores);
+    const vector<IndexT> leafMap = pretree->consume(forest, predInfo);
+    sampler->blockSamples(leafMap);
+    forest->setScores(sampler->scoreTree(leafMap));
   }
-}
-
-
-void Train::reserve(vector<unique_ptr<PreTree>>& treeBlock) {
-  size_t blockFac;
-  IndexT blockBag, blockLeaf;
-  IndexT maxHeight = 0;
-  (void) blockPeek(treeBlock, blockFac, blockBag, blockLeaf, maxHeight);
-  PreTree::reserve(maxHeight);
-}
-
-
-unsigned int Train::blockPeek(vector<unique_ptr<PreTree>>& treeBlock,
-                              size_t& blockFac,
-                              IndexT& blockBag,
-                              IndexT& blockLeaf,
-                              IndexT& maxHeight) {
-  IndexT blockHeight = 0;
-  blockLeaf = blockFac = blockBag = 0;
-  for (auto & pretree : treeBlock) {
-    pretree->blockBump(blockHeight, maxHeight, blockFac, blockLeaf, blockBag);
-  }
-
-  return blockHeight;
-}
-
-
-void Train::cacheSamplerRaw(unsigned char blRaw[]) const {
-  sampler->dumpRaw(blRaw);
-}
-
-
-const vector<size_t>& Train::getSamplerHeight() const {
-  return sampler->getHeight();
 }

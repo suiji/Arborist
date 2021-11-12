@@ -33,13 +33,10 @@ struct RfTrain {
   static void initProb(unsigned int predFixed,
                        const vector<double> &predProb);
 
-
   /**
      @brief Registers tree-shape parameters.
   */
-  static void initTree(unsigned int nSamp,
-                       unsigned int minNode,
-                       unsigned int leafMax);
+  static void initTree(IndexT leafMax);
 
   /**
      @brief Initializes static OMP thread state.
@@ -48,13 +45,6 @@ struct RfTrain {
    */
   static void initOmp(unsigned int nThread);
 
-
-  /**
-     @brief Registers response-sampling parameters.
-
-     @param nSamp is the number of samples requested.
-  */
-  static void initSample(unsigned int nSamp);
 
   /**
      @brief Registers width of categorical response.

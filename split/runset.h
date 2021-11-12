@@ -34,34 +34,25 @@ class RunSet {
   vector<double> rvWide;
   const SplitStyle style; // Splitting style, fixed by frontier class.
 
-
   /**
-     @brief Classification:  only wide run sets use the heap.
-  */
-  void offsetsCtg();
-  
+     @brief Consolidates the safe count vector.
 
+     Classification:  only wide run sets use the heap.
+  */
+  void setOffsets(const class SplitFrontier* sf);
+
+  
 public:
-  const PredictorT nCtg;  // Response cardinality; zero iff numerical.
 
   /**
      @brief Constructor.
 
-     @param nCtg_ is the response cardinality.
-
      @param nRow is the number of training rows:  inattainable offset.
   */
-  RunSet(SplitStyle factorStyle,
-	 PredictorT nCtg_,
+  RunSet(const class SplitFrontier* sf,
 	 IndexT nRow);
 
 
-  /**
-     @brief Consolidates the safe count vector.
-   */
-  void setOffsets();
-
-  
   /**
      @brief Adds local run count to vector of safe counts.
 
@@ -93,16 +84,15 @@ public:
   }
 
 
-  vector<IndexRange> getRange(const class SplitNux* nux,
-				 const class CritEncoding& enc) const;
+  vector<IndexRange> getRange(const class SplitNux& nux,
+			      const class CritEncoding& enc) const;
 
-  
+
   /**
      @retrun SR index range of top run.
    */
-  IndexRange getTopRange(const class SplitNux* nux,
-			 const class CritEncoding& enc) const;
-
+  vector<IndexRange> getTopRange(const class SplitNux& nux,
+				 const class CritEncoding& enc) const;
 
 
   struct RunDump dumpRun(PredictorT accumIdx) const {
@@ -141,7 +131,7 @@ public:
   /**
      @brief Dispatches candidate finalizer.
    */
-  void updateAccum(const class SplitNux* cand);
+  void updateAccum(const class SplitNux& cand);
 };
 
 #endif

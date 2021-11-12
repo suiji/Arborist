@@ -119,6 +119,8 @@ public:
 	const class RLEFrame* rleFrame,
         const vector<double>& quantile_);
 
+  ~Quant() = default;
+  
 
   /**
      @brief Determines whether to bail on quantile estimation.

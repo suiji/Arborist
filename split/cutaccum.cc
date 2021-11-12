@@ -18,7 +18,6 @@
 #include "cutset.h"
 #include "splitfrontier.h"
 #include "obspart.h"
-#include "residual.h"
 
 
 CutAccum::CutAccum(const SplitNux* cand,
@@ -81,9 +80,6 @@ CutAccumReg::CutAccumReg(const SplitNux* cand,
   CutAccum(cand, sfReg),
   monoMode(sfReg->getMonoMode(cand)),
   resid(CutAccumReg::makeResidual(cand, sampleRank)) {
-}
-
-CutAccumReg::~CutAccumReg() {
 }
 
 

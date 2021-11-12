@@ -41,12 +41,18 @@ public:
   CutAccumRegCart(const class SplitNux* splitCand,
                 const class SFRegCart* spReg);
 
-  ~CutAccumRegCart();
 
   /**
-     @brief Dispatches appropriate splitting method.
+     @brief Static entry for regression splitting.
    */
-  void split(const class SFRegCart* spReg,
+  static void split(const class SFRegCart* spReg,
+		    class SplitNux* cand);
+
+  
+  /**
+     @brief Private regresion splitting method.
+   */
+  void splitReg(const class SFRegCart* spReg,
              class SplitNux* cand);
   
 
@@ -91,13 +97,18 @@ public:
   CutAccumCtgCart(const class SplitNux* cand,
 	      class SFCtgCart* spCtg);
 
-  ~CutAccumCtgCart();
-
 
   /**
-     @brief Dispatches appropriate splitting method.
+     @brief Static entry for classification splitting.
    */
-  void split(const class SFCtgCart* spCtg,
+  static void split(class SFCtgCart* spCtg,
+		    class SplitNux* cand);
+  
+
+  /**
+     @brief Private classification splitting method.
+   */
+  void splitCtg(const class SFCtgCart* spCtg,
              class SplitNux* cand);
 
   

@@ -22,7 +22,6 @@ using namespace std;
 
 #include "typeparam.h"
 
-
 /**
    @brief Characterizes predictor contents via implicit rank and explicit count.
  */
@@ -41,7 +40,6 @@ struct ImplExpl {
     countExpl(countExpl_) {
   }
 };
-
 
 
 /**
@@ -83,14 +81,7 @@ class Layout {
      @return safe range.
   */
   IndexRange getSafeRange(PredictorT predIdx,
-			  IndexT bagCount) const {
-    if (implExpl[predIdx].rankImpl == noRank) {
-      return IndexRange(implExpl[predIdx].safeOffset * bagCount, bagCount);
-    }
-    else {
-      return IndexRange(nonCompact * bagCount + implExpl[predIdx].safeOffset, implExpl[predIdx].countExpl);
-    }
-  }
+			  IndexT bagCount) const;
 
 
   /**
@@ -98,9 +89,9 @@ class Layout {
 
      @param predIdx is the predictor index.
   */
-  IndexT stage(const class Sample* sample,
-	       PredictorT predIdx,
-	       class ObsPart* obsPart) const;
+  struct StageCount stage(const class Sample* sample,
+			  class ObsPart* obsPart,
+			  PredictorT predIdx) const;
 
   
 public:
@@ -129,9 +120,6 @@ public:
 	 double autoCompress);
 
 
-  virtual ~Layout();
-
-
   inline IndexT getNRow() const {
     return nRow;
   }
@@ -142,7 +130,7 @@ public:
   }
 
 
-  inline IndexT NoRank() const {
+  inline IndexT getNoRank() const {
     return noRank;
   }
 
@@ -199,9 +187,11 @@ public:
 
   /**
      @brief Loops through the predictors to stage.
+
+     @return count of expclicit entries in SampleRank buffer.
   */
-  vector<IndexT> stage(const class Sample* sample,
-		       class ObsPart* obsPart) const;
+  vector<struct StageCount> stage(const class Sample* sample,
+				  class ObsPart* obsPart) const;
 };
 
 

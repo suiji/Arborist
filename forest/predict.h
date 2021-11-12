@@ -37,10 +37,9 @@ protected:
   const class Sampler* sampler; // In-bag representation.
   const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
   const struct TreeNode* treeNode; // Pointer to base of tree nodes.
-  const class BVJaggedV* facSplit; // Jagged accessor of factor-valued splits.
+  const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
   struct RLEFrame* rleFrame; // Frame of observations.
   const bool testing; // Whether to compare prediction with test vector.
-  const bool bagging; // Whether to ignore in-bag rows.
   const unsigned int nPermute; // # times to permute each predictor.
 
   vector<IndexT> predictLeaves; // Tree-relative leaf indices.
@@ -55,7 +54,7 @@ protected:
   /**
      @return vector of accumulated score heights.
    */
-  vector<size_t> scoreHeights() const;
+  static vector<size_t> scoreHeights(const vector<vector<double>>& scoreBlock);
   
 
   /**
@@ -168,10 +167,9 @@ public:
 	  const class Sampler* sampler_,
 	  struct RLEFrame* rleFrame_,
 	  bool testing_,
-	  bool oob_,
 	  unsigned int nPredict_);
-
   
+
   /**
      @brief Main entry from bridge.
 
@@ -328,7 +326,6 @@ public:
 
 class PredictReg : public Predict {
   const class LeafReg* leaf;
-  const double defaultScore;
   const vector<double> yTest;
   vector<double> yPred;
   vector<double> yPermute; // Reused.
@@ -357,16 +354,10 @@ public:
 	     const class Sampler* sampler_,
 	      struct RLEFrame* rleFrame_,
 	      const vector<double>& yTest_,
-	      bool oob_,
 	      unsigned int nPredict_,
 	      const vector<double>& quantile);
 
-  ~PredictReg();
-
-
-  double getDefault() const {
-    return defaultScore;
-  }
+  //  ~PredictReg(); // Forward declaration:  not specified default.
 
   
   /**
@@ -439,10 +430,8 @@ class PredictCtg : public Predict {
   const PredictorT nCtgTrain; // Cardiality of training response.
   const PredictorT nCtgMerged; // Cardinality of merged test response.
   unique_ptr<class CtgProb> ctgProb; // Class prediction probabilities.
-  const PredictorT ctgDefault; // Default prediction when nothing is out-of-bag.
 
   vector<PredictorT> yPermute; // Reused.
-  vector<double> votes; // Jittered prediction counts.
   vector<PredictorT> census;
   vector<size_t> confusion; // Confusion matrix; saved.
   vector<double> misprediction; // Mispredction, by merged category; saved.
@@ -469,11 +458,10 @@ public:
 	     const class Sampler* sampler_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<PredictorT>& yTest_,
-	     bool oob_,
 	     unsigned int nPredict_,
 	     bool doProb);
 
-  ~PredictCtg() {}
+  //  ~PredictCtg(); // Forward declaration:  not specified default;
 
 
   /**
@@ -481,14 +469,6 @@ public:
    */
   void scoreSeq(size_t rowStart,
 		size_t rowEnd);
-
-  
-  /**
-     @return position of maximal vote over training categories.
-   */
-  PredictorT argMaxCtg(const double* blockVotes) const {
-    return max_element(blockVotes, blockVotes + nCtgTrain) - blockVotes;
-  }
 
 
   /**

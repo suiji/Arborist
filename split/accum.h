@@ -20,8 +20,8 @@ struct Accum {
   const class SampleRank* sampleRank;
   const IndexT* sampleIndex;
   const IndexT rankDense; // Rank of dense value, if any.
-  const IndexT idxStart;
-  const IndexT idxEnd;
+  const IndexT idxStart;// Low terminus.
+  const IndexT idxEnd; // High terminus.
   const double sumCand;
   const IndexT sCountCand;
   const IndexT implicitCand;

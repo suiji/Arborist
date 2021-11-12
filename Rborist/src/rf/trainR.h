@@ -46,30 +46,24 @@ struct TrainRf {
   static constexpr double allocSlop = 1.2;
 
   static bool verbose; // Whether to report progress while training.
-  
+
+  const unsigned int nSamp; // # samples per tree.
   const unsigned int nTree; // # trees under training.
   unique_ptr<class SamplerR> sampler; // Summarizes row bagging, by tree.
   unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
-  //  unique_ptr<struct LBTrain> leaf; // Pointer to core leaf frame.
+
 
   /**
-     @brief Regression constructor.
+     @brief Cconstructor.
 
-     @param nTree is the number of trees in the forest.
+     @param nSamp_ is the number of samples per tree.
 
-     @param yTrain is the training response vector.
+     @param nTree_ is the number of trees in the block.
    */
-  TrainRf(unsigned int nTree_,
-          const NumericVector& yTrain);
-
-  /**
-     @brief Classification constructor.  Parameters as above.
-
-     @param yZero is the zero-based version of the training response.
-   */
-  TrainRf(unsigned int nTree_,
-          const IntegerVector& yZero);
+  TrainRf(unsigned int nSamp_,
+	  unsigned int nTree_,
+	  bool thinSamples);
 
 
   /**
@@ -79,8 +73,9 @@ struct TrainRf {
 
      @return R-style list of trained summaries.
   */
-  static unique_ptr<TrainRf> classification(const List& argList,
-					    const struct TrainBridge* trainBridge);
+  static List classification(const List& argList,
+			     const struct TrainBridge* trainBridge,
+			     vector<string>& diag);
 
   
   /**
@@ -90,8 +85,9 @@ struct TrainRf {
 
      @return R-style list of trained summaries.
   */
-  static unique_ptr<TrainRf> regression(const List& argList,
-					const struct TrainBridge* trainBridge);
+  static List regression(const List& argList,
+			 const struct TrainBridge* trainBridge,
+			 vector<string>& diag);
 
   
   /**
@@ -167,9 +163,16 @@ struct TrainRf {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const struct TrainChunk* train,
+  void consume(const struct ForestBridge* fb,
+	       const struct SamplerBridge* sb,
                unsigned int tIdx,
-               unsigned int chunkSize);
+               unsigned int chunkSize) const;
+
+
+  /**
+     @brief As above, but consumes information vector.
+   */
+  void consumeInfo(const struct TrainChunk* train);
 
   
   /**
@@ -177,13 +180,18 @@ struct TrainRf {
 
      @param trainBridge contains trained summary from core.
 
-     @param diag accumulates diagnostic messages.
-
      @return the summary.
    */
   List summarize(const TrainBridge* trainBridge,
-                 const vector<string>& diag);
+		 const IntegerVector& yTrain,
+		 const vector<string>& diag);
 
+  
+  List summarize(const TrainBridge* trainBridge,
+		 const NumericVector& yTrain,
+		 const vector<string>& diag);
+
+  
 private:
   
 

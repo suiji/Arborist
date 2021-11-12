@@ -13,10 +13,10 @@
    @author Mark Seligman
  */
 
+#include "deflayer.h"
 #include "obspart.h"
 #include "layout.h"
 #include "splitfrontier.h"
-#include "frontier.h"
 #include "splitnux.h"
 #include "path.h"
 #include "branchsense.h"
@@ -32,7 +32,8 @@ ObsPart::ObsPart(const Layout* layout,
   bagCount(bagCount_),
   bufferSize(layout->getSafeSize(bagCount)),
   pathIdx(bufferSize),
-  stageRange(layout->getNPred()) {
+  stageRange(layout->getNPred()),
+  noRank(layout->getNoRank()) {
   indexBase = new IndexT[2* bufferSize];
   nodeVec = new SampleRank[2 * bufferSize];
 
@@ -55,28 +56,28 @@ ObsPart::~ObsPart() {
 
 
 IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
-  return bufferIndex(nux->getPreCand());
+  return bufferIndex(nux->getMRRA());
 }
 
 
-SampleRank* ObsPart::getBuffers(const SplitNux* nux, IndexT*& sIdx) const {
-  return buffers(nux->getPreCand(), sIdx);
+SampleRank* ObsPart::getBuffers(const SplitNux& nux, IndexT*& sIdx) const {
+  return buffers(nux.getMRRA(), sIdx);
 }
 
 
 SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
-  return getPredBase(nux->getPreCand());
+  return getPredBase(nux->getMRRA());
 }
 
 
-void ObsPart::prepath(const IdxPath *idxPath,
+void ObsPart::prepath(const DefLayer* layer,
+		      const IdxPath *idxPath,
 		      const unsigned int reachBase[],
-		      const PreCand& mrra,
-		      const IndexRange& idxRange,
+		      const MRRA& mrra,
 		      unsigned int pathMask,
 		      bool idxUpdate,
 		      unsigned int pathCount[]) {
-  prepath(idxPath, reachBase, idxUpdate, idxRange, pathMask, bufferIndex(mrra), &pathIdx[getStageOffset(mrra.splitCoord.predIdx)], pathCount);
+  prepath(idxPath, reachBase, idxUpdate, layer->getRange(mrra), pathMask, bufferIndex(mrra), &pathIdx[getStageOffset(mrra.splitCoord.predIdx)], pathCount);
 }
 
 void ObsPart::prepath(const IdxPath *idxPath,
@@ -97,25 +98,32 @@ void ObsPart::prepath(const IdxPath *idxPath,
 }
 
 
-void ObsPart::branchUpdate(const SplitNux* nux,
-			   const vector<IndexRange>& range,
-			   BranchSense* branchSense,
-			   CritEncoding& enc) const {
-  for (auto rg : range) {
-    branchUpdate(nux, rg, branchSense, enc);
+CritEncoding ObsPart::branchUpdate(const SplitFrontier* sf,
+				   const SplitNux& nux,
+				   const IndexRange& range,
+				   bool increment) const {
+  CritEncoding enc(sf, nux, increment);
+  if (!range.empty()) {
+    branchUpdate(sf, nux, range, enc);
   }
+  else {
+    for (auto rg : sf->getRange(nux, enc)) {
+      branchUpdate(sf, nux, rg, enc);
+    }
+  }
+  return enc;
 }
 
 
-void ObsPart::branchUpdate(const SplitNux* nux,
+void ObsPart::branchUpdate(const SplitFrontier* sf,
+			   const SplitNux& nux,
 			   const IndexRange& range,
-			   BranchSense* branchSense,
 			   CritEncoding& enc) const {
-  enc.increment ? branchSet(nux, range, branchSense, enc) : branchUnset(nux, range, branchSense, enc);
+  enc.increment ? branchSet(nux, range, sf->getBranchSense(), enc) : branchUnset(nux, range, sf->getBranchSense(), enc);
 }
 
 
-void ObsPart::branchSet(const SplitNux* nux,
+void ObsPart::branchSet(const SplitNux& nux,
 			const IndexRange& range,
 			BranchSense* branchSense,
 			CritEncoding& enc) const {
@@ -137,10 +145,10 @@ void ObsPart::branchSet(const SplitNux* nux,
 }
 
 
-void ObsPart::branchUnset(const SplitNux* nux,
-			   const IndexRange& range,
-			   BranchSense* branchSense,
-			   CritEncoding& enc) const {
+void ObsPart::branchUnset(const SplitNux& nux,
+			  const IndexRange& range,
+			  BranchSense* branchSense,
+			  CritEncoding& enc) const {
   IndexT* sIdx;
   SampleRank* spn = getBuffers(nux, sIdx);
   if (enc.exclusive) {
@@ -160,25 +168,29 @@ void ObsPart::branchUnset(const SplitNux* nux,
 }
 
 
-void ObsPart::rankRestage(const PreCand& mrra,
-                          const IndexRange& idxRange,
+void ObsPart::rankRestage(const DefLayer* layer,
+			  const MRRA& mrra,
                           unsigned int reachOffset[],
-                          unsigned int rankPrev[],
                           unsigned int rankCount[]) {
-  SampleRank *source, *targ;
+  SampleRank *srSource, *srTarg;
   IndexT *idxSource, *idxTarg;
-  buffers(mrra, source, idxSource, targ, idxTarg);
+  buffers(mrra, srSource, idxSource, srTarg, idxTarg);
+
+  IndexT rankPrev[NodePath::pathMax()];
+  fill(rankPrev, rankPrev + layer->backScale(1), noRank);
+  fill(rankCount, rankCount + layer->backScale(1), 0);
 
   PathT *pathBlock = &pathIdx[getStageOffset(mrra.splitCoord.predIdx)];
+  IndexRange idxRange = layer->getRange(mrra);
   for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
-      SampleRank spNode = source[idx];
-      IndexT rank = spNode.getRank();
+      SampleRank sourceNode = srSource[idx];
+      IndexT rank = sourceNode.getRank();
       rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
       rankPrev[path] = rank;
       IndexT destIdx = reachOffset[path]++;
-      targ[destIdx] = spNode;
+      srTarg[destIdx] = sourceNode;
       idxTarg[destIdx] = idxSource[idx];
     }
   }
@@ -187,7 +199,7 @@ void ObsPart::rankRestage(const PreCand& mrra,
 
 void ObsPart::indexRestage(const IdxPath *idxPath,
                            const unsigned int reachBase[],
-                           const PreCand& mrra,
+                           const MRRA& mrra,
                            const IndexRange& idxRange,
                            unsigned int pathMask,
                            bool idxUpdate,
@@ -212,3 +224,17 @@ void ObsPart::indexRestage(const IdxPath *idxPath,
   }
 }
 
+
+IndexT ObsPart::countRanks(PredictorT predIdx,
+			   unsigned int bufIdx,
+			   IndexT rank,
+			   IndexT idxExpl) const {
+  SampleRank* srStart = bufferNode(predIdx, bufIdx);
+  IndexT rankCount = 0; // # explicit ranks observed.
+  for (SampleRank* sr = srStart; sr != srStart + idxExpl; sr++) {
+    IndexT rankPrev = exchange(rank, sr->getRank());
+    rankCount += rank == rankPrev ? 0 : 1;
+  }
+
+  return rankCount;
+}

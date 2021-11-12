@@ -17,8 +17,8 @@
 #ifndef RF_BRIDGE_TRAINBRIDGE_H
 #define RF_BRIDGE_TRAINBRIDGE_H
 
-#include "forestcresc.h"
-#include "cartnode.h"
+#include "typeparam.h"
+#include "forest.h"
 
 #include<vector>
 #include<memory>
@@ -39,18 +39,14 @@ struct TrainBridge {
      @return copy of trainFrame's predMap.
    */
   vector<PredictorT> getPredMap() const;
+
   
+  /**
+     @brief Main entry for training.
+   */
+  unique_ptr<struct TrainChunk> train(const class ForestBridge* forest,
+				      const class SamplerBridge* sampler) const;
 
-  unique_ptr<struct TrainChunk> classification(const vector<unsigned int>& yCtg,
-		 const vector<double>& yProxy,
-		 unsigned int nCtg,
-		 unsigned int treeChunk,
-		 unsigned int nTree) const;
-
-
-  unique_ptr<struct TrainChunk>
-  regression(const vector<double>& y,
-	     unsigned int treeChunk) const;
 
   /**
      @brief Registers training tree-block count.
@@ -63,13 +59,10 @@ struct TrainBridge {
   static void initProb(unsigned int predFixed,
                        const vector<double> &predProb);
 
-
   /**
      @brief Registers tree-shape parameters.
   */
-  static void initTree(unsigned int nSamp,
-                       unsigned int minNode,
-                       unsigned int leafMax);
+  static void initTree(IndexT leafMax);
 
   /**
      @brief Initializes static OMP thread state.
@@ -78,14 +71,7 @@ struct TrainBridge {
    */
   static void initOmp(unsigned int nThread);
 
-
-  /**
-     @brief Registers response-sampling parameters.
-
-     @param nSamp is the number of samples requested.
-  */
-  static void initSample(unsigned int nSamp);
-
+  
   /**
      @brief Registers width of categorical response.
 
@@ -132,42 +118,6 @@ struct TrainChunk {
 
   ~TrainChunk();
   
-
-  void writeSamplerBlockHeight(vector<size_t>& samplerHeight,
-			  unsigned int tIdx) const;
-
-  /**
-     @brief As above, but Sampler.
-   */
-  bool samplerBlockFits(const vector<size_t>& height,
-                     unsigned int tIdx,
-                     size_t capacity,
-                     size_t& offset,
-                     size_t& bytest) const;
-  
-  /**
-     @brief Sends trained Forest components to front end.
-   */
-  const vector<size_t>& getForestHeight() const;
-
-  const vector<size_t>& getFactorHeight() const;
-
-  void dumpTreeRaw(unsigned char treeOut[]) const;
-
-  void dumpFactorRaw(unsigned char facOut[]) const;
-
-
-  const vector<size_t>& samplerHeight() const;
-
-
-  void dumpSamplerBlockRaw(unsigned char blOut[]) const;
-
-
-  /**
-     @brief Getter for raw forest pointer.
-   */
-  const class ForestCresc<struct TreeNode>* getForest() const;
-
   
   /**
      @brief Getter for splitting information values.

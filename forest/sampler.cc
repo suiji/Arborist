@@ -5,59 +5,111 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+
 #include "predict.h"
 #include "leaf.h"
 #include "sampler.h"
 
 #include <cmath>
 
+
 Sampler::Sampler(const vector<double>& yTrain,
-		 const class SamplerNux* samples,
-		 unsigned int nTree_) :
+		 bool nuxSamples_,
+		 IndexT nSamp_,
+		 unsigned int treeChunk,
+		 bool bagging_) :
+  nTree(treeChunk),
+  nObs(yTrain.size()),
+  nSamp(nSamp_),
+  nCtg(0),
+  bagging(bagging_),
+  nuxSamples(nuxSamples_),
+  leaf(Leaf::factoryReg(yTrain)),
+  bagMatrix((bagging && !nuxSamples) ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(0,0)),
+  samplerBlock(nullptr),
+  tIdx(0) {
+}
+
+
+Sampler::Sampler(const vector<double>& yTrain,
+		 bool nuxSamples_,
+		 unsigned char* samples,
+		 IndexT nSamp_,
+		 unsigned int nTree_,
+		 bool bagging_) :
   nTree(nTree_),
   nObs(yTrain.size()),
-  nSamp(nObs), // NO:  set from front end.
+  nSamp(nSamp_),
   nCtg(0),
+  bagging(bagging_),
+  nuxSamples(nuxSamples_),
   leaf(Leaf::factoryReg(yTrain)),
-  bitMatrix(make_unique<BitMatrix>(nTree, nObs)),
-  samplerBlock(setExtents(samples)) {
+  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  samplerBlock = readRaw(samples);
 }
 
 
 Sampler::Sampler(const vector<PredictorT>& yTrain,
-		 const class SamplerNux* samples,
+		 bool nuxSamples_,
+		 IndexT nSamp_,
+		 unsigned int treeChunk,
+		 PredictorT nCtg_,
+		 const vector<double>& classWeight,
+		 bool bagging_) :
+  nTree(treeChunk),
+  nObs(yTrain.size()),
+  nSamp(nSamp_),
+  nCtg(nCtg_),
+  bagging(bagging_),
+  nuxSamples(nuxSamples_),
+  leaf(Leaf::factoryCtg(yTrain, nCtg, classWeight)),
+  bagMatrix((bagging && !nuxSamples) ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(0,0)),
+  samplerBlock(nullptr),
+  tIdx(0) {
+}
+
+
+Sampler::Sampler(const vector<PredictorT>& yTrain,
+		 bool nuxSamples_,
+		 unsigned char* samples,
+		 IndexT nSamp_,
 		 unsigned int nTree_,
-		 PredictorT nCtg_) :
+		 PredictorT nCtg_,
+		 bool bagging_) :
   nTree(nTree_),
   nObs(yTrain.size()),
-  nSamp(nObs), // NO:  set from front end.
+  nSamp(nSamp_),
   nCtg(nCtg_),
+  bagging(bagging_),
+  nuxSamples(nuxSamples_),
   leaf(Leaf::factoryCtg(yTrain, nCtg)),
-  bitMatrix(make_unique<BitMatrix>(nTree, nObs)),
-  samplerBlock(setExtents(samples)) {
+  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  samplerBlock = readRaw(samples);
 }
 
 
-Sampler::Sampler() :
-  nTree(0),
-  nObs(0),
-  nSamp(0),
-  nCtg(0),
-  bitMatrix(make_unique<BitMatrix>(0, 0)) {
+unique_ptr<BitMatrix> Sampler::bagRaw(unsigned char* rawSamples,
+				      bool nuxSamples,
+				      bool bagging,
+				      unsigned int nTree, IndexT nObs) {
+  if (bagging) {
+    return nuxSamples ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(reinterpret_cast<unsigned int*>(rawSamples), nTree, nObs);
+  }
+  else {
+    return  make_unique<BitMatrix>(0,0);
+  }
 }
 
 
-BitMatrix* Sampler::getBitMatrix() const {
-  return bitMatrix.get();
-}
+unique_ptr<SamplerBlock> Sampler::readRaw(unsigned char* rawSamples) {
+  if (!nuxSamples)
+    return nullptr;
 
-
-unique_ptr<SamplerBlock> Sampler::setExtents(const SamplerNux* samples) {
+  SamplerNux* samples = reinterpret_cast<SamplerNux*>(rawSamples);
   vector<size_t> sampleHeight(nTree);
   vector<size_t> forestIdx;
   size_t leafCount = 0;
   size_t sIdx = 0; // Absolute sample index.
-
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     IndexT nLeaf = 0;
     size_t leafBase = leafCount;
@@ -66,7 +118,8 @@ unique_ptr<SamplerBlock> Sampler::setExtents(const SamplerNux* samples) {
     while (sCountTree != nSamp) {
       sCountTree += samples[sIdx].getSCount();
       row += samples[sIdx].getDelRow();
-      bitMatrix->setBit(tIdx, row);
+      if (bagging)
+	bagMatrix->setBit(tIdx, row);
       IndexT leafIdx = samples[sIdx].getLeafIdx();
       nLeaf = max(leafIdx, nLeaf);
       forestIdx.push_back(leafBase + leafIdx);
@@ -98,7 +151,7 @@ SamplerBlock::SamplerBlock(const SamplerNux* samples,
 }
 
 
-vector<IndexT> SamplerBlock::ctgSamples(const Predict* predict,
+vector<IndexT> SamplerBlock::countLeafCtg(const Predict* predict,
 					const LeafCtg* leaf) const {
   vector<IndexT> ctgCount(leaf->getNCtg() * predict->getScoreCount());
   size_t sIdx = 0; // Absolute sample index.
@@ -150,5 +203,64 @@ void SamplerBlock::dump(const Sampler* sampler,
       sCountTree[tIdx].push_back(getSCount(bagIdx));
 	//	extentTree[tIdx].emplace_back(getExtent(leafIdx)); TODO
     }
+  }
+}
+
+
+void Sampler::rootSample(const class TrainFrame* frame) {
+  sample = leaf->rootSample(frame, this);
+}
+
+
+Sample* Sampler::getSample() const {
+  return sample.get();
+}
+
+
+void Sampler::blockSamples(const vector<IndexT>& leafMap) {
+  if (!bagMatrix->isEmpty()) { // Thin, but bagging.
+    IndexT row = 0;
+    for (IndexT sIdx = 0; sIdx < leafMap.size(); sIdx++) {
+      row += sample->getDelRow(sIdx);
+      bagMatrix->setBit(tIdx, row);
+    }
+  }
+  else {
+    IndexT sIdx = 0;
+    for (auto leafIdx : leafMap) {
+      sbCresc.emplace_back(sample->getDelRow(sIdx), leafIdx, sample->getSCount(sIdx));
+      sIdx++;
+    }
+  }
+  tIdx++;
+}
+
+
+size_t Sampler::getBlockBytes() const {
+  if (nuxSamples) {
+    return sbCresc.size() * sizeof(SamplerNux);
+  }
+  else {
+    return bagMatrix->getNSlot() * sizeof(unsigned int);
+  }
+}
+
+
+vector<double> Sampler::scoreTree(const vector<IndexT>& leafMap) const {
+  return leaf->scoreTree(sample.get(), leafMap);
+}
+
+
+void Sampler::dumpRaw(unsigned char outRaw[]) const {
+  if (nuxSamples)
+    dumpNuxRaw(outRaw);
+  else
+    bagMatrix->dumpRaw(outRaw);
+}
+
+
+void Sampler::dumpNuxRaw(unsigned char snRaw[]) const {
+  for (size_t i = 0; i < sbCresc.size() * sizeof(SamplerNux); i++) {
+    snRaw[i] = reinterpret_cast<const unsigned char*>(&sbCresc[0])[i];
   }
 }

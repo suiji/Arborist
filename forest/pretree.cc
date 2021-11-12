@@ -14,78 +14,34 @@
  */
 #include "bv.h"
 #include "pretree.h"
+#include "splitfrontier.h"
 
 #include "callback.h"
 #include <queue>
 #include <vector>
 
-
-IndexT PreTree::heightEst = 0;
 IndexT PreTree::leafMax = 0;
 
 
-size_t PreTree::getBitWidth() const {
-    return BV::slotAlign(bitEnd);
-}
-
-
 PreTree::PreTree(PredictorT cardExtent,
-	  IndexT bagCount_) :
-    bagCount(bagCount_),
-    height(1),
-    leafCount(1),
-    bitEnd(0),
-    nodeVec(vector<PTNode>(2*bagCount - 1)), // Maximum possible nodes
-    splitBits(new BV(heightEst * cardExtent)) { // Initial estimate.
+		 IndexT bagCount_) :
+  bagCount(bagCount_),
+  height(1),
+  leafCount(1),
+  nodeVec(vector<PTNode>(2*bagCount - 1)), // Preallocates maximum.
+  splitBits(BV(bagCount * cardExtent)), // Vague estimate.
+  bitEnd(0) {
 }
 
 
-PreTree::~PreTree() {
-  delete splitBits;
+void PreTree::init(IndexT leafMax_) {
+  leafMax = leafMax_;
 }
 
 
-void PreTree::immutables(IndexT nSamp, IndexT minH, IndexT leafMax_) {
-  // Static initial estimate of pre-tree heights employs a minimal enclosing
-  // balanced tree.  This is probably naive, given that decision trees
-  // are not generally balanced.
-  //
-  // In any case, 'heightEst' is re-estimated following construction of the
-  // first PreTree block.  Hence the value is not really immutable.  Nodes
-  // can also be reallocated during the interlevel pass as needed.
-  //
-    IndexT twoL = 1; // 2^level, beginning from level zero (root).
-    while (twoL * minH < nSamp) {
-      twoL <<= 1;
-    }
 
-    // Terminals plus accumulated nonterminals.
-    heightEst = (twoL << 2); // - 1, for exact count.
-
-    leafMax = leafMax_;
-  }
-
-
-
-void PreTree::deImmutables() {
-  leafMax = heightEst = 0;
-}
-
-
-void PreTree::reserve(IndexT height) {
-  while (heightEst <= height) // Assigns next power-of-two above 'height'.
-    heightEst <<= 1;
-}
-
-
-void PreTree::nonterminalInc(const SplitNux& nux) {
-  nodeVec[nux.getPTId()].setNonterminal(nux, height);
-}
-
-
-void PreTree::setNonterminal(const SplitNux& nux) {
-  offspring(1);
-  nodeVec[nux.getPTId()].setNonterminal(nux, height);
+void PreTree::deInit() {
+  leafMax = 0;
 }
 
 
@@ -96,36 +52,73 @@ void PTNode::setNonterminal(const SplitNux& nux,
 }
 
 
-void PreTree::critBits(const SplitNux* nux,
-		       PredictorT cardinality,
-		       const vector<PredictorT>& bitsTrue) {
-  nodeVec[nux->getPTId()].critBits(nux, bitEnd);
-  splitBits = splitBits->Resize(bitEnd + cardinality);
-  for (auto bit : bitsTrue) {
-    splitBits->setBit(bitEnd + bit);
+void PreTree::consumeCompound(const SplitFrontier* sf,
+			      const vector<vector<SplitNux>>& nuxMax) {
+  // True branches target box exterior.
+  // False branches target next criterion or box terminal.
+  for (auto & nuxCrit : nuxMax) {
+    consumeCriteria(sf, nuxCrit);
   }
-  bitEnd += cardinality;
 }
 
 
-void PreTree::critCut(const SplitNux* nux, const class SplitFrontier* splitFrontier) {
-  nodeVec[nux->getPTId()].critCut(nux, splitFrontier);
+void PreTree::consumeCriteria(const SplitFrontier* sf,
+			      const vector<SplitNux>& nuxCrit) {
+  offspring(nuxCrit.size()); // Preallocates terminals and compound nonterminals.
+  for (auto nux : nuxCrit) {
+    addCriterion(sf, nux, true);
+  }
 }
 
 
-const vector<IndexT> PreTree::consume(ForestCresc<DecNode>* forest,
-				      unsigned int tIdx,
+void PreTree::addCriterion(const SplitFrontier* sf,
+			   const SplitNux& nux,
+			   bool preallocated) {
+  if (nux.noNux())
+    return;
+
+  if (nux.isFactor(sf)) {
+    critBits(sf, nux);
+  }
+  else {
+    critCut(sf, nux);
+  }
+
+  offspring(preallocated ? 0 : 1);
+  nodeVec[nux.getPTId()].setNonterminal(nux, height);
+}
+
+
+void PreTree::critBits(const SplitFrontier* sf,
+		       const SplitNux& nux) {
+  auto bitPos = bitEnd;
+  bitEnd += sf->critBitCount(nux);
+  splitBits.resize(bitEnd);
+  for (auto bit : sf->getTrueBits(nux)) {
+    splitBits.setBit(bitPos + bit);
+  }
+  nodeVec[nux.getPTId()].critBits(&nux, bitPos);
+}
+
+
+void PreTree::critCut(const SplitFrontier* sf,
+		      const SplitNux& nux) {
+  nodeVec[nux.getPTId()].critCut(&nux, sf);
+}
+
+
+const vector<IndexT> PreTree::consume(Forest* forest,
 				      vector<double>& predInfo) {
-  forest->treeInit(tIdx, height);
+  forest->treeInit(height);
   height = leafMerge();
   consumeNodes(forest, predInfo);
-  forest->appendBits(splitBits, bitEnd, tIdx);
+  forest->appendBits(splitBits, bitEnd);
 
   return sample2Leaf();
 }
 
 
-void PreTree::consumeNodes(ForestCresc<DecNode>* forest,
+void PreTree::consumeNodes(Forest* forest,
 			   vector<double>& predInfo)  {
   IndexT leafIdx = 0;
   for (IndexT idx = 0; idx < height; idx++) {
@@ -209,19 +202,6 @@ IndexT PreTree::leafMerge() {
   }
 
   return heightMerged;
-}
-
-
-void PreTree::blockBump(IndexT& _height,
-                        IndexT& _maxHeight,
-                        size_t& _bitWidth,
-                        IndexT& _leafCount,
-                        IndexT& _bagCount) {
-  _height += height;
-  _maxHeight = max(height, _maxHeight);
-  _bitWidth += getBitWidth();
-  _leafCount += leafCount;
-  _bagCount += bagCount;
 }
 
 

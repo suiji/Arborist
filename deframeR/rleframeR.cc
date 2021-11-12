@@ -1,19 +1,19 @@
-// Copyright (C)  2012-2020   Mark Seligman
+// Copyright (C)  2012-2021   Mark Seligman
 //
-// This file is part of framemapR.
+// This file is part of deframeR.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// deframeR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// deframeR is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with deframeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file rleframeR.cc
@@ -70,7 +70,7 @@ IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
 					 const List& levelTest) {
   BEGIN_RCPP
 
-    List levelTrain((SEXP) lSigTrain["level"]);
+  List levelTrain(as<List>(lSigTrain["level"]));
   IntegerMatrix mappedFactor(df.nrow(), levelTrain.length());
   unsigned int nFac = 0;
   for (int col = 0; col < df.length(); col++) {
@@ -92,15 +92,14 @@ IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
     
   if (is_true(any(colTest != colTrain))) {
     IntegerVector colMatch(match(colTest, colTrain));
-    // Rcpp match() does not offer specification of 'na' subsititute.
+    // Rcpp match() implementation does not suppport 'na' subsititute.
     if (is_true(any(is_na(colMatch)))) {
-      warning("Test data contains labels absent from training:  employing proxy");
+      warning("Test data contains labels absent from training:  employing proxy factor");
       colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
     }
 
     // N.B.:  Rcpp::match() indices are one-based.
     IntegerVector dfZero(dfCol - 1); // R factor indices are one-based.
-    IntegerVector colOut = colMatch[dfZero]; // Rcpp subscripting is zero-based.
     /*
     // Checks whether non-proxy output recovers the original string indices.
     for (int i = 0; i < colOut.length(); i++) {
@@ -110,7 +109,9 @@ IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
       }
     }
     */
-    return colOut;
+
+    // Rcpp subscripting is zero-based.
+    return as<IntegerVector>(colMatch[dfZero]);
   }
   else {
     return dfCol;

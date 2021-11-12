@@ -8,7 +8,7 @@
 /**
    @file splitfrontier.cc
 
-   @brief Methods to implement splitting of frontier.
+   @brief Methods to implement splitting at frontier.
 
    @author Mark Seligman
  */
@@ -17,27 +17,22 @@
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "defmap.h"
+#include "deffrontier.h"
 #include "runset.h"
 #include "cutset.h"
-#include "obspart.h"
 #include "trainframe.h"
 #include "ompthread.h"
 #include "callback.h"
 #include "algsf.h"
 
-// Post-split consumption:
-#include "pretree.h"
-
 
 vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 
-unique_ptr<BranchSense> SplitFrontier::split(Frontier* frontier,
-					     vector<IndexSet>& indexSet,
-					     PreTree* preTree) {
+unique_ptr<BranchSense> SplitFrontier::split(Frontier* frontier) {
   unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frontier);
-  return move(splitFrontier->restageAndSplit(indexSet, preTree));
+  splitFrontier->restageAndSplit();
+  return move(splitFrontier->branchSense);
 }
 
 
@@ -46,7 +41,7 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     EncodingStyle encodingStyle_) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
-  defMap(frontier->getDefMap()),
+  defMap(frontier->getDefFrontier()),
   nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
@@ -55,30 +50,6 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
   prebias(vector<double>(nSplit)),
   branchSense(make_unique<BranchSense>(frontier->getBagCount())) {
   branchSense->frontierReset();
-}
-
-
-SplitFrontier::~SplitFrontier() {
-}
-
-
-CritEncoding::CritEncoding(const SplitFrontier* sf, const SplitNux* nux, PredictorT nCtg, bool excl, bool incr) :
-  sum(0.0), sCount(0), extent(0), scCtg(vector<SumCount>(nCtg)), implicitTrue(sf->getImplicitTrue(nux)), increment(incr), exclusive(excl), style(sf->getEncodingStyle()) {
-}
-
-
-IndexT CritEncoding::getSCountTrue(const SplitNux* nux) const {
-  return implicitTrue == 0 ? sCount : (nux->getSCount() - sCount); 
-}
-
-
-double CritEncoding::getSumTrue(const SplitNux* nux) const {
-  return implicitTrue == 0 ? sum : (nux->getSum() - sum);
-}
-
-
-IndexT CritEncoding::getExtentTrue(const SplitNux* nux) const {
-  return implicitTrue == 0 ? extent : (implicitTrue + nux->getExtent() - extent);
 }
 
 
@@ -92,8 +63,8 @@ SampleRank* SplitFrontier::getPredBase(const SplitNux* nux) const {
 }
 
 
-RunAccumT* SplitFrontier::getRunAccum(PredictorT accumIdx) const {
-  return runSet->getAccumulator(accumIdx);
+RunAccumT* SplitFrontier::getRunAccum(const SplitNux* nux) const {
+  return runSet->getAccumulator(nux->getAccumIdx());
 }
 
 
@@ -109,8 +80,8 @@ void SplitFrontier::setPrebias() {
 }
 
 
-bool SplitFrontier::isFactor(const SplitNux* nux) const {
-  return nux->isFactor(frame);
+bool SplitFrontier::isFactor(PredictorT predIdx) const {
+  return frame->isFactor(predIdx);
 }
 
 
@@ -119,148 +90,23 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-void SplitFrontier::accumUpdate(const SplitNux* cand) const {
-  if (cand->isFactor(frame)) { // Only factor accumulators currently require an update.
-    runSet->updateAccum(cand);
-  }
-}
-
-
-CritEncoding SplitFrontier::nuxEncode(const SplitNux* nux,
-				      const IndexRange& range,
-				      bool increment) const {
-  CritEncoding enc(this, nux, frontier->getNCtg(), compoundCriteria, increment);
-
-  if (!range.empty()) {
-    defMap->branchUpdate(nux, range, branchSense.get(), enc);
-  }
-  else {
-    if (nux->isFactor(frame)) {
-      if (getFactorStyle() == SplitStyle::topSlot) {
-	defMap->branchUpdate(nux, runSet->getTopRange(nux, enc), branchSense.get(), enc);
-      }
-      else {
-	defMap->branchUpdate(nux, runSet->getRange(nux, enc), branchSense.get(), enc);
-      }
-    }
-    else {
-      defMap->branchUpdate(nux, getCutRange(nux, enc), branchSense.get(), enc);
-    }
-  }
-
-  return enc;
-}
-
-
-void SplitFrontier::encodeCriterion(IndexSet* iSet,
-				    SplitNux* nux) const {
-  accumUpdate(nux);
-  CritEncoding enc = nuxEncode(nux);
-  iSet->update(this, nux, enc);
-}
-
-
-IndexRange SplitFrontier::getCutRange(const SplitNux* nux, const CritEncoding& enc) const {
-// Returns the left range iff (BOTH left cut AND true encoding or NEITHER left cut NOR true encoding).
-  return nux->cutRange(cutSet.get(), !(leftCut(nux) ^ enc.trueEncoding()));
-}
-
-
-
-void CritEncoding::getISetVals(const SplitNux* nux,
-			 IndexT& sCountTrue,
-			 double& sumTrue,
-			 IndexT& extentTrue) const {
-  style == EncodingStyle::direct ? accumDirect(sCountTrue, sumTrue, extentTrue) : accumTrue(nux, sCountTrue, sumTrue, extentTrue);
-}
-
-
-void CritEncoding::accumDirect(IndexT& sCountTrue,
-			      double& sumTrue,
-			      IndexT& extentTrue) const {
-  if (increment) {
-    sCountTrue += sCount;
-    extentTrue += extent;
-    sumTrue += sum;
-  }
-  else {
-    sCountTrue -= sCount;
-    extentTrue -= extent;
-    sumTrue -= sum;
-  }
-}
-
-
-void CritEncoding::accumTrue(const SplitNux* nux,
-			     IndexT& sCountTrue,
-			     double& sumTrue,
-			     IndexT& extentTrue) const {
-  if (increment) {
-    sCountTrue += getSCountTrue(nux);
-    sumTrue += getSumTrue(nux);
-    extentTrue += getExtentTrue(nux);
-  }
-  else {
-    sCountTrue -= getSCountTrue(nux);
-    sumTrue -= getSumTrue(nux);
-    extentTrue -= getExtentTrue(nux);
-  }
-}
-
-
-unique_ptr<BranchSense> SplitFrontier::restageAndSplit(vector<IndexSet>& indexSet, PreTree* pretree) {
+void SplitFrontier::restageAndSplit() {
+  defMap->restage();
   init();
-  vector<PreCand> preCand = defMap->restage(this);
-  vector<SplitNux> postCand = postSchedule(preCand);
-  setOffsets(postCand);
-
-  split(indexSet, postCand); // virtual
-  consumeFrontier(pretree);
-
-  return move(branchSense);
+  split(); // virtual
 }
 
 
 void SplitFrontier::init() {
-  runSet = make_unique<RunSet>(getFactorStyle(), frontier->getNCtg(), frame->getNRow());
+  runSet = make_unique<RunSet>(this, frame->getNRow());
   layerPreset();
   setPrebias();
 }
 
 
-vector<SplitNux> SplitFrontier::postSchedule(vector<PreCand>& preCand) {
-  vector<SplitNux> postCand;
-  for (auto pc : preCand) {
-    PredictorT runCount;
-    if (!defMap->isSingleton(pc, runCount)) {
-      postCand.emplace_back(pc, this, runCount);
-    }
-  }
-  return postCand;
-}
-
-
-void SplitFrontier::setOffsets(const vector<SplitNux>& sched) {
-  runSet->setOffsets();
-
-  nCand = vector<PredictorT>(nSplit);
-  fill(nCand.begin(), nCand.end(), 0);
-  for (auto nux : sched) {
-    nCand[nux.getNodeIdx()]++;
-  }
-
-  candOff = vector<IndexT>(nCand.size());
-  IndexT tot = 0;
-  IndexT i = 0;
-  for (auto nc : nCand) { // Exclusive partial sum.
-    candOff[i++] = tot;
-    tot += nc;
-  }
-}
-
-
 IndexT SplitFrontier::addAccumulator(const SplitNux* cand,
-				     PredictorT runCount) const {
+				     const PreCand& preCand) const {
+  PredictorT runCount = frame->isFactor(preCand.mrra.splitCoord.predIdx) ? preCand.stageCount.getRunCount() : 0;
   return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(this, cand);
 }
 
@@ -281,12 +127,6 @@ void SplitFrontier::writeCut(const SplitNux* nux,
 }
 
 
-void SplitFrontier::consumeFrontier(PreTree* pretree) {
-  compoundCriteria ? consumeCompound(nuxCompound, pretree) : consumeSimple(nuxMax, pretree);
-  clear();
-}
-
-
 double SplitFrontier::getQuantRank(const SplitNux* nux) const {
   return cutSet->getQuantRank(nux);
 }
@@ -303,55 +143,41 @@ IndexT SplitFrontier::getIdxLeft(const SplitNux* nux) const {
 
 
 IndexT SplitFrontier::getImplicitTrue(const SplitNux* cand) const {
-  return cand->isFactor(frame) ? runSet->getImplicitTrue(cand) : cutSet->getImplicitTrue(cand);
+  return cand->isFactor(this) ? runSet->getImplicitTrue(cand) : cutSet->getImplicitTrue(cand);
 }
 
 
-void SplitFrontier::consumeCriterion(PreTree* pretree,
-				     const SplitNux& nux) const {
-  if (nux.isFactor(frame)) {
-    pretree->critBits(&nux, nux.getCardinality(frame), runSet->getTrueBits(nux));
-  }
-  else {
-    pretree->critCut(&nux, this);
-  }
-}
-
-
-void SplitFrontier::clear() {
-  prebias.clear();
-}
-
-
-bool SplitFrontier::isUnsplitable(IndexT splitIdx) const {
-  return frontier->isUnsplitable(splitIdx);
-}
-
-
-IndexRange SplitFrontier::getRange(const PreCand& preCand) const {
+IndexRange SplitFrontier::getRange(const MRRA& preCand) const {
   IndexRange idxRange = frontier->getBufRange(preCand);
   defMap->adjustRange(preCand, idxRange);
   return idxRange;
 }
 
 
-double SplitFrontier::getSum(const PreCand& preCand) const {
+double SplitFrontier::getSum(const MRRA& preCand) const {
   return frontier->getSum(preCand);
 }
 
 
-IndexT SplitFrontier::getSCount(const PreCand& preCand) const {
+IndexT SplitFrontier::getSCount(const MRRA& preCand) const {
   return frontier->getSCount(preCand);
 }
 
 
-IndexT SplitFrontier::getPTId(const PreCand& preCand) const {
-  return frontier->getPTId(preCand);
+double SplitFrontier::getSumSucc(const MRRA& preCand,
+				 bool sense) const {
+  return frontier->getSumSucc(preCand, sense);
 }
 
 
-IndexT SplitFrontier::getImplicitCount(const PreCand& preCand) const {
-  return defMap->getImplicitCount(preCand);
+IndexT SplitFrontier::getSCountSucc(const MRRA& preCand,
+				    bool sense) const {
+  return frontier->getSCountSucc(preCand, sense);
+}
+
+
+IndexT SplitFrontier::getPTId(const MRRA& preCand) const {
+  return frontier->getPTId(preCand);
 }
 
 
@@ -360,10 +186,6 @@ SFReg::SFReg(class Frontier* frontier,
 	     EncodingStyle encodingStyle):
   SplitFrontier(frontier, compoundCriteria, encodingStyle),
   ruMono(vector<double>(0)) {
-}
-
-
-SFReg::~SFReg() {
 }
 
 
@@ -425,80 +247,71 @@ const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
 }
 
 
-vector<SplitNux> SplitFrontier::maxCandidates(vector<IndexSet>& indexSet,
-					      const vector<SplitNux>& sc) {
-  vector<SplitNux> nuxMax(nSplit); // Info initialized to zero.
+void SplitFrontier::maxSimple(const vector<SplitNux>& sc) {
+  frontier->updateSimple(this, maxCandidates(groupCand(sc)));
+}
+
+
+vector<SplitNux> SplitFrontier::maxCandidates(const vector<vector<SplitNux>>& candVV) {
+  vector<SplitNux> argMax(nSplit); // Info initialized to zero.
 
   OMPBound splitTop = nSplit;
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
-      nuxMax[splitIdx] = candMax(sc, candOff[splitIdx], nCand[splitIdx]);
+      frontier->candMax(argMax[splitIdx], candVV[splitIdx]);
     }
   }
 
-  for (auto & iSet : indexSet) {
-    IndexT splitIdx = iSet.getSplitIdx();
-    SplitNux* nux = &nuxMax[splitIdx];
-    if (iSet.isInformative(nux)) {
-      encodeCriterion(&iSet, nux);
+  return argMax;
+}
+
+
+vector<vector<SplitNux>> SplitFrontier::groupCand(const vector<SplitNux>& cand) const {
+  vector<vector<SplitNux>> candVV(nSplit);
+  for (auto nux : cand) {
+    candVV[nux.getNodeIdx()].emplace_back(nux);
+  }
+
+  return candVV;
+}
+
+
+CritEncoding SplitFrontier::encodeCriterion(const SplitNux& nux) const {
+  accumUpdate(nux);
+  return defMap->branchUpdate(this, nux);
+}
+
+
+vector<IndexRange> SplitFrontier::getRange(const SplitNux& nux,
+					   const CritEncoding& enc) const {
+  if (nux.isFactor(this)) {
+    if (getFactorStyle() == SplitStyle::topSlot) {
+      return runSet->getTopRange(nux, enc);
     }
     else {
-      SplitNux noNux;
-      nuxMax[splitIdx] = noNux;
+      return runSet->getRange(nux, enc);
     }
   }
-  return nuxMax;
-}
-
-
-SplitNux SplitFrontier::candMax(const vector<SplitNux>& cand,
-			  IndexT splitBase,
-			  IndexT nCandSplit) const {
-  IndexT argMax = splitBase + nCandSplit;
-  double runningMax = 0.0;
-  for (IndexT splitOff = splitBase; splitOff < splitBase + nCandSplit; splitOff++) {
-    if (cand[splitOff].maxInfo(runningMax)) {
-      argMax = splitOff;
-    }
-  }
-
-  return runningMax > 0.0 ? cand[argMax] : SplitNux();
-}
-
-
-void SplitFrontier::consumeSimple(const vector<SplitNux>& nuxSimple,
-				  PreTree* pretree) const {
-  for (auto nux : nuxSimple) {
-    if (!nux.noNux()) {
-      pretree->setNonterminal(nux);
-      consumeCriterion(pretree, nux);
-    }
+  else {
+    return getCutRange(nux, enc);
   }
 }
 
 
-void SplitFrontier::consumeCompound(const vector<vector<SplitNux>>& nuxMax,
-				    PreTree* pretree) const {
-  for (auto & nuxCrit : nuxMax) {
-    consumeCriteria(pretree, nuxCrit);
-  }
+vector<IndexRange> SplitFrontier::getCutRange(const SplitNux& nux,
+					      const CritEncoding& enc) const {
+// Returns the left range iff (BOTH left cut AND true encoding or NEITHER left cut NOR true encoding).
+  vector<IndexRange> rangeVec;
+  rangeVec.push_back(nux.cutRange(cutSet.get(), !(leftCut(&nux) ^ enc.trueEncoding())));
+  return rangeVec;
 }
 
 
-void SplitFrontier::consumeCriteria(PreTree* pretree,
-				    const vector<SplitNux>& nuxCrit) const {
-  if (nuxCrit.empty()) {
-    return;
-  }
-  
-  // True branches target box exterior.
-  // False branches target next criterion or box terminal.
-  pretree->offspring(nuxCrit.size());
-  for (auto nux : nuxCrit) {
-    pretree->nonterminalInc(nux);
-    consumeCriterion(pretree, nux);
+void SplitFrontier::accumUpdate(const SplitNux& nux) const {
+  if (nux.isFactor(this)) { // Only factor accumulators currently require an update.
+    runSet->updateAccum(nux);
   }
 }
 

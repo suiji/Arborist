@@ -17,6 +17,7 @@
 #include "sampler.h"
 #include "predictbridge.h"
 #include "predict.h"
+#include "quant.h"
 #include "forestbridge.h"
 #include "forest.h"
 #include "rleframe.h"
@@ -27,13 +28,12 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 				   unique_ptr<ForestBridge> forestBridge_,
 				   unique_ptr<SamplerBridge> samplerBridge_,
 				   vector<double> yTest,
-				   bool bagging_,
 				   unsigned int nPermute_,
 				   unsigned int nThread,
 				   vector<double> quantile) :
-  PredictBridge(move(rleFrame_), move(forestBridge_), bagging_, nPermute_, nThread),
+  PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), bagging, nPermute, move(quantile))) {
+  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, move(quantile))) {
 }
 
 
@@ -45,13 +45,12 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				   unique_ptr<ForestBridge> forestBridge_,
 				   unique_ptr<SamplerBridge> samplerBridge_,
 				   vector<unsigned int> yTest,
-				   bool bagging_,
 				   unsigned int nPermute_,
 				   bool doProb,
 				   unsigned int nThread) :
-  PredictBridge(move(rleFrame_), move(forestBridge_), bagging_, nPermute_, nThread),
+  PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), bagging, nPermute, doProb)) {
+  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, doProb)) {
 }
 
 
@@ -61,12 +60,10 @@ PredictCtgBridge::~PredictCtgBridge() {
 
 PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
                              unique_ptr<ForestBridge> forestBridge_,
-			     bool bagging_,
 			     unsigned int nPermute_,
 			     unsigned int nThread) :
   rleFrame(move(rleFrame_)),
   forestBridge(move(forestBridge_)),
-  bagging(bagging_),
   nPermute(nPermute_) {
   OmpThread::init(nThread);
 }

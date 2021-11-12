@@ -20,11 +20,18 @@
 #include <memory>
 using namespace std;
 
-ForestBridge::ForestBridge(size_t forestHeight,
-                           const unsigned char* node,
-                           unsigned int* facSplit,
-                           const vector<size_t>& facHeight) :
-  forest(make_unique<Forest>(forestHeight, (const CartNode*) node, facSplit, move(facHeight))) {
+
+ForestBridge::ForestBridge(unsigned int treeChunk) :
+  forest(make_unique<Forest>(treeChunk)) {
+}
+
+
+ForestBridge::ForestBridge(unsigned int nTree,
+			   const unsigned char* node,
+                           unsigned char* facSplit) :
+  forest(make_unique<Forest>(nTree,
+			     reinterpret_cast<const CartNode*>(node),
+			     reinterpret_cast<unsigned int*>(facSplit))) {
 }
 
 
@@ -32,8 +39,8 @@ ForestBridge::~ForestBridge() {
 }
 
 
-size_t ForestBridge::nodeSize() {
-  return sizeof(CartNode);
+size_t ForestBridge::getNodeBytes() const {
+  return forest->getNodeBytes();
 }
 
 
@@ -45,6 +52,22 @@ unsigned int ForestBridge::getNTree() const {
 Forest* ForestBridge::getForest() const {
   return forest.get();
 }
+
+
+size_t ForestBridge::getFactorBytes() const {
+  return forest->getFactorBytes();
+}
+
+
+void ForestBridge::dumpTreeRaw(unsigned char treeOut[]) const {
+  forest->cacheNodeRaw(treeOut);
+}
+
+
+void ForestBridge::dumpFactorRaw(unsigned char facOut[]) const {
+  forest->cacheFacRaw(facOut);
+}
+
 
 void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,

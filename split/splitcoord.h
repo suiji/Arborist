@@ -66,39 +66,4 @@ struct SplitCoord {
     return nodeIdx << del;
   }
 };
-
-
-/**
-   @brief Includes the index of the buffer containing the cell's definition.
- */
-struct PreCand {
-  SplitCoord splitCoord;
-  unsigned char bufIdx; // Double-buffer containing definition.
-  unsigned char del; // Delta between current level and level of definition.
-
-
-  PreCand() :
-  splitCoord(SplitCoord()),
-    bufIdx(0),
-    del(0) {
-  }
-
-  
-  PreCand(const SplitCoord& splitCoord_,
-	   unsigned int bufIdx_,
-	   unsigned int del_ = 0) :
-  splitCoord(splitCoord_),
-    bufIdx(bufIdx_),
-    del(del_) {
-  }
-
-  
-  /**
-     @return index of complementary buffer.
-   */
-  unsigned int compBuffer() const {
-    return 1 - bufIdx;
-  }
-};
-
 #endif

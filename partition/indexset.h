@@ -166,11 +166,17 @@ class IndexSet {
 
      @param enc encapsulates the splitting criteria.
    */
-  void update(const class SplitFrontier* splitFrontier,
-		  const class SplitNux* nux,
-		  const class CritEncoding& enc);
-  
+  void update(const class SplitFrontier* sf,
+	      const class SplitNux& nux);
 
+  
+  /**
+     @return Maximal informative split, if any.
+   */
+  void candMax(const vector<SplitNux>& cand,
+	       class SplitNux& argMaxNux) const;
+
+  
   /**
      @brief Accumulates leaf and split counts.
 
@@ -179,7 +185,7 @@ class IndexSet {
   void surveySplit(struct SplitSurvey& survey) const;
   
 
-  bool isInformative(const SplitNux* nux) const;
+  bool isInformative(const SplitNux& nux) const;
   
 
   /**

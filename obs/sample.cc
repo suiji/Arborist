@@ -14,60 +14,46 @@
  */
 
 
+#include "sampler.h"
 #include "sample.h"
 #include "callback.h"
 #include "trainframe.h"
 
 #include <numeric>
 
-// Simulation-invariant values.
-//
-IndexT Sample::nSamp = 0;
-bool Sample::bagging = true;
 
-
-void Sample::immutables(IndexT nSamp_,
-			bool bagging_) {
-  nSamp = nSamp_;
-  bagging = bagging_;
-}
-
-
-void Sample::deImmutables() {
-  nSamp = 0;
-}
-
-
-Sample::Sample(const TrainFrame* frame) :
+Sample::Sample(const TrainFrame* frame,
+	       const Sampler* sampler) :
+  nSamp(sampler->getNSamp()),
+  bagging(sampler->isBagging()),
   ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
   row2Sample(vector<IndexT>(frame->getNRow())),
   bagSum(0.0) {
 }
 
     
-Sample::~Sample() {
-}
-
-
-unique_ptr<SampleCtg> Sample::factoryCtg(const vector<double>& y,
+unique_ptr<SampleCtg> Sample::factoryCtg(const class Sampler* sampler,
+					 const vector<double>& y,
                                          const TrainFrame* frame,
                                          const vector<PredictorT>& yCtg) {
-  unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(frame);
+  unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(frame, sampler);
   sampleCtg->bagSamples(yCtg, y);
 
   return sampleCtg;
 }
 
 
-unique_ptr<SampleReg> Sample::factoryReg(const vector<double>& y,
+unique_ptr<SampleReg> Sample::factoryReg(const Sampler* sampler,
+					 const vector<double>& y,
                                          const TrainFrame* frame) {
-  unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(frame);
+  unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(frame, sampler);
   sampleReg->bagSamples(y);
   return sampleReg;
 }
 
 
-SampleReg::SampleReg(const TrainFrame *frame) : Sample(frame) {
+SampleReg::SampleReg(const TrainFrame *frame,
+		     const Sampler* sampler) : Sample(frame, sampler) {
 }
 
 
@@ -78,7 +64,8 @@ void SampleReg::bagSamples(const vector<double>& y) {
 }
 
 
-SampleCtg::SampleCtg(const TrainFrame* frame) : Sample(frame) {
+SampleCtg::SampleCtg(const TrainFrame* frame,
+		     const Sampler* sampler) : Sample(frame, sampler) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -104,7 +91,7 @@ void Sample::bagSamples(const vector<double>&  y,
   //
   const IndexT nRow = row2Sample.size();
   vector<IndexT> sCountRow(nRow);
-  IndexT bagCount = countSamples(sCountRow);
+  IndexT bagCount = countSamples(sCountRow, nSamp);
 
   // Copies contents of sampled outcomes and builds mapping vectors.
   //
@@ -140,7 +127,8 @@ void Sample::bagTrivial(const vector<double>& y,
 // binning, access is random.  Larger bins improve locality, but
 // performance begins to degrade when bin size exceeds available
 // cache.
-IndexT Sample::countSamples(vector<IndexT>& sc) {
+IndexT Sample::countSamples(vector<IndexT>& sc,
+			    IndexT nSamp) {
   vector<IndexT> idx(CallBack::sampleRows(nSamp));
   if (binIdx(sc.size()) > 0) {
     idx = binIndices(idx);
@@ -189,12 +177,4 @@ vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
   }
 
   return idxBinned;
-}
-
-
-SampleCtg::~SampleCtg() {
-}
-
-
-SampleReg::~SampleReg() {
 }

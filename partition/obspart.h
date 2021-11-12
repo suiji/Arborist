@@ -17,7 +17,7 @@
 #define PARTITION_OBSPART_H
 
 
-#include "splitcoord.h"
+#include "splitnux.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -55,7 +55,7 @@ class ObsPart {
 
      @param[in, out] enc accumulates sampled response statistics.
    */  
-  void branchSet(const class SplitNux* nux,
+  void branchSet(const class SplitNux& nux,
 		 const IndexRange& range,
 		 class BranchSense* branchSense,
 		 CritEncoding& enc) const;
@@ -65,7 +65,7 @@ class ObsPart {
 
      Parameters as above.
    */
-  void branchUnset(const class SplitNux* nux,
+  void branchUnset(const class SplitNux& nux,
 		   const IndexRange& range,
 		   class BranchSense* branchSense,
 		   CritEncoding& enc) const;
@@ -73,11 +73,12 @@ class ObsPart {
   
  protected:
   unsigned int *destRestage;
+  vector<IndexRange> stageRange; // Index range for staging.
+  const IndexT noRank; // Inachievable rank value:  restaging.
+  
   //unsigned int *destSplit; // Coprocessor restaging.
-
   
  public:
-  vector<IndexRange> stageRange;
 
   ObsPart(const class Layout* frame, IndexT bagCount_);
   virtual ~ObsPart();
@@ -122,39 +123,39 @@ class ObsPart {
      Looks up reaching cell in appropriate buffer.
      Parameters as above.
   */
-  void prepath(const class IdxPath *idxPath,
+  void prepath(const class DefLayer* layer,
+	       const class IdxPath *idxPath,
                const unsigned int reachBase[],
-	       const PreCand& mrra,
-               const IndexRange& idxRange,
+	       const MRRA& mrra,
                unsigned int pathMask,
                bool idxUpdate,
                unsigned int pathCount[]);
 
 
-  void branchUpdate(const class SplitNux* nux,
-		    const vector<IndexRange>& range,
-		    class BranchSense* branchSense,
-		    CritEncoding& enc) const;
+  class CritEncoding branchUpdate(const class SplitFrontier* sf,
+				  const class SplitNux& nux,
+				  const IndexRange& range,
+				  bool increment) const;
 
 
-  void branchUpdate(const class SplitNux* nux,
+  void branchUpdate(const class SplitFrontier* sf,
+		    const class SplitNux& nux,
 		    const IndexRange& range,
-		    class BranchSense* branchSense,
 		    CritEncoding& enc) const;
 
 
   /**
      @brief Restages and tabulates rank counts.
   */
-  void rankRestage(const PreCand& defCoord,
-                   const IndexRange& idxRange,
+  void rankRestage(const class DefLayer* layer,
+		   const MRRA& defCoord,
                    unsigned int reachOffset[],
-                   unsigned int rankPrev[],
                    unsigned int rankCount[]);
 
+  
   void indexRestage(const class IdxPath *idxPath,
                     const unsigned int reachBase[],
-                    const PreCand& mrra,
+                    const MRRA& mrra,
                     const IndexRange& idxRange,
                     unsigned int pathMask,
                     bool idxUpdate,
@@ -168,7 +169,7 @@ class ObsPart {
   IndexT* getBufferIndex(const class SplitNux* nux) const;
 
 
-  SampleRank* getBuffers(const class SplitNux* nux, IndexT*& sIdx) const;
+  SampleRank* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
 
 
   SampleRank* getPredBase(const class SplitNux* nux) const;
@@ -178,6 +179,15 @@ class ObsPart {
     return bagCount;
   }
 
+
+  /**
+     @brief Sets the staging range for a given predictor.
+   */
+  void setStageRange(PredictorT predIdx,
+		     const IndexRange& safeRange) {
+    stageRange[predIdx] = safeRange;
+  }
+  
 
   /**
      @brief Returns the staging position for a dense predictor.
@@ -217,7 +227,7 @@ class ObsPart {
   }
 
 
-  inline IndexT bufferOff(const PreCand& defCoord,
+  inline IndexT bufferOff(const MRRA& defCoord,
 			  bool comp = false) const {
     return bufferOff(defCoord.splitCoord.predIdx, comp ? defCoord.compBuffer() : defCoord.bufIdx);
   }
@@ -226,7 +236,7 @@ class ObsPart {
   /**
      @return base of the index buffer.
    */
-  inline IndexT* bufferIndex(const PreCand& mrra) const {
+  inline IndexT* bufferIndex(const MRRA& mrra) const {
     return indexBase + bufferOff(mrra);
   }
 
@@ -250,9 +260,7 @@ class ObsPart {
   }
 
 
-  
-
-  inline IndexT* indexBuffer(const PreCand& defCoord) const {
+  inline IndexT* indexBuffer(const MRRA& defCoord) const {
     return indexBase + bufferOff(defCoord.splitCoord.predIdx, defCoord.bufIdx);
   }
 
@@ -260,7 +268,7 @@ class ObsPart {
   /**
      @brief Passes through to above after looking up splitting parameters.
    */
-  SampleRank* buffers(const PreCand& defCoord,
+  SampleRank* buffers(const MRRA& defCoord,
                       IndexT*& sIdx) const {
     return buffers(defCoord.splitCoord.predIdx, defCoord.bufIdx, sIdx);
   }
@@ -275,7 +283,7 @@ class ObsPart {
 
      @return node vector section for this predictor.
    */
-  SampleRank* getPredBase(const PreCand& defCoord) const {
+  SampleRank* getPredBase(const MRRA& defCoord) const {
     return nodeVec + bufferOff(defCoord);
   }
   
@@ -287,7 +295,7 @@ class ObsPart {
   }
 
 
-  inline void buffers(const PreCand& mrra,
+  inline void buffers(const MRRA& mrra,
 		      SampleRank*& source,
 		      IndexT*& sIdxSource,
 		      SampleRank*& targ,
@@ -298,13 +306,32 @@ class ObsPart {
 
   
   // To coprocessor subclass:
-  inline void indexBuffers(const PreCand& mrra,
+  inline void indexBuffers(const MRRA& mrra,
                            IndexT*& sIdxSource,
                            IndexT*& sIdxTarg) {
     sIdxSource = indexBase + bufferOff(mrra);
     sIdxTarg = indexBase + bufferOff(mrra, true);
   }
-  
+
+
+  /**
+     @brief Counts the number of explicit distinct ranks in a buffer.
+
+     @param predIdx is the predictor index.
+
+     @param bufIdx is the buffer index.
+
+     @param rankPrev initializess the previous rank being tracked,
+     
+     @param idxExpl is the (explicit) buffer extent.
+
+     @return count of distinct explicit ranks in buffer.
+   */
+  IndexT countRanks(PredictorT predIdx,
+		    unsigned int bufIdx,
+		    IndexT rankPrev,
+		    IndexT idxExpl) const;
+
 
   // TODO:  Move somewhere appropriate.
   /**
@@ -316,40 +343,6 @@ class ObsPart {
    */
   static constexpr unsigned int alignPow(unsigned int count, unsigned int pow) {
     return ((count + (1 << pow) - 1) >> pow) << pow;
-  }
-
-
-  /**
-     @param Determines whether the predictors within a nonempty cell
-     all have the same rank.
-
-     @param extent is the number of indices subsumed by the cell.
-
-     @return true iff cell consists of a single rank.
-   */
-  inline bool singleRank(PredictorT predIdx,
-                         unsigned int bufIdx,
-                         unsigned int idxStart,
-                         unsigned int extent) const {
-    SampleRank *spNode = bufferNode(predIdx, bufIdx);
-    return extent > 0 ? (spNode[idxStart].getRank() == spNode[extent - 1].getRank()) : false;
-  }
-
-
-  /**
-     @brief Singleton iff either:
-     i) Dense and all indices implicit or ii) Not dense and all ranks equal.
-
-     @param stageCount is the number of staged indices.
-
-     @param predIdx is the predictor index at which to initialize.
-
-     @return true iff entire staged set has single rank.  This might be
-     a property of the training data or may arise from bagging. 
-  */
-  bool singleton(IndexT stageCount,
-                 PredictorT predIdx) const {
-    return bagCount == stageCount ? singleRank(predIdx, 0, 0, bagCount) : (stageCount == 0 ? true : false);
   }
 };
 

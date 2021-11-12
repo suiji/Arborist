@@ -25,59 +25,50 @@
 
 #include "forestR.h"
 #include "forestbridge.h"
-#include "trainbridge.h"
 
 
-FBTrain::FBTrain(unsigned int nTree) :
+FBTrain::FBTrain(unsigned int nTree_) :
+  nTree(nTree_),
+  rawTop(0),
   nodeRaw(RawVector(0)),
-  height(vector<size_t>(nTree)),
-  facRaw(RawVector(0)),
-  facHeight(vector<size_t>(nTree)) {
+  facTop(0),
+  facRaw(RawVector(0)) {
 }
 
 
-void FBTrain::consume(const TrainChunk* train,
+void FBTrain::consume(const ForestBridge* fb,
                       unsigned int tIdx,
                       double scale) {
-  unsigned int i = tIdx;
-  for (auto th : train->getForestHeight()) {
-    height[i++] = th + (tIdx == 0 ? 0 : height[tIdx-1]);
+  size_t nodeBytes = fb->getNodeBytes();  // # bytes in node chunk.
+  if (rawTop + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
+    nodeRaw = move(resizeRaw(&nodeRaw[0], rawTop, nodeBytes, scale));
   }
+  fb->dumpTreeRaw(&nodeRaw[rawTop]);
+  rawTop += nodeBytes;
 
-  i = tIdx;
-  for (auto fo : train->getFactorHeight()) {
-    facHeight[i++] = fo + (tIdx == 0 ? 0 : facHeight[tIdx-1]);
+  size_t facBytes = fb->getFactorBytes();
+  if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
+    facRaw = move(resizeRaw(&facRaw[0], facTop, facBytes, scale));
   }
+  fb->dumpFactorRaw(&facRaw[facTop]);
+  facTop += facBytes;
+}
 
-  size_t nodeOff = tIdx == 0 ? 0 : height[tIdx-1] * ForestBridge::nodeSize();
-  size_t nodeBytes = train->getForestHeight().back() * ForestBridge::nodeSize();
-  if (nodeOff + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
-    RawVector temp(scale * (nodeOff + nodeBytes));
-    for (size_t i = 0; i < nodeOff; i++)
-      temp[i] = nodeRaw[i];
-    nodeRaw = move(temp);
-  }
-  train->dumpTreeRaw(&nodeRaw[nodeOff]);
 
-  size_t facOff = tIdx == 0 ? 0 : facHeight[tIdx-1] * sizeof(unsigned int);
-  size_t facBytes = train->getFactorHeight().back() * sizeof(unsigned int);
-  if (facOff + facBytes > static_cast<size_t>(facRaw.length())) {
-    RawVector temp(scale * (facOff + facBytes));
-    for (size_t i = 0; i < facOff; i++)
-      temp[i] = facRaw[i];
-    facRaw = move(temp);
-  }
-  train->dumpFactorRaw(&facRaw[facOff]);
+RawVector FBTrain::resizeRaw(const unsigned char* raw, size_t offset, size_t bytes, double scale) { // Assumes scale >= 1.0.
+  RawVector temp(scale * (offset + bytes));
+  for (size_t i = 0; i < offset; i++)
+    temp[i] = raw[i];
+
+  return temp;
 }
 
 
 List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
-    List::create(
+    List::create(_["nTree"] = nTree,
                  _["forestNode"] = move(nodeRaw),
-                 _["height"] = height.back(),
-                 _["facHeight"] = move(NumericVector(facHeight.begin(), facHeight.end())),
                  _["facSplit"] = move(facRaw)
                  );
   nodeRaw = RawVector(0);
@@ -91,11 +82,9 @@ List FBTrain::wrap() {
 
 unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
   List lForest(checkForest(lTrain));
-  NumericVector facHeight((SEXP) lForest["facHeight"]);
-  return make_unique<ForestBridge>(static_cast<size_t>(as<double>(lForest["height"])),
-                                   RawVector((SEXP) lForest["forestNode"]).begin(),
-                                   (unsigned int*) RawVector((SEXP) lForest["facSplit"]).begin(),
-                                   move(vector<size_t>(facHeight.begin(), facHeight.end())));
+  return make_unique<ForestBridge>(as<unsigned int>(lForest["nTree"]),
+				   as<RawVector>(lForest["forestNode"]).begin(),
+				   as<RawVector>(lForest["facSplit"]).begin());
 }
 
 

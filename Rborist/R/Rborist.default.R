@@ -40,7 +40,8 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
+                thinLeaves = FALSE,
+                thinSamples = ifelse(is.factor(y), TRUE, FALSE),
                 treeBlock = 1,
                 verbose = FALSE,
                 withRepl = TRUE,
@@ -109,8 +110,7 @@
 
 
   # Class weights
-
-    nCtg <- ifelse(is.factor(y), max(as.integer(y)), 0)
+    nCtg <- ifelse(is.factor(y), length(levels(y)), 0)
     if (is.factor(y)) {
         if (!is.null(classWeight)) {
             if (is.numeric(classWeight)) {
@@ -171,12 +171,15 @@
     if (any(rowWeight < 0)) {
         stop("Negative weights not permitted")
     }
+
+    if (thinLeaves)
+        warning("Thin leaves feature deprecated.  Please use 'thinSamples'.")
     
   # Quantile constraints:  regression only
     if (quantiles && is.factor(y))
         stop("Quantiles supported for regression case only")
-    if (quantiles && thinLeaves)
-        stop("Thin leaves insufficient for validating quantiles.")
+    if (quantiles && thinSamples)
+        stop("Thin samples insufficient for validating quantiles.")
     
     if (!is.null(quantVec)) {
         if (any(quantVec > 1) || any(quantVec < 0))

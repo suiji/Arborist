@@ -17,100 +17,19 @@
 
  */
 
-#include "splitcoord.h"
+#include "stagecount.h"
+#include "splitnux.h"
 #include "sumcount.h"
 #include "algparam.h"
+#include "runset.h"
+#include "cutset.h"
+#include "critencoding.h"
 
 #include <vector>
 
-enum class EncodingStyle { direct, trueBranch };
-
-
-/**
-   @brief Enapsulates contributions of an individual split to frontier.
- */
-struct CritEncoding {
-  double sum; // sum of responses over encoding.
-  IndexT sCount; // # samples encoded.
-  IndexT extent; // # SR indices encoded.
-  vector<SumCount> scCtg; // Response sum decomposed by category.
-  const IndexT implicitTrue; // # implicit SR indices.
-  const bool increment; // True iff encoding is additive else subtractive.
-  const bool exclusive; // True iff update is masked.
-  const EncodingStyle style; // Whether direct or true-branch.
-  
-  CritEncoding(const class SplitFrontier* frontier,
-	       const class SplitNux* nux,
-	       PredictorT nCtg,
-	       bool excl,
-	       bool incr = true);
-
-
-  ~CritEncoding() {}
-
-  inline bool trueEncoding() const {
-    return implicitTrue == 0;
-  };
-
-  /**
-     @brief Sample count getter.
-   */
-  IndexT getSCountTrue(const class SplitNux* nux) const;
-
-
-  /**
-     @return sum of responses contributing to true branch.
-   */
-  double getSumTrue(const class SplitNux* nux) const;
-
-
-  /**
-     @return # SR inidices contributing to true branch.
-   */
-  IndexT getExtentTrue(const class SplitNux* nux) const;
-  
-
-  /**
-     @brief Accumulates encoding statistics for a single SR index.
-   */
-  inline void accum(double ySum,
-		    IndexT sCount,
-		    PredictorT ctg) {
-    this->sum += ySum;
-    this->sCount += sCount;
-    extent++;
-    if (!scCtg.empty()) {
-      scCtg[ctg] += SumCount(ySum, sCount);
-    }
-  }
-
-
-  void getISetVals(const class SplitNux* nux,
-		   IndexT& sCountTrue,
-		   double& sumTrue,
-		   IndexT& extentTrue) const;
-
-  
-private:  
-  /**
-     @brief Outputs the internal contents.
-   */
-  void accumDirect(IndexT& sCountTrue,
-		   double& sumTrue,
-		   IndexT& extentTrue) const;
-
-
-  /**
-     @brief Outputs the contributions to the true branch.
-   */
-  void accumTrue(const class SplitNux* nux,
-		 IndexT& sCountTrue,
-		 double& sumTrue,
-		 IndexT& extentTrue) const ;
-};
-
 
 enum class SplitStyle { slots, bits, topSlot };
+
 
 /**
    @brief Per-predictor splitting facilities.
@@ -121,52 +40,30 @@ enum class SplitStyle { slots, bits, topSlot };
 class SplitFrontier {
   void setPrebias();
 
-  void consumeFrontier(class PreTree* pretree);
-
-
 protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   class Frontier* frontier;  // Current frontier of the partition tree.
-  class DefMap* defMap;
+  class DefFrontier* defMap;
   const PredictorT nPred;
-  bool compoundCriteria; // True iff criteria may be multiple-valued.
+  const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
 
   const IndexT nSplit; // # subtree nodes at current layer.
-  unique_ptr<class RunSet> runSet; // Run accumulators for the current frontier.
-  unique_ptr<class CutSet> cutSet; // Cut accumulators for the current frontier.
+  unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
+  unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
   
   vector<double> prebias; // Initial information threshold.
   unique_ptr<class BranchSense> branchSense;
 
-  // Per-split accessors for candidate vector.  Reset by DefMap.
-  vector<IndexT> candOff;  // Lead candidate position:  cumulative
-  vector<PredictorT> nCand;  // At most nPred etries per candidate.
-
-  vector<vector<class SplitNux>> nuxCompound; // Used iff compound criteria enabled.
-
-  vector<class SplitNux> nuxMax;  // Used iff simple criteria enabled.
-
-  vector<class SplitNux> maxCandidates(vector <class IndexSet>& indexSet,
-				       const vector<class SplitNux>& sc);
-  
-  class SplitNux candMax(const vector<class SplitNux>& sc,
-			 IndexT splitOff,
-			 IndexT nSplitFrontier) const;
-
-  
-  void consumeSimple(const vector<class SplitNux>& critSimple,
-		     PreTree* pretree) const;
-
-  
-  void consumeCompound(const vector<vector<class SplitNux>>& critCompound,
-		       PreTree* preTre) const;
 
   /**
-     @brief Consumes each criterion in the vector.
+     @brief Derives and applies maximal simple criteria.
    */
-  void consumeCriteria(class PreTree* pretree,
-		       const vector<class SplitNux>& nuxCrit) const;
+  void maxSimple(const vector<SplitNux>& sc);
+
+  
+  vector<class SplitNux> maxCandidates(const vector<vector<class SplitNux>>& candVV);
+
   
   /**
      @brief Retrieves the type-relative index of a numerical predictor.
@@ -178,21 +75,6 @@ protected:
   PredictorT getNumIdx(PredictorT predIdx) const;
 
 
-  /**
-     @brief Identifies splitable coordinates.
-
-     @return splitNux candidates corresponding to splitable coordinates.
-  */
-  virtual vector<SplitNux> postSchedule(vector<PreCand>& preCand);
-
-  
-  /**
-     @brief Dispatches splitting criterion to pretree according to predictor type.
-   */
-  void consumeCriterion(class PreTree* pretree,
-			const class SplitNux& nux) const;
-
-
 public:
 
   SplitFrontier(class Frontier* frontier_,
@@ -200,15 +82,46 @@ public:
 		EncodingStyle encodingStyle_);
 
 
-  static unique_ptr<class BranchSense> split(class Frontier* frontier,
-					     vector<class IndexSet>& indexSet,
-					     class PreTree* preTree);
+  static unique_ptr<class BranchSense> split(class Frontier* frontier);
   
 
   auto getEncodingStyle() const {
     return encodingStyle;
   }
+
+
+  auto getBranchSense() const {
+    return branchSense.get();
+  }
   
+
+  /**
+     @return true iff compound criteria are supported.
+   */
+  bool getCompound() const {
+    return compoundCriteria;
+  }
+
+  
+  /**
+     @brief Computes number of bits employed by criterion.
+
+     @return predictor cardinality plus one for proxy bit.
+   */
+  PredictorT critBitCount(const SplitNux& nux) const {
+    return 1 + nux.getCardinality(frame); // Unset proxy bit.
+  }
+
+
+  /**
+     @brief Passes through to RunSet method.
+
+     @return bit offsets of factors encoding true criterion.
+   */
+  vector<PredictorT> getTrueBits(const SplitNux& nux) const {
+    return runSet->getTrueBits(nux);
+  }
+
 
   /**
      @brief Builds an accumulator of the appropriate type.
@@ -216,7 +129,7 @@ public:
      @param cand is the candidate associated to the accumulator.
    */
   IndexT addAccumulator(const class SplitNux* cand,
-			PredictorT runCount) const;
+			const class PreCand& preCand) const;
 
 
   /**
@@ -229,35 +142,18 @@ public:
   /**
      @brief Instructs (argmax) candidate to update its members.
    */
-  void accumUpdate(const class SplitNux* cand) const;
+  void accumUpdate(const class SplitNux& cand) const;
   
 
-  /**
-     @brief Updates branch sense vector according to split specification.
-
-     @brief[in, out] branchSense maps sample indices to their branch sense.
-
-     @param[in, out] enc accumulates the splitting statistics.
-
-     @param topOnly requests only the topmost range.
-
-     @parm range is the SR range of the split, if specified.
-   */
-  CritEncoding nuxEncode(const class SplitNux* nux,
-			 const IndexRange& range = IndexRange(),
-			 bool increment = true) const;
-
-
-
-  void encodeCriterion(class IndexSet* iSet,
-		       class SplitNux* nuxMax) const;
+  vector<IndexRange> getRange(const SplitNux& nux,
+			      const CritEncoding& enc) const;
 
 
   /**
      @brief Computes cut-based SR index range for numeric splits.
    */
-  IndexRange getCutRange(const class SplitNux* nux,
-			 const class CritEncoding& enc) const;
+  vector<IndexRange> getCutRange(const class SplitNux& nux,
+				 const class CritEncoding& enc) const;
 
   
   /**
@@ -265,11 +161,9 @@ public:
 
      Main entry.
    */
-  unique_ptr<class BranchSense> restageAndSplit(vector<class IndexSet>& indexSet,
-						class PreTree* pretree);
+  void restageAndSplit();
 
 
-  
   /**
      @brief Pass-through to data partition method.
 
@@ -332,11 +226,9 @@ public:
 /**
    @brief Determines whether split coordinate references a factor value.
 
-   @param splitCoord is the split coordinate.
-
    @return true iff predictor is a factor.
  */
-  bool isFactor(const class SplitNux* nux) const;
+  bool isFactor(PredictorT predIdx) const;
 
 
   /**
@@ -346,7 +238,7 @@ public:
 
      @param return pre-bias value.
    */
-  inline double getPrebias(const PreCand& preCand) const {
+  inline double getPrebias(const MRRA& preCand) const {
     return prebias[preCand.splitCoord.nodeIdx];
   }
 
@@ -367,35 +259,32 @@ public:
   /**
      @brief Getter for induced pretree index.
    */
-  IndexT getPTId(const PreCand& preCand) const;
-
-
-  /**
-     @brief Getter:  passes through to DefMap method.
-   */
-  IndexT getImplicitCount(const PreCand& preCand) const;
-
-  /**
-     @brief Passes through to Frontier method.
-
-     @return true iff indexed split is not splitable.
-   */
-  bool isUnsplitable(IndexT splitIdx) const;
+  IndexT getPTId(const MRRA& preCand) const;
 
 
   /**
      @brief Pass-through to Frontier getters.
    */
-  double getSum(const PreCand& preCand) const;
+  double getSum(const MRRA& preCand) const;
 
   
-  IndexT getSCount(const PreCand& preCand) const;
+  IndexT getSCount(const MRRA& preCand) const;
+
+
+  /** Pass-throughs to Frontier methods.
+   */
+  double getSumSucc(const MRRA& mrra,
+		    bool sense) const;
+
+  
+  IndexT getSCountSucc(const MRRA& mrra,
+		       bool sense) const;
 
   
   /**
      @return SR range of indexed split.
   */
-  IndexRange getRange(const PreCand& preCand) const; 
+  IndexRange getRange(const MRRA& preCand) const; 
 
 
   /**
@@ -406,7 +295,7 @@ public:
   
   /**
    */
-  RunAccumT* getRunAccum(PredictorT setIdx) const;
+  RunAccumT* getRunAccum(const class SplitNux* nux) const;
 
 
   /**
@@ -414,13 +303,28 @@ public:
    */
   void init();
 
+
+  /**
+     @brief Classification sublcasses return # categories; others zero.
+   */
+  virtual PredictorT getNCtg() const = 0;
+  
   
   /**
      @brief Invokes algorithm-specific splitting methods.
    */
-  virtual void split(vector<class IndexSet>& indexSet,
-		     vector<class SplitNux>& sc) = 0;
+  virtual void split() = 0;
 
+
+  /**
+     @brief Derives criterion encoding for node.
+
+     Side-effects branchOffset.
+
+     Class default employs simple encoding.
+   */
+  virtual CritEncoding encodeCriterion(const class SplitNux& nux) const;
+  
   
   /**
      @brief Fixes factor splitting style.
@@ -435,12 +339,9 @@ public:
 
   
   /**
-     @brief Builds compressed set of indices for candidate vector.
+     @brief Separates candidates into split-specific vectors.
    */
-  void setOffsets(const vector<class SplitNux>& sched);
-  
-
-  virtual ~SplitFrontier();
+  vector<vector<class SplitNux>> groupCand(const vector<SplitNux>& cand) const;
 
 
   virtual void layerPreset() = 0;
@@ -449,14 +350,6 @@ public:
   virtual void setPrebias(IndexT splitIdx,
                           double sum,
                           IndexT sCount) = 0;
-
-  
-  /**
-     @brief Clears per-frontier vectors.
-
-     TODO:  Allocate new frontiers and deprecate persistance.
-   */
-  virtual void clear();
 };
 
 
@@ -472,8 +365,12 @@ struct SFReg : public SplitFrontier {
 	bool compoundCriteria,
 	EncodingStyle encodingStyle);
 
-  ~SFReg();
 
+  PredictorT getNCtg() const {
+    return 0;
+  }
+  
+  
   /**
      @brief Caches a dense local copy of the mono[] vector.
 
@@ -526,7 +423,7 @@ public:
 
      @return nCtg value.
    */
-  inline PredictorT getNCtg() const {
+  PredictorT getNCtg() const {
     return nCtg;
   }
 

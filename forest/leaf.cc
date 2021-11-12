@@ -21,6 +21,7 @@
 
 #include <algorithm>
 
+
 /**
    @brief Crescent constructor.
  */
@@ -30,7 +31,19 @@ Leaf::Leaf() {
 
 LeafReg::LeafReg(const vector<double>& y_) :
   Leaf(),
-  yTrain(y_) {
+  yTrain(y_),
+  defaultPrediction(meanTrain()) {
+}
+
+
+LeafCtg::LeafCtg(const vector<PredictorT>& yCtg_,
+		 PredictorT nCtg_,
+		 const vector<double>& classWeight_) :
+  Leaf(),
+  yCtg(yCtg_),
+  nCtg(nCtg_),
+  classWeight(classWeight_),
+  defaultPrediction(ctgDefault()) {
 }
 
 
@@ -38,7 +51,16 @@ LeafCtg::LeafCtg(const vector<PredictorT>& yCtg_,
 		 PredictorT nCtg_) :
   Leaf(),
   yCtg(yCtg_),
-  nCtg(nCtg_) {
+  nCtg(nCtg_),
+  classWeight(vector<double>(0)),
+  defaultPrediction(ctgDefault()) {
+}
+
+
+unique_ptr<LeafCtg> Leaf::factoryCtg(const vector<PredictorT>& yCtg,
+				     PredictorT nCtg,
+				     const vector<double>& classWeight) {
+  return make_unique<LeafCtg>(yCtg, nCtg, classWeight);
 }
 
 
@@ -52,16 +74,23 @@ unique_ptr<LeafReg> Leaf::factoryReg(const vector<double>& yTrain) {
   return make_unique<LeafReg>(yTrain);
 }
 
+  
+PredictorT LeafCtg::ctgDefault() const {
+  vector<double> probDefault = defaultProb();
+  return max_element(probDefault.begin(), probDefault.end()) - probDefault.begin();
+}
+
+  
 
 unique_ptr<Sample> LeafReg::rootSample(const TrainFrame* frame,
-				       const vector<double>& yProxy) const {
-  return Sample::factoryReg(yTrain, frame);
+				       const Sampler* sampler) const {
+  return Sample::factoryReg(sampler, yTrain, frame);
 }
 
 
 unique_ptr<Sample> LeafCtg::rootSample(const TrainFrame* frame,
-				       const vector<double>& yProxy) const {
-  return Sample::factoryCtg(yProxy, frame, yCtg);
+				       const Sampler* sampler) const {
+  return Sample::factoryCtg(sampler, classWeight, frame, yCtg);
 }
 
 
@@ -84,6 +113,40 @@ vector<double> LeafReg::scoreTree(const Sample* sample,
   }
 
   return score;
+}
+
+
+double LeafReg::predictObs(const Predict* predict, size_t row) const {
+  double sumScore = 0.0;
+  unsigned int nEst = 0;
+  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
+    double score;
+    if (predict->isLeafIdx(row, tIdx, score)) {
+      nEst++;
+      sumScore += score;
+    }
+  }
+  return nEst > 0 ? sumScore / nEst : defaultPrediction;
+}
+
+
+PredictorT LeafCtg::predictObs(const Predict* predict, size_t row, PredictorT* census) const {
+  unsigned int nEst = 0;
+  vector<double> ctgJitter(nCtg);
+  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
+    double score;
+    if (predict->isLeafIdx(row, tIdx, score)) {
+      nEst++;
+      PredictorT ctg = floor(score); // Truncates jittered score for indexing.
+      census[ctg]++;
+      ctgJitter[ctg] += score - ctg; // Accumulates category jitters.
+    }
+  }
+  if (nEst == 0) { // Default category unity, all others zero.
+    census[defaultPrediction] = 1;
+  }
+
+  return argMaxJitter(census, &ctgJitter[0]);
 }
 
 
@@ -119,24 +182,32 @@ vector<PredictorT> LeafCtg::countCtg(const vector<double>& score,
 double LeafCtg::argMax(IndexT leafIdx,
 		       const vector<IndexT>& ctgCount,
 		       const vector<double>& jitter) {
-  IndexT countMax = 0;
+  const double* ctgJitter = &jitter[leafIdx * nCtg];
+  PredictorT argMax = argMaxJitter(&ctgCount[leafIdx * nCtg], ctgJitter);
+  return argMax + ctgJitter[argMax];
+}
+
+
+PredictorT LeafCtg::argMaxJitter(const IndexT* census,
+				 const double* ctgJitter) const {
   PredictorT argMax = 0;
-  const PredictorT* ctgCountLeaf = &ctgCount[leafIdx * nCtg];
-  const double* jitterLeaf = &jitter[leafIdx * nCtg];
-  for (auto ctg = 0ul; ctg < nCtg; ctg++) {
-    IndexT count = ctgCountLeaf[ctg];
-    if (count > countMax) {
+  IndexT countMax = 0;
+  // Assumes at least one slot has nonzero count.
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+    IndexT count = census[ctg];
+    if (count == 0)
+      continue;
+    else if (count > countMax) {
       countMax = count;
       argMax = ctg;
     }
     else if (count == countMax) {
-      if (jitterLeaf[ctg] > jitterLeaf[argMax]) { // Jitter value breaks tie.
+      if (ctgJitter[ctg] > ctgJitter[argMax]) {
 	argMax = ctg;
       }
     }
   }
-
-  return argMax + jitterLeaf[argMax];
+  return argMax;
 }
 
 
@@ -150,26 +221,12 @@ void LeafCtg::ctgBounds(const Predict* predict,
 }
 
 
-void Leaf::cacheScore(double scoreOut[]) const {
-  dumpScore(scoreOut);
-}
-
-
-void Leaf::dumpScore(double scoreOut[]) const {
-  //  for (size_t i = 0; i < score.size(); i++) {
-  //scoreOut[i] = score[i];
-}
-
-
 CtgProb::CtgProb(const Predict* predict,
 		 const LeafCtg* leaf,
 		 const class Sampler* sampler,
 		 bool doProb) :
   nCtg(leaf->getNCtg()),
-  ctgCount(sampler->ctgSamples(predict, leaf)),
-  ctgHeight(leaf->ctgHeight(predict)),
-  raw(make_unique<Jagged3<const IndexT*, const size_t*> >(nCtg, ctgHeight.size(), &ctgHeight[0], &ctgCount[0])),
-  probDefault(ctgECDF(predict->scoreHeight.size())),
+  probDefault(leaf->defaultProb()),
   probs(vector<double>(doProb ? predict->getNRow() * nCtg : 0)) {
 }
 
@@ -179,54 +236,34 @@ vector<size_t> LeafCtg::ctgHeight(const Predict* predict) const {
   for (auto & ht : ctgHeight) {
     ht *= nCtg;
   }
+  
   return ctgHeight;
 }
 
 
-void CtgProb::predictRow(const Predict* predict, size_t row) {
-  unsigned int nEst = 0;
-  vector<IndexT> ctgRow(nCtg);
-  for (auto tIdx = 0ul; tIdx < raw->getNMajor(); tIdx++) {
-    IndexT termIdx;
-    if (predict->isLeafIdx(row, tIdx, termIdx)) {
-      nEst++;
-      readLeaf(ctgRow, tIdx, termIdx);
-    }
-  }
+void CtgProb::predictRow(const Predict* predict, size_t row, PredictorT* ctgRow) {
+  unsigned int nEst = accumulate(ctgRow, ctgRow + nCtg, 0ul);
   double* probRow = &probs[row * nCtg];
   if (nEst == 0) {
     applyDefault(probRow);
   }
   else {
-    size_t sCount = accumulate(ctgRow.begin(), ctgRow.end(), 0ull);
-    double scale = 1.0 / sCount;
+    double scale = 1.0 / nEst;
     for (PredictorT ctg = 0; ctg < nCtg; ctg++)
       probRow[ctg] = ctgRow[ctg] * scale;
   }
 }
 
 
-void CtgProb::readLeaf(vector<IndexT>& ctgRow,
-		       unsigned int tIdx,
-		       IndexT leafIdx) const {
-  size_t idxBase = raw->minorOffset(tIdx, leafIdx);
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    ctgRow[ctg] += raw->getItem(idxBase + ctg);
-  }
-}
-
-
-vector<double> CtgProb::ctgECDF(size_t leafCount) {
+vector<double> LeafCtg::defaultProb() const {
   // Uses the ECDF as the default distribution.
-  vector<PredictorT> ctgTot(nCtg);
-  for (size_t base = 0; base < raw->size(); base += nCtg) {
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-      ctgTot[ctg] += raw->getItem(base + ctg);
-    }
+  vector<IndexT> ctgTot(nCtg);
+  for (auto ctg : yCtg) {
+    ctgTot[ctg]++;
   }
 
   vector<double> ctgDefault(nCtg);
-  double scale = 1.0 / leafCount;
+  double scale = 1.0 / yCtg.size();
   for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     ctgDefault[ctg] = ctgTot[ctg] * scale;
   }

@@ -13,22 +13,18 @@
    @author Mark Seligman
  */
 
-#include "cand.h"
-#include "splitfrontier.h"
-#include "defmap.h"
-#include "splitcoord.h"
 
-vector<PreCand> Cand::precandidates(SplitFrontier* splitFrontier,
-				    DefMap* defMap) {
+#include "deffrontier.h"
+#include "cand.h"
+
+
+void Cand::precandidates(DefFrontier* defFrontier) {
   // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-  vector<PreCand> preCand;
-  for (IndexT splitIdx = 0; splitIdx < splitFrontier->getNSplit(); splitIdx++) {
-    if (!splitFrontier->isUnsplitable(splitIdx)) { // Node can split.
-      for (PredictorT predIdx = 0; predIdx < splitFrontier->getNPred(); predIdx++) {
-	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), preCand);
+  for (IndexT splitIdx = 0; splitIdx < defFrontier->getNSplit(); splitIdx++) {
+    if (!defFrontier->isUnsplitable(splitIdx)) { // Node can split.
+      for (PredictorT predIdx = 0; predIdx < defFrontier->getNPred(); predIdx++) {
+	(void) defFrontier->preschedule(SplitCoord(splitIdx, predIdx));
       }
     }
   }
-
-  return preCand;
 }

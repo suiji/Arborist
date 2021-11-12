@@ -25,12 +25,16 @@ CutAccumRegCart::CutAccumRegCart(const SplitNux* cand,
 }
 
 
-CutAccumRegCart::~CutAccumRegCart() {
+void CutAccumRegCart::split(const SFRegCart* spReg,
+			    SplitNux* cand) {
+  CutAccumRegCart cutAccum(cand, spReg);
+  cutAccum.splitReg(spReg, cand);
 }
 
 
-void CutAccumRegCart::split(const SFRegCart* spReg,
-			 SplitNux* cand) {
+
+void CutAccumRegCart::splitReg(const SFRegCart* spReg,
+			       SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(cand);
   }
@@ -39,6 +43,7 @@ void CutAccumRegCart::split(const SFRegCart* spReg,
     splitExpl(rkThis, idxEnd-1, idxStart);
   }
   spReg->writeCut(cand, this);
+  cand->infoGain(this);
 }
 
 
@@ -142,13 +147,16 @@ CutAccumCtgCart::CutAccumCtgCart(const SplitNux* cand,
 }
 
 
-CutAccumCtgCart::~CutAccumCtgCart() {
+void CutAccumCtgCart::split(SFCtgCart* spCtg,
+			    SplitNux* cand) {
+  CutAccumCtgCart cutAccum(cand, spCtg);
+  cutAccum.split(spCtg, cand);
 }
 
 
 // Initializes from final index and loops over remaining indices.
-void CutAccumCtgCart::split(const SFCtgCart* spCtg,
-                          SplitNux* cand) {
+void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
+			       SplitNux* cand) {
   if (!resid->isEmpty()) {
     splitImpl(cand);
   }
@@ -157,6 +165,7 @@ void CutAccumCtgCart::split(const SFCtgCart* spCtg,
     splitExpl(sampleRank[idxEnd].getRank(), idxEnd-1, idxStart);
   }
   spCtg->writeCut(cand, this);
+  cand->infoGain(this);
 }
 
 
@@ -171,8 +180,8 @@ inline void CutAccumCtgCart::stateNext(IndexT idx) {
 
 
 void CutAccumCtgCart::splitExpl(IndexT rkThis,
-			     IndexT idxInit,
-			     IndexT idxFinal) {
+				IndexT idxInit,
+				IndexT idxFinal) {
   for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
     IndexT rkRight = rkThis;
     rkThis = sampleRank[idx].getRank();
@@ -198,7 +207,7 @@ void CutAccumCtgCart::splitImpl(const SplitNux* cand) {
 
 
 void CutAccumCtgCart::residualAndLeft(IndexT idxLeft,
-				   IndexT idxStart) {
+				      IndexT idxStart) {
   ySumThis = resid->sum;
   sCountThis = resid->sCount;
   applyResid(resid->ctgImpl);
