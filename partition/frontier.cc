@@ -73,7 +73,9 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample) {
 
   unsigned int level = 0;
   while (!indexSet.empty()) {
-    unique_ptr<BranchSense> branchSense = SplitFrontier::split(this);
+    unique_ptr<BranchSense> branchSense = make_unique<BranchSense>(bagCount);
+    branchSense->frontierReset();
+    SplitFrontier::split(this, branchSense.get());
     indexSet = splitDispatch(branchSense.get(), level);
     defMap->initPrecand();
     level++;
@@ -140,10 +142,11 @@ void Frontier::candMax(SplitNux& argMax,
 
 
 void Frontier::updateSimple(const SplitFrontier* sf,
-			    const vector<SplitNux>& nuxMax) {
+			    const vector<SplitNux>& nuxMax,
+			    BranchSense* branchSense) {
   for (auto nux : nuxMax) {
     if (!nux.noNux()) {
-      indexSet[nux.getNodeIdx()].update(sf, nux);
+      indexSet[nux.getNodeIdx()].update(sf, nux, branchSense);
       pretree->addCriterion(sf, nux);
     }
   }

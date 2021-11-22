@@ -56,28 +56,12 @@ public:
   }
 
 
-  /**
-     @brief Sets explicit state iff not already set.
-
-     @return true iff explicit state has beenreset.
-   */
-  inline bool setExclusive(IndexT sIdx,
-			   bool explicitTrue) {
-    if (!isExplicit(sIdx)) {
-      set(sIdx, explicitTrue);
-      return true;
-    }
-    return false;
-  }
-  
-
   void set(IndexT idx,
-	   bool explicitTrue);
+	   bool trueEncoding);
   
 
   void unset(IndexT idx,
-	     bool explicitTrue);
-  
+	     bool trueEncoding);
 };
 
 #endif

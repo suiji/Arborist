@@ -15,6 +15,8 @@
 
 
 #include "branchsense.h"
+#include "critencoding.h"
+
 
 BranchSense::BranchSense(IndexT bagCount) :
   expl(make_unique<BV>(bagCount)),
@@ -28,17 +30,17 @@ void BranchSense::frontierReset() {
 }
 
 
-void BranchSense::set(IndexT idx, bool explTrueExpl) {
+void BranchSense::set(IndexT idx, bool trueEncoding) {
   expl->setBit(idx);
-  if (!explTrueExpl) { // ExplTrue has been preset to full.
+  if (!trueEncoding) {
     explTrue->setBit(idx, false);
   }
 }
 
 
-void BranchSense::unset(IndexT idx, bool explTrueExpl) {
+void BranchSense::unset(IndexT idx, bool trueEncoding) {
   expl->setBit(idx, false);
-  if (!explTrueExpl) { // ExplTrue has been preset to full.
+  if (!trueEncoding) {
     explTrue->setBit(idx, true);
   }
 }

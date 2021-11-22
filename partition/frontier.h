@@ -188,7 +188,8 @@ class Frontier {
      @brief Updates both index set and pretree states for a set of simple splits.
    */
   void updateSimple(const class SplitFrontier* sf,
-		    const vector<class SplitNux>& nuxMax);
+		    const vector<class SplitNux>& nuxMax,
+		    class BranchSense* branchSense);
 
 
   /**

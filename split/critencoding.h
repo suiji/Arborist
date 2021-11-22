@@ -31,6 +31,7 @@ struct CritEncoding {
   double sum; // sum of responses over encoding.
   IndexT sCount; // # samples encoded.
   IndexT extent; // # SR indices encoded.
+  const class SplitNux& nux;
   vector<SumCount> scCtg; // Response sum decomposed by category.
   const IndexT implicitTrue; // # implicit SR indices.
   const bool increment; // True iff encoding is additive else subtractive.
@@ -49,19 +50,19 @@ struct CritEncoding {
   /**
      @brief Sample count getter.
    */
-  IndexT getSCountTrue(const class SplitNux* nux) const;
+  IndexT getSCountTrue() const;
 
 
   /**
      @return sum of responses contributing to true branch.
    */
-  double getSumTrue(const class SplitNux* nux) const;
+  double getSumTrue() const;
 
 
   /**
      @return # SR inidices contributing to true branch.
    */
-  IndexT getExtentTrue(const class SplitNux* nux) const;
+  IndexT getExtentTrue() const;
   
 
   /**
@@ -79,13 +80,37 @@ struct CritEncoding {
   }
 
 
-  void getISetVals(const class SplitNux& nux,
-		   IndexT& sCountTrue,
+  void getISetVals(IndexT& sCountTrue,
 		   double& sumTrue,
 		   IndexT& extentTrue) const;
 
-  
+
+  void branchUpdate(const class SplitFrontier* sf,
+		    const IndexRange& range,
+		    class BranchSense* branchSense);
+
+
+  void branchUpdate(const class ObsPart* obsPart,
+		    const IndexRange& range,
+		    class BranchSense* branchSense);
+
+
 private:  
+  void branchSet(IndexT* sIdx,
+		 class SampleRank* spn,
+		 const IndexRange& range,
+		 class BranchSense* branchSense);
+
+
+  void branchUnset(IndexT* sIdx,
+		   class SampleRank* spn,
+		   const IndexRange& range,
+		   class BranchSense* branchSense);
+
+
+  void encode(const class SampleRank& obs);
+
+  
   /**
      @brief Outputs the internal contents.
    */
@@ -97,8 +122,7 @@ private:
   /**
      @brief Outputs the contributions to the true branch.
    */
-  void accumTrue(const class SplitNux* nux,
-		 IndexT& sCountTrue,
+  void accumTrue(IndexT& sCountTrue,
 		 double& sumTrue,
 		 IndexT& extentTrue) const ;
 };

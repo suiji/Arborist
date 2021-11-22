@@ -15,7 +15,6 @@
 
 #include "frontier.h"
 #include "splitfrontier.h"
-#include "critencoding.h"
 #include "deffrontier.h"
 #include "deflayer.h"
 #include "obspart.h"
@@ -88,6 +87,11 @@ vector<SplitNux> DefFrontier::getCandidates(const SplitFrontier* sf) const {
   }
 
   return postCand;
+}
+
+
+const ObsPart* DefFrontier::getObsPart() const {
+  return obsPart.get();
 }
 
 
@@ -197,14 +201,6 @@ void DefFrontier::setStageCount(const SplitCoord& splitCoord,
 void DefFrontier::setStageCount(const SplitCoord& splitCoord,
 				const StageCount& stageCount) const {
   layer[0]->setStageCount(splitCoord, stageCount);
-}
-
-
-CritEncoding DefFrontier::branchUpdate(const SplitFrontier* sf,
-				       const SplitNux& nux,
-				       const IndexRange& range,
-				       bool increment) const {
-  return obsPart->branchUpdate(sf, nux, range, increment);
 }
 
 

@@ -393,29 +393,26 @@ void RunAccum::ctgGini(const SFCtg* sf, const SplitNux* cand) {
   // Only categories present at this node can be incorporated into the
   // splitting decision.  By convention, the categories resident in 'true'
   // slots will take the true branch during prediction.  All other categories,
-  // regardless whether present at this node, will take the false branch.
+  // regardless whether observed at this node, will take the false branch.
   // This includes not only categories eclipsed by bagging or conditioning,
   // but also proxy categories not present during training.
 
-  // It may be tempting to swap the implicit slot, should it exist, with the
-  // unused high slot excluded from 'lowSet'.  This would guarantee its
-  // omission from the true slots and simplify computation of the node's
-  // successor bits by avoding a complementation step.  Doing so would,
-  // however, introduce a bias during prediction as categories not present
-  // during training would then always take the same branch as the implicit
-  // category.
-
-  // All nontrivial subsets, up to complement:
-   const vector<double>& sumSlice = sf->getSumSlice(cand);
-   for (unsigned int subset = 1; subset <= lowSet; subset++) {
+  // Arg-max over all nontrivial subsets, up to complement:
+  const vector<double>& sumSlice = sf->getSumSlice(cand);
+  for (unsigned int subset = 1; subset <= lowSet; subset++) {
     if (trialSplit(subsetGini(sumSlice, subset))) {
       trueSlots = subset;
     }
   }
-  // Employs complement to guarantee true bits do not reference implicit runs.
-  if (implicitSlot < effCount() && (trueSlots & (1ul << implicitSlot))) {
-    trueSlots = slotComplement(trueSlots);
-  }
+
+  // No slot, whether implicit or explicit, should be assigned a branch
+  // sense fixed a priori.  Doing so biases predictions for reasons outlined
+  // above.  For this reason the true branch is "randomly" assigned to either
+  // the argmax slot subset or its complement.
+
+  //if (implicitSlot < effCount() && (trueSlots & (1ul << implicitSlot))) {  
+  //trueSlots = slotComplement(trueSlots);
+  //}
 
   setToken(trueSlots);
 }

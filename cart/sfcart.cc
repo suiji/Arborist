@@ -25,30 +25,18 @@
 #include "runaccum.h"
 #include "accumcart.h"
 
+
 SFRegCart::SFRegCart(Frontier* frontier) :
-  SFReg(frontier, false, EncodingStyle::trueBranch) {
+  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (BranchSense*)>(&SFRegCart::split)) {
 }
 
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
-  SFCtg(frontier, false, EncodingStyle::trueBranch) {
-}
-
-
-SplitStyle SFCtgCart::getFactorStyle() const {
-  return nCtg == 2 ? SplitStyle::slots : SplitStyle::bits;
+  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (BranchSense*)>(&SFCtgCart::split)) {
 }
 
   
-  /**
-     @return enumeration indicating slot-style encoding.
-   */
-SplitStyle SFRegCart::getFactorStyle() const {
-  return SplitStyle::slots;
-}
-
-  
-void SFCtgCart::layerPreset() {
+void SFCtgCart::frontierPreset() {
   layerInitSumR(frame->getNPredNum());
   ctgSum = vector<vector<double> >(nSplit);
 
@@ -63,22 +51,18 @@ void SFCtgCart::layerInitSumR(PredictorT nPredNum) {
 }
 
 
-void SFRegCart::split() {
-  vector<SplitNux> sc = defMap->getCandidates(this);
-  OMPBound splitTop = sc.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(&sc[splitPos]);
-    }
-  }
-
-  maxSimple(sc);
+double SFRegCart::getPrebias(IndexT splitIdx) const {
+  return (frontier->getSum(splitIdx) * frontier->getSum(splitIdx)) / frontier->getSCount(splitIdx);
 }
 
 
-void SFCtgCart::split() {
+
+double SFCtgCart::getPrebias(IndexT splitIdx) const {
+  return sumSquares[splitIdx] / frontier->getSum(splitIdx);
+}
+
+
+void SFRegCart::split(BranchSense* branchSense) {
   vector<SplitNux> sc = defMap->getCandidates(this);
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -89,7 +73,22 @@ void SFCtgCart::split() {
     }
   }
 
-  maxSimple(sc);
+  maxSimple(sc, branchSense);
+}
+
+
+void SFCtgCart::split(BranchSense* branchSense) {
+  vector<SplitNux> sc = defMap->getCandidates(this);
+  OMPBound splitTop = sc.size();
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
+      split(&sc[splitPos]);
+    }
+  }
+
+  maxSimple(sc, branchSense);
 }
 
 

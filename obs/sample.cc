@@ -26,7 +26,7 @@ Sample::Sample(const TrainFrame* frame,
 	       const Sampler* sampler) :
   nSamp(sampler->getNSamp()),
   bagging(sampler->isBagging()),
-  ctgRoot(vector<SumCount>(SampleNux::getNCtg())),
+  ctgRoot(vector<SumCount>(sampler->getNCtg())),
   row2Sample(vector<IndexT>(frame->getNRow())),
   bagSum(0.0) {
 }
@@ -83,6 +83,7 @@ void SampleCtg::bagSamples(const vector<PredictorT>& yCtg,
 void Sample::bagSamples(const vector<double>&  y,
 			const vector<PredictorT>& yCtg) {
   if (!bagging) {
+    SampleNux::setShifts(getNCtg(), 1);
     bagTrivial(y, yCtg);
     return;
   }
@@ -91,21 +92,18 @@ void Sample::bagSamples(const vector<double>&  y,
   //
   const IndexT nRow = row2Sample.size();
   vector<IndexT> sCountRow(nRow);
-  IndexT bagCount = countSamples(sCountRow, nSamp);
-
+  bagCount = countSamples(sCountRow, nSamp);
+  SampleNux::setShifts(getNCtg(), *max_element(sCountRow.begin(), sCountRow.end()));
+  
   // Copies contents of sampled outcomes and builds mapping vectors.
   //
   fill(row2Sample.begin(), row2Sample.end(), bagCount);
-  delRow = vector<IndexT>(bagCount);
   IndexT sIdx = 0;
   IndexT rowPrev = 0;
   for (IndexT row = 0; row < nRow; row++) {
     if (sCountRow[row] > 0) {
-      row2Sample[row] = sIdx;
-      delRow[sIdx] = row - rowPrev;
-      bagSum += addNode(delRow[sIdx], y[row], sCountRow[row], yCtg[row]);
-      rowPrev = row;
-      sIdx++;
+      bagSum += addNode(row - exchange(rowPrev, row), y[row], sCountRow[row], yCtg[row]);
+      row2Sample[row] = sIdx++;
     }
   }
 }
@@ -113,12 +111,10 @@ void Sample::bagSamples(const vector<double>&  y,
 
 void Sample::bagTrivial(const vector<double>& y,
 			const vector<PredictorT>& yCtg) {
-  IndexT bagCount = row2Sample.size();
-  delRow = vector<IndexT>(bagCount);
-  fill(delRow.begin() + 1, delRow.end(), 1); // Saturates bag row.
+  bagCount = row2Sample.size();
   iota(row2Sample.begin(), row2Sample.end(), 0);
   for (IndexT row = 0; row < bagCount; row++) {
-    bagSum += addNode(delRow[row], y[row], 1, yCtg[row]);
+    bagSum += addNode(1, y[row], 1, yCtg[row]);
   }
 }
 

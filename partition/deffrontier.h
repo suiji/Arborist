@@ -138,6 +138,9 @@ class DefFrontier {
   void backdate() const;
 
 
+  const class ObsPart* getObsPart() const;
+
+  
   /**
      @brief Dense offsets maintained separately, as a special case.
 
@@ -262,12 +265,6 @@ class DefFrontier {
      @brief Passes ObsPart through to Sample method.
    */
   void stage(const class Sample* sample);
-
-
-  class CritEncoding branchUpdate(const SplitFrontier* sf,
-				  const SplitNux& nux,
-				  const IndexRange& range = IndexRange(),
-				  bool increment = true) const;
 
 
   /**

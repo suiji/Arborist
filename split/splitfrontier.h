@@ -26,7 +26,7 @@
 #include "critencoding.h"
 
 #include <vector>
-
+#include <functional>
 
 enum class SplitStyle { slots, bits, topSlot };
 
@@ -38,7 +38,6 @@ enum class SplitStyle { slots, bits, topSlot };
 // type of predictor:  { regression, categorical } x { numeric, factor }.
 //
 class SplitFrontier {
-  void setPrebias();
 
 protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
@@ -47,19 +46,21 @@ protected:
   const PredictorT nPred;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
-
+  const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
+  void (SplitFrontier::* splitter)(class BranchSense*); // Splitting method.
+  
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
   
-  vector<double> prebias; // Initial information threshold.
-  unique_ptr<class BranchSense> branchSense;
+  vector<double> prebias; // Node-level information threshold.
 
 
   /**
      @brief Derives and applies maximal simple criteria.
    */
-  void maxSimple(const vector<SplitNux>& sc);
+  void maxSimple(const vector<SplitNux>& sc,
+		 class BranchSense* branchSense);
 
   
   vector<class SplitNux> maxCandidates(const vector<vector<class SplitNux>>& candVV);
@@ -74,27 +75,29 @@ protected:
    */
   PredictorT getNumIdx(PredictorT predIdx) const;
 
+  /**
+     @brief Presets the information threshold of splitable nodes.
+   */
+  void setPrebias(class SplitFrontier* splitFrontier);
 
 public:
 
   SplitFrontier(class Frontier* frontier_,
 		bool compoundCriteria_,
-		EncodingStyle encodingStyle_);
+		EncodingStyle encodingStyle_,
+		SplitStyle splitStyle_,
+		void (SplitFrontier::* splitter_)(class BranchSense*));
 
 
-  static unique_ptr<class BranchSense> split(class Frontier* frontier);
+  static void split(class Frontier* frontier,
+		    class BranchSense* branchSense);
   
 
   auto getEncodingStyle() const {
     return encodingStyle;
   }
 
-
-  auto getBranchSense() const {
-    return branchSense.get();
-  }
   
-
   /**
      @return true iff compound criteria are supported.
    */
@@ -161,7 +164,7 @@ public:
 
      Main entry.
    */
-  void restageAndSplit();
+  void restageAndSplit(class BranchSense* branchSense);
 
 
   /**
@@ -289,6 +292,14 @@ public:
 
   /**
      @brief Passes through to ObsPart method.
+
+     @return observation partition.
+   */
+  const class ObsPart* getPartition() const;
+  
+
+  /**
+     @brief Passes through to ObsPart method.
    */
   IndexT* getBufferIndex(const class SplitNux* nux) const;
   
@@ -307,29 +318,24 @@ public:
   /**
      @brief Classification sublcasses return # categories; others zero.
    */
-  virtual PredictorT getNCtg() const = 0;
-  
-  
-  /**
-     @brief Invokes algorithm-specific splitting methods.
-   */
-  virtual void split() = 0;
+  PredictorT getNCtg() const;
 
 
   /**
-     @brief Derives criterion encoding for node.
+     @brief Updates state for successful split.
 
      Side-effects branchOffset.
 
-     Class default employs simple encoding.
+     @return encoding associated with split.
    */
-  virtual CritEncoding encodeCriterion(const class SplitNux& nux) const;
-  
-  
-  /**
-     @brief Fixes factor splitting style.
-   */
-  virtual SplitStyle getFactorStyle() const = 0;
+  CritEncoding splitUpdate(const SplitNux& nux,
+			   class BranchSense* branchSense,
+			   const IndexRange& range,
+			   bool increment) const;
+
+  SplitStyle getFactorStyle() const {
+    return splitStyle;
+  }
   
 
   /**
@@ -344,12 +350,10 @@ public:
   vector<vector<class SplitNux>> groupCand(const vector<SplitNux>& cand) const;
 
 
-  virtual void layerPreset() = 0;
+  // These are run-time invariant and need not be virtual:
+  virtual void frontierPreset() = 0;
 
-
-  virtual void setPrebias(IndexT splitIdx,
-                          double sum,
-                          IndexT sCount) = 0;
+  virtual double getPrebias(IndexT splitIdx) const = 0;
 };
 
 
@@ -363,14 +367,11 @@ struct SFReg : public SplitFrontier {
 
   SFReg(class Frontier* frontier,
 	bool compoundCriteria,
-	EncodingStyle encodingStyle);
+	EncodingStyle encodingStyle,
+	SplitStyle splitStyle,
+	void (SplitFrontier::* splitter_)(class BranchSense*));
 
 
-  PredictorT getNCtg() const {
-    return 0;
-  }
-  
-  
   /**
      @brief Caches a dense local copy of the mono[] vector.
 
@@ -399,7 +400,7 @@ struct SFReg : public SplitFrontier {
   /**
      @brief Sets layer-specific values for the subclass.
   */
-  void layerPreset();
+  void frontierPreset();
 };
 
 
@@ -415,17 +416,9 @@ protected:
 public:
   SFCtg(class Frontier* frontier,
 	bool compoundCriteria,
-	EncodingStyle encodingStyle);
-
-
-  /**
-     @brief Getter for training response cardinality.
-
-     @return nCtg value.
-   */
-  PredictorT getNCtg() const {
-    return nCtg;
-  }
+	EncodingStyle encodingStyle,
+	SplitStyle splitStyle,
+	void (SplitFrontier::* splitter_) (class BranchSense*));
 
 
   /**

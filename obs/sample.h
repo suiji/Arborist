@@ -47,10 +47,10 @@ class Sample {
  protected:
   const IndexT nSamp; // Number of row samples requested.
   const bool bagging; // Whether bagging required.
-  vector<SampleNux> sampleNux; // Per-sample summary of values.
+  vector<SampledNux> sampledNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
-  vector<IndexT> delRow; // Difference from previous bagged row #, beginning with implicit zero.
+  IndexT bagCount;
   double bagSum; // Sum of bagged responses.
 
   
@@ -103,6 +103,7 @@ class Sample {
 
      @param ctg is the category index:  unused if not categorical.
    */
+  // Can be specified via pointer-to-member-function i/o virtual.
   virtual double addNode(IndexT delRow,
 			 double val,
 			 IndexT sCount,
@@ -175,7 +176,7 @@ class Sample {
      @brief Getter for bag count:  # uniquely-sampled rows.
    */
   inline IndexT getBagCount() const {
-    return delRow.size();
+    return bagCount;
   }
 
 
@@ -186,29 +187,37 @@ class Sample {
     return bagSum;
   }
 
+
+  /**
+     @brief Looks up sample index for sampled row.
+
+     @param[out] sampleIdx is the associated sample index, if sampled.
+
+     @return true iff row is sampled.
+   */
+  bool isSampled(IndexT row,
+		 IndexT& sampleIdx) const {
+    sampleIdx = row2Sample[row];
+    return sampleIdx < bagCount;
+  }
+  
   
   /**
-     @brief Determines whether a given row is sampled.
+     @brief Appends a rank entry for row, if sampled.
 
      @param row is the row number in question.
 
      @param[in, out] sIdx addresses the sample index, if any, associated with row.
-
-     @param[out] sNux addresses the sampled nux, if any, associated with row.
-
-     @return true iff row is sampled.
-   */
-  inline bool sampledRow(IndexT row,
-			 IndexT*& sIdx,
-			 const SampleNux*& sNux) const {
-    IndexT smpIdx = row2Sample[row];
-    if (smpIdx < getBagCount()) {
+     @param[in, out] spn is the current sampled rank entry, if any, for row.
+  */
+  inline void joinRank(IndexT row,
+		       IndexT*& sIdx,
+		       SampleRank*& spn,
+		       IndexT rank) const {
+    IndexT smpIdx;
+    if (isSampled(row, smpIdx)) {
       *sIdx++ = smpIdx;
-      sNux = &sampleNux[smpIdx];
-      return true;
-    }
-    else {
-      return false;
+      spn++->join(sampledNux[smpIdx], rank);
     }
   }
 
@@ -219,17 +228,17 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline IndexT getSCount(IndexT sIdx) const {
-    return sampleNux[sIdx].getSCount();
+    return sampledNux[sIdx].getSCount();
   }
 
 
   /**
-     @brief Getter for sample count.
+     @brief Getter for row delta.
 
      @param sIdx is the sample index.
    */
   inline IndexT getDelRow(IndexT sIdx) const {
-    return sampleNux[sIdx].getDelRow();
+    return sampledNux[sIdx].getDelRow();
   }
 
 
@@ -239,7 +248,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline FltVal getSum(IndexT sIdx) const {
-    return sampleNux[sIdx].getSum();
+    return sampledNux[sIdx].getSum();
   }
 
   
@@ -247,7 +256,7 @@ class Sample {
      @return response category at index passed.
    */
   inline PredictorT getCtg(IndexT sIdx) const {
-    return sampleNux[sIdx].getCtg();
+    return sampledNux[sIdx].getCtg();
   }
 };
 
@@ -272,8 +281,8 @@ struct SampleReg : public Sample {
 			double yVal,
                         IndexT sCount,
                         PredictorT ctg) {
-    sampleNux.emplace_back(delRow, yVal, sCount);
-    return sampleNux.back().getSum();
+    sampledNux.emplace_back(delRow, yVal, sCount);
+    return sampledNux.back().getSum();
   }
   
 
@@ -306,8 +315,8 @@ struct SampleCtg : public Sample {
 			double yVal,
 			IndexT sCount,
 			PredictorT ctg) {
-    sampleNux.emplace_back(delRow, yVal, sCount, ctg);
-    double ySum = sampleNux.back().getSum();
+    sampledNux.emplace_back(delRow, yVal, sCount, ctg);
+    double ySum = sampledNux.back().getSum();
     ctgRoot[ctg] += SumCount(ySum, sCount);
 
     return ySum;

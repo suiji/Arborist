@@ -66,11 +66,6 @@ void TrainBridge::initOmp(unsigned int nThread) {
 }
 
 
-void TrainBridge::initCtgWidth(unsigned int ctgWidth) {
-  RfTrain::initCtgWidth(ctgWidth);
-}
-
-
 void TrainBridge::initSplit(unsigned int minNode,
                             unsigned int totLevels,
                             double minRatio,

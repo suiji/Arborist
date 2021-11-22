@@ -29,27 +29,40 @@
 vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 
-unique_ptr<BranchSense> SplitFrontier::split(Frontier* frontier) {
+void SplitFrontier::split(Frontier* frontier,
+			  BranchSense* branchSense) {
   unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frontier);
-  splitFrontier->restageAndSplit();
-  return move(splitFrontier->branchSense);
+  splitFrontier->restageAndSplit(branchSense);
 }
 
 
 SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
-			     EncodingStyle encodingStyle_) :
+			     EncodingStyle encodingStyle_,
+			     SplitStyle splitStyle_,
+			     void (SplitFrontier::* splitter_)(BranchSense*)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
   defMap(frontier->getDefFrontier()),
   nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
+  splitStyle(splitStyle_),
   nSplit(frontier->getNSplit()),
+  splitter(splitter_),
   cutSet(make_unique<CutSet>()),
-  prebias(vector<double>(nSplit)),
-  branchSense(make_unique<BranchSense>(frontier->getBagCount())) {
-  branchSense->frontierReset();
+  prebias(vector<double>(nSplit)) {
+}
+
+
+PredictorT SplitFrontier::getNCtg() const {
+  return frontier->getNCtg();
+}
+
+
+
+const ObsPart* SplitFrontier::getPartition() const {
+  return defMap->getObsPart();
 }
 
 
@@ -73,13 +86,6 @@ IndexT SplitFrontier::getDenseRank(const SplitNux* nux) const {
 }
 
 
-void SplitFrontier::setPrebias() {
-  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
-    setPrebias(splitIdx, frontier->getSum(splitIdx), frontier->getSCount(splitIdx));
-  }
-}
-
-
 bool SplitFrontier::isFactor(PredictorT predIdx) const {
   return frame->isFactor(predIdx);
 }
@@ -90,17 +96,24 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-void SplitFrontier::restageAndSplit() {
+void SplitFrontier::restageAndSplit(BranchSense* branchSense) {
   defMap->restage();
   init();
-  split(); // virtual
+  (this->*splitter)(branchSense);
 }
 
 
 void SplitFrontier::init() {
   runSet = make_unique<RunSet>(this, frame->getNRow());
-  layerPreset();
-  setPrebias();
+  frontierPreset(); // Virtual.
+  setPrebias(this); // Hoist AHAP
+}
+
+
+void SplitFrontier::setPrebias(SplitFrontier* sf) {
+  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
+    prebias[splitIdx] = getPrebias(splitIdx);
+  }
 }
 
 
@@ -183,8 +196,10 @@ IndexT SplitFrontier::getPTId(const MRRA& preCand) const {
 
 SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
-	     EncodingStyle encodingStyle):
-  SplitFrontier(frontier, compoundCriteria, encodingStyle),
+	     EncodingStyle encodingStyle,
+	     SplitStyle splitStyle,
+	     void (SplitFrontier::* splitter)(BranchSense*)):
+  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   ruMono(vector<double>(0)) {
 }
 
@@ -225,7 +240,7 @@ int SFReg::getMonoMode(const SplitNux* cand) const {
 }
 
 
-void SFReg::layerPreset() {
+void SFReg::frontierPreset() {
   if (!mono.empty()) {
     ruMono = CallBack::rUnif(nSplit * mono.size());
   }
@@ -234,8 +249,10 @@ void SFReg::layerPreset() {
 
 SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
-	     EncodingStyle encodingStyle) :
-  SplitFrontier(frontier, compoundCriteria, encodingStyle),
+	     EncodingStyle encodingStyle,
+	     SplitStyle splitStyle,
+	     void (SplitFrontier::* splitter) (BranchSense*)) :
+  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   nCtg(frontier->getNCtg()) {
 }
 
@@ -247,8 +264,9 @@ const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
 }
 
 
-void SplitFrontier::maxSimple(const vector<SplitNux>& sc) {
-  frontier->updateSimple(this, maxCandidates(groupCand(sc)));
+void SplitFrontier::maxSimple(const vector<SplitNux>& sc,
+			      BranchSense* branchSense) {
+  frontier->updateSimple(this, maxCandidates(groupCand(sc)), branchSense);
 }
 
 
@@ -278,16 +296,21 @@ vector<vector<SplitNux>> SplitFrontier::groupCand(const vector<SplitNux>& cand) 
 }
 
 
-CritEncoding SplitFrontier::encodeCriterion(const SplitNux& nux) const {
+CritEncoding SplitFrontier::splitUpdate(const SplitNux& nux,
+					BranchSense* branchSense,
+					const IndexRange& range,
+					bool increment) const {
   accumUpdate(nux);
-  return defMap->branchUpdate(this, nux);
+  CritEncoding enc(this, nux, increment);
+  enc.branchUpdate(this, range, branchSense);
+  return enc;
 }
 
 
 vector<IndexRange> SplitFrontier::getRange(const SplitNux& nux,
 					   const CritEncoding& enc) const {
   if (nux.isFactor(this)) {
-    if (getFactorStyle() == SplitStyle::topSlot) {
+    if (splitStyle == SplitStyle::topSlot) {
       return runSet->getTopRange(nux, enc);
     }
     else {

@@ -56,11 +56,6 @@ void RfTrain::initSplit(unsigned int minNode,
 }
 
 
-void RfTrain::initCtgWidth(unsigned int ctgWidth) {
-  SampleNux::immutables(ctgWidth);
-}
-
-
 void RfTrain::initMono(const TrainFrame* frame,
                      const vector<double> &regMono) {
   SFRegCart::immutables(frame, regMono);

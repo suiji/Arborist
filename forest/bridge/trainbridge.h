@@ -73,13 +73,6 @@ struct TrainBridge {
 
   
   /**
-     @brief Registers width of categorical response.
-
-     @pram ctgWidth is the number of training response categories.
-  */
-  static void initCtgWidth(unsigned int ctgWidth);
-
-  /**
      @brief Registers parameters governing splitting.
      
      @param minNode is the mininal number of sample indices represented by a tree node.

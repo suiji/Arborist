@@ -32,16 +32,18 @@
    'nSamp' * sizeof(uint).
  */
 class SampleNux {
-  static PredictorT nCtg; // Number of categories; 0 for regression.
 
  protected:
-  static unsigned int ctgShift; // Pack:  nonzero iff categorical.
-  IndexT delRow; // Difference in row number.
+  static unsigned int ctgBits; // Pack:  nonzero iff categorical.
+  static unsigned int ctgMask;
+  static unsigned int multMask; // Masks bits not used to encode multiplicity.
 
+  static unsigned int rightBits; // # bits to shift for left-most value.
+  static unsigned int rightMask; // Mask bits not used by multiplicity, ctg.
   // Integer-sized container is likely overkill:  typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
-  IndexT sCount;
-  FltVal ySum; // Sum of values selected:  sCount * y-value.
+  PackedT packed; // Packed sample count, ctg.
+  FltVal ySum; // Sum of values selected:  sample-count * y-value.
 
   
  public:
@@ -50,22 +52,14 @@ class SampleNux {
      @brief Computes a packing width sufficient to hold all (zero-based) response category values.
 
      @param ctgWidth is the response cardinality.
-
-     @return void.
   */
-  static void immutables(unsigned int ctgWidth);
+  static void setShifts(PredictorT ctgWidth,
+			IndexT maxSCount);
   
   /**
     @brief Resets to static initialization.
   */
   static void deImmutables();
-
-  /**
-     @brief Accessor for number of response training categories.
-   */
-  static inline PredictorT getNCtg() {
-    return nCtg;
-  }
 
   
   /**
@@ -77,12 +71,18 @@ class SampleNux {
 
      @param ctg is the response category, if classification.
   */ 
-  SampleNux(IndexT delRow_,
-	    FltVal yVal,
+  SampleNux(FltVal yVal,
             IndexT sampleCount,
             PredictorT ctg = 0) :
-    delRow(delRow_),
-    sCount((sampleCount << ctgShift) | ctg),
+    packed((sampleCount << ctgBits) | ctg),
+    ySum(yVal * sampleCount) {
+  }
+
+  SampleNux(FltVal yVal,
+	    IndexT leftVal,
+            IndexT sampleCount,
+            PredictorT ctg = 0) :
+    packed((PackedT(leftVal) << rightBits) | (sampleCount << ctgBits) | ctg),
     ySum(yVal * sampleCount) {
   }
 
@@ -104,17 +104,10 @@ class SampleNux {
 
 
   /**
-     @brief Compound accessor for sampled sum and count.
-
-     @param[out] ySum is the sampled sum.
-
-     @param[out] sCount is the sampled count.
-
-     @return void.
+     @brief Accessor for packed sCount/ctg member.
    */
-  inline void ref(FltVal& ySum, IndexT& sCount) const {
-    ySum = this->ySum;
-    sCount = this->sCount;
+  inline auto getRight() const {
+    return packed & rightMask;
   }
 
 
@@ -128,28 +121,43 @@ class SampleNux {
   }
 
 
-  inline auto getDelRow() const {
-    return delRow;
-  }
-  
-
   /**
      @brief Derives sample count from internal encoding.
 
      @return sample count.
    */
   inline IndexT getSCount() const {
-    return sCount >> ctgShift;
+    return (packed >> ctgBits) & multMask;
   }
 
 
   /**
      @brief Derives response category from internal encouding.
 
-     @return response category.
+     @return response cardinality.
    */
   inline PredictorT getCtg() const {
-    return sCount & ((1 << ctgShift) - 1);
+    return packed & ctgMask;
+  }
+};
+
+
+/**
+   @brief Specialized for Sampler input:  row delta value.
+
+   Unless rows are sampled with widely disparate weights, the
+   values of 'delRow' are likely to require only a few bits.
+ */
+struct SampledNux : public SampleNux {
+  SampledNux(IndexT delRow,
+	     FltVal yVal,
+	     IndexT sampleCount,
+	     PredictorT ctg = 0) :
+    SampleNux(yVal, delRow, sampleCount, ctg) {
+  }
+
+  inline auto getDelRow() const {
+    return packed >> rightBits;
   }
 };
 
@@ -157,11 +165,16 @@ class SampleNux {
 /**
    @brief <Response value, observation rank> pair at row/predictor coordinate.
  */
-class SampleRank : public SampleNux {
- protected:
-  IndexT rank; // Rank, up to tie, or factor group.
+struct SampleRank : public SampleNux {
 
- public:
+  /**
+     @brief Getter for rank or factor group.
+
+     @return rank value.
+   */
+  inline auto getRank() const {
+    return packed >> rightBits;
+  }
 
 
   /**
@@ -170,7 +183,7 @@ class SampleRank : public SampleNux {
      @return true iff run state changes.
    */
   inline void regInit(RunNux& nux) const {
-    nux.code = rank;
+    nux.code = getRank();
     nux.sum = ySum;
     nux.sCount = getSCount();
   }
@@ -185,7 +198,7 @@ class SampleRank : public SampleNux {
    */
   inline void ctgInit(RunNux& nux,
 		      double* sumBase) const {
-    nux.code = rank;
+    nux.code = getRank();
     nux.sum = ySum;
     nux.sCount = getSCount();
     sumBase[getCtg()] = ySum;
@@ -198,7 +211,7 @@ class SampleRank : public SampleNux {
      @return true iff the current cell continues a run.
    */
   inline bool regAccum(RunNux& nux) const {
-    if (nux.code == rank) {
+    if (nux.code == getRank()) {
       nux.sum += ySum;
       nux.sCount += getSCount();
       return true;
@@ -216,7 +229,7 @@ class SampleRank : public SampleNux {
    */
   inline bool ctgAccum(RunNux& nux,
 		       double* sumBase) const {
-    if (nux.code == rank) {
+    if (nux.code == getRank()) {
       nux.sum += ySum;
       nux.sCount += getSCount();
       sumBase[getCtg()] += ySum;
@@ -229,16 +242,6 @@ class SampleRank : public SampleNux {
 
   
   /**
-     @brief Getter for rank or factor group.
-
-     @return rank value.
-   */
-  inline auto getRank() const {
-    return rank;
-  }
-
-
-  /**
      @brief Getter for 'ySum' field
 
      @return sum of y-values for sample.
@@ -249,16 +252,16 @@ class SampleRank : public SampleNux {
 
 
   /**
-     @brief Initializes node by joining sampled rank and response.
+     @brief Initializes by copying response and joining sampled rank.
 
      @param rank is the predictor rank sampled at a given row.
 
      @param sNode summarizes response sampled at row.
   */
-  inline void join(IndexT rank,
-		   const SampleNux* sNode) {
-    this->rank = rank;
-    sNode->ref(ySum, sCount);
+  inline void join(const SampleNux& sNode,
+		   IndexT rank) {
+    packed = (PackedT(rank) << rightBits) | sNode.getRight();
+    ySum = sNode.getSum();
   }
 
 
@@ -280,9 +283,9 @@ class SampleRank : public SampleNux {
   inline auto regFields(FltVal& ySum,
                         IndexT& sCount) const {
     ySum = this->ySum;
-    sCount = this->sCount;
+    sCount = getSCount();
 
-    return rank;
+    return getRank();
   }
 
 
@@ -325,16 +328,8 @@ class SampleRank : public SampleNux {
                         IndexT& sCount_,
                         PredictorT& yCtg_) const {
     sCount_ = ctgFields(ySum_, yCtg_);
-    return rank;
+    return getRank();
   }
-
-  
-  /**
-     @brief Encodes this cell's contents in per-category vector.
-
-     @param[in, out] accumulates the response decomposition.
-   */
-  void encode(class CritEncoding& enc) const;
 };
 
 #endif

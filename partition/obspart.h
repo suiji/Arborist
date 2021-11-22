@@ -50,27 +50,6 @@ class ObsPart {
   //
   IndexT* indexBase; // RV index for this row.  Used by CTG as well as on replay.
 
-  /**
-     @brief Sets branch sense over specified range.
-
-     @param[in, out] enc accumulates sampled response statistics.
-   */  
-  void branchSet(const class SplitNux& nux,
-		 const IndexRange& range,
-		 class BranchSense* branchSense,
-		 CritEncoding& enc) const;
-
-  /**
-     @brief Unsets branch sense over specified range.
-
-     Parameters as above.
-   */
-  void branchUnset(const class SplitNux& nux,
-		   const IndexRange& range,
-		   class BranchSense* branchSense,
-		   CritEncoding& enc) const;
-
-  
  protected:
   unsigned int *destRestage;
   vector<IndexRange> stageRange; // Index range for staging.
@@ -130,18 +109,6 @@ class ObsPart {
                unsigned int pathMask,
                bool idxUpdate,
                unsigned int pathCount[]);
-
-
-  class CritEncoding branchUpdate(const class SplitFrontier* sf,
-				  const class SplitNux& nux,
-				  const IndexRange& range,
-				  bool increment) const;
-
-
-  void branchUpdate(const class SplitFrontier* sf,
-		    const class SplitNux& nux,
-		    const IndexRange& range,
-		    CritEncoding& enc) const;
 
 
   /**

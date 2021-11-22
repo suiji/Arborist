@@ -167,7 +167,10 @@ class IndexSet {
      @param enc encapsulates the splitting criteria.
    */
   void update(const class SplitFrontier* sf,
-	      const class SplitNux& nux);
+	      const class SplitNux& nux,
+	      class BranchSense* branchSense,
+	      const IndexRange& range = IndexRange(),
+	      bool increment = true);
 
   
   /**

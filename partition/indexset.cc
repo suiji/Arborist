@@ -201,14 +201,16 @@ void IndexSet::candMax(const vector<SplitNux>& cand,
 
 
 void IndexSet::update(const SplitFrontier* sf,
-		      const SplitNux& nux) {
-  CritEncoding enc = sf->encodeCriterion(nux); // virtual
+		      const SplitNux& nux,
+		      BranchSense* branchSense,
+		      const IndexRange& range,
+		      bool increment) {
+  CritEncoding enc = sf->splitUpdate(nux, branchSense, range, increment);
   doesSplit = true;
   trueEncoding = enc.trueEncoding(); // Final state is most recent update.
-  double oldMinInfo = minInfo;
   minInfo = nux.getMinInfo(); // REVISE as update
   SumCount::incr(ctgTrue, trueEncoding ? enc.scCtg : SumCount::minus(ctgSum, enc.scCtg));
-  enc.getISetVals(nux, sCountTrue, sumTrue, extentTrue);
+  enc.getISetVals(sCountTrue, sumTrue, extentTrue);
 }
 
 

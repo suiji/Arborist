@@ -29,7 +29,6 @@
    @brief Splitting facilities specific regression trees.
  */
 struct SFRegCart : public SFReg {
-
   SFRegCart(class Frontier* frontier_);
 
 
@@ -42,20 +41,12 @@ struct SFRegCart : public SFReg {
   /**
      @brief Weighted-variance pre-bias computation for regression response.
 
-     @param sum is the sum of samples subsumed by the index node.
-
-     @param sCount is the number of samples subsumed by the index node.
-
      @return sum squared, divided by sample count.
   */
-  inline void setPrebias(IndexT splitIdx,
-			 double sum,
-			 IndexT sCount) {
-    prebias[splitIdx] = (sum * sum) / sCount;
-  }
+  double getPrebias(IndexT splitIdx) const;
 
 
-  void split();
+  void split(class BranchSense* branchSense);
 
 
   /**
@@ -81,12 +72,12 @@ class SFCtgCart : public SFCtg {
 
   
   /**
-     @brief Initializes per-layer sum and FacRun vectors.
+     @brief Initializes per-frontier sum and FacRun vectors.
   */
-  void layerPreset();
+  void frontierPreset();
 
-  
-  void split();
+
+  void split(class BranchSense* branchSense);
 
 
   /**
@@ -106,22 +97,14 @@ class SFCtgCart : public SFCtg {
   /**
      @brief Gini pre-bias computation for categorical response.
 
-     @param splitIdx is the layer-relative node index.
-
-     @param sum is the sum of samples subsumed by the index node.
-
-     @param sCount is the number of samples subsumed by the index node.
+     @param splitIdx is the frontier-relative node index.
 
      @return sum of squares divided by sum.
   */
-  inline void setPrebias(IndexT splitIdx,
-                         double sum,
-                         IndexT sCount) {
-    prebias[splitIdx] = sumSquares[splitIdx] / sum;
-  }
+  double getPrebias(IndexT splitIdx) const;
 
 
- public:
+public:
   SFCtgCart(class Frontier* frontier_);
 
 

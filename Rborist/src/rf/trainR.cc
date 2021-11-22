@@ -112,7 +112,6 @@ SEXP TrainRf::initFromArgs(const List& argList,
   trainBridge->initOmp(as<unsigned int>(argList["nThread"]));
   
   unsigned int nCtg = as<unsigned int>(argList["nCtg"]);
-  trainBridge->initCtgWidth(nCtg);
   if (nCtg == 0) { // Regression only.
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));

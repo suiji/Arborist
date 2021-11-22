@@ -126,12 +126,8 @@ StageCount Layout::stage(const Sample* sample,
   for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;
     if (rank != rankDense) {
-      IndexT row = rle.row;
-      for (IndexT i = 0; i < rle.extent; i++) {
-	const SampleNux* sNux;
-	if (sample->sampledRow(row + i, sIdx, sNux)) {
-	  spn++->join(rank, sNux);
-	}
+      for (IndexT row = rle.row; row < rle.row + rle.extent; row++) {
+	sample->joinRank(row, sIdx, spn, rank);
       }
     }
   }

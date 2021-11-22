@@ -30,6 +30,9 @@ typedef float FltVal;
 typedef double FltAccum;
 
 
+// Wide container type for packed values.
+typedef uint64_t PackedT;
+
 // Index type:  rows, samples, ranks, run counts.
 // Should be wide enough to accommodate values approaching # observations.
 typedef unsigned int IndexT; 

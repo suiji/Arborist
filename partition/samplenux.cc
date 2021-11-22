@@ -18,30 +18,45 @@
 
 #include "samplenux.h"
 #include "sumcount.h"
-#include "splitfrontier.h"
-
-unsigned int SampleNux::nCtg = 0;
-unsigned int SampleNux::ctgShift = 0;
 
 
-void SampleNux::immutables(unsigned int ctgWidth) {
-  nCtg = ctgWidth;
+unsigned int SampleNux::ctgBits = 0;
+unsigned int SampleNux::ctgMask = 0;
+
+unsigned int SampleNux::multMask = 0;
+
+unsigned int SampleNux::rightBits = 0;
+unsigned int SampleNux::rightMask = 0;
+
+void SampleNux::setShifts(PredictorT nCtg,
+			  IndexT maxSCount) {
   unsigned int bits = 1;
-  ctgShift = 0;
+  ctgBits = 0;
   // Ctg values are zero-based, so the first power of 2 greater than or
   // equal to 'ctgWidth' has sufficient bits to hold all response values.
   while (bits < nCtg) {
     bits <<= 1;
-    ctgShift++;
+    ctgBits++;
   }
+  ctgMask = (1ul << ctgBits) - 1;
+  
+  unsigned int multBits = 1;
+  bits = 1;
+  while (bits < maxSCount) {
+    bits <<= 1;
+    multBits++;
+  }
+  multMask = (1ul << multBits) - 1;
+
+  rightBits = ctgBits + multBits;
+  rightMask = (1ul << rightBits) - 1;
 }
 
 
 void SampleNux::deImmutables() {
-  ctgShift = 0;
-}
-
-
-void SampleRank::encode(CritEncoding& enc) const {
-  enc.accum(ySum, getSCount(), getCtg());
+  ctgBits = 0;
+  ctgMask = 0;
+  multMask = 0;
+  rightBits = 0;
+  rightMask = 0;
 }

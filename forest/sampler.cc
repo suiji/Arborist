@@ -152,7 +152,7 @@ SamplerBlock::SamplerBlock(const SamplerNux* samples,
 
 
 vector<IndexT> SamplerBlock::countLeafCtg(const Predict* predict,
-					const LeafCtg* leaf) const {
+					  const LeafCtg* leaf) const {
   vector<IndexT> ctgCount(leaf->getNCtg() * predict->getScoreCount());
   size_t sIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < raw->getNMajor(); tIdx++) {
