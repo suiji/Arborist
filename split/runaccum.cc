@@ -110,7 +110,8 @@ void RunAccum::leadBits(PredictorT lhBits) {
   //  assert(lhBits != 0); // Argmax'd bits should never get here.
 
   // Places true-sense runs to the left for range and code capture.
-  // Implicit slot, if any, guaranteed not set.
+  implicitTrue = (lhBits & (1ul << implicitSlot)) == 0 ? 0 : getImplicitExtent(implicitSlot);
+
   vector<RunNux> frTemp(rcSafe);
   PredictorT off = 0;
 
@@ -410,9 +411,8 @@ void RunAccum::ctgGini(const SFCtg* sf, const SplitNux* cand) {
   // above.  For this reason the true branch is "randomly" assigned to either
   // the argmax slot subset or its complement.
 
-  //if (implicitSlot < effCount() && (trueSlots & (1ul << implicitSlot))) {  
-  //trueSlots = slotComplement(trueSlots);
-  //}
+  if (cand->getNodeIdx() & 1) // Ersatz temporary "randomization".
+    trueSlots = slotComplement(trueSlots);
 
   setToken(trueSlots);
 }

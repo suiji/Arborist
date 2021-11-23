@@ -23,9 +23,11 @@
 
 
 Sample::Sample(const TrainFrame* frame,
-	       const Sampler* sampler) :
+	       const Sampler* sampler,
+	       double (Sample::* adder_)(IndexT, double, IndexT, PredictorT)) :
   nSamp(sampler->getNSamp()),
   bagging(sampler->isBagging()),
+  adder(adder_),
   ctgRoot(vector<SumCount>(sampler->getNCtg())),
   row2Sample(vector<IndexT>(frame->getNRow())),
   bagSum(0.0) {
@@ -53,7 +55,8 @@ unique_ptr<SampleReg> Sample::factoryReg(const Sampler* sampler,
 
 
 SampleReg::SampleReg(const TrainFrame *frame,
-		     const Sampler* sampler) : Sample(frame, sampler) {
+		     const Sampler* sampler) :
+  Sample(frame, sampler, static_cast<double (Sample::*)(IndexT, double, IndexT, PredictorT)>(&SampleReg::addNode)) {
 }
 
 
@@ -65,7 +68,8 @@ void SampleReg::bagSamples(const vector<double>& y) {
 
 
 SampleCtg::SampleCtg(const TrainFrame* frame,
-		     const Sampler* sampler) : Sample(frame, sampler) {
+		     const Sampler* sampler) :
+  Sample(frame, sampler, static_cast<double (Sample::*)(IndexT, double, IndexT, PredictorT)>(&SampleCtg::addNode)) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -83,16 +87,13 @@ void SampleCtg::bagSamples(const vector<PredictorT>& yCtg,
 void Sample::bagSamples(const vector<double>&  y,
 			const vector<PredictorT>& yCtg) {
   if (!bagging) {
-    SampleNux::setShifts(getNCtg(), 1);
     bagTrivial(y, yCtg);
     return;
   }
 
   // Samples row indices and counts occurrences.
   //
-  const IndexT nRow = row2Sample.size();
-  vector<IndexT> sCountRow(nRow);
-  bagCount = countSamples(sCountRow, nSamp);
+  vector<IndexT> sCountRow = countSamples(row2Sample.size(), nSamp, bagCount);
   SampleNux::setShifts(getNCtg(), *max_element(sCountRow.begin(), sCountRow.end()));
   
   // Copies contents of sampled outcomes and builds mapping vectors.
@@ -100,9 +101,9 @@ void Sample::bagSamples(const vector<double>&  y,
   fill(row2Sample.begin(), row2Sample.end(), bagCount);
   IndexT sIdx = 0;
   IndexT rowPrev = 0;
-  for (IndexT row = 0; row < nRow; row++) {
+  for (IndexT row = 0; row < row2Sample.size(); row++) {
     if (sCountRow[row] > 0) {
-      bagSum += addNode(row - exchange(rowPrev, row), y[row], sCountRow[row], yCtg[row]);
+      bagSum += (this->*adder)(row - exchange(rowPrev, row), y[row], sCountRow[row], yCtg[row]);
       row2Sample[row] = sIdx++;
     }
   }
@@ -111,10 +112,11 @@ void Sample::bagSamples(const vector<double>&  y,
 
 void Sample::bagTrivial(const vector<double>& y,
 			const vector<PredictorT>& yCtg) {
+  SampleNux::setShifts(getNCtg(), 1);
   bagCount = row2Sample.size();
   iota(row2Sample.begin(), row2Sample.end(), 0);
   for (IndexT row = 0; row < bagCount; row++) {
-    bagSum += addNode(1, y[row], 1, yCtg[row]);
+    bagSum += (this->*adder)(1, y[row], 1, yCtg[row]);
   }
 }
 
@@ -123,20 +125,22 @@ void Sample::bagTrivial(const vector<double>& y,
 // binning, access is random.  Larger bins improve locality, but
 // performance begins to degrade when bin size exceeds available
 // cache.
-IndexT Sample::countSamples(vector<IndexT>& sc,
-			    IndexT nSamp) {
+vector<IndexT> Sample::countSamples(IndexT nRow,
+				    IndexT nSamp,
+				    IndexT& nBagged) {
+  vector<IndexT> sc(nRow);
   vector<IndexT> idx(CallBack::sampleRows(nSamp));
   if (binIdx(sc.size()) > 0) {
     idx = binIndices(idx);
   }
     
-  IndexT nz = 0;
+  nBagged = 0;
   for (auto index : idx) {
-    nz += (sc[index] == 0 ? 1 : 0);
+    nBagged += (sc[index] == 0 ? 1 : 0);
     sc[index]++;
   }
 
-  return nz;
+  return sc;
 }
 
 

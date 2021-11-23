@@ -47,6 +47,7 @@ class Sample {
  protected:
   const IndexT nSamp; // Number of row samples requested.
   const bool bagging; // Whether bagging required.
+  double (Sample::* adder)(IndexT, double, IndexT, PredictorT);
   vector<SampledNux> sampledNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
@@ -70,10 +71,13 @@ class Sample {
 
      @param sampleCount tabulates the occurrence count of each index.
 
-     @return count of uniquely-sampled elements.
+     @param[out] nBagged is the number of sampled rows.
+
+     @return vector of sample counts.
    */
-  static IndexT countSamples(vector<IndexT>& sampleCount,
-			     IndexT nSamp);
+  static vector<IndexT> countSamples(IndexT nRow,
+				     IndexT nSamp,
+				     IndexT& nBagged);
 
   
   /**
@@ -94,21 +98,6 @@ class Sample {
 		  const vector<PredictorT>& yCtg);
 
   
-  /**
-     @brief Appends summary node to crescent vector.
-
-     @param val is the sum of sampled responses.
-
-     @param sCount is the number of times sampled.
-
-     @param ctg is the category index:  unused if not categorical.
-   */
-  // Can be specified via pointer-to-member-function i/o virtual.
-  virtual double addNode(IndexT delRow,
-			 double val,
-			 IndexT sCount,
-			 PredictorT ctg) = 0;
-
  public:
 
   /**
@@ -148,7 +137,8 @@ class Sample {
      @param frame summarizes predictor ranks by row.
    */
   Sample(const class TrainFrame* frame,
-	 const class Sampler* sampler);
+	 const class Sampler* sampler,
+	 double (Sample::* adder_)(IndexT, double, IndexT, PredictorT) = nullptr);
 
   
   /**
@@ -273,7 +263,11 @@ struct SampleReg : public Sample {
   /**
      @brief Appends regression-style sampling record.
 
-     Parameters as described at virtual declaration.
+     @delRow is the distance to the previous added node.
+
+     @param val is the sum of sampled responses.
+
+     @param sCount is the number of times sampled.
 
      @param ctg unused, as response is not categorical.
    */
@@ -307,7 +301,7 @@ struct SampleCtg : public Sample {
   /**
      @brief Appends a sample summary record.
 
-     Parameters as described in virtual declaration.
+     Parameters as described above.
 
      @return sum of sampled response values.
    */
