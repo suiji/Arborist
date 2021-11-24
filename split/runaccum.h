@@ -185,12 +185,7 @@ public:
   }
 
 
-  /**
-     @return extent of implicit slot iff it lies left else zero.
-
-     @param cut is the greatest LH slot index.
-   */
-  IndexT getImplicitLeftSlots(PredictorT cut) const {
+  IndexT getImplicitCut(PredictorT cut) const {
     return implicitSlot <= cut ? getExtent(implicitSlot) : 0;
   }
   
@@ -246,8 +241,11 @@ public:
 
   /**
      @brief Revises slot or bit contents for argmax accumulator.
+
+     @param bitRand indicates whether to complement true-branch bits.
    */
-  void update(SplitStyle style);
+  void update(SplitStyle style,
+	      IndexT bitRand);
 
   
   /**
@@ -459,9 +457,16 @@ public:
      @brief Decodes bit vector of argmax factor.
 
      @param lhBits encodes sampled LH/RH slot indices as on/off bits, respectively.
-  */
-  void leadBits(PredictorT lhBits);
 
+     @param bitRand indicates whether to complement true branch bits.
+  */
+  void leadBits(IndexT bitRand);
+
+
+  /**
+     @brief Replaces left-justified cut with its complement.
+   */
+  PredictorT cutComplement(PredictorT cut);
 
   /**
      @brief Determines the complement of a bit pattern of fixed size.
@@ -510,9 +515,9 @@ public:
   /**
      @brief Establishes cut position of argmax factor.
 
-     @param cut is the final out slot of the LHS.
+     @param bitRand indicates whether to complement true-branch bits.
   */
-  void leadSlots(PredictorT cut);
+  void leadSlots(IndexT bitRand);
 
 
   /**

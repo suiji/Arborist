@@ -82,12 +82,12 @@ vector<IndexRange> RunAccum::getTopRange(const CritEncoding& enc) const {
 }
 
 
-void RunAccum::update(SplitStyle style) {
+void RunAccum::update(SplitStyle style, IndexT bitRand) {
   if (style == SplitStyle::slots) {
-    leadSlots(splitToken);
+    leadSlots(bitRand);
   }
   else if (style == SplitStyle::bits) {
-    leadBits(splitToken);
+    leadBits(bitRand);
   }
   else if (style == SplitStyle::topSlot) {
     topSlot();
@@ -100,22 +100,65 @@ void RunAccum::topSlot() {
 }
 
 
-void RunAccum::leadSlots(PredictorT cut) {
-  implicitTrue = getImplicitLeftSlots(cut);
+void RunAccum::leadSlots(IndexT bitRand) {
+  PredictorT cut = splitToken;
+  if (bitRand & 1) {
+    cut = cutComplement(cut);
+  }
+  implicitTrue = getImplicitCut(cut);
   runsLH = cut + 1;
 }
 
 
-void RunAccum::leadBits(PredictorT lhBits) {
+PredictorT RunAccum::cutComplement(PredictorT cut) {
+  vector<RunNux> frTemp(rcSafe);
+  PredictorT off = 0;
+  for (PredictorT runIdx = cut + 1; runIdx < runCount; runIdx++) {
+    frTemp[off++] = runZero[runIdx];
+  }
+
+  PredictorT newCut = off - 1;
+  for (PredictorT runIdx = 0; runIdx <= cut; runIdx++) {
+    frTemp[off++] = runZero[runIdx];
+  }
+  runZero = frTemp;
+
+  if (implicitSlot < runCount) {
+    if (implicitSlot > cut)
+      implicitSlot -= (cut + 1);
+    else
+      implicitSlot += (newCut + 1);
+  }
+
+  return newCut;
+}
+
+
+void RunAccum::leadBits(IndexT bitRand) {
+  PredictorT lhBits = splitToken;
   //  assert(lhBits != 0); // Argmax'd bits should never get here.
+
+  // Only categories present at this node can be incorporated into the
+  // splitting decision.  By convention, the categories resident in 'true'
+  // slots will take the true branch during prediction.  All other categories,
+  // regardless whether observed at this node, will take the false branch.
+  // This includes not only categories eclipsed by bagging or conditioning,
+  // but also proxy categories not present during training.
+
+  // No slot, whether implicit or explicit, should be assigned a branch
+  // sense fixed a priori.  Doing so biases predictions for reasons outlined
+  // above.  For this reason the true branch is randomly assigned to either
+  // the argmax slot subset or its complement.
+
+  if (bitRand & 1)
+    lhBits = slotComplement(lhBits);
 
   // Places true-sense runs to the left for range and code capture.
   implicitTrue = (lhBits & (1ul << implicitSlot)) == 0 ? 0 : getImplicitExtent(implicitSlot);
 
+  // effCount() captures all factor levels visible to the cell.
   vector<RunNux> frTemp(rcSafe);
   PredictorT off = 0;
-
-  // effCount() captures all true bits.
   for (PredictorT runIdx = 0; runIdx < effCount(); runIdx++) {
     if (lhBits & (1ul << runIdx)) {
       frTemp[off++] = runZero[runIdx];
@@ -391,13 +434,6 @@ void RunAccum::ctgGini(const SFCtg* sf, const SplitNux* cand) {
   // High bit unset, remainder set.
   PredictorT lowSet = (1ul << (effCount() - 1)) - 1;
 
-  // Only categories present at this node can be incorporated into the
-  // splitting decision.  By convention, the categories resident in 'true'
-  // slots will take the true branch during prediction.  All other categories,
-  // regardless whether observed at this node, will take the false branch.
-  // This includes not only categories eclipsed by bagging or conditioning,
-  // but also proxy categories not present during training.
-
   // Arg-max over all nontrivial subsets, up to complement:
   const vector<double>& sumSlice = sf->getSumSlice(cand);
   for (unsigned int subset = 1; subset <= lowSet; subset++) {
@@ -405,14 +441,6 @@ void RunAccum::ctgGini(const SFCtg* sf, const SplitNux* cand) {
       trueSlots = subset;
     }
   }
-
-  // No slot, whether implicit or explicit, should be assigned a branch
-  // sense fixed a priori.  Doing so biases predictions for reasons outlined
-  // above.  For this reason the true branch is "randomly" assigned to either
-  // the argmax slot subset or its complement.
-
-  if (cand->getNodeIdx() & 1) // Ersatz temporary "randomization".
-    trueSlots = slotComplement(trueSlots);
 
   setToken(trueSlots);
 }

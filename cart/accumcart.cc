@@ -150,7 +150,7 @@ CutAccumCtgCart::CutAccumCtgCart(const SplitNux* cand,
 void CutAccumCtgCart::split(SFCtgCart* spCtg,
 			    SplitNux* cand) {
   CutAccumCtgCart cutAccum(cand, spCtg);
-  cutAccum.split(spCtg, cand);
+  cutAccum.splitCtg(spCtg, cand);
 }
 
 

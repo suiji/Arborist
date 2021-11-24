@@ -86,7 +86,8 @@ void RunSet::resetRunCount(PredictorT accumIdx,
 
 
 void RunSet::updateAccum(const SplitNux& cand) {
-  runAccum[cand.getAccumIdx()].update(style);
+  // Ersatz temporary "randomization" on node index:
+  runAccum[cand.getAccumIdx()].update(style, cand.getNodeIdx());
 }
 
 
