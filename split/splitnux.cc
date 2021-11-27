@@ -45,6 +45,7 @@ void SplitNux::deImmutables() {
 SplitNux::SplitNux(const PreCand& preCand,
 		   const SplitFrontier* splitFrontier) :
   mrra(preCand.mrra),
+  randVal(preCand.randVal),
   implicitCount(preCand.stageCount.idxImplicit),
   idxRange(splitFrontier->getRange(mrra)),
   sum(splitFrontier->getSum(mrra)),
@@ -60,12 +61,14 @@ SplitNux::SplitNux(const SplitNux& parent,
 		   bool sense,
 		   IndexT idx) :
   mrra(parent.mrra),
+  randVal(parent.randVal),
   implicitCount(parent.implicitCount),
   idxRange(parent.idxRange),
   accumIdx(parent.accumIdx),
   sum(sf->getSumSucc(mrra, sense)),
   sCount(sf->getSCountSucc(mrra, sense)),
-  ptId(parent.ptId + idx) {
+  ptId(parent.ptId + idx),
+  info(0.0) {
 }
 
 

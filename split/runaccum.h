@@ -59,7 +59,8 @@ class RunAccum : public Accum {
 
   PredictorT implicitSlot; // Which run, if any has no explicit SR range.
   PredictorT runCount;  // Current high watermark.
-  PredictorT runsLH; // Count of LH runs.
+  PredictorT baseTrue; // Base of true-run slots.
+  PredictorT runsTrue; // Count of true-run slots.
   PredictorT splitToken; // Cut or bits.
   IndexT implicitTrue; // # implicit true-sense indices:  post-encoding.
 
@@ -185,8 +186,11 @@ public:
   }
 
 
-  IndexT getImplicitCut(PredictorT cut) const {
-    return implicitSlot <= cut ? getExtent(implicitSlot) : 0;
+  /**
+     @return extent of implicit slot, if in true branch, else zero.
+   */
+  IndexT getImplicitCut() const {
+    return (implicitSlot >= baseTrue && implicitSlot < baseTrue + runsTrue) ? getExtent(implicitSlot) : 0;
   }
   
 
@@ -242,10 +246,10 @@ public:
   /**
      @brief Revises slot or bit contents for argmax accumulator.
 
-     @param bitRand indicates whether to complement true-branch bits.
+     @param cand is a successful splitting candidate.
    */
-  void update(SplitStyle style,
-	      IndexT bitRand);
+  void update(const SplitNux& cand,
+	      SplitStyle style);
 
   
   /**
@@ -462,11 +466,6 @@ public:
   */
   void leadBits(IndexT bitRand);
 
-
-  /**
-     @brief Replaces left-justified cut with its complement.
-   */
-  PredictorT cutComplement(PredictorT cut);
 
   /**
      @brief Determines the complement of a bit pattern of fixed size.

@@ -70,12 +70,6 @@ bool DefFrontier::isSingleton(const MRRA& mrra) const {
 }
 
 
-bool DefFrontier::preschedule(const SplitCoord& splitCoord, unsigned int& bufIdx) {
-  reachFlush(splitCoord);
-  return !layer[0]->isSingleton(splitCoord, bufIdx);
-}
-
-
 vector<SplitNux> DefFrontier::getCandidates(const SplitFrontier* sf) const {
   vector<SplitNux> postCand;
   for (auto pcVec : preCand) {
@@ -105,8 +99,8 @@ SampleRank* DefFrontier::getPredBase(const SplitNux* nux) const {
 }
 
 
-IndexT DefFrontier::getImplicitCount(const MRRA& preCand) const {
-  return layer[0]->getImplicit(preCand);
+IndexT DefFrontier::getImplicitCount(const MRRA& mrra) const {
+  return layer[0]->getImplicit(mrra);
 }
 
 
@@ -168,15 +162,15 @@ void DefFrontier::stage(const Sample* sample) {
     predIdx++;
   }
 
-  initPrecand();
+  setPrecandidates();
   for (auto & pc : preCand[0]) { // Root:  single split.
     pc.setStageCount(stageCount[pc.mrra.splitCoord.predIdx]);
   }
 }
 
 
-void DefFrontier::initPrecand() {
-  preCand = vector<vector<PreCand>>(getNSplit());
+void DefFrontier::setPrecandidates() {
+  preCand = vector<vector<PreCand>>(splitCount);
   // Precandidates precipitate restaging ancestors at this level,
   // as do all non-singleton definitions arising from flushes.
   CandType::precandidates(this);
@@ -227,15 +221,29 @@ void DefFrontier::restage() {
 }
 
 
-bool DefFrontier::preschedule(const SplitCoord& splitCoord) {
+bool DefFrontier::preschedule(const SplitCoord& splitCoord, double dRand) {
   unsigned int bufIdx;
-  if (preschedule(splitCoord, bufIdx)) {
-    preCand[splitCoord.nodeIdx].emplace_back(splitCoord, bufIdx);
+  if (preschedulable(splitCoord, bufIdx)) {
+    preCand[splitCoord.nodeIdx].emplace_back(splitCoord, bufIdx, getRandLow(dRand));
     return true;
   }
   else {
     return false;
   }
+}
+
+
+uint32_t DefFrontier::getRandLow(double rVal) {
+  union { double d; uint64_t ui; } u;
+  u.d = rVal;
+
+  return u.ui & 0x00000000ffffffff;
+}
+
+
+bool DefFrontier::preschedulable(const SplitCoord& splitCoord, unsigned int& bufIdx) {
+  reachFlush(splitCoord);
+  return !layer[0]->isSingleton(splitCoord, bufIdx);
 }
 
 

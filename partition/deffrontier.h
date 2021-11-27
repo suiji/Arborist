@@ -38,13 +38,16 @@
 struct PreCand {
   MRRA mrra; // delIdx implicitly zero, but buf-bit needed.
   StageCount stageCount; // Shared between candidate and accumulator, if cand.
-
+  uint32_t randVal; // Arbiter for tie-breaking and the like.
+  
   /**
      @brief MRRA component initialized at construction, StageCount at (re)staging.
    */
   PreCand(const SplitCoord& splitCoord,
-	  unsigned int bufIdx) :
-    mrra(MRRA(splitCoord, bufIdx, 0)) {
+	  unsigned int bufIdx,
+	  uint32_t randVal_) :
+    mrra(MRRA(splitCoord, bufIdx, 0)),
+    randVal(randVal_) {
   }
 
   
@@ -94,8 +97,7 @@ class DefFrontier {
   vector<unsigned char> deltaPrev; // Previous layer's delta:  accum.
   deque<unique_ptr<class DefLayer> > layer; // Caches layers tracked by history.
   vector<vector<PreCand>> preCand; // Restageable, possibly splitable, coordinates.
-  //  vector<PredictorT> runCount;
-  
+
 
   /**
      @brief Increments reaching layers for all pairs involving node.
@@ -187,7 +189,7 @@ class DefFrontier {
   /**
      @brief Rebuilds the precandidate vector using CandT method.
    */
-  void initPrecand();
+  void setPrecandidates();
 
   
   const vector<vector<PreCand>>& getPrecand() const {
@@ -219,14 +221,27 @@ class DefFrontier {
 
      @return true iff cell at coordinate is splitable.
   */
-  bool preschedule(const SplitCoord& splitCoord,
-		   unsigned int& bufIdx);
+  bool preschedulable(const SplitCoord& splitCoord,
+		      unsigned int& bufIdx);
 
 
   /**
      @brief As above, but discovers buffer via lookup.
    */
-  bool preschedule(const SplitCoord& splitCoord);
+  bool preschedule(const SplitCoord& splitCoord,
+		   double dRand);
+
+
+  /**
+     @brief Extracts the 32 lowest-order mantissa bits of a double-valued
+     random variate.
+
+     The double-valued variants passed are used by the caller to arbitrate
+     variable sampling and are unlikely to rely on more than the first
+     few mantissa bits.  Hence using the low-order bits to arbitrate other
+     choices is unlikely to introduce spurious correlations.
+   */
+  static uint32_t getRandLow(double dRand);
 
   
   /**

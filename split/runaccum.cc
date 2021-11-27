@@ -34,7 +34,8 @@ RunAccum::RunAccum(const SplitFrontier* splitFrontier,
   rvZero(nullptr),
   implicitSlot(rcSafe), // Inattainable slot index.
   runCount(0),
-  runsLH(0),
+  baseTrue(0),
+  runsTrue(0),
   implicitTrue(0) {
 }
 
@@ -52,12 +53,12 @@ void RunAccum::reWide(vector<double>& rvWide, IndexT& rvOff) {
 vector<IndexRange> RunAccum::getRange(const CritEncoding& enc) const {
   PredictorT slotStart, slotEnd;
   if (enc.trueEncoding()) {
-    slotStart = 0;
-    slotEnd = runsLH;
+    slotStart = baseTrue;
+    slotEnd = baseTrue + runsTrue;
   }
   else { // Replay indices explicit on false branch.
-    slotStart = runsLH;
-    slotEnd = runCount;
+    slotStart = baseTrue == 0 ? runsTrue : 0;
+    slotEnd = baseTrue == 0 ? runCount : (runCount - runsTrue);
   }
   return getRange(slotStart, slotEnd);
 }
@@ -77,17 +78,17 @@ vector<IndexRange> RunAccum::getRange(PredictorT slotStart,
 
 vector<IndexRange> RunAccum::getTopRange(const CritEncoding& enc) const {
   vector<IndexRange> rangeVec;
-  rangeVec.push_back(IndexRange(getBounds(enc.trueEncoding() ? runsLH - 1 : runCount - 1)));
+  rangeVec.push_back(IndexRange(getBounds(enc.trueEncoding() ? runsTrue - 1 : runCount - 1)));
   return rangeVec;
 }
 
 
-void RunAccum::update(SplitStyle style, IndexT bitRand) {
+void RunAccum::update(const SplitNux& cand, SplitStyle style) {
   if (style == SplitStyle::slots) {
-    leadSlots(bitRand);
+    leadSlots(cand.getRandVal());
   }
   else if (style == SplitStyle::bits) {
-    leadBits(bitRand);
+    leadBits(cand.getRandVal());
   }
   else if (style == SplitStyle::topSlot) {
     topSlot();
@@ -96,41 +97,21 @@ void RunAccum::update(SplitStyle style, IndexT bitRand) {
 
 
 void RunAccum::topSlot() {
-  implicitTrue += getImplicitExtent(runsLH++);
+  implicitTrue += getImplicitExtent(runsTrue++);
 }
 
 
 void RunAccum::leadSlots(IndexT bitRand) {
-  PredictorT cut = splitToken;
-  if (bitRand & 1) {
-    cut = cutComplement(cut);
+  // 'splitToken' is the index of the cut, or highest left slot.
+  PredictorT runsLeft = splitToken + 1;
+  if (bitRand & 0x80000000) { // Lowest-order bits may be zero.
+    baseTrue = runsLeft;
+    runsTrue = runCount - runsLeft;
   }
-  implicitTrue = getImplicitCut(cut);
-  runsLH = cut + 1;
-}
-
-
-PredictorT RunAccum::cutComplement(PredictorT cut) {
-  vector<RunNux> frTemp(rcSafe);
-  PredictorT off = 0;
-  for (PredictorT runIdx = cut + 1; runIdx < runCount; runIdx++) {
-    frTemp[off++] = runZero[runIdx];
+  else {
+    runsTrue = runsLeft;
   }
-
-  PredictorT newCut = off - 1;
-  for (PredictorT runIdx = 0; runIdx <= cut; runIdx++) {
-    frTemp[off++] = runZero[runIdx];
-  }
-  runZero = frTemp;
-
-  if (implicitSlot < runCount) {
-    if (implicitSlot > cut)
-      implicitSlot -= (cut + 1);
-    else
-      implicitSlot += (newCut + 1);
-  }
-
-  return newCut;
+  implicitTrue = getImplicitCut();
 }
 
 
@@ -150,7 +131,7 @@ void RunAccum::leadBits(IndexT bitRand) {
   // above.  For this reason the true branch is randomly assigned to either
   // the argmax slot subset or its complement.
 
-  if (bitRand & 1)
+  if (bitRand & 0x80000000)
     lhBits = slotComplement(lhBits);
 
   // Places true-sense runs to the left for range and code capture.
@@ -164,7 +145,7 @@ void RunAccum::leadBits(IndexT bitRand) {
       frTemp[off++] = runZero[runIdx];
     }
   }
-  runsLH = off;
+  runsTrue = off;
 
   for (PredictorT runIdx = 0; runIdx < runCount; runIdx++) {
     if (!(lhBits & (1ul << runIdx))) {
@@ -177,8 +158,8 @@ void RunAccum::leadBits(IndexT bitRand) {
 
 
 vector<PredictorT> RunAccum::getTrueBits() const {
-  vector<PredictorT> trueBits(runsLH);
-  PredictorT outSlot = 0;
+  vector<PredictorT> trueBits(runsTrue);
+  PredictorT outSlot = baseTrue;
   for (auto & bit : trueBits) {
     bit = getCode(outSlot++);
   }
@@ -374,9 +355,9 @@ void RunAccum::heapBinary() {
 
 
 struct RunDump RunAccum::dump() const {
-  PredictorT startTrue = implicitTrue ? runsLH : 0;
-  PredictorT runsTrue = implicitTrue ? (runCount - runsLH) : runsLH;
-  return RunDump(this, startTrue, runsTrue);
+  PredictorT startTrue = implicitTrue ? runsTrue : 0;
+  PredictorT slotsTrue = implicitTrue ? (runCount - runsTrue) : runsTrue;
+  return RunDump(this, startTrue, slotsTrue);
 }
 
 

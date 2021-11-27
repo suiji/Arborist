@@ -53,7 +53,7 @@ protected:
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
   
-  vector<double> prebias; // Node-level information threshold.
+  vector<double> prebias; // Node-level information threshold, set virtually.
 
 
   /**
@@ -75,10 +75,6 @@ protected:
    */
   PredictorT getNumIdx(PredictorT predIdx) const;
 
-  /**
-     @brief Presets the information threshold of splitable nodes.
-   */
-  void setPrebias(class SplitFrontier* splitFrontier);
 
 public:
 
@@ -310,12 +306,6 @@ public:
 
 
   /**
-     @brief Initializations employing virutal methods.
-   */
-  void init();
-
-
-  /**
      @brief Classification sublcasses return # categories; others zero.
    */
   PredictorT getNCtg() const;
@@ -352,8 +342,6 @@ public:
 
   // These are run-time invariant and need not be virtual:
   virtual void frontierPreset() = 0;
-
-  virtual double getPrebias(IndexT splitIdx) const = 0;
 };
 
 
@@ -406,13 +394,12 @@ struct SFReg : public SplitFrontier {
 
 class SFCtg : public SplitFrontier {
 protected:
+  const PredictorT nCtg;
+  vector<vector<double> > ctgSum; // Per-category response sums, by node.
   vector<double> sumSquares; // Per-layer sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
 
-
-  const PredictorT nCtg;
-  vector<vector<double> > ctgSum; // Per-category response sums, by node.
-
+  
 public:
   SFCtg(class Frontier* frontier,
 	bool compoundCriteria,

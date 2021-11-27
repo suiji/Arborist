@@ -184,19 +184,14 @@ vector<double> IndexSet::sumsAndSquares(double& sumSquares) {
 }
 
 
-void IndexSet::candMax(const vector<SplitNux>& cand,
+void IndexSet::candMax(const vector<SplitNux>& candVec,
 		       SplitNux& argMaxNux) const {
-  IndexT argMax = cand.size();
-  double runningMax = 0.0;
-  for (IndexT splitOff = 0; splitOff < cand.size(); splitOff++) {
-    if (cand[splitOff].maxInfo(runningMax)) {
-      argMax = splitOff;
-    }
+  const SplitNux* amn = &argMaxNux;
+  for (auto & cand : candVec) {
+    cand.maxInfo(amn);
   }
-
-  if (runningMax > 0.0 && isInformative(cand[argMax])) {
-    argMaxNux = cand[argMax];
-  }
+  if (isInformative(amn))
+    argMaxNux = *amn;
 }
 
 
@@ -242,8 +237,7 @@ unsigned int IndexSet::splitAccum(bool sense,
   }
 }
 
-  
 
-bool IndexSet::isInformative(const SplitNux& nux) const {
-  return nux.getInfo() > minInfo;
+bool IndexSet::isInformative(const SplitNux* nux) const {
+  return nux->getInfo() > minInfo;
 }

@@ -77,7 +77,7 @@ unique_ptr<PreTree> Frontier::levels(const Sample* sample) {
     branchSense->frontierReset();
     SplitFrontier::split(this, branchSense.get());
     indexSet = splitDispatch(branchSense.get(), level);
-    defMap->initPrecand();
+    defMap->setPrecandidates();
     level++;
   }
 

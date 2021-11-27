@@ -70,7 +70,7 @@ void CandRF::candidateProb(PredictorT nPred,
 			   const double ruPred[]) {
   for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) defFrontier->preschedule(SplitCoord(splitIdx, predIdx));
+      (void) defFrontier->preschedule(SplitCoord(splitIdx, predIdx), ruPred[predIdx]);
     }
   }
 }
@@ -91,7 +91,7 @@ void CandRF::candidateFixed(PredictorT nPred,
   PredictorT schedCount = 0;
   for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
     SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
-    if (defFrontier->preschedule(splitCoord)) {
+    if (defFrontier->preschedule(splitCoord, ruPred[heapSize-1])) {
       if (++schedCount == predFixed) {
 	break;
       }

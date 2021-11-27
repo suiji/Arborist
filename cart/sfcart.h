@@ -33,6 +33,12 @@ struct SFRegCart : public SFReg {
 
 
   /**
+     @brief Initializes per-frontier sum and FacRun vectors.
+  */
+  void frontierPreset();
+
+
+  /**
      @return enumeration indicating slot-style encoding.
    */
   SplitStyle getFactorStyle() const;
@@ -86,14 +92,6 @@ class SFCtgCart : public SFCtg {
   void split(class SplitNux* cand);
 
 
-  /**
-     @brief Initializes numerical sum accumulator for currently layer.
-
-     @parm nPredNum is the number of numerical predictors.
-   */
-  void layerInitSumR(PredictorT nPredNum);
-
-  
   /**
      @brief Gini pre-bias computation for categorical response.
 

@@ -35,6 +35,7 @@ class SplitNux {
   static double minRatio;
 
   MRRA mrra; // Cell coordinates of pre-cand; delIdx implicitly zero.
+  uint32_t randVal;
   IndexT implicitCount; // Extracted from StageCount; rank count to accumulator.
   IndexRange idxRange; // SampleRank index range of cell column.
   IndexT accumIdx; // Index into accumulator workspace.
@@ -92,6 +93,7 @@ public:
   */  
   SplitNux() :
     mrra(MRRA()),
+    randVal(0),
     implicitCount(0),
     accumIdx(0),
     sum(0.0),
@@ -103,9 +105,10 @@ public:
   
   /**
      @brief Copy constructor:  post splitting.
-   */
+
   SplitNux(const SplitNux& nux) :
     mrra(nux.mrra),
+    randVal(nux.randVal),
     implicitCount(nux.implicitCount),
     idxRange(nux.idxRange),
     accumIdx(nux.accumIdx),
@@ -117,6 +120,7 @@ public:
 
   SplitNux& operator= (const SplitNux& nux) {
     mrra = nux.mrra;
+    randVal = nux.randVal;
     implicitCount = nux.implicitCount;
     idxRange = nux.idxRange;
     accumIdx = nux.accumIdx;
@@ -127,10 +131,12 @@ public:
 
     return *this;
   }
-
+  */
   
   /**
      @brief Transfer constructor over iteratively-encoded IndexSet.
+
+     Post-splitting.
 
      @param idx positions nux within a multi-criterion set.
    */
@@ -185,20 +191,15 @@ public:
 
 
   /**
-     @brief Resets trial information value of this greater.
+     @brief Running argmax over info members.
 
-     @param[out] runningMax holds the running maximum value.
-
-     @return true iff value revised.
-   */
-  bool maxInfo(double& runningMax) const {
-    if (info > runningMax) {
-      runningMax = info;
-      return true;
-    }
-    return false;
+     @param[in, out] amn holds the running argmax nux.
+  */
+  inline void maxInfo(const SplitNux*& amn) const {
+    if (info > amn->info || (info == amn->info && info > 0.0 && randVal > amn->randVal))
+      amn = this;
   }
-
+  
 
   auto getPTId() const {
     return ptId;
@@ -272,6 +273,11 @@ public:
     return sum;
   }
 
+
+  auto getRandVal() const {
+    return randVal;
+  }
+  
   
   /**
      @return Count of implicit indices associated with IndexSet.

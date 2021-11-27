@@ -32,6 +32,7 @@ vector<double> SFReg::mono; // Numeric monotonicity constraints.
 void SplitFrontier::split(Frontier* frontier,
 			  BranchSense* branchSense) {
   unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frontier);
+  splitFrontier->frontierPreset(); // virtual.
   splitFrontier->restageAndSplit(branchSense);
 }
 
@@ -98,22 +99,8 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 
 void SplitFrontier::restageAndSplit(BranchSense* branchSense) {
   defMap->restage();
-  init();
-  (this->*splitter)(branchSense);
-}
-
-
-void SplitFrontier::init() {
   runSet = make_unique<RunSet>(this, frame->getNRow());
-  frontierPreset(); // Virtual.
-  setPrebias(this); // Hoist AHAP
-}
-
-
-void SplitFrontier::setPrebias(SplitFrontier* sf) {
-  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
-    prebias[splitIdx] = getPrebias(splitIdx);
-  }
+  (this->*splitter)(branchSense);
 }
 
 
@@ -253,7 +240,10 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     SplitStyle splitStyle,
 	     void (SplitFrontier::* splitter) (BranchSense*)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
-  nCtg(frontier->getNCtg()) {
+  nCtg(frontier->getNCtg()),
+  ctgSum(vector<vector<double>>(nSplit)),
+  sumSquares(frontier->sumsAndSquares(ctgSum)),
+  ctgSumAccum(vector<double>(frame->getNPredNum() * nCtg * nSplit)) {
 }
 
 

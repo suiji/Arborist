@@ -37,17 +37,15 @@ SFCtgCart::SFCtgCart(Frontier* frontier) :
 
   
 void SFCtgCart::frontierPreset() {
-  layerInitSumR(frame->getNPredNum());
-  ctgSum = vector<vector<double> >(nSplit);
-
-  sumSquares = frontier->sumsAndSquares(ctgSum);
+  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
+    prebias[splitIdx] = getPrebias(splitIdx);
 }
 
 
-void SFCtgCart::layerInitSumR(PredictorT nPredNum) {
-  if (nPredNum > 0) {
-    ctgSumAccum = vector<double>(nPredNum * nCtg * nSplit);
-  }
+void SFRegCart::frontierPreset() {
+  SFReg::frontierPreset();
+  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
+    prebias[splitIdx] = getPrebias(splitIdx);
 }
 
 

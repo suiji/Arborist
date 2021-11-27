@@ -188,7 +188,7 @@ class IndexSet {
   void surveySplit(struct SplitSurvey& survey) const;
   
 
-  bool isInformative(const SplitNux& nux) const;
+  bool isInformative(const SplitNux* nux) const;
   
 
   /**
