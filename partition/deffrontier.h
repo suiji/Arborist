@@ -241,7 +241,13 @@ class DefFrontier {
      few mantissa bits.  Hence using the low-order bits to arbitrate other
      choices is unlikely to introduce spurious correlations.
    */
-  static uint32_t getRandLow(double dRand);
+  inline static unsigned int getRandLow(double rVal) {
+    union { double d; uint32_t ui[2]; } u = {rVal};
+    
+    return u.ui[0];
+  }
+
+
 
   
   /**

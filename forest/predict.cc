@@ -52,8 +52,7 @@ Predict::Predict(const Forest* forest,
   noLeaf(scoreHeight.back()),
   walkTree(nPredFac == 0 ? &Predict::walkNum : (nPredNum == 0 ? &Predict::walkFac : &Predict::walkMixed)),
   trFac(vector<unsigned int>(scoreChunk * nPredFac)),
-  trNum(vector<double>(scoreChunk * nPredNum)),
-  trIdx(vector<size_t>(nPredNum + nPredFac)) {
+  trNum(vector<double>(scoreChunk * nPredNum)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
 }
 
@@ -147,7 +146,6 @@ void Predict::predictPermute() {
     setPermuteTarget(predIdx);
     vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
     rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, BHeap::permute(nRow));
-    fill(trIdx.begin(), trIdx.end(), 0); // Resets trace counters.
     blocks();
     rleFrame->rlePred[predIdx] = move(rleTemp);
   }
@@ -176,10 +174,11 @@ void PredictCtg::setPermuteTarget(PredictorT predIdx) {
 
 
 void Predict::blocks() {
-  size_t row = predictBlock(0, nRow);
+  vector<size_t> trIdx(nPredNum + nPredFac);
+  size_t row = predictBlock(0, nRow, trIdx);
   // Remainder rows handled in custom-fitted block.
   if (nRow > row) {
-    (void) predictBlock(row, nRow);
+    (void) predictBlock(row, nRow, trIdx);
   }
 
   estAccum();
@@ -187,7 +186,8 @@ void Predict::blocks() {
 
 
 size_t Predict::predictBlock(size_t rowStart,
-			     size_t rowEnd) {
+			     size_t rowEnd,
+			     vector<size_t>& trIdx) {
   size_t blockRows = min(scoreChunk, rowEnd - rowStart);
   size_t row = rowStart;
   for (; row + blockRows <= rowEnd; row += blockRows) {
@@ -370,7 +370,7 @@ void PredictCtg::estAccum() {
   Predict::estAccum();
   if (!(*confusionTarg).empty()) {
     for (size_t row = 0; row < nRow; row++) {
-      (*confusionTarg)[ctgIdx(yTest[row], yPred[row])]++;
+      (*confusionTarg)[ctgIdx(yTest[row], (*yTarg)[row])]++;
     }
     setMisprediction();
   }

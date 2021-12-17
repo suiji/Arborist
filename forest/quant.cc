@@ -105,8 +105,8 @@ IndexT Quant::sampleLeaf(const Predict* predict,
   predict->sampleBounds(tIdx, leafIdx, leafStart, leafEnd);
   for (size_t sIdx = leafStart; sIdx < leafEnd; sIdx++) {
     const RankCount& rc = rankCount[sIdx];
-    sCountBin[binRank(rc.rank)] += rc.sCount;
-    sampleTot += rc.sCount;
+    sCountBin[binRank(rc.getRank())] += rc.getSCount();
+    sampleTot += rc.getSCount();
   }
   return sampleTot; // Single leaf, so fits in IndexT.
 }

@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2020   Mark Seligman
+# Copyright (C)  2012-2022   Mark Seligman
 ##
 ## This file is part of ArboristBridgeR.
 ##
@@ -59,14 +59,18 @@
     
     if (any(is.na(y)))
         stop("NA not supported in response")
+
     if (!is.numeric(y) && !is.factor(y))
         stop("Expecting numeric or factor response")
 
-    if (impPermute < 0 || impPermute > 1)
-        stop("Importance permutations limited to zero or one.")
+    if (impPermute < 0)
+        warning("Negative permutation count:  ignoring.")
+
+    if (impPermute > 1)
+        warning("Permutation count limited to one.")
     
     if (impPermute > 0 && noValidate)
-        stop("Variable importance requires validation")
+        warning("Variable importance requires validation:  ignoring")
     
     preFormat <- PreFormat(x, verbose)
     

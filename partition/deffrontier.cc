@@ -233,14 +233,6 @@ bool DefFrontier::preschedule(const SplitCoord& splitCoord, double dRand) {
 }
 
 
-uint32_t DefFrontier::getRandLow(double rVal) {
-  union { double d; uint64_t ui; } u;
-  u.d = rVal;
-
-  return u.ui & 0x00000000ffffffff;
-}
-
-
 bool DefFrontier::preschedulable(const SplitCoord& splitCoord, unsigned int& bufIdx) {
   reachFlush(splitCoord);
   return !layer[0]->isSingleton(splitCoord, bufIdx);

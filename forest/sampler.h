@@ -16,6 +16,7 @@
 #ifndef FOREST_SAMPLER_H
 #define FOREST_SAMPLER_H
 
+#include "util.h"
 #include "jagged.h"
 #include "bv.h"
 #include "typeparam.h"
@@ -24,53 +25,122 @@
 
 #include <memory>
 #include <vector>
+
+using namespace std;
+
 /**
    @brief Rank and sample-counts associated with sampled rows.
 
    Client:  quantile inference.
  */
-struct RankCount {
-  IndexT rank; // Training rank of row.
-  IndexT sCount; // # times row sampled.
+class RankCount {
+  // When sampling is not weighted, the sample-count value typically
+  // requires four bits or fewer.  Packing therefore accomodates rank
+  // values well over 32 bits.
+  PackedT packed; // Packed representation of rank and sample count.
 
+  static unsigned int rightBits; // # bits occupied by rank value.
+  static PackedT rankMask; // Mask unpacking the rank value.
+
+public:
+
+  /**
+     @brief Invoked at Sampler construction, as needed.
+   */
+  static void setMasks(IndexT nObs) {
+    rightBits = Util::packedWidth(nObs);
+    rankMask = (1 << rightBits) - 1;
+  }
+
+
+  /**
+     @brief Invoked at Sampler destruction.
+   */
+  static void unsetMasks() {
+    rightBits = 0;
+    rankMask = 0;
+  }
+  
+
+  /**
+     @brief Packs statistics associated with a response.
+
+     @param rank is the rank of the response value.
+
+     @param sCount is the number of times the observation was sampled.
+   */
   void init(IndexT rank,
             IndexT sCount) {
-    this->rank = rank;
-    this->sCount = sCount;
+    packed = rank | (sCount << rightBits);
+  }
+
+  IndexT getRank() const {
+    return packed & rankMask;
+  }
+
+
+  IndexT getSCount() const {
+    return packed >> rightBits;
   }
 };
 
 
 class SamplerNux {
-  IndexT sCount; // # times bagged:  == 0 iff marker.
-  IndexT leafIdx; // Leaf index within tree, iff non-marker
-  IndexT delRow; // Difference in adjacent row numbers, iff non-marker.
+  // As with RankCount, unweighted sampling typically incurs very
+  // small sample counts and row deltas, leaving well over 32
+  // bits for leaf indices.
+  PackedT packed;
 
 public:
-  SamplerNux() :
-    sCount(0) {
+  static IndexT delWidth;
+  static PackedT delMask;
+  static PackedT leafMask;
+  static IndexT rightBits;
+
+
+  static void unsetMasks() {
+    delMask = 0;
+    delWidth = 0;
+    leafMask = 0;
+    rightBits = 0;
   }
   
-  SamplerNux(IndexT delRow_,
-	     IndexT leafIdx_,
-	     IndexT sCount_) :
-    sCount(sCount_),
-    leafIdx(leafIdx_),
-    delRow(delRow_) {
+  SamplerNux(IndexT delRow,
+	     IndexT leafIdx,
+	     IndexT sCount) :
+    packed(delRow | (static_cast<PackedT>(leafIdx) << delWidth) | (static_cast<PackedT>(sCount) << rightBits)) {
   }
 
+  
+  static void setMasks(IndexT nObs,
+		       IndexT nSamp) {
+    delWidth = Util::packedWidth(nObs);
+    delMask = (1ull << delWidth) - 1;
+    unsigned int leafWidth = Util::packedWidth(nSamp);
+    leafMask = (1ull << leafWidth) - 1;
+    rightBits = delWidth + leafWidth;
+  }
+
+  /**
+     @return difference in adjacent row numbers.  Always < nObs.
+   */
   inline auto getDelRow() const {
-    return delRow;
+    return packed & delMask;
   }
   
 
+  /**
+     @return leaf index within tree.
+   */
   inline auto getLeafIdx() const {
-    return leafIdx;
+    return (packed >> delWidth) & leafMask;
   }
 
-  
+  /**
+     @return sample count
+   */  
   inline auto getSCount() const {
-    return sCount;
+    return packed >> rightBits;
   }
 };
 
@@ -86,7 +156,7 @@ public:
   vector<size_t> sampleOffset; // Per-leaf sample offset:  extent patial sums.
 
   
-  SamplerBlock(const SamplerNux* sampls,
+  SamplerBlock(const SamplerNux* samples,
 	       const vector<size_t>& height,
 	       const vector<size_t>& forestIdx);
 
@@ -311,6 +381,11 @@ public:
 	  unsigned int nTree_,
 	  bool bagging_);
 
+  ~Sampler() {
+    RankCount::unsetMasks();
+    SamplerNux::unsetMasks();
+  }
+  
   
   const Leaf* getLeaf() const {
     return leaf.get();

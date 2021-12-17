@@ -12,6 +12,13 @@
 
 #include <cmath>
 
+PackedT RankCount::rankMask = 0;
+unsigned int RankCount::rightBits = 0;
+
+unsigned int SamplerNux::delWidth = 0;
+PackedT SamplerNux::delMask = 0;
+PackedT SamplerNux::leafMask = 0;
+unsigned int SamplerNux::rightBits = 0;
 
 Sampler::Sampler(const vector<double>& yTrain,
 		 bool nuxSamples_,
@@ -28,6 +35,8 @@ Sampler::Sampler(const vector<double>& yTrain,
   bagMatrix((bagging && !nuxSamples) ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(0,0)),
   samplerBlock(nullptr),
   tIdx(0) {
+  RankCount::setMasks(nObs);
+  SamplerNux::setMasks(nObs, nSamp);
 }
 
 
@@ -45,6 +54,8 @@ Sampler::Sampler(const vector<double>& yTrain,
   nuxSamples(nuxSamples_),
   leaf(Leaf::factoryReg(yTrain)),
   bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  RankCount::setMasks(nObs);
+  SamplerNux::setMasks(nObs, nSamp);
   samplerBlock = readRaw(samples);
 }
 
@@ -66,6 +77,8 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   bagMatrix((bagging && !nuxSamples) ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(0,0)),
   samplerBlock(nullptr),
   tIdx(0) {
+  RankCount::setMasks(nObs);
+  SamplerNux::setMasks(nObs, nSamp);
 }
 
 
@@ -84,6 +97,8 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nuxSamples(nuxSamples_),
   leaf(Leaf::factoryCtg(yTrain, nCtg)),
   bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  RankCount::setMasks(nObs);
+  SamplerNux::setMasks(nObs, nSamp);
   samplerBlock = readRaw(samples);
 }
 

@@ -95,9 +95,12 @@ protected:
   
   /**
      @brief Strip-mines prediction by fixed-size blocks.
+
+     @param[in, out] trIdx caches RLE index accessed by a predictor.
    */
   size_t predictBlock(size_t row,
-		      size_t extent);
+		      size_t extent,
+		      vector<size_t>& trIdx);
 
 
   /**
@@ -161,7 +164,6 @@ public:
 
   vector<unsigned int> trFac; // OTF transposed factor observations.
   vector<double> trNum; // OTF transposed numeric observations.
-  vector<size_t> trIdx; // Most recent RLE index accessed by predictor.
 
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,

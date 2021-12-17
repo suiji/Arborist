@@ -14,8 +14,8 @@
  */
 
 
-#ifndef TREE_TREENODE_H
-#define TREE_TREENODE_H
+#ifndef FOREST_TREENODE_H
+#define FOREST_TREENODE_H
 
 #include "crit.h"
 
