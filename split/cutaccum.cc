@@ -17,7 +17,7 @@
 #include "cutaccum.h"
 #include "cutset.h"
 #include "splitfrontier.h"
-#include "obspart.h"
+#include "partition.h"
 
 
 CutAccum::CutAccum(const SplitNux* cand,

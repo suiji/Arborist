@@ -53,7 +53,7 @@ protected:
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
   
-  vector<double> prebias; // Node-level information threshold, set virtually.
+  vector<double> nodeInfo; // Node-level information threshold, set virtually.
 
 
   /**
@@ -231,14 +231,14 @@ public:
 
 
   /**
-     @brief Getter for pre-bias value, by index.
+     @brief Getter for pre-info value, by index.
 
      @param splitIdx is the index.
 
      @param return pre-bias value.
    */
-  inline double getPrebias(const MRRA& preCand) const {
-    return prebias[preCand.splitCoord.nodeIdx];
+  inline double getPreinfo(const MRRA& preCand) const {
+    return nodeInfo[preCand.splitCoord.nodeIdx];
   }
 
 
@@ -312,7 +312,7 @@ public:
 
 
   /**
-     @brief Updates state for successful split.
+     @brief Updates accumulator state for successful split.
 
      Side-effects branchOffset.
 
@@ -320,9 +320,10 @@ public:
    */
   CritEncoding splitUpdate(const SplitNux& nux,
 			   class BranchSense* branchSense,
-			   const IndexRange& range,
-			   bool increment) const;
+			   const IndexRange& range = IndexRange(),
+			   bool increment = true) const;
 
+  
   SplitStyle getFactorStyle() const {
     return splitStyle;
   }

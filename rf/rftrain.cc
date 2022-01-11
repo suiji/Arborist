@@ -19,7 +19,7 @@
 #include "trainframe.h"
 #include "frontier.h"
 #include "pretree.h"
-#include "obspart.h"
+#include "partition.h"
 #include "sfcart.h"
 #include "splitnux.h"
 #include "sampler.h"

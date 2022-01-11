@@ -72,9 +72,9 @@ public:
   }
 
   
-  void critBits(const class SplitNux* nux,
+  void critBits(const class SplitNux& nux,
 		size_t bitEnd) {
-    decNode.critBits(nux, bitEnd);
+    decNode.critBits(&nux, bitEnd);
   }
 
 
@@ -83,9 +83,9 @@ public:
   }
 
   
-  void critCut(const class SplitNux* nux,
+  void critCut(const class SplitNux& nux,
 	       const class SplitFrontier* splitFrontier) {
-    decNode.critCut(nux, splitFrontier);
+    decNode.critCut(&nux, splitFrontier);
   }
 
   
@@ -133,7 +133,6 @@ public:
 */
 class PreTree {
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
-  const IndexT bagCount;
   IndexT height; // Running count of nodes.
   IndexT leafCount; // Running count of leaves.
   vector<PTNode> nodeVec; // Vector of tree nodes.
@@ -260,7 +259,9 @@ class PreTree {
      @param stTerm are subtree-relative indices.  These must be mapped to
      sample indices if the subtree is proper.
   */
-  void cacheSampleMap(const vector<IndexT>& stTerm);
+  void cacheSampleMap(const vector<IndexT>& stTerm) {
+    sampleMap = move(stTerm);
+  }
 
 
   inline IndexT getHeight() const {
@@ -283,8 +284,8 @@ class PreTree {
   }
 
 
-  inline IndexT getSuccId(IndexT ptId, bool isLeft) const {
-    return isLeft ? nodeVec[ptId].getIdTrue(ptId) : nodeVec[ptId].getIdFalse(ptId);
+  inline IndexT getSuccId(IndexT ptId, bool senseTrue) const {
+    return senseTrue ? nodeVec[ptId].getIdTrue(ptId) : nodeVec[ptId].getIdFalse(ptId);
   }
 
 

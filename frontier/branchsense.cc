@@ -21,11 +21,6 @@
 BranchSense::BranchSense(IndexT bagCount) :
   expl(make_unique<BV>(bagCount)),
   explTrue(make_unique<BV>(bagCount)) {
-}
-
-
-void BranchSense::frontierReset() {
-  expl->clear();
   explTrue->saturate();
 }
 

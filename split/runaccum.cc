@@ -16,7 +16,7 @@
 #include "runaccum.h"
 #include "branchsense.h"
 #include "splitfrontier.h"
-#include "obspart.h"
+#include "partition.h"
 #include "splitnux.h"
 
 

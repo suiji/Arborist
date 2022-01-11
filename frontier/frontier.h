@@ -21,32 +21,65 @@
 #include "indexset.h"
 #include "typeparam.h"
 
+#include <algorithm>
 #include <vector>
+#include <numeric>
 
 
 /**
-   @brief Enumerates split characteristics over a trained frontier.
- */
-struct SplitSurvey {
-  IndexT leafCount; // Number of terminals in this layer.
-  IndexT idxLive; // Extent of live buffer indices.
-  IndexT splitNext; // Number of splitable nodes in next layer.
-  IndexT idxMax; // Maximum index.
+   @brief Maps to and from sample indices and tree nodes.
 
-  SplitSurvey() :
-    leafCount(0),
-    idxLive(0),
-    splitNext(0),
-    idxMax(0){
+   Easy access to node contents simplifies the task of scoring both terminals
+   and nonterminals.  Nonterminal scores provide a prediction for premature
+   termination, as in the case of missing observations.
+
+   Nonterminal component is maintained via a double-buffer scheme, updated
+   following splitting.  The update performs a stable partition to improve
+   latency.  The buffer initially lists all sample indices, but continues to
+   shrink as terminal nodes absorb the contents.
+
+   Terminal component is initially empty, but continues to grow as nonterminal
+   contents are absorbed.
+
+   Extent vectors record the number of sample indices associated with each node.
+ */
+struct SampleMap {
+  vector<IndexT> indices;
+  vector<IndexRange> range;
+  vector<IndexT> ptIdx;
+  IndexT maxExtent; // Tracks width of node-relative indices.
+
+  /**
+     @brief Constructor with optional index count.
+   */
+  SampleMap(IndexT nIdx = 0) :
+    indices(vector<IndexT>(nIdx)),
+    range(vector<IndexRange>(0)),
+    ptIdx(vector<IndexT>(0)),
+    maxExtent(0) {
   }
 
 
-  /**
-     brief Imputes the number of successor nodes, including pseudosplits.
-   */
-  IndexT succCount(IndexT splitCount) const {
-    IndexT leafNext = 2 * (splitCount - leafCount) - splitNext;
-    return splitNext + leafNext + leafCount;
+  IndexT getEndIdx() const {
+    return range.empty() ? 0 : range.back().getEnd();
+  }
+
+
+  void addNode(IndexT extent,
+	       IndexT ptId) {
+    maxExtent = max(maxExtent, extent);
+    range.emplace_back(getEndIdx(), extent);
+    ptIdx.push_back(ptId);
+  }
+
+  
+  IndexT* getWriteStart(IndexT idx) {
+    return &indices[range[idx].getStart()];
+  }
+  
+  
+  IndexT getNodeCount() const {
+    return range.size();
   }
 };
 
@@ -62,28 +95,39 @@ class Frontier {
   const PredictorT nCtg;
   unique_ptr<class DefFrontier> defMap;
   bool nodeRel; // Whether level uses node-relative indexing:  sticky.
-  IndexT idxLive; // Total live indices.
-  IndexT liveBase; // Accumulates live index offset.
-  IndexT extinctBase; // Accumulates extinct index offset.
-  IndexT succLive; // Accumulates live indices for upcoming level.
-  IndexT succExtinct; // " " extinct "
-  vector<IndexT> relBase; // Node-to-relative index.
-  vector<IndexT> succBase; // Overlaps, then moves to relBase.
-  vector<IndexT> rel2ST; // Node-relative mapping to subtree index.
-  vector<IndexT> rel2PT; // Node-relative mapping to pretree index.
-  vector<IndexT> st2Split; // Subtree-relative mapping to split index.
-  vector<IndexT> st2PT; // Subtree-relative mapping to pretree index.
+
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
+  SampleMap smTerminal; // Persistent terminal sample mapping:  crescent.
+  IndexT terminalNodes; // Beginning # terminal nodes at level.
+
+  SampleMap smNonterm; // Current nonterminal mapping.
+
+  const vector<IndexT> recoverSt2PT() const;
 
   /**
      @brief Determines splitability of frontier nodes just split.
 
      @param indexSet holds the index-set representation of the nodes.
    */
-  SplitSurvey surveySet(vector<IndexSet>& indexSet) const;
+  SampleMap surveySet(vector<IndexSet>& indexSet);
 
+  void surveySplit(IndexSet& iSet,
+		   SampleMap& smNext);
   
+  void registerTerminal(IndexSet& iSet);
+  void registerNonterminal(IndexSet& iSet,
+			   SampleMap& smNext);
+  
+
+  /**
+     @brief Dispatches sample map update according to terminal/nonterminal.
+   */
+  void updateMap(IndexSet& iSet,
+		 const class BranchSense* branchSense,
+		 SampleMap& smNext,
+		 bool transitional);
+
 
   /**
      @brief Applies splitting results to new level.
@@ -91,14 +135,14 @@ class Frontier {
      @param level is the current zero-based level.
 
   */
-  vector<IndexSet> splitDispatch(const class BranchSense* branchSense,
-				 unsigned int level);
+  vector<IndexSet> splitDispatch(const class BranchSense* branchSense);
 
 
   /**
      @brief Establishes splitting parameters for next frontier level.
    */
-  SplitSurvey nextLevel(unsigned int level);
+  void nextLevel(const class BranchSense*,
+		 SampleMap& smNext);
   
 
   /**
@@ -110,25 +154,27 @@ class Frontier {
 
 
   /**
-     @brief Reindexes by level modes: node-relative, subtree-relative, mixed.
-
-     Parameters as above.
-   */
-  void reindex(const class BranchSense* branchSense,
-	       const SplitSurvey& survey);
-
-  
-  /**
-     @brief Produces new level's index sets and dispatches extinct nodes to pretree frontier.
-
-     Parameters as described above.
-
-     @return next level's splitable index set.
+     @brief Produces new level's node and marks unsplitable nodes.
   */
-  vector<IndexSet> produce(IndexT splitNext);
+  vector<IndexSet> produce();
 
 
  public:
+  /**
+     @brief Updates terminals from extinct index sets.
+   */
+  void updateExtinct(const IndexSet& iSet,
+		     bool transitional);
+
+
+  /**
+     @brief Updates terminals and nonterminals from live index sets.
+   */
+  void updateLive(const class BranchSense* branchSense,
+		  const IndexSet& iSet,
+		  SampleMap& smNext,
+		  bool transitional);
+
 
   /**
      @brief Initializes static invariants.
@@ -176,14 +222,13 @@ class Frontier {
 
 
   /**
-     @brief Passes through to IndexSet method.
+     @brief Marks frontier nodes as unsplitable for graceful termination.
 
-     @param[out] argMax most informative split associated with node, if any.
+     @param level is the zero-based tree depth.
    */
-  void candMax(class SplitNux& argMax,
-	       const vector<SplitNux>& candV) const;
+  void earlyExit(unsigned int level);
 
-  
+
   /**
      @brief Updates both index set and pretree states for a set of simple splits.
    */
@@ -197,23 +242,6 @@ class Frontier {
    */
   void updateCompound(const class SplitFrontier* sf,
 		      const vector<vector<class SplitNux>>& nuxMax);
-
-
-  /**
-     @brief Builds index base offsets to mirror crescent pretree level.
-
-     @param extent is the count of the index range.
-
-     @param offOut outputs the node-relative starting index.  Should not
-     exceed 'idxExtent', the live high watermark of the previous level.
-
-     @param terminal is true iff successor is known a priori to be terminal.
-
-     @return successor index count.
-  */
-  IndexT idxSucc(IndexT extent,
-                 IndexT &outOff,
-                 bool terminal = false);
 
   /**
      @return pre-tree index associated with node.
@@ -237,42 +265,15 @@ class Frontier {
 
 
   /**
-     @brief Obtains pretree indices for true and false branch targets.
-   */
-  void getPTIdTF(IndexT ptId,
-                 IndexT& ptTrue,
-                 IndexT& ptFalse) const;
-
-  /**
      @brief DefFrontier pass-through to register reaching path.
 
      @param splitIdx is the level-relative node index.
 
      @param parIdx is the parent node's index.
-
-     @param bufRange is the subsumed buffer range.
-
-     @param relBase is the index base.
-
-     @param path is the inherited path.
    */
-  void reachingPath(IndexT splitIdx,
-                    IndexT parIdx,
-                    const IndexRange& bufRange,
-                    IndexT relBase,
-                    unsigned int path) const;
-  
-  /**
-     @brief Drives node-relative re-indexing.
-   */
-  void nodeReindex(const class BranchSense* branchSense);
+  void reachingPath(const IndexSet& iSet,
+                    IndexT parIdx) const;
 
-  /**
-     @brief Subtree-relative reindexing:  indices randomly distributed
-     among nodes (i.e., index sets).
-  */
-  void stReindex(const class BranchSense* branchSense,
-		 IndexT splitNext);
 
   /**
      @brief Updates the split/path/pretree state of an extant index based on
@@ -281,41 +282,11 @@ class Frontier {
      @param stPath is a subtree-relative path.
   */
   void stReindex(const class BranchSense* branchSense,
-		 class IdxPath *stPath,
                  IndexT splitNext,
                  IndexT chunkStart,
                  IndexT chunkNext);
 
-  /**
-     @brief As above, but initializes node-relative mappings for subsequent
-     levels.  Employs accumulated state and cannot be parallelized.
-  */
-  void transitionReindex(const class BranchSense* branchSense,
-			 IndexT splitNext);
 
-  /**
-     @brief Updates the mapping from live relative indices to associated
-     PreTree indices.
-
-     @return corresponding subtree-relative index.
-  */
-  IndexT relLive(IndexT relIdx,
-                       IndexT targIdx,
-                       IndexT path,
-                       IndexT base,
-                       IndexT ptIdx);
-  /**
-     @brief Translates node-relative back to subtree-relative indices on 
-     terminatinal node.
-
-     @param relIdx is the node-relative index.
-
-     @param ptId is the pre-tree index of the associated node.
-  */
-  void relExtinct(IndexT relIdx,
-                  IndexT ptId);
-
-  
   /**
      @brief Visits all live indices, so likely worth parallelizing.
 
@@ -326,6 +297,22 @@ class Frontier {
   vector<double> sumsAndSquares(vector<vector<double> >& ctgSum);
 
   
+  /**
+     @brief Passes through to IndexSet method.
+
+     @param splitIdx could also be looked up from candV, if nonempty.
+
+     @param[out] argMax most informative split associated with node, if any.
+
+     @param candV contains splitting candidates associated with split index.
+   */
+  void candMax(IndexT splitIdx,
+	       class SplitNux& argMax,
+	       const vector<class SplitNux>& candV) const {
+    indexSet[splitIdx].candMax(candV, argMax);
+  }
+
+
   /**
      @brief Obtains the IndexRange for a splitting candidate's location.
 
@@ -363,6 +350,11 @@ class Frontier {
    */
   inline auto getNCtg() const {
     return nCtg;
+  }
+
+
+  bool nodeRelative() const {
+    return nodeRel;
   }
 
   
@@ -445,11 +437,8 @@ class Frontier {
   }
   
 
-  /**
-     @brief Accessor for relative base of split.
-   */
-  inline auto getRelBase(IndexT splitIdx) const {
-    return relBase[splitIdx];
+  IndexRange getNontermRange(const IndexSet& iSet) const {
+    return smNonterm.range[iSet.getSplitIdx()];
   }
 
   
@@ -465,25 +454,13 @@ class Frontier {
      @brief Dispatches consecutive node-relative indices to frontier map for
      final pre-tree node assignment.
   */
-  void relExtinct(IndexT relBase,
-                  IndexT extent,
-                  IndexT ptId) {
-    for (IndexT relIdx = relBase; relIdx < relBase + extent; relIdx++) {
-      relExtinct(relIdx, ptId);
-    }
-  }
+  void relExtinct(const IndexSet& iSet);
 
 
   /**
      @brief Reconciles remaining live node-relative indices.
   */
-  void relFlush() {
-    if (nodeRel) {
-      for (IndexT relIdx = 0; relIdx < idxLive; relIdx++) {
-        relExtinct(relIdx, rel2PT[relIdx]);
-      }
-    }
-  }
+  void relFlush();
 };
 
 #endif

@@ -6,15 +6,15 @@
  */
 
 /**
-   @file obspart.h
+   @file partition.h
 
    @brief Observation frame, partitioned by tree node.
 
    @author Mark Seligman
  */
 
-#ifndef PARTITION_OBSPART_H
-#define PARTITION_OBSPART_H
+#ifndef FRONTIER_PARTITION_H
+#define FRONTIER_PARTITION_H
 
 
 #include "splitnux.h"

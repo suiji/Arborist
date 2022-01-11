@@ -24,8 +24,7 @@ IndexT PreTree::leafMax = 0;
 
 
 PreTree::PreTree(PredictorT cardExtent,
-		 IndexT bagCount_) :
-  bagCount(bagCount_),
+		 IndexT bagCount) :
   height(1),
   leafCount(1),
   nodeVec(vector<PTNode>(2*bagCount - 1)), // Preallocates maximum.
@@ -42,13 +41,6 @@ void PreTree::init(IndexT leafMax_) {
 
 void PreTree::deInit() {
   leafMax = 0;
-}
-
-
-void PTNode::setNonterminal(const SplitNux& nux,
-                            IndexT height) {
-  setDelIdx(height - 2 - nux.getPTId());
-  info = nux.getInfo();
 }
 
 
@@ -97,13 +89,20 @@ void PreTree::critBits(const SplitFrontier* sf,
   for (auto bit : sf->getTrueBits(nux)) {
     splitBits.setBit(bitPos + bit);
   }
-  nodeVec[nux.getPTId()].critBits(&nux, bitPos);
+  nodeVec[nux.getPTId()].critBits(nux, bitPos);
 }
 
 
 void PreTree::critCut(const SplitFrontier* sf,
 		      const SplitNux& nux) {
-  nodeVec[nux.getPTId()].critCut(&nux, sf);
+  nodeVec[nux.getPTId()].critCut(nux, sf);
+}
+
+
+void PTNode::setNonterminal(const SplitNux& nux,
+                            IndexT height) {
+  setDelIdx(height - 2 - nux.getPTId());
+  info = nux.getInfo();
 }
 
 
@@ -127,8 +126,14 @@ void PreTree::consumeNodes(Forest* forest,
 }
 
 
-void PreTree::cacheSampleMap(const vector<IndexT>& stTerm) {
-  sampleMap = move(stTerm);
+const vector<IndexT> PreTree::sample2Leaf() const {
+  vector<IndexT> terminalMap(sampleMap.size()); // bagCount
+  IndexT stIdx = 0;
+  for (auto ptIdx : sampleMap) { // predIdx value of terminal is leaf index.
+    terminalMap[stIdx++] = nodeVec[ptIdx].getPredIdx();
+  }
+
+  return terminalMap;
 }
 
 
@@ -145,17 +150,6 @@ IndexT PreTree::checkFrontier(const vector<IndexT>& stMap) const {
   }
 
   return nonLeaf;
-}
-
-
-const vector<IndexT> PreTree::sample2Leaf() const {
-  vector<IndexT> frontierMap(sampleMap.size());
-  IndexT stIdx = 0;
-  for (auto ptIdx : sampleMap) {
-    frontierMap[stIdx++] = nodeVec[ptIdx].getPredIdx();
-  }
-
-  return frontierMap;
 }
 
 

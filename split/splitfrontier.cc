@@ -52,7 +52,7 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
   nSplit(frontier->getNSplit()),
   splitter(splitter_),
   cutSet(make_unique<CutSet>()),
-  prebias(vector<double>(nSplit)) {
+  nodeInfo(vector<double>(nSplit)) {
 }
 
 
@@ -268,7 +268,7 @@ vector<SplitNux> SplitFrontier::maxCandidates(const vector<vector<SplitNux>>& ca
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
-      frontier->candMax(argMax[splitIdx], candVV[splitIdx]);
+      frontier->candMax(splitIdx, argMax[splitIdx], candVV[splitIdx]);
     }
   }
 
@@ -297,6 +297,13 @@ CritEncoding SplitFrontier::splitUpdate(const SplitNux& nux,
 }
 
 
+void SplitFrontier::accumUpdate(const SplitNux& nux) const {
+  if (nux.isFactor(this)) { // Only factor accumulators currently require an update.
+    runSet->updateAccum(nux);
+  }
+}
+
+
 vector<IndexRange> SplitFrontier::getRange(const SplitNux& nux,
 					   const CritEncoding& enc) const {
   if (nux.isFactor(this)) {
@@ -319,13 +326,6 @@ vector<IndexRange> SplitFrontier::getCutRange(const SplitNux& nux,
   vector<IndexRange> rangeVec;
   rangeVec.push_back(nux.cutRange(cutSet.get(), !(leftCut(&nux) ^ enc.trueEncoding())));
   return rangeVec;
-}
-
-
-void SplitFrontier::accumUpdate(const SplitNux& nux) const {
-  if (nux.isFactor(this)) { // Only factor accumulators currently require an update.
-    runSet->updateAccum(nux);
-  }
 }
 
 

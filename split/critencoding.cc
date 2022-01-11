@@ -3,7 +3,7 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "branchsense.h"
-#include "obspart.h"
+#include "partition.h"
 
 
 CritEncoding::CritEncoding(const SplitFrontier* sf, const SplitNux& nux_, bool incr) :
@@ -28,8 +28,12 @@ IndexT CritEncoding::getExtentTrue() const {
 
 void CritEncoding::getISetVals(IndexT& sCountTrue,
 			       double& sumTrue,
-			       IndexT& extentTrue) const {
+			       IndexT& extentTrue,
+			       bool& encodeTrue,
+			       double& minInfo) const {
   style == EncodingStyle::direct ? accumDirect(sCountTrue, sumTrue, extentTrue) : accumTrue(sCountTrue, sumTrue, extentTrue);
+  encodeTrue = trueEncoding();
+  minInfo = nux.getMinInfo();
 }
 
 

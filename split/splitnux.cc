@@ -51,7 +51,7 @@ SplitNux::SplitNux(const PreCand& preCand,
   sum(splitFrontier->getSum(mrra)),
   sCount(splitFrontier->getSCount(mrra)),
   ptId(splitFrontier->getPTId(mrra)),
-  info(splitFrontier->getPrebias(mrra)) {
+  info(splitFrontier->getPreinfo(mrra)) {
   accumIdx = splitFrontier->addAccumulator(this, preCand);
 }
 

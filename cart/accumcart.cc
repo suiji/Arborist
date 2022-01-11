@@ -16,7 +16,7 @@
 #include "accumcart.h"
 #include "splitnux.h"
 #include "sfcart.h"
-#include "obspart.h"
+#include "partition.h"
 #include "residual.h"
 
 CutAccumRegCart::CutAccumRegCart(const SplitNux* cand,

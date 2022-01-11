@@ -48,7 +48,6 @@ void CandRF::precandidates(DefFrontier* defFrontier) {
   
   auto ruPred = CallBack::rUnif(cellCount);
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
-
   for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     IndexT splitOff = splitIdx * nPred;
     if (defFrontier->isUnsplitable(splitIdx)) { // Node cannot split.

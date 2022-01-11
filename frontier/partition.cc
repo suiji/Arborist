@@ -6,7 +6,7 @@
  */
 
 /**
-   @file obspart.cc
+   @file partition.cc
 
    @brief Methods to repartition observation frame by tree node.
 
@@ -14,7 +14,7 @@
  */
 
 #include "deflayer.h"
-#include "obspart.h"
+#include "partition.h"
 #include "layout.h"
 #include "splitfrontier.h"
 #include "splitnux.h"

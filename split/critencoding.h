@@ -82,7 +82,9 @@ struct CritEncoding {
 
   void getISetVals(IndexT& sCountTrue,
 		   double& sumTrue,
-		   IndexT& extentTrue) const;
+		   IndexT& extentTrue,
+		   bool& encodeTrue,
+		   double& minInfo) const;
 
 
   void branchUpdate(const class SplitFrontier* sf,

@@ -40,7 +40,6 @@ class IndexSet {
   IndexT sCount;  // # samples subsumed by this set.
   double sum; // Sum of all responses in set.
   double minInfo; // Split threshold:  reset after splitting.
-  IndexT relBase; // Local copy of frontier's value.
   unsigned char path; // Bitwise record of recent reaching L/R path.
   vector<SumCount> ctgSum;  // Per-category response sums.
 
@@ -48,6 +47,9 @@ class IndexSet {
   bool doesSplit; // Sticky.  Sets iff local conditions satisfied.
   bool unsplitable;  // Candidate found to have single response value.
 
+  // Map position:  true successor if nonterminal or node if terminal.
+  IndexT idxNext;
+  
   // Revised per criterion, assumed registered in order.
   IndexT extentTrue; // Total indices over true branch.
   IndexT sCountTrue; // Total samples over true branch.
@@ -67,17 +69,9 @@ class IndexSet {
   //
   IndexT ptTrue;
   IndexT ptFalse;
-  IndexT succTrue; // Fixed:  level index of true successor, if any.
-  IndexT succFalse; // Fixed:  " " false " "
-  IndexT offTrue; // Increases:  accumulating true offset.
-  IndexT offFalse; // " "                     false offset.
+
   PathT pathTrue;  // Fixed:  path to true successor, if any.
   PathT pathFalse; // Fixed:  " " false " ".
-
-  // These fields pertain only to non-splitting sets, so can be
-  // overlaid with above via a union.
-  IndexT succOnly; // Fixed:  successor IndexSet.
-  IndexT offOnly; // Increases:  accumulating successor offset.
 
   vector<SumCount> ctgTrue; // Per-category sums inherited from criterion.
 
@@ -88,7 +82,7 @@ class IndexSet {
      @param inatt is an inattainable value.
    */
   void initInattainable(IndexT inatt) {
-    succTrue = succFalse = offTrue = offFalse = inatt;
+    idxNext = inatt;
   }
   
 
@@ -98,51 +92,9 @@ class IndexSet {
   void succInit(class Frontier *frontier,
                 const IndexSet* par,
                 bool trueBranch);
-
   
-  void nontermReindex(const class BranchSense* branchSense,
-                      class Frontier *index,
-                      IndexT idxLive,
-                      vector<IndexT> &succST);
-  
-  /**
-     @brief Caches state necessary for reindexing and useful subsequently.
-  */
-  void nonterminal(class Frontier *frontier);
+public:
 
-
-  /**
-     @brief Dispatches index set to frontier.
-
-     @param frontier holds the partitioned data.
-  */
-  void terminal(class Frontier *frontier);
-
-  
-  /**
-     @brief Counts offspring of this node, assumed not to be a leaf.
-
-     @param[out] survey accumaltes the census values.
-
-     @return count of offspring nodes.
-  */
-  unsigned int splitCensus(struct SplitSurvey& survey) const;
-  
-
-  /**
-     @brief Accumulates index parameters of successor level.
-
-     @param sense is the branch sense of the successor.
-
-     @param[out] survey accumulates the census.
-
-     @return count of splitable sets precipitated in next level:  0 or 1.
-  */
-  unsigned int splitAccum(bool sense,
-			  struct SplitSurvey& survey) const;
-  
-
- public:
   IndexSet();
 
 
@@ -160,50 +112,28 @@ class IndexSet {
 
 
   /**
-     @brief Updates branch state from nux.
-
-     @param nux encapsulates the splitting description.
+     @brief Updates branch state from criterion encoding.
 
      @param enc encapsulates the splitting criteria.
    */
-  void update(const class SplitFrontier* sf,
-	      const class SplitNux& nux,
-	      class BranchSense* branchSense,
-	      const IndexRange& range = IndexRange(),
-	      bool increment = true);
+  void update(const struct CritEncoding& enc);
+
+  
+  /**
+     @brief Caches state necessary for reindexing and useful subsequently.
+  */
+  void nonterminal(const class SampleMap& smNext);
 
   
   /**
      @return Maximal informative split, if any.
    */
-  void candMax(const vector<SplitNux>& cand,
+  void candMax(const vector<class SplitNux>& cand,
 	       class SplitNux& argMaxNux) const;
-
-  
-  /**
-     @brief Accumulates leaf and split counts.
-
-     @param[in, out] survey accumulates the census.
-   */
-  void surveySplit(struct SplitSurvey& survey) const;
   
 
   bool isInformative(const SplitNux* nux) const;
   
-
-  /**
-     @brief Dispatches according to terminal/nonterminal state.
-   */
-  void dispatch(class Frontier* frontier);
-  
-  /**
-     @brief Node-relative reindexing:  indices contiguous on nodes (index sets).
-  */
-  void reindex(const class BranchSense* branchSense,
-               class Frontier *index,
-               IndexT idxLive,
-               vector<IndexT> &succST);
-
 
   /**
      @brief Sums each category for a node splitable in the upcoming level.
@@ -216,6 +146,26 @@ class IndexSet {
 
   bool isUnsplitable() const {
     return unsplitable;
+  }
+
+
+  IndexT getIdxNext() const {
+    return idxNext;
+  }
+  
+
+  void setIdxNext(IndexT mapIdx) {
+    idxNext = mapIdx;
+  }
+  
+  
+  /**
+     @brief Sets state unsplitable.
+
+     Used to terminate splitting loop gracefully.
+   */
+  void setUnsplitable() {
+    unsplitable = true;
   }
 
 
@@ -272,6 +222,11 @@ class IndexSet {
                      bool trueBranch) const;
 
 
+  unsigned int getPath() const {
+    return path;
+  }
+
+  
   /**
      @brief Determines terminality by checking split history.
 
@@ -297,22 +252,24 @@ class IndexSet {
     return ctgSum.size();
   }
 
-  
+
+  /**
+     @brief Successor indices precomputed from smNext.
+
+     By convention, the false-branch successor is one index higher
+     than that for the true branch.
+
+     @param trueBranch is true iff true sense specified.
+
+     @return successor index along specified branch sense.
+   */
   inline auto getIdxSucc(bool trueBranch) const {
-    return trueBranch ? succTrue : succFalse;
+    return trueBranch ? idxNext : idxNext + 1;
   }
 
 
   inline auto getSumSucc(bool trueBranch) const {
     return trueBranch ? sumTrue : sum - sumTrue;
-  }
-
-
-  /**
-     N.B.:  offset side effected.
-   */
-  inline auto getOffSucc(bool trueBranch) {
-    return trueBranch ? offTrue++ : offFalse++;
   }
 
 
@@ -339,22 +296,6 @@ class IndexSet {
     return trueBranch ? extentTrue : bufRange.getExtent() - extentTrue;
   }
 
-
-  /**
-     @brief Determines whether a given successor is splitable.
-
-     @param sense indicates the branch sense.
-
-     @param[out] succExtent outputs the successor node size.
-
-     @return true iff the successor is live and has sufficient size.
-   */
-  inline bool succSplitable(bool sense,
-			    IndexT& succExtent) const {
-    succExtent = getExtentSucc(sense);
-    return !succExtinct(sense) && succExtent >= minNode;
-  }
-  
   
   /**
      @brief Getters returning like-named member value.
@@ -402,72 +343,6 @@ class IndexSet {
   
   inline bool encodesTrue() const {
     return trueEncoding;
-  }
-
-
-  /**
-     @brief L/R accessor for subtree-relative reindexing.
-
-     @param isExpl is true iff sample index tagged explicit.
-
-     @param explLeft is true iff index both tagged explicitly left.
-
-     @param pathSucc outputs the (possibly pseudo) successor path.
-
-     @param idxSucc outputs the (possibly pseudo) successor index.
-
-     @return index (possibly pseudo) of successor index set.
-   */
-  inline IndexT offspring(const class BranchSense* branchSense,
-                          IndexT sIdx,
-                          IndexT& pathSucc,
-                          IndexT& ptSucc) {
-    return doesSplit ? offspringLive(branchSense->senseTrue(sIdx, !trueEncoding), pathSucc, ptSucc) : offspringTerm(pathSucc, ptSucc);
-  }
-
-  
-  /**
-     @brief Set path and pretree successor of nonterminal.
-
-     @param trueBranch indicates branch sense.
-
-     @return (possibly psuedo-) index of successor IndexSet.
-   */
-  inline IndexT offspringLive(bool trueBranch,
-                          IndexT& pathSucc,
-                          IndexT& ptSucc) {
-      pathSucc = getPathSucc(trueBranch);
-      ptSucc = getPTSucc(trueBranch);
-      return getIdxSucc(trueBranch);
-  }
-
-
-  inline IndexT offspringTerm(IndexT& pathSucc,
-			      IndexT& ptSucc) {
-    pathSucc = 0; // Dummy:  overwritten by caller.
-    ptSucc = ptId;
-    return succOnly;
-  }
-
-  
-  /**
-     @brief As above, but also tracks (pseudo) successor indices.  State
-     is side-effected, moreover, so must be invoked sequentially.
-   */
-  inline IndexT offspring(const class BranchSense* branchSense,
-                          IndexT sIdx,
-                          unsigned int& pathSucc,
-                          IndexT& idxSucc,
-                          IndexT& ptSucc) {
-    if (doesSplit) {
-      bool trueBranch = branchSense->senseTrue(sIdx, !trueEncoding);
-      idxSucc = getOffSucc(trueBranch);
-      return offspringLive(trueBranch, pathSucc, ptSucc);
-    }
-    else {
-      idxSucc = offOnly++;
-      return offspringTerm(pathSucc, ptSucc);
-    }
   }
 };
 

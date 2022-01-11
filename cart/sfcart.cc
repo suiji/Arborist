@@ -38,24 +38,24 @@ SFCtgCart::SFCtgCart(Frontier* frontier) :
   
 void SFCtgCart::frontierPreset() {
   for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
-    prebias[splitIdx] = getPrebias(splitIdx);
+    nodeInfo[splitIdx] = getPreinfo(splitIdx);
 }
 
 
 void SFRegCart::frontierPreset() {
   SFReg::frontierPreset();
   for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
-    prebias[splitIdx] = getPrebias(splitIdx);
+    nodeInfo[splitIdx] = getPreinfo(splitIdx);
 }
 
 
-double SFRegCart::getPrebias(IndexT splitIdx) const {
+double SFRegCart::getPreinfo(IndexT splitIdx) const {
   return (frontier->getSum(splitIdx) * frontier->getSum(splitIdx)) / frontier->getSCount(splitIdx);
 }
 
 
 
-double SFCtgCart::getPrebias(IndexT splitIdx) const {
+double SFCtgCart::getPreinfo(IndexT splitIdx) const {
   return sumSquares[splitIdx] / frontier->getSum(splitIdx);
 }
 

@@ -17,7 +17,7 @@
 #include "deflayer.h"
 #include "path.h"
 #include "deffrontier.h"
-#include "obspart.h"
+#include "partition.h"
 
 
 DefLayer::DefLayer(IndexT nSplit_,

@@ -77,7 +77,7 @@ struct PreCand {
  */
 class DefFrontier {
   const PredictorT nPred; // Number of predictors.
-  const class Frontier* frontier;
+  class Frontier* frontier;
   const IndexT bagCount;
   
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
@@ -125,7 +125,7 @@ class DefFrontier {
      @param frontier_ tracks the frontier nodes.
   */
   DefFrontier(const class TrainFrame* frame,
-	      const class Frontier* frontier);
+	      class Frontier* frontier);
 
   
   /**
@@ -189,7 +189,7 @@ class DefFrontier {
   /**
      @brief Rebuilds the precandidate vector using CandT method.
    */
-  void setPrecandidates();
+  void setPrecandidates(unsigned int level);
 
   
   const vector<vector<PreCand>>& getPrecand() const {
@@ -327,26 +327,19 @@ class DefFrontier {
 
 
   /**
-     @brief Consumes all fields from an IndexSet relevant to restaging.
+     @brief Consumes all fields from a node relevant to restaging.
 
-     @param layerIdx is the layer-relative index of the successor node.
+     @param iSet is the node, in index set form.
 
-     @param par is the index of the splitting parent.
+     @param parIdx is the index of the splitting parent.
 
-     @param start is the cell starting index.
-
-     @param extent is the index count.
-
-     @param relBase
-
-     @param path is a unique path identifier.
+     @param relBase is the base of sample indices associated with the node.
   */
-  void reachingPath(IndexT layerIdx,
-                    IndexT parIdx,
-                    const IndexRange& bufRange,
-                    IndexT relBase,
-                    unsigned int path);
-  
+  void reachingPath(const class IndexSet& iSet,
+		    IndexT parIdx,
+		    IndexT relBase);
+
+
   /**
      @brief Flushes non-reaching definitions as well as those about
      to fall off the layer deque.

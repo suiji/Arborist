@@ -36,7 +36,8 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
+                thinLeaves = FALSE,
+                thinSamples = ifelse(is.factor(y), TRUE, FALSE),
                 treeBlock = 1,
                 verbose = FALSE,
                 withRepl = TRUE,
@@ -74,8 +75,9 @@
     regression.}
   \item{rowWeight}{row weighting for initial sampling of tree.}
   \item{splitQuant}{(sub)quantile at which to place cut point for
-  numerical splits}.
-  \item{thinLeaves}{bypasses creation of export and quantile state in
+    numerical splits}.
+  \item{thinLeaves}{is deprecated and replaced by thinSamples.}
+  \item{thinSamples}{bypasses creation of export and quantile state in
   order to reduce memory footprint.}
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
@@ -266,7 +268,7 @@
 
   # Suppresses creation of detailed leaf information needed for
   # quantile prediction and external tools.
-  rb <- Rborist(x, y, thinLeaves = TRUE)
+  rb <- Rborist(x, y, thinSamples = TRUE)
 
 
   # Sets splitting position for predictor 0 to far left and predictor

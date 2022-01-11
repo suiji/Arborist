@@ -10,7 +10,7 @@
 
 \usage{
 \method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), ctgCensus = "votes", oob = FALSE,
+quantiles = !is.null(quantVec), ctgCensus = "votes", bagging = FALSE,
 nThread = 0, verbose = FALSE, ...)
 }
 
@@ -28,7 +28,7 @@ nThread = 0, verbose = FALSE, ...)
   "prob" specifies a normalized, probabilistic summary.
   "probSample" specifies sample-weighted probabilities, similar to
   quantile histogramming.}
-  \item{oob}{whether prediction is restricte to out-of-bag samples.}
+  \item{bagging}{whether prediction is restricted to out-of-bag samples.}
   \item{nThread}{suggests ans OpenMP-style thread count.  Zero denotes
     default processor setting.}
   \item{verbose}{whether to output progress of prediction.}

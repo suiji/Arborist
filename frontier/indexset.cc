@@ -59,7 +59,6 @@ void IndexSet::initRoot(const Sample* sample) {
   ptId = 0;
   sum = sample->getBagSum();
   path = 0;
-  relBase = 0;
   ctgSum = sample->getCtgRoot();
   ctgTrue = vector<SumCount>(ctgSum.size());
   
@@ -67,63 +66,10 @@ void IndexSet::initRoot(const Sample* sample) {
 }
 
 
-void IndexSet::dispatch(Frontier* frontier) {
-  if (doesSplit) {
-    nonterminal(frontier);
-  }
-  else {
-    terminal(frontier);
-  }
-}
-
-
-void IndexSet::terminal(Frontier *frontier) {
-  succOnly = frontier->idxSucc(bufRange.getExtent(), offOnly, true);
-}
-
-
-void IndexSet::nonterminal(Frontier* frontier) {
-  frontier->getPTIdTF(ptId, ptTrue, ptFalse);
-  IndexT succExtent;
-  bool extinct;
-  extinct = !succSplitable(true, succExtent);
-  succTrue = frontier->idxSucc(succExtent, offTrue, extinct);
-
-  extinct = !succSplitable(false, succExtent);
-  succFalse = frontier->idxSucc(succExtent, offFalse, extinct);
+void IndexSet::nonterminal(const SampleMap& smNext) {
+  ptTrue = smNext.ptIdx[idxNext];
+  ptFalse = smNext.ptIdx[idxNext+1];
   IdxPath::pathLR(path, pathTrue, pathFalse);
-}
-
-
-void IndexSet::reindex(const BranchSense* branchSense,
-                       Frontier* index,
-                       IndexT idxLive,
-                       vector<IndexT>& succST) {
-  if (!doesSplit) {
-    index->relExtinct(relBase, bufRange.getExtent(), ptId);
-  }
-  else {
-    nontermReindex(branchSense, index, idxLive, succST);
-  }
-}
-
-
-void IndexSet::nontermReindex(const BranchSense* branchSense,
-                              Frontier* index,
-                              IndexT idxLive,
-                              vector<IndexT>&succST) {
-  IndexT baseTrue = offTrue;
-  IndexT baseFalse = offFalse;
-  for (IndexT relIdx = relBase; relIdx < relBase + bufRange.getExtent(); relIdx++) {
-    bool trueBranch = branchSense->senseTrue(relIdx, !trueEncoding);
-    IndexT targIdx = getOffSucc(trueBranch);
-    if (targIdx < idxLive) {
-      succST[targIdx] = index->relLive(relIdx, targIdx, getPathSucc(trueBranch), trueBranch ? baseTrue : baseFalse, getPTSucc(trueBranch));
-    }
-    else {
-      index->relExtinct(relIdx, getPTSucc(trueBranch));
-    }
-  }
 }
 
 
@@ -152,12 +98,11 @@ void IndexSet::succInit(Frontier *frontier,
   minInfo = par->getMinInfo();
   ptId = par->getPTIdSucc(frontier, trueBranch);
 
-  unsplitable = (trueBranch && par->trueExtinct) || (!trueBranch && par->falseExtinct);
+  unsplitable = (bufRange.getExtent() < minNode) || (trueBranch && par->trueExtinct) || (!trueBranch && par->falseExtinct);
   
   sum = par->getSumSucc(trueBranch);
   path = par->getPathSucc(trueBranch);
-  relBase = frontier->getRelBase(splitIdx);
-  frontier->reachingPath(splitIdx, par->getSplitIdx(), bufRange, relBase, path);
+  frontier->reachingPath(*this, par->getSplitIdx());
 
   ctgSum = trueBranch ? par->ctgTrue : SumCount::minus(par->ctgSum, par->ctgTrue);
   ctgTrue = vector<SumCount>(ctgSum.size());
@@ -195,46 +140,12 @@ void IndexSet::candMax(const vector<SplitNux>& candVec,
 }
 
 
-void IndexSet::update(const SplitFrontier* sf,
-		      const SplitNux& nux,
-		      BranchSense* branchSense,
-		      const IndexRange& range,
-		      bool increment) {
-  CritEncoding enc = sf->splitUpdate(nux, branchSense, range, increment);
+void IndexSet::update(const CritEncoding& enc) {
+  // trueEncoding:  Final state is most recent update.
+  // minInfo:  REVISE as update
   doesSplit = true;
-  trueEncoding = enc.trueEncoding(); // Final state is most recent update.
-  minInfo = nux.getMinInfo(); // REVISE as update
+  enc.getISetVals(sCountTrue, sumTrue, extentTrue, trueEncoding, minInfo);
   SumCount::incr(ctgTrue, trueEncoding ? enc.scCtg : SumCount::minus(ctgSum, enc.scCtg));
-  enc.getISetVals(sCountTrue, sumTrue, extentTrue);
-}
-
-
-void IndexSet::surveySplit(SplitSurvey& survey) const {
-  if (isTerminal()) {
-    survey.leafCount++;
-  }
-  else {
-    survey.splitNext += splitCensus(survey);
-  }
-}
-
-
-unsigned int IndexSet::splitCensus(SplitSurvey& survey) const {
-  return splitAccum(true, survey) + splitAccum(false, survey);
-}
-
-
-unsigned int IndexSet::splitAccum(bool sense,
-                                  SplitSurvey& survey) const {
-  IndexT succExtent;
-  if (succSplitable(sense, succExtent)) {
-    survey.idxLive += succExtent;
-    survey.idxMax = max(survey.idxMax, succExtent);
-    return 1;
-  }
-  else {
-    return 0;
-  }
 }
 
 

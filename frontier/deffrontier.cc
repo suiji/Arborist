@@ -17,13 +17,14 @@
 #include "splitfrontier.h"
 #include "deffrontier.h"
 #include "deflayer.h"
-#include "obspart.h"
+#include "partition.h"
 #include "splitnux.h"
 #include "sample.h"
 #include "trainframe.h"
 #include "layout.h"
 #include "path.h"
 #include "ompthread.h"
+#include "indexset.h"
 
 #include "algparam.h"
 
@@ -32,7 +33,7 @@
 
 
 DefFrontier::DefFrontier(const TrainFrame* frame,
-			 const Frontier* frontier_) :
+			 Frontier* frontier_) :
   nPred(frame->getNPred()),
   frontier(frontier_),
   bagCount(frontier->getBagCount()),
@@ -162,14 +163,16 @@ void DefFrontier::stage(const Sample* sample) {
     predIdx++;
   }
 
-  setPrecandidates();
+  setPrecandidates(0);
   for (auto & pc : preCand[0]) { // Root:  single split.
     pc.setStageCount(stageCount[pc.mrra.splitCoord.predIdx]);
   }
 }
 
 
-void DefFrontier::setPrecandidates() {
+void DefFrontier::setPrecandidates(unsigned int level) {
+  frontier->earlyExit(level);
+
   preCand = vector<vector<PreCand>>(splitCount);
   // Precandidates precipitate restaging ancestors at this level,
   // as do all non-singleton definitions arising from flushes.
@@ -290,21 +293,22 @@ void DefFrontier::backdate() const {
 }
 
   
-void DefFrontier::reachingPath(IndexT splitIdx,
-		     IndexT parIdx,
-		     const IndexRange& bufRange,
-		     IndexT relBase,
-		     unsigned int path) {
+void DefFrontier::reachingPath(const IndexSet& iSet,
+			       IndexT parIdx,
+			       IndexT relBase) {
+  IndexT splitIdx = iSet.getSplitIdx();
   for (unsigned int backLayer = 0; backLayer < layer.size() - 1; backLayer++) {
     history[splitIdx + splitCount * backLayer] = backLayer == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLayer - 1)];
   }
 
   inherit(splitIdx, parIdx);
+  IndexRange bufRange = iSet.getBufRange();
   layer[0]->initAncestor(splitIdx, bufRange);
   
   // Places <splitIdx, start> pair at appropriate position in every
   // reaching path.
   //
+  unsigned int path = iSet.getPath();
   for (auto lv = layer.begin() + 1; lv != layer.end(); lv++) {
     (*lv)->pathInit(splitIdx, path, bufRange, relBase);
   }
@@ -325,7 +329,7 @@ void DefFrontier::setLive(IndexT ndx,
 
 
 void DefFrontier::setExtinct(IndexT nodeIdx,
-		   IndexT stIdx) {
+			     IndexT stIdx) {
   layer[0]->setExtinct(nodeIdx);
   setExtinct(stIdx);
 }

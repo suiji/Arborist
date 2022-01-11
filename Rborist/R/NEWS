@@ -73,3 +73,8 @@ Changes in 0.1-1:
 
 * Optional 'regMono' vector enforces monotonic constraints on numeric
   regressors.
+
+Changes in 0.3-0:
+
+* Prediction and validation introduce permutation testing.
+

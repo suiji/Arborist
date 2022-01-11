@@ -34,8 +34,8 @@ cp ../../forest/bridge/*.cc Rborist/src/
 cp ../../forest/bridge/*.h Rborist/src/
 cp ../../obs/*.cc Rborist/src/
 cp ../../obs/*.h Rborist/src/
-cp ../../partition/*.cc Rborist/src/
-cp ../../partition/*.h Rborist/src/
+cp ../../frontier/*.cc Rborist/src/
+cp ../../frontier/*.h Rborist/src/
 cp ../../rf/*.cc Rborist/src/
 cp ../../rf/*.h Rborist/src/
 cp ../../split/*.cc Rborist/src/

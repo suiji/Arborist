@@ -29,8 +29,6 @@ class BranchSense {
 public:
   BranchSense(IndexT bagCount);
 
-  void frontierReset();
-  
   /**
      @brief Determines whether sample be assigned to explTrue successor.
 

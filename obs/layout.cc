@@ -17,7 +17,7 @@
 #include "stagecount.h"
 #include "layout.h"
 #include "valrank.h"
-#include "obspart.h"
+#include "partition.h"
 #include "sample.h"
 #include "ompthread.h"
 #include "trainframe.h"

@@ -49,7 +49,7 @@ struct SFRegCart : public SFReg {
 
      @return sum squared, divided by sample count.
   */
-  double getPrebias(IndexT splitIdx) const;
+  double getPreinfo(IndexT splitIdx) const;
 
 
   void split(class BranchSense* branchSense);
@@ -99,7 +99,7 @@ class SFCtgCart : public SFCtg {
 
      @return sum of squares divided by sum.
   */
-  double getPrebias(IndexT splitIdx) const;
+  double getPreinfo(IndexT splitIdx) const;
 
 
 public:
