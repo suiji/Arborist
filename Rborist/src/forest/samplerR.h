@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rf.
 //
@@ -53,11 +53,6 @@ struct SamplerR {
 	   unsigned int nTree_,
 	   bool nux_);
 
-  
-  static RawVector resizeRaw(const unsigned char raw[],
-			     size_t nodeOff,
-			     size_t nodeBytes,
-			     double scale);
 
   /**
      @brief Getter for tree count.

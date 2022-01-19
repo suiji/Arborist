@@ -80,6 +80,5 @@ void Train::blockConsume(vector<unique_ptr<PreTree>>& treeBlock) {
   for (auto & pretree : treeBlock) {
     const vector<IndexT> leafMap = pretree->consume(forest, predInfo);
     sampler->blockSamples(leafMap);
-    forest->setScores(sampler->scoreTree(leafMap));
   }
 }

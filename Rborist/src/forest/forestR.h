@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021  Mark Seligman
+// Copyright (C)  2012-2022  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -116,30 +116,34 @@ class ForestExport {
  */
 struct FBTrain {
   const unsigned int nTree; // Total # trees under training.
-  size_t rawTop; // Next available index in raw buffer.
-  RawVector nodeRaw; // Packed representation of decision tree nodes.
 
+  // Decision node related:
+  NumericVector nodeExtent; // # nodes in respective tree.
+  size_t nodeTop; // Next available index in raw buffer.
+  RawVector nodeRaw; // Packed representation of decision tree nodes.
+  size_t scoreTop; // Next available score index.
+  NumericVector scores; // Same indices as nodeRaw.
+
+  // Factor related:
+  NumericVector facExtent; // # factor entries in respective tree.
   size_t facTop; // Next available index in factor buffer.
   RawVector facRaw; // Bit-vector representation of factor splits.
 
 
   FBTrain(unsigned int nTree);
 
-  static RawVector resizeRaw(const unsigned char raw[],
-			     size_t nodeOff,
-			     size_t nodeBytes,
-			     double scale);
-
   /**
      @brief Copies core representation of a chunk of trained trees.
+
+     @param bridge caches a crescent forest chunk.
 
      @param treeOff is the beginning tree index of the trained chunk.
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void consume(const struct ForestBridge* fb,
-               unsigned int treeOff,
-               double fraction);
+  void bridgeConsume(const struct ForestBridge* bridge,
+		     unsigned int treeOff,
+		     double fraction);
 
   /**
      @brief Decorates trained forest for storage by front end.

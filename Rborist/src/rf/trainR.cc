@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -189,7 +189,7 @@ void TrainRf::consume(const ForestBridge* fb,
                       unsigned int chunkSize) const {
   double scale = safeScale(treeOff + chunkSize);
   sampler->consume(sb, scale);
-  forest->consume(fb, treeOff, scale);
+  forest->bridgeConsume(fb, treeOff, scale);
   
   if (verbose) {
     Rcout << treeOff + chunkSize << " trees trained" << endl;

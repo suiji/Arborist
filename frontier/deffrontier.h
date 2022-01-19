@@ -8,482 +8,577 @@
 /**
    @file deffrontier.h
 
-   @brief Manages the lazy repartitioning of the observation set.
+   @brief Tracks repartition definitions associated with a single frontier instance.
 
-   Splitting requires accessing the observations in sorted/grouped
-   form.  Algorithms that do not attempt to split every node/predictor
-   pair, such as Random Forest, can improve training speed by performing
-   this updating (repartitioning) lazily.
+   Definitions cache the repartition state of a given splitting cell.
+   Some algorithms, such as Random Forests, employ variable selection
+   and do not require repartitioning of all cells at each frontier
+   instance.  This allows repartitioning to be performed lazily and
+   sparingly.
 
    @author Mark Seligman
+
  */
 
-#ifndef PARTITION_DEFFRONTIER_H
-#define PARTITION_DEFFRONTIER_H
-
-
-#include <deque>
-#include <vector>
-#include <map>
+#ifndef FRONTIER_DEFRONTIER_H
+#define FRONTIER_DEFRONTIER_H
 
 #include "mrra.h"
-#include "splitcoord.h"
-#include "stagecount.h"
 #include "typeparam.h"
+
+#include <vector>
+
+/**
+   @brief Minimal liveness information for most-recently-restaged ancestor.
+ */
+class LiveBits {
+  static constexpr unsigned int defBit = 1;
+  static constexpr unsigned int singletonBit = 2;
+  static constexpr unsigned int denseBit = 4;
+
+  // Additional bits available for multiple buffers:
+  static constexpr unsigned int bufBit = 8;
+
+  unsigned char raw; // Encodes liveness, denseness and whether singleton.
+ public:
+
+  LiveBits() : raw(0) {
+  }
+
+  
+  /**
+     @brief Initializes as live and sets descriptor values.
+
+     @param bufIdx is the buffer in which the definition resides.
+
+     @param singleton is true iff the value is singleton.
+   */
+  inline void init(unsigned int bufIdx, bool singleton) {
+    raw = defBit | (singleton ? singletonBit : 0) | (bufIdx == 0 ? 0 : bufBit);
+  }
+
+
+  /**
+     @brief Singleton indicator.
+
+     @return true iff value is singleton.
+   */
+  inline bool isSingleton() const {
+    return (raw & singletonBit) != 0;
+  }
+
+
+  /**
+     @brief Singleton and buffer indicator.
+
+     @param[out] bufIdx outputs the resident buffer index.
+
+     @return true iff singleton.
+   */
+  inline bool isSingleton(unsigned int& bufIdx) const {
+    bufIdx = (raw & bufBit) == 0 ? 0 : 1;
+    return isSingleton();
+  }
+  
+
+  inline void setDense() {
+    raw |= denseBit;
+  }
+
+  
+  /**
+     @brief Determines whether cell requires dense placement, i.e, is either
+     unaligned within a dense region or is itself dense.
+
+     @return true iff dense bit set.
+   */
+  inline bool isDense() const {
+    return (raw & denseBit) != 0;
+  }
+
+
+
+  /**
+     @brief Sets the singleton bit.
+   */
+  inline void setSingleton(bool isSingleton) {
+    raw |= isSingleton ? singletonBit : 0;
+  }
+
+
+  /**
+     @brief Indicates whether value is live.
+   */
+  inline bool isDefined() const {
+    return (raw & defBit) != 0;
+  }
+
+
+  /**
+     @brief Marks value as extinct.
+     
+     @return true iff the value was live on entry.
+   */
+  inline bool undefine() {
+    bool wasDefined = isDefined();
+    raw &= ~defBit;
+    return wasDefined;
+  }
+
+
+  /**
+     @brief Looks up position parameters and resets definition bit.
+
+     @param[out] singleton outputs whether the value is singleton.
+  */
+  inline MRRA consume(const SplitCoord& splitCoord,
+			 unsigned int del,
+			 bool& singleton) {
+    unsigned int bufIdx;
+    singleton = isSingleton(bufIdx);
+    (void) undefine();
+    return MRRA(splitCoord, bufIdx, del);
+  }
+
+
+  void setSingleton(const class StageCount& stageCount);
+};
 
 
 /**
-   @brief Minimal information needed to define a splitting pre=candidate.
+   @brief Defines the parameters needed to place a dense cell with respect
+   the position of its defining node.
+
+   Parameters are maintained as relative values to facilitate recognition
+   of cells no longer requiring dense representation.
  */
-struct PreCand {
-  MRRA mrra; // delIdx implicitly zero, but buf-bit needed.
-  StageCount stageCount; // Shared between candidate and accumulator, if cand.
-  uint32_t randVal; // Arbiter for tie-breaking and the like.
-  
-  /**
-     @brief MRRA component initialized at construction, StageCount at (re)staging.
-   */
-  PreCand(const SplitCoord& splitCoord,
-	  unsigned int bufIdx,
-	  uint32_t randVal_) :
-    mrra(MRRA(splitCoord, bufIdx, 0)),
-    randVal(randVal_) {
-  }
+class DenseCoord {
+  IndexT margin; // # unused slots in cell.
+  IndexT implicit; // Nonincreasing value.
 
-  
-  void setStageCount(const StageCount& sc) {
-    stageCount = sc;
-  }
+ public:
 
-
-  bool isSingleton() const {
-    return stageCount.isSingleton();
+  inline IndexT getImplicit() const {
+    return implicit;
   }
 
   
   /**
-     @brief Checks whether StageCount member has been initialized.
+     @brief Compresses index node coordinates for dense access.
 
-     Testing only.
+     @param[in, out] idxRange inputs the unadjusted range and outputs the adjusted range.
    */
-  bool isInitialized() const {
-    return stageCount.isInitialized();
+  inline void adjustRange(IndexRange& idxRange) const {
+    idxRange.adjust(margin, implicit);
+  }
+
+
+  /**
+     @brief Sets the dense placement parameters for a cell.
+   */
+  inline void init(IndexT implicit,
+		   IndexT margin = 0) {
+    this->implicit = implicit;
+    this->margin = margin;
   }
 };
 
 
 /**
-   @brief Manages definitions reaching the frontier.
+   @brief Caches previous frontier definitiions by layer.
  */
 class DefFrontier {
-  const PredictorT nPred; // Number of predictors.
-  class Frontier* frontier;
-  const IndexT bagCount;
+  class DefMap* defMap;
+  const PredictorT nPred; // Predictor count.
+  const IndexT nSplit; // # splitable nodes at level.
+  const IndexT noIndex; // Inattainable node index value.
+
+  IndexT defCount; // # live definitions.
+  unsigned char del; // Position in deque.  Increments.
+
+  // Persistent:
+  vector<IndexRange> rangeAnc; // Stage coordinates, by node.
+
+  // More elegant and parsimonious to use map from pair to node,
+  // but hashing much too slow.
+  vector<LiveBits> mrra; // Indexed by pair-offset.
+  vector<DenseCoord> denseCoord;
+
+  // Recomputed:
+  unique_ptr<class IdxPath> relPath;
+  vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
+  vector<IndexT> liveCount; // Indexed by node.
+
+  IndexT candExtent; // Total candidate index extent.
+  const bool nodeRel;  // Subtree- or node-relative indexing.
+
+public:
+  DefFrontier(IndexT nSplit_,
+        PredictorT nPred_,
+        IndexT noIndex_,
+        IndexT idxLive_,
+        bool nodeRel_,
+	   class DefMap* defMap);
+
   
-  static constexpr double efficiency = 0.15; // Work efficiency threshold.
+  void rankRestage(class ObsPart *samplePred,
+                   const MRRA& mrra,
+                   DefFrontier *levelFront);
 
-  unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
-  IndexT splitPrev; // # nodes in previous layer.
-  IndexT splitCount; // # nodes in the layer about to split.
-  const class Layout* layout;
-  const PredictorT nPredDense; // Number of predictors using dense indexing.
-  const vector<IndexT> denseIdx; // # Compressed mapping to dense offsets.
-  vector<MRRA> ancestor; // Collection of ancestors to restage.
-  unique_ptr<class ObsPart> obsPart;
 
-  vector<unsigned int> history; // Current layer's history.
-  vector<unsigned int> historyPrev; // Previous layer's history:  accum.
-  vector<unsigned char> layerDelta; // # layers back split was defined.
-  vector<unsigned char> deltaPrev; // Previous layer's delta:  accum.
-  deque<unique_ptr<class DefLayer> > layer; // Caches layers tracked by history.
-  vector<vector<PreCand>> preCand; // Restageable, possibly splitable, coordinates.
+  void indexRestage(class ObsPart* obsPart,
+                    const MRRA& mrra,
+                    const DefFrontier* levelFront,
+		    const vector<IndexT>& offCand);
+
+  /**
+     @brief Precomputes path vector prior to restaging.
+
+     This is necessary in the case of dense ranks, as cell sizes are not
+     derivable directly from index nodes.
+
+     Decomposition into two paths adds ~5% performance penalty, but
+     appears necessary for dense packing or for coprocessor loading.
+  */
+  void rankRestage(class ObsPart *samplePred,
+                   const MRRA& mrra,
+                   DefFrontier *levelFront,
+                   unsigned int reachOffset[], 
+                   const unsigned int reachBase[] = nullptr);
+
+  void indexRestage(class ObsPart *samplePred,
+                    const MRRA& mrra,
+                    const DefFrontier *levelFront,
+                    const unsigned int reachBase[],
+                    unsigned int reachOffset[],
+                    unsigned int splitOffset[]);
+
+  /**
+     @brief Moves entire level's defnitions to restaging schedule.
+
+     @param defMap is the active defMap state.
+  */
+  void flush(class DefMap* defMap = nullptr);
 
 
   /**
-     @brief Increments reaching layers for all pairs involving node.
+     @brief Walks the definitions, purging those which no longer reach.
 
-     @param splitIdx is the index of a splitting node w.r.t. current layer.
+     @return true iff a definition was purged at this level.
+  */
+  bool nonreachPurge();
 
-     @param parIdx is the index of the parent w.r.t. previous layer.
+  /**
+     @brief Initializes paths reaching from non-front levels.
    */
-  inline void inherit(unsigned int splitIdx, unsigned int parIdx) {
-    unsigned char *colCur = &layerDelta[splitIdx * nPred];
-    unsigned char *colPrev = &deltaPrev[parIdx * nPred];
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
-      colCur[predIdx] = colPrev[predIdx] + 1;
+  void reachingPaths();
+
+  void pathInit(IndexT levelIdx,
+	   unsigned int path,
+	   const IndexRange& bufRange,
+	   IndexT relBase);
+
+  /**
+     @param[in, out] cand may have modified run position and index range.
+
+     @param[out] implicit outputs the number of implicit indices.
+  */
+  void adjustRange(const MRRA& cand,
+		   IndexRange& idxRange) const;
+
+
+  /**
+     @brief Looks up the ancestor cell built for the corresponding index
+     node and adjusts start and extent values by corresponding dense parameters.
+  */
+  IndexRange getRange(const MRRA& mrra) const {
+    IndexRange idxRange = rangeAnc[mrra.splitCoord.nodeIdx];
+    adjustRange(mrra, idxRange);
+
+    return idxRange;
+  }
+
+
+  /**
+     @brief Precipitates a top-level precandidate from a definition.
+
+     @param splitCoord is a split coordinate.
+
+     @param[in, out] restageCand collects precandidates for restaging.
+   */
+  void flushDef(const SplitCoord& splitCoord,
+		class DefMap* defMap);
+
+
+  /**
+     @brief Clones offsets along path reaching from ancestor node.
+
+     @param mrra is an MRRA coordinate.
+
+     @param[out] reachOffset outputs node starting offsets.
+
+     @param[out] reachBase outputs node-relative offsets, iff nonnull.
+  */
+  void offsetClone(const SplitCoord& mrra,
+	      IndexT reachOffset[],
+	      IndexT reachBase[] = nullptr);
+
+  void offsetClone(const SplitCoord& mrra,
+	      const vector<IndexT>& offCand,
+	      IndexT reachOffset[],
+	      IndexT splitOffset[],
+	      IndexT reachBase[] = nullptr);
+
+/**
+   @brief Sets stage counts on successor cells.
+ */
+  void setStageCounts(const class MRRA& preCand,
+		      const unsigned int pathCount[],
+		      const unsigned int rankCount[]) const;
+
+/**
+   @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
+   index numbering ut prevent cell boundaries from crossing.
+
+   @param pathCount inputs the counts along each reaching path.
+
+   @param[out] reachOffset outputs the dense starting offsets.
+ */
+  void packDense(const unsigned int pathCount[],
+		 DefFrontier *levelFront,
+		 const MRRA& mrra,
+		 unsigned int reachOffset[]) const;
+
+  /**
+     @brief Marks the node-relative index as extinct.
+   */
+  void relExtinct(IndexT idx);
+
+  /**
+     @brief Revises node-relative indices, as appropriae.  Irregular,
+     but data locality improves with tree depth.
+
+     @param one2Front maps first level to front indices.
+
+     @return true iff level employs node-relative indexing.
+  */
+  bool backdate(const class IdxPath *one2Front);
+
+  
+  /**
+     @brief Sets the definition's heritable singleton bit according to StageCount.
+  */
+  void setStageCount(const SplitCoord& splitCoord,
+		     const class StageCount& stageCount);
+
+  /**
+     @brief Sets path, target and node-relative offse.
+  */
+  void relLive(IndexT idx,
+	       unsigned int path,
+	       unsigned int targIdx,
+	       unsigned int ndBase);
+
+
+  /**
+     @param[in, out] threshold below which not to flush:  decremented.
+
+     @retun true iff flush occurs.
+   */
+  bool flush(class DefMap* defMap,
+	     IndexT& thresh) {
+    if (defCount <= thresh) {
+      flush(defMap);
+      thresh -= defCount;
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  
+  /**
+     @brief Getter for level delta.
+   */
+  inline auto getDel() const {
+    return del;
+  }
+
+  /**
+     @brief Accessor for indexing mode.  Currently two-valued.
+   */
+  inline bool isNodeRel() const {
+    return nodeRel;
+  }
+
+  
+  /**
+     @brief Front path accessor.
+
+     @return reference to front path.
+   */
+  const inline class IdxPath* getFrontPath() const {
+    return relPath.get();
+  }
+
+  
+  /**
+     @brief Shifts a value by the number of back-levels to compensate for
+     effects of binary branching.
+
+     @param val is the value to shift.
+
+     @return shifted value.
+   */  
+  inline unsigned int backScale(unsigned int val) const {
+    return val << (unsigned int) del;
+  }
+
+
+  /**
+     @brief Produces mask approprate for level:  lowest 'del' bits high.
+
+     @return bit mask value.
+   */
+  inline unsigned int pathMask() const {
+    return backScale(1) - 1;
+  }
+  
+
+  /**
+     @brief Accessor.  What more can be said?
+
+     @return definition count at this level.
+  */
+  inline IndexT getDefCount() {
+    return defCount;
+  }
+
+
+  inline IndexT getSplitCount() {
+    return nSplit;
+  }
+
+
+  /**
+     @brief Creates the root definition for a predictor following staging.
+
+     @param predIdx is the predictor index.
+
+     @param stageCount enumerates the staging sample and rank counts.
+   */
+  void rootDefine(PredictorT predIdx,
+		  const struct StageCount& stageCount);
+
+
+  /**
+     @brief As above, but for not-root case:  general split coordinate.
+
+     The implicit count is only set directly in the root case.  Otherwise it has an
+     initial setting of zero, which is later updated by restaging.
+   */
+  inline bool define(const MRRA& defCoord,
+		     bool singleton) {
+    if (defCoord.splitCoord.nodeIdx != noIndex) {
+      mrra[defCoord.splitCoord.strideOffset(nPred)].init(defCoord.bufIdx, singleton);
+      setDense(defCoord.splitCoord, 0); // Initial implicit count of zero, later updated.
+      defCount++;
+      return true;
+    }
+    else { // Dummy case.
+      return false;
     }
   }
 
 
- public:
+  /**
+     @brief Marks definition at given coordinate as extinct.
+
+     @param splitIdx is the split index.
+
+     @param predIdx is the predictor index.
+  */
+  inline void undefine(const SplitCoord& splitCoord) {
+    defCount -= mrra[splitCoord.strideOffset(nPred)].undefine() ? 1 : 0;
+  }
 
   /**
-     @brief Class constructor.
-
-     @param frame_ is the training frame.
-
-     @param frontier_ tracks the frontier nodes.
-  */
-  DefFrontier(const class TrainFrame* frame,
-	      class Frontier* frontier);
-
+     @brief As above, but assumes live and offers output parameters:
   
-  /**
-     @brief Class finalizer.
-  */
-  ~DefFrontier();
+     @param[out] bufIdx outputs the buffer index of the definition.
 
- /**
-     @brief Pushes first layer's path maps back to all back layers
-     employing node-relative indexing.
-  */
-  void backdate() const;
-
-
-  const class ObsPart* getObsPart() const;
-
-  
-  /**
-     @brief Dense offsets maintained separately, as a special case.
-
-     @return offset strided by 'nPredDense'.
+     @param[out] singleton outputs whether the definition is singleton.
    */
-  inline IndexT denseOffset(const SplitCoord& splitCoord) const {
-    return splitCoord.nodeIdx * nPredDense + denseIdx[splitCoord.predIdx];
-  }
-
-
-  inline IndexT denseOffset(const MRRA& cand) const {
-    return denseOffset(cand.splitCoord);
-  }
-
-
-  inline PredictorT getNPred() const {
-    return nPred;
-  }
-
-
-  inline IndexT getNSplit() const {
-    return splitCount;
-  }
-
-
-  PredictorT getNPredDense() const {
-    return nPredDense;
-  }
-
-
-  class DefLayer* getLayer(unsigned int del) const {
-    return layer[del].get();
+  inline MRRA consume(const SplitCoord& splitCoord,
+			  bool& singleton) {
+    defCount--;
+    return mrra[splitCoord.strideOffset(nPred)].consume(splitCoord, del, singleton);
   }
 
 
   /**
-     @brief Passes through to Frontier method.
+     @brief Determines whether pair consists of a single run.
 
-     @return true iff indexed split is not splitable.
+     @param levelIdx is the level-relative split index.
+
+     @param predIdx is the predictor index.
+
+     @return true iff a singleton.
    */
-  bool isUnsplitable(IndexT splitIdx) const;
-
-
-  /**
-     @brief Rebuilds the precandidate vector using CandT method.
-   */
-  void setPrecandidates(unsigned int level);
-
-  
-  const vector<vector<PreCand>>& getPrecand() const {
-    return preCand;
+  inline bool isSingleton(const SplitCoord& splitCoord) const {
+    return mrra[splitCoord.strideOffset(nPred)].isSingleton();
   }
 
 
   /**
-     @brief Gleans singletons from precandidate set.
+     @brief As above, but with output buffer index parameter.
 
-     @return vector of candidates.
+     @return true iff non-singleton precandidate appendable.
    */
-  vector<class SplitNux> getCandidates(const class SplitFrontier* sf) const;
-  
-
-  /**
-     @brief Clears ancestor list and lazily erases rear layers.
-
-     Reaching layers must persist through restaging ut allow path lookup.
-     @param flushCount is the number of rear layers to erase.
-  */
-  void clearDefs(unsigned int flushCount);
-
-
-  /**
-     @brief Flushes reaching definition and reports schulability.
-     
-     @param[out] outputs the cell's buffer index, if splitable.
-
-     @return true iff cell at coordinate is splitable.
-  */
-  bool preschedulable(const SplitCoord& splitCoord,
-		      unsigned int& bufIdx);
-
-
-  /**
-     @brief As above, but discovers buffer via lookup.
-   */
-  bool preschedule(const SplitCoord& splitCoord,
-		   double dRand);
-
-
-  /**
-     @brief Extracts the 32 lowest-order mantissa bits of a double-valued
-     random variate.
-
-     The double-valued variants passed are used by the caller to arbitrate
-     variable sampling and are unlikely to rely on more than the first
-     few mantissa bits.  Hence using the low-order bits to arbitrate other
-     choices is unlikely to introduce spurious correlations.
-   */
-  inline static unsigned int getRandLow(double rVal) {
-    union { double d; uint32_t ui[2]; } u = {rVal};
-    
-    return u.ui[0];
+  inline bool isSingleton(const SplitCoord& splitCoord,
+			  unsigned int& bufIdx) const {
+    return mrra[splitCoord.strideOffset(nPred)].isSingleton(bufIdx);
   }
 
 
+  IndexT getImplicit(const MRRA& cand) const;
+
+  inline bool isDefined(const SplitCoord& splitCoord) const {
+    return mrra[splitCoord.strideOffset(nPred)].isDefined();
+  }
+
+
+  inline bool isDense(const SplitCoord& splitCoord) const {
+    return mrra[splitCoord.strideOffset(nPred)].isDense();
+  }
 
   
-  /**
-     @brief Passes through to front layer.
-   */
-  bool isSingleton(const MRRA& defCoord) const;
+  bool isDense(const MRRA& cand) const {
+    return isDense(cand.splitCoord);
+  }
+
+
+  void setDense(const SplitCoord& splitCoord,
+		IndexT implicit,
+		IndexT margin = 0);
 
 
   /**
-     @brief Flips source bit if a definition reaches to current layer.
+     @brief Establishes front-level IndexSet as future ancestor.
   */
-  void addDef(const MRRA& splitCoord,
-              bool singleton);
-
-
-  /**
-     @brief Passes through to front layer.
-   */
-  void adjustRange(const MRRA& preCand,
-		   IndexRange& idxRange) const;
-
-
-  IndexT* getBufferIndex(const class SplitNux* nux) const;
-
-  
-  class SampleRank* getPredBase(const SplitNux* nux) const;
-
-  
-  /**
-     @brief Passes through to front layer.
-   */
-  IndexT getImplicitCount(const MRRA& preCand) const;
-
-
-  /**
-     @brief Passes ObsPart through to Sample method.
-   */
-  void stage(const class Sample* sample);
-
-
-  /**
-     @brief Appends restaged ancestor.
-   */
-  void appendAncestor(const MRRA& mrra);
-
-
-  /**
-     @brief Updates the data (observation) partition.
-   */
-  void restage();
-
-
-
-  /**
-     @brief Repartitions observations at a specified cell.
-
-     @param mrra contains the coordinates of the originating cell.
-   */
-  void restage(const MRRA& mrra) const;
-  
-  /**
-     @brief Updates subtree and pretree mappings from temporaries constructed
-     during the overlap.  Initializes data structures for restaging and
-     splitting the current layer of the subtree.
-
-     @param splitNext is the number of splitable nodes in the current
-     subtree layer.
-
-     @param idxLive is the number of live indices.
-
-     @param nodeRel is true iff the indexing regime is node-relative.
-  */
-  void overlap(unsigned int splitNext,
-               unsigned int bagCount,
-               unsigned int idxLive,
-               bool nodeRel);
-
-
-  /**
-     @brief Consumes all fields from a node relevant to restaging.
-
-     @param iSet is the node, in index set form.
-
-     @param parIdx is the index of the splitting parent.
-
-     @param relBase is the base of sample indices associated with the node.
-  */
-  void reachingPath(const class IndexSet& iSet,
-		    IndexT parIdx,
-		    IndexT relBase);
-
-
-  /**
-     @brief Flushes non-reaching definitions as well as those about
-     to fall off the layer deque.
-
-     @return count of layers to flush.
-  */
-  unsigned int flushRear();
-
-
-  /**
-     @brief Pass-through for strided factor offset.
-
-     @param splitCoord is the node/predictor pair.
-
-     @param[out] facStride is the strided factor index for dense lookup.
-
-     @return true iff predictor is factor-valued.
-   */
-  //  bool isFactor(const SplitCoord& splitCoord,
-  //		unsigned int& facStride) const; // EXIT
-
-
-  /**
-     @brief Updates both node-relative path for a live index, as
-     well as subtree-relative if back layers warrant.
-
-     @param ndx is a node-relative index from the previous layer.
-
-     @param targIdx is the updated node-relative index:  current layer.
-
-     @param stx is the associated subtree-relative index.
-
-     @param path is the path reaching the target node.
-
-     @param ndBase is the base index of the target node:  current layer.
-   */
-  void setLive(unsigned int ndx,
-               unsigned int targIdx,
-               unsigned int stx,
-               unsigned int path,
-               unsigned int ndBase);
-
-
-  /**
-     @brief Marks subtree-relative path as extinct, as required by back layers.
-
-     @param stIdx is the subtree-relatlive index.
-  */
-  void setExtinct(IndexT stIdx);
-
-
-  /**
-     @brief Terminates node-relative path an extinct index.  Also
-     terminates subtree-relative path if currently live.
-
-     @param nodeIdx is a node-relative index.
-
-     @param stIdx is the subtree-relative index.
-  */
-  void setExtinct(unsigned int nodeIdx, IndexT stIdx);
-
-  
-  /**
-     @brief Accessor for 'stPath' field.
-   */
-  class IdxPath *getSubtreePath() const {
-    return stPath.get();
+  void initAncestor(IndexT splitIdx,
+	       const IndexRange& bufRange) {
+    rangeAnc[splitIdx] = IndexRange(bufRange.getStart(), bufRange.getExtent());
   }
 
 
   /**
-     @brief Looks up the number of splitable nodes in a previously-split
-     layer.
-
-     @param del is the number of layers back to look.
-
-     @return count of splitable nodes at layer of interest.
-  */
-  unsigned int getSplitCount(unsigned int del) const;
-
-  
-  /**
-     @brief Looks up front path belonging to a back layer.
-
-     @param del is the number of layers back to look.
-
-     @return back layer's front path.
-  */
-  const class IdxPath *getFrontPath(unsigned int del) const;
-
-  
-  /**
-   @brief Flushes MRRA for a pair and instantiates definition at front layer.
-
-   @param spliCoord is the layer-relative coordinate.
- */
-  void reachFlush(const SplitCoord& splitCoord);
-
-
-  /**
-     @brief Locates index of ancestor several layers back.
-
-     @param reachLayer is the reaching layer.
-
-     @param splitIdx is the index of the node reached.
-
-     @return layer-relative index of ancestor node.
- */
-  IndexT getHistory(const DefLayer *reachLayer,
-		    IndexT splitIdx) const;
-
-
-  SplitCoord getHistory(const DefLayer* reachLayer,
-			 const SplitCoord& coord) const;
-  
-  
-  /**
-     @brief Looks up the layer containing the MRRA of a pair.
+     @brief Sets the number of span candidates.
    */
-  inline class DefLayer* reachLayer(const SplitCoord& coord) const {
-    return layer[layerDelta[coord.strideOffset(nPred)]].get();
+  void setSpan(IndexT spanCand) {
+    candExtent = spanCand;
   }
-
-
-  /**
-     @brief Accessof for splitable node count in front layer.
-
-     @return split count.
-   */
-  inline unsigned int getSplitCount() const {
-    return splitCount;
-  }
-
-
-  void setStageCount(const SplitCoord& splitCoord,
-		     IndexT idxImplicit,
-		     IndexT rankCount);
-
-  
-  void setStageCount(const SplitCoord& splitCoord,
-		     const StageCount& sc) const;
-
 };
 
-
 #endif
-

@@ -17,71 +17,13 @@
 #ifndef PARTITION_FRONTIER_H
 #define PARTITION_FRONTIER_H
 
+#include "samplemap.h"
 #include "pretree.h"
 #include "indexset.h"
 #include "typeparam.h"
 
 #include <algorithm>
 #include <vector>
-#include <numeric>
-
-
-/**
-   @brief Maps to and from sample indices and tree nodes.
-
-   Easy access to node contents simplifies the task of scoring both terminals
-   and nonterminals.  Nonterminal scores provide a prediction for premature
-   termination, as in the case of missing observations.
-
-   Nonterminal component is maintained via a double-buffer scheme, updated
-   following splitting.  The update performs a stable partition to improve
-   latency.  The buffer initially lists all sample indices, but continues to
-   shrink as terminal nodes absorb the contents.
-
-   Terminal component is initially empty, but continues to grow as nonterminal
-   contents are absorbed.
-
-   Extent vectors record the number of sample indices associated with each node.
- */
-struct SampleMap {
-  vector<IndexT> indices;
-  vector<IndexRange> range;
-  vector<IndexT> ptIdx;
-  IndexT maxExtent; // Tracks width of node-relative indices.
-
-  /**
-     @brief Constructor with optional index count.
-   */
-  SampleMap(IndexT nIdx = 0) :
-    indices(vector<IndexT>(nIdx)),
-    range(vector<IndexRange>(0)),
-    ptIdx(vector<IndexT>(0)),
-    maxExtent(0) {
-  }
-
-
-  IndexT getEndIdx() const {
-    return range.empty() ? 0 : range.back().getEnd();
-  }
-
-
-  void addNode(IndexT extent,
-	       IndexT ptId) {
-    maxExtent = max(maxExtent, extent);
-    range.emplace_back(getEndIdx(), extent);
-    ptIdx.push_back(ptId);
-  }
-
-  
-  IndexT* getWriteStart(IndexT idx) {
-    return &indices[range[idx].getStart()];
-  }
-  
-  
-  IndexT getNodeCount() const {
-    return range.size();
-  }
-};
 
 
 /**
@@ -90,43 +32,33 @@ struct SampleMap {
 class Frontier {
   static unsigned int totLevels;
   const class TrainFrame* frame;
-  vector<IndexSet> indexSet;
+  const class Sampler* sampler;
   const IndexT bagCount;
   const PredictorT nCtg;
-  unique_ptr<class DefFrontier> defMap;
-  bool nodeRel; // Whether level uses node-relative indexing:  sticky.
+
+  vector<IndexSet> frontierNodes;
+  unique_ptr<class DefMap> defMap;
 
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
   SampleMap smTerminal; // Persistent terminal sample mapping:  crescent.
-  IndexT terminalNodes; // Beginning # terminal nodes at level.
-
   SampleMap smNonterm; // Current nonterminal mapping.
 
-  const vector<IndexT> recoverSt2PT() const;
+  unique_ptr<class SplitFrontier> splitFrontier; // Per-level.
 
   /**
      @brief Determines splitability of frontier nodes just split.
 
      @param indexSet holds the index-set representation of the nodes.
    */
-  SampleMap surveySet(vector<IndexSet>& indexSet);
+  SampleMap surveySplits(vector<IndexSet>& indexSet);
 
-  void surveySplit(IndexSet& iSet,
-		   SampleMap& smNext);
+  void registerSplit(IndexSet& iSet,
+		    SampleMap& smNext);
   
   void registerTerminal(IndexSet& iSet);
   void registerNonterminal(IndexSet& iSet,
 			   SampleMap& smNext);
-  
-
-  /**
-     @brief Dispatches sample map update according to terminal/nonterminal.
-   */
-  void updateMap(IndexSet& iSet,
-		 const class BranchSense* branchSense,
-		 SampleMap& smNext,
-		 bool transitional);
 
 
   /**
@@ -139,12 +71,11 @@ class Frontier {
 
 
   /**
-     @brief Establishes splitting parameters for next frontier level.
+     @brief Produces frontier nodes for next level.
    */
-  void nextLevel(const class BranchSense*,
-		 SampleMap& smNext);
-  
+  vector<IndexSet> produce() const;
 
+  
   /**
      @brief Resets parameters for upcoming levl.
 
@@ -153,27 +84,7 @@ class Frontier {
   void reset(IndexT splitNext);
 
 
-  /**
-     @brief Produces new level's node and marks unsplitable nodes.
-  */
-  vector<IndexSet> produce();
-
-
  public:
-  /**
-     @brief Updates terminals from extinct index sets.
-   */
-  void updateExtinct(const IndexSet& iSet,
-		     bool transitional);
-
-
-  /**
-     @brief Updates terminals and nonterminals from live index sets.
-   */
-  void updateLive(const class BranchSense* branchSense,
-		  const IndexSet& iSet,
-		  SampleMap& smNext,
-		  bool transitional);
 
 
   /**
@@ -195,8 +106,8 @@ class Frontier {
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
-  Frontier(const class TrainFrame* frame,
-           const class Sample* sample);
+  Frontier(const class TrainFrame* frame_,
+           const class Sampler* sampler_);
 
   
   /**
@@ -218,7 +129,7 @@ class Frontier {
      Assumes root node and attendant per-tree data structures have been initialized.
      Parameters as described above.
   */
-  unique_ptr<class PreTree> levels(const class Sample* sample);
+  unique_ptr<class PreTree> levels();
 
 
   /**
@@ -232,22 +143,29 @@ class Frontier {
   /**
      @brief Updates both index set and pretree states for a set of simple splits.
    */
-  void updateSimple(const class SplitFrontier* sf,
-		    const vector<class SplitNux>& nuxMax,
+  void updateSimple(const vector<class SplitNux>& nuxMax,
 		    class BranchSense* branchSense);
 
 
   /**
      @brief Updates only pretree states for a set of compound splits.
    */
-  void updateCompound(const class SplitFrontier* sf,
-		      const vector<vector<class SplitNux>>& nuxMax);
+  void updateCompound(const vector<vector<class SplitNux>>& nuxMax);
 
+
+  void setScore(IndexT splitIdx) const;
+
+
+  const IndexSet& getNode(IndexT splitIdx) const {
+    return frontierNodes[splitIdx];
+  }
+
+  
   /**
      @return pre-tree index associated with node.
    */
   IndexT getPTId(const MRRA& mrra) const {
-    return indexSet[mrra.splitCoord.nodeIdx].getPTId();
+    return frontierNodes[mrra.splitCoord.nodeIdx].getPTId();
   }
   
 
@@ -265,7 +183,7 @@ class Frontier {
 
 
   /**
-     @brief DefFrontier pass-through to register reaching path.
+     @brief DefMap pass-through to register reaching path.
 
      @param splitIdx is the level-relative node index.
 
@@ -309,7 +227,7 @@ class Frontier {
   void candMax(IndexT splitIdx,
 	       class SplitNux& argMax,
 	       const vector<class SplitNux>& candV) const {
-    indexSet[splitIdx].candMax(candV, argMax);
+    frontierNodes[splitIdx].candMax(candV, argMax);
   }
 
 
@@ -321,11 +239,11 @@ class Frontier {
      @return index range of referenced split coordinate.
    */
   IndexRange getBufRange(const MRRA& mrra) const {
-    return indexSet[mrra.splitCoord.nodeIdx].getBufRange();
+    return frontierNodes[mrra.splitCoord.nodeIdx].getBufRange();
   }
 
 
-  auto getDefFrontier() const {
+  auto getDefMap() const {
     return defMap.get();
   }
 
@@ -352,17 +270,12 @@ class Frontier {
     return nCtg;
   }
 
-
-  bool nodeRelative() const {
-    return nodeRel;
-  }
-
   
   /**
      @brief Accessor for count of splitable sets.
    */
   inline IndexT getNSplit() const {
-    return indexSet.size();
+    return frontierNodes.size();
   }
 
 
@@ -374,7 +287,7 @@ class Frontier {
      @return index set's sum value.
    */
   inline auto getSum(IndexT splitIdx) const {
-    return indexSet[splitIdx].getSum();
+    return frontierNodes[splitIdx].getSum();
   }
 
 
@@ -390,7 +303,7 @@ class Frontier {
      @brief Accessor for count of sampled responses over set.
    */
   inline auto getSCount(IndexT splitIdx) const {
-    return indexSet[splitIdx].getSCount();
+    return frontierNodes[splitIdx].getSCount();
   }
 
 
@@ -404,7 +317,7 @@ class Frontier {
    */
   inline auto getSCountSucc(IndexT splitIdx,
 			    bool sense) const {
-    return indexSet[splitIdx].getSCountSucc(sense);
+    return frontierNodes[splitIdx].getSCountSucc(sense);
   }
 
 
@@ -419,7 +332,7 @@ class Frontier {
    */
   inline auto getSumSucc(IndexT splitIdx,
 			    bool sense) const {
-    return indexSet[splitIdx].getSumSucc(sense);
+    return frontierNodes[splitIdx].getSumSucc(sense);
   }
 
 
@@ -433,7 +346,7 @@ class Frontier {
      @brief Accessor for count of disinct indices over set.
    */
   inline auto getExtent(IndexT splitIdx) const {
-    return indexSet[splitIdx].getExtent();
+    return frontierNodes[splitIdx].getExtent();
   }
   
 
@@ -446,7 +359,7 @@ class Frontier {
      @brief Indicates whether index set is inherently unsplitable.
    */
   inline bool isUnsplitable(IndexT splitIdx) const {
-    return indexSet[splitIdx].isUnsplitable();
+    return frontierNodes[splitIdx].isUnsplitable();
   }
 
   
@@ -455,12 +368,6 @@ class Frontier {
      final pre-tree node assignment.
   */
   void relExtinct(const IndexSet& iSet);
-
-
-  /**
-     @brief Reconciles remaining live node-relative indices.
-  */
-  void relFlush();
 };
 
 #endif

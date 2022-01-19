@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "deffrontier.h" // PreCand
+#include "defmap.h" // PreCand
 #include "cutset.h"
 #include "cutaccum.h"
 #include "splitfrontier.h"

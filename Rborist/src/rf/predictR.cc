@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021  Mark Seligman
+// Copyright (C)  2012-2022  Mark Seligman
 //
 // This file is part of rf.
 //
@@ -347,7 +347,7 @@ List PBRf::getImportance(const PredictRegBridge* pBridge,
   mseOut = mseOut / yTestFE.length();
   mseOut.attr("names") = predNames;
 
-  List importance = List::create(_["msePermuted"] = mseOut);
+  List importance = List::create(_["mse"] = mseOut);
   importance("class") = "ImportanceReg";
   return importance;
 
@@ -472,8 +472,8 @@ List TestCtg::getImportance(const PredictCtgBridge* pBridge,
   BEGIN_RCPP
 
   List importanceCtg = List::create(
-				    _["mispredPermuted"] = mispredPermuted(pBridge, predNames),
-				    _["oobErrPermuted"] = oobErrPermuted(pBridge, predNames)
+				    _["mispred"] = mispredPermuted(pBridge, predNames),
+				    _["oobErr"] = oobErrPermuted(pBridge, predNames)
 				    );
   importanceCtg.attr("class") = "importanceCtg";
   return importanceCtg;

@@ -33,82 +33,55 @@ void IndexSet::deImmutables() {
 }
 
 
-IndexSet::IndexSet() :
+IndexSet::IndexSet(const Sample* sample) :
   splitIdx(0),
-  ptId(0),
-  sCount(0),
-  sum(0.0),
-  minInfo(0.0),
+  bufRange(IndexRange(0, sample->getBagCount())),
+  sCount(sample->getNSamp()),
+  sum(sample->getBagSum()),
   path(0),
+  ptId(0),
+  ctgSum(sample->getCtgRoot()),
+  minInfo(0.0),
   doesSplit(false),
-  unsplitable(false),
+  unsplitable(bufRange.getExtent() < minNode),
+  idxNext(sample->getBagCount()),
   extentTrue(0),
   sCountTrue(0),
   sumTrue(0.0),
   trueEncoding(true),
+  ctgTrue(vector<SumCount>(ctgSum.size())),
   trueExtinct(false),
   falseExtinct(false) {
 }
 
 
-void IndexSet::initRoot(const Sample* sample) {
-  splitIdx = 0;
-  sCount = sample->getNSamp();
-  bufRange = IndexRange(0, sample->getBagCount());
-  minInfo = 0.0;
-  ptId = 0;
-  sum = sample->getBagSum();
-  path = 0;
-  ctgSum = sample->getCtgRoot();
-  ctgTrue = vector<SumCount>(ctgSum.size());
-  
-  initInattainable(sample->getBagCount());
+IndexSet::IndexSet(const Frontier *frontier,
+		   const IndexSet& pred,
+		   bool trueBranch) :
+  splitIdx(pred.getIdxSucc(trueBranch)),
+  bufRange(IndexRange(pred.getStartSucc(trueBranch), pred.getExtentSucc(trueBranch))),
+  sCount(pred.getSCountSucc(trueBranch)),
+  sum(pred.getSumSucc(trueBranch)),
+  path(pred.getPathSucc(trueBranch)),
+  ptId(pred.getPTIdSucc(frontier, trueBranch)),
+  ctgSum(trueBranch ? pred.ctgTrue : SumCount::minus(pred.ctgSum, pred.ctgTrue)),
+  minInfo(pred.getMinInfo()),
+  doesSplit(false),
+  unsplitable((bufRange.getExtent() < minNode) || (trueBranch && pred.trueExtinct) || (!trueBranch && pred.falseExtinct)),
+  idxNext(frontier->getBagCount()), // Inattainable.
+  extentTrue(0),
+  sCountTrue(0),
+  sumTrue(0.0),
+  trueEncoding(true),
+  ctgTrue(vector<SumCount>(ctgSum.size())),
+  trueExtinct(false),
+  falseExtinct(false) {
+    frontier->reachingPath(*this, pred.getSplitIdx());
 }
 
 
-void IndexSet::nonterminal(const SampleMap& smNext) {
-  ptTrue = smNext.ptIdx[idxNext];
-  ptFalse = smNext.ptIdx[idxNext+1];
-  IdxPath::pathLR(path, pathTrue, pathFalse);
-}
-
-
-void IndexSet::succHands(Frontier* frontier, vector<IndexSet>& indexNext) const {
-  if (doesSplit) {
-    succHand(frontier, indexNext, true);
-    succHand(frontier, indexNext, false);
-  }
-}
-
-
-void IndexSet::succHand(Frontier* frontier, vector<IndexSet>& indexNext, bool trueBranch) const {
-  IndexT succIdx = getIdxSucc(trueBranch);
-  if (succIdx < indexNext.size()) { // Otherwise terminal in next level.
-    indexNext[succIdx].succInit(frontier, this, trueBranch);
-  }
-}
-
-
-void IndexSet::succInit(Frontier *frontier,
-                        const IndexSet* par,
-                        bool trueBranch) {
-  splitIdx = par->getIdxSucc(trueBranch);
-  sCount = par->getSCountSucc(trueBranch);
-  bufRange = IndexRange(par->getStartSucc(trueBranch), par->getExtentSucc(trueBranch));
-  minInfo = par->getMinInfo();
-  ptId = par->getPTIdSucc(frontier, trueBranch);
-
-  unsplitable = (bufRange.getExtent() < minNode) || (trueBranch && par->trueExtinct) || (!trueBranch && par->falseExtinct);
-  
-  sum = par->getSumSucc(trueBranch);
-  path = par->getPathSucc(trueBranch);
-  frontier->reachingPath(*this, par->getSplitIdx());
-
-  ctgSum = trueBranch ? par->ctgTrue : SumCount::minus(par->ctgSum, par->ctgTrue);
-  ctgTrue = vector<SumCount>(ctgSum.size());
-  
-  // Inattainable value.  Reset only when non-terminal:
-  initInattainable(frontier->getBagCount());
+unsigned int IndexSet::getPathSucc(bool trueBranch) const {
+  return IdxPath::pathSucc(path, trueBranch);
 }
 
 

@@ -15,9 +15,11 @@
 
 #include "predict.h"
 #include "leaf.h"
+#include "samplemap.h"
 #include "sample.h"
 #include "sampler.h"
 #include "callback.h"
+#include "ompthread.h"
 
 #include <algorithm>
 
@@ -94,28 +96,6 @@ unique_ptr<Sample> LeafCtg::rootSample(const TrainFrame* frame,
 }
 
 
-vector<double> LeafReg::scoreTree(const Sample* sample,
-				  const vector<IndexT>& leafMap) {
-  vector<double> score(1 + *max_element(leafMap.begin(), leafMap.end()));
-  vector<IndexT> sCount(score.size());
-
-  IndexT sIdx = 0;
-  for (auto leafIdx : leafMap) {
-    score[leafIdx] += sample->getSum(sIdx);
-    sCount[leafIdx] += sample->getSCount(sIdx);
-    sIdx++;
-  }
-
-  // Scales scores to per-sample mean.
-  IndexT idx = 0ul;
-  for (auto sc : sCount) {
-    score[idx++] *=  1.0 / sc;
-  }
-
-  return score;
-}
-
-
 double LeafReg::predictObs(const Predict* predict, size_t row) const {
   double sumScore = 0.0;
   unsigned int nEst = 0;
@@ -150,44 +130,6 @@ PredictorT LeafCtg::predictObs(const Predict* predict, size_t row, PredictorT* c
 }
 
 
-vector<double> LeafCtg::scoreTree(const Sample* sample,
-				  const vector<IndexT>& leafMap) {
-  vector<double> score(1 + *max_element(leafMap.begin(), leafMap.end()));
-  vector<IndexT> ctgCount = countCtg(score, sample, leafMap);
-  vector<double> jitter = CallBack::rUnif(ctgCount.size(), 0.5);
-  for (IndexT leafIdx = 0; leafIdx < score.size(); leafIdx++) {
-    score[leafIdx] = argMax(leafIdx, ctgCount, jitter);
-  }
-
-  return score;
-}
-
-
-vector<PredictorT> LeafCtg::countCtg(const vector<double>& score,
-				     const Sample* sample,
-				     const vector<IndexT>& leafMap) const {
-  vector<IndexT> ctgCount(score.size() * nCtg);
-  // Accumulates sample counts by leaf and category.
-  IndexT sIdx = 0;
-  for (auto leafIdx : leafMap) {
-    IndexT ctgIdx = leafIdx * nCtg + sample->getCtg(sIdx);
-    ctgCount[ctgIdx]++;
-    sIdx++;
-  }
-
-  return ctgCount;
-}
-
-
-double LeafCtg::argMax(IndexT leafIdx,
-		       const vector<IndexT>& ctgCount,
-		       const vector<double>& jitter) {
-  const double* ctgJitter = &jitter[leafIdx * nCtg];
-  PredictorT argMax = argMaxJitter(&ctgCount[leafIdx * nCtg], ctgJitter);
-  return argMax + ctgJitter[argMax];
-}
-
-
 PredictorT LeafCtg::argMaxJitter(const IndexT* census,
 				 const double* ctgJitter) const {
   PredictorT argMax = 0;
@@ -216,7 +158,7 @@ void LeafCtg::ctgBounds(const Predict* predict,
 			IndexT leafIdx,
 			size_t& start,
 			size_t& end) const {
-  start = nCtg * predict->getScoreIdx(tIdx, leafIdx);
+  start = nCtg * predict->getSampler()->absLeafIdx(tIdx, leafIdx);
   end = start + nCtg;
 }
 
@@ -228,16 +170,6 @@ CtgProb::CtgProb(const Predict* predict,
   nCtg(leaf->getNCtg()),
   probDefault(leaf->defaultProb()),
   probs(vector<double>(doProb ? predict->getNRow() * nCtg : 0)) {
-}
-
-
-vector<size_t> LeafCtg::ctgHeight(const Predict* predict) const {
-  vector<size_t> ctgHeight(predict->scoreHeight);
-  for (auto & ht : ctgHeight) {
-    ht *= nCtg;
-  }
-  
-  return ctgHeight;
 }
 
 

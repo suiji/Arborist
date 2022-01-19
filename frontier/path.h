@@ -151,18 +151,7 @@ class IdxPath {
   inline void set(IndexT idx, unsigned int path = maskExtinct) {
     pathFront[idx] = path;
   }
-
-  /**
-   */
-  inline void set(IndexT idx,
-                  unsigned int path,
-                  unsigned int relThis,
-                  unsigned int ndOff = 0) {
-    pathFront[idx] = path;
-    relFront[idx] = relThis;
-    offFront[idx] = ndOff;
-  }
-
+  
 
   inline PathT PathSucc(IndexT idx,
                         unsigned int pathMask,
@@ -193,6 +182,18 @@ class IdxPath {
   }
 
   
+  /**
+   */
+  inline void set(IndexT idx,
+                  unsigned int path,
+                  unsigned int relThis,
+                  unsigned int ndOff = 0) {
+    pathFront[idx] = path;
+    relFront[idx] = relThis;
+    offFront[idx] = ndOff;
+  }
+
+
   /**
      @brief Determines a sample's coordinates with respect to the front level.
 
@@ -229,7 +230,7 @@ class IdxPath {
 
   /**
      @brief When appropriate, introduces node-relative indexing at the
-     cost of trebling span of memory accesses:  char vs. char + uint16.
+     cost of trebling span of memory accesses:  char (PathT) vs. char + uint16.
 
      @return true iff node-relative indexing expected to be profitable.
    */
@@ -244,13 +245,10 @@ class IdxPath {
      @param idx is the index in question.
 
      @param path is the reaching path.
-
-     @param doesReach indicates whether the path reaches an actual successor.
    */
   inline void setSuccessor(IndexT idx,
-                           unsigned int pathSucc,
-                           bool doesReach) {
-    set(idx, doesReach ? pathSucc : noPath);
+                           unsigned int pathSucc) {                       
+    set(idx, pathSucc);
   }
 
 
@@ -259,8 +257,9 @@ class IdxPath {
 
      @return shift-stamped path if live else fixed extinct mask.
    */
-  inline static unsigned int pathNext(unsigned int pathPrev, bool isLeft) {
-    return maskLive & ((pathPrev << 1) | (isLeft ? 0 : 1));
+  inline static unsigned int pathSucc(unsigned int pathPrev,
+				      bool sense) {
+    return maskLive & ((pathPrev << 1) | (sense ? 0 : 1));
   }
 
 
@@ -270,7 +269,7 @@ class IdxPath {
     pathL = maskLive & (pathPrev << 1);
     pathR = maskLive & ((pathPrev << 1) | 1);
   }
-  
+
 
   /**
      @brief Revises path and target for live index.
@@ -299,8 +298,8 @@ class IdxPath {
   */
   inline void setLive(IndexT idx,
                       unsigned int path,
-                      unsigned int targIdx,
-                      unsigned int ndOff) {
+                      IndexT targIdx,
+                      IndexT ndOff) {
     set(idx, path, targIdx, ndOff);
   }
 
@@ -337,7 +336,10 @@ class IdxPath {
 
      @return path to input index.
    */
-  inline PathT update(unsigned int &idx, unsigned int pathMask, const unsigned int reachBase[], bool idxUpdate) const {
+  inline PathT update(IndexT& idx,
+		      unsigned int pathMask,
+		      const unsigned int reachBase[],
+		      bool idxUpdate) const {
     bool isLive;
     PathT path = PathSucc(idx, pathMask, isLive);
     if (isLive) {

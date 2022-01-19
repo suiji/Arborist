@@ -102,7 +102,7 @@ class ObsPart {
      Looks up reaching cell in appropriate buffer.
      Parameters as above.
   */
-  void prepath(const class DefLayer* layer,
+  void prepath(const class DefFrontier* layer,
 	       const class IdxPath *idxPath,
                const unsigned int reachBase[],
 	       const MRRA& mrra,
@@ -114,7 +114,7 @@ class ObsPart {
   /**
      @brief Restages and tabulates rank counts.
   */
-  void rankRestage(const class DefLayer* layer,
+  void rankRestage(const class DefFrontier* layer,
 		   const MRRA& defCoord,
                    unsigned int reachOffset[],
                    unsigned int rankCount[]);

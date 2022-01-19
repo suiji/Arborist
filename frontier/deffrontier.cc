@@ -6,368 +6,317 @@
  */
 
 /**
-   @file deffrontier.cc
+   @file deffontier.cc
 
-   @brief Maintains refrerences to repartioned cells reaching frontier.
+   @brief Methods involving individual definition layers.
 
    @author Mark Seligman
  */
 
-#include "frontier.h"
-#include "splitfrontier.h"
-#include "deffrontier.h"
-#include "deflayer.h"
-#include "partition.h"
-#include "splitnux.h"
-#include "sample.h"
-#include "trainframe.h"
 #include "layout.h"
+#include "deffrontier.h"
 #include "path.h"
-#include "ompthread.h"
-#include "indexset.h"
-
-#include "algparam.h"
-
-#include <numeric>
-#include <algorithm>
+#include "defmap.h"
+#include "partition.h"
 
 
-DefFrontier::DefFrontier(const TrainFrame* frame,
-			 Frontier* frontier_) :
-  nPred(frame->getNPred()),
-  frontier(frontier_),
-  bagCount(frontier->getBagCount()),
-  stPath(make_unique<IdxPath>(bagCount)),
-  splitPrev(0),
-  splitCount(1),
-  layout(frame->getLayout()),
-  nPredDense(layout->getNPredDense()),
-  denseIdx(layout->getDenseIdx()),
-  obsPart(make_unique<ObsPart>(layout, bagCount)),
-  history(vector<unsigned int>(0)),
-  layerDelta(vector<unsigned char>(nPred))
-{
-  layer.push_front(make_unique<DefLayer>(1, nPred, bagCount, bagCount, false, this));
-  layer[0]->initAncestor(0, IndexRange(0, bagCount));
+DefFrontier::DefFrontier(IndexT nSplit_,
+		   PredictorT nPred_,
+		   IndexT bagCount,
+		   IndexT idxLive,
+		   bool nodeRel_,
+		   DefMap* defMap_) :
+  defMap(defMap_),
+  nPred(nPred_),
+  nSplit(nSplit_),
+  noIndex(bagCount),
+  defCount(0), del(0),
+  rangeAnc(vector<IndexRange>(nSplit)),
+  mrra(vector<LiveBits>(nSplit * nPred)),
+  denseCoord(vector<DenseCoord>(nSplit * defMap->getNPredDense())),
+  relPath(make_unique<IdxPath>(idxLive)),
+  nodeRel(nodeRel_) {
+  NodePath::setNoSplit(bagCount);
+  LiveBits df;
+
+  // Coprocessor only.
+  //  fill(mrra.begin(), mrra.end(), df);
+}
+    
+
+void DefFrontier::rootDefine(PredictorT predIdx,
+			  const StageCount& stageCount) {
+  mrra[predIdx].init(0, stageCount.getRunCount() == 1);
+  setDense(SplitCoord(0, predIdx), stageCount.idxImplicit);
+  defCount++;
 }
 
 
-void DefFrontier::clearDefs(unsigned int flushCount) {
-  ancestor.clear();
-  if (flushCount > 0) {
-    layer.erase(layer.end() - flushCount, layer.end());
-  }
-}
-
-
-void DefFrontier::reachFlush(const SplitCoord& splitCoord) {
-  DefLayer *reachingLayer = reachLayer(splitCoord);
-  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), this);
-}
-
-
-bool DefFrontier::isSingleton(const MRRA& mrra) const {
-  return layer[0]->isSingleton(mrra.splitCoord);
-}
-
-
-vector<SplitNux> DefFrontier::getCandidates(const SplitFrontier* sf) const {
-  vector<SplitNux> postCand;
-  for (auto pcVec : preCand) {
-    for (auto pc : pcVec) {
-      if (!pc.isSingleton()) {
-	postCand.emplace_back(pc, sf);
+bool DefFrontier::nonreachPurge() {
+  bool purged = false;
+  for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
+    if (liveCount[mrraIdx] == 0) {
+      for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
+        undefine(SplitCoord(mrraIdx, predIdx)); // Harmless if undefined.
+        purged = true;
       }
     }
   }
 
-  return postCand;
+  return purged;
 }
 
 
-const ObsPart* DefFrontier::getObsPart() const {
-  return obsPart.get();
-}
-
-
-IndexT* DefFrontier::getBufferIndex(const SplitNux* nux) const {
-  return obsPart->getBufferIndex(nux);
-}
-
-
-SampleRank* DefFrontier::getPredBase(const SplitNux* nux) const {
-  return obsPart->getPredBase(nux);
-}
-
-
-IndexT DefFrontier::getImplicitCount(const MRRA& mrra) const {
-  return layer[0]->getImplicit(mrra);
-}
-
-
-void DefFrontier::adjustRange(const MRRA& mrra,
-			      IndexRange& idxRange) const {
-  layer[0]->adjustRange(mrra, idxRange);
-}
-
-
-unsigned int DefFrontier::flushRear() {
-  unsigned int unflushTop = layer.size() - 1;
-
-  // Capacity:  1 front layer + 'pathMax' back layers.
-  // If at capacity, every reaching definition should be flushed
-  // to current layer ut avoid falling off the deque.
-  // Flushing prior to split assignment, rather than during, should
-  // also save lookup time, as all definitions reaching from rear are
-  // now at current layer.
-  //
-  if (!NodePath::isRepresentable(layer.size())) {
-    layer.back()->flush(this);
-    unflushTop--;
-  }
-
-  // Walks backward from rear, purging non-reaching definitions.
-  // Stops when a layer with no non-reaching nodes is encountered.
-  //
-  for (unsigned int off = unflushTop; off > 0; off--) {
-    if (!layer[off]->nonreachPurge())
-      break;
-  }
-
-  IndexT backDef = 0;
-  for (auto lv = layer.begin() + unflushTop; lv != layer.begin(); lv--) {
-    backDef += (*lv)->getDefCount();
-  }
-
-  IndexT thresh = backDef * efficiency;
-  for (auto lv = layer.begin() + unflushTop; lv != layer.begin(); lv--) {
-    if ((*lv)->flush(this, thresh)) {
-      unflushTop--;
-    }
-    else {
-      break;
+void DefFrontier::flush(DefMap* defMap) {
+  for (IndexT mrraIdx = 0; mrraIdx < nSplit; mrraIdx++) {
+    for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
+      flushDef(SplitCoord(mrraIdx, predIdx), defMap);
     }
   }
-
-  // assert(unflushTop < layer.size();
-  return layer.size() - 1 - unflushTop;
 }
 
 
-void DefFrontier::stage(const Sample* sample) {
-  IndexT predIdx = 0;
-  vector<StageCount> stageCount = layout->stage(sample, obsPart.get());
-  for (auto sc : stageCount) {
-    layer[0]->rootDefine(predIdx, sc);
-    setStageCount(SplitCoord(0, predIdx), sc); // All root cells must define.
-    predIdx++;
+void DefFrontier::flushDef(const SplitCoord& splitCoord,
+			DefMap* defMap) {
+  if (!isDefined(splitCoord)) {
+    return;
   }
-
-  setPrecandidates(0);
-  for (auto & pc : preCand[0]) { // Root:  single split.
-    pc.setStageCount(stageCount[pc.mrra.splitCoord.predIdx]);
+  if (defMap == nullptr) {
+    undefine(splitCoord);
+    return;
   }
-}
-
-
-void DefFrontier::setPrecandidates(unsigned int level) {
-  frontier->earlyExit(level);
-
-  preCand = vector<vector<PreCand>>(splitCount);
-  // Precandidates precipitate restaging ancestors at this level,
-  // as do all non-singleton definitions arising from flushes.
-  CandType::precandidates(this);
-}
-
-
-void DefFrontier::setStageCount(const SplitCoord& splitCoord,
-				IndexT idxImplicit,
-				IndexT rankCount) {
-  vector<PreCand>& pcSplit = preCand[splitCoord.nodeIdx];
-  StageCount sc(idxImplicit, rankCount);
-  setStageCount(splitCoord, sc); // def cell must be refreshed.
-  for (auto & pc : pcSplit) { // Replace with binary search.
-    if (pc.mrra.splitCoord.predIdx == splitCoord.predIdx) {
-      pc.setStageCount(sc); // Sets precandidate, if any.
-      return;
-    }
+  if (del == 0) {
+    return;
+  }
+  bool singleton;
+  MRRA preCand = consume(splitCoord, singleton);
+  unsigned int pathStart = preCand.splitCoord.backScale(del);
+  for (unsigned int path = 0; path < backScale(1); path++) {
+    defMap->addDef(MRRA(SplitCoord(nodePath[pathStart + path].getSplitIdx(), preCand.splitCoord.predIdx), preCand.compBuffer()), singleton);
+  }
+  if (!singleton) {
+    defMap->appendAncestor(preCand);
   }
 }
 
 
 void DefFrontier::setStageCount(const SplitCoord& splitCoord,
-				const StageCount& stageCount) const {
-  layer[0]->setStageCount(splitCoord, stageCount);
+			    const StageCount& stageCount) {
+  mrra[splitCoord.strideOffset(nPred)].setSingleton(stageCount);
 }
 
 
-void DefFrontier::appendAncestor(const MRRA& cand) {
-  ancestor.push_back(cand);
+void LiveBits::setSingleton(const StageCount& stageCount) {
+  setSingleton(stageCount.isSingleton());
 }
 
 
-void DefFrontier::restage() {
-  unsigned int flushCount = flushRear();
-  backdate();
-
-  OMPBound idxTop = ancestor.size();
-  
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound nodeIdx = 0; nodeIdx < idxTop; nodeIdx++) {
-      restage(ancestor[nodeIdx]);
-    }
-  }
-
-  clearDefs(flushCount); // Definitions currently must persist to this point.
-}
-
-
-bool DefFrontier::preschedule(const SplitCoord& splitCoord, double dRand) {
-  unsigned int bufIdx;
-  if (preschedulable(splitCoord, bufIdx)) {
-    preCand[splitCoord.nodeIdx].emplace_back(splitCoord, bufIdx, getRandLow(dRand));
+bool DefFrontier::backdate(const IdxPath *one2Front) {
+  if (nodeRel) {
+    relPath->backdate(one2Front);
     return true;
   }
-  else {
+  else
     return false;
+}
+
+
+void DefFrontier::relExtinct(unsigned int idx) {
+  relPath->setExtinct(idx);
+}
+
+
+void DefFrontier::relLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) {
+  relPath->setLive(idx, path, targIdx, targIdx - ndBase);
+}
+
+
+void DefFrontier::reachingPaths() {
+  del++;
+  
+  nodePath = vector<NodePath>(backScale(nSplit));
+  liveCount = vector<IndexT>(nSplit);
+}
+
+
+void DefFrontier::pathInit(IndexT splitIdx, unsigned int path, const IndexRange& bufRange, IndexT relBase) {
+  IndexT mrraIdx = defMap->getHistory(this, splitIdx);
+  unsigned int pathOff = backScale(mrraIdx);
+  unsigned int pathBits = path & pathMask();
+  nodePath[pathOff + pathBits].init(splitIdx, bufRange, relBase);
+  liveCount[mrraIdx]++;
+}
+
+
+void DefFrontier::rankRestage(ObsPart* obsPart,
+			   const MRRA& mrra,
+			   DefFrontier* levelFront) {
+  unsigned int reachOffset[NodePath::pathMax()];
+  if (nodeRel) { // Both levels employ node-relative indexing.
+    unsigned int reachBase[NodePath::pathMax()];
+    offsetClone(mrra.splitCoord, reachOffset, reachBase);
+    rankRestage(obsPart, mrra, levelFront, reachOffset, reachBase);
+  }
+  else { // Source level employs subtree indexing.  Target may or may not.
+    offsetClone(mrra.splitCoord, reachOffset);
+    rankRestage(obsPart, mrra, levelFront, reachOffset);
   }
 }
 
 
-bool DefFrontier::preschedulable(const SplitCoord& splitCoord, unsigned int& bufIdx) {
-  reachFlush(splitCoord);
-  return !layer[0]->isSingleton(splitCoord, bufIdx);
-}
-
-
-bool DefFrontier::isUnsplitable(IndexT splitIdx) const {
-  return frontier->isUnsplitable(splitIdx);
-}
-
-
-void DefFrontier::restage(const MRRA& mrra) const {
-  layer[mrra.del]->rankRestage(obsPart.get(), mrra, layer[0].get());
-}
-
-
-DefFrontier::~DefFrontier() {
-  for (auto & defLayer : layer) {
-    defLayer->flush();
+void DefFrontier::offsetClone(const SplitCoord &mrra,
+		   IndexT reachOffset[],
+		   IndexT reachBase[]) {
+  unsigned int nodeStart = mrra.backScale(del);
+  for (unsigned int i = 0; i < backScale(1); i++) {
+    reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
   }
-  layer.clear();
-}
-
-
-void DefFrontier::overlap(IndexT splitNext,
-                IndexT bagCount,
-                IndexT idxLive,
-		bool nodeRel) {
-  splitPrev = exchange(splitCount, splitNext);
-  if (splitCount == 0) // No further splitting or restaging.
-    return;
-
-  layer.push_front(make_unique<DefLayer>(splitCount, nPred, bagCount, idxLive, nodeRel, this));
-
-  historyPrev = move(history);
-  history = vector<unsigned int>(splitCount * (layer.size()-1));
-
-  deltaPrev = move(layerDelta);
-  layerDelta = vector<unsigned char>(splitCount * nPred);
-
-  for (auto lv = layer.begin() + 1; lv != layer.end(); lv++) {
-    (*lv)->reachingPaths();
-  }
-}
-
-
-void DefFrontier::backdate() const {
-  if (layer.size() > 2 && layer[1]->isNodeRel()) {
-    for (auto lv = layer.begin() + 2; lv != layer.end(); lv++) {
-      if (!(*lv)->backdate(getFrontPath(1))) {
-        break;
-      }
+  if (reachBase != nullptr) {
+    for (unsigned int i = 0; i < backScale(1); i++) {
+      reachBase[i] = nodePath[nodeStart + i].getRelBase();
     }
   }
 }
 
+
+void DefFrontier::rankRestage(ObsPart* obsPart,
+			   const MRRA& mrra,
+			   DefFrontier* levelFront,
+			   unsigned int reachOffset[],
+			   const unsigned int reachBase[]) {
+  unsigned int pathCount[NodePath::pathMax()];
+  fill(pathCount, pathCount + backScale(1), 0);
+
+  obsPart->prepath(this, nodeRel ?  getFrontPath() : defMap->getSubtreePath(), reachBase, mrra, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
+
+  // Successors may or may not themselves be dense.
+  packDense(pathCount, levelFront, mrra, reachOffset);
+
+  IndexT rankCount[NodePath::pathMax()];
+  obsPart->rankRestage(this, mrra, reachOffset, rankCount);
+  setStageCounts(mrra, pathCount, rankCount);
+}
+
+
+void DefFrontier::packDense(const unsigned int pathCount[],
+			 DefFrontier* levelFront,
+			 const MRRA& mrra,
+			 unsigned int reachOffset[]) const {
+  if (!isDense(mrra)) {
+    return;
+  }
+  IndexT idxStart = getRange(mrra).getStart();
+  const NodePath* pathPos = &nodePath[mrra.splitCoord.backScale(del)];
+  PredictorT predIdx = mrra.splitCoord.predIdx;
+  for (unsigned int path = 0; path < backScale(1); path++) {
+    IndexRange idxRange;
+    SplitCoord coord;
+    if (pathPos[path].getCoords(predIdx, coord, idxRange)) {
+      IndexT margin = idxRange.getStart() - idxStart;
+      IndexT extentDense = pathCount[path];
+      levelFront->setDense(coord, idxRange.getExtent() - extentDense, margin);
+      reachOffset[path] -= margin;
+      idxStart += extentDense;
+    }
+  }
+}
+
+
+void DefFrontier::setStageCounts(const MRRA& mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
+  SplitCoord coord = mrra.splitCoord;
+  const NodePath* pathPos = &nodePath[coord.backScale(del)];
+  for (unsigned int path = 0; path < backScale(1); path++) {
+    IndexRange idxRange;
+    SplitCoord outCoord;
+    if (pathPos[path].getCoords(coord.predIdx, outCoord, idxRange)) {
+      defMap->setStageCount(outCoord, idxRange.getExtent() - pathCount[path], rankCount[path]);
+    }
+  }
+}
+
+
+void DefFrontier::indexRestage(ObsPart *obsPart,
+			    const MRRA &mrra,
+			    const DefFrontier *levelFront,
+			    const vector<IndexT>& offCand) {
+  unsigned int reachOffset[NodePath::pathMax()];
+  unsigned int splitOffset[NodePath::pathMax()];
+  if (nodeRel) { // Both levels employ node-relative indexing.
+    IndexT reachBase[NodePath::pathMax()];
+    offsetClone(mrra.splitCoord, offCand, reachOffset, splitOffset, reachBase);
+    indexRestage(obsPart, mrra, levelFront, reachBase, reachOffset, splitOffset);
+  }
+  else { // Source level employs subtree indexing.  Target may or may not.
+    offsetClone(mrra.splitCoord, offCand, reachOffset, splitOffset);
+    indexRestage(obsPart, mrra, levelFront, nullptr, reachOffset, splitOffset);
+  }
+}
+
+
+// COPROC:
+/**
+   @brief Clones offsets along path reaching from ancestor node.
+
+   @param mrra is an MRRA coordinate.
+
+   @param reachOffset holds the starting offset positions along the path.
+ */
+void DefFrontier::offsetClone(const SplitCoord& mrra,
+			   const vector<IndexT>& offCand,
+			   IndexT reachOffset[],
+			   IndexT splitOffset[],
+			   IndexT reachBase[]) {
+  IndexT nodeStart = mrra.backScale(del);
+  for (unsigned int i = 0; i < backScale(1); i++) {
+    reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
+    splitOffset[i] = offCand[mrra.strideOffset(nPred)];
+  }
+  if (reachBase != nullptr) {
+    for (unsigned int i = 0; i < backScale(1); i++) {
+      reachBase[i] = nodePath[nodeStart + i].getRelBase();
+    }
+  }
+}
+
+
+void DefFrontier::indexRestage(ObsPart* obsPart,
+			    const MRRA& mrra,
+			    const DefFrontier *levelFront,
+			    const unsigned int reachBase[],
+			    unsigned int reachOffset[],
+			    unsigned int splitOffset[]) {
+  obsPart->indexRestage(nodeRel ? getFrontPath() : defMap->getSubtreePath(),
+                        reachBase, mrra, getRange(mrra),
+                        pathMask(),
+                        reachBase == nullptr ? levelFront->isNodeRel() : true,
+                        reachOffset,
+                        splitOffset);
+}
+
+
+/**
+     @brief Sets the density-associated parameters for a reached node.
+  */
+void DefFrontier::setDense(const SplitCoord& splitCoord,
+			IndexT idxImplicit,
+			IndexT margin) {
+  if (idxImplicit > 0 || margin > 0) {
+    mrra[splitCoord.strideOffset(nPred)].setDense();
+    denseCoord[defMap->denseOffset(splitCoord)].init(idxImplicit, margin);
+  }
+}
+
+
+void DefFrontier::adjustRange(const MRRA& cand,
+			   IndexRange& idxRange) const {
+  if (isDense(cand)) {
+    denseCoord[defMap->denseOffset(cand)].adjustRange(idxRange);
+  }
+}
+
   
-void DefFrontier::reachingPath(const IndexSet& iSet,
-			       IndexT parIdx,
-			       IndexT relBase) {
-  IndexT splitIdx = iSet.getSplitIdx();
-  for (unsigned int backLayer = 0; backLayer < layer.size() - 1; backLayer++) {
-    history[splitIdx + splitCount * backLayer] = backLayer == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLayer - 1)];
-  }
-
-  inherit(splitIdx, parIdx);
-  IndexRange bufRange = iSet.getBufRange();
-  layer[0]->initAncestor(splitIdx, bufRange);
-  
-  // Places <splitIdx, start> pair at appropriate position in every
-  // reaching path.
-  //
-  unsigned int path = iSet.getPath();
-  for (auto lv = layer.begin() + 1; lv != layer.end(); lv++) {
-    (*lv)->pathInit(splitIdx, path, bufRange, relBase);
-  }
+IndexT DefFrontier::getImplicit(const MRRA& cand) const {
+  return isDense(cand) ? denseCoord[defMap->denseOffset(cand)].getImplicit() : 0;
 }
 
 
-void DefFrontier::setLive(IndexT ndx,
-		IndexT targIdx,
-		IndexT stx,
-		unsigned int path,
-		IndexT ndBase) {
-  layer[0]->setLive(ndx, path, targIdx, ndBase);
-
-  if (!layer.back()->isNodeRel()) {
-    stPath->setLive(stx, path, targIdx);  // Irregular write.
-  }
-}
-
-
-void DefFrontier::setExtinct(IndexT nodeIdx,
-			     IndexT stIdx) {
-  layer[0]->setExtinct(nodeIdx);
-  setExtinct(stIdx);
-}
-
-
-void DefFrontier::setExtinct(IndexT stIdx) {
-  if (!layer.back()->isNodeRel()) {
-    stPath->setExtinct(stIdx);
-  }
-}
-
-
-IndexT DefFrontier::getSplitCount(unsigned int del) const {
-  return layer[del]->getSplitCount();
-}
-
-
-void DefFrontier::addDef(const MRRA& defCoord,
-			 bool singleton) {
-  if (layer[0]->define(defCoord, singleton)) {
-    layerDelta[defCoord.splitCoord.strideOffset(nPred)] = 0;
-  }
-}
-  
-
-IndexT DefFrontier::getHistory(const DefLayer *reachLayer,
-                   IndexT splitIdx) const {
-  return reachLayer == layer[0].get() ? splitIdx : history[splitIdx + (reachLayer->getDel() - 1) * splitCount];
-}
-
-
-SplitCoord DefFrontier::getHistory(const DefLayer* reachLayer,
-		   const SplitCoord& coord) const {
-  return reachLayer == layer[0].get() ? coord :
-    SplitCoord(history[coord.nodeIdx + splitCount * (reachLayer->getDel() - 1)], coord.predIdx);
-}
-
-
-const IdxPath* DefFrontier::getFrontPath(unsigned int del) const {
-  return layer[del]->getFrontPath();
-}

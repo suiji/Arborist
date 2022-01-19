@@ -14,7 +14,7 @@
  */
 
 
-#include "deffrontier.h"
+#include "defmap.h"
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"

@@ -27,10 +27,16 @@ ForestBridge::ForestBridge(unsigned int treeChunk) :
 
 
 ForestBridge::ForestBridge(unsigned int nTree,
+			   const double* nodeExtent,
 			   const unsigned char* node,
+			   const double* scores,
+			   const double* facExtent,
                            unsigned char* facSplit) :
   forest(make_unique<Forest>(nTree,
+			     nodeExtent,
 			     reinterpret_cast<const CartNode*>(node),
+			     scores,
+			     facExtent,
 			     reinterpret_cast<unsigned int*>(facSplit))) {
 }
 
@@ -49,6 +55,16 @@ unsigned int ForestBridge::getNTree() const {
 }
 
 
+const vector<size_t>& ForestBridge::getNodeExtents() const {
+  return forest->getNodeExtents();
+}
+
+
+const vector<size_t>& ForestBridge::getFacExtents() const {
+  return forest->getFacExtents();
+}
+
+
 Forest* ForestBridge::getForest() const {
   return forest.get();
 }
@@ -61,6 +77,16 @@ size_t ForestBridge::getFactorBytes() const {
 
 void ForestBridge::dumpTreeRaw(unsigned char treeOut[]) const {
   forest->cacheNodeRaw(treeOut);
+}
+
+
+size_t ForestBridge::getScoreSize() const {
+  return forest->getScoreSize();
+}
+
+
+void ForestBridge::dumpScore(double scoreOut[]) const {
+  forest->cacheScore(scoreOut);
 }
 
 

@@ -30,7 +30,7 @@ struct CandRF : public Cand {
   static void
   deInit();
 
-  static void precandidates(class DefFrontier* defFrontier);
+  static void precandidates(class DefMap* defMap);
 
 
 private:
@@ -40,13 +40,13 @@ private:
 
 
   static void candidateProb(PredictorT nPred,
-			    class DefFrontier* defFrontier,
+			    class DefMap* defMap,
 			    IndexT splitIdx,
 			    const double ruPred[]);
 
 
   static void candidateFixed(PredictorT nPred,
-			     class DefFrontier* defFrontier,
+			     class DefMap* defMap,
 			     IndexT splitIdx,
 			     const double ruPred[],
 			     struct BHPair heap[]);

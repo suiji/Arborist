@@ -12,6 +12,8 @@
 
    @author Mark Seligman
  */
+#include "indexset.h"
+#include "samplemap.h"
 #include "bv.h"
 #include "pretree.h"
 #include "splitfrontier.h"
@@ -28,6 +30,7 @@ PreTree::PreTree(PredictorT cardExtent,
   height(1),
   leafCount(1),
   nodeVec(vector<PTNode>(2*bagCount - 1)), // Preallocates maximum.
+  scores(vector<double>(2*bagCount - 1)),
   splitBits(BV(bagCount * cardExtent)), // Vague estimate.
   bitEnd(0) {
 }
@@ -106,13 +109,20 @@ void PTNode::setNonterminal(const SplitNux& nux,
 }
 
 
+void PreTree::setScore(const SplitFrontier* splitFrontier,
+		       const IndexSet& iSet) {
+  scores[iSet.getPTId()] = splitFrontier->getScore(iSet);
+}
+
+
 const vector<IndexT> PreTree::consume(Forest* forest,
 				      vector<double>& predInfo) {
   forest->treeInit(height);
   height = leafMerge();
   consumeNodes(forest, predInfo);
+  forest->consumeScores(scores, height);
   forest->appendBits(splitBits, bitEnd);
-
+  
   return sample2Leaf();
 }
 
@@ -122,6 +132,20 @@ void PreTree::consumeNodes(Forest* forest,
   IndexT leafIdx = 0;
   for (IndexT idx = 0; idx < height; idx++) {
     nodeVec[idx].consume(forest, predInfo, idx, leafIdx);
+  }
+  forest->appendNodeHeight(height);
+}
+
+void PreTree::setTerminals(const SampleMap& terminalMap) {
+  sampleMap = vector<IndexT>(terminalMap.indices.size()); // bagCount.
+  IndexT leafIdx = 0;
+  for (auto range : terminalMap.range) {
+    IndexT ptIdx = terminalMap.ptIdx[leafIdx];
+    for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
+      IndexT stIdx = terminalMap.indices[idx];
+      sampleMap[stIdx] = ptIdx;
+    }
+    leafIdx++;
   }
 }
 

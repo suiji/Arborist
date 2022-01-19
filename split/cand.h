@@ -26,7 +26,7 @@
  */
 
 struct Cand {
-  static void precandidates(class DefFrontier* defFrontier);
+  static void precandidates(class DefMap* defMap);
 };
 
 #endif

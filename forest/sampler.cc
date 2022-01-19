@@ -53,7 +53,9 @@ Sampler::Sampler(const vector<double>& yTrain,
   bagging(bagging_),
   nuxSamples(nuxSamples_),
   leaf(Leaf::factoryReg(yTrain)),
-  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)),
+  leafCount(0),
+  leafBase(vector<size_t>(nTree)) {
   RankCount::setMasks(nObs);
   SamplerNux::setMasks(nObs, nSamp);
   samplerBlock = readRaw(samples);
@@ -96,7 +98,9 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   bagging(bagging_),
   nuxSamples(nuxSamples_),
   leaf(Leaf::factoryCtg(yTrain, nCtg)),
-  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)) {
+  bagMatrix(bagRaw(samples, nuxSamples, bagging, nTree, nObs)),
+  leafCount(0),
+  leafBase(vector<size_t>(nTree)) {
   RankCount::setMasks(nObs);
   SamplerNux::setMasks(nObs, nSamp);
   samplerBlock = readRaw(samples);
@@ -123,11 +127,10 @@ unique_ptr<SamplerBlock> Sampler::readRaw(unsigned char* rawSamples) {
   SamplerNux* samples = reinterpret_cast<SamplerNux*>(rawSamples);
   vector<size_t> sampleHeight(nTree);
   vector<size_t> forestIdx;
-  size_t leafCount = 0;
   size_t sIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     IndexT nLeaf = 0;
-    size_t leafBase = leafCount;
+    leafBase[tIdx] = leafCount;
     IndexT row = 0;
     IndexT sCountTree = 0;
     while (sCountTree != nSamp) {
@@ -137,10 +140,10 @@ unique_ptr<SamplerBlock> Sampler::readRaw(unsigned char* rawSamples) {
 	bagMatrix->setBit(tIdx, row);
       IndexT leafIdx = samples[sIdx].getLeafIdx();
       nLeaf = max(leafIdx, nLeaf);
-      forestIdx.push_back(leafBase + leafIdx);
+      forestIdx.push_back(leafBase[tIdx] + leafIdx);
       sIdx++;
     }
-    nLeaf++;
+    nLeaf++; // Can be obtained directly from leaf extent vector.
     leafCount += nLeaf;
     sampleHeight[tIdx] = sIdx;
   }
@@ -166,16 +169,18 @@ SamplerBlock::SamplerBlock(const SamplerNux* samples,
 }
 
 
-vector<IndexT> SamplerBlock::countLeafCtg(const Predict* predict,
+vector<IndexT> SamplerBlock::countLeafCtg(const Sampler* sampler,
 					  const LeafCtg* leaf) const {
-  vector<IndexT> ctgCount(leaf->getNCtg() * predict->getScoreCount());
+  // Score count is the accumulated tree height now.  We want to
+  // track leaf heights within Sampler:
+  vector<IndexT> ctgCount(leaf->getNCtg() * sampler->leafCount);
   size_t sIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < raw->getNMajor(); tIdx++) {
     IndexT row = 0;
     for (; sIdx < getHeight(tIdx); sIdx++) {
       row += getDelRow(sIdx);
-      size_t scoreIdx = predict->getScoreIdx(tIdx, getLeafIdx(sIdx));
-      ctgCount[scoreIdx * leaf->getNCtg() + leaf->getCtg(row)] += getSCount(sIdx);
+      size_t forestIdx = sampler->absLeafIdx(tIdx, getLeafIdx(sIdx));
+      ctgCount[forestIdx * leaf->getNCtg() + leaf->getCtg(row)] += getSCount(sIdx);
     }
   }
 
@@ -183,8 +188,8 @@ vector<IndexT> SamplerBlock::countLeafCtg(const Predict* predict,
 }
 
 
-vector<RankCount> SamplerBlock::countLeafRanks(const class Predict* predict,
-					  const vector<IndexT>& row2Rank) const {
+vector<RankCount> SamplerBlock::countLeafRanks(const Sampler* sampler,
+					       const vector<IndexT>& row2Rank) const {
   vector<RankCount> rankCount(size());
 
   vector<size_t> leafTop(sampleOffset.size());
@@ -193,8 +198,8 @@ vector<RankCount> SamplerBlock::countLeafRanks(const class Predict* predict,
     IndexT row = 0;
     for ( ; sIdx != getHeight(tIdx); sIdx++) {
       row += getDelRow(sIdx);
-      size_t leafIdx = predict->getScoreIdx(tIdx, getLeafIdx(sIdx));
-      size_t rankIdx = sampleOffset[leafIdx] + leafTop[leafIdx]++;
+      size_t forestIdx = sampler->absLeafIdx(tIdx, getLeafIdx(sIdx));
+      size_t rankIdx = sampleOffset[forestIdx] + leafTop[forestIdx]++;
       rankCount[rankIdx].init(row2Rank[row], getSCount(sIdx));
     }
   }
@@ -233,6 +238,7 @@ Sample* Sampler::getSample() const {
 
 
 void Sampler::blockSamples(const vector<IndexT>& leafMap) {
+  leafExtent.push_back(1 + *max_element(leafMap.begin(), leafMap.end()));
   if (!bagMatrix->isEmpty()) { // Thin, but bagging.
     IndexT row = 0;
     for (IndexT sIdx = 0; sIdx < leafMap.size(); sIdx++) {
@@ -258,11 +264,6 @@ size_t Sampler::getBlockBytes() const {
   else {
     return bagMatrix->getNSlot() * sizeof(unsigned int);
   }
-}
-
-
-vector<double> Sampler::scoreTree(const vector<IndexT>& leafMap) const {
-  return leaf->scoreTree(sample.get(), leafMap);
 }
 
 

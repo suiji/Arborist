@@ -121,6 +121,7 @@ public:
     rightBits = delWidth + leafWidth;
   }
 
+
   /**
      @return difference in adjacent row numbers.  Always < nObs.
    */
@@ -216,11 +217,11 @@ public:
 
      @return forest-wide vector of category counts, by leaf.
    */
-  vector<IndexT> countLeafCtg(const class Predict* predict,
+  vector<IndexT> countLeafCtg(const class Sampler* sampler,
 			      const LeafCtg* leaf) const;
 
     
-  vector<RankCount> countLeafRanks(const class Predict* predict,
+  vector<RankCount> countLeafRanks(const class Sampler* sample,
 				   const vector<IndexT>& row2Rank) const;
 
 
@@ -262,6 +263,7 @@ class Sampler {
   unique_ptr<SamplerBlock> samplerBlock;
 
   // Crescent only:
+  vector<IndexT> leafExtent; // Per-tree leaf count over block.
   vector<SamplerNux> sbCresc; // Crescent block.
   unique_ptr<class Sample> sample; // Reset at each tree.
   unsigned int tIdx; // Block-relative index of current tree.
@@ -285,6 +287,8 @@ class Sampler {
 
 
 public:
+  size_t leafCount;
+  vector<size_t> leafBase; // Per-tree offset of leaf.
 
 
   bool isBagging() const {
@@ -302,9 +306,6 @@ public:
      @brief Copies samples to the block, if 'thin' not specified.
    */
   void blockSamples(const vector<IndexT>& leafMap);
-
-
-  vector<double> scoreTree(const vector<IndexT>& leafMap) const;
 
 
   /**
@@ -385,6 +386,15 @@ public:
     RankCount::unsetMasks();
     SamplerNux::unsetMasks();
   }
+
+  
+  /**
+     @brief Derives the forest index of a leaf.
+   */
+  inline size_t absLeafIdx(unsigned int tIdx,
+			   IndexT leafIdx) const {
+    return leafBase[tIdx] + leafIdx;
+  }
   
   
   const Leaf* getLeaf() const {
@@ -436,9 +446,9 @@ public:
 
      @return per-leaf vector enumerating samples at each category.
    */
-  vector<IndexT> countLeafCtg(const class Predict* predict,
+  vector<IndexT> countLeafCtg(//const class Predict* predict,
 			      const LeafCtg* leaf) const {
-    return hasSamples() ? samplerBlock->countLeafCtg(predict, leaf) : vector<IndexT>(0);
+    return hasSamples() ? samplerBlock->countLeafCtg(this, /*predict,*/ leaf) : vector<IndexT>(0);
   }
   
   
@@ -451,19 +461,20 @@ public:
 
      @return per-leaf vector expressing mapping.
    */
-  vector<RankCount> countLeafRanks(const class Predict* predict,
+  vector<RankCount> countLeafRanks(//const class Predict* predict,
 				   const vector<IndexT>& row2Rank) const {
-    return samplerBlock->countLeafRanks(predict, row2Rank);
+    return samplerBlock->countLeafRanks(this, /*predict,*/ row2Rank);
   }
 
 
   /**
      @brief Wrapper for call on samplerBlock.
    */
-  void getSampleBounds(size_t forestIdx,
+  void getSampleBounds(unsigned int tIdx,
+		       IndexT leafIdx,
 		       size_t& start,
 		       size_t& end) const {
-    samplerBlock->getSampleBounds(forestIdx, start, end);
+    samplerBlock->getSampleBounds(absLeafIdx(tIdx, leafIdx), start, end);
   }
 };
 

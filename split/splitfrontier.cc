@@ -14,10 +14,11 @@
  */
 
 
+#include "indexset.h"
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "deffrontier.h"
+#include "defmap.h"
 #include "runset.h"
 #include "cutset.h"
 #include "trainframe.h"
@@ -29,14 +30,6 @@
 vector<double> SFReg::mono; // Numeric monotonicity constraints.
 
 
-void SplitFrontier::split(Frontier* frontier,
-			  BranchSense* branchSense) {
-  unique_ptr<SplitFrontier> splitFrontier = SplitFactoryT::factory(frontier);
-  splitFrontier->frontierPreset(); // virtual.
-  splitFrontier->restageAndSplit(branchSense);
-}
-
-
 SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
@@ -44,7 +37,7 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     void (SplitFrontier::* splitter_)(BranchSense*)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
-  defMap(frontier->getDefFrontier()),
+  defMap(frontier->getDefMap()),
   nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
@@ -53,6 +46,14 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
   splitter(splitter_),
   cutSet(make_unique<CutSet>()),
   nodeInfo(vector<double>(nSplit)) {
+}
+
+
+unique_ptr<BranchSense> SplitFrontier::split() {
+  frontierPreset(); // virtual.
+  unique_ptr<BranchSense> branchSense = make_unique<BranchSense>(frontier->getBagCount());
+  restageAndSplit(branchSense.get());
+  return branchSense;
 }
 
 
@@ -227,6 +228,11 @@ int SFReg::getMonoMode(const SplitNux* cand) const {
 }
 
 
+double SFReg::getScore(const IndexSet& iSet) const {
+  return iSet.getSum() / iSet.getSCount();
+}
+
+
 void SFReg::frontierPreset() {
   if (!mono.empty()) {
     ruMono = CallBack::rUnif(nSplit * mono.size());
@@ -243,10 +249,33 @@ SFCtg::SFCtg(class Frontier* frontier,
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),
   sumSquares(frontier->sumsAndSquares(ctgSum)),
-  ctgSumAccum(vector<double>(frame->getNPredNum() * nCtg * nSplit)) {
+  ctgSumAccum(vector<double>(frame->getNPredNum() * nCtg * nSplit)),
+  ctgJitter(CallBack::rUnif(nCtg * nSplit, 0.5)) {
 }
 
 
+double SFCtg::getScore(const IndexSet& iSet) const {
+  const double* nodeJitter = &ctgJitter[iSet.getSplitIdx() * nCtg];
+  PredictorT argMax = 0;// TODO:  set to nCtg and error if no count.
+  IndexT countMax = 0;
+  PredictorT ctg = 0;
+  for (auto sc : iSet.getCtgSumCount()) {
+    IndexT sCount = sc.getSCount();
+    if (sCount > countMax) {
+      countMax = sCount;
+      argMax = ctg;
+    }
+    else if (sCount > 0 && sCount == countMax) {
+      if (nodeJitter[ctg] > nodeJitter[argMax]) {
+	argMax = ctg;
+      }
+    }
+    ctg++;
+  }
+
+  //  argMax, ties broken by jitters, plus its own jitter.
+  return argMax + nodeJitter[argMax];
+}
 
 
 const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
@@ -256,7 +285,7 @@ const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
 
 void SplitFrontier::maxSimple(const vector<SplitNux>& sc,
 			      BranchSense* branchSense) {
-  frontier->updateSimple(this, maxCandidates(groupCand(sc)), branchSense);
+  frontier->updateSimple(maxCandidates(groupCand(sc)), branchSense);
 }
 
 

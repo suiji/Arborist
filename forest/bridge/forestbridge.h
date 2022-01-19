@@ -39,7 +39,10 @@ struct ForestBridge {
 
    */
   ForestBridge(unsigned int nTree,
+	       const double* nodeExtent,
 	       const unsigned char* node,
+	       const double* scores,
+	       const double* facExtent,
                unsigned char* facSplit);
 
 
@@ -59,6 +62,10 @@ struct ForestBridge {
    */
   size_t getNodeBytes() const;
 
+
+  size_t getScoreSize() const;
+  
+  
   /**
      @brief Returns size of CartNode.
    */
@@ -77,6 +84,12 @@ struct ForestBridge {
   unsigned int getNTree() const;
 
 
+  const vector<size_t>& getNodeExtents() const;
+
+
+  const vector<size_t>& getFacExtents() const;
+
+  
   /**
      @brief Passes through to Forest method.
 
@@ -87,6 +100,9 @@ struct ForestBridge {
 
   void dumpTreeRaw(unsigned char treeOut[]) const;
 
+
+  void dumpScore(double scoreOut[]) const;
+  
 
   void dumpFactorRaw(unsigned char facOut[]) const;
 

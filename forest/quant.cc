@@ -35,7 +35,7 @@ Quant::Quant(const Predict* predict,
   sampler(predict->getSampler()),
   empty(!sampler->hasSamples() || quantile.empty()),
   valRank(ValRank<double>(&leaf->getYTrain()[0], empty ? 0 : leaf->getYTrain().size())),
-  rankCount(empty ? vector<RankCount>(0) : sampler->countLeafRanks(predict, valRank.rank())),
+  rankCount(empty ? vector<RankCount>(0) : sampler->countLeafRanks(valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
   qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
@@ -77,10 +77,12 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
   // Scores each rank seen at every predicted leaf.
   //
   IndexT totSamples = 0;
-  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
-    IndexT termIdx;
-    if (predict->isLeafIdx(row, tIdx, termIdx)) {
-      totSamples += sampleLeaf(predict, tIdx, termIdx, sCountBin);
+  for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
+    IndexT leafIdx;
+    // For now, does not score nonterminals.  This will be possible
+    // once dominating leaf ranges are precomputed.
+    if (predict->isLeafIdx(row, tIdx, leafIdx)) {
+      totSamples += sampleLeaf(predict, tIdx, leafIdx, sCountBin);
     }
   }
 
@@ -102,7 +104,7 @@ IndexT Quant::sampleLeaf(const Predict* predict,
 			 vector<IndexT>& sCountBin) const {
   IndexT sampleTot = 0;
   size_t leafStart, leafEnd; // Forest-relative leaf indices.
-  predict->sampleBounds(tIdx, leafIdx, leafStart, leafEnd);
+  sampler->getSampleBounds(tIdx, leafIdx, leafStart, leafEnd);
   for (size_t sIdx = leafStart; sIdx < leafEnd; sIdx++) {
     const RankCount& rc = rankCount[sIdx];
     sCountBin[binRank(rc.getRank())] += rc.getSCount();

@@ -19,101 +19,68 @@
 
 
 Forest::Forest(unsigned int nTree_,
+	       const double nodeExtent_[],
 	       const DecNode treeNode_[],
+	       const double scores_[],
+	       const double facExtent[],
 	       unsigned int facVec[]) :
   nTree(nTree_),
+  nodeExtent(produceExtent(nodeExtent_)),
   treeNode(treeNode_),
-  leafNode(leafForest()), // Contains pseudo-leaves.
-  facSplit(splitFactors(facVec)), // Removes pseudo-leaves.
-  treeHeight(treeHeights())
-{
+  scores(scores_),
+  facSplit(make_unique<BVJagged>(facVec, move(produceHeight(facExtent)))) {
 }
 
 
-size_t FBCresc::appendBits(const class BV& splitBits,
-			 size_t bitEnd) {
-  return splitBits.appendSlots(fac, bitEnd);
-}
-
-
-vector<vector<size_t>> Forest::leafForest() const {
-  vector<vector<size_t>> leaves(nTree);
-  IndexT lastLeaf = 0;
-  IndexT misorder = 0;
-  size_t nodeIdx = 0;
-  unsigned int tIdx = 0;
-  IndexT unreached = 1; // Root node of first tree.
-  size_t facTop = 0;
-  while (tIdx < nTree) {
-    IndexT leafIdx;
-    unreached--; // Current target reached.
-    if (treeNode[nodeIdx].getLeafIdx(leafIdx)) {
-      if (leafIdx != 0 && leafIdx != lastLeaf + 1)
-	misorder++; // Diagnostic only.
-      leaves[tIdx].push_back(nodeIdx);
-      lastLeaf = leafIdx;
-    }
-    else {
-      unreached += 2;
-    }
-    if (unreached == 0) { // All live unreached consumed:  end of tree.
-      // Incorporates marker node as pseudo-leaf of current tree.
-      if (treeNode[++nodeIdx].getLeafIdx(leafIdx)) {
-	facTop += leafIdx; // == facHeight[tIdx]
-	leaves[tIdx].push_back(facTop);
-      }
-      else {
-	misorder++;
-      }
-
-      unreached = 1; // Root node of next tree, if any.
-      tIdx++;
-    }
-    nodeIdx++;
+vector<size_t> Forest::produceExtent(const double extent_[]) const {
+  vector<size_t> extent(nTree);
+  for (unsigned int i = 0; i < nTree; i++) {
+    extent[i] = extent_[i];
   }
-
-  return leaves;
+  return extent;
 }
 
 
-unique_ptr<BVJagged> Forest::splitFactors(unsigned int facVec[]) {
-  vector<size_t> facHeight(leafNode.size());
-  for (unsigned int tIdx = 0; tIdx < leafNode.size(); tIdx++) {
-    facHeight[tIdx] = leafNode[tIdx].back();
-    leafNode[tIdx].pop_back(); // Removes temporary pseudo-leaf.
+void FBCresc::appendBits(const class BV& splitBits,
+			   size_t bitEnd) {
+  size_t nSlot = splitBits.appendSlots(fac, bitEnd);
+  extents.push_back(nSlot);
+}
+
+
+vector<size_t> Forest::produceHeight(const double extents[]) const {
+  vector<size_t> heights(nTree);
+  size_t heightAccum = 0;
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    heightAccum += extents[tIdx];
+    heights[tIdx] = heightAccum;
   }
-
-  return make_unique<BVJagged>(facVec, move(facHeight));
+  return heights;
 }
 
 
-vector<vector<double>> Forest::getScores() const {
-  vector<vector<double>> treeScore(leafNode.size());
-  for (unsigned int tIdx = 0; tIdx < leafNode.size(); tIdx++) {
-    for (auto leafIdx : leafNode[tIdx]) {
-      treeScore[tIdx].push_back(treeNode[leafIdx].getScore());
+vector<vector<double>> Forest::produceScores() const {
+  vector<vector<double>> treeScore(nTree);
+  IndexT nodeIdx = 0;
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    for (IndexT scoreIdx = 0; scoreIdx != nodeExtent[tIdx]; scoreIdx++)  {
+      treeScore[tIdx].push_back(scores[nodeIdx++]);
     }
   }
   return treeScore;
 }
 
 
-vector<size_t> Forest::treeHeights() const {
-  vector<size_t> treeHeight(leafNode.size());
-  for (unsigned int tIdx = 0; tIdx < treeHeight.size(); tIdx++) {
-    // Because of marker nodes, final leaf references the penultimate
-    // node position in a tree.
-    treeHeight[tIdx] = leafNode[tIdx].back() + 2;
-  }
-
-  return treeHeight;
+size_t Forest::maxTreeHeight() const {
+  return *max_element(nodeExtent.begin(), nodeExtent.end());
 }
 
 
 vector<size_t> Forest::treeOrigins() const {
-  vector<size_t> origin(leafNode.size());
+  vector<size_t> origin(nTree);
+  size_t origAccum = 0;
   for (unsigned int tIdx = 0; tIdx < origin.size(); tIdx++) {
-    origin[tIdx] = tIdx == 0 ? 0 : treeHeight[tIdx-1];
+    origin[tIdx] = exchange(origAccum, origAccum + nodeExtent[tIdx]);
   }
   return origin;
 }
@@ -131,8 +98,8 @@ void Forest::dump(vector<vector<PredictorT> >& predTree,
 void Forest::dump(vector<vector<PredictorT> >& pred,
                   vector<vector<double> >& split,
                   vector<vector<IndexT> >& delIdx) const {
-  for (unsigned int tIdx = 0; tIdx < treeHeight.size(); tIdx++) {
-    for (IndexT nodeIdx = 0; nodeIdx < treeHeight[tIdx]; nodeIdx++) {
+  for (unsigned int tIdx = 0; tIdx < nodeExtent.size(); tIdx++) {
+    for (IndexT nodeIdx = 0; nodeIdx < nodeExtent[tIdx]; nodeIdx++) {
       pred[tIdx].push_back(treeNode[nodeIdx].getPredIdx());
       delIdx[tIdx].push_back(treeNode[nodeIdx].getDelIdx());
 

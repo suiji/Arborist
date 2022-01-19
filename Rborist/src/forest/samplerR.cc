@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -23,6 +23,7 @@
    @author Mark Seligman
  */
 
+#include "resizeR.h"
 #include "samplerR.h"
 #include "samplerbridge.h"
 
@@ -46,19 +47,10 @@ void SamplerR::consume(const SamplerBridge* sb,
 		       double scale) {
   size_t blockBytes = sb->getBlockBytes(); // # sample bytes in chunk.
   if (rawTop + blockBytes > static_cast<size_t>(blockRaw.length())) {
-    blockRaw = move(resizeRaw(&blockRaw[0], rawTop, blockBytes, scale));
+    blockRaw = move(ResizeR::resizeRaw(blockRaw, rawTop, blockBytes, scale));
   }
   sb->dumpRaw(&blockRaw[rawTop]);
   rawTop += blockBytes;
-}
-
-
-RawVector SamplerR::resizeRaw(const unsigned char* raw, size_t offset, size_t bytes, double scale) { // Assumes scale >= 1.0.
-  RawVector temp(scale * (offset + bytes));
-  for (size_t i = 0; i < offset; i++)
-    temp[i] = raw[i];
-
-  return temp;
 }
 
 

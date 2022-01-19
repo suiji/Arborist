@@ -8,7 +8,7 @@
 /**
    @file pretree.h
 
-   @brief Class defintions for the pre-tree, a serial and minimal representation from which the decision tree is built.
+   @brief Builds a single decision tree and dispatches to crescent forest.
 
    @author Mark Seligman
 
@@ -111,7 +111,6 @@ public:
     }
     else {
       setTerminal(leafIdx++);
-      forest->setTerminal(idx);
     }
     forest->nodeProduce(idx, decNode);
   }
@@ -136,9 +135,10 @@ class PreTree {
   IndexT height; // Running count of nodes.
   IndexT leafCount; // Running count of leaves.
   vector<PTNode> nodeVec; // Vector of tree nodes.
+  vector<double> scores;
   class BV splitBits; // Bit encoding of factor splits.
   size_t bitEnd; // Next free slot in factor bit vector.
-  vector<IndexT> sampleMap; // Frontier mapping of sIdx to ptIdx.
+  vector<IndexT> sampleMap; // Frontier mapping of sIdx to ptIdx. EXIT
 
   
   /**
@@ -250,19 +250,24 @@ class PreTree {
 		    vector<double> &predInfo);
 
 
-  IndexT leafMerge();
+  void setScore(const class SplitFrontier* sf,
+		const class IndexSet& iSet);
 
-  
+
   /**
-     @brief Caches the final sample map.
+     @brief Assigns scores to all nodes in the map.
+   */
+  void scoreNodes(const class Sampler* sampler,
+		  const class SampleMap& map);
 
-     @param stTerm are subtree-relative indices.  These must be mapped to
-     sample indices if the subtree is proper.
-  */
-  void cacheSampleMap(const vector<IndexT>& stTerm) {
-    sampleMap = move(stTerm);
-  }
+  /**
+     @brief Obtains scores assigned to indices in the map.
+   */
+  void setTerminals(const SampleMap& terminalMap);
+  
 
+  IndexT leafMerge();
+  
 
   inline IndexT getHeight() const {
     return height;

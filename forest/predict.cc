@@ -43,37 +43,16 @@ Predict::Predict(const Forest* forest,
   nPermute(nPermute_),
   predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
   accumNEst(vector<IndexT>(scoreChunk)),
-  scoreBlock(forest->getScores()),
-  scoreHeight(scoreHeights(scoreBlock)),
+  scoreBlock(forest->produceScores()),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
   nRow(rleFrame->getNRow()),
   nTree(forest->getNTree()),
-  noLeaf(scoreHeight.back()),
+  noNode(forest->maxTreeHeight()),
   walkTree(nPredFac == 0 ? &Predict::walkNum : (nPredNum == 0 ? &Predict::walkFac : &Predict::walkMixed)),
   trFac(vector<unsigned int>(scoreChunk * nPredFac)),
   trNum(vector<double>(scoreChunk * nPredNum)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
-}
-
-
-vector<size_t> Predict::scoreHeights(const vector<vector<double>>& scoreBlock) {
-  vector<size_t> scoreHeight;
-  size_t height = 0; // Accumulated height.
-  for (auto treeScores : scoreBlock) {
-    height += treeScores.size();
-    scoreHeight.push_back(height);
-  }
-
-  return scoreHeight;
-}
-
-
-void Predict::sampleBounds(unsigned int tIdx,
-			   IndexT leafIdx,
-			   size_t& leafStart,
-			   size_t& leafEnd) const {
-  sampler->getSampleBounds(getScoreIdx(tIdx, leafIdx), leafStart, leafEnd);
 }
 
 
@@ -192,7 +171,7 @@ size_t Predict::predictBlock(size_t rowStart,
   size_t row = rowStart;
   for (; row + blockRows <= rowEnd; row += blockRows) {
     rleFrame->transpose(trIdx, row, scoreChunk, trFac, trNum);
-    fill(predictLeaves.begin(), predictLeaves.end(), noLeaf);
+    fill(predictLeaves.begin(), predictLeaves.end(), noNode);
     blockStart = row;
     blockEnd = row + blockRows;
     predictBlock();
@@ -307,26 +286,28 @@ void Predict::walkMixed(size_t row) {
 void Predict::rowNum(unsigned int tIdx,
 		       const double* rowT,
 		       size_t row) {
-  IndexT leafIdx = noLeaf;
   auto idx = treeOrigin[tIdx];
+  IndexT delIdx = 0;
   do {
-    idx += treeNode[idx].advance(rowT, leafIdx);
-  } while (leafIdx == noLeaf);
+    delIdx = treeNode[idx].advance(rowT);
+    idx += delIdx;
+  } while (delIdx != 0);
 
-  predictLeaf(row, tIdx, leafIdx);
+  predictLeaf(row, tIdx, idx);
 }
 
 
 void Predict::rowFac(const unsigned int tIdx,
 		     const unsigned int* rowT,
 		     size_t row) {
-  IndexT leafIdx = noLeaf;
   auto idx = treeOrigin[tIdx];
+  IndexT delIdx = 0;
   do {
-    idx += treeNode[idx].advance(facSplit, rowT, tIdx, leafIdx);
-  } while (leafIdx == noLeaf);
+    delIdx = treeNode[idx].advance(facSplit, rowT, tIdx);
+    idx += delIdx;
+  } while (delIdx != 0);
 
-  predictLeaf(row, tIdx, leafIdx);
+  predictLeaf(row, tIdx, idx);
 }
 
 
@@ -334,13 +315,14 @@ void Predict::rowMixed(unsigned int tIdx,
 			 const double* rowNT,
 			 const unsigned int* rowFT,
 			 size_t row) {
-  IndexT leafIdx = noLeaf;
   auto idx = treeOrigin[tIdx];
+  IndexT delIdx = 0;
   do {
-    idx += treeNode[idx].advance(this, facSplit, rowFT, rowNT, tIdx, leafIdx);
-  } while (leafIdx == noLeaf);
+    delIdx = treeNode[idx].advance(this, facSplit, rowFT, rowNT, tIdx);
+    idx += delIdx;
+  } while (delIdx != 0);
 
-  predictLeaf(row, tIdx, leafIdx);
+  predictLeaf(row, tIdx, idx);
 }
 
 
@@ -352,6 +334,15 @@ const double* Predict::baseNum(size_t row) const {
 const PredictorT* Predict::baseFac(size_t row) const {
   return &trFac[(row - blockStart) * nPredFac];
 }
+
+
+bool Predict::isLeafIdx(size_t row,
+			unsigned int tIdx,
+			IndexT& leafIdx) const {
+    IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    return termIdx == noNode ? false : treeNode[termIdx + treeOrigin[tIdx]].getLeafIdx(leafIdx);
+}
+
 
 
 void Predict::estAccum() {

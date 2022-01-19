@@ -52,24 +52,18 @@ protected:
   
   
   /**
-     @return vector of accumulated score heights.
-   */
-  static vector<size_t> scoreHeights(const vector<vector<double>>& scoreBlock);
-  
-
-  /**
-     @brief Assigns a true leaf index at the prediction coordinates passed.
+     @brief Assigns a relative node index at the prediction coordinates passed.
 
      @param row is the row number.
 
      @param tc is the index of the current tree.
 
-     @param leafIdx is the leaf index to record.
+     @param idx is an absolute node index.
    */
   inline void predictLeaf(size_t row,
                           unsigned int tIdx,
-                          IndexT leafIdx) {
-    predictLeaves[nTree * (row - blockStart) + tIdx] = leafIdx;
+                          IndexT idx) {
+    predictLeaves[nTree * (row - blockStart) + tIdx] = idx - treeOrigin[tIdx];
   }
 
 
@@ -149,12 +143,11 @@ protected:
 public:
 
   const vector<vector<double>> scoreBlock; // Scores, by tree.
-  const vector<size_t> scoreHeight; // Accumulated heights of scores.
   const PredictorT nPredNum;
   const PredictorT nPredFac;
   const size_t nRow;
   const unsigned int nTree; // # trees used in training.
-  const IndexT noLeaf; // Inattainable leaf index value.
+  const IndexT noNode; // Inattainable leaf index value.
 
   /**
      @brief Aliases a row-prediction method tailored for the frame's
@@ -185,26 +178,7 @@ public:
   }
 
 
-  size_t getScoreIdx(unsigned int tIdx,
-		     IndexT leafIdx) const {
-    return leafIdx + (tIdx == 0 ? 0 : scoreHeight[tIdx-1]);
-  }
-
-  
   /**
-     @brief Obtains the sample index bounds of a leaf.
-
-     @param[out] start is the starting sample index.
-
-     @param[out] end is the end sample index.
-   */
-  void sampleBounds(unsigned int tIdx,
-		    IndexT leafIdx,
-		    size_t& leafStart,
-		    size_t& leafEnd) const;
-
-
-    /**
      @brief Computes block-relative position for a predictor.
 
      @param[out] thisIsFactor outputs true iff predictor is factor-valued.
@@ -232,25 +206,14 @@ public:
   }
 
 
-  size_t getScoreCount() const {
-    return scoreHeight.back();
-  }
-
-  
   /**
-     @param[out] termIdx is the terminal index of prediction.
+     @param[out] termIdx is the node index of prediction.
 
      @return true iff the predicted terminal index references a leaf.
    */
-  inline bool isLeafIdx(size_t row,
-			unsigned int tIdx,
-			IndexT& termIdx) const {
-    termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
-
-    // Non-oob scenarios should always see a leaf.
-    //    if (!oob) assert(termIdx != noLeaf);
-    return termIdx != noLeaf;
-  }
+  bool isLeafIdx(size_t row,
+		 unsigned int tIdx,
+		 IndexT& leafIdx) const;
 
 
   /**
@@ -260,7 +223,7 @@ public:
 			unsigned int tIdx,
 			double& score) const {
     IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
-    if (termIdx != noLeaf) {
+    if (termIdx != noNode) {
       score = scoreBlock[tIdx][termIdx];
       return true;
     }
@@ -268,7 +231,7 @@ public:
       return false;
     }
     // Non-bagging scenarios should always see a leaf.
-    //    if (!bagging) assert(termIdx != noLeaf);
+    //    if (!bagging) assert(termIdx != noNode);
   }
 
   

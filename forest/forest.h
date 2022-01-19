@@ -28,10 +28,16 @@
  */
 class NodeCresc {
   vector<DecNode> treeNode;
+  vector<size_t> extents; // # nodes in each tree.
   size_t treeFloor; // Block-relative index of current tree floor.
 
 public:
 
+  void appendExtent(IndexT extent) {
+    extents.push_back(extent);
+  }
+
+  
   /**
      @brief Allocates nodes for current tree.  Pre-initializes for random access.
 
@@ -46,18 +52,13 @@ public:
   }
 
   
-  /**
-     @brief Writes the factor value length as a dummy leaf appended to the tree.
-   */
-  void treeFinish(size_t facEnd) {
-    DecNode tn;
-    tn.setLeaf(facEnd);
-    treeNode.insert(treeNode.end(), 1, tn);
+  size_t getNodeBytes() const {
+    return treeNode.size() * sizeof(DecNode);
   }
 
 
-  size_t getNodeBytes() const {
-    return treeNode.size() * sizeof(DecNode);
+  const vector<size_t>& getExtents() const {
+    return extents;
   }
   
 
@@ -97,15 +98,6 @@ public:
 	       const DecNode& decNode) {
     treeNode[treeFloor + nodeIdx] = decNode;
   }
-
-
-  /**
-    @brief Sets looked-up leaf node to leaf index passed.
-  */
-  void setScore(IndexT nodeIdx,
-		double score) {
-    treeNode[treeFloor + nodeIdx].setScore(score);
-  }
 };
 
 
@@ -114,7 +106,8 @@ public:
  */
 class FBCresc {
   vector<unsigned int> fac;  // Factor-encoding bit vector.
-
+  vector<size_t> extents; // Extent of bit encoding, per tree.
+  
 public:
   
   /**
@@ -123,12 +116,15 @@ public:
      @param splitBits is the bit vector.
 
      @param bitEnd is the final bit position referenced.
-
-     @return number of native bit-vector slots subsumed.
    */
-  size_t appendBits(const class BV& splitBits,
-		    size_t bitEnd);
+  void appendBits(const class BV& splitBits,
+		  size_t bitEnd);
 
+  
+  const vector<size_t>& getExtents() const {
+    return extents;
+  }
+  
 
   size_t getFactorBytes() const {
     return fac.size() * sizeof(unsigned int);
@@ -160,43 +156,20 @@ public:
 */
 class Forest {
   const unsigned int nTree;
+  const vector<size_t> nodeExtent; // Per-tree size of node encoding. 
   const DecNode* treeNode; // Post-training only.
-  vector<vector<size_t>> leafNode; // Per-tree vector of leaf indices.
+  const double* scores; // " "
 
   unique_ptr<NodeCresc> nodeCresc; // Crescent node block:  training only.
   unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
-  vector<IndexT> leafCresc; // Tree-relative indices of leaves.
+  vector<double> scoresCresc;
 
   unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
-  vector<size_t> treeHeight;
-
-  
-  /**
-     @brief Collects leaf nodes across forest, by tree.
-   */
-  vector<vector<size_t>> leafForest() const;
-
-
-  /**
-     @brief builds a forest-wide map of factor heights.
-
-     Eliminates temporary pseudo-leaves during construction.
-
-     @return jagged representation of bit map.
-   */
-  unique_ptr<BVJagged> splitFactors(unsigned int facVe[]);
-
-  
-  /**
-     @brief Builds a vector of tree heights.
-   */
-  vector<size_t> treeHeights() const;
 
 
   void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<IndexT> > &lhDelTree) const;
-
   
  public:
 
@@ -206,7 +179,7 @@ class Forest {
   Forest(unsigned int nTree_) :
     nTree(nTree_),
     treeNode(nullptr),
-    leafNode(vector<vector<size_t>>(0)),
+    //    leafScore(vector<vector<double>>(0)),
     nodeCresc(make_unique<NodeCresc>()),
     fbCresc(make_unique<FBCresc>()) {
   }
@@ -216,13 +189,54 @@ class Forest {
      Post-training constructor.
    */
   Forest(unsigned int nTree_,
-	 const DecNode _treeNode[],
+	 const double nodeExtent_[],
+	 const DecNode treeNode_[],
+	 const double* scores_,
+	 const double facExtent_[],
          unsigned int facVec[]);
 
 
   size_t getNodeBytes() const {
     return nodeCresc->getNodeBytes();
   };
+
+
+  const vector<size_t>& getFacExtents() const {
+    return fbCresc->getExtents();
+  }
+  
+  
+  const vector<size_t>& getNodeExtents() const {
+    return nodeCresc->getExtents();
+  }
+
+  /**
+     @brief Produces extent vector from numeric representation.
+
+     Front ends not supporting 64-bit integers can represent extent
+     vectors as doubles.
+
+     @return non-numeric extent vector.
+   */
+
+
+  vector<size_t> produceExtent(const double extent_[]) const;
+
+
+  /**
+     @brief Produces height vector from numeric representation.
+
+     Front ends not supporting 64-bit integers can represent extent
+     vectors as doubles.
+
+     @return non-numeric height vector.
+   */
+  vector<size_t> produceHeight(const double extent_[]) const;
+  
+
+  const vector<double>& getScores() const {
+    return scoresCresc;
+  }
   
   /**
      @brief Getter for 'nTree'.
@@ -265,6 +279,17 @@ class Forest {
   }
 
 
+  size_t getScoreSize() const {
+    return scoresCresc.size();
+  }
+  
+  
+  void cacheScore(double scoreOut[]) {
+    for (size_t i = 0; i < scoresCresc.size(); i++)
+      scoreOut[i] = scoresCresc[i];
+  }
+  
+
   /**
      @brief Outputs raw byes of node vector.
    */
@@ -274,7 +299,7 @@ class Forest {
 
 
   /**
-     @brief Precipitates production of a branch node in the crescent forest.
+     @brief Increments crescent forest with new node.
 
      @param nodeIdx is a tree-relative node index.
 
@@ -286,20 +311,14 @@ class Forest {
   }
 
 
-  /**
-     @brief Adds the index of a leaf node.
-   */
-  void setTerminal(IndexT nodeIdx) {
-    leafCresc.push_back(nodeIdx);
+  void appendNodeHeight(IndexT height) {
+    nodeCresc->appendExtent(height);
   }
+  
 
-
-  void setScores(const vector<double>& score) {
-    IndexT leafIdx = 0;
-    for (IndexT nodeIdx : leafCresc) {
-      nodeCresc->setScore(nodeIdx, score[leafIdx++]);
-    }
-    leafCresc.clear();
+  void consumeScores(vector<double>& scores_,
+		     IndexT height) {
+    copy(scores_.begin(), scores_.begin() + height, back_inserter(scoresCresc));
   }
 
   
@@ -323,8 +342,7 @@ class Forest {
    */
   void appendBits(const class BV& splitBits,
                   size_t bitEnd) {
-    size_t nSlot = fbCresc->appendBits(splitBits, bitEnd);
-    nodeCresc->treeFinish(nSlot);
+    fbCresc->appendBits(splitBits, bitEnd);
   }
 
   
@@ -344,19 +362,25 @@ class Forest {
 
 
   /**
+     @return maximum tree extent.
+   */
+  size_t maxTreeHeight() const;
+  
+
+  /**
      @brief Derives tree origins from the forest height vector
      and caches.
 
      @return vector of per-tree node starting offsets.
    */
-  vector<size_t> treeOrigins() const;
+   vector<size_t> treeOrigins() const;
 
   
   /**
-     @return per-tree vector of leaf scores.
+     @return per-tree vector of scores.
    */
-  vector<vector<double>> getScores() const;
-  
+  vector<vector<double>> produceScores() const;
+
 
   /**
      @brief Dumps forest-wide structure fields as per-tree vectors.

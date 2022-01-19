@@ -8,19 +8,20 @@
 /**
    @file indexset.h
 
-   @brief Contiguous subsets of the ObsPart buffer.
+   @brief Frontier nodes represented as contiguous subsets of the ObsPart buffer.
 
    @author Mark Seligman
  */
 
-#ifndef PARTITION_INDEXSET_H
-#define PARTITION_INDEXSET_H
+#ifndef FRONTIER_INDEXSET_H
+#define FRONTIER_INDEXSET_H
 
 
 
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "branchsense.h"
+
 
 /**
    Index tree node fields associated with the response, viz., invariant across
@@ -33,21 +34,23 @@
 class IndexSet {
   static IndexT minNode;
 
-  IndexT splitIdx; // Unique level identifier.
-  IndexT ptId; // Index of associated pretree node.
-  IndexRange bufRange;  // Positions within obs-part buffer:  Swiss cheese.
+  const IndexT splitIdx; // Unique level identifier.
+  const IndexRange bufRange;  // Swiss cheese positions within obsPart buffer.
+  const IndexT sCount;  // # samples subsumed by this set.
+  const double sum; // Sum of all responses in set.
+  const unsigned char path; // Bitwise record of recent reaching L/R path.
+  const IndexT ptId; // Index of associated pretree node.
+  const vector<SumCount> ctgSum;  // Per-category sum decomposition.
 
-  IndexT sCount;  // # samples subsumed by this set.
-  double sum; // Sum of all responses in set.
   double minInfo; // Split threshold:  reset after splitting.
-  unsigned char path; // Bitwise record of recent reaching L/R path.
-  vector<SumCount> ctgSum;  // Per-category response sums.
 
   // Post-splitting fields:  (Updated iff argMax nontrivial.)
-  bool doesSplit; // Sticky.  Sets iff local conditions satisfied.
-  bool unsplitable;  // Candidate found to have single response value.
+  bool doesSplit; // Sets iff local conditions satisfied.
 
-  // Map position:  true successor if nonterminal or node if terminal.
+  // Set by fiat or discovery.  E.g., candidate has single response value.
+  bool unsplitable; 
+
+  // Map position:  successor true index if nonterminal otherwise terminal index.
   IndexT idxNext;
   
   // Revised per criterion, assumed registered in order.
@@ -59,56 +62,32 @@ class IndexSet {
   // May be updated multiple times by successive criteria.  Final
   // criterion prevails, assuming criteria accrue conditionally.
   bool trueEncoding;
+  vector<SumCount> ctgTrue; // Per-category sums updatable from criterion.
 
   // Precipitates setting of unsplitable in respective successor.
   bool trueExtinct;
   bool falseExtinct;
-  
-  // State repeatedly polled and/or updated by Reindex methods.  Hence
-  // appropriate to cache.
-  //
-  IndexT ptTrue;
-  IndexT ptFalse;
 
-  PathT pathTrue;  // Fixed:  path to true successor, if any.
-  PathT pathFalse; // Fixed:  " " false " ".
-
-  vector<SumCount> ctgTrue; // Per-category sums inherited from criterion.
-
-  
-  /**
-     @brief Initializes certain fields to a default terminal state.
-
-     @param inatt is an inattainable value.
-   */
-  void initInattainable(IndexT inatt) {
-    idxNext = inatt;
-  }
-  
-
-  /**
-     @brief Initializes index set as a successor node.
-  */
-  void succInit(class Frontier *frontier,
-                const IndexSet* par,
-                bool trueBranch);
-  
 public:
 
-  IndexSet();
+  /**
+     @brief Root node constructor.
+   */
+  IndexSet(const class Sample* sample);
+
+
+  /**
+     @brief Successor node constructor.
+   */
+  IndexSet(const class Frontier *frontier,
+	   const IndexSet& pred,
+	   bool trueBranch);
 
 
   static void immutables(IndexT minNode);
 
   
   static void deImmutables();
-
-  /**
-     @brief Initializes root set using sample summary.
-
-     @param sample summarizes the tree's response sampling.
-   */
-  void initRoot(const class Sample* sample);
 
 
   /**
@@ -117,12 +96,6 @@ public:
      @param enc encapsulates the splitting criteria.
    */
   void update(const struct CritEncoding& enc);
-
-  
-  /**
-     @brief Caches state necessary for reindexing and useful subsequently.
-  */
-  void nonterminal(const class SampleMap& smNext);
 
   
   /**
@@ -143,6 +116,13 @@ public:
      @return per-category sums for the node.
   */
   vector<double> sumsAndSquares(double& sumSquares);
+
+
+  /**
+     @brief Computes the successor path along the specified branch.
+   */
+  unsigned int getPathSucc(bool trueBranch) const;
+
 
   bool isUnsplitable() const {
     return unsplitable;
@@ -199,19 +179,6 @@ public:
     return senseTrue ? trueExtinct : falseExtinct;
   }
 
-  
-  /**
-     @brief Produces next level's LH and RH index sets for a split.
-
-     @param indexNext is the crescent successor level of index sets.
-  */
-  void succHands(Frontier* frontier,
-                 vector<IndexSet>& indexNext) const;
-
-
-  void succHand(Frontier* frontier,
-                vector<IndexSet>& indexNext,
-                bool trueBranch) const;
 
   /**
      @param Determines pretree index of specified successor.
@@ -244,6 +211,11 @@ public:
     return splitIdx;
   }
 
+
+  const vector<SumCount>& getCtgSumCount() const {
+    return ctgSum;
+  }
+  
   
   /**
      @brief Getter for number of response categories.
@@ -270,16 +242,6 @@ public:
 
   inline auto getSumSucc(bool trueBranch) const {
     return trueBranch ? sumTrue : sum - sumTrue;
-  }
-
-
-  inline auto getPTSucc(bool trueBranch) const {
-    return trueBranch ? ptTrue : ptFalse;
-  }
-
-
-  inline auto getPathSucc(bool trueBranch) const {
-    return trueBranch ? pathTrue : pathFalse;
   }
 
 

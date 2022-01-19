@@ -118,9 +118,8 @@ public:
 
      @return delta to next node, if nonterminal, else zero.
    */
-  inline IndexT advance(const double *rowT,
-			IndexT& leafIdx) const {
-    return getLeafIdx(leafIdx) ? 0 : (delIdx + (rowT[getPredIdx()] <= getSplitNum() ? 0 : 1));
+  inline IndexT advance(const double *rowT) const {
+    return delIdx == 0 ? 0 : (delIdx + (rowT[getPredIdx()] <= getSplitNum() ? 0 : 1));
   }
 
   
@@ -139,8 +138,8 @@ public:
    */
   IndexT advance(const class BVJagged *facSplit,
 		 const IndexT* rowT,
-		 unsigned int tIdx,
-		 IndexT& leafIdx) const;
+		 unsigned int tIdx) const;
+
   
   /**
      @brief Node advancer, as above, but for mixed observation.
@@ -155,8 +154,7 @@ public:
 		 const BVJagged *facSplit,
 		 const IndexT* rowFT,
 		 const double *rowNT,
-		 unsigned int tIdx,
-		 IndexT& leafIdx) const;
+		 unsigned int tIdx) const;
 
 
   /**
@@ -181,22 +179,7 @@ public:
     delIdx = 0;
     criterion.predIdx = leafIdx;
   }
-
-
-  inline void setScore(double score) {
-    delIdx = 0; // Should assert already set.
-    criterion.setNum(score);
-  }
-
-  
-  /**
-     @brief Obtains score from criterion.
-
-     @return numeric value.
-   */
-  inline double getScore() const {
-    return criterion.getNumVal();
-  }
 };
+
 
 #endif

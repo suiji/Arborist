@@ -17,7 +17,7 @@
 #include "bheap.h"
 #include "candrf.h"
 #include "sfcart.h"
-#include "deffrontier.h"
+#include "defmap.h"
 #include "callback.h"
 
 
@@ -40,43 +40,43 @@ void CandRF::deInit() {
 }
 
 
-void CandRF::precandidates(DefFrontier* defFrontier) {
+void CandRF::precandidates(DefMap* defMap) {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
-  IndexT splitCount = defFrontier->getNSplit();
-  PredictorT nPred = defFrontier->getNPred();
+  IndexT splitCount = defMap->getNSplit();
+  PredictorT nPred = defMap->getNPred();
   IndexT cellCount = splitCount * nPred;
   
   auto ruPred = CallBack::rUnif(cellCount);
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
   for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     IndexT splitOff = splitIdx * nPred;
-    if (defFrontier->isUnsplitable(splitIdx)) { // Node cannot split.
+    if (defMap->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
     else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(nPred, defFrontier, splitIdx, &ruPred[splitOff]);
+      candidateProb(nPred, defMap, splitIdx, &ruPred[splitOff]);
     }
     else { // Fixed number of predictors splitable.
-      candidateFixed(nPred, defFrontier, splitIdx, &ruPred[splitOff], &heap[splitOff]);
+      candidateFixed(nPred, defMap, splitIdx, &ruPred[splitOff], &heap[splitOff]);
     }
   }
 }
 
 
 void CandRF::candidateProb(PredictorT nPred,
-			   DefFrontier* defFrontier,
+			   DefMap* defMap,
 			   IndexT splitIdx,
 			   const double ruPred[]) {
   for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
     if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) defFrontier->preschedule(SplitCoord(splitIdx, predIdx), ruPred[predIdx]);
+      (void) defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[predIdx]);
     }
   }
 }
 
 
 void CandRF::candidateFixed(PredictorT nPred,
-			    DefFrontier* defFrontier,
+			    DefMap* defMap,
 			    IndexT splitIdx,
 			    const double ruPred[],
 			    BHPair heap[]) {
@@ -90,7 +90,7 @@ void CandRF::candidateFixed(PredictorT nPred,
   PredictorT schedCount = 0;
   for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
     SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
-    if (defFrontier->preschedule(splitCoord, ruPred[heapSize-1])) {
+    if (defMap->preschedule(splitCoord, ruPred[heapSize-1])) {
       if (++schedCount == predFixed) {
 	break;
       }

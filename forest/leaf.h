@@ -31,12 +31,6 @@
  */
 class Leaf {
 
-protected:
-
-  void setScoreCtg(const vector<IndexT>& ctgCount,
-		   const vector<double>& jitters,
-		   IndexT leafIdx);
-
 
 public:
 
@@ -71,19 +65,6 @@ public:
    */
   virtual unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
 					      const class Sampler* sampler) const = 0;
-
-
-  /**
-     @brief Appends this tree's leaves to the current block.
-
-     @param sample summarizes the sampling environment of the current tree.
-
-     @param leafMap maps sample indices to the index of the containing leaf.
-
-     @return vector of scores for the leaves in this tree.
-   */
-  virtual vector<double> scoreTree(const class Sample* sample,
-				   const vector<IndexT>& leafMap) = 0;
 };
 
 
@@ -101,16 +82,6 @@ class LeafReg : public Leaf {
     return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
   }
 
-
-  /**
-     @brief Sets scores for current tree's leaves.
-
-     @param sample summarizes the sample response.
-
-     @param leafMap maps sample indices to leaf indices.
-   */
-  vector<double> scoreTree(const class Sample* sample,
-			   const vector<IndexT>& leafMap);
 
 public:
   /**
@@ -162,32 +133,6 @@ class LeafCtg : public Leaf {
      @return highest probability category of default vector.
   */
   PredictorT ctgDefault() const;
-  
-  /**
-     @brief Counts the categories, by leaf.
-
-     @return map of category counts, by leaf.
-   */
-  vector<PredictorT> countCtg(const vector<double>& score,
-			      const class Sample* sample,
-			      const vector<IndexT>& leafMap) const;
-
-
-  double argMax(IndexT leafIdx,
-		const vector<IndexT>& ctgCount,
-		const vector<double>& jitters);
-
-
-  /**
-     @brief Sets the scores for leaves in a tree.
-
-     @param sample summarizes the sampled response.
-
-     @param leafMap maps sample indices into leaf indices.
-   */
-  vector<double> scoreTree(const class Sample* sample,
-			   const vector<IndexT>& leafMap);
-
 
 
 public:
@@ -238,14 +183,6 @@ public:
 		 IndexT leafIdx,
 		 size_t& start,
 		 size_t& end) const;
-
-  /**
-     @brief Builds a height vector scaled for categoricity.
-
-     @return vector of scaled heights.
-  */
-  vector<size_t> ctgHeight(const Predict* predict) const;
-
 
   
   PredictorT predictObs(const class Predict* predict,

@@ -42,7 +42,7 @@ class SplitFrontier {
 protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   class Frontier* frontier;  // Current frontier of the partition tree.
-  class DefFrontier* defMap;
+  class DefMap* defMap;
   const PredictorT nPred;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
@@ -55,7 +55,7 @@ protected:
   
   vector<double> nodeInfo; // Node-level information threshold, set virtually.
 
-
+  
   /**
      @brief Derives and applies maximal simple criteria.
    */
@@ -85,8 +85,7 @@ public:
 		void (SplitFrontier::* splitter_)(class BranchSense*));
 
 
-  static void split(class Frontier* frontier,
-		    class BranchSense* branchSense);
+  unique_ptr<class BranchSense> split();
   
 
   auto getEncodingStyle() const {
@@ -343,6 +342,8 @@ public:
 
   // These are run-time invariant and need not be virtual:
   virtual void frontierPreset() = 0;
+
+  virtual double getScore(const class IndexSet& iSet) const = 0;
 };
 
 
@@ -390,6 +391,8 @@ struct SFReg : public SplitFrontier {
      @brief Sets layer-specific values for the subclass.
   */
   void frontierPreset();
+
+  double getScore(const class IndexSet& iSet) const;
 };
 
 
@@ -399,6 +402,7 @@ protected:
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
   vector<double> sumSquares; // Per-layer sum of squares, by split.
   vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
+  vector<double> ctgJitter; // Breaks scoring ties at node.
 
   
 public:
@@ -408,6 +412,7 @@ public:
 	SplitStyle splitStyle,
 	void (SplitFrontier::* splitter_) (class BranchSense*));
 
+  double getScore(const class IndexSet& iSet) const;
 
   /**
      @brief Accesses per-category sum vector associated with candidate's node.

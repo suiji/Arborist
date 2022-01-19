@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "deflayer.h"
+#include "deffrontier.h"
 #include "partition.h"
 #include "layout.h"
 #include "splitfrontier.h"
@@ -70,7 +70,7 @@ SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
 }
 
 
-void ObsPart::prepath(const DefLayer* layer,
+void ObsPart::prepath(const DefFrontier* layer,
 		      const IdxPath *idxPath,
 		      const unsigned int reachBase[],
 		      const MRRA& mrra,
@@ -88,7 +88,7 @@ void ObsPart::prepath(const IdxPath *idxPath,
                          unsigned int idxVec[],
                          PathT prepath[],
                          unsigned int pathCount[]) const {
-  for (IndexT idx = idxRange.getStart(); idx < idxRange.getEnd(); idx++) {
+  for (IndexT idx = idxRange.getStart(); idx != idxRange.getEnd(); idx++) {
     PathT path = idxPath->update(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
     if (NodePath::isActive(path)) {
@@ -98,7 +98,7 @@ void ObsPart::prepath(const IdxPath *idxPath,
 }
 
 
-void ObsPart::rankRestage(const DefLayer* layer,
+void ObsPart::rankRestage(const DefFrontier* layer,
 			  const MRRA& mrra,
                           unsigned int reachOffset[],
                           unsigned int rankCount[]) {
