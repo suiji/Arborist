@@ -21,110 +21,9 @@
 #include "typeparam.h"
 #include "forest.h"
 #include "decnode.h"
+#include "samplemap.h"
 
 #include <vector>
-
-/**
-  @brief Decision node specialized for training.
-
-  Information member consumed during forest production.
- */
-struct PTNode {
-private:
-  FltVal info;  // Zero iff terminal.
-  DecNode decNode;
-
-public:
-  /**
-     @brief Constructor.  Decision node set to terminal by its constructor.
-   */
-  PTNode() : info(0.0) {
-  }
-
-  
-  auto getDelIdx() const {
-    return decNode.getDelIdx();
-  }
-  
-  
-  auto getPredIdx() const {
-    return decNode.getPredIdx();
-  }
-  
-
-  auto getIdFalse(IndexT ptIdx) const {
-    return decNode.getIdFalse(ptIdx);
-  }
-
-
-  auto getIdTrue(IndexT ptIdx) const {
-    return decNode.getIdTrue(ptIdx);
-  }
-
-
-  bool isNonterminal() const {
-    return decNode.isNonterminal();
-  }
-
-
-  void setDelIdx(IndexT ptIdx) {
-    decNode.setDelIdx(ptIdx);
-  }
-
-  
-  void critBits(const class SplitNux& nux,
-		size_t bitEnd) {
-    decNode.critBits(&nux, bitEnd);
-  }
-
-
-  auto getBitOffset() const {
-    return decNode.getBitOffset();
-  }
-
-  
-  void critCut(const class SplitNux& nux,
-	       const class SplitFrontier* splitFrontier) {
-    decNode.critCut(&nux, splitFrontier);
-  }
-
-  
-  /**
-     @brief Resetter for merged nonterminals.
-   */
-  void setTerminal(IndexT leafIdx = 0) {
-    decNode.setLeaf(leafIdx);
-  }
-  
-  
-  /**
-     @brief Consumes the node fields of nonterminals (splits).
-
-     @param forest[in, out] accumulates the growing forest node vector.
-  */
-  void consume(Forest* forest,
-	       vector<double>& predInfo,
-	       IndexT idx,
-	       IndexT& leafIdx) {
-    if (isNonterminal()) {
-      predInfo[getPredIdx()] += info;
-    }
-    else {
-      setTerminal(leafIdx++);
-    }
-    forest->nodeProduce(idx, decNode);
-  }
-
-  /**
-     @brief Sets node to nonterminal.
-
-     @param nux contains the splitting information.
-
-     @param height is the current tree height.
-   */
-  inline void setNonterminal(const SplitNux& nux,
-                             IndexT height);
-};
 
 
 /**
@@ -134,24 +33,24 @@ class PreTree {
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
   IndexT height; // Running count of nodes.
   IndexT leafCount; // Running count of leaves.
-  vector<PTNode> nodeVec; // Vector of tree nodes.
+  vector<DecNode> nodeVec; // Vector of tree nodes.
   vector<double> scores;
+  vector<double> infoLocal; // Per-predictor nonterminal split information.
   class BV splitBits; // Bit encoding of factor splits.
   size_t bitEnd; // Next free slot in factor bit vector.
-  vector<IndexT> sampleMap; // Frontier mapping of sIdx to ptIdx. EXIT
+  SampleMap terminalMap;
 
-  
   /**
-     @brief Assigns frontier node samples to leaf indices.
+     @brief Assigns leaf indices to terminal tree nodes.
 
-     @return map from sample indices to leaf indices.
-  */
-  const vector<IndexT> sample2Leaf() const;
+     Ordering is currently linear order, but will change to depth-first.
+   */
+  void setLeafIndices();
 
  public:
   /**
    */
-  PreTree(PredictorT cardExtent,
+  PreTree(const class TrainFrame* frame,
 	  IndexT bagCount_);
 
 
@@ -229,25 +128,13 @@ class PreTree {
 
      @param forest grows by producing nodes and splits consumed from pre-tree.
 
-     @param predInfo accumulates the information contribution of each predictor.
+     @param predInfo accumulates the local information contribution.
 
      @return leaf map from consumed frontier.
   */
-  const vector<IndexT> consume(Forest *forest,
-			       vector<double> &predInfo);
-
-  
-  /**
-     @brief Consumes nonterminal information into the dual-use vectors needed by the decision tree.
-
-     Leaf information is post-assigned by the response-dependent Sample methods.
-
-     @param[in, out]  forest inputs/outputs the updated forest.
-
-     @param[out] predInfo outputs the predictor-specific information values.
-  */
-  void consumeNodes(Forest *forest,
-		    vector<double> &predInfo);
+  void consume(class Train* train,
+	       Forest *forest,
+	       class Sampler* sampler) const;
 
 
   void setScore(const class SplitFrontier* sf,
@@ -260,10 +147,11 @@ class PreTree {
   void scoreNodes(const class Sampler* sampler,
 		  const class SampleMap& map);
 
+
   /**
      @brief Obtains scores assigned to indices in the map.
    */
-  void setTerminals(const SampleMap& terminalMap);
+  void setTerminals(SampleMap smTerminal);
   
 
   IndexT leafMerge();
@@ -310,6 +198,14 @@ class PreTree {
    */
   inline bool isNonterminal(IndexT ptId) const {
     return nodeVec[ptId].isNonterminal();
+  }
+
+
+  /**
+     @brief Obtains leaf index of node assumed to be nonterminal.
+   */
+  inline IndexT getLeafIdx(IndexT ptIdx) const {
+    return nodeVec[ptIdx].getLeafIdx();
   }
 
 

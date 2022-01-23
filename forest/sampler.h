@@ -87,39 +87,29 @@ public:
 
 class SamplerNux {
   // As with RankCount, unweighted sampling typically incurs very
-  // small sample counts and row deltas, leaving well over 32
-  // bits for leaf indices.
+  // small sample counts and row deltas.
   PackedT packed;
 
 public:
-  static IndexT delWidth;
   static PackedT delMask;
-  static PackedT leafMask;
   static IndexT rightBits;
 
 
   static void unsetMasks() {
     delMask = 0;
-    delWidth = 0;
-    leafMask = 0;
     rightBits = 0;
   }
   
   SamplerNux(IndexT delRow,
-	     IndexT leafIdx,
 	     IndexT sCount) :
-    packed(delRow | (static_cast<PackedT>(leafIdx) << delWidth) | (static_cast<PackedT>(sCount) << rightBits)) {
+    packed(delRow | (static_cast<PackedT>(sCount) << rightBits)) {
   }
 
   
-  static void setMasks(IndexT nObs,
-		       IndexT nSamp) {
-    delWidth = Util::packedWidth(nObs);
-    delMask = (1ull << delWidth) - 1;
-    unsigned int leafWidth = Util::packedWidth(nSamp);
-    leafMask = (1ull << leafWidth) - 1;
-    rightBits = delWidth + leafWidth;
-  }
+  static void setMasks(IndexT nObs) {
+    rightBits = Util::packedWidth(nObs);
+    delMask = (1ull << rightBits) - 1;
+   }
 
 
   /**
@@ -129,13 +119,6 @@ public:
     return packed & delMask;
   }
   
-
-  /**
-     @return leaf index within tree.
-   */
-  inline auto getLeafIdx() const {
-    return (packed >> delWidth) & leafMask;
-  }
 
   /**
      @return sample count
@@ -157,10 +140,16 @@ public:
   vector<size_t> sampleOffset; // Per-leaf sample offset:  extent patial sums.
 
   
-  SamplerBlock(const SamplerNux* samples,
-	       const vector<size_t>& height,
-	       const vector<size_t>& forestIdx);
+  SamplerBlock(const Sampler* sampler,
+	       const SamplerNux* samples,
+	       const vector<size_t>& height);
 
+
+  /**
+     @bool nuxSamples is true iff matrix is to be rebagged.
+   */
+  void bagRows(class BitMatrix* bagMatrix,
+	       bool nuxSamples);
   
   /**
      @brief Derives size of raw contents.
@@ -197,53 +186,25 @@ public:
     return sCount > 0;
   }
   
-
-  /**
-     @brief Index-parametrized leaf-index getter.
-
-     @param absOff is the forest-relative bag offset.
-
-     @return associated tree-relative leaf index.
-   */
-  IndexT getLeafIdx(size_t absOff) const {
-    return raw->items[absOff].getLeafIdx();
-  }
-
   
   /**
      @brief Enumerates the number of samples at each leaf's category.
 
      'probSample' is the only client.
 
-     @return forest-wide vector of category counts, by leaf.
+     @return 3-d vector category counts, indexed by tree/leaf/ctg.
    */
-  vector<IndexT> countLeafCtg(const class Sampler* sampler,
-			      const LeafCtg* leaf) const;
-
-    
-  vector<RankCount> countLeafRanks(const class Sampler* sample,
-				   const vector<IndexT>& row2Rank) const;
+  vector<vector<vector<size_t>>> countLeafCtg(const class Sampler* sampler,
+					      const LeafCtg* leaf) const;
 
 
   /**
-     @brief Derives sample boundary coordinates of a leaf.
+     @return 3-d vector of rank counts, indexed by tree/leaf/offset.
+   */
+  vector<vector<vector<RankCount>>> alignRanks(const class Sampler* sample,
+					       const vector<IndexT>& row2Rank) const;
 
-     @param tIdx is the tree index.
 
-     @param leafIdx is the tree-relative leaf index.
-
-     @param[out] start outputs the staring sample offset.
-
-     @param[out] end outputs the final sample offset. 
-  */
-  void getSampleBounds(size_t forestIdx,
-		       size_t& start,
-		       size_t& end) const {
-    start = sampleOffset[forestIdx];
-    end = start + sampleExtent[forestIdx];
-  }
-
-  
   void dump(const class Sampler* sampler,
             vector<vector<size_t> >& rowTree,
             vector<vector<IndexT> >& sCountTree) const;
@@ -257,22 +218,37 @@ class Sampler {
   const PredictorT nCtg; // Cardinality of training response.
   const bool bagging; // Whether bagging required.
   const bool nuxSamples;  // Whether SamplerNux are emited/read:  training/prediction.
-  
+  const vector<size_t> bagCount; // nonempty only at prediction.
+
+  // extent, index only nonempty at prediction.  Move to Leaf.
+  const vector<vector<size_t>> extent; // # sample index entries per leaf, per tree.
+  const vector<vector<vector<size_t>>> index; // sample indices per leaf, per tree.
   const unique_ptr<class Leaf> leaf;
-  unique_ptr<class BitMatrix> bagMatrix; // Empty if samplerBlock empty.
-  unique_ptr<SamplerBlock> samplerBlock;
+
+  const unique_ptr<class BitMatrix> bagMatrix; // Empty if samplerBlock empty.
+  const unique_ptr<SamplerBlock> samplerBlock;
 
   // Crescent only:
-  vector<IndexT> leafExtent; // Per-tree leaf count over block.
+  vector<IndexT> indexCresc; // Sample indices within leaves.
+  vector<IndexT> extentCresc; // Index extent, per leaf.
   vector<SamplerNux> sbCresc; // Crescent block.
-  unique_ptr<class Sample> sample; // Reset at each tree.
-  unsigned int tIdx; // Block-relative index of current tree.
 
+
+  /**
+     @return bag count of each tree.
+   */
+  vector<size_t> countSamples(const unsigned char rawSamples[]) const;
+
+  
+  vector<vector<size_t>> unpackExtent(const double extentNum[]) const;
+
+  
+  vector<vector<vector<size_t>>> unpackIndex(const double indexNum[]) const;
 
   /**
      @brief Constructs bag according to encoding.
    */
-  static unique_ptr<BitMatrix> bagRaw(unsigned char* raWSamples,
+  static unique_ptr<BitMatrix> bagRaw(const unsigned char raWSamples[],
 				      bool nuxSamples,
 				      bool bagging,
 				      unsigned int nTree,
@@ -283,59 +259,15 @@ class Sampler {
 
      @return SamplerBlock constructed from internal survey.
    */
-  unique_ptr<SamplerBlock> readRaw(unsigned char* samplesRaw);
+  unique_ptr<SamplerBlock> readRaw(const unsigned char samplesRaw[]);
 
 
 public:
-  size_t leafCount;
-  vector<size_t> leafBase; // Per-tree offset of leaf.
 
-
-  bool isBagging() const {
-    return bagging;
+  ~Sampler() {
+    RankCount::unsetMasks();
+    SamplerNux::unsetMasks();
   }
-
-  
-  class Sample* getSample() const;
-
-  
-  void rootSample(const class TrainFrame* frame);
-
-
-  /**
-     @brief Copies samples to the block, if 'thin' not specified.
-   */
-  void blockSamples(const vector<IndexT>& leafMap);
-
-
-  /**
-     @brief Computes # bytes subsumed by samples.
-   */
-  size_t getBlockBytes() const;
-  
-  
-  /**
-     @brief Records multiplicity and leaf index for bagged samples
-     within a tree.  Accessed by bag vector, so sample indices must
-     reference consecutive bagged rows.
-     @param leafMap maps sample indices to leaves.
-  */
-  void bagLeaves(const class Sample *sample,
-                 const vector<IndexT> &leafMap,
-		 unsigned int tIdx);
-
-
-  /**
-     @brief Generic entry for serialization.
-   */
-  void dumpRaw(unsigned char snRaw[]) const; 
-
-
-
-  /**
-     @brief Serializes sampler block.
-   */
-  void dumpNuxRaw(unsigned char bagRaw[]) const; 
 
   
   /**
@@ -350,16 +282,12 @@ public:
 	  bool bagging_ = true);
 
 
-  /**
-     @brief Classification constructor:  post training.
-   */
-  Sampler(const vector<PredictorT>& yTrain,
-	  bool nux,
-	  unsigned char* samples,
-	  IndexT nSamp_,
-	  unsigned int nTree_,
-	  PredictorT nCtg_,
-	  bool bagging_);
+  static unique_ptr<Sampler> trainCtg(const vector<PredictorT>& yTrain,
+				      bool nuxSamples,
+				      IndexT nSamp,
+				      unsigned int treeChunk,
+				      PredictorT nCtg,
+				      const vector<double>& classWeight);
 
 
   /**
@@ -372,29 +300,131 @@ public:
 	  bool bagging_ = true);
 
   
+  static unique_ptr<Sampler> trainReg(const vector<double>& yTrain,
+				      bool nuxSamples,
+				      IndexT nSamp,
+				      unsigned int treeChunk);
+
+
+  /**
+     @brief Classification constructor:  post training.
+   */
+  Sampler(const vector<PredictorT>& yTrain,
+	  bool nux,
+	  const unsigned char samples[],
+	  IndexT nSamp_,
+	  unsigned int nTree_,
+	  const double extentNum[],
+	  const double indexNum[],
+	  PredictorT nCtg_,
+	  bool bagging_);
+
+
+  static unique_ptr<Sampler> predictCtg(const vector<PredictorT>& yTrain,
+					bool nux,
+					const unsigned char samples[],
+					IndexT nSamp,
+					unsigned int nTree,
+					const double extentNum[],
+					const double indexNum[],
+					PredictorT nCtg,
+					bool bagging);
+
+
   /**
      @brief Regression constructor:  post-training.
    */
   Sampler(const vector<double>& yTrain,
 	  bool nuxSamples_,
-	  unsigned char* samples,
+	  const unsigned char samples[],
 	  IndexT nSamp_,
 	  unsigned int nTree_,
+	  const double extentNum[],
+	  const double indexNum[],
 	  bool bagging_);
-
-  ~Sampler() {
-    RankCount::unsetMasks();
-    SamplerNux::unsetMasks();
-  }
 
   
   /**
-     @brief Derives the forest index of a leaf.
+     @brief Static entry from bridge; initializes masks.
    */
-  inline size_t absLeafIdx(unsigned int tIdx,
-			   IndexT leafIdx) const {
-    return leafBase[tIdx] + leafIdx;
+  static unique_ptr<Sampler> predictReg(const vector<double>& yTrain,
+			    bool nuxSamples,
+			    const unsigned char samples[],
+			    IndexT nSamp,
+			    unsigned int nTree,
+			    const double extentNum[],
+			    const double indexNum[],
+			    bool bagging);
+
+
+  size_t getLeafCount(unsigned int tIdx) const {
+    return extent[tIdx].size();
   }
+
+  
+  size_t getBagCount(unsigned int tIdx) const {
+    return bagCount[tIdx];
+  }
+  
+
+  const vector<size_t>& getExtents(unsigned int tIdx) const {
+    return extent[tIdx];
+  }
+
+
+  const vector<vector<size_t>>& getIndices(unsigned int tIdx) const {
+    return index[tIdx];
+  }
+  
+  
+  bool isBagging() const {
+    return bagging;
+  }
+
+
+  unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
+				unsigned int tIdx);
+
+
+  /**
+     @brief Copies samples to the block, if 'noLeaf' not specified.
+   */
+  void consumeSamples(const class PreTree* pretree,
+		      const class SampleMap& smTerminal);
+
+
+  /**
+     @brief Computes # bytes subsumed by samples.
+   */
+  size_t crescBlockBytes() const;
+
+  size_t crescExtentSize() const {
+    return extentCresc.size();
+  }
+  
+
+  size_t crescIndexSize() const{
+    return indexCresc.size();
+  }
+
+
+  /**
+     @brief Generic entry for serialization.
+   */
+  void dumpRaw(unsigned char snRaw[]) const; 
+
+
+
+  /**
+     @brief Serializes sampler block.
+   */
+  void dumpNuxRaw(unsigned char bagRaw[]) const; 
+
+
+  void dumpIndex(double indexOut[]) const;
+
+  
+  void dumpExtent(double extentOut[]) const;
   
   
   const Leaf* getLeaf() const {
@@ -442,13 +472,12 @@ public:
 
   
   /**
-     @brief Counts samples at each leaf, by category.
+     @brief Counts samples at each leaf in the forest, by category.
 
      @return per-leaf vector enumerating samples at each category.
    */
-  vector<IndexT> countLeafCtg(//const class Predict* predict,
-			      const LeafCtg* leaf) const {
-    return hasSamples() ? samplerBlock->countLeafCtg(this, /*predict,*/ leaf) : vector<IndexT>(0);
+  vector<vector<vector<size_t>>> countLeafCtg(const LeafCtg* leaf) const {
+    return hasSamples() ? samplerBlock->countLeafCtg(this, leaf) : vector<vector<vector<size_t>>>(0);
   }
   
   
@@ -461,20 +490,8 @@ public:
 
      @return per-leaf vector expressing mapping.
    */
-  vector<RankCount> countLeafRanks(//const class Predict* predict,
-				   const vector<IndexT>& row2Rank) const {
-    return samplerBlock->countLeafRanks(this, /*predict,*/ row2Rank);
-  }
-
-
-  /**
-     @brief Wrapper for call on samplerBlock.
-   */
-  void getSampleBounds(unsigned int tIdx,
-		       IndexT leafIdx,
-		       size_t& start,
-		       size_t& end) const {
-    samplerBlock->getSampleBounds(absLeafIdx(tIdx, leafIdx), start, end);
+  vector<vector<vector<RankCount>>> alignRanks(const vector<IndexT>& row2Rank) const {
+    return hasSamples() ? samplerBlock->alignRanks(this, row2Rank) : vector<vector<vector<RankCount>>>(0);
   }
 };
 

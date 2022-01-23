@@ -101,14 +101,6 @@ public:
   }
 
 
-  inline bool getLeafIdx(IndexT& leafIdx) const {
-    if (delIdx == 0) {
-      leafIdx = getPredIdx();
-    }
-    return delIdx == 0;
-  }
-  
-
   /**
      @brief Advances to next node when observations are all numerical.
 
@@ -165,6 +157,22 @@ public:
   void setQuantRank(const class TrainFrame* trainFrame);
 
   
+  inline bool getLeafIdx(IndexT& leafIdx) const {
+    if (delIdx == 0) {
+      leafIdx = getPredIdx();
+    }
+    return delIdx == 0;
+  }
+
+
+  /**
+     @brief As above, but assumes node is noterminal.
+   */
+  inline IndexT getLeafIdx() const {
+    return getPredIdx();
+  }
+  
+
   inline void setTerminal() {
     delIdx = 0;
   }

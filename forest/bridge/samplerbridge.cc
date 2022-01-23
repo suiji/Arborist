@@ -39,7 +39,7 @@ SamplerBridge::SamplerBridge(const vector<double>& yTrain,
 			     IndexT nSamp,
 			     unsigned int treeChunk,
 			     bool nux) :
-  sampler(make_unique<Sampler>(yTrain, nux, nSamp, treeChunk)) {
+  sampler(Sampler::trainReg(yTrain, nux, nSamp, treeChunk)) {
 }
 
 
@@ -48,8 +48,10 @@ SamplerBridge::SamplerBridge(const vector<double>& yTrain,
 			     unsigned int nTree,
 			     bool nux,
 			     unsigned char* samples,
+			     const double extent[],
+			     const double index[],
 			     bool bagging) :
-  sampler(make_unique<Sampler>(yTrain, nux, samples, nSamp, nTree, bagging)) {
+  sampler(Sampler::predictReg(yTrain, nux, samples, nSamp, nTree, extent, index, bagging)) {
 }
 
 
@@ -67,7 +69,7 @@ SamplerBridge::SamplerBridge(const vector<PredictorT>& yTrain,
 			     bool nux,
 			     PredictorT nCtg,
 			     const vector<double>& classWeight) :
-  sampler(make_unique<Sampler>(yTrain, nux, nSamp, treeChunk, nCtg, classWeight)) {
+  sampler(Sampler::trainCtg(yTrain, nux, nSamp, treeChunk, nCtg, classWeight)) {
 }
   
 
@@ -78,16 +80,38 @@ SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
 			     unsigned int nTree,
 			     bool nux,
 			     unsigned char* samples,
+			     const double extent[],
+			     const double index[],
 			     bool bagging) :
-  sampler(make_unique<Sampler>(yTrain, nux, samples, nSamp, nTree, nCtg, bagging)) {
+  sampler(Sampler::predictCtg(yTrain, nux, samples, nSamp, nTree, extent, index, nCtg, bagging)) {
 }
 
 
 size_t SamplerBridge::getBlockBytes() const {
-  return sampler->getBlockBytes();
+  return sampler->crescBlockBytes();
+}
+
+
+size_t SamplerBridge::getExtentSize() const {
+  return sampler->crescExtentSize();
+}
+
+
+size_t SamplerBridge::getIndexSize() const {
+  return sampler->crescIndexSize();
 }
 
 
 void SamplerBridge::dumpRaw(unsigned char blOut[]) const {
   sampler->dumpRaw(blOut);
+}
+
+
+void SamplerBridge::dumpExtent(double extentOut[]) const {
+  sampler->dumpExtent(extentOut);
+}
+
+
+void SamplerBridge::dumpIndex(double indexOut[]) const {
+  sampler->dumpIndex(indexOut);
 }

@@ -87,9 +87,9 @@ public:
 
      @param treeBlock is a vector of Sample, PreTree pairs.
   */
-  void blockConsume(vector<unique_ptr<PreTree>> &treeBlock);
+  void blockConsume(const vector<unique_ptr<PreTree>> &treeBlock);
 
-  
+
   /**
      @brief  Creates a block of root samples and trains each one.
 
@@ -97,9 +97,14 @@ public:
   */
   vector<unique_ptr<PreTree>> blockProduce(const class TrainFrame* frame,
 					   unsigned int treeStart,
-					   unsigned int treeEnd);
+					   unsigned int treeEnd) const;
 
+  /**
+     @brief Accumulates per-predictor information values from trained tree.
+   */
+  void consumeInfo(const vector<double>& info);
 
+  
   /**
      @brief Getter for raw forest pointer.
    */

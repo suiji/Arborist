@@ -12,11 +12,14 @@
 
    @author Mark Seligman
  */
+#include "train.h"
+#include "trainframe.h"
 #include "indexset.h"
+#include "sampler.h"
 #include "samplemap.h"
 #include "bv.h"
-#include "pretree.h"
 #include "splitfrontier.h"
+#include "pretree.h"
 
 #include "callback.h"
 #include <queue>
@@ -25,13 +28,14 @@
 IndexT PreTree::leafMax = 0;
 
 
-PreTree::PreTree(PredictorT cardExtent,
+PreTree::PreTree(const TrainFrame* frame,
 		 IndexT bagCount) :
   height(1),
   leafCount(1),
-  nodeVec(vector<PTNode>(2*bagCount - 1)), // Preallocates maximum.
+  nodeVec(vector<DecNode>(2*bagCount - 1)), // Preallocates maximum.
   scores(vector<double>(2*bagCount - 1)),
-  splitBits(BV(bagCount * cardExtent)), // Vague estimate.
+  infoLocal(vector<double>(frame->getNPred())),
+  splitBits(BV(bagCount * frame->getCardExtent())), // Vague estimate.
   bitEnd(0) {
 }
 
@@ -80,7 +84,9 @@ void PreTree::addCriterion(const SplitFrontier* sf,
   }
 
   offspring(preallocated ? 0 : 1);
-  nodeVec[nux.getPTId()].setNonterminal(nux, height);
+  IndexT ptId = nux.getPTId();
+  nodeVec[ptId].setDelIdx(height - 2 - ptId);
+  infoLocal[nodeVec[ptId].getPredIdx()] += nux.getInfo();
 }
 
 
@@ -92,20 +98,13 @@ void PreTree::critBits(const SplitFrontier* sf,
   for (auto bit : sf->getTrueBits(nux)) {
     splitBits.setBit(bitPos + bit);
   }
-  nodeVec[nux.getPTId()].critBits(nux, bitPos);
+  nodeVec[nux.getPTId()].critBits(&nux, bitPos);
 }
 
 
 void PreTree::critCut(const SplitFrontier* sf,
 		      const SplitNux& nux) {
-  nodeVec[nux.getPTId()].critCut(nux, sf);
-}
-
-
-void PTNode::setNonterminal(const SplitNux& nux,
-                            IndexT height) {
-  setDelIdx(height - 2 - nux.getPTId());
-  info = nux.getInfo();
+  nodeVec[nux.getPTId()].critCut(&nux, sf);
 }
 
 
@@ -115,49 +114,30 @@ void PreTree::setScore(const SplitFrontier* splitFrontier,
 }
 
 
-const vector<IndexT> PreTree::consume(Forest* forest,
-				      vector<double>& predInfo) {
-  forest->treeInit(height);
-  height = leafMerge();
-  consumeNodes(forest, predInfo);
-  forest->consumeScores(scores, height);
-  forest->appendBits(splitBits, bitEnd);
+void PreTree::consume(Train* train,
+		      Forest* forest,
+		      Sampler* sampler) const {
+  train->consumeInfo(infoLocal);
   
-  return sample2Leaf();
+  forest->consumeTree(nodeVec, scores, height);
+  forest->consumeBits(splitBits, bitEnd);
+
+  sampler->consumeSamples(this, terminalMap);
 }
 
-
-void PreTree::consumeNodes(Forest* forest,
-			   vector<double>& predInfo)  {
+void PreTree::setLeafIndices() {
   IndexT leafIdx = 0;
-  for (IndexT idx = 0; idx < height; idx++) {
-    nodeVec[idx].consume(forest, predInfo, idx, leafIdx);
-  }
-  forest->appendNodeHeight(height);
-}
-
-void PreTree::setTerminals(const SampleMap& terminalMap) {
-  sampleMap = vector<IndexT>(terminalMap.indices.size()); // bagCount.
-  IndexT leafIdx = 0;
-  for (auto range : terminalMap.range) {
-    IndexT ptIdx = terminalMap.ptIdx[leafIdx];
-    for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
-      IndexT stIdx = terminalMap.indices[idx];
-      sampleMap[stIdx] = ptIdx;
-    }
-    leafIdx++;
+  for (auto ptIdx : terminalMap.ptIdx) {
+    nodeVec[ptIdx].setLeaf(leafIdx++);
   }
 }
 
 
-const vector<IndexT> PreTree::sample2Leaf() const {
-  vector<IndexT> terminalMap(sampleMap.size()); // bagCount
-  IndexT stIdx = 0;
-  for (auto ptIdx : sampleMap) { // predIdx value of terminal is leaf index.
-    terminalMap[stIdx++] = nodeVec[ptIdx].getPredIdx();
-  }
+void PreTree::setTerminals(SampleMap smTerminal) {
+  terminalMap = move(smTerminal);
 
-  return terminalMap;
+  height = leafMerge();
+  setLeafIndices();
 }
 
 
@@ -180,6 +160,17 @@ IndexT PreTree::checkFrontier(const vector<IndexT>& stMap) const {
 IndexT PreTree::leafMerge() {
   if (leafMax == 0 || leafCount <= leafMax) {
     return height;
+  }
+
+  vector<IndexT> st2pt(terminalMap.indices.size()); // bagCount.
+  IndexT rangeIdx = 0;
+  for (auto range : terminalMap.range) {
+    IndexT ptIdx = terminalMap.ptIdx[rangeIdx];
+    for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
+      IndexT stIdx = terminalMap.indices[idx];
+      st2pt[stIdx] = ptIdx;
+    }
+    rangeIdx++;
   }
 
   vector<PTMerge<DecNode>> ptMerge = PTMerge<DecNode>::merge(this, height, leafCount - leafMax);
@@ -214,7 +205,7 @@ IndexT PreTree::leafMerge() {
 
   // Remaps frontier to merged terminals.
   //
-  for (auto & ptId : sampleMap) {
+  for (auto & ptId : st2pt) {
     IndexT root = ptMerge[ptId].root;
     ptId = ptMerge[(root == height) ? ptId : root].idMerged;
   }

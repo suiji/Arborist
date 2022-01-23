@@ -69,7 +69,7 @@ class BV {
 
      @param nSlot_ is the number of readable RawT slots in the buffer.
    */
-   BV(RawT raw_[],
+   BV(const RawT raw_[],
       size_t nSlot_) : nSlot(nSlot_),
 		       raw(raw_) {  }
 
@@ -337,7 +337,7 @@ class BitMatrix : public BV {
  public:
   BitMatrix(size_t _nRow, unsigned int _nCol);
 
-  BitMatrix(RawT raw_[], size_t _nRow, size_t _nCol);
+  BitMatrix(const RawT raw_[], size_t _nRow, size_t _nCol);
 
   ~BitMatrix();
 
@@ -380,7 +380,7 @@ class BVJagged : public BV {
   const size_t nRow;
 
 public:
-  BVJagged(RawT raw_[],
+  BVJagged(const RawT raw_[],
            const vector<size_t>& height); // Cumulative extent per row.
 
   ~BVJagged();

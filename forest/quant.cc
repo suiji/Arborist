@@ -35,7 +35,7 @@ Quant::Quant(const Predict* predict,
   sampler(predict->getSampler()),
   empty(!sampler->hasSamples() || quantile.empty()),
   valRank(ValRank<double>(&leaf->getYTrain()[0], empty ? 0 : leaf->getYTrain().size())),
-  rankCount(empty ? vector<RankCount>(0) : sampler->countLeafRanks(valRank.rank())),
+  rankCount(empty ? vector<vector<vector<RankCount>>>(0) : sampler->alignRanks(valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
   qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
@@ -75,14 +75,14 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
 
   // Scores each rank seen at every predicted leaf.
+  // For now, does not score nonterminals.  This will be possible
+  // once dominating leaf ranges are precomputed.
   //
   IndexT totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
     IndexT leafIdx;
-    // For now, does not score nonterminals.  This will be possible
-    // once dominating leaf ranges are precomputed.
     if (predict->isLeafIdx(row, tIdx, leafIdx)) {
-      totSamples += sampleLeaf(predict, tIdx, leafIdx, sCountBin);
+      totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
     }
   }
 
@@ -98,15 +98,11 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
 }
 
 // TODO: Pre-compute for each leaf and cache.  This is the slow step.
-IndexT Quant::sampleLeaf(const Predict* predict,
-			 unsigned int tIdx,
+IndexT Quant::sampleLeaf(unsigned int tIdx,
 			 IndexT leafIdx,
 			 vector<IndexT>& sCountBin) const {
   IndexT sampleTot = 0;
-  size_t leafStart, leafEnd; // Forest-relative leaf indices.
-  sampler->getSampleBounds(tIdx, leafIdx, leafStart, leafEnd);
-  for (size_t sIdx = leafStart; sIdx < leafEnd; sIdx++) {
-    const RankCount& rc = rankCount[sIdx];
+  for (RankCount rc : rankCount[tIdx][leafIdx]) {
     sCountBin[binRank(rc.getRank())] += rc.getSCount();
     sampleTot += rc.getSCount();
   }

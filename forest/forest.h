@@ -37,18 +37,11 @@ public:
     extents.push_back(extent);
   }
 
-  
-  /**
-     @brief Allocates nodes for current tree.  Pre-initializes for random access.
 
-     @param tIdx is the block-relative tree index.
-
-     @param nodeCount is the number of tree nodes.
-   */
-  void treeInit(IndexT nodeCount) {
-    treeFloor = treeNode.size();
-    DecNode tn;
-    treeNode.insert(treeNode.end(), nodeCount, tn);
+  void consumeNodes(const vector<DecNode>& nodes,
+		    IndexT height) {
+    copy(nodes.begin(), nodes.begin() + height, back_inserter(treeNode));
+    appendExtent(height);
   }
 
   
@@ -84,19 +77,6 @@ public:
     for (auto & tn : treeNode) {
       tn.setQuantRank(trainFrame);
     }
-  }
-
-
-  /**
-     @brief Sets looked-up node to values passed.
-
-     @param nodeIdx is a tree-relative node index.
-
-     @param decNode contains the value to set.
-  */
-  void produce(IndexT nodeIdx,
-	       const DecNode& decNode) {
-    treeNode[treeFloor + nodeIdx] = decNode;
   }
 };
 
@@ -179,7 +159,6 @@ class Forest {
   Forest(unsigned int nTree_) :
     nTree(nTree_),
     treeNode(nullptr),
-    //    leafScore(vector<vector<double>>(0)),
     nodeCresc(make_unique<NodeCresc>()),
     fbCresc(make_unique<FBCresc>()) {
   }
@@ -265,18 +244,6 @@ class Forest {
   inline const BVJagged* getFacSplit() const {
     return facSplit.get();
   }
-  
-
-  /**
-     @brief Allocates and initializes sufficient nodes for current tree.
-
-     @param tIdx is the block-relative tree index.
-
-     @param nodeCount is the number of nodes.
-   */
-  void treeInit(IndexT nodeCount) {
-    nodeCresc->treeInit(nodeCount);
-  }
 
 
   size_t getScoreSize() const {
@@ -298,41 +265,14 @@ class Forest {
   }
 
 
-  /**
-     @brief Increments crescent forest with new node.
-
-     @param nodeIdx is a tree-relative node index.
-
-     @parm decNode contains the value to set.
-  */
-  void nodeProduce(IndexT nodeIdx,
-		   const DecNode& decNode) {
-    nodeCresc->produce(nodeIdx, decNode);
-  }
-
-
-  void appendNodeHeight(IndexT height) {
-    nodeCresc->appendExtent(height);
-  }
-  
-
-  void consumeScores(vector<double>& scores_,
-		     IndexT height) {
+  void consumeTree(const vector<DecNode>& nodes,
+		   const vector<double>& scores_,
+		   IndexT height) {
+    nodeCresc->consumeNodes(nodes, height);
     copy(scores_.begin(), scores_.begin() + height, back_inserter(scoresCresc));
   }
 
-  
-  /**
-     @brief Post-pass to update numerical splitting values from ranks.
 
-     @param summaryFrame records the predictor types.
-  */
-  void splitUpdate(const class TrainFrame* trainFrame) {
-    nodeCresc->splitUpdate(trainFrame);
-  }
-
-
-  
   /**
      @brief Wrapper for bit vector appending.
 
@@ -340,9 +280,19 @@ class Forest {
 
      @param bitEnd is the final referenced bit position.
    */
-  void appendBits(const class BV& splitBits,
-                  size_t bitEnd) {
+  void consumeBits(const class BV& splitBits,
+		   size_t bitEnd) {
     fbCresc->appendBits(splitBits, bitEnd);
+  }
+
+
+  /**
+     @brief Post-pass to update numerical splitting values from ranks.
+
+     @param summaryFrame records the predictor types.
+  */
+  void splitUpdate(const class TrainFrame* trainFrame) {
+    nodeCresc->splitUpdate(trainFrame);
   }
 
   

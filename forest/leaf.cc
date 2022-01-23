@@ -153,16 +153,6 @@ PredictorT LeafCtg::argMaxJitter(const IndexT* census,
 }
 
 
-void LeafCtg::ctgBounds(const Predict* predict,
-			unsigned int tIdx,
-			IndexT leafIdx,
-			size_t& start,
-			size_t& end) const {
-  start = nCtg * predict->getSampler()->absLeafIdx(tIdx, leafIdx);
-  end = start + nCtg;
-}
-
-
 CtgProb::CtgProb(const Predict* predict,
 		 const LeafCtg* leaf,
 		 const class Sampler* sampler,

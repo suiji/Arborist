@@ -37,38 +37,39 @@ void Frontier::deImmutables() {
 
 
 unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
-                                      Sampler* sampler) {
-  sampler->rootSample(frame);
-  unique_ptr<Frontier> frontier(make_unique<Frontier>(frame, sampler));
+                                      Sampler* sampler,
+				      unsigned int tIdx) {
+  unique_ptr<Sample> sample = sampler->rootSample(frame, tIdx);
+  unique_ptr<Frontier> frontier = make_unique<Frontier>(frame, move(sample));
   return frontier->levels();
 }
 
 
 Frontier::Frontier(const TrainFrame* frame_,
-                   const Sampler* sampler_) :
+                   unique_ptr<Sample> sample_) :
   frame(frame_),
-  sampler(sampler_),
-  bagCount(sampler->getSample()->getBagCount()),
-  nCtg(sampler->getSample()->getNCtg()),
+  sample(move(sample_)),
+  bagCount(sample->getBagCount()),
+  nCtg(sample->getNCtg()),
   defMap(make_unique<DefMap>(frame, this)),
-  pretree(make_unique<PreTree>(frame->getCardExtent(), bagCount)),
+  pretree(make_unique<PreTree>(frame, bagCount)),
   smTerminal(SampleMap(bagCount)),
   smNonterm(SampleMap(bagCount)) {
   smNonterm.addNode(bagCount, 0);
   iota(smNonterm.indices.begin(), smNonterm.indices.end(), 0);
-  frontierNodes.emplace_back(sampler->getSample());
+  frontierNodes.emplace_back(sample.get());
 }
 
 
 unique_ptr<PreTree> Frontier::levels() {
   unsigned int level = 0;
   while (!frontierNodes.empty()) {
-    defMap->setPrecandidates(sampler->getSample(), level++);
+    defMap->setPrecandidates(sample.get(), level++);
     splitFrontier = SplitFactoryT::factory(this);
     unique_ptr<BranchSense> branchSense = splitFrontier->split();
     frontierNodes = splitDispatch(branchSense.get());
   }
-  pretree->setTerminals(smTerminal);
+  pretree->setTerminals(move(smTerminal));
 
   return move(pretree);
 }

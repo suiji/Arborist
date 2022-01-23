@@ -17,6 +17,7 @@
 #define CORE_UTIL_H
 
 #include "typeparam.h"
+#include <vector>
 
 struct Util {
   /**

@@ -188,7 +188,7 @@ void TrainRf::consume(const ForestBridge* fb,
                       unsigned int treeOff,
                       unsigned int chunkSize) const {
   double scale = safeScale(treeOff + chunkSize);
-  sampler->consume(sb, scale);
+  sampler->bridgeConsume(sb, scale);
   forest->bridgeConsume(fb, treeOff, scale);
   
   if (verbose) {

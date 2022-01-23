@@ -56,6 +56,8 @@ struct SamplerBridge {
 		unsigned int nTree_,
 		bool nux,
 		unsigned char* samples,
+		const double extent[],
+		const double index[],
 		bool bagging);
 
 
@@ -79,6 +81,8 @@ struct SamplerBridge {
 		unsigned int nTree,
 		bool nux,
 		unsigned char* samples,
+		const double extent[],
+		const double index[],
 		bool bagging);
 
 
@@ -108,6 +112,22 @@ struct SamplerBridge {
    */
   void dumpRaw(unsigned char blOut[]) const;
 
+  /**
+     @brief Copies leaf extents as doubles.
+   */
+  void dumpExtent(double extentOut[]) const;
+
+
+  size_t getExtentSize() const;
+  
+  /**
+     @brief Copies sample indices as doubles.
+   */
+  void dumpIndex(double indexOut[]) const;
+
+
+  size_t getIndexSize() const;
+  
 
 private:
 

@@ -34,7 +34,7 @@ class Quant {
   const class Sampler* sampler;
   const bool empty; // if so, bail.
   const ValRank<double> valRank;
-  const vector<RankCount> rankCount; // forest-wide, by sample.
+  const vector<vector<vector<RankCount>>> rankCount; // forest-wide, by sample.
   const unsigned int rankScale; // log2 of scaling factor.
   const vector<double> binMean;
   vector<double> qPred; // predicted quantiles.
@@ -102,8 +102,7 @@ n     @brief Bins response means.
 
      @return count of samples subsumed by leaf.
   */
-  IndexT sampleLeaf(const class Predict* predict,
-		    unsigned int tIdx,
+  IndexT sampleLeaf(unsigned int tIdx,
 		    IndexT leafIdx,
 		    vector<IndexT>& scountBin) const;
 

@@ -60,7 +60,7 @@ BitMatrix::BitMatrix(size_t nRow_, unsigned int nCol_) :
 }
 
 
-BitMatrix::BitMatrix(RawT raw_[], size_t nRow_, size_t nCol_) :
+BitMatrix::BitMatrix(const RawT raw_[], size_t nRow_, size_t nCol_) :
   BV(raw_, nRow_ * Stride(nCol_)),
   nRow(nRow_),
   stride(nRow > 0 ? Stride(nCol_) : 0) {
@@ -84,7 +84,7 @@ void BitMatrix::colDump(size_t _nRow, vector<unsigned int> &outCol, unsigned int
 }
 
 
-BVJagged::BVJagged(RawT raw_[],
+BVJagged::BVJagged(const RawT raw_[],
 		   const vector<size_t>& rowExtent_) :
   BV(raw_, rowExtent_.back()),
   rowHeight(move(rowExtent_)),

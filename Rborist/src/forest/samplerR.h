@@ -40,14 +40,20 @@ struct SamplerR {
   static const string strNSamp;
   static const string strNTree;
   static const string strSamples; // Output field name of sample.
-
+  static const string strExtent;
+  static const string strIndex;
+  
   const unsigned int nSamp; // # samples specified.
   const unsigned int nTree; // # trees trained.
   const bool nux; // Style of Sample emission.
 
   size_t rawTop; // First available index in raw buffer.
-  RawVector blockRaw; // Packed bag/sample structures as raw data.
+  size_t extentTop; // " " leaf extent buffer.
+  size_t indexTop;  // " " sample index buffer.
 
+  RawVector blockRaw; // Packed bag/sample structures as raw data.
+  NumericVector extent; // Leaf extents.
+  NumericVector index; // Sample indices.
 
   SamplerR(unsigned int nSamp_,
 	   unsigned int nTree_,
@@ -78,8 +84,8 @@ struct SamplerR {
 
      @param scale is a fudge-factor for resizing.
    */
-  void consume(const struct SamplerBridge* sb,
-	       double scale);
+  void bridgeConsume(const struct SamplerBridge* sb,
+		     double scale);
   
   /**
      @brief Checks that bag and prediction data set have conforming rows.
