@@ -125,19 +125,19 @@ void PreTree::consume(Train* train,
   sampler->consumeSamples(this, terminalMap);
 }
 
-void PreTree::setLeafIndices() {
-  IndexT leafIdx = 0;
-  for (auto ptIdx : terminalMap.ptIdx) {
-    nodeVec[ptIdx].setLeaf(leafIdx++);
-  }
-}
-
-
 void PreTree::setTerminals(SampleMap smTerminal) {
   terminalMap = move(smTerminal);
 
   height = leafMerge();
   setLeafIndices();
+}
+
+
+void PreTree::setLeafIndices() {
+  vector<IndexRange> dom = Forest::leafDominators(&nodeVec[0], height);
+  for (auto ptIdx : terminalMap.ptIdx) {
+    nodeVec[ptIdx].setLeaf(dom[ptIdx].getStart());
+  }
 }
 
 

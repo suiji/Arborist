@@ -108,3 +108,42 @@ void Forest::dump(vector<vector<PredictorT> >& pred,
     }
   }
 }
+
+
+vector<IndexRange> Forest::leafDominators(const DecNode tree[],
+					  IndexT height) {
+  // Gives each node the offset of its predecessor.
+  vector<IndexT> delPred(height);
+  for (IndexT i = 0; i < height; i++) {
+    IndexT delIdx = tree[i].getDelIdx();
+    if (delIdx != 0) {
+      delPred[i + delIdx] = delIdx;
+      delPred[i + delIdx + 1] = delIdx + 1;
+    }
+  }
+
+  // Pushes dominated leaf count up the tree.
+  vector<IndexT> leavesBelow(height);
+  for (IndexT i = height - 1; i > 0; i--) {
+    leavesBelow[i] += (tree[i].isNonterminal() ? 0: 1);
+    leavesBelow[i - delPred[i]] += leavesBelow[i];
+  }
+
+  // Pushes index ranges down the tree.
+  vector<IndexRange> leafDom(height);
+  leafDom[0] = IndexRange(0, leavesBelow[0]); // Root dominates all leaves.
+  for (IndexT i = 0; i < height; i++) {
+    IndexT delIdx = tree[i].getDelIdx();
+    if (delIdx != 0) {
+      IndexRange leafRange = leafDom[i];
+      IndexT idxTrue = i + delIdx;
+      IndexT trueStart = leafRange.getStart();
+      leafDom[idxTrue] = IndexRange(trueStart, leavesBelow[idxTrue]);
+      IndexT idxFalse = idxTrue + 1;
+      IndexT falseStart = leafDom[idxTrue].getEnd();
+      leafDom[idxFalse] = IndexRange(falseStart, leavesBelow[idxFalse]);
+    }
+  }
+
+  return leafDom;
+}

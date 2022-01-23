@@ -71,7 +71,7 @@ PredictReg::PredictReg(const Forest* forest,
   accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(make_unique<Quant>(this, leaf, rleFrame, move(quantile))),
+  quant(make_unique<Quant>(forest, this, leaf, rleFrame, move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {

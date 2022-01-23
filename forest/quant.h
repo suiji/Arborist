@@ -37,6 +37,7 @@ class Quant {
   const vector<vector<vector<RankCount>>> rankCount; // forest-wide, by sample.
   const unsigned int rankScale; // log2 of scaling factor.
   const vector<double> binMean;
+  const vector<vector<IndexRange>> leafDom; // Dominated leaves, per node.
   vector<double> qPred; // predicted quantiles.
   vector<double> qEst; // quantile of response estimates.
 
@@ -113,7 +114,8 @@ public:
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const class Predict* predict,
+  Quant(const class Forest* forest,
+	const class Predict* predict,
 	const class LeafReg* leaf,
 	const class RLEFrame* rleFrame,
         const vector<double>& quantile_);

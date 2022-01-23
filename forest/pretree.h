@@ -41,9 +41,7 @@ class PreTree {
   SampleMap terminalMap;
 
   /**
-     @brief Assigns leaf indices to terminal tree nodes.
-
-     Ordering is currently linear order, but will change to depth-first.
+     @brief Assigns depth-first ordering to terminal tree nodes.
    */
   void setLeafIndices();
 
@@ -149,11 +147,16 @@ class PreTree {
 
 
   /**
-     @brief Obtains scores assigned to indices in the map.
+     @brief Caches terminal map, merges, numbers leaves.
+
+     @param smTerminal is the terminal map produce by Frontier.
    */
   void setTerminals(SampleMap smTerminal);
   
 
+  /**
+     @brief Combines leaves exceeding a specified maximum count.
+   */
   IndexT leafMerge();
   
 

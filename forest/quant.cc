@@ -14,6 +14,7 @@
  */
 
 #include "quant.h"
+#include "forest.h"
 #include "predict.h"
 #include "rleframe.h"
 
@@ -26,7 +27,8 @@ const unsigned int Quant::binSize = 0x1000;
    @brief Constructor.  Caches parameter values and computes compressed
    leaf indices.
  */
-Quant::Quant(const Predict* predict,
+Quant::Quant(const Forest* forest,
+	     const Predict* predict,
 	     const LeafReg* leaf,
 	     const RLEFrame* rleFrame,
              const vector<double>& quantile_) :
@@ -38,6 +40,7 @@ Quant::Quant(const Predict* predict,
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : sampler->alignRanks(valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
+  leafDom(empty ? vector<vector<IndexRange>>(0) : forest->leafDominators()),
   qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
   qEst(vector<double>(empty ? 0 : rleFrame->getNRow())) {
 }
@@ -74,15 +77,16 @@ vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
 void Quant::predictRow(const PredictReg* predict, size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
 
-  // Scores each rank seen at every predicted leaf.
-  // For now, does not score nonterminals.  This will be possible
-  // once dominating leaf ranges are precomputed.
+  // Scores each rank seen at every dominated leaf.
   //
   IndexT totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
-    IndexT leafIdx;
-    if (predict->isLeafIdx(row, tIdx, leafIdx)) {
-      totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
+    IndexT nodeIdx;
+    if (predict->isNodeIdx(row, tIdx, nodeIdx)) {
+      IndexRange range = leafDom[tIdx][nodeIdx];
+      for (IndexT leafIdx = range.getStart(); leafIdx != range.getEnd(); leafIdx++) {
+	totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
+      }
     }
   }
 
@@ -97,11 +101,13 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
   quantSamples(predict, sCountBin, countThreshold, totSamples, row);
 }
 
-// TODO: Pre-compute for each leaf and cache.  This is the slow step.
+
 IndexT Quant::sampleLeaf(unsigned int tIdx,
 			 IndexT leafIdx,
 			 vector<IndexT>& sCountBin) const {
   IndexT sampleTot = 0;
+  // sampleTot can be precomputed and cached, but rank traversal is
+  // irregular.
   for (RankCount rc : rankCount[tIdx][leafIdx]) {
     sCountBin[binRank(rc.getRank())] += rc.getSCount();
     sampleTot += rc.getSCount();

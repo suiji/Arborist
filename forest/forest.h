@@ -21,6 +21,7 @@
 #include "bv.h"
 #include "typeparam.h"
 
+#include <numeric>
 #include <vector>
 
 /**
@@ -235,6 +236,20 @@ class Forest {
     return treeNode;
   }
 
+  static vector<IndexRange> leafDominators(const DecNode tree[],
+					   IndexT height);
+
+  
+  vector<vector<IndexRange>> leafDominators() const {
+    vector<vector<IndexRange>> leafDom(nTree);
+    size_t extentAccum = 0;
+    for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+      leafDom[tIdx] = leafDominators(treeNode + extentAccum, nodeExtent[tIdx]);
+      extentAccum += nodeExtent[tIdx];
+    }
+    return leafDom;
+  }
+  
   
   /**
      @brief Accessor for split encodings.

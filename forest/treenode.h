@@ -148,7 +148,6 @@ public:
 		 const double *rowNT,
 		 unsigned int tIdx) const;
 
-
   /**
      @brief Interplates split values from fractional intermediate rank.
 

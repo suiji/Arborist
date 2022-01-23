@@ -236,6 +236,17 @@ public:
 
   
   /**
+     @brief As above, but outputs node index.
+   */
+  bool isNodeIdx(size_t row,
+		 unsigned int tIdx,
+		 IndexT& nodeIdx) const {
+    nodeIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    return nodeIdx != noNode;
+  }
+
+  
+  /**
      @brief Computes pointer to base of row of numeric values.
 
      @param row is the row number.
