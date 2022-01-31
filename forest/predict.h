@@ -20,6 +20,7 @@
 #include "typeparam.h"
 #include "bv.h"
 #include "leaf.h"
+#include "decnode.h"
 
 #include <vector>
 #include <algorithm>
@@ -35,9 +36,8 @@ protected:
   static const unsigned int seqChunk;  // Effort to minimize false sharing.
   
   const class Sampler* sampler; // In-bag representation.
-  const vector<size_t> treeOrigin; // Jagged accessor of tree origins.
-  const struct TreeNode* treeNode; // Pointer to base of tree nodes.
-  const class BVJagged* facSplit; // Jagged accessor of factor-valued splits.
+  const vector<vector<DecNode>> cNode; // Forest-wide decision nodes.
+  const vector<unique_ptr<BV>>& factorBits;
   struct RLEFrame* rleFrame; // Frame of observations.
   const bool testing; // Whether to compare prediction with test vector.
   const unsigned int nPermute; // # times to permute each predictor.
@@ -63,7 +63,7 @@ protected:
   inline void predictLeaf(size_t row,
                           unsigned int tIdx,
                           IndexT idx) {
-    predictLeaves[nTree * (row - blockStart) + tIdx] = idx - treeOrigin[tIdx];
+    predictLeaves[nTree * (row - blockStart) + tIdx] = idx;// - treeOrigin[tIdx];
   }
 
 

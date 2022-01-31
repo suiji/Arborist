@@ -84,7 +84,7 @@ struct SamplerR {
 
      @param scale is a fudge-factor for resizing.
    */
-  void bridgeConsume(const struct SamplerBridge* sb,
+  void bridgeConsume(const struct SamplerBridge& sb,
 		     double scale);
   
   /**

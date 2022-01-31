@@ -17,7 +17,6 @@
 #define SPLIT_CRIT_H
 
 #include "typeparam.h"
-#include "splitnux.h"
 
 
 /**
@@ -25,20 +24,89 @@
 
    Numerical splits begin as rank ranges and are later adjusted to double.
    Factor splits are tree-relative offsets.
+
+   Reading and writing requires context from containing node.
  */
 typedef union {
+  IndexT leafIdx; // Terminals only.
   double num; // Rank-derived splitting value:  quantile or cut.
   size_t offset; // Tree-relative bit-vector offset:  factor.
 
+  double getNum() const {
+    return num;
+  }
+    
   void setNum(double num) {
     this->num = num;
   }
 
+  size_t getOffset() const {
+    return offset;
+  }
+
+
   void setOffset(size_t offset) {
     this->offset = offset;
   }
+
+
+  IndexT getLeafIdx() const {
+    return leafIdx;
+  }
+
+
+  void setLeafIdx(IndexT leafIdx) {
+    this->leafIdx = leafIdx;
+  }
+} SplitValU;
+
+
+/** 
+   @brief Encodes integer values as doubles.
+
+   This limits the range to 52 bits, but enables context-free reading and writing.
+*/
+struct SplitValD {
+  double dVal; // Rank-derived splitting value:  quantile or cut.
+
+  SplitValD(double val) : dVal(val) {
+  }
+
+
+  double getVal() const {
+    return dVal;
+  }
+
   
-} SplitVal;
+  void setNum(double num) {
+    dVal = num;
+  }
+
+  
+  double getNum() const {
+    return dVal;
+  }
+
+  
+  size_t getOffset() const {
+    return dVal;
+  }
+
+  
+  void setOffset(size_t offset) {
+    dVal = offset;
+  }
+
+  
+  IndexT getLeafIdx() const {
+    return dVal;
+  }
+
+
+  void setLeafIdx(IndexT leafIdx) {
+    dVal = leafIdx;
+  }
+};
 
 
 /**
@@ -47,17 +115,22 @@ typedef union {
    Branch sense implicitly less-than-equal left.
  */
 struct Crit {
-  SplitVal val;
-  PredictorT predIdx;
+  SplitValD val;
+
+  Crit(double crit) : val(crit) {
+  }
+
+
+  double getVal() const {
+    return val.getVal();
+  }
 
   
-  void critCut(const SplitNux* nux,
-	       const SplitFrontier* splitFrontier);
+  void critCut(const class SplitNux* nux,
+	       const class SplitFrontier* splitFrontier);
 
 
-  void critBits(const SplitNux* nux,
-		size_t bitPos) {
-    predIdx = nux->getPredIdx(),
+  void critBits(size_t bitPos) {
     val.setOffset(bitPos);
   }
   
@@ -67,15 +140,25 @@ struct Crit {
   }
 
 
-  auto getNumVal() const {
-    return val.num;
+  double getNumVal() const {
+    return val.getNum();
   }
 
   
-  auto getBitOffset() const {
-    return val.offset;
+  size_t getBitOffset() const {
+    return val.getOffset();
   }
 
+
+  IndexT getLeafIdx() const {
+    return val.getLeafIdx();
+  }
+
+
+  void setLeafIdx(IndexT leafIdx) {
+    val.setLeafIdx(leafIdx);
+  }
+  
   
   void setQuantRank(const class TrainFrame* trainFrame,
 		    PredictorT predIdx);

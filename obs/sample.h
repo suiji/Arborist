@@ -28,56 +28,16 @@
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
 class Sample {
-  // Experimental coarse-grained control of locality:  Not quite
-  // coding-to-cache, but almost.
-  static constexpr unsigned int locExp = 18;  // Log of locality threshold.
-
-  /**
-     @brief Maps an index into its bin.
-
-     @param idx is the index in question.
-
-     @return bin index.
-   */
-  static constexpr unsigned int binIdx(IndexT idx) {
-    return idx >> locExp;
-  }
-
-  
  protected:
   const IndexT nSamp; // Number of row samples requested.
   const bool bagging; // Whether bagging required.
+  const vector<IndexT> sampledRows;
   double (Sample::* adder)(IndexT, double, IndexT, PredictorT);
   vector<SampledNux> sampledNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
   IndexT bagCount;
   double bagSum; // Sum of bagged responses.
-
-  
-  /**
-     @brief Bins a vector of indices for coarse locality.  Equivalent to
-     the first pass of a radix sort.
-
-     @param idx is an unordered vector of indices.
-
-     @return binned version of index vector passed.
-   */
-  static vector<unsigned int> binIndices(const vector<IndexT>& idx);
-
-
-  /**
-     @brief Tabulates a collection of indices by occurrence.
-
-     @param sampleCount tabulates the occurrence count of each index.
-
-     @param[out] nBagged is the number of sampled rows.
-
-     @return vector of sample counts.
-   */
-  static vector<IndexT> countSamples(IndexT nRow,
-				     IndexT nSamp,
-				     IndexT& nBagged);
 
   
   /**

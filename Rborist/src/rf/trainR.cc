@@ -152,9 +152,9 @@ List TrainRf::classification(const List& argList,
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     SamplerBridge sb(yzVec, nSamp, chunkThis, !thin, nCtg, weightVec);
     ForestBridge fb(chunkThis);
-    auto trainChunk = trainBridge->train(&fb, &sb);
-    tb->consume(&fb, &sb, treeOff, chunkThis);
-    tb->consumeInfo(trainChunk.get());
+    auto trainedChunk = trainBridge->train(fb, sb);
+    tb->consume(fb, sb, treeOff, chunkThis);
+    tb->consumeInfo(trainedChunk.get());
   }
 
   return tb->summarize(trainBridge, yTrain, diag);
@@ -183,13 +183,14 @@ NumericVector TrainRf::ctgWeight(const IntegerVector& y,
 }
 
 
-void TrainRf::consume(const ForestBridge* fb,
-		      const SamplerBridge* sb,
+void TrainRf::consume(const ForestBridge& fb,
+		      const SamplerBridge& sb,
                       unsigned int treeOff,
                       unsigned int chunkSize) const {
   double scale = safeScale(treeOff + chunkSize);
   sampler->bridgeConsume(sb, scale);
   forest->bridgeConsume(fb, treeOff, scale);
+  // leaf->bridgeConsume(lb, treeOff, scale);
   
   if (verbose) {
     Rcout << treeOff + chunkSize << " trees trained" << endl;
@@ -197,7 +198,7 @@ void TrainRf::consume(const ForestBridge* fb,
 }
 
 
-void TrainRf::consumeInfo(const TrainChunk* train) {
+void TrainRf::consumeInfo(const TrainedChunk* train) {
   NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
   if (predInfo.length() == 0) {
     predInfo = infoChunk;
@@ -266,9 +267,9 @@ List TrainRf::regression(const List& argList,
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
     SamplerBridge sb(yVec, nSamp, chunkThis, !thin);
     ForestBridge fb(chunkThis);
-    auto trainChunk = trainBridge->train(&fb, &sb);
-    tb->consume(&fb, &sb, treeOff, chunkThis);
-    tb->consumeInfo(trainChunk.get());
+    auto trainedChunk = trainBridge->train(fb, sb);
+    tb->consume(fb, sb, treeOff, chunkThis);
+    tb->consumeInfo(trainedChunk.get());
   }
   return tb->summarize(trainBridge, yTrain, diag);
 }

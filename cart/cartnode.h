@@ -30,20 +30,25 @@ struct CartNode : public TreeNode {
    */
  CartNode() : TreeNode() {
   }
+
+
+ CartNode(complex<double> pair) :
+  TreeNode(pair) {
+  }
   
   /**
      @brief Resets nonterminal with specified index delta.
    */
-  inline void setDelIdx(IndexT delIdx) {
-    this->delIdx = delIdx;
-  }
+  //  inline void setDelIdx(IndexT delIdx) {
+  //this->delIdx = delIdx;
+  //}
 
 
   /**
      @return pretree index of true branch target.
    */
   inline IndexT getIdTrue(IndexT ptId) const {
-    return isNonterminal() ? ptId + delIdx : 0;
+    return isNonterminal() ? ptId + getDelIdx() : 0;
   }
   
 
@@ -51,64 +56,32 @@ struct CartNode : public TreeNode {
      @return pretree index of false branch target.
    */
   inline IndexT getIdFalse(IndexT ptId) const {
-    return isNonterminal() ? ptId + delIdx + 1 : 0;
+    return isNonterminal() ? ptId + getDelIdx() + 1 : 0;
   }
 
 
   /**
-     @brief Advances to next node when observations are all numerical.
-
-     @param rowT is a row base within the transposed numerical set.
-
-     @param[out] leafIdx outputs predictor index iff at terminal.
-
-     @return delta to next node, if nonterminal, else zero.
+     @brief Advancers pass through to the base class.
    */
-  inline IndexT advance(const double *rowT,
-			IndexT& leafIdx) const {
-    auto predIdx = getPredIdx();
-    if (delIdx == 0) {
-      leafIdx = predIdx;
-      return 0;
-    }
-    else {
-      return rowT[predIdx] <= getSplitNum() ? delIdx : delIdx + 1;
-    }
+  inline IndexT advance(const double* rowT) const {
+    return TreeNode::advance(rowT);
   }
 
-  /**
-     @brief Node advancer, as above, but for all-categorical observations.
 
-     @param facSplit accesses the per-tree packed factor-splitting vectors.
+  inline IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
+			const IndexT* rowT,
+			unsigned int tIdx) const {
+    return TreeNode::advance(factorBits, rowT, tIdx);
+  }
 
-     @param rowT holds the transposed factor-valued observations.
 
-     @param tIdx is the tree index.
-
-     @param leafIdx as above.
-
-     @return terminal/nonterminal : 0 / delta to next node.
-   */
-  IndexT advance(const class BVJagged *facSplit,
-		 const IndexT* rowT,
-		 unsigned int tIdx,
-		 IndexT& leafIdx) const;
-  
-  /**
-     @brief Node advancer, as above, but for mixed observation.
-
-     Parameters as above, along with:
-
-     @param rowNT contains the transponsed numerical observations.
-
-     @return terminal/nonterminal : 0 / delta to next node.
-   */
-  IndexT advance(const class PredictFrame* blockFrame,
-		 const BVJagged *facSplit,
-		 const IndexT* rowFT,
-		 const double *rowNT,
-		 unsigned int tIdx,
-		 IndexT& leafIdx) const;
+  inline IndexT advance(const class Predict* predict,
+			const vector<unique_ptr<class BV>>& factorBits,
+			const IndexT* rowFT,
+			const double *rowNT,
+			unsigned int tIdx) const {
+    return TreeNode::advance(predict, factorBits, rowFT, rowNT, tIdx);
+  }
 };
 
 #endif

@@ -35,15 +35,14 @@ Predict::Predict(const Forest* forest,
 		 bool testing_,
 		 unsigned int nPermute_) :
   sampler(sampler_),
-  treeOrigin(forest->treeOrigins()),
-  treeNode(forest->getNode()),
-  facSplit(forest->getFacSplit()),
+  cNode(forest->getNode()),
+  factorBits(forest->getFactorBits()),
   rleFrame(rleFrame_),
   testing(testing_),
   nPermute(nPermute_),
   predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
   accumNEst(vector<IndexT>(scoreChunk)),
-  scoreBlock(forest->produceScores()),
+  scoreBlock(forest->getTreeScores()),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
   nRow(rleFrame->getNRow()),
@@ -286,10 +285,11 @@ void Predict::walkMixed(size_t row) {
 void Predict::rowNum(unsigned int tIdx,
 		       const double* rowT,
 		       size_t row) {
-  auto idx = treeOrigin[tIdx];
+  const vector<DecNode>& cTree = cNode[tIdx];
+  auto idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = treeNode[idx].advance(rowT);
+    delIdx = cTree[idx].advance(rowT);
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -300,10 +300,11 @@ void Predict::rowNum(unsigned int tIdx,
 void Predict::rowFac(const unsigned int tIdx,
 		     const unsigned int* rowT,
 		     size_t row) {
-  auto idx = treeOrigin[tIdx];
+  const vector<DecNode>& cTree = cNode[tIdx];
+  auto idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = treeNode[idx].advance(facSplit, rowT, tIdx);
+    delIdx = cTree[idx].advance(factorBits, rowT, tIdx);
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -315,10 +316,11 @@ void Predict::rowMixed(unsigned int tIdx,
 			 const double* rowNT,
 			 const unsigned int* rowFT,
 			 size_t row) {
-  auto idx = treeOrigin[tIdx];
+  const vector<DecNode>& cTree = cNode[tIdx];
+  auto idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = treeNode[idx].advance(this, facSplit, rowFT, rowNT, tIdx);
+    delIdx = cTree[idx].advance(this, factorBits, rowFT, rowNT, tIdx);
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -340,7 +342,7 @@ bool Predict::isLeafIdx(size_t row,
 			unsigned int tIdx,
 			IndexT& leafIdx) const {
     IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
-    return termIdx == noNode ? false : treeNode[termIdx + treeOrigin[tIdx]].getLeafIdx(leafIdx);
+    return termIdx == noNode ? false : cNode[tIdx][termIdx].getLeafIdx(leafIdx);
 }
 
 

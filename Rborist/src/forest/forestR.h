@@ -115,13 +115,19 @@ class ForestExport {
    training.
  */
 struct FBTrain {
+  static const string strNTree;
+  static const string strNodeExtent;
+  static const string strForestNode;
+  static const string strScores;
+  static const string strFacExtent;
+  static const string strFacSplit;
+
   const unsigned int nTree; // Total # trees under training.
 
   // Decision node related:
   NumericVector nodeExtent; // # nodes in respective tree.
-  size_t nodeTop; // Next available index in raw buffer.
-  RawVector nodeRaw; // Packed representation of decision tree nodes.
-  size_t scoreTop; // Next available score index.
+  size_t nodeTop; // Next available index in node/score buffers.
+  ComplexVector cNode; // Nodes encoded as complex pairs.
   NumericVector scores; // Same indices as nodeRaw.
 
   // Factor related:
@@ -141,7 +147,7 @@ struct FBTrain {
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void bridgeConsume(const struct ForestBridge* bridge,
+  void bridgeConsume(const struct ForestBridge& bridge,
 		     unsigned int treeOff,
 		     double fraction);
 

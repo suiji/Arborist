@@ -16,34 +16,40 @@
 #ifndef FOREST_FORESTBRIDGE_H
 #define FOREST_FORESTBRIDGE_H
 
+
 #include <vector>
 #include <memory>
+#include <complex>
+
 using namespace std;
 
 /**
    @brief Hides class Forest internals from bridge via forward declarations.
  */
 struct ForestBridge {
-
+  
   /**
-     @brief Constructor wraps constant raw pointers provided by front end.
+     @brief R-specific constructor.  Doubles cache large offset values.
 
      It is the responsibility of the front end and/or its bridge to ensure
-     that aliased memory remains live.
+     that aliased memory either remains live or is copied.
 
-     @param height is the accumulated tree height preceding a given tree.
+     @param nodeExtent[] is the per-tree node count.
+
+     @param treeNode caches the nodes as packed-integer / double pairs.
+
+     @param scores cache the score at each node, regardless whether terminal.
+
+     @param facExtent the per-tree count of factor-valued splits.
 
      @param facSplit contains the splitting bits for factors.
-
-     @param facHeight is the accumated factor splitting height.
-
    */
   ForestBridge(unsigned int nTree,
-	       const double* nodeExtent,
-	       const unsigned char* node,
-	       const double* scores,
-	       const double* facExtent,
-               unsigned char* facSplit);
+	       const double nodeExtent[],
+	       const complex<double> treeNode[],
+	       const double scores[],
+	       const double facExtent[],
+               const unsigned char facSplit[]);
 
 
   /**
@@ -54,22 +60,11 @@ struct ForestBridge {
   
   ~ForestBridge();
 
-
-  /**
-     @brief Passes through to core method.
-
-     @return # bytes subsumed by this chunk of nodes.
-   */
-  size_t getNodeBytes() const;
-
-
-  size_t getScoreSize() const;
-  
   
   /**
-     @brief Returns size of CartNode.
+     @return count of trained nodes.
    */
-  static size_t nodeSize();
+  size_t getNodeCount() const;
 
   
   /**
@@ -98,8 +93,8 @@ struct ForestBridge {
   size_t getFactorBytes() const;
   
 
-  void dumpTreeRaw(unsigned char treeOut[]) const;
-
+  void dumpTree(complex<double> treeOut[]) const;
+  
 
   void dumpScore(double scoreOut[]) const;
   

@@ -32,12 +32,12 @@ class Quant {
   const vector<double> quantile; // quantile values over which to predict.
   const unsigned int qCount; // caches quantile size for quick reference.
   const class Sampler* sampler;
-  const bool empty; // if so, bail.
+  const bool empty; // if so, leave vectors empty and bail.
+  const vector<vector<IndexRange>> leafDom;
   const ValRank<double> valRank;
   const vector<vector<vector<RankCount>>> rankCount; // forest-wide, by sample.
   const unsigned int rankScale; // log2 of scaling factor.
   const vector<double> binMean;
-  const vector<vector<IndexRange>> leafDom; // Dominated leaves, per node.
   vector<double> qPred; // predicted quantiles.
   vector<double> qEst; // quantile of response estimates.
 

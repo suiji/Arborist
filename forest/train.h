@@ -49,13 +49,13 @@ class Train {
 public:
 
   /**
-     @brief Regression constructor.
+     @brief General constructor.
   */
   Train(const class TrainFrame* frame,
 	class Forest* forest_,
 	class Sampler* sampler_);
-  
-  
+
+
   /**
      @brief Getter for splitting information values.
 

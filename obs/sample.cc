@@ -16,7 +16,6 @@
 
 #include "sampler.h"
 #include "sample.h"
-#include "callback.h"
 #include "trainframe.h"
 
 #include <numeric>
@@ -27,6 +26,7 @@ Sample::Sample(const TrainFrame* frame,
 	       double (Sample::* adder_)(IndexT, double, IndexT, PredictorT)) :
   nSamp(sampler->getNSamp()),
   bagging(sampler->isBagging()),
+  sampledRows(sampler->getSampledRows()),
   adder(adder_),
   ctgRoot(vector<SumCount>(sampler->getNCtg())),
   row2Sample(vector<IndexT>(frame->getNRow())),
@@ -91,10 +91,14 @@ void Sample::bagSamples(const vector<double>&  y,
     return;
   }
 
-  // Samples row indices and counts occurrences.
-  //
-  vector<IndexT> sCountRow = countSamples(row2Sample.size(), nSamp, bagCount);
-  SampleNux::setShifts(getNCtg(), *max_element(sCountRow.begin(), sCountRow.end()));
+  bagCount = 0;
+  IndexT countMax = 0;
+  for (IndexT count : sampledRows) {// Temporary.
+    bagCount += (count > 0);
+    if (count > countMax)
+      countMax = count;
+  }
+  SampleNux::setShifts(getNCtg(), countMax);
   
   // Copies contents of sampled outcomes and builds mapping vectors.
   //
@@ -102,8 +106,8 @@ void Sample::bagSamples(const vector<double>&  y,
   IndexT sIdx = 0;
   IndexT rowPrev = 0;
   for (IndexT row = 0; row < row2Sample.size(); row++) {
-    if (sCountRow[row] > 0) {
-      bagSum += (this->*adder)(row - exchange(rowPrev, row), y[row], sCountRow[row], yCtg[row]);
+    if (sampledRows[row] > 0) {
+      bagSum += (this->*adder)(row - exchange(rowPrev, row), y[row], sampledRows[row], yCtg[row]);
       row2Sample[row] = sIdx++;
     }
   }
@@ -118,63 +122,4 @@ void Sample::bagTrivial(const vector<double>& y,
   for (IndexT row = 0; row < bagCount; row++) {
     bagSum += (this->*adder)(1, y[row], 1, yCtg[row]);
   }
-}
-
-
-// Sample counting is sensitive to locality.  In the absence of
-// binning, access is random.  Larger bins improve locality, but
-// performance begins to degrade when bin size exceeds available
-// cache.
-vector<IndexT> Sample::countSamples(IndexT nRow,
-				    IndexT nSamp,
-				    IndexT& nBagged) {
-  vector<IndexT> sc(nRow);
-  vector<IndexT> idx(CallBack::sampleRows(nSamp));
-  if (binIdx(sc.size()) > 0) {
-    idx = binIndices(idx);
-  }
-    
-  nBagged = 0;
-  for (auto index : idx) {
-    nBagged += (sc[index] == 0 ? 1 : 0);
-    sc[index]++;
-  }
-
-  return sc;
-}
-
-
-vector<unsigned int> Sample::binIndices(const vector<unsigned int>& idx) {
-  // Sets binPop to respective bin population, then accumulates population
-  // of bins to the left.
-  // Performance not sensitive to bin width.
-  //
-  vector<unsigned int> binPop(1 + binIdx(idx.size()));
-  for (auto val : idx) {
-    binPop[binIdx(val)]++;
-  }
-  for (unsigned int i = 1; i < binPop.size(); i++) {
-    binPop[i] += binPop[i-1];
-  }
-
-  // Available index initialzed to one less than total population left of and
-  // including bin.  Empty bins have same initial index as bin to the left.
-  // This is not a problem, as empty bins are not (re)visited.
-  //
-  vector<int> idxAvail(binPop.size());
-  for (unsigned int i = 0; i < idxAvail.size(); i++) {
-    idxAvail[i] = static_cast<int>(binPop[i]) - 1;
-  }
-
-  // Writes to the current available index for bin, which is then decremented.
-  //
-  // Performance degrades if bin width exceeds available cache.
-  //
-  vector<unsigned int> idxBinned(idx.size());
-  for (auto index : idx) {
-    int destIdx = idxAvail[binIdx(index)]--;
-    idxBinned[destIdx] = index;
-  }
-
-  return idxBinned;
 }

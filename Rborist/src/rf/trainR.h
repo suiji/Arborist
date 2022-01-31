@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rf
 //
@@ -163,8 +163,8 @@ struct TrainRf {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const struct ForestBridge* fb,
-	       const struct SamplerBridge* sb,
+  void consume(const struct ForestBridge& fb,
+	       const struct SamplerBridge& sb,
                unsigned int tIdx,
                unsigned int chunkSize) const;
 
@@ -172,7 +172,7 @@ struct TrainRf {
   /**
      @brief As above, but consumes information vector.
    */
-  void consumeInfo(const struct TrainChunk* train);
+  void consumeInfo(const struct TrainedChunk* train);
 
   
   /**

@@ -33,8 +33,11 @@ using namespace Rcpp;
 
 struct ResizeR {
 
-  static RawVector resizeRaw(const RawVector& raw, size_t offset, size_t bytes, double scale) { // Assumes scale >= 1.0.
-    RawVector temp(scale * (offset + bytes));
+  static RawVector resizeRaw(const RawVector& raw,
+			     size_t offset,
+			     size_t count,
+			     double scale) { // Assumes scale >= 1.0.
+    RawVector temp(scale * (offset + count));
     for (size_t i = 0; i < offset; i++)
       temp[i] = raw[i];
 
@@ -42,9 +45,23 @@ struct ResizeR {
   }
 
 
-  static NumericVector resizeNum(const NumericVector& num, size_t offset, size_t bytes,
+  static NumericVector resizeNum(const NumericVector& num,
+				 size_t offset,
+				 size_t count,
 				 double scale) { // Assumes scale >= 1.0.
-    NumericVector temp(scale * (offset + bytes));
+    NumericVector temp(scale * (offset + count));
+    for (size_t i = 0; i < offset; i++)
+      temp[i] = num[i];
+
+    return temp;
+  }
+
+
+  static ComplexVector resizeComplex(const ComplexVector& num,
+				     size_t offset,
+				     size_t count,
+				     double scale) { // Assumes scale >= 1.0.
+    ComplexVector temp(scale * (offset + count));
     for (size_t i = 0; i < offset; i++)
       temp[i] = num[i];
 

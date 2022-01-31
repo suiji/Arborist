@@ -21,6 +21,7 @@
 #include "pretree.h"
 #include "indexset.h"
 #include "typeparam.h"
+#include "mrra.h"
 
 #include <algorithm>
 #include <vector>

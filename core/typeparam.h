@@ -41,6 +41,7 @@ typedef unsigned int IndexT;
 // Should accommodate values approaching # predictors or properties.
 typedef unsigned int PredictorT;
 
+
 // Low/extent pair definining range of indices.
 struct IndexRange {
   IndexT idxStart;

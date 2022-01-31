@@ -19,47 +19,61 @@
 
 #include "crit.h"
 
+#include <vector>
+#include <complex>
 
 /**
    @brief To replace parallel array access.
+
+   Caches splitting predictor and delta to an explicit branch target.
+   Target of complementary branch is computable.  Sense of explicit
+   branch and method of computing complement varies with algorithm.
  */
-struct TreeNode {
+class TreeNode {
+  static unsigned int rightBits;
+  static PredictorT rightMask;
+  PackedT packed;
+
 protected:
 
   Crit criterion;
 
-  // Explicit delta to a branch target.  Target of complementary branch is computable.
-  // Sense of explicit branch and method of computing complement varies with
-  // algorithm.
-  IndexT delIdx; // Zero iff terminal.
 
 public:
+
   /**
-     @brief Nodes must be explicitly set to non-terminal (delIdx != 0).
+     @brief Initializes packing parameters.
    */
-  TreeNode() : delIdx(0) {
-  }
+  static void init(PredictorT nPred);
+
+  
+  /**
+     @brief Resets packing values to default.
+   */
+  static void deInit();
   
 
   /**
-     @brief Indicates whether node is nonterminal.
-
-     @return True iff delIdx value is nonzero.
+     @brief Nodes must be explicitly set to non-terminal (delIdx != 0).
    */
-  inline bool isNonterminal() const {
-    return delIdx != 0;
-  }  
+  TreeNode() : packed(0ull),
+	       criterion(0.0) {
+  }
 
 
   /**
-     @brief Getter for lh-delta value.
-
-     @return delIdx value.
+     @brief Constructor for reading numeric-valued encodings.
    */
-  inline auto getDelIdx() const {
-    return delIdx;
+  TreeNode(complex<double> pair) :
+    packed(pair.real()),
+    criterion(pair.imag()) {
   }
 
+  
+  inline void setPredIdx(PredictorT predIdx) {
+    packed |= predIdx;
+  }
+  
 
   /**
      @brief Getter for splitting predictor.
@@ -67,21 +81,47 @@ public:
      @return splitting predictor index.
    */
   inline PredictorT getPredIdx() const {
-    return criterion.predIdx;
+    return packed & rightMask;
   }
 
 
-  inline void critCut(const SplitNux* nux,
-		      const class SplitFrontier* splitFrontier) {
-    criterion.critCut(nux, splitFrontier);
-  }
-
-
-  inline void critBits(const SplitNux* nux,
-		       size_t bitPos) {
-    criterion.critBits(nux, bitPos);
+  inline void setDelIdx(IndexT delIdx) {
+    packed |= (size_t(delIdx) << rightBits);
   }
   
+
+  /**
+     @brief Getter for lh-delta value.
+
+     @return delIdx value.
+   */
+  inline IndexT getDelIdx() const {
+    return packed >> rightBits;
+  }
+
+
+  /**
+     @brief Indicates whether node is nonterminal.
+
+     @return True iff delIdx value is nonzero.
+   */
+  inline bool isNonterminal() const {
+    return getDelIdx() != 0;
+  }  
+
+
+  inline bool isTerminal() const {
+    return getDelIdx() == 0;
+  }
+
+
+  void critCut(const class SplitNux* nux,
+	       const class SplitFrontier* splitFrontier);
+
+
+  void critBits(const class SplitNux* nux,
+		size_t bitPos);
+
 
   /**
      @brief Getter for numeric splitting value.
@@ -102,6 +142,14 @@ public:
 
 
   /**
+     @brief Dumps both members as context-independent values.
+   */
+  inline void dump(complex<double>& valOut) const {
+    valOut = complex<double>(packed, criterion.getVal());
+  }
+
+  
+  /**
      @brief Advances to next node when observations are all numerical.
 
      @param rowT is a row base within the transposed numerical set.
@@ -111,14 +159,13 @@ public:
      @return delta to next node, if nonterminal, else zero.
    */
   inline IndexT advance(const double *rowT) const {
+    IndexT delIdx = getDelIdx();
     return delIdx == 0 ? 0 : (delIdx + (rowT[getPredIdx()] <= getSplitNum() ? 0 : 1));
   }
 
   
   /**
      @brief Node advancer, as above, but for all-categorical observations.
-
-     @param facSplit accesses the per-tree packed factor-splitting vectors.
 
      @param rowT holds the transposed factor-valued observations.
 
@@ -128,7 +175,7 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advance(const class BVJagged *facSplit,
+  IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
 		 const IndexT* rowT,
 		 unsigned int tIdx) const;
 
@@ -143,7 +190,7 @@ public:
      @return terminal/nonterminal : 0 / delta to next node.
    */
   IndexT advance(const class Predict* predict,
-		 const BVJagged *facSplit,
+		 const vector<unique_ptr<class BV>>& factorBits,
 		 const IndexT* rowFT,
 		 const double *rowNT,
 		 unsigned int tIdx) const;
@@ -157,8 +204,9 @@ public:
 
   
   inline bool getLeafIdx(IndexT& leafIdx) const {
+    IndexT delIdx = getDelIdx();
     if (delIdx == 0) {
-      leafIdx = getPredIdx();
+      leafIdx = criterion.getLeafIdx();
     }
     return delIdx == 0;
   }
@@ -168,12 +216,12 @@ public:
      @brief As above, but assumes node is noterminal.
    */
   inline IndexT getLeafIdx() const {
-    return getPredIdx();
+    return criterion.getLeafIdx();
   }
   
 
   inline void setTerminal() {
-    delIdx = 0;
+    setDelIdx(0);
   }
   
 
@@ -183,8 +231,8 @@ public:
      @param leafIdx is the tree-relative leaf index, if tracked.
    */
   inline void setLeaf(IndexT leafIdx) {
-    delIdx = 0;
-    criterion.predIdx = leafIdx;
+    setDelIdx(0);
+    criterion.setLeafIdx(leafIdx);
   }
 };
 

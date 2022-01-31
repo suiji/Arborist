@@ -17,6 +17,7 @@
 #include "crit.h"
 #include "trainframe.h"
 #include "splitfrontier.h"
+#include "splitnux.h"
 
 
 void Crit::setQuantRank(const TrainFrame* trainFrame,
@@ -27,7 +28,6 @@ void Crit::setQuantRank(const TrainFrame* trainFrame,
 
 void Crit::critCut(const SplitNux* nux,
 		   const SplitFrontier* splitFrontier) {
-  predIdx = nux->getPredIdx();
   val.setNum(splitFrontier->getQuantRank(nux));
 }
 

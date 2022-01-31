@@ -36,11 +36,11 @@ Quant::Quant(const Forest* forest,
   qCount(quantile.size()),
   sampler(predict->getSampler()),
   empty(!sampler->hasSamples() || quantile.empty()),
+  leafDom(empty ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
   valRank(ValRank<double>(&leaf->getYTrain()[0], empty ? 0 : leaf->getYTrain().size())),
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : sampler->alignRanks(valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
-  leafDom(empty ? vector<vector<IndexRange>>(0) : forest->leafDominators()),
   qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
   qEst(vector<double>(empty ? 0 : rleFrame->getNRow())) {
 }
@@ -76,15 +76,12 @@ vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
 
 void Quant::predictRow(const PredictReg* predict, size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
-
-  // Scores each rank seen at every dominated leaf.
-  //
   IndexT totSamples = 0;
   for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
     IndexT nodeIdx;
     if (predict->isNodeIdx(row, tIdx, nodeIdx)) {
-      IndexRange range = leafDom[tIdx][nodeIdx];
-      for (IndexT leafIdx = range.getStart(); leafIdx != range.getEnd(); leafIdx++) {
+      IndexRange leafRange = leafDom[tIdx][nodeIdx];
+      for (IndexT leafIdx = leafRange.getStart(); leafIdx != leafRange.getEnd(); leafIdx++) {
 	totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
       }
     }

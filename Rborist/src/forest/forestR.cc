@@ -28,12 +28,18 @@
 #include "forestbridge.h"
 
 
+const string FBTrain::strNTree = "nTree";
+const string FBTrain::strNodeExtent = "nodeExtent";
+const string FBTrain::strForestNode = "forestNode";
+const string FBTrain::strScores= "scores";
+const string FBTrain::strFacExtent = "facExtent";
+const string FBTrain::strFacSplit = "facSplit";
+
+
 FBTrain::FBTrain(unsigned int nTree_) :
   nTree(nTree_),
   nodeExtent(NumericVector(nTree)),
   nodeTop(0),
-  nodeRaw(RawVector(0)),
-  scoreTop(0),
   scores(NumericVector(0)),
   facExtent(NumericVector(nTree)),
   facTop(0),
@@ -41,40 +47,35 @@ FBTrain::FBTrain(unsigned int nTree_) :
 }
 
 
-void FBTrain::bridgeConsume(const ForestBridge* bridge,
+void FBTrain::bridgeConsume(const ForestBridge& bridge,
 			    unsigned int tIdx,
 			    double scale) {
-  const vector<size_t>&nExtents = bridge->getNodeExtents();
+  const vector<size_t>&nExtents = bridge.getNodeExtents();
   unsigned int fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + nExtents.size(); toIdx++) {
     nodeExtent[toIdx] = nExtents[fromIdx++];
   }
 
-  size_t nodeBytes = bridge->getNodeBytes();  // # bytes in node chunk.
-  if (nodeTop + nodeBytes > static_cast<size_t>(nodeRaw.length())) {
-    nodeRaw = move(ResizeR::resizeRaw(nodeRaw, nodeTop, nodeBytes, scale));
+  size_t nodeCount = bridge.getNodeCount();
+  if (nodeTop + nodeCount > static_cast<size_t>(cNode.length())) {
+    cNode = move(ResizeR::resizeComplex(cNode, nodeTop, nodeCount, scale));
+    scores = move(ResizeR::resizeNum(scores, nodeTop, nodeCount, scale));
   }
-  bridge->dumpTreeRaw(&nodeRaw[nodeTop]);
-  nodeTop += nodeBytes;
+  bridge.dumpTree((complex<double>*)&cNode[nodeTop]);
+  bridge.dumpScore(&scores[nodeTop]);
+  nodeTop += nodeCount;
 
-  size_t scoreSize = bridge->getScoreSize();
-  if (scoreTop + scoreSize > static_cast<size_t>(scores.length())) {
-    scores = move(ResizeR::resizeNum(scores, scoreTop, scoreSize, scale));
-  }
-  bridge->dumpScore(&scores[scoreTop]);
-  scoreTop += scoreSize;
-
-  const vector<size_t>&fExtents = bridge->getFacExtents();
+  const vector<size_t>& fExtents = bridge.getFacExtents();
   fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + fExtents.size(); toIdx++) {
     facExtent[toIdx] = fExtents[fromIdx++];
   }
-
-  size_t facBytes = bridge->getFactorBytes();
+ 
+  size_t facBytes = bridge.getFactorBytes();
   if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
     facRaw = move(ResizeR::resizeRaw(facRaw, facTop, facBytes, scale));
   }
-  bridge->dumpFactorRaw(&facRaw[facTop]);
+  bridge.dumpFactorRaw(&facRaw[facTop]);
   facTop += facBytes;
 }
 
@@ -83,14 +84,14 @@ void FBTrain::bridgeConsume(const ForestBridge* bridge,
 List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
-    List::create(_["nTree"] = nTree,
-		 _["nodeExtent"] = move(nodeExtent),
-                 _["forestNode"] = move(nodeRaw),
-		 _["scores"] = move(scores),
-		 _["facExtent"] = move(facExtent),
-                 _["facSplit"] = move(facRaw)
+    List::create(_[strNTree] = nTree,
+		 _[strNodeExtent] = move(nodeExtent),
+		 _[strForestNode] = move(cNode),
+		 _[strScores] = move(scores),
+		 _[strFacExtent] = move(facExtent),
+                 _[strFacSplit] = move(facRaw)
                  );
-  nodeRaw = RawVector(0);
+  cNode = ComplexVector(0);
   scores = NumericVector(0);
   facRaw = RawVector(0);
   forest.attr("class") = "Forest";
@@ -102,12 +103,12 @@ List FBTrain::wrap() {
 
 unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
   List lForest(checkForest(lTrain));
-  return make_unique<ForestBridge>(as<unsigned int>(lForest["nTree"]),
-				   as<NumericVector>(lForest["nodeExtent"]).begin(),
-				   as<RawVector>(lForest["forestNode"]).begin(),
-				   as<NumericVector>(lForest["scores"]).begin(),
-				   as<NumericVector>(lForest["facExtent"]).begin(),
-				   as<RawVector>(lForest["facSplit"]).begin());
+  return make_unique<ForestBridge>(as<unsigned int>(lForest[FBTrain::strNTree]),
+				   as<NumericVector>(lForest[FBTrain::strNodeExtent]).begin(),
+				   (complex<double>*) as<ComplexVector>(lForest[FBTrain::strForestNode]).begin(),
+				   as<NumericVector>(lForest[FBTrain::strScores]).begin(),
+				   as<NumericVector>(lForest[FBTrain::strFacExtent]).begin(),
+				   as<RawVector>(lForest[FBTrain::strFacSplit]).begin());
 }
 
 

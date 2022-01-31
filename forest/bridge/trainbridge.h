@@ -44,8 +44,8 @@ struct TrainBridge {
   /**
      @brief Main entry for training.
    */
-  unique_ptr<struct TrainChunk> train(const class ForestBridge* forest,
-				      const class SamplerBridge* sampler) const;
+  unique_ptr<struct TrainedChunk> train(const class ForestBridge& forest,
+				      const class SamplerBridge& sampler) const;
 
 
   /**
@@ -106,10 +106,10 @@ private:
 };
 
 
-struct TrainChunk {
-  TrainChunk(unique_ptr<class Train>);
+struct TrainedChunk {
+  TrainedChunk(unique_ptr<class Train>);
 
-  ~TrainChunk();
+  ~TrainedChunk();
   
   
   /**

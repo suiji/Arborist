@@ -10,6 +10,7 @@
 #include "sampler.h"
 #include "samplemap.h"
 #include "pretree.h"
+#include "callback.h"
 
 #include <cmath>
 
@@ -219,9 +220,10 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 unique_ptr<BitMatrix> Sampler::bagRaw(const unsigned char rawSamples[],
 				      bool nuxSamples,
 				      bool bagging,
-				      unsigned int nTree, IndexT nObs) {
+				      unsigned int nTree,
+				      IndexT nObs) {
   if (bagging) {
-    return nuxSamples ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(reinterpret_cast<const unsigned int*>(rawSamples), nTree, nObs);
+    return nuxSamples ? make_unique<BitMatrix>(nTree, nObs) : make_unique<BitMatrix>(reinterpret_cast<const BVSlotT*>(rawSamples), nTree, nObs);
   }
   else {
     return  make_unique<BitMatrix>(0,0);
@@ -262,7 +264,7 @@ void SamplerBlock::bagRows(BitMatrix* bagMatrix,
   }
 }
 
-
+// Move to Leaf:
 vector<vector<vector<size_t>>> SamplerBlock::countLeafCtg(const Sampler* sampler,
 							  const LeafCtg* leaf) const {
   vector<vector<vector<size_t>>> ctgCount(sampler->getNTree());
@@ -291,7 +293,7 @@ vector<vector<vector<size_t>>> SamplerBlock::countLeafCtg(const Sampler* sampler
   return ctgCount;
 }
 
-
+// Move to Leaf:
 vector<vector<vector<RankCount>>> SamplerBlock::alignRanks(const Sampler* sampler,
 							   const vector<IndexT>& row2Rank) const {
   vector<vector<vector<RankCount>>> rankCount(sampler->getNTree());
@@ -341,25 +343,86 @@ void SamplerBlock::dump(const Sampler* sampler,
 
 unique_ptr<Sample> Sampler::rootSample(const class TrainFrame* frame,
 				       unsigned int tIdx) {
-  unique_ptr<Sample> sample = leaf->rootSample(frame, this);
+  sCountRow = countSamples(nObs, nSamp);
   if (!bagMatrix->isEmpty()) { // Thin, but bagging.
-    IndexT row = 0;
-    for (IndexT sIdx = 0; sIdx < sample->getBagCount(); sIdx++) {
-      row += sample->getDelRow(sIdx);
-      bagMatrix->setBit(tIdx, row);
+    for (IndexT row = 0; row < nObs; row++) {
+      if (sCountRow[row] > 0) {
+	bagMatrix->setBit(tIdx, row);
+      }
     }
   }
   else {
-    for (IndexT sIdx = 0; sIdx < sample->getBagCount(); sIdx++) {
-      sbCresc.emplace_back(sample->getDelRow(sIdx), sample->getSCount(sIdx));
+    IndexT rowPrev = 0;
+    for (IndexT row = 0; row < nObs; row++) {
+      if (sCountRow[row] > 0) {
+        sbCresc.emplace_back(row - exchange(rowPrev, row), sCountRow[row]);
+      }
     }
   }
-  return sample;
+  return leaf->rootSample(frame, this); //, sbCresc[tIdx]
 }
 
 
-void Sampler::consumeSamples(const PreTree* pretree,
-			     const SampleMap& terminalMap) {
+// Sample counting is sensitive to locality.  In the absence of
+// binning, access is random.  Larger bins improve locality, but
+// performance begins to degrade when bin size exceeds available
+// cache.
+vector<IndexT> Sampler::countSamples(IndexT nRow,
+				     IndexT nSamp) {
+  vector<IndexT> sc(nRow);
+  vector<IndexT> idx(CallBack::sampleRows(nSamp));
+  if (binIdx(sc.size()) > 0) {
+    idx = binIndices(idx);
+  }
+    
+  //  nBagged = 0;
+  for (auto index : idx) {
+    //nBagged += (sc[index] == 0 ? 1 : 0);
+    sc[index]++;
+  }
+
+  return sc;
+}
+
+
+vector<unsigned int> Sampler::binIndices(const vector<unsigned int>& idx) {
+  // Sets binPop to respective bin population, then accumulates population
+  // of bins to the left.
+  // Performance not sensitive to bin width.
+  //
+  vector<unsigned int> binPop(1 + binIdx(idx.size()));
+  for (auto val : idx) {
+    binPop[binIdx(val)]++;
+  }
+  for (unsigned int i = 1; i < binPop.size(); i++) {
+    binPop[i] += binPop[i-1];
+  }
+
+  // Available index initialzed to one less than total population left of and
+  // including bin.  Empty bins have same initial index as bin to the left.
+  // This is not a problem, as empty bins are not (re)visited.
+  //
+  vector<int> idxAvail(binPop.size());
+  for (unsigned int i = 0; i < idxAvail.size(); i++) {
+    idxAvail[i] = static_cast<int>(binPop[i]) - 1;
+  }
+
+  // Writes to the current available index for bin, which is then decremented.
+  //
+  // Performance degrades if bin width exceeds available cache.
+  //
+  vector<unsigned int> idxBinned(idx.size());
+  for (auto index : idx) {
+    int destIdx = idxAvail[binIdx(index)]--;
+    idxBinned[destIdx] = index;
+  }
+
+  return idxBinned;
+}
+
+// Move to Leaf:
+void Sampler::consumeTerminals(const PreTree* pretree,
+			       const SampleMap& terminalMap) {
   IndexT bagCount = terminalMap.indices.size();
   IndexT extentStart = extentCresc.size();
   IndexT idStart = indexCresc.size();
@@ -401,7 +464,7 @@ size_t Sampler::crescBlockBytes() const {
     return sbCresc.size() * sizeof(SamplerNux);
   }
   else {
-    return bagMatrix->getNSlot() * sizeof(unsigned int);
+    return bagMatrix->getNSlot() * sizeof(BVSlotT);
   }
 }
 

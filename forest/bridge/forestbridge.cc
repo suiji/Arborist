@@ -15,11 +15,11 @@
 
 #include "forest.h"
 #include "forestbridge.h"
-#include "cartnode.h"
+#include "nodebridge.h"
+#include "typeparam.h"
+#include "bv.h"
 
-#include <memory>
 using namespace std;
-
 
 ForestBridge::ForestBridge(unsigned int treeChunk) :
   forest(make_unique<Forest>(treeChunk)) {
@@ -27,26 +27,18 @@ ForestBridge::ForestBridge(unsigned int treeChunk) :
 
 
 ForestBridge::ForestBridge(unsigned int nTree,
-			   const double* nodeExtent,
-			   const unsigned char* node,
-			   const double* scores,
-			   const double* facExtent,
-                           unsigned char* facSplit) :
-  forest(make_unique<Forest>(nTree,
-			     nodeExtent,
-			     reinterpret_cast<const CartNode*>(node),
-			     scores,
-			     facExtent,
-			     reinterpret_cast<unsigned int*>(facSplit))) {
+			   const double nodeExtent[],
+			   const complex<double> treeNode[],
+			   const double score[],
+			   const double facExtent[],
+                           const unsigned char facSplit[]) {
+  forest = make_unique<Forest>(move(NodeBridge::unpackNodes(treeNode, nodeExtent, nTree)),
+			       move(NodeBridge::unpackScores(score, nodeExtent, nTree)),
+			       move(NodeBridge::unpackBits(facSplit, facExtent, nTree)));
 }
 
 
 ForestBridge::~ForestBridge() {
-}
-
-
-size_t ForestBridge::getNodeBytes() const {
-  return forest->getNodeBytes();
 }
 
 
@@ -75,13 +67,13 @@ size_t ForestBridge::getFactorBytes() const {
 }
 
 
-void ForestBridge::dumpTreeRaw(unsigned char treeOut[]) const {
-  forest->cacheNodeRaw(treeOut);
+void ForestBridge::dumpTree(complex<double> treeOut[]) const {
+  forest->cacheNode(treeOut);
 }
 
 
-size_t ForestBridge::getScoreSize() const {
-  return forest->getScoreSize();
+size_t ForestBridge::getNodeCount() const {
+  return forest->getNodeCount();
 }
 
 
@@ -99,7 +91,8 @@ void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,
                         vector<vector<unsigned int> >& lhDelTree,
                         vector<vector<unsigned int> >& facSplitTree) const {
-  forest->dump(predTree, splitTree, lhDelTree, facSplitTree);
+  IndexT dummy;
+  forest->dump(predTree, splitTree, lhDelTree, dummy);//facSplitTree);
 }
 
     

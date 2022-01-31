@@ -23,6 +23,7 @@
 
 #include <numeric>
 #include <vector>
+#include <complex>
 
 /**
    @brief struct CartNode block for crescent frame;
@@ -30,24 +31,14 @@
 class NodeCresc {
   vector<DecNode> treeNode;
   vector<size_t> extents; // # nodes in each tree.
-  size_t treeFloor; // Block-relative index of current tree floor.
 
 public:
-
-  void appendExtent(IndexT extent) {
-    extents.push_back(extent);
-  }
 
 
   void consumeNodes(const vector<DecNode>& nodes,
 		    IndexT height) {
     copy(nodes.begin(), nodes.begin() + height, back_inserter(treeNode));
-    appendExtent(height);
-  }
-
-  
-  size_t getNodeBytes() const {
-    return treeNode.size() * sizeof(DecNode);
+    extents.push_back(height);
   }
 
 
@@ -56,15 +47,9 @@ public:
   }
   
 
-  /**
-     @brief Copies treeNode contents by byte.
-
-     @param[out] nodeRaw outputs the raw contents.
-  */
-  void dumpRaw(unsigned char nodeRaw[]) const {
-    unsigned char* nodeBase = (unsigned char*) &treeNode[0];
-    for (size_t i = 0; i < treeNode.size() * sizeof(DecNode); i++) {
-      nodeRaw[i] = nodeBase[i];
+  void dump(complex<double> nodeComplex[]) const {
+    for (size_t i = 0; i < treeNode.size(); i++) {
+      treeNode[i].dump(nodeComplex[i]);
     }
   }
 
@@ -86,8 +71,8 @@ public:
    @brief Manages the crescent factor blocks.
  */
 class FBCresc {
-  vector<unsigned int> fac;  // Factor-encoding bit vector.
-  vector<size_t> extents; // Extent of bit encoding, per tree.
+  vector<BVSlotT> fac;  // Agglomerates per-tree factor bit vectors.
+  vector<size_t> extents; // Per-tree extent of bit encoding in BVSlotT units.
   
 public:
   
@@ -96,7 +81,7 @@ public:
 
      @param splitBits is the bit vector.
 
-     @param bitEnd is the final bit position referenced.
+     @param bitEnd is the final referenced bit position.
    */
   void appendBits(const class BV& splitBits,
 		  size_t bitEnd);
@@ -108,7 +93,7 @@ public:
   
 
   size_t getFactorBytes() const {
-    return fac.size() * sizeof(unsigned int);
+    return fac.size() * sizeof(BVSlotT);
   }
   
 
@@ -125,8 +110,11 @@ public:
      @param[out] facRaw outputs the raw factor data.
    */
   void dumpRaw(unsigned char facRaw[]) const {
-    for (size_t i = 0; i < fac.size() * sizeof(unsigned int); i++) {
-      facRaw[i] = ((unsigned char*) &fac[0])[i];
+    if (fac.empty())
+      return;
+    const unsigned char* bvRaw = reinterpret_cast<const unsigned char*>(&fac[0]);
+    for (size_t i = 0; i < fac.size() * sizeof(BVSlotT); i++) {
+      facRaw[i] = bvRaw[i];
     }
   }
 };
@@ -137,20 +125,20 @@ public:
 */
 class Forest {
   const unsigned int nTree;
-  const vector<size_t> nodeExtent; // Per-tree size of node encoding. 
-  const DecNode* treeNode; // Post-training only.
-  const double* scores; // " "
+  const vector<vector<DecNode>> decNode;
+  const vector<vector<double>> scores; // " "
+  const vector<unique_ptr<BV>> factorBits;
 
-  unique_ptr<NodeCresc> nodeCresc; // Crescent node block:  training only.
+  // Crescent data structures:  training only.
+  unique_ptr<NodeCresc> nodeCresc; // Crescent node block.
   unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
-  vector<double> scoresCresc;
-
-  unique_ptr<class BVJagged> facSplit; // Consolidation of per-tree values.
+  vector<double> scoresCresc; // Crescent score block.
 
 
-  void dump(vector<vector<PredictorT> > &predTree,
-            vector<vector<double> > &splitTree,
-            vector<vector<IndexT> > &lhDelTree) const;
+
+  void dump(vector<vector<PredictorT>>& predTree,
+            vector<vector<double>>& splitTree,
+            vector<vector<IndexT>>& lhDelTree) const;
   
  public:
 
@@ -159,48 +147,37 @@ class Forest {
    */
   Forest(unsigned int nTree_) :
     nTree(nTree_),
-    treeNode(nullptr),
     nodeCresc(make_unique<NodeCresc>()),
     fbCresc(make_unique<FBCresc>()) {
   }
 
 
+  static void init(PredictorT nPred) {
+    DecNode::init(nPred);
+  }
+
+
+  static void deInit() {
+    DecNode::deInit();
+  }
+
+  
   /**
      Post-training constructor.
    */
-  Forest(unsigned int nTree_,
-	 const double nodeExtent_[],
-	 const DecNode treeNode_[],
-	 const double* scores_,
-	 const double facExtent_[],
-         unsigned int facVec[]);
-
-
-  size_t getNodeBytes() const {
-    return nodeCresc->getNodeBytes();
-  };
+  Forest(const vector<vector<DecNode>> decNode_,
+	 vector<vector<double>> scores_,
+	 vector<unique_ptr<BV>> factorBits_);
 
 
   const vector<size_t>& getFacExtents() const {
     return fbCresc->getExtents();
   }
   
-  
+
   const vector<size_t>& getNodeExtents() const {
     return nodeCresc->getExtents();
   }
-
-  /**
-     @brief Produces extent vector from numeric representation.
-
-     Front ends not supporting 64-bit integers can represent extent
-     vectors as doubles.
-
-     @return non-numeric extent vector.
-   */
-
-
-  vector<size_t> produceExtent(const double extent_[]) const;
 
 
   /**
@@ -211,7 +188,7 @@ class Forest {
 
      @return non-numeric height vector.
    */
-  vector<size_t> produceHeight(const double extent_[]) const;
+  vector<size_t> produceHeight(const vector<size_t>& extent_) const;
   
 
   const vector<double>& getScores() const {
@@ -228,40 +205,34 @@ class Forest {
   }
 
   /**
-     @brief Getter for node records.
+     @brief Getter for node record vector.
 
-     @return pointer to base of node vector.
+     @return reference to node vector.
    */
-  inline const DecNode* getNode() const {
-    return treeNode;
+  const vector<vector<DecNode>>& getNode() const {
+    return decNode;
   }
 
-  static vector<IndexRange> leafDominators(const DecNode tree[],
-					   IndexT height);
+  
+  static vector<IndexRange> leafDominators(const vector<DecNode>& tree,
+					   IndexT height = 0);
 
-  
-  vector<vector<IndexRange>> leafDominators() const {
-    vector<vector<IndexRange>> leafDom(nTree);
-    size_t extentAccum = 0;
-    for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-      leafDom[tIdx] = leafDominators(treeNode + extentAccum, nodeExtent[tIdx]);
-      extentAccum += nodeExtent[tIdx];
-    }
-    return leafDom;
+
+  /**
+     @brief Computes a vector of leaf dominators for every tree.
+   */  
+  vector<vector<IndexRange>> leafDominators() const;
+
+
+  inline const vector<unique_ptr<BV>>& getFactorBits() const {
+    return factorBits;
   }
-  
+
   
   /**
-     @brief Accessor for split encodings.
-
-     @return pointer to base of split-encoding vector.
+     @brief Obtains node count from score vector.
    */
-  inline const BVJagged* getFacSplit() const {
-    return facSplit.get();
-  }
-
-
-  size_t getScoreSize() const {
+  size_t getNodeCount() const {
     return scoresCresc.size();
   }
   
@@ -272,11 +243,8 @@ class Forest {
   }
   
 
-  /**
-     @brief Outputs raw byes of node vector.
-   */
-  void cacheNodeRaw(unsigned char rawOut[]) const {
-    nodeCresc->dumpRaw(rawOut);
+  void cacheNode(complex<double> complexOut[]) const {
+    nodeCresc->dump(complexOut);
   }
 
 
@@ -330,21 +298,14 @@ class Forest {
      @return maximum tree extent.
    */
   size_t maxTreeHeight() const;
-  
-
-  /**
-     @brief Derives tree origins from the forest height vector
-     and caches.
-
-     @return vector of per-tree node starting offsets.
-   */
-   vector<size_t> treeOrigins() const;
 
   
   /**
      @return per-tree vector of scores.
    */
-  vector<vector<double>> produceScores() const;
+  const vector<vector<double>>& getTreeScores() const {
+    return scores;
+  }
 
 
   /**
@@ -363,7 +324,7 @@ class Forest {
   void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<IndexT> > &lhDelTree,
-            vector<vector<PredictorT> > &facSplitTree) const;
+	    IndexT& dummy) const;
 };
 
 

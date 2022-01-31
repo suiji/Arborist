@@ -47,27 +47,27 @@ SamplerR::SamplerR(unsigned int nSamp_,
 }
 
 
-void SamplerR::bridgeConsume(const SamplerBridge* bridge,
+void SamplerR::bridgeConsume(const SamplerBridge& bridge,
 			     double scale) {
-  size_t blockBytes = bridge->getBlockBytes(); // # sample bytes in chunk.
+  size_t blockBytes = bridge.getBlockBytes(); // # sample bytes in chunk.
   if (rawTop + blockBytes > static_cast<size_t>(blockRaw.length())) {
     blockRaw = move(ResizeR::resizeRaw(blockRaw, rawTop, blockBytes, scale));
   }
-  bridge->dumpRaw(&blockRaw[rawTop]);
+  bridge.dumpRaw(&blockRaw[rawTop]);
   rawTop += blockBytes;
 
-  size_t extentSize = bridge->getExtentSize();
+  size_t extentSize = bridge.getExtentSize();
   if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
     extent = move(ResizeR::resizeNum(extent, extentTop, extentSize, scale));
   }
-  bridge->dumpExtent(&extent[extentTop]);
+  bridge.dumpExtent(&extent[extentTop]);
   extentTop += extentSize;
 
-  size_t indexSize = bridge->getIndexSize();
+  size_t indexSize = bridge.getIndexSize();
   if (indexTop + indexSize > static_cast<size_t>(index.length())) {
     index = move(ResizeR::resizeNum(index, indexTop, indexSize, scale));
   }
-  bridge->dumpIndex(&index[indexTop]);
+  bridge.dumpIndex(&index[indexTop]);
   indexTop += indexSize;
 }
 

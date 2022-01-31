@@ -41,7 +41,13 @@ class PreTree {
   SampleMap terminalMap;
 
   /**
-     @brief Assigns depth-first ordering to terminal tree nodes.
+     @brief Assigns index to leaves.
+
+     Leaf ordering is currently irrelevant, from the perspective of
+     prediction, as support for premature exit is not required.  Post-
+     training adjustments to the tree, however, require the ability to
+     reconstruct sample maps at arbitrary locations.  For this reason, a
+     depth-first ordering is applied.
    */
   void setLeafIndices();
 

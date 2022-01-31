@@ -212,6 +212,10 @@ public:
 
 
 class Sampler {
+  // Experimental coarse-grained control of locality:  Not quite
+  // coding-to-cache, but almost.
+  static constexpr unsigned int locExp = 18;  // Log of locality threshold.
+
   const unsigned int nTree;
   const size_t nObs; // # training observations
   const size_t nSamp;  // # samples requested per tree.
@@ -229,9 +233,11 @@ class Sampler {
   const unique_ptr<SamplerBlock> samplerBlock;
 
   // Crescent only:
+  vector<IndexT> sCountRow; // Temporary proxy for sbCresc.
+  vector<SamplerNux> sbCresc; // Crescent block.
+  // Move to crescent Leaf:
   vector<IndexT> indexCresc; // Sample indices within leaves.
   vector<IndexT> extentCresc; // Index extent, per leaf.
-  vector<SamplerNux> sbCresc; // Crescent block.
 
 
   /**
@@ -260,6 +266,41 @@ class Sampler {
      @return SamplerBlock constructed from internal survey.
    */
   unique_ptr<SamplerBlock> readRaw(const unsigned char samplesRaw[]);
+
+  /**
+     @brief Maps an index into its bin.
+
+     @param idx is the index in question.
+
+     @return bin index.
+   */
+  static constexpr unsigned int binIdx(IndexT idx) {
+    return idx >> locExp;
+  }
+  
+
+  /**
+     @brief Bins a vector of indices for coarse locality.  Equivalent to
+     the first pass of a radix sort.
+
+     @param idx is an unordered vector of indices.
+
+     @return binned version of index vector passed.
+   */
+  static vector<unsigned int> binIndices(const vector<IndexT>& idx);
+
+
+  /**
+     @brief Tabulates a collection of indices by occurrence.
+
+     @param sampleCount tabulates the occurrence count of each index.
+
+     @return vector of sample counts.
+   */
+  static vector<IndexT> countSamples(IndexT nRow,
+				     IndexT nSamp);
+
+  
 
 
 public:
@@ -356,6 +397,11 @@ public:
 			    const double indexNum[],
 			    bool bagging);
 
+  
+  const vector<IndexT>& getSampledRows() const {
+    return sCountRow;
+  }
+  
 
   size_t getLeafCount(unsigned int tIdx) const {
     return extent[tIdx].size();
@@ -387,16 +433,17 @@ public:
 
 
   /**
-     @brief Copies samples to the block, if 'noLeaf' not specified.
+     @brief Copies terminal contents, if 'noLeaf' not specified.
    */
-  void consumeSamples(const class PreTree* pretree,
-		      const class SampleMap& smTerminal);
+  void consumeTerminals(const class PreTree* pretree,
+			const class SampleMap& smTerminal);
 
 
   /**
      @brief Computes # bytes subsumed by samples.
    */
   size_t crescBlockBytes() const;
+
 
   size_t crescExtentSize() const {
     return extentCresc.size();

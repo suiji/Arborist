@@ -65,11 +65,13 @@ PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
   rleFrame(move(rleFrame_)),
   forestBridge(move(forestBridge_)),
   nPermute(nPermute_) {
+  Forest::init(rleFrame->getNPred());
   OmpThread::init(nThread);
 }
 
 
 PredictBridge::~PredictBridge() {
+  Forest::deInit();
   OmpThread::deInit();
 }
 

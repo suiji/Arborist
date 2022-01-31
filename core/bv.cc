@@ -53,14 +53,17 @@ void BV::delEncode(const vector<IndexT>& delPos) {
 }
 
 
-BitMatrix::BitMatrix(size_t nRow_, unsigned int nCol_) :
+BitMatrix::BitMatrix(unsigned int nRow_,
+		     IndexT nCol_) :
   BV(nRow_ * Stride(nCol_)),
   nRow(nRow_),
   stride(Stride(nCol_)) {
 }
 
 
-BitMatrix::BitMatrix(const RawT raw_[], size_t nRow_, size_t nCol_) :
+BitMatrix::BitMatrix(const BVSlotT raw_[],
+		     unsigned int nRow_,
+		     IndexT nCol_) :
   BV(raw_, nRow_ * Stride(nCol_)),
   nRow(nRow_),
   stride(nRow > 0 ? Stride(nCol_) : 0) {
@@ -71,20 +74,23 @@ BitMatrix::~BitMatrix() {
 }
 
 
-void BitMatrix::dump(size_t nRow_, vector<vector<unsigned int> > &outCol) const {
+void BitMatrix::dump(unsigned int nRow_,
+		     vector<vector<BVSlotT> > &outCol) const {
   for (size_t i = 0; i < stride; i++) {
-    outCol[i] = vector<unsigned int>(nRow_);
+    outCol[i] = vector<BVSlotT>(nRow_);
     colDump(nRow_, outCol[i], i);
   }
 }
 
-void BitMatrix::colDump(size_t _nRow, vector<unsigned int> &outCol, unsigned int colIdx) const {
-  for (size_t row = 0; row < _nRow; row++)
+void BitMatrix::colDump(unsigned int nRow_,
+			vector<BVSlotT>& outCol,
+			IndexT colIdx) const {
+  for (unsigned int row = 0; row < nRow_; row++)
     outCol[row] = testBit(row, colIdx) ? 1 : 0;
 }
 
 
-BVJagged::BVJagged(const RawT raw_[],
+BVJagged::BVJagged(const BVSlotT raw_[],
 		   const vector<size_t>& rowExtent_) :
   BV(raw_, rowExtent_.back()),
   rowHeight(move(rowExtent_)),
@@ -96,8 +102,8 @@ BVJagged::~BVJagged() {
 }
 
 
-vector<vector<RawT>> BVJagged::dump() const {
-  vector<vector<RawT>> outVec(nRow);
+vector<vector<BVSlotT>> BVJagged::dump() const {
+  vector<vector<BVSlotT>> outVec(nRow);
   for (IndexT row = 0; row < nRow; row++) {
     outVec[row] = rowDumpRaw(row);
   }
@@ -108,7 +114,7 @@ vector<vector<RawT>> BVJagged::dump() const {
 /**
    @brief Exports contents for an individual row.
  */
-vector<RawT> BVJagged::rowDumpRaw(size_t rowIdx) const {
+vector<BVSlotT> BVJagged::rowDumpRaw(size_t rowIdx) const {
   unsigned int base = rowIdx == 0 ? 0 : rowHeight[rowIdx-1];
   unsigned int extent = rowHeight[rowIdx] - base;
   return dumpVec(base, extent);
