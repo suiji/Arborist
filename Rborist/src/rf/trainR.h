@@ -50,6 +50,7 @@ struct TrainRf {
   const unsigned int nSamp; // # samples per tree.
   const unsigned int nTree; // # trees under training.
   unique_ptr<class SamplerR> sampler; // Summarizes row bagging, by tree.
+  unique_ptr<class LeafR> leaf; // Summarizes sample-to-leaf mapping.
   unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
 
@@ -62,8 +63,7 @@ struct TrainRf {
      @param nTree_ is the number of trees in the block.
    */
   TrainRf(unsigned int nSamp_,
-	  unsigned int nTree_,
-	  bool thinSamples);
+	  unsigned int nTree_);
 
 
   /**
@@ -164,7 +164,8 @@ struct TrainRf {
      @param scale guesstimates a reallocation size.
    */
   void consume(const struct ForestBridge& fb,
-	       const struct SamplerBridge& sb,
+	       const struct SamplerBridge* sb,
+	       const struct LeafBridge* lb,
                unsigned int tIdx,
                unsigned int chunkSize) const;
 

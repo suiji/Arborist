@@ -16,7 +16,6 @@
 #ifndef FOREST_BRIDGE_SAMPLERBRIDGE_H
 #define FOREST_BRIDGE_SAMPLERBRIDGE_H
 
-#include "typeparam.h"
 
 #include <memory>
 #include <vector>
@@ -39,50 +38,67 @@ struct SamplerBridge {
   static size_t strideBytes(size_t nObs);
 
 
+  static unique_ptr<SamplerBridge> crescReg(const vector<double>& yTrain,
+					    unsigned int nSamp,
+					    unsigned int treeChunk);
+
+
   /**
-     @brief Regression constructor:  training.
+     @brief Regression factory:  post-training.
    */
+  static unique_ptr<SamplerBridge> readReg(const vector<double>& yTrain,
+					   unsigned int nSamp,
+					   unsigned int nTree,
+					   const double samples[],
+					   bool bagging);
+
+
   SamplerBridge(const vector<double>& yTrain,
-		IndexT nSamp,
-		unsigned int treeChunk,
-		bool thin);
+		unsigned int nSamp,
+		unsigned int treeChunk);
 
 
   /**
      @brief Regression constructor:  post-training.
    */
   SamplerBridge(const vector<double>& yTrain,
-		IndexT nSamp,
-		unsigned int nTree_,
-		bool nux,
-		unsigned char* samples,
-		const double extent[],
-		const double index[],
+		unsigned int nSamp,
+		vector<vector<class SamplerNux>> samples,
 		bool bagging);
 
 
   /**
      @brief Classification constructor:  training.
    */
-  SamplerBridge(const vector<PredictorT>& yTrain,
-		IndexT nSamp,
+  static unique_ptr<SamplerBridge> crescCtg(const vector<unsigned int>& yTrain,
+					    unsigned int nSamp,
+					    unsigned int treeChunk,
+					    unsigned int nCtg,
+					    const vector<double>& classWeight);
+
+
+  SamplerBridge(const vector<unsigned int>& yTrain,
+		unsigned int nSamp,
 		unsigned int treeChunk,
-		bool thin,
-		PredictorT nCtg,
+		unsigned int nCtg,
 		const vector<double>& classWeight);
 
 
   /**
      @brief Categorical constructor:  post-training.
    */
+  static unique_ptr<SamplerBridge> readCtg(const vector<unsigned int>& yTrain,
+					   unsigned int nCtg,
+					   unsigned int nSamp,
+					   unsigned int nTree,
+					   const double samples[],
+					   bool bagging);
+
+
   SamplerBridge(const vector<unsigned int>& yTrain,
+		unsigned int nSamp,
+		vector<vector<class SamplerNux>> samples,
 		unsigned int nCtg,
-		IndexT nSamp,
-		unsigned int nTree,
-		bool nux,
-		unsigned char* samples,
-		const double extent[],
-		const double index[],
 		bool bagging);
 
 
@@ -104,35 +120,18 @@ struct SamplerBridge {
   unsigned int getNTree() const;
 
 
-  size_t getBlockBytes() const;
+  size_t getNuxCount() const;
 
   
   /**
-     @brief Copies the sampling records to the buffer passed.
+     @brief Copies the sampling records into the buffer passed.
    */
-  void dumpRaw(unsigned char blOut[]) const;
+  void dumpNux(double nuxOut[]) const;
 
-  /**
-     @brief Copies leaf extents as doubles.
-   */
-  void dumpExtent(double extentOut[]) const;
-
-
-  size_t getExtentSize() const;
   
-  /**
-     @brief Copies sample indices as doubles.
-   */
-  void dumpIndex(double indexOut[]) const;
-
-
-  size_t getIndexSize() const;
-  
-
 private:
 
   unique_ptr<class Sampler> sampler; // Core-level instantiation.
-
 };
 
 

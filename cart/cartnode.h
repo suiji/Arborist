@@ -64,14 +64,14 @@ struct CartNode : public TreeNode {
      @brief Advancers pass through to the base class.
    */
   inline IndexT advance(const double* rowT) const {
-    return TreeNode::advance(rowT);
+    return isTerminal() ? 0 : TreeNode::advanceNum(rowT[getPredIdx()]);
   }
 
 
   inline IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
 			const IndexT* rowT,
 			unsigned int tIdx) const {
-    return TreeNode::advance(factorBits, rowT, tIdx);
+    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, rowT, tIdx);
   }
 
 
@@ -80,7 +80,7 @@ struct CartNode : public TreeNode {
 			const IndexT* rowFT,
 			const double *rowNT,
 			unsigned int tIdx) const {
-    return TreeNode::advance(predict, factorBits, rowFT, rowNT, tIdx);
+    return isTerminal() ? 0 : TreeNode::advanceMixed(predict, factorBits, rowFT, rowNT, tIdx);
   }
 };
 

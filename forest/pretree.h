@@ -31,12 +31,11 @@
 */
 class PreTree {
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
-  IndexT height; // Running count of nodes.
   IndexT leafCount; // Running count of leaves.
   vector<DecNode> nodeVec; // Vector of tree nodes.
   vector<double> scores;
   vector<double> infoLocal; // Per-predictor nonterminal split information.
-  class BV splitBits; // Bit encoding of factor splits.
+  BV splitBits; // Bit encoding of factor splits.
   size_t bitEnd; // Next free slot in factor bit vector.
   SampleMap terminalMap;
 
@@ -138,7 +137,7 @@ class PreTree {
   */
   void consume(class Train* train,
 	       Forest *forest,
-	       class Sampler* sampler) const;
+	       class Leaf* leaf) const;
 
 
   void setScore(const class SplitFrontier* sf,
@@ -167,7 +166,7 @@ class PreTree {
   
 
   inline IndexT getHeight() const {
-    return height;
+    return nodeVec.size();
   }
   
 
@@ -231,8 +230,13 @@ class PreTree {
   }
 
 
+  DecNode& getNode(IndexT ptId) {
+    return nodeVec[ptId];
+  }
+  
+
   /**
-     @brief Accounts for a block of new criteria.
+     @brief Accounts for a block of new criteria or singleton root node.
 
      Pre-existing terminal node converted to nonterminal for leading criterion.
 
@@ -240,7 +244,9 @@ class PreTree {
   */
   inline void offspring(IndexT nCrit) {
     if (nCrit > 0) {
-      height += nCrit + 1; // Two new terminals plus nCrit - 1 new nonterminals.
+      DecNode node;
+      nodeVec.insert(nodeVec.end(), nCrit + 1, node);
+      scores.insert(scores.end(), nCrit + 1, 0.0);
       leafCount++; // Two new terminals, minus one for conversion of lead criterion.
     }
   }

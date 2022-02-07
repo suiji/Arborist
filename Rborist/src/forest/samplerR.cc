@@ -31,44 +31,25 @@ const string SamplerR::strYTrain = "yTrain";
 const string SamplerR::strNSamp = "nSamp";
 const string SamplerR::strNTree = "nTree";
 const string SamplerR::strSamples = "samples";
-const string SamplerR::strExtent = "extent";
-const string SamplerR::strIndex = "index";
 
 
 SamplerR::SamplerR(unsigned int nSamp_,
-		   unsigned int nTree_,
-		   bool nux_) :
+		   unsigned int nTree_) :
   nSamp(nSamp_),
   nTree(nTree_),
-  nux(nux_),
-  rawTop(0),
-  extentTop(0),
-  indexTop(0) {
+  blockNum(NumericVector(0)),
+  nuxTop(0) {
 }
 
 
-void SamplerR::bridgeConsume(const SamplerBridge& bridge,
+void SamplerR::bridgeConsume(const SamplerBridge* bridge,
 			     double scale) {
-  size_t blockBytes = bridge.getBlockBytes(); // # sample bytes in chunk.
-  if (rawTop + blockBytes > static_cast<size_t>(blockRaw.length())) {
-    blockRaw = move(ResizeR::resizeRaw(blockRaw, rawTop, blockBytes, scale));
+  size_t nuxCount = bridge->getNuxCount();
+  if (nuxTop + nuxCount > static_cast<size_t>(blockNum.length())) {
+    blockNum = move(ResizeR::resizeNum(blockNum, nuxTop, nuxCount, scale));
   }
-  bridge.dumpRaw(&blockRaw[rawTop]);
-  rawTop += blockBytes;
-
-  size_t extentSize = bridge.getExtentSize();
-  if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
-    extent = move(ResizeR::resizeNum(extent, extentTop, extentSize, scale));
-  }
-  bridge.dumpExtent(&extent[extentTop]);
-  extentTop += extentSize;
-
-  size_t indexSize = bridge.getIndexSize();
-  if (indexTop + indexSize > static_cast<size_t>(index.length())) {
-    index = move(ResizeR::resizeNum(index, indexTop, indexSize, scale));
-  }
-  bridge.dumpIndex(&index[indexTop]);
-  indexTop += indexSize;
+  bridge->dumpNux(&blockNum[nuxTop]);
+  nuxTop += nuxCount;
 }
 
 
@@ -76,15 +57,12 @@ List SamplerR::wrap(const IntegerVector& yTrain) {
   BEGIN_RCPP
 
   List sampler = List::create(_[strYTrain] = yTrain,
-			      _[strSamples] = move(blockRaw),
+			      _[strSamples] = move(blockNum),
 			      _[strNSamp] = nSamp,
-			      _[strNTree] = nTree,
-			      _[strExtent] = move(extent),
-			      _[strIndex] = move(index)
+			      _[strNTree] = nTree
 			);
   sampler.attr("class") = "Sampler";
-  as<RawVector>(sampler[strSamples]).attr("class") = nux ? "nux" : "bits";
-  
+
   return sampler;
   END_RCPP
 }
@@ -94,14 +72,11 @@ List SamplerR::wrap(const NumericVector& yTrain) {
   BEGIN_RCPP
 
   List sampler = List::create(_[strYTrain] = yTrain,
-			      _[strSamples] = move(blockRaw),
+			      _[strSamples] = move(blockNum),
 			      _[strNSamp] = nSamp,
-			      _[strNTree] = nTree,
-			      _[strExtent] = move(extent),
-			      _[strIndex] = move(index)
+			      _[strNTree] = nTree
 			);
   sampler.attr("class") = "Sampler";
-  as<RawVector>(sampler[strSamples]).attr("class") = nux ? "nux" : "bits";
   return sampler;
   END_RCPP
 }
@@ -150,14 +125,11 @@ unique_ptr<SamplerBridge> SamplerR::unwrapNum(const List& lSampler,
 					      bool bagging) {
   NumericVector yTrain((SEXP) lSampler[strYTrain]);
   vector<double> yTrainCore(yTrain.begin(), yTrain.end());
-  return make_unique<SamplerBridge>(move(yTrainCore),
-				    as<IndexT>(lSampler[strNSamp]),
-				    as<unsigned int>(lSampler[strNTree]),
-				    as<string>(as<RawVector>(lSampler[strSamples]).attr("class")) == "nux",  
-				    Rf_isNull(lSampler[strSamples]) ? nullptr : reinterpret_cast<unsigned char*>(RawVector((SEXP) lSampler[strSamples]).begin()),
-				    Rf_isNull(lSampler[strExtent]) ? nullptr : as<NumericVector>(lSampler[strExtent]).begin(),
-				    Rf_isNull(lSampler[strIndex]) ? nullptr : as<NumericVector>(lSampler[strIndex]).begin(),
-				    bagging);
+  return SamplerBridge::readReg(move(yTrainCore),
+				as<unsigned int>(lSampler[strNSamp]),
+				as<unsigned int>(lSampler[strNTree]),
+				Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
+				bagging);
 }
 
 
@@ -166,14 +138,10 @@ unique_ptr<SamplerBridge> SamplerR::unwrapFac(const List& lSampler,
     IntegerVector yTrain((SEXP) lSampler[strYTrain]);
     IntegerVector yZero = yTrain - 1;
     vector<unsigned int> yTrainCore(yZero.begin(), yZero.end());
-
-    return make_unique<SamplerBridge>(move(yTrainCore),
-				      as<CharacterVector>(yTrain.attr("levels")).length(),
-				      as<IndexT>(lSampler[strNSamp]),
-				      as<unsigned int>(lSampler[strNTree]),
-				      as<string>(as<RawVector>(lSampler[strSamples]).attr("class")) == "nux",  
-				      Rf_isNull(lSampler[strSamples]) ? nullptr : reinterpret_cast<unsigned char*>(RawVector((SEXP) lSampler[strSamples]).begin()),
-				      Rf_isNull(lSampler[strExtent]) ? nullptr : as<NumericVector>(lSampler[strExtent]).begin(),
-				      Rf_isNull(lSampler[strIndex]) ? nullptr : as<NumericVector>(lSampler[strIndex]).begin(),
-				      bagging);
+    return SamplerBridge::readCtg(move(yTrainCore),
+				  as<CharacterVector>(yTrain.attr("levels")).length(),
+				  as<unsigned int>(lSampler[strNSamp]),
+				  as<unsigned int>(lSampler[strNTree]),
+				  Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
+				  bagging);
 }

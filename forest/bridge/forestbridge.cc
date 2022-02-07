@@ -15,7 +15,7 @@
 
 #include "forest.h"
 #include "forestbridge.h"
-#include "nodebridge.h"
+#include "decnoderw.h"
 #include "typeparam.h"
 #include "bv.h"
 
@@ -32,9 +32,9 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const double score[],
 			   const double facExtent[],
                            const unsigned char facSplit[]) {
-  forest = make_unique<Forest>(move(NodeBridge::unpackNodes(treeNode, nodeExtent, nTree)),
-			       move(NodeBridge::unpackScores(score, nodeExtent, nTree)),
-			       move(NodeBridge::unpackBits(facSplit, facExtent, nTree)));
+  forest = make_unique<Forest>(move(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree)),
+			       move(DecNodeRW::unpackScores(score, nodeExtent, nTree)),
+			       move(DecNodeRW::unpackBits(facSplit, facExtent, nTree)));
 }
 
 

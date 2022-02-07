@@ -15,6 +15,7 @@
 
 #include "samplerbridge.h"
 #include "sampler.h"
+#include "samplerrw.h"
 
 #include <memory>
 using namespace std;
@@ -35,27 +36,82 @@ unsigned int SamplerBridge::getNTree() const {
 }
 
 
-SamplerBridge::SamplerBridge(const vector<double>& yTrain,
-			     IndexT nSamp,
-			     unsigned int treeChunk,
-			     bool nux) :
-  sampler(Sampler::trainReg(yTrain, nux, nSamp, treeChunk)) {
+unique_ptr<SamplerBridge> SamplerBridge::crescReg(const vector<double>& yTrain,
+						  unsigned int nSamp,
+						  unsigned int treeChunk) {
+  SamplerNux::setMasks(yTrain.size());
+  return make_unique<SamplerBridge>(yTrain, nSamp, treeChunk);
 }
 
 
 SamplerBridge::SamplerBridge(const vector<double>& yTrain,
-			     IndexT nSamp,
-			     unsigned int nTree,
-			     bool nux,
-			     unsigned char* samples,
-			     const double extent[],
-			     const double index[],
+			     unsigned int nSamp,
+			     unsigned int treeChunk) :
+  sampler(make_unique<Sampler>(yTrain, nSamp, treeChunk)) {
+}
+
+
+unique_ptr<SamplerBridge> SamplerBridge::readReg(const vector<double>& yTrain,
+						 unsigned int nSamp,
+						 unsigned int nTree,
+						 const double samples[],
+						 bool bagging) {
+  SamplerNux::setMasks(yTrain.size());
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(SamplerRW::unpack(samples, nTree, nSamp)), bagging);
+}
+
+
+SamplerBridge::SamplerBridge(const vector<double>& yTrain,
+			     unsigned int nSamp,
+			     vector<vector<SamplerNux>> samples,
 			     bool bagging) :
-  sampler(Sampler::predictReg(yTrain, nux, samples, nSamp, nTree, extent, index, bagging)) {
+  sampler(make_unique<Sampler>(yTrain, move(samples), nSamp, bagging)) {
 }
 
 
-SamplerBridge::~SamplerBridge() {}
+unique_ptr<SamplerBridge> SamplerBridge::crescCtg(const vector<unsigned int>& yTrain,
+						  unsigned int nSamp,
+						  unsigned int treeChunk,
+						  unsigned int nCtg,
+						  const vector<double>& classWeight) {
+  SamplerNux::setMasks(yTrain.size());
+  return make_unique<SamplerBridge>(yTrain, nSamp, treeChunk, nCtg, classWeight);
+}
+
+
+SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
+			     unsigned int nSamp,
+			     unsigned int treeChunk,
+			     unsigned int nCtg,
+			     const vector<double>& classWeight) :
+  sampler(make_unique<Sampler>(yTrain, nSamp, treeChunk, nCtg, classWeight)) {
+}
+  
+
+
+unique_ptr<SamplerBridge> SamplerBridge::readCtg(const vector<unsigned int>& yTrain,
+						 unsigned int nCtg,
+						 unsigned int nSamp,
+						 unsigned int nTree,
+						 const double samples[],
+						 bool bagging) {
+  SamplerNux::setMasks(yTrain.size());
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(SamplerRW::unpack(samples, nTree, nSamp)), nCtg, bagging);
+}
+
+
+SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
+			     unsigned int nSamp,
+			     vector<vector<SamplerNux>> samples,
+			     unsigned int nCtg,
+			     bool bagging) :
+  sampler(make_unique<Sampler>(yTrain, move(samples), nSamp, nCtg, bagging)) {
+}
+
+
+SamplerBridge::~SamplerBridge() {
+  SamplerNux::unsetMasks();
+}
 
 
 Sampler* SamplerBridge::getSampler() const {
@@ -63,55 +119,11 @@ Sampler* SamplerBridge::getSampler() const {
 }
 
 
-SamplerBridge::SamplerBridge(const vector<PredictorT>& yTrain,
-			     IndexT nSamp,
-			     unsigned int treeChunk,
-			     bool nux,
-			     PredictorT nCtg,
-			     const vector<double>& classWeight) :
-  sampler(Sampler::trainCtg(yTrain, nux, nSamp, treeChunk, nCtg, classWeight)) {
-}
-  
-
-
-SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
-			     unsigned int nCtg,
-			     IndexT nSamp,
-			     unsigned int nTree,
-			     bool nux,
-			     unsigned char* samples,
-			     const double extent[],
-			     const double index[],
-			     bool bagging) :
-  sampler(Sampler::predictCtg(yTrain, nux, samples, nSamp, nTree, extent, index, nCtg, bagging)) {
+size_t SamplerBridge::getNuxCount() const {
+  return sampler->crescBagCount();
 }
 
 
-size_t SamplerBridge::getBlockBytes() const {
-  return sampler->crescBlockBytes();
-}
-
-
-size_t SamplerBridge::getExtentSize() const {
-  return sampler->crescExtentSize();
-}
-
-
-size_t SamplerBridge::getIndexSize() const {
-  return sampler->crescIndexSize();
-}
-
-
-void SamplerBridge::dumpRaw(unsigned char blOut[]) const {
-  sampler->dumpRaw(blOut);
-}
-
-
-void SamplerBridge::dumpExtent(double extentOut[]) const {
-  sampler->dumpExtent(extentOut);
-}
-
-
-void SamplerBridge::dumpIndex(double indexOut[]) const {
-  sampler->dumpIndex(indexOut);
+void SamplerBridge::dumpNux(double nuxOut[]) const {
+  sampler->dumpNux(nuxOut);
 }

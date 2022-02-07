@@ -19,7 +19,7 @@
 
 #include "typeparam.h"
 #include "valrank.h"
-#include "sampler.h" // RankCount definition only.
+#include "leaf.h" // RankCount definition only.
 
 #include <vector>
 
@@ -32,6 +32,7 @@ class Quant {
   const vector<double> quantile; // quantile values over which to predict.
   const unsigned int qCount; // caches quantile size for quick reference.
   const class Sampler* sampler;
+  const class Leaf* leaf;
   const bool empty; // if so, leave vectors empty and bail.
   const vector<vector<IndexRange>> leafDom;
   const ValRank<double> valRank;
@@ -116,7 +117,7 @@ public:
    */
   Quant(const class Forest* forest,
 	const class Predict* predict,
-	const class LeafReg* leaf,
+	const class ResponseReg* response,
 	const class RLEFrame* rleFrame,
         const vector<double>& quantile_);
 

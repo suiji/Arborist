@@ -40,24 +40,15 @@ struct SamplerR {
   static const string strNSamp;
   static const string strNTree;
   static const string strSamples; // Output field name of sample.
-  static const string strExtent;
-  static const string strIndex;
   
   const unsigned int nSamp; // # samples specified.
   const unsigned int nTree; // # trees trained.
-  const bool nux; // Style of Sample emission.
 
-  size_t rawTop; // First available index in raw buffer.
-  size_t extentTop; // " " leaf extent buffer.
-  size_t indexTop;  // " " sample index buffer.
-
-  RawVector blockRaw; // Packed bag/sample structures as raw data.
-  NumericVector extent; // Leaf extents.
-  NumericVector index; // Sample indices.
+  NumericVector blockNum;
+  size_t nuxTop; // First available index in bag buffer.
 
   SamplerR(unsigned int nSamp_,
-	   unsigned int nTree_,
-	   bool nux_);
+	   unsigned int nTree_);
 
 
   /**
@@ -69,7 +60,11 @@ struct SamplerR {
 
   
   /**
-     @brief Bundles trained bag into format suitable for front end.
+     @brief Bundles trained bag into format suitable for R.
+
+     The wrap functions are called at TrainR::summary, following which
+     'this' is deleted.  There is therefore no need to reinitialize
+     the block state.
 
      @return list containing raw data and summary information.
    */
@@ -84,7 +79,7 @@ struct SamplerR {
 
      @param scale is a fudge-factor for resizing.
    */
-  void bridgeConsume(const struct SamplerBridge& sb,
+  void bridgeConsume(const struct SamplerBridge* sb,
 		     double scale);
   
   /**

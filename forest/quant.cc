@@ -17,7 +17,8 @@
 #include "forest.h"
 #include "predict.h"
 #include "rleframe.h"
-
+#include "response.h"
+#include "sampler.h"
 #include <algorithm>
 
 const unsigned int Quant::binSize = 0x1000;
@@ -29,16 +30,17 @@ const unsigned int Quant::binSize = 0x1000;
  */
 Quant::Quant(const Forest* forest,
 	     const Predict* predict,
-	     const LeafReg* leaf,
+	     const ResponseReg* response,
 	     const RLEFrame* rleFrame,
              const vector<double>& quantile_) :
   quantile(move(quantile_)),
   qCount(quantile.size()),
   sampler(predict->getSampler()),
+  leaf(predict->getLeaf()),
   empty(!sampler->hasSamples() || quantile.empty()),
-  leafDom(empty ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
-  valRank(ValRank<double>(&leaf->getYTrain()[0], empty ? 0 : leaf->getYTrain().size())),
-  rankCount(empty ? vector<vector<vector<RankCount>>>(0) : sampler->alignRanks(valRank.rank())),
+  leafDom((empty || !predict->trapAndBail()) ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
+  valRank(ValRank<double>(&response->getYTrain()[0], empty ? 0 : response->getYTrain().size())),
+  rankCount(empty ? vector<vector<vector<RankCount>>>(0) : leaf->alignRanks(sampler, valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
   qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
@@ -77,16 +79,25 @@ vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
 void Quant::predictRow(const PredictReg* predict, size_t row) {
   vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
   IndexT totSamples = 0;
-  for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
-    IndexT nodeIdx;
-    if (predict->isNodeIdx(row, tIdx, nodeIdx)) {
-      IndexRange leafRange = leafDom[tIdx][nodeIdx];
-      for (IndexT leafIdx = leafRange.getStart(); leafIdx != leafRange.getEnd(); leafIdx++) {
+  if (predict->trapAndBail()) {
+    for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
+      IndexT nodeIdx;
+      if (predict->isNodeIdx(row, tIdx, nodeIdx)) {
+	IndexRange leafRange = leafDom[tIdx][nodeIdx];
+	for (IndexT leafIdx = leafRange.getStart(); leafIdx != leafRange.getEnd(); leafIdx++) {
+	  totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
+	}
+      }
+    }
+  }
+  else {
+    for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
+      IndexT leafIdx;
+      if (predict->isLeafIdx(row, tIdx, leafIdx)) {
 	totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
       }
     }
   }
-
   // Builds sample-count thresholds for each quantile.
   vector<double> countThreshold(qCount);
   unsigned int qSlot = 0;

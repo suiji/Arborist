@@ -40,8 +40,7 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = FALSE,
-                thinSamples = ifelse(is.factor(y), TRUE, FALSE),
+                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
                 treeBlock = 1,
                 verbose = FALSE,
                 withRepl = TRUE,
@@ -176,14 +175,11 @@
         stop("Negative weights not permitted")
     }
 
-    if (thinLeaves)
-        warning("Thin leaves feature deprecated.  Please use 'thinSamples'.")
-    
   # Quantile constraints:  regression only
     if (quantiles && is.factor(y))
         stop("Quantiles supported for regression case only")
-    if (quantiles && thinSamples)
-        stop("Thin samples insufficient for validating quantiles.")
+    if (quantiles && thinLeaves)
+        stop("Thin leaves insufficient for deriving quantiles.")
     
     if (!is.null(quantVec)) {
         if (any(quantVec > 1) || any(quantVec < 0))
@@ -243,7 +239,7 @@ RFDeep <- function(preFormat, argList) {
     training = list(
         call = match.call(),
         info = predInfo,
-        version = "0.2-3",
+        version = "0.3-0",
         diag = train[["diag"]]
     )
 
@@ -257,6 +253,7 @@ RFDeep <- function(preFormat, argList) {
     if (argList$impPermute > 0) {
         arbOut <- list(
             sampler = train$sampler,
+            leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,
             signature = preFormat$signature,
@@ -269,6 +266,7 @@ RFDeep <- function(preFormat, argList) {
     else {
         arbOut <- list(
             sampler = train$sampler,
+            leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,
             signature = preFormat$signature,

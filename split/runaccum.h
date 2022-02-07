@@ -58,7 +58,7 @@ class RunAccum : public Accum {
   double* rvZero; // Non-binary wide runs:  random variates for sampling.
 
   PredictorT implicitSlot; // Which run, if any has no explicit SR range.
-  PredictorT runCount;  // Current high watermark.
+  PredictorT obsCount; // Actual number of runs employed by splitting.
   PredictorT baseTrue; // Base of true-run slots.
   PredictorT runsTrue; // Count of true-run slots.
   PredictorT splitToken; // Cut or bits.
@@ -69,16 +69,13 @@ class RunAccum : public Accum {
      @brief Subtracts contents of top run from accumulators and sets its
      high terminal index.
 
-     'runCount' is incremented.  The value on entry is the index of
-     the next available run.
-
      @param idxEnd is the high terminal index of the run.
    */
-  inline void endRun(IndexT idxEnd) {
-    sCount -= runZero[runCount].sCount;
-    sum -= runZero[runCount].sum;
-    runZero[runCount].endRange(idxEnd);
-    runCount++;
+  inline void endRun(RunNux& nux,
+		     IndexT idxEnd) {
+    sCount -= nux.sCount;
+    sum -= nux.sum;
+    nux.endRange(idxEnd);
   }
   
   
@@ -87,7 +84,8 @@ class RunAccum : public Accum {
 
      @param sumSlic is the per-category response over the frontier node.
   */
-  void appendImplicit(const vector<double>& sumSlice = vector<double>(0));
+  PredictorT appendImplicit(PredictorT runIdx,
+			    const vector<double>& sumSlice = vector<double>(0));
 
 
   /**
@@ -105,7 +103,7 @@ class RunAccum : public Accum {
   /**
      @brief Accumulates runs for regression.
    */
-  void regRuns();
+  PredictorT regRuns();
 
   
   /**
@@ -120,9 +118,11 @@ class RunAccum : public Accum {
      @brief Accumulates runs for classification.
 
      @param sumSlice is the per-category response decomposition.
+
+     @return count of runs encountered.
   */
-  void ctgRuns(const class SFCtg* sf,
-	       const class SplitNux* cand);
+  PredictorT ctgRuns(const class SFCtg* sf,
+		     const class SplitNux* cand);
 
   
 
@@ -136,7 +136,7 @@ class RunAccum : public Accum {
      Iterates over nontrivial subsets, coded by unsigneds as bit patterns.  By
      convention, the final run is incorporated into RHS of the split, if any.
      Excluding the final run, then, the number of candidate LHS subsets is
-     '2^(runCount-1) - 1'.
+     '2^(obsCount-1) - 1'.
 
      @param ctgSum is the per-category sum of responses.
   */
@@ -151,8 +151,10 @@ class RunAccum : public Accum {
   
   /**
      @brief Sorts by random variate ut effect sampling w/o replacement.
+
+     @param runCount is the total number of runs.
    */
-  void heapRandom();
+  void heapRandom(PredictorT runCount);
 
   
   /**
@@ -197,7 +199,7 @@ public:
   /**
      @brief Overwrites leading slots with sampled subset of runs.
   */
-  void deWide();
+  PredictorT deWide(PredictorT runCount);
 
 
   /**
@@ -258,14 +260,16 @@ public:
 
      @param[in, out] rvOff accumulates wide level counts.
   */
-  void reWide(vector<double>& rvWide,
-	      IndexT& rvOff);
+  void  reWide(vector<double>& rvWide,
+	       IndexT& rvOff);
 
 
-  void initReg(IndexT runLeft);
+  void initReg(IndexT runLeft,
+	       PredictorT runIdx);
 
   
-  double* initCtg(IndexT runLeft);
+  double* initCtg(IndexT runLeft,
+		  PredictorT runIdx);
 
   
   /**
@@ -273,18 +277,21 @@ public:
 
      @param maskSense indicates whether to screen set or unset mask.
    */  
-  void regRunsMasked(const class BranchSense* branchSense,
-		     IndexT edgeRight,
-		     IndexT edgeLeft,
-		     bool maskSense);
+  PredictorT regRunsMasked(const class BranchSense* branchSense,
+			   IndexT edgeRight,
+			   IndexT edgeLeft,
+			   bool maskSense);
 
 
   /**
      @brief Writes to heap arbitrarily:  sampling w/o replacement.
 
+     @param runCount is the total number of runs.
+
      @param leadCount is the number of leading elments to reorder.
   */
-  void orderRandom(PredictorT leadCount);
+  void orderRandom(PredictorT runCount,
+		   PredictorT leadCount);
 
 
   /**
@@ -313,7 +320,7 @@ public:
      @return run count.
    */
   inline auto getRunCount() const {
-    return runCount;
+    return obsCount;
   }
 
 
@@ -323,7 +330,7 @@ public:
   
 
   inline void resetRunCount(PredictorT runCount) {
-    this->runCount = runCount;
+    this->obsCount = runCount;
   }
   
 
@@ -332,16 +339,6 @@ public:
    */
   inline auto getSafeCount() const {
     return rcSafe;
-  }
-  
-  
-  /**
-     @brief Computes "effective" run count, for sample-based splitting.
-
-     @return lesser of 'runCount' and 'maxWidth'.
-   */
-  inline PredictorT effCount() const {
-    return runCount > maxWidth ? maxWidth : runCount;
   }
 
 
@@ -370,12 +367,12 @@ public:
    */
   inline void reset(PredictorT runStart,
 		    PredictorT runIdx) {
-    if (runIdx != runCount) {
+    if (runIdx != obsCount) {
       runZero[runStart] = runZero[runIdx]; // New top value.
-      runCount = runStart + 1;
+      obsCount = runStart + 1;
     }
     else { // No new top, run-count restored.
-      runCount = runStart;
+      obsCount = runStart;
     }
   }
 
@@ -394,7 +391,8 @@ public:
 
      @param sumSlice decomposes the response by category.
    */
-  inline void residCtg(const vector<double>& sumSlice);
+  inline void residCtg(const vector<double>& sumSlice,
+		       PredictorT runIdx);
   
 
   /**
@@ -462,22 +460,22 @@ public:
 
      @param lhBits encodes sampled LH/RH slot indices as on/off bits, respectively.
 
-     @param bitRand indicates whether to complement true branch bits.
+     @param invertTest indicates whether to complement true branch bits:  EXIT.
   */
-  void leadBits(IndexT bitRand);
+  void leadBits(bool invertTest);
 
 
   /**
      @brief Determines the complement of a bit pattern of fixed size.
 
-     Equivalent to  (~subset << (32 - effCount())) >> (32 - effCount()).
+     Equivalent to  (~subset << (32 - obsCount))) >> (32 - obsCount).
      
-     @param subset is a collection of effCount()-many bits.
+     @param subset is a collection of obsCount-many bits.
 
      @return bit (ones) complement of subset.
   */
   inline unsigned int slotComplement(unsigned int subset) const {
-    return (1 << effCount()) - (subset + 1);
+    return (1 << obsCount) - (subset + 1);
   }
 
 
@@ -499,24 +497,28 @@ public:
 		    unsigned int subset) const;
 
 
-  
   /**
      @brief Emits the left-most codes as true-branch bit positions.
 
      True codes are enumerated from the left, by convention.  Implicit runs are
      guranteed not to lie on the left.
-     
-     @return vector of indices corresponding to true-branch bits.
    */
-  vector<PredictorT> getTrueBits() const;
+  void setTrueBits(class BV* splitBits,
+		   size_t bitPos) const;
 
+
+  /**
+     @brief Reports the factor codes observed at the node.
+   */
+  void setObservedBits(class BV* splitBits,
+		       size_t bitPos) const;
   
   /**
      @brief Establishes cut position of argmax factor.
 
-     @param bitRand indicates whether to complement true-branch bits.
+     @param invertTest indicates whether to complement true-branch bits:  Exit.
   */
-  void leadSlots(IndexT bitRand);
+  void leadSlots(bool invertTest);
 
 
   /**

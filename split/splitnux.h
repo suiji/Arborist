@@ -273,9 +273,17 @@ public:
     return sum;
   }
 
+  
+  /**
+     @brief Randomizes decision to invert the test at run time.
 
-  auto getRandVal() const {
-    return randVal;
+     A bit somewhat removed from the least-significant position is tested.
+     A bias has been observed in the lowest-order bits for some PRNGs.
+
+     @return true iff test is to be inverted.
+   */
+  bool invertTest() const {
+    return randVal & 0x80000000;
   }
   
   

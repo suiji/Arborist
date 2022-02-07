@@ -213,9 +213,11 @@ class Forest {
     return decNode;
   }
 
-  
-  static vector<IndexRange> leafDominators(const vector<DecNode>& tree,
-					   IndexT height = 0);
+
+  /**
+     @return vector of domininated leaf ranges, per node.
+   */
+  static vector<IndexRange> leafDominators(const vector<DecNode>& tree);
 
 
   /**
@@ -249,8 +251,8 @@ class Forest {
 
 
   void consumeTree(const vector<DecNode>& nodes,
-		   const vector<double>& scores_,
-		   IndexT height) {
+		   const vector<double>& scores_) {
+    IndexT height = nodes.size();
     nodeCresc->consumeNodes(nodes, height);
     copy(scores_.begin(), scores_.begin() + height, back_inserter(scoresCresc));
   }

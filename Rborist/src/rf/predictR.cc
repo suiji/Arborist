@@ -25,10 +25,12 @@
 
 #include "predictbridge.h"
 #include "predictR.h"
-#include "samplerbridge.h"
 #include "samplerR.h"
+#include "leafR.h"
 #include "forestR.h"
 #include "forestbridge.h"
+#include "samplerbridge.h"
+#include "leafbridge.h"
 #include "rleframeR.h"
 #include "signature.h"
 
@@ -86,9 +88,12 @@ unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
                                           vector<double> quantile) {
   unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
   unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
+  unique_ptr<SamplerBridge> samplerBridge(SamplerR::unwrap(lTrain, lDeframe, bagging));
+  unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
   return make_unique<PredictRegBridge>(move(rleFrame),
 				       move(forestBridge),
-				       move(SamplerR::unwrap(lTrain, lDeframe, bagging)),
+				       move(samplerBridge),
+				       move(leafBridge),
 				       move(regTest(sYTest)),
 				       nPermute,
 				       nThread,
@@ -211,9 +216,12 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 					     unsigned int nThread) {
   unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
   unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
+  unique_ptr<SamplerBridge>  samplerBridge(SamplerR::unwrap(lTrain, lDeframe, bagging));
+  unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
   return make_unique<PredictCtgBridge>(move(rleFrame),
 				       move(forestBridge),
-				       move(SamplerR::unwrap(lTrain, lDeframe, bagging)),
+				       move(samplerBridge),
+				       move(leafBridge),
 				       move(ctgTest(lTrain, sYTest)),
 				       permute,
 				       doProb,

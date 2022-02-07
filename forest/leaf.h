@@ -8,7 +8,7 @@
 /**
    @file leaf.h
 
-   @brief Class definitions for crescent leaf structures.
+   @brief Records sample contents of leaf nodes.
 
    @author Mark Seligman
  */
@@ -16,293 +16,187 @@
 #ifndef FOREST_LEAF_H
 #define FOREST_LEAF_H
 
-
 #include "typeparam.h"
-#include "jagged.h"
-
+#include "util.h"
 
 #include <vector>
-#include <numeric>
-#include <algorithm>
 
-
-/**
-   @brief Crescent LeafPredict implementation for training.
- */
-class Leaf {
-
-
-public:
-
-  Leaf();
-
-
-  virtual ~Leaf() {}
-
-  /**
-     @base Copies front-end vectors and lights off initializations specific to classification.
-
-     @param yCtg is the zero-indexed response vector.
-
-     @return void.
-  */
-  static unique_ptr<class LeafCtg> factoryCtg(const vector<unsigned int>& yCtg,
-					      PredictorT nCtg,
-					      const vector<double>& classWeight);
-
-  
-  static unique_ptr<class LeafCtg> factoryCtg(const vector<unsigned int>& yCtg,
-					      PredictorT nCtg);
-
-  
-  static unique_ptr<class LeafReg> factoryReg(const vector<double>& yNum);
-
-  
-  /**
-     @brief Samples (bags) the response to construct the tree root.
-
-     @param frame summarizes the predictor orderings.
-   */
-  virtual unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-					      const class Sampler* sampler) const = 0;
-};
-
-
-class LeafReg : public Leaf {
-  const vector<double> yTrain; // Training response.
-
-  const double defaultPrediction; // Prediction value when no trees bagged.
-   
-  /**
-     @brief Determines mean training value.
-
-     @return mean trainig value.
-   */
-  double meanTrain() const {
-    return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
-  }
-
-
-public:
-  /**
-     @brief Regression constructor.
-
-     @param y is the training response.
-   */
-  LeafReg(const vector<double>& y);
-
-
-  ~LeafReg() = default;
-
-
-  const vector<double>& getYTrain() const {
-    return yTrain;
-  }
-  
-
-  /**
-     @brief Samples response of current tree.
-
-     @param frame summarizes the presorted observations.
-
-     @return summary of sampled response.
-   */
-  unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-				      const class Sampler* sampler) const;
-
-  
-  /**
-     @brief Derives a prediction value for an observation.
-   */
-  double predictObs(const class Predict* predict,
-		    size_t row) const;
-};
-
+using namespace std;
 
 /**
-   @brief Training members and methods for categorical response.
+   @brief Rank and sample-counts associated with sampled rows.
+
+   Client:  quantile inference.
  */
-class LeafCtg : public Leaf {
-  const vector<PredictorT> yCtg; // 0-based factor-valued response.
-  const PredictorT nCtg;
-  const vector<double> classWeight; // Category weights:  cresecent only.
-  const PredictorT defaultPrediction; // Default prediction when nothing is out-of-bag.
+class RankCount {
+  // When sampling is not weighted, the sample-count value typically
+  // requires four bits or fewer.  Packing therefore accomodates rank
+  // values well over 32 bits.
+  PackedT packed; // Packed representation of rank and sample count.
 
-
-  /**
-     @return highest probability category of default vector.
-  */
-  PredictorT ctgDefault() const;
-
+  static unsigned int rightBits; // # bits occupied by rank value.
+  static PackedT rankMask; // Mask unpacking the rank value.
 
 public:
-  /**
-     @breif Training constructor:  class weights needed.
-   */
-  LeafCtg(const vector<PredictorT>& yCtg_,
-	  PredictorT nCtg,
-	  const vector<double>& classWeight);
-
 
   /**
-     @brief Post-training constructor.
+     @brief Invoked at Sampler construction, as needed.
    */
-  LeafCtg(const vector<PredictorT>& yCtg_,
-	  PredictorT nCtg);
-
-
-  ~LeafCtg() = default;
-
-
-  inline auto getCtg(IndexT row) const {
-    return yCtg[row];
+  static void setMasks(IndexT nObs) {
+    rightBits = Util::packedWidth(nObs);
+    rankMask = (1 << rightBits) - 1;
   }
 
 
-  auto getNCtg() const {
-    return nCtg;
+  /**
+     @brief Invoked at Sampler destruction.
+   */
+  static void unsetMasks() {
+    rightBits = 0;
+    rankMask = 0;
   }
   
 
   /**
-     @brief Samples response of current tree.
+     @brief Packs statistics associated with a response.
 
-     @param frame summarizes the presorted observations.
+     @param rank is the rank of the response value.
 
-     @return summary of sampled response.
+     @param sCount is the number of times the observation was sampled.
    */
-  unique_ptr<class Sample> rootSample(const class TrainFrame* frame,
-				      const class Sampler* sampler) const;
-
-
-  /**
-     @brief As above, but derives category boundary coordinates of a leaf.
-  */
-  void ctgBounds(const class Predict* predict,
-		 unsigned int tIdx,
-		 IndexT leafIdx,
-		 size_t& start,
-		 size_t& end) const;
-
-  
-  PredictorT predictObs(const class Predict* predict,
-			size_t row,
-			PredictorT* census) const;
-  
-  
-  PredictorT argMaxJitter(const IndexT* census,
-			  const double* jitter) const;
-
-
-  /**
-     @brief Constructs a vector of default probabilities.
-
-     @param leaf is the forest leaf object.
-
-     @return empircal cdf over training response categories.
-  */
-  vector<double> defaultProb() const;
-};
-
-
-/**
-   @brief Specialization providing a subscript operation.
- */
-template<>
-class Jagged3<const IndexT*, const size_t*> : public Jagged3Base<const IndexT*, const size_t*> {
-public:
-  Jagged3(const PredictorT nCtg_,
-          const unsigned int nTree_,
-          const size_t* height_,
-          const IndexT* ctgProb_) :
-    Jagged3Base<const IndexT*, const size_t*>(nCtg_, nTree_, height_, ctgProb_) {
+  void init(IndexT rank,
+            IndexT sCount) {
+    packed = rank | (sCount << rightBits);
   }
 
-  ~Jagged3() = default;
+  IndexT getRank() const {
+    return packed & rankMask;
+  }
 
 
-  /**
-     @brief Getter for indexed item.
-
-     @param idx is the item index.
-
-     @return indexed item.
-   */
-  IndexT getItem(unsigned int idx) const {
-    return items[idx];
+  IndexT getSCount() const {
+    return packed >> rightBits;
   }
 };
 
 
 /**
-   @brief Categorical probabilities associated with indivdual leaves.
-
-   Intimately accesses the raw jagged array it contains.
+   @brief Leaves are indexed by their numbering within the tree.
  */
-class CtgProb {
-  const PredictorT nCtg; // Training cardinality.
-  const vector<double> probDefault; // Forest-wide default probability.
-  vector<double> probs; // Per-row probabilties.
+struct Leaf {
+  const bool thin; // Whether the container is empty.
+
+  // Training only:
+  vector<IndexT> indexCresc; // Sample indices within leaves.
+  vector<IndexT> extentCresc; // Index extent, per leaf.
+  
+  // Post-training only:  extent, index maps fixed.
+  const vector<vector<size_t>> extent; // # sample index entries per leaf, per tree.
+  const vector<vector<vector<size_t>>> index; // sample indices per leaf, per tree.
+
+  /**
+     @brief Training factory.
+
+     @param Sampler conveys observation count, to set static packing parameters.
+   */
+  static unique_ptr<Leaf> train(IndexT nObs,
+				bool thin);
 
   
   /**
-     @brief Copies default probability vector into argument.
+     @brief Prediction factory.
 
-     @param[out] probPredict outputs the default category probabilities.
-   */
-  void applyDefault(double probPredict[]) const;
-  
+     @param Sampler guides reading of leaf contents.
+
+     @param extent gives the number of distinct samples, forest-wide.
+
+     @param index gives sample positions.
+  */
+  static unique_ptr<Leaf> predict(const class Sampler* sampler,
+				  bool thin,
+				  vector<vector<size_t>> extent,
+				  vector<vector<vector<size_t>>> index);
+
 
   /**
-     @brief Accumulates probabilities associated with a leaf.
-
-     @param[in, out] probRow accumulates (unnormalized) probabilities across leaves.
-
-     @param tIdx is the tree index.
-
-     @param leafIdx is the block-relative leaf index.
+     @brief Training constructor:  crescent structures only.
    */
-  void readLeaf(vector<IndexT>& ctgRow,
-		unsigned int tIdx,
-		IndexT leafIdx) const;
+  Leaf(bool thin_);
 
 
-public:
-  CtgProb(const class Predict* predict,
-	  const class LeafCtg* leaf,
-	  const class Sampler* sampler,
-	  bool doProb);
+  /**
+     @brief Post-training constructor:  fixed maps passed in.
+   */
+  Leaf(const class Sampler* sampler,
+       bool thin_,
+       vector<vector<size_t>> extent_,
+       vector<vector<vector<size_t>>> index_);
 
   
   /**
-     @brief Predicts probabilities across all trees.
-
-     @param row is the row number.
-
-     @param[out] probRow outputs the per-category probabilities.
+     @brief Resets static packing parameters.
    */
-  void predictRow(const class Predict* predict,
-		  size_t row,
-		  PredictorT* ctgRow);
+  ~Leaf();
 
-  bool isEmpty() const {
-    return probs.empty();
+  
+  /**
+     @brief Copies terminal contents, if 'noLeaf' not specified.
+
+     Training caches leaves in order of production.  Depth-first
+     leaf numbering requires that the sample maps be reordered.
+   */
+  void consumeTerminals(const class PreTree* pretree,
+			const class SampleMap& smTerminal);
+
+
+  /**
+     @brief Enumerates the number of samples at each leaf's category.
+
+     'probSample' is the only client.
+
+     @return 3-d vector category counts, indexed by tree/leaf/ctg.
+   */
+  vector<vector<vector<size_t>>> countLeafCtg(const class Sampler* sampler,
+					      const class ResponseCtg* response) const;
+
+
+  /**
+     @brief Count samples at each rank, per leaf, per tree:  regression.
+
+     @param row2Rank is the ranked training outcome.
+
+     @return 3-d mapping as described.
+   */
+  vector<vector<vector<RankCount>>> alignRanks(const class Sampler* sampler,
+					       const vector<IndexT>& row2Rank) const;
+
+
+  /**
+     @return # leaves at a given tree index.
+   */
+  size_t getLeafCount(unsigned int tIdx) const {
+    return extent[tIdx].size();
   }
 
-  
-  /**
-     @brief Getter for probability vector.
-   */
-  const vector<double>& getProb() {
-    return probs;
+
+  const vector<IndexT>& getExtentCresc() const {
+    return extentCresc;
   }
 
+
+  const vector<IndexT>& getIndexCresc() const {
+    return indexCresc;
+  }
   
-  /**
-     @brief Dumps the probability cells.
-   */
-  void dump() const;
+  
+  const vector<size_t>& getExtents(unsigned int tIdx) const {
+    return extent[tIdx];
+  }
+
+
+  const vector<vector<size_t>>& getIndices(unsigned int tIdx) const {
+    return index[tIdx];
+  }
 };
-
 
 #endif

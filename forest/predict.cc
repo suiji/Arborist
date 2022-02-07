@@ -13,6 +13,7 @@
    @author Mark Seligman
  */
 
+#include "leaf.h"
 #include "sampler.h"
 #include "forest.h"
 #include "predict.h"
@@ -22,7 +23,7 @@
 #include "ompthread.h"
 #include "rleframe.h"
 #include "bheap.h"
-#include "leaf.h"
+#include "response.h"
 
 #include <cmath>
 const size_t Predict::scoreChunk = 0x2000;
@@ -31,10 +32,13 @@ const unsigned int Predict::seqChunk = 0x20;
 
 Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
+		 const Leaf* leaf_,
 		 RLEFrame* rleFrame_,
 		 bool testing_,
 		 unsigned int nPermute_) :
+  trapUnseen(false),
   sampler(sampler_),
+  leaf(leaf_),
   cNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
   rleFrame(rleFrame_),
@@ -57,12 +61,13 @@ Predict::Predict(const Forest* forest,
 
 PredictReg::PredictReg(const Forest* forest,
 		       const Sampler* sampler_,
+		       const Leaf* leaf_,
 		       RLEFrame* rleFrame,
 		       const vector<double>& yTest_,
 		       unsigned int nPermute_,
 		       const vector<double>& quantile) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_),
-  leaf(reinterpret_cast<const LeafReg*>(sampler->getLeaf())),
+  Predict(forest, sampler_, leaf_, rleFrame, !yTest_.empty(), nPermute_),
+  response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
   yTest(move(yTest_)),
   yPred(vector<double>(nRow)),
   yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
@@ -70,7 +75,7 @@ PredictReg::PredictReg(const Forest* forest,
   accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(make_unique<Quant>(forest, this, leaf, rleFrame, move(quantile))),
+  quant(make_unique<Quant>(forest, this, response, rleFrame, move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {
@@ -79,17 +84,18 @@ PredictReg::PredictReg(const Forest* forest,
 
 PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
+		       const Leaf* leaf_,
 		       RLEFrame* rleFrame,
 		       const vector<PredictorT>& yTest_,
 		       unsigned int nPermute_,
 		       bool doProb) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_),
-  leaf(reinterpret_cast<const LeafCtg*>(sampler->getLeaf())),
+  Predict(forest, sampler_, leaf_, rleFrame, !yTest_.empty(), nPermute_),
+  response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
   yTest(move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
-  nCtgTrain(leaf->getNCtg()),
+  nCtgTrain(response->getNCtg()),
   nCtgMerged(testing ? 1 + *max_element(yTest.begin(), yTest.end()) : 0),
-  ctgProb(make_unique<CtgProb>(this, leaf, sampler, doProb)),
+  ctgProb(make_unique<CtgProb>(this, response, sampler, doProb)),
   // Can only predict trained categories, so census and
   // probability matrices have 'nCtgTrain' columns.
   yPermute(vector<PredictorT>(nPermute > 0 ? nRow : 0)),
@@ -212,7 +218,7 @@ void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
 
 
 unsigned int PredictReg::scoreRow(size_t row) {
-  (*yTarg)[row] = leaf->predictObs(this, row);
+  (*yTarg)[row] = response->predictObs(this, row);
   if (!quant->isEmpty()) {
     quant->predictRow(this, row);
   }
@@ -221,7 +227,7 @@ unsigned int PredictReg::scoreRow(size_t row) {
 
 
 void PredictCtg::scoreRow(size_t row) {
-  (*yTarg)[row] = leaf->predictObs(this, row, &census[ctgIdx(row)]);
+  (*yTarg)[row] = response->predictObs(this, row, &census[ctgIdx(row)]);
   if (!ctgProb->isEmpty())
     ctgProb->predictRow(this, row, &census[ctgIdx(row)]);
 }

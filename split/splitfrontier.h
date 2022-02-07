@@ -104,20 +104,36 @@ public:
   /**
      @brief Computes number of bits employed by criterion.
 
+     Placeholder bit for proxy lies one beyond the factor's cardinality and
+     remains unset for quick test exit.  To support trap-and-bail for factors,
+     the number of bits should double, allowing lookup of (in)visibility state.
+
      @return predictor cardinality plus one for proxy bit.
    */
   PredictorT critBitCount(const SplitNux& nux) const {
-    return 1 + nux.getCardinality(frame); // Unset proxy bit.
+    return 1 + nux.getCardinality(frame);
   }
 
 
   /**
      @brief Passes through to RunSet method.
 
-     @return bit offsets of factors encoding true criterion.
+     Sets bit offsets of factors encoding true criterion.
    */
-  vector<PredictorT> getTrueBits(const SplitNux& nux) const {
-    return runSet->getTrueBits(nux);
+  void setTrueBits(const SplitNux& nux,
+		   class BV* splitBits,
+		   size_t bitPos) const {
+    runSet->setTrueBits(nux, splitBits, bitPos);
+  }
+
+
+  /**
+     @brief As above, but observed bits.
+   */
+  void setObservedBits(const SplitNux& nux,
+		       class BV* splitBits,
+		       size_t bitPos) const {
+    runSet->setObservedBits(nux, splitBits, bitPos);
   }
 
 

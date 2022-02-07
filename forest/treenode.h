@@ -18,6 +18,7 @@
 #define FOREST_TREENODE_H
 
 #include "crit.h"
+#include "bv.h"
 
 #include <vector>
 #include <complex>
@@ -37,7 +38,7 @@ class TreeNode {
 protected:
 
   Crit criterion;
-
+  bool invert;
 
 public:
 
@@ -57,19 +58,39 @@ public:
      @brief Nodes must be explicitly set to non-terminal (delIdx != 0).
    */
   TreeNode() : packed(0ull),
-	       criterion(0.0) {
+	       criterion(0.0),
+	       invert(false) {
   }
 
 
   /**
-     @brief Constructor for reading numeric-valued encodings.
+     @brief Constructor for reading complex-encoded nodes.
    */
   TreeNode(complex<double> pair) :
-    packed(pair.real()),
-    criterion(pair.imag()) {
+    packed(abs(pair.real())),
+    criterion(pair.imag()),
+    invert(pair.real() < 0.0) {
   }
 
   
+  /**
+     @brief Encodes node contents as complex value.
+
+     @param[out] valOut outputs the complex encoding.
+   */
+  inline void dump(complex<double>& valOut) const {
+    valOut = complex<double>(invert ? -double(packed) : packed, criterion.getVal());
+  }
+
+  
+  /**
+     @brief Sets the invert field to the specified (randomized) sense.
+   */
+  inline void setInvert(bool invert) {
+    this->invert = invert;
+  }
+
+
   inline void setPredIdx(PredictorT predIdx) {
     packed |= predIdx;
   }
@@ -115,6 +136,22 @@ public:
   }
 
 
+  /**
+     @return delta to branch target, given test and inversion sense.
+   */
+  IndexT delInvert(bool pass) const {
+    return getDelIdx() + (invert ? (pass ? 1 : 0) : (pass ? 0 : 1));
+  }
+
+
+  /**
+     @brief As above, but ignoring inversion sense.
+   */
+  IndexT delTest(bool pass) const {
+    return getDelIdx() + (pass ? 0 : 1);
+  }
+
+  
   void critCut(const class SplitNux* nux,
 	       const class SplitFrontier* splitFrontier);
 
@@ -142,14 +179,6 @@ public:
 
 
   /**
-     @brief Dumps both members as context-independent values.
-   */
-  inline void dump(complex<double>& valOut) const {
-    valOut = complex<double>(packed, criterion.getVal());
-  }
-
-  
-  /**
      @brief Advances to next node when observations are all numerical.
 
      @param rowT is a row base within the transposed numerical set.
@@ -158,14 +187,31 @@ public:
 
      @return delta to next node, if nonterminal, else zero.
    */
-  inline IndexT advance(const double *rowT) const {
-    IndexT delIdx = getDelIdx();
-    return delIdx == 0 ? 0 : (delIdx + (rowT[getPredIdx()] <= getSplitNum() ? 0 : 1));
+  inline IndexT advanceNum(const double numVal) const {
+    return delInvert(invert ? (numVal > getSplitNum()) : (numVal <= getSplitNum()));
   }
 
-  
+
   /**
-     @brief Node advancer, as above, but for all-categorical observations.
+     @brief Advances according to a factor-based criterion.
+
+     Factor criteria are randomized during training, so inversion state may be
+     ignored.
+
+     @return delta to branch target.
+   */
+  inline IndexT advanceFactor(const BV* bits,
+			      size_t bitOffset) const {
+    return delTest(bits->testBit(bitOffset));
+  }
+  
+
+  /**
+     @brief Node advancer for all-factor observations.
+
+     Splitting for factor values is a set-membership relation.  Randomization
+     is implemented at training, making it unnecessary to read the inversion
+     sense.
 
      @param rowT holds the transposed factor-valued observations.
 
@@ -175,13 +221,19 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
-		 const IndexT* rowT,
-		 unsigned int tIdx) const;
+  IndexT advanceFactor(const vector<unique_ptr<BV>>& factorBits,
+		       const IndexT rowFT[],
+		       unsigned int tIdx) const {
+    return advanceFactor(factorBits[tIdx].get(), getBitOffset() + rowFT[getPredIdx()]);
+  }
 
-  
+
   /**
      @brief Node advancer, as above, but for mixed observation.
+
+     Splitting for factor values is a set-membership relation.  Randomization
+     is implemented at training, making it unnecessary to read the inversion
+     sense.
 
      Parameters as above, along with:
 
@@ -189,11 +241,11 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advance(const class Predict* predict,
-		 const vector<unique_ptr<class BV>>& factorBits,
-		 const IndexT* rowFT,
-		 const double *rowNT,
-		 unsigned int tIdx) const;
+  IndexT advanceMixed(const class Predict* predict,
+		      const vector<unique_ptr<class BV>>& factorBits,
+		      const IndexT* rowFT,
+		      const double *rowNT,
+		      unsigned int tIdx) const;
 
   /**
      @brief Interplates split values from fractional intermediate rank.

@@ -6,15 +6,15 @@
  */
 
 /**
-   @file nodebridge.h
+   @file decnoderw.h
 
-   @brief Front-end wrappers for core TreeNode objects.
+   @brief Core-specific packing/unpacking of external TreeNode representations.
 
    @author Mark Seligman
  */
 
-#ifndef FOREST_NODEBRIDGE_H
-#define FOREST_NODEBRIDGE_H
+#ifndef FOREST_DECNODERW_H
+#define FOREST_DECNODERW_H
 
 
 #include "decnode.h"
@@ -22,7 +22,7 @@
 #include <complex>
 #include <memory>
 
-struct NodeBridge {
+struct DecNodeRW {
 
   /**
      @brief Unpacks nodes from a paired-double representation, such as complex.

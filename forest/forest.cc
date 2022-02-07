@@ -93,10 +93,8 @@ vector<vector<IndexRange>> Forest::leafDominators() const {
 }
   
   
-vector<IndexRange> Forest::leafDominators(const vector<DecNode>& tree,
-					  IndexT height) {
-  if (height == 0)
-    height = tree.size();
+vector<IndexRange> Forest::leafDominators(const vector<DecNode>& tree) {
+  IndexT height = tree.size();
   // Gives each node the offset of its predecessor.
   vector<IndexT> delPred(height);
   for (IndexT i = 0; i < height; i++) {

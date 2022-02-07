@@ -110,9 +110,21 @@ public:
   
 
   /**
-     @return vector of codes corresponding to true-sense branch.
+     @brief Sets bits corresponding to true-sense branch.
+
+     Passes through to accumulator method.
    */
-  vector<PredictorT> getTrueBits(const class SplitNux& nux) const;
+  void setTrueBits(const class SplitNux& nux,
+		   class BV* splitBits,
+		   size_t bitPos) const;
+
+  
+  /**
+     @brief As above, but all observed bits.
+   */
+  void setObservedBits(const class SplitNux& nux,
+		       class BV* splitBits,
+		       size_t bitPos) const;
 
 
   PredictorT getRunCount(const class SplitNux* nux) const;

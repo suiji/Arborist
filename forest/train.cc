@@ -18,6 +18,8 @@
 #include "trainframe.h"
 #include "frontier.h"
 #include "pretree.h"
+#include "leaf.h"
+#include "sampler.h"
 
 #include <algorithm>
 
@@ -36,9 +38,10 @@ void Train::deInit() {
 
 unique_ptr<Train> Train::train(const TrainFrame* frame,
 			       Forest* forest,
-			       Sampler* sampler) {
+			       Sampler* sampler,
+			       Leaf* leaf) {
   auto train = make_unique<Train>(frame, forest, sampler);
-  train->trainChunk(frame);
+  train->trainChunk(frame, leaf);
   forest->splitUpdate(frame);
 
   return train;
@@ -54,12 +57,12 @@ Train::Train(const TrainFrame* frame,
 }
 
 
-void Train::trainChunk(const TrainFrame* frame) {
+void Train::trainChunk(const TrainFrame* frame, Leaf* leaf) {
   frame->obsLayout();
   unsigned int treeChunk = sampler->getNTree();
   for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
     auto treeBlock = blockProduce(frame, treeStart, min(treeStart + trainBlock, treeChunk));
-    blockConsume(treeBlock);
+    blockConsume(treeBlock, leaf);
   }
 }
 
@@ -76,9 +79,10 @@ vector<unique_ptr<PreTree>> Train::blockProduce(const TrainFrame* frame,
 }
 
  
-void Train::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock) {
+void Train::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
+			 Leaf* leaf) {
   for (auto & pretree : treeBlock) {
-    pretree->consume(this, forest, sampler);
+    pretree->consume(this, forest, leaf);
   }
 }
 

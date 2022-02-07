@@ -19,7 +19,6 @@
 #include "block.h"
 #include "typeparam.h"
 #include "bv.h"
-#include "leaf.h"
 #include "decnode.h"
 
 #include <vector>
@@ -34,8 +33,10 @@ class Predict {
 protected:
   static const size_t scoreChunk; // Score block dimension.
   static const unsigned int seqChunk;  // Effort to minimize false sharing.
-  
+
+  const bool trapUnseen; // Whether to trap unrecognized values.
   const class Sampler* sampler; // In-bag representation.
+  const class Leaf* leaf; // Sample maps.
   const vector<vector<DecNode>> cNode; // Forest-wide decision nodes.
   const vector<unique_ptr<BV>>& factorBits;
   struct RLEFrame* rleFrame; // Frame of observations.
@@ -160,6 +161,7 @@ public:
 
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
+	  const class Leaf* leaf_,
 	  struct RLEFrame* rleFrame_,
 	  bool testing_,
 	  unsigned int nPredict_);
@@ -173,8 +175,22 @@ public:
   void predict();
 
 
+  /**
+     @brief Indicates whether to exit tree prematurely when an unrecognized
+     obervation is encountered.
+   */
+  bool trapAndBail() const {
+    return trapUnseen;
+  }
+  
+
   const class Sampler* getSampler() const {
     return sampler;
+  }
+  
+
+  const class Leaf* getLeaf() const {
+    return leaf;
   }
 
 
@@ -301,7 +317,7 @@ public:
 
 
 class PredictReg : public Predict {
-  const class LeafReg* leaf;
+  const class ResponseReg* response;
   const vector<double> yTest;
   vector<double> yPred;
   vector<double> yPermute; // Reused.
@@ -328,10 +344,11 @@ class PredictReg : public Predict {
 public:
   PredictReg(const class Forest* forest_,
 	     const class Sampler* sampler_,
-	      struct RLEFrame* rleFrame_,
-	      const vector<double>& yTest_,
-	      unsigned int nPredict_,
-	      const vector<double>& quantile);
+	     const class Leaf* leaf_,
+	     struct RLEFrame* rleFrame_,
+	     const vector<double>& yTest_,
+	     unsigned int nPredict_,
+	     const vector<double>& quantile);
 
   //  ~PredictReg(); // Forward declaration:  not specified default.
 
@@ -398,9 +415,8 @@ public:
 };
 
 
-
 class PredictCtg : public Predict {
-  const class LeafCtg* leaf;
+  const class ResponseCtg* response;
   const vector<PredictorT> yTest;
   vector<PredictorT> yPred;
   const PredictorT nCtgTrain; // Cardiality of training response.
@@ -432,6 +448,7 @@ public:
 
   PredictCtg(const class Forest* forest_,
 	     const class Sampler* sampler_,
+	     const class Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<PredictorT>& yTest_,
 	     unsigned int nPredict_,

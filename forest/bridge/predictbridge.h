@@ -16,7 +16,6 @@
 #ifndef FOREST_BRIDGE_PREDICTBRIDGE_H
 #define FOREST_BRIDGE_PREDICTBRIDGE_H
 
-#include "samplerbridge.h"
 
 #include <vector>
 #include <memory>
@@ -60,9 +59,10 @@ protected:
 
 
 struct PredictRegBridge : public PredictBridge {
-  PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
-		   unique_ptr<ForestBridge> forestBridge_,
-		   unique_ptr<SamplerBridge> samplerBridge_,
+  PredictRegBridge(unique_ptr<struct RLEFrame> rleFrame_,
+		   unique_ptr<struct ForestBridge> forestBridge_,
+		   unique_ptr<struct SamplerBridge> samplerBridge_,
+		   unique_ptr<struct LeafBridge> leafBridge_,
 		   vector<double> yTest,
 		   unsigned int nPermute_,
 		   unsigned int nThread,
@@ -106,14 +106,16 @@ struct PredictRegBridge : public PredictBridge {
   
 private:
   unique_ptr<struct SamplerBridge> samplerBridge; // Local ownership.
+  unique_ptr<struct LeafBridge> leafBridge;
   unique_ptr<class PredictReg> predictRegCore;
 };
 
 
 struct PredictCtgBridge : public PredictBridge {
-  PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
-		   unique_ptr<ForestBridge> forestBridge_,
+  PredictCtgBridge(unique_ptr<struct RLEFrame> rleFrame_,
+		   unique_ptr<struct ForestBridge> forestBridge_,
 		   unique_ptr<SamplerBridge> samplerBridge_,
+		   unique_ptr<struct LeafBridge> leafBridge_,
 		   vector<unsigned int> yTest,
 		   unsigned int nPermute_,
 		   bool doProb,
@@ -159,6 +161,7 @@ struct PredictCtgBridge : public PredictBridge {
 
 private:
   unique_ptr<struct SamplerBridge> samplerBridge; // Local ownership.
+  unique_ptr<struct LeafBridge> leafBridge; // " "
   unique_ptr<class PredictCtg> predictCtgCore;
 
 

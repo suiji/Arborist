@@ -16,8 +16,9 @@
 #include "forestbridge.h"
 #include "trainbridge.h"
 #include "samplerbridge.h"
+#include "leafbridge.h"
 
-#include "leaf.h"
+#include "response.h"
 #include "train.h"
 #include "rftrain.h"
 #include "trainframe.h"
@@ -38,9 +39,13 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 }
 
 
-unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forest,
-					  const SamplerBridge& sampler) const {
-  auto trained = Train::train(trainFrame.get(), forest.getForest(), sampler.getSampler());
+unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
+					    const SamplerBridge* samplerBridge,
+					    const LeafBridge* leafBridge) const {
+  auto trained = Train::train(trainFrame.get(),
+			      forestBridge.getForest(),
+			      samplerBridge->getSampler(),
+			      leafBridge->getLeaf());
 
   return make_unique<TrainedChunk>(move(trained));
 }

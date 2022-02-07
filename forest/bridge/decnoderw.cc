@@ -6,21 +6,21 @@
  */
 
 /**
-   @file nodebridge.cc
+   @file decnoderw.cc
 
-   @brief Front-end wrapper for core-level TreeNode objects.
+   @brief Core-specific packing/unpacking of external DecNode representations.
 
    @author Mark Seligman
  */
 
-#include "nodebridge.h"
+#include "decnoderw.h"
 #include "typeparam.h"
 #include "bv.h"
 
 
 using namespace std;
 
-vector<vector<DecNode>> NodeBridge::unpackNodes(const complex<double> nodes[],
+vector<vector<DecNode>> DecNodeRW::unpackNodes(const complex<double> nodes[],
 						const double nodeExtent[],
 						unsigned int nTree) {
   vector<vector<DecNode>> treeNodes(nTree);
@@ -35,7 +35,7 @@ vector<vector<DecNode>> NodeBridge::unpackNodes(const complex<double> nodes[],
 }
 
 
-vector<vector<double>> NodeBridge::unpackScores(const double scores[],
+vector<vector<double>> DecNodeRW::unpackScores(const double scores[],
 						const double nodeExtent[],
 						unsigned int nTree) {
   vector<vector<double>> treeScore(nTree);
@@ -49,7 +49,7 @@ vector<vector<double>> NodeBridge::unpackScores(const double scores[],
 }
 
 
-vector<unique_ptr<BV>> NodeBridge::unpackBits(const unsigned char raw[],
+vector<unique_ptr<BV>> DecNodeRW::unpackBits(const unsigned char raw[],
 					      const double extent[],
 					      unsigned int nTree) {
   vector<unique_ptr<BV>> bits;

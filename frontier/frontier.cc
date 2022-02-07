@@ -39,7 +39,7 @@ void Frontier::deImmutables() {
 unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
                                       Sampler* sampler,
 				      unsigned int tIdx) {
-  unique_ptr<Sample> sample = sampler->rootSample(frame, tIdx);
+  unique_ptr<Sample> sample = sampler->rootSample(tIdx);
   unique_ptr<Frontier> frontier = make_unique<Frontier>(frame, move(sample));
   return frontier->levels();
 }

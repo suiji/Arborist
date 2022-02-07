@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "decnode.h" // Algorithm-specific typedef.
-#include "sampler.h"
 #include "forest.h"
 #include "pretree.h"
 
@@ -44,7 +43,8 @@ class Train {
 
      @param treeChunk is the number of trees in the chunk.
   */
-  void trainChunk(const class TrainFrame* frame);
+  void trainChunk(const class TrainFrame* frame,
+		  class Leaf* leaf);
   
 public:
 
@@ -79,7 +79,8 @@ public:
    */
   static unique_ptr<Train> train(const class TrainFrame* frame,
 				 class Forest* forest_,
-				 class Sampler* sampler_);
+				 class Sampler* sampler_,
+				 class Leaf* leaf);
 
 
   /**
@@ -87,7 +88,8 @@ public:
 
      @param treeBlock is a vector of Sample, PreTree pairs.
   */
-  void blockConsume(const vector<unique_ptr<PreTree>> &treeBlock);
+  void blockConsume(const vector<unique_ptr<PreTree>> &treeBlock,
+		    class Leaf* leaf);
 
 
   /**

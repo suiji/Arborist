@@ -17,9 +17,6 @@
 #ifndef RF_BRIDGE_TRAINBRIDGE_H
 #define RF_BRIDGE_TRAINBRIDGE_H
 
-#include "typeparam.h"
-#include "forest.h"
-
 #include<vector>
 #include<memory>
 
@@ -38,14 +35,15 @@ struct TrainBridge {
 
      @return copy of trainFrame's predMap.
    */
-  vector<PredictorT> getPredMap() const;
+  vector<unsigned int> getPredMap() const;
 
   
   /**
      @brief Main entry for training.
    */
   unique_ptr<struct TrainedChunk> train(const class ForestBridge& forest,
-				      const class SamplerBridge& sampler) const;
+					const class SamplerBridge* sampler,
+					const class LeafBridge* leafBridge) const;
 
 
   /**
@@ -62,7 +60,7 @@ struct TrainBridge {
   /**
      @brief Registers tree-shape parameters.
   */
-  static void initTree(IndexT leafMax);
+  static void initTree(unsigned int leafMax);
 
   /**
      @brief Initializes static OMP thread state.

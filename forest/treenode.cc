@@ -58,32 +58,17 @@ void TreeNode::setQuantRank(const TrainFrame* trainFrame) {
 }
 
 
-IndexT TreeNode::advance(const vector<unique_ptr<BV>>& factorBits,
-			 const IndexT rowT[],
-			 unsigned int tIdx) const {
-  if (isTerminal()) {
-    return 0;
+IndexT TreeNode::advanceMixed(const Predict* predict,
+			      const vector<unique_ptr<BV>>& factorBits,
+			      const IndexT* rowFT,
+			      const double* rowNT,
+			      unsigned int tIdx) const {
+  bool isFactor;
+  IndexT blockIdx = predict->getIdx(getPredIdx(), isFactor);
+  if (isFactor) {
+    return advanceFactor(factorBits[tIdx].get(), getBitOffset() + rowFT[blockIdx]);
   }
   else {
-    IndexT bitOff = getBitOffset() + rowT[getPredIdx()];
-    return getDelIdx() + (factorBits[tIdx]->testBit(bitOff) ? 0 : 1);
-  }
-}
-
-
-IndexT TreeNode::advance(const Predict* predict,
-			 const vector<unique_ptr<BV>>& factorBits,
-			 const IndexT* rowFT,
-			 const double* rowNT,
-			 unsigned int tIdx) const {
-  if (isTerminal()) {
-    return 0;
-  }
-  else {
-    bool isFactor;
-    IndexT blockIdx = predict->getIdx(getPredIdx(), isFactor);
-    bool testVal = isFactor ? factorBits[tIdx]->testBit(getBitOffset() + rowFT[blockIdx]) :
-			       rowNT[blockIdx] <= getSplitNum();
-    return getDelIdx() + (testVal ? 0 : 1);
+    return advanceNum(rowNT[blockIdx]);
   }
 }

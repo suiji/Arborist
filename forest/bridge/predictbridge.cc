@@ -13,8 +13,10 @@
    @author Mark Seligman
 */
 
+#include "response.h"
 #include "samplerbridge.h"
 #include "sampler.h"
+#include "leafbridge.h"
 #include "predictbridge.h"
 #include "predict.h"
 #include "quant.h"
@@ -27,13 +29,15 @@
 PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 				   unique_ptr<ForestBridge> forestBridge_,
 				   unique_ptr<SamplerBridge> samplerBridge_,
+				   unique_ptr<LeafBridge> leafBridge_,
 				   vector<double> yTest,
 				   unsigned int nPermute_,
 				   unsigned int nThread,
 				   vector<double> quantile) :
   PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, move(quantile))) {
+  leafBridge(move(leafBridge_)),
+  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, move(quantile))) {
 }
 
 
@@ -44,13 +48,15 @@ PredictRegBridge::~PredictRegBridge() {
 PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				   unique_ptr<ForestBridge> forestBridge_,
 				   unique_ptr<SamplerBridge> samplerBridge_,
+				   unique_ptr<LeafBridge> leafBridge_,
 				   vector<unsigned int> yTest,
 				   unsigned int nPermute_,
 				   bool doProb,
 				   unsigned int nThread) :
   PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, doProb)) {
+  leafBridge(move(leafBridge_)),
+  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, doProb)) {
 }
 
 

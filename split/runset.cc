@@ -90,6 +90,15 @@ void RunSet::updateAccum(const SplitNux& cand) {
 }
 
 
-vector<PredictorT> RunSet::getTrueBits(const SplitNux& nux) const {
-  return runAccum[nux.getAccumIdx()].getTrueBits();
+void RunSet::setTrueBits(const SplitNux& nux,
+			 class BV* splitBits,
+			 size_t bitPos) const {
+  runAccum[nux.getAccumIdx()].setTrueBits(splitBits, bitPos);
+}
+
+
+void RunSet::setObservedBits(const SplitNux& nux,
+			     class BV* splitBits,
+			     size_t bitPos) const {
+  runAccum[nux.getAccumIdx()].setTrueBits(splitBits, bitPos);
 }
