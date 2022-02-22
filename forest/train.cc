@@ -37,11 +37,12 @@ void Train::deInit() {
 
 
 unique_ptr<Train> Train::train(const TrainFrame* frame,
+			       const Sampler* sampler,
 			       Forest* forest,
-			       Sampler* sampler,
+			       const IndexRange& treeRange,
 			       Leaf* leaf) {
-  auto train = make_unique<Train>(frame, forest, sampler);
-  train->trainChunk(frame, leaf);
+  auto train = make_unique<Train>(frame, forest);
+  train->trainChunk(frame, sampler, treeRange, leaf);
   forest->splitUpdate(frame);
 
   return train;
@@ -49,25 +50,26 @@ unique_ptr<Train> Train::train(const TrainFrame* frame,
 
 
 Train::Train(const TrainFrame* frame,
-	     Forest* forest_,
-	     Sampler* sampler_) :
+	     Forest* forest_) :
   predInfo(vector<double>(frame->getNPred())),
-  forest(forest_),
-  sampler(sampler_) {
+  forest(forest_) {
 }
 
 
-void Train::trainChunk(const TrainFrame* frame, Leaf* leaf) {
+void Train::trainChunk(const TrainFrame* frame,
+		       const Sampler * sampler,
+		       const IndexRange& treeRange,
+		       Leaf* leaf) {
   frame->obsLayout();
-  unsigned int treeChunk = sampler->getNTree();
-  for (unsigned treeStart = 0; treeStart < treeChunk; treeStart += trainBlock) {
-    auto treeBlock = blockProduce(frame, treeStart, min(treeStart + trainBlock, treeChunk));
+  for (unsigned treeStart = treeRange.getStart(); treeStart < treeRange.getEnd(); treeStart += trainBlock) {
+    auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, treeRange.getEnd()));
     blockConsume(treeBlock, leaf);
   }
 }
 
 
 vector<unique_ptr<PreTree>> Train::blockProduce(const TrainFrame* frame,
+						const Sampler* sampler,
 						unsigned int treeStart,
 						unsigned int treeEnd) const {
   vector<unique_ptr<PreTree>> block;

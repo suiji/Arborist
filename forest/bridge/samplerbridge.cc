@@ -21,13 +21,13 @@
 using namespace std;
 
 
-size_t SamplerBridge::strideBytes(size_t nObs) {
-  return BitMatrix::strideBytes(nObs);
+size_t SamplerBridge::getNObs() const {
+  return sampler->getNObs();
 }
 
 
-unsigned int SamplerBridge::getNObs() const {
-  return sampler->getNObs();
+size_t SamplerBridge::getNSamp() const {
+  return sampler->getNSamp();
 }
 
 
@@ -36,72 +36,98 @@ unsigned int SamplerBridge::getNTree() const {
 }
 
 
-unique_ptr<SamplerBridge> SamplerBridge::crescReg(const vector<double>& yTrain,
-						  unsigned int nSamp,
-						  unsigned int treeChunk) {
+unique_ptr<SamplerBridge> SamplerBridge::preSample(size_t nSamp,
+						   size_t nObs,
+						   unsigned int nTree) {
+  SamplerNux::setMasks(nObs);
+  return make_unique<SamplerBridge>(nSamp, nObs, nTree);
+}
+
+
+SamplerBridge::SamplerBridge(size_t nSamp,
+			     size_t nObs,
+			     unsigned int nTree) :
+  sampler(make_unique<Sampler>(nSamp, nObs, nTree)) {
+}
+
+// EXIT:  EFfects indistinguishable from readReg().
+unique_ptr<SamplerBridge> SamplerBridge::trainReg(const vector<double>& yTrain,
+						  size_t nSamp,
+						  unsigned int nTree,
+						  const double samples[]) {
   SamplerNux::setMasks(yTrain.size());
-  return make_unique<SamplerBridge>(yTrain, nSamp, treeChunk);
+  vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree);
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(nux));
 }
 
 
 SamplerBridge::SamplerBridge(const vector<double>& yTrain,
-			     unsigned int nSamp,
-			     unsigned int treeChunk) :
-  sampler(make_unique<Sampler>(yTrain, nSamp, treeChunk)) {
+			     size_t nSamp,
+			     vector<vector<SamplerNux>> samples) :
+  sampler(make_unique<Sampler>(yTrain, nSamp, move(samples))) {
+}
+
+
+void SamplerBridge::sample(unsigned int nRep) {
+  sampler->sample(nRep);
 }
 
 
 unique_ptr<SamplerBridge> SamplerBridge::readReg(const vector<double>& yTrain,
-						 unsigned int nSamp,
+						 size_t nSamp,
 						 unsigned int nTree,
 						 const double samples[],
 						 bool bagging) {
   SamplerNux::setMasks(yTrain.size());
-  return make_unique<SamplerBridge>(yTrain, nSamp, move(SamplerRW::unpack(samples, nTree, nSamp)), bagging);
+  vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree);
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(nux), bagging);
 }
 
 
 SamplerBridge::SamplerBridge(const vector<double>& yTrain,
-			     unsigned int nSamp,
+			     size_t nSamp,
 			     vector<vector<SamplerNux>> samples,
 			     bool bagging) :
   sampler(make_unique<Sampler>(yTrain, move(samples), nSamp, bagging)) {
 }
 
 
-unique_ptr<SamplerBridge> SamplerBridge::crescCtg(const vector<unsigned int>& yTrain,
-						  unsigned int nSamp,
-						  unsigned int treeChunk,
+unique_ptr<SamplerBridge> SamplerBridge::trainCtg(const vector<unsigned int>& yTrain,
+						  size_t nSamp,
+						  unsigned int nTree,
+						  const double samples[],
 						  unsigned int nCtg,
 						  const vector<double>& classWeight) {
   SamplerNux::setMasks(yTrain.size());
-  return make_unique<SamplerBridge>(yTrain, nSamp, treeChunk, nCtg, classWeight);
+  vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree, nCtg);
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(nux), nCtg, classWeight);
 }
 
 
 SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
-			     unsigned int nSamp,
-			     unsigned int treeChunk,
+			     size_t nSamp,
+			     vector<vector<SamplerNux>> nux,
 			     unsigned int nCtg,
 			     const vector<double>& classWeight) :
-  sampler(make_unique<Sampler>(yTrain, nSamp, treeChunk, nCtg, classWeight)) {
+  sampler(make_unique<Sampler>(yTrain, nSamp, move(nux), nCtg, classWeight)) {
 }
   
 
 
 unique_ptr<SamplerBridge> SamplerBridge::readCtg(const vector<unsigned int>& yTrain,
 						 unsigned int nCtg,
-						 unsigned int nSamp,
+						 size_t nSamp,
 						 unsigned int nTree,
 						 const double samples[],
 						 bool bagging) {
   SamplerNux::setMasks(yTrain.size());
-  return make_unique<SamplerBridge>(yTrain, nSamp, move(SamplerRW::unpack(samples, nTree, nSamp)), nCtg, bagging);
+  vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree, nCtg);
+  return make_unique<SamplerBridge>(yTrain, nSamp, move(nux), nCtg, bagging);
 }
 
 
 SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
-			     unsigned int nSamp,
+			     size_t nSamp,
 			     vector<vector<SamplerNux>> samples,
 			     unsigned int nCtg,
 			     bool bagging) :
@@ -120,7 +146,7 @@ Sampler* SamplerBridge::getSampler() const {
 
 
 size_t SamplerBridge::getNuxCount() const {
-  return sampler->crescBagCount();
+  return sampler->crescCount();
 }
 
 

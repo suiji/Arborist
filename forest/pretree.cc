@@ -33,8 +33,9 @@ PreTree::PreTree(const TrainFrame* frame,
   leafCount(0),
   infoLocal(vector<double>(frame->getNPred())),
   splitBits(BV(bagCount * frame->getCardExtent())), // Vague estimate.
+  observedBits(BV(bagCount * frame->getCardExtent())),
   bitEnd(0) {
-  offspring(1);
+  offspring(0, true);
 }
 
 
@@ -92,8 +93,11 @@ void PreTree::addCriterion(const SplitFrontier* sf,
 void PreTree::critBits(const SplitFrontier* sf,
 		       const SplitNux& nux) {
   auto bitPos = bitEnd;
-  splitBits.resize(exchange(bitEnd, bitEnd + sf->critBitCount(nux)));
+  splitBits.resize(bitEnd);
+  observedBits.resize(bitEnd);
+  bitEnd += sf->critBitCount(nux);
   sf->setTrueBits(nux, &splitBits, bitPos);
+  sf->setObservedBits(nux, &observedBits, bitPos);
   getNode(nux.getPTId()).critBits(&nux, bitPos);
 }
 
@@ -116,7 +120,7 @@ void PreTree::consume(Train* train,
   train->consumeInfo(infoLocal);
   
   forest->consumeTree(nodeVec, scores);
-  forest->consumeBits(splitBits, bitEnd);
+  forest->consumeBits(splitBits, observedBits, bitEnd);
 
   leaf->consumeTerminals(this, terminalMap);
 }

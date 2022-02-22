@@ -24,8 +24,9 @@ using namespace std;
 
 struct SamplerRW {
   static vector<vector<class SamplerNux>> unpack(const double samples[],
+						 IndexT nSamp,
 						 unsigned int nTree,
-						 IndexT nSamp);
+						 PredictorT nCtg = 0);
 };
 
 #endif

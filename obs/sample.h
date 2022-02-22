@@ -18,10 +18,9 @@
 
 #include "sumcount.h"
 #include "typeparam.h"
+#include "samplenux.h"
 
 #include <vector>
-
-#include "samplenux.h" // For now.
 
 
 /**
@@ -30,8 +29,8 @@
 class Sample {
  protected:
   const IndexT nSamp; // Number of row samples requested.
-  double (Sample::* adder)(IndexT, double, IndexT, PredictorT);
-  vector<SampledNux> sampledNux; // Per-sample summary, with row-delta.
+  double (Sample::* adder)(double, const class SamplerNux&, PredictorT);
+  vector<SampleNux> sampleNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
   IndexT bagCount;
@@ -47,7 +46,8 @@ class Sample {
   */
   void bagSamples(const class Sampler* sampler,
 		  const vector<double>& y,
-		  const vector<PredictorT>& yCtg);
+		  const vector<PredictorT>& yCtg,
+		  unsigned int tIdx);
 
   
   /**
@@ -71,9 +71,10 @@ class Sample {
   static unique_ptr<class SampleCtg> factoryCtg(const class Sampler* sampler,
 						const class Response* response,
 						const vector<double>&  y,
-                                                const vector<PredictorT>& yCtg);
+                                                const vector<PredictorT>& yCtg,
+						unsigned int tIdx);
 
-  
+
   /**
      @brief Static entry for continuous response (regression).
 
@@ -83,7 +84,8 @@ class Sample {
    */
   static unique_ptr<class SampleReg>factoryReg(const class Sampler* sampler,
 					       const class Response* response,
-					       const vector<double>& y);
+					       const vector<double>& y,
+					       unsigned int tIdx);
 
 
   /**
@@ -93,7 +95,7 @@ class Sample {
    */
   Sample(const class Sampler* sampler,
 	 const class Response* response,
-	 double (Sample::* adder_)(IndexT, double, IndexT, PredictorT) = nullptr);
+	 double (Sample::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
 
   
   /**
@@ -162,7 +164,7 @@ class Sample {
     IndexT smpIdx;
     if (isSampled(row, smpIdx)) {
       *sIdx++ = smpIdx;
-      spn++->join(sampledNux[smpIdx], rank);
+      spn++->join(sampleNux[smpIdx], rank);
     }
   }
 
@@ -173,7 +175,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline IndexT getSCount(IndexT sIdx) const {
-    return sampledNux[sIdx].getSCount();
+    return sampleNux[sIdx].getSCount();
   }
 
 
@@ -183,7 +185,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline IndexT getDelRow(IndexT sIdx) const {
-    return sampledNux[sIdx].getDelRow();
+    return sampleNux[sIdx].getDelRow();
   }
 
 
@@ -193,7 +195,7 @@ class Sample {
      @param sIdx is the sample index.
    */
   inline FltVal getSum(IndexT sIdx) const {
-    return sampledNux[sIdx].getSum();
+    return sampleNux[sIdx].getSum();
   }
 
   
@@ -201,7 +203,7 @@ class Sample {
      @return response category at index passed.
    */
   inline PredictorT getCtg(IndexT sIdx) const {
-    return sampledNux[sIdx].getCtg();
+    return sampleNux[sIdx].getCtg();
   }
 };
 
@@ -226,12 +228,11 @@ struct SampleReg : public Sample {
 
      @param ctg unused, as response is not categorical.
    */
-  inline double addNode(IndexT delRow,
-			double yVal,
-                        IndexT sCount,
+  inline double addNode(double yVal,
+			const class SamplerNux& nux,
                         PredictorT ctg) {
-    sampledNux.emplace_back(delRow, yVal, sCount);
-    return sampledNux.back().getSum();
+    sampleNux.emplace_back(yVal, nux);
+    return sampleNux.back().getSum();
   }
   
 
@@ -241,7 +242,8 @@ struct SampleReg : public Sample {
      @param y is the response vector.
   */
   void bagSamples(const class Sampler* sampler,
-		  const vector<double>& y);
+		  const vector<double>& y,
+		  unsigned int tIdx);
 };
 
 
@@ -261,14 +263,12 @@ struct SampleCtg : public Sample {
 
      @return sum of sampled response values.
    */
-  inline double addNode(IndexT delRow,
-			double yVal,
-			IndexT sCount,
+  inline double addNode(double yVal,
+			const class SamplerNux& nux,
 			PredictorT ctg) {
-    sampledNux.emplace_back(delRow, yVal, sCount, ctg);
-    double ySum = sampledNux.back().getSum();
-    ctgRoot[ctg] += SumCount(ySum, sCount);
-
+    sampleNux.emplace_back(yVal, nux, ctg);
+    double ySum = sampleNux.back().getSum();
+    ctgRoot[ctg] += SumCount(ySum, sampleNux.back().getSCount());
     return ySum;
   }
   
@@ -282,7 +282,8 @@ struct SampleCtg : public Sample {
   */
   void bagSamples(const class Sampler* sampler,
 		  const vector<PredictorT>& yCtg,
-		  const vector<double>& y);
+		  const vector<double>& y,
+		  unsigned int tIdx);
 };
 
 

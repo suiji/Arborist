@@ -41,10 +41,13 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 
 unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
 					    const SamplerBridge* samplerBridge,
+					    unsigned int treeOff,
+					    unsigned int treeChunk,
 					    const LeafBridge* leafBridge) const {
   auto trained = Train::train(trainFrame.get(),
-			      forestBridge.getForest(),
 			      samplerBridge->getSampler(),
+			      forestBridge.getForest(),
+			      IndexRange(treeOff, treeChunk),
 			      leafBridge->getLeaf());
 
   return make_unique<TrainedChunk>(move(trained));

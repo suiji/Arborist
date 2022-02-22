@@ -111,7 +111,7 @@ struct RLEFrame {
 		 size_t rowStart,
 		 size_t rowExent,
 		 vector<unsigned int>& trFac,
-		 vector<double>& trNumeric);
+		 vector<double>& trNumeric) const;
   
   
   vector<RLEVal<unsigned int>> permute(unsigned int predIdx,

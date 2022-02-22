@@ -87,6 +87,11 @@ void ForestBridge::dumpFactorRaw(unsigned char facOut[]) const {
 }
 
 
+void ForestBridge::dumpFactorObserved(unsigned char obsOut[]) const {
+  forest->cacheObservedRaw(obsOut);
+}
+
+
 void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,
                         vector<vector<unsigned int> >& lhDelTree,

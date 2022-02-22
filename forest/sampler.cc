@@ -10,50 +10,72 @@
 #include "sampler.h"
 #include "callback.h"
 #include "response.h"
+#include "samplernux.h"
 
 #include <cmath>
+
 
 PackedT SamplerNux::delMask = 0;
 unsigned int SamplerNux::rightBits = 0;
 
 
+Sampler::Sampler(IndexT nSamp_,
+		 IndexT nObs_,
+		 unsigned int nTree_) :
+    nTree(nTree_),
+    nObs(nObs_),
+    nSamp(nSamp_) {
+  }
+
+  
 Sampler::Sampler(const vector<double>& yTrain,
 		 IndexT nSamp_,
-		 unsigned int treeChunk,
-		 bool bagging_) :
-  nTree(treeChunk),
+		 vector<vector<SamplerNux>> samples_) :
+  nTree(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
-  bagging(bagging_),
-  response(Response::factoryReg(yTrain)) {
+  response(Response::factoryReg(yTrain)),
+  samples(samples_) {
 }
 
 
 Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 IndexT nSamp_,
-		 unsigned int treeChunk,
+		 vector<vector<SamplerNux>> samples_,
 		 PredictorT nCtg,
-		 const vector<double>& classWeight,
-		 bool bagging_) :
-  nTree(treeChunk),
+		 const vector<double>& classWeight) :
+  nTree(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
-  bagging(bagging_),
-  response(Response::factoryCtg(yTrain, nCtg, classWeight)) {
+  response(Response::factoryCtg(yTrain, nCtg, classWeight)),
+  samples(move(samples_)) {
 }
 
 
 Sampler::Sampler(const vector<double>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
-		 bool bagging_) :
+		 bool bagging) :
   nTree(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
-  bagging(bagging_),
   response(Response::factoryReg(yTrain)),
   samples(move(samples_)),
-  bagMatrix(bagRows()) {
+  bagMatrix(bagRows(bagging)) {
+}
+
+
+Sampler::Sampler(const vector<PredictorT>& yTrain,
+		 vector<vector<SamplerNux>> samples_,
+		 IndexT nSamp_,
+		 PredictorT nCtg,
+		 bool bagging) :
+  nTree(samples_.size()),
+  nObs(yTrain.size()),
+  nSamp(nSamp_),
+  response(Response::factoryCtg(yTrain, nCtg)),
+  samples(move(samples_)),
+  bagMatrix(bagRows(bagging)) {
 }
 
 
@@ -61,7 +83,7 @@ Sampler::~Sampler() {
 }
 
 
-unique_ptr<BitMatrix> Sampler::bagRows() {
+unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
   if (!bagging)
     return make_unique<BitMatrix>(0, 0);
 
@@ -77,30 +99,20 @@ unique_ptr<BitMatrix> Sampler::bagRows() {
 }
 
 
-Sampler::Sampler(const vector<PredictorT>& yTrain,
-		 vector<vector<SamplerNux>> samples_,
-		 IndexT nSamp_,
-		 PredictorT nCtg,
-		 bool bagging_) :
-  nTree(samples_.size()),
-  nObs(yTrain.size()),
-  nSamp(nSamp_),
-  bagging(bagging_),
-  response(Response::factoryCtg(yTrain, nCtg)),
-  samples(move(samples_)),
-  bagMatrix(bagRows()) {
+void Sampler::sample(unsigned int nRep) {
+  for (unsigned int i = 0; i < nRep; i++)
+    sample();
 }
 
 
-unique_ptr<Sample> Sampler::rootSample(unsigned int tIdx) {
-  sCountRow = countSamples(nObs, nSamp);
+void Sampler::sample() {
+  vector<IndexT> sCountRow = countSamples(nObs, nSamp);
   IndexT rowPrev = 0;
   for (IndexT row = 0; row < nObs; row++) {
     if (sCountRow[row] > 0) {
       sbCresc.emplace_back(row - exchange(rowPrev, row), sCountRow[row]);
     }
   }
-  return response->rootSample(this); //, sbCresc[tIdx]
 }
 
 
@@ -108,17 +120,15 @@ unique_ptr<Sample> Sampler::rootSample(unsigned int tIdx) {
 // binning, access is random.  Larger bins improve locality, but
 // performance begins to degrade when bin size exceeds available
 // cache.
-vector<IndexT> Sampler::countSamples(IndexT nRow,
+vector<IndexT> Sampler::countSamples(IndexT nObs,
 				     IndexT nSamp) {
-  vector<IndexT> sc(nRow);
+  vector<IndexT> sc(nObs);
   vector<IndexT> idx(CallBack::sampleRows(nSamp));
   if (binIdx(sc.size()) > 0) {
     idx = binIndices(idx);
   }
     
-  //  nBagged = 0;
   for (auto index : idx) {
-    //nBagged += (sc[index] == 0 ? 1 : 0);
     sc[index]++;
   }
 
@@ -162,14 +172,29 @@ vector<unsigned int> Sampler::binIndices(const vector<unsigned int>& idx) {
 }
 
 
+unique_ptr<Sample> Sampler::rootSample(unsigned int tIdx) const {
+  return response->rootSample(this, tIdx);
+}
+
+
+vector<IndexT> Sampler::sampledRows(unsigned int tIdx) const {
+  vector<IndexT> rowsSampled(sbCresc.size());
+
+  IndexT sIdx = 0;
+  IndexT row = 0;
+  for (auto nux : sbCresc) {
+    row += nux.getDelRow();
+    rowsSampled[sIdx++] = row;
+  }
+
+  return rowsSampled;
+}
+
 # ifdef restore
 // RECAST:
 void SamplerBlock::dump(const Sampler* sampler,
 			vector<vector<size_t> >& rowTree,
 			vector<vector<IndexT> >& sCountTree) const {
-  if (raw->size() == 0)
-    return;
-
   size_t bagIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < raw->getNMajor(); tIdx++) {
     IndexT row = 0;

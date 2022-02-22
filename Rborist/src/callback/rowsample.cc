@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -23,7 +23,7 @@
    @author Mark Seligman
  */
 
-#include "rowSample.h"
+#include "rowsample.h"
 
 
 bool RowSample::withRepl = false;

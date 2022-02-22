@@ -14,6 +14,7 @@
  */
 
 
+#include "samplernux.h"
 #include "sampler.h"
 #include "response.h"
 #include "sample.h"
@@ -23,7 +24,7 @@
 
 Sample::Sample(const Sampler* sampler,
 	       const Response* response,
-	       double (Sample::* adder_)(IndexT, double, IndexT, PredictorT)) :
+	       double (Sample::* adder_)(double, const SamplerNux&, PredictorT)) :
   nSamp(sampler->getNSamp()),
   adder(adder_),
   ctgRoot(vector<SumCount>(response->getNCtg())),
@@ -35,9 +36,10 @@ Sample::Sample(const Sampler* sampler,
 unique_ptr<SampleCtg> Sample::factoryCtg(const class Sampler* sampler,
 					 const class Response* response,
 					 const vector<double>& y,
-                                         const vector<PredictorT>& yCtg) {
+                                         const vector<PredictorT>& yCtg,
+					 unsigned int tIdx) {
   unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(sampler, response);
-  sampleCtg->bagSamples(sampler, yCtg, y);
+  sampleCtg->bagSamples(sampler, yCtg, y, tIdx);
 
   return sampleCtg;
 }
@@ -45,30 +47,32 @@ unique_ptr<SampleCtg> Sample::factoryCtg(const class Sampler* sampler,
 
 unique_ptr<SampleReg> Sample::factoryReg(const Sampler* sampler,
 					 const class Response* response,
-					 const vector<double>& y) {
+					 const vector<double>& y,
+					 unsigned int tIdx) {
   unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(sampler, response);
-  sampleReg->bagSamples(sampler, y);
+  sampleReg->bagSamples(sampler, y, tIdx);
   return sampleReg;
 }
 
 
 SampleReg::SampleReg(const Sampler* sampler,
 		     const Response* response) :
-		     Sample(sampler, response, static_cast<double (Sample::*)(IndexT, double, IndexT, PredictorT)>(&SampleReg::addNode)) {
+  Sample(sampler, response, static_cast<double (Sample::*)(double, const SamplerNux&, PredictorT)>(&SampleReg::addNode)) {
 }
 
 
 
 void SampleReg::bagSamples(const class Sampler* sampler,
-			   const vector<double>& y) {
+			   const vector<double>& y,
+			   unsigned int tIdx) {
   vector<PredictorT> ctgProxy(row2Sample.size());
-  Sample::bagSamples(sampler, y, ctgProxy);
+  Sample::bagSamples(sampler, y, ctgProxy, tIdx);
 }
 
 
 SampleCtg::SampleCtg(const Sampler* sampler,
 		     const Response* response) :
-  Sample(sampler, response, static_cast<double (Sample::*)(IndexT, double, IndexT, PredictorT)>(&SampleCtg::addNode)) {
+  Sample(sampler, response, static_cast<double (Sample::*)(double, const SamplerNux&, PredictorT)>(&SampleCtg::addNode)) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -79,49 +83,40 @@ SampleCtg::SampleCtg(const Sampler* sampler,
 //
 void SampleCtg::bagSamples(const Sampler* sampler,
 			   const vector<PredictorT>& yCtg,
-			   const vector<double>& y) {
-  Sample::bagSamples(sampler, y, yCtg);
+			   const vector<double>& y,
+			   unsigned int tIdx) {
+  Sample::bagSamples(sampler, y, yCtg, tIdx);
 }
 
 
 void Sample::bagSamples(const Sampler* sampler,
 			const vector<double>&  y,
-			const vector<PredictorT>& yCtg) {
-  if (!sampler->isBagging()) {
+			const vector<PredictorT>& yCtg,
+			unsigned int tIdx) {
+  /*
+  if (!sampler->isBagging()) { // Wrong test.
     bagTrivial(y, yCtg);
     return;
   }
-
-  bagCount = 0;
-  IndexT countMax = 0;
-  const vector<IndexT>& sampledRows = sampler->getSampledRows();
-  for (IndexT count : sampledRows) {// Temporary.
-    bagCount += (count > 0);
-    if (count > countMax)
-      countMax = count;
-  }
-  SampleNux::setShifts(getNCtg(), countMax);
-  
-  // Copies contents of sampled outcomes and builds mapping vectors.
-  //
-  fill(row2Sample.begin(), row2Sample.end(), bagCount);
+  */
   IndexT sIdx = 0;
-  IndexT rowPrev = 0;
-  for (IndexT row = 0; row < row2Sample.size(); row++) {
-    if (sampledRows[row] > 0) {
-      bagSum += (this->*adder)(row - exchange(rowPrev, row), y[row], sampledRows[row], yCtg[row]);
-      row2Sample[row] = sIdx++;
-    }
+  IndexT row = 0;
+  bagCount = sampler->getExtent(tIdx);
+  fill(row2Sample.begin(), row2Sample.end(), bagCount);
+  for (SamplerNux nux : sampler->getSamples(tIdx)) {
+    row += nux.getDelRow();
+    bagSum += (this->*adder)(y[row], nux, yCtg[row]);
+    row2Sample[row] = sIdx++;
   }
 }
 
 
 void Sample::bagTrivial(const vector<double>& y,
 			const vector<PredictorT>& yCtg) {
-  SampleNux::setShifts(getNCtg(), 1);
   bagCount = row2Sample.size();
   iota(row2Sample.begin(), row2Sample.end(), 0);
+  SamplerNux nux(1, 1);
   for (IndexT row = 0; row < bagCount; row++) {
-    bagSum += (this->*adder)(1, y[row], 1, yCtg[row]);
+    bagSum += (this->*adder)(y[row], nux, yCtg[row]);
   }
 }

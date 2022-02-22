@@ -36,27 +36,31 @@
 
 #include <algorithm>
 
-RcppExport SEXP ValidateReg(const SEXP sDeframe,
+RcppExport SEXP validateReg(const SEXP sDeframe,
                             const SEXP sTrain,
+			    const SEXP sSampler,
                             SEXP sYTest,
 			    SEXP sPermute,
+			    SEXP sTrapUnobserved,
                             SEXP sNThread) {
   BEGIN_RCPP
 
-    return PBRf::predictReg(List(sDeframe), List(sTrain), sYTest, true, as<bool>(sPermute), as<unsigned int>(sNThread));
+    return PBRf::predictReg(List(sDeframe), List(sTrain), List(sSampler), sYTest, true, as<bool>(sPermute), as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
 
 
-RcppExport SEXP TestReg(const SEXP sDeframe,
+RcppExport SEXP testReg(const SEXP sDeframe,
                         const SEXP sTrain,
+			const SEXP sSampler,
                         SEXP sYTest,
                         SEXP sOOB,
+			SEXP sTrapUnobserved,
                         SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictReg(List(sDeframe), List(sTrain), sYTest, as<bool>(sOOB), false, as<unsigned int>(sNThread));
+    return PBRf::predictReg(List(sDeframe), List(sTrain), List(sSampler), sYTest, as<bool>(sOOB), false, as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
@@ -64,13 +68,15 @@ RcppExport SEXP TestReg(const SEXP sDeframe,
 
 List PBRf::predictReg(const List& lDeframe,
 		      const List& lTrain,
+		      const List& lSampler,
 		      SEXP sYTest,
 		      bool oob,
 		      unsigned int nPermute,
+		      bool trapUnobserved,
 		      unsigned int nThread) {
   BEGIN_RCPP
 
-  unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, sYTest, oob, nPermute, nThread));
+    unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, oob, nPermute, trapUnobserved, nThread));
   pBridge->predict();
 
   return summary(lDeframe, sYTest, pBridge.get());
@@ -80,22 +86,23 @@ List PBRf::predictReg(const List& lDeframe,
 
 
 unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
-                                          const List& lTrain,
-					  SEXP sYTest,
-                                          bool bagging,
-					  unsigned int nPermute,
-                                          unsigned int nThread,
-                                          vector<double> quantile) {
-  unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
-  unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
-  unique_ptr<SamplerBridge> samplerBridge(SamplerR::unwrap(lTrain, lDeframe, bagging));
+					     const List& lTrain,
+					     const List& lSampler,
+					     SEXP sYTest,
+					     bool bagging,
+					     unsigned int nPermute,
+					     bool trapUnobserved,
+					     unsigned int nThread,
+					     vector<double> quantile) {
+  unique_ptr<SamplerBridge> samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, bagging));
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
-  return make_unique<PredictRegBridge>(move(rleFrame),
-				       move(forestBridge),
+  return make_unique<PredictRegBridge>(move(RLEFrameR::unwrap(lDeframe)),
+				       move(ForestRf::unwrap(lTrain)),
 				       move(samplerBridge),
 				       move(leafBridge),
 				       move(regTest(sYTest)),
 				       nPermute,
+				       trapUnobserved,
 				       nThread,
 				       move(quantile));
 }
@@ -140,68 +147,78 @@ List PBRf::summary(const List& lDeframe, SEXP sYTest, const PredictRegBridge* pB
 }
 
 
-RcppExport SEXP ValidateVotes(const SEXP sDeframe,
+RcppExport SEXP validateVotes(const SEXP sDeframe,
                               const SEXP sTrain,
+			      const SEXP sSampler,
                               SEXP sYTest,
 			      SEXP sPermute,
+			      SEXP sTrapUnobserved,
                               SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictCtg(List(sDeframe), List(sTrain), sYTest, true, false, as<unsigned int>(sPermute), as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sDeframe), List(sTrain), List(sSampler), sYTest, true, false, as<unsigned int>(sPermute), as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
 
 
-RcppExport SEXP ValidateProb(const SEXP sDeframe,
+RcppExport SEXP validateProb(const SEXP sDeframe,
                              const SEXP sTrain,
+			     const SEXP sSampler,
                              SEXP sYTest,
 			     SEXP sPermute,
+			     SEXP sTrapUnobserved,
                              SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictCtg(List(sDeframe), List(sTrain), sYTest, true, true, as<unsigned int>(sPermute), as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sDeframe), List(sTrain), List(sSampler), sYTest, true, true, as<unsigned int>(sPermute), as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
 
 
-RcppExport SEXP TestVotes(const SEXP sDeframe,
+RcppExport SEXP testVotes(const SEXP sDeframe,
                           const SEXP sTrain,
+			  const SEXP sSampler,
                           SEXP sYTest,
                           SEXP sOOB,
+			  SEXP sTrapUnobserved,
                           SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictCtg(List(sDeframe), List(sTrain), sYTest, as<bool>(sOOB), false, false, as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sDeframe), List(sTrain), List(sSampler), sYTest, as<bool>(sOOB), false, false, as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
   END_RCPP
 }
 
 
-RcppExport SEXP TestProb(const SEXP sDeframe,
+RcppExport SEXP testProb(const SEXP sDeframe,
                          const SEXP sTrain,
+			 const SEXP sSampler,
                          SEXP sYTest,
                          SEXP sOOB,
+			 SEXP sTrapUnobserved,
                          SEXP sNThread) {
   BEGIN_RCPP
-  return PBRf::predictCtg(List(sDeframe), List(sTrain), sYTest, as<bool>(sOOB), true, false, as<unsigned int>(sNThread));
+    return PBRf::predictCtg(List(sDeframe), List(sTrain), List(sSampler), sYTest, as<bool>(sOOB), true, false, as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
   END_RCPP
 }
 
 
 List PBRf::predictCtg(const List& lDeframe,
                       const List& lTrain,
+		      const List& lSampler,
                       SEXP sYTest,
                       bool bagging,
                       bool doProb,
 		      unsigned int permute,
+		      bool trapUnobserved,
                       unsigned int nThread) {
   BEGIN_RCPP
 
-  unique_ptr<PredictCtgBridge> pBridge(unwrapCtg(lDeframe, lTrain, sYTest, bagging, doProb, permute, nThread));
+    unique_ptr<PredictCtgBridge> pBridge(unwrapCtg(lDeframe, lTrain, lSampler, sYTest, bagging, doProb, permute, trapUnobserved, nThread));
   pBridge->predict();
 
-  return LeafCtgRf::summary(lDeframe, lTrain, pBridge.get(), sYTest);
+  return LeafCtgRf::summary(lDeframe, lSampler, pBridge.get(), sYTest);
 
   END_RCPP
 }
@@ -209,28 +226,28 @@ List PBRf::predictCtg(const List& lDeframe,
 
 unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 					     const List& lTrain,
+					     const List& lSampler,
 					     SEXP sYTest,
 					     bool bagging,
 					     bool doProb,
 					     unsigned int permute,
+					     bool trapUnobserved,
 					     unsigned int nThread) {
-  unique_ptr<RLEFrame> rleFrame(RLEFrameR::unwrap(lDeframe));
-  unique_ptr<ForestBridge> forestBridge(ForestRf::unwrap(lTrain));
-  unique_ptr<SamplerBridge>  samplerBridge(SamplerR::unwrap(lTrain, lDeframe, bagging));
+  unique_ptr<SamplerBridge>  samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, bagging));
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
-  return make_unique<PredictCtgBridge>(move(rleFrame),
-				       move(forestBridge),
+  return make_unique<PredictCtgBridge>(move(RLEFrameR::unwrap(lDeframe)),
+				       move(ForestRf::unwrap(lTrain)),
 				       move(samplerBridge),
 				       move(leafBridge),
-				       move(ctgTest(lTrain, sYTest)),
+				       move(ctgTest(lSampler, sYTest)),
 				       permute,
 				       doProb,
+				       trapUnobserved,
 				       nThread);
 }
 
 
-vector<unsigned int> PBRf::ctgTest(const List& lTrain, SEXP sYTest) {
-  List lSampler((SEXP) lTrain["sampler"]);
+vector<unsigned int> PBRf::ctgTest(const List& lSampler, SEXP sYTest) {
   if (!Rf_isNull(sYTest)) { // Makes zero-based copy.
     IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
     TestCtg testCtg(sYTest, as<CharacterVector>(yTrain.attr("levels")));
@@ -243,29 +260,33 @@ vector<unsigned int> PBRf::ctgTest(const List& lTrain, SEXP sYTest) {
 }
 
 
-RcppExport SEXP ValidateQuant(const SEXP sDeframe,
+RcppExport SEXP validateQuant(const SEXP sDeframe,
                               const SEXP sTrain,
+			      const SEXP sSampler,
                               SEXP sYTest,
 			      SEXP sPermute,
                               SEXP sQuantVec,
+			      SEXP sTrapUnobserved,
                               SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictQuant(List(sDeframe), sTrain, sQuantVec, sYTest, true, as<unsigned int>(sPermute), as<unsigned int>(sNThread));
+    return PBRf::predictQuant(List(sDeframe), sTrain, List(sSampler), sQuantVec, sYTest, true, as<unsigned int>(sPermute), as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
 
 
- RcppExport SEXP TestQuant(const SEXP sDeframe,
-                          const SEXP sTrain,
+ RcppExport SEXP testQuant(const SEXP sDeframe,
+			   const SEXP sTrain,
+			   const SEXP sSampler,
                           SEXP sQuantVec,
                           SEXP sYTest,
                           SEXP sOOB,
+			   SEXP sTrapUnobserved,
                           SEXP sNThread) {
   BEGIN_RCPP
 
-  return PBRf::predictQuant(List(sDeframe), sTrain, sQuantVec, sYTest, as<bool>(sOOB), false, as<unsigned int>(sNThread));
+    return PBRf::predictQuant(List(sDeframe), List(sTrain), List(sSampler), sQuantVec, sYTest, as<bool>(sOOB), false, as<bool>(sTrapUnobserved), as<unsigned int>(sNThread));
 
   END_RCPP
 }
@@ -273,16 +294,18 @@ RcppExport SEXP ValidateQuant(const SEXP sDeframe,
 
 List PBRf::predictQuant(const List& lDeframe,
                         const List& lTrain,
+			const List& lSampler,
                         SEXP sQuantVec,
                         SEXP sYTest,
                         bool bagging,
 			unsigned int permute,
+			bool trapUnobserved,
                         unsigned int nThread) {
   BEGIN_RCPP
 
   NumericVector quantVec(sQuantVec);
   vector<double> quantile(quantVec.begin(), quantVec.end());
-  unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, sYTest, bagging, permute, nThread, move(quantile)));
+  unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, bagging, permute, trapUnobserved, nThread, move(quantile)));
   pBridge->predict();
 
   return summary(lDeframe, sYTest, pBridge.get());
@@ -297,7 +320,7 @@ List PBRf::getPrediction(const PredictRegBridge* pBridge) {
   List prediction = List::create(
 				 _["yPred"] = pBridge->getYPred(),
 				 _["qPred"] = getQPred(pBridge),
-				 _["qEst"] = getQEst(pBridge)
+				 _["qEst"] = pBridge->getQEst()
 				 );
   prediction.attr("class") = "PredictReg";
   return prediction;
@@ -313,17 +336,6 @@ NumericMatrix PBRf::getQPred(const PredictRegBridge* pBridge) {
   auto qPred = pBridge->getQPred();
   return qPred.empty() ? NumericMatrix(0) : transpose(NumericMatrix(qPred.size() / nRow, nRow, qPred.begin()));
     
-  END_RCPP
-}
-
-
-// EXIT:  Conversion to NumericVector should be implicit from RCPP.
-NumericVector PBRf::getQEst(const PredictRegBridge* pBridge) {
-  BEGIN_RCPP
-
-  auto qEst = pBridge->getQEst();
-  return NumericVector(qEst.begin(), qEst.end());
-
   END_RCPP
 }
 
@@ -402,10 +414,9 @@ vector<unsigned int> TestCtg::reconcile(const IntegerVector& test2Merged,
 }
 
 
-List LeafCtgRf::summary(const List& lDeframe, const List& lTrain, const PredictCtgBridge* pBridge, SEXP sYTest) {
+List LeafCtgRf::summary(const List& lDeframe, const List& lSampler, const PredictCtgBridge* pBridge, SEXP sYTest) {
   BEGIN_RCPP
 
-  List lSampler((SEXP) lTrain["sampler"]);
   IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
   CharacterVector levelsTrain(as<CharacterVector>(yTrain.attr("levels")));
   CharacterVector ctgNames(Signature::unwrapRowNames(lDeframe));

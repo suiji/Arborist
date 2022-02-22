@@ -34,7 +34,12 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
-RcppExport SEXP TrainRF(const SEXP sRLEFrame,
+
+/**
+   @brief Main training entry from front end.
+ */
+RcppExport SEXP rfTrain(const SEXP sRLEFrame,
+			const SEXP sSampler,
 			const SEXP sArgList);
 
 
@@ -47,66 +52,21 @@ struct TrainRf {
 
   static bool verbose; // Whether to report progress while training.
 
-  const unsigned int nSamp; // # samples per tree.
   const unsigned int nTree; // # trees under training.
-  unique_ptr<class SamplerR> sampler; // Summarizes row bagging, by tree.
   unique_ptr<class LeafR> leaf; // Summarizes sample-to-leaf mapping.
   unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
 
 
   /**
-     @brief Cconstructor.
-
-     @param nSamp_ is the number of samples per tree.
-
-     @param nTree_ is the number of trees in the block.
+     @brief Constructor employing SamplerBridge handle.
    */
-  TrainRf(unsigned int nSamp_,
-	  unsigned int nTree_);
+  TrainRf(const struct SamplerBridge* sb);
 
 
-  /**
-     @brief Trains classification forest.
-
-     @param summaryFrame summarizes the predictor frame.
-
-     @return R-style list of trained summaries.
-  */
-  static List classification(const List& argList,
-			     const struct TrainBridge* trainBridge,
-			     vector<string>& diag);
-
-  
-  /**
-     @brief Trains regression forest.
-
-     @param summaryFrame summarizes the predictor frame.
-
-     @return R-style list of trained summaries.
-  */
-  static List regression(const List& argList,
-			 const struct TrainBridge* trainBridge,
-			 vector<string>& diag);
-
-  
-  /**
-      @brief Class weighting.
-
-      Class weighting constructs a proxy response based on category
-      frequency.  In the absence of class weighting, proxy values are
-      identical for all clasess.  The technique of class weighting is
-      not without controversy.
-
-      @param y is the (zero-based) categorical response vector.
-
-      @param classWeight are user-suppled weightings of the categories.
-
-      @return vector of scaled class weights.
-  */
-  static NumericVector ctgWeight(const IntegerVector &y,
-				 const NumericVector &classWeight);
-
+  void trainChunks(const struct SamplerBridge* sb,
+		   const struct TrainBridge* tb,
+		   bool thinLeaves);
 
 
   /**
@@ -114,7 +74,7 @@ struct TrainRf {
 
      @return remapped vector of scaled information values.
    */
-  NumericVector scaleInfo(const TrainBridge* trainBridge);
+  NumericVector scaleInfo(const TrainBridge* trainBridge) const;
 
   
   /**
@@ -142,6 +102,7 @@ struct TrainRf {
      @return list of trained forest objects.
    */
   static List train(const List& lRLEFrame,
+		    const List& lSampler,
 		    const List& argList);
 
 
@@ -153,6 +114,7 @@ struct TrainRf {
      @return R-style list of trained summaries.
    */
   static List train(const List& argList,
+		    unique_ptr<struct SamplerBridge> sb,
                     const struct RLEFrame* rleFrame);
 
   
@@ -164,7 +126,6 @@ struct TrainRf {
      @param scale guesstimates a reallocation size.
    */
   void consume(const struct ForestBridge& fb,
-	       const struct SamplerBridge* sb,
 	       const struct LeafBridge* lb,
                unsigned int tIdx,
                unsigned int chunkSize) const;
@@ -184,13 +145,7 @@ struct TrainRf {
      @return the summary.
    */
   List summarize(const TrainBridge* trainBridge,
-		 const IntegerVector& yTrain,
-		 const vector<string>& diag);
-
-  
-  List summarize(const TrainBridge* trainBridge,
-		 const NumericVector& yTrain,
-		 const vector<string>& diag);
+		 const vector<string>& diag) const;
 
   
 private:

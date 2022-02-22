@@ -29,9 +29,11 @@ Forest::Forest(vector<vector<DecNode>> decNode_,
 }
 
 
-void FBCresc::appendBits(const class BV& splitBits,
+void FBCresc::appendBits(const BV& splitBits_,
+			 const BV& observedBits_,
 			 size_t bitEnd) {
-  size_t nSlot = splitBits.appendSlots(fac, bitEnd);
+  size_t nSlot = splitBits_.appendSlots(splitBits, bitEnd);
+  (void) observedBits_.appendSlots(observedBits, bitEnd);
   extents.push_back(nSlot);
 }
 
@@ -76,6 +78,24 @@ void Forest::dump(vector<vector<PredictorT> >& pred,
       split[tIdx].push_back(decNode[tIdx][nodeIdx].getSplitNum());
     }
   }
+}
+
+
+vector<IndexT> Forest::getLeafNodes(unsigned int tIdx,
+				    IndexT extent) const {
+  vector<IndexT> leafIndices(extent);
+  IndexT nodeIdx = 0;
+  IndexT leavesSeen = 0;
+  for (auto node : decNode[tIdx]) {
+    IndexT leafIdx;
+    if (node.getLeafIdx(leafIdx)) {
+      leafIndices[leafIdx] = nodeIdx;
+      leavesSeen++;
+    }
+    nodeIdx++;
+  }
+
+  return leafIndices;
 }
 
 

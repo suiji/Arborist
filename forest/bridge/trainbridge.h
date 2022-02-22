@@ -43,6 +43,8 @@ struct TrainBridge {
    */
   unique_ptr<struct TrainedChunk> train(const class ForestBridge& forest,
 					const class SamplerBridge* sampler,
+					unsigned int treeOff,
+					unsigned int treeChunk,
 					const class LeafBridge* leafBridge) const;
 
 

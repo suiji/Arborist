@@ -37,6 +37,7 @@
                 rowWeight = NULL,
                 splitQuant = NULL,
                 thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
+                trapUnobserved = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
                 withRepl = TRUE,
@@ -75,7 +76,9 @@
   \item{rowWeight}{row weighting for initial sampling of tree.}
   \item{splitQuant}{(sub)quantile at which to place cut point for
     numerical splits}.
-  \item{thinLeaves}{bypasses creation of leaf state in order to reduce memory footprint.}
+  \item{thinLeaves}{bypasses creation of leaf state in order to reduce
+    memory footprint.}
+  \item{trapUnobserved}{specifies a prediction mode for values unobserved during training.} 
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
   \item{verbose}{indicates whether to output progress of training.}
@@ -267,6 +270,16 @@
   # quantile prediction and external tools.
   rb <- Rborist(x, y, thinLeaves = TRUE)
 
+  # Directs prediction to take a random branch on encountering
+  # values not observed during training, such as NA or an
+  # unrecognized category.
+
+  predict(rb, trapUnobserved = FALSE)
+
+  # Directs prediction to trap unobserved values, reporting a
+  # score associated with the current nonterminal tree node.
+
+  predict(rb, trapUnobserved = TRUE)
 
   # Sets splitting position for predictor 0 to far left and predictor
   # 1 to far right, others to default (median) position.

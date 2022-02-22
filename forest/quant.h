@@ -116,9 +116,9 @@ public:
      Parameters mirror simililarly-named members.
    */
   Quant(const class Forest* forest,
+	const class Leaf* leaf,
 	const class Predict* predict,
 	const class ResponseReg* response,
-	const class RLEFrame* rleFrame,
         const vector<double>& quantile_);
 
   ~Quant() = default;

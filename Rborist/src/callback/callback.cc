@@ -23,7 +23,7 @@
    @author Mark Seligman
  */
 
-#include "rowSample.h"
+#include "rowsample.h"
 #include "callback.h"
 
 using namespace std;

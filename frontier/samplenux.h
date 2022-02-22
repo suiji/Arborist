@@ -17,6 +17,7 @@
 #define CORE_SAMPLENUX_H
 
 #include "typeparam.h"
+#include "samplernux.h"
 #include "runnux.h"
 #include <vector>
 
@@ -67,24 +68,17 @@ class SampleNux {
 
      @param yVal is reponse value.
 
-     @param sampleCount (>0) is the number of times value sampled.
+     @param nux encodes sampleCount and row delta.
 
      @param ctg is the response category, if classification.
-  */ 
+  */
   SampleNux(FltVal yVal,
-            IndexT sampleCount,
+	    const SamplerNux& nux,
             PredictorT ctg = 0) :
-    packed((sampleCount << ctgBits) | ctg),
-    ySum(yVal * sampleCount) {
+    packed((PackedT(nux.getDelRow() << rightBits) | (nux.getSCount() << ctgBits) | ctg)),
+    ySum(yVal * nux.getSCount()) {
   }
 
-  SampleNux(FltVal yVal,
-	    IndexT leftVal,
-            IndexT sampleCount,
-            PredictorT ctg = 0) :
-    packed((PackedT(leftVal) << rightBits) | (sampleCount << ctgBits) | ctg),
-    ySum(yVal * sampleCount) {
-  }
 
   SampleNux() {
   }
@@ -139,22 +133,7 @@ class SampleNux {
   inline PredictorT getCtg() const {
     return packed & ctgMask;
   }
-};
 
-
-/**
-   @brief Specialized for Sampler input:  row delta value.
-
-   Unless rows are sampled with widely disparate weights, the
-   values of 'delRow' are likely to require only a few bits.
- */
-struct SampledNux : public SampleNux {
-  SampledNux(IndexT delRow,
-	     FltVal yVal,
-	     IndexT sampleCount,
-	     PredictorT ctg = 0) :
-    SampleNux(yVal, delRow, sampleCount, ctg) {
-  }
 
   inline auto getDelRow() const {
     return packed >> rightBits;

@@ -36,7 +36,8 @@ class PreTree {
   vector<double> scores;
   vector<double> infoLocal; // Per-predictor nonterminal split information.
   BV splitBits; // Bit encoding of factor splits.
-  size_t bitEnd; // Next free slot in factor bit vector.
+  BV observedBits; // Bit encoding of factor values.
+  size_t bitEnd; // Next free slot in either bit vector.
   SampleMap terminalMap;
 
   /**
@@ -242,8 +243,8 @@ class PreTree {
 
      @param nCrit is the number of criteria in the block; zero iff block preallocated.
   */
-  inline void offspring(IndexT nCrit) {
-    if (nCrit > 0) {
+  inline void offspring(IndexT nCrit, bool root = false) {
+    if (nCrit > 0 || root) {
       DecNode node;
       nodeVec.insert(nodeVec.end(), nCrit + 1, node);
       scores.insert(scores.end(), nCrit + 1, 0.0);

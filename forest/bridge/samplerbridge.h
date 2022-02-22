@@ -27,59 +27,72 @@ using namespace std;
  */
 struct SamplerBridge {
 
+  /**
+     @brief Sampling constructor.
+   */
+  SamplerBridge(size_t nObs,
+		size_t nSamp,
+		unsigned int nTree);
+
+  
   ~SamplerBridge();
 
 
   /**
-     @brief Computes stride size subsumed by a given observation count.
-
-     @return stride size, in bytes.
+     @brief Sampling entry.
    */
-  static size_t strideBytes(size_t nObs);
+  static unique_ptr<SamplerBridge> preSample(size_t nSamp,
+					     size_t nObs,
+					     unsigned int nTree);
+  
 
-
-  static unique_ptr<SamplerBridge> crescReg(const vector<double>& yTrain,
-					    unsigned int nSamp,
-					    unsigned int treeChunk);
+  /**
+     @brief Regression, training entry.
+   */
+  static unique_ptr<SamplerBridge> trainReg(const vector<double>& yTrain,
+					    size_t nSamp,
+					    unsigned int nTree,
+					    const double samples[]);
 
 
   /**
      @brief Regression factory:  post-training.
    */
   static unique_ptr<SamplerBridge> readReg(const vector<double>& yTrain,
-					   unsigned int nSamp,
+					   size_t nSamp,
 					   unsigned int nTree,
 					   const double samples[],
 					   bool bagging);
 
 
   SamplerBridge(const vector<double>& yTrain,
-		unsigned int nSamp,
-		unsigned int treeChunk);
+		size_t nSamp,
+		vector<vector<class SamplerNux>> samples);
 
 
   /**
      @brief Regression constructor:  post-training.
    */
   SamplerBridge(const vector<double>& yTrain,
-		unsigned int nSamp,
+		size_t nSamp,
 		vector<vector<class SamplerNux>> samples,
 		bool bagging);
 
 
   /**
-     @brief Classification constructor:  training.
+     @brief Classification:  training entry.
    */
-  static unique_ptr<SamplerBridge> crescCtg(const vector<unsigned int>& yTrain,
-					    unsigned int nSamp,
-					    unsigned int treeChunk,
+  static unique_ptr<SamplerBridge> trainCtg(const vector<unsigned int>& yTrain,
+					    size_t nSamp,
+					    unsigned int nTree,
+					    const double samples[],
 					    unsigned int nCtg,
 					    const vector<double>& classWeight);
 
 
   SamplerBridge(const vector<unsigned int>& yTrain,
-		unsigned int nSamp,
-		unsigned int treeChunk,
+		size_t nSamp,
+		vector<vector<class SamplerNux>> nux,
 		unsigned int nCtg,
 		const vector<double>& classWeight);
 
@@ -89,17 +102,22 @@ struct SamplerBridge {
    */
   static unique_ptr<SamplerBridge> readCtg(const vector<unsigned int>& yTrain,
 					   unsigned int nCtg,
-					   unsigned int nSamp,
+					   size_t nSamp,
 					   unsigned int nTree,
 					   const double samples[],
 					   bool bagging);
 
 
   SamplerBridge(const vector<unsigned int>& yTrain,
-		unsigned int nSamp,
+		size_t nSamp,
 		vector<vector<class SamplerNux>> samples,
 		unsigned int nCtg,
 		bool bagging);
+
+  /**
+     @brief Causes the core Sampler to sample its data.
+   */
+  void sample(unsigned int nRep);
 
 
   /**
@@ -112,8 +130,12 @@ struct SamplerBridge {
   /**
      @brief Getter for number of training rows.
    */
-  unsigned int getNObs() const;
+  size_t getNObs() const;
 
+
+  size_t getNSamp() const;
+  
+  
   /**
      @brief Getter for number of trained trees.
    */

@@ -371,7 +371,7 @@ class BitMatrix : public BV {
   
   ~BitMatrix();
 
-  
+
   inline size_t getNRow() const {
     return nRow;
   }

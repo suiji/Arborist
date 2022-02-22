@@ -14,17 +14,12 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristR.  If not, see <http://www.gnu.org/licenses/>.
-Streamline <- function(rs) {
-  if (!inherits(rs, "Rborist"))
-    stop("object not of class Rborist")
-  if (is.null(rs$sampler))
-    stop("Sampler state needed for prediction")
-  rb <- rs
-  rb$sampler <- list(
-      yTrain = rs$yTrain,
-      samplerBlock= raw(0),
-      nTree = rs$sampler$nTree
-      )
+#
+#
+# Checks argument semantics and initializes state for deep call.
+#
 
-  rb
+rfarb <- function(x, y, ...) {
+    Rborist.default(x, y, ...)
 }
+

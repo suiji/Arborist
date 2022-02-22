@@ -33,7 +33,6 @@ class Train {
 
   vector<double> predInfo; // E.g., Gini gain:  nPred.
   class Forest* forest; // Crescent-state forest block.
-  class Sampler* sampler; // Crescent-state sampler.
 
 
   /**
@@ -44,6 +43,8 @@ class Train {
      @param treeChunk is the number of trees in the chunk.
   */
   void trainChunk(const class TrainFrame* frame,
+		  const class Sampler* sampler,
+		  const IndexRange& treeRange,
 		  class Leaf* leaf);
   
 public:
@@ -52,8 +53,7 @@ public:
      @brief General constructor.
   */
   Train(const class TrainFrame* frame,
-	class Forest* forest_,
-	class Sampler* sampler_);
+	class Forest* forest_);
 
 
   /**
@@ -78,8 +78,9 @@ public:
      @brief Main entry to training.
    */
   static unique_ptr<Train> train(const class TrainFrame* frame,
+				 const class Sampler* sampler,
 				 class Forest* forest_,
-				 class Sampler* sampler_,
+				 const IndexRange& treeRange,
 				 class Leaf* leaf);
 
 
@@ -98,6 +99,7 @@ public:
      @return Wrapped collection of Sample, PreTree pairs.
   */
   vector<unique_ptr<PreTree>> blockProduce(const class TrainFrame* frame,
+					   const class Sampler* sampler,
 					   unsigned int treeStart,
 					   unsigned int treeEnd) const;
 

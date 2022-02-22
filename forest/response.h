@@ -63,7 +63,8 @@ struct Response {
   /**
      @brief Samples (bags) the response to construct the tree root.
    */
-  virtual unique_ptr<class Sample> rootSample(const class Sampler* sampler) const = 0;
+  virtual unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+					      unsigned int tIdx) const = 0;
 };
 
 
@@ -109,7 +110,8 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class Sample> rootSample(const class Sampler* sampler) const;
+  unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+				      unsigned int tIdx) const;
 
   
   /**
@@ -170,7 +172,9 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class Sample> rootSample(const class Sampler* sampler) const;
+  unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+				      unsigned int tIdx) const;
+
   
   PredictorT predictObs(const class Predict* predict,
 			size_t row,
@@ -186,63 +190,5 @@ public:
   */
   vector<double> defaultProb() const;
 };
-
-
-/**
-   @brief Categorical probabilities associated with indivdual leaves.
-
-   Intimately accesses the raw jagged array it contains.
- */
-class CtgProb {
-  const PredictorT nCtg; // Training cardinality.
-  const vector<double> probDefault; // Forest-wide default probability.
-  vector<double> probs; // Per-row probabilties.
-
-  
-  /**
-     @brief Copies default probability vector into argument.
-
-     @param[out] probPredict outputs the default category probabilities.
-   */
-  void applyDefault(double probPredict[]) const;
-  
-
-public:
-  CtgProb(const class Predict* predict,
-	  const class ResponseCtg* response,
-	  const class Sampler* sampler,
-	  bool doProb);
-
-  
-  /**
-     @brief Predicts probabilities across all trees.
-
-     @param row is the row number.
-
-     @param[out] probRow outputs the per-category probabilities.
-   */
-  void predictRow(const class Predict* predict,
-		  size_t row,
-		  PredictorT* ctgRow);
-
-  bool isEmpty() const {
-    return probs.empty();
-  }
-
-  
-  /**
-     @brief Getter for probability vector.
-   */
-  const vector<double>& getProb() {
-    return probs;
-  }
-
-  
-  /**
-     @brief Dumps the probability cells.
-   */
-  void dump() const;
-};
-
 
 #endif

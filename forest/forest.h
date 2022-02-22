@@ -71,7 +71,8 @@ public:
    @brief Manages the crescent factor blocks.
  */
 class FBCresc {
-  vector<BVSlotT> fac;  // Agglomerates per-tree factor bit vectors.
+  vector<BVSlotT> splitBits;  // Agglomerates per-tree factor bit vectors.
+  vector<BVSlotT> observedBits;
   vector<size_t> extents; // Per-tree extent of bit encoding in BVSlotT units.
   
 public:
@@ -83,7 +84,8 @@ public:
 
      @param bitEnd is the final referenced bit position.
    */
-  void appendBits(const class BV& splitBits,
+  void appendBits(const class BV& splitBits_,
+		  const class BV& observedBits_,
 		  size_t bitEnd);
 
   
@@ -93,7 +95,7 @@ public:
   
 
   size_t getFactorBytes() const {
-    return fac.size() * sizeof(BVSlotT);
+    return splitBits.size() * sizeof(BVSlotT);
   }
   
 
@@ -109,12 +111,27 @@ public:
 
      @param[out] facRaw outputs the raw factor data.
    */
-  void dumpRaw(unsigned char facRaw[]) const {
-    if (fac.empty())
+  void dumpSplitBits(unsigned char facRaw[]) const {
+    if (splitBits.empty())
       return;
-    const unsigned char* bvRaw = reinterpret_cast<const unsigned char*>(&fac[0]);
-    for (size_t i = 0; i < fac.size() * sizeof(BVSlotT); i++) {
+    const unsigned char* bvRaw = reinterpret_cast<const unsigned char*>(&splitBits[0]);
+    for (size_t i = 0; i < splitBits.size() * sizeof(BVSlotT); i++) {
       facRaw[i] = bvRaw[i];
+    }
+  }
+
+
+  /**
+     @brief Dumps factor bits as raw data.
+
+     @param[out] facRaw outputs the raw factor data.
+   */
+  void dumpObserved(unsigned char observedRaw[]) const {
+    if (observedBits.empty())
+      return;
+    const unsigned char* bvRaw = reinterpret_cast<const unsigned char*>(&observedBits[0]);
+    for (size_t i = 0; i < observedBits.size() * sizeof(BVSlotT); i++) {
+      observedRaw[i] = bvRaw[i];
     }
   }
 };
@@ -180,6 +197,13 @@ class Forest {
   }
 
 
+  /**
+     @brief Maps leaf indices to the node at which they appear.
+   */
+  vector<IndexT> getLeafNodes(unsigned int tIdx,
+			      IndexT extent) const;
+
+  
   /**
      @brief Produces height vector from numeric representation.
 
@@ -266,8 +290,9 @@ class Forest {
      @param bitEnd is the final referenced bit position.
    */
   void consumeBits(const class BV& splitBits,
+		   const class BV& observedBits,
 		   size_t bitEnd) {
-    fbCresc->appendBits(splitBits, bitEnd);
+    fbCresc->appendBits(splitBits, observedBits, bitEnd);
   }
 
 
@@ -292,9 +317,14 @@ class Forest {
      @param[out] rawOut outputs the raw bytes of factor split values.
    */
   void cacheFacRaw(unsigned char rawOut[]) const {
-    fbCresc->dumpRaw(rawOut);
+    fbCresc->dumpSplitBits(rawOut);
   }
 
+
+  void cacheObservedRaw(unsigned char observedOut[]) const {
+    fbCresc->dumpObserved(observedOut);
+  }
+  
 
   /**
      @return maximum tree extent.

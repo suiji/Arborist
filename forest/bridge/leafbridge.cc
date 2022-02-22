@@ -24,15 +24,15 @@
 using namespace std;
 
 
-unique_ptr<LeafBridge> LeafBridge::FactoryTrain(size_t nObs,
+unique_ptr<LeafBridge> LeafBridge::FactoryTrain(const SamplerBridge* sb,
 						bool thin) {
-  return make_unique<LeafBridge>(nObs, thin);
+  return make_unique<LeafBridge>(sb, thin);
 }
 
 
-LeafBridge::LeafBridge(size_t nObs,
+LeafBridge::LeafBridge(const SamplerBridge* sb,
 		       bool thin) :
-  leaf(Leaf::train(nObs, thin)) {
+  leaf(Leaf::train(sb->getNObs(), thin)) {
 }
 
 

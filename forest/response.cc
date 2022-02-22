@@ -78,13 +78,31 @@ PredictorT ResponseCtg::ctgDefault() const {
 
   
 
-unique_ptr<Sample> ResponseReg::rootSample(const Sampler* sampler) const {
-  return Sample::factoryReg(sampler, this, yTrain);
+vector<double> ResponseCtg::defaultProb() const {
+  // Uses the ECDF as the default distribution.
+  vector<IndexT> ctgTot(nCtg);
+  for (auto ctg : yCtg) {
+    ctgTot[ctg]++;
+  }
+
+  vector<double> ctgDefault(nCtg);
+  double scale = 1.0 / yCtg.size();
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+    ctgDefault[ctg] = ctgTot[ctg] * scale;
+  }
+  return ctgDefault;
 }
 
 
-unique_ptr<Sample> ResponseCtg::rootSample(const Sampler* sampler) const {
-  return Sample::factoryCtg(sampler, this, classWeight, yCtg);
+unique_ptr<Sample> ResponseReg::rootSample(const Sampler* sampler,
+					   unsigned int tIdx) const {
+  return Sample::factoryReg(sampler, this, yTrain, tIdx);
+}
+
+
+unique_ptr<Sample> ResponseCtg::rootSample(const Sampler* sampler,
+					   unsigned int tIdx) const {
+  return Sample::factoryCtg(sampler, this, classWeight, yCtg, tIdx);
 }
 
 
@@ -142,56 +160,4 @@ PredictorT ResponseCtg::argMaxJitter(const IndexT* census,
     }
   }
   return argMax;
-}
-
-
-CtgProb::CtgProb(const Predict* predict,
-		 const ResponseCtg* response,
-		 const class Sampler* sampler,
-		 bool doProb) :
-  nCtg(response->getNCtg()),
-  probDefault(response->defaultProb()),
-  probs(vector<double>(doProb ? predict->getNRow() * nCtg : 0)) {
-}
-
-
-void CtgProb::predictRow(const Predict* predict, size_t row, PredictorT* ctgRow) {
-  unsigned int nEst = accumulate(ctgRow, ctgRow + nCtg, 0ul);
-  double* probRow = &probs[row * nCtg];
-  if (nEst == 0) {
-    applyDefault(probRow);
-  }
-  else {
-    double scale = 1.0 / nEst;
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++)
-      probRow[ctg] = ctgRow[ctg] * scale;
-  }
-}
-
-
-vector<double> ResponseCtg::defaultProb() const {
-  // Uses the ECDF as the default distribution.
-  vector<IndexT> ctgTot(nCtg);
-  for (auto ctg : yCtg) {
-    ctgTot[ctg]++;
-  }
-
-  vector<double> ctgDefault(nCtg);
-  double scale = 1.0 / yCtg.size();
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    ctgDefault[ctg] = ctgTot[ctg] * scale;
-  }
-  return ctgDefault;
-}
-
-
-void CtgProb::applyDefault(double probPredict[]) const {
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    probPredict[ctg] = probDefault[ctg];
-  }
-}
-
-
-void CtgProb::dump() const {
-  // TODO
 }

@@ -31,47 +31,59 @@
 using namespace Rcpp;
 
 
-RcppExport SEXP ValidateReg(const SEXP sFrame,
+RcppExport SEXP validateReg(const SEXP sFrame,
                             const SEXP sTrain,
+			    const SEXP sSampler,
                             SEXP sYTest,
 			    SEXP sPermute,
+			    SEXP sTrapUnobserved,
                             SEXP sNThread);
 
 
-RcppExport SEXP TestReg(const SEXP sFrame,
+RcppExport SEXP testReg(const SEXP sFrame,
                         const SEXP sTrain,
+			const SEXP sSampler,
                         SEXP sYTest,
                         SEXP sOOB,
+			SEXP sTrapUnobserved,
                         SEXP sNThread);
 
 
-RcppExport SEXP ValidateVotes(const SEXP sFrame,
+RcppExport SEXP validateVotes(const SEXP sFrame,
                               const SEXP sTrain,
+			      const SEXP sSampler,
                               SEXP sYTest,
 			      SEXP sPermute,
+			      SEXP sTrapUnobserved,
                               SEXP sNThread);
 
 
-RcppExport SEXP ValidateProb(const SEXP sFrame,
+RcppExport SEXP validateProb(const SEXP sFrame,
                              const SEXP sTrain,
+			     const SEXP sSampler,
                              SEXP sYTest,
 			     SEXP sPermute,
+			     SEXP sTrapUnobserved,
                              SEXP sNThread);
 
 
-RcppExport SEXP ValidateQuant(const SEXP sFrame,
+RcppExport SEXP validateQuant(const SEXP sFrame,
                               const SEXP sTrain,
+			      const SEXP sSampler,
                               SEXP sYTest,
 			      SEXP sPermute,
                               SEXP sQuantVec,
+			      SEXP sTrapUnobserved,
                               SEXP sNThread);
 
 
-RcppExport SEXP TestQuant(const SEXP sFrame,
+RcppExport SEXP testQuant(const SEXP sFrame,
                           const SEXP sTrain,
+			  const SEXP sSampler,
                           SEXP sQuantVec,
                           SEXP sYTest,
                           SEXP sOOB,
+			  SEXP sTrapUnobserved,
                           SEXP sNThread);
 
 /**
@@ -87,10 +99,12 @@ RcppExport SEXP TestQuant(const SEXP sFrame,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestProb(const SEXP sFrame,
+RcppExport SEXP testProb(const SEXP sFrame,
                          const SEXP sTrain,
+			 const SEXP sSampler,
                          SEXP sYTest,
                          SEXP sOOB,
+			 SEXP sTrapUnobserved,
                          SEXP sNThread);
 
 
@@ -107,10 +121,12 @@ RcppExport SEXP TestProb(const SEXP sFrame,
 
    @return wrapped predict object.
  */
-RcppExport SEXP TestVotes(const SEXP sFrame,
+RcppExport SEXP testVotes(const SEXP sFrame,
                           const SEXP sTrain,
+			  const SEXP sSampler,
                           SEXP sYTest,
                           SEXP sOOB,
+			  SEXP sTrapUnobserved,
                           SEXP sNThread);
 
 /**
@@ -120,10 +136,12 @@ struct PBRf {
 
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
+			 const List& lSampler,
 			 SEXP sYTest,
 			 bool oob,
 			 bool doProb,
 			 unsigned int permute,
+			 bool trapUnobserved,
 			 unsigned int nThread);
 
   
@@ -132,9 +150,11 @@ struct PBRf {
    */
   static List predictReg(const List& lDeframe,
                          const List& lTrain,
+			 const List& lSampler,
                          SEXP sYTest,
                          bool oob,
 			 unsigned int permute,
+			 bool trapUnobserved,
                          unsigned int nThread);
 
 
@@ -156,11 +176,13 @@ struct PBRf {
     @return wrapped prediction list.
  */
   static List predictQuant(const List& lDeframe,
-			   const List& sTrain,
+			   const List& lTrain,
+			   const List& lSampler,
 			   SEXP sQuantVec,
 			   SEXP sYTest,
-			   bool oob,
+			   bool bagging,
 			   unsigned int permute,
+			   bool trapUnobserved,
 			   unsigned int nThread);
 
   /**
@@ -169,12 +191,14 @@ struct PBRf {
      @return unique pointer to bridge-variant PredictBridge. 
    */
   static unique_ptr<struct PredictRegBridge> unwrapReg(const List& lDeframe,
-						    const List& lTrain,
-						    SEXP sYTest,
-						    bool oob,
-						    unsigned int permute,
-						    unsigned int nThread,
-						    vector<double> quantile = vector<double>(0));
+						       const List& lTrain,
+						       const List& lSampler,
+						       SEXP sYTest,
+						       bool oob,
+						       unsigned int permute,
+						       bool trapUnobserved,
+						       unsigned int nThread,
+						       vector<double> quantile = vector<double>(0));
 
   /**
      @brief Instantiates core prediction object and predicts quantiles.
@@ -191,10 +215,12 @@ struct PBRf {
    */
   static unique_ptr<struct PredictCtgBridge> unwrapCtg(const List& lDeframe,
 						       const List& lTrain,
+						       const List& lSampler,
 						       SEXP sYTest,
 						       bool oob,
 						       bool doProb,
 						       unsigned int permute,
+						       bool trapUnobserved,
 						       unsigned int nThread);
 
 
@@ -211,16 +237,6 @@ struct PBRf {
      @return transposed core matrix if quantiles requested, else empty matrix.
   */
   static NumericMatrix getQPred(const struct PredictRegBridge* pBridge);
-
-
-  /**
-     @brief Builds a NumericVector representation of the estimand quantiles.
-     
-     @param pBridge is the prediction handle.
-
-     @return quantile of predictions if quantiles requesed, else empty vector.
-   */
-  static NumericVector getQEst(const struct PredictRegBridge* pBridge);
 
 
   static List getPrediction(const PredictRegBridge* pBridge);
@@ -291,7 +307,7 @@ struct LeafCtgRf {
      @return list of summary entries.   
   */
   static List summary(const List& lDeframe,
-                      const List& lTrain,
+		      const List& lSampler,
                       const struct PredictCtgBridge* pBridge,
                       SEXP sYTest);
 

@@ -16,8 +16,7 @@
 #ifndef FOREST_SAMPLER_H
 #define FOREST_SAMPLER_H
 
-#include "util.h"
-#include "jagged.h"
+
 #include "bv.h"
 #include "typeparam.h"
 #include "sample.h"
@@ -26,71 +25,6 @@
 #include <vector>
 
 using namespace std;
-
-class SamplerNux {
-  // As with RankCount, unweighted sampling typically incurs very
-  // small sample counts and row deltas.
-  PackedT packed;
-
-public:
-  static PackedT delMask;
-  static IndexT rightBits;
-
-
-  static void setMasks(IndexT nObs) {
-    rightBits = Util::packedWidth(nObs);
-    delMask = (1ull << rightBits) - 1;
-  }
-  
-
-  static void unsetMasks() {
-    delMask = 0;
-    rightBits = 0;
-  }
-
-
-  /**
-     @brief Constructor for external packed value.
-   */
-  SamplerNux(PackedT packed_) :
-    packed(packed_) {
-  }
-
-  
-  SamplerNux(IndexT delRow,
-	     IndexT sCount) :
-    packed(delRow | (static_cast<PackedT>(sCount) << rightBits)) {
-  }
-
-  
-  /**
-     @return difference in adjacent row numbers.  Always < nObs.
-   */
-  inline IndexT getDelRow() const {
-    return packed & delMask;
-  }
-  
-
-  /**
-     @return sample count
-   */  
-  inline IndexT getSCount() const {
-    return packed >> rightBits;
-  }
-
-  
-  /**
-     @brief Obtains sample count for external packed value.
-   */
-  static IndexT getSCount(PackedT packed) {
-    return packed >> rightBits;
-  }
-
-
-  PackedT getPacked() const {
-    return packed;
-  }
-};
 
 
 class Sampler {
@@ -101,24 +35,28 @@ class Sampler {
   const unsigned int nTree;
   const size_t nObs; // # training observations
   const size_t nSamp;  // # samples requested per tree.
-  const bool bagging; // Whether bagging required.
 
   const unique_ptr<class Response> response;
   
-  const vector<vector<SamplerNux>> samples;
-  const unique_ptr<class BitMatrix> bagMatrix; // null iff training
+  const vector<vector<class SamplerNux>> samples;
+  const unique_ptr<class BitMatrix> bagMatrix; // empty if training or prediction without bagging.
 
   // Crescent only:
-  vector<IndexT> sCountRow; // Temporary proxy for sbCresc.
   vector<SamplerNux> sbCresc; // Crescent block.
 
-  
+
   /**
      @brief Constructs bag according to encoding.
    */
-  unique_ptr<BitMatrix> bagRows();
+  unique_ptr<BitMatrix> bagRows(bool bagging);
 
 
+  /**
+     @brief Samples response for a single tree.
+   */
+  void sample();
+
+  
   /**
      @brief Maps an index into its bin.
 
@@ -155,14 +93,21 @@ class Sampler {
 public:
 
   /**
+     @brief Sampling constructor.
+   */
+  Sampler(IndexT nSamp_,
+	  IndexT nObs_,
+	  unsigned int nTree_);
+
+
+  /**
      Classification constructor:  training.
    */
   Sampler(const vector<PredictorT>& yTrain,
 	  IndexT nSamp_,
-	  unsigned int treeChunk,
+	  vector<vector<SamplerNux>> nux,
 	  PredictorT nCtg,
-	  const vector<double>& classWeight_,
-	  bool bagging_ = true);
+	  const vector<double>& classWeight_);
 
   
   ~Sampler();
@@ -173,8 +118,7 @@ public:
    */
   Sampler(const vector<double>& yTrain,
 	  IndexT nSamp_,
-	  unsigned int treeChunk,
-	  bool bagging_ = true);
+	  vector<vector<SamplerNux>> nux);
 
 
   /**
@@ -184,7 +128,7 @@ public:
 	  vector<vector<SamplerNux>> samples_,
 	  IndexT nSamp_,
 	  PredictorT nCtg,
-	  bool bagging_);
+	  bool bagging);
 
 
   /**
@@ -193,11 +137,16 @@ public:
   Sampler(const vector<double>& yTrain,
 	  vector<vector<SamplerNux>> samples_,
 	  IndexT nSamp_,
-	  bool bagging_);
+	  bool bagging);
 
 
-  const vector<IndexT>& getSampledRows() const {
-    return sCountRow;
+  const vector<SamplerNux>& getSamples(unsigned int tIdx) const {
+    return samples[tIdx];
+  }
+  
+
+  IndexT getExtent(unsigned int tIdx) const {
+    return samples[tIdx].size();
   }
 
 
@@ -225,17 +174,30 @@ public:
   
 
   bool isBagging() const {
-    return bagging;
+    return !bagMatrix->isEmpty();
   }
 
 
-  unique_ptr<class Sample> rootSample(unsigned int tIdx);
+  /**
+     @brief Samples a block of vectors.
+
+     @param nRep indicates the number of vectors to build.
+   */
+  void sample(unsigned int nRep);
+  
+
+  /**
+     @brief Passes through to Response method.
+   */
+  unique_ptr<class Sample> rootSample(unsigned int tIdx) const;
 
 
   /**
-     @brief Computes # records subsumed by sampling this chunk.
+     @brief Computes # records subsumed by sampling this block.
+
+     @return sum of each tree's bag count.
    */
-  size_t crescBagCount() const {
+  size_t crescCount() const {
     return sbCresc.size();
   }
 
@@ -277,7 +239,7 @@ public:
      @return true iff bagging and the coordinate bit is set.
    */
   inline bool isBagged(unsigned int tIdx, size_t row) const {
-    return bagging && bagMatrix->testBit(tIdx, row);
+    return !bagMatrix->isEmpty() && bagMatrix->testBit(tIdx, row);
   }
 
   
@@ -290,6 +252,15 @@ public:
     return !samples.empty();
   }
 
+
+  /**
+     @brief Produces a vector of sampled rows.
+
+     @param tIdx is the absolute tree index.
+
+     tIdx is temporarily ignored, pending completion of presampling.
+   */
+  vector<IndexT> sampledRows(unsigned int tIdx) const;
 };
 
 #endif

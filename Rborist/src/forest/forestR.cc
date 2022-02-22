@@ -29,11 +29,13 @@
 
 
 const string FBTrain::strNTree = "nTree";
-const string FBTrain::strNodeExtent = "nodeExtent";
-const string FBTrain::strForestNode = "forestNode";
+const string FBTrain::strNode = "node";
+const string FBTrain::strExtent = "extent";
+const string FBTrain::strTreeNode = "treeNode";
 const string FBTrain::strScores= "scores";
-const string FBTrain::strFacExtent = "facExtent";
+const string FBTrain::strFactor = "factor";
 const string FBTrain::strFacSplit = "facSplit";
+const string FBTrain::strObserved = "observed";
 
 
 FBTrain::FBTrain(unsigned int nTree_) :
@@ -50,6 +52,14 @@ FBTrain::FBTrain(unsigned int nTree_) :
 void FBTrain::bridgeConsume(const ForestBridge& bridge,
 			    unsigned int tIdx,
 			    double scale) {
+  nodeConsume(bridge, tIdx, scale);
+  factorConsume(bridge, tIdx, scale);
+}
+
+
+void FBTrain::nodeConsume(const ForestBridge& bridge,
+			  unsigned int tIdx,
+			  double scale) {
   const vector<size_t>&nExtents = bridge.getNodeExtents();
   unsigned int fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + nExtents.size(); toIdx++) {
@@ -64,9 +74,14 @@ void FBTrain::bridgeConsume(const ForestBridge& bridge,
   bridge.dumpTree((complex<double>*)&cNode[nodeTop]);
   bridge.dumpScore(&scores[nodeTop]);
   nodeTop += nodeCount;
+}
 
+
+void FBTrain::factorConsume(const ForestBridge& bridge,
+			    unsigned int tIdx,
+			    double scale) {
   const vector<size_t>& fExtents = bridge.getFacExtents();
-  fromIdx = 0;
+  unsigned int fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + fExtents.size(); toIdx++) {
     facExtent[toIdx] = fExtents[fromIdx++];
   }
@@ -74,26 +89,50 @@ void FBTrain::bridgeConsume(const ForestBridge& bridge,
   size_t facBytes = bridge.getFactorBytes();
   if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
     facRaw = move(ResizeR::resizeRaw(facRaw, facTop, facBytes, scale));
+    facObserved = move(ResizeR::resizeRaw(facObserved, facTop, facBytes, scale));
   }
   bridge.dumpFactorRaw(&facRaw[facTop]);
+  bridge.dumpFactorObserved(&facObserved[facTop]);
   facTop += facBytes;
 }
 
+
+List FBTrain::wrapNode() {
+  BEGIN_RCPP
+  List wrappedNode = List::create(_[strTreeNode] = move(cNode),
+				  _[strExtent] = move(nodeExtent)
+				  );
+  wrappedNode.attr("class") = "Node";
+  return wrappedNode;
+  END_RCPP
+}
+
+
+List FBTrain::wrapFactor() {
+  BEGIN_RCPP
+    List wrappedFactor = List::create(_[strFacSplit] = move(facRaw),
+				      _[strExtent] = move(facExtent),
+				      _[strObserved] = move(facObserved)
+				      );
+  wrappedFactor.attr("class") = "Factor";
+
+  return wrappedFactor;
+  END_RCPP
+}
 
 
 List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
     List::create(_[strNTree] = nTree,
-		 _[strNodeExtent] = move(nodeExtent),
-		 _[strForestNode] = move(cNode),
+		 _[strNode] = move(wrapNode()),
 		 _[strScores] = move(scores),
-		 _[strFacExtent] = move(facExtent),
-                 _[strFacSplit] = move(facRaw)
+		 _[strFactor] = move(wrapFactor())
                  );
   cNode = ComplexVector(0);
   scores = NumericVector(0);
   facRaw = RawVector(0);
+  facObserved = RawVector(0);
   forest.attr("class") = "Forest";
 
   return forest;
@@ -103,12 +142,14 @@ List FBTrain::wrap() {
 
 unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
   List lForest(checkForest(lTrain));
+  List lNode((SEXP) lForest[FBTrain::strNode]);
+  List lFactor((SEXP) lForest[FBTrain::strFactor]);
   return make_unique<ForestBridge>(as<unsigned int>(lForest[FBTrain::strNTree]),
-				   as<NumericVector>(lForest[FBTrain::strNodeExtent]).begin(),
-				   (complex<double>*) as<ComplexVector>(lForest[FBTrain::strForestNode]).begin(),
+				   as<NumericVector>(lNode[FBTrain::strExtent]).begin(),
+				   (complex<double>*) as<ComplexVector>(lNode[FBTrain::strTreeNode]).begin(),
 				   as<NumericVector>(lForest[FBTrain::strScores]).begin(),
-				   as<NumericVector>(lForest[FBTrain::strFacExtent]).begin(),
-				   as<RawVector>(lForest[FBTrain::strFacSplit]).begin());
+				   as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
+				   as<RawVector>(lFactor[FBTrain::strFacSplit]).begin());
 }
 
 

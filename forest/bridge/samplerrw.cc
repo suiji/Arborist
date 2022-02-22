@@ -16,21 +16,30 @@
 
 #include "samplerrw.h"
 #include "sampler.h"
+#include "samplenux.h"
+
+#include <algorithm>
+
 
 vector<vector<SamplerNux>> SamplerRW::unpack(const double samples[],
+					     IndexT nSamp,
 					     unsigned int nTree,
-					     IndexT nSamp) {
+					     PredictorT nCtg) {
+  IndexT maxSCount = 0;
   vector<vector<SamplerNux>> nuxOut(nTree);
   const double* sample = samples;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     IndexT sCountTree = 0;
     while (sCountTree < nSamp) {
       PackedT packed = *sample++;
-      sCountTree += SamplerNux::getSCount(packed);
+      IndexT sCount = SamplerNux::getSCount(packed);
+      sCountTree += sCount;
+      maxSCount = max(sCount, maxSCount);
       nuxOut[tIdx].emplace_back(packed);
     }
     // assert(sCountTree == nSamp)
   }
-  
+  SampleNux::setShifts(nCtg, maxSCount);
+
   return nuxOut;
 }

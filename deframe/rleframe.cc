@@ -67,7 +67,7 @@ void RLEFrame::transpose(vector<size_t>& idxTr,
 			 size_t rowStart,
 			 size_t rowExtent,
 			 vector<unsigned int>& trFac,
-			 vector<double>& trNumeric) {
+			 vector<double>& trNumeric) const {
   size_t rowOff = 0;
   size_t rowEnd = min(nRow, rowStart + rowExtent);
   for (size_t row = rowStart; row != rowEnd; row++) {

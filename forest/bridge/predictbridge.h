@@ -65,6 +65,7 @@ struct PredictRegBridge : public PredictBridge {
 		   unique_ptr<struct LeafBridge> leafBridge_,
 		   vector<double> yTest,
 		   unsigned int nPermute_,
+		   bool trapUnobserved,
 		   unsigned int nThread,
 		   vector<double> quantile_);
 
@@ -119,6 +120,7 @@ struct PredictCtgBridge : public PredictBridge {
 		   vector<unsigned int> yTest,
 		   unsigned int nPermute_,
 		   bool doProb,
+		   bool trapUnobserved,
 		   unsigned int nThread);
 
   ~PredictCtgBridge(); // Forward declaration:  not specified default.

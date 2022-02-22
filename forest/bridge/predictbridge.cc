@@ -32,12 +32,13 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 				   unique_ptr<LeafBridge> leafBridge_,
 				   vector<double> yTest,
 				   unsigned int nPermute_,
+				   bool trapUnobserved,
 				   unsigned int nThread,
 				   vector<double> quantile) :
   PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
   leafBridge(move(leafBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, move(quantile))) {
+  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, move(quantile), trapUnobserved)) {
 }
 
 
@@ -52,11 +53,11 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				   vector<unsigned int> yTest,
 				   unsigned int nPermute_,
 				   bool doProb,
+				   bool trapUnobserved,
 				   unsigned int nThread) :
   PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
   samplerBridge(move(samplerBridge_)),
-  leafBridge(move(leafBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, doProb)) {
+  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, doProb, trapUnobserved)) {
 }
 
 
@@ -93,12 +94,12 @@ bool PredictBridge::permutes() const {
 
 
 void PredictRegBridge::predict() const {
-  predictRegCore->predict();
+  predictRegCore->predict(rleFrame.get());
 }
 
 
 void PredictCtgBridge::predict() const {
-  predictCtgCore->predict();
+  predictCtgCore->predict(rleFrame.get());
 }
 
 

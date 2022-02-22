@@ -25,7 +25,7 @@ using namespace std;
    @brief Hides class Sampler internals from bridge via forward declarations.
  */
 struct LeafBridge {
-  static unique_ptr<LeafBridge> FactoryTrain(size_t nObs,
+  static unique_ptr<LeafBridge> FactoryTrain(const class SamplerBridge* sb,
 					     bool thin);
 
 
@@ -35,7 +35,7 @@ struct LeafBridge {
 					       const double index_[]);
 
 
-  LeafBridge(size_t nObs,
+  LeafBridge(const class SamplerBridge* sb,
 	     bool thin);
   
 

@@ -5,11 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include "forest.h"
 #include "sampler.h"
 #include "samplemap.h"
 #include "pretree.h"
 #include "response.h"
 #include "leaf.h"
+#include "ompthread.h"
 
 
 PackedT RankCount::rankMask = 0;
@@ -67,11 +69,10 @@ void Leaf::consumeTerminals(const PreTree* pretree,
   extentCresc.insert(extentCresc.end(), nLeaf, 0);
 
   // Writes leaf extents for tree, unordered.
-  IndexT rangeIdx = 0;
+  IndexT idx = 0;
   for (IndexRange range : terminalMap.range) {
-    IndexT leafIdx = pretree->getLeafIdx(terminalMap.ptIdx[rangeIdx]);
+    IndexT leafIdx = pretree->getLeafIdx(terminalMap.ptIdx[idx++]);
     extentCresc[extentStart + leafIdx] = range.getExtent();
-    rangeIdx++;
   }
 
   // Accumulates sample index starting positions, in order.
@@ -81,14 +82,16 @@ void Leaf::consumeTerminals(const PreTree* pretree,
     leafStart[leafIdx] = exchange(startAccum, startAccum + extentCresc[extentStart + leafIdx]);
   }
 
-  rangeIdx = 0;
-  for (IndexRange range : terminalMap.range) {
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+  for (OMPBound rangeIdx = 0; rangeIdx < terminalMap.range.size(); rangeIdx++) {
     IndexT leafIdx = pretree->getLeafIdx(terminalMap.ptIdx[rangeIdx]);
     IndexT idBegin = leafStart[leafIdx];
-    for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
+    for (IndexT idx = terminalMap.range[rangeIdx].getStart(); idx != terminalMap.range[rangeIdx].getEnd(); idx++) {
       indexCresc[idBegin++] = terminalMap.indices[idx];
     }
-    rangeIdx++;
+  }
   }
 }
 
@@ -101,12 +104,11 @@ vector<vector<vector<size_t>>> Leaf::countLeafCtg(const Sampler* sampler,
   if (!sampler->hasSamples())
     return ctgCount;
   PredictorT nCtg = response->getNCtg();
-  //size_t treeIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     IndexT row = 0;
     vector<PredictorT> sIdx2Ctg(sampler->getBagCount(tIdx));
     for (IndexT sIdx = 0; sIdx != sIdx2Ctg.size(); sIdx++) {
-      row += sampler->getDelRow(tIdx, sIdx);//treeIdx + sIdx);
+      row += sampler->getDelRow(tIdx, sIdx);
       sIdx2Ctg[sIdx] = response->getCtg(row);
     }
     size_t leafIdx = 0;
@@ -115,11 +117,10 @@ vector<vector<vector<size_t>>> Leaf::countLeafCtg(const Sampler* sampler,
       ctgCount[tIdx][leafIdx] = vector<size_t>(sIdxVec.size() * nCtg);
       for (size_t sIdx : sIdxVec) {
 	PredictorT ctg = sIdx2Ctg[sIdx];
-	ctgCount[tIdx][leafIdx][ctg] += sampler->getSCount(tIdx, sIdx);//treeIdx + sIdx);
+	ctgCount[tIdx][leafIdx][ctg] += sampler->getSCount(tIdx, sIdx);
       }
       leafIdx++;
     }
-    //treeIdx += sampler->getBagCount(tIdx);
   }
 
   return ctgCount;

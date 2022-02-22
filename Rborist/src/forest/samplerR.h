@@ -30,10 +30,17 @@
 using namespace Rcpp;
 
 #include <memory>
+#include <vector>
 using namespace std;
+
+RcppExport SEXP rootSample(const SEXP sDeframe,
+			  const SEXP sArgList);
+
 
 /**
    @brief Summary of bagged rows, by tree.
+
+   Recast as namespace?
  */
 struct SamplerR {
   static const string strYTrain;
@@ -41,23 +48,57 @@ struct SamplerR {
   static const string strNTree;
   static const string strSamples; // Output field name of sample.
   
-  const unsigned int nSamp; // # samples specified.
-  const unsigned int nTree; // # trees trained.
 
-  NumericVector blockNum;
-  size_t nuxTop; // First available index in bag buffer.
+  /**
+     @brief Samples according to specification.
 
-  SamplerR(unsigned int nSamp_,
-	   unsigned int nTree_);
+     @return wrapped list of sample records.
+   */
+  static List sample(const List& lDeframe,
+		     const List& argList);
+
+
+  /**
+     @brief Constructs a bridge Sampler object from wrapped record list.
+
+  static struct SampleBridge unwrapTrain(const List& lSampler,
+					 const List& argList);
+  */
+
+
+  /**
+     @return Core-ready vector of class weights.
+   */
+  static vector<double> weightVec(const List& lSampler,
+				  const List& argList);
+
+
+  /**
+      @brief Class weighting.
+
+      Class weighting constructs a proxy response based on category
+      frequency.  In the absence of class weighting, proxy values are
+      identical for all clasess.  The technique of class weighting is
+      not without controversy.
+
+      @param yZero is the (zero-based) categorical response vector.
+
+      @param classWeight are user-suppled weightings of the categories.
+
+      @return vector of scaled class weights.
+  */
+  static NumericVector ctgWeight(const IntegerVector &yZero,
+				 const NumericVector &classWeight);
+
 
 
   /**
      @brief Getter for tree count.
-   */
+
   const auto getNTree() const {
     return nTree;
   }
-
+  */
   
   /**
      @brief Bundles trained bag into format suitable for R.
@@ -68,10 +109,12 @@ struct SamplerR {
 
      @return list containing raw data and summary information.
    */
-  List wrap(const IntegerVector& yTrain);
+  static List wrap(const struct SamplerBridge* sb,
+		   const IntegerVector& yTrain);
   
   
-  List wrap(const NumericVector& yTrain);
+  static List wrap(const struct SamplerBridge* sb,
+		   const NumericVector& yTrain);
   
   
   /**
@@ -79,8 +122,8 @@ struct SamplerR {
 
      @param scale is a fudge-factor for resizing.
    */
-  void bridgeConsume(const struct SamplerBridge* sb,
-		     double scale);
+  static NumericVector bridgeConsume(const struct SamplerBridge* sb);
+
   
   /**
      @brief Checks that bag and prediction data set have conforming rows.
@@ -92,31 +135,64 @@ struct SamplerR {
   
 
   /**
+     @brief Reads bundled sampler in R form.
+
+     @param lSampler contains the R sampler summary.
+
+     @param lArgs is the argument list, contains sample-weighting values.
+
+     @param return instantiation suitable for training.
+   */
+  static unique_ptr<struct SamplerBridge> unwrapTrain(const List& lSampler,
+						      const List& lArgs);
+
+
+  /**
      @brief Reads bundled bag information in front-end format.
 
-     @param lTrain contains the training summary.
+     @param lSampler contains the R sampler summary.
 
      @param lDeframe contains the deframed observations.
 
      @param bagging indicates whether a non-null bag is requested.
 
-     @return instantiation containing bag raw data.
+     @return instantiation suitable for prediction.
    */
-  static unique_ptr<struct SamplerBridge> unwrap(const List& lTrain,
-						 const List& lDeframe,
-						 bool bagging);
+  static unique_ptr<struct SamplerBridge> unwrapPredict(const List& lSampler,
+							const List& lDeframe,
+							bool bagging);
 
-  
-  static unique_ptr<struct SamplerBridge> unwrap(const List& lSampler,
-						 bool bagging = false);
+  /**
+     @brief Lower-level call precipitated by above.
+   */  
+  static unique_ptr<struct SamplerBridge> unwrapPredict(const List& lSampler,
+							bool bagging = false);
 
 
+  /**
+     @brief Specialization for numeric response.
+   */
   static unique_ptr<struct SamplerBridge> unwrapNum(const List& lSampler,
-						    bool bagging);
+						    bool bagging = false);
 
-
+  /**
+     @brief Specialization for factor=valued response, training.
+   */
   static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
-						    bool bagging);
+						    vector<double> weights);
+
+
+  /**
+     @brief Specialization for factor=valued response, prediction.
+   */
+  static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
+						    bool bagging = false);
+
+
+  /**
+     @return core-ready vector of zero-based factor codes.
+   */
+  static vector<unsigned int> coreCtg(const IntegerVector& yTrain);
 };
 
 #endif

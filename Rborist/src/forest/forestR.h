@@ -116,11 +116,13 @@ class ForestExport {
  */
 struct FBTrain {
   static const string strNTree;
-  static const string strNodeExtent;
-  static const string strForestNode;
+  static const string strNode;
+  static const string strExtent;
+  static const string strTreeNode;
   static const string strScores;
-  static const string strFacExtent;
+  static const string strFactor;
   static const string strFacSplit;
+  static const string strObserved;
 
   const unsigned int nTree; // Total # trees under training.
 
@@ -134,12 +136,19 @@ struct FBTrain {
   NumericVector facExtent; // # factor entries in respective tree.
   size_t facTop; // Next available index in factor buffer.
   RawVector facRaw; // Bit-vector representation of factor splits.
-
+  RawVector facObserved; // " " observed levels.
 
   FBTrain(unsigned int nTree);
 
+
   /**
-     @brief Copies core representation of a chunk of trained trees.
+     @brief Decorates trained forest for storage by front end.
+   */
+  List wrap();
+
+
+  /**
+     @brief Copies core representation of forest components.
 
      @param bridge caches a crescent forest chunk.
 
@@ -151,10 +160,32 @@ struct FBTrain {
 		     unsigned int treeOff,
 		     double fraction);
 
+
+private:
+
+  List wrapFactor();
+
+  List wrapNode();
   /**
-     @brief Decorates trained forest for storage by front end.
+     @brief Copies core representation of a chunk of trained tree nodes.
+
+     @param bridge caches a crescent forest chunk.
+
+     @param treeOff is the beginning tree index of the trained chunk.
+
+     @param fraction is a scaling factor used to estimate buffer size.
    */
-  List wrap();
+  void nodeConsume(const struct ForestBridge& bridge,
+		   unsigned int treeOff,
+		   double fraction);
+
+
+  /**
+     @brief As above, but collects factor-splitting parameters.
+   */
+  void factorConsume(const struct ForestBridge& bridge,
+		     unsigned int treeOff,
+		     double fraction);
 };
 
 #endif

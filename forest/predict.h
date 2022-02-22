@@ -26,6 +26,62 @@
 
 
 /**
+   @brief Categorical probabilities associated with indivdual leaves.
+
+   Intimately accesses the raw jagged array it contains.
+ */
+class CtgProb {
+  const PredictorT nCtg; // Training cardinality.
+  const vector<double> probDefault; // Forest-wide default probability.
+  vector<double> probs; // Per-row probabilties.
+
+  
+  /**
+     @brief Copies default probability vector into argument.
+
+     @param[out] probPredict outputs the default category probabilities.
+   */
+  void applyDefault(double probPredict[]) const;
+  
+
+public:
+  CtgProb(const class Predict* predict,
+	  const class ResponseCtg* response,
+	  bool doProb);
+
+  
+  /**
+     @brief Predicts probabilities across all trees.
+
+     @param row is the row number.
+
+     @param[out] probRow outputs the per-category probabilities.
+   */
+  void predictRow(const class Predict* predict,
+		  size_t row,
+		  PredictorT* ctgRow);
+
+  bool isEmpty() const {
+    return probs.empty();
+  }
+
+  
+  /**
+     @brief Getter for probability vector.
+   */
+  const vector<double>& getProb() {
+    return probs;
+  }
+
+  
+  /**
+     @brief Dumps the probability cells.
+   */
+  void dump() const;
+};
+
+
+/**
    @brief Walks the decision forest for each row in a block, collecting
    predictions.
  */
@@ -34,19 +90,16 @@ protected:
   static const size_t scoreChunk; // Score block dimension.
   static const unsigned int seqChunk;  // Effort to minimize false sharing.
 
-  const bool trapUnseen; // Whether to trap unrecognized values.
+  const bool trapUnobserved; // Whether to trap values not observed during training.
   const class Sampler* sampler; // In-bag representation.
-  const class Leaf* leaf; // Sample maps.
-  const vector<vector<DecNode>> cNode; // Forest-wide decision nodes.
+  const vector<vector<DecNode>> decNode; // Forest-wide decision nodes.
   const vector<unique_ptr<BV>>& factorBits;
-  struct RLEFrame* rleFrame; // Frame of observations.
   const bool testing; // Whether to compare prediction with test vector.
   const unsigned int nPermute; // # times to permute each predictor.
 
   vector<IndexT> predictLeaves; // Tree-relative leaf indices.
 
   size_t blockStart; // Stripmine bound.
-  size_t blockEnd; // "" ""
   vector<IndexT> accumNEst;
 
   size_t nEst; // Total number of estimands.
@@ -64,14 +117,8 @@ protected:
   inline void predictLeaf(size_t row,
                           unsigned int tIdx,
                           IndexT idx) {
-    predictLeaves[nTree * (row - blockStart) + tIdx] = idx;// - treeOrigin[tIdx];
+    predictLeaves[nTree * (row - blockStart) + tIdx] = idx;
   }
-
-
-  /**
-     @brief Driver for all-row prediction.
-   */
-  void predictRows();
 
 
   /**
@@ -79,13 +126,13 @@ protected:
 
      @param permute is the number of times to permute each predictor.
    */
-  void predictPermute();
+  void predictPermute(struct RLEFrame* rleFrame);
   
 
   /**
      @brief Drives prediction strip-mining and residual.
    */
-  void blocks();
+  void blocks(const struct RLEFrame* rleFrame);
   
   
   /**
@@ -93,7 +140,8 @@ protected:
 
      @param[in, out] trIdx caches RLE index accessed by a predictor.
    */
-  size_t predictBlock(size_t row,
+  size_t predictBlock(const struct RLEFrame* rleFrame,
+		      size_t row,
 		      size_t extent,
 		      vector<size_t>& trIdx);
 
@@ -123,9 +171,9 @@ protected:
   /**
      @brief Strip-mines prediction by block.
    */
-  void predictBlock();
+  void predictBlock(size_t span);
 
-  
+
   /**
      @brief Predicts sequentially to minimize false sharing.
    */
@@ -161,10 +209,10 @@ public:
 
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
-	  const class Leaf* leaf_,
 	  struct RLEFrame* rleFrame_,
 	  bool testing_,
-	  unsigned int nPredict_);
+	  unsigned int nPredict_,
+	  bool trapUnobserved_);
   
 
   /**
@@ -172,7 +220,7 @@ public:
 
      Distributed prediction will require start and extent parameters.
    */
-  void predict();
+  void predict(struct RLEFrame* rleFrame);
 
 
   /**
@@ -180,17 +228,12 @@ public:
      obervation is encountered.
    */
   bool trapAndBail() const {
-    return trapUnseen;
+    return trapUnobserved;
   }
   
 
   const class Sampler* getSampler() const {
     return sampler;
-  }
-  
-
-  const class Leaf* getLeaf() const {
-    return leaf;
   }
 
 
@@ -269,7 +312,9 @@ public:
 
      @return base address for numeric values at row.
   */
-  const double* baseNum(size_t row) const;
+  const double* baseNum(size_t row) const {
+    return &trNum[(row - blockStart) * nPredNum];
+  }
 
 
   /**
@@ -277,7 +322,9 @@ public:
 
      @return row is the row number.
    */
-  const PredictorT* baseFac(size_t row) const;
+  const PredictorT* baseFac(size_t row) const {
+    return &trFac[(row - blockStart) * nPredFac];
+  }
 
   
   /**
@@ -348,7 +395,8 @@ public:
 	     struct RLEFrame* rleFrame_,
 	     const vector<double>& yTest_,
 	     unsigned int nPredict_,
-	     const vector<double>& quantile);
+	     const vector<double>& quantile,
+	     bool trapUnobserved_);
 
   //  ~PredictReg(); // Forward declaration:  not specified default.
 
@@ -421,7 +469,7 @@ class PredictCtg : public Predict {
   vector<PredictorT> yPred;
   const PredictorT nCtgTrain; // Cardiality of training response.
   const PredictorT nCtgMerged; // Cardinality of merged test response.
-  unique_ptr<class CtgProb> ctgProb; // Class prediction probabilities.
+  unique_ptr<CtgProb> ctgProb; // Class prediction probabilities.
 
   vector<PredictorT> yPermute; // Reused.
   vector<PredictorT> census;
@@ -448,11 +496,11 @@ public:
 
   PredictCtg(const class Forest* forest_,
 	     const class Sampler* sampler_,
-	     const class Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<PredictorT>& yTest_,
 	     unsigned int nPredict_,
-	     bool doProb);
+	     bool doProb,
+	     bool trapUnobserved_);
 
   //  ~PredictCtg(); // Forward declaration:  not specified default;
 
@@ -530,9 +578,11 @@ public:
   /**
      @brief Getter for probability matrix.
    */
-  const vector<double>& getProb() const;
+  const vector<double>& getProb() const {
+    return ctgProb->getProb();
+  }
 
-  
+
   /**
      @brief Dumps and categorical-specific contents.
    */

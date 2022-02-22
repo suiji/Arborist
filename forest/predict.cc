@@ -32,16 +32,14 @@ const unsigned int Predict::seqChunk = 0x20;
 
 Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
-		 const Leaf* leaf_,
-		 RLEFrame* rleFrame_,
+		 RLEFrame* rleFrame,
 		 bool testing_,
-		 unsigned int nPermute_) :
-  trapUnseen(false),
+		 unsigned int nPermute_,
+		 bool trapUnobserved_) :
+  trapUnobserved(trapUnobserved_),
   sampler(sampler_),
-  leaf(leaf_),
-  cNode(forest->getNode()),
+  decNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
-  rleFrame(rleFrame_),
   testing(testing_),
   nPermute(nPermute_),
   predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
@@ -61,12 +59,13 @@ Predict::Predict(const Forest* forest,
 
 PredictReg::PredictReg(const Forest* forest,
 		       const Sampler* sampler_,
-		       const Leaf* leaf_,
+		       const Leaf* leaf,
 		       RLEFrame* rleFrame,
 		       const vector<double>& yTest_,
 		       unsigned int nPermute_,
-		       const vector<double>& quantile) :
-  Predict(forest, sampler_, leaf_, rleFrame, !yTest_.empty(), nPermute_),
+		       const vector<double>& quantile,
+		       bool trapUnobserved_) :
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
   response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
   yTest(move(yTest_)),
   yPred(vector<double>(nRow)),
@@ -75,7 +74,7 @@ PredictReg::PredictReg(const Forest* forest,
   accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(make_unique<Quant>(forest, this, response, rleFrame, move(quantile))),
+  quant(make_unique<Quant>(forest, leaf, this, response, move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {
@@ -84,18 +83,18 @@ PredictReg::PredictReg(const Forest* forest,
 
 PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
-		       const Leaf* leaf_,
 		       RLEFrame* rleFrame,
 		       const vector<PredictorT>& yTest_,
 		       unsigned int nPermute_,
-		       bool doProb) :
-  Predict(forest, sampler_, leaf_, rleFrame, !yTest_.empty(), nPermute_),
+		       bool doProb,
+		       bool trapUnobserved_) :
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
   response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
   yTest(move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
   nCtgTrain(response->getNCtg()),
   nCtgMerged(testing ? 1 + *max_element(yTest.begin(), yTest.end()) : 0),
-  ctgProb(make_unique<CtgProb>(this, response, sampler, doProb)),
+  ctgProb(make_unique<CtgProb>(this, response, doProb)),
   // Can only predict trained categories, so census and
   // probability matrices have 'nCtgTrain' columns.
   yPermute(vector<PredictorT>(nPermute > 0 ? nRow : 0)),
@@ -115,13 +114,13 @@ PredictCtg::PredictCtg(const Forest* forest,
 }
 
 
-void Predict::predict() {
-  blocks();
-  predictPermute();
+void Predict::predict(RLEFrame* rleFrame) {
+  blocks(rleFrame);
+  predictPermute(rleFrame);
 }
 
 
-void Predict::predictPermute() {
+void Predict::predictPermute(RLEFrame* rleFrame) {
   if (nPermute == 0) {
     return;
   }
@@ -130,7 +129,7 @@ void Predict::predictPermute() {
     setPermuteTarget(predIdx);
     vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
     rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, BHeap::permute(nRow));
-    blocks();
+    blocks(rleFrame);
     rleFrame->rlePred[predIdx] = move(rleTemp);
   }
 }
@@ -157,36 +156,37 @@ void PredictCtg::setPermuteTarget(PredictorT predIdx) {
 }
 
 
-void Predict::blocks() {
+void Predict::blocks(const RLEFrame* rleFrame) {
   vector<size_t> trIdx(nPredNum + nPredFac);
-  size_t row = predictBlock(0, nRow, trIdx);
+  size_t row = predictBlock(rleFrame, 0, nRow, trIdx);
   // Remainder rows handled in custom-fitted block.
   if (nRow > row) {
-    (void) predictBlock(row, nRow, trIdx);
+    (void) predictBlock(rleFrame, row, nRow, trIdx);
   }
 
   estAccum();
 }
 
 
-size_t Predict::predictBlock(size_t rowStart,
+size_t Predict::predictBlock(const RLEFrame* rleFrame,
+			     size_t rowStart,
 			     size_t rowEnd,
 			     vector<size_t>& trIdx) {
   size_t blockRows = min(scoreChunk, rowEnd - rowStart);
   size_t row = rowStart;
   for (; row + blockRows <= rowEnd; row += blockRows) {
     rleFrame->transpose(trIdx, row, scoreChunk, trFac, trNum);
-    fill(predictLeaves.begin(), predictLeaves.end(), noNode);
-    blockStart = row;
-    blockEnd = row + blockRows;
-    predictBlock();
+    blockStart = row; // Not local.
+    predictBlock(blockRows);
   }
   return row;
 }
 
 
-void Predict::predictBlock() {
-  OMPBound rowEnd = static_cast<OMPBound>(blockEnd);
+void Predict::predictBlock(size_t span) {
+  fill(predictLeaves.begin(), predictLeaves.end(), noNode);
+
+  OMPBound rowEnd = static_cast<OMPBound>(blockStart + span);
   OMPBound rowStart = static_cast<OMPBound>(blockStart);
 
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -291,7 +291,7 @@ void Predict::walkMixed(size_t row) {
 void Predict::rowNum(unsigned int tIdx,
 		       const double* rowT,
 		       size_t row) {
-  const vector<DecNode>& cTree = cNode[tIdx];
+  const vector<DecNode>& cTree = decNode[tIdx];
   auto idx = 0;
   IndexT delIdx = 0;
   do {
@@ -306,7 +306,7 @@ void Predict::rowNum(unsigned int tIdx,
 void Predict::rowFac(const unsigned int tIdx,
 		     const unsigned int* rowT,
 		     size_t row) {
-  const vector<DecNode>& cTree = cNode[tIdx];
+  const vector<DecNode>& cTree = decNode[tIdx];
   auto idx = 0;
   IndexT delIdx = 0;
   do {
@@ -322,7 +322,7 @@ void Predict::rowMixed(unsigned int tIdx,
 			 const double* rowNT,
 			 const unsigned int* rowFT,
 			 size_t row) {
-  const vector<DecNode>& cTree = cNode[tIdx];
+  const vector<DecNode>& cTree = decNode[tIdx];
   auto idx = 0;
   IndexT delIdx = 0;
   do {
@@ -334,21 +334,11 @@ void Predict::rowMixed(unsigned int tIdx,
 }
 
 
-const double* Predict::baseNum(size_t row) const {
-  return &trNum[(row - blockStart) * nPredNum];
-}
-  
-
-const PredictorT* Predict::baseFac(size_t row) const {
-  return &trFac[(row - blockStart) * nPredFac];
-}
-
-
 bool Predict::isLeafIdx(size_t row,
 			unsigned int tIdx,
 			IndexT& leafIdx) const {
     IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
-    return termIdx == noNode ? false : cNode[tIdx][termIdx].getLeafIdx(leafIdx);
+    return termIdx == noNode ? false : decNode[tIdx][termIdx].getLeafIdx(leafIdx);
 }
 
 
@@ -398,16 +388,42 @@ void PredictCtg::setMisprediction() {
 }
 
 
-  /**
-     @brief Getter for probability matrix.
-   */
-
-const vector<double>& PredictCtg::getProb() const {
-  return ctgProb->getProb();
-}
-
-  
 void PredictCtg::dump() const {
   // TODO
   //  ctgProb->dump(probTree);
+}
+
+
+CtgProb::CtgProb(const Predict* predict,
+		 const ResponseCtg* response,
+		 bool doProb) :
+  nCtg(response->getNCtg()),
+  probDefault(response->defaultProb()),
+  probs(vector<double>(doProb ? predict->getNRow() * nCtg : 0)) {
+}
+
+
+void CtgProb::predictRow(const Predict* predict, size_t row, PredictorT* ctgRow) {
+  unsigned int nEst = accumulate(ctgRow, ctgRow + nCtg, 0ul);
+  double* probRow = &probs[row * nCtg];
+  if (nEst == 0) {
+    applyDefault(probRow);
+  }
+  else {
+    double scale = 1.0 / nEst;
+    for (PredictorT ctg = 0; ctg < nCtg; ctg++)
+      probRow[ctg] = ctgRow[ctg] * scale;
+  }
+}
+
+
+void CtgProb::applyDefault(double probPredict[]) const {
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+    probPredict[ctg] = probDefault[ctg];
+  }
+}
+
+
+void CtgProb::dump() const {
+  // TODO
 }

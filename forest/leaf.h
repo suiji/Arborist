@@ -84,7 +84,7 @@ public:
    @brief Leaves are indexed by their numbering within the tree.
  */
 struct Leaf {
-  const bool thin; // Whether the container is empty.
+  const bool thin; // EXIT.
 
   // Training only:
   vector<IndexT> indexCresc; // Sample indices within leaves.

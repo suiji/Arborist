@@ -16,7 +16,6 @@
 #include "quant.h"
 #include "forest.h"
 #include "predict.h"
-#include "rleframe.h"
 #include "response.h"
 #include "sampler.h"
 #include <algorithm>
@@ -29,22 +28,22 @@ const unsigned int Quant::binSize = 0x1000;
    leaf indices.
  */
 Quant::Quant(const Forest* forest,
+	     const Leaf* leaf_,
 	     const Predict* predict,
 	     const ResponseReg* response,
-	     const RLEFrame* rleFrame,
              const vector<double>& quantile_) :
   quantile(move(quantile_)),
   qCount(quantile.size()),
   sampler(predict->getSampler()),
-  leaf(predict->getLeaf()),
+  leaf(leaf_),
   empty(!sampler->hasSamples() || quantile.empty()),
   leafDom((empty || !predict->trapAndBail()) ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
   valRank(ValRank<double>(&response->getYTrain()[0], empty ? 0 : response->getYTrain().size())),
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : leaf->alignRanks(sampler, valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
-  qPred(vector<double>(empty ? 0 : rleFrame->getNRow() * qCount)),
-  qEst(vector<double>(empty ? 0 : rleFrame->getNRow())) {
+  qPred(vector<double>(empty ? 0 : predict->getNRow() * qCount)),
+  qEst(vector<double>(empty ? 0 : predict->getNRow())) {
 }
 
 
