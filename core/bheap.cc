@@ -15,7 +15,7 @@
 
 
 #include "bheap.h"
-#include "callback.h"
+#include "prng.h"
 
 unsigned int BHeap::slotPop(BHPair pairVec[], int bot) {
   unsigned int ret = pairVec[0].slot;
@@ -72,7 +72,7 @@ void BHeap::insert(BHPair pairVec[], unsigned int slot_, double key_) {
 
 
 vector<size_t> BHeap::permute(IndexT nSlot) {
-  auto vUnif = CallBack::rUnif(nSlot);
+  auto vUnif = PRNG::rUnif(nSlot);
   vector<BHPair> heap(nSlot);
   for (IndexT slot = 0; slot < nSlot; slot++) {
     BHeap::insert(&heap[0], slot, vUnif[slot]);

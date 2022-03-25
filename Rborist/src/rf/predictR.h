@@ -31,103 +31,36 @@
 using namespace Rcpp;
 
 
-RcppExport SEXP validateReg(const SEXP sFrame,
-                            const SEXP sTrain,
+/**
+   @brief Prediction with separate test vector.
+
+   @param sFrame contains the blocked observations.
+
+   @param sTrain contains the trained object.
+
+   @param sYTest is the vector of test values, possbily NULL.
+
+   @param sOOB indicates whether testing is out-of-bag.
+
+   @return wrapped predict object.
+ */
+RcppExport SEXP predictRcpp(const SEXP sFrame,
+			    const SEXP sTrain,
 			    const SEXP sSampler,
-                            SEXP sYTest,
-			    SEXP sPermute,
-			    SEXP sTrapUnobserved,
-                            SEXP sNThread);
+			    const SEXP sYTest,
+			    const SEXP sArgs);
 
 
-RcppExport SEXP testReg(const SEXP sFrame,
-                        const SEXP sTrain,
-			const SEXP sSampler,
-                        SEXP sYTest,
-                        SEXP sOOB,
-			SEXP sTrapUnobserved,
-                        SEXP sNThread);
+/**
+   @brief Prediction with training response as test vector.
 
-
-RcppExport SEXP validateVotes(const SEXP sFrame,
-                              const SEXP sTrain,
-			      const SEXP sSampler,
-                              SEXP sYTest,
-			      SEXP sPermute,
-			      SEXP sTrapUnobserved,
-                              SEXP sNThread);
-
-
-RcppExport SEXP validateProb(const SEXP sFrame,
-                             const SEXP sTrain,
+   Paramaters as with predictRcpp.
+ */
+RcppExport SEXP validateRcpp(const SEXP sFrame,
+			     const SEXP sTrain,
 			     const SEXP sSampler,
-                             SEXP sYTest,
-			     SEXP sPermute,
-			     SEXP sTrapUnobserved,
-                             SEXP sNThread);
+			     const SEXP sArgs);
 
-
-RcppExport SEXP validateQuant(const SEXP sFrame,
-                              const SEXP sTrain,
-			      const SEXP sSampler,
-                              SEXP sYTest,
-			      SEXP sPermute,
-                              SEXP sQuantVec,
-			      SEXP sTrapUnobserved,
-                              SEXP sNThread);
-
-
-RcppExport SEXP testQuant(const SEXP sFrame,
-                          const SEXP sTrain,
-			  const SEXP sSampler,
-                          SEXP sQuantVec,
-                          SEXP sYTest,
-                          SEXP sOOB,
-			  SEXP sTrapUnobserved,
-                          SEXP sNThread);
-
-/**
-   @brief Predicts with class votes.
-
-   @param sFrame contains the blocked observations.
-
-   @param sTrain contains the trained object.
-
-   @param sYTest is the vector of test values.
-
-   @param sOOB indicates whether testing is out-of-bag.
-
-   @return wrapped predict object.
- */
-RcppExport SEXP testProb(const SEXP sFrame,
-                         const SEXP sTrain,
-			 const SEXP sSampler,
-                         SEXP sYTest,
-                         SEXP sOOB,
-			 SEXP sTrapUnobserved,
-                         SEXP sNThread);
-
-
-/**
-   @brief Predicts with class votes.
-
-   @param sFrame contains the blocked observations.
-
-   @param sTrain contains the trained object.
-
-   @param sYTest contains the test vector.
-
-   @param sOOB indicates whether testing is out-of-bag.
-
-   @return wrapped predict object.
- */
-RcppExport SEXP testVotes(const SEXP sFrame,
-                          const SEXP sTrain,
-			  const SEXP sSampler,
-                          SEXP sYTest,
-                          SEXP sOOB,
-			  SEXP sTrapUnobserved,
-                          SEXP sNThread);
 
 /**
    @brief Bridge-variant PredictBridge pins unwrapped front-end structures.
@@ -137,54 +70,20 @@ struct PBRf {
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
 			 const List& lSampler,
-			 SEXP sYTest,
-			 bool oob,
-			 bool doProb,
-			 unsigned int permute,
-			 bool trapUnobserved,
-			 unsigned int nThread);
+			 const SEXP sYTest,
+			 const List& lArgs);
 
-  
+
   /**
      @brief Prediction for regression.  Parameters as above.
    */
   static List predictReg(const List& lDeframe,
                          const List& lTrain,
 			 const List& lSampler,
-                         SEXP sYTest,
-                         bool oob,
-			 unsigned int permute,
-			 bool trapUnobserved,
-                         unsigned int nThread);
+                         const SEXP sYTest,
+			 const List& lArgs);
 
-
-  /**
-  @brief Prediction with quantiles.
-
-    @param sFrame contains the blocked observations.
-
-    @param sTrain contains the trained object.
-
-    @param sQuantVec is a vector of quantile training data.
-   
-    @param sYTest is the test vector.
-
-    @param oob is true iff testing restricted to out-of-bag.
-
-    @param permute is positive iff permutation testing is specified.
-
-    @return wrapped prediction list.
- */
-  static List predictQuant(const List& lDeframe,
-			   const List& lTrain,
-			   const List& lSampler,
-			   SEXP sQuantVec,
-			   SEXP sYTest,
-			   bool bagging,
-			   unsigned int permute,
-			   bool trapUnobserved,
-			   unsigned int nThread);
-
+  
   /**
      @brief Unwraps regression data structurs and moves to box.
 
@@ -193,12 +92,8 @@ struct PBRf {
   static unique_ptr<struct PredictRegBridge> unwrapReg(const List& lDeframe,
 						       const List& lTrain,
 						       const List& lSampler,
-						       SEXP sYTest,
-						       bool oob,
-						       unsigned int permute,
-						       bool trapUnobserved,
-						       unsigned int nThread,
-						       vector<double> quantile = vector<double>(0));
+						       const SEXP sYTest,
+						       const List& lArgs);
 
   /**
      @brief Instantiates core prediction object and predicts quantiles.
@@ -216,12 +111,8 @@ struct PBRf {
   static unique_ptr<struct PredictCtgBridge> unwrapCtg(const List& lDeframe,
 						       const List& lTrain,
 						       const List& lSampler,
-						       SEXP sYTest,
-						       bool oob,
-						       bool doProb,
-						       unsigned int permute,
-						       bool trapUnobserved,
-						       unsigned int nThread);
+						       const SEXP sYTest,
+						       const List& lArgs);
 
 
   static List summary(const List& lDeframe,
@@ -270,12 +161,21 @@ private:
    */
   static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
 
-  
-  static vector<double> regTest(SEXP sYTest);
 
+  /**
+     @return regression test vector suitable for core.
+   */
+  static vector<double> regTest(const SEXP sYTest);
+
+
+  /**
+     @return quantile vector suitable for core.
+   */
+  static vector<double> quantVec(const List& lArgs);
+  
 
   static vector<unsigned int> ctgTest(const List& lSampler,
-				      SEXP sYTest);
+				      const SEXP sYTest);
 };
 
 

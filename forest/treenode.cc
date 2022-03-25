@@ -60,7 +60,7 @@ void TreeNode::setQuantRank(const TrainFrame* trainFrame) {
 
 IndexT TreeNode::advanceMixed(const Predict* predict,
 			      const vector<unique_ptr<BV>>& factorBits,
-			      const IndexT* rowFT,
+			      const CtgT* rowFT,
 			      const double* rowNT,
 			      unsigned int tIdx) const {
   bool isFactor;

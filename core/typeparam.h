@@ -34,15 +34,26 @@ typedef double FltAccum;
 typedef uint64_t PackedT;
 
 // Index type:  rows, samples, ranks, run counts.
-// Should be wide enough to accommodate values approaching # observations.
+// Should be wide enough to accommodate values approaching #
+// observations.
+//
+// Can be set to size_t for observation counts > 32 bits, but Rcpp's
+// sampling methods do not currently accommodate such large sizes.
+// Setting to size_t may also incur performance penalties, roughly
+// 5% more memory usage and 10% reduction in speed.
+//
 typedef unsigned int IndexT; 
 
-// Predictor type:  columns, # runs, caridinalities.
-// Should accommodate values approaching # predictors or properties.
+// Predictor type:  # columns.
+// Should accommodate values approaching # predictors.
 typedef unsigned int PredictorT;
 
 
-// Low/extent pair definining range of indices.
+// Category cardinalities:  under construction.
+typedef unsigned int CtgT;
+
+
+// Low/extent pair defining range of indices.
 struct IndexRange {
   IndexT idxStart;
   IndexT idxExtent;

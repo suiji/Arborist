@@ -17,15 +17,14 @@
 
 # Pre-formats a data frame or buffer, if not already pre-formatted.
 # If already pre-formatted, verifies types of member fields.
-PreFormat <- function(x, verbose = FALSE) {
-  warning("PreFormat is being deprecated.  Please use preformat() instead.");
+preformat <- function(x, verbose = FALSE) {
     if (inherits(x, "Deframe")) {
         if (!inherits(x$rleFrame, "RLEFrame")) {
             stop("Missing RLEFrame")
         }
         if (verbose)
             print("Training set already pre-formatted")
-        preFormat <- x
+        preformat <- x
     }
     else {
         if (verbose)
@@ -34,12 +33,12 @@ PreFormat <- function(x, verbose = FALSE) {
         if (verbose)
             print("Pre-sorting")
 
-        preFormat <- deframe(x)
+        preformat <- deframe(x)
         if (verbose)
             print("Pre-formatting completed")
     }
 
-    preFormat
+    preformat
 }
 
 

@@ -23,7 +23,7 @@
    @author Mark Seligman
  */
 
-#include "rowsample.h"
+#include "prng.h"
 #include "resizeR.h"
 #include "samplerR.h"
 #include "samplerbridge.h"
@@ -34,39 +34,81 @@ const string SamplerR::strNTree = "nTree";
 const string SamplerR::strSamples = "samples";
 
 
-RcppExport SEXP rootSample(const SEXP sDeframe, const SEXP sArgList) {
+RcppExport SEXP rootSample(const SEXP sY,
+			   const SEXP sRowWeight,
+			   const SEXP sNSamp,
+			   const SEXP sNTree,
+			   const SEXP sWithRepl) {
   BEGIN_RCPP
 
-  return SamplerR::sample(List(sDeframe), List(sArgList));
+    return SamplerR::rootSample(sY, sRowWeight, as<size_t>(sNSamp), as<unsigned int>(sNTree), as<bool>(sWithRepl));
 
   END_RCPP
 }
 
 
-List SamplerR::sample(const List& lDeframe,
-		      const List& argList) {
-  RowSample::init(as<NumericVector>(argList["rowWeight"]),
-		  as<bool>(argList["withRepl"]));
-  unsigned int nTree = as<unsigned int>(argList["nTree"]);
-  unique_ptr<SamplerBridge> sb = SamplerBridge::preSample(as<unsigned int>(argList["nSamp"]),
-							  as<size_t>(lDeframe["nRow"]),
-							  nTree);
-  sb->sample(nTree); // Produces samples
+List SamplerR::rootSample(const SEXP sY,
+		      const SEXP sRowWeight,
+		      size_t nSamp,
+		      unsigned int nTree,
+		      bool withRepl) {
+  size_t nObs = Rf_isFactor(sY) ? as<IntegerVector>(sY).length() : as<NumericVector>(sY).length();
+  unique_ptr<SamplerBridge> sb = SamplerBridge::preSample(nSamp, nObs, nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    vector<size_t> idx = sampleObs(nObs, nSamp, withRepl, sRowWeight);
+    sb->appendSamples(idx);
+  }
 
-  // Caches the front end's response vector as is.
-  if (Rf_isFactor((SEXP) argList["y"])) {
-    return wrap(sb.get(), as<IntegerVector>((SEXP) argList["y"]));
+  return wrap(sb.get(), sY);
+}
+
+
+vector<size_t> SamplerR::sampleObs(size_t nObs,
+				   size_t nSamp,
+				   bool replace,
+				   const SEXP sRowWeight) {
+  if (Rf_isNull(sRowWeight)) {
+    NumericVector samples = PRNG::sampleUniform(nObs, nSamp, replace);
+    vector<size_t> sampleOut(samples.begin(), samples.end());
+    return sampleOut;
   }
   else {
-    return wrap(sb.get(), as<NumericVector>((SEXP) argList["y"]));
+    IntegerVector samples = sampleWeight(nObs, nSamp, replace, as<NumericVector>(sRowWeight));
+    vector<size_t> sampleOut(samples.begin(), samples.end());
+    return sampleOut;
   }
 }
 
 
-NumericVector SamplerR::bridgeConsume(const SamplerBridge* bridge) {
-  NumericVector blockNum(bridge->getNuxCount());
-  bridge->dumpNux(&blockNum[0]);
-  return blockNum;
+IntegerVector SamplerR::sampleWeight(size_t nObs,
+				     size_t nSamp,
+				     bool replace,
+				     const NumericVector& rowWeight) {
+  BEGIN_RCPP
+
+  double sumWeight = sum(rowWeight);
+  if (sumWeight == 0)
+      stop("No observations with nonzero probability");
+
+  // Normalized weights Will be overwritten by sampling function.
+  NumericVector weight = rowWeight / sumWeight;
+
+  RNGScope scope;
+  IntegerVector rowSample(sample(nObs, nSamp, replace, weight, false));
+  return rowSample;
+  END_RCPP
+}
+
+
+List SamplerR::wrap(const SamplerBridge* sb,
+		    const SEXP sY) {		    
+  // Caches the front end's response vector as is.
+  if (Rf_isFactor(sY)) {
+    return wrap(sb, as<IntegerVector>(sY));
+  }
+  else {
+    return wrap(sb, as<NumericVector>(sY));
+  }
 }
 
 
@@ -83,6 +125,13 @@ List SamplerR::wrap(const SamplerBridge* sb,
 
   return sampler;
   END_RCPP
+}
+
+
+NumericVector SamplerR::bridgeConsume(const SamplerBridge* bridge) {
+  NumericVector blockNum(bridge->getNuxCount());
+  bridge->dumpNux(&blockNum[0]);
+  return blockNum;
 }
 
 
@@ -104,41 +153,11 @@ List SamplerR::wrap(const SamplerBridge* sb,
 unique_ptr<SamplerBridge> SamplerR::unwrapTrain(const List& lSampler,
 						const List& argList) {
   if (Rf_isFactor((SEXP) lSampler[strYTrain])) {
-    return unwrapFac(lSampler, move(weightVec(lSampler, argList)));
+    return unwrapFac(lSampler, argList);
   }
   else {
     return unwrapNum(lSampler);
   }
-}
-
-
-vector<double> SamplerR::weightVec(const List& lSampler, const List& argList) {
-  NumericVector classWeight((SEXP) argList["classWeight"]);
-  NumericVector weight = ctgWeight(as<IntegerVector>(lSampler[strYTrain]) - 1, classWeight);
-  vector<double> weightVec(weight.begin(), weight.end());
-  return weightVec;
-}
-
-
-NumericVector SamplerR::ctgWeight(const IntegerVector& yZero,
-				  const NumericVector& classWeight) {
-
-  BEGIN_RCPP
-    
-  auto scaledWeight = clone(classWeight);
-  // Default class weight is all unit:  scaling yields 1.0 / nCtg uniformly.
-  // All zeroes is a place-holder to indicate balanced scaling:  class weights
-  // are proportional to the inverse of the count of the class in the response.
-  if (is_true(all(classWeight == 0.0))) {
-    NumericVector tb(table(yZero));
-    for (R_len_t i = 0; i < classWeight.length(); i++) {
-      scaledWeight[i] = tb[i] == 0.0 ? 0.0 : 1.0 / tb[i];
-    }
-  }
-  NumericVector yWeighted = scaledWeight / sum(scaledWeight); // in [0,1]
-  return yWeighted[yZero];
-
-  END_RCPP
 }
 
 
@@ -199,14 +218,35 @@ vector<unsigned int> SamplerR::coreCtg(const IntegerVector& yTrain) {
 
 
 unique_ptr<SamplerBridge> SamplerR::unwrapFac(const List& lSampler,
-					      vector<double> weights) {
+					      const List& argList) {
   IntegerVector yTrain((SEXP) lSampler[strYTrain]);
   return SamplerBridge::trainCtg(move(coreCtg(yTrain)),
 				 as<size_t>(lSampler[strNSamp]),
 				 as<unsigned int>(lSampler[strNTree]),
 				 Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
 				 as<CharacterVector>(yTrain.attr("levels")).length(),
-				 weights);
+				 move(ctgWeight(yTrain, as<NumericVector>(argList["classWeight"]))));
+}
+
+
+vector<double> SamplerR::ctgWeight(const IntegerVector& yTrain,
+				   const NumericVector& classWeight) {
+  IntegerVector yZero = yTrain - 1;
+  auto scaledWeight = clone(classWeight);
+  // Default class weight is all unit:  scaling yields 1.0 / nCtg uniformly.
+  // All zeroes is a place-holder to indicate balanced scaling:  class weights
+  // are proportional to the inverse of the count of the class in the response.
+  if (is_true(all(classWeight == 0.0))) {
+    NumericVector tb(table(yZero));
+    for (R_len_t i = 0; i < classWeight.length(); i++) {
+      scaledWeight[i] = tb[i] == 0.0 ? 0.0 : 1.0 / tb[i];
+    }
+  }
+  NumericVector yWeighted = scaledWeight / sum(scaledWeight); // in [0,1]
+  NumericVector weight = yWeighted[yZero];
+
+  vector<double> weightVec(weight.begin(), weight.end());
+  return weightVec;
 }
 
 

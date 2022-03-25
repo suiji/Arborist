@@ -178,11 +178,11 @@ public:
   
   PredictorT predictObs(const class Predict* predict,
 			size_t row,
-			PredictorT* census) const;
+			unsigned int* census) const;
   
   
-  PredictorT argMaxJitter(const IndexT* census,
-			  const double* jitter) const;
+  PredictorT argMaxJitter(const unsigned int* census,
+			  const vector<double>& ctgJitter) const;
 
 
   /**

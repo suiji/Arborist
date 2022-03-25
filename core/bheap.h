@@ -56,8 +56,8 @@ struct BHeap {
      @param pop is the number of elements to pop.  Caller enforces value > 0.
   */
   static void depopulate(BHPair pairVec[],
-                         unsigned int lhOut[],
-                         unsigned int pop);
+                         PredictorT lhOut[],
+                         PredictorT pop);
 
   /**
      @brief Inserts a key, value pair into the heap at next vacant slot.

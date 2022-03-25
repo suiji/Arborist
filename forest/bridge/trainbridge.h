@@ -62,7 +62,7 @@ struct TrainBridge {
   /**
      @brief Registers tree-shape parameters.
   */
-  static void initTree(unsigned int leafMax);
+  static void initTree(size_t leafMax);
 
   /**
      @brief Initializes static OMP thread state.

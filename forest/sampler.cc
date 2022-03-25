@@ -8,7 +8,6 @@
 
 #include "predict.h"
 #include "sampler.h"
-#include "callback.h"
 #include "response.h"
 #include "samplernux.h"
 
@@ -99,14 +98,8 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-void Sampler::sample(unsigned int nRep) {
-  for (unsigned int i = 0; i < nRep; i++)
-    sample();
-}
-
-
-void Sampler::sample() {
-  vector<IndexT> sCountRow = countSamples(nObs, nSamp);
+void Sampler::appendSamples(const vector<size_t>& idx) {
+  vector<IndexT> sCountRow = binIdx(nObs) > 0 ? countSamples(binIndices(nObs, idx)) : countSamples(idx);
   IndexT rowPrev = 0;
   for (IndexT row = 0; row < nObs; row++) {
     if (sCountRow[row] > 0) {
@@ -116,18 +109,8 @@ void Sampler::sample() {
 }
 
 
-// Sample counting is sensitive to locality.  In the absence of
-// binning, access is random.  Larger bins improve locality, but
-// performance begins to degrade when bin size exceeds available
-// cache.
-vector<IndexT> Sampler::countSamples(IndexT nObs,
-				     IndexT nSamp) {
+vector<IndexT> Sampler::countSamples(const vector<size_t>& idx) {
   vector<IndexT> sc(nObs);
-  vector<IndexT> idx(CallBack::sampleRows(nSamp));
-  if (binIdx(sc.size()) > 0) {
-    idx = binIndices(idx);
-  }
-    
   for (auto index : idx) {
     sc[index]++;
   }
@@ -136,12 +119,17 @@ vector<IndexT> Sampler::countSamples(IndexT nObs,
 }
 
 
-vector<unsigned int> Sampler::binIndices(const vector<unsigned int>& idx) {
+// Sample counting is sensitive to locality.  In the absence of
+// binning, access is random.  Larger bins improve locality, but
+// performance begins to degrade when bin size exceeds available
+// cache.
+vector<size_t> Sampler::binIndices(size_t nObs,
+				   const vector<size_t>& idx) {
   // Sets binPop to respective bin population, then accumulates population
   // of bins to the left.
   // Performance not sensitive to bin width.
   //
-  vector<unsigned int> binPop(1 + binIdx(idx.size()));
+  vector<size_t> binPop(1 + binIdx(nObs));
   for (auto val : idx) {
     binPop[binIdx(val)]++;
   }
@@ -162,7 +150,7 @@ vector<unsigned int> Sampler::binIndices(const vector<unsigned int>& idx) {
   //
   // Performance degrades if bin width exceeds available cache.
   //
-  vector<unsigned int> idxBinned(idx.size());
+  vector<size_t> idxBinned(idx.size());
   for (auto index : idx) {
     int destIdx = idxAvail[binIdx(index)]--;
     idxBinned[destIdx] = index;

@@ -38,7 +38,7 @@ class IndexSet {
   const IndexRange bufRange;  // Swiss cheese positions within obsPart buffer.
   const IndexT sCount;  // # samples subsumed by this set.
   const double sum; // Sum of all responses in set.
-  const unsigned char path; // Bitwise record of recent reaching L/R path.
+  const PathT path; // Bitwise record of recent reaching L/R path.
   const IndexT ptId; // Index of associated pretree node.
   const vector<SumCount> ctgSum;  // Per-category sum decomposition.
 
@@ -121,7 +121,7 @@ public:
   /**
      @brief Computes the successor path along the specified branch.
    */
-  unsigned int getPathSucc(bool trueBranch) const;
+  PathT getPathSucc(bool trueBranch) const;
 
 
   bool isUnsplitable() const {
@@ -189,7 +189,7 @@ public:
                      bool trueBranch) const;
 
 
-  unsigned int getPath() const {
+  PathT getPath() const {
     return path;
   }
 

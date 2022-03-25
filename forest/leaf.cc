@@ -134,12 +134,11 @@ vector<vector<vector<RankCount>>> Leaf::alignRanks(const class Sampler* sampler,
   if (!sampler->hasSamples())
     return rankCount;
 
-  //  size_t treeIdx = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     IndexT row = 0;
     vector<size_t> sIdx2Rank(sampler->getBagCount(tIdx));
     for (IndexT sIdx = 0 ; sIdx != sIdx2Rank.size(); sIdx++) {
-      row += sampler->getDelRow(tIdx, sIdx);//treeIdx + sIdx);
+      row += sampler->getDelRow(tIdx, sIdx);
       sIdx2Rank[sIdx] = row2Rank[row];
     }
     size_t leafIdx = 0;
@@ -148,11 +147,10 @@ vector<vector<vector<RankCount>>> Leaf::alignRanks(const class Sampler* sampler,
       rankCount[tIdx][leafIdx] = vector<RankCount>(sIdxVec.size());
       size_t idx = 0;
       for (size_t sIdx : sIdxVec) {
-	rankCount[tIdx][leafIdx][idx++].init(sIdx2Rank[sIdx], sampler->getSCount(tIdx, sIdx));//treeIdx + sIdx));
+	rankCount[tIdx][leafIdx][idx++].init(sIdx2Rank[sIdx], sampler->getSCount(tIdx, sIdx));
       }
       leafIdx++;
     }
-    //    treeIdx += sampler->getBagCount(tIdx);
   }
 
   return rankCount;

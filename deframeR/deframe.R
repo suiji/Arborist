@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2021   Mark Seligman
+# Copyright (C)  2012-2022  Mark Seligman
 ##
 ## This file is part of deframeR.
 ##
@@ -22,7 +22,7 @@
 deframe <- function(x, sigTrain = NULL) {
   # Argument checking:
   if (any(is.na(x))) {
-    stop("NA not supported in design matrix")
+    stop("NA not yet supported in design matrix")
   }
 
   # For now, only numeric and unordered factor types supported.
@@ -36,21 +36,21 @@ deframe <- function(x, sigTrain = NULL) {
       }
       predForm <- sapply(dt, function(col) ifelse(is.numeric(col), "numeric", "factor"))
       hasFactor <- sapply(dt, function(col) ifelse(is.numeric(col), FALSE, TRUE))
-      return(tryCatch(.Call("DeframeDF", dt, predForm, lapply(dt, levels)[hasFactor], lapply(dt, factor)[hasFactor], sigTrain), error = function(e) {stop(e)} ))
+      return(tryCatch(.Call("deframeDF", dt, predForm, lapply(dt, levels)[hasFactor], lapply(dt, factor)[hasFactor], sigTrain), error = function(e) {stop(e)} ))
   }
   else if (inherits(x, "dgCMatrix")) {
-     return(tryCatch(.Call("DeframeIP", x), error= print))
+     return(tryCatch(.Call("deframeIP", x), error= print))
   }
   else if (is.matrix(x)) {
     if (is.integer(x) && is.factor(x) && !is.ordered(x)) {
-      return(tryCatch(.Call("DeframeFac", data.matrix(x) ), error=function(e) {stop(e)} ))
+      return(tryCatch(.Call("deframeFac", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.integer(x)) {
       warning("Integer matrix values intepreted as numeric");
-      return(tryCatch(.Call("DeframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
+      return(tryCatch(.Call("deframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.numeric(x)) {
-      return(tryCatch(.Call("DeframeNum", x), error=function(e) {stop(e)}))
+      return(tryCatch(.Call("deframeNum", x), error=function(e) {stop(e)}))
     }
     else if (is.character(x)) {
       stop("Character data not yet supported")

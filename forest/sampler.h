@@ -52,12 +52,6 @@ class Sampler {
 
 
   /**
-     @brief Samples response for a single tree.
-   */
-  void sample();
-
-  
-  /**
      @brief Maps an index into its bin.
 
      @param idx is the index in question.
@@ -70,14 +64,18 @@ class Sampler {
   
 
   /**
-     @brief Bins a vector of indices for coarse locality.  Equivalent to
-     the first pass of a radix sort.
+     @brief Bins a vector of indices for coarse locality.
+
+     Equivalent to the first pass of a radix sort.
+
+     @param nObs specfies the maximum sampled index.
 
      @param idx is an unordered vector of indices.
 
      @return binned version of index vector passed.
    */
-  static vector<unsigned int> binIndices(const vector<IndexT>& idx);
+  static vector<size_t> binIndices(size_t nObs,
+				   const vector<size_t>& idx);
 
 
   /**
@@ -87,8 +85,8 @@ class Sampler {
 
      @return vector of sample counts.
    */
-  static vector<IndexT> countSamples(IndexT nRow,
-				     IndexT nSamp);
+  vector<IndexT> countSamples(const vector<size_t>& idx);
+
 
 public:
 
@@ -140,6 +138,14 @@ public:
 	  bool bagging);
 
 
+  /**
+     @brief Samples response for a single tree.
+   */
+  //  void sample(bool replace,
+  //	      const double* weight);
+  void appendSamples(const vector<size_t>& idx);
+
+
   const vector<SamplerNux>& getSamples(unsigned int tIdx) const {
     return samples[tIdx];
   }
@@ -177,14 +183,6 @@ public:
     return !bagMatrix->isEmpty();
   }
 
-
-  /**
-     @brief Samples a block of vectors.
-
-     @param nRep indicates the number of vectors to build.
-   */
-  void sample(unsigned int nRep);
-  
 
   /**
      @brief Passes through to Response method.

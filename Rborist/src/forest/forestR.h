@@ -66,14 +66,14 @@ struct ForestRf {
 class ForestExport {
   unique_ptr<struct ForestBridge> forestBridge;
   vector<vector<unsigned int> > predTree;
-  vector<vector<unsigned int> > bumpTree;
+  vector<vector<double> > bumpTree;
   vector<vector<double > > splitTree;
-  vector<vector<unsigned int> > facSplitTree;
+  vector<vector<unsigned char> > facSplitTree;
 
   void predExport(const int predMap[]);
   void treeExport(const int predMap[],
                   vector<unsigned int> &pred,
-                  const vector<unsigned int> &bump);
+                  const vector<double>& bump);
 
  public:
   ForestExport(const List& forestList,
@@ -96,7 +96,7 @@ class ForestExport {
     return predTree[tIdx];
   }
 
-  const vector<unsigned int> &getBumpTree(unsigned int tIdx) const {
+  const vector<double>& getBumpTree(unsigned int tIdx) const {
     return bumpTree[tIdx];
   }
 
@@ -104,7 +104,7 @@ class ForestExport {
     return splitTree[tIdx];
   }
 
-  const vector<unsigned int> &getFacSplitTree(unsigned int tIdx) const {
+  const vector<unsigned char>& getFacSplitTree(unsigned int tIdx) const {
     return facSplitTree[tIdx];
   }
 };

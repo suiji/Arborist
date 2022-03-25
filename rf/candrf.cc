@@ -18,7 +18,7 @@
 #include "candrf.h"
 #include "sfcart.h"
 #include "defmap.h"
-#include "callback.h"
+#include "prng.h"
 
 
 PredictorT CandRF::predFixed = 0;
@@ -46,7 +46,7 @@ void CandRF::precandidates(DefMap* defMap) {
   PredictorT nPred = defMap->getNPred();
   IndexT cellCount = splitCount * nPred;
   
-  auto ruPred = CallBack::rUnif(cellCount);
+  auto ruPred = PRNG::rUnif(cellCount);
   vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
   for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
     IndexT splitOff = splitIdx * nPred;

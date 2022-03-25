@@ -62,7 +62,7 @@ void Train::trainChunk(const TrainFrame* frame,
 		       Leaf* leaf) {
   frame->obsLayout();
   for (unsigned treeStart = treeRange.getStart(); treeStart < treeRange.getEnd(); treeStart += trainBlock) {
-    auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, treeRange.getEnd()));
+    auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, static_cast<unsigned int>(treeRange.getEnd())));
     blockConsume(treeBlock, leaf);
   }
 }

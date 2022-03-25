@@ -51,7 +51,7 @@ Predict::Predict(const Forest* forest,
   nTree(forest->getNTree()),
   noNode(forest->maxTreeHeight()),
   walkTree(nPredFac == 0 ? &Predict::walkNum : (nPredNum == 0 ? &Predict::walkFac : &Predict::walkMixed)),
-  trFac(vector<unsigned int>(scoreChunk * nPredFac)),
+  trFac(vector<CtgT>(scoreChunk * nPredFac)),
   trNum(vector<double>(scoreChunk * nPredNum)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
 }
@@ -175,11 +175,34 @@ size_t Predict::predictBlock(const RLEFrame* rleFrame,
   size_t blockRows = min(scoreChunk, rowEnd - rowStart);
   size_t row = rowStart;
   for (; row + blockRows <= rowEnd; row += blockRows) {
-    rleFrame->transpose(trIdx, row, scoreChunk, trFac, trNum);
+    transpose(rleFrame, trIdx, row, scoreChunk);
     blockStart = row; // Not local.
     predictBlock(blockRows);
   }
   return row;
+}
+
+
+void Predict::transpose(const RLEFrame* rleFrame,
+			vector<size_t>& idxTr,
+			size_t rowStart,
+			size_t rowExtent) {
+  CtgT* facOut = trFac.empty() ? nullptr : &trFac[0];
+  double* numOut = trNum.empty() ? nullptr : &trNum[0];
+  for (size_t row = rowStart; row != min(nRow, rowStart + rowExtent); row++) {
+    unsigned int numIdx = 0;
+    unsigned int facIdx = 0;
+    vector<unsigned int> rankVec = rleFrame->idxRank(idxTr, row);
+    for (unsigned int predIdx = 0; predIdx < rankVec.size(); predIdx++) {
+      unsigned int rank = rankVec[predIdx];
+      if (rleFrame->predForm[predIdx] == PredictorForm::numeric) {
+	*numOut++ = rleFrame->numRanked[numIdx++][rank];
+      }
+      else {// TODO:  Replace subtraction with (front end)::fac2Rank()
+	*facOut++ = rleFrame->facRanked[facIdx++][rank] - 1;
+      }
+    }
+  }
 }
 
 
@@ -268,7 +291,7 @@ void Predict::walkNum(size_t row) {
 
 
 void Predict::walkFac(size_t row) {
-  auto rowT = baseFac(row);
+  const CtgT* rowT = baseFac(row);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     if (!sampler->isBagged(tIdx, row)) {
       rowFac(tIdx, rowT, row);
@@ -279,7 +302,7 @@ void Predict::walkFac(size_t row) {
 
 void Predict::walkMixed(size_t row) {
   const double* rowNT = baseNum(row);
-  const PredictorT* rowFT = baseFac(row);
+  const CtgT* rowFT = baseFac(row);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     if (!sampler->isBagged(tIdx, row)) {
       rowMixed(tIdx, rowNT, rowFT, row);
@@ -304,10 +327,10 @@ void Predict::rowNum(unsigned int tIdx,
 
 
 void Predict::rowFac(const unsigned int tIdx,
-		     const unsigned int* rowT,
+		     const CtgT* rowT,
 		     size_t row) {
   const vector<DecNode>& cTree = decNode[tIdx];
-  auto idx = 0;
+  IndexT idx = 0;
   IndexT delIdx = 0;
   do {
     delIdx = cTree[idx].advance(factorBits, rowT, tIdx);
@@ -319,9 +342,9 @@ void Predict::rowFac(const unsigned int tIdx,
 
 
 void Predict::rowMixed(unsigned int tIdx,
-			 const double* rowNT,
-			 const unsigned int* rowFT,
-			 size_t row) {
+		       const double* rowNT,
+		       const CtgT* rowFT,
+		       size_t row) {
   const vector<DecNode>& cTree = decNode[tIdx];
   auto idx = 0;
   IndexT delIdx = 0;

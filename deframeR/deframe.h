@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021  Mark Seligman
+// Copyright (C)  2012-2022  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -44,14 +44,14 @@ using namespace Rcpp;
 
   @return wrapped frame containing separately-typed matrices.
 */
-RcppExport SEXP DeframeDF(SEXP sX,
+RcppExport SEXP deframeDF(SEXP sX,
 			  SEXP sPredForm,
                           SEXP sLevels,
 			  SEXP sFactor,
 			  SEXP sSigTrain);
 
 
-SEXP CheckFrame(const List& lSigTrain,
+SEXP checkFrame(const List& lSigTrain,
 		const CharacterVector& predForm);
 
 
@@ -60,7 +60,7 @@ SEXP CheckFrame(const List& lSigTrain,
 
    @param sX is the matrix.
  */
-RcppExport SEXP DeframeFac(SEXP sX);
+RcppExport SEXP deframeFac(SEXP sX);
 
 
 /**
@@ -68,9 +68,9 @@ RcppExport SEXP DeframeFac(SEXP sX);
 
    @param sX is the matrix.
  */
-RcppExport SEXP DeframeNum(SEXP sX);
+RcppExport SEXP deframeNum(SEXP sX);
 
 
-RcppExport SEXP DeframeIP(SEXP sX);
+RcppExport SEXP deframeIP(SEXP sX);
 
 #endif

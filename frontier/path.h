@@ -35,13 +35,14 @@ class NodePath {
   
   IndexT splitIdx; // < noIndex iff path extinct.
   IndexRange bufRange; // buffer target range for path.
-  unsigned int relBase; // Dense starting position.
- public:
+  IndexT idxStart; // Node starting position in upcoming level.
+
+public:
 
 
   NodePath() : splitIdx(noSplit),
 	       bufRange(IndexRange()),
-	       relBase(0) {
+	       idxStart(0) {
   }
   
   /**
@@ -87,10 +88,10 @@ class NodePath {
    */
   inline void init(IndexT splitIdx,
                    const IndexRange& bufRange,
-                   unsigned int relBase) {
+                   IndexT idxStart) {
     this->splitIdx = splitIdx;
     this->bufRange = bufRange;
-    this->relBase = relBase;
+    this->idxStart = idxStart;
   }
   
 
@@ -121,8 +122,8 @@ class NodePath {
   }
   
 
-  inline unsigned int getRelBase() const {
-    return relBase;
+  inline IndexT getNodeStart() const {
+    return idxStart;
   }
 
 
@@ -132,14 +133,24 @@ class NodePath {
 };
 
 
+// Only defined for enclosing Levels employing node-relative indexing.
+//
+// Narrow for data locality, but wide enough to be useful.  Can
+// be generalized to multiple sizes to accommodate more sophisticated
+// hierarchies.
+//
+typedef uint_least16_t NodeRelT;
+
 class IdxPath {
   const IndexT idxLive; // Inattainable index.
   static constexpr unsigned int noPath = NodePath::pathMax();
   static constexpr unsigned int maskExtinct = noPath;
   static constexpr unsigned int maskLive = maskExtinct - 1;
-  static constexpr unsigned int relMax = 1 << 15;
-  vector<unsigned int> relFront;
+  static constexpr unsigned int relMax = 1ul << 15;
+  vector<IndexT> relFront;
   vector<PathT> pathFront;
+  
+  vector<NodeRelT> offFront;
 
   /**
      @brief Setter for path reaching an index.
@@ -153,7 +164,7 @@ class IdxPath {
   }
   
 
-  inline PathT PathSucc(IndexT idx,
+  inline PathT pathSucc(IndexT idx,
                         unsigned int pathMask,
                         bool& isLive) const {
     isLive = this->isLive(idx);
@@ -171,7 +182,7 @@ class IdxPath {
 
      @return true iff path live.
    */
-  inline bool frontLive(IndexT idx, unsigned int &front) const {
+  inline bool frontLive(IndexT idx, IndexT &front) const {
     if (!isLive(idx)) {
       return false;
     }
@@ -185,12 +196,12 @@ class IdxPath {
   /**
    */
   inline void set(IndexT idx,
-                  unsigned int path,
-                  unsigned int relThis,
-                  unsigned int ndOff = 0) {
+                  PathT path,
+                  IndexT relThis,
+                  NodeRelT relOffset = 0) {
     pathFront[idx] = path;
     relFront[idx] = relThis;
-    offFront[idx] = ndOff;
+    offFront[idx] = relOffset;
   }
 
 
@@ -205,7 +216,7 @@ class IdxPath {
    */
   inline bool copyLive(IdxPath *backRef,
                        IndexT idx,
-                       unsigned int backIdx) const {
+                       IndexT backIdx) const {
     if (!isLive(idx)) {
       return false;
     }
@@ -214,15 +225,6 @@ class IdxPath {
       return true;
     }
   }
-
-  
-  // Only defined for enclosing Levels employing node-relative indexing.
-  //
-  // Narrow for data locality, but wide enough to be useful.  Can
-  // be generalized to multiple sizes to accommodate more sophisticated
-  // hierarchies.
-  //
-  vector<uint_least16_t> offFront;
   
  public:
 
@@ -234,7 +236,8 @@ class IdxPath {
 
      @return true iff node-relative indexing expected to be profitable.
    */
-  static inline bool localizes(unsigned int bagCount, unsigned int idxMax) {
+  static inline bool localizes(IndexT bagCount,
+			       IndexT idxMax) {
     return idxMax > relMax || bagCount <= 3 * relMax ? false : true;
   }
 
@@ -280,9 +283,9 @@ class IdxPath {
 
      @param targIdx is the revised relative index.
   */
-  inline void setLive(unsigned int idx,
-                      unsigned int path,
-                      unsigned int targIdx) {
+  inline void setLive(IndexT idx,
+                      PathT path,
+                      IndexT targIdx) {
     set(idx, path, targIdx);
   }
 
@@ -297,7 +300,7 @@ class IdxPath {
      @param targIdx is the revised index.
   */
   inline void setLive(IndexT idx,
-                      unsigned int path,
+                      PathT path,
                       IndexT targIdx,
                       IndexT ndOff) {
     set(idx, path, targIdx, ndOff);
@@ -338,10 +341,10 @@ class IdxPath {
    */
   inline PathT update(IndexT& idx,
 		      unsigned int pathMask,
-		      const unsigned int reachBase[],
+		      const IndexT reachBase[],
 		      bool idxUpdate) const {
     bool isLive;
-    PathT path = PathSucc(idx, pathMask, isLive);
+    PathT path = pathSucc(idx, pathMask, isLive);
     if (isLive) {
       // Avoids irregular update unless necessary:
       idx = reachBase != nullptr ? (reachBase[path] + offFront[idx]) : (idxUpdate ? relFront[idx] : idx);

@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "callback.h"
+#include "prng.h"
 #include "runaccum.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
@@ -51,7 +51,7 @@ void RunSet::setOffsets(const SplitFrontier* sf) {
   }
 
   // Economizes by pre-allocating random variates for entire frontier.
-  rvWide = CallBack::rUnif(rvRuns);
+  rvWide = PRNG::rUnif(rvRuns);
   IndexT rvOff = 0;
   for (auto & accum : runAccum) {
     accum.reWide(rvWide, rvOff);

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -30,7 +30,7 @@
 
 #include<memory>
 
-RcppExport SEXP DeframeDF(SEXP sDf,
+RcppExport SEXP deframeDF(SEXP sDf,
 			  SEXP sPredForm,
                           SEXP sLevel,
 			  SEXP sFactor,
@@ -38,7 +38,7 @@ RcppExport SEXP DeframeDF(SEXP sDf,
   BEGIN_RCPP
 
   if (!Rf_isNull(sSigTrain)) {
-    CheckFrame(List(sSigTrain), CharacterVector(sPredForm));
+    checkFrame(List(sSigTrain), CharacterVector(sPredForm));
   }
 
   DataFrame df(sDf);
@@ -59,7 +59,7 @@ RcppExport SEXP DeframeDF(SEXP sDf,
 }
 
 
-SEXP CheckFrame(const List& lSigTrain,
+SEXP checkFrame(const List& lSigTrain,
 		const CharacterVector& predForm) {
   BEGIN_RCPP
     
@@ -72,7 +72,7 @@ SEXP CheckFrame(const List& lSigTrain,
 }
 
 
-RcppExport SEXP DeframeFac(SEXP sX) {
+RcppExport SEXP deframeFac(SEXP sX) {
   IntegerMatrix blockFac(sX);
   List deframe = List::create(
 			      _["rleFrame"] = RLEFrameR::presortFac(blockFac),
@@ -86,7 +86,7 @@ RcppExport SEXP DeframeFac(SEXP sX) {
 }
 
 
-RcppExport SEXP DeframeNum(SEXP sX) {
+RcppExport SEXP deframeNum(SEXP sX) {
   NumericMatrix blockNum(sX);
   List deframe = List::create(
 			      _["rleFrame"] = RLEFrameR::presortNum(blockNum),
@@ -103,7 +103,7 @@ RcppExport SEXP DeframeNum(SEXP sX) {
 /**
    @brief Reads an S4 object containing (sparse) dgCMatrix.
  */
-RcppExport SEXP DeframeIP(SEXP sX) {
+RcppExport SEXP deframeIP(SEXP sX) {
   BEGIN_RCPP
   S4 spNum(sX);
 

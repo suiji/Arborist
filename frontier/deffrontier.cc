@@ -45,7 +45,7 @@ DefFrontier::DefFrontier(IndexT nSplit_,
     
 
 void DefFrontier::rootDefine(PredictorT predIdx,
-			  const StageCount& stageCount) {
+			     const StageCount& stageCount) {
   mrra[predIdx].init(0, stageCount.getRunCount() == 1);
   setDense(SplitCoord(0, predIdx), stageCount.idxImplicit);
   defCount++;
@@ -121,12 +121,12 @@ bool DefFrontier::backdate(const IdxPath *one2Front) {
 }
 
 
-void DefFrontier::relExtinct(unsigned int idx) {
+void DefFrontier::relExtinct(IndexT idx) {
   relPath->setExtinct(idx);
 }
 
 
-void DefFrontier::relLive(IndexT idx, unsigned int path, IndexT targIdx, IndexT ndBase) {
+void DefFrontier::relLive(IndexT idx, PathT path, IndexT targIdx, IndexT ndBase) {
   relPath->setLive(idx, path, targIdx, targIdx - ndBase);
 }
 
@@ -139,21 +139,24 @@ void DefFrontier::reachingPaths() {
 }
 
 
-void DefFrontier::pathInit(IndexT splitIdx, unsigned int path, const IndexRange& bufRange, IndexT relBase) {
+void DefFrontier::pathInit(IndexT splitIdx,
+			   PathT path,
+			   const IndexRange& bufRange,
+			   IndexT idxStart) {
   IndexT mrraIdx = defMap->getHistory(this, splitIdx);
-  unsigned int pathOff = backScale(mrraIdx);
+  IndexT pathOff = backScale(mrraIdx);
   unsigned int pathBits = path & pathMask();
-  nodePath[pathOff + pathBits].init(splitIdx, bufRange, relBase);
+  nodePath[pathOff + pathBits].init(splitIdx, bufRange, idxStart);
   liveCount[mrraIdx]++;
 }
 
 
 void DefFrontier::rankRestage(ObsPart* obsPart,
-			   const MRRA& mrra,
-			   DefFrontier* levelFront) {
-  unsigned int reachOffset[NodePath::pathMax()];
+			      const MRRA& mrra,
+			      DefFrontier* levelFront) {
+  IndexT reachOffset[NodePath::pathMax()];
   if (nodeRel) { // Both levels employ node-relative indexing.
-    unsigned int reachBase[NodePath::pathMax()];
+    IndexT reachBase[NodePath::pathMax()];
     offsetClone(mrra.splitCoord, reachOffset, reachBase);
     rankRestage(obsPart, mrra, levelFront, reachOffset, reachBase);
   }
@@ -165,15 +168,15 @@ void DefFrontier::rankRestage(ObsPart* obsPart,
 
 
 void DefFrontier::offsetClone(const SplitCoord &mrra,
-		   IndexT reachOffset[],
-		   IndexT reachBase[]) {
-  unsigned int nodeStart = mrra.backScale(del);
+			      IndexT reachOffset[],
+			      IndexT reachBase[]) {
+  IndexT nodeStart = mrra.backScale(del);
   for (unsigned int i = 0; i < backScale(1); i++) {
     reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
   }
   if (reachBase != nullptr) {
     for (unsigned int i = 0; i < backScale(1); i++) {
-      reachBase[i] = nodePath[nodeStart + i].getRelBase();
+      reachBase[i] = nodePath[nodeStart + i].getNodeStart();
     }
   }
 }
@@ -182,9 +185,9 @@ void DefFrontier::offsetClone(const SplitCoord &mrra,
 void DefFrontier::rankRestage(ObsPart* obsPart,
 			   const MRRA& mrra,
 			   DefFrontier* levelFront,
-			   unsigned int reachOffset[],
-			   const unsigned int reachBase[]) {
-  unsigned int pathCount[NodePath::pathMax()];
+			   IndexT reachOffset[],
+			   const IndexT reachBase[]) {
+  IndexT pathCount[NodePath::pathMax()];
   fill(pathCount, pathCount + backScale(1), 0);
 
   obsPart->prepath(this, nodeRel ?  getFrontPath() : defMap->getSubtreePath(), reachBase, mrra, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
@@ -198,10 +201,10 @@ void DefFrontier::rankRestage(ObsPart* obsPart,
 }
 
 
-void DefFrontier::packDense(const unsigned int pathCount[],
-			 DefFrontier* levelFront,
-			 const MRRA& mrra,
-			 unsigned int reachOffset[]) const {
+void DefFrontier::packDense(const IndexT pathCount[],
+			    DefFrontier* levelFront,
+			    const MRRA& mrra,
+			    IndexT reachOffset[]) const {
   if (!isDense(mrra)) {
     return;
   }
@@ -222,7 +225,7 @@ void DefFrontier::packDense(const unsigned int pathCount[],
 }
 
 
-void DefFrontier::setStageCounts(const MRRA& mrra, const unsigned int pathCount[], const unsigned int rankCount[]) const {
+void DefFrontier::setStageCounts(const MRRA& mrra, const IndexT pathCount[], const IndexT rankCount[]) const {
   SplitCoord coord = mrra.splitCoord;
   const NodePath* pathPos = &nodePath[coord.backScale(del)];
   for (unsigned int path = 0; path < backScale(1); path++) {
@@ -232,65 +235,6 @@ void DefFrontier::setStageCounts(const MRRA& mrra, const unsigned int pathCount[
       defMap->setStageCount(outCoord, idxRange.getExtent() - pathCount[path], rankCount[path]);
     }
   }
-}
-
-
-void DefFrontier::indexRestage(ObsPart *obsPart,
-			    const MRRA &mrra,
-			    const DefFrontier *levelFront,
-			    const vector<IndexT>& offCand) {
-  unsigned int reachOffset[NodePath::pathMax()];
-  unsigned int splitOffset[NodePath::pathMax()];
-  if (nodeRel) { // Both levels employ node-relative indexing.
-    IndexT reachBase[NodePath::pathMax()];
-    offsetClone(mrra.splitCoord, offCand, reachOffset, splitOffset, reachBase);
-    indexRestage(obsPart, mrra, levelFront, reachBase, reachOffset, splitOffset);
-  }
-  else { // Source level employs subtree indexing.  Target may or may not.
-    offsetClone(mrra.splitCoord, offCand, reachOffset, splitOffset);
-    indexRestage(obsPart, mrra, levelFront, nullptr, reachOffset, splitOffset);
-  }
-}
-
-
-// COPROC:
-/**
-   @brief Clones offsets along path reaching from ancestor node.
-
-   @param mrra is an MRRA coordinate.
-
-   @param reachOffset holds the starting offset positions along the path.
- */
-void DefFrontier::offsetClone(const SplitCoord& mrra,
-			   const vector<IndexT>& offCand,
-			   IndexT reachOffset[],
-			   IndexT splitOffset[],
-			   IndexT reachBase[]) {
-  IndexT nodeStart = mrra.backScale(del);
-  for (unsigned int i = 0; i < backScale(1); i++) {
-    reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
-    splitOffset[i] = offCand[mrra.strideOffset(nPred)];
-  }
-  if (reachBase != nullptr) {
-    for (unsigned int i = 0; i < backScale(1); i++) {
-      reachBase[i] = nodePath[nodeStart + i].getRelBase();
-    }
-  }
-}
-
-
-void DefFrontier::indexRestage(ObsPart* obsPart,
-			    const MRRA& mrra,
-			    const DefFrontier *levelFront,
-			    const unsigned int reachBase[],
-			    unsigned int reachOffset[],
-			    unsigned int splitOffset[]) {
-  obsPart->indexRestage(nodeRel ? getFrontPath() : defMap->getSubtreePath(),
-                        reachBase, mrra, getRange(mrra),
-                        pathMask(),
-                        reachBase == nullptr ? levelFront->isNodeRel() : true,
-                        reachOffset,
-                        splitOffset);
 }
 
 
@@ -318,5 +262,4 @@ void DefFrontier::adjustRange(const MRRA& cand,
 IndexT DefFrontier::getImplicit(const MRRA& cand) const {
   return isDense(cand) ? denseCoord[defMap->denseOffset(cand)].getImplicit() : 0;
 }
-
 

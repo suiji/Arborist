@@ -29,7 +29,7 @@ using namespace std;
    N.B:  extraneous parentheses work around parser error in older g++.
  */
 template<typename valType>
-bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
+bool RLECompare (const RLEVal<valType>& a, const RLEVal<valType>& b) {
   return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
 }
 
@@ -38,7 +38,7 @@ bool RLECompare (const RLEVal<valType> &a, const RLEVal<valType>& b) {
    @brief Sorts on row, for reorder.
  */
 template<typename valType>
-bool RLECompareRow (const RLEVal<valType> &a, const RLEVal<valType>& b) {
+bool RLECompareRow (const RLEVal<valType>& a, const RLEVal<valType>& b) {
   return (a.row < b.row);
 }
 

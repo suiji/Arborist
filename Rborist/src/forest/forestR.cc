@@ -177,9 +177,9 @@ ForestExport::ForestExport(const List &lTrain,
                            const IntegerVector &predMap) :
   forestBridge(ForestRf::unwrap(lTrain)),
   predTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
-  bumpTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
+  bumpTree(vector<vector<double> >(forestBridge->getNTree())),
   splitTree(vector<vector<double > >(forestBridge->getNTree())),
-  facSplitTree(vector<vector<unsigned int> >(forestBridge->getNTree())) {
+  facSplitTree(vector<vector<unsigned char> >(forestBridge->getNTree())) {
   forestBridge->dump(predTree, splitTree, bumpTree, facSplitTree);
   predExport(predMap.begin());
 }
@@ -197,7 +197,7 @@ unsigned int ForestExport::getNTree() const {
  */
 void ForestExport::treeExport(const int predMap[],
                             vector<unsigned int> &pred,
-                            const vector<unsigned int> &bump) {
+                            const vector<double>& bump) {
   for (unsigned int i = 0; i < pred.size(); i++) {
     if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
       unsigned int predCore = pred[i];

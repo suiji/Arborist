@@ -19,7 +19,6 @@
 #include "typeparam.h"
 
 #include <vector>
-
 using namespace std;
 
 struct SamplerRW {

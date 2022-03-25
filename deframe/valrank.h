@@ -17,6 +17,8 @@
 #ifndef DEFRAME_VALRANK_H
 #define DEFRAME_VALRANK_H
 
+#include "typeparam.h" // For now
+
 #include <algorithm>
 #include <vector>
 using namespace std;
@@ -24,13 +26,13 @@ using namespace std;
 /**
    @brief value/row pair workspace for ranking.
  */
-template<typename tn>
+template<typename valType>
 struct ValRow {
-  tn val;
+  valType val;
   size_t row;
-  unsigned int rank; // For now.
+  IndexT rank; // For now.
 
-  void init(tn val,
+  void init(valType val,
 	    size_t row) {
     this->val = val;
     this->row = row;
@@ -43,16 +45,16 @@ struct ValRow {
 };
 
 
-template<typename tn>
+template<typename valType>
 class ValRank {
   const size_t nRow;
-  vector<ValRow<tn> > valRow;
+  vector<ValRow<valType> > valRow;
 
 public:
 
-  ValRank(const tn val[],
+  ValRank(const valType val[],
           size_t nRow_) : nRow(nRow_),
-                          valRow(vector<ValRow<tn> >(nRow)) {
+                          valRow(vector<ValRow<valType> >(nRow)) {
     size_t row = 0;
     for (auto & vr : valRow) {
       vr.init(val[row], row);
@@ -79,7 +81,7 @@ public:
 
      @return looked up value.
    */
-  tn getVal(size_t idx) const {
+  valType getVal(size_t idx) const {
     return valRow[idx].val;
   }
 
@@ -105,8 +107,8 @@ public:
      N.B.:  extraneous parentheses work around parser error in older g++.
    */
   void order() {
-    sort(valRow.begin(), valRow.end(), [] (const ValRow<tn>& a,
-                                           const ValRow<tn>& b) -> bool {
+    sort(valRow.begin(), valRow.end(), [] (const ValRow<valType>& a,
+                                           const ValRow<valType>& b) -> bool {
                                          return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
                                        }
       );
@@ -124,8 +126,8 @@ public:
 
      @return vector mapping row indices to ranks.
    */
-  vector<unsigned int> rank() const {
-    vector<unsigned int> row2Rank(nRow);
+  vector<IndexT> rank() const {
+    vector<IndexT> row2Rank(nRow);
     for (auto vr : valRow) {
       row2Rank[vr.row] = vr.rank;
     }

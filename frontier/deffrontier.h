@@ -225,12 +225,6 @@ public:
                    const MRRA& mrra,
                    DefFrontier *levelFront);
 
-
-  void indexRestage(class ObsPart* obsPart,
-                    const MRRA& mrra,
-                    const DefFrontier* levelFront,
-		    const vector<IndexT>& offCand);
-
   /**
      @brief Precomputes path vector prior to restaging.
 
@@ -243,15 +237,8 @@ public:
   void rankRestage(class ObsPart *samplePred,
                    const MRRA& mrra,
                    DefFrontier *levelFront,
-                   unsigned int reachOffset[], 
-                   const unsigned int reachBase[] = nullptr);
-
-  void indexRestage(class ObsPart *samplePred,
-                    const MRRA& mrra,
-                    const DefFrontier *levelFront,
-                    const unsigned int reachBase[],
-                    unsigned int reachOffset[],
-                    unsigned int splitOffset[]);
+                   IndexT reachOffset[], 
+                   const IndexT reachBase[] = nullptr);
 
   /**
      @brief Moves entire level's defnitions to restaging schedule.
@@ -273,10 +260,14 @@ public:
    */
   void reachingPaths();
 
+
+  /**
+     @param idxStart is node starting position in upcoming level.
+   */
   void pathInit(IndexT levelIdx,
-	   unsigned int path,
-	   const IndexRange& bufRange,
-	   IndexT relBase);
+		PathT path,
+		const IndexRange& bufRange,
+		IndexT idxStart);
 
   /**
      @param[in, out] cand may have modified run position and index range.
@@ -322,19 +313,12 @@ public:
   void offsetClone(const SplitCoord& mrra,
 	      IndexT reachOffset[],
 	      IndexT reachBase[] = nullptr);
-
-  void offsetClone(const SplitCoord& mrra,
-	      const vector<IndexT>& offCand,
-	      IndexT reachOffset[],
-	      IndexT splitOffset[],
-	      IndexT reachBase[] = nullptr);
-
 /**
    @brief Sets stage counts on successor cells.
  */
   void setStageCounts(const class MRRA& preCand,
-		      const unsigned int pathCount[],
-		      const unsigned int rankCount[]) const;
+		      const IndexT pathCount[],
+		      const IndexT rankCount[]) const;
 
 /**
    @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
@@ -344,10 +328,10 @@ public:
 
    @param[out] reachOffset outputs the dense starting offsets.
  */
-  void packDense(const unsigned int pathCount[],
+  void packDense(const IndexT pathCount[],
 		 DefFrontier *levelFront,
 		 const MRRA& mrra,
-		 unsigned int reachOffset[]) const;
+		 IndexT reachOffset[]) const;
 
   /**
      @brief Marks the node-relative index as extinct.
@@ -375,9 +359,9 @@ public:
      @brief Sets path, target and node-relative offse.
   */
   void relLive(IndexT idx,
-	       unsigned int path,
-	       unsigned int targIdx,
-	       unsigned int ndBase);
+	       PathT path,
+	       IndexT targIdx,
+	       IndexT nodeBase);
 
 
   /**
@@ -431,8 +415,8 @@ public:
 
      @return shifted value.
    */  
-  inline unsigned int backScale(unsigned int val) const {
-    return val << (unsigned int) del;
+  inline IndexT backScale(IndexT idx) const {
+    return idx << (unsigned int) del;
   }
 
 

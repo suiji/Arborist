@@ -107,10 +107,11 @@ class DefMap {
 
      @param parIdx is the index of the parent w.r.t. previous layer.
    */
-  inline void inherit(unsigned int splitIdx, unsigned int parIdx) {
+  inline void inherit(IndexT splitIdx,
+		      IndexT parIdx) {
     unsigned char *colCur = &layerDelta[splitIdx * nPred];
     unsigned char *colPrev = &deltaPrev[parIdx * nPred];
-    for (unsigned int predIdx = 0; predIdx < nPred; predIdx++) {
+    for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
       colCur[predIdx] = colPrev[predIdx] + 1;
     }
   }
@@ -382,11 +383,11 @@ class DefMap {
 
      @param ndBase is the base index of the target node:  current layer.
    */
-  void relLive(unsigned int ndx,
-               unsigned int targIdx,
-               unsigned int stx,
+  void relLive(IndexT ndx,
+               IndexT targIdx,
+               IndexT stx,
                unsigned int path,
-               unsigned int ndBase);
+               IndexT ndBase);
 
 
   void updateLive(const class BranchSense* branchSense,
@@ -413,7 +414,8 @@ class DefMap {
 
      @param stIdx is the subtree-relative index.
   */
-  void relExtinct(unsigned int nodeIdx, IndexT stIdx);
+  void relExtinct(IndexT nodeIdx,
+		  IndexT stIdx);
 
   
   /**
@@ -432,7 +434,7 @@ class DefMap {
 
      @return count of splitable nodes at layer of interest.
   */
-  unsigned int getSplitCount(unsigned int del) const;
+  IndexT getSplitCount(unsigned int del) const;
 
   
   /**
@@ -483,7 +485,7 @@ class DefMap {
 
      @return split count.
    */
-  inline unsigned int getSplitCount() const {
+  inline IndexT getSplitCount() const {
     return splitCount;
   }
 

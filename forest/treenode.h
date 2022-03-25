@@ -222,7 +222,7 @@ public:
      @return terminal/nonterminal : 0 / delta to next node.
    */
   IndexT advanceFactor(const vector<unique_ptr<BV>>& factorBits,
-		       const IndexT rowFT[],
+		       const CtgT rowFT[],
 		       unsigned int tIdx) const {
     return advanceFactor(factorBits[tIdx].get(), getBitOffset() + rowFT[getPredIdx()]);
   }
@@ -243,7 +243,7 @@ public:
    */
   IndexT advanceMixed(const class Predict* predict,
 		      const vector<unique_ptr<class BV>>& factorBits,
-		      const IndexT* rowFT,
+		      const CtgT* rowFT,
 		      const double *rowNT,
 		      unsigned int tIdx) const;
 

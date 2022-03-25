@@ -20,6 +20,6 @@ Export <- function(arbOut) {
 }
 
 
-"Export.Rborist" <- function(arbOut) {
+"Export.rfArb" <- function(arbOut) {
   return (tryCatch(.Call("Export", arbOut), error = function(e) {stop(e)}))
 }

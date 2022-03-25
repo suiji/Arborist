@@ -16,6 +16,7 @@
 #include "forest.h"
 #include "forestbridge.h"
 #include "decnoderw.h"
+#include "forestrw.h"
 #include "typeparam.h"
 #include "bv.h"
 
@@ -94,10 +95,9 @@ void ForestBridge::dumpFactorObserved(unsigned char obsOut[]) const {
 
 void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,
-                        vector<vector<unsigned int> >& lhDelTree,
-                        vector<vector<unsigned int> >& facSplitTree) const {
-  IndexT dummy;
-  forest->dump(predTree, splitTree, lhDelTree, dummy);//facSplitTree);
+                        vector<vector<double> >& lhDelTree,
+                        vector<vector<unsigned char> >& facSplitTree) const {
+  ForestRW::dump(forest.get(), predTree, splitTree, lhDelTree, facSplitTree);
 }
 
     

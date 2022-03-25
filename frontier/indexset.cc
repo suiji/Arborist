@@ -80,7 +80,7 @@ IndexSet::IndexSet(const Frontier *frontier,
 }
 
 
-unsigned int IndexSet::getPathSucc(bool trueBranch) const {
+PathT IndexSet::getPathSucc(bool trueBranch) const {
   return IdxPath::pathSucc(path, trueBranch);
 }
 

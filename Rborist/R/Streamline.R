@@ -15,6 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristR.  If not, see <http://www.gnu.org/licenses/>.
 Streamline <- function(rs) {
+  warning("Streamline is being deprecated.  Please train with 'thinLeaves' instead.");
   if (!inherits(rs, "Rborist"))
     stop("object not of class Rborist")
   if (is.null(rs$sampler))

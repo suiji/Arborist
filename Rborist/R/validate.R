@@ -42,44 +42,19 @@ validate.default <- function(train,
   if (is.null(preFormat) && impPermute > 0)
       stop("Pre-formatted observation set required for permutation testing.")
 
-  validateDeep(train, preFormat, sampler, impPermute, ctgCensus, quantVec, quantiles, trapUnobserved, nThread, verbose)
+  argPredict <- list(
+      bagging = TRUE,
+      impPermute = impPermute,
+      ctgProb = ctgProbabilites(sampler, ctgCensus),
+      quantVec = getQuantiles(quantiles, sampler, quantVec),
+      trapUnobserved = trapUnobserved,
+      nThread = nThread,
+      verbose = verbose)
+  validateCommon(train, sampler, preFormat, argPredict)
 }
 
 
-validateDeep <- function(objTrain, preFormat, sampler, impPermute, ctgCensus, quantVec, quantiles, trapUnobserved, nThread, verbose) {
-  if (is.factor(sampler$yTrain)) {
-    if (ctgCensus == "votes") {
-        if (verbose)
-            print("Validation:  census only");
-        validation <- tryCatch(.Call("validateVotes", preFormat, objTrain, sampler, sampler$yTrain, impPermute, trapUnobserved, nThread), error = function(e) { stop(e) })
-    }
-    else if (ctgCensus == "prob") {
-        if (verbose)
-            print("Validation:  categorical probabilities");
-        validation <- tryCatch(.Call("validateProb", preFormat, objTrain, sampler, sampler$yTrain, impPermute, trapUnobserved, nThread), error = function(e) { stop(e) })
-    }
-    else {
-      stop(paste("Unrecognized ctgCensus type:  ", ctgCensus))
-    }
-  }
-  else {
-    if (quantiles) {
-        if (verbose)
-            print("ValidatIon:  quantiles");
-        if (is.null(quantVec)) {
-          quantVec <- defaultQuantVec()
-        }
-        validation <- tryCatch(.Call("validateQuant", preFormat, objTrain, sampler, sampler$yTrain, impPermute, quantVec, trapUnobserved, nThread), error = function(e) { stop(e) })
-    }
-    else {
-        if (verbose)
-            print("Validation:  ordinary regression");
-        validation <- tryCatch(.Call("validateReg", preFormat, objTrain, sampler, sampler$yTrain, impPermute, trapUnobserved, nThread), error = function(e) { stop(e) })
-    }
-  }
-
-  if (verbose)
-      print("Validation complete")
-  
-  validation
+# Glue-layer entry for validation.
+validateCommon <- function(objTrain, sampler, preFormat, argList) {
+  tryCatch(.Call("validateRcpp", preFormat, objTrain, sampler, argList), error = function(e) { stop(e) })
 }

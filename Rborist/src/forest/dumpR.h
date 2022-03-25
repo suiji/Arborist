@@ -53,7 +53,7 @@ struct DumpRf {
   const IntegerVector delIdx;
   const NumericVector split;
   const IntegerVector cutSense;
-  const vector<unsigned int> facBits;
+  const vector<unsigned char> facBits;
   const NumericVector score;
 
   static constexpr unsigned int slotBits = 8 * sizeof(unsigned int);

@@ -114,12 +114,10 @@ struct SamplerBridge {
 		unsigned int nCtg,
 		bool bagging);
 
-  /**
-     @brief Causes the core Sampler to sample its data.
-   */
-  void sample(unsigned int nRep);
 
+  void appendSamples(const vector<size_t>& idx);
 
+  
   /**
      @brief Gets core Sampler.  Non-constant for training.
 

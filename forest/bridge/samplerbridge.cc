@@ -68,8 +68,8 @@ SamplerBridge::SamplerBridge(const vector<double>& yTrain,
 }
 
 
-void SamplerBridge::sample(unsigned int nRep) {
-  sampler->sample(nRep);
+void SamplerBridge::appendSamples(const vector<size_t>& idx) {
+  sampler->appendSamples(idx);
 }
 
 

@@ -21,7 +21,7 @@
 #include "splitfrontier.h"
 #include "pretree.h"
 
-#include "callback.h"
+#include "prng.h"
 #include <queue>
 #include <vector>
 
@@ -224,7 +224,7 @@ vector<PTMerge<nodeType>> PTMerge<nodeType>::merge(const PreTree* preTree,
   vector<PTMerge<nodeType>> ptMerge(height);
   priority_queue<PTMerge<nodeType>, vector<PTMerge<nodeType>>, InfoCompare<nodeType>> infoQueue;
 
-  auto leafProb = CallBack::rUnif(height);
+  auto leafProb = PRNG::rUnif(height);
   ptMerge[0].parId = 0;
   IndexT ptId = 0;
   for (auto & merge : ptMerge) {

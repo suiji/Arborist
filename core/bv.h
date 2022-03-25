@@ -340,7 +340,7 @@ class BitMatrix : public BV {
 
      @return void, with output reference parameter.
   */
-  void dump(IndexT nRow_,
+  void dump(unsigned int nRow_,
 	    vector<vector<BVSlotT>>& bmOut) const;
 
 
@@ -372,7 +372,7 @@ class BitMatrix : public BV {
   ~BitMatrix();
 
 
-  inline size_t getNRow() const {
+  inline auto getNRow() const {
     return nRow;
   }
 
@@ -410,7 +410,7 @@ class BitMatrix : public BV {
  */
 class BVJagged : public BV {
   const vector<size_t> rowHeight;
-  const size_t nRow;
+  const unsigned int nRow;
 
 public:
   BVJagged(const BVSlotT raw_[],

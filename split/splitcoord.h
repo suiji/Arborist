@@ -23,7 +23,7 @@
  */
 
 // Blunt assignment of inattainable predictor index.
-static constexpr PredictorT noPred = 0xffffffff;
+static constexpr PredictorT noPred = sizeof(PredictorT) == sizeof(size_t) ? ~0ull : (1ull << 8*sizeof(PredictorT)) - 1;
 
 struct SplitCoord {
   IndexT nodeIdx;

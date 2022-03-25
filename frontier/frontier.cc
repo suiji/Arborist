@@ -64,6 +64,7 @@ Frontier::Frontier(const TrainFrame* frame_,
 unique_ptr<PreTree> Frontier::levels() {
   unsigned int level = 0;
   while (!frontierNodes.empty()) {
+    earlyExit(level);
     defMap->setPrecandidates(sample.get(), level++);
     splitFrontier = SplitFactoryT::factory(this);
     unique_ptr<BranchSense> branchSense = splitFrontier->split();

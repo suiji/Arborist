@@ -351,10 +351,13 @@ class Frontier {
   inline auto getExtent(IndexT splitIdx) const {
     return frontierNodes[splitIdx].getExtent();
   }
-  
 
-  IndexRange getNontermRange(const IndexSet& iSet) const {
-    return smNonterm.range[iSet.getSplitIdx()];
+
+  /**
+     @return node starting index in upcoming level.
+   */
+  IndexT idxStartUpcoming(const IndexSet& iSet) const {
+    return smNonterm.range[iSet.getSplitIdx()].getStart();
   }
 
   

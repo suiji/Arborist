@@ -16,13 +16,13 @@
 
 #include "defmap.h"
 #include "cand.h"
-#include "callback.h"
+#include "prng.h"
 
 
 void Cand::precandidates(DefMap* defMap) {
   // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
   IndexT idx = 0;
-  vector<double> dRand = CallBack::rUnif(defMap->getNPred() * defMap->getNSplit());
+  vector<double> dRand = PRNG::rUnif(defMap->getNPred() * defMap->getNSplit());
   for (IndexT splitIdx = 0; splitIdx < defMap->getNSplit(); splitIdx++) {
     if (!defMap->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < defMap->getNPred(); predIdx++) {

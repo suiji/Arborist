@@ -26,7 +26,7 @@ class SamplerNux {
 
 public:
   static PackedT delMask;
-  static IndexT rightBits;
+  static unsigned int rightBits;
 
 
   static void setMasks(IndexT nObs) {

@@ -57,7 +57,7 @@ unsigned int Quant::binScale() const {
 
 
 vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
-  vector<double> binMean(std::min(binSize, valRank.getRankCount()));
+  vector<double> binMean(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   vector<size_t> binCount(binMean.size());
   for (IndexT idx = 0; idx < valRank.getNRow(); idx++) {
     unsigned int binIdx = binRank(valRank.getRank(idx));
@@ -76,7 +76,7 @@ vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
 
 
 void Quant::predictRow(const PredictReg* predict, size_t row) {
-  vector<IndexT> sCountBin(std::min(binSize, valRank.getRankCount()));
+  vector<IndexT> sCountBin(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   IndexT totSamples = 0;
   if (predict->trapAndBail()) {
     for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {

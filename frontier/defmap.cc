@@ -155,6 +155,16 @@ unsigned int DefMap::flushRear() {
 }
 
 
+void DefMap::setPrecandidates(const Sample* sample, unsigned int level) {
+  preCand = vector<vector<PreCand>>(splitCount);
+  // Precandidates precipitate restaging ancestors at this level,
+  // as do all non-singleton definitions arising from flushes.
+  CandType::precandidates(this);
+  if (level == 0)
+    stage(sample);
+}
+
+
 void DefMap::stage(const Sample* sample) {
   IndexT predIdx = 0;
   vector<StageCount> stageCount = layout->stage(sample, obsPart.get());
@@ -167,18 +177,6 @@ void DefMap::stage(const Sample* sample) {
   for (auto & pc : preCand[0]) { // Root:  single split.
     pc.setStageCount(stageCount[pc.mrra.splitCoord.predIdx]);
   }
-}
-
-
-void DefMap::setPrecandidates(const Sample* sample, unsigned int level) {
-  frontier->earlyExit(level);
-
-  preCand = vector<vector<PreCand>>(splitCount);
-  // Precandidates precipitate restaging ancestors at this level,
-  // as do all non-singleton definitions arising from flushes.
-  CandType::precandidates(this);
-  if (level == 0)
-    stage(sample);
 }
 
 
@@ -274,7 +272,7 @@ void DefMap::backdate() const {
 
   
 void DefMap::reachingPath(const IndexSet& iSet,
-			       IndexT parIdx) {
+			  IndexT parIdx) {
   IndexT splitIdx = iSet.getSplitIdx();
   for (unsigned int backLayer = 0; backLayer < layer.size() - 1; backLayer++) {
     history[splitIdx + splitCount * backLayer] = backLayer == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLayer - 1)];
@@ -287,19 +285,19 @@ void DefMap::reachingPath(const IndexSet& iSet,
   // Places <splitIdx, start> pair at appropriate position in every
   // reaching path.
   //
-  IndexT relBase = frontier->getNontermRange(iSet).getStart();
-  unsigned int path = iSet.getPath();
+  IndexT idxStart = frontier->idxStartUpcoming(iSet);
+  PathT path = iSet.getPath();
   for (auto lv = layer.begin() + 1; lv != layer.end(); lv++) {
-    (*lv)->pathInit(splitIdx, path, bufRange, relBase);
+    (*lv)->pathInit(splitIdx, path, bufRange, idxStart);
   }
 }
 
 
 void DefMap::relLive(IndexT ndx,
-			  IndexT targIdx,
-			  IndexT stx,
-			  unsigned int path,
-			  IndexT ndBase) {
+		     IndexT targIdx,
+		     IndexT stx,
+		     unsigned int path,
+		     IndexT ndBase) {
   layer[0]->relLive(ndx, path, targIdx, ndBase);
   if (!layer.back()->isNodeRel()) {
     stPath->setLive(stx, path, targIdx);  // Irregular write.
@@ -345,10 +343,10 @@ void DefMap::updateMap(const IndexSet& iSet,
 
 
 void DefMap::updateLive(const BranchSense* branchSense,
-			     const IndexSet& iSet,
-			     const SampleMap& smNonterm,
-			     SampleMap& smNext,
-			     bool transitional) {
+			const IndexSet& iSet,
+			const SampleMap& smNonterm,
+			SampleMap& smNext,
+			bool transitional) {
   IndexT nodeIdx = iSet.getIdxNext();
   IndexT baseTrue = smNext.range[nodeIdx].getStart();
   IndexT destTrue = baseTrue;
@@ -380,9 +378,9 @@ void DefMap::updateLive(const BranchSense* branchSense,
 
 
 void DefMap::updateExtinct(const IndexSet& iSet,
-				const SampleMap& smNonterm,
-				SampleMap& smTerminal,
-				bool transitional) {
+			   const SampleMap& smNonterm,
+			   SampleMap& smTerminal,
+			   bool transitional) {
   IndexT* destOut = smTerminal.getWriteStart(iSet.getIdxNext());
   IndexRange range = smNonterm.range[iSet.getSplitIdx()];
   for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {

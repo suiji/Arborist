@@ -65,7 +65,7 @@ void TrainBridge::initProb(unsigned int predFixed,
 }
 
 
-void TrainBridge::initTree(IndexT leafMax) {
+void TrainBridge::initTree(size_t leafMax) {
   RfTrain::initTree(leafMax);
 }
 

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2021   Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -16,29 +16,48 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file callback.cc
+   @file prng.cc
 
    @brief Implements sampling utitlities by means of calls to front end.
 
    @author Mark Seligman
  */
 
-#include "rowsample.h"
-#include "callback.h"
+#include "prng.h"
 
-using namespace std;
-vector<unsigned int> CallBack::sampleRows(unsigned int nSamp) {
-  IntegerVector rowSample(RowSample::sampleRows(nSamp));
+#include <algorithm>
 
-  vector<unsigned int> rowOut(rowSample.begin(), rowSample.end());
-  return rowOut;
+NumericVector PRNG::sampleUniform(size_t nObs, size_t nSamp, bool replace) {
+  BEGIN_RCPP
+    
+  RNGScope scope;
+  if (replace) {
+    NumericVector rn(runif(double(nSamp)));
+    return rn * nObs;
+  }
+  else {
+    NumericVector rn(runif(double(nObs)));
+    NumericVector rnOut(nSamp);
+    vector<size_t> idxSeq(nObs);
+    iota(idxSeq.begin(), idxSeq.end(), 0);
+    size_t top = nObs;
+    for (unsigned int i = 0; i < nSamp; i++) {
+      size_t index = top-- * rn[i];
+      rnOut[i] = exchange(idxSeq[index], idxSeq[top]);
+    }
+    return rnOut;
+  }
+
+  END_RCPP
 }
 
 
-vector<double> CallBack::rUnif(size_t len, double scale) {
+vector<double> PRNG::rUnif(size_t len, double scale) {
+  double dLen = len;
   RNGScope scope;
-  NumericVector rn(runif(len));
-  rn = rn * scale;
+  NumericVector rn(runif(dLen));
+  if (scale != 1.0)
+    rn = rn * scale;
 
   vector<double> rnOut(rn.begin(), rn.end());
   return rnOut;

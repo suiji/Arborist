@@ -122,8 +122,8 @@ struct ForestBridge {
    */
   void dump(vector<vector<unsigned int> >& predTree,
             vector<vector<double> >& splitTree,
-            vector<vector<unsigned int> >& lhDelTree,
-            vector<vector<unsigned int> >& facSplitTree) const;
+            vector<vector<double> >& lhDelTree,
+            vector<vector<unsigned char> >& facSplitTree) const;
   
 private:
 

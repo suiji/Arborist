@@ -36,13 +36,6 @@ struct CartNode : public TreeNode {
   TreeNode(pair) {
   }
   
-  /**
-     @brief Resets nonterminal with specified index delta.
-   */
-  //  inline void setDelIdx(IndexT delIdx) {
-  //this->delIdx = delIdx;
-  //}
-
 
   /**
      @return pretree index of true branch target.
@@ -69,7 +62,7 @@ struct CartNode : public TreeNode {
 
 
   inline IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
-			const IndexT* rowT,
+			const CtgT* rowT,
 			unsigned int tIdx) const {
     return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, rowT, tIdx);
   }
@@ -77,7 +70,7 @@ struct CartNode : public TreeNode {
 
   inline IndexT advance(const class Predict* predict,
 			const vector<unique_ptr<class BV>>& factorBits,
-			const IndexT* rowFT,
+			const CtgT* rowFT,
 			const double *rowNT,
 			unsigned int tIdx) const {
     return isTerminal() ? 0 : TreeNode::advanceMixed(predict, factorBits, rowFT, rowNT, tIdx);

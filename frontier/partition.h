@@ -88,13 +88,13 @@ class ObsPart {
      client is currently dense packing.
   */
   void prepath(const class IdxPath *idxPath,
-               const unsigned int reachBase[],
+               const IndexT reachBase[],
                bool idxUpdate,
                const IndexRange& idxRange,
                unsigned int pathMask,
-               unsigned int idxVec[],
+               IndexT idxVec[],
                PathT prepath[],
-               unsigned int pathCount[]) const;
+               IndexT pathCount[]) const;
 
   /**
      @brief Pass-through to Path method.
@@ -104,11 +104,11 @@ class ObsPart {
   */
   void prepath(const class DefFrontier* layer,
 	       const class IdxPath *idxPath,
-               const unsigned int reachBase[],
+               const IndexT reachBase[],
 	       const MRRA& mrra,
                unsigned int pathMask,
                bool idxUpdate,
-               unsigned int pathCount[]);
+               IndexT pathCount[]);
 
 
   /**
@@ -116,19 +116,10 @@ class ObsPart {
   */
   void rankRestage(const class DefFrontier* layer,
 		   const MRRA& defCoord,
-                   unsigned int reachOffset[],
-                   unsigned int rankCount[]);
+                   IndexT reachOffset[],
+                   IndexT rankCount[]);
 
   
-  void indexRestage(const class IdxPath *idxPath,
-                    const unsigned int reachBase[],
-                    const MRRA& mrra,
-                    const IndexRange& idxRange,
-                    unsigned int pathMask,
-                    bool idxUpdate,
-                    unsigned int reachOffset[],
-                    unsigned int splitOffset[]);
-
   
   /**
      @brief Passes through to bufferOff() using definition coordinate.

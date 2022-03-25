@@ -145,6 +145,20 @@ protected:
 		      size_t extent,
 		      vector<size_t>& trIdx);
 
+  /**
+     @brief Transposes typed blocks, prediction-style.
+
+     @param[in,out] idxTr is the most-recently accessed RLE index, by predictor.
+
+     @param rowStart is the starting source row.
+
+     @param rowExtent is the total number of rows to transpose.
+   */
+  void transpose(const RLEFrame* rleFrame,
+		 vector<size_t>& idxTr,
+		 size_t rowStart,
+		 size_t rowExtent);
+
 
   /**
      @brief Multi-row prediction with predictors of only numeric.
@@ -204,14 +218,14 @@ public:
    */
   void (Predict::* walkTree)(size_t);
 
-  vector<unsigned int> trFac; // OTF transposed factor observations.
+  vector<CtgT> trFac; // OTF transposed factor observations.
   vector<double> trNum; // OTF transposed numeric observations.
 
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
 	  struct RLEFrame* rleFrame_,
 	  bool testing_,
-	  unsigned int nPredict_,
+	  PredictorT nPredict_,
 	  bool trapUnobserved_);
   
 
@@ -244,13 +258,13 @@ public:
 
      @return block-relative index.
    */
-  inline unsigned int getIdx(unsigned int predIdx, bool &predIsFactor) const {
+  inline unsigned int getIdx(PredictorT predIdx, bool &predIsFactor) const {
     predIsFactor = isFactor(predIdx);
     return predIsFactor ? predIdx - nPredNum : predIdx;
   }
 
   
-  inline bool isFactor(unsigned int predIdx) const {
+  inline bool isFactor(PredictorT predIdx) const {
     return predIdx >= nPredNum;
   }
 
@@ -322,7 +336,7 @@ public:
 
      @return row is the row number.
    */
-  const PredictorT* baseFac(size_t row) const {
+  const CtgT* baseFac(size_t row) const {
     return &trFac[(row - blockStart) * nPredFac];
   }
 
@@ -337,9 +351,9 @@ public:
      @return index of leaf predicted.
   */
   void rowMixed(unsigned int tIdx,
-		  const double* rowNT,
-		  const unsigned int* rowFT,
-		  size_t row);
+		const double* rowNT,
+		const CtgT* rowFT,
+		size_t row);
 
   
   /**
@@ -348,8 +362,8 @@ public:
      Parameters as in mixed case, above.
   */
   void rowFac(unsigned int tIdx,
-		const unsigned int* rowT,
-		size_t row);
+	      const CtgT* rowT,
+	      size_t row);
 
 
   /**
@@ -394,7 +408,7 @@ public:
 	     const class Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<double>& yTest_,
-	     unsigned int nPredict_,
+	     PredictorT nPredict_,
 	     const vector<double>& quantile,
 	     bool trapUnobserved_);
 
@@ -498,7 +512,7 @@ public:
 	     const class Sampler* sampler_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<PredictorT>& yTest_,
-	     unsigned int nPredict_,
+	     PredictorT nPredict_,
 	     bool doProb,
 	     bool trapUnobserved_);
 

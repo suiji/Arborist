@@ -72,22 +72,22 @@ SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
 
 void ObsPart::prepath(const DefFrontier* layer,
 		      const IdxPath *idxPath,
-		      const unsigned int reachBase[],
+		      const IndexT reachBase[],
 		      const MRRA& mrra,
 		      unsigned int pathMask,
 		      bool idxUpdate,
-		      unsigned int pathCount[]) {
+		      IndexT pathCount[]) {
   prepath(idxPath, reachBase, idxUpdate, layer->getRange(mrra), pathMask, bufferIndex(mrra), &pathIdx[getStageOffset(mrra.splitCoord.predIdx)], pathCount);
 }
 
 void ObsPart::prepath(const IdxPath *idxPath,
-                         const unsigned int *reachBase,
-                         bool idxUpdate,
-                         const IndexRange& idxRange,
-                         unsigned int pathMask,
-                         unsigned int idxVec[],
-                         PathT prepath[],
-                         unsigned int pathCount[]) const {
+		      const IndexT* reachBase,
+		      bool idxUpdate,
+		      const IndexRange& idxRange,
+		      unsigned int pathMask,
+		      IndexT idxVec[],
+		      PathT prepath[],
+		      IndexT pathCount[]) const {
   for (IndexT idx = idxRange.getStart(); idx != idxRange.getEnd(); idx++) {
     PathT path = idxPath->update(idxVec[idx], pathMask, reachBase, idxUpdate);
     prepath[idx] = path;
@@ -100,8 +100,8 @@ void ObsPart::prepath(const IdxPath *idxPath,
 
 void ObsPart::rankRestage(const DefFrontier* layer,
 			  const MRRA& mrra,
-                          unsigned int reachOffset[],
-                          unsigned int rankCount[]) {
+                          IndexT reachOffset[],
+                          IndexT rankCount[]) {
   SampleRank *srSource, *srTarg;
   IndexT *idxSource, *idxTarg;
   buffers(mrra, srSource, idxSource, srTarg, idxTarg);
@@ -125,35 +125,6 @@ void ObsPart::rankRestage(const DefFrontier* layer,
     }
   }
 }
-
-
-void ObsPart::indexRestage(const IdxPath *idxPath,
-                           const unsigned int reachBase[],
-                           const MRRA& mrra,
-                           const IndexRange& idxRange,
-                           unsigned int pathMask,
-                           bool idxUpdate,
-                           unsigned int reachOffset[],
-                           unsigned int splitOffset[]) {
-  unsigned int *idxSource, *idxTarg;
-  indexBuffers(mrra, idxSource, idxTarg);
-
-  for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
-    IndexT sIdx = idxSource[idx];
-    PathT path = idxPath->update(sIdx, pathMask, reachBase, idxUpdate);
-    if (NodePath::isActive(path)) {
-      unsigned int targOff = reachOffset[path]++;
-      idxTarg[targOff] = sIdx; // Semi-regular:  split-level target store.
-      destRestage[idx] = targOff;
-      //      destSplit[idx] = splitOffset[path]++; // Speculative.
-    }
-    else {
-      destRestage[idx] = bagCount;
-      //destSplit[idx] = bagCount;
-    }
-  }
-}
-
 
 IndexT ObsPart::countRanks(PredictorT predIdx,
 			   unsigned int bufIdx,

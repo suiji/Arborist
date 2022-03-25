@@ -23,7 +23,7 @@
 #include "cutset.h"
 #include "trainframe.h"
 #include "ompthread.h"
-#include "callback.h"
+#include "prng.h"
 #include "algsf.h"
 
 
@@ -235,7 +235,7 @@ double SFReg::getScore(const IndexSet& iSet) const {
 
 void SFReg::frontierPreset() {
   if (!mono.empty()) {
-    ruMono = CallBack::rUnif(nSplit * mono.size());
+    ruMono = PRNG::rUnif(nSplit * mono.size());
   }
 }
 
@@ -250,7 +250,7 @@ SFCtg::SFCtg(class Frontier* frontier,
   ctgSum(vector<vector<double>>(nSplit)),
   sumSquares(frontier->sumsAndSquares(ctgSum)),
   ctgSumAccum(vector<double>(frame->getNPredNum() * nCtg * nSplit)),
-  ctgJitter(CallBack::rUnif(nCtg * nSplit, 0.5)) {
+  ctgJitter(PRNG::rUnif(nCtg * nSplit, 0.5)) {
 }
 
 

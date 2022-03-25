@@ -33,8 +33,11 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
-RcppExport SEXP rootSample(const SEXP sDeframe,
-			  const SEXP sArgList);
+RcppExport SEXP rootSample(const SEXP sY,
+			   const SEXP sRowWeight,
+			   const SEXP sNSamp,
+			   const SEXP sNTree,
+			   const SEXP sWithRepl);
 
 
 /**
@@ -54,23 +57,37 @@ struct SamplerR {
 
      @return wrapped list of sample records.
    */
-  static List sample(const List& lDeframe,
-		     const List& argList);
+  static List rootSample(const SEXP sY,
+		     const SEXP sRowWeight,
+		     size_t nSamp,
+		     unsigned int nTree,
+		     bool withRepl);
 
 
   /**
-     @brief Constructs a bridge Sampler object from wrapped record list.
+    @brief Call-back to internal sampling implementation.
 
-  static struct SampleBridge unwrapTrain(const List& lSampler,
-					 const List& argList);
+
+    @param nObs is the size of the set to be sampled.
+
+    @param nSamp is the number of samples to draw.
+
+    @param replace is true iff sampling with replacement.
+
+    @param weight is either a buffer of nObs-many weights or empty.
+
+    @return vector of sampled indices with length 'nSamp'.
   */
+  static vector<size_t> sampleObs(size_t nObs,
+				  size_t nSamp,
+				  bool replace,
+				  const SEXP sRowWeight);
 
 
-  /**
-     @return Core-ready vector of class weights.
-   */
-  static vector<double> weightVec(const List& lSampler,
-				  const List& argList);
+  static IntegerVector sampleWeight(size_t nObs,
+				    size_t nSamp,
+				    bool replace,
+				    const NumericVector& weight);
 
 
   /**
@@ -81,25 +98,14 @@ struct SamplerR {
       identical for all clasess.  The technique of class weighting is
       not without controversy.
 
-      @param yZero is the (zero-based) categorical response vector.
-
       @param classWeight are user-suppled weightings of the categories.
 
-      @return vector of scaled class weights.
-  */
-  static NumericVector ctgWeight(const IntegerVector &yZero,
-				 const NumericVector &classWeight);
+      @return core-ready vector of scaled class weights.
+   */
+  static vector<double> ctgWeight(const IntegerVector& yTrain,
+				  const NumericVector& classWeight);
 
 
-
-  /**
-     @brief Getter for tree count.
-
-  const auto getNTree() const {
-    return nTree;
-  }
-  */
-  
   /**
      @brief Bundles trained bag into format suitable for R.
 
@@ -109,6 +115,10 @@ struct SamplerR {
 
      @return list containing raw data and summary information.
    */
+  static List wrap(const struct SamplerBridge* sb,
+		   const SEXP sY);
+
+
   static List wrap(const struct SamplerBridge* sb,
 		   const IntegerVector& yTrain);
   
@@ -179,7 +189,7 @@ struct SamplerR {
      @brief Specialization for factor=valued response, training.
    */
   static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
-						    vector<double> weights);
+						    const List& argList);
 
 
   /**

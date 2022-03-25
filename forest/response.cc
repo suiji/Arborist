@@ -120,7 +120,7 @@ double ResponseReg::predictObs(const Predict* predict, size_t row) const {
 }
 
 
-PredictorT ResponseCtg::predictObs(const Predict* predict, size_t row, PredictorT* census) const {
+PredictorT ResponseCtg::predictObs(const Predict* predict, size_t row, unsigned int* census) const {
   unsigned int nEst = 0;
   vector<double> ctgJitter(nCtg);
   for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
@@ -136,12 +136,12 @@ PredictorT ResponseCtg::predictObs(const Predict* predict, size_t row, Predictor
     census[defaultPrediction] = 1;
   }
 
-  return argMaxJitter(census, &ctgJitter[0]);
+  return argMaxJitter(census, ctgJitter);
 }
 
 
-PredictorT ResponseCtg::argMaxJitter(const IndexT* census,
-				 const double* ctgJitter) const {
+PredictorT ResponseCtg::argMaxJitter(const unsigned int* census,
+				     const vector<double>& ctgJitter) const {
   PredictorT argMax = 0;
   IndexT countMax = 0;
   // Assumes at least one slot has nonzero count.

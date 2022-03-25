@@ -63,32 +63,6 @@ void RLEFrame::reorderRow() {
 }
 
 
-void RLEFrame::transpose(vector<size_t>& idxTr,
-			 size_t rowStart,
-			 size_t rowExtent,
-			 vector<unsigned int>& trFac,
-			 vector<double>& trNumeric) const {
-  size_t rowOff = 0;
-  size_t rowEnd = min(nRow, rowStart + rowExtent);
-  for (size_t row = rowStart; row != rowEnd; row++) {
-    unsigned int numIdx = 0;
-    unsigned int facIdx = 0;
-    for (unsigned int predIdx = 0; predIdx < idxTr.size(); predIdx++) {
-      unsigned int rank = idxRank(rlePred[predIdx], idxTr[predIdx], row);
-      if (predForm[predIdx] == PredictorForm::numeric) {
-	trNumeric[rowOff * getNPredNum() + numIdx] = numRanked[numIdx][rank];
-	numIdx++;
-      }
-      else {// TODO:  Replace subtraction with (front end)::fac2Rank()
-	trFac[rowOff * getNPredFac() + facIdx] = facRanked[facIdx][rank] - 1;
-	facIdx++;
-      }
-    }
-    rowOff++;
-  }
-}
-
-
 vector<RLEVal<unsigned int>> RLEFrame::permute(unsigned int predIdx,
 					       const vector<size_t>& idxPerm) const {
   vector<size_t> row2Rank(nRow);
