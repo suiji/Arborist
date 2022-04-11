@@ -99,18 +99,18 @@ struct CritEncoding {
 
 private:  
   void branchSet(IndexT* sIdx,
-		 class SampleRank* spn,
+		 class ObsCell* spn,
 		 const IndexRange& range,
 		 class BranchSense* branchSense);
 
 
   void branchUnset(IndexT* sIdx,
-		   class SampleRank* spn,
+		   class ObsCell* spn,
 		   const IndexRange& range,
 		   class BranchSense* branchSense);
 
 
-  void encode(const class SampleRank& obs);
+  void encode(const class ObsCell& obs);
 
   
   /**

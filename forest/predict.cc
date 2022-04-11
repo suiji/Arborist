@@ -22,7 +22,7 @@
 #include "quant.h"
 #include "ompthread.h"
 #include "rleframe.h"
-#include "bheap.h"
+#include "sample.h"
 #include "response.h"
 
 #include <cmath>
@@ -128,7 +128,7 @@ void Predict::predictPermute(RLEFrame* rleFrame) {
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     setPermuteTarget(predIdx);
     vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
-    rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, BHeap::permute(nRow));
+    rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(nRow));
     blocks(rleFrame);
     rleFrame->rlePred[predIdx] = move(rleTemp);
   }

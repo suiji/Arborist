@@ -46,14 +46,14 @@ void LeafR::bridgeConsume(const LeafBridge* bridge,
 
   size_t extentSize = bridge->getExtentSize();
   if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
-    extent = move(ResizeR::resizeNum(extent, extentTop, extentSize, scale));
+    extent = move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
   }
   bridge->dumpExtent(&extent[extentTop]);
   extentTop += extentSize;
 
   size_t indexSize = bridge->getIndexSize();
   if (indexTop + indexSize > static_cast<size_t>(index.length())) {
-    index = move(ResizeR::resizeNum(index, indexTop, indexSize, scale));
+    index = move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
   }
   bridge->dumpIndex(&index[indexTop]);
   indexTop += indexSize;

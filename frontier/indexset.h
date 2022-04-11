@@ -73,7 +73,7 @@ public:
   /**
      @brief Root node constructor.
    */
-  IndexSet(const class Sample* sample);
+  IndexSet(const class SampleObs* sample);
 
 
   /**

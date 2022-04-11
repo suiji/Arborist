@@ -20,7 +20,7 @@
 #include "deffrontier.h"
 #include "partition.h"
 #include "splitnux.h"
-#include "sample.h"
+#include "sampleobs.h"
 #include "trainframe.h"
 #include "layout.h"
 #include "path.h"
@@ -96,7 +96,7 @@ IndexT* DefMap::getBufferIndex(const SplitNux* nux) const {
 }
 
 
-SampleRank* DefMap::getPredBase(const SplitNux* nux) const {
+ObsCell* DefMap::getPredBase(const SplitNux* nux) const {
   return obsPart->getPredBase(nux);
 }
 
@@ -155,7 +155,7 @@ unsigned int DefMap::flushRear() {
 }
 
 
-void DefMap::setPrecandidates(const Sample* sample, unsigned int level) {
+void DefMap::setPrecandidates(const SampleObs* sample, unsigned int level) {
   preCand = vector<vector<PreCand>>(splitCount);
   // Precandidates precipitate restaging ancestors at this level,
   // as do all non-singleton definitions arising from flushes.
@@ -165,7 +165,7 @@ void DefMap::setPrecandidates(const Sample* sample, unsigned int level) {
 }
 
 
-void DefMap::stage(const Sample* sample) {
+void DefMap::stage(const SampleObs* sample) {
   IndexT predIdx = 0;
   vector<StageCount> stageCount = layout->stage(sample, obsPart.get());
   for (auto sc : stageCount) {

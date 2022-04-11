@@ -14,7 +14,7 @@
  */
 
 #include "indexset.h"
-#include "sample.h"
+#include "sampleobs.h"
 #include "splitnux.h"
 #include "splitfrontier.h"
 #include "frontier.h"
@@ -33,7 +33,7 @@ void IndexSet::deImmutables() {
 }
 
 
-IndexSet::IndexSet(const Sample* sample) :
+IndexSet::IndexSet(const SampleObs* sample) :
   splitIdx(0),
   bufRange(IndexRange(0, sample->getBagCount())),
   sCount(sample->getNSamp()),

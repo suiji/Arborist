@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include "samplenux.h" // Temporary
+#include "obscell.h" // Temporary
 
 
 /**
@@ -40,9 +40,9 @@ class ObsPart {
   const IndexT bufferSize; // <= nRow * nPred.
 
   vector<PathT> pathIdx;
-  SampleRank* nodeVec;
+  ObsCell* nodeVec;
 
-  // 'indexBase' could be boxed with SampleRank.  While it is used in both
+  // 'indexBase' could be boxed with ObsCell.  While it is used in both
   // replaying and restaging, though, it plays no role in splitting.  Maintaining
   // a separate vector permits a 16-byte stride to be used for splitting.  More
   // significantly, it reduces memory traffic incurred by transposition on the
@@ -127,10 +127,10 @@ class ObsPart {
   IndexT* getBufferIndex(const class SplitNux* nux) const;
 
 
-  SampleRank* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
+  ObsCell* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
 
 
-  SampleRank* getPredBase(const class SplitNux* nux) const;
+  ObsCell* getPredBase(const class SplitNux* nux) const;
   
   
   inline IndexT getBagCount() const {
@@ -202,14 +202,14 @@ class ObsPart {
   /**
      @return base of node buffer.
    */
-  inline SampleRank *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
+  inline ObsCell *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
     return nodeVec + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
-  inline SampleRank* buffers(PredictorT predIdx,
+  inline ObsCell* buffers(PredictorT predIdx,
 			     unsigned int bufBit,
 			     IndexT*& sIdx) const {
     IndexT offset = bufferOff(predIdx, bufBit);
@@ -226,14 +226,14 @@ class ObsPart {
   /**
      @brief Passes through to above after looking up splitting parameters.
    */
-  SampleRank* buffers(const MRRA& defCoord,
+  ObsCell* buffers(const MRRA& defCoord,
                       IndexT*& sIdx) const {
     return buffers(defCoord.splitCoord.predIdx, defCoord.bufIdx, sIdx);
   }
 
 
   /**
-     @brief Allows lightweight lookup of predictor's SampleRank vector.
+     @brief Allows lightweight lookup of predictor's ObsCell vector.
 
      @param bufBit is the containing buffer, currently 0/1.
  
@@ -241,22 +241,22 @@ class ObsPart {
 
      @return node vector section for this predictor.
    */
-  SampleRank* getPredBase(const MRRA& defCoord) const {
+  ObsCell* getPredBase(const MRRA& defCoord) const {
     return nodeVec + bufferOff(defCoord);
   }
   
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline SampleRank* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
+  inline ObsCell* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
     return nodeVec + bufferOff(predIdx, bufBit);
   }
 
 
   inline void buffers(const MRRA& mrra,
-		      SampleRank*& source,
+		      ObsCell*& source,
 		      IndexT*& sIdxSource,
-		      SampleRank*& targ,
+		      ObsCell*& targ,
 		      IndexT*& sIdxTarg) {
     source = buffers(mrra.splitCoord.predIdx, mrra.bufIdx, sIdxSource);
     targ = buffers(mrra.splitCoord.predIdx, mrra.compBuffer(), sIdxTarg);

@@ -58,10 +58,10 @@ struct SamplerR {
      @return wrapped list of sample records.
    */
   static List rootSample(const SEXP sY,
-		     const SEXP sRowWeight,
-		     size_t nSamp,
-		     unsigned int nTree,
-		     bool withRepl);
+			 NumericVector& weight, // Change to const when Sampler completed.
+			 size_t nSamp,
+			 unsigned int nTree,
+			 bool withRepl);
 
 
   /**
@@ -78,16 +78,17 @@ struct SamplerR {
 
     @return vector of sampled indices with length 'nSamp'.
   */
-  static vector<size_t> sampleObs(size_t nObs,
-				  size_t nSamp,
+  static vector<size_t> sampleObs(size_t nSamp,
 				  bool replace,
-				  const SEXP sRowWeight);
+				  NumericVector& weight);
 
 
-  static IntegerVector sampleWeight(size_t nObs,
-				    size_t nSamp,
-				    bool replace,
-				    const NumericVector& weight);
+  static IntegerVector sampleReplace(NumericVector& weight,
+				     size_t nSamp);
+
+
+  static IntegerVector sampleNoReplace(NumericVector& weight,
+				       size_t nSamp);
 
 
   /**

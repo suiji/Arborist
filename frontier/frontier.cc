@@ -16,7 +16,7 @@
 #include "frontier.h"
 #include "indexset.h"
 #include "trainframe.h"
-#include "sample.h"
+#include "sampleobs.h"
 #include "sampler.h"
 #include "train.h"
 #include "splitfrontier.h"

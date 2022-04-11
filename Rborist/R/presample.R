@@ -38,7 +38,10 @@ presample <- function(y,
     if (!is.null(rowWeight)) {
         if (length(rowWeight) != nRow) {
             stop("Sample weight length must match row count")
-        }    
+        }
+        if (all(rowWeight == 0)) {
+            stop("No nonzero weights")
+        }
         if (any(rowWeight < 0)) {
             stop("Negative sample weights not permitted")
         }

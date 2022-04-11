@@ -20,7 +20,8 @@
 #include "typeparam.h"
 
 #include <vector>
-
+#include <numeric>
+#include <algorithm>
 
 struct CandRF : public Cand {
   static void
@@ -39,17 +40,10 @@ private:
   static vector<double> predProb;
 
 
-  static void candidateProb(PredictorT nPred,
-			    class DefMap* defMap,
-			    IndexT splitIdx,
-			    const double ruPred[]);
+  static void candidateProb(class DefMap* defMap);
 
 
-  static void candidateFixed(PredictorT nPred,
-			     class DefMap* defMap,
-			     IndexT splitIdx,
-			     const double ruPred[],
-			     struct BHPair heap[]);
+  static void candidateFixed(class DefMap* defMap);
 };
 
 #endif

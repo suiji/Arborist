@@ -13,11 +13,10 @@
    @author Mark Seligman
  */
 
-
-#include "bheap.h"
 #include "candrf.h"
 #include "sfcart.h"
 #include "defmap.h"
+#include "sample.h"
 #include "prng.h"
 
 
@@ -42,58 +41,57 @@ void CandRF::deInit() {
 
 void CandRF::precandidates(DefMap* defMap) {
 // TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
+  if (predFixed == 0) {
+    candidateProb(defMap);
+  }
+  else {
+    candidateFixed(defMap);
+  }
+}
+
+
+void CandRF::candidateProb(DefMap* defMap) {
   IndexT splitCount = defMap->getNSplit();
   PredictorT nPred = defMap->getNPred();
-  IndexT cellCount = splitCount * nPred;
-  
-  auto ruPred = PRNG::rUnif(cellCount);
-  vector<BHPair> heap(predFixed == 0 ? 0 : cellCount);
+
+  vector<double> ruPred = PRNG::rUnif(splitCount * nPred);
   for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    IndexT splitOff = splitIdx * nPred;
     if (defMap->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
     }
-    else if (predFixed == 0) { // Probability of predictor splitable.
-      candidateProb(nPred, defMap, splitIdx, &ruPred[splitOff]);
-    }
-    else { // Fixed number of predictors splitable.
-      candidateFixed(nPred, defMap, splitIdx, &ruPred[splitOff], &heap[splitOff]);
-    }
-  }
-}
-
-
-void CandRF::candidateProb(PredictorT nPred,
-			   DefMap* defMap,
-			   IndexT splitIdx,
-			   const double ruPred[]) {
-  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-    if (ruPred[predIdx] < predProb[predIdx]) {
-      (void) defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[predIdx]);
-    }
-  }
-}
-
-
-void CandRF::candidateFixed(PredictorT nPred,
-			    DefMap* defMap,
-			    IndexT splitIdx,
-			    const double ruPred[],
-			    BHPair heap[]) {
-
-  // Inserts negative, weighted probability value:  choose from lowest.
-  for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-    BHeap::insert(heap, predIdx, -ruPred[predIdx] * predProb[predIdx]);
-  }
-
-  // Pops 'predFixed' items in order of increasing value.
-  PredictorT schedCount = 0;
-  for (PredictorT heapSize = nPred; heapSize > 0; heapSize--) {
-    SplitCoord splitCoord(splitIdx, BHeap::slotPop(heap, heapSize - 1));
-    if (defMap->preschedule(splitCoord, ruPred[heapSize-1])) {
-      if (++schedCount == predFixed) {
-	break;
+    IndexT ruOff = splitIdx * nPred;
+    for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
+      if (ruPred[ruOff] < predProb[predIdx]) {
+	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[ruOff]);
       }
+      ruOff++;
+    }
+  }
+}
+
+void CandRF::candidateFixed(DefMap* defMap) {
+  IndexT splitCount = defMap->getNSplit();
+  PredictorT nPred = defMap->getNPred();
+  vector<double> ruPred = PRNG::rUnif(splitCount * nPred);
+
+  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
+    if (defMap->isUnsplitable(splitIdx)) { // Node cannot split.
+      continue;
+    }
+    vector<PredictorT> predRand(nPred);
+    iota(predRand.begin(), predRand.end(), 0);
+    IndexT ruOff = splitIdx * nPred;
+    PredictorT schedCount = 0;
+    PredictorT predTop = nPred;
+    for (PredictorT predTop = nPred; predTop != 0; predTop--) {
+      PredictorT idxRand = predTop * ruPred[ruOff];
+      PredictorT predIdx = exchange(predRand[idxRand], predRand[predTop-1]);
+      if (defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[ruOff])) {
+	if (++schedCount == predFixed) {
+	  break;
+	}
+      }
+      ruOff++;
     }
   }
 }

@@ -16,9 +16,7 @@
 #ifndef CORE_BHEAP_H
 #define CORE_BHEAP_H
 
-
-#include "typeparam.h"
-
+#include <cmath>
 #include <vector>
 
 using namespace std;
@@ -26,24 +24,72 @@ using namespace std;
 /**
    @brief Ad hoc container for simple priority queue.
  */
+template<typename slotType>
 struct BHPair {
-  double key;  // TODO:  templatize.
-  PredictorT slot; // Slot index.
+  double key;
+  slotType slot; // Slot index.
+
+  BHPair(double key_,
+	 slotType slot_) :
+    key(key_),
+    slot(slot_) {
+  }
+
+  BHPair() = default;
 };
 
 
 /**
-   @brief Implementation of binary heap tailored to RunAccums.
+   @brief Maintains partial sorting of a vector of pairs.
+ */
+namespace PQueue {
 
-   Not so much a class as a collection of static methods.
-*/
-struct BHeap {
   /**
-     @brief Determines index of parent.
+     @brief Adjust partial ordering for addition of element.
    */
-  static inline int parent(int idx) { 
-    return (idx-1) >> 1;
-  };
+  template<typename slotType>
+  void insert(BHPair<slotType> pairVec[],
+	      slotType tail) {
+    const BHPair<slotType> input = pairVec[tail];
+    slotType idx = tail;
+    while (idx > 0) {
+      slotType parIdx = (idx - 1) >> 1;
+      if (pairVec[parIdx].key <= input.key)
+	break;
+      pairVec[idx] = pairVec[parIdx];
+      pairVec[parIdx] = input;
+      idx = parIdx;
+    }
+  }
+
+  
+  /**
+     @brief Adjusts partial ordering for removal of element.
+   */
+  template<typename slotType>
+  void refile(BHPair<slotType> bhPair[],
+	      slotType tail) {
+    // Places tail element at head and refiles.
+    const slotType slotRefile = bhPair[0].slot = bhPair[tail].slot;
+    const double keyRefile = bhPair[0].key = bhPair[tail].key;
+
+  // 'descR' remains the lower of the two descendant indices.
+  //  Some short-circuiting below.
+  //
+    slotType idx = 0;
+    slotType descL = 1;
+    slotType descR = 2;
+    while((descR <= tail && keyRefile > bhPair[descR].key) || (descL <= tail && keyRefile > bhPair[descL].key)) {
+      slotType chIdx =  (descR <= tail && bhPair[descR].key < bhPair[descL].key) ?  descR : descL;
+      bhPair[idx].key = bhPair[chIdx].key;
+      bhPair[idx].slot = bhPair[chIdx].slot;
+      bhPair[chIdx].key = keyRefile;
+      bhPair[chIdx].slot = slotRefile;
+      idx = chIdx;
+      descL = 1 + (idx << 1);
+      descR = (1 + idx) << 1;
+    }
+  }
 
 
   /**
@@ -51,49 +97,80 @@ struct BHeap {
 
      @param pairVec are the queue records.
 
-     @param[out] lhOut outputs the popped slots, in increasing order.
-
-     @param pop is the number of elements to pop.  Caller enforces value > 0.
+     @param nElt is the number of elements to pop:  > 0.
   */
-  static void depopulate(BHPair pairVec[],
-                         PredictorT lhOut[],
-                         PredictorT pop);
+  template<typename slotType>
+  vector<slotType> depopulate(BHPair<slotType> pairVec[],
+			      slotType nElt) {
+    vector<slotType> idxRank(nElt);
+    for (slotType pairIdx = 0; pairIdx < nElt; pairIdx++) {
+      idxRank[pairVec[0].slot] = pairIdx;
+      refile<slotType>(pairVec, nElt - (pairIdx + 1));
+    }
+    return idxRank;
+  }
 
+
+  /**
+     @brief Inserts a key, value pair into the queue.
+
+     @param pairVec are the queue records.
+
+     @param key is the associated key.
+
+     @param slot is the slot position.
+  */
+  template<typename slotType>
+  void insert(BHPair<slotType> pairVec[], double key, slotType slot) {
+    pairVec[slot] = BHPair<slotType>(key, slot);
+    insert<slotType>(pairVec, slot);
+  }
+};
+
+
+/**
+   @brief Internal implementation of binary heap.
+*/
+template<typename slotType>
+struct BHeap {
+  vector<BHPair<slotType>> bhPair;
+
+public:
+  
+  /**
+     @brief Removes items from the queue.
+
+     @param nElt is the number of items to remove.
+
+     @return ranks of popped items.
+  */
+  vector<slotType> depopulate(size_t nElt = 0) {
+    if (nElt == 0)
+      nElt = bhPair.size();
+    else
+      nElt = min(bhPair.size(), nElt);
+
+    vector<slotType> idxRank(nElt);
+    for (slotType pairIdx = 0; pairIdx < nElt; pairIdx++) {
+      idxRank[bhPair.front().slot] = pairIdx;
+      PQueue::refile<slotType>(&bhPair[0], bhPair.size() - 1);
+      bhPair.pop_back();
+    }
+    return idxRank;
+  }
+
+  
   /**
      @brief Inserts a key, value pair into the heap at next vacant slot.
 
      Heap updates to move element with maximal key to the top.
 
-     @param pairVec are the queue records.
-
-     @param slot_ is the slot position.
-
-     @param key_ is the associated key.
+     @param key is the associated key.
   */
-  static void insert(BHPair pairVec[],
-                     unsigned int slot_,
-                     double key_);
-
-  /**
-     @brief Pops value at bottom of heap.
-
-     @param pairVec are the queue records.
-
-     @param bot indexes the current bottom.
-
-     @return popped value.
-  */
-  static unsigned int slotPop(BHPair pairVec[],
-                              int bot);
-
-  /**
-     @brief Permutes a zero-based set of contiguous values.
-
-     @param nSlot is the number of values.
-
-     @return vector of permuted indices.
-   */
-  static vector<size_t> permute(IndexT nSlot);
+  void insert(double key) {
+    bhPair.emplace_back(key, bhPair.size());
+    PQueue::insert<slotType>(&bhPair[0], bhPair.back().slot);
+  }
 };
 
 #endif

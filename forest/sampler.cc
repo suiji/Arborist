@@ -10,8 +10,7 @@
 #include "sampler.h"
 #include "response.h"
 #include "samplernux.h"
-
-#include <cmath>
+#include "prng.h"
 
 
 PackedT SamplerNux::delMask = 0;
@@ -20,13 +19,33 @@ unsigned int SamplerNux::rightBits = 0;
 
 Sampler::Sampler(IndexT nSamp_,
 		 IndexT nObs_,
-		 unsigned int nTree_) :
+		 unsigned int nTree_,
+		 bool replace,
+		 const double weight[]) :
     nTree(nTree_),
     nObs(nObs_),
     nSamp(nSamp_) {
-  }
+  setCoefficients(weight, replace);
+}
 
   
+void Sampler::setCoefficients(const double weight[],
+			      bool replace) {
+  if (weight != nullptr) {
+    if (replace)
+      walker = make_unique<Sample::Walker<size_t>>(weight, nObs);
+    else {
+      weightNoReplace = vector<double>(weight, weight + nObs);
+    }
+  }
+  else if (!replace) { // Uniform non-replace scaling vector.
+    coeffNoReplace = vector<size_t>(nSamp);
+    iota(coeffNoReplace.begin(), coeffNoReplace.end(), nObs - nSamp + 1);
+    reverse(coeffNoReplace.begin(), coeffNoReplace.end());
+  }
+}
+
+
 Sampler::Sampler(const vector<double>& yTrain,
 		 IndexT nSamp_,
 		 vector<vector<SamplerNux>> samples_) :
@@ -98,6 +117,44 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
+unique_ptr<SampleObs> Sampler::rootSample(unsigned int tIdx) const {
+  return response->rootSample(this, tIdx);
+}
+
+
+vector<IndexT> Sampler::sampledRows(unsigned int tIdx) const {
+  vector<IndexT> rowsSampled(sbCresc.size());
+
+  IndexT sIdx = 0;
+  IndexT row = 0;
+  for (auto nux : sbCresc) {
+    row += nux.getDelRow();
+    rowsSampled[sIdx++] = row;
+  }
+
+  return rowsSampled;
+}
+
+
+void Sampler::sample() {
+  vector<size_t> idxOut;
+  if (walker != nullptr) {
+    idxOut = walker->sample(nSamp);
+  }
+  else if (!weightNoReplace.empty()) {
+    idxOut = Sample::sampleEfraimidis<size_t>(weightNoReplace, nSamp);
+  }
+  else if (!coeffNoReplace.empty()) {
+    idxOut = Sample::sampleUniform<size_t>(coeffNoReplace, nObs);
+  }
+  else {
+    idxOut = PRNG::rUnifIndex(nSamp, nObs);
+  }
+
+  appendSamples(idxOut);
+}
+
+
 void Sampler::appendSamples(const vector<size_t>& idx) {
   vector<IndexT> sCountRow = binIdx(nObs) > 0 ? countSamples(binIndices(nObs, idx)) : countSamples(idx);
   IndexT rowPrev = 0;
@@ -159,24 +216,6 @@ vector<size_t> Sampler::binIndices(size_t nObs,
   return idxBinned;
 }
 
-
-unique_ptr<Sample> Sampler::rootSample(unsigned int tIdx) const {
-  return response->rootSample(this, tIdx);
-}
-
-
-vector<IndexT> Sampler::sampledRows(unsigned int tIdx) const {
-  vector<IndexT> rowsSampled(sbCresc.size());
-
-  IndexT sIdx = 0;
-  IndexT row = 0;
-  for (auto nux : sbCresc) {
-    row += nux.getDelRow();
-    rowsSampled[sIdx++] = row;
-  }
-
-  return rowsSampled;
-}
 
 # ifdef restore
 // RECAST:

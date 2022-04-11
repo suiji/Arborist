@@ -38,16 +38,20 @@ unsigned int SamplerBridge::getNTree() const {
 
 unique_ptr<SamplerBridge> SamplerBridge::preSample(size_t nSamp,
 						   size_t nObs,
-						   unsigned int nTree) {
+						   unsigned int nTree,
+						   bool replace,
+						   const double weight[]) {
   SamplerNux::setMasks(nObs);
-  return make_unique<SamplerBridge>(nSamp, nObs, nTree);
+  return make_unique<SamplerBridge>(nSamp, nObs, nTree, replace, weight);
 }
 
 
 SamplerBridge::SamplerBridge(size_t nSamp,
 			     size_t nObs,
-			     unsigned int nTree) :
-  sampler(make_unique<Sampler>(nSamp, nObs, nTree)) {
+			     unsigned int nTree,
+			     bool replace,
+			     const double weight[]) :
+  sampler(make_unique<Sampler>(nSamp, nObs, nTree, replace, weight)) {
 }
 
 // EXIT:  EFfects indistinguishable from readReg().
@@ -68,7 +72,12 @@ SamplerBridge::SamplerBridge(const vector<double>& yTrain,
 }
 
 
-void SamplerBridge::appendSamples(const vector<size_t>& idx) {
+void SamplerBridge::sample() {
+  sampler->sample();
+}
+
+
+void SamplerBridge::appendSamples(const vector<size_t>& idx) { // EXIT
   sampler->appendSamples(idx);
 }
 

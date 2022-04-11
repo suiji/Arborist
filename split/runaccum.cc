@@ -29,8 +29,7 @@ RunAccum::RunAccum(const SplitFrontier* splitFrontier,
   nCtg(splitFrontier->getNCtg()),
   rcSafe(rcSafe_),
   runZero(vector<RunNux>(rcSafe)),
-  heapZero(vector<BHPair>((style == SplitStyle::slots || rcSafe > maxWidth) ? rcSafe : 0)),
-  idxRank(vector<PredictorT>(rcSafe)),
+  heapZero(vector<BHPair<PredictorT>>((style == SplitStyle::slots || rcSafe > maxWidth) ? rcSafe : 0)),
   cellSum(vector<double>(nCtg * rcSafe)),
   rvZero(nullptr),
   implicitSlot(rcSafe), // Inattainable slot index.
@@ -118,7 +117,7 @@ PredictorT RunAccum::regRuns() {
   PredictorT runIdx = 0;
   initReg(idxStart, runIdx);
   for (IndexT idx = idxStart + 1; idx <= idxEnd; idx++) {
-    if (!sampleRank[idx].regAccum(runZero[runIdx])) {
+    if (!obsCell[idx].regAccum(runZero[runIdx])) {
       endRun(runZero[runIdx++], idx - 1);
       initReg(idx, runIdx);
     }
@@ -140,7 +139,7 @@ PredictorT RunAccum::regRunsMasked(const BranchSense* branchSense,
   IndexT runRight = edgeLeft; // Previous unmasked index.
   for (IndexT idx = edgeLeft + 1; idx <= edgeRight; idx++) {
     if (branchSense->isExplicit(sampleIndex[idx]) == maskSense) {
-      if (!sampleRank[idx].regAccum(runZero[runIdx])) {
+      if (!obsCell[idx].regAccum(runZero[runIdx])) {
 	endRun(runZero[runIdx++], runRight);
 	initReg(idx, runIdx);
       }
@@ -157,7 +156,7 @@ PredictorT RunAccum::regRunsMasked(const BranchSense* branchSense,
 
 void RunAccum::initReg(IndexT runLeft, PredictorT runIdx) {
   runZero[runIdx].startRange(runLeft);
-  sampleRank[runLeft].regInit(runZero[runIdx]);
+  obsCell[runLeft].regInit(runZero[runIdx]);
 }
 
 
@@ -185,14 +184,14 @@ void RunAccum::orderMean() {
 
 void RunAccum::heapMean() {
   for (PredictorT slot = 0; slot < obsCount; slot++) {
-    BHeap::insert(&heapZero[0], slot, runZero[slot].sum / runZero[slot].sCount);
+    PQueue::insert<PredictorT>(&heapZero[0], runZero[slot].sum / runZero[slot].sCount, slot);
   }
 }
 
 
 void RunAccum::slotReorder(PredictorT leadCount) {
   vector<RunNux> frOrdered(leadCount == 0 ? obsCount : leadCount);
-  BHeap::depopulate(&heapZero[0], &idxRank[0], frOrdered.size());
+  idxRank = PQueue::depopulate<PredictorT>(&heapZero[0], frOrdered.size());
 
   for (PredictorT slot = 0; slot < frOrdered.size(); slot++) {
     frOrdered[idxRank[slot]] = runZero[slot];
@@ -230,7 +229,7 @@ PredictorT RunAccum::ctgRuns(const SFCtg* sf, const SplitNux* cand) {
   PredictorT runIdx = 0;
   double* sumBase = initCtg(idxStart, runIdx);
   for (IndexT idx = idxStart + 1; idx <= idxEnd; idx++) {
-    if (!sampleRank[idx].ctgAccum(runZero[runIdx], sumBase)) {
+    if (!obsCell[idx].ctgAccum(runZero[runIdx], sumBase)) {
       endRun(runZero[runIdx++], idx - 1);
       sumBase = initCtg(idx, runIdx);
     }
@@ -245,7 +244,7 @@ PredictorT RunAccum::ctgRuns(const SFCtg* sf, const SplitNux* cand) {
 double* RunAccum::initCtg(IndexT runLeft, PredictorT runIdx) {
   double* sumBase = &cellSum[runIdx * nCtg];
   runZero[runIdx].startRange(runLeft);
-  sampleRank[runLeft].ctgInit(runZero[runIdx], sumBase);
+  obsCell[runLeft].ctgInit(runZero[runIdx], sumBase);
   return sumBase;
 }
 
@@ -301,7 +300,7 @@ void RunAccum::orderRandom(PredictorT runCount,
 
 void RunAccum::heapRandom(PredictorT runCount) {
   for (PredictorT slot = 0; slot < runCount; slot++) {
-    BHeap::insert(&heapZero[0], slot, rvZero[slot]);
+    PQueue::insert<PredictorT>(&heapZero[0], rvZero[slot], slot);
   }
 }
 
@@ -409,7 +408,7 @@ void RunAccum::heapBinary() {
   // In the absence of class weighting, numerator can be (integer) slot
   // sample count, instead of slot sum.
   for (PredictorT slot = 0; slot < obsCount; slot++) {
-    BHeap::insert(&heapZero[0], slot, getCellSum(slot, 1) / runZero[slot].sum);
+    PQueue::insert<PredictorT>(&heapZero[0], getCellSum(slot, 1) / runZero[slot].sum, slot);
   }
 }
 

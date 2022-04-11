@@ -24,8 +24,8 @@
  */
 
 #include "exportR.h"
-#include "samplerR.h"
 #include "samplerbridge.h"
+#include "samplerR.h"
 #include "signature.h"
 #include "forestR.h"
 #include "forestbridge.h"

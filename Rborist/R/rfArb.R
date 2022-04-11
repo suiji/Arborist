@@ -27,7 +27,7 @@ rfArb <- function(x,
                 impPermute = 0,
                 maxLeaf = 0,
                 minInfo = 0.01,
-                minNode = ifelse(is.factor(y), 2, 3),
+                minNode = if (is.factor(y)) 2 else 3,
                 nLevel = 0,
                 nSamp = 0,
                 nThread = 0,
@@ -41,7 +41,7 @@ rfArb <- function(x,
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
+                thinLeaves = is.factor(y),
                 trapUnobserved = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
@@ -108,7 +108,7 @@ rfArb <- function(x,
 
 
   # Class weights
-    nCtg <- ifelse(is.factor(y), length(levels(y)), 0)
+    nCtg <- if (is.factor(y)) length(levels(y)) else 0
     if (is.factor(y)) {
         if (!is.null(classWeight)) {
             if (is.numeric(classWeight)) {
@@ -196,7 +196,7 @@ rfArb <- function(x,
         warning("Specified leaf maximum exceeds number of samples.")
 
     # Normalizes vector of pointwise predictor probabilites.
-    meanWeight <- ifelse(predProb == 0.0, 1.0, predProb)
+    meanWeight <- if (predProb == 0.0) 1.0 else predProb
     argTrain$probVec <- predWeight * (nPred * meanWeight) / sum(predWeight)
     argTrain$predWeight <- NULL
     argTrain$predProb <- NULL

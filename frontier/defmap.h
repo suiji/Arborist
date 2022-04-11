@@ -130,7 +130,7 @@ class DefMap {
   /**
      @brief Passes ObsPart through to Sample method.
    */
-  void stage(const class Sample* sample);
+  void stage(const class SampleObs* sample);
 
 
  public:
@@ -217,7 +217,7 @@ class DefMap {
   /**
      @brief Rebuilds the precandidate vector using CandT method.
    */
-  void setPrecandidates(const class Sample* sample,
+  void setPrecandidates(const class SampleObs* sample,
 			unsigned int level);
 
   
@@ -302,7 +302,7 @@ class DefMap {
   IndexT* getBufferIndex(const class SplitNux* nux) const;
 
   
-  class SampleRank* getPredBase(const SplitNux* nux) const;
+  class ObsCell* getPredBase(const SplitNux* nux) const;
 
   
   /**

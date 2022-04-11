@@ -73,7 +73,7 @@ IndexT* SplitFrontier::getBufferIndex(const SplitNux* nux) const {
 }
 
 
-SampleRank* SplitFrontier::getPredBase(const SplitNux* nux) const {
+ObsCell* SplitFrontier::getPredBase(const SplitNux* nux) const {
   return defMap->getPredBase(nux);
 }
 

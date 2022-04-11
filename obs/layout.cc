@@ -18,7 +18,7 @@
 #include "layout.h"
 #include "valrank.h"
 #include "partition.h"
-#include "sample.h"
+#include "sampleobs.h"
 #include "ompthread.h"
 #include "trainframe.h"
 
@@ -97,7 +97,7 @@ void Layout::accumOffsets() {
 }
 
 
-vector<StageCount> Layout::stage(const Sample* sample,
+vector<StageCount> Layout::stage(const SampleObs* sample,
 				 ObsPart* obsPart) const {
   vector<StageCount> stageCount(nPred);
 
@@ -114,14 +114,14 @@ vector<StageCount> Layout::stage(const Sample* sample,
 }
 
 
-StageCount Layout::stage(const Sample* sample,
+StageCount Layout::stage(const SampleObs* sample,
 			 ObsPart* obsPart,
 			 PredictorT predIdx) const {
   obsPart->setStageRange(predIdx, getSafeRange(predIdx, sample->getBagCount()));
   IndexT rankDense = implExpl[predIdx].rankImpl;
   IndexT* idxStart;
-  SampleRank* srStart = obsPart->buffers(predIdx, 0, idxStart);
-  SampleRank* spn = srStart;
+  ObsCell* srStart = obsPart->buffers(predIdx, 0, idxStart);
+  ObsCell* spn = srStart;
   IndexT* sIdx = idxStart;
   for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;

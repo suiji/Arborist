@@ -25,45 +25,19 @@ using namespace Rcpp;
 /**
    @file resizeR.h
 
-   @brief Static vector resizing methods which should be templated.
+   @brief Vector resizing methods, parametrized by Rcpp type.
 
    @author Mark Seligman
  */
-
-
-struct ResizeR {
-
-  static RawVector resizeRaw(const RawVector& raw,
-			     size_t offset,
-			     size_t count,
-			     double scale) { // Assumes scale >= 1.0.
-    RawVector temp(scale * (offset + count));
+namespace ResizeR {
+  template<typename vecType>
+  vecType resize(const vecType& raw,
+		 size_t offset,
+		 size_t count,
+		 double scale) { // Assumes scale >= 1.0.
+    vecType temp(scale * (offset + count));
     for (size_t i = 0; i < offset; i++)
       temp[i] = raw[i];
-
-    return temp;
-  }
-
-
-  static NumericVector resizeNum(const NumericVector& num,
-				 size_t offset,
-				 size_t count,
-				 double scale) { // Assumes scale >= 1.0.
-    NumericVector temp(scale * (offset + count));
-    for (size_t i = 0; i < offset; i++)
-      temp[i] = num[i];
-
-    return temp;
-  }
-
-
-  static ComplexVector resizeComplex(const ComplexVector& num,
-				     size_t offset,
-				     size_t count,
-				     double scale) { // Assumes scale >= 1.0.
-    ComplexVector temp(scale * (offset + count));
-    for (size_t i = 0; i < offset; i++)
-      temp[i] = num[i];
 
     return temp;
   }

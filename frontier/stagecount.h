@@ -24,7 +24,7 @@
    @brief Column statistics following (re)staging.
  */
 struct StageCount {
-  IndexT idxImplicit; // # implicit staged SampleRank indices.
+  IndexT idxImplicit; // # implicit staged ObsCell indices.
   IndexT rankCount; // # distinct explicit rank/codes.
 
   StageCount(IndexT idxImplicit_,

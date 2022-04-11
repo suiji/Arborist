@@ -32,7 +32,9 @@ struct SamplerBridge {
    */
   SamplerBridge(size_t nObs,
 		size_t nSamp,
-		unsigned int nTree);
+		unsigned int nTree,
+		bool replace,
+		const double weight[]);
 
   
   ~SamplerBridge();
@@ -43,8 +45,9 @@ struct SamplerBridge {
    */
   static unique_ptr<SamplerBridge> preSample(size_t nSamp,
 					     size_t nObs,
-					     unsigned int nTree);
-  
+					     unsigned int nTree,
+					     bool replace,
+					     const double weight[]);
 
   /**
      @brief Regression, training entry.
@@ -114,8 +117,14 @@ struct SamplerBridge {
 		unsigned int nCtg,
 		bool bagging);
 
+  
+  /**
+     @brief Invokes core sampling for a single tree.
+   */
+  void sample();
 
-  void appendSamples(const vector<size_t>& idx);
+  
+  void appendSamples(const vector<size_t>& idx); // EXIT: internalized.
 
   
   /**

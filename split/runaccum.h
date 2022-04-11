@@ -52,7 +52,7 @@ class RunAccum : public Accum {
   const PredictorT nCtg; // Non-zero iff classification.
   const PredictorT rcSafe; // Conservative run count.
   vector<RunNux> runZero; // SR block, partitioned by code.
-  vector<BHPair> heapZero; // Sorting workspace.
+  vector<BHPair<PredictorT>> heapZero; // Sorting workspace.
   vector<PredictorT> idxRank; // Slot rank, according to ad-hoc ordering.
   vector<double> cellSum; // Categorical:  run x ctg checkerboard.
   double* rvZero; // Non-binary wide runs:  random variates for sampling.
@@ -381,7 +381,7 @@ public:
      @return checkerboard value at slot for category.
    */
   inline double getCellSum(PredictorT runIdx,
-			  PredictorT yCtg) const {
+			   PredictorT yCtg) const {
     return cellSum[runIdx * nCtg + yCtg];
   }
 
@@ -396,32 +396,28 @@ public:
   
 
   /**
-     @brief Accumulates the two binary response sums associated with a slot.
+     @brief Accumulates the two binary response sums for a run.
 
      @param slot is a run index.
 
-     @param[in, out] sum0 accumulates the response at rank 0.
+     @param[in, out] sum0 accumulates the response at code 0.
 
-     @param[in, out] sum1 accumulates the response at rank 1.
+     @param[in, out] sum1 accumulates the response at code 1.
 
-     @return true iff slot counts differ by at least unity.
+     @return true iff next run sufficiently different from this.
    */
   inline bool accumBinary(PredictorT slot,
 			  double& sum0,
 			  double& sum1) {
-    double cell0 = getCellSum(slot, 0);
-    sum0 += cell0;
+    sum0 += getCellSum(slot, 0);
     double cell1 = getCellSum(slot, 1);
     sum1 += cell1;
 
-    IndexT sCount = runZero[slot].sCount;
+    // Two runs are deemed significantly different if their sample
+    // counts differ. If identical, then checks whether the response
+    // sums differ by some measure.
     PredictorT slotNext = slot+1;
-    // Cannot test for floating point equality.  If sCount values are unequal,
-    // then assumes the two slots are significantly different.  If identical,
-    // then checks whether the response values are likely different, given
-    // some jittering.
-    // TODO:  replace constant with value obtained from class weighting.
-    return sCount != runZero[slotNext].sCount ? true : getCellSum(slotNext, 1) - cell1 > 0.9;
+    return (runZero[slot].sCount != runZero[slotNext].sCount) ||  getCellSum(slotNext, 1) > cell1;
   }
 
 

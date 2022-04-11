@@ -89,7 +89,7 @@ class Layout {
 
      @param predIdx is the predictor index.
   */
-  struct StageCount stage(const class Sample* sample,
+  struct StageCount stage(const class SampleObs* sample,
 			  class ObsPart* obsPart,
 			  PredictorT predIdx) const;
 
@@ -188,9 +188,9 @@ public:
   /**
      @brief Loops through the predictors to stage.
 
-     @return count of expclicit entries in SampleRank buffer.
+     @return count of expclicit entries in ObsCell buffer.
   */
-  vector<struct StageCount> stage(const class Sample* sample,
+  vector<struct StageCount> stage(const class SampleObs* sample,
 				  class ObsPart* obsPart) const;
 };
 

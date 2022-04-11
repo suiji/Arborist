@@ -58,7 +58,7 @@ struct Residual {
 
      @param[out] sCount outputs the residual sample count.
    */  
-  void apply(FltVal& ySum,
+  void apply(double& ySum,
              IndexT& sCount) {
     ySum = this->sum;
     sCount = this->sCount;

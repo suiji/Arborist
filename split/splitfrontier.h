@@ -185,7 +185,7 @@ public:
 
      @return pointer to beginning of partition associated with the candidate.
    */
-  class SampleRank* getPredBase(const SplitNux* cand) const;
+  class ObsCell* getPredBase(const SplitNux* cand) const;
 
   
   /**

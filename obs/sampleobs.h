@@ -13,12 +13,13 @@
    @author Mark Seligman
  */
 
-#ifndef OBS_SAMPLE_H
-#define OBS_SAMPLE_H
+#ifndef OBS_SAMPLEOBS_H
+#define OBS_SAMPLEOBS_H
 
 #include "sumcount.h"
 #include "typeparam.h"
 #include "samplenux.h"
+#include "obscell.h"
 
 #include <vector>
 
@@ -26,10 +27,10 @@
 /**
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
-class Sample {
+class SampleObs {
  protected:
   const IndexT nSamp; // Number of row samples requested.
-  double (Sample::* adder)(double, const class SamplerNux&, PredictorT);
+  double (SampleObs::* adder)(double, const class SamplerNux&, PredictorT);
   vector<SampleNux> sampleNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
@@ -60,7 +61,7 @@ class Sample {
  public:
 
   /**
-     @brief Static entry for discrete response (classification).
+     @brief Static entry for categorical response (classification).
 
      @param y is a real-valued proxy for the training response.
 
@@ -93,9 +94,9 @@ class Sample {
 
      @param frame summarizes predictor ranks by row.
    */
-  Sample(const class Sampler* sampler,
+  SampleObs(const class Sampler* sampler,
 	 const class Response* response,
-	 double (Sample::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
+	 double (SampleObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
 
   
   /**
@@ -159,7 +160,7 @@ class Sample {
   */
   inline void joinRank(IndexT row,
 		       IndexT*& sIdx,
-		       SampleRank*& spn,
+		       class ObsCell*& spn,
 		       IndexT rank) const {
     IndexT smpIdx;
     if (isSampled(row, smpIdx)) {
@@ -194,8 +195,8 @@ class Sample {
 
      @param sIdx is the sample index.
    */
-  inline FltVal getSum(IndexT sIdx) const {
-    return sampleNux[sIdx].getSum();
+  inline double getSum(IndexT sIdx) const {
+    return sampleNux[sIdx].getYSum();
   }
 
   
@@ -211,7 +212,7 @@ class Sample {
 /**
    @brief Regression-specific methods and members.
 */
-struct SampleReg : public Sample {
+struct SampleReg : public SampleObs {
 
   SampleReg(const class Sampler* sampler,
 	    const class Response* respone);
@@ -232,7 +233,7 @@ struct SampleReg : public Sample {
 			const class SamplerNux& nux,
                         PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux);
-    return sampleNux.back().getSum();
+    return sampleNux.back().getYSum();
   }
   
 
@@ -250,7 +251,7 @@ struct SampleReg : public Sample {
 /**
  @brief Classification-specific sampling.
 */
-struct SampleCtg : public Sample {
+struct SampleCtg : public SampleObs {
   
   SampleCtg(const class Sampler* sampler,
 	    const class Response* response);
@@ -267,7 +268,7 @@ struct SampleCtg : public Sample {
 			const class SamplerNux& nux,
 			PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux, ctg);
-    double ySum = sampleNux.back().getSum();
+    double ySum = sampleNux.back().getYSum();
     ctgRoot[ctg] += SumCount(ySum, sampleNux.back().getSCount());
     return ySum;
   }

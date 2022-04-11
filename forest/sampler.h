@@ -19,6 +19,7 @@
 
 #include "bv.h"
 #include "typeparam.h"
+#include "sampleobs.h"
 #include "sample.h"
 
 #include <memory>
@@ -41,8 +42,11 @@ class Sampler {
   const vector<vector<class SamplerNux>> samples;
   const unique_ptr<class BitMatrix> bagMatrix; // empty if training or prediction without bagging.
 
-  // Crescent only:
+  // Presampling only.
   vector<SamplerNux> sbCresc; // Crescent block.
+  unique_ptr<Sample::Walker<size_t>> walker; // Walker table.
+  vector<double> weightNoReplace; // Non-replacement weights.
+  vector<size_t> coeffNoReplace; // Uniform non-replacement coefficients.
 
 
   /**
@@ -86,7 +90,7 @@ class Sampler {
      @return vector of sample counts.
    */
   vector<IndexT> countSamples(const vector<size_t>& idx);
-
+  
 
 public:
 
@@ -95,7 +99,9 @@ public:
    */
   Sampler(IndexT nSamp_,
 	  IndexT nObs_,
-	  unsigned int nTree_);
+	  unsigned int nTree_,
+	  bool replace_,
+	  const double weight[]);
 
 
   /**
@@ -141,8 +147,6 @@ public:
   /**
      @brief Samples response for a single tree.
    */
-  //  void sample(bool replace,
-  //	      const double* weight);
   void appendSamples(const vector<size_t>& idx);
 
 
@@ -187,7 +191,7 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class Sample> rootSample(unsigned int tIdx) const;
+  unique_ptr<class SampleObs> rootSample(unsigned int tIdx) const;
 
 
   /**
@@ -225,6 +229,19 @@ public:
   auto getNTree() const {
     return nTree;
   }
+
+  
+  /**
+     @brief Initializes coefficients specialized for sampling type.
+   */
+  void setCoefficients(const double weight[],
+		       bool replace);
+
+  
+  /**
+     @brief Samples a single tree's worth of observations.
+   */
+  void sample();
 
 
   /**

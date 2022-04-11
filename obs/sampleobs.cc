@@ -17,14 +17,14 @@
 #include "samplernux.h"
 #include "sampler.h"
 #include "response.h"
-#include "sample.h"
+#include "sampleobs.h"
 
 #include <numeric>
 
 
-Sample::Sample(const Sampler* sampler,
+SampleObs::SampleObs(const Sampler* sampler,
 	       const Response* response,
-	       double (Sample::* adder_)(double, const SamplerNux&, PredictorT)) :
+	       double (SampleObs::* adder_)(double, const SamplerNux&, PredictorT)) :
   nSamp(sampler->getNSamp()),
   adder(adder_),
   ctgRoot(vector<SumCount>(response->getNCtg())),
@@ -33,7 +33,7 @@ Sample::Sample(const Sampler* sampler,
 }
 
     
-unique_ptr<SampleCtg> Sample::factoryCtg(const class Sampler* sampler,
+unique_ptr<SampleCtg> SampleObs::factoryCtg(const class Sampler* sampler,
 					 const class Response* response,
 					 const vector<double>& y,
                                          const vector<PredictorT>& yCtg,
@@ -45,7 +45,7 @@ unique_ptr<SampleCtg> Sample::factoryCtg(const class Sampler* sampler,
 }
 
 
-unique_ptr<SampleReg> Sample::factoryReg(const Sampler* sampler,
+unique_ptr<SampleReg> SampleObs::factoryReg(const Sampler* sampler,
 					 const class Response* response,
 					 const vector<double>& y,
 					 unsigned int tIdx) {
@@ -57,7 +57,7 @@ unique_ptr<SampleReg> Sample::factoryReg(const Sampler* sampler,
 
 SampleReg::SampleReg(const Sampler* sampler,
 		     const Response* response) :
-  Sample(sampler, response, static_cast<double (Sample::*)(double, const SamplerNux&, PredictorT)>(&SampleReg::addNode)) {
+  SampleObs(sampler, response, static_cast<double (SampleObs::*)(double, const SamplerNux&, PredictorT)>(&SampleReg::addNode)) {
 }
 
 
@@ -66,13 +66,13 @@ void SampleReg::bagSamples(const class Sampler* sampler,
 			   const vector<double>& y,
 			   unsigned int tIdx) {
   vector<PredictorT> ctgProxy(row2Sample.size());
-  Sample::bagSamples(sampler, y, ctgProxy, tIdx);
+  SampleObs::bagSamples(sampler, y, ctgProxy, tIdx);
 }
 
 
 SampleCtg::SampleCtg(const Sampler* sampler,
 		     const Response* response) :
-  Sample(sampler, response, static_cast<double (Sample::*)(double, const SamplerNux&, PredictorT)>(&SampleCtg::addNode)) {
+  SampleObs(sampler, response, static_cast<double (SampleObs::*)(double, const SamplerNux&, PredictorT)>(&SampleCtg::addNode)) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -85,11 +85,11 @@ void SampleCtg::bagSamples(const Sampler* sampler,
 			   const vector<PredictorT>& yCtg,
 			   const vector<double>& y,
 			   unsigned int tIdx) {
-  Sample::bagSamples(sampler, y, yCtg, tIdx);
+  SampleObs::bagSamples(sampler, y, yCtg, tIdx);
 }
 
 
-void Sample::bagSamples(const Sampler* sampler,
+void SampleObs::bagSamples(const Sampler* sampler,
 			const vector<double>&  y,
 			const vector<PredictorT>& yCtg,
 			unsigned int tIdx) {
@@ -111,7 +111,7 @@ void Sample::bagSamples(const Sampler* sampler,
 }
 
 
-void Sample::bagTrivial(const vector<double>& y,
+void SampleObs::bagTrivial(const vector<double>& y,
 			const vector<PredictorT>& yCtg) {
   bagCount = row2Sample.size();
   iota(row2Sample.begin(), row2Sample.end(), 0);

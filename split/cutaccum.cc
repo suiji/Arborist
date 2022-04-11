@@ -33,15 +33,16 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
 
 
 unique_ptr<Residual> CutAccumReg::makeResidual(const SplitNux* cand,
-					       const SampleRank spn[]) {
+					       const ObsCell spn[]) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<Residual>();
   }
 
   double sumExpl = 0.0;
   IndexT sCountExpl = 0;
-  for (int idx = static_cast<int>(idxEnd); idx >= static_cast<int>(idxStart); idx--) {
-    IndexT rkThis = spn[idx].regFields(ySumThis, sCountThis);
+  for (IndexT idx = idxEnd + 1; idx-- != idxStart; ) {
+    IndexT rkThis;
+    ySumThis = spn[idx].regFields(sCountThis, rkThis);
     if (rkThis > rankDense) {
       cutDense = idx;
     }
@@ -61,8 +62,8 @@ double CutAccum::interpolateRank(const SplitNux* cand) const {
 void CutAccum::trialSplit(double infoTrial,
 			  IndexT idxLeft,
 			  IndexT idxRight) {
-  IndexT rkLeft = sampleRank[idxLeft].getRank();
-  IndexT rkRight = sampleRank[idxRight].getRank();
+  IndexT rkLeft = obsCell[idxLeft].getRank();
+  IndexT rkRight = obsCell[idxRight].getRank();
   if (rkLeft != rkRight && infoTrial > info) {
     info = infoTrial;
     lhSCount = sCount;
@@ -79,7 +80,7 @@ CutAccumReg::CutAccumReg(const SplitNux* cand,
 			 const SFReg* sfReg) :
   CutAccum(cand, sfReg),
   monoMode(sfReg->getMonoMode(cand)),
-  resid(CutAccumReg::makeResidual(cand, sampleRank)) {
+  resid(CutAccumReg::makeResidual(cand, obsCell)) {
 }
 
 
@@ -105,9 +106,9 @@ unique_ptr<ResidualCtg> CutAccumCtg::makeResidual(const SplitNux* cand,
   vector<double> ctgImpl(spCtg->getSumSlice(cand));
   double sumExpl = 0.0;
   IndexT sCountExpl = 0;
-  for (int idx = static_cast<int>(cand->getIdxEnd()); idx >= static_cast<int>(cand->getIdxStart()); idx--) {
+  for (IndexT idx = cand->getIdxEnd() + 1; idx-- != cand->getIdxStart(); ) {
     PredictorT yCtg;
-    IndexT rkThis = sampleRank[idx].ctgFields(ySumThis, sCountThis, yCtg);
+    IndexT rkThis = obsCell[idx].ctgFields(ySumThis, sCountThis, yCtg);
     if (rkThis > rankDense) {
       cutDense = idx;
     }

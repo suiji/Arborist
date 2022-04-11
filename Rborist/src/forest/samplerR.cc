@@ -25,8 +25,11 @@
 
 #include "prng.h"
 #include "resizeR.h"
-#include "samplerR.h"
 #include "samplerbridge.h"
+#include "samplerR.h"
+
+#include <algorithm>
+
 
 const string SamplerR::strYTrain = "yTrain";
 const string SamplerR::strNSamp = "nSamp";
@@ -41,60 +44,69 @@ RcppExport SEXP rootSample(const SEXP sY,
 			   const SEXP sWithRepl) {
   BEGIN_RCPP
 
-    return SamplerR::rootSample(sY, sRowWeight, as<size_t>(sNSamp), as<unsigned int>(sNTree), as<bool>(sWithRepl));
+  NumericVector weight;
+  if (!Rf_isNull(sRowWeight)) {
+    NumericVector rowWeight(as<NumericVector>(sRowWeight));
+    weight = rowWeight / sum(rowWeight);
+  }
+  return SamplerR::rootSample(sY, weight, as<size_t>(sNSamp), as<unsigned int>(sNTree), as<bool>(sWithRepl));
 
   END_RCPP
 }
 
 
 List SamplerR::rootSample(const SEXP sY,
-		      const SEXP sRowWeight,
-		      size_t nSamp,
-		      unsigned int nTree,
-		      bool withRepl) {
+			  NumericVector& weight, // RCPP method overwrites.
+			  size_t nSamp,
+			  unsigned int nTree,
+			  bool withRepl) {
   size_t nObs = Rf_isFactor(sY) ? as<IntegerVector>(sY).length() : as<NumericVector>(sY).length();
-  unique_ptr<SamplerBridge> sb = SamplerBridge::preSample(nSamp, nObs, nTree);
+  unique_ptr<SamplerBridge> sb = SamplerBridge::preSample(nSamp, nObs, nTree, withRepl, weight.length() == 0 ? nullptr : &weight[0]);
+
+  // Trees exposed at this level to allow front end to parallelize.
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    vector<size_t> idx = sampleObs(nObs, nSamp, withRepl, sRowWeight);
-    sb->appendSamples(idx);
+    sb->sample();
+    // Rcpp implementation:
+    //  vector<size_t> idx = sampleObs(nSamp, withRepl, weight);
+    //  sb->appendSamples(idx);
+    //}
   }
 
   return wrap(sb.get(), sY);
 }
 
 
-vector<size_t> SamplerR::sampleObs(size_t nObs,
-				   size_t nSamp,
+vector<size_t> SamplerR::sampleObs(size_t nSamp,
 				   bool replace,
-				   const SEXP sRowWeight) {
-  if (Rf_isNull(sRowWeight)) {
-    NumericVector samples = PRNG::sampleUniform(nObs, nSamp, replace);
+				   NumericVector& weight) {
+  if (replace) {
+    IntegerVector samples = sampleReplace(weight, nSamp);
     vector<size_t> sampleOut(samples.begin(), samples.end());
     return sampleOut;
   }
   else {
-    IntegerVector samples = sampleWeight(nObs, nSamp, replace, as<NumericVector>(sRowWeight));
+    IntegerVector samples = sampleNoReplace(weight, nSamp);
     vector<size_t> sampleOut(samples.begin(), samples.end());
     return sampleOut;
   }
 }
 
 
-IntegerVector SamplerR::sampleWeight(size_t nObs,
-				     size_t nSamp,
-				     bool replace,
-				     const NumericVector& rowWeight) {
+IntegerVector SamplerR::sampleReplace(NumericVector& weight,
+				     size_t nSamp) {
   BEGIN_RCPP
-
-  double sumWeight = sum(rowWeight);
-  if (sumWeight == 0)
-      stop("No observations with nonzero probability");
-
-  // Normalized weights Will be overwritten by sampling function.
-  NumericVector weight = rowWeight / sumWeight;
-
   RNGScope scope;
-  IntegerVector rowSample(sample(nObs, nSamp, replace, weight, false));
+  IntegerVector rowSample(sample(weight.length(), nSamp, true, weight, false));
+  return rowSample;
+  END_RCPP
+}
+
+
+ IntegerVector SamplerR::sampleNoReplace(NumericVector& weight,
+					 size_t nSamp) {
+  BEGIN_RCPP
+  RNGScope scope;
+  IntegerVector rowSample(sample(weight.length(), nSamp, false, weight, false));
   return rowSample;
   END_RCPP
 }

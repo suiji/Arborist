@@ -39,7 +39,8 @@ void CutAccumRegCart::splitReg(const SFRegCart* spReg,
     splitImpl(cand);
   }
   else {
-    IndexT rkThis = sampleRank[idxEnd].regFields(ySumThis, sCountThis);
+    IndexT rkThis;
+    ySumThis = obsCell[idxEnd].regFields(sCountThis, rkThis);
     splitExpl(rkThis, idxEnd-1, idxStart);
   }
   spReg->writeCut(cand, this);
@@ -55,9 +56,10 @@ void CutAccumRegCart::splitImpl(const SplitNux* cand) {
   }
   else {
     // Checks idxEnd/idxEnd-1, ..., denseCut+1/denseCut.
-    IndexT rkThis = sampleRank[idxEnd].regFields(ySumThis, sCountThis);
+    IndexT rkThis;
+    ySumThis = obsCell[idxEnd].regFields(sCountThis, rkThis);
     splitExpl(rkThis, idxEnd-1, cutDense);
-    splitResidual(sampleRank[cutDense].getRank()); // Checks denseCut/resid.
+    splitResidual(obsCell[cutDense].getRank()); // Checks denseCut/resid.
 
     // Checks resid/denseCut-1, ..., idxStart+1/idxStart, if applicable.
     if (cutDense > idxStart) {
@@ -99,11 +101,11 @@ void CutAccumRegCart::splitExpl(IndexT rkThis,
     return;
   }
 
-  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+  for (IndexT idx = idxInit + 1; idx-- != idxFinal; ) {
     IndexT rkRight = rkThis;
     sum -= ySumThis;
     sCount -= sCountThis;
-    rkThis = sampleRank[idx].regFields(ySumThis, sCountThis);
+    ySumThis = obsCell[idx].regFields(sCountThis, rkThis);
 
     if (rkThis != rkRight)
       trialRight(infoVar(sum, sumCand - sum, sCount, sCountCand - sCount), idx, rkThis, rkRight);
@@ -117,11 +119,11 @@ void CutAccumRegCart::splitMono(IndexT rkThis,
 			    IndexT idxInit,
 			    IndexT idxFinal) {
   bool nonDecreasing = monoMode > 0;
-  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+  for (IndexT idx = idxInit + 1; idx-- != idxFinal; ) {
     IndexT rkRight = rkThis;
     sum -= ySumThis;
     sCount -= sCountThis;
-    rkThis = sampleRank[idx].regFields(ySumThis, sCountThis);
+    ySumThis = obsCell[idx].regFields(sCountThis, rkThis);
 
     //    localMax(nonDecreasing);
     IndexT sCountR = sCountCand - sCount;
@@ -162,7 +164,7 @@ void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
   }
   else {
     stateNext(idxEnd);
-    splitExpl(sampleRank[idxEnd].getRank(), idxEnd-1, idxStart);
+    splitExpl(obsCell[idxEnd].getRank(), idxEnd-1, idxStart);
   }
   spCtg->writeCut(cand, this);
   cand->infoGain(this);
@@ -171,7 +173,7 @@ void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
 
 inline void CutAccumCtgCart::stateNext(IndexT idx) {
   PredictorT yCtg;
-  (void) sampleRank[idx].ctgFields(ySumThis, sCountThis, yCtg);
+  (void) obsCell[idx].ctgFields(ySumThis, sCountThis, yCtg);
 
   sum -= ySumThis;
   sCount -= sCountThis;
@@ -182,9 +184,9 @@ inline void CutAccumCtgCart::stateNext(IndexT idx) {
 void CutAccumCtgCart::splitExpl(IndexT rkThis,
 				IndexT idxInit,
 				IndexT idxFinal) {
-  for (int idx = static_cast<int>(idxInit); idx >= static_cast<int>(idxFinal); idx--) {
+  for (IndexT idx = idxInit + 1; idx-- != idxFinal; ) {
     IndexT rkRight = rkThis;
-    rkThis = sampleRank[idx].getRank();
+    rkThis = obsCell[idx].getRank();
     if (rkThis != rkRight)
       trialRight(infoGini(ssL, ssR, sum, sumCand - sum), idx, rkThis, rkRight);
     stateNext(idx);
@@ -197,8 +199,8 @@ void CutAccumCtgCart::splitImpl(const SplitNux* cand) {
     residualAndLeft(idxEnd, idxStart);
   }
   else { // Split far right, then residual, then possibly left.
-    splitExpl(sampleRank[idxEnd].getRank(), idxEnd, cutDense);
-    splitResidual(infoGini(ssL, ssR, sum, sumCand - sum), sampleRank[cutDense].getRank());
+    splitExpl(obsCell[idxEnd].getRank(), idxEnd, cutDense);
+    splitResidual(infoGini(ssL, ssR, sum, sumCand - sum), obsCell[cutDense].getRank());
     if (cutDense > idxStart) { // Internal residual:  apply and split to left.
       residualAndLeft(cutDense - 1, idxStart);
     }

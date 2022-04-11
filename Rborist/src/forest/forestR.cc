@@ -68,8 +68,8 @@ void FBTrain::nodeConsume(const ForestBridge& bridge,
 
   size_t nodeCount = bridge.getNodeCount();
   if (nodeTop + nodeCount > static_cast<size_t>(cNode.length())) {
-    cNode = move(ResizeR::resizeComplex(cNode, nodeTop, nodeCount, scale));
-    scores = move(ResizeR::resizeNum(scores, nodeTop, nodeCount, scale));
+    cNode = move(ResizeR::resize<ComplexVector>(cNode, nodeTop, nodeCount, scale));
+    scores = move(ResizeR::resize<NumericVector>(scores, nodeTop, nodeCount, scale));
   }
   bridge.dumpTree((complex<double>*)&cNode[nodeTop]);
   bridge.dumpScore(&scores[nodeTop]);
@@ -88,8 +88,8 @@ void FBTrain::factorConsume(const ForestBridge& bridge,
  
   size_t facBytes = bridge.getFactorBytes();
   if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
-    facRaw = move(ResizeR::resizeRaw(facRaw, facTop, facBytes, scale));
-    facObserved = move(ResizeR::resizeRaw(facObserved, facTop, facBytes, scale));
+    facRaw = move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
+    facObserved = move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
   }
   bridge.dumpFactorRaw(&facRaw[facTop]);
   bridge.dumpFactorObserved(&facObserved[facTop]);

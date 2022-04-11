@@ -33,7 +33,7 @@ struct Response {
   /**
      @brief Crescent constructor.
   */
-  Response();
+  Response() = default;
 
   virtual ~Response() {}
 
@@ -63,7 +63,7 @@ struct Response {
   /**
      @brief Samples (bags) the response to construct the tree root.
    */
-  virtual unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+  virtual unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
 					      unsigned int tIdx) const = 0;
 };
 
@@ -110,7 +110,7 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+  unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
 				      unsigned int tIdx) const;
 
   
@@ -172,7 +172,7 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class Sample> rootSample(const class Sampler* sampler,
+  unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
 				      unsigned int tIdx) const;
 
   

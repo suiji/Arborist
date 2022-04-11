@@ -20,7 +20,7 @@
 
 Accum::Accum(const SplitFrontier* splitFrontier,
 	     const SplitNux* cand) :
-  sampleRank(splitFrontier->getPredBase(cand)),
+  obsCell(splitFrontier->getPredBase(cand)),
   sampleIndex(splitFrontier->getBufferIndex(cand)),
   rankDense(splitFrontier->getDenseRank(cand)),
   idxStart(cand->getIdxStart()),

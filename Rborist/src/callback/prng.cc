@@ -18,47 +18,45 @@
 /**
    @file prng.cc
 
-   @brief Implements sampling utitlities by means of calls to front end.
+   @brief Implements random variate generation via calls to front end.
 
    @author Mark Seligman
  */
 
 #include "prng.h"
 
-#include <algorithm>
-
-NumericVector PRNG::sampleUniform(size_t nObs, size_t nSamp, bool replace) {
-  BEGIN_RCPP
-    
-  RNGScope scope;
-  if (replace) {
-    NumericVector rn(runif(double(nSamp)));
-    return rn * nObs;
-  }
-  else {
-    NumericVector rn(runif(double(nObs)));
-    NumericVector rnOut(nSamp);
-    vector<size_t> idxSeq(nObs);
-    iota(idxSeq.begin(), idxSeq.end(), 0);
-    size_t top = nObs;
-    for (unsigned int i = 0; i < nSamp; i++) {
-      size_t index = top-- * rn[i];
-      rnOut[i] = exchange(idxSeq[index], idxSeq[top]);
-    }
-    return rnOut;
-  }
-
-  END_RCPP
-}
+#include <Rcpp.h>
+using namespace Rcpp;
 
 
 vector<double> PRNG::rUnif(size_t len, double scale) {
-  double dLen = len;
+  double dLen = len; // May be necessary for values > 2^32.
   RNGScope scope;
   NumericVector rn(runif(dLen));
   if (scale != 1.0)
     rn = rn * scale;
 
-  vector<double> rnOut(rn.begin(), rn.end());
+  return vector<double>(rn.begin(), rn.end());
+}
+
+
+vector<size_t> PRNG::rUnifIndex(size_t len, size_t scale) {
+  double dLen = len; // May be necessary for values > 2^32.
+  RNGScope scope;
+  NumericVector rn(runif(dLen));
+  rn = rn * scale;
+
+  return vector<size_t>(rn.begin(), rn.end());
+}
+
+
+vector<size_t> PRNG::rUnifIndex(const vector<size_t>& scale) {
+  double dLen = scale.size(); // May be necessary for values > 2^32.
+  RNGScope scope;
+  NumericVector scaleCopy(scale.begin(), scale.end());
+  NumericVector rn(runif(dLen));
+  rn = rn * scaleCopy;
+
+  vector<size_t> rnOut(rn.begin(), rn.end());
   return rnOut;
 }

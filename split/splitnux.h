@@ -37,7 +37,7 @@ class SplitNux {
   MRRA mrra; // Cell coordinates of pre-cand; delIdx implicitly zero.
   uint32_t randVal;
   IndexT implicitCount; // Extracted from StageCount; rank count to accumulator.
-  IndexRange idxRange; // SampleRank index range of cell column.
+  IndexRange idxRange; // ObsCell index range of cell column.
   IndexT accumIdx; // Index into accumulator workspace.
   double sum; // Initial sum, fixed by index set (node).
   IndexT sCount; // Initial sample count, fixed by index set.

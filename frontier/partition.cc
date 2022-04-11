@@ -35,7 +35,7 @@ ObsPart::ObsPart(const Layout* layout,
   stageRange(layout->getNPred()),
   noRank(layout->getNoRank()) {
   indexBase = new IndexT[2* bufferSize];
-  nodeVec = new SampleRank[2 * bufferSize];
+  nodeVec = new ObsCell[2 * bufferSize];
 
   // Coprocessor variants:
   destRestage = new unsigned int[bufferSize];
@@ -60,12 +60,12 @@ IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
 }
 
 
-SampleRank* ObsPart::getBuffers(const SplitNux& nux, IndexT*& sIdx) const {
+ObsCell* ObsPart::getBuffers(const SplitNux& nux, IndexT*& sIdx) const {
   return buffers(nux.getMRRA(), sIdx);
 }
 
 
-SampleRank* ObsPart::getPredBase(const SplitNux* nux) const {
+ObsCell* ObsPart::getPredBase(const SplitNux* nux) const {
   return getPredBase(nux->getMRRA());
 }
 
@@ -102,7 +102,7 @@ void ObsPart::rankRestage(const DefFrontier* layer,
 			  const MRRA& mrra,
                           IndexT reachOffset[],
                           IndexT rankCount[]) {
-  SampleRank *srSource, *srTarg;
+  ObsCell *srSource, *srTarg;
   IndexT *idxSource, *idxTarg;
   buffers(mrra, srSource, idxSource, srTarg, idxTarg);
 
@@ -115,7 +115,7 @@ void ObsPart::rankRestage(const DefFrontier* layer,
   for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
-      SampleRank sourceNode = srSource[idx];
+      ObsCell sourceNode = srSource[idx];
       IndexT rank = sourceNode.getRank();
       rankCount[path] += (rank == rankPrev[path] ? 0 : 1);
       rankPrev[path] = rank;
@@ -130,9 +130,9 @@ IndexT ObsPart::countRanks(PredictorT predIdx,
 			   unsigned int bufIdx,
 			   IndexT rank,
 			   IndexT idxExpl) const {
-  SampleRank* srStart = bufferNode(predIdx, bufIdx);
+  ObsCell* srStart = bufferNode(predIdx, bufIdx);
   IndexT rankCount = 0; // # explicit ranks observed.
-  for (SampleRank* sr = srStart; sr != srStart + idxExpl; sr++) {
+  for (ObsCell* sr = srStart; sr != srStart + idxExpl; sr++) {
     IndexT rankPrev = exchange(rank, sr->getRank());
     rankCount += rank == rankPrev ? 0 : 1;
   }

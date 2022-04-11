@@ -35,7 +35,7 @@ protected:
   
   // Read locally but initialized, and possibly reset, externally.
   IndexT sCountThis; // Current sample count.
-  FltVal ySumThis; // Current response value.
+  double ySumThis; // Current response value.
 
 
   /**
@@ -198,7 +198,7 @@ public:
      @return new residual based on the current splitting data set.
    */
   unique_ptr<Residual> makeResidual(const class SplitNux* cand,
-                                          const class SampleRank spn[]);
+                                          const class ObsCell spn[]);
 
 };
 
@@ -208,9 +208,9 @@ public:
  */
 struct CutSig {
   // In CART-like implementations, idxLeft and idxRight are adjacent.
-  IndexT idxLeft; // sup of left SampleRank indices.
-  IndexT idxRight;  // inf of right SampleRank indices.
-  IndexT implicitTrue; // # implicit SampleRank indices associated with true sense.
+  IndexT idxLeft; // sup of left ObsCell indices.
+  IndexT idxRight;  // inf of right ObsCell indices.
+  IndexT implicitTrue; // # implicit ObsCell indices associated with true sense.
   double quantRank; // Interpolated cut rank.
   bool cutLeft; // True iff cut encodes left portion.
 
