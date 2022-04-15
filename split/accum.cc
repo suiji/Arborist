@@ -21,7 +21,7 @@
 Accum::Accum(const SplitFrontier* splitFrontier,
 	     const SplitNux* cand) :
   obsCell(splitFrontier->getPredBase(cand)),
-  sampleIndex(splitFrontier->getBufferIndex(cand)),
+  sampleIndex(splitFrontier->getIdxBuffer(cand)),
   rankDense(splitFrontier->getDenseRank(cand)),
   idxStart(cand->getIdxStart()),
   idxEnd(cand->getIdxEnd()),

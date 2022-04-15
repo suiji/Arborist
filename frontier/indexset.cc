@@ -76,7 +76,6 @@ IndexSet::IndexSet(const Frontier *frontier,
   ctgTrue(vector<SumCount>(ctgSum.size())),
   trueExtinct(false),
   falseExtinct(false) {
-    frontier->reachingPath(*this, pred.getSplitIdx());
 }
 
 

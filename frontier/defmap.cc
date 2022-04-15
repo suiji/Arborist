@@ -37,8 +37,7 @@ DefMap::DefMap(const TrainFrame* frame,
   nPred(frame->getNPred()),
   frontier(frontier_),
   bagCount(frontier->getBagCount()),
-  nodeRel(false),
-  stPath(make_unique<IdxPath>(bagCount)),
+  rootPath(make_unique<IdxPath>(bagCount)),
   splitPrev(0),
   splitCount(1),
   layout(frame->getLayout()),
@@ -48,7 +47,7 @@ DefMap::DefMap(const TrainFrame* frame,
   history(vector<unsigned int>(0)),
   layerDelta(vector<unsigned char>(nPred))
 {
-  layer.push_front(make_unique<DefFrontier>(1, nPred, bagCount, bagCount, false, this));
+  layer.push_front(make_unique<DefFrontier>(1, nPred, bagCount, bagCount, this));
   layer[0]->initAncestor(0, IndexRange(0, bagCount));
 }
 
@@ -58,12 +57,6 @@ void DefMap::clearDefs(unsigned int flushCount) {
   if (flushCount > 0) {
     layer.erase(layer.end() - flushCount, layer.end());
   }
-}
-
-
-void DefMap::reachFlush(const SplitCoord& splitCoord) {
-  DefFrontier *reachingLayer = reachLayer(splitCoord);
-  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), this);
 }
 
 
@@ -91,8 +84,8 @@ const ObsPart* DefMap::getObsPart() const {
 }
 
 
-IndexT* DefMap::getBufferIndex(const SplitNux* nux) const {
-  return obsPart->getBufferIndex(nux);
+IndexT* DefMap::getIdxBuffer(const SplitNux* nux) const {
+  return obsPart->getIdxBuffer(nux);
 }
 
 
@@ -208,7 +201,6 @@ void DefMap::appendAncestor(const MRRA& cand) {
 
 void DefMap::restage() {
   unsigned int flushCount = flushRear();
-  backdate();
 
   OMPBound idxTop = ancestor.size();
   
@@ -224,8 +216,14 @@ void DefMap::restage() {
 }
 
 
+void DefMap::restage(const MRRA& mrra) const {
+  layer[mrra.del]->rankRestage(obsPart.get(), mrra, layer[0].get());
+}
+
+
 bool DefMap::preschedule(const SplitCoord& splitCoord, double dRand) {
   unsigned int bufIdx;
+  reachFlush(splitCoord);
   if (preschedulable(splitCoord, bufIdx)) {
     preCand[splitCoord.nodeIdx].emplace_back(splitCoord, bufIdx, getRandLow(dRand));
     return true;
@@ -236,19 +234,19 @@ bool DefMap::preschedule(const SplitCoord& splitCoord, double dRand) {
 }
 
 
-bool DefMap::preschedulable(const SplitCoord& splitCoord, unsigned int& bufIdx) {
-  reachFlush(splitCoord);
+bool DefMap::preschedulable(const SplitCoord& splitCoord, unsigned int& bufIdx) const {
   return !layer[0]->isSingleton(splitCoord, bufIdx);
+}
+
+
+void DefMap::reachFlush(const SplitCoord& splitCoord) {
+  DefFrontier *reachingLayer = reachLayer(splitCoord);
+  reachingLayer->flushDef(getHistory(reachingLayer, splitCoord), this);
 }
 
 
 bool DefMap::isUnsplitable(IndexT splitIdx) const {
   return frontier->isUnsplitable(splitIdx);
-}
-
-
-void DefMap::restage(const MRRA& mrra) const {
-  layer[mrra.del]->rankRestage(obsPart.get(), mrra, layer[0].get());
 }
 
 
@@ -260,20 +258,10 @@ DefMap::~DefMap() {
 }
 
 
-void DefMap::backdate() const {
-  if (layer.size() > 2 && layer[1]->isNodeRel()) {
-    for (auto lv = layer.begin() + 2; lv != layer.end(); lv++) {
-      if (!(*lv)->backdate(getFrontPath(1))) {
-        break;
-      }
-    }
-  }
-}
-
-  
 void DefMap::reachingPath(const IndexSet& iSet,
-			  IndexT parIdx) {
+			  const IndexSet& par) {
   IndexT splitIdx = iSet.getSplitIdx();
+  IndexT parIdx = par.getSplitIdx();
   for (unsigned int backLayer = 0; backLayer < layer.size() - 1; backLayer++) {
     history[splitIdx + splitCount * backLayer] = backLayer == 0 ? parIdx : historyPrev[parIdx + splitPrev * (backLayer - 1)];
   }
@@ -293,112 +281,32 @@ void DefMap::reachingPath(const IndexSet& iSet,
 }
 
 
-void DefMap::relLive(IndexT ndx,
-		     IndexT targIdx,
-		     IndexT stx,
-		     unsigned int path,
-		     IndexT ndBase) {
-  layer[0]->relLive(ndx, path, targIdx, ndBase);
-  if (!layer.back()->isNodeRel()) {
-    stPath->setLive(stx, path, targIdx);  // Irregular write.
-  }
-}
-
-
 void DefMap::nextLevel(const BranchSense* branchSense,
 		       const SampleMap& smNonterm,
 		       SampleMap& smTerminal,
 		       SampleMap& smNext) {
-  bool transitional = false;
-  if (!nodeRel) {
-    nodeRel = IdxPath::localizes(bagCount, smNext.maxExtent);
-    transitional = nodeRel;
-  }
-
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < frontier->getNSplit(); splitIdx++) {
       frontier->setScore(splitIdx);
-      updateMap(frontier->getNode(splitIdx), branchSense, smNonterm, smTerminal, smNext, transitional);
+      layer[0]->updateMap(frontier->getNode(splitIdx), branchSense, smNonterm, smTerminal, smNext);
     }
   }
+
   overlap(smNext);
 }
 
 
-void DefMap::updateMap(const IndexSet& iSet,
-		       const BranchSense* branchSense,
-		       const SampleMap& smNonterm,
-		       SampleMap& smTerminal,
-		       SampleMap& smNext,
-		       bool transitional) {
-  if (!iSet.isTerminal()) {
-    updateLive(branchSense, iSet, smNonterm, smNext, transitional);
-  }
-  else {
-    updateExtinct(iSet, smNonterm, smTerminal, transitional);
-  }
+void DefMap::rootSuccessor(IndexT rootIdx,
+			   PathT path,
+			   IndexT smIdx) {
+  rootPath->setSuccessor(rootIdx, path);
 }
 
 
-void DefMap::updateLive(const BranchSense* branchSense,
-			const IndexSet& iSet,
-			const SampleMap& smNonterm,
-			SampleMap& smNext,
-			bool transitional) {
-  IndexT nodeIdx = iSet.getIdxNext();
-  IndexT baseTrue = smNext.range[nodeIdx].getStart();
-  IndexT destTrue = baseTrue;
-  IndexT baseFalse = smNext.range[nodeIdx+1].getStart();
-  IndexT destFalse = baseFalse;
-  IndexRange range = smNonterm.range[iSet.getSplitIdx()];
-  bool implicitTrue = !iSet.encodesTrue();
-  if (nodeRel && !transitional) {
-    for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {
-      bool sense = branchSense->senseTrue(idx, implicitTrue);
-      IndexT destIdx = sense ? destTrue++ : destFalse++;
-      IndexT sIdx = smNonterm.indices[idx];
-      smNext.indices[destIdx] = sIdx;
-      relLive(idx, destIdx, sIdx, iSet.getPathSucc(sense), sense ? baseTrue : baseFalse);
-    }
-  }
-  else {
-    for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {
-      IndexT sIdx = smNonterm.indices[idx];
-      bool sense = branchSense->senseTrue(sIdx, implicitTrue);
-      IndexT destIdx = sense ? destTrue++ : destFalse++;
-      smNext.indices[destIdx] = sIdx;
-      stPath->setSuccessor(sIdx, iSet.getPathSucc(sense));
-      if (transitional)
-        stPath->setLive(sIdx, iSet.getPathSucc(sense), destIdx);
-    }
-  }
-}
-
-
-void DefMap::updateExtinct(const IndexSet& iSet,
-			   const SampleMap& smNonterm,
-			   SampleMap& smTerminal,
-			   bool transitional) {
-  IndexT* destOut = smTerminal.getWriteStart(iSet.getIdxNext());
-  IndexRange range = smNonterm.range[iSet.getSplitIdx()];
-  for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {
-    IndexT sIdx = smNonterm.indices[idx];
-    *destOut++ = sIdx;
-    if (nodeRel && !transitional)
-      relExtinct(idx, sIdx);
-    else
-      stPath->setExtinct(sIdx);
-  }
-}
-
-
-void DefMap::relExtinct(IndexT nodeIdx, IndexT stIdx) {
-  layer[0]->relExtinct(nodeIdx);
-  if (!layer.back()->isNodeRel()) {
-    stPath->setExtinct(stIdx);
-  }
+void DefMap::rootExtinct(IndexT rootIdx) {
+  rootPath->setExtinct(rootIdx);
 }
 
 
@@ -408,7 +316,7 @@ void DefMap::overlap(const SampleMap& smNext) {
     return;
 
   IndexT idxLive = smNext.getEndIdx();
-  layer.push_front(make_unique<DefFrontier>(splitCount, nPred, bagCount, idxLive, nodeRel, this));
+  layer.push_front(make_unique<DefFrontier>(splitCount, nPred, bagCount, idxLive, this));
 
   historyPrev = move(history);
   history = vector<unsigned int>(splitCount * (layer.size()-1));
@@ -428,7 +336,7 @@ IndexT DefMap::getSplitCount(unsigned int del) const {
 
 
 void DefMap::addDef(const MRRA& defCoord,
-			 bool singleton) {
+		    bool singleton) {
   if (layer[0]->define(defCoord, singleton)) {
     layerDelta[defCoord.splitCoord.strideOffset(nPred)] = 0;
   }
@@ -445,9 +353,4 @@ SplitCoord DefMap::getHistory(const DefFrontier* reachLayer,
 		   const SplitCoord& coord) const {
   return reachLayer == layer[0].get() ? coord :
     SplitCoord(history[coord.nodeIdx + splitCount * (reachLayer->getDel() - 1)], coord.predIdx);
-}
-
-
-const IdxPath* DefMap::getFrontPath(unsigned int del) const {
-  return layer[del]->getFrontPath();
 }

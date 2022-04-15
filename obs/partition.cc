@@ -35,11 +35,11 @@ ObsPart::ObsPart(const Layout* layout,
   stageRange(layout->getNPred()),
   noRank(layout->getNoRank()) {
   indexBase = new IndexT[2* bufferSize];
-  nodeVec = new ObsCell[2 * bufferSize];
+  obsCell = new ObsCell[2 * bufferSize];
 
   // Coprocessor variants:
-  destRestage = new unsigned int[bufferSize];
-  //destSplit = new unsigned int[bufferSize];
+  //  vector<unsigned int> destRestage(bufferSize);
+  //  vector<unsigned int> destSplit(bufferSize);
 }
 
 
@@ -47,16 +47,13 @@ ObsPart::ObsPart(const Layout* layout,
   @brief Base class destructor.
  */
 ObsPart::~ObsPart() {
-  delete [] nodeVec;
+  delete [] obsCell;
   delete [] indexBase;
-
-  delete [] destRestage;
-  //delete [] destSplit;
 }
 
 
-IndexT* ObsPart::getBufferIndex(const SplitNux* nux) const {
-  return bufferIndex(nux->getMRRA());
+IndexT* ObsPart::getIdxBuffer(const SplitNux* nux) const {
+  return idxBuffer(nux->getMRRA());
 }
 
 
@@ -70,48 +67,39 @@ ObsCell* ObsPart::getPredBase(const SplitNux* nux) const {
 }
 
 
-void ObsPart::prepath(const DefFrontier* layer,
-		      const IdxPath *idxPath,
-		      const IndexT reachBase[],
-		      const MRRA& mrra,
-		      unsigned int pathMask,
-		      bool idxUpdate,
-		      IndexT pathCount[]) {
-  prepath(idxPath, reachBase, idxUpdate, layer->getRange(mrra), pathMask, bufferIndex(mrra), &pathIdx[getStageOffset(mrra.splitCoord.predIdx)], pathCount);
-}
-
-void ObsPart::prepath(const IdxPath *idxPath,
-		      const IndexT* reachBase,
-		      bool idxUpdate,
-		      const IndexRange& idxRange,
-		      unsigned int pathMask,
-		      IndexT idxVec[],
-		      PathT prepath[],
-		      IndexT pathCount[]) const {
+vector<IndexT> ObsPart::prepath(const DefFrontier* dfAncestor,
+				const DefFrontier* dfCurrent,
+				const MRRA& mrra) {
+  IndexRange idxRange = dfAncestor->getRange(mrra);
+  IdxPath* idxPath = dfAncestor->getIndexPath();
+  IndexT* indexVec = idxBuffer(mrra);
+  PathT* prePath = &pathIdx[getStageOffset(mrra.splitCoord.predIdx)];
+  vector<IndexT> pathCount(dfAncestor->backScale(1));
   for (IndexT idx = idxRange.getStart(); idx != idxRange.getEnd(); idx++) {
-    PathT path = idxPath->update(idxVec[idx], pathMask, reachBase, idxUpdate);
-    prepath[idx] = path;
-    if (NodePath::isActive(path)) {
+    PathT path;
+    if (idxPath->pathSucc(indexVec[idx], dfAncestor->pathMask(), path)) {
       pathCount[path]++;
     }
+    prePath[idx] = path;
   }
+
+  return pathCount;
 }
 
 
-void ObsPart::rankRestage(const DefFrontier* layer,
-			  const MRRA& mrra,
-                          IndexT reachOffset[],
-                          IndexT rankCount[]) {
+vector<IndexT> ObsPart::rankRestage(const DefFrontier* dfAncestor,
+				    const MRRA& mrra,
+				    vector<IndexT>& reachOffset) {
   ObsCell *srSource, *srTarg;
   IndexT *idxSource, *idxTarg;
   buffers(mrra, srSource, idxSource, srTarg, idxTarg);
 
-  IndexT rankPrev[NodePath::pathMax()];
-  fill(rankPrev, rankPrev + layer->backScale(1), noRank);
-  fill(rankCount, rankCount + layer->backScale(1), 0);
+  vector<IndexT> rankCount(dfAncestor->backScale(1));
+  vector<IndexT> rankPrev(dfAncestor->backScale(1));
+  fill(rankPrev.begin(), rankPrev.end(), noRank);
 
   PathT *pathBlock = &pathIdx[getStageOffset(mrra.splitCoord.predIdx)];
-  IndexRange idxRange = layer->getRange(mrra);
+  IndexRange idxRange = dfAncestor->getRange(mrra);
   for (IndexT idx = idxRange.idxStart; idx < idxRange.getEnd(); idx++) {
     unsigned int path = pathBlock[idx];
     if (NodePath::isActive(path)) {
@@ -124,7 +112,9 @@ void ObsPart::rankRestage(const DefFrontier* layer,
       idxTarg[destIdx] = idxSource[idx];
     }
   }
+  return rankCount;
 }
+
 
 IndexT ObsPart::countRanks(PredictorT predIdx,
 			   unsigned int bufIdx,

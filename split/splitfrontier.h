@@ -312,7 +312,7 @@ public:
   /**
      @brief Passes through to ObsPart method.
    */
-  IndexT* getBufferIndex(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux* nux) const;
   
   
   /**

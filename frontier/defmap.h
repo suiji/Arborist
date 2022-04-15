@@ -82,8 +82,7 @@ class DefMap {
   
   static constexpr double efficiency = 0.15; // Work efficiency threshold.
 
-  bool nodeRel; // Sample indexing mode.  Sticky
-  unique_ptr<class IdxPath> stPath; // IdxPath accessed by subtree.
+  unique_ptr<class IdxPath> rootPath; // Root-relative IdxPath:  EXIT.
   IndexT splitPrev; // # nodes in previous layer.
   IndexT splitCount; // # nodes in the layer about to split.
   const class Layout* layout;
@@ -116,16 +115,6 @@ class DefMap {
     }
   }
 
-
-  /**
-     @brief Dispatches sample map update according to terminal/nonterminal.
-   */
-  void updateMap(const class IndexSet& iSet,
-		 const class BranchSense* branchSense,
-		 const class SampleMap& smNonterm,
-		 class SampleMap& smTerminal,
-		 class SampleMap& smNext,
-		 bool transitional);
 
   /**
      @brief Passes ObsPart through to Sample method.
@@ -167,7 +156,45 @@ class DefMap {
   */
   void backdate() const;
 
+  
+  /**
+     @brief Sets root path successor and, if transitional, live path.
+   */
+  void rootSuccessor(IndexT sIdx,
+		     PathT path,
+		     IndexT destIdx);
 
+
+  /**
+     @brief Sets live path when root-relative layers remain.
+   */
+  void rootUpdate(IndexT sIdx,
+		  PathT path,
+		  IndexT destIdx);
+
+  
+  /**
+     @brief Sets the root-relative live path.
+
+     @param smIdx is SampleMap index for upcoming nonterminal.
+   */
+  void rootLive(IndexT sIdx,
+		PathT path,
+		IndexT smIdx);
+
+
+  /**
+     @brief Marks root-relative path as extinct.
+   */
+  void rootExtinct(IndexT rootIdx);
+
+
+  /**
+     @brief Marks root path as extinct iff back layer is root-relative.
+   */
+  void updateExtinct(IndexT rootIdx);
+
+  
   const class ObsPart* getObsPart() const;
 
   
@@ -244,14 +271,14 @@ class DefMap {
 
 
   /**
-     @brief Flushes reaching definition and reports schulability.
+     @brief Reports schedulability of preflushed coordinate.
      
      @param[out] outputs the cell's buffer index, if splitable.
 
      @return true iff cell at coordinate is splitable.
   */
   bool preschedulable(const SplitCoord& splitCoord,
-		      unsigned int& bufIdx);
+		      unsigned int& bufIdx) const;
 
 
   /**
@@ -299,7 +326,7 @@ class DefMap {
 		   IndexRange& idxRange) const;
 
 
-  IndexT* getBufferIndex(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux* nux) const;
 
   
   class ObsCell* getPredBase(const SplitNux* nux) const;
@@ -335,13 +362,6 @@ class DefMap {
      @brief Updates subtree and pretree mappings from temporaries constructed
      during the overlap.  Initializes data structures for restaging and
      splitting the current layer of the subtree.
-
-     @param splitNext is the number of splitable nodes in the current
-     subtree layer.
-
-     @param idxLive is the number of live indices.
-
-     @param nodeRel is true iff the indexing regime is node-relative.
   */
   void overlap(const class SampleMap& smNonterm);
 
@@ -352,12 +372,10 @@ class DefMap {
 
      @param iSet is the node, in index set form.
 
-     @param parIdx is the index of the splitting parent.
-
-     @param relBase is the base of sample indices associated with the node.
+     @param parent the node's parent.
   */
   void reachingPath(const class IndexSet& iSet,
-		    IndexT parIdx);
+		    const class IndexSet& parent);
 
 
   /**
@@ -367,43 +385,6 @@ class DefMap {
      @return count of layers to flush.
   */
   unsigned int flushRear();
-
-
-  /**
-     @brief Updates both node-relative path for a live index, as
-     well as subtree-relative if back layers warrant.
-
-     @param ndx is a node-relative index from the previous layer.
-
-     @param targIdx is the updated node-relative index:  current layer.
-
-     @param stx is the associated subtree-relative index.
-
-     @param path is the path reaching the target node.
-
-     @param ndBase is the base index of the target node:  current layer.
-   */
-  void relLive(IndexT ndx,
-               IndexT targIdx,
-               IndexT stx,
-               unsigned int path,
-               IndexT ndBase);
-
-
-  void updateLive(const class BranchSense* branchSense,
-		  const IndexSet& iSet,
-		  const SampleMap& smNonterm,
-		  SampleMap& smNext,
-		  bool transitional);
-
-
-  /**
-     @brief Updates terminals from extinct index sets.
-   */
-  void updateExtinct(const class IndexSet& iSet,
-		     const class SampleMap& smNonterm,
-		     class SampleMap& smTerminal,
-		     bool transitional);
 
 
   /**
@@ -422,7 +403,7 @@ class DefMap {
      @brief Accessor for 'stPath' field.
    */
   class IdxPath* getSubtreePath() const {
-    return stPath.get();
+    return rootPath.get();
   }
 
 
@@ -435,16 +416,6 @@ class DefMap {
      @return count of splitable nodes at layer of interest.
   */
   IndexT getSplitCount(unsigned int del) const;
-
-  
-  /**
-     @brief Looks up front path belonging to a back layer.
-
-     @param del is the number of layers back to look.
-
-     @return back layer's front path.
-  */
-  const class IdxPath *getFrontPath(unsigned int del) const;
 
   
   /**
@@ -464,11 +435,11 @@ class DefMap {
 
      @return layer-relative index of ancestor node.
  */
-  IndexT getHistory(const DefFrontier* reachLayer,
+  IndexT getHistory(const class DefFrontier* reachLayer,
 		    IndexT splitIdx) const;
 
 
-  SplitCoord getHistory(const DefFrontier* reachLayer,
+  SplitCoord getHistory(const class DefFrontier* reachLayer,
 			 const SplitCoord& coord) const;
   
   

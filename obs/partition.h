@@ -40,22 +40,22 @@ class ObsPart {
   const IndexT bufferSize; // <= nRow * nPred.
 
   vector<PathT> pathIdx;
-  ObsCell* nodeVec;
+  ObsCell* obsCell;
 
-  // 'indexBase' could be boxed with ObsCell.  While it is used in both
-  // replaying and restaging, though, it plays no role in splitting.  Maintaining
-  // a separate vector permits a 16-byte stride to be used for splitting.  More
-  // significantly, it reduces memory traffic incurred by transposition on the
-  // coprocessor.
+  // 'indexBase' could be boxed with ObsCell.  While it is used in
+  // both replay and restaging, though, it plays no role in splitting.
+  // Maintaining a separate vector permits a 16-byte stride to be
+  // used for splitting.  More significantly, it reduces memory
+  // traffic incurred by transposition on the coprocessor.
   //
-  IndexT* indexBase; // RV index for this row.  Used by CTG as well as on replay.
+  IndexT* indexBase;
 
  protected:
-  unsigned int *destRestage;
+  //  vector<unsigned int> destRestage;
+  //  vector<unsigned int> destSplit; // Coprocessor restaging.
   vector<IndexRange> stageRange; // Index range for staging.
   const IndexT noRank; // Inachievable rank value:  restaging.
   
-  //unsigned int *destSplit; // Coprocessor restaging.
   
  public:
 
@@ -68,7 +68,9 @@ class ObsPart {
 
      Also localizes index positions themselves, if in a node-relative regime.
 
-     @param reachBase is non-null iff index offsets enter as node relative.
+     @param idxPath is either a node- or a root-relative path vector.
+
+     @param reachBase non-null iff both invoking layers node-relative.
 
      @param idxUpdate is true iff the index is to be updated.
 
@@ -87,44 +89,23 @@ class ObsPart {
      @param pathCount enumerates the number of times a path is hit.  Only
      client is currently dense packing.
   */
-  void prepath(const class IdxPath *idxPath,
-               const IndexT reachBase[],
-               bool idxUpdate,
-               const IndexRange& idxRange,
-               unsigned int pathMask,
-               IndexT idxVec[],
-               PathT prepath[],
-               IndexT pathCount[]) const;
-
-  /**
-     @brief Pass-through to Path method.
-
-     Looks up reaching cell in appropriate buffer.
-     Parameters as above.
-  */
-  void prepath(const class DefFrontier* layer,
-	       const class IdxPath *idxPath,
-               const IndexT reachBase[],
-	       const MRRA& mrra,
-               unsigned int pathMask,
-               bool idxUpdate,
-               IndexT pathCount[]);
+  vector<IndexT> prepath(const class DefFrontier* dfAncestor,
+			 const class DefFrontier* dfCurrent,
+			 const MRRA& mrra);
 
 
   /**
      @brief Restages and tabulates rank counts.
   */
-  void rankRestage(const class DefFrontier* layer,
-		   const MRRA& defCoord,
-                   IndexT reachOffset[],
-                   IndexT rankCount[]);
+  vector<IndexT> rankRestage(const class DefFrontier* layer,
+			     const MRRA& defCoord,
+			     vector<IndexT>& reachOffset);
 
-  
-  
+
   /**
      @brief Passes through to bufferOff() using definition coordinate.
    */
-  IndexT* getBufferIndex(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux* nux) const;
 
 
   ObsCell* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
@@ -194,7 +175,7 @@ class ObsPart {
   /**
      @return base of the index buffer.
    */
-  inline IndexT* bufferIndex(const MRRA& mrra) const {
+  inline IndexT* idxBuffer(const MRRA& mrra) const {
     return indexBase + bufferOff(mrra);
   }
 
@@ -203,18 +184,18 @@ class ObsPart {
      @return base of node buffer.
    */
   inline ObsCell *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
-    return nodeVec + bufferOff(predIdx, bufBit);
+    return obsCell + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
   inline ObsCell* buffers(PredictorT predIdx,
-			     unsigned int bufBit,
-			     IndexT*& sIdx) const {
+			  unsigned int bufBit,
+			  IndexT*& sIdx) const {
     IndexT offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
-    return nodeVec + offset;
+    return obsCell + offset;
   }
 
 
@@ -242,14 +223,14 @@ class ObsPart {
      @return node vector section for this predictor.
    */
   ObsCell* getPredBase(const MRRA& defCoord) const {
-    return nodeVec + bufferOff(defCoord);
+    return obsCell + bufferOff(defCoord);
   }
   
   /**
      @brief Returns buffer containing splitting information.
    */
   inline ObsCell* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
-    return nodeVec + bufferOff(predIdx, bufBit);
+    return obsCell + bufferOff(predIdx, bufBit);
   }
 
 

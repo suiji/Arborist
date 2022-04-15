@@ -68,8 +68,8 @@ const ObsPart* SplitFrontier::getPartition() const {
 }
 
 
-IndexT* SplitFrontier::getBufferIndex(const SplitNux* nux) const {
-  return defMap->getBufferIndex(nux);
+IndexT* SplitFrontier::getIdxBuffer(const SplitNux* nux) const {
+  return defMap->getIdxBuffer(nux);
 }
 
 

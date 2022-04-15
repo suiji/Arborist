@@ -205,41 +205,60 @@ class DefFrontier {
   vector<DenseCoord> denseCoord;
 
   // Recomputed:
-  unique_ptr<class IdxPath> relPath;
   vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
   vector<IndexT> liveCount; // Indexed by node.
 
   IndexT candExtent; // Total candidate index extent.
-  const bool nodeRel;  // Subtree- or node-relative indexing.
+
+
+  void updateLive(const class BranchSense* branchSense,
+		  const class IndexSet& iSet,
+		  const class SampleMap& smNonterm,
+		  class SampleMap& smNext);
+
+
+  /**
+     @brief Updates terminals from extinct index sets.
+   */
+  void updateExtinct(const class IndexSet& iSet,
+		     const class SampleMap& smNonterm,
+		     class SampleMap& smTerminal);
+
 
 public:
+
   DefFrontier(IndexT nSplit_,
         PredictorT nPred_,
         IndexT noIndex_,
         IndexT idxLive_,
-        bool nodeRel_,
 	   class DefMap* defMap);
 
-  
-  void rankRestage(class ObsPart *samplePred,
-                   const MRRA& mrra,
-                   DefFrontier *levelFront);
 
   /**
-     @brief Precomputes path vector prior to restaging.
+     @return the applicable index path.
+   */
+  class IdxPath* getIndexPath() const;
+  
 
-     This is necessary in the case of dense ranks, as cell sizes are not
-     derivable directly from index nodes.
+  /**
+     @brief Repartitions ranks from a previous DefFrontier to current.
+
+     Precomputes path vector prior to restaging.  This is necessary in
+     the case of dense ranks, as cell sizes are not derivable directly
+     from index nodes.
 
      Decomposition into two paths adds ~5% performance penalty, but
      appears necessary for dense packing or for coprocessor loading.
-  */
-  void rankRestage(class ObsPart *samplePred,
-                   const MRRA& mrra,
-                   DefFrontier *levelFront,
-                   IndexT reachOffset[], 
-                   const IndexT reachBase[] = nullptr);
 
+     @param MRRA is the ancestor residing in a pervious layer.
+
+     @param dfCurrent is the current DefFrontier.
+   */
+  void rankRestage(class ObsPart *obsPart,
+                   const MRRA& mrra,
+                   DefFrontier *dfCurrent);
+
+  
   /**
      @brief Moves entire level's defnitions to restaging schedule.
 
@@ -302,23 +321,11 @@ public:
 
 
   /**
-     @brief Clones offsets along path reaching from ancestor node.
-
-     @param mrra is an MRRA coordinate.
-
-     @param[out] reachOffset outputs node starting offsets.
-
-     @param[out] reachBase outputs node-relative offsets, iff nonnull.
+     @brief Sets stage counts on successor cells.
   */
-  void offsetClone(const SplitCoord& mrra,
-	      IndexT reachOffset[],
-	      IndexT reachBase[] = nullptr);
-/**
-   @brief Sets stage counts on successor cells.
- */
   void setStageCounts(const class MRRA& preCand,
-		      const IndexT pathCount[],
-		      const IndexT rankCount[]) const;
+		      const vector<IndexT>& pathCount,
+		      const vector<IndexT>& rankCount) const;
 
 /**
    @brief Sets the packed offsets for each successor.  Relies on Swiss Cheese
@@ -326,12 +333,24 @@ public:
 
    @param pathCount inputs the counts along each reaching path.
 
-   @param[out] reachOffset outputs the dense starting offsets.
+   @param dfCurrent is the current DefFrontier.
+
+   @return dense starting offsets.
  */
-  void packDense(const IndexT pathCount[],
-		 DefFrontier *levelFront,
-		 const MRRA& mrra,
-		 IndexT reachOffset[]) const;
+  vector<IndexT> packDense(const vector<IndexT>& pathCount,
+			   DefFrontier *dfCurrent,
+			   const MRRA& mrra) const;
+
+
+  /**
+     @brief Dispatches sample map update according to terminal/nonterminal.
+   */
+  void updateMap(const class IndexSet& iSet,
+		 const class BranchSense* branchSense,
+		 const class SampleMap& smNonterm,
+		 class SampleMap& smTerminal,
+		 class SampleMap& smNext);
+
 
   /**
      @brief Marks the node-relative index as extinct.
@@ -355,13 +374,17 @@ public:
   void setStageCount(const SplitCoord& splitCoord,
 		     const class StageCount& stageCount);
 
+  
   /**
-     @brief Sets path, target and node-relative offse.
+     @brief Resets path entry from SampleMap for upcoming nonterminal.
+
+     @param smOff is the offset from a SampleMap nonterminal base.
+
+     @param smBase is nonterminal base index taken from SampleMap.
   */
-  void relLive(IndexT idx,
+  void relLive(IndexT entryIdx,
 	       PathT path,
-	       IndexT targIdx,
-	       IndexT nodeBase);
+	       IndexT smOff);
 
 
   /**
@@ -387,23 +410,6 @@ public:
    */
   inline auto getDel() const {
     return del;
-  }
-
-  /**
-     @brief Accessor for indexing mode.  Currently two-valued.
-   */
-  inline bool isNodeRel() const {
-    return nodeRel;
-  }
-
-  
-  /**
-     @brief Front path accessor.
-
-     @return reference to front path.
-   */
-  const inline class IdxPath* getFrontPath() const {
-    return relPath.get();
   }
 
   
@@ -495,7 +501,7 @@ public:
      @param[out] singleton outputs whether the definition is singleton.
    */
   inline MRRA consume(const SplitCoord& splitCoord,
-			  bool& singleton) {
+		      bool& singleton) {
     defCount--;
     return mrra[splitCoord.strideOffset(nPred)].consume(splitCoord, del, singleton);
   }

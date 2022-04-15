@@ -14,9 +14,7 @@
  */
 
 #include "candrf.h"
-#include "sfcart.h"
 #include "defmap.h"
-#include "sample.h"
 #include "prng.h"
 
 
@@ -82,7 +80,6 @@ void CandRF::candidateFixed(DefMap* defMap) {
     iota(predRand.begin(), predRand.end(), 0);
     IndexT ruOff = splitIdx * nPred;
     PredictorT schedCount = 0;
-    PredictorT predTop = nPred;
     for (PredictorT predTop = nPred; predTop != 0; predTop--) {
       PredictorT idxRand = predTop * ruPred[ruOff];
       PredictorT predIdx = exchange(predRand[idxRand], predRand[predTop-1]);

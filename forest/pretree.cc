@@ -164,12 +164,12 @@ IndexT PreTree::leafMerge() {
     return height;
   }
 
-  vector<IndexT> st2pt(terminalMap.indices.size()); // bagCount.
+  vector<IndexT> st2pt(terminalMap.sampleIndex.size()); // bagCount.
   IndexT rangeIdx = 0;
   for (auto range : terminalMap.range) {
     IndexT ptIdx = terminalMap.ptIdx[rangeIdx];
     for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
-      IndexT stIdx = terminalMap.indices[idx];
+      IndexT stIdx = terminalMap.sampleIndex[idx];
       st2pt[stIdx] = ptIdx;
     }
     rangeIdx++;

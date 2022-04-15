@@ -59,7 +59,7 @@ void Leaf::consumeTerminals(const PreTree* pretree,
   if (thin)
     return;
   
-  IndexT bagCount = terminalMap.indices.size();
+  IndexT bagCount = terminalMap.sampleIndex.size();
   IndexT extentStart = extentCresc.size();
   IndexT idStart = indexCresc.size();
   IndexT nLeaf = terminalMap.range.size();
@@ -89,7 +89,7 @@ void Leaf::consumeTerminals(const PreTree* pretree,
     IndexT leafIdx = pretree->getLeafIdx(terminalMap.ptIdx[rangeIdx]);
     IndexT idBegin = leafStart[leafIdx];
     for (IndexT idx = terminalMap.range[rangeIdx].getStart(); idx != terminalMap.range[rangeIdx].getEnd(); idx++) {
-      indexCresc[idBegin++] = terminalMap.indices[idx];
+      indexCresc[idBegin++] = terminalMap.sampleIndex[idx];
     }
   }
   }

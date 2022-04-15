@@ -18,13 +18,14 @@
 #include "path.h"
 #include "defmap.h"
 #include "partition.h"
+#include "samplemap.h"
+#include "indexset.h"
 
 
 DefFrontier::DefFrontier(IndexT nSplit_,
 		   PredictorT nPred_,
 		   IndexT bagCount,
 		   IndexT idxLive,
-		   bool nodeRel_,
 		   DefMap* defMap_) :
   defMap(defMap_),
   nPred(nPred_),
@@ -33,13 +34,11 @@ DefFrontier::DefFrontier(IndexT nSplit_,
   defCount(0), del(0),
   rangeAnc(vector<IndexRange>(nSplit)),
   mrra(vector<LiveBits>(nSplit * nPred)),
-  denseCoord(vector<DenseCoord>(nSplit * defMap->getNPredDense())),
-  relPath(make_unique<IdxPath>(idxLive)),
-  nodeRel(nodeRel_) {
+  denseCoord(vector<DenseCoord>(nSplit * defMap->getNPredDense())) {
   NodePath::setNoSplit(bagCount);
-  LiveBits df;
 
   // Coprocessor only.
+  // LiveBits df;
   //  fill(mrra.begin(), mrra.end(), df);
 }
     
@@ -77,7 +76,7 @@ void DefFrontier::flush(DefMap* defMap) {
 
 
 void DefFrontier::flushDef(const SplitCoord& splitCoord,
-			DefMap* defMap) {
+			   DefMap* defMap) {
   if (!isDefined(splitCoord)) {
     return;
   }
@@ -111,23 +110,8 @@ void LiveBits::setSingleton(const StageCount& stageCount) {
 }
 
 
-bool DefFrontier::backdate(const IdxPath *one2Front) {
-  if (nodeRel) {
-    relPath->backdate(one2Front);
-    return true;
-  }
-  else
-    return false;
-}
-
-
-void DefFrontier::relExtinct(IndexT idx) {
-  relPath->setExtinct(idx);
-}
-
-
-void DefFrontier::relLive(IndexT idx, PathT path, IndexT targIdx, IndexT ndBase) {
-  relPath->setLive(idx, path, targIdx, targIdx - ndBase);
+bool DefFrontier::backdate(const IdxPath* one2Front) {
+  return false;
 }
 
 
@@ -153,60 +137,30 @@ void DefFrontier::pathInit(IndexT splitIdx,
 
 void DefFrontier::rankRestage(ObsPart* obsPart,
 			      const MRRA& mrra,
-			      DefFrontier* levelFront) {
-  IndexT reachOffset[NodePath::pathMax()];
-  if (nodeRel) { // Both levels employ node-relative indexing.
-    IndexT reachBase[NodePath::pathMax()];
-    offsetClone(mrra.splitCoord, reachOffset, reachBase);
-    rankRestage(obsPart, mrra, levelFront, reachOffset, reachBase);
-  }
-  else { // Source level employs subtree indexing.  Target may or may not.
-    offsetClone(mrra.splitCoord, reachOffset);
-    rankRestage(obsPart, mrra, levelFront, reachOffset);
-  }
-}
-
-
-void DefFrontier::offsetClone(const SplitCoord &mrra,
-			      IndexT reachOffset[],
-			      IndexT reachBase[]) {
-  IndexT nodeStart = mrra.backScale(del);
-  for (unsigned int i = 0; i < backScale(1); i++) {
-    reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
-  }
-  if (reachBase != nullptr) {
-    for (unsigned int i = 0; i < backScale(1); i++) {
-      reachBase[i] = nodePath[nodeStart + i].getNodeStart();
-    }
-  }
-}
-
-
-void DefFrontier::rankRestage(ObsPart* obsPart,
-			   const MRRA& mrra,
-			   DefFrontier* levelFront,
-			   IndexT reachOffset[],
-			   const IndexT reachBase[]) {
-  IndexT pathCount[NodePath::pathMax()];
-  fill(pathCount, pathCount + backScale(1), 0);
-
-  obsPart->prepath(this, nodeRel ?  getFrontPath() : defMap->getSubtreePath(), reachBase, mrra, pathMask(), reachBase == nullptr ? levelFront->isNodeRel() : true, pathCount);
-
-  // Successors may or may not themselves be dense.
-  packDense(pathCount, levelFront, mrra, reachOffset);
-
-  IndexT rankCount[NodePath::pathMax()];
-  obsPart->rankRestage(this, mrra, reachOffset, rankCount);
+			      DefFrontier* dfCurrent) {
+  vector<IndexT> pathCount = obsPart->prepath(this, dfCurrent, mrra);
+  vector<IndexT> reachOffset = packDense(pathCount, dfCurrent, mrra);
+  vector<IndexT> rankCount = obsPart->rankRestage(this, mrra, reachOffset);
   setStageCounts(mrra, pathCount, rankCount);
 }
 
 
-void DefFrontier::packDense(const IndexT pathCount[],
-			    DefFrontier* levelFront,
-			    const MRRA& mrra,
-			    IndexT reachOffset[]) const {
+IdxPath* DefFrontier::getIndexPath() const {
+  return defMap->getSubtreePath();
+}
+
+
+vector<IndexT> DefFrontier::packDense(const vector<IndexT>& pathCount,
+				       DefFrontier* dfCurrent,
+				       const MRRA& mrra) const {
+  // Successors may or may not themselves be dense.
+  vector<IndexT> reachOffset(backScale(1));
+  IndexT nodeStart = mrra.splitCoord.backScale(del);
+  for (unsigned int i = 0; i < backScale(1); i++) {
+    reachOffset[i] = nodePath[nodeStart + i].getIdxStart();
+  }
   if (!isDense(mrra)) {
-    return;
+    return reachOffset;
   }
   IndexT idxStart = getRange(mrra).getStart();
   const NodePath* pathPos = &nodePath[mrra.splitCoord.backScale(del)];
@@ -217,15 +171,16 @@ void DefFrontier::packDense(const IndexT pathCount[],
     if (pathPos[path].getCoords(predIdx, coord, idxRange)) {
       IndexT margin = idxRange.getStart() - idxStart;
       IndexT extentDense = pathCount[path];
-      levelFront->setDense(coord, idxRange.getExtent() - extentDense, margin);
+      dfCurrent->setDense(coord, idxRange.getExtent() - extentDense, margin);
       reachOffset[path] -= margin;
       idxStart += extentDense;
     }
   }
+  return reachOffset;
 }
 
 
-void DefFrontier::setStageCounts(const MRRA& mrra, const IndexT pathCount[], const IndexT rankCount[]) const {
+void DefFrontier::setStageCounts(const MRRA& mrra, const vector<IndexT>& pathCount, const vector<IndexT>& rankCount) const {
   SplitCoord coord = mrra.splitCoord;
   const NodePath* pathPos = &nodePath[coord.backScale(del)];
   for (unsigned int path = 0; path < backScale(1); path++) {
@@ -263,3 +218,49 @@ IndexT DefFrontier::getImplicit(const MRRA& cand) const {
   return isDense(cand) ? denseCoord[defMap->denseOffset(cand)].getImplicit() : 0;
 }
 
+
+void DefFrontier::updateMap(const IndexSet& iSet,
+			    const BranchSense* branchSense,
+			    const SampleMap& smNonterm,
+			    SampleMap& smTerminal,
+			    SampleMap& smNext) {
+  if (!iSet.isTerminal()) {
+    updateLive(branchSense, iSet, smNonterm, smNext);
+  }
+  else {
+    updateExtinct(iSet, smNonterm, smTerminal);
+  }
+}
+
+
+void DefFrontier::updateLive(const BranchSense* branchSense,
+			     const IndexSet& iSet,
+			     const SampleMap& smNonterm,
+			     SampleMap& smNext) {
+  IndexT nodeIdx = iSet.getIdxNext();
+  IndexT destTrue = smNext.range[nodeIdx].getStart();
+  IndexT destFalse = smNext.range[nodeIdx+1].getStart();
+  IndexRange range = smNonterm.range[iSet.getSplitIdx()];
+  bool implicitTrue = !iSet.encodesTrue();
+  for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {
+    IndexT sIdx = smNonterm.sampleIndex[idx];
+      // Branch sense indexing is sample-relative.
+    bool sense = branchSense->senseTrue(sIdx, implicitTrue);
+    IndexT smIdx = sense ? destTrue++ : destFalse++;
+    smNext.sampleIndex[smIdx] = sIdx; // Restages sample index.
+    defMap->rootSuccessor(sIdx, iSet.getPathSucc(sense), smIdx);
+  }
+}
+
+
+void DefFrontier::updateExtinct(const IndexSet& iSet,
+				const SampleMap& smNonterm,
+				SampleMap& smTerminal) {
+  IndexT* destOut = smTerminal.getWriteStart(iSet.getIdxNext());
+  IndexRange range = smNonterm.range[iSet.getSplitIdx()];
+  for (IndexT idx = range.idxStart; idx != range.getEnd(); idx++) {
+    IndexT sIdx = smNonterm.sampleIndex[idx];
+    *destOut++ = sIdx;
+    defMap->rootExtinct(sIdx);
+  }
+}

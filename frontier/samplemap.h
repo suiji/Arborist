@@ -46,7 +46,7 @@
    Extent vectors record the number of sample indices associated with each node.
  */
 struct SampleMap {
-  vector<IndexT> indices;
+  vector<IndexT> sampleIndex;
   vector<IndexRange> range;
   vector<IndexT> ptIdx;
   IndexT maxExtent; // Tracks width of node-relative indices.
@@ -55,7 +55,7 @@ struct SampleMap {
      @brief Constructor with optional index count.
    */
   SampleMap(IndexT nIdx = 0) :
-    indices(vector<IndexT>(nIdx)),
+    sampleIndex(vector<IndexT>(nIdx)),
     range(vector<IndexRange>(0)),
     ptIdx(vector<IndexT>(0)),
     maxExtent(0) {
@@ -76,7 +76,7 @@ struct SampleMap {
 
   
   IndexT* getWriteStart(IndexT idx) {
-    return &indices[range[idx].getStart()];
+    return &sampleIndex[range[idx].getStart()];
   }
   
   

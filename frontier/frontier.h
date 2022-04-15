@@ -186,17 +186,6 @@ class Frontier {
 
 
   /**
-     @brief DefMap pass-through to register reaching path.
-
-     @param splitIdx is the level-relative node index.
-
-     @param parIdx is the parent node's index.
-   */
-  void reachingPath(const IndexSet& iSet,
-                    IndexT parIdx) const;
-
-
-  /**
      @brief Updates the split/path/pretree state of an extant index based on
      its position in the next level (i.e., left/right/extinct).
 

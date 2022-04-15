@@ -28,8 +28,8 @@ void NodePath::setNoSplit(IndexT bagCount) {
 
 IdxPath::IdxPath(IndexT idxLive_) :
   idxLive(idxLive_),
-  relFront(vector<IndexT>(idxLive)),
-  pathFront(vector<PathT>(idxLive)),
-  offFront(vector<uint_least16_t>(idxLive)) {
-  iota(relFront.begin(), relFront.end(), 0);
+  smIdx(vector<IndexT>(idxLive)),
+  pathFront(vector<PathT>(idxLive)) {
+  //  offFront(vector<uint_least16_t>(idxLive)) { 
+  iota(smIdx.begin(), smIdx.end(), 0);
 }

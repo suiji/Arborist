@@ -27,7 +27,7 @@ vector<double> SampleMap::row2Score(const Sampler* sampler,
   for (IndexRange leafRange : range) {
     double leafScore = score[ptIdx[leafIdx++]];
     for (IndexT idx = leafRange.getStart(); idx != leafRange.getEnd(); idx++) {
-      IndexT sIdx = indices[idx];
+      IndexT sIdx = sampleIndex[idx];
       rowScore[sample2row[sIdx]] = leafScore;
     }
   }

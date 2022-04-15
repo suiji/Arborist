@@ -56,7 +56,7 @@ Frontier::Frontier(const TrainFrame* frame_,
   smTerminal(SampleMap(bagCount)),
   smNonterm(SampleMap(bagCount)) {
   smNonterm.addNode(bagCount, 0);
-  iota(smNonterm.indices.begin(), smNonterm.indices.end(), 0);
+  iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);
   frontierNodes.emplace_back(sample.get());
 }
 
@@ -99,7 +99,9 @@ vector<IndexSet> Frontier::produce() const {
   for (auto iSet : frontierNodes) {
     if (!iSet.isTerminal()) {
       frontierNext.emplace_back(this, iSet, true);
+      defMap->reachingPath(frontierNext.back(), iSet);
       frontierNext.emplace_back(this, iSet, false);
+      defMap->reachingPath(frontierNext.back(), iSet);
     }
   }
   return frontierNext;
@@ -112,7 +114,7 @@ SampleMap Frontier::surveySplits(vector<IndexSet>& frontierNodes) {
     registerSplit(iSet, smNext);
   }
 
-  smNext.indices = vector<IndexT>(smNext.getEndIdx());
+  smNext.sampleIndex = vector<IndexT>(smNext.getEndIdx());
 
   return smNext;
 }
@@ -169,12 +171,6 @@ void Frontier::updateSimple(const vector<SplitNux>& nuxMax,
 
 void Frontier::updateCompound(const vector<vector<SplitNux>>& nuxMax) {
   pretree->consumeCompound(splitFrontier.get(), nuxMax);
-}
-
-
-void Frontier::reachingPath(const IndexSet& iSet,
-                            IndexT parIdx) const {
-  defMap->reachingPath(iSet, parIdx);
 }
 
 
