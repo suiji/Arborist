@@ -65,7 +65,7 @@ A recent paper compares several categories of regression tools, including Random
 ### News/Changes
 - Quantile estimation supports both leaf and nonterminal (i.e., trap-and-bail) prediction modes.
 - Prediction and validiation support large (> 32 bits) observation counts.
-- Training is no longer constrained by 32-bit tree-size limitation.
+- Support for training more than 2^32 observations may be enabled by recompiling.
 - New option 'keyed' identifies predictors by name, rather than position within frame.
 - New option 'impPermute' introduces permutation-based variable importance.
 
