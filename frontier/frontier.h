@@ -14,14 +14,14 @@
 
  */
 
-#ifndef PARTITION_FRONTIER_H
-#define PARTITION_FRONTIER_H
+#ifndef FRONTIER_FRONTIER_H
+#define FRONTIER_FRONTIER_H
 
 #include "samplemap.h"
 #include "pretree.h"
 #include "indexset.h"
 #include "typeparam.h"
-#include "mrra.h"
+#include "stagedcell.h"//"obscell.h"
 
 #include <algorithm>
 #include <vector>
@@ -38,7 +38,7 @@ class Frontier {
   const PredictorT nCtg;
 
   vector<IndexSet> frontierNodes;
-  unique_ptr<class DefMap> defMap;
+  unique_ptr<class InterLevel> interLevel;
 
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
@@ -52,7 +52,7 @@ class Frontier {
 
      @param indexSet holds the index-set representation of the nodes.
    */
-  SampleMap surveySplits(vector<IndexSet>& indexSet);
+  SampleMap surveySplits();
 
   void registerSplit(IndexSet& iSet,
 		    SampleMap& smNext);
@@ -64,19 +64,10 @@ class Frontier {
 
   /**
      @brief Applies splitting results to new level.
-
-     @param level is the current zero-based level.
-
   */
-  vector<IndexSet> splitDispatch(const class BranchSense* branchSense);
+  SampleMap splitDispatch();
 
 
-  /**
-     @brief Produces frontier nodes for next level.
-   */
-  vector<IndexSet> produce() const;
-
-  
   /**
      @brief Resets parameters for upcoming levl.
 
@@ -85,7 +76,14 @@ class Frontier {
   void reset(IndexT splitNext);
 
 
- public:
+  /**
+     @brief Marks frontier nodes as unsplitable for graceful termination.
+
+     @param level is the zero-based tree depth.
+   */
+  void earlyExit(unsigned int level);
+
+public:
 
 
   /**
@@ -136,13 +134,11 @@ class Frontier {
 
 
   /**
-     @brief Marks frontier nodes as unsplitable for graceful termination.
-
-     @param level is the zero-based tree depth.
+     @brief Produces frontier nodes for next level.
    */
-  void earlyExit(unsigned int level);
+  vector<IndexSet> produce() const;
 
-
+  
   /**
      @brief Updates both index set and pretree states for a set of simple splits.
    */
@@ -159,6 +155,11 @@ class Frontier {
   void setScore(IndexT splitIdx) const;
 
 
+  const vector<IndexSet>& getNodes() const {
+    return frontierNodes;
+  }
+  
+
   const IndexSet& getNode(IndexT splitIdx) const {
     return frontierNodes[splitIdx];
   }
@@ -167,8 +168,8 @@ class Frontier {
   /**
      @return pre-tree index associated with node.
    */
-  IndexT getPTId(const MRRA& mrra) const {
-    return frontierNodes[mrra.splitCoord.nodeIdx].getPTId();
+  IndexT getPTId(const StagedCell* mrra) const {
+    return frontierNodes[mrra->getNodeIdx()].getPTId();
   }
   
 
@@ -223,6 +224,11 @@ class Frontier {
   }
 
 
+  IndexRange getNodeRange(IndexT nodeIdx) const {
+    return frontierNodes[nodeIdx].getBufRange();
+  }
+  
+
   /**
      @brief Obtains the IndexRange for a splitting candidate's location.
 
@@ -230,13 +236,13 @@ class Frontier {
 
      @return index range of referenced split coordinate.
    */
-  IndexRange getBufRange(const MRRA& mrra) const {
-    return frontierNodes[mrra.splitCoord.nodeIdx].getBufRange();
+  IndexRange getBufRange(const StagedCell* mrra) const {
+    return frontierNodes[mrra->getNodeIdx()].getBufRange();
   }
 
 
-  auto getDefMap() const {
-    return defMap.get();
+  auto getInterLevel() const {
+    return interLevel.get();
   }
 
 
@@ -286,8 +292,8 @@ class Frontier {
   /**
      @brief As above, but parametrized by candidate location.
    */
-  inline auto getSum(const MRRA& mrra) const {
-    return getSum(mrra.splitCoord.nodeIdx);
+  inline auto getSum(const StagedCell* mrra) const {
+    return getSum(mrra->getNodeIdx());
   }
 
 
@@ -299,8 +305,8 @@ class Frontier {
   }
 
 
-  inline auto getSCount(const MRRA& mrra) const {
-    return getSCount(mrra.splitCoord.nodeIdx);
+  inline auto getSCount(const StagedCell* mrra) const {
+    return getSCount(mrra->getNodeIdx());
   }
 
 
@@ -313,9 +319,9 @@ class Frontier {
   }
 
 
-  inline auto getSCountSucc(const MRRA& mrra,
+  inline auto getSCountSucc(const StagedCell* mrra,
 			    bool sense) const {
-    return getSCountSucc(mrra.splitCoord.nodeIdx, sense);
+    return getSCountSucc(mrra->getNodeIdx(), sense);
   }
 
 
@@ -328,9 +334,9 @@ class Frontier {
   }
 
 
-  inline auto getSumSucc(const MRRA& mrra,
+  inline auto getSumSucc(const StagedCell* mrra,
 			    bool sense) const {
-    return getSumSucc(mrra.splitCoord.nodeIdx, sense);
+    return getSumSucc(mrra->getNodeIdx(), sense);
   }
 
 

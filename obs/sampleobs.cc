@@ -13,7 +13,6 @@
    @author Mark Seligman
  */
 
-
 #include "samplernux.h"
 #include "sampler.h"
 #include "response.h"

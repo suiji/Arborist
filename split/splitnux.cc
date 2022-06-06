@@ -13,7 +13,6 @@
    @author Mark Seligman
  */
 
-#include "defmap.h" // PreCand
 #include "cutset.h"
 #include "cutaccum.h"
 #include "splitfrontier.h"
@@ -42,17 +41,18 @@ void SplitNux::deImmutables() {
 }
 
 
-SplitNux::SplitNux(const PreCand& preCand,
+SplitNux::SplitNux(const StagedCell* cell_,
+		   double randVal_,
 		   const SplitFrontier* splitFrontier) :
-  mrra(preCand.mrra),
-  randVal(preCand.randVal),
-  implicitCount(preCand.stageCount.idxImplicit),
-  idxRange(splitFrontier->getRange(mrra)),
-  sum(splitFrontier->getSum(mrra)),
-  sCount(splitFrontier->getSCount(mrra)),
-  ptId(splitFrontier->getPTId(mrra)),
-  info(splitFrontier->getPreinfo(mrra)) {
-  accumIdx = splitFrontier->addAccumulator(this, preCand);
+  cell(cell_),
+  randVal(randVal_),
+  implicitCount(cell->idxImplicit),
+  idxRange(cell->getRange()),
+  sum(splitFrontier->getSum(cell)),
+  sCount(splitFrontier->getSCount(cell)),
+  ptId(splitFrontier->getPTId(cell)),
+  info(splitFrontier->getPreinfo(cell)) {
+  accumIdx = splitFrontier->addAccumulator(this);
 }
 
 
@@ -60,13 +60,13 @@ SplitNux::SplitNux(const SplitNux& parent,
 		   const SplitFrontier* sf,
 		   bool sense,
 		   IndexT idx) :
-  mrra(parent.mrra),
+  cell(parent.cell),
   randVal(parent.randVal),
   implicitCount(parent.implicitCount),
   idxRange(parent.idxRange),
   accumIdx(parent.accumIdx),
-  sum(sf->getSumSucc(mrra, sense)),
-  sCount(sf->getSCountSucc(mrra, sense)),
+  sum(sf->getSumSucc(cell, sense)),
+  sCount(sf->getSCountSucc(cell, sense)),
   ptId(parent.ptId + idx),
   info(0.0) {
 }
@@ -94,10 +94,10 @@ IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
 
 
 bool SplitNux::isFactor(const SplitFrontier* sf) const {
-  return sf->isFactor(mrra.splitCoord.predIdx);
+  return sf->isFactor(cell->getPredIdx());
 }
 
 
 PredictorT SplitNux::getCardinality(const TrainFrame* frame) const {
-  return frame->getCardinality(mrra.splitCoord.predIdx);
+  return frame->getCardinality(cell->getPredIdx());
 }

@@ -52,7 +52,8 @@ struct SFRegCart : public SFReg {
   double getPreinfo(IndexT splitIdx) const;
 
 
-  void split(class BranchSense* branchSense);
+  void split(vector<class SplitNux> candidate,
+	     class BranchSense* branchSense);
 
 
   /**
@@ -83,7 +84,8 @@ class SFCtgCart : public SFCtg {
   void frontierPreset();
 
 
-  void split(class BranchSense* branchSense);
+  void split(vector<class SplitNux> candidate,
+	     class BranchSense* branchSense);
 
 
   /**

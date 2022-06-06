@@ -14,11 +14,8 @@
  */
 
 
-#include "stagecount.h"
 #include "layout.h"
 #include "valrank.h"
-#include "partition.h"
-#include "sampleobs.h"
 #include "ompthread.h"
 #include "trainframe.h"
 
@@ -97,46 +94,6 @@ void Layout::accumOffsets() {
 }
 
 
-vector<StageCount> Layout::stage(const SampleObs* sample,
-				 ObsPart* obsPart) const {
-  vector<StageCount> stageCount(nPred);
-
-  OMPBound predTop = nPred;
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
-      stageCount[predIdx] = stage(sample, obsPart, predIdx);
-    }
-  }
-
-  return stageCount;
-}
-
-
-StageCount Layout::stage(const SampleObs* sample,
-			 ObsPart* obsPart,
-			 PredictorT predIdx) const {
-  obsPart->setStageRange(predIdx, getSafeRange(predIdx, sample->getBagCount()));
-  IndexT rankDense = implExpl[predIdx].rankImpl;
-  IndexT* idxStart;
-  ObsCell* srStart = obsPart->buffers(predIdx, 0, idxStart);
-  ObsCell* spn = srStart;
-  IndexT* sIdx = idxStart;
-  for (auto rle : trainFrame->getRLE(predIdx)) {
-    IndexT rank = rle.val;
-    if (rank != rankDense) {
-      for (IndexT row = rle.row; row < rle.row + rle.extent; row++) {
-	sample->joinRank(row, sIdx, spn, rank);
-      }
-    }
-  }
-  IndexT idxExplicit = spn - srStart;
-  return StageCount(sample->getBagCount() - idxExplicit, obsPart->countRanks(predIdx, 0, noRank, idxExplicit));
-  // Post-condition:  rrOut.size() == explicitCount[predIdx]
-}
-
-
 IndexRange Layout::getSafeRange(PredictorT predIdx,
 				IndexT bagCount) const {
   if (implExpl[predIdx].rankImpl == noRank) {
@@ -148,3 +105,6 @@ IndexRange Layout::getSafeRange(PredictorT predIdx,
 }
 
 
+const vector<RLEVal<unsigned int>>& Layout::getRLE(PredictorT predIdx) const {
+  return trainFrame->getRLE(predIdx);
+}

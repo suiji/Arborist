@@ -18,7 +18,8 @@
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "defmap.h"
+#include "obsfrontier.h"
+#include "interlevel.h"
 #include "runset.h"
 #include "cutset.h"
 #include "trainframe.h"
@@ -34,10 +35,10 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
 			     SplitStyle splitStyle_,
-			     void (SplitFrontier::* splitter_)(BranchSense*)) :
+			     void (SplitFrontier::* splitter_)(vector<SplitNux>, BranchSense*)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
-  defMap(frontier->getDefMap()),
+  interLevel(frontier->getInterLevel()),
   nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
@@ -49,10 +50,10 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 }
 
 
-unique_ptr<BranchSense> SplitFrontier::split() {
+unique_ptr<BranchSense> SplitFrontier::split(CandType& cand) {
   frontierPreset(); // virtual.
   unique_ptr<BranchSense> branchSense = make_unique<BranchSense>(frontier->getBagCount());
-  restageAndSplit(branchSense.get());
+  split(branchSense.get(), cand);
   return branchSense;
 }
 
@@ -64,17 +65,17 @@ PredictorT SplitFrontier::getNCtg() const {
 
 
 const ObsPart* SplitFrontier::getPartition() const {
-  return defMap->getObsPart();
+  return interLevel->getObsPart();
 }
 
 
 IndexT* SplitFrontier::getIdxBuffer(const SplitNux* nux) const {
-  return defMap->getIdxBuffer(nux);
+  return interLevel->getIdxBuffer(nux);
 }
 
 
-ObsCell* SplitFrontier::getPredBase(const SplitNux* nux) const {
-  return defMap->getPredBase(nux);
+Obs* SplitFrontier::getPredBase(const SplitNux* nux) const {
+  return interLevel->getPredBase(nux);
 }
 
 
@@ -98,16 +99,14 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-void SplitFrontier::restageAndSplit(BranchSense* branchSense) {
-  defMap->restage();
+void SplitFrontier::split(BranchSense* branchSense, CandType& cand) {
   runSet = make_unique<RunSet>(this, frame->getNRow());
-  (this->*splitter)(branchSense);
+  (this->*splitter)(move(cand/*interLevel->*/.getCandidates(interLevel, this)), branchSense);
 }
 
 
-IndexT SplitFrontier::addAccumulator(const SplitNux* cand,
-				     const PreCand& preCand) const {
-  PredictorT runCount = frame->isFactor(preCand.mrra.splitCoord.predIdx) ? preCand.stageCount.getRunCount() : 0;
+IndexT SplitFrontier::addAccumulator(const SplitNux* cand) const {
+  PredictorT runCount = frame->isFactor(cand->getPredIdx()) ? cand->getRunCount() : 0;
   return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(this, cand);
 }
 
@@ -148,37 +147,36 @@ IndexT SplitFrontier::getImplicitTrue(const SplitNux* cand) const {
 }
 
 
-IndexRange SplitFrontier::getRange(const MRRA& preCand) const {
-  IndexRange idxRange = frontier->getBufRange(preCand);
-  defMap->adjustRange(preCand, idxRange);
+IndexRange SplitFrontier::getRange(const StagedCell* cell) const {
+  IndexRange idxRange = frontier->getBufRange(cell);
   return idxRange;
 }
 
 
-double SplitFrontier::getSum(const MRRA& preCand) const {
-  return frontier->getSum(preCand);
+double SplitFrontier::getSum(const StagedCell* obsCell) const {
+  return frontier->getSum(obsCell);
 }
 
 
-IndexT SplitFrontier::getSCount(const MRRA& preCand) const {
-  return frontier->getSCount(preCand);
+IndexT SplitFrontier::getSCount(const StagedCell* obsCell) const {
+  return frontier->getSCount(obsCell);
 }
 
 
-double SplitFrontier::getSumSucc(const MRRA& preCand,
+double SplitFrontier::getSumSucc(const StagedCell* obsCell,
 				 bool sense) const {
-  return frontier->getSumSucc(preCand, sense);
+  return frontier->getSumSucc(obsCell, sense);
 }
 
 
-IndexT SplitFrontier::getSCountSucc(const MRRA& preCand,
+IndexT SplitFrontier::getSCountSucc(const StagedCell* obsCell,
 				    bool sense) const {
-  return frontier->getSCountSucc(preCand, sense);
+  return frontier->getSCountSucc(obsCell, sense);
 }
 
 
-IndexT SplitFrontier::getPTId(const MRRA& preCand) const {
-  return frontier->getPTId(preCand);
+IndexT SplitFrontier::getPTId(const StagedCell* obsCell) const {
+  return frontier->getPTId(obsCell);
 }
 
 
@@ -186,7 +184,7 @@ SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter)(BranchSense*)):
+	     void (SplitFrontier::* splitter)(vector<SplitNux>, BranchSense*)):
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   ruMono(vector<double>(0)) {
 }
@@ -244,7 +242,7 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter) (BranchSense*)) :
+	     void (SplitFrontier::* splitter) (vector<SplitNux>, BranchSense*)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),

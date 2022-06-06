@@ -19,7 +19,7 @@
 #include "sumcount.h"
 #include "typeparam.h"
 #include "samplenux.h"
-#include "obscell.h"
+#include "obs.h"
 
 #include <vector>
 
@@ -57,8 +57,8 @@ class SampleObs {
   void bagTrivial(const vector<double>& y,
 		  const vector<PredictorT>& yCtg);
 
-  
- public:
+
+public:
 
   /**
      @brief Static entry for categorical response (classification).
@@ -143,29 +143,16 @@ class SampleObs {
 
      @return true iff row is sampled.
    */
-  bool isSampled(IndexT row,
-		 IndexT& sampleIdx) const {
+  inline bool isSampled(IndexT row,
+			IndexT& sampleIdx,
+			SampleNux& nux) const {
     sampleIdx = row2Sample[row];
-    return sampleIdx < bagCount;
-  }
-  
-  
-  /**
-     @brief Appends a rank entry for row, if sampled.
-
-     @param row is the row number in question.
-
-     @param[in, out] sIdx addresses the sample index, if any, associated with row.
-     @param[in, out] spn is the current sampled rank entry, if any, for row.
-  */
-  inline void joinRank(IndexT row,
-		       IndexT*& sIdx,
-		       class ObsCell*& spn,
-		       IndexT rank) const {
-    IndexT smpIdx;
-    if (isSampled(row, smpIdx)) {
-      *sIdx++ = smpIdx;
-      spn++->join(sampleNux[smpIdx], rank);
+    if (sampleIdx < bagCount) {
+      nux = sampleNux[sampleIdx];
+      return true;
+    }
+    else {
+      return false;
     }
   }
 
@@ -235,7 +222,7 @@ struct SampleReg : public SampleObs {
     sampleNux.emplace_back(yVal, nux);
     return sampleNux.back().getYSum();
   }
-  
+
 
   /**
      @brief Inverts the randomly-sampled vector of rows.

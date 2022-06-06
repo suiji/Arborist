@@ -6,15 +6,15 @@
  */
 
 /**
-   @file obscell.h
+   @file obs.h
 
    @brief Compact observation representation for splitting.
 
    @author Mark Seligman
  */
 
-#ifndef OBS_OBSCELL_H
-#define OBS_OBSCELL_H
+#ifndef OBS_OBS_H
+#define OBS_OBS_H
 
 #include "typeparam.h"
 #include "samplenux.h"
@@ -25,7 +25,7 @@
 /**
    @brief Compact representation for splitting.
  */
-class ObsCell {
+class Obs {
   static IndexT maxSCount;
   static unsigned int ctgBits; // Pack:  nonzero iff categorical.
   static unsigned int ctgMask;

@@ -17,7 +17,6 @@
 
  */
 
-#include "stagecount.h"
 #include "splitnux.h"
 #include "sumcount.h"
 #include "algparam.h"
@@ -42,14 +41,15 @@ class SplitFrontier {
 protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   class Frontier* frontier;  // Current frontier of the partition tree.
-  class DefMap* defMap;
+  class InterLevel* interLevel;
   const PredictorT nPred;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
-  void (SplitFrontier::* splitter)(class BranchSense*); // Splitting method.
-  
+  void (SplitFrontier::* splitter)(vector<class SplitNux> candidate,
+				   class BranchSense*); // Splitting method.
+
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
   
@@ -82,10 +82,10 @@ public:
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_,
 		SplitStyle splitStyle_,
-		void (SplitFrontier::* splitter_)(class BranchSense*));
+		void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense*));
 
 
-  unique_ptr<class BranchSense> split();
+  unique_ptr<class BranchSense> split(CandType& cand);
   
 
   auto getEncodingStyle() const {
@@ -142,8 +142,7 @@ public:
 
      @param cand is the candidate associated to the accumulator.
    */
-  IndexT addAccumulator(const class SplitNux* cand,
-			const class PreCand& preCand) const;
+  IndexT addAccumulator(const class SplitNux* cand) const;
 
 
   /**
@@ -175,7 +174,8 @@ public:
 
      Main entry.
    */
-  void restageAndSplit(class BranchSense* branchSense);
+  void split(class BranchSense* branchSense,
+	     CandType& cand);
 
 
   /**
@@ -185,7 +185,7 @@ public:
 
      @return pointer to beginning of partition associated with the candidate.
    */
-  class ObsCell* getPredBase(const SplitNux* cand) const;
+  class Obs* getPredBase(const SplitNux* cand) const;
 
   
   /**
@@ -252,8 +252,8 @@ public:
 
      @param return pre-bias value.
    */
-  inline double getPreinfo(const MRRA& preCand) const {
-    return nodeInfo[preCand.splitCoord.nodeIdx];
+  inline double getPreinfo(const StagedCell* preCand) const {
+    return nodeInfo[preCand->getNodeIdx()];
   }
 
 
@@ -273,32 +273,32 @@ public:
   /**
      @brief Getter for induced pretree index.
    */
-  IndexT getPTId(const MRRA& preCand) const;
+  IndexT getPTId(const StagedCell* preCand) const;
 
 
   /**
      @brief Pass-through to Frontier getters.
    */
-  double getSum(const MRRA& preCand) const;
+  double getSum(const StagedCell* preCand) const;
 
   
-  IndexT getSCount(const MRRA& preCand) const;
+  IndexT getSCount(const StagedCell* preCand) const;
 
 
   /** Pass-throughs to Frontier methods.
    */
-  double getSumSucc(const MRRA& mrra,
+  double getSumSucc(const StagedCell* mrra,
 		    bool sense) const;
 
   
-  IndexT getSCountSucc(const MRRA& mrra,
+  IndexT getSCountSucc(const StagedCell* mrra,
 		       bool sense) const;
 
   
   /**
      @return SR range of indexed split.
   */
-  IndexRange getRange(const MRRA& preCand) const; 
+  IndexRange getRange(const StagedCell* preCand) const; 
 
 
   /**
@@ -375,7 +375,7 @@ struct SFReg : public SplitFrontier {
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_)(class BranchSense*));
+	void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense*));
 
 
   /**
@@ -426,7 +426,7 @@ public:
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_) (class BranchSense*));
+	void (SplitFrontier::* splitter_) (vector<class SplitNux>, class BranchSense*));
 
   double getScore(const class IndexSet& iSet) const;
 

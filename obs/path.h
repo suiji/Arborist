@@ -33,17 +33,22 @@ class NodePath {
 
   static IndexT noSplit;
   
-  IndexT splitIdx; // < noIndex iff path extinct.
+  IndexT frontIdx; // < noIndex iff path extinct.
   IndexRange bufRange; // buffer target range for path.
   IndexT idxStart; // Node starting position in upcoming level.
 
 public:
 
 
-  NodePath() : splitIdx(noSplit),
+  NodePath() : frontIdx(noSplit),
 	       bufRange(IndexRange()),
 	       idxStart(0) {
   }
+
+
+  void init(const class Frontier* frontier,
+	    const class IndexSet& iSet);
+
   
   /**
      @return maximal path length.
@@ -82,18 +87,7 @@ public:
   static inline bool isActive(unsigned int path) {
     return path != noPath;
   }
-  
-  /**
-     @brief Sets to non-extinct path coordinates.
-   */
-  inline void init(IndexT splitIdx,
-                   const IndexRange& bufRange,
-                   IndexT idxStart) {
-    this->splitIdx = splitIdx;
-    this->bufRange = bufRange;
-    this->idxStart = idxStart;
-  }
-  
+
 
   /**
      @brief Multiple accessor for path coordinates.
@@ -101,14 +95,19 @@ public:
   inline bool getCoords(PredictorT predIdx,
 			SplitCoord& coord,
 			IndexRange& idxRange) const {
-    if (splitIdx == noSplit) {
+    if (frontIdx == noSplit) {
       return false;
     }
     else {
       idxRange = bufRange;
-      coord = SplitCoord(splitIdx, predIdx);
+      coord = SplitCoord(frontIdx, predIdx);
       return true;
     }
+  }
+
+  inline bool getFrontIdx(IndexT& idxOut) const {
+    idxOut = frontIdx;
+    return (frontIdx != noSplit);
   }
 
   
@@ -128,7 +127,7 @@ public:
 
 
   inline IndexT getSplitIdx() const {
-    return splitIdx;
+    return frontIdx;
   }
 };
 

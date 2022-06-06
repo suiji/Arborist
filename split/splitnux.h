@@ -18,7 +18,7 @@
 
 #include "splitcoord.h"
 #include "sumcount.h"
-#include "mrra.h"
+#include "stagedcell.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -34,7 +34,7 @@ class SplitNux {
   static constexpr double minRatioDefault = 0.0;
   static double minRatio;
 
-  MRRA mrra; // Cell coordinates of pre-cand; delIdx implicitly zero.
+  const StagedCell* cell; // Copied from PreCand.
   uint32_t randVal;
   IndexT implicitCount; // Extracted from StageCount; rank count to accumulator.
   IndexRange idxRange; // ObsCell index range of cell column.
@@ -92,7 +92,7 @@ public:
      @brief Trivial constructor. 'info' value of 0.0 ensures ignoring.
   */  
   SplitNux() :
-    mrra(MRRA()),
+    cell(nullptr),
     randVal(0),
     implicitCount(0),
     accumIdx(0),
@@ -149,7 +149,8 @@ public:
   /**
      @brief Pre-split constructor.
    */
-  SplitNux(const class PreCand& preCand,
+  SplitNux(const StagedCell* cell_,
+	   double randVal_,
 	   const class SplitFrontier* splitFrontier);
 
 
@@ -205,21 +206,26 @@ public:
     return ptId;
   }
 
+
+  auto getRunCount() const {
+    return cell->getRunCount();
+  }
   
+
   auto getPredIdx() const {
-    return mrra.splitCoord.predIdx;
+    return cell->getPredIdx();
   }
 
   auto getNodeIdx() const {
-    return mrra.splitCoord.nodeIdx;
+    return cell->getNodeIdx();
   }
   
-  auto getMRRA() const {
-    return mrra;
+  auto getStagedCell() const {
+    return cell;
   }
 
   auto getBufIdx() const {
-    return mrra.bufIdx;
+    return cell->bufIdx;
   }
   
   auto getAccumIdx() const {
@@ -241,7 +247,7 @@ public:
      @brief Indicates whether this is an empty placeholder.
    */
   inline bool noNux() const {
-    return mrra.splitCoord.noCoord();
+    return cell == nullptr || cell->coord.noCoord();
   }
 
 

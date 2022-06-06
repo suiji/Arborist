@@ -16,11 +16,13 @@
 #ifndef OBS_LAYOUT_H
 #define OBS_LAYOUT_H
 
+#include "typeparam.h"
+#include "rleframe.h"
+
+
 #include <vector>
 
 using namespace std;
-
-#include "typeparam.h"
 
 /**
    @brief Characterizes predictor contents via implicit rank and explicit count.
@@ -70,30 +72,7 @@ class Layout {
   ImplExpl setDense(const class TrainFrame* trainFrame,
 		    PredictorT predIdx);
 
-  /**
-     @brief Computes conservative offset for storing predictor-based
-     information.
 
-     @param predIdx is the predictor index.
-
-     @param bagCount serves as a multiplier for strided access.
-
-     @return safe range.
-  */
-  IndexRange getSafeRange(PredictorT predIdx,
-			  IndexT bagCount) const;
-
-
-  /**
-     @brief Stages ObsPart objects in non-decreasing predictor order.
-
-     @param predIdx is the predictor index.
-  */
-  struct StageCount stage(const class SampleObs* sample,
-			  class ObsPart* obsPart,
-			  PredictorT predIdx) const;
-
-  
 public:
 
   /**
@@ -133,6 +112,20 @@ public:
   inline IndexT getNoRank() const {
     return noRank;
   }
+
+
+  /**
+     @brief Computes conservative offset for storing predictor-based
+     information.
+
+     @param predIdx is the predictor index.
+
+     @param bagCount serves as a multiplier for strided access.
+
+     @return safe range.
+  */
+  IndexRange getSafeRange(PredictorT predIdx,
+			  IndexT bagCount) const;
 
 
   /**
@@ -184,14 +177,7 @@ public:
     return denseIdx;
   }
 
-
-  /**
-     @brief Loops through the predictors to stage.
-
-     @return count of expclicit entries in ObsCell buffer.
-  */
-  vector<struct StageCount> stage(const class SampleObs* sample,
-				  class ObsPart* obsPart) const;
+  const vector<RLEVal<unsigned int>>& getRLE(PredictorT predIdx) const;
 };
 
 

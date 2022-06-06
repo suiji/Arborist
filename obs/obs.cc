@@ -6,28 +6,28 @@
  */
 
 /**
-   @file obscell.cc
+   @file obs.cc
 
    @brief Methods to set and unset observation cell packing parameters.
 
    @author Mark Seligman
  */
 
-#include "obscell.h"
+#include "obs.h"
 
-IndexT ObsCell::maxSCount = 0;
-unsigned int ObsCell::ctgBits = 0;
-unsigned int ObsCell::ctgMask = 0;
-unsigned int ObsCell::multBits = 0;
-unsigned int ObsCell::multMask = 0;
+IndexT Obs::maxSCount = 0;
+unsigned int Obs::ctgBits = 0;
+unsigned int Obs::ctgMask = 0;
+unsigned int Obs::multBits = 0;
+unsigned int Obs::multMask = 0;
 
-double ObsCell::scale = 1.0;
-double ObsCell::recipScale = 1.0;
+double Obs::scale = 1.0;
+double Obs::recipScale = 1.0;
 
   /**
      @brief Sets internal packing parameters.
    */
-void ObsCell::setShifts(IndexT maxSCount_,
+void Obs::setShifts(IndexT maxSCount_,
 			unsigned int ctgBits_,
 		        unsigned int multBits_) {
   maxSCount = maxSCount_;
@@ -38,7 +38,7 @@ void ObsCell::setShifts(IndexT maxSCount_,
 }
 
 
-void ObsCell::setScale(double yMax) {
+void Obs::setScale(double yMax) {
   scale = (yMax * maxSCount) / 0.49;
   if (scale < 1.0)
     scale = 1.0;
@@ -46,7 +46,7 @@ void ObsCell::setScale(double yMax) {
 }
 
 
-void ObsCell::deImmutables() {
+void Obs::deImmutables() {
   maxSCount = ctgBits = multBits = multMask = ctgMask = 0;
   scale = recipScale = 1.0;
 }

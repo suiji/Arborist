@@ -53,17 +53,5 @@ struct SplitCoord {
   inline size_t strideOffset(unsigned int stride) const {
     return nodeIdx * stride + predIdx;
   }
-
-  
-  /**
-     @brief Scales node index to account for multi-level binary splitting.
-
-     @param del is a specified number of back levels.
-
-     @return node index scaled by level difference.
-   */
-  inline size_t backScale(unsigned int del) const {
-    return nodeIdx << del;
-  }
 };
 #endif

@@ -33,7 +33,7 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
 
 
 unique_ptr<Residual> CutAccumReg::makeResidual(const SplitNux* cand,
-					       const ObsCell spn[]) {
+					       const Obs spn[]) {
   if (cand->getImplicitCount() == 0) {
     return make_unique<Residual>();
   }

@@ -14,12 +14,18 @@
  */
 
 #include "candrf.h"
-#include "defmap.h"
-#include "prng.h"
+#include "interlevel.h"
+#include "frontier.h"
 
 
 PredictorT CandRF::predFixed = 0;
 vector<double> CandRF::predProb;
+
+
+CandRF::CandRF(InterLevel* interLevel) :
+  Cand(interLevel) {
+}
+
 
 
 void CandRF::init(PredictorT feFixed,
@@ -37,58 +43,12 @@ void CandRF::deInit() {
 }
 
 
-void CandRF::precandidates(DefMap* defMap) {
-// TODO:  Preempt overflow by walking wide subtrees depth-nodeIdx.
+void CandRF::precandidates(Frontier* frontier,
+			   InterLevel* interLevel) {
   if (predFixed == 0) {
-    candidateProb(defMap);
+    candidateBernoulli(frontier, interLevel, predProb);
   }
   else {
-    candidateFixed(defMap);
-  }
-}
-
-
-void CandRF::candidateProb(DefMap* defMap) {
-  IndexT splitCount = defMap->getNSplit();
-  PredictorT nPred = defMap->getNPred();
-
-  vector<double> ruPred = PRNG::rUnif(splitCount * nPred);
-  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    if (defMap->isUnsplitable(splitIdx)) { // Node cannot split.
-      continue;
-    }
-    IndexT ruOff = splitIdx * nPred;
-    for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
-      if (ruPred[ruOff] < predProb[predIdx]) {
-	(void) defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[ruOff]);
-      }
-      ruOff++;
-    }
-  }
-}
-
-void CandRF::candidateFixed(DefMap* defMap) {
-  IndexT splitCount = defMap->getNSplit();
-  PredictorT nPred = defMap->getNPred();
-  vector<double> ruPred = PRNG::rUnif(splitCount * nPred);
-
-  for (IndexT splitIdx = 0; splitIdx < splitCount; splitIdx++) {
-    if (defMap->isUnsplitable(splitIdx)) { // Node cannot split.
-      continue;
-    }
-    vector<PredictorT> predRand(nPred);
-    iota(predRand.begin(), predRand.end(), 0);
-    IndexT ruOff = splitIdx * nPred;
-    PredictorT schedCount = 0;
-    for (PredictorT predTop = nPred; predTop != 0; predTop--) {
-      PredictorT idxRand = predTop * ruPred[ruOff];
-      PredictorT predIdx = exchange(predRand[idxRand], predRand[predTop-1]);
-      if (defMap->preschedule(SplitCoord(splitIdx, predIdx), ruPred[ruOff])) {
-	if (++schedCount == predFixed) {
-	  break;
-	}
-      }
-      ruOff++;
-    }
+    candidateFixed(frontier, interLevel, predFixed);
   }
 }

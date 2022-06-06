@@ -20,30 +20,29 @@
 #include "typeparam.h"
 
 #include <vector>
-#include <numeric>
-#include <algorithm>
 
+/**
+   Candidate selection for Random Forest algorithm.
+ */
 struct CandRF : public Cand {
-  static void
-  init(PredictorT feFixed,
-       const vector<double>& feProb);
 
-  static void
-  deInit();
+  CandRF(class InterLevel* interLevel);
 
-  static void precandidates(class DefMap* defMap);
+  
+  static void init(PredictorT feFixed,
+		   const vector<double>& feProb);
+
+  static void deInit();
+
+  
+  void precandidates(class Frontier* frontier,
+		     class InterLevel* interLevel);
 
 
 private:
   // Predictor sampling paraemters.
   static PredictorT predFixed;
   static vector<double> predProb;
-
-
-  static void candidateProb(class DefMap* defMap);
-
-
-  static void candidateFixed(class DefMap* defMap);
 };
 
 #endif

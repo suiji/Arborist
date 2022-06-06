@@ -14,13 +14,15 @@
  */
 
 #include "frontier.h"
+#include "algparam.h"
+#include "obsfrontier.h"
 #include "indexset.h"
 #include "trainframe.h"
 #include "sampleobs.h"
 #include "sampler.h"
 #include "train.h"
 #include "splitfrontier.h"
-#include "defmap.h"
+#include "interlevel.h"
 #include "ompthread.h"
 #include "branchsense.h"
 
@@ -51,28 +53,48 @@ Frontier::Frontier(const TrainFrame* frame_,
   sample(sampler->rootSample(tIdx)),
   bagCount(sample->getBagCount()),
   nCtg(sample->getNCtg()),
-  defMap(make_unique<DefMap>(frame, this)),
+  interLevel(make_unique<InterLevel>(frame, this)),
   pretree(make_unique<PreTree>(frame, bagCount)),
-  smTerminal(SampleMap(bagCount)),
-  smNonterm(SampleMap(bagCount)) {
-  smNonterm.addNode(bagCount, 0);
-  iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);
+  smTerminal(SampleMap(bagCount)) {
   frontierNodes.emplace_back(sample.get());
 }
 
 
 unique_ptr<PreTree> Frontier::levels() {
-  unsigned int level = 0;
+  smNonterm = SampleMap(bagCount);
+  smNonterm.addNode(bagCount, 0);
+  iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);
   while (!frontierNodes.empty()) {
-    earlyExit(level);
-    defMap->setPrecandidates(sample.get(), level++);
-    splitFrontier = SplitFactoryT::factory(this);
-    unique_ptr<BranchSense> branchSense = splitFrontier->split();
-    frontierNodes = splitDispatch(branchSense.get());
+    smNonterm = splitDispatch();
+    frontierNodes = interLevel->overlap(this, smNonterm, frontierNodes);
   }
   pretree->setTerminals(move(smTerminal));
 
   return move(pretree);
+}
+
+
+SampleMap Frontier::splitDispatch() {
+  earlyExit(interLevel->getLevel());
+  CandType cand(interLevel.get());
+  cand.precandidates(this, interLevel.get());
+
+  interLevel->repartition(this, sample.get());
+  splitFrontier = SplitFactoryT::factory(this);
+  unique_ptr<BranchSense> branchSense = splitFrontier->split(cand);
+  SampleMap smNext = surveySplits();
+
+  ObsFrontier* cellFrontier = interLevel->getFront();
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+    for (OMPBound splitIdx = 0; splitIdx < frontierNodes.size(); splitIdx++) {
+      setScore(splitIdx);
+      cellFrontier->updateMap(getNode(splitIdx), branchSense.get(), smNonterm, smTerminal, smNext);
+    }
+  }
+
+  return smNext;
 }
 
 
@@ -85,30 +107,20 @@ void Frontier::earlyExit(unsigned int level) {
 }
 
 
-vector<IndexSet> Frontier::splitDispatch(const BranchSense* branchSense) {
-  SampleMap smNext = surveySplits(frontierNodes);
-  defMap->nextLevel(branchSense, smNonterm, smTerminal, smNext);
-  smNonterm = move(smNext);
-
-  return produce();
-}
-
-
 vector<IndexSet> Frontier::produce() const {
   vector<IndexSet> frontierNext;
   for (auto iSet : frontierNodes) {
     if (!iSet.isTerminal()) {
       frontierNext.emplace_back(this, iSet, true);
-      defMap->reachingPath(frontierNext.back(), iSet);
       frontierNext.emplace_back(this, iSet, false);
-      defMap->reachingPath(frontierNext.back(), iSet);
     }
   }
+
   return frontierNext;
 }
 
 
-SampleMap Frontier::surveySplits(vector<IndexSet>& frontierNodes) {
+SampleMap Frontier::surveySplits() {
   SampleMap smNext;
   for (auto & iSet : frontierNodes) {
     registerSplit(iSet, smNext);

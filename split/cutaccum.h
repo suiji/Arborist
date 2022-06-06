@@ -198,7 +198,7 @@ public:
      @return new residual based on the current splitting data set.
    */
   unique_ptr<Residual> makeResidual(const class SplitNux* cand,
-                                          const class ObsCell spn[]);
+                                          const class Obs spn[]);
 
 };
 
@@ -208,9 +208,9 @@ public:
  */
 struct CutSig {
   // In CART-like implementations, idxLeft and idxRight are adjacent.
-  IndexT idxLeft; // sup of left ObsCell indices.
-  IndexT idxRight;  // inf of right ObsCell indices.
-  IndexT implicitTrue; // # implicit ObsCell indices associated with true sense.
+  IndexT idxLeft; // sup of left Obs indices.
+  IndexT idxRight;  // inf of right Obs indices.
+  IndexT implicitTrue; // # implicit Obs indices associated with true sense.
   double quantRank; // Interpolated cut rank.
   bool cutLeft; // True iff cut encodes left portion.
 

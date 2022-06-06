@@ -13,16 +13,17 @@
    @author Mark Seligman
  */
 
-#ifndef FRONTIER_PARTITION_H
-#define FRONTIER_PARTITION_H
+#ifndef OBS_PARTITION_H
+#define OBS_PARTITION_H
 
 
+#include "stagedcell.h"
 #include "splitnux.h"
 #include "typeparam.h"
 
 #include <vector>
 
-#include "obscell.h" // Temporary
+#include "obs.h" // Temporary
 
 
 /**
@@ -40,9 +41,9 @@ class ObsPart {
   const IndexT bufferSize; // <= nRow * nPred.
 
   vector<PathT> pathIdx;
-  ObsCell* obsCell;
+  Obs* obsCell;
 
-  // 'indexBase' could be boxed with ObsCell.  While it is used in
+  // 'indexBase' could be boxed with Obs.  While it is used in
   // both replay and restaging, though, it plays no role in splitting.
   // Maintaining a separate vector permits a 16-byte stride to be
   // used for splitting.  More significantly, it reduces memory
@@ -60,46 +61,8 @@ class ObsPart {
  public:
 
   ObsPart(const class Layout* frame, IndexT bagCount_);
+
   virtual ~ObsPart();
-
-  
-  /**
-     @brief Localizes copies of the paths to each index position.
-
-     Also localizes index positions themselves, if in a node-relative regime.
-
-     @param idxPath is either a node- or a root-relative path vector.
-
-     @param reachBase non-null iff both invoking layers node-relative.
-
-     @param idxUpdate is true iff the index is to be updated.
-
-     @param startIdx is the beginning index of the cell.
-
-     @param extent is the count of indices in the cell.
-
-     @param pathMask mask the relevant bits of the path value.
-
-     @param idxVec inputs the index offsets, relative either to the
-     current subtree or the containing node and may output an updated
-     value.
-
-     @param[out] prePath outputs the (masked) path reaching the current index.
-
-     @param pathCount enumerates the number of times a path is hit.  Only
-     client is currently dense packing.
-  */
-  vector<IndexT> prepath(const class DefFrontier* dfAncestor,
-			 const class DefFrontier* dfCurrent,
-			 const MRRA& mrra);
-
-
-  /**
-     @brief Restages and tabulates rank counts.
-  */
-  vector<IndexT> rankRestage(const class DefFrontier* layer,
-			     const MRRA& defCoord,
-			     vector<IndexT>& reachOffset);
 
 
   /**
@@ -108,10 +71,10 @@ class ObsPart {
   IndexT* getIdxBuffer(const class SplitNux* nux) const;
 
 
-  ObsCell* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
+  Obs* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
 
 
-  ObsCell* getPredBase(const class SplitNux* nux) const;
+  Obs* getPredBase(const class SplitNux* nux) const;
   
   
   inline IndexT getBagCount() const {
@@ -136,6 +99,11 @@ class ObsPart {
   }
 
 
+  PathT* getPathBlock(PredictorT predIdx) {
+    return &pathIdx[getStageOffset(predIdx)];
+  }
+
+  
   // The category could, alternatively, be recorded in an object subclassed
   // under class ObsPart.  This would require that the value be restaged,
   // which happens for all predictors at all splits.  It would also require
@@ -166,122 +134,74 @@ class ObsPart {
   }
 
 
-  inline IndexT bufferOff(const MRRA& defCoord,
+  inline IndexT bufferOff(const StagedCell* mrra,
 			  bool comp = false) const {
-    return bufferOff(defCoord.splitCoord.predIdx, comp ? defCoord.compBuffer() : defCoord.bufIdx);
+    return bufferOff(mrra->getPredIdx(), comp ? mrra->compBuffer() : mrra->bufIdx);
   }
 
-
-  /**
-     @return base of the index buffer.
-   */
-  inline IndexT* idxBuffer(const MRRA& mrra) const {
-    return indexBase + bufferOff(mrra);
+  
+  inline IndexT* idxBuffer(const StagedCell* ancestor) const {
+    return indexBase + bufferOff(ancestor);
   }
 
 
   /**
      @return base of node buffer.
    */
-  inline ObsCell *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
+  inline Obs *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
     return obsCell + bufferOff(predIdx, bufBit);
   }
   
   
   /**
    */
-  inline ObsCell* buffers(PredictorT predIdx,
-			  unsigned int bufBit,
-			  IndexT*& sIdx) const {
+  inline Obs* buffers(PredictorT predIdx,
+		      unsigned int bufBit,
+		      IndexT*& sIdx) const {
     IndexT offset = bufferOff(predIdx, bufBit);
     sIdx = indexBase + offset;
     return obsCell + offset;
   }
 
 
-  inline IndexT* indexBuffer(const MRRA& defCoord) const {
-    return indexBase + bufferOff(defCoord.splitCoord.predIdx, defCoord.bufIdx);
+  inline IndexT* indexBuffer(const StagedCell* mrra) const {
+    return indexBase + bufferOff(mrra->getPredIdx(), mrra->bufIdx);
   }
 
 
-  /**
-     @brief Passes through to above after looking up splitting parameters.
-   */
-  ObsCell* buffers(const MRRA& defCoord,
-                      IndexT*& sIdx) const {
-    return buffers(defCoord.splitCoord.predIdx, defCoord.bufIdx, sIdx);
+  Obs* buffers(const StagedCell* mrra,
+	       IndexT*& sIdx) const {
+    return buffers(mrra->getPredIdx(), mrra->bufIdx, sIdx);
   }
 
 
-  /**
-     @brief Allows lightweight lookup of predictor's ObsCell vector.
-
-     @param bufBit is the containing buffer, currently 0/1.
- 
-     @param predIdx is the predictor index.
-
-     @return node vector section for this predictor.
-   */
-  ObsCell* getPredBase(const MRRA& defCoord) const {
-    return obsCell + bufferOff(defCoord);
+  Obs* getPredBase(const StagedCell* mrra) const {
+    return obsCell + bufferOff(mrra);
   }
   
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline ObsCell* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
+  inline Obs* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
     return obsCell + bufferOff(predIdx, bufBit);
   }
 
 
-  inline void buffers(const MRRA& mrra,
-		      ObsCell*& source,
+  inline void buffers(const StagedCell* mrra,
+		      Obs*& source,
 		      IndexT*& sIdxSource,
-		      ObsCell*& targ,
+		      Obs*& targ,
 		      IndexT*& sIdxTarg) {
-    source = buffers(mrra.splitCoord.predIdx, mrra.bufIdx, sIdxSource);
-    targ = buffers(mrra.splitCoord.predIdx, mrra.compBuffer(), sIdxTarg);
+    source = buffers(mrra->getPredIdx(), mrra->bufIdx, sIdxSource);
+    targ = buffers(mrra->getPredIdx(), mrra->compBuffer(), sIdxTarg);
   }
 
-  
-  // To coprocessor subclass:
-  inline void indexBuffers(const MRRA& mrra,
+
+  inline void indexBuffers(const StagedCell* mrra,
                            IndexT*& sIdxSource,
                            IndexT*& sIdxTarg) {
     sIdxSource = indexBase + bufferOff(mrra);
     sIdxTarg = indexBase + bufferOff(mrra, true);
-  }
-
-
-  /**
-     @brief Counts the number of explicit distinct ranks in a buffer.
-
-     @param predIdx is the predictor index.
-
-     @param bufIdx is the buffer index.
-
-     @param rankPrev initializess the previous rank being tracked,
-     
-     @param idxExpl is the (explicit) buffer extent.
-
-     @return count of distinct explicit ranks in buffer.
-   */
-  IndexT countRanks(PredictorT predIdx,
-		    unsigned int bufIdx,
-		    IndexT rankPrev,
-		    IndexT idxExpl) const;
-
-
-  // TODO:  Move somewhere appropriate.
-  /**
-     @brief Finds the smallest power-of-two multiple >= 'count'.
-
-     @param count is the size to align.
-
-     @return alignment size.
-   */
-  static constexpr unsigned int alignPow(unsigned int count, unsigned int pow) {
-    return ((count + (1 << pow) - 1) >> pow) << pow;
   }
 };
 

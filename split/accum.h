@@ -17,7 +17,7 @@
 #include "typeparam.h"
 
 struct Accum {
-  const class ObsCell* obsCell;
+  const class Obs* obsCell;
   const IndexT* sampleIndex;
   const IndexT rankDense; // Rank of dense value, if any.
   const IndexT idxStart;// Low terminus.
@@ -90,7 +90,7 @@ struct Accum {
 
 
   /**
-     @brief Walks ObsCell index range in specified direction to match given branch sens.
+     @brief Walks Obs index range in specified direction to match given branch sens.
 
      @param branchSense encodes branch sense for each SR index.
 

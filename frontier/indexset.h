@@ -189,8 +189,8 @@ public:
                      bool trueBranch) const;
 
 
-  PathT getPath() const {
-    return path;
+  PathT getPath(unsigned int mask) const {
+    return path & mask;
   }
 
   

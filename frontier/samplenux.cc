@@ -18,7 +18,7 @@
 
 #include "samplenux.h"
 #include "sumcount.h"
-#include "obscell.h"
+#include "obs.h"
 
 
 unsigned int SampleNux::ctgBits = 0;
@@ -53,7 +53,7 @@ void SampleNux::setShifts(PredictorT nCtg,
   rightBits = ctgBits + multBits;
   rightMask = (1ul << rightBits) - 1;
 
-  ObsCell::setShifts(maxSCount, ctgBits, multBits);
+  Obs::setShifts(maxSCount, ctgBits, multBits);
 }
 
 
@@ -64,5 +64,5 @@ void SampleNux::deImmutables() {
   rightBits = 0;
   rightMask = 0;
 
-  ObsCell::deImmutables();
+  Obs::deImmutables();
 }

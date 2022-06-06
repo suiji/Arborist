@@ -4,7 +4,7 @@
 #include "splitnux.h"
 #include "branchsense.h"
 #include "partition.h"
-#include "obscell.h"
+#include "obs.h"
 
 CritEncoding::CritEncoding(const SplitFrontier* sf, const SplitNux& nux_, bool incr) :
   sum(0.0), sCount(0), extent(0), nux(nux_), scCtg(vector<SumCount>(sf->getNCtg())), implicitTrue(sf->getImplicitTrue(&nux)), increment(incr), exclusive(sf->getCompound()), style(sf->getEncodingStyle()) {
@@ -81,7 +81,7 @@ void CritEncoding::branchUpdate(const ObsPart* obsPart,
 				const IndexRange& range,
 				BranchSense* branchSense) {
   IndexT* sIdx;
-  ObsCell* spn = obsPart->getBuffers(nux, sIdx);
+  Obs* spn = obsPart->getBuffers(nux, sIdx);
   if (increment) {
     branchSet(sIdx, spn, range, branchSense);
   }
@@ -92,7 +92,7 @@ void CritEncoding::branchUpdate(const ObsPart* obsPart,
 
 
 void CritEncoding::branchSet(IndexT* sIdx,
-			     ObsCell* spn,
+			     Obs* spn,
 			     const IndexRange& range,
 			     BranchSense *branchSense) {
   // Encodes iff explicit state has been reset.
@@ -114,7 +114,7 @@ void CritEncoding::branchSet(IndexT* sIdx,
 
 
 void CritEncoding::branchUnset(IndexT* sIdx,
-			       ObsCell* spn,
+			       Obs* spn,
 			       const IndexRange& range,
 			       BranchSense* branchSense) {
   if (exclusive) {
@@ -134,6 +134,6 @@ void CritEncoding::branchUnset(IndexT* sIdx,
 }
 
 
-void CritEncoding::encode(const ObsCell& obs) {
+void CritEncoding::encode(const Obs& obs) {
   accum(obs.getYSum(), obs.getSCount(), obs.getCtg());
 }

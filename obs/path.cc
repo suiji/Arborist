@@ -16,6 +16,7 @@
 
 #include <numeric>
 
+#include "frontier.h"
 #include "path.h"
 
 IndexT NodePath::noSplit = 0;
@@ -30,6 +31,17 @@ IdxPath::IdxPath(IndexT idxLive_) :
   idxLive(idxLive_),
   smIdx(vector<IndexT>(idxLive)),
   pathFront(vector<PathT>(idxLive)) {
-  //  offFront(vector<uint_least16_t>(idxLive)) { 
   iota(smIdx.begin(), smIdx.end(), 0);
 }
+
+
+/**
+     @brief Sets to non-extinct path coordinates.
+   */
+void NodePath::init(const Frontier* frontier, const IndexSet& iSet) {
+  frontIdx = iSet.getSplitIdx();
+  bufRange = iSet.getBufRange();
+  idxStart = frontier->idxStartUpcoming(iSet);
+}
+  
+
