@@ -21,7 +21,7 @@
 #include "pretree.h"
 #include "indexset.h"
 #include "typeparam.h"
-#include "stagedcell.h"//"obscell.h"
+#include "stagedcell.h"
 
 #include <algorithm>
 #include <vector>
@@ -143,7 +143,7 @@ public:
      @brief Updates both index set and pretree states for a set of simple splits.
    */
   void updateSimple(const vector<class SplitNux>& nuxMax,
-		    class BranchSense* branchSense);
+		    class BranchSense& branchSense);
 
 
   /**
@@ -154,6 +154,12 @@ public:
 
   void setScore(IndexT splitIdx) const;
 
+  
+  /**
+     @return end position of nonterminal map.
+   */
+  IndexT getNonterminalEnd() const;
+  
 
   const vector<IndexSet>& getNodes() const {
     return frontierNodes;
@@ -192,7 +198,7 @@ public:
 
      @param stPath is a subtree-relative path.
   */
-  void stReindex(const class BranchSense* branchSense,
+  void stReindex(const class BranchSense& branchSense,
                  IndexT splitNext,
                  IndexT chunkStart,
                  IndexT chunkNext);
@@ -228,18 +234,6 @@ public:
     return frontierNodes[nodeIdx].getBufRange();
   }
   
-
-  /**
-     @brief Obtains the IndexRange for a splitting candidate's location.
-
-     @param mrra contains candidate's coordinate.
-
-     @return index range of referenced split coordinate.
-   */
-  IndexRange getBufRange(const StagedCell* mrra) const {
-    return frontierNodes[mrra->getNodeIdx()].getBufRange();
-  }
-
 
   auto getInterLevel() const {
     return interLevel.get();

@@ -24,9 +24,9 @@ IndexT RunNux::noStart = 0;
 
 RunSet::RunSet(const SplitFrontier* sf,
 	       IndexT nRow) :
-  style(sf->getFactorStyle()) {
+  style(sf->getFactorStyle()),
+  wideRuns(0) {
   RunNux::noStart = nRow; // Inattainable start value, irrespective of tree.
-  setOffsets(sf);
 }
 
 
@@ -34,24 +34,17 @@ IndexT RunSet::addRun(const SplitFrontier* splitFrontier,
 		      const SplitNux* cand,
 		      PredictorT rc) {
   runAccum.emplace_back(splitFrontier, cand, style, rc);
+  wideRuns += runAccum.back().countWide();
   return runAccum.size() - 1; // Top position.
 }
 
 
 void RunSet::setOffsets(const SplitFrontier* sf) {
-  if (runAccum.empty() || sf->getNCtg() == 0)
+  if (wideRuns == 0 || sf->getNCtg() <= 2)
     return;
-
-  IndexT rvRuns = 0;
-  for (auto accum : runAccum) {
-    rvRuns += accum.countWide();
-  }
-  if (rvRuns == 0) {
-    return;
-  }
 
   // Economizes by pre-allocating random variates for entire frontier.
-  rvWide = PRNG::rUnif(rvRuns);
+  rvWide = PRNG::rUnif(wideRuns);
   IndexT rvOff = 0;
   for (auto & accum : runAccum) {
     accum.reWide(rvWide, rvOff);

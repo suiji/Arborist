@@ -66,7 +66,9 @@ unique_ptr<PreTree> Frontier::levels() {
   iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);
   while (!frontierNodes.empty()) {
     smNonterm = splitDispatch();
-    frontierNodes = interLevel->overlap(this, smNonterm, frontierNodes);
+    vector<IndexSet> frontierNext = produce();
+    interLevel->overlap(frontierNodes, frontierNext, getNonterminalEnd());
+    frontierNodes = move(frontierNext);
   }
   pretree->setTerminals(move(smTerminal));
 
@@ -76,12 +78,11 @@ unique_ptr<PreTree> Frontier::levels() {
 
 SampleMap Frontier::splitDispatch() {
   earlyExit(interLevel->getLevel());
-  CandType cand(interLevel.get());
-  cand.precandidates(this, interLevel.get());
 
-  interLevel->repartition(this, sample.get());
+  CandType cand = interLevel->repartition(this, sample.get());
   splitFrontier = SplitFactoryT::factory(this);
-  unique_ptr<BranchSense> branchSense = splitFrontier->split(cand);
+  BranchSense branchSense(bagCount);
+  splitFrontier->split(cand, branchSense);
   SampleMap smNext = surveySplits();
 
   ObsFrontier* cellFrontier = interLevel->getFront();
@@ -90,7 +91,7 @@ SampleMap Frontier::splitDispatch() {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < frontierNodes.size(); splitIdx++) {
       setScore(splitIdx);
-      cellFrontier->updateMap(getNode(splitIdx), branchSense.get(), smNonterm, smTerminal, smNext);
+      cellFrontier->updateMap(getNode(splitIdx), branchSense, smNonterm, smTerminal, smNext);
     }
   }
 
@@ -156,6 +157,11 @@ void Frontier::registerNonterminal(IndexSet& iSet, SampleMap& smNext) {
 }
 
 
+IndexT Frontier::getNonterminalEnd() const {
+  return smNonterm.getEndIdx();
+}
+
+
 void Frontier::setScore(IndexT splitIdx) const {
   pretree->setScore(splitFrontier.get(), frontierNodes[splitIdx]);
 }
@@ -167,7 +173,7 @@ IndexT Frontier::getPTIdSucc(IndexT ptId, bool senseTrue) const {
 
 
 void Frontier::updateSimple(const vector<SplitNux>& nuxMax,
-			    BranchSense* branchSense) {
+			    BranchSense& branchSense) {
   IndexT splitIdx = 0;
   for (auto nux : nuxMax) {
     if (!nux.noNux()) {

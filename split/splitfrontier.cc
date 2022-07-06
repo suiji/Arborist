@@ -35,26 +35,28 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
 			     SplitStyle splitStyle_,
-			     void (SplitFrontier::* splitter_)(vector<SplitNux>, BranchSense*)) :
+			     void (SplitFrontier::* splitter_)(vector<SplitNux>, BranchSense&)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
   interLevel(frontier->getInterLevel()),
+  ofFront(interLevel->getFront()),
   nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
   splitStyle(splitStyle_),
   nSplit(frontier->getNSplit()),
   splitter(splitter_),
+  runSet(make_unique<RunSet>(this, frame->getNRow())),
   cutSet(make_unique<CutSet>()),
   nodeInfo(vector<double>(nSplit)) {
 }
 
 
-unique_ptr<BranchSense> SplitFrontier::split(CandType& cand) {
+void SplitFrontier::split(CandType& cand,
+			  BranchSense& branchSense) {
+  runSet->setOffsets(this);
   frontierPreset(); // virtual.
-  unique_ptr<BranchSense> branchSense = make_unique<BranchSense>(frontier->getBagCount());
-  split(branchSense.get(), cand);
-  return branchSense;
+  (this->*splitter)(move(cand.getCandidates(interLevel, this)), branchSense);
 }
 
 
@@ -99,12 +101,6 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-void SplitFrontier::split(BranchSense* branchSense, CandType& cand) {
-  runSet = make_unique<RunSet>(this, frame->getNRow());
-  (this->*splitter)(move(cand/*interLevel->*/.getCandidates(interLevel, this)), branchSense);
-}
-
-
 IndexT SplitFrontier::addAccumulator(const SplitNux* cand) const {
   PredictorT runCount = frame->isFactor(cand->getPredIdx()) ? cand->getRunCount() : 0;
   return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(this, cand);
@@ -121,9 +117,14 @@ RunDump SplitFrontier::dumpRun(PredictorT accumIdx) const {
 }
 
 
+const IndexT* SplitFrontier::getRankBase(const SplitNux* nux) const {
+  return ofFront->getRankBase(nux->getStagedCell());
+}
+
+
 void SplitFrontier::writeCut(const SplitNux* nux,
 			     const CutAccum* accum) const {
-  cutSet->write(nux, accum);
+  cutSet->write(ofFront, nux, accum);
 }
 
 
@@ -144,12 +145,6 @@ IndexT SplitFrontier::getIdxLeft(const SplitNux* nux) const {
 
 IndexT SplitFrontier::getImplicitTrue(const SplitNux* cand) const {
   return cand->isFactor(this) ? runSet->getImplicitTrue(cand) : cutSet->getImplicitTrue(cand);
-}
-
-
-IndexRange SplitFrontier::getRange(const StagedCell* cell) const {
-  IndexRange idxRange = frontier->getBufRange(cell);
-  return idxRange;
 }
 
 
@@ -184,7 +179,7 @@ SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter)(vector<SplitNux>, BranchSense*)):
+	     void (SplitFrontier::* splitter)(vector<SplitNux>, BranchSense&)):
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   ruMono(vector<double>(0)) {
 }
@@ -242,7 +237,7 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter) (vector<SplitNux>, BranchSense*)) :
+	     void (SplitFrontier::* splitter) (vector<SplitNux>, BranchSense&)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),
@@ -282,7 +277,7 @@ const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
 
 
 void SplitFrontier::maxSimple(const vector<SplitNux>& sc,
-			      BranchSense* branchSense) {
+			      BranchSense& branchSense) {
   frontier->updateSimple(maxCandidates(groupCand(sc)), branchSense);
 }
 
@@ -314,7 +309,7 @@ vector<vector<SplitNux>> SplitFrontier::groupCand(const vector<SplitNux>& cand) 
 
 
 CritEncoding SplitFrontier::splitUpdate(const SplitNux& nux,
-					BranchSense* branchSense,
+					BranchSense& branchSense,
 					const IndexRange& range,
 					bool increment) const {
   accumUpdate(nux);

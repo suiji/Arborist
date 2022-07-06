@@ -14,11 +14,12 @@
  */
 
 #include "obs.h"
+#include "splitnux.h"
+
 
 IndexT Obs::maxSCount = 0;
-unsigned int Obs::ctgBits = 0;
 unsigned int Obs::ctgMask = 0;
-unsigned int Obs::multBits = 0;
+unsigned int Obs::multLow = 0;
 unsigned int Obs::multMask = 0;
 
 double Obs::scale = 1.0;
@@ -28,11 +29,10 @@ double Obs::recipScale = 1.0;
      @brief Sets internal packing parameters.
    */
 void Obs::setShifts(IndexT maxSCount_,
-			unsigned int ctgBits_,
-		        unsigned int multBits_) {
+		    unsigned int ctgBits,
+		    unsigned int multBits) {
   maxSCount = maxSCount_;
-  ctgBits = ctgBits_;
-  multBits = multBits_;
+  multLow = ctgLow + ctgBits;
   multMask = (1ul << multBits) - 1;
   ctgMask = (1ul << ctgBits) - 1;
 }
@@ -47,6 +47,22 @@ void Obs::setScale(double yMax) {
 
 
 void Obs::deImmutables() {
-  maxSCount = ctgBits = multBits = multMask = ctgMask = 0;
+  maxSCount = multMask = ctgMask = 0;
   scale = recipScale = 1.0;
+}
+
+
+ObsReg Obs::residualReg(const Obs* obsCell,
+			const SplitNux* nux) {
+  ObsReg total = regTotal(obsCell + nux->getObsStart(), nux->getObsExtent());
+  return ObsReg(nux->getSum() - total.ySum, nux->getSCount() - total.sCount);
+}
+
+
+void Obs::residualCtg(const Obs* obsCell,
+		      const SplitNux* nux,
+		      double& sum,
+		      IndexT& sCount,
+		      vector<double>& ctgImpl) {
+  ctgResidual(obsCell + nux->getObsStart(), nux->getObsExtent(), sum, sCount, &ctgImpl[0]);
 }

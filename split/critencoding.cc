@@ -22,7 +22,7 @@ double CritEncoding::getSumTrue() const {
 
 
 IndexT CritEncoding::getExtentTrue() const {
-  return implicitTrue == 0 ? extent : (implicitTrue + nux.getExtent() - extent);
+  return implicitTrue == 0 ? extent : (implicitTrue + nux.getObsExtent() - extent);
 }
 
 
@@ -65,7 +65,7 @@ void CritEncoding::accumTrue(IndexT& sCountTrue,
 
 void CritEncoding::branchUpdate(const SplitFrontier* sf,
 				const IndexRange& range,
-				BranchSense* branchSense) {
+				BranchSense& branchSense) {
   if (!range.empty()) {
     branchUpdate(sf->getPartition(), range, branchSense);
   }
@@ -79,7 +79,7 @@ void CritEncoding::branchUpdate(const SplitFrontier* sf,
 
 void CritEncoding::branchUpdate(const ObsPart* obsPart,
 				const IndexRange& range,
-				BranchSense* branchSense) {
+				BranchSense& branchSense) {
   IndexT* sIdx;
   Obs* spn = obsPart->getBuffers(nux, sIdx);
   if (increment) {
@@ -94,19 +94,19 @@ void CritEncoding::branchUpdate(const ObsPart* obsPart,
 void CritEncoding::branchSet(IndexT* sIdx,
 			     Obs* spn,
 			     const IndexRange& range,
-			     BranchSense *branchSense) {
+			     BranchSense& branchSense) {
   // Encodes iff explicit state has been reset.
   if (exclusive) {
     for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
-      if (!branchSense->isExplicit(sIdx[opIdx])) {
-	branchSense->set(sIdx[opIdx], trueEncoding());
+      if (!branchSense.isExplicit(sIdx[opIdx])) {
+	branchSense.set(sIdx[opIdx], trueEncoding());
 	encode(spn[opIdx]);
       }
     }
   }
   else {
     for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
-      branchSense->set(sIdx[opIdx], trueEncoding());
+      branchSense.set(sIdx[opIdx], trueEncoding());
       encode(spn[opIdx]);
     }
   }
@@ -116,18 +116,18 @@ void CritEncoding::branchSet(IndexT* sIdx,
 void CritEncoding::branchUnset(IndexT* sIdx,
 			       Obs* spn,
 			       const IndexRange& range,
-			       BranchSense* branchSense) {
+			       BranchSense& branchSense) {
   if (exclusive) {
     for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
-      if (branchSense->isExplicit(sIdx[opIdx])) {
-	branchSense->unset(sIdx[opIdx], trueEncoding());
+      if (branchSense.isExplicit(sIdx[opIdx])) {
+	branchSense.unset(sIdx[opIdx], trueEncoding());
 	encode(spn[opIdx]);
       }
     }
   }
   else {
     for (IndexT opIdx = range.getStart(); opIdx != range.getEnd(); opIdx++) {
-      branchSense->unset(sIdx[opIdx], trueEncoding());
+      branchSense.unset(sIdx[opIdx], trueEncoding());
       encode(spn[opIdx]);
     }
   }

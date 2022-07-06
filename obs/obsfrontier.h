@@ -44,7 +44,7 @@ class ObsFrontier {
   vector<IndexT> front2Node;
 
   vector<vector<StagedCell>> stagedCell; ///< Cell, node x predictor.
-  vector<vector<IndexT>> cellRank; ///< Rank/code, predictor x node
+  //  vector<vector<IndexT>> cellRank; ///< Rank/code, predictor x node
   IndexT stageCount; ///< # staged items.
   IndexT rankOffset; ///< accumulating sum of cell rank sizes.
   IndexT stageMax; ///< High watermark of stage count.
@@ -63,7 +63,7 @@ class ObsFrontier {
 		const class IndexSet& iSet);
   
 
-  void updateLive(const class BranchSense* branchSense,
+  void updateLive(const class BranchSense& branchSense,
 		  const class IndexSet& iSet,
 		  const class SampleMap& smNonterm,
 		  class SampleMap& smNext);
@@ -93,9 +93,6 @@ class ObsFrontier {
 public:
 
   ObsFrontier(const class Frontier* frontier_,
-	      IndexT nSplit_,
-	      PredictorT nPred_,
-	      IndexT idxLive_,
 	      class InterLevel* interLevel_);
 
 
@@ -135,14 +132,36 @@ public:
 
 
   /**
-     @return the applicable index path.
+     @brief Interpolates cuts, indexing rank vector from the rear.
    */
-  class IdxPath* getIndexPath() const;
+  double interpolateBackRank(const SplitNux* cand,
+			     IndexT backIdxL,
+			     IndexT backIdxR) const;
 
+  /**
+     @brief Provides access to cell's section of rank vector.
+
+     @return pointer to beginning of cell's rank section.
+   */
+  inline const IndexT* getRankBase(const StagedCell* cell) {
+    return &rankTarget[cell->rankStart];
+  }
+
+  
 
   inline vector<IndexT>& getRankTarget() {
     return rankTarget;
   }
+
+
+  /**
+     @brief Sets rank at specified position.
+   */
+  inline void setRank(IndexT position,
+		      IndexT rank) {
+    rankTarget[position] = rank;
+  }
+
   
 
   IndexT getStageCount() const {
@@ -232,14 +251,15 @@ public:
    */
   unsigned int restage(class ObsPart* obsPart,
 		       const StagedCell& mrra,
-		       ObsFrontier* ofFront);
+		       ObsFrontier* ofFront) const;
 
 
   /**
      @brief Localizes copies of the paths to each index position.
    */
   vector<IndexT> pathRestage(class ObsPart* obsPart,
-			     const StagedCell& mrra);
+			     vector<IndexT>& preDense,
+			     const StagedCell& mrra) const;
 
 
   /**
@@ -248,7 +268,8 @@ public:
   void obsRestage(class ObsPart* obsPart,
 		  vector<IndexT>& rankScatter,
 		  const StagedCell& mrra,
-		  vector<IndexT>& obsTarget);
+		  vector<IndexT>& obsTarget,
+		  vector<IndexT>& rankTarget) const;
 
 
   /**
@@ -284,14 +305,14 @@ public:
   vector<IndexT> packTargets(ObsPart* obsPart,
 			     const StagedCell& mrra,
 			     vector<StagedCell*>& tcp,
-			     vector<IndexT>& rankOffset);
+			     vector<IndexT>& rankOffset) const;
 
 
   /**
      @brief Dispatches sample map update according to terminal/nonterminal.
    */
   void updateMap(const class IndexSet& iSet,
-		 const class BranchSense* branchSense,
+		 const class BranchSense& branchSense,
 		 const class SampleMap& smNonterm,
 		 class SampleMap& smTerminal,
 		 class SampleMap& smNext);

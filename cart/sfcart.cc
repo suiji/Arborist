@@ -22,16 +22,16 @@
 #include "splitcart.h"
 #include "branchsense.h"
 #include "runaccum.h"
-#include "accumcart.h"
+#include "cutaccumcart.h"
 
 
 SFRegCart::SFRegCart(Frontier* frontier) :
-  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense*)>(&SFRegCart::split)) {
+  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense&)>(&SFRegCart::split)) {
 }
 
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
-  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense*)>(&SFCtgCart::split)) {
+  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense&)>(&SFCtgCart::split)) {
 }
 
   
@@ -60,7 +60,7 @@ double SFCtgCart::getPreinfo(IndexT splitIdx) const {
 
 
 void SFRegCart::split(vector<SplitNux> sc,
-		      BranchSense* branchSense) {
+		      BranchSense& branchSense) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
@@ -75,7 +75,7 @@ void SFRegCart::split(vector<SplitNux> sc,
 
 
 void SFCtgCart::split(vector<SplitNux> sc,
-		      BranchSense* branchSense) {
+		      BranchSense& branchSense) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {

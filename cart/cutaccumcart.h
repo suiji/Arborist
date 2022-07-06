@@ -5,11 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#ifndef CART_SPLITACCUM_H
-#define CART_SPLITACCUM_H
+#ifndef CART_CUTACCUMCART_H
+#define CART_CUTACCUMCART_H
 
 /**
-   @file splitaccum.h
+   @file cutaccumcart.h
 
    @brief Accumulator classes for cut-based (numeric) splitting workspaces.
 
@@ -66,18 +66,39 @@ public:
 
 
   /**
-     @brief Low-level splitting method for explicit block of indices.
+     @brief Splits right to left, no residual.
+
+     @param rkIdx is the rightmost rank index over the range.
+
+     @return leftmost rank index encountered.
    */
-  void splitExpl(IndexT rkThis,
-                 IndexT idxInit,
-                 IndexT idxFinal);
+  IndexT splitRL(IndexT idxFinal,
+		 IndexT rkIdx = 0);
+
 
   /**
-     @brief As above, but specialized for monotonicty constraint.
+     @brief As above, but applies monotonicty constraint.
    */
-  void splitMono(IndexT rkThis,
-                 IndexT idxInit,
-                 IndexT idxFinal);
+  IndexT splitMono(IndexT idxFinal,
+		   IndexT rkIdx = 0);
+
+
+  /**
+     @brief Splits a range bounded to the right by a residual.
+
+     @param rkIdxL tracks the left rank index of a split.
+   */
+  void residualLR(const class SplitNux* cand,
+		      IndexT rkIdxL);
+
+
+  /**
+     @brief As above, but applies monotonicity constraint.
+
+     @param rkIdxL tracks the left rank index of a split.
+   */
+  void splitMonoDense(const class SplitNux* cand,
+		  IndexT rkIdxL);
 };
 
 
@@ -86,10 +107,21 @@ public:
  */
 class CutAccumCtgCart : public CutAccumCtg {
   /**
+     @brief Updates with residual and possibly splits.
+
+     Current rank position assumed to be adjacent to dense rank, whence
+     the application of the residual immediately to the left.
+
+     @param rkThis is the rank of the current position.
+   */
+  void splitResidual(IndexT rkThis);
+
+
+  /**
      @brief Applies residual state and continues splitting left.
    */
-  void residualAndLeft(IndexT idxLeft,
-		       IndexT idxStart);
+  void residualLR(const class SplitNux* cand,
+		  IndexT rkIdx);
 
   
 public:
@@ -119,21 +151,17 @@ public:
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
    */
-  void splitExpl(IndexT rkThs,
+  IndexT splitRL(IndexT idxFinal,
+		 IndexT rkIdx = 0);
+  /*
+  void splitRL(IndexT rkThs,
 		 IndexT idxInit,
 		 IndexT idxFinal);
-
+  */
   /**
      @brief As above, but with implicit dense blob.
    */
   void splitImpl(const class SplitNux* cand);
-
-  /**
-     @brief Accumulates right and left sums-of-squares from
-     exposed state.
-   */
-  inline void stateNext(IndexT idx);
-
 };
 
 #endif

@@ -18,7 +18,6 @@
 
 
 #include "stagedcell.h"
-#include "splitnux.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -40,7 +39,6 @@ class ObsPart {
   const IndexT bagCount;
   const IndexT bufferSize; // <= nRow * nPred.
 
-  vector<PathT> pathIdx;
   Obs* obsCell;
 
   // 'indexBase' could be boxed with Obs.  While it is used in
@@ -55,7 +53,6 @@ class ObsPart {
   //  vector<unsigned int> destRestage;
   //  vector<unsigned int> destSplit; // Coprocessor restaging.
   vector<IndexRange> stageRange; // Index range for staging.
-  const IndexT noRank; // Inachievable rank value:  restaging.
   
   
  public:
@@ -75,7 +72,7 @@ class ObsPart {
 
 
   Obs* getPredBase(const class SplitNux* nux) const;
-  
+
   
   inline IndexT getBagCount() const {
     return bagCount;
@@ -98,12 +95,6 @@ class ObsPart {
     return stageRange[predIdx].idxStart;
   }
 
-
-  PathT* getPathBlock(PredictorT predIdx) {
-    return &pathIdx[getStageOffset(predIdx)];
-  }
-
-  
   // The category could, alternatively, be recorded in an object subclassed
   // under class ObsPart.  This would require that the value be restaged,
   // which happens for all predictors at all splits.  It would also require
@@ -144,14 +135,6 @@ class ObsPart {
     return indexBase + bufferOff(ancestor);
   }
 
-
-  /**
-     @return base of node buffer.
-   */
-  inline Obs *bufferNode(PredictorT predIdx, unsigned int bufBit) const {
-    return obsCell + bufferOff(predIdx, bufBit);
-  }
-  
   
   /**
    */
@@ -187,13 +170,13 @@ class ObsPart {
   }
 
 
-  inline void buffers(const StagedCell* mrra,
+  inline void buffers(const StagedCell& mrra,
 		      Obs*& source,
 		      IndexT*& sIdxSource,
 		      Obs*& targ,
 		      IndexT*& sIdxTarg) {
-    source = buffers(mrra->getPredIdx(), mrra->bufIdx, sIdxSource);
-    targ = buffers(mrra->getPredIdx(), mrra->compBuffer(), sIdxTarg);
+    source = buffers(mrra.getPredIdx(), mrra.bufIdx, sIdxSource);
+    targ = buffers(mrra.getPredIdx(), mrra.compBuffer(), sIdxTarg);
   }
 
 

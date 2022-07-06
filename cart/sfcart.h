@@ -53,7 +53,7 @@ struct SFRegCart : public SFReg {
 
 
   void split(vector<class SplitNux> candidate,
-	     class BranchSense* branchSense);
+	     class BranchSense& branchSense);
 
 
   /**
@@ -85,7 +85,7 @@ class SFCtgCart : public SFCtg {
 
 
   void split(vector<class SplitNux> candidate,
-	     class BranchSense* branchSense);
+	     class BranchSense& branchSense);
 
 
   /**

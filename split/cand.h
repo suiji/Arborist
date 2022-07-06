@@ -54,7 +54,7 @@ struct Cand {
 
   vector<vector<PreCand>> preCand;
 
-  Cand(class InterLevel* interLevel);
+  Cand(const class InterLevel* interLevel);
   
 
   void precandidates(const class Frontier* frontier,
@@ -82,7 +82,7 @@ struct Cand {
 		      class InterLevel* interLevel,
 		      PredictorT predFixed);
 
-  vector<class SplitNux> getCandidates(class InterLevel* interLevel,
+  vector<class SplitNux> getCandidates(const class InterLevel* interLevel,
 				       const class SplitFrontier* splitFrontier);
 
 

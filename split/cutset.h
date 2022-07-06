@@ -21,24 +21,51 @@
 #include <vector>
 
 
+/**
+   @brief Minimal information needed to reconstruct cut.
+ */
+struct CutSig {
+  // In CART-like implementations, obsLeft and obsRight are adjacent.
+  IndexT obsLeft; ///< sup of left Obs indices.
+  IndexT obsRight;  ///< inf of right Obs indices.
+  IndexT implicitTrue; ///< # implicit Obs indices associated with true sense.
+  double quantRank; ///< Interpolated cut rank.
+  bool cutLeft; ///< True iff cut encodes left portion.
+
+  CutSig(const IndexRange& idxRange) :
+    obsLeft(idxRange.getStart()),
+    obsRight(idxRange.getEnd() - 1),
+    cutLeft(true) { // Default.
+  }
+
+  CutSig() :
+    cutLeft(true) {
+  }
+
+  void write(const class ObsFrontier* ofFront,
+	     const class SplitNux* nux,
+	     const class CutAccum* accum);
+};
+
+
 class CutSet {
   vector<class CutAccum> cutAccum;
-  vector<struct CutSig> cutSig; // EXIT
+  vector<CutSig> cutSig; // EXIT
 
 public:
-  CutSet();
+  CutSet() = default;
 
 
-  struct CutSig getCut(IndexT accumIdx) const;
+  CutSig getCut(IndexT accumIdx) const;
 
 
   /**
      @brief Same as above, but looks up from nux accum index.
    */
-  struct CutSig getCut(const SplitNux& nux) const;
+  CutSig getCut(const SplitNux& nux) const;
 
   
-  void setCut(IndexT accumIdx, const struct CutSig& sig);
+  void setCut(IndexT accumIdx, const CutSig& sig);
   
   
   IndexT addCut(const class SplitFrontier* splitFrontier,
@@ -50,7 +77,8 @@ public:
   }
   
 
-  void write(const class SplitNux* nux,
+  void write(const class ObsFrontier* ofFront,
+	     const class SplitNux* nux,
 	     const class CutAccum* accum);
 
   

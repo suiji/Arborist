@@ -21,6 +21,7 @@
 #ifndef FRONTIER_INTERLEVEL_H
 #define FRONTIER_INTERLEVEL_H
 
+#include "algparam.h"
 #include "path.h"
 #include "partition.h"
 #include "splitcoord.h"
@@ -48,21 +49,22 @@ struct Ancestor {
  */
 class InterLevel {
   const PredictorT nPred; // Number of predictors.
-  class Frontier* frontier;
   const PredictorT positionMask;
   const unsigned int levelShift;
   const IndexT bagCount;
   
   static constexpr double stageEfficiency = 0.15; // Work efficiency threshold.
 
+  const class Layout* layout;
+  const IndexT noRank; ///< inachievable rank value:  (re)staging.
   unique_ptr<class IdxPath> rootPath; // Root-relative IdxPath.
+  vector<PathT> pathIdx;
   unsigned int level; // Zero-based tree depth.
   IndexT splitCount; // # nodes in the layer about to split.
-  const class Layout* layout;
   vector<Ancestor> ancestor; // Collection of ancestors to restage.
   unique_ptr<class ObsPart> obsPart;
-  vector<vector<PredictorT>> stageMap; // Packed level, position.
 
+  vector<vector<PredictorT>> stageMap; // Packed level, position.
   deque<unique_ptr<class ObsFrontier>> history; // Caches previous frontier layers.
 
   unique_ptr<class ObsFrontier> ofFront; // Current frontier, not in deque.
@@ -119,7 +121,7 @@ public:
      @param frontier_ tracks the frontier nodes.
   */
   InterLevel(const class TrainFrame* frame,
-	     class Frontier* frontier);
+	     const class Frontier* frontier);
 
   
   /**
@@ -195,6 +197,11 @@ public:
 		      unsigned int historyIdx);
 
 
+  IndexT getNoRank() const {
+    return noRank;
+  }
+
+
   /**
      @brief Does not screen out singletons.
    */
@@ -254,6 +261,12 @@ public:
   }
 
 
+  /**
+     @return base of indexed paths for a given predictor.
+   */
+  PathT* getPathBlock(PredictorT predIdx);
+  
+
   IndexT* getIdxBuffer(const class SplitNux* nux) const;
 
 
@@ -285,8 +298,8 @@ public:
 
      @param sampleObs is the sampled observation set.
    */
-  void repartition(class Frontier* frontier,
-		   const class SampleObs* sampleObs);
+  CandType repartition(const class Frontier* frontier,
+		       const class SampleObs* sampleObs);
 
 
   /**
@@ -294,9 +307,9 @@ public:
      during the overlap.  Initializes data structures for restaging and
      splitting the current layer of the subtree.
    */
-  vector<IndexSet> overlap(const class Frontier* frontier,
-			   const class SampleMap& smNonterm,
-			   const vector<class IndexSet>& frontierNext);
+  void overlap(const vector<class IndexSet>& frontierNodes,
+	       const vector<class IndexSet>& frontierNext,
+	       IndexT endIdx);
 
 
   /**
@@ -349,7 +362,7 @@ public:
      @return true iff coordinate is staged.
    */
   bool isStaged(const SplitCoord& coord,
-		StagedCell*& cell);
+		StagedCell*& cell) const;
 };
 
 

@@ -35,7 +35,7 @@ struct CandRF : public Cand {
   static void deInit();
 
   
-  void precandidates(class Frontier* frontier,
+  void precandidates(const class Frontier* frontier,
 		     class InterLevel* interLevel);
 
 

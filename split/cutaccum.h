@@ -17,7 +17,6 @@
 
 #include "typeparam.h"
 #include "accum.h"
-#include "residual.h"
 
 #include <vector>
 
@@ -31,68 +30,56 @@
  */
 class CutAccum : public Accum {
 protected:
-  IndexT cutDense; // Rightmost position beyond implicit blob, if any.
-  
-  // Read locally but initialized, and possibly reset, externally.
-  IndexT sCountThis; // Current sample count.
-  double ySumThis; // Current response value.
-
+  IndexT cutResidual; ///< Rightmost position beyond residual, if any.
 
   /**
-     @brief Updates split anywhere left of a residual, if any.
+     @brief Trial argmax on right indices.
    */
-  inline void trialRight(double infoTrial,
-			 IndexT idxLeft,
-			 IndexT rkThis,
-			 IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCount;
-      lhSum = sum;
-      rankRH = rkRight;
-      rankLH = rkThis;
-      this->idxLeft = idxLeft;
-      idxRight = rkRight == rankDense ? cutDense : idxLeft + 1;
+  inline void argmaxRL(double infoTrial,
+		       IndexT obsLeft,
+		       IndexT rkIdxR) {
+    if (Accum::trialSplit(infoTrial)) {
+      rankIdxR = rkIdxR;
+      rankIdxL = rkIdxR + 1; // CART-like, explicit.
+      this->obsLeft = obsLeft;
+      obsRight = obsLeft + 1;
+    }
+  }
+
+
+  // Diagnostic.
+  inline void argmaxRL(double infoTrial,
+			   IndexT obsLeft,
+			   IndexT rkIdxR,
+		       IndexT rkIdxL) {
+    if (Accum::trialSplit(infoTrial)) {
+      rankIdxR = rkIdxR;
+      rankIdxL = rkIdxL;
+      this->obsLeft = obsLeft;
+      obsRight = obsLeft + 1;
     }
   }
 
 
   /**
-     @brief As above, but with distinct index bounds.
+     @brief Revises argmax in right-to-left traversal.
    */
-  void trialSplit(double infoTrial,
-		  IndexT idxLeft,
-		  IndexT idxRight);
+  void trialObsRL(double infoTrial,
+		  IndexT obsLeft,
+		  IndexT obsRight);
 
-  
-  /**
-     @brief Updates split just to the right of a residual.
-   */
-  inline void splitResidual(double infoTrial,
-			   IndexT rkRight) {
-    if (infoTrial > info) {
-      info = infoTrial;
-      lhSCount = sCount;
-      lhSum = sum;
-      rankRH = rkRight;
-      rankLH = rankDense;
-      idxRight = cutDense;
-    }
-  }
-  
+
 public:
   // Revised at each new local maximum of 'info':
-  IndexT lhSCount; // Sample count of split LHS:  > 0.
-  double lhSum; // Sum of responses over LHS.
-  IndexT rankRH; // Maximum rank characterizing split.
-  IndexT rankLH; // Minimum rank charactersizing split.
-  IndexT idxLeft; // sup left index.  Out of bounds (idxEnd + 1) iff left is dense.
-  IndexT idxRight; // inf right index.  Out of bounds (idxEnd + 1) iff right is dense.
+  IndexT rankIdxL; ///< Left rank index.
+  IndexT rankIdxR; ///< Right rank index.
+  IndexT obsLeft; ///< sup left index.  Out of bounds (obsEnd + 1) iff left is dense.
+  IndexT obsRight; ///< inf right index.  Out of bounds (obsEnd + 1) iff right is dense.
 
   /**
      @param cand encapsulates candidate splitting parameters.
 
-     @param splitFrontier looks up dense rank.
+     @param splitFrontier looks up residual rank.
    */
   CutAccum(const class SplitNux* cand,
 	   const class SplitFrontier* splitFrontier);
@@ -101,19 +88,29 @@ public:
   IndexT lhImplicit(const class SplitNux* cand) const;
 
 
-  double interpolateRank(const class SplitNux* cand) const;
+  double interpolateRank(const class ObsFrontier* ofFront,
+			 const class SplitNux* cand) const;
+
+  /**
+     @brief Determines whether an argmax has been encountered since
+     initialization.
+
+     @return true iff argmax has been observed.
+   */
+  bool hasArgmax() const {
+    return rankIdxL != rankIdxR;
+  }
 };
 
 
 class CutAccumCtg : public CutAccum {
 protected:
 
-  const PredictorT nCtg; // Cadinality of response.
-  const unique_ptr<ResidualCtg> resid;
-  const vector<double>& nodeSum; // Per-category response sum at node.
-  double* ctgAccum; // Slice of compressed accumulation data structure.
-  double ssL; // Left sum-of-squares accumulator.
-  double ssR; // Right " ".
+  const PredictorT nCtg; ///< Cadinality of response.
+  const vector<double>& nodeSum; ///< Per-category response sum at node.
+  double* ctgAccum; ///< Slice of compressed accumulation data structure.
+  double ssL; ///< Left sum-of-squares accumulator.
+  double ssR; ///< Right " ".
 
 
   /**
@@ -131,34 +128,10 @@ protected:
   }
 
 
-  /**
-     @brief Imputes per-category dense rank statistics as residuals over cell.
-
-     @param cand is the splitting candidate.
-
-     @param spn is the splitting environment.
-
-     @param spCtg summarizes the categorical response.
-
-     @return new residual for categorical response over cell.
-  */
-  unique_ptr<ResidualCtg> makeResidual(const class SplitNux* cand,
-					      const class SFCtg* sfCtg);
-
-
-
 public:
   CutAccumCtg(const class SplitNux* cand,
 	      class SFCtg* sfCtg);
 
-
-  inline void applyResid(const vector<double>& ctgResid) {
-    for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
-      accumCtgSS(ctgResid[ctg], ctg);
-    }
-  }
-  
-  
 
   /**
      @brief Accumulates running sums of squares by category.
@@ -169,7 +142,7 @@ public:
    */
   inline void accumCtgSS(double ctgSum,
 			 PredictorT yCtg) {
-    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumThis);
+    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ctgSum);
     ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
     double sumLCtg = nodeSum[yCtg] - sumRCtg;
     ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
@@ -180,53 +153,13 @@ public:
 class CutAccumReg : public CutAccum {
 
 protected:
-  const int monoMode; // Presence/direction of monotone constraint.
-  const unique_ptr<Residual> resid; // Current residual or null.
+  const int monoMode; ///< Presence/direction of monotone constraint.
 
 public:
   CutAccumReg(const class SplitNux* splitCand,
 	      const class SFReg* spReg);
-
-
-  /**
-     @brief Creates a residual summarizing implicit splitting state.
-
-     @param cand is the splitting candidate.
-
-     @param spn is the splitting data set.
-     
-     @return new residual based on the current splitting data set.
-   */
-  unique_ptr<Residual> makeResidual(const class SplitNux* cand,
-                                          const class Obs spn[]);
-
 };
 
-
-/**
-   @brief Minimal information needed to reconstruct cut.
- */
-struct CutSig {
-  // In CART-like implementations, idxLeft and idxRight are adjacent.
-  IndexT idxLeft; // sup of left Obs indices.
-  IndexT idxRight;  // inf of right Obs indices.
-  IndexT implicitTrue; // # implicit Obs indices associated with true sense.
-  double quantRank; // Interpolated cut rank.
-  bool cutLeft; // True iff cut encodes left portion.
-
-  CutSig(const IndexRange& idxRange) :
-    idxLeft(idxRange.getStart()),
-    idxRight(idxRange.getEnd() - 1),
-    cutLeft(true) { // Default.
-  }
-
-  CutSig() :
-    cutLeft(true) {
-  }
-
-  void write(const class SplitNux* nux,
-	     const class CutAccum* accum);
-};
 
 #endif
 

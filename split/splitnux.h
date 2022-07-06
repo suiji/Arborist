@@ -16,8 +16,6 @@
    @author Mark Seligman
  */
 
-#include "splitcoord.h"
-#include "sumcount.h"
 #include "stagedcell.h"
 #include "typeparam.h"
 
@@ -36,8 +34,6 @@ class SplitNux {
 
   const StagedCell* cell; // Copied from PreCand.
   uint32_t randVal;
-  IndexT implicitCount; // Extracted from StageCount; rank count to accumulator.
-  IndexRange idxRange; // ObsCell index range of cell column.
   IndexT accumIdx; // Index into accumulator workspace.
   double sum; // Initial sum, fixed by index set (node).
   IndexT sCount; // Initial sample count, fixed by index set.
@@ -94,7 +90,6 @@ public:
   SplitNux() :
     cell(nullptr),
     randVal(0),
-    implicitCount(0),
     accumIdx(0),
     sum(0.0),
     sCount(0),
@@ -109,8 +104,7 @@ public:
   SplitNux(const SplitNux& nux) :
     mrra(nux.mrra),
     randVal(nux.randVal),
-    implicitCount(nux.implicitCount),
-    idxRange(nux.idxRange),
+    obsRange(nux.obsRange),
     accumIdx(nux.accumIdx),
     sum(nux.sum),
     sCount(nux.sCount),
@@ -121,8 +115,7 @@ public:
   SplitNux& operator= (const SplitNux& nux) {
     mrra = nux.mrra;
     randVal = nux.randVal;
-    implicitCount = nux.implicitCount;
-    idxRange = nux.idxRange;
+    obsRange = nux.obsRange;
     accumIdx = nux.accumIdx;
     sum = nux.sum;
     sCount = nux.sCount;
@@ -207,8 +200,16 @@ public:
   }
 
 
+  /**
+     @return # observations preceding implicit, if any.
+   */
+  IndexT getPreresidual() const {
+    return cell->preResidual;
+  }
+  
+
   auto getRunCount() const {
-    return cell->getRunCount();
+    return cell->getRankCount();
   }
   
 
@@ -219,11 +220,13 @@ public:
   auto getNodeIdx() const {
     return cell->getNodeIdx();
   }
+
   
   auto getStagedCell() const {
     return cell;
   }
 
+  
   auto getBufIdx() const {
     return cell->bufIdx;
   }
@@ -251,31 +254,35 @@ public:
   }
 
 
-  auto getRange() const {
-    return idxRange;
-  }
-  
-  
-  auto getIdxStart() const {
-    return idxRange.getStart();
+  inline IndexRange getRange() const {
+    return cell->getObsRange();
   }
 
   
-  auto getExtent() const {
-    return idxRange.getExtent();
+  inline IndexT getObsStart() const {
+    return cell->getObsRange().getStart();
   }
 
   
-  auto getIdxEnd() const {
-    return idxRange.getEnd() - 1;
+  inline IndexT getObsExtent() const {
+    return cell->getObsRange().getExtent();
   }
 
-  auto getSCount() const {
+
+  /**
+     @return inattainable position beyond observation buffer top.
+   */
+  inline IndexT getObsEnd() const {
+    return cell->getObsRange().getEnd();
+  }
+
+
+  inline IndexT getSCount() const {
     return sCount;
   }
   
 
-  auto getSum() const {
+  inline double getSum() const {
     return sum;
   }
 
@@ -297,7 +304,7 @@ public:
      @return Count of implicit indices associated with IndexSet.
   */   
   IndexT getImplicitCount() const {
-    return implicitCount;
+    return cell->obsImplicit;
   }
 
 

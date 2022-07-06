@@ -13,10 +13,9 @@
    @author Mark Seligman
  */
 
-#ifndef PARTITION_RUNNUX_H
-#define PARTITION_RUNNUX_H
+#ifndef SPLIT_RUNNUX_H
+#define SPLIT_RUNNUX_H
 
-#include "sumcount.h"
 
 /**
    @brief Accumulates statistics for runs of factors having the same internal code.
@@ -24,10 +23,13 @@
    Allocated in bulk by Fortran-style workspace, the RunSet.
  */
 struct RunNux {
+private:
+  PredictorT code; // RESTORE to public
+public:
   static IndexT noStart; // Inattainable starting index.
-  PredictorT code; // Same 0-based value as internal code.
-  IndexT sCount; // Sample count of factor run:  need not equal length.
-  double sum; // Sum of responses associated with run.
+  //PredictorT code; // EXIT.  Same 0-based value as internal code.
+  IndexT sCount; ///< Sample count of factor run:  need not equal length.
+  double sum; ///< Sum of responses associated with run.
   IndexRange range;
 
   RunNux() : sCount(0), sum(0.0), range(IndexRange()) {
@@ -35,11 +37,18 @@ struct RunNux {
   }
 
 
+  PredictorT getCode() const {
+    return code;
+  }
+
+  void setCode(PredictorT code) {
+    this->code = code;
+  }
+
   /**
      @brief Initialzier for subsequent accumulation.
-   */
-  inline void init(PredictorT code) {
-    this->code = code;
+  */  
+  inline void init() {
     sCount = 0;
     sum = 0;
   }
@@ -56,13 +65,14 @@ struct RunNux {
 
 
   /**
-     @brief Setter.
-   */
-  inline void set(PredictorT code,
-                   IndexT sCount,
-                   double sum,
-                   IndexT extent) {
-    this->code = code;
+     @brief Initializes as residual.
+  */
+  inline void setResidual(IndexT implicitIdx, // EXIT
+			  PredictorT code,
+			  IndexT sCount,
+			  double sum,
+			  IndexT extent) {
+    setCode(code);
     this->sCount = sCount;
     this->sum = sum;
     range.idxExtent = extent;

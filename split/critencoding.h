@@ -89,25 +89,25 @@ struct CritEncoding {
 
   void branchUpdate(const class SplitFrontier* sf,
 		    const IndexRange& range,
-		    class BranchSense* branchSense);
+		    class BranchSense& branchSense);
 
 
   void branchUpdate(const class ObsPart* obsPart,
 		    const IndexRange& range,
-		    class BranchSense* branchSense);
+		    class BranchSense& branchSense);
 
 
 private:  
   void branchSet(IndexT* sIdx,
 		 class Obs* spn,
 		 const IndexRange& range,
-		 class BranchSense* branchSense);
+		 class BranchSense& branchSense);
 
 
   void branchUnset(IndexT* sIdx,
 		   class Obs* spn,
 		   const IndexRange& range,
-		   class BranchSense* branchSense);
+		   class BranchSense& branchSense);
 
 
   void encode(const class Obs& obs);

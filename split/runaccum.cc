@@ -99,12 +99,12 @@ void RunAccum::setObservedBits(BV* observedBits,
 
 void RunAccum::split(const SFReg* sf, SplitNux* cand) {
   RunAccum* runAccum = sf->getRunAccum(cand);
-  runAccum->splitReg(cand);
+  runAccum->splitReg(sf, cand);
 }
 
 
-void RunAccum::splitReg(SplitNux* cand) {
-  obsCount = regRuns();
+void RunAccum::splitReg(const SFReg* sf, SplitNux* cand) {
+  obsCount = regRuns(sf, cand);
   maxVar();
   cand->infoGain(this);
 }
@@ -113,35 +113,39 @@ void RunAccum::splitReg(SplitNux* cand) {
 /**
    Regression runs always maintained by heap.
 */
-PredictorT RunAccum::regRuns() {
+PredictorT RunAccum::regRuns(const SFReg* sf, const SplitNux* cand) {
+  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  initReg(idxStart, runIdx);
-  for (IndexT idx = idxStart + 1; idx <= idxEnd; idx++) {
+  initReg(rankBase, obsStart, runIdx);
+  for (IndexT idx = obsStart + 1; idx <= obsTop; idx++) {
     if (!obsCell[idx].regAccum(runZero[runIdx])) {
       endRun(runZero[runIdx++], idx - 1);
-      initReg(idx, runIdx);
+      initReg(rankBase, idx, runIdx);
     }
   }
   
-  // Flushes the remaining run and implicit run, if dense.
+  // Flushes the remaining run and residual, if any.
   //
-  endRun(runZero[runIdx++], idxEnd);
+  endRun(runZero[runIdx++], obsTop);
   return appendImplicit(runIdx);
 }
 
 
-PredictorT RunAccum::regRunsMasked(const BranchSense* branchSense,
+PredictorT RunAccum::regRunsMasked(const SFReg* sf,
+				   const SplitNux* cand,
+				   const BranchSense* branchSense,
 				   IndexT edgeRight,
 				   IndexT edgeLeft,
 				   bool maskSense) {
+  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  initReg(edgeLeft, runIdx);
+  initReg(rankBase, edgeLeft, runIdx);
   IndexT runRight = edgeLeft; // Previous unmasked index.
   for (IndexT idx = edgeLeft + 1; idx <= edgeRight; idx++) {
     if (branchSense->isExplicit(sampleIndex[idx]) == maskSense) {
       if (!obsCell[idx].regAccum(runZero[runIdx])) {
 	endRun(runZero[runIdx++], runRight);
-	initReg(idx, runIdx);
+	initReg(rankBase, idx, runIdx);
       }
       runRight = idx;
     }
@@ -154,9 +158,11 @@ PredictorT RunAccum::regRunsMasked(const BranchSense* branchSense,
 }
 
 
-void RunAccum::initReg(IndexT runLeft, PredictorT runIdx) {
+void RunAccum::initReg(const IndexT rankBase[],
+		       IndexT runLeft,
+		       PredictorT runIdx) {
   runZero[runIdx].startRange(runLeft);
-  obsCell[runLeft].regInit(runZero[runIdx]);
+  obsCell[runLeft].regInit(runZero[runIdx], rankBase[runIdx]);
 }
 
 
@@ -226,25 +232,28 @@ void RunAccum::splitCtg(const SFCtg* sf, SplitNux* cand) {
 
 
 PredictorT RunAccum::ctgRuns(const SFCtg* sf, const SplitNux* cand) {
+  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  double* sumBase = initCtg(idxStart, runIdx);
-  for (IndexT idx = idxStart + 1; idx <= idxEnd; idx++) {
-    if (!obsCell[idx].ctgAccum(runZero[runIdx], sumBase)) {
-      endRun(runZero[runIdx++], idx - 1);
-      sumBase = initCtg(idx, runIdx);
+  double* sumBase = initCtg(rankBase, obsStart, runIdx);
+  for (IndexT obsIdx = obsStart + 1; obsIdx <= obsTop; obsIdx++) {
+    if (!obsCell[obsIdx].ctgAccum(runZero[runIdx], sumBase)) {
+      endRun(runZero[runIdx++], obsIdx - 1);
+      sumBase = initCtg(rankBase, obsIdx, runIdx);
     }
   }
-  endRun(runZero[runIdx++], idxEnd); // Flushes remaining run.
+  endRun(runZero[runIdx++], obsTop); // Flushes remaining run.
   
-  // Flushes implicit blob, if any.
+  // Flushes residual, if any.
   return appendImplicit(runIdx, sf->getSumSlice(cand));
 }
 
 
-double* RunAccum::initCtg(IndexT runLeft, PredictorT runIdx) {
+double* RunAccum::initCtg(const IndexT rankBase[],
+			  IndexT runLeft,
+			  PredictorT runIdx) {
   double* sumBase = &cellSum[runIdx * nCtg];
   runZero[runIdx].startRange(runLeft);
-  obsCell[runLeft].ctgInit(runZero[runIdx], sumBase);
+  obsCell[runLeft].ctgInit(runZero[runIdx], rankBase[runIdx], sumBase);
   return sumBase;
 }
 
@@ -254,7 +263,7 @@ PredictorT RunAccum::appendImplicit(PredictorT runIdx,
   implicitSlot = runIdx;
   if (implicitCand) {
     residCtg(sumSlice, runIdx);
-    runZero[runIdx].set(rankDense, sCount, sum, implicitCand);
+    runZero[runIdx].setResidual(runIdx, rankResidual, sCount, sum, implicitCand);
     return runIdx + 1;
   }
   return runIdx;
@@ -454,7 +463,7 @@ void RunAccum::leadBits(bool invertTest) {
   // slots will take the true branch during prediction.  All other categories,
   // regardless whether visible, will take the false branch.  This includes not
   // only categories eclipsed by bagging or conditioning, but also proxy
-  // categories not encountered during training as well as NA.
+  // categories not encountered during training, as well as NA.
 
   // No slot, whether implicit or explicit, should be assigned a branch
   // sense fixed a priori.  Doing so biases predictions for reasons outlined

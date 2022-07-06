@@ -13,12 +13,9 @@
    @author Mark Seligman
  */
 
-#include "obsfrontier.h"
 #include "partition.h"
 #include "layout.h"
-#include "sampleobs.h"
 #include "splitnux.h"
-#include "path.h"
 
 #include <numeric>
 
@@ -30,9 +27,7 @@ ObsPart::ObsPart(const Layout* layout,
 		 IndexT bagCount_) :
   bagCount(bagCount_),
   bufferSize(layout->getSafeSize(bagCount)),
-  pathIdx(bufferSize),
-  stageRange(layout->getNPred()),
-  noRank(layout->getNoRank()) {
+  stageRange(layout->getNPred()) {
   indexBase = new IndexT[2* bufferSize];
   obsCell = new Obs[2 * bufferSize];
 

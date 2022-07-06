@@ -42,13 +42,14 @@ protected:
   const class TrainFrame* frame; // Summarizes the internal predictor reordering.
   class Frontier* frontier;  // Current frontier of the partition tree.
   class InterLevel* interLevel;
+  class ObsFrontier* ofFront;
   const PredictorT nPred;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
   void (SplitFrontier::* splitter)(vector<class SplitNux> candidate,
-				   class BranchSense*); // Splitting method.
+				   class BranchSense&); // Splitting method.
 
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
@@ -60,7 +61,7 @@ protected:
      @brief Derives and applies maximal simple criteria.
    */
   void maxSimple(const vector<SplitNux>& sc,
-		 class BranchSense* branchSense);
+		 class BranchSense& branchSense);
 
   
   vector<class SplitNux> maxCandidates(const vector<vector<class SplitNux>>& candVV);
@@ -82,10 +83,11 @@ public:
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_,
 		SplitStyle splitStyle_,
-		void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense*));
+		void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense&));
 
 
-  unique_ptr<class BranchSense> split(CandType& cand);
+  void split(CandType& cand,
+	     class BranchSense& branchSense);
   
 
   auto getEncodingStyle() const {
@@ -168,15 +170,6 @@ public:
   vector<IndexRange> getCutRange(const class SplitNux& nux,
 				 const class CritEncoding& enc) const;
 
-  
-  /**
-     @brief Updates observation partition and splits.
-
-     Main entry.
-   */
-  void split(class BranchSense* branchSense,
-	     CandType& cand);
-
 
   /**
      @brief Pass-through to data partition method.
@@ -228,6 +221,14 @@ public:
      @return rank of dense value, if candidate's predictor has one.
    */
   IndexT getDenseRank(const SplitNux* cand) const;
+
+
+  /**
+     @brief Provides access to candidates section of rank vector.
+
+     @return pointer to base of candidate's rank section.
+   */
+  const IndexT* getRankBase(const SplitNux* cand) const;
 
   
   /**
@@ -294,12 +295,6 @@ public:
   IndexT getSCountSucc(const StagedCell* mrra,
 		       bool sense) const;
 
-  
-  /**
-     @return SR range of indexed split.
-  */
-  IndexRange getRange(const StagedCell* preCand) const; 
-
 
   /**
      @brief Passes through to ObsPart method.
@@ -334,7 +329,7 @@ public:
      @return encoding associated with split.
    */
   CritEncoding splitUpdate(const SplitNux& nux,
-			   class BranchSense* branchSense,
+			   class BranchSense& branchSense,
 			   const IndexRange& range = IndexRange(),
 			   bool increment = true) const;
 
@@ -375,7 +370,7 @@ struct SFReg : public SplitFrontier {
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense*));
+	void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense&));
 
 
   /**
@@ -426,7 +421,7 @@ public:
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_) (vector<class SplitNux>, class BranchSense*));
+	void (SplitFrontier::* splitter_) (vector<class SplitNux>, class BranchSense&));
 
   double getScore(const class IndexSet& iSet) const;
 

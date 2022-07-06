@@ -43,7 +43,7 @@ void CandRF::deInit() {
 }
 
 
-void CandRF::precandidates(Frontier* frontier,
+void CandRF::precandidates(const Frontier* frontier,
 			   InterLevel* interLevel) {
   if (predFixed == 0) {
     candidateBernoulli(frontier, interLevel, predProb);

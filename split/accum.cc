@@ -22,9 +22,9 @@ Accum::Accum(const SplitFrontier* splitFrontier,
 	     const SplitNux* cand) :
   obsCell(splitFrontier->getPredBase(cand)),
   sampleIndex(splitFrontier->getIdxBuffer(cand)),
-  rankDense(splitFrontier->getDenseRank(cand)),
-  idxStart(cand->getIdxStart()),
-  idxEnd(cand->getIdxEnd()),
+  rankResidual(splitFrontier->getDenseRank(cand)),
+  obsStart(cand->getObsStart()),
+  obsTop(cand->getObsEnd() - 1),
   sumCand(cand->getSum()),
   sCountCand(cand->getSCount()),
   implicitCand(cand->getImplicitCount()),
@@ -41,7 +41,7 @@ bool Accum::findEdge(const BranchSense* branchSense,
 		     IndexT& edge) const {
   // Breaks out and returns true iff matching-sense sample found.
   if (leftward) { // Decrement to start.
-    for (edge = idxTerm; edge > idxStart; edge--) {
+    for (edge = idxTerm; edge > obsStart; edge--) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }
@@ -51,7 +51,7 @@ bool Accum::findEdge(const BranchSense* branchSense,
     }
   }
   else { // Increment to end.
-    for (edge = idxTerm; edge <= idxEnd; edge++) {
+    for (edge = idxTerm; edge <= obsTop; edge++) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }

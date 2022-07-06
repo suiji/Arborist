@@ -19,16 +19,16 @@
 struct Accum {
   const class Obs* obsCell;
   const IndexT* sampleIndex;
-  const IndexT rankDense; // Rank of dense value, if any.
-  const IndexT idxStart;// Low terminus.
-  const IndexT idxEnd; // High terminus.
+  const IndexT rankResidual; ///< Rank of dense value, if any.
+  const IndexT obsStart;///< Low terminus.
+  const IndexT obsTop; ///< High terminus.
   const double sumCand;
   const IndexT sCountCand;
   const IndexT implicitCand;
 
-  IndexT sCount; // Running sum of trial LHS sample counts.
-  double sum; // Running sum of trial LHS response.
-  double info; // Information high watermark.  Precipitates split iff > 0.0 after update.
+  IndexT sCount; ///< Running sum of trial LHS sample counts.
+  double sum; ///< Running sum of trial LHS response.
+  double info; ///< Information high watermark.  Precipitates split iff > 0.0 after update.
 
   Accum(const class SplitFrontier* splitFrontier,
 	const class SplitNux* cand);
@@ -78,9 +78,9 @@ struct Accum {
 
      @return true iff value passed exceeds current information value.
   */
-  bool trialSplit(double infoTemp) {
-    if (infoTemp > info) {
-      info = infoTemp;
+  bool trialSplit(double infoTrial) {
+    if (infoTrial > info) {
+      info = infoTrial;
       return true;
     }
     else {

@@ -30,9 +30,9 @@ struct StagedCell {
   char live; ///< Initialized to true; false is sticky.
   const IndexT rankStart; ///< Index into frontier rank buffer.
   IndexT rankCount; ///< # unique ranks.
-  IndexRange range; ///< Initialized from node; adjusted iff implict.
-  IndexT idxImplicit; ///<  # implicit indices.
-  IndexT denseCut; ///< Index just left of dense rank, if any.
+  IndexRange obsRange; ///< Initialized from node; adjusted iff implicit.
+  IndexT obsImplicit; ///<  # implicit observations.
+  IndexT preResidual; ///< # obs preceding residual, iff implicit.
   // IndexT nNA; ///< # undefined observations in cell.
 
 
@@ -46,7 +46,8 @@ StagedCell(PredictorT predIdx,
     bufIdx(0),
     live(true),
     rankStart(rankStart_),
-    range(IndexRange(0, extent)) {
+    obsRange(IndexRange(0, extent)),
+    preResidual(0) {
     }
   
 
@@ -61,13 +62,23 @@ StagedCell(IndexT nodeIdx,
     bufIdx(1 - source.bufIdx),
     live(true),
     rankStart(rankStart_),
-    range(range_) {
-    }
+    obsRange(range_),
+    preResidual(0) {
+  }
 
 
   inline bool isLive() const {
     return live;
   }
+
+
+  /**
+     @return rank at specified offset from rear.
+   */
+  inline IndexT rankRear(IndexT backIdx) const {
+    return rankStart + rankCount - 1 - backIdx;
+  }
+
   
 
   inline IndexT getNodeIdx() const {
@@ -95,30 +106,30 @@ StagedCell(IndexT nodeIdx,
     this->rankCount = rankCount;
   }
 
-  
-  inline IndexT getRankCount() const {
-    return rankCount;
+
+  inline void setPreresidual(IndexT preResidual) {
+    this->preResidual = preResidual;
   }
-  
+
   
   /**
      @brief Sets range internally:  root only.
    */
   void updateRange(IndexT implicitCount) {
-    range.idxExtent -= implicitCount;
-    idxImplicit = implicitCount;
+    obsRange.idxExtent -= implicitCount;
+    obsImplicit = implicitCount;
   }
 
 
   void setRange(IndexT idxStart,
 		IndexT extent) {
-    idxImplicit = range.getExtent() - extent;
-    range = IndexRange(idxStart, extent);
+    obsImplicit = obsRange.getExtent() - extent;
+    obsRange = IndexRange(idxStart, extent);
   }
 
 
-  IndexRange getRange() const {
-    return range;
+  IndexRange getObsRange() const {
+    return obsRange;
   }
   
 
@@ -130,21 +141,46 @@ StagedCell(IndexT nodeIdx,
   }
 
 
-  bool isDense() const {
-    return idxImplicit != 0;
-  }
-  
-  
   /**
-     @return Total number of explicit and implicit runs.
+     @return true iff cell contains implicit observations.
    */
-  IndexT getRunCount() const {
-    return rankCount + (idxImplicit == 0 ? 0 : 1);
+  bool implicitObs() const {
+    return obsImplicit != 0;
+  }
+
+
+  /**
+     @return position of the residual rank.
+
+     Return value is legal, but useless, if no implicit indices.
+   */
+  IndexT residualPosition() const {
+    return rankStart + rankCount - 1;
   }
 
   
+
+  /**
+     @return total number of explicit and implicit ranks.
+   */
+  inline IndexT getRankCount() const {
+    return rankCount;
+  }
+
+
   bool isSingleton() const {
-    return getRunCount() == 1;
+    return rankCount == 1;
+  }
+
+
+  /**
+     @return true iff cell has ties.
+   */
+  bool hasTies() const {
+    if (obsImplicit != 0)
+      return rankCount != (obsRange.getExtent() + 1);
+    else
+      return rankCount != obsRange.getExtent();
   }
 };
 

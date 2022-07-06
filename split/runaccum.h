@@ -103,7 +103,8 @@ class RunAccum : public Accum {
   /**
      @brief Accumulates runs for regression.
    */
-  PredictorT regRuns();
+  PredictorT regRuns(const class SFReg* sf,
+		     const SplitNux* cand);
 
   
   /**
@@ -220,7 +221,8 @@ public:
   /**
      @brief Private entry for regression splitting.
    */
-  void splitReg(class SplitNux* cand);
+  void splitReg(const class SFReg* sf,
+		class SplitNux* cand);
 
 
   /**
@@ -264,11 +266,13 @@ public:
 	       IndexT& rvOff);
 
 
-  void initReg(IndexT runLeft,
+  void initReg(const IndexT rankBase[],
+	       IndexT runLeft,
 	       PredictorT runIdx);
 
   
-  double* initCtg(IndexT runLeft,
+  double* initCtg(const IndexT rankBase[],
+		  IndexT runLeft,
 		  PredictorT runIdx);
 
   
@@ -277,7 +281,9 @@ public:
 
      @param maskSense indicates whether to screen set or unset mask.
    */  
-  PredictorT regRunsMasked(const class BranchSense* branchSense,
+  PredictorT regRunsMasked(const class SFReg* sf,
+			   const SplitNux* cand,
+			   const class BranchSense* branchSense,
 			   IndexT edgeRight,
 			   IndexT edgeLeft,
 			   bool maskSense);
@@ -437,10 +443,10 @@ public:
      @return level code at specified slot.
    */
   auto getCode(PredictorT slot) const {
-    return runZero[slot].code;
+    return runZero[slot].getCode();
   }
 
-  
+
   auto getSum(PredictorT slot) const {
     return runZero[slot].sum;
   }

@@ -14,11 +14,9 @@
  */
 
 #include "cutset.h"
-#include "cutaccum.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "trainframe.h"
-#include "branchsense.h"
 
 
 double SplitNux::minRatio = minRatioDefault;
@@ -46,8 +44,6 @@ SplitNux::SplitNux(const StagedCell* cell_,
 		   const SplitFrontier* splitFrontier) :
   cell(cell_),
   randVal(randVal_),
-  implicitCount(cell->idxImplicit),
-  idxRange(cell->getRange()),
   sum(splitFrontier->getSum(cell)),
   sCount(splitFrontier->getSCount(cell)),
   ptId(splitFrontier->getPTId(cell)),
@@ -62,8 +58,6 @@ SplitNux::SplitNux(const SplitNux& parent,
 		   IndexT idx) :
   cell(parent.cell),
   randVal(parent.randVal),
-  implicitCount(parent.implicitCount),
-  idxRange(parent.idxRange),
   accumIdx(parent.accumIdx),
   sum(sf->getSumSucc(cell, sense)),
   sCount(sf->getSCountSucc(cell, sense)),
@@ -83,13 +77,13 @@ IndexRange SplitNux::cutRange(const CutSet* cutSet, bool leftRange) const {
 
 
 IndexRange SplitNux::cutRangeLeft(const CutSet* cutSet) const {
-  return IndexRange(idxRange.getStart(), cutSet->getIdxLeft(this) - idxRange.getStart() + 1);
+  return IndexRange(getObsStart(), cutSet->getIdxLeft(this) - getObsStart() + 1);
 }
 
 
 IndexRange SplitNux::cutRangeRight(const CutSet* cutSet) const {
   IndexT idxRight = cutSet->getIdxRight(this);
-  return IndexRange(idxRight, idxRange.getExtent() - (idxRight - idxRange.getStart()));
+  return IndexRange(idxRight, getObsExtent() - (idxRight - getObsStart()));
 }
 
 

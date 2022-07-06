@@ -30,18 +30,11 @@
    Run objects are allocated per-tree, and live throughout training.
 */
 class RunSet {
+  const SplitStyle style; // Splitting style, fixed by frontier class.
+  IndexT wideRuns; // Sum of run sizes greater than max.
   vector<RunAccumT> runAccum;
   vector<double> rvWide;
-  const SplitStyle style; // Splitting style, fixed by frontier class.
 
-  /**
-     @brief Consolidates the safe count vector.
-
-     Classification:  only wide run sets use the heap.
-  */
-  void setOffsets(const class SplitFrontier* sf);
-
-  
 public:
 
   /**
@@ -61,6 +54,14 @@ public:
   IndexT addRun(const class SplitFrontier* splitFrontier,
 		const class SplitNux* cand,
 		PredictorT runCount);
+
+  
+  /**
+     @brief Consolidates the safe count vector.
+
+     Classification:  only wide run sets use the heap.
+  */
+  void setOffsets(const class SplitFrontier* sf);
 
   
   /**

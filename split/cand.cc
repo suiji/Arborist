@@ -22,7 +22,7 @@
 
 
 
-Cand::Cand(InterLevel* interLevel) :
+Cand::Cand(const InterLevel* interLevel) :
   nSplit(interLevel->getNSplit()),
   nPred(interLevel->getNPred()),
   preCand(vector<vector<PreCand>>(nSplit)) {
@@ -103,7 +103,7 @@ void Cand::candidateFixed(const Frontier* frontier,
 }
 
 
-vector<SplitNux> Cand::getCandidates(InterLevel* interLevel,
+vector<SplitNux> Cand::getCandidates(const InterLevel* interLevel,
 				     const SplitFrontier* sf) {
   vector<SplitNux> postCand;
   for (IndexT nodeIdx = 0; nodeIdx < nSplit; nodeIdx++) {

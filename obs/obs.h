@@ -21,22 +21,119 @@
 
 #include <cmath>
 
-#include<iostream>
+
+struct ObsReg {
+  double ySum;
+  unsigned int sCount;
+  bool tied;
+
+  ObsReg(double ySum_,
+	 unsigned int sCount_,
+	 bool tied_ = false) :
+    ySum(ySum_),
+    sCount(sCount_),
+    tied(tied_) {
+  }
+};
+
+
+struct ObsCtg {
+  PredictorT yCtg;
+  double ySum;
+  unsigned int sCount;
+  bool tied;
+
+  ObsCtg(unsigned int yCtg_,
+	 double ySum_,
+	 unsigned int sCount_,
+	 bool tied_) :
+    yCtg(yCtg_),
+    ySum(ySum_),
+    sCount(sCount_),
+    tied(tied_) {
+  }
+};
+
+
 /**
    @brief Compact representation for splitting.
  */
 class Obs {
+  static const unsigned int tieMask = 1ul; ///< Mask bit for tie encoding.
+  static const unsigned int ctgLow = 1ul; ///< Low bit position of ctg.
   static IndexT maxSCount;
-  static unsigned int ctgBits; // Pack:  nonzero iff categorical.
   static unsigned int ctgMask;
-  static unsigned int multBits;
-  static unsigned int multMask; // Masks bits not encoding multiplicity.
-
-  static double scale; // Coefficent scaling response to < 0.5.
-  static double recipScale; // Reciprocal simplifies division.
+  static unsigned int multLow; ///< Low bit position of multiplicity.
+  static unsigned int multMask; ///< Masks bits not encoding multiplicity.
+  static double scale; ///< Coefficent scaling response to < 0.5.
+  static double recipScale; ///< Reciprocal simplifies division.
   
-  IndexT rank;
-  FltVal yVal;
+  FltVal obsPacked; ///< Packed representation.
+
+
+  /**
+     @brief Totals a range of observations into regression format.
+   */
+  static ObsReg regTotal(const Obs* obsStart,
+			 IndexT extent) {
+    double ySum = 0.0;
+    IndexT sCount = 0;
+    for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
+      FltVal obsPacked = obs->obsPacked;
+      unsigned int rounded = round(obsPacked);
+      ySum += scale * (obsPacked - rounded);
+      sCount += 1 + ((rounded >> multLow) & multMask);
+    }
+
+    return ObsReg(ySum, sCount);
+  }
+
+  
+  static void ctgResidual(const Obs* obsStart,
+			  IndexT extent,
+			  double& sum,
+			  IndexT& sCount,
+			  double ctgImpl[]) {
+    double ySumExpl = 0.0;
+    IndexT sCountExpl = 0;
+    for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
+      FltVal obsPacked = obs->obsPacked;
+      unsigned int rounded = round(obsPacked);
+      double ySumThis = scale * (obsPacked - rounded);
+      PredictorT yCtg = (rounded >> ctgLow) & ctgMask;
+      ctgImpl[yCtg] -= ySumThis;
+      ySumExpl += ySumThis;
+      sCountExpl += 1 + ((rounded >> multLow) & multMask);
+    }
+    sum -= ySumExpl;
+    sCount -= sCountExpl;
+  }
+
+  
+ public:
+
+  /**
+     @brief Unpacks a single observation into regression format.
+   */
+  inline ObsReg unpackReg() const {
+    unsigned int rounded = round(obsPacked); // Rounds nearest.
+    return ObsReg(scale * (obsPacked - rounded),
+		  1 + ((rounded >> multLow) & multMask),
+		  (rounded & tieMask) != 0);
+  }
+
+
+  static ObsReg residualReg(const Obs* obsCell,
+			    const class SplitNux* nux);
+
+  /**
+     @brief Subtracts explicit sum and count values from node totals.
+   */
+  static void residualCtg(const Obs* obsCell,
+			  const class SplitNux* nux,
+			  double& sum,
+			  IndexT& sCount,
+			  vector<double>& ctgImpl);
 
 
   /**
@@ -44,16 +141,16 @@ class Obs {
    */
   inline void refReg(unsigned int& sCount,
 		     double& ySum) const {
-    unsigned int rounded = round(yVal); // Rounds nearest.
-    sCount = (rounded >> ctgBits) & multMask;
-    ySum = scale * (yVal - rounded);
+    unsigned int rounded = round(obsPacked); // Rounds nearest.
+    sCount = 1 + ((rounded >> multLow) & multMask);
+    ySum = scale * (obsPacked - rounded);
   }
 
 
   /**
      @brief Unpacks float into categorical representation.
 
-     The fractional component of yVal is a scaled class weight, and
+     The fractional component of obsPacked is a scaled class weight, and
      is therefore positive, so truncation (round-toward-zero) may be
      used instead of a slower call to round().
 
@@ -63,13 +160,19 @@ class Obs {
   inline void refCtg(unsigned int& sCount,
 		     double& ySum,
 		     unsigned int& yCtg) const {
-    unsigned int rounded = yVal;  // Rounds toward zero.
-    sCount = (rounded >> ctgBits) & multMask;
-    ySum = scale * (yVal - rounded);
-    yCtg = rounded & ctgMask;
+    unsigned int rounded = obsPacked;  // Rounds toward zero.
+    sCount = 1 + ((rounded >> multLow) & multMask);
+    ySum = scale * (obsPacked - rounded);
+    yCtg = (rounded >> ctgLow) & ctgMask;
   }
 
- public:
+  inline ObsCtg unpackCtg() const {
+    unsigned int rounded = obsPacked;  // Rounds toward zero.
+    return ObsCtg((rounded >> ctgLow) & ctgMask,
+		  scale * (obsPacked - rounded),
+		  1 + ((rounded >> multLow) & multMask),
+		  (rounded & tieMask) != 0);
+  }
 
   /**
      @brief Sets internal packing parameters.
@@ -85,6 +188,12 @@ class Obs {
   static void deImmutables();
 
 
+  bool isTied() const {
+    unsigned int rounded = round(obsPacked);
+    return (rounded & tieMask) != 0;
+  }
+
+
   /**
      @brief Initializes by copying response and joining sampled rank.
 
@@ -94,13 +203,27 @@ class Obs {
      @param sNux summarizes response sampled at row.
 
      @param rank_ is the predictor rank sampled at a given row.
+
+     @param tie indicates whether previous obs has same rank.
   */
   inline void join(const SampleNux& sNux,
-		   IndexT rank_) {
-    rank = rank_;
-    yVal = sNux.getYSum() * recipScale + sNux.getRight();
+		   bool tie) {
+    obsPacked = sNux.getYSum() * recipScale + ((sNux.getSCount()-1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
   }
 
+
+  void setTie(bool tie) {
+    unsigned int rounded = round(obsPacked);
+    if (rounded & 1) {
+      if (!tie)
+	obsPacked--;
+    }
+    else {
+      if (tie)
+	obsPacked++;
+    }
+  }
+  
 
   /**
      @brief Derives sample count from internal encoding.
@@ -108,8 +231,8 @@ class Obs {
      @return sample count.
    */
   inline IndexT getSCount() const {
-    unsigned int rounded = round(yVal);
-    return (rounded >> ctgBits) & multMask;
+    unsigned int rounded = round(obsPacked);
+    return 1 + ((rounded >> multLow) & multMask);
   }
 
 
@@ -119,17 +242,7 @@ class Obs {
      @return sum of y-values for sample.
    */
   inline double getYSum() const {
-    return scale * (yVal - round(yVal));
-  }
-
-
-  /**
-     @brief Getter for rank or factor group.
-
-     @return rank value.
-   */
-  inline IndexT getRank() const {
-    return rank;
+    return scale * (obsPacked - round(obsPacked));
   }
 
 
@@ -139,8 +252,8 @@ class Obs {
      @return response cardinality.
    */
   inline PredictorT getCtg() const {
-    unsigned int rounded = round(yVal);
-    return rounded & ctgMask;
+    unsigned int rounded = round(obsPacked);
+    return (rounded >> ctgLow) & ctgMask;
   }
 
 
@@ -149,8 +262,9 @@ class Obs {
 
      @return true iff run state changes.
    */
-  inline void regInit(RunNux& nux) const {
-    nux.code = rank;
+  inline void regInit(RunNux& nux,
+		      IndexT code) const {
+    nux.setCode(code);
     refReg(nux.sCount, nux.sum);
   }
 
@@ -161,8 +275,8 @@ class Obs {
      @return true iff the current cell continues a run.
    */
   inline bool regAccum(RunNux& nux) const {
-    if (nux.code == rank) {
-      unsigned int sCount;
+    if (isTied()) {
+      IndexT sCount;
       double ySum;
       refReg(sCount, ySum);
       nux.sum += ySum;
@@ -176,25 +290,6 @@ class Obs {
 
 
   /**
-     @brief Compound accessor for regression.  Cannot be used for
-     classification, as 'sCount' value reported here not unpacked.
-
-     @param[out] ySum outputs the response value.
-
-     @param[out] sCount outputs the multiplicity of the row in this sample.
-
-     @return rank of predictor value at sample.
-   */
-  inline double regFields(IndexT& sCount,
-			  IndexT& rank_) const {
-    double ySum;
-    refReg(sCount, ySum);
-    rank_ = rank;
-    return ySum;
-  }
-
-
-  /**
      @brief Outputs statistics appropriate for classification.
 
      @param[out] nux accumulates run statistics.
@@ -202,12 +297,14 @@ class Obs {
      @param[in, out] sumBase accumulates run response by category.
    */
   inline void ctgInit(RunNux& nux,
+		      IndexT code,
 		      double* sumBase) const {
-    unsigned int sCount, yCtg;
+    IndexT sCount;
+    PredictorT yCtg;
     double ySum;
     refCtg(sCount, ySum, yCtg);
       
-    nux.code = rank;
+    nux.setCode(code);
     nux.sum = ySum;
     nux.sCount = sCount;
     sumBase[yCtg] = ySum;
@@ -221,8 +318,9 @@ class Obs {
    */
   inline bool ctgAccum(RunNux& nux,
 		       double* sumBase) const {
-    if (nux.code == rank) {
-      unsigned int sCount, yCtg;
+    if (isTied()) {
+      IndexT sCount;
+      PredictorT yCtg;
       double ySum;
       refCtg(sCount, ySum, yCtg);
 
@@ -234,26 +332,6 @@ class Obs {
     else {
       return false;
     }
-  }
-
-
-  /**
-     @brief Compound accessor for classification.  Can be
-     called for regression if '_yCtg' value ignored.
-
-     @param[out] ySum is the proxy response value.
-
-     @param[out] sCount the sample count.
-
-     @param[out] yCtg is the true response value.
-
-     @return predictor rank.
-   */
-  inline IndexT ctgFields(double& ySum,
-			  IndexT& sCount,
-			  PredictorT& yCtg) const {
-    refCtg(sCount, ySum, yCtg);
-    return rank;
   }
 };
 

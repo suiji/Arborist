@@ -28,23 +28,24 @@
 
 
 InterLevel::InterLevel(const TrainFrame* frame,
-	       Frontier* frontier_) :
+		       const Frontier* frontier) :
   nPred(frame->getNPred()),
-  frontier(frontier_),
   positionMask(getPositionMask(nPred)),
   levelShift(getLevelShift(nPred)),
   bagCount(frontier->getBagCount()),
+  layout(frame->getLayout()),
+  noRank(layout->getNoRank()),
   rootPath(make_unique<IdxPath>(bagCount)),
+  pathIdx(vector<PathT>(layout->getSafeSize(bagCount))),
   level(0),
   splitCount(1),
-  layout(frame->getLayout()),
   obsPart(make_unique<ObsPart>(layout, bagCount)),
-  stageMap(vector<vector<PredictorT>>(1)),
-  ofFront(make_unique<ObsFrontier>(frontier, 1, nPred, bagCount, this)) {
+  stageMap(vector<vector<PredictorT>>(1)) {
   stageMap[0] = vector<PredictorT>(nPred);
 }
 
-bool InterLevel::isStaged(const SplitCoord& coord, StagedCell*& cell) {
+
+bool InterLevel::isStaged(const SplitCoord& coord, StagedCell*& cell) const {
   IndexT dummy;
   PredictorT stagePos;
   if (isStaged(coord, dummy, stagePos)) {
@@ -77,6 +78,10 @@ ObsPart* InterLevel::getObsPart() const {
   return obsPart.get();
 }
 
+PathT* InterLevel::getPathBlock(PredictorT predIdx) {
+  return &pathIdx[obsPart->getStageOffset(predIdx)];
+}
+
 
 IndexT* InterLevel::getIdxBuffer(const SplitNux* nux) const {
   return obsPart->getIdxBuffer(nux);
@@ -93,8 +98,11 @@ ObsFrontier* InterLevel::getFront() {
 }
 
 
-void InterLevel::repartition(Frontier* frontier,
-			     const SampleObs* sampleObs) {
+CandType InterLevel::repartition(const Frontier* frontier,
+				 const SampleObs* sampleObs) {
+  ofFront = make_unique<ObsFrontier>(frontier, this);
+  CandType cand(this);
+  cand.precandidates(frontier, this);
   // Precandidates precipitate restaging ancestors at this level,
   // as do all history flushes.
   vector<unsigned int> nExtinct;
@@ -105,6 +113,7 @@ void InterLevel::repartition(Frontier* frontier,
     nExtinct = restage();
   }
   ofFront->prune(nExtinct);
+  return cand;
 }
 
 
@@ -196,29 +205,24 @@ unsigned int InterLevel::restage(Ancestor& ancestor) {
 }
 
 
-vector<IndexSet> InterLevel::overlap(const Frontier* frontier,
-				     const SampleMap& smNext,
-				     const vector<IndexSet>& frontierNodes) {
-  vector<IndexSet> frontierNext = frontier->produce();
+void InterLevel::overlap(const vector<IndexSet>& frontierNodes,
+			 const vector<IndexSet>& frontierNext,
+			 IndexT endIdx) {
   splitCount = frontierNext.size();
   if (splitCount != 0) { // Otherwise no further splitting or repartitioning.
+    reviseStageMap(frontierNodes);
+
     // ofFront is assigned its front range by reviseStageMap().  This
     // front range is then applied to all layers on deque, following
     // which ofFront is itself placed on the deque.
     //
-    reviseStageMap(frontierNodes);
-
     ofFront->setFrontRange(frontierNodes, frontierNext);
     for (auto lv = history.begin(); lv != history.end(); lv++) {
       (*lv)->applyFront(ofFront.get(), frontierNext);
     }
     history.push_front(move(ofFront));
-
-    ofFront = make_unique<ObsFrontier>(frontier, splitCount, nPred, smNext.getEndIdx(), this);
   }
   level++;
-
-  return frontierNext;
 }
 
 

@@ -17,12 +17,8 @@
 #include "cutaccum.h"
 #include "cutset.h"
 #include "splitfrontier.h"
+#include "obsfrontier.h"
 #include "partition.h"
-#include "residual.h"
-
-
-CutSet::CutSet() {
-}
 
 
 CutSig CutSet::getCut(const SplitNux& nux) const {
@@ -64,12 +60,12 @@ double CutSet::getQuantRank(const SplitNux* nux) const {
 
 
 IndexT CutSet::getIdxRight(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].idxRight;
+  return cutSig[nux->getAccumIdx()].obsRight;
 }
 
 
 IndexT CutSet::getIdxLeft(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].idxLeft;
+  return cutSig[nux->getAccumIdx()].obsLeft;
 }
 
 
@@ -78,17 +74,19 @@ IndexT CutSet::getImplicitTrue(const SplitNux* nux) const {
 }
 
 
-void CutSet::write(const SplitNux* nux, const CutAccum* accum) {
+void CutSet::write(const ObsFrontier* ofFront,
+		   const SplitNux* nux, const CutAccum* accum) {
   if (accum->info > nux->getInfo()) {
-    cutSig[nux->getAccumIdx()].write(nux, accum);
+    cutSig[nux->getAccumIdx()].write(ofFront, nux, accum);
   }
 }
 
 
-void CutSig::write(const SplitNux* nux,
+void CutSig::write(const ObsFrontier* ofFront,
+		   const SplitNux* nux,
 		   const CutAccum* accum) {
-  idxLeft = accum->idxLeft;
-  idxRight = accum->idxRight;
+  obsLeft = accum->obsLeft;
+  obsRight = accum->obsRight;
   implicitTrue = accum->lhImplicit(nux);
-  quantRank = accum->interpolateRank(nux);
+  quantRank = accum->interpolateRank(ofFront, nux);
 }
