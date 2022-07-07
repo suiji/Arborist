@@ -304,8 +304,8 @@ vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
 					vector<IndexT>& preResidual,
 					const StagedCell& mrra) const {
   IndexRange idxRange = mrra.obsRange;
-  IdxPath* idxPath = interLevel->getRootPath();
-  IndexT* indexVec = obsPart->idxBuffer(&mrra);
+  const IdxPath* idxPath = interLevel->getRootPath();
+  const IndexT* indexVec = obsPart->idxBuffer(&mrra);
   PathT* prePath = interLevel->getPathBlock(mrra.getPredIdx());
   vector<IndexT> pathCount(backScale(1));
 

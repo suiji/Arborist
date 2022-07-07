@@ -55,21 +55,24 @@ struct ObsCtg {
 };
 
 
+union ObsPacked {
+  float num;
+  uint32_t bits;
+};
+
+
 /**
    @brief Compact representation for splitting.
  */
 class Obs {
   static const unsigned int tieMask = 1ul; ///< Mask bit for tie encoding.
   static const unsigned int ctgLow = 1ul; ///< Low bit position of ctg.
-  static IndexT maxSCount;
   static unsigned int ctgMask;
   static unsigned int multLow; ///< Low bit position of multiplicity.
   static unsigned int multMask; ///< Masks bits not encoding multiplicity.
-  static double scale; ///< Coefficent scaling response to < 0.5.
-  static double recipScale; ///< Reciprocal simplifies division.
+  static unsigned int numMask; ///< Masks bits not encoding numeric.
   
-  FltVal obsPacked; ///< Packed representation.
-
+  ObsPacked obsPacked;
 
   /**
      @brief Totals a range of observations into regression format.
@@ -79,10 +82,10 @@ class Obs {
     double ySum = 0.0;
     IndexT sCount = 0;
     for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      FltVal obsPacked = obs->obsPacked;
-      unsigned int rounded = round(obsPacked);
-      ySum += scale * (obsPacked - rounded);
-      sCount += 1 + ((rounded >> multLow) & multMask);
+      ObsPacked fltPacked = obs->obsPacked;
+      fltPacked.bits &= numMask;
+      ySum += fltPacked.num;
+      sCount += 1 + ((obs->obsPacked.bits >> multLow) & multMask);
     }
 
     return ObsReg(ySum, sCount);
@@ -97,13 +100,12 @@ class Obs {
     double ySumExpl = 0.0;
     IndexT sCountExpl = 0;
     for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      FltVal obsPacked = obs->obsPacked;
-      unsigned int rounded = round(obsPacked);
-      double ySumThis = scale * (obsPacked - rounded);
-      PredictorT yCtg = (rounded >> ctgLow) & ctgMask;
+      ObsPacked obsPacked = obs->obsPacked;
+      double ySumThis = obsPacked.num;
+      PredictorT yCtg = (obsPacked.bits >> ctgLow) & ctgMask;
       ctgImpl[yCtg] -= ySumThis;
       ySumExpl += ySumThis;
-      sCountExpl += 1 + ((rounded >> multLow) & multMask);
+      sCountExpl += 1 + ((obsPacked.bits >> multLow) & multMask);
     }
     sum -= ySumExpl;
     sCount -= sCountExpl;
@@ -116,10 +118,11 @@ class Obs {
      @brief Unpacks a single observation into regression format.
    */
   inline ObsReg unpackReg() const {
-    unsigned int rounded = round(obsPacked); // Rounds nearest.
-    return ObsReg(scale * (obsPacked - rounded),
-		  1 + ((rounded >> multLow) & multMask),
-		  (rounded & tieMask) != 0);
+    ObsPacked fltPacked = obsPacked;
+    fltPacked.bits &= numMask;
+    return ObsReg(fltPacked.num,
+		  1 + ((obsPacked.bits >> multLow) & multMask),
+		  (obsPacked.bits & tieMask) != 0);
   }
 
 
@@ -141,18 +144,15 @@ class Obs {
    */
   inline void refReg(unsigned int& sCount,
 		     double& ySum) const {
-    unsigned int rounded = round(obsPacked); // Rounds nearest.
-    sCount = 1 + ((rounded >> multLow) & multMask);
-    ySum = scale * (obsPacked - rounded);
+    ObsPacked fltPacked = obsPacked;
+    fltPacked.bits &= numMask;
+    sCount = 1 + ((obsPacked.bits >> multLow) & multMask);
+    ySum = fltPacked.num;
   }
 
 
   /**
      @brief Unpacks float into categorical representation.
-
-     The fractional component of obsPacked is a scaled class weight, and
-     is therefore positive, so truncation (round-toward-zero) may be
-     used instead of a slower call to round().
 
      Class weights are proportional, so it may be possible to avoid
      descaling.
@@ -160,37 +160,34 @@ class Obs {
   inline void refCtg(unsigned int& sCount,
 		     double& ySum,
 		     unsigned int& yCtg) const {
-    unsigned int rounded = obsPacked;  // Rounds toward zero.
-    sCount = 1 + ((rounded >> multLow) & multMask);
-    ySum = scale * (obsPacked - rounded);
-    yCtg = (rounded >> ctgLow) & ctgMask;
+    sCount = 1 + ((obsPacked.bits >> multLow) & multMask);
+    ObsPacked obsNum = obsPacked;
+    obsNum.bits &= numMask;
+    ySum = obsNum.num;
+    yCtg = (obsPacked.bits >> ctgLow) & ctgMask;
   }
 
   inline ObsCtg unpackCtg() const {
-    unsigned int rounded = obsPacked;  // Rounds toward zero.
-    return ObsCtg((rounded >> ctgLow) & ctgMask,
-		  scale * (obsPacked - rounded),
-		  1 + ((rounded >> multLow) & multMask),
-		  (rounded & tieMask) != 0);
+    ObsPacked obsNum = obsPacked;
+    obsNum.bits &= numMask;
+    return ObsCtg((obsPacked.bits >> ctgLow) & ctgMask,
+		  obsNum.num,
+		  1 + ((obsPacked.bits >> multLow) & multMask),
+		  (obsPacked.bits & tieMask) != 0);
   }
 
   /**
      @brief Sets internal packing parameters.
    */
-  static void setShifts(IndexT maxSCount,
-			unsigned int ctgBits_,
+  static void setShifts(unsigned int ctgBits_,
 		        unsigned int ctgMask_);
-
-
-  static void setScale(double yMax);
 
   
   static void deImmutables();
 
 
   bool isTied() const {
-    unsigned int rounded = round(obsPacked);
-    return (rounded & tieMask) != 0;
+    return (obsPacked.bits & tieMask) != 0;
   }
 
 
@@ -208,20 +205,17 @@ class Obs {
   */
   inline void join(const SampleNux& sNux,
 		   bool tie) {
-    obsPacked = sNux.getYSum() * recipScale + ((sNux.getSCount()-1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
+    ObsPacked fltPacked;
+    fltPacked.num = sNux.getYSum();
+    obsPacked.bits = (fltPacked.bits & numMask) + ((sNux.getSCount()-1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
   }
 
 
   void setTie(bool tie) {
-    unsigned int rounded = round(obsPacked);
-    if (rounded & 1) {
-      if (!tie)
-	obsPacked--;
-    }
-    else {
-      if (tie)
-	obsPacked++;
-    }
+    if (tie)
+      obsPacked.bits |= 1ul;
+    else
+      obsPacked.bits &= ~1ul;
   }
   
 
@@ -231,8 +225,7 @@ class Obs {
      @return sample count.
    */
   inline IndexT getSCount() const {
-    unsigned int rounded = round(obsPacked);
-    return 1 + ((rounded >> multLow) & multMask);
+    return 1 + ((obsPacked.bits >> multLow) & multMask);
   }
 
 
@@ -242,7 +235,9 @@ class Obs {
      @return sum of y-values for sample.
    */
   inline double getYSum() const {
-    return scale * (obsPacked - round(obsPacked));
+    ObsPacked fltPacked = obsPacked;
+    fltPacked.bits &= numMask;
+    return fltPacked.num;
   }
 
 
@@ -252,8 +247,7 @@ class Obs {
      @return response cardinality.
    */
   inline PredictorT getCtg() const {
-    unsigned int rounded = round(obsPacked);
-    return (rounded >> ctgLow) & ctgMask;
+    return (obsPacked.bits >> ctgLow) & ctgMask;
   }
 
 

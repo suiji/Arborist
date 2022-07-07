@@ -16,7 +16,7 @@
 #include "cutaccumcart.h"
 #include "splitnux.h"
 #include "sfcart.h"
-#include "partition.h"
+#include "obs.h"
 
 CutAccumRegCart::CutAccumRegCart(const SplitNux* cand,
 				 const SFRegCart* spReg) :
@@ -56,13 +56,11 @@ IndexT CutAccumRegCart::splitRL(IndexT idxFinal,
   for (IndexT idx = obsTop; idx-- != idxFinal; ) {
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
-    bool tiedRight = obsThis.tied;
+    if (!obsThis.tied) {
+      argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx, rkIdx);
+      rkIdx++;
+    }
     obsThis = obsCell[idx].unpackReg();
-    if (tiedRight)
-      continue;
-
-    argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx, rkIdx);
-    rkIdx++;
   }
 
   return rkIdx;
@@ -76,13 +74,11 @@ IndexT CutAccumCtgCart::splitRL(IndexT idxFinal,
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
     accumCtgSS(obsThis.ySum, obsThis.yCtg);
-    bool tiedRight = obsThis.tied;
+    if (!obsThis.tied) {
+      argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx, rkIdx);
+      rkIdx++;
+    }
     obsThis = obsCell[idx].unpackCtg();
-    if (tiedRight)
-      continue;
-
-    argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx, rkIdx);
-    rkIdx++;
   }
   return rkIdx;
 }
@@ -96,20 +92,18 @@ IndexT CutAccumRegCart::splitMono(IndexT idxFinal,
   bool nonDecreasing = monoMode > 0;
   ObsReg obsThis = obsCell[obsTop].unpackReg();
   for (IndexT idx = obsTop; idx-- != idxFinal; ) {
-    bool tiedRight = obsThis.tied;
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
-    obsThis = obsCell[idx].unpackReg();
-    if (tiedRight)
-      continue;
-
-    IndexT sCountR = sCountCand - sCount;
-    double sumR = sumCand - sum;
-    bool up = (sum * sCountR <= sumR * sCount);
-    if (nonDecreasing ? up : !up) {
-      argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx, rkIdx);
+    if (!obsThis.tied) {
+      IndexT sCountR = sCountCand - sCount;
+      double sumR = sumCand - sum;
+      bool up = (sum * sCountR <= sumR * sCount);
+      if (nonDecreasing ? up : !up) {
+	argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx, rkIdx);
+      }
+      rkIdx++;
     }
-    rkIdx++;
+    obsThis = obsCell[idx].unpackReg();
   }
   return rkIdx;
 }
@@ -145,14 +139,12 @@ void CutAccumRegCart::residualLR(const SplitNux* cand,
   for (IndexT idx = idxInit + 1; idx-- != obsStart; ) {
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
-    bool tiedRight = obsThis.tied;
+    if (!obsThis.tied) {
+      argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx, rkIdxR, rkIdxL);
+      rkIdxR = rkIdxL;
+      rkIdxL++;
+    }
     obsThis = obsCell[idx].unpackReg();
-    if (tiedRight)
-      continue;
-
-    argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx, rkIdxR, rkIdxL);
-    rkIdxR = rkIdxL;
-    rkIdxL++;
   }
 }
 
@@ -172,16 +164,16 @@ void CutAccumCtgCart::residualLR(const SplitNux* cand,
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
     accumCtgSS(obsThis.ySum, obsThis.yCtg);
-    bool tiedRight = obsThis.tied;
+    if (!obsThis.tied) {
+      argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx, rkIdxR, rkIdxL);
+      rkIdxR = rkIdxL;
+      rkIdxL++;
+    }
     obsThis = obsCell[idx].unpackCtg();
-    if (tiedRight)
-      continue;
-
-    argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx, rkIdxR, rkIdxL);
-    rkIdxR = rkIdxL;
-    rkIdxL++;
   }
 }
+
+
 void CutAccumRegCart::splitMonoDense(const SplitNux* cand,
 				     IndexT rkIdxL) {
   bool nonDecreasing = monoMode > 0;
@@ -189,21 +181,19 @@ void CutAccumRegCart::splitMonoDense(const SplitNux* cand,
   ObsReg obsThis = Obs::residualReg(obsCell, cand);
   IndexT rkIdxR = 0; // Right rank index initialized to residual.
   for (IndexT idx = idxInit + 1; idx-- != obsStart; ) {
-    bool tiedRight = obsThis.tied;
     sum -= obsThis.ySum;
     sCount -= obsThis.sCount;
-    obsThis = obsCell[idx].unpackReg();
-    if (tiedRight)
-      continue;
-
-    IndexT sCountR = sCountCand - sCount;
-    double sumR = sumCand - sum;
-    bool up = (sum * sCountR <= sumR * sCount);
-    if (nonDecreasing ? up : !up) {
-      argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx, rkIdxR, rkIdxL);//, rkThis, rkRight);
+    if (!obsThis.tied) {
+      IndexT sCountR = sCountCand - sCount;
+      double sumR = sumCand - sum;
+      bool up = (sum * sCountR <= sumR * sCount);
+      if (nonDecreasing ? up : !up) {
+	argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx, rkIdxR, rkIdxL);
+      }
+      rkIdxR = rkIdxL;
+      rkIdxL++;
     }
-    rkIdxR = rkIdxL;
-    rkIdxL++;
+    obsThis = obsCell[idx].unpackReg();
   }
 }
 

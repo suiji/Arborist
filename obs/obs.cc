@@ -17,38 +17,25 @@
 #include "splitnux.h"
 
 
-IndexT Obs::maxSCount = 0;
 unsigned int Obs::ctgMask = 0;
 unsigned int Obs::multLow = 0;
 unsigned int Obs::multMask = 0;
-
-double Obs::scale = 1.0;
-double Obs::recipScale = 1.0;
+unsigned int Obs::numMask = 0;
 
   /**
      @brief Sets internal packing parameters.
    */
-void Obs::setShifts(IndexT maxSCount_,
-		    unsigned int ctgBits,
+void Obs::setShifts(unsigned int ctgBits,
 		    unsigned int multBits) {
-  maxSCount = maxSCount_;
   multLow = ctgLow + ctgBits;
   multMask = (1ul << multBits) - 1;
   ctgMask = (1ul << ctgBits) - 1;
-}
-
-
-void Obs::setScale(double yMax) {
-  scale = (yMax * maxSCount) / 0.49;
-  if (scale < 1.0)
-    scale = 1.0;
-  recipScale = 1.0 / scale;
+  numMask = ~((1ul << (ctgBits + multBits + 1)) - 1);
 }
 
 
 void Obs::deImmutables() {
-  maxSCount = multMask = ctgMask = 0;
-  scale = recipScale = 1.0;
+  multMask = ctgMask = numMask = 0;
 }
 
 

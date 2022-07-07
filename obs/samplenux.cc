@@ -53,7 +53,7 @@ void SampleNux::setShifts(PredictorT nCtg,
   rightBits = ctgBits + multBits;
   rightMask = (1ul << rightBits) - 1;
 
-  Obs::setShifts(maxSCount, ctgBits, multBits);
+  Obs::setShifts(ctgBits, multBits);
 }
 
 

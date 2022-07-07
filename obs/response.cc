@@ -17,8 +17,6 @@
 #include "response.h"
 #include "sampleobs.h"
 #include "sampler.h"
-#include "obs.h"
-
 
 #include <algorithm>
 
@@ -30,7 +28,6 @@ ResponseReg::ResponseReg(const vector<double>& y_) :
   for (auto y : yTrain) {
     yMax = max(yMax, abs(y));
   }
-  Obs::setScale(yMax);
 }
 
 
@@ -46,7 +43,6 @@ ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
   for (auto y : classWeight) {
     yMax = max(yMax, y);
   }
-  Obs::setScale(yMax);
 }
 
 
@@ -57,7 +53,6 @@ ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
   nCtg(nCtg_),
   classWeight(vector<double>(0)),
   defaultPrediction(ctgDefault()) {
-  Obs::setScale(0.0);
 }
 
 

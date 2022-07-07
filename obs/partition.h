@@ -158,6 +158,11 @@ class ObsPart {
   }
 
 
+  const Obs* getSourceBuffer(const StagedCell& mrra) {
+    return obsCell + bufferOff(mrra.getPredIdx(), mrra.bufIdx);
+  }
+
+
   Obs* getPredBase(const StagedCell* mrra) const {
     return obsCell + bufferOff(mrra);
   }
