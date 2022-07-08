@@ -145,7 +145,7 @@ void PredictReg::setPermuteTarget(PredictorT predIdx) {
 
 
 void PredictCtg::setPermuteTarget(PredictorT predIdx) {
-  mispredPermute[predIdx] = move(vector<double>(nCtgMerged));
+  mispredPermute[predIdx] = vector<double>(nCtgMerged);
   yTarg = &yPermute;
   confusionTarg = &confusionPermute;
   censusTarg = &censusPermute;

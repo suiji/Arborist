@@ -146,7 +146,7 @@ struct Leaf {
      leaf numbering requires that the sample maps be reordered.
    */
   void consumeTerminals(const class PreTree* pretree,
-			const class SampleMap& smTerminal);
+			const struct SampleMap& smTerminal);
 
 
   /**

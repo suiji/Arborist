@@ -207,12 +207,7 @@ void CutAccumRegCart::splitResidual(IndexT rkIdx) {
   double sumR = sumCand - sum;
   bool up = (sum * sCountR <= sumR * sCount);
   if (monoMode == 0 || (monoMode > 0 && up) || (monoMode < 0 && !up)) {
-    if (Accum::trialSplit(infoVar(sum, sumR, sCount, sCountR))) {
-      rankIdxR = rkIdx;
-      rankIdxL = 0; // Residual rank index.
-      obsRight = cutResidual;
-      obsLeft = cutResidual == obsStart ? cutResidual : cutResidual - 1;
-    }
+    argmaxRLResidual(infoVar(sum, sumR, sCount, sCountR), rkIdx);
   }
 }
 
@@ -222,13 +217,7 @@ void CutAccumCtgCart::splitResidual(IndexT rkIdx) {
   sum -= obsThis.ySum;
   sCount -= obsThis.sCount;
   accumCtgSS(obsThis.ySum, obsThis.yCtg);
-
-  if (Accum::trialSplit(infoGini(ssL, ssR, sum, sumCand-sum))) {
-    rankIdxR = rkIdx;
-    rankIdxL = 0; // Residual rank index.
-    obsRight = cutResidual;
-    obsLeft = cutResidual == 0 ? cutResidual : cutResidual - 1;
-  }
+  argmaxRLResidual(infoGini(ssL, ssR, sum, sumCand-sum), rkIdx);
 }
 
 

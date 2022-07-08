@@ -65,16 +65,16 @@ class ObsFrontier {
 
   void updateLive(const class BranchSense& branchSense,
 		  const class IndexSet& iSet,
-		  const class SampleMap& smNonterm,
-		  class SampleMap& smNext);
+		  const struct SampleMap& smNonterm,
+		  struct SampleMap& smNext);
 
 
   /**
      @brief Updates terminals from extinct index sets.
    */
   void updateExtinct(const class IndexSet& iSet,
-		     const class SampleMap& smNonterm,
-		     class SampleMap& smTerminal);
+		     const struct SampleMap& smNonterm,
+		     struct SampleMap& smTerminal);
 
 
   /**
@@ -313,9 +313,9 @@ public:
    */
   void updateMap(const class IndexSet& iSet,
 		 const class BranchSense& branchSense,
-		 const class SampleMap& smNonterm,
-		 class SampleMap& smTerminal,
-		 class SampleMap& smNext);
+		 const struct SampleMap& smNonterm,
+		 struct SampleMap& smTerminal,
+		 struct SampleMap& smNext);
 
 
   /**

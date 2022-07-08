@@ -45,7 +45,7 @@ class Train {
   void trainChunk(const class TrainFrame* frame,
 		  const class Sampler* sampler,
 		  const IndexRange& treeRange,
-		  class Leaf* leaf);
+		  struct Leaf* leaf);
   
 public:
 
@@ -81,7 +81,7 @@ public:
 				 const class Sampler* sampler,
 				 class Forest* forest_,
 				 const IndexRange& treeRange,
-				 class Leaf* leaf);
+				 struct Leaf* leaf);
 
 
   /**
@@ -90,7 +90,7 @@ public:
      @param treeBlock is a vector of Sample, PreTree pairs.
   */
   void blockConsume(const vector<unique_ptr<PreTree>> &treeBlock,
-		    class Leaf* leaf);
+		    struct Leaf* leaf);
 
 
   /**

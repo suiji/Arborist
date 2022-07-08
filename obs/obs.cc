@@ -35,7 +35,7 @@ void Obs::setShifts(unsigned int ctgBits,
 
 
 void Obs::deImmutables() {
-  multMask = ctgMask = numMask = 0;
+  multLow = multMask = ctgMask = numMask = 0;
 }
 
 

@@ -39,20 +39,20 @@ class CutAccumRegCart : public CutAccumReg {
 
 public:
   CutAccumRegCart(const class SplitNux* splitCand,
-                const class SFRegCart* spReg);
+                const struct SFRegCart* spReg);
 
 
   /**
      @brief Static entry for regression splitting.
    */
-  static void split(const class SFRegCart* spReg,
+  static void split(const struct SFRegCart* spReg,
 		    class SplitNux* cand);
 
   
   /**
      @brief Private regresion splitting method.
    */
-  void splitReg(const class SFRegCart* spReg,
+  void splitReg(const struct SFRegCart* spReg,
              class SplitNux* cand);
   
 

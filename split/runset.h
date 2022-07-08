@@ -86,14 +86,14 @@ public:
 
 
   vector<IndexRange> getRange(const class SplitNux& nux,
-			      const class CritEncoding& enc) const;
+			      const struct CritEncoding& enc) const;
 
 
   /**
      @retrun SR index range of top run.
    */
   vector<IndexRange> getTopRange(const class SplitNux& nux,
-				 const class CritEncoding& enc) const;
+				 const struct CritEncoding& enc) const;
 
 
   struct RunDump dumpRun(PredictorT accumIdx) const {

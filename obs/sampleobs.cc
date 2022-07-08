@@ -32,8 +32,8 @@ SampleObs::SampleObs(const Sampler* sampler,
 }
 
     
-unique_ptr<SampleCtg> SampleObs::factoryCtg(const class Sampler* sampler,
-					 const class Response* response,
+unique_ptr<SampleCtg> SampleObs::factoryCtg(const Sampler* sampler,
+					 const Response* response,
 					 const vector<double>& y,
                                          const vector<PredictorT>& yCtg,
 					 unsigned int tIdx) {
@@ -45,7 +45,7 @@ unique_ptr<SampleCtg> SampleObs::factoryCtg(const class Sampler* sampler,
 
 
 unique_ptr<SampleReg> SampleObs::factoryReg(const Sampler* sampler,
-					 const class Response* response,
+					 const Response* response,
 					 const vector<double>& y,
 					 unsigned int tIdx) {
   unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(sampler, response);

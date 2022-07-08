@@ -33,9 +33,9 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const double score[],
 			   const double facExtent[],
                            const unsigned char facSplit[]) {
-  forest = make_unique<Forest>(move(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree)),
-			       move(DecNodeRW::unpackScores(score, nodeExtent, nTree)),
-			       move(DecNodeRW::unpackBits(facSplit, facExtent, nTree)));
+  forest = make_unique<Forest>(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree),
+			       DecNodeRW::unpackScores(score, nodeExtent, nTree),
+			       DecNodeRW::unpackBits(facSplit, facExtent, nTree));
 }
 
 

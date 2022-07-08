@@ -25,21 +25,21 @@ using namespace std;
    @brief Hides class Sampler internals from bridge via forward declarations.
  */
 struct LeafBridge {
-  static unique_ptr<LeafBridge> FactoryTrain(const class SamplerBridge* sb,
+  static unique_ptr<LeafBridge> FactoryTrain(const struct SamplerBridge* sb,
 					     bool thin);
 
 
-  static unique_ptr<LeafBridge> FactoryPredict(const class SamplerBridge* samplerBridge,
+  static unique_ptr<LeafBridge> FactoryPredict(const struct SamplerBridge* samplerBridge,
 					       bool thin,
 					       const double extent_[],
 					       const double index_[]);
 
 
-  LeafBridge(const class SamplerBridge* sb,
+  LeafBridge(const struct SamplerBridge* sb,
 	     bool thin);
   
 
-  LeafBridge(const class SamplerBridge* samplerBridge,
+  LeafBridge(const struct SamplerBridge* samplerBridge,
 	     bool thin,
 	     vector<vector<size_t>> extent,
 	     vector<vector<vector<size_t>>> index);
@@ -52,12 +52,12 @@ struct LeafBridge {
   
 
   
-  static vector<vector<size_t>> unpackExtent(const class SamplerBridge* samplerBridge,
+  static vector<vector<size_t>> unpackExtent(const struct SamplerBridge* samplerBridge,
 					     bool thin,
 					     const double numVal[]);
 
   
-  static vector<vector<vector<size_t>>> unpackIndex(const class SamplerBridge* samplerBridge,
+  static vector<vector<vector<size_t>>> unpackIndex(const struct SamplerBridge* samplerBridge,
 						    bool thin,
 						    const vector<vector<size_t>>& extent,
 						    const double numVal[]);
@@ -83,7 +83,7 @@ struct LeafBridge {
 
 private:
   
-  unique_ptr<class Leaf> leaf;
+  unique_ptr<struct Leaf> leaf;
 
 };
 

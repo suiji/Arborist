@@ -27,7 +27,7 @@
 
    Reading and writing requires context from containing node.
  */
-typedef union {
+typedef union EncodingU {
   IndexT leafIdx; // Terminals only.
   double num; // Rank-derived splitting value:  quantile or cut.
   size_t offset; // Tree-relative bit-vector offset:  factor.

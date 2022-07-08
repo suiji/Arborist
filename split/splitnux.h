@@ -62,7 +62,7 @@ public:
   /**
      @brief Revises information value from accumulator's contents.
    */
-  void infoGain(const class Accum* accum);
+  void infoGain(const struct Accum* accum);
   
 
   /**

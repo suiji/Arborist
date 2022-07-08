@@ -132,7 +132,7 @@ struct SamplerBridge {
 
      @return core sampler.
     */
-  struct Sampler* getSampler() const;
+  class Sampler* getSampler() const;
 
   /**
      @brief Getter for number of training rows.

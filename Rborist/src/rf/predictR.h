@@ -140,7 +140,7 @@ struct PBRf {
 			    const NumericVector& yTestFE);
   
 
-  static List getImportance(const class PredictRegBridge* pBridge,
+  static List getImportance(const struct PredictRegBridge* pBridge,
 			    const NumericVector& yTestFE,
 			    const CharacterVector& predNames);
 

@@ -56,7 +56,7 @@ void SplitFrontier::split(CandType& cand,
 			  BranchSense& branchSense) {
   runSet->setOffsets(this);
   frontierPreset(); // virtual.
-  (this->*splitter)(move(cand.getCandidates(interLevel, this)), branchSense);
+  (this->*splitter)(cand.getCandidates(interLevel, this), branchSense);
 }
 
 

@@ -41,11 +41,11 @@ struct TrainBridge {
   /**
      @brief Main entry for training.
    */
-  unique_ptr<struct TrainedChunk> train(const class ForestBridge& forest,
-					const class SamplerBridge* sampler,
+  unique_ptr<struct TrainedChunk> train(const struct ForestBridge& forest,
+					const struct SamplerBridge* sampler,
 					unsigned int treeOff,
 					unsigned int treeChunk,
-					const class LeafBridge* leafBridge) const;
+					const struct LeafBridge* leafBridge) const;
 
 
   /**

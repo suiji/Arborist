@@ -343,27 +343,27 @@ void ObsFrontier::obsRestage(ObsPart* obsPart,
   fill(rankPrev.begin(), rankPrev.end(), interLevel->getNoRank());
   IndexT rankIdx = mrra.rankStart;
   if (mrra.hasTies()) {
-  srSource[mrra.obsRange.getStart()].setTie(true);
-  for (IndexT idx = mrra.obsRange.getStart(); idx < mrra.obsRange.getEnd(); idx++) {
-    Obs sourceNode = srSource[idx];
-    rankIdx += sourceNode.isTied() ? 0 : 1;
-    PathT path = prePath[idx];
-    if (NodePath::isActive(path)) {
-      IndexT rank = rankTarget[rankIdx];
-      if (rank != rankPrev[path]) {
-	sourceNode.setTie(false);
-	rankPrev[path] = rank;
-	IndexT rankDest = rankScatter[path]++;
-	ranks[rankDest] = rank;
+    srSource[mrra.obsRange.getStart()].setTie(true); // Fillip;  temporary.
+    for (IndexT idx = mrra.obsRange.getStart(); idx < mrra.obsRange.getEnd(); idx++) {
+      Obs sourceNode = srSource[idx];
+      rankIdx += sourceNode.isTied() ? 0 : 1;
+      PathT path = prePath[idx];
+      if (NodePath::isActive(path)) {
+	IndexT rank = rankTarget[rankIdx];
+	if (rank != rankPrev[path]) {
+	  sourceNode.setTie(false);
+	  rankPrev[path] = rank;
+	  IndexT rankDest = rankScatter[path]++;
+	  ranks[rankDest] = rank;
+	}
+	else {
+	  sourceNode.setTie(true);
+	}
+	IndexT obsDest = obsScatter[path]++;
+	srTarg[obsDest] = sourceNode;
+	idxTarg[obsDest] = idxSource[idx];
       }
-      else {
-	sourceNode.setTie(true);
-      }
-      IndexT obsDest = obsScatter[path]++;
-      srTarg[obsDest] = sourceNode;
-      idxTarg[obsDest] = idxSource[idx];
     }
-  }
   }
   else {
     // Loop can be streamlined if no ties present:

@@ -37,7 +37,7 @@ class Sampler {
   const size_t nObs; // # training observations
   const size_t nSamp;  // # samples requested per tree.
 
-  const unique_ptr<class Response> response;
+  const unique_ptr<struct Response> response;
   
   const vector<vector<class SamplerNux>> samples;
   const unique_ptr<class BitMatrix> bagMatrix; // empty if training or prediction without bagging.
@@ -211,7 +211,7 @@ public:
   }
 
   
-  const class Response* getResponse() const {
+  const struct Response* getResponse() const {
     return response.get();
   }
 

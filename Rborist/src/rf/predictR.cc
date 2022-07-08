@@ -114,15 +114,15 @@ unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
 					     const List& lArgs) {
   unique_ptr<SamplerBridge> samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, as<bool>(lArgs["bagging"])));
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
-  return make_unique<PredictRegBridge>(move(RLEFrameR::unwrap(lDeframe)),
-				       move(ForestRf::unwrap(lTrain)),
+  return make_unique<PredictRegBridge>(RLEFrameR::unwrap(lDeframe),
+				       ForestRf::unwrap(lTrain),
 				       move(samplerBridge),
 				       move(leafBridge),
-				       move(regTest(sYTest)),
+				       regTest(sYTest),
 				       as<unsigned int>(lArgs["impPermute"]),
 				       as<bool>(lArgs["trapUnobserved"]),
 				       as<unsigned int>(lArgs["nThread"]),
-				       move(quantVec(lArgs)));
+				       quantVec(lArgs));
 }
 
 
@@ -199,11 +199,11 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
 					     const List& lArgs) {
   unique_ptr<SamplerBridge> samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, as<bool>(lArgs["bagging"])));
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
-  return make_unique<PredictCtgBridge>(move(RLEFrameR::unwrap(lDeframe)),
-				       move(ForestRf::unwrap(lTrain)),
+  return make_unique<PredictCtgBridge>(RLEFrameR::unwrap(lDeframe),
+				       ForestRf::unwrap(lTrain),
 				       move(samplerBridge),
 				       move(leafBridge),
-				       move(ctgTest(lSampler, sYTest)),
+				       ctgTest(lSampler, sYTest),
 				       as<unsigned int>(lArgs["impPermute"]),
 				       as<bool>(lArgs["ctgProb"]),
 				       as<bool>(lArgs["trapUnobserved"]),

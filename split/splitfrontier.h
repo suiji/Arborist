@@ -85,6 +85,8 @@ public:
 		SplitStyle splitStyle_,
 		void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense&));
 
+  virtual ~SplitFrontier() = default;
+  
 
   void split(CandType& cand,
 	     class BranchSense& branchSense);
@@ -168,7 +170,7 @@ public:
      @brief Computes cut-based SR index range for numeric splits.
    */
   vector<IndexRange> getCutRange(const class SplitNux& nux,
-				 const class CritEncoding& enc) const;
+				 const struct CritEncoding& enc) const;
 
 
   /**

@@ -103,7 +103,7 @@ class RunAccum : public Accum {
   /**
      @brief Accumulates runs for regression.
    */
-  PredictorT regRuns(const class SFReg* sf,
+  PredictorT regRuns(const struct SFReg* sf,
 		     const SplitNux* cand);
 
   
@@ -214,14 +214,14 @@ public:
   /**
      @breif Static entry for regression splitting.
    */
-  static void split(const class SFReg* sf,
+  static void split(const struct SFReg* sf,
 		    class SplitNux* cand);
 
   
   /**
      @brief Private entry for regression splitting.
    */
-  void splitReg(const class SFReg* sf,
+  void splitReg(const struct SFReg* sf,
 		class SplitNux* cand);
 
 
@@ -281,7 +281,7 @@ public:
 
      @param maskSense indicates whether to screen set or unset mask.
    */  
-  PredictorT regRunsMasked(const class SFReg* sf,
+  PredictorT regRunsMasked(const struct SFReg* sf,
 			   const SplitNux* cand,
 			   const class BranchSense* branchSense,
 			   IndexT edgeRight,
@@ -540,7 +540,7 @@ public:
   /**
      @return vector of block ranges associated with encoding.
    */
-  vector<IndexRange> getRange(const class CritEncoding& enc) const;
+  vector<IndexRange> getRange(const struct CritEncoding& enc) const;
 
 
   vector<IndexRange> getRange(PredictorT slotStart,
@@ -550,7 +550,7 @@ public:
   /**
      @return top-most block range associated with encoding.
    */
-  vector<IndexRange> getTopRange(const class CritEncoding& enc) const;
+  vector<IndexRange> getTopRange(const struct CritEncoding& enc) const;
 
 
   struct RunDump dump() const;

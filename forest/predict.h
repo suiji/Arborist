@@ -227,7 +227,8 @@ public:
 	  bool testing_,
 	  PredictorT nPredict_,
 	  bool trapUnobserved_);
-  
+
+  virtual ~Predict() = default;
 
   /**
      @brief Main entry from bridge.
@@ -405,16 +406,14 @@ class PredictReg : public Predict {
 public:
   PredictReg(const class Forest* forest_,
 	     const class Sampler* sampler_,
-	     const class Leaf* leaf_,
+	     const struct Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<double>& yTest_,
 	     PredictorT nPredict_,
 	     const vector<double>& quantile,
 	     bool trapUnobserved_);
 
-  //  ~PredictReg(); // Forward declaration:  not specified default.
 
-  
   /**
      @brief Description given in virtual declartion.
    */
@@ -515,8 +514,6 @@ public:
 	     PredictorT nPredict_,
 	     bool doProb,
 	     bool trapUnobserved_);
-
-  //  ~PredictCtg(); // Forward declaration:  not specified default;
 
 
   /**

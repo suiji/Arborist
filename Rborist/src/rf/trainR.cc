@@ -48,7 +48,7 @@ RcppExport SEXP rfTrain(const SEXP sDeframe, const SEXP sSampler, const SEXP sAr
 List TrainRf::train(const List& lDeframe, const List& lSampler, const List& argList) {
   BEGIN_RCPP
 
-  return train(argList, move(SamplerR::unwrapTrain(lSampler, argList)), RLEFrameR::unwrap(lDeframe).get());
+  return train(argList, SamplerR::unwrapTrain(lSampler, argList), RLEFrameR::unwrap(lDeframe).get());
 
   END_RCPP
 }

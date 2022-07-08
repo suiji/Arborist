@@ -55,6 +55,9 @@ struct ObsCtg {
 };
 
 
+/**
+   @brief Masks lowest-order bits for non-numeric values.
+ */
 union ObsPacked {
   float num;
   uint32_t bits;
@@ -67,12 +70,13 @@ union ObsPacked {
 class Obs {
   static const unsigned int tieMask = 1ul; ///< Mask bit for tie encoding.
   static const unsigned int ctgLow = 1ul; ///< Low bit position of ctg.
-  static unsigned int ctgMask;
+  static unsigned int ctgMask; ///< Masks bits not encoding category.
   static unsigned int multLow; ///< Low bit position of multiplicity.
   static unsigned int multMask; ///< Masks bits not encoding multiplicity.
   static unsigned int numMask; ///< Masks bits not encoding numeric.
   
   ObsPacked obsPacked;
+
 
   /**
      @brief Totals a range of observations into regression format.
@@ -82,10 +86,8 @@ class Obs {
     double ySum = 0.0;
     IndexT sCount = 0;
     for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      ObsPacked fltPacked = obs->obsPacked;
-      fltPacked.bits &= numMask;
-      ySum += fltPacked.num;
-      sCount += 1 + ((obs->obsPacked.bits >> multLow) & multMask);
+      ySum += obs->getYSum();
+      sCount += obs->getSCount();
     }
 
     return ObsReg(ySum, sCount);
@@ -100,12 +102,10 @@ class Obs {
     double ySumExpl = 0.0;
     IndexT sCountExpl = 0;
     for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      ObsPacked obsPacked = obs->obsPacked;
-      double ySumThis = obsPacked.num;
-      PredictorT yCtg = (obsPacked.bits >> ctgLow) & ctgMask;
-      ctgImpl[yCtg] -= ySumThis;
+      double ySumThis = obs->getYSum();
+      ctgImpl[obs->getCtg()] -= ySumThis;
       ySumExpl += ySumThis;
-      sCountExpl += 1 + ((obsPacked.bits >> multLow) & multMask);
+      sCountExpl += obs->getSCount();
     }
     sum -= ySumExpl;
     sCount -= sCountExpl;
@@ -115,116 +115,11 @@ class Obs {
  public:
 
   /**
-     @brief Unpacks a single observation into regression format.
-   */
-  inline ObsReg unpackReg() const {
-    ObsPacked fltPacked = obsPacked;
-    fltPacked.bits &= numMask;
-    return ObsReg(fltPacked.num,
-		  1 + ((obsPacked.bits >> multLow) & multMask),
-		  (obsPacked.bits & tieMask) != 0);
-  }
-
-
-  static ObsReg residualReg(const Obs* obsCell,
-			    const class SplitNux* nux);
-
-  /**
-     @brief Subtracts explicit sum and count values from node totals.
-   */
-  static void residualCtg(const Obs* obsCell,
-			  const class SplitNux* nux,
-			  double& sum,
-			  IndexT& sCount,
-			  vector<double>& ctgImpl);
-
-
-  /**
-     @brief Unpacks float into numerical representation.
-   */
-  inline void refReg(unsigned int& sCount,
-		     double& ySum) const {
-    ObsPacked fltPacked = obsPacked;
-    fltPacked.bits &= numMask;
-    sCount = 1 + ((obsPacked.bits >> multLow) & multMask);
-    ySum = fltPacked.num;
-  }
-
-
-  /**
-     @brief Unpacks float into categorical representation.
-
-     Class weights are proportional, so it may be possible to avoid
-     descaling.
-   */
-  inline void refCtg(unsigned int& sCount,
-		     double& ySum,
-		     unsigned int& yCtg) const {
-    sCount = 1 + ((obsPacked.bits >> multLow) & multMask);
-    ObsPacked obsNum = obsPacked;
-    obsNum.bits &= numMask;
-    ySum = obsNum.num;
-    yCtg = (obsPacked.bits >> ctgLow) & ctgMask;
-  }
-
-  inline ObsCtg unpackCtg() const {
-    ObsPacked obsNum = obsPacked;
-    obsNum.bits &= numMask;
-    return ObsCtg((obsPacked.bits >> ctgLow) & ctgMask,
-		  obsNum.num,
-		  1 + ((obsPacked.bits >> multLow) & multMask),
-		  (obsPacked.bits & tieMask) != 0);
-  }
-
-  /**
-     @brief Sets internal packing parameters.
-   */
-  static void setShifts(unsigned int ctgBits_,
-		        unsigned int ctgMask_);
-
-  
-  static void deImmutables();
-
-
-  bool isTied() const {
-    return (obsPacked.bits & tieMask) != 0;
-  }
-
-
-  /**
-     @brief Initializes by copying response and joining sampled rank.
-
-     Rank is only used to break ties and elaborate argmax summaries.
-     It may be possible to exclude them.
-
-     @param sNux summarizes response sampled at row.
-
-     @param rank_ is the predictor rank sampled at a given row.
-
-     @param tie indicates whether previous obs has same rank.
-  */
-  inline void join(const SampleNux& sNux,
-		   bool tie) {
-    ObsPacked fltPacked;
-    fltPacked.num = sNux.getYSum();
-    obsPacked.bits = (fltPacked.bits & numMask) + ((sNux.getSCount()-1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
-  }
-
-
-  void setTie(bool tie) {
-    if (tie)
-      obsPacked.bits |= 1ul;
-    else
-      obsPacked.bits &= ~1ul;
-  }
-  
-
-  /**
      @brief Derives sample count from internal encoding.
 
      @return sample count.
    */
-  inline IndexT getSCount() const {
+  inline unsigned int getSCount() const {
     return 1 + ((obsPacked.bits >> multLow) & multMask);
   }
 
@@ -252,6 +147,70 @@ class Obs {
 
 
   /**
+     @brief Unpacks a single observation into regression format.
+   */
+  inline ObsReg unpackReg() const {
+    return ObsReg(getYSum(), getSCount(), isTied());
+  }
+
+
+  static ObsReg residualReg(const Obs* obsCell,
+			    const class SplitNux* nux);
+
+  /**
+     @brief Subtracts explicit sum and count values from node totals.
+   */
+  static void residualCtg(const Obs* obsCell,
+			  const class SplitNux* nux,
+			  double& sum,
+			  IndexT& sCount,
+			  vector<double>& ctgImpl);
+
+
+  inline ObsCtg unpackCtg() const {
+    return ObsCtg(getCtg(), getYSum(), getSCount(), isTied());
+  }
+
+
+  /**
+     @brief Sets internal packing parameters.
+   */
+  static void setShifts(unsigned int ctgBits,
+		        unsigned int multBits);
+
+  
+  static void deImmutables();
+
+
+  bool isTied() const {
+    return (obsPacked.bits & tieMask) != 0;
+  }
+
+
+  /**
+     @brief Packs sample and tie information.
+
+     @param sNux summarizes response sampled at row.
+
+     @param tie indicates whether previous obs has same rank.
+  */
+  inline void join(const SampleNux& sNux,
+		   bool tie) {
+    ObsPacked fltPacked;
+    fltPacked.num = sNux.getYSum();
+    obsPacked.bits = (fltPacked.bits & numMask) + ((sNux.getSCount() - 1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
+  }
+
+
+  void setTie(bool tie) {
+    if (tie)
+      obsPacked.bits |= 1ul;
+    else
+      obsPacked.bits &= ~1ul;
+  }
+
+
+  /**
      @brief Outputs statistics appropriate for regression.
 
      @return true iff run state changes.
@@ -259,7 +218,8 @@ class Obs {
   inline void regInit(RunNux& nux,
 		      IndexT code) const {
     nux.setCode(code);
-    refReg(nux.sCount, nux.sum);
+    nux.sCount = getSCount();
+    nux.sum = getYSum();
   }
 
   
@@ -270,11 +230,8 @@ class Obs {
    */
   inline bool regAccum(RunNux& nux) const {
     if (isTied()) {
-      IndexT sCount;
-      double ySum;
-      refReg(sCount, ySum);
-      nux.sum += ySum;
-      nux.sCount += sCount;
+      nux.sum += getYSum();
+      nux.sCount += getSCount();
       return true;
     }
     else {
@@ -293,15 +250,10 @@ class Obs {
   inline void ctgInit(RunNux& nux,
 		      IndexT code,
 		      double* sumBase) const {
-    IndexT sCount;
-    PredictorT yCtg;
-    double ySum;
-    refCtg(sCount, ySum, yCtg);
-      
     nux.setCode(code);
-    nux.sum = ySum;
-    nux.sCount = sCount;
-    sumBase[yCtg] = ySum;
+    nux.sum = getYSum();
+    nux.sCount = getSCount();
+    sumBase[getCtg()] = nux.sum;
   }
 
 
@@ -313,14 +265,10 @@ class Obs {
   inline bool ctgAccum(RunNux& nux,
 		       double* sumBase) const {
     if (isTied()) {
-      IndexT sCount;
-      PredictorT yCtg;
-      double ySum;
-      refCtg(sCount, ySum, yCtg);
-
+      double ySum = getYSum();
       nux.sum += ySum;
-      nux.sCount += sCount;
-      sumBase[yCtg] += ySum;
+      nux.sCount += getSCount();
+      sumBase[getCtg()] += ySum;
       return true;
     }
     else {

@@ -138,7 +138,7 @@ class PreTree {
   */
   void consume(class Train* train,
 	       Forest *forest,
-	       class Leaf* leaf) const;
+	       struct Leaf* leaf) const;
 
 
   void setScore(const class SplitFrontier* sf,
@@ -149,7 +149,7 @@ class PreTree {
      @brief Assigns scores to all nodes in the map.
    */
   void scoreNodes(const class Sampler* sampler,
-		  const class SampleMap& map);
+		  const struct SampleMap& map);
 
 
   /**

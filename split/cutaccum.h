@@ -47,6 +47,20 @@ protected:
   }
 
 
+  /**
+     @brief Trial argmax on left residual.
+   */
+  inline void argmaxRLResidual(double infoTrial,
+			       IndexT rkIdx) {
+    if (Accum::trialSplit(infoTrial)) {
+      rankIdxR = rkIdx;
+      rankIdxL = 0; // Residual rank index, by convention.
+      obsRight = cutResidual;
+      obsLeft = cutResidual == obsStart ? cutResidual : cutResidual - 1;
+    }
+  }
+
+
   // Diagnostic.
   inline void argmaxRL(double infoTrial,
 			   IndexT obsLeft,
@@ -157,7 +171,7 @@ protected:
 
 public:
   CutAccumReg(const class SplitNux* splitCand,
-	      const class SFReg* spReg);
+	      const struct SFReg* spReg);
 };
 
 

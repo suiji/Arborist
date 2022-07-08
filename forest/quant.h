@@ -32,7 +32,7 @@ class Quant {
   const vector<double> quantile; // quantile values over which to predict.
   const unsigned int qCount; // caches quantile size for quick reference.
   const class Sampler* sampler;
-  const class Leaf* leaf;
+  const struct Leaf* leaf;
   const bool empty; // if so, leave vectors empty and bail.
   const vector<vector<IndexRange>> leafDom;
   const ValRank<double> valRank;
@@ -116,7 +116,7 @@ public:
      Parameters mirror simililarly-named members.
    */
   Quant(const class Forest* forest,
-	const class Leaf* leaf,
+	const struct Leaf* leaf,
 	const class Predict* predict,
 	const class ResponseReg* response,
         const vector<double>& quantile_);

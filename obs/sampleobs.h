@@ -69,8 +69,8 @@ public:
 
      @return new SampleCtg instance.
    */
-  static unique_ptr<class SampleCtg> factoryCtg(const class Sampler* sampler,
-						const class Response* response,
+  static unique_ptr<struct SampleCtg> factoryCtg(const class Sampler* sampler,
+						const struct Response* response,
 						const vector<double>&  y,
                                                 const vector<PredictorT>& yCtg,
 						unsigned int tIdx);
@@ -83,8 +83,8 @@ public:
 
      @return new SampleReg instance.
    */
-  static unique_ptr<class SampleReg>factoryReg(const class Sampler* sampler,
-					       const class Response* response,
+  static unique_ptr<struct SampleReg>factoryReg(const class Sampler* sampler,
+					       const struct Response* response,
 					       const vector<double>& y,
 					       unsigned int tIdx);
 
@@ -95,7 +95,7 @@ public:
      @param frame summarizes predictor ranks by row.
    */
   SampleObs(const class Sampler* sampler,
-	 const class Response* response,
+	 const struct Response* response,
 	 double (SampleObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
 
   
@@ -202,7 +202,7 @@ public:
 struct SampleReg : public SampleObs {
 
   SampleReg(const class Sampler* sampler,
-	    const class Response* respone);
+	    const struct Response* respone);
 
 
   /**
@@ -241,7 +241,7 @@ struct SampleReg : public SampleObs {
 struct SampleCtg : public SampleObs {
   
   SampleCtg(const class Sampler* sampler,
-	    const class Response* response);
+	    const struct Response* response);
 
   
   /**

@@ -53,7 +53,7 @@ struct TrainRf {
   static bool verbose; // Whether to report progress while training.
 
   const unsigned int nTree; // # trees under training.
-  unique_ptr<class LeafR> leaf; // Summarizes sample-to-leaf mapping.
+  unique_ptr<struct LeafR> leaf; // Summarizes sample-to-leaf mapping.
   unique_ptr<struct FBTrain> forest; // Pointer to core forest.
   NumericVector predInfo; // Forest-wide sum of predictors' split information.
 

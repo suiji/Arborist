@@ -67,7 +67,7 @@ struct LeafR {
 		     double scale);
 
   static unique_ptr<struct LeafBridge> unwrap(const List& lLeaf,
-					      const class SamplerBridge* samplerBridge);
+					      const struct SamplerBridge* samplerBridge);
 };
 
 #endif
