@@ -73,5 +73,5 @@ void TrainFrame::obsLayout() const {
 
 
 IndexT TrainFrame::getDenseRank(PredictorT predIdx) const {
-  return layout->getDenseRank(predIdx);
+  return layout->getImplicitRank(predIdx);
 }

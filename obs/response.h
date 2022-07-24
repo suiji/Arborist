@@ -63,8 +63,9 @@ struct Response {
   /**
      @brief Samples (bags) the response to construct the tree root.
    */
-  virtual unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
-					      unsigned int tIdx) const = 0;
+  virtual unique_ptr<class SampledObs> rootSample(const class Layout* layout,
+						  const class Sampler* sampler,
+						  unsigned int tIdx) const = 0;
 };
 
 
@@ -110,8 +111,9 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
-				      unsigned int tIdx) const;
+  unique_ptr<class SampledObs> rootSample(const class Layout* layout,
+					  const class Sampler* sampler,
+					  unsigned int tIdx) const;
 
   
   /**
@@ -172,8 +174,9 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampleObs> rootSample(const class Sampler* sampler,
-				      unsigned int tIdx) const;
+  unique_ptr<class SampledObs> rootSample(const class Layout* layout,
+					  const class Sampler* sampler,
+					  unsigned int tIdx) const;
 
   
   PredictorT predictObs(const class Predict* predict,

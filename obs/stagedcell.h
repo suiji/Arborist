@@ -26,10 +26,12 @@
  */
 struct StagedCell {
   const SplitCoord coord; ///< Associated node/predictor pair.
-  const char bufIdx; ///< Alternates source/target.
-  char live; ///< Initialized to true; false is sticky.
-  const IndexT rankStart; ///< Index into frontier rank buffer.
-  IndexT rankCount; ///< # unique ranks.
+  const unsigned char bufIdx; ///< Alternates source/target.
+  const unsigned char trackRuns; ///< Whether to order run values.
+  unsigned char live; ///< Initialized to true; false is sticky.
+  const IndexT valIdx; ///< Base offset of run values, if tracked.
+  const IndexT rankImplicit; ///< Valid iff implicit observations > 0.
+  IndexT runCount; ///< # runs.
   IndexRange obsRange; ///< Initialized from node; adjusted iff implicit.
   IndexT obsImplicit; ///<  # implicit observations.
   IndexT preResidual; ///< # obs preceding residual, iff implicit.
@@ -40,12 +42,17 @@ struct StagedCell {
      @brief Root constructor.
    */
 StagedCell(PredictorT predIdx,
+	   IndexT valIdx_,
 	   IndexT extent,
-	   IndexT rankStart_)
+	   IndexT runCount_,
+	   IndexT rankImplicit_)
   : coord(SplitCoord(0, predIdx)),
     bufIdx(0),
+    trackRuns(false),
     live(true),
-    rankStart(rankStart_),
+    valIdx(valIdx_),
+    rankImplicit(rankImplicit_),
+    runCount(runCount_),
     obsRange(IndexRange(0, extent)),
     preResidual(0) {
     }
@@ -56,12 +63,14 @@ StagedCell(PredictorT predIdx,
    */
 StagedCell(IndexT nodeIdx,
 	   const StagedCell& source,
-	   const IndexRange& range_,
-	   IndexT rankStart_)
-  : coord(SplitCoord(nodeIdx, source.getPredIdx())),
+	   IndexT valIdx_,
+	   const IndexRange& range_) :
+  coord(SplitCoord(nodeIdx, source.getPredIdx())),
     bufIdx(1 - source.bufIdx),
+    trackRuns(source.trackRuns),
     live(true),
-    rankStart(rankStart_),
+    valIdx(valIdx_),
+    rankImplicit(source.rankImplicit),
     obsRange(range_),
     preResidual(0) {
   }
@@ -71,15 +80,6 @@ StagedCell(IndexT nodeIdx,
     return live;
   }
 
-
-  /**
-     @return rank at specified offset from rear.
-   */
-  inline IndexT rankRear(IndexT backIdx) const {
-    return rankStart + rankCount - 1 - backIdx;
-  }
-
-  
 
   inline IndexT getNodeIdx() const {
     return coord.nodeIdx;
@@ -100,10 +100,14 @@ StagedCell(IndexT nodeIdx,
 
 
   /**
-     @brief Sets final rank count.  Marks extinct if singleton.
+     @brief Sets final rank count.
+
+     @param runCount enumerates distinct predictor values.
+
+     A runCount value of zero is short-hand for all singletons.
    */
-  inline void setRankCount(IndexT rankCount) {
-    this->rankCount = rankCount;
+  inline void setRunCount(IndexT runCount) {
+    this->runCount = (runCount != 0 ? runCount : obsRange.idxExtent) + (obsImplicit == 0 ? 0 : 1);
   }
 
 
@@ -150,26 +154,15 @@ StagedCell(IndexT nodeIdx,
 
 
   /**
-     @return position of the residual rank.
-
-     Return value is legal, but useless, if no implicit indices.
-   */
-  IndexT residualPosition() const {
-    return rankStart + rankCount - 1;
-  }
-
-  
-
-  /**
      @return total number of explicit and implicit ranks.
    */
-  inline IndexT getRankCount() const {
-    return rankCount;
+  inline IndexT getRunCount() const {
+    return runCount;
   }
 
 
   bool isSingleton() const {
-    return rankCount == 1;
+    return runCount == 1;
   }
 
 
@@ -178,9 +171,9 @@ StagedCell(IndexT nodeIdx,
    */
   bool hasTies() const {
     if (obsImplicit != 0)
-      return rankCount != (obsRange.getExtent() + 1);
+      return runCount != (obsRange.getExtent() + 1);
     else
-      return rankCount != obsRange.getExtent();
+      return runCount != obsRange.getExtent();
   }
 };
 

@@ -21,8 +21,9 @@
 #include "interlevel.h"
 #include "partition.h"
 #include "samplemap.h"
-#include "sampleobs.h"
+#include "sampledobs.h"
 #include "indexset.h"
+#include "trainframe.h"
 #include "algparam.h"
 
 
@@ -32,11 +33,10 @@ ObsFrontier::ObsFrontier(const Frontier* frontier_,
   interLevel(interLevel_),
   nPred(interLevel->getNPred()),
   nSplit(interLevel->getNSplit()),
-  //  noIndex(frontier->getNonterminalEnd()),
   node2Front(vector<IndexRange>(nSplit)), // Initialized to empty.
   stagedCell(vector<vector<StagedCell>>(nSplit)),
   stageCount(0),
-  rankOffset(0),
+  runCount(0),
   layerIdx(0), // Not on layer yet, however.
   nodePath(backScale(nSplit)) {
   NodePath::setNoSplit(frontier->getBagCount());
@@ -46,13 +46,21 @@ ObsFrontier::ObsFrontier(const Frontier* frontier_,
 }
 
 
-void ObsFrontier::prestageRoot() {
+void ObsFrontier::prestageRoot(const TrainFrame* frame,
+			       const Layout* layout,
+			       const SampledObs* sampledObs) {
   for (PredictorT predIdx = 0; predIdx != nPred; predIdx++) {
     interLevel->setStaged(0, predIdx, predIdx);
-    stagedCell[0].emplace_back(predIdx, frontier->getBagCount(), rankOffset);
-    rankOffset += frontier->getBagCount(); // TODO:  sharpen.
+    stagedCell[0].emplace_back(predIdx, runCount, frontier->getBagCount(), sampledObs->getRunCount(predIdx), layout->getImplicitRank(predIdx));
+    runCount += stagedCell[0].back().trackRuns ? sampledObs->getRunCount(predIdx) : 0;
   }
   stageCount = nPred;
+  runValues();
+}
+
+
+void ObsFrontier::runValues() {
+  runValue = vector<IndexT>(runCount);
 }
 
 
@@ -69,8 +77,8 @@ void ObsFrontier::prestageRange(const StagedCell& cell,
 				const IndexRange& range) {
   for (IndexT nodeIdx = range.getStart(); nodeIdx != range.getEnd(); nodeIdx++) {
     interLevel->setStaged(nodeIdx, cell.getPredIdx(), stagedCell[nodeIdx].size());
-    stagedCell[nodeIdx].emplace_back(nodeIdx, cell, frontier->getNodeRange(nodeIdx), rankOffset);
-    rankOffset += min(frontier->getExtent(nodeIdx), cell.getRankCount());
+    stagedCell[nodeIdx].emplace_back(nodeIdx, cell, runCount, frontier->getNodeRange(nodeIdx));
+    runCount += cell.trackRuns ? min(cell.runCount, cell.obsRange.idxExtent) : 0;
   }
   stageCount += range.getExtent();
 }
@@ -87,23 +95,6 @@ void ObsFrontier::prestageLayer(ObsFrontier* ofFront) {
     }
     nodeIdx++;
   }
-}
-
-
-void ObsFrontier::setRankTarget() {
-  rankTarget = vector<IndexT>(rankOffset);
-}
-
-
-double ObsFrontier::interpolateBackRank(const SplitNux* cand,
-					IndexT backIdxL,
-					IndexT backIdxR) const {
-  const StagedCell* cell = cand->getStagedCell();
-  IndexT rankLeft = rankTarget[cell->rankRear(backIdxL)];
-  IndexT rankRight = rankTarget[cell->rankRear(backIdxR)];
-  IndexRange rankRange(rankLeft, rankRight - rankLeft);
-
-  return rankRange.interpolate(cand->getSplitQuant());
 }
 
 
@@ -194,29 +185,29 @@ void ObsFrontier::delistNode(IndexT nodeIdx) {
 unsigned int ObsFrontier::stage(PredictorT predIdx,
 				ObsPart* obsPart,
 				const Layout* layout,
-				const SampleObs* sampleObs) {
-  StagedCell& cell = stagedCell[0][predIdx];
+				const SampledObs* sampledObs) {
   obsPart->setStageRange(predIdx, layout->getSafeRange(predIdx, frontier->getBagCount()));
-  IndexT rankDense = layout->getDenseRank(predIdx);
-  IndexT* idxStart;
-  Obs* srStart = obsPart->buffers(predIdx, 0, idxStart);
+  StagedCell& cell = stagedCell[0][predIdx];
+  const IndexT rankImplicit = cell.rankImplicit;
+  IndexT* sIdx;
+  Obs* srStart = obsPart->buffers(predIdx, 0, sIdx);
   Obs* spn = srStart;
-  IndexT* sIdx = idxStart;
   IndexT rankPrev = interLevel->getNoRank();
-  IndexT* rankTarg = &rankTarget[cell.rankStart];
+  IndexT valIdx = cell.valIdx;
   for (auto rle : layout->getRLE(predIdx)) {
     IndexT rank = rle.val;
-    if (rank != rankDense) {
-      for (IndexT row = rle.row; row < rle.row + rle.extent; row++) {
+    if (rank != rankImplicit) {
+      for (IndexT row = rle.row; row != rle.row + rle.extent; row++) {
 	IndexT smpIdx;
 	SampleNux sampleNux;
-	if (sampleObs->isSampled(row, smpIdx, sampleNux)) {
+	if (sampledObs->isSampled(row, smpIdx, sampleNux)) {
 	  bool tie = rank == rankPrev;
 	  spn++->join(sampleNux, tie);
 	  *sIdx++ = smpIdx;
 	  if (!tie) {
-	    *rankTarg++ = rank;
 	    rankPrev = rank;
+	    if (cell.trackRuns)
+	      runValue[valIdx++] = rank;
 	  }
 	}
       }
@@ -226,9 +217,6 @@ unsigned int ObsFrontier::stage(PredictorT predIdx,
     }
   }
   cell.updateRange(frontier->getBagCount() - (spn - srStart));
-  if (cell.implicitObs())
-    *rankTarg++ = rankDense;
-  cell.setRankCount(rankTarg - &rankTarget[cell.rankStart]);
 
   if (cell.isSingleton()) {
     interLevel->delist(cell.coord);
@@ -246,21 +234,37 @@ unsigned int ObsFrontier::restage(ObsPart* obsPart,
   vector<StagedCell*> tcp(backScale(1));
   fill(tcp.begin(), tcp.end(), nullptr);
 
-  vector<IndexT> rankScatter(backScale(1));
-  vector<IndexT> obsScatter =  packTargets(obsPart, mrra, tcp, rankScatter);
-  obsRestage(obsPart, rankScatter, mrra, obsScatter, ofFront->getRankTarget());
+  vector<IndexT> runCount(backScale(1));
+  const PathT* prePath = interLevel->getPathBlock(mrra.getPredIdx());
+
+  // Run tracking is currently disabled, as no performance advantage
+  // has been observed.  The main benefit to tracking run values is
+  // the reduction in irregular accesses when setting run-based
+  // splitting criteria, which consists of setting a large number of
+  // bits indexed by irregular samples.  Run tracking enables thee
+  // bit indices to be looked up directly from the run accumulator.
+  if (mrra.trackRuns) {
+    vector<IndexT> valScatter(backScale(1));
+    vector<IndexT> obsScatter = packTargets(obsPart, mrra, tcp, valScatter);
+    obsPart->restageValues(prePath, runCount, mrra, obsScatter, valScatter, runValue, ofFront->runValue);
+  }
+  else {
+    vector<IndexT> obsScatter = packTargets(obsPart, mrra, tcp);
+    if (mrra.hasTies()) {
+      obsPart->restageTied(prePath, runCount, mrra, obsScatter);
+    }
+    else {
+      obsPart->restageDiscrete(prePath, mrra, obsScatter);
+    }
+  }
 
   unsigned int nSingleton = 0;
 
   // Speculatively assumes mrra has residual:
-  IndexT residualRank = rankTarget[mrra.residualPosition()];
   for (PathT path = 0; path != backScale(1); path++) {
     StagedCell* cell = tcp[path];
     if (cell != nullptr) {
-      if (cell->implicitObs()) { // Only has residual if mrra does.
-	ofFront->setRank(rankScatter[path]++, residualRank);
-      }
-      cell->setRankCount(rankScatter[path] - cell->rankStart);
+      cell->setRunCount(runCount[path]);
       if (cell->isSingleton()) {
 	interLevel->delist(cell->coord);
 	cell->delist();
@@ -276,8 +280,7 @@ unsigned int ObsFrontier::restage(ObsPart* obsPart,
 // Successors may or may not themselves be dense.
 vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
 					const StagedCell& mrra,
-					vector<StagedCell*>& tcp,
-					vector<IndexT>& rankScatter) const {
+					vector<StagedCell*>& tcp) const {
   vector<IndexT> preResidual(backScale(1));
   vector<IndexT> pathCount = pathRestage(obsPart, preResidual, mrra);
   vector<IndexT> obsScatter(backScale(1));
@@ -292,7 +295,32 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
       tcp[path]->setRange(idxStart, extentDense);
       tcp[path]->setPreresidual(preResidual[path]);
       obsScatter[path] = idxStart;
-      rankScatter[path] = tcp[path]->rankStart;
+      idxStart += extentDense;
+    }
+  }
+  return obsScatter;
+}
+
+
+vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
+					const StagedCell& mrra,
+					vector<StagedCell*>& tcp,
+					vector<IndexT>& valScatter) const {
+  vector<IndexT> preResidual(backScale(1));
+  vector<IndexT> pathCount = pathRestage(obsPart, preResidual, mrra);
+  vector<IndexT> obsScatter(backScale(1));
+  IndexT idxStart = mrra.obsRange.getStart();
+  const NodePath* pathPos = &nodePath[backScale(mrra.getNodeIdx())];
+  PredictorT predIdx = mrra.getPredIdx();
+  for (unsigned int path = 0; path < backScale(1); path++) {
+    IndexT frontIdx;
+    if (pathPos[path].getFrontIdx(frontIdx)) {
+      IndexT extentDense = pathCount[path];
+      tcp[path] = interLevel->getFrontCellAddr(SplitCoord(frontIdx, predIdx));
+      tcp[path]->setRange(idxStart, extentDense);
+      tcp[path]->setPreresidual(preResidual[path]);
+      obsScatter[path] = idxStart;
+      valScatter[path] = tcp[path]->valIdx;
       idxStart += extentDense;
     }
   }
@@ -303,7 +331,7 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
 vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
 					vector<IndexT>& preResidual,
 					const StagedCell& mrra) const {
-  IndexRange idxRange = mrra.obsRange;
+  IndexRange obsRange = mrra.obsRange;
   const IdxPath* idxPath = interLevel->getRootPath();
   const IndexT* indexVec = obsPart->idxBuffer(&mrra);
   PathT* prePath = interLevel->getPathBlock(mrra.getPredIdx());
@@ -313,8 +341,8 @@ vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
   // or if splitting will not be cut-based:
   IndexT preResidualThis = mrra.preResidual;
   bool cutSeen = mrra.implicitObs() ? false : true;
-  for (IndexT idx = idxRange.getStart(); idx != idxRange.getEnd(); idx++) {
-    cutSeen = cutSeen || ((idx - idxRange.getStart()) >= preResidualThis);
+  for (IndexT idx = obsRange.getStart(); idx != obsRange.getEnd(); idx++) {
+    cutSeen = cutSeen || ((idx - obsRange.getStart()) >= preResidualThis);
     PathT path;
     if (idxPath->pathSucc(indexVec[idx], pathMask(), path)) {
       pathCount[path]++;
@@ -325,64 +353,6 @@ vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
   }
 
   return pathCount;
-}
-
-
-void ObsFrontier::obsRestage(ObsPart* obsPart,
-			     vector<IndexT>& rankScatter,
-			     const StagedCell& mrra,
-			     vector<IndexT>& obsScatter,
-			     vector<IndexT>& ranks) const {
-  const PathT* prePath = interLevel->getPathBlock(mrra.getPredIdx());
-
-  Obs *srSource, *srTarg;
-  IndexT *idxSource, *idxTarg;
-  obsPart->buffers(mrra, srSource, idxSource, srTarg, idxTarg);
-
-  vector<IndexT> rankPrev(rankScatter.size());
-  fill(rankPrev.begin(), rankPrev.end(), interLevel->getNoRank());
-  IndexT rankIdx = mrra.rankStart;
-  if (mrra.hasTies()) {
-    srSource[mrra.obsRange.getStart()].setTie(true); // Fillip;  temporary.
-    for (IndexT idx = mrra.obsRange.getStart(); idx < mrra.obsRange.getEnd(); idx++) {
-      Obs sourceNode = srSource[idx];
-      rankIdx += sourceNode.isTied() ? 0 : 1;
-      PathT path = prePath[idx];
-      if (NodePath::isActive(path)) {
-	IndexT rank = rankTarget[rankIdx];
-	if (rank != rankPrev[path]) {
-	  sourceNode.setTie(false);
-	  rankPrev[path] = rank;
-	  IndexT rankDest = rankScatter[path]++;
-	  ranks[rankDest] = rank;
-	}
-	else {
-	  sourceNode.setTie(true);
-	}
-	IndexT obsDest = obsScatter[path]++;
-	srTarg[obsDest] = sourceNode;
-	idxTarg[obsDest] = idxSource[idx];
-      }
-    }
-  }
-  else {
-    // Loop can be streamlined if no ties present:
-    for (IndexT idx = mrra.obsRange.getStart(); idx < mrra.obsRange.getEnd(); idx++) {
-      PathT path = prePath[idx];
-      if (NodePath::isActive(path)) {
-	IndexT rank = rankTarget[rankIdx];
-	if (rank != rankPrev[path]) {
-	  rankPrev[path] = rank;
-	  IndexT rankDest = rankScatter[path]++;
-	  ranks[rankDest] = rank;
-	}
-	IndexT obsDest = obsScatter[path]++;
-	srTarg[obsDest] = srSource[idx];
-	idxTarg[obsDest] = idxSource[idx];
-      }
-      rankIdx++;
-    }
-  }  
 }
 
 

@@ -15,6 +15,7 @@
 
 #include "runaccum.h"
 #include "branchsense.h"
+#include "interlevel.h"
 #include "splitfrontier.h"
 #include "partition.h"
 #include "splitnux.h"
@@ -26,6 +27,7 @@ RunAccum::RunAccum(const SplitFrontier* splitFrontier,
 		   SplitStyle style,
 		   PredictorT rcSafe_) :
   Accum(splitFrontier, cand),
+  rankResidual(cand->getRankResidual()),
   nCtg(splitFrontier->getNCtg()),
   rcSafe(rcSafe_),
   runZero(vector<RunNux>(rcSafe)),
@@ -82,17 +84,24 @@ vector<IndexRange> RunAccum::getTopRange(const CritEncoding& enc) const {
 }
 
 
-void RunAccum::setTrueBits(BV* splitBits,
+void RunAccum::setTrueBits(const InterLevel* interLevel,
+			   const SplitNux& nux,
+			   BV* splitBits,
 			   size_t bitPos) const {
-  for (PredictorT trueIdx = baseTrue; trueIdx < baseTrue + runsTrue; trueIdx++)
-    splitBits->setBit(bitPos + getCode(trueIdx));
+  for (PredictorT trueIdx = baseTrue; trueIdx < baseTrue + runsTrue; trueIdx++) {
+    IndexT code = isImplicit(runZero[trueIdx]) ? rankResidual : interLevel->getCode(nux, getObs(trueIdx));
+    splitBits->setBit(bitPos + code);
+  }
 }
 
 
-void RunAccum::setObservedBits(BV* observedBits,
+void RunAccum::setObservedBits(const InterLevel* interLevel,
+			       const SplitNux& nux,
+			       BV* observedBits,
 			       size_t bitPos) const {
-  for (PredictorT runIdx = 0; runIdx < obsCount; runIdx++) {
-    observedBits->setBit(bitPos + getCode(runIdx));
+  for (PredictorT runIdx = 0; runIdx != obsCount; runIdx++) {
+    IndexT code = isImplicit(runZero[runIdx]) ? rankResidual : interLevel->getCode(nux, getObs(runIdx));
+    observedBits->setBit(bitPos + code);
   }
 }
 
@@ -114,20 +123,19 @@ void RunAccum::splitReg(const SFReg* sf, SplitNux* cand) {
    Regression runs always maintained by heap.
 */
 PredictorT RunAccum::regRuns(const SFReg* sf, const SplitNux* cand) {
-  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  initReg(rankBase, obsStart, runIdx);
-  for (IndexT idx = obsStart + 1; idx <= obsTop; idx++) {
+  initReg(obsStart, runIdx);
+  for (IndexT idx = obsStart + 1; idx != obsEnd; idx++) {
     if (!obsCell[idx].regAccum(runZero[runIdx])) {
-      endRun(runZero[runIdx++], idx - 1);
-      initReg(rankBase, idx, runIdx);
+      endRun(runZero[runIdx], idx - 1);
+      initReg(idx, ++runIdx);
     }
   }
   
   // Flushes the remaining run and residual, if any.
   //
-  endRun(runZero[runIdx++], obsTop);
-  return appendImplicit(runIdx);
+  endRun(runZero[runIdx], obsEnd-1);
+  return appendImplicit(++runIdx);
 }
 
 
@@ -137,15 +145,14 @@ PredictorT RunAccum::regRunsMasked(const SFReg* sf,
 				   IndexT edgeRight,
 				   IndexT edgeLeft,
 				   bool maskSense) {
-  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  initReg(rankBase, edgeLeft, runIdx);
+  initReg(edgeLeft, runIdx);
   IndexT runRight = edgeLeft; // Previous unmasked index.
   for (IndexT idx = edgeLeft + 1; idx <= edgeRight; idx++) {
     if (branchSense->isExplicit(sampleIndex[idx]) == maskSense) {
       if (!obsCell[idx].regAccum(runZero[runIdx])) {
-	endRun(runZero[runIdx++], runRight);
-	initReg(rankBase, idx, runIdx);
+	endRun(runZero[runIdx], runRight);
+	initReg(idx, ++runIdx);
       }
       runRight = idx;
     }
@@ -153,16 +160,15 @@ PredictorT RunAccum::regRunsMasked(const SFReg* sf,
 
   // Flushes the remaining run.
   //
-  endRun(runZero[runIdx++], runRight);
-  return appendImplicit(runIdx);
+  endRun(runZero[runIdx], runRight);
+  return appendImplicit(++runIdx);
 }
 
 
-void RunAccum::initReg(const IndexT rankBase[],
-		       IndexT runLeft,
+void RunAccum::initReg(IndexT runLeft,
 		       PredictorT runIdx) {
   runZero[runIdx].startRange(runLeft);
-  obsCell[runLeft].regInit(runZero[runIdx], rankBase[runIdx]);
+  obsCell[runLeft].regInit(runZero[runIdx]);
 }
 
 
@@ -232,28 +238,26 @@ void RunAccum::splitCtg(const SFCtg* sf, SplitNux* cand) {
 
 
 PredictorT RunAccum::ctgRuns(const SFCtg* sf, const SplitNux* cand) {
-  const IndexT* rankBase = sf->getRankBase(cand);
   PredictorT runIdx = 0;
-  double* sumBase = initCtg(rankBase, obsStart, runIdx);
-  for (IndexT obsIdx = obsStart + 1; obsIdx <= obsTop; obsIdx++) {
+  double* sumBase = initCtg(obsStart, runIdx);
+  for (IndexT obsIdx = obsStart + 1; obsIdx != obsEnd; obsIdx++) {
     if (!obsCell[obsIdx].ctgAccum(runZero[runIdx], sumBase)) {
-      endRun(runZero[runIdx++], obsIdx - 1);
-      sumBase = initCtg(rankBase, obsIdx, runIdx);
+      endRun(runZero[runIdx], obsIdx - 1);
+      sumBase = initCtg(obsIdx, ++runIdx);
     }
   }
-  endRun(runZero[runIdx++], obsTop); // Flushes remaining run.
+  endRun(runZero[runIdx], obsEnd-1); // Flushes remaining run.
   
   // Flushes residual, if any.
-  return appendImplicit(runIdx, sf->getSumSlice(cand));
+  return appendImplicit(++runIdx, sf->getSumSlice(cand));
 }
 
 
-double* RunAccum::initCtg(const IndexT rankBase[],
-			  IndexT runLeft,
+double* RunAccum::initCtg(IndexT runLeft,
 			  PredictorT runIdx) {
   double* sumBase = &cellSum[runIdx * nCtg];
   runZero[runIdx].startRange(runLeft);
-  obsCell[runLeft].ctgInit(runZero[runIdx], rankBase[runIdx], sumBase);
+  obsCell[runLeft].ctgInit(runZero[runIdx], sumBase);
   return sumBase;
 }
 
@@ -263,7 +267,7 @@ PredictorT RunAccum::appendImplicit(PredictorT runIdx,
   implicitSlot = runIdx;
   if (implicitCand) {
     residCtg(sumSlice, runIdx);
-    runZero[runIdx].setResidual(runIdx, rankResidual, sCount, sum, implicitCand);
+    runZero[runIdx].setResidual(rankResidual, sCount, sum, obsEnd, implicitCand);
     return runIdx + 1;
   }
   return runIdx;
@@ -357,7 +361,7 @@ double RunAccum::subsetGini(const vector<double>& sumSlice,
   // getSum(runIdx) decomposes 'sumCand' by run, so may be used
   // as a cross-check.
   vector<double> sumSampled(nCtg);
-  for (PredictorT runIdx = 0; runIdx < obsCount - 1; runIdx++) {
+  for (PredictorT runIdx = 0; runIdx != obsCount - 1; runIdx++) {
     if (subset & (1ul << runIdx)) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
 	sumSampled[ctg] += getCellSum(runIdx, ctg);
@@ -389,7 +393,7 @@ void RunAccum::binaryGini(const SFCtg* sf, const SplitNux* cand) {
   double sumL0 = 0.0; // Running left sum at category 0.
   double sumL1 = 0.0; // " " category 1.
   PredictorT argMaxRun = obsCount - 1;
-  for (PredictorT runIdx = 0; runIdx < obsCount - 1; runIdx++) {
+  for (PredictorT runIdx = 0; runIdx != obsCount - 1; runIdx++) {
     if (accumBinary(runIdx, sumL0, sumL1)) { // Splitable
       // sumR, sumL magnitudes can be ignored if no large case/class weightings.
       FltVal sumL = sumL0 + sumL1;
@@ -480,24 +484,17 @@ void RunAccum::leadBits(bool invertTest) {
   // Places true-sense runs to the left for range and code capture.
   // obsCount captures all factor levels visible to the cell.
   vector<RunNux> frTemp;
-  for (PredictorT runIdx = 0; runIdx < obsCount; runIdx++) {
+  for (PredictorT runIdx = 0; runIdx != obsCount; runIdx++) {
     if (lhBits & (1ul << runIdx)) {
       frTemp.emplace_back(runZero[runIdx]);
     }
   }
   runsTrue = frTemp.size();
-  for (PredictorT runIdx = 0; runIdx < obsCount; runIdx++) {
+  for (PredictorT runIdx = 0; runIdx != obsCount; runIdx++) {
     if (!(lhBits & (1ul << runIdx))) {
       frTemp.emplace_back(runZero[runIdx]);
     }
   }
 
   runZero = frTemp;
-}
-
-
-struct RunDump RunAccum::dump() const {
-  PredictorT startTrue = implicitTrue ? runsTrue : 0;
-  PredictorT slotsTrue = implicitTrue ? (obsCount - runsTrue) : runsTrue;
-  return RunDump(this, startTrue, slotsTrue);
 }

@@ -26,15 +26,14 @@
    @brief Auxiliary workspace information specific to regression.
  */
 class CutAccumRegCart : public CutAccumReg {
+
   /**
      @brief Updates with residual and possibly splits.
 
      Current rank position assumed to be adjacent to dense rank, whence
      the application of the residual immediately to the left.
-
-     @param rkThis is the rank of the current position.
    */
-  void splitResidual(IndexT rkThis);
+  void splitResidual();
 
 
 public:
@@ -67,20 +66,14 @@ public:
 
   /**
      @brief Splits right to left, no residual.
-
-     @param rkIdx is the rightmost rank index over the range.
-
-     @return leftmost rank index encountered.
    */
-  IndexT splitRL(IndexT idxFinal,
-		 IndexT rkIdx = 0);
+  void splitRL(IndexT idxFinal);
 
 
   /**
      @brief As above, but applies monotonicty constraint.
    */
-  IndexT splitMono(IndexT idxFinal,
-		   IndexT rkIdx = 0);
+  void splitMono(IndexT idxFinal);
 
 
   /**
@@ -88,8 +81,7 @@ public:
 
      @param rkIdxL tracks the left rank index of a split.
    */
-  void residualLR(const class SplitNux* cand,
-		      IndexT rkIdxL);
+  void residualLR(const class SplitNux* cand);
 
 
   /**
@@ -97,8 +89,7 @@ public:
 
      @param rkIdxL tracks the left rank index of a split.
    */
-  void splitMonoDense(const class SplitNux* cand,
-		  IndexT rkIdxL);
+  void residualLRMono(const class SplitNux* cand);
 };
 
 
@@ -114,16 +105,15 @@ class CutAccumCtgCart : public CutAccumCtg {
 
      @param rkThis is the rank of the current position.
    */
-  void splitResidual(IndexT rkThis);
+  void splitResidual();
 
 
   /**
      @brief Applies residual state and continues splitting left.
    */
-  void residualLR(const class SplitNux* cand,
-		  IndexT rkIdx);
+  void residualLR(const class SplitNux* cand);
 
-  
+
 public:
 
   CutAccumCtgCart(const class SplitNux* cand,
@@ -151,13 +141,9 @@ public:
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
    */
-  IndexT splitRL(IndexT idxFinal,
-		 IndexT rkIdx = 0);
-  /*
-  void splitRL(IndexT rkThs,
-		 IndexT idxInit,
-		 IndexT idxFinal);
-  */
+  void splitRL(IndexT idxFinal);
+
+
   /**
      @brief As above, but with implicit dense blob.
    */

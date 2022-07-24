@@ -19,9 +19,9 @@
 struct Accum {
   const class Obs* obsCell;
   const IndexT* sampleIndex;
-  const IndexT rankResidual; ///< Rank of dense value, if any.
   const IndexT obsStart;///< Low terminus.
-  const IndexT obsTop; ///< High terminus.
+  //  const IndexT obsTop; ///< High terminus. EXIT
+  const IndexT obsEnd; ///< sup.
   const double sumCand;
   const IndexT sCountCand;
   const IndexT implicitCand;
@@ -46,10 +46,10 @@ struct Accum {
 
      @param info[in, out] outputs max of input and new information 
    */
-  static constexpr double infoVar(double sumLeft,
-				  double sumRight,
-				  IndexT sCountLeft,
-				  IndexT sCountRight) {
+  static inline double infoVar(double sumLeft,
+			       double sumRight,
+			       IndexT sCountLeft,
+			       IndexT sCountRight) {
     return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
   }
 
@@ -65,10 +65,10 @@ struct Accum {
 
      @param sumRight is the sum of responses to the right.
    */
-  static constexpr double infoGini(double ssLeft,
-                                    double ssRight,
-                                    double sumLeft,
-                                    double sumRight) {
+  static inline double infoGini(double ssLeft,
+				double ssRight,
+				double sumLeft,
+				double sumRight) {
     return ssLeft / sumLeft + ssRight / sumRight;
   }
 

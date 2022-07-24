@@ -17,7 +17,7 @@
 #include "cutaccum.h"
 #include "cutset.h"
 #include "splitfrontier.h"
-#include "obsfrontier.h"
+#include "interlevel.h"
 #include "partition.h"
 
 
@@ -74,19 +74,19 @@ IndexT CutSet::getImplicitTrue(const SplitNux* nux) const {
 }
 
 
-void CutSet::write(const ObsFrontier* ofFront,
+void CutSet::write(const InterLevel* interLevel,
 		   const SplitNux* nux, const CutAccum* accum) {
   if (accum->info > nux->getInfo()) {
-    cutSig[nux->getAccumIdx()].write(ofFront, nux, accum);
+    cutSig[nux->getAccumIdx()].write(interLevel, nux, accum);
   }
 }
 
 
-void CutSig::write(const ObsFrontier* ofFront,
+void CutSig::write(const InterLevel* interLevel,
 		   const SplitNux* nux,
 		   const CutAccum* accum) {
   obsLeft = accum->obsLeft;
   obsRight = accum->obsRight;
   implicitTrue = accum->lhImplicit(nux);
-  quantRank = accum->interpolateRank(ofFront, nux);
+  quantRank = accum->interpolateRank(interLevel, nux);
 }

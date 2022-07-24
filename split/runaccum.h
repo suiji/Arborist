@@ -49,6 +49,7 @@ enum class SplitStyle;
    value is used for storage allocation.
 */
 class RunAccum : public Accum {
+  const IndexT rankResidual; ///< residual rank, if any.
   const PredictorT nCtg; // Non-zero iff classification.
   const PredictorT rcSafe; // Conservative run count.
   vector<RunNux> runZero; // SR block, partitioned by code.
@@ -169,6 +170,17 @@ class RunAccum : public Accum {
    */
   void heapMean();
 
+  
+  /**
+     @brief Determines whether run denotes a residual.
+
+     Redidual runs distinguished by out-of-bound range.
+   */
+  bool isImplicit(const RunNux& runNux) const {
+    return runNux.range.idxStart >= obsEnd;
+  }
+  
+
 public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
 
@@ -266,13 +278,11 @@ public:
 	       IndexT& rvOff);
 
 
-  void initReg(const IndexT rankBase[],
-	       IndexT runLeft,
+  void initReg(IndexT runLeft,
 	       PredictorT runIdx);
 
   
-  double* initCtg(const IndexT rankBase[],
-		  IndexT runLeft,
+  double* initCtg(IndexT runLeft,
 		  PredictorT runIdx);
 
   
@@ -440,10 +450,10 @@ public:
 
 
   /**
-     @return level code at specified slot.
+     @return representative observation index within specified slot.
    */
-  auto getCode(PredictorT slot) const {
-    return runZero[slot].getCode();
+  auto getObs(PredictorT slot) const {
+    return runZero[slot].range.idxStart;
   }
 
 
@@ -505,14 +515,18 @@ public:
      True codes are enumerated from the left, by convention.  Implicit runs are
      guranteed not to lie on the left.
    */
-  void setTrueBits(class BV* splitBits,
+  void setTrueBits(const class InterLevel* interLevel,
+		   const class SplitNux& nux,
+		   class BV* splitBits,
 		   size_t bitPos) const;
 
 
   /**
      @brief Reports the factor codes observed at the node.
    */
-  void setObservedBits(class BV* splitBits,
+  void setObservedBits(const class InterLevel* interLevel,
+		       const class SplitNux& nux,
+		       class BV* splitBits,
 		       size_t bitPos) const;
   
   /**
@@ -533,7 +547,7 @@ public:
      @return implicit count associated with a slot.
    */
   IndexT getImplicitExtent(PredictorT slot) const {
-    return runZero[slot].isImplicit() ? getExtent(slot) : 0;
+    return isImplicit(runZero[slot]) ? getExtent(slot) : 0;
   }
 
   
@@ -551,32 +565,6 @@ public:
      @return top-most block range associated with encoding.
    */
   vector<IndexRange> getTopRange(const struct CritEncoding& enc) const;
-
-
-  struct RunDump dump() const;
-};
-
-
-/**
-   @brief Accumulates diagnostic statistics over the run vector.
- */
-struct RunDump {
-  IndexT sCount;
-  double sum;
-  vector<PredictorT> code;
-
-  /**
-     @brief Populates dump over specified vector range.
-   */
-  RunDump(const RunAccum* runAccum,
-	  PredictorT runStart,
-	  PredictorT runCount) : sCount(0), sum(0.0), code(vector<PredictorT>(runCount)) {
-    for (PredictorT rc = runStart; rc < runStart + runCount; rc++) {
-      code[rc] = runAccum->getCode(rc);
-      sCount += runAccum->getSCount(rc);
-      sum += runAccum->getSum(rc);
-    }
-  }
 };
 
 #endif

@@ -19,7 +19,7 @@
 
 #include "bv.h"
 #include "typeparam.h"
-#include "sampleobs.h"
+#include "sampledobs.h"
 #include "sample.h"
 
 #include <memory>
@@ -191,7 +191,8 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampleObs> rootSample(unsigned int tIdx) const;
+  unique_ptr<class SampledObs> rootSample(const class Layout *layout,
+					  unsigned int tIdx) const;
 
 
   /**

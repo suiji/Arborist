@@ -18,14 +18,16 @@
 #include "cutset.h"
 #include "splitfrontier.h"
 #include "partition.h"
-#include "obsfrontier.h"
+#include "interlevel.h"
+
 
 CutAccum::CutAccum(const SplitNux* cand,
 		   const SplitFrontier* splitFrontier) :
   Accum(splitFrontier, cand),
   cutResidual(obsStart + cand->getPreresidual()),
-  rankIdxL(-1),
-  rankIdxR(-1) {
+  obsLeft(-1),
+  obsRight(-1),
+  residualLeft(false) {
 }
 
 
@@ -38,8 +40,8 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
   // than the right rank.  This is clearly the case when the residual
   // cut is less than the right observation.  When the residual cut
   // equals the right observation, the residual lies in the left
-  // portion iff the residual rank does not bound on the right.
-  if (cutResidual < obsRight || (cutResidual == obsRight && rankIdxR != 0)) {
+  // portion iff the residual does not bound on the right.
+  if (cutResidual < obsRight || (cutResidual == obsRight && residualLeft)) {
     return implicitCand;
   }
   else {
@@ -48,9 +50,14 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
 }
 
 
-double CutAccum::interpolateRank(const ObsFrontier* ofFront,
+double CutAccum::interpolateRank(const InterLevel* interLevel,
 				 const SplitNux* cand) const {
-  return ofFront->interpolateBackRank(cand, rankIdxL, rankIdxR);
+  if (obsRight == cutResidual) { // iff splitting residual on R/L.
+    return interLevel->interpolateRank(cand, residualLeft ? obsRight : obsLeft, residualLeft);
+  }
+  else {
+    return interLevel->interpolateRank(cand, obsLeft, obsRight);
+  }
 }
 
 
@@ -70,3 +77,43 @@ CutAccumCtg::CutAccumCtg(const SplitNux* cand,
   ssL(sfCtg->getSumSquares(cand)),
   ssR(0.0) {
 }
+
+
+void CutAccum::residualReg(const Obs* obsCell,
+			const SplitNux* nux) {
+  const Obs* obsStart = obsCell + nux->getObsStart();
+  IndexT extent = nux->getObsExtent();
+  double ySumObs = 0.0;
+  IndexT sCountObs = 0;
+
+  for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
+    ySumObs += obs->getYSum();
+    sCountObs += obs->getSCount();
+  }
+
+  sum -= (nux->getSum() - ySumObs);
+  sCount -= (nux->getSCount() - sCountObs);
+}
+
+
+void CutAccumCtg::residualCtg(const Obs* obsCell,
+			   const SplitNux* nux) {
+  vector<double> ctgResid(nodeSum);
+  for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
+    accumCtgSS(ctgResid[ctg], ctg);
+  }
+
+  const Obs* obsStart = obsCell + nux->getObsStart();
+  IndexT extent = nux->getObsExtent();
+  double ySumExpl = 0.0;
+  IndexT sCountExpl = 0;
+  for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
+      double ySumObs = obs->getYSum();
+      ctgResid[obs->getCtg()] -= ySumObs;
+      ySumExpl += ySumObs;
+      sCountExpl += obs->getSCount();
+  }
+  sum -= (nux->getSum() - ySumExpl);
+  sCount -= (nux->getSCount() - sCountExpl);
+}
+

@@ -17,9 +17,9 @@
 
 #include "typeparam.h"
 #include "accum.h"
+#include "obs.h"
 
 #include <vector>
-
 
 /**
    @brief Persistent workspace for computing optimal split.
@@ -36,44 +36,48 @@ protected:
      @brief Trial argmax on right indices.
    */
   inline void argmaxRL(double infoTrial,
-		       IndexT obsLeft,
-		       IndexT rkIdxR) {
+		       IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
-      rankIdxR = rkIdxR;
-      rankIdxL = rkIdxR + 1; // CART-like, explicit.
       this->obsLeft = obsLeft;
-      obsRight = obsLeft + 1;
+      obsRight = obsLeft + 1; // CART-like:  explicit.
     }
   }
 
 
   /**
-     @brief Trial argmax on left residual.
+     @brief Trial argmax involving residual.
+
+     @param rkIdx is the non-residual rank.
+
+     @param onLeft is true iff residual is the left observation.
+
+     May be called twice for the same residual:  once right, once left.
    */
-  inline void argmaxRLResidual(double infoTrial,
-			       IndexT rkIdx) {
+  inline void argmaxResidual(double infoTrial,
+			     bool onLeft) {
     if (Accum::trialSplit(infoTrial)) {
-      rankIdxR = rkIdx;
-      rankIdxL = 0; // Residual rank index, by convention.
       obsRight = cutResidual;
+      // cutResidual > obsStart if residual lies to the right.
       obsLeft = cutResidual == obsStart ? cutResidual : cutResidual - 1;
+      residualLeft = onLeft;
     }
   }
 
 
-  // Diagnostic.
-  inline void argmaxRL(double infoTrial,
-			   IndexT obsLeft,
-			   IndexT rkIdxR,
-		       IndexT rkIdxL) {
-    if (Accum::trialSplit(infoTrial)) {
-      rankIdxR = rkIdxR;
-      rankIdxL = rkIdxL;
-      this->obsLeft = obsLeft;
-      obsRight = obsLeft + 1;
-    }
+  /**
+     @brief Accumulates sum and sample-count state from observation.
+
+     @return true iff rank is tied with that of left neighbor.
+   */
+  inline bool accumulateReg(const Obs& obs) {
+    sum -= obs.getYSum();
+    sCount -= obs.getSCount();
+    return obs.isTied();
   }
 
+
+  void residualReg(const Obs* obsCell,
+		   const class SplitNux* nux);
 
   /**
      @brief Revises argmax in right-to-left traversal.
@@ -85,10 +89,9 @@ protected:
 
 public:
   // Revised at each new local maximum of 'info':
-  IndexT rankIdxL; ///< Left rank index.
-  IndexT rankIdxR; ///< Right rank index.
   IndexT obsLeft; ///< sup left index.  Out of bounds (obsEnd + 1) iff left is dense.
   IndexT obsRight; ///< inf right index.  Out of bounds (obsEnd + 1) iff right is dense.
+  bool residualLeft; ///< State of most recent residual argmax:  L/R.
 
   /**
      @param cand encapsulates candidate splitting parameters.
@@ -102,8 +105,14 @@ public:
   IndexT lhImplicit(const class SplitNux* cand) const;
 
 
-  double interpolateRank(const class ObsFrontier* ofFront,
+  /**
+     @brief Derives splitting rank from cut bounds.
+
+     @return fractional splitting rank.
+   */
+  double interpolateRank(const class InterLevel* interLevel,
 			 const class SplitNux* cand) const;
+
 
   /**
      @brief Determines whether an argmax has been encountered since
@@ -112,7 +121,7 @@ public:
      @return true iff argmax has been observed.
    */
   bool hasArgmax() const {
-    return rankIdxL != rankIdxR;
+    return obsLeft != obsRight;
   }
 };
 
@@ -128,6 +137,20 @@ protected:
 
 
   /**
+     @brief Accumulates observation state.
+
+     @return true iff rank ties with observation to left.
+   */
+  inline bool accumulateCtg(const Obs& obs) {
+    sum -= obs.getYSum();
+    sCount -= obs.getSCount();
+    accumCtgSS(obs.getYSum(), obs.getCtg());
+
+    return obs.isTied();
+  }
+
+
+  /**
      @brief Post-increments accumulated sum.
 
      @param yCtg is the category at which to increment.
@@ -140,6 +163,12 @@ protected:
 			    double sumCtg) {
     return exchange(ctgAccum[yCtg], ctgAccum[yCtg] + sumCtg);
   }
+
+  /**
+     @brief Subtracts explicit sum and count values from node totals.
+   */
+  void residualCtg(const Obs* obsCell,
+		   const class SplitNux* nux);
 
 
 public:

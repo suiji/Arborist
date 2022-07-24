@@ -86,11 +86,6 @@ RunAccumT* SplitFrontier::getRunAccum(const SplitNux* nux) const {
 }
 
 
-IndexT SplitFrontier::getDenseRank(const SplitNux* nux) const {
-  return frame->getDenseRank(nux->getPredIdx());
-}
-
-
 bool SplitFrontier::isFactor(PredictorT predIdx) const {
   return frame->isFactor(predIdx);
 }
@@ -112,19 +107,9 @@ bool SplitFrontier::leftCut(const SplitNux* cand) const {
 }
 
 
-RunDump SplitFrontier::dumpRun(PredictorT accumIdx) const {
-  return runSet->dumpRun(accumIdx);
-}
-
-
-const IndexT* SplitFrontier::getRankBase(const SplitNux* nux) const {
-  return ofFront->getRankBase(nux->getStagedCell());
-}
-
-
 void SplitFrontier::writeCut(const SplitNux* nux,
 			     const CutAccum* accum) const {
-  cutSet->write(ofFront, nux, accum);
+  cutSet->write(interLevel, nux, accum);
 }
 
 

@@ -15,7 +15,7 @@
 
 #include "ompthread.h"
 #include "frontier.h"
-#include "sampleobs.h"
+#include "sampledobs.h"
 #include "splitfrontier.h"
 #include "interlevel.h"
 #include "obsfrontier.h"
@@ -27,14 +27,17 @@
 #include <algorithm>
 
 
-InterLevel::InterLevel(const TrainFrame* frame,
+InterLevel::InterLevel(const TrainFrame* frame_,
+		       const SampledObs* sampledObs_,
 		       const Frontier* frontier) :
+  frame(frame_),
   nPred(frame->getNPred()),
   positionMask(getPositionMask(nPred)),
   levelShift(getLevelShift(nPred)),
   bagCount(frontier->getBagCount()),
   layout(frame->getLayout()),
   noRank(layout->getNoRank()),
+  sampledObs(sampledObs_),
   rootPath(make_unique<IdxPath>(bagCount)),
   pathIdx(vector<PathT>(layout->getSafeSize(bagCount))),
   level(0),
@@ -98,8 +101,7 @@ ObsFrontier* InterLevel::getFront() {
 }
 
 
-CandType InterLevel::repartition(const Frontier* frontier,
-				 const SampleObs* sampleObs) {
+CandType InterLevel::repartition(const Frontier* frontier) {
   ofFront = make_unique<ObsFrontier>(frontier, this);
   CandType cand(this);
   cand.precandidates(frontier, this);
@@ -107,7 +109,7 @@ CandType InterLevel::repartition(const Frontier* frontier,
   // as do all history flushes.
   vector<unsigned int> nExtinct;
   if (level == 0) {
-    nExtinct = stage(sampleObs);
+    nExtinct = stage();
   }
   else {
     nExtinct = restage();
@@ -136,9 +138,8 @@ void InterLevel::appendAncestor(StagedCell& scAnc, unsigned int historyIdx) {
 }
 
 
-vector<unsigned int> InterLevel::stage(const SampleObs* sampleObs) {
-  ofFront->prestageRoot();
-  ofFront->setRankTarget();
+vector<unsigned int> InterLevel::stage() {
+  ofFront->prestageRoot(frame, layout, sampledObs);
 
   OMPBound predTop = nPred;
   vector<unsigned int> nExtinct(predTop);
@@ -147,7 +148,7 @@ vector<unsigned int> InterLevel::stage(const SampleObs* sampleObs) {
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
-      nExtinct[predIdx] = ofFront->stage(predIdx, obsPart.get(), layout, sampleObs);
+      nExtinct[predIdx] = ofFront->stage(predIdx, obsPart.get(), layout, sampledObs);
     }
   }
   return nExtinct;
@@ -156,7 +157,7 @@ vector<unsigned int> InterLevel::stage(const SampleObs* sampleObs) {
 
 vector<unsigned int> InterLevel::restage() {
   unsigned int backPop = prestageRear(); // Popable layers persist.
-  ofFront->setRankTarget();
+  ofFront->runValues();
 
   OMPBound idxTop = ancestor.size();
   vector<unsigned int> nExtinct(idxTop);
@@ -253,4 +254,38 @@ void InterLevel::rootSuccessor(IndexT rootIdx,
 
 void InterLevel::rootExtinct(IndexT rootIdx) {
   rootPath->setExtinct(rootIdx);
+}
+
+
+double InterLevel::interpolateRank(const SplitNux* cand,
+				   IndexT obsLeft,
+				   IndexT obsRight) const {
+  IndexT sIdx = obsPart->getSampleIndex(cand, obsLeft); 
+  IndexT rankLeft = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  sIdx = obsPart->getSampleIndex(cand, obsRight);
+  IndexT rankRight = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  IndexRange rankRange(rankLeft, rankRight - rankLeft);
+
+  return rankRange.interpolate(cand->getSplitQuant());
+}
+
+
+double InterLevel::interpolateRank(const SplitNux* cand,
+				   IndexT obsIdx,
+				   bool residualLeft) const {
+  IndexT residualRank = cand->getRankResidual();
+  IndexT sIdx = obsPart->getSampleIndex(cand, obsIdx);
+  IndexT rank = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  IndexT rankLeft = residualLeft ? residualRank : rank;
+  IndexT rankRight = residualLeft ? rank : residualRank;
+  IndexRange rankRange(rankLeft, rankRight - rankLeft);
+
+  return rankRange.interpolate(cand->getSplitQuant());
+}
+
+
+IndexT InterLevel::getCode(const SplitNux& cand,
+			   IndexT obsIdx) const {
+  IndexT sIdx = obsPart->getSampleIndex(&cand, obsIdx);
+  return sampledObs->getRank(cand.getPredIdx(), sIdx);
 }

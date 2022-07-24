@@ -127,7 +127,7 @@ public:
   void setTrueBits(const SplitNux& nux,
 		   class BV* splitBits,
 		   size_t bitPos) const {
-    runSet->setTrueBits(nux, splitBits, bitPos);
+    runSet->setTrueBits(interLevel, nux, splitBits, bitPos);
   }
 
 
@@ -137,7 +137,7 @@ public:
   void setObservedBits(const SplitNux& nux,
 		       class BV* splitBits,
 		       size_t bitPos) const {
-    runSet->setObservedBits(nux, splitBits, bitPos);
+    runSet->setObservedBits(interLevel, nux, splitBits, bitPos);
   }
 
 
@@ -214,25 +214,7 @@ public:
    */
   bool leftCut(const SplitNux* cand) const;
   
-  
-  /**
-     @brief Pass-through to row-rank method.
 
-     @param cand is the candidate.
-
-     @return rank of dense value, if candidate's predictor has one.
-   */
-  IndexT getDenseRank(const SplitNux* cand) const;
-
-
-  /**
-     @brief Provides access to candidates section of rank vector.
-
-     @return pointer to base of candidate's rank section.
-   */
-  const IndexT* getRankBase(const SplitNux* cand) const;
-
-  
   /**
      @brief Pass-through to frame-map method.
 
@@ -339,14 +321,8 @@ public:
   SplitStyle getFactorStyle() const {
     return splitStyle;
   }
-  
 
-  /**
-     @brief Dumps run-vector contents for diagnostics.
-   */
-  struct RunDump dumpRun(PredictorT accumIdx) const;
 
-  
   /**
      @brief Separates candidates into split-specific vectors.
    */
@@ -424,7 +400,7 @@ public:
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
 	void (SplitFrontier::* splitter_) (vector<class SplitNux>, class BranchSense&));
-
+  
   double getScore(const class IndexSet& iSet) const;
 
   /**

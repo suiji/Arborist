@@ -33,8 +33,8 @@ struct ImplExpl {
   IndexT denseIdx;
   IndexT safeOffset; // Base of staged predictor.
 
-  ImplExpl() {
-  }
+  ImplExpl() = default;
+
   
   ImplExpl(IndexT rankImpl_,
 	   IndexT countExpl_) :
@@ -52,6 +52,7 @@ class Layout {
   const IndexT nRow;
   const PredictorT nPred;
   const PredictorT noRank; // Inattainable rank value.
+  vector<vector<IndexT>> row2Rank;
   PredictorT nPredDense;
 
   PredictorT nonCompact;  // Total count of uncompactified predictors.
@@ -133,9 +134,9 @@ public:
 
      @param predIdx is the predictor index.
 
-     @return dense rank assignment for predictor.
+     @return residual rank assignment for predictor.
    */
-  IndexT getDenseRank(PredictorT predIdx) const{
+  IndexT getImplicitRank(PredictorT predIdx) const{
     return implExpl[predIdx].rankImpl;
   }
 
@@ -177,6 +178,12 @@ public:
     return denseIdx;
   }
 
+
+  const vector<IndexT>& getRanks(PredictorT predIdx) const {
+    return row2Rank[predIdx];
+  }
+
+  
   const vector<RLEVal<unsigned int>>& getRLE(PredictorT predIdx) const;
 };
 

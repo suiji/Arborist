@@ -6,15 +6,15 @@
  */
 
 /**
-   @file sample.h
+   @file sampledobs.h
 
-   @brief Class definitions for sample-oriented aspects of training.
+   @brief Compact representations of sampled observations.
 
    @author Mark Seligman
  */
 
-#ifndef OBS_SAMPLEOBS_H
-#define OBS_SAMPLEOBS_H
+#ifndef OBS_SAMPLEDOBS_H
+#define OBS_SAMPLEDOBS_H
 
 #include "sumcount.h"
 #include "typeparam.h"
@@ -27,16 +27,19 @@
 /**
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
-class SampleObs {
+class SampledObs {
  protected:
   const IndexT nSamp; // Number of row samples requested.
-  double (SampleObs::* adder)(double, const class SamplerNux&, PredictorT);
+  double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
   vector<SampleNux> sampleNux; // Per-sample summary, with row-delta.
   vector<SumCount> ctgRoot; // Root census of categorical response.
   vector<IndexT> row2Sample; // Maps row index to sample index.
   IndexT bagCount;
   double bagSum; // Sum of bagged responses.
 
+  vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
+  vector<IndexT> runCount; ///< Staging initialization.
+  
   
   /**
      @brief Samples rows and counts resulting occurrences.
@@ -45,7 +48,8 @@ class SampleObs {
 
      @param yCtg is true response / zero:  classification / regression.
   */
-  void bagSamples(const class Sampler* sampler,
+  void bagSamples(const class Layout* layout,
+		  const class Sampler* sampler,
 		  const vector<double>& y,
 		  const vector<PredictorT>& yCtg,
 		  unsigned int tIdx);
@@ -58,6 +62,12 @@ class SampleObs {
 		  const vector<PredictorT>& yCtg);
 
 
+  /**
+     @return map from sample index to predictor rank.
+   */
+  vector<IndexT> sampleRanks(const class Layout* layout,
+			     PredictorT predIdx);
+
 public:
 
   /**
@@ -69,11 +79,12 @@ public:
 
      @return new SampleCtg instance.
    */
-  static unique_ptr<struct SampleCtg> factoryCtg(const class Sampler* sampler,
-						const struct Response* response,
-						const vector<double>&  y,
-                                                const vector<PredictorT>& yCtg,
-						unsigned int tIdx);
+  static unique_ptr<struct SampleCtg> factoryCtg(const class Layout* layout,
+						 const class Sampler* sampler,
+						 const struct Response* response,
+						 const vector<double>&  y,
+						 const vector<PredictorT>& yCtg,
+						 unsigned int tIdx);
 
 
   /**
@@ -83,10 +94,11 @@ public:
 
      @return new SampleReg instance.
    */
-  static unique_ptr<struct SampleReg>factoryReg(const class Sampler* sampler,
-					       const struct Response* response,
-					       const vector<double>& y,
-					       unsigned int tIdx);
+  static unique_ptr<struct SampleReg>factoryReg(const class Layout* layout,
+						const class Sampler* sampler,
+						const struct Response* response,
+						const vector<double>& y,
+						unsigned int tIdx);
 
 
   /**
@@ -94,9 +106,9 @@ public:
 
      @param frame summarizes predictor ranks by row.
    */
-  SampleObs(const class Sampler* sampler,
+  SampledObs(const class Sampler* sampler,
 	 const struct Response* response,
-	 double (SampleObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
+	 double (SampledObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
 
   
   /**
@@ -193,13 +205,27 @@ public:
   inline PredictorT getCtg(IndexT sIdx) const {
     return sampleNux[sIdx].getCtg();
   }
+
+
+  inline IndexT getRank(PredictorT predIdx,
+		 IndexT sIdx) const {
+    return sample2Rank[predIdx][sIdx];
+  }
+
+
+  inline IndexT getRunCount(PredictorT predIdx) const {
+    return runCount[predIdx];
+  }
+
+  
+  void setRanks(const class Layout* layout);
 };
 
 
 /**
    @brief Regression-specific methods and members.
 */
-struct SampleReg : public SampleObs {
+struct SampleReg : public SampledObs {
 
   SampleReg(const class Sampler* sampler,
 	    const struct Response* respone);
@@ -229,7 +255,8 @@ struct SampleReg : public SampleObs {
 
      @param y is the response vector.
   */
-  void bagSamples(const class Sampler* sampler,
+  void bagSamples(const class Layout* layout,
+		  const class Sampler* sampler,
 		  const vector<double>& y,
 		  unsigned int tIdx);
 };
@@ -238,7 +265,7 @@ struct SampleReg : public SampleObs {
 /**
  @brief Classification-specific sampling.
 */
-struct SampleCtg : public SampleObs {
+struct SampleCtg : public SampledObs {
   
   SampleCtg(const class Sampler* sampler,
 	    const struct Response* response);
@@ -268,7 +295,8 @@ struct SampleCtg : public SampleObs {
 
      @param y is the proxy response vector.
   */
-  void bagSamples(const class Sampler* sampler,
+  void bagSamples(const class Layout* layout,
+		  const class Sampler* sampler,
 		  const vector<PredictorT>& yCtg,
 		  const vector<double>& y,
 		  unsigned int tIdx);

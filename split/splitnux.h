@@ -206,10 +206,15 @@ public:
   IndexT getPreresidual() const {
     return cell->preResidual;
   }
+
+  
+  IndexT getRankResidual() const {
+    return cell->rankImplicit;
+  }
   
 
   auto getRunCount() const {
-    return cell->getRankCount();
+    return cell->getRunCount();
   }
   
 

@@ -15,18 +15,16 @@
 
 #include "prng.h"
 #include "runaccum.h"
+#include "interlevel.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "runset.h"
-
-IndexT RunNux::noStart = 0;
 
 
 RunSet::RunSet(const SplitFrontier* sf,
 	       IndexT nRow) :
   style(sf->getFactorStyle()),
   wideRuns(0) {
-  RunNux::noStart = nRow; // Inattainable start value, irrespective of tree.
 }
 
 
@@ -83,15 +81,17 @@ void RunSet::updateAccum(const SplitNux& cand) {
 }
 
 
-void RunSet::setTrueBits(const SplitNux& nux,
+void RunSet::setTrueBits(const InterLevel* interLevel,
+			 const SplitNux& nux,
 			 class BV* splitBits,
 			 size_t bitPos) const {
-  runAccum[nux.getAccumIdx()].setTrueBits(splitBits, bitPos);
+  runAccum[nux.getAccumIdx()].setTrueBits(interLevel, nux, splitBits, bitPos);
 }
 
 
-void RunSet::setObservedBits(const SplitNux& nux,
+void RunSet::setObservedBits(const InterLevel* interLevel,
+			     const SplitNux& nux,
 			     class BV* splitBits,
 			     size_t bitPos) const {
-  runAccum[nux.getAccumIdx()].setTrueBits(splitBits, bitPos);
+  runAccum[nux.getAccumIdx()].setObservedBits(interLevel, nux, splitBits, bitPos);
 }

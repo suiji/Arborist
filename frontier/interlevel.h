@@ -48,6 +48,7 @@ struct Ancestor {
    @brief Manages definitions reaching the frontier.
  */
 class InterLevel {
+  const class TrainFrame* frame;
   const PredictorT nPred; // Number of predictors.
   const PredictorT positionMask;
   const unsigned int levelShift;
@@ -57,6 +58,7 @@ class InterLevel {
 
   const class Layout* layout;
   const IndexT noRank; ///< inachievable rank value:  (re)staging.
+  const class SampledObs* sampledObs;
   unique_ptr<class IdxPath> rootPath; // Root-relative IdxPath.
   vector<PathT> pathIdx;
   unsigned int level; // Zero-based tree depth.
@@ -121,6 +123,7 @@ public:
      @param frontier_ tracks the frontier nodes.
   */
   InterLevel(const class TrainFrame* frame,
+	     const class SampledObs* sampledObs,
 	     const class Frontier* frontier);
 
   
@@ -181,6 +184,34 @@ public:
   void updateExtinct(IndexT rootIdx);
 
 
+  /**
+    @brief Interpolates splitting rank using observation bounds.
+
+    @return fractional splitting "rank".
+   */
+  double interpolateRank(const class SplitNux* cand,
+			 IndexT obsLeft,
+			 IndexT obsRight) const;
+
+  
+  /**
+     @brief Interpolates splitting rank involving residual.
+
+     @return fractional splitting "rank".
+   */  
+  double interpolateRank(const class SplitNux* cand,
+			 IndexT obsIdx,
+			 bool residualLeft) const;
+
+
+  /**
+     @return code associated with a given observation index.
+   */
+  IndexT getCode(const class SplitNux& cand,
+		 IndexT obsIdx) const;
+
+  
+  
   ObsPart* getObsPart() const;
 
 
@@ -276,7 +307,7 @@ public:
   /**
      @brief Intializes observations cells.
    */
-  vector<unsigned int> stage(const class SampleObs* sampleObs);
+  vector<unsigned int> stage();
 
 
   /**
@@ -296,10 +327,9 @@ public:
   /**
      @brief Partitions or repartitions observations.
 
-     @param sampleObs is the sampled observation set.
+     @param frontier is the invoking Frontier.
    */
-  CandType repartition(const class Frontier* frontier,
-		       const class SampleObs* sampleObs);
+  CandType repartition(const class Frontier* frontier);
 
 
   /**

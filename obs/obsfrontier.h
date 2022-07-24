@@ -36,25 +36,23 @@
 class ObsFrontier {
   const class Frontier* frontier;
   class InterLevel* interLevel;
-  const PredictorT nPred; // Predictor count.
-  const IndexT nSplit; // # splitable nodes at level.
-  //const IndexT noIndex; // Inattainable node index value.
+  const PredictorT nPred; ///< Predictor count.
+  const IndexT nSplit; ///< # splitable nodes at level.
 
   vector<IndexRange> node2Front;
   vector<IndexT> front2Node;
 
   vector<vector<StagedCell>> stagedCell; ///< Cell, node x predictor.
-  //  vector<vector<IndexT>> cellRank; ///< Rank/code, predictor x node
   IndexT stageCount; ///< # staged items.
-  IndexT rankOffset; ///< accumulating sum of cell rank sizes.
   IndexT stageMax; ///< High watermark of stage count.
-  vector<IndexT> rankTarget; ///< Compressed restaged ranks.
-
+  IndexT runCount; ///< Total runs tracked.
+  vector<IndexT> runValue; ///< Tracked run values.
+  
   // layerIdx value is one less than distance to front.
-  unsigned char layerIdx; // Zero-based deque offset, increments.
+  unsigned char layerIdx; ///< Zero-based deque offset, increments.
 
   // Recomputed:
-  vector<class NodePath> nodePath; // Indexed by <node, predictor> pair.
+  vector<class NodePath> nodePath; ///< Indexed by <node, predictor> pair.
 
   /**
      @brief Initializes a path from ancestor to front.
@@ -107,14 +105,10 @@ public:
   /**
      @brief Allocates all 'nPred' StagedCells for staging.
    */
-  void prestageRoot();
-  
+  void prestageRoot(const class TrainFrame* frame,
+		    const class Layout* layout,
+		    const class SampledObs* sampledObs);
 
-  /**
-     @brief Allocates rank targets after prestaging complete.
-   */
-  void setRankTarget();
-  
 
   /**
      @brief Delists all live cells with an extinct node.     
@@ -130,39 +124,6 @@ public:
 			IndexT nodeIdx,
 			PredictorT stagePosition);
 
-
-  /**
-     @brief Interpolates cuts, indexing rank vector from the rear.
-   */
-  double interpolateBackRank(const SplitNux* cand,
-			     IndexT backIdxL,
-			     IndexT backIdxR) const;
-
-  /**
-     @brief Provides access to cell's section of rank vector.
-
-     @return pointer to beginning of cell's rank section.
-   */
-  inline const IndexT* getRankBase(const StagedCell* cell) {
-    return &rankTarget[cell->rankStart];
-  }
-
-  
-
-  inline vector<IndexT>& getRankTarget() {
-    return rankTarget;
-  }
-
-
-  /**
-     @brief Sets rank at specified position.
-   */
-  inline void setRank(IndexT position,
-		      IndexT rank) {
-    rankTarget[position] = rank;
-  }
-
-  
 
   IndexT getStageCount() const {
     return stageCount;
@@ -223,14 +184,19 @@ public:
   void applyFront(const ObsFrontier* ofCurrent,
 		  const vector<class IndexSet>& frontierNext);
 
+  /**
+     @brief Allocates the run values vector.
+   */
+  void runValues();
 
+  
   /**
      @return number of staged cells (0 or 1).
    */
   unsigned int stage(PredictorT predIdx,
 		     class ObsPart* obsPart,
 		     const class Layout* layout,
-		     const class SampleObs* sampleObs);
+		     const class SampledObs* sampledObs);
 
 
   /**
@@ -262,14 +228,12 @@ public:
 			     const StagedCell& mrra) const;
 
 
-  /**
-     @brief Tabulates rank vectors following stable partition.
-  */
-  void obsRestage(class ObsPart* obsPart,
-		  vector<IndexT>& rankScatter,
-		  const StagedCell& mrra,
-		  vector<IndexT>& obsTarget,
-		  vector<IndexT>& rankTarget) const;
+  void restageRanks(const PathT* prePath,
+		    ObsPart* obsPart,
+		    vector<IndexT>& rankScatter,
+		    const StagedCell& mrra,
+		    vector<IndexT>& obsScatter,
+		    vector<IndexT>& ranks) const;
 
 
   /**
@@ -304,8 +268,16 @@ public:
  */
   vector<IndexT> packTargets(ObsPart* obsPart,
 			     const StagedCell& mrra,
+			     vector<StagedCell*>& tcp) const;
+
+
+  /**
+     @brief As above, but with additional value scatter vector.
+   */
+  vector<IndexT> packTargets(ObsPart* obsPart,
+			     const StagedCell& mrra,
 			     vector<StagedCell*>& tcp,
-			     vector<IndexT>& rankOffset) const;
+			     vector<IndexT>& valScatter) const;
 
 
   /**

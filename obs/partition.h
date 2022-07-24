@@ -18,6 +18,7 @@
 
 
 #include "stagedcell.h"
+#include "path.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -72,6 +73,10 @@ class ObsPart {
 
 
   Obs* getPredBase(const class SplitNux* nux) const;
+
+
+  IndexT getSampleIndex(const class SplitNux* cand,
+			IndexT obsIdx) const;
 
   
   inline IndexT getBagCount() const {
@@ -191,6 +196,26 @@ class ObsPart {
     sIdxSource = indexBase + bufferOff(mrra);
     sIdxTarg = indexBase + bufferOff(mrra, true);
   }
+
+
+  void restageTied(const PathT* prePath,
+		   vector<IndexT>& runCount,
+		   const StagedCell& mrra,
+		   vector<IndexT>& obsScatter);
+
+
+  void restageDiscrete(const PathT* prePath,
+		       const StagedCell& mrra,
+		       vector<IndexT>& obsScatter);
+
+  
+  void restageValues(const PathT* prePath,
+		     vector<IndexT>& runCount,
+		     const StagedCell& mrra,
+		     vector<IndexT>& obsScatter,
+		     vector<IndexT>& valScatter,
+		     const vector<IndexT>& runValue,
+		     vector<IndexT>& ranks);
 };
 
 #endif

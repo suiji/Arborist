@@ -31,6 +31,7 @@
 struct SFRegCart : public SFReg {
   SFRegCart(class Frontier* frontier_);
 
+  ~SFRegCart() = default;
 
   /**
      @brief Initializes per-frontier sum and FacRun vectors.
@@ -107,6 +108,7 @@ class SFCtgCart : public SFCtg {
 public:
   SFCtgCart(class Frontier* frontier_);
 
+  ~SFCtgCart() = default;
 
 
   /**

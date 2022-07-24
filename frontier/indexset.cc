@@ -14,7 +14,7 @@
  */
 
 #include "indexset.h"
-#include "sampleobs.h"
+#include "sampledobs.h"
 #include "splitnux.h"
 #include "splitfrontier.h"
 #include "frontier.h"
@@ -32,8 +32,10 @@ void IndexSet::deImmutables() {
   minNode = 0;
 }
 
-
-IndexSet::IndexSet(const SampleObs* sample) :
+/**
+   @brief Root constructor:  some initialization from SampledObs.
+ */
+IndexSet::IndexSet(const SampledObs* sample) :
   splitIdx(0),
   bufRange(IndexRange(0, sample->getBagCount())),
   sCount(sample->getNSamp()),

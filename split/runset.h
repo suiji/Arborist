@@ -96,12 +96,6 @@ public:
 				 const struct CritEncoding& enc) const;
 
 
-  struct RunDump dumpRun(PredictorT accumIdx) const {
-    return runAccum[accumIdx].dump();
-  }
-
-  
-
   /**
      @brief Accumulates sum of implicit LH (true-sense) slots.
 
@@ -115,7 +109,8 @@ public:
 
      Passes through to accumulator method.
    */
-  void setTrueBits(const class SplitNux& nux,
+  void setTrueBits(const class InterLevel* interLevel,
+		   const class SplitNux& nux,
 		   class BV* splitBits,
 		   size_t bitPos) const;
 
@@ -123,7 +118,8 @@ public:
   /**
      @brief As above, but all observed bits.
    */
-  void setObservedBits(const class SplitNux& nux,
+  void setObservedBits(const class InterLevel* interLevel,
+		       const class SplitNux& nux,
 		       class BV* splitBits,
 		       size_t bitPos) const;
 

@@ -29,6 +29,7 @@ Layout::Layout(const TrainFrame* trainFrame_,
   nRow(trainFrame->getNRow()),
   nPred(trainFrame->getNPred()),
   noRank(trainFrame->cardinality.empty() ? nRow : max(nRow, static_cast<IndexT>(*max_element(trainFrame->cardinality.begin(), trainFrame->cardinality.end())))),
+  row2Rank(vector<vector<IndexT>>(nPred)),
   nPredDense(0),
   nonCompact(0),
   lengthCompact(0),
@@ -53,6 +54,7 @@ vector<ImplExpl> Layout::denseBlock(const TrainFrame* trainFrame) {
 
 
 ImplExpl Layout::setDense(const TrainFrame* trainFrame, PredictorT predIdx) {
+  row2Rank[predIdx] = vector<IndexT>(nRow);
   IndexT denseMax = 0; // Running maximum of run counts.
   PredictorT argMax = noRank;
   PredictorT rankPrev = noRank; // Forces write on first iteration.
@@ -60,13 +62,15 @@ ImplExpl Layout::setDense(const TrainFrame* trainFrame, PredictorT predIdx) {
   for (auto rle : trainFrame->getRLE(predIdx)) {
     IndexT rank = rle.val;
     IndexT extent = rle.extent;
-
     if (rank == rankPrev) {
       runCount += extent;
     }
     else {
       runCount = extent;
       rankPrev = rank;
+    }
+    for (IndexT idx = 0; idx != extent; idx++) {
+      row2Rank[predIdx][rle.row + idx] = rank;
     }
 
     if (runCount > denseMax) {

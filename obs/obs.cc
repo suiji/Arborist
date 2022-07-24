@@ -37,19 +37,3 @@ void Obs::setShifts(unsigned int ctgBits,
 void Obs::deImmutables() {
   multLow = multMask = ctgMask = numMask = 0;
 }
-
-
-ObsReg Obs::residualReg(const Obs* obsCell,
-			const SplitNux* nux) {
-  ObsReg total = regTotal(obsCell + nux->getObsStart(), nux->getObsExtent());
-  return ObsReg(nux->getSum() - total.ySum, nux->getSCount() - total.sCount);
-}
-
-
-void Obs::residualCtg(const Obs* obsCell,
-		      const SplitNux* nux,
-		      double& sum,
-		      IndexT& sCount,
-		      vector<double>& ctgImpl) {
-  ctgResidual(obsCell + nux->getObsStart(), nux->getObsExtent(), sum, sCount, &ctgImpl[0]);
-}

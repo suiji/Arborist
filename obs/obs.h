@@ -22,39 +22,6 @@
 #include <cmath>
 
 
-struct ObsReg {
-  double ySum;
-  unsigned int sCount;
-  bool tied;
-
-  ObsReg(double ySum_,
-	 unsigned int sCount_,
-	 bool tied_ = false) :
-    ySum(ySum_),
-    sCount(sCount_),
-    tied(tied_) {
-  }
-};
-
-
-struct ObsCtg {
-  PredictorT yCtg;
-  double ySum;
-  unsigned int sCount;
-  bool tied;
-
-  ObsCtg(unsigned int yCtg_,
-	 double ySum_,
-	 unsigned int sCount_,
-	 bool tied_) :
-    yCtg(yCtg_),
-    ySum(ySum_),
-    sCount(sCount_),
-    tied(tied_) {
-  }
-};
-
-
 /**
    @brief Masks lowest-order bits for non-numeric values.
  */
@@ -76,41 +43,6 @@ class Obs {
   static unsigned int numMask; ///< Masks bits not encoding numeric.
   
   ObsPacked obsPacked;
-
-
-  /**
-     @brief Totals a range of observations into regression format.
-   */
-  static ObsReg regTotal(const Obs* obsStart,
-			 IndexT extent) {
-    double ySum = 0.0;
-    IndexT sCount = 0;
-    for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      ySum += obs->getYSum();
-      sCount += obs->getSCount();
-    }
-
-    return ObsReg(ySum, sCount);
-  }
-
-  
-  static void ctgResidual(const Obs* obsStart,
-			  IndexT extent,
-			  double& sum,
-			  IndexT& sCount,
-			  double ctgImpl[]) {
-    double ySumExpl = 0.0;
-    IndexT sCountExpl = 0;
-    for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      double ySumThis = obs->getYSum();
-      ctgImpl[obs->getCtg()] -= ySumThis;
-      ySumExpl += ySumThis;
-      sCountExpl += obs->getSCount();
-    }
-    sum -= ySumExpl;
-    sCount -= sCountExpl;
-  }
-
   
  public:
 
@@ -143,32 +75,6 @@ class Obs {
    */
   inline PredictorT getCtg() const {
     return (obsPacked.bits >> ctgLow) & ctgMask;
-  }
-
-
-  /**
-     @brief Unpacks a single observation into regression format.
-   */
-  inline ObsReg unpackReg() const {
-    return ObsReg(getYSum(), getSCount(), isTied());
-  }
-
-
-  static ObsReg residualReg(const Obs* obsCell,
-			    const class SplitNux* nux);
-
-  /**
-     @brief Subtracts explicit sum and count values from node totals.
-   */
-  static void residualCtg(const Obs* obsCell,
-			  const class SplitNux* nux,
-			  double& sum,
-			  IndexT& sCount,
-			  vector<double>& ctgImpl);
-
-
-  inline ObsCtg unpackCtg() const {
-    return ObsCtg(getCtg(), getYSum(), getSCount(), isTied());
   }
 
 
@@ -215,9 +121,7 @@ class Obs {
 
      @return true iff run state changes.
    */
-  inline void regInit(RunNux& nux,
-		      IndexT code) const {
-    nux.setCode(code);
+  inline void regInit(RunNux& nux) const {
     nux.sCount = getSCount();
     nux.sum = getYSum();
   }
@@ -248,9 +152,7 @@ class Obs {
      @param[in, out] sumBase accumulates run response by category.
    */
   inline void ctgInit(RunNux& nux,
-		      IndexT code,
 		      double* sumBase) const {
-    nux.setCode(code);
     nux.sum = getYSum();
     nux.sCount = getSCount();
     sumBase[getCtg()] = nux.sum;

@@ -18,7 +18,7 @@
 #include "obsfrontier.h"
 #include "indexset.h"
 #include "trainframe.h"
-#include "sampleobs.h"
+#include "sampledobs.h"
 #include "sampler.h"
 #include "train.h"
 #include "splitfrontier.h"
@@ -50,13 +50,12 @@ Frontier::Frontier(const TrainFrame* frame_,
 		   const Sampler* sampler,
 		   unsigned int tIdx) :
   frame(frame_),
-  sample(sampler->rootSample(tIdx)),
-  bagCount(sample->getBagCount()),
-  nCtg(sample->getNCtg()),
-  interLevel(make_unique<InterLevel>(frame, this)),
+  sampledObs(sampler->rootSample(frame->getLayout(), tIdx)),
+  bagCount(sampledObs->getBagCount()),
+  nCtg(sampledObs->getNCtg()),
+  interLevel(make_unique<InterLevel>(frame, sampledObs.get(), this)),
   pretree(make_unique<PreTree>(frame, bagCount)),
   smTerminal(SampleMap(bagCount)) {
-  frontierNodes.emplace_back(sample.get());
 }
 
 
@@ -64,6 +63,7 @@ unique_ptr<PreTree> Frontier::levels() {
   smNonterm = SampleMap(bagCount);
   smNonterm.addNode(bagCount, 0);
   iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);
+  frontierNodes.emplace_back(sampledObs.get());
   while (!frontierNodes.empty()) {
     smNonterm = splitDispatch();
     vector<IndexSet> frontierNext = produce();
@@ -79,7 +79,7 @@ unique_ptr<PreTree> Frontier::levels() {
 SampleMap Frontier::splitDispatch() {
   earlyExit(interLevel->getLevel());
 
-  CandType cand = interLevel->repartition(this, sample.get());
+  CandType cand = interLevel->repartition(this);
   splitFrontier = SplitFactoryT::factory(this);
   BranchSense branchSense(bagCount);
   splitFrontier->split(cand, branchSense);

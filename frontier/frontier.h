@@ -33,7 +33,7 @@
 class Frontier {
   static unsigned int totLevels;
   const class TrainFrame* frame;
-  const unique_ptr<class SampleObs> sample;
+  const unique_ptr<class SampledObs> sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;
 
