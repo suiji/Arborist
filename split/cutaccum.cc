@@ -24,7 +24,6 @@
 CutAccum::CutAccum(const SplitNux* cand,
 		   const SplitFrontier* splitFrontier) :
   Accum(splitFrontier, cand),
-  cutResidual(obsStart + cand->getPreresidual()),
   obsLeft(-1),
   obsRight(-1),
   residualLeft(false) {

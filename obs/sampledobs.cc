@@ -148,18 +148,15 @@ vector<IndexT> SampledObs::sampleRanks(const Layout* layout, PredictorT predIdx)
   vector<IndexT> sampledRanks(bagCount);
   const vector<IndexT>& row2Rank = layout->getRanks(predIdx);
   IndexT sIdx = 0;
-  IndexT nRun = 0;
-  IndexT rankPrev = row2Rank.size(); // Inattainable rank value.
+  vector<unsigned char> rankSeen(row2Rank.size());
   for (IndexT row = 0; row != row2Rank.size(); row++) {
     if (row2Sample[row] < bagCount) {
       IndexT rank = row2Rank[row];
       sampledRanks[sIdx++] = rank;
-      if (rank != rankPrev)
-	nRun++;
-      rankPrev = rank;
+      rankSeen[rank] = 1;
     }
   }
-  runCount[predIdx] = nRun;
+  runCount[predIdx] = accumulate(rankSeen.begin(), rankSeen.end(), 0);
 
   return sampledRanks;
 }

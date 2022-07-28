@@ -26,17 +26,16 @@
  */
 struct StagedCell {
   const SplitCoord coord; ///< Associated node/predictor pair.
-  const unsigned char bufIdx; ///< Alternates source/target.
+  const unsigned char bufIdx; ///< 0/1; flips at constructor.
   const unsigned char trackRuns; ///< Whether to order run values.
   unsigned char live; ///< Initialized to true; false is sticky.
-  const IndexT valIdx; ///< Base offset of run values, if tracked.
-  const IndexT rankImplicit; ///< Valid iff implicit observations > 0.
+  const IndexT valIdx; ///< Base offset of run values, iff tracked.
+  const IndexT rankImplicit; ///< Valid iff implicit observations.
   IndexT runCount; ///< # runs.
-  IndexRange obsRange; ///< Initialized from node; adjusted iff implicit.
+  IndexRange obsRange; ///< Initialized from node; adjusted.
   IndexT obsImplicit; ///<  # implicit observations.
   IndexT preResidual; ///< # obs preceding residual, iff implicit.
-  // IndexT nNA; ///< # undefined observations in cell.
-
+  IndexT preNA; ///< # obs preceding NA.
 
   /**
      @brief Root constructor.
@@ -45,10 +44,11 @@ StagedCell(PredictorT predIdx,
 	   IndexT valIdx_,
 	   IndexT extent,
 	   IndexT runCount_,
-	   IndexT rankImplicit_)
+	   IndexT rankImplicit_,
+	   bool trackRuns_ = false)
   : coord(SplitCoord(0, predIdx)),
     bufIdx(0),
-    trackRuns(false),
+    trackRuns(trackRuns_),
     live(true),
     valIdx(valIdx_),
     rankImplicit(rankImplicit_),
@@ -125,6 +125,19 @@ StagedCell(IndexT nodeIdx,
   }
 
 
+  /**
+     @brief Initializes target cell from per-path statisics.
+   */
+  void updatePath(IndexT idxStart,
+		  IndexT extent,
+		  IndexT preResidual,
+		  IndexT preNA) {
+    setRange(idxStart, extent);
+    this->preResidual = preResidual;
+    this->preNA = preNA;
+  }
+  
+
   void setRange(IndexT idxStart,
 		IndexT extent) {
     obsImplicit = obsRange.getExtent() - extent;
@@ -152,6 +165,14 @@ StagedCell(IndexT nodeIdx,
     return obsImplicit != 0;
   }
 
+
+  /**
+     @return true iff missing data present.
+   */
+  bool missingData() const {
+    return false;
+  }
+  
 
   /**
      @return total number of explicit and implicit ranks.

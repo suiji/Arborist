@@ -97,8 +97,10 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 
 
 IndexT SplitFrontier::addAccumulator(const SplitNux* cand) const {
-  PredictorT runCount = frame->isFactor(cand->getPredIdx()) ? cand->getRunCount() : 0;
-  return runCount > 1 ? runSet->addRun(this, cand, runCount) : cutSet->addCut(this, cand);
+  if (frame->isFactor(cand->getPredIdx()))
+    return runSet->addRun(this, cand);
+  else
+    return cutSet->addCut(this, cand);
 }
 
 

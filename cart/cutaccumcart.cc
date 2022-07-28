@@ -35,23 +35,24 @@ void CutAccumRegCart::split(const SFRegCart* spReg,
 void CutAccumRegCart::splitReg(const SFRegCart* spReg,
 			       SplitNux* cand) {
   if (cand->getImplicitCount() != 0) {
-    splitImpl(cand);
+    if (monoMode != 0)
+      splitImplMono(cand);
+    else
+      splitImpl(cand);
   }
   else {
-    splitRL(obsStart);
+    if (monoMode != 0)
+      splitRLMono(obsStart, obsEnd);
+    else
+      splitRL(obsStart, obsEnd);
   }
   spReg->writeCut(cand, this);
   cand->infoGain(this);
 }
 
 
-void CutAccumRegCart::splitRL(IndexT idxFinal) {
-  // Per-sample monotonicity constraint confined to specialized method:
-  if (monoMode != 0) {
-    splitMono(idxFinal);
-  }
-
-  for (IndexT idx = obsEnd - 1; idx != idxFinal; idx--) {
+void CutAccumRegCart::splitRL(IndexT idxStart, IndexT idxEnd) {
+  for (IndexT idx = idxEnd - 1; idx != idxStart; idx--) {
     if (!accumulateReg(obsCell[idx])) {
       argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx-1);
     }
@@ -59,8 +60,17 @@ void CutAccumRegCart::splitRL(IndexT idxFinal) {
 }
 
 
-void CutAccumCtgCart::splitRL(IndexT idxFinal) {
-  for (IndexT idx = obsEnd - 1; idx != idxFinal; idx--) {
+void CutAccumRegCart::splitRLMono(IndexT idxStart, IndexT idxEnd) {
+  for (IndexT idx = idxEnd - 1; idx!= idxStart; idx--) {
+    if (!accumulateReg(obsCell[idx])) {
+      argmaxRL((senseMonotone() && infoVar(sum, sumCand - sum, sCount, sCountCand - sCount)), idx-1);
+    }
+  }
+}
+
+
+void CutAccumCtgCart::splitRL(IndexT idxStart, IndexT idxEnd) {
+  for (IndexT idx = idxEnd - 1; idx != idxStart; idx--) {
     if (!accumulateCtg(obsCell[idx])) {
       argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx-1);
     }
@@ -68,101 +78,62 @@ void CutAccumCtgCart::splitRL(IndexT idxFinal) {
 }
 
 
-/**
-   @brief As above, but checks monotonicity at every index.
- */
-void CutAccumRegCart::splitMono(IndexT idxFinal) {
-  bool nonDecreasing = monoMode > 0;
-  for (IndexT idx = obsEnd - 1; idx!= idxFinal; idx--) {
-    if (!accumulateReg(obsCell[idx])) {
-      IndexT sCountR = sCountCand - sCount;
-      double sumR = sumCand - sum;
-      bool up = (sum * sCountR <= sumR * sCount);
-      if (nonDecreasing ? up : !up) {
-	argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx-1);
-      }
-    }
-  }
-}
-
-
 void CutAccumRegCart::splitImpl(const SplitNux* cand) {
   if (cutResidual < obsEnd) {
-    // Tries obsEnd/obsEnd-1, ..., denseCut+1/denseCut.
+    // Tries obsEnd/obsEnd-1, ..., cut+1/cut.
     // Ordinary R to L, beginning at rank index zero, up to cutResidual.
-    splitRL(cutResidual);
-    splitResidual(); // Tries denseCut/resid.
+    splitRL(cutResidual, obsEnd);
+    splitResidual(); // Tries cut/resid.
   }
-  // Tries resid/denseCut-1, ..., obsStart+1/obsStart, if applicable.
+  // Tries resid/cut-1, ..., obsStart+1/obsStart, if applicable.
   // Rightmost observation is residual, with residual rank index.
   // Follow R to L with rank index beginning at current rkIdx;
   if (cutResidual > obsStart) {
-    residualLR(cand);
+    residualRL(cand);
   }
 }
 
 
-void CutAccumRegCart::residualLR(const SplitNux* cand) {
-  if (monoMode != 0) {
-    residualLRMono(cand);
-    return;
+void CutAccumRegCart::splitImplMono(const SplitNux* cand) {
+  if (cutResidual < obsEnd) {
+    // Tries obsEnd/obsEnd-1, ..., cut+1/cut.
+    // Ordinary R to L, beginning at rank index zero, up to cutResidual.
+    splitRLMono(cutResidual, obsEnd);
+    splitResidual(); // Tries cut/resid.
   }
+  // Tries resid/cut-1, ..., obsStart+1/obsStart, if applicable.
+  // Rightmost observation is residual, with residual rank index.
+  // Follow R to L with rank index beginning at current rkIdx;
+  if (cutResidual > obsStart) {
+    residualRLMono(cand);
+  }
+}
 
+
+void CutAccumRegCart::residualRL(const SplitNux* cand) {
   residualReg(obsCell, cand);
   argmaxResidual(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), false);
-
-  for (IndexT idx = cutResidual - 1; idx != obsStart; idx--) {
-    if (!accumulateReg(obsCell[idx])) {
-      argmaxRL(infoVar(sum, sumCand-sum, sCount, sCountCand-sCount), idx-1);
-    }
-  }
+  splitRL(obsStart, cutResidual);
 }
 
 
-void CutAccumCtgCart::residualLR(const SplitNux* cand) {
+void CutAccumCtgCart::residualRL(const SplitNux* cand) {
   residualCtg(obsCell, cand);
   argmaxResidual(infoGini(ssL, ssR, sum, sumCand-sum), false);
-
-  for (IndexT idx = cutResidual - 1; idx != obsStart; idx--) {
-    if (!accumulateCtg(obsCell[idx])) {
-      argmaxRL(infoGini(ssL, ssR, sum, sumCand-sum), idx -1);
-    }
-  }
+  splitRL(obsStart, cutResidual);
 }
 
 
-void CutAccumRegCart::residualLRMono(const SplitNux* cand) {
-  bool nonDecreasing = monoMode > 0;
-
+void CutAccumRegCart::residualRLMono(const SplitNux* cand) {
   residualReg(obsCell, cand);
-  IndexT sCountR = sCountCand - sCount;
-  double sumR = sumCand - sum;
-  bool up = (sum * sCountR <= sumR * sCount);
-  if (nonDecreasing ? up : !up) {
-    argmaxResidual(infoVar(sum, sumR, sCount, sCountR), false);
-  }
-
-  for (IndexT idx = cutResidual - 1; idx != obsStart; idx--) {
-    if (!accumulateReg(obsCell[idx])) {
-      sCountR = sCountCand - sCount;
-      sumR = sumCand - sum;
-      up = (sum * sCountR <= sumR * sCount);
-      if (nonDecreasing ? up : !up) {
-	argmaxRL(infoVar(sum, sumR, sCount, sCountR), idx-1);
-      }
-    }
-  }
+  argmaxResidual((senseMonotone() && infoVar(sum, sumCand - sum, sCount, sCountCand - sCount)), false);
+  splitRLMono(obsStart, cutResidual);
 }
 
 
 void CutAccumRegCart::splitResidual() {
   (void) accumulateReg(obsCell[cutResidual]);
-  IndexT sCountR = sCountCand - sCount;
-  double sumR = sumCand - sum;
-  bool up = (sum * sCountR <= sumR * sCount);
-  if (monoMode == 0 || (monoMode > 0 && up) || (monoMode < 0 && !up)) {
-    argmaxResidual(infoVar(sum, sumR, sCount, sCountR), true);
-  }
+  argmaxResidual(((monoMode == 0 || senseMonotone()) && infoVar(sum, sumCand - sum, sCount, sCountCand - sCount)), true);
 }
 
 
@@ -192,7 +163,7 @@ void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
     splitImpl(cand);
   }
   else {
-    splitRL(obsStart);
+    splitRL(obsStart, obsEnd);
   }
   spCtg->writeCut(cand, this);
   cand->infoGain(this);
@@ -201,15 +172,15 @@ void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
 
 void CutAccumCtgCart::splitImpl(const SplitNux* cand) {
   if (cutResidual < obsEnd) {
-    // Tries obsEnd/obsEnd-1, ..., denseCut+1/denseCut.
-    // Ordinary R to L, beginning at rank index zero, up to cutResidual.
-    splitRL(cutResidual);
-    splitResidual(); // Tries denseCut/resid;
+    // Tries obsEnd/obsEnd-1, ..., cut+1/cut.
+    // Ordinary R to L, beginning at rank index zero, up to cut.
+    splitRL(cutResidual, obsEnd);
+    splitResidual(); // Tries cut/resid;
   }
-  // Tries resid/denseCut-1, ..., obsStart+1/obsStart, if applicable.
+  // Tries resid/cut-1, ..., obsStart+1/obsStart, if applicable.
   // Rightmost observation is residual, with residual rank index.
   // Follow R to L with rank index beginning at current rkIdx;
   if (cutResidual > obsStart) {
-    residualLR(cand);
+    residualRL(cand);
   }
 }

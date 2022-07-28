@@ -36,6 +36,17 @@ class CutAccumRegCart : public CutAccumReg {
   void splitResidual();
 
 
+  /**
+     @return true iff accumulated and monotonicity senses agree.
+   */
+  inline bool senseMonotone() const {
+    IndexT sCountR = sCountCand - sCount;
+    double sumR = sumCand - sum;
+    bool accumNonDecreasing = (sum * sCountR <= sumR * sCount);
+    return monoMode > 0 ? accumNonDecreasing : !accumNonDecreasing;
+  }
+  
+
 public:
   CutAccumRegCart(const class SplitNux* splitCand,
                 const struct SFRegCart* spReg);
@@ -65,15 +76,23 @@ public:
 
 
   /**
+     @brief As above, but checks monotonicity with argmax.
+   */
+  void splitImplMono(const class SplitNux* cand);
+
+
+  /**
      @brief Splits right to left, no residual.
    */
-  void splitRL(IndexT idxFinal);
+  void splitRL(IndexT idxStart,
+	       IndexT idxEnd);
 
 
   /**
      @brief As above, but applies monotonicty constraint.
    */
-  void splitMono(IndexT idxFinal);
+  void splitRLMono(IndexT idxStart,
+		   IndexT idxEnd);
 
 
   /**
@@ -81,7 +100,7 @@ public:
 
      @param rkIdxL tracks the left rank index of a split.
    */
-  void residualLR(const class SplitNux* cand);
+  void residualRL(const class SplitNux* cand);
 
 
   /**
@@ -89,7 +108,7 @@ public:
 
      @param rkIdxL tracks the left rank index of a split.
    */
-  void residualLRMono(const class SplitNux* cand);
+  void residualRLMono(const class SplitNux* cand);
 };
 
 
@@ -97,13 +116,12 @@ public:
    @brief Splitting accumulator for classification.
  */
 class CutAccumCtgCart : public CutAccumCtg {
+
   /**
-     @brief Updates with residual and possibly splits.
+     @brief Attempts to split at residual; either monotone or non-.
 
-     Current rank position assumed to be adjacent to dense rank, whence
-     the application of the residual immediately to the left.
-
-     @param rkThis is the rank of the current position.
+     Current rank position assumed to be adjacent to residual rank,
+     whence the application of the residual immediately to the left.
    */
   void splitResidual();
 
@@ -111,7 +129,7 @@ class CutAccumCtgCart : public CutAccumCtg {
   /**
      @brief Applies residual state and continues splitting left.
    */
-  void residualLR(const class SplitNux* cand);
+  void residualRL(const class SplitNux* cand);
 
 
 public:
@@ -141,7 +159,8 @@ public:
      @param rightCtg indicates whether a category has been set in an
      initialization or previous invocation.
    */
-  void splitRL(IndexT idxFinal);
+  void splitRL(IndexT idxStart,
+	       IndexT idxEnd);
 
 
   /**

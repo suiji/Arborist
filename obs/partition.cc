@@ -97,7 +97,7 @@ void ObsPart::restageTied(const PathT* prePath,
   vector<IndexT> idxPrev(runCount.size());
   fill(idxPrev.begin(), idxPrev.end(), mrra.getRunCount());
   srSource[mrra.obsRange.getStart()].setTie(true); // Fillip;  temporary.
-  for (IndexT idx = mrra.obsRange.getStart(); idx < mrra.obsRange.getEnd(); idx++) {
+  for (IndexT idx = mrra.obsRange.getStart(); idx != mrra.obsRange.getEnd(); idx++) {
     Obs sourceNode = srSource[idx];
     rankIdx += sourceNode.isTied() ? 0 : 1;
     PathT path = prePath[idx];

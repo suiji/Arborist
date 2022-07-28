@@ -30,7 +30,6 @@
  */
 class CutAccum : public Accum {
 protected:
-  IndexT cutResidual; ///< Rightmost position beyond residual, if any.
 
   /**
      @brief Trial argmax on right indices.

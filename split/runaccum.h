@@ -51,7 +51,8 @@ enum class SplitStyle;
 class RunAccum : public Accum {
   const IndexT rankResidual; ///< residual rank, if any.
   const PredictorT nCtg; // Non-zero iff classification.
-  const PredictorT rcSafe; // Conservative run count.
+  const IndexT runCount; ///< # runs counted by repartitioning.
+  IndexT sampledRuns; ///< # sampled runs.
   vector<RunNux> runZero; // SR block, partitioned by code.
   vector<BHPair<PredictorT>> heapZero; // Sorting workspace.
   vector<PredictorT> idxRank; // Slot rank, according to ad-hoc ordering.
@@ -59,7 +60,6 @@ class RunAccum : public Accum {
   double* rvZero; // Non-binary wide runs:  random variates for sampling.
 
   PredictorT implicitSlot; // Which run, if any has no explicit SR range.
-  PredictorT obsCount; // Actual number of runs employed by splitting.
   PredictorT baseTrue; // Base of true-run slots.
   PredictorT runsTrue; // Count of true-run slots.
   PredictorT splitToken; // Cut or bits.
@@ -81,12 +81,11 @@ class RunAccum : public Accum {
   
   
   /**
-     @brief Appends a run for the dense rank using residual values.
+     @brief Initializes a run from residual values.
 
-     @param sumSlic is the per-category response over the frontier node.
+     @param sumSlice is the per-category response over the frontier node.
   */
-  PredictorT appendImplicit(PredictorT runIdx,
-			    const vector<double>& sumSlice = vector<double>(0));
+  void applyResidual(const vector<double>& sumSlice = vector<double>(0));
 
 
   /**
@@ -104,8 +103,15 @@ class RunAccum : public Accum {
   /**
      @brief Accumulates runs for regression.
    */
-  PredictorT regRuns(const struct SFReg* sf,
-		     const SplitNux* cand);
+  void regRuns(const struct SFReg* sf,
+	       const SplitNux* cand);
+
+
+  /**
+     @brief As above, but also tracks a residual slot.
+   */
+  void regRunsImplicit(const struct SFReg* sf,
+		       const SplitNux* cand);
 
   
   /**
@@ -120,13 +126,17 @@ class RunAccum : public Accum {
      @brief Accumulates runs for classification.
 
      @param sumSlice is the per-category response decomposition.
-
-     @return count of runs encountered.
   */
-  PredictorT ctgRuns(const class SFCtg* sf,
-		     const class SplitNux* cand);
+  void ctgRuns(const class SFCtg* sf,
+	       const class SplitNux* cand);
 
   
+  /**
+     @brief As above, but also tracks a residual slot
+   */
+  void ctgRunsImplicit(const class SFCtg* sf,
+		       const class SplitNux* cand);
+
 
   /**
      @brief Gini-based splitting for categorical response and predictor.
@@ -138,7 +148,7 @@ class RunAccum : public Accum {
      Iterates over nontrivial subsets, coded by unsigneds as bit patterns.  By
      convention, the final run is incorporated into RHS of the split, if any.
      Excluding the final run, then, the number of candidate LHS subsets is
-     '2^(obsCount-1) - 1'.
+     '2^(sampledRuns-1) - 1'.
 
      @param ctgSum is the per-category sum of responses.
   */
@@ -154,9 +164,9 @@ class RunAccum : public Accum {
   /**
      @brief Sorts by random variate ut effect sampling w/o replacement.
 
-     @param runCount is the total number of runs.
+     @param nRun is the total number of runs.
    */
-  void heapRandom(PredictorT runCount);
+  void heapRandom();
 
   
   /**
@@ -187,17 +197,16 @@ public:
   
   RunAccum(const class SplitFrontier* splitFrontier,
 	   const class SplitNux* cand,
-	   SplitStyle style,
-	   PredictorT rcSafe_);
+	   SplitStyle style);
 
-  
+
   /**
      @brief Counts the number of wide level extents.
 
      @return level extent iff beyond the threshold else zero.
    */
   IndexT countWide() const {
-    return rcSafe > maxWidth ? rcSafe : 0;
+    return runCount > maxWidth ? runCount : 0;
   }
 
 
@@ -212,7 +221,7 @@ public:
   /**
      @brief Overwrites leading slots with sampled subset of runs.
   */
-  PredictorT deWide(PredictorT runCount);
+  PredictorT deWide();
 
 
   /**
@@ -291,23 +300,20 @@ public:
 
      @param maskSense indicates whether to screen set or unset mask.
    */  
-  PredictorT regRunsMasked(const struct SFReg* sf,
-			   const SplitNux* cand,
-			   const class BranchSense* branchSense,
-			   IndexT edgeRight,
-			   IndexT edgeLeft,
-			   bool maskSense);
+  void regRunsMasked(const struct SFReg* sf,
+		     const SplitNux* cand,
+		     const class BranchSense* branchSense,
+		     IndexT edgeRight,
+		     IndexT edgeLeft,
+		     bool maskSense);
 
 
   /**
      @brief Writes to heap arbitrarily:  sampling w/o replacement.
 
-     @param runCount is the total number of runs.
-
      @param leadCount is the number of leading elments to reorder.
   */
-  void orderRandom(PredictorT runCount,
-		   PredictorT leadCount);
+  void orderRandom(PredictorT leadCount);
 
 
   /**
@@ -331,12 +337,12 @@ public:
   
 
   /**
-     @brief Getter for runCount.
+     @brief Getter for nRun.
 
      @return run count.
    */
   inline auto getRunCount() const {
-    return obsCount;
+    return sampledRuns;
   }
 
 
@@ -345,8 +351,8 @@ public:
   }
   
 
-  inline void resetRunCount(PredictorT runCount) {
-    this->obsCount = runCount;
+  inline void resetRunCount(PredictorT nRun) {
+    this->sampledRuns = nRun;
   }
   
 
@@ -354,7 +360,7 @@ public:
      @brief Safe-count getter.
    */
   inline auto getSafeCount() const {
-    return rcSafe;
+    return runCount;
   }
 
 
@@ -383,12 +389,12 @@ public:
    */
   inline void reset(PredictorT runStart,
 		    PredictorT runIdx) {
-    if (runIdx != obsCount) {
+    if (runIdx != sampledRuns) {
       runZero[runStart] = runZero[runIdx]; // New top value.
-      obsCount = runStart + 1;
+      sampledRuns = runStart + 1;
     }
     else { // No new top, run-count restored.
-      obsCount = runStart;
+      sampledRuns = runStart;
     }
   }
 
@@ -407,9 +413,8 @@ public:
 
      @param sumSlice decomposes the response by category.
    */
-  inline void residCtg(const vector<double>& sumSlice,
-		       PredictorT runIdx);
-  
+  inline void residCtg(const vector<double>& sumSlice);
+
 
   /**
      @brief Accumulates the two binary response sums for a run.
@@ -480,14 +485,14 @@ public:
   /**
      @brief Determines the complement of a bit pattern of fixed size.
 
-     Equivalent to  (~subset << (32 - obsCount))) >> (32 - obsCount).
+     Equivalent to  (~subset << (32 - sampledRuns))) >> (32 - sampledRuns).
      
-     @param subset is a collection of obsCount-many bits.
+     @param subset is a collection of sampledRuns-many bits.
 
      @return bit (ones) complement of subset.
   */
   inline unsigned int slotComplement(unsigned int subset) const {
-    return (1 << obsCount) - (subset + 1);
+    return (1 << sampledRuns) - (subset + 1);
   }
 
 

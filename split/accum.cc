@@ -25,10 +25,11 @@ Accum::Accum(const SplitFrontier* splitFrontier,
   obsStart(cand->getObsStart()),
   obsEnd(cand->getObsEnd()),
   sumCand(cand->getSum()),
+  cutResidual(obsStart + cand->getPreresidual()),
   sCountCand(cand->getSCount()),
   implicitCand(cand->getImplicitCount()),
-  sCount(sCountCand),
   sum(sumCand),
+  sCount(sCountCand),
   info(cand->getInfo()) {
 }
 

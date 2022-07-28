@@ -194,6 +194,7 @@ unsigned int ObsFrontier::stage(PredictorT predIdx,
   Obs* spn = srStart;
   IndexT rankPrev = interLevel->getNoRank();
   IndexT valIdx = cell.valIdx;
+  IndexT runCount = 0;
   for (auto rle : layout->getRLE(predIdx)) {
     IndexT rank = rle.val;
     if (rank != rankImplicit) {
@@ -206,6 +207,7 @@ unsigned int ObsFrontier::stage(PredictorT predIdx,
 	  *sIdx++ = smpIdx;
 	  if (!tie) {
 	    rankPrev = rank;
+	    runCount++;
 	    if (cell.trackRuns)
 	      runValue[valIdx++] = rank;
 	  }
@@ -282,7 +284,8 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
 					const StagedCell& mrra,
 					vector<StagedCell*>& tcp) const {
   vector<IndexT> preResidual(backScale(1));
-  vector<IndexT> pathCount = pathRestage(obsPart, preResidual, mrra);
+  vector<IndexT> preNA(backScale(1));
+  vector<IndexT> pathCount = pathRestage(obsPart, preResidual, preNA, mrra);
   vector<IndexT> obsScatter(backScale(1));
   IndexT idxStart = mrra.obsRange.getStart();
   const NodePath* pathPos = &nodePath[backScale(mrra.getNodeIdx())];
@@ -292,8 +295,7 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
     if (pathPos[path].getFrontIdx(frontIdx)) {
       IndexT extentDense = pathCount[path];
       tcp[path] = interLevel->getFrontCellAddr(SplitCoord(frontIdx, predIdx));
-      tcp[path]->setRange(idxStart, extentDense);
-      tcp[path]->setPreresidual(preResidual[path]);
+      tcp[path]->updatePath(idxStart, extentDense, preResidual[path], preNA[path]);
       obsScatter[path] = idxStart;
       idxStart += extentDense;
     }
@@ -307,7 +309,8 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
 					vector<StagedCell*>& tcp,
 					vector<IndexT>& valScatter) const {
   vector<IndexT> preResidual(backScale(1));
-  vector<IndexT> pathCount = pathRestage(obsPart, preResidual, mrra);
+  vector<IndexT> preNA(backScale(1));
+  vector<IndexT> pathCount = pathRestage(obsPart, preResidual, preNA, mrra);
   vector<IndexT> obsScatter(backScale(1));
   IndexT idxStart = mrra.obsRange.getStart();
   const NodePath* pathPos = &nodePath[backScale(mrra.getNodeIdx())];
@@ -317,8 +320,7 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
     if (pathPos[path].getFrontIdx(frontIdx)) {
       IndexT extentDense = pathCount[path];
       tcp[path] = interLevel->getFrontCellAddr(SplitCoord(frontIdx, predIdx));
-      tcp[path]->setRange(idxStart, extentDense);
-      tcp[path]->setPreresidual(preResidual[path]);
+      tcp[path]->updatePath(idxStart, extentDense, preResidual[path], preNA[path]);
       obsScatter[path] = idxStart;
       valScatter[path] = tcp[path]->valIdx;
       idxStart += extentDense;
@@ -330,6 +332,7 @@ vector<IndexT> ObsFrontier::packTargets(ObsPart* obsPart,
 
 vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
 					vector<IndexT>& preResidual,
+					vector<IndexT>& preNA,
 					const StagedCell& mrra) const {
   IndexRange obsRange = mrra.obsRange;
   const IdxPath* idxPath = interLevel->getRootPath();
@@ -338,16 +341,19 @@ vector<IndexT> ObsFrontier::pathRestage(ObsPart* obsPart,
   vector<IndexT> pathCount(backScale(1));
 
   // Loop can be streamlined if mrra has no implicit observations
-  // or if splitting will not be cut-based:
-  IndexT preResidualThis = mrra.preResidual;
+  // and no missing data.
   bool cutSeen = mrra.implicitObs() ? false : true;
+  bool naSeen = mrra.missingData() ? false : true;
   for (IndexT idx = obsRange.getStart(); idx != obsRange.getEnd(); idx++) {
-    cutSeen = cutSeen || ((idx - obsRange.getStart()) >= preResidualThis);
+    cutSeen = cutSeen || ((idx - obsRange.getStart()) >= mrra.preResidual);
+    naSeen = naSeen || ((idx - obsRange.getStart()) >= mrra.preNA);
     PathT path;
     if (idxPath->pathSucc(indexVec[idx], pathMask(), path)) {
       pathCount[path]++;
       if (!cutSeen)
 	preResidual[path]++;
+      if (!naSeen)
+	preNA[path]++;
     }
     prePath[idx] = path;
   }

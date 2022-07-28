@@ -29,9 +29,8 @@ RunSet::RunSet(const SplitFrontier* sf,
 
 
 IndexT RunSet::addRun(const SplitFrontier* splitFrontier,
-		      const SplitNux* cand,
-		      PredictorT rc) {
-  runAccum.emplace_back(splitFrontier, cand, style, rc);
+		      const SplitNux* cand) {
+  runAccum.emplace_back(splitFrontier, cand, style);
   wideRuns += runAccum.back().countWide();
   return runAccum.size() - 1; // Top position.
 }

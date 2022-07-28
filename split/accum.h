@@ -20,14 +20,14 @@ struct Accum {
   const class Obs* obsCell;
   const IndexT* sampleIndex;
   const IndexT obsStart;///< Low terminus.
-  //  const IndexT obsTop; ///< High terminus. EXIT
   const IndexT obsEnd; ///< sup.
   const double sumCand;
+  const IndexT cutResidual; ///< Rightmost position > any residual.
   const IndexT sCountCand;
   const IndexT implicitCand;
 
-  IndexT sCount; ///< Running sum of trial LHS sample counts.
   double sum; ///< Running sum of trial LHS response.
+  IndexT sCount; ///< Running sum of trial LHS sample counts.
   double info; ///< Information high watermark.  Precipitates split iff > 0.0 after update.
 
   Accum(const class SplitFrontier* splitFrontier,
@@ -44,7 +44,7 @@ struct Accum {
 
      @param sCountRight is the number of samples to the right.
 
-     @param info[in, out] outputs max of input and new information 
+     @param return weighted-variance information value.
    */
   static inline double infoVar(double sumLeft,
 			       double sumRight,

@@ -52,10 +52,9 @@ public:
      @return offset of run just appended.
    */
   IndexT addRun(const class SplitFrontier* splitFrontier,
-		const class SplitNux* cand,
-		PredictorT runCount);
+		const class SplitNux* cand);
 
-  
+
   /**
      @brief Consolidates the safe count vector.
 

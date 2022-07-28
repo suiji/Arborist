@@ -224,7 +224,8 @@ public:
      @brief Localizes copies of the paths to each index position.
    */
   vector<IndexT> pathRestage(class ObsPart* obsPart,
-			     vector<IndexT>& preDense,
+			     vector<IndexT>& preResidual,
+			     vector<IndexT>& preNA,
 			     const StagedCell& mrra) const;
 
 
