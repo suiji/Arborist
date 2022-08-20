@@ -63,6 +63,7 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
+- Training ignores missing predictor values, splitting over appropriately reduced subnodes.
 - Quantile estimation supports both leaf and nonterminal (i.e., trap-and-bail) prediction modes.
 - Prediction and validiation support large (> 32 bits) observation counts.
 - Support for training more than 2^32 observations may be enabled by recompiling.
