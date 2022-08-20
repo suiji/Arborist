@@ -127,7 +127,7 @@ void Predict::predictPermute(RLEFrame* rleFrame) {
   
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     setPermuteTarget(predIdx);
-    vector<RLEVal<unsigned int>> rleTemp = move(rleFrame->rlePred[predIdx]);
+    vector<RLEVal<szType>> rleTemp = move(rleFrame->rlePred[predIdx]);
     rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(nRow));
     blocks(rleFrame);
     rleFrame->rlePred[predIdx] = move(rleTemp);
@@ -192,10 +192,10 @@ void Predict::transpose(const RLEFrame* rleFrame,
   for (size_t row = rowStart; row != min(nRow, rowStart + rowExtent); row++) {
     unsigned int numIdx = 0;
     unsigned int facIdx = 0;
-    vector<unsigned int> rankVec = rleFrame->idxRank(idxTr, row);
+    vector<szType> rankVec = rleFrame->idxRank(idxTr, row);
     for (unsigned int predIdx = 0; predIdx < rankVec.size(); predIdx++) {
       unsigned int rank = rankVec[predIdx];
-      if (rleFrame->predForm[predIdx] == PredictorForm::numeric) {
+      if (rleFrame->factorTop[predIdx] == 0) {
 	*numOut++ = rleFrame->numRanked[numIdx++][rank];
       }
       else {// TODO:  Replace subtraction with (front end)::fac2Rank()

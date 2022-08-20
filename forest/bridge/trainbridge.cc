@@ -21,10 +21,10 @@
 #include "response.h"
 #include "train.h"
 #include "rftrain.h"
-#include "trainframe.h"
+#include "predictorframe.h"
+#include "coproc.h"
 
-
-TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : trainFrame(make_unique<TrainFrame>(rleFrame, autoCompress, enableCoproc, diag)) {
+TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : frame(make_unique<PredictorFrame>(rleFrame, autoCompress, enableCoproc, diag)) {
   Forest::init(rleFrame->getNPred());
 }
 
@@ -34,7 +34,7 @@ TrainBridge::~TrainBridge() {
 
 
 vector<PredictorT> TrainBridge::getPredMap() const {
-  vector<PredictorT> predMap(trainFrame->getPredMap());
+  vector<PredictorT> predMap(frame->getPredMap());
   return predMap;
 }
 
@@ -44,7 +44,7 @@ unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
 					    unsigned int treeOff,
 					    unsigned int treeChunk,
 					    const LeafBridge* leafBridge) const {
-  auto trained = Train::train(trainFrame.get(),
+  auto trained = Train::train(frame.get(),
 			      samplerBridge->getSampler(),
 			      forestBridge.getForest(),
 			      IndexRange(treeOff, treeChunk),
@@ -84,7 +84,7 @@ void TrainBridge::initSplit(unsigned int minNode,
   
 
 void TrainBridge::initMono(const vector<double> &regMono) {
-  RfTrain::initMono(trainFrame.get(), regMono);
+  RfTrain::initMono(frame.get(), regMono);
 }
 
 

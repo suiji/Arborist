@@ -18,11 +18,10 @@
 #include "frontier.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "obsfrontier.h"
 #include "interlevel.h"
 #include "runset.h"
 #include "cutset.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "ompthread.h"
 #include "prng.h"
 #include "algsf.h"
@@ -39,16 +38,13 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
   frame(frontier_->getFrame()),
   frontier(frontier_),
   interLevel(frontier->getInterLevel()),
-  ofFront(interLevel->getFront()),
-  nPred(frame->getNPred()),
   compoundCriteria(compoundCriteria_),
   encodingStyle(encodingStyle_),
   splitStyle(splitStyle_),
   nSplit(frontier->getNSplit()),
   splitter(splitter_),
-  runSet(make_unique<RunSet>(this, frame->getNRow())),
-  cutSet(make_unique<CutSet>()),
-  nodeInfo(vector<double>(nSplit)) {
+  runSet(make_unique<RunSet>(this)),
+  cutSet(make_unique<CutSet>()) {
 }
 
 
@@ -65,73 +61,72 @@ PredictorT SplitFrontier::getNCtg() const {
 }
 
 
-
 const ObsPart* SplitFrontier::getPartition() const {
   return interLevel->getObsPart();
 }
 
 
-IndexT* SplitFrontier::getIdxBuffer(const SplitNux* nux) const {
+IndexT* SplitFrontier::getIdxBuffer(const SplitNux& nux) const {
   return interLevel->getIdxBuffer(nux);
 }
 
 
-Obs* SplitFrontier::getPredBase(const SplitNux* nux) const {
+Obs* SplitFrontier::getPredBase(const SplitNux& nux) const {
   return interLevel->getPredBase(nux);
 }
 
 
-RunAccumT* SplitFrontier::getRunAccum(const SplitNux* nux) const {
-  return runSet->getAccumulator(nux->getAccumIdx());
+RunAccumT* SplitFrontier::getRunAccum(const SplitNux& nux) const {
+  return runSet->getAccumulator(nux.getAccumIdx());
 }
 
 
-bool SplitFrontier::isFactor(PredictorT predIdx) const {
-  return frame->isFactor(predIdx);
+bool SplitFrontier::isFactor(const SplitNux& nux) const {
+  return frame->isFactor(nux);
 }
 
 
 PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
-  return frame->getNumIdx(predIdx);
+  return frame->getTypedIdx(predIdx);
 }
 
 
-IndexT SplitFrontier::addAccumulator(const SplitNux* cand) const {
-  if (frame->isFactor(cand->getPredIdx()))
+IndexT SplitFrontier::addAccumulator(const SplitNux& cand) const {
+  if (isFactor(cand))
     return runSet->addRun(this, cand);
   else
     return cutSet->addCut(this, cand);
 }
 
 
-bool SplitFrontier::leftCut(const SplitNux* cand) const {
+bool SplitFrontier::leftCut(const SplitNux& cand) const {
   return cutSet->leftCut(cand);
 }
 
 
-void SplitFrontier::writeCut(const SplitNux* nux,
+void SplitFrontier::writeCut(const SplitNux& nux,
 			     const CutAccum* accum) const {
   cutSet->write(interLevel, nux, accum);
 }
 
 
-double SplitFrontier::getQuantRank(const SplitNux* nux) const {
+double SplitFrontier::getQuantRank(const SplitNux& nux) const {
   return cutSet->getQuantRank(nux);
 }
 
 
-IndexT SplitFrontier::getIdxRight(const SplitNux* nux) const {
+IndexT SplitFrontier::getIdxRight(const SplitNux& nux) const {
   return cutSet->getIdxRight(nux);
 }
 
 
-IndexT SplitFrontier::getIdxLeft(const SplitNux* nux) const {
+IndexT SplitFrontier::getIdxLeft(const SplitNux& nux) const {
   return cutSet->getIdxLeft(nux);
 }
 
 
-IndexT SplitFrontier::getImplicitTrue(const SplitNux* cand) const {
-  return cand->isFactor(this) ? runSet->getImplicitTrue(cand) : cutSet->getImplicitTrue(cand);
+IndexT SplitFrontier::getImplicitTrue(const SplitNux& cand) const {
+  return isFactor(cand) ? runSet->getImplicitTrue(cand) : cutSet->getImplicitTrue(cand);
 }
 
 
@@ -162,6 +157,14 @@ IndexT SplitFrontier::getPTId(const StagedCell* obsCell) const {
 }
 
 
+//     Placeholder bit for proxy lies one beyond the factor's cardinality and
+//     remains unset for quick test exit.  To support trap-and-bail for factors,
+//     the number of bits should double, allowing lookup of (in)visibility state.
+PredictorT SplitFrontier::critBitCount(const SplitNux& nux) const {
+  return 1 + frame->getFactorExtent(nux);
+}
+
+
 SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
@@ -172,7 +175,7 @@ SFReg::SFReg(class Frontier* frontier,
 }
 
 
-void SFReg::immutables(const TrainFrame* frame,
+void SFReg::immutables(const PredictorFrame* frame,
 		      const vector<double>& bridgeMono) {
   auto numFirst = frame->getNumFirst();
   auto numExtent = frame->getNPredNum();
@@ -189,13 +192,13 @@ void SFReg::deImmutables() {
 }
 
 
-int SFReg::getMonoMode(const SplitNux* cand) const {
+int SFReg::getMonoMode(const SplitNux& cand) const {
   if (mono.empty())
     return 0;
 
-  PredictorT numIdx = getNumIdx(cand->getPredIdx());
+  PredictorT numIdx = getNumIdx(cand.getPredIdx());
   double monoProb = mono[numIdx];
-  double prob = ruMono[cand->getNodeIdx() * mono.size() + numIdx];
+  double prob = ruMono[cand.getNodeIdx() * mono.size() + numIdx];
   if (monoProb > 0 && prob < monoProb) {
     return 1;
   }
@@ -229,7 +232,6 @@ SFCtg::SFCtg(class Frontier* frontier,
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),
   sumSquares(frontier->sumsAndSquares(ctgSum)),
-  ctgSumAccum(vector<double>(frame->getNPredNum() * nCtg * nSplit)),
   ctgJitter(PRNG::rUnif(nCtg * nSplit, 0.5)) {
 }
 
@@ -258,8 +260,8 @@ double SFCtg::getScore(const IndexSet& iSet) const {
 }
 
 
-const vector<double>& SFCtg::getSumSlice(const SplitNux* cand) const {
-  return ctgSum[cand->getNodeIdx()];
+const vector<double>& SFCtg::ctgNodeSums(const SplitNux& cand) const {
+  return ctgSum[cand.getNodeIdx()];
 }
 
 
@@ -307,7 +309,7 @@ CritEncoding SplitFrontier::splitUpdate(const SplitNux& nux,
 
 
 void SplitFrontier::accumUpdate(const SplitNux& nux) const {
-  if (nux.isFactor(this)) { // Only factor accumulators currently require an update.
+  if (isFactor(nux)) { // Only factor accumulators currently require an update.
     runSet->updateAccum(nux);
   }
 }
@@ -315,7 +317,7 @@ void SplitFrontier::accumUpdate(const SplitNux& nux) const {
 
 vector<IndexRange> SplitFrontier::getRange(const SplitNux& nux,
 					   const CritEncoding& enc) const {
-  if (nux.isFactor(this)) {
+  if (isFactor(nux)) {
     if (splitStyle == SplitStyle::topSlot) {
       return runSet->getTopRange(nux, enc);
     }
@@ -333,17 +335,11 @@ vector<IndexRange> SplitFrontier::getCutRange(const SplitNux& nux,
 					      const CritEncoding& enc) const {
 // Returns the left range iff (BOTH left cut AND true encoding or NEITHER left cut NOR true encoding).
   vector<IndexRange> rangeVec;
-  rangeVec.push_back(nux.cutRange(cutSet.get(), !(leftCut(&nux) ^ enc.trueEncoding())));
+  rangeVec.push_back(nux.cutRange(cutSet.get(), !(leftCut(nux) ^ enc.trueEncoding())));
   return rangeVec;
 }
 
 
-double SFCtg::getSumSquares(const SplitNux *cand) const {
-  return sumSquares[cand->getNodeIdx()];
+double SFCtg::getSumSquares(const SplitNux& cand) const {
+  return sumSquares[cand.getNodeIdx()];
 }
-
-
-double* SFCtg::getAccumSlice(const SplitNux* cand) {
-  return &ctgSumAccum[getNumIdx(cand->getPredIdx()) * nSplit * nCtg + cand->getNodeIdx() * nCtg];
-}
-

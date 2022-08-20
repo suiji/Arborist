@@ -14,10 +14,11 @@
  */
 
 #include "rleframe.h"
+#include <cmath>
 
 
 RLEFrame::RLEFrame(size_t nRow_,
-		   const vector<PredictorForm>& predForm_,
+		   const vector<unsigned int>& factorTop_,
 		   const vector<size_t>& runVal,
 		   const vector<size_t>& runLength,
 		   const vector<size_t>& runRow,
@@ -26,11 +27,13 @@ RLEFrame::RLEFrame(size_t nRow_,
 		   const vector<size_t>& numHeight,
 		   const vector<unsigned int>& facVal,
 		   const vector<size_t>& facHeight) :
-  nRow(nRow_),
-  predForm(predForm_),
-  rlePred(vector<vector<RLEVal<unsigned int>>>(rleHeight.size())),
+  nObs(nRow_),
+  factorTop(factorTop_),
+  noRank(max(nObs, static_cast<size_t>(*max_element(factorTop.begin(), factorTop.end())))),
+  rlePred(vector<vector<RLEVal<szType>>>(rleHeight.size())),
   numRanked(vector<vector<double>>(numHeight.size())),
-  facRanked(vector<vector<unsigned int>>(facHeight.size())) {
+  facRanked(vector<vector<unsigned int>>(facHeight.size())),
+  blockIdx(vector<unsigned int>(rleHeight.size())) {
   size_t off = 0;
   unsigned int predIdx = 0;
   for (auto height : rleHeight) {
@@ -39,6 +42,7 @@ RLEFrame::RLEFrame(size_t nRow_,
     }
     predIdx++;
   }
+
   off = predIdx = 0;
   for (auto height : numHeight) {
     for (; off < height; off++) {
@@ -53,27 +57,56 @@ RLEFrame::RLEFrame(size_t nRow_,
     }
     predIdx++;
   }
+
+  unsigned int numIdx = 0;
+  unsigned int facIdx = 0;
+  for (predIdx = 0; predIdx != blockIdx.size(); predIdx++) {
+    if (factorTop[predIdx] > 0) {
+      blockIdx[predIdx] = numIdx++;
+    }
+    else {
+      blockIdx[predIdx] = facIdx++;
+    }
+  }
+}
+
+
+size_t RLEFrame::findRankMissing(unsigned int predIdx) const {
+  size_t rankMissing = noRank;
+  unsigned int idx = blockIdx[predIdx];
+  if (factorTop[predIdx] > 0) { // Factor
+    if (facRanked[idx].back() > factorTop[predIdx]) {
+      rankMissing = rlePred[predIdx].back().val;
+    }
+  }
+  else { // Numeric.
+    if (isnan(numRanked[idx].back())) {
+      rankMissing = rlePred[predIdx].back().val;
+    }
+  }
+  
+  return rankMissing;
 }
 
 
 void RLEFrame::reorderRow() {
   for (auto & rleVal : rlePred) {
-    sort(rleVal.begin(), rleVal.end(), RLECompareRow<unsigned int>);
+    sort(rleVal.begin(), rleVal.end(), RLECompareRow<szType>);
   }
 }
 
 
-vector<RLEVal<unsigned int>> RLEFrame::permute(unsigned int predIdx,
-					       const vector<size_t>& idxPerm) const {
-  vector<size_t> row2Rank(nRow);
+vector<RLEVal<szType>> RLEFrame::permute(unsigned int predIdx,
+					 const vector<size_t>& idxPerm) const {
+  vector<size_t> row2Rank(nObs);
   for (auto rle : rlePred[predIdx]) {
     for (size_t row = rle.row; row != rle.row + rle.extent; row++) {
       row2Rank[row] = rle.val;
     }
   }
 
-  vector<RLEVal<unsigned int>> rleOut;
-  size_t rankPrev = nRow; // Inattainable.  Forces new RLE on first iteration.
+  vector<RLEVal<szType>> rleOut;
+  size_t rankPrev = nObs; // Inattainable.  Forces new RLE on first iteration.
   size_t row = 0;
   for (auto idx : idxPerm) {
     auto rankThis = row2Rank[idx];

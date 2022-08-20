@@ -41,18 +41,18 @@ List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
   // Caches column base addresses to avoid using Rcpp in OpenMP
   // loop.
   // N.B.:  According to Rcpp documentation, this style of Vector
-  // constructor acts as a wrapper, rather than copying to memory.
-  // Otherwise, we would be caching the addresses of temporaries.
+  // constructor merely wraps a pointer and does not generate a copy.
+  List lLevel(sLevel);
   unsigned int nFac = 0;
   vector<void*> colBase(df.length());
   for (unsigned int predIdx = 0; predIdx < df.length(); predIdx++) {
     if (Rf_isFactor(df[predIdx])) {
-      rleCresc->setFactor(predIdx, true);
+      rleCresc->setFactor(predIdx, as<CharacterVector>(lLevel[nFac]).length());
       colBase[predIdx] = !Rf_isNull(sSigTrain) ? IntegerVector(factorRemap(_, nFac)).begin() : IntegerVector(df[predIdx]).begin();
       nFac++;
     }
     else {
-      rleCresc->setFactor(predIdx, false);
+      rleCresc->setFactor(predIdx, 0);
       colBase[predIdx] = NumericVector(df[predIdx]).begin();
     }
   }
@@ -100,6 +100,7 @@ IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
 
     // N.B.:  Rcpp::match() indices are one-based.
     IntegerVector dfZero(dfCol - 1); // R factor indices are one-based.
+
     /*
     // Checks whether non-proxy output recovers the original string indices.
     for (int i = 0; i < colOut.length(); i++) {
@@ -155,7 +156,7 @@ List RLEFrameR::presortFac(const SEXP sX) {
 
   IntegerMatrix x(sX);
   auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
-  rleCresc->encodeFrameFac((uint32_t*)(x.begin()));
+  rleCresc->encodeFrameFac(reinterpret_cast<uint32_t*>(x.begin()));
 
   return wrap(rleCresc.get());
 
@@ -245,7 +246,7 @@ List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
 				  _["runLength"] = lengthOut,
 				  _["runRow"] = rowOut,
 				  _["rleHeight"] = rleHeight,
-				  _["predForm"] = rleCresc->dumpPredForm()
+				  _["topIdx"] = rleCresc->dumpTopIdx()
                               );
   rankedFrame.attr("class") = "RankedFrame";
   return rankedFrame;
@@ -286,10 +287,10 @@ unique_ptr<RLEFrame> RLEFrameR::unwrapFrame(const List& rankedFrame,
   vector<size_t> runRow(rowFE.begin(), rowFE.end());
   IntegerVector heightFE((SEXP) rankedFrame["rleHeight"]);
   vector<size_t> rleHeight(heightFE.begin(), heightFE.end());
-  IntegerVector predFormFE((SEXP) rankedFrame["predForm"]);
-  vector<PredictorForm> predForm;
-  for (auto form : predFormFE) {
-    predForm.push_back(static_cast<PredictorForm>(form));
+  IntegerVector topIdxFE((SEXP) rankedFrame["topIdx"]);
+  vector<unsigned int> topIdx;
+  for (auto card : topIdxFE) {
+    topIdx.push_back(card);
   }
   
   vector<double> numVal(numValFE.begin(), numValFE.end());
@@ -299,7 +300,7 @@ unique_ptr<RLEFrame> RLEFrameR::unwrapFrame(const List& rankedFrame,
 
   size_t nRow(as<size_t>((SEXP) rankedFrame["nRow"]));
   return make_unique<RLEFrame>(nRow,
-			       move(predForm),
+			       move(topIdx),
 			       move(runVal),
 			       move(runLength),
 			       move(runRow),

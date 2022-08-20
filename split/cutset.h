@@ -44,13 +44,12 @@ struct CutSig {
 
 
   void write(const class InterLevel* interLevel,
-	     const class SplitNux* nux,
+	     const class SplitNux& nux,
 	     const class CutAccum* accum);
 };
 
 
 class CutSet {
-  vector<class CutAccum> cutAccum;
   vector<CutSig> cutSig; // EXIT
 
 public:
@@ -70,23 +69,18 @@ public:
   
   
   IndexT addCut(const class SplitFrontier* splitFrontier,
-		const class SplitNux* cand);
+		const class SplitNux& cand);
 
-  
-  IndexT getAccumCount() const {
-    return cutAccum.size();
-  }
-  
 
   void write(const class InterLevel* ofFront,
-	     const class SplitNux* nux,
+	     const class SplitNux& nux,
 	     const class CutAccum* accum);
 
   
   /**
      @return true iff cut associated with split has left sense.
    */
-  bool leftCut(const class SplitNux* nux) const;
+  bool leftCut(const class SplitNux& nux) const;
 
 
   /**
@@ -95,16 +89,17 @@ public:
   void setCutSense(IndexT cutIdx,
 		   bool sense);
 
-  double getQuantRank(const class SplitNux* nux) const;
+
+  double getQuantRank(const class SplitNux& nux) const;
 
 
-  IndexT getIdxRight(const class SplitNux* nux) const;
-
-  
-  IndexT getIdxLeft(const class SplitNux* nux) const;
+  IndexT getIdxRight(const class SplitNux& nux) const;
 
   
-  IndexT getImplicitTrue(const class SplitNux* nux) const;
+  IndexT getIdxLeft(const class SplitNux& nux) const;
+
+  
+  IndexT getImplicitTrue(const class SplitNux& nux) const;
 };
 
 #endif

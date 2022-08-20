@@ -7,7 +7,7 @@
 #include "obs.h"
 
 CritEncoding::CritEncoding(const SplitFrontier* sf, const SplitNux& nux_, bool incr) :
-  sum(0.0), sCount(0), extent(0), nux(nux_), scCtg(vector<SumCount>(sf->getNCtg())), implicitTrue(sf->getImplicitTrue(&nux)), increment(incr), exclusive(sf->getCompound()), style(sf->getEncodingStyle()) {
+  sum(0.0), sCount(0), extent(0), nux(nux_), scCtg(vector<SumCount>(sf->getNCtg())), implicitTrue(sf->getImplicitTrue(nux)), increment(incr), exclusive(sf->getCompound()), style(sf->getEncodingStyle()) {
 }
 
 

@@ -43,14 +43,6 @@ struct SFRegCart : public SFReg {
      @return enumeration indicating slot-style encoding.
    */
   SplitStyle getFactorStyle() const;
-  
-
-  /**
-     @brief Weighted-variance pre-bias computation for regression response.
-
-     @return sum squared, divided by sample count.
-  */
-  double getPreinfo(IndexT splitIdx) const;
 
 
   void split(vector<class SplitNux> candidate,
@@ -60,7 +52,7 @@ struct SFRegCart : public SFReg {
   /**
      @brief Collects splitable candidates from among all restaged cells.
    */
-  void split(class SplitNux* cand);
+  void split(class SplitNux& cand);
 };
 
 
@@ -78,12 +70,6 @@ class SFCtgCart : public SFCtg {
    */
   SplitStyle getFactorStyle() const;
 
-  
-  /**
-     @brief Initializes per-frontier sum and FacRun vectors.
-  */
-  void frontierPreset();
-
 
   void split(vector<class SplitNux> candidate,
 	     class BranchSense& branchSense);
@@ -92,17 +78,7 @@ class SFCtgCart : public SFCtg {
   /**
      @brief Collects splitable candidates from among all restaged cells.
    */
-  void split(class SplitNux* cand);
-
-
-  /**
-     @brief Gini pre-bias computation for categorical response.
-
-     @param splitIdx is the frontier-relative node index.
-
-     @return sum of squares divided by sum.
-  */
-  double getPreinfo(IndexT splitIdx) const;
+  void split(class SplitNux& cand);
 
 
 public:
@@ -145,8 +121,6 @@ public:
   inline bool stableDenom(double sumL, double sumR) const {
     return sumL > minDenom && sumR > minDenom;
   }
-  
-
 };
 
 

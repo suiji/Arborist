@@ -105,8 +105,7 @@ public:
   /**
      @brief Allocates all 'nPred' StagedCells for staging.
    */
-  void prestageRoot(const class TrainFrame* frame,
-		    const class Layout* layout,
+  void prestageRoot(const class PredictorFrame* layout,
 		    const class SampledObs* sampledObs);
 
 
@@ -195,7 +194,7 @@ public:
    */
   unsigned int stage(PredictorT predIdx,
 		     class ObsPart* obsPart,
-		     const class Layout* layout,
+		     const class PredictorFrame* layout,
 		     const class SampledObs* sampledObs);
 
 

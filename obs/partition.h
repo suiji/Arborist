@@ -58,7 +58,7 @@ class ObsPart {
   
  public:
 
-  ObsPart(const class Layout* frame, IndexT bagCount_);
+  ObsPart(const class PredictorFrame* frame, IndexT bagCount_);
 
   virtual ~ObsPart();
 
@@ -66,16 +66,16 @@ class ObsPart {
   /**
      @brief Passes through to bufferOff() using definition coordinate.
    */
-  IndexT* getIdxBuffer(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux& nux) const;
 
 
   Obs* getBuffers(const class SplitNux& nux, IndexT*& sIdx) const;
 
 
-  Obs* getPredBase(const class SplitNux* nux) const;
+  Obs* getPredBase(const class SplitNux& nux) const;
 
 
-  IndexT getSampleIndex(const class SplitNux* cand,
+  IndexT getSampleIndex(const class SplitNux& cand,
 			IndexT obsIdx) const;
 
   
@@ -198,17 +198,23 @@ class ObsPart {
   }
 
 
+  /**
+     @brief Stable partition of observation and index.
+   */
+  void restageDiscrete(const PathT* prePath,
+		       const StagedCell& mrra,
+		       vector<IndexT>& obsScatter);
+
+
+  /**
+     @brief As above, but also tracks tied values.
+   */
   void restageTied(const PathT* prePath,
 		   vector<IndexT>& runCount,
 		   const StagedCell& mrra,
 		   vector<IndexT>& obsScatter);
 
 
-  void restageDiscrete(const PathT* prePath,
-		       const StagedCell& mrra,
-		       vector<IndexT>& obsScatter);
-
-  
   void restageValues(const PathT* prePath,
 		     vector<IndexT>& runCount,
 		     const StagedCell& mrra,

@@ -32,9 +32,8 @@ CutSig CutSet::getCut(IndexT accumIdx) const {
 
 
 IndexT CutSet::addCut(const SplitFrontier* splitFrontier,
-		      const SplitNux* cand) {
-  cutAccum.emplace_back(cand, splitFrontier);
-  cutSig.emplace_back(cand->getRange());
+		      const SplitNux& cand) {
+  cutSig.emplace_back(cand.getRange());
   return cutSig.size() - 1;
 }
 
@@ -44,8 +43,8 @@ void CutSet::setCut(IndexT accumIdx, const CutSig& sig) {
 }
 
 
-bool CutSet::leftCut(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].cutLeft;
+bool CutSet::leftCut(const SplitNux& nux) const {
+  return cutSig[nux.getAccumIdx()].cutLeft;
 }
 
 
@@ -54,36 +53,36 @@ void CutSet::setCutSense(IndexT cutIdx, bool sense) {
 }
 
 
-double CutSet::getQuantRank(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].quantRank;
+double CutSet::getQuantRank(const SplitNux& nux) const {
+  return cutSig[nux.getAccumIdx()].quantRank;
 }
 
 
-IndexT CutSet::getIdxRight(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].obsRight;
+IndexT CutSet::getIdxRight(const SplitNux& nux) const {
+  return cutSig[nux.getAccumIdx()].obsRight;
 }
 
 
-IndexT CutSet::getIdxLeft(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].obsLeft;
+IndexT CutSet::getIdxLeft(const SplitNux& nux) const {
+  return cutSig[nux.getAccumIdx()].obsLeft;
 }
 
 
-IndexT CutSet::getImplicitTrue(const SplitNux* nux) const {
-  return cutSig[nux->getAccumIdx()].implicitTrue;
+IndexT CutSet::getImplicitTrue(const SplitNux& nux) const {
+  return cutSig[nux.getAccumIdx()].implicitTrue;
 }
 
 
 void CutSet::write(const InterLevel* interLevel,
-		   const SplitNux* nux, const CutAccum* accum) {
-  if (accum->info > nux->getInfo()) {
-    cutSig[nux->getAccumIdx()].write(interLevel, nux, accum);
+		   const SplitNux& nux, const CutAccum* accum) {
+  if (nux.getInfo() > 0) {
+    cutSig[nux.getAccumIdx()].write(interLevel, nux, accum);
   }
 }
 
 
 void CutSig::write(const InterLevel* interLevel,
-		   const SplitNux* nux,
+		   const SplitNux& nux,
 		   const CutAccum* accum) {
   obsLeft = accum->obsLeft;
   obsRight = accum->obsRight;

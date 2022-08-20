@@ -191,8 +191,7 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampledObs> rootSample(const class Layout *layout,
-					  unsigned int tIdx) const;
+  unique_ptr<class SampledObs> rootSample(unsigned int tIdx) const;
 
 
   /**

@@ -15,17 +15,17 @@
 
 #include "rlecresc.h"
 #include "ompthread.h"
+#include <cmath>
 
 
 RLECresc::RLECresc(size_t nRow_,
 		   unsigned int nPred) :
   nRow(nRow_),
-  predForm(vector<PredictorForm>(nPred)),
+  topIdx(vector<unsigned int>(nPred)),
   typedIdx(vector<unsigned int>(nPred)),
-  rle(vector<vector<RLEVal<unsigned int>>>(nPred)),
+  rle(vector<vector<RLEVal<szType>>>(nPred)),
   nFactor(0),
   nNumeric(0) {
-  fill(predForm.begin(), predForm.end(), PredictorForm::numeric); // Default initialization.
 }
 
 
@@ -41,46 +41,47 @@ void RLECresc::encodeFrame(const vector<void*>& colBase) {
     bool isFactor;
     unsigned int typedIdx = getTypedIdx(predIdx, isFactor);
     if (isFactor) { // Only factors and numerics present.
-      encodeColumn<unsigned int>(static_cast<unsigned int*>(colBase[predIdx]), valFac[typedIdx], predIdx);
+      encodeColumn<unsigned int>(static_cast<unsigned int*>(colBase[predIdx]), valFac[typedIdx], rle[predIdx]);
     }
     else {
-      encodeColumn<double>(static_cast<double*>(colBase[predIdx]), valNum[typedIdx], predIdx);
+      encodeColumn<double>(static_cast<double*>(colBase[predIdx]), valNum[typedIdx], rle[predIdx]);
     }
   }
   }
 }
+
 
 void RLECresc::encodeFrameNum(const vector<double>&  feVal,
 			      const vector<size_t>&  feRowStart,
 			      const vector<size_t>&  feRunLength) {
   valFac = vector<vector<unsigned int>>(0);
-  valNum = encodeSparse<double>(predForm.size(), feVal, feRowStart, feRunLength);
+  valNum = encodeSparse<double>(topIdx.size(), feVal, feRowStart, feRunLength);
 }
 
 
-void RLECresc::encodeFrameNum(const double*  feVal) {
-  OMPBound nPred = predForm.size();
+void RLECresc::encodeFrameNum(const double* feVal) {
+  OMPBound nPred = topIdx.size();
   valFac = vector<vector<unsigned int>>(0);
   valNum = vector<vector<double>>(nPred);
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {
-      encodeColumn(&feVal[predIdx * nRow], valNum[predIdx], predIdx);
+      encodeColumn(&feVal[predIdx * nRow], valNum[predIdx], rle[predIdx]);
     }
   }
 }
 
 
 void RLECresc::encodeFrameFac(const uint32_t*  feVal) {
-  OMPBound nPred = predForm.size();
+  OMPBound nPred = topIdx.size();
   valFac = vector<vector<unsigned int>>(nPred);
   valNum = vector<vector<double>>(0);
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {
-      encodeColumn(&feVal[predIdx * nRow], valFac[predIdx], predIdx);
+      encodeColumn(&feVal[predIdx * nRow], valFac[predIdx], rle[predIdx]);
     }
   }
 }

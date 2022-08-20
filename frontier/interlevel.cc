@@ -20,14 +20,13 @@
 #include "interlevel.h"
 #include "obsfrontier.h"
 #include "splitnux.h"
-#include "trainframe.h"
-#include "layout.h"
+#include "predictorframe.h"
 #include "indexset.h"
 
 #include <algorithm>
 
 
-InterLevel::InterLevel(const TrainFrame* frame_,
+InterLevel::InterLevel(const PredictorFrame* frame_,
 		       const SampledObs* sampledObs_,
 		       const Frontier* frontier) :
   frame(frame_),
@@ -35,14 +34,13 @@ InterLevel::InterLevel(const TrainFrame* frame_,
   positionMask(getPositionMask(nPred)),
   levelShift(getLevelShift(nPred)),
   bagCount(frontier->getBagCount()),
-  layout(frame->getLayout()),
-  noRank(layout->getNoRank()),
+  noRank(frame->getNoRank()),
   sampledObs(sampledObs_),
   rootPath(make_unique<IdxPath>(bagCount)),
-  pathIdx(vector<PathT>(layout->getSafeSize(bagCount))),
+  pathIdx(vector<PathT>(frame->getSafeSize(bagCount))),
   level(0),
   splitCount(1),
-  obsPart(make_unique<ObsPart>(layout, bagCount)),
+  obsPart(make_unique<ObsPart>(frame, bagCount)),
   stageMap(vector<vector<PredictorT>>(1)) {
   stageMap[0] = vector<PredictorT>(nPred);
 }
@@ -86,12 +84,12 @@ PathT* InterLevel::getPathBlock(PredictorT predIdx) {
 }
 
 
-IndexT* InterLevel::getIdxBuffer(const SplitNux* nux) const {
+IndexT* InterLevel::getIdxBuffer(const SplitNux& nux) const {
   return obsPart->getIdxBuffer(nux);
 }
 
 
-Obs* InterLevel::getPredBase(const SplitNux* nux) const {
+Obs* InterLevel::getPredBase(const SplitNux& nux) const {
   return obsPart->getPredBase(nux);
 }
 
@@ -139,7 +137,7 @@ void InterLevel::appendAncestor(StagedCell& scAnc, unsigned int historyIdx) {
 
 
 vector<unsigned int> InterLevel::stage() {
-  ofFront->prestageRoot(frame, layout, sampledObs);
+  ofFront->prestageRoot(frame, sampledObs);
 
   OMPBound predTop = nPred;
   vector<unsigned int> nExtinct(predTop);
@@ -148,7 +146,7 @@ vector<unsigned int> InterLevel::stage() {
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
-      nExtinct[predIdx] = ofFront->stage(predIdx, obsPart.get(), layout, sampledObs);
+      nExtinct[predIdx] = ofFront->stage(predIdx, obsPart.get(), frame, sampledObs);
     }
   }
   return nExtinct;
@@ -257,35 +255,39 @@ void InterLevel::rootExtinct(IndexT rootIdx) {
 }
 
 
-double InterLevel::interpolateRank(const SplitNux* cand,
+double InterLevel::interpolateRank(const SplitNux& cand,
 				   IndexT obsLeft,
 				   IndexT obsRight) const {
   IndexT sIdx = obsPart->getSampleIndex(cand, obsLeft); 
-  IndexT rankLeft = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  IndexT rankLeft = sampledObs->getRank(cand.getPredIdx(), sIdx);
   sIdx = obsPart->getSampleIndex(cand, obsRight);
-  IndexT rankRight = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  IndexT rankRight = sampledObs->getRank(cand.getPredIdx(), sIdx);
   IndexRange rankRange(rankLeft, rankRight - rankLeft);
 
-  return rankRange.interpolate(cand->getSplitQuant());
+  return rankRange.interpolate(cand.getSplitQuant());
 }
 
 
-double InterLevel::interpolateRank(const SplitNux* cand,
+double InterLevel::interpolateRank(const SplitNux& cand,
 				   IndexT obsIdx,
 				   bool residualLeft) const {
-  IndexT residualRank = cand->getRankResidual();
+  IndexT residualRank = frame->getImplicitRank(cand.getPredIdx());
   IndexT sIdx = obsPart->getSampleIndex(cand, obsIdx);
-  IndexT rank = sampledObs->getRank(cand->getPredIdx(), sIdx);
+  IndexT rank = sampledObs->getRank(cand.getPredIdx(), sIdx);
   IndexT rankLeft = residualLeft ? residualRank : rank;
   IndexT rankRight = residualLeft ? rank : residualRank;
   IndexRange rankRange(rankLeft, rankRight - rankLeft);
 
-  return rankRange.interpolate(cand->getSplitQuant());
+  return rankRange.interpolate(cand.getSplitQuant());
 }
 
 
 IndexT InterLevel::getCode(const SplitNux& cand,
-			   IndexT obsIdx) const {
-  IndexT sIdx = obsPart->getSampleIndex(&cand, obsIdx);
+			   IndexT obsIdx,
+			   bool isImplicit) const {
+  if (isImplicit) {
+    return frame->getImplicitRank(cand.getPredIdx());
+  }
+  IndexT sIdx = obsPart->getSampleIndex(cand, obsIdx);
   return sampledObs->getRank(cand.getPredIdx(), sIdx);
 }

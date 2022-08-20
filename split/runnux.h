@@ -52,8 +52,7 @@ struct RunNux {
   /**
      @brief Initializes as residual.
   */
-  inline void setResidual(PredictorT code,
-			  IndexT sCount,
+  inline void setResidual(IndexT sCount,
 			  double sum,
 			  IndexT obsEnd,
 			  IndexT extent) {

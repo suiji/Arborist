@@ -35,7 +35,7 @@ class Quant {
   const struct Leaf* leaf;
   const bool empty; // if so, leave vectors empty and bail.
   const vector<vector<IndexRange>> leafDom;
-  const ValRank<double> valRank;
+  const RankedObs<double> valRank;
   const vector<vector<vector<RankCount>>> rankCount; // forest-wide, by sample.
   const unsigned int rankScale; // log2 of scaling factor.
   const vector<double> binMean;
@@ -72,7 +72,7 @@ n     @brief Bins response means.
 
      @return binned vector of response means.
    */
-  vector<double> binMeans(const ValRank<double>& valRank) const;
+  vector<double> binMeans(const RankedObs<double>& valRank) const;
 
   
   /**

@@ -17,7 +17,6 @@
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "trainframe.h"
 #include "ompthread.h"
 #include "splitcart.h"
 #include "branchsense.h"
@@ -34,28 +33,9 @@ SFCtgCart::SFCtgCart(Frontier* frontier) :
   SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense&)>(&SFCtgCart::split)) {
 }
 
-  
-void SFCtgCart::frontierPreset() {
-  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
-    nodeInfo[splitIdx] = getPreinfo(splitIdx);
-}
-
 
 void SFRegCart::frontierPreset() {
   SFReg::frontierPreset();
-  for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++)
-    nodeInfo[splitIdx] = getPreinfo(splitIdx);
-}
-
-
-double SFRegCart::getPreinfo(IndexT splitIdx) const {
-  return (frontier->getSum(splitIdx) * frontier->getSum(splitIdx)) / frontier->getSCount(splitIdx);
-}
-
-
-
-double SFCtgCart::getPreinfo(IndexT splitIdx) const {
-  return sumSquares[splitIdx] / frontier->getSum(splitIdx);
 }
 
 
@@ -66,7 +46,7 @@ void SFRegCart::split(vector<SplitNux> sc,
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(&sc[splitPos]);
+      split(sc[splitPos]);
     }
   }
 
@@ -81,7 +61,7 @@ void SFCtgCart::split(vector<SplitNux> sc,
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(&sc[splitPos]);
+      split(sc[splitPos]);
     }
   }
 
@@ -89,8 +69,8 @@ void SFCtgCart::split(vector<SplitNux> sc,
 }
 
 
-void SFCtgCart::split(SplitNux* cand) {
-  if (cand->isFactor(this)) {
+void SFCtgCart::split(SplitNux& cand) {
+  if (isFactor(cand)) {
     RunAccum::split(this, cand);
   }
   else {
@@ -99,8 +79,8 @@ void SFCtgCart::split(SplitNux* cand) {
 }
 
 
-void SFRegCart::split(SplitNux* cand) {
-  if (cand->isFactor(this)) {
+void SFRegCart::split(SplitNux& cand) {
+  if (isFactor(cand)) {
     RunAccum::split(this, cand);
   }
   else {

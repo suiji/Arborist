@@ -54,7 +54,7 @@ class PreTree {
  public:
   /**
    */
-  PreTree(const class TrainFrame* frame,
+  PreTree(const class PredictorFrame* frame,
 	  IndexT bagCount_);
 
 

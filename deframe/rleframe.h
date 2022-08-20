@@ -19,24 +19,34 @@
 #include "rlecresc.h"
 
 /**
+   @brief Sorts on row, for reorder.
+*/
+template<typename valType>
+bool RLECompareRow (const RLEVal<valType>& a, const RLEVal<valType>& b) {
+  return (a.row < b.row);
+}
+
+
+/**
    @brief Completed form, constructed from front end representation.
  */
 struct RLEFrame {
-  const size_t nRow;
-  const vector<PredictorForm> predForm;
-  vector<vector<RLEVal<unsigned int>>> rlePred;
+  const size_t nObs;
+  const vector<unsigned int> factorTop; ///> top factor index / 0.
+  const size_t noRank; ///> Inattainable rank index.
+  vector<vector<RLEVal<szType>>> rlePred;
   vector<vector<double>> numRanked;
   vector<vector<unsigned int>> facRanked;
+  vector<unsigned int> blockIdx; ///> position of value in block.
 
-  
   /**
      @brief Constructor from unpacked representation.
    */
-  RLEFrame(size_t nRow_,
-	   const vector<PredictorForm>& predForm_,
+  RLEFrame(size_t nObs_,
+	   const vector<unsigned int>& factorTop_,
 	   const vector<size_t>& runVal,
-	   const vector<size_t>& runLenght,
-	   const vector<size_t>& runRow,
+	   const vector<size_t>& runLength,
+	   const vector<size_t>& runObs,
 	   const vector<size_t>& rleHeight_,
 	   const vector<double>& numVal_,
 	   const vector<size_t>& numHeight_,
@@ -48,7 +58,7 @@ struct RLEFrame {
      @brief Row count getter.
    */
   const auto getNRow() const {
-    return nRow;
+    return nObs;
   }
 
   /**
@@ -83,10 +93,32 @@ struct RLEFrame {
   }
 
 
-  const vector<RLEVal<unsigned int>>& getRLE(unsigned int predIdx) const {
+  unsigned int getBlockIdx(unsigned int predIdx) const {
+    return blockIdx[predIdx];
+  }
+
+
+  unsigned int getFactorTop(unsigned int predIdx) const {
+    return factorTop[predIdx];
+  }
+  
+
+  const vector<RLEVal<szType>>& getRLE(unsigned int predIdx) const {
     return rlePred[predIdx];
   }
 
+  
+  /**
+     @brief Derives # distinct values, including possible NA.
+     
+     @param predIdx is the predictor index.
+
+     @return (zero-based) rank of rear, plus one.
+   */
+  size_t getRunCount(unsigned int predIdx) const {
+    return rlePred[predIdx].back().val + 1;
+  }
+  
 
   /**
      @brief Reorders the predictor RLE vectors by row.
@@ -94,8 +126,14 @@ struct RLEFrame {
   void reorderRow();
 
 
-  vector<RLEVal<unsigned int>> permute(unsigned int predIdx,
-				       const vector<size_t>& idxPerm) const;
+  /**
+     @return rank index of missing data, if any, else noRank.
+   */
+  size_t findRankMissing(unsigned int predIdx) const;
+
+
+  vector<RLEVal<szType>> permute(unsigned int predIdx,
+				 const vector<size_t>& idxPerm) const;
 
 
   /**
@@ -107,9 +145,9 @@ struct RLEFrame {
 
      @return rank at the given row, per predictor.
    */
-  vector<unsigned int> idxRank(vector<size_t>& idxTr,
+  vector<szType> idxRank(vector<size_t>& idxTr,
 			       size_t row) const {
-    vector<unsigned int> rankVec(idxTr.size());
+    vector<szType> rankVec(idxTr.size());
     for (unsigned int predIdx = 0; predIdx < rankVec.size(); predIdx++) {
       if (row >= rlePred[predIdx][idxTr[predIdx]].getRowEnd()) {
 	idxTr[predIdx]++;

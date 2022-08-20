@@ -38,7 +38,7 @@ Quant::Quant(const Forest* forest,
   leaf(leaf_),
   empty(!sampler->hasSamples() || quantile.empty()),
   leafDom((empty || !predict->trapAndBail()) ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
-  valRank(ValRank<double>(&response->getYTrain()[0], empty ? 0 : response->getYTrain().size())),
+  valRank(RankedObs<double>(&response->getYTrain()[0], empty ? 0 : response->getYTrain().size())),
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : leaf->alignRanks(sampler, valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
@@ -56,7 +56,7 @@ unsigned int Quant::binScale() const {
 }
 
 
-vector<double> Quant::binMeans(const ValRank<double>& valRank) const {
+vector<double> Quant::binMeans(const RankedObs<double>& valRank) const {
   vector<double> binMean(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   vector<size_t> binCount(binMean.size());
   for (IndexT idx = 0; idx < valRank.getNRow(); idx++) {

@@ -40,30 +40,30 @@ class CutAccumRegCart : public CutAccumReg {
      @return true iff accumulated and monotonicity senses agree.
    */
   inline bool senseMonotone() const {
-    IndexT sCountR = sCountCand - sCount;
-    double sumR = sumCand - sum;
+    IndexT sCountR = sumCount.sCount - sCount;
+    double sumR = sumCount.sum - sum;
     bool accumNonDecreasing = (sum * sCountR <= sumR * sCount);
     return monoMode > 0 ? accumNonDecreasing : !accumNonDecreasing;
   }
   
 
 public:
-  CutAccumRegCart(const class SplitNux* splitCand,
-                const struct SFRegCart* spReg);
+  CutAccumRegCart(const class SplitNux& splitCand,
+		  const struct SFRegCart* spReg);
 
 
   /**
      @brief Static entry for regression splitting.
    */
   static void split(const struct SFRegCart* spReg,
-		    class SplitNux* cand);
+		    class SplitNux& cand);
 
   
   /**
      @brief Private regresion splitting method.
    */
   void splitReg(const struct SFRegCart* spReg,
-             class SplitNux* cand);
+             class SplitNux& cand);
   
 
   /**
@@ -72,13 +72,13 @@ public:
 
      @param resid summarizes the blob's residual statistics.
    */
-  void splitImpl(const class SplitNux* cand);
+  void splitImpl();
 
 
   /**
      @brief As above, but checks monotonicity with argmax.
    */
-  void splitImplMono(const class SplitNux* cand);
+  void splitImplMono();
 
 
   /**
@@ -97,18 +97,14 @@ public:
 
   /**
      @brief Splits a range bounded to the right by a residual.
-
-     @param rkIdxL tracks the left rank index of a split.
    */
-  void residualRL(const class SplitNux* cand);
+  void residualRL();
 
 
   /**
      @brief As above, but applies monotonicity constraint.
-
-     @param rkIdxL tracks the left rank index of a split.
    */
-  void residualRLMono(const class SplitNux* cand);
+  void residualRLMono();
 };
 
 
@@ -129,27 +125,27 @@ class CutAccumCtgCart : public CutAccumCtg {
   /**
      @brief Applies residual state and continues splitting left.
    */
-  void residualRL(const class SplitNux* cand);
+  void residualRL();
 
 
 public:
 
-  CutAccumCtgCart(const class SplitNux* cand,
-	      class SFCtgCart* spCtg);
+  CutAccumCtgCart(const class SplitNux& cand,
+		  class SFCtgCart* spCtg);
 
 
   /**
      @brief Static entry for classification splitting.
    */
   static void split(class SFCtgCart* spCtg,
-		    class SplitNux* cand);
+		    class SplitNux& cand);
   
 
   /**
      @brief Private classification splitting method.
    */
   void splitCtg(const class SFCtgCart* spCtg,
-             class SplitNux* cand);
+		class SplitNux& cand);
 
   
   /**
@@ -166,7 +162,7 @@ public:
   /**
      @brief As above, but with implicit dense blob.
    */
-  void splitImpl(const class SplitNux* cand);
+  void splitImpl();
 };
 
 #endif

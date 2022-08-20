@@ -15,7 +15,7 @@
 
 #include "bv.h"
 #include "train.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "frontier.h"
 #include "pretree.h"
 #include "leaf.h"
@@ -36,7 +36,7 @@ void Train::deInit() {
 }
 
 
-unique_ptr<Train> Train::train(const TrainFrame* frame,
+unique_ptr<Train> Train::train(const PredictorFrame* frame,
 			       const Sampler* sampler,
 			       Forest* forest,
 			       const IndexRange& treeRange,
@@ -49,18 +49,17 @@ unique_ptr<Train> Train::train(const TrainFrame* frame,
 }
 
 
-Train::Train(const TrainFrame* frame,
+Train::Train(const PredictorFrame* frame,
 	     Forest* forest_) :
   predInfo(vector<double>(frame->getNPred())),
   forest(forest_) {
 }
 
 
-void Train::trainChunk(const TrainFrame* frame,
+void Train::trainChunk(const PredictorFrame* frame,
 		       const Sampler * sampler,
 		       const IndexRange& treeRange,
 		       Leaf* leaf) {
-  frame->obsLayout();
   for (unsigned treeStart = treeRange.getStart(); treeStart < treeRange.getEnd(); treeStart += trainBlock) {
     auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, static_cast<unsigned int>(treeRange.getEnd())));
     blockConsume(treeBlock, leaf);
@@ -68,7 +67,7 @@ void Train::trainChunk(const TrainFrame* frame,
 }
 
 
-vector<unique_ptr<PreTree>> Train::blockProduce(const TrainFrame* frame,
+vector<unique_ptr<PreTree>> Train::blockProduce(const PredictorFrame* frame,
 						const Sampler* sampler,
 						unsigned int treeStart,
 						unsigned int treeEnd) const {

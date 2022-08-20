@@ -126,7 +126,7 @@ struct Crit {
   }
 
   
-  void critCut(const class SplitNux* nux,
+  void critCut(const class SplitNux& nux,
 	       const class SplitFrontier* splitFrontier);
 
 
@@ -160,7 +160,7 @@ struct Crit {
   }
   
   
-  void setQuantRank(const class TrainFrame* trainFrame,
+  void setQuantRank(const class PredictorFrame* predictor,
 		    PredictorT predIdx);
 };
 

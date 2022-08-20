@@ -68,7 +68,7 @@ struct RfTrain {
      @param regMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void initMono(const class TrainFrame* frame,
+  static void initMono(const class PredictorFrame* frame,
                        const vector<double> &regMono);
 
   /**

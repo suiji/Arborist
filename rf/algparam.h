@@ -26,5 +26,5 @@
 typedef CandRF CandType; // RF-specific predictor sampling.
 typedef SplitCart SplitFactoryT; // CART-specific split dispatch.
 typedef RunAccum RunAccumT; // Until RunAccumCart completed.
-typedef CutAccum CutAccumT; // Until CutAccumCart completed.
+
 #endif

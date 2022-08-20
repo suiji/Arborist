@@ -15,7 +15,6 @@
 
 #include "predict.h"
 #include "response.h"
-#include "layout.h"
 #include "sampledobs.h"
 #include "sampler.h"
 
@@ -98,17 +97,15 @@ vector<double> ResponseCtg::defaultProb() const {
 }
 
 
-unique_ptr<SampledObs> ResponseReg::rootSample(const Layout* layout,
-					       const Sampler* sampler,
+unique_ptr<SampledObs> ResponseReg::rootSample(const Sampler* sampler,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryReg(layout, sampler, this, yTrain, tIdx);
+  return SampledObs::factoryReg(sampler, this, yTrain, tIdx);
 }
 
 
-unique_ptr<SampledObs> ResponseCtg::rootSample(const Layout* layout,
-					       const Sampler* sampler,
+unique_ptr<SampledObs> ResponseCtg::rootSample(const Sampler* sampler,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryCtg(layout, sampler, this, classWeight, yCtg, tIdx);
+  return SampledObs::factoryCtg(sampler, this, classWeight, yCtg, tIdx);
 }
 
 

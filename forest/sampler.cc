@@ -10,7 +10,6 @@
 #include "sampler.h"
 #include "response.h"
 #include "samplernux.h"
-#include "layout.h"
 #include "prng.h"
 
 
@@ -118,9 +117,8 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-unique_ptr<SampledObs> Sampler::rootSample(const Layout* layout,
-					   unsigned int tIdx) const {
-  return response->rootSample(layout, this, tIdx);
+unique_ptr<SampledObs> Sampler::rootSample(unsigned int tIdx) const {
+  return response->rootSample(this, tIdx);
 }
 
 

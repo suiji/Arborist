@@ -21,26 +21,29 @@
 
 #include <cstdint>
 #include <vector>
+
 using namespace std;
+
 
 /**
    @brief Sorts on value, then rows, for stability.
-
-   N.B:  extraneous parentheses work around parser error in older g++.
  */
 template<typename valType>
-bool RLECompare (const RLEVal<valType>& a, const RLEVal<valType>& b) {
-  return (a.val < b.val) || ((a.val == b.val) && ((a.row) < b.row));
+bool RLECompare (const RLEVal<valType>& a,
+		 const RLEVal<valType>& b) {
+  //   N.B:  extraneous parentheses avoid parser error in older g++.
+  return (a.val < b.val) || (areEqual(a.val, b.val) && ((a.row) < b.row));
 }
 
 
-/**
-   @brief Sorts on row, for reorder.
- */
-template<typename valType>
-bool RLECompareRow (const RLEVal<valType>& a, const RLEVal<valType>& b) {
-  return (a.row < b.row);
+template<>
+inline bool RLECompare(const RLEVal<double>& a,
+		       const RLEVal<double>& b) {
+  return (a.val < b.val) || (areEqual(a.val, b.val) && ((a.row) < b.row)) || (!isnan(a.val) && isnan(b.val));
 }
+
+
+typedef size_t szType; // Size type sufficient for observations.
 
 
 /**
@@ -49,50 +52,43 @@ bool RLECompareRow (const RLEVal<valType>& a, const RLEVal<valType>& b) {
    Crescent form.
  */
 class RLECresc {
-  const size_t nRow;
+  const szType nRow; ///> # observations.
 
-  vector<PredictorForm> predForm; // Maps predictor index to its form.
-
+  vector<unsigned int> topIdx; ///> highest FE index or 0 if numeric.
   vector<unsigned int> typedIdx; // Maps index to typed offset.
 
   // Encodes observations as run characteristics, not values.
   // Error if empty.
-  vector<vector<RLEVal<unsigned int>>> rle;
-
-
+  vector<vector<RLEVal<szType>>> rle;
   vector<vector<unsigned int>> valFac;
-
-
   vector<vector<double>> valNum;
-
-
   unsigned int nFactor; // Count of factor predictors.
-
   unsigned int nNumeric; // Count of numeric predictors.
 
-  
   /**
      @brief Emits a run-length encoding of a sorted list.
 
-     @param valPred is a stably-sorted vector of values and ranks.
+     @param runValue is a stably-sorted vector of values and ranks.
 
-     @param[out] val outputs unique values in sorted order.
+     @param[out] runValue outputs unique values in sorted order.
    */
-  template<typename tn>
-  void encode(const ValRank<tn>& vr, vector<tn>& valPred, vector<RLEVal<unsigned int>>& rlePred) {
+  template<typename obsType>
+  void encode(const RankedObs<obsType>& rankedObs,
+	      vector<obsType>& runValue,
+	      vector<RLEVal<szType>>& rlePred) {
     size_t rowNext = nRow; // Inattainable row number.
 
-    tn valPrev = vr.getVal(0); // Ensures intial rle pushed at first iteration.
-    valPred.push_back(valPrev); // Ensures initial value pushed at first iteration.
+    obsType valPrev = rankedObs.getVal(0); // Ensures intial rle pushed at first iteration.
+    runValue.push_back(valPrev); // Ensures initial value pushed at first iteration.
     for (size_t idx = 0; idx < nRow; idx++) {
-      auto rowThis = vr.getRow(idx);
-      auto valThis = vr.getVal(idx);
-      if (valThis != valPrev) {
-	valPred.push_back(valThis);
-	rlePred.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+      auto rowThis = rankedObs.getRow(idx);
+      obsType valThis = rankedObs.getVal(idx);
+      if (!areEqual(valThis, valPrev)) {
+	runValue.push_back(valThis);
+	rlePred.emplace_back(RLEVal<szType>(rankedObs.getRank(idx), rowThis));
       }
       else if (rowThis != rowNext) {
-	rlePred.emplace_back(RLEVal<unsigned int>(vr.getRank(idx), rowThis));
+	rlePred.emplace_back(RLEVal<szType>(rankedObs.getRank(idx), rowThis));
       }
       else {
 	rlePred.back().extent++;
@@ -102,9 +98,82 @@ class RLECresc {
     }
   }
 
+  
+  /**
+     @brief Presorts runlength-encoded numerical block supplied by front end.
+
+     @param feVal[] is a vector of valType values.
+
+     @param feRowStart[] maps row indices to offset within value vector.
+
+     @param feRunLength[] is length of each run of values.
+   */
+  template<typename valType>
+  vector<vector<valType>> encodeSparse(unsigned int nPredType,
+				       const vector<valType>& feVal,
+				       const vector<size_t>& feRowStart,
+				       const vector<size_t>& feRunLength) {
+    vector<vector<valType>> val(nPredType);
+    size_t colOff = 0;
+    unsigned int predIdx = 0;
+    for (auto & runValue : val) {
+      colOff += sortSparse(runValue, predIdx++, &feVal[colOff], &feRowStart[colOff], &feRunLength[colOff]);
+    }
+
+    return val;
+  }
 
 
- public:
+  template<typename valType>
+  size_t sortSparse(vector<valType>& runValue,
+		    unsigned int predIdx,
+		    const double feCol[],
+		    const size_t feRowStart[],
+		    const size_t feRunLength[]) {
+    vector<RLEVal<valType> > rleVal;
+    size_t rleIdx = 0;
+    for (size_t rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
+      rleVal.emplace_back(RLEVal<valType>(feCol[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
+    }
+    // Postcondition:  rleNum.size() == caller's vector length.
+
+    sort(rleVal.begin(), rleVal.end(), RLECompare<valType>);
+    encodeSparse(runValue, rleVal, rle[predIdx]);
+
+    return rleVal.size();
+  }
+
+
+  /**
+     @brief Stores ordered predictor column, entering uncompressed.
+
+     @param rleVal is a sparse representation of the value/row-number pairs.
+  */
+  template<typename valType>
+  void encodeSparse(vector<valType>& runValue,
+		    const vector<RLEVal<valType>>& rleVal,
+		    vector<RLEVal<szType>>& rlePred) {
+    size_t rowNext = nRow; // Inattainable row number.
+    size_t rk = 0;
+    runValue.push_back(rleVal[0].val);
+    for (auto elt : rleVal) {
+      bool tied = areEqual(elt.val, runValue.back());
+      if (tied && elt.row == rowNext) { // Run continues.
+	rlePred.back().extent += elt.extent;
+      }
+      else { // New RLE, rank entries regardless whether tied.
+	if (!tied) {
+	  rk++;
+	  runValue.push_back(elt.val);
+	}
+	rlePred.emplace_back(RLEVal<szType>(rk, elt.row, elt.extent));
+      }
+      rowNext = rlePred.back().row + rlePred.back().extent;
+    }
+  }
+
+
+public:
 
   RLECresc(size_t nRow_,
 	   unsigned int nPred);
@@ -119,24 +188,30 @@ class RLECresc {
      @brief Computes unit size for cross-compatibility of serialization.
    */
   static constexpr size_t unitSize() {
-    return sizeof(RLEVal<unsigned int>);
+    return sizeof(RLEVal<szType>);
   }
 
 
-  void setFactor(unsigned int predIdx, bool isFactor) {
-    if (isFactor) {
-      predForm[predIdx] = PredictorForm::factor;
+  /**
+     @parm topIdx is the highest factor index, excluding NA proxy.
+
+     'topIdx' records the factor encoding employed by the front end,
+     irrespective of whether the level indices are zero- or one-based.
+   */
+  void setFactor(unsigned int predIdx,
+		 unsigned int topIdx) {
+    if (topIdx > 0) {
       typedIdx[predIdx] = nFactor++;
     }
     else {
-      predForm[predIdx] = PredictorForm::numeric;
       typedIdx[predIdx] = nNumeric++;
     }
+    this->topIdx[predIdx] = topIdx;
   }
 
   unsigned int getTypedIdx(unsigned int predIdx,
 			   bool& isFactor) const {
-    isFactor = predForm[predIdx] == PredictorForm::factor;
+    isFactor = topIdx[predIdx] > 0;
     return typedIdx[predIdx];
   }
   
@@ -151,13 +226,8 @@ class RLECresc {
   }
 
   
-  vector<unsigned int> dumpPredForm() const {
-    vector<unsigned int> predFormOut(predForm.size());
-    unsigned int i = 0;
-    for (auto pf : predForm) {
-      predFormOut[i++] = static_cast<unsigned int>(pf);
-    }
-    return predFormOut;
+  vector<unsigned int> dumpTopIdx() const {
+    return topIdx;
   }
 
   
@@ -232,95 +302,19 @@ class RLECresc {
 
 
   /**
-     @brief Presorts runlength-encoded numerical block supplied by front end.
-
-     @param feVal[] is a vector of valType values.
-
-     @param feRowStart[] maps row indices to offset within value vector.
-
-     @param feRunLength[] is length of each run of values.
-   */
-  template<typename valType>
-  vector<vector<valType>> encodeSparse(unsigned int nPredType,
-				      const vector<valType>&  feVal,
-				      const vector<size_t>&  feRowStart,
-				      const vector<size_t>&  feRunLength) {
-    vector<vector<valType>> val(nPredType);
-    size_t colOff = 0;
-    unsigned int predIdx = 0;
-    for (auto & valPred : val) {
-      colOff += sortSparse(valPred, predIdx++, &feVal[colOff], &feRowStart[colOff], &feRunLength[colOff]);
-    }
-    return val;
-  }
-
-
-  template<typename valType>
-  size_t sortSparse(vector<valType>& valPred,
-		    unsigned int predIdx,
-		    const double feCol[],
-		    const size_t feRowStart[],
-		    const size_t feRunLength[]) {
-    vector<RLEVal<valType> > rleVal;
-    size_t rleIdx = 0;
-    for (size_t rowTot = 0; rowTot < nRow; rowTot += feRunLength[rleIdx++]) {
-      rleVal.emplace_back(RLEVal<double>(feCol[rleIdx], feRowStart[rleIdx], feRunLength[rleIdx]));
-    }
-    // Postcondition:  rleNum.size() == caller's vector length.
-
-    sort(rleVal.begin(), rleVal.end(), RLECompare<valType>);
-    encode(valPred, rleVal, rle[predIdx]);
-
-    return rleVal.size();
-  }
-
-  
-  /**
-     @brief Stores ordered predictor column, entering uncompressed.
-
-     @param rleVal is a sparse representation of the value/row-number pairs.
-  */
-  template<typename valType>
-  void encode(vector<valType>& valPred,
-	      const vector<RLEVal<valType> >& rleVal,
-	      vector<RLEVal<unsigned int>>& rlePred) {
-    size_t rowNext = nRow; // Inattainable row number.
-    size_t rk = 0;
-    valPred.push_back(rleVal[0].val);
-    for (auto elt : rleVal) {
-      valType valThis = elt.val;
-      auto rowThis = elt.row;
-      auto runCount = elt.extent;
-      if (valThis == valPred.back() && rowThis == rowNext) { // Run continues.
-	rlePred.back().extent += runCount;
-      }
-      else { // New RLE, rank entries regardless whether tied.
-	if (valThis != valPred.back()) {
-	  rk++;
-	  valPred.push_back(valThis);
-	}
-	rlePred.emplace_back(RLEVal<unsigned int>(rk, rowThis, runCount));
-      }
-      rowNext = rlePred.back().row + rlePred.back().extent;
-    }
-  }
-
-
-  /**
-     @brief Sorts and run-encodes a contiguous column of values.
+     @brief Sorts and run-encodes a contiguous set of predictor values.
 
      @param val points to the base of the column.
 
-     @param[out] valOut is the vector of encoded values.
+     @param[out] valOut tabulates the predictor values.
 
-     @param predIdx is the predictor (column) index.
+     @param[out] rleVal encodes the run-length elements.
    */
   template<typename valType>
-  void encodeColumn(const valType* val,
+  void encodeColumn(const valType val[],
 		    vector<valType>& valOut,
-		    unsigned int predIdx) {
-    ValRank<valType> valRank(&val[0], nRow);
-    encode(valRank, valOut, rle[predIdx]);
+		    vector<RLEVal<szType>>& rleVal) {
+    encode(RankedObs<valType>(val, nRow), valOut, rleVal);
   }
 };
 #endif

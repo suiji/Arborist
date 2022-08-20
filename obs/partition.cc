@@ -14,7 +14,7 @@
  */
 
 #include "partition.h"
-#include "layout.h"
+#include "predictorframe.h"
 #include "splitnux.h"
 
 #include <numeric>
@@ -23,7 +23,7 @@
 /**
    @brief Base class constructor.
  */
-ObsPart::ObsPart(const Layout* layout,
+ObsPart::ObsPart(const PredictorFrame* layout,
 		 IndexT bagCount_) :
   bagCount(bagCount_),
   bufferSize(layout->getSafeSize(bagCount)),
@@ -46,8 +46,8 @@ ObsPart::~ObsPart() {
 }
 
 
-IndexT* ObsPart::getIdxBuffer(const SplitNux* nux) const {
-  return idxBuffer(nux->getStagedCell());
+IndexT* ObsPart::getIdxBuffer(const SplitNux& nux) const {
+  return idxBuffer(nux.getStagedCell());
 }
 
 
@@ -56,14 +56,14 @@ Obs* ObsPart::getBuffers(const SplitNux& nux, IndexT*& sIdx) const {
 }
 
 
-Obs* ObsPart::getPredBase(const SplitNux* nux) const {
-  return getPredBase(nux->getStagedCell());
+Obs* ObsPart::getPredBase(const SplitNux& nux) const {
+  return getPredBase(nux.getStagedCell());
 }
 
 
-IndexT ObsPart::getSampleIndex(const SplitNux* cand,
+IndexT ObsPart::getSampleIndex(const SplitNux& cand,
 			       IndexT obsIdx) const {
-  return idxBuffer(cand->getStagedCell())[obsIdx];
+  return idxBuffer(cand.getStagedCell())[obsIdx];
 }
 
 

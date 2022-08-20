@@ -30,12 +30,11 @@ struct StagedCell {
   const unsigned char trackRuns; ///< Whether to order run values.
   unsigned char live; ///< Initialized to true; false is sticky.
   const IndexT valIdx; ///< Base offset of run values, iff tracked.
-  const IndexT rankImplicit; ///< Valid iff implicit observations.
   IndexT runCount; ///< # runs.
   IndexRange obsRange; ///< Initialized from node; adjusted.
   IndexT obsImplicit; ///<  # implicit observations.
   IndexT preResidual; ///< # obs preceding residual, iff implicit.
-  IndexT preNA; ///< # obs preceding NA.
+  IndexT obsMissing; ///< # obs with missing predictor values.
 
   /**
      @brief Root constructor.
@@ -44,14 +43,12 @@ StagedCell(PredictorT predIdx,
 	   IndexT valIdx_,
 	   IndexT extent,
 	   IndexT runCount_,
-	   IndexT rankImplicit_,
 	   bool trackRuns_ = false)
   : coord(SplitCoord(0, predIdx)),
     bufIdx(0),
     trackRuns(trackRuns_),
     live(true),
     valIdx(valIdx_),
-    rankImplicit(rankImplicit_),
     runCount(runCount_),
     obsRange(IndexRange(0, extent)),
     preResidual(0) {
@@ -70,7 +67,6 @@ StagedCell(IndexT nodeIdx,
     trackRuns(source.trackRuns),
     live(true),
     valIdx(valIdx_),
-    rankImplicit(source.rankImplicit),
     obsRange(range_),
     preResidual(0) {
   }
@@ -117,11 +113,13 @@ StagedCell(IndexT nodeIdx,
 
   
   /**
-     @brief Sets range internally:  root only.
+     @brief Updates observation statistics; root only.
    */
-  void updateRange(IndexT implicitCount) {
+  void updateCounts(IndexT implicitCount,
+		    IndexT obsMissing) {
     obsRange.idxExtent -= implicitCount;
     obsImplicit = implicitCount;
+    this->obsMissing = obsMissing;
   }
 
 
@@ -131,10 +129,10 @@ StagedCell(IndexT nodeIdx,
   void updatePath(IndexT idxStart,
 		  IndexT extent,
 		  IndexT preResidual,
-		  IndexT preNA) {
+		  IndexT obsMissing) {
     setRange(idxStart, extent);
     this->preResidual = preResidual;
-    this->preNA = preNA;
+    this->obsMissing = obsMissing;
   }
   
 
@@ -167,14 +165,6 @@ StagedCell(IndexT nodeIdx,
 
 
   /**
-     @return true iff missing data present.
-   */
-  bool missingData() const {
-    return false;
-  }
-  
-
-  /**
      @return total number of explicit and implicit ranks.
    */
   inline IndexT getRunCount() const {
@@ -182,16 +172,19 @@ StagedCell(IndexT nodeIdx,
   }
 
 
-  bool isSingleton() const {
-    return runCount == 1;
+  /**
+     @return true iff at least two distinct values present.
+   */
+  bool splitable() const {
+    return runCount > 1;
   }
 
 
   /**
-     @return true iff cell has ties.
+     @return true iff cell has trackable ties.
    */
-  bool hasTies() const {
-    if (obsImplicit != 0)
+  bool trackableTies() const {
+    if (obsImplicit != 0) // Possible ties, but untrackable.
       return runCount != (obsRange.getExtent() + 1);
     else
       return runCount != obsRange.getExtent();

@@ -16,7 +16,7 @@
 #include "rftrain.h"
 #include "bv.h"
 #include "train.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "frontier.h"
 #include "pretree.h"
 #include "partition.h"
@@ -55,8 +55,8 @@ void RfTrain::initSplit(unsigned int minNode,
 }
 
 
-void RfTrain::initMono(const TrainFrame* frame,
-                     const vector<double> &regMono) {
+void RfTrain::initMono(const PredictorFrame* frame,
+		       const vector<double> &regMono) {
   SFRegCart::immutables(frame, regMono);
 }
 

@@ -15,23 +15,36 @@
  */
 
 #include "typeparam.h"
+#include "sumcount.h"
+
 
 struct Accum {
+private:
+  SumCount filterMissing(const class SplitNux& cand) const;
+
+protected:
+  // Information is initialized according to the splitting method.
+  double info; ///< Information high watermark.
+
+  void filterMissingCtg(const SplitNux& cand,
+			double& sumSquars,
+			vector<double>& ctgSum) const;
+
+
+public:
   const class Obs* obsCell;
   const IndexT* sampleIndex;
   const IndexT obsStart;///< Low terminus.
   const IndexT obsEnd; ///< sup.
-  const double sumCand;
+  const SumCount sumCount; ///< Initialized from candidate, filtered.
   const IndexT cutResidual; ///< Rightmost position > any residual.
-  const IndexT sCountCand;
   const IndexT implicitCand;
 
   double sum; ///< Running sum of trial LHS response.
   IndexT sCount; ///< Running sum of trial LHS sample counts.
-  double info; ///< Information high watermark.  Precipitates split iff > 0.0 after update.
 
   Accum(const class SplitFrontier* splitFrontier,
-	const class SplitNux* cand);
+	const class SplitNux& cand);
 
   /**
      @brief Computes weighted-variance for trial split.

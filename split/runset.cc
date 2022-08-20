@@ -21,15 +21,14 @@
 #include "runset.h"
 
 
-RunSet::RunSet(const SplitFrontier* sf,
-	       IndexT nRow) :
+RunSet::RunSet(const SplitFrontier* sf) :
   style(sf->getFactorStyle()),
   wideRuns(0) {
 }
 
 
 IndexT RunSet::addRun(const SplitFrontier* splitFrontier,
-		      const SplitNux* cand) {
+		      const SplitNux& cand) {
   runAccum.emplace_back(splitFrontier, cand, style);
   wideRuns += runAccum.back().countWide();
   return runAccum.size() - 1; // Top position.
@@ -59,8 +58,8 @@ vector<IndexRange> RunSet::getTopRange(const SplitNux& nux, const CritEncoding& 
 }
 
 
-IndexT RunSet::getImplicitTrue(const SplitNux* nux) const {
-  return runAccum[nux->getAccumIdx()].getImplicitTrue();
+IndexT RunSet::getImplicitTrue(const SplitNux& nux) const {
+  return runAccum[nux.getAccumIdx()].getImplicitTrue();
 }
 
 

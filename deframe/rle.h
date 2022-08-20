@@ -20,15 +20,6 @@
 using namespace std;
 
 /**
-   @brief Characterization of predictor type, irrespective of
-   storage class.
-
-   Not an appropriate contract for the long term.
- */
-enum class PredictorForm { numeric, factor };
-
-
-/**
    @brief Run-length encoding class for parametrized type.
  */
 
@@ -37,8 +28,7 @@ struct RLE {
   valType val;
   size_t extent;
 
-  RLE() {
-  }
+  RLE() = default;
 
   
   RLE(const valType& val_,

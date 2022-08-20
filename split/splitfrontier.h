@@ -39,11 +39,9 @@ enum class SplitStyle { slots, bits, topSlot };
 class SplitFrontier {
 
 protected:
-  const class TrainFrame* frame; // Summarizes the internal predictor reordering.
+  const class PredictorFrame* frame; // Summarizes the internal predictor reordering.
   class Frontier* frontier;  // Current frontier of the partition tree.
   class InterLevel* interLevel;
-  class ObsFrontier* ofFront;
-  const PredictorT nPred;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
@@ -53,10 +51,8 @@ protected:
 
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
-  
-  vector<double> nodeInfo; // Node-level information threshold, set virtually.
 
-  
+
   /**
      @brief Derives and applies maximal simple criteria.
    */
@@ -108,15 +104,9 @@ public:
   /**
      @brief Computes number of bits employed by criterion.
 
-     Placeholder bit for proxy lies one beyond the factor's cardinality and
-     remains unset for quick test exit.  To support trap-and-bail for factors,
-     the number of bits should double, allowing lookup of (in)visibility state.
-
-     @return predictor cardinality plus one for proxy bit.
+     @return frame run count plus one for proxy bit.
    */
-  PredictorT critBitCount(const SplitNux& nux) const {
-    return 1 + nux.getCardinality(frame);
-  }
+  PredictorT critBitCount(const SplitNux& nux) const;
 
 
   /**
@@ -146,13 +136,13 @@ public:
 
      @param cand is the candidate associated to the accumulator.
    */
-  IndexT addAccumulator(const class SplitNux* cand) const;
+  IndexT addAccumulator(const class SplitNux& cand) const;
 
 
   /**
      @brief Records splitting state associated with cut.
    */
-  void writeCut(const class SplitNux* nux,
+  void writeCut(const class SplitNux& nux,
 		const class CutAccum* accum) const;
 
 
@@ -180,7 +170,7 @@ public:
 
      @return pointer to beginning of partition associated with the candidate.
    */
-  class Obs* getPredBase(const SplitNux* cand) const;
+  class Obs* getPredBase(const SplitNux& cand) const;
 
   
   /**
@@ -188,31 +178,31 @@ public:
 
      @return interpolated quantile for cut.
    */
-  double getQuantRank(const class SplitNux* nux) const;
+  double getQuantRank(const class SplitNux& nux) const;
 
 
   /**
      @brief Gets right SR index of cut.
    */
-  IndexT getIdxRight(const class SplitNux* nux) const;
+  IndexT getIdxRight(const class SplitNux& nux) const;
 
   
   /**
      @brief Get left SR index of cut.
    */
-  IndexT getIdxLeft(const class SplitNux* nux) const;
+  IndexT getIdxLeft(const class SplitNux& nux) const;
 
 
   /**
      @return count of implicit SR indices targeted to true branch.
    */
-  IndexT getImplicitTrue(const class SplitNux* nux) const;
+  IndexT getImplicitTrue(const class SplitNux& nux) const;
 
 
   /**
      @return true iff split is a left cut.
    */
-  bool leftCut(const SplitNux* cand) const;
+  bool leftCut(const SplitNux& cand) const;
   
 
   /**
@@ -222,29 +212,7 @@ public:
 
      @return true iff predictor is a factor.
    */
-/**
-   @brief Determines whether split coordinate references a factor value.
-
-   @return true iff predictor is a factor.
- */
-  bool isFactor(PredictorT predIdx) const;
-
-
-  /**
-     @brief Getter for pre-info value, by index.
-
-     @param splitIdx is the index.
-
-     @param return pre-bias value.
-   */
-  inline double getPreinfo(const StagedCell* preCand) const {
-    return nodeInfo[preCand->getNodeIdx()];
-  }
-
-
-  inline PredictorT getNPred() const {
-    return nPred;
-  }
+  bool isFactor(const class SplitNux& nux) const;
 
 
   /**
@@ -291,12 +259,12 @@ public:
   /**
      @brief Passes through to ObsPart method.
    */
-  IndexT* getIdxBuffer(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux& nux) const;
   
   
   /**
    */
-  RunAccumT* getRunAccum(const class SplitNux* nux) const;
+  RunAccumT* getRunAccum(const class SplitNux& nux) const;
 
 
   /**
@@ -330,7 +298,7 @@ public:
 
 
   // These are run-time invariant and need not be virtual:
-  virtual void frontierPreset() = 0;
+  virtual void frontierPreset() {}
 
   virtual double getScore(const class IndexSet& iSet) const = 0;
 };
@@ -359,7 +327,7 @@ struct SFReg : public SplitFrontier {
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void immutables(const class TrainFrame* summaryFrame,
+  static void immutables(const class PredictorFrame* summaryFrame,
                          const vector<double>& feMono);
 
   /**
@@ -373,7 +341,7 @@ struct SFReg : public SplitFrontier {
 
      @return constraint sign, if within the splitting probability, else zero.
   */
-  int getMonoMode(const class SplitNux* cand) const;
+  int getMonoMode(const class SplitNux& cand) const;
 
   
   /**
@@ -390,7 +358,6 @@ protected:
   const PredictorT nCtg;
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
   vector<double> sumSquares; // Per-layer sum of squares, by split.
-  vector<double> ctgSumAccum; // Numeric predictors:  accumulate sums.
   vector<double> ctgJitter; // Breaks scoring ties at node.
 
   
@@ -403,24 +370,15 @@ public:
   
   double getScore(const class IndexSet& iSet) const;
 
+
   /**
-     @brief Accesses per-category sum vector associated with candidate's node.
+     @brief Copies per-category sum vector associated with candidate's node.
 
      @param cand is the splitting candidate.
 
-     @return reference vector of per-category sums.
+     @return reference to vector of per-category sums.
    */
-  const vector<double>& getSumSlice(const class SplitNux* cand) const;
-
-
-  /**
-     @brief Provides slice into accumulation vector for a splitting candidate.
-
-     @param cand is the splitting candidate.
-
-     @return raw pointer to per-category accumulation vector for pair.
-   */
-  double* getAccumSlice(const class SplitNux* cand);
+  const vector<double>& ctgNodeSums(const class SplitNux& cand) const;
 
 
   /**
@@ -430,7 +388,7 @@ public:
 
      @return sum, over categories, of node reponse values.
    */
-  double getSumSquares(const class SplitNux* cand) const;
+  double getSumSquares(const class SplitNux& cand) const;
 };
 
 

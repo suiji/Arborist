@@ -39,11 +39,8 @@ public:
 
   /**
      @brief Constructor.
-
-     @param nRow is the number of training rows:  inattainable offset.
   */
-  RunSet(const class SplitFrontier* sf,
-	 IndexT nRow);
+  RunSet(const class SplitFrontier* sf);
 
 
   /**
@@ -52,7 +49,7 @@ public:
      @return offset of run just appended.
    */
   IndexT addRun(const class SplitFrontier* splitFrontier,
-		const class SplitNux* cand);
+		const class SplitNux& cand);
 
 
   /**
@@ -100,7 +97,7 @@ public:
 
      @return sum of implicit extents over LH runs.
    */
-  IndexT getImplicitTrue(const class SplitNux* nux) const;
+  IndexT getImplicitTrue(const class SplitNux& nux) const;
   
 
   /**

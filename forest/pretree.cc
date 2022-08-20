@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 #include "train.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "indexset.h"
 #include "leaf.h"
 #include "samplemap.h"
@@ -28,12 +28,12 @@
 IndexT PreTree::leafMax = 0;
 
 
-PreTree::PreTree(const TrainFrame* frame,
+PreTree::PreTree(const PredictorFrame* frame,
 		 IndexT bagCount) :
   leafCount(0),
   infoLocal(vector<double>(frame->getNPred())),
-  splitBits(BV(bagCount * frame->getCardExtent())), // Vague estimate.
-  observedBits(BV(bagCount * frame->getCardExtent())),
+  splitBits(BV(bagCount * frame->getFactorExtent())), // Vague estimate.
+  observedBits(BV(bagCount * frame->getFactorExtent())),
   bitEnd(0) {
   offspring(0, true);
 }
@@ -75,7 +75,7 @@ void PreTree::addCriterion(const SplitFrontier* sf,
   if (nux.noNux())
     return;
 
-  if (nux.isFactor(sf)) {
+  if (sf->isFactor(nux)) {
     critBits(sf, nux);
   }
   else {
@@ -98,13 +98,13 @@ void PreTree::critBits(const SplitFrontier* sf,
   bitEnd += sf->critBitCount(nux);
   sf->setTrueBits(nux, &splitBits, bitPos);
   sf->setObservedBits(nux, &observedBits, bitPos);
-  getNode(nux.getPTId()).critBits(&nux, bitPos);
+  getNode(nux.getPTId()).critBits(nux, bitPos);
 }
 
 
 void PreTree::critCut(const SplitFrontier* sf,
 		      const SplitNux& nux) {
-  getNode(nux.getPTId()).critCut(&nux, sf);
+  getNode(nux.getPTId()).critCut(nux, sf);
 }
 
 

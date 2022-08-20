@@ -21,7 +21,7 @@
 #include "interlevel.h"
 
 
-CutAccum::CutAccum(const SplitNux* cand,
+CutAccum::CutAccum(const SplitNux& cand,
 		   const SplitFrontier* splitFrontier) :
   Accum(splitFrontier, cand),
   obsLeft(-1),
@@ -30,8 +30,8 @@ CutAccum::CutAccum(const SplitNux* cand,
 }
 
 
-IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
-  IndexT implicitCand = cand->getImplicitCount();
+IndexT CutAccum::lhImplicit(const SplitNux& cand) const {
+  IndexT implicitCand = cand.getImplicitCount();
   if (implicitCand == 0) // cutResidual set to 0 otherwise.
     return 0;
 
@@ -50,7 +50,7 @@ IndexT CutAccum::lhImplicit(const SplitNux* cand) const {
 
 
 double CutAccum::interpolateRank(const InterLevel* interLevel,
-				 const SplitNux* cand) const {
+				 const SplitNux& cand) const {
   if (obsRight == cutResidual) { // iff splitting residual on R/L.
     return interLevel->interpolateRank(cand, residualLeft ? obsRight : obsLeft, residualLeft);
   }
@@ -60,59 +60,56 @@ double CutAccum::interpolateRank(const InterLevel* interLevel,
 }
 
 
-CutAccumReg::CutAccumReg(const SplitNux* cand,
+CutAccumReg::CutAccumReg(const SplitNux& cand,
 			 const SFReg* sfReg) :
   CutAccum(cand, sfReg),
   monoMode(sfReg->getMonoMode(cand)) {
 }
 
 
-CutAccumCtg::CutAccumCtg(const SplitNux* cand,
+CutAccumCtg::CutAccumCtg(const SplitNux& cand,
 			 SFCtg* sfCtg) :
   CutAccum(cand, sfCtg),
   nCtg(sfCtg->getNCtg()),
-  nodeSum(sfCtg->getSumSlice(cand)),
-  ctgAccum(sfCtg->getAccumSlice(cand)),
+  ctgSum(sfCtg->ctgNodeSums(cand)),
+  ctgAccum(vector<double>(nCtg)),
   ssL(sfCtg->getSumSquares(cand)),
   ssR(0.0) {
+  filterMissingCtg(cand, ssL, ctgSum);
 }
 
 
-void CutAccum::residualReg(const Obs* obsCell,
-			const SplitNux* nux) {
-  const Obs* obsStart = obsCell + nux->getObsStart();
-  IndexT extent = nux->getObsExtent();
+void CutAccum::residualReg(const Obs* obsCell) {
   double ySumObs = 0.0;
   IndexT sCountObs = 0;
-
-  for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-    ySumObs += obs->getYSum();
-    sCountObs += obs->getSCount();
+  for (IndexT obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
+    const Obs& obs = obsCell[obsIdx];
+    ySumObs += obs.getYSum();
+    sCountObs += obs.getSCount();
   }
 
-  sum -= (nux->getSum() - ySumObs);
-  sCount -= (nux->getSCount() - sCountObs);
+  sum -= (sumCount.sum - ySumObs);
+  sCount -= (sumCount.sCount - sCountObs);
 }
 
 
-void CutAccumCtg::residualCtg(const Obs* obsCell,
-			   const SplitNux* nux) {
-  vector<double> ctgResid(nodeSum);
+void CutAccumCtg::residualCtg(const Obs* obsCell) {
+  vector<double> ctgResid(ctgSum);
   for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
     accumCtgSS(ctgResid[ctg], ctg);
   }
 
-  const Obs* obsStart = obsCell + nux->getObsStart();
-  IndexT extent = nux->getObsExtent();
   double ySumExpl = 0.0;
   IndexT sCountExpl = 0;
-  for (const Obs* obs = obsStart; obs != obsStart + extent; obs++) {
-      double ySumObs = obs->getYSum();
-      ctgResid[obs->getCtg()] -= ySumObs;
-      ySumExpl += ySumObs;
-      sCountExpl += obs->getSCount();
+  for (IndexT obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
+    const Obs& obs = obsCell[obsIdx];
+    double ySumObs = obs.getYSum();
+    ctgResid[obs.getCtg()] -= ySumObs;
+    ySumExpl += ySumObs;
+    sCountExpl += obs.getSCount();
   }
-  sum -= (nux->getSum() - ySumExpl);
-  sCount -= (nux->getSCount() - sCountExpl);
+  sum -= (sumCount.sum - ySumExpl);
+  sCount -= (sumCount.sCount - sCountExpl);
 }
+
 

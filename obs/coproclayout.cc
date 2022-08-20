@@ -14,11 +14,12 @@
  */
 
 #include "coproc.h"
-#include "layout.h"
+#include "predictorframe.h"
 
 
-Layout *Layout::Factory(const Coproc *coproc,
-			const TrainFrame* trainFrame,
-			double autoCompress) {
-  return new Layout(trainFrame, autoCompress);
+PredictorFrame *PredictorFrame::Factory(const RLEFrame* rleFrame,
+			const Coproc *coproc,
+			double autoCompress,
+			vector<string>& diag) {
+  return new PredictorFrame(rleFrame, autoCompress, true, diag);
 }

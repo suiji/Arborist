@@ -49,7 +49,6 @@ enum class SplitStyle;
    value is used for storage allocation.
 */
 class RunAccum : public Accum {
-  const IndexT rankResidual; ///< residual rank, if any.
   const PredictorT nCtg; // Non-zero iff classification.
   const IndexT runCount; ///< # runs counted by repartitioning.
   IndexT sampledRuns; ///< # sampled runs.
@@ -64,7 +63,7 @@ class RunAccum : public Accum {
   PredictorT runsTrue; // Count of true-run slots.
   PredictorT splitToken; // Cut or bits.
   IndexT implicitTrue; // # implicit true-sense indices:  post-encoding.
-
+  vector<double> ctgSum; ///> per-category sum of responses in node.
 
   /**
      @brief Subtracts contents of top run from accumulators and sets its
@@ -104,14 +103,14 @@ class RunAccum : public Accum {
      @brief Accumulates runs for regression.
    */
   void regRuns(const struct SFReg* sf,
-	       const SplitNux* cand);
+	       const SplitNux& cand);
 
 
   /**
      @brief As above, but also tracks a residual slot.
    */
   void regRunsImplicit(const struct SFReg* sf,
-		       const SplitNux* cand);
+		       const SplitNux& cand);
 
   
   /**
@@ -128,14 +127,14 @@ class RunAccum : public Accum {
      @param sumSlice is the per-category response decomposition.
   */
   void ctgRuns(const class SFCtg* sf,
-	       const class SplitNux* cand);
+	       const class SplitNux& cand);
 
   
   /**
      @brief As above, but also tracks a residual slot
    */
   void ctgRunsImplicit(const class SFCtg* sf,
-		       const class SplitNux* cand);
+		       const class SplitNux& cand);
 
 
   /**
@@ -152,13 +151,13 @@ class RunAccum : public Accum {
 
      @param ctgSum is the per-category sum of responses.
   */
-  void ctgGini(const class SFCtg* sf, const SplitNux* cand);
+  void ctgGini(const class SFCtg* sf, const SplitNux& cand);
 
   
   /**
      @brief As above, but specialized for binary response.
    */
-  void binaryGini(const class SFCtg* sf, const SplitNux* cand);
+  void binaryGini(const class SFCtg* sf, const SplitNux& cand);
 
   
   /**
@@ -194,9 +193,11 @@ class RunAccum : public Accum {
 public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
 
-  
+
+  /**
+   */
   RunAccum(const class SplitFrontier* splitFrontier,
-	   const class SplitNux* cand,
+	   const class SplitNux& cand,
 	   SplitStyle style);
 
 
@@ -236,28 +237,28 @@ public:
      @breif Static entry for regression splitting.
    */
   static void split(const struct SFReg* sf,
-		    class SplitNux* cand);
+		    class SplitNux& cand);
 
   
   /**
      @brief Private entry for regression splitting.
    */
   void splitReg(const struct SFReg* sf,
-		class SplitNux* cand);
+		class SplitNux& cand);
 
 
   /**
      @brief Static entry for classification splitting.
    */
   static void split(const class SFCtg* sf,
-		    class SplitNux* cand);
+		    class SplitNux& cand);
   
 
   /**
      @brief Private entry for categorical splitting.
    */
   void splitCtg(const class SFCtg* sf,
-		class SplitNux* cand);
+		class SplitNux& cand);
 
 
   /**
@@ -301,7 +302,7 @@ public:
      @param maskSense indicates whether to screen set or unset mask.
    */  
   void regRunsMasked(const struct SFReg* sf,
-		     const SplitNux* cand,
+		     const SplitNux& cand,
 		     const class BranchSense* branchSense,
 		     IndexT edgeRight,
 		     IndexT edgeLeft,
@@ -510,8 +511,7 @@ public:
 
      @return Gini coefficient of subset.
    */
-  double subsetGini(const vector<double>& sumSlice,
-		    unsigned int subset) const;
+  double subsetGini(unsigned int subset) const;
 
 
   /**

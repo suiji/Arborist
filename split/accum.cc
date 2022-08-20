@@ -19,18 +19,44 @@
 
 
 Accum::Accum(const SplitFrontier* splitFrontier,
-	     const SplitNux* cand) :
+	     const SplitNux& cand) :
   obsCell(splitFrontier->getPredBase(cand)),
   sampleIndex(splitFrontier->getIdxBuffer(cand)),
-  obsStart(cand->getObsStart()),
-  obsEnd(cand->getObsEnd()),
-  sumCand(cand->getSum()),
-  cutResidual(obsStart + cand->getPreresidual()),
-  sCountCand(cand->getSCount()),
-  implicitCand(cand->getImplicitCount()),
-  sum(sumCand),
-  sCount(sCountCand),
-  info(cand->getInfo()) {
+  obsStart(cand.getObsStart()),
+  obsEnd(cand.getObsEnd() - cand.getNMissing()),
+  sumCount(filterMissing(cand)),
+  cutResidual(obsStart + cand.getPreresidual()),
+  implicitCand(cand.getImplicitCount()),
+  sum(sumCount.sum),
+  sCount(sumCount.sCount) {
+}
+
+
+SumCount Accum::filterMissing(const SplitNux& cand) const {
+  double sumCand = cand.getSum();
+  IndexT sCountCand = cand.getSCount();
+  for (IndexT obsIdx = obsEnd; obsIdx != obsEnd + cand.getNMissing(); obsIdx++) {
+    Obs obs = obsCell[obsIdx];
+    sumCand -= obs.getYSum();
+    sCountCand -= obs.getSCount();
+  }
+
+  // Regression:  info = (sumCand * sumCand) / sCountCand; 
+  // Ctg: info = sumSquaresCand / sumCand  
+  return SumCount(sumCand, sCountCand);
+}
+
+
+void Accum::filterMissingCtg(const SplitNux& cand,
+			     double& ssL,
+			     vector<double>& ctgSum) const {
+  for (IndexT obsIdx = obsEnd; obsIdx != obsEnd + cand.getNMissing(); obsIdx++) {
+    const Obs& obs = obsCell[obsIdx];
+    PredictorT ctg = obs.getCtg();
+    double ySum = obs.getYSum();
+    ssL -= ySum * ySum;
+    ctgSum[ctg] -= ySum;
+  }
 }
 
 

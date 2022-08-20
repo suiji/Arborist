@@ -15,7 +15,7 @@
 
 
 #include "treenode.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "bv.h"
 #include "predict.h"
 #include "splitnux.h"
@@ -36,24 +36,24 @@ void TreeNode::deInit() {
 }
 
 
-void TreeNode::critCut(const SplitNux* nux,
+void TreeNode::critCut(const SplitNux& nux,
 		       const class SplitFrontier* splitFrontier) {
-  setPredIdx(nux->getPredIdx());
+  setPredIdx(nux.getPredIdx());
   criterion.critCut(nux, splitFrontier);
 }
 
 
-void TreeNode::critBits(const SplitNux* nux,
+void TreeNode::critBits(const SplitNux& nux,
 			size_t bitPos) {
-  setPredIdx(nux->getPredIdx());
+  setPredIdx(nux.getPredIdx());
   criterion.critBits(bitPos);
 }
   
 
-void TreeNode::setQuantRank(const TrainFrame* trainFrame) {
+void TreeNode::setQuantRank(const PredictorFrame* frame) {
   PredictorT predIdx = getPredIdx();
-  if (isNonterminal() && !trainFrame->isFactor(predIdx)) {
-    criterion.setQuantRank(trainFrame, predIdx);
+  if (isNonterminal() && !frame->isFactor(predIdx)) {
+    criterion.setQuantRank(frame, predIdx);
   }
 }
 

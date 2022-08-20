@@ -59,9 +59,9 @@ public:
 
      Parameters as with low-level implementation.
   */
-  void splitUpdate(const class TrainFrame* trainFrame) {
+  void splitUpdate(const class PredictorFrame* frame) {
     for (auto & tn : treeNode) {
-      tn.setQuantRank(trainFrame);
+      tn.setQuantRank(frame);
     }
   }
 };
@@ -301,8 +301,8 @@ class Forest {
 
      @param summaryFrame records the predictor types.
   */
-  void splitUpdate(const class TrainFrame* trainFrame) {
-    nodeCresc->splitUpdate(trainFrame);
+  void splitUpdate(const class PredictorFrame* frame) {
+    nodeCresc->splitUpdate(frame);
   }
 
   

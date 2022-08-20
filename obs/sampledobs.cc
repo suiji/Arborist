@@ -17,7 +17,7 @@
 #include "sampler.h"
 #include "response.h"
 #include "sampledobs.h"
-#include "layout.h"
+#include "predictorframe.h"
 #include "ompthread.h"
 
 #include <numeric>
@@ -34,26 +34,24 @@ SampledObs::SampledObs(const Sampler* sampler,
 }
 
     
-unique_ptr<SampleCtg> SampledObs::factoryCtg(const Layout* layout,
-					     const Sampler* sampler,
+unique_ptr<SampleCtg> SampledObs::factoryCtg(const Sampler* sampler,
 					     const Response* response,
 					     const vector<double>& y,
 					     const vector<PredictorT>& yCtg,
 					     unsigned int tIdx) {
   unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(sampler, response);
-  sampleCtg->bagSamples(layout, sampler, yCtg, y, tIdx);
+  sampleCtg->bagSamples(sampler, yCtg, y, tIdx);
 
   return sampleCtg;
 }
 
 
-unique_ptr<SampleReg> SampledObs::factoryReg(const Layout* layout,
-					     const Sampler* sampler,
+unique_ptr<SampleReg> SampledObs::factoryReg(const Sampler* sampler,
 					     const Response* response,
 					     const vector<double>& y,
 					     unsigned int tIdx) {
   unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(sampler, response);
-  sampleReg->bagSamples(layout, sampler, y, tIdx);
+  sampleReg->bagSamples(sampler, y, tIdx);
   return sampleReg;
 }
 
@@ -65,12 +63,11 @@ SampleReg::SampleReg(const Sampler* sampler,
 
 
 
-void SampleReg::bagSamples(const Layout* layout,
-			   const class Sampler* sampler,
+void SampleReg::bagSamples(const class Sampler* sampler,
 			   const vector<double>& y,
 			   unsigned int tIdx) {
   vector<PredictorT> ctgProxy(row2Sample.size());
-  SampledObs::bagSamples(layout, sampler, y, ctgProxy, tIdx);
+  SampledObs::bagSamples(sampler, y, ctgProxy, tIdx);
 }
 
 
@@ -85,17 +82,15 @@ SampleCtg::SampleCtg(const Sampler* sampler,
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::bagSamples(const Layout* layout,
-			   const Sampler* sampler,
+void SampleCtg::bagSamples(const Sampler* sampler,
 			   const vector<PredictorT>& yCtg,
 			   const vector<double>& y,
 			   unsigned int tIdx) {
-  SampledObs::bagSamples(layout, sampler, y, yCtg, tIdx);
+  SampledObs::bagSamples(sampler, y, yCtg, tIdx);
 }
 
 
-void SampledObs::bagSamples(const Layout* layout,
-			    const Sampler* sampler,
+void SampledObs::bagSamples(const Sampler* sampler,
 			    const vector<double>&  y,
 			    const vector<PredictorT>& yCtg,
 			    unsigned int tIdx) {
@@ -116,7 +111,6 @@ void SampledObs::bagSamples(const Layout* layout,
     row2Sample[row] = sIdx++;
   }
  //}
-  setRanks(layout);
 }
 
 
@@ -131,7 +125,7 @@ void SampledObs::bagTrivial(const vector<double>& y,
 }
 
 
-void SampledObs::setRanks(const Layout* layout) {
+void SampledObs::setRanks(const PredictorFrame* layout) {
   sample2Rank = vector<vector<IndexT>>(layout->getNPred());
   runCount = vector<IndexT>(layout->getNPred());
 
@@ -144,7 +138,7 @@ void SampledObs::setRanks(const Layout* layout) {
 }
 
 
-vector<IndexT> SampledObs::sampleRanks(const Layout* layout, PredictorT predIdx) {
+vector<IndexT> SampledObs::sampleRanks(const PredictorFrame* layout, PredictorT predIdx) {
   vector<IndexT> sampledRanks(bagCount);
   const vector<IndexT>& row2Rank = layout->getRanks(predIdx);
   IndexT sIdx = 0;

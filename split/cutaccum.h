@@ -75,8 +75,8 @@ protected:
   }
 
 
-  void residualReg(const Obs* obsCell,
-		   const class SplitNux* nux);
+  void residualReg(const Obs* obsCell);
+
 
   /**
      @brief Revises argmax in right-to-left traversal.
@@ -97,11 +97,11 @@ public:
 
      @param splitFrontier looks up residual rank.
    */
-  CutAccum(const class SplitNux* cand,
+  CutAccum(const class SplitNux& cand,
 	   const class SplitFrontier* splitFrontier);
 
   
-  IndexT lhImplicit(const class SplitNux* cand) const;
+  IndexT lhImplicit(const class SplitNux& cand) const;
 
 
   /**
@@ -110,7 +110,7 @@ public:
      @return fractional splitting rank.
    */
   double interpolateRank(const class InterLevel* interLevel,
-			 const class SplitNux* cand) const;
+			 const class SplitNux& cand) const;
 
 
   /**
@@ -126,11 +126,17 @@ public:
 
 
 class CutAccumCtg : public CutAccum {
+
+  /**
+     @brief Removes missing observations from accumulated values.
+   */
+  void filterMissing(const class SplitNux& cand);
+
 protected:
 
   const PredictorT nCtg; ///< Cadinality of response.
-  const vector<double>& nodeSum; ///< Per-category response sum at node.
-  double* ctgAccum; ///< Slice of compressed accumulation data structure.
+  vector<double> ctgSum; ///< Initializes per-category response.
+  vector<double> ctgAccum; ///< Accumulates per-category response.
   double ssL; ///< Left sum-of-squares accumulator.
   double ssR; ///< Right " ".
 
@@ -166,28 +172,27 @@ protected:
   /**
      @brief Subtracts explicit sum and count values from node totals.
    */
-  void residualCtg(const Obs* obsCell,
-		   const class SplitNux* nux);
+  void residualCtg(const Obs* obsCell);
 
-
+  
 public:
-  CutAccumCtg(const class SplitNux* cand,
+  CutAccumCtg(const class SplitNux& cand,
 	      class SFCtg* sfCtg);
 
 
   /**
      @brief Accumulates running sums of squares by category.
 
-     @param ctgSum is the response sum for a category.
+     @param ySumCtg is the response sum for a category.
 
      @param yCtt is the response category.
    */
-  inline void accumCtgSS(double ctgSum,
+  inline void accumCtgSS(double ySumCtg,
 			 PredictorT yCtg) {
-    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ctgSum);
-    ssR += ctgSum * (ctgSum + 2.0 * sumRCtg);
-    double sumLCtg = nodeSum[yCtg] - sumRCtg;
-    ssL += ctgSum * (ctgSum - 2.0 * sumLCtg);
+    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumCtg);
+    ssR += ySumCtg * (ySumCtg + 2.0 * sumRCtg);
+    double sumLCtg = ctgSum[yCtg] - sumRCtg;
+    ssL += ySumCtg * (ySumCtg - 2.0 * sumLCtg);
   }
 };
 
@@ -198,7 +203,7 @@ protected:
   const int monoMode; ///< Presence/direction of monotone constraint.
 
 public:
-  CutAccumReg(const class SplitNux* splitCand,
+  CutAccumReg(const class SplitNux& splitCand,
 	      const struct SFReg* spReg);
 };
 

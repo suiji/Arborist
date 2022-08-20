@@ -60,12 +60,6 @@ public:
 
 
   /**
-     @brief Revises information value from accumulator's contents.
-   */
-  void infoGain(const struct Accum* accum);
-  
-
-  /**
      @return desired cut range.
    */
   IndexRange cutRange(const class CutSet* cutSet,
@@ -148,23 +142,6 @@ public:
 
 
   /**
-     @brief Reports whether frame identifies underlying predictor as factor-valued.
-
-     @return true iff splitting predictor is a factor.
-   */
-  bool isFactor(const class SplitFrontier* sf) const;
-  
-
-  /**
-     @brief Passes through to frame method.
-
-     @return cardinality iff factor-valued predictor else zero.
-   */
-  PredictorT getCardinality(const class TrainFrame*) const;
-
-
-  
-  /**
      @brief Reports whether potential split be informative with respect to a threshold.
 
      @param minInfo is an information threshold.
@@ -200,6 +177,11 @@ public:
   }
 
 
+  IndexT getNMissing() const {
+    return cell->obsMissing;
+  }
+
+  
   /**
      @return # observations preceding implicit, if any.
    */
@@ -207,11 +189,6 @@ public:
     return cell->preResidual;
   }
 
-  
-  IndexT getRankResidual() const {
-    return cell->rankImplicit;
-  }
-  
 
   auto getRunCount() const {
     return cell->getRunCount();
@@ -306,13 +283,16 @@ public:
   
   
   /**
-     @return Count of implicit indices associated with IndexSet.
+     @return Count of implicit observations associated with cell.
   */   
   IndexT getImplicitCount() const {
     return cell->obsImplicit;
   }
 
 
+  /**
+     @brief Looks up splitting quantile for associated predictor.
+   */
   auto getSplitQuant() const {
     return splitQuant[getPredIdx()];
   }

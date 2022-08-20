@@ -17,7 +17,7 @@
 #include "algparam.h"
 #include "obsfrontier.h"
 #include "indexset.h"
-#include "trainframe.h"
+#include "predictorframe.h"
 #include "sampledobs.h"
 #include "sampler.h"
 #include "train.h"
@@ -38,7 +38,7 @@ void Frontier::deImmutables() {
 }
 
 
-unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
+unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
                                       const Sampler* sampler,
 				      unsigned int tIdx) {
   Frontier frontier(frame, sampler, tIdx);
@@ -46,11 +46,11 @@ unique_ptr<PreTree> Frontier::oneTree(const TrainFrame* frame,
 }
 
 
-Frontier::Frontier(const TrainFrame* frame_,
+Frontier::Frontier(const PredictorFrame* frame_,
 		   const Sampler* sampler,
 		   unsigned int tIdx) :
   frame(frame_),
-  sampledObs(sampler->rootSample(frame->getLayout(), tIdx)),
+  sampledObs(sampler->rootSample(tIdx)),
   bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),
   interLevel(make_unique<InterLevel>(frame, sampledObs.get(), this)),
@@ -60,6 +60,7 @@ Frontier::Frontier(const TrainFrame* frame_,
 
 
 unique_ptr<PreTree> Frontier::levels() {
+  sampledObs->setRanks(frame);
   smNonterm = SampleMap(bagCount);
   smNonterm.addNode(bagCount, 0);
   iota(smNonterm.sampleIndex.begin(), smNonterm.sampleIndex.end(), 0);

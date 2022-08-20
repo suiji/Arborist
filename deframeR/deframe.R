@@ -21,10 +21,6 @@
 
 deframe <- function(x, sigTrain = NULL) {
   # Argument checking:
-  if (any(is.na(x))) {
-    stop("NA not yet supported in design matrix")
-  }
-
   # For now, only numeric and unordered factor types supported.
   #
   # For now, RLE frame is ranked on both training and prediction.

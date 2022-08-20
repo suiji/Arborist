@@ -48,7 +48,7 @@ struct Ancestor {
    @brief Manages definitions reaching the frontier.
  */
 class InterLevel {
-  const class TrainFrame* frame;
+  const class PredictorFrame* frame;
   const PredictorT nPred; // Number of predictors.
   const PredictorT positionMask;
   const unsigned int levelShift;
@@ -56,7 +56,7 @@ class InterLevel {
   
   static constexpr double stageEfficiency = 0.15; // Work efficiency threshold.
 
-  const class Layout* layout;
+  const class PredictorFrame* layout;
   const IndexT noRank; ///< inachievable rank value:  (re)staging.
   const class SampledObs* sampledObs;
   unique_ptr<class IdxPath> rootPath; // Root-relative IdxPath.
@@ -122,7 +122,7 @@ public:
 
      @param frontier_ tracks the frontier nodes.
   */
-  InterLevel(const class TrainFrame* frame,
+  InterLevel(const class PredictorFrame* frame,
 	     const class SampledObs* sampledObs,
 	     const class Frontier* frontier);
 
@@ -189,7 +189,7 @@ public:
 
     @return fractional splitting "rank".
    */
-  double interpolateRank(const class SplitNux* cand,
+  double interpolateRank(const class SplitNux& cand,
 			 IndexT obsLeft,
 			 IndexT obsRight) const;
 
@@ -199,16 +199,19 @@ public:
 
      @return fractional splitting "rank".
    */  
-  double interpolateRank(const class SplitNux* cand,
+  double interpolateRank(const class SplitNux& cand,
 			 IndexT obsIdx,
 			 bool residualLeft) const;
 
 
   /**
+     @brief isImplicit is true iff this is a residual.
+
      @return code associated with a given observation index.
    */
   IndexT getCode(const class SplitNux& cand,
-		 IndexT obsIdx) const;
+		 IndexT obsIdx,
+		 bool isImplicit) const;
 
   
   
@@ -298,10 +301,10 @@ public:
   PathT* getPathBlock(PredictorT predIdx);
   
 
-  IndexT* getIdxBuffer(const class SplitNux* nux) const;
+  IndexT* getIdxBuffer(const class SplitNux& nux) const;
 
 
-  class Obs* getPredBase(const SplitNux* nux) const;
+  class Obs* getPredBase(const SplitNux& nux) const;
 
 
   /**

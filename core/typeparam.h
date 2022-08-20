@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <utility>
+#include <cmath>
 
 using namespace std;
 
@@ -127,4 +128,23 @@ struct IndexRange {
 
 typedef unsigned char PathT;
 
+/**
+   @brief Template parametrization; specialization for double.
+ */
+template<typename tn>
+bool areEqual(const tn& val1,
+	      const tn& val2) {
+  return val1 == val2;
+}
+
+
+/**
+   @brief Double override to check for NaN.
+ */
+inline bool areEqual(const double& val1,
+	      const double& val2) {
+  return ((val1 == val2) || (isnan(val1) && isnan(val2)));
+}
+
+  
 #endif

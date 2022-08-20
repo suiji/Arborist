@@ -32,7 +32,7 @@
  */
 class Frontier {
   static unsigned int totLevels;
-  const class TrainFrame* frame;
+  const class PredictorFrame* frame;
   const unique_ptr<class SampledObs> sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;
@@ -105,7 +105,7 @@ public:
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
-  Frontier(const class TrainFrame* frame_,
+  Frontier(const class PredictorFrame* frame,
 	   const class Sampler* sampler,
 	   unsigned int tIdx);
 
@@ -113,13 +113,13 @@ public:
   /**
     @brief Trains one tree.
 
-    @param summaryFrame contains the predictor type mappings.
+    @param predictor contains the predictor type mappings.
 
     @param sample contains the bagging summary.
 
     @return trained pretree object.
   */
-  static unique_ptr<class PreTree> oneTree(const class TrainFrame* frame,
+  static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
 					   const class Sampler* sampler,
 					   unsigned int tIdx);
 

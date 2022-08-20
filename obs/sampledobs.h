@@ -48,8 +48,7 @@ class SampledObs {
 
      @param yCtg is true response / zero:  classification / regression.
   */
-  void bagSamples(const class Layout* layout,
-		  const class Sampler* sampler,
+  void bagSamples(const class Sampler* sampler,
 		  const vector<double>& y,
 		  const vector<PredictorT>& yCtg,
 		  unsigned int tIdx);
@@ -65,7 +64,7 @@ class SampledObs {
   /**
      @return map from sample index to predictor rank.
    */
-  vector<IndexT> sampleRanks(const class Layout* layout,
+  vector<IndexT> sampleRanks(const class PredictorFrame* layout,
 			     PredictorT predIdx);
 
 public:
@@ -79,8 +78,7 @@ public:
 
      @return new SampleCtg instance.
    */
-  static unique_ptr<struct SampleCtg> factoryCtg(const class Layout* layout,
-						 const class Sampler* sampler,
+  static unique_ptr<struct SampleCtg> factoryCtg(const class Sampler* sampler,
 						 const struct Response* response,
 						 const vector<double>&  y,
 						 const vector<PredictorT>& yCtg,
@@ -94,8 +92,7 @@ public:
 
      @return new SampleReg instance.
    */
-  static unique_ptr<struct SampleReg>factoryReg(const class Layout* layout,
-						const class Sampler* sampler,
+  static unique_ptr<struct SampleReg>factoryReg(const class Sampler* sampler,
 						const struct Response* response,
 						const vector<double>& y,
 						unsigned int tIdx);
@@ -218,7 +215,7 @@ public:
   }
 
   
-  void setRanks(const class Layout* layout);
+  void setRanks(const class PredictorFrame* layout);
 };
 
 
@@ -255,8 +252,7 @@ struct SampleReg : public SampledObs {
 
      @param y is the response vector.
   */
-  void bagSamples(const class Layout* layout,
-		  const class Sampler* sampler,
+  void bagSamples(const class Sampler* sampler,
 		  const vector<double>& y,
 		  unsigned int tIdx);
 };
@@ -295,8 +291,7 @@ struct SampleCtg : public SampledObs {
 
      @param y is the proxy response vector.
   */
-  void bagSamples(const class Layout* layout,
-		  const class Sampler* sampler,
+  void bagSamples(const class Sampler* sampler,
 		  const vector<PredictorT>& yCtg,
 		  const vector<double>& y,
 		  unsigned int tIdx);

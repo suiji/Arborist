@@ -42,7 +42,7 @@ class Train {
 
      @param treeChunk is the number of trees in the chunk.
   */
-  void trainChunk(const class TrainFrame* frame,
+  void trainChunk(const class PredictorFrame* frame,
 		  const class Sampler* sampler,
 		  const IndexRange& treeRange,
 		  struct Leaf* leaf);
@@ -52,7 +52,7 @@ public:
   /**
      @brief General constructor.
   */
-  Train(const class TrainFrame* frame,
+  Train(const class PredictorFrame* frame,
 	class Forest* forest_);
 
 
@@ -77,7 +77,7 @@ public:
   /**
      @brief Main entry to training.
    */
-  static unique_ptr<Train> train(const class TrainFrame* frame,
+  static unique_ptr<Train> train(const class PredictorFrame* frame,
 				 const class Sampler* sampler,
 				 class Forest* forest_,
 				 const IndexRange& treeRange,
@@ -98,7 +98,7 @@ public:
 
      @return Wrapped collection of Sample, PreTree pairs.
   */
-  vector<unique_ptr<PreTree>> blockProduce(const class TrainFrame* frame,
+  vector<unique_ptr<PreTree>> blockProduce(const class PredictorFrame* frame,
 					   const class Sampler* sampler,
 					   unsigned int treeStart,
 					   unsigned int treeEnd) const;

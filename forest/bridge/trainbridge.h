@@ -33,7 +33,7 @@ struct TrainBridge {
   /**
      @brief Copies internal-to-external predictor map.
 
-     @return copy of trainFrame's predMap.
+     @return copy of frame's predMap.
    */
   vector<unsigned int> getPredMap() const;
 
@@ -102,7 +102,7 @@ struct TrainBridge {
   static void deInit();
 
 private:
-  unique_ptr<class TrainFrame> trainFrame;
+  unique_ptr<class PredictorFrame> frame;
 };
 
 

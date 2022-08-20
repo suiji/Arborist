@@ -16,18 +16,20 @@
 #ifndef CORE_SUMCOUNT_H
 #define CORE_SUMCOUNT_H
 
+#include "typeparam.h"
+
+
 #include <vector>
 using namespace std;
 
 /**
    @brief Row sum / count record for categorical indices.
  */
-class SumCount {
+struct SumCount {
   double sum;
-  unsigned int sCount;
+  IndexT sCount;
 
- public:
-
+  
   SumCount(double sum_,
            unsigned int sCount_) : sum(sum_), sCount(sCount_) {
   }

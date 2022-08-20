@@ -152,11 +152,11 @@ public:
   }
 
   
-  void critCut(const class SplitNux* nux,
+  void critCut(const class SplitNux& nux,
 	       const class SplitFrontier* splitFrontier);
 
 
-  void critBits(const class SplitNux* nux,
+  void critBits(const class SplitNux& nux,
 		size_t bitPos);
 
 
@@ -252,7 +252,7 @@ public:
 
      @param summaryFrame identifies numeric-valued predictors.
    */
-  void setQuantRank(const class TrainFrame* trainFrame);
+  void setQuantRank(const class PredictorFrame* frame);
 
   
   inline bool getLeafIdx(IndexT& leafIdx) const {
