@@ -70,12 +70,10 @@ CutAccumReg::CutAccumReg(const SplitNux& cand,
 CutAccumCtg::CutAccumCtg(const SplitNux& cand,
 			 SFCtg* sfCtg) :
   CutAccum(cand, sfCtg),
-  nCtg(sfCtg->getNCtg()),
-  ctgSum(sfCtg->ctgNodeSums(cand)),
-  ctgAccum(vector<double>(nCtg)),
-  ssL(sfCtg->getSumSquares(cand)),
+  ctgNux(filterMissingCtg(sfCtg, cand)),
+  ctgAccum(vector<double>(ctgNux.nCtg())),
+  ssL(ctgNux.sumSquares),
   ssR(0.0) {
-  filterMissingCtg(cand, ssL, ctgSum);
 }
 
 
@@ -94,7 +92,7 @@ void CutAccum::residualReg(const Obs* obsCell) {
 
 
 void CutAccumCtg::residualCtg(const Obs* obsCell) {
-  vector<double> ctgResid(ctgSum);
+  vector<double> ctgResid(ctgNux.ctgSum);
   for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
     accumCtgSS(ctgResid[ctg], ctg);
   }

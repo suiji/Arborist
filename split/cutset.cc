@@ -21,6 +21,12 @@
 #include "partition.h"
 
 
+void CutSet::accumPreset() {
+  cutSig = vector<CutSig>(nAccum);
+}
+
+
+
 CutSig CutSet::getCut(const SplitNux& nux) const {
   return cutSig[nux.getAccumIdx()];
 }
@@ -28,13 +34,6 @@ CutSig CutSet::getCut(const SplitNux& nux) const {
 
 CutSig CutSet::getCut(IndexT accumIdx) const {
   return cutSig[accumIdx];
-}
-
-
-IndexT CutSet::addCut(const SplitFrontier* splitFrontier,
-		      const SplitNux& cand) {
-  cutSig.emplace_back(cand.getRange());
-  return cutSig.size() - 1;
 }
 
 

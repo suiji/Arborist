@@ -27,6 +27,7 @@ CutAccumRegCart::CutAccumRegCart(const SplitNux& cand,
 
 
 void CutAccumRegCart::split(const SFRegCart* spReg,
+			    CutSet* cutSet,
 			    SplitNux& cand) {
   CutAccumRegCart cutAccum(cand, spReg);
   cutAccum.splitReg(spReg, cand);
@@ -154,6 +155,7 @@ CutAccumCtgCart::CutAccumCtgCart(const SplitNux& cand,
 
 
 void CutAccumCtgCart::split(SFCtgCart* spCtg,
+			    CutSet* cutSet,
 			    SplitNux& cand) {
   CutAccumCtgCart cutAccum(cand, spCtg);
   cutAccum.splitCtg(spCtg, cand);

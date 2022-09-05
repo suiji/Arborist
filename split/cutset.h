@@ -50,12 +50,19 @@ struct CutSig {
 
 
 class CutSet {
-  vector<CutSig> cutSig; // EXIT
+  IndexT nAccum;
+  vector<CutSig> cutSig;
 
 public:
   CutSet() = default;
 
 
+  /**
+     @brief Allocates cutSet vector.
+   */
+  void accumPreset();
+
+  
   CutSig getCut(IndexT accumIdx) const;
 
 
@@ -66,11 +73,12 @@ public:
 
   
   void setCut(IndexT accumIdx, const CutSig& sig);
-  
-  
-  IndexT addCut(const class SplitFrontier* splitFrontier,
-		const class SplitNux& cand);
 
+
+  IndexT preIndex() {
+    return nAccum++;
+  }
+  
 
   void write(const class InterLevel* ofFront,
 	     const class SplitNux& nux,

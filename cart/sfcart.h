@@ -36,7 +36,7 @@ struct SFRegCart : public SFReg {
   /**
      @brief Initializes per-frontier sum and FacRun vectors.
   */
-  void frontierPreset();
+  void accumPreset();
 
 
   /**
@@ -45,7 +45,7 @@ struct SFRegCart : public SFReg {
   SplitStyle getFactorStyle() const;
 
 
-  void split(vector<class SplitNux> candidate,
+  void split(vector<class SplitNux>& candidate,
 	     class BranchSense& branchSense);
 
 
@@ -71,7 +71,7 @@ class SFCtgCart : public SFCtg {
   SplitStyle getFactorStyle() const;
 
 
-  void split(vector<class SplitNux> candidate,
+  void split(vector<class SplitNux>& candidate,
 	     class BranchSense& branchSense);
 
 

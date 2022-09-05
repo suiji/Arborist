@@ -127,15 +127,8 @@ public:
 
 class CutAccumCtg : public CutAccum {
 
-  /**
-     @brief Removes missing observations from accumulated values.
-   */
-  void filterMissing(const class SplitNux& cand);
-
 protected:
-
-  const PredictorT nCtg; ///< Cadinality of response.
-  vector<double> ctgSum; ///< Initializes per-category response.
+  const CtgNux ctgNux; ///< Categorical sums, missing data filtered.
   vector<double> ctgAccum; ///< Accumulates per-category response.
   double ssL; ///< Left sum-of-squares accumulator.
   double ssR; ///< Right " ".
@@ -154,20 +147,6 @@ protected:
     return obs.isTied();
   }
 
-
-  /**
-     @brief Post-increments accumulated sum.
-
-     @param yCtg is the category at which to increment.
-
-     @param sumCtg is the sum by which to increment.
-     
-     @return value of accumulated sum prior to incrementing.
-   */
-  inline double accumCtgSum(PredictorT yCtg,
-			    double sumCtg) {
-    return exchange(ctgAccum[yCtg], ctgAccum[yCtg] + sumCtg);
-  }
 
   /**
      @brief Subtracts explicit sum and count values from node totals.
@@ -191,7 +170,7 @@ public:
 			 PredictorT yCtg) {
     double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumCtg);
     ssR += ySumCtg * (ySumCtg + 2.0 * sumRCtg);
-    double sumLCtg = ctgSum[yCtg] - sumRCtg;
+    double sumLCtg = ctgNux.ctgSum[yCtg] - sumRCtg;
     ssL += ySumCtg * (ySumCtg - 2.0 * sumLCtg);
   }
 };

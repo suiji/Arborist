@@ -53,7 +53,16 @@ struct RLEFrame {
 	   const vector<unsigned int>& facVal_,
 	   const vector<size_t>& facHeight_);
 
-  
+
+  /**
+     @brief Builds the per-predictor vectors of run-length encodings.
+   */
+  static vector<vector<RLEVal<szType>>> packRLE(const vector<size_t>& rleHeight,
+						const vector<size_t>& runVal,
+						const vector<size_t>& runRow,
+						const vector<size_t>& runLength);
+
+
   /**
      @brief Row count getter.
    */
@@ -118,7 +127,7 @@ struct RLEFrame {
   size_t getRunCount(unsigned int predIdx) const {
     return rlePred[predIdx].back().val + 1;
   }
-  
+
 
   /**
      @brief Reorders the predictor RLE vectors by row.

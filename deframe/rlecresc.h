@@ -193,7 +193,7 @@ public:
 
 
   /**
-     @parm topIdx is the highest factor index, excluding NA proxy.
+     @param topIdx is the highest factor index, excluding NA proxy.
 
      'topIdx' records the factor encoding employed by the front end,
      irrespective of whether the level indices are zero- or one-based.

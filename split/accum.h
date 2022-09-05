@@ -18,18 +18,37 @@
 #include "sumcount.h"
 
 
+/**
+   @brief Accumulated values for categorical nodes.
+ */
+struct CtgNux {
+  vector<double> ctgSum; ///> # per-category response sum
+  double sumSquares; ///> Sum of squares over categories.
+
+  CtgNux(vector<double>& ctgSum_,
+	 double sumSquares_) :
+  ctgSum(ctgSum_),
+    sumSquares(sumSquares_) {
+  }
+
+  
+  PredictorT nCtg() const {
+    return ctgSum.size();
+  }
+};
+
+
 struct Accum {
 private:
   SumCount filterMissing(const class SplitNux& cand) const;
-
+  
 protected:
   // Information is initialized according to the splitting method.
   double info; ///< Information high watermark.
 
-  void filterMissingCtg(const SplitNux& cand,
-			double& sumSquars,
-			vector<double>& ctgSum) const;
-
+  
+  CtgNux filterMissingCtg(const class SFCtg* sfCtg,
+			  const SplitNux& cand) const;
 
 public:
   const class Obs* obsCell;
@@ -64,6 +83,15 @@ public:
 			       IndexT sCountLeft,
 			       IndexT sCountRight) {
     return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
+  }
+
+
+  /**
+     @brief As above, but with running and initialized SumCounts.
+   */
+  static inline double infoVar(const SumCount& scAccum,
+			       const SumCount& scInit) {
+    return infoVar(scAccum.sum, scInit.sum - scAccum.sum, scAccum.sCount, scInit.sCount - scAccum.sCount);
   }
 
 
@@ -121,6 +149,5 @@ public:
 		bool sense,
 		IndexT& edge) const;
 };
-
 
 #endif

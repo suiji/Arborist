@@ -46,7 +46,7 @@ protected:
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
-  void (SplitFrontier::* splitter)(vector<class SplitNux> candidate,
+  void (SplitFrontier::* splitter)(vector<class SplitNux>& candidate,
 				   class BranchSense&); // Splitting method.
 
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
@@ -79,7 +79,7 @@ public:
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_,
 		SplitStyle splitStyle_,
-		void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense&));
+		void (SplitFrontier::* splitter_)(vector<class SplitNux>&, class BranchSense&));
 
   virtual ~SplitFrontier() = default;
   
@@ -132,11 +132,13 @@ public:
 
 
   /**
-     @brief Builds an accumulator of the appropriate type.
+     @brief Increments accumulator in respective set.
 
      @param cand is the candidate associated to the accumulator.
+
+     @return pre-incremented index value.
    */
-  IndexT addAccumulator(const class SplitNux& cand) const;
+  IndexT accumulatorIndex(const class SplitNux& cand) const;
 
 
   /**
@@ -264,7 +266,7 @@ public:
   
   /**
    */
-  RunAccumT* getRunAccum(const class SplitNux& nux) const;
+  RunAccum* getRunAccum(const class SplitNux& nux) const;
 
 
   /**
@@ -298,7 +300,8 @@ public:
 
 
   // These are run-time invariant and need not be virtual:
-  virtual void frontierPreset() {}
+  virtual void accumPreset();
+
 
   virtual double getScore(const class IndexSet& iSet) const = 0;
 };
@@ -316,7 +319,7 @@ struct SFReg : public SplitFrontier {
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_)(vector<class SplitNux>, class BranchSense&));
+	void (SplitFrontier::* splitter_)(vector<class SplitNux>&, class BranchSense&));
 
 
   /**
@@ -345,10 +348,11 @@ struct SFReg : public SplitFrontier {
 
   
   /**
-     @brief Sets layer-specific values for the subclass.
+     @brief Sets subclass-specific splitting parameters.
   */
-  void frontierPreset();
+  void accumPreset();
 
+  
   double getScore(const class IndexSet& iSet) const;
 };
 
@@ -366,7 +370,7 @@ public:
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_) (vector<class SplitNux>, class BranchSense&));
+	void (SplitFrontier::* splitter_) (vector<class SplitNux>&, class BranchSense&));
   
   double getScore(const class IndexSet& iSet) const;
 

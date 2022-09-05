@@ -34,7 +34,7 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
 			     SplitStyle splitStyle_,
-			     void (SplitFrontier::* splitter_)(vector<SplitNux>, BranchSense&)) :
+			     void (SplitFrontier::* splitter_)(vector<SplitNux>&, BranchSense&)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
   interLevel(frontier->getInterLevel()),
@@ -50,9 +50,15 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 
 void SplitFrontier::split(CandType& cand,
 			  BranchSense& branchSense) {
-  runSet->setOffsets(this);
-  frontierPreset(); // virtual.
-  (this->*splitter)(cand.getCandidates(interLevel, this), branchSense);
+  vector<SplitNux> candidates = cand.getCandidates(interLevel, this);
+  accumPreset(); // virtual.
+  (this->*splitter)(candidates, branchSense);
+}
+
+
+void SplitFrontier::accumPreset() {
+  runSet->accumPreset(this);
+  cutSet->accumPreset();
 }
 
 
@@ -76,7 +82,7 @@ Obs* SplitFrontier::getPredBase(const SplitNux& nux) const {
 }
 
 
-RunAccumT* SplitFrontier::getRunAccum(const SplitNux& nux) const {
+RunAccum* SplitFrontier::getRunAccum(const SplitNux& nux) const {
   return runSet->getAccumulator(nux.getAccumIdx());
 }
 
@@ -91,11 +97,13 @@ PredictorT SplitFrontier::getNumIdx(PredictorT predIdx) const {
 }
 
 
-IndexT SplitFrontier::addAccumulator(const SplitNux& cand) const {
-  if (isFactor(cand))
-    return runSet->addRun(this, cand);
-  else
-    return cutSet->addCut(this, cand);
+IndexT SplitFrontier::accumulatorIndex(const SplitNux& cand) const {
+  if (isFactor(cand)) {
+    return runSet->preIndex(this, cand);
+  }
+  else {
+    return cutSet->preIndex();
+  }
 }
 
 
@@ -169,7 +177,7 @@ SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter)(vector<SplitNux>, BranchSense&)):
+	     void (SplitFrontier::* splitter)(vector<SplitNux>&, BranchSense&)):
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   ruMono(vector<double>(0)) {
 }
@@ -216,7 +224,8 @@ double SFReg::getScore(const IndexSet& iSet) const {
 }
 
 
-void SFReg::frontierPreset() {
+void SFReg::accumPreset() {
+  SplitFrontier::accumPreset();
   if (!mono.empty()) {
     ruMono = PRNG::rUnif(nSplit * mono.size());
   }
@@ -227,7 +236,7 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter) (vector<SplitNux>, BranchSense&)) :
+	     void (SplitFrontier::* splitter) (vector<SplitNux>&, BranchSense&)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),
@@ -279,7 +288,7 @@ vector<SplitNux> SplitFrontier::maxCandidates(const vector<vector<SplitNux>>& ca
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {
-      frontier->candMax(splitIdx, argMax[splitIdx], candVV[splitIdx]);
+      argMax[splitIdx] = frontier->candMax(splitIdx, candVV[splitIdx]);
     }
   }
 
@@ -317,17 +326,7 @@ void SplitFrontier::accumUpdate(const SplitNux& nux) const {
 
 vector<IndexRange> SplitFrontier::getRange(const SplitNux& nux,
 					   const CritEncoding& enc) const {
-  if (isFactor(nux)) {
-    if (splitStyle == SplitStyle::topSlot) {
-      return runSet->getTopRange(nux, enc);
-    }
-    else {
-      return runSet->getRange(nux, enc);
-    }
-  }
-  else {
-    return getCutRange(nux, enc);
-  }
+  return isFactor(nux) ? runSet->getRange(nux, enc) : getCutRange(nux, enc);
 }
 
 

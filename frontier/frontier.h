@@ -219,15 +219,12 @@ public:
 
      @param splitIdx could also be looked up from candV, if nonempty.
 
-     @param[out] argMax most informative split associated with node, if any.
-
      @param candV contains splitting candidates associated with split index.
+
+     @return maximal- or zero-information candidate for split.
    */
-  void candMax(IndexT splitIdx,
-	       class SplitNux& argMax,
-	       const vector<class SplitNux>& candV) const {
-    frontierNodes[splitIdx].candMax(candV, argMax);
-  }
+  class SplitNux candMax(IndexT splitIdx,
+			 const vector<class SplitNux>& candV) const;
 
 
   IndexRange getNodeRange(IndexT nodeIdx) const {

@@ -47,7 +47,7 @@ SplitNux::SplitNux(const StagedCell* cell_,
   sCount(splitFrontier->getSCount(cell)),
   ptId(splitFrontier->getPTId(cell)),
   info(0.0) {
-  accumIdx = splitFrontier->addAccumulator(*this);
+  accumIdx = splitFrontier->accumulatorIndex(*this);
 }
 
 

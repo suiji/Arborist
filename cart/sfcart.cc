@@ -25,21 +25,21 @@
 
 
 SFRegCart::SFRegCart(Frontier* frontier) :
-  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense&)>(&SFRegCart::split)) {
+  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (vector<SplitNux>&, BranchSense&)>(&SFRegCart::split)) {
 }
 
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
-  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>, BranchSense&)>(&SFCtgCart::split)) {
+  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>&, BranchSense&)>(&SFCtgCart::split)) {
 }
 
 
-void SFRegCart::frontierPreset() {
-  SFReg::frontierPreset();
+void SFRegCart::accumPreset() {
+  SFReg::accumPreset();
 }
 
 
-void SFRegCart::split(vector<SplitNux> sc,
+void SFRegCart::split(vector<SplitNux>& sc,
 		      BranchSense& branchSense) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -54,7 +54,7 @@ void SFRegCart::split(vector<SplitNux> sc,
 }
 
 
-void SFCtgCart::split(vector<SplitNux> sc,
+void SFCtgCart::split(vector<SplitNux>& sc,
 		      BranchSense& branchSense) {
   OMPBound splitTop = sc.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
@@ -71,19 +71,19 @@ void SFCtgCart::split(vector<SplitNux> sc,
 
 void SFCtgCart::split(SplitNux& cand) {
   if (isFactor(cand)) {
-    RunAccum::split(this, cand);
+    RunAccumCtg::split(this, runSet.get(), cand);
   }
   else {
-    CutAccumCtgCart::split(this, cand);
+    CutAccumCtgCart::split(this, cutSet.get(), cand);
   }
 }
 
 
 void SFRegCart::split(SplitNux& cand) {
   if (isFactor(cand)) {
-    RunAccum::split(this, cand);
+    RunAccumReg::split(this, runSet.get(), cand);
   }
   else {
-    CutAccumRegCart::split(this, cand);
+    CutAccumRegCart::split(this, cutSet.get(), cand);
   }
 }

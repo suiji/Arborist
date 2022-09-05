@@ -17,25 +17,30 @@
 #ifndef SPLIT_RUNSET_H
 #define SPLIT_RUNSET_H
 
-#include <vector>
-
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "algparam.h"
 
+#include <vector>
+#include <memory>
+#include <algorithm>
+
 /**
    @brief  Runs only:  caches pre-computed workspace starting indices to
    economize on address recomputation during splitting.
-
-   Run objects are allocated per-tree, and live throughout training.
 */
 class RunSet {
-  const SplitStyle style; // Splitting style, fixed by frontier class.
-  IndexT wideRuns; // Sum of run sizes greater than max.
-  vector<RunAccumT> runAccum;
-  vector<double> rvWide;
+  PredictorT nAccum; ///> # of accumulators.
+  vector<vector<RunNux>> runNux;
+  vector<unique_ptr<RunAccum>> runAccum; ///> Cached at splitting.
+
+  // Non-binary categorical only:
+  vector<IndexT> runWide; ///> Wide-run accumulator indices, ordered.
+  vector<double> rvWide; ///> Random variates for sampling wide runs.
 
 public:
+
+  const SplitStyle style; // Splitting style, fixed by frontier class.
 
   /**
      @brief Constructor.
@@ -44,45 +49,49 @@ public:
 
 
   /**
+     @brief Determines position of random-variate slice.
+
+     Slices have an implicit width of RunAccum::maxWidth.
+     
+     @param accumIdx is the index of a wide-run accumulator.
+
+     @return base variate position for accumulator.
+   */
+  inline const double* rvSlice(IndexT accumIdx) const {
+    return &rvWide[RunAccum::maxWidth * (lower_bound(runWide.begin(), runWide.end(), accumIdx) - runWide.begin())];
+  }
+
+  
+  /**
      @brief Adds local run count to vector of safe counts.
 
      @return offset of run just appended.
    */
-  IndexT addRun(const class SplitFrontier* splitFrontier,
-		const class SplitNux& cand);
+  IndexT preIndex(const class SplitFrontier* sf,
+		  const class SplitNux& cand);
 
+
+  void addRun(unique_ptr<RunAccum> upt,
+	      const class SplitNux& cand);
 
   /**
      @brief Consolidates the safe count vector.
 
      Classification:  only wide run sets use the heap.
   */
-  void setOffsets(const class SplitFrontier* sf);
+  void accumPreset(const class SplitFrontier* sf);
 
   
   /**
      @brief Accessor for RunAccum at specified index.
    */
-  inline RunAccumT* getAccumulator(PredictorT accumIdx) {
-    return &runAccum[accumIdx];
+  inline RunAccum* getAccumulator(PredictorT accumIdx) {
+    return runAccum[accumIdx].get();
   }
 
-
-  auto getAccumCount() {
-    return runAccum.size();
-  }
   
-  
-  /**
-     @brief Gets safe count associated with a given index.
-   */
-  auto getSafeCount(PredictorT accumIdx) const {
-    return runAccum[accumIdx].getSafeCount();
-  }
-
-
-  vector<IndexRange> getRange(const class SplitNux& nux,
-			      const struct CritEncoding& enc) const;
+  vector<IndexRange> getRunRange(const class SplitNux& nux,
+				 const struct CritEncoding& enc) const;
 
 
   /**
@@ -123,7 +132,7 @@ public:
   PredictorT getRunCount(const class SplitNux* nux) const;
 
 
-  void resetRunCount(PredictorT accumIdx,
+  void resetRunSup(PredictorT accumIdx,
 		   PredictorT runCount);
  
 
@@ -137,6 +146,9 @@ public:
      @brief Dispatches candidate finalizer.
    */
   void updateAccum(const class SplitNux& cand);
+
+  vector<IndexRange> getRange(const class SplitNux& nux,
+			      const class CritEncoding& enc) const;
 };
 
 #endif

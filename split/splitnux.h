@@ -165,10 +165,15 @@ public:
      @brief Running argmax over info members.
 
      @param[in, out] amn holds the running argmax nux.
-  */
+
   inline void maxInfo(const SplitNux*& amn) const {
     if (info > amn->info || (info == amn->info && info > 0.0 && randVal > amn->randVal))
       amn = this;
+  }
+  */  
+
+  inline bool maxInfo(const SplitNux& amn) const {
+    return (info > amn.info) || (info == amn.info && info > 0.0 && randVal > amn.randVal);
   }
   
 
@@ -193,7 +198,7 @@ public:
   auto getRunCount() const {
     return cell->getRunCount();
   }
-  
+
 
   auto getPredIdx() const {
     return cell->getPredIdx();
@@ -259,6 +264,14 @@ public:
   }
 
 
+  /**
+     @return Count of implicit observations associated with cell.
+  */   
+  IndexT getImplicitCount() const {
+    return cell->obsImplicit;
+  }
+
+
   inline IndexT getSCount() const {
     return sCount;
   }
@@ -282,14 +295,6 @@ public:
   }
   
   
-  /**
-     @return Count of implicit observations associated with cell.
-  */   
-  IndexT getImplicitCount() const {
-    return cell->obsImplicit;
-  }
-
-
   /**
      @brief Looks up splitting quantile for associated predictor.
    */

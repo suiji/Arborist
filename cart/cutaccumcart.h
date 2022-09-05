@@ -56,6 +56,7 @@ public:
      @brief Static entry for regression splitting.
    */
   static void split(const struct SFRegCart* spReg,
+		    class CutSet* cutSet,
 		    class SplitNux& cand);
 
   
@@ -138,6 +139,7 @@ public:
      @brief Static entry for classification splitting.
    */
   static void split(class SFCtgCart* spCtg,
+		    class CutSet* cutSet,
 		    class SplitNux& cand);
   
 

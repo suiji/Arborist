@@ -16,6 +16,7 @@
 #ifndef SPLIT_RUNNUX_H
 #define SPLIT_RUNNUX_H
 
+#include "sumcount.h"
 
 /**
    @brief Accumulates statistics for runs of factors having the same internal code.
@@ -23,11 +24,9 @@
    Allocated in bulk by Fortran-style workspace, the RunSet.
  */
 struct RunNux {
-  IndexT sCount; ///< Sample count of factor run:  need not equal length.
   double sum; ///< Sum of responses associated with run.
-  IndexRange range;
-
-  RunNux() = default;
+  IndexT sCount; ///< Sample count of factor run.
+  IndexRange obsRange; ///< Observation indices.
 
 
   /**
@@ -40,25 +39,24 @@ struct RunNux {
 
 
   inline void startRange(IndexT idxStart) {
-    range.idxStart = idxStart;
+    obsRange.idxStart = idxStart;
   }
   
 
   inline void endRange(IndexT idxEnd) {
-    range.idxExtent = idxEnd - range.idxStart + 1;
+    obsRange.idxExtent = idxEnd - obsRange.idxStart + 1;
   }
 
 
   /**
      @brief Initializes as residual.
   */
-  inline void setResidual(IndexT sCount,
-			  double sum,
+  inline void setResidual(const SumCount& scImplicit,
 			  IndexT obsEnd,
 			  IndexT extent) {
-    this->sCount = sCount;
-    this->sum = sum;
-    range = IndexRange(obsEnd, extent);
+    this->sCount = scImplicit.sCount;
+    this->sum = scImplicit.sum;
+    obsRange = IndexRange(obsEnd, extent);
   }
 
   
@@ -69,17 +67,16 @@ struct RunNux {
      @return range of indices subsumed by run.
    */
   inline IndexRange getRange() const {
-    return range;
+    return obsRange;
   }
 
 
   /**
      @brief Accumulates run contents into caller.
-   */
-  inline void accum(IndexT& sCount,
-                    double& sum) const {
-    sCount += this->sCount;
-    sum += this->sum;
+  */
+  inline void accum(SumCount& scAccum) const {
+    scAccum.sCount += sCount;
+    scAccum.sum += sum;
   }
 };
 

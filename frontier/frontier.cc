@@ -207,4 +207,9 @@ vector<double> Frontier::sumsAndSquares(vector<vector<double> >& ctgSum) {
 }
 
 
+SplitNux Frontier::candMax(IndexT splitIdx,
+			   const vector<SplitNux>& candV) const {
+  return frontierNodes[splitIdx].candMax(candV);
+}
+
 

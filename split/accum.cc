@@ -47,16 +47,19 @@ SumCount Accum::filterMissing(const SplitNux& cand) const {
 }
 
 
-void Accum::filterMissingCtg(const SplitNux& cand,
-			     double& ssL,
-			     vector<double>& ctgSum) const {
+CtgNux Accum::filterMissingCtg(const SFCtg* sfCtg,
+			       const SplitNux& cand) const {
+  vector<double> ctgSum = sfCtg->ctgNodeSums(cand);
+  double sumSquares = sfCtg->getSumSquares(cand);
   for (IndexT obsIdx = obsEnd; obsIdx != obsEnd + cand.getNMissing(); obsIdx++) {
     const Obs& obs = obsCell[obsIdx];
     PredictorT ctg = obs.getCtg();
     double ySum = obs.getYSum();
-    ssL -= ySum * ySum;
+    sumSquares -= ySum * ySum;
     ctgSum[ctg] -= ySum;
   }
+
+  return CtgNux(ctgSum, sumSquares);
 }
 
 

@@ -99,13 +99,17 @@ public:
 
   
   /**
-     @return Maximal informative split, if any.
-   */
-  void candMax(const vector<class SplitNux>& cand,
-	       class SplitNux& argMaxNux) const;
-  
+     @brief Selects best splitter, if any.
 
-  bool isInformative(const SplitNux* nux) const;
+     @return maximal- or zero=information candidate for node.
+   */
+  class SplitNux candMax(const vector<class SplitNux>& cand) const;
+
+
+  /**
+     @return true iff minimum information threshold exceeded.
+   */
+  bool isInformative(const SplitNux& nux) const;
   
 
   /**

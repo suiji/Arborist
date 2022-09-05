@@ -30,45 +30,48 @@ RLEFrame::RLEFrame(size_t nRow_,
   nObs(nRow_),
   factorTop(factorTop_),
   noRank(max(nObs, static_cast<size_t>(*max_element(factorTop.begin(), factorTop.end())))),
-  rlePred(vector<vector<RLEVal<szType>>>(rleHeight.size())),
+  rlePred(packRLE(rleHeight, runVal, runRow, runLength)),
   numRanked(vector<vector<double>>(numHeight.size())),
   facRanked(vector<vector<unsigned int>>(facHeight.size())),
   blockIdx(vector<unsigned int>(rleHeight.size())) {
-  size_t off = 0;
-  unsigned int predIdx = 0;
-  for (auto height : rleHeight) {
-    for (; off < height; off++) {
-      rlePred[predIdx].emplace_back(runVal[off], runRow[off], runLength[off]);
-    }
-    predIdx++;
-  }
-
-  off = predIdx = 0;
-  for (auto height : numHeight) {
-    for (; off < height; off++) {
-      numRanked[predIdx].emplace_back(numVal[off]);
-    }
-    predIdx++;
-  }
-  off = predIdx = 0;
-  for (auto height : facHeight) {
-    for (; off < height; off++) {
-      facRanked[predIdx].emplace_back(facVal[off]);
-    }
-    predIdx++;
-  }
 
   unsigned int numIdx = 0;
-  unsigned int facIdx = 0;
-  for (predIdx = 0; predIdx != blockIdx.size(); predIdx++) {
-    if (factorTop[predIdx] > 0) {
+  unsigned int factorIdx = 0;
+  size_t numOff = 0;
+  size_t facOff = 0;
+  for (unsigned predIdx = 0; predIdx != blockIdx.size(); predIdx++) {
+    if (factorTop[predIdx] == 0) {
+      for (; numOff < numHeight[numIdx]; numOff++) {
+	numRanked[numIdx].emplace_back(numVal[numOff]);
+      }
       blockIdx[predIdx] = numIdx++;
     }
     else {
-      blockIdx[predIdx] = facIdx++;
+      unsigned int maxVal = factorTop[predIdx] + 1;
+      for (; facOff < facHeight[factorIdx]; facOff++) {
+	facRanked[factorIdx].emplace_back(min(maxVal, facVal[facOff]));
+      }
+      blockIdx[predIdx] = factorIdx++;
     }
   }
 }
+
+
+vector<vector<RLEVal<szType>>> RLEFrame::packRLE(const vector<size_t>& rleHeight,
+		       const vector<size_t>& runVal,
+		       const vector<size_t>& runRow,
+		       const vector<size_t>& runLength) {
+  vector<vector<RLEVal<szType>>> rlePred(rleHeight.size());
+  size_t rleOff = 0;
+  for (unsigned int predIdx = 0; predIdx < rleHeight.size(); predIdx++) {
+    for (; rleOff < rleHeight[predIdx]; rleOff++) {
+      rlePred[predIdx].emplace_back(runVal[rleOff], runRow[rleOff], runLength[rleOff]);
+    }
+  }
+
+  return rlePred;
+}
+
 
 
 size_t RLEFrame::findRankMissing(unsigned int predIdx) const {
