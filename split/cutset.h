@@ -45,7 +45,7 @@ struct CutSig {
 
   void write(const class InterLevel* interLevel,
 	     const class SplitNux& nux,
-	     const class CutAccum* accum);
+	     const class CutAccum& accum);
 };
 
 
@@ -82,7 +82,7 @@ public:
 
   void write(const class InterLevel* ofFront,
 	     const class SplitNux& nux,
-	     const class CutAccum* accum);
+	     const class CutAccum& accum);
 
   
   /**

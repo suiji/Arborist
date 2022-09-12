@@ -14,6 +14,7 @@
  */
 
 #include "cutset.h"
+#include "runsig.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
 
@@ -63,6 +64,12 @@ SplitNux::SplitNux(const SplitNux& parent,
   ptId(parent.ptId + idx),
   info(0.0) {
 }
+
+
+bool SplitNux::isImplicit(const RunNux& nux) const {
+  return nux.obsRange.idxStart >= getObsEnd();
+}
+
 
 
 IndexRange SplitNux::cutRange(const CutSet* cutSet, bool leftRange) const {

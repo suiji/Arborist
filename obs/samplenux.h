@@ -18,7 +18,7 @@
 
 #include "typeparam.h"
 #include "samplernux.h"
-#include "runnux.h"
+
 #include <vector>
 
 /**

@@ -20,10 +20,12 @@
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "algparam.h"
+#include "runsig.h"
 
 #include <vector>
 #include <memory>
 #include <algorithm>
+
 
 /**
    @brief  Runs only:  caches pre-computed workspace starting indices to
@@ -31,8 +33,7 @@
 */
 class RunSet {
   PredictorT nAccum; ///> # of accumulators.
-  vector<vector<RunNux>> runNux;
-  vector<unique_ptr<RunAccum>> runAccum; ///> Cached at splitting.
+  vector<RunSig> runSig;
 
   // Non-binary categorical only:
   vector<IndexT> runWide; ///> Wide-run accumulator indices, ordered.
@@ -71,8 +72,11 @@ public:
 		  const class SplitNux& cand);
 
 
-  void addRun(unique_ptr<RunAccum> upt,
-	      const class SplitNux& cand);
+  //  void addRun(unique_ptr<RunAccum> upt,
+  //	      const class SplitNux& cand);
+
+  void setToken(const class SplitNux& cand,
+		PredictorT token);
 
   /**
      @brief Consolidates the safe count vector.
@@ -83,11 +87,13 @@ public:
 
   
   /**
-     @brief Accessor for RunAccum at specified index.
+     @brief Sets ownership of RunNux vector to this.
    */
-  inline RunAccum* getAccumulator(PredictorT accumIdx) {
-    return runAccum[accumIdx].get();
-  }
+  void setRuns(const SplitNux& cand,
+	       vector<RunNux> runNux);
+
+
+  const vector<RunNux>& getRunNux(const class SplitNux& cand) const;
 
   
   vector<IndexRange> getRunRange(const class SplitNux& nux,
@@ -143,9 +149,10 @@ public:
 
 
   /**
-     @brief Dispatches candidate finalizer.
+     @brief Updates chosen accumulator for encoding.
    */
-  void updateAccum(const class SplitNux& cand);
+  void accumUpdate(const class SplitNux& cand);
+
 
   vector<IndexRange> getRange(const class SplitNux& nux,
 			      const class CritEncoding& enc) const;

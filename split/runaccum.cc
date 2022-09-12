@@ -15,12 +15,9 @@
 
 #include "runaccum.h"
 #include "branchsense.h"
-#include "interlevel.h"
 #include "splitfrontier.h"
-#include "partition.h"
 #include "splitnux.h"
 #include "runset.h"
-#include "bv.h"
 
 #include <numeric>
 
@@ -28,21 +25,13 @@ RunAccum::RunAccum(const SplitFrontier* splitFrontier,
 		   const SplitNux& cand,
 		   const RunSet* runSet) :
   Accum(splitFrontier, cand),
-  runNux(vector<RunNux>(cand.getRunCount())),
-  runSup(runNux.size()),
-  heapZero(vector<BHPair<PredictorT>>((runSet->style == SplitStyle::slots || runNux.size() > maxWidth) ? runNux.size() : 0)),
-  implicitSlot(runNux.size()), // Inattainable slot index.
-  baseTrue(0),
-  runsTrue(0),
-  implicitTrue(0) {
+  heapZero(vector<BHPair<PredictorT>>((runSet->style == SplitStyle::slots || cand.getRunCount() > maxWidth) ? cand.getRunCount() : 0)) {
 }
 
 
 RunAccumReg::RunAccumReg(const SFReg* sfReg,
 			 const SplitNux& cand,
 			 const RunSet* runSet) : RunAccum(sfReg, cand, runSet) {
-  regRuns(cand);
-  info = (sumCount.sum * sumCount.sum) / sumCount.sCount;
 }
 
 
@@ -51,23 +40,7 @@ RunAccumCtg::RunAccumCtg(const SFCtg* sfCtg,
 			 const RunSet* runSet) : RunAccum(sfCtg, cand, runSet),
 						 nCtg(sfCtg->getNCtg()),
 						 ctgNux(filterMissingCtg(sfCtg, cand)),
-						 runSum(vector<double>(nCtg * runNux.size())) {
-  ctgRuns(runSet, cand);
-  info = ctgNux.sumSquares / sumCount.sum;
-}
-
-
-vector<IndexRange> RunAccum::getRange(const CritEncoding& enc) const {
-  PredictorT slotStart, slotEnd;
-  if (enc.trueEncoding()) {
-    slotStart = baseTrue;
-    slotEnd = baseTrue + runsTrue;
-  }
-  else { // Replay indices explicit on false branch.
-    slotStart = baseTrue == 0 ? runsTrue : 0;
-    slotEnd = baseTrue == 0 ? runNux.size() : (runNux.size() - runsTrue);
-  }
-  return getRange(slotStart, slotEnd);
+						 runSum(vector<double>(nCtg * cand.getRunCount())) {
 }
 
 
@@ -77,125 +50,82 @@ bool RunAccum::ctgWide(const SplitFrontier* sf,
 }
 
 
-vector<IndexRange> RunAccum::getRange(PredictorT slotStart,
-				      PredictorT slotEnd) const {
-  vector<IndexRange> rangeVec(slotEnd - slotStart);
-  PredictorT slot = 0;
-  for (PredictorT outSlot = slotStart; outSlot != slotEnd; outSlot++) {
-    rangeVec[slot++] = getBounds(outSlot);
-  }
-
-  return rangeVec;
-}
-
-
-vector<IndexRange> RunAccum::getTopRange(const CritEncoding& enc) const {
-  vector<IndexRange> rangeVec;
-  rangeVec.push_back(IndexRange(getBounds(enc.trueEncoding() ? runsTrue - 1 : runNux.size() - 1)));
-  return rangeVec;
-}
-
-
-void RunAccum::setTrueBits(const InterLevel* interLevel,
-			   const SplitNux& nux,
-			   BV* splitBits,
-			   size_t bitPos) const {
-  for (PredictorT trueIdx = baseTrue; trueIdx < baseTrue + runsTrue; trueIdx++) {
-    IndexT code = interLevel->getCode(nux, getObs(trueIdx), isImplicit(runNux[trueIdx]));
-    splitBits->setBit(bitPos + code);
-  }
-}
-
-
-void RunAccum::setObservedBits(const InterLevel* interLevel,
-			       const SplitNux& nux,
-			       BV* observedBits,
-			       size_t bitPos) const {
-  for (PredictorT runIdx = 0; runIdx != runNux.size(); runIdx++) {
-    IndexT code = interLevel->getCode(nux, getObs(runIdx), isImplicit(runNux[runIdx]));
-    observedBits->setBit(bitPos + code);
-  }
-}
-
-
-void RunAccumReg::split(const SFReg* sf, RunSet* runSet, SplitNux& cand) {
-  unique_ptr<RunAccumReg> runAccum = make_unique<RunAccumReg>(sf, cand, runSet);
-  cand.setInfo(runAccum->split());
-  runSet->addRun(move(runAccum), cand);
-}
-
-
-void RunAccumCtg::split(const SFCtg* sf, RunSet* runSet, SplitNux& cand) {
-  unique_ptr<RunAccumCtg> runAccum = make_unique<RunAccumCtg>(sf, cand, runSet);
-  cand.setInfo(runAccum->split());
-  runSet->addRun(move(runAccum), cand);
-}
-
-
-double RunAccumReg::split() {
-  return maxVar();
-}
-
-
 /**
    Regression runs always maintained by heap.
 */
-void RunAccum::regRuns(const SplitNux& cand) {
+void RunAccum::regRuns(RunSet* runSet,
+		       const SplitNux& cand) {
+  vector<RunNux> runNux;
   if (implicitCand) {
-    regRunsImplicit(cand);
-    return;
+    runNux = regRunsImplicit(cand);
+  }
+  else {
+    runNux = regRunsExplicit(cand);
   }
 
+  runSet->setRuns(cand, orderMean(runNux));
+}
+
+
+vector<RunNux> RunAccum::regRunsExplicit(const SplitNux& cand) {
+  vector<RunNux> runNux(cand.getRunCount());
   PredictorT runIdx = 0;
-  initReg(obsStart, runIdx);
+  initReg(obsStart, runNux[runIdx]);
   for (IndexT idx = obsStart + 1; idx != obsEnd; idx++) {
     if (!obsCell[idx].regAccum(runNux[runIdx])) {
-      runNux[runIdx].endRange(idx-1);
-      initReg(idx, ++runIdx);
+      runNux[runIdx++].endRange(idx-1);
+      initReg(idx, runNux[runIdx]);
     }
   }
   
   // Flushes the remaining run.
   runNux[runIdx].endRange(obsEnd-1);
+
+  return runNux;
 }
 
 
-void RunAccum::regRunsImplicit(const SplitNux& cand) {
+vector<RunNux> RunAccum::regRunsImplicit(const SplitNux& cand) {
+  vector<RunNux> runNux(cand.getRunCount());
   SumCount scExplicit(sumCount);
   PredictorT runIdx = 0;
+  PredictorT implicitSlot = runNux.size(); // Inattainable.
   if (cutResidual == obsStart)
     implicitSlot = runIdx++;
-  initReg(obsStart, runIdx);
+  initReg(obsStart, runNux[runIdx]);
   for (IndexT obsIdx = obsStart + 1; obsIdx != obsEnd; obsIdx++) {
     if (!obsCell[obsIdx].regAccum(runNux[runIdx])) {
-      endRun(runNux[runIdx], scExplicit, obsIdx - 1);
+      runNux[runIdx].endRun(scExplicit, obsIdx-1);
       if (cutResidual == obsIdx)
 	implicitSlot = ++runIdx;
-      initReg(obsIdx, ++runIdx);
+      initReg(obsIdx, runNux[++runIdx]);
     }
   }
-  endRun(runNux[runIdx], scExplicit, obsEnd-1);
+  runNux[runIdx].endRun(scExplicit, obsEnd-1);
   if (cutResidual == obsEnd)
     implicitSlot = ++runIdx;
 
-  applyResidual(scExplicit);
+  runNux[implicitSlot].setResidual(scExplicit, obsEnd, implicitCand);
+
+  return runNux;
 }
 
 
-void RunAccum::regRunsMasked(const SplitNux& cand,
+vector<RunNux> RunAccum::regRunsMasked(const SplitNux& cand,
 			     const BranchSense* branchSense,
 			     IndexT edgeRight,
 			     IndexT edgeLeft,
 			     bool maskSense) {
+  vector<RunNux> runNux(cand.getRunCount());
   SumCount scExplicit(sumCount);
   PredictorT runIdx = 0;
-  initReg(edgeLeft, runIdx);
+  initReg(edgeLeft, runNux[runIdx]);
   IndexT runRight = edgeLeft; // Previous unmasked index.
   for (IndexT idx = edgeLeft + 1; idx <= edgeRight; idx++) {
     if (branchSense->isExplicit(sampleIndex[idx]) == maskSense) {
       if (!obsCell[idx].regAccum(runNux[runIdx])) {
-	endRun(runNux[runIdx], scExplicit, runRight);
-	initReg(idx, ++runIdx);
+	runNux[runIdx++].endRun(scExplicit, runRight);
+	initReg(idx, runNux[runIdx]);
       }
       runRight = idx;
     }
@@ -203,120 +133,125 @@ void RunAccum::regRunsMasked(const SplitNux& cand,
 
   // Flushes the remaining run.
   //
-  endRun(runNux[runIdx], scExplicit, runRight);
+  runNux[runIdx].endRun(scExplicit, runRight);
   if (implicitCand) {
-    implicitSlot = ++runIdx;
-    applyResidual(scExplicit);
+    PredictorT implicitSlot = ++runIdx;
+    runNux[implicitSlot].setResidual(scExplicit, obsEnd, implicitCand);
   }
+
+  return runNux;
 }
 
 
 void RunAccum::initReg(IndexT runLeft,
-		       PredictorT runIdx) {
-  runNux[runIdx].startRange(runLeft);
-  obsCell[runLeft].regInit(runNux[runIdx]);
+		       RunNux& nux) const {
+  nux.startRange(runLeft);
+  obsCell[runLeft].regInit(nux);
 }
 
 
-double RunAccum::maxVar() {
-  double infoCell = info;
-  orderMean();
-
-  SumCount scAccum;
-  PredictorT runSlot = runNux.size() - 1;
-  for (PredictorT slotTrial = 0; slotTrial < runNux.size() - 1; slotTrial++) {
-    sumAccum(slotTrial, scAccum);
-    if (trialSplit(infoVar(scAccum, sumCount))) {
-      runSlot = slotTrial;
-    }
-  }
-  setToken(runSlot);
-  return info - infoCell;
+vector<RunNux> RunAccum::orderMean(const vector<RunNux>& runNux) {
+  heapMean(runNux);
+  return slotReorder(runNux);
 }
 
 
-void RunAccum::orderMean() {
-  heapMean();
-  slotReorder();
-}
-
-
-void RunAccum::heapMean() {
+void RunAccum::heapMean(const vector<RunNux>& runNux) {
   for (PredictorT slot = 0; slot < runNux.size(); slot++) {
-    PQueue::insert<PredictorT>(&heapZero[0], runNux[slot].sum / runNux[slot].sCount, slot);
+    PQueue::insert<PredictorT>(&heapZero[0], runNux[slot].sumCount.sum / runNux[slot].sumCount.sCount, slot);
   }
 }
 
 
-void RunAccum::slotReorder() {
+void RunAccumCtg::ctgRuns(RunSet* runSet, const SplitNux& cand) {
+  vector<RunNux> runNux;
+  if (implicitCand)
+    runNux = runsImplicit(cand);
+  else
+    runNux = runsExplicit(cand);
+
+  if (nCtg > 2) {
+    if (runNux.size() > maxWidth)
+      runNux = sampleRuns(runSet, cand, runNux);
+  }
+  else
+    runNux = orderBinary(runNux);
+
+  runSet->setRuns(cand, move(runNux));
+}
+
+
+vector<RunNux> RunAccumCtg::orderBinary(const vector<RunNux>& runNux) {
+  heapBinary(runNux);
+  return slotReorder(runNux);
+}
+
+
+vector<RunNux> RunAccum::slotReorder(const vector<RunNux>& runNux) {
   vector<RunNux> frOrdered(runNux.size());
   vector<PredictorT> idxRank = PQueue::depopulate<PredictorT>(&heapZero[0], frOrdered.size());
 
   for (PredictorT slot = 0; slot < frOrdered.size(); slot++) {
     frOrdered[idxRank[slot]] = runNux[slot];
   }
-  runNux = frOrdered;
 
-  if (implicitSlot < runNux.size()) { // Tracks movement of implicit slot, if any.
-    implicitSlot = idxRank[implicitSlot];
-  }
+  return frOrdered;
 }
 
 
-void RunAccumCtg::ctgRuns(const RunSet* runSet, const SplitNux& cand) {
-  if (implicitCand)
-    runsImplicit(cand);
-  else
-    runsExplicit(cand);
-
-  if (nCtg > 2 && runNux.size() > maxWidth)
-    sampleRuns(runSet, cand);
-}
-
-
-void RunAccumCtg::runsExplicit(const SplitNux& cand) {
+vector<RunNux> RunAccumCtg::runsExplicit(const SplitNux& cand) {
+  vector<RunNux> runNux(cand.getRunCount());
   PredictorT runIdx = 0;
-  double* sumBase = initCtg(obsStart, runIdx);
+  double* sumBase = initCtg(obsStart, runNux[runIdx], runIdx);
   for (IndexT obsIdx = obsStart + 1; obsIdx != obsEnd; obsIdx++) {
     if (!obsCell[obsIdx].ctgAccum(runNux[runIdx], sumBase)) {
-      runNux[runIdx].endRange(obsIdx - 1);
-      sumBase = initCtg(obsIdx, ++runIdx);
+      runNux[runIdx++].endRange(obsIdx - 1);
+      sumBase = initCtg(obsIdx, runNux[runIdx], runIdx);
     }
   }
   runNux[runIdx].endRange(obsEnd-1); // Flushes remaining run.
+
+  return runNux;
 }
 
 
-void RunAccumCtg::runsImplicit(const SplitNux& cand) {
+vector<RunNux> RunAccumCtg::runsImplicit(const SplitNux& cand) {
+  vector<RunNux> runNux(cand.getRunCount());
   // Cut position yields the run index at which to place the residual.
   // Observation at this position must not marked as tied.
   SumCount scExplicit(sumCount);
   PredictorT runIdx = 0;
+  PredictorT implicitSlot = runNux.size(); // Inattainable.
   if (cutResidual == obsStart)
     implicitSlot = runIdx++;
-  double* sumBase = initCtg(obsStart, runIdx);
+  double* sumBase = initCtg(obsStart, runNux[runIdx], runIdx);
   for (IndexT obsIdx = obsStart + 1; obsIdx != obsEnd; obsIdx++) {
     if (!obsCell[obsIdx].ctgAccum(runNux[runIdx], sumBase)) {
-      endRun(runNux[runIdx], scExplicit, obsIdx - 1);
+      runNux[runIdx].endRun(scExplicit, obsIdx-1);
       if (cutResidual == obsIdx) {
 	implicitSlot = ++runIdx;
       }
-      sumBase = initCtg(obsIdx, ++runIdx);
+      runIdx++;
+      sumBase = initCtg(obsIdx, runNux[runIdx], runIdx);
     }
   }
-  endRun(runNux[runIdx], scExplicit, obsEnd-1); // Flushes remaining run.
+  runNux[runIdx].endRun(scExplicit, obsEnd-1);
   if (cutResidual == obsEnd)
     implicitSlot = ++runIdx;
 
-  residCtg();
-  applyResidual(scExplicit);
+  residCtg(runNux, implicitSlot);
+
+  runNux[implicitSlot].setResidual(scExplicit, obsEnd, implicitCand);
+
+  return runNux;
 }
 
 
-void RunAccumCtg::sampleRuns(const RunSet* runSet, const SplitNux& cand) {
+vector<RunNux> RunAccumCtg::sampleRuns(const RunSet* runSet,
+				       const SplitNux& cand,
+				       const vector<RunNux>& runNux) {
   vector<PredictorT> runIdx(runNux.size());
   iota(runIdx.begin(), runIdx.end(), 0);
-  bool implicitSampled = false;
   const double* rvAccum = runSet->rvSlice(cand.getAccumIdx());
   vector<double> tempCtgSum(nCtg);
   vector<double> tempSum(maxWidth * nCtg);
@@ -330,10 +265,6 @@ void RunAccumCtg::sampleRuns(const RunSet* runSet, const SplitNux& cand) {
       tempCtgSum[ctg] += sumCtg;
       tempSum[idx * nCtg + ctg] = sumCtg;
     }
-    if (implicitSlot == runRandom) {
-      implicitSampled = true;
-      implicitSlot = idx;
-    }
   }
 
   double tempSS = 0;
@@ -342,28 +273,23 @@ void RunAccumCtg::sampleRuns(const RunSet* runSet, const SplitNux& cand) {
 
   ctgNux = CtgNux(tempCtgSum, tempSS);
   runSum = tempSum;
-  runNux = rvNux;
-  runSup = maxWidth;
-  if (!implicitSampled)
-    implicitSlot = runNux.size();
+
+  return rvNux;
 }
 
 
 double* RunAccumCtg::initCtg(IndexT obsLeft,
-			  PredictorT runIdx) {
+			     RunNux& nux,
+			     PredictorT runIdx) {
+  nux.startRange(obsLeft);
   double* sumBase = &runSum[runIdx * nCtg];
-  runNux[runIdx].startRange(obsLeft);
-  obsCell[obsLeft].ctgInit(runNux[runIdx], sumBase);
+  obsCell[obsLeft].ctgInit(nux, sumBase);
   return sumBase;
 }
 
 
-void RunAccum::applyResidual(const SumCount& scResidual) {
-  runNux[implicitSlot].setResidual(scResidual, obsEnd, implicitCand);
-}
-
-
-void RunAccumCtg::residCtg() {
+void RunAccumCtg::residCtg(const vector<RunNux>& runNux,
+			   PredictorT implicitSlot) {
   double* ctgBase = &runSum[implicitSlot * nCtg];
   for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
     ctgBase[ctg] = ctgNux.ctgSum[ctg];
@@ -378,15 +304,67 @@ void RunAccumCtg::residCtg() {
 }
 
 
-double RunAccumCtg::split() {
-  if (nCtg == 2)
-    return binaryGini();
-  else
-    return ctgGini();
+void RunAccumReg::split(const SFReg* sfReg, RunSet* runSet, SplitNux& cand) {
+  RunAccumReg runAccum(sfReg, cand, runSet);
+  runAccum.initRuns(runSet, cand);
+  cand.setInfo(runAccum.split(runSet, cand));
+  runSet->setToken(cand, runAccum.splitToken);
 }
 
 
-double RunAccumCtg::ctgGini() {
+void RunAccumCtg::split(const SFCtg* sfCtg, RunSet* runSet, SplitNux& cand) {
+  RunAccumCtg runAccum(sfCtg, cand, runSet);
+  runAccum.initRuns(runSet, cand);
+  cand.setInfo(runAccum.split(runSet, cand));
+  runSet->setToken(cand, runAccum.splitToken);
+}
+
+
+void RunAccum::initRuns(RunSet* runSet,
+			const SplitNux& cand) {
+  regRuns(runSet, cand);
+  info = (sumCount.sum * sumCount.sum) / sumCount.sCount;
+};
+
+
+void RunAccumCtg::initRuns(RunSet* runSet,
+			   const SplitNux& cand) {
+  ctgRuns(runSet, cand);
+  info = ctgNux.sumSquares / sumCount.sum;
+};
+
+
+double RunAccumReg::split(const RunSet* runSet,
+			  const SplitNux& cand) {
+  return maxVar(runSet->getRunNux(cand));
+}
+
+
+double RunAccumCtg::split(const RunSet* runSet,
+			  const SplitNux& cand) {
+  if (nCtg == 2)
+    return binaryGini(runSet->getRunNux(cand));
+  else
+    return ctgGini(runSet->getRunNux(cand));
+}
+
+
+double RunAccum::maxVar(const vector<RunNux>& runNux) {
+  double infoCell = info;
+  SumCount scAccum;
+  PredictorT runSlot = runNux.size() - 1;
+  for (PredictorT slotTrial = 0; slotTrial < runNux.size() - 1; slotTrial++) {
+    runNux[slotTrial].accum(scAccum);//sumAccum(slotTrial, scAccum);
+    if (trialSplit(infoVar(scAccum, sumCount))) {
+      runSlot = slotTrial;
+    }
+  }
+  setToken(runSlot);
+  return info - infoCell;
+}
+
+
+double RunAccumCtg::ctgGini(const vector<RunNux>& runNux) {
   double infoCell = info;
   // Run index subsets as binary-encoded unsigneds.
   PredictorT trueSlots = 0; // Slot offsets of codes taking true branch.
@@ -396,7 +374,7 @@ double RunAccumCtg::ctgGini() {
 
   // Arg-max over all nontrivial subsets, up to complement:
   for (unsigned int subset = 1; subset <= lowSet; subset++) {
-    if (trialSplit(subsetGini(subset))) {
+    if (trialSplit(subsetGini(runNux, subset))) {
       trueSlots = subset;
     }
   }
@@ -406,7 +384,8 @@ double RunAccumCtg::ctgGini() {
 }
 
 
-double RunAccumCtg::subsetGini(unsigned int subset) const {
+double RunAccumCtg::subsetGini(const vector<RunNux>& runNux,
+			       unsigned int subset) const {
   // getRunSum(..., ctg) decomposes 'sumCand' by category x run.
   // getSum(runIdx) decomposes 'sumCand' by run, so may be used
   // as a cross-check.
@@ -434,17 +413,15 @@ double RunAccumCtg::subsetGini(unsigned int subset) const {
 }
 
 
-double RunAccumCtg::binaryGini() {
+double RunAccumCtg::binaryGini(const vector<RunNux>& runNux) {
   double infoCell = info;
-  orderBinary();
-
   const double tot0 = ctgNux.ctgSum[0];
   const double tot1 = ctgNux.ctgSum[1];
   double sumL0 = 0.0; // Running left sum at category 0.
   double sumL1 = 0.0; // " " category 1.
   PredictorT argMaxRun = runNux.size() - 1;
   for (PredictorT runIdx = 0; runIdx != runNux.size() - 1; runIdx++) {
-    if (accumBinary(runIdx, sumL0, sumL1)) { // Splitable
+    if (accumBinary(runNux, runIdx, sumL0, sumL1)) { // Splitable
       // sumR, sumL magnitudes can be ignored if no large case/class weightings.
       FltVal sumL = sumL0 + sumL1;
       double ssL = sumL0 * sumL0 + sumL1 * sumL1;
@@ -459,88 +436,13 @@ double RunAccumCtg::binaryGini() {
 }
 
 
-void RunAccumCtg::orderBinary() {
-  heapBinary();
-  slotReorder();
-}
-
-
-void RunAccumCtg::heapBinary() {
+void RunAccumCtg::heapBinary(const vector<RunNux>& runNux) {
   // Ordering by category probability is equivalent to ordering by
   // concentration, as weighting by priors does not affect order.
   //
   // In the absence of class weighting, numerator can be (integer) slot
   // sample count, instead of slot sum.
   for (PredictorT slot = 0; slot < runNux.size(); slot++) {
-    PQueue::insert<PredictorT>(&heapZero[0], getRunSum(slot, 1) / runNux[slot].sum, slot);
+    PQueue::insert<PredictorT>(&heapZero[0], getRunSum(slot, 1) / runNux[slot].sumCount.sum, slot);
   }
-}
-
-
-void RunAccum::update(const SplitNux& cand, SplitStyle style) {
-  if (style == SplitStyle::slots) {
-    leadSlots(cand.invertTest());
-  }
-  else if (style == SplitStyle::bits) {
-    leadBits(cand.invertTest());
-  }
-  else if (style == SplitStyle::topSlot) {
-    topSlot();
-  }
-}
-
-
-void RunAccum::topSlot() {
-  implicitTrue += getImplicitExtent(runsTrue++);
-}
-
-
-void RunAccum::leadSlots(bool invertTest) {
-  // 'splitToken' is the index of the cut, or highest left slot.
-  PredictorT runsLeft = splitToken + 1;
-  if (invertTest) {
-    baseTrue = runsLeft;
-    runsTrue = runNux.size() - runsLeft;
-  }
-  else {
-    runsTrue = runsLeft;
-  }
-  implicitTrue = getImplicitCut();
-}
-
-
-void RunAccum::leadBits(bool invertTest) {
-  // Only categories visible to this node can be incorporated into the
-  // splitting decision.  By convention, the categories resident in 'true'
-  // slots will take the true branch during prediction.  All other categories,
-  // regardless whether visible, will take the false branch.  This includes not
-  // only categories eclipsed by bagging or conditioning, but also proxy
-  // categories not encountered during training, as well as NA.
-
-  // No slot, whether implicit or explicit, should be assigned a branch
-  // sense fixed a priori.  Doing so biases predictions for reasons outlined
-  // above.  For this reason the true branch is randomly assigned to either
-  // the argmax slot subset or its complement.  Because factor splitting is
-  // expressed via set membership, the randomization can be performed during
-  // training.
-
-  PredictorT lhBits = invertTest ? slotComplement(splitToken) : splitToken;
-  implicitTrue = (lhBits & (1ul << implicitSlot)) == 0 ? 0 : getImplicitExtent(implicitSlot);
-
-  // Places true-sense runs to the left for range and code capture.
-  // runNux.size() captures all factor levels visible to the cell.
-  vector<RunNux> frTemp;
-  for (PredictorT runIdx = 0; runIdx != runNux.size(); runIdx++) {
-    if (lhBits & (1ul << runIdx)) {
-      frTemp.emplace_back(runNux[runIdx]);
-    }
-  }
-  runsTrue = frTemp.size();
-  for (PredictorT runIdx = 0; runIdx != runNux.size(); runIdx++) {
-    if (!(lhBits & (1ul << runIdx))) {
-      frTemp.emplace_back(runNux[runIdx]);
-    }
-  }
-
-  runNux = frTemp;
 }

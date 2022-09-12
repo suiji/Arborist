@@ -145,7 +145,7 @@ public:
      @brief Records splitting state associated with cut.
    */
   void writeCut(const class SplitNux& nux,
-		const class CutAccum* accum) const;
+		const class CutAccum& accum) const;
 
 
   /**
@@ -263,11 +263,6 @@ public:
    */
   IndexT* getIdxBuffer(const class SplitNux& nux) const;
   
-  
-  /**
-   */
-  RunAccum* getRunAccum(const class SplitNux& nux) const;
-
 
   /**
      @brief Classification sublcasses return # categories; others zero.

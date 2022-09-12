@@ -60,6 +60,11 @@ public:
 
 
   /**
+     @retrun true iff run's range exceeds bounds.
+   */
+  bool isImplicit(const class RunNux& nux) const;
+
+  /**
      @return desired cut range.
    */
   IndexRange cutRange(const class CutSet* cutSet,

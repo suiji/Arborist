@@ -17,15 +17,13 @@
 #ifndef SPLIT_RUNACCUM_H
 #define SPLIT_RUNACCUM_H
 
-#include <vector>
-
 #include "splitcoord.h"
 #include "sumcount.h"
 #include "accum.h"
 #include "bheap.h"
-#include "runnux.h"
+#include "runsig.h"
 
-enum class SplitStyle;
+#include <vector>
 
 
 /**
@@ -50,62 +48,29 @@ enum class SplitStyle;
 */
 class RunAccum : public Accum {
 protected:
-  vector<RunNux> runNux; ///< obs block, partitioned by code.
-  IndexT runSup; ///< # active runs, <= runNux size.
   vector<BHPair<PredictorT>> heapZero; ///< Sorting workspace.
-  PredictorT implicitSlot; ///< Run, if any, without explicit obs range.
+  PredictorT splitToken; ///< Splitting cut or bits.
 
-  // Post-splitting values.
-  PredictorT baseTrue; ///> Base of true-run slots.
-  PredictorT runsTrue; ///> Count of true-run slots.
-  PredictorT splitToken; ///> Cut or bits.
-  IndexT implicitTrue; ///> # implicit true-sense indices:  post-encoding.
-  
+
   /**
-     @brief Subtracts contents of top run from accumulators and sets its
-     high terminal index.
-
-     @param idxEnd is the high terminal index of the run.
+     @brief Builds runs for regression.
    */
-  inline void endRun(RunNux& nux,
-		     SumCount& scExplicit,
-		     IndexT idxEnd) {
-    scExplicit.sCount -= nux.sCount;
-    scExplicit.sum -= nux.sum;
-    nux.endRange(idxEnd);
-  }
-  
-  
-  /**
-     @brief Initializes a run from residual values.
-  */
-  void applyResidual(const SumCount& scResidual);
+  void regRuns(class RunSet* runSet,
+	       const SplitNux& cand);
 
 
-  /**
-     @brief Looks up run parameters by indirection through output vector.
-     
-     N.B.:  should not be called with a dense run.
+  void initRuns(class RunSet* runSet,
+		const class SplitNux& cand);
 
-     @return index range associated with run.
-  */
-  IndexRange getBounds(PredictorT slot) const {
-    return runNux[slot].getRange();
-  }
 
-  
-  /**
-     @brief Accumulates runs for regression.
-   */
-  void regRuns(const SplitNux& cand);
-
+  vector<RunNux> regRunsExplicit(const SplitNux& cand);
 
   /**
      @brief As above, but also tracks a residual slot.
    */
-  void regRunsImplicit(const SplitNux& cand);
+  vector<RunNux> regRunsImplicit(const SplitNux& cand);
 
-  
+
   /**
      @brief Determines split having highest weighted variance.
 
@@ -113,25 +78,15 @@ protected:
 
      @return gain in weighted variance.
    */
-  double maxVar();
+  double maxVar(const vector<RunNux>& runNux);
 
   
   /**
      @brief Sorts by mean response.
    */
-  void heapMean();
+  void heapMean(const vector<RunNux>& runNux);
 
   
-  /**
-     @brief Determines whether run denotes a residual.
-
-     Redidual runs distinguished by out-of-bound range.
-   */
-  bool isImplicit(const RunNux& runNux) const {
-    return runNux.obsRange.idxStart >= obsEnd;
-  }
-  
-
 public:
   static constexpr unsigned int maxWidth = 10; // Algorithmic threshold.
 
@@ -142,14 +97,6 @@ public:
 	   const class SplitNux& cand,
 	   const class RunSet* runSet);
 
-
-  /**
-     @return extent of implicit slot, if in true branch, else zero.
-   */
-  IndexT getImplicitCut() const {
-    return (implicitSlot >= baseTrue && implicitSlot < baseTrue + runsTrue) ? getExtent(implicitSlot) : 0;
-  }
-  
 
   /**
      @brief Determines whether run count must be truncated.
@@ -163,20 +110,11 @@ public:
   /**
      @brief Depopulates the heap associated with a pair and places sorted ranks into rank vector.
   */
-  void slotReorder();
-
-
-  /**
-     @brief Revises slot or bit contents for argmax accumulator.
-
-     @param cand is a successful splitting candidate.
-   */
-  void update(const SplitNux& cand,
-	      SplitStyle style);
+  vector<RunNux> slotReorder(const vector<RunNux>& runNux);
 
 
   void initReg(IndexT runLeft,
-	       PredictorT runIdx);
+	       RunNux& nux) const;
 
   
   /**
@@ -184,17 +122,17 @@ public:
 
      @param maskSense indicates whether to screen set or unset mask.
    */  
-  void regRunsMasked(const SplitNux& cand,
-		     const class BranchSense* branchSense,
-		     IndexT edgeRight,
-		     IndexT edgeLeft,
-		     bool maskSense);
+  vector<RunNux> regRunsMasked(const SplitNux& cand,
+			       const class BranchSense* branchSense,
+			       IndexT edgeRight,
+			       IndexT edgeLeft,
+			       bool maskSense);
 
 
   /**
      @brief Writes to heap, weighting by slot mean response.
   */
-  void orderMean();
+  vector<RunNux> orderMean(const vector<RunNux>& runNux);
 
 
   /**
@@ -203,170 +141,6 @@ public:
   inline void setToken(PredictorT token) {
     splitToken = token;
   }
-  
-
-  /**
-     @brief Obtains number of runs in play.
-
-     @return size of runNux.
-   */
-  inline auto getRunCount() const {
-    return runNux.size();
-  }
-
-
-  inline auto getImplicitTrue() const {
-    return implicitTrue;
-  }
-  
-
-  inline void resetRunSup(PredictorT nRun) {
-    this->runSup = nRun;
-  }
-
-
-  /**
-     @brief Accumulates contents at position referenced by a given index.
-
-     @param slot is a run index.
-
-     @param scAccum[in, out] accumulates sample count and sum.
-   */
-  inline void sumAccum(PredictorT slot,
-		       SumCount& scAccum) const {
-    runNux[slot].accum(scAccum);
-  }
-
-
-  /**
-     @brief Resets top index and contents, if applicable.
-     
-     @param runStart is the previous top position.
-
-     @param runIdx is the index from which to copy the top position.
-   */
-  inline void reset(PredictorT runStart,
-		    PredictorT runIdx) {
-    if (runIdx != runNux.size()) {
-      runNux[runStart] = runNux[runIdx]; // New top value.
-      runSup = runStart + 1;
-    }
-    else { // No new top, run-count restored.
-      runSup = runStart;
-    }
-  }
-
-
-  /**
-    @brief Outputs sample and index counts at a given slot.
-
-    @param slot is the run slot in question.
-
-    @return total SR index count subsumed.
-  */
-  inline IndexT getExtent(PredictorT slot) const {
-    return runNux[slot].obsRange.getExtent();
-  }
-
-
-  /**
-     @return representative observation index within specified slot.
-   */
-  auto getObs(PredictorT slot) const {
-    return runNux[slot].obsRange.idxStart;
-  }
-
-
-  auto getSum(PredictorT slot) const {
-    return runNux[slot].sum;
-  }
-
-  
-  auto getSCount(PredictorT slot) const {
-    return runNux[slot].sCount;
-  }
-
-  
-  /**
-     @brief Decodes bit vector of argmax factor.
-
-     @param lhBits encodes sampled LH/RH slot indices as on/off bits, respectively.
-
-     @param invertTest indicates whether to complement true branch bits:  EXIT.
-  */
-  void leadBits(bool invertTest);
-
-
-  /**
-     @brief Determines the complement of a bit pattern of fixed size.
-
-     Equivalent to  (~subset << (32 - runNux.size()))) >> (32 - runNux.size()).
-     
-     @param subset is a collection of runNux.size()-many bits.
-
-     @return bit (ones) complement of subset.
-  */
-  inline unsigned int slotComplement(unsigned int subset) const {
-    return (1 << runNux.size()) - (subset + 1);
-  }
-
-
-  /**
-     @brief Emits the left-most codes as true-branch bit positions.
-
-     True codes are enumerated from the left, by convention.  Implicit runs are
-     guranteed not to lie on the left.
-   */
-  void setTrueBits(const class InterLevel* interLevel,
-		   const class SplitNux& nux,
-		   class BV* splitBits,
-		   size_t bitPos) const;
-
-
-  /**
-     @brief Reports the factor codes observed at the node.
-   */
-  void setObservedBits(const class InterLevel* interLevel,
-		       const class SplitNux& nux,
-		       class BV* splitBits,
-		       size_t bitPos) const;
-  
-  /**
-     @brief Establishes cut position of argmax factor.
-
-     @param invertTest indicates whether to complement true-branch bits:  Exit.
-  */
-  void leadSlots(bool invertTest);
-
-
-  /**
-     @brief Appends a single slot to the lh set.
-   */
-  void topSlot();
-
-
-  /**
-     @return implicit count associated with a slot.
-   */
-  IndexT getImplicitExtent(PredictorT slot) const {
-    return isImplicit(runNux[slot]) ? getExtent(slot) : 0;
-  }
-
-  
-  /**
-     @return vector of block ranges associated with encoding.
-   */
-  vector<IndexRange> getRange(const struct CritEncoding& enc) const;
-
-
-  vector<IndexRange> getRange(PredictorT slotStart,
-			      PredictorT slotEnd) const;
-  
-
-  /**
-     @return top-most block range associated with encoding.
-   */
-  vector<IndexRange> getTopRange(const struct CritEncoding& enc) const;
 };
 
 
@@ -388,7 +162,9 @@ public:
   /**
      @brief Private splitting entry.
    */
-  double split();
+  double split(const class RunSet* runSet,
+	       const class SplitNux& cand); 
+  //	       const vector<RunNux>& runNux);
 };
 
 
@@ -401,8 +177,14 @@ class RunAccumCtg : public RunAccum {
   vector<double> runSum; ///>  run x ctg checkerboard.
 
 
-  void sampleRuns(const class RunSet* runSet,
-		  const class SplitNux& cand);
+  vector<RunNux> sampleRuns(const class RunSet* runSet,
+			    const class SplitNux& cand,
+			    const vector<RunNux>& runNux);
+
+
+  void initRuns(class RunSet* runSet,
+		const class SplitNux& cand);
+
 
 public:
 
@@ -430,7 +212,8 @@ public:
 
      @return true iff next run sufficiently different from this.
    */
-  inline bool accumBinary(PredictorT slot,
+  inline bool accumBinary(const vector<RunNux>& runNux,
+			  PredictorT slot,
 			  double& sum0,
 			  double& sum1) {
     sum0 += getRunSum(slot, 0);
@@ -441,20 +224,20 @@ public:
     // counts differ. If identical, then checks whether the response
     // sums differ by some measure.
     PredictorT slotNext = slot+1;
-    return (runNux[slot].sCount != runNux[slotNext].sCount) ||  getRunSum(slotNext, 1) > cell1;
+    return (runNux[slot].sumCount.sCount != runNux[slotNext].sumCount.sCount) ||  getRunSum(slotNext, 1) > cell1;
   }
 
 
   /**
      @brief Writes to heap, weighting by category-1 probability.
   */
-  void orderBinary();
+  vector<RunNux> orderBinary(const vector<RunNux>& runNux);
 
 
   /**
      @brief Sorts by probability, binary response.
    */
-  void heapBinary();
+  void heapBinary(const vector<RunNux>& runNux);
 
 
   /**
@@ -466,19 +249,22 @@ public:
   
 
   double* initCtg(IndexT runLeft,
+		  RunNux& nux,
 		  PredictorT runIdx);
 
 
   /**
      @brief Subtracts a run's per-category responses from the current run.
    */
-  inline void residCtg();
+  inline void residCtg(const vector<RunNux>& runNux,
+		       PredictorT implicitSlot);
 
 
   /**
      @brief Private entry for categorical splitting.
    */
-  double split();
+  double split(const class RunSet* runSEt,
+	       const class SplitNux& cand);
 
 
   /**
@@ -486,20 +272,20 @@ public:
 
      @param sumSlice is the per-category response decomposition.
   */
-  void ctgRuns(const class RunSet* runSet,
+  void ctgRuns(class RunSet* runSet,
 	       const class SplitNux& cand);
 
   
   /**
      @brief Builds runs without checking for implicit observations.
    */
-  void runsExplicit(const class SplitNux& cand);
+  vector<RunNux> runsExplicit(const class SplitNux& cand);
 
 
   /**
      @brief As above, but also tracks a residual slot
    */
-  void runsImplicit(const class SplitNux& cand);
+  vector<RunNux> runsImplicit(const class SplitNux& cand);
 
 
   /**
@@ -516,7 +302,7 @@ public:
 
      @return Gini information gain.
   */
-  double ctgGini();
+  double ctgGini(const vector<RunNux>& runNux);
 
   
   /**
@@ -533,7 +319,8 @@ public:
 
      @return Gini coefficient of subset.
    */
-  double subsetGini(unsigned int subset) const;
+  double subsetGini(const vector<RunNux>& runNux,
+		    unsigned int subset) const;
 
 
   /**
@@ -541,7 +328,7 @@ public:
 
      @return Gini information gain.
    */
-  double binaryGini();
+  double binaryGini(const vector<RunNux>& runNux);
 };
 
 

@@ -35,48 +35,58 @@ IndexT RunSet::preIndex(const SplitFrontier*sf, const SplitNux& cand) {
 }
 
 
-void RunSet::addRun(unique_ptr<RunAccum> upt,
-		    const SplitNux& cand) {
-  runAccum[cand.getAccumIdx()] = move(upt);
-}
-
-
 void RunSet::accumPreset(const SplitFrontier* sf) {
-  runNux = vector<vector<RunNux>>(nAccum);
-  runAccum = vector<unique_ptr<RunAccum>>(nAccum);
+  runSig = vector<RunSig>(nAccum);
   if (!runWide.empty())
     rvWide = PRNG::rUnif(RunAccum::maxWidth * runWide.size());
 }
 
 
+void RunSet::setToken(const SplitNux& nux,
+		      PredictorT token) {
+  runSig[nux.getAccumIdx()].splitToken = token;
+}
+
+
+void RunSet::setRuns(const SplitNux& cand,
+		     vector<RunNux> runNux) {
+  runSig[cand.getAccumIdx()].runNux = move(runNux);
+}
+
+
+const vector<RunNux>& RunSet::getRunNux(const SplitNux& nux) const {
+  return runSig[nux.getAccumIdx()].runNux;
+}
+
+
 vector<IndexRange> RunSet::getRunRange(const SplitNux& nux, const CritEncoding& enc) const {
-  return runAccum[nux.getAccumIdx()]->getRange(enc);
+  return runSig[nux.getAccumIdx()].getRange(enc);
 }
 
 
 vector<IndexRange> RunSet::getTopRange(const SplitNux& nux, const CritEncoding& enc) const {
-  return runAccum[nux.getAccumIdx()]->getTopRange(enc);
+  return runSig[nux.getAccumIdx()].getTopRange(enc);
 }
 
 
 IndexT RunSet::getImplicitTrue(const SplitNux& nux) const {
-  return runAccum[nux.getAccumIdx()]->getImplicitTrue();
+  return runSig[nux.getAccumIdx()].getImplicitTrue();
 }
 
 
 PredictorT RunSet::getRunCount(const SplitNux* nux) const {
-  return runAccum[nux->getAccumIdx()]->getRunCount();
+  return runSig[nux->getAccumIdx()].getRunCount();
 }
 
 
 void RunSet::resetRunSup(PredictorT accumIdx,
 			 PredictorT runCount) {
-  runAccum[accumIdx]->resetRunSup(runCount);
+  runSig[accumIdx].resetRunSup(runCount);
 }
 
 
-void RunSet::updateAccum(const SplitNux& cand) {
-  runAccum[cand.getAccumIdx()]->update(cand, style);
+void RunSet::accumUpdate(const SplitNux& cand) {
+  runSig[cand.getAccumIdx()].updateCriterion(cand, style);
 }
 
 
@@ -84,7 +94,7 @@ void RunSet::setTrueBits(const InterLevel* interLevel,
 			 const SplitNux& nux,
 			 class BV* splitBits,
 			 size_t bitPos) const {
-  runAccum[nux.getAccumIdx()]->setTrueBits(interLevel, nux, splitBits, bitPos);
+  runSig[nux.getAccumIdx()].setTrueBits(interLevel, nux, splitBits, bitPos);
 }
 
 
@@ -92,7 +102,7 @@ void RunSet::setObservedBits(const InterLevel* interLevel,
 			     const SplitNux& nux,
 			     class BV* splitBits,
 			     size_t bitPos) const {
-  runAccum[nux.getAccumIdx()]->setObservedBits(interLevel, nux, splitBits, bitPos);
+  runSig[nux.getAccumIdx()].setObservedBits(interLevel, nux, splitBits, bitPos);
 }
 
 

@@ -27,16 +27,16 @@ CutAccumRegCart::CutAccumRegCart(const SplitNux& cand,
 
 
 void CutAccumRegCart::split(const SFRegCart* spReg,
-			    CutSet* cutSet,
 			    SplitNux& cand) {
   CutAccumRegCart cutAccum(cand, spReg);
-  cutAccum.splitReg(spReg, cand);
+  cand.setInfo(cutAccum.splitReg(spReg, cand));
+  spReg->writeCut(cand, cutAccum);
 }
 
 
 
-void CutAccumRegCart::splitReg(const SFRegCart* spReg,
-			       SplitNux& cand) {
+double CutAccumRegCart::splitReg(const SFRegCart* spReg,
+				 const SplitNux& cand) {
   double infoCell = info;
   if (cand.getImplicitCount() != 0) {
     if (monoMode != 0)
@@ -50,8 +50,7 @@ void CutAccumRegCart::splitReg(const SFRegCart* spReg,
     else
       splitRL(obsStart, obsEnd);
   }
-  cand.setInfo(info - infoCell);
-  spReg->writeCut(cand, this);
+  return info - infoCell;
 }
 
 
@@ -155,16 +154,16 @@ CutAccumCtgCart::CutAccumCtgCart(const SplitNux& cand,
 
 
 void CutAccumCtgCart::split(SFCtgCart* spCtg,
-			    CutSet* cutSet,
 			    SplitNux& cand) {
   CutAccumCtgCart cutAccum(cand, spCtg);
-  cutAccum.splitCtg(spCtg, cand);
+  cand.setInfo(cutAccum.splitCtg(spCtg, cand));
+  spCtg->writeCut(cand, cutAccum);
 }
 
 
 // Initializes from final index and loops over remaining indices.
-void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
-			       SplitNux& cand) {
+double CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
+				 const SplitNux& cand) {
   double infoCell = info;
   if (cand.getImplicitCount() != 0) {
     splitImpl();
@@ -172,8 +171,7 @@ void CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
   else {
     splitRL(obsStart, obsEnd);
   }
-  cand.setInfo(info - infoCell);
-  spCtg->writeCut(cand, this);
+  return info - infoCell;
 }
 
 

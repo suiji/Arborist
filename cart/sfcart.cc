@@ -74,7 +74,7 @@ void SFCtgCart::split(SplitNux& cand) {
     RunAccumCtg::split(this, runSet.get(), cand);
   }
   else {
-    CutAccumCtgCart::split(this, cutSet.get(), cand);
+    CutAccumCtgCart::split(this, cand);
   }
 }
 
@@ -84,6 +84,6 @@ void SFRegCart::split(SplitNux& cand) {
     RunAccumReg::split(this, runSet.get(), cand);
   }
   else {
-    CutAccumRegCart::split(this, cutSet.get(), cand);
+    CutAccumRegCart::split(this, cand);
   }
 }

@@ -82,11 +82,6 @@ Obs* SplitFrontier::getPredBase(const SplitNux& nux) const {
 }
 
 
-RunAccum* SplitFrontier::getRunAccum(const SplitNux& nux) const {
-  return runSet->getAccumulator(nux.getAccumIdx());
-}
-
-
 bool SplitFrontier::isFactor(const SplitNux& nux) const {
   return frame->isFactor(nux);
 }
@@ -113,7 +108,7 @@ bool SplitFrontier::leftCut(const SplitNux& cand) const {
 
 
 void SplitFrontier::writeCut(const SplitNux& nux,
-			     const CutAccum* accum) const {
+			     const CutAccum& accum) const {
   cutSet->write(interLevel, nux, accum);
 }
 
@@ -165,9 +160,9 @@ IndexT SplitFrontier::getPTId(const StagedCell* obsCell) const {
 }
 
 
-//     Placeholder bit for proxy lies one beyond the factor's cardinality and
-//     remains unset for quick test exit.  To support trap-and-bail for factors,
-//     the number of bits should double, allowing lookup of (in)visibility state.
+// Placeholder bit for proxy lies one beyond the factor's cardinality and
+// remains unset for quick test exit.  To support trap-and-bail for factors,
+// the number of bits should double, allowing lookup of (in)visibility state.
 PredictorT SplitFrontier::critBitCount(const SplitNux& nux) const {
   return 1 + frame->getFactorExtent(nux);
 }
@@ -319,7 +314,7 @@ CritEncoding SplitFrontier::splitUpdate(const SplitNux& nux,
 
 void SplitFrontier::accumUpdate(const SplitNux& nux) const {
   if (isFactor(nux)) { // Only factor accumulators currently require an update.
-    runSet->updateAccum(nux);
+    runSet->accumUpdate(nux);
   }
 }
 

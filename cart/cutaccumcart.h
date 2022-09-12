@@ -56,15 +56,16 @@ public:
      @brief Static entry for regression splitting.
    */
   static void split(const struct SFRegCart* spReg,
-		    class CutSet* cutSet,
 		    class SplitNux& cand);
 
   
   /**
      @brief Private regresion splitting method.
+
+     @return information gain.
    */
-  void splitReg(const struct SFRegCart* spReg,
-             class SplitNux& cand);
+  double splitReg(const struct SFRegCart* spReg,
+		  const class SplitNux& cand);
   
 
   /**
@@ -139,15 +140,16 @@ public:
      @brief Static entry for classification splitting.
    */
   static void split(class SFCtgCart* spCtg,
-		    class CutSet* cutSet,
 		    class SplitNux& cand);
   
 
   /**
      @brief Private classification splitting method.
+
+     @return information gain.
    */
-  void splitCtg(const class SFCtgCart* spCtg,
-		class SplitNux& cand);
+  double splitCtg(const class SFCtgCart* spCtg,
+		  const class SplitNux& cand);
 
   
   /**

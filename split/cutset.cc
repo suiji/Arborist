@@ -73,7 +73,7 @@ IndexT CutSet::getImplicitTrue(const SplitNux& nux) const {
 
 
 void CutSet::write(const InterLevel* interLevel,
-		   const SplitNux& nux, const CutAccum* accum) {
+		   const SplitNux& nux, const CutAccum& accum) {
   if (nux.getInfo() > 0) {
     cutSig[nux.getAccumIdx()].write(interLevel, nux, accum);
   }
@@ -82,9 +82,9 @@ void CutSet::write(const InterLevel* interLevel,
 
 void CutSig::write(const InterLevel* interLevel,
 		   const SplitNux& nux,
-		   const CutAccum* accum) {
-  obsLeft = accum->obsLeft;
-  obsRight = accum->obsRight;
-  implicitTrue = accum->lhImplicit(nux);
-  quantRank = accum->interpolateRank(interLevel, nux);
+		   const CutAccum& accum) {
+  obsLeft = accum.obsLeft;
+  obsRight = accum.obsRight;
+  implicitTrue = accum.lhImplicit(nux);
+  quantRank = accum.interpolateRank(interLevel, nux);
 }

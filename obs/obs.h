@@ -18,6 +18,7 @@
 
 #include "typeparam.h"
 #include "samplenux.h"
+#include "runsig.h"
 
 #include <cmath>
 
@@ -122,8 +123,7 @@ class Obs {
      @return true iff run state changes.
    */
   inline void regInit(RunNux& nux) const {
-    nux.sCount = getSCount();
-    nux.sum = getYSum();
+    nux.sumCount = SumCount(getYSum(), getSCount());
   }
 
   
@@ -134,8 +134,7 @@ class Obs {
    */
   inline bool regAccum(RunNux& nux) const {
     if (isTied()) {
-      nux.sum += getYSum();
-      nux.sCount += getSCount();
+      nux.sumCount += SumCount(getYSum(), getSCount());
       return true;
     }
     else {
@@ -153,9 +152,8 @@ class Obs {
    */
   inline void ctgInit(RunNux& nux,
 		      double* sumBase) const {
-    nux.sum = getYSum();
-    nux.sCount = getSCount();
-    sumBase[getCtg()] = nux.sum;
+    nux.sumCount = SumCount(getYSum(), getSCount());
+    sumBase[getCtg()] = nux.sumCount.sum;
   }
 
 
@@ -168,8 +166,7 @@ class Obs {
 		       double* sumBase) const {
     if (isTied()) {
       double ySum = getYSum();
-      nux.sum += ySum;
-      nux.sCount += getSCount();
+      nux.sumCount += SumCount(ySum, getSCount());
       sumBase[getCtg()] += ySum;
       return true;
     }
