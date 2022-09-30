@@ -39,6 +39,8 @@ RunAccumCtg::RunAccumCtg(const SFCtg* sfCtg,
 			 const SplitNux& cand,
 			 const RunSet* runSet) : RunAccum(sfCtg, cand, runSet),
 						 nCtg(sfCtg->getNCtg()),
+						 sampling(nCtg > 2 && cand.getRunCount() > maxWidth),
+						 sampleCount(sampling ? maxWidth : cand.getRunCount()),
 						 ctgNux(filterMissingCtg(sfCtg, cand)),
 						 runSum(vector<double>(nCtg * cand.getRunCount())) {
 }
@@ -53,17 +55,13 @@ bool RunAccum::ctgWide(const SplitFrontier* sf,
 /**
    Regression runs always maintained by heap.
 */
-void RunAccum::regRuns(RunSet* runSet,
-		       const SplitNux& cand) {
-  vector<RunNux> runNux;
+vector<RunNux> RunAccum::regRuns(const SplitNux& cand) {
   if (implicitCand) {
-    runNux = regRunsImplicit(cand);
+    return regRunsImplicit(cand);
   }
   else {
-    runNux = regRunsExplicit(cand);
+    return regRunsExplicit(cand);
   }
-
-  runSet->setRuns(cand, orderMean(runNux));
 }
 
 
@@ -158,32 +156,88 @@ vector<RunNux> RunAccum::orderMean(const vector<RunNux>& runNux) {
 
 void RunAccum::heapMean(const vector<RunNux>& runNux) {
   for (PredictorT slot = 0; slot < runNux.size(); slot++) {
-    PQueue::insert<PredictorT>(&heapZero[0], runNux[slot].sumCount.sum / runNux[slot].sumCount.sCount, slot);
+    PQueue::insert<PredictorT>(&heapZero[0], runNux[slot].sumCount.mean(), slot);
   }
 }
 
 
-void RunAccumCtg::ctgRuns(RunSet* runSet, const SplitNux& cand) {
+vector<RunNux> RunAccumCtg::ctgRuns(RunSet* runSet, const SplitNux& cand) {
   vector<RunNux> runNux;
   if (implicitCand)
     runNux = runsImplicit(cand);
   else
     runNux = runsExplicit(cand);
 
-  if (nCtg > 2) {
-    if (runNux.size() > maxWidth)
-      runNux = sampleRuns(runSet, cand, runNux);
-  }
-  else
+  if (nCtg == 2)
     runNux = orderBinary(runNux);
+  else if (sampling) {
+    runNux = sampleRuns(runSet, cand, runNux);
+  }
 
-  runSet->setRuns(cand, move(runNux));
+  return runNux;
 }
 
 
 vector<RunNux> RunAccumCtg::orderBinary(const vector<RunNux>& runNux) {
   heapBinary(runNux);
   return slotReorder(runNux);
+}
+
+
+void RunAccumCtg::heapBinary(const vector<RunNux>& runNux) {
+  // Ordering by category probability is equivalent to ordering by
+  // concentration, as weighting by priors does not affect order.
+  //
+  // In the absence of class weighting, numerator can be (integer) slot
+  // sample count, instead of slot sum.
+  for (PredictorT slot = 0; slot < runNux.size(); slot++) {
+    PQueue::insert<PredictorT>(&heapZero[0], getRunSum(slot, 1) / runNux[slot].sumCount.sum, slot);
+  }
+}
+
+
+vector<RunNux> RunAccumCtg::sampleRuns(const RunSet* runSet,
+				       const SplitNux& cand,
+				       const vector<RunNux>& runNux) {
+  const double* rvAccum = runSet->rvSlice(cand.getSigIdx());
+  vector<PredictorT> idxSample(runNux.size());
+  iota(idxSample.begin(), idxSample.end(), 0);
+
+  BV runRandom(runNux.size());
+  PredictorT choiceSize = runNux.size();
+  for (unsigned int idx = 0; idx < sampleCount; idx++) {
+    PredictorT rvIdx = rvAccum[idx] * choiceSize;
+    runRandom.setBit(idxSample[rvIdx]);
+    idxSample[rvIdx] = idxSample[--choiceSize];
+  }
+
+  vector<double> tempCtgSum(nCtg);
+  vector<double> tempSum(sampleCount * nCtg);
+  vector<RunNux> nuxSampled(sampleCount);
+  PredictorT idxSampled = 0;
+  PredictorT idxUnsampled = sampleCount;
+  for (PredictorT idx = 0; idx < runNux.size(); idx++) {
+    if (runRandom.testBit(idx)) {
+      for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
+	double sumCtg = runSum[idx * nCtg + ctg];
+	tempCtgSum[ctg] += sumCtg;
+	tempSum[idxSampled * nCtg + ctg] = sumCtg;
+      }
+      nuxSampled[idxSampled++] = runNux[idx];
+    }
+    else {
+      nuxSampled[idxUnsampled++] = runNux[idx];
+    }
+  }
+
+  double tempSS = 0;
+  for (PredictorT ctg = 0; ctg < nCtg; ctg++)
+    tempSS += tempCtgSum[ctg] * tempCtgSum[ctg];
+
+  ctgNux = CtgNux(tempCtgSum, tempSS);
+  runSum = tempSum;
+
+  return nuxSampled;
 }
 
 
@@ -239,7 +293,7 @@ vector<RunNux> RunAccumCtg::runsImplicit(const SplitNux& cand) {
   if (cutResidual == obsEnd)
     implicitSlot = ++runIdx;
 
-  residCtg(runNux, implicitSlot);
+  residualSums(runNux, implicitSlot);
 
   runNux[implicitSlot].setResidual(scExplicit, obsEnd, implicitCand);
 
@@ -247,48 +301,7 @@ vector<RunNux> RunAccumCtg::runsImplicit(const SplitNux& cand) {
 }
 
 
-vector<RunNux> RunAccumCtg::sampleRuns(const RunSet* runSet,
-				       const SplitNux& cand,
-				       const vector<RunNux>& runNux) {
-  vector<PredictorT> runIdx(runNux.size());
-  iota(runIdx.begin(), runIdx.end(), 0);
-  const double* rvAccum = runSet->rvSlice(cand.getAccumIdx());
-  vector<double> tempCtgSum(nCtg);
-  vector<double> tempSum(maxWidth * nCtg);
-  vector<RunNux> rvNux(maxWidth);
-  for (unsigned int idx = 0; idx < maxWidth; idx++) {
-    unsigned int runRandom = rvAccum[idx] * (runNux.size() - idx);
-    runIdx[runRandom] = runIdx[runNux.size() - idx - 1];
-    rvNux[idx] = runNux[runRandom];
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-      double sumCtg = runSum[runRandom * nCtg + ctg];
-      tempCtgSum[ctg] += sumCtg;
-      tempSum[idx * nCtg + ctg] = sumCtg;
-    }
-  }
-
-  double tempSS = 0;
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++)
-    tempSS += tempCtgSum[ctg] * tempCtgSum[ctg];
-
-  ctgNux = CtgNux(tempCtgSum, tempSS);
-  runSum = tempSum;
-
-  return rvNux;
-}
-
-
-double* RunAccumCtg::initCtg(IndexT obsLeft,
-			     RunNux& nux,
-			     PredictorT runIdx) {
-  nux.startRange(obsLeft);
-  double* sumBase = &runSum[runIdx * nCtg];
-  obsCell[obsLeft].ctgInit(nux, sumBase);
-  return sumBase;
-}
-
-
-void RunAccumCtg::residCtg(const vector<RunNux>& runNux,
+void RunAccumCtg::residualSums(const vector<RunNux>& runNux,
 			   PredictorT implicitSlot) {
   double* ctgBase = &runSum[implicitSlot * nCtg];
   for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
@@ -304,73 +317,83 @@ void RunAccumCtg::residCtg(const vector<RunNux>& runNux,
 }
 
 
+double* RunAccumCtg::initCtg(IndexT obsLeft,
+			     RunNux& nux,
+			     PredictorT runIdx) {
+  nux.startRange(obsLeft);
+  double* sumBase = &runSum[runIdx * nCtg];
+  obsCell[obsLeft].ctgInit(nux, sumBase);
+  return sumBase;
+}
+
+
 void RunAccumReg::split(const SFReg* sfReg, RunSet* runSet, SplitNux& cand) {
   RunAccumReg runAccum(sfReg, cand, runSet);
-  runAccum.initRuns(runSet, cand);
-  cand.setInfo(runAccum.split(runSet, cand));
-  runSet->setToken(cand, runAccum.splitToken);
+  vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
+  SplitRun splitRun = runAccum.split(runNux);
+  runSet->setSplit(cand, move(runNux), splitRun);
 }
 
 
 void RunAccumCtg::split(const SFCtg* sfCtg, RunSet* runSet, SplitNux& cand) {
   RunAccumCtg runAccum(sfCtg, cand, runSet);
-  runAccum.initRuns(runSet, cand);
-  cand.setInfo(runAccum.split(runSet, cand));
-  runSet->setToken(cand, runAccum.splitToken);
+  vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
+  SplitRun splitRun = runAccum.split(runNux);
+  runSet->setSplit(cand, move(runNux), splitRun);
 }
 
 
-void RunAccum::initRuns(RunSet* runSet,
-			const SplitNux& cand) {
-  regRuns(runSet, cand);
+vector<RunNux> RunAccum::initRuns(RunSet* runSet,
+				  const SplitNux& cand) {
+  vector<RunNux> runNux = regRuns(cand);
   info = (sumCount.sum * sumCount.sum) / sumCount.sCount;
+  return runNux;
 };
 
 
-void RunAccumCtg::initRuns(RunSet* runSet,
-			   const SplitNux& cand) {
-  ctgRuns(runSet, cand);
+vector<RunNux> RunAccumCtg::initRuns(RunSet* runSet,
+				     const SplitNux& cand) {
+  vector<RunNux> runNux = ctgRuns(runSet, cand);
   info = ctgNux.sumSquares / sumCount.sum;
+  return runNux;
 };
 
 
-double RunAccumReg::split(const RunSet* runSet,
-			  const SplitNux& cand) {
-  return maxVar(runSet->getRunNux(cand));
+SplitRun RunAccumReg::split(const vector<RunNux>& runNux) {
+  return maxVar(runNux);
 }
 
 
-double RunAccumCtg::split(const RunSet* runSet,
-			  const SplitNux& cand) {
-  if (nCtg == 2)
-    return binaryGini(runSet->getRunNux(cand));
+SplitRun RunAccumCtg::split(const vector<RunNux>& runNux) {
+  if (nCtg == 2) {
+    return binaryGini(runNux);
+  }
   else
-    return ctgGini(runSet->getRunNux(cand));
+    return ctgGini(runNux);
 }
 
 
-double RunAccum::maxVar(const vector<RunNux>& runNux) {
+SplitRun RunAccum::maxVar(const vector<RunNux>& runNux) {
   double infoCell = info;
   SumCount scAccum;
   PredictorT runSlot = runNux.size() - 1;
   for (PredictorT slotTrial = 0; slotTrial < runNux.size() - 1; slotTrial++) {
-    runNux[slotTrial].accum(scAccum);//sumAccum(slotTrial, scAccum);
+    runNux[slotTrial].accum(scAccum);
     if (trialSplit(infoVar(scAccum, sumCount))) {
       runSlot = slotTrial;
     }
   }
-  setToken(runSlot);
-  return info - infoCell;
+  return SplitRun(info - infoCell, runSlot, runNux.size());
 }
 
 
-double RunAccumCtg::ctgGini(const vector<RunNux>& runNux) {
+SplitRun RunAccumCtg::ctgGini(const vector<RunNux>& runNux) {
   double infoCell = info;
   // Run index subsets as binary-encoded unsigneds.
   PredictorT trueSlots = 0; // Slot offsets of codes taking true branch.
 
   // High bit unset, remainder set.
-  PredictorT lowSet = (1ul << (runNux.size() - 1)) - 1;
+  PredictorT lowSet = (1ul << (sampleCount - 1)) - 1;
 
   // Arg-max over all nontrivial subsets, up to complement:
   for (unsigned int subset = 1; subset <= lowSet; subset++) {
@@ -379,8 +402,7 @@ double RunAccumCtg::ctgGini(const vector<RunNux>& runNux) {
     }
   }
 
-  setToken(trueSlots);
-  return info - infoCell;
+  return SplitRun(info - infoCell, trueSlots, sampleCount);
 }
 
 
@@ -413,7 +435,7 @@ double RunAccumCtg::subsetGini(const vector<RunNux>& runNux,
 }
 
 
-double RunAccumCtg::binaryGini(const vector<RunNux>& runNux) {
+SplitRun RunAccumCtg::binaryGini(const vector<RunNux>& runNux) {
   double infoCell = info;
   const double tot0 = ctgNux.ctgSum[0];
   const double tot1 = ctgNux.ctgSum[1];
@@ -431,18 +453,5 @@ double RunAccumCtg::binaryGini(const vector<RunNux>& runNux) {
       }
     } 
   }
-  setToken(argMaxRun);
-  return info - infoCell;
-}
-
-
-void RunAccumCtg::heapBinary(const vector<RunNux>& runNux) {
-  // Ordering by category probability is equivalent to ordering by
-  // concentration, as weighting by priors does not affect order.
-  //
-  // In the absence of class weighting, numerator can be (integer) slot
-  // sample count, instead of slot sum.
-  for (PredictorT slot = 0; slot < runNux.size(); slot++) {
-    PQueue::insert<PredictorT>(&heapZero[0], getRunSum(slot, 1) / runNux[slot].sumCount.sum, slot);
-  }
+  return SplitRun(info - infoCell, argMaxRun, runNux.size());
 }

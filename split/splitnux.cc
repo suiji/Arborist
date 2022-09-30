@@ -48,7 +48,7 @@ SplitNux::SplitNux(const StagedCell* cell_,
   sCount(splitFrontier->getSCount(cell)),
   ptId(splitFrontier->getPTId(cell)),
   info(0.0) {
-  accumIdx = splitFrontier->accumulatorIndex(*this);
+  sigIdx = splitFrontier->accumulatorIndex(*this);
 }
 
 
@@ -58,7 +58,7 @@ SplitNux::SplitNux(const SplitNux& parent,
 		   IndexT idx) :
   cell(parent.cell),
   randVal(parent.randVal),
-  accumIdx(parent.accumIdx),
+  sigIdx(parent.sigIdx),
   sum(sf->getSumSucc(cell, sense)),
   sCount(sf->getSCountSucc(cell, sense)),
   ptId(parent.ptId + idx),

@@ -97,15 +97,32 @@ struct RunNux {
    @brief Minimal information needed to convey a run-based split.
  */
 struct RunSig {
-  // Set by accumulator methods:
+  // Initialized by splitting:
   vector<RunNux> runNux;
+  PredictorT splitToken; ///< Cut or bits.
 
-  IndexT runSup; ///< # active runs, <= runNux size; top splits only.
+  PredictorT runsSampled; ///< # ctg participating in split.
   PredictorT baseTrue; ///< Base of true-run slots.
   PredictorT runsTrue; ///< Count of true-run slots.
-  PredictorT splitToken; ///< Cut or bits.
   IndexT implicitTrue; ///< # implicit true-sense indices:  post-encoding.
+  IndexT runSup; ///< # active runs, <= runNux size; top splits only.
 
+
+  RunSig() = default;
+
+  RunSig(vector<RunNux> runNux_,
+	 PredictorT splitToken_,
+	 PredictorT runsSampled_) :
+    runNux(move(runNux_)),
+    splitToken(splitToken_),
+    runsSampled(runsSampled_),
+    baseTrue(0),
+    runsTrue(0),
+    implicitTrue(0),
+    runSup(0) {
+  }
+
+  
   inline void resetRunSup(PredictorT nRun) {
     this->runSup = nRun;
   }
@@ -133,7 +150,7 @@ struct RunSig {
   /**
      @brief Looks up run parameters by indirection through output vector.
      
-     N.B.:  should not be called with a dense run.
+     N.B.:  does not apply to residual runs.
 
      @return index range associated with run.
   */
@@ -162,6 +179,7 @@ struct RunSig {
    */
   void updateCriterion(const class SplitNux& cand,
 		       SplitStyle style);
+
 
   /**
      @brief Obtains number of runs in play.

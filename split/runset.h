@@ -54,12 +54,12 @@ public:
 
      Slices have an implicit width of RunAccum::maxWidth.
      
-     @param accumIdx is the index of a wide-run accumulator.
+     @param sigIdx is the index of a wide-run accumulator.
 
      @return base variate position for accumulator.
    */
-  inline const double* rvSlice(IndexT accumIdx) const {
-    return &rvWide[RunAccum::maxWidth * (lower_bound(runWide.begin(), runWide.end(), accumIdx) - runWide.begin())];
+  inline const double* rvSlice(IndexT sigIdx) const {
+    return &rvWide[RunAccum::maxWidth * (lower_bound(runWide.begin(), runWide.end(), sigIdx) - runWide.begin())];
   }
 
   
@@ -72,25 +72,17 @@ public:
 		  const class SplitNux& cand);
 
 
-  //  void addRun(unique_ptr<RunAccum> upt,
-  //	      const class SplitNux& cand);
+  void setSplit(class SplitNux& cand,
+		vector<RunNux> runNux,
+		const class SplitRun& splitRun);
 
-  void setToken(const class SplitNux& cand,
-		PredictorT token);
-
+  
   /**
      @brief Consolidates the safe count vector.
 
      Classification:  only wide run sets use the heap.
   */
   void accumPreset(const class SplitFrontier* sf);
-
-  
-  /**
-     @brief Sets ownership of RunNux vector to this.
-   */
-  void setRuns(const SplitNux& cand,
-	       vector<RunNux> runNux);
 
 
   const vector<RunNux>& getRunNux(const class SplitNux& cand) const;
@@ -138,7 +130,7 @@ public:
   PredictorT getRunCount(const class SplitNux* nux) const;
 
 
-  void resetRunSup(PredictorT accumIdx,
+  void resetRunSup(PredictorT sigIdx,
 		   PredictorT runCount);
  
 

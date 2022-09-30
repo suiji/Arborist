@@ -34,7 +34,7 @@ class SplitNux {
 
   const StagedCell* cell; // Copied from PreCand.
   uint32_t randVal;
-  IndexT accumIdx; // Index into accumulator workspace.
+  IndexT sigIdx; // Index into accumulator workspace.
   double sum; // Initial sum, fixed by index set (node).
   IndexT sCount; // Initial sample count, fixed by index set.
   IndexT ptId; // Index into tree:  offset from position given by index set.
@@ -89,7 +89,7 @@ public:
   SplitNux() :
     cell(nullptr),
     randVal(0),
-    accumIdx(0),
+    sigIdx(0),
     sum(0.0),
     sCount(0),
     ptId(0),
@@ -104,7 +104,7 @@ public:
     mrra(nux.mrra),
     randVal(nux.randVal),
     obsRange(nux.obsRange),
-    accumIdx(nux.accumIdx),
+    sigIdx(nux.sigIdx),
     sum(nux.sum),
     sCount(nux.sCount),
     ptId(nux.ptId),
@@ -115,7 +115,7 @@ public:
     mrra = nux.mrra;
     randVal = nux.randVal;
     obsRange = nux.obsRange;
-    accumIdx = nux.accumIdx;
+    sigIdx = nux.sigIdx;
     sum = nux.sum;
     sCount = nux.sCount;
     ptId = nux.ptId;
@@ -223,8 +223,8 @@ public:
     return cell->bufIdx;
   }
   
-  auto getAccumIdx() const {
-    return accumIdx;
+  auto getSigIdx() const {
+    return sigIdx;
   }
 
   

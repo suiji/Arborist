@@ -28,22 +28,22 @@ void CutSet::accumPreset() {
 
 
 CutSig CutSet::getCut(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()];
+  return cutSig[nux.getSigIdx()];
 }
 
 
-CutSig CutSet::getCut(IndexT accumIdx) const {
-  return cutSig[accumIdx];
+CutSig CutSet::getCut(IndexT sigIdx) const {
+  return cutSig[sigIdx];
 }
 
 
-void CutSet::setCut(IndexT accumIdx, const CutSig& sig) {
-  cutSig[accumIdx] = sig;
+void CutSet::setCut(IndexT sigIdx, const CutSig& sig) {
+  cutSig[sigIdx] = sig;
 }
 
 
 bool CutSet::leftCut(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()].cutLeft;
+  return cutSig[nux.getSigIdx()].cutLeft;
 }
 
 
@@ -53,29 +53,29 @@ void CutSet::setCutSense(IndexT cutIdx, bool sense) {
 
 
 double CutSet::getQuantRank(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()].quantRank;
+  return cutSig[nux.getSigIdx()].quantRank;
 }
 
 
 IndexT CutSet::getIdxRight(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()].obsRight;
+  return cutSig[nux.getSigIdx()].obsRight;
 }
 
 
 IndexT CutSet::getIdxLeft(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()].obsLeft;
+  return cutSig[nux.getSigIdx()].obsLeft;
 }
 
 
 IndexT CutSet::getImplicitTrue(const SplitNux& nux) const {
-  return cutSig[nux.getAccumIdx()].implicitTrue;
+  return cutSig[nux.getSigIdx()].implicitTrue;
 }
 
 
 void CutSet::write(const InterLevel* interLevel,
 		   const SplitNux& nux, const CutAccum& accum) {
   if (nux.getInfo() > 0) {
-    cutSig[nux.getAccumIdx()].write(interLevel, nux, accum);
+    cutSig[nux.getSigIdx()].write(interLevel, nux, accum);
   }
 }
 

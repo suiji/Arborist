@@ -47,6 +47,14 @@ struct SumCount {
     return sCount;
   }
 
+
+  /**
+     @return sample mean.
+   */
+  inline double mean() const {
+    return sum / sCount;
+  }
+
   
   /**
      @brief Determines whether a node is splitable and accesses sum field.

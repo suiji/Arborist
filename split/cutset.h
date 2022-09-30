@@ -63,7 +63,7 @@ public:
   void accumPreset();
 
   
-  CutSig getCut(IndexT accumIdx) const;
+  CutSig getCut(IndexT sigIdx) const;
 
 
   /**
@@ -72,7 +72,7 @@ public:
   CutSig getCut(const SplitNux& nux) const;
 
   
-  void setCut(IndexT accumIdx, const CutSig& sig);
+  void setCut(IndexT sigIdx, const CutSig& sig);
 
 
   IndexT preIndex() {

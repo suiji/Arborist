@@ -25,6 +25,23 @@
 
 #include <vector>
 
+/**
+   @brief Conveys results of a splitting operation.
+ */
+struct SplitRun {
+  double gain; ///< Information gain of split.
+  PredictorT token; ///< Cut or bit representation.
+  PredictorT runsSampled; ///< # run participating in split.
+
+  SplitRun(double gain_,
+	   PredictorT token_,
+	   PredictorT runsSampled_) :
+    gain(gain_),
+    token(token_),
+    runsSampled(runsSampled_) {
+  }
+};
+
 
 /**
    RunAccums live only during a single level, from argmax pass one (splitting)
@@ -48,19 +65,18 @@
 */
 class RunAccum : public Accum {
 protected:
+
   vector<BHPair<PredictorT>> heapZero; ///< Sorting workspace.
-  PredictorT splitToken; ///< Splitting cut or bits.
 
 
   /**
      @brief Builds runs for regression.
    */
-  void regRuns(class RunSet* runSet,
-	       const SplitNux& cand);
+  vector<RunNux> regRuns(const SplitNux& cand);
 
 
-  void initRuns(class RunSet* runSet,
-		const class SplitNux& cand);
+  vector<RunNux> initRuns(class RunSet* runSet,
+			  const class SplitNux& cand);
 
 
   vector<RunNux> regRunsExplicit(const SplitNux& cand);
@@ -78,7 +94,7 @@ protected:
 
      @return gain in weighted variance.
    */
-  double maxVar(const vector<RunNux>& runNux);
+  SplitRun maxVar(const vector<RunNux>& runNux);
 
   
   /**
@@ -133,14 +149,6 @@ public:
      @brief Writes to heap, weighting by slot mean response.
   */
   vector<RunNux> orderMean(const vector<RunNux>& runNux);
-
-
-  /**
-     @brief Sets splitting token for possible elaboration.
-   */
-  inline void setToken(PredictorT token) {
-    splitToken = token;
-  }
 };
 
 
@@ -162,19 +170,20 @@ public:
   /**
      @brief Private splitting entry.
    */
-  double split(const class RunSet* runSet,
-	       const class SplitNux& cand); 
-  //	       const vector<RunNux>& runNux);
+  SplitRun split(const vector<RunNux>& runNux);
 };
 
 
 
 class RunAccumCtg : public RunAccum {
-  const PredictorT nCtg;
+  const PredictorT nCtg; ///< Response category count.
+  const bool sampling; ///< Whether to split sample.
+  const PredictorT sampleCount; ///< # runs to sample.
+  
   CtgNux ctgNux;
 
   // Initialized as a side-effect of RunNux construction:
-  vector<double> runSum; ///>  run x ctg checkerboard.
+  vector<double> runSum; ///<  run x ctg checkerboard.
 
 
   vector<RunNux> sampleRuns(const class RunSet* runSet,
@@ -182,8 +191,8 @@ class RunAccumCtg : public RunAccum {
 			    const vector<RunNux>& runNux);
 
 
-  void initRuns(class RunSet* runSet,
-		const class SplitNux& cand);
+  vector<RunNux> initRuns(class RunSet* runSet,
+			  const class SplitNux& cand);
 
 
 public:
@@ -256,15 +265,14 @@ public:
   /**
      @brief Subtracts a run's per-category responses from the current run.
    */
-  inline void residCtg(const vector<RunNux>& runNux,
+  inline void residualSums(const vector<RunNux>& runNux,
 		       PredictorT implicitSlot);
 
 
   /**
      @brief Private entry for categorical splitting.
    */
-  double split(const class RunSet* runSEt,
-	       const class SplitNux& cand);
+  SplitRun split(const vector<RunNux>& runNux);
 
 
   /**
@@ -272,8 +280,8 @@ public:
 
      @param sumSlice is the per-category response decomposition.
   */
-  void ctgRuns(class RunSet* runSet,
-	       const class SplitNux& cand);
+  vector<RunNux> ctgRuns(class RunSet* runSet,
+			 const class SplitNux& cand);
 
   
   /**
@@ -299,12 +307,12 @@ public:
      convention, the final run is incorporated into RHS of the split, if any.
      Excluding the final run, then, the number of candidate LHS subsets is
      '2^(runNux.size()-1) - 1'.
-
+     
      @return Gini information gain.
   */
-  double ctgGini(const vector<RunNux>& runNux);
+  SplitRun ctgGini(const vector<RunNux>& runNux);
 
-  
+
   /**
      @brief Determines Gini of a subset of runs encoded as bits.
 
@@ -328,7 +336,7 @@ public:
 
      @return Gini information gain.
    */
-  double binaryGini(const vector<RunNux>& runNux);
+  SplitRun binaryGini(const vector<RunNux>& runNux);
 };
 
 

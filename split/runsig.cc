@@ -41,7 +41,7 @@ void RunSig::setObservedBits(const InterLevel* interLevel,
 			       const SplitNux& nux,
 			       BV* observedBits,
 			       size_t bitPos) const {
-  for (PredictorT runIdx = 0; runIdx != runNux.size(); runIdx++) {
+  for (PredictorT runIdx = 0; runIdx != runsSampled; runIdx++) {
     IndexT code = interLevel->getCode(nux, getObs(runIdx), nux.isImplicit(runNux[runIdx]));
     observedBits->setBit(bitPos + code);
   }
@@ -116,7 +116,6 @@ void RunSig::leadSlots(const SplitNux& nux) {
       break;
     }
   }
-  //  implicitTrue = getImplicitCut();
 }
 
 
