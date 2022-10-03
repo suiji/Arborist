@@ -12,7 +12,7 @@ regNumPass <-function(m, nrow, ncol, minRsq, nThread) {
     }
   }
 
-  rs <- Rborist(x, y, nTree = 500, nThread = nThread)
+  rs <- rfArb(x, y, nThread = nThread)
   pass <- ifelse(rs$validation$rsq >= minRsq, 1, 0)
 }
 

@@ -90,19 +90,20 @@ protected:
   static const size_t scoreChunk; // Score block dimension.
   static const unsigned int seqChunk;  // Effort to minimize false sharing.
 
-  const bool trapUnobserved; // Whether to trap values not observed during training.
-  const class Sampler* sampler; // In-bag representation.
-  const vector<vector<DecNode>> decNode; // Forest-wide decision nodes.
-  const vector<unique_ptr<BV>>& factorBits;
-  const bool testing; // Whether to compare prediction with test vector.
-  const unsigned int nPermute; // # times to permute each predictor.
+  const bool trapUnobserved; ///< Whether to trap values not observed during training.
+  const class Sampler* sampler; ///< In-bag representation.
+  const vector<vector<DecNode>> decNode; ///< Forest-wide decision nodes.
+  const vector<unique_ptr<BV>>& factorBits; ///< Splitting bits.
+  const vector<unique_ptr<BV>>& bitsObserved; ///< Bits participating in split.
+  const bool testing; ///< Whether to compare prediction with test vector.
+  const unsigned int nPermute; ///< # times to permute each predictor.
 
-  vector<IndexT> predictLeaves; // Tree-relative leaf indices.
+  vector<IndexT> predictLeaves; ///< Tree-relative leaf indices.
 
-  size_t blockStart; // Stripmine bound.
+  size_t blockStart; ///< Stripmine bound.
   vector<IndexT> accumNEst;
 
-  size_t nEst; // Total number of estimands.
+  size_t nEst; ///< Total number of estimands.
   
   
   /**
@@ -217,6 +218,7 @@ public:
      block structure.
    */
   void (Predict::* walkTree)(size_t);
+  void (Predict::* getWalker())(size_t);
 
   vector<CtgT> trFac; // OTF transposed factor observations.
   vector<double> trNum; // OTF transposed numeric observations.

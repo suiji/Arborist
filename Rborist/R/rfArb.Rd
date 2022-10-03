@@ -15,14 +15,14 @@
 
 \usage{
 \method{rfArb}{default} (x,
-                y,
-                autoCompress = 0.25,
+                  y,
+                autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,
                 impPermute = 0,
                 maxLeaf = 0,
                 minInfo = 0.01,
-                minNode = ifelse(is.factor(y), 2, 3),
+                minNode = if (is.factor(y)) 2 else 3,
                 nLevel = 0,
                 nSamp = 0,
                 nThread = 0,
@@ -36,7 +36,7 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = ifelse(is.factor(y), TRUE, FALSE),
+                thinLeaves = is.factor(y),
                 trapUnobserved = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
@@ -78,7 +78,8 @@
     numerical splits}.
   \item{thinLeaves}{bypasses creation of leaf state in order to reduce
     memory footprint.}
-  \item{trapUnobserved}{specifies a prediction mode for values unobserved during training.} 
+  \item{trapUnobserved}{reports score for nonterminal upon encountering
+  values not observed during training, such as missing data.}
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
   \item{verbose}{indicates whether to output progress of training.}

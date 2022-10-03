@@ -40,6 +40,7 @@ Predict::Predict(const Forest* forest,
   sampler(sampler_),
   decNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
+  bitsObserved(forest->getBitsObserved()),
   testing(testing_),
   nPermute(nPermute_),
   predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
@@ -50,10 +51,19 @@ Predict::Predict(const Forest* forest,
   nRow(rleFrame->getNRow()),
   nTree(forest->getNTree()),
   noNode(forest->maxTreeHeight()),
-  walkTree(nPredFac == 0 ? &Predict::walkNum : (nPredNum == 0 ? &Predict::walkFac : &Predict::walkMixed)),
+  walkTree(getWalker()),
   trFac(vector<CtgT>(scoreChunk * nPredFac)),
   trNum(vector<double>(scoreChunk * nPredNum)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
+}
+
+void (Predict::* Predict::getWalker())(size_t) {
+  if (nPredFac == 0)
+    return &Predict::walkNum;
+  else if (nPredNum == 0)
+    return &Predict::walkFac;
+  else
+    return &Predict::walkMixed;
 }
 
 
@@ -318,7 +328,7 @@ void Predict::rowNum(unsigned int tIdx,
   auto idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = cTree[idx].advance(rowT);
+    delIdx = cTree[idx].advance(rowT, trapUnobserved);
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -333,7 +343,7 @@ void Predict::rowFac(const unsigned int tIdx,
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = cTree[idx].advance(factorBits, rowT, tIdx);
+    delIdx = cTree[idx].advance(factorBits, bitsObserved, rowT, tIdx, trapUnobserved);
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -349,7 +359,7 @@ void Predict::rowMixed(unsigned int tIdx,
   auto idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = cTree[idx].advance(this, factorBits, rowFT, rowNT, tIdx);
+    delIdx = cTree[idx].advance(this, factorBits, bitsObserved, rowFT, rowNT, tIdx, trapUnobserved);
     idx += delIdx;
   } while (delIdx != 0);
 

@@ -187,8 +187,12 @@ public:
 
      @return delta to next node, if nonterminal, else zero.
    */
-  inline IndexT advanceNum(const double numVal) const {
-    return delInvert(invert ? (numVal > getSplitNum()) : (numVal <= getSplitNum()));
+  inline IndexT advanceNum(const double numVal,
+			   bool trapUnobserved) const {
+    if (trapUnobserved && isnan(numVal))
+      return 0;
+    else
+      return delInvert(invert ? (numVal > getSplitNum()) : (numVal <= getSplitNum()));
   }
 
 
@@ -201,8 +205,13 @@ public:
      @return delta to branch target.
    */
   inline IndexT advanceFactor(const BV* bits,
-			      size_t bitOffset) const {
-    return delTest(bits->testBit(bitOffset));
+			      const BV* bitsObserved,
+			      size_t bitOffset,
+			      bool trapUnobserved) const {
+    if (trapUnobserved && !bitsObserved->testBit(bitOffset))
+      return 0;
+    else
+      return delTest(bits->testBit(bitOffset));
   }
   
 
@@ -222,9 +231,11 @@ public:
      @return terminal/nonterminal : 0 / delta to next node.
    */
   IndexT advanceFactor(const vector<unique_ptr<BV>>& factorBits,
+		       const vector<unique_ptr<BV>>& bitsObserved,
 		       const CtgT rowFT[],
-		       unsigned int tIdx) const {
-    return advanceFactor(factorBits[tIdx].get(), getBitOffset() + rowFT[getPredIdx()]);
+		       unsigned int tIdx,
+		       bool trapUnobserved) const {
+    return advanceFactor(factorBits[tIdx].get(), bitsObserved[tIdx].get(), getBitOffset() + rowFT[getPredIdx()], trapUnobserved);
   }
 
 
@@ -243,9 +254,11 @@ public:
    */
   IndexT advanceMixed(const class Predict* predict,
 		      const vector<unique_ptr<class BV>>& factorBits,
+		      const vector<unique_ptr<class BV>>& bitsObserved,
 		      const CtgT* rowFT,
 		      const double *rowNT,
-		      unsigned int tIdx) const;
+		      unsigned int tIdx,
+		      bool trapUnobserved) const;
 
   /**
      @brief Interplates split values from fractional intermediate rank.

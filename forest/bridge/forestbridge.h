@@ -49,7 +49,8 @@ struct ForestBridge {
 	       const complex<double> treeNode[],
 	       const double scores[],
 	       const double facExtent[],
-               const unsigned char facSplit[]);
+               const unsigned char facSplit[],
+	       const unsigned char facObserved[]);
 
 
   /**

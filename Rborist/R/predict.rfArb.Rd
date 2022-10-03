@@ -1,17 +1,17 @@
 % File man/predict.Rborist.Rd
 % Part of the rborist package
 
-\name{predict.Rborist}
-\alias{predict.Rborist}
+\name{predict.rfArb}
+\alias{predict.rfArb}
 \title{predict method for Rborst}
 \description{
   Prediction and test using Rborist.
 }
 
 \usage{
-\method{predict}{Rborist}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), ctgCensus = "votes", bagging = FALSE,
-nThread = 0, verbose = FALSE, ...)
+\method{predict}{rfArb}(object, newdata, yTest=NULL, quantVec=NULL,
+quantiles = !is.null(quantVec), ctgCensus = "votes",
+trapUnobserved =FALSE,bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
@@ -28,6 +28,8 @@ nThread = 0, verbose = FALSE, ...)
   "prob" specifies a normalized, probabilistic summary.
   "probSample" specifies sample-weighted probabilities, similar to
   quantile histogramming.}
+  \item{trapUnobserved}{reports score for nonterminal upon encountering
+  values not observed during training, such as missing data.}
   \item{bagging}{whether prediction is restricted to out-of-bag samples.}
   \item{nThread}{suggests ans OpenMP-style thread count.  Zero denotes
     default processor setting.}

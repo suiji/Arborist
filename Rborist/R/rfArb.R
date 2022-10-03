@@ -19,8 +19,11 @@
 # Checks argument semantics and initializes state for deep call.
 #
 
-rfArb <- function(x,
-                  y,
+rfArb <- function(x, y, ...) UseMethod("rfArb")
+
+
+rfArb.default <- function(x,
+                          y,
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
                 classWeight = NULL,

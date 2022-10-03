@@ -16,7 +16,7 @@
 ## along with PrimR.  If not, see <http://www.gnu.org/licenses/>.
 
 Export <- function(arbOut) {
-    UseMethod("Export")
+    UseMethod("Export.rfArb")
 }
 
 

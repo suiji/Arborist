@@ -32,10 +32,12 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const complex<double> treeNode[],
 			   const double score[],
 			   const double facExtent[],
-                           const unsigned char facSplit[]) {
+                           const unsigned char facSplit[],
+			   const unsigned char facObserved[]) {
   forest = make_unique<Forest>(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree),
 			       DecNodeRW::unpackScores(score, nodeExtent, nTree),
-			       DecNodeRW::unpackBits(facSplit, facExtent, nTree));
+			       DecNodeRW::unpackBits(facSplit, facExtent, nTree),
+			       DecNodeRW::unpackBits(facObserved, facExtent, nTree));
 }
 
 

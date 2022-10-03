@@ -1,11 +1,11 @@
 % File man/Export.Rborist.Rd
 % Part of the rborist package
 
-\name{Export}
+\name{Export.rfArb}
 \alias{Export}
-\alias{Export.Rborist}
+\alias{Export.rfArb}
 \concept{decision trees}
-\title{Exportation Format for Rborist Training Output}
+\title{Exportation Format for rfArb Training Output}
 \description{
   Formats training output into a form suitable for illustration of
   feature contributions.
@@ -13,7 +13,7 @@
 
 
 \usage{
- \method{Export}{Rborist}(arbOut)
+ \method{Export}{rfArb}(arbOut)
 }
 
 \arguments{

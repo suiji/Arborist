@@ -149,7 +149,8 @@ unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
 				   (complex<double>*) as<ComplexVector>(lNode[FBTrain::strTreeNode]).begin(),
 				   as<NumericVector>(lForest[FBTrain::strScores]).begin(),
 				   as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
-				   as<RawVector>(lFactor[FBTrain::strFacSplit]).begin());
+				   as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
+				   as<RawVector>(lFactor[FBTrain::strObserved]).begin());    
 }
 
 

@@ -56,24 +56,29 @@ struct CartNode : public TreeNode {
   /**
      @brief Advancers pass through to the base class.
    */
-  inline IndexT advance(const double* rowT) const {
-    return isTerminal() ? 0 : TreeNode::advanceNum(rowT[getPredIdx()]);
+  inline IndexT advance(const double* rowT,
+			bool trapUnobserved) const {
+    return isTerminal() ? 0 : TreeNode::advanceNum(rowT[getPredIdx()], trapUnobserved);
   }
 
 
   inline IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
+			const vector<unique_ptr<class BV>>& bitsObserved,
 			const CtgT* rowT,
-			unsigned int tIdx) const {
-    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, rowT, tIdx);
+			unsigned int tIdx,
+			bool trapUnobserved) const {
+    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, bitsObserved, rowT, tIdx, trapUnobserved);
   }
 
 
   inline IndexT advance(const class Predict* predict,
 			const vector<unique_ptr<class BV>>& factorBits,
+			const vector<unique_ptr<class BV>>& bitsObserved,
 			const CtgT* rowFT,
 			const double *rowNT,
-			unsigned int tIdx) const {
-    return isTerminal() ? 0 : TreeNode::advanceMixed(predict, factorBits, rowFT, rowNT, tIdx);
+			unsigned int tIdx,
+			bool trapUnobserved) const {
+    return isTerminal() ? 0 : TreeNode::advanceMixed(predict, factorBits, bitsObserved, rowFT, rowNT, tIdx, trapUnobserved);
   }
 };
 

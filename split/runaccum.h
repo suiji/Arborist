@@ -154,7 +154,7 @@ public:
 
 class RunAccumReg : public RunAccum {
 public:
-  RunAccumReg(const class SFReg* sfReg,
+  RunAccumReg(const struct SFReg* sfReg,
 	      const class SplitNux& cand,
 	      const class RunSet* runSet);
 
@@ -163,7 +163,7 @@ public:
   /**
      @breif Static entry for regression splitting.
    */
-  static void split(const class SFReg* sfReg,
+  static void split(const struct SFReg* sfReg,
 		    class RunSet* runSet,
 		    class SplitNux& cand);
 

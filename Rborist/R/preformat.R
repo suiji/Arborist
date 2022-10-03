@@ -17,7 +17,13 @@
 
 # Pre-formats a data frame or buffer, if not already pre-formatted.
 # If already pre-formatted, verifies types of member fields.
-preformat <- function(x, verbose = FALSE) {
+
+preformat <- function(x, ...) UseMethod("preformat")
+
+
+preformat.default <- function(x,
+                              verbose = FALSE,
+                              ...) {
     if (inherits(x, "Deframe")) {
         if (!inherits(x$rleFrame, "RLEFrame")) {
             stop("Missing RLEFrame")

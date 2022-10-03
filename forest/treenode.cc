@@ -60,15 +60,17 @@ void TreeNode::setQuantRank(const PredictorFrame* frame) {
 
 IndexT TreeNode::advanceMixed(const Predict* predict,
 			      const vector<unique_ptr<BV>>& factorBits,
+			      const vector<unique_ptr<BV>>& bitsObserved,
 			      const CtgT* rowFT,
 			      const double* rowNT,
-			      unsigned int tIdx) const {
+			      unsigned int tIdx,
+			      bool trapUnobserved) const {
   bool isFactor;
   IndexT blockIdx = predict->getIdx(getPredIdx(), isFactor);
   if (isFactor) {
-    return advanceFactor(factorBits[tIdx].get(), getBitOffset() + rowFT[blockIdx]);
+    return advanceFactor(factorBits[tIdx].get(), bitsObserved[tIdx].get(), getBitOffset() + rowFT[blockIdx], trapUnobserved);
   }
   else {
-    return advanceNum(rowNT[blockIdx]);
+    return advanceNum(rowNT[blockIdx], trapUnobserved);
   }
 }

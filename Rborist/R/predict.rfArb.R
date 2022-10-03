@@ -63,14 +63,16 @@
 
 
 ctgProbabilities <- function(sampler, ctgCensus) {
-    if (is.factor(sampler$yTrain) && ctgCensus == "prob")
+    if (is.factor(sampler$yTrain) && ctgCensus == "prob") {
         TRUE
-    else if (ctgCensus == "votes")
+    }
+    else if (ctgCensus == "votes") {
         FALSE
-    else
+    }
+    else {
         stop(paste("Unrecognized ctgCensus type: ", ctgCensus))
+    }
 }
-
 
 
 # Uses quartiles by default.

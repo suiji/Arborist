@@ -144,7 +144,8 @@ class Forest {
   const unsigned int nTree;
   const vector<vector<DecNode>> decNode;
   const vector<vector<double>> scores; // " "
-  const vector<unique_ptr<BV>> factorBits;
+  const vector<unique_ptr<BV>> factorBits; ///< All factors known at training.
+  const vector<unique_ptr<BV>> bitsObserved; ///< Factors observed at splitting.
 
   // Crescent data structures:  training only.
   unique_ptr<NodeCresc> nodeCresc; // Crescent node block.
@@ -184,7 +185,8 @@ class Forest {
    */
   Forest(const vector<vector<DecNode>> decNode_,
 	 vector<vector<double>> scores_,
-	 vector<unique_ptr<BV>> factorBits_);
+	 vector<unique_ptr<BV>> factorBits_,
+	 vector<unique_ptr<BV>> bitsObserved_);
 
 
   const vector<size_t>& getFacExtents() const {
@@ -252,6 +254,11 @@ class Forest {
 
   inline const vector<unique_ptr<BV>>& getFactorBits() const {
     return factorBits;
+  }
+
+  
+  inline const vector<unique_ptr<BV>>& getBitsObserved() const {
+    return bitsObserved;
   }
 
   

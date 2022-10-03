@@ -121,7 +121,7 @@ class PredictorFrame {
 public:
 
   // Factory parametrized by coprocessor state.
-  static PredictorFrame *Factory(const class RLEFrame* rleFrame,
+  static PredictorFrame *Factory(const struct RLEFrame* rleFrame,
 			 const class Coproc *coproc,
 			 double autoCompress,
 			 vector<string>& diag);

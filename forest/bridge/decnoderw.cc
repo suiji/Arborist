@@ -50,8 +50,8 @@ vector<vector<double>> DecNodeRW::unpackScores(const double scores[],
 
 
 vector<unique_ptr<BV>> DecNodeRW::unpackBits(const unsigned char raw[],
-					      const double extent[],
-					      unsigned int nTree) {
+					     const double extent[],
+					     unsigned int nTree) {
   vector<unique_ptr<BV>> bits;
   size_t rawIdx = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {

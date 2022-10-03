@@ -21,11 +21,13 @@
 
 Forest::Forest(vector<vector<DecNode>> decNode_,
 	       vector<vector<double>> scores_,
-	       vector<unique_ptr<BV>> factorBits_) :
+	       vector<unique_ptr<BV>> factorBits_,
+	       vector<unique_ptr<BV>> bitsObserved_) :
   nTree(decNode_.size()),
   decNode(move(decNode_)),
   scores(move(scores_)),
-  factorBits(move(factorBits_)) {
+  factorBits(move(factorBits_)),
+  bitsObserved(move(bitsObserved_)) {
 }
 
 

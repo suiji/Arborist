@@ -74,7 +74,7 @@ public:
 
   void setSplit(class SplitNux& cand,
 		vector<RunNux> runNux,
-		const class SplitRun& splitRun);
+		const struct SplitRun& splitRun);
 
   
   /**
@@ -147,7 +147,7 @@ public:
 
 
   vector<IndexRange> getRange(const class SplitNux& nux,
-			      const class CritEncoding& enc) const;
+			      const struct CritEncoding& enc) const;
 };
 
 #endif

@@ -15,8 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristR.  If not, see <http://www.gnu.org/licenses/>.
 
-validate <- function(train, ...) UseMethod("validate")
-
+validate <- function(train, sampler, ...) UseMethod("validate")
 
 validate.default <- function(train,
                              sampler,
@@ -27,7 +26,8 @@ validate.default <- function(train,
                              quantiles = !is.null(quantVec),
                              trapUnobserved = FALSE,
                              nThread = 0,
-                             verbose = FALSE) {
+                             verbose = FALSE,
+                             ...) {
   if (is.null(sampler)) {
     stop("Sampler required for validation")
   }
@@ -45,7 +45,7 @@ validate.default <- function(train,
   argPredict <- list(
       bagging = TRUE,
       impPermute = impPermute,
-      ctgProb = ctgProbabilites(sampler, ctgCensus),
+      ctgProb = ctgProbabilities(sampler, ctgCensus),
       quantVec = getQuantiles(quantiles, sampler, quantVec),
       trapUnobserved = trapUnobserved,
       nThread = nThread,

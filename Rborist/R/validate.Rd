@@ -11,26 +11,29 @@
 }
 
 \usage{
-\method{validate}{default}(preFormat, train, y, ctgCensus = "votes",
-impPermute = 0, quantVec = NULL, quantiles = !is.null(quantVec),
-nThread = 0, verbose = FALSE)
+\method{validate}{default}(train, sampler, preFormat = NULL,  ctgCensus
+= "votes", impPermute = 0, quantVec = NULL, quantiles =
+!is.null(quantVec), trapUnobserved = FALSE, nThread = 0, verbose =
+FALSE, ...)
 }
 
 \arguments{
-  \item{preFormat}{internal representation of the design matrix, of
-    class \code{PreFormat}}
   \item{train}{an object of class \code{Rborist} obtained from previous
     training.}
-  \item{y}{the response (outcome) vector, either numerical or
-    categorical.  Row count must conform with \code{x}.}
+  \item{sampler}{summarizes the response and its per-tree samplgin.}
+  \item{preFormat}{internal representation of the design matrix, of
+    class \code{PreFormat}}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{impPermute}{specifies the number of importance permutations:  0
   or 1.}
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}
+  \item{trapUnobserved}{indicates whether to return a nonterminal for
+  values unobserved during training, such as missing data.}
   \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes
     the default processor setting.}
   \item{verbose}{indicates whether to output progress of validation.}
+  \item{...}{not currently used.}
 }
 
 \value{an object of class \code{validation}:

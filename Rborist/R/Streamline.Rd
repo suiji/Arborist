@@ -1,9 +1,9 @@
 % File man/Streamline.Rd
 % Part of the Rborist package
 
-\name{Streamline}
+\name{Streamline.rfArb}
+\alias{Streamline.rfArb}
 \alias{Streamline}
-\alias{Streamline.default}
 \concept{decision forest simplification}
 \title{Reducing Memory Footprint of Trained Decision Forest}
 \description{
@@ -11,7 +11,7 @@
 }
 
 \usage{
-\method{Streamline}{default}(rs)
+\method{Streamline}{rfArb}(rs)
 }
 
 \arguments{
