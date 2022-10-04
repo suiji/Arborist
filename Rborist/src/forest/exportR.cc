@@ -40,12 +40,12 @@
 
    @return RboristExport as List.
  */
-RcppExport SEXP Export(SEXP sArbOut) {
+RcppExport SEXP expandRf(SEXP sArbOut) {
   BEGIN_RCPP
     
   List arbOut(sArbOut);
-  if (!arbOut.inherits("Rborist")) {
-    warning("Expecting an Rborist object");
+  if (!arbOut.inherits("rfArb")) {
+    warning("Expecting an rfArb object");
     return List::create(0);
   }
 
@@ -55,14 +55,18 @@ RcppExport SEXP Export(SEXP sArbOut) {
   Signature::unwrapExport(arbOut, predLevel, predFactor, predNames);
 
   List leaf((SEXP) arbOut["leaf"]);
-  if (leaf.inherits("LeafReg"))  {
-    return ExportRf::exportReg(arbOut, predMap, predLevel, predFactor);
-  }
-  else if (leaf.inherits("LeafCtg")) {
-    return ExportRf::exportCtg(arbOut, predMap, predLevel);
+  if (leaf.inherits("Leaf")) {
+    List lSampler((SEXP) arbOut["sampler"]);
+    SEXP yTrain = lSampler[SamplerR::strYTrain];
+    if (Rf_isFactor(yTrain)) {
+      return ExportRf::exportCtg(arbOut, predMap, predLevel);
+    }
+    else {
+      return ExportRf::exportReg(arbOut, predMap, predLevel, predFactor);
+    }
   }
   else {
-    warning("Unrecognized forest type.");
+    warning("Unrecognized leaf type.");
     return List::create(0);
   }
 
@@ -70,6 +74,22 @@ RcppExport SEXP Export(SEXP sArbOut) {
 }
 
 
+
+unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain) {
+  List lSampler((SEXP) lTrain["sampler"]);
+  return make_unique<LeafExportReg>(lTrain, lSampler);
+}
+ 
+
+/**
+   @brief Constructor instantiates leaves for export only:
+   no prediction.
+ */
+LeafExportReg::LeafExportReg(const List& lTrain,
+			     const List& lSampler) :
+  LeafExport(lSampler) {
+  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrapPredict(lSampler, true);
+}
 /**
  */
 List ExportRf::exportForest(const ForestExport *forest,
@@ -176,15 +196,11 @@ List ExportRf::exportLeafCtg(const LeafExportCtg* leaf,
   BEGIN_RCPP
 
   auto score(leaf->getScoreTree(tIdx));
-  auto weight(leaf->getWeightTree(tIdx));
-  unsigned int leafCount = score.size();
-  NumericMatrix weightOut = NumericMatrix(weight.size() / leafCount, leafCount, weight.begin());
   List ffLeaf =
     List::create(
-                 _["score"] = score,
-                 _["weight"] = transpose(weightOut)
+                 _["score"] = score
                  );
-
+  Rcout << "Leaf done" << endl;
   ffLeaf.attr("class") = "exportLeafCtg";
   return ffLeaf;
   END_RCPP
@@ -206,6 +222,7 @@ List ExportRf::exportReg(const List& lArb,
 		 _["predFactor"] = predFactor,
                  _["tree"] = exportTreeReg(lArb, predMap)
                  );
+
   ffe.attr("class") = "ExportReg";
   return ffe;
 
@@ -213,18 +230,17 @@ List ExportRf::exportReg(const List& lArb,
 }
 
 
-/**
- */
 List ExportRf::exportTreeReg(const List& lTrain,
                              const IntegerVector& predMap) {
   BEGIN_RCPP
 
+  List lSampler((SEXP) lTrain["sampler"]);
   auto leaf(LeafExportReg::unwrap(lTrain));
   auto forest(ForestExport::unwrap(lTrain, predMap));
-
-  auto bag(SamplerR::unwrapPredict(lTrain));
+  auto bag(SamplerR::unwrapPredict(lSampler, true));
   auto nTree = forest->getNTree();
   List trees(nTree);
+
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     List ffReg =
       List::create(
@@ -241,16 +257,15 @@ List ExportRf::exportTreeReg(const List& lTrain,
 }
 
 
-/**
- */
 List ExportRf::exportCtg(const List& lTrain,
                          const IntegerVector& predMap,
                          const List& predLevel) {
   BEGIN_RCPP
+  List lSampler((SEXP) lTrain["sampler"]);
 
   auto leaf(LeafExportCtg::unwrap(lTrain));
   auto forest(ForestExport::unwrap(lTrain, predMap));
-  auto bag(SamplerR::unwrapPredict(lTrain));
+  auto bag(SamplerR::unwrapPredict(lSampler, true));
   int facCount = predLevel.length();
   List ffe =
     List::create(
@@ -273,7 +288,7 @@ unique_ptr<LeafExportCtg> LeafExportCtg::unwrap(const List &lTrain) {
 
 
 LeafExport::LeafExport(const List& lSampler) :
-  nTree((unsigned int) NumericVector((SEXP) lSampler["nodeHeight"]).length()),
+  nTree(as<int>(lSampler["nTree"])),
   rowTree(vector<vector<size_t> >(nTree)),
   sCountTree(vector<vector<unsigned int> >(nTree)),
   extentTree(vector<vector<unsigned int> >(nTree)),
@@ -287,36 +302,6 @@ LeafExport::LeafExport(const List& lSampler) :
 LeafExportCtg::LeafExportCtg(const List& lTrain,
 			     const List& lSampler) :
   LeafExport(lSampler),
-  levelsTrain(CharacterVector(as<IntegerVector>(lSampler["yTrain"]).attr("levels"))),
-  weightTree(vector<vector<double> >(nTree)) {
-  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrapPredict(lTrain);
-  // scoreTree given by Forest; sCount, extent, row given by Sampler.
-  //  leafBridge->dump(rowTree, sCountTree, scoreTree, extentTree);
-}
-
-/*
-unique_ptr<LeafBridge> LeafExport::unwrap(const SamplerBridge* samplerBridge,
-					     const List& lLeaf) {
-  return make_unique<LeafBridge>(samplerBridge, (double*) NumericVector((SEXP) lLeaf["score"]).begin());
-  }*/
-
-
-unique_ptr<LeafExportReg> LeafExportReg::unwrap(const List& lTrain) {
-  List lSampler((SEXP) lTrain["sampler"]);
-  return make_unique<LeafExportReg>(lTrain, lSampler);
-}
- 
-
-/**
-   @brief Constructor instantiates leaves for export only:
-   no prediction.
- */
-LeafExportReg::LeafExportReg(const List& lTrain,
-			     const List& lSampler) :
-  LeafExport(lSampler) {
-  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrapPredict(lTrain);
-  // scoreTree given by Forest;
-  // extent, sCount and row trees given by Sampler.
-  //unique_ptr<LeafBridge> leafBridge = LeafExport::unwrap(samplerBridge.get(), lLeaf);
-  //leafBridge->dump(rowTree, sCountTree, scoreTree, extentTree);
+  levelsTrain(CharacterVector(as<IntegerVector>(lSampler[SamplerR::strYTrain]).attr("levels"))) {
+  unique_ptr<SamplerBridge> samplerBridge = SamplerR::unwrapPredict(lSampler, true);
 }

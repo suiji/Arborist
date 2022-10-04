@@ -45,7 +45,7 @@ List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
   List lLevel(sLevel);
   unsigned int nFac = 0;
   vector<void*> colBase(df.length());
-  for (unsigned int predIdx = 0; predIdx < df.length(); predIdx++) {
+  for (R_xlen_t predIdx = 0; predIdx < df.length(); predIdx++) {
     if (Rf_isFactor(df[predIdx])) {
       rleCresc->setFactor(predIdx, as<CharacterVector>(lLevel[nFac]).length());
       colBase[predIdx] = !Rf_isNull(sSigTrain) ? IntegerVector(factorRemap(_, nFac)).begin() : IntegerVector(df[predIdx]).begin();

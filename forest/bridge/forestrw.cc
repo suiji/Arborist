@@ -21,10 +21,8 @@
 void ForestRW::dump(const Forest* forest,
 		    vector<vector<unsigned int> >& predTree,
 		    vector<vector<double> >& splitTree,
-		    vector<vector<double> >& lhDelTree,
+		    vector<vector<size_t> >& lhDelTree,
 		    vector<vector<unsigned char> >& facSplitTree) {
   IndexT fsDummy;
-  vector<vector<IndexT>> delDummy;
-  vector<vector<PredictorT>> predDummy;
-  forest->dump(predDummy, splitTree, delDummy, fsDummy);
+  forest->dump(predTree, splitTree, lhDelTree, fsDummy);
 }

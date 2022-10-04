@@ -19,7 +19,7 @@
 /**
    @file exportR.h
 
-   @brief Export class representing decision forest in a "normal form" suitable for downstream utilities.
+   @brief Expands trained forest into a collection of vectors.
 
    @author Mark Seligman
  */
@@ -35,7 +35,7 @@ using namespace std;
 #include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP Export(SEXP sTrain);
+RcppExport SEXP expandRf(SEXP sTrain);
 
 struct ExportRf {
 
@@ -169,22 +169,9 @@ struct LeafExportCtg : public LeafExport {
     return levelsTrain;
   }
 
-
-  /**
-     @brief Accessor for per-tree weight vector.
-
-     @param tIdx is the tree index.
-
-     @return weight vector.
-   */
-  const vector<double> &getWeightTree(unsigned int tIdx) const {
-    return weightTree[tIdx];
-  }
-
-
+  
  private:
   const CharacterVector levelsTrain; // Pinned for summary reuse.
-  vector<vector<double> > weightTree;
 };
 
 

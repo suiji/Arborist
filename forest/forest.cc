@@ -62,7 +62,7 @@ size_t Forest::maxTreeHeight() const {
 
 void Forest::dump(vector<vector<PredictorT> >& predTree,
                   vector<vector<double> >& splitTree,
-                  vector<vector<IndexT> >& delIdxTree,
+                  vector<vector<size_t> >& delIdxTree,
 		  IndexT& dummy) const {
   dump(predTree, splitTree, delIdxTree);
 }
@@ -70,7 +70,7 @@ void Forest::dump(vector<vector<PredictorT> >& predTree,
 
 void Forest::dump(vector<vector<PredictorT> >& pred,
                   vector<vector<double> >& split,
-                  vector<vector<IndexT> >& delIdx) const {
+                  vector<vector<size_t> >& delIdx) const {
   for (unsigned int tIdx = 0; tIdx < decNode.size(); tIdx++) {
     for (IndexT nodeIdx = 0; nodeIdx < decNode[tIdx].size(); nodeIdx++) {
       pred[tIdx].push_back(decNode[tIdx][nodeIdx].getPredIdx());

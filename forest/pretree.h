@@ -163,7 +163,7 @@ class PreTree {
   /**
      @brief Combines leaves exceeding a specified maximum count.
    */
-  IndexT leafMerge();
+  void leafMerge();
   
 
   inline IndexT getHeight() const {
@@ -256,13 +256,13 @@ class PreTree {
 
 template<typename nodeType>
 struct PTMerge {
-  FltVal info;
-  IndexT ptId;
+  FltVal prob; ///< random probability of merging.
+  IndexT ptId; ///< node id.
   IndexT idMerged;
-  IndexT root;
-  IndexT parId;
-  IndexT idSib; // Sibling id, if not root else zero.
-  bool descTrue; // Whether this is true-branch descendant of some node.
+  IndexT dom; ///< merge dominator
+  IndexT parId; ///< parent id.
+  IndexT idSib; ///< Sibling id, if not root else zero.
+  bool descTrue; ///< Whether this is true-branch descendant of some node.
 
   static vector<PTMerge<nodeType>> merge(const PreTree* preTree,
 				  IndexT height,
@@ -278,7 +278,7 @@ template<typename nodeType>
 class InfoCompare {
 public:
   bool operator() (const PTMerge<nodeType>& a, const PTMerge<nodeType>& b) {
-    return a.info > b.info;
+    return a.prob > b.prob;
   }
 };
 

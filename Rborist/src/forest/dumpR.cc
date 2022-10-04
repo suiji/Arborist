@@ -40,19 +40,19 @@ RcppExport SEXP Dump(SEXP sArbOut) {
 
   DumpRf dumper(sArbOut);
   dumper.dumpTree();
-  
+
   return StringVector(dumper.outStr.str());
   END_RCPP
 }
 
 
 DumpRf::DumpRf(SEXP sArbOut) :
-  primExport((SEXP) Export(sArbOut)),
-  treeOut((SEXP) primExport["tree"]),
-  predMap((SEXP) primExport["predMap"]),
+  rfExport((SEXP) expandRf(sArbOut)),
+  treeOut((SEXP) rfExport["tree"]),
+  predMap((SEXP) rfExport["predMap"]),
   forest(ForestExport::unwrap(List(sArbOut), predMap)),
-  factorMap((SEXP) primExport["factorMap"]),
-  facLevel((SEXP) primExport["predFactor"]),
+  factorMap((SEXP) rfExport["factorMap"]),
+  facLevel((SEXP) rfExport["predFactor"]),
   factorBase(predMap.length() - factorMap.length()),
   treeReg((SEXP) treeOut["internal"]),
   leafReg((SEXP) treeOut["leaf"]),
@@ -69,7 +69,7 @@ DumpRf::DumpRf(SEXP sArbOut) :
 
 
 void DumpRf::dumpTree() {
-  for (unsigned int treeIdx = 0; treeIdx < delIdx.length(); treeIdx++) {
+  for (R_xlen_t treeIdx = 0; treeIdx < delIdx.length(); treeIdx++) {
     delIdx[treeIdx] == 0 ?  dumpTerminal(treeIdx) : dumpNonterminal(treeIdx);
   }
 }
@@ -145,7 +145,7 @@ void DumpRf::dumpFactorSplit(unsigned int treeIdx) {
 
 void DumpRf::dumpTerminal(unsigned int treeIdx) {
   outStr << treeIdx << ":  leaf score ";
-  unsigned int scoreIdx = leafIdx[treeIdx];
+  R_xlen_t scoreIdx = leafIdx[treeIdx];
   if (scoreIdx >= delIdx.length()) {
     outStr << " (error) " << endl;
   }

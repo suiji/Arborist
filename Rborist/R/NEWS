@@ -74,7 +74,21 @@ Changes in 0.1-1:
 * Optional 'regMono' vector enforces monotonic constraints on numeric
   regressors.
 
+
 Changes in 0.3-0:
 
 * Prediction and validation introduce permutation testing.
 
+* Missing values accepted for training, validation and prediction.
+
+* Option 'trapUnobserved' allows validation and prediction to report
+  a nonterminal score upon ecountering missing data or values not
+  observed during training.
+
+* Option 'maxLeaf', which drives leaf merging, is temporarily disabled.
+
+* Prediction no longer limits data set size to 32 bits.
+
+* Training accepts data sets with size exceeding 32 bits under
+  conditional compilation.  This is an experimental feature and has
+  not been well tested.

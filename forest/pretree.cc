@@ -129,7 +129,7 @@ void PreTree::consume(Train* train,
 void PreTree::setTerminals(SampleMap smTerminal) {
   terminalMap = move(smTerminal);
 
-  (void) leafMerge();
+  leafMerge();
   setLeafIndices();
 }
 
@@ -142,26 +142,9 @@ void PreTree::setLeafIndices() {
 }
 
 
-IndexT PreTree::checkFrontier(const vector<IndexT>& stMap) const {
-  vector<bool> ptSeen(getHeight());
-  IndexT nonLeaf = 0;
-  for (auto ptIdx : stMap) {
-    if (!ptSeen[ptIdx]) {
-      if (isNonterminal(ptIdx)) {
-	nonLeaf++;
-      }
-      ptSeen[ptIdx] = true;
-    }
-  }
-
-  return nonLeaf;
-}
-
-
-IndexT PreTree::leafMerge() {
-  IndexT height = getHeight();
+void PreTree::leafMerge() {
   if (leafMax == 0 || leafCount <= leafMax) {
-    return height;
+    return;
   }
 
   vector<IndexT> st2pt(terminalMap.sampleIndex.size()); // bagCount.
@@ -175,6 +158,7 @@ IndexT PreTree::leafMerge() {
     rangeIdx++;
   }
 
+  IndexT height = getHeight();
   vector<PTMerge<DecNode>> ptMerge = PTMerge<DecNode>::merge(this, height, leafCount - leafMax);
 
   // Pushes down roots.  Roots remain in node list, but descendants
@@ -182,11 +166,11 @@ IndexT PreTree::leafMerge() {
   //
   IndexT heightMerged = 0;
   for (IndexT ptId = 0; ptId < height; ptId++) {
-    IndexT root = ptMerge[ptId].root;
-    if (root != height && isNonterminal(ptId)) {
-      ptMerge[getIdFalse(ptId)].root = ptMerge[getIdFalse(ptId)].root = root;
+    IndexT dom = ptMerge[ptId].dom;
+    if (dom != height && isNonterminal(ptId)) {
+      ptMerge[getIdTrue(ptId)].dom = ptMerge[getIdFalse(ptId)].dom = dom;
     }
-    if (root == height || root == ptId) { // Unmerged or root:  retained.
+    if (dom == height || dom == ptId) { // Unmerged or root:  retained.
       nodeVec[ptId].setTerminal(); // Will reset if encountered as parent.
       if (ptMerge[ptId].descTrue) {
 	IndexT parId = ptMerge[ptId].parId;
@@ -208,12 +192,11 @@ IndexT PreTree::leafMerge() {
   // Remaps frontier to merged terminals.
   //
   for (auto & ptId : st2pt) {
-    IndexT root = ptMerge[ptId].root;
-    ptId = ptMerge[(root == height) ? ptId : root].idMerged;
+    IndexT dom = ptMerge[ptId].dom;
+    ptId = ptMerge[(dom == height) ? ptId : dom].idMerged;
   }
 
   // TODO:  Reform node/score and retype return value to void.
-  return heightMerged;
 }
 
 
@@ -228,15 +211,16 @@ vector<PTMerge<nodeType>> PTMerge<nodeType>::merge(const PreTree* preTree,
   ptMerge[0].parId = 0;
   IndexT ptId = 0;
   for (auto & merge : ptMerge) {
-    merge.info = leafProb[ptId];
+    bool isRoot = ptId == 0;
+    merge.prob = leafProb[ptId];
     merge.ptId = ptId;
     merge.idMerged = height;
-    merge.root = height; // Merged away iff != height.
-    merge.descTrue = ptId != 0 && preTree->getIdFalse(merge.parId) == ptId;
-    merge.idSib = ptId == 0 ? 0 : (merge.descTrue ? preTree->getIdFalse(merge.parId) : preTree->getIdFalse(merge.parId));
+    merge.dom = height; // Merged away iff != height.
+    merge.descTrue = (!isRoot && preTree->getIdFalse(merge.parId) == ptId);
+    merge.idSib = isRoot ? 0 : (merge.descTrue ? preTree->getIdFalse(merge.parId) : preTree->getIdTrue(merge.parId));
     if (preTree->isNonterminal(ptId)) {
-      ptMerge[preTree->getIdFalse(ptId)].parId = ptMerge[preTree->getIdFalse(ptId)].parId = ptId;
-      if (preTree->isMergeable(ptId)) {
+      ptMerge[preTree->getIdTrue(ptId)].parId = ptMerge[preTree->getIdFalse(ptId)].parId = ptId;
+      if (preTree->isMergeable(ptId)) { // orders by info value.
         infoQueue.push(merge);
       }
     }
@@ -248,13 +232,29 @@ vector<PTMerge<nodeType>> PTMerge<nodeType>::merge(const PreTree* preTree,
   while (leafDiff-- > 0) {
     IndexT ptTop = infoQueue.top().ptId;
     infoQueue.pop();
-    ptMerge[ptTop].root = ptTop;
+    ptMerge[ptTop].dom = ptTop;
     IndexT parId = ptMerge[ptTop].parId;
     IndexT idSib = ptMerge[ptTop].idSib;
-    if ((!preTree->isNonterminal(idSib) || ptMerge[idSib].root != height)) {
+    if ((!preTree->isNonterminal(idSib) || ptMerge[idSib].dom != height)) {
       infoQueue.push(ptMerge[parId]);
     }
   }
 
   return ptMerge;
+}
+
+
+IndexT PreTree::checkFrontier(const vector<IndexT>& stMap) const {
+  vector<bool> ptSeen(getHeight());
+  IndexT nonLeaf = 0;
+  for (auto ptIdx : stMap) {
+    if (!ptSeen[ptIdx]) {
+      if (isNonterminal(ptIdx)) {
+	nonLeaf++;
+      }
+      ptSeen[ptIdx] = true;
+    }
+  }
+
+  return nonLeaf;
 }

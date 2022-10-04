@@ -1,11 +1,11 @@
-% File man/Export.Rborist.Rd
+% File man/expand.Rborist.Rd
 % Part of the rborist package
 
-\name{Export.rfArb}
-\alias{Export}
-\alias{Export.rfArb}
+\name{expand}
+\alias{expand}
+\alias{expand.default}
 \concept{decision trees}
-\title{Exportation Format for rfArb Training Output}
+\title{Expands forest values into separate vectors.}
 \description{
   Formats training output into a form suitable for illustration of
   feature contributions.
@@ -13,14 +13,14 @@
 
 
 \usage{
- \method{Export}{rfArb}(arbOut)
+ \method{expand}{default}(arbOut)
 }
 
 \arguments{
   \item{arbOut}{an object of type \code{Rborist} produced by training.}
 }
 
-\value{An object of type \code{Export}.
+\value{An object of type \code{ExportReg} or \code{ExportCtg}.
 }
 
 
@@ -28,7 +28,7 @@
   \dontrun{
     data(iris)
     rb <- Rborist(iris[,-5], iris[,5])
-    ffe <- Export(rb)
+    ffe <- export(rb)
   }
 }
 

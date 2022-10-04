@@ -132,7 +132,7 @@ void SampledObs::setRanks(const PredictorFrame* layout) {
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
-    for (OMPBound predIdx = 0; predIdx != layout->getNPred(); predIdx++)
+    for (OMPBound predIdx = 0; predIdx < layout->getNPred(); predIdx++)
       sample2Rank[predIdx] = sampleRanks(layout, predIdx);
   }
 }

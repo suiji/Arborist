@@ -15,11 +15,9 @@
 ## You should have received a copy of the GNU General Public License
 ## along with PrimR.  If not, see <http://www.gnu.org/licenses/>.
 
-Export <- function(arbOut) {
-    UseMethod("Export.rfArb")
-}
+expand <- function(arbOut) UseMethod("expand")
 
 
-"Export.rfArb" <- function(arbOut) {
-  return (tryCatch(.Call("Export", arbOut), error = function(e) {stop(e)}))
+expand.default <- function(arbOut) {
+  return (tryCatch(.Call("expandRf", arbOut), error = function(e) {stop(e)}))
 }

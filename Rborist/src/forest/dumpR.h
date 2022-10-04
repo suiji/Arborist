@@ -37,7 +37,7 @@ using namespace Rcpp;
 RcppExport SEXP Dump(SEXP sTrain);
 
 struct DumpRf {
-  List primExport;
+  List rfExport;
   List treeOut;
 
   const IntegerVector predMap;

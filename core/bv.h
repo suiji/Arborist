@@ -34,10 +34,10 @@ class BV {
   const BVSlotT* raw; // Points to rawV iff writable, else external buffer.
   
  public:
-  static constexpr size_t full = 1ull;
+  static constexpr size_t full = size_t(1ull);
   static constexpr size_t slotSize = sizeof(BVSlotT);
   static constexpr size_t slotElts = 8 * slotSize; // # bits in slot.
-  static constexpr size_t allOnes = (slotSize < sizeof(size_t)) ? (full << slotElts) - 1 : ~0ull;
+  static constexpr size_t allOnes = size_t(~0ull);
 
   BV(const BV* bv) :
     nSlot(bv->nSlot),

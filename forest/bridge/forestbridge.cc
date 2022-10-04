@@ -97,7 +97,7 @@ void ForestBridge::dumpFactorObserved(unsigned char obsOut[]) const {
 
 void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,
-                        vector<vector<double> >& lhDelTree,
+                        vector<vector<size_t> >& lhDelTree,
                         vector<vector<unsigned char> >& facSplitTree) const {
   ForestRW::dump(forest.get(), predTree, splitTree, lhDelTree, facSplitTree);
 }

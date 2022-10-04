@@ -178,7 +178,7 @@ ForestExport::ForestExport(const List &lTrain,
                            const IntegerVector &predMap) :
   forestBridge(ForestRf::unwrap(lTrain)),
   predTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
-  bumpTree(vector<vector<double> >(forestBridge->getNTree())),
+  bumpTree(vector<vector<size_t> >(forestBridge->getNTree())),
   splitTree(vector<vector<double > >(forestBridge->getNTree())),
   facSplitTree(vector<vector<unsigned char> >(forestBridge->getNTree())) {
   forestBridge->dump(predTree, splitTree, bumpTree, facSplitTree);
@@ -192,27 +192,27 @@ unsigned int ForestExport::getNTree() const {
 
 
 /**
+   @brief Prepares predictor field for export by remapping to front-end indices.
+ */
+void ForestExport::predExport(const int predMap[]) {
+  for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
+    treeExport(predMap, predTree[tIdx], bumpTree[tIdx]);
+  }
+}
+
+
+/**
    @brief Recasts 'pred' field of nonterminals to front-end facing values.
 
    @return void.
  */
 void ForestExport::treeExport(const int predMap[],
                             vector<unsigned int> &pred,
-                            const vector<double>& bump) {
+                            const vector<size_t>& bump) {
   for (unsigned int i = 0; i < pred.size(); i++) {
     if (bump[i] > 0) { // terminal 'pred' values do not reference predictors.
       unsigned int predCore = pred[i];
       pred[i] = predMap[predCore];
     }
-  }
-}
-
-
-/**
-   @brief Prepares predictor field for export by remapping to front-end indices.
- */
-void ForestExport::predExport(const int predMap[]) {
-  for (unsigned int tIdx = 0; tIdx < predTree.size(); tIdx++) {
-    treeExport(predMap, predTree[tIdx], bumpTree[tIdx]);
   }
 }
