@@ -98,7 +98,7 @@ List PBRf::predictReg(const List& lDeframe,
 		      const List& lArgs) {
   BEGIN_RCPP
 
-    unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, lArgs));
+  unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, lArgs));
   pBridge->predict();
 
   return summary(lDeframe, sYTest, pBridge.get());

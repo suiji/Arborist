@@ -108,12 +108,9 @@ rfArb.default <- function(x,
 
     if (maxLeaf < 0)
         stop("Leaf maximum must be nonnegative.")
-    else if (maxLeaf > 0) {
-        warning("Leaf merging is disabled in this release.")
-        maxLeaf <- 0
-    }
+    if (maxLeaf > 0)
+        warning("Leaf merging is disabled in this release")
     
-
   # Class weights
     nCtg <- if (is.factor(y)) length(levels(y)) else 0
     if (is.factor(y)) {
@@ -215,7 +212,6 @@ rfArb.default <- function(x,
     argTrain$splitQuant <- splitQuant
     argTrain$regMono <- regMono
     argTrain$enableCoproc <- FALSE
-    argTrain$maxLeaf <- maxLeaf
     argTrain$pvtBlock <- 8
 
     train <- tryCatch(.Call("rfTrain", preFormat, sampler, argTrain), error = function(e){stop(e)})

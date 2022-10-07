@@ -57,8 +57,7 @@ struct SampleMap {
   SampleMap(IndexT nIdx = 0) :
     sampleIndex(vector<IndexT>(nIdx)),
     range(vector<IndexRange>(0)),
-    ptIdx(vector<IndexT>(0)),
-    maxExtent(0) {
+    ptIdx(vector<IndexT>(0)) {
   }
 
 
@@ -69,7 +68,6 @@ struct SampleMap {
 
   void addNode(IndexT extent,
 	       IndexT ptId) {
-    maxExtent = max(maxExtent, extent);
     range.emplace_back(getEndIdx(), extent);
     ptIdx.push_back(ptId);
   }

@@ -106,7 +106,16 @@ public:
   }
 
 
+  /**
+     @brief Initializes delIdx value; not for resetting.
+   */
   inline void setDelIdx(IndexT delIdx) {
+    packed |= (size_t(delIdx) << rightBits);
+  }
+  
+
+  inline void resetDelIdx(IndexT delIdx) {
+    packed = getPredIdx();
     packed |= (size_t(delIdx) << rightBits);
   }
   
@@ -285,8 +294,11 @@ public:
   }
   
 
-  inline void setTerminal() {
-    setDelIdx(0);
+  /**
+     @brief Resets delIdx to terminal, preserving remaining state.
+   */
+  inline void resetTerminal() {
+    resetDelIdx(0);
   }
   
 
@@ -296,7 +308,7 @@ public:
      @param leafIdx is the tree-relative leaf index, if tracked.
    */
   inline void setLeaf(IndexT leafIdx) {
-    setDelIdx(0);
+    resetDelIdx(0);
     criterion.setLeafIdx(leafIdx);
   }
 };

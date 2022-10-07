@@ -34,14 +34,15 @@ class PreTree {
   IndexT leafCount; // Running count of leaves.
   vector<DecNode> nodeVec; // Vector of tree nodes.
   vector<double> scores;
-  vector<double> infoLocal; // Per-predictor nonterminal split information.
+  vector<double> infoLocal; //< Per-predictor split information.
+  vector<double> infoNode; ///< Per-node " ".  Leaf merging onlye.
   BV splitBits; // Bit encoding of factor splits.
   BV observedBits; // Bit encoding of factor values.
   size_t bitEnd; // Next free slot in either bit vector.
   SampleMap terminalMap;
 
   /**
-     @brief Assigns index to leaves.
+     @brief Enumerates leaves.
 
      Leaf ordering is currently irrelevant, from the perspective of
      prediction, as support for premature exit is not required.  Post-
@@ -171,8 +172,8 @@ class PreTree {
   }
   
 
-  inline void setTerminal(IndexT ptId) {
-    nodeVec[ptId].setTerminal();
+  inline void resetTerminal(IndexT ptId) {
+    nodeVec[ptId].resetTerminal();
   }
 
   
@@ -207,6 +208,11 @@ class PreTree {
    */
   inline bool isNonterminal(IndexT ptId) const {
     return nodeVec[ptId].isNonterminal();
+  }
+
+
+  inline IndexT getDelIdx(IndexT ptId) const {
+    return nodeVec[ptId].getDelIdx();
   }
 
 
@@ -248,37 +254,32 @@ class PreTree {
       DecNode node;
       nodeVec.insert(nodeVec.end(), nCrit + 1, node);
       scores.insert(scores.end(), nCrit + 1, 0.0);
+      infoNode.insert(infoNode.end(), nCrit + 1, 0.0);
       leafCount++; // Two new terminals, minus one for conversion of lead criterion.
     }
   }
 };
 
 
-template<typename nodeType>
+/**
+   @brief Augments a decision node with values to facilitate merging.
+ */
 struct PTMerge {
-  FltVal prob; ///< random probability of merging.
+  FltVal infoDom; ///< sum of dominated info values.
   IndexT ptId; ///< node id.
-  IndexT idMerged;
-  IndexT dom; ///< merge dominator
-  IndexT parId; ///< parent id.
-  IndexT idSib; ///< Sibling id, if not root else zero.
-  bool descTrue; ///< Whether this is true-branch descendant of some node.
-
-  static vector<PTMerge<nodeType>> merge(const PreTree* preTree,
-				  IndexT height,
-				  IndexT leafDiff);
-
 };
 
 
 /**
    @brief Information-base comparator for queue ordering.
+
+   Nodes order is increasing with sum, guaranteeing that offspring are chosen
+   before parents.
 */
-template<typename nodeType>
 class InfoCompare {
 public:
-  bool operator() (const PTMerge<nodeType>& a, const PTMerge<nodeType>& b) {
-    return a.prob > b.prob;
+  bool operator() (const PTMerge& a, const PTMerge& b) {
+    return a.infoDom > b.infoDom;
   }
 };
 

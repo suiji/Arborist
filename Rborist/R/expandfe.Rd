@@ -1,11 +1,11 @@
 % File man/expand.Rborist.Rd
 % Part of the rborist package
 
-\name{expand}
-\alias{expand}
-\alias{expand.default}
+\name{expandfe}
+\alias{expandfe}
+\alias{expandfe.default}
 \concept{decision trees}
-\title{Expands forest values into separate vectors.}
+\title{Expands forest values into front-end readable vectors.}
 \description{
   Formats training output into a form suitable for illustration of
   feature contributions.

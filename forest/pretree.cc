@@ -21,7 +21,6 @@
 #include "splitfrontier.h"
 #include "pretree.h"
 
-#include "prng.h"
 #include <queue>
 #include <vector>
 
@@ -86,6 +85,7 @@ void PreTree::addCriterion(const SplitFrontier* sf,
   DecNode& node = getNode(nux.getPTId());
   node.setInvert(nux.invertTest());
   node.setDelIdx(getHeight() - 2 - nux.getPTId());
+  infoNode[nux.getPTId()] = nux.getInfo();
   infoLocal[node.getPredIdx()] += nux.getInfo();
 }
 
@@ -146,101 +146,123 @@ void PreTree::leafMerge() {
   if (leafMax == 0 || leafCount <= leafMax) {
     return;
   }
+  if (leafCount > leafMax) // Disable, for now.
+    return;
 
-  vector<IndexT> st2pt(terminalMap.sampleIndex.size()); // bagCount.
-  IndexT rangeIdx = 0;
-  for (auto range : terminalMap.range) {
-    IndexT ptIdx = terminalMap.ptIdx[rangeIdx];
-    for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
-      IndexT stIdx = terminalMap.sampleIndex[idx];
-      st2pt[stIdx] = ptIdx;
-    }
-    rangeIdx++;
-  }
-
+  IndexT excessLeaves = leafCount - leafMax;
   IndexT height = getHeight();
-  vector<PTMerge<DecNode>> ptMerge = PTMerge<DecNode>::merge(this, height, leafCount - leafMax);
 
-  // Pushes down roots.  Roots remain in node list, but descendants
-  // merged away.
-  //
-  IndexT heightMerged = 0;
+  // Assigns parent indices and initializes information.
+  vector<IndexT> ptParent(height);
+  vector<PTMerge> mergeNode(height);
   for (IndexT ptId = 0; ptId < height; ptId++) {
-    IndexT dom = ptMerge[ptId].dom;
-    if (dom != height && isNonterminal(ptId)) {
-      ptMerge[getIdTrue(ptId)].dom = ptMerge[getIdFalse(ptId)].dom = dom;
-    }
-    if (dom == height || dom == ptId) { // Unmerged or root:  retained.
-      nodeVec[ptId].setTerminal(); // Will reset if encountered as parent.
-      if (ptMerge[ptId].descTrue) {
-	IndexT parId = ptMerge[ptId].parId;
-	nodeVec[parId].setDelIdx(heightMerged - ptMerge[parId].idMerged);
-      }
-      ptMerge[ptId].idMerged = heightMerged++;
+    mergeNode[ptId].ptId = ptId;
+    mergeNode[ptId].infoDom = infoNode[ptId];
+    if (isNonterminal(ptId)) {
+      IndexT kidLeft = ptId + getDelIdx(ptId);
+      ptParent[kidLeft] = ptId;
+      ptParent[kidLeft + 1] = ptId;
     }
   }
-    
-  // Packs nodeVec[] with retained nodes.
-  //
+
+  // Accumulates sum of dominated info values.
+  for (IndexT ptId = height - 1; ptId > 0; ptId--) {
+    IndexT idParent = ptParent[ptId];
+    mergeNode[idParent].infoDom += mergeNode[ptId].infoDom;
+  }
+
+  // Heap orders nonterminals by 'infoDom' value.
+  priority_queue<PTMerge, vector<PTMerge>, InfoCompare> infoQueue;
   for (IndexT ptId = 0; ptId < height; ptId++) {
-    IndexT idMerged = ptMerge[ptId].idMerged;
-    if (idMerged != height) {
-      nodeVec[idMerged] = nodeVec[ptId];
+    if (isNonterminal(ptId)) {
+      infoQueue.emplace(mergeNode[ptId]);
     }
   }
+  
+  vector<IndexT> ptMerged(height);
+  iota(ptMerged.begin(), ptMerged.end(), 0);
 
-  // Remaps frontier to merged terminals.
-  //
-  for (auto & ptId : st2pt) {
-    IndexT dom = ptMerge[ptId].dom;
-    ptId = ptMerge[(dom == height) ? ptId : dom].idMerged;
-  }
+  // Pops nonterminals in increasing 'infoDom' order.
+  // 'infoDom' value is monotone increasing ascending a subtree, so
+  // offspring always popped before dominator.
 
-  // TODO:  Reform node/score and retype return value to void.
-}
-
-
-template<typename nodeType>
-vector<PTMerge<nodeType>> PTMerge<nodeType>::merge(const PreTree* preTree,
-						   IndexT height,
-						   IndexT leafDiff) {
-  vector<PTMerge<nodeType>> ptMerge(height);
-  priority_queue<PTMerge<nodeType>, vector<PTMerge<nodeType>>, InfoCompare<nodeType>> infoQueue;
-
-  auto leafProb = PRNG::rUnif(height);
-  ptMerge[0].parId = 0;
-  IndexT ptId = 0;
-  for (auto & merge : ptMerge) {
-    bool isRoot = ptId == 0;
-    merge.prob = leafProb[ptId];
-    merge.ptId = ptId;
-    merge.idMerged = height;
-    merge.dom = height; // Merged away iff != height.
-    merge.descTrue = (!isRoot && preTree->getIdFalse(merge.parId) == ptId);
-    merge.idSib = isRoot ? 0 : (merge.descTrue ? preTree->getIdFalse(merge.parId) : preTree->getIdTrue(merge.parId));
-    if (preTree->isNonterminal(ptId)) {
-      ptMerge[preTree->getIdTrue(ptId)].parId = ptMerge[preTree->getIdFalse(ptId)].parId = ptId;
-      if (preTree->isMergeable(ptId)) { // orders by info value.
-        infoQueue.push(merge);
-      }
-    }
-    ptId++;
-  }
-
-  // Merges and pops mergeable nodes and pushes newly mergeable parents.
-  //
-  while (leafDiff-- > 0) {
-    IndexT ptTop = infoQueue.top().ptId;
+  BV mergedTerminal(height);
+  // This should be changed to a 'while' loop, as not all nodes
+  // deleted will be 'original' leaves:
+  for (IndexT nMerged = 0; nMerged < excessLeaves; nMerged++) {
+    const PTMerge &ntMerged = infoQueue.top();
     infoQueue.pop();
-    ptMerge[ptTop].dom = ptTop;
-    IndexT parId = ptMerge[ptTop].parId;
-    IndexT idSib = ptMerge[ptTop].idSib;
-    if ((!preTree->isNonterminal(idSib) || ptMerge[idSib].dom != height)) {
-      infoQueue.push(ptMerge[parId]);
+    IndexT idMerged = ntMerged.ptId;
+    mergedTerminal.setBit(idMerged);
+
+    // Neither offspring should be nonterminal.
+    IndexT idKid = idMerged + getDelIdx(idMerged);
+    ptMerged[idKid] = idMerged;
+    ptMerged[idKid+1] = idMerged;
+  }
+
+  // Copies unmerged nodes into new node vector.
+  vector<DecNode> nvFinal;
+  vector<double> scoresFinal;
+  vector<IndexT> old2New(height);
+  fill(old2New.begin(), old2New.end(), height); // Inattainable index.
+  for (IndexT ptId = 0; ptId < height; ptId++) {
+    if (ptMerged[ptId] == ptId) { // Not merged away.
+      old2New[ptId] = nvFinal.size();
+      nvFinal.emplace_back(nodeVec[ptId]);
+      scoresFinal.emplace_back(scores[ptId]);
     }
   }
 
-  return ptMerge;
+  // Resets delIdx to reflect new indices.
+  for (IndexT ptId = 0; ptId < height; ptId++) {
+    if (old2New[ptId] == height) // Merged away.
+      continue;
+    IndexT ptIdNew = old2New[ptId];
+    if (mergedTerminal.testBit(ptId)) {
+      nvFinal[ptIdNew].resetTerminal();
+    }
+    else {
+      IndexT kidL = getDelIdx(ptId) + ptId;
+      nvFinal[ptIdNew].resetDelIdx(old2New[kidL] - ptIdNew);
+    }
+  }
+
+  // Passes dominating merged node downward.
+  for (IndexT ptId = 0; ptId < height; ptId++) {
+    IndexT targ = ptMerged[ptId];
+    if (targ != ptId)
+      ptMerged[ptId] = ptMerged[targ];
+  }
+
+  // Resets terminal node indices.
+  vector<vector<IndexT>> rangeMerge(nvFinal.size()); // Wasteful.
+  for (IndexT rangeIdx = 0; rangeIdx < terminalMap.range.size(); rangeIdx++) {
+    IndexT ptId = terminalMap.ptIdx[rangeIdx];
+    IndexT termMerged = old2New[ptMerged[ptId]];
+    rangeMerge[termMerged].push_back(rangeIdx);
+  }
+
+  // Rebuilds terminal map using merged ranges.
+  SampleMap tmFinal;
+  for (IndexT ptId = 0; ptId < rangeMerge.size(); ptId++) {
+    if (rangeMerge[ptId].empty())
+      continue;
+    tmFinal.ptIdx.push_back(ptId);
+    IndexT idxStart = tmFinal.sampleIndex.size();
+    for (IndexT rangeIdx : rangeMerge[ptId]) {
+      IndexRange& range = terminalMap.range[rangeIdx];
+      for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
+	IndexT stIdx = terminalMap.sampleIndex[idx];
+	tmFinal.sampleIndex.push_back(stIdx);
+      }
+    }
+    tmFinal.range.emplace_back(idxStart, tmFinal.sampleIndex.size() - idxStart);
+  }
+
+  nodeVec = nvFinal;
+  scores = scoresFinal;
+  terminalMap = tmFinal;
 }
 
 
