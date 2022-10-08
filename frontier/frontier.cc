@@ -69,11 +69,11 @@ unique_ptr<PreTree> Frontier::levels() {
     smNonterm = splitDispatch();
     vector<IndexSet> frontierNext = produce();
     interLevel->overlap(frontierNodes, frontierNext, getNonterminalEnd());
-    frontierNodes = move(frontierNext);
+    frontierNodes = std::move(frontierNext);
   }
-  pretree->setTerminals(move(smTerminal));
+  pretree->setTerminals(std::move(smTerminal));
 
-  return move(pretree);
+  return std::move(pretree);
 }
 
 

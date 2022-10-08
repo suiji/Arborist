@@ -219,7 +219,7 @@ void InterLevel::overlap(const vector<IndexSet>& frontierNodes,
     for (auto lv = history.begin(); lv != history.end(); lv++) {
       (*lv)->applyFront(ofFront.get(), frontierNext);
     }
-    history.push_front(move(ofFront));
+    history.push_front(std::move(ofFront));
   }
   level++;
 }
@@ -239,7 +239,7 @@ void InterLevel::reviseStageMap(const vector<IndexSet>& frontierNodes) {
     }
   }
 
-  stageMap = move(stageMapNext);
+  stageMap = std::move(stageMapNext);
 }
 
 

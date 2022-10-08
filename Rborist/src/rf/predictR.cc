@@ -34,6 +34,7 @@
 #include "rleframeR.h"
 #include "signature.h"
 
+#include <memory>
 #include <algorithm>
 
 RcppExport SEXP predictRcpp(const SEXP sDeframe,
@@ -116,8 +117,8 @@ unique_ptr<PredictRegBridge> PBRf::unwrapReg(const List& lDeframe,
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
   return make_unique<PredictRegBridge>(RLEFrameR::unwrap(lDeframe),
 				       ForestRf::unwrap(lTrain),
-				       move(samplerBridge),
-				       move(leafBridge),
+				       std::move(samplerBridge),
+				       std::move(leafBridge),
 				       regTest(sYTest),
 				       as<unsigned int>(lArgs["impPermute"]),
 				       as<bool>(lArgs["trapUnobserved"]),
@@ -201,8 +202,8 @@ unique_ptr<PredictCtgBridge> PBRf::unwrapCtg(const List& lDeframe,
   unique_ptr<LeafBridge> leafBridge(LeafR::unwrap(lTrain, samplerBridge.get()));
   return make_unique<PredictCtgBridge>(RLEFrameR::unwrap(lDeframe),
 				       ForestRf::unwrap(lTrain),
-				       move(samplerBridge),
-				       move(leafBridge),
+				       std::move(samplerBridge),
+				       std::move(leafBridge),
 				       ctgTest(lSampler, sYTest),
 				       as<unsigned int>(lArgs["impPermute"]),
 				       as<bool>(lArgs["ctgProb"]),

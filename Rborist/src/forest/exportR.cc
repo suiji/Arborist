@@ -174,7 +174,7 @@ List ExportRf::exportTreeCtg(const ForestExport* forest,
                    _["bag"] = exportBag(leaf, tIdx, rowTrain)
                    );
     ffCtg.attr("class") = "exportTreeCtg";
-    trees[tIdx] = move(ffCtg);
+    trees[tIdx] = std::move(ffCtg);
   }
   return trees;
 
@@ -249,7 +249,7 @@ List ExportRf::exportTreeReg(const List& lTrain,
                    _["bag"] = exportBag(leaf.get(), tIdx, bag->getNObs())
                    );
       ffReg.attr("class") = "exportTreeReg";
-      trees[tIdx] = move(ffReg);
+      trees[tIdx] = std::move(ffReg);
   }
   return trees;
 

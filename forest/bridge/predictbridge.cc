@@ -35,10 +35,10 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 				   bool trapUnobserved,
 				   unsigned int nThread,
 				   vector<double> quantile) :
-  PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
-  samplerBridge(move(samplerBridge_)),
-  leafBridge(move(leafBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), move(yTest), nPermute, move(quantile), trapUnobserved)) {
+  PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
+  samplerBridge(std::move(samplerBridge_)),
+  leafBridge(std::move(leafBridge_)),
+  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), std::move(yTest), nPermute, std::move(quantile), trapUnobserved)) {
 }
 
 
@@ -55,9 +55,9 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				   bool doProb,
 				   bool trapUnobserved,
 				   unsigned int nThread) :
-  PredictBridge(move(rleFrame_), move(forestBridge_), nPermute_, nThread),
-  samplerBridge(move(samplerBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), move(yTest), nPermute, doProb, trapUnobserved)) {
+  PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
+  samplerBridge(std::move(samplerBridge_)),
+  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), std::move(yTest), nPermute, doProb, trapUnobserved)) {
 }
 
 
@@ -69,8 +69,8 @@ PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
                              unique_ptr<ForestBridge> forestBridge_,
 			     unsigned int nPermute_,
 			     unsigned int nThread) :
-  rleFrame(move(rleFrame_)),
-  forestBridge(move(forestBridge_)),
+  rleFrame(std::move(rleFrame_)),
+  forestBridge(std::move(forestBridge_)),
   nPermute(nPermute_) {
   Forest::init(rleFrame->getNPred());
   OmpThread::init(nThread);

@@ -42,7 +42,7 @@ unique_ptr<LeafBridge> LeafBridge::FactoryPredict(const SamplerBridge* samplerBr
 						  const double index_[]) {
   vector<vector<size_t>> extent = unpackExtent(samplerBridge, thin, extent_);
   vector<vector<vector<size_t>>> index = unpackIndex(samplerBridge, thin, extent, index_);
-  return make_unique<LeafBridge>(samplerBridge, thin, move(extent), move(index));
+  return make_unique<LeafBridge>(samplerBridge, thin, std::move(extent), std::move(index));
 }
 
 
@@ -52,8 +52,8 @@ LeafBridge::LeafBridge(const SamplerBridge* samplerBridge,
 		       vector<vector<vector<size_t>>> index) :
   leaf(Leaf::predict(samplerBridge->getSampler(),
 		     thin,
-		     move(extent),
-		     move(index))) {
+		     std::move(extent),
+		     std::move(index))) {
 }
 
 

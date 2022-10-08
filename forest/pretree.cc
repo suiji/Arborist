@@ -127,7 +127,7 @@ void PreTree::consume(Train* train,
 
 
 void PreTree::setTerminals(SampleMap smTerminal) {
-  terminalMap = move(smTerminal);
+  terminalMap = std::move(smTerminal);
 
   leafMerge();
   setLeafIndices();
@@ -146,8 +146,6 @@ void PreTree::leafMerge() {
   if (leafMax == 0 || leafCount <= leafMax) {
     return;
   }
-  if (leafCount > leafMax) // Disable, for now.
-    return;
 
   IndexT excessLeaves = leafCount - leafMax;
   IndexT height = getHeight();
@@ -175,9 +173,11 @@ void PreTree::leafMerge() {
   priority_queue<PTMerge, vector<PTMerge>, InfoCompare> infoQueue;
   for (IndexT ptId = 0; ptId < height; ptId++) {
     if (isNonterminal(ptId)) {
+      ////cout << "Inserting " << mergeNode[ptId].ptId << endl;
       infoQueue.emplace(mergeNode[ptId]);
     }
   }
+  //cout << infoQueue.size() << " nonterminals in queue + " << leafCount << " leaves out of " << height << endl;
   
   vector<IndexT> ptMerged(height);
   iota(ptMerged.begin(), ptMerged.end(), 0);
@@ -187,18 +187,18 @@ void PreTree::leafMerge() {
   // offspring always popped before dominator.
 
   BV mergedTerminal(height);
-  // This should be changed to a 'while' loop, as not all nodes
-  // deleted will be 'original' leaves:
-  for (IndexT nMerged = 0; nMerged < excessLeaves; nMerged++) {
-    const PTMerge &ntMerged = infoQueue.top();
+  IndexT nMerged = 0;
+  while (!infoQueue.empty() && nMerged < excessLeaves) {
+    PTMerge ntMerged = infoQueue.top();
     infoQueue.pop();
     IndexT idMerged = ntMerged.ptId;
     mergedTerminal.setBit(idMerged);
 
-    // Neither offspring should be nonterminal.
+    // Both offspring should be either leaf or merged.
     IndexT idKid = idMerged + getDelIdx(idMerged);
     ptMerged[idKid] = idMerged;
     ptMerged[idKid+1] = idMerged;
+    nMerged++;
   }
 
   // Copies unmerged nodes into new node vector.
@@ -215,14 +215,20 @@ void PreTree::leafMerge() {
   }
 
   // Resets delIdx to reflect new indices.
+  IndexT nonterminalsMerged = 0;
+  IndexT leavesPreserved = 0;
   for (IndexT ptId = 0; ptId < height; ptId++) {
     if (old2New[ptId] == height) // Merged away.
       continue;
     IndexT ptIdNew = old2New[ptId];
     if (mergedTerminal.testBit(ptId)) {
       nvFinal[ptIdNew].resetTerminal();
+      nonterminalsMerged++;
     }
     else {
+      if (!isNonterminal(ptId)) {
+	leavesPreserved++;
+      }
       IndexT kidL = getDelIdx(ptId) + ptId;
       nvFinal[ptIdNew].resetDelIdx(old2New[kidL] - ptIdNew);
     }

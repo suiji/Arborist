@@ -68,8 +68,8 @@ void FBTrain::nodeConsume(const ForestBridge& bridge,
 
   size_t nodeCount = bridge.getNodeCount();
   if (nodeTop + nodeCount > static_cast<size_t>(cNode.length())) {
-    cNode = move(ResizeR::resize<ComplexVector>(cNode, nodeTop, nodeCount, scale));
-    scores = move(ResizeR::resize<NumericVector>(scores, nodeTop, nodeCount, scale));
+    cNode = std::move(ResizeR::resize<ComplexVector>(cNode, nodeTop, nodeCount, scale));
+    scores = std::move(ResizeR::resize<NumericVector>(scores, nodeTop, nodeCount, scale));
   }
   bridge.dumpTree((complex<double>*)&cNode[nodeTop]);
   bridge.dumpScore(&scores[nodeTop]);
@@ -88,8 +88,8 @@ void FBTrain::factorConsume(const ForestBridge& bridge,
  
   size_t facBytes = bridge.getFactorBytes();
   if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
-    facRaw = move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
-    facObserved = move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
+    facRaw = std::move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
+    facObserved = std::move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
   }
   bridge.dumpFactorRaw(&facRaw[facTop]);
   bridge.dumpFactorObserved(&facObserved[facTop]);
@@ -99,8 +99,8 @@ void FBTrain::factorConsume(const ForestBridge& bridge,
 
 List FBTrain::wrapNode() {
   BEGIN_RCPP
-  List wrappedNode = List::create(_[strTreeNode] = move(cNode),
-				  _[strExtent] = move(nodeExtent)
+  List wrappedNode = List::create(_[strTreeNode] = std::move(cNode),
+				  _[strExtent] = std::move(nodeExtent)
 				  );
   wrappedNode.attr("class") = "Node";
   return wrappedNode;
@@ -110,9 +110,9 @@ List FBTrain::wrapNode() {
 
 List FBTrain::wrapFactor() {
   BEGIN_RCPP
-    List wrappedFactor = List::create(_[strFacSplit] = move(facRaw),
-				      _[strExtent] = move(facExtent),
-				      _[strObserved] = move(facObserved)
+    List wrappedFactor = List::create(_[strFacSplit] = std::move(facRaw),
+				      _[strExtent] = std::move(facExtent),
+				      _[strObserved] = std::move(facObserved)
 				      );
   wrappedFactor.attr("class") = "Factor";
 
@@ -125,9 +125,9 @@ List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
     List::create(_[strNTree] = nTree,
-		 _[strNode] = move(wrapNode()),
-		 _[strScores] = move(scores),
-		 _[strFactor] = move(wrapFactor())
+		 _[strNode] = std::move(wrapNode()),
+		 _[strScores] = std::move(scores),
+		 _[strFactor] = std::move(wrapFactor())
                  );
   cNode = ComplexVector(0);
   scores = NumericVector(0);

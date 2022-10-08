@@ -50,7 +50,7 @@ unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
 			      IndexRange(treeOff, treeChunk),
 			      leafBridge->getLeaf());
 
-  return make_unique<TrainedChunk>(move(trained));
+  return make_unique<TrainedChunk>(std::move(trained));
 }
 
 
@@ -95,7 +95,7 @@ void TrainBridge::deInit() {
 }
 
 
-TrainedChunk::TrainedChunk(unique_ptr<Train> train_) : train(move(train_)) {
+TrainedChunk::TrainedChunk(unique_ptr<Train> train_) : train(std::move(train_)) {
 }
 
 

@@ -331,7 +331,7 @@ void RunAccumReg::split(const SFReg* sfReg, RunSet* runSet, SplitNux& cand) {
   RunAccumReg runAccum(sfReg, cand, runSet);
   vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
   SplitRun splitRun = runAccum.split(runNux);
-  runSet->setSplit(cand, move(runNux), splitRun);
+  runSet->setSplit(cand, std::move(runNux), splitRun);
 }
 
 
@@ -339,7 +339,7 @@ void RunAccumCtg::split(const SFCtg* sfCtg, RunSet* runSet, SplitNux& cand) {
   RunAccumCtg runAccum(sfCtg, cand, runSet);
   vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
   SplitRun splitRun = runAccum.split(runNux);
-  runSet->setSplit(cand, move(runNux), splitRun);
+  runSet->setSplit(cand, std::move(runNux), splitRun);
 }
 
 

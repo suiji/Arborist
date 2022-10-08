@@ -66,7 +66,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg, classWeight)),
-  samples(move(samples_)) {
+  samples(std::move(samples_)) {
 }
 
 
@@ -78,7 +78,7 @@ Sampler::Sampler(const vector<double>& yTrain,
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
-  samples(move(samples_)),
+  samples(std::move(samples_)),
   bagMatrix(bagRows(bagging)) {
 }
 
@@ -92,7 +92,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg)),
-  samples(move(samples_)),
+  samples(std::move(samples_)),
   bagMatrix(bagRows(bagging)) {
 }
 

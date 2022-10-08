@@ -179,7 +179,7 @@ void ObsFrontier::delistNode(IndexT nodeIdx) {
   }
 }
 
-//#include<iostream>
+
 unsigned int ObsFrontier::stage(PredictorT predIdx,
 				ObsPart* obsPart,
 				const PredictorFrame* frame,
@@ -194,7 +194,6 @@ unsigned int ObsFrontier::stage(PredictorT predIdx,
   Obs* spn = srStart;
   IndexT rankPrev = interLevel->getNoRank();
   IndexT valIdx = cell.valIdx;
-  IndexT runCount = 0;
   for (auto rle : frame->getRLE(predIdx)) {
     IndexT rank = rle.val;
     if (rank != rankImplicit) {

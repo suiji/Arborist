@@ -157,9 +157,9 @@ List TrainRf::summarize(const TrainBridge* trainBridge,
   return List::create(
                       _["predInfo"] = scaleInfo(trainBridge),
                       _["diag"] = diag,
-                      _["forest"] = move(forest->wrap()),
-		      _["predMap"] = move(trainBridge->getPredMap()),
-		      _["leaf"] = move(leaf->wrap())
+                      _["forest"] = std::move(forest->wrap()),
+		      _["predMap"] = std::move(trainBridge->getPredMap()),
+		      _["leaf"] = std::move(leaf->wrap())
                       );
   END_RCPP
 }

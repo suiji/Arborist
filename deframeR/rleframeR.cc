@@ -130,7 +130,7 @@ List RLEFrameR::presortIP(const BlockIPCresc<double>* rleCrescIP, size_t nRow, u
   vector<double> valNum(rleCrescIP->getVal());
   vector<size_t> rowStart(rleCrescIP->getRunStart());
   vector<size_t> runLength(rleCrescIP->getRunLength());
-  rleCresc->encodeFrameNum(move(valNum), move(rowStart), move(runLength));
+  rleCresc->encodeFrameNum(std::move(valNum), std::move(rowStart), std::move(runLength));
 
   return wrap(rleCresc.get());
 
@@ -300,15 +300,15 @@ unique_ptr<RLEFrame> RLEFrameR::unwrapFrame(const List& rankedFrame,
 
   size_t nRow(as<size_t>((SEXP) rankedFrame["nRow"]));
   return make_unique<RLEFrame>(nRow,
-			       move(topIdx),
-			       move(runVal),
-			       move(runLength),
-			       move(runRow),
-			       move(rleHeight),
-			       move(numVal),
-			       move(numHeight),
-			       move(facVal),
-			       move(facHeight));
+			       std::move(topIdx),
+			       std::move(runVal),
+			       std::move(runLength),
+			       std::move(runRow),
+			       std::move(rleHeight),
+			       std::move(numVal),
+			       std::move(numHeight),
+			       std::move(facVal),
+			       std::move(facHeight));
 }
 
 

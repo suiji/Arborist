@@ -19,6 +19,20 @@
 #include "splitnux.h"
 #include "interlevel.h"
 
+
+RunSig::RunSig(vector<RunNux> runNux_,
+	       PredictorT splitToken_,
+	       PredictorT runsSampled_) :
+  runNux(std::move(runNux_)),
+    splitToken(splitToken_),
+    runsSampled(runsSampled_),
+    baseTrue(0),
+    runsTrue(0),
+    implicitTrue(0),
+    runSup(0) {
+  }
+
+  
 vector<IndexRange> RunSig::getTopRange(const CritEncoding& enc) const {
   vector<IndexRange> rangeVec;
   rangeVec.push_back(IndexRange(getBounds(enc.trueEncoding() ? runsTrue - 1 : runNux.size() - 1)));

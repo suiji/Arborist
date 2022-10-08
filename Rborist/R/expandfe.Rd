@@ -13,7 +13,7 @@
 
 
 \usage{
- \method{expand}{default}(arbOut)
+ \method{expandfe}{default}(arbOut)
 }
 
 \arguments{

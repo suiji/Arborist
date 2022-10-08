@@ -85,8 +85,6 @@ Changes in 0.3-0:
   a nonterminal score upon ecountering missing data or values not
   observed during training.
 
-* Option 'maxLeaf', which drives leaf merging, is temporarily disabled.
-
 * Prediction no longer limits data set size to 32 bits.
 
 * Training accepts data sets with size exceeding 32 bits under

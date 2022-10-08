@@ -129,7 +129,7 @@ List SamplerR::wrap(const SamplerBridge* sb,
   BEGIN_RCPP
 
   List sampler = List::create(_[strYTrain] = yTrain,
-			      _[strSamples] = move(bridgeConsume(sb)),
+			      _[strSamples] = std::move(bridgeConsume(sb)),
 			      _[strNSamp] = sb->getNSamp(),
 			      _[strNTree] = sb->getNTree()
 			);
@@ -152,7 +152,7 @@ List SamplerR::wrap(const SamplerBridge* sb,
   BEGIN_RCPP
 
   List sampler = List::create(_[strYTrain] = yTrain,
-			      _[strSamples] = move(bridgeConsume(sb)),
+			      _[strSamples] = std::move(bridgeConsume(sb)),
 			      _[strNSamp] = sb->getNSamp(),
 			      _[strNTree] = sb->getNTree()
 			);
@@ -214,7 +214,7 @@ unique_ptr<SamplerBridge> SamplerR::unwrapNum(const List& lSampler,
 					      bool bagging) {
   NumericVector yTrain((SEXP) lSampler[strYTrain]);
   vector<double> yTrainCore(yTrain.begin(), yTrain.end());
-  return SamplerBridge::readReg(move(yTrainCore),
+  return SamplerBridge::readReg(std::move(yTrainCore),
 				as<size_t>(lSampler[strNSamp]),
 				as<unsigned int>(lSampler[strNTree]),
 				Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
@@ -232,12 +232,12 @@ vector<unsigned int> SamplerR::coreCtg(const IntegerVector& yTrain) {
 unique_ptr<SamplerBridge> SamplerR::unwrapFac(const List& lSampler,
 					      const List& argList) {
   IntegerVector yTrain((SEXP) lSampler[strYTrain]);
-  return SamplerBridge::trainCtg(move(coreCtg(yTrain)),
+  return SamplerBridge::trainCtg(std::move(coreCtg(yTrain)),
 				 as<size_t>(lSampler[strNSamp]),
 				 as<unsigned int>(lSampler[strNTree]),
 				 Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
 				 as<CharacterVector>(yTrain.attr("levels")).length(),
-				 move(ctgWeight(yTrain, as<NumericVector>(argList["classWeight"]))));
+				 std::move(ctgWeight(yTrain, as<NumericVector>(argList["classWeight"]))));
 }
 
 
@@ -265,7 +265,7 @@ vector<double> SamplerR::ctgWeight(const IntegerVector& yTrain,
 unique_ptr<SamplerBridge> SamplerR::unwrapFac(const List& lSampler,
 					      bool bagging) {
   IntegerVector yTrain((SEXP) lSampler[strYTrain]);
-  return SamplerBridge::readCtg(move(coreCtg(yTrain)),
+  return SamplerBridge::readCtg(std::move(coreCtg(yTrain)),
 				as<CharacterVector>(yTrain.attr("levels")).length(),
 				as<size_t>(lSampler[strNSamp]),
 				as<unsigned int>(lSampler[strNTree]),

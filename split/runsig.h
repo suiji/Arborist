@@ -110,19 +110,12 @@ struct RunSig {
 
   RunSig() = default;
 
+
   RunSig(vector<RunNux> runNux_,
 	 PredictorT splitToken_,
-	 PredictorT runsSampled_) :
-    runNux(move(runNux_)),
-    splitToken(splitToken_),
-    runsSampled(runsSampled_),
-    baseTrue(0),
-    runsTrue(0),
-    implicitTrue(0),
-    runSup(0) {
-  }
+	 PredictorT runsSampled_);
 
-  
+
   inline void resetRunSup(PredictorT nRun) {
     this->runSup = nRun;
   }

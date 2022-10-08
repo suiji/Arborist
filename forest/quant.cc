@@ -32,7 +32,7 @@ Quant::Quant(const Forest* forest,
 	     const Predict* predict,
 	     const ResponseReg* response,
              const vector<double>& quantile_) :
-  quantile(move(quantile_)),
+  quantile(std::move(quantile_)),
   qCount(quantile.size()),
   sampler(predict->getSampler()),
   leaf(leaf_),

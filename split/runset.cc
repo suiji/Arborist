@@ -46,7 +46,7 @@ void RunSet::setSplit(SplitNux& nux,
 		      vector<RunNux> runNux,
 		      const SplitRun& splitRun) {
   nux.setInfo(splitRun.gain);
-  runSig[nux.getSigIdx()] = RunSig(move(runNux), splitRun.token, splitRun.runsSampled);
+  runSig[nux.getSigIdx()] = RunSig(std::move(runNux), splitRun.token, splitRun.runsSampled);
 }
 
 

@@ -46,14 +46,14 @@ void LeafR::bridgeConsume(const LeafBridge* bridge,
 
   size_t extentSize = bridge->getExtentSize();
   if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
-    extent = move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
+    extent = std::move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
   }
   bridge->dumpExtent(&extent[extentTop]);
   extentTop += extentSize;
 
   size_t indexSize = bridge->getIndexSize();
   if (indexTop + indexSize > static_cast<size_t>(index.length())) {
-    index = move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
+    index = std::move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
   }
   bridge->dumpIndex(&index[indexTop]);
   indexTop += indexSize;
@@ -63,8 +63,8 @@ void LeafR::bridgeConsume(const LeafBridge* bridge,
 List LeafR::wrap() {
   BEGIN_RCPP
 
-  List leaf = List::create(_[strExtent] = move(extent),
-			   _[strIndex] = move(index)
+  List leaf = List::create(_[strExtent] = std::move(extent),
+			   _[strIndex] = std::move(index)
 			);
   leaf.attr("class") = "Leaf";
 

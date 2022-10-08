@@ -77,14 +77,14 @@ PredictReg::PredictReg(const Forest* forest,
 		       bool trapUnobserved_) :
   Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
   response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
-  yTest(move(yTest_)),
+  yTest(std::move(yTest_)),
   yPred(vector<double>(nRow)),
   yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
   accumAbsErr(vector<double>(scoreChunk)),
   accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(make_unique<Quant>(forest, leaf, this, response, move(quantile))),
+  quant(make_unique<Quant>(forest, leaf, this, response, std::move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {
@@ -100,7 +100,7 @@ PredictCtg::PredictCtg(const Forest* forest,
 		       bool trapUnobserved_) :
   Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
   response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
-  yTest(move(yTest_)),
+  yTest(std::move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
   nCtgTrain(response->getNCtg()),
   nCtgMerged(testing ? 1 + *max_element(yTest.begin(), yTest.end()) : 0),
@@ -137,10 +137,10 @@ void Predict::predictPermute(RLEFrame* rleFrame) {
   
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     setPermuteTarget(predIdx);
-    vector<RLEVal<szType>> rleTemp = move(rleFrame->rlePred[predIdx]);
+    vector<RLEVal<szType>> rleTemp = std::move(rleFrame->rlePred[predIdx]);
     rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(nRow));
     blocks(rleFrame);
-    rleFrame->rlePred[predIdx] = move(rleTemp);
+    rleFrame->rlePred[predIdx] = std::move(rleTemp);
   }
 }
 

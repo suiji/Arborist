@@ -108,8 +108,6 @@ rfArb.default <- function(x,
 
     if (maxLeaf < 0)
         stop("Leaf maximum must be nonnegative.")
-    if (maxLeaf > 0)
-        warning("Leaf merging is disabled in this release")
     
   # Class weights
     nCtg <- if (is.factor(y)) length(levels(y)) else 0

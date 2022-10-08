@@ -24,10 +24,10 @@ Forest::Forest(vector<vector<DecNode>> decNode_,
 	       vector<unique_ptr<BV>> factorBits_,
 	       vector<unique_ptr<BV>> bitsObserved_) :
   nTree(decNode_.size()),
-  decNode(move(decNode_)),
-  scores(move(scores_)),
-  factorBits(move(factorBits_)),
-  bitsObserved(move(bitsObserved_)) {
+  decNode(std::move(decNode_)),
+  scores(std::move(scores_)),
+  factorBits(std::move(factorBits_)),
+  bitsObserved(std::move(bitsObserved_)) {
 }
 
 
@@ -87,12 +87,10 @@ vector<IndexT> Forest::getLeafNodes(unsigned int tIdx,
 				    IndexT extent) const {
   vector<IndexT> leafIndices(extent);
   IndexT nodeIdx = 0;
-  IndexT leavesSeen = 0;
   for (auto node : decNode[tIdx]) {
     IndexT leafIdx;
     if (node.getLeafIdx(leafIdx)) {
       leafIndices[leafIdx] = nodeIdx;
-      leavesSeen++;
     }
     nodeIdx++;
   }

@@ -49,7 +49,6 @@ struct SampleMap {
   vector<IndexT> sampleIndex;
   vector<IndexRange> range;
   vector<IndexT> ptIdx;
-  IndexT maxExtent; // Tracks width of node-relative indices.
 
   /**
      @brief Constructor with optional index count.

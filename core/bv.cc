@@ -93,7 +93,7 @@ void BitMatrix::colDump(unsigned int nRow_,
 BVJagged::BVJagged(const BVSlotT raw_[],
 		   const vector<size_t>& rowExtent_) :
   BV(raw_, rowExtent_.back()),
-  rowHeight(move(rowExtent_)),
+  rowHeight(std::move(rowExtent_)),
   nRow(rowExtent_.size()) {
 }
 
