@@ -42,7 +42,6 @@ deframe <- function(x, sigTrain = NULL) {
       return(tryCatch(.Call("deframeFac", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.integer(x)) {
-      warning("Integer matrix values intepreted as numeric");
       return(tryCatch(.Call("deframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
     }
     else if (is.numeric(x)) {

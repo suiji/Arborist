@@ -101,16 +101,6 @@ IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
     // N.B.:  Rcpp::match() indices are one-based.
     IntegerVector dfZero(dfCol - 1); // R factor indices are one-based.
 
-    /*
-    // Checks whether non-proxy output recovers the original string indices.
-    for (int i = 0; i < colOut.length(); i++) {
-      if (colOut[i] < colTrain.length()) {
-	if (colTest[dfZero[i]] != colTrain[colOut[i]] - 1)
-	  Rcout << "mismatch"<< endl;
-      }
-    }
-    */
-
     // Rcpp subscripting is zero-based.
     return as<IntegerVector>(colMatch[dfZero]);
   }
@@ -144,7 +134,6 @@ List RLEFrameR::presortNum(const SEXP sX) {
   NumericMatrix x(sX);
   auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
   rleCresc->encodeFrameNum(x.begin());
-
   return wrap(rleCresc.get());
 
   END_RCPP

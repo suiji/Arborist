@@ -215,20 +215,14 @@ void PreTree::leafMerge() {
   }
 
   // Resets delIdx to reflect new indices.
-  IndexT nonterminalsMerged = 0;
-  IndexT leavesPreserved = 0;
   for (IndexT ptId = 0; ptId < height; ptId++) {
     if (old2New[ptId] == height) // Merged away.
       continue;
     IndexT ptIdNew = old2New[ptId];
     if (mergedTerminal.testBit(ptId)) {
       nvFinal[ptIdNew].resetTerminal();
-      nonterminalsMerged++;
     }
     else {
-      if (!isNonterminal(ptId)) {
-	leavesPreserved++;
-      }
       IndexT kidL = getDelIdx(ptId) + ptId;
       nvFinal[ptIdNew].resetDelIdx(old2New[kidL] - ptIdNew);
     }

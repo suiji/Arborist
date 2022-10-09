@@ -78,9 +78,11 @@ RcppExport SEXP deframeFac(SEXP sX) {
 			      _["rleFrame"] = RLEFrameR::presortFac(blockFac),
 			      _["nRow"] = blockFac.nrow(),
 			      _["signature"] = Signature::wrapFac(blockFac.ncol(),
-								  colnames(blockFac),
-								  rownames(blockFac))
+								  Rf_isNull(colnames(blockFac)) ? CharacterVector(0) : colnames(blockFac),
+
+								  Rf_isNull(rownames(blockFac)) ? CharacterVector(0) : rownames(blockFac))
 			      );
+
   deframe.attr("class") = "Deframe";
   return deframe;
 }
@@ -92,9 +94,11 @@ RcppExport SEXP deframeNum(SEXP sX) {
 			      _["rleFrame"] = RLEFrameR::presortNum(blockNum),
 			      _["nRow"] = blockNum.nrow(),
 			      _["signature"] = Signature::wrapNum(blockNum.ncol(),
-								  colnames(blockNum),
-								  rownames(blockNum))
+								  Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
+
+								  Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum))
 			      );
+
   deframe.attr("class") = "Deframe";
   return deframe;
 }
