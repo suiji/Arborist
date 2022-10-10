@@ -188,7 +188,7 @@ void PreTree::leafMerge() {
 
   BV mergedTerminal(height);
   IndexT nMerged = 0;
-  while (!infoQueue.empty() && nMerged < excessLeaves) {
+  while (nMerged < excessLeaves) {
     PTMerge ntMerged = infoQueue.top();
     infoQueue.pop();
     IndexT idMerged = ntMerged.ptId;

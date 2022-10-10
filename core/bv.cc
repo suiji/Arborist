@@ -15,6 +15,11 @@
 
 #include "bv.h"
 
+const size_t BV::full = size_t(1ull);
+const size_t BV::allOnes = size_t(~0ull);
+const size_t BV::slotSize = sizeof(BVSlotT);
+const size_t BV::slotElts = 8 * slotSize;
+
 
 void BV::resize(size_t bitMin) {
   size_t slotMin = slotAlign(bitMin);
