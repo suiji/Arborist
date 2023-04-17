@@ -28,6 +28,8 @@ FALSE, ...)
   or 1.}
   \item{quantVec}{quantile levels to validate.}
   \item{quantiles}{whether to report quantiles at validation.}
+  \item{indexing}{whether to report final index, typically terminal, of
+  tree traversal.}
   \item{trapUnobserved}{indicates whether to return a nonterminal for
   values unobserved during training, such as missing data.}
   \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes

@@ -27,7 +27,6 @@ CandRF::CandRF(InterLevel* interLevel) :
 }
 
 
-
 void CandRF::init(PredictorT feFixed,
 	     const vector<double>& feProb) {
   predFixed = feFixed;

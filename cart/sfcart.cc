@@ -6,9 +6,9 @@
  */
 
 /**
-   @file splitfrontier.cc
+   @file sfcart.cc
 
-   @brief Methods to implement CART-specific splitting of frontier.
+   @brief CART-specific splitting along frontier.
 
    @author Mark Seligman
  */
@@ -25,47 +25,45 @@
 
 
 SFRegCart::SFRegCart(Frontier* frontier) :
-  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (vector<SplitNux>&, BranchSense&)>(&SFRegCart::split)) {
+  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (const CandType&, BranchSense&)>(&SFRegCart::split)) {
 }
 
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
-  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (vector<SplitNux>&, BranchSense&)>(&SFCtgCart::split)) {
+  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (const CandType&, BranchSense&)>(&SFCtgCart::split)) {
 }
 
 
-void SFRegCart::accumPreset() {
-  SFReg::accumPreset();
-}
-
-
-void SFRegCart::split(vector<SplitNux>& sc,
+void SFRegCart::split(const CandType& cnd,
 		      BranchSense& branchSense) {
-  OMPBound splitTop = sc.size();
+  vector<SplitNux> cand = cnd.stagedSimple(interLevel, this);
+  SFReg::monoPreset(); // WART
+  OMPBound splitTop = cand.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(sc[splitPos]);
+      split(cand[splitPos]);
     }
   }
 
-  maxSimple(sc, branchSense);
+  maxSimple(cand, branchSense);
 }
 
 
-void SFCtgCart::split(vector<SplitNux>& sc,
+void SFCtgCart::split(const CandType& cnd,
 		      BranchSense& branchSense) {
-  OMPBound splitTop = sc.size();
+  vector<SplitNux> cand = cnd.stagedSimple(interLevel, this);
+  OMPBound splitTop = cand.size();
 #pragma omp parallel default(shared) num_threads(OmpThread::nThread)
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(sc[splitPos]);
+      split(cand[splitPos]);
     }
   }
 
-  maxSimple(sc, branchSense);
+  maxSimple(cand, branchSense);
 }
 
 

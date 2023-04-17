@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2022   Mark Seligman
+# Copyright (C)  2012-2023   Mark Seligman
 ##
 ## This file is part of ArboristR.
 ##
@@ -28,6 +28,7 @@ rfArb.default <- function(x,
                 ctgCensus = "votes",
                 classWeight = NULL,
                 impPermute = 0,
+                indexing = FALSE,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
@@ -223,6 +224,7 @@ rfArb.default <- function(x,
             impPermute = impPermute,
             ctgProb = ctgProbabilities(sampler, ctgCensus),
             quantVec = getQuantiles(quantiles, sampler, quantVec),
+            indexing = indexing,
             trapUnobserved = trapUnobserved,
             nThread = nThread,
             verbose = verbose)

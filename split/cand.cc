@@ -21,7 +21,6 @@
 #include "splitfrontier.h"
 
 
-
 Cand::Cand(const InterLevel* interLevel) :
   nSplit(interLevel->getNSplit()),
   nPred(interLevel->getNPred()),
@@ -103,8 +102,8 @@ void Cand::candidateFixed(const Frontier* frontier,
 }
 
 
-vector<SplitNux> Cand::getCandidates(const InterLevel* interLevel,
-				     const SplitFrontier* sf) {
+vector<SplitNux> Cand::stagedSimple(const InterLevel* interLevel,
+				    SplitFrontier* sf) const {
   vector<SplitNux> postCand;
   for (IndexT nodeIdx = 0; nodeIdx < nSplit; nodeIdx++) {
     for (PreCand pc : preCand[nodeIdx]) {
@@ -114,6 +113,24 @@ vector<SplitNux> Cand::getCandidates(const InterLevel* interLevel,
       } // Otherwise delisted.
     }
   }
+  sf->accumPreset();
+
+  return postCand;
+}
+
+
+vector<vector<SplitNux>> Cand::stagedCompound(const InterLevel* interLevel,
+					      SplitFrontier* sf) const {
+  vector<vector<SplitNux>> postCand(nSplit);
+  for (IndexT nodeIdx = 0; nodeIdx < nSplit; nodeIdx++) {
+    for (PreCand pc : preCand[nodeIdx]) {
+      StagedCell* cell;
+      if (interLevel->isStaged(pc.coord, cell)) {
+	postCand[nodeIdx].emplace_back(cell, pc.randVal, sf);
+      } // Otherwise delisted.
+    }
+  }
+  sf->accumPreset();
 
   return postCand;
 }

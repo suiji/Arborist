@@ -131,21 +131,29 @@ public:
 
 
   /**
-     @brief Walks Obs index range in specified direction to match given branch sens.
+     @brief Finds outermost range matching given branch sense.
+   */
+  IndexRange findUnmaskedRange(const class BranchSense* branchSense,
+			       bool sense) const;
 
-     @param branchSense encodes branch sense for each SR index.
 
+  /**
+     @brief Walks observations to match given branch sense.
+
+     @param branchSense encodes branch sense at each index.
+
+     @param leftward specifies whether walk is right-to-left.
+     
      @param idxTerm is the terminus index from which to start.
 
      @param sense is the branch sense value to match.
 
-     @param[out] edge is the first index matching sense, if any, else undefined.
+     @param[out] edge is the first index matching sense, if any.
 
      @return whether a match was found.
    */
   bool findEdge(const class BranchSense* branchSense,
 		bool leftward,
-		IndexT idxTerm,
 		bool sense,
 		IndexT& edge) const;
 };

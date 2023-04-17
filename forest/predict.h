@@ -26,6 +26,24 @@
 
 
 /**
+   @brief Encapsulates options specifying prediction.   
+ */
+struct PredictOption {
+  unsigned int nPermute; ///< 0/1:  # permutations to perform.
+  bool trapUnobserved; ///< exits at nonterminal on unobserved value.
+  bool indexing; ///< reports index of prediction, typically terminal.
+
+  PredictOption(unsigned int nPermute_,
+		bool indexing_,
+		bool trapUnobserved_) :
+    nPermute(nPermute_),
+    trapUnobserved(trapUnobserved_),
+    indexing(indexing_) {
+  }
+};
+
+
+/**
    @brief Categorical probabilities associated with indivdual leaves.
 
    Intimately accesses the raw jagged array it contains.
@@ -87,8 +105,8 @@ public:
  */
 class Predict {
 protected:
-  static const size_t scoreChunk; // Score block dimension.
-  static const unsigned int seqChunk;  // Effort to minimize false sharing.
+  static const size_t scoreChunk; ///< Score block dimension.
+  static const unsigned int seqChunk;  ///< Effort to minimize false sharing.
 
   const bool trapUnobserved; ///< Whether to trap values not observed during training.
   const class Sampler* sampler; ///< In-bag representation.
@@ -98,7 +116,7 @@ protected:
   const bool testing; ///< Whether to compare prediction with test vector.
   const unsigned int nPermute; ///< # times to permute each predictor.
 
-  vector<IndexT> predictLeaves; ///< Tree-relative leaf indices.
+  vector<IndexT> idxFinal; ///< Final walk index, typically terminal.
 
   size_t blockStart; ///< Stripmine bound.
   vector<IndexT> accumNEst;
@@ -112,13 +130,10 @@ protected:
      @param row is the row number.
 
      @param tc is the index of the current tree.
-
-     @param idx is an absolute node index.
    */
-  inline void predictLeaf(size_t row,
-                          unsigned int tIdx,
-                          IndexT idx) {
-    predictLeaves[nTree * (row - blockStart) + tIdx] = idx;
+  inline void predictLeaf(unsigned int tIdx,
+			  size_t obsIdx) {
+    idxFinal[nTree * (obsIdx - blockStart) + tIdx] = (this->*Predict::walkObs)(tIdx, obsIdx);
   }
 
 
@@ -132,7 +147,7 @@ protected:
 
   /**
      @brief Drives prediction strip-mining and residual.
-   */
+xon   */
   void blocks(const struct RLEFrame* rleFrame);
   
   
@@ -160,33 +175,18 @@ protected:
 		 size_t rowStart,
 		 size_t rowExtent);
 
-
   /**
-     @brief Multi-row prediction with predictors of only numeric.
+     @brief Predicts along each tree.
 
      @param rowStart is the absolute starting row for the block.
   */
-  void walkNum(size_t rowStart);
+  void walkTree(size_t rowStart);
+
 
   /**
-     @brief Multi-row prediction with predictors of only factor type.
-
-     Parameters as above.
-  */
-  void walkFac(size_t rowStart);
-  
-
-  /**
-     @brief Prediction with predictors of both numeric and factor type.
-     Parameters as above.
-  */
-  void walkMixed(size_t rowStart);
-  
-
-  /**
-     @brief Strip-mines prediction by block.
+     @brief Predicts a block of observations in parallel.
    */
-  void predictBlock(size_t span);
+  void predictObs(size_t span);
 
 
   /**
@@ -217,18 +217,19 @@ public:
      @brief Aliases a row-prediction method tailored for the frame's
      block structure.
    */
-  void (Predict::* walkTree)(size_t);
-  void (Predict::* getWalker())(size_t);
-
-  vector<CtgT> trFac; // OTF transposed factor observations.
-  vector<double> trNum; // OTF transposed numeric observations.
-
+  IndexT (Predict::* walkObs)(unsigned int, size_t);
+  IndexT (Predict::* getObsWalker())(unsigned int, size_t);
+  
+  vector<CtgT> trFac; ///< OTF transposed factor observations.
+  vector<double> trNum; ///< OTF transposed numeric observations.
+  vector<size_t> indices; ///< final index of traversal.
+  
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
 	  struct RLEFrame* rleFrame_,
 	  bool testing_,
-	  PredictorT nPredict_,
-	  bool trapUnobserved_);
+	  const PredictOption& option);
+
 
   virtual ~Predict() = default;
 
@@ -247,8 +248,16 @@ public:
   bool trapAndBail() const {
     return trapUnobserved;
   }
-  
 
+  
+  /**
+     @return handle to cached index vector.
+   */
+  const vector<size_t>& getIndices() const {
+    return indices;
+  }
+
+  
   const class Sampler* getSampler() const {
     return sampler;
   }
@@ -293,12 +302,12 @@ public:
 
 
   /**
-     @brief As above, but outputs leaf score.
+     @brief As above, but outputs node score.
    */
-  inline bool isLeafIdx(size_t row,
+  inline bool isNodeIdx(size_t row,
 			unsigned int tIdx,
 			double& score) const {
-    IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    IndexT termIdx = idxFinal[nTree * (row - blockStart) + tIdx];
     if (termIdx != noNode) {
       score = scoreBlock[tIdx][termIdx];
       return true;
@@ -317,7 +326,7 @@ public:
   bool isNodeIdx(size_t row,
 		 unsigned int tIdx,
 		 IndexT& nodeIdx) const {
-    nodeIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    nodeIdx = idxFinal[nTree * (row - blockStart) + tIdx];
     return nodeIdx != noNode;
   }
 
@@ -329,7 +338,7 @@ public:
 
      @return base address for numeric values at row.
   */
-  const double* baseNum(size_t row) const {
+  inline const double* baseNum(size_t row) const {
     return &trNum[(row - blockStart) * nPredNum];
   }
 
@@ -339,44 +348,38 @@ public:
 
      @return row is the row number.
    */
-  const CtgT* baseFac(size_t row) const {
+  inline const CtgT* baseFac(size_t row) const {
     return &trFac[(row - blockStart) * nPredFac];
   }
 
   
   /**
-     @brief Prediction of single row with mixed predictor types.
+     @brief Prediction over an observation with mixed predictor types.
 
-     @param row is the absolute row of data over which a prediction is made.
+     @param obsIdx is the absolute row of data over which a prediction is made.
 
-     @param blockRow is the row's block-relative row index.
-
-     @return index of leaf predicted.
+     @return index of node predicted.
   */
-  void rowMixed(unsigned int tIdx,
-		const double* rowNT,
-		const CtgT* rowFT,
-		size_t row);
+  IndexT obsMixed(unsigned int tIdx,
+		  size_t obsIdx);
 
-  
+
   /**
-     @brief Prediction over a single row with factor-valued predictors only.
+     @brief Prediction over an observation with factor-valued predictors only.
 
      Parameters as in mixed case, above.
   */
-  void rowFac(unsigned int tIdx,
-	      const CtgT* rowT,
-	      size_t row);
+  IndexT obsFac(unsigned int tIdx,
+		size_t obsIdx);
 
 
   /**
-     @brief Prediction of a single row with numeric-valued predictors only.
+     @brief Prediction over an observation with numeric-valued predictors only.
 
      Parameters as in mixed case, above.
    */
-  void rowNum(unsigned int tIdx,
-		const double* rowT,
-		size_t row);
+  IndexT obsNum(unsigned int tIdx,
+		size_t obsIdx);
 };
 
 
@@ -400,10 +403,9 @@ class PredictReg : public Predict {
   double* saeTarg;
   double* sseTarg;
   
-  void testRow(size_t row);
+  void testObs(size_t row);
 
-
-  unsigned int scoreRow(size_t row);
+  unsigned int scoreObs(size_t row);
 
 public:
   PredictReg(const class Forest* forest_,
@@ -411,9 +413,8 @@ public:
 	     const struct Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<double>& yTest_,
-	     PredictorT nPredict_,
-	     const vector<double>& quantile,
-	     bool trapUnobserved_);
+	     const PredictOption& option,
+	     const vector<double>& quantile);
 
 
   /**
@@ -501,10 +502,9 @@ class PredictCtg : public Predict {
   vector<double>* mispredTarg;
   double *oobTarg;
 
-  void testRow(size_t row);
+  void testObs(size_t row);
 
-
-  void scoreRow(size_t row);
+  void scoreObs(size_t row);
 
   
 public:
@@ -513,9 +513,8 @@ public:
 	     const class Sampler* sampler_,
 	     struct RLEFrame* rleFrame_,
 	     const vector<PredictorT>& yTest_,
-	     PredictorT nPredict_,
-	     bool doProb,
-	     bool trapUnobserved_);
+	     const PredictOption& option,
+	     bool doProb);
 
 
   /**

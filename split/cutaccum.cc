@@ -15,7 +15,7 @@
 
 #include "splitnux.h"
 #include "cutaccum.h"
-#include "cutset.h"
+#include "cutfrontier.h"
 #include "splitfrontier.h"
 #include "partition.h"
 #include "interlevel.h"

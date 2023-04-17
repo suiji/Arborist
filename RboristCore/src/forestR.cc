@@ -140,11 +140,11 @@ List FBTrain::wrap() {
 }
 
 
-unique_ptr<ForestBridge> ForestRf::unwrap(const List& lTrain) {
+ForestBridge ForestRf::unwrap(const List& lTrain) {
   List lForest(checkForest(lTrain));
   List lNode((SEXP) lForest[FBTrain::strNode]);
   List lFactor((SEXP) lForest[FBTrain::strFactor]);
-  return make_unique<ForestBridge>(as<unsigned int>(lForest[FBTrain::strNTree]),
+  return ForestBridge(as<unsigned int>(lForest[FBTrain::strNTree]),
 				   as<NumericVector>(lNode[FBTrain::strExtent]).begin(),
 				   (complex<double>*) as<ComplexVector>(lNode[FBTrain::strTreeNode]).begin(),
 				   as<NumericVector>(lForest[FBTrain::strScores]).begin(),
@@ -167,27 +167,22 @@ List ForestRf::checkForest(const List& lTrain) {
 }
 
 
-unique_ptr<ForestExport> ForestExport::unwrap(const List& lTrain,
-                                              const IntegerVector& predMap) {
+ForestExport ForestExport::unwrap(const List& lTrain,
+				  const IntegerVector& predMap) {
   (void) ForestRf::checkForest(lTrain);
-  return make_unique<ForestExport>(lTrain, predMap);
+  return ForestExport(lTrain, predMap);
 }
 
 
 ForestExport::ForestExport(const List &lTrain,
-                           const IntegerVector &predMap) :
-  forestBridge(ForestRf::unwrap(lTrain)),
-  predTree(vector<vector<unsigned int> >(forestBridge->getNTree())),
-  bumpTree(vector<vector<size_t> >(forestBridge->getNTree())),
-  splitTree(vector<vector<double > >(forestBridge->getNTree())),
-  facSplitTree(vector<vector<unsigned char> >(forestBridge->getNTree())) {
-  forestBridge->dump(predTree, splitTree, bumpTree, facSplitTree);
+                           const IntegerVector &predMap) {
+  ForestBridge forestBridge = ForestRf::unwrap(lTrain);
+  predTree = vector<vector<unsigned int>>(forestBridge.getNTree());
+  bumpTree = vector<vector<size_t> >(forestBridge.getNTree());
+  splitTree = vector<vector<double > >(forestBridge.getNTree());
+  facSplitTree = vector<vector<unsigned char> >(forestBridge.getNTree());
+  forestBridge.dump(predTree, splitTree, bumpTree, facSplitTree);
   predExport(predMap.begin());
-}
-
-
-unsigned int ForestExport::getNTree() const {
-  return forestBridge->getNTree();
 }
 
 

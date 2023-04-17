@@ -59,6 +59,9 @@ struct ForestBridge {
   ForestBridge(unsigned int treeChunk);
 
   
+  ForestBridge(ForestBridge&&);
+
+  
   ~ForestBridge();
 
   
@@ -128,7 +131,7 @@ struct ForestBridge {
   
 private:
 
-  unique_ptr<class Forest> forest; // Core-level instantiation.
+  unique_ptr<class Forest> forest; ///< Core-level instantiation.
 };
 
 #endif

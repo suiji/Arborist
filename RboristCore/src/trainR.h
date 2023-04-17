@@ -34,6 +34,9 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
+#include "leafR.h"
+#include "forestR.h"
+#include "samplerbridge.h"
 
 /**
    @brief Main training entry from front end.
@@ -43,29 +46,27 @@ RcppExport SEXP rfTrain(const SEXP sRLEFrame,
 			const SEXP sArgList);
 
 
-struct TrainRf {
+struct TrainR {
 
   // Training granularity.  Values guesstimated to minimize footprint of
   // Core-to-Bridge copies while also not over-allocating:
   static constexpr unsigned int treeChunk = 20;
   static constexpr double allocSlop = 1.2;
 
-  static bool verbose; // Whether to report progress while training.
+  static bool verbose; ///< Whether to report progress while training.
 
-  const unsigned int nTree; // # trees under training.
-  unique_ptr<struct LeafR> leaf; // Summarizes sample-to-leaf mapping.
-  unique_ptr<struct FBTrain> forest; // Pointer to core forest.
-  NumericVector predInfo; // Forest-wide sum of predictors' split information.
-
-
-  /**
-     @brief Constructor employing SamplerBridge handle.
-   */
-  TrainRf(const struct SamplerBridge* sb);
+  const SamplerBridge samplerBridge;
+  const unsigned int nTree; ///< # trees under training.
+  LeafR leaf; ///< Summarizes sample-to-leaf mapping.
+  FBTrain forest; ///< Pointer to core forest.
+  NumericVector predInfo; ///< Forest-wide sum of predictors' split information.
 
 
-  void trainChunks(const struct SamplerBridge* sb,
-		   const struct TrainBridge* tb,
+  TrainR(const List& lSampler,
+	 const List& argList);
+
+
+  void trainChunks(const struct TrainBridge& tb,
 		   bool thinLeaves);
 
 
@@ -74,36 +75,20 @@ struct TrainRf {
 
      @return remapped vector of scaled information values.
    */
-  NumericVector scaleInfo(const TrainBridge* trainBridge) const;
+  NumericVector scaleInfo(const TrainBridge& trainBridge) const;
 
   
   /**
      @return implicit R_NilValue.
    */
   static SEXP initFromArgs(const List &argList,
-			   struct TrainBridge* trainBridge);
+			   struct TrainBridge& trainBridge);
 
 
   /**
      @brief Unsets static initializations.
-
-     @param trainBridge is a persistent training handle.
-
-     @return implicit R_NilValue.
    */
-  static SEXP deInit(struct TrainBridge* trainBridge);
-  
-
-  /**
-     @brief Pins frame vectors locally and passes through to TrainRf method.
-
-     @param argList is the front-end argument list.
-
-     @return list of trained forest objects.
-   */
-  static List train(const List& lRLEFrame,
-		    const List& lSampler,
-		    const List& argList);
+  static void deInit();
 
 
   /**
@@ -113,11 +98,11 @@ struct TrainRf {
 
      @return R-style list of trained summaries.
    */
-  static List train(const List& argList,
-		    unique_ptr<struct SamplerBridge> sb,
-                    const struct RLEFrame* rleFrame);
+  static List train(const List& lRLEFrame,
+		    const List& lSampler,
+		    const List& argList);
 
-  
+
   /**
      @brief Consumes core representation of a trained tree for writing.
 
@@ -126,9 +111,9 @@ struct TrainRf {
      @param scale guesstimates a reallocation size.
    */
   void consume(const struct ForestBridge& fb,
-	       const struct LeafBridge* lb,
+	       const struct LeafBridge& lb,
                unsigned int tIdx,
-               unsigned int chunkSize) const;
+               unsigned int chunkSize);
 
 
   /**
@@ -144,8 +129,8 @@ struct TrainRf {
 
      @return the summary.
    */
-  List summarize(const TrainBridge* trainBridge,
-		 const vector<string>& diag) const;
+  List summarize(const TrainBridge& trainBridge,
+		 const vector<string>& diag);// const;
 
   
 private:

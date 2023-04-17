@@ -14,59 +14,80 @@
 */
 
 #include "response.h"
-#include "samplerbridge.h"
 #include "sampler.h"
-#include "leafbridge.h"
 #include "predictbridge.h"
 #include "predict.h"
 #include "quant.h"
-#include "forestbridge.h"
 #include "forest.h"
 #include "rleframe.h"
 #include "ompthread.h"
 
 
 PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
-				   unique_ptr<ForestBridge> forestBridge_,
-				   unique_ptr<SamplerBridge> samplerBridge_,
-				   unique_ptr<LeafBridge> leafBridge_,
+				   ForestBridge forestBridge_,
+				   SamplerBridge samplerBridge_,
+				   LeafBridge leafBridge_,
 				   vector<double> yTest,
 				   unsigned int nPermute_,
+				   bool indexing,
 				   bool trapUnobserved,
 				   unsigned int nThread,
 				   vector<double> quantile) :
   PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
   samplerBridge(std::move(samplerBridge_)),
   leafBridge(std::move(leafBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge->getForest(), samplerBridge->getSampler(), leafBridge->getLeaf(), rleFrame.get(), std::move(yTest), nPermute, std::move(quantile), trapUnobserved)) {
+  predictRegCore(make_unique<PredictReg>(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), rleFrame.get(), std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), std::move(quantile))) {
 }
 
 
-PredictRegBridge::~PredictRegBridge() {
+PredictRegBridge::PredictRegBridge(PredictRegBridge&& antec) :
+  PredictBridge(move(antec)),
+    samplerBridge(std::move(antec.samplerBridge)),
+    leafBridge(std::move(antec.leafBridge)),
+    predictRegCore(std::move(antec.predictRegCore)) {
 }
+
+
+PredictCtgBridge::PredictCtgBridge(PredictCtgBridge&& antec) :
+  PredictBridge(move(antec)),
+    samplerBridge(std::move(antec.samplerBridge)),
+    leafBridge(std::move(antec.leafBridge)),
+    predictCtgCore(std::move(antec.predictCtgCore)) {
+}
+
+
+PredictBridge::PredictBridge(PredictBridge&& antec) :
+  rleFrame(std::move(antec.rleFrame)),
+  forestBridge(std::move(antec.forestBridge)),
+  nPermute(antec.nPermute) {
+}
+
+
+PredictRegBridge::~PredictRegBridge() = default;
 
 
 PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
-				   unique_ptr<ForestBridge> forestBridge_,
-				   unique_ptr<SamplerBridge> samplerBridge_,
-				   unique_ptr<LeafBridge> leafBridge_,
+				   ForestBridge forestBridge_,
+				   SamplerBridge samplerBridge_,
+				   LeafBridge leafBridge_,
 				   vector<unsigned int> yTest,
 				   unsigned int nPermute_,
 				   bool doProb,
+				   bool indexing,
 				   bool trapUnobserved,
 				   unsigned int nThread) :
   PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
   samplerBridge(std::move(samplerBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge->getForest(), samplerBridge->getSampler(), rleFrame.get(), std::move(yTest), nPermute, doProb, trapUnobserved)) {
+  leafBridge(std::move(leafBridge_)),
+  predictCtgCore(make_unique<PredictCtg>(forestBridge.getForest(), samplerBridge.getSampler(), rleFrame.get(), std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), doProb)) {
 }
 
 
-PredictCtgBridge::~PredictCtgBridge() {
-}
+PredictCtgBridge::~PredictCtgBridge() = default;
 
 
 PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
-                             unique_ptr<ForestBridge> forestBridge_,
+                             ForestBridge forestBridge_,
 			     unsigned int nPermute_,
 			     unsigned int nThread) :
   rleFrame(std::move(rleFrame_)),
@@ -88,8 +109,22 @@ size_t PredictBridge::getNRow() const {
 }
 
 
+unsigned int PredictBridge::getNTree() const {
+  return forestBridge.getNTree();
+}
+
+
 bool PredictBridge::permutes() const {
   return nPermute > 0;
+}
+
+
+// TODO:  avoid necessity to clone these two:
+const vector<size_t>& PredictCtgBridge::getIndices() const {
+  return predictCtgCore->getIndices();
+}
+const vector<size_t>& PredictRegBridge::getIndices() const {
+  return predictRegCore->getIndices();
 }
 
 

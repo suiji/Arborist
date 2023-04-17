@@ -20,12 +20,12 @@
 #include "ompthread.h"
 #include "splitnux.h"
 
-PredictorFrame::PredictorFrame(const RLEFrame* rleFrame_,
+PredictorFrame::PredictorFrame(unique_ptr<RLEFrame> rleFrame_,
 			       double autoCompress,
 			       bool enableCoproc,
 			       vector<string>& diag) :
-  rleFrame(rleFrame_),
-  nRow(rleFrame->nObs),
+  rleFrame(std::move(rleFrame_)),
+  nObs(rleFrame->nObs),
   coproc(Coproc::Factory(enableCoproc, diag)),
   nPredNum(rleFrame->getNPredNum()),
   factorTop(cardinalities()),
@@ -34,7 +34,7 @@ PredictorFrame::PredictorFrame(const RLEFrame* rleFrame_,
   nPred(nPredFac + nPredNum),
   feIndex(mapPredictors(rleFrame->factorTop)),
   noRank(rleFrame->noRank),
-  denseThresh(autoCompress * nRow),
+  denseThresh(autoCompress * nObs),
   row2Rank(vector<vector<IndexT>>(nPred)),
   nonCompact(0),
   lengthCompact(0) {
@@ -61,7 +61,7 @@ vector<Layout> PredictorFrame::denseBlock() {
 Layout PredictorFrame::surveyRanks(PredictorT predIdx) {
   IndexT rankMissing = rleFrame->findRankMissing(feIndex[predIdx]);
   
-  row2Rank[predIdx] = vector<IndexT>(nRow);
+  row2Rank[predIdx] = vector<IndexT>(nObs);
   IndexT denseMax = 0; // Running maximum of run counts.
   PredictorT argMax = noRank;
   PredictorT rankPrev = noRank; // Forces write on first iteration.
@@ -89,8 +89,8 @@ Layout PredictorFrame::surveyRanks(PredictorT predIdx) {
     }
   }
 
-  // Post condition:  rowTot == nRow.
-  return denseMax <= denseThresh ? Layout(noRank, nRow, rankMissing) : Layout(argMax, nRow - denseMax, rankMissing);
+  // Post condition:  rowTot == nObs.
+  return denseMax <= denseThresh ? Layout(noRank, nObs, rankMissing) : Layout(argMax, nObs - denseMax, rankMissing);
 }
 
 

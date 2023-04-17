@@ -19,8 +19,6 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "interlevel.h"
-#include "runset.h"
-#include "cutset.h"
 #include "predictorframe.h"
 #include "ompthread.h"
 #include "prng.h"
@@ -34,7 +32,8 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
 			     SplitStyle splitStyle_,
-			     void (SplitFrontier::* splitter_)(vector<SplitNux>&, BranchSense&)) :
+			     void (SplitFrontier::* splitter_)(const CandType&,
+							       BranchSense&)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
   interLevel(frontier->getInterLevel()),
@@ -48,11 +47,9 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 }
 
 
-void SplitFrontier::split(CandType& cand,
+void SplitFrontier::split(const CandType& cand,
 			  BranchSense& branchSense) {
-  vector<SplitNux> candidates = cand.getCandidates(interLevel, this);
-  accumPreset(); // virtual.
-  (this->*splitter)(candidates, branchSense);
+  (this->*splitter)(cand, branchSense);
 }
 
 
@@ -172,7 +169,8 @@ SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter)(vector<SplitNux>&, BranchSense&)):
+	     void (SplitFrontier::* splitter)(const CandType& cand,
+					      BranchSense&)):
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   ruMono(vector<double>(0)) {
 }
@@ -219,8 +217,7 @@ double SFReg::getScore(const IndexSet& iSet) const {
 }
 
 
-void SFReg::accumPreset() {
-  SplitFrontier::accumPreset();
+void SFReg::monoPreset() {
   if (!mono.empty()) {
     ruMono = PRNG::rUnif(nSplit * mono.size());
   }
@@ -231,7 +228,8 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter) (vector<SplitNux>&, BranchSense&)) :
+	     void (SplitFrontier::* splitter) (const CandType& cand,
+					       BranchSense&)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
   nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),

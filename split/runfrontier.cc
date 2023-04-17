@@ -18,7 +18,7 @@
 #include "interlevel.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "runset.h"
+#include "runfrontier.h"
 
 
 RunSet::RunSet(const SplitFrontier* sf) :
@@ -35,6 +35,11 @@ IndexT RunSet::preIndex(const SplitFrontier*sf, const SplitNux& cand) {
 }
 
 
+const double* RunSet::rvSlice(IndexT sigIdx) const {
+  return &rvWide[RunAccum::maxWidth * (lower_bound(runWide.begin(), runWide.end(), sigIdx) - runWide.begin())];
+}
+
+  
 void RunSet::accumPreset(const SplitFrontier* sf) {
   runSig = vector<RunSig>(nAccum);
   if (!runWide.empty())

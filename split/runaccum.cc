@@ -17,27 +17,25 @@
 #include "branchsense.h"
 #include "splitfrontier.h"
 #include "splitnux.h"
-#include "runset.h"
+#include "runfrontier.h"
+#include "obs.h"
 
 #include <numeric>
 
-RunAccum::RunAccum(const SplitFrontier* splitFrontier,
-		   const SplitNux& cand,
-		   const RunSet* runSet) :
-  Accum(splitFrontier, cand),
-  heapZero(vector<BHPair<PredictorT>>((runSet->style == SplitStyle::slots || cand.getRunCount() > maxWidth) ? cand.getRunCount() : 0)) {
+RunAccum::RunAccum(const SplitFrontier* sf,
+		   const SplitNux& cand) :
+  Accum(sf, cand),
+  heapZero(vector<BHPair<PredictorT>>((sf->getRunSet()->style == SplitStyle::slots || cand.getRunCount() > maxWidth) ? cand.getRunCount() : 0)) {
 }
 
 
 RunAccumReg::RunAccumReg(const SFReg* sfReg,
-			 const SplitNux& cand,
-			 const RunSet* runSet) : RunAccum(sfReg, cand, runSet) {
+			 const SplitNux& cand) : RunAccum(sfReg, cand) {
 }
 
 
 RunAccumCtg::RunAccumCtg(const SFCtg* sfCtg,
-			 const SplitNux& cand,
-			 const RunSet* runSet) : RunAccum(sfCtg, cand, runSet),
+			 const SplitNux& cand) : RunAccum(sfCtg, cand),
 						 nCtg(sfCtg->getNCtg()),
 						 sampling(nCtg > 2 && cand.getRunCount() > maxWidth),
 						 sampleCount(sampling ? maxWidth : cand.getRunCount()),
@@ -110,16 +108,16 @@ vector<RunNux> RunAccum::regRunsImplicit(const SplitNux& cand) {
 
 
 vector<RunNux> RunAccum::regRunsMasked(const SplitNux& cand,
-			     const BranchSense* branchSense,
-			     IndexT edgeRight,
-			     IndexT edgeLeft,
-			     bool maskSense) {
+				       const BranchSense* branchSense,
+				       bool maskSense) {
+  IndexRange unmaskedRange = findUnmaskedRange(branchSense, maskSense);
+  IndexT edgeLeft = unmaskedRange.getStart();
   vector<RunNux> runNux(cand.getRunCount());
   SumCount scExplicit(sumCount);
   PredictorT runIdx = 0;
   initReg(edgeLeft, runNux[runIdx]);
   IndexT runRight = edgeLeft; // Previous unmasked index.
-  for (IndexT idx = edgeLeft + 1; idx <= edgeRight; idx++) {
+  for (IndexT idx = edgeLeft + 1; idx != unmaskedRange.getEnd(); idx++) {
     if (branchSense->isExplicit(sampleIndex[idx]) == maskSense) {
       if (!obsCell[idx].regAccum(runNux[runIdx])) {
 	runNux[runIdx++].endRun(scExplicit, runRight);
@@ -328,7 +326,7 @@ double* RunAccumCtg::initCtg(IndexT obsLeft,
 
 
 void RunAccumReg::split(const SFReg* sfReg, RunSet* runSet, SplitNux& cand) {
-  RunAccumReg runAccum(sfReg, cand, runSet);
+  RunAccumReg runAccum(sfReg, cand);
   vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
   SplitRun splitRun = runAccum.split(runNux);
   runSet->setSplit(cand, std::move(runNux), splitRun);
@@ -336,7 +334,7 @@ void RunAccumReg::split(const SFReg* sfReg, RunSet* runSet, SplitNux& cand) {
 
 
 void RunAccumCtg::split(const SFCtg* sfCtg, RunSet* runSet, SplitNux& cand) {
-  RunAccumCtg runAccum(sfCtg, cand, runSet);
+  RunAccumCtg runAccum(sfCtg, cand);
   vector<RunNux> runNux = runAccum.initRuns(runSet, cand);
   SplitRun splitRun = runAccum.split(runNux);
   runSet->setSplit(cand, std::move(runNux), splitRun);

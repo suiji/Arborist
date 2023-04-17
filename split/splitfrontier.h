@@ -20,8 +20,8 @@
 #include "splitnux.h"
 #include "sumcount.h"
 #include "algparam.h"
-#include "runset.h"
-#include "cutset.h"
+#include "cutfrontier.h"
+#include "runfrontier.h"
 #include "critencoding.h"
 
 #include <vector>
@@ -46,7 +46,7 @@ protected:
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
-  void (SplitFrontier::* splitter)(vector<class SplitNux>& candidate,
+  void (SplitFrontier::* splitter)(const CandType& cand,
 				   class BranchSense&); // Splitting method.
 
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
@@ -79,13 +79,19 @@ public:
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_,
 		SplitStyle splitStyle_,
-		void (SplitFrontier::* splitter_)(vector<class SplitNux>&, class BranchSense&));
+		void (SplitFrontier::* splitter_)(const CandType&,
+						  class BranchSense&));
 
   virtual ~SplitFrontier() = default;
   
 
-  void split(CandType& cand,
+  void split(const CandType& cand,
 	     class BranchSense& branchSense);
+
+
+  RunSet* getRunSet() const {
+    return runSet.get();
+  }
   
 
   auto getEncodingStyle() const {
@@ -293,11 +299,14 @@ public:
    */
   vector<vector<class SplitNux>> groupCand(const vector<SplitNux>& cand) const;
 
+  
+  /**
+     @brief Presets frontier-wide accumulator state.
+   */
+  void accumPreset();
+
 
   // These are run-time invariant and need not be virtual:
-  virtual void accumPreset();
-
-
   virtual double getScore(const class IndexSet& iSet) const = 0;
 };
 
@@ -314,7 +323,8 @@ struct SFReg : public SplitFrontier {
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_)(vector<class SplitNux>&, class BranchSense&));
+	void (SplitFrontier::* splitter_)(const CandType&,
+					  class BranchSense&));
 
 
   /**
@@ -345,7 +355,7 @@ struct SFReg : public SplitFrontier {
   /**
      @brief Sets subclass-specific splitting parameters.
   */
-  void accumPreset();
+  void monoPreset();
 
   
   double getScore(const class IndexSet& iSet) const;
@@ -365,7 +375,8 @@ public:
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_) (vector<class SplitNux>&, class BranchSense&));
+	void (SplitFrontier::* splitter_) (const CandType&,
+					   class BranchSense&));
   
   double getScore(const class IndexSet& iSet) const;
 

@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2022   Mark Seligman
+# Copyright (C)  2012-2023   Mark Seligman
 ##
 ## This file is part of ArboristR.
 ##
@@ -21,6 +21,7 @@
                             quantVec = NULL,
                             quantiles = !is.null(quantVec),
                             ctgCensus = "votes",
+                            indexing = FALSE,
                             trapUnobserved = FALSE,
                             bagging = FALSE,
                             nThread = 0,
@@ -48,6 +49,7 @@
       impPermute = 0,
       ctgProb = ctgProbabilities(object$sampler, ctgCensus),
       quantVec = getQuantiles(quantiles, object$sampler, quantVec),
+      indexing = indexing,
       trapUnobserved = trapUnobserved,
       nThread = nThread,
       verbose = verbose)

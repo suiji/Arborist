@@ -29,7 +29,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <memory>
 #include <vector>
 using namespace std;
 
@@ -50,18 +49,27 @@ struct SamplerR {
   static const string strNSamp;
   static const string strNTree;
   static const string strSamples; // Output field name of sample.
-  
+
+
+  static List rootSample(const SEXP sY,
+			 const SEXP sNSamp,
+			 const SEXP sNTree,
+			 const SEXP sWithRepl,
+			 const NumericVector& weight);
+
 
   /**
-     @brief Samples according to specification.
-
-     @return wrapped list of sample records.
+     @brief sY is the response vector.
+     
+     @return number of observations.
    */
-  static List rootSample(const SEXP sY,
-			 NumericVector& weight, // Change to const when Sampler completed.
-			 size_t nSamp,
-			 unsigned int nTree,
-			 bool withRepl);
+  static size_t getNObs(const SEXP& sY);
+
+  
+  /**
+     @brief Invokes bridge sampler per tree.
+   */
+  static void sampleTrees(struct SamplerBridge& bridge);
 
 
   /**
@@ -116,33 +124,33 @@ struct SamplerR {
 
      @return list containing raw data and summary information.
    */
-  static List wrap(const struct SamplerBridge* sb,
-		   const SEXP sY);
+  static List wrap(const struct SamplerBridge& bridge,
+		   const SEXP& sY);
 
 
-  static List wrap(const struct SamplerBridge* sb,
+  static List wrap(const struct SamplerBridge& bridge,
 		   const IntegerVector& yTrain);
   
   
-  static List wrap(const struct SamplerBridge* sb,
+  static List wrap(const struct SamplerBridge& bridge,
 		   const NumericVector& yTrain);
   
   
   /**
      @brief Consumes a block of samples following training.
-
-     @param scale is a fudge-factor for resizing.
    */
-  static NumericVector bridgeConsume(const struct SamplerBridge* sb);
+  static NumericVector bridgeConsume(const struct SamplerBridge& bridge);
 
-  
+
   /**
      @brief Checks that bag and prediction data set have conforming rows.
 
-     @param lBag is the training bag.
+     @param lSampler summarizes the sampled response.
+
+     @param lDeframe summarizes the predictors.
    */
-  static SEXP checkOOB(const List& lBag,
-                       const size_t nRow);
+  static SEXP checkOOB(const List& lSampler,
+                       const List& lDeframe);
   
 
   /**
@@ -154,8 +162,8 @@ struct SamplerR {
 
      @param return instantiation suitable for training.
    */
-  static unique_ptr<struct SamplerBridge> unwrapTrain(const List& lSampler,
-						      const List& lArgs);
+  static struct SamplerBridge unwrapTrain(const List& lSampler,
+				   const List& lArgs);
 
 
   /**
@@ -165,45 +173,58 @@ struct SamplerR {
 
      @param lDeframe contains the deframed observations.
 
-     @param bagging indicates whether a non-null bag is requested.
+     @param lArgs is the front-end argument list.
 
      @return instantiation suitable for prediction.
    */
-  static unique_ptr<struct SamplerBridge> unwrapPredict(const List& lSampler,
-							const List& lDeframe,
-							bool bagging);
-
-  /**
-     @brief Lower-level call precipitated by above.
-   */  
-  static unique_ptr<struct SamplerBridge> unwrapPredict(const List& lSampler,
-							bool bagging = false);
-
-
-  /**
-     @brief Specialization for numeric response.
-   */
-  static unique_ptr<struct SamplerBridge> unwrapNum(const List& lSampler,
-						    bool bagging = false);
-
-  /**
-     @brief Specialization for factor=valued response, training.
-   */
-  static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
-						    const List& argList);
-
-
-  /**
-     @brief Specialization for factor=valued response, prediction.
-   */
-  static unique_ptr<struct SamplerBridge> unwrapFac(const List& lSampler,
-						    bool bagging = false);
+  static struct SamplerBridge unwrapPredict(const List& lSampler,
+				     const List& lDeframe,
+				     const List& lArgs);
 
 
   /**
      @return core-ready vector of zero-based factor codes.
    */
   static vector<unsigned int> coreCtg(const IntegerVector& yTrain);
+
+
+  static struct SamplerBridge makeBridgeTrain(const List& lSampler,
+				       const IntegerVector& yTrain,
+				       const List& argList);
+
+
+  static struct SamplerBridge makeBridgeTrain(const List& lSampler,
+				       const NumericVector& yTrain);
+
+
+  static struct SamplerBridge makeBridgeCtg(const List& lSampler,
+				  bool bagging);
+
+
+  static struct SamplerBridge makeBridgeNum(const List& lSampler,
+				     bool bagging);
+
+
+  /**
+     @return wrapped export summary.
+   */
+  static struct SamplerExport unwrapExport(const List& lTrain);
 };
+
+
+/**
+   @brief Representation caching export values.
+ */
+struct SamplerExport {
+  unsigned int nTree;
+  size_t nObs;
+
+  SamplerExport(unsigned int nTree_,
+		size_t nObs_) :
+    nTree(nTree_),
+    nObs(nObs_) {
+  }
+};
+
 
 #endif

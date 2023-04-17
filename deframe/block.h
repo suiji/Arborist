@@ -38,7 +38,7 @@ class Block {
     raw(raw_),
     nCol(nCol_) {}
 
-  virtual ~Block() {}
+  virtual ~Block() = default;
 
   inline const auto getNCol() const {
     return nCol;
@@ -63,8 +63,8 @@ public:
     Block<ty>(raw_, nCol_), nRow(nRow_) {
   }
 
-  ~BlockDense() {
-  }
+  ~BlockDense() = default;
+
 
   size_t getNRow() const {
     return nRow;
@@ -162,10 +162,9 @@ public:
     }
   }
 
-  ~BlockRLE() {
-  }
+  ~BlockRLE() = default;
 
-
+  
   /**
      @brief Transposes a block of rows into a dense sub-block.
 

@@ -65,21 +65,9 @@ struct Signature {
 
      @return signature object. 
    */
+
+
   static SEXP checkSignature(const List& sParent);
-
-  
-  /**
-     @brief Unwraps field values useful for export.
-
-     @param[out] level outputs all training factor levels.
-
-     @param[out] factor outputs only realized factor levels.
-   */
-  static void unwrapExport(const List& sTrain,
-                           List& level,
-			   List& factor,
-			   StringVector& names);
-
   /**
      @brief Unwraps level field.
 
@@ -131,5 +119,24 @@ struct Signature {
 		   const CharacterVector& rowNames);
 };
 
+
+/**
+   @brief Copy of values to export
+ */
+struct SignatureExport {
+  List level;
+  List factor;
+  StringVector names;
+
+  SignatureExport(const List& level,
+		  const List& factor,
+		  const StringVector& names);
+
+
+  /**
+     @brief Unwraps field values useful for export.
+   */
+  static SignatureExport unwrap(const List& sTrain);
+};
 
 #endif

@@ -20,6 +20,7 @@
                 ctgCensus = "votes",
                 classWeight = NULL,
                 impPermute = 0,
+                indexing = FALSE,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
@@ -49,12 +50,14 @@
   \code{data.frame} object with numeric and/or \code{factor} columns or
   as a numeric matrix.}
   \item{y}{ the response (outcome) vector, either numerical or
-  categorical.  Row count must conform with \code{x}.}
+    categorical.  Row count must conform with \code{x}.}
   \item{autoCompress}{plurality above which to compress predictor values.}
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{classWeight}{proportional weighting of classification
     categories.}
   \item{impPermute}{number of importance permutations:  0 or 1.}
+  \item{indexing}{whether to report final index, typically terminal, of
+    tree traversal.}
   \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
   \item{minNode}{minimum number of distinct row references to split a node.}

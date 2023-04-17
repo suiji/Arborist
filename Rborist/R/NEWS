@@ -90,3 +90,12 @@ Changes in 0.3-0:
 * Training accepts data sets with size exceeding 32 bits under
   conditional compilation.  This is an experimental feature and has
   not been well tested.
+
+
+Changes in 0.3-4:
+
+* Option 'indexing' indicates whether to report final indices of tree
+  traversal during prediction and validation.
+
+* Introduces 'weighting' utility to report prediction weights as
+  described by Meinshausen, 2006.

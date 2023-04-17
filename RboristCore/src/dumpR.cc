@@ -23,7 +23,7 @@
    @author Mark Seligman
  */
 
-#include "exportR.h"
+#include "expandR.h"
 #include "dumpR.h"
 #include "forestR.h"
 #include "forestbridge.h"
@@ -61,7 +61,7 @@ DumpRf::DumpRf(SEXP sArbOut) :
   delIdx((SEXP) treeReg["delIdx"]),
   split((SEXP) treeReg["split"]),
   cutSense((SEXP) treeReg["cutSense"]),
-  facBits(forest->getFacSplitTree(0)),
+  facBits(forest.getFacSplitTree(0)),
   score((SEXP) leafReg["score"]),
   predInv(IntegerVector(predMap.length())) {
   predInv[predMap] = IntegerVector(seq(0, predMap.length() - 1));

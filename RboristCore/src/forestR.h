@@ -35,6 +35,7 @@ using namespace Rcpp;
 #include <vector>
 using namespace std;
 
+
 /**
    @brief Front-end access to ForestBridge.
  */
@@ -55,7 +56,7 @@ struct ForestRf {
 
      @return bridge specialization of Forest prediction type.
   */
-  static unique_ptr<struct ForestBridge> unwrap(const List &sTrain);
+  static struct ForestBridge unwrap(const List &sTrain);
 };
 
 
@@ -64,9 +65,9 @@ struct ForestRf {
    a per-tree basis.
  */
 class ForestExport {
-  unique_ptr<struct ForestBridge> forestBridge;
   vector<vector<unsigned int> > predTree;
   vector<vector<size_t> > bumpTree;
+  vector<vector<int>> senseTree;
   vector<vector<double > > splitTree;
   vector<vector<unsigned char> > facSplitTree;
 
@@ -79,11 +80,10 @@ class ForestExport {
   ForestExport(const List& forestList,
                const IntegerVector& predMap);
 
-  static unique_ptr<ForestExport> unwrap(const List &lTrain,
-                                         const IntegerVector &predMap);
+  static ForestExport unwrap(const List &lTrain,
+			     const IntegerVector &predMap);
 
-  unsigned int getNTree() const;
-  
+
   /**
      @brief Exportation methods for unpacking per-tree node contents
      as separate vectors.
@@ -106,6 +106,11 @@ class ForestExport {
 
   const vector<unsigned char>& getFacSplitTree(unsigned int tIdx) const {
     return facSplitTree[tIdx];
+  }
+
+
+  const vector<vector<int>>& getSenseTree() const {
+    return senseTree;
   }
 };
 

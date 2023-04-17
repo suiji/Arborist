@@ -51,8 +51,8 @@ struct Layout {
   @brief Rank orderings of predictors.
 */
 class PredictorFrame {
-  const struct RLEFrame* rleFrame;
-  const IndexT nRow;
+  const unique_ptr<struct RLEFrame> rleFrame;
+  const IndexT nObs;
   const unique_ptr<class Coproc> coproc; // Stubbed, for now.
   const PredictorT nPredNum;
   const vector<PredictorT> factorTop; ///< # levels; 0 iff numeric.
@@ -121,12 +121,12 @@ class PredictorFrame {
 public:
 
   // Factory parametrized by coprocessor state.
-  static PredictorFrame *Factory(const struct RLEFrame* rleFrame,
-			 const class Coproc *coproc,
-			 double autoCompress,
-			 vector<string>& diag);
+  static PredictorFrame *Factory(unique_ptr<RLEFrame> rleFrame,
+				 const class Coproc *coproc,
+				 double autoCompress,
+				 vector<string>& diag);
 
-  
+
   /**
      @brief Constructor for row, rank passed from front end as parallel arrays.
 
@@ -134,18 +134,10 @@ public:
 
      @param feRank is the vector of ranks allocated by the front end.
  */
-  PredictorFrame(const RLEFrame* rleFrame_,
-	 double autoCompress,
-	 bool enableCoproc,
-	 vector<string>& diag);
-
-
-  /**
-     @return number or observation rows.
-   */
-  inline IndexT getNRow() const {
-    return nRow;
-  }
+  PredictorFrame(unique_ptr<RLEFrame> rleFrame_,
+		 double autoCompress,
+		 bool enableCoproc,
+		 vector<string>& diag);
 
 
   /**

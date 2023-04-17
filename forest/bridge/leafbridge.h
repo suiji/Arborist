@@ -25,26 +25,37 @@ using namespace std;
    @brief Hides class Sampler internals from bridge via forward declarations.
  */
 struct LeafBridge {
-  static unique_ptr<LeafBridge> FactoryTrain(const struct SamplerBridge* sb,
-					     bool thin);
 
-
-  static unique_ptr<LeafBridge> FactoryPredict(const struct SamplerBridge* samplerBridge,
-					       bool thin,
-					       const double extent_[],
-					       const double index_[]);
-
-
-  LeafBridge(const struct SamplerBridge* sb,
+  /**
+     @brief Training constructor.
+   */
+  LeafBridge(const struct SamplerBridge& sb,
 	     bool thin);
   
 
-  LeafBridge(const struct SamplerBridge* samplerBridge,
+  /**
+     @brief Post-training constructor with (fixed) front-end buffers.
+   */
+  LeafBridge(const struct SamplerBridge& samplerBridge,
+	     bool thin,
+	     const double extent_[],
+	     const double index_[]);
+
+  /**
+     @brief As above, but with movable buffers.
+   */
+  LeafBridge(const struct SamplerBridge& samplerBridge,
 	     bool thin,
 	     vector<vector<size_t>> extent,
 	     vector<vector<vector<size_t>>> index);
 
+  
+  LeafBridge(LeafBridge&& lb);
 
+  
+  /**
+     @brief Default definition.
+   */
   ~LeafBridge();
 
 
@@ -52,12 +63,12 @@ struct LeafBridge {
   
 
   
-  static vector<vector<size_t>> unpackExtent(const struct SamplerBridge* samplerBridge,
+  static vector<vector<size_t>> unpackExtent(const struct SamplerBridge& samplerBridge,
 					     bool thin,
 					     const double numVal[]);
 
   
-  static vector<vector<vector<size_t>>> unpackIndex(const struct SamplerBridge* samplerBridge,
+  static vector<vector<vector<size_t>>> unpackIndex(const struct SamplerBridge& samplerBridge,
 						    bool thin,
 						    const vector<vector<size_t>>& extent,
 						    const double numVal[]);
@@ -83,8 +94,7 @@ struct LeafBridge {
 
 private:
   
-  unique_ptr<struct Leaf> leaf;
-
+  unique_ptr<struct Leaf> leaf; ///< Core-level instantiation.
 };
 
 #endif

@@ -25,37 +25,38 @@
 
 
 #include "resizeR.h"
+#include "leafbridge.h"
+#include "samplerR.h"
 #include "samplerbridge.h"
 #include "leafR.h"
-#include "leafbridge.h"
 
 const string LeafR::strExtent = "extent";
 const string LeafR::strIndex = "index";
 
 
 LeafR::LeafR() :
-  extentTop(0),
-  indexTop(0),
   extent(NumericVector(0)),
-  index(NumericVector(0)) {
+  index(NumericVector(0)),
+  extentTop(0),
+  indexTop(0) {
 }
 
 
-void LeafR::bridgeConsume(const LeafBridge* bridge,
+void LeafR::bridgeConsume(const LeafBridge& bridge,
 			  double scale) {
 
-  size_t extentSize = bridge->getExtentSize();
+  size_t extentSize = bridge.getExtentSize();
   if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
     extent = std::move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
   }
-  bridge->dumpExtent(&extent[extentTop]);
+  bridge.dumpExtent(&extent[extentTop]);
   extentTop += extentSize;
 
-  size_t indexSize = bridge->getIndexSize();
+  size_t indexSize = bridge.getIndexSize();
   if (indexTop + indexSize > static_cast<size_t>(index.length())) {
     index = std::move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
   }
-  bridge->dumpIndex(&index[indexTop]);
+  bridge.dumpIndex(&index[indexTop]);
   indexTop += indexSize;
 }
 
@@ -73,16 +74,56 @@ List LeafR::wrap() {
 }
 
 
-unique_ptr<LeafBridge> LeafR::unwrap(const List& lTrain,
-				     const SamplerBridge* samplerBridge) {
+LeafBridge LeafR::unwrap(const List& lTrain,
+				     const SamplerBridge& samplerBridge) {
   List lLeaf((SEXP) lTrain["leaf"]);
-
   bool empty = (Rf_isNull(lLeaf[strIndex]) || Rf_isNull(lLeaf[strExtent]));
   bool thin = empty || as<NumericVector>(lLeaf[strExtent]).length() == 0;
-  return LeafBridge::FactoryPredict(samplerBridge,
-				    thin,
-				    empty ? nullptr : as<NumericVector>(lLeaf[strExtent]).begin(),
-				    empty ? nullptr : as<NumericVector>(lLeaf[strIndex]).begin());
+  return LeafBridge(samplerBridge, thin,
+		    empty ? nullptr : as<NumericVector>(lLeaf[strExtent]).begin(),
+		    empty ? nullptr : as<NumericVector>(lLeaf[strIndex]).begin());
 }
 
 
+LeafExportReg LeafExportReg::unwrap(const List& lTrain) {
+  List lSampler((SEXP) lTrain["sampler"]);
+  return LeafExportReg(lSampler);
+}
+ 
+
+/**
+   @brief Constructor instantiates leaves for export only:
+   no prediction.
+ */
+LeafExportReg::LeafExportReg(const List& lSampler) :
+  LeafExport(lSampler) {
+}
+
+LeafExportReg::~LeafExportReg() = default;
+
+
+LeafExportCtg LeafExportCtg::unwrap(const List &lTrain) {
+  List lSampler((SEXP) lTrain["sampler"]);
+  return LeafExportCtg(lSampler);
+}
+
+
+LeafExportCtg::~LeafExportCtg() = default;
+
+
+LeafExport::LeafExport(const List& lSampler) :
+  nTree(as<int>(lSampler["nTree"])),
+  rowTree(vector<vector<size_t> >(nTree)),
+  sCountTree(vector<vector<unsigned int> >(nTree)),
+  extentTree(vector<vector<unsigned int> >(nTree)),
+  scoreTree(vector<vector<double>>(nTree)) {
+}
+
+
+/**
+   @brief Constructor caches front-end vectors and instantiates a Leaf member.
+ */
+LeafExportCtg::LeafExportCtg(const List& lSampler) :
+  LeafExport(lSampler),
+  levelsTrain(CharacterVector(as<IntegerVector>(lSampler[SamplerR::strYTrain]).attr("levels"))) {
+}

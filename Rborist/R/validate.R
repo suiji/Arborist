@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2022   Mark Seligman
+# Copyright (C)  2012-2023   Mark Seligman
 ##
 ## This file is part of ArboristR.
 ##
@@ -24,6 +24,7 @@ validate.default <- function(train,
                              impPermute = 0,
                              quantVec = NULL,
                              quantiles = !is.null(quantVec),
+                             indexing = FALSE,
                              trapUnobserved = FALSE,
                              nThread = 0,
                              verbose = FALSE,
@@ -42,11 +43,13 @@ validate.default <- function(train,
   if (is.null(preFormat) && impPermute > 0)
       stop("Pre-formatted observation set required for permutation testing.")
 
+  print(indexing)
   argPredict <- list(
       bagging = TRUE,
       impPermute = impPermute,
       ctgProb = ctgProbabilities(sampler, ctgCensus),
       quantVec = getQuantiles(quantiles, sampler, quantVec),
+      indexing = indexing,
       trapUnobserved = trapUnobserved,
       nThread = nThread,
       verbose = verbose)

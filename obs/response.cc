@@ -114,7 +114,7 @@ double ResponseReg::predictObs(const Predict* predict, size_t row) const {
   unsigned int nEst = 0;
   for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
     double score;
-    if (predict->isLeafIdx(row, tIdx, score)) {
+    if (predict->isNodeIdx(row, tIdx, score)) {
       nEst++;
       sumScore += score;
     }
@@ -124,15 +124,15 @@ double ResponseReg::predictObs(const Predict* predict, size_t row) const {
 
 
 PredictorT ResponseCtg::predictObs(const Predict* predict, size_t row, unsigned int* census) const {
-  unsigned int nEst = 0;
-  vector<double> ctgJitter(nCtg);
+  unsigned int nEst = 0; // # participating trees.
+  vector<double> ctgJitter(nCtg); // Accumulates jitter by category.
   for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
     double score;
-    if (predict->isLeafIdx(row, tIdx, score)) {
+    if (predict->isNodeIdx(row, tIdx, score)) {
       nEst++;
-      PredictorT ctg = floor(score); // Truncates jittered score for indexing.
+      PredictorT ctg = floor(score); // Truncates jittered score ut index.
       census[ctg]++;
-      ctgJitter[ctg] += score - ctg; // Accumulates category jitters.
+      ctgJitter[ctg] += score - ctg;
     }
   }
   if (nEst == 0) { // Default category unity, all others zero.

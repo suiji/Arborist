@@ -58,11 +58,9 @@ public:
 
      @return base variate position for accumulator.
    */
-  inline const double* rvSlice(IndexT sigIdx) const {
-    return &rvWide[RunAccum::maxWidth * (lower_bound(runWide.begin(), runWide.end(), sigIdx) - runWide.begin())];
-  }
+  const double* rvSlice(IndexT sigIdx) const;
 
-  
+
   /**
      @brief Adds local run count to vector of safe counts.
 

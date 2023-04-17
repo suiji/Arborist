@@ -20,8 +20,6 @@
 
 #include "candrf.h"
 #include "splitcart.h"
-#include "runaccum.h"
-#include "cutaccum.h"
 
 typedef CandRF CandType; // RF-specific predictor sampling.
 typedef SplitCart SplitFactoryT; // CART-specific split dispatch.

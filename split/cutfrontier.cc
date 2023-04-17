@@ -6,16 +6,16 @@
  */
 
 /**
-   @file cutset.cc
+   @file cutfrontier.cc
 
-   @brief Manages workspace of numerical accumulators.
+   @brief Manages workspace of numerical accumulators along frontier.
 
    @author Mark Seligman
  */
 
 #include "splitnux.h"
 #include "cutaccum.h"
-#include "cutset.h"
+#include "cutfrontier.h"
 #include "splitfrontier.h"
 #include "interlevel.h"
 #include "partition.h"

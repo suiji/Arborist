@@ -34,14 +34,17 @@ using namespace std;
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include "forestR.h"
+
 RcppExport SEXP Dump(SEXP sTrain);
+
 
 struct DumpRf {
   List rfExport;
   List treeOut;
 
   const IntegerVector predMap;
-  const unique_ptr<class ForestExport> forest;
+  const ForestExport forest;
   const IntegerVector factorMap;
   const List facLevel;
   const int factorBase;

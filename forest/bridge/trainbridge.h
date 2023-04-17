@@ -22,8 +22,30 @@
 
 using namespace std;
 
+
+
+struct TrainedChunk {
+  TrainedChunk(unique_ptr<class Train>);
+
+  ~TrainedChunk();
+  
+  
+  /**
+     @brief Getter for splitting information values.
+
+     @return reference to per-predictor information vector.
+   */
+  const vector<double>& getPredInfo() const;
+
+
+private:
+
+  const unique_ptr<class Train> train; ///< Core-level instantiation.
+};
+
+
 struct TrainBridge {
-  TrainBridge(const struct RLEFrame* rleFrame,
+  TrainBridge(unique_ptr<struct RLEFrame> rleFrame,
 	      double autoCompress,
 	      bool enableCoproc,
 	      vector<string>& diag);
@@ -41,11 +63,11 @@ struct TrainBridge {
   /**
      @brief Main entry for training.
    */
-  unique_ptr<struct TrainedChunk> train(const struct ForestBridge& forest,
-					const struct SamplerBridge* sampler,
-					unsigned int treeOff,
-					unsigned int treeChunk,
-					const struct LeafBridge* leafBridge) const;
+  unique_ptr<TrainedChunk> train(const struct ForestBridge& forest,
+				 const struct SamplerBridge& sampler,
+				 unsigned int treeOff,
+				 unsigned int treeChunk,
+				 const struct LeafBridge& leafBridge) const;
 
 
   /**
@@ -104,26 +126,5 @@ struct TrainBridge {
 private:
   unique_ptr<class PredictorFrame> frame;
 };
-
-
-struct TrainedChunk {
-  TrainedChunk(unique_ptr<class Train>);
-
-  ~TrainedChunk();
-  
-  
-  /**
-     @brief Getter for splitting information values.
-
-     @return reference to per-preditor information vector.
-   */
-  const vector<double>& getPredInfo() const;
-
-
-private:
-
-    unique_ptr<class Train> train;
-};
-
 
 #endif

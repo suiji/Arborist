@@ -125,11 +125,18 @@ List Signature::unwrapFactor(const List& sTrain) {
 }
 
 
-void Signature::unwrapExport(const List& sTrain, List& level, List& factor, StringVector& names) {
-  List sSignature(checkSignature(sTrain));
-  names = as<CharacterVector>(sSignature["colNames"]);
-  level = as<List>(sSignature["level"]);
-  factor = as<List>(sSignature["factor"]);
+SignatureExport SignatureExport::unwrap(const List& lTrain) {
+  List lSignature(Signature::checkSignature(lTrain));
+  return SignatureExport(as<List>(lSignature["level"]), as<List>(lSignature["factor"]), as<CharacterVector>(lSignature["colNames"]));
+}
+
+
+SignatureExport::SignatureExport(const List& level,
+				 const List& factor,
+				 const StringVector& names) {
+  this->level = level;
+  this->factor = factor;
+  this->names = names;
 }
 
 

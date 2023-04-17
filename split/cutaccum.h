@@ -32,13 +32,30 @@ class CutAccum : public Accum {
 protected:
 
   /**
-     @brief Trial argmax on right indices.
+     @brief Trial argmax on decreasing index.
+
+     @param obsLeft is the left bound.
+
+     In CART-like splitting, right bound is implicitly one greater.
    */
   inline void argmaxRL(double infoTrial,
 		       IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
       this->obsLeft = obsLeft;
-      obsRight = obsLeft + 1; // CART-like:  explicit.
+      obsRight = obsLeft + 1;
+    }
+  }
+
+
+  /**
+     @brief As above, but directionless.
+   */
+  inline void argmaxBounds(double infoTrial,
+			   IndexT obsRight,
+			   IndexT obsLeft) {
+    if (Accum::trialSplit(infoTrial)) {
+      this->obsRight = obsRight;
+      this->obsLeft = obsLeft;
     }
   }
 

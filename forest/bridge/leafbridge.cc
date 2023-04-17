@@ -15,8 +15,8 @@
  */
 
 
-#include "leafbridge.h"
 #include "leaf.h"
+#include "leafbridge.h"
 #include "samplerbridge.h"
 #include "sampler.h"
 
@@ -24,52 +24,50 @@
 using namespace std;
 
 
-unique_ptr<LeafBridge> LeafBridge::FactoryTrain(const SamplerBridge* sb,
-						bool thin) {
-  return make_unique<LeafBridge>(sb, thin);
-}
-
-
-LeafBridge::LeafBridge(const SamplerBridge* sb,
+LeafBridge::LeafBridge(const SamplerBridge& sb,
 		       bool thin) :
-  leaf(Leaf::train(sb->getNObs(), thin)) {
+  leaf(Leaf::train(sb.getNObs(), thin)) {
 }
 
 
-unique_ptr<LeafBridge> LeafBridge::FactoryPredict(const SamplerBridge* samplerBridge,
-						  bool thin,
-						  const double extent_[],
-						  const double index_[]) {
+LeafBridge::LeafBridge(const SamplerBridge& samplerBridge,
+		       bool thin,
+		       const double extent_[],
+		       const double index_[]) {
   vector<vector<size_t>> extent = unpackExtent(samplerBridge, thin, extent_);
   vector<vector<vector<size_t>>> index = unpackIndex(samplerBridge, thin, extent, index_);
-  return make_unique<LeafBridge>(samplerBridge, thin, std::move(extent), std::move(index));
+  leaf = Leaf::predict(samplerBridge.getSampler(), thin,
+		       std::move(extent), std::move(index));
 }
 
 
-LeafBridge::LeafBridge(const SamplerBridge* samplerBridge,
+LeafBridge::LeafBridge(const SamplerBridge& samplerBridge,
 		       bool thin,
 		       vector<vector<size_t>> extent,
 		       vector<vector<vector<size_t>>> index) :
-  leaf(Leaf::predict(samplerBridge->getSampler(),
-		     thin,
-		     std::move(extent),
-		     std::move(index))) {
+  leaf(Leaf::predict(samplerBridge.getSampler(), thin,
+		     std::move(extent), std::move(index))) {
 }
 
 
-LeafBridge::~LeafBridge() {
+LeafBridge::LeafBridge(LeafBridge&& lb) :
+  leaf(std::exchange(lb.leaf, nullptr)) {
 }
 
 
-vector<vector<size_t>> LeafBridge::unpackExtent(const SamplerBridge* samplerBridge,
+
+LeafBridge::~LeafBridge() = default;
+
+
+vector<vector<size_t>> LeafBridge::unpackExtent(const SamplerBridge& samplerBridge,
 						bool thin,
 						const double extentNum[]) {
-  Sampler* sampler = samplerBridge->getSampler();
-  unsigned int nTree = sampler->getNTree();
   if (thin) {
     return vector<vector<size_t>>(0);
   }
 
+  Sampler* sampler = samplerBridge.getSampler();
+  unsigned int nTree = sampler->getNTree();
   vector<vector<size_t>> unpacked(nTree);
   size_t idx = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -84,11 +82,11 @@ vector<vector<size_t>> LeafBridge::unpackExtent(const SamplerBridge* samplerBrid
 }
 
 
-vector<vector<vector<size_t>>> LeafBridge::unpackIndex(const SamplerBridge* samplerBridge,
+vector<vector<vector<size_t>>> LeafBridge::unpackIndex(const SamplerBridge& samplerBridge,
 						       bool thin,
 						       const vector<vector<size_t>>& extent,
 						       const double numVal[]) {
-  const Sampler* sampler = samplerBridge->getSampler();
+  const Sampler* sampler = samplerBridge.getSampler();
   unsigned int nTree = sampler->getNTree();
   if (thin)
     return vector<vector<vector<size_t>>>(0);
@@ -109,6 +107,7 @@ vector<vector<vector<size_t>>> LeafBridge::unpackIndex(const SamplerBridge* samp
   }
   return unpacked;
 }
+
 
 Leaf* LeafBridge::getLeaf() const {
   return leaf.get();

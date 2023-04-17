@@ -34,16 +34,15 @@ Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
 		 RLEFrame* rleFrame,
 		 bool testing_,
-		 unsigned int nPermute_,
-		 bool trapUnobserved_) :
-  trapUnobserved(trapUnobserved_),
+		 const PredictOption& option) :
+  trapUnobserved(option.trapUnobserved),
   sampler(sampler_),
   decNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
   bitsObserved(forest->getBitsObserved()),
   testing(testing_),
-  nPermute(nPermute_),
-  predictLeaves(vector<IndexT>(scoreChunk * forest->getNTree())),
+  nPermute(option.nPermute),
+  idxFinal(vector<IndexT>(scoreChunk * forest->getNTree())),
   accumNEst(vector<IndexT>(scoreChunk)),
   scoreBlock(forest->getTreeScores()),
   nPredNum(rleFrame->getNPredNum()),
@@ -51,19 +50,21 @@ Predict::Predict(const Forest* forest,
   nRow(rleFrame->getNRow()),
   nTree(forest->getNTree()),
   noNode(forest->maxTreeHeight()),
-  walkTree(getWalker()),
+  walkObs(getObsWalker()),
   trFac(vector<CtgT>(scoreChunk * nPredFac)),
-  trNum(vector<double>(scoreChunk * nPredNum)) {
+  trNum(vector<double>(scoreChunk * nPredNum)),
+  indices(vector<size_t>(option.indexing ? nTree * nRow : 0)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
 }
 
-void (Predict::* Predict::getWalker())(size_t) {
+
+IndexT (Predict::* Predict::getObsWalker())(unsigned int, size_t) {
   if (nPredFac == 0)
-    return &Predict::walkNum;
+    return &Predict::obsNum;
   else if (nPredNum == 0)
-    return &Predict::walkFac;
+    return &Predict::obsFac;
   else
-    return &Predict::walkMixed;
+    return &Predict::obsMixed;
 }
 
 
@@ -72,10 +73,9 @@ PredictReg::PredictReg(const Forest* forest,
 		       const Leaf* leaf,
 		       RLEFrame* rleFrame,
 		       const vector<double>& yTest_,
-		       unsigned int nPermute_,
-		       const vector<double>& quantile,
-		       bool trapUnobserved_) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
+		       const PredictOption& option,
+		       const vector<double>& quantile) :
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
   yPred(vector<double>(nRow)),
@@ -95,10 +95,9 @@ PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
 		       RLEFrame* rleFrame,
 		       const vector<PredictorT>& yTest_,
-		       unsigned int nPermute_,
-		       bool doProb,
-		       bool trapUnobserved_) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), nPermute_, trapUnobserved_),
+		       const PredictOption& option,
+		       bool doProb) :
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
@@ -187,8 +186,9 @@ size_t Predict::predictBlock(const RLEFrame* rleFrame,
   for (; row + blockRows <= rowEnd; row += blockRows) {
     transpose(rleFrame, trIdx, row, scoreChunk);
     blockStart = row; // Not local.
-    predictBlock(blockRows);
+    predictObs(blockRows);
   }
+  
   return row;
 }
 
@@ -216,8 +216,8 @@ void Predict::transpose(const RLEFrame* rleFrame,
 }
 
 
-void Predict::predictBlock(size_t span) {
-  fill(predictLeaves.begin(), predictLeaves.end(), noNode);
+void Predict::predictObs(size_t span) {
+  fill(idxFinal.begin(), idxFinal.end(), noNode);
 
   OMPBound rowEnd = static_cast<OMPBound>(blockStart + span);
   OMPBound rowStart = static_cast<OMPBound>(blockStart);
@@ -229,28 +229,30 @@ void Predict::predictBlock(size_t span) {
     scoreSeq(row, min(rowEnd, row + seqChunk));
   }
   }
+  if (!indices.empty()) { // Copies written portion of index block.
+    copy(&idxFinal[0], &idxFinal[span * nTree], &indices[rowStart * nTree]);
+  }
 }
 
 
 // Sequential inner loop to avoid false sharing.
 void PredictReg::scoreSeq(size_t rowStart, size_t rowEnd) {
   for (size_t row = rowStart; row != rowEnd; row++) {
-    (this->*Predict::walkTree)(row);
-    testing ? testRow(row) : (void) scoreRow(row);
+    walkTree(row);
+    testing ? testObs(row) : (void) scoreObs(row);
   }
 }
 
 
 void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
   for (size_t row = rowStart; row != rowEnd; row++) {
-    (this->*Predict::walkTree)(row);
-    testing ? testRow(row) : scoreRow(row);
+    walkTree(row);
+    testing ? testObs(row) : scoreObs(row);
   }
 }
 
 
-
-unsigned int PredictReg::scoreRow(size_t row) {
+unsigned int PredictReg::scoreObs(size_t row) {
   (*yTarg)[row] = response->predictObs(this, row);
   if (!quant->isEmpty()) {
     quant->predictRow(this, row);
@@ -259,24 +261,24 @@ unsigned int PredictReg::scoreRow(size_t row) {
 }
 
 
-void PredictCtg::scoreRow(size_t row) {
+void PredictCtg::scoreObs(size_t row) {
   (*yTarg)[row] = response->predictObs(this, row, &census[ctgIdx(row)]);
   if (!ctgProb->isEmpty())
     ctgProb->predictRow(this, row, &census[ctgIdx(row)]);
 }
 
 
-void PredictReg::testRow(size_t row) {
+void PredictReg::testObs(size_t row) {
   IndexT rowIdx = row - blockStart;
-  accumNEst[rowIdx] += scoreRow(row);
+  accumNEst[rowIdx] += scoreObs(row);
   double testError = fabs(yTest[row] - (*yTarg)[row]);
   accumAbsErr[rowIdx] += testError;
   accumSSE[rowIdx] += testError * testError;
 }
 
 
-void PredictCtg::testRow(size_t row) {
-  scoreRow(row);
+void PredictCtg::testObs(size_t row) {
+  scoreObs(row);
 }
 
 
@@ -290,90 +292,63 @@ const vector<double> PredictReg::getQEst() const {
 }
 
 
-void Predict::walkNum(size_t row) {
-  auto rowT = baseNum(row);
+void Predict::walkTree(size_t obsIdx) {
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!sampler->isBagged(tIdx, row)) {
-      rowNum(tIdx, rowT, row);
+    if (!sampler->isBagged(tIdx, obsIdx)) {
+      predictLeaf(tIdx, obsIdx);
     }
   }
 }
 
 
-void Predict::walkFac(size_t row) {
-  const CtgT* rowT = baseFac(row);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!sampler->isBagged(tIdx, row)) {
-      rowFac(tIdx, rowT, row);
-    }
-  }
-}
-
-
-void Predict::walkMixed(size_t row) {
-  const double* rowNT = baseNum(row);
-  const CtgT* rowFT = baseFac(row);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    if (!sampler->isBagged(tIdx, row)) {
-      rowMixed(tIdx, rowNT, rowFT, row);
-    }
-  }
-}
-
-
-void Predict::rowNum(unsigned int tIdx,
-		       const double* rowT,
-		       size_t row) {
-  const vector<DecNode>& cTree = decNode[tIdx];
-  auto idx = 0;
-  IndexT delIdx = 0;
-  do {
-    delIdx = cTree[idx].advance(rowT, trapUnobserved);
-    idx += delIdx;
-  } while (delIdx != 0);
-
-  predictLeaf(row, tIdx, idx);
-}
-
-
-void Predict::rowFac(const unsigned int tIdx,
-		     const CtgT* rowT,
-		     size_t row) {
+IndexT Predict::obsNum(unsigned int tIdx,
+		       size_t obsIdx) {
   const vector<DecNode>& cTree = decNode[tIdx];
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = cTree[idx].advance(factorBits, bitsObserved, rowT, tIdx, trapUnobserved);
+    delIdx = cTree[idx].advance(baseNum(obsIdx), trapUnobserved);
     idx += delIdx;
   } while (delIdx != 0);
 
-  predictLeaf(row, tIdx, idx);
+  return idx;
 }
 
 
-void Predict::rowMixed(unsigned int tIdx,
-		       const double* rowNT,
-		       const CtgT* rowFT,
-		       size_t row) {
+IndexT Predict::obsFac(const unsigned int tIdx,
+		       size_t obsIdx) {
   const vector<DecNode>& cTree = decNode[tIdx];
-  auto idx = 0;
+  IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = cTree[idx].advance(this, factorBits, bitsObserved, rowFT, rowNT, tIdx, trapUnobserved);
+    delIdx = cTree[idx].advance(factorBits, bitsObserved, baseFac(obsIdx), tIdx, trapUnobserved);
     idx += delIdx;
   } while (delIdx != 0);
 
-  predictLeaf(row, tIdx, idx);
+  return idx;
+}
+
+
+IndexT Predict::obsMixed(unsigned int tIdx,
+			 size_t obsIdx) {
+  const vector<DecNode>& cTree = decNode[tIdx];
+  IndexT idx = 0;
+  IndexT delIdx = 0;
+  do {
+    delIdx = cTree[idx].advance(this, factorBits, bitsObserved, baseFac(obsIdx), baseNum(obsIdx), tIdx, trapUnobserved);
+    idx += delIdx;
+  } while (delIdx != 0);
+
+  return idx;
 }
 
 
 bool Predict::isLeafIdx(size_t row,
 			unsigned int tIdx,
 			IndexT& leafIdx) const {
-    IndexT termIdx = predictLeaves[nTree * (row - blockStart) + tIdx];
+    IndexT termIdx = idxFinal[nTree * (row - blockStart) + tIdx];
     return termIdx == noNode ? false : decNode[tIdx][termIdx].getLeafIdx(leafIdx);
 }
-
 
 
 void Predict::estAccum() {

@@ -82,8 +82,19 @@ struct Cand {
 		      class InterLevel* interLevel,
 		      PredictorT predFixed);
 
-  vector<class SplitNux> getCandidates(const class InterLevel* interLevel,
-				       const class SplitFrontier* splitFrontier);
+
+  /**
+     @return flattened vector of all staged candidates.
+   */
+  vector<class SplitNux> stagedSimple(const class InterLevel* interLevel,
+				      class SplitFrontier* splitFrontier) const;
+
+
+  /**
+     @return vector of per-node vectors of staged candidates.
+   */
+  vector<vector<class SplitNux>> stagedCompound(const class InterLevel* interLevel,
+						class SplitFrontier* splitFrontier) const;
 
 
   /**

@@ -33,11 +33,6 @@ struct SFRegCart : public SFReg {
 
   ~SFRegCart() = default;
 
-  /**
-     @brief Initializes per-frontier sum and FacRun vectors.
-  */
-  void accumPreset();
-
 
   /**
      @return enumeration indicating slot-style encoding.
@@ -45,7 +40,7 @@ struct SFRegCart : public SFReg {
   SplitStyle getFactorStyle() const;
 
 
-  void split(vector<class SplitNux>& candidate,
+  void split(const CandType& cand,
 	     class BranchSense& branchSense);
 
 
@@ -71,7 +66,7 @@ class SFCtgCart : public SFCtg {
   SplitStyle getFactorStyle() const;
 
 
-  void split(vector<class SplitNux>& candidate,
+  void split(const CandType& cand,
 	     class BranchSense& branchSense);
 
 

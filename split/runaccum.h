@@ -110,8 +110,7 @@ public:
   /**
    */
   RunAccum(const class SplitFrontier* splitFrontier,
-	   const class SplitNux& cand,
-	   const class RunSet* runSet);
+	   const class SplitNux& cand);
 
 
   /**
@@ -140,8 +139,6 @@ public:
    */  
   vector<RunNux> regRunsMasked(const SplitNux& cand,
 			       const class BranchSense* branchSense,
-			       IndexT edgeRight,
-			       IndexT edgeLeft,
 			       bool maskSense);
 
 
@@ -155,11 +152,9 @@ public:
 class RunAccumReg : public RunAccum {
 public:
   RunAccumReg(const struct SFReg* sfReg,
-	      const class SplitNux& cand,
-	      const class RunSet* runSet);
+	      const class SplitNux& cand);
 
 
-  
   /**
      @breif Static entry for regression splitting.
    */
@@ -198,8 +193,8 @@ class RunAccumCtg : public RunAccum {
 public:
 
   RunAccumCtg(const class SFCtg* sfCtg,
-	      const class SplitNux& cand,
-	      const class RunSet* runSet);
+	      const class SplitNux& cand);
+
 
   /**
      @return checkerboard value at slot for category.

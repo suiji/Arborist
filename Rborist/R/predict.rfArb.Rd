@@ -10,8 +10,8 @@
 
 \usage{
 \method{predict}{rfArb}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), ctgCensus = "votes",
-trapUnobserved =FALSE,bagging = FALSE, nThread = 0, verbose = FALSE, ...)
+quantiles = !is.null(quantVec), ctgCensus = "votes", indexing = FALSE,
+trapUnobserved = FALSE, bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
@@ -28,6 +28,8 @@ trapUnobserved =FALSE,bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   "prob" specifies a normalized, probabilistic summary.
   "probSample" specifies sample-weighted probabilities, similar to
   quantile histogramming.}
+  \item{indexing}{whether to record the final node index, typically
+  terminal, of tree traversal.}
   \item{trapUnobserved}{reports score for nonterminal upon encountering
   values not observed during training, such as missing data.}
   \item{bagging}{whether prediction is restricted to out-of-bag samples.}

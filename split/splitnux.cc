@@ -13,7 +13,7 @@
    @author Mark Seligman
  */
 
-#include "cutset.h"
+#include "cutfrontier.h"
 #include "runsig.h"
 #include "splitfrontier.h"
 #include "splitnux.h"

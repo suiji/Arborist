@@ -24,13 +24,12 @@
 #include "predictorframe.h"
 #include "coproc.h"
 
-TrainBridge::TrainBridge(const RLEFrame* rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : frame(make_unique<PredictorFrame>(rleFrame, autoCompress, enableCoproc, diag)) {
-  Forest::init(rleFrame->getNPred());
+TrainBridge::TrainBridge(unique_ptr<RLEFrame> rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : frame(make_unique<PredictorFrame>(std::move(rleFrame), autoCompress, enableCoproc, diag)) {
+  Forest::init(frame->getNPred());
 }
 
 
-TrainBridge::~TrainBridge() {
-}
+TrainBridge::~TrainBridge() = default;
 
 
 vector<PredictorT> TrainBridge::getPredMap() const {
@@ -40,15 +39,15 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 
 
 unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
-					    const SamplerBridge* samplerBridge,
+					    const SamplerBridge& samplerBridge,
 					    unsigned int treeOff,
 					    unsigned int treeChunk,
-					    const LeafBridge* leafBridge) const {
+					    const LeafBridge& leafBridge) const {
   auto trained = Train::train(frame.get(),
-			      samplerBridge->getSampler(),
+			      samplerBridge.getSampler(),
 			      forestBridge.getForest(),
 			      IndexRange(treeOff, treeChunk),
-			      leafBridge->getLeaf());
+			      leafBridge.getLeaf());
 
   return make_unique<TrainedChunk>(std::move(trained));
 }
@@ -99,8 +98,7 @@ TrainedChunk::TrainedChunk(unique_ptr<Train> train_) : train(std::move(train_)) 
 }
 
 
-TrainedChunk::~TrainedChunk() {
-}
+TrainedChunk::~TrainedChunk() = default;
 
 
 const vector<double>& TrainedChunk::getPredInfo() const {

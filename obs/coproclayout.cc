@@ -17,9 +17,9 @@
 #include "predictorframe.h"
 
 
-PredictorFrame *PredictorFrame::Factory(const RLEFrame* rleFrame,
+PredictorFrame *PredictorFrame::Factory(unique_ptr<RLEFrame> rleFrame,
 			const Coproc *coproc,
 			double autoCompress,
 			vector<string>& diag) {
-  return new PredictorFrame(rleFrame, autoCompress, true, diag);
+  return new PredictorFrame(std::move(rleFrame), autoCompress, true, diag);
 }

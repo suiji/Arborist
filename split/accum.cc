@@ -16,6 +16,7 @@
 #include "splitfrontier.h"
 #include "splitnux.h"
 #include "branchsense.h"
+#include "obs.h"
 
 
 Accum::Accum(const SplitFrontier* splitFrontier,
@@ -63,14 +64,30 @@ CtgNux Accum::filterMissingCtg(const SFCtg* sfCtg,
 }
 
 
+IndexRange Accum::findUnmaskedRange(const BranchSense* branchSense,
+				    bool sense) const {
+  IndexT edgeRight = obsEnd;  // Unmasked starting terminus for right-to-left traversal. 
+  if (!findEdge(branchSense, true, sense, edgeRight)) {
+    return IndexRange();
+  }
+
+  IndexT edgeLeft = obsStart;
+  if (!findEdge(branchSense, false, sense, edgeLeft)) {
+    return IndexRange();
+  }
+
+  return IndexRange(edgeLeft, edgeRight - edgeLeft + 1);
+}
+
+
+
 bool Accum::findEdge(const BranchSense* branchSense,
 		     bool leftward,
-		     IndexT idxTerm,
 		     bool sense,
 		     IndexT& edge) const {
   // Breaks out and returns true iff matching-sense sample found.
   if (leftward) { // Decrement to start.
-    for (edge = idxTerm; edge > obsStart; edge--) {
+    for (; edge > obsStart; edge--) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }
@@ -80,7 +97,7 @@ bool Accum::findEdge(const BranchSense* branchSense,
     }
   }
   else { // Increment to end.
-    for (edge = idxTerm; edge != obsEnd; edge++) {
+    for (; edge != obsEnd; edge++) {
       if (branchSense->isExplicit(sampleIndex[edge]) == sense) {
 	return true;
       }

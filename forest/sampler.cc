@@ -97,8 +97,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 }
 
 
-Sampler::~Sampler() {
-}
+Sampler::~Sampler() = default;
 
 
 unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {

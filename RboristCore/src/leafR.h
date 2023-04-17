@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022  Mark Seligman
+// Copyright (C)  2012-2022   Mark Seligman
 //
 // This file is part of rf.
 //
@@ -15,67 +15,67 @@
 // You should have received a copy of the GNU General Public License
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
-
 /**
-   @file exportR.h
+   @file leafR.h
 
-   @brief Expands trained forest into a collection of vectors.
+   @brief C++ interface to R entry for sampled leaves.
 
    @author Mark Seligman
  */
 
-
-#ifndef RF_EXPORT_R_H
-#define RF_EXPORT_R_H
-
-#include <vector>
-#include <memory>
-using namespace std;
+#ifndef FOREST_LEAF_R_H
+#define FOREST_LEAF_R_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
-RcppExport SEXP expandRf(SEXP sTrain);
+#include <memory>
+using namespace std;
 
-struct ExportRf {
+/**
+   @brief Summary of leaf samples.
+ */
+struct LeafR {
+  static const string strExtent;
+  static const string strIndex;
 
-  static List exportLeafReg(const struct LeafExportReg* leaf,
-                            unsigned int tIdx);
+  NumericVector extent; ///< Leaf extents.
+  NumericVector index; ///< Sample indices.
+  size_t extentTop; ///< top of leaf extent buffer.
+  size_t indexTop;  ///< " " sample index buffer.
 
-  static List exportLeafCtg(const struct LeafExportCtg* leaf,
-                            unsigned int tIdx);
 
-  static List exportForest(const class ForestExport* forestExport,
-                           unsigned int tIdx);
+  LeafR();
 
-  static IntegerVector exportBag(const struct LeafExport* leaf,
-                                 unsigned int tIdx,
-                                 unsigned int rowTrain);
+  /**
+     @brief Bundles trained leaf into format suitable for R.
 
-  static List exportTreeReg(const List& sTrain,
-                            const IntegerVector& predMap);
+     Wrap functions are called from TrainR::summary, following which 'this' is
+     deleted.  There is therefore no need to initialize the extent and index
+     state.
+     
+   */
+  List wrap();
 
-  static List exportTreeCtg(const class ForestExport* forest,
-                            const struct LeafExportCtg* leaf,
-                            unsigned int rowTrain);
+  
+  /**
+     @brief Consumes a block of samples following training.
 
-  static List exportReg(const List& sTrain,
-                        const IntegerVector& predMap,
-                        const List& predLevel,
-			const List& predFactor);
+     @param scale is a fudge-factor for resizing.
+   */
+  void bridgeConsume(const struct LeafBridge& sb,
+		     double scale);
 
-  static List exportCtg(const List& sTrain,
-                        const IntegerVector& predMap,
-                        const List& predLevel);
+
+  static LeafBridge unwrap(const List& lLeaf,
+			   const struct SamplerBridge& samplerBridge);
 };
+
 
 struct LeafExport {
   LeafExport(const List& lSampler);
 
   virtual ~LeafExport() {}
-
-  //  unique_ptr<class LeafBridge> unwrap(const class SamplerBridge* samplerBridge,
-  //				      const List& lLeaf);
 
   /**
      @brief Accessor for per-tree sampled row vector.
@@ -133,16 +133,16 @@ struct LeafExportReg : public LeafExport {
   /**
     @brief Constructor for export, no prediction.
    */
-  LeafExportReg(const List& lTrain,
-		const List& lSampler);
+  LeafExportReg(const List& lSampler);
 
 
-  ~LeafExportReg() {}
+  ~LeafExportReg();
+
 
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static unique_ptr<LeafExportReg> unwrap(const List &lTrain);
+  static LeafExportReg unwrap(const List &lTrain);
 
 };
 
@@ -151,13 +151,13 @@ struct LeafExportCtg : public LeafExport {
   /**
      @brief Constructor for export; no prediction.
    */
-  LeafExportCtg(const List& lTrain,
-		const List& lSampler);
+  LeafExportCtg(const List& lSampler);
 
+  
+  ~LeafExportCtg();
 
-  ~LeafExportCtg() {}
-
-  static unique_ptr<LeafExportCtg> unwrap(const List &lTrain);
+  
+  static LeafExportCtg unwrap(const List &lTrain);
 
   
   /**
