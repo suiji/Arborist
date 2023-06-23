@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
 // This file is part of rf.
 //
@@ -186,6 +186,12 @@ struct SamplerR {
      @return core-ready vector of zero-based factor codes.
    */
   static vector<unsigned int> coreCtg(const IntegerVector& yTrain);
+
+
+  /**
+     @return minimal SamplerBridge.
+   */
+  static struct SamplerBridge unwrapGeneric(const List& lSampler);
 
 
   static struct SamplerBridge makeBridgeTrain(const List& lSampler,

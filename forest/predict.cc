@@ -435,3 +435,63 @@ void CtgProb::applyDefault(double probPredict[]) const {
 void CtgProb::dump() const {
   // TODO
 }
+
+
+vector<vector<double>> Predict::forestWeight(const Forest* forest,
+					     const Sampler* sampler,
+					     const Leaf* leaf,
+					     size_t nPredict,
+					     const double finalIdx[],
+					     unsigned int nThread) {
+  vector<vector<DecNode>> decNode = forest->getNode();
+  vector<vector<IndexT>> obsCount(nPredict);
+  for (size_t idxPredict = 0; idxPredict != nPredict; idxPredict++) {
+    obsCount[idxPredict] = vector<IndexT>(sampler->getNObs());
+  }
+
+  unsigned int nTree = forest->getNTree();
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    IndexT nodeIdx = 0;
+    vector<IdCount> idCount = sampler->unpack(tIdx);
+    const vector<vector<size_t>>& indices = leaf->getIndices(tIdx);
+    vector<vector<IdCount>> node2Idc(decNode[tIdx].size());
+    for (const DecNode& node : decNode[tIdx]) {
+      IndexT leafIdx;
+      if (node.getLeafIdx(leafIdx)) {
+	for (size_t sIdx : indices[leafIdx]) {
+	  node2Idc[nodeIdx].emplace_back(idCount[sIdx]);
+	}      }
+      nodeIdx++;
+    }
+
+    IndexT noNode = forest->maxTreeHeight();
+    for (size_t idxPredict = 0; idxPredict != nPredict; idxPredict++) {
+      IndexT nodeIdx = finalIdx[nTree * idxPredict + tIdx];
+      if (nodeIdx != noNode) { // Excludes bagged observations.
+	for (const IdCount &idc : node2Idc[nodeIdx]) {
+	  obsCount[idxPredict][idc.id] += idc.sCount;
+	}
+      }
+    }
+  }
+
+  return weightPredictions(sampler, obsCount);
+}
+
+
+vector<vector<double>> Predict::weightPredictions(const Sampler* sampler,
+						  const vector<vector<IndexT>>& obsCount) {
+
+  // For each observation, weight = obsCount / sum(obsCount);
+  vector<vector<double>> weight(obsCount.size());
+  size_t idxPredict = 0;
+  for (const vector<IndexT>& obsC : obsCount) {
+    size_t obsSum = accumulate(obsC.begin(), obsC.end(), 0);
+    double obsRecip = 1.0 / obsSum;
+    weight[idxPredict] = vector<double>(sampler->getNObs());
+    transform(obsC.begin(), obsC.end(), weight[idxPredict].begin(),
+                   [&obsRecip](IndexT element) { return element * obsRecip; });
+    idxPredict++;
+  }
+  return weight;
+}

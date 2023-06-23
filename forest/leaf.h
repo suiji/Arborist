@@ -32,15 +32,15 @@ class RankCount {
   // When sampling is not weighted, the sample-count value typically
   // requires four bits or fewer.  Packing therefore accomodates rank
   // values well over 32 bits.
-  PackedT packed; // Packed representation of rank and sample count.
+  PackedT packed; ///< Packed representation of rank and sample count.
 
-  static unsigned int rightBits; // # bits occupied by rank value.
-  static PackedT rankMask; // Mask unpacking the rank value.
+  static unsigned int rightBits; ///< # bits occupied by rank value.
+  static PackedT rankMask; ///< Mask unpacking the rank value.
 
 public:
 
   /**
-     @brief Invoked at Sampler construction, as needed.
+     @brief Invoked at Leaf construction, as needed.
    */
   static void setMasks(IndexT nObs) {
     rightBits = Util::packedWidth(nObs);
@@ -69,6 +69,7 @@ public:
     packed = rank | (sCount << rightBits);
   }
 
+  
   IndexT getRank() const {
     return packed & rankMask;
   }
@@ -87,12 +88,12 @@ struct Leaf {
   const bool thin; // EXIT.
 
   // Training only:
-  vector<IndexT> indexCresc; // Sample indices within leaves.
-  vector<IndexT> extentCresc; // Index extent, per leaf.
+  vector<IndexT> indexCresc; ///< Sample indices within leaves.
+  vector<IndexT> extentCresc; ///< Index extent, per leaf.
   
   // Post-training only:  extent, index maps fixed.
-  const vector<vector<size_t>> extent; // # sample index entries per leaf, per tree.
-  const vector<vector<vector<size_t>>> index; // sample indices per leaf, per tree.
+  const vector<vector<size_t>> extent; ///< # sample index entries per leaf, per tree.
+  const vector<vector<vector<size_t>>> index; ///< sample indices per leaf, per tree.
 
   /**
      @brief Training factory.
@@ -163,12 +164,12 @@ struct Leaf {
   /**
      @brief Count samples at each rank, per leaf, per tree:  regression.
 
-     @param row2Rank is the ranked training outcome.
+     @param obs2Rank is the ranked training outcome.
 
      @return 3-d mapping as described.
    */
   vector<vector<vector<RankCount>>> alignRanks(const class Sampler* sampler,
-					       const vector<IndexT>& row2Rank) const;
+					       const vector<IndexT>& obs2Rank) const;
 
 
   /**
@@ -188,12 +189,17 @@ struct Leaf {
     return indexCresc;
   }
   
-  
+  /**
+     @return vector of leaf extents for given tree.
+   */
   const vector<size_t>& getExtents(unsigned int tIdx) const {
     return extent[tIdx];
   }
 
 
+  /**
+     @return vector of per-leaf index vectors for a given tree.
+   */
   const vector<vector<size_t>>& getIndices(unsigned int tIdx) const {
     return index[tIdx];
   }

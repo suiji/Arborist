@@ -38,12 +38,15 @@ struct SamplerBridge {
 
   SamplerBridge(SamplerBridge&& sb);
 
-  
+
+  /**
+     @param bagging specifies a bagging matrix:  prediction only.
+   */
   SamplerBridge(const vector<double>& yTrain,
 		size_t nSamp,
 		unsigned int nTree,
 		const double samples[],
-		bool bagging);
+		bool bagging = false);
 
 
   SamplerBridge(const vector<unsigned int>& yTrain,
@@ -59,9 +62,18 @@ struct SamplerBridge {
 		size_t nSamp,
 		unsigned int nTree,
 		const double samples[],
-		bool bagging);
+		bool bagging = false);
 
 
+  /**
+     @brief Generic constructor.
+   */
+  SamplerBridge(size_t nObs,
+		const double samples[],
+		size_t nSamp,
+		unsigned int nTree);
+
+  
   ~SamplerBridge();
 
 

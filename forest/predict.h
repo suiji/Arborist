@@ -380,6 +380,26 @@ public:
    */
   IndexT obsNum(unsigned int tIdx,
 		size_t obsIdx);
+
+
+  /**
+     @brief Computes Meinshausen's weight vectors for a block of predictions.
+
+     @param nPredict is tne number of predictions to weight.
+
+     @param finalIdx is a block of nPredict x nTree prediction indices.
+     
+     @return prediction-wide vector of response weights.
+   */
+  static vector<vector<double>> forestWeight(const class Forest* forest,
+					     const class Sampler* sampler,
+					     const class Leaf* leaf,
+					     size_t nPredict,
+					     const double finalIdx[],
+					     unsigned int nThread);
+
+  static vector<vector<double>> weightPredictions(const class Sampler* sampler,
+						  const vector<vector<IndexT>>& obsCount);
 };
 
 

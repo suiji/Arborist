@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -165,7 +165,7 @@ List SamplerR::wrap(const SamplerBridge& bridge,
 
 
 SamplerBridge SamplerR::unwrapTrain(const List& lSampler,
-			       const List& argList) {
+				    const List& argList) {
   if (Rf_isFactor((SEXP) lSampler[strYTrain])) {
     return makeBridgeTrain(lSampler, as<IntegerVector>(lSampler[strYTrain]), argList);
   }
@@ -192,8 +192,7 @@ SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
   return SamplerBridge(std::move(vector<double>(yTrain.begin(), yTrain.end())),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
-		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
-		       false);
+		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin());
 }
 
 
@@ -257,7 +256,7 @@ SEXP SamplerR::checkOOB(const List& lSampler, const List& lDeframe) {
 
 
 SamplerBridge SamplerR::makeBridgeNum(const List& lSampler,
-				   bool bagging) {
+				      bool bagging) {
   NumericVector yTrain(as<NumericVector>(lSampler[strYTrain]));
   return SamplerBridge(std::move(vector<double>(yTrain.begin(), yTrain.end())),
 		       as<size_t>(lSampler[strNSamp]),
@@ -279,7 +278,15 @@ SamplerBridge SamplerR::makeBridgeCtg(const List& lSampler,
 }
 
 
+SamplerBridge SamplerR::unwrapGeneric(const List& lSampler) {
+  return SamplerBridge(getNObs(lSampler[strYTrain]),
+		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
+		       as<size_t>(lSampler[strNSamp]),
+		       as<unsigned int>(lSampler[strNTree]));
+}
+
+
 SamplerExport SamplerR::unwrapExport(const List& lTrain) {
-  List lSampler((SEXP) lTrain["sampler"]);  
+  List lSampler(as<List>(lTrain["sampler"]));  
   return SamplerExport(lSampler[strNTree], getNObs(lSampler[strYTrain]));
 }

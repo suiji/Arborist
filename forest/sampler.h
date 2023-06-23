@@ -16,7 +16,7 @@
 #ifndef FOREST_SAMPLER_H
 #define FOREST_SAMPLER_H
 
-
+#include "idcount.h"
 #include "bv.h"
 #include "typeparam.h"
 #include "sampledobs.h"
@@ -34,8 +34,8 @@ class Sampler {
   static constexpr unsigned int locExp = 18;  // Log of locality threshold.
 
   const unsigned int nTree;
-  const size_t nObs; // # training observations
-  const size_t nSamp;  // # samples requested per tree.
+  const size_t nObs; ///< # training observations
+  const size_t nSamp;  ///< # samples requested per tree.
 
   const unique_ptr<struct Response> response;
   
@@ -105,6 +105,14 @@ public:
 
 
   /**
+     @brief Generic constructor, no response.
+   */
+  Sampler(IndexT nObs_,
+	  IndexT nSamp_,
+	  const vector<vector<SamplerNux>>& samples_);
+
+
+  /**
      Classification constructor:  training.
    */
   Sampler(const vector<PredictorT>& yTrain,
@@ -152,6 +160,25 @@ public:
 
   const vector<SamplerNux>& getSamples(unsigned int tIdx) const {
     return samples[tIdx];
+  }
+
+
+  /**
+     @brief Expands SamplerNux vector for a single tree.
+
+     @param tIdx is the tree index.
+     
+     @return vector of unpacked SamplerNux.
+   */
+  vector<IdCount> unpack(unsigned int tIdx) const {
+    vector<IdCount> idCount;
+    IndexT obsIdx = 0;
+    for (SamplerNux nux : samples[tIdx]) {
+      obsIdx += nux.getDelRow();
+      idCount.emplace_back(obsIdx, nux.getSCount());
+    }
+
+    return idCount;
   }
   
 
@@ -269,13 +296,13 @@ public:
 
 
   /**
-     @brief Produces a vector of sampled rows.
-
+     @brief Decompresses a tree's worth of samples into observations.
+     
      @param tIdx is the absolute tree index.
-
-     tIdx is temporarily ignored, pending completion of presampling.
+     
+     @return vector of observation indices, counts.
    */
-  vector<IndexT> sampledRows(unsigned int tIdx) const;
+  vector<IdCount> obsExpand(const vector<SampleNux>& nuxen) const;
 };
 
 #endif

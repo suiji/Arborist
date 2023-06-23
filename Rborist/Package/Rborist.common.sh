@@ -13,8 +13,8 @@ cp ../R/NEWS Rborist/inst/
 cp ../R/*R Rborist/R/
 cp ../../deframeR/*.R Rborist/R/
 cp ../src/*.{cc,h} Rborist/src/
-cp ../../RboristCore/src/*.{cc,h} Rborist/src/
-cp ../../RboristCore/R/*.R Rborist/R/
+cp ../../RboristBase/src/*.{cc,h} Rborist/src/
+cp ../../RboristBase/R/*.R Rborist/R/
 cp ../../deframeR/*.{cc,h} Rborist/src/
 cp ../../deframe/*.{cc,h} Rborist/src/
 cp ../../cart/*.{cc,h} Rborist/src/

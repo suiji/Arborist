@@ -1,8 +1,2 @@
-# These two lines should not be necessary once Windows build begins
-# using gcc >= 5.
-CXX14 = "$(BINPREF)g++ $(M_ARCH)"
-CXX14STD='-std=c++1y'
-
-CXX_STD = CXX14
 PKG_LIBS=$(SHLIB_OPENMP_CXXFLAGS)
 PKG_CXXFLAGS=$(SHLIB_OPENMP_CXXFLAGS)

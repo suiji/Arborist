@@ -81,6 +81,15 @@ SamplerBridge::SamplerBridge(const vector<unsigned int>& yTrain,
 }
 
 
+SamplerBridge::SamplerBridge(size_t nObs,
+			     const double samples[],
+			     size_t nSamp,
+			     unsigned int nTree) {
+  SamplerNux::setMasks(nObs);
+  sampler = make_unique<Sampler>(nObs, nSamp, SamplerRW::unpack(samples, nSamp, nTree));
+}
+
+
 SamplerBridge::SamplerBridge(SamplerBridge&& sb) :
   sampler(std::exchange(sb.sampler, nullptr)) {
 }

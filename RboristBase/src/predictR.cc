@@ -115,8 +115,8 @@ PredictRegBridge PBRf::unwrapReg(const List& lDeframe,
 				 const List& lArgs) {
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
-  return PredictRegBridge(std::move(RLEFrameR::unwrap(lDeframe)),
-			  std::move(ForestRf::unwrap(lTrain)),
+  return PredictRegBridge(RLEFrameR::unwrap(lDeframe),
+			  ForestRf::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  regTest(sYTest),
@@ -201,8 +201,8 @@ PredictCtgBridge PBRf::unwrapCtg(const List& lDeframe,
 				 const List& lArgs) {
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
-  return PredictCtgBridge(std::move(RLEFrameR::unwrap(lDeframe)),
-			  std::move(ForestRf::unwrap(lTrain)),
+  return PredictCtgBridge(RLEFrameR::unwrap(lDeframe),
+			  ForestRf::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  ctgTest(lSampler, sYTest),

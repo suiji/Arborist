@@ -46,6 +46,11 @@ InterLevel::InterLevel(const PredictorFrame* frame_,
 }
 
 
+bool InterLevel::isFactor(PredictorT predIdx) const {
+  return frame->isFactor(predIdx);
+}
+
+
 bool InterLevel::isStaged(const SplitCoord& coord, StagedCell*& cell) const {
   IndexT dummy;
   PredictorT stagePos;

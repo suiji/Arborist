@@ -188,7 +188,8 @@ void Frontier::updateSimple(const vector<SplitNux>& nuxMax,
 }
 
 
-void Frontier::updateCompound(const vector<vector<SplitNux>>& nuxMax) {
+void Frontier::updateCompound(const vector<vector<SplitNux>>& nuxMax,
+			      BranchSense& branchSense) {
   pretree->consumeCompound(splitFrontier.get(), nuxMax);
 }
 

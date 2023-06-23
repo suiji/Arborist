@@ -217,3 +217,13 @@ const vector<double> PredictRegBridge::getQPred() const {
 const vector<double> PredictRegBridge::getQEst() const {
   return predictRegCore->getQEst();
 }
+
+
+vector<vector<double>> PredictBridge::forestWeight(const ForestBridge& forestBridge,
+						     const SamplerBridge& samplerBridge,
+						     const LeafBridge& leafBridge,
+						     const double indices[],
+						     size_t nObs,
+						     unsigned int nThread) {
+  return Predict::forestWeight(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), nObs, indices, nThread);
+}

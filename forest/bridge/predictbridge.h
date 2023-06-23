@@ -61,10 +61,23 @@ struct PredictBridge {
   bool permutes() const;
 
   
+  /**
+     @brief Computes Meinshausen-style weight vectors over a set of observations.
+     
+     @return vector of normalized weight vectors.
+   */
+  static vector<vector<double>> forestWeight(const ForestBridge& forestBridge,
+					     const SamplerBridge& samplerBridge,
+					     const LeafBridge& leafBridge,
+					     const double indices[],
+					     size_t nObs,
+					     unsigned int nThread);
+
+  
 protected:
-  unique_ptr<struct RLEFrame> rleFrame; ///> Local ownership
-  ForestBridge forestBridge; ///> Local ownership.
-  const unsigned int nPermute; ///> # times to permute.
+  unique_ptr<struct RLEFrame> rleFrame; ///< Local ownership
+  ForestBridge forestBridge; ///< Local ownership.
+  const unsigned int nPermute; ///< # times to permute.
 };
 
 

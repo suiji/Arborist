@@ -81,18 +81,7 @@ struct SampleMap {
     return range.size();
   }
 
-  
-  /**
-     @brief Assigns scores from the leaves associated with each sampled row in
-     the tree.
-
-     @param tIdx is the absolute tree index.
-
-     @return score assignment, by row.
-   */
-  vector<double> row2Score(const class Sampler* sampler,
-			   unsigned int tIdx,
-			   const vector<double>& score) const;
 };
+
 
 #endif

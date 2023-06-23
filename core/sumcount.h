@@ -70,6 +70,7 @@ struct SumCount {
     return sCount != this->sCount;
   }
   
+
   static SumCount minus(const SumCount& minuend,
                         const SumCount& subtrahend) {
     return SumCount(minuend.sum - subtrahend.sum, minuend.sCount - subtrahend.sCount);

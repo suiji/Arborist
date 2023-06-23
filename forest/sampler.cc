@@ -24,7 +24,8 @@ Sampler::Sampler(IndexT nSamp_,
 		 const double weight[]) :
     nTree(nTree_),
     nObs(nObs_),
-    nSamp(nSamp_) {
+    nSamp(nSamp_),
+    response(nullptr) {
   setCoefficients(weight, replace);
 }
 
@@ -46,6 +47,17 @@ void Sampler::setCoefficients(const double weight[],
 }
 
 
+Sampler::Sampler(IndexT nObs_,
+		 IndexT nSamp_,
+		 const vector<vector<SamplerNux>>& samples_) :
+  nTree(samples_.size()),
+  nObs(nObs_),
+  nSamp(nSamp_),
+  response(nullptr),
+  samples(samples_) {
+}
+
+  
 Sampler::Sampler(const vector<double>& yTrain,
 		 IndexT nSamp_,
 		 vector<vector<SamplerNux>> samples_) :
@@ -121,17 +133,16 @@ unique_ptr<SampledObs> Sampler::rootSample(unsigned int tIdx) const {
 }
 
 
-vector<IndexT> Sampler::sampledRows(unsigned int tIdx) const {
-  vector<IndexT> rowsSampled(sbCresc.size());
+vector<IdCount> Sampler::obsExpand(const vector<SampleNux>& nuxen) const {
+  vector<IdCount> idCount;
 
-  IndexT sIdx = 0;
-  IndexT row = 0;
-  for (auto nux : sbCresc) {
-    row += nux.getDelRow();
-    rowsSampled[sIdx++] = row;
+  IndexT obsIdx = 0;
+  for (auto nux : nuxen) {
+    obsIdx += nux.getDelRow();
+    idCount.emplace_back(obsIdx, nux.getSCount());
   }
 
-  return rowsSampled;
+  return idCount;
 }
 
 

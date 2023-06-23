@@ -128,18 +128,18 @@ vector<vector<vector<size_t>>> Leaf::countLeafCtg(const Sampler* sampler,
 
 
 vector<vector<vector<RankCount>>> Leaf::alignRanks(const class Sampler* sampler,
-						   const vector<IndexT>& row2Rank) const {
+						   const vector<IndexT>& obs2Rank) const {
   unsigned int nTree = sampler->getNTree();
   vector<vector<vector<RankCount>>> rankCount(nTree);
   if (!sampler->hasSamples())
     return rankCount;
 
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    IndexT row = 0;
+    IndexT obsIdx = 0;
     vector<size_t> sIdx2Rank(sampler->getBagCount(tIdx));
     for (IndexT sIdx = 0 ; sIdx != sIdx2Rank.size(); sIdx++) {
-      row += sampler->getDelRow(tIdx, sIdx);
-      sIdx2Rank[sIdx] = row2Rank[row];
+      obsIdx += sampler->getDelRow(tIdx, sIdx);
+      sIdx2Rank[sIdx] = obs2Rank[obsIdx];
     }
     size_t leafIdx = 0;
     rankCount[tIdx] = vector<vector<RankCount>>(getLeafCount(tIdx));

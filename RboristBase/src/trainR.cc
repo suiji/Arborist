@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
 // This file is part of rfR.
 //
@@ -51,7 +51,7 @@ List TrainR::train(const List& lDeframe, const List& lSampler, const List& argLi
   }
 
   vector<string> diag;
-  TrainBridge trainBridge(std::move(RLEFrameR::unwrap(lDeframe)), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
+  TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
   initFromArgs(argList, trainBridge);
 
   TrainR trainR(lSampler, argList);

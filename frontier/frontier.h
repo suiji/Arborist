@@ -149,7 +149,8 @@ public:
   /**
      @brief Updates only pretree states for a set of compound splits.
    */
-  void updateCompound(const vector<vector<class SplitNux>>& nuxMax);
+  void updateCompound(const vector<vector<class SplitNux>>& nuxMax,
+		      class BranchSense& branchSense);
 
 
   void setScore(IndexT splitIdx) const;
@@ -166,7 +167,10 @@ public:
   }
   
 
-  const IndexSet& getNode(IndexT splitIdx) const {
+  /**
+     @return reference to node at specified offset.
+   */
+  IndexSet& getNode(IndexT splitIdx) {
     return frontierNodes[splitIdx];
   }
 

@@ -97,5 +97,5 @@ Changes in 0.3-4:
 * Option 'indexing' indicates whether to report final indices of tree
   traversal during prediction and validation.
 
-* Introduces 'weighting' utility to report prediction weights as
+* Introduces 'forestWeight' utility to report prediction weights as
   described by Meinshausen, 2006.

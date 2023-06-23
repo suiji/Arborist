@@ -69,7 +69,7 @@ class InterLevel {
   vector<vector<PredictorT>> stageMap; // Packed level, position.
   deque<unique_ptr<class ObsFrontier>> history; // Caches previous frontier layers.
 
-  unique_ptr<class ObsFrontier> ofFront; // Current frontier, not in deque.
+  unique_ptr<class ObsFrontier> ofFront; ///< Current frontier, not in deque.
 
   
   /**
@@ -131,6 +131,13 @@ public:
      @brief Class finalizer.
   */
   ~InterLevel() = default;
+
+
+  /**
+     @brief Passes through to frame method.
+   */
+  bool isFactor(PredictorT predIdx) const;
+
 
   /**
      @brief Prestages moribund rear history layers.
