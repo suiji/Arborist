@@ -34,12 +34,11 @@ Installation of Development Version:
 
 
 #### Notes
-- Rborist version 0.2-3 passes all checks on CRAN.
+- Rborist version 0.3-2 passes all checks on CRAN.
 
 ### Python
 
  - Version 0.1-0 has been archived.
- - Version 0.3-0 is under active development.
  - Test cases sought.
 
 ### Performance 
@@ -63,6 +62,8 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
+- Meinshausen's forest-wide weights are computed by 'forestWeight' command.
+- Prediction records final node indices of tree walks when invoked with 'indexing=TRUE'.
 - Training ignores missing predictor values, splitting over appropriately reduced subnodes.
 - Quantile estimation supports both leaf and nonterminal (i.e., trap-and-bail) prediction modes.
 - Prediction and validiation support large (> 32 bits) observation counts.
