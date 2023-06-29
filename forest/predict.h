@@ -398,8 +398,25 @@ public:
 					     const double finalIdx[],
 					     unsigned int nThread);
 
-  static vector<vector<double>> weightPredictions(const class Sampler* sampler,
-						  const vector<vector<IndexT>>& obsCount);
+
+  static vector<vector<struct IdCount>> obsCounts(const class Forest* forest,
+						  const class Sampler* sampler,
+						  const class Leaf* leaf,
+						  unsigned int tIdx);
+
+
+  static void weighNode(const class Forest* forest,
+			const double treeIdx[],
+			const vector<vector<struct IdCount>>& nodeCount,
+			vector<vector<double>>& obsWeight);
+
+
+  /**
+     @brief Normalizes each weight vector passed.
+
+     @return vector of normalized weight vectors.
+   */
+  static vector<vector<double>> normalizeWeight(const vector<vector<double>>& obsWeight);
 };
 
 

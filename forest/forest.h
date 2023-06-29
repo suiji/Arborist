@@ -240,6 +240,11 @@ class Forest {
   }
 
 
+  const vector<DecNode>& getNode(unsigned int tIdx) const {
+    return decNode[tIdx];
+  }
+
+
   /**
      @return vector of domininated leaf ranges, per node.
    */
@@ -334,9 +339,11 @@ class Forest {
   
 
   /**
+     @brief Computes an inattainable node index.
+
      @return maximum tree extent.
    */
-  size_t maxTreeHeight() const;
+  size_t noNode() const;
 
   
   /**

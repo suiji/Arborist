@@ -49,7 +49,7 @@ Predict::Predict(const Forest* forest,
   nPredFac(rleFrame->getNPredFac()),
   nRow(rleFrame->getNRow()),
   nTree(forest->getNTree()),
-  noNode(forest->maxTreeHeight()),
+  noNode(forest->noNode()),
   walkObs(getObsWalker()),
   trFac(vector<CtgT>(scoreChunk * nPredFac)),
   trNum(vector<double>(scoreChunk * nPredNum)),
@@ -443,54 +443,75 @@ vector<vector<double>> Predict::forestWeight(const Forest* forest,
 					     size_t nPredict,
 					     const double finalIdx[],
 					     unsigned int nThread) {
-  vector<vector<DecNode>> decNode = forest->getNode();
-  vector<vector<IndexT>> obsCount(nPredict);
+  vector<vector<double>> obsWeight(nPredict);
   for (size_t idxPredict = 0; idxPredict != nPredict; idxPredict++) {
-    obsCount[idxPredict] = vector<IndexT>(sampler->getNObs());
+    obsWeight[idxPredict] = vector<double>(sampler->getNObs());
   }
 
-  unsigned int nTree = forest->getNTree();
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-    IndexT nodeIdx = 0;
-    vector<IdCount> idCount = sampler->unpack(tIdx);
-    const vector<vector<size_t>>& indices = leaf->getIndices(tIdx);
-    vector<vector<IdCount>> node2Idc(decNode[tIdx].size());
-    for (const DecNode& node : decNode[tIdx]) {
-      IndexT leafIdx;
-      if (node.getLeafIdx(leafIdx)) {
-	for (size_t sIdx : indices[leafIdx]) {
-	  node2Idc[nodeIdx].emplace_back(idCount[sIdx]);
-	}      }
-      nodeIdx++;
-    }
-
-    IndexT noNode = forest->maxTreeHeight();
-    for (size_t idxPredict = 0; idxPredict != nPredict; idxPredict++) {
-      IndexT nodeIdx = finalIdx[nTree * idxPredict + tIdx];
-      if (nodeIdx != noNode) { // Excludes bagged observations.
-	for (const IdCount &idc : node2Idc[nodeIdx]) {
-	  obsCount[idxPredict][idc.id] += idc.sCount;
-	}
-      }
-    }
+  for (unsigned int tIdx = 0; tIdx < forest->getNTree(); tIdx++) {
+    vector<vector<IdCount>> node2Idc = obsCounts(forest, sampler, leaf, tIdx);
+    weighNode(forest, &finalIdx[tIdx], node2Idc, obsWeight);
   }
 
-  return weightPredictions(sampler, obsCount);
+  return normalizeWeight(obsWeight);
 }
 
 
-vector<vector<double>> Predict::weightPredictions(const Sampler* sampler,
-						  const vector<vector<IndexT>>& obsCount) {
+vector<vector<IdCount>> Predict::obsCounts(const Forest* forest,
+					   const Sampler* sampler,
+					   const Leaf* leaf,
+					   unsigned int tIdx) {
+  const vector<DecNode>& decNode = forest->getNode(tIdx);
+  const vector<IdCount> idCount = sampler->unpack(tIdx);
+  const vector<vector<size_t>>& indices = leaf->getIndices(tIdx);
+  IndexT nodeIdx = 0;
+  vector<vector<IdCount>> node2Idc(decNode.size());
+  for (const DecNode& node : decNode) {
+    IndexT leafIdx;
+    if (node.getLeafIdx(leafIdx)) {
+      for (size_t sIdx : indices[leafIdx]) {
+	node2Idc[nodeIdx].emplace_back(idCount[sIdx]);
+      }
+    }
+    nodeIdx++;
+  }
 
-  // For each observation, weight = obsCount / sum(obsCount);
-  vector<vector<double>> weight(obsCount.size());
+  return node2Idc;
+}
+
+
+void Predict::weighNode(const Forest* forest,
+			const double treeIdx[],
+			const vector<vector<IdCount>>& nodeCount,
+			vector<vector<double>>& obsWeight) {
+  IndexT noNode = forest->noNode(); // Excludes bagged observations.
+  size_t finalPosition = 0; // Position of final indices for tree.
+  for (vector<double>& nodeWeight : obsWeight) {
+    IndexT nodeIdx = treeIdx[finalPosition];
+    if (nodeIdx != noNode) {
+      IndexT sampleCount = 0;
+      for (const IdCount &idc : nodeCount[nodeIdx]) {
+	sampleCount += idc.sCount;
+      }
+
+      double recipSCount = 1.0 / sampleCount;
+      for (const IdCount& idc : nodeCount[nodeIdx]) {
+	nodeWeight[idc.id] += idc.sCount * recipSCount;
+      }
+    }
+    finalPosition += forest->getNTree();
+  }
+}
+
+
+vector<vector<double>> Predict::normalizeWeight(const vector<vector<double>>& obsWeight) {
+  vector<vector<double>> weight(obsWeight.size());
   size_t idxPredict = 0;
-  for (const vector<IndexT>& obsC : obsCount) {
-    size_t obsSum = accumulate(obsC.begin(), obsC.end(), 0);
-    double obsRecip = 1.0 / obsSum;
-    weight[idxPredict] = vector<double>(sampler->getNObs());
-    transform(obsC.begin(), obsC.end(), weight[idxPredict].begin(),
-                   [&obsRecip](IndexT element) { return element * obsRecip; });
+  for (const vector<double>& obsW : obsWeight) {
+    double weightRecip = 1.0 / accumulate(obsW.begin(), obsW.end(), 0.0);
+    weight[idxPredict] = vector<double>(obsW.size());
+    transform(obsW.begin(), obsW.end(), weight[idxPredict].begin(),
+                   [&weightRecip](double element) { return element * weightRecip; });
     idxPredict++;
   }
   return weight;
