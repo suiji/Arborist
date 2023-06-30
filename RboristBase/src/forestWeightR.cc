@@ -47,7 +47,7 @@ RcppExport SEXP forestWeightRcpp(const SEXP sTrain,
     Rcout << "Entering weighting" << endl;
 
   List lPredict(sPredict);
-  List summary = ForestWeightR::forestWeight(List(sTrain), List(sSampler), as<NumericMatrix>(lPredict["indices"]), List(sArgs));
+  NumericMatrix summary(ForestWeightR::forestWeight(List(sTrain), List(sSampler), as<NumericMatrix>(lPredict["indices"]), List(sArgs)));
 
   if (verbose)
     Rcout << "Weighting completed" << endl;
@@ -57,20 +57,22 @@ RcppExport SEXP forestWeightRcpp(const SEXP sTrain,
 }
 
 
-List ForestWeightR::forestWeight(const List& lTrain,
-			      const List& lSampler,
-			      const NumericMatrix& indices,
-			      const List& lArgs) {
+NumericMatrix ForestWeightR::forestWeight(const List& lTrain,
+				 const List& lSampler,
+				 const NumericMatrix& indices,
+				 const List& lArgs) {
   BEGIN_RCPP
 
   SamplerBridge samplerBridge(SamplerR::unwrapGeneric(lSampler));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
-  return List::create(_["weight"] = PredictBridge::forestWeight(ForestRf::unwrap(lTrain),
-								  samplerBridge,
-								  leafBridge,
-								  indices.begin(),
-								  indices.nrow(),
-								  as<unsigned int>(lArgs["nThread"])));
+  return transpose(NumericMatrix(SamplerR::countObservations(lSampler),
+				 indices.nrow(),
+				 PredictBridge::forestWeight(ForestRf::unwrap(lTrain),
+							     samplerBridge,
+							     leafBridge,
+							     indices.begin(),
+							     indices.nrow(),
+							     as<unsigned int>(lArgs["nThread"])).begin()));
   
   END_RCPP
 }

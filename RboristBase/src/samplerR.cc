@@ -71,6 +71,12 @@ List SamplerR::rootSample(const SEXP sY,
 }
 
 
+size_t SamplerR::countObservations(const List& lSampler) {
+  return getNObs(lSampler[strYTrain]);
+}
+
+
+
 size_t SamplerR::getNObs(const SEXP& sY) {
   return Rf_isFactor(sY) ? as<IntegerVector>(sY).length() : as<NumericVector>(sY).length();
 }

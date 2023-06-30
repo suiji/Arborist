@@ -18,13 +18,13 @@
 /**
    @file weightingR.h
 
-   @brief C++ interface to R entry for forest weightings.
+   @brief C++ interface to R entry for Meinhausen's (2006) weights.
 
    @author Mark Seligman
  */
 
-#ifndef CORE_WEIGHTING_R_H
-#define CORE_WEIGHTING_R_H
+#ifndef RBORIST_BASE_FORESTWEIGHT_R_H
+#define RBORIST_BASE_FORESTWEIGHT_R_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -37,13 +37,17 @@ RcppExport SEXP forestWeightRcpp(const SEXP sTrain,
 				 const SEXP sPredict,
 				 const SEXP sArgs);
 
+
 struct ForestWeightR {
   /**
-     @brief Meinshausen's (2006) forest weight.
+     @brief Meinshausen's forest weights for multiple predictions.
+
+     @return matrix with rows of per-observation weights.
    */
-  static List forestWeight(const List& lTrain,
-			   const List& lSampler,
-			   const NumericMatrix& indices,
-			   const List& lArgs);
-  };
+  static NumericMatrix forestWeight(const List& lTrain,
+				    const List& lSampler,
+				    const NumericMatrix& indices,
+				    const List& lArgs);
+};
+
 #endif

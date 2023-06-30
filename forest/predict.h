@@ -391,7 +391,7 @@ public:
      
      @return prediction-wide vector of response weights.
    */
-  static vector<vector<double>> forestWeight(const class Forest* forest,
+  static vector<double> forestWeight(const class Forest* forest,
 					     const class Sampler* sampler,
 					     const class Leaf* leaf,
 					     size_t nPredict,
@@ -416,7 +416,8 @@ public:
 
      @return vector of normalized weight vectors.
    */
-  static vector<vector<double>> normalizeWeight(const vector<vector<double>>& obsWeight);
+  static vector<double> normalizeWeight(const class Sampler* sampler,
+					const vector<vector<double>>& obsWeight);
 };
 
 

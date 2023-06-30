@@ -437,7 +437,7 @@ void CtgProb::dump() const {
 }
 
 
-vector<vector<double>> Predict::forestWeight(const Forest* forest,
+vector<double> Predict::forestWeight(const Forest* forest,
 					     const Sampler* sampler,
 					     const Leaf* leaf,
 					     size_t nPredict,
@@ -453,7 +453,7 @@ vector<vector<double>> Predict::forestWeight(const Forest* forest,
     weighNode(forest, &finalIdx[tIdx], node2Idc, obsWeight);
   }
 
-  return normalizeWeight(obsWeight);
+  return normalizeWeight(sampler, obsWeight);
 }
 
 
@@ -504,13 +504,17 @@ void Predict::weighNode(const Forest* forest,
 }
 
 
-vector<vector<double>> Predict::normalizeWeight(const vector<vector<double>>& obsWeight) {
-  vector<vector<double>> weight(obsWeight.size());
+vector<double> Predict::normalizeWeight(const Sampler* sampler,
+					const vector<vector<double>>& obsWeight) {
+  size_t nObs = sampler->getNObs();
+  //  vector<vector<double>> weight(obsWeight.size());
+  vector<double> weight(obsWeight.size() * nObs);
   size_t idxPredict = 0;
   for (const vector<double>& obsW : obsWeight) {
     double weightRecip = 1.0 / accumulate(obsW.begin(), obsW.end(), 0.0);
-    weight[idxPredict] = vector<double>(obsW.size());
-    transform(obsW.begin(), obsW.end(), weight[idxPredict].begin(),
+    //weight[idxPredict] = vector<double>(obsW.size());
+    // write to weight + idxPredict * nObs
+    transform(obsW.begin(), obsW.end(), &weight[idxPredict * nObs],//weight[idxPredict].begin(),
                    [&weightRecip](double element) { return element * weightRecip; });
     idxPredict++;
   }

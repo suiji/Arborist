@@ -119,10 +119,11 @@ bool PredictBridge::permutes() const {
 }
 
 
-// TODO:  avoid necessity to clone these two:
 const vector<size_t>& PredictCtgBridge::getIndices() const {
   return predictCtgCore->getIndices();
 }
+
+
 const vector<size_t>& PredictRegBridge::getIndices() const {
   return predictRegCore->getIndices();
 }
@@ -219,11 +220,11 @@ const vector<double> PredictRegBridge::getQEst() const {
 }
 
 
-vector<vector<double>> PredictBridge::forestWeight(const ForestBridge& forestBridge,
-						     const SamplerBridge& samplerBridge,
-						     const LeafBridge& leafBridge,
-						     const double indices[],
-						     size_t nObs,
-						     unsigned int nThread) {
+vector<double> PredictBridge::forestWeight(const ForestBridge& forestBridge,
+						   const SamplerBridge& samplerBridge,
+						   const LeafBridge& leafBridge,
+						   const double indices[],
+						   size_t nObs,
+						   unsigned int nThread) {
   return Predict::forestWeight(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), nObs, indices, nThread);
 }

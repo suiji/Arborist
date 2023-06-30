@@ -65,6 +65,12 @@ struct SamplerR {
    */
   static size_t getNObs(const SEXP& sY);
 
+
+  /**
+     @brief As above, but with sampler parameter.
+   */
+  static size_t countObservations(const List& lSampler);
+
   
   /**
      @brief Invokes bridge sampler per tree.

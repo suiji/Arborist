@@ -66,7 +66,7 @@ struct PredictBridge {
      
      @return vector of normalized weight vectors.
    */
-  static vector<vector<double>> forestWeight(const ForestBridge& forestBridge,
+  static vector<double> forestWeight(const ForestBridge& forestBridge,
 					     const SamplerBridge& samplerBridge,
 					     const LeafBridge& leafBridge,
 					     const double indices[],
