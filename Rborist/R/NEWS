@@ -79,7 +79,7 @@ Changes in 0.3-0:
 
 * Prediction and validation introduce permutation testing.
 
-* Missing values accepted for training, validation and prediction.
+* Missing predictor values accepted for training, validation and prediction.
 
 * Option 'trapUnobserved' allows validation and prediction to report
   a nonterminal score upon ecountering missing data or values not
@@ -92,10 +92,16 @@ Changes in 0.3-0:
   not been well tested.
 
 
-Changes in 0.3-4:
+Changes in 0.3-3:
 
 * Option 'indexing' indicates whether to report final indices of tree
   traversal during prediction and validation.
 
 * Introduces 'forestWeight' utility to report prediction weights as
   described by Meinshausen, 2006.
+
+* Option 'keyedFrame' indicates whether predictor columns in a "new"
+  data frame submitted to prediction need may be unordered.  That
+  is, column names may be looked up and matched with their counterparts
+  from the original training frame.  Among other advantages, this
+  allows the prediction frame to be a superset of the training frame.

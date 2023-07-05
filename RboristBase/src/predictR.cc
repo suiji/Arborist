@@ -32,7 +32,7 @@
 #include "samplerbridge.h"
 #include "leafbridge.h"
 #include "rleframeR.h"
-#include "signature.h"
+#include "signatureR.h"
 
 #include <memory>
 #include <algorithm>
@@ -167,7 +167,7 @@ List PBRf::summary(const List& lDeframe, SEXP sYTest, const PredictRegBridge& pB
     summaryReg = List::create(
 			      _["prediction"] = getPrediction(pBridge),
 			      _["validation"] = getValidation(pBridge, NumericVector((SEXP)sYTest)),
-			      _["importance"] = getImportance(pBridge, NumericVector((SEXP) sYTest), Signature::unwrapColNames(lDeframe))
+			      _["importance"] = getImportance(pBridge, NumericVector((SEXP) sYTest), SignatureR::unwrapColNames(lDeframe))
 			      );
   }
   summaryReg.attr("class") = "SummaryReg";
@@ -342,7 +342,7 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lSampler, const Predic
 
   IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
   CharacterVector levelsTrain(as<CharacterVector>(yTrain.attr("levels")));
-  CharacterVector ctgNames(Signature::unwrapRowNames(lDeframe));
+  CharacterVector ctgNames(SignatureR::unwrapRowNames(lDeframe));
 
   List summaryCtg;
   if (Rf_isNull(sYTest)) {
@@ -362,7 +362,7 @@ List LeafCtgRf::summary(const List& lDeframe, const List& lSampler, const Predic
       summaryCtg = List::create(
 			      _["prediction"] = getPrediction(pBridge, levelsTrain, ctgNames),
 			      _["validation"] = testCtg.getValidation(pBridge),
-			      _["importance"] = testCtg.getImportance(pBridge, Signature::unwrapColNames(lDeframe))
+			      _["importance"] = testCtg.getImportance(pBridge, SignatureR::unwrapColNames(lDeframe))
 			      );
     }
   }

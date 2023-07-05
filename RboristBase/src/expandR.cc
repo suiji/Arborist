@@ -1,6 +1,6 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of RboristBase.
 //
 // rfR is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #include "leafR.h"
 #include "samplerR.h"
 #include "forestR.h"
-#include "signature.h"
+#include "signatureR.h"
 
 #include <vector>
 

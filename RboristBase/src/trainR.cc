@@ -34,16 +34,7 @@
 bool TrainR::verbose = false;
 
 
-RcppExport SEXP rfTrain(const SEXP sDeframe, const SEXP sSampler, const SEXP sArgList) {
-  BEGIN_RCPP
-
-  return TrainR::train(List(sDeframe), List(sSampler), List(sArgList));
-
-  END_RCPP
-}
-
-
-List TrainR::train(const List& lDeframe, const List& lSampler, const List& argList) {
+List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& argList) {
   BEGIN_RCPP
 
   if (verbose) {
@@ -56,7 +47,7 @@ List TrainR::train(const List& lDeframe, const List& lSampler, const List& argLi
 
   TrainR trainR(lSampler, argList);
   trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
-  List outList = trainR.summarize(trainBridge, diag);
+  List outList = trainR.summarize(trainBridge, lSampler, diag);
 
   if (verbose) {
     Rcout << "Training completed" << endl;
@@ -95,15 +86,21 @@ void TrainR::consumeInfo(const TrainedChunk* train) {
 
 
 List TrainR::summarize(const TrainBridge& trainBridge,
-			const vector<string>& diag) {
+		       const List& lSampler,
+		       const vector<string>& diag) {
   BEGIN_RCPP
-  return List::create(
+  List trainArb = List::create(
                       _["predInfo"] = scaleInfo(trainBridge),
                       _["diag"] = diag,
                       _["forest"] = std::move(forest.wrap()),
 		      _["predMap"] = std::move(trainBridge.getPredMap()),
-		      _["leaf"] = std::move(leaf.wrap())
+		      _["leaf"] = std::move(leaf.wrap()),
+		      _["samplerHash"] = lSampler["hash"]
                       );
+  trainArb.attr("class") = "trainArb";
+
+  return trainArb;
+
   END_RCPP
 }
 

@@ -48,8 +48,8 @@ struct SamplerR {
   static const string strYTrain;
   static const string strNSamp;
   static const string strNTree;
-  static const string strSamples; // Output field name of sample.
-
+  static const string strSamples; ///< Output field name of sample.
+  static const string strHash; ///< Post-sampling hash.
 
   static List rootSample(const SEXP sY,
 			 const SEXP sNSamp,

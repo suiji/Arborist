@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -24,13 +24,15 @@
 */
 
 #include "rleframeR.h"
+#include "signatureR.h"
 
 
-List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
+List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel, const CharacterVector& predClass) {
   BEGIN_RCPP
 
   IntegerMatrix factorRemap;
   if (!Rf_isNull(sSigTrain)) {
+    SignatureR::checkTypes(List(sSigTrain), predClass);
     factorRemap = factorReconcile(df, List(sSigTrain), List(sLevel));
   }
 
@@ -65,6 +67,16 @@ List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
 }
 
 
+bool RLEFrameR::checkKeyable(const DataFrame& df,
+			     const List& sigTrain) {
+  BEGIN_RCPP
+
+  return false;
+
+  END_RCPP
+}
+
+
 IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
 					 const List& lSigTrain,
 					 const List& levelTest) {
@@ -86,16 +98,16 @@ IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
 
 
 IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
-					 const CharacterVector& colTest,
-					 const CharacterVector& colTrain) {
+					 const CharacterVector& levelsTest,
+					 const CharacterVector& levelsTrain) {
   BEGIN_RCPP
     
-  if (is_true(any(colTest != colTrain))) {
-    IntegerVector colMatch(match(colTest, colTrain));
+  if (is_true(any(levelsTest != levelsTrain))) {
+    IntegerVector colMatch(match(levelsTest, levelsTrain));
     // Rcpp match() implementation does not suppport 'na' subsititute.
     if (is_true(any(is_na(colMatch)))) {
       warning("Test data contains labels absent from training:  employing proxy factor");
-      colMatch = ifelse(is_na(colMatch), static_cast<int>(colTrain.length()) + 1, colMatch);
+      colMatch = ifelse(is_na(colMatch), static_cast<int>(levelsTrain.length()) + 1, colMatch);
     }
 
     // N.B.:  Rcpp::match() indices are one-based.

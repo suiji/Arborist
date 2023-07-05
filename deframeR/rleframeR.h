@@ -43,7 +43,6 @@ using namespace std;
    @brief Methods for caching and consuming RLE frame representation.
  */
 struct RLEFrameR {
-
   /**
      @brief Checks that front end provides valid RankedFrame representation.
 
@@ -65,6 +64,15 @@ struct RLEFrameR {
 
 
   /**
+     @brief  Checks whether a frame supports keyed access.
+
+     @return true iff training column names match uniquely.
+   */
+  static bool checkKeyable(const DataFrame& df,
+			   const List& sigTrain);
+
+
+  /**
      @brief Sorts data frame in blocks of like type.
 
      @param df is the data frame.
@@ -72,10 +80,14 @@ struct RLEFrameR {
      @param lSigTrain is a training signature, possibly null.
 
      @param lLevel are factor levels, if any.
+
+     @param predClass are the type name strings, per predictor.
    */
   static List presortDF(const DataFrame& df,
 		        SEXP sSigTrain,
-			SEXP sLevel);
+			SEXP sLevel,
+			const CharacterVector& predClass);
+
 
   /**
      @brief Maps factor encodings of current observation set to those of training.

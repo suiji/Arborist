@@ -1,8 +1,8 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of rf
+// This file is part of Rborist
 //
-// rf is free software: you can redistribute it and/or modify it
+// Rborist is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
@@ -23,8 +23,8 @@
    @author Mark Seligman
  */
 
-#ifndef RF_TRAIN_R_H
-#define RF_TRAIN_R_H
+#ifndef RBORISTBASE_TRAIN_R_H
+#define RBORISTBASE_TRAIN_R_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -37,13 +37,6 @@ using namespace std;
 #include "leafR.h"
 #include "forestR.h"
 #include "samplerbridge.h"
-
-/**
-   @brief Main training entry from front end.
- */
-RcppExport SEXP rfTrain(const SEXP sRLEFrame,
-			const SEXP sSampler,
-			const SEXP sArgList);
 
 
 struct TrainR {
@@ -92,15 +85,15 @@ struct TrainR {
 
 
   /**
-     @brief Static entry into training.
+     @brief Static entry into training of independent trees.
 
      @param argList is the user-supplied argument list.
 
      @return R-style list of trained summaries.
    */
-  static List train(const List& lRLEFrame,
-		    const List& lSampler,
-		    const List& argList);
+  static List trainInd(const List& lRLEFrame,
+		       const List& lSampler,
+		       const List& argList);
 
 
   /**
@@ -130,7 +123,8 @@ struct TrainR {
      @return the summary.
    */
   List summarize(const TrainBridge& trainBridge,
-		 const vector<string>& diag);// const;
+		 const List& lSampler,
+		 const vector<string>& diag);
 
   
 private:

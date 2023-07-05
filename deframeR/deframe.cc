@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -23,7 +23,7 @@
    @author Mark Seligman
 */
 
-#include "signature.h"
+#include "signatureR.h"
 #include "deframe.h"
 #include "block.h"
 #include "rleframeR.h"
@@ -31,42 +31,23 @@
 #include<memory>
 
 RcppExport SEXP deframeDF(SEXP sDf,
-			  SEXP sPredForm,
+			  SEXP sPredClass,
                           SEXP sLevel,
 			  SEXP sFactor,
 			  SEXP sSigTrain) {
   BEGIN_RCPP
 
-  if (!Rf_isNull(sSigTrain)) {
-    checkFrame(List(sSigTrain), CharacterVector(sPredForm));
-  }
-
   DataFrame df(sDf);
   List deframe = List::create(
-			      _["rleFrame"] = RLEFrameR::presortDF(df, sSigTrain, sLevel),
+			      _["rleFrame"] = RLEFrameR::presortDF(df, sSigTrain, sLevel, as<CharacterVector>(sPredClass)),
 			      _["nRow"] = df.nrow(),
-			      _["signature"] = Signature::wrap(df.length(),
-							       CharacterVector(sPredForm),
-							       List(sLevel),
-							       List(sFactor),
-							       Rf_isNull(df.names()) ? CharacterVector(0) : df.names(),
-							       Rf_isNull(rownames(df)) ? CharacterVector(0) : rownames(df))
+			      _["signature"] = SignatureR::wrapDF(df,
+								  as<CharacterVector>(sPredClass),
+								  List(sLevel),
+								  List(sFactor))
 			      );
   deframe.attr("class") = "Deframe";
   return deframe;
-
-  END_RCPP
-}
-
-
-SEXP checkFrame(const List& lSigTrain,
-		const CharacterVector& predForm) {
-  BEGIN_RCPP
-    
-  CharacterVector formTrain(as<CharacterVector>(lSigTrain["predForm"]));
-  if (!is_true(all(predForm == formTrain))) {
-    stop("Training, prediction data types do not match");
-  }
 
   END_RCPP
 }
@@ -77,10 +58,7 @@ RcppExport SEXP deframeFac(SEXP sX) {
   List deframe = List::create(
 			      _["rleFrame"] = RLEFrameR::presortFac(blockFac),
 			      _["nRow"] = blockFac.nrow(),
-			      _["signature"] = Signature::wrapFac(blockFac.ncol(),
-								  Rf_isNull(colnames(blockFac)) ? CharacterVector(0) : colnames(blockFac),
-
-								  Rf_isNull(rownames(blockFac)) ? CharacterVector(0) : rownames(blockFac))
+			      _["signature"] = SignatureR::wrapFactor(blockFac)
 			      );
 
   deframe.attr("class") = "Deframe";
@@ -93,10 +71,7 @@ RcppExport SEXP deframeNum(SEXP sX) {
   List deframe = List::create(
 			      _["rleFrame"] = RLEFrameR::presortNum(blockNum),
 			      _["nRow"] = blockNum.nrow(),
-			      _["signature"] = Signature::wrapNum(blockNum.ncol(),
-								  Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
-
-								  Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum))
+			      _["signature"] = SignatureR::wrapNumeric(blockNum)
 			      );
 
   deframe.attr("class") = "Deframe";
@@ -173,7 +148,7 @@ RcppExport SEXP deframeIP(SEXP sX) {
   List deframe = List::create(
 			      _["rleFrame"] = RLEFrameR::presortIP(blockIPCresc.get(), nRow, nPred),
 			      _["nRow"] = nRow,
-			      _["signature"] = Signature::wrapNum(nPred, colName, rowName));
+			      _["signature"] = SignatureR::wrapSparse(nPred, false, colName, rowName));
   deframe.attr("class") = "Deframe";
   return deframe;
 

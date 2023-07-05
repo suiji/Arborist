@@ -35,6 +35,7 @@ const string SamplerR::strYTrain = "yTrain";
 const string SamplerR::strNSamp = "nSamp";
 const string SamplerR::strNTree = "nTree";
 const string SamplerR::strSamples = "samples";
+const string SamplerR::strHash = "hash";
 
 
 RcppExport SEXP rootSample(const SEXP sY,
@@ -121,13 +122,23 @@ IntegerVector SamplerR::sampleReplace(NumericVector& weight,
 List SamplerR::wrap(const SamplerBridge& bridge,
 		    const SEXP& sY) {
   BEGIN_RCPP
+
+  List sampler;
   // Caches the front end's response vector as is.
   if (Rf_isFactor(sY)) {
-    return wrap(bridge, as<IntegerVector>(sY));
+    sampler = wrap(bridge, as<IntegerVector>(sY));
   }
   else {
-    return wrap(bridge, as<NumericVector>(sY));
+    sampler = wrap(bridge, as<NumericVector>(sY));
   }
+
+  Environment digestEnv = Environment::namespace_env("digest");
+  Function digestFun = digestEnv["digest"];
+  sampler[strHash] = digestFun(sampler, "md5");
+  sampler.attr("class") = "Sampler";
+
+  return sampler;
+
   END_RCPP
 }
 
@@ -139,9 +150,9 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
-			      _[strNTree] = bridge.getNTree()
+			      _[strNTree] = bridge.getNTree(),
+			      _[strHash] = 0
 			);
-  sampler.attr("class") = "Sampler";
 
   return sampler;
   END_RCPP
@@ -162,9 +173,10 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
-			      _[strNTree] = bridge.getNTree()
+			      _[strNTree] = bridge.getNTree(),
+			      _[strHash] = 0
 			);
-  sampler.attr("class") = "Sampler";
+
   return sampler;
   END_RCPP
 }

@@ -1,13 +1,13 @@
-# Copyright (C)  2012-2022   Mark Seligman
+# Copyright (C)  2012-2023   Mark Seligman
 ##
-## This file is part of ArboristR.
+## This file is part of RboristBase.
 ##
-## ArboristR is free software: you can redistribute it and/or modify it
+## RboristBase is free software: you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 2 of the License, or
 ## (at your option) any later version.
 ##
-## ArboristR is distributed in the hope that it will be useful, but
+## RboristBase is distributed in the hope that it will be useful, but
 ## WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
@@ -17,11 +17,17 @@
 #
 #
 
-presample <- function(y,
-                      rowWeight = NULL,
-                      nSamp = 0,
-                      nTree = 500,
-                      withRepl = TRUE) {
+presample <- function(y, ...) UseMethod("presample")
+
+
+presample.default <- function(y,
+                              rowWeight = NULL,
+                              nSamp = 0,
+                              nTree = 500,
+                              withRepl = TRUE) {
+    if (nTree <= 0)
+        stop("Tree count must be positive")
+
     nRow <- length(y)
 
     if (nSamp == 0) {

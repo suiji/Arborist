@@ -16,7 +16,7 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file trainRb.cc
+   @file trainRf.cc
 
    @brief C++ interface to R training entry for Rborist package.
 
@@ -56,6 +56,15 @@ SEXP TrainR::initFromArgs(const List& argList,
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
     trainBridge.initMono(regMono);
   }
+
+  END_RCPP
+}
+
+
+RcppExport SEXP trainRF(const SEXP sDeframe, const SEXP sSampler, const SEXP sArgList) {
+  BEGIN_RCPP
+
+  return TrainR::trainInd(List(sDeframe), List(sSampler), List(sArgList));
 
   END_RCPP
 }

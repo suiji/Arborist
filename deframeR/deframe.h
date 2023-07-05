@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022  Mark Seligman
+// Copyright (C)  2012-2023  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -36,23 +36,21 @@ using namespace Rcpp;
 /**
   @brief Wraps frame components supplied by front end.
 
-  @param sXNum is a (possibly empty numeric matrix.
+  @param sX is a data frame.
 
-  @param sXFac is a (posibly empty) zero-based integer matrix.
+  @param sLevels holds level strings, by predictor.
 
-  @param sLevels contain the level strings of core-indexed factor predictors.
+  @param sFactor holds factor values, by predictor,
+
+  @param sSigTrain is the training signature, if any.
 
   @return wrapped frame containing separately-typed matrices.
 */
 RcppExport SEXP deframeDF(SEXP sX,
-			  SEXP sPredForm,
+			  SEXP sIsFactor,
                           SEXP sLevels,
 			  SEXP sFactor,
 			  SEXP sSigTrain);
-
-
-SEXP checkFrame(const List& lSigTrain,
-		const CharacterVector& predForm);
 
 
 /**
@@ -71,6 +69,9 @@ RcppExport SEXP deframeFac(SEXP sX);
 RcppExport SEXP deframeNum(SEXP sX);
 
 
+/**
+   @brief Encodes a sparse matrix compressed using 'I', 'P' indices.
+ */
 RcppExport SEXP deframeIP(SEXP sX);
 
 #endif

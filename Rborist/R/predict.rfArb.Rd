@@ -9,9 +9,10 @@
 }
 
 \usage{
-\method{predict}{rfArb}(object, newdata, yTest=NULL, quantVec=NULL,
-quantiles = !is.null(quantVec), ctgCensus = "votes", indexing = FALSE,
-trapUnobserved = FALSE, bagging = FALSE, nThread = 0, verbose = FALSE, ...)
+\method{predict}{rfArb}(object, newdata, yTest=NULL,
+keyedFrame = FALSE, quantVec=NULL, quantiles = !is.null(quantVec),
+ctgCensus = "votes", indexing = FALSE, trapUnobserved = FALSE,
+bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
@@ -21,6 +22,7 @@ trapUnobserved = FALSE, bagging = FALSE, nThread = 0, verbose = FALSE, ...)
     of predictors as in the training command.}
   \item{yTest}{if specfied, a response vector against which to test the new
     predictions.}
+  \item{keyedFrame}{whether data columns may appear in arbitrary order during subsequent uses of the frame.}
   \item{quantVec}{a vector of quantiles to predict.}
   \item{quantiles}{whether to predict quantiles.}
   \item{ctgCensus}{whether/how to summarize per-category predictions.

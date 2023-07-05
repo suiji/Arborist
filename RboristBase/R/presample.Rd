@@ -2,6 +2,8 @@
 % Part of the Rborist package
 
 \name{prsample}
+\alias{presample}
+\alias{presample.default}
 \concept{bagging}
 \title{Forest-wide observation sampling}
 \description{

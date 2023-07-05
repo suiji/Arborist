@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2022  Mark Seligman
+// Copyright (C)  2012-2023  Mark Seligman
 //
 // This file is part of deframeR.
 //
@@ -16,7 +16,7 @@
 // along with deframeR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file signature.h
+   @file signatureR.h
 
    @brief C++ class definitions for managing flat data frames.
 
@@ -25,15 +25,40 @@
  */
 
 
-#ifndef DEFRAMER_SIGNATURE_H
-#define DEFRAMER_SIGNATURE_H
+#ifndef DEFRAMER_SIGNATURE_R_H
+#define DEFRAMER_SIGNATURE_R_H
 
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
-struct Signature {
+using namespace std;
 
+
+/**
+   @return reconciled predictor ordering.
+ */
+RcppExport SEXP signatureOrder(const SEXP sDF,
+			       const SEXP sSigTrain,
+			       const SEXP sKeyed);
+
+
+/**
+   @brief R-language encapsulation of a frame signature.
+
+   Signatures contains front-end annotations not exposed to core.
+   Column and row names stubbed to zero-length vectors if null.
+ */
+struct SignatureR {
+  static const string strNPred; ///< # predictors.
+  static const string strColName;
+  static const string strRowName;
+  static const string strPredLevel; ///< Per-predictor levels.
+  static const string strPredFactor; ///< Per-predictor realized levels.
+  static const string strPredType; ///< Per-predictor type name.
+  static const string strFactorType; ///< What R calls factor types.
+  static const string strNumericType; ///< What R calls numeric types.
+  
   /**
      @brief Derives or creates vector of row names for frame.
 
@@ -51,11 +76,27 @@ struct Signature {
 
 
   /**
+
+     @brief Checks whether new frame coforms to training frame.
+  */
+  static SEXP checkTypes(const List& lSigTrain,
+			 const CharacterVector& predClass);
+
+
+  /**
      @brief Ensures the passed object has Frame type.
 
      @param frame is the object to be checked.
    */
   static SEXP checkFrame(const List& frame);
+
+
+  /**
+     @brief Checks whether signature supports keyed access.
+
+     @return true iff column names unique and non-null.
+   */
+  static bool checkKeyable(const List& sigTrain);
 
 
   /**
@@ -65,9 +106,9 @@ struct Signature {
 
      @return signature object. 
    */
-
-
   static SEXP checkSignature(const List& sParent);
+
+
   /**
      @brief Unwraps level field.
 
@@ -90,33 +131,41 @@ struct Signature {
 
   /**
      @brief Provides a signature for a factor-valued matrix.
-
-     @param nPred is the number of predictors (columns).
-
-     @param colNames are the column names.
-
-     @param rowNames are the row names.
    */
-  static List wrapFac(unsigned int nPred,
-		      const CharacterVector& colNames,
-		      const CharacterVector& rowNames);
-  
+  static List wrapFactor(const IntegerMatrix& blockFac);
+
+
   /**
      @brief Provides a signature for a numeric matrix.
-
-     Parameters as above.
    */
-  static List wrapNum(unsigned int nPred,
-		      const CharacterVector& colNames,
-		      const CharacterVector& rowNames);
-  
+  static List wrapNumeric(const NumericMatrix& blockNum);
 
-  static List wrap(unsigned int nPred,
-		   const CharacterVector& predForm,
-		   const List& level,
-		   const List& factor,
-		   const CharacterVector& colNames,
-		   const CharacterVector& rowNames);
+
+  /**
+     @brief Provides a signature for a sparse matrix.
+
+     @param isFactor is true iff the matrix values are categorical.
+   */
+  static List wrapSparse(unsigned int nPred,
+			 bool isFactor,
+			 const CharacterVector& colNames,
+			 const CharacterVector& rowNames);
+
+  /**
+     @brief Provides a signature for a mixed data frame.
+   */
+  static List wrapMixed(unsigned int nPred,
+			const CharacterVector& predClass,
+			const List& level,
+			const List& factor,
+			const CharacterVector& colNames,
+			const CharacterVector& rowNames);
+
+
+  static List wrapDF(const DataFrame& df,
+		     const CharacterVector& predClass,
+		     const List& lLevel,
+		     const List& lFactor);
 };
 
 

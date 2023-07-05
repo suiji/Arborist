@@ -18,6 +18,7 @@
 "predict.rfArb" <- function(object,
                             newdata,
                             yTest=NULL,
+                            keyedFrame = FALSE,
                             quantVec = NULL,
                             quantiles = !is.null(quantVec),
                             ctgCensus = "votes",
@@ -27,7 +28,7 @@
                             nThread = 0,
                             verbose = FALSE,
                               ...) {
-  if (!inherits(object, "rfArb"))
+  if (!inherits(object, "rfArb")) # Extend to include rfTrain
     stop("object not of class rfArb")
   forest <- object$forest
   if (is.null(forest))
@@ -53,7 +54,7 @@
       trapUnobserved = trapUnobserved,
       nThread = nThread,
       verbose = verbose)
-  summaryPredict <- predictCommon(object, object$sampler, newdata, yTest, argPredict)
+  summaryPredict <- predictCommon(object, object$sampler, newdata, yTest, keyedFrame, argPredict)
 
   if (!is.null(yTest)) { # Validation (test) included.
       c(summaryPredict$prediction, summaryPredict$validation)
@@ -98,7 +99,7 @@ getQuantiles <- function(quantiles, sampler, quantVec) {
 
 
 # Glue-layer entry for prediction.
-predictCommon <- function(objTrain, sampler, newdata, yTest, argList) {
-    deframeNew <- deframe(newdata, objTrain$signature)
+predictCommon <- function(objTrain, sampler, newdata, yTest, keyedFrame, argList) {
+    deframeNew <- deframe(newdata, objTrain$signature, keyedFrame)
     tryCatch(.Call("predictRcpp", deframeNew, objTrain, sampler, yTest, argList), error = function(e) {stop(e)})
 }

@@ -7,23 +7,26 @@
 \concept{decision trees}
 \title{Preformatting for Training with Warm Starts}
 \description{
-  Presorts and formats training input into a form suitable for
-  subsequent training by \code{Rborist} command.  Saves unnecessary
-  recomputation of this form when iteratively retraining, for example
-  when training parameter sweeps.
+  Presorts and formats training frame into a form suitable for
+  subsequent training by \code{rfArb} caller or \code{rfTrain}
+  command.  Wraps this form to spare unnecessary recomputation when
+  iteratively retraining, for example, under parameter sweep.
 }
 
 
 \usage{
-\method{preformat}{default}(x, verbose=FALSE, ...)
+\method{preformat}{default}(x, keyed = FALSE, verbose=FALSE, ...)
 }
 
 \arguments{
   \item{x}{the design matrix expressed as either a \code{data.frame}
-  object with numeric and/or \code{factor} columns or as a numeric
-  matrix.}
-\item{verbose}{indicates whether to output progress of preformatting.}
-\item{...}{unused.}
+    object with numeric and/or \code{factor} columns or as a numeric
+    matrix.}
+  \item{keyed}{suggests that subsequent instances of the frame may be
+    accessed by column name, rather than fixing the column positions.}
+  \item{verbose}{indicates whether to output progress of
+    preformatting.}
+  \item{...}{unused.}
 }
 
 \value{
@@ -33,7 +36,7 @@
 
     \code{nRow}{ the number of training rows.}
 
-    \code{signature}{ a list of predictor characteristics.}
+    \code{signature}{ a list of frame characteristics.}
 }
 }
 
