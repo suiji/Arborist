@@ -24,7 +24,8 @@ presample.default <- function(y,
                               rowWeight = NULL,
                               nSamp = 0,
                               nTree = 500,
-                              withRepl = TRUE) {
+                              withRepl = TRUE,
+                              verbose = FALSE) {
     if (nTree <= 0)
         stop("Tree count must be positive")
 
@@ -55,7 +56,11 @@ presample.default <- function(y,
             stop("Insufficiently many samples with nonzero probability")
     }
 
-    presampleCommon(y, rowWeight, nSamp, nTree, withRepl)
+    ps <- presampleCommon(y, rowWeight, nSamp, nTree, withRepl)
+    if (verbose)
+        print("Sampling completed")
+
+    ps
 }
 
 

@@ -1,5 +1,5 @@
-% File man/expand.Rborist.Rd
-% Part of the rborist package
+% File man/expandfe.Rborist.Rd
+% Part of the Rborist package
 
 \name{expandfe}
 \alias{expandfe}
@@ -17,10 +17,11 @@
 }
 
 \arguments{
-  \item{arbOut}{an object of type \code{Rborist} produced by training.}
+  \item{arbOut}{an object of type \code{RfArb} produced by training.}
 }
 
-\value{An object of type \code{ExportReg} or \code{ExportCtg}.
+\value{An object of type \code{ExportReg} or \code{ExportCtg} containing
+  human-readable representations of the trained forest.
 }
 
 

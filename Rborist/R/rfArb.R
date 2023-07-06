@@ -85,7 +85,7 @@ rfArb.default <- function(x,
     }
 
     preFormat <- preformat(x, verbose)
-    sampler <- presample(y, rowWeight, nSamp, nTree, withRepl)
+    sampler <- presample(y, rowWeight, nSamp, nTree, withRepl, verbose)
     train <- rfTrain(preFormat, sampler, y,
                      autoCompress,
                      ctgCensus,
@@ -133,7 +133,7 @@ postTrain <- function(preFormat, sampler, train, summaryValidate, impPermute) {
     training = list(
         call = match.call(),
         info = predInfo,
-        version = "0.3-3",
+        version = train$version,
         diag = train$diag,
         samplerHash = train$samplerHash,
         signature = preFormat$signature

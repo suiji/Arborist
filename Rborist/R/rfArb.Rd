@@ -92,92 +92,38 @@
 
 \value{ an object of class \code{rfArb}, a list containing the
   following items:
-
-  \item{forest}{ a list containing
-    
-    \code{forestNode}{ a vector of packed structures expressing splitting
-      predictors, splitting values, successor node deltas and leaf indices.}
-
-    \code{height}{ a vector of accumulated tree heights within \code{forestNode}.}
-
-    \code{facSplit}{ a vector of splitting factor values.}
-
-    \code{facHeight}{ a vector of accumulated tree heights positions within the splitting factor values.}
+  \item{sampler}{An object of class \code{Sampler}, as described in the
+  documentation for the \code{presample} command, that summarizes the
+  bag.}
+  \item{leaf}{An object of class \code{Leaf}, as described in the
+  documentation for the command \code{rfTrain}, that summarizes the
+  terminal nodes of each tree.}
+  \item{forest}{An object of class \code{Forest}, as described in the
+  documentation for the command \code{rfTrain}, that summarizes the
+  trained decision trees.}
+  \item{predMap}{A vector of integers mapping internal to front-end
+    predictor indices.}
+  \item{signature}{An object of class \code{Signature}, as described
+  inthe documentation for the command{presample}, that summarizes the
+  training frame}
+  \item{training}{A list summarizing the training task, consisting of
+    the following fields:
+    \code{call}{The calling invocation.}
+    \code{info}{A vector of forest-wide Gini (classification) or weighted
+      variance (regression), by predictor.}
+    \code{version}{The version of the \code{Rborist} package used to train.}
+    \code{diag}{Diagnostics accumulated over the training task.}
+    \code{samplerHash}{Hash value of the \code{Sampler} object used to
+      train.  Recorded for consistency of subsequent commands.}
   }
-  a list containing either of:
-  \code{LeafReg}{ a list consisting of regression leaf data:
-      
-    \code{score}{ a vector of leaf scores.}
-
-    \code{sampler}{ a vector of packed data structures, one per
-      unique row sample, containing the row index and number of times sampled.}
-
-    \code{yTrain}{ the training response.}
-  }
-  or
-  \code{LeafCtg}{ a list consisting of classification leaf data:
-      
-    \code{score}{ a vector of leaf scores.}
-
-    \code{sampler}{ a vector of packed data structures, one per
-        unique row sample, containing the leaf index and number of times sampled.}
-      \code{weight}{ a vector of per-category probabilities, one set for
-        each sampled row.}    
-    
-      \code{levels}{ a vector of strings containing the training response levels.}
-    }
-
-  \item{bag}{ a list consisting of bagged row information:
-
-    \code{raw}{ a packed bit matrix indicating whether a given row, tree
-      pair is bagged.}
-
-    \code{nRow}{ the number of rows employed in training.}
-
-    \code{nTree}{ the number of trained trees.}
-    
-    \code{rowBytes}{ the row stride, in bytes.}
-  }
-
-  \item{training}{ a list containing information gleaned during training:
-
-    \code{call}{ a string containing the original invocation.}
-
-    \code{info}{ the information contribution of each predictor.}
-
-    \code{version}{ the version of the rfArb package.}
-
-    \code{diag}{ strings containing unspecified diagnostic notes and observations.}
-  }
-  \item{validation}{ a list containing the results of validation, if requested:
-    
-    \code{ValidReg}{ a list of validation results for regression:
-      
-      \code{yPred}{ vector containing the predicted response.}
-
-      \code{mae}{ the mean absolute error of prediction.}
-    
-      \code{mse}{ the mean-square error of prediction.}
-
-      \code{rsq}{ the r-squared statistic.}
-
-      \code{qPred}{ matrix containing the prediction quantiles, if requested.}
-    }
-    \code{ValidCtg}{ list of validation results for classification:
-      
-      \code{yPred}{ vector containing the predicted response.}
-
-      \code{misprediction}{ vector containing the classwise misprediction rates.}
-      
-      \code{confusion}{ the confusion matrix.}
-
-      \code{census}{ matrix of predictions, by category.}
-
-      \code{oobError}{ the out-of-bag error.}
-
-      \code{prob}{ matrix of prediction probabilities by category, if requested.}
-    }
-  }
+  \item{prediction}{An object of class \code{PredictReg} or
+  \code{PredictCtg}, as described by the documention for command \code{predict}.}
+  \item{validation}{An object of class \code{ValidReg} or
+  \code{ValidCtg}, as described by the documention for command
+  \code{predict}, if validation is requested.}
+  \item{importance}{An object of class \code{ImportanceReg} or
+  \code{ImportanceCtg}, as described by the documention for command
+  \code{predict}, if permutation performance has been requested.}
 }
 
 

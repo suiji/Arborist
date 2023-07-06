@@ -68,43 +68,34 @@
   \item{withRepl}{whether row sampling is by replacement.}
 }
 
-\value{ an object of class \code{rfTrain}, a list containing the
-  following items:
-
-  \item{forest}{ a list containing
-    
-    \code{forestNode}{ a vector of packed structures expressing splitting
-      predictors, splitting values, successor node deltas and leaf indices.}
-
-    \code{height}{ a vector of accumulated tree heights within \code{forestNode}.}
-
-    \code{facSplit}{ a vector of splitting factor values.}
-
-    \code{facHeight}{ a vector of accumulated tree heights positions within the splitting factor values.}
-  }
-  a list containing either of:
-  \code{LeafReg}{ a list consisting of regression leaf data:
-      
-    \code{score}{ a vector of leaf scores.}
-
-    \code{sampler}{ a vector of packed data structures, one per
-      unique row sample, containing the row index and number of times sampled.}
-
-    \code{yTrain}{ the training response.}
-  }
-  or
-  \code{LeafCtg}{ a list consisting of classification leaf data:
-      
-    \code{score}{ a vector of leaf scores.}
-
-    \code{sampler}{ a vector of packed data structures, one per
-        unique row sample, containing the leaf index and number of times sampled.}
-      \code{weight}{ a vector of per-category probabilities, one set for
-        each sampled row.}    
-    
-      \code{levels}{ a vector of strings containing the training response levels.}
+\value{an object of class \code{trainArb}, containing:
+  \item{version}{The version of the \code{Rborist} package used to train.}
+  \item{samplerHash}{Hash value of the \code{Sampler} object used to
+      train.  Recorded for consistency of subsequent commands.}
+  \item{predInfo}{A vector of forest-wide Gini (classification) or weighted
+    variance (regression), by predictor.}
+  \item{predMap}{A vector of integers mapping internal to front-end
+    predictor indices.}
+  \item{forest}{an object of class \code{Forest} containing:
+    \code{nTree}{The number of trees trained.}
+    \code{node}{An object of class \code{Node} consisting of:
+      \code{treeNode}{Forest-wide vector of packed node representations.}
+      \code{extent}{Per-tree node counts.}
+    }
+    \code{scores}{Numeric Vector of scores, per node.}
+    \code{factor}{An object of class \code{Factor} consisting of:
+      \code{facSplit}{Forest-wide vector of packed factor bits.}
+      \code{extent}{Per-tree extent of factor bits.}
+      \code{observed}{Forest-wide vector of observed factor bits.}
     }
   }
+  \code{Leaf}{an object of class \code{Leaf} containint:
+    \code{extent}{forest-wide vector of leaf populations, i.e., counts
+  of unique samples.}
+    \code{index}{forest-wide vector of sample indices.}
+  }
+  \item{diag}{Diagnostics accumulated over the training task.}
+}
 
 
 \examples{

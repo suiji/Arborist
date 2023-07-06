@@ -27,9 +27,8 @@
   \item{...}{specific to \code{rfArb}.}
 }
 
-\value{ an object of class \code{rfArb}, documented in routine of the
+\value{an object of class \code{rfArb}, as documented in command of the
   same name.}
-
 
 
 \examples{

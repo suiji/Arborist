@@ -15,17 +15,19 @@ nThread=0, verbose = FALSE, ...)
 }
 
 \arguments{
-  \item{objTrain}{an object of class \code{Rborist}, created from a
+  \item{objTrain}{an object of class \code{rfArb}, created from a
     previous invocation of the command \code{Rborist} or \code{rfArb} to train.}
-  \item{prediction}{a prediction object built with 'indexing=TRUE'.}
-  \item{sampler}{an object of class \code{Sampler}, employed during
-    training.}
+  \item{prediction}{an object of class \code{SummaryReg} or
+    \code{SummaryCtg} obtained from prediction using \code{objTrain} and
+    argument \code{indexing=TRUE}.}
+  \item{sampler}{an object of class \code{Sampler}, as documented in
+  command of the same name.}
   \item{nThread}{specifies a prefered thread count.}
   \item{verbose}{whether to output progress of weighting.}
   \item{...}{not currently used.}
 }
 
-\value{a matrix having rows equal to the Meinshausen weight of each new datum.}
+\value{a numeric matrix having rows equal to the Meinshausen weight of each new datum.}
 
 
 \examples{

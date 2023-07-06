@@ -1,5 +1,5 @@
 % File man/preformat.Rd
-% Part of the rborist package
+% Part of the Rborist package
 
 \name{preformat}
 \alias{preformat}
@@ -15,29 +15,53 @@
 
 
 \usage{
-\method{preformat}{default}(x, keyed = FALSE, verbose=FALSE, ...)
+\method{preformat}{default}(x, verbose=FALSE, ...)
 }
 
 \arguments{
   \item{x}{the design matrix expressed as either a \code{data.frame}
     object with numeric and/or \code{factor} columns or as a numeric
-    matrix.}
-  \item{keyed}{suggests that subsequent instances of the frame may be
-    accessed by column name, rather than fixing the column positions.}
+    or factor-valued matrix.}
   \item{verbose}{indicates whether to output progress of
     preformatting.}
   \item{...}{unused.}
 }
 
 \value{
-  \item{preformat}{ a list consisting of three objects:
+  \item{an object of class \code{Deframe} consisting of:
 
-    \code{rleFrame}{ a run-length encoded representation of the observations.}
+    \code{rleFrame}{run-length encoded representation of class
+      \code{RLEFrame} consisting of:
+      \code{rankedFrame}{run-length encoded representation of class
+	\code{RankedFrame} consisting of:
+	\code{nRow}{The number of observations encoded.}
+	\code{runVal}{The run-length encoded values.}
+	\code{runRow}{The corresponding row indices.}
+	\code{rleHeight}{The number of encodings, per predictor.}
+	\code{topIdx}{The accumulated end index, per predictor.}
+      }
+      \code{numRanked}{packed representation of sorted numerical values
+	of class \code{NumRanked} consisting of:
+	\code{numVal}{distinct numerical values.}
+	\code{numHeight}{value offset per predictor.}
+	}
+      \code{facRanked}{packed representation of sorted factor values
+	of class \code{FacRanked} consisting of:
+	\code{facVal}{distinct factor values, zero-based.}
+	\code{facHeight}{value offset per predictor.}
+      }
+      }
+      
+    \code{nRow}{the number of training observations.}
 
-    \code{nRow}{ the number of training rows.}
-
-    \code{signature}{ a list of frame characteristics.}
-}
+    \code{signature}{an object of type \code{Signature} consisting of:
+      \code{predForm}{Predictor class names.}
+      \code{level}{Per-predictor levels, regardless whether realized.}
+      \code{factor}{Per-predictor realized levels.}
+      \code{colNames}{Predictor names.}
+      \code{rowNames}{Observation names.}
+    }
+  }
 }
 
 

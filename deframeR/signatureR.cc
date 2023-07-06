@@ -29,31 +29,27 @@ const string SignatureR::strColName = "colNames";
 const string SignatureR::strRowName = "rowNames";
 const string SignatureR::strPredLevel = "level";
 const string SignatureR::strPredFactor = "factor";
-const string SignatureR::strNPred = "nPred";
 const string SignatureR::strPredType = "predForm";
 const string SignatureR::strFactorType = "factor";
 const string SignatureR::strNumericType = "numeric";
 
 
-RcppExport SEXP signatureOrder(const SEXP sDF,
-			       const SEXP sSigTrain,
-			       const SEXP sKeyed) {
+RcppExport SEXP columnOrder(const SEXP sDF,
+			    const SEXP sSigTrain,
+			    const SEXP sKeyed) {
   BEGIN_RCPP
 
   DataFrame df(as<DataFrame>(sDF));
   if (!Rf_isNull(sSigTrain) && as<bool>(sKeyed)) {
     List lSigTrain(sSigTrain);
-    // Checks whether original frame is keyable.
     if (SignatureR::checkKeyable(List(sSigTrain))) {
       // Matches signature columns within new frame and caches match indices.
       // Bails if any are not present, but does not search for duplicates.
-      bool keyable = true;
       IntegerVector colMatch(match(as<CharacterVector>(lSigTrain[SignatureR::strColName]), as<CharacterVector>(df.names())));
       if (is_true(any(is_na(colMatch)))) {
-	warning("Some signature names do not appear in the new frame:  keyed access supported");
-	keyable = false;
+	warning("Some signature names do not appear in the new frame:  keyed access not supported");
       }
-      if (keyable) {
+      else {
 	return wrap(colMatch);
       }
     }
@@ -113,8 +109,7 @@ List SignatureR::wrapMixed(unsigned int nPred,
   BEGIN_RCPP
 
   List signature =
-    List::create(_[strNPred] = nPred,
-		 _[strPredType] = predClass,
+    List::create(_[strPredType] = predClass,
                  _[strPredLevel] = level,
 		 _[strPredFactor] = factor,
                  _[strColName] = colNames,
@@ -149,13 +144,17 @@ bool SignatureR::checkKeyable(const List& lSignature) {
   bool keyable = true;
 
   CharacterVector nullVec(as<CharacterVector>(lSignature[strColName]).length());
-  if (!is_true(all(as<CharacterVector>(lSignature[strColName]) != nullVec))) {
+  if (Rf_isNull(lSignature[strColName])) {
     keyable = false;
-    warning("Empty column names:  keyed access not supported");
+    warning("No signature column names:  keyed access not supported");
+  }
+  else if (!is_true(all(as<CharacterVector>(lSignature[strColName]) != nullVec))) {
+    keyable = false;
+    warning("Empty signature column names:  keyed access not supported");
   }
   else if (as<CharacterVector>(lSignature[strColName]).length() != as<CharacterVector>(unique(as<CharacterVector>(lSignature[strColName]))).length()) {
     keyable = false;
-    warning("Duplicate column names:  keyed access not supported");
+    warning("Duplicate signature column names:  keyed access not supported");
   }
   
   return keyable;

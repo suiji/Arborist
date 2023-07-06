@@ -36,11 +36,19 @@ using namespace std;
 
 
 /**
-   @return reconciled predictor ordering.
+   @brief reconciles column ordering in new data.
+
+   @param sDF references a data frame.
+
+   @param sSigTrain is the signature of the training frame.
+
+   @param sKeyed indicates whether keyed access is requested.
+
+   @return permuted column order if keyable, otherwise 1::length.
  */
-RcppExport SEXP signatureOrder(const SEXP sDF,
-			       const SEXP sSigTrain,
-			       const SEXP sKeyed);
+RcppExport SEXP columnOrder(const SEXP sDF,
+			    const SEXP sSigTrain,
+			    const SEXP sKeyed);
 
 
 /**
@@ -50,9 +58,8 @@ RcppExport SEXP signatureOrder(const SEXP sDF,
    Column and row names stubbed to zero-length vectors if null.
  */
 struct SignatureR {
-  static const string strNPred; ///< # predictors.
-  static const string strColName;
-  static const string strRowName;
+  static const string strColName; ///< Predictor names.  May be null.
+  static const string strRowName; ///< Observation names.  Often null.
   static const string strPredLevel; ///< Per-predictor levels.
   static const string strPredFactor; ///< Per-predictor realized levels.
   static const string strPredType; ///< Per-predictor type name.

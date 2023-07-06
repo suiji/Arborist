@@ -176,8 +176,9 @@ List SamplerR::wrap(const SamplerBridge& bridge,
 			      _[strNTree] = bridge.getNTree(),
 			      _[strHash] = 0
 			);
-
+  sampler.attr("class") = "Sampler";
   return sampler;
+
   END_RCPP
 }
 

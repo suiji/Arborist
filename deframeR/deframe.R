@@ -25,8 +25,7 @@ deframe <- function(x, sigTrain = NULL, keyed = FALSE) {
   #
   # For now, RLE frame is ranked on both training and prediction.
   if (is.data.frame(x)) {
-      dt <- data.table::setDT(x)[,tryCatch(.Call("signatureOrder", x, sigTrain, keyed))]
-      if (keyed) print(tryCatch(.Call("signatureOrder", x, sigTrain, keyed)))
+      dt <- data.table::setDT(x)[,tryCatch(.Call("columnOrder", x, sigTrain, keyed))]
       colSurvey <- sapply(dt, function(col) ifelse(is.numeric(col) || (is.factor(col) && !is.ordered(col)), TRUE, FALSE))
       if (length(which(colSurvey)) != ncol(dt)) {
           stop("Frame columns must be either numeric or unordered factor")

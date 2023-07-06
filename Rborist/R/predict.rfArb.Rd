@@ -16,13 +16,15 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
-  \item{object}{an object of class \code{Rborist}, created from a
-    previous invocation of the command \code{Rborist} to train.}
-  \item{newdata}{a design matrix containing new data, with the same signature
-    of predictors as in the training command.}
-  \item{yTest}{if specfied, a response vector against which to test the new
+  \item{object}{an object of class \code{rfArb}, created from a
+    previous invocation of the command \code{Rborist} or \code{rfArb} to
+    train.}
+  \item{newdata}{a design frame or matrix containing new data, with the
+    same signature of predictors as in the training command.}
+  \item{yTest}{a response vector against which to test the new
     predictions.}
-  \item{keyedFrame}{whether data columns may appear in arbitrary order during subsequent uses of the frame.}
+  \item{keyedFrame}{whether the columns of \code{newdata} may appear in
+    arbitrary order or as a superset of the predictors used to train.}
   \item{quantVec}{a vector of quantiles to predict.}
   \item{quantiles}{whether to predict quantiles.}
   \item{ctgCensus}{whether/how to summarize per-category predictions.
@@ -41,24 +43,49 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   \item{...}{not currently used.}
 }
 
-\value{ a list containing either of the two prediction containers:
-    
-  \item{PredictReg}{ a list of prediction results for regression:
-      
-  \code{yPred}{ a vector containing the predicted response.}
-
-  \code{qPred}{ a matrix containing the prediction quantiles, if requested.}
+\value{an object of one of two classes:
+  \item{SummaryReg}{summarizing regression, consisting of:
+    \code{prediction}{an object of class \code{PredictReg} consisting
+      of:
+      \code{yPred}{the estimated numerical response.}
+      \code{qPred}{quantiles of prediction, if requested.}
+      \code{qEst}{quantile of the estimate, if quantiles requested.}
+      \code{indices}{final index of prediction, if requested.}
+    }
+    \code{validation}{if validation requested, an object of class
+      \code{ValidReg} consisting of:
+      \code{mse}{the mean-square error of the estimate.}
+      \code{rsq}{the r-squared statistic of the estimate.}
+      \code{mae}{the mean absolute error of the estimate.}
+    }
+    \code{importance}{if permution importance requested, an object of
+      class \code{importanceReg}, consisting of:
+      \code{names}{the predictor names.}
+      \code{mse}{the per-predictor mean-square error, under
+	permutation.}
+    }
   }
-
-  \item{PredictCtg}{ a list of validation results for classification:
-      
-    \code{yPred}{ a vector containing the predicted response.}
-
-    \code{census}{ a matrix of predictions, by category.}
-    
-    \code{prob}{ a matrix of prediction probabilities by category, if requested.}
+  \item{SummaryCtg}{an object of class \code{PredictCtg} consisting of:
+      \code{yPred}{estimated categorical response.}
+      \code{census}{factor-valued matrix of the estimate, by
+	category, if requested.}
+      \code{prob}{matrix of estimate probabilities, by category, if
+	requested.}
+      \code{indices}{final index of prediction, if requested.}
+    \code{validation}{if validation requested, an object of class
+      \code{ValidCtg} consisting of:
+      \code{confusion}{the confusion matrix.}
+      \code{misprediction}{the misprediction rate.}
+      \code{oobError}{the out-of-bag error.}
+    }
+    \code{importance}{if permution importance requested, an object of
+      class \code{importanceCtg}, consisting of:
+      \code{mispred}{the misprediction rate, by predictor.}
+      \code{oobErr}{the out-of-bag error, by predictor.}
+    }
   }
 }
+
 
 
 \examples{

@@ -90,12 +90,13 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 		       const vector<string>& diag) {
   BEGIN_RCPP
   List trainArb = List::create(
-                      _["predInfo"] = scaleInfo(trainBridge),
-                      _["diag"] = diag,
-                      _["forest"] = std::move(forest.wrap()),
-		      _["predMap"] = std::move(trainBridge.getPredMap()),
-		      _["leaf"] = std::move(leaf.wrap()),
-		      _["samplerHash"] = lSampler["hash"]
+			       _["version"] = "", // Stamped by front end.
+			       _["samplerHash"] = lSampler["hash"],
+			       _["predInfo"] = scaleInfo(trainBridge),
+			       _["predMap"] = std::move(trainBridge.getPredMap()),
+			       _["forest"] = std::move(forest.wrap()),
+			       _["leaf"] = std::move(leaf.wrap()),
+			       _["diag"] = diag
                       );
   trainArb.attr("class") = "trainArb";
 

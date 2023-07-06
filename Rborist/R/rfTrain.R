@@ -63,7 +63,7 @@ rfTrain.default <- function(preFormat, sampler, y,
     if (autoCompress < 0.0 || autoCompress > 1.0)
         stop("Autocompression plurality must be a percentage.")
     
-    nPred <- preFormat$signature$nPred
+    nPred <- length(preFormat$signature$predForm)
     if (is.null(regMono)) {
         regMono <- rep(0.0, nPred)
     }
@@ -165,7 +165,10 @@ rfTrain.default <- function(preFormat, sampler, y,
     argTrain$pvtBlock <- 8
 
     trainOut <- tryCatch(.Call("trainRF", preFormat, sampler, argTrain), error = function(e){stop(e)})
+    trainOut$version = "0.3-3"
     class(trainOut) <- "rfTrain"
 
+    if (verbose)
+        print("Training completed.")
     trainOut
 }
