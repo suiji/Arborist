@@ -13,7 +13,7 @@
 \usage{
 \method{validate}{default}(train, sampler, preFormat = NULL,  ctgCensus
 = "votes", impPermute = 0, quantVec = NULL, quantiles =
-!is.null(quantVec), trapUnobserved = FALSE, nThread = 0, verbose =
+!is.null(quantVec), indexing = FALSE, trapUnobserved = FALSE, nThread = 0, verbose =
 FALSE, ...)
 }
 
@@ -88,3 +88,6 @@ FALSE, ...)
 \author{
   Mark Seligman at Suiji.
 }
+
+
+\seealso{\code{\link{Rborist}}}

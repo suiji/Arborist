@@ -15,6 +15,7 @@ cp ../../deframeR/*.R Rborist/R/
 cp ../src/*.{cc,h} Rborist/src/
 cp ../../RboristBase/src/*.{cc,h} Rborist/src/
 cp ../../RboristBase/R/*.R Rborist/R/
+cp ../../RboristBase/R/*.Rd Rborist/man/
 cp ../../deframeR/*.{cc,h} Rborist/src/
 cp ../../deframe/*.{cc,h} Rborist/src/
 cp ../../cart/*.{cc,h} Rborist/src/

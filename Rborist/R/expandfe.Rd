@@ -29,7 +29,7 @@
   \dontrun{
     data(iris)
     rb <- Rborist(iris[,-5], iris[,5])
-    ffe <- export(rb)
+    ffe <- expandfe(rb)
   }
 }
 

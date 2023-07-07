@@ -28,17 +28,17 @@
                 predProb = 0.0,
                 predWeight = NULL, 
                 regMono = NULL,
-                rowWeight = NULL,
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
-                verbose = FALSE)
+                verbose = FALSE,
+                ...)
 }
 
 \arguments{
   \item{y}{ the response (outcome) vector, either numerical or
     categorical.}
-  \item{preformat}{Compressed, presorted representation of the predictor
+  \item{preFormat}{Compressed, presorted representation of the predictor
     values. Row count must conform with \code{y}.}
   \item{sampler}{Compressed representation of the sampled response.}
   \item{autoCompress}{plurality above which to compress predictor values.}
@@ -65,7 +65,7 @@
   \item{treeBlock}{maximum number of trees to train during a single
     level (e.g., coprocessor computing).}
   \item{verbose}{indicates whether to output progress of training.}
-  \item{withRepl}{whether row sampling is by replacement.}
+  \item{...}{Not currently used.}
 }
 
 \value{an object of class \code{trainArb}, containing:
@@ -116,10 +116,6 @@
   rt <- rfTrain(y, nTree = 300)
 
 
-  # Causes rows to be sampled without replacement:
-  rt <- rfTrain(x, y, withRepl=FALSE)
-
-
   # Causes validation census to report class probabilities:
   rt <- rfTrain(iris[-5], iris[5], ctgCensus="prob")
 
@@ -134,57 +130,53 @@
 
   # Does not split nodes when doing so yields less than a 2\% gain in
   # information over the parent node:
-  rt <- rfTrain(y, preformat, sampler, minInfo=0.02)
+  rt <- rfTrain(y, preFormat, sampler, minInfo=0.02)
 
 
   # Does not split nodes representing fewer than 10 unique samples:
-  rt <- rfTrain(y, preformat, sampler, minNode=10)
+  rt <- rfTrain(y, preFormat, sampler, minNode=10)
 
 
   # Trains a maximum of 20 levels:
-  rt <- rfTrain(y, preformat, sampler, nLevel = 20)
+  rt <- rfTrain(y, preFormat, sampler, nLevel = 20)
 
 
   # Trains, but does not perform subsequent validation:
-  rt <- rfTrain(y, preformat, sampler, noValidate=TRUE)
+  rt <- rfTrain(y, preFormat, sampler, noValidate=TRUE)
 
 
   # Chooses 500 rows (with replacement) to root each tree.
-  rt <- rfTrain(y, preformat, sampler, nSamp=500)
+  rt <- rfTrain(y, preFormat, sampler, nSamp=500)
 
 
   # Chooses 2 predictors as splitting candidates at each node (or
   # fewer, when choices exhausted):
-  rt <- rfTrain(y, preformat, sampler, predFixed = 2)  
+  rt <- rfTrain(y, preFormat, sampler, predFixed = 2)  
 
 
   # Causes each predictor to be selected as a splitting candidate with
   # distribution Bernoulli(0.3):
-  rt <- rfTrain(y, preformat, sampler, predProb = 0.3) 
+  rt <- rfTrain(y, preFormat, sampler, predProb = 0.3) 
 
 
   # Causes first three predictors to be selected as splitting candidates
   # twice as often as the other two:
-  rt <- rfTrain(y, preformat, sampler, predWeight=c(2.0, 2.0, 2.0, 1.0, 1.0))
+  rt <- rfTrain(y, preFormat, sampler, predWeight=c(2.0, 2.0, 2.0, 1.0, 1.0))
 
 
   # Constrains modelled response to be increasing with respect to X1
   # and decreasing with respect to X5.
-  rt <- rfTrain(x, y, preformat, sampler, regMono=c(1.0, 0, 0, 0, -1.0, 0))
-
-
-  # Causes rows to be sampled with random weighting:
-  rt <- rfTrain(y, preformat, sampler, rowWeight=runif(nRow))
+  rt <- rfTrain(x, y, preFormat, sampler, regMono=c(1.0, 0, 0, 0, -1.0, 0))
 
 
   # Suppresses creation of detailed leaf information needed for
   # quantile prediction and external tools.
-  rt <- rfTrain(y, preformat, sampler, thinLeaves = TRUE)
+  rt <- rfTrain(y, preFormat, sampler, thinLeaves = TRUE)
 
   spq <- rep(0.5, ncol(x))
   spq[0] <- 0.0
   spq[1] <- 1.0
-  rt <- rfTrain(y, preformat, sampler, splitQuant = spq)
+  rt <- rfTrain(y, preFormat, sampler, splitQuant = spq)
   }
 }
 
@@ -192,3 +184,6 @@
 \author{
   Mark Seligman at Suiji.
 }
+
+
+\seealso{\code{\link{Rborist}}}

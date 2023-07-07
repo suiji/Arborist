@@ -15,11 +15,11 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristR.  If not, see <http://www.gnu.org/licenses/>.
 
-forestWeight <- function(train, sampler, prediction, ...) UseMethod("forestWeight")
+forestWeight <- function(objTrain, prediction, sampler, ...) UseMethod("forestWeight")
 
 forestWeight.default <- function(objTrain,
                                  prediction,
-                                 sampler = NULL,
+                                 sampler = objTrain$sampler,
                                  nThread = 0,
                                  verbose = FALSE,
                               ...) {
@@ -49,13 +49,13 @@ forestWeight.default <- function(objTrain,
   if (nThread < 0)
       stop("Thread count must be nonnegative")
 
-  if (class(objTrain) == "rfArb") {
+  if (inherits(objTrain, "rfArb")) {
     sampler <- objTrain$sampler
     if (is.null(sampler)) {
       stop("Sampler required for weighting")
     }
   }
-  else if (class(objTrain) == "trainArb") {
+  else if (inherits(objTrain, "trainArb")) {
     if (sampler$hash != objTrain$samplerHash) {
       stop("Passed and training samplers do not match")
     }

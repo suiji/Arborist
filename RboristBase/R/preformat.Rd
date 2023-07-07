@@ -15,11 +15,13 @@
 
 
 \usage{
-\method{preformat}{default}(x, verbose=FALSE, ...)
+\method{preformat}{default}(x,
+                   verbose=FALSE,
+                   ...)
 }
 
 \arguments{
-  \item{x}{the design matrix expressed as either a \code{data.frame}
+  \item{x}{the design frame expressed as either a \code{data.frame}
     object with numeric and/or \code{factor} columns or as a numeric
     or factor-valued matrix.}
   \item{verbose}{indicates whether to output progress of
@@ -27,40 +29,35 @@
   \item{...}{unused.}
 }
 
-\value{
-  \item{an object of class \code{Deframe} consisting of:
-
-    \code{rleFrame}{run-length encoded representation of class
-      \code{RLEFrame} consisting of:
-      \code{rankedFrame}{run-length encoded representation of class
-	\code{RankedFrame} consisting of:
-	\code{nRow}{The number of observations encoded.}
-	\code{runVal}{The run-length encoded values.}
-	\code{runRow}{The corresponding row indices.}
-	\code{rleHeight}{The number of encodings, per predictor.}
-	\code{topIdx}{The accumulated end index, per predictor.}
-      }
-      \code{numRanked}{packed representation of sorted numerical values
-	of class \code{NumRanked} consisting of:
-	\code{numVal}{distinct numerical values.}
-	\code{numHeight}{value offset per predictor.}
-	}
-      \code{facRanked}{packed representation of sorted factor values
-	of class \code{FacRanked} consisting of:
-	\code{facVal}{distinct factor values, zero-based.}
-	\code{facHeight}{value offset per predictor.}
-      }
-      }
-      
-    \code{nRow}{the number of training observations.}
-
-    \code{signature}{an object of type \code{Signature} consisting of:
-      \code{predForm}{Predictor class names.}
-      \code{level}{Per-predictor levels, regardless whether realized.}
-      \code{factor}{Per-predictor realized levels.}
-      \code{colNames}{Predictor names.}
-      \code{rowNames}{Observation names.}
+\value{an object of class \code{Deframe} consisting of:
+  \item{rleFrame}{run-length encoded representation of class
+    \code{RLEFrame} consisting of:
+    \code{rankedFrame}{run-length encoded representation of class
+      \code{RankedFrame} consisting of:
+      \code{nRow}{The number of observations encoded.}
+      \code{runVal}{The run-length encoded values.}
+      \code{runRow}{The corresponding row indices.}
+      \code{rleHeight}{The number of encodings, per predictor.}
+      \code{topIdx}{The accumulated end index, per predictor.}
     }
+    \code{numRanked}{packed representation of sorted numerical values
+      of class \code{NumRanked} consisting of:
+      \code{numVal}{distinct numerical values.}
+      \code{numHeight}{value offset per predictor.}
+    }
+    \code{facRanked}{packed representation of sorted factor values
+      of class \code{FacRanked} consisting of:
+      \code{facVal}{distinct factor values, zero-based.}
+      \code{facHeight}{value offset per predictor.}
+    }
+  }
+  \item{nRow}{the number of training observations.}
+  \item{signature}{an object of type \code{Signature} consisting of:
+    \code{predForm}{Predictor class names.}
+    \code{level}{Per-predictor levels, regardless whether realized.}
+    \code{factor}{Per-predictor realized levels.}
+    \code{colNames}{Predictor names.}
+    \code{rowNames}{Observation names.}
   }
 }
 
@@ -80,7 +77,8 @@
   }
 }
 
-
 \author{
   Mark Seligman at Suiji.
 }
+
+\seealso{\code{\link{Rborist}}}

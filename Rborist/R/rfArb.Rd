@@ -37,7 +37,7 @@
                 regMono = NULL,
                 rowWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = is.factor(y),
+                thinLeaves = is.factor(y) && !indexing,
                 trapUnobserved = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
@@ -241,7 +241,8 @@
   }
 }
 
-
 \author{
   Mark Seligman at Suiji.
 }
+
+\seealso{\code{\link{Rborist}}}

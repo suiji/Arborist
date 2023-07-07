@@ -25,7 +25,8 @@ presample.default <- function(y,
                               nSamp = 0,
                               nTree = 500,
                               withRepl = TRUE,
-                              verbose = FALSE) {
+                              verbose = FALSE,
+                              ...) {
     if (nTree <= 0)
         stop("Tree count must be positive")
 

@@ -13,7 +13,14 @@ regNumPass <-function(m, nrow, ncol, minRsq, nThread) {
   }
 
   rs <- rfArb(x, y, nThread = nThread)
-  pass <- ifelse(rs$validation$rsq >= minRsq, 1, 0)
+  if (rs$validation$rsq >= minRsq) {
+      pass <- 1
+
+  }
+  else {
+      pass <- 0
+  }
+  pass
 }
 
 test_that("Numeric-only regression accuracy", {

@@ -19,7 +19,7 @@
 # Checks argument semantics and initializes state for deep call.
 #
 
-rfTrain <- function(y, preFormat, sampler, ...) UseMethod("rfTrain")
+rfTrain <- function(preFormat, sampler, y, ...) UseMethod("rfTrain")
 
 rfTrain.default <- function(preFormat, sampler, y,
                 autoCompress = 0.25,
@@ -34,11 +34,11 @@ rfTrain.default <- function(preFormat, sampler, y,
                 predProb = 0.0,
                 predWeight = NULL, 
                 regMono = NULL,
-                rowWeight = NULL,
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
-                verbose = FALSE) {
+                verbose = FALSE,
+                ...) {
             argTrain <- mget(names(formals()), sys.frame(sys.nframe()))
 
     if (length(y) != preFormat$nRow)

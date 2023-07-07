@@ -20,18 +20,20 @@ Streamline <- function(arbOut) {
 }
 
 
-Streamline.rfArb <- function(rs) {
+Streamline.rfArb <- function(arbOut) {
   warning("Streamline is being deprecated.  Please train with 'thinLeaves' instead.");
-  if (!inherits(rs, "Rborist"))
-    stop("object not of class Rborist")
-  if (is.null(rs$sampler))
+  if (!inherits(arbOut, "rfArb"))
+    stop("object not of class rfArb")
+  if (is.null(arbOut$sampler))
     stop("Sampler state needed for prediction")
-  rb <- rs
+  rb <- arbOut
   rb$sampler <- list(
-      yTrain = rs$yTrain,
-      samplerBlock= raw(0),
-      nTree = rs$sampler$nTree
-      )
+      yTrain = arbOut$sampler$yTrain,
+      nSamp = arbOut$sampler$nSamp,
+      nTree = arbOut$sampler$nTree,
+      samples = raw(0),
+      hash = arbOut$sampler$hash
+  )
 
   rb
 }

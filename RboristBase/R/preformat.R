@@ -18,7 +18,7 @@
 # Pre-formats a data frame or buffer, if not already pre-formatted.
 # If already pre-formatted, verifies types of member fields.
 
-preformat <- function(x, keyed, ...) UseMethod("preformat")
+preformat <- function(x, ...) UseMethod("preformat")
 
 
 preformat.default <- function(x,

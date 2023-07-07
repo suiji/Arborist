@@ -11,14 +11,14 @@
 }
 
 \usage{
-\method{Streamline}{rfArb}(rs)
+\method{Streamline}{rfArb}(arbOut)
 }
 
 \arguments{
-  \item{rs}{Trained forest object.}
+  \item{arbOut}{Trained forest object of class \code{rfArb}.}
 }
 
-\value{an object of class \code{Rborist} with certain fields cleared.
+\value{an object of class \code{rfArb} with sample data cleared.
 }
 
 

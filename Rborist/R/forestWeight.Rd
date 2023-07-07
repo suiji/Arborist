@@ -1,9 +1,9 @@
 % File man/forestWeight.Rd
-% Part of the rborist package
+% Part of the Rborist package
 
 \name{forestWeight}
 \alias{forestWeight}
-\alias{forestWeight.defaul}
+\alias{forestWeight.default}
 \title{Meinshausen forest weights}
 \description{
   Normalized observation counts across a prediction set.
