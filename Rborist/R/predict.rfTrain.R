@@ -15,27 +15,28 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Rborist.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.rfArb" <- function(object,
-                            newdata,
-                            yTest=NULL,
-                            keyedFrame = FALSE,
-                            quantVec = NULL,
-                            quantiles = !is.null(quantVec),
-                            ctgCensus = "votes",
-                            indexing = FALSE,
-                            trapUnobserved = FALSE,
-                            bagging = FALSE,
-                            nThread = 0,
-                            verbose = FALSE,
+"predict.rfTrain" <- function(objTrain,
+                              newdata,
+                              sampler,
+                              yTest=NULL,
+                              keyedFrame = FALSE,
+                              quantVec = NULL,
+                              quantiles = !is.null(quantVec),
+                              ctgCensus = "votes",
+                              indexing = FALSE,
+                              trapUnobserved = FALSE,
+                              bagging = FALSE,
+                              nThread = 0,
+                              verbose = FALSE,
                               ...) {
-  if (!inherits(object, "rfArb")) # Extend to include rfTrain
-    stop("object not of class rfArb")
-  forest <- object$forest
+  if (is.null(sampler))
+    stop("Sampler state needed for prediction")
+  if (sampler$hash != objTrain$samplerHash)
+    stop("Sampler hashes do not match.")
+  forest <- objTrain$forest
   if (is.null(forest))
     stop("Forest state needed for prediction")
-  if (is.null(object$sampler))
-    stop("Sampler state needed for prediction")
-  if (is.null(object$signature))
+  if (is.null(objTrain$signature))
     stop("Training signature missing")
   if (nThread < 0)
     stop("Thread count must be nonnegative")
@@ -48,13 +49,13 @@
   argPredict <- list(
       bagging = bagging,
       impPermute = 0,
-      ctgProb = ctgProbabilities(object$sampler, ctgCensus),
-      quantVec = getQuantiles(quantiles, object$sampler, quantVec),
+      ctgProb = ctgProbabilities(sampler, ctgCensus),
+      quantVec = getQuantiles(quantiles, sampler, quantVec),
       indexing = indexing,
       trapUnobserved = trapUnobserved,
       nThread = nThread,
       verbose = verbose)
-  summaryPredict <- predictCommon(object, object$sampler, newdata, yTest, keyedFrame, argPredict)
+  summaryPredict <- predictCommon(objTrain, sampler, newdata, yTest, keyedFrame, argPredict)
 
   if (!is.null(yTest)) { # Validation (test) included.
       c(summaryPredict$prediction, summaryPredict$validation)

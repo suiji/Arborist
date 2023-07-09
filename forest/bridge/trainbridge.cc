@@ -25,7 +25,7 @@
 #include "coproc.h"
 
 TrainBridge::TrainBridge(unique_ptr<RLEFrame> rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : frame(make_unique<PredictorFrame>(std::move(rleFrame), autoCompress, enableCoproc, diag)) {
-  Forest::init(frame->getNPred());
+  ForestBridge::init(frame->getNPred());
 }
 
 
@@ -88,7 +88,7 @@ void TrainBridge::initMono(const vector<double> &regMono) {
 
 
 void TrainBridge::deInit() {
-  Forest::deInit();
+  ForestBridge::deInit();
   RfTrain::deInit();
   Train::deInit();
 }

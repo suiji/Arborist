@@ -438,11 +438,11 @@ void CtgProb::dump() const {
 
 
 vector<double> Predict::forestWeight(const Forest* forest,
-					     const Sampler* sampler,
-					     const Leaf* leaf,
-					     size_t nPredict,
-					     const double finalIdx[],
-					     unsigned int nThread) {
+				     const Sampler* sampler,
+				     const Leaf* leaf,
+				     size_t nPredict,
+				     const double finalIdx[],
+				     unsigned int nThread) {
   vector<vector<double>> obsWeight(nPredict);
   for (size_t idxPredict = 0; idxPredict != nPredict; idxPredict++) {
     obsWeight[idxPredict] = vector<double>(sampler->getNObs());
@@ -464,16 +464,19 @@ vector<vector<IdCount>> Predict::obsCounts(const Forest* forest,
   const vector<DecNode>& decNode = forest->getNode(tIdx);
   const vector<IdCount> idCount = sampler->unpack(tIdx);
   const vector<vector<size_t>>& indices = leaf->getIndices(tIdx);
-  IndexT nodeIdx = 0;
+
+  // Dominators need not be computed if it is known in advance
+  // that all final indices are terminal.  This will be the case
+  // if prediction does not employ trap-and-bail.
+  vector<IndexRange> leafDom = forest->leafDominators(decNode);
   vector<vector<IdCount>> node2Idc(decNode.size());
-  for (const DecNode& node : decNode) {
-    IndexT leafIdx;
-    if (node.getLeafIdx(leafIdx)) {
+  for (IndexT nodeIdx = 0; nodeIdx != decNode.size(); nodeIdx++) {
+    IndexRange leafRange = leafDom[nodeIdx];
+    for (IndexT leafIdx = leafRange.getStart(); leafIdx != leafRange.getEnd(); leafIdx++) {
       for (size_t sIdx : indices[leafIdx]) {
 	node2Idc[nodeIdx].emplace_back(idCount[sIdx]);
       }
     }
-    nodeIdx++;
   }
 
   return node2Idc;

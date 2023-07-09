@@ -220,13 +220,13 @@ List SignatureR::unwrapFactor(const List& sTrain) {
 }
 
 
-SignatureExport SignatureExport::unwrap(const List& lTrain) {
+SignatureExpand SignatureExpand::unwrap(const List& lTrain) {
   List lSignature(SignatureR::checkSignature(lTrain));
-  return SignatureExport(as<List>(lSignature[SignatureR::strPredLevel]), as<List>(lSignature[SignatureR::strPredFactor]), as<CharacterVector>(lSignature[SignatureR::strColName]));
+  return SignatureExpand(as<List>(lSignature[SignatureR::strPredLevel]), as<List>(lSignature[SignatureR::strPredFactor]), as<CharacterVector>(lSignature[SignatureR::strColName]));
 }
 
 
-SignatureExport::SignatureExport(const List& level,
+SignatureExpand::SignatureExpand(const List& level,
 				 const List& factor,
 				 const StringVector& names) {
   this->level = level;

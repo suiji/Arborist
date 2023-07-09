@@ -1,19 +1,19 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of rf.
+// This file is part of RboristBase.
 //
-// rf is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rf is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file leafR.h
@@ -23,8 +23,8 @@
    @author Mark Seligman
  */
 
-#ifndef FOREST_LEAF_R_H
-#define FOREST_LEAF_R_H
+#ifndef LEAF_R_H
+#define LEAF_R_H
 
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -72,10 +72,10 @@ struct LeafR {
 };
 
 
-struct LeafExport {
-  LeafExport(const List& lSampler);
+struct LeafExpand {
+  LeafExpand(const List& lSampler);
 
-  virtual ~LeafExport() {}
+  virtual ~LeafExpand() {}
 
   /**
      @brief Accessor for per-tree sampled row vector.
@@ -129,35 +129,35 @@ struct LeafExport {
 };
 
 
-struct LeafExportReg : public LeafExport {
+struct LeafExpandReg : public LeafExpand {
   /**
     @brief Constructor for export, no prediction.
    */
-  LeafExportReg(const List& lSampler);
+  LeafExpandReg(const List& lSampler);
 
 
-  ~LeafExportReg();
+  ~LeafExpandReg();
 
 
   /**
      @brief Builds bridge object from wrapped front-end data.
    */
-  static LeafExportReg unwrap(const List &lTrain);
+  static LeafExpandReg unwrap(const List &lTrain);
 
 };
 
 
-struct LeafExportCtg : public LeafExport {
+struct LeafExpandCtg : public LeafExpand {
   /**
      @brief Constructor for export; no prediction.
    */
-  LeafExportCtg(const List& lSampler);
+  LeafExpandCtg(const List& lSampler);
 
   
-  ~LeafExportCtg();
+  ~LeafExpandCtg();
 
   
-  static LeafExportCtg unwrap(const List &lTrain);
+  static LeafExpandCtg unwrap(const List &lTrain);
 
   
   /**

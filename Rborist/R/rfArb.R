@@ -122,29 +122,31 @@ rfArb.default <- function(x,
         summaryValidate <- validateCommon(train, sampler, preFormat, argPredict)
     }
 
-    postTrain(preFormat, sampler, train, summaryValidate, impPermute)
+    postTrain(sampler, train, summaryValidate, impPermute)
 }
 
 
-postTrain <- function(preFormat, sampler, train, summaryValidate, impPermute) {
+postTrain <- function(sampler, train, summaryValidate, impPermute) {
     predInfo <- train$predInfo
-    names(predInfo) <- preFormat$signature$colNames
+    names(predInfo) <- train$signature$colNames
     training = list(
         call = match.call(),
         info = predInfo,
         version = train$version,
         diag = train$diag,
         samplerHash = train$samplerHash,
-        signature = preFormat$signature
+        signature = train$signature
     )
 
+    # Consider caching train object and avoid copying its individual
+    # members:
     if (impPermute > 0) {
         arbOut <- list(
             sampler = sampler,
-            leaf = train$leaf, # EXIT in 0.4-0
-            forest = train$forest, # " "
-            predMap = train$predMap, # " " 
-            signature = preFormat$signature, # " "
+            leaf = train$leaf,
+            forest = train$forest,
+            predMap = train$predMap,
+            signature = train$signature,
             training = training,
             prediction = summaryValidate$prediction,
             validation = summaryValidate$validation,
@@ -154,10 +156,10 @@ postTrain <- function(preFormat, sampler, train, summaryValidate, impPermute) {
     else {
         arbOut <- list(
             sampler = sampler,
-            leaf = train$leaf, # EXIT in 0.4-0
-            forest = train$forest, # " "
-            predMap = train$predMap, # " "
-            signature = preFormat$signature, # " "
+            leaf = train$leaf,
+            forest = train$forest,
+            predMap = train$predMap,
+            signature = train$signature,
             training = training,
             prediction = summaryValidate$prediction,
             validation = summaryValidate$validation

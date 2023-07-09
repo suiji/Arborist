@@ -112,7 +112,7 @@ vector<vector<IndexRange>> Forest::leafDominators() const {
   return leafDom;
 }
   
-  
+
 vector<IndexRange> Forest::leafDominators(const vector<DecNode>& tree) {
   IndexT height = tree.size();
   // Gives each node the offset of its predecessor.

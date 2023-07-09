@@ -1,23 +1,23 @@
-// Copyright (C)  2012-2022  Mark Seligman
+// Copyright (C)  2012-2023  Mark Seligman
 //
-// This file is part of rf.
+// This file is part of RboristBase.
 //
-// rf is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rf is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 
 /**
-   @file exportR.h
+   @file expandR.h
 
    @brief Expands trained forest into a collection of vectors.
 
@@ -25,8 +25,8 @@
  */
 
 
-#ifndef RF_EXPORT_R_H
-#define RF_EXPORT_R_H
+#ifndef EXPAND_R_H
+#define EXPAND_R_H
 
 #include <vector>
 #include <memory>
@@ -35,57 +35,58 @@ using namespace std;
 #include <Rcpp.h>
 using namespace Rcpp;
 
+
 /**
-   @brief Expands traind forest into summary vectors.
+   @brief Expands trained forest into summary vectors.
 
    @param sTrain is the trained forest.
 
-   @return RboristExport as List.
+   @return expanded forest as list of vectors.
  */
-RcppExport SEXP expandRf(SEXP sTrain);
+RcppExport SEXP expandR(SEXP sTrain);
 
 
-struct ExportRf {
+struct ExpandR {
 
   /**
-     @brief Wraps exported values for classification leaves.
+     @brief Wraps expanded values for classification leaves.
 
      @param tIdx is the tree index.
 
      @return wrapped leaf scores.
   */
-  static List exportLeafCtg(const struct LeafExportCtg& leaf,
+  static List expandLeafCtg(const struct LeafExpandCtg& leaf,
                             unsigned int tIdx);
 
 
   /**
      @brief As above, but regression leaves.
    */
-  static List exportLeafReg(const struct LeafExportReg& leaf,
+  static List expandLeafReg(const struct LeafExpandReg& leaf,
                             unsigned int tIdx);
 
 
-  static List exportForest(const class ForestExport& forestExport,
+  static List expandForest(const class ForestExpand& forestExpand,
                            unsigned int tIdx);
 
 
-  static IntegerVector exportBag(const struct SamplerExport& sampler,
-				 const struct LeafExport& leaf,
+  static IntegerVector expandBag(const struct SamplerExpand& sampler,
+				 const struct LeafExpand& leaf,
                                  unsigned int tIdx);
 
 
-  static List exportTreeReg(const List& sTrain,
+  static List expandTreeReg(const List& sTrain,
                             const IntegerVector& predMap);
 
 
-  static List exportTreeCtg(const List& lTrain,
+  static List expandTreeCtg(const List& lTrain,
 			    const IntegerVector& predMap);
 
 
-  static List exportReg(const List& sTrain);
+  static List expandReg(const List& sTrain);
 
 
-  static List exportCtg(const List& sTrain);
+  static List expandCtg(const List& sTrain);
 };
 
 

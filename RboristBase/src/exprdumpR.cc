@@ -1,19 +1,19 @@
-// Copyright (C)  2019 - 2022   Mark Seligman and Decision Patterns LLC.
+// Copyright (C)  2019 - 2023   Mark Seligman and Decision Patterns LLC.
 //
-// This file is part of RboristCore.
+// This file is part of RboristBase.
 //
-// RboristCore is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// RboristCore is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file exprdump.cc
@@ -46,11 +46,11 @@ RcppExport SEXP exprdump(SEXP sArbOut) {
 
 
 ExprDump::ExprDump(SEXP sArbOut) :
-  primExport((SEXP) expandRf(sArbOut)),
+  primExport((SEXP) expandR(sArbOut)),
   treeOut((SEXP) primExport["tree"]),
   predNames((SEXP) primExport["predNames"]),
   predMap((SEXP) primExport["predMap"]),
-  tree(ForestExport::unwrap(List(sArbOut), predMap)),
+  tree(ForestExpand::unwrap(List(sArbOut), predMap)),
   factorMap((SEXP) primExport["factorMap"]),
   factorLevel((SEXP) primExport["factorLevel"]),
   factorBase(predMap.length() - factorMap.length()),

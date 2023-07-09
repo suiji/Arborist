@@ -179,12 +179,12 @@ struct SignatureR {
 /**
    @brief Copy of values to export
  */
-struct SignatureExport {
+struct SignatureExpand {
   List level;
   List factor;
   StringVector names;
 
-  SignatureExport(const List& level,
+  SignatureExpand(const List& level,
 		  const List& factor,
 		  const StringVector& names);
 
@@ -192,7 +192,7 @@ struct SignatureExport {
   /**
      @brief Unwraps field values useful for export.
    */
-  static SignatureExport unwrap(const List& sTrain);
+  static SignatureExpand unwrap(const List& sTrain);
 };
 
 #endif

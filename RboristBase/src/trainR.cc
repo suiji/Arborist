@@ -1,19 +1,19 @@
 // Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of RboristBase.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file trainR.cc
@@ -33,6 +33,15 @@
 
 bool TrainR::verbose = false;
 
+const string TrainR::strVersion = "version";
+const string TrainR::strSignature = "signature";
+const string TrainR::strSamplerHash = "samplerHash";
+const string TrainR::strPredInfo = "predInfo";
+const string TrainR::strPredMap = "predMap";
+const string TrainR::strForest = "forest";
+const string TrainR::strLeaf = "leaf";
+const string TrainR::strDiagnostic = "diag";
+const string TrainR::strClassName = "trainArb";
 
 List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& argList) {
   BEGIN_RCPP
@@ -47,7 +56,7 @@ List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& ar
 
   TrainR trainR(lSampler, argList);
   trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
-  List outList = trainR.summarize(trainBridge, lSampler, diag);
+  List outList = trainR.summarize(trainBridge, lDeframe, lSampler, diag);
 
   if (verbose) {
     Rcout << "Training completed" << endl;
@@ -86,19 +95,21 @@ void TrainR::consumeInfo(const TrainedChunk* train) {
 
 
 List TrainR::summarize(const TrainBridge& trainBridge,
+		       const List& lDeframe,
 		       const List& lSampler,
 		       const vector<string>& diag) {
   BEGIN_RCPP
   List trainArb = List::create(
-			       _["version"] = "", // Stamped by front end.
-			       _["samplerHash"] = lSampler["hash"],
-			       _["predInfo"] = scaleInfo(trainBridge),
-			       _["predMap"] = std::move(trainBridge.getPredMap()),
-			       _["forest"] = std::move(forest.wrap()),
-			       _["leaf"] = std::move(leaf.wrap()),
-			       _["diag"] = diag
+			       _[strVersion] = "", // Stamped by front end.
+			       _[strSignature] = lDeframe["signature"],
+			       _[strSamplerHash] = lSampler["hash"],
+			       _[strPredInfo] = scaleInfo(trainBridge),
+			       _[strPredMap] = std::move(trainBridge.getPredMap()),
+			       _[strForest] = std::move(forest.wrap()),
+			       _[strLeaf] = std::move(leaf.wrap()),
+			       _[strDiagnostic] = diag
                       );
-  trainArb.attr("class") = "trainArb";
+  trainArb.attr("class") = strClassName;
 
   return trainArb;
 

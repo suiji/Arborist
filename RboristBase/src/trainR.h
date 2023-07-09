@@ -1,19 +1,19 @@
 // Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of Rborist
+// This file is part of RboristBase.
 //
-// Rborist is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rf is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file trainR.h
@@ -45,6 +45,16 @@ struct TrainR {
   // Core-to-Bridge copies while also not over-allocating:
   static constexpr unsigned int treeChunk = 20;
   static constexpr double allocSlop = 1.2;
+
+  static const string strVersion;
+  static const string strSignature;
+  static const string strSamplerHash;
+  static const string strPredInfo;
+  static const string strPredMap;
+  static const string strForest;
+  static const string strLeaf;
+  static const string strDiagnostic;
+  static const string strClassName;
 
   static bool verbose; ///< Whether to report progress while training.
 
@@ -120,9 +130,14 @@ struct TrainR {
 
      @param trainBridge contains trained summary from core.
 
+     @param lDeframe is the R deframed training data.
+
+     @param lSampler is the R sampler.
+
      @return the summary.
    */
   List summarize(const TrainBridge& trainBridge,
+		 const List& lDeframe,
 		 const List& lSampler,
 		 const vector<string>& diag);
 

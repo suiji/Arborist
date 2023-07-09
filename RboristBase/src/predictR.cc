@@ -1,19 +1,19 @@
 // Copyright (C)  2012-2023  Mark Seligman
 //
-// This file is part of rf.
+// This file is part of RboristBase.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file predictRf.cc
@@ -28,7 +28,6 @@
 #include "samplerR.h"
 #include "leafR.h"
 #include "forestR.h"
-#include "forestbridge.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
 #include "rleframeR.h"
@@ -55,11 +54,13 @@ RcppExport SEXP predictRcpp(const SEXP sDeframe,
     summary = PBRf::predictCtg(List(sDeframe), List(sTrain), lSampler, sYTest, lArgs);
   else
     summary = PBRf::predictReg(List(sDeframe), List(sTrain), lSampler, sYTest, List(sArgs));
+  ForestBridge::deInit();
 
   if (verbose)
     Rcout << "Prediction completed" << endl;
-  
+
   return summary;
+
   END_RCPP
 }
 
@@ -82,7 +83,8 @@ RcppExport SEXP validateRcpp(const SEXP sDeframe,
     summary = PBRf::predictCtg(List(sDeframe), List(sTrain), lSampler, yTrain, lArgs);
   else
     summary = PBRf::predictReg(List(sDeframe), List(sTrain), lSampler, yTrain, lArgs);
-
+  ForestBridge::deInit();
+  
   if (verbose)
     Rcout << "Validation completed" << endl;
 
@@ -116,7 +118,7 @@ PredictRegBridge PBRf::unwrapReg(const List& lDeframe,
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
   return PredictRegBridge(RLEFrameR::unwrap(lDeframe),
-			  ForestRf::unwrap(lTrain),
+			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  regTest(sYTest),
@@ -202,7 +204,7 @@ PredictCtgBridge PBRf::unwrapCtg(const List& lDeframe,
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
   return PredictCtgBridge(RLEFrameR::unwrap(lDeframe),
-			  ForestRf::unwrap(lTrain),
+			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  ctgTest(lSampler, sYTest),
@@ -244,11 +246,13 @@ List PBRf::getPrediction(const PredictRegBridge& pBridge) {
 
 NumericMatrix PBRf::getIndices(const PredictRegBridge& pBridge) {
   BEGIN_RCPP
+
   auto indices = pBridge.getIndices();
   size_t nObs = pBridge.getNRow();
   unsigned int nTree = pBridge.getNTree();
   return indices.empty() ? NumericMatrix(0) : NumericMatrix(nObs, nTree, indices.begin());
-    END_RCPP
+
+  END_RCPP
 }
 
 

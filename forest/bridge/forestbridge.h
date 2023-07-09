@@ -38,6 +38,8 @@ struct ForestBridge {
 
      @param treeNode caches the nodes as packed-integer / double pairs.
 
+     @param nPred is the number of training predictors.
+
      @param scores cache the score at each node, regardless whether terminal.
 
      @param facExtent the per-tree count of factor-valued splits.
@@ -50,7 +52,8 @@ struct ForestBridge {
 	       const double scores[],
 	       const double facExtent[],
                const unsigned char facSplit[],
-	       const unsigned char facObserved[]);
+	       const unsigned char facObserved[],
+	       unsigned int nPred);
 
 
   /**
@@ -64,6 +67,18 @@ struct ForestBridge {
   
   ~ForestBridge();
 
+
+  /**
+     @brief Initializes Forest statics.
+   */
+  static void init(unsigned int nPred);
+
+
+  /**
+     @brief Resets Forest statics.
+   */
+  static void deInit();
+  
   
   /**
      @return count of trained nodes.

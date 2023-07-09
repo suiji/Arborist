@@ -2,23 +2,23 @@
 //
 // This file is part of RboristBase.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file extendR.cc
+   @file expandR.cc
 
-   @brief C++ interface to R entry for extension methods.
+   @brief C++ interface to R entry for expansion methods.
 
    @author Mark Seligman
  */
@@ -27,12 +27,13 @@
 #include "leafR.h"
 #include "samplerR.h"
 #include "forestR.h"
+#include "forestbridge.h"
 #include "signatureR.h"
 
 #include <vector>
 
 
-RcppExport SEXP expandRf(SEXP sTrain) {
+RcppExport SEXP expandR(SEXP sTrain) {
   BEGIN_RCPP
     
   List lTrain(sTrain);
@@ -41,27 +42,29 @@ RcppExport SEXP expandRf(SEXP sTrain) {
     return List::create(0);
   }
 
+  List lForest(lTrain["forest"]);
   List leaf((SEXP) lTrain["leaf"]);
   if (leaf.inherits("Leaf")) {
     List lSampler((SEXP) lTrain["sampler"]);
     SEXP yTrain = lSampler[SamplerR::strYTrain];
     if (Rf_isFactor(yTrain)) {
-      return ExportRf::exportCtg(lTrain);
+      return ExpandR::expandCtg(lTrain);
     }
     else {
-      return ExportRf::exportReg(lTrain);
+      return ExpandR::expandReg(lTrain);
     }
   }
   else {
     warning("Unrecognized leaf type.");
     return List::create(0);
   }
+  ForestBridge::deInit();
 
   END_RCPP
 }
 
 
-List ExportRf::exportForest(const ForestExport& forest,
+List ExpandR::expandForest(const ForestExpand& forest,
                             unsigned int tIdx) {
   BEGIN_RCPP
 
@@ -77,14 +80,14 @@ List ExportRf::exportForest(const ForestExport& forest,
      _["facSplit"] = forest.getFacSplitTree(tIdx)
      );
 
-  ffTree.attr("class") = "exportTree";
+  ffTree.attr("class") = "expandTree";
   return ffTree;
   END_RCPP
 }
 
 
-IntegerVector ExportRf::exportBag(const SamplerExport& sampler,
-				  const LeafExport& leaf,
+IntegerVector ExpandR::expandBag(const SamplerExpand& sampler,
+				  const LeafExpand& leaf,
                                   unsigned int tIdx) {
   BEGIN_RCPP
 
@@ -102,38 +105,38 @@ IntegerVector ExportRf::exportBag(const SamplerExport& sampler,
 }
 
 
-List ExportRf::exportLeafReg(const LeafExportReg& leaf, unsigned int tIdx) {
+List ExpandR::expandLeafReg(const LeafExpandReg& leaf, unsigned int tIdx) {
   BEGIN_RCPP
 
   List ffLeaf = List::create(
                              _["score"] = leaf.getScoreTree(tIdx)
                              );
 
-  ffLeaf.attr("class") = "exportLeafReg";
+  ffLeaf.attr("class") = "expandLeafReg";
   return ffLeaf;
 
   END_RCPP
 }
 
 
-List ExportRf::exportTreeCtg(const List& lTrain,
+List ExpandR::expandTreeCtg(const List& lTrain,
 			     const IntegerVector& predMap) {
   BEGIN_RCPP
 
-  LeafExportCtg leaf(LeafExportCtg::unwrap(lTrain));
-  ForestExport forest(ForestExport::unwrap(lTrain, predMap));
-  SamplerExport sampler(SamplerR::unwrapExport(lTrain));
+  LeafExpandCtg leaf(LeafExpandCtg::unwrap(lTrain));
+  ForestExpand forest(ForestExpand::unwrap(lTrain, predMap));
+  SamplerExpand sampler(SamplerR::unwrapExpand(lTrain));
 
   unsigned int nTree = sampler.nTree;
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     List ffCtg =
       List::create(
-                   _["internal"] = exportForest(forest, tIdx),
-                   _["leaf"] = exportLeafCtg(leaf, tIdx),
-                   _["bag"] = exportBag(sampler, leaf, tIdx)
+                   _["internal"] = expandForest(forest, tIdx),
+                   _["leaf"] = expandLeafCtg(leaf, tIdx),
+                   _["bag"] = expandBag(sampler, leaf, tIdx)
                    );
-    ffCtg.attr("class") = "exportTreeCtg";
+    ffCtg.attr("class") = "expandTreeCtg";
     trees[tIdx] = std::move(ffCtg);
   }
   return trees;
@@ -142,7 +145,7 @@ List ExportRf::exportTreeCtg(const List& lTrain,
 }
 
 
-List ExportRf::exportLeafCtg(const LeafExportCtg& leaf,
+List ExpandR::expandLeafCtg(const LeafExpandCtg& leaf,
                              unsigned int tIdx) {
   BEGIN_RCPP
 
@@ -150,51 +153,51 @@ List ExportRf::exportLeafCtg(const LeafExportCtg& leaf,
     List::create(
                  _["score"] = leaf.getScoreTree(tIdx)
                  );
-  ffLeaf.attr("class") = "exportLeafCtg";
+  ffLeaf.attr("class") = "expandLeafCtg";
   return ffLeaf;
   END_RCPP
 }
 
 
-List ExportRf::exportReg(const List& lTrain) {
+List ExpandR::expandReg(const List& lTrain) {
   BEGIN_RCPP
 
   IntegerVector predMap((SEXP) lTrain["predMap"]);
-  SignatureExport signature = SignatureExport::unwrap(lTrain);
+  SignatureExpand signature = SignatureExpand::unwrap(lTrain);
   unsigned int facCount = signature.level.length();
   List ffe =
     List::create(_["predMap"] = IntegerVector(predMap),
                  _["factorMap"] = IntegerVector(predMap.end() - facCount, predMap.end()),
                  _["predLevel"] = signature.level,
 		 _["predFactor"] = signature.factor,
-                 _["tree"] = exportTreeReg(lTrain, predMap)
+                 _["tree"] = expandTreeReg(lTrain, predMap)
                  );
 
-  ffe.attr("class") = "ExportReg";
+  ffe.attr("class") = "ExpandReg";
   return ffe;
 
   END_RCPP
 }
 
 
-List ExportRf::exportTreeReg(const List& lTrain,
+List ExpandR::expandTreeReg(const List& lTrain,
                              const IntegerVector& predMap) {
   BEGIN_RCPP
 
-  LeafExportReg leaf(LeafExportReg::unwrap(lTrain));
-  ForestExport forest(ForestExport::unwrap(lTrain, predMap));
-  SamplerExport sampler = SamplerR::unwrapExport(lTrain);
+  LeafExpandReg leaf(LeafExpandReg::unwrap(lTrain));
+  ForestExpand forest(ForestExpand::unwrap(lTrain, predMap));
+  SamplerExpand sampler = SamplerR::unwrapExpand(lTrain);
 
   unsigned int nTree = sampler.nTree;
   List trees(nTree);
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
     List ffReg =
       List::create(
-                   _["internal"] = exportForest(forest, tIdx),
-                   _["leaf"] = exportLeafReg(leaf, tIdx),
-                   _["bag"] = exportBag(sampler, leaf, tIdx)
+                   _["internal"] = expandForest(forest, tIdx),
+                   _["leaf"] = expandLeafReg(leaf, tIdx),
+                   _["bag"] = expandBag(sampler, leaf, tIdx)
                    );
-      ffReg.attr("class") = "exportTreeReg";
+      ffReg.attr("class") = "expandTreeReg";
       trees[tIdx] = std::move(ffReg);
   }
   return trees;
@@ -203,22 +206,22 @@ List ExportRf::exportTreeReg(const List& lTrain,
 }
 
 
-List ExportRf::exportCtg(const List& lTrain) {
+List ExpandR::expandCtg(const List& lTrain) {
   BEGIN_RCPP
 
   IntegerVector predMap((SEXP) lTrain["predMap"]);
-  SignatureExport signature = SignatureExport::unwrap(lTrain);
+  SignatureExpand signature = SignatureExpand::unwrap(lTrain);
 
-  LeafExportCtg leaf(LeafExportCtg::unwrap(lTrain));
+  LeafExpandCtg leaf(LeafExpandCtg::unwrap(lTrain));
   int facCount = signature.level.length();
   List ffe =
     List::create(
                  _["facMap"] = IntegerVector(predMap.end() - facCount, predMap.end()),
                  _["predLevel"] = signature.level,
                  _["yLevel"] = leaf.getLevelsTrain(),
-                 _["tree"] = exportTreeCtg(lTrain, predMap)
+                 _["tree"] = expandTreeCtg(lTrain, predMap)
   );
-  ffe.attr("class") = "ExportCtg";
+  ffe.attr("class") = "ExpandCtg";
   return ffe;
 
   END_RCPP

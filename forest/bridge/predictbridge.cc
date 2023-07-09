@@ -18,7 +18,6 @@
 #include "predictbridge.h"
 #include "predict.h"
 #include "quant.h"
-#include "forest.h"
 #include "rleframe.h"
 #include "ompthread.h"
 
@@ -37,22 +36,6 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
   samplerBridge(std::move(samplerBridge_)),
   leafBridge(std::move(leafBridge_)),
   predictRegCore(make_unique<PredictReg>(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), rleFrame.get(), std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), std::move(quantile))) {
-}
-
-
-PredictRegBridge::PredictRegBridge(PredictRegBridge&& antec) :
-  PredictBridge(move(antec)),
-    samplerBridge(std::move(antec.samplerBridge)),
-    leafBridge(std::move(antec.leafBridge)),
-    predictRegCore(std::move(antec.predictRegCore)) {
-}
-
-
-PredictCtgBridge::PredictCtgBridge(PredictCtgBridge&& antec) :
-  PredictBridge(move(antec)),
-    samplerBridge(std::move(antec.samplerBridge)),
-    leafBridge(std::move(antec.leafBridge)),
-    predictCtgCore(std::move(antec.predictCtgCore)) {
 }
 
 
@@ -93,13 +76,11 @@ PredictBridge::PredictBridge(unique_ptr<RLEFrame> rleFrame_,
   rleFrame(std::move(rleFrame_)),
   forestBridge(std::move(forestBridge_)),
   nPermute(nPermute_) {
-  Forest::init(rleFrame->getNPred());
   OmpThread::init(nThread);
 }
 
 
 PredictBridge::~PredictBridge() {
-  Forest::deInit();
   OmpThread::deInit();
 }
 

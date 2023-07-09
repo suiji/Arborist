@@ -30,6 +30,8 @@
     data(iris)
     rb <- Rborist(iris[,-5], iris[,5])
     ffe <- expandfe(rb)
+
+    # An rfTrain counterpart is NYI.
   }
 }
 

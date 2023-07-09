@@ -1,26 +1,28 @@
-% File man/predict.rfArb.Rd
-% Part of the rborist package
+% File man/predict.rfTrain.Rd
+% Part of the Rborist package
 
-\name{predict.rfArb}
-\alias{predict.rfArb}
-\title{predict method for Rborst and rfArb result}
+\name{predict.rfTrain}
+\alias{predict.rfTrain}
+\title{predict method for rfTrain result}
 \description{
   Prediction and test using Rborist.
 }
 
 \usage{
-\method{predict}{rfArb}(object, newdata, yTest=NULL,
+\method{predict}{rfTrain}(objTrain, newdata, sampler, yTest=NULL,
 keyedFrame = FALSE, quantVec=NULL, quantiles = !is.null(quantVec),
 ctgCensus = "votes", indexing = FALSE, trapUnobserved = FALSE,
 bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
-  \item{object}{an object of class \code{rfArb}, created from a
-    previous invocation of the command \code{Rborist} or \code{rfArb} to
+  \item{objTrain}{an object of class \code{rfTrain}, created from a
+    previous invocation of the command \code{rfTrain} to
     train.}
   \item{newdata}{a design frame or matrix containing new data, with the
     same signature of predictors as in the training command.}
+  \item{sampler}{an object of class \code{Sampler} used in the
+  command.}
   \item{yTest}{a response vector against which to test the new
     predictions.}
   \item{keyedFrame}{whether the columns of \code{newdata} may appear in
@@ -94,102 +96,19 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   nRow <- 5000
   x <- data.frame(replicate(6, rnorm(nRow)))
   y <- with(x, X1^2 + sin(X2) + X3 * X4) # courtesy of S. Welling.
-  rb <- Rborist(x,y)
+
+  pf <- preformat(x)
+  sp <- presample(y)
+  rb <- rfTrain(pf, sp, y)
 
 
   # Performs separate prediction on new data:
-  xx <- data.frame(replacate(6, rnorm(nRow)))
+  xx <- data.frame(replace(6, rnorm(nRow)))
   pred <- predict(rb, xx)
   yPred <- pred$yPred
 
-  # As above, but also records final indices of each tree walk:
-  #
-  pred <- predict(rb, xx, indexing=TRUE)
-  print(pred$indices[c(1:2), ])
-
-
-  # As above, but predicts over \code{newdata} with unobserved values.
-  # In the case of numerical data, only missing values are considered
-  # unobserved.  Missing values are encoded as \code{NaN}, which are
-  # incomparable, precipitating \code{false} on every test.  Prediction
-  # therefore takes the \code{false} branch when encountering missing
-  # values:
-  #
-  xxMissing <- xx
-  xxMissing[6, c(15, 32, 87, 101)] <- NA
-  pred <- predict(rb, xxMissing)
-  
-
-  # As above, but returns a nonterminal score upon encountering
-  # unobserved values. Neither the true nor the false branch from the
-  # testing node is taken.  Instead, the score returned is derived
-  # from all leaf nodes (terminals) reached by the testing
-  # (nonterminal) node.
-  #
-  pred <- predict(rb, xxMissing, trapUnobserved = TRUE)
-
-
-  # Performs separate prediction, using original response as test
-  # vector:
-  pred <- predict(rb, xx, y)
-  mse <- pred$mse
-  rsq <- pred$rsq
-
-
-  # Performs separate prediction with (default) quantiles:
-  pred <- predict(rb, xx, quantiles="TRUE")
-  qPred <- pred$qPred
-
-
-  # Performs separate prediction with deciles:
-  pred <- predict(rb, xx, quantVec = seq(0.1, 1.0, by = 0.10))
-  qPred <- pred$qPred
-
-
-  # Classification examples:
-  data(iris)
-  rb <- Rborist(iris[-5], iris[5])
-
-
-  # Generic prediction using training set.
-  # Census as (default) votes:
-  pred <- predict(rb, iris[-5])
-  yPred <- pred$yPred
-  census <- pred$census
-
-  # Using the \code{keyedFrame} option allows the columns of
-  # \code{newdata} to appear in arbitrary order, so long as the
-  # columns present during training appear as a subset:
-  #
-  pred <- predict(rb, iris[c(2, 4, 3, 1)], keyedFrame=TRUE)
-
-
-  # As above, but validation census to report class probabilities:
-  pred <- predict(rb, iris[-5], ctgCensus="prob")
-  prob <- pred$prob
-
-
-  # As above, but with training reponse as test vector:
-  pred <- predict(rb, iris[-5], iris[5], ctgCensus = "prob")
-  prob <- pred$prob
-  conf <- pred$confusion
-  misPred <- pred$misPred
-
-  # As above, but predicts nonterminal when encountering categories
-  # not observed during training.  That is, prediction returns a score
-  # derived from all terminal nodes (leaves) reached from the
-  # (nonterminal) testing node.
-  #
-  # In this case, "unobserved" refers to categories not present in
-  # the subpartition over which a splitting is performed.  As training
-  # partitions the data into smaller and smaller regions, a given
-  # category becomes less likely to appear in a region.
-  #
-  # More generally, unobserved data can include missing predictors as
-  # well as categories appearing in \code{newdata} which were not
-  # present during training.
-  #
-  pred <- predict(rb, trapUnobserved=TRUE)
+  # Additional examples appear in the documentation for
+  # predict.rfArb.Rd, and can be applied mutatis mutandis.
 }
 }
 
@@ -197,6 +116,6 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   Mark Seligman at Suiji.
 }
 
-\seealso{code{\link{forestWeight}}}
+\seealso{\code{\link{rfTrain}}}
   
     

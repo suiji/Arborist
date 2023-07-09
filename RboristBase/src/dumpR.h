@@ -1,22 +1,22 @@
-// Copyright (C)  2019-2022  Mark Seligman
+// Copyright (C)  2019-2023 Mark Seligman
 //
-// This file is part of rf.
+// This file is part of RboristBase
 //
-// rf is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rf is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file dumpRf.h
+   @file dumpR.h
 
    @brief C++ class definitions for managing single-tree forest dump.
 
@@ -24,8 +24,8 @@
  */
 
 
-#ifndef RF_DUMP_RF_H
-#define RF_DUMP_RF_H
+#ifndef DUMP_R_H
+#define DUMP_R_H
 
 #include <vector>
 #include <memory>
@@ -44,7 +44,7 @@ struct DumpRf {
   List treeOut;
 
   const IntegerVector predMap;
-  const ForestExport forest;
+  const ForestExpand forest;
   const IntegerVector factorMap;
   const List facLevel;
   const int factorBase;

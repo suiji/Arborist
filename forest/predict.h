@@ -393,7 +393,7 @@ public:
    */
   static vector<double> forestWeight(const class Forest* forest,
 					     const class Sampler* sampler,
-					     const class Leaf* leaf,
+					     const struct Leaf* leaf,
 					     size_t nPredict,
 					     const double finalIdx[],
 					     unsigned int nThread);
@@ -401,7 +401,7 @@ public:
 
   static vector<vector<struct IdCount>> obsCounts(const class Forest* forest,
 						  const class Sampler* sampler,
-						  const class Leaf* leaf,
+						  const struct Leaf* leaf,
 						  unsigned int tIdx);
 
 

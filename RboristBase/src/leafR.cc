@@ -1,19 +1,19 @@
-// Copyright (C)  2012-2022   Mark Seligman
+// Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of rfR.
+// This file is part of RboristBase.
 //
-// rfR is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rfR is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with rfR.  If not, see <http://www.gnu.org/licenses/>.
+// along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
    @file leafR.cc
@@ -85,9 +85,9 @@ LeafBridge LeafR::unwrap(const List& lTrain,
 }
 
 
-LeafExportReg LeafExportReg::unwrap(const List& lTrain) {
+LeafExpandReg LeafExpandReg::unwrap(const List& lTrain) {
   List lSampler((SEXP) lTrain["sampler"]);
-  return LeafExportReg(lSampler);
+  return LeafExpandReg(lSampler);
 }
  
 
@@ -95,23 +95,23 @@ LeafExportReg LeafExportReg::unwrap(const List& lTrain) {
    @brief Constructor instantiates leaves for export only:
    no prediction.
  */
-LeafExportReg::LeafExportReg(const List& lSampler) :
-  LeafExport(lSampler) {
+LeafExpandReg::LeafExpandReg(const List& lSampler) :
+  LeafExpand(lSampler) {
 }
 
-LeafExportReg::~LeafExportReg() = default;
+LeafExpandReg::~LeafExpandReg() = default;
 
 
-LeafExportCtg LeafExportCtg::unwrap(const List &lTrain) {
+LeafExpandCtg LeafExpandCtg::unwrap(const List &lTrain) {
   List lSampler((SEXP) lTrain["sampler"]);
-  return LeafExportCtg(lSampler);
+  return LeafExpandCtg(lSampler);
 }
 
 
-LeafExportCtg::~LeafExportCtg() = default;
+LeafExpandCtg::~LeafExpandCtg() = default;
 
 
-LeafExport::LeafExport(const List& lSampler) :
+LeafExpand::LeafExpand(const List& lSampler) :
   nTree(as<int>(lSampler["nTree"])),
   rowTree(vector<vector<size_t> >(nTree)),
   sCountTree(vector<vector<unsigned int> >(nTree)),
@@ -123,7 +123,7 @@ LeafExport::LeafExport(const List& lSampler) :
 /**
    @brief Constructor caches front-end vectors and instantiates a Leaf member.
  */
-LeafExportCtg::LeafExportCtg(const List& lSampler) :
-  LeafExport(lSampler),
+LeafExpandCtg::LeafExpandCtg(const List& lSampler) :
+  LeafExpand(lSampler),
   levelsTrain(CharacterVector(as<IntegerVector>(lSampler[SamplerR::strYTrain]).attr("levels"))) {
 }

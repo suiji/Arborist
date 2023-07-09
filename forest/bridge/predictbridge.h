@@ -94,9 +94,6 @@ struct PredictRegBridge : public PredictBridge {
 		   vector<double> quantile_);
 
 
-  PredictRegBridge(PredictRegBridge&&);
-
-
   ~PredictRegBridge();
 
 
@@ -157,9 +154,6 @@ struct PredictCtgBridge : public PredictBridge {
 		   bool indexing,
 		   bool trapUnobserved,
 		   unsigned int nThread);
-
-  PredictCtgBridge(PredictCtgBridge&&);
-
   
   ~PredictCtgBridge();
 
