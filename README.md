@@ -21,7 +21,7 @@ Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/i
 
 ### R
 
-The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html) package. 
+The *Arborist* is available on CRAN as the [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html) package.
 
 Installation of Release Version:
 
@@ -32,9 +32,10 @@ Installation of Development Version:
     > ./Rborist/Package/Rborist.CRAN.sh
     > R CMD INSTALL Rborist_*.*-*.tar.gz
 
+A CRAN-friendly snapshot of the package source is mirrored by the neighboring archive Rborist.CRAN.  This archive is intended for remote access by R utilities such as devtools.
 
 #### Notes
-- Rborist version 0.3-2 passes all checks on CRAN.
+- Rborist version 0.3-4 has been submitted to CRAN.
 
 ### Python
 
