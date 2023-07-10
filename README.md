@@ -62,10 +62,10 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
-- New command 'rfTrain' decouples the training task from the compound format/sample/train/validate task performed by 'rfArb'.
-- New option 'keyedFrame' accesses prediction columns by name, bypassing the requirement that training and prediction frames have the same column ordering.  In addition to arbitrary ordering, the prediction frame may include columns not appearing at training.
-- Meinshausen's forest-wide weights are computed by 'forestWeight' command.
-- Prediction records final node indices of tree walks, invocable under 'indexing=TRUE'.
+- New command 'rfTrain' exposes the training component of the compound format/sample/train/validate task performed by 'rfArb'.  This provides separate training of sampled, prefomatted data.
+- New prediction option 'keyedFrame' accesses prediction columns by name, bypassing a previous requirement that training and prediction frames have the same column ordering.  In addition to arbitrary ordering, the prediction frame may now include columns not submitted to training.
+- New command 'forestWeight' computes Meinshausen's forest-wide weights.  Nonterminals are weighted in addition to leaves, both to facilitate post-pruning and to accommodate early exit under prediction with trap-and-bail.
+- New prediction option 'indexing=TRUE' records final node indices of tree walks.
 - Training ignores missing predictor values, splitting over appropriately reduced subnodes.
 - Quantile estimation supports both leaf and nonterminal (i.e., trap-and-bail) prediction modes.
 - Prediction and validiation support large (> 32 bits) observation counts.
