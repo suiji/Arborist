@@ -32,7 +32,7 @@ Installation of Development Version:
     > ./Rborist/Package/Rborist.CRAN.sh
     > R CMD INSTALL Rborist_*.*-*.tar.gz
 
-A *CRAN*-friendly snapshot of the package source is mirrored by the neighboring archive [Rborist.CRAN](https://githbub.com/suiji/Rborist.CRAN).  This archive is intended for remote access by **R** utilities such as *devtools*.
+A *CRAN*-friendly snapshot of the package source is mirrored by the neighboring archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN).  This archive is intended for remote access by **R** utilities such as *devtools*.
 
 #### Notes
 - *Rborist* version 0.3-4 has been submitted to *CRAN*.
