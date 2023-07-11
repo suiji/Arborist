@@ -28,8 +28,6 @@
                             nThread = 0,
                             verbose = FALSE,
                               ...) {
-  if (!inherits(object, "rfArb")) # Extend to include rfTrain
-    stop("object not of class rfArb")
   forest <- object$forest
   if (is.null(forest))
     stop("Forest state needed for prediction")

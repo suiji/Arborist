@@ -165,7 +165,7 @@ rfTrain.default <- function(preFormat, sampler, y,
     argTrain$pvtBlock <- 8
 
     trainOut <- tryCatch(.Call("trainRF", preFormat, sampler, argTrain), error = function(e){stop(e)})
-    trainOut$version = "0.3-4"
+    trainOut$version = "0.3-5"
     class(trainOut) <- "rfTrain"
 
     if (verbose)
