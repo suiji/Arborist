@@ -63,9 +63,9 @@ RcppExport SEXP validateRcpp(const SEXP sFrame,
 
 
 /**
-   @brief Bridge-variant PredictBridge pins unwrapped front-end structures.
+   @bridge Prediction through unwrapped PredictBridge object.
  */
-struct PBRf {
+struct PredictR {
 
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
@@ -89,11 +89,11 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static struct PredictRegBridge unwrapReg(const List& lDeframe,
-					   const List& lTrain,
-					   const List& lSampler,
-					   const SEXP sYTest,
-					   const List& lArgs);
+  static unique_ptr<struct PredictRegBridge> unwrapReg(const List& lDeframe,
+						       const List& lTrain,
+						       const List& lSampler,
+						       const SEXP sYTest,
+						       const List& lArgs);
 
 
   /**
@@ -109,7 +109,7 @@ struct PBRf {
 
      @return unique pointer to bridge-variant PredictBridge. 
    */
-  static struct PredictCtgBridge unwrapCtg(const List& lDeframe,
+  static unique_ptr<struct PredictCtgBridge> unwrapCtg(const List& lDeframe,
 						       const List& lTrain,
 						       const List& lSampler,
 						       const SEXP sYTest,
@@ -118,7 +118,7 @@ struct PBRf {
 
   static List summary(const List& lDeframe,
 		      SEXP sYTest,
-                      const struct PredictRegBridge& pBridge);
+                      const struct PredictRegBridge* pBridge);
 
 
   /**
@@ -128,23 +128,23 @@ struct PBRf {
 
      @return transposed core matrix if quantiles requested, else empty matrix.
   */
-  static NumericMatrix getQPred(const struct PredictRegBridge& pBridge);
+  static NumericMatrix getQPred(const struct PredictRegBridge* pBridge);
 
 
-  static List getPrediction(const PredictRegBridge& pBridge);
+  static List getPrediction(const PredictRegBridge* pBridge);
 
 
-  static NumericMatrix getIndices(const struct PredictRegBridge& pBridge);
+  static NumericMatrix getIndices(const struct PredictRegBridge* pBridge);
 
   
   /**
      @param varTest is the variance of the test vector.
    */  
-  static List getValidation(const PredictRegBridge& pBridge,
+  static List getValidation(const PredictRegBridge* pBridge,
 			    const NumericVector& yTestFE);
   
 
-  static List getImportance(const struct PredictRegBridge& pBridge,
+  static List getImportance(const struct PredictRegBridge* pBridge,
 			    const NumericVector& yTestFE,
 			    const CharacterVector& predNames);
 
@@ -210,11 +210,11 @@ struct LeafCtgRf {
   */
   static List summary(const List& lDeframe,
 		      const List& lSampler,
-                      const struct PredictCtgBridge& pBridge,
+                      const struct PredictCtgBridge* pBridge,
                       SEXP sYTest);
 
 
-  static NumericMatrix getIndices(const struct PredictCtgBridge& pBridge);
+  static NumericMatrix getIndices(const struct PredictCtgBridge* pBridge);
 
   
   /**
@@ -225,7 +225,7 @@ struct LeafCtgRf {
 
      @return matrix of predicted categorical responses, by row.
   */
-  static IntegerMatrix getCensus(const PredictCtgBridge& pBridge,
+  static IntegerMatrix getCensus(const PredictCtgBridge* pBridge,
                                  const CharacterVector& levelsTrain,
                                  const CharacterVector& rowNames);
 
@@ -235,12 +235,12 @@ struct LeafCtgRf {
 
      @return probability matrix if requested, otherwise empty matrix.
   */
-  static NumericMatrix getProb(const PredictCtgBridge& pBridge,
+  static NumericMatrix getProb(const PredictCtgBridge* pBridge,
                                const CharacterVector& levelsTrain,
                                const CharacterVector &rowNames);
 
   
-  static List getPrediction(const PredictCtgBridge& pBridge,
+  static List getPrediction(const PredictCtgBridge* pBridge,
 			    const CharacterVector& levelsTrain,
 			    const CharacterVector& ctgNames);
 };
@@ -277,10 +277,10 @@ struct TestCtg {
   IntegerVector mergeLevels(const CharacterVector& levelsTest);
 
 
-  List getValidation(const PredictCtgBridge& pBridge);
+  List getValidation(const PredictCtgBridge* pBridge);
 
 
-  List getImportance(const PredictCtgBridge& pBridge,
+  List getImportance(const PredictCtgBridge* pBridge,
 		     const CharacterVector& predNames);
 
   
@@ -289,7 +289,7 @@ struct TestCtg {
 
      @param pBridge is the bridge handle.
   */
-  NumericVector getMisprediction(const struct PredictCtgBridge& pBridge) const;
+  NumericVector getMisprediction(const struct PredictCtgBridge* pBridge) const;
   
 
 /**
@@ -302,17 +302,17 @@ struct TestCtg {
 
    @return numeric matrix to accommodate wide count values.
  */
-  NumericMatrix getConfusion(const PredictCtgBridge& pBridge,
+  NumericMatrix getConfusion(const PredictCtgBridge* pBridge,
 			     const CharacterVector& levelsTrain) const;
 
 
 
-  NumericMatrix mispredPermuted(const PredictCtgBridge& pBridge,
+  NumericMatrix mispredPermuted(const PredictCtgBridge* pBridge,
 				const CharacterVector& predNames) const;
 
 
 
-  NumericVector oobErrPermuted(const PredictCtgBridge& pBridge,
+  NumericVector oobErrPermuted(const PredictCtgBridge* pBridge,
 			       const CharacterVector& predNames) const;
 };
 

@@ -1,26 +1,28 @@
-% File man/predict.rfArb.Rd
-% Part of the rborist package
+% File man/predict.rfTrain.Rd
+% Part of the Rborist package
 
-\name{predict.rfArb}
-\alias{predict.rfArb}
-\title{predict method for Rborst and rfArb result}
+\name{predict.arbTrain}
+\alias{predict.arbTrain}
+\title{predict method for arbTrain result}
 \description{
   Prediction and test using Rborist.
 }
 
 \usage{
-\method{predict}{rfArb}(object, newdata, yTest=NULL,
+\method{predict}{arbTrain}(object, newdata, sampler, yTest=NULL,
 keyedFrame = FALSE, quantVec=NULL, quantiles = !is.null(quantVec),
 ctgCensus = "votes", indexing = FALSE, trapUnobserved = FALSE,
 bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \arguments{
-  \item{object}{an object of class \code{rfArb}, created from a
-    previous invocation of the command \code{Rborist} or \code{rfArb} to
-    train.}
+  \item{object}{an object of class \code{arbTrain}, created from a
+    previous invocation of the command \code{rfArb}, \code{Rborist}
+    or \code{rfTrain} to train.}
   \item{newdata}{a design frame or matrix containing new data, with the
     same signature of predictors as in the training command.}
+  \item{sampler}{an object of class \code{Sampler} used in the
+  command.}
   \item{yTest}{a response vector against which to test the new
     predictions.}
   \item{keyedFrame}{whether the columns of \code{newdata} may appear in
@@ -94,8 +96,18 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   nRow <- 5000
   x <- data.frame(replicate(6, rnorm(nRow)))
   y <- with(x, X1^2 + sin(X2) + X3 * X4) # courtesy of S. Welling.
-  rb <- Rborist(x,y)
 
+  pf <- preformat(x)
+  sp <- presample(y)
+  rb <- arbTrain(pf, sp, y)
+
+
+  # Performs separate prediction on new data:
+  xx <- data.frame(replace(6, rnorm(nRow)))
+  pred <- predict(rb, xx)
+  yPred <- pred$yPred
+
+  rb <- Rborist(x,y)
 
   # Performs separate prediction on new data:
   xx <- data.frame(replacate(6, rnorm(nRow)))
@@ -197,6 +209,6 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
   Mark Seligman at Suiji.
 }
 
-\seealso{code{\link{forestWeight}}}
+\seealso{\code{\link{rfTrain}}}
   
     

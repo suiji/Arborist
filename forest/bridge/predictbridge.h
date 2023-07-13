@@ -45,10 +45,6 @@ struct PredictBridge {
 		unsigned int nPermute,
 		unsigned int nThread);
 
-
-  PredictBridge(PredictBridge&&);
-
-
   virtual ~PredictBridge();
 
   

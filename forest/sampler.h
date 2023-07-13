@@ -40,13 +40,13 @@ class Sampler {
   const unique_ptr<struct Response> response;
   
   const vector<vector<class SamplerNux>> samples;
-  const unique_ptr<class BitMatrix> bagMatrix; // empty if training or prediction without bagging.
+  const unique_ptr<class BitMatrix> bagMatrix; ///< empty if training or prediction without bagging.
 
   // Presampling only.
-  vector<SamplerNux> sbCresc; // Crescent block.
-  unique_ptr<Sample::Walker<size_t>> walker; // Walker table.
-  vector<double> weightNoReplace; // Non-replacement weights.
-  vector<size_t> coeffNoReplace; // Uniform non-replacement coefficients.
+  vector<SamplerNux> sbCresc; ///< Crescent block.
+  unique_ptr<Sample::Walker<size_t>> walker; ///< Walker table.
+  vector<double> weightNoReplace; ///< Non-replacement weights.
+  vector<size_t> coeffNoReplace; ///< Uniform non-replacement coefficients.
 
 
   /**

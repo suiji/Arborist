@@ -42,10 +42,10 @@ RcppExport SEXP expandR(SEXP sTrain) {
     return List::create(0);
   }
 
-  List lForest(lTrain["forest"]);
+  List lForest(as<List>(lTrain["forest"]));
   List leaf((SEXP) lTrain["leaf"]);
   if (leaf.inherits("Leaf")) {
-    List lSampler((SEXP) lTrain["sampler"]);
+    List lSampler(as<List>(lTrain["sampler"]));
     SEXP yTrain = lSampler[SamplerR::strYTrain];
     if (Rf_isFactor(yTrain)) {
       return ExpandR::expandCtg(lTrain);

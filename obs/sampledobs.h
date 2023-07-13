@@ -1,4 +1,4 @@
-// This file is part of ArboristCore.
+// This file is part of ArboristBase.
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -29,13 +29,13 @@
 */
 class SampledObs {
  protected:
-  const IndexT nSamp; // Number of row samples requested.
+  const IndexT nSamp; ///< Number of observation samples requested.
   double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
-  vector<SampleNux> sampleNux; // Per-sample summary, with row-delta.
-  vector<SumCount> ctgRoot; // Root census of categorical response.
-  vector<IndexT> row2Sample; // Maps row index to sample index.
-  IndexT bagCount;
-  double bagSum; // Sum of bagged responses.
+  vector<SampleNux> sampleNux; ///< Per-sample summary, with row-delta.
+  vector<SumCount> ctgRoot; ///< Root census of categorical response.
+  vector<IndexT> row2Sample; ///< Maps observation index to sample index.
+  IndexT bagCount; ///< # bagged obervations.
+  double bagSum; ///< Sum of bagged responses.
 
   vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
   vector<IndexT> runCount; ///< Staging initialization.
@@ -72,17 +72,13 @@ public:
   /**
      @brief Static entry for categorical response (classification).
 
-     @param y is a real-valued proxy for the training response.
+     @param response summarizes the training response.
 
-     @param yCtg is the training response.
-
-     @return new SampleCtg instance.
+     @return new SampledCtg instance.
    */
-  static unique_ptr<struct SampleCtg> factoryCtg(const class Sampler* sampler,
-						 const struct Response* response,
-						 const vector<double>&  y,
-						 const vector<PredictorT>& yCtg,
-						 unsigned int tIdx);
+  static unique_ptr<struct SampledCtg> factoryCtg(const class Sampler* sampler,
+						  const class ResponseCtg* response,
+						  unsigned int tIdx);
 
 
   /**
@@ -90,12 +86,11 @@ public:
 
      @param y is the training response.
 
-     @return new SampleReg instance.
+     @return new SampledReg instance.
    */
-  static unique_ptr<struct SampleReg>factoryReg(const class Sampler* sampler,
-						const struct Response* response,
-						const vector<double>& y,
-						unsigned int tIdx);
+  static unique_ptr<struct SampledReg>factoryReg(const class Sampler* sampler,
+						 const class ResponseReg* response,
+						 unsigned int tIdx);
 
 
   /**
@@ -222,9 +217,9 @@ public:
 /**
    @brief Regression-specific methods and members.
 */
-struct SampleReg : public SampledObs {
+struct SampledReg : public SampledObs {
 
-  SampleReg(const class Sampler* sampler,
+  SampledReg(const class Sampler* sampler,
 	    const struct Response* respone);
 
 
@@ -261,10 +256,10 @@ struct SampleReg : public SampledObs {
 /**
  @brief Classification-specific sampling.
 */
-struct SampleCtg : public SampledObs {
+struct SampledCtg : public SampledObs {
   
-  SampleCtg(const class Sampler* sampler,
-	    const struct Response* response);
+  SampledCtg(const class Sampler* sampler,
+	     const struct Response* response);
 
   
   /**

@@ -1,4 +1,4 @@
-// This file is part of ArboristCore.
+// This file is part of ArboristBase.
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -34,36 +34,33 @@ SampledObs::SampledObs(const Sampler* sampler,
 }
 
     
-unique_ptr<SampleCtg> SampledObs::factoryCtg(const Sampler* sampler,
-					     const Response* response,
-					     const vector<double>& y,
-					     const vector<PredictorT>& yCtg,
-					     unsigned int tIdx) {
-  unique_ptr<SampleCtg> sampleCtg = make_unique<SampleCtg>(sampler, response);
-  sampleCtg->bagSamples(sampler, yCtg, y, tIdx);
+unique_ptr<SampledCtg> SampledObs::factoryCtg(const Sampler* sampler,
+					      const ResponseCtg* response,
+					      unsigned int tIdx) {
+  unique_ptr<SampledCtg> sampleCtg = make_unique<SampledCtg>(sampler, response);
+  sampleCtg->bagSamples(sampler, response->getYCtg(), response->getClassWeight(), tIdx);
 
   return sampleCtg;
 }
 
 
-unique_ptr<SampleReg> SampledObs::factoryReg(const Sampler* sampler,
-					     const Response* response,
-					     const vector<double>& y,
-					     unsigned int tIdx) {
-  unique_ptr<SampleReg> sampleReg = make_unique<SampleReg>(sampler, response);
-  sampleReg->bagSamples(sampler, y, tIdx);
+unique_ptr<SampledReg> SampledObs::factoryReg(const Sampler* sampler,
+					      const ResponseReg* response,
+					      unsigned int tIdx) {
+  unique_ptr<SampledReg> sampleReg = make_unique<SampledReg>(sampler, response);
+  sampleReg->bagSamples(sampler, response->getEstimand(), tIdx);
   return sampleReg;
 }
 
 
-SampleReg::SampleReg(const Sampler* sampler,
+SampledReg::SampledReg(const Sampler* sampler,
 		     const Response* response) :
-  SampledObs(sampler, response, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampleReg::addNode)) {
+  SampledObs(sampler, response, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledReg::addNode)) {
 }
 
 
 
-void SampleReg::bagSamples(const class Sampler* sampler,
+void SampledReg::bagSamples(const class Sampler* sampler,
 			   const vector<double>& y,
 			   unsigned int tIdx) {
   vector<PredictorT> ctgProxy(row2Sample.size());
@@ -71,9 +68,9 @@ void SampleReg::bagSamples(const class Sampler* sampler,
 }
 
 
-SampleCtg::SampleCtg(const Sampler* sampler,
+SampledCtg::SampledCtg(const Sampler* sampler,
 		     const Response* response) :
-  SampledObs(sampler, response, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampleCtg::addNode)) {
+  SampledObs(sampler, response, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledCtg::addNode)) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
@@ -82,7 +79,7 @@ SampleCtg::SampleCtg(const Sampler* sampler,
 // Same as for regression case, but allocates and sets 'ctg' value, as well.
 // Full row count is used to avoid the need to rewalk.
 //
-void SampleCtg::bagSamples(const Sampler* sampler,
+void SampledCtg::bagSamples(const Sampler* sampler,
 			   const vector<PredictorT>& yCtg,
 			   const vector<double>& y,
 			   unsigned int tIdx) {

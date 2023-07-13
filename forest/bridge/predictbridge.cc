@@ -39,13 +39,6 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 }
 
 
-PredictBridge::PredictBridge(PredictBridge&& antec) :
-  rleFrame(std::move(antec.rleFrame)),
-  forestBridge(std::move(antec.forestBridge)),
-  nPermute(antec.nPermute) {
-}
-
-
 PredictRegBridge::~PredictRegBridge() = default;
 
 

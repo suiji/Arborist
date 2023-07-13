@@ -15,24 +15,33 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Rborist.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.rfArb" <- function(object,
-                            newdata,
-                            yTest=NULL,
-                            keyedFrame = FALSE,
-                            quantVec = NULL,
-                            quantiles = !is.null(quantVec),
-                            ctgCensus = "votes",
-                            indexing = FALSE,
-                            trapUnobserved = FALSE,
-                            bagging = FALSE,
-                            nThread = 0,
-                            verbose = FALSE,
+"predict.arbTrain" <- function(object,
+                              newdata,
+                              sampler = NULL,
+                              yTest=NULL,
+                              keyedFrame = FALSE,
+                              quantVec = NULL,
+                              quantiles = !is.null(quantVec),
+                              ctgCensus = "votes",
+                              indexing = FALSE,
+                              trapUnobserved = FALSE,
+                              bagging = FALSE,
+                              nThread = 0,
+                              verbose = FALSE,
                               ...) {
+  if (inherits(object, "rfArb")) {
+      sampler <- object$sampler
+  }
+  else {
+    if (is.null(sampler))
+        stop("Sampler state needed for prediction")
+    if (sampler$hash != object$samplerHash)
+        stop("Sampler hashes do not match.")
+  }
+
   forest <- object$forest
   if (is.null(forest))
     stop("Forest state needed for prediction")
-  if (is.null(object$sampler))
-    stop("Sampler state needed for prediction")
   if (is.null(object$signature))
     stop("Training signature missing")
   if (nThread < 0)
@@ -46,13 +55,13 @@
   argPredict <- list(
       bagging = bagging,
       impPermute = 0,
-      ctgProb = ctgProbabilities(object$sampler, ctgCensus),
-      quantVec = getQuantiles(quantiles, object$sampler, quantVec),
+      ctgProb = ctgProbabilities(sampler, ctgCensus),
+      quantVec = getQuantiles(quantiles, sampler, quantVec),
       indexing = indexing,
       trapUnobserved = trapUnobserved,
       nThread = nThread,
       verbose = verbose)
-  summaryPredict <- predictCommon(object, object$sampler, newdata, yTest, keyedFrame, argPredict)
+  summaryPredict <- predictCommon(object, sampler, newdata, yTest, keyedFrame, argPredict)
 
   if (!is.null(yTest)) { # Validation (test) included.
       c(summaryPredict$prediction, summaryPredict$validation)
@@ -97,7 +106,7 @@ getQuantiles <- function(quantiles, sampler, quantVec) {
 
 
 # Glue-layer entry for prediction.
-predictCommon <- function(objTrain, sampler, newdata, yTest, keyedFrame, argList) {
-    deframeNew <- deframe(newdata, objTrain$signature, keyedFrame)
-    tryCatch(.Call("predictRcpp", deframeNew, objTrain, sampler, yTest, argList), error = function(e) {stop(e)})
+predictCommon <- function(object, sampler, newdata, yTest, keyedFrame, argList) {
+    deframeNew <- deframe(newdata, object$signature, keyedFrame)
+    tryCatch(.Call("predictRcpp", deframeNew, object, sampler, yTest, argList), error = function(e) {stop(e)})
 }

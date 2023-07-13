@@ -139,6 +139,7 @@ struct TrainR {
   List summarize(const TrainBridge& trainBridge,
 		 const List& lDeframe,
 		 const List& lSampler,
+		 const List& argList,
 		 const vector<string>& diag);
 
   

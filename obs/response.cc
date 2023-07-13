@@ -20,34 +20,39 @@
 
 #include <algorithm>
 
-ResponseReg::ResponseReg(const vector<double>& y_) :
+ResponseReg::ResponseReg(const vector<double>& y) :
   Response(),
-  yTrain(y_),
-  defaultPrediction(meanTrain()) {
+  yTrain(y),
+  defaultPrediction(meanTrain()),
+  estimand(y) {
+  /* ???
   double yMax = 0.0;
-  for (auto y : yTrain) {
-    yMax = max(yMax, abs(y));
+  for (auto yt : yTrain) {
+    yMax = max(yMax, abs(yt));
   }
+  */
 }
 
 
 ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
-		 PredictorT nCtg_,
-		 const vector<double>& classWeight_) :
+			 PredictorT nCtg_,
+			 const vector<double>& classWeight_) :
   Response(),
   yCtg(yCtg_),
   nCtg(nCtg_),
   classWeight(classWeight_),
   defaultPrediction(ctgDefault()) {
+  /* ???
   double yMax = 0.0;
-  for (auto y : classWeight) {
-    yMax = max(yMax, y);
+  for (auto weight : classWeight) {
+    yMax = max(yMax, weight);
   }
+  */
 }
 
 
 ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
-		 PredictorT nCtg_) :
+			 PredictorT nCtg_) :
   Response(),
   yCtg(yCtg_),
   nCtg(nCtg_),
@@ -99,13 +104,13 @@ vector<double> ResponseCtg::defaultProb() const {
 
 unique_ptr<SampledObs> ResponseReg::rootSample(const Sampler* sampler,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryReg(sampler, this, yTrain, tIdx);
+  return SampledObs::factoryReg(sampler, this, tIdx);
 }
 
 
 unique_ptr<SampledObs> ResponseCtg::rootSample(const Sampler* sampler,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryCtg(sampler, this, classWeight, yCtg, tIdx);
+  return SampledObs::factoryCtg(sampler, this, tIdx);
 }
 
 

@@ -163,10 +163,9 @@ rfTrain.default <- function(preFormat, sampler, y,
     argTrain$regMono <- regMono
     argTrain$enableCoproc <- FALSE
     argTrain$pvtBlock <- 8
+    argTrain$version <- as.character(packageVersion("Rborist"))
 
     trainOut <- tryCatch(.Call("trainRF", preFormat, sampler, argTrain), error = function(e){stop(e)})
-    trainOut$version = "0.3-5"
-    class(trainOut) <- "rfTrain"
 
     if (verbose)
         print("Training completed.")

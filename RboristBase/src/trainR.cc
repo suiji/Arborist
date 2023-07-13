@@ -41,7 +41,7 @@ const string TrainR::strPredMap = "predMap";
 const string TrainR::strForest = "forest";
 const string TrainR::strLeaf = "leaf";
 const string TrainR::strDiagnostic = "diag";
-const string TrainR::strClassName = "trainArb";
+const string TrainR::strClassName = "arbTrain";
 
 List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& argList) {
   BEGIN_RCPP
@@ -56,7 +56,7 @@ List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& ar
 
   TrainR trainR(lSampler, argList);
   trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
-  List outList = trainR.summarize(trainBridge, lDeframe, lSampler, diag);
+  List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
   if (verbose) {
     Rcout << "Training completed" << endl;
@@ -97,10 +97,11 @@ void TrainR::consumeInfo(const TrainedChunk* train) {
 List TrainR::summarize(const TrainBridge& trainBridge,
 		       const List& lDeframe,
 		       const List& lSampler,
+		       const List& argList,
 		       const vector<string>& diag) {
   BEGIN_RCPP
   List trainArb = List::create(
-			       _[strVersion] = "", // Stamped by front end.
+			       _[strVersion] = as<String>(argList["version"]),
 			       _[strSignature] = lDeframe["signature"],
 			       _[strSamplerHash] = lSampler["hash"],
 			       _[strPredInfo] = scaleInfo(trainBridge),

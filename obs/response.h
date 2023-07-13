@@ -8,13 +8,13 @@
 /**
    @file response.h
 
-   @brief Class definitions for crescent leaf structures.
+   @brief Access to training response and estimands.
 
    @author Mark Seligman
  */
 
-#ifndef FOREST_RESPONSE_H
-#define FOREST_RESPONSE_H
+#ifndef OBS_RESPONSE_H
+#define OBS_RESPONSE_H
 
 
 #include "typeparam.h"
@@ -26,13 +26,10 @@
 
 
 /**
-   @brief Class definitions specialized for response type.
+   @brief Abstract wrapper class.  Probably unnecessary.
  */
 struct Response {
 
-  /**
-     @brief Crescent constructor.
-  */
   Response() = default;
 
   virtual ~Response() {}
@@ -61,7 +58,7 @@ struct Response {
 
   
   /**
-     @brief Samples (bags) the response to construct the tree root.
+     @brief Samples (bags) the estimand to construct the tree root.
    */
   virtual unique_ptr<class SampledObs> rootSample(const class Sampler* sampler,
 						  unsigned int tIdx) const = 0;
@@ -69,10 +66,12 @@ struct Response {
 
 
 class ResponseReg : public Response {
-  const vector<double> yTrain; // Training response.
+  const vector<double> yTrain; ///< Training response.
 
-  const double defaultPrediction; // Prediction value when no trees bagged.
-   
+  const double defaultPrediction; ///< Prediction value when no trees bagged.
+
+  vector<double> estimand; ///< Updatable training target.
+  
   /**
      @brief Determines mean training value.
 
@@ -97,6 +96,11 @@ public:
 
   PredictorT getNCtg() const {
     return 0;
+  }
+
+
+  const vector<double>& getEstimand() const {
+    return estimand;
   }
   
 
@@ -126,10 +130,10 @@ public:
    @brief Training members and methods for categorical response.
  */
 class ResponseCtg : public Response {
-  const vector<PredictorT> yCtg; // 0-based factor-valued response.
+  const vector<PredictorT> yCtg; ///< 0-based factor-valued response.
   const PredictorT nCtg;
-  const vector<double> classWeight; // Category weights:  cresecent only.
-  const PredictorT defaultPrediction; // Default prediction when nothing is out-of-bag.
+  const vector<double> classWeight; ///< Category weights:  cresecent only.
+  const PredictorT defaultPrediction; ///< Default prediction when nothing is out-of-bag.
 
 
   /**
@@ -143,20 +147,30 @@ public:
      @breif Training constructor:  class weights needed.
    */
   ResponseCtg(const vector<PredictorT>& yCtg_,
-	  PredictorT nCtg,
-	  const vector<double>& classWeight);
+	      PredictorT nCtg,
+	      const vector<double>& classWeight);
 
 
   /**
      @brief Post-training constructor.
    */
   ResponseCtg(const vector<PredictorT>& yCtg_,
-	  PredictorT nCtg);
+	      PredictorT nCtg);
 
 
   ~ResponseCtg() = default;
 
 
+  const vector<double>& getClassWeight() const {
+    return classWeight;
+  }
+
+
+  const vector<unsigned int>& getYCtg() const {
+    return yCtg;
+  }
+
+  
   inline auto getCtg(IndexT row) const {
     return yCtg[row];
   }
@@ -168,7 +182,7 @@ public:
   
 
   /**
-     @brief Samples response of current tree.
+     @brief Samples training response of current tree.
 
      @return summary of sampled response.
    */
