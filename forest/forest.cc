@@ -63,19 +63,21 @@ size_t Forest::noNode() const {
 void Forest::dump(vector<vector<PredictorT> >& predTree,
                   vector<vector<double> >& splitTree,
                   vector<vector<size_t> >& delIdxTree,
+		  vector<vector<double>>& scoreTree,
 		  IndexT& dummy) const {
-  dump(predTree, splitTree, delIdxTree);
+  dump(predTree, splitTree, delIdxTree, scoreTree);
 }
 
 
 void Forest::dump(vector<vector<PredictorT> >& pred,
                   vector<vector<double> >& split,
-                  vector<vector<size_t> >& delIdx) const {
+                  vector<vector<size_t> >& delIdx,
+		  vector<vector<double>>& score) const {
   for (unsigned int tIdx = 0; tIdx < decNode.size(); tIdx++) {
     for (IndexT nodeIdx = 0; nodeIdx < decNode[tIdx].size(); nodeIdx++) {
       pred[tIdx].push_back(decNode[tIdx][nodeIdx].getPredIdx());
       delIdx[tIdx].push_back(decNode[tIdx][nodeIdx].getDelIdx());
-
+      score[tIdx].push_back(scores[tIdx][nodeIdx]);
       // N.B.:  split field must fit within a double.
       split[tIdx].push_back(decNode[tIdx][nodeIdx].getSplitNum());
     }

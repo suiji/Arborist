@@ -18,7 +18,7 @@
    @author Mark Seligman
  */
 
-#include "expandR.h"
+#include "trainR.h"
 #include "dumpR.h"
 #include "forestR.h"
 #include "forestbridge.h"
@@ -42,7 +42,7 @@ RcppExport SEXP Dump(SEXP sArbOut) {
 
 
 DumpRf::DumpRf(SEXP sArbOut) :
-  rfExport((SEXP) expandR(sArbOut)),
+  rfExport((SEXP) expandTrainRcpp(sArbOut)),
   treeOut((SEXP) rfExport["tree"]),
   predMap((SEXP) rfExport["predMap"]),
   forest(ForestExpand::unwrap(List(sArbOut), predMap)),

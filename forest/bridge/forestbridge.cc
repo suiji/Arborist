@@ -33,14 +33,11 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const double score[],
 			   const double facExtent[],
                            const unsigned char facSplit[],
-			   const unsigned char facObserved[],
-			   unsigned int nPredStandalone) :
+			   const unsigned char facObserved[]) :
   forest(make_unique<Forest>(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree),
 			     DecNodeRW::unpackScores(score, nodeExtent, nTree),
 			     DecNodeRW::unpackBits(facSplit, facExtent, nTree),
 			     DecNodeRW::unpackBits(facObserved, facExtent, nTree))) {
-  if (nPredStandalone != 0)
-    init(nPredStandalone);
 }
 
 
@@ -115,8 +112,9 @@ void ForestBridge::dumpFactorObserved(unsigned char obsOut[]) const {
 void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<double> >& splitTree,
                         vector<vector<size_t> >& lhDelTree,
-                        vector<vector<unsigned char> >& facSplitTree) const {
-  ForestRW::dump(forest.get(), predTree, splitTree, lhDelTree, facSplitTree);
+                        vector<vector<unsigned char> >& facSplitTree,
+			vector<vector<double>>& scoreTree) const {
+  ForestRW::dump(forest.get(), predTree, splitTree, lhDelTree, facSplitTree, scoreTree);
 }
 
     

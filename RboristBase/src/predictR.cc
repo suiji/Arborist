@@ -53,8 +53,7 @@ RcppExport SEXP predictRcpp(const SEXP sDeframe,
   if (Rf_isFactor(yTrain))
     summary = PredictR::predictCtg(List(sDeframe), List(sTrain), lSampler, sYTest, lArgs);
   else
-    summary = PredictR::predictReg(List(sDeframe), List(sTrain), lSampler, sYTest, List(sArgs));
-  ForestBridge::deInit();
+    summary = PredictR::predictReg(List(sDeframe), List(sTrain), lSampler, sYTest, lArgs);
 
   if (verbose)
     Rcout << "Prediction completed" << endl;
@@ -83,7 +82,6 @@ RcppExport SEXP validateRcpp(const SEXP sDeframe,
     summary = PredictR::predictCtg(List(sDeframe), List(sTrain), lSampler, yTrain, lArgs);
   else
     summary = PredictR::predictReg(List(sDeframe), List(sTrain), lSampler, yTrain, lArgs);
-  ForestBridge::deInit();
   
   if (verbose)
     Rcout << "Validation completed" << endl;
@@ -101,11 +99,33 @@ List PredictR::predictReg(const List& lDeframe,
 		      const List& lArgs) {
   BEGIN_RCPP
 
+  ForestBridge::init(as<IntegerVector>(lTrain["predMap"]).length());
   unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, lArgs));
   pBridge->predict();
 
-  return summary(lDeframe, sYTest, pBridge.get());
+  List predictSummary = summary(lDeframe, sYTest, pBridge.get());
+  ForestBridge::deInit();
   
+  return predictSummary;
+  END_RCPP
+}
+
+
+List PredictR::predictCtg(const List& lDeframe,
+                      const List& lTrain,
+		      const List& lSampler,
+                      const SEXP sYTest,
+		      const List& lArgs) {
+
+  BEGIN_RCPP
+  ForestBridge::init(as<IntegerVector>(lTrain["predMap"]).length());
+  unique_ptr<PredictCtgBridge> pBridge(unwrapCtg(lDeframe, lTrain, lSampler, sYTest, lArgs));
+  pBridge->predict();
+
+  List predictSummary = LeafCtgRf::summary(lDeframe, lSampler, pBridge.get(), sYTest);
+  ForestBridge::deInit();
+  
+  return predictSummary;
   END_RCPP
 }
 
@@ -175,23 +195,6 @@ List PredictR::summary(const List& lDeframe, SEXP sYTest, const PredictRegBridge
   summaryReg.attr("class") = "SummaryReg";
 
   return summaryReg;
-  END_RCPP
-}
-
-
-List PredictR::predictCtg(const List& lDeframe,
-                      const List& lTrain,
-		      const List& lSampler,
-                      const SEXP sYTest,
-		      const List& lArgs) {
-
-  BEGIN_RCPP
-
-  unique_ptr<PredictCtgBridge> pBridge(unwrapCtg(lDeframe, lTrain, lSampler, sYTest, lArgs));
-  pBridge->predict();
-
-  return LeafCtgRf::summary(lDeframe, lSampler, pBridge.get(), sYTest);
-
   END_RCPP
 }
 

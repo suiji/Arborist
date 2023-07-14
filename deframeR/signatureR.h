@@ -131,11 +131,17 @@ struct SignatureR {
 
      @param[out] level outputs the realized training factor encodings.
 
-     @return List of realized factors for each categorical predictor. 
+     @return List of realized levels for each categorical predictor. 
    */
-  static List unwrapFactor(const List& sTrain);
+  static List getFactor(const List& lTrain);
 
 
+  /**
+     @brief As above, but gets all levels.
+   */
+  static List getLevel(const List& lTrain);
+
+  
   /**
      @brief Provides a signature for a factor-valued matrix.
    */
@@ -173,26 +179,6 @@ struct SignatureR {
 		     const CharacterVector& predClass,
 		     const List& lLevel,
 		     const List& lFactor);
-};
-
-
-/**
-   @brief Copy of values to export
- */
-struct SignatureExpand {
-  List level;
-  List factor;
-  StringVector names;
-
-  SignatureExpand(const List& level,
-		  const List& factor,
-		  const StringVector& names);
-
-
-  /**
-     @brief Unwraps field values useful for export.
-   */
-  static SignatureExpand unwrap(const List& sTrain);
 };
 
 #endif

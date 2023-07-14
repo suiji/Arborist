@@ -30,6 +30,8 @@
 #include "rleframeR.h"
 #include "rleframe.h"
 #include "samplerR.h"
+#include "signatureR.h"
+
 
 bool TrainR::verbose = false;
 
@@ -156,4 +158,35 @@ void TrainR::consume(const ForestBridge& fb,
   if (verbose) {
     Rcout << treeOff + chunkSize << " trees trained" << endl;
   }
+}
+
+
+RcppExport SEXP expandTrainRcpp(SEXP sTrain) {
+  BEGIN_RCPP
+    
+  return TrainR::expand(List(sTrain));
+
+  END_RCPP
+}
+
+
+List TrainR::expand(const List& lTrain) {
+  BEGIN_RCPP
+
+  IntegerVector predMap(as<IntegerVector>(lTrain["predMap"]));
+  ForestBridge::init(predMap.length());
+  List level = SignatureR::getLevel(lTrain);
+  List ffe =
+    List::create(_["predMap"] = IntegerVector(predMap),
+                 _["factorMap"] = IntegerVector(predMap.end() - level.length(), predMap.end()),
+                 _["predLevel"] = level,
+		 _["predFactor"] = SignatureR::getFactor(lTrain),
+                 _["forest"] = ForestExpand::expand(lTrain, predMap)
+                 );
+
+  ForestBridge::deInit();
+  ffe.attr("class") = "expandTrain";
+  return ffe;
+
+  END_RCPP
 }

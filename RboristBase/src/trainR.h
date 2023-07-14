@@ -38,6 +38,15 @@ using namespace std;
 #include "forestR.h"
 #include "samplerbridge.h"
 
+/**
+   @brief Expands trained forest into summary vectors.
+
+   @param sTrain is the trained forest.
+
+   @return expanded forest as list of vectors.
+*/
+RcppExport SEXP expandTrainRcpp(SEXP sTrain);
+
 
 struct TrainR {
 
@@ -142,6 +151,11 @@ struct TrainR {
 		 const List& argList,
 		 const vector<string>& diag);
 
+
+  /**
+     @brief Expands contents as vectors interpretable by the front end.
+   */
+  static List expand(const List& lTrain);
   
 private:
   

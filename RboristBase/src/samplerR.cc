@@ -305,7 +305,11 @@ SamplerBridge SamplerR::unwrapGeneric(const List& lSampler) {
 }
 
 
-SamplerExpand SamplerR::unwrapExpand(const List& lTrain) {
-  List lSampler(as<List>(lTrain["sampler"]));  
-  return SamplerExpand(lSampler[strNTree], getNObs(lSampler[strYTrain]));
+unsigned int SamplerR::getNTree(const List& lSampler) {
+  return as<unsigned int>(lSampler[strNTree]);
+}
+
+
+SamplerExpand SamplerExpand::unwrap(const List& lSampler) {
+  return SamplerExpand(lSampler[SamplerR::strNTree], SamplerR::getNObs(lSampler[SamplerR::strYTrain]));
 }

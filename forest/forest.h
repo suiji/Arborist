@@ -156,7 +156,8 @@ class Forest {
 
   void dump(vector<vector<PredictorT>>& predTree,
             vector<vector<double>>& splitTree,
-            vector<vector<size_t>>& lhDelTree) const;
+            vector<vector<size_t>>& lhDelTree,
+	    vector<vector<double>>& scoreTree) const;
   
  public:
 
@@ -370,6 +371,7 @@ class Forest {
   void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<size_t> > &lhDelTree,
+	    vector<vector<double>>& scoreTree,
 	    IndexT& dummy) const;
 };
 

@@ -66,6 +66,9 @@ struct SamplerR {
   static size_t getNObs(const SEXP& sY);
 
 
+  static unsigned int getNTree(const List& lSampler);
+  
+
   /**
      @brief As above, but with sampler parameter.
    */
@@ -215,12 +218,6 @@ struct SamplerR {
 
   static struct SamplerBridge makeBridgeNum(const List& lSampler,
 				     bool bagging);
-
-
-  /**
-     @return wrapped export summary.
-   */
-  static struct SamplerExpand unwrapExpand(const List& lTrain);
 };
 
 
@@ -236,6 +233,12 @@ struct SamplerExpand {
     nTree(nTree_),
     nObs(nObs_) {
   }
+
+
+  /**
+     @return wrapped export summary.
+   */
+  static struct SamplerExpand unwrap(const List& lSampler);
 };
 
 

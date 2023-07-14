@@ -70,6 +70,7 @@ class ForestExpand {
   vector<vector<int>> senseTree;
   vector<vector<double > > splitTree;
   vector<vector<unsigned char> > facSplitTree;
+  vector<vector<double>> scoreTree; ///< All nodes have scores.
 
   void predExport(const int predMap[]);
   void treeExport(const int predMap[],
@@ -92,13 +93,18 @@ class ForestExpand {
 
      @return vector of unpacked values.
    */
-  const vector<unsigned int> &getPredTree(unsigned int tIdx) const {
+  const vector<unsigned int>& getPredTree(unsigned int tIdx) const {
     return predTree[tIdx];
   }
 
   const vector<size_t>& getBumpTree(unsigned int tIdx) const {
     return bumpTree[tIdx];
   }
+
+  const vector<double>& getScoreTree(unsigned int tIdx) const {
+    return scoreTree[tIdx];
+  }
+  
 
   const vector<double> &getSplitTree(unsigned int tIdx) const {
     return splitTree[tIdx];
@@ -112,6 +118,14 @@ class ForestExpand {
   const vector<vector<int>>& getSenseTree() const {
     return senseTree;
   }
+
+
+  static List expand(const List& sTrain,
+		     const IntegerVector& predMap);
+
+
+  static List expandTree(const class ForestExpand& forestExpand,
+                           unsigned int tIdx);
 };
 
 

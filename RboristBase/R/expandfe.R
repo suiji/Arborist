@@ -19,5 +19,9 @@ expandfe <- function(arbOut) UseMethod("expandfe")
 
 
 expandfe.default <- function(arbOut) {
-  return (tryCatch(.Call("expandR", arbOut), error = function(e) {stop(e)}))
+  if (!inherits(arbOut, "arbTrain")) {
+    stop("Expecting an arbTrain object.")
+  }
+
+  return (tryCatch(.Call("expandTrainRcpp", arbOut), error = function(e) {stop(e)}))
 }

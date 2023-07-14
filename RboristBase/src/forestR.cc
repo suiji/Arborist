@@ -27,7 +27,7 @@
 #include "forestR.h"
 #include "forestbridge.h"
 #include "trainR.h"
-
+#include "samplerR.h"
 
 const string FBTrain::strNTree = "nTree";
 const string FBTrain::strNode = "node";
@@ -151,8 +151,7 @@ ForestBridge ForestR::unwrap(const List& lTrain) {
 		      as<NumericVector>(lForest[FBTrain::strScores]).begin(),
 		      as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
-		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
-		      as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
+		      as<RawVector>(lFactor[FBTrain::strObserved]).begin());
 }
 
 
@@ -183,7 +182,8 @@ ForestExpand::ForestExpand(const List &lTrain,
   bumpTree = vector<vector<size_t> >(forestBridge.getNTree());
   splitTree = vector<vector<double > >(forestBridge.getNTree());
   facSplitTree = vector<vector<unsigned char> >(forestBridge.getNTree());
-  forestBridge.dump(predTree, splitTree, bumpTree, facSplitTree);
+  scoreTree = vector<vector<double>>(forestBridge.getNTree());
+  forestBridge.dump(predTree, splitTree, bumpTree, facSplitTree, scoreTree);
   predExport(predMap.begin());
 }
 
@@ -210,4 +210,48 @@ void ForestExpand::treeExport(const int predMap[],
       pred[i] = predMap[predCore];
     }
   }
+}
+
+
+List ForestExpand::expand(const List& lTrain,
+			  const IntegerVector& predMap) {
+  BEGIN_RCPP
+
+  ForestExpand forest(ForestExpand::unwrap(lTrain, predMap));
+  unsigned int nTree = forest.predTree.size();
+  List trees(nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    List ffReg =
+      List::create(
+                   _["tree"] = expandTree(forest, tIdx)
+                   );
+    ffReg.attr("class") = "expandForest";
+    trees[tIdx] = std::move(ffReg);
+  }
+  return trees;
+
+  END_RCPP
+}
+
+
+List ForestExpand::expandTree(const ForestExpand& forest,
+			 unsigned int tIdx) {
+  BEGIN_RCPP
+
+  auto predTree(forest.getPredTree(tIdx));
+  auto bumpTree(forest.getBumpTree(tIdx));
+  IntegerVector incrL(bumpTree.begin(), bumpTree.end());
+  IntegerVector predIdx(predTree.begin(), predTree.end());
+  List ffTree = List::create(
+     _["pred"] = ifelse(incrL == 0, -(predIdx + 1), predIdx),
+     _["childL"] = incrL,
+     _["childR"] = ifelse(incrL == 0, 0, incrL + 1),
+     _["split"] = forest.getSplitTree(tIdx),
+     _["facSplit"] = forest.getFacSplitTree(tIdx),
+     _["score"] = forest.getScoreTree(tIdx)
+     );
+
+  ffTree.attr("class") = "expandTree";
+  return ffTree;
+  END_RCPP
 }

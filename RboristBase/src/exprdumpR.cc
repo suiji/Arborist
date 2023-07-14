@@ -23,7 +23,7 @@
    @author Mark Seligman
  */
 
-#include "expandR.h"
+#include "trainR.h"
 #include "forestR.h"
 #include "exprdumpR.h"
 
@@ -46,7 +46,7 @@ RcppExport SEXP exprdump(SEXP sArbOut) {
 
 
 ExprDump::ExprDump(SEXP sArbOut) :
-  primExport((SEXP) expandR(sArbOut)),
+  primExport((SEXP) expandTrainRcpp(sArbOut)),
   treeOut((SEXP) primExport["tree"]),
   predNames((SEXP) primExport["predNames"]),
   predMap((SEXP) primExport["predMap"]),

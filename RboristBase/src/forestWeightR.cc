@@ -31,6 +31,7 @@
 #include "forestbridge.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
+#include "trainR.h"
 
 #include <memory>
 #include <algorithm>
@@ -64,6 +65,7 @@ NumericMatrix ForestWeightR::forestWeight(const List& lTrain,
 					  const List& lArgs) {
   BEGIN_RCPP
 
+  ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
   SamplerBridge samplerBridge(SamplerR::unwrapGeneric(lSampler));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
   return transpose(NumericMatrix(SamplerR::countObservations(lSampler),

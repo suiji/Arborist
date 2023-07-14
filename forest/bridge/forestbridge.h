@@ -52,10 +52,9 @@ struct ForestBridge {
 	       const double scores[],
 	       const double facExtent[],
                const unsigned char facSplit[],
-	       const unsigned char facObserved[],
-	       unsigned int nPred);
+	       const unsigned char facObserved[]);
 
-
+  
   /**
      @brief Training constructor.
    */
@@ -142,7 +141,8 @@ struct ForestBridge {
   void dump(vector<vector<unsigned int> >& predTree,
             vector<vector<double> >& splitTree,
             vector<vector<size_t> >& lhDelTree,
-            vector<vector<unsigned char> >& facSplitTree) const;
+            vector<vector<unsigned char> >& facSplitTree,
+	    vector<vector<double>>& scoreTree) const;
   
 private:
 
