@@ -34,16 +34,16 @@
  */
 
 class SampleNux {
-  static unsigned int ctgBits; // Pack:  nonzero iff categorical.
+  static unsigned int ctgBits; ///< Pack:  nonzero iff categorical.
   static unsigned int ctgMask;
-  static unsigned int multMask; // Masks bits not used to encode multiplicity.
-  static unsigned int rightBits; // # bits to shift for left-most value.
-  static unsigned int rightMask; // Mask bits not used by multiplicity, ctg.
+  static unsigned int multMask; ///< Masks bits not used to encode multiplicity.
+  static unsigned int rightBits; ///< # bits to shift for left-most value.
+  static unsigned int rightMask; ///< Mask bits not used by multiplicity, ctg.
 
   // Integer-sized container is likely overkill:  typically << #rows,
   // although sample weighting might yield run sizes approaching #rows.
-  PackedT packed; // Packed sample count, ctg.
-  double ySum; // Sum of values selected:  sample-count * y-value.
+  PackedT packed; ///< Packed sample count, ctg.
+  double ySum; ///< Sum of values selected:  sample-count * y-value.
   
  public:
 
@@ -134,6 +134,14 @@ class SampleNux {
 
   inline auto getDelRow() const {
     return packed >> rightBits;
+  }
+
+
+  /**
+     @brief Decrements sum by a scaled amount.
+   */
+  inline void decrementSum(double decr) {
+    ySum -= decr * getSCount();
   }
 };
 

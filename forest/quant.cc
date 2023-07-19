@@ -79,7 +79,7 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
   vector<IndexT> sCountBin(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   IndexT totSamples = 0;
   if (predict->trapAndBail()) {
-    for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
+    for (unsigned int tIdx = 0; tIdx < sampler->getNRep(); tIdx++) {
       IndexT nodeIdx;
       if (predict->isNodeIdx(row, tIdx, nodeIdx)) {
 	IndexRange leafRange = leafDom[tIdx][nodeIdx];
@@ -90,7 +90,7 @@ void Quant::predictRow(const PredictReg* predict, size_t row) {
     }
   }
   else {
-    for (unsigned int tIdx = 0; tIdx < sampler->getNTree(); tIdx++) {
+    for (unsigned int tIdx = 0; tIdx < sampler->getNRep(); tIdx++) {
       IndexT leafIdx;
       if (predict->isLeafIdx(row, tIdx, leafIdx)) {
 	totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);

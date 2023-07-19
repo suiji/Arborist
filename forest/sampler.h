@@ -33,7 +33,7 @@ class Sampler {
   // coding-to-cache, but almost.
   static constexpr unsigned int locExp = 18;  // Log of locality threshold.
 
-  const unsigned int nTree;
+  const unsigned int nRep;
   const size_t nObs; ///< # training observations
   const size_t nSamp;  ///< # samples requested per tree.
 
@@ -99,7 +99,7 @@ public:
    */
   Sampler(IndexT nSamp_,
 	  IndexT nObs_,
-	  unsigned int nTree_,
+	  unsigned int nRep_,
 	  bool replace_,
 	  const double weight[]);
 
@@ -205,8 +205,13 @@ public:
   }
 
 
-  size_t getBagCount(unsigned int tIdx) const {
-    return samples[tIdx].size();
+  /**
+     @brief Empty vector iff trivial:  nObs == nSamp.
+     
+     @return # unique samples at rep index.
+   */
+  size_t getBagCount(unsigned int repIdx) const {
+    return samples[repIdx].empty() ? nSamp : samples[repIdx].size();
   }
   
 
@@ -218,9 +223,15 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampledObs> rootSample(unsigned int tIdx) const;
+  unique_ptr<class SampledObs> obsFactory(unsigned int tIdx) const;
 
 
+  void rootSample(class SampledObs* sampledObs,
+		  const class Frontier* frontier,
+		  const class PredictorFrame* frame,
+		  unsigned int tIdx) const;
+
+  
   /**
      @brief Computes # records subsumed by sampling this block.
 
@@ -253,8 +264,8 @@ public:
   }
 
 
-  auto getNTree() const {
-    return nTree;
+  auto getNRep() const {
+    return nRep;
   }
 
   

@@ -81,6 +81,8 @@ struct SampleMap {
     return range.size();
   }
 
+
+  vector<double> scoreSamples(const class PreTree* pretree) const;  
 };
 
 

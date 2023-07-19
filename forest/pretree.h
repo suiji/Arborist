@@ -41,6 +41,16 @@ class PreTree {
   size_t bitEnd; // Next free slot in either bit vector.
   SampleMap terminalMap;
 
+
+  /**
+     @brief Consumes each criterion in a collection.
+
+     @param critVec collects splits defining criteria.
+   */
+  void consumeCriteria(const class SplitFrontier* sf,
+		       const vector<class SplitNux>& critVec);
+
+
   /**
      @brief Enumerates leaves.
 
@@ -52,6 +62,8 @@ class PreTree {
    */
   void setLeafIndices();
 
+
+  
  public:
   /**
    */
@@ -83,17 +95,6 @@ class PreTree {
    */
   void consumeCompound(const class SplitFrontier* sf,
 		       const vector<vector<SplitNux>>& nuxMax);
-
-  
-  /**
-     @brief Consumes each criterion in a collection.
-
-     @param critVec collects splits defining criteria.
-
-     @param compound is true iff collection is compound.
-   */
-  void consumeCriteria(const class SplitFrontier* sf,
-		       const vector<class SplitNux>& critVec);
 
 
   /**
@@ -142,8 +143,16 @@ class PreTree {
 	       struct Leaf* leaf) const;
 
 
-  void setScore(const class SplitFrontier* sf,
-		const class IndexSet& iSet);
+  /**
+     @brief Sets score at index to value passed.
+   */
+  void setScore(const class IndexSet& iSet,
+		double score);
+
+  
+  double getScore(IndexT idx) const {
+    return scores[idx];
+  }
 
 
   /**

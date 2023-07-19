@@ -212,11 +212,6 @@ int SFReg::getMonoMode(const SplitNux& cand) const {
 }
 
 
-double SFReg::getScore(const IndexSet& iSet) const {
-  return iSet.getSum() / iSet.getSCount();
-}
-
-
 void SFReg::monoPreset() {
   if (!mono.empty()) {
     ruMono = PRNG::rUnif(nSplit * mono.size());
@@ -231,34 +226,8 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     void (SplitFrontier::* splitter) (const CandType& cand,
 					       BranchSense&)) :
   SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
-  nCtg(frontier->getNCtg()),
   ctgSum(vector<vector<double>>(nSplit)),
-  sumSquares(frontier->sumsAndSquares(ctgSum)),
-  ctgJitter(PRNG::rUnif(nCtg * nSplit, 0.5)) {
-}
-
-
-double SFCtg::getScore(const IndexSet& iSet) const {
-  const double* nodeJitter = &ctgJitter[iSet.getSplitIdx() * nCtg];
-  PredictorT argMax = 0;// TODO:  set to nCtg and error if no count.
-  IndexT countMax = 0;
-  PredictorT ctg = 0;
-  for (auto sc : iSet.getCtgSumCount()) {
-    IndexT sCount = sc.getSCount();
-    if (sCount > countMax) {
-      countMax = sCount;
-      argMax = ctg;
-    }
-    else if (sCount > 0 && sCount == countMax) {
-      if (nodeJitter[ctg] > nodeJitter[argMax]) {
-	argMax = ctg;
-      }
-    }
-    ctg++;
-  }
-
-  //  argMax, ties broken by jitters, plus its own jitter.
-  return argMax + nodeJitter[argMax];
+  sumSquares(frontier->sumsAndSquares(ctgSum)) {
 }
 
 

@@ -20,7 +20,7 @@
 
 #include "response.h"
 #include "train.h"
-#include "rftrain.h"
+#include "fetrain.h"
 #include "predictorframe.h"
 #include "coproc.h"
 
@@ -60,17 +60,17 @@ void TrainBridge::initBlock(unsigned int trainBlock) {
 
 void TrainBridge::initProb(unsigned int predFixed,
                            const vector<double> &predProb) {
-  RfTrain::initProb(predFixed, predProb);
+  FETrain::initProb(predFixed, predProb);
 }
 
 
 void TrainBridge::initTree(size_t leafMax) {
-  RfTrain::initTree(leafMax);
+  FETrain::initTree(leafMax);
 }
 
 
 void TrainBridge::initOmp(unsigned int nThread) {
-  RfTrain::initOmp(nThread);
+  FETrain::initOmp(nThread);
 }
 
 
@@ -78,18 +78,24 @@ void TrainBridge::initSplit(unsigned int minNode,
                             unsigned int totLevels,
                             double minRatio,
 			    const vector<double>& feSplitQuant) {
-  RfTrain::initSplit(minNode, totLevels, minRatio, feSplitQuant);
+  FETrain::initSplit(minNode, totLevels, minRatio, feSplitQuant);
 }
   
 
 void TrainBridge::initMono(const vector<double> &regMono) {
-  RfTrain::initMono(frame.get(), regMono);
+  FETrain::initMono(frame.get(), regMono);
 }
+
+
+void TrainBridge::initSamples(double nu) {
+  FETrain::initSamples(nu);
+}
+			      
 
 
 void TrainBridge::deInit() {
   ForestBridge::deInit();
-  RfTrain::deInit();
+  FETrain::deInit();
   Train::deInit();
 }
 

@@ -99,7 +99,7 @@ void Leaf::consumeTerminals(const PreTree* pretree,
 
 vector<vector<vector<size_t>>> Leaf::countLeafCtg(const Sampler* sampler,
 						  const ResponseCtg* response) const {
-  unsigned int nTree = sampler->getNTree();
+  unsigned int nTree = sampler->getNRep();
   vector<vector<vector<size_t>>> ctgCount(nTree);
   if (!sampler->hasSamples())
     return ctgCount;
@@ -129,7 +129,7 @@ vector<vector<vector<size_t>>> Leaf::countLeafCtg(const Sampler* sampler,
 
 vector<vector<vector<RankCount>>> Leaf::alignRanks(const class Sampler* sampler,
 						   const vector<IndexT>& obs2Rank) const {
-  unsigned int nTree = sampler->getNTree();
+  unsigned int nTree = sampler->getNRep();
   vector<vector<vector<RankCount>>> rankCount(nTree);
   if (!sampler->hasSamples())
     return rankCount;

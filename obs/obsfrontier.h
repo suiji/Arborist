@@ -58,7 +58,8 @@ class ObsFrontier {
      @brief Initializes a path from ancestor to front.
    */
   void pathInit(NodePath* pathBase,
-		const class IndexSet& iSet);
+		const class IndexSet& iSet,
+		IndexT endIdx);
   
 
   void updateLive(const class BranchSense& branchSense,
@@ -152,7 +153,8 @@ public:
 
 
   void setFrontRange(const vector<IndexSet>& frontierNodes,
-		     const vector<IndexSet>& frontierNext);
+		     const vector<IndexSet>& frontierNext,
+		     IndexT endIdx);
 
   
   /**
@@ -162,7 +164,8 @@ public:
    */
   void setFrontRange(const vector<class IndexSet>& frontierNext,
 		     IndexT parIdx,
-		     const IndexRange& range);
+		     const IndexRange& range,
+		     IndexT endIdx);
 
 
   /**
@@ -181,7 +184,8 @@ public:
      @param frontCount is the number of nodes in the new front.
   */
   void applyFront(const ObsFrontier* ofCurrent,
-		  const vector<class IndexSet>& frontierNext);
+		  const vector<class IndexSet>& frontierNext,
+		  IndexT endIdx);
 
   /**
      @brief Allocates the run values vector.

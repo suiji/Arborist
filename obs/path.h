@@ -46,8 +46,12 @@ public:
   }
 
 
-  void init(const class Frontier* frontier,
-	    const class IndexSet& iSet);
+  /**
+
+     @brief Sets to non-extinct path coordinates.
+  */
+  void init(const class IndexSet& iSet,
+	    IndexT endIdx);
 
   
   /**

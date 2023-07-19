@@ -10,6 +10,8 @@
 #include "sampler.h"
 #include "response.h"
 #include "samplernux.h"
+#include "frontier.h"
+#include "predictorframe.h"
 #include "prng.h"
 
 
@@ -19,10 +21,10 @@ unsigned int SamplerNux::rightBits = 0;
 
 Sampler::Sampler(IndexT nSamp_,
 		 IndexT nObs_,
-		 unsigned int nTree_,
+		 unsigned int nRep_,
 		 bool replace,
 		 const double weight[]) :
-    nTree(nTree_),
+    nRep(nRep_),
     nObs(nObs_),
     nSamp(nSamp_),
     response(nullptr) {
@@ -50,7 +52,7 @@ void Sampler::setCoefficients(const double weight[],
 Sampler::Sampler(IndexT nObs_,
 		 IndexT nSamp_,
 		 const vector<vector<SamplerNux>>& samples_) :
-  nTree(samples_.size()),
+  nRep(samples_.size()),
   nObs(nObs_),
   nSamp(nSamp_),
   response(nullptr),
@@ -61,7 +63,7 @@ Sampler::Sampler(IndexT nObs_,
 Sampler::Sampler(const vector<double>& yTrain,
 		 IndexT nSamp_,
 		 vector<vector<SamplerNux>> samples_) :
-  nTree(samples_.size()),
+  nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
@@ -74,7 +76,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 PredictorT nCtg,
 		 const vector<double>& classWeight) :
-  nTree(samples_.size()),
+  nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg, classWeight)),
@@ -86,7 +88,7 @@ Sampler::Sampler(const vector<double>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
 		 bool bagging) :
-  nTree(samples_.size()),
+  nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
@@ -100,7 +102,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 IndexT nSamp_,
 		 PredictorT nCtg,
 		 bool bagging) :
-  nTree(samples_.size()),
+  nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg)),
@@ -116,8 +118,8 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
   if (!bagging)
     return make_unique<BitMatrix>(0, 0);
 
-  unique_ptr<BitMatrix> matrix = make_unique<BitMatrix>(nTree, nObs);
-  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+  unique_ptr<BitMatrix> matrix = make_unique<BitMatrix>(nRep, nObs);
+  for (unsigned int tIdx = 0; tIdx < nRep; tIdx++) {
     IndexT row = 0;
     for (IndexT sIdx = 0; sIdx != getBagCount(tIdx); sIdx++) {
       row += getDelRow(tIdx, sIdx);
@@ -128,8 +130,16 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-unique_ptr<SampledObs> Sampler::rootSample(unsigned int tIdx) const {
-  return response->rootSample(this, tIdx);
+unique_ptr<SampledObs> Sampler::obsFactory(unsigned int tIdx) const {
+  return response->obsFactory(this, tIdx);
+}
+
+
+void Sampler::rootSample(SampledObs* sampledObs,
+			 const Frontier* frontier,
+			 const PredictorFrame* frame,
+			 unsigned int tIdx) const {
+  sampledObs->sampleRoot(samples[tIdx], frontier, frame);
 }
 
 

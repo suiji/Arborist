@@ -73,7 +73,7 @@ vector<unique_ptr<PreTree>> Train::blockProduce(const PredictorFrame* frame,
 						unsigned int treeEnd) const {
   vector<unique_ptr<PreTree>> block;
   for (unsigned int tIdx = treeStart; tIdx < treeEnd; tIdx++) {
-    block.emplace_back(Frontier::oneTree(frame, sampler, tIdx));
+    block.emplace_back(Frontier::oneTree(frame, sampler, SampledObs::sequential() ? 0 : tIdx));
   }
 
   return block;

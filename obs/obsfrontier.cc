@@ -110,7 +110,8 @@ IndexT ObsFrontier::countLive() const {
 
 
 void ObsFrontier::setFrontRange(const vector<IndexSet>& frontierNodes,
-				const vector<IndexSet>& frontierNext) {
+				const vector<IndexSet>& frontierNext,
+				IndexT endIdx) {
   front2Node = vector<IndexT>(frontierNext.size());
   IndexT terminalCount = 0;
   for (IndexT parIdx = 0; parIdx < frontierNodes.size(); parIdx++) {
@@ -119,7 +120,7 @@ void ObsFrontier::setFrontRange(const vector<IndexSet>& frontierNodes,
       delistNode(parIdx);
     }
     else {
-      setFrontRange(frontierNext, parIdx, IndexRange(2 * (parIdx - terminalCount), 2));
+      setFrontRange(frontierNext, parIdx, IndexRange(2 * (parIdx - terminalCount), 2), endIdx);
     }
   }
 }
@@ -127,23 +128,25 @@ void ObsFrontier::setFrontRange(const vector<IndexSet>& frontierNodes,
 
 void ObsFrontier::setFrontRange(const vector<IndexSet>& frontierNext,
 				IndexT nodeIdx,
-				const IndexRange& range) {
+				const IndexRange& range,
+				IndexT endIdx) {
   node2Front[nodeIdx] = range;
   NodePath* pathBase = &nodePath[backScale(nodeIdx)];
   for (IndexT frontIdx = range.getStart(); frontIdx != range.getEnd(); frontIdx++) {
-    pathInit(pathBase, frontierNext[frontIdx]);
+    pathInit(pathBase, frontierNext[frontIdx], endIdx);
     front2Node[frontIdx] = nodeIdx;
   }
 }
 
 
-void ObsFrontier::pathInit(NodePath* pathBase, const IndexSet& iSet) {
-  pathBase[iSet.getPath(pathMask())].init(frontier, iSet);
+void ObsFrontier::pathInit(NodePath* pathBase, const IndexSet& iSet, IndexT endIdx) {
+  pathBase[iSet.getPath(pathMask())].init(iSet, endIdx);
 }
 
 
 void ObsFrontier::applyFront(const ObsFrontier* ofFront,
-			    const vector<IndexSet>& frontierNext) {
+			     const vector<IndexSet>& frontierNext,
+			     IndexT endIdx) {
   layerIdx++;
   nodePath = vector<NodePath>(backScale(nSplit));
   front2Node = vector<IndexT>(frontierNext.size());
@@ -163,7 +166,7 @@ void ObsFrontier::applyFront(const ObsFrontier* ofFront,
       delistNode(nodeIdx);
     }
     else {
-      setFrontRange(frontierNext, nodeIdx, frontRange);
+      setFrontRange(frontierNext, nodeIdx, frontRange, endIdx);
     }
     node2Front[nodeIdx] = frontRange;
   }

@@ -13,12 +13,11 @@
 
 
 \usage{
- \method{expandfe}{default}(arbOut, sampler=NULL)
+ \method{expandfe}{default}(arbOut)
 }
 
 \arguments{
   \item{arbOut}{an object of type \code{rfTrain} produced by training.}
-  \item{sampler}{an object ot type \code{Sampler} used to train.}
 }
 
 \value{An object of type \code{ExpandReg} or \code{ExpandCtg} containing

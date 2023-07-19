@@ -17,14 +17,14 @@
 #include "response.h"
 #include "sampledobs.h"
 #include "sampler.h"
+#include "samplernux.h"
 
 #include <algorithm>
 
 ResponseReg::ResponseReg(const vector<double>& y) :
   Response(),
   yTrain(y),
-  defaultPrediction(meanTrain()),
-  estimand(y) {
+  defaultPrediction(meanTrain()) {
   /* ???
   double yMax = 0.0;
   for (auto yt : yTrain) {
@@ -102,13 +102,13 @@ vector<double> ResponseCtg::defaultProb() const {
 }
 
 
-unique_ptr<SampledObs> ResponseReg::rootSample(const Sampler* sampler,
+unique_ptr<SampledObs> ResponseReg::obsFactory(const Sampler* sampler,
 					       unsigned int tIdx) const {
   return SampledObs::factoryReg(sampler, this, tIdx);
 }
 
 
-unique_ptr<SampledObs> ResponseCtg::rootSample(const Sampler* sampler,
+unique_ptr<SampledObs> ResponseCtg::obsFactory(const Sampler* sampler,
 					       unsigned int tIdx) const {
   return SampledObs::factoryCtg(sampler, this, tIdx);
 }
@@ -125,6 +125,20 @@ double ResponseReg::predictObs(const Predict* predict, size_t row) const {
     }
   }
   return nEst > 0 ? sumScore / nEst : defaultPrediction;
+}
+
+
+double ResponseReg::predictSum(const Predict* predict,
+			       double rootScore,
+			       size_t row) const {
+  double sumScore = rootScore;
+  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
+    double score;
+    if (predict->isNodeIdx(row, tIdx, score)) {
+      sumScore += score;
+    }
+  }
+  return sumScore;
 }
 
 

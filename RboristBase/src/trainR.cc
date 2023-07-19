@@ -71,9 +71,45 @@ List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& ar
 }
 
 
+List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& argList) {
+  BEGIN_RCPP
+
+  if (verbose) {
+    Rcout << "Beginning training" << endl;
+  }
+
+  vector<string> diag;
+  TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
+  initFromArgs(argList, trainBridge);
+
+  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]));
+  trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
+  List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
+
+  if (verbose) {
+    Rcout << "Training completed" << endl;
+  }
+
+  deInit();
+  return outList;
+
+  END_RCPP
+}
+
+
 TrainR::TrainR(const List& lSampler, const List& argList) :
   samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
-  nTree(samplerBridge.getNTree()),
+  nTree(samplerBridge.getNRep()),
+  leaf(LeafR()),
+  forest(FBTrain(nTree)) {
+}
+
+
+TrainR::TrainR(const List& lSampler,
+	       const List& argList,
+	       unsigned int nTree_) :
+  samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
+  nTree(nTree_),
   leaf(LeafR()),
   forest(FBTrain(nTree)) {
 }

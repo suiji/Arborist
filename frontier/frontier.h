@@ -37,15 +37,24 @@ class Frontier {
   const IndexT bagCount;
   const PredictorT nCtg;
 
-  vector<IndexSet> frontierNodes;
+  vector<IndexSet> frontierNodes; ///< Splitable nodes within a level.
   unique_ptr<class InterLevel> interLevel;
 
   unique_ptr<PreTree> pretree; // Augmented per frontier.
   
-  SampleMap smTerminal; // Persistent terminal sample mapping:  crescent.
-  SampleMap smNonterm; // Current nonterminal mapping.
+  SampleMap smTerminal; ///< Persistent terminal sample mapping:  crescent.
 
   unique_ptr<class SplitFrontier> splitFrontier; // Per-level.
+
+  
+  /**
+     @brief Initializes root state of auxiliary data structures.
+     
+     @return map of bagged samples.
+   */
+  SampleMap produceRoot(const class Sampler* sampler,
+			unsigned int samplerIdx);
+
 
   /**
      @brief Determines splitability of frontier nodes just split.
@@ -65,7 +74,7 @@ class Frontier {
   /**
      @brief Applies splitting results to new level.
   */
-  SampleMap splitDispatch();
+  SampleMap splitDispatch(const SampleMap& smNonterm);
 
 
   /**
@@ -83,6 +92,7 @@ class Frontier {
    */
   void earlyExit(unsigned int level);
 
+  
 public:
 
 
@@ -107,9 +117,30 @@ public:
   */
   Frontier(const class PredictorFrame* frame,
 	   const class Sampler* sampler,
-	   unsigned int tIdx);
+	   unsigned int samplerIdx);
 
-  
+
+  /**
+     @brief Computes the score of a root node.
+
+     @param sObsOriginal is unadjusted, with original 'bagSum' value.
+   */
+  double getRootScore(const SampledObs* sObsOriginal) const;
+
+
+  /**
+     @brief Numerical score: can be invoked as functional.
+   */
+  double getScoreNum(const IndexSet& iSet) const;
+
+
+  /**
+     @brief Categorical score:  can be invoked as functional.
+
+     @param ctgJitter is a level-wide workspace.
+   */
+  double getScoreCtg(const IndexSet& iSet,
+		     const vector<double>& ctgJitter) const;
   /**
     @brief Trains one tree.
 
@@ -121,7 +152,7 @@ public:
   */
   static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
 					   const class Sampler* sampler,
-					   unsigned int tIdx);
+					   unsigned int samplerIdx);
 
 
   /**
@@ -130,13 +161,13 @@ public:
      Assumes root node and attendant per-tree data structures have been initialized.
      Parameters as described above.
   */
-  unique_ptr<class PreTree> levels();
+  unique_ptr<class PreTree> levels(SampleMap& smNonterm);
 
 
   /**
      @brief Produces frontier nodes for next level.
    */
-  vector<IndexSet> produce() const;
+  vector<IndexSet> produceLevel();
 
   
   /**
@@ -153,14 +184,8 @@ public:
 		      class BranchSense& branchSense);
 
 
-  void setScore(IndexT splitIdx) const;
+  void setScores(const vector<IndexSet>& nodes) const;
 
-  
-  /**
-     @return end position of nonterminal map.
-   */
-  IndexT getNonterminalEnd() const;
-  
 
   const vector<IndexSet>& getNodes() const {
     return frontierNodes;
@@ -343,14 +368,6 @@ public:
   }
 
 
-  /**
-     @return node starting index in upcoming level.
-   */
-  IndexT idxStartUpcoming(const IndexSet& iSet) const {
-    return smNonterm.range[iSet.getSplitIdx()].getStart();
-  }
-
-  
   /**
      @brief Indicates whether index set is inherently unsplitable.
    */

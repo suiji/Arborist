@@ -220,9 +220,9 @@ void InterLevel::overlap(const vector<IndexSet>& frontierNodes,
     // front range is then applied to all layers on deque, following
     // which ofFront is itself placed on the deque.
     //
-    ofFront->setFrontRange(frontierNodes, frontierNext);
+    ofFront->setFrontRange(frontierNodes, frontierNext, endIdx);
     for (auto lv = history.begin(); lv != history.end(); lv++) {
-      (*lv)->applyFront(ofFront.get(), frontierNext);
+      (*lv)->applyFront(ofFront.get(), frontierNext, endIdx);
     }
     history.push_front(std::move(ofFront));
   }

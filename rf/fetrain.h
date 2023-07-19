@@ -6,15 +6,15 @@
  */
 
 /**
-   @file trainrf.h
+   @file ferain.h
 
-   @brief RF-specific training initialization.
+   @brief RF-specific handshake with training bridge.
 
    @author Mark Seligman
  */
 
-#ifndef RF_RFTRAIN_H
-#define RF_RFTRAIN_H
+#ifndef RF_FETRAIN_H
+#define RF_FETRAIN_H
 
 #include "typeparam.h"
 
@@ -25,7 +25,7 @@
    @brief Interface class for front end.  Holds simulation-specific parameters
    of the data and constructs forest, leaf and diagnostic structures.
 */
-struct RfTrain {
+struct FETrain {
 
   /**
      @brief Registers per-node probabilities of predictor selection.
@@ -71,6 +71,12 @@ struct RfTrain {
   static void initMono(const class PredictorFrame* frame,
                        const vector<double> &regMono);
 
+  /**
+     @brief Registers learning rate.
+   */
+  static void initSamples(double scale);
+
+  
   /**
      @brief Static de-initializer.
    */

@@ -85,7 +85,7 @@ size_t SamplerR::getNObs(const SEXP& sY) {
 
 void SamplerR::sampleTrees(SamplerBridge& bridge) {
   // May be parallelized if a thread-safe PRNG is available.
-  for (unsigned int tIdx = 0; tIdx < bridge.getNTree(); tIdx++) {
+  for (unsigned int tIdx = 0; tIdx < bridge.getNRep(); tIdx++) {
     bridge.sample();
   }
 }
@@ -150,7 +150,7 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
-			      _[strNTree] = bridge.getNTree(),
+			      _[strNTree] = bridge.getNRep(),
 			      _[strHash] = 0
 			);
 
@@ -173,7 +173,7 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
-			      _[strNTree] = bridge.getNTree(),
+			      _[strNTree] = bridge.getNRep(),
 			      _[strHash] = 0
 			);
   sampler.attr("class") = "Sampler";
@@ -305,7 +305,7 @@ SamplerBridge SamplerR::unwrapGeneric(const List& lSampler) {
 }
 
 
-unsigned int SamplerR::getNTree(const List& lSampler) {
+unsigned int SamplerR::getNRep(const List& lSampler) {
   return as<unsigned int>(lSampler[strNTree]);
 }
 

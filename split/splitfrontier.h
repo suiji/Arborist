@@ -307,7 +307,7 @@ public:
 
 
   // These are run-time invariant and need not be virtual:
-  virtual double getScore(const class IndexSet& iSet) const = 0;
+  // virtual double getScore(const class IndexSet& iSet) const = 0;
 };
 
 
@@ -358,16 +358,14 @@ struct SFReg : public SplitFrontier {
   void monoPreset();
 
   
-  double getScore(const class IndexSet& iSet) const;
+  //  double getScore(const class IndexSet& iSet) const;
 };
 
 
 class SFCtg : public SplitFrontier {
 protected:
-  const PredictorT nCtg;
   vector<vector<double> > ctgSum; // Per-category response sums, by node.
   vector<double> sumSquares; // Per-layer sum of squares, by split.
-  vector<double> ctgJitter; // Breaks scoring ties at node.
 
   
 public:
@@ -378,7 +376,7 @@ public:
 	void (SplitFrontier::* splitter_) (const CandType&,
 					   class BranchSense&));
   
-  double getScore(const class IndexSet& iSet) const;
+  //  double getScore(const class IndexSet& iSet) const;
 
 
   /**

@@ -102,7 +102,7 @@ struct SamplerBridge {
   /**
      @brief Getter for number of trained trees.
    */
-  unsigned int getNTree() const;
+  unsigned int getNRep() const;
 
 
   size_t getNuxCount() const;

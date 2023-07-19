@@ -67,7 +67,7 @@ vector<vector<size_t>> LeafBridge::unpackExtent(const SamplerBridge& samplerBrid
   }
 
   Sampler* sampler = samplerBridge.getSampler();
-  unsigned int nTree = sampler->getNTree();
+  unsigned int nTree = sampler->getNRep();
   vector<vector<size_t>> unpacked(nTree);
   size_t idx = 0;
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
@@ -87,7 +87,7 @@ vector<vector<vector<size_t>>> LeafBridge::unpackIndex(const SamplerBridge& samp
 						       const vector<vector<size_t>>& extent,
 						       const double numVal[]) {
   const Sampler* sampler = samplerBridge.getSampler();
-  unsigned int nTree = sampler->getNTree();
+  unsigned int nTree = sampler->getNRep();
   if (thin)
     return vector<vector<vector<size_t>>>(0);
 

@@ -35,13 +35,10 @@ IdxPath::IdxPath(IndexT idxLive_) :
 }
 
 
-/**
-     @brief Sets to non-extinct path coordinates.
-   */
-void NodePath::init(const Frontier* frontier, const IndexSet& iSet) {
+void NodePath::init(const IndexSet& iSet, IndexT endIdx) {
   frontIdx = iSet.getSplitIdx();
   bufRange = iSet.getBufRange();
-  idxStart = frontier->idxStartUpcoming(iSet);
+  idxStart = endIdx;
 }
   
 

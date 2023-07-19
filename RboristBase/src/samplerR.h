@@ -66,7 +66,7 @@ struct SamplerR {
   static size_t getNObs(const SEXP& sY);
 
 
-  static unsigned int getNTree(const List& lSampler);
+  static unsigned int getNRep(const List& lSampler);
   
 
   /**

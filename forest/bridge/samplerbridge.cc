@@ -31,8 +31,8 @@ size_t SamplerBridge::getNSamp() const {
 }
 
 
-unsigned int SamplerBridge::getNTree() const {
-  return sampler->getNTree();
+unsigned int SamplerBridge::getNRep() const {
+  return sampler->getNRep();
 }
 
 

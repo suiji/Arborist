@@ -34,7 +34,6 @@ PreTree::PreTree(const PredictorFrame* frame,
   splitBits(BV(bagCount * frame->getFactorExtent())), // Vague estimate.
   observedBits(BV(bagCount * frame->getFactorExtent())),
   bitEnd(0) {
-  offspring(0, true);
 }
 
 
@@ -108,9 +107,9 @@ void PreTree::critCut(const SplitFrontier* sf,
 }
 
 
-void PreTree::setScore(const SplitFrontier* splitFrontier,
-		       const IndexSet& iSet) {
-  scores[iSet.getPTId()] = splitFrontier->getScore(iSet);
+void PreTree::setScore(const IndexSet& iSet,
+		       double score) {
+  scores[iSet.getPTId()] = score;
 }
 
 

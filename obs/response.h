@@ -60,7 +60,7 @@ struct Response {
   /**
      @brief Samples (bags) the estimand to construct the tree root.
    */
-  virtual unique_ptr<class SampledObs> rootSample(const class Sampler* sampler,
+  virtual unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
 						  unsigned int tIdx) const = 0;
 };
 
@@ -70,8 +70,7 @@ class ResponseReg : public Response {
 
   const double defaultPrediction; ///< Prediction value when no trees bagged.
 
-  vector<double> estimand; ///< Updatable training target.
-  
+
   /**
      @brief Determines mean training value.
 
@@ -99,11 +98,6 @@ public:
   }
 
 
-  const vector<double>& getEstimand() const {
-    return estimand;
-  }
-  
-
   const vector<double>& getYTrain() const {
     return yTrain;
   }
@@ -114,14 +108,24 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampledObs> rootSample(const class Sampler* sampler,
+  unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
 					  unsigned int tIdx) const;
+
+
+  /**
+     @brief Derives a mean prediction value for an observation.
+   */
+  double predictObs(const class Predict* predict,
+		    size_t row) const;
 
   
   /**
-     @brief Derives a prediction value for an observation.
+     @brief Derives a summation.
+
+     @return sum of predicted responses plus rootScore.
    */
-  double predictObs(const class Predict* predict,
+  double predictSum(const class Predict* predict,
+		    double rootScore,
 		    size_t row) const;
 };
 
@@ -186,10 +190,10 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampledObs> rootSample(const class Sampler* sampler,
+  unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
 					  unsigned int tIdx) const;
 
-  
+
   PredictorT predictObs(const class Predict* predict,
 			size_t row,
 			unsigned int* census) const;

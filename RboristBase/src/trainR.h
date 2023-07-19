@@ -67,15 +67,26 @@ struct TrainR {
 
   static bool verbose; ///< Whether to report progress while training.
 
-  const SamplerBridge samplerBridge;
+  const SamplerBridge samplerBridge; ///< handle to core Sampler image.
   const unsigned int nTree; ///< # trees under training.
   LeafR leaf; ///< Summarizes sample-to-leaf mapping.
   FBTrain forest; ///< Pointer to core forest.
   NumericVector predInfo; ///< Forest-wide sum of predictors' split information.
 
 
+  /**
+     @brief Tree count dictated by sampler.
+   */
   TrainR(const List& lSampler,
 	 const List& argList);
+
+
+  /**
+     @brief Tree count independent of sampler.
+   */
+  TrainR(const List& lSampler,
+	 const List& argList,
+	 unsigned int nTree_);
 
 
   void trainChunks(const struct TrainBridge& tb,
@@ -111,6 +122,18 @@ struct TrainR {
      @return R-style list of trained summaries.
    */
   static List trainInd(const List& lRLEFrame,
+		       const List& lSampler,
+		       const List& argList);
+
+
+  /**
+     @brief Static entry into training of sequential trees.
+
+     @param argList is the user-supplied argument list.
+
+     @return R-style list of trained summaries.
+   */
+  static List trainSeq(const List& lRLEFrame,
 		       const List& lSampler,
 		       const List& argList);
 
