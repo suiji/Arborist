@@ -34,21 +34,23 @@ class SampledObs {
   static unsigned int seqIdx; ///< Sequential iteration index.
   static vector<double> preScore; ///< Empty iff independent trees.
   static double rootScore; ///< Score of root node.
+  static double bagSum; ///< Sum of bagged responses.
+  static vector<IndexT> row2Sample; ///< Maps observation index to sample index.
+
+  // Reset at staging:
+  static vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
+  static vector<IndexT> runCount; ///< Staging initialization.
+  
+
 
   const IndexT nSamp; ///< Number of observation samples requested.
   const IndexT bagCount; ///< # distinct sampled observations.
 
   double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
+
+  // Should be static once sequential ctg supported:
   vector<SumCount> ctgRoot; ///< Root census of categorical response.
 
-  // Should be static:
-  vector<IndexT> row2Sample; ///< Maps observation index to sample index.
-  double bagSum; ///< Sum of bagged responses.
-
-  // Reset at staging:
-  vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
-  vector<IndexT> runCount; ///< Staging initialization.
-  
   
   /**
      @brief Samples rows and counts resulting occurrences.
@@ -288,6 +290,7 @@ struct SampledReg : public SampledObs {
 
   */
   void bagSamples(const vector<double>& y,
+		  const class PredictorFrame* frame,
 		  const class Frontier* frontier,
 		  const vector<class SamplerNux>& nux);
 };

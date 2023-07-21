@@ -19,5 +19,5 @@ Export <- function(arbOut) UseMethod("Export")
 
 Export.default <- function(arbOut) {
   warning("Export is being deprecated.  Please invoke 'expandfe' instead.");
-  return (tryCatch(.Call("expandRf", arbOut), error = function(e) {stop(e)}))
+  return (tryCatch(.Call("expandTrainRcpp", arbOut), error = function(e) {stop(e)}))
 }

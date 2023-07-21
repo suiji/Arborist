@@ -53,6 +53,6 @@ namespace PRNG {
      @return scaled copy of random variates, as index vector.
    */
   vector<size_t> rUnifIndex(const vector<size_t>& scale);
-};
+}
 
 #endif

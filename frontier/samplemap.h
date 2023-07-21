@@ -81,7 +81,11 @@ struct SampleMap {
     return range.size();
   }
 
-
+  /**
+     @brief Obtains samples leaf scores, without mulitplicity.
+     
+     @return containing leaf score, per sample.
+   */
   vector<double> scoreSamples(const class PreTree* pretree) const;  
 };
 

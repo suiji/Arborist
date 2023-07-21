@@ -17,7 +17,6 @@
 #include "samplemap.h"
 #include "pretree.h"
 
-
 vector<double> SampleMap::scoreSamples(const PreTree* pretree) const {
   vector<double> sIdx2Score(sampleIndex.size());
   IndexT rangeIdx = 0;
