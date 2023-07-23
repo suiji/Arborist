@@ -223,15 +223,10 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampledObs> obsFactory(unsigned int tIdx) const;
+  unique_ptr<class SampledObs> obsFactory(const class Train* train,
+					  unsigned int tIdx) const;
 
 
-  void rootSample(class SampledObs* sampledObs,
-		  const class Frontier* frontier,
-		  const class PredictorFrame* frame,
-		  unsigned int tIdx) const;
-
-  
   /**
      @brief Computes # records subsumed by sampling this block.
 

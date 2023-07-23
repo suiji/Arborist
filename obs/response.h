@@ -61,6 +61,7 @@ struct Response {
      @brief Samples (bags) the estimand to construct the tree root.
    */
   virtual unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
+						  const class Train* train,
 						  unsigned int tIdx) const = 0;
 };
 
@@ -109,6 +110,7 @@ public:
      @return summary of sampled response.
    */
   unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
+					  const class Train* train,
 					  unsigned int tIdx) const;
 
 
@@ -191,6 +193,7 @@ public:
      @return summary of sampled response.
    */
   unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
+					  const class Train* train,
 					  unsigned int tIdx) const;
 
 

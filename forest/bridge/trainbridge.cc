@@ -20,6 +20,7 @@
 
 #include "response.h"
 #include "train.h"
+#include "sampledobs.h"
 #include "fetrain.h"
 #include "predictorframe.h"
 #include "coproc.h"
@@ -85,12 +86,6 @@ void TrainBridge::initSplit(unsigned int minNode,
 void TrainBridge::initMono(const vector<double> &regMono) {
   FETrain::initMono(frame.get(), regMono);
 }
-
-
-void TrainBridge::initSamples(double nu) {
-  FETrain::initSamples(nu);
-}
-			      
 
 
 void TrainBridge::deInit() {

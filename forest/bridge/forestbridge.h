@@ -58,7 +58,8 @@ struct ForestBridge {
   /**
      @brief Training constructor.
    */
-  ForestBridge(unsigned int treeChunk);
+  ForestBridge(unsigned int treeChunk,
+	       double nu);
 
   
   ForestBridge(ForestBridge&&);

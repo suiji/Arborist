@@ -31,7 +31,6 @@ SEXP TrainR::initFromArgs(const List& argList,
 			  TrainBridge& trainBridge) {
   BEGIN_RCPP
 
-  TrainBridge::initSamples();
   vector<unsigned int> pm = trainBridge.getPredMap();
   // Temporary IntegerVector copy for subscripted access.
   IntegerVector predMap(pm.begin(), pm.end());

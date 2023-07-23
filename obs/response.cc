@@ -15,6 +15,7 @@
 
 #include "predict.h"
 #include "response.h"
+#include "train.h"
 #include "sampledobs.h"
 #include "sampler.h"
 #include "samplernux.h"
@@ -103,14 +104,16 @@ vector<double> ResponseCtg::defaultProb() const {
 
 
 unique_ptr<SampledObs> ResponseReg::obsFactory(const Sampler* sampler,
+					       const Train* train,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryReg(sampler, this, tIdx);
+  return SampledObs::factoryReg(sampler, train, this, tIdx);
 }
 
 
 unique_ptr<SampledObs> ResponseCtg::obsFactory(const Sampler* sampler,
+					       const Train* train,
 					       unsigned int tIdx) const {
-  return SampledObs::factoryCtg(sampler, this, tIdx);
+  return SampledObs::factoryCtg(sampler, train, this, tIdx);
 }
 
 

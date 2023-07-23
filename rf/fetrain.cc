@@ -61,18 +61,12 @@ void FETrain::initMono(const PredictorFrame* frame,
 }
 
 
-void FETrain::initSamples(double nu) {
-  SampledObs::init(0.0);
-}
-
-
 void FETrain::deInit() {
   SplitNux::deImmutables();
   IndexSet::deImmutables();
   Frontier::deImmutables();
   PreTree::deInit();
   SampleNux::deImmutables();
-  SampledObs::deInit();
   CandRF::deInit();
   SFRegCart::deImmutables();
   OmpThread::deInit();

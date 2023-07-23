@@ -30,6 +30,7 @@
 #include "samplerR.h"
 
 const string FBTrain::strNTree = "nTree";
+const string FBTrain::strNu = "nu";
 const string FBTrain::strNode = "node";
 const string FBTrain::strExtent = "extent";
 const string FBTrain::strTreeNode = "treeNode";
@@ -39,8 +40,10 @@ const string FBTrain::strFacSplit = "facSplit";
 const string FBTrain::strObserved = "observed";
 
 
-FBTrain::FBTrain(unsigned int nTree_) :
+FBTrain::FBTrain(unsigned int nTree_,
+		 double nu_) :
   nTree(nTree_),
+  nu(nu_),
   nodeExtent(NumericVector(nTree)),
   nodeTop(0),
   scores(NumericVector(0)),
@@ -126,6 +129,7 @@ List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
     List::create(_[strNTree] = nTree,
+		 _[strNu] = nu,
 		 _[strNode] = std::move(wrapNode()),
 		 _[strScores] = std::move(scores),
 		 _[strFactor] = std::move(wrapFactor())

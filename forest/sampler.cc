@@ -8,6 +8,7 @@
 
 #include "predict.h"
 #include "sampler.h"
+#include "train.h"
 #include "response.h"
 #include "samplernux.h"
 #include "frontier.h"
@@ -130,16 +131,9 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-unique_ptr<SampledObs> Sampler::obsFactory(unsigned int tIdx) const {
-  return response->obsFactory(this, tIdx);
-}
-
-
-void Sampler::rootSample(SampledObs* sampledObs,
-			 const Frontier* frontier,
-			 const PredictorFrame* frame,
-			 unsigned int tIdx) const {
-  sampledObs->sampleRoot(samples[tIdx], frontier, frame);
+unique_ptr<SampledObs> Sampler::obsFactory(const Train* train,
+					   unsigned int tIdx) const {
+  return response->obsFactory(this, train, tIdx);
 }
 
 

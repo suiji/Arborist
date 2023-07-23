@@ -24,6 +24,7 @@ Forest::Forest(vector<vector<DecNode>> decNode_,
 	       vector<unique_ptr<BV>> factorBits_,
 	       vector<unique_ptr<BV>> bitsObserved_) :
   nTree(decNode_.size()),
+  nu(0.0), // Until saved by FE.
   decNode(std::move(decNode_)),
   scores(std::move(scores_)),
   factorBits(std::move(factorBits_)),

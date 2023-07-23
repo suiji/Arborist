@@ -6,8 +6,8 @@
 mkdir Rborist
 cd Rborist; mkdir src; mkdir R; mkdir man; mkdir inst; cd ..
 cp ../LICENSE Rborist/
-cp ../R/DESCRIPTION Rborist/
-cp ../R/NAMESPACE Rborist/
+cp ../DESCRIPTION Rborist/
+cp ../NAMESPACE Rborist/
 cp ../R/*.Rd Rborist/man/
 cp ../R/NEWS Rborist/inst/
 cp ../R/*R Rborist/R/

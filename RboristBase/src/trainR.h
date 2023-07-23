@@ -75,18 +75,19 @@ struct TrainR {
 
 
   /**
-     @brief Tree count dictated by sampler.
+     @brief Tree count dictated by sampler:  independent.
    */
   TrainR(const List& lSampler,
 	 const List& argList);
 
 
   /**
-     @brief Tree count independent of sampler.
+     @brief Tree count independent of sampler:  possibly sequential.
    */
   TrainR(const List& lSampler,
 	 const List& argList,
-	 unsigned int nTree_);
+	 unsigned int nTree_,
+	 double nu = 0.0);
 
 
   void trainChunks(const struct TrainBridge& tb,

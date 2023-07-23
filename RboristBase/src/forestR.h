@@ -135,6 +135,7 @@ class ForestExpand {
  */
 struct FBTrain {
   static const string strNTree;
+  static const string strNu;
   static const string strNode;
   static const string strExtent;
   static const string strTreeNode;
@@ -143,7 +144,8 @@ struct FBTrain {
   static const string strFacSplit;
   static const string strObserved;
 
-  const unsigned int nTree; // Total # trees under training.
+  const unsigned int nTree; ///< Total # trees under training.
+  const double nu; ///< Learning rate.
 
   // Decision node related:
   NumericVector nodeExtent; // # nodes in respective tree.
@@ -157,7 +159,9 @@ struct FBTrain {
   RawVector facRaw; // Bit-vector representation of factor splits.
   RawVector facObserved; // " " observed levels.
 
-  FBTrain(unsigned int nTree);
+
+  FBTrain(unsigned int nTree,
+	  double nu_ = 0.0);
 
 
   /**

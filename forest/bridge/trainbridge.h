@@ -120,14 +120,6 @@ struct TrainBridge {
 
 
   /**
-     @brief Registers learning rate.
-
-     @param nu learning rate;  zero iff tress trained independently.
-   */
-  static void initSamples(const double nu = 0.0);
-
-  
-  /**
      @brief Static de-initializer.
    */
   static void deInit();

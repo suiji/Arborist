@@ -33,7 +33,8 @@
 class Frontier {
   static unsigned int totLevels;
   const class PredictorFrame* frame;
-  const unique_ptr<class SampledObs> sampledObs;
+  //const unique_ptr<class SampledObs> sampledObs;
+  class SampledObs* sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;
 
@@ -52,8 +53,7 @@ class Frontier {
      
      @return map of bagged samples.
    */
-  SampleMap produceRoot(const class Sampler* sampler,
-			unsigned int samplerIdx);
+  SampleMap produceRoot();
 
 
   /**
@@ -116,8 +116,7 @@ public:
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
   Frontier(const class PredictorFrame* frame,
-	   const class Sampler* sampler,
-	   unsigned int samplerIdx);
+	   class SampledObs* sampledObs_);
 
 
   /**
@@ -141,6 +140,8 @@ public:
    */
   double getScoreCtg(const IndexSet& iSet,
 		     const vector<double>& ctgJitter) const;
+
+  
   /**
     @brief Trains one tree.
 
@@ -151,8 +152,7 @@ public:
     @return trained pretree object.
   */
   static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
-					   const class Sampler* sampler,
-					   unsigned int samplerIdx);
+					   class SampledObs* sampledObs);
 
 
   /**

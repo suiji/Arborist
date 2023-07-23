@@ -71,12 +71,7 @@ struct FETrain {
   static void initMono(const class PredictorFrame* frame,
                        const vector<double> &regMono);
 
-  /**
-     @brief Registers learning rate.
-   */
-  static void initSamples(double scale);
 
-  
   /**
      @brief Static de-initializer.
    */

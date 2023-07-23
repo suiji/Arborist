@@ -30,10 +30,12 @@
 */
 class Train {
   static unsigned int trainBlock; // Front-end defined buffer size. Unused.
+  static unique_ptr<class SampledObs> sequentialObs; ///< Accumulating estimand.
 
-  vector<double> predInfo; // E.g., Gini gain:  nPred.
-  class Forest* forest; // Crescent-state forest block.
-
+  vector<double> predInfo; ///< E.g., Gini gain:  nPred.
+  class Forest* forest; ///< Crescent-state forest block.
+  const double nu; ///< Learning rate.
+  unique_ptr<class SampledObs> sampledObs;
 
   /**
      @brief Trains a chunk of trees.
@@ -53,9 +55,20 @@ public:
      @brief General constructor.
   */
   Train(const class PredictorFrame* frame,
+	const class Sampler* sampler,
 	class Forest* forest_);
 
 
+  bool sequential() const {
+    return nu > 0.0;
+  }
+
+
+  double getNu() const {
+    return nu;
+  }
+
+  
   /**
      @brief Getter for splitting information values.
 
@@ -101,7 +114,7 @@ public:
   vector<unique_ptr<PreTree>> blockProduce(const class PredictorFrame* frame,
 					   const class Sampler* sampler,
 					   unsigned int treeStart,
-					   unsigned int treeEnd) const;
+					   unsigned int treeEnd);
 
   /**
      @brief Accumulates per-predictor information values from trained tree.

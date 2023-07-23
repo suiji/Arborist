@@ -15,12 +15,11 @@
 
 #include "frontier.h"
 #include "algparam.h"
+#include "prng.h"
 #include "obsfrontier.h"
 #include "indexset.h"
 #include "predictorframe.h"
 #include "sampledobs.h"
-#include "sampler.h"
-#include "train.h"
 #include "splitfrontier.h"
 #include "interlevel.h"
 #include "ompthread.h"
@@ -39,32 +38,29 @@ void Frontier::deImmutables() {
 
 
 unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
-                                      const Sampler* sampler,
-				      unsigned int samplerIdx) {
-  Frontier frontier(frame, sampler, samplerIdx);
-  SampleMap smNonTerm = frontier.produceRoot(sampler, samplerIdx);
+				      SampledObs* sampledObs) {
+  Frontier frontier(frame, sampledObs);
+  sampledObs->sampleRoot(&frontier, frame);
+  SampleMap smNonTerm = frontier.produceRoot();
   return frontier.levels(smNonTerm);
 }
 
 
 Frontier::Frontier(const PredictorFrame* frame_,
-		   const Sampler* sampler,
-		   unsigned int samplerIdx) :
+		   SampledObs* sampledObs_) :
   frame(frame_),
-  sampledObs(sampler->obsFactory(samplerIdx)),
-  bagCount(sampler->getBagCount(samplerIdx)),
+  sampledObs(sampledObs_),
+  bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),
-  interLevel(make_unique<InterLevel>(frame, sampledObs.get(), this)),
+  interLevel(make_unique<InterLevel>(frame, sampledObs, this)),
   pretree(make_unique<PreTree>(frame, bagCount)),
   smTerminal(SampleMap(bagCount)) {
 }
 
 
-SampleMap Frontier::produceRoot(const Sampler* sampler,
-				unsigned int samplerIdx) {
-  sampler->rootSample(sampledObs.get(), this, frame, samplerIdx);
+SampleMap Frontier::produceRoot() {
   pretree->offspring(0, true);
-  frontierNodes.emplace_back(sampledObs.get());
+  frontierNodes.emplace_back(sampledObs);
   setScores(frontierNodes);
 
   SampleMap smNonterm = SampleMap(bagCount);

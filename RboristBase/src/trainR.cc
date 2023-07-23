@@ -82,7 +82,7 @@ List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& ar
   TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
   initFromArgs(argList, trainBridge);
 
-  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]));
+  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]), as<double>(argList["nu"]));
   trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
@@ -107,11 +107,12 @@ TrainR::TrainR(const List& lSampler, const List& argList) :
 
 TrainR::TrainR(const List& lSampler,
 	       const List& argList,
-	       unsigned int nTree_) :
+	       unsigned int nTree_,
+	       double nu) :
   samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
   nTree(nTree_),
   leaf(LeafR()),
-  forest(FBTrain(nTree)) {
+  forest(FBTrain(nTree, nu)) {
 }
 
 
@@ -171,10 +172,10 @@ NumericVector TrainR::scaleInfo(const TrainBridge& trainBridge) const {
 
 
 void TrainR::trainChunks(const TrainBridge& trainBridge,
-			  bool thinLeaves) {
+			 bool thinLeaves) {
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    ForestBridge fb(chunkThis);
+    ForestBridge fb(chunkThis, forest.nu);
     LeafBridge lb(samplerBridge, thinLeaves);
     auto trainedChunk = trainBridge.train(fb, samplerBridge, treeOff, chunkThis, lb);
     consume(fb, lb, treeOff, chunkThis);
