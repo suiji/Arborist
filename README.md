@@ -1,5 +1,5 @@
 
-## Arborist: Parallelized, Extensible Random Forests
+## Arborist: Parallelized, Extensible Decision Tree Tools
 
 
 [![License](https://img.shields.io/badge/core-MPL--2-brightgreen.svg)](https://www.mozilla.org/en-US/MPL/2.0/) 
@@ -14,14 +14,13 @@
 
 
 
-The Arborist provides a fast, open-source implementation of Leo Brieman's Random Forest algorithm. The Arborist achieves its speed through efficient C++ code and parallel, distributed tree construction. 
+The Arborist project hosts fast, open-source implementations of several decision-tree algorithms.  Breiman and Cutler's **Random Forest** algorithm is implemented and Friedman's **Stochastic Gradient Boosting** is under development.  A spin providing Friedman and Fisher's **PRIM** ("Patient Rule Induction Method") has been developed by Decision Patterns, LLC.  Arborist derivatives achieve their speed through efficient C++ code and parallel, distributed tree construction. Considerable attention has been devoted to minimizing and regularizing data movement, a key challenge to accelerating these algorithms.
 
-Bindings are available for [R](https://cran.r-project.org/web/packages/Rborist/index.html) and **Python (evolving)**
-
+Bindings are provided for [R](https://cran.r-project.org/web/packages/Rborist/index.html).  A language-agnostic bridge design supports development of bindings for additional front ends, such as **Python** and **Julia**.
 
 ### R
 
-**CRAN** hosts the released package [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html).
+**CRAN** hosts the released package [Rborist](https://cran.r-project.org/web/packages/Rborist/index.html), which implements the Random Forest algorithm.
 
 Installation of the *released* version using **R**:
 
@@ -35,7 +34,7 @@ Installation of the *development* version, hosted on this archive, from the top-
 A **CRAN**-friendly snapshot of the *development* source is mirrored by the neighboring archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN).  This archive is intended for remote access by **R** utilities such as *devtools*.
 
 #### Notes
-- **Rborist** version 0.3-4 has been submitted to **CRAN**.
+- **Rborist** version 0.3-5 has been submitted to **CRAN**.
 
 ### Python
 
