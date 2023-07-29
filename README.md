@@ -14,7 +14,7 @@
 
 
 
-The Arborist project hosts fast, open-source implementations of several decision-tree algorithms.  Breiman and Cutler's **Random Forest** algorithm is implemented and Friedman's **Stochastic Gradient Boosting** is under development.  A spin providing Friedman and Fisher's **PRIM** ("Patient Rule Induction Method") has been developed by Decision Patterns, LLC.  Arborist derivatives achieve their speed through efficient C++ code and parallel, distributed tree construction. Considerable attention has been devoted to minimizing and regularizing data movement, a key challenge to accelerating these algorithms.
+The Arborist project hosts fast, open-source implementations of several decision-tree algorithms.  Breiman and Cutler's **Random Forest** algorithm is implemented and Friedman's **Stochastic Gradient Boosting** is under development.  A spin providing Friedman and Fisher's **PRIM** ("Patient Rule Induction Method") has been developed by Decision Patterns, LLC.  Arborist derivatives achieve their speed through parallelized and vectorized inner loops.  Parallel, distributed training is also possible for independently-trained trees. Considerable attention has been devoted to minimizing and regularizing data movement, a key challenge to accelerating these algorithms.
 
 Bindings are provided for [R](https://cran.r-project.org/web/packages/Rborist/index.html).  A language-agnostic bridge design supports development of bindings for additional front ends, such as **Python** and **Julia**.
 
