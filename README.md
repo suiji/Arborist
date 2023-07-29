@@ -73,6 +73,9 @@ A recent paper compares several categories of regression tools, including Random
 - Support for training more than 2^32 observations may be enabled by recompiling.
 - New option *impPermute* introduces permutation-based variable importance.
 
+### Known issues
+ - Following the introduction of support for standalone sampling, a break in backward compatibility appears in versions 0.3-0 and higher of the *Rborist* package.  Prediction with models trained using earlier versions throws an unidentified-index exception from within the *Rcpp* glue layer.  Older models should therefore be retrained in order to use version 0.3-0 and above.
+
 Correctness and runtime errors are addressed as received.  With reproducible test cases, repairs are typically uploaded to GitHub within several days.
 
 Feature requests are addressed on a case-by-case basis.
