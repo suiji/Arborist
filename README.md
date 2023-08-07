@@ -14,7 +14,7 @@
 
 
 
-The Arborist project hosts fast, open-source implementations of several decision-tree algorithms.  Breiman and Cutler's **Random Forest** algorithm is implemented and Friedman's **Stochastic Gradient Boosting** is under development.  A spin providing Friedman and Fisher's **PRIM** ("Patient Rule Induction Method") has been developed by Decision Patterns, LLC.  Arborist derivatives achieve their speed through parallelized and vectorized inner loops.  Parallel, distributed training is also possible for independently-trained trees. Considerable attention has been devoted to minimizing and regularizing data movement, a key challenge to accelerating these algorithms.
+The Arborist project hosts fast, open-source implementations of several decision-tree algorithms.  Breiman and Cutler's **Random Forest** algorithm is implemented and Friedman's **Stochastic Gradient Boosting** is available as an alpha release.  A spin providing Friedman and Fisher's **PRIM** ("Patient Rule Induction Method") has been developed by Decision Patterns, LLC.  Arborist derivatives achieve their speed through parallelized and vectorized inner loops.  Parallel, distributed training is also possible for independently-trained trees. Considerable attention has been devoted to minimizing and regularizing data movement, a key challenge to accelerating these algorithms.
 
 Bindings are provided for [R](https://cran.r-project.org/web/packages/Rborist/index.html).  A language-agnostic bridge design supports development of bindings for additional front ends, such as **Python** and **Julia**.
 
@@ -62,7 +62,8 @@ A recent paper compares several categories of regression tools, including Random
 
 
 ### News/Changes
-- New archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN) mirrors the package source in a form directly amenable to utilities such as *devtools*.
+- New archive [sgbArb.CRAN](https://github.com/suiji/sgbArb.CRAN) mirrors the **sgbArb** package for stochastic gradient boosting.
+- New archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN) mirrors the **Rborist** package source in a form directly amenable to utilities such as *devtools*.
 - New command *rfTrain* exposes the training component of the compound format/sample/train/validate task performed by *rfArb*.  This provides separate training of sampled, prefomatted data.
 - New prediction option *keyedFrame* accesses prediction columns by name, bypassing a previous requirement that training and prediction frames have the same column ordering.  In addition to arbitrary ordering, the prediction frame may now include columns not submitted to training.
 - New command *forestWeight* computes Meinshausen's forest-wide weights.  Nonterminals are weighted in addition to leaves, both to facilitate post-pruning and to accommodate early exit under prediction with trap-and-bail.
