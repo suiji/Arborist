@@ -58,6 +58,9 @@ struct TrainR {
   static const string strVersion;
   static const string strSignature;
   static const string strSamplerHash;
+  static const string strScoreDesc;
+  static const string strNu;
+  static const string strBaseScore;
   static const string strPredInfo;
   static const string strPredMap;
   static const string strForest;
@@ -72,7 +75,8 @@ struct TrainR {
   LeafR leaf; ///< Summarizes sample-to-leaf mapping.
   FBTrain forest; ///< Pointer to core forest.
   NumericVector predInfo; ///< Forest-wide sum of predictors' split information.
-
+  double nu; ///< Learning rate, passed up from training.
+  double baseScore; ///< Base score, " ".
 
   /**
      @brief Tree count dictated by sampler:  independent.
@@ -86,8 +90,7 @@ struct TrainR {
    */
   TrainR(const List& lSampler,
 	 const List& argList,
-	 unsigned int nTree_,
-	 double nu = 0.0);
+	 unsigned int nTree_);
 
 
   void trainChunks(const struct TrainBridge& tb,
@@ -101,7 +104,20 @@ struct TrainR {
    */
   NumericVector scaleInfo(const TrainBridge& trainBridge) const;
 
+
+  /**
+     @brief Summarizes requirements of the training algorithm.
+   */
+  static List summarizeScoreDesc(double nu,
+				 double baseScore);
+
+
+  /**
+     @brief Unwraps the score descriptor as a pair of doubles.
+   */
+  static pair<double, double> unwrapScoreDesc(const List& lTrain);
   
+
   /**
      @return implicit R_NilValue.
    */
@@ -153,9 +169,9 @@ struct TrainR {
 
 
   /**
-     @brief As above, but consumes information vector.
+     @brief As above, but consumes TrainedChunk internals.
    */
-  void consumeInfo(const struct TrainedChunk* train);
+  void consumeChunk(const struct TrainedChunk* train);
 
   
   /**

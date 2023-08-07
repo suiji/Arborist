@@ -223,10 +223,9 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampledObs> obsFactory(const class Train* train,
-					  unsigned int tIdx) const;
+  class SampledObs* getObs(unsigned int tIdx) const;
 
-
+  
   /**
      @brief Computes # records subsumed by sampling this block.
 
@@ -244,9 +243,15 @@ public:
   }
 
   
-  const struct Response* getResponse() const {
+  /*const*/ struct Response* getResponse() const {
     return response.get();
   }
+
+
+  /**
+     @brief Passes through to response.
+   */
+  CtgT getNCtg() const;
 
 
   auto getNSamp() const {

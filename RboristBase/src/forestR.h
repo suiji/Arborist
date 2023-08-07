@@ -1,13 +1,13 @@
 // Copyright (C)  2012-2023  Mark Seligman
 //
-// This file is part of rf.
+// This file is part of RboristBase.
 //
-// rf is free software: you can redistribute it and/or modify it
+// RboristBase is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
 //
-// rf is distributed in the hope that it will be useful, but
+// RboristBase is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -135,7 +135,6 @@ class ForestExpand {
  */
 struct FBTrain {
   static const string strNTree;
-  static const string strNu;
   static const string strNode;
   static const string strExtent;
   static const string strTreeNode;
@@ -145,7 +144,6 @@ struct FBTrain {
   static const string strObserved;
 
   const unsigned int nTree; ///< Total # trees under training.
-  const double nu; ///< Learning rate.
 
   // Decision node related:
   NumericVector nodeExtent; // # nodes in respective tree.
@@ -160,9 +158,8 @@ struct FBTrain {
   RawVector facObserved; // " " observed levels.
 
 
-  FBTrain(unsigned int nTree,
-	  double nu_ = 0.0);
-
+  FBTrain(unsigned int nTree);
+  
 
   /**
      @brief Decorates trained forest for storage by front end.

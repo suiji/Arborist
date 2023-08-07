@@ -29,14 +29,16 @@
 */
 class SampledObs {
  protected:
+  static unique_ptr<SampledObs> sampledObs; ///< Persists iff boosting.
+
   const IndexT nSamp; ///< Number of observation samples requested.
-  const vector<class SamplerNux>& nux; ///
-  const IndexT bagCount; ///< # distinct sampled observations.
-  const double learningRate; ///< Learning rate.
+  const vector<class SamplerNux>& nux; ///< Sampler nodes.
+  const IndexT bagCount; ///< # distinct bagged samples.
+  const bool boosting; ///< Static property of Booster class.
 
   double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
 
-  double bagSum; ///< Sum of bagged responses.
+  double bagSum; ///< Sum of bagged responses.  Updated iff booosting.
   vector<IndexT> obs2Sample; ///< Maps observation index to sample index.
   vector<SumCount> ctgRoot; ///< Root census of categorical response.
   vector<SampleNux> sampleNux; ///< Per-sample summary, with row-delta.
@@ -45,11 +47,12 @@ class SampledObs {
   vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
   vector<IndexT> runCount; ///< Staging initialization.
 
-  // Only used for sequential training:
-  unsigned int seqIdx; ///< Accumulated # visits.
-  vector<double> preScore; ///< Accumulated estimand.
+  bool treeZero; ///< Independent trees or first boosting.
 
-  
+
+  virtual void bagSamples(const class PredictorFrame* frame) = 0;
+
+
   /**
      @brief Samples rows and counts resulting occurrences.
 
@@ -60,7 +63,7 @@ class SampledObs {
   void bagSamples(const vector<double>& y,
 		  const vector<PredictorT>& yCtg);
 
-  
+
   /**
      @brief As above, but bypasses slow trivial sampling.
    */
@@ -74,7 +77,28 @@ class SampledObs {
   vector<IndexT> sampleRanks(const class PredictorFrame* layout,
 			     PredictorT predIdx);
 
+  /**
+     @brief Boosts score of next tree.
+
+     @param scoreBase is true iff base score to be assigned.
+   */
+  void boostPrescore(bool scoreBase);
+
+
 public:
+
+  static void deInit();
+  
+
+  const vector<SampleNux>& getSamples() const {
+    return sampleNux;
+  }
+
+  
+  void setSamples(vector<SampleNux> sampleNux) {
+    this->sampleNux = std::move(sampleNux);
+  }
+  
 
   /**
      @brief Static entry for categorical response (classification).
@@ -83,10 +107,9 @@ public:
 
      @return new SampledCtg instance.
    */
-  static unique_ptr<struct SampledCtg> factoryCtg(const class Sampler* sampler,
-						  const class Train* train,
-						  const class ResponseCtg* response,
-						  unsigned int tIdx);
+  static SampledObs* getCtg(const class Sampler* sampler,
+			    const class ResponseCtg* response,
+			    unsigned int tIdx);
 
 
   /**
@@ -96,14 +119,9 @@ public:
 
      @return new SampledReg instance.
    */
-  static unique_ptr<struct SampledReg>factoryReg(const class Sampler* sampler,
-						 const class Train* train,
-						 const class ResponseReg* response,
-						 unsigned int tIdx);
-
-  bool sequential() {
-    return learningRate > 0.0;
-  }
+  static SampledObs* getReg(const class Sampler* sampler,
+			    const class ResponseReg* response,
+			    unsigned int tIdx);
 
   
   /**
@@ -112,8 +130,6 @@ public:
      @param frame summarizes predictor ranks by row.
    */
   SampledObs(const class Sampler* sampler,
-	     const class Train* train,
-	     const struct Response* response,
 	     unsigned int tIdx,
 	     double (SampledObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
 
@@ -121,15 +137,8 @@ public:
   virtual ~SampledObs();
 
   
-  /**
-     @brief Records per-sample scores from trained tree.
-   */
-  void scoreSamples(const class PreTree* preTree,
-		    const struct SampleMap& sampleMap);
-
-
-  virtual void sampleRoot(const class Frontier* frontier,
-			  const class PredictorFrame* frame) = 0;
+  void sampleRoot(const class PredictorFrame* frame,
+		  class FrontierScorer* scorer);
 
   
   /**
@@ -251,7 +260,6 @@ struct SampledReg : public SampledObs {
 
 
   SampledReg(const class Sampler* sampler,
-	     const class Train* train,
 	     const class ResponseReg* response,
 	     unsigned int tId);
 
@@ -277,9 +285,8 @@ struct SampledReg : public SampledObs {
     return sampleNux.back().getYSum();
   }
 
-
-  void sampleRoot(const class Frontier* frontier,
-		  const class PredictorFrame* frame);
+  
+  void bagSamples(const class PredictorFrame* frame);
 
 
   /**
@@ -289,9 +296,8 @@ struct SampledReg : public SampledObs {
 
 
   */
-  void bagSamples(const vector<double>& y,
-		  const class PredictorFrame* frame,
-		  const class Frontier* frontier);
+  void bagSamples(const class PredictorFrame* frame,
+		  const vector<double>& y);
 };
 
 
@@ -303,7 +309,6 @@ struct SampledCtg : public SampledObs {
 
   
   SampledCtg(const class Sampler* sampler,
-	     const class Train* train,
 	     const class ResponseCtg* response_,
 	     unsigned int tIdx);
 
@@ -328,8 +333,7 @@ struct SampledCtg : public SampledObs {
   }
   
   
-  void sampleRoot(const class Frontier* frontier,
-		  const class PredictorFrame* frame);
+  void bagSamples(const class PredictorFrame* frame);
 
 
   /**
@@ -339,7 +343,8 @@ struct SampledCtg : public SampledObs {
 
      @param y is the proxy response vector.
   */
-  void bagSamples(const vector<PredictorT>& yCtg,
+  void bagSamples(const class PredictorFrame* frame,
+		  const vector<PredictorT>& yCtg,
 		  const vector<double>& y);
 };
 

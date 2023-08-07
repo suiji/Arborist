@@ -8,13 +8,14 @@
 /**
    @file fetrain.cc
 
-   @brief Bridge entry to training.
+   @brief Bridge entry to static initializations.
 
    @author Mark Seligman
 */
 
 #include "fetrain.h"
 #include "bv.h"
+#include "booster.h"
 #include "train.h"
 #include "predictorframe.h"
 #include "frontier.h"
@@ -22,8 +23,8 @@
 #include "partition.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "sampler.h"
-#include "candrf.h"
+#include "sampledobs.h"
+#include "algparam.h"
 #include "ompthread.h"
 #include "coproc.h"
 
@@ -31,7 +32,7 @@
 
 void FETrain::initProb(PredictorT predFixed,
                      const vector<double> &predProb) {
-  CandRF::init(predFixed, predProb);
+  CandType::init(predFixed, predProb);
 }
 
 
@@ -61,13 +62,27 @@ void FETrain::initMono(const PredictorFrame* frame,
 }
 
 
+void FETrain::initBooster(double nu, CtgT nCtg) {
+  if (nu > 0.0) {
+    if (nCtg == 0)
+      Booster::makeL2(nu);
+    else
+      Booster::makeLogOdds(nu);
+  }
+  else {
+    Booster::makeZero();
+  }
+}
+
+
 void FETrain::deInit() {
+  SampledObs::deInit();
   SplitNux::deImmutables();
   IndexSet::deImmutables();
-  Frontier::deImmutables();
+  Frontier::deInit();
   PreTree::deInit();
   SampleNux::deImmutables();
-  CandRF::deInit();
+  CandType::deInit();
   SFRegCart::deImmutables();
   OmpThread::deInit();
 }

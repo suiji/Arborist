@@ -21,23 +21,20 @@
 #include "leaf.h"
 #include "sampler.h"
 #include "sampledobs.h"
+#include "frontierscorer.h"
 
 #include <algorithm>
 
-
 unsigned int Train::trainBlock = 0;
-unique_ptr<SampledObs> Train::sequentialObs = nullptr;
 
 
 void Train::initBlock(unsigned int trainBlock_) {
   trainBlock = trainBlock_;
-  sequentialObs = nullptr;
 }
 
 
 void Train::deInit() {
   trainBlock = 0;
-  sequentialObs = nullptr;
 }
 
 
@@ -51,18 +48,6 @@ unique_ptr<Train> Train::train(const PredictorFrame* frame,
   forest->splitUpdate(frame);
 
   return train;
-}
-
-
-Train::Train(const PredictorFrame* frame,
-	     const Sampler* sampler,
-	     Forest* forest_) :
-  predInfo(vector<double>(frame->getNPred())),
-  forest(forest_),
-  nu(forest->getNu()) {
-  if (sequential() && sequentialObs == nullptr) {
-    sequentialObs = sampler->obsFactory(this, 0);
-  }
 }
 
 
@@ -83,7 +68,7 @@ vector<unique_ptr<PreTree>> Train::blockProduce(const PredictorFrame* frame,
 						unsigned int treeEnd) {
   vector<unique_ptr<PreTree>> block;
   for (unsigned int tIdx = treeStart; tIdx < treeEnd; tIdx++) {
-    block.emplace_back(Frontier::oneTree(frame, sequential() ? sequentialObs.get() : sampler->obsFactory(this, tIdx).get()));
+    block.emplace_back(Frontier::oneTree(frame, this, sampler->getObs(tIdx)));
   }
 
   return block;

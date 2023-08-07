@@ -14,12 +14,13 @@
  */
 #include "train.h"
 #include "predictorframe.h"
-#include "indexset.h"
+#include "frontier.h"
 #include "leaf.h"
 #include "samplemap.h"
 #include "bv.h"
 #include "splitfrontier.h"
 #include "pretree.h"
+#include "booster.h"
 
 #include <queue>
 #include <vector>
@@ -127,7 +128,7 @@ void PreTree::consume(Train* train,
 
 void PreTree::setTerminals(SampleMap smTerminal) {
   terminalMap = std::move(smTerminal);
-
+  Booster::updateEstimate(this, terminalMap);
   leafMerge();
   setLeafIndices();
 }

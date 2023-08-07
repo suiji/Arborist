@@ -33,7 +33,8 @@
 
 const string SamplerR::strYTrain = "yTrain";
 const string SamplerR::strNSamp = "nSamp";
-const string SamplerR::strNTree = "nTree";
+const string SamplerR::strNTree = "nTree"; // EXIT
+const string SamplerR::strNRep = "nRep";
 const string SamplerR::strSamples = "samples";
 const string SamplerR::strHash = "hash";
 
@@ -150,6 +151,7 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
+			      _[strNRep] = bridge.getNRep(),
 			      _[strNTree] = bridge.getNRep(),
 			      _[strHash] = 0
 			);
@@ -173,6 +175,7 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
+			      _[strNRep] = bridge.getNRep(),
 			      _[strNTree] = bridge.getNRep(),
 			      _[strHash] = 0
 			);

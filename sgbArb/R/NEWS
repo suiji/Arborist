@@ -1,0 +1,4 @@
+Version 0.0-1:
+
+* Initial support for L2 loss function under regression and
+  log-logistic under binary classification.

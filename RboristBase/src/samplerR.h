@@ -47,7 +47,8 @@ RcppExport SEXP rootSample(const SEXP sY,
 struct SamplerR {
   static const string strYTrain;
   static const string strNSamp;
-  static const string strNTree;
+  static const string strNTree; // EXIT
+  static const string strNRep;
   static const string strSamples; ///< Output field name of sample.
   static const string strHash; ///< Post-sampling hash.
 

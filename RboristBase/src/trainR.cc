@@ -39,6 +39,9 @@ const string TrainR::strVersion = "version";
 const string TrainR::strSignature = "signature";
 const string TrainR::strSamplerHash = "samplerHash";
 const string TrainR::strPredInfo = "predInfo";
+const string TrainR::strScoreDesc = "scoreDesc";
+const string TrainR::strNu = "nu";
+const string TrainR::strBaseScore = "baseScore";
 const string TrainR::strPredMap = "predMap";
 const string TrainR::strForest = "forest";
 const string TrainR::strLeaf = "leaf";
@@ -82,7 +85,7 @@ List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& ar
   TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
   initFromArgs(argList, trainBridge);
 
-  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]), as<double>(argList["nu"]));
+  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]));
   trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
@@ -107,29 +110,17 @@ TrainR::TrainR(const List& lSampler, const List& argList) :
 
 TrainR::TrainR(const List& lSampler,
 	       const List& argList,
-	       unsigned int nTree_,
-	       double nu) :
+	       unsigned int nTree_) :
   samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
   nTree(nTree_),
   leaf(LeafR()),
-  forest(FBTrain(nTree, nu)) {
+  forest(FBTrain(nTree)) {
 }
 
 
 void TrainR::deInit() {
   verbose = false;
   TrainBridge::deInit();
-}
-
-
-void TrainR::consumeInfo(const TrainedChunk* train) {
-  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
-  if (predInfo.length() == 0) {
-    predInfo = infoChunk;
-  }
-  else {
-    predInfo = predInfo + infoChunk;
-  }
 }
 
 
@@ -143,6 +134,7 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 			       _[strVersion] = as<String>(argList["version"]),
 			       _[strSignature] = lDeframe["signature"],
 			       _[strSamplerHash] = lSampler["hash"],
+			       _[strScoreDesc] = summarizeScoreDesc(nu, baseScore),
 			       _[strPredInfo] = scaleInfo(trainBridge),
 			       _[strPredMap] = std::move(trainBridge.getPredMap()),
 			       _[strForest] = std::move(forest.wrap()),
@@ -154,6 +146,23 @@ List TrainR::summarize(const TrainBridge& trainBridge,
   return trainArb;
 
   END_RCPP
+}
+
+
+List TrainR::summarizeScoreDesc(double nu, double baseScore) {
+  return List::create(
+		      _[strNu] = nu,
+		      _[strBaseScore] = baseScore
+		      );
+}
+
+
+pair<double, double> TrainR::unwrapScoreDesc(const List& lTrain) {
+  if (!lTrain.containsElementNamed("scoreDesc")) // Legacy trainer.
+    return make_pair<double, double>(0.0, 0.0);
+
+  List lScoreDesc(as<List>(lTrain[strScoreDesc]));
+  return make_pair<double, double>(as<double>(lScoreDesc[strNu]), as<double>(lScoreDesc[strBaseScore]));
 }
 
 
@@ -175,11 +184,11 @@ void TrainR::trainChunks(const TrainBridge& trainBridge,
 			 bool thinLeaves) {
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
     auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    ForestBridge fb(chunkThis, forest.nu);
+    ForestBridge fb(chunkThis);
     LeafBridge lb(samplerBridge, thinLeaves);
     auto trainedChunk = trainBridge.train(fb, samplerBridge, treeOff, chunkThis, lb);
     consume(fb, lb, treeOff, chunkThis);
-    consumeInfo(trainedChunk.get());
+    consumeChunk(trainedChunk.get());
   }
 }
 
@@ -198,10 +207,25 @@ void TrainR::consume(const ForestBridge& fb,
 }
 
 
+void TrainR::consumeChunk(const TrainedChunk* train) {
+  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
+  if (predInfo.length() == 0) {
+    predInfo = infoChunk;
+  }
+  else {
+    predInfo = predInfo + infoChunk;
+  }
+
+  train->getScoreDesc(nu, baseScore);
+}
+
+
 RcppExport SEXP expandTrainRcpp(SEXP sTrain) {
   BEGIN_RCPP
     
   return TrainR::expand(List(sTrain));
+
+
 
   END_RCPP
 }
@@ -210,11 +234,11 @@ RcppExport SEXP expandTrainRcpp(SEXP sTrain) {
 List TrainR::expand(const List& lTrain) {
   BEGIN_RCPP
 
-  IntegerVector predMap(as<IntegerVector>(lTrain["predMap"]));
+  IntegerVector predMap(as<IntegerVector>(lTrain[strPredMap]));
   ForestBridge::init(predMap.length());
   List level = SignatureR::getLevel(lTrain);
   List ffe =
-    List::create(_["predMap"] = IntegerVector(predMap),
+    List::create(_[strPredMap] = IntegerVector(predMap),
                  _["factorMap"] = IntegerVector(predMap.end() - level.length(), predMap.end()),
                  _["predLevel"] = level,
 		 _["predFactor"] = SignatureR::getFactor(lTrain),

@@ -22,6 +22,8 @@
 #include "indexset.h"
 #include "typeparam.h"
 #include "stagedcell.h"
+#include "train.h"
+#include "frontierscorer.h"
 
 #include <algorithm>
 #include <vector>
@@ -33,7 +35,7 @@
 class Frontier {
   static unsigned int totLevels;
   const class PredictorFrame* frame;
-  //const unique_ptr<class SampledObs> sampledObs;
+  class FrontierScorer* scorer;
   class SampledObs* sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;
@@ -47,7 +49,6 @@ class Frontier {
 
   unique_ptr<class SplitFrontier> splitFrontier; // Per-level.
 
-  
   /**
      @brief Initializes root state of auxiliary data structures.
      
@@ -109,39 +110,17 @@ public:
   /**
      @brief Resets statics to default values.
   */
-  static void deImmutables();
+  static void deInit();
 
 
   /**
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
   Frontier(const class PredictorFrame* frame,
+	   const class Train* train,
 	   class SampledObs* sampledObs_);
 
 
-  /**
-     @brief Computes the score of a root node.
-
-     @param sObsOriginal is unadjusted, with original 'bagSum' value.
-   */
-  double getRootScore(const SampledObs* sObsOriginal) const;
-
-
-  /**
-     @brief Numerical score: can be invoked as functional.
-   */
-  double getScoreNum(const IndexSet& iSet) const;
-
-
-  /**
-     @brief Categorical score:  can be invoked as functional.
-
-     @param ctgJitter is a level-wide workspace.
-   */
-  double getScoreCtg(const IndexSet& iSet,
-		     const vector<double>& ctgJitter) const;
-
-  
   /**
     @brief Trains one tree.
 
@@ -152,16 +131,18 @@ public:
     @return trained pretree object.
   */
   static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
+					   const class Train* train,
 					   class SampledObs* sampledObs);
 
 
   /**
      @brief Drives breadth-first splitting.
 
+     @param smNonterm maps sample index to nonterminal.
+
      Assumes root node and attendant per-tree data structures have been initialized.
-     Parameters as described above.
   */
-  unique_ptr<class PreTree> levels(SampleMap& smNonterm);
+  unique_ptr<class PreTree> splitByLevel(SampleMap& smNonterm);
 
 
   /**
@@ -182,9 +163,6 @@ public:
    */
   void updateCompound(const vector<vector<class SplitNux>>& nuxMax,
 		      class BranchSense& branchSense);
-
-
-  void setScores(const vector<IndexSet>& nodes) const;
 
 
   const vector<IndexSet>& getNodes() const {

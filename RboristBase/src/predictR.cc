@@ -16,7 +16,7 @@
 // along with RboristBase.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file predictRf.cc
+   @file predictR.cc
 
    @brief C++ interface to R entry for prediction methods.
 
@@ -28,6 +28,7 @@
 #include "samplerR.h"
 #include "leafR.h"
 #include "forestR.h"
+#include "trainR.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
 #include "rleframeR.h"
@@ -35,6 +36,14 @@
 
 #include <memory>
 #include <algorithm>
+
+
+const string PredictR::strQuantVec = "quantVec";
+const string PredictR::strImpPermute = "impPermute";
+const string PredictR::strIndexing = "indexing";
+const string PredictR::strTrapUnobserved = "trapUnobserved";
+const string PredictR::strNThread = "nThread";
+const string PredictR::strCtgProb = "ctgProb";
 
 RcppExport SEXP predictRcpp(const SEXP sDeframe,
 			    const SEXP sTrain,
@@ -49,7 +58,7 @@ RcppExport SEXP predictRcpp(const SEXP sDeframe,
 
   List summary;
   List lSampler(sSampler);
-  SEXP yTrain = lSampler["yTrain"];
+  SEXP yTrain = lSampler[SamplerR::strYTrain];
   if (Rf_isFactor(yTrain))
     summary = PredictR::predictCtg(List(sDeframe), List(sTrain), lSampler, sYTest, lArgs);
   else
@@ -99,7 +108,7 @@ List PredictR::predictReg(const List& lDeframe,
 		      const List& lArgs) {
   BEGIN_RCPP
 
-  ForestBridge::init(as<IntegerVector>(lTrain["predMap"]).length());
+    ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
   unique_ptr<PredictRegBridge> pBridge(unwrapReg(lDeframe, lTrain, lSampler, sYTest, lArgs));
   pBridge->predict();
 
@@ -118,7 +127,7 @@ List PredictR::predictCtg(const List& lDeframe,
 		      const List& lArgs) {
 
   BEGIN_RCPP
-  ForestBridge::init(as<IntegerVector>(lTrain["predMap"]).length());
+    ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
   unique_ptr<PredictCtgBridge> pBridge(unwrapCtg(lDeframe, lTrain, lSampler, sYTest, lArgs));
   pBridge->predict();
 
@@ -141,11 +150,12 @@ unique_ptr<PredictRegBridge> PredictR::unwrapReg(const List& lDeframe,
 			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
+				       TrainR::unwrapScoreDesc(lTrain),
 			  regTest(sYTest),
-			  as<unsigned int>(lArgs["impPermute"]),
-			  as<bool>(lArgs["indexing"]),
-			  as<bool>(lArgs["trapUnobserved"]),
-			  as<unsigned int>(lArgs["nThread"]),
+			  as<unsigned int>(lArgs[strImpPermute]),
+			  as<bool>(lArgs[strIndexing]),
+			  as<bool>(lArgs[strTrapUnobserved]),
+			  as<unsigned int>(lArgs[strNThread]),
 			  quantVec(lArgs));
 }
 
@@ -162,8 +172,8 @@ vector<double> PredictR::regTest(const SEXP sYTest) {
 
 vector<double> PredictR::quantVec(const List& lArgs) {
   vector<double> quantile;
-  if (!Rf_isNull(lArgs["quantVec"])) {
-    NumericVector quantVec(as<NumericVector>(lArgs["quantVec"]));
+  if (lArgs.hasAttribute(strQuantVec) && !Rf_isNull(lArgs[strQuantVec])) {
+    NumericVector quantVec(as<NumericVector>(lArgs[strQuantVec]));
     quantile = vector<double>(quantVec.begin(), quantVec.end());
   }
   return quantile;
@@ -210,24 +220,35 @@ unique_ptr<PredictCtgBridge> PredictR::unwrapCtg(const List& lDeframe,
 			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
+				       TrainR::unwrapScoreDesc(lTrain),
 			  ctgTest(lSampler, sYTest),
-			  as<unsigned int>(lArgs["impPermute"]),
-			  as<bool>(lArgs["ctgProb"]),
-			  as<bool>(lArgs["indexing"]),
-			  as<bool>(lArgs["trapUnobserved"]),
-			  as<unsigned int>(lArgs["nThread"]));
+				       as<unsigned int>(lArgs[strImpPermute]),
+				       as<bool>(lArgs[strCtgProb]),
+			  as<bool>(lArgs[strIndexing]),
+			  as<bool>(lArgs[strTrapUnobserved]),
+			  as<unsigned int>(lArgs[strNThread]));
 }
 
 
 vector<unsigned int> PredictR::ctgTest(const List& lSampler, const SEXP sYTest) {
   if (!Rf_isNull(sYTest)) { // Makes zero-based copy.
-    IntegerVector yTrain(as<IntegerVector>(lSampler["yTrain"]));
+    IntegerVector yTrain(as<IntegerVector>(lSampler[SamplerR::strYTrain]));
     TestCtg testCtg(sYTest, as<CharacterVector>(yTrain.attr("levels")));
     return testCtg.yTestZero;
   }
   else {
     return vector<unsigned int>(0);
   }  
+}
+
+
+TestCtg::TestCtg(const IntegerVector& yTestOne,
+                 const CharacterVector& levelsTrain_) :
+  levelsTrain(levelsTrain_),
+  levels(CharacterVector(as<CharacterVector>(yTestOne.attr("levels")))),
+  test2Merged(mergeLevels(levels)),
+  yTestZero(reconcile(test2Merged, yTestOne)),
+  ctgMerged(*max_element(yTestZero.begin(), yTestZero.end()) + 1) {
 }
 
 
@@ -302,16 +323,6 @@ List PredictR::getImportance(const PredictRegBridge* pBridge,
   return importance;
 
   END_RCPP
-}
-
-
-TestCtg::TestCtg(const IntegerVector& yTestOne,
-                 const CharacterVector& levelsTrain_) :
-  levelsTrain(levelsTrain_),
-  levels(CharacterVector(as<CharacterVector>(yTestOne.attr("levels")))),
-  test2Merged(mergeLevels(levels)),
-  yTestZero(reconcile(test2Merged, yTestOne)),
-  ctgMerged(*max_element(yTestZero.begin(), yTestZero.end()) + 1) {
 }
 
 

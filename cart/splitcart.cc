@@ -18,10 +18,12 @@
 #include "sfcart.h"
 #include "splitcart.h"
 #include "frontier.h"
-
+#include "booster.h" // TEMPORARY
 
 unique_ptr<SplitFrontier> SplitCart::factory(Frontier* frontier) {
-  if (frontier->getNCtg() > 0) {
+  // Splitter should be dispatched upstream of here to avoid
+  // having to test for boosting:
+  if (frontier->getNCtg() > 0 && !Booster::boosting()) {
     return make_unique<SFCtgCart>(frontier);
   }
   else {

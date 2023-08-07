@@ -14,14 +14,13 @@
  */
 
 
-#ifndef RF_BRIDGE_TRAINBRIDGE_H
-#define RF_BRIDGE_TRAINBRIDGE_H
+#ifndef FOREST_BRIDGE_TRAINBRIDGE_H
+#define FOREST_BRIDGE_TRAINBRIDGE_H
 
 #include<vector>
 #include<memory>
 
 using namespace std;
-
 
 
 struct TrainedChunk {
@@ -37,6 +36,13 @@ struct TrainedChunk {
    */
   const vector<double>& getPredInfo() const;
 
+  
+  /**
+     @brief Deconstructs contents of core object's ScoreDesc.
+   */
+  void getScoreDesc(double& nu,
+		    double& baseScore) const;
+  
 
 private:
 
@@ -49,9 +55,11 @@ struct TrainBridge {
 	      double autoCompress,
 	      bool enableCoproc,
 	      vector<string>& diag);
+
   
   ~TrainBridge();
 
+  
   /**
      @brief Copies internal-to-external predictor map.
 
@@ -86,6 +94,14 @@ struct TrainBridge {
   */
   static void initTree(size_t leafMax);
 
+
+  /**
+     @brief Sets learning rate for sequential training.
+   */
+  static void initBooster(double nu = 0.0,
+			  unsigned int nCtg = 0);
+
+  
   /**
      @brief Initializes static OMP thread state.
 

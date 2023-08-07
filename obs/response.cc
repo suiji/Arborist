@@ -15,23 +15,22 @@
 
 #include "predict.h"
 #include "response.h"
-#include "train.h"
 #include "sampledobs.h"
 #include "sampler.h"
 #include "samplernux.h"
 
+#include "prng.h"
 #include <algorithm>
 
 ResponseReg::ResponseReg(const vector<double>& y) :
   Response(),
   yTrain(y),
   defaultPrediction(meanTrain()) {
-  /* ???
-  double yMax = 0.0;
-  for (auto yt : yTrain) {
-    yMax = max(yMax, abs(yt));
-  }
-  */
+}
+
+
+double ResponseReg::getDefaultPrediction() const {
+  return defaultPrediction;
 }
 
 
@@ -43,12 +42,11 @@ ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
   nCtg(nCtg_),
   classWeight(classWeight_),
   defaultPrediction(ctgDefault()) {
-  /* ???
-  double yMax = 0.0;
-  for (auto weight : classWeight) {
-    yMax = max(yMax, weight);
-  }
-  */
+}
+
+
+double ResponseCtg::getDefaultPrediction() const {
+  return defaultPrediction; // upcasts.
 }
 
 
@@ -85,7 +83,6 @@ PredictorT ResponseCtg::ctgDefault() const {
   return max_element(probDefault.begin(), probDefault.end()) - probDefault.begin();
 }
 
-  
 
 vector<double> ResponseCtg::defaultProb() const {
   // Uses the ECDF as the default distribution.
@@ -103,86 +100,13 @@ vector<double> ResponseCtg::defaultProb() const {
 }
 
 
-unique_ptr<SampledObs> ResponseReg::obsFactory(const Sampler* sampler,
-					       const Train* train,
-					       unsigned int tIdx) const {
-  return SampledObs::factoryReg(sampler, train, this, tIdx);
+SampledObs* ResponseReg::getObs(const Sampler* sampler,
+				unsigned int tIdx) const {
+  return SampledObs::getReg(sampler, this, tIdx);
 }
 
 
-unique_ptr<SampledObs> ResponseCtg::obsFactory(const Sampler* sampler,
-					       const Train* train,
-					       unsigned int tIdx) const {
-  return SampledObs::factoryCtg(sampler, train, this, tIdx);
-}
-
-
-double ResponseReg::predictObs(const Predict* predict, size_t row) const {
-  double sumScore = 0.0;
-  unsigned int nEst = 0;
-  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
-    double score;
-    if (predict->isNodeIdx(row, tIdx, score)) {
-      nEst++;
-      sumScore += score;
-    }
-  }
-  return nEst > 0 ? sumScore / nEst : defaultPrediction;
-}
-
-
-double ResponseReg::predictSum(const Predict* predict,
-			       double rootScore,
-			       size_t row) const {
-  double sumScore = rootScore;
-  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
-    double score;
-    if (predict->isNodeIdx(row, tIdx, score)) {
-      sumScore += score;
-    }
-  }
-  return sumScore;
-}
-
-
-PredictorT ResponseCtg::predictObs(const Predict* predict, size_t row, unsigned int* census) const {
-  unsigned int nEst = 0; // # participating trees.
-  vector<double> ctgJitter(nCtg); // Accumulates jitter by category.
-  for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
-    double score;
-    if (predict->isNodeIdx(row, tIdx, score)) {
-      nEst++;
-      PredictorT ctg = floor(score); // Truncates jittered score ut index.
-      census[ctg]++;
-      ctgJitter[ctg] += score - ctg;
-    }
-  }
-  if (nEst == 0) { // Default category unity, all others zero.
-    census[defaultPrediction] = 1;
-  }
-
-  return argMaxJitter(census, ctgJitter);
-}
-
-
-PredictorT ResponseCtg::argMaxJitter(const unsigned int* census,
-				     const vector<double>& ctgJitter) const {
-  PredictorT argMax = 0;
-  IndexT countMax = 0;
-  // Assumes at least one slot has nonzero count.
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    IndexT count = census[ctg];
-    if (count == 0)
-      continue;
-    else if (count > countMax) {
-      countMax = count;
-      argMax = ctg;
-    }
-    else if (count == countMax) {
-      if (ctgJitter[ctg] > ctgJitter[argMax]) {
-	argMax = ctg;
-      }
-    }
-  }
-  return argMax;
+SampledObs* ResponseCtg::getObs(const Sampler* sampler,
+				unsigned int tIdx) const {
+  return SampledObs::getCtg(sampler, this, tIdx);
 }

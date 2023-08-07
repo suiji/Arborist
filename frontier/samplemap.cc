@@ -17,17 +17,21 @@
 #include "samplemap.h"
 #include "pretree.h"
 
-vector<double> SampleMap::scoreSamples(const PreTree* pretree) const {
-  vector<double> sIdx2Score(sampleIndex.size());
+
+vector<double> SampleMap::scaleSampleScores(const PreTree* pretree,
+					    vector<double>& sIdx2Score,
+					    double scale) const {
   IndexT rangeIdx = 0;
   for (const IndexRange& rg : range) {
-    double score = pretree->getScore(ptIdx[rangeIdx]);
+    double score = scale * pretree->getScore(ptIdx[rangeIdx]);
     for (IndexT idx = rg.getStart(); idx != rg.getEnd(); idx++) {
       IndexT sIdx = sampleIndex[idx];
-      sIdx2Score[sIdx] = score;
+      sIdx2Score[sIdx] += score;
     }
     rangeIdx++;
   }
 
   return sIdx2Score;
 }
+
+

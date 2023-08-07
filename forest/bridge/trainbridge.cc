@@ -17,9 +17,12 @@
 #include "trainbridge.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
-
-#include "response.h"
+#include "booster.h"
 #include "train.h"
+
+// Type completion only:
+#include "frontierscorer.h"
+#include "scoredesc.h"
 #include "sampledobs.h"
 #include "fetrain.h"
 #include "predictorframe.h"
@@ -39,16 +42,24 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 }
 
 
+void TrainedChunk::getScoreDesc(double& nu,
+				double& baseScore) const {
+  ScoreDesc scoreDesc = Booster::getScoreDesc();
+  nu = scoreDesc.nu;
+  baseScore = scoreDesc.baseScore;
+}
+
+
 unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
 					    const SamplerBridge& samplerBridge,
 					    unsigned int treeOff,
 					    unsigned int treeChunk,
 					    const LeafBridge& leafBridge) const {
-  auto trained = Train::train(frame.get(),
-			      samplerBridge.getSampler(),
-			      forestBridge.getForest(),
-			      IndexRange(treeOff, treeChunk),
-			      leafBridge.getLeaf());
+  unique_ptr<Train> trained = Train::train(frame.get(),
+					   samplerBridge.getSampler(),
+					   forestBridge.getForest(),
+					   IndexRange(treeOff, treeChunk),
+					   leafBridge.getLeaf());
 
   return make_unique<TrainedChunk>(std::move(trained));
 }
@@ -67,6 +78,11 @@ void TrainBridge::initProb(unsigned int predFixed,
 
 void TrainBridge::initTree(size_t leafMax) {
   FETrain::initTree(leafMax);
+}
+
+
+void TrainBridge::initBooster(double nu, unsigned int nCtg) {
+  FETrain::initBooster(nu, nCtg);
 }
 
 

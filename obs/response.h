@@ -8,7 +8,7 @@
 /**
    @file response.h
 
-   @brief Access to training response and estimands.
+   @brief Scoring methods parametrized by response type.
 
    @author Mark Seligman
  */
@@ -19,25 +19,27 @@
 
 #include "typeparam.h"
 
-
 #include <vector>
 #include <numeric>
 #include <algorithm>
-
 
 /**
    @brief Abstract wrapper class.  Probably unnecessary.
  */
 struct Response {
-
   Response() = default;
 
   virtual ~Response() {}
 
 
   virtual PredictorT getNCtg() const = 0;
+
   
-  
+  /**
+     @brief Temporary workaround for singleton base score in Scorer.
+   */
+  virtual double getDefaultPrediction() const = 0;
+
   /**
      @base Copies front-end vectors and lights off initializations specific to classification.
 
@@ -53,16 +55,15 @@ struct Response {
   static unique_ptr<class ResponseCtg> factoryCtg(const vector<unsigned int>& yCtg,
 					      PredictorT nCtg);
 
-  
+    
   static unique_ptr<class ResponseReg> factoryReg(const vector<double>& yNum);
 
   
   /**
      @brief Samples (bags) the estimand to construct the tree root.
    */
-  virtual unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
-						  const class Train* train,
-						  unsigned int tIdx) const = 0;
+  virtual class SampledObs* getObs(const class Sampler* sampler,
+				   unsigned int tIdx) const = 0;
 };
 
 
@@ -93,10 +94,16 @@ public:
 
   ~ResponseReg() = default;
 
-
+  
   PredictorT getNCtg() const {
     return 0;
   }
+
+
+  /**
+     @brief Temporary workaround.
+   */
+  double getDefaultPrediction() const;
 
 
   const vector<double>& getYTrain() const {
@@ -109,26 +116,8 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
-					  const class Train* train,
-					  unsigned int tIdx) const;
-
-
-  /**
-     @brief Derives a mean prediction value for an observation.
-   */
-  double predictObs(const class Predict* predict,
-		    size_t row) const;
-
-  
-  /**
-     @brief Derives a summation.
-
-     @return sum of predicted responses plus rootScore.
-   */
-  double predictSum(const class Predict* predict,
-		    double rootScore,
-		    size_t row) const;
+  class SampledObs* getObs(const class Sampler* sampler,
+			   unsigned int tIdx) const;
 };
 
 
@@ -185,6 +174,11 @@ public:
   PredictorT getNCtg() const {
     return nCtg;
   }
+
+
+  /**
+   */
+  double getDefaultPrediction() const;
   
 
   /**
@@ -192,18 +186,8 @@ public:
 
      @return summary of sampled response.
    */
-  unique_ptr<class SampledObs> obsFactory(const class Sampler* sampler,
-					  const class Train* train,
-					  unsigned int tIdx) const;
-
-
-  PredictorT predictObs(const class Predict* predict,
-			size_t row,
-			unsigned int* census) const;
-  
-  
-  PredictorT argMaxJitter(const unsigned int* census,
-			  const vector<double>& ctgJitter) const;
+  class SampledObs* getObs(const class Sampler* sampler,
+			   unsigned int tIdx) const;
 
 
   /**

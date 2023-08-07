@@ -22,8 +22,8 @@
 
 using namespace std;
 
-ForestBridge::ForestBridge(unsigned int treeChunk, double nu) :
-  forest(make_unique<Forest>(treeChunk, nu)) {
+ForestBridge::ForestBridge(unsigned int treeChunk) :
+  forest(make_unique<Forest>(treeChunk)) {
 }
 
 

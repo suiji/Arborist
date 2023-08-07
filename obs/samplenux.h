@@ -139,9 +139,12 @@ class SampleNux {
 
   /**
      @brief Decrements sum by a scaled amount.
+
+     @return new sum value.
    */
-  inline void decrementSum(double decr) {
+  inline double decrementSum(double decr) {
     ySum -= decr * getSCount();
+    return ySum;
   }
 };
 

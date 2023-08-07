@@ -23,20 +23,19 @@
 #include "forest.h"
 #include "pretree.h"
 
-
 /**
    @brief Interface class for front end.  Holds simulation-specific parameters
    of the data and constructs forest, leaf and diagnostic structures.
 */
 class Train {
-  static unsigned int trainBlock; // Front-end defined buffer size. Unused.
-  static unique_ptr<class SampledObs> sequentialObs; ///< Accumulating estimand.
+  static unsigned int trainBlock; ///< Front-end defined buffer size. Unused.
 
   vector<double> predInfo; ///< E.g., Gini gain:  nPred.
   class Forest* forest; ///< Crescent-state forest block.
-  const double nu; ///< Learning rate.
+  const unique_ptr<class FrontierScorer> frontierScorer;
   unique_ptr<class SampledObs> sampledObs;
 
+  
   /**
      @brief Trains a chunk of trees.
 
@@ -58,17 +57,6 @@ public:
 	const class Sampler* sampler,
 	class Forest* forest_);
 
-
-  bool sequential() const {
-    return nu > 0.0;
-  }
-
-
-  double getNu() const {
-    return nu;
-  }
-
-  
   /**
      @brief Getter for splitting information values.
 
@@ -77,6 +65,7 @@ public:
   const vector<double> &getPredInfo() const {
     return predInfo;
   }
+
 
   static void initBlock(unsigned int trainBlock_);
 
@@ -121,6 +110,11 @@ public:
    */
   void consumeInfo(const vector<double>& info);
 
+
+  class FrontierScorer* getFrontierScorer() const {
+    return frontierScorer.get();
+  }
+  
   
   /**
      @brief Getter for raw forest pointer.

@@ -47,6 +47,7 @@ SEXP TrainR::initFromArgs(const List& argList,
 			 as<double>(argList["minInfo"]),
 			 splitQuant);
 
+  trainBridge.initBooster();
   trainBridge.initTree(as<unsigned int>(argList["maxLeaf"]));
   trainBridge.initBlock(as<unsigned int>(argList["treeBlock"]));
   trainBridge.initOmp(as<unsigned int>(argList["nThread"]));

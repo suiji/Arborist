@@ -142,7 +142,6 @@ public:
 */
 class Forest {
   const unsigned int nTree; /// # trees in chunk under training.
-  const double nu; ///< Learning rate.
   const vector<vector<DecNode>> decNode;
   const vector<vector<double>> scores; // " "
   const vector<unique_ptr<BV>> factorBits; ///< All factors known at training.
@@ -165,10 +164,8 @@ class Forest {
   /**
      @brief Training constructor.
    */
-  Forest(unsigned int nTree_,
-	 double nu_) :
+  Forest(unsigned int nTree_) :
     nTree(nTree_),
-    nu(nu_),
     nodeCresc(make_unique<NodeCresc>()),
     fbCresc(make_unique<FBCresc>()) {
   }
@@ -232,11 +229,6 @@ class Forest {
    */
   inline unsigned int getNTree() const {
     return nTree;
-  }
-
-
-  inline double getNu() const {
-    return nu;
   }
 
   

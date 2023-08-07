@@ -1,0 +1,16 @@
+Package: sgbArb
+Title: Stochastic Gradient Boosting with mixed data types.
+Version: 0.0-1
+Date: 2023-7-29
+Author: Mark Seligman
+Maintainer: Mark Seligman <mseligman@suiji.org>
+BugReports: https://github.com/suiji/Arborist/issues
+Description: Scalable implementation of classification and regression forests, as described by Breiman (2001), <DOI:10.1023/A:1010933404324>.
+URL: https://github.com/suiji/sgbArb.CRAN, https://github.com/suiji/Arborist, http://www.suiji.org/arborist
+License: MPL (>= 2) | GPL (>= 2) | file LICENSE
+LazyLoad: yes
+Depends: R(>= 3.3)
+Imports: Rcpp (>= 0.12.2), data.table (>= 1.9.8), digest
+Suggests: testthat, knitr, rmarkdown, markdown
+VignetteBuilder: knitr
+LinkingTo: Rcpp

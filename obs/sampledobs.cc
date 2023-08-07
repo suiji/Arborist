@@ -15,126 +15,118 @@
 
 #include "samplernux.h"
 #include "sampler.h"
-#include "train.h"
 #include "response.h"
 #include "sampledobs.h"
-#include "frontier.h"
 #include "predictorframe.h"
 #include "ompthread.h"
-#include "pretree.h"
-#include "samplemap.h"
+#include "frontierscorer.h"
+#include "indexset.h"
+#include "booster.h"
 
 #include <numeric>
 
 
+unique_ptr<SampledObs> SampledObs::sampledObs = nullptr;
+
+
 SampledObs::SampledObs(const Sampler* sampler,
-		       const Train* train,
-		       const Response* response,
 		       unsigned int samplerIdx,
 		       double (SampledObs::* adder_)(double, const SamplerNux&, PredictorT)) :
   nSamp(sampler->getNSamp()),
   nux(sampler->getSamples(samplerIdx)),
   bagCount(nux.size() == 0 ? nSamp : nux.size()),
-  learningRate(train->getNu()),
+  boosting(Booster::boosting()),
   adder(adder_),
   bagSum(0.0),
   obs2Sample(vector<IndexT>(sampler->getNObs())),
-  ctgRoot(vector<SumCount>(response->getNCtg())),
-  seqIdx(0),
-  preScore(vector<double>(bagCount)) {
+  ctgRoot(vector<SumCount>(sampler->getNCtg())),
+  treeZero(!boosting || sampledObs == nullptr) {
 }
 
 
 SampledObs::~SampledObs() = default;
 
 
-unique_ptr<SampledCtg> SampledObs::factoryCtg(const Sampler* sampler,
-					      const Train* train,
-					      const ResponseCtg* response,
-					      unsigned int tIdx) {
-  return make_unique<SampledCtg>(sampler, train, response, tIdx);
+void SampledObs::sampleRoot(const PredictorFrame* frame,
+			    FrontierScorer* scorer) {
+  if (treeZero) {
+    bagSamples(frame);
+    setRanks(frame);
+    Booster::setEstimate(this);
+  }
+  treeZero = false;
+  if (boosting) {
+    Booster::updateResidual(scorer, this, bagSum);
+  }
 }
 
 
-void SampledCtg::sampleRoot(const Frontier* frontier,
-			    const PredictorFrame* frame) {
-  bagSamples(response->getYCtg(), response->getClassWeight());
-  setRanks(frame);
+void SampledCtg::bagSamples(const PredictorFrame* frame) {
+  bagSamples(frame, response->getYCtg(), response->getClassWeight());
 }
 
 
-void SampledReg::sampleRoot(const Frontier* frontier,
-			    const PredictorFrame* frame) {
-  bagSamples(response->getYTrain(), frame, frontier);
+void SampledReg::bagSamples(const PredictorFrame* frame) {
+  bagSamples(frame, response->getYTrain());
 }
 
 
-unique_ptr<SampledReg> SampledObs::factoryReg(const Sampler* sampler,
-					      const Train* train,
-					      const ResponseReg* response,
-					      unsigned int tIdx) {
-  return make_unique<SampledReg>(sampler, train, response, tIdx);
+SampledObs* SampledObs::getReg(const Sampler* sampler,
+			       const ResponseReg* response,
+			       unsigned int tIdx) {
+  if (sampledObs == nullptr || !Booster::boosting()) {
+    sampledObs = make_unique<SampledReg>(sampler, response, tIdx);
+  }
+
+  return sampledObs.get();
+}
+
+
+SampledObs* SampledObs::getCtg(const Sampler* sampler,
+			       const ResponseCtg* response,
+			       unsigned int tIdx) {
+  if (sampledObs == nullptr || !Booster::boosting()) {
+    sampledObs = make_unique<SampledCtg>(sampler, response, tIdx);
+  }
+
+  return sampledObs.get();
 }
 
 
 SampledReg::SampledReg(const Sampler* sampler,
-		       const Train* train,
 		       const ResponseReg* response_,
 		       unsigned int tIdx) :
-  SampledObs(sampler, train, response_, tIdx, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledReg::addNode)),
+  SampledObs(sampler, tIdx, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledReg::addNode)),
   response(response_) {
 }
+
 
 SampledReg::~SampledReg() = default;
 
 
-void SampledReg::bagSamples(const vector<double>& y,
-			    const PredictorFrame* frame,
-			    const Frontier* frontier) {
-  if (seqIdx == 0) { // Also true if nonsequential.
-    SampledObs::bagSamples(y, vector<PredictorT>(y.size()));
-    setRanks(frame);
-    fill(preScore.begin(), preScore.end(), frontier->getRootScore(this));
-  }
-
-  if (sequential()) {
-    IndexT sIdx = 0;
-    for (SampleNux& nux : sampleNux) { // sCount applied internally.
-      nux.decrementSum(learningRate * preScore[sIdx++]);
-    }
-    bagSum *= (1.0 - learningRate);
-
-    seqIdx++;
-  }
+void SampledReg::bagSamples(const PredictorFrame* frame,
+			    const vector<double>& y) {
+  SampledObs::bagSamples(y, vector<PredictorT>(y.size()));
 }
 
 
-void SampledObs::scoreSamples(const PreTree*  pretree,
-			      const SampleMap& terminalMap) {
-  if (sequential()) {
-    preScore = terminalMap.scoreSamples(pretree);
-  }
+void SampledCtg::bagSamples(const PredictorFrame* frame,
+			    const vector<PredictorT>& yCtg,
+			    const vector<double>& y) {
+  SampledObs::bagSamples(y, yCtg);
 }
-
 
 
 SampledCtg::SampledCtg(const Sampler* sampler,
-		       const Train* train,
 		       const ResponseCtg* response_,
 		       unsigned int tIdx) :
-  SampledObs(sampler, train, response_, tIdx, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledCtg::addNode)),
+  SampledObs(sampler, tIdx, static_cast<double (SampledObs::*)(double, const SamplerNux&, PredictorT)>(&SampledCtg::addNode)),
   response(response_) {
   SumCount scZero;
   fill(ctgRoot.begin(), ctgRoot.end(), scZero);
 }
 
 SampledCtg::~SampledCtg() = default;
-
-
-void SampledCtg::bagSamples(const vector<PredictorT>& yCtg,
-			    const vector<double>& y) {
-  SampledObs::bagSamples(y, yCtg);
-}
 
 
 void SampledObs::bagSamples(const vector<double>&  y,
@@ -194,4 +186,10 @@ vector<IndexT> SampledObs::sampleRanks(const PredictorFrame* layout, PredictorT 
   runCount[predIdx] = accumulate(rankSeen.begin(), rankSeen.end(), 0);
 
   return sampledRanks;
+}
+
+
+void SampledObs::deInit() {
+  sampledObs = nullptr;
+  Booster::deInit();
 }

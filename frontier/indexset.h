@@ -219,6 +219,16 @@ public:
   const vector<SumCount>& getCtgSumCount() const {
     return ctgSum;
   }
+
+
+  const SumCount getCtgSumCount(CtgT ctg) const {
+    return ctgSum[ctg];
+  }
+
+
+  const IndexT getCategoryCount(CtgT ctg) const {
+    return ctgSum[ctg].sCount;
+  }
   
   
   /**

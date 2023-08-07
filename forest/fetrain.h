@@ -6,15 +6,15 @@
  */
 
 /**
-   @file ferain.h
+   @file fetrain.h
 
-   @brief RF-specific handshake with training bridge.
+   @brief SGB-specific handshake with training bridge.
 
    @author Mark Seligman
  */
 
-#ifndef RF_FETRAIN_H
-#define RF_FETRAIN_H
+#ifndef SGB_FETRAIN_H
+#define SGB_FETRAIN_H
 
 #include "typeparam.h"
 
@@ -27,6 +27,17 @@
 */
 struct FETrain {
 
+  /**
+     @brief Initializes booster state.
+
+     @param nu is the learning rate.
+
+     @param nCtg is the categoricity.
+   */
+  static void initBooster(double nu,
+			  unsigned int nCtg);
+
+  
   /**
      @brief Registers per-node probabilities of predictor selection.
   */

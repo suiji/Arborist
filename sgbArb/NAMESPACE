@@ -1,0 +1,21 @@
+useDynLib(sgbArb, .registration = TRUE)
+
+export(sgbArb)
+export(sgbTrain)
+export(preformat)
+export(presample)
+export(expandfe)
+#export(RboristNews)
+#export(validate)
+
+S3method(sgbArb, default)
+S3method(sgbTrain, default)
+S3method(predict, sgbTrain)
+S3method(preformat, default)
+S3method(presample, default)
+S3method(expandfe, default)
+#S3method(validate, default)
+
+import(Rcpp)
+import(digest)
+importFrom("utils", "packageVersion")

@@ -79,6 +79,16 @@ public:
 		  size_t row,
 		  PredictorT* ctgRow);
 
+
+  /**
+     @brief Binary classification with know probability.
+
+     @param p1 is the probability of category 1;
+   */
+  void assignBinary(size_t obsIdx,
+		    double p1);
+
+  
   bool isEmpty() const {
     return probs.empty();
   }
@@ -108,8 +118,9 @@ protected:
   static const size_t scoreChunk; ///< Score block dimension.
   static const unsigned int seqChunk;  ///< Effort to minimize false sharing.
 
-  const bool trapUnobserved; ///< Whether to trap values not observed during training.
+  const bool trapUnobserved; ///< Whether to trap values unobserved during training.
   const class Sampler* sampler; ///< In-bag representation.
+  const unique_ptr<class PredictScorer> scorer; ///< Algorithm-specific scoring.
   const vector<vector<DecNode>> decNode; ///< Forest-wide decision nodes.
   const vector<unique_ptr<BV>>& factorBits; ///< Splitting bits.
   const vector<unique_ptr<BV>>& bitsObserved; ///< Bits participating in split.
@@ -206,7 +217,7 @@ xon   */
 
 public:
 
-  const vector<vector<double>> scoreBlock; // Scores, by tree.
+  const vector<vector<double>> scoreBlock; ///< Scores, by tree.
   const PredictorT nPredNum;
   const PredictorT nPredFac;
   const size_t nRow;
@@ -227,6 +238,7 @@ public:
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
 	  struct RLEFrame* rleFrame_,
+	  const struct ScoreDesc& scoreDesc,
 	  bool testing_,
 	  const PredictOption& option);
 
@@ -450,6 +462,7 @@ public:
 	     const class Sampler* sampler_,
 	     const struct Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
+	     const struct ScoreDesc& scoreDesc,
 	     const vector<double>& yTest_,
 	     const PredictOption& option,
 	     const vector<double>& quantile);
@@ -550,6 +563,7 @@ public:
   PredictCtg(const class Forest* forest_,
 	     const class Sampler* sampler_,
 	     struct RLEFrame* rleFrame_,
+	     const struct ScoreDesc& scoreDesc,
 	     const vector<PredictorT>& yTest_,
 	     const PredictOption& option,
 	     bool doProb);

@@ -23,6 +23,8 @@
 #include "ompthread.h"
 #include "rleframe.h"
 #include "sample.h"
+#include "scoredesc.h"
+#include "predictscorer.h"
 #include "response.h"
 
 #include <cmath>
@@ -33,10 +35,12 @@ const unsigned int Predict::seqChunk = 0x20;
 Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
 		 RLEFrame* rleFrame,
+		 const ScoreDesc& scoreDesc,
 		 bool testing_,
 		 const PredictOption& option) :
   trapUnobserved(option.trapUnobserved),
   sampler(sampler_),
+  scorer(scoreDesc.makePredictScorer(sampler, this)),
   decNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
   bitsObserved(forest->getBitsObserved()),
@@ -72,10 +76,11 @@ PredictReg::PredictReg(const Forest* forest,
 		       const Sampler* sampler_,
 		       const Leaf* leaf,
 		       RLEFrame* rleFrame,
+		       const ScoreDesc& scoreDesc,
 		       const vector<double>& yTest_,
 		       const PredictOption& option,
 		       const vector<double>& quantile) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
+  Predict(forest, sampler_, rleFrame, scoreDesc, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
   yPred(vector<double>(nRow)),
@@ -94,10 +99,11 @@ PredictReg::PredictReg(const Forest* forest,
 PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
 		       RLEFrame* rleFrame,
+		       const ScoreDesc& scoreDesc,
 		       const vector<PredictorT>& yTest_,
 		       const PredictOption& option,
 		       bool doProb) :
-  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
+  Predict(forest, sampler_, rleFrame, scoreDesc, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
   yPred(vector<PredictorT>(nRow)),
@@ -249,22 +255,6 @@ void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
     walkTree(row);
     testing ? testObs(row) : scoreObs(row);
   }
-}
-
-
-unsigned int PredictReg::scoreObs(size_t row) {
-  (*yTarg)[row] = response->predictObs(this, row);
-  if (!quant->isEmpty()) {
-    quant->predictRow(this, row);
-  }
-  return nEst;
-}
-
-
-void PredictCtg::scoreObs(size_t row) {
-  (*yTarg)[row] = response->predictObs(this, row, &census[ctgIdx(row)]);
-  if (!ctgProb->isEmpty())
-    ctgProb->predictRow(this, row, &census[ctgIdx(row)]);
 }
 
 
@@ -422,6 +412,12 @@ void CtgProb::predictRow(const Predict* predict, size_t row, PredictorT* ctgRow)
     for (PredictorT ctg = 0; ctg < nCtg; ctg++)
       probRow[ctg] = ctgRow[ctg] * scale;
   }
+}
+
+void CtgProb::assignBinary(size_t obsIdx, double p1) {
+  double* probRow = &probs[obsIdx * 2];
+  probRow[0] = 1.0 - p1;
+  probRow[1] = p1;
 }
 
 

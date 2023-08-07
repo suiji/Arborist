@@ -131,9 +131,8 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-unique_ptr<SampledObs> Sampler::obsFactory(const Train* train,
-					   unsigned int tIdx) const {
-  return response->obsFactory(this, train, tIdx);
+SampledObs* Sampler::getObs(unsigned int tIdx) const {
+  return response->getObs(this, tIdx);
 }
 
 
@@ -228,6 +227,11 @@ vector<size_t> Sampler::binIndices(size_t nObs,
   }
 
   return idxBinned;
+}
+
+
+CtgT Sampler::getNCtg() const {
+  return response->getNCtg();
 }
 
 

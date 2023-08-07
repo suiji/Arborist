@@ -66,6 +66,12 @@ RcppExport SEXP validateRcpp(const SEXP sFrame,
    @bridge Prediction through unwrapped PredictBridge object.
  */
 struct PredictR {
+  static const string strQuantVec;
+  static const string strImpPermute;
+  static const string strIndexing;
+  static const string strTrapUnobserved;
+  static const string strNThread;
+  static const string strCtgProb;
 
   static List predictCtg(const List& lDeframe,
 			 const List& lTrain,
@@ -258,7 +264,7 @@ struct TestCtg {
   const unsigned int ctgMerged;
 
   TestCtg(const IntegerVector& yTest,
-          const CharacterVector &levelsTrain_);
+          const CharacterVector& levelsTrain_);
 
   
   /**

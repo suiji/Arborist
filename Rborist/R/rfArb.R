@@ -143,6 +143,7 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
     if (impPermute > 0) {
         arbOut <- list(
             sampler = sampler,
+            scoreDesc = train$scoreDesc,
             leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,
@@ -156,6 +157,7 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
     else {
         arbOut <- list(
             sampler = sampler,
+            scoreDesc = train$scoreDesc,
             leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,

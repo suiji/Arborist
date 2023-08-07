@@ -34,8 +34,8 @@ struct ForestBridge {
      It is the responsibility of the front end and/or its bridge to ensure
      that aliased memory either remains live or is copied.
 
-     @param nodeExtent[] is the per-tree node count.
-
+     @param nTree is the number of tres.
+     
      @param treeNode caches the nodes as packed-integer / double pairs.
 
      @param nPred is the number of training predictors.
@@ -58,8 +58,7 @@ struct ForestBridge {
   /**
      @brief Training constructor.
    */
-  ForestBridge(unsigned int treeChunk,
-	       double nu);
+  ForestBridge(unsigned int treeChunk);
 
   
   ForestBridge(ForestBridge&&);
