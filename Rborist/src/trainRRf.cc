@@ -16,7 +16,7 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file trainRf.cc
+   @file trainRRf.cc
 
    @brief C++ interface to R training entry for Rborist package.
 

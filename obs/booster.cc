@@ -119,26 +119,26 @@ void Booster::updateLogOdds(FrontierScorer* frontierScorer,
     sIdx++;
   }
   sampledObs->setSamples(std::move(residual));
-  frontierScorer->setGamma(pq);
+  frontierScorer->setGamma(std::move(pq));
 }
 
 
 vector<double> Booster::scaleComplement(const vector<double>& p) {
   vector<double> pq(p.size());
-  IndexT i = 0;
-  for (double prob : p) {
-    pq[i++] = prob * (1.0 - prob);
+  for (IndexT i = 0; i != p.size(); i++) {
+    pq[i] = p[i] * (1.0 - p[i]);
   }
+  
   return pq;
 }
 
 
 vector<double> Booster::logistic(const vector<double>& logOdds) {
   vector<double> p(logOdds.size());
-  IndexT i = 0;
-  for (double l : logOdds) {
-    p[i++] = 1.0 / (1.0 + exp(-l));
+  for (IndexT i = 0; i != logOdds.size(); i++) {
+    p[i] = 1.0 / (1.0 + exp(-logOdds[i]));
   }
+
   return p;
 }
 

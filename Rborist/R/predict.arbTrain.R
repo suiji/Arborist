@@ -82,29 +82,6 @@ ctgProbabilities <- function(sampler, ctgCensus) {
 }
 
 
-# Uses quartiles by default.
-#
-getQuantiles <- function(quantiles, sampler, quantVec) {
-    if (!is.null(quantVec)) {
-        if (any(quantVec > 1) || any(quantVec < 0))
-            stop("Quantile range must be within [0,1]")
-        if (any(diff(quantVec) <= 0))
-            stop("Quantile range must be increasing")
-        quantVec
-    }
-    else if (!quantiles) {
-        NULL
-    }
-    else if (is.factor(sampler$yTrain)) {
-        warning("Quantiles not supported for classifcation:  ignoring")
-        NULL
-    }
-    else {
-        seq(0.25, 1.0, by = 0.25)
-    }
-}
-
-
 # Glue-layer entry for prediction.
 predictCommon <- function(object, sampler, newdata, yTest, keyedFrame, argList) {
     deframeNew <- deframe(newdata, object$signature, keyedFrame)

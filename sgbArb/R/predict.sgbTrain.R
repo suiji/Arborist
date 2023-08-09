@@ -74,7 +74,6 @@ ctgProbabilities <- function(sampler, ctgCensus) {
         TRUE
     }
     else {
-        pring("NO")
         FALSE
     }
 }

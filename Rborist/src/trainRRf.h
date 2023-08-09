@@ -16,15 +16,15 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file trainRf.h
+   @file trainRRf.h
 
    @brief C++ interface to R entry for RF training.
 
    @author Mark Seligman
  */
 
-#ifndef RBORIST_TRAINRF_H
-#define RBORIST_TRAINRF_H
+#ifndef RBORIST_TRAINR_RF_H
+#define RBORIST_TRAINR_RF_H
 
 #include <Rcpp.h>
 using namespace Rcpp;

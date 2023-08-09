@@ -88,6 +88,3 @@ FALSE, ...)
 \author{
   Mark Seligman at Suiji.
 }
-
-
-\seealso{\code{\link{Rborist}}}

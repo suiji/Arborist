@@ -29,12 +29,13 @@ sgbArb.default <- function(x,
                              indexing = FALSE,
                              maxLeaf = 0,
                              minInfo = 0.01,
-                             minNode = 3,
+                             minNode = if (is.factor(y)) 2 else 3,
                              nLevel = 6,
                              nSamp = length(y),
                              nThread = 0,
-                             nTree = 500,
-                             noValidate = TRUE, # temporary
+                             nTree = 100,
+                             withRepl = FALSE,
+                             noValidate = (!withRepl || (nSamp == length(y))),
                              nu = 0.1,
                              predFixed = 0,
                              predProb = 0.0,
@@ -42,11 +43,10 @@ sgbArb.default <- function(x,
                              regMono = NULL,
                              rowWeight = NULL,
                              splitQuant = NULL,
-                             thinLeaves = FALSE,
+                             thinLeaves = is.factor(y) && !indexing,
                              trapUnobserved = FALSE,
                              treeBlock = 1,
                              verbose = FALSE,
-                             withRepl = FALSE,
                              ...) {
 
     # Argument checking:
@@ -70,7 +70,6 @@ sgbArb.default <- function(x,
     
     if (impPermute > 0 && noValidate)
         warning("Variable importance requires validation:  ignoring")
-    
 
     preFormat <- preformat(x, verbose)
     sampler <- presample(y, rowWeight, nSamp, 1, withRepl, verbose)
@@ -101,7 +100,6 @@ sgbArb.default <- function(x,
             bagging = TRUE,
             impPermute = impPermute,
             indexing = indexing,
-            quantVec = getQuantiles(quantiles, sampler, quantVec),
             trapUnobserved = trapUnobserved,
             nThread = nThread,
             verbose = verbose
