@@ -18,7 +18,7 @@
 #include "scoredesc.h"
 #include "sampledobs.h"
 #include "samplemap.h"
-#include "frontierscorer.h"
+#include "nodescorer.h"
 
 #include <cmath>
 
@@ -27,9 +27,9 @@ unique_ptr<Booster> Booster::booster = nullptr;
 
 
 Booster::Booster(double (Booster::* baseScorer_)(const IndexSet&) const,
-		 void (Booster::* updater_)(FrontierScorer*, SampledObs*, double&),
-		 double nu_) :
-  nu(nu_),
+		 void (Booster::* updater_)(NodeScorer*, SampledObs*, double&),
+		 double nu) :
+  scoreDesc(ScoreDesc(nu)),
   baseScorer(baseScorer_),
   updater(updater_) {
 }
@@ -39,12 +39,33 @@ void Booster::makeZero() {
   booster = make_unique<Booster>(&Booster::zero, &Booster::noUpdate, 0.0);
 }
 
+
+void Booster::setMean() {
+  booster->scoreDesc.scorer = "mean";
+}
+
+
+void Booster::setPlurality() {
+  booster->scoreDesc.scorer = "plurality";
+}
+
+
+void Booster::setSum() {
+  booster->scoreDesc.scorer = "sum";
+}
+
+
+void Booster::setLogistic() {
+  booster->scoreDesc.scorer = "logistic";
+}
+
+
 double Booster::zero(const IndexSet& iRoot) const {
   return 0.0;
 }
 
 
-void Booster::noUpdate(FrontierScorer* frontierScorer,
+void Booster::noUpdate(NodeScorer* nodeScorer,
 		       SampledObs* sampledObs,
 		       double& bagSum) {
 }
@@ -56,11 +77,11 @@ void Booster::setEstimate(const SampledObs* sampledObs) {
 }
 
 
-void Booster::updateResidual(FrontierScorer* frontierScorer,
+void Booster::updateResidual(NodeScorer* nodeScorer,
 			     SampledObs* sampledObs,
 			     double& bagSum) {
   if (boosting()) {
-    booster->update(frontierScorer, sampledObs, bagSum);
+    booster->update(nodeScorer, sampledObs, bagSum);
   }
 }
 
@@ -77,12 +98,12 @@ double Booster::mean(const IndexSet& iRoot) const {
 
 void Booster::baseEstimate(const SampledObs* sampledObs) {
   baseSamples = sampledObs->getSamples();
-  baseScore = (this->*baseScorer)(IndexSet(sampledObs));
-  estimate = vector<double>(sampledObs->getBagCount(), baseScore);
+  scoreDesc.baseScore = (this->*baseScorer)(IndexSet(sampledObs));
+  estimate = vector<double>(sampledObs->getBagCount(), scoreDesc.baseScore);
 }
 
 
-void Booster::updateL2(FrontierScorer* frontierScorer,
+void Booster::updateL2(NodeScorer* nodeScorer,
 		       SampledObs* sampledObs,
 		       double& bagSum) {
   IndexT sIdx = 0;
@@ -105,7 +126,7 @@ double Booster::logit(const IndexSet& iRoot) const {
 }
 
 
-void Booster::updateLogOdds(FrontierScorer* frontierScorer,
+void Booster::updateLogOdds(NodeScorer* nodeScorer,
 			    SampledObs* sampledObs,
 			    double& bagSum) {
   IndexT sIdx = 0;
@@ -119,7 +140,7 @@ void Booster::updateLogOdds(FrontierScorer* frontierScorer,
     sIdx++;
   }
   sampledObs->setSamples(std::move(residual));
-  frontierScorer->setGamma(std::move(pq));
+  nodeScorer->setGamma(std::move(pq));
 }
 
 
@@ -153,12 +174,14 @@ void Booster::updateEstimate(const PreTree*  pretree,
 
 void Booster::scoreSamples(const PreTree*  pretree,
 			   const SampleMap& terminalMap) {
-  terminalMap.scaleSampleScores(pretree, estimate, nu);
+  terminalMap.scaleSampleScores(pretree, estimate, scoreDesc.nu);
 }
 
 
-ScoreDesc Booster::getScoreDesc() {
-  return ScoreDesc(booster->nu, booster->baseScore);
+void Booster::listScoreDesc(double& nu, double& baseScore, string& scorer) {
+  nu = booster->scoreDesc.nu;
+  baseScore = booster->scoreDesc.baseScore;
+  scorer = booster->scoreDesc.scorer;
 }
 
 

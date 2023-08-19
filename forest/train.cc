@@ -21,7 +21,7 @@
 #include "leaf.h"
 #include "sampler.h"
 #include "sampledobs.h"
-#include "frontierscorer.h"
+#include "nodescorer.h"
 
 #include <algorithm>
 

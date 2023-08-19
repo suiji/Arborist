@@ -44,72 +44,6 @@ struct PredictOption {
 
 
 /**
-   @brief Categorical probabilities associated with indivdual leaves.
-
-   Intimately accesses the raw jagged array it contains.
- */
-class CtgProb {
-  const PredictorT nCtg; // Training cardinality.
-  const vector<double> probDefault; // Forest-wide default probability.
-  vector<double> probs; // Per-row probabilties.
-
-  
-  /**
-     @brief Copies default probability vector into argument.
-
-     @param[out] probPredict outputs the default category probabilities.
-   */
-  void applyDefault(double probPredict[]) const;
-  
-
-public:
-  CtgProb(const class Predict* predict,
-	  const class ResponseCtg* response,
-	  bool doProb);
-
-  
-  /**
-     @brief Predicts probabilities across all trees.
-
-     @param row is the row number.
-
-     @param[out] probRow outputs the per-category probabilities.
-   */
-  void predictRow(const class Predict* predict,
-		  size_t row,
-		  PredictorT* ctgRow);
-
-
-  /**
-     @brief Binary classification with know probability.
-
-     @param p1 is the probability of category 1;
-   */
-  void assignBinary(size_t obsIdx,
-		    double p1);
-
-  
-  bool isEmpty() const {
-    return probs.empty();
-  }
-
-  
-  /**
-     @brief Getter for probability vector.
-   */
-  const vector<double>& getProb() {
-    return probs;
-  }
-
-  
-  /**
-     @brief Dumps the probability cells.
-   */
-  void dump() const;
-};
-
-
-/**
    @brief Walks the decision forest for each row in a block, collecting
    predictions.
  */
@@ -120,7 +54,7 @@ protected:
 
   const bool trapUnobserved; ///< Whether to trap values unobserved during training.
   const class Sampler* sampler; ///< In-bag representation.
-  const unique_ptr<class PredictScorer> scorer; ///< Algorithm-specific scoring.
+  unique_ptr<class ForestScorer> scorer; ///< Algorithm-specific scoring.
   const vector<vector<DecNode>> decNode; ///< Forest-wide decision nodes.
   const vector<unique_ptr<BV>>& factorBits; ///< Splitting bits.
   const vector<unique_ptr<BV>>& bitsObserved; ///< Bits participating in split.
@@ -220,7 +154,7 @@ public:
   const vector<vector<double>> scoreBlock; ///< Scores, by tree.
   const PredictorT nPredNum;
   const PredictorT nPredFac;
-  const size_t nRow;
+  const size_t nObs;
   const unsigned int nTree; // # trees used in training.
   const IndexT noNode; // Inattainable leaf index value.
 
@@ -238,7 +172,6 @@ public:
   Predict(const class Forest* forest_,
 	  const class Sampler* sampler_,
 	  struct RLEFrame* rleFrame_,
-	  const struct ScoreDesc& scoreDesc,
 	  bool testing_,
 	  const PredictOption& option);
 
@@ -292,9 +225,12 @@ public:
     return predIdx >= nPredNum;
   }
 
-
-  size_t getNRow() const {
-    return nRow;
+  
+  /**
+     @return number of observations under prediction.
+   */
+  size_t getNObs() const {
+    return nObs;
   }
   
 
@@ -447,8 +383,6 @@ class PredictReg : public Predict {
   vector<double> saePermute;
   vector<double> ssePermute;
 
-  unique_ptr<class Quant> quant;  // Quantile workplace, as needed.
-
   vector<double>* yTarg; // Target of current prediction.
   double* saeTarg;
   double* sseTarg;
@@ -462,10 +396,9 @@ public:
 	     const class Sampler* sampler_,
 	     const struct Leaf* leaf_,
 	     struct RLEFrame* rleFrame_,
-	     const struct ScoreDesc& scoreDesc,
 	     const vector<double>& yTest_,
 	     const PredictOption& option,
-	     const vector<double>& quantile);
+	     vector<double> quantile);
 
 
   /**
@@ -520,13 +453,13 @@ public:
  /**
      @return vector of estimated quantile means.
    */
-  const vector<double> getQEst() const;
+  const vector<double>& getQEst() const;
 
 
   /**
      @return vector quantile predictions.
   */
-  const vector<double> getQPred() const;
+  const vector<double>& getQPred() const;
 };
 
 
@@ -536,26 +469,24 @@ class PredictCtg : public Predict {
   vector<PredictorT> yPred;
   const PredictorT nCtgTrain; // Cardiality of training response.
   const PredictorT nCtgMerged; // Cardinality of merged test response.
-  unique_ptr<CtgProb> ctgProb; // Class prediction probabilities.
 
   vector<PredictorT> yPermute; // Reused.
-  vector<PredictorT> census;
   vector<size_t> confusion; // Confusion matrix; saved.
   vector<double> misprediction; // Mispredction, by merged category; saved.
   double oobPredict; // Out-of-bag error:  % mispredicted rows.
-  vector<PredictorT> censusPermute; // Workspace census for permutations.
+  vector<unsigned int> censusPermute; // Workspace census for permutations.
   vector<size_t> confusionPermute; // Workspace for permutation.
   vector<vector<double>> mispredPermute; // Saved values for permutation.
   vector<double> oobPermute;
-  vector<PredictorT>* yTarg; // Target of current prediction.
+  vector<CtgT>* yTarg; // Target of current prediction.
   vector<size_t>* confusionTarg;
-  vector<PredictorT>* censusTarg; // Destination of prediction census.
+  vector<unsigned int>* censusTarg; // Destination of prediction census.
   vector<double>* mispredTarg;
   double *oobTarg;
 
   void testObs(size_t row);
 
-  void scoreObs(size_t row);
+  unsigned int scoreObs(size_t row);
 
   
 public:
@@ -563,7 +494,7 @@ public:
   PredictCtg(const class Forest* forest_,
 	     const class Sampler* sampler_,
 	     struct RLEFrame* rleFrame_,
-	     const struct ScoreDesc& scoreDesc,
+	     //	     const struct ScoreDesc& scoreDesc,
 	     const vector<PredictorT>& yTest_,
 	     const PredictOption& option,
 	     bool doProb);
@@ -633,18 +564,15 @@ public:
 
   
   /**
-     @brief Getter for census.
+     @brief Passes through to scorer.
    */
-  const PredictorT* getCensus() const {
-    return &census[0];
-  }
+  const vector<unsigned int>& getCensus() const;
+
 
   /**
-     @brief Getter for probability matrix.
+     @brief Passes through to scorer.
    */
-  const vector<double>& getProb() const {
-    return ctgProb->getProb();
-  }
+  const vector<double>& getProb() const;
 
 
   /**

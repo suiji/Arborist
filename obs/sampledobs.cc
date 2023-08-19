@@ -19,7 +19,7 @@
 #include "sampledobs.h"
 #include "predictorframe.h"
 #include "ompthread.h"
-#include "frontierscorer.h"
+#include "nodescorer.h"
 #include "indexset.h"
 #include "booster.h"
 
@@ -48,7 +48,7 @@ SampledObs::~SampledObs() = default;
 
 
 void SampledObs::sampleRoot(const PredictorFrame* frame,
-			    FrontierScorer* scorer) {
+			    NodeScorer* scorer) {
   if (treeZero) {
     bagSamples(frame);
     setRanks(frame);

@@ -39,9 +39,6 @@ const string TrainR::strVersion = "version";
 const string TrainR::strSignature = "signature";
 const string TrainR::strSamplerHash = "samplerHash";
 const string TrainR::strPredInfo = "predInfo";
-const string TrainR::strScoreDesc = "scoreDesc";
-const string TrainR::strNu = "nu";
-const string TrainR::strBaseScore = "baseScore";
 const string TrainR::strPredMap = "predMap";
 const string TrainR::strForest = "forest";
 const string TrainR::strLeaf = "leaf";
@@ -134,7 +131,6 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 			       _[strVersion] = as<String>(argList["version"]),
 			       _[strSignature] = lDeframe["signature"],
 			       _[strSamplerHash] = lSampler["hash"],
-			       _[strScoreDesc] = summarizeScoreDesc(nu, baseScore),
 			       _[strPredInfo] = scaleInfo(trainBridge),
 			       _[strPredMap] = std::move(trainBridge.getPredMap()),
 			       _[strForest] = std::move(forest.wrap()),
@@ -146,23 +142,6 @@ List TrainR::summarize(const TrainBridge& trainBridge,
   return trainArb;
 
   END_RCPP
-}
-
-
-List TrainR::summarizeScoreDesc(double nu, double baseScore) {
-  return List::create(
-		      _[strNu] = nu,
-		      _[strBaseScore] = baseScore
-		      );
-}
-
-
-pair<double, double> TrainR::unwrapScoreDesc(const List& lTrain) {
-  if (!lTrain.containsElementNamed("scoreDesc")) // Legacy trainer.
-    return make_pair<double, double>(0.0, 0.0);
-
-  List lScoreDesc(as<List>(lTrain[strScoreDesc]));
-  return make_pair<double, double>(as<double>(lScoreDesc[strNu]), as<double>(lScoreDesc[strBaseScore]));
 }
 
 
@@ -215,8 +194,6 @@ void TrainR::consumeChunk(const TrainedChunk* train) {
   else {
     predInfo = predInfo + infoChunk;
   }
-
-  train->getScoreDesc(nu, baseScore);
 }
 
 

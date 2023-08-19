@@ -82,7 +82,7 @@ struct PredictRegBridge : public PredictBridge {
 		   ForestBridge forestBridge_,
 		   SamplerBridge samplerBridge_,
 		   LeafBridge leafBridge_,
-		   const pair<double, double>& scoreDesc,
+		   //		   const pair<double, double>& scoreDesc,
 		   vector<double> yTest,
 		   unsigned int nPermute_,
 		   bool indexing,
@@ -126,12 +126,12 @@ struct PredictRegBridge : public PredictBridge {
   /**
      @return vector of predection quantiles iff quant non-null else empty.
    */
-  const vector<double> getQPred() const;
+  const vector<double>& getQPred() const;
 
   /**
      @return vector of estimate quantiles iff quant non-null else empty.
    */
-  const vector<double> getQEst() const;
+  const vector<double>& getQEst() const;
 
 private:
   SamplerBridge samplerBridge; ///< Local ownership.
@@ -145,7 +145,7 @@ struct PredictCtgBridge : public PredictBridge {
 		   ForestBridge forestBridge_,
 		   SamplerBridge samplerBridge_,
 		   LeafBridge leafBridge_,
-		   const pair<double, double>& scoreDesc,
+		   //		   const pair<double, double>& scoreDesc,
 		   vector<unsigned int> yTest,
 		   unsigned int nPermute_,
 		   bool doProb,
@@ -191,7 +191,7 @@ struct PredictCtgBridge : public PredictBridge {
                       unsigned int ctgPred) const;
   
 
-  const unsigned int* getCensus() const;
+  const vector<unsigned int>& getCensus() const;
   
 
   const vector<double>& getProb() const;

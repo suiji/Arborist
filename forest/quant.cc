@@ -29,9 +29,9 @@ const unsigned int Quant::binSize = 0x1000;
  */
 Quant::Quant(const Forest* forest,
 	     const Leaf* leaf_,
-	     const Predict* predict,
+	     const PredictReg* predict,
 	     const ResponseReg* response,
-             const vector<double>& quantile_) :
+             vector<double> quantile_) :
   quantile(std::move(quantile_)),
   qCount(quantile.size()),
   sampler(predict->getSampler()),
@@ -42,8 +42,8 @@ Quant::Quant(const Forest* forest,
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : leaf->alignRanks(sampler, valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
-  qPred(vector<double>(empty ? 0 : predict->getNRow() * qCount)),
-  qEst(vector<double>(empty ? 0 : predict->getNRow())) {
+  qPred(vector<double>(empty ? 0 : predict->getNObs() * qCount)),
+  qEst(vector<double>(empty ? 0 : predict->getNObs())) {
 }
 
 
@@ -76,6 +76,8 @@ vector<double> Quant::binMeans(const RankedObs<double>& valRank) const {
 
 
 void Quant::predictRow(const PredictReg* predict, size_t row) {
+  if (isEmpty())
+    return;
   vector<IndexT> sCountBin(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   IndexT totSamples = 0;
   if (predict->trapAndBail()) {

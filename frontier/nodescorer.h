@@ -6,15 +6,15 @@
  */
 
 /**
-   @file frontierscorer.h
+   @file nodescorer.h
 
    @brief Scoring methods for frontier.
 
    @author Mark Seligman
  */
 
-#ifndef OBS_FRONTIERSCORER_H
-#define OBS_FRONTIERSCORER_H
+#ifndef OBS_NODESCORER_H
+#define OBS_NODESCORER_H
 
 
 #include "typeparam.h"
@@ -25,27 +25,27 @@
 #include <algorithm>
 
 
-struct FrontierScorer {
-  vector<double> ctgJitter; ///< Breaks classification ties.
+struct NodeScorer {
+  vector<double> ctgJitter; ///< Breaks ties; frontier-wide.
   vector<double> gamma; ///< Per-sample weight, with multiplicity.
 
   
-  double (FrontierScorer::* scorer)(const class SampleMap&,
-				    const class IndexSet&) const;
+  double (NodeScorer::* scorer)(const struct SampleMap&,
+				const class IndexSet&) const;
 
-  FrontierScorer(double (FrontierScorer::* scorer_)(const class SampleMap&,
-						    const class IndexSet&) const);
+  NodeScorer(double (NodeScorer::* scorer_)(const struct SampleMap&,
+					    const class IndexSet&) const);
 
   void frontierPreamble(const class Frontier* frontier);
   
-  static unique_ptr<FrontierScorer> makeMean();
+  static unique_ptr<NodeScorer> makeMean();
 
-  static unique_ptr<FrontierScorer> makePlurality();
+  static unique_ptr<NodeScorer> makePlurality();
 
-  static unique_ptr<FrontierScorer> makeLogOdds();
+  static unique_ptr<NodeScorer> makeLogOdds();
 
   
-  double score(const class SampleMap& smNonterm,
+  double score(const struct SampleMap& smNonterm,
 	       const class IndexSet& iSet) const {
     return (this->*scorer)(smNonterm, iSet);
   }
@@ -59,21 +59,21 @@ struct FrontierScorer {
   /**
      @return mean reponse over node.
    */
-  double scoreMean(const class SampleMap& smNonterm,
+  double scoreMean(const struct SampleMap& smNonterm,
 		   const class IndexSet& iSet) const;
 
 
   /**
      @return category with jittered plurality, plus jitter.
    */
-  double scorePlurality(const class SampleMap& smNonterm,
+  double scorePlurality(const struct SampleMap& smNonterm,
 			const class IndexSet& iSet) const;
 
 
   /**
      @return mean score weighted by per-sample p-q probabilities.
    */
-  double scoreLogOdds(const class SampleMap& smNonterm,
+  double scoreLogOdds(const struct SampleMap& smNonterm,
 		      const class IndexSet& iSet) const;
 };
 

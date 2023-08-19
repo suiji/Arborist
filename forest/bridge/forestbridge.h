@@ -52,7 +52,8 @@ struct ForestBridge {
 	       const double scores[],
 	       const double facExtent[],
                const unsigned char facSplit[],
-	       const unsigned char facObserved[]);
+	       const unsigned char facObserved[],
+	       const tuple<double, double, string>& scoreDesc);
 
   
   /**
@@ -85,6 +86,14 @@ struct ForestBridge {
   size_t getNodeCount() const;
 
   
+  /**
+     @brief Deconstructs contents of core object's ScoreDesc.
+   */
+  void getScoreDesc(double& nu,
+		    double& baseScore,
+		    string& forestScorer) const;
+
+
   /**
      @brief Returns pointer to core-level Forest.
    */

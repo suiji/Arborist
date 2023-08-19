@@ -20,6 +20,7 @@
 #include "decnode.h"
 #include "bv.h"
 #include "typeparam.h"
+#include "scoredesc.h"
 
 #include <numeric>
 #include <vector>
@@ -141,17 +142,18 @@ public:
    @brief The decision forest as a read-only collection.
 */
 class Forest {
-  const unsigned int nTree; /// # trees in chunk under training.
+  const unsigned int nTree; ///< # trees in chunk under training.
   const vector<vector<DecNode>> decNode;
-  const vector<vector<double>> scores; // " "
+  const vector<vector<double>> scores; //< Per node.
   const vector<unique_ptr<BV>> factorBits; ///< All factors known at training.
   const vector<unique_ptr<BV>> bitsObserved; ///< Factors observed at splitting.
 
   // Crescent data structures:  training only.
-  unique_ptr<NodeCresc> nodeCresc; // Crescent node block.
-  unique_ptr<FBCresc> fbCresc; // Crescent factor-summary block.
-  vector<double> scoresCresc; // Crescent score block.
+  unique_ptr<NodeCresc> nodeCresc; ///< Crescent node block.
+  unique_ptr<FBCresc> fbCresc; ///< Crescent factor-summary block.
+  vector<double> scoresCresc; ///< Crescent score block.
 
+  ScoreDesc scoreDesc; ///< Prediction only.
 
 
   void dump(vector<vector<PredictorT>>& predTree,
@@ -187,7 +189,8 @@ class Forest {
   Forest(const vector<vector<DecNode>> decNode_,
 	 vector<vector<double>> scores_,
 	 vector<unique_ptr<BV>> factorBits_,
-	 vector<unique_ptr<BV>> bitsObserved_);
+	 vector<unique_ptr<BV>> bitsObserved_,
+	 const tuple<double, double, string>& scoreDesc_);
 
 
   const vector<size_t>& getFacExtents() const {
@@ -354,6 +357,21 @@ class Forest {
   const vector<vector<double>>& getTreeScores() const {
     return scores;
   }
+
+  
+  /**
+     @brief Passes through to ScoreDesc method.
+   */
+  unique_ptr<class ForestScorer> makeScorer(const class ResponseReg* response,
+					    const class Forest* forest,
+					    const class Leaf* leaf,
+					    const class PredictReg* predict,
+					    vector<double> quantile) const;
+
+
+  unique_ptr<class ForestScorer> makeScorer(const class ResponseCtg* response,
+					    size_t nObs,
+					    bool doProb) const;
 
 
   /**

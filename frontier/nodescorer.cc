@@ -6,52 +6,52 @@
  */
 
 /**
-   @file frontierscorer.cc
+   @file nodeScorer.cc
 
    @brief Paramtrized assignment of node scores at frontier.
 
    @author Mark Seligman
  */
 
-#include "frontierscorer.h"
+#include "nodescorer.h"
 #include "frontier.h"
 
 #include "prng.h"
 #include <algorithm>
 
 
-unique_ptr<FrontierScorer> FrontierScorer::makeMean() {
-  return make_unique<FrontierScorer>(&FrontierScorer::scoreMean);
+unique_ptr<NodeScorer> NodeScorer::makeMean() {
+  return make_unique<NodeScorer>(&NodeScorer::scoreMean);
 }
 
 
-unique_ptr<FrontierScorer> FrontierScorer::makePlurality() {
-  return make_unique<FrontierScorer>(&FrontierScorer::scorePlurality);
+unique_ptr<NodeScorer> NodeScorer::makePlurality() {
+  return make_unique<NodeScorer>(&NodeScorer::scorePlurality);
 }
 
-unique_ptr<FrontierScorer> FrontierScorer::makeLogOdds() {
-  return make_unique<FrontierScorer>(&FrontierScorer::scoreLogOdds);
+unique_ptr<NodeScorer> NodeScorer::makeLogOdds() {
+  return make_unique<NodeScorer>(&NodeScorer::scoreLogOdds);
 }
 
 
-void FrontierScorer::frontierPreamble(const Frontier* frontier) {
+void NodeScorer::frontierPreamble(const Frontier* frontier) {
   ctgJitter = vector<double>(PRNG::rUnif(frontier->getNCtg() * frontier->getNSplit(), 0.5));
 }
 
 
-FrontierScorer::FrontierScorer(double (FrontierScorer::* scorer_)(const SampleMap&,
+NodeScorer::NodeScorer(double (NodeScorer::* scorer_)(const SampleMap&,
 								  const IndexSet&) const) :
   scorer(scorer_) {
 }
 
 
-double FrontierScorer::scoreMean(const SampleMap& smNonterm,
+double NodeScorer::scoreMean(const SampleMap& smNonterm,
 				 const IndexSet& iSet) const {
   return iSet.getSum() / iSet.getSCount();
 }
 
 
-double FrontierScorer::scorePlurality(const SampleMap& smNonterm,
+double NodeScorer::scorePlurality(const SampleMap& smNonterm,
 				    const IndexSet& iSet)  const {
   const double* nodeJitter = &ctgJitter[iSet.getCtgSumCount().size() * iSet.getSplitIdx()];
   PredictorT argMax = 0;// TODO:  set to nCtg and error if no count.
@@ -76,7 +76,7 @@ double FrontierScorer::scorePlurality(const SampleMap& smNonterm,
 }
 
 
-double FrontierScorer::scoreLogOdds(const SampleMap& smNonterm,
+double NodeScorer::scoreLogOdds(const SampleMap& smNonterm,
 				    const IndexSet& iSet) const {
   // Walks the sample indices associated with the node index,
   // accumulating a sum of pq-values.

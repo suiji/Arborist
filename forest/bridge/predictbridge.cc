@@ -17,20 +17,19 @@
 #include "predict.h"
 #include "quant.h"
 #include "rleframe.h"
-#include "scoredesc.h"
 #include "ompthread.h"
 
 // Type completion only:
 #include "response.h"
 #include "sampler.h"
-#include "predictscorer.h"
+#include "forestscorer.h"
 
 
 PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
 				   ForestBridge forestBridge_,
 				   SamplerBridge samplerBridge_,
 				   LeafBridge leafBridge_,
-				   const pair<double, double>& scoreDesc,
+				   //				   const pair<double, double>& scoreDesc,
 				   vector<double> yTest,
 				   unsigned int nPermute_,
 				   bool indexing,
@@ -40,7 +39,7 @@ PredictRegBridge::PredictRegBridge(unique_ptr<RLEFrame> rleFrame_,
   PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
   samplerBridge(std::move(samplerBridge_)),
   leafBridge(std::move(leafBridge_)),
-  predictRegCore(make_unique<PredictReg>(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), rleFrame.get(), ScoreDesc(scoreDesc), std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), std::move(quantile))) {
+  predictRegCore(make_unique<PredictReg>(forestBridge.getForest(), samplerBridge.getSampler(), leafBridge.getLeaf(), rleFrame.get(), /*ScoreDesc(scoreDesc),*/ std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), std::move(quantile))) {
 }
 
 
@@ -51,7 +50,7 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
 				   ForestBridge forestBridge_,
 				   SamplerBridge samplerBridge_,
 				   LeafBridge leafBridge_,
-				   const pair<double, double>& scoreDesc,
+				   //				   const pair<double, double>& scoreDesc,
 				   vector<unsigned int> yTest,
 				   unsigned int nPermute_,
 				   bool doProb,
@@ -61,7 +60,7 @@ PredictCtgBridge::PredictCtgBridge(unique_ptr<RLEFrame> rleFrame_,
   PredictBridge(std::move(rleFrame_), std::move(forestBridge_), nPermute_, nThread),
   samplerBridge(std::move(samplerBridge_)),
   leafBridge(std::move(leafBridge_)),
-  predictCtgCore(make_unique<PredictCtg>(forestBridge.getForest(), samplerBridge.getSampler(), rleFrame.get(), ScoreDesc(scoreDesc), std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), doProb)) {
+  predictCtgCore(make_unique<PredictCtg>(forestBridge.getForest(), samplerBridge.getSampler(), rleFrame.get(), /*ScoreDesc(scoreDesc),*/ std::move(yTest), PredictOption(nPermute, indexing, trapUnobserved), doProb)) {
 }
 
 
@@ -155,7 +154,7 @@ unsigned int PredictCtgBridge::ctgIdx(unsigned int ctgTest,
 }
 
 
-const unsigned int* PredictCtgBridge::getCensus() const {
+const vector<unsigned int>& PredictCtgBridge::getCensus() const {
   return predictCtgCore->getCensus();
 }
 
@@ -190,12 +189,12 @@ const vector<double>& PredictRegBridge::getYPred() const {
 }
 
 
-const vector<double> PredictRegBridge::getQPred() const {
+const vector<double>& PredictRegBridge::getQPred() const {
   return predictRegCore->getQPred();
 }
 
 
-const vector<double> PredictRegBridge::getQEst() const {
+const vector<double>& PredictRegBridge::getQEst() const {
   return predictRegCore->getQEst();
 }
 

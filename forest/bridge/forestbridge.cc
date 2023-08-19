@@ -18,6 +18,7 @@
 #include "decnoderw.h"
 #include "forestrw.h"
 #include "typeparam.h"
+#include "booster.h"
 #include "bv.h"
 
 using namespace std;
@@ -33,11 +34,13 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const double score[],
 			   const double facExtent[],
                            const unsigned char facSplit[],
-			   const unsigned char facObserved[]) :
+			   const unsigned char facObserved[],
+			   const tuple<double, double, string>& scoreDesc) :
   forest(make_unique<Forest>(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree),
 			     DecNodeRW::unpackScores(score, nodeExtent, nTree),
 			     DecNodeRW::unpackBits(facSplit, facExtent, nTree),
-			     DecNodeRW::unpackBits(facObserved, facExtent, nTree))) {
+			     DecNodeRW::unpackBits(facObserved, facExtent, nTree),
+			     scoreDesc)) {
 }
 
 
@@ -91,6 +94,13 @@ void ForestBridge::dumpTree(complex<double> treeOut[]) const {
 
 size_t ForestBridge::getNodeCount() const {
   return forest->getNodeCount();
+}
+
+
+void ForestBridge::getScoreDesc(double& nu,
+				double& baseScore,
+				string& forestScorer) const {
+  Booster::listScoreDesc(nu, baseScore, forestScorer);
 }
 
 

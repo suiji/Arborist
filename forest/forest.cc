@@ -16,18 +16,21 @@
 
 #include "bv.h"
 #include "forest.h"
+#include "forestscorer.h"
 #include "ompthread.h"
-
+#include "quant.h"
 
 Forest::Forest(vector<vector<DecNode>> decNode_,
 	       vector<vector<double>> scores_,
 	       vector<unique_ptr<BV>> factorBits_,
-	       vector<unique_ptr<BV>> bitsObserved_) :
+	       vector<unique_ptr<BV>> bitsObserved_,
+	       const tuple<double, double, string>& scoreDesc_) :
   nTree(decNode_.size()),
   decNode(std::move(decNode_)),
   scores(std::move(scores_)),
   factorBits(std::move(factorBits_)),
-  bitsObserved(std::move(bitsObserved_)) {
+  bitsObserved(std::move(bitsObserved_)),
+  scoreDesc(ScoreDesc(scoreDesc_)) {
 }
 
 
@@ -66,6 +69,22 @@ void Forest::dump(vector<vector<PredictorT> >& predTree,
 		  vector<vector<double>>& scoreTree,
 		  IndexT& dummy) const {
   dump(predTree, splitTree, delIdxTree, scoreTree);
+}
+
+
+unique_ptr<ForestScorer> Forest::makeScorer(const ResponseReg* response,
+					    const Forest* forest,
+					    const Leaf* leaf,
+					    const PredictReg* predict,
+					    vector<double> quantile) const {
+  return scoreDesc.makeScorer(response, forest, leaf, predict, std::move(quantile));
+}
+
+
+unique_ptr<ForestScorer> Forest::makeScorer(const ResponseCtg* response,
+					    size_t nObs,
+					    bool doProb) const {
+  return scoreDesc.makeScorer(response, nObs, doProb);
 }
 
 

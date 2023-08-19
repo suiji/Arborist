@@ -3,10 +3,8 @@
 #include "predictorframe.h"
 #include "forest.h"
 #include "sampler.h"
-#include "frontierscorer.h"
-
-// Type completion only:
-#include "sampledobs.h"
+#include "nodescorer.h"
+#include "booster.h"
 
 
 Train::Train(const PredictorFrame* frame,
@@ -14,6 +12,10 @@ Train::Train(const PredictorFrame* frame,
 	     Forest* forest_) :
   predInfo(vector<double>(frame->getNPred())),
   forest(forest_),
-  frontierScorer(sampler->getNCtg() > 0 ? FrontierScorer::makePlurality() : FrontierScorer::makeMean()) {
+  nodeScorer(sampler->getNCtg() > 0 ? NodeScorer::makePlurality() : NodeScorer::makeMean()) {
+  if (sampler->getNCtg() > 0)
+    Booster::setPlurality();
+  else
+    Booster::setMean();
 }
 

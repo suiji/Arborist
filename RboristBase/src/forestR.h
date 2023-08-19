@@ -57,6 +57,12 @@ struct ForestR {
      @return bridge specialization of Forest prediction type.
   */
   static struct ForestBridge unwrap(const List& sTrain);
+
+
+  /**
+     @brief Unwraps the score descriptor as a tuple.
+   */
+  static tuple<double, double, string> unwrapScoreDesc(const List& lTrain);
 };
 
 
@@ -142,14 +148,18 @@ struct FBTrain {
   static const string strFactor;
   static const string strFacSplit;
   static const string strObserved;
+  static const string strScoreDesc;
+  static const string strNu;
+  static const string strBaseScore;
+  static const string strForestScorer;
 
   const unsigned int nTree; ///< Total # trees under training.
 
   // Decision node related:
-  NumericVector nodeExtent; // # nodes in respective tree.
-  size_t nodeTop; // Next available index in node/score buffers.
-  ComplexVector cNode; // Nodes encoded as complex pairs.
-  NumericVector scores; // Same indices as nodeRaw.
+  NumericVector nodeExtent; ///< # nodes in respective tree.
+  size_t nodeTop; ///< Next available index in node/score buffers.
+  ComplexVector cNode; ///< Nodes encoded as complex pairs.
+  NumericVector scores; ///< Same indices as nodeRaw.
 
   // Factor related:
   NumericVector facExtent; // # factor entries in respective tree.
@@ -157,6 +167,10 @@ struct FBTrain {
   RawVector facRaw; // Bit-vector representation of factor splits.
   RawVector facObserved; // " " observed levels.
 
+  // Scoring descriptor:
+  double nu; ///< Learning rate.
+  double baseScore; ///< Score of sampled root.
+  string forestScorer; ///< How to score the forest.
 
   FBTrain(unsigned int nTree);
   
@@ -206,6 +220,12 @@ private:
   void factorConsume(const struct ForestBridge& bridge,
 		     unsigned int treeOff,
 		     double fraction);
+
+
+  /**
+     @brief Summarizes requirements of the training algorithm.
+   */
+  List summarizeScoreDesc();
 };
 
 #endif

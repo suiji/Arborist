@@ -35,13 +35,6 @@ struct TrainedChunk {
      @return reference to per-predictor information vector.
    */
   const vector<double>& getPredInfo() const;
-
-  
-  /**
-     @brief Deconstructs contents of core object's ScoreDesc.
-   */
-  void getScoreDesc(double& nu,
-		    double& baseScore) const;
   
 
 private:

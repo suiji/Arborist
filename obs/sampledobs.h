@@ -138,7 +138,7 @@ public:
 
   
   void sampleRoot(const class PredictorFrame* frame,
-		  class FrontierScorer* scorer);
+		  struct NodeScorer* scorer);
 
   
   /**

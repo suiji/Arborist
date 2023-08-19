@@ -23,7 +23,7 @@
 #include "typeparam.h"
 #include "stagedcell.h"
 #include "train.h"
-#include "frontierscorer.h"
+#include "nodescorer.h"
 
 #include <algorithm>
 #include <vector>
@@ -35,7 +35,7 @@
 class Frontier {
   static unsigned int totLevels;
   const class PredictorFrame* frame;
-  class FrontierScorer* scorer;
+  struct NodeScorer* scorer;
   class SampledObs* sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;

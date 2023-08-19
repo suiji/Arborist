@@ -32,7 +32,7 @@ class Train {
 
   vector<double> predInfo; ///< E.g., Gini gain:  nPred.
   class Forest* forest; ///< Crescent-state forest block.
-  const unique_ptr<class FrontierScorer> frontierScorer;
+  const unique_ptr<struct NodeScorer> nodeScorer;
   unique_ptr<class SampledObs> sampledObs;
 
   
@@ -111,8 +111,8 @@ public:
   void consumeInfo(const vector<double>& info);
 
 
-  class FrontierScorer* getFrontierScorer() const {
-    return frontierScorer.get();
+  struct NodeScorer* getNodeScorer() const {
+    return nodeScorer.get();
   }
   
   

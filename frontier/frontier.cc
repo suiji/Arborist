@@ -41,7 +41,7 @@ unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
 				      const Train* train,
 				      SampledObs* sampledObs) {
   Frontier frontier(frame, train, sampledObs);
-  sampledObs->sampleRoot(frame, train->getFrontierScorer());
+  sampledObs->sampleRoot(frame, train->getNodeScorer());
   SampleMap smNonTerm = frontier.produceRoot();
   return frontier.splitByLevel(smNonTerm);
 }
@@ -51,7 +51,7 @@ Frontier::Frontier(const PredictorFrame* frame_,
 		   const Train* train,
 		   SampledObs* sampledObs_) :
   frame(frame_),
-  scorer(train->getFrontierScorer()),
+  scorer(train->getNodeScorer()),
   sampledObs(sampledObs_),
   bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),

@@ -19,7 +19,7 @@
 
 #include "typeparam.h"
 #include "samplenux.h"
-
+#include "scoredesc.h"
 
 #include <numeric>
 #include <algorithm>
@@ -31,8 +31,7 @@
 struct Booster {
   static unique_ptr<Booster> booster; ///< Singleton.
 
-  const double nu; ///< Learning rate.
-  double baseScore; ///< Initial etimate, assigned from root.
+  ScoreDesc scoreDesc; ///< Completes and hands back to trainer.
   vector<double> estimate; ///< Accumulated estimate.
 
   // Non-incremental updates only:
@@ -40,7 +39,7 @@ struct Booster {
 
 
   Booster(double (Booster::*)(const class IndexSet&) const,
-	  void (Booster::*)(class FrontierScorer*, class SampledObs*, double&),
+	  void (Booster::*)(struct NodeScorer*, class SampledObs*, double&),
 	  double nu_);
 
   
@@ -49,38 +48,57 @@ struct Booster {
   void setBaseScore(const IndexSet& iSet) const {
     (this->*baseScorer)(iSet);
   }
-  
 
+
+  /**
+     @brief Specifies forest scorer as plurality.
+   */
+  static void setMean();
+
+
+  /**
+     @brief Specifies forest scorer as plurality.
+   */
+  static void setPlurality();
+
+
+  /**
+     @brief Specifies forest scorer as sum.
+   */
+  static void setSum();
+
+  /**
+     @brief Specifies forest score as logistic.
+   */
+  static void setLogistic();
+
+  
   /**
      @brief Passes through to member.
    */
   static void setEstimate(const class SampledObs*);
 
   
-  void (Booster::* updater)(class FrontierScorer*, class SampledObs*, double&);
+  void (Booster::* updater)(struct NodeScorer*, class SampledObs*, double&);
 
   
   /**
      @brief Invokes updater.
    */
-  static void updateResidual(class FrontierScorer*,
+  static void updateResidual(struct NodeScorer*,
 			     class SampledObs* sampledObs,
 			     double& bagSum);
 
   /**
      @brief Invokes pointer-to-member-function.
    */
-  void update(class FrontierScorer* frontierScorer,
+  void update(struct NodeScorer* nodeScorer,
 	      class SampledObs* sampledObs,
 	      double& bagSum) {
-    (this->*updater)(frontierScorer, sampledObs, bagSum);
+    (this->*updater)(nodeScorer, sampledObs, bagSum);
   }
 
   
-  //  vector<SampleNux> score(const class SampledObs* sampledObs,
-  //			  double& bagSum);
-
-
   /**
      @brief Sets the base estimate.
    */
@@ -110,7 +128,7 @@ struct Booster {
      @return true iff a positive learning rate has been specified.
    */
   static bool boosting() {
-    return booster->nu > 0.0;
+    return booster->scoreDesc.nu > 0.0;
   }
 
 
@@ -128,16 +146,16 @@ struct Booster {
   double zero(const class IndexSet& iRoot) const;
   
 
-  void noUpdate(class FrontierScorer* frontierScorer,
+  void noUpdate(struct NodeScorer* nodeScorer,
 		class SampledObs* sampledObs,
 		double& bagSum);
 
-  void updateL2(class FrontierScorer* frontierScorer,
+  void updateL2(struct NodeScorer* nodeScorer,
 		class SampledObs* sampledObs,
 		double&bagSum);
 
 
-  void updateLogOdds(class FrontierScorer* frontierScorer,
+  void updateLogOdds(struct NodeScorer* nodeScorer,
 		     class SampledObs* sampledObs,
 		     double& bagSum);
 
@@ -162,9 +180,11 @@ struct Booster {
   double logit(const class IndexSet& iRoot) const;
 
   /**
-     @brief Reports score descriptor back to trainer.
+     @brief Reports contents of score descriptor.
    */
-  static struct ScoreDesc getScoreDesc();
+  static void listScoreDesc(double& nu,
+			   double& baseScore,
+			   string& scorer);
 };
 
 #endif

@@ -23,8 +23,7 @@
 #include "ompthread.h"
 #include "rleframe.h"
 #include "sample.h"
-#include "scoredesc.h"
-#include "predictscorer.h"
+#include "forestscorer.h"
 #include "response.h"
 
 #include <cmath>
@@ -35,12 +34,10 @@ const unsigned int Predict::seqChunk = 0x20;
 Predict::Predict(const Forest* forest,
 		 const Sampler* sampler_,
 		 RLEFrame* rleFrame,
-		 const ScoreDesc& scoreDesc,
 		 bool testing_,
 		 const PredictOption& option) :
   trapUnobserved(option.trapUnobserved),
   sampler(sampler_),
-  scorer(scoreDesc.makePredictScorer(sampler, this)),
   decNode(forest->getNode()),
   factorBits(forest->getFactorBits()),
   bitsObserved(forest->getBitsObserved()),
@@ -51,13 +48,13 @@ Predict::Predict(const Forest* forest,
   scoreBlock(forest->getTreeScores()),
   nPredNum(rleFrame->getNPredNum()),
   nPredFac(rleFrame->getNPredFac()),
-  nRow(rleFrame->getNRow()),
+  nObs(rleFrame->getNRow()),
   nTree(forest->getNTree()),
   noNode(forest->noNode()),
   walkObs(getObsWalker()),
   trFac(vector<CtgT>(scoreChunk * nPredFac)),
   trNum(vector<double>(scoreChunk * nPredNum)),
-  indices(vector<size_t>(option.indexing ? nTree * nRow : 0)) {
+  indices(vector<size_t>(option.indexing ? nTree * nObs : 0)) {
   rleFrame->reorderRow(); // For now, all frames pre-ranked.
 }
 
@@ -76,56 +73,53 @@ PredictReg::PredictReg(const Forest* forest,
 		       const Sampler* sampler_,
 		       const Leaf* leaf,
 		       RLEFrame* rleFrame,
-		       const ScoreDesc& scoreDesc,
 		       const vector<double>& yTest_,
 		       const PredictOption& option,
-		       const vector<double>& quantile) :
-  Predict(forest, sampler_, rleFrame, scoreDesc, !yTest_.empty(), option),
+		       vector<double> quantile) :
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseReg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
-  yPred(vector<double>(nRow)),
-  yPermute(vector<double>(nPermute > 0 ? nRow : 0)),
+  yPred(vector<double>(nObs)),
+  yPermute(vector<double>(nPermute > 0 ? nObs : 0)),
   accumAbsErr(vector<double>(scoreChunk)),
   accumSSE(vector<double>(scoreChunk)),
   saePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
   ssePermute(nPermute > 0 ? rleFrame->getNPred() : 0),
-  quant(make_unique<Quant>(forest, leaf, this, response, std::move(quantile))),
   yTarg(&yPred),
   saeTarg(&saePredict),
   sseTarg(&ssePredict) {
+  scorer = forest->makeScorer(response, forest, leaf, this, std::move(quantile));
 }
 
 
 PredictCtg::PredictCtg(const Forest* forest,
 		       const Sampler* sampler_,
 		       RLEFrame* rleFrame,
-		       const ScoreDesc& scoreDesc,
 		       const vector<PredictorT>& yTest_,
 		       const PredictOption& option,
 		       bool doProb) :
-  Predict(forest, sampler_, rleFrame, scoreDesc, !yTest_.empty(), option),
+  Predict(forest, sampler_, rleFrame, !yTest_.empty(), option),
   response(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())),
   yTest(std::move(yTest_)),
-  yPred(vector<PredictorT>(nRow)),
+  yPred(vector<PredictorT>(nObs)),
   nCtgTrain(response->getNCtg()),
   nCtgMerged(testing ? 1 + *max_element(yTest.begin(), yTest.end()) : 0),
-  ctgProb(make_unique<CtgProb>(this, response, doProb)),
   // Can only predict trained categories, so census and
   // probability matrices have 'nCtgTrain' columns.
-  yPermute(vector<PredictorT>(nPermute > 0 ? nRow : 0)),
-  census(vector<PredictorT>(nRow * nCtgTrain)),
+  yPermute(vector<PredictorT>(nPermute > 0 ? nObs : 0)),
   confusion(vector<size_t>(nCtgTrain * nCtgMerged)),
   misprediction(vector<double>(nCtgMerged)),
   oobPredict(0.0),
-  censusPermute(vector<PredictorT>(nPermute > 0 ? census.size() : 0)),
+  censusPermute(vector<unsigned int>(nPermute > 0 ? nObs * nCtgTrain : 0)),
   confusionPermute(vector<size_t>(nPermute > 0 ? confusion.size() : 0)),
   mispredPermute(vector<vector<double>>(nPermute > 0 ? rleFrame->getNPred(): 0)),
   oobPermute(vector<double>(nPermute > 0 ? rleFrame->getNPred() : 0)),
   yTarg(&yPred),
   confusionTarg(&confusion),
-  censusTarg(&census),
+  censusTarg(scorer->getCensusBase()),
   mispredTarg(&misprediction),
   oobTarg(&oobPredict) {
+  scorer = forest->makeScorer(response, nObs, doProb);
 }
 
 
@@ -143,7 +137,7 @@ void Predict::predictPermute(RLEFrame* rleFrame) {
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     setPermuteTarget(predIdx);
     vector<RLEVal<szType>> rleTemp = std::move(rleFrame->rlePred[predIdx]);
-    rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(nRow));
+    rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(nObs));
     blocks(rleFrame);
     rleFrame->rlePred[predIdx] = std::move(rleTemp);
   }
@@ -173,10 +167,10 @@ void PredictCtg::setPermuteTarget(PredictorT predIdx) {
 
 void Predict::blocks(const RLEFrame* rleFrame) {
   vector<size_t> trIdx(nPredNum + nPredFac);
-  size_t row = predictBlock(rleFrame, 0, nRow, trIdx);
+  size_t row = predictBlock(rleFrame, 0, nObs, trIdx);
   // Remainder rows handled in custom-fitted block.
-  if (nRow > row) {
-    (void) predictBlock(rleFrame, row, nRow, trIdx);
+  if (nObs > row) {
+    (void) predictBlock(rleFrame, row, nObs, trIdx);
   }
 
   estAccum();
@@ -205,7 +199,7 @@ void Predict::transpose(const RLEFrame* rleFrame,
 			size_t rowExtent) {
   CtgT* facOut = trFac.empty() ? nullptr : &trFac[0];
   double* numOut = trNum.empty() ? nullptr : &trNum[0];
-  for (size_t row = rowStart; row != min(nRow, rowStart + rowExtent); row++) {
+  for (size_t row = rowStart; row != min(nObs, rowStart + rowExtent); row++) {
     unsigned int numIdx = 0;
     unsigned int facIdx = 0;
     vector<szType> rankVec = rleFrame->idxRank(idxTr, row);
@@ -253,7 +247,7 @@ void PredictReg::scoreSeq(size_t rowStart, size_t rowEnd) {
 void PredictCtg::scoreSeq(size_t rowStart, size_t rowEnd) {
   for (size_t row = rowStart; row != rowEnd; row++) {
     walkTree(row);
-    testing ? testObs(row) : scoreObs(row);
+    testing ? testObs(row) : (void) scoreObs(row);
   }
 }
 
@@ -268,17 +262,17 @@ void PredictReg::testObs(size_t row) {
 
 
 void PredictCtg::testObs(size_t row) {
-  scoreObs(row);
+  (void) scoreObs(row);
 }
 
 
-const vector<double>  PredictReg::getQPred() const {
-  return quant->getQPred();
+const vector<double>&  PredictReg::getQPred() const {
+  return scorer->getQPred();
 }
 
 
-const vector<double> PredictReg::getQEst() const {
-  return quant->getQEst();
+const vector<double>& PredictReg::getQEst() const {
+  return scorer->getQEst();
 }
 
 
@@ -356,7 +350,7 @@ void PredictReg::estAccum() {
 void PredictCtg::estAccum() {
   Predict::estAccum();
   if (!(*confusionTarg).empty()) {
-    for (size_t row = 0; row < nRow; row++) {
+    for (size_t row = 0; row < nObs; row++) {
       (*confusionTarg)[ctgIdx(yTest[row], (*yTarg)[row])]++;
     }
     setMisprediction();
@@ -382,54 +376,17 @@ void PredictCtg::setMisprediction() {
     (*mispredTarg)[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
     totRight += numRight;
   }
-  *oobTarg = double(totRight) / nRow;
+  *oobTarg = double(totRight) / nObs;
 }
 
 
-void PredictCtg::dump() const {
-  // TODO
-  //  ctgProb->dump(probTree);
+const vector<unsigned int>& PredictCtg::getCensus() const {
+  return scorer->getCensus();
 }
 
 
-CtgProb::CtgProb(const Predict* predict,
-		 const ResponseCtg* response,
-		 bool doProb) :
-  nCtg(response->getNCtg()),
-  probDefault(response->defaultProb()),
-  probs(vector<double>(doProb ? predict->getNRow() * nCtg : 0)) {
-}
-
-
-void CtgProb::predictRow(const Predict* predict, size_t row, PredictorT* ctgRow) {
-  unsigned int nEst = accumulate(ctgRow, ctgRow + nCtg, 0ul);
-  double* probRow = &probs[row * nCtg];
-  if (nEst == 0) {
-    applyDefault(probRow);
-  }
-  else {
-    double scale = 1.0 / nEst;
-    for (PredictorT ctg = 0; ctg < nCtg; ctg++)
-      probRow[ctg] = ctgRow[ctg] * scale;
-  }
-}
-
-void CtgProb::assignBinary(size_t obsIdx, double p1) {
-  double* probRow = &probs[obsIdx * 2];
-  probRow[0] = 1.0 - p1;
-  probRow[1] = p1;
-}
-
-
-void CtgProb::applyDefault(double probPredict[]) const {
-  for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-    probPredict[ctg] = probDefault[ctg];
-  }
-}
-
-
-void CtgProb::dump() const {
-  // TODO
+const vector<double>& PredictCtg::getProb() const {
+  return scorer->getProb();
 }
 
 
@@ -518,4 +475,14 @@ vector<double> Predict::normalizeWeight(const Sampler* sampler,
     idxPredict++;
   }
   return weight;
+}
+
+
+unsigned int PredictReg::scoreObs(size_t obsIdx) {
+  return scorer->scoreObs(this, obsIdx, *yTarg);
+}
+
+
+unsigned int PredictCtg::scoreObs(size_t obsIdx) {
+  return scorer->scoreObs(this, obsIdx, *yTarg);
 }

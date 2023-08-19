@@ -19,39 +19,32 @@
 
 #include "typeparam.h"
 
+#include <vector>
+#include <string>
 
+
+/**
+   @brief Advises prediction how to derive a forest-wide score.
+ */
 struct ScoreDesc {
-  double nu; ///< Possibly vector, for adjustable learning rate.
-  double baseScore; ///< Pre-training score of full sample set.
-  // May require an enumeration of algorithm type, as well.
+  double nu; ///< Learning rate; specified by parameter.
+  string scorer; ///< Fixed by algorithm.
+  double baseScore; ///< Derived from sampled root.
 
   /**
-     @brief Independent trees.
-   */
-  ScoreDesc() :
-    nu(0.0),
-    baseScore(0.0) {
+     @brief Training constructor:  only learning rate is known.
+  */
+  ScoreDesc(double nu_ = 0.0) : nu(nu_) {
   }
 
 
   /**
-     @brief Sequential trees.
-
-     @param baseScore_ is zero prior to training the first tree.
+     @brief Prediction constructor:  all members known.
    */
-  ScoreDesc(double nu_,
-	    double baseScore_ = 0.0) :
-    nu(nu_),
-    baseScore(baseScore_) {
-  }
-
-
-  /**
-     @brief Facilitates naive construction from front end.
-   */
-  ScoreDesc(const pair<double, double>& valPair) :
-  nu(valPair.first),
-    baseScore(valPair.second) {
+  ScoreDesc(const tuple<double, double, string>& valTriple) :
+  nu(get<0>(valTriple)),
+    scorer(get<2>(valTriple)),
+    baseScore(get<1>(valTriple)) {
   }
   
   
@@ -60,8 +53,16 @@ struct ScoreDesc {
   /*
     @brief Builds algorithm-specific scorer for response type.
    */
-  unique_ptr<class PredictScorer> makePredictScorer(const class Sampler* sampler,
-					     const class Predict* predict) const;
+  unique_ptr<class ForestScorer> makeScorer(const class ResponseReg* response,
+					    const class Forest* forest,
+					    const class Leaf* leaf,
+					    const class PredictReg* predict,
+					    vector<double> quantile) const;
+
+
+  unique_ptr<class ForestScorer> makeScorer(const class ResponseCtg* response,
+					    size_t nObs,
+					    bool doProb) const;
 };
 
 #endif

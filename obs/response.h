@@ -155,7 +155,7 @@ public:
 
   ~ResponseCtg() = default;
 
-
+  
   const vector<double>& getClassWeight() const {
     return classWeight;
   }

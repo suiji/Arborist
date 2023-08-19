@@ -150,7 +150,6 @@ unique_ptr<PredictRegBridge> PredictR::unwrapReg(const List& lDeframe,
 			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
-				       TrainR::unwrapScoreDesc(lTrain),
 			  regTest(sYTest),
 			  as<unsigned int>(lArgs[strImpPermute]),
 			  as<bool>(lArgs[strIndexing]),
@@ -172,7 +171,7 @@ vector<double> PredictR::regTest(const SEXP sYTest) {
 
 vector<double> PredictR::quantVec(const List& lArgs) {
   vector<double> quantile;
-  if (lArgs.hasAttribute(strQuantVec) && !Rf_isNull(lArgs[strQuantVec])) {
+  if (!Rf_isNull(lArgs[strQuantVec])) {
     NumericVector quantVec(as<NumericVector>(lArgs[strQuantVec]));
     quantile = vector<double>(quantVec.begin(), quantVec.end());
   }
@@ -220,7 +219,6 @@ unique_ptr<PredictCtgBridge> PredictR::unwrapCtg(const List& lDeframe,
 			  ForestR::unwrap(lTrain),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
-				       TrainR::unwrapScoreDesc(lTrain),
 			  ctgTest(lSampler, sYTest),
 				       as<unsigned int>(lArgs[strImpPermute]),
 				       as<bool>(lArgs[strCtgProb]),
@@ -284,7 +282,7 @@ NumericMatrix PredictR::getQPred(const PredictRegBridge* pBridge) {
   BEGIN_RCPP
 
   size_t nRow(pBridge->getNRow());
-  auto qPred = pBridge->getQPred();
+  vector<double> qPred = pBridge->getQPred();
   return qPred.empty() ? NumericMatrix(0) : transpose(NumericMatrix(qPred.size() / nRow, nRow, qPred.begin()));
     
   END_RCPP
@@ -500,7 +498,7 @@ IntegerMatrix LeafCtgRf::getCensus(const PredictCtgBridge* pBridge,
                                    const CharacterVector& levelsTrain,
                                    const CharacterVector& ctgNames) {
   BEGIN_RCPP
-  IntegerMatrix census = transpose(IntegerMatrix(levelsTrain.length(), pBridge->getNRow(), pBridge->getCensus()));
+    IntegerMatrix census = transpose(IntegerMatrix(levelsTrain.length(), pBridge->getNRow(), &(pBridge->getCensus())[0]));
   census.attr("dimnames") = List::create(ctgNames, levelsTrain);
   return census;
   END_RCPP

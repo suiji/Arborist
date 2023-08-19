@@ -58,9 +58,6 @@ struct TrainR {
   static const string strVersion;
   static const string strSignature;
   static const string strSamplerHash;
-  static const string strScoreDesc;
-  static const string strNu;
-  static const string strBaseScore;
   static const string strPredInfo;
   static const string strPredMap;
   static const string strForest;
@@ -103,20 +100,6 @@ struct TrainR {
      @return remapped vector of scaled information values.
    */
   NumericVector scaleInfo(const TrainBridge& trainBridge) const;
-
-
-  /**
-     @brief Summarizes requirements of the training algorithm.
-   */
-  static List summarizeScoreDesc(double nu,
-				 double baseScore);
-
-
-  /**
-     @brief Unwraps the score descriptor as a pair of doubles.
-   */
-  static pair<double, double> unwrapScoreDesc(const List& lTrain);
-  
 
   /**
      @return implicit R_NilValue.

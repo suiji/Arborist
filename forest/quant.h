@@ -117,9 +117,9 @@ public:
    */
   Quant(const class Forest* forest,
 	const struct Leaf* leaf,
-	const class Predict* predict,
+	const class PredictReg* predict,
 	const class ResponseReg* response,
-        const vector<double>& quantile_);
+        vector<double> quantile_);
 
   ~Quant() = default;
   
@@ -147,7 +147,7 @@ public:
 
      @return vector of quantile predictions.
    */
-  const vector<double> getQPred() const {
+  const vector<double>& getQPred() const {
     return qPred;
   }
   
@@ -157,7 +157,7 @@ public:
 
      @return pointer to base of estimand quantiles.
    */
-  const vector<double> getQEst() const {
+  const vector<double>& getQEst() const {
     return qEst;
   }
   

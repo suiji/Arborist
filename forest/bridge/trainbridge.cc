@@ -17,12 +17,10 @@
 #include "trainbridge.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
-#include "booster.h"
 #include "train.h"
 
 // Type completion only:
-#include "frontierscorer.h"
-#include "scoredesc.h"
+#include "nodescorer.h"
 #include "sampledobs.h"
 #include "fetrain.h"
 #include "predictorframe.h"
@@ -39,14 +37,6 @@ TrainBridge::~TrainBridge() = default;
 vector<PredictorT> TrainBridge::getPredMap() const {
   vector<PredictorT> predMap(frame->getPredMap());
   return predMap;
-}
-
-
-void TrainedChunk::getScoreDesc(double& nu,
-				double& baseScore) const {
-  ScoreDesc scoreDesc = Booster::getScoreDesc();
-  nu = scoreDesc.nu;
-  baseScore = scoreDesc.baseScore;
 }
 
 
