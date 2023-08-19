@@ -132,10 +132,10 @@ List FBTrain::wrap() {
   BEGIN_RCPP
   List forest =
     List::create(_[strNTree] = nTree,
+		 _[strScoreDesc] = std::move(summarizeScoreDesc()),
 		 _[strNode] = std::move(wrapNode()),
 		 _[strScores] = std::move(scores),
-		 _[strFactor] = std::move(wrapFactor()),
-		 _[strScoreDesc] = std::move(summarizeScoreDesc())
+		 _[strFactor] = std::move(wrapFactor())
                  );
   cNode = ComplexVector(0);
   scores = NumericVector(0);
@@ -157,7 +157,8 @@ List FBTrain::summarizeScoreDesc() {
 }
 
 
-ForestBridge ForestR::unwrap(const List& lTrain) {
+ForestBridge ForestR::unwrap(const List& lTrain,
+			     bool categorical) {
   List lForest(checkForest(lTrain));
   List lNode((SEXP) lForest[FBTrain::strNode]);
   List lFactor((SEXP) lForest[FBTrain::strFactor]);
@@ -168,16 +169,19 @@ ForestBridge ForestR::unwrap(const List& lTrain) {
 		      as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
-		      unwrapScoreDesc(lForest));
+		      unwrapScoreDesc(lForest, categorical));
 }
 
 
-tuple<double, double, string> ForestR::unwrapScoreDesc(const List& lForest) {
-  if (!lForest.containsElementNamed("scoreDesc")) { // Legacy trainer:  RF only.
-    //  if (regression) 
+tuple<double, double, string> ForestR::unwrapScoreDesc(const List& lForest,
+						       bool categorical) {
+  // Legacy RF implementations did not record a score descriptor,
+  // so one is created on-the-fly:
+  if (!lForest.containsElementNamed("scoreDesc")) {
+    if (categorical)
+      return make_tuple<double, double, string>(0.0, 0.0, "plurality");
+    else
       return make_tuple<double, double, string>(0.0, 0.0, "mean");
-      //else 
-      //return make_tuple<double, double, string>(0.0, 0.0, "plurality");
   }
   
   List lScoreDesc(as<List>(lForest[FBTrain::strScoreDesc]));
@@ -207,7 +211,9 @@ ForestExpand ForestExpand::unwrap(const List& lTrain,
 
 ForestExpand::ForestExpand(const List &lTrain,
                            const IntegerVector& predMap) {
+  // Leaving legacy categorical flag turned off:  not quite correct.
   ForestBridge forestBridge = ForestR::unwrap(lTrain);
+
   predTree = vector<vector<unsigned int>>(forestBridge.getNTree());
   bumpTree = vector<vector<size_t> >(forestBridge.getNTree());
   splitTree = vector<vector<double > >(forestBridge.getNTree());

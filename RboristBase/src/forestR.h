@@ -54,15 +54,21 @@ struct ForestR {
 
      @param sTrain is an R-stye List node containing forest vectors.
 
+     @param categorical indicates classification; legacy support only.
+     
      @return bridge specialization of Forest prediction type.
   */
-  static struct ForestBridge unwrap(const List& sTrain);
+  static struct ForestBridge unwrap(const List& sTrain,
+				    bool categorical = false);
 
 
   /**
      @brief Unwraps the score descriptor as a tuple.
+
+     @param categorical is true iff classification:  legacy support.
    */
-  static tuple<double, double, string> unwrapScoreDesc(const List& lTrain);
+  static tuple<double, double, string> unwrapScoreDesc(const List& lTrain,
+						       bool categorical);
 };
 
 

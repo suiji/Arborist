@@ -147,7 +147,7 @@ unique_ptr<PredictRegBridge> PredictR::unwrapReg(const List& lDeframe,
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
   return make_unique<PredictRegBridge>(RLEFrameR::unwrap(lDeframe),
-			  ForestR::unwrap(lTrain),
+				       ForestR::unwrap(lTrain, false),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  regTest(sYTest),
@@ -216,7 +216,7 @@ unique_ptr<PredictCtgBridge> PredictR::unwrapCtg(const List& lDeframe,
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
   LeafBridge leafBridge(LeafR::unwrap(lTrain, samplerBridge));
   return make_unique<PredictCtgBridge>(RLEFrameR::unwrap(lDeframe),
-			  ForestR::unwrap(lTrain),
+				       ForestR::unwrap(lTrain, true),
 			  std::move(samplerBridge),
 			  std::move(leafBridge),
 			  ctgTest(lSampler, sYTest),
