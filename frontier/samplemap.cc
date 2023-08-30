@@ -15,18 +15,20 @@
 
 
 #include "samplemap.h"
+#include "sampledobs.h"
 #include "pretree.h"
 
 
-vector<double> SampleMap::scaleSampleScores(const PreTree* pretree,
-					    vector<double>& sIdx2Score,
+vector<double> SampleMap::scaleSampleScores(const SampledObs* sampledObs,
+					    const PreTree* pretree,
 					    double scale) const {
+  vector<double> sIdx2Score(sampledObs->getBagCount());
   IndexT rangeIdx = 0;
   for (const IndexRange& rg : range) {
     double score = scale * pretree->getScore(ptIdx[rangeIdx]);
     for (IndexT idx = rg.getStart(); idx != rg.getEnd(); idx++) {
       IndexT sIdx = sampleIndex[idx];
-      sIdx2Score[sIdx] += score;
+      sIdx2Score[sIdx] = score;
     }
     rangeIdx++;
   }

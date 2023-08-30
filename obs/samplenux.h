@@ -138,9 +138,11 @@ class SampleNux {
 
 
   /**
-     @brief Decrements sum by a scaled amount.
+     @brief Decrements sum value.
 
-     @return new sum value.
+     @param decr is the per-sample amount to decrement.
+     
+     @return decremented sum value.
    */
   inline double decrementSum(double decr) {
     ySum -= decr * getSCount();

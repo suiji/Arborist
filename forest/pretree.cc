@@ -126,9 +126,10 @@ void PreTree::consume(Train* train,
 }
 
 
-void PreTree::setTerminals(SampleMap smTerminal) {
+void PreTree::setTerminals(const SampledObs* sampledObs,
+			   SampleMap smTerminal) {
   terminalMap = std::move(smTerminal);
-  Booster::updateEstimate(this, terminalMap);
+  Booster::updateEstimate(sampledObs, this, terminalMap);
   leafMerge();
   setLeafIndices();
 }

@@ -87,8 +87,8 @@ struct SampleMap {
      
      @return containing leaf score, per sample.
    */
-  vector<double> scaleSampleScores(const class PreTree* pretree,
-				   vector<double>& sIdx2Score,
+  vector<double> scaleSampleScores(const class SampledObs* sampledObs,
+				   const class PreTree* pretree,
 				   double scale) const;  
 };
 

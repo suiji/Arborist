@@ -36,7 +36,7 @@ class Frontier {
   static unsigned int totLevels;
   const class PredictorFrame* frame;
   struct NodeScorer* scorer;
-  class SampledObs* sampledObs;
+  unique_ptr<class SampledObs> sampledObs;
   const IndexT bagCount;
   const PredictorT nCtg;
 
@@ -54,7 +54,8 @@ class Frontier {
      
      @return map of bagged samples.
    */
-  SampleMap produceRoot();
+  SampleMap produceRoot(const class PredictorFrame* frame,
+			const class Train* train);
 
 
   /**
@@ -118,9 +119,10 @@ public:
   */
   Frontier(const class PredictorFrame* frame,
 	   const class Train* train,
-	   class SampledObs* sampledObs_);
+	   const class Sampler* sampler,
+	   unsigned int tIdx);
 
-
+  
   /**
     @brief Trains one tree.
 
@@ -132,9 +134,10 @@ public:
   */
   static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
 					   const class Train* train,
-					   class SampledObs* sampledObs);
+					   const class Sampler* sampler,
+					   unsigned int tIdx);
 
-
+  
   /**
      @brief Drives breadth-first splitting.
 

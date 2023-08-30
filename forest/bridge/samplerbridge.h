@@ -36,19 +36,13 @@ struct SamplerBridge {
 		bool replace,
 		const double weight[]);
 
+
   SamplerBridge(SamplerBridge&& sb);
 
 
   /**
-     @param bagging specifies a bagging matrix:  prediction only.
+     @brief Training constructor:  classification.
    */
-  SamplerBridge(const vector<double>& yTrain,
-		size_t nSamp,
-		unsigned int nTree,
-		const double samples[],
-		bool bagging = false);
-
-
   SamplerBridge(const vector<unsigned int>& yTrain,
 		size_t nSamp,
 		unsigned int nTree,
@@ -57,14 +51,33 @@ struct SamplerBridge {
 		const vector<double>& classWeight);
 
 
+  /**
+     @brief Training constuctor:  regression.
+   */
+  SamplerBridge(const vector<double>& yTrain,
+		size_t nSamp,
+		unsigned int nTree,
+		const double samples[]);
+
+  
+  /**
+     @param bagging specifies a bagging matrix:  prediction only.
+   */
+  SamplerBridge(const vector<double>& yTrain,
+		size_t nSamp,
+		unsigned int nTree,
+		const double samples[],
+		bool bagging);
+
+
   SamplerBridge(const vector<unsigned int>& yTrain,
 		unsigned int nCtg,
 		size_t nSamp,
 		unsigned int nTree,
 		const double samples[],
-		bool bagging = false);
+		bool bagging);
 
-
+  
   /**
      @brief Generic constructor.
    */

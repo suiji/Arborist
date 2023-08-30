@@ -29,12 +29,10 @@
 */
 class SampledObs {
  protected:
-  static unique_ptr<SampledObs> sampledObs; ///< Persists iff boosting.
 
   const IndexT nSamp; ///< Number of observation samples requested.
   const vector<class SamplerNux>& nux; ///< Sampler nodes.
   const IndexT bagCount; ///< # distinct bagged samples.
-  const bool boosting; ///< Static property of Booster class.
 
   double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
 
@@ -46,8 +44,6 @@ class SampledObs {
   // Reset at staging:
   vector<vector<IndexT>> sample2Rank; ///< Splitting rank map.
   vector<IndexT> runCount; ///< Staging initialization.
-
-  bool treeZero; ///< Independent trees or first boosting.
 
 
   virtual void bagSamples(const class PredictorFrame* frame) = 0;
@@ -77,53 +73,19 @@ class SampledObs {
   vector<IndexT> sampleRanks(const class PredictorFrame* layout,
 			     PredictorT predIdx);
 
-  /**
-     @brief Boosts score of next tree.
-
-     @param scoreBase is true iff base score to be assigned.
-   */
-  void boostPrescore(bool scoreBase);
-
 
 public:
 
-  static void deInit();
-  
-
-  const vector<SampleNux>& getSamples() const {
+  vector<SampleNux>& getSamples() {
     return sampleNux;
   }
 
-  
-  void setSamples(vector<SampleNux> sampleNux) {
-    this->sampleNux = std::move(sampleNux);
+
+  const vector<IndexT>& getObs2Sample() const {
+    return obs2Sample;
   }
-  
-
-  /**
-     @brief Static entry for categorical response (classification).
-
-     @param response summarizes the training response.
-
-     @return new SampledCtg instance.
-   */
-  static SampledObs* getCtg(const class Sampler* sampler,
-			    const class ResponseCtg* response,
-			    unsigned int tIdx);
 
 
-  /**
-     @brief Static entry for continuous response (regression).
-
-     @param y is the training response.
-
-     @return new SampledReg instance.
-   */
-  static SampledObs* getReg(const class Sampler* sampler,
-			    const class ResponseReg* response,
-			    unsigned int tIdx);
-
-  
   /**
      @brief Constructor.
 
@@ -179,16 +141,50 @@ public:
 
 
   /**
+     @brief Determines whether observation is sampled.
+
+     @param[out] sampledIdx is the sample index, iff sampled.
+   */
+  inline bool isSampled(IndexT obsIdx,
+			IndexT& sampleIdx) const {
+    sampleIdx = obs2Sample[obsIdx];
+    if (sampleIdx < bagCount) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+
+  /**
      @brief Looks up sample index for sampled row.
 
      @param[out] sampleIdx is the associated sample index, if sampled.
 
      @return true iff row is sampled.
    */
-  inline bool isSampled(IndexT row,
+  inline bool isSampled(IndexT obsIdx,
+			IndexT& sampleIdx,
+			SampleNux*& nux) {
+    sampleIdx = obs2Sample[obsIdx];
+    if (sampleIdx < bagCount) {
+      nux = &sampleNux[sampleIdx];
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+
+  /**
+     @brief As above, no access to members.
+   */
+  inline bool isSampled(IndexT obsIdx,
 			IndexT& sampleIdx,
 			SampleNux& nux) const {
-    sampleIdx = obs2Sample[row];
+    sampleIdx = obs2Sample[obsIdx];
     if (sampleIdx < bagCount) {
       nux = sampleNux[sampleIdx];
       return true;

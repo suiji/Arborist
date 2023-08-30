@@ -17,6 +17,8 @@
 #include "indexset.h"
 #include "scoredesc.h"
 #include "sampledobs.h"
+#include "sampler.h"
+#include "response.h"
 #include "samplemap.h"
 #include "nodescorer.h"
 
@@ -26,7 +28,7 @@
 unique_ptr<Booster> Booster::booster = nullptr;
 
 
-Booster::Booster(double (Booster::* baseScorer_)(const IndexSet&) const,
+Booster::Booster(double (Booster::* baseScorer_)(const Response*) const,
 		 void (Booster::* updater_)(NodeScorer*, SampledObs*, double&),
 		 double nu) :
   scoreDesc(ScoreDesc(nu)),
@@ -60,7 +62,7 @@ void Booster::setLogistic() {
 }
 
 
-double Booster::zero(const IndexSet& iRoot) const {
+double Booster::zero(const Response* response) const {
   return 0.0;
 }
 
@@ -71,9 +73,10 @@ void Booster::noUpdate(NodeScorer* nodeScorer,
 }
 
 
-void Booster::setEstimate(const SampledObs* sampledObs) {
-  if (boosting())
-    booster->baseEstimate(sampledObs);
+void Booster::setEstimate(const Sampler* sampler) {
+  if (boosting()) {
+    booster->baseEstimate(sampler);
+  }
 }
 
 
@@ -91,28 +94,29 @@ void Booster::makeL2(double nu) {
 }
 
 
-double Booster::mean(const IndexSet& iRoot) const {
-  return iRoot.getSum() / iRoot.getSCount();
+double Booster::mean(const Response* response) const {
+  return reinterpret_cast<const ResponseReg*>(response)->meanTrain();
 }
 
 
-void Booster::baseEstimate(const SampledObs* sampledObs) {
-  baseSamples = sampledObs->getSamples();
-  scoreDesc.baseScore = (this->*baseScorer)(IndexSet(sampledObs));
-  estimate = vector<double>(sampledObs->getBagCount(), scoreDesc.baseScore);
+void Booster::baseEstimate(const Sampler* sampler) {
+  scoreDesc.baseScore = (this->*baseScorer)(sampler->getResponse());
+  estimate = vector<double>(sampler->getNObs(), scoreDesc.baseScore);
 }
 
 
 void Booster::updateL2(NodeScorer* nodeScorer,
 		       SampledObs* sampledObs,
 		       double& bagSum) {
-  IndexT sIdx = 0;
   bagSum = 0.0;
-  vector<SampleNux> residual = baseSamples;
-  for (SampleNux& nux : residual) { // sCount applied internally.
-    bagSum += nux.decrementSum(estimate[sIdx++]);
+  IndexT obsIdx = 0;
+  for (const double& est : estimate) {
+    IndexT sIdx;
+    SampleNux* nux;
+    if (sampledObs->isSampled(obsIdx++, sIdx, nux)) {
+      bagSum += nux->decrementSum(est);
+    }
   }
-  sampledObs->setSamples(std::move(residual));
 }
 
 
@@ -121,67 +125,52 @@ void Booster::makeLogOdds(double nu) {
 }
 
 
-double Booster::logit(const IndexSet& iRoot) const {
-  return log(iRoot.getCategoryCount(1) / double(iRoot.getCategoryCount(0)));
+double Booster::logit(const Response* response) const {
+  vector<double> binaryProb = reinterpret_cast<const ResponseCtg*>(response)->ctgProb();
+  return log(binaryProb[1] / binaryProb[0]);
 }
 
 
 void Booster::updateLogOdds(NodeScorer* nodeScorer,
 			    SampledObs* sampledObs,
 			    double& bagSum) {
-  IndexT sIdx = 0;
   bagSum = 0.0;
-  vector<SampleNux> residual = baseSamples;
-  vector<double> p = logistic(estimate);
-  vector<double> pq = scaleComplement(p);
-  for (SampleNux& nux : residual) {
-    bagSum += nux.decrementSum(p[sIdx]); // sCount applied internally.
-    pq[sIdx] *= nux.getSCount();
-    sIdx++;
+  vector<double> pq(sampledObs->getBagCount());
+  IndexT obsIdx = 0;
+  for (const double& est : estimate) {
+    IndexT sIdx;
+    SampleNux* nux;
+    if (sampledObs->isSampled(obsIdx++, sIdx, nux)) {
+      double prob = 1.0 / (1.0 + exp(-est)); // logistic
+      bagSum += nux->decrementSum(prob);
+      pq[sIdx] = prob * (1.0 - prob) * nux->getSCount();
+    }
   }
-  sampledObs->setSamples(std::move(residual));
+
   nodeScorer->setGamma(std::move(pq));
 }
 
 
-vector<double> Booster::scaleComplement(const vector<double>& p) {
-  vector<double> pq(p.size());
-  for (IndexT i = 0; i != p.size(); i++) {
-    pq[i] = p[i] * (1.0 - p[i]);
-  }
-  
-  return pq;
-}
-
-
-vector<double> Booster::logistic(const vector<double>& logOdds) {
-  vector<double> p(logOdds.size());
-  for (IndexT i = 0; i != logOdds.size(); i++) {
-    p[i] = 1.0 / (1.0 + exp(-logOdds[i]));
-  }
-
-  return p;
-}
-
-
-void Booster::updateEstimate(const PreTree*  pretree,
+void Booster::updateEstimate(const SampledObs* sampledObs,
+			     const PreTree*  pretree,
 			     const SampleMap& terminalMap) {
   if (boosting()) {
-    booster->scoreSamples(pretree, terminalMap);
+    booster->scoreSamples(sampledObs, pretree, terminalMap);
   }
 }
 
 
-void Booster::scoreSamples(const PreTree*  pretree,
+void Booster::scoreSamples(const SampledObs* sampledObs,
+			   const PreTree* preTree,
 			   const SampleMap& terminalMap) {
-  terminalMap.scaleSampleScores(pretree, estimate, scoreDesc.nu);
-}
-
-
-void Booster::listScoreDesc(double& nu, double& baseScore, string& scorer) {
-  nu = booster->scoreDesc.nu;
-  baseScore = booster->scoreDesc.baseScore;
-  scorer = booster->scoreDesc.scorer;
+  vector<double> sampleScore = terminalMap.scaleSampleScores(sampledObs, preTree, scoreDesc.nu);
+  IndexT obsIdx = 0;
+  for (double& est : estimate) {
+    IndexT sIdx;
+    if (sampledObs->isSampled(obsIdx++, sIdx)) {
+      est += sampleScore[sIdx];
+    }
+  }
 }
 
 

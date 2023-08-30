@@ -26,21 +26,16 @@
 #include <numeric>
 
 
-unique_ptr<SampledObs> SampledObs::sampledObs = nullptr;
-
-
 SampledObs::SampledObs(const Sampler* sampler,
 		       unsigned int samplerIdx,
 		       double (SampledObs::* adder_)(double, const SamplerNux&, PredictorT)) :
   nSamp(sampler->getNSamp()),
   nux(sampler->getSamples(samplerIdx)),
   bagCount(nux.size() == 0 ? nSamp : nux.size()),
-  boosting(Booster::boosting()),
   adder(adder_),
   bagSum(0.0),
   obs2Sample(vector<IndexT>(sampler->getNObs())),
-  ctgRoot(vector<SumCount>(sampler->getNCtg())),
-  treeZero(!boosting || sampledObs == nullptr) {
+  ctgRoot(vector<SumCount>(sampler->getNCtg())) {
 }
 
 
@@ -49,15 +44,9 @@ SampledObs::~SampledObs() = default;
 
 void SampledObs::sampleRoot(const PredictorFrame* frame,
 			    NodeScorer* scorer) {
-  if (treeZero) {
-    bagSamples(frame);
-    setRanks(frame);
-    Booster::setEstimate(this);
-  }
-  treeZero = false;
-  if (boosting) {
-    Booster::updateResidual(scorer, this, bagSum);
-  }
+  bagSamples(frame);
+  setRanks(frame);
+  Booster::updateResidual(scorer, this, bagSum);
 }
 
 
@@ -68,28 +57,6 @@ void SampledCtg::bagSamples(const PredictorFrame* frame) {
 
 void SampledReg::bagSamples(const PredictorFrame* frame) {
   bagSamples(frame, response->getYTrain());
-}
-
-
-SampledObs* SampledObs::getReg(const Sampler* sampler,
-			       const ResponseReg* response,
-			       unsigned int tIdx) {
-  if (sampledObs == nullptr || !Booster::boosting()) {
-    sampledObs = make_unique<SampledReg>(sampler, response, tIdx);
-  }
-
-  return sampledObs.get();
-}
-
-
-SampledObs* SampledObs::getCtg(const Sampler* sampler,
-			       const ResponseCtg* response,
-			       unsigned int tIdx) {
-  if (sampledObs == nullptr || !Booster::boosting()) {
-    sampledObs = make_unique<SampledCtg>(sampler, response, tIdx);
-  }
-
-  return sampledObs.get();
 }
 
 
@@ -186,10 +153,4 @@ vector<IndexT> SampledObs::sampleRanks(const PredictorFrame* layout, PredictorT 
   runCount[predIdx] = accumulate(rankSeen.begin(), rankSeen.end(), 0);
 
   return sampledRanks;
-}
-
-
-void SampledObs::deInit() {
-  sampledObs = nullptr;
-  Booster::deInit();
 }

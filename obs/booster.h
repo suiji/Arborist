@@ -38,15 +38,16 @@ struct Booster {
   vector<SampleNux> baseSamples; ///< Cached bagged samples.
 
 
-  Booster(double (Booster::*)(const class IndexSet&) const,
+  Booster(double (Booster::*)(const class Response*) const,
 	  void (Booster::*)(struct NodeScorer*, class SampledObs*, double&),
 	  double nu_);
 
   
-  double (Booster::* baseScorer)(const class IndexSet&) const;
+  double (Booster::* baseScorer)(const class Response*) const;
 
-  void setBaseScore(const IndexSet& iSet) const {
-    (this->*baseScorer)(iSet);
+
+  void setBaseScore(const class Response* response) const {
+    (this->*baseScorer)(response);
   }
 
 
@@ -76,7 +77,7 @@ struct Booster {
   /**
      @brief Passes through to member.
    */
-  static void setEstimate(const class SampledObs*);
+  static void setEstimate(const class Sampler* sampler);
 
   
   void (Booster::* updater)(struct NodeScorer*, class SampledObs*, double&);
@@ -102,8 +103,8 @@ struct Booster {
   /**
      @brief Sets the base estimate.
    */
-  void baseEstimate(const class SampledObs* sampledObs);
-  
+  void baseEstimate(const class Sampler* sampler);
+
 
   /**
      @brief Stubbed object for no boosting.
@@ -135,21 +136,24 @@ struct Booster {
   /**
      @brief Records per-sample scores from trained tree.
    */
-  static void updateEstimate(const class PreTree* preTree,
+  static void updateEstimate(const class SampledObs* sampledObs,
+			     const class PreTree* preTree,
 			     const struct SampleMap& sampleMap);
 
 
-  void scoreSamples(const class PreTree* preTree,
+  void scoreSamples(const class SampledObs* sampledObs,
+		    const class PreTree* preTree,
 		    const struct SampleMap& sampleMap);
 
 
-  double zero(const class IndexSet& iRoot) const;
-  
+  double zero(const class Response* response) const;
+
 
   void noUpdate(struct NodeScorer* nodeScorer,
 		class SampledObs* sampledObs,
 		double& bagSum);
 
+  
   void updateL2(struct NodeScorer* nodeScorer,
 		class SampledObs* sampledObs,
 		double&bagSum);
@@ -159,32 +163,23 @@ struct Booster {
 		     class SampledObs* sampledObs,
 		     double& bagSum);
 
-  /**
-     @brief Logistically transforms vector of log-odds values.
 
-     @return logistically-transformed vector of probabilities.
-   */
-  static vector<double> logistic(const vector<double>& logOdds);
-
-
-  /**
-     @brief Scales a vector of probabilities by its complement.
-
-     @return vector of scaled probabilities.
-   */
-  static vector<double> scaleComplement(const vector<double>& p);
-
+  double mean(const class Response* response) const;
   
-  double mean(const class IndexSet& iRoot) const;
 
-  double logit(const class IndexSet& iRoot) const;
+  double logit(const class Response* response) const;
+
 
   /**
      @brief Reports contents of score descriptor.
    */
   static void listScoreDesc(double& nu,
-			   double& baseScore,
-			   string& scorer);
+			    double& baseScore,
+			    string& scorer) {
+    nu = booster->scoreDesc.nu;
+    baseScore = booster->scoreDesc.baseScore;
+    scorer = booster->scoreDesc.scorer;
+  }
 };
 
 #endif

@@ -23,7 +23,6 @@
 #include "partition.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "sampledobs.h"
 #include "algparam.h"
 #include "ompthread.h"
 #include "coproc.h"
@@ -76,7 +75,7 @@ void FETrain::initBooster(double nu, CtgT nCtg) {
 
 
 void FETrain::deInit() {
-  SampledObs::deInit();
+  Booster::deInit();
   SplitNux::deImmutables();
   IndexSet::deImmutables();
   Frontier::deInit();

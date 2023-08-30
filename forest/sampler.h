@@ -223,7 +223,7 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  class SampledObs* getObs(unsigned int tIdx) const;
+  unique_ptr<class SampledObs> getObs(unsigned int tIdx) const;
 
   
   /**

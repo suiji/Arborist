@@ -39,31 +39,34 @@ void Frontier::deInit() {
 
 unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
 				      const Train* train,
-				      SampledObs* sampledObs) {
-  Frontier frontier(frame, train, sampledObs);
-  sampledObs->sampleRoot(frame, train->getNodeScorer());
-  SampleMap smNonTerm = frontier.produceRoot();
+				      const Sampler* sampler,
+				      unsigned int tIdx) {
+  Frontier frontier(frame, train, sampler, tIdx);
+  SampleMap smNonTerm = frontier.produceRoot(frame, train);
   return frontier.splitByLevel(smNonTerm);
 }
 
 
 Frontier::Frontier(const PredictorFrame* frame_,
 		   const Train* train,
-		   SampledObs* sampledObs_) :
+		   const Sampler* sampler,
+		   unsigned int tIdx) :
   frame(frame_),
   scorer(train->getNodeScorer()),
-  sampledObs(sampledObs_),
+  sampledObs(sampler->getObs(tIdx)),
   bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),
-  interLevel(make_unique<InterLevel>(frame, sampledObs, this)),
+  interLevel(make_unique<InterLevel>(frame, sampledObs.get(), this)),
   pretree(make_unique<PreTree>(frame, bagCount)),
   smTerminal(SampleMap(bagCount)) {
 }
 
 
-SampleMap Frontier::produceRoot() {
+SampleMap Frontier::produceRoot(const PredictorFrame* frame,
+				const Train* train) {
+  sampledObs->sampleRoot(frame, train->getNodeScorer());
   pretree->offspring(0, true);
-  frontierNodes.emplace_back(sampledObs);
+  frontierNodes.emplace_back(sampledObs.get());
 
   SampleMap smNonterm = SampleMap(bagCount);
   smNonterm.addNode(bagCount, 0);
@@ -80,7 +83,7 @@ unique_ptr<PreTree> Frontier::splitByLevel(SampleMap& smNonterm) {
     interLevel->overlap(frontierNodes, frontierNext, smNonterm.getEndIdx());
     frontierNodes = std::move(frontierNext);
   }
-  pretree->setTerminals(std::move(smTerminal));
+  pretree->setTerminals(sampledObs.get(), std::move(smTerminal));
 
   return std::move(pretree);
 }

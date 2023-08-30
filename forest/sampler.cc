@@ -13,6 +13,7 @@
 #include "samplernux.h"
 #include "frontier.h"
 #include "predictorframe.h"
+#include "booster.h"
 #include "prng.h"
 
 
@@ -69,6 +70,7 @@ Sampler::Sampler(const vector<double>& yTrain,
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
   samples(samples_) {
+  Booster::setEstimate(this);
 }
 
 
@@ -82,6 +84,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg, classWeight)),
   samples(std::move(samples_)) {
+  Booster::setEstimate(this);
 }
 
 
@@ -131,7 +134,7 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
 }
 
 
-SampledObs* Sampler::getObs(unsigned int tIdx) const {
+unique_ptr<SampledObs> Sampler::getObs(unsigned int tIdx) const {
   return response->getObs(this, tIdx);
 }
 

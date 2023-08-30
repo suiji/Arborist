@@ -111,8 +111,6 @@ ForestScore ForestScorer::predictLogistic(Predict* predict, size_t obsIdx) {
   CtgT ctg = p1 > 0.5 ? 1 : 0;
   census[obsIdx * nCtg + ctg] = 1;
 
-  ctgProb->predictRow(obsIdx, &census[obsIdx * nCtg]);
-
   return ForestScore(logOdds.nEst, ctg);
 }
 
@@ -168,7 +166,7 @@ CtgProb::CtgProb(size_t nObs,
 		 const ResponseCtg* response,
 		 bool doProb) :
   nCtg(response->getNCtg()),
-  probDefault(response->defaultProb()),
+  probDefault(response->ctgProb()),
   probs(vector<double>(doProb ? nObs * nCtg : 0)) {
 }
 

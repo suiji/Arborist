@@ -79,12 +79,12 @@ unique_ptr<ResponseReg> Response::factoryReg(const vector<double>& yTrain) {
 
   
 PredictorT ResponseCtg::ctgDefault() const {
-  vector<double> probDefault = defaultProb();
+  vector<double> probDefault = ctgProb();
   return max_element(probDefault.begin(), probDefault.end()) - probDefault.begin();
 }
 
 
-vector<double> ResponseCtg::defaultProb() const {
+vector<double> ResponseCtg::ctgProb() const {
   // Uses the ECDF as the default distribution.
   vector<IndexT> ctgTot(nCtg);
   for (auto ctg : yCtg) {
@@ -100,13 +100,13 @@ vector<double> ResponseCtg::defaultProb() const {
 }
 
 
-SampledObs* ResponseReg::getObs(const Sampler* sampler,
-				unsigned int tIdx) const {
-  return SampledObs::getReg(sampler, this, tIdx);
+unique_ptr<SampledObs> ResponseReg::getObs(const Sampler* sampler,
+					  unsigned int tIdx) const {
+  return make_unique<SampledReg>(sampler, this, tIdx);
 }
 
 
-SampledObs* ResponseCtg::getObs(const Sampler* sampler,
-				unsigned int tIdx) const {
-  return SampledObs::getCtg(sampler, this, tIdx);
+unique_ptr<SampledObs> ResponseCtg::getObs(const Sampler* sampler,
+					   unsigned int tIdx) const {
+  return make_unique<SampledCtg>(sampler, this, tIdx);
 }

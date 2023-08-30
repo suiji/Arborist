@@ -167,7 +167,8 @@ class PreTree {
 
      @param smTerminal is the terminal map produce by Frontier.
    */
-  void setTerminals(SampleMap smTerminal);
+  void setTerminals(const class SampledObs* sampledObs,
+		    SampleMap smTerminal);
   
 
   /**

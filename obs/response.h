@@ -62,8 +62,8 @@ struct Response {
   /**
      @brief Samples (bags) the estimand to construct the tree root.
    */
-  virtual class SampledObs* getObs(const class Sampler* sampler,
-				   unsigned int tIdx) const = 0;
+  virtual unique_ptr<class SampledObs> getObs(const class Sampler* sampler,
+					      unsigned int tIdx) const = 0;
 };
 
 
@@ -71,16 +71,6 @@ class ResponseReg : public Response {
   const vector<double> yTrain; ///< Training response.
 
   const double defaultPrediction; ///< Prediction value when no trees bagged.
-
-
-  /**
-     @brief Determines mean training value.
-
-     @return mean trainig value.
-   */
-  double meanTrain() const {
-    return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
-  }
 
 
 public:
@@ -112,12 +102,22 @@ public:
   
 
   /**
+     @brief Determines mean training value.
+
+     @return mean trainig value.
+   */
+  double meanTrain() const {
+    return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
+  }
+
+
+  /**
      @brief Samples response of current tree.
 
      @return summary of sampled response.
    */
-  class SampledObs* getObs(const class Sampler* sampler,
-			   unsigned int tIdx) const;
+  unique_ptr<class SampledObs> getObs(const class Sampler* sampler,
+				      unsigned int tIdx) const;
 };
 
 
@@ -186,14 +186,14 @@ public:
 
      @return summary of sampled response.
    */
-  class SampledObs* getObs(const class Sampler* sampler,
-			   unsigned int tIdx) const;
+  unique_ptr<class SampledObs> getObs(const class Sampler* sampler,
+				      unsigned int tIdx) const;
 
 
   /**
      @brief Constructs a vector of default probabilities.
   */
-  vector<double> defaultProb() const;
+  vector<double> ctgProb() const;
 };
 
 #endif

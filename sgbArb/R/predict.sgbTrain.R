@@ -54,6 +54,7 @@
       bagging = bagging,
       impPermute = 0,
       ctgProb = ctgProbabilities(sampler, ctgCensus),
+      quantVec = NULL,
       indexing = indexing,
       trapUnobserved = trapUnobserved,
       nThread = nThread,

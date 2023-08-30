@@ -31,13 +31,13 @@ sgbArb.default <- function(x,
                              minInfo = 0.01,
                              minNode = if (is.factor(y)) 2 else 3,
                              nLevel = 6,
-                             nSamp = length(y),
+                             nSamp = length(y) / 2,
                              nThread = 0,
                              nTree = 100,
                              withRepl = FALSE,
-                             noValidate = (!withRepl || (nSamp == length(y))),
+                             noValidate = TRUE,
                              nu = 0.1,
-                             predFixed = 0,
+                             predFixed = ncol(x),
                              predProb = 0.0,
                              predWeight = NULL, 
                              regMono = NULL,
@@ -72,7 +72,7 @@ sgbArb.default <- function(x,
         warning("Variable importance requires validation:  ignoring")
 
     preFormat <- preformat(x, verbose)
-    sampler <- presample(y, rowWeight, nSamp, 1, withRepl, verbose)
+    sampler <- presample(y, rowWeight, nSamp, nTree, withRepl, verbose)
     train <- sgbTrain(preFormat, sampler, y,
                            autoCompress,
                            maxLeaf,
@@ -97,8 +97,10 @@ sgbArb.default <- function(x,
     }
     else {
         argPredict <- list(
-            bagging = TRUE,
+            bagging = FALSE,
             impPermute = impPermute,
+            ctgProb = ctgProbabilities(sampler, "prob"),
+            quantVec = NULL,
             indexing = indexing,
             trapUnobserved = trapUnobserved,
             nThread = nThread,
@@ -126,7 +128,6 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
     if (impPermute > 0) {
         arbOut <- list(
             sampler = sampler,
-            scoreDesc = train$scoreDesc,
             leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,
@@ -140,7 +141,6 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
     else {
         arbOut <- list(
             sampler = sampler,
-            scoreDesc = train$scoreDesc,
             leaf = train$leaf,
             forest = train$forest,
             predMap = train$predMap,

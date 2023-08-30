@@ -16,6 +16,6 @@ Train::Train(const PredictorFrame* frame,
   if (sampler->getNCtg() == 2)
     Booster::setLogistic();
   else
-    Booster::setMean();
+    Booster::setSum();
 }
 
