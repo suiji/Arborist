@@ -8,7 +8,7 @@
 
 #include "predict.h"
 #include "sampler.h"
-#include "train.h"
+#include "grove.h"
 #include "response.h"
 #include "samplernux.h"
 #include "frontier.h"
@@ -29,7 +29,8 @@ Sampler::Sampler(IndexT nSamp_,
     nRep(nRep_),
     nObs(nObs_),
     nSamp(nSamp_),
-    response(nullptr) {
+    response(nullptr),
+    trivial(nObs == nSamp && !replace) {
   setCoefficients(weight, replace);
 }
 
@@ -118,6 +119,17 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 Sampler::~Sampler() = default;
 
 
+unique_ptr<Grove> Sampler::trainGrove(const class PredictorFrame* frame,
+				      class Forest* forest,
+				      const IndexRange& range,
+				      class Leaf* leaf) {
+  unique_ptr<Grove> grove = make_unique<Grove>(frame, this, forest, NodeScorer::makeScorer());
+  grove->train(frame, this, range, leaf);
+
+  return grove;
+}
+
+
 unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
   if (!bagging)
     return make_unique<BitMatrix>(0, 0);
@@ -153,8 +165,13 @@ vector<IdCount> Sampler::obsExpand(const vector<SampleNux>& nuxen) const {
 
 
 void Sampler::sample() {
+
   vector<size_t> idxOut;
-  if (walker != nullptr) {
+  if (trivial) {
+    idxOut = vector<size_t>(nObs);
+    iota(idxOut.begin(), idxOut.end(), 0);
+  }
+  else if (walker != nullptr) {
     idxOut = walker->sample(nSamp);
   }
   else if (!weightNoReplace.empty()) {

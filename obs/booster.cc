@@ -37,31 +37,6 @@ Booster::Booster(double (Booster::* baseScorer_)(const Response*) const,
 }
 
 
-void Booster::makeZero() {
-  booster = make_unique<Booster>(&Booster::zero, &Booster::noUpdate, 0.0);
-}
-
-
-void Booster::setMean() {
-  booster->scoreDesc.scorer = "mean";
-}
-
-
-void Booster::setPlurality() {
-  booster->scoreDesc.scorer = "plurality";
-}
-
-
-void Booster::setSum() {
-  booster->scoreDesc.scorer = "sum";
-}
-
-
-void Booster::setLogistic() {
-  booster->scoreDesc.scorer = "logistic";
-}
-
-
 double Booster::zero(const Response* response) const {
   return 0.0;
 }
@@ -89,11 +64,6 @@ void Booster::updateResidual(NodeScorer* nodeScorer,
 }
 
 
-void Booster::makeL2(double nu) {
-  booster =  make_unique<Booster>(&Booster::mean, &Booster::updateL2, nu);
-}
-
-
 double Booster::mean(const Response* response) const {
   return reinterpret_cast<const ResponseReg*>(response)->meanTrain();
 }
@@ -117,11 +87,6 @@ void Booster::updateL2(NodeScorer* nodeScorer,
       bagSum += nux->decrementSum(est);
     }
   }
-}
-
-
-void Booster::makeLogOdds(double nu) {
-  booster =  make_unique<Booster>(&Booster::logit, &Booster::updateLogOdds, nu);
 }
 
 
@@ -171,6 +136,22 @@ void Booster::scoreSamples(const SampledObs* sampledObs,
       est += sampleScore[sIdx];
     }
   }
+}
+
+
+void Booster::init(const string& loss,
+		    const string& scorer,
+		    double nu) {
+  if (loss == "l2") {
+    booster = make_unique<Booster>(&Booster::mean, &Booster::updateL2, nu);
+  }
+  else if (loss == "logistic") {
+    booster = make_unique<Booster>(&Booster::logit, &Booster::updateLogOdds, nu);
+  }
+  else {
+    booster = make_unique<Booster>(&Booster::zero, &Booster::noUpdate, 0.0);
+  }
+  booster->scoreDesc.scorer = scorer;
 }
 
 

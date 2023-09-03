@@ -24,6 +24,8 @@
 #include "ompthread.h"
 #include "branchsense.h"
 #include "sampler.h"
+#include "grove.h"
+
 
 unsigned int Frontier::totLevels = 0;
 
@@ -38,7 +40,7 @@ void Frontier::deInit() {
 
 
 unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
-				      const Train* train,
+				      const Grove* train,
 				      const Sampler* sampler,
 				      unsigned int tIdx) {
   Frontier frontier(frame, train, sampler, tIdx);
@@ -48,11 +50,11 @@ unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
 
 
 Frontier::Frontier(const PredictorFrame* frame_,
-		   const Train* train,
+		   const Grove* grove,
 		   const Sampler* sampler,
 		   unsigned int tIdx) :
   frame(frame_),
-  scorer(train->getNodeScorer()),
+  scorer(grove->getNodeScorer()),
   sampledObs(sampler->getObs(tIdx)),
   bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),
@@ -63,8 +65,8 @@ Frontier::Frontier(const PredictorFrame* frame_,
 
 
 SampleMap Frontier::produceRoot(const PredictorFrame* frame,
-				const Train* train) {
-  sampledObs->sampleRoot(frame, train->getNodeScorer());
+				const Grove* grove) {
+  sampledObs->sampleRoot(frame, grove->getNodeScorer());
   pretree->offspring(0, true);
   frontierNodes.emplace_back(sampledObs.get());
 

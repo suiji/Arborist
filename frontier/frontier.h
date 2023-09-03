@@ -22,7 +22,6 @@
 #include "indexset.h"
 #include "typeparam.h"
 #include "stagedcell.h"
-#include "train.h"
 #include "nodescorer.h"
 
 #include <algorithm>
@@ -55,7 +54,7 @@ class Frontier {
      @return map of bagged samples.
    */
   SampleMap produceRoot(const class PredictorFrame* frame,
-			const class Train* train);
+			const class Grove* train);
 
 
   /**
@@ -118,13 +117,13 @@ public:
      @brief Per-tree constructor.  Sets up root node for level zero.
   */
   Frontier(const class PredictorFrame* frame,
-	   const class Train* train,
+	   const class Grove* train,
 	   const class Sampler* sampler,
 	   unsigned int tIdx);
 
   
   /**
-    @brief Trains one tree.
+    @brief Groves one tree.
 
     @param predictor contains the predictor type mappings.
 
@@ -133,7 +132,7 @@ public:
     @return trained pretree object.
   */
   static unique_ptr<class PreTree> oneTree(const class PredictorFrame* frame,
-					   const class Train* train,
+					   const class Grove* train,
 					   const class Sampler* sampler,
 					   unsigned int tIdx);
 

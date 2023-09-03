@@ -6,56 +6,49 @@
  */
 
 /**
-   @file train.h
+   @file grove.h
 
-   @brief Class definitions for the training entry point.
+   @brief Trains a block of trees.
 
    @author Mark Seligman
  */
 
-#ifndef FOREST_TRAIN_H
-#define FOREST_TRAIN_H
+#ifndef FOREST_GROVE_H
+#define FOREST_GROVE_H
 
 #include <string>
 #include <vector>
 
-#include "decnode.h" // Algorithm-specific typedef.
-#include "forest.h"
-#include "pretree.h"
+#include "typeparam.h"
+
 
 /**
    @brief Interface class for front end.  Holds simulation-specific parameters
    of the data and constructs forest, leaf and diagnostic structures.
 */
-class Train {
+class Grove {
   static unsigned int trainBlock; ///< Front-end defined buffer size. Unused.
 
   vector<double> predInfo; ///< E.g., Gini gain:  nPred.
   class Forest* forest; ///< Crescent-state forest block.
-  const unique_ptr<struct NodeScorer> nodeScorer;
-  unique_ptr<class SampledObs> sampledObs;
-
-  
-  /**
-     @brief Trains a chunk of trees.
-
-     @param frame summarizes the predictor characteristics.
-
-     @param treeChunk is the number of trees in the chunk.
-  */
-  void trainChunk(const class PredictorFrame* frame,
-		  const class Sampler* sampler,
-		  const IndexRange& treeRange,
-		  struct Leaf* leaf);
+  const unique_ptr<struct NodeScorer> nodeScorer; ///< Belongs elsewhere.
   
 public:
 
   /**
      @brief General constructor.
   */
-  Train(const class PredictorFrame* frame,
+  Grove(const class PredictorFrame* frame,
 	const class Sampler* sampler,
-	class Forest* forest_);
+	class Forest* forest_,
+	unique_ptr<NodeScorer> nodeScorer_);
+
+
+  void train(const class PredictorFrame* frame,
+	     const class Sampler* sampler,
+	     const IndexRange& treeRange,
+	     struct Leaf* leaf);
+
 
   /**
      @brief Getter for splitting information values.
@@ -79,7 +72,7 @@ public:
   /**
      @brief Main entry to training.
    */
-  static unique_ptr<Train> train(const class PredictorFrame* frame,
+  static unique_ptr<Grove> trainGrove(const class PredictorFrame* frame,
 				 const class Sampler* sampler,
 				 class Forest* forest_,
 				 const IndexRange& treeRange,
@@ -91,7 +84,7 @@ public:
 
      @param treeBlock is a vector of Sample, PreTree pairs.
   */
-  void blockConsume(const vector<unique_ptr<PreTree>> &treeBlock,
+  void blockConsume(const vector<unique_ptr<class PreTree>> &treeBlock,
 		    struct Leaf* leaf);
 
 
@@ -100,7 +93,7 @@ public:
 
      @return Wrapped collection of Sample, PreTree pairs.
   */
-  vector<unique_ptr<PreTree>> blockProduce(const class PredictorFrame* frame,
+  vector<unique_ptr<class PreTree>> blockProduce(const class PredictorFrame* frame,
 					   const class Sampler* sampler,
 					   unsigned int treeStart,
 					   unsigned int treeEnd);

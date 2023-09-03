@@ -16,7 +16,7 @@
 #include "fetrain.h"
 #include "bv.h"
 #include "booster.h"
-#include "train.h"
+#include "grove.h"
 #include "predictorframe.h"
 #include "frontier.h"
 #include "pretree.h"
@@ -61,21 +61,19 @@ void FETrain::initMono(const PredictorFrame* frame,
 }
 
 
-void FETrain::initBooster(double nu, CtgT nCtg) {
-  if (nu > 0.0) {
-    if (nCtg == 0)
-      Booster::makeL2(nu);
-    else
-      Booster::makeLogOdds(nu);
-  }
-  else {
-    Booster::makeZero();
-  }
+void FETrain::initBooster(const string& loss, const string& scorer, double nu) {
+  Booster::init(loss, scorer, nu);
+}
+
+
+void FETrain::initNodeScorer(const string& scorer) {
+  NodeScorer::init(scorer);
 }
 
 
 void FETrain::deInit() {
   Booster::deInit();
+  NodeScorer::deInit();
   SplitNux::deImmutables();
   IndexSet::deImmutables();
   Frontier::deInit();

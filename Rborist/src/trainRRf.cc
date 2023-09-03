@@ -47,7 +47,8 @@ SEXP TrainR::initFromArgs(const List& argList,
 			 as<double>(argList["minInfo"]),
 			 splitQuant);
 
-  trainBridge.initBooster();
+  trainBridge.initBooster(as<string>(argList["loss"]), as<string>(argList["forestScore"]));
+  trainBridge.initNodeScorer(as<string>(argList["nodeScore"]));
   trainBridge.initTree(as<unsigned int>(argList["maxLeaf"]));
   trainBridge.initBlock(as<unsigned int>(argList["treeBlock"]));
   trainBridge.initOmp(as<unsigned int>(argList["nThread"]));

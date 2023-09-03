@@ -17,7 +17,8 @@
 #include "trainbridge.h"
 #include "samplerbridge.h"
 #include "leafbridge.h"
-#include "train.h"
+#include "sampler.h"
+#include "grove.h"
 
 // Type completion only:
 #include "nodescorer.h"
@@ -45,18 +46,17 @@ unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
 					    unsigned int treeOff,
 					    unsigned int treeChunk,
 					    const LeafBridge& leafBridge) const {
-  unique_ptr<Train> trained = Train::train(frame.get(),
-					   samplerBridge.getSampler(),
-					   forestBridge.getForest(),
-					   IndexRange(treeOff, treeChunk),
-					   leafBridge.getLeaf());
+  unique_ptr<Grove> grove = samplerBridge.getSampler()->trainGrove(frame.get(),
+								   forestBridge.getForest(),
+								   IndexRange(treeOff, treeChunk),
+								   leafBridge.getLeaf());
 
-  return make_unique<TrainedChunk>(std::move(trained));
+  return make_unique<TrainedChunk>(std::move(grove));
 }
 
 
 void TrainBridge::initBlock(unsigned int trainBlock) {
-  Train::initBlock(trainBlock);
+  Grove::initBlock(trainBlock);
 }
 
 
@@ -71,8 +71,13 @@ void TrainBridge::initTree(size_t leafMax) {
 }
 
 
-void TrainBridge::initBooster(double nu, unsigned int nCtg) {
-  FETrain::initBooster(nu, nCtg);
+void TrainBridge::initBooster(const string& loss, const string& scorer, double nu) {
+  FETrain::initBooster(loss, scorer, nu);
+}
+
+
+void TrainBridge::initNodeScorer(const string& scorer) {
+  FETrain::initNodeScorer(scorer);
 }
 
 
@@ -97,11 +102,11 @@ void TrainBridge::initMono(const vector<double> &regMono) {
 void TrainBridge::deInit() {
   ForestBridge::deInit();
   FETrain::deInit();
-  Train::deInit();
+  Grove::deInit();
 }
 
 
-TrainedChunk::TrainedChunk(unique_ptr<Train> train_) : train(std::move(train_)) {
+TrainedChunk::TrainedChunk(unique_ptr<Grove> grove_) : grove(std::move(grove_)) {
 }
 
 
@@ -109,5 +114,5 @@ TrainedChunk::~TrainedChunk() = default;
 
 
 const vector<double>& TrainedChunk::getPredInfo() const {
-  return train->getPredInfo();
+  return grove->getPredInfo();
 }

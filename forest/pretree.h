@@ -138,7 +138,7 @@ class PreTree {
 
      @return leaf map from consumed frontier.
   */
-  void consume(class Train* train,
+  void consume(class Grove* train,
 	       Forest *forest,
 	       struct Leaf* leaf) const;
 

@@ -26,6 +26,8 @@
 
 
 struct NodeScorer {
+  static string scoreStr; ///< Initialized per training session.
+
   vector<double> ctgJitter; ///< Breaks ties; frontier-wide.
   vector<double> gamma; ///< Per-sample weight, with multiplicity.
 
@@ -36,15 +38,30 @@ struct NodeScorer {
   NodeScorer(double (NodeScorer::* scorer_)(const struct SampleMap&,
 					    const class IndexSet&) const);
 
+
+  /**
+     @brief Initializes scorer string once per training session.
+   */
+  static void init(const string& scoreStr_);
+
+
+  /**
+     @brief Clears scorer string.
+   */
+  static void deInit();
+
+
   void frontierPreamble(const class Frontier* frontier);
-  
-  static unique_ptr<NodeScorer> makeMean();
 
-  static unique_ptr<NodeScorer> makePlurality();
 
-  static unique_ptr<NodeScorer> makeLogOdds();
+  /**
+     @brief Makes scorer by keying off static string.
 
-  
+     Currently called once per grove of trained trees.
+   */
+  static unique_ptr<NodeScorer> makeScorer();
+
+
   double score(const struct SampleMap& smNonterm,
 	       const class IndexSet& iSet) const {
     return (this->*scorer)(smNonterm, iSet);
@@ -54,7 +71,14 @@ struct NodeScorer {
   void setGamma(vector<double> prob) {
     gamma = std::move(prob);
   }
+
   
+  /**
+     @brief Placeholder scorer.  Should never be used.
+   */
+  double scoreZero(const struct SampleMap& smNonterm,
+		   const class IndexSet& iSet) const;
+
   
   /**
      @return mean reponse over node.

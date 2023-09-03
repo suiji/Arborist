@@ -24,7 +24,7 @@ using namespace std;
 
 
 struct TrainedChunk {
-  TrainedChunk(unique_ptr<class Train>);
+  TrainedChunk(unique_ptr<class Grove>);
 
   ~TrainedChunk();
   
@@ -39,7 +39,7 @@ struct TrainedChunk {
 
 private:
 
-  const unique_ptr<class Train> train; ///< Core-level instantiation.
+  const unique_ptr<class Grove> grove; ///< Core-level instantiation.
 };
 
 
@@ -91,10 +91,14 @@ struct TrainBridge {
   /**
      @brief Sets learning rate for sequential training.
    */
-  static void initBooster(double nu = 0.0,
-			  unsigned int nCtg = 0);
+  static void initBooster(const string& loss,
+			  const string& scorer,
+			  double nu = 0.0);
 
-  
+
+  static void initNodeScorer(const string& scorer);
+
+
   /**
      @brief Initializes static OMP thread state.
 

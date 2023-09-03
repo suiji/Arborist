@@ -19,18 +19,18 @@
 #include "prng.h"
 #include <algorithm>
 
-
-unique_ptr<NodeScorer> NodeScorer::makeMean() {
-  return make_unique<NodeScorer>(&NodeScorer::scoreMean);
-}
+string NodeScorer::scoreStr = "";
 
 
-unique_ptr<NodeScorer> NodeScorer::makePlurality() {
-  return make_unique<NodeScorer>(&NodeScorer::scorePlurality);
-}
-
-unique_ptr<NodeScorer> NodeScorer::makeLogOdds() {
-  return make_unique<NodeScorer>(&NodeScorer::scoreLogOdds);
+unique_ptr<NodeScorer> NodeScorer::makeScorer() {
+  if (scoreStr == "mean")
+    return make_unique<NodeScorer>(&NodeScorer::scoreMean);
+  else if (scoreStr == "plurality")
+    return make_unique<NodeScorer>(&NodeScorer::scorePlurality);
+  else if (scoreStr == "logOdds")
+    return make_unique<NodeScorer>(&NodeScorer::scoreLogOdds);
+  else
+    return make_unique<NodeScorer>(&NodeScorer::scoreZero);
 }
 
 
@@ -42,6 +42,12 @@ void NodeScorer::frontierPreamble(const Frontier* frontier) {
 NodeScorer::NodeScorer(double (NodeScorer::* scorer_)(const SampleMap&,
 								  const IndexSet&) const) :
   scorer(scorer_) {
+}
+
+
+double NodeScorer::scoreZero(const SampleMap& smNonterm,
+			     const IndexSet& iSet) const {
+  return 0.0;
 }
 
 
@@ -77,7 +83,7 @@ double NodeScorer::scorePlurality(const SampleMap& smNonterm,
 
 
 double NodeScorer::scoreLogOdds(const SampleMap& smNonterm,
-				    const IndexSet& iSet) const {
+				const IndexSet& iSet) const {
   // Walks the sample indices associated with the node index,
   // accumulating a sum of pq-values.
   //
@@ -89,4 +95,14 @@ double NodeScorer::scoreLogOdds(const SampleMap& smNonterm,
   }
 
   return iSet.getSum() / pqSum;
+}
+
+
+void NodeScorer::init(const string& scoreStr_) {
+  scoreStr = scoreStr_;
+}
+
+
+void NodeScorer::deInit() {
+  scoreStr = "";
 }

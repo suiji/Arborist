@@ -43,6 +43,7 @@ class Sampler {
   const unique_ptr<class BitMatrix> bagMatrix; ///< empty if training or prediction without bagging.
 
   // Presampling only.
+  bool trivial; ///< Shortcut.
   vector<SamplerNux> sbCresc; ///< Crescent block.
   unique_ptr<Sample::Walker<size_t>> walker; ///< Walker table.
   vector<double> weightNoReplace; ///< Non-replacement weights.
@@ -243,7 +244,7 @@ public:
   }
 
   
-  /*const*/ struct Response* getResponse() const {
+  const struct Response* getResponse() const {
     return response.get();
   }
 
@@ -314,6 +315,11 @@ public:
      @return vector of observation indices, counts.
    */
   vector<IdCount> obsExpand(const vector<SampleNux>& nuxen) const;
+
+  unique_ptr<class Grove> trainGrove(const class PredictorFrame* frame,
+				     class Forest* forest,
+				     const IndexRange& treeRange,
+				     class Leaf* leaf);
 };
 
 #endif

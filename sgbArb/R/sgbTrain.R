@@ -122,6 +122,18 @@ sgbTrain.default <- function(preFormat, sampler, y,
 
     # Replaces predictor frame with preformat summaries.
     # Updates argument list with new or recomputed parameters.
+    argTrain$independentTrees <- FALSE
+    if (is.factor(y)) {
+        argTrain$nodeScore = "logOdds"
+        argTrain$loss = "logistic"
+        argTrain$forestScore = "logistic"
+    }
+    else {
+        argTrain$nodeScore = "mean"
+        argTrain$loss = "l2"
+        argTrain$forestScore = "sum"
+    }
+            
     argTrain$predFixed <- predFixed
     argTrain$splitQuant <- splitQuant
     argTrain$regMono <- regMono

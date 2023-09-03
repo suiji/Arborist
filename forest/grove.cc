@@ -6,7 +6,7 @@
  */
 
 /**
-   @file train.cc
+   @file grove.cc
 
    @brief Main entry from front end for training.
 
@@ -14,55 +14,52 @@
 */
 
 #include "bv.h"
-#include "train.h"
+#include "grove.h"
 #include "predictorframe.h"
 #include "frontier.h"
 #include "pretree.h"
 #include "leaf.h"
 #include "sampler.h"
-#include "sampledobs.h"
 #include "nodescorer.h"
 
 #include <algorithm>
 
-unsigned int Train::trainBlock = 0;
+unsigned int Grove::trainBlock = 0;
 
 
-void Train::initBlock(unsigned int trainBlock_) {
+void Grove::initBlock(unsigned int trainBlock_) {
   trainBlock = trainBlock_;
 }
 
 
-void Train::deInit() {
+void Grove::deInit() {
   trainBlock = 0;
 }
 
 
-unique_ptr<Train> Train::train(const PredictorFrame* frame,
-			       const Sampler* sampler,
-			       Forest* forest,
-			       const IndexRange& treeRange,
-			       Leaf* leaf) {
-  auto train = make_unique<Train>(frame, sampler, forest);
-  train->trainChunk(frame, sampler, treeRange, leaf);
-  forest->splitUpdate(frame);
-
-  return train;
+Grove::Grove(const PredictorFrame* frame,
+	     const Sampler* sampler,
+	     Forest* forest_,
+	     unique_ptr<NodeScorer> nodeScorer_) :
+  predInfo(vector<double>(frame->getNPred())),
+  forest(forest_),
+  nodeScorer(move(nodeScorer_)) {
 }
 
 
-void Train::trainChunk(const PredictorFrame* frame,
-		       const Sampler * sampler,
-		       const IndexRange& treeRange,
-		       Leaf* leaf) {
+void Grove::train(const PredictorFrame* frame,
+		  const Sampler * sampler,
+		  const IndexRange& treeRange,
+		  Leaf* leaf) {
   for (unsigned treeStart = treeRange.getStart(); treeStart < treeRange.getEnd(); treeStart += trainBlock) {
     auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, static_cast<unsigned int>(treeRange.getEnd())));
     blockConsume(treeBlock, leaf);
   }
+  forest->splitUpdate(frame);
 }
 
 
-vector<unique_ptr<PreTree>> Train::blockProduce(const PredictorFrame* frame,
+vector<unique_ptr<PreTree>> Grove::blockProduce(const PredictorFrame* frame,
 						const Sampler* sampler,
 						unsigned int treeStart,
 						unsigned int treeEnd) {
@@ -75,7 +72,7 @@ vector<unique_ptr<PreTree>> Train::blockProduce(const PredictorFrame* frame,
 }
 
  
-void Train::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
+void Grove::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
 			 Leaf* leaf) {
   for (auto & pretree : treeBlock) {
     pretree->consume(this, forest, leaf);
@@ -83,7 +80,7 @@ void Train::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
 }
 
 
-void Train::consumeInfo(const vector<double>& info) {
+void Grove::consumeInfo(const vector<double>& info) {
   for (IndexT predIdx = 0; predIdx < predInfo.size(); predIdx++) {
     predInfo[predIdx] += info[predIdx];
   }

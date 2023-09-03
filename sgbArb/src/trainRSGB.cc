@@ -48,6 +48,7 @@ SEXP TrainR::initFromArgs(const List& argList,
 			 splitQuant);
 
 
+  //  trainBridge.initNodeScorer(as<string>(argList["nodeScore"]));
   trainBridge.initTree(as<unsigned int>(argList["maxLeaf"]));
   trainBridge.initBlock(as<unsigned int>(argList["treeBlock"]));
   trainBridge.initOmp(as<unsigned int>(argList["nThread"]));
@@ -56,13 +57,9 @@ SEXP TrainR::initFromArgs(const List& argList,
     NumericVector regMonoNV((SEXP) argList["regMono"]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
     trainBridge.initMono(regMono);
-    trainBridge.initBooster(as<double>(argList["nu"]));
   }
-  else {
-    IntegerVector yTrain(as<IntegerVector>(argList["y"]));
-    unsigned int nCtg = as<CharacterVector>(yTrain.attr("levels")).length();
-    trainBridge.initBooster(as<double>(argList["nu"]), nCtg);
-  }
+  trainBridge.initBooster(as<string>(argList["loss"]), as<string>(argList["forestScore"]), as<double>(argList["nu"]));
+  trainBridge.initNodeScorer(as<string>(argList["nodeScore"]));
 
   END_RCPP
 }

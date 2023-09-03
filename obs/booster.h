@@ -63,16 +63,6 @@ struct Booster {
   static void setPlurality();
 
 
-  /**
-     @brief Specifies forest scorer as sum.
-   */
-  static void setSum();
-
-  /**
-     @brief Specifies forest score as logistic.
-   */
-  static void setLogistic();
-
   
   /**
      @brief Passes through to member.
@@ -106,21 +96,9 @@ struct Booster {
   void baseEstimate(const class Sampler* sampler);
 
 
-  /**
-     @brief Stubbed object for no boosting.
-   */
-  static void makeZero();
-
-  
-  /**
-     @brief Boosting with L2 loss.
-   */
-  static void makeL2(double nu);
-
-  /**
-     @brief Boosting with log-odds loss.
-   */
-  static void makeLogOdds(double nu);
+  static void init(const string& loss,
+		   const string& scorer,
+		   double nu);
 
 
   static void deInit();

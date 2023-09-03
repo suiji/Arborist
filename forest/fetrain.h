@@ -30,14 +30,23 @@ struct FETrain {
   /**
      @brief Initializes booster state.
 
+     @param loss names the loss function.
+
+     @param scorer names the forest scoring function.
+
      @param nu is the learning rate.
-
-     @param nCtg is the categoricity.
    */
-  static void initBooster(double nu,
-			  unsigned int nCtg);
+  static void initBooster(const string& loss,
+			  const string& scorer,
+			  double nu);
 
-  
+
+  /**
+     @brief Initializes node scorer.
+   */
+  static void initNodeScorer(const string& scorer);
+
+
   /**
      @brief Registers per-node probabilities of predictor selection.
   */

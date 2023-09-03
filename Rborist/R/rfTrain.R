@@ -157,6 +157,17 @@ rfTrain.default <- function(preFormat, sampler, y,
     
     # Replaces predictor frame with preformat summaries.
     # Updates argument list with new or recomputed parameters.
+    argTrain$independentTrees <- TRUE
+    argTrain$loss <- "zero"
+    if (is.factor(y)) {
+        argTrain$nodeScore = "plurality"
+        argTrain$forestScore = "plurality"
+    }
+    else {
+        argTrain$nodeScore = "mean"
+        argTrain$forestScore = "mean"
+    }
+
     argTrain$predFixed <- predFixed
     argTrain$classWeight <- classWeight
     argTrain$splitQuant <- splitQuant
