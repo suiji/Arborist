@@ -38,24 +38,32 @@ void Grove::deInit() {
 
 
 Grove::Grove(const PredictorFrame* frame,
-	     const Sampler* sampler,
-	     Forest* forest_,
-	     unique_ptr<NodeScorer> nodeScorer_) :
+	     const IndexRange& range) :
+  forestRange(range),
+  nodeScorer(NodeScorer::makeScorer()),
   predInfo(vector<double>(frame->getNPred())),
-  forest(forest_),
-  nodeScorer(move(nodeScorer_)) {
+  nodeCresc(make_unique<NodeCresc>()),
+  fbCresc(make_unique<FBCresc>()) {
 }
 
 
 void Grove::train(const PredictorFrame* frame,
 		  const Sampler * sampler,
-		  const IndexRange& treeRange,
 		  Leaf* leaf) {
-  for (unsigned treeStart = treeRange.getStart(); treeStart < treeRange.getEnd(); treeStart += trainBlock) {
-    auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, static_cast<unsigned int>(treeRange.getEnd())));
+  for (unsigned treeStart = forestRange.getStart(); treeStart < forestRange.getEnd(); treeStart += trainBlock) {
+    auto treeBlock = blockProduce(frame, sampler, treeStart, min(treeStart + trainBlock, static_cast<unsigned int>(forestRange.getEnd())));
     blockConsume(treeBlock, leaf);
   }
-  forest->splitUpdate(frame);
+  splitUpdate(frame);
+}
+
+
+void FBCresc::appendBits(const BV& splitBits_,
+			 const BV& observedBits_,
+			 size_t bitEnd) {
+  size_t nSlot = splitBits_.appendSlots(splitBits, bitEnd);
+  (void) observedBits_.appendSlots(observedBits, bitEnd);
+  extents.push_back(nSlot);
 }
 
 
@@ -75,7 +83,7 @@ vector<unique_ptr<PreTree>> Grove::blockProduce(const PredictorFrame* frame,
 void Grove::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
 			 Leaf* leaf) {
   for (auto & pretree : treeBlock) {
-    pretree->consume(this, forest, leaf);
+    pretree->consume(this, leaf);
   }
 }
 
@@ -85,3 +93,41 @@ void Grove::consumeInfo(const vector<double>& info) {
     predInfo[predIdx] += info[predIdx];
   }
 }
+
+
+size_t Grove::getNodeCount() const {
+  return scoresCresc.size();
+}
+
+
+void Grove::cacheNode(complex<double> complexOut[]) const {
+  nodeCresc->dump(complexOut);
+}
+
+
+void Grove::cacheScore(double scoreOut[]) const {
+  for (size_t i = 0; i != scoresCresc.size(); i++)
+    scoreOut[i] = scoresCresc[i];
+}
+
+
+const vector<size_t>& Grove::getFacExtents() const {
+  return fbCresc->getExtents();
+}
+
+
+size_t Grove::getFactorBytes() const {
+  return fbCresc->getFactorBytes();
+}
+
+
+void Grove::cacheFacRaw(unsigned char rawOut[]) const {
+  fbCresc->dumpSplitBits(rawOut);
+}
+
+
+void Grove::cacheObservedRaw(unsigned char observedOut[]) const {
+  fbCresc->dumpObserved(observedOut);
+}
+  
+

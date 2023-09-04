@@ -34,15 +34,6 @@ Forest::Forest(vector<vector<DecNode>> decNode_,
 }
 
 
-void FBCresc::appendBits(const BV& splitBits_,
-			 const BV& observedBits_,
-			 size_t bitEnd) {
-  size_t nSlot = splitBits_.appendSlots(splitBits, bitEnd);
-  (void) observedBits_.appendSlots(observedBits, bitEnd);
-  extents.push_back(nSlot);
-}
-
-
 vector<size_t> Forest::produceHeight(const vector<size_t>& extents) const {
   vector<size_t> heights(nTree);
   size_t heightAccum = 0;

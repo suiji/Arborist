@@ -8,7 +8,6 @@
 
 #include "predict.h"
 #include "sampler.h"
-#include "grove.h"
 #include "response.h"
 #include "samplernux.h"
 #include "frontier.h"
@@ -117,17 +116,6 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 
 
 Sampler::~Sampler() = default;
-
-
-unique_ptr<Grove> Sampler::trainGrove(const class PredictorFrame* frame,
-				      class Forest* forest,
-				      const IndexRange& range,
-				      class Leaf* leaf) {
-  unique_ptr<Grove> grove = make_unique<Grove>(frame, this, forest, NodeScorer::makeScorer());
-  grove->train(frame, this, range, leaf);
-
-  return grove;
-}
 
 
 unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {

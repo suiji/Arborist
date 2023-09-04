@@ -190,16 +190,19 @@ struct FBTrain {
   /**
      @brief Copies core representation of forest components.
 
-     @param bridge caches a crescent forest chunk.
+     @param grove caches a crescent forest chunk.
 
-     @param treeOff is the beginning tree index of the trained chunk.
+     @param treeOff is the beginning tree index of the grove.
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void bridgeConsume(const struct ForestBridge& bridge,
-		     unsigned int treeOff,
-		     double fraction);
+  void groveConsume(const struct GroveBridge* grove,
+		    unsigned int treeOff,
+		    double fraction);
 
+
+  void scoreDescConsume(const struct TrainBridge& trainBridge);
+  
 
 private:
 
@@ -215,7 +218,7 @@ private:
 
      @param fraction is a scaling factor used to estimate buffer size.
    */
-  void nodeConsume(const struct ForestBridge& bridge,
+  void nodeConsume(const struct GroveBridge* grove,
 		   unsigned int treeOff,
 		   double fraction);
 
@@ -223,7 +226,7 @@ private:
   /**
      @brief As above, but collects factor-splitting parameters.
    */
-  void factorConsume(const struct ForestBridge& bridge,
+  void factorConsume(const struct GroveBridge* bridge,
 		     unsigned int treeOff,
 		     double fraction);
 

@@ -315,11 +315,6 @@ public:
      @return vector of observation indices, counts.
    */
   vector<IdCount> obsExpand(const vector<SampleNux>& nuxen) const;
-
-  unique_ptr<class Grove> trainGrove(const class PredictorFrame* frame,
-				     class Forest* forest,
-				     const IndexRange& treeRange,
-				     class Leaf* leaf);
 };
 
 #endif

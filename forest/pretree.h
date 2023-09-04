@@ -19,7 +19,6 @@
 
 #include "bv.h"
 #include "typeparam.h"
-#include "forest.h"
 #include "decnode.h"
 #include "samplemap.h"
 
@@ -139,7 +138,6 @@ class PreTree {
      @return leaf map from consumed frontier.
   */
   void consume(class Grove* train,
-	       Forest *forest,
 	       struct Leaf* leaf) const;
 
 

@@ -52,7 +52,7 @@ struct TrainR {
 
   // Training granularity.  Values guesstimated to minimize footprint of
   // Core-to-Bridge copies while also not over-allocating:
-  static constexpr unsigned int treeChunk = 20;
+  static constexpr unsigned int groveSize = 20;
   static constexpr double allocSlop = 1.2;
 
   static const string strVersion;
@@ -90,8 +90,8 @@ struct TrainR {
 	 unsigned int nTree_);
 
 
-  void trainChunks(const struct TrainBridge& tb,
-		   bool thinLeaves);
+  void trainGrove(const struct TrainBridge& tb,
+		  bool thinLeaves);
 
 
   /**
@@ -145,18 +145,12 @@ struct TrainR {
 
      @param scale guesstimates a reallocation size.
    */
-  void consume(const struct ForestBridge& fb,
+  void consume(const struct GroveBridge* grove,
 	       const struct LeafBridge& lb,
                unsigned int tIdx,
                unsigned int chunkSize);
 
 
-  /**
-     @brief As above, but consumes TrainedChunk internals.
-   */
-  void consumeChunk(const struct TrainedChunk* train);
-
-  
   /**
      @brief Whole-forest summary of trained chunks.
 

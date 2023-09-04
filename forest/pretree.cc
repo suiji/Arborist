@@ -13,6 +13,7 @@
    @author Mark Seligman
  */
 #include "grove.h"
+#include "forest.h"
 #include "predictorframe.h"
 #include "frontier.h"
 #include "leaf.h"
@@ -115,13 +116,10 @@ void PreTree::setScore(const IndexSet& iSet,
 
 
 void PreTree::consume(Grove* grove,
-		      Forest* forest,
 		      Leaf* leaf) const {
   grove->consumeInfo(infoLocal);
-  
-  forest->consumeTree(nodeVec, scores);
-  forest->consumeBits(splitBits, observedBits, bitEnd);
-
+  grove->consumeTree(nodeVec, scores);
+  grove->consumeBits(splitBits, observedBits, bitEnd);
   leaf->consumeTerminals(this, terminalMap);
 }
 

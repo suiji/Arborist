@@ -24,6 +24,7 @@
  */
 
 #include "forestbridge.h"
+#include "grovebridge.h"
 #include "leafbridge.h"
 #include "trainR.h"
 #include "trainbridge.h"
@@ -57,7 +58,7 @@ List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& ar
   initFromArgs(argList, trainBridge);
 
   TrainR trainR(lSampler, argList);
-  trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
+  trainR.trainGrove(trainBridge, as<bool>(argList["thinLeaves"]));
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
   if (verbose) {
@@ -83,7 +84,7 @@ List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& ar
   initFromArgs(argList, trainBridge);
 
   TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]));
-  trainR.trainChunks(trainBridge, as<bool>(argList["thinLeaves"]));
+  trainR.trainGrove(trainBridge, as<bool>(argList["thinLeaves"]));
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
   if (verbose) {
@@ -159,40 +160,35 @@ NumericVector TrainR::scaleInfo(const TrainBridge& trainBridge) const {
 }
 
 
-void TrainR::trainChunks(const TrainBridge& trainBridge,
-			 bool thinLeaves) {
-  for (unsigned int treeOff = 0; treeOff < nTree; treeOff += treeChunk) {
-    auto chunkThis = treeOff + treeChunk > nTree ? nTree - treeOff : treeChunk;
-    ForestBridge fb(chunkThis);
+void TrainR::trainGrove(const TrainBridge& trainBridge,
+			bool thinLeaves) {
+  for (unsigned int treeOff = 0; treeOff < nTree; treeOff += groveSize) {
+    auto chunkThis = treeOff + groveSize > nTree ? nTree - treeOff : groveSize;
     LeafBridge lb(samplerBridge, thinLeaves);
-    auto trainedChunk = trainBridge.train(fb, samplerBridge, treeOff, chunkThis, lb);
-    consume(fb, lb, treeOff, chunkThis);
-    consumeChunk(trainedChunk.get());
+    unique_ptr<GroveBridge> gb = GroveBridge::train(trainBridge, samplerBridge, treeOff, chunkThis, lb);
+    consume(gb.get(), lb, treeOff, chunkThis);
   }
+  forest.scoreDescConsume(trainBridge);
 }
 
 
-void TrainR::consume(const ForestBridge& fb,
-		      const LeafBridge& lb,
-                      unsigned int treeOff,
-                      unsigned int chunkSize) {
+void TrainR::consume(const GroveBridge* grove,
+		     const LeafBridge& lb,
+		     unsigned int treeOff,
+		     unsigned int chunkSize) {
   double scale = safeScale(treeOff + chunkSize);
-  forest.bridgeConsume(fb, treeOff, scale);
+  forest.groveConsume(grove, treeOff, scale);
   leaf.bridgeConsume(lb, scale);
-  
-  if (verbose) {
-    Rcout << treeOff + chunkSize << " trees trained" << endl;
-  }
-}
 
-
-void TrainR::consumeChunk(const TrainedChunk* train) {
-  NumericVector infoChunk(train->getPredInfo().begin(), train->getPredInfo().end());
+  NumericVector infoGrove(grove->getPredInfo().begin(), grove->getPredInfo().end());
   if (predInfo.length() == 0) {
-    predInfo = infoChunk;
+    predInfo = infoGrove;
   }
   else {
-    predInfo = predInfo + infoChunk;
+    predInfo = predInfo + infoGrove;
+  }  
+  if (verbose) {
+    Rcout << treeOff + chunkSize << " trees trained" << endl;
   }
 }
 

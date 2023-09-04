@@ -23,26 +23,6 @@
 using namespace std;
 
 
-struct TrainedChunk {
-  TrainedChunk(unique_ptr<class Grove>);
-
-  ~TrainedChunk();
-  
-  
-  /**
-     @brief Getter for splitting information values.
-
-     @return reference to per-predictor information vector.
-   */
-  const vector<double>& getPredInfo() const;
-  
-
-private:
-
-  const unique_ptr<class Grove> grove; ///< Core-level instantiation.
-};
-
-
 struct TrainBridge {
   TrainBridge(unique_ptr<struct RLEFrame> rleFrame,
 	      double autoCompress,
@@ -52,6 +32,11 @@ struct TrainBridge {
   
   ~TrainBridge();
 
+
+  const struct PredictorFrame* getFrame() const {
+    return frame.get();
+  }
+
   
   /**
      @brief Copies internal-to-external predictor map.
@@ -59,16 +44,6 @@ struct TrainBridge {
      @return copy of frame's predMap.
    */
   vector<unsigned int> getPredMap() const;
-
-  
-  /**
-     @brief Main entry for training.
-   */
-  unique_ptr<TrainedChunk> train(const struct ForestBridge& forest,
-				 const struct SamplerBridge& sampler,
-				 unsigned int treeOff,
-				 unsigned int treeChunk,
-				 const struct LeafBridge& leafBridge) const;
 
 
   /**
@@ -94,6 +69,14 @@ struct TrainBridge {
   static void initBooster(const string& loss,
 			  const string& scorer,
 			  double nu = 0.0);
+
+
+  /**
+     @brief Deconstructs contents of core object's ScoreDesc.
+   */
+  void getScoreDesc(double& nu,
+		    double& baseScore,
+		    string& forestScorer) const;
 
 
   static void initNodeScorer(const string& scorer);

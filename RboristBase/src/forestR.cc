@@ -25,7 +25,9 @@
 
 #include "resizeR.h"
 #include "forestR.h"
+#include "grovebridge.h"
 #include "forestbridge.h"
+#include "trainbridge.h"
 #include "trainR.h"
 #include "samplerR.h"
 
@@ -55,52 +57,56 @@ FBTrain::FBTrain(unsigned int nTree_) :
 }
 
 
-void FBTrain::bridgeConsume(const ForestBridge& bridge,
-			    unsigned int tIdx,
-			    double scale) {
-  nodeConsume(bridge, tIdx, scale);
-  factorConsume(bridge, tIdx, scale);
-  bridge.getScoreDesc(nu, baseScore, forestScorer);
+void FBTrain::groveConsume(const GroveBridge* grove,
+			   unsigned int tIdx,
+			   double scale) {
+  nodeConsume(grove, tIdx, scale);
+  factorConsume(grove, tIdx, scale);
 }
 
 
-void FBTrain::nodeConsume(const ForestBridge& bridge,
+void FBTrain::nodeConsume(const GroveBridge* bridge,
 			  unsigned int tIdx,
 			  double scale) {
-  const vector<size_t>&nExtents = bridge.getNodeExtents();
+  const vector<size_t>&nExtents = bridge->getNodeExtents();
   unsigned int fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + nExtents.size(); toIdx++) {
     nodeExtent[toIdx] = nExtents[fromIdx++];
   }
 
-  size_t nodeCount = bridge.getNodeCount();
+  size_t nodeCount = bridge->getNodeCount();
   if (nodeTop + nodeCount > static_cast<size_t>(cNode.length())) {
     cNode = std::move(ResizeR::resize<ComplexVector>(cNode, nodeTop, nodeCount, scale));
     scores = std::move(ResizeR::resize<NumericVector>(scores, nodeTop, nodeCount, scale));
   }
-  bridge.dumpTree((complex<double>*)&cNode[nodeTop]);
-  bridge.dumpScore(&scores[nodeTop]);
+  bridge->dumpTree((complex<double>*)&cNode[nodeTop]);
+  bridge->dumpScore(&scores[nodeTop]);
   nodeTop += nodeCount;
 }
 
 
-void FBTrain::factorConsume(const ForestBridge& bridge,
+void FBTrain::factorConsume(const GroveBridge* bridge,
 			    unsigned int tIdx,
 			    double scale) {
-  const vector<size_t>& fExtents = bridge.getFacExtents();
+  const vector<size_t>& fExtents = bridge->getFacExtents();
   unsigned int fromIdx = 0;
   for (unsigned int toIdx = tIdx; toIdx < tIdx + fExtents.size(); toIdx++) {
     facExtent[toIdx] = fExtents[fromIdx++];
   }
  
-  size_t facBytes = bridge.getFactorBytes();
+  size_t facBytes = bridge->getFactorBytes();
   if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
     facRaw = std::move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
     facObserved = std::move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
   }
-  bridge.dumpFactorRaw(&facRaw[facTop]);
-  bridge.dumpFactorObserved(&facObserved[facTop]);
+  bridge->dumpFactorRaw(&facRaw[facTop]);
+  bridge->dumpFactorObserved(&facObserved[facTop]);
   facTop += facBytes;
+}
+
+
+void FBTrain::scoreDescConsume(const TrainBridge& trainBridge) {
+  trainBridge.getScoreDesc(nu, baseScore, forestScorer);
 }
 
 

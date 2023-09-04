@@ -59,7 +59,7 @@ struct ForestBridge {
   /**
      @brief Training constructor.
    */
-  ForestBridge(unsigned int treeChunk);
+  //  ForestBridge(unsigned int treeChunk);
 
   
   ForestBridge(ForestBridge&&);
@@ -81,20 +81,6 @@ struct ForestBridge {
   
   
   /**
-     @return count of trained nodes.
-   */
-  size_t getNodeCount() const;
-
-  
-  /**
-     @brief Deconstructs contents of core object's ScoreDesc.
-   */
-  void getScoreDesc(double& nu,
-		    double& baseScore,
-		    string& forestScorer) const;
-
-
-  /**
      @brief Returns pointer to core-level Forest.
    */
   class Forest* getForest() const;
@@ -106,43 +92,8 @@ struct ForestBridge {
   unsigned int getNTree() const;
 
 
-  const vector<size_t>& getNodeExtents() const;
-
-
   const vector<size_t>& getFacExtents() const;
 
-  
-  /**
-     @brief Passes through to Forest method.
-
-     @return # bytes in current chunk of factors.
-   */
-  size_t getFactorBytes() const;
-  
-
-  /**
-     @brief Dumps the tree nodes into a fixed-size complex-valued buffer.
-   */
-  void dumpTree(complex<double> treeOut[]) const;
-
-  
-  /**
-     @brief Dumps the scores into a fixed-size numeric buffer.
-   */
-  void dumpScore(double scoreOut[]) const;
-  
-
-  /**
-     @brief Dumps the splitting bits into a fixed-size raw buffer.
-   */
-  void dumpFactorRaw(unsigned char facOut[]) const;
-
-  
-  /**
-     @brief Dumps the observed bits into a fixed-sized raw buffer.
-   */
-  void dumpFactorObserved(unsigned char obsOut[]) const;
-  
 
   /**
      @brief Dumps the forest into per-tree vectors.

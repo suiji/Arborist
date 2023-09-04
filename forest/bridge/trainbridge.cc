@@ -18,6 +18,7 @@
 #include "samplerbridge.h"
 #include "leafbridge.h"
 #include "sampler.h"
+#include "booster.h"
 #include "grove.h"
 
 // Type completion only:
@@ -41,20 +42,6 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 }
 
 
-unique_ptr<TrainedChunk> TrainBridge::train(const ForestBridge& forestBridge,
-					    const SamplerBridge& samplerBridge,
-					    unsigned int treeOff,
-					    unsigned int treeChunk,
-					    const LeafBridge& leafBridge) const {
-  unique_ptr<Grove> grove = samplerBridge.getSampler()->trainGrove(frame.get(),
-								   forestBridge.getForest(),
-								   IndexRange(treeOff, treeChunk),
-								   leafBridge.getLeaf());
-
-  return make_unique<TrainedChunk>(std::move(grove));
-}
-
-
 void TrainBridge::initBlock(unsigned int trainBlock) {
   Grove::initBlock(trainBlock);
 }
@@ -73,6 +60,13 @@ void TrainBridge::initTree(size_t leafMax) {
 
 void TrainBridge::initBooster(const string& loss, const string& scorer, double nu) {
   FETrain::initBooster(loss, scorer, nu);
+}
+
+
+void TrainBridge::getScoreDesc(double& nu,
+			       double& baseScore,
+			       string& forestScorer) const {
+  Booster::listScoreDesc(nu, baseScore, forestScorer);
 }
 
 
@@ -103,16 +97,4 @@ void TrainBridge::deInit() {
   ForestBridge::deInit();
   FETrain::deInit();
   Grove::deInit();
-}
-
-
-TrainedChunk::TrainedChunk(unique_ptr<Grove> grove_) : grove(std::move(grove_)) {
-}
-
-
-TrainedChunk::~TrainedChunk() = default;
-
-
-const vector<double>& TrainedChunk::getPredInfo() const {
-  return grove->getPredInfo();
 }
