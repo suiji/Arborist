@@ -30,6 +30,8 @@
 #include "trainbridge.h"
 #include "trainR.h"
 #include "samplerR.h"
+#include "leafR.h"
+
 
 const string FBTrain::strNTree = "nTree";
 const string FBTrain::strNode = "node";
@@ -176,6 +178,28 @@ ForestBridge ForestR::unwrap(const List& lTrain,
 		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
 		      unwrapScoreDesc(lForest, categorical));
+}
+
+
+ForestBridge ForestR::unwrap(const List& lTrain,
+			     const SamplerBridge& samplerBridge) {
+  List lForest(checkForest(lTrain));
+  List lNode((SEXP) lForest[FBTrain::strNode]);
+  List lFactor((SEXP) lForest[FBTrain::strFactor]);
+  List lLeaf((SEXP) lTrain[TrainR::strLeaf]);
+  bool emptyLeaf = (Rf_isNull(lLeaf[LeafR::strIndex]) || Rf_isNull(lLeaf[LeafR::strExtent]));
+  bool thinLeaf = emptyLeaf || as<NumericVector>(lLeaf[LeafR::strExtent]).length() == 0;
+  return ForestBridge(as<unsigned int>(lForest[FBTrain::strNTree]),
+		      as<NumericVector>(lNode[FBTrain::strExtent]).begin(),
+		      (complex<double>*) as<ComplexVector>(lNode[FBTrain::strTreeNode]).begin(),
+		      as<NumericVector>(lForest[FBTrain::strScores]).begin(),
+		      as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
+		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
+		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
+		      unwrapScoreDesc(lForest, samplerBridge.categorical()),
+		      samplerBridge,
+		      thinLeaf ? nullptr : as<NumericVector>(lLeaf[LeafR::strExtent]).begin(),
+		      thinLeaf ? nullptr : as<NumericVector>(lLeaf[LeafR::strIndex]).begin());
 }
 
 

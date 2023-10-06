@@ -50,7 +50,7 @@ struct ForestR {
 
   
   /**
-     @brief Factory incorporating trained forest cached by front end.
+     @brief Dumping unwrapper.
 
      @param sTrain is an R-stye List node containing forest vectors.
 
@@ -60,6 +60,13 @@ struct ForestR {
   */
   static struct ForestBridge unwrap(const List& sTrain,
 				    bool categorical = false);
+
+  
+  /**
+     @brief Prediction unwrapper.
+   */
+  static struct ForestBridge unwrap(const List& sTrain,
+				    const struct SamplerBridge& samplerBridge);
 
 
   /**

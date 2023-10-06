@@ -31,11 +31,11 @@ IndexT PreTree::leafMax = 0;
 
 PreTree::PreTree(const PredictorFrame* frame,
 		 IndexT bagCount) :
-  leafCount(0),
-  infoLocal(vector<double>(frame->getNPred())),
   splitBits(BV(bagCount * frame->getFactorExtent())), // Vague estimate.
   observedBits(BV(bagCount * frame->getFactorExtent())),
-  bitEnd(0) {
+  bitEnd(0),
+  leafCount(0),
+  infoLocal(vector<double>(frame->getNPred())) {
 }
 
 
@@ -115,12 +115,10 @@ void PreTree::setScore(const IndexSet& iSet,
 }
 
 
-void PreTree::consume(Grove* grove,
-		      Leaf* leaf) const {
-  grove->consumeInfo(infoLocal);
+void PreTree::consume(Grove* grove) const {
   grove->consumeTree(nodeVec, scores);
   grove->consumeBits(splitBits, observedBits, bitEnd);
-  leaf->consumeTerminals(this, terminalMap);
+  grove->consumeInfo(infoLocal);
 }
 
 
@@ -176,7 +174,7 @@ void PreTree::leafMerge() {
       infoQueue.emplace(mergeNode[ptId]);
     }
   }
-  //cout << infoQueue.size() << " nonterminals in queue + " << leafCount << " leaves out of " << height << endl;
+
   
   vector<IndexT> ptMerged(height);
   iota(ptMerged.begin(), ptMerged.end(), 0);

@@ -29,7 +29,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <memory>
 using namespace std;
 
 /**
@@ -65,10 +64,6 @@ struct LeafR {
    */
   void bridgeConsume(const struct LeafBridge& sb,
 		     double scale);
-
-
-  static LeafBridge unwrap(const List& lLeaf,
-			   const struct SamplerBridge& samplerBridge);
 };
 
 

@@ -76,24 +76,15 @@ struct TrainR {
   double baseScore; ///< Base score, " ".
 
   /**
-     @brief Tree count dictated by sampler:  independent.
+     @brief Tree count dictated by sampler.
    */
   TrainR(const List& lSampler,
 	 const List& argList);
 
 
-  /**
-     @brief Tree count independent of sampler:  possibly sequential.
-   */
-  TrainR(const List& lSampler,
-	 const List& argList,
-	 unsigned int nTree_);
+  void trainGrove(const struct TrainBridge& tb);
 
-
-  void trainGrove(const struct TrainBridge& tb,
-		  bool thinLeaves);
-
-
+  
   /**
      @brief Scales the per-predictor information quantity by # trees.
 
@@ -101,11 +92,17 @@ struct TrainR {
    */
   NumericVector scaleInfo(const TrainBridge& trainBridge) const;
 
+
   /**
+     @brief Per-invocation initialization of core static values.
+
+     Algorithm-specific implementation included by configuration
+     script.
+     
      @return implicit R_NilValue.
    */
-  static SEXP initFromArgs(const List &argList,
-			   struct TrainBridge& trainBridge);
+  static SEXP initPerInvocation(const List &argList,
+				struct TrainBridge& trainBridge);
 
 
   /**
@@ -115,27 +112,15 @@ struct TrainR {
 
 
   /**
-     @brief Static entry into training of independent trees.
+     @brief Static entry into training.
 
      @param argList is the user-supplied argument list.
 
      @return R-style list of trained summaries.
    */
-  static List trainInd(const List& lRLEFrame,
-		       const List& lSampler,
-		       const List& argList);
-
-
-  /**
-     @brief Static entry into training of sequential trees.
-
-     @param argList is the user-supplied argument list.
-
-     @return R-style list of trained summaries.
-   */
-  static List trainSeq(const List& lRLEFrame,
-		       const List& lSampler,
-		       const List& argList);
+  static List train(const List& lRLEFrame,
+		    const List& lSampler,
+		    const List& argList);
 
 
   /**

@@ -22,10 +22,6 @@
 
 using namespace std;
 
-#include "forestbridge.h"
-#include "leafbridge.h"
-#include "samplerbridge.h"
-
 
 /**
    @brief Consolidates common components required by all prediction entries.
@@ -36,72 +32,75 @@ struct PredictBridge {
   /**
      @brief Constructor boxes training and output summaries.
 
-     @param nThread is the number of OMP threads requested.
-
      Remaining parameters mirror similarly-named members.
    */
-  PredictBridge(unique_ptr<struct RLEFrame> rleFrame_,
-                ForestBridge forest_,
-		unsigned int nPermute,
-		unsigned int nThread);
-
-  virtual ~PredictBridge();
+  PredictBridge();
 
   
-  size_t getNRow() const;
+  virtual ~PredictBridge();
+
+
+  static void initPredict(bool indexing,
+			  unsigned int nPermute,
+			  bool trapUnobserved);
+  
+
+  /**
+     @brief Initializes quantile reporting.
+   */
+  static void initQuant(vector<double> quantile);
+
+
+  /**
+     @brief Initializes categorical probability recording.
+   */
+  static void initCtgProb(bool doProb);
+
+
+  static void initOmp(unsigned int nThread);
+
+  
+  size_t getNObs() const;
 
 
   unsigned int getNTree() const;
   
 
-  bool permutes() const;
-
-  
   /**
      @brief Computes Meinshausen-style weight vectors over a set of observations.
      
      @return vector of normalized weight vectors.
    */
-  static vector<double> forestWeight(const ForestBridge& forestBridge,
-					     const SamplerBridge& samplerBridge,
-					     const LeafBridge& leafBridge,
-					     const double indices[],
-					     size_t nObs,
-					     unsigned int nThread);
-
-  
-protected:
-  unique_ptr<struct RLEFrame> rleFrame; ///< Local ownership
-  ForestBridge forestBridge; ///< Local ownership.
-  const unsigned int nPermute; ///< # times to permute.
+  static vector<double> forestWeight(const struct ForestBridge& forestBridge,
+				     const struct SamplerBridge& samplerBridge,
+				     const double indices[],
+				     size_t nObs);
 };
 
 
 struct PredictRegBridge : public PredictBridge {
-  PredictRegBridge(unique_ptr<struct RLEFrame> rleFrame_,
-		   ForestBridge forestBridge_,
-		   SamplerBridge samplerBridge_,
-		   LeafBridge leafBridge_,
-		   //		   const pair<double, double>& scoreDesc,
-		   vector<double> yTest,
-		   unsigned int nPermute_,
-		   bool indexing,
-		   bool trapUnobserved,
-		   unsigned int nThread,
-		   vector<double> quantile_);
+  PredictRegBridge(unique_ptr<struct SummaryReg> summary_);
 
 
   ~PredictRegBridge();
 
+
+  unique_ptr<struct SummaryReg> summary;
+
+  
 
   /**
      @brief External entry for prediction.
 
      May be parametrized for separate entry in distributed setting.
    */
-  void predict() const;
+  static unique_ptr<PredictRegBridge> predict(const class Sampler* sampler,
+					      class Forest* forest,
+				       vector<double> yTest);
 
+  bool permutes() const;
 
+  
   /**
      @return reference to cached index vector.
    */
@@ -114,12 +113,12 @@ struct PredictRegBridge : public PredictBridge {
   double getSSE() const;
 
 
-  const vector<double>& getSSEPermuted() const;
+  vector<vector<double>> getSSEPermuted() const;
 
   
-  const vector<double>& getYTest() const;
-  
+  vector<vector<double>> getSAEPermuted() const;
 
+  
   const vector<double>& getYPred() const;
   
   
@@ -132,30 +131,22 @@ struct PredictRegBridge : public PredictBridge {
      @return vector of estimate quantiles iff quant non-null else empty.
    */
   const vector<double>& getQEst() const;
-
-private:
-  SamplerBridge samplerBridge; ///< Local ownership.
-  LeafBridge leafBridge; ///< " "
-  unique_ptr<class PredictReg> predictRegCore;
 };
 
 
 struct PredictCtgBridge : public PredictBridge {
-  PredictCtgBridge(unique_ptr<struct RLEFrame> rleFrame_,
-		   ForestBridge forestBridge_,
-		   SamplerBridge samplerBridge_,
-		   LeafBridge leafBridge_,
-		   //		   const pair<double, double>& scoreDesc,
-		   vector<unsigned int> yTest,
-		   unsigned int nPermute_,
-		   bool doProb,
-		   bool indexing,
-		   bool trapUnobserved,
-		   unsigned int nThread);
-  
+  PredictCtgBridge(unique_ptr<struct SummaryCtg> summary);
+
+
   ~PredictCtgBridge();
 
 
+  unique_ptr<struct SummaryCtg> summary;
+  
+
+  bool permutes() const;
+
+  
   /**
      @return reference to cached index vector.
    */
@@ -171,13 +162,13 @@ struct PredictCtgBridge : public PredictBridge {
   const vector<double>& getMisprediction() const;
 
 
-  const vector<vector<double>>& getMispredPermuted() const;
+  vector<vector<vector<double>>> getMispredPermuted() const;
   
 
   double getOOBError() const;
 
 
-  const vector<double>& getOOBErrorPermuted() const;
+  vector<vector<double>> getOOBErrorPermuted() const;
   
 
   /**
@@ -185,7 +176,10 @@ struct PredictCtgBridge : public PredictBridge {
 
      May be parametrized for separate entry in distributed setting.
    */
-  void predict() const;
+  static unique_ptr<PredictCtgBridge> predict(const class Sampler* sampler,
+					      class Forest* forest,
+					      vector<unsigned int> yTest);
+
 
   unsigned int ctgIdx(unsigned int ctgTest,
                       unsigned int ctgPred) const;
@@ -195,12 +189,6 @@ struct PredictCtgBridge : public PredictBridge {
   
 
   const vector<double>& getProb() const;
-  
-
-private:
-  SamplerBridge samplerBridge; // Local ownership.
-  LeafBridge leafBridge; // " "
-  unique_ptr<class PredictCtg> predictCtgCore;
 };
 
 

@@ -30,7 +30,6 @@ void BV::resize(size_t bitMin) {
   while (slotsNext < slotMin)
     slotsNext <<= 1;
   rawV.resize(slotsNext);
-  raw = &rawV[0];
   nSlot = slotsNext;
 }
 
@@ -66,15 +65,6 @@ BitMatrix::BitMatrix(unsigned int nRow_,
 }
 
 
-BitMatrix::BitMatrix(const BVSlotT raw_[],
-		     unsigned int nRow_,
-		     IndexT nCol_) :
-  BV(raw_, nRow_ * Stride(nCol_)),
-  nRow(nRow_),
-  stride(nRow > 0 ? Stride(nCol_) : 0) {
-}
-
-
 BitMatrix::~BitMatrix() {
 }
 
@@ -95,16 +85,15 @@ void BitMatrix::colDump(unsigned int nRow_,
 }
 
 
-BVJagged::BVJagged(const BVSlotT raw_[],
+BVJagged::BVJagged(const BVSlotT raw[],
 		   const vector<size_t>& rowExtent_) :
-  BV(raw_, rowExtent_.back()),
+  BV(reinterpret_cast<const unsigned char*>(raw), rowExtent_.back()),
   rowHeight(std::move(rowExtent_)),
   nRow(rowExtent_.size()) {
 }
 
 
-BVJagged::~BVJagged() {
-}
+BVJagged::~BVJagged() = default;
 
 
 vector<vector<BVSlotT>> BVJagged::dump() const {

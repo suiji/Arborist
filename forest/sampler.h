@@ -40,9 +40,10 @@ class Sampler {
   const unique_ptr<struct Response> response;
   
   const vector<vector<class SamplerNux>> samples;
+  unique_ptr<class Predict> predict; // Training, prediction only.
   const unique_ptr<class BitMatrix> bagMatrix; ///< empty if training or prediction without bagging.
 
-  // Presampling only.
+  // Presampling only:
   bool trivial; ///< Shortcut.
   vector<SamplerNux> sbCresc; ///< Crescent block.
   unique_ptr<Sample::Walker<size_t>> walker; ///< Walker table.
@@ -141,6 +142,7 @@ public:
 	  vector<vector<SamplerNux>> samples_,
 	  IndexT nSamp_,
 	  PredictorT nCtg,
+	  unique_ptr<struct RLEFrame> rleFrame,
 	  bool bagging);
 
 
@@ -150,6 +152,7 @@ public:
   Sampler(const vector<double>& yTrain,
 	  vector<vector<SamplerNux>> samples_,
 	  IndexT nSamp_,
+	  unique_ptr<struct RLEFrame> rleFrame,
 	  bool bagging);
 
 
@@ -315,6 +318,17 @@ public:
      @return vector of observation indices, counts.
    */
   vector<IdCount> obsExpand(const vector<SampleNux>& nuxen) const;
+
+
+  /**
+     @brief Pass-through to Predict member functions of the same name.
+   */
+  unique_ptr<struct SummaryReg> predictReg(class Forest* forest,
+					   const vector<double>& yTest) const;
+
+
+  unique_ptr<struct SummaryCtg> predictCtg(class Forest* forest,
+					   const vector<unsigned int>& yTest) const;
 };
 
 #endif

@@ -13,6 +13,9 @@
 #include "frontier.h"
 #include "predictorframe.h"
 #include "booster.h"
+#include "forest.h"
+#include "quant.h"
+#include "rleframe.h"
 #include "prng.h"
 
 
@@ -69,7 +72,8 @@ Sampler::Sampler(const vector<double>& yTrain,
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
-  samples(samples_) {
+  samples(samples_),
+  predict(Predict::makeReg(nullptr)) {
   Booster::setEstimate(this);
 }
 
@@ -83,7 +87,8 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg, classWeight)),
-  samples(std::move(samples_)) {
+  samples(std::move(samples_)),
+  predict(Predict::makeCtg(nullptr)) {
   Booster::setEstimate(this);
 }
 
@@ -91,12 +96,14 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 Sampler::Sampler(const vector<double>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
+		 unique_ptr<RLEFrame> rleFrame,
 		 bool bagging) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
   samples(std::move(samples_)),
+  predict(Predict::makeReg(std::move(rleFrame))),
   bagMatrix(bagRows(bagging)) {
 }
 
@@ -105,12 +112,14 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
 		 PredictorT nCtg,
+		 unique_ptr<RLEFrame> rleFrame,
 		 bool bagging) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg)),
   samples(std::move(samples_)),
+  predict(Predict::makeCtg(std::move(rleFrame))),
   bagMatrix(bagRows(bagging)) {
 }
 
@@ -241,6 +250,19 @@ vector<size_t> Sampler::binIndices(size_t nObs,
 CtgT Sampler::getNCtg() const {
   return response->getNCtg();
 }
+
+
+unique_ptr<SummaryReg> Sampler::predictReg(Forest* forest,
+					   const vector<double>& yTest) const {
+  return predict->predictReg(this, forest, yTest);
+}
+
+
+unique_ptr<SummaryCtg> Sampler::predictCtg(Forest* forest,
+					   const vector<unsigned int>& yTest) const {
+  return predict->predictCtg(this, forest, yTest);
+}
+
 
 
 # ifdef restore

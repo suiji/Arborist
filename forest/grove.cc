@@ -24,16 +24,20 @@
 
 #include <algorithm>
 
+bool Grove::thinLeaves = false;
 unsigned int Grove::trainBlock = 0;
 
 
-void Grove::initBlock(unsigned int trainBlock_) {
+void Grove::init(bool thinLeaves_,
+		 unsigned int trainBlock_) {
+  thinLeaves = thinLeaves_;
   trainBlock = trainBlock_;
 }
 
 
 void Grove::deInit() {
   trainBlock = 0;
+  thinLeaves = false;
 }
 
 
@@ -79,11 +83,13 @@ vector<unique_ptr<PreTree>> Grove::blockProduce(const PredictorFrame* frame,
   return block;
 }
 
- 
+
 void Grove::blockConsume(const vector<unique_ptr<PreTree>>& treeBlock,
 			 Leaf* leaf) {
   for (auto & pretree : treeBlock) {
-    pretree->consume(this, leaf);
+    pretree->consume(this);
+    if (!thinLeaves)
+      leaf->consumeTerminals(pretree.get());
   }
 }
 

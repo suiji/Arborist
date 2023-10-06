@@ -71,14 +71,34 @@ void FETrain::initNodeScorer(const string& scorer) {
 }
 
 
+void FETrain::initGrove(bool thinLeaves, unsigned int trainBlock) {
+  Grove::init(thinLeaves, trainBlock);
+}
+
+
+void FETrain::initDecNode(unsigned int nPred) {
+  DecNode::initMasks(nPred);
+}
+
+
+void FETrain::listScoreDesc(double& nu,
+			    double& baseScore,
+			    string& forestScore) {
+  Booster::listScoreDesc(nu, baseScore, forestScore);
+}
+
+
 void FETrain::deInit() {
+  DecNode::deInit();
   Booster::deInit();
+  Grove::deInit();
   NodeScorer::deInit();
   SplitNux::deImmutables();
   IndexSet::deImmutables();
   Frontier::deInit();
   PreTree::deInit();
   SampleNux::deImmutables();
+  SamplerNux::unsetMasks();
   CandType::deInit();
   SFRegCart::deImmutables();
   OmpThread::deInit();

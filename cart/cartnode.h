@@ -56,29 +56,42 @@ struct CartNode : public TreeNode {
   /**
      @brief Advancers pass through to the base class.
    */
-  inline IndexT advance(const double* rowT,
-			bool trapUnobserved) const {
-    return isTerminal() ? 0 : TreeNode::advanceNum(rowT[getPredIdx()], trapUnobserved);
+  inline IndexT advance(const double* rowT) const {
+    return isTerminal() ? 0 : TreeNode::advanceNum(rowT[getPredIdx()]);
   }
 
 
-  inline IndexT advance(const vector<unique_ptr<class BV>>& factorBits,
-			const vector<unique_ptr<class BV>>& bitsObserved,
+  inline IndexT advance(const vector<class BV>& factorBits,
+			const vector<class BV>& bitsObserved,
 			const CtgT* rowT,
-			unsigned int tIdx,
-			bool trapUnobserved) const {
-    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, bitsObserved, rowT, tIdx, trapUnobserved);
+			unsigned int tIdx) const {
+    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, bitsObserved, rowT, tIdx);
+  } // EXIT
+
+
+  inline IndexT advance(const class BV& factorBits,
+			const class BV& bitsObserved,
+			const CtgT* rowFT) const {
+    return isTerminal() ? 0 : TreeNode::advanceFactor(factorBits, bitsObserved, rowFT);
   }
 
 
-  inline IndexT advance(const class Predict* predict,
-			const vector<unique_ptr<class BV>>& factorBits,
-			const vector<unique_ptr<class BV>>& bitsObserved,
+  inline IndexT advance(const class Forest* forest,
+			const vector<class BV>& factorBits,
+			const vector<class BV>& bitsObserved,
 			const CtgT* rowFT,
 			const double *rowNT,
-			unsigned int tIdx,
-			bool trapUnobserved) const {
-    return isTerminal() ? 0 : TreeNode::advanceMixed(predict, factorBits, bitsObserved, rowFT, rowNT, tIdx, trapUnobserved);
+			unsigned int tIdx) const {
+    return isTerminal() ? 0 : TreeNode::advanceMixed(forest, factorBits, bitsObserved, rowFT, rowNT, tIdx);
+  }// EXIT
+
+
+  inline IndexT advance(const class Forest* forest,
+			const class BV& factorBits,
+			const class BV& bitsObserved,
+			const CtgT* rowFT,
+			const double *rowNT) const {
+    return isTerminal() ? 0 : TreeNode::advanceMixed(forest, factorBits, bitsObserved, rowFT, rowNT);
   }
 };
 

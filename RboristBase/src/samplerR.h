@@ -201,7 +201,8 @@ struct SamplerR {
   /**
      @return minimal SamplerBridge.
    */
-  static struct SamplerBridge unwrapGeneric(const List& lSampler);
+  static struct SamplerBridge unwrapGeneric(const List& lSampler,
+					    bool bagging = false);
 
 
   static struct SamplerBridge makeBridgeTrain(const List& lSampler,
@@ -214,11 +215,15 @@ struct SamplerR {
 
 
   static struct SamplerBridge makeBridgeCtg(const List& lSampler,
-				  bool bagging);
+					    const List& lDeframe,
+					    bool bagging,
+					    bool generic = false);
 
 
   static struct SamplerBridge makeBridgeNum(const List& lSampler,
-				     bool bagging);
+					    const List& lDeframe,
+					    bool bagging,
+					    bool generic = false);
 };
 
 

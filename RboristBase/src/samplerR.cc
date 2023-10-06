@@ -27,6 +27,7 @@
 #include "resizeR.h"
 #include "samplerR.h"
 #include "samplerbridge.h"
+#include "rleframeR.h"
 
 #include <algorithm>
 
@@ -200,7 +201,7 @@ SamplerBridge SamplerR::unwrapTrain(const List& lSampler,
 SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
 					const IntegerVector& yTrain,
 					const List& argList) {
-  return SamplerBridge(std::move(coreCtg(yTrain)),
+  return SamplerBridge(coreCtg(yTrain),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
@@ -211,7 +212,7 @@ SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
 
 SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
 					const NumericVector& yTrain) {
-  return SamplerBridge(std::move(vector<double>(yTrain.begin(), yTrain.end())),
+  return SamplerBridge(vector<double>(yTrain.begin(), yTrain.end()),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin());
@@ -254,10 +255,10 @@ SamplerBridge SamplerR::unwrapPredict(const List& lSampler,
     checkOOB(lSampler, lDeframe);
 
   if (Rf_isNumeric((SEXP) lSampler[strYTrain])) {
-    return makeBridgeNum(lSampler, bagging);
+    return makeBridgeNum(lSampler, lDeframe, bagging);
   }
   else if (Rf_isFactor((SEXP) lSampler[strYTrain])) {
-    return makeBridgeCtg(lSampler, bagging);
+    return makeBridgeCtg(lSampler, lDeframe, bagging);
   }
   else {
     stop("Unrecognized training response type");
@@ -278,33 +279,39 @@ SEXP SamplerR::checkOOB(const List& lSampler, const List& lDeframe) {
 
 
 SamplerBridge SamplerR::makeBridgeNum(const List& lSampler,
-				      bool bagging) {
+				      const List& lDeframe,
+				      bool bagging,
+				      bool generic) {
   NumericVector yTrain(as<NumericVector>(lSampler[strYTrain]));
-  return SamplerBridge(std::move(vector<double>(yTrain.begin(), yTrain.end())),
+  return SamplerBridge(vector<double>(yTrain.begin(), yTrain.end()),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
+		       generic ? nullptr : RLEFrameR::unwrap(lDeframe),
 		       bagging);
 }
 
 
 SamplerBridge SamplerR::makeBridgeCtg(const List& lSampler,
-				   bool bagging) {
+				      const List& lDeframe,
+				      bool bagging,
+				      bool generic) {
   IntegerVector yTrain(as<IntegerVector>(lSampler[strYTrain]));
-  return SamplerBridge(std::move(coreCtg(yTrain)),
+  return SamplerBridge(coreCtg(yTrain),
 		       as<CharacterVector>(yTrain.attr("levels")).length(),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
+		       generic ? nullptr : RLEFrameR::unwrap(lDeframe),
 		       bagging);
 }
 
 
-SamplerBridge SamplerR::unwrapGeneric(const List& lSampler) {
-  return SamplerBridge(getNObs(lSampler[strYTrain]),
-		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
-		       as<size_t>(lSampler[strNSamp]),
-		       as<unsigned int>(lSampler[strNTree]));
+SamplerBridge SamplerR::unwrapGeneric(const List& lSampler, bool bagging) {
+  if (Rf_isNumeric(lSampler[strYTrain]))
+    return makeBridgeNum(lSampler, bagging, true);
+  else
+    return makeBridgeCtg(lSampler, bagging, true);
 }
 
 

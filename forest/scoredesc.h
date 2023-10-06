@@ -16,7 +16,7 @@
 #ifndef FOREST_SCOREDESC_H
 #define FOREST_SCOREDESC_H
 
-
+#include "prediction.h"
 #include "typeparam.h"
 
 #include <vector>
@@ -50,19 +50,23 @@ struct ScoreDesc {
   
   ~ScoreDesc() = default;
 
+
+  tuple<double, double, string> getTuple() {
+    return tuple<double, double, string>(nu, baseScore, scorer);
+  }
+
+
   /*
     @brief Builds algorithm-specific scorer for response type.
    */
-  unique_ptr<class ForestScorer> makeScorer(const class ResponseReg* response,
-					    const class Forest* forest,
-					    const class Leaf* leaf,
-					    const class PredictReg* predict,
-					    vector<double> quantile) const;
+  unique_ptr<ForestPredictionReg> makePredictionReg(const class Forest* forest,
+						   const class Sampler* sampler,
+						   size_t nObs) const;
 
 
-  unique_ptr<class ForestScorer> makeScorer(const class ResponseCtg* response,
-					    size_t nObs,
-					    bool doProb) const;
+  unique_ptr<ForestPredictionCtg> makePredictionCtg(const class Forest* forest,
+						 const class Sampler* sampler,
+						 size_t nObs) const;
 };
 
 #endif

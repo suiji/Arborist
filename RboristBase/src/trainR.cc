@@ -23,7 +23,6 @@
    @author Mark Seligman
  */
 
-#include "forestbridge.h"
 #include "grovebridge.h"
 #include "leafbridge.h"
 #include "trainR.h"
@@ -46,7 +45,7 @@ const string TrainR::strLeaf = "leaf";
 const string TrainR::strDiagnostic = "diag";
 const string TrainR::strClassName = "arbTrain";
 
-List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& argList) {
+List TrainR::train(const List& lDeframe, const List& lSampler, const List& argList) {
   BEGIN_RCPP
 
   if (verbose) {
@@ -55,36 +54,10 @@ List TrainR::trainInd(const List& lDeframe, const List& lSampler, const List& ar
 
   vector<string> diag;
   TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
-  initFromArgs(argList, trainBridge);
+  initPerInvocation(argList, trainBridge);
 
   TrainR trainR(lSampler, argList);
-  trainR.trainGrove(trainBridge, as<bool>(argList["thinLeaves"]));
-  List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
-
-  if (verbose) {
-    Rcout << "Training completed" << endl;
-  }
-
-  deInit();
-  return outList;
-
-  END_RCPP
-}
-
-
-List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& argList) {
-  BEGIN_RCPP
-
-  if (verbose) {
-    Rcout << "Beginning training" << endl;
-  }
-
-  vector<string> diag;
-  TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
-  initFromArgs(argList, trainBridge);
-
-  TrainR trainR(lSampler, argList, as<unsigned int>(argList["nTree"]));
-  trainR.trainGrove(trainBridge, as<bool>(argList["thinLeaves"]));
+  trainR.trainGrove(trainBridge);
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
   if (verbose) {
@@ -101,16 +74,6 @@ List TrainR::trainSeq(const List& lDeframe, const List& lSampler, const List& ar
 TrainR::TrainR(const List& lSampler, const List& argList) :
   samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
   nTree(samplerBridge.getNRep()),
-  leaf(LeafR()),
-  forest(FBTrain(nTree)) {
-}
-
-
-TrainR::TrainR(const List& lSampler,
-	       const List& argList,
-	       unsigned int nTree_) :
-  samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
-  nTree(nTree_),
   leaf(LeafR()),
   forest(FBTrain(nTree)) {
 }
@@ -160,11 +123,10 @@ NumericVector TrainR::scaleInfo(const TrainBridge& trainBridge) const {
 }
 
 
-void TrainR::trainGrove(const TrainBridge& trainBridge,
-			bool thinLeaves) {
+void TrainR::trainGrove(const TrainBridge& trainBridge) {
   for (unsigned int treeOff = 0; treeOff < nTree; treeOff += groveSize) {
     auto chunkThis = treeOff + groveSize > nTree ? nTree - treeOff : groveSize;
-    LeafBridge lb(samplerBridge, thinLeaves);
+    LeafBridge lb(samplerBridge);
     unique_ptr<GroveBridge> gb = GroveBridge::train(trainBridge, samplerBridge, treeOff, chunkThis, lb);
     consume(gb.get(), lb, treeOff, chunkThis);
   }
@@ -208,7 +170,7 @@ List TrainR::expand(const List& lTrain) {
   BEGIN_RCPP
 
   IntegerVector predMap(as<IntegerVector>(lTrain[strPredMap]));
-  ForestBridge::init(predMap.length());
+  TrainBridge::init(predMap.length());
   List level = SignatureR::getLevel(lTrain);
   List ffe =
     List::create(_[strPredMap] = IntegerVector(predMap),
@@ -218,7 +180,7 @@ List TrainR::expand(const List& lTrain) {
                  _["forest"] = ForestExpand::expand(lTrain, predMap)
                  );
 
-  ForestBridge::deInit();
+  TrainBridge::deInit();
   ffe.attr("class") = "expandTrain";
   return ffe;
 

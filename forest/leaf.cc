@@ -18,54 +18,44 @@ PackedT RankCount::rankMask = 0;
 unsigned int RankCount::rightBits = 0;
 
 
-unique_ptr<Leaf> Leaf::train(IndexT nObs,
-			     bool thin) {
+unique_ptr<Leaf> Leaf::train(IndexT nObs) {
   RankCount::setMasks(nObs);
-  return make_unique<Leaf>(thin);
+  return make_unique<Leaf>();
 }
 
 
 unique_ptr<Leaf> Leaf::predict(const Sampler* sampler,
-			       bool thin,
 			       vector<vector<size_t>> extent,
 			       vector<vector<vector<size_t>>> index) {
-  RankCount::setMasks(sampler->getNObs());
-  return make_unique<Leaf>(sampler, thin, extent, index);
+  return make_unique<Leaf>(sampler, std::move(extent), std::move(index));
 }
 
 
-Leaf::Leaf(bool thin_)
-  : thin(thin_) {
+Leaf::Leaf() {
 }
 
 
 Leaf::Leaf(const Sampler* sampler,
-	   bool thin_,
 	   vector<vector<size_t>> extent_,
 	   vector<vector<vector<size_t>>> index_) :
-  thin(thin_),
-  extent(extent_),
-  index(index_) {
+  extent(std::move(extent_)),
+  index(std::move(index_)) {
+  RankCount::setMasks(sampler->getNObs());
 }
 
 
-Leaf::~Leaf() {
-  RankCount::unsetMasks();
-}
+Leaf::~Leaf() = default;
 
 
-void Leaf::consumeTerminals(const PreTree* pretree,
-			    const SampleMap& terminalMap) {
-  if (thin)
-    return;
-  
+void Leaf::consumeTerminals(const PreTree* pretree) {
+  const SampleMap& terminalMap = pretree->getTerminalMap();
   IndexT bagCount = terminalMap.sampleIndex.size();
   IndexT extentStart = extentCresc.size();
   IndexT idStart = indexCresc.size();
   IndexT nLeaf = terminalMap.range.size();
 
-  // Pre-grows extent and sample buffers for unordered writes.
-  indexCresc.insert(indexCresc.end(), bagCount, 0); // bag-count
+  // Pre-grows extent and index buffers for unordered writes.
+  indexCresc.insert(indexCresc.end(), bagCount, 0);
   extentCresc.insert(extentCresc.end(), nLeaf, 0);
 
   // Writes leaf extents for tree, unordered.

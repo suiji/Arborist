@@ -31,6 +31,9 @@
 using namespace Rcpp;
 
 
+#include<memory>
+using namespace std;
+
 /**
    @brief Prediction with separate test vector.
 
@@ -73,33 +76,49 @@ struct PredictR {
   static const string strNThread;
   static const string strCtgProb;
 
-  static List predictCtg(const List& lDeframe,
-			 const List& lTrain,
-			 const List& lSampler,
-			 const SEXP sYTest,
-			 const List& lArgs);
+
+  /**
+     @brief Drives prediction according to response type.
+   */
+  static List predict(const List& lDeframe,
+		      const List& lTrain,
+		      const List& lSampler,
+		      const List& lArgs,
+		      const SEXP sYTest);
 
 
   /**
-     @brief Prediction for regression.  Parameters as above.
+     @brief Instantiates core classification object and summarizes.
+
+     @return wrapped prediction.
+   */
+  static List predictCtg(const List& lDeframe,
+			 const List& lSampler,
+			 const struct SamplerBridge& samplerBridge,
+			 struct ForestBridge& forestBridge,
+			 const SEXP sYTest);
+
+
+  /**
+     @brief Instantiates core regression object and summarizes.
+
+     @return wrapped prediction.
    */
   static List predictReg(const List& lDeframe,
-                         const List& lTrain,
-			 const List& lSampler,
-                         const SEXP sYTest,
-			 const List& lArgs);
+			 const struct SamplerBridge& samplerBridge,
+			 struct ForestBridge& forestBridge,
+			 const SEXP sYTest);
 
-  
+
   /**
-     @brief Unwraps regression data structurs and moves to box.
+     @brief Per-invocation initialization of core static values.
 
-     @return unique pointer to bridge-variant PredictBridge. 
+     Algorithm-specific implementation included by configuration
+     script.
+
+     @retun implicit R_NilValue.
    */
-  static unique_ptr<struct PredictRegBridge> unwrapReg(const List& lDeframe,
-						       const List& lTrain,
-						       const List& lSampler,
-						       const SEXP sYTest,
-						       const List& lArgs);
+  static SEXP initPerInvocation(const List& lArgs);
 
 
   /**
@@ -109,17 +128,6 @@ struct PredictR {
    */
   List predict(SEXP sYTest,
                const vector<double>& quantile) const;
-
-  /**
-     @brief Unwraps regression data structurs and moves to box.
-
-     @return unique pointer to bridge-variant PredictBridge. 
-   */
-  static unique_ptr<struct PredictCtgBridge> unwrapCtg(const List& lDeframe,
-						       const List& lTrain,
-						       const List& lSampler,
-						       const SEXP sYTest,
-						       const List& lArgs);
 
 
   static List summary(const List& lDeframe,
@@ -161,13 +169,6 @@ private:
      @return wrapped predictions.
    */
   static List predictReg(SEXP sYTest);
-
-  /**
-     @brief Instantiates core PredictRf object, driving prediction.
-
-     @return wrapped prediction.
-   */
-  static List predictCtg(SEXP sYTest, const List& lTrain, const List& sFrame);
 
 
   /**
@@ -256,14 +257,14 @@ struct LeafCtgRf {
    @brief Internal back end-style vectors cache annotations for
    per-tree access.
  */
-struct TestCtg {
+struct TestCtgR {
   const CharacterVector levelsTrain;
   const CharacterVector levels;
   const IntegerVector test2Merged;
   const vector<unsigned int> yTestZero;
   const unsigned int ctgMerged;
 
-  TestCtg(const IntegerVector& yTest,
+  TestCtgR(const IntegerVector& yTest,
           const CharacterVector& levelsTrain_);
 
   
@@ -313,12 +314,12 @@ struct TestCtg {
 
 
 
-  NumericMatrix mispredPermuted(const PredictCtgBridge* pBridge,
-				const CharacterVector& predNames) const;
+  List mispredPermuted(const PredictCtgBridge* pBridge,
+		       const CharacterVector& predNames) const;
 
 
 
-  NumericVector oobErrPermuted(const PredictCtgBridge* pBridge,
+  NumericMatrix oobErrPermuted(const PredictCtgBridge* pBridge,
 			       const CharacterVector& predNames) const;
 };
 

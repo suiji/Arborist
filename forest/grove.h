@@ -141,6 +141,7 @@ public:
    of the data and constructs forest, leaf and diagnostic structures.
 */
 class Grove {
+  static bool thinLeaves; ///< True iff leaves not cached.
   static unsigned int trainBlock; ///< Front-end defined buffer size. Unused.
   const IndexRange forestRange; ///< Coordinates within forest.
   const unique_ptr<struct NodeScorer> nodeScorer; ///< Belongs elsewhere.
@@ -149,7 +150,6 @@ class Grove {
   unique_ptr<NodeCresc> nodeCresc; ///< Crescent node block.
   unique_ptr<FBCresc> fbCresc; ///< Crescent factor-summary block.
   vector<double> scoresCresc; ///< Crescent score block.
-
 
 public:
 
@@ -175,10 +175,10 @@ public:
   }
   
   void consumeTree(const vector<DecNode>& nodes,
-		   const vector<double>& scores_) {
+		   const vector<double>& scores) {
     IndexT height = nodes.size();
     nodeCresc->consumeNodes(nodes, height);
-    copy(scores_.begin(), scores_.begin() + height, back_inserter(scoresCresc));
+    copy(scores.begin(), scores.begin() + height, back_inserter(scoresCresc));
   }
 
 
@@ -216,7 +216,8 @@ public:
   }
 
 
-  static void initBlock(unsigned int trainBlock_);
+  static void init(bool thinLeaves_,
+		   unsigned int trainBlock_);
 
  
   /**

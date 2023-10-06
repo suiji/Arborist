@@ -27,8 +27,8 @@
 #include "trainbridge.h"
 
 
-SEXP TrainR::initFromArgs(const List& argList,
-			  TrainBridge& trainBridge) {
+SEXP TrainR::initPerInvocation(const List& argList,
+			       TrainBridge& trainBridge) {
   BEGIN_RCPP
 
   vector<unsigned int> pm = trainBridge.getPredMap();
@@ -68,7 +68,7 @@ SEXP TrainR::initFromArgs(const List& argList,
 RcppExport SEXP trainSGB(const SEXP sDeframe, const SEXP sSampler, const SEXP sArgList) {
   BEGIN_RCPP
 
-  return TrainR::trainSeq(List(sDeframe), List(sSampler), List(sArgList));
+  return TrainR::train(List(sDeframe), List(sSampler), List(sArgList));
 
   END_RCPP
 }

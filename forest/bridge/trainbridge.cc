@@ -12,24 +12,13 @@
 
    @author Mark Seligman
 */
-
-#include "forestbridge.h"
 #include "trainbridge.h"
-#include "samplerbridge.h"
-#include "leafbridge.h"
-#include "sampler.h"
-#include "booster.h"
-#include "grove.h"
-
-// Type completion only:
-#include "nodescorer.h"
-#include "sampledobs.h"
 #include "fetrain.h"
 #include "predictorframe.h"
 #include "coproc.h"
 
 TrainBridge::TrainBridge(unique_ptr<RLEFrame> rleFrame, double autoCompress, bool enableCoproc, vector<string>& diag) : frame(make_unique<PredictorFrame>(std::move(rleFrame), autoCompress, enableCoproc, diag)) {
-  ForestBridge::init(frame->getNPred());
+  init(frame->getNPred());
 }
 
 
@@ -42,8 +31,14 @@ vector<PredictorT> TrainBridge::getPredMap() const {
 }
 
 
-void TrainBridge::initBlock(unsigned int trainBlock) {
-  Grove::initBlock(trainBlock);
+void TrainBridge::init(unsigned int nPred) {
+  FETrain::initDecNode(nPred);
+}
+
+
+void TrainBridge::initGrove(bool thinLeaves,
+			    unsigned int trainBlock) {
+  FETrain::initGrove(thinLeaves, trainBlock);
 }
 
 
@@ -65,8 +60,8 @@ void TrainBridge::initBooster(const string& loss, const string& scorer, double n
 
 void TrainBridge::getScoreDesc(double& nu,
 			       double& baseScore,
-			       string& forestScorer) const {
-  Booster::listScoreDesc(nu, baseScore, forestScorer);
+			       string& forestScorer) {
+  FETrain::listScoreDesc(nu, baseScore, forestScorer);
 }
 
 
@@ -94,7 +89,5 @@ void TrainBridge::initMono(const vector<double> &regMono) {
 
 
 void TrainBridge::deInit() {
-  ForestBridge::deInit();
   FETrain::deInit();
-  Grove::deInit();
 }

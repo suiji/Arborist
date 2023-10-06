@@ -18,6 +18,7 @@
 #include "sampledobs.h"
 #include "sampler.h"
 #include "samplernux.h"
+#include "quant.h"
 
 #include "prng.h"
 #include <algorithm>

@@ -48,8 +48,8 @@
   \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
   \item{minNode}{minimum number of distinct row references to split a node.}
-  \item{nLevel}{maximum number of tree levels to train.  Zero denotes no
-    limit.}
+  \item{nLevel}{maximum number of tree levels to train, including
+    terminals (leaves).  Zero denotes no limit.}
   \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes
     the default processor setting.}
   \item{predFixed}{number of trial predictors for a split (\code{mtry}).}

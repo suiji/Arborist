@@ -30,14 +30,14 @@
 */
 class PreTree {
   static IndexT leafMax; // User option:  maximum # leaves, if > 0.
-  IndexT leafCount; // Running count of leaves.
   vector<DecNode> nodeVec; // Vector of tree nodes.
   vector<double> scores;
-  vector<double> infoLocal; //< Per-predictor split information.
-  vector<double> infoNode; ///< Per-node " ".  Leaf merging onlye.
   BV splitBits; // Bit encoding of factor splits.
   BV observedBits; // Bit encoding of factor values.
   size_t bitEnd; // Next free slot in either bit vector.
+  IndexT leafCount; // Running count of leaves.
+  vector<double> infoLocal; //< Per-predictor split information.
+  vector<double> infoNode; ///< Per-node " ".  Leaf merging onlye.
   SampleMap terminalMap;
 
 
@@ -137,8 +137,7 @@ class PreTree {
 
      @return leaf map from consumed frontier.
   */
-  void consume(class Grove* train,
-	       struct Leaf* leaf) const;
+  void consume(class Grove* train) const;
 
 
   /**
@@ -247,6 +246,11 @@ class PreTree {
 
   DecNode& getNode(IndexT ptId) {
     return nodeVec[ptId];
+  }
+
+  
+  const SampleMap& getTerminalMap() const {
+    return terminalMap;
   }
   
 

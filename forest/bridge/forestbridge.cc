@@ -14,18 +14,15 @@
  */
 
 #include "forest.h"
+#include "dectree.h"
 #include "forestbridge.h"
-#include "decnoderw.h"
 #include "forestrw.h"
 #include "typeparam.h"
 #include "bv.h"
 
+#include "leaf.h"
 using namespace std;
-/*
-ForestBridge::ForestBridge(unsigned int treeChunk) :
-  forest(make_unique<Forest>(treeChunk)) {
-}
-*/
+
 
 ForestBridge::ForestBridge(unsigned int nTree,
 			   const double nodeExtent[],
@@ -35,11 +32,25 @@ ForestBridge::ForestBridge(unsigned int nTree,
                            const unsigned char facSplit[],
 			   const unsigned char facObserved[],
 			   const tuple<double, double, string>& scoreDesc) :
-  forest(make_unique<Forest>(DecNodeRW::unpackNodes(treeNode, nodeExtent, nTree),
-			     DecNodeRW::unpackScores(score, nodeExtent, nTree),
-			     DecNodeRW::unpackBits(facSplit, facExtent, nTree),
-			     DecNodeRW::unpackBits(facObserved, facExtent, nTree),
-			     scoreDesc)) {
+  forest(make_unique<Forest>(ForestRW::unpackDecTree(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
+			     scoreDesc, Leaf())) {
+}
+
+
+ForestBridge::ForestBridge(unsigned int nTree,
+			   const double nodeExtent[],
+			   const complex<double> treeNode[],
+			   const double score[],
+			   const double facExtent[],
+                           const unsigned char facSplit[],
+			   const unsigned char facObserved[],
+			   const tuple<double, double, string>& scoreDesc,
+			   const SamplerBridge& samplerBridge,
+			   const double extent[],
+			   const double index[]) :
+  forest(make_unique<Forest>(ForestRW::unpackDecTree(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
+			     scoreDesc,
+			     ForestRW::unpackLeaf(samplerBridge, extent, index))) {
 }
 
 

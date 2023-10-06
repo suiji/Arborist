@@ -85,8 +85,6 @@ public:
    @brief Leaves are indexed by their numbering within the tree.
  */
 struct Leaf {
-  const bool thin; // EXIT.
-
   // Training only:
   vector<IndexT> indexCresc; ///< Sample indices within leaves.
   vector<IndexT> extentCresc; ///< Index extent, per leaf.
@@ -100,8 +98,7 @@ struct Leaf {
 
      @param Sampler conveys observation count, to set static packing parameters.
    */
-  static unique_ptr<Leaf> train(IndexT nObs,
-				bool thin);
+  static unique_ptr<Leaf> train(IndexT nObs);
 
   
   /**
@@ -114,7 +111,6 @@ struct Leaf {
      @param index gives sample positions.
   */
   static unique_ptr<Leaf> predict(const class Sampler* sampler,
-				  bool thin,
 				  vector<vector<size_t>> extent,
 				  vector<vector<vector<size_t>>> index);
 
@@ -122,14 +118,13 @@ struct Leaf {
   /**
      @brief Training constructor:  crescent structures only.
    */
-  Leaf(bool thin_);
+  Leaf();
 
-
+  
   /**
      @brief Post-training constructor:  fixed maps passed in.
    */
   Leaf(const class Sampler* sampler,
-       bool thin_,
        vector<vector<size_t>> extent_,
        vector<vector<vector<size_t>>> index_);
 
@@ -139,6 +134,16 @@ struct Leaf {
    */
   ~Leaf();
 
+
+  /**
+     @brief Indicates whether post-training leaf is empty.
+     
+     @return true iff the index vectors are unpopulated.
+   */
+  bool empty() const {
+    return extent.empty();
+  }
+
   
   /**
      @brief Copies terminal contents, if 'noLeaf' not specified.
@@ -146,8 +151,7 @@ struct Leaf {
      Training caches leaves in order of production.  Depth-first
      leaf numbering requires that the sample maps be reordered.
    */
-  void consumeTerminals(const class PreTree* pretree,
-			const struct SampleMap& smTerminal);
+  void consumeTerminals(const class PreTree* pretree);
 
 
   /**

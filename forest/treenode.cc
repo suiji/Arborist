@@ -17,22 +17,35 @@
 #include "treenode.h"
 #include "predictorframe.h"
 #include "bv.h"
-#include "predict.h"
+#include "forest.h"
 #include "splitnux.h"
 
 unsigned int TreeNode::rightBits = 0;
 PredictorT TreeNode::rightMask = 0;
+bool TreeNode::trapUnobserved = false;
 
-void TreeNode::init(PredictorT nPred) {
+
+void TreeNode::initMasks(PredictorT nPred) {
   rightBits = 0;
   while ((1ul << ++rightBits) < nPred);
   rightMask = (1ull << rightBits) - 1;
 }
 
 
+void TreeNode::initTrap(bool doTrap) {
+  trapUnobserved = doTrap;
+}
+
+
 void TreeNode::deInit() {
   rightBits = 0;
   rightMask = 0ull;
+  trapUnobserved = false;
+}
+
+
+bool TreeNode::trapAndBail() {
+  return trapUnobserved;
 }
 
 
@@ -58,19 +71,34 @@ void TreeNode::setQuantRank(const PredictorFrame* frame) {
 }
 
 
-IndexT TreeNode::advanceMixed(const Predict* predict,
-			      const vector<unique_ptr<BV>>& factorBits,
-			      const vector<unique_ptr<BV>>& bitsObserved,
+IndexT TreeNode::advanceMixed(const Forest* forest,
+			      const vector<BV>& factorBits,
+			      const vector<BV>& bitsObserved,
 			      const CtgT* rowFT,
 			      const double* rowNT,
-			      unsigned int tIdx,
-			      bool trapUnobserved) const {
+			      unsigned int tIdx) const {
   bool isFactor;
-  IndexT blockIdx = predict->getIdx(getPredIdx(), isFactor);
+  IndexT blockIdx = forest->getIdx(getPredIdx(), isFactor);
   if (isFactor) {
-    return advanceFactor(factorBits[tIdx].get(), bitsObserved[tIdx].get(), getBitOffset() + rowFT[blockIdx], trapUnobserved);
+    return advanceFactor(factorBits[tIdx], bitsObserved[tIdx], getBitOffset() + rowFT[blockIdx]);
   }
   else {
-    return advanceNum(rowNT[blockIdx], trapUnobserved);
+    return advanceNum(rowNT[blockIdx]);
+  }
+} // EXIT
+
+
+IndexT TreeNode::advanceMixed(const Forest* forest,
+			      const BV& factorBits,
+			      const BV& bitsObserved,
+			      const CtgT* rowFT,
+			      const double* rowNT) const {
+  bool isFactor;
+  IndexT blockIdx = forest->getIdx(getPredIdx(), isFactor);
+  if (isFactor) {
+    return advanceFactor(factorBits, bitsObserved, getBitOffset() + rowFT[blockIdx]);
+  }
+  else {
+    return advanceNum(rowNT[blockIdx]);
   }
 }

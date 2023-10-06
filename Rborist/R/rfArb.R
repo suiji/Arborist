@@ -65,9 +65,7 @@ rfArb.default <- function(x,
     if (impPermute < 0)
         warning("Negative permutation count:  ignoring.")
 
-    if (impPermute > 1)
-        warning("Permutation count limited to one.")
-    
+
     if (impPermute > 0 && noValidate)
         warning("Variable importance requires validation:  ignoring")
     

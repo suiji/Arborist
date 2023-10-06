@@ -45,13 +45,21 @@ struct TrainBridge {
    */
   vector<unsigned int> getPredMap() const;
 
+  /**
+     @brief Invokes DecNode's static initializer.
+   */
+  static void init(unsigned int nPred);
+
 
   /**
-     @brief Registers training tree-block count.
+     @brief Registers training parameters for a grove ot trees.
 
-     @param trainBlock_ is the number of trees by which to block.
+     @param thinLeaves is true iff leaf information elided.
+     
+     @param trainBlock is the number of trees by which to block.
   */
-  static void initBlock(unsigned int trainBlock);
+  static void initGrove(bool thinLeaves,
+			unsigned int trainBlock);
 
 
   static void initProb(unsigned int predFixed,
@@ -74,9 +82,9 @@ struct TrainBridge {
   /**
      @brief Deconstructs contents of core object's ScoreDesc.
    */
-  void getScoreDesc(double& nu,
-		    double& baseScore,
-		    string& forestScorer) const;
+  static void getScoreDesc(double& nu,
+			   double& baseScore,
+			   string& forestScorer);
 
 
   static void initNodeScorer(const string& scorer);

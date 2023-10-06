@@ -17,12 +17,50 @@
 #define FOREST_BRIDGE_FORESTRRW_H
 
 #include "typeparam.h"
+#include "dectree.h"
 
+#include <complex>
 #include <vector>
+
 using namespace std;
 
 
 struct ForestRW {
+
+  static vector<DecTree> unpackDecTree(unsigned int nTree,
+				const double nodeExtent[],
+				const complex<double> nodes[],
+				const double score[],
+				const double facExtent[],
+				const unsigned char facSplit[],
+				const unsigned char facObserved[]);
+
+
+  static vector<double> unpackDoubles(const double val[],
+				      const size_t extent);
+
+
+  static BV unpackBits(const unsigned char raw[],
+		       size_t extent);
+
+  
+  static vector<DecNode> unpackNodes(const complex<double> nodes[],
+				     size_t extent);
+
+  static class Leaf unpackLeaf(const struct SamplerBridge& samplerBridge,
+			       const double extent_[],
+			       const double index_[]);
+
+
+  static vector<vector<size_t>> unpackExtent(const struct SamplerBridge& samplerBridge,
+				      const double extentNum[]);
+
+
+  static vector<vector<vector<size_t>>> unpackIndex(const struct SamplerBridge& samplerBridge,
+					     const vector<vector<size_t>>& extent,
+					     const double numVal[]);
+
+
   static void dump(const class Forest* forest,
 		   vector<vector<unsigned int> >& predTree,
 		   vector<vector<double> >& splitTree,

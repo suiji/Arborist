@@ -23,6 +23,8 @@
 #include <vector>
 #include <complex>
 
+
+
 /**
    @brief To replace parallel array access.
 
@@ -31,8 +33,13 @@
    branch and method of computing complement varies with algorithm.
  */
 class TreeNode {
+  // Initialized from predictor frame or signature:
   static unsigned int rightBits;
   static PredictorT rightMask;
+
+  // Intialized by prediction command:
+  static bool trapUnobserved;
+
   PackedT packed;
 
 protected:
@@ -41,17 +48,22 @@ protected:
   bool invert;
 
 public:
-
   /**
      @brief Initializes packing parameters.
    */
-  static void init(PredictorT nPred);
+  static void initMasks(PredictorT nPred);
+
+
+  static void initTrap(bool doTrap);
 
   
   /**
      @brief Resets packing values to default.
    */
   static void deInit();
+
+
+  static bool trapAndBail();
   
 
   /**
@@ -196,8 +208,7 @@ public:
 
      @return delta to next node, if nonterminal, else zero.
    */
-  inline IndexT advanceNum(const double numVal,
-			   bool trapUnobserved) const {
+  inline IndexT advanceNum(const double numVal) const {
     if (trapUnobserved && isnan(numVal))
       return 0;
     else
@@ -213,14 +224,13 @@ public:
 
      @return delta to branch target.
    */
-  inline IndexT advanceFactor(const BV* bits,
-			      const BV* bitsObserved,
-			      size_t bitOffset,
-			      bool trapUnobserved) const {
-    if (trapUnobserved && !bitsObserved->testBit(bitOffset))
+  inline IndexT advanceFactor(const BV& bits,
+			      const BV& bitsObserved,
+			      size_t bitOffset) const {
+    if (trapUnobserved && !bitsObserved.testBit(bitOffset))
       return 0;
     else
-      return delTest(bits->testBit(bitOffset));
+      return delTest(bits.testBit(bitOffset));
   }
   
 
@@ -239,12 +249,18 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advanceFactor(const vector<unique_ptr<BV>>& factorBits,
-		       const vector<unique_ptr<BV>>& bitsObserved,
+  IndexT advanceFactor(const vector<BV>& factorBits,
+		       const vector<BV>& bitsObserved,
 		       const CtgT rowFT[],
-		       unsigned int tIdx,
-		       bool trapUnobserved) const {
-    return advanceFactor(factorBits[tIdx].get(), bitsObserved[tIdx].get(), getBitOffset() + rowFT[getPredIdx()], trapUnobserved);
+		       unsigned int tIdx) const {
+    return advanceFactor(factorBits[tIdx], bitsObserved[tIdx], getBitOffset() + rowFT[getPredIdx()]);
+  } // EXIT
+
+
+  IndexT advanceFactor(const BV& factorBits,
+		       const BV& bitsObserved,
+		       const CtgT rowFT[]) const {
+    return advanceFactor(factorBits, bitsObserved, getBitOffset() + rowFT[getPredIdx()]);
   }
 
 
@@ -261,13 +277,19 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advanceMixed(const class Predict* predict,
-		      const vector<unique_ptr<class BV>>& factorBits,
-		      const vector<unique_ptr<class BV>>& bitsObserved,
+  IndexT advanceMixed(const class Forest* forest,
+		      const vector<class BV>& factorBits,
+		      const vector<class BV>& bitsObserved,
 		      const CtgT* rowFT,
 		      const double *rowNT,
-		      unsigned int tIdx,
-		      bool trapUnobserved) const;
+		      unsigned int tIdx) const; // EXIT
+
+
+  IndexT advanceMixed(const class Forest* forest,
+		      const class BV& factorBits,
+		      const class BV& bitsObserved,
+		      const CtgT* rowFT,
+		      const double *rowNT) const;
 
   /**
      @brief Interplates split values from fractional intermediate rank.

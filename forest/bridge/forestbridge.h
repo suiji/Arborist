@@ -57,11 +57,24 @@ struct ForestBridge {
 
   
   /**
-     @brief Training constructor.
-   */
-  //  ForestBridge(unsigned int treeChunk);
+     @brief As above, but populates Leaf.
+   */  
+  ForestBridge(unsigned int nTree,
+	       const double nodeExtent[],
+	       const complex<double> treeNode[],
+	       const double scores[],
+	       const double facExtent[],
+               const unsigned char facSplit[],
+	       const unsigned char facObserved[],
+	       const tuple<double, double, string>& scoreDesc,
+	       const struct SamplerBridge& samplerBridge,
+	       const double extent_[],
+	       const double index_[]);
 
   
+  /**
+     @brief Move constructor.
+   */
   ForestBridge(ForestBridge&&);
 
   

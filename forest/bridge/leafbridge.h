@@ -8,7 +8,7 @@
 /**
    @file leafbridge.h
 
-   @brief Front-end wrappers for core Leaf objects.
+   @brief Front-end wrappers for training core Leaf objects.
 
    @author Mark Seligman
  */
@@ -17,42 +17,20 @@
 #define FOREST_BRIDGE_LEAFBRIDGE_H
 
 #include <memory>
-#include <vector>
 
 using namespace std;
 
 /**
-   @brief Hides class Sampler internals from bridge via forward declarations.
+   @brief Transmits crescent leaf vectors to the front end during training.
  */
 struct LeafBridge {
 
   /**
      @brief Training constructor.
    */
-  LeafBridge(const struct SamplerBridge& sb,
-	     bool thin);
-  
+  LeafBridge(const struct SamplerBridge& sb);
 
-  /**
-     @brief Post-training constructor with (fixed) front-end buffers.
-   */
-  LeafBridge(const struct SamplerBridge& samplerBridge,
-	     bool thin,
-	     const double extent_[],
-	     const double index_[]);
 
-  /**
-     @brief As above, but with movable buffers.
-   */
-  LeafBridge(const struct SamplerBridge& samplerBridge,
-	     bool thin,
-	     vector<vector<size_t>> extent,
-	     vector<vector<vector<size_t>>> index);
-
-  
-  LeafBridge(LeafBridge&& lb);
-
-  
   /**
      @brief Default definition.
    */
@@ -61,18 +39,6 @@ struct LeafBridge {
 
   struct Leaf* getLeaf() const;
   
-
-  
-  static vector<vector<size_t>> unpackExtent(const struct SamplerBridge& samplerBridge,
-					     bool thin,
-					     const double numVal[]);
-
-  
-  static vector<vector<vector<size_t>>> unpackIndex(const struct SamplerBridge& samplerBridge,
-						    bool thin,
-						    const vector<vector<size_t>>& extent,
-						    const double numVal[]);
-
 
   /**
      @brief Copies leaf extents as doubles.

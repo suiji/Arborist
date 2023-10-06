@@ -8,13 +8,13 @@
 /**
    @file fetrain.h
 
-   @brief SGB-specific handshake with training bridge.
+   @brief Core handshake with training bridge.
 
    @author Mark Seligman
  */
 
-#ifndef SGB_FETRAIN_H
-#define SGB_FETRAIN_H
+#ifndef FOREST_FETRAIN_H
+#define FOREST_FETRAIN_H
 
 #include "typeparam.h"
 
@@ -90,6 +90,24 @@ struct FETrain {
   */
   static void initMono(const class PredictorFrame* frame,
                        const vector<double> &regMono);
+
+
+  static void initGrove(bool thinLeaves,
+			unsigned int trainBlock);
+
+\
+  /**
+     @brief Allows DecNode to set its mask widths.
+   */
+  static void initDecNode(unsigned int nPred);
+
+  
+  /**
+     @brief Copies contents of the score descriptor.
+   */
+  static void listScoreDesc(double& nu,
+			   double& baseScore,
+			   string& forestScore);
 
 
   /**

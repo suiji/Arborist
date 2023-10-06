@@ -78,6 +78,15 @@ public:
     return packed >> rightBits;
   }
 
+  /**
+     @brief Obtains row delta for external packed value.
+
+     Debugging only, currently.
+   */
+  static IndexT getDelRow(PackedT packed) {
+    return packed & delMask;
+  }
+
 
   PackedT getPacked() const {
     return packed;

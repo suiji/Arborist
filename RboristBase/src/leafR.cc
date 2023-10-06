@@ -26,8 +26,6 @@
 
 #include "resizeR.h"
 #include "leafbridge.h"
-#include "samplerR.h"
-#include "samplerbridge.h"
 #include "leafR.h"
 
 const string LeafR::strExtent = "extent";
@@ -71,15 +69,4 @@ List LeafR::wrap() {
 
   return leaf;
   END_RCPP
-}
-
-
-LeafBridge LeafR::unwrap(const List& lTrain,
-				     const SamplerBridge& samplerBridge) {
-  List lLeaf((SEXP) lTrain["leaf"]);
-  bool empty = (Rf_isNull(lLeaf[strIndex]) || Rf_isNull(lLeaf[strExtent]));
-  bool thin = empty || as<NumericVector>(lLeaf[strExtent]).length() == 0;
-  return LeafBridge(samplerBridge, thin,
-		    empty ? nullptr : as<NumericVector>(lLeaf[strExtent]).begin(),
-		    empty ? nullptr : as<NumericVector>(lLeaf[strIndex]).begin());
 }

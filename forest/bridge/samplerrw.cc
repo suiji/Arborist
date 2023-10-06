@@ -20,7 +20,6 @@
 
 #include <algorithm>
 
-
 vector<vector<SamplerNux>> SamplerRW::unpack(const double samples[],
 					     IndexT nSamp,
 					     unsigned int nTree,
