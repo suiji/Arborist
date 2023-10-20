@@ -72,6 +72,7 @@ struct PredictR {
   static const string strQuantVec;
   static const string strImpPermute;
   static const string strIndexing;
+  static const string strBagging;
   static const string strTrapUnobserved;
   static const string strNThread;
   static const string strCtgProb;

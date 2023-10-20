@@ -62,6 +62,11 @@ struct Prediction {
    value(vector<ResponseType>(nObs)) {
   }
 
+
+  size_t getNObs() const {
+    return value.size();
+  }
+
   
   void setScore(size_t obsIdx,  ResponseType val) {
     value[obsIdx] = val;
@@ -82,9 +87,8 @@ struct ForestPrediction {
 
   vector<size_t> idxFinal; ///< Final index of tree walk; auxilliary.
   
-  ForestPrediction(size_t nObs,
-		   const struct ScoreDesc* scoreDesc,
-		   unsigned int nTree);
+  ForestPrediction(const class Predict* predict,
+		   const struct ScoreDesc* scoreDesc);
 
 
   static void init(bool doProb);
@@ -92,7 +96,7 @@ struct ForestPrediction {
 
   static void deInit();
 
-  
+
   /**
      @brief Caches final tree-walk indices.
    */
@@ -101,22 +105,22 @@ struct ForestPrediction {
 		    size_t obsStart);
 
 
-  virtual void callScorer(class Forest* forest, size_t obsStart, size_t obsEnd) = 0;
+  virtual void callScorer(const class Predict*, size_t obsStart, size_t obsEnd) = 0;
 };
 
 
 
 struct ForestPredictionCtg : public ForestPrediction {
-  static map<const string, function<void(ForestPredictionCtg*, class Forest*, size_t)>> scorerTable;
+  static map<const string, function<void(ForestPredictionCtg*, const class Predict*, size_t)>> scorerTable;
 
-  const function<void(ForestPredictionCtg*, class Forest*, size_t)> scorer;
+  const function<void(ForestPredictionCtg*, const class Predict*, size_t)> scorer;
   const CtgT nCtg;
   Prediction<CtgT> prediction;
   const CtgT defaultPrediction;
 
-  void callScorer(class Forest* forest, size_t obsStart, size_t obsEnd) {
+  void callScorer(const class Predict* predict, size_t obsStart, size_t obsEnd) {
     for (size_t obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
-      scorer(this, forest, obsIdx);
+      scorer(this, predict, obsIdx);
     }
   }
 
@@ -125,26 +129,30 @@ struct ForestPredictionCtg : public ForestPrediction {
 
   ForestPredictionCtg(const struct ScoreDesc* scoreDesc,
 		      const class Sampler* sampler,
-		      size_t nObs,
-		      const class Forest* forest,
-		      bool reportAuxiliary = true);
+		      const class Predict* predict,
+		      bool reportAuxiliary);
 
 
-  ScoreCount predictLogOdds(const class Forest* forest,
+  ScoreCount predictLogOdds(const class Predict* predict,
 			    size_t obsIdx) const;
 
 
-  void predictLogistic(const class Forest* forest,
-			     size_t obsIdx);
+  void predictLogistic(const class Predict* predict,
+		       size_t obsIdx);
 
 
-  void predictPlurality(const class Forest* forest,
-			      size_t obsIdx);
+  void predictPlurality(const class Predict* predict,
+			size_t obsIdx);
 
 
   CtgT argMaxJitter(const vector<double>& numVec) const;
 
 
+  size_t getNObs() const {
+    return prediction.getNObs();
+  }
+
+  
   void setScore(size_t obsIdx, ScoreCount score);
 
 
@@ -156,15 +164,15 @@ struct ForestPredictionCtg : public ForestPrediction {
 
 
 struct ForestPredictionReg : public ForestPrediction {
-  static map<const string, function<void(ForestPredictionReg*, class Forest*, size_t)>> scorerTable;
+  static map<const string, function<void(ForestPredictionReg*, const class Predict*, size_t)>> scorerTable;
 
-  const function<void(ForestPredictionReg*, class Forest*, size_t)> scorer;
+  const function<void(ForestPredictionReg*, const class Predict*, size_t)> scorer;
   Prediction<double> prediction;
   const double defaultPrediction;
 
-  void callScorer(class Forest* forest, size_t obsStart, size_t obsEnd) {
+  void callScorer(const class Predict* predict, size_t obsStart, size_t obsEnd) {
     for (size_t obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
-      scorer(this, forest, obsIdx);
+      scorer(this, predict, obsIdx);
     }
   }
 
@@ -173,16 +181,15 @@ struct ForestPredictionReg : public ForestPrediction {
 
   ForestPredictionReg(const struct ScoreDesc* scoreDesc,
 		      const class Sampler* sampler,
-		      size_t nObs,
-		      const class Forest* forest,
-		      bool reportAuxiliary = true);
+		      const class Predict* predict,
+		      bool reportAuxiliary);
 
   
-  void predictMean(const class Forest* forest,
+  void predictMean(const class Predict* predict,
 		   size_t obsIdx);
 
   
-  void predictSum(const class Forest* forest,
+  void predictSum(const class Predict* predict,
 		  size_t obsIdx);
 
 
@@ -194,7 +201,12 @@ struct ForestPredictionReg : public ForestPrediction {
   }
   
 
-  void setScore(const class Forest* forest,
+  size_t getNObs() const {
+    return prediction.getNObs();
+  }
+
+  
+  void setScore(const class Predict* predict,
 		size_t obsIdx,
 		ScoreCount score);
 

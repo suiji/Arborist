@@ -59,16 +59,12 @@ struct SamplerBridge {
 		unsigned int nTree,
 		const double samples[]);
 
-  
-  /**
-     @param bagging specifies a bagging matrix:  prediction only.
-   */
   SamplerBridge(vector<double> yTrain,
 		size_t nSamp,
 		unsigned int nTree,
 		const double samples[],
-		unique_ptr<struct RLEFrame> rleFrame,
-		bool bagging);
+		unique_ptr<struct RLEFrame> rleFrame);
+
 
 
   SamplerBridge(vector<unsigned int> yTrain,
@@ -76,10 +72,9 @@ struct SamplerBridge {
 		size_t nSamp,
 		unsigned int nTree,
 		const double samples[],
-		unique_ptr<struct RLEFrame> rleFrame,
-		bool bagging);
+		unique_ptr<struct RLEFrame> rleFrame);
 
-  
+
   /**
      @brief Generic constructor.
    */

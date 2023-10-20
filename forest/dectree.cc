@@ -15,7 +15,7 @@
 
 
 #include "dectree.h"
-#include "forest.h"
+#include "predictframe.h"
 
 
 DecTree::DecTree(const vector<DecNode>& decNode_,
@@ -42,12 +42,12 @@ void DecTree::setObsWalker(PredictorT nPredNum) {
 DecTree::~DecTree() = default;
 
 
-IndexT DecTree::obsNum(const Forest* forest,
-		       size_t obsIdx) {
+IndexT DecTree::obsNum(const PredictFrame& frame,
+		       size_t obsIdx) const {
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = decNode[idx].advance(forest->baseNum(obsIdx));
+    delIdx = decNode[idx].advance(frame.baseNum(obsIdx));
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -55,12 +55,12 @@ IndexT DecTree::obsNum(const Forest* forest,
 }
 
 
-IndexT DecTree::obsFac(const Forest* forest,
-		       size_t obsIdx) {
+IndexT DecTree::obsFac(const PredictFrame& frame,
+		       size_t obsIdx) const {
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = decNode[idx].advance(facSplit, facObserved, forest->baseFac(obsIdx));
+    delIdx = decNode[idx].advance(facSplit, facObserved, frame.baseFac(obsIdx));
     idx += delIdx;
   } while (delIdx != 0);
 
@@ -68,12 +68,12 @@ IndexT DecTree::obsFac(const Forest* forest,
 }
 
 
-IndexT DecTree::obsMixed(const Forest* forest,
-			 size_t obsIdx) {
+IndexT DecTree::obsMixed(const PredictFrame& frame,
+			 size_t obsIdx) const {
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = decNode[idx].advance(forest, facSplit, facObserved, forest->baseFac(obsIdx), forest->baseNum(obsIdx));
+    delIdx = decNode[idx].advance(frame, facSplit, facObserved, frame.baseFac(obsIdx), frame.baseNum(obsIdx));
     idx += delIdx;
   } while (delIdx != 0);
 

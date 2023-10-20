@@ -1,6 +1,6 @@
 // Copyright (C)  2012-2023   Mark Seligman
 //
-// This file is part of Rborist
+// This file is part of Rborist.
 //
 // Rborist is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
@@ -16,25 +16,26 @@
 // along with rfR.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
-   @file predictRRf.h
+   @file predictRRf.cc
 
-   @brief C++ interface to R entry for RF prediction.
+   @brief C++ interface to R prediction entry for Rborist package.
 
    @author Mark Seligman
  */
 
-#ifndef RBORIST_PREDICTR_RF_H
-#define RBORIST_PREDICTR_RF_H
-
-#include <Rcpp.h>
-using namespace Rcpp;
+#include "predictR.h"
+#include "predictbridge.h"
 
 
-/**
-   @brief Main training entry from front end.
- */
-RcppExport SEXP predictRF(const SEXP sRLEFrame,
-			  const SEXP sSampler,
-			  const SEXP sArgList);
+SEXP PredictR::initPerInvocation(const List& lArgs) {
+  BEGIN_RCPP
 
-#endif
+  PredictBridge::initPredict(as<bool>(lArgs[strIndexing]),
+			     as<bool>(lArgs[strBagging]),
+			     as<unsigned int>(lArgs[strImpPermute]),
+			     as<bool>(lArgs[strTrapUnobserved]));
+  PredictBridge::initCtgProb(as<bool>(lArgs[strCtgProb]));
+  PredictBridge::initOmp(as<unsigned int>(lArgs[strNThread]));
+
+  END_RCPP
+}

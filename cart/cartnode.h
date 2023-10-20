@@ -76,22 +76,22 @@ struct CartNode : public TreeNode {
   }
 
 
-  inline IndexT advance(const class Forest* forest,
+  inline IndexT advance(const class PredictFrame& frame,
 			const vector<class BV>& factorBits,
 			const vector<class BV>& bitsObserved,
 			const CtgT* rowFT,
 			const double *rowNT,
 			unsigned int tIdx) const {
-    return isTerminal() ? 0 : TreeNode::advanceMixed(forest, factorBits, bitsObserved, rowFT, rowNT, tIdx);
+    return isTerminal() ? 0 : TreeNode::advanceMixed(frame, factorBits, bitsObserved, rowFT, rowNT, tIdx);
   }// EXIT
 
 
-  inline IndexT advance(const class Forest* forest,
+  inline IndexT advance(const class PredictFrame& frame,
 			const class BV& factorBits,
 			const class BV& bitsObserved,
 			const CtgT* rowFT,
 			const double *rowNT) const {
-    return isTerminal() ? 0 : TreeNode::advanceMixed(forest, factorBits, bitsObserved, rowFT, rowNT);
+    return isTerminal() ? 0 : TreeNode::advanceMixed(frame, factorBits, bitsObserved, rowFT, rowNT);
   }
 };
 

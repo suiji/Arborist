@@ -63,11 +63,10 @@ SamplerBridge::SamplerBridge(vector<double> yTrain,
 			     size_t nSamp,
 			     unsigned int nTree,
 			     const double samples[],
-			     unique_ptr<RLEFrame> rleFrame,
-			     bool bagging) {
+			     unique_ptr<RLEFrame> rleFrame) {
   SamplerNux::setMasks(yTrain.size());
   vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree);
-  sampler = make_unique<Sampler>(yTrain, std::move(nux), nSamp, std::move(rleFrame), bagging);
+  sampler = make_unique<Sampler>(yTrain, std::move(nux), nSamp, std::move(rleFrame));
 }
 
 
@@ -88,11 +87,10 @@ SamplerBridge::SamplerBridge(vector<unsigned int> yTrain,
 			     size_t nSamp,
 			     unsigned int nTree,
 			     const double samples[],
-			     unique_ptr<RLEFrame> rleFrame,
-			     bool bagging) {
+			     unique_ptr<RLEFrame> rleFrame) {
   SamplerNux::setMasks(yTrain.size());
   vector<vector<SamplerNux>> nux = SamplerRW::unpack(samples, nSamp, nTree, nCtg);
-  sampler = make_unique<Sampler>(yTrain, std::move(nux), nSamp, nCtg, std::move(rleFrame), bagging);
+  sampler = make_unique<Sampler>(yTrain, std::move(nux), nSamp, nCtg, std::move(rleFrame));
 }
 
 

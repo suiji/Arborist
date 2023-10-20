@@ -117,8 +117,7 @@ public:
      Parameters mirror simililarly-named members.
    */
   Quant(const class Sampler* sampler,
-	const class Forest* forest,
-	size_t nObs,
+	const class Predict* predict,
 	bool reportAuxiliary);
 
 
@@ -174,7 +173,7 @@ public:
 
      @param row is the row over which to build prediction quantiles.
   */
-  void predictRow(const class Forest* forest,
+  void predictRow(const class Predict* predict,
 		  const class ForestPredictionReg* prediction,
 		  size_t obsIdx);
 };

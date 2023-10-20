@@ -69,9 +69,10 @@ PredictBridge::~PredictBridge() {
 
 
 void PredictBridge::initPredict(bool indexing,
+				bool bagging,
 				unsigned int nPermute,
 				bool trapUnobserved) {
-  FEPredict::initPredict(indexing, nPermute, trapUnobserved);
+  FEPredict::initPredict(indexing, bagging, nPermute, trapUnobserved);
 }
 
 
@@ -98,16 +99,6 @@ vector<double> PredictBridge::forestWeight(const ForestBridge& forestBridge,
 }
 
 
-size_t PredictBridge::getNObs() const {
-  return Predict::nObs;
-}
-
-
-unsigned int PredictBridge::getNTree() const {
-  return Predict::nTree;
-}
-
-
 bool PredictCtgBridge::permutes() const {
   return Predict::permutes();
 }
@@ -125,6 +116,16 @@ const vector<size_t>& PredictCtgBridge::getIndices() const {
 
 const vector<size_t>& PredictRegBridge::getIndices() const {
   return summary->getIndices();
+}
+
+
+size_t PredictRegBridge::getNObs() const {
+  return summary->getNObs();
+}
+
+
+size_t PredictCtgBridge::getNObs() const {
+  return summary->getNObs();
 }
 
 

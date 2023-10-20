@@ -21,10 +21,11 @@
 
 
 void FEPredict::initPredict(bool indexing,
+			    bool bagging,
 			    unsigned int nPermute,
 			    bool trapUnobserved) {
   ForestPrediction::init(indexing);
-  Predict::init(nPermute);
+  Predict::init(bagging, nPermute);
   TreeNode::initTrap(trapUnobserved);
 }
 

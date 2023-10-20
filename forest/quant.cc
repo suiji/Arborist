@@ -15,6 +15,7 @@
 
 #include "quant.h"
 #include "forest.h"
+#include "predict.h"
 #include "response.h"
 #include "sampler.h"
 #include <algorithm>
@@ -39,21 +40,20 @@ void Quant::deInit() {
    leaf indices.
  */
 Quant::Quant(const Sampler* sampler,
-	     const Forest* forest,
-	     size_t nObs,
+	     const Predict* predict,
 	     bool reportAuxiliary) :
-  leaf(forest->getLeaf()),
+  leaf(predict->forest->getLeaf()),
   empty(!reportAuxiliary || quantile.empty() || leaf.empty() || !sampler->hasSamples()),
   qCount(quantile.size()),
   trapAndBail(DecNode::trapAndBail()),
-  leafDom((empty || !trapAndBail) ? vector<vector<IndexRange>>(0) : forest->leafDominators()), 
+  leafDom((empty || !trapAndBail) ? vector<vector<IndexRange>>(0) : predict->forest->leafDominators()), 
   valRank(RankedObs<double>(&(reinterpret_cast<const ResponseReg*>(sampler->getResponse())->getYTrain())[0],
 			    empty ? 0 : reinterpret_cast<const ResponseReg*>(sampler->getResponse())->getYTrain().size())),
   rankCount(empty ? vector<vector<vector<RankCount>>>(0) : leaf.alignRanks(sampler, valRank.rank())),
   rankScale(empty ? 0 : binScale()),
   binMean(empty ? vector<double>(0) : binMeans(valRank)),
-  qPred(vector<double>(empty ? 0 : nObs * qCount)),
-  qEst(vector<double>(empty ? 0 : nObs)) {
+  qPred(vector<double>(empty ? 0 : predict->getNObs() * qCount)),
+  qEst(vector<double>(empty ? 0 : predict->getNObs())) {
 }
 
 
@@ -85,7 +85,7 @@ vector<double> Quant::binMeans(const RankedObs<double>& valRank) const {
 }
 
 
-void Quant::predictRow(const Forest* forest,
+void Quant::predictRow(const Predict* predict,
 		       const ForestPredictionReg* prediction,
 		       size_t obsIdx) {
   if (isEmpty())
@@ -93,9 +93,9 @@ void Quant::predictRow(const Forest* forest,
   vector<IndexT> sCountBin(std::min(static_cast<IndexT>(binSize), valRank.getRankCount()));
   IndexT totSamples = 0;
   if (trapAndBail) {
-    for (unsigned int tIdx = 0; tIdx < forest->getNTree(); tIdx++) {
+    for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
       IndexT nodeIdx;
-      if (forest->getFinalIdx(obsIdx, tIdx, nodeIdx)) {
+      if (predict->getFinalIdx(obsIdx, tIdx, nodeIdx)) {
 	IndexRange leafRange = leafDom[tIdx][nodeIdx];
 	for (IndexT leafIdx = leafRange.getStart(); leafIdx != leafRange.getEnd(); leafIdx++) {
 	  totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
@@ -104,9 +104,9 @@ void Quant::predictRow(const Forest* forest,
     }
   }
   else {
-    for (unsigned int tIdx = 0; tIdx < forest->getNTree(); tIdx++) {
+    for (unsigned int tIdx = 0; tIdx < predict->getNTree(); tIdx++) {
       IndexT leafIdx;
-      if (forest->isLeafIdx(obsIdx, tIdx, leafIdx)) {
+      if (predict->isLeafIdx(obsIdx, tIdx, leafIdx)) {
 	totSamples += sampleLeaf(tIdx, leafIdx, sCountBin);
       }
     }

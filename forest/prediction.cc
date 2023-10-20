@@ -3,6 +3,7 @@
 #include "scoredesc.h"
 #include "sampler.h"
 #include "forest.h"
+#include "predict.h"
 #include "prediction.h"
 #include "quant.h"
 #include "response.h"
@@ -11,24 +12,23 @@ bool ForestPrediction::reportIndices = false;
 bool CtgProb::reportProbabilities = false;
 
 
-map<const string, function<void(ForestPredictionReg*, Forest*, size_t)>> ForestPredictionReg::scorerTable {
+map<const string, function<void(ForestPredictionReg*, const Predict*, size_t)>> ForestPredictionReg::scorerTable {
   {"mean", &ForestPredictionReg::predictMean},
   {"sum", &ForestPredictionReg::predictSum}
 };
 
 
-map<const string, function<void(ForestPredictionCtg*, Forest*, size_t)>> ForestPredictionCtg::scorerTable {
+map<const string, function<void(ForestPredictionCtg*, const Predict*, size_t)>> ForestPredictionCtg::scorerTable {
   {"plurality", &ForestPredictionCtg::predictPlurality},
   {"logistic", &ForestPredictionCtg::predictLogistic}
 };
 
 
-ForestPrediction::ForestPrediction(size_t nObs,
-				   const struct ScoreDesc* scoreDesc,
-				   unsigned int nTree) :
+ForestPrediction::ForestPrediction(const Predict* predict,
+				   const struct ScoreDesc* scoreDesc) :
   baseScore(scoreDesc->baseScore),
   nu(scoreDesc->nu),
-  idxFinal(vector<size_t>(reportIndices ? nTree * nObs : 0)) {
+  idxFinal(vector<size_t>(reportIndices ? predict->getNTree() * predict->getNObs() : 0)) {
 }
 
 
@@ -42,66 +42,64 @@ void ForestPrediction::cacheIndices(vector<IndexT>& indices,
 
 ForestPredictionCtg::ForestPredictionCtg(const ScoreDesc* scoreDesc,
 					 const Sampler* sampler,
-					 size_t nObs,
-					 const Forest* forest,
+					 const Predict* predict,
 					 bool reportAuxiliary) :
-  ForestPrediction(nObs, scoreDesc, forest->getNTree()),
+  ForestPrediction(predict, scoreDesc),
   scorer(scorerTable[scoreDesc->scorer]),
   nCtg(sampler->getNCtg()),
-  prediction(Prediction<CtgT>(nObs)),
+  prediction(Prediction<CtgT>(predict->getNObs())),
   defaultPrediction(reinterpret_cast<const ResponseCtg*>(sampler->getResponse())->getDefaultPrediction()),
-  census(nObs * nCtg),
-  ctgProb(make_unique<CtgProb>(sampler, nObs, reportAuxiliary)) {
+  census(predict->getNObs() * nCtg),
+  ctgProb(make_unique<CtgProb>(sampler, predict->getNObs(), reportAuxiliary)) {
 }
 
 
 ForestPredictionReg::ForestPredictionReg(const ScoreDesc* scoreDesc,
 					 const Sampler* sampler,
-					 size_t nObs,
-					 const Forest* forest,
+					 const Predict* predict,
 					 bool reportAuxiliary) :
-  ForestPrediction(nObs, scoreDesc, forest->getNTree()),
+  ForestPrediction(predict, scoreDesc),
   scorer(scorerTable[scoreDesc->scorer]),
-  prediction(Prediction<double>(nObs)),
+  prediction(Prediction<double>(predict->getNObs())),
   defaultPrediction(reinterpret_cast<const ResponseReg*>(sampler->getResponse())->getDefaultPrediction()),
-  quant(make_unique<Quant>(sampler, forest, nObs, reportAuxiliary)) {
+  quant(make_unique<Quant>(sampler, predict, reportAuxiliary)) {
 }
 
 
-void ForestPredictionReg::predictMean(const Forest* forest, size_t obsIdx) {
+void ForestPredictionReg::predictMean(const Predict* predict, size_t obsIdx) {
   double sumScore = 0.0;
   unsigned int nEst = 0;
-  for (unsigned int tIdx = 0; tIdx != forest->getNTree(); tIdx++) {
+  for (unsigned int tIdx = 0; tIdx != predict->getNTree(); tIdx++) {
     double score;
-    if (forest->isNodeIdx(obsIdx, tIdx, score)) {
+    if (predict->isNodeIdx(obsIdx, tIdx, score)) {
       nEst++;
       sumScore += score;
     }
   }
-  setScore(forest, obsIdx, ScoreCount(nEst, nEst > 0 ? sumScore / nEst : defaultPrediction));
+  setScore(predict, obsIdx, ScoreCount(nEst, nEst > 0 ? sumScore / nEst : defaultPrediction));
 }
 
 
-void ForestPredictionReg::predictSum(const Forest* forest, size_t obsIdx) {
+void ForestPredictionReg::predictSum(const Predict* predict, size_t obsIdx) {
   double sumScore = baseScore;
   unsigned int nEst = 0;
-  for (unsigned int tIdx = 0; tIdx != forest->getNTree(); tIdx++) {
+  for (unsigned int tIdx = 0; tIdx != predict->getNTree(); tIdx++) {
     double score;
-    if (forest->isNodeIdx(obsIdx, tIdx, score)) {
+    if (predict->isNodeIdx(obsIdx, tIdx, score)) {
       sumScore += nu * score;
       nEst++;
     }
   }
-  setScore(forest, obsIdx, ScoreCount(nEst, sumScore));
+  setScore(predict, obsIdx, ScoreCount(nEst, sumScore));
 }
 
 
-ScoreCount ForestPredictionCtg::predictLogOdds(const Forest* forest, size_t obsIdx) const {
+ScoreCount ForestPredictionCtg::predictLogOdds(const Predict* predict, size_t obsIdx) const {
   double sumScore = baseScore;
   unsigned int nEst = 0;
-  for (unsigned int tIdx = 0; tIdx != forest->getNTree(); tIdx++) {
+  for (unsigned int tIdx = 0; tIdx != predict->getNTree(); tIdx++) {
     double score;
-    if (forest->isNodeIdx(obsIdx, tIdx, score)) {
+    if (predict->isNodeIdx(obsIdx, tIdx, score)) {
       sumScore += nu * score;
       nEst++;
     }
@@ -110,8 +108,8 @@ ScoreCount ForestPredictionCtg::predictLogOdds(const Forest* forest, size_t obsI
 }
 
 
-void ForestPredictionCtg::predictLogistic(const Forest* forest, size_t obsIdx) {
-  ScoreCount logOdds = predictLogOdds(forest, obsIdx);
+void ForestPredictionCtg::predictLogistic(const Predict* predict, size_t obsIdx) {
+  ScoreCount logOdds = predictLogOdds(predict, obsIdx);
   double p1 = 1.0 / (1.0 + exp(-logOdds.score.num));
   ctgProb->assignBinary(obsIdx, p1); // LOWER
   CtgT ctg = p1 > 0.5 ? 1 : 0;
@@ -120,13 +118,13 @@ void ForestPredictionCtg::predictLogistic(const Forest* forest, size_t obsIdx) {
 }
 
 
-void ForestPredictionCtg::predictPlurality(const Forest* forest, size_t obsIdx) {
+void ForestPredictionCtg::predictPlurality(const Predict* predict, size_t obsIdx) {
   unsigned int nEst = 0; // # participating trees.
   vector<double> ctgJitter(nCtg); // Accumulates jitter by category.
   unsigned int *censusRow = &census[obsIdx * nCtg];
-  for (unsigned int tIdx = 0; tIdx != forest->getNTree(); tIdx++) {
+  for (unsigned int tIdx = 0; tIdx != predict->getNTree(); tIdx++) {
     double score;
-    if (forest->isNodeIdx(obsIdx, tIdx, score)) {
+    if (predict->isNodeIdx(obsIdx, tIdx, score)) {
       nEst++;
       CtgT ctg = floor(score); // Truncates jittered score ut index.
       censusRow[ctg]++;
@@ -175,10 +173,10 @@ const vector<double>& ForestPredictionCtg::getProb() const {
 }
 
 
-void ForestPredictionReg::setScore(const Forest* forest, size_t obsIdx, ScoreCount score) {
+void ForestPredictionReg::setScore(const Predict* predict, size_t obsIdx, ScoreCount score) {
   prediction.setScore(obsIdx, score.score.num);
   // Relies on score having been assigned:
-  quant->predictRow(forest, this, obsIdx);
+  quant->predictRow(predict, this, obsIdx);
 }
 
 

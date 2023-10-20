@@ -26,104 +26,219 @@
 
 #include <cmath>
 
+const size_t Predict::obsChunk = 0x2000;
+const unsigned int Predict::seqChunk = 0x20;
 
+
+bool Predict::bagging = false;
 unsigned int Predict::nPermute = 0;
-size_t Predict::nObs = 0;
-unsigned int Predict::nTree = 0;
 
 
-void Predict::init(unsigned int nPermute_) {
+void Predict::init(bool bagging_,
+		   unsigned int nPermute_) {
+  bagging = bagging_;
   nPermute = nPermute_;
 }
 
 
 void Predict::deInit() {
+  bagging = false;
   nPermute = 0;
-  nObs = 0;
-  nTree = 0;
 }
 
 
-Predict::Predict(unique_ptr<RLEFrame> rleFrame_) :
-  rleFrame(std::move(rleFrame_)) {
+Predict::Predict(const Sampler* sampler,
+		 unique_ptr<RLEFrame> rleFrame_) :
+  bag(sampler->bagRows(bagging)),
+  rleFrame(std::move(rleFrame_)),
+  nObs(rleFrame == nullptr ? 0 : rleFrame->getNRow()),
+  trFrame(PredictFrame(rleFrame.get())) {
   if (rleFrame != nullptr) { // TEMPORARY
-  rleFrame->reorderRow(); // For now, all frames pre-ranked.
-  nObs = rleFrame->getNRow();
+    rleFrame->reorderRow(); // For now, all frames pre-ranked.
   }
 }
 
 
-PredictReg::PredictReg(unique_ptr<RLEFrame> rleFrame_) :
-  Predict(std::move(rleFrame_)) {
+PredictReg::PredictReg(const Sampler* sampler,
+		       unique_ptr<RLEFrame> rleFrame_) :
+  Predict(sampler, std::move(rleFrame_)) {
 }
 
 
-unique_ptr<PredictReg> Predict::makeReg(unique_ptr<RLEFrame> rleFrame) {
-  return make_unique<PredictReg>(std::move(rleFrame));
+unique_ptr<PredictReg> Predict::makeReg(const Sampler* sampler,
+					unique_ptr<RLEFrame> rleFrame) {
+  return make_unique<PredictReg>(sampler, std::move(rleFrame));
 }
 
 
-unique_ptr<PredictCtg> Predict::makeCtg(unique_ptr<RLEFrame> rleFrame) {
-  return make_unique<PredictCtg>(std::move(rleFrame));
+unique_ptr<PredictCtg> Predict::makeCtg(const Sampler* sampler,
+					unique_ptr<RLEFrame> rleFrame) {
+  return make_unique<PredictCtg>(sampler, std::move(rleFrame));
 }
 
 
-PredictCtg::PredictCtg(unique_ptr<RLEFrame> rleFrame_) :
-  Predict(std::move(rleFrame_)) {
+PredictCtg::PredictCtg(const Sampler* sampler, unique_ptr<RLEFrame> rleFrame_) :
+  Predict(sampler, std::move(rleFrame_)) {
 }
 
 
 unique_ptr<SummaryReg> PredictReg::predictReg(const Sampler* sampler,
 					      Forest* forest,
 					      const vector<double>& yTest) {
+  this->forest = forest;
   nTree = forest->getNTree();
-  return make_unique<SummaryReg>(sampler, yTest, forest, rleFrame.get());
+  unique_ptr<SummaryReg> summary = make_unique<SummaryReg>(sampler, this, forest);
+  summary->build(this, sampler, yTest);
+  return summary;
 }
 
 
 unique_ptr<SummaryCtg> PredictCtg::predictCtg(const Sampler* sampler,
 					      Forest* forest,
 					      const vector<unsigned int>& yTest) {
+  this->forest = forest;
   nTree = forest->getNTree();
-  return make_unique<SummaryCtg>(sampler, yTest, forest, rleFrame.get());
+  unique_ptr<SummaryCtg> summary = make_unique<SummaryCtg>(sampler, this, forest);
+  summary->build(this, sampler, yTest);
+  return summary;
 }
 
 
 
 SummaryReg::SummaryReg(const Sampler* sampler,
-		       const vector<double>& yTest,
-		       Forest* forest,
-		       RLEFrame* rleFrame) :
-  prediction(forest->predictReg(sampler, rleFrame)),
-  test(prediction->test(yTest)),
-  permutationTest(permute(sampler, rleFrame, forest, yTest)) {	     
+		       const Predict* predict,
+		       Forest* forest) :
+  prediction(forest->makePredictionReg(sampler, predict)) {
+}
+
+
+void SummaryReg::build(Predict* predictObj,
+		       const Sampler* sampler,
+		       const vector<double>& yTest) {
+  predictObj->predict(prediction.get());
+  test = prediction->test(yTest);
+  permutationTest = permute(predictObj, sampler, yTest);
 }
 
 
 SummaryCtg::SummaryCtg(const Sampler* sampler,
-		       const vector<unsigned int>& yTest,
-		       Forest* forest,
-		       RLEFrame* rleFrame) :
+		       const Predict* predict,
+		       Forest* forest) :
   nCtgTrain(sampler->getNCtg()),
-  prediction(forest->predictCtg(sampler, rleFrame)),
-  test(prediction->test(yTest)),
-  permutationTest(permute(sampler, rleFrame, forest, yTest)) {	     
+  prediction(forest->makePredictionCtg(sampler, predict)) {
 }
 
 
-vector<vector<unique_ptr<TestReg>>> SummaryReg::permute(const Sampler* sampler,
-							RLEFrame* rleFrame,
-							Forest* forest,
+void SummaryCtg::build(Predict* predictObj,
+		       const Sampler* sampler,
+		       const vector<unsigned int>& yTest) {
+  predictObj->predict(prediction.get());
+  test = prediction->test(yTest);
+  permutationTest = permute(predictObj, sampler, yTest);
+}
+
+
+void Predict::predict(ForestPrediction* prediction) {
+  blockStart = 0;
+  forest->initWalkers(trFrame);
+  idxFinal = vector<IndexT>(nTree * obsChunk);
+  noNode = forest->getNoNode();
+  
+  predictBlock(prediction);
+  // Remainder rows handled in custom-fitted block.
+  if (nObs > blockStart) {
+    predictBlock(prediction);
+  }
+}
+
+
+void Predict::predictBlock(ForestPrediction* prediction) {
+  size_t blockSpan = min(obsChunk, nObs - blockStart);
+  for (; blockStart + blockSpan <= nObs; blockStart += blockSpan) {
+    predictObs(prediction, blockSpan);
+  }
+}
+
+
+void Predict::predictObs(ForestPrediction* prediction,
+			 size_t span) {
+  resetIndices();
+  trFrame.transpose(rleFrame.get(), blockStart, span);
+
+  OMPBound rowEnd = static_cast<OMPBound>(blockStart + span);
+  OMPBound rowStart = static_cast<OMPBound>(blockStart);
+
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+  {
+#pragma omp for schedule(dynamic, 1)
+  for (OMPBound row = rowStart; row < rowEnd; row += seqChunk) {
+    size_t chunkEnd = min(rowEnd, row + seqChunk);
+    walkTree(trFrame, row, chunkEnd);
+    prediction->callScorer(this, row, chunkEnd);
+  }
+  }
+  prediction->cacheIndices(idxFinal, span * nTree, blockStart * nTree);
+}
+
+
+void Predict::resetIndices() {
+  fill(idxFinal.begin(), idxFinal.end(), noNode);
+}
+
+
+void Predict::walkTree(const PredictFrame& frame,
+		       size_t obsStart,
+		       size_t obsEnd) {
+  for (size_t obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
+    for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+      if (!isBagged(tIdx, obsIdx)) {
+	setFinalIdx(obsIdx, tIdx, forest->walkObs(frame, obsIdx, tIdx));
+      }
+    }
+  }
+}
+
+
+bool Predict::isLeafIdx(size_t obsIdx,
+			unsigned int tIdx,
+			IndexT& leafIdx) const {
+  IndexT nodeIdx;
+  if (getFinalIdx(obsIdx, tIdx, nodeIdx))
+    return forest->getLeafIdx(tIdx, nodeIdx, leafIdx);
+  else
+    return false;
+}
+
+
+bool Predict::isNodeIdx(size_t obsIdx,
+			unsigned int tIdx,
+			double& score) const {
+  IndexT nodeIdx;
+  if (getFinalIdx(obsIdx, tIdx, nodeIdx)) {
+    score = forest->getScore(tIdx, nodeIdx);
+    return true;
+  }
+  else {
+    return false;
+  }
+    // Non-bagging scenarios should always see a leaf.
+    //    if (!bagging) assert(termIdx != noNode);
+}
+
+
+vector<vector<unique_ptr<TestReg>>> SummaryReg::permute(const Predict* predict,
+							const Sampler* sampler,
 							const vector<double>& yTest) {
   if (yTest.empty() || Predict::nPermute == 0)
     return vector<vector<unique_ptr<TestReg>>>(0);
 
+  RLEFrame* rleFrame = predict->getFrame();
   vector<vector<unique_ptr<TestReg>>> testPermute(rleFrame->getNPred());
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     vector<RLEVal<szType>> rleTemp = std::move(rleFrame->rlePred[predIdx]);
     for (unsigned int rep = 0; rep != Predict::nPermute; rep++) {
       rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(rleFrame->getNRow()));
-      unique_ptr<ForestPredictionReg> repReg = forest->predictReg(sampler, rleFrame);
+      unique_ptr<ForestPredictionReg> repReg = predict->forest->makePredictionReg(sampler, predict, false);
       testPermute[predIdx].emplace_back(repReg->test(yTest));
     }
     rleFrame->rlePred[predIdx] = std::move(rleTemp);
@@ -133,19 +248,19 @@ vector<vector<unique_ptr<TestReg>>> SummaryReg::permute(const Sampler* sampler,
 }
 
 
-vector<vector<unique_ptr<TestCtg>>> SummaryCtg::permute(const Sampler* sampler,
-							RLEFrame* rleFrame,
-							Forest* forest,
+vector<vector<unique_ptr<TestCtg>>> SummaryCtg::permute(const Predict* predict,
+							const Sampler* sampler,
 							const vector<unsigned int>& yTest) {
   if (yTest.empty() || Predict::nPermute == 0)
     return vector<vector<unique_ptr<TestCtg>>>(0);
 
+  RLEFrame* rleFrame = predict->getFrame();
   vector<vector<unique_ptr<TestCtg>>> testPermute(rleFrame->getNPred());
   for (PredictorT predIdx = 0; predIdx < rleFrame->getNPred(); predIdx++) {
     vector<RLEVal<szType>> rleTemp = std::move(rleFrame->rlePred[predIdx]);
     for (unsigned int rep = 0; rep != Predict::nPermute; rep++) {
       rleFrame->rlePred[predIdx] = rleFrame->permute(predIdx, Sample::permute(rleFrame->getNRow()));
-      unique_ptr<ForestPredictionCtg> repCtg = forest->predictCtg(sampler, rleFrame);
+      unique_ptr<ForestPredictionCtg> repCtg = predict->forest->makePredictionCtg(sampler, predict, false);
       testPermute[predIdx].emplace_back(repCtg->test(yTest));
     }
     rleFrame->rlePred[predIdx] = std::move(rleTemp);
@@ -192,13 +307,6 @@ const vector<size_t>& SummaryCtg::getConfusion() const {
 
 const vector<double>& SummaryCtg::getMisprediction() const {
   return test->misprediction;
-}
-
-  /**
-     @return handle to cached index vector.
-   */
-const vector<size_t>& SummaryCtg::getIndices() const {
-  return prediction->idxFinal;
 }
 
 
@@ -318,3 +426,4 @@ vector<double> Predict::normalizeWeight(const Sampler* sampler,
   }
   return weight;
 }
+

@@ -32,6 +32,7 @@ struct FEPredict {
      @brief Initializes prediction state.
    */
   static void initPredict(bool indexing,
+			  bool bagging,
 			  unsigned int nPermute,
 			  bool trapUnobserved);
 

@@ -31,6 +31,7 @@ SEXP PredictR::initPerInvocation(const List& lArgs) {
   BEGIN_RCPP
 
   PredictBridge::initPredict(as<bool>(lArgs[strIndexing]),
+			     as<bool>(lArgs[strBagging]),
 			     as<unsigned int>(lArgs[strImpPermute]),
 			     as<bool>(lArgs[strTrapUnobserved]));
   PredictBridge::initQuant(quantVec(lArgs));

@@ -59,14 +59,14 @@ struct ScoreDesc {
   /*
     @brief Builds algorithm-specific scorer for response type.
    */
-  unique_ptr<ForestPredictionReg> makePredictionReg(const class Forest* forest,
-						   const class Sampler* sampler,
-						   size_t nObs) const;
+  unique_ptr<ForestPredictionReg> makePredictionReg(const class Predict* predict,
+						    const class Sampler* sampler,
+						    bool reportAuxiliary) const;
 
 
-  unique_ptr<ForestPredictionCtg> makePredictionCtg(const class Forest* forest,
-						 const class Sampler* sampler,
-						 size_t nObs) const;
+  unique_ptr<ForestPredictionCtg> makePredictionCtg(const class Predict* predict,
+						    const class Sampler* sampler,
+						    bool reportAuxiliary) const;
 };
 
 #endif

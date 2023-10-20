@@ -277,7 +277,7 @@ public:
 
      @return terminal/nonterminal : 0 / delta to next node.
    */
-  IndexT advanceMixed(const class Forest* forest,
+  IndexT advanceMixed(const class PredictFrame& frame,
 		      const vector<class BV>& factorBits,
 		      const vector<class BV>& bitsObserved,
 		      const CtgT* rowFT,
@@ -285,7 +285,7 @@ public:
 		      unsigned int tIdx) const; // EXIT
 
 
-  IndexT advanceMixed(const class Forest* forest,
+  IndexT advanceMixed(const class PredictFrame& frame,
 		      const class BV& factorBits,
 		      const class BV& bitsObserved,
 		      const CtgT* rowFT,

@@ -15,9 +15,9 @@
 
 
 #include "treenode.h"
+#include "predictframe.h"
 #include "predictorframe.h"
 #include "bv.h"
-#include "forest.h"
 #include "splitnux.h"
 
 unsigned int TreeNode::rightBits = 0;
@@ -71,14 +71,14 @@ void TreeNode::setQuantRank(const PredictorFrame* frame) {
 }
 
 
-IndexT TreeNode::advanceMixed(const Forest* forest,
+IndexT TreeNode::advanceMixed(const PredictFrame& frame,
 			      const vector<BV>& factorBits,
 			      const vector<BV>& bitsObserved,
 			      const CtgT* rowFT,
 			      const double* rowNT,
 			      unsigned int tIdx) const {
   bool isFactor;
-  IndexT blockIdx = forest->getIdx(getPredIdx(), isFactor);
+  IndexT blockIdx = frame.getIdx(getPredIdx(), isFactor);
   if (isFactor) {
     return advanceFactor(factorBits[tIdx], bitsObserved[tIdx], getBitOffset() + rowFT[blockIdx]);
   }
@@ -88,13 +88,13 @@ IndexT TreeNode::advanceMixed(const Forest* forest,
 } // EXIT
 
 
-IndexT TreeNode::advanceMixed(const Forest* forest,
+IndexT TreeNode::advanceMixed(const PredictFrame& frame,
 			      const BV& factorBits,
 			      const BV& bitsObserved,
 			      const CtgT* rowFT,
 			      const double* rowNT) const {
   bool isFactor;
-  IndexT blockIdx = forest->getIdx(getPredIdx(), isFactor);
+  IndexT blockIdx = frame.getIdx(getPredIdx(), isFactor);
   if (isFactor) {
     return advanceFactor(factorBits, bitsObserved, getBitOffset() + rowFT[blockIdx]);
   }

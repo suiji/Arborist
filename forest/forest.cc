@@ -15,16 +15,13 @@
 
 
 #include "dectree.h"
-#include "bv.h"
 #include "forest.h"
+#include "predictframe.h"
 #include "sampler.h"
-#include "rleframe.h"
 #include "ompthread.h"
+
+// Inclusion only:
 #include "quant.h"
-
-const size_t Forest::scoreChunk = 0x2000;
-const unsigned int Forest::seqChunk = 0x20;
-
 
 Forest::Forest(vector<DecTree>&& decTree_,
 	       const tuple<double, double, string>& scoreDesc_,
@@ -33,19 +30,7 @@ Forest::Forest(vector<DecTree>&& decTree_,
   scoreDesc(ScoreDesc(scoreDesc_)),
   leaf(leaf_),
   noNode(maxHeight(decTree)),
-  nTree(decTree.size()),
-  idxFinal(vector<IndexT>(scoreChunk * nTree)) {
-}
-
-
-void Forest::initPrediction(const RLEFrame* rleFrame) {
-  this->nObs = rleFrame->getNRow();
-  nPredNum = rleFrame->getNPredNum();
-  nPredFac = rleFrame->getNPredFac();
-  
-  // Ultimately handled internally.
-  for (DecTree& tree : decTree)
-    tree.setObsWalker(nPredNum);
+  nTree(decTree.size()) {
 }
 
 
@@ -58,155 +43,24 @@ size_t Forest::maxHeight(const vector<DecTree>& decTree) {
 }
 
 
-unique_ptr<ForestPredictionReg> Forest::predictReg(const Sampler* sampler,
-						   const RLEFrame* rleFrame) {
-  initPrediction(rleFrame);
-  unique_ptr<ForestPredictionReg> prediction = scoreDesc.makePredictionReg(this, sampler, nObs);
-  predict(sampler, rleFrame, prediction.get());
-  
-  return prediction;
+unique_ptr<ForestPredictionReg> Forest::makePredictionReg(const Sampler* sampler,
+							  const class Predict* predict,
+							  bool reportAuxiliary) {
+  return scoreDesc.makePredictionReg(predict, sampler, reportAuxiliary);
 }
 						   
 
-unique_ptr<ForestPredictionCtg> Forest::predictCtg(const Sampler* sampler,
-						   const RLEFrame* rleFrame) {
-  initPrediction(rleFrame);
-  unique_ptr<ForestPredictionCtg> prediction = scoreDesc.makePredictionCtg(this, sampler, nObs);
-  predict(sampler, rleFrame, prediction.get());
-  
-  return prediction;
+unique_ptr<ForestPredictionCtg> Forest::makePredictionCtg(const Sampler* sampler,
+							  const class Predict* predict,
+							  bool reportAuxiliary) {
+  return scoreDesc.makePredictionCtg(predict, sampler, reportAuxiliary);
 }
 						   
 
-void Forest::predict(const Sampler* sampler,
-		     const RLEFrame* rleFrame,
-		     ForestPrediction* prediction) {
-  vector<size_t> trIdx(nPredNum + nPredFac);
-  size_t row = predictBlock(sampler, rleFrame, prediction, 0, nObs, trIdx);
-  // Remainder rows handled in custom-fitted block.
-  if (nObs > row) {
-    (void) predictBlock(sampler, rleFrame, prediction, row, nObs, trIdx);
-  }
-}
-
-
-size_t Forest::predictBlock(const Sampler* sampler,
-			    const RLEFrame* rleFrame,
-			    ForestPrediction* prediction,
-			    size_t rowStart,
-			    size_t rowEnd,
-			    vector<size_t>& trIdx) {
-  size_t blockRows = min(scoreChunk, rowEnd - rowStart);
-  size_t row = rowStart;
-  for (; row + blockRows <= rowEnd; row += blockRows) {
-    transpose(rleFrame, trIdx, row, scoreChunk);
-    blockStart = row;
-    predictObs(sampler, prediction, blockStart, blockRows);
-  }
-  
-  return row;
-}
-
-
-void Forest::predictObs(const Sampler* sampler,
-			ForestPrediction* prediction,
-			size_t obsStart,
-			size_t span) {
-  OMPBound rowEnd = static_cast<OMPBound>(obsStart + span);
-  OMPBound rowStart = static_cast<OMPBound>(obsStart);
-  setBlockStart(obsStart);
-
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-  for (OMPBound row = rowStart; row < rowEnd; row += seqChunk) {
-    walkTree(sampler, row, min(rowEnd, row + seqChunk));
-    prediction->callScorer(this, row, min(rowEnd, row + seqChunk));
-  }
-  }
-  prediction->cacheIndices(idxFinal, span * nTree, blockStart * nTree);
-}
-
-
-void Forest::transpose(const RLEFrame* rleFrame,
-		       vector<size_t>& idxTr,
-		       size_t rowStart,
-		       size_t rowExtent) {
-  trFac = vector<CtgT>(scoreChunk * nPredFac);
-  trNum = vector<double>(scoreChunk * nPredNum);
-  CtgT* facOut = trFac.empty() ? nullptr : &trFac[0];
-  double* numOut = trNum.empty() ? nullptr : &trNum[0];
-  for (size_t row = rowStart; row != min(nObs, rowStart + rowExtent); row++) {
-    unsigned int numIdx = 0;
-    unsigned int facIdx = 0;
-    vector<szType> rankVec = rleFrame->idxRank(idxTr, row);
-    for (unsigned int predIdx = 0; predIdx < rankVec.size(); predIdx++) {
-      unsigned int rank = rankVec[predIdx];
-      if (rleFrame->factorTop[predIdx] == 0) {
-	*numOut++ = rleFrame->numRanked[numIdx++][rank];
-      }
-      else {// TODO:  Replace subtraction with (front end)::fac2Rank()
-	*facOut++ = rleFrame->facRanked[facIdx++][rank] - 1;
-      }
-    }
-  }
-}
-
-
-void Forest::setBlockStart(size_t blockStart) {
-  this->blockStart = blockStart;
-  fill(idxFinal.begin(), idxFinal.end(), noNode);
-}
-
-
-void Forest::walkTree(const Sampler* sampler,
-		      size_t obsStart,
-		      size_t obsEnd) {
-  for (size_t obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
-    for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
-      if (!sampler->isBagged(tIdx, obsIdx)) {
-	setFinalIdx(obsIdx, tIdx, walkObs(obsIdx, tIdx));
-      }
-    }
-  }
-}
-
-
-/**
-   @param[out] nodeIdx is the final index of the tree walk.
-
-   @return true iff final index is a valid node.
- */
-bool Forest::getFinalIdx(size_t obsIdx, unsigned int tIdx, IndexT& nodeIdx) const {
-  nodeIdx = idxFinal[nTree * (obsIdx - blockStart) + tIdx];
-  return nodeIdx != noNode;
-}
-
-
-bool Forest::isLeafIdx(size_t obsIdx,
-			unsigned int tIdx,
-			IndexT& leafIdx) const {
-  IndexT nodeIdx;
-  if (getFinalIdx(obsIdx, tIdx, nodeIdx))
-    return getLeafIdx(tIdx, nodeIdx, leafIdx);
-  else
-    return false;
-}
-
-
-bool Forest::isNodeIdx(size_t obsIdx,
-		       unsigned int tIdx,
-		       double& score) const {
-  IndexT nodeIdx;
-  if (getFinalIdx(obsIdx, tIdx, nodeIdx)) {
-    score = getScore(tIdx, nodeIdx);
-    return true;
-  }
-  else {
-    return false;
-  }
-    // Non-bagging scenarios should always see a leaf.
-    //    if (!bagging) assert(termIdx != noNode);
+// Should happen either internally or at construction.
+void Forest::initWalkers(const PredictFrame& trFrame) {
+  for (DecTree& tree : decTree)
+    tree.setObsWalker(trFrame.getNPredNum());
 }
 
 

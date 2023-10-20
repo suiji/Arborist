@@ -41,6 +41,7 @@ struct PredictBridge {
 
 
   static void initPredict(bool indexing,
+			  bool bagging,
 			  unsigned int nPermute,
 			  bool trapUnobserved);
   
@@ -62,9 +63,6 @@ struct PredictBridge {
   
   size_t getNObs() const;
 
-
-  unsigned int getNTree() const;
-  
 
   /**
      @brief Computes Meinshausen-style weight vectors over a set of observations.
@@ -99,6 +97,10 @@ struct PredictRegBridge : public PredictBridge {
 				       vector<double> yTest);
 
   bool permutes() const;
+
+
+  size_t getNObs() const;
+
 
   
   /**
@@ -145,6 +147,9 @@ struct PredictCtgBridge : public PredictBridge {
   
 
   bool permutes() const;
+
+
+  size_t getNObs() const;
 
   
   /**

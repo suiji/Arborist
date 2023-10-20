@@ -40,6 +40,7 @@
 const string PredictR::strQuantVec = "quantVec";
 const string PredictR::strImpPermute = "impPermute";
 const string PredictR::strIndexing = "indexing";
+const string PredictR::strBagging = "bagging";
 const string PredictR::strTrapUnobserved = "trapUnobserved";
 const string PredictR::strNThread = "nThread";
 const string PredictR::strCtgProb = "ctgProb";
@@ -85,7 +86,7 @@ List PredictR::predict(const List& lDeframe,
   ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
 
   List prediction;
-  SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, lArgs));
+  SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, as<bool>(lArgs[PredictR::strBagging])));
   ForestBridge forestBridge(ForestR::unwrap(lTrain, samplerBridge));
   if (Rf_isFactor((SEXP) lSampler[SamplerR::strYTrain]))
     prediction = PredictR::predictCtg(lDeframe, lSampler, samplerBridge, forestBridge, sYTest);
@@ -222,8 +223,7 @@ NumericMatrix PredictR::getIndices(const PredictRegBridge* pBridge) {
 
   auto indices = pBridge->getIndices();
   size_t nObs = pBridge->getNObs();
-  unsigned int nTree = pBridge->getNTree();
-  return indices.empty() ? NumericMatrix(0) : NumericMatrix(nObs, nTree, indices.begin());
+  return indices.empty() ? NumericMatrix(0) : NumericMatrix(nObs, indices.size() / nObs, indices.begin());
 
   END_RCPP
 }
@@ -382,8 +382,7 @@ NumericMatrix LeafCtgRf::getIndices(const PredictCtgBridge* pBridge) {
   BEGIN_RCPP
   auto indices = pBridge->getIndices();
   size_t nObs = pBridge->getNObs();
-  unsigned int nTree = pBridge->getNTree();
-  return indices.empty() ? NumericMatrix(0) : NumericMatrix(nObs, nTree, indices.begin());
+  return indices.empty() ? NumericMatrix(0) : NumericMatrix(nObs, indices.size() / nObs, indices.begin());
     END_RCPP
 }
 

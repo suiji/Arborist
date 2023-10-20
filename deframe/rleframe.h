@@ -150,21 +150,43 @@ struct RLEFrame {
 
      @param[in, out] idxTr gives the element referencing row.
 
-     @param row is the specified row.
+     @param obsIdx is the specified row.
 
      @return rank at the given row, per predictor.
    */
   vector<szType> idxRank(vector<size_t>& idxTr,
-			       size_t row) const {
+			 size_t obsIdx) const {
     vector<szType> rankVec(idxTr.size());
     for (unsigned int predIdx = 0; predIdx < rankVec.size(); predIdx++) {
-      if (row >= rlePred[predIdx][idxTr[predIdx]].getRowEnd()) {
+      if (obsIdx >= rlePred[predIdx][idxTr[predIdx]].getRowEnd()) {
 	idxTr[predIdx]++;
       }
       rankVec[predIdx] = rlePred[predIdx][idxTr[predIdx]].val;
     }
     return rankVec;
   }
+
+  void transpose(vector<size_t>& idxTr,
+		 size_t obsStart,
+		 size_t extent,
+		 vector<double>& num,
+		 vector<unsigned int>& fac) const {
+    for (size_t obsIdx = obsStart; obsIdx != min(nObs, obsStart + extent); obsIdx++) {
+      unsigned int numIdx = 0;
+      unsigned int facIdx = 0;
+      unsigned int predIdx = 0;
+      for (auto rank : idxRank(idxTr, obsIdx)) {
+	if (factorTop[predIdx] == 0) {
+	  num.push_back(numRanked[numIdx++][rank]);
+	}
+	else {// TODO:  Replace subtraction with (front end)::fac2Rank()
+	  fac.push_back(facRanked[facIdx++][rank] - 1);
+	}
+	predIdx++;
+      }
+    }
+  }
 };
+
 
 #endif

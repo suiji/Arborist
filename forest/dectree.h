@@ -37,28 +37,28 @@ public:
   ~DecTree();
 
   
-  IndexT (DecTree::* obsWalker)(const class Forest*, size_t);
+  IndexT (DecTree::* obsWalker)(const class PredictFrame&, size_t) const;
   
 
   void setObsWalker(PredictorT nPredNum);
 
   
-  IndexT walkObs(const class Forest* forest,
-		 size_t obsIdx) {
-    return (this->*DecTree::obsWalker)(forest, obsIdx);
+  IndexT walkObs(const class PredictFrame& frame,
+		 size_t obsIdx) const {
+    return (this->*DecTree::obsWalker)(frame, obsIdx);
   }
 
   
-  IndexT obsNum(const class Forest* forest,
-		size_t obsIdx);
+  IndexT obsNum(const class PredictFrame& frame,
+		size_t obsIdx) const;
 
 
-  IndexT obsFac(const class Forest* forest,
-		size_t obsIdx);
+  IndexT obsFac(const class PredictFrame& frame,
+		size_t obsIdx) const;
 
 
-  IndexT obsMixed(const class Forest* forest,
-		  size_t obsIdx);
+  IndexT obsMixed(const class PredictFrame& frame,
+		  size_t obsIdx) const;
 
 
   size_t nodeCount() const {

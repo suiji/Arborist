@@ -249,16 +249,15 @@ vector<double> SamplerR::ctgWeight(const IntegerVector& yTrain,
 
 SamplerBridge SamplerR::unwrapPredict(const List& lSampler,
 				      const List& lDeframe,
-				      const List& lArgs) {
-  bool bagging = as<bool>(lArgs["bagging"]);
+				      bool bagging) {
   if (bagging)
     checkOOB(lSampler, lDeframe);
 
   if (Rf_isNumeric((SEXP) lSampler[strYTrain])) {
-    return makeBridgeNum(lSampler, lDeframe, bagging);
+    return makeBridgeNum(lSampler, lDeframe);
   }
   else if (Rf_isFactor((SEXP) lSampler[strYTrain])) {
-    return makeBridgeCtg(lSampler, lDeframe, bagging);
+    return makeBridgeCtg(lSampler, lDeframe);
   }
   else {
     stop("Unrecognized training response type");
@@ -280,21 +279,18 @@ SEXP SamplerR::checkOOB(const List& lSampler, const List& lDeframe) {
 
 SamplerBridge SamplerR::makeBridgeNum(const List& lSampler,
 				      const List& lDeframe,
-				      bool bagging,
 				      bool generic) {
   NumericVector yTrain(as<NumericVector>(lSampler[strYTrain]));
   return SamplerBridge(vector<double>(yTrain.begin(), yTrain.end()),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
-		       generic ? nullptr : RLEFrameR::unwrap(lDeframe),
-		       bagging);
+		       generic ? nullptr : RLEFrameR::unwrap(lDeframe));
 }
 
 
 SamplerBridge SamplerR::makeBridgeCtg(const List& lSampler,
 				      const List& lDeframe,
-				      bool bagging,
 				      bool generic) {
   IntegerVector yTrain(as<IntegerVector>(lSampler[strYTrain]));
   return SamplerBridge(coreCtg(yTrain),
@@ -302,16 +298,16 @@ SamplerBridge SamplerR::makeBridgeCtg(const List& lSampler,
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
-		       generic ? nullptr : RLEFrameR::unwrap(lDeframe),
-		       bagging);
+		       generic ? nullptr : RLEFrameR::unwrap(lDeframe));
 }
 
 
-SamplerBridge SamplerR::unwrapGeneric(const List& lSampler, bool bagging) {
+SamplerBridge SamplerR::unwrapGeneric(const List& lSampler) {
+  List lDummy;
   if (Rf_isNumeric(lSampler[strYTrain]))
-    return makeBridgeNum(lSampler, bagging, true);
+    return makeBridgeNum(lSampler, lDummy, true);
   else
-    return makeBridgeCtg(lSampler, bagging, true);
+    return makeBridgeCtg(lSampler, lDummy, true);
 }
 
 

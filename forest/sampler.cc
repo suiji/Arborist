@@ -16,6 +16,7 @@
 #include "forest.h"
 #include "quant.h"
 #include "rleframe.h"
+#include "bv.h"
 #include "prng.h"
 
 
@@ -73,7 +74,7 @@ Sampler::Sampler(const vector<double>& yTrain,
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
   samples(samples_),
-  predict(Predict::makeReg(nullptr)) {
+  predict(Predict::makeReg(this, nullptr)) {
   Booster::setEstimate(this);
 }
 
@@ -88,7 +89,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg, classWeight)),
   samples(std::move(samples_)),
-  predict(Predict::makeCtg(nullptr)) {
+  predict(Predict::makeCtg(this, nullptr)) {
   Booster::setEstimate(this);
 }
 
@@ -96,15 +97,13 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 Sampler::Sampler(const vector<double>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
-		 unique_ptr<RLEFrame> rleFrame,
-		 bool bagging) :
+		 unique_ptr<RLEFrame> rleFrame) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryReg(yTrain)),
   samples(std::move(samples_)),
-  predict(Predict::makeReg(std::move(rleFrame))),
-  bagMatrix(bagRows(bagging)) {
+  predict(Predict::makeReg(this, std::move(rleFrame))) {
 }
 
 
@@ -112,31 +111,29 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
 		 IndexT nSamp_,
 		 PredictorT nCtg,
-		 unique_ptr<RLEFrame> rleFrame,
-		 bool bagging) :
+		 unique_ptr<RLEFrame> rleFrame) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
   response(Response::factoryCtg(yTrain, nCtg)),
   samples(std::move(samples_)),
-  predict(Predict::makeCtg(std::move(rleFrame))),
-  bagMatrix(bagRows(bagging)) {
+  predict(Predict::makeCtg(this, std::move(rleFrame))) {
 }
 
 
 Sampler::~Sampler() = default;
 
 
-unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) {
+unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) const {
   if (!bagging)
     return make_unique<BitMatrix>(0, 0);
 
   unique_ptr<BitMatrix> matrix = make_unique<BitMatrix>(nRep, nObs);
   for (unsigned int tIdx = 0; tIdx < nRep; tIdx++) {
-    IndexT row = 0;
+    IndexT obsIdx = 0;
     for (IndexT sIdx = 0; sIdx != getBagCount(tIdx); sIdx++) {
-      row += getDelRow(tIdx, sIdx);
-      matrix->setBit(tIdx, row);
+      obsIdx += getDelRow(tIdx, sIdx);
+      matrix->setBit(tIdx, obsIdx);
     }
   }
   return matrix;
