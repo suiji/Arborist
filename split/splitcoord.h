@@ -43,14 +43,14 @@ struct SplitCoord {
   /**
      @brief Indicates whether coord has been initialized to an actual predictor.
    */
-  inline bool noCoord() const {
+  bool noCoord() const {
     return predIdx == noPred;
   }
   
   /**
      @brief Computes node-major offset using passed stride value.
    */
-  inline size_t strideOffset(unsigned int stride) const {
+  size_t strideOffset(unsigned int stride) const {
     return nodeIdx * stride + predIdx;
   }
 };

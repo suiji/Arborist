@@ -16,11 +16,11 @@
 #include "forest.h"
 #include "dectree.h"
 #include "forestbridge.h"
-#include "forestrw.h"
+#include "samplerbridge.h"
 #include "typeparam.h"
 #include "bv.h"
-
 #include "leaf.h"
+
 using namespace std;
 
 
@@ -31,8 +31,9 @@ ForestBridge::ForestBridge(unsigned int nTree,
 			   const double facExtent[],
                            const unsigned char facSplit[],
 			   const unsigned char facObserved[],
-			   const tuple<double, double, string>& scoreDesc) :
-  forest(make_unique<Forest>(ForestRW::unpackDecTree(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
+			   const tuple<double, double, string>& scoreDesc,
+			   const SamplerBridge* samplerBridge) :
+  forest(make_unique<Forest>(DecTree::unpack(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
 			     scoreDesc, Leaf())) {
 }
 
@@ -45,12 +46,12 @@ ForestBridge::ForestBridge(unsigned int nTree,
                            const unsigned char facSplit[],
 			   const unsigned char facObserved[],
 			   const tuple<double, double, string>& scoreDesc,
-			   const SamplerBridge& samplerBridge,
+			   const SamplerBridge* samplerBridge,
 			   const double extent[],
 			   const double index[]) :
-  forest(make_unique<Forest>(ForestRW::unpackDecTree(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
+  forest(make_unique<Forest>(DecTree::unpack(nTree, nodeExtent, treeNode, score, facExtent, facSplit, facObserved),
 			     scoreDesc,
-			     ForestRW::unpackLeaf(samplerBridge, extent, index))) {
+			     Leaf::unpack(samplerBridge->getSampler(), extent, index))) {
 }
 
 
@@ -87,7 +88,7 @@ void ForestBridge::dump(vector<vector<unsigned int> >& predTree,
                         vector<vector<size_t> >& lhDelTree,
                         vector<vector<unsigned char> >& facSplitTree,
 			vector<vector<double>>& scoreTree) const {
-  ForestRW::dump(forest.get(), predTree, splitTree, lhDelTree, facSplitTree, scoreTree);
+  return forest->dump(predTree, splitTree, lhDelTree, facSplitTree, scoreTree);
 }
 
     

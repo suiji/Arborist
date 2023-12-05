@@ -72,17 +72,17 @@ StagedCell(IndexT nodeIdx,
   }
 
 
-  inline bool isLive() const {
+  bool isLive() const {
     return live;
   }
 
 
-  inline IndexT getNodeIdx() const {
+  IndexT getNodeIdx() const {
     return coord.nodeIdx;
   }
   
 
-  inline PredictorT getPredIdx() const {
+  PredictorT getPredIdx() const {
     return coord.predIdx;
   }
 
@@ -90,7 +90,7 @@ StagedCell(IndexT nodeIdx,
   /**
      @return complementary buffer index.
    */
-  inline unsigned int compBuffer() const {
+  unsigned int compBuffer() const {
     return 1 - bufIdx;
   }
 
@@ -102,12 +102,12 @@ StagedCell(IndexT nodeIdx,
 
      A runCount value of zero is short-hand for all singletons.
    */
-  inline void setRunCount(IndexT runCount) {
+  void setRunCount(IndexT runCount) {
     this->runCount = (runCount != 0 ? runCount : obsRange.idxExtent) + (obsImplicit == 0 ? 0 : 1);
   }
 
 
-  inline void setPreresidual(IndexT preResidual) {
+  void setPreresidual(IndexT preResidual) {
     this->preResidual = preResidual;
   }
 
@@ -167,7 +167,7 @@ StagedCell(IndexT nodeIdx,
   /**
      @return total number of explicit and implicit ranks.
    */
-  inline IndexT getRunCount() const {
+  IndexT getRunCount() const {
     return runCount;
   }
 

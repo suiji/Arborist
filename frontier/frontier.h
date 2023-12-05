@@ -53,8 +53,7 @@ class Frontier {
      
      @return map of bagged samples.
    */
-  SampleMap produceRoot(const class PredictorFrame* frame,
-			const class Grove* train);
+  SampleMap produceRoot(const class PredictorFrame* frame);
 
 
   /**
@@ -256,7 +255,7 @@ public:
 
      @return bagCount value.
    */
-  inline auto getBagCount() const {
+  auto getBagCount() const {
     return bagCount;
   }
 
@@ -264,7 +263,7 @@ public:
   /**
      @brief Getter for # categories in response.
    */
-  inline auto getNCtg() const {
+  auto getNCtg() const {
     return nCtg;
   }
 
@@ -272,7 +271,7 @@ public:
   /**
      @brief Accessor for count of splitable sets.
    */
-  inline IndexT getNSplit() const {
+  IndexT getNSplit() const {
     return frontierNodes.size();
   }
 
@@ -284,7 +283,7 @@ public:
 
      @return index set's sum value.
    */
-  inline auto getSum(IndexT splitIdx) const {
+  auto getSum(IndexT splitIdx) const {
     return frontierNodes[splitIdx].getSum();
   }
 
@@ -292,7 +291,7 @@ public:
   /**
      @brief As above, but parametrized by candidate location.
    */
-  inline auto getSum(const StagedCell* mrra) const {
+  auto getSum(const StagedCell* mrra) const {
     return getSum(mrra->getNodeIdx());
   }
 
@@ -300,12 +299,12 @@ public:
   /**
      @brief Accessor for count of sampled responses over set.
    */
-  inline auto getSCount(IndexT splitIdx) const {
+  auto getSCount(IndexT splitIdx) const {
     return frontierNodes[splitIdx].getSCount();
   }
 
 
-  inline auto getSCount(const StagedCell* mrra) const {
+  auto getSCount(const StagedCell* mrra) const {
     return getSCount(mrra->getNodeIdx());
   }
 
@@ -313,13 +312,13 @@ public:
   /**
      @brief Accessor for count of sampled responses over set.
    */
-  inline auto getSCountSucc(IndexT splitIdx,
+  auto getSCountSucc(IndexT splitIdx,
 			    bool sense) const {
     return frontierNodes[splitIdx].getSCountSucc(sense);
   }
 
 
-  inline auto getSCountSucc(const StagedCell* mrra,
+  auto getSCountSucc(const StagedCell* mrra,
 			    bool sense) const {
     return getSCountSucc(mrra->getNodeIdx(), sense);
   }
@@ -328,13 +327,13 @@ public:
   /**
      @brief Accessor for count of sampled responses over set.
    */
-  inline auto getSumSucc(IndexT splitIdx,
+  auto getSumSucc(IndexT splitIdx,
 			    bool sense) const {
     return frontierNodes[splitIdx].getSumSucc(sense);
   }
 
 
-  inline auto getSumSucc(const StagedCell* mrra,
+  auto getSumSucc(const StagedCell* mrra,
 			    bool sense) const {
     return getSumSucc(mrra->getNodeIdx(), sense);
   }
@@ -343,7 +342,7 @@ public:
   /**
      @brief Accessor for count of disinct indices over set.
    */
-  inline auto getExtent(IndexT splitIdx) const {
+  auto getExtent(IndexT splitIdx) const {
     return frontierNodes[splitIdx].getExtent();
   }
 
@@ -351,7 +350,7 @@ public:
   /**
      @brief Indicates whether index set is inherently unsplitable.
    */
-  inline bool isUnsplitable(IndexT splitIdx) const {
+  bool isUnsplitable(IndexT splitIdx) const {
     return frontierNodes[splitIdx].isUnsplitable();
   }
 

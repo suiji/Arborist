@@ -38,7 +38,7 @@ public:
 
      @return true iff sample index is assigned to the true-branching successor.
    */
-  inline bool senseTrue(IndexT sIdx,
+  bool senseTrue(IndexT sIdx,
 			bool implicitTrue) const {
     return expl->testBit(sIdx) ? explTrue->testBit(sIdx) : implicitTrue;
   }
@@ -49,7 +49,7 @@ public:
 
      @return true iff sample has been explicity replayed.
    */
-  inline bool isExplicit(IndexT sIdx) const {
+  bool isExplicit(IndexT sIdx) const {
     return expl->testBit(sIdx);
   }
 

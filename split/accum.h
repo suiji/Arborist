@@ -78,7 +78,7 @@ public:
 
      @param return weighted-variance information value.
    */
-  static inline double infoVar(double sumLeft,
+  static double infoVar(double sumLeft,
 			       double sumRight,
 			       IndexT sCountLeft,
 			       IndexT sCountRight) {
@@ -89,7 +89,7 @@ public:
   /**
      @brief As above, but with running and initialized SumCounts.
    */
-  static inline double infoVar(const SumCount& scAccum,
+  static double infoVar(const SumCount& scAccum,
 			       const SumCount& scInit) {
     return infoVar(scAccum.sum, scInit.sum - scAccum.sum, scAccum.sCount, scInit.sCount - scAccum.sCount);
   }
@@ -106,7 +106,7 @@ public:
 
      @param sumRight is the sum of responses to the right.
    */
-  static inline double infoGini(double ssLeft,
+  static double infoGini(double ssLeft,
 				double ssRight,
 				double sumLeft,
 				double sumRight) {

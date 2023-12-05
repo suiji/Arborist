@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2022   Mark Seligman
+# Copyright (C)  2012-2023   Mark Seligman
 ##
 ## This file is part of ArboristR.
 ##
@@ -21,7 +21,7 @@ Streamline <- function(arbOut) {
 
 
 Streamline.rfArb <- function(arbOut) {
-  warning("Streamline is being deprecated.  Please train with 'thinLeaves' instead.");
+  warning("Streamline is being deprecated.  Please train with 'streamline' instead.");
   if (!inherits(arbOut, "rfArb"))
     stop("object not of class rfArb")
   if (is.null(arbOut$sampler))

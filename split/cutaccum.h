@@ -38,7 +38,7 @@ protected:
 
      In CART-like splitting, right bound is implicitly one greater.
    */
-  inline void argmaxRL(double infoTrial,
+  void argmaxRL(double infoTrial,
 		       IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
       this->obsLeft = obsLeft;
@@ -50,7 +50,7 @@ protected:
   /**
      @brief As above, but directionless.
    */
-  inline void argmaxBounds(double infoTrial,
+  void argmaxBounds(double infoTrial,
 			   IndexT obsRight,
 			   IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
@@ -69,7 +69,7 @@ protected:
 
      May be called twice for the same residual:  once right, once left.
    */
-  inline void argmaxResidual(double infoTrial,
+  void argmaxResidual(double infoTrial,
 			     bool onLeft) {
     if (Accum::trialSplit(infoTrial)) {
       obsRight = cutResidual;
@@ -85,7 +85,7 @@ protected:
 
      @return true iff rank is tied with that of left neighbor.
    */
-  inline bool accumulateReg(const Obs& obs) {
+  bool accumulateReg(const Obs& obs) {
     sum -= obs.getYSum();
     sCount -= obs.getSCount();
     return obs.isTied();
@@ -156,7 +156,7 @@ protected:
 
      @return true iff rank ties with observation to left.
    */
-  inline bool accumulateCtg(const Obs& obs) {
+  bool accumulateCtg(const Obs& obs) {
     sum -= obs.getYSum();
     sCount -= obs.getSCount();
     accumCtgSS(obs.getYSum(), obs.getCtg());
@@ -183,7 +183,7 @@ public:
 
      @param yCtt is the response category.
    */
-  inline void accumCtgSS(double ySumCtg,
+  void accumCtgSS(double ySumCtg,
 			 PredictorT yCtg) {
     double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumCtg);
     ssR += ySumCtg * (ySumCtg + 2.0 * sumRCtg);

@@ -44,7 +44,7 @@ unique_ptr<PreTree> Frontier::oneTree(const PredictorFrame* frame,
 				      const Sampler* sampler,
 				      unsigned int tIdx) {
   Frontier frontier(frame, train, sampler, tIdx);
-  SampleMap smNonTerm = frontier.produceRoot(frame, train);
+  SampleMap smNonTerm = frontier.produceRoot(frame);
   return frontier.splitByLevel(smNonTerm);
 }
 
@@ -55,7 +55,7 @@ Frontier::Frontier(const PredictorFrame* frame_,
 		   unsigned int tIdx) :
   frame(frame_),
   scorer(grove->getNodeScorer()),
-  sampledObs(sampler->getObs(tIdx)),
+  sampledObs(sampler->makeObs(tIdx)),
   bagCount(sampledObs->getBagCount()),
   nCtg(sampledObs->getNCtg()),
   interLevel(make_unique<InterLevel>(frame, sampledObs.get(), this)),
@@ -64,9 +64,8 @@ Frontier::Frontier(const PredictorFrame* frame_,
 }
 
 
-SampleMap Frontier::produceRoot(const PredictorFrame* frame,
-				const Grove* grove) {
-  sampledObs->sampleRoot(frame, grove->getNodeScorer());
+SampleMap Frontier::produceRoot(const PredictorFrame* frame) {
+  sampledObs->sampleRoot(frame, scorer);
   pretree->offspring(0, true);
   frontierNodes.emplace_back(sampledObs.get());
 

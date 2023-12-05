@@ -47,7 +47,11 @@ SEXP TrainR::initPerInvocation(const List& argList,
 			 as<double>(argList["minInfo"]),
 			 splitQuant);
 
-  trainBridge.initBooster(as<string>(argList["loss"]), as<string>(argList["forestScore"]), as<double>(argList["nu"]));
+  trainBridge.initBooster(as<string>(argList["loss"]),
+			  as<string>(argList["forestScore"]),
+			  as<double>(argList["nu"]),
+			  as<bool>(argList["trackFit"]),
+			  as<unsigned int>(argList["stopLag"]));
   trainBridge.initNodeScorer(as<string>(argList["nodeScore"]));
   trainBridge.initTree(as<unsigned int>(argList["maxLeaf"]));
   trainBridge.initGrove(as<bool>(argList["thinLeaves"]),

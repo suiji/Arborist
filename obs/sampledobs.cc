@@ -25,6 +25,27 @@
 
 #include <numeric>
 
+vector<double> SampledObs::obsWeight = vector<double>(0);
+vector<double> SampledCtg::classWeight = vector<double>(0);
+
+
+void SampledObs::init(vector<double> obsWeight_) {
+  obsWeight = std::move(obsWeight_);
+}
+
+
+
+void SampledCtg::init(vector<double> classWeight_) {
+  classWeight = std::move(classWeight_);
+}
+
+
+void SampledObs::deInit() {
+  obsWeight = vector<double>(0);
+  SampledCtg::classWeight = vector<double>(0);
+}
+
+
 
 SampledObs::SampledObs(const Sampler* sampler,
 		       unsigned int samplerIdx,
@@ -44,19 +65,19 @@ SampledObs::~SampledObs() = default;
 
 void SampledObs::sampleRoot(const PredictorFrame* frame,
 			    NodeScorer* scorer) {
-  bagSamples(frame);
+  sampleObservations(scorer);
   setRanks(frame);
   Booster::updateResidual(scorer, this, bagSum);
 }
 
 
-void SampledCtg::bagSamples(const PredictorFrame* frame) {
-  bagSamples(frame, response->getYCtg(), response->getClassWeight());
+void SampledCtg::sampleObservations(NodeScorer* scorer) {
+  sampleObservations(scorer, response->getYCtg());
 }
 
 
-void SampledReg::bagSamples(const PredictorFrame* frame) {
-  bagSamples(frame, response->getYTrain());
+void SampledReg::sampleObservations(NodeScorer* scorer) {
+  sampleObservations(scorer, response->getYTrain());
 }
 
 
@@ -71,16 +92,27 @@ SampledReg::SampledReg(const Sampler* sampler,
 SampledReg::~SampledReg() = default;
 
 
-void SampledReg::bagSamples(const PredictorFrame* frame,
-			    const vector<double>& y) {
-  SampledObs::bagSamples(y, vector<PredictorT>(y.size()));
+void SampledReg::sampleObservations(NodeScorer* scorer,
+				    const vector<double>& y) {
+  vector<double> sampleScore;
+  IndexT obsIdx = 0;
+  for (const SamplerNux& nx : nux) {
+    obsIdx += nx.getDelRow();
+    sampleScore.push_back(y[obsIdx] * nx.getSCount());
+  }
+  scorer->setScores(std::move(sampleScore));
+  SampledObs::sampleObservations(y, vector<PredictorT>(y.size()));
 }
 
 
-void SampledCtg::bagSamples(const PredictorFrame* frame,
-			    const vector<PredictorT>& yCtg,
-			    const vector<double>& y) {
-  SampledObs::bagSamples(y, yCtg);
+void SampledCtg::sampleObservations(NodeScorer* scorer,
+				    const vector<PredictorT>& yCtg) {
+  double weightSum = accumulate(classWeight.begin(), classWeight.end(), 0.0);
+  vector<double> yWeight(yCtg.size());
+  transform(yCtg.begin(), yCtg.end(), &yWeight[0],
+	    [weightSum](PredictorT ctg) { return classWeight[ctg] / weightSum; });
+
+  SampledObs::sampleObservations(yWeight, yCtg);
 }
 
 
@@ -96,20 +128,20 @@ SampledCtg::SampledCtg(const Sampler* sampler,
 SampledCtg::~SampledCtg() = default;
 
 
-void SampledObs::bagSamples(const vector<double>&  y,
-			    const vector<PredictorT>& yCtg) {
+void SampledObs::sampleObservations(const vector<double>&  y,
+				    const vector<PredictorT>& yCtg) {
   if (nux.empty()) {
     bagTrivial(y, yCtg);
     return;
   }
   else {
     IndexT sIdx = 0;
-    IndexT row = 0;
+    IndexT obsIdx = 0;
     fill(obs2Sample.begin(), obs2Sample.end(), bagCount);
     for (const SamplerNux& nx : nux) {
-      row += nx.getDelRow();
-      bagSum += (this->*adder)(y[row], nx, yCtg[row]);
-      obs2Sample[row] = sIdx++;
+      obsIdx += nx.getDelRow();
+      bagSum += (this->*adder)(y[obsIdx] * obsWeight[obsIdx], nx, yCtg[obsIdx]);
+      obs2Sample[obsIdx] = sIdx++;
     }
   }
 }
@@ -119,8 +151,8 @@ void SampledObs::bagTrivial(const vector<double>& y,
 			    const vector<PredictorT>& yCtg) {
   iota(obs2Sample.begin(), obs2Sample.end(), 0);
   SamplerNux nux(1, 1);
-  for (IndexT row = 0; row < bagCount; row++) {
-    bagSum += (this->*adder)(y[row], nux, yCtg[row]);
+  for (IndexT obsIdx = 0; obsIdx < bagCount; obsIdx++) {
+    bagSum += (this->*adder)(y[obsIdx] * obsWeight[obsIdx], nux, yCtg[obsIdx]);
   }
 }
 

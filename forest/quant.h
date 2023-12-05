@@ -51,7 +51,7 @@ class Quant {
 
      @return bin offset.
    */
-  inline unsigned int binRank(unsigned int rank) const {
+  unsigned int binRank(unsigned int rank) const {
     return rank >> rankScale;
   }
 
@@ -133,7 +133,7 @@ public:
   /**
      @brief Determines whether to bail on quantile estimation.
    */
-  inline bool isEmpty() const {
+  bool isEmpty() const {
     return empty;
   };
 

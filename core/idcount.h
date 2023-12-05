@@ -38,12 +38,12 @@ struct IdCount {
   IdCount() : id(0), sCount(0) {}
 
 
-  inline auto getId() const {
+  auto getId() const {
     return id;
   }
 
 
-  inline auto getSCount() const {
+  auto getSCount() const {
     return sCount;
   }
 };

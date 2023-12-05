@@ -143,7 +143,7 @@ public:
 
 
   /**
-     @brief Writes to heap, weighting by slot mean response.
+     @brief Heap orders by target-mean encoding.
   */
   vector<RunNux> orderMean(const vector<RunNux>& runNux);
 };
@@ -199,7 +199,7 @@ public:
   /**
      @return checkerboard value at slot for category.
    */
-  inline double getRunSum(PredictorT runIdx,
+  double getRunSum(PredictorT runIdx,
 			   PredictorT yCtg) const {
     return runSum[runIdx * nCtg + yCtg];
   }
@@ -216,7 +216,7 @@ public:
 
      @return true iff next run sufficiently different from this.
    */
-  inline bool accumBinary(const vector<RunNux>& runNux,
+  bool accumBinary(const vector<RunNux>& runNux,
 			  PredictorT slot,
 			  double& sum0,
 			  double& sum1) {
@@ -260,7 +260,7 @@ public:
   /**
      @brief Subtracts a run's per-category responses from the current run.
    */
-  inline void residualSums(const vector<RunNux>& runNux,
+  void residualSums(const vector<RunNux>& runNux,
 		       PredictorT implicitSlot);
 
 

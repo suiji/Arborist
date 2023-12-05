@@ -71,12 +71,27 @@ struct TrainBridge {
   static void initTree(size_t leafMax);
 
 
+  static void initSamples(vector<double> obsWeight);
+
+  
+  static void initCtg(vector<double> classWeight);
+
+  
   /**
-     @brief Sets learning rate for sequential training.
+     @brief Sets loss and scoring for independent forest.
+   */
+  static void initBooster(const string& loss,
+			  const string& scorer);
+
+  
+  /**
+     @brief Sets update for sequential forest,
    */
   static void initBooster(const string& loss,
 			  const string& scorer,
-			  double nu = 0.0);
+			  double nu,
+			  bool trackFit,
+			  unsigned int stopLag);
 
 
   /**

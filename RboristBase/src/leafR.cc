@@ -58,15 +58,12 @@ void LeafR::bridgeConsume(const LeafBridge& bridge,
   indexTop += indexSize;
 }
 
-
+// [[Rcpp::export]]
 List LeafR::wrap() {
-  BEGIN_RCPP
-
   List leaf = List::create(_[strExtent] = std::move(extent),
 			   _[strIndex] = std::move(index)
 			);
   leaf.attr("class") = "Leaf";
 
   return leaf;
-  END_RCPP
 }

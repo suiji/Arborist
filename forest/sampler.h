@@ -26,6 +26,7 @@
 
 using namespace std;
 
+class Predict;
 
 class Sampler {
   // Experimental coarse-grained control of locality:  Not quite
@@ -39,7 +40,7 @@ class Sampler {
   const unique_ptr<struct Response> response;
   
   const vector<vector<class SamplerNux>> samples;
-  unique_ptr<class Predict> predict; // Training, prediction only.
+  unique_ptr<Predict> predict; // Training, prediction only.
 
 
   // Presampling only:
@@ -113,10 +114,9 @@ public:
   Sampler(const vector<PredictorT>& yTrain,
 	  IndexT nSamp_,
 	  vector<vector<SamplerNux>> nux,
-	  PredictorT nCtg,
-	  const vector<double>& classWeight_);
+	  PredictorT nCtg);
 
-  
+
   ~Sampler();
 
   
@@ -219,7 +219,7 @@ public:
   /**
      @brief Passes through to Response method.
    */
-  unique_ptr<class SampledObs> getObs(unsigned int tIdx) const;
+  unique_ptr<class SampledObs> makeObs(unsigned int tIdx) const;
 
   
   /**
@@ -262,6 +262,11 @@ public:
 
   auto getNRep() const {
     return nRep;
+  }
+
+
+  Predict* getPredict() const {
+    return predict.get();
   }
 
   

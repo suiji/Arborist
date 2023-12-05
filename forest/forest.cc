@@ -57,18 +57,11 @@ unique_ptr<ForestPredictionCtg> Forest::makePredictionCtg(const Sampler* sampler
 }
 						   
 
-// Should happen either internally or at construction.
-void Forest::initWalkers(const PredictFrame& trFrame) {
-  for (DecTree& tree : decTree)
-    tree.setObsWalker(trFrame.getNPredNum());
-}
-
-
 void Forest::dump(vector<vector<PredictorT> >& predTree,
                   vector<vector<double> >& splitTree,
                   vector<vector<size_t> >& delIdxTree,
-		  vector<vector<double>>& scoreTree,
-		  IndexT& dummy) const {
+		  vector<vector<unsigned char>>& facSplitTree,
+		  vector<vector<double>>& scoreTree) const {
   dump(predTree, splitTree, delIdxTree, scoreTree);
 }
 

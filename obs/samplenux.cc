@@ -11,8 +11,6 @@
    @brief Methods for internal representation of sampled response and
    ranks.
 
-   All but the static (de)initializer methods are inlined in the header.
-
    @author Mark Seligman
  */
 

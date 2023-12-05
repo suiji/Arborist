@@ -37,6 +37,13 @@ using namespace Rcpp;
 #include "forestR.h"
 
 
+/**
+   @brief Structures forest summary for analysis by Dump package.
+
+   @param sTrain is the trained object.
+
+   @return RboristDump as List.
+ */
 RcppExport SEXP exprdump(SEXP sTrain);
 
 

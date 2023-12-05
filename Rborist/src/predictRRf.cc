@@ -26,10 +26,8 @@
 #include "predictR.h"
 #include "predictbridge.h"
 
-
-SEXP PredictR::initPerInvocation(const List& lArgs) {
-  BEGIN_RCPP
-
+// [[Rcpp::export]]
+void PredictR::initPerInvocation(const List& lArgs) {
   PredictBridge::initPredict(as<bool>(lArgs[strIndexing]),
 			     as<bool>(lArgs[strBagging]),
 			     as<unsigned int>(lArgs[strImpPermute]),
@@ -37,6 +35,4 @@ SEXP PredictR::initPerInvocation(const List& lArgs) {
   PredictBridge::initQuant(quantVec(lArgs));
   PredictBridge::initCtgProb(as<bool>(lArgs[strCtgProb]));
   PredictBridge::initOmp(as<unsigned int>(lArgs[strNThread]));
-
-  END_RCPP
 }

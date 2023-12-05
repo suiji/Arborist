@@ -69,7 +69,7 @@ class PredictorFrame {
   vector<Layout> implExpl;
   
   
-  inline double getNumVal(PredictorT predIdx,
+  double getNumVal(PredictorT predIdx,
                           IndexT rank) const {
     return rleFrame->numRanked[predIdx][rank];
   }
@@ -143,7 +143,7 @@ public:
   /**
      @return number of observation predictors.
   */
-  inline PredictorT getNPred() const {
+  PredictorT getNPred() const {
     return nPred;
   }
 
@@ -151,7 +151,7 @@ public:
   /**
      @return number of factor predictors.
    */
-  inline PredictorT getNPredFac() const {
+  PredictorT getNPredFac() const {
     return nPredFac;
   }
 
@@ -159,12 +159,12 @@ public:
   /**
      @return number of numerical predictors.
    */
-  inline PredictorT getNPredNum() const {
+  PredictorT getNPredNum() const {
     return nPredNum;
   }
 
 
-  inline IndexT getNoRank() const {
+  IndexT getNoRank() const {
     return noRank;
   }
 
@@ -172,7 +172,7 @@ public:
   /**
      @return rank denoting missing data, if any.
    */
-  inline IndexT getMissingRank(PredictorT predIdx) const {
+  IndexT getMissingRank(PredictorT predIdx) const {
     return implExpl[predIdx].rankMissing;
   }
 
@@ -221,7 +221,7 @@ public:
 
      @return reference to vector.
    */
-  inline vector<IndexT> getDenseIdx() const {
+  vector<IndexT> getDenseIdx() const {
     vector<IndexT> denseIdx(nPred);
     PredictorT predIdx = 0;
     for (auto ie : implExpl) {
@@ -246,7 +246,7 @@ public:
   }
 
 
-  inline IndexT getRankMax(PredictorT predIdx) const {
+  IndexT getRankMax(PredictorT predIdx) const {
     return rleFrame->getRLE(feIndex[predIdx]).back().val;
   }
 
@@ -258,7 +258,7 @@ public:
 
      @return true iff index references a factor.
    */
-  inline bool isFactor(PredictorT predIdx)  const {
+  bool isFactor(PredictorT predIdx)  const {
     return predIdx >= nPredNum;
   }
 
@@ -276,7 +276,7 @@ public:
   /**
      @brief Accessor for factorTop footprint.
    */
-  inline auto getFactorExtent() const {
+  auto getFactorExtent() const {
     return factorExtent.empty() ? 0 : *max_element(factorExtent.begin(), factorExtent.end());
   }
   
@@ -292,7 +292,7 @@ public:
 
      @return strided factor offset, if factor, else predictor index.
    */
-  inline unsigned int getFacStride(PredictorT predIdx,
+  unsigned int getFacStride(PredictorT predIdx,
 				   unsigned int nStride,
 				   bool& thisIsFactor) const {
     thisIsFactor = isFactor(predIdx);
@@ -318,7 +318,7 @@ public:
 
      @return Position of predictor within its block.
   */
-  inline PredictorT getTypedIdx(PredictorT predIdx) const {
+  PredictorT getTypedIdx(PredictorT predIdx) const {
     return rleFrame->getBlockIdx(feIndex[predIdx]);
   }
 
@@ -332,7 +332,7 @@ public:
 
      @return interpolated value.
    */
-  inline double interpolate(PredictorT predIdx,
+  double interpolate(PredictorT predIdx,
 			    double rank) const {
     IndexT rankFloor = floor(rank);
     IndexT rankCeil = ceil(rank);

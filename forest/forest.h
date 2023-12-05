@@ -65,13 +65,7 @@ class Forest {
 	 Leaf&& leaf_);
 
 
-  /**
-     @brief Initializes walker state.  Ultimately deprecated.
-   */
-  void initWalkers(const class PredictFrame& trFrame);
-
-
-  IndexT walkObs(const class PredictFrame& frame,
+  IndexT walkObs(const class PredictFrame* frame,
 		 size_t obsIdx,
 		 unsigned int tIdx) const {
     return decTree[tIdx].walkObs(frame, obsIdx);
@@ -90,7 +84,7 @@ class Forest {
      
      @return number of trees in the forest.
    */
-  inline unsigned int getNTree() const {
+  unsigned int getNTree() const {
     return nTree;
   }
 
@@ -170,8 +164,8 @@ class Forest {
   void dump(vector<vector<PredictorT> > &predTree,
             vector<vector<double> > &splitTree,
             vector<vector<size_t> > &lhDelTree,
-	    vector<vector<double>>& scoreTree,
-	    IndexT& dummy) const;
+	    vector<vector<unsigned char>>& facSplitTree,
+	    vector<vector<double>>& scoreTree) const;
 };
 
 

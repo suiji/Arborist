@@ -21,7 +21,7 @@ presample <- function(y, ...) UseMethod("presample")
 
 
 presample.default <- function(y,
-                              rowWeight = NULL,
+                              samplingWeight = NULL,
                               nSamp = 0,
                               nTree = 500,
                               withRepl = TRUE,
@@ -29,6 +29,12 @@ presample.default <- function(y,
                               ...) {
     if (nTree <= 0)
         stop("Tree count must be positive")
+
+    if (any(is.na(y)))
+        stop("NA not supported in response")
+
+    if (!is.numeric(y) && !is.factor(y))
+        stop("Expecting numeric or factor response")
 
     nRow <- length(y)
 
@@ -43,21 +49,21 @@ presample.default <- function(y,
     else if (!withRepl && nSamp > nRow)
         stop("Sample count exceeds observation count but not replacing")
     
-    if (!is.null(rowWeight)) {
-        if (length(rowWeight) != nRow) {
+    if (!is.null(samplingWeight)) {
+        if (length(samplingWeight) != nRow) {
             stop("Sample weight length must match row count")
         }
-        if (all(rowWeight == 0)) {
+        if (all(samplingWeight == 0)) {
             stop("No nonzero weights")
         }
-        if (any(rowWeight < 0)) {
+        if (any(samplingWeight < 0)) {
             stop("Negative sample weights not permitted")
         }
-        if (!withRepl && sum(which(rowWeight > 0)) < nSamp)
+        if (!withRepl && sum(which(samplingWeight > 0)) < nSamp)
             stop("Insufficiently many samples with nonzero probability")
     }
 
-    ps <- presampleCommon(y, rowWeight, nSamp, nTree, withRepl)
+    ps <- presampleCommon(y, samplingWeight, nSamp, nTree, withRepl)
     if (verbose)
         print("Sampling completed")
 
@@ -67,6 +73,6 @@ presample.default <- function(y,
 
 
 # Glue-layer interface to sampler.
-presampleCommon <- function(y, rowWeight, nSamp, nTree, withRepl) {
-    tryCatch(.Call("rootSample", y, rowWeight, nSamp, nTree, withRepl), error = function(e){stop(e)})
+presampleCommon <- function(y, samplingWeight, nSamp, nTree, withRepl) {
+    tryCatch(.Call("rootSample", y, samplingWeight, nSamp, nTree, withRepl), error = function(e){stop(e)})
 }

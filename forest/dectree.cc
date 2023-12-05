@@ -17,6 +17,7 @@
 #include "dectree.h"
 #include "predictframe.h"
 
+#include "quant.h" // Inclusion only.
 
 DecTree::DecTree(const vector<DecNode>& decNode_,
 		 const BV& facSplit_,
@@ -29,54 +30,66 @@ DecTree::DecTree(const vector<DecNode>& decNode_,
 }
 
 
-void DecTree::setObsWalker(PredictorT nPredNum) {
-  if (facSplit.isEmpty())
-    obsWalker = &DecTree::obsNum;
-  else if (nPredNum == 0)
-    obsWalker = &DecTree::obsFac;
-  else
-    obsWalker = &DecTree::obsMixed;
+vector<DecTree> DecTree::unpack(unsigned int nTree,
+				const double nodeExtent[],
+				const complex<double> nodes[],
+				const double score[],
+				const double facExtent[],
+				const unsigned char facSplit[],
+				const unsigned char facObserved[]) {
+  vector<DecTree> decTree;
+  size_t facIdx = 0;
+  size_t nodeIdx = 0;
+  vector<size_t> ndExtent(nodeExtent, nodeExtent + nTree);
+  vector<size_t> fcExtent(facExtent, facExtent + nTree);
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    decTree.emplace_back(unpackNodes(nodes + nodeIdx, ndExtent[tIdx]),
+			 unpackBits(facSplit + facIdx, fcExtent[tIdx]),
+			 unpackBits(facObserved + facIdx, fcExtent[tIdx]),
+			 unpackDoubles(score + nodeIdx, ndExtent[tIdx]));
+    facIdx += fcExtent[tIdx] * sizeof(BVSlotT);
+    nodeIdx += ndExtent[tIdx];
+  }
+
+  return decTree;
+}
+
+
+vector<double> DecTree::unpackDoubles(const double val[],
+				      const size_t extent) {
+  vector<double> valVec;
+  copy(val, val + extent, back_inserter(valVec));
+
+  return valVec;
+}
+
+
+BV DecTree::unpackBits(const unsigned char raw[],
+		       size_t extent) {
+  return BV(raw, extent);
+}
+
+
+vector<DecNode> DecTree::unpackNodes(const complex<double> nodes[],
+				     size_t extent) {
+  vector<DecNode> decNode;
+  copy(nodes, nodes + extent, back_inserter(decNode));
+
+  return decNode;
 }
 
 
 DecTree::~DecTree() = default;
 
 
-IndexT DecTree::obsNum(const PredictFrame& frame,
+IndexT DecTree::walkObs(const PredictFrame* frame,
 		       size_t obsIdx) const {
   IndexT idx = 0;
   IndexT delIdx = 0;
   do {
-    delIdx = decNode[idx].advance(frame.baseNum(obsIdx));
+    delIdx = decNode[idx].advance(frame, this, obsIdx);
     idx += delIdx;
   } while (delIdx != 0);
 
   return idx;
 }
-
-
-IndexT DecTree::obsFac(const PredictFrame& frame,
-		       size_t obsIdx) const {
-  IndexT idx = 0;
-  IndexT delIdx = 0;
-  do {
-    delIdx = decNode[idx].advance(facSplit, facObserved, frame.baseFac(obsIdx));
-    idx += delIdx;
-  } while (delIdx != 0);
-
-  return idx;
-}
-
-
-IndexT DecTree::obsMixed(const PredictFrame& frame,
-			 size_t obsIdx) const {
-  IndexT idx = 0;
-  IndexT delIdx = 0;
-  do {
-    delIdx = decNode[idx].advance(frame, facSplit, facObserved, frame.baseFac(obsIdx), frame.baseNum(obsIdx));
-    idx += delIdx;
-  } while (delIdx != 0);
-
-  return idx;
-}
-

@@ -43,7 +43,12 @@ validate.default <- function(train,
   if (is.null(preFormat) && impPermute > 0)
       stop("Pre-formatted observation set required for permutation testing.")
 
-  print(indexing)
+  if (impPermute < 0) {
+      warning("Negative permutation count:  substituting zero.")
+      impPermute <- 0
+  }
+        
+
   argPredict <- list(
       bagging = TRUE,
       impPermute = impPermute,

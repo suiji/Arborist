@@ -47,6 +47,61 @@ Leaf::Leaf(const Sampler* sampler,
 Leaf::~Leaf() = default;
 
 
+Leaf Leaf::unpack(const Sampler* sampler,
+		  const double extent_[],
+		  const double index_[]) {
+  vector<vector<size_t>> extent = unpackExtent(sampler, extent_);
+  vector<vector<vector<size_t>>> index = unpackIndex(sampler, extent, index_);
+  return Leaf(sampler, std::move(extent), std::move(index));
+}
+
+
+vector<vector<size_t>> Leaf::unpackExtent(const Sampler* sampler,
+					  const double extentNum[]) {
+  if (extentNum == nullptr) {
+    return vector<vector<size_t>>(0);
+  }
+
+  unsigned int nTree = sampler->getNRep();
+  vector<vector<size_t>> unpacked(nTree);
+  size_t idx = 0;
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    size_t extentTree = 0;
+    while (extentTree < sampler->getBagCount(tIdx)) {
+      size_t extentLeaf = extentNum[idx++];
+      unpacked[tIdx].push_back(extentLeaf);
+      extentTree += extentLeaf;
+    }
+  }
+  return unpacked;
+}
+
+
+vector<vector<vector<size_t>>> Leaf::unpackIndex(const Sampler* sampler,
+						 const vector<vector<size_t>>& extent,
+						 const double numVal[]) {
+  if (extent.empty() || numVal == nullptr)
+    return vector<vector<vector<size_t>>>(0);
+
+  unsigned int nTree = sampler->getNRep();
+  vector<vector<vector<size_t>>> unpacked(nTree);
+
+  size_t idx = 0;
+  for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
+    unpacked[tIdx] = vector<vector<size_t>>(extent[tIdx].size());
+    for (size_t leafIdx = 0; leafIdx < unpacked[tIdx].size(); leafIdx++) {
+      vector<size_t> unpackedLeaf(extent[tIdx][leafIdx]);
+      for (size_t slot = 0; slot < unpackedLeaf.size(); slot++) {
+	unpackedLeaf[slot] = numVal[idx];
+	idx++;
+      }
+      unpacked[tIdx][leafIdx] = unpackedLeaf;
+    }
+  }
+  return unpacked;
+}
+
+
 void Leaf::consumeTerminals(const PreTree* pretree) {
   const SampleMap& terminalMap = pretree->getTerminalMap();
   IndexT bagCount = terminalMap.sampleIndex.size();

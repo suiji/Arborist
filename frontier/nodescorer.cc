@@ -40,7 +40,7 @@ void NodeScorer::frontierPreamble(const Frontier* frontier) {
 
 
 NodeScorer::NodeScorer(double (NodeScorer::* scorer_)(const SampleMap&,
-								  const IndexSet&) const) :
+						      const IndexSet&) const) :
   scorer(scorer_) {
 }
 
@@ -52,13 +52,19 @@ double NodeScorer::scoreZero(const SampleMap& smNonterm,
 
 
 double NodeScorer::scoreMean(const SampleMap& smNonterm,
-				 const IndexSet& iSet) const {
-  return iSet.getSum() / iSet.getSCount();
+			     const IndexSet& iSet) const {
+  IndexRange range = smNonterm.range[iSet.getSplitIdx()];
+  double nodeSum = 0.0;
+  for (IndexT idx = range.getStart(); idx != range.getEnd(); idx++) {
+    IndexT sIdx = smNonterm.sampleIndex[idx];
+    nodeSum += sampleScore[sIdx];
+  }
+  return nodeSum / iSet.getSCount();
 }
 
 
 double NodeScorer::scorePlurality(const SampleMap& smNonterm,
-				    const IndexSet& iSet)  const {
+				  const IndexSet& iSet)  const {
   const double* nodeJitter = &ctgJitter[iSet.getCtgSumCount().size() * iSet.getSplitIdx()];
   PredictorT argMax = 0;// TODO:  set to nCtg and error if no count.
   IndexT countMax = 0;
@@ -94,6 +100,8 @@ double NodeScorer::scoreLogOdds(const SampleMap& smNonterm,
     pqSum += gamma[sIdx];
   }
 
+  // Replace with sum(multiplicity * observation value)/pqSum when
+  // obsCount is implemented:
   return iSet.getSum() / pqSum;
 }
 

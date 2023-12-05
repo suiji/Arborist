@@ -21,6 +21,10 @@
 #include "bv.h"
 #include "typeparam.h"
 
+class PredictFrame;
+class DecTree;
+
+
 class DecTree {
   const vector<DecNode> decNode; ///< Decision nodes.
   const BV facSplit; ///< Categories splitting node.
@@ -36,31 +40,45 @@ public:
 
   ~DecTree();
 
-  
-  IndexT (DecTree::* obsWalker)(const class PredictFrame&, size_t) const;
-  
 
-  void setObsWalker(PredictorT nPredNum);
+  /**
+     @brief Unpacks according to front-end format.
+   */
+  static vector<DecTree> unpack(unsigned int nTree,
+			 const double nodeExtent[],
+			 const complex<double> nodes[],
+			 const double score[],
+			 const double facExtent[],
+			 const unsigned char facSplit[],
+			 const unsigned char facObserved[]);
 
   
-  IndexT walkObs(const class PredictFrame& frame,
-		 size_t obsIdx) const {
-    return (this->*DecTree::obsWalker)(frame, obsIdx);
+  static vector<double> unpackDoubles(const double val[],
+				      const size_t extent);
+
+
+  static BV unpackBits(const unsigned char raw[],
+		       size_t extent);
+
+  
+  static vector<DecNode> unpackNodes(const complex<double> nodes[],
+				     size_t extent);
+
+
+  const BV& getFacObserved() const {
+    return facObserved;
   }
 
+
+  const BV& getFacSplit() const {
+    return facSplit;
+  }
   
-  IndexT obsNum(const class PredictFrame& frame,
-		size_t obsIdx) const;
 
+  IndexT walkObs(const PredictFrame* frame,
+		 size_t obsIdx) const;
 
-  IndexT obsFac(const class PredictFrame& frame,
-		size_t obsIdx) const;
-
-
-  IndexT obsMixed(const class PredictFrame& frame,
-		  size_t obsIdx) const;
-
-
+  
   size_t nodeCount() const {
     return decNode.size();
   }

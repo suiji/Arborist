@@ -55,6 +55,7 @@ struct TrainR {
   static constexpr unsigned int groveSize = 20;
   static constexpr double allocSlop = 1.2;
 
+  static const string strY; 
   static const string strVersion;
   static const string strSignature;
   static const string strSamplerHash;
@@ -64,6 +65,25 @@ struct TrainR {
   static const string strLeaf;
   static const string strDiagnostic;
   static const string strClassName;
+  static const string strAutoCompress;
+  static const string strEnableCoproc;
+  static const string strVerbose;
+  static const string strProbVec;
+  static const string strPredFixed;
+  static const string strSplitQuant;
+  static const string strMinNode;
+  static const string strNLevel;
+  static const string strMinInfo;
+  static const string strLoss;
+  static const string strForestScore;
+  static const string strNodeScore;
+  static const string strMaxLeaf;
+  static const string strObsWeight;
+  static const string strThinLeaves;
+  static const string strTreeBlock;
+  static const string strNThread;
+  static const string strRegMono;
+  static const string strClassWeight;
 
   static bool verbose; ///< Whether to report progress while training.
 
@@ -78,8 +98,7 @@ struct TrainR {
   /**
      @brief Tree count dictated by sampler.
    */
-  TrainR(const List& lSampler,
-	 const List& argList);
+  TrainR(const List& lSampler);
 
 
   void trainGrove(const struct TrainBridge& tb);
@@ -98,10 +117,8 @@ struct TrainR {
 
      Algorithm-specific implementation included by configuration
      script.
-     
-     @return implicit R_NilValue.
    */
-  static SEXP initPerInvocation(const List &argList,
+  static void initPerInvocation(const List &argList,
 				struct TrainBridge& trainBridge);
 
 
@@ -121,6 +138,22 @@ struct TrainR {
   static List train(const List& lRLEFrame,
 		    const List& lSampler,
 		    const List& argList);
+
+
+  /**
+      @brief Class weighting.
+
+      Class weighting constructs a proxy response based on category
+      frequency.  In the absence of class weighting, proxy values are
+      identical for all clasess.  The technique of class weighting is
+      not without controversy.
+
+      @param classWeight are user-suppled weightings of the categories.
+
+      @return core-ready vector of unnormalized class weights.
+   */
+  static vector<double> ctgWeight(const IntegerVector& yTrain,
+				  const NumericVector& classWeight);
 
 
   /**
@@ -169,7 +202,7 @@ private:
 
      @return scale estimation sufficient to accommodate entire forest.
    */
-  inline double safeScale(unsigned int treesTot) const {
+  double safeScale(unsigned int treesTot) const {
     return (treesTot == nTree ? 1 : allocSlop) * double(nTree) / treesTot;
   }
 };

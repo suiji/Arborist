@@ -30,6 +30,8 @@
 class SampledObs {
  protected:
 
+  static vector<double> obsWeight;
+  
   const IndexT nSamp; ///< Number of observation samples requested.
   const vector<class SamplerNux>& nux; ///< Sampler nodes.
   const IndexT bagCount; ///< # distinct bagged samples.
@@ -46,7 +48,7 @@ class SampledObs {
   vector<IndexT> runCount; ///< Staging initialization.
 
 
-  virtual void bagSamples(const class PredictorFrame* frame) = 0;
+  virtual void sampleObservations(class NodeScorer*) = 0;
 
 
   /**
@@ -56,8 +58,8 @@ class SampledObs {
 
      @param yCtg is true response / zero:  classification / regression.
   */
-  void bagSamples(const vector<double>& y,
-		  const vector<PredictorT>& yCtg);
+  void sampleObservations(const vector<double>& y,
+			  const vector<PredictorT>& yCtg);
 
 
   /**
@@ -76,6 +78,13 @@ class SampledObs {
 
 public:
 
+
+  static void init(vector<double> obsWeight_);
+
+  
+  static void deInit();
+
+  
   vector<SampleNux>& getSamples() {
     return sampleNux;
   }
@@ -106,12 +115,12 @@ public:
   /**
      @brief Getter for root category census vector.
    */
-  inline const vector<SumCount> getCtgRoot() const {
+  const vector<SumCount> getCtgRoot() const {
     return ctgRoot;
   }
 
 
-  inline auto getNCtg() const {
+  auto getNCtg() const {
     return ctgRoot.size();
   }
   
@@ -119,7 +128,7 @@ public:
   /**
      @brief Getter for user-specified sample count.
   */ 
-  inline IndexT getNSamp() const {
+  IndexT getNSamp() const {
     return nSamp;
   }
 
@@ -127,7 +136,7 @@ public:
   /**
      @brief Getter for bag count:  # uniquely-sampled rows.
   */
-  inline IndexT getBagCount() const {
+  IndexT getBagCount() const {
     return bagCount;
   }
 
@@ -135,7 +144,7 @@ public:
   /**
      @brief Getter for sum of bagged responses.
    */
-  inline double  getBagSum() const {
+  double  getBagSum() const {
     return bagSum;
   }
 
@@ -145,7 +154,7 @@ public:
 
      @param[out] sampledIdx is the sample index, iff sampled.
    */
-  inline bool isSampled(IndexT obsIdx,
+  bool isSampled(IndexT obsIdx,
 			IndexT& sampleIdx) const {
     sampleIdx = obs2Sample[obsIdx];
     if (sampleIdx < bagCount) {
@@ -164,7 +173,7 @@ public:
 
      @return true iff row is sampled.
    */
-  inline bool isSampled(IndexT obsIdx,
+  bool isSampled(IndexT obsIdx,
 			IndexT& sampleIdx,
 			SampleNux*& nux) {
     sampleIdx = obs2Sample[obsIdx];
@@ -181,7 +190,7 @@ public:
   /**
      @brief As above, no access to members.
    */
-  inline bool isSampled(IndexT obsIdx,
+  bool isSampled(IndexT obsIdx,
 			IndexT& sampleIdx,
 			SampleNux& nux) const {
     sampleIdx = obs2Sample[obsIdx];
@@ -200,7 +209,7 @@ public:
 
      @param sIdx is the sample index.
    */
-  inline IndexT getSCount(IndexT sIdx) const {
+  IndexT getSCount(IndexT sIdx) const {
     return sampleNux[sIdx].getSCount();
   }
 
@@ -210,7 +219,7 @@ public:
 
      @param sIdx is the sample index.
    */
-  inline IndexT getDelRow(IndexT sIdx) const {
+  IndexT getDelRow(IndexT sIdx) const {
     return sampleNux[sIdx].getDelRow();
   }
 
@@ -220,7 +229,7 @@ public:
 
      @param sIdx is the sample index.
    */
-  inline double getSum(IndexT sIdx) const {
+  double getSum(IndexT sIdx) const {
     return sampleNux[sIdx].getYSum();
   }
 
@@ -228,18 +237,18 @@ public:
   /**
      @return response category at index passed.
    */
-  inline PredictorT getCtg(IndexT sIdx) const {
+  PredictorT getCtg(IndexT sIdx) const {
     return sampleNux[sIdx].getCtg();
   }
 
 
-  inline IndexT getRank(PredictorT predIdx,
+  IndexT getRank(PredictorT predIdx,
 			IndexT sIdx) const {
     return sample2Rank[predIdx][sIdx];
   }
 
 
-  inline IndexT getRunCount(PredictorT predIdx) const {
+  IndexT getRunCount(PredictorT predIdx) const {
     return runCount[predIdx];
   }
 
@@ -274,7 +283,7 @@ struct SampledReg : public SampledObs {
 
      @param ctg unused, as response is not categorical.
    */
-  inline double addNode(double yVal,
+  double addNode(double yVal,
 			const class SamplerNux& nux,
                         PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux);
@@ -282,7 +291,7 @@ struct SampledReg : public SampledObs {
   }
 
   
-  void bagSamples(const class PredictorFrame* frame);
+  void sampleObservations(class NodeScorer* scorer);
 
 
   /**
@@ -292,8 +301,8 @@ struct SampledReg : public SampledObs {
 
 
   */
-  void bagSamples(const class PredictorFrame* frame,
-		  const vector<double>& y);
+  void sampleObservations(class NodeScorer* scorer,
+			  const vector<double>& y);
 };
 
 
@@ -302,6 +311,11 @@ struct SampledReg : public SampledObs {
 */
 struct SampledCtg : public SampledObs {
   const class ResponseCtg* response;
+
+  static vector<double> classWeight;
+
+
+  static void init(vector<double> classWeight_);
 
   
   SampledCtg(const class Sampler* sampler,
@@ -319,7 +333,7 @@ struct SampledCtg : public SampledObs {
 
      @return sum of sampled response values.
    */
-  inline double addNode(double yVal,
+  double addNode(double yVal,
 			const class SamplerNux& nux,
 			PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux, ctg);
@@ -329,7 +343,7 @@ struct SampledCtg : public SampledObs {
   }
   
   
-  void bagSamples(const class PredictorFrame* frame);
+  void sampleObservations(class NodeScorer* scorer);
 
 
   /**
@@ -339,9 +353,8 @@ struct SampledCtg : public SampledObs {
 
      @param y is the proxy response vector.
   */
-  void bagSamples(const class PredictorFrame* frame,
-		  const vector<PredictorT>& yCtg,
-		  const vector<double>& y);
+  void sampleObservations(class NodeScorer* scorer,
+			  const vector<PredictorT>& yCtg);
 };
 
 

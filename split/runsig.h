@@ -36,17 +36,17 @@ struct RunNux {
   /**
      @brief Initialzier for subsequent accumulation.
   */
-  inline void init() {
+  void init() {
     sumCount = SumCount();
   }
 
 
-  inline void startRange(IndexT idxStart) {
+  void startRange(IndexT idxStart) {
     obsRange.idxStart = idxStart;
   }
   
 
-  inline void endRange(IndexT idxEnd) {
+  void endRange(IndexT idxEnd) {
     obsRange.idxExtent = idxEnd - obsRange.idxStart + 1;
   }
 
@@ -57,7 +57,7 @@ struct RunNux {
 
      @return range of indices subsumed by run.
    */
-  inline IndexRange getRange() const {
+  IndexRange getRange() const {
     return obsRange;
   }
 
@@ -65,7 +65,7 @@ struct RunNux {
   /**
      @brief Accumulates run contents into caller.
   */
-  inline void accum(SumCount& scAccum) const {
+  void accum(SumCount& scAccum) const {
     scAccum += sumCount;
   }
 
@@ -74,7 +74,7 @@ struct RunNux {
 
      @Paramol idxEnd is the high terminal index of the run.
    */
-  inline void endRun(SumCount& scExplicit,
+  void endRun(SumCount& scExplicit,
 		     IndexT idxEnd) {
     scExplicit -= sumCount;
     endRange(idxEnd);
@@ -84,7 +84,7 @@ struct RunNux {
   /**
      @brief Initializes as residual.
   */
-  inline void setResidual(const SumCount& scImplicit,
+  void setResidual(const SumCount& scImplicit,
 			  IndexT obsEnd,
 			  IndexT extent) {
     sumCount = scImplicit;
@@ -116,7 +116,7 @@ struct RunSig {
 	 PredictorT runsSampled_);
 
 
-  inline void resetRunSup(PredictorT nRun) {
+  void resetRunSup(PredictorT nRun) {
     this->runSup = nRun;
   }
 
@@ -128,7 +128,7 @@ struct RunSig {
 
      @param runIdx is the index from which to copy the top position.
    */
-  inline void reset(PredictorT runStart,
+  void reset(PredictorT runStart,
 		    PredictorT runIdx) {
     if (runIdx != runNux.size()) {
       runNux[runStart] = runNux[runIdx]; // New top value.
@@ -160,7 +160,7 @@ struct RunSig {
 
     @return total SR index count subsumed.
   */
-  inline IndexT getExtent(PredictorT slot) const {
+  IndexT getExtent(PredictorT slot) const {
     return runNux[slot].obsRange.getExtent();
   }
 
@@ -179,12 +179,12 @@ struct RunSig {
 
      @return size of runNux.
    */
-  inline auto getRunCount() const {
+  auto getRunCount() const {
     return runNux.size();
   }
 
 
-  inline auto getImplicitTrue() const {
+  auto getImplicitTrue() const {
     return implicitTrue;
   }
 
@@ -208,7 +208,7 @@ struct RunSig {
 
      @return bit (ones) complement of subset.
   */
-  inline unsigned int slotComplement(unsigned int subset) const {
+  unsigned int slotComplement(unsigned int subset) const {
     return (1 << runNux.size()) - (subset + 1);
   }
 

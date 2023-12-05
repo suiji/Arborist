@@ -108,7 +108,7 @@ class InterLevel {
     return shiftVal;
   }
 
-  inline bool isStaged(const SplitCoord& coord) const {
+  bool isStaged(const SplitCoord& coord) const {
     return (stageMap[coord.nodeIdx][coord.predIdx] & positionMask) != nPred;
   }
 
@@ -246,7 +246,7 @@ public:
   /**
      @brief Does not screen out singletons.
    */
-  inline bool isStaged(const SplitCoord& coord,
+  bool isStaged(const SplitCoord& coord,
 		       unsigned int& stageLevel,
 		       PredictorT& predPos) const {
     PredictorT packedIndex = stageMap[coord.nodeIdx][coord.predIdx];
@@ -259,7 +259,7 @@ public:
   /**
      @return position of staged coordinate.
    */
-  inline PredictorT getStagedPosition(const SplitCoord& coord) const {
+  PredictorT getStagedPosition(const SplitCoord& coord) const {
     return stageMap[coord.nodeIdx][coord.predIdx] & positionMask;
   }
 
@@ -277,22 +277,22 @@ public:
      The unstaged placeholder value is sticky and persists through all
      successor nodes.
    */
-  inline void delist(const SplitCoord& coord) {
+  void delist(const SplitCoord& coord) {
     stageMap[coord.nodeIdx][coord.predIdx] = nPred;
   }
 
 
-  inline PredictorT getNPred() const {
+  PredictorT getNPred() const {
     return nPred;
   }
 
 
-  inline IndexT getNSplit() const {
+  IndexT getNSplit() const {
     return splitCount;
   }
 
 
-  inline unsigned int getLevel() const {
+  unsigned int getLevel() const {
     return level;
   }
   
@@ -388,7 +388,7 @@ public:
 
      @return split count.
    */
-  inline IndexT getSplitCount() const {
+  IndexT getSplitCount() const {
     return splitCount;
   }
 

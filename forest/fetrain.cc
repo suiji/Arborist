@@ -23,6 +23,7 @@
 #include "partition.h"
 #include "sfcart.h"
 #include "splitnux.h"
+#include "sampledobs.h"
 #include "algparam.h"
 #include "ompthread.h"
 #include "coproc.h"
@@ -61,8 +62,16 @@ void FETrain::initMono(const PredictorFrame* frame,
 }
 
 
-void FETrain::initBooster(const string& loss, const string& scorer, double nu) {
-  Booster::init(loss, scorer, nu);
+void FETrain::initBooster(const string& loss, const string& scorer) {
+  Booster::init(loss, scorer);
+}
+
+
+void FETrain::initBooster(const string& loss, const string& scorer,
+			  double nu,
+			  bool trackFit,
+			  unsigned int stopLag) {
+  Booster::init(loss, scorer, nu, trackFit, stopLag);
 }
 
 
@@ -78,6 +87,16 @@ void FETrain::initGrove(bool thinLeaves, unsigned int trainBlock) {
 
 void FETrain::initDecNode(unsigned int nPred) {
   DecNode::initMasks(nPred);
+}
+
+
+void FETrain::initSamples(vector<double> obsWeight) {
+  SampledObs::init(std::move(obsWeight));
+}
+
+
+void FETrain::initCtg( vector<double> classWeight) {
+  SampledCtg::init(std::move(classWeight));
 }
 
 
@@ -98,6 +117,7 @@ void FETrain::deInit() {
   Frontier::deInit();
   PreTree::deInit();
   SampleNux::deImmutables();
+  SampledObs::deInit();
   SamplerNux::unsetMasks();
   CandType::deInit();
   SFRegCart::deImmutables();

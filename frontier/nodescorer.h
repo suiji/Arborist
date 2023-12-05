@@ -28,6 +28,7 @@
 struct NodeScorer {
   static string scoreStr; ///< Initialized per training session.
 
+  vector<double> sampleScore; ///< Per-sample scores.
   vector<double> ctgJitter; ///< Breaks ties; frontier-wide.
   vector<double> gamma; ///< Per-sample weight, with multiplicity.
 
@@ -50,6 +51,11 @@ struct NodeScorer {
    */
   static void deInit();
 
+
+  void setScores(vector<double> sampleScore) {
+    this->sampleScore = std::move(sampleScore);
+  }
+  
 
   void frontierPreamble(const class Frontier* frontier);
 

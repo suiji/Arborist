@@ -79,7 +79,7 @@ class ObsPart {
 			IndexT obsIdx) const;
 
   
-  inline IndexT getBagCount() const {
+  IndexT getBagCount() const {
     return bagCount;
   }
 
@@ -96,7 +96,7 @@ class ObsPart {
   /**
      @brief Returns the staging position for a dense predictor.
    */
-  inline auto getStageOffset(PredictorT predIdx) const {
+  auto getStageOffset(PredictorT predIdx) const {
     return stageRange[predIdx].idxStart;
   }
 
@@ -113,7 +113,7 @@ class ObsPart {
 
      @return workspace starting position for this level.
    */
-  inline IndexT buffOffset(unsigned int bufferBit) const {
+  IndexT buffOffset(unsigned int bufferBit) const {
     return (bufferBit & 1) == 0 ? 0 : bufferSize;
   }
 
@@ -125,25 +125,25 @@ class ObsPart {
 
      @return starting position within workspace.
    */
-  inline IndexT bufferOff(PredictorT predIdx, unsigned int bufBit) const {
+  IndexT bufferOff(PredictorT predIdx, unsigned int bufBit) const {
     return stageRange[predIdx].idxStart + buffOffset(bufBit);
   }
 
 
-  inline IndexT bufferOff(const StagedCell* mrra,
+  IndexT bufferOff(const StagedCell* mrra,
 			  bool comp = false) const {
     return bufferOff(mrra->getPredIdx(), comp ? mrra->compBuffer() : mrra->bufIdx);
   }
 
   
-  inline IndexT* idxBuffer(const StagedCell* ancestor) const {
+  IndexT* idxBuffer(const StagedCell* ancestor) const {
     return indexBase + bufferOff(ancestor);
   }
 
   
   /**
    */
-  inline Obs* buffers(PredictorT predIdx,
+  Obs* buffers(PredictorT predIdx,
 		      unsigned int bufBit,
 		      IndexT*& sIdx) const {
     IndexT offset = bufferOff(predIdx, bufBit);
@@ -152,7 +152,7 @@ class ObsPart {
   }
 
 
-  inline IndexT* indexBuffer(const StagedCell* mrra) const {
+  IndexT* indexBuffer(const StagedCell* mrra) const {
     return indexBase + bufferOff(mrra->getPredIdx(), mrra->bufIdx);
   }
 
@@ -175,12 +175,12 @@ class ObsPart {
   /**
      @brief Returns buffer containing splitting information.
    */
-  inline Obs* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
+  Obs* Splitbuffer(PredictorT predIdx, unsigned int bufBit) {
     return obsCell + bufferOff(predIdx, bufBit);
   }
 
 
-  inline void buffers(const StagedCell& mrra,
+  void buffers(const StagedCell& mrra,
 		      Obs*& source,
 		      IndexT*& sIdxSource,
 		      Obs*& targ,
@@ -190,7 +190,7 @@ class ObsPart {
   }
 
 
-  inline void indexBuffers(const StagedCell* mrra,
+  void indexBuffers(const StagedCell* mrra,
                            IndexT*& sIdxSource,
                            IndexT*& sIdxTarg) {
     sIdxSource = indexBase + bufferOff(mrra);

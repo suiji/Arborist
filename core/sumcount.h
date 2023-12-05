@@ -38,12 +38,12 @@ struct SumCount {
   }
 
 
-  inline auto getSum() const {
+  auto getSum() const {
     return sum;
   }
 
 
-  inline auto getSCount() const {
+  auto getSCount() const {
     return sCount;
   }
 
@@ -51,7 +51,7 @@ struct SumCount {
   /**
      @return sample mean.
    */
-  inline double mean() const {
+  double mean() const {
     return sum / sCount;
   }
 
@@ -65,7 +65,7 @@ struct SumCount {
 
      @return true iff not all samples belong to this category.
    */
-  inline bool splitable(unsigned int sCount, double& sum) const {
+  bool splitable(unsigned int sCount, double& sum) const {
     sum = this->sum;
     return sCount != this->sCount;
   }

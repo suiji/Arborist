@@ -203,7 +203,7 @@ public:
 
      @return true iff the node did not split.
    */
-  inline bool isTerminal() const {
+  bool isTerminal() const {
     return !doesSplit;
   }
   
@@ -211,7 +211,7 @@ public:
   /**
      @brief Getter for split index.
    */
-  inline auto getSplitIdx() const {
+  auto getSplitIdx() const {
     return splitIdx;
   }
 
@@ -234,7 +234,7 @@ public:
   /**
      @brief Getter for number of response categories.
    */
-  inline auto getNCtg() const {
+  auto getNCtg() const {
     return ctgSum.size();
   }
 
@@ -249,26 +249,26 @@ public:
 
      @return successor index along specified branch sense.
    */
-  inline auto getIdxSucc(bool trueBranch) const {
+  auto getIdxSucc(bool trueBranch) const {
     return trueBranch ? idxNext : idxNext + 1;
   }
 
 
-  inline auto getSumSucc(bool trueBranch) const {
+  auto getSumSucc(bool trueBranch) const {
     return trueBranch ? sumTrue : sum - sumTrue;
   }
 
 
-  inline auto getSCountSucc(bool trueBranch) const {
+  auto getSCountSucc(bool trueBranch) const {
     return trueBranch ? sCountTrue : sCount - sCountTrue;
   }
 
-  inline auto getStartSucc(bool trueBranch) const {
+  auto getStartSucc(bool trueBranch) const {
     return trueBranch ? bufRange.getStart() : bufRange.getStart() + extentTrue;
   }
 
 
-  inline auto getExtentSucc(bool trueBranch) const {
+  auto getExtentSucc(bool trueBranch) const {
     return trueBranch ? extentTrue : bufRange.getExtent() - extentTrue;
   }
 
@@ -277,32 +277,32 @@ public:
      @brief Getters returning like-named member value.
    */
 
-  inline auto getStart() const {
+  auto getStart() const {
     return bufRange.getStart();
   }
 
   
-  inline auto getExtent() const {
+  auto getExtent() const {
     return bufRange.getExtent();
   }
 
 
-  inline auto getSum() const {
+  auto getSum() const {
     return sum;
   }
   
 
-  inline auto getSCount() const {
+  auto getSCount() const {
     return sCount;
   }
 
 
-  inline auto getPTId() const {
+  auto getPTId() const {
     return ptId;
   }
 
 
-  inline auto getBufRange() const {
+  auto getBufRange() const {
     return bufRange;
   }
   
@@ -312,12 +312,12 @@ public:
 
      @return minInfo value.
   */
-  inline auto getMinInfo() const {
+  auto getMinInfo() const {
     return minInfo;
   }
 
   
-  inline bool encodesTrue() const {
+  bool encodesTrue() const {
     return trueEncoding;
   }
 };

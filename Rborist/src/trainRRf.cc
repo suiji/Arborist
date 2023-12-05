@@ -26,48 +26,47 @@
 #include "trainR.h"
 #include "trainbridge.h"
 
-
-SEXP TrainR::initPerInvocation(const List& argList,
+// [[Rcpp::export]]
+void TrainR::initPerInvocation(const List& argList,
 			       TrainBridge& trainBridge) {
-  BEGIN_RCPP
-
   vector<unsigned int> pm = trainBridge.getPredMap();
   // Temporary IntegerVector copy for subscripted access.
   IntegerVector predMap(pm.begin(), pm.end());
 
-  verbose = as<bool>(argList["verbose"]);
-  NumericVector probVecNV((SEXP) argList["probVec"]);
+  verbose = as<bool>(argList[strVerbose]);
+  NumericVector probVecNV((SEXP) argList[strProbVec]);
   vector<double> predProb(as<vector<double> >(probVecNV[predMap]));
-  trainBridge.initProb(as<unsigned int>(argList["predFixed"]), predProb);
+  trainBridge.initProb(as<unsigned int>(argList[strPredFixed]), predProb);
 
-  NumericVector splitQuantNV((SEXP) argList["splitQuant"]);
+  NumericVector splitQuantNV((SEXP) argList[strSplitQuant]);
   vector<double> splitQuant(as<vector<double> >(splitQuantNV[predMap]));
-  trainBridge.initSplit(as<unsigned int>(argList["minNode"]),
-			 as<unsigned int>(argList["nLevel"]),
-			 as<double>(argList["minInfo"]),
+  trainBridge.initSplit(as<unsigned int>(argList[strMinNode]),
+			 as<unsigned int>(argList[strNLevel]),
+			 as<double>(argList[strMinInfo]),
 			 splitQuant);
 
-  trainBridge.initBooster(as<string>(argList["loss"]), as<string>(argList["forestScore"]));
-  trainBridge.initNodeScorer(as<string>(argList["nodeScore"]));
-  trainBridge.initTree(as<unsigned int>(argList["maxLeaf"]));
-  trainBridge.initGrove(as<bool>(argList["thinLeaves"]),
-    as<unsigned int>(argList["treeBlock"]));
-  trainBridge.initOmp(as<unsigned int>(argList["nThread"]));
+  trainBridge.initBooster(as<string>(argList[strLoss]),
+			  as<string>(argList[strForestScore]));
+  trainBridge.initNodeScorer(as<string>(argList[strNodeScore]));
+  trainBridge.initTree(as<unsigned int>(argList[strMaxLeaf]));
+  trainBridge.initSamples(as<vector<double>>(argList[strObsWeight]));
+  trainBridge.initGrove(as<bool>(argList[strThinLeaves]),
+			as<unsigned int>(argList[strTreeBlock]));
+  trainBridge.initOmp(as<unsigned int>(argList[strNThread]));
   
-  if (!Rf_isFactor((SEXP) argList["y"])) {
-    NumericVector regMonoNV((SEXP) argList["regMono"]);
+  if (!Rf_isFactor((SEXP) argList[strY])) {
+    NumericVector regMonoNV((SEXP) argList[strRegMono]);
     vector<double> regMono(as<vector<double> >(regMonoNV[predMap]));
     trainBridge.initMono(regMono);
   }
-
-  END_RCPP
+  else {
+    trainBridge.initCtg(TrainR::ctgWeight(IntegerVector(argList[strY]),
+					  NumericVector(argList[strClassWeight])));
+  }
 }
 
 
+// [[Rcpp::export]]
 RcppExport SEXP trainRF(const SEXP sDeframe, const SEXP sSampler, const SEXP sArgList) {
-  BEGIN_RCPP
-
   return TrainR::train(List(sDeframe), List(sSampler), List(sArgList));
-
-  END_RCPP
 }

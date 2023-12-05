@@ -43,7 +43,7 @@ struct CritEncoding {
 	       bool incr = true);
 
 
-  inline bool trueEncoding() const {
+  bool trueEncoding() const {
     return implicitTrue == 0;
   };
 
@@ -68,7 +68,7 @@ struct CritEncoding {
   /**
      @brief Accumulates encoding statistics for a single SR index.
    */
-  inline void accum(double ySum,
+  void accum(double ySum,
 		    IndexT sCount,
 		    PredictorT ctg) {
     this->sum += ySum;

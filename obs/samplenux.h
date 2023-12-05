@@ -22,17 +22,8 @@
 #include <vector>
 
 /**
-   @brief Single node type for regression and classification.
-
-   For simplicity, regression and classification variants are distinguished
-   only by method name and not by subtype.  The only distinction is the
-   value (and interpretation) of the 'ctg' field.  Care should be taken
-   to call the appropriate method, as 'ctg' is only used as a packing
-   parameter (with value zero) in the case of regression.  Subtyping seems
-   to complicate the code needlessly, with a per-tree size savings of only
-   'nSamp' * sizeof(uint).
+   @brief Container for compressed sampled response.
  */
-
 class SampleNux {
   static unsigned int ctgBits; ///< Pack:  nonzero iff categorical.
   static unsigned int ctgMask;
@@ -86,7 +77,7 @@ class SampleNux {
 
      @return sample count.
    */
-  inline IndexT getSCount() const {
+  IndexT getSCount() const {
     return (packed >> ctgBits) & multMask;
   }
 
@@ -98,7 +89,7 @@ class SampleNux {
 
      @return sample sum.
   */
-  inline double refCtg(PredictorT& ctg) const {
+  double refCtg(PredictorT& ctg) const {
     ctg = getCtg();
     return getYSum();
   }
@@ -107,7 +98,7 @@ class SampleNux {
   /**
      @brief Accessor for packed sCount/ctg member.
    */
-  inline auto getRight() const {
+  auto getRight() const {
     return packed & rightMask;
   }
 
@@ -117,7 +108,7 @@ class SampleNux {
 
      @return sum of y-values for sample.
    */
-  inline double getYSum() const {
+  double getYSum() const {
     return ySum;
   }
 
@@ -127,12 +118,12 @@ class SampleNux {
 
      @return response cardinality.
    */
-  inline PredictorT getCtg() const {
+  PredictorT getCtg() const {
     return packed & ctgMask;
   }
 
 
-  inline auto getDelRow() const {
+  auto getDelRow() const {
     return packed >> rightBits;
   }
 
@@ -144,7 +135,7 @@ class SampleNux {
      
      @return decremented sum value.
    */
-  inline double decrementSum(double decr) {
+  double decrementSum(double decr) {
     ySum -= decr * getSCount();
     return ySum;
   }

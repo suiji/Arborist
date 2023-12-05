@@ -26,7 +26,7 @@
 ResponseReg::ResponseReg(const vector<double>& y) :
   Response(),
   yTrain(y),
-  defaultPrediction(meanTrain()) {
+  defaultPrediction(mean()) {
 }
 
 
@@ -36,12 +36,10 @@ double ResponseReg::getDefaultPrediction() const {
 
 
 ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
-			 PredictorT nCtg_,
-			 const vector<double>& classWeight_) :
+			 PredictorT nCtg_) :
   Response(),
   yCtg(yCtg_),
   nCtg(nCtg_),
-  classWeight(classWeight_),
   defaultPrediction(ctgDefault()) {
 }
 
@@ -51,25 +49,8 @@ double ResponseCtg::getDefaultPrediction() const {
 }
 
 
-ResponseCtg::ResponseCtg(const vector<PredictorT>& yCtg_,
-			 PredictorT nCtg_) :
-  Response(),
-  yCtg(yCtg_),
-  nCtg(nCtg_),
-  classWeight(vector<double>(0)),
-  defaultPrediction(ctgDefault()) {
-}
-
-
 unique_ptr<ResponseCtg> Response::factoryCtg(const vector<PredictorT>& yCtg,
-				     PredictorT nCtg,
-				     const vector<double>& classWeight) {
-  return make_unique<ResponseCtg>(yCtg, nCtg, classWeight);
-}
-
-
-unique_ptr<ResponseCtg> Response::factoryCtg(const vector<PredictorT>& yCtg,
-				     PredictorT nCtg) {
+					     PredictorT nCtg) {
   return make_unique<ResponseCtg>(yCtg, nCtg);
 }
 

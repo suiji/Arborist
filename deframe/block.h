@@ -40,7 +40,7 @@ class Block {
 
   virtual ~Block() = default;
 
-  inline const auto getNCol() const {
+  const auto getNCol() const {
     return nCol;
   }
 };
@@ -77,7 +77,7 @@ public:
 
      @return pointer to base of row contents.
    */  
-  inline const ty* rowBase(size_t row) const {
+  const ty* rowBase(size_t row) const {
     return &Block<ty>::raw[Block<ty>::nCol * row];
   }
 };
@@ -118,7 +118,7 @@ class BlockJagged : public Block<ty> {
   /**
      @return rank of specified predictor at specified rank.
    */
-  inline auto getVal(unsigned int predIdx,
+  auto getVal(unsigned int predIdx,
                      size_t rk) const {
     return Block<ty>::raw[rk + (predIdx == 0 ? 0 : height[predIdx-1])];
   }
@@ -170,7 +170,7 @@ public:
 
      @param[out] window outputs the densely-transposed values.
    */  
-  inline void transpose(ty* window,
+  void transpose(ty* window,
                         size_t rowStart,
                         size_t extent) {
     ty* winRow = window;
@@ -212,7 +212,7 @@ class BlockIPCresc {
 
      @param row is the starting row of the run.
    */
-  inline void pushRun(ty runVal,
+  void pushRun(ty runVal,
                       size_t rl,
                       size_t row) {
     val.push_back(runVal);

@@ -12,7 +12,7 @@
 }
 \usage{
 \method{presample}{default}(y,
-                            rowWeight = NULL,
+                            samplingWeight = NULL,
                             nSamp = 0,
                             nTree = 500,
                             withRepl =  TRUE,
@@ -22,7 +22,7 @@
 
 \arguments{
   \item{y}{A vector to be sampled, typically the response.}
-  \item{rowWeight}{Per-observation sampling weights.  Default is
+  \item{samplingWeight}{Per-observation sampling weights.  Default is
     uniform.}
   \item{nSamp}{Size of sample draw.  Default draws \code{y} length.}
   \item{nTree}{Number of samples to draw.}

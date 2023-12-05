@@ -35,6 +35,7 @@
 
 bool TrainR::verbose = false;
 
+const string TrainR::strY = "y";
 const string TrainR::strVersion = "version";
 const string TrainR::strSignature = "signature";
 const string TrainR::strSamplerHash = "samplerHash";
@@ -44,19 +45,38 @@ const string TrainR::strForest = "forest";
 const string TrainR::strLeaf = "leaf";
 const string TrainR::strDiagnostic = "diag";
 const string TrainR::strClassName = "arbTrain";
+const string TrainR::strAutoCompress = "autoCompress";
+const string TrainR::strEnableCoproc = "enableCoproc";
+const string TrainR::strVerbose = "verbose";
+const string TrainR::strProbVec = "probVec";
+const string TrainR::strPredFixed = "predFixed";
+const string TrainR::strSplitQuant ="splitQuant";
+const string TrainR::strMinNode = "minNode";
+const string TrainR::strNLevel = "nLevel";
+const string TrainR::strMinInfo = "minInfo";
+const string TrainR::strLoss = "loss";
+const string TrainR::strForestScore = "forestScore";
+const string TrainR::strNodeScore = "nodeScore";
+const string TrainR::strMaxLeaf = "maxLeaf";
+const string TrainR::strObsWeight ="obsWeight";
+const string TrainR::strThinLeaves =  "thinLeaves";
+const string TrainR::strTreeBlock = "treeBlock";
+const string TrainR::strNThread = "nThread";
+const string TrainR::strRegMono = "regMono";
+const string TrainR::strClassWeight = "classWeight";
 
+
+// [[Rcpp::export]]
 List TrainR::train(const List& lDeframe, const List& lSampler, const List& argList) {
-  BEGIN_RCPP
-
   if (verbose) {
     Rcout << "Beginning training" << endl;
   }
 
   vector<string> diag;
-  TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList["autoCompress"]), as<bool>(argList["enableCoproc"]), diag);
+  TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList[strAutoCompress]), as<bool>(argList[strEnableCoproc]), diag);
   initPerInvocation(argList, trainBridge);
 
-  TrainR trainR(lSampler, argList);
+  TrainR trainR(lSampler);
   trainR.trainGrove(trainBridge);
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
@@ -66,16 +86,33 @@ List TrainR::train(const List& lDeframe, const List& lSampler, const List& argLi
 
   deInit();
   return outList;
-
-  END_RCPP
 }
 
 
-TrainR::TrainR(const List& lSampler, const List& argList) :
-  samplerBridge(SamplerR::unwrapTrain(lSampler, argList)),
+TrainR::TrainR(const List& lSampler) :
+  samplerBridge(SamplerR::unwrapTrain(lSampler)),
   nTree(samplerBridge.getNRep()),
   leaf(LeafR()),
   forest(FBTrain(nTree)) {
+}
+
+
+vector<double> TrainR::ctgWeight(const IntegerVector& yTrain,
+				 const NumericVector& classWeight) {
+  // All-zeroes is a place-holder denoting balanced weighting:  a
+  // sampled class's weight is proportional to the inverse of its
+  // population in the response.
+  if (is_true(all(classWeight == 0.0))) {
+    vector<double> tabledWeight;
+    NumericVector tb(table(IntegerVector(yTrain - 1)));
+    for (double wt : classWeight) {
+      tabledWeight.push_back(wt == 0.0 ? 0.0 : 1.0 / wt);
+    }
+    return tabledWeight;
+  }
+  else {
+    return vector<double>(classWeight.begin(), classWeight.end());
+  }
 }
 
 
@@ -85,16 +122,16 @@ void TrainR::deInit() {
 }
 
 
+// [[Rcpp::export]]
 List TrainR::summarize(const TrainBridge& trainBridge,
 		       const List& lDeframe,
 		       const List& lSampler,
 		       const List& argList,
 		       const vector<string>& diag) {
-  BEGIN_RCPP
   List trainArb = List::create(
-			       _[strVersion] = as<String>(argList["version"]),
-			       _[strSignature] = lDeframe["signature"],
-			       _[strSamplerHash] = lSampler["hash"],
+			       _[strVersion] = as<String>(argList[strVersion]),
+			       _[strSignature] = lDeframe[strSignature],
+			       _[strSamplerHash] = lSampler[SamplerR::strHash],
 			       _[strPredInfo] = scaleInfo(trainBridge),
 			       _[strPredMap] = std::move(trainBridge.getPredMap()),
 			       _[strForest] = std::move(forest.wrap()),
@@ -102,24 +139,18 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 			       _[strDiagnostic] = diag
                       );
   trainArb.attr("class") = strClassName;
-
   return trainArb;
-
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 NumericVector TrainR::scaleInfo(const TrainBridge& trainBridge) const {
-  BEGIN_RCPP
-
   vector<unsigned int> pm = trainBridge.getPredMap();
   // Temporary IntegerVector copy for subscripted access.
   IntegerVector predMap(pm.begin(), pm.end());
 
   // Mapbs back from core order and scales info per-tree.
   return as<NumericVector>(predInfo[predMap]) / nTree;
-
-  END_RCPP
 }
 
 
@@ -155,20 +186,14 @@ void TrainR::consume(const GroveBridge* grove,
 }
 
 
+// [[Rcpp::export]]
 RcppExport SEXP expandTrainRcpp(SEXP sTrain) {
-  BEGIN_RCPP
-    
   return TrainR::expand(List(sTrain));
-
-
-
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List TrainR::expand(const List& lTrain) {
-  BEGIN_RCPP
-
   IntegerVector predMap(as<IntegerVector>(lTrain[strPredMap]));
   TrainBridge::init(predMap.length());
   List level = SignatureR::getLevel(lTrain);
@@ -183,6 +208,4 @@ List TrainR::expand(const List& lTrain) {
   TrainBridge::deInit();
   ffe.attr("class") = "expandTrain";
   return ffe;
-
-  END_RCPP
 }

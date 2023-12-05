@@ -25,9 +25,13 @@
 
 /**
    @brief Masks lowest-order bits for non-numeric values.
+
+   Ideally, the observation statistics would be encapsulated within
+   two 16-bit floating-point containers, permitting the sample count
+   to take on non-integer values.
  */
 union ObsPacked {
-  float num;
+  FltVal num;
   uint32_t bits;
 };
 
@@ -52,17 +56,15 @@ class Obs {
 
      @return sample count.
    */
-  inline unsigned int getSCount() const {
+  unsigned int getSCount() const {
     return 1 + ((obsPacked.bits >> multLow) & multMask);
   }
 
 
   /**
-     @brief Produces sum of y-values over sample.
-
      @return sum of y-values for sample.
    */
-  inline double getYSum() const {
+  FltVal getYSum() const {
     ObsPacked fltPacked = obsPacked;
     fltPacked.bits &= numMask;
     return fltPacked.num;
@@ -74,7 +76,7 @@ class Obs {
 
      @return response cardinality.
    */
-  inline PredictorT getCtg() const {
+  PredictorT getCtg() const {
     return (obsPacked.bits >> ctgLow) & ctgMask;
   }
 
@@ -101,14 +103,17 @@ class Obs {
 
      @param tie indicates whether previous obs has same rank.
   */
-  inline void join(const SampleNux& sNux,
+  void join(const SampleNux& sNux,
 		   bool tie) {
     ObsPacked fltPacked;
     fltPacked.num = sNux.getYSum();
     obsPacked.bits = (fltPacked.bits & numMask) + ((sNux.getSCount() - 1) << multLow) + (sNux.getCtg() << ctgLow) + (tie ? 1 : 0); 
   }
 
-
+  
+  /**
+     @brief Sets/unsets tie bit.
+  */
   void setTie(bool tie) {
     if (tie)
       obsPacked.bits |= 1ul;
@@ -122,7 +127,7 @@ class Obs {
 
      @return true iff run state changes.
    */
-  inline void regInit(RunNux& nux) const {
+  void regInit(RunNux& nux) const {
     nux.sumCount = SumCount(getYSum(), getSCount());
   }
 
@@ -132,7 +137,7 @@ class Obs {
 
      @return true iff the current cell continues a run.
    */
-  inline bool regAccum(RunNux& nux) const {
+  bool regAccum(RunNux& nux) const {
     if (isTied()) {
       nux.sumCount += SumCount(getYSum(), getSCount());
       return true;
@@ -150,7 +155,7 @@ class Obs {
 
      @param[in, out] sumBase accumulates run response by category.
    */
-  inline void ctgInit(RunNux& nux,
+  void ctgInit(RunNux& nux,
 		      double* sumBase) const {
     nux.sumCount = SumCount(getYSum(), getSCount());
     sumBase[getCtg()] = nux.sumCount.sum;
@@ -162,7 +167,7 @@ class Obs {
 
      @return true iff the current cell continues a run.
    */
-  inline bool ctgAccum(RunNux& nux,
+  bool ctgAccum(RunNux& nux,
 		       double* sumBase) const {
     if (isTied()) {
       double ySum = getYSum();

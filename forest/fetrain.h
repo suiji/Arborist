@@ -28,17 +28,34 @@
 struct FETrain {
 
   /**
-     @brief Initializes booster state.
+     @brief Booster stat initializer for independent trees.
+
+     @param loss names the loss function.
+
+     @param scorer names the forest scoring function.
+   */
+  static void initBooster(const string& loss,
+			  const string& scorer);
+
+
+  /**
+     @brief Booster state initializer for sequential trees.
 
      @param loss names the loss function.
 
      @param scorer names the forest scoring function.
 
      @param nu is the learning rate.
+
+     @param trackFit is true iff fit reported for each tree.
+
+     @param stopLag specifies # following local fit minimum.
    */
   static void initBooster(const string& loss,
 			  const string& scorer,
-			  double nu);
+			  double nu,
+			  bool trackFit,
+			  unsigned int stopLag);
 
 
   /**
@@ -100,6 +117,18 @@ struct FETrain {
      @brief Allows DecNode to set its mask widths.
    */
   static void initDecNode(unsigned int nPred);
+
+
+  /**
+     @brief Sets training weights.
+   */
+  static void initSamples(vector<double> obsWeight);
+
+
+  /**
+     @brief Sets training weights.
+   */
+  static void initCtg(vector<double> classWeight);
 
   
   /**

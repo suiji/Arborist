@@ -23,6 +23,10 @@
 
 using namespace std;
 
+struct SamplerBridge;
+class Forest;
+
+
 /**
    @brief Hides class Forest internals from bridge via forward declarations.
  */
@@ -53,7 +57,8 @@ struct ForestBridge {
 	       const double facExtent[],
                const unsigned char facSplit[],
 	       const unsigned char facObserved[],
-	       const tuple<double, double, string>& scoreDesc);
+	       const tuple<double, double, string>& scoreDesc,
+	       const SamplerBridge* samplerBridge);
 
   
   /**
@@ -67,7 +72,7 @@ struct ForestBridge {
                const unsigned char facSplit[],
 	       const unsigned char facObserved[],
 	       const tuple<double, double, string>& scoreDesc,
-	       const struct SamplerBridge& samplerBridge,
+	       const SamplerBridge* samplerBridge, // Assumed non-null.
 	       const double extent_[],
 	       const double index_[]);
 
@@ -96,7 +101,7 @@ struct ForestBridge {
   /**
      @brief Returns pointer to core-level Forest.
    */
-  class Forest* getForest() const;
+  Forest* getForest() const;
 
 
   /**
@@ -119,7 +124,7 @@ struct ForestBridge {
   
 private:
 
-  unique_ptr<class Forest> forest; ///< Core-level instantiation.
+  unique_ptr<Forest> forest; ///< Core-level instantiation.
 };
 
 #endif

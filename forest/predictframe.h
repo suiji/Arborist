@@ -61,23 +61,28 @@ public:
 
      @return block-relative index.
    */
-  inline unsigned int getIdx(PredictorT predIdx, bool& predIsFactor) const {
+  unsigned int getIdx(PredictorT predIdx, bool& predIsFactor) const {
     predIsFactor = isFactor(predIdx);
     return predIsFactor ? predIdx - nPredNum : predIdx;
   }
 
   
-  inline bool isFactor(PredictorT predIdx) const {
+  unsigned int getIdx(PredictorT predIdx) const {
+    return isFactor(predIdx) ? predIdx - nPredNum : predIdx;
+  }
+
+  
+  bool isFactor(PredictorT predIdx) const {
     return predIdx >= nPredNum;
   }
 
 
-  inline const CtgT* baseFac(size_t obsIdx) const {
+  const CtgT* baseFac(size_t obsIdx) const {
     return &fac[(obsIdx - baseObs) * nPredFac];
   }
 
 
-  inline const double* baseNum(size_t obsIdx) const {
+  const double* baseNum(size_t obsIdx) const {
     return &num[(obsIdx - baseObs) * nPredNum];
   }
 };

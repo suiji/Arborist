@@ -35,11 +35,16 @@ sgbTrain.default <- function(preFormat, sampler, y,
                 predWeight = NULL, 
                 regMono = NULL,
                 splitQuant = NULL,
+                stopLag = 0,
                 thinLeaves = FALSE,
+                trackFit = stopLag > 0,
                 treeBlock = 1,
                 verbose = FALSE,
                 ...) {
             argTrain <- mget(names(formals()), sys.frame(sys.nframe()))
+
+    if (is.factor(y) && length(levels(y)) != 2)
+        stop("Expecting binary response")
 
     if (length(y) != preFormat$nRow)
         stop("Nonconforming design matrix and response")
@@ -60,8 +65,10 @@ sgbTrain.default <- function(preFormat, sampler, y,
     
   # Argument checking:
 
-    if (autoCompress < 0.0 || autoCompress > 1.0)
-        stop("Autocompression plurality must be a percentage.")
+    if (autoCompress < 0.0 || autoCompress > 1.0) {
+        warning("Non-percentagage 'autoCompress' value:  using default")
+        autoCompress = 0.25
+    }
     
     nPred <- length(preFormat$signature$predForm)
     if (is.null(regMono)) {
@@ -113,6 +120,11 @@ sgbTrain.default <- function(preFormat, sampler, y,
         stop("'predProb' value must lie in [0,1]")
     if (predFixed < 0 || predFixed > nPred)
         stop("'predFixed' must be positive integer <= predictor count.")
+
+    if (stopLag < 0) {
+        warning("Negative 'stopLag' value:  using default")
+        stopLag = 0
+    }
 
     # Normalizes vector of pointwise predictor probabilites.
     meanWeight <- if (predProb == 0.0) 1.0 else predProb

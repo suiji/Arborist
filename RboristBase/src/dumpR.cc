@@ -30,14 +30,13 @@
 
    @return RboristDump as List.
  */
-RcppExport SEXP Dump(SEXP sArbOut) {
-  BEGIN_RCPP
 
+// [[Rcpp::export]]
+RcppExport SEXP Dump(SEXP sArbOut) {
   DumpRf dumper(sArbOut);
   dumper.dumpTree();
 
   return StringVector(dumper.outStr.str());
-  END_RCPP
 }
 
 

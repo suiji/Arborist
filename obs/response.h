@@ -48,14 +48,9 @@ struct Response {
      @return void.
   */
   static unique_ptr<class ResponseCtg> factoryCtg(const vector<unsigned int>& yCtg,
-					      PredictorT nCtg,
-					      const vector<double>& classWeight);
+						  PredictorT nCtg);
 
-  
-  static unique_ptr<class ResponseCtg> factoryCtg(const vector<unsigned int>& yCtg,
-					      PredictorT nCtg);
 
-    
   static unique_ptr<class ResponseReg> factoryReg(const vector<double>& yNum);
 
   
@@ -104,9 +99,9 @@ public:
   /**
      @brief Determines mean training value.
 
-     @return mean trainig value.
+     @return mean training value.
    */
-  double meanTrain() const {
+  double mean() const {
     return yTrain.empty() ? 0.0 : accumulate(yTrain.begin(), yTrain.end(), 0.0) / yTrain.size();
   }
 
@@ -127,7 +122,6 @@ public:
 class ResponseCtg : public Response {
   const vector<PredictorT> yCtg; ///< 0-based factor-valued response.
   const PredictorT nCtg;
-  const vector<double> classWeight; ///< Category weights:  cresecent only.
   const PredictorT defaultPrediction; ///< Default prediction when nothing is out-of-bag.
 
 
@@ -138,17 +132,7 @@ class ResponseCtg : public Response {
 
 
 public:
-  /**
-     @breif Training constructor:  class weights needed.
-   */
-  ResponseCtg(const vector<PredictorT>& yCtg_,
-	      PredictorT nCtg,
-	      const vector<double>& classWeight);
 
-
-  /**
-     @brief Post-training constructor.
-   */
   ResponseCtg(const vector<PredictorT>& yCtg_,
 	      PredictorT nCtg);
 
@@ -156,17 +140,12 @@ public:
   ~ResponseCtg() = default;
 
   
-  const vector<double>& getClassWeight() const {
-    return classWeight;
-  }
-
-
   const vector<unsigned int>& getYCtg() const {
     return yCtg;
   }
 
   
-  inline auto getCtg(IndexT row) const {
+  auto getCtg(IndexT row) const {
     return yCtg[row];
   }
 

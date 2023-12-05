@@ -25,6 +25,14 @@
 #include <vector>
 #include <algorithm>
 
+class Sampler;
+struct PredictFrame;
+struct RLEFrame;
+class Forest;
+class Predict;
+class PredictReg;
+class PredictCtg;
+struct IdCount;
 
 /**
    @brief Regression-specific prediction summary.
@@ -34,18 +42,18 @@ struct SummaryReg {
   unique_ptr<TestReg> test;
   vector<vector<unique_ptr<TestReg>>> permutationTest;
 
-  SummaryReg(const class Sampler* sampler,
+  SummaryReg(const Sampler* sampler,
 	     const class Predict* predict,
-	     class Forest* forest);
+	     Forest* forest);
 
 
   void build(class Predict* predict,
-	     const class Sampler* sampler,
+	     const Sampler* sampler,
 	     const vector<double>& yTest);
 
 
-  static vector<vector<unique_ptr<TestReg>>> permute(const class Predict* predict,
-						     const class Sampler* sampler,
+  static vector<vector<unique_ptr<TestReg>>> permute(const Predict* predict,
+						     const Sampler* sampler,
 						     const vector<double>& yTest);
 
   size_t getNObs() const {
@@ -108,18 +116,18 @@ struct SummaryCtg {
   unique_ptr<TestCtg> test;
   vector<vector<unique_ptr<TestCtg>>> permutationTest;
 
-  SummaryCtg(const class Sampler* sampler,
-	     const class Predict* predict,
-	     class Forest* forest);
+  SummaryCtg(const Sampler* sampler,
+	     const Predict* predict,
+	     Forest* forest);
 
   
-  void build(class Predict* predict,
-	     const class Sampler* sampler,
+  void build(Predict* predict,
+	     const Sampler* sampler,
 	     const vector<unsigned int>& yTest);
 
 
-  static vector<vector<unique_ptr<TestCtg>>> permute(const class Predict* predict,
-						     const class Sampler* sampler,
+  static vector<vector<unique_ptr<TestCtg>>> permute(const Predict* predict,
+						     const Sampler* sampler,
 						     const vector<unsigned int>& yTest);
 
 
@@ -188,29 +196,28 @@ protected:
   static const size_t obsChunk; ///< Observation block dimension.
   static const unsigned int seqChunk;  ///< Effort to minimize false sharing.
 
-  const unique_ptr<class BitMatrix> bag; ///< Nonnull iff bagging.
-  unique_ptr<struct RLEFrame> rleFrame;
+  const unique_ptr<BitMatrix> bag; ///< Nonnull iff bagging.
+  unique_ptr<RLEFrame> rleFrame;
   const size_t nObs; ///< # observations under prediction.
 
   // Prediction state:
   unsigned int nTree; ///< Initialized by Forest under prediction.
   IndexT noNode; ///< Initialized by Forest under prediction.
-  PredictFrame trFrame; ///< Initialized by RLEFrame, reset per block.
+  unique_ptr<PredictFrame> trFrame; ///< Initialized by RLEFrame, reset per block.
   size_t blockStart; ///< Index of observation heading current block.
   vector<IndexT> idxFinal; ///< Final walk index, typically terminal.
 
   void predictBlock(ForestPrediction* prediction);
 
 
-  void predictObs(class ForestPrediction* prediction,
+  void predictObs(ForestPrediction* prediction,
 		  size_t span);
 
 
   void resetIndices();
 
 
-  void walkTree(const PredictFrame& frame,
-		size_t obsStart,
+  void walkTree(size_t obsStart,
 		size_t obsEnd);
 
 
@@ -227,7 +234,7 @@ public:
   static unsigned int nPermute; ///< # times to permute each predictor.
 
 
-  class Forest* forest; ///< Set at prediction.
+  Forest* forest; ///< Set at prediction.
 
 
   /**
@@ -243,36 +250,41 @@ public:
   static void deInit();
 
   
-  Predict(const class Sampler* sampler,
-	  unique_ptr<struct RLEFrame> rleFrame_);
+  Predict(const Sampler* sampler,
+	  unique_ptr<RLEFrame> rleFrame_);
 
 
   virtual ~Predict() = default;
 
 
-  static unique_ptr<class PredictCtg> makeCtg(const class Sampler* sampler,
+  static unique_ptr<PredictCtg> makeCtg(const Sampler* sampler,
 					      unique_ptr<struct RLEFrame>);
 
 
-  static unique_ptr<class PredictReg> makeReg(const class Sampler* sampler,
+  static unique_ptr<PredictReg> makeReg(const Sampler* sampler,
 					      unique_ptr<struct RLEFrame>);
 
 
-  virtual unique_ptr<SummaryReg> predictReg(const class Sampler* sampler,
-					    class Forest* forest,
+  virtual unique_ptr<SummaryReg> predictReg(const Sampler* sampler,
+					    Forest* forest,
 					    const vector<double>& yTest) {
     return nullptr;
   }
 
 
-  virtual unique_ptr<SummaryCtg> predictCtg(const class Sampler* sampler,
-					    class Forest* forest,
+  virtual unique_ptr<SummaryCtg> predictCtg(const Sampler* sampler,
+					    Forest* forest,
 					    const vector<unsigned int>& yTest) {
     return nullptr;
   }
 
 
-  struct RLEFrame* getFrame() const {
+  PredictFrame* getPredictFrame() const {
+    return trFrame.get();
+  }
+
+
+  RLEFrame* getRLEFrame() const {
     return rleFrame.get();
   }
 
@@ -317,7 +329,7 @@ public:
 
      @return true iff bagging and the coordinate bit is set.
    */
-  inline bool isBagged(unsigned int tIdx, size_t row) const {
+  bool isBagged(unsigned int tIdx, size_t row) const {
     return bagging && bag->testBit(tIdx, row);
   }
 
@@ -339,20 +351,20 @@ public:
      
      @return prediction-wide vector of response weights.
    */
-  static vector<double> forestWeight(const class Forest* forest,
-					     const class Sampler* sampler,
-					     size_t nPredict,
+  static vector<double> forestWeight(const Forest* forest,
+				     const Sampler* sampler,
+				     size_t nPredict,
 				     const double finalIdx[]);
 
 
-  static vector<vector<struct IdCount>> obsCounts(const class Forest* forest,
-						  const class Sampler* sampler,
+  static vector<vector<struct IdCount>> obsCounts(const Forest* forest,
+						  const Sampler* sampler,
 						  unsigned int tIdx);
 
 
-  static void weighNode(const class Forest* forest,
+  static void weighNode(const Forest* forest,
 			const double treeIdx[],
-			const vector<vector<struct IdCount>>& nodeCount,
+			const vector<vector<IdCount>>& nodeCount,
 			vector<vector<double>>& obsWeight);
 
 
@@ -361,36 +373,36 @@ public:
 
      @return vector of normalized weight vectors.
    */
-  static vector<double> normalizeWeight(const class Sampler* sampler,
+  static vector<double> normalizeWeight(const Sampler* sampler,
 					const vector<vector<double>>& obsWeight);
 };
 
 
 struct PredictReg : public Predict {
 
-  PredictReg(const class Sampler* sampler,
-	     unique_ptr<struct RLEFrame> rleFrame_);
+  PredictReg(const Sampler* sampler,
+	     unique_ptr<RLEFrame> rleFrame_);
 
 
   ~PredictReg() = default;
 
-  unique_ptr<SummaryReg> predictReg(const class Sampler* sampler,
-				    class Forest* forest,
+  unique_ptr<SummaryReg> predictReg(const Sampler* sampler,
+				    Forest* forest,
 				    const vector<double>& yTest);
 };
 
 
 struct PredictCtg : public Predict {
 
-  PredictCtg(const class Sampler* sampler,
-	     unique_ptr<struct RLEFrame> rleFrame_);
+  PredictCtg(const Sampler* sampler,
+	     unique_ptr<RLEFrame> rleFrame_);
 
   
   ~PredictCtg() = default;
 
 
-  unique_ptr<SummaryCtg> predictCtg(const class Sampler* sampler,
-				    class Forest* forest,
+  unique_ptr<SummaryCtg> predictCtg(const Sampler* sampler,
+				    Forest* forest,
 				    const vector<unsigned int>& yTest);
 
 

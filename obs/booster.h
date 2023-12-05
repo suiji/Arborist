@@ -30,7 +30,8 @@
  */
 struct Booster {
   static unique_ptr<Booster> booster; ///< Singleton.
-
+  static bool trackFit; ///< Whether to track the fit at each epoch.
+  static unsigned int stopLag; ///< # steps beyond minimum to exit.
   ScoreDesc scoreDesc; ///< Completes and hands back to trainer.
   vector<double> estimate; ///< Accumulated estimate.
 
@@ -98,10 +99,21 @@ struct Booster {
 
   static void init(const string& loss,
 		   const string& scorer,
-		   double nu);
+		   double nu = 0.0);
+
+
+  /**
+     @brief As above, but also sets fitting parameters.
+   */
+  static void init(const string& loss,
+		   const string& scorer,
+		   double nu,
+		   bool trackFit,
+		   unsigned int stopLag);
 
 
   static void deInit();
+
 
   /**
      @return true iff a positive learning rate has been specified.

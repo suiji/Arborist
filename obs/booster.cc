@@ -26,6 +26,8 @@
 
 
 unique_ptr<Booster> Booster::booster = nullptr;
+bool Booster::trackFit = false;
+unsigned int Booster::stopLag = 0;
 
 
 Booster::Booster(double (Booster::* baseScorer_)(const Response*) const,
@@ -65,7 +67,7 @@ void Booster::updateResidual(NodeScorer* nodeScorer,
 
 
 double Booster::mean(const Response* response) const {
-  return reinterpret_cast<const ResponseReg*>(response)->meanTrain();
+  return reinterpret_cast<const ResponseReg*>(response)->mean();
 }
 
 
@@ -152,6 +154,17 @@ void Booster::init(const string& loss,
     booster = make_unique<Booster>(&Booster::zero, &Booster::noUpdate, 0.0);
   }
   booster->scoreDesc.scorer = scorer;
+}
+
+
+void Booster::init(const string& loss,
+		   const string& scorer,
+		   double nu,
+		   bool trackFit,
+		   unsigned int stopLag) {
+  init(loss, scorer, nu);
+  Booster::trackFit = trackFit;
+  Booster::stopLag = stopLag;
 }
 
 

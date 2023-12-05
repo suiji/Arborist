@@ -53,8 +53,27 @@ void TrainBridge::initTree(size_t leafMax) {
 }
 
 
-void TrainBridge::initBooster(const string& loss, const string& scorer, double nu) {
-  FETrain::initBooster(loss, scorer, nu);
+void TrainBridge::initSamples(vector<double> obsWeight) {
+  FETrain::initSamples(std::move(obsWeight));
+}
+
+
+void TrainBridge::initCtg(vector<double> classWeight) {
+  FETrain::initCtg(std::move(classWeight));
+}
+
+
+void TrainBridge::initBooster(const string& loss, const string& scorer) {
+  FETrain::initBooster(loss, scorer);
+}
+
+
+void TrainBridge::initBooster(const string& loss,
+			      const string& scorer,
+			      double nu,
+			      bool trackFit,
+			      unsigned int stopLag) {
+  FETrain::initBooster(loss, scorer, nu, trackFit, stopLag);
 }
 
 

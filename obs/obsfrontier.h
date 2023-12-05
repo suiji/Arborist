@@ -171,7 +171,7 @@ public:
   /**
      @brief Getter for front range at a given split index.
    */
-  inline IndexRange getFrontRange(IndexT splitIdx) const {
+  IndexRange getFrontRange(IndexT splitIdx) const {
     return node2Front[splitIdx];
   }
   
@@ -256,7 +256,7 @@ public:
   /**
      @brief Delists cell and crements stage count.
    */
-  inline void delist(StagedCell& cell) {
+  void delist(StagedCell& cell) {
     cell.delist();
     stageCount--;
   }
@@ -302,7 +302,7 @@ public:
 
      @return shifted value.
    */  
-  inline IndexT backScale(IndexT idx) const {
+  IndexT backScale(IndexT idx) const {
     return idx << (unsigned int) (layerIdx + 1);
   }
 
@@ -312,17 +312,17 @@ public:
 
      @return bit mask value.
    */
-  inline unsigned int pathMask() const {
+  unsigned int pathMask() const {
     return backScale(1) - 1;
   }
   
 
-  inline PredictorT getNPred() const {
+  PredictorT getNPred() const {
     return nPred;
   }
 
   
-  inline IndexT getNSplit() const {
+  IndexT getNSplit() const {
     return nSplit;
   }
 };

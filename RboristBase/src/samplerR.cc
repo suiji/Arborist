@@ -39,14 +39,12 @@ const string SamplerR::strNRep = "nRep";
 const string SamplerR::strSamples = "samples";
 const string SamplerR::strHash = "hash";
 
-
+// [[Rcpp::export]]
 RcppExport SEXP rootSample(const SEXP sY,
 			   const SEXP sRowWeight,
 			   const SEXP sNSamp,
 			   const SEXP sNTree,
 			   const SEXP sWithRepl) {
-  BEGIN_RCPP
-
   NumericVector weight;
   if (!Rf_isNull(sRowWeight)) {
     NumericVector rowWeight(as<NumericVector>(sRowWeight));
@@ -54,23 +52,18 @@ RcppExport SEXP rootSample(const SEXP sY,
   }
 
   return SamplerR::rootSample(sY, sNSamp, sNTree, sWithRepl, weight);
-
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SamplerR::rootSample(const SEXP sY,
 			  const SEXP sNSamp,
 			  const SEXP sNTree,
 			  const SEXP sWithRepl,
 			  const NumericVector& weight) {
-  BEGIN_RCPP
-
   SamplerBridge bridge(as<size_t>(sNSamp), getNObs(sY), as<unsigned int>(sNTree), as<bool>(sWithRepl), weight.length() == 0 ? nullptr : &weight[0]);
   sampleTrees(bridge);
   return wrap(bridge, sY);
-
-  END_RCPP
 }
 
 
@@ -101,30 +94,27 @@ vector<size_t> SamplerR::sampleObs(size_t nSamp,
 }
 
 
+// [[Rcpp::export]]
 IntegerVector SamplerR::sampleReplace(NumericVector& weight,
 				     size_t nSamp) {
-  BEGIN_RCPP
   RNGScope scope;
   IntegerVector rowSample(sample(weight.length(), nSamp, true, weight, false));
   return rowSample;
-  END_RCPP
 }
 
 
- IntegerVector SamplerR::sampleNoReplace(NumericVector& weight,
+// [[Rcpp::export]]
+IntegerVector SamplerR::sampleNoReplace(NumericVector& weight,
 					 size_t nSamp) {
-  BEGIN_RCPP
   RNGScope scope;
   IntegerVector rowSample(sample(weight.length(), nSamp, false, weight, false));
   return rowSample;
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SamplerR::wrap(const SamplerBridge& bridge,
 		    const SEXP& sY) {
-  BEGIN_RCPP
-
   List sampler;
   // Caches the front end's response vector as is.
   if (Rf_isFactor(sY)) {
@@ -140,15 +130,12 @@ List SamplerR::wrap(const SamplerBridge& bridge,
   sampler.attr("class") = "Sampler";
 
   return sampler;
-
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SamplerR::wrap(const SamplerBridge& bridge,
 		    const IntegerVector& yTrain) {
-  BEGIN_RCPP
-
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
@@ -158,7 +145,6 @@ List SamplerR::wrap(const SamplerBridge& bridge,
 			);
 
   return sampler;
-  END_RCPP
 }
 
 
@@ -169,10 +155,9 @@ NumericVector SamplerR::bridgeConsume(const SamplerBridge& bridge) {
 }
 
 
+// [[Rcpp::export]]
 List SamplerR::wrap(const SamplerBridge& bridge,
 		    const NumericVector& yTrain) {
-  BEGIN_RCPP
-
   List sampler = List::create(_[strYTrain] = yTrain,
 			      _[strSamples] = std::move(bridgeConsume(bridge)),
 			      _[strNSamp] = bridge.getNSamp(),
@@ -182,15 +167,12 @@ List SamplerR::wrap(const SamplerBridge& bridge,
 			);
   sampler.attr("class") = "Sampler";
   return sampler;
-
-  END_RCPP
 }
 
 
-SamplerBridge SamplerR::unwrapTrain(const List& lSampler,
-				    const List& argList) {
+SamplerBridge SamplerR::unwrapTrain(const List& lSampler) {
   if (Rf_isFactor((SEXP) lSampler[strYTrain])) {
-    return makeBridgeTrain(lSampler, as<IntegerVector>(lSampler[strYTrain]), argList);
+    return makeBridgeTrain(lSampler, as<IntegerVector>(lSampler[strYTrain]));
   }
   else {
     return makeBridgeTrain(lSampler, as<NumericVector>(lSampler[strYTrain]));
@@ -199,14 +181,12 @@ SamplerBridge SamplerR::unwrapTrain(const List& lSampler,
 
 
 SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
-					const IntegerVector& yTrain,
-					const List& argList) {
+					const IntegerVector& yTrain) {
   return SamplerBridge(coreCtg(yTrain),
 		       as<size_t>(lSampler[strNSamp]),
 		       as<unsigned int>(lSampler[strNTree]),
 		       Rf_isNull(lSampler[strSamples]) ? nullptr : NumericVector((SEXP) lSampler[strSamples]).begin(),
-		       as<CharacterVector>(yTrain.attr("levels")).length(),
-		       std::move(ctgWeight(yTrain, as<NumericVector>(argList["classWeight"]))));
+		       as<CharacterVector>(yTrain.attr("levels")).length());
 }
 
 
@@ -223,27 +203,6 @@ vector<unsigned int> SamplerR::coreCtg(const IntegerVector& yTrain) {
   IntegerVector yZero = yTrain - 1;
   vector<unsigned int> yTrainCore(yZero.begin(), yZero.end());
   return yTrainCore;
-}
-
-
-vector<double> SamplerR::ctgWeight(const IntegerVector& yTrain,
-				   const NumericVector& classWeight) {
-  IntegerVector yZero = yTrain - 1;
-  auto scaledWeight = clone(classWeight);
-  // Default class weight is all unit:  scaling yields 1.0 / nCtg uniformly.
-  // All zeroes is a place-holder to indicate balanced scaling:  class weights
-  // are proportional to the inverse of the count of the class in the response.
-  if (is_true(all(classWeight == 0.0))) {
-    NumericVector tb(table(yZero));
-    for (R_len_t i = 0; i < classWeight.length(); i++) {
-      scaledWeight[i] = tb[i] == 0.0 ? 0.0 : 1.0 / tb[i];
-    }
-  }
-  NumericVector yWeighted = scaledWeight / sum(scaledWeight); // in [0,1]
-  NumericVector weight = yWeighted[yZero];
-
-  vector<double> weightVec(weight.begin(), weight.end());
-  return weightVec;
 }
 
 
@@ -265,15 +224,13 @@ SamplerBridge SamplerR::unwrapPredict(const List& lSampler,
 }
 
 
-SEXP SamplerR::checkOOB(const List& lSampler, const List& lDeframe) {
-  BEGIN_RCPP
+// [[Rcpp::export]]
+void SamplerR::checkOOB(const List& lSampler, const List& lDeframe) {
   if (Rf_isNull(lSampler[strSamples]))
     stop("Out-of-bag prediction requested with empty sampler.");
 
   if (getNObs(lSampler[strYTrain]) != as<size_t>((SEXP) lDeframe["nRow"]))
     stop("Bag and prediction row counts do not agree.");
-
-  END_RCPP
 }
 
 

@@ -41,59 +41,49 @@ sgbArb.default <- function(x,
                              predProb = 0.0,
                              predWeight = NULL, 
                              regMono = NULL,
-                             rowWeight = NULL,
+                             samplingWeight = NULL,
                              splitQuant = NULL,
+                           stopLag = 0,
                              thinLeaves = is.factor(y) && !indexing,
+                           trackFit = stopLag > 0,
                              trapUnobserved = FALSE,
                              treeBlock = 1,
                              verbose = FALSE,
                              ...) {
 
     # Argument checking:
-    if (nThread < 0)
-        stop("Thread count must be nonnegative")
-
-    if (any(is.na(y)))
-        stop("NA not supported in response")
-
-    if (!is.numeric(y) && !is.factor(y))
-        stop("Expecting numeric or factor response")
-
-    if (is.factor(y) && length(levels(y)) != 2)
-        stop("Expecting binary response")
-
-    if (impPermute < 0)
-        warning("Negative permutation count:  ignoring.")
-
-    if (impPermute > 1)
-        warning("Permutation count limited to one.")
-    
-    if (impPermute > 0 && noValidate)
-        warning("Variable importance requires validation:  ignoring")
+    if (nThread < 0) {
+        warning("Thread count must be nonnegative:  substituting default.")
+        nThread <- 0
+    }
 
     preFormat <- preformat(x, verbose)
-    sampler <- presample(y, rowWeight, nSamp, nTree, withRepl, verbose)
+    sampler <- presample(y, samplingWeight, nSamp, nTree, withRepl, verbose)
     train <- sgbTrain(preFormat, sampler, y,
-                           autoCompress,
-                           maxLeaf,
-                           minInfo,
-                           minNode,
-                           nLevel,
-                           nThread,
-                           nTree,
-                           nu,
-                           predFixed,
-                           predProb,
-                           predWeight,
-                           regMono,
-                           splitQuant,
-                           thinLeaves,
-                           treeBlock,
-                           verbose
-                           )
+                      autoCompress,
+                      maxLeaf,
+                      minInfo,
+                      minNode,
+                      nLevel,
+                      nThread,
+                      nTree,
+                      nu,
+                      predFixed,
+                      predProb,
+                      predWeight,
+                      regMono,
+                      splitQuant,
+                      stopLag,
+                      thinLeaves,
+                      trackFit,
+                      treeBlock,
+                      verbose
+                      )
 
     if (noValidate) {
         summaryValidate <- NULL
+        if (impPermute > 0)
+            warning("Variable importance requires validation:  ignoring")
     }
     else {
         argPredict <- list(

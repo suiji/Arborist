@@ -34,6 +34,9 @@ using namespace Rcpp;
 #include<memory>
 using namespace std;
 
+struct SamplerBridge;
+class Predict;
+
 /**
    @brief Prediction with separate test vector.
 
@@ -48,10 +51,10 @@ using namespace std;
    @return wrapped predict object.
  */
 RcppExport SEXP predictRcpp(const SEXP sFrame,
-			    const SEXP sTrain,
-			    const SEXP sSampler,
-			    const SEXP sYTest,
-			    const SEXP sArgs);
+		 const SEXP sTrain,
+		 const SEXP sSampler,
+		 const SEXP sYTest,
+		 const SEXP sArgs);
 
 
 /**
@@ -60,9 +63,9 @@ RcppExport SEXP predictRcpp(const SEXP sFrame,
    Paramaters as with predictRcpp.
  */
 RcppExport SEXP validateRcpp(const SEXP sFrame,
-			     const SEXP sTrain,
-			     const SEXP sSampler,
-			     const SEXP sArgs);
+		  const SEXP sTrain,
+		  const SEXP sSampler,
+		  const SEXP sArgs);
 
 
 /**
@@ -95,7 +98,7 @@ struct PredictR {
    */
   static List predictCtg(const List& lDeframe,
 			 const List& lSampler,
-			 const struct SamplerBridge& samplerBridge,
+			 const SamplerBridge& samplerBridge,
 			 struct ForestBridge& forestBridge,
 			 const SEXP sYTest);
 
@@ -106,7 +109,7 @@ struct PredictR {
      @return wrapped prediction.
    */
   static List predictReg(const List& lDeframe,
-			 const struct SamplerBridge& samplerBridge,
+			 const SamplerBridge& samplerBridge,
 			 struct ForestBridge& forestBridge,
 			 const SEXP sYTest);
 
@@ -119,7 +122,7 @@ struct PredictR {
 
      @retun implicit R_NilValue.
    */
-  static SEXP initPerInvocation(const List& lArgs);
+  static void initPerInvocation(const List& lArgs);
 
 
   /**
@@ -196,7 +199,7 @@ struct LeafRegRf {
 
   static List predict(const List &list,
                       SEXP sYTest,
-                      class Predict *predict);
+                      Predict *predict);
 };
 
   
@@ -207,7 +210,7 @@ struct LeafCtgRf {
   static List predict(const List &list,
 		      SEXP sYTest,
 		      const List &signature,
-		      class Predict *predict,
+		      Predict *predict,
 		      bool doProb);
   /**
      @param sYTest is the one-based test vector, possibly null.

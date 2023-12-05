@@ -174,27 +174,27 @@ class PreTree {
   void leafMerge();
   
 
-  inline IndexT getHeight() const {
+  IndexT getHeight() const {
     return nodeVec.size();
   }
   
 
-  inline void resetTerminal(IndexT ptId) {
+  void resetTerminal(IndexT ptId) {
     nodeVec[ptId].resetTerminal();
   }
 
   
-  inline IndexT getIdTrue(IndexT ptId) const {
+  IndexT getIdTrue(IndexT ptId) const {
     return nodeVec[ptId].getIdTrue(ptId);
   }
 
   
-  inline IndexT getIdFalse(IndexT ptId) const {
+  IndexT getIdFalse(IndexT ptId) const {
     return nodeVec[ptId].getIdFalse(ptId);
   }
 
 
-  inline IndexT getSuccId(IndexT ptId, bool senseTrue) const {
+  IndexT getSuccId(IndexT ptId, bool senseTrue) const {
     return senseTrue ? nodeVec[ptId].getIdTrue(ptId) : nodeVec[ptId].getIdFalse(ptId);
   }
 
@@ -202,7 +202,7 @@ class PreTree {
   /**
      @brief Obtains true and false branch target indices.
    */
-  inline void getSuccTF(IndexT ptId,
+  void getSuccTF(IndexT ptId,
                         IndexT& ptLeft,
                         IndexT& ptRight) const {
     ptLeft = nodeVec[ptId].getIdTrue(ptId);
@@ -213,12 +213,12 @@ class PreTree {
   /**
      @return true iff node is nonterminal.
    */
-  inline bool isNonterminal(IndexT ptId) const {
+  bool isNonterminal(IndexT ptId) const {
     return nodeVec[ptId].isNonterminal();
   }
 
 
-  inline IndexT getDelIdx(IndexT ptId) const {
+  IndexT getDelIdx(IndexT ptId) const {
     return nodeVec[ptId].getDelIdx();
   }
 
@@ -226,7 +226,7 @@ class PreTree {
   /**
      @brief Obtains leaf index of node assumed to be nonterminal.
    */
-  inline IndexT getLeafIdx(IndexT ptIdx) const {
+  IndexT getLeafIdx(IndexT ptIdx) const {
     return nodeVec[ptIdx].getLeafIdx();
   }
 
@@ -239,7 +239,7 @@ class PreTree {
 
        @return true iff node has two leaf children.
     */
-  inline bool isMergeable(IndexT ptId) const {
+  bool isMergeable(IndexT ptId) const {
     return !isNonterminal(getIdTrue(ptId)) && !isNonterminal(getIdFalse(ptId));
   }
 
@@ -261,7 +261,7 @@ class PreTree {
 
      @param nCrit is the number of criteria in the block; zero iff block preallocated.
   */
-  inline void offspring(IndexT nCrit, bool root = false) {
+  void offspring(IndexT nCrit, bool root = false) {
     if (nCrit > 0 || root) {
       DecNode node;
       nodeVec.insert(nodeVec.end(), nCrit + 1, node);

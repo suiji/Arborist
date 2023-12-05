@@ -77,7 +77,7 @@ struct IndexRange {
 
      @return true iff extent has value zero.
    */
-  inline bool empty() const {
+  bool empty() const {
     return idxExtent == 0;
   }
 
@@ -133,7 +133,7 @@ using PathT = unsigned char;
  */
 template<typename tn>
 bool areEqual(const tn& val1,
-	      const tn& val2) {
+		     const tn& val2) {
   return val1 == val2;
 }
 
@@ -141,8 +141,9 @@ bool areEqual(const tn& val1,
 /**
    @brief Double override to check for NaN.
  */
+template<>
 inline bool areEqual(const double& val1,
-	      const double& val2) {
+		     const double& val2) {
   return ((val1 == val2) || (isnan(val1) && isnan(val2)));
 }
 

@@ -23,6 +23,10 @@
 
 using namespace std;
 
+class PreTree;
+class Sampler;
+class ResponseCtg;
+
 /**
    @brief Rank and sample-counts associated with sampled rows.
 
@@ -110,7 +114,7 @@ struct Leaf {
 
      @param index gives sample positions.
   */
-  static unique_ptr<Leaf> predict(const class Sampler* sampler,
+  static unique_ptr<Leaf> predict(const Sampler* sampler,
 				  vector<vector<size_t>> extent,
 				  vector<vector<vector<size_t>>> index);
 
@@ -124,7 +128,7 @@ struct Leaf {
   /**
      @brief Post-training constructor:  fixed maps passed in.
    */
-  Leaf(const class Sampler* sampler,
+  Leaf(const Sampler* sampler,
        vector<vector<size_t>> extent_,
        vector<vector<vector<size_t>>> index_);
 
@@ -133,6 +137,20 @@ struct Leaf {
      @brief Resets static packing parameters.
    */
   ~Leaf();
+
+
+  static Leaf unpack(const Sampler* sampler,
+		     const double extent_[],
+		     const double index_[]);
+
+
+  static vector<vector<size_t>> unpackExtent(const Sampler* sampler,
+					     const double extentNum[]);
+
+
+  static vector<vector<vector<size_t>>> unpackIndex(const Sampler* sampler,
+					     const vector<vector<size_t>>& extent,
+					     const double numVal[]);
 
 
   /**
@@ -151,7 +169,7 @@ struct Leaf {
      Training caches leaves in order of production.  Depth-first
      leaf numbering requires that the sample maps be reordered.
    */
-  void consumeTerminals(const class PreTree* pretree);
+  void consumeTerminals(const PreTree* pretree);
 
 
   /**
@@ -161,8 +179,8 @@ struct Leaf {
 
      @return 3-d vector category counts, indexed by tree/leaf/ctg.
    */
-  vector<vector<vector<size_t>>> countLeafCtg(const class Sampler* sampler,
-					      const class ResponseCtg* response) const;
+  vector<vector<vector<size_t>>> countLeafCtg(const Sampler* sampler,
+					      const ResponseCtg* response) const;
 
 
   /**
@@ -172,7 +190,7 @@ struct Leaf {
 
      @return 3-d mapping as described.
    */
-  vector<vector<vector<RankCount>>> alignRanks(const class Sampler* sampler,
+  vector<vector<vector<RankCount>>> alignRanks(const Sampler* sampler,
 					       const vector<IndexT>& obs2Rank) const;
 
 

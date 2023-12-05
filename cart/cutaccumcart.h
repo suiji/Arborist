@@ -39,7 +39,7 @@ class CutAccumRegCart : public CutAccumReg {
   /**
      @return true iff accumulated and monotonicity senses agree.
    */
-  inline bool senseMonotone() const {
+  bool senseMonotone() const {
     IndexT sCountR = sumCount.sCount - sCount;
     double sumR = sumCount.sum - sum;
     bool accumNonDecreasing = (sum * sCountR <= sumR * sCount);

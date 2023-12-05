@@ -29,11 +29,11 @@ Sampler::Sampler(IndexT nSamp_,
 		 unsigned int nRep_,
 		 bool replace,
 		 const double weight[]) :
-    nRep(nRep_),
-    nObs(nObs_),
-    nSamp(nSamp_),
-    response(nullptr),
-    trivial(nObs == nSamp && !replace) {
+  nRep(nRep_),
+  nObs(nObs_),
+  nSamp(nSamp_),
+  response(nullptr),
+  trivial(nObs == nSamp && !replace) {
   setCoefficients(weight, replace);
 }
 
@@ -82,12 +82,11 @@ Sampler::Sampler(const vector<double>& yTrain,
 Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 IndexT nSamp_,
 		 vector<vector<SamplerNux>> samples_,
-		 PredictorT nCtg,
-		 const vector<double>& classWeight) :
+		 PredictorT nCtg) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
   nSamp(nSamp_),
-  response(Response::factoryCtg(yTrain, nCtg, classWeight)),
+  response(Response::factoryCtg(yTrain, nCtg)),
   samples(std::move(samples_)),
   predict(Predict::makeCtg(this, nullptr)) {
   Booster::setEstimate(this);
@@ -140,7 +139,7 @@ unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) const {
 }
 
 
-unique_ptr<SampledObs> Sampler::getObs(unsigned int tIdx) const {
+unique_ptr<SampledObs> Sampler::makeObs(unsigned int tIdx) const {
   return response->getObs(this, tIdx);
 }
 
@@ -149,7 +148,7 @@ vector<IdCount> Sampler::obsExpand(const vector<SampleNux>& nuxen) const {
   vector<IdCount> idCount;
 
   IndexT obsIdx = 0;
-  for (auto nux : nuxen) {
+  for (const SampleNux& nux : nuxen) {
     obsIdx += nux.getDelRow();
     idCount.emplace_back(obsIdx, nux.getSCount());
   }

@@ -6,7 +6,7 @@
  */
 
 /**
-   @file samplerrw.cc
+   @file samplernux.cc
 
    @brief Core-specific packing/unpacking of external Sampler representations.
 
@@ -14,16 +14,15 @@
  */
 
 
-#include "samplerrw.h"
 #include "sampler.h"
 #include "samplenux.h"
 
 #include <algorithm>
 
-vector<vector<SamplerNux>> SamplerRW::unpack(const double samples[],
-					     IndexT nSamp,
-					     unsigned int nTree,
-					     PredictorT nCtg) {
+vector<vector<SamplerNux>> SamplerNux::unpack(const double samples[],
+					      IndexT nSamp,
+					      unsigned int nTree,
+					      PredictorT nCtg) {
   IndexT maxSCount = 0;
   vector<vector<SamplerNux>> nuxOut(nTree);
   const double* sample = samples;

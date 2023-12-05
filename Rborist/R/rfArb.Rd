@@ -36,8 +36,10 @@
                 quantiles = !is.null(quantVec),
                 regMono = NULL,
                 rowWeight = NULL,
+                samplingWeight = NULL,
                 splitQuant = NULL,
-                thinLeaves = is.factor(y) && !indexing,
+                streamline = FALSE,
+                thinLeaves = streamline || (is.factor(y) && !indexing),
                 trapUnobserved = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
@@ -76,9 +78,11 @@
   \item{quantiles}{whether to report quantiles at validation.}
   \item{regMono}{signed probability constraint for monotonic
     regression.}
-  \item{rowWeight}{row weighting for initial sampling of tree.}
+  \item{rowWeight}{row weighting for initial sampling of tree.  Deprecated}
+  \item{samplingWeight}{row weighting for initial sampling of tree.}
   \item{splitQuant}{(sub)quantile at which to place cut point for
     numerical splits}.
+  \item{streamline}{whether to streamline sampler contents to save space.}
   \item{thinLeaves}{bypasses creation of leaf state in order to reduce
     memory footprint.}
   \item{trapUnobserved}{reports score for nonterminal upon encountering
@@ -213,7 +217,7 @@
 
 
   # Causes rows to be sampled with random weighting:
-  rb <- rfArb(x, y, rowWeight=runif(nRow))
+  rb <- rfArb(x, y, samplingWeight=runif(nRow))
 
 
   # Suppresses creation of detailed leaf information needed for

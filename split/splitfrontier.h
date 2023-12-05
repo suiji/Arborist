@@ -226,7 +226,7 @@ public:
   /**
      @brief Getter for split count.
    */
-  inline IndexT getNSplit() const {
+  IndexT getNSplit() const {
     return nSplit;
   }
 

@@ -112,32 +112,30 @@ void FBTrain::scoreDescConsume(const TrainBridge& trainBridge) {
 }
 
 
+// [[Rcpp::export]]
 List FBTrain::wrapNode() {
-  BEGIN_RCPP
   List wrappedNode = List::create(_[strTreeNode] = std::move(cNode),
 				  _[strExtent] = std::move(nodeExtent)
 				  );
   wrappedNode.attr("class") = "Node";
   return wrappedNode;
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List FBTrain::wrapFactor() {
-  BEGIN_RCPP
-    List wrappedFactor = List::create(_[strFacSplit] = std::move(facRaw),
+  List wrappedFactor = List::create(_[strFacSplit] = std::move(facRaw),
 				      _[strExtent] = std::move(facExtent),
 				      _[strObserved] = std::move(facObserved)
 				      );
   wrappedFactor.attr("class") = "Factor";
 
   return wrappedFactor;
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List FBTrain::wrap() {
-  BEGIN_RCPP
   List forest =
     List::create(_[strNTree] = nTree,
 		 _[strScoreDesc] = std::move(summarizeScoreDesc()),
@@ -152,7 +150,6 @@ List FBTrain::wrap() {
   forest.attr("class") = "Forest";
 
   return forest;
-  END_RCPP
 }
 
 
@@ -177,7 +174,8 @@ ForestBridge ForestR::unwrap(const List& lTrain,
 		      as<NumericVector>(lFactor[FBTrain::strExtent]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
-		      unwrapScoreDesc(lForest, categorical));
+		      unwrapScoreDesc(lForest, categorical),
+		      nullptr);
 }
 
 
@@ -197,7 +195,7 @@ ForestBridge ForestR::unwrap(const List& lTrain,
 		      as<RawVector>(lFactor[FBTrain::strFacSplit]).begin(),
 		      as<RawVector>(lFactor[FBTrain::strObserved]).begin(),
 		      unwrapScoreDesc(lForest, samplerBridge.categorical()),
-		      samplerBridge,
+		      &samplerBridge,
 		      thinLeaf ? nullptr : as<NumericVector>(lLeaf[LeafR::strExtent]).begin(),
 		      thinLeaf ? nullptr : as<NumericVector>(lLeaf[LeafR::strIndex]).begin());
 }
@@ -219,16 +217,13 @@ tuple<double, double, string> ForestR::unwrapScoreDesc(const List& lForest,
 }
 
 
+// [[Rcpp::export]]
 List ForestR::checkForest(const List& lTrain) {
-  BEGIN_RCPP
-
   List lForest((SEXP) lTrain["forest"]);
   if (!lForest.inherits("Forest")) {
     stop("Expecting Forest");
   }
   return lForest;
-  
-  END_RCPP
 }
 
 
@@ -279,10 +274,9 @@ void ForestExpand::treeExport(const int predMap[],
 }
 
 
+// [[Rcpp::export]]
 List ForestExpand::expand(const List& lTrain,
 			  const IntegerVector& predMap) {
-  BEGIN_RCPP
-
   ForestExpand forest(ForestExpand::unwrap(lTrain, predMap));
   unsigned int nTree = forest.predTree.size();
   List trees(nTree);
@@ -295,15 +289,11 @@ List ForestExpand::expand(const List& lTrain,
     trees[tIdx] = std::move(ffReg);
   }
   return trees;
-
-  END_RCPP
 }
 
-
+// [[Rcpp::export]]
 List ForestExpand::expandTree(const ForestExpand& forest,
 			 unsigned int tIdx) {
-  BEGIN_RCPP
-
   auto predTree(forest.getPredTree(tIdx));
   auto bumpTree(forest.getBumpTree(tIdx));
   IntegerVector incrL(bumpTree.begin(), bumpTree.end());
@@ -319,5 +309,4 @@ List ForestExpand::expandTree(const ForestExpand& forest,
 
   ffTree.attr("class") = "expandTree";
   return ffTree;
-  END_RCPP
 }

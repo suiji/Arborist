@@ -95,7 +95,7 @@ public:
 
      @return true iff both sums suitably stable.
    */
-  inline bool stableSum(double sumL, double sumR) const {
+  bool stableSum(double sumL, double sumR) const {
     return sumL > minSumL && sumR > minSumR;
   }
 
@@ -113,7 +113,7 @@ public:
 
      @return true iff both sums suitably stable.
    */
-  inline bool stableDenom(double sumL, double sumR) const {
+  bool stableDenom(double sumL, double sumR) const {
     return sumL > minDenom && sumR > minDenom;
   }
 };

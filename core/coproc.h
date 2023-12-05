@@ -31,11 +31,11 @@ class Coproc {
  Coproc(unsigned int _nCoproc, unsigned int _unroll) : nCoproc(_nCoproc), unroll(_unroll) {
   }
 
-  inline unsigned int getUnroll() const {
+  unsigned int getUnroll() const {
     return unroll;
   }
   
-  inline unsigned int getNCoproc() const {
+  unsigned int getNCoproc() const {
     return nCoproc;
   }
   

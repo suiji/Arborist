@@ -57,7 +57,7 @@ public:
   /**
      @return maximal path length.
    */
-  inline static constexpr unsigned int pathMax() {
+  static constexpr unsigned int pathMax() {
     return noPath;
   }
 
@@ -76,7 +76,7 @@ public:
 
      @return true iff path size does not exceed maximum representable.
    */
-  inline static bool isRepresentable(unsigned int pathSize) {
+  static bool isRepresentable(unsigned int pathSize) {
     return pathSize <= logPathMax;
   }
 
@@ -88,7 +88,7 @@ public:
 
      @return true iff path is active.
    */
-  static inline bool isActive(unsigned int path) {
+  static bool isActive(unsigned int path) {
     return path != noPath;
   }
 
@@ -96,7 +96,7 @@ public:
   /**
      @brief Multiple accessor for path coordinates.
    */
-  inline bool getCoords(PredictorT predIdx,
+  bool getCoords(PredictorT predIdx,
 			SplitCoord& coord,
 			IndexRange& idxRange) const {
     if (frontIdx == noSplit) {
@@ -109,28 +109,28 @@ public:
     }
   }
 
-  inline bool getFrontIdx(IndexT& idxOut) const {
+  bool getFrontIdx(IndexT& idxOut) const {
     idxOut = frontIdx;
     return (frontIdx != noSplit);
   }
 
   
-  inline IndexT getIdxStart() const {
+  IndexT getIdxStart() const {
     return bufRange.getStart();
   }
 
 
-  inline IndexT getExtent() const {
+  IndexT getExtent() const {
     return bufRange.getExtent();
   }
   
 
-  inline IndexT getNodeStart() const {
+  IndexT getNodeStart() const {
     return idxStart;
   }
 
 
-  inline IndexT getSplitIdx() const {
+  IndexT getSplitIdx() const {
     return frontIdx;
   }
 };
@@ -161,13 +161,13 @@ class IdxPath {
 
      @param path is the reaching path.
    */
-  inline void set(IndexT idx,
+  void set(IndexT idx,
 		  unsigned int path = maskExtinct) {
     pathFront[idx] = path;
   }
 
 
-  inline void set(IndexT idx,
+  void set(IndexT idx,
                   PathT path,
                   IndexT smIdx) {
     pathFront[idx] = path;
@@ -184,7 +184,7 @@ class IdxPath {
 
      @return true iff contents copied.
    */
-  inline bool copyLive(IdxPath *backRef,
+  bool copyLive(IdxPath *backRef,
                        IndexT idx,
                        IndexT backIdx) const {
     if (!isLive(idx)) {
@@ -206,13 +206,13 @@ class IdxPath {
 
      @return true iff node-relative indexing expected to be profitable.
    */
-  static inline bool localizes(IndexT bagCount,
+  static bool localizes(IndexT bagCount,
 			       IndexT idxMax) {
     return idxMax > relMax || bagCount <= 3 * relMax ? false : true;
   }
 
   
-  inline IndexT getMapIdx(IndexT idx) const {
+  IndexT getMapIdx(IndexT idx) const {
     return smIdx[idx];
   }
 
@@ -224,7 +224,7 @@ class IdxPath {
 
      @param path is the reaching path.
    */
-  inline void setSuccessor(IndexT idx,
+  void setSuccessor(IndexT idx,
                            unsigned int pathSucc) {                       
     set(idx, pathSucc);
   }
@@ -235,13 +235,13 @@ class IdxPath {
 
      @return shift-stamped path if live else fixed extinct mask.
    */
-  inline static unsigned int pathSucc(unsigned int pathPrev,
+  static unsigned int pathSucc(unsigned int pathPrev,
 				      bool sense) {
     return maskLive & ((pathPrev << 1) | (sense ? 0 : 1));
   }
 
 
-  inline static void pathLR(unsigned int pathPrev,
+  static void pathLR(unsigned int pathPrev,
                             PathT& pathL,
                             PathT& pathR) {
     pathL = maskLive & (pathPrev << 1);
@@ -258,7 +258,7 @@ class IdxPath {
 
      @param smIdx is nascent SampleMap index:  only read node-relative.
   */
-  inline void setLive(IndexT idx,
+  void setLive(IndexT idx,
                       PathT path,
                       IndexT smIdx) {
     set(idx, path, smIdx);
@@ -271,7 +271,7 @@ class IdxPath {
 
      @param idx is the index in question.
    */
-  inline void setExtinct(IndexT idx) {
+  void setExtinct(IndexT idx) {
     set(idx, maskExtinct, idxLive);
   }
 
@@ -283,7 +283,7 @@ class IdxPath {
 
      @return true iff reaching path is not extinct.
    */
-  inline bool isLive(IndexT idx) const {
+  bool isLive(IndexT idx) const {
     return (pathFront[idx] & maskExtinct) == 0;
   }
 
@@ -299,7 +299,7 @@ class IdxPath {
 
      @return true iff path is live.
    */
-  inline bool pathSucc(IndexT idx,
+  bool pathSucc(IndexT idx,
 		       unsigned int pathMask,
 		       PathT& path) const {
     bool isLive = this->isLive(idx);
@@ -317,7 +317,7 @@ class IdxPath {
 
      @return true iff path live.
    */
-  inline bool frontLive(IndexT idx,
+  bool frontLive(IndexT idx,
 			IndexT &front) const {
     front = smIdx[idx];
     return isLive(idx);
@@ -329,7 +329,7 @@ class IdxPath {
 
      @param one2Front maps first level's coordinates to front.
    */
-  inline void backdate(const IdxPath* one2Front) {
+  void backdate(const IdxPath* one2Front) {
     for (IndexT idx = 0; idx < idxLive; idx++) {
       IndexT oneIdx;
       if (frontLive(idx, oneIdx)) {

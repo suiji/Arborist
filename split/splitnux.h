@@ -171,13 +171,13 @@ public:
 
      @param[in, out] amn holds the running argmax nux.
 
-  inline void maxInfo(const SplitNux*& amn) const {
+  void maxInfo(const SplitNux*& amn) const {
     if (info > amn->info || (info == amn->info && info > 0.0 && randVal > amn->randVal))
       amn = this;
   }
   */  
 
-  inline bool maxInfo(const SplitNux& amn) const {
+  bool maxInfo(const SplitNux& amn) const {
     return (info > amn.info) || (info == amn.info && info > 0.0 && randVal > amn.randVal);
   }
   
@@ -241,22 +241,22 @@ public:
   /**
      @brief Indicates whether this is an empty placeholder.
    */
-  inline bool noNux() const {
+  bool noNux() const {
     return cell == nullptr || cell->coord.noCoord();
   }
 
 
-  inline IndexRange getRange() const {
+  IndexRange getRange() const {
     return cell->getObsRange();
   }
 
   
-  inline IndexT getObsStart() const {
+  IndexT getObsStart() const {
     return cell->getObsRange().getStart();
   }
 
   
-  inline IndexT getObsExtent() const {
+  IndexT getObsExtent() const {
     return cell->getObsRange().getExtent();
   }
 
@@ -264,7 +264,7 @@ public:
   /**
      @return inattainable position beyond observation buffer top.
    */
-  inline IndexT getObsEnd() const {
+  IndexT getObsEnd() const {
     return cell->getObsRange().getEnd();
   }
 
@@ -277,12 +277,12 @@ public:
   }
 
 
-  inline IndexT getSCount() const {
+  IndexT getSCount() const {
     return sCount;
   }
   
 
-  inline double getSum() const {
+  double getSum() const {
     return sum;
   }
 
