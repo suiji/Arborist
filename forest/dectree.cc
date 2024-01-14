@@ -15,7 +15,6 @@
 
 
 #include "dectree.h"
-#include "predictframe.h"
 
 #include "quant.h" // Inclusion only.
 
@@ -80,16 +79,3 @@ vector<DecNode> DecTree::unpackNodes(const complex<double> nodes[],
 
 
 DecTree::~DecTree() = default;
-
-
-IndexT DecTree::walkObs(const PredictFrame* frame,
-		       size_t obsIdx) const {
-  IndexT idx = 0;
-  IndexT delIdx = 0;
-  do {
-    delIdx = decNode[idx].advance(frame, this, obsIdx);
-    idx += delIdx;
-  } while (delIdx != 0);
-
-  return idx;
-}

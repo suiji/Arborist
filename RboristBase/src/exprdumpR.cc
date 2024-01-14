@@ -1,4 +1,4 @@
-// Copyright (C)  2019 - 2023   Mark Seligman and Decision Patterns LLC.
+// Copyright (C)  2019 - 2024   Mark Seligman and Decision Patterns LLC.
 //
 // This file is part of RboristBase.
 //

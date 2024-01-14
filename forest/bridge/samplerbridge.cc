@@ -40,11 +40,13 @@ unsigned int SamplerBridge::getNRep() const {
 
 SamplerBridge::SamplerBridge(size_t nSamp,
 			     size_t nObs,
-			     unsigned int nTree,
+			     unsigned int nRep,
 			     bool replace,
-			     const double weight[]) {
+			     const vector<double>& weight,
+			     size_t nHoldout,
+			     const vector<size_t>& undefined) {
   SamplerNux::setMasks(nObs);
-  sampler = make_unique<Sampler>(nSamp, nObs, nTree, replace, weight);
+  sampler = make_unique<Sampler>(nSamp, nObs, nRep, replace, weight, nHoldout, undefined);
 }
 
 

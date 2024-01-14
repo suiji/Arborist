@@ -22,6 +22,7 @@
 
 using namespace std;
 
+class RLEFrame;
 
 /**
    @brief Transposed section of an RLEFrame.
@@ -36,10 +37,10 @@ public:
   vector<double> num;
   vector<CtgT> fac;
 
-  PredictFrame(const class RLEFrame* frame);
+  PredictFrame(const RLEFrame* frame);
 
 
-  void transpose(const class RLEFrame* frame,
+  void transpose(const RLEFrame* frame,
 		 size_t obsStart,
 		 size_t obsExtent);
 

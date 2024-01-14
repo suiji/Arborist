@@ -20,7 +20,7 @@ nThread=0, verbose = FALSE, ...)
   \item{prediction}{an object of class \code{SummaryReg} or
     \code{SummaryCtg} obtained from prediction using \code{objTrain} and
     argument \code{indexing=TRUE}.}
-  \item{sampler}{an object of class \code{Sampler}, as documented in
+  \item{sampler}{an object of class \code{Sampler}, as documented for
   command of the same name.}
   \item{nThread}{specifies a prefered thread count.}
   \item{verbose}{whether to output progress of weighting.}
@@ -45,7 +45,7 @@ nThread=0, verbose = FALSE, ...)
   pred <- predict(rb, newdata, indexing=TRUE)
   weights <- forestWeight(rb, pred)
 
-  obsIdx <- 215 # Arbitrary observation index (row number)
+  obsIdx <- 215 # Arbitrary observation index (zero-based row number)
 
   # Inner product should equal prediction, modulo numerical vagaries:
   yPredApprox <- weights[obsIdx,] \%*\% y
@@ -53,6 +53,12 @@ nThread=0, verbose = FALSE, ...)
 }
 
 }
+
+\references{
+  Meinshausen, N. (2016) Quantile Random Forests. Journal of Machine
+  Learning Research 17(1), 1-68.
+}
+
 
 \author{
   Mark Seligman at Suiji.

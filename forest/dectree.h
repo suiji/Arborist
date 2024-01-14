@@ -73,12 +73,22 @@ public:
   const BV& getFacSplit() const {
     return facSplit;
   }
-  
+
 
   IndexT walkObs(const PredictFrame* frame,
-		 size_t obsIdx) const;
+		 const bool trapUnobserved,
+		 size_t obsIdx) const {
+    IndexT idx = 0;
+    IndexT delIdx = 0;
+    do {
+      delIdx = trapUnobserved ? decNode[idx].advanceTrap(frame, this, obsIdx) : decNode[idx].advance(frame, this, obsIdx);
+      idx += delIdx;
+    }  while (delIdx != 0);
 
-  
+    return idx;
+  }
+
+
   size_t nodeCount() const {
     return decNode.size();
   }

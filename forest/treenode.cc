@@ -20,7 +20,6 @@
 
 unsigned int TreeNode::rightBits = 0;
 PredictorT TreeNode::rightMask = 0;
-bool TreeNode::trapUnobserved = false;
 
 
 void TreeNode::initMasks(PredictorT nPred) {
@@ -30,15 +29,9 @@ void TreeNode::initMasks(PredictorT nPred) {
 }
 
 
-void TreeNode::initTrap(bool doTrap) {
-  trapUnobserved = doTrap;
-}
-
-
 void TreeNode::deInit() {
   rightBits = 0;
   rightMask = 0ull;
-  trapUnobserved = false;
 }
 
 
@@ -49,11 +42,6 @@ TreeNode::TreeNode(complex<double> pair) :
 }
 
   
-bool TreeNode::trapAndBail() {
-  return trapUnobserved;
-}
-
-
 void TreeNode::critCut(const SplitNux& nux,
 		       const class SplitFrontier* splitFrontier) {
   setPredIdx(nux.getPredIdx());

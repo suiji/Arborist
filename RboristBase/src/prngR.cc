@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2023   Mark Seligman
+// Copyright (C)  2012-2024   Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -18,7 +18,7 @@
 /**
    @file prng.cc
 
-   @brief Implements random variate generation via calls to front end.
+   @brief R-language instantiation of base PRNG methods.
 
    @author Mark Seligman
  */
@@ -29,10 +29,11 @@
 using namespace Rcpp;
 
 
-vector<double> PRNG::rUnif(size_t len, double scale) {
-  double dLen = len; // May be necessary for values > 2^32.
+vector<double> PRNG::rUnif(size_t nSamp, double scale) {
   RNGScope scope;
-  NumericVector rn(runif(dLen));
+
+  // R requires type double for vector lengths >= 2^32.
+  NumericVector rn(runif(double(nSamp)));
   if (scale != 1.0)
     rn = rn * scale;
 
@@ -40,23 +41,41 @@ vector<double> PRNG::rUnif(size_t len, double scale) {
 }
 
 
-vector<size_t> PRNG::rUnifIndex(size_t len, size_t scale) {
-  double dLen = len; // May be necessary for values > 2^32.
+template <>
+vector<size_t> PRNG::rUnifIndex(size_t nSamp, size_t idxTop) {
   RNGScope scope;
-  NumericVector rn(runif(dLen));
-  rn = rn * scale;
+  
+  NumericVector rn(runif(double(nSamp)));
+  rn = rn * idxTop;
 
   return vector<size_t>(rn.begin(), rn.end());
 }
 
 
-vector<size_t> PRNG::rUnifIndex(const vector<size_t>& scale) {
-  double dLen = scale.size(); // May be necessary for values > 2^32.
+template<>
+vector<size_t> PRNG::rIndexScatter(size_t nSamp,
+				   const vector<size_t>& idxOmit) {
   RNGScope scope;
-  NumericVector scaleCopy(scale.begin(), scale.end());
-  NumericVector rn(runif(dLen));
-  rn = rn * scaleCopy;
 
-  vector<size_t> rnOut(rn.begin(), rn.end());
-  return rnOut;
+  vector<size_t> rnTyped = rUnifIndex(nSamp, idxOmit.size());
+  vector<size_t> idxOut(nSamp);
+
+  // Rcpp does not appear to support subscripting by numeric types, so the
+  // scattering is performed by an explicit loop.
+  size_t idx = 0;
+  for (const size_t& rnIdx : rnTyped) {
+    idxOut[idx++] = idxOmit[rnIdx];
+  }
+  return idxOut;
+}
+
+
+template <>
+vector<size_t> PRNG::rUnifIndex(const vector<size_t>& idxTop) {
+  RNGScope scope;
+
+  NumericVector rn(runif(double(idxTop.size())));
+  rn = rn * NumericVector(idxTop.begin(), idxTop.end());
+
+  return vector<size_t>(rn.begin(), rn.end());
 }

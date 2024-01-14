@@ -196,7 +196,7 @@ protected:
   static const size_t obsChunk; ///< Observation block dimension.
   static const unsigned int seqChunk;  ///< Effort to minimize false sharing.
 
-  const unique_ptr<BitMatrix> bag; ///< Nonnull iff bagging.
+const unique_ptr<BitMatrix> bag; ///< Nonnull iff bagging.
   unique_ptr<RLEFrame> rleFrame;
   const size_t nObs; ///< # observations under prediction.
 
@@ -217,8 +217,11 @@ protected:
   void resetIndices();
 
 
-  void walkTree(size_t obsStart,
-		size_t obsEnd);
+  /**
+     @brief Walks trees for a block of observations.
+   */
+  void walkTrees(size_t obsStart,
+		 size_t obsEnd);
 
 
   void setFinalIdx(size_t obsIdx, unsigned int tIdx, IndexT finalIdx) {
@@ -230,6 +233,7 @@ public:
 
   static bool bagging; ///< True iff bagging.
 
+  static bool trapUnobserved; ///< True iff unobserved values trapped.
   
   static unsigned int nPermute; ///< # times to permute each predictor.
 
@@ -241,6 +245,7 @@ public:
      @brief Static initializations per invocation.
    */
   static void init(bool bagging_,
+		   bool trapUnobserved_,
 		   unsigned int nPermute_);
 
   

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2023   Mark Seligman
+// Copyright (C)  2012-2024   Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -41,17 +41,24 @@ const string SamplerR::strHash = "hash";
 
 // [[Rcpp::export]]
 RcppExport SEXP rootSample(const SEXP sY,
-			   const SEXP sRowWeight,
+			   const SEXP sWeight,
 			   const SEXP sNSamp,
 			   const SEXP sNTree,
-			   const SEXP sWithRepl) {
-  NumericVector weight;
-  if (!Rf_isNull(sRowWeight)) {
-    NumericVector rowWeight(as<NumericVector>(sRowWeight));
-    weight = rowWeight / sum(rowWeight);
+			   const SEXP sWithRepl,
+			   const SEXP sNHoldout,
+			   const SEXP sIdxUndefined) {
+  NumericVector weight(as<NumericVector>(sWeight));
+  vector<size_t> undefined;
+  if (Rf_isInteger(sIdxUndefined)) { // Index type specified by front end.
+    IntegerVector undefinedFE(as<NumericVector>(sIdxUndefined));
+    undefined = vector<size_t>(undefinedFE.begin(), undefinedFE.end());
+  }
+  else {
+    NumericVector undefinedFE(as<NumericVector>(sIdxUndefined));
+    undefined = vector<size_t>(undefinedFE.begin(), undefinedFE.end());
   }
 
-  return SamplerR::rootSample(sY, sNSamp, sNTree, sWithRepl, weight);
+  return SamplerR::rootSample(sY, sNSamp, sNTree, sWithRepl, vector<double>(weight.begin(), weight.end()), sNHoldout, undefined);
 }
 
 
@@ -60,9 +67,11 @@ List SamplerR::rootSample(const SEXP sY,
 			  const SEXP sNSamp,
 			  const SEXP sNTree,
 			  const SEXP sWithRepl,
-			  const NumericVector& weight) {
-  SamplerBridge bridge(as<size_t>(sNSamp), getNObs(sY), as<unsigned int>(sNTree), as<bool>(sWithRepl), weight.length() == 0 ? nullptr : &weight[0]);
-  sampleTrees(bridge);
+			  const vector<double>& weight,
+			  const SEXP sNHoldout,
+			  const vector<size_t>& undefined) {
+  SamplerBridge bridge(as<size_t>(sNSamp), getNObs(sY), as<unsigned int>(sNTree), as<bool>(sWithRepl), weight, as<size_t>(sNHoldout), undefined);
+  sampleRepeatedly(bridge);
   return wrap(bridge, sY);
 }
 
@@ -78,7 +87,7 @@ size_t SamplerR::getNObs(const SEXP& sY) {
 }
 
 
-void SamplerR::sampleTrees(SamplerBridge& bridge) {
+void SamplerR::sampleRepeatedly(SamplerBridge& bridge) {
   // May be parallelized if a thread-safe PRNG is available.
   for (unsigned int tIdx = 0; tIdx < bridge.getNRep(); tIdx++) {
     bridge.sample();
@@ -98,8 +107,7 @@ vector<size_t> SamplerR::sampleObs(size_t nSamp,
 IntegerVector SamplerR::sampleReplace(NumericVector& weight,
 				     size_t nSamp) {
   RNGScope scope;
-  IntegerVector rowSample(sample(weight.length(), nSamp, true, weight, false));
-  return rowSample;
+  return IntegerVector(sample(weight.length(), nSamp, true, weight, false));
 }
 
 
@@ -107,8 +115,7 @@ IntegerVector SamplerR::sampleReplace(NumericVector& weight,
 IntegerVector SamplerR::sampleNoReplace(NumericVector& weight,
 					 size_t nSamp) {
   RNGScope scope;
-  IntegerVector rowSample(sample(weight.length(), nSamp, false, weight, false));
-  return rowSample;
+  return IntegerVector(sample(weight.length(), nSamp, false, weight, false));
 }
 
 
@@ -137,13 +144,13 @@ List SamplerR::wrap(const SamplerBridge& bridge,
 List SamplerR::wrap(const SamplerBridge& bridge,
 		    const IntegerVector& yTrain) {
   List sampler = List::create(_[strYTrain] = yTrain,
-			      _[strSamples] = std::move(bridgeConsume(bridge)),
-			      _[strNSamp] = bridge.getNSamp(),
-			      _[strNRep] = bridge.getNRep(),
-			      _[strNTree] = bridge.getNRep(),
-			      _[strHash] = 0
-			);
-
+		      _[strSamples] = std::move(bridgeConsume(bridge)),
+		      _[strNSamp] = bridge.getNSamp(),
+		      _[strNRep] = bridge.getNRep(),
+		      _[strNTree] = bridge.getNRep(),
+		      _[strHash] = 0
+		      );
+  sampler.attr("class") = "Sampler";
   return sampler;
 }
 
@@ -201,8 +208,7 @@ SamplerBridge SamplerR::makeBridgeTrain(const List& lSampler,
 
 vector<unsigned int> SamplerR::coreCtg(const IntegerVector& yTrain) {
   IntegerVector yZero = yTrain - 1;
-  vector<unsigned int> yTrainCore(yZero.begin(), yZero.end());
-  return yTrainCore;
+  return vector<unsigned int>(yZero.begin(), yZero.end());
 }
 
 

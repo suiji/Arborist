@@ -10,7 +10,8 @@
 
    @brief Sampling functions.
 
-   Reworks and enhances Nathan Russell's 2016 implementation for Rcpp.
+   Reworks and extends Nathan Russell's 2016 implementation for Rcpp.
+   
    @author Mark Seligman
  */
 
@@ -22,6 +23,7 @@
 
 #include <vector>
 #include <numeric>
+#include <algorithm>
 
 using namespace std;
 
@@ -32,7 +34,7 @@ namespace Sample {
     vector<double> weight;
     vector<indexType> coIndex;
 
-    Walker(const double prob[],
+    Walker(const vector<double> prob,
 	   indexType nObs) :
       weight(vector<double>(nObs)),
       coIndex(vector<indexType>(nObs)) {
@@ -66,46 +68,97 @@ namespace Sample {
       }
     }
 
-    
-    vector<size_t> sample(size_t nSamp) {
-      vector<size_t> idxOut(nSamp);
 
-      // Some implementions piggybacks index lookup with random weight
+    vector<indexType> sample(indexType nSamp,
+			  const vector<indexType>& obsOmit) {
+      vector<indexType> idxOut(nSamp);
+
+      // Some implementions piggyback index lookup with random weight
       // generation.  Separate random variates are drawn here to
       // improve resolution at high observation count.
-      vector<size_t> rIndex = PRNG::rUnifIndex(nSamp, weight.size());
+      vector<indexType> rIndex = PRNG::rUnifIndex<indexType>(nSamp, weight.size());
       vector<double> ru = PRNG::rUnif(nSamp);
-      for (size_t i = 0; i < nSamp; i++) {
-	size_t idx = rIndex[i];
+      for (indexType i = 0; i < nSamp; i++) {
+	indexType idx = rIndex[i];
 	idxOut[i] = ru[i] < weight[idx] ? idx : coIndex[idx];
       }
       return idxOut;
     }
   };
+
+
+  template<typename indexType>
+  vector<indexType> sampleWith(indexType nObs,
+			       const vector<indexType>& omitMap,
+			       indexType nSamp) {
+    if (omitMap.empty())
+      return PRNG::rUnifIndex<indexType>(nSamp, nObs);
+    else
+      return PRNG::rIndexScatter(nSamp, omitMap);
+  }
   
+
+  /**
+     @brief Orders indices with omitted values placed last.
+
+     @param nObs is the # indices to order.
+
+     @param omit are indices to be omitted.
+     
+     @return sequential indices with omitted placed at the end.
+   */
+  template<typename indexType>
+  vector<indexType> omitIndices(indexType nObs,
+				const vector<indexType>& omit) {
+  BHeap<indexType> bHeap;
+  for (const size_t& idx : omit) {
+    bHeap.insert(idx);
+  }
+  vector<indexType> idxEligible(nObs);
+  iota(idxEligible.begin(), idxEligible.end(), 0);
+  indexType idxEnd = nObs;
+  while (!bHeap.empty()) { // Omits indices in descending order.
+    idxEnd--;
+    indexType idx = bHeap.pop();
+    idxEligible[idxEnd] = idx;
+    idxEligible[idx] = idxEnd;
+  }
+  return idxEligible;
+}
+
+
+  template<typename indexType>
+  vector<indexType> scaleVariates(indexType idxEnd,
+				 indexType nSamp) {
+    vector<indexType> sampleScale(nSamp);
+    iota(sampleScale.begin(), sampleScale.end(), idxEnd - nSamp + 1);
+    reverse(sampleScale.begin(), sampleScale.end());
+    return PRNG::rUnifIndex<indexType>(sampleScale);
+  }
+
 
   /**
    @brief Uniform sampling without replacement.
 
-   @param sampleCoeff are the top nSamp-many scaling coefficients.
+   @param nObs is the number of indices to sample.
 
-   Type currently fixed to size_t ut satisfy rUnifIndex().
-   
-   @param nObs is the sequence size from which to sample.
+   @param nSamp is the # samples to draw.
+
+   @param omit is a set of indices held out from sampling.
 
    @return vector of sampled indices.
  */
   template<typename indexType>
-  vector<indexType> sampleUniform(const vector<size_t>& sampleScale,
-				  indexType nObs) {
-    vector<size_t> rn = PRNG::rUnifIndex(sampleScale);
-    indexType nSamp = sampleScale.size();
-    vector<indexType> idxSeq(nObs);
+  vector<indexType> sampleWithout(indexType nObs,
+				  const vector<indexType>& omit,
+				  indexType nSamp) {
+    vector<indexType> indices = omitIndices(nObs, omit);
+    size_t idxEnd = nObs - omit.size() - 1;
+    vector<indexType> rn = scaleVariates(idxEnd, nSamp);
     vector<indexType> idxOut(nSamp);
-    iota(idxSeq.begin(), idxSeq.end(), 0);
     for (indexType i = 0; i < nSamp; i++) {
       indexType index = rn[i];
-      idxOut[i] = exchange(idxSeq[index], idxSeq[nObs - 1 - i]);
+      idxOut[i] = exchange(indices[index], indices[idxEnd - i]);
     }
     return idxOut;
   }
@@ -132,19 +185,23 @@ namespace Sample {
   /**
      @brief Non-replacement sampling via Efraimidis-Spirakis.
 
-     'nSamp' value cannot exceed 'nObs', and may be much smaller.
+     @param nSamp value <= prob.size(), potentially <<.
    */
   template<typename indexType>
   vector<indexType> sampleEfraimidis(const vector<double>& prob,
+				     const vector<indexType>& obsOmit,
 				     indexType nSamp = 0) {
-    indexType nObs = prob.size();
-    vector<double> vUnif = PRNG::rUnif(nObs);
+    vector<double> vUnif = PRNG::rUnif(prob.size());
+    const double* variate = &vUnif[0];
     BHeap<indexType> bHeap;
-    for (indexType slot = 0; slot < nObs; slot++) {
-      bHeap.insert(-log(vUnif[slot]) / prob[slot]);
+    for (const double& probability : prob) {
+      if (probability > 0) {
+	bHeap.insert(-log(*variate / probability));
+      }
+      variate++;
     }
 
-    return bHeap.depopulate(nSamp == 0 ? nObs : nSamp);
+    return bHeap.depopulate(nSamp);
   }
 };
 

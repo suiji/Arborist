@@ -24,15 +24,11 @@ struct CartNode;
 class DecTree;
 class PredictFrame;
 
-// EXIT
-typedef IndexT (CartNode::*BrancherT)(const DecTree*, const PredictFrame*, size_t) const;
 
 /**
    @brief To replace parallel array access.
  */
 struct CartNode : public TreeNode {
-
-  BrancherT brancher; // EXIT
 
   /**
      @brief Nodes must be explicitly set to non-terminal (delIdx != 0).
@@ -60,10 +56,26 @@ struct CartNode : public TreeNode {
     return isNonterminal() ? ptId + getDelIdx() + 1 : 0;
   }
 
-
+  
+  /**
+     @brief Dispatches branching test method by predictor type.
+     
+     Substituting dispatch with a preinitialized function pointer is
+     more elegant, but markedly slower.
+     
+     @return branch delta; zero iff trapped exit or terminal.
+   */
   IndexT advance(const PredictFrame* frame,
 		 const DecTree* decTree,
 		 size_t obsIdx) const;
+
+
+  /**
+     @brief As above, but traps unobserved frame values.
+   */
+  IndexT advanceTrap(const PredictFrame* frame,
+		     const DecTree* decTree,
+		     size_t obsIdx) const;
 };
 
 #endif

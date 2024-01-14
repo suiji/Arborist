@@ -31,25 +31,29 @@ const unsigned int Predict::seqChunk = 0x20;
 
 
 bool Predict::bagging = false;
+bool Predict::trapUnobserved = false;
 unsigned int Predict::nPermute = 0;
 
 
 void Predict::init(bool bagging_,
+		   bool trapUnobserved_,
 		   unsigned int nPermute_) {
   bagging = bagging_;
+  trapUnobserved = trapUnobserved_;
   nPermute = nPermute_;
 }
 
 
 void Predict::deInit() {
   bagging = false;
+  trapUnobserved = false;
   nPermute = 0;
 }
 
 
 Predict::Predict(const Sampler* sampler,
 		 unique_ptr<RLEFrame> rleFrame_) :
-  bag(sampler->bagRows(bagging)),
+  bag(sampler->makeBag(bagging)),
   rleFrame(std::move(rleFrame_)),
   nObs(rleFrame == nullptr ? 0 : rleFrame->getNRow()),
   trFrame(make_unique<PredictFrame>(rleFrame.get())) {
@@ -172,7 +176,7 @@ void Predict::predictObs(ForestPrediction* prediction,
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound row = rowStart; row < rowEnd; row += seqChunk) {
     size_t chunkEnd = min(rowEnd, row + seqChunk);
-    walkTree(row, chunkEnd);
+    walkTrees(row, chunkEnd);
     prediction->callScorer(this, row, chunkEnd);
   }
   }
@@ -185,12 +189,12 @@ void Predict::resetIndices() {
 }
 
 
-void Predict::walkTree(size_t obsStart,
+void Predict::walkTrees(size_t obsStart,
 		       size_t obsEnd) {
   for (size_t obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
     for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {
       if (!isBagged(tIdx, obsIdx)) {
-	setFinalIdx(obsIdx, tIdx, forest->walkObs(trFrame.get(), obsIdx, tIdx));
+	setFinalIdx(obsIdx, tIdx, forest->walkObs(trFrame.get(), trapUnobserved, obsIdx, tIdx));
       }
     }
   }
@@ -219,8 +223,6 @@ bool Predict::isNodeIdx(size_t obsIdx,
   else {
     return false;
   }
-    // Non-bagging scenarios should always see a leaf.
-    //    if (!bagging) assert(termIdx != noNode);
 }
 
 

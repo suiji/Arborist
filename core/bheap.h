@@ -136,7 +136,30 @@ struct BHeap {
   vector<BHPair<slotType>> bhPair;
 
 public:
+
+  size_t size() const {
+    return bhPair.size();
+  }  
+
+
+  bool empty() const {
+    return bhPair.size() == 0;
+  }
+
   
+  /**
+     @brief Removes a single item from the head of the queue.
+
+     @return slot value.
+   */
+  slotType pop() {
+    slotType slot = bhPair.front().slot;
+    PQueue::refile<slotType>(&bhPair[0], bhPair.size() - 1);
+    bhPair.pop_back();
+    return slot;
+  }
+  
+
   /**
      @brief Removes items from the queue.
 
@@ -145,21 +168,14 @@ public:
      @return ranks of popped items.
   */
   vector<slotType> depopulate(size_t nElt = 0) {
-    if (nElt == 0)
-      nElt = bhPair.size();
-    else
-      nElt = min(bhPair.size(), nElt);
-
-    vector<slotType> idxRank(nElt);
-    for (slotType pairIdx = 0; pairIdx < nElt; pairIdx++) {
-      idxRank[bhPair.front().slot] = pairIdx;
-      PQueue::refile<slotType>(&bhPair[0], bhPair.size() - 1);
-      bhPair.pop_back();
+    vector<slotType> idxRank(nElt == 0 ? bhPair.size() : min(bhPair.size(), nElt));
+    for (slotType pairIdx = 0; pairIdx < idxRank.size(); pairIdx++) {
+      idxRank[pop()] = pairIdx;
     }
     return idxRank;
   }
 
-  
+
   /**
      @brief Inserts a key, value pair into the heap at next vacant slot.
 

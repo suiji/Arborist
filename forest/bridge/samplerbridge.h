@@ -37,7 +37,9 @@ struct SamplerBridge {
 		size_t nSamp,
 		unsigned int nTree,
 		bool replace,
-		const double weight[]);
+		const vector<double>& weight,
+		size_t nHoldout,
+		const vector<size_t>& undefined);
 
 
   SamplerBridge(SamplerBridge&& sb);

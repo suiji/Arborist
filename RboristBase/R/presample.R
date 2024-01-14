@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2023   Mark Seligman
+# Copyright (C)  2012-2024   Mark Seligman
 ##
 ## This file is part of RboristBase.
 ##
@@ -21,49 +21,69 @@ presample <- function(y, ...) UseMethod("presample")
 
 
 presample.default <- function(y,
-                              samplingWeight = NULL,
+                              nHoldout = 0,
+                              samplingWeight = numeric(0),
                               nSamp = 0,
-                              nTree = 500,
+                              nRep = 500,
                               withRepl = TRUE,
                               verbose = FALSE,
+                              nTree = 0,
                               ...) {
-    if (nTree <= 0)
-        stop("Tree count must be positive")
+    if (nTree != 0) {
+        warning("'nTree' is deprecated in favor of 'nRep':  ignoring")
+    }
 
-    if (any(is.na(y)))
-        stop("NA not supported in response")
-
+    naSet <- which(is.na(y))
+    if (length(naSet) != 0) {
+        warning("Missing reponse indices held out from sampling.")
+    }
+    
     if (!is.numeric(y) && !is.factor(y))
         stop("Expecting numeric or factor response")
 
-    nRow <- length(y)
+    nObs <- length(y)
+    if (length(naSet) >= nObs)
+        stop("Missing values equal or exceed number of observations")
 
-    if (nSamp == 0) {
-        if (withRepl)
-            nSamp <- nRow
-        else
-            nSamp <- round((1-exp(-1))*nRow)
+    if (length(naSet) + nHoldout >= nObs) {
+        warning("Total held out equal or exceed number observations:  reverting 'nHoldout' to zero")
+        nHoldout <- 0
     }
-    else if (nSamp < 0)
-        stop("Sample count must be nonnegative")
-    else if (!withRepl && nSamp > nRow)
-        stop("Sample count exceeds observation count but not replacing")
     
-    if (!is.null(samplingWeight)) {
-        if (length(samplingWeight) != nRow) {
-            stop("Sample weight length must match row count")
+
+    if (nSamp < 0) {
+        warning("Sample count must be nonnegative:  resetting to default")
+        nSamp = 0
+    }
+    else if (!withRepl && nSamp > nObs) {
+        warning("Sample count exceeds observation count:  resetting to default")
+        nSamp = 0
+    }
+    
+    if (length(samplingWeight) > 0) {
+        ignoreWeight <- false
+        if (length(samplingWeight) != nObs) {
+            warning("Sample weight length must match row count:  ignoring")
+            ignoreWeight <- true
         }
         if (all(samplingWeight == 0)) {
-            stop("No nonzero weights")
+            warning("No nonzero weights:  ignoring")
+            ignoreWeight <- true
         }
         if (any(samplingWeight < 0)) {
-            stop("Negative sample weights not permitted")
+            warning("Negative sample weights not permitted:  ignoring")
+            ignoreWeight <- true
         }
-        if (!withRepl && sum(which(samplingWeight > 0)) < nSamp)
-            stop("Insufficiently many samples with nonzero probability")
+        if (!withRepl && sum(which(samplingWeight > 0)) < nSamp) {
+            warning("Insufficiently many samples with nonzero probability:  ignoring")
+            ignroreWeight <- true
+        }
+        
+        if (ignoreWeight)
+            samplingWeight <- numeric(0)
     }
 
-    ps <- presampleCommon(y, samplingWeight, nSamp, nTree, withRepl)
+    ps <- presampleCommon(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet)
     if (verbose)
         print("Sampling completed")
 
@@ -73,6 +93,6 @@ presample.default <- function(y,
 
 
 # Glue-layer interface to sampler.
-presampleCommon <- function(y, samplingWeight, nSamp, nTree, withRepl) {
-    tryCatch(.Call("rootSample", y, samplingWeight, nSamp, nTree, withRepl), error = function(e){stop(e)})
+presampleCommon <- function(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet) {
+    tryCatch(.Call("rootSample", y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet), error = function(e){stop(e)})
 }

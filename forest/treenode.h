@@ -36,9 +36,6 @@ class TreeNode {
   static unsigned int rightBits;
   static PredictorT rightMask;
 
-  // Initialized by prediction command:
-  static bool trapUnobserved;
-
   PackedT packed;
 
 protected:
@@ -53,17 +50,11 @@ public:
   static void initMasks(PredictorT nPred);
 
 
-  static void initTrap(bool doTrap);
-
-  
   /**
      @brief Resets packing values to default.
    */
   static void deInit();
 
-
-  static bool trapAndBail();
-  
 
   /**
      @brief Nodes must be explicitly set to non-terminal (delIdx != 0).
@@ -204,7 +195,15 @@ public:
      @return delta to next node, if nonterminal, else zero.
    */
   IndexT advanceNum(const double numVal) const {
-    if (trapUnobserved && isnan(numVal))
+    return delInvert(invert ? (numVal > getSplitNum()) : (numVal <= getSplitNum()));
+  }
+
+
+  /**
+     @brief As above, but traps NaN (unobserved) frame values.
+   */
+  IndexT advanceNumTrap(const double numVal) const {
+    if (isnan(numVal))
       return 0;
     else
       return delInvert(invert ? (numVal > getSplitNum()) : (numVal <= getSplitNum()));
@@ -220,9 +219,18 @@ public:
      @return delta to branch target.
    */
   IndexT advanceFactor(const BV& bits,
-		       const BV& bitsObserved,
 		       size_t bitOffset) const {
-    if (trapUnobserved && !bitsObserved.testBit(bitOffset))
+    return delTest(bits.testBit(bitOffset));
+  }
+
+
+  /**
+     @brief As above, but traps on unobserved bits.
+   */
+  IndexT advanceFactorTrap(const BV& bits,
+			   const BV& bitsObserved,
+			   size_t bitOffset) const {
+    if (!bitsObserved.testBit(bitOffset))
       return 0;
     else
       return delTest(bits.testBit(bitOffset));

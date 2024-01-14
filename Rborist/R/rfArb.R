@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2023   Mark Seligman
+# Copyright (C)  2012-2024   Mark Seligman
 ##
 ## This file is part of Rborist.
 ##
@@ -32,20 +32,21 @@ rfArb.default <- function(x,
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
+                nHoldout = 0,
                 nLevel = 0,
                 nSamp = 0,
                 nThread = 0,
                 nTree = 500,
                 noValidate = FALSE,
-                obsWeight = NULL,
+                obsWeight = numeric(0),
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
                 regMono = NULL,
-                rowWeight = NULL,
-                samplingWeight = NULL,
+                rowWeight = numeric(0),
+                samplingWeight = numeric(0),
                 splitQuant = NULL,
                 streamline = FALSE,
                 thinLeaves = is.factor(y) && !indexing,
@@ -59,9 +60,9 @@ rfArb.default <- function(x,
         nThread <- 0
     }
 
-    if (!is.null(rowWeight)) {
+    if (length(rowWeight) > 0) {
         warning("rowWeight will be deprecated.  Please use equivalent option 'samplingWeight'.")
-        if (is.null(samplingWeight)) {
+        if (length(samplingWeight) > 0) {
             samplingWeight <- rowWeight
         }
     }
@@ -74,7 +75,7 @@ rfArb.default <- function(x,
     }
     
     preFormat <- preformat(x, verbose)
-    sampler <- presample(y, samplingWeight, nSamp, nTree, withRepl, verbose)
+    sampler <- presample(y, nHoldout, samplingWeight, nSamp, nTree, withRepl, verbose)
     train <- rfTrain(preFormat, sampler, y,
                      autoCompress,
                      ctgCensus,

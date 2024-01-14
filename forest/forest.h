@@ -26,6 +26,10 @@
 #include <vector>
 #include <complex>
 
+class Sampler;
+class Predict;
+class PredictFrame;
+
 /**
    @brief The decision forest as a read-only collection.
 */
@@ -65,13 +69,14 @@ class Forest {
 	 Leaf&& leaf_);
 
 
-  IndexT walkObs(const class PredictFrame* frame,
+  IndexT walkObs(const PredictFrame* frame,
+		 bool trapUnobserved,
 		 size_t obsIdx,
 		 unsigned int tIdx) const {
-    return decTree[tIdx].walkObs(frame, obsIdx);
+    return decTree[tIdx].walkObs(frame, trapUnobserved, obsIdx);
   }
 
-  
+
   /**
      @brief Maps leaf indices to the node at which they appear.
    */
@@ -138,13 +143,13 @@ class Forest {
   static size_t maxHeight(const vector<DecTree>& decTree);
 
 
-  unique_ptr<ForestPredictionReg> makePredictionReg(const class Sampler* sampler,
-						    const class Predict* predict,
+  unique_ptr<ForestPredictionReg> makePredictionReg(const Sampler* sampler,
+						    const Predict* predict,
 						    bool reportAuxiliary = true);
 
 
-  unique_ptr<ForestPredictionCtg> makePredictionCtg(const class Sampler* sampler,
-						    const class Predict* predict,
+  unique_ptr<ForestPredictionCtg> makePredictionCtg(const Sampler* sampler,
+						    const Predict* predict,
 						    bool reportAuxiliary = true);
 
 

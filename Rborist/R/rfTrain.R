@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2023   Mark Seligman
+# Copyright (C)  2012-2024   Mark Seligman
 ##
 ## This file is part of Rborist.
 ##
@@ -30,7 +30,7 @@ rfTrain.default <- function(preFormat, sampler, y,
                 minNode = if (is.factor(y)) 2 else 3,
                 nLevel = 0,
                 nThread = 0,
-                obsWeight = NULL,
+                obsWeight = numeric(0),
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
@@ -125,7 +125,7 @@ rfTrain.default <- function(preFormat, sampler, y,
         classWeight <- rep(1.0, 0)
     }
 
-    if (!is.null(obsWeight)) {
+    if (length(obsWeight) > 0) {
         ignore <- FALSE
         if (is.factor(y)) {
             warning("Observation weights for classifcation NYI:  ignoring.")

@@ -20,17 +20,18 @@
 #include <vector>
 using namespace std;
 
+
 namespace PRNG {
   /**
     @brief Call-back to front-end session's uniform PRNG.
 
-    @param len is number of variates to generate.
+    @param nSamp is number of variates to generate.
 
     @param scale is a coefficient by which the variates are scaled.
 
     @return std::vector copy of front end-generated random variates.
   */
-  vector<double> rUnif(size_t len,
+  vector<double> rUnif(size_t nSamp,
 		       double scale = 1.0);
 
 
@@ -41,10 +42,21 @@ namespace PRNG {
 
      @return scaled copy of random variates, as index vector.
    */
-  vector<size_t> rUnifIndex(size_t len,
-			    size_t scale);
+  template<typename indexType>
+  vector<indexType> rUnifIndex(indexType nSamp,
+			       size_t scale);
 
 
+  /**
+     @brief As above, but scatters index vector according to a map.
+
+     @param idxOmit is a scattering map, typically a subset.
+   */
+  template<typename indexType>
+  vector<indexType> rIndexScatter(indexType nSamp,
+				  const vector<indexType>& idxOmit);
+
+  
   /**
      @brief Derives and scales uniform variates.
 
@@ -52,7 +64,8 @@ namespace PRNG {
 
      @return scaled copy of random variates, as index vector.
    */
-  vector<size_t> rUnifIndex(const vector<size_t>& scale);
+  template<typename indexType>
+  vector<indexType> rUnifIndex(const vector<indexType>& scale);
 }
 
 #endif

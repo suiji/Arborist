@@ -10,7 +10,7 @@
   Accelerated implementation of the Random Forest (trademarked name)
   algorithm.  Tuned for multicore and GPU hardware.  Bindable with most
   numerical front-end languages in addtion to R.  Invocation is
-  similar to that provided by "randomForest" package.
+  similar to that provided by \emph{randomForest} package.
 }
 
 \usage{
@@ -244,6 +244,12 @@
   rb <- rfArb(x, y, splitQuant = spq)
   }
 }
+
+
+\references{
+  Breiman, L. (2001) Random Forests, Machine Learning 45(1), 5-32.
+}
+
 
 \author{
   Mark Seligman at Suiji.

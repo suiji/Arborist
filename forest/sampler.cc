@@ -24,39 +24,109 @@ PackedT SamplerNux::delMask = 0;
 unsigned int SamplerNux::rightBits = 0;
 
 
-Sampler::Sampler(IndexT nSamp_,
-		 IndexT nObs_,
+Sampler::Sampler(size_t nSamp_,
+		 size_t nObs_,
 		 unsigned int nRep_,
-		 bool replace,
-		 const double weight[]) :
+		 bool replace_,
+		 const vector<double>& weight,
+		 size_t nHoldout,
+		 const vector<size_t>& undefined) :
   nRep(nRep_),
   nObs(nObs_),
-  nSamp(nSamp_),
-  response(nullptr),
-  trivial(nObs == nSamp && !replace) {
-  setCoefficients(weight, replace);
+  holdout(makeHoldout(nObs, nHoldout, undefined)),
+  replace(replace_),
+  omitMap(makeOmitMap(nObs, holdout, replace)),
+  prob(makeProbability(weight, holdout)),
+  nSamp(sampleCount(nSamp_, nObs, replace, holdout, prob)),
+  trivial(false),
+  response(nullptr) {
+  walker = (prob.empty() || !replace) ? nullptr : make_unique<Sample::Walker<size_t>>(prob, nObs);
+}
+
+
+size_t Sampler::sampleCount(size_t nSpecified,
+			    size_t nObs,
+			    bool replace,
+			    const vector<size_t>& holdout,
+			    const vector<double>& prob) {
+  size_t sCount, nAvail;
+  if (!prob.empty()) { // Holdout included with zero-valued slots.
+    nAvail = count_if(prob.begin(), prob.end(), [] (double probability) { return probability > 0.0;});
+  }
+  else if (!holdout.empty()) {
+    nAvail = nObs - holdout.size();
+  }
+  else
+    nAvail = nObs;
+
+  if (nSpecified == 0) {
+    sCount = replace ? nAvail : round(1-exp(-1)*nAvail);
+  }
+  else if (!replace)
+    sCount = min(nSpecified, nAvail);
+  else
+    sCount = nSpecified;
+
+  return sCount;
+}
+
+
+vector<size_t> Sampler::makeHoldout(size_t nObs,
+				    size_t nHoldout,
+				    const vector<size_t>& undefined) {
+  vector<size_t> ho = Sample::sampleWithout<size_t>(nObs, undefined, nHoldout);
+  ho.insert(ho.end(), undefined.begin(), undefined.end());
+  sort(ho.begin(), ho.end());
+  return ho;
 }
 
   
-void Sampler::setCoefficients(const double weight[],
-			      bool replace) {
-  if (weight != nullptr) {
-    if (replace)
-      walker = make_unique<Sample::Walker<size_t>>(weight, nObs);
+vector<double> Sampler::makeProbability(const vector<double>& weight,
+					const vector<size_t>& holdout) {
+  vector<double> prob = weight;
+  if (!prob.empty()) {
+    for (const size_t& idx : holdout) {
+      prob[idx] = 0.0;
+    }
+    double totWeight = accumulate(prob.begin(), prob.end(), 0.0);
+    if (totWeight == 0.0)
+      prob = vector<double>(0);
     else {
-      weightNoReplace = vector<double>(weight, weight + nObs);
+      double scale = 1.0 / totWeight;
+      for (double& probability : prob) {
+	probability *= scale;
+      }
     }
   }
-  else if (!replace) { // Uniform non-replace scaling vector.
-    coeffNoReplace = vector<size_t>(nSamp);
-    iota(coeffNoReplace.begin(), coeffNoReplace.end(), nObs - nSamp + 1);
-    reverse(coeffNoReplace.begin(), coeffNoReplace.end());
-  }
+  
+  return prob;
 }
 
 
-Sampler::Sampler(IndexT nObs_,
-		 IndexT nSamp_,
+vector<size_t> Sampler::makeOmitMap(size_t nObs, const vector<size_t>& holdout, bool replace) {
+  if (holdout.empty() || !replace)
+    return vector<size_t>(0);
+
+  vector<size_t> omitMap;
+  size_t omitIdx = 0;
+  size_t omitVal = holdout[0];
+
+  for (size_t mapIdx = 0; mapIdx != nObs; mapIdx++) {
+    if (mapIdx == omitVal) { // 'nObs' is inattainable.
+      omitIdx++;
+      omitVal = (omitIdx == holdout.size() ? nObs : holdout[omitIdx]);
+    }
+    else { // Appends only the non-withheld indices.
+      omitMap.push_back(mapIdx);
+    }
+  }
+
+  return omitMap;
+}
+
+
+Sampler::Sampler(size_t nObs_,
+		 size_t nSamp_,
 		 const vector<vector<SamplerNux>>& samples_) :
   nRep(samples_.size()),
   nObs(nObs_),
@@ -67,7 +137,7 @@ Sampler::Sampler(IndexT nObs_,
 
   
 Sampler::Sampler(const vector<double>& yTrain,
-		 IndexT nSamp_,
+		 size_t nSamp_,
 		 vector<vector<SamplerNux>> samples_) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
@@ -80,7 +150,7 @@ Sampler::Sampler(const vector<double>& yTrain,
 
 
 Sampler::Sampler(const vector<PredictorT>& yTrain,
-		 IndexT nSamp_,
+		 size_t nSamp_,
 		 vector<vector<SamplerNux>> samples_,
 		 PredictorT nCtg) :
   nRep(samples_.size()),
@@ -95,7 +165,7 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 
 Sampler::Sampler(const vector<double>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
-		 IndexT nSamp_,
+		 size_t nSamp_,
 		 unique_ptr<RLEFrame> rleFrame) :
   nRep(samples_.size()),
   nObs(yTrain.size()),
@@ -108,7 +178,7 @@ Sampler::Sampler(const vector<double>& yTrain,
 
 Sampler::Sampler(const vector<PredictorT>& yTrain,
 		 vector<vector<SamplerNux>> samples_,
-		 IndexT nSamp_,
+		 size_t nSamp_,
 		 PredictorT nCtg,
 		 unique_ptr<RLEFrame> rleFrame) :
   nRep(samples_.size()),
@@ -123,14 +193,14 @@ Sampler::Sampler(const vector<PredictorT>& yTrain,
 Sampler::~Sampler() = default;
 
 
-unique_ptr<BitMatrix> Sampler::bagRows(bool bagging) const {
+unique_ptr<BitMatrix> Sampler::makeBag(bool bagging) const {
   if (!bagging)
     return make_unique<BitMatrix>(0, 0);
 
   unique_ptr<BitMatrix> matrix = make_unique<BitMatrix>(nRep, nObs);
   for (unsigned int tIdx = 0; tIdx < nRep; tIdx++) {
-    IndexT obsIdx = 0;
-    for (IndexT sIdx = 0; sIdx != getBagCount(tIdx); sIdx++) {
+    size_t obsIdx = 0;
+    for (size_t sIdx = 0; sIdx != getBagCount(tIdx); sIdx++) {
       obsIdx += getDelRow(tIdx, sIdx);
       matrix->setBit(tIdx, obsIdx);
     }
@@ -147,7 +217,7 @@ unique_ptr<SampledObs> Sampler::makeObs(unsigned int tIdx) const {
 vector<IdCount> Sampler::obsExpand(const vector<SampleNux>& nuxen) const {
   vector<IdCount> idCount;
 
-  IndexT obsIdx = 0;
+  size_t obsIdx = 0;
   for (const SampleNux& nux : nuxen) {
     obsIdx += nux.getDelRow();
     idCount.emplace_back(obsIdx, nux.getSCount());
@@ -158,23 +228,22 @@ vector<IdCount> Sampler::obsExpand(const vector<SampleNux>& nuxen) const {
 
 
 void Sampler::sample() {
-
   vector<size_t> idxOut;
-  if (trivial) {
+  if (trivial) { // No sampling:  use entire index set.
     idxOut = vector<size_t>(nObs);
     iota(idxOut.begin(), idxOut.end(), 0);
   }
-  else if (walker != nullptr) {
-    idxOut = walker->sample(nSamp);
+  else if (walker != nullptr) { // Weighted, replacement.
+    idxOut = walker->sample(nSamp, holdout);
   }
-  else if (!weightNoReplace.empty()) {
-    idxOut = Sample::sampleEfraimidis<size_t>(weightNoReplace, nSamp);
+  else if (!prob.empty()) { // Weighted, no replacement.
+    idxOut = Sample::sampleEfraimidis<size_t>(prob, holdout, nSamp);
   }
-  else if (!coeffNoReplace.empty()) {
-    idxOut = Sample::sampleUniform<size_t>(coeffNoReplace, nObs);
+  else if (!replace) { // Uniform, no replacement.
+    idxOut = Sample::sampleWithout<size_t>(nObs, holdout, nSamp);
   }
-  else {
-    idxOut = PRNG::rUnifIndex(nSamp, nObs);
+  else { // Uniform, replacement.
+    idxOut = Sample::sampleWith<size_t>(nObs, omitMap, nSamp);
   }
 
   appendSamples(idxOut);
@@ -183,22 +252,22 @@ void Sampler::sample() {
 
 void Sampler::appendSamples(const vector<size_t>& idx) {
   vector<IndexT> sCountRow = binIdx(nObs) > 0 ? countSamples(binIndices(nObs, idx)) : countSamples(idx);
-  IndexT rowPrev = 0;
-  for (IndexT row = 0; row < nObs; row++) {
-    if (sCountRow[row] > 0) {
-      sbCresc.emplace_back(row - exchange(rowPrev, row), sCountRow[row]);
+  size_t obsPrev = 0;
+  for (size_t obsIdx = 0; obsIdx < nObs; obsIdx++) {
+    if (sCountRow[obsIdx] > 0) {
+      sbCresc.emplace_back(obsIdx - exchange(obsPrev, obsIdx), sCountRow[obsIdx]);
     }
   }
 }
 
 
 vector<IndexT> Sampler::countSamples(const vector<size_t>& idx) {
-  vector<IndexT> sc(nObs);
+  vector<IndexT> sampleCount(nObs);
   for (auto index : idx) {
-    sc[index]++;
+    sampleCount[index]++;
   }
 
-  return sc;
+  return sampleCount;
 }
 
 
@@ -268,7 +337,7 @@ void SamplerBlock::dump(const Sampler* sampler,
 			vector<vector<IndexT> >& sCountTree) const {
   size_t bagIdx = 0; // Absolute sample index.
   for (unsigned int tIdx = 0; tIdx < raw->getNMajor(); tIdx++) {
-    IndexT row = 0;
+    size_t row = 0;
     while (bagIdx != getHeight(tIdx)) {
       row += getDelRow(bagIdx);
       rowTree[tIdx].push_back(row);

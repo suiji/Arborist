@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2023   Mark Seligman
+// Copyright (C)  2012-2024   Mark Seligman
 //
 // This file is part of deframeR.
 //

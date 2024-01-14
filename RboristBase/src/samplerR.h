@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2023   Mark Seligman
+// Copyright (C)  2012-2024   Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -33,10 +33,12 @@ using namespace Rcpp;
 using namespace std;
 
 RcppExport SEXP rootSample(const SEXP sY,
-		const SEXP sRowWeight,
-		const SEXP sNSamp,
-		const SEXP sNTree,
-		const SEXP sWithRepl);
+			   const SEXP sRowWeight,
+			   const SEXP sNSamp,
+			   const SEXP sNTree,
+			   const SEXP sWithRepl,
+			   const SEXP sNHoldout,
+			   const SEXP sUndefined);
 
 
 /**
@@ -56,7 +58,9 @@ struct SamplerR {
 			 const SEXP sNSamp,
 			 const SEXP sNTree,
 			 const SEXP sWithRepl,
-			 const NumericVector& weight);
+			 const vector<double>& weight,
+			 const SEXP sNHoldout,
+			 const vector<size_t>& undefined);
 
 
   /**
@@ -77,9 +81,9 @@ struct SamplerR {
 
   
   /**
-     @brief Invokes bridge sampler per tree.
+     @brief Invokes bridge sampler per rep.
    */
-  static void sampleTrees(struct SamplerBridge& bridge);
+  static void sampleRepeatedly(struct SamplerBridge& bridge);
 
 
   /**
