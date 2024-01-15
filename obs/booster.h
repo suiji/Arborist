@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <vector>
 
+struct Response;
+
 /**
    @brief Maintains boosted estimate.
  */
@@ -39,15 +41,15 @@ struct Booster {
   vector<SampleNux> baseSamples; ///< Cached bagged samples.
 
 
-  Booster(double (Booster::*)(const class Response*) const,
+  Booster(double (Booster::*)(const Response*) const,
 	  void (Booster::*)(struct NodeScorer*, class SampledObs*, double&),
 	  double nu_);
 
   
-  double (Booster::* baseScorer)(const class Response*) const;
+  double (Booster::* baseScorer)(const Response*) const;
 
 
-  void setBaseScore(const class Response* response) const {
+  void setBaseScore(const Response* response) const {
     (this->*baseScorer)(response);
   }
 
@@ -136,7 +138,7 @@ struct Booster {
 		    const struct SampleMap& sampleMap);
 
 
-  double zero(const class Response* response) const;
+  double zero(const Response* response) const;
 
 
   void noUpdate(struct NodeScorer* nodeScorer,
@@ -154,10 +156,10 @@ struct Booster {
 		     double& bagSum);
 
 
-  double mean(const class Response* response) const;
+  double mean(const Response* response) const;
   
 
-  double logit(const class Response* response) const;
+  double logit(const Response* response) const;
 
 
   /**

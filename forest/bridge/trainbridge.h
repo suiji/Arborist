@@ -22,6 +22,7 @@
 
 using namespace std;
 
+class PredictorFrame;
 
 struct TrainBridge {
   TrainBridge(unique_ptr<struct RLEFrame> rleFrame,
@@ -33,7 +34,7 @@ struct TrainBridge {
   ~TrainBridge();
 
 
-  const struct PredictorFrame* getFrame() const {
+  const PredictorFrame* getFrame() const {
     return frame.get();
   }
 
@@ -144,7 +145,7 @@ struct TrainBridge {
   static void deInit();
 
 private:
-  unique_ptr<class PredictorFrame> frame;
+  unique_ptr<PredictorFrame> frame;
 };
 
 #endif

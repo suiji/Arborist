@@ -140,7 +140,7 @@ void SampledObs::sampleObservations(const vector<double>&  y,
     fill(obs2Sample.begin(), obs2Sample.end(), bagCount);
     for (const SamplerNux& nx : nux) {
       obsIdx += nx.getDelRow();
-      bagSum += (this->*adder)(y[obsIdx] * obsWeight[obsIdx], nx, yCtg[obsIdx]);
+      bagSum += (this->*adder)(y[obsIdx] * (obsWeight.empty() ? 1 : obsWeight[obsIdx]), nx, yCtg[obsIdx]);
       obs2Sample[obsIdx] = sIdx++;
     }
   }

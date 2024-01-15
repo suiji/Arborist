@@ -24,6 +24,9 @@
 
 #include <vector>
 
+class Predict;
+class Sampler;
+struct ForestPredictReg;
 
 /**
  @brief Quantile signature.
@@ -87,7 +90,7 @@ n     @brief Bins response means.
 
      @param[out] qRow[] outputs the derived quantiles.
    */
-  void quantSamples(const class ForestPredictionReg* prediction,
+  void quantSamples(const ForestPredictionReg* prediction,
 		    const vector<IndexT>& sCount,
 		    const vector<double>& threshold,
 		    IndexT totSample,
@@ -116,8 +119,8 @@ public:
 
      Parameters mirror simililarly-named members.
    */
-  Quant(const class Sampler* sampler,
-	const class Predict* predict,
+  Quant(const Sampler* sampler,
+	const Predict* predict,
 	bool reportAuxiliary);
 
 
@@ -173,8 +176,8 @@ public:
 
      @param row is the row over which to build prediction quantiles.
   */
-  void predictRow(const class Predict* predict,
-		  const class ForestPredictionReg* prediction,
+  void predictRow(const Predict* predict,
+		  const ForestPredictionReg* prediction,
 		  size_t obsIdx);
 };
 

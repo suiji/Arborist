@@ -23,20 +23,27 @@
 
 #include <vector>
 
+struct NodeScorer;
 
 /**
  @brief Run of instances of a given row obtained from sampling for an individual tree.
 */
+
+class SamplerNux;
+class PredictorFrame;
+class ResponseReg;
+class ResponseCtg;
+
 class SampledObs {
  protected:
 
   static vector<double> obsWeight;
   
   const IndexT nSamp; ///< Number of observation samples requested.
-  const vector<class SamplerNux>& nux; ///< Sampler nodes.
+  const vector<SamplerNux>& nux; ///< Sampler nodes.
   const IndexT bagCount; ///< # distinct bagged samples.
 
-  double (SampledObs::* adder)(double, const class SamplerNux&, PredictorT);
+  double (SampledObs::* adder)(double, const SamplerNux&, PredictorT);
 
   double bagSum; ///< Sum of bagged responses.  Updated iff booosting.
   vector<IndexT> obs2Sample; ///< Maps observation index to sample index.
@@ -48,7 +55,7 @@ class SampledObs {
   vector<IndexT> runCount; ///< Staging initialization.
 
 
-  virtual void sampleObservations(class NodeScorer*) = 0;
+  virtual void sampleObservations(NodeScorer*) = 0;
 
 
   /**
@@ -72,7 +79,7 @@ class SampledObs {
   /**
      @return map from sample index to predictor rank.
    */
-  vector<IndexT> sampleRanks(const class PredictorFrame* layout,
+  vector<IndexT> sampleRanks(const PredictorFrame* layout,
 			     PredictorT predIdx);
 
 
@@ -102,14 +109,14 @@ public:
    */
   SampledObs(const class Sampler* sampler,
 	     unsigned int tIdx,
-	     double (SampledObs::* adder_)(double, const class SamplerNux&, PredictorT) = nullptr);
+	     double (SampledObs::* adder_)(double, const SamplerNux&, PredictorT) = nullptr);
 
 
   virtual ~SampledObs();
 
   
-  void sampleRoot(const class PredictorFrame* frame,
-		  struct NodeScorer* scorer);
+  void sampleRoot(const PredictorFrame* frame,
+		  NodeScorer* scorer);
 
   
   /**
@@ -253,7 +260,7 @@ public:
   }
 
   
-  void setRanks(const class PredictorFrame* layout);
+  void setRanks(const PredictorFrame* layout);
 };
 
 
@@ -261,11 +268,11 @@ public:
    @brief Regression-specific methods and members.
 */
 struct SampledReg : public SampledObs {
-  const class ResponseReg* response;
+  const ResponseReg* response;
 
 
-  SampledReg(const class Sampler* sampler,
-	     const class ResponseReg* response,
+  SampledReg(const Sampler* sampler,
+	     const ResponseReg* response,
 	     unsigned int tId);
 
 
@@ -284,14 +291,14 @@ struct SampledReg : public SampledObs {
      @param ctg unused, as response is not categorical.
    */
   double addNode(double yVal,
-			const class SamplerNux& nux,
+			const SamplerNux& nux,
                         PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux);
     return sampleNux.back().getYSum();
   }
 
   
-  void sampleObservations(class NodeScorer* scorer);
+  void sampleObservations(NodeScorer* scorer);
 
 
   /**
@@ -301,7 +308,7 @@ struct SampledReg : public SampledObs {
 
 
   */
-  void sampleObservations(class NodeScorer* scorer,
+  void sampleObservations(NodeScorer* scorer,
 			  const vector<double>& y);
 };
 
@@ -310,7 +317,7 @@ struct SampledReg : public SampledObs {
  @brief Classification-specific sampling.
 */
 struct SampledCtg : public SampledObs {
-  const class ResponseCtg* response;
+  const ResponseCtg* response;
 
   static vector<double> classWeight;
 
@@ -318,8 +325,8 @@ struct SampledCtg : public SampledObs {
   static void init(vector<double> classWeight_);
 
   
-  SampledCtg(const class Sampler* sampler,
-	     const class ResponseCtg* response_,
+  SampledCtg(const Sampler* sampler,
+	     const ResponseCtg* response_,
 	     unsigned int tIdx);
 
 
@@ -334,7 +341,7 @@ struct SampledCtg : public SampledObs {
      @return sum of sampled response values.
    */
   double addNode(double yVal,
-			const class SamplerNux& nux,
+			const SamplerNux& nux,
 			PredictorT ctg) {
     sampleNux.emplace_back(yVal, nux, ctg);
     double ySum = sampleNux.back().getYSum();
@@ -343,7 +350,7 @@ struct SampledCtg : public SampledObs {
   }
   
   
-  void sampleObservations(class NodeScorer* scorer);
+  void sampleObservations(NodeScorer* scorer);
 
 
   /**
@@ -353,7 +360,7 @@ struct SampledCtg : public SampledObs {
 
      @param y is the proxy response vector.
   */
-  void sampleObservations(class NodeScorer* scorer,
+  void sampleObservations(NodeScorer* scorer,
 			  const vector<PredictorT>& yCtg);
 };
 

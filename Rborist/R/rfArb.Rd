@@ -24,6 +24,7 @@
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
+                nHoldout = 0,
                 nLevel = 0,
                 nSamp = 0,
                 nThread = 0,
@@ -35,8 +36,8 @@
                 quantVec = NULL,
                 quantiles = !is.null(quantVec),
                 regMono = NULL,
-                rowWeight = NULL,
-                samplingWeight = NULL,
+                rowWeight = numeric(0),
+                samplingWeight = numeric(0),
                 splitQuant = NULL,
                 streamline = FALSE,
                 thinLeaves = streamline || (is.factor(y) && !indexing),
@@ -62,7 +63,10 @@
     tree traversal.}
   \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
-  \item{minNode}{minimum number of distinct row references to split a node.}
+  \item{minNode}{minimum number of distinct row references to split a
+    node.}
+  \item{nHoldout}{number of observations to omit from sampling.
+  Augmented by missing response values.}
   \item{nLevel}{maximum number of tree levels to train, including
     terminals (leaves).  Zero denotes no limit.}
   \item{nSamp}{number of rows to sample, per tree.}
@@ -94,42 +98,26 @@
   \item{...}{not currently used.}
 }
 
-\value{ an object of class \code{rfArb}, a list containing the
-  following items:
-  \item{sampler}{An object of class \code{Sampler}, as described in the
-  documentation for the \code{presample} command, that summarizes the
-  bag.}
-  \item{leaf}{An object of class \code{Leaf}, as described in the
-  documentation for the command \code{rfTrain}, that summarizes the
-  terminal nodes of each tree.}
-  \item{forest}{An object of class \code{Forest}, as described in the
-  documentation for the command \code{rfTrain}, that summarizes the
-  trained decision trees.}
-  \item{predMap}{A vector of integers mapping internal to front-end
-    predictor indices.}
-  \item{signature}{An object of class \code{Signature}, as described
-  inthe documentation for the command{presample}, that summarizes the
-  training frame}
-  \item{training}{A list summarizing the training task, consisting of
-    the following fields:
-    \code{call}{The calling invocation.}
-    \code{info}{A vector of forest-wide Gini (classification) or weighted
-      variance (regression), by predictor.}
-    \code{version}{The version of the \code{Rborist} package used to train.}
-    \code{diag}{Diagnostics accumulated over the training task.}
-    \code{samplerHash}{Hash value of the \code{Sampler} object used to
-      train.  Recorded for consistency of subsequent commands.}
+\value{an object sharing classes \code{arbTrain}, documented with the
+  command \code{rfTrain}, and \code{rfArb}, a supplementary collection
+  consisting of the following items:
+  \itemize{
+    \item \code{sampler} an object of class \code{Sampler}, as described in the
+      documentation for the \code{presample} command, that summarizes the
+      bagging structure.
+    \item \code{training} a list summarizing the training task, consisting of the following fields:
+    \itemize{
+      \item \code{call} the calling invocation.
+      \item \code{info} a vector of forest-wide Gini (classification) or weighted variance (regression), by predictor.
+      \item \code{version} the version of the \code{Rborist} package used to train.
+      \item \code{diag} diagnostics accumulated over the training task.
+      \item \code{samplerHash} hash value of the \code{Sampler} object used to train.  Recorded for consistency of subsequent commands.
+    }
+    \item \code{prediction} an object of class \code{PredictReg} or \code{PredictCtg}, as described by the documention for command \code{predict}.
+    \item \code{validation} an object of class \code{ValidReg} or \code{ValidCtg}, as described by the documention for command\code{validate}, if validation is requested.
+    \item \code{importance} an object of class \code{ImportanceReg} or\code{ImportanceCtg}, as described by the documention for command	\code{predict}, if permutation performance has been requested.
   }
-  \item{prediction}{An object of class \code{PredictReg} or
-  \code{PredictCtg}, as described by the documention for command \code{predict}.}
-  \item{validation}{An object of class \code{ValidReg} or
-  \code{ValidCtg}, as described by the documention for command
-  \code{predict}, if validation is requested.}
-  \item{importance}{An object of class \code{ImportanceReg} or
-  \code{ImportanceCtg}, as described by the documention for command
-  \code{predict}, if permutation performance has been requested.}
 }
-
 
 \examples{
 \dontrun{

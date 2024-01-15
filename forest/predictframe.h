@@ -22,7 +22,7 @@
 
 using namespace std;
 
-class RLEFrame;
+struct RLEFrame;
 
 /**
    @brief Transposed section of an RLEFrame.

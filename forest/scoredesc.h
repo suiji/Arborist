@@ -23,6 +23,9 @@
 #include <string>
 
 
+class Predict;
+class Sampler;
+
 /**
    @brief Advises prediction how to derive a forest-wide score.
  */
@@ -59,13 +62,13 @@ struct ScoreDesc {
   /*
     @brief Builds algorithm-specific scorer for response type.
    */
-  unique_ptr<ForestPredictionReg> makePredictionReg(const class Predict* predict,
-						    const class Sampler* sampler,
+  unique_ptr<ForestPredictionReg> makePredictionReg(const Predict* predict,
+						    const Sampler* sampler,
 						    bool reportAuxiliary) const;
 
 
-  unique_ptr<ForestPredictionCtg> makePredictionCtg(const class Predict* predict,
-						    const class Sampler* sampler,
+  unique_ptr<ForestPredictionCtg> makePredictionCtg(const Predict* predict,
+						    const Sampler* sampler,
 						    bool reportAuxiliary) const;
 };
 

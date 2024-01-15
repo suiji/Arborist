@@ -38,39 +38,27 @@ FALSE, ...)
   \item{...}{not currently used.}
 }
 
-\value{an object of one of two classes:
-  \item{SummaryReg}{summarizing regression, consisting of:
-    \code{prediction}{an object of class \code{PredictReg} consisting
-      of:
-      \code{yPred}{the estimated numerical response.}
-      \code{qPred}{quantiles of prediction, if requested.}
-      \code{qEst}{quantile of the estimate, if quantiles requested.}
-      \code{indices}{final index of prediction, if requested.}
-    }
-    \code{validation}{if validation requested, an object of class
-      \code{ValidReg} consisting of:
-      \code{mse}{the mean-square error of the estimate.}
-      \code{rsq}{the r-squared statistic of the estimate.}
-      \code{mae}{the mean absolute error of the estimate.}
+\value{either of two pairs of objects:
+  \itemize{
+    \item \code{SummaryReg} summarizing regression, as documented with the
+      command \code{predict.arbTrain}.
+    \item \code{validation} an object of class \code{ValidReg} consisting of:
+    \itemize{
+      \item \code{mse} the mean-square error of the estimate.
+      \item \code{rsq} the r-squared statistic of the estimate.
+      \item \code{mae} the mean absolute error of the estimate.
     }
   }
-  \item{SummaryCtg}{summarizing classification, consisting of:
-    \code{prediciton}{an object of class \code{PredictCtg} consisting
-      of:
-      \code{yPred}{estimated categorical response.}
-      \code{census}{factor-valued matrix of the estimate, by
-	category, if requested.}
-      \code{prob}{matrix of estimate probabilities, by category, if
-	requested.}
-      \code{indices}{final index of prediction, if requested.}
+  \itemize{
+    \item \code{SummaryCtg} summarizing classification, as documented with the
+      command \code{predict.arbTrain}.
+    \item \code{validation} an object of class \code{ValidCtg} consisting of:
+      \itemize{
+	\item \code{confusion} the confusion matrix.
+	\item \code{misprediction} the misprediction rate.
+	\item \code{oobError} the out-of-bag error.
+      }
     }
-    \code{validation}{if validation requested, an object of class
-      \code{ValidCtg} consisting of:
-      \code{confusion}{the confusion matrix.}
-      \code{misprediction}{the misprediction rate.}
-      \code{oobError}{the out-of-bag error.}
-    }
-  }
 }
 
 \examples{

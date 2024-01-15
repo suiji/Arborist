@@ -90,6 +90,7 @@ struct ForestPrediction {
   ForestPrediction(const class Predict* predict,
 		   const struct ScoreDesc* scoreDesc);
 
+  virtual ~ForestPrediction() = default;
 
   static void init(bool doProb);
 
@@ -132,7 +133,10 @@ struct ForestPredictionCtg : public ForestPrediction {
 		      const class Predict* predict,
 		      bool reportAuxiliary);
 
+  
+  ~ForestPredictionCtg() = default;
 
+  
   ScoreCount predictLogOdds(const class Predict* predict,
 			    size_t obsIdx) const;
 
@@ -183,6 +187,9 @@ struct ForestPredictionReg : public ForestPrediction {
 		      const class Sampler* sampler,
 		      const class Predict* predict,
 		      bool reportAuxiliary);
+
+  
+  ~ForestPredictionReg() = default;
 
   
   void predictMean(const class Predict* predict,

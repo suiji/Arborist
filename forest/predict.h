@@ -26,12 +26,12 @@
 #include <algorithm>
 
 class Sampler;
-struct PredictFrame;
+class PredictFrame;
 struct RLEFrame;
 class Forest;
 class Predict;
-class PredictReg;
-class PredictCtg;
+struct PredictReg;
+struct PredictCtg;
 struct IdCount;
 
 /**
@@ -43,11 +43,11 @@ struct SummaryReg {
   vector<vector<unique_ptr<TestReg>>> permutationTest;
 
   SummaryReg(const Sampler* sampler,
-	     const class Predict* predict,
+	     const Predict* predict,
 	     Forest* forest);
 
 
-  void build(class Predict* predict,
+  void build(Predict* predict,
 	     const Sampler* sampler,
 	     const vector<double>& yTest);
 
@@ -263,11 +263,11 @@ public:
 
 
   static unique_ptr<PredictCtg> makeCtg(const Sampler* sampler,
-					      unique_ptr<struct RLEFrame>);
+					      unique_ptr<RLEFrame>);
 
 
   static unique_ptr<PredictReg> makeReg(const Sampler* sampler,
-					      unique_ptr<struct RLEFrame>);
+					      unique_ptr<RLEFrame>);
 
 
   virtual unique_ptr<SummaryReg> predictReg(const Sampler* sampler,

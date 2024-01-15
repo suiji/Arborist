@@ -61,22 +61,22 @@ presample.default <- function(y,
     }
     
     if (length(samplingWeight) > 0) {
-        ignoreWeight <- false
+        ignoreWeight <- FALSE
         if (length(samplingWeight) != nObs) {
             warning("Sample weight length must match row count:  ignoring")
-            ignoreWeight <- true
+            ignoreWeight <- TRUE
         }
         if (all(samplingWeight == 0)) {
             warning("No nonzero weights:  ignoring")
-            ignoreWeight <- true
+            ignoreWeight <- TRUE
         }
         if (any(samplingWeight < 0)) {
             warning("Negative sample weights not permitted:  ignoring")
-            ignoreWeight <- true
+            ignoreWeight <- TRUE
         }
         if (!withRepl && sum(which(samplingWeight > 0)) < nSamp) {
             warning("Insufficiently many samples with nonzero probability:  ignoring")
-            ignroreWeight <- true
+            ignroreWeight <- TRUE
         }
         
         if (ignoreWeight)

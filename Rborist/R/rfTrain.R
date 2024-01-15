@@ -30,7 +30,6 @@ rfTrain.default <- function(preFormat, sampler, y,
                 minNode = if (is.factor(y)) 2 else 3,
                 nLevel = 0,
                 nThread = 0,
-                obsWeight = numeric(0),
                 predFixed = 0,
                 predProb = 0.0,
                 predWeight = NULL, 
@@ -125,35 +124,6 @@ rfTrain.default <- function(preFormat, sampler, y,
         classWeight <- rep(1.0, 0)
     }
 
-    if (length(obsWeight) > 0) {
-        ignore <- FALSE
-        if (is.factor(y)) {
-            warning("Observation weights for classifcation NYI:  ignoring.")
-            ignore <- TRUE
-        }
-        
-        if (length(classWeight) != preFormat$nRow) {
-            warning("Observations weights must conform to response size:  ignoring.")
-            ignore <- TRUE
-        }
-        
-        if (any(obsWeight < 0)) {
-            warning("Observation weights must be nonnegative:  ignoring.")
-            ignore <- TRUE
-        }
-        if (all(obsWeight == 0.0)) {
-            warning("Observation weights cannot all be zero:  ignoring.")
-            ignore <- TRUE
-        }
-
-        if (ignore)
-            obsWeight <- rep(1.0, preFormat$nRow)
-    }
-    else {
-        obsWeight <- rep(1.0, preFormat$nRow)
-    }
-  
-
   # Predictor weight constraints
     if (is.null(predWeight)) {
         predWeight <- rep(1.0, nPred)
@@ -209,7 +179,7 @@ rfTrain.default <- function(preFormat, sampler, y,
 
     argTrain$predFixed <- predFixed
     argTrain$classWeight <- classWeight
-    argTrain$obsWeight <- obsWeight
+    argTrain$obsWeight <- numeric(0)
     argTrain$splitQuant <- splitQuant
     argTrain$regMono <- regMono
     argTrain$enableCoproc <- FALSE

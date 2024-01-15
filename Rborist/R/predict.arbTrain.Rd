@@ -46,48 +46,51 @@ bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }
 
 \value{an object of one of two classes:
-  \item{SummaryReg}{summarizing regression, consisting of:
-    \code{prediction}{an object of class \code{PredictReg} consisting
-      of:
-      \code{yPred}{the estimated numerical response.}
-      \code{qPred}{quantiles of prediction, if requested.}
-      \code{qEst}{quantile of the estimate, if quantiles requested.}
-      \code{indices}{final index of prediction, if requested.}
+  \itemize{
+    \item \code{SummaryReg} summarizing regression, consisting of:
+    \itemize{
+      \item \code{prediction} an object of class \code{PredictReg} consisting of:
+      \itemize{
+	\item \code{yPred} the estimated numerical response.
+	\item \code{qPred} quantiles of prediction, if requested.
+	\item \code{qEst} quantile of the estimate, if quantiles requested.
+	\item \code{indices} final index of prediction, if requested.
+      }
+      \item \code{validation} if validation requested, an object of class \code{ValidReg} consisting of:
+      \itemize{
+	\item \code{mse} the mean-squared error of the estimate.
+	\item \code{rsq} the r-squared statistic of the estimate.
+	\item \code{mae} the mean absolute error of the estimate.
+      }
+      \item \code{importance} if permution importance requested, an object of class \code{importanceReg}, containing multiple instances of:
+      \itemize{
+	\item \code{names} the predictor names.
+	\item \code{mse} the per-predictor mean-squared error, under permutation.
+      }
     }
-    \code{validation}{if validation requested, an object of class
-      \code{ValidReg} consisting of:
-      \code{mse}{the mean-square error of the estimate.}
-      \code{rsq}{the r-squared statistic of the estimate.}
-      \code{mae}{the mean absolute error of the estimate.}
-    }
-    \code{importance}{if permution importance requested, an object of
-      class \code{importanceReg}, consisting of:
-      \code{names}{the predictor names.}
-      \code{mse}{the per-predictor mean-square error, under
-	permutation.}
-    }
-  }
-  \item{SummaryCtg}{an object of class \code{PredictCtg} consisting of:
-      \code{yPred}{estimated categorical response.}
-      \code{census}{factor-valued matrix of the estimate, by
-	category, if requested.}
-      \code{prob}{matrix of estimate probabilities, by category, if
-	requested.}
-      \code{indices}{final index of prediction, if requested.}
-    \code{validation}{if validation requested, an object of class
-      \code{ValidCtg} consisting of:
-      \code{confusion}{the confusion matrix.}
-      \code{misprediction}{the misprediction rate.}
-      \code{oobError}{the out-of-bag error.}
-    }
-    \code{importance}{if permution importance requested, an object of
-      class \code{importanceCtg}, consisting of:
-      \code{mispred}{the misprediction rate, by predictor.}
-      \code{oobErr}{the out-of-bag error, by predictor.}
+    \item \code{SummaryCtg} summarizing classification, consisting of:
+    \itemize{
+      \item \code{PredictCtg} consisting of:
+      \itemize{
+	\item \code{yPred} estimated categorical response.
+	\item \code{census} factor-valued matrix of the estimate, by category, if requested.
+	\item \code{prob} matrix of estimate probabilities, by category, if requested.
+	\item \code{indices} final index of prediction, if requested.
+      }
+      \item \code{validation} if validation requested, an object of class \code{ValidCtg} consisting of:
+      \itemize{
+	\item \code{confusion} the confusion matrix.
+	\item \code{misprediction} the misprediction rate.
+	\item \code{oobError} the out-of-bag error.
+      }
+      \item \code{importance} if permution importance requested, an object of class \code{importanceCtg}, consisting of:
+      \itemize{
+	\item \code{mispred} the misprediction rate, by predictor.
+	\item \code{oobErr} the out-of-bag error, by predictor.
+      }
     }
   }
 }
-
 
 
 \examples{

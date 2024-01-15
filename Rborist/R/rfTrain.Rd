@@ -50,7 +50,7 @@
   \item{minNode}{minimum number of distinct row references to split a node.}
   \item{nLevel}{maximum number of tree levels to train, including
     terminals (leaves).  Zero denotes no limit.}
-  \item{nThread}{suggests an OpenMP-style thread count.  Zero denotes
+  \item{nThread}{suggests an \code{OpenMP}-style thread count.  Zero denotes
     the default processor setting.}
   \item{predFixed}{number of trial predictors for a split (\code{mtry}).}
   \item{predProb}{probability of selecting individual predictor as trial splitter.}
@@ -68,33 +68,37 @@
   \item{...}{Not currently used.}
 }
 
-\value{an object of class \code{trainArb}, containing:
-  \item{version}{The version of the \code{Rborist} package used to train.}
-  \item{samplerHash}{Hash value of the \code{Sampler} object used to
-      train.  Recorded for consistency of subsequent commands.}
-  \item{predInfo}{A vector of forest-wide Gini (classification) or weighted
-    variance (regression), by predictor.}
-  \item{predMap}{A vector of integers mapping internal to front-end
-    predictor indices.}
-  \item{forest}{an object of class \code{Forest} containing:
-    \code{nTree}{The number of trees trained.}
-    \code{node}{An object of class \code{Node} consisting of:
-      \code{treeNode}{Forest-wide vector of packed node representations.}
-      \code{extent}{Per-tree node counts.}
+\value{an object of class \code{arbTrain}, containing:
+  \itemize{
+    \item \code{version} the version of the \code{Rborist} package used to train.
+    \item \code{samplerHash} hash value of the \code{Sampler} object used to train.  Recorded for consistency of subsequent commands.
+    \item \code{predInfo} a vector of forest-wide Gini (classification) or weighted
+      variance (regression), by predictor.
+    \item \code{predMap} a vector of integers mapping internal to front-end
+      predictor indices.
+    \item \code{forest} an object of class \code{Forest} containing:
+    \itemize{
+      \item \code{nTree} the number of trees trained.
+      \item \code{node} an object of class \code{Node} consisting of:
+      \itemize{
+	\item \code{treeNode} forest-wide vector of packed node representations.
+	\item \code{extent} per-tree node counts.
+	\item \code{scores} numeric vector of scores, for all terminals and nonterminals.
+	\item \code{factor} an object of class \code{Factor} consisting of:
+	\itemize{
+	  \item \code{facSplit} forest-wide vector of packed factor bits.
+	  \item \code{extent} per-tree extent of factor bits.
+	  \item \code{observed} forest-wide vector of observed factor bits.
+	}
+      }
+      \item \code{Leaf} an object of class \code{Leaf} containing:
+      \itemize{
+	\item \code{extent} forest-wide vector of leaf populations, i.e., counts of unique samples.
+	\item \code{index} forest-wide vector of sample indices.
+      }
     }
-    \code{scores}{Numeric Vector of scores, per node.}
-    \code{factor}{An object of class \code{Factor} consisting of:
-      \code{facSplit}{Forest-wide vector of packed factor bits.}
-      \code{extent}{Per-tree extent of factor bits.}
-      \code{observed}{Forest-wide vector of observed factor bits.}
-    }
+    \item \code{diag} diagnostics accumulated over the training task.
   }
-  \code{Leaf}{an object of class \code{Leaf} containint:
-    \code{extent}{forest-wide vector of leaf populations, i.e., counts
-  of unique samples.}
-    \code{index}{forest-wide vector of sample indices.}
-  }
-  \item{diag}{Diagnostics accumulated over the training task.}
 }
 
 

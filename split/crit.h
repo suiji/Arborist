@@ -18,6 +18,10 @@
 
 #include "typeparam.h"
 
+class PredictorFrame;
+class SplitNux;
+class SplitFrontier;
+
 
 /**
    @brief Untagged union of split encodings; fields keyed by predictor type.
@@ -126,8 +130,8 @@ struct Crit {
   }
 
   
-  void critCut(const class SplitNux& nux,
-	       const class SplitFrontier* splitFrontier);
+  void critCut(const SplitNux& nux,
+	       const SplitFrontier* splitFrontier);
 
 
   void critBits(size_t bitPos) {
@@ -160,7 +164,7 @@ struct Crit {
   }
   
   
-  void setQuantRank(const class PredictorFrame* predictor,
+  void setQuantRank(const PredictorFrame* predictor,
 		    PredictorT predIdx);
 };
 
