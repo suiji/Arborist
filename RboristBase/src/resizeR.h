@@ -41,6 +41,6 @@ namespace ResizeR {
 
     return temp;
   }
-};
+}
 
 #endif

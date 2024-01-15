@@ -60,8 +60,8 @@ void TrainR::initPerInvocation(const List& argList,
     trainBridge.initMono(regMono);
   }
   else {
-    trainBridge.initCtg(TrainR::ctgWeight(IntegerVector(argList[strY]),
-					  NumericVector(argList[strClassWeight])));
+    trainBridge.initCtg(TrainR::ctgWeight(IntegerVector((SEXP) argList[strY]),
+					  NumericVector((SEXP) argList[strClassWeight])));
   }
 }
 

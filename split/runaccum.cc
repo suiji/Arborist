@@ -346,7 +346,7 @@ vector<RunNux> RunAccum::initRuns(RunSet* runSet,
   vector<RunNux> runNux = regRuns(cand);
   info = (sumCount.sum * sumCount.sum) / sumCount.sCount;
   return runNux;
-};
+}
 
 
 vector<RunNux> RunAccumCtg::initRuns(RunSet* runSet,
@@ -354,7 +354,7 @@ vector<RunNux> RunAccumCtg::initRuns(RunSet* runSet,
   vector<RunNux> runNux = ctgRuns(runSet, cand);
   info = ctgNux.sumSquares / sumCount.sum;
   return runNux;
-};
+}
 
 
 SplitRun RunAccumReg::split(const vector<RunNux>& runNux) {

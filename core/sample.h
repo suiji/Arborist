@@ -203,6 +203,6 @@ namespace Sample {
 
     return bHeap.depopulate(nSamp);
   }
-};
+}
 
 #endif

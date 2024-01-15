@@ -125,7 +125,7 @@ namespace PQueue {
     pairVec[slot] = BHPair<slotType>(key, slot);
     insert<slotType>(pairVec, slot);
   }
-};
+}
 
 
 /**
