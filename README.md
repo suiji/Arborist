@@ -34,7 +34,7 @@ Installation of the *development* version, hosted on this archive, from the top-
 A **CRAN**-friendly snapshot of the *development* source is mirrored by the neighboring archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN).  This archive is intended for remote access by **R** utilities such as *devtools*.
 
 #### Notes
-- **Rborist** version 0.3-5 has been submitted to **CRAN**.
+- **Rborist** version 0.3-7 has been submitted to **CRAN**.
 
 ### Python
 
