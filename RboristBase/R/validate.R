@@ -15,11 +15,11 @@
 ## You should have received a copy of the GNU General Public License
 ## along with ArboristR.  If not, see <http://www.gnu.org/licenses/>.
 
-validate <- function(train, sampler, ...) UseMethod("validate")
+validate <- function(train, preFormat, ...) UseMethod("validate")
 
 validate.default <- function(train,
-                             sampler,
-                             preFormat = NULL,
+                             preFormat,
+                             sampler = NULL,
                              ctgCensus = "votes",
                              impPermute = 0,
                              quantVec = NULL,
@@ -29,15 +29,24 @@ validate.default <- function(train,
                              nThread = 0,
                              verbose = FALSE,
                              ...) {
-  if (is.null(sampler)) {
-    stop("Sampler required for validation")
-  }
+  if (!inherits(train, "arbTrain"))
+    stop("Unrecognized training object")
+
   if (is.null(train$forest)) {
     stop("Trained forest required for validation")
   }
-  if (is.null(train$leaf)) {
-    stop("Leaf information required for validation")
+
+  if (is.null(preFormat)) {
+    stop("Preformatted frame required for validation")
   }
+  
+  if (is.null(sampler)) {
+    sampler <- train$sampler
+  }
+  if (is.null(sampler)) {
+    stop("Sampler required for validation")
+  }
+
   if (nThread < 0)
       stop("Thread count must be nonnegative")
   if (is.null(preFormat) && impPermute > 0)

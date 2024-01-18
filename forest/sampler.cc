@@ -30,62 +30,43 @@ Sampler::Sampler(size_t nSamp_,
 		 bool replace_,
 		 const vector<double>& weight,
 		 size_t nHoldout,
-		 const vector<size_t>& undefined) :
+		 const vector<size_t>& unobserved_) :
   nRep(nRep_),
   nObs(nObs_),
-  holdout(makeHoldout(nObs, nHoldout, undefined)),
+  unobserved(unobserved_),
+  holdout(makeHoldout(nObs, nHoldout, unobserved)),
+  noSample(makeNoSample(unobserved, holdout)),
   replace(replace_),
-  omitMap(makeOmitMap(nObs, holdout, replace)),
-  prob(makeProbability(weight, holdout)),
-  nSamp(sampleCount(nSamp_, nObs, replace, holdout, prob)),
+  omitMap(makeOmitMap(nObs, noSample, replace)),
+  prob(makeProbability(weight, noSample)),
+  nSamp(sampleCount(nSamp_, nObs, replace, noSample, prob)),
   trivial(false),
   response(nullptr) {
   walker = (prob.empty() || !replace) ? nullptr : make_unique<Sample::Walker<size_t>>(prob, nObs);
 }
 
 
-size_t Sampler::sampleCount(size_t nSpecified,
-			    size_t nObs,
-			    bool replace,
-			    const vector<size_t>& holdout,
-			    const vector<double>& prob) {
-  size_t sCount, nAvail;
-  if (!prob.empty()) { // Holdout included with zero-valued slots.
-    nAvail = count_if(prob.begin(), prob.end(), [] (double probability) { return probability > 0.0;});
-  }
-  else if (!holdout.empty()) {
-    nAvail = nObs - holdout.size();
-  }
-  else
-    nAvail = nObs;
-
-  if (nSpecified == 0) {
-    sCount = replace ? nAvail : round(1-exp(-1)*nAvail);
-  }
-  else if (!replace)
-    sCount = min(nSpecified, nAvail);
-  else
-    sCount = nSpecified;
-
-  return sCount;
-}
-
-
 vector<size_t> Sampler::makeHoldout(size_t nObs,
 				    size_t nHoldout,
 				    const vector<size_t>& undefined) {
-  vector<size_t> ho = Sample::sampleWithout<size_t>(nObs, undefined, nHoldout);
-  ho.insert(ho.end(), undefined.begin(), undefined.end());
-  sort(ho.begin(), ho.end());
-  return ho;
+  return Sample::sampleWithout<size_t>(nObs, undefined, nHoldout);
+}
+
+
+vector<size_t> Sampler::makeNoSample(const vector<size_t>& unobserved,
+				     const vector<size_t>& holdout) {
+  vector<size_t> noSample = holdout;
+  noSample.insert(noSample.end(), unobserved.begin(), unobserved.end());
+  sort(noSample.begin(), noSample.end());
+  return noSample;
 }
 
   
 vector<double> Sampler::makeProbability(const vector<double>& weight,
-					const vector<size_t>& holdout) {
+					const vector<size_t>& noSample) {
   vector<double> prob = weight;
   if (!prob.empty()) {
-    for (const size_t& idx : holdout) {
+    for (const size_t& idx : noSample) {
       prob[idx] = 0.0;
     }
     double totWeight = accumulate(prob.begin(), prob.end(), 0.0);
@@ -103,18 +84,45 @@ vector<double> Sampler::makeProbability(const vector<double>& weight,
 }
 
 
-vector<size_t> Sampler::makeOmitMap(size_t nObs, const vector<size_t>& holdout, bool replace) {
-  if (holdout.empty() || !replace)
+size_t Sampler::sampleCount(size_t nSpecified,
+			    size_t nObs,
+			    bool replace,
+			    const vector<size_t>& noSample,
+			    const vector<double>& prob) {
+  size_t sCount, nAvail;
+  if (!prob.empty()) { // noSample included with zero-valued slots.
+    nAvail = count_if(prob.begin(), prob.end(), [] (double probability) { return probability > 0.0;});
+  }
+  else if (!noSample.empty()) {
+    nAvail = nObs - noSample.size();
+  }
+  else
+    nAvail = nObs;
+
+  if (nSpecified == 0) {
+    sCount = replace ? nAvail : round(1-exp(-1)*nAvail);
+  }
+  else if (!replace)
+    sCount = min(nSpecified, nAvail);
+  else
+    sCount = nSpecified;
+
+  return sCount;
+}
+
+
+vector<size_t> Sampler::makeOmitMap(size_t nObs, const vector<size_t>& noSample, bool replace) {
+  if (noSample.empty() || !replace)
     return vector<size_t>(0);
 
   vector<size_t> omitMap;
   size_t omitIdx = 0;
-  size_t omitVal = holdout[0];
+  size_t omitVal = noSample[0];
 
   for (size_t mapIdx = 0; mapIdx != nObs; mapIdx++) {
     if (mapIdx == omitVal) { // 'nObs' is inattainable.
       omitIdx++;
-      omitVal = (omitIdx == holdout.size() ? nObs : holdout[omitIdx]);
+      omitVal = (omitIdx == noSample.size() ? nObs : noSample[omitIdx]);
     }
     else { // Appends only the non-withheld indices.
       omitMap.push_back(mapIdx);
@@ -234,13 +242,13 @@ void Sampler::sample() {
     iota(idxOut.begin(), idxOut.end(), 0);
   }
   else if (walker != nullptr) { // Weighted, replacement.
-    idxOut = walker->sample(nSamp, holdout);
+    idxOut = walker->sample(nSamp, noSample);
   }
   else if (!prob.empty()) { // Weighted, no replacement.
-    idxOut = Sample::sampleEfraimidis<size_t>(prob, holdout, nSamp);
+    idxOut = Sample::sampleEfraimidis<size_t>(prob, noSample, nSamp);
   }
   else if (!replace) { // Uniform, no replacement.
-    idxOut = Sample::sampleWithout<size_t>(nObs, holdout, nSamp);
+    idxOut = Sample::sampleWithout<size_t>(nObs, noSample, nSamp);
   }
   else { // Uniform, replacement.
     idxOut = Sample::sampleWith<size_t>(nObs, omitMap, nSamp);

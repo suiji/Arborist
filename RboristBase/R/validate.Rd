@@ -11,7 +11,7 @@
 }
 
 \usage{
-\method{validate}{default}(train, sampler, preFormat = NULL,  ctgCensus
+\method{validate}{default}(train, preFormat, sampler = NULL,  ctgCensus
 = "votes", impPermute = 0, quantVec = NULL, quantiles =
 !is.null(quantVec), indexing = FALSE, trapUnobserved = FALSE, nThread = 0, verbose =
 FALSE, ...)
@@ -68,7 +68,7 @@ FALSE, ...)
     ...
     ## Delayed validation using a preformatted object.
     pf <- preformat(x)
-    v <- validate(pf, rb, y)
+    v <- validate(rb, pf)
   }
 }
 
