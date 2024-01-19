@@ -220,7 +220,7 @@ void TestCtg::buildConfusion(const vector<CtgT>& yTest,
 
 
 void TestCtg::setMisprediction(size_t nObs) {
-  size_t totRight = 0;
+  size_t totWrong = 0;
   for (PredictorT ctgRec = 0; ctgRec < nCtgMerged; ctgRec++) {
     size_t numWrong = 0;
     size_t numRight = 0;
@@ -233,11 +233,11 @@ void TestCtg::setMisprediction(size_t nObs) {
         numRight = numConf;
       }
     }
+    totWrong += numWrong;
     
     misprediction[ctgRec] = numWrong + numRight == 0 ? 0.0 : double(numWrong) / double(numWrong + numRight);
-    totRight += numRight;
   }
-  oobErr = double(totRight) / nObs;
+  oobErr = double(totWrong) / nObs;
 }
 
 
