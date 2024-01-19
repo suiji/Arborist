@@ -200,7 +200,7 @@ public:
      @return checkerboard value at slot for category.
    */
   double getRunSum(PredictorT runIdx,
-			   PredictorT yCtg) const {
+		   PredictorT yCtg) const {
     return runSum[runIdx * nCtg + yCtg];
   }
 

@@ -211,21 +211,23 @@ vector<RunNux> RunAccumCtg::sampleRuns(const RunSet* runSet,
 
   vector<double> tempCtgSum(nCtg);
   vector<double> tempSum(sampleCount * nCtg);
-  vector<RunNux> nuxSampled(sampleCount);
+  vector<RunNux> nuxSampled(runNux.size());
   PredictorT idxSampled = 0;
   PredictorT idxUnsampled = sampleCount;
   for (PredictorT idx = 0; idx < runNux.size(); idx++) {
+    PredictorT outIdx;
     if (runRandom.testBit(idx)) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-	double sumCtg = runSum[idx * nCtg + ctg];
+	double sumCtg = getRunSum(idx, ctg);
 	tempCtgSum[ctg] += sumCtg;
 	tempSum[idxSampled * nCtg + ctg] = sumCtg;
       }
-      nuxSampled[idxSampled++] = runNux[idx];
+      outIdx = idxSampled++;
     }
     else {
-      nuxSampled[idxUnsampled++] = runNux[idx];
+      outIdx = idxUnsampled++;
     }
+    nuxSampled[outIdx] = runNux[idx];
   }
 
   double tempSS = 0;
@@ -308,7 +310,7 @@ void RunAccumCtg::residualSums(const vector<RunNux>& runNux,
   for (PredictorT idx = 0; idx != runNux.size(); idx++) {
     if (idx != implicitSlot) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
-	ctgBase[ctg] -= runSum[idx * nCtg + ctg];
+	ctgBase[ctg] -= getRunSum(idx, ctg);
       }
     }
   }
@@ -410,7 +412,8 @@ double RunAccumCtg::subsetGini(const vector<RunNux>& runNux,
   // getSum(runIdx) decomposes 'sumCand' by run, so may be used
   // as a cross-check.
   vector<double> sumSampled(nCtg);
-  for (PredictorT runIdx = 0; runIdx != runNux.size() - 1; runIdx++) {
+  PredictorT topIdx = runSum.size() / nCtg - 1;
+  for (PredictorT runIdx = 0; runIdx != topIdx; runIdx++) {
     if (subset & (1ul << runIdx)) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {
 	sumSampled[ctg] += getRunSum(runIdx, ctg);
