@@ -67,16 +67,6 @@ CutAccumReg::CutAccumReg(const SplitNux& cand,
 }
 
 
-CutAccumCtg::CutAccumCtg(const SplitNux& cand,
-			 SFCtg* sfCtg) :
-  CutAccum(cand, sfCtg),
-  ctgNux(filterMissingCtg(sfCtg, cand)),
-  ctgAccum(vector<double>(ctgNux.nCtg())),
-  ssL(ctgNux.sumSquares),
-  ssR(0.0) {
-}
-
-
 void CutAccum::residualReg(const Obs* obsCell) {
   double ySumObs = 0.0;
   IndexT sCountObs = 0;
@@ -88,6 +78,16 @@ void CutAccum::residualReg(const Obs* obsCell) {
 
   sum -= (sumCount.sum - ySumObs);
   sCount -= (sumCount.sCount - sCountObs);
+}
+
+
+CutAccumCtg::CutAccumCtg(const SplitNux& cand,
+			 SFCtg* sfCtg) :
+  CutAccum(cand, sfCtg),
+  ctgNux(filterMissingCtg(sfCtg, cand)),
+  ctgAccum(vector<double>(ctgNux.nCtg())),
+  ssL(ctgNux.sumSquares),
+  ssR(0.0) {
 }
 
 

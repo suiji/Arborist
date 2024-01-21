@@ -107,9 +107,9 @@ public:
      @param sumRight is the sum of responses to the right.
    */
   static double infoGini(double ssLeft,
-				double ssRight,
-				double sumLeft,
-				double sumRight) {
+			 double ssRight,
+			 double sumLeft,
+			 double sumRight) {
     return ssLeft / sumLeft + ssRight / sumRight;
   }
 

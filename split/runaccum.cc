@@ -412,7 +412,12 @@ double RunAccumCtg::subsetGini(const vector<RunNux>& runNux,
   // getSum(runIdx) decomposes 'sumCand' by run, so may be used
   // as a cross-check.
   vector<double> sumSampled(nCtg);
-  PredictorT topIdx = runSum.size() / nCtg - 1;
+  PredictorT nRun = runSum.size() / nCtg;
+
+  // Looks at all subsets if complement lies outside, else
+  // looks at half of them:
+  PredictorT topIdx = runNux.size() > nRun ? nRun : nRun -1;
+
   for (PredictorT runIdx = 0; runIdx != topIdx; runIdx++) {
     if (subset & (1ul << runIdx)) {
       for (PredictorT ctg = 0; ctg < nCtg; ctg++) {

@@ -72,15 +72,6 @@ void CutAccumRegCart::splitRLMono(IndexT idxStart, IndexT idxEnd) {
 }
 
 
-void CutAccumCtgCart::splitRL(IndexT idxStart, IndexT idxEnd) {
-  for (IndexT idx = idxEnd - 1; idx != idxStart; idx--) {
-    if (!accumulateCtg(obsCell[idx])) {
-      argmaxRL(infoGini(ssL, ssR, sum, sumCount.sum-sum), idx-1);
-    }
-  }
-}
-
-
 void CutAccumRegCart::splitImpl() {
   if (cutResidual < obsEnd) {
     // Tries obsEnd/obsEnd-1, ..., cut+1/cut.
@@ -116,13 +107,6 @@ void CutAccumRegCart::splitImplMono() {
 void CutAccumRegCart::residualRL() {
   residualReg(obsCell);
   argmaxResidual(infoVar(sum, sumCount.sum-sum, sCount, sumCount.sCount-sCount), false);
-  splitRL(obsStart, cutResidual);
-}
-
-
-void CutAccumCtgCart::residualRL() {
-  residualCtg(obsCell);
-  argmaxResidual(infoGini(ssL, ssR, sum, sumCount.sum-sum), false);
   splitRL(obsStart, cutResidual);
 }
 
@@ -175,6 +159,15 @@ double CutAccumCtgCart::splitCtg(const SFCtgCart* spCtg,
 }
 
 
+void CutAccumCtgCart::splitRL(IndexT idxStart, IndexT idxEnd) {
+  for (IndexT idx = idxEnd - 1; idx != idxStart; idx--) {
+    if (!accumulateCtg(obsCell[idx])) {
+      argmaxRL(infoGini(ssL, ssR, sum, sumCount.sum - sum), idx-1);
+    }
+  }
+}
+
+
 void CutAccumCtgCart::splitImpl() {
   if (cutResidual < obsEnd) {
     // Tries obsEnd/obsEnd-1, ..., cut+1/cut.
@@ -188,4 +181,11 @@ void CutAccumCtgCart::splitImpl() {
   if (cutResidual > obsStart) {
     residualRL();
   }
+}
+
+
+void CutAccumCtgCart::residualRL() {
+  residualCtg(obsCell);
+  argmaxResidual(infoGini(ssL, ssR, sum, sumCount.sum - sum), false);
+  splitRL(obsStart, cutResidual);
 }

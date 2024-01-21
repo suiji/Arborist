@@ -39,7 +39,7 @@ protected:
      In CART-like splitting, right bound is implicitly one greater.
    */
   void argmaxRL(double infoTrial,
-		       IndexT obsLeft) {
+		IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
       this->obsLeft = obsLeft;
       obsRight = obsLeft + 1;
@@ -51,8 +51,8 @@ protected:
      @brief As above, but directionless.
    */
   void argmaxBounds(double infoTrial,
-			   IndexT obsRight,
-			   IndexT obsLeft) {
+		    IndexT obsRight,
+		    IndexT obsLeft) {
     if (Accum::trialSplit(infoTrial)) {
       this->obsRight = obsRight;
       this->obsLeft = obsLeft;
@@ -63,18 +63,18 @@ protected:
   /**
      @brief Trial argmax involving residual.
 
-     @param rkIdx is the non-residual rank.
+     @param infoTrial is the information content of the trial.
 
      @param onLeft is true iff residual is the left observation.
 
      May be called twice for the same residual:  once right, once left.
    */
   void argmaxResidual(double infoTrial,
-			     bool onLeft) {
+		      bool onLeft) {
     if (Accum::trialSplit(infoTrial)) {
       obsRight = cutResidual;
       // cutResidual > obsStart if residual lies to the right.
-      obsLeft = cutResidual == obsStart ? cutResidual : cutResidual - 1;
+      obsLeft = (cutResidual == obsStart ? cutResidual : cutResidual - 1);
       residualLeft = onLeft;
     }
   }
@@ -177,18 +177,18 @@ public:
 
 
   /**
-     @brief Accumulates running sums of squares by category.
+     @brief Updtes category sum and squared sums.
 
      @param ySumCtg is the response sum for a category.
 
-     @param yCtt is the response category.
+     @param yCtg is the response category.
    */
   void accumCtgSS(double ySumCtg,
-			 PredictorT yCtg) {
-    double sumRCtg = exchange(ctgAccum[yCtg], ctgAccum[yCtg] + ySumCtg);
-    ssR += ySumCtg * (ySumCtg + 2.0 * sumRCtg);
-    double sumLCtg = ctgNux.ctgSum[yCtg] - sumRCtg;
-    ssL += ySumCtg * (ySumCtg - 2.0 * sumLCtg);
+		  PredictorT yCtg) {
+    double ySum2 = ySumCtg * ySumCtg;
+    ssR += ySum2 + 2.0 * ySumCtg * ctgAccum[yCtg];
+    ssL += ySum2 - 2.0 * ySumCtg * (ctgNux.ctgSum[yCtg] - ctgAccum[yCtg]);
+    ctgAccum[yCtg] += ySumCtg;
   }
 };
 
