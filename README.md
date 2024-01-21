@@ -34,7 +34,7 @@ Installation of the *development* version, hosted on this archive, from the top-
 A **CRAN**-friendly snapshot of the *development* source is mirrored by the neighboring archive [Rborist.CRAN](https://github.com/suiji/Rborist.CRAN).  This archive is intended for remote access by **R** utilities such as *devtools*.
 
 #### Notes
-- **Rborist** version 0.3-7 has been submitted to **CRAN**.
+- **Rborist** version 0.3-7 is hosted on **CRAN**.
 
 ### Python
 
@@ -77,7 +77,7 @@ A 2019 paper compares several categories of regression tools, including Random F
  - Following the introduction of standalone sampling, a break in backward compatibility appears in versions 0.3-0 and higher of the *Rborist* package.  Prediction with models trained using earlier versions throws an unidentified-index exception from within the *Rcpp* glue layer.  Older models should therefore be retrained in order to use version 0.3-0 and above.
  - Documentation for the *validate* command are out of date and may lead to errors.  The documentation has been revised with version 0.3-8.
  - Classification was reporting the *oobErr* value as accuracy instead of out-of-bag error.  This has been repaired in 0.3-8.
- - Non-binary classification with moderately-sized factor predictors (>= 64 levels) was failing due a shift-wraparound.  This is repeared in 0.3-8.
+ - Non-binary classification with moderately-sized factor predictors (>= 64 levels) was failing due a wraparound shift.  Repaired in 0.3-8.
 
 Correctness and runtime errors are addressed as received.  With reproducible test cases, repairs are typically uploaded to the **Rborst.CRAN** repository within several days.
 
