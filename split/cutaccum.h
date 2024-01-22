@@ -32,22 +32,6 @@ class CutAccum : public Accum {
 protected:
 
   /**
-     @brief Trial argmax on decreasing index.
-
-     @param obsLeft is the left bound.
-
-     In CART-like splitting, right bound is implicitly one greater.
-   */
-  void argmaxRL(double infoTrial,
-		IndexT obsLeft) {
-    if (Accum::trialSplit(infoTrial)) {
-      this->obsLeft = obsLeft;
-      obsRight = obsLeft + 1;
-    }
-  }
-
-
-  /**
      @brief As above, but directionless.
    */
   void argmaxBounds(double infoTrial,
@@ -56,26 +40,6 @@ protected:
     if (Accum::trialSplit(infoTrial)) {
       this->obsRight = obsRight;
       this->obsLeft = obsLeft;
-    }
-  }
-
-
-  /**
-     @brief Trial argmax involving residual.
-
-     @param infoTrial is the information content of the trial.
-
-     @param onLeft is true iff residual is the left observation.
-
-     May be called twice for the same residual:  once right, once left.
-   */
-  void argmaxResidual(double infoTrial,
-		      bool onLeft) {
-    if (Accum::trialSplit(infoTrial)) {
-      obsRight = cutResidual;
-      // cutResidual > obsStart if residual lies to the right.
-      obsLeft = (cutResidual == obsStart ? cutResidual : cutResidual - 1);
-      residualLeft = onLeft;
     }
   }
 
@@ -92,7 +56,10 @@ protected:
   }
 
 
-  void residualReg(const Obs* obsCell);
+  /**
+     @brief Derives and applies residual contributions.
+   */
+  void applyResidual(const Obs* obsCell);
 
 
   /**
@@ -152,6 +119,48 @@ protected:
 
 
   /**
+     @brief Trial argmax on decreasing index.
+
+     @param obsLeft is the left bound.
+
+     @param ungated is true iff caller not preempting computation.
+     
+     In CART-like splitting, right bound is implicitly one greater.
+   */
+  void argmaxRL(double infoTrial,
+		IndexT obsLeft) {
+    if (Accum::trialSplit(infoTrial)) {
+      this->obsLeft = obsLeft;
+      obsRight = obsLeft + 1;
+    }
+  }
+
+
+
+
+  /**
+     @brief Trial argmax involving residual.
+
+     @param infoTrial is the information content of the trial.
+
+     @param onLeft is true iff residual is the left observation.
+
+     @param ungated is true iff caller no preempting computation.
+
+     May be called twice for the same residual:  once right, once left.
+   */
+  void argmaxResidual(double infoTrial,
+		      bool onLeft) {
+    if (Accum::trialSplit(infoTrial)) {
+      obsRight = cutResidual;
+      // cutResidual > obsStart if residual lies to the right.
+      obsLeft = (cutResidual == obsStart ? cutResidual : cutResidual - 1);
+      residualLeft = onLeft;
+    }
+  }
+
+
+  /**
      @brief Accumulates observation state.
 
      @return true iff rank ties with observation to left.
@@ -166,9 +175,9 @@ protected:
 
 
   /**
-     @brief Subtracts explicit sum and count values from node totals.
+     @brief Derives and applies residual contributions.
    */
-  void residualCtg(const Obs* obsCell);
+  void applyResidual(const Obs* obsCell);
 
   
 public:
@@ -197,6 +206,60 @@ class CutAccumReg : public CutAccum {
 
 protected:
   const int monoMode; ///< Presence/direction of monotone constraint.
+
+  /**
+     @return false iff monotone and sense violated.
+   */
+  bool senseMonotone() const {
+    if (monoMode == 0)
+      return true;
+
+    IndexT sCountR = sumCount.sCount - sCount;
+    double sumR = sumCount.sum - sum;
+    bool accumNonDecreasing = (sum * sCountR <= sumR * sCount);
+    return monoMode > 0 ? accumNonDecreasing : !accumNonDecreasing;
+  }
+
+    /**
+     @brief Trial argmax on decreasing index.
+
+     @param obsLeft is the left bound.
+
+     @param ungated is true iff caller not preempting computation.
+     
+     In CART-like splitting, right bound is implicitly one greater.
+   */
+  void argmaxRL(double infoTrial,
+		IndexT obsLeft) {
+    if (senseMonotone() && Accum::trialSplit(infoTrial)) {
+      this->obsLeft = obsLeft;
+      obsRight = obsLeft + 1;
+    }
+  }
+
+
+  /**
+     @brief Trial argmax involving residual.
+
+     @param infoTrial is the information content of the trial.
+
+     @param onLeft is true iff residual is the left observation.
+
+     @param ungated is true iff caller no preempting computation.
+
+     May be called twice for the same residual:  once right, once left.
+   */
+  void argmaxResidual(double infoTrial,
+		      bool onLeft) {
+    if (senseMonotone() && Accum::trialSplit(infoTrial)) {
+      obsRight = cutResidual;
+      // cutResidual > obsStart if residual lies to the right.
+      obsLeft = (cutResidual == obsStart ? cutResidual : cutResidual - 1);
+      residualLeft = onLeft;
+    }
+  }
+
+
 
 public:
   CutAccumReg(const class SplitNux& splitCand,

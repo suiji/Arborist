@@ -20,6 +20,7 @@
 #include "partition.h"
 #include "interlevel.h"
 
+#include <numeric>
 
 CutAccum::CutAccum(const SplitNux& cand,
 		   const SplitFrontier* splitFrontier) :
@@ -67,17 +68,20 @@ CutAccumReg::CutAccumReg(const SplitNux& cand,
 }
 
 
-void CutAccum::residualReg(const Obs* obsCell) {
-  double ySumObs = 0.0;
-  IndexT sCountObs = 0;
+void CutAccum::applyResidual(const Obs* obsCell) {
+  double ySumExpl = 0.0;
+  IndexT sCountExpl = 0;
   for (IndexT obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
     const Obs& obs = obsCell[obsIdx];
-    ySumObs += obs.getYSum();
-    sCountObs += obs.getSCount();
+    ySumExpl += obs.getYSum();
+    sCountExpl += obs.getSCount();
   }
 
-  sum -= (sumCount.sum - ySumObs);
-  sCount -= (sumCount.sCount - sCountObs);
+  // Differences between explicit totals and initialized
+  // values are the residual contributions, which are then
+  // applied.
+  sum -= (sumCount.sum - ySumExpl);
+  sCount -= (sumCount.sCount - sCountExpl);
 }
 
 
@@ -91,23 +95,37 @@ CutAccumCtg::CutAccumCtg(const SplitNux& cand,
 }
 
 
-void CutAccumCtg::residualCtg(const Obs* obsCell) {
-  vector<double> ctgResid(ctgNux.ctgSum);
-  for (PredictorT ctg = 0; ctg != ctgResid.size(); ctg++) {
-    accumCtgSS(ctgResid[ctg], ctg);
-  }
-
+void CutAccumCtg::applyResidual(const Obs* obsCell) {
+  vector<double> ctgExpl(ctgAccum.size());
   double ySumExpl = 0.0;
   IndexT sCountExpl = 0;
   for (IndexT obsIdx = obsStart; obsIdx != obsEnd; obsIdx++) {
     const Obs& obs = obsCell[obsIdx];
     double ySumObs = obs.getYSum();
-    ctgResid[obs.getCtg()] -= ySumObs;
+    ctgExpl[obs.getCtg()] += ySumObs;
     ySumExpl += ySumObs;
     sCountExpl += obs.getSCount();
   }
+
+  // Differences between explicit totals and initialized
+  // values are the residual contributions, which are then
+  // applied.
   sum -= (sumCount.sum - ySumExpl);
   sCount -= (sumCount.sCount - sCountExpl);
+  for (CtgT ctg = 0; ctg != ctgAccum.size(); ctg++) {
+    ctgAccum[ctg] += ctgNux.ctgSum[ctg] - ctgExpl[ctg];
+  }
+
+  double ssRight = 0.0;
+  double ssLeft = 0.0;
+  CtgT ctg = 0;
+  for (const double& sumRight : ctgAccum) {
+    ssRight += sumRight * sumRight;
+    double sumLeft = ctgNux.ctgSum[ctg++] - sumRight;
+    ssLeft += sumLeft * sumLeft;
+  }
+  ssR = ssRight;
+  ssL = ssLeft;
 }
 
 

@@ -79,9 +79,9 @@ public:
      @param return weighted-variance information value.
    */
   static double infoVar(double sumLeft,
-			       double sumRight,
-			       IndexT sCountLeft,
-			       IndexT sCountRight) {
+			double sumRight,
+			IndexT sCountLeft,
+			IndexT sCountRight) {
     return (sumLeft * sumLeft) / sCountLeft + (sumRight * sumRight) / sCountRight;
   }
 
@@ -90,7 +90,7 @@ public:
      @brief As above, but with running and initialized SumCounts.
    */
   static double infoVar(const SumCount& scAccum,
-			       const SumCount& scInit) {
+			const SumCount& scInit) {
     return infoVar(scAccum.sum, scInit.sum - scAccum.sum, scAccum.sCount, scInit.sCount - scAccum.sCount);
   }
 

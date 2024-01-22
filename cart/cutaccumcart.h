@@ -37,13 +37,10 @@ class CutAccumRegCart : public CutAccumReg {
 
 
   /**
-     @return true iff accumulated and monotonicity senses agree.
+     @brief Obtains weighted variance from parent class.
    */
-  bool senseMonotone() const {
-    IndexT sCountR = sumCount.sCount - sCount;
-    double sumR = sumCount.sum - sum;
-    bool accumNonDecreasing = (sum * sCountR <= sumR * sCount);
-    return monoMode > 0 ? accumNonDecreasing : !accumNonDecreasing;
+  double infoVar() const {
+    return CutAccum::infoVar(sum, sumCount.sum - sum, sCount, sumCount.sCount - sCount);
   }
   
 
@@ -78,12 +75,6 @@ public:
 
 
   /**
-     @brief As above, but checks monotonicity with argmax.
-   */
-  void splitImplMono();
-
-
-  /**
      @brief Splits right to left, no residual.
    */
   void splitRL(IndexT idxStart,
@@ -91,22 +82,9 @@ public:
 
 
   /**
-     @brief As above, but applies monotonicty constraint.
-   */
-  void splitRLMono(IndexT idxStart,
-		   IndexT idxEnd);
-
-
-  /**
      @brief Splits a range bounded to the right by a residual.
    */
   void residualRL();
-
-
-  /**
-     @brief As above, but applies monotonicity constraint.
-   */
-  void residualRLMono();
 };
 
 
@@ -116,7 +94,7 @@ public:
 class CutAccumCtgCart : public CutAccumCtg {
 
   /**
-     @brief Attempts to split at residual; either monotone or non-.
+     @brief Attempts to split at residual.
 
      Current rank position assumed to be adjacent to residual rank,
      whence the application of the residual immediately to the left.
@@ -128,6 +106,14 @@ class CutAccumCtgCart : public CutAccumCtg {
      @brief Applies residual state and continues splitting left.
    */
   void residualRL();
+
+
+  /**
+     @brief Obtains Gini value from parent class.
+   */
+  double infoGini() const {
+    return CutAccum::infoGini(ssL, ssR, sum, sumCount.sum - sum);
+  }
 
 
 public:
