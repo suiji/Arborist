@@ -31,41 +31,9 @@ namespace PRNG {
 
     @return std::vector copy of front end-generated random variates.
   */
-  vector<double> rUnif(size_t nSamp,
-		       double scale = 1.0);
-
-
-  /**
-     @brief Derives and scales uniform index variates.
-
-     @param scale specifies a size by which to multiply.
-
-     @return scaled copy of random variates, as index vector.
-   */
   template<typename indexType>
-  vector<indexType> rUnifIndex(indexType nSamp,
-			       size_t scale);
-
-
-  /**
-     @brief As above, but scatters index vector according to a map.
-
-     @param idxOmit is a scattering map, typically a subset.
-   */
-  template<typename indexType>
-  vector<indexType> rIndexScatter(indexType nSamp,
-				  const vector<indexType>& idxOmit);
-
-  
-  /**
-     @brief Derives and scales uniform variates.
-
-     @param scale specifies the values by which to multiply.
-
-     @return scaled copy of random variates, as index vector.
-   */
-  template<typename indexType>
-  vector<indexType> rUnifIndex(const vector<indexType>& scale);
+  vector<indexType> rUnif(indexType nSamp,
+		          indexType scale = indexType(1));
 }
 
 #endif

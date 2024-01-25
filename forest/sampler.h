@@ -52,7 +52,7 @@ class Sampler {
   const size_t nSamp;  ///< # samples per repitition.
   bool trivial; ///< Shortcut.  NYI
   vector<SamplerNux> sbCresc; ///< Crescent block.
-  unique_ptr<Sample::Walker<size_t>> walker; ///< Walker table.
+  unique_ptr<Sample<size_t>::Walker> walker; ///< Walker table.
 
   const unique_ptr<Response> response;
   const vector<vector<SamplerNux>> samples;

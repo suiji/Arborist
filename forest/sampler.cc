@@ -42,14 +42,14 @@ Sampler::Sampler(size_t nSamp_,
   nSamp(sampleCount(nSamp_, nObs, replace, noSample, prob)),
   trivial(false),
   response(nullptr) {
-  walker = (prob.empty() || !replace) ? nullptr : make_unique<Sample::Walker<size_t>>(prob, nObs);
+  walker = (prob.empty() || !replace) ? nullptr : make_unique<Sample<size_t>::Walker>(prob, nObs);
 }
 
 
 vector<size_t> Sampler::makeHoldout(size_t nObs,
 				    size_t nHoldout,
 				    const vector<size_t>& undefined) {
-  return Sample::sampleWithout<size_t>(nObs, undefined, nHoldout);
+  return Sample<size_t>::sampleWithout(nObs, undefined, nHoldout);
 }
 
 
@@ -245,13 +245,13 @@ void Sampler::sample() {
     idxOut = walker->sample(nSamp, noSample);
   }
   else if (!prob.empty()) { // Weighted, no replacement.
-    idxOut = Sample::sampleEfraimidis<size_t>(prob, noSample, nSamp);
+    idxOut = Sample<size_t>::sampleEfraimidis(prob, noSample, nSamp);
   }
   else if (!replace) { // Uniform, no replacement.
-    idxOut = Sample::sampleWithout<size_t>(nObs, noSample, nSamp);
+    idxOut = Sample<size_t>::sampleWithout(nObs, noSample, nSamp);
   }
   else { // Uniform, replacement.
-    idxOut = Sample::sampleWith<size_t>(nObs, omitMap, nSamp);
+    idxOut = Sample<size_t>::sampleWith(nObs, omitMap, nSamp);
   }
 
   appendSamples(idxOut);

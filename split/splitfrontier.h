@@ -27,6 +27,11 @@
 #include <vector>
 #include <functional>
 
+class BranchSense;
+class Frontier;
+class PredictorFrame;
+
+
 enum class SplitStyle { slots, bits, topSlot };
 
 
@@ -39,15 +44,26 @@ enum class SplitStyle { slots, bits, topSlot };
 class SplitFrontier {
 
 protected:
-  const class PredictorFrame* frame; // Summarizes the internal predictor reordering.
-  class Frontier* frontier;  // Current frontier of the partition tree.
+  // Maximum number of candidates to split simultaneously.  Should
+  // actually be a function of accumulator footprint and available
+  // memory.
+  // Not typically an issue unless training in the billions of
+  // observations or with predictors having very large (e.g., > 10^5)
+  // live category populations.
+  static const unsigned int splitBlock = 0x1000;
+
+  const PredictorFrame* frame; // Summarizes the internal predictor reordering.
+  Frontier* frontier;  // Current frontier of the partition tree.
   class InterLevel* interLevel;
   const bool compoundCriteria; // True iff criteria may be multiple-valued.
   EncodingStyle encodingStyle; // How to update observation tree.
   const SplitStyle splitStyle;
   const IndexT nSplit; // # subtree nodes at current layer.
-  void (SplitFrontier::* splitter)(const CandType& cand,
-				   class BranchSense&); // Splitting method.
+  void (SplitFrontier::* driver)(const CandType& cand,
+				 BranchSense&); // Splitting loop.
+
+  void (SplitFrontier::* splitter)(SplitNux&); // Splitting method.
+
 
   unique_ptr<RunSet> runSet; // Run accumulators for the current frontier.
   unique_ptr<CutSet> cutSet; // Cut accumulators for the current frontier.
@@ -57,7 +73,7 @@ protected:
      @brief Derives and applies maximal simple criteria.
    */
   void maxSimple(const vector<SplitNux>& sc,
-		 class BranchSense& branchSense);
+		 BranchSense& branchSense);
 
   
   vector<class SplitNux> maxCandidates(const vector<vector<class SplitNux>>& candVV);
@@ -75,18 +91,30 @@ protected:
 
 public:
 
-  SplitFrontier(class Frontier* frontier_,
+  SplitFrontier(Frontier* frontier_,
 		bool compoundCriteria_,
 		EncodingStyle encodingStyle_,
 		SplitStyle splitStyle_,
-		void (SplitFrontier::* splitter_)(const CandType&,
-						  class BranchSense&));
+		void (SplitFrontier::* driver_)(const CandType&,
+						BranchSense&),
+		void (SplitFrontier::* splitter)(SplitNux&)
+		);
 
   virtual ~SplitFrontier() = default;
   
 
+  /**
+     @brief Invokes dirver.
+   */
   void split(const CandType& cand,
-	     class BranchSense& branchSense);
+	     BranchSense& branchSense);
+
+
+  /**
+     @brief Drives splitting with simple argmax test.
+   */
+  void splitSimple(const CandType& cand,
+		   BranchSense& branchSense);
 
 
   RunSet* getRunSet() const {
@@ -284,7 +312,7 @@ public:
      @return encoding associated with split.
    */
   CritEncoding splitUpdate(const SplitNux& nux,
-			   class BranchSense& branchSense,
+			   BranchSense& branchSense,
 			   const IndexRange& range = IndexRange(),
 			   bool increment = true) const;
 
@@ -319,14 +347,15 @@ struct SFReg : public SplitFrontier {
   // Per-layer vector of uniform variates.
   vector<double> ruMono;
 
-  SFReg(class Frontier* frontier,
+  SFReg(Frontier* frontier,
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_)(const CandType&,
-					  class BranchSense&));
+	void (SplitFrontier::* driver_)(const CandType&,
+					BranchSense&),
+	void (SplitFrontier::* splitter)(SplitNux&) = nullptr);
 
-
+	
   /**
      @brief Caches a dense local copy of the mono[] vector.
 
@@ -335,7 +364,7 @@ struct SFReg : public SplitFrontier {
      @param bridgeMono has length equal to the predictor count.  Only
      numeric predictors may have nonzero entries.
   */
-  static void immutables(const class PredictorFrame* summaryFrame,
+  static void immutables(const PredictorFrame* summaryFrame,
                          const vector<double>& feMono);
 
   /**
@@ -353,12 +382,9 @@ struct SFReg : public SplitFrontier {
 
   
   /**
-     @brief Sets subclass-specific splitting parameters.
+     @return vector of probabalities for monotone splitting.
   */
-  void monoPreset();
-
-  
-  //  double getScore(const class IndexSet& iSet) const;
+  static vector<double> sampleMono(IndexT nSplit);
 };
 
 
@@ -369,17 +395,16 @@ protected:
 
   
 public:
-  SFCtg(class Frontier* frontier,
+  SFCtg(Frontier* frontier,
 	bool compoundCriteria,
 	EncodingStyle encodingStyle,
 	SplitStyle splitStyle,
-	void (SplitFrontier::* splitter_) (const CandType&,
-					   class BranchSense&));
-  
-  //  double getScore(const class IndexSet& iSet) const;
+	void (SplitFrontier::* driver_)(const CandType&,
+						BranchSense&),
+	void (SplitFrontier::* splitter)(SplitNux&) = nullptr);
 
 
-  /**
+	/**
      @brief Copies per-category sum vector associated with candidate's node.
 
      @param cand is the splitting candidate.

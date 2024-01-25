@@ -157,7 +157,7 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
         )
     }
     class(arbOut) <- c("rfArb", "arbTrain")
-
+    
     arbOut
 }
 

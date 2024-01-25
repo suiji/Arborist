@@ -35,7 +35,7 @@ unique_ptr<NodeScorer> NodeScorer::makeScorer() {
 
 
 void NodeScorer::frontierPreamble(const Frontier* frontier) {
-  ctgJitter = vector<double>(PRNG::rUnif(frontier->getNCtg() * frontier->getNSplit(), 0.5));
+  ctgJitter = PRNG::rUnif<double>(frontier->getNCtg() * frontier->getNSplit(), 0.5);
 }
 
 

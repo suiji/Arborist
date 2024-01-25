@@ -37,7 +37,7 @@ void Cand::precandidates(const Frontier* frontier,
 void Cand::candidateCartesian(const Frontier* frontier,
 			      InterLevel* interLevel) {
   IndexT idx = 0;
-  vector<double> dRand = PRNG::rUnif(nPred * nSplit);
+  vector<double> dRand = PRNG::rUnif<double>(nPred * nSplit);
   for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     if (!frontier->isUnsplitable(splitIdx)) { // Node can split.
       for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {
@@ -54,7 +54,7 @@ void Cand::candidateCartesian(const Frontier* frontier,
 void Cand::candidateBernoulli(const Frontier* frontier,
 			      InterLevel* interLevel,
 			      const vector<double>& predProb) {
-  vector<double> ruPred = PRNG::rUnif(nSplit * nPred);
+  vector<double> ruPred = PRNG::rUnif<double>(nSplit * nPred);
   for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     if (frontier->isUnsplitable(splitIdx)) { // Node cannot split.
       continue;
@@ -76,7 +76,7 @@ void Cand::candidateBernoulli(const Frontier* frontier,
 void Cand::candidateFixed(const Frontier* frontier,
 			  InterLevel* interLevel,
 			  PredictorT predFixed) {
-  vector<double> ruPred = PRNG::rUnif(nSplit * nPred);
+  vector<double> ruPred = PRNG::rUnif<double>(nSplit * nPred);
 
   for (IndexT splitIdx = 0; splitIdx < nSplit; splitIdx++) {
     if (frontier->isUnsplitable(splitIdx)) { // Node cannot split.

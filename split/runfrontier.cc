@@ -43,7 +43,7 @@ const double* RunSet::rvSlice(IndexT sigIdx) const {
 void RunSet::accumPreset(const SplitFrontier* sf) {
   runSig = vector<RunSig>(nAccum);
   if (!runWide.empty())
-    rvWide = PRNG::rUnif(RunAccum::maxWidth * runWide.size());
+    rvWide = PRNG::rUnif<double>(RunAccum::maxWidth * runWide.size());
 }
 
 

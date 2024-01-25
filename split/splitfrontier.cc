@@ -32,8 +32,9 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 			     bool compoundCriteria_,
 			     EncodingStyle encodingStyle_,
 			     SplitStyle splitStyle_,
-			     void (SplitFrontier::* splitter_)(const CandType&,
-							       BranchSense&)) :
+			     void (SplitFrontier::* driver_)(const CandType&,
+							     BranchSense&),
+			     void (SplitFrontier::* splitter_)(SplitNux&)) :
   frame(frontier_->getFrame()),
   frontier(frontier_),
   interLevel(frontier->getInterLevel()),
@@ -41,6 +42,7 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
   encodingStyle(encodingStyle_),
   splitStyle(splitStyle_),
   nSplit(frontier->getNSplit()),
+  driver(driver_),
   splitter(splitter_),
   runSet(make_unique<RunSet>(this)),
   cutSet(make_unique<CutSet>()) {
@@ -49,7 +51,28 @@ SplitFrontier::SplitFrontier(Frontier* frontier_,
 
 void SplitFrontier::split(const CandType& cand,
 			  BranchSense& branchSense) {
-  (this->*splitter)(cand, branchSense);
+  (this->*driver)(cand, branchSense);
+}
+
+
+void SplitFrontier::splitSimple(const CandType& cnd,
+				BranchSense& branchSense) {
+  vector<SplitNux> cand = cnd.stagedSimple(interLevel, this);
+  for (IndexT blockStart = 0; blockStart < cand.size(); blockStart += splitBlock) {
+    OMPBound splitTop = blockStart + splitBlock;
+    if (splitTop > cand.size())
+      splitTop = cand.size();
+
+#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+    {
+#pragma omp for schedule(dynamic, 1)
+      for (OMPBound splitPos = blockStart; splitPos < splitTop; splitPos++) {
+	(this->*splitter)(cand[splitPos]);
+      }
+    }
+  }
+  
+  maxSimple(cand, branchSense);
 }
 
 
@@ -169,10 +192,11 @@ SFReg::SFReg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter)(const CandType& cand,
-					      BranchSense&)):
-  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
-  ruMono(vector<double>(0)) {
+	     void (SplitFrontier::* driver)(const CandType& cand,
+					    BranchSense&),
+	     void (SplitFrontier::* splitter)(SplitNux&)) :
+  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, driver, splitter),
+  ruMono(sampleMono(nSplit)) {
 }
 
 
@@ -194,7 +218,7 @@ void SFReg::deImmutables() {
 
 
 int SFReg::getMonoMode(const SplitNux& cand) const {
-  if (mono.empty())
+  if (ruMono.empty())
     return 0;
 
   PredictorT numIdx = getNumIdx(cand.getPredIdx());
@@ -212,10 +236,12 @@ int SFReg::getMonoMode(const SplitNux& cand) const {
 }
 
 
-void SFReg::monoPreset() {
+vector<double> SFReg::sampleMono(IndexT nSplit) {
   if (!mono.empty()) {
-    ruMono = PRNG::rUnif(nSplit * mono.size());
+    return PRNG::rUnif<double>(nSplit * mono.size());
   }
+  else
+    return vector<double>(0);
 }
 
 
@@ -223,9 +249,10 @@ SFCtg::SFCtg(class Frontier* frontier,
 	     bool compoundCriteria,
 	     EncodingStyle encodingStyle,
 	     SplitStyle splitStyle,
-	     void (SplitFrontier::* splitter) (const CandType& cand,
-					       BranchSense&)) :
-  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, splitter),
+	     void (SplitFrontier::* driver) (const CandType& cand,
+					     BranchSense&),
+	     void (SplitFrontier::* splitter)(SplitNux&)) :
+  SplitFrontier(frontier, compoundCriteria, encodingStyle, splitStyle, driver, splitter),
   ctgSum(vector<vector<double>>(nSplit)),
   sumSquares(frontier->sumsAndSquares(ctgSum)) {
 }

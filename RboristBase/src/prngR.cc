@@ -29,53 +29,45 @@
 using namespace Rcpp;
 
 
-vector<double> PRNG::rUnif(size_t nSamp, double scale) {
+template<>
+vector<size_t> PRNG::rUnif(size_t nSamp,
+			   size_t scale) {
   RNGScope scope;
 
   // R requires type double for vector lengths >= 2^32.
   NumericVector rn(runif(double(nSamp)));
-  if (scale != 1.0)
-    rn = rn * scale;
 
-  return vector<double>(rn.begin(), rn.end());
-}
+  vector<size_t> variates(nSamp);
+  size_t idx = 0;
+  for (const double& variate : rn) {
+    variates[idx++] = variate * scale;
+  }
 
-
-template <>
-vector<size_t> PRNG::rUnifIndex(size_t nSamp, size_t idxTop) {
-  RNGScope scope;
-  
-  NumericVector rn(runif(double(nSamp)));
-  rn = rn * idxTop;
-
-  return vector<size_t>(rn.begin(), rn.end());
+  return variates;
 }
 
 
 template<>
-vector<size_t> PRNG::rIndexScatter(size_t nSamp,
-				   const vector<size_t>& idxOmit) {
+vector<unsigned int> PRNG::rUnif(unsigned int nSamp,
+				 unsigned int scale) {
   RNGScope scope;
 
-  vector<size_t> rnTyped = rUnifIndex(nSamp, idxOmit.size());
-  vector<size_t> idxOut(nSamp);
+  NumericVector rn(runif(nSamp));
+  if (scale != 1)
+    rn = rn * scale;
 
-  // Rcpp does not appear to support subscripting by numeric types, so the
-  // scattering is performed by an explicit loop.
-  size_t idx = 0;
-  for (const size_t& rnIdx : rnTyped) {
-    idxOut[idx++] = idxOmit[rnIdx];
-  }
-  return idxOut;
+  return vector<unsigned int>(rn.begin(), rn.end());
 }
 
 
-template <>
-vector<size_t> PRNG::rUnifIndex(const vector<size_t>& idxTop) {
+template<>
+vector<double> PRNG::rUnif(double nSamp,
+			   double scale) {
   RNGScope scope;
 
-  NumericVector rn(runif(double(idxTop.size())));
-  rn = rn * NumericVector(idxTop.begin(), idxTop.end());
+  NumericVector rn(runif(nSamp));
+  if (scale != 1.0)
+    rn = rn * scale;
 
-  return vector<size_t>(rn.begin(), rn.end());
+  return vector<double>(rn.begin(), rn.end());
 }

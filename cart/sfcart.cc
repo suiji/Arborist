@@ -17,7 +17,6 @@
 #include "frontier.h"
 #include "sfcart.h"
 #include "splitnux.h"
-#include "ompthread.h"
 #include "splitcart.h"
 #include "branchsense.h"
 #include "runaccum.h"
@@ -25,45 +24,12 @@
 
 
 SFRegCart::SFRegCart(Frontier* frontier) :
-  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, static_cast<void (SplitFrontier::*) (const CandType&, BranchSense&)>(&SFRegCart::split)) {
+  SFReg(frontier, false, EncodingStyle::trueBranch, SplitStyle::slots, &SplitFrontier::splitSimple, static_cast<void (SplitFrontier::*) (SplitNux&)>(&SFRegCart::split)) {
 }
 
 
 SFCtgCart::SFCtgCart(Frontier* frontier) :
-  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, static_cast<void (SplitFrontier::*) (const CandType&, BranchSense&)>(&SFCtgCart::split)) {
-}
-
-
-void SFRegCart::split(const CandType& cnd,
-		      BranchSense& branchSense) {
-  vector<SplitNux> cand = cnd.stagedSimple(interLevel, this);
-  SFReg::monoPreset(); // WART
-  OMPBound splitTop = cand.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(cand[splitPos]);
-    }
-  }
-
-  maxSimple(cand, branchSense);
-}
-
-
-void SFCtgCart::split(const CandType& cnd,
-		      BranchSense& branchSense) {
-  vector<SplitNux> cand = cnd.stagedSimple(interLevel, this);
-  OMPBound splitTop = cand.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
-  {
-#pragma omp for schedule(dynamic, 1)
-    for (OMPBound splitPos = 0; splitPos < splitTop; splitPos++) {
-      split(cand[splitPos]);
-    }
-  }
-
-  maxSimple(cand, branchSense);
+  SFCtg(frontier, false, EncodingStyle::trueBranch, frontier->getNCtg() == 2 ? SplitStyle::slots : SplitStyle::bits, &SplitFrontier::splitSimple, static_cast<void (SplitFrontier::*) (SplitNux&)>(&SFCtgCart::split)) {
 }
 
 

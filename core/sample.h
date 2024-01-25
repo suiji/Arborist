@@ -27,9 +27,166 @@
 
 using namespace std;
 
-namespace Sample {
+template<typename indexType>
+struct Sample {
 
-  template<typename indexType>
+  /**
+     @brief Scales vector of uniform variates.
+
+     @param nSamp is the vector size.
+
+     @param idxTop is a scaling factor, typically interval size.
+
+     @return index variates in [0, idxTop-1].
+   */
+  static vector<indexType> rUnifIndex(indexType nSamp,
+			       indexType idxTop) {
+    return PRNG::rUnif<indexType>(nSamp, idxTop);
+  }
+
+
+  /**
+     @brief As above, but scales by (typically, descending) vector.
+
+     @param scale specifies the values by which to scale.
+
+     @return index variates, typically w.r.t. shrinking interval.
+   */
+  static vector<indexType> rUnifIndex(const vector<indexType>& scale) {
+    vector<indexType> variates = PRNG::rUnif(scale.size());
+    indexType idx = 0;
+    for (indexType& var : variates) {
+      var *= scale[idx++];
+    }
+
+    return variates;
+  }
+
+
+  /**
+     @brief As above, but scatters index vector according to a map.
+
+     @param idxOmit is a scattering map, typically a subset.
+   */
+  static vector<indexType> rIndexScatter(indexType nSamp,
+				  const vector<indexType>& idxOmit) {
+    vector<indexType> rIndices = rUnifIndex(nSamp, idxOmit.size());
+    for (indexType& rnIdx : rIndices) {
+      rnIdx = idxOmit[rnIdx];
+    }
+    return rIndices;
+  }
+
+
+  /**
+     @brief Orders indices with omitted values placed last.
+
+     @param nObs is the # indices to order.
+
+     @param omit are indices to be omitted.
+     
+     @return sequential indices with omitted placed at the end.
+   */
+  static vector<indexType> omitIndices(indexType nObs,
+				const vector<indexType>& omit) {
+  BHeap<indexType> bHeap;
+  for (const size_t& idx : omit) {
+    bHeap.insert(idx);
+  }
+  vector<indexType> idxEligible(nObs);
+  iota(idxEligible.begin(), idxEligible.end(), 0);
+  indexType idxEnd = nObs - 1;
+  while (!bHeap.empty()) { // Omits indices in descending order.
+    indexType idx = bHeap.pop();
+    idxEligible[idxEnd] = idx;
+    idxEligible[idx] = idxEnd--;
+  }
+  return idxEligible;
+  }
+
+
+  static vector<indexType> scaleVariates(indexType idxEnd,
+				 indexType nSamp) {
+    vector<indexType> sampleScale(nSamp);
+    iota(sampleScale.begin(), sampleScale.end(), idxEnd - nSamp + 1);
+    reverse(sampleScale.begin(), sampleScale.end());
+    return rUnifIndex(sampleScale);
+  }
+
+
+  /**
+     @brief Uniform sampling without replacement.
+
+     @param nObs is the number of indices to sample.
+
+     @param omit is a set of indices held out from sampling.
+
+     @param nSamp is the # samples to draw.
+
+     @return vector of sampled indices.
+  */
+  static vector<indexType> sampleWithout(indexType nObs,
+				  const vector<indexType>& omit,
+				  indexType nSamp) {
+    vector<indexType> indices = omitIndices(nObs, omit);
+    indexType idxEnd = nObs - omit.size() - 1;
+    vector<indexType> idxOut;
+    for (const indexType& rIndex : scaleVariates(idxEnd, nSamp)) {
+      idxOut.push_back(exchange(indices[rIndex], indices[idxEnd--]));
+    }
+    return idxOut;
+  }
+
+
+  static vector<indexType> sampleWith(indexType nObs,
+			       const vector<indexType>& omitMap,
+			       indexType nSamp) {
+    if (omitMap.empty())
+      return rUnifIndex(nSamp, nObs);
+    else
+      return rIndexScatter(nSamp, omitMap);
+  }
+
+
+  /**
+     @brief Permutes a zero-based set of contiguous values.
+
+     @param nSlot is the number of values.
+
+     @return vector of permuted indices.
+   */
+  static vector<indexType> permute(indexType nSlot) {
+    BHeap<indexType> bHeap;
+    for (const double& variate : PRNG::rUnif<double>(nSlot)) {
+      bHeap.insert(variate);
+    }
+
+    return bHeap.depopulate();
+  }
+
+
+  /**
+     @brief Non-replacement sampling via Efraimidis-Spirakis.
+
+     @param nSamp value <= prob.size(), potentially <<.
+   */
+  static vector<indexType> sampleEfraimidis(const vector<double>& prob,
+				     const vector<indexType>& obsOmit,
+				     indexType nSamp = 0) {
+    vector<double> vUnif = PRNG::rUnif<double>(prob.size());
+    const double* variate = &vUnif[0];
+    BHeap<indexType> bHeap;
+    for (const double& probability : prob) {
+      if (probability > 0) {
+	bHeap.insert(-log(*variate / probability));
+      }
+      variate++;
+    }
+
+    return bHeap.depopulate(nSamp);
+  }
+
+
   struct Walker {
     vector<double> weight;
     vector<indexType> coIndex;
@@ -70,14 +227,14 @@ namespace Sample {
 
 
     vector<indexType> sample(indexType nSamp,
-			  const vector<indexType>& obsOmit) {
+			     const vector<indexType>& obsOmit) {
       vector<indexType> idxOut(nSamp);
 
       // Some implementions piggyback index lookup with random weight
       // generation.  Separate random variates are drawn here to
       // improve resolution at high observation count.
-      vector<indexType> rIndex = PRNG::rUnifIndex<indexType>(nSamp, weight.size());
-      vector<double> ru = PRNG::rUnif(nSamp);
+      vector<indexType> rIndex = rUnifIndex(nSamp, weight.size());
+      vector<double> ru = PRNG::rUnif<double>(nSamp);
       for (indexType i = 0; i < nSamp; i++) {
 	indexType idx = rIndex[i];
 	idxOut[i] = ru[i] < weight[idx] ? idx : coIndex[idx];
@@ -85,124 +242,6 @@ namespace Sample {
       return idxOut;
     }
   };
-
-
-  template<typename indexType>
-  vector<indexType> sampleWith(indexType nObs,
-			       const vector<indexType>& omitMap,
-			       indexType nSamp) {
-    if (omitMap.empty())
-      return PRNG::rUnifIndex<indexType>(nSamp, nObs);
-    else
-      return PRNG::rIndexScatter(nSamp, omitMap);
-  }
-  
-
-  /**
-     @brief Orders indices with omitted values placed last.
-
-     @param nObs is the # indices to order.
-
-     @param omit are indices to be omitted.
-     
-     @return sequential indices with omitted placed at the end.
-   */
-  template<typename indexType>
-  vector<indexType> omitIndices(indexType nObs,
-				const vector<indexType>& omit) {
-  BHeap<indexType> bHeap;
-  for (const size_t& idx : omit) {
-    bHeap.insert(idx);
-  }
-  vector<indexType> idxEligible(nObs);
-  iota(idxEligible.begin(), idxEligible.end(), 0);
-  indexType idxEnd = nObs;
-  while (!bHeap.empty()) { // Omits indices in descending order.
-    idxEnd--;
-    indexType idx = bHeap.pop();
-    idxEligible[idxEnd] = idx;
-    idxEligible[idx] = idxEnd;
-  }
-  return idxEligible;
-}
-
-
-  template<typename indexType>
-  vector<indexType> scaleVariates(indexType idxEnd,
-				 indexType nSamp) {
-    vector<indexType> sampleScale(nSamp);
-    iota(sampleScale.begin(), sampleScale.end(), idxEnd - nSamp + 1);
-    reverse(sampleScale.begin(), sampleScale.end());
-    return PRNG::rUnifIndex<indexType>(sampleScale);
-  }
-
-
-  /**
-   @brief Uniform sampling without replacement.
-
-   @param nObs is the number of indices to sample.
-
-   @param nSamp is the # samples to draw.
-
-   @param omit is a set of indices held out from sampling.
-
-   @return vector of sampled indices.
- */
-  template<typename indexType>
-  vector<indexType> sampleWithout(indexType nObs,
-				  const vector<indexType>& omit,
-				  indexType nSamp) {
-    vector<indexType> indices = omitIndices(nObs, omit);
-    size_t idxEnd = nObs - omit.size() - 1;
-    vector<indexType> rn = scaleVariates(idxEnd, nSamp);
-    vector<indexType> idxOut(nSamp);
-    for (indexType i = 0; i < nSamp; i++) {
-      indexType index = rn[i];
-      idxOut[i] = exchange(indices[index], indices[idxEnd - i]);
-    }
-    return idxOut;
-  }
-
-
-  /**
-     @brief Permutes a zero-based set of contiguous values.
-
-     @param nSlot is the number of values.
-
-     @return vector of permuted indices.
-   */
-  template<typename indexType>
-  vector<indexType> permute(indexType nSlot) {
-    vector<double> vUnif = PRNG::rUnif(nSlot);
-    BHeap<indexType> bHeap;
-    for (auto variate : vUnif) {
-      bHeap.insert(variate);
-    }
-
-    return bHeap.depopulate();
-  }
-
-  /**
-     @brief Non-replacement sampling via Efraimidis-Spirakis.
-
-     @param nSamp value <= prob.size(), potentially <<.
-   */
-  template<typename indexType>
-  vector<indexType> sampleEfraimidis(const vector<double>& prob,
-				     const vector<indexType>& obsOmit,
-				     indexType nSamp = 0) {
-    vector<double> vUnif = PRNG::rUnif(prob.size());
-    const double* variate = &vUnif[0];
-    BHeap<indexType> bHeap;
-    for (const double& probability : prob) {
-      if (probability > 0) {
-	bHeap.insert(-log(*variate / probability));
-      }
-      variate++;
-    }
-
-    return bHeap.depopulate(nSamp);
-  }
-}
+};
 
 #endif
