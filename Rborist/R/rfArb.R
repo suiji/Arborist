@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2024   Mark Seligman
+# Copyright (C)  2012-2025   Mark Seligman
 ##
 ## This file is part of Rborist.
 ##
@@ -26,7 +26,8 @@ rfArb.default <- function(x,
                           y,
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
-                classWeight = NULL,
+                classWeight = numeric(0),
+                discardState = FALSE,
                 impPermute = 0,
                 indexing = FALSE,
                 maxLeaf = 0,
@@ -40,13 +41,13 @@ rfArb.default <- function(x,
                 noValidate = FALSE,
                 predFixed = 0,
                 predProb = 0.0,
-                predWeight = NULL, 
-                quantVec = NULL,
-                quantiles = !is.null(quantVec),
-                regMono = NULL,
+                predWeight = numeric(0),
+                quantVec = numeric(0),
+                quantiles = length(quantVec) > 0,
+                regMono = numeric(0),
                 rowWeight = numeric(0),
                 samplingWeight = numeric(0),
-                splitQuant = NULL,
+                splitQuant = numeric(0),
                 streamline = FALSE,
                 thinLeaves = streamline || (is.factor(y) && !indexing),
                 trapUnobserved = FALSE,
@@ -66,15 +67,14 @@ rfArb.default <- function(x,
         }
     }
     
-    
-  # Disables quantile prediction when not supported:
+    # Quantile validation requires populated leaves.
     if (quantiles && thinLeaves) {
-        warning("Disabling quantile validation:  thin leaves insufficient.")
-        quantiles <- FALSE
+        warning("Quantile validation requested:  disabling thin leaves.")
+        thinLeaves <- FALSE
     }
     
     preFormat <- preformat(x, verbose)
-    sampler <- presample(y, nHoldout, samplingWeight, nSamp, nTree, withRepl, verbose)
+    sampler <- presample(y, samplingWeight, nSamp, nTree, withRepl, nHoldout, verbose=verbose)
     train <- rfTrain(preFormat, sampler, y,
                      autoCompress,
                      ctgCensus,
@@ -113,11 +113,11 @@ rfArb.default <- function(x,
         summaryValidate <- validateCommon(train, sampler, preFormat, argPredict)
     }
 
-    postTrain(sampler, train, summaryValidate, impPermute)
+    postTrain(sampler, train, summaryValidate, impPermute, discardState)
 }
 
 
-postTrain <- function(sampler, train, summaryValidate, impPermute) {
+postTrain <- function(sampler, train, summaryValidate, impPermute, discardState) {
     predInfo <- train$predInfo
     names(predInfo) <- train$signature$colNames
     training = list(
@@ -131,33 +131,57 @@ postTrain <- function(sampler, train, summaryValidate, impPermute) {
 
     # Consider caching train object ut avoid copying its individual
     # members:
-    if (impPermute > 0) {
-        arbOut <- list(
-            sampler = sampler,
-            leaf = train$leaf,
-            forest = train$forest,
-            predMap = train$predMap,
-            signature = train$signature,
-            training = training,
-            prediction = summaryValidate$prediction,
-            validation = summaryValidate$validation,
-            importance = summaryValidate$importance
-        )
+    if (discardState) {
+        if (impPermute > 0) {
+            arbOut <- list(
+                sampler = NULL,
+                leaf = NULL,
+                forest = NULL,
+                signature = NULL,
+                training = NULL,
+                prediction = summaryValidate$prediction,
+                validation = summaryValidate$validation,
+                importance = summaryValidate$importance
+            )
+        }
+        else {
+            arbOut <- list(
+                sampler = NULL,
+                leaf = NULL,
+                forest = NULL,
+                signature = NULL,
+                training = NULL,
+                prediction = summaryValidate$prediction,
+                validation = summaryValidate$validation
+            )
+        }
     }
     else {
-        arbOut <- list(
-            sampler = sampler,
-            leaf = train$leaf,
-            forest = train$forest,
-            predMap = train$predMap,
-            signature = train$signature,
-            training = training,
-            prediction = summaryValidate$prediction,
-            validation = summaryValidate$validation
-        )
+        if (impPermute > 0) {
+            arbOut <- list(
+                sampler = sampler,
+                leaf = train$leaf,
+                forest = train$forest,
+                signature = train$signature,
+                training = training,
+                prediction = summaryValidate$prediction,
+                validation = summaryValidate$validation,
+                importance = summaryValidate$importance
+            )
+        }
+        else {
+            arbOut <- list(
+                sampler = sampler,
+                leaf = train$leaf,
+                forest = train$forest,
+                signature = train$signature,
+                training = training,
+                prediction = summaryValidate$prediction,
+                validation = summaryValidate$validation
+            )
+        }
     }
-    class(arbOut) <- c("rfArb", "arbTrain")
-    
-    arbOut
+
+    structure(arbOut, class = "rfArb")
 }
 

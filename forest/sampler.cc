@@ -30,6 +30,7 @@ Sampler::Sampler(size_t nSamp_,
 		 bool replace_,
 		 const vector<double>& weight,
 		 size_t nHoldout,
+		 unsigned int nFold,
 		 const vector<size_t>& unobserved_) :
   nRep(nRep_),
   nObs(nObs_),

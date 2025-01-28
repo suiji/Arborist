@@ -30,16 +30,18 @@
 
 #include<memory>
 
+// [[Rcpp::export]]
 RcppExport SEXP deframeDF(SEXP sDf,
 			  SEXP sPredClass,
                           SEXP sLevel,
 			  SEXP sFactor,
 			  SEXP sSigTrain) {
-  BEGIN_RCPP
+  if (!SignatureR::checkTypes(sSigTrain, as<CharacterVector>(sPredClass)))
+    stop("Training, prediction data types do not match.");
 
   DataFrame df(sDf);
   List deframe = List::create(
-			      _["rleFrame"] = RLEFrameR::presortDF(df, sSigTrain, sLevel, as<CharacterVector>(sPredClass)),
+			      _["rleFrame"] = RLEFrameR::presortDF(df, sSigTrain, sLevel),
 			      _["nRow"] = df.nrow(),
 			      _["signature"] = SignatureR::wrapDF(df,
 								  as<CharacterVector>(sPredClass),
@@ -48,8 +50,6 @@ RcppExport SEXP deframeDF(SEXP sDf,
 			      );
   deframe.attr("class") = "Deframe";
   return deframe;
-
-  END_RCPP
 }
 
 
@@ -82,8 +82,8 @@ RcppExport SEXP deframeNum(SEXP sX) {
 /**
    @brief Reads an S4 object containing (sparse) dgCMatrix.
  */
+// [[Rcpp::export]]
 RcppExport SEXP deframeIP(SEXP sX) {
-  BEGIN_RCPP
   S4 spNum(sX);
 
   // Divines the encoding format and packs appropriately.
@@ -151,6 +151,4 @@ RcppExport SEXP deframeIP(SEXP sX) {
 			      _["signature"] = SignatureR::wrapSparse(nPred, false, colName, rowName));
   deframe.attr("class") = "Deframe";
   return deframe;
-
-  END_RCPP
 }

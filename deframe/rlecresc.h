@@ -19,7 +19,6 @@
 #include "rle.h"
 #include "valrank.h"
 
-#include <cstdint>
 #include <vector>
 
 using namespace std;

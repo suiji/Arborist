@@ -46,6 +46,7 @@ RcppExport SEXP rootSample(const SEXP sY,
 			   const SEXP sNTree,
 			   const SEXP sWithRepl,
 			   const SEXP sNHoldout,
+			   const SEXP sNFold,
 			   const SEXP sIdxUndefined) {
   NumericVector weight(as<NumericVector>(sWeight));
   vector<size_t> undefined;
@@ -58,7 +59,7 @@ RcppExport SEXP rootSample(const SEXP sY,
     undefined = vector<size_t>(undefinedFE.begin(), undefinedFE.end());
   }
 
-  return SamplerR::rootSample(sY, sNSamp, sNTree, sWithRepl, vector<double>(weight.begin(), weight.end()), sNHoldout, undefined);
+  return SamplerR::rootSample(sY, sNSamp, sNTree, sWithRepl, vector<double>(weight.begin(), weight.end()), sNHoldout, sNFold, undefined);
 }
 
 
@@ -69,8 +70,9 @@ List SamplerR::rootSample(const SEXP sY,
 			  const SEXP sWithRepl,
 			  const vector<double>& weight,
 			  const SEXP sNHoldout,
+			  const SEXP sNFold,
 			  const vector<size_t>& undefined) {
-  SamplerBridge bridge(as<size_t>(sNSamp), getNObs(sY), as<unsigned int>(sNTree), as<bool>(sWithRepl), weight, as<size_t>(sNHoldout), undefined);
+  SamplerBridge bridge(as<size_t>(sNSamp), getNObs(sY), as<unsigned int>(sNTree), as<bool>(sWithRepl), weight, as<size_t>(sNHoldout), as<unsigned int>(sNFold), undefined);
   sampleRepeatedly(bridge);
   return wrap(bridge, sY);
 }

@@ -80,13 +80,10 @@ struct RLEFrameR {
      @param lSigTrain is a training signature, possibly null.
 
      @param lLevel are factor levels, if any.
-
-     @param predClass are the type name strings, per predictor.
    */
   static List presortDF(const DataFrame& df,
 		        SEXP sSigTrain,
-			SEXP sLevel,
-			const CharacterVector& predClass);
+			SEXP sLevel);
 
 
   /**

@@ -59,7 +59,7 @@ class PredictorFrame {
   const vector<PredictorT> factorExtent; ///< # runs, per factor.
   const PredictorT nPredFac;
   const PredictorT nPred;
-  const vector<PredictorT> feIndex; ///> Maps core predictor index to user position.
+  const vector<PredictorT> feIndex; ///< Maps core predictor index to user position.
   const PredictorT noRank; // Inattainable rank value.
   const IndexT denseThresh; // Threshold run length for autocompression.
 

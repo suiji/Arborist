@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2024   Mark Seligman
+# Copyright (C)  2012-2025   Mark Seligman
 ##
 ## This file is part of RboristBase.
 ##
@@ -21,11 +21,12 @@ presample <- function(y, ...) UseMethod("presample")
 
 
 presample.default <- function(y,
-                              nHoldout = 0,
                               samplingWeight = numeric(0),
                               nSamp = 0,
                               nRep = 500,
                               withRepl = TRUE,
+                              nHoldout = 0,
+                              nFold = 1,
                               verbose = FALSE,
                               nTree = 0,
                               ...) {
@@ -38,9 +39,6 @@ presample.default <- function(y,
         warning("Missing reponse indices held out from sampling.")
     }
     
-    if (!is.numeric(y) && !is.factor(y))
-        stop("Expecting numeric or factor response")
-
     nObs <- length(y)
     if (length(naSet) >= nObs)
         stop("Missing values equal or exceed number of observations")
@@ -83,7 +81,7 @@ presample.default <- function(y,
             samplingWeight <- numeric(0)
     }
 
-    ps <- presampleCommon(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet)
+    ps <- presampleCommon(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, nFold, naSet)
     if (verbose)
         print("Sampling completed")
 
@@ -93,6 +91,6 @@ presample.default <- function(y,
 
 
 # Glue-layer interface to sampler.
-presampleCommon <- function(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet) {
-    tryCatch(.Call("rootSample", y, samplingWeight, nSamp, nRep, withRepl, nHoldout, naSet), error = function(e){stop(e)})
+presampleCommon <- function(y, samplingWeight, nSamp, nRep, withRepl, nHoldout, nFold, naSet) {
+    tryCatch(.Call("rootSample", y, samplingWeight, nSamp, nRep, withRepl, nHoldout, nFold, naSet), error = function(e){stop(e)})
 }

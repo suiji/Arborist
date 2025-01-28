@@ -21,6 +21,7 @@
 #include <memory>
 #include <utility>
 #include <cmath>
+#include <cstdint>
 
 using namespace std;
 

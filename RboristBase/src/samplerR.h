@@ -38,6 +38,7 @@ RcppExport SEXP rootSample(const SEXP sY,
 			   const SEXP sNTree,
 			   const SEXP sWithRepl,
 			   const SEXP sNHoldout,
+			   const SEXP sNFold,
 			   const SEXP sUndefined);
 
 
@@ -60,6 +61,7 @@ struct SamplerR {
 			 const SEXP sWithRepl,
 			 const vector<double>& weight,
 			 const SEXP sNHoldout,
+			 const SEXP sNFold,
 			 const vector<size_t>& undefined);
 
 

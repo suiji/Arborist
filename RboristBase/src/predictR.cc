@@ -76,7 +76,7 @@ List PredictR::predict(const List& lDeframe,
     Rcout << "Entering prediction" << endl;
 
   initPerInvocation(lArgs);
-  ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
+  ForestBridge::init(TrainR::nPred(lTrain));
 
   List prediction;
   SamplerBridge samplerBridge(SamplerR::unwrapPredict(lSampler, lDeframe, as<bool>(lArgs[PredictR::strBagging])));

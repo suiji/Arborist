@@ -21,6 +21,7 @@ S3method(expandfe, default)
 S3method(validate, default)
 S3method(forestWeight, default)
 S3method(predict, arbTrain)
+S3method(predict, rfArb)
 S3method(Export, default)
 S3method(Streamline, rfArb)
 

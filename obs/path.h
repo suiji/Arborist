@@ -17,7 +17,6 @@
 #ifndef PARTITION_PATH_H
 #define PARTITION_PATH_H
 
-#include <cstdint>
 #include <vector>
 
 #include "typeparam.h"

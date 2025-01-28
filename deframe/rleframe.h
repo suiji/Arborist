@@ -32,12 +32,12 @@ bool RLECompareRow (const RLEVal<valType>& a, const RLEVal<valType>& b) {
  */
 struct RLEFrame {
   const size_t nObs;
-  const vector<unsigned int> factorTop; ///> top factor index / 0.
-  const size_t noRank; ///> Inattainable rank index.
+  const vector<unsigned int> factorTop; ///< top factor index / 0.
+  const size_t noRank; ///< Inattainable rank index.
   vector<vector<RLEVal<szType>>> rlePred;
   vector<vector<double>> numRanked;
   vector<vector<unsigned int>> facRanked;
-  vector<unsigned int> blockIdx; ///> position of value in block.
+  vector<unsigned int> blockIdx; ///< position of value in block.
 
   /**
      @brief Constructor from unpacked representation.
@@ -110,7 +110,7 @@ struct RLEFrame {
   unsigned int getFactorTop(unsigned int predIdx) const {
     return factorTop[predIdx];
   }
-  
+
 
   const vector<RLEVal<szType>>& getRLE(unsigned int predIdx) const {
     return rlePred[predIdx];

@@ -60,7 +60,6 @@ struct TrainR {
   static const string strSignature;
   static const string strSamplerHash;
   static const string strPredInfo;
-  static const string strPredMap;
   static const string strForest;
   static const string strLeaf;
   static const string strDiagnostic;
@@ -103,13 +102,22 @@ struct TrainR {
 
   void trainGrove(const struct TrainBridge& tb);
 
+
+  static IntegerVector predMap(const List& lTrain);
+
+  
+  /**
+     @return number of predictors involved in training.
+   */
+  static unsigned int nPred(const List& lTrain);
+
   
   /**
      @brief Scales the per-predictor information quantity by # trees.
 
      @return remapped vector of scaled information values.
    */
-  NumericVector scaleInfo(const TrainBridge& trainBridge) const;
+  NumericVector scaleInfo(const List& lDeframe) const;
 
 
   /**
@@ -118,7 +126,8 @@ struct TrainR {
      Algorithm-specific implementation included by configuration
      script.
    */
-  static void initPerInvocation(const List &argList,
+  static void initPerInvocation(const List& lDeframe,
+				const List& argList,
 				struct TrainBridge& trainBridge);
 
 

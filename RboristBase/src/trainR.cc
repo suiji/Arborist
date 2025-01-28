@@ -40,7 +40,6 @@ const string TrainR::strVersion = "version";
 const string TrainR::strSignature = "signature";
 const string TrainR::strSamplerHash = "samplerHash";
 const string TrainR::strPredInfo = "predInfo";
-const string TrainR::strPredMap = "predMap";
 const string TrainR::strForest = "forest";
 const string TrainR::strLeaf = "leaf";
 const string TrainR::strDiagnostic = "diag";
@@ -74,7 +73,7 @@ List TrainR::train(const List& lDeframe, const List& lSampler, const List& argLi
 
   vector<string> diag;
   TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList[strAutoCompress]), as<bool>(argList[strEnableCoproc]), diag);
-  initPerInvocation(argList, trainBridge);
+  initPerInvocation(lDeframe, argList, trainBridge);
 
   TrainR trainR(lSampler);
   trainR.trainGrove(trainBridge);
@@ -132,8 +131,7 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 			       _[strVersion] = as<String>(argList[strVersion]),
 			       _[strSignature] = lDeframe[strSignature],
 			       _[strSamplerHash] = lSampler[SamplerR::strHash],
-			       _[strPredInfo] = scaleInfo(trainBridge),
-			       _[strPredMap] = std::move(trainBridge.getPredMap()),
+			       _[strPredInfo] = scaleInfo(lDeframe),
 			       _[strForest] = std::move(forest.wrap()),
 			       _[strLeaf] = std::move(leaf.wrap()),
 			       _[strDiagnostic] = diag
@@ -143,11 +141,20 @@ List TrainR::summarize(const TrainBridge& trainBridge,
 }
 
 
+IntegerVector TrainR::predMap(const List& lTrain) {
+  return SignatureR::predMap(lTrain);
+}
+
+
+
+unsigned int TrainR::nPred(const List& lTrain) {
+  return SignatureR::nPred(lTrain);
+}
+
+
 // [[Rcpp::export]]
-NumericVector TrainR::scaleInfo(const TrainBridge& trainBridge) const {
-  vector<unsigned int> pm = trainBridge.getPredMap();
-  // Temporary IntegerVector copy for subscripted access.
-  IntegerVector predMap(pm.begin(), pm.end());
+NumericVector TrainR::scaleInfo(const List& lDeframe) const {
+  IntegerVector predMap(SignatureR::predMap(lDeframe));
 
   // Mapbs back from core order and scales info per-tree.
   return as<NumericVector>(predInfo[predMap]) / nTree;
@@ -194,15 +201,14 @@ RcppExport SEXP expandTrainRcpp(SEXP sTrain) {
 
 // [[Rcpp::export]]
 List TrainR::expand(const List& lTrain) {
-  IntegerVector predMap(as<IntegerVector>(lTrain[strPredMap]));
-  TrainBridge::init(predMap.length());
-  List level = SignatureR::getLevel(lTrain);
+  IntegerVector predictorMap(predMap(lTrain));
+  TrainBridge::init(predictorMap.length());
   List ffe =
-    List::create(_[strPredMap] = IntegerVector(predMap),
-                 _["factorMap"] = IntegerVector(predMap.end() - level.length(), predMap.end()),
-                 _["predLevel"] = level,
+    List::create(_["predMap"] = predictorMap,
+                 _["factorMap"] = IntegerVector(predictorMap.end() - SignatureR::nFactor(lTrain), predictorMap.end()),
+                 _["predLevel"] = SignatureR::getLevel(lTrain),
 		 _["predFactor"] = SignatureR::getFactor(lTrain),
-                 _["forest"] = ForestExpand::expand(lTrain, predMap)
+                 _["forest"] = ForestExpand::expand(lTrain, predictorMap)
                  );
 
   TrainBridge::deInit();

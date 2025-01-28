@@ -25,6 +25,7 @@
 
 #include "signatureR.h"
 
+const string SignatureR::strClassName = "Signature";
 const string SignatureR::strColName = "colNames";
 const string SignatureR::strRowName = "rowNames";
 const string SignatureR::strPredLevel = "level";
@@ -33,12 +34,10 @@ const string SignatureR::strPredType = "predForm";
 const string SignatureR::strFactorType = "factor";
 const string SignatureR::strNumericType = "numeric";
 
-
+// [[Rcpp::export]]
 RcppExport SEXP columnOrder(const SEXP sDF,
 			    const SEXP sSigTrain,
 			    const SEXP sKeyed) {
-  BEGIN_RCPP
-
   DataFrame df(as<DataFrame>(sDF));
   if (!Rf_isNull(sSigTrain) && as<bool>(sKeyed)) {
     List lSigTrain(sSigTrain);
@@ -54,27 +53,72 @@ RcppExport SEXP columnOrder(const SEXP sDF,
       }
     }
   }
-
   return wrap(seq(1, df.length()));
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
+bool SignatureR::checkKeyable(const List& lSignature) {
+  if (Rf_isNull(lSignature[strColName])) {
+    warning("No signature column names:  keyed access not supported");
+    return false;
+  }
+
+  bool keyable = false;
+  CharacterVector colNames(as<CharacterVector>(lSignature[strColName]));
+  CharacterVector nullVec(colNames.length());
+  if (!is_true(all(colNames != nullVec))) {
+    keyable = false;
+    warning("Empty signature column names:  keyed access not supported");
+  }
+  else if (colNames.length() != as<CharacterVector>(unique(colNames)).length()) {
+    keyable = false;
+    warning("Duplicate signature column names:  keyed access not supported");
+  }
+  
+  return keyable;
+}
+
+
+IntegerVector SignatureR::predMap(const List& lTrain) {
+  List lSignature(getSignature(lTrain));
+  CharacterVector predType(lSignature[strPredType]);
+  IntegerVector packed2Idx(predType.length());
+  unsigned int idxNum = 0;
+  unsigned int idxFac = predType.length() - nFactor(lTrain);
+  for (unsigned int i = 0; i != predType.length(); i++) {
+    if (predType[i] == strNumericType) {
+      packed2Idx[idxNum++] = i;
+    }
+    else if (predType[i] == strFactorType) {
+      packed2Idx[idxFac++] = i;
+    }
+    else
+      stop("Unexpected predictor type.");
+  }
+  
+  return packed2Idx;
+}
+
+
+unsigned int SignatureR::nPred(const List& lTrain) {
+  List lSignature(getSignature(lTrain));
+  CharacterVector predType(lSignature[strPredType]);
+  return predType.length();
+}
+
+
+// [[Rcpp::export]]
 List SignatureR::wrapSparse(unsigned int nPred,
 			    bool isFactor,
 			    const CharacterVector& colNames,
 			    const CharacterVector& rowNames) {
-  BEGIN_RCPP
-
   return wrapMixed(nPred, rep(CharacterVector(isFactor ? strFactorType : strNumericType), nPred), List::create(0), List::create(0), colNames, rowNames);
-
-  END_RCPP
 }
 
 
+// [Rcpp::export]]
 List SignatureR::wrapNumeric(const NumericMatrix& blockNum) {
-  BEGIN_RCPP
-
   unsigned int nPred = blockNum.ncol();
   return wrapMixed(nPred,
 		   rep(CharacterVector(strNumericType), nPred),
@@ -82,13 +126,11 @@ List SignatureR::wrapNumeric(const NumericMatrix& blockNum) {
 		   List::create(0),
 		   Rf_isNull(colnames(blockNum)) ? CharacterVector(0) : colnames(blockNum),
 		   Rf_isNull(rownames(blockNum)) ? CharacterVector(0) : rownames(blockNum));
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SignatureR::wrapFactor(const IntegerMatrix& blockFac) {
-  BEGIN_RCPP
-
   unsigned int nPred = blockFac.ncol();
   return wrapMixed(nPred,
 		   rep(CharacterVector(strFactorType), nPred),
@@ -96,18 +138,16 @@ List SignatureR::wrapFactor(const IntegerMatrix& blockFac) {
 		   List::create(0),
 		   Rf_isNull(colnames(blockFac)) ? CharacterVector(0) : colnames(blockFac),
 		   Rf_isNull(rownames(blockFac)) ? CharacterVector(0) : rownames(blockFac));
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SignatureR::wrapMixed(unsigned int nPred,
 			   const CharacterVector& predClass,
 			   const List& level,
 			   const List& factor,
 			   const CharacterVector& colNames,
 			   const CharacterVector& rowNames) {
-  BEGIN_RCPP
-
   List signature =
     List::create(_[strPredType] = predClass,
                  _[strPredLevel] = level,
@@ -115,135 +155,99 @@ List SignatureR::wrapMixed(unsigned int nPred,
                  _[strColName] = colNames,
                  _[strRowName] = rowNames
                  );
-  signature.attr("class") = "Signature";
+  signature.attr("class") = strClassName;
 
   return signature;
-  END_RCPP
 }
 
 
+// [[Rcpp::export]]
 List SignatureR::wrapDF(const DataFrame& df,
 			const CharacterVector& predClass,
 			const List& lLevel,
 			const List& lFactor) {
-  BEGIN_RCPP
-
   return wrapMixed(df.length(),
 		   predClass,
 		   lLevel,
 		   lFactor,
 		   Rf_isNull(as<CharacterVector>(df.names())) ? CharacterVector(0) : df.names(),
 		   Rf_isNull(rownames(df)) ? CharacterVector(0) : rownames(df));
-
-  END_RCPP
 }
-
-bool SignatureR::checkKeyable(const List& lSignature) {
-  BEGIN_RCPP
-
-  bool keyable = true;
-
-  CharacterVector nullVec(as<CharacterVector>(lSignature[strColName]).length());
-  if (Rf_isNull(lSignature[strColName])) {
-    keyable = false;
-    warning("No signature column names:  keyed access not supported");
-  }
-  else if (!is_true(all(as<CharacterVector>(lSignature[strColName]) != nullVec))) {
-    keyable = false;
-    warning("Empty signature column names:  keyed access not supported");
-  }
-  else if (as<CharacterVector>(lSignature[strColName]).length() != as<CharacterVector>(unique(as<CharacterVector>(lSignature[strColName]))).length()) {
-    keyable = false;
-    warning("Duplicate signature column names:  keyed access not supported");
-  }
-  
-  return keyable;
-  END_RCPP
-}
-
 
 
 /**
    @brief Unwraps field values useful for prediction.
  */
+// [[Rcpp::export]]
 CharacterVector SignatureR::unwrapRowNames(const List& lDeframe) {
-  BEGIN_RCPP
-  checkFrame(lDeframe);
-  List signature = checkSignature(lDeframe);
+  if (!checkFrame(lDeframe))
+    stop("Expecting Deframe object");
 
-  if (Rf_isNull(signature[strRowName])) {
-    return CharacterVector(0);
-  }
-  else {
-    return CharacterVector((SEXP) signature[strRowName]);
-  }
-  END_RCPP
+  return unwrapName(getSignature(lDeframe), strRowName);
 }
 
 
+// [[Rcpp::export]]
 CharacterVector SignatureR::unwrapColNames(const List& lDeframe) {
-  BEGIN_RCPP
-  checkFrame(lDeframe);
-  List signature = checkSignature(lDeframe);
+  if (!checkFrame(lDeframe))
+    stop("Expecting Deframe object.");
 
-  if (Rf_isNull(signature[strColName])) {
-    return CharacterVector(0);
-  }
-  else {
-    return CharacterVector((SEXP) signature[strColName]);
-  }
-  END_RCPP
+  return unwrapName(getSignature(lDeframe), strColName);
 }
 
 
-SEXP SignatureR::checkSignature(const List &lDeframe) {
-  BEGIN_RCPP
-  List signature((SEXP) lDeframe["signature"]);
+CharacterVector SignatureR::unwrapName(const List& signature,
+				       const string& name) {
+  return Rf_isNull(signature[name]) ? CharacterVector(0) : CharacterVector((SEXP) signature[name]);
+}
+
+
+List SignatureR::getSignature(const List& lParent) {
+  List signature((SEXP) lParent["signature"]);
   if (!signature.inherits("Signature")) {
     stop("Expecting Signature");
   }
 
   return signature;
-  END_RCPP
 }
 
 
-List SignatureR::unwrapLevel(const List& sTrain) {
- List sSignature(checkSignature(sTrain));
- return as<List>(sSignature[strPredLevel]);
+List SignatureR::unwrapLevel(const List& lDeframe) {
+  List lSignature = getSignature(lDeframe);
+ return as<List>(lSignature[strPredLevel]);
 }
 
 
-List SignatureR::getFactor(const List& lTrain) {
-  List sSignature(checkSignature(lTrain));
-  return as<List>(sSignature[strPredFactor]);
+List SignatureR::getFactor(const List& lDeframe) {
+  List lSignature = getSignature(lDeframe);
+  return as<List>(lSignature[strPredFactor]);
 }
 
 
-List SignatureR::getLevel(const List& lTrain) {
-  List lSignature(checkSignature(lTrain));
+List SignatureR::getLevel(const List& lParent) {
+  List lSignature = getSignature(lParent);
   return as<List>(lSignature[strPredLevel]);
 }
 
 
-SEXP SignatureR::checkFrame(const List &lDeframe) {
-  BEGIN_RCPP
-  if (!lDeframe.inherits("Deframe")) {
-    stop("Expecting Derame");
-  }
-
-  END_RCPP
+unsigned int SignatureR::nFactor(const List& lParent) {
+  return getLevel(lParent).length();
 }
 
 
-SEXP SignatureR::checkTypes(const List& lSigTrain,
+bool SignatureR::checkFrame(const List &lDeframe) {
+  return lDeframe.inherits("Deframe");
+}
+
+
+bool SignatureR::checkTypes(SEXP sSigTrain,
 			    const CharacterVector& predClass) {
-  BEGIN_RCPP
-
-  CharacterVector formTrain(as<CharacterVector>(lSigTrain[strPredType]));
-  if (!is_true(all(formTrain == predClass))) {
-    stop("Training, prediction data types do not match");
+  if (!Rf_isNull(sSigTrain)) {
+    List lSigTrain(sSigTrain);
+    CharacterVector formTrain(as<CharacterVector>(lSigTrain[strPredType]));
+    if (!is_true(all(formTrain == predClass))) {
+      return false;
+    }
   }
-
-  END_RCPP
+  return true;
 }

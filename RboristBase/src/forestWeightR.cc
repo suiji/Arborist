@@ -62,7 +62,7 @@ NumericMatrix ForestWeightR::forestWeight(const List& lTrain,
 					  const NumericMatrix& indices,
 					  const List& lArgs) {
   PredictBridge::initOmp(as<unsigned>(lArgs[PredictR::strNThread]));
-  ForestBridge::init(as<IntegerVector>(lTrain[TrainR::strPredMap]).length());
+  ForestBridge::init(TrainR::nPred(lTrain));
   SamplerBridge samplerBridge(SamplerR::unwrapGeneric(lSampler));
   return transpose(NumericMatrix(SamplerR::countObservations(lSampler),
 				 indices.nrow(),

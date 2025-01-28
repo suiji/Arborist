@@ -18,7 +18,8 @@
                   y,
                 autoCompress = 0.25,              
                 ctgCensus = "votes",
-                classWeight = NULL,
+                classWeight = numeric(0),
+                discardState = FALSE,
                 impPermute = 0,
                 indexing = FALSE,
                 maxLeaf = 0,
@@ -32,13 +33,13 @@
                 noValidate = FALSE,
                 predFixed = 0,
                 predProb = 0.0,
-                predWeight = NULL, 
-                quantVec = NULL,
-                quantiles = !is.null(quantVec),
-                regMono = NULL,
+                predWeight = numeric(0),
+                quantVec = numeric(0),
+                quantiles = length(quantVec) > 0,
+                regMono = numeric(0),
                 rowWeight = numeric(0),
                 samplingWeight = numeric(0),
-                splitQuant = NULL,
+                splitQuant = numeric(0),
                 streamline = FALSE,
                 thinLeaves = streamline || (is.factor(y) && !indexing),
                 trapUnobserved = FALSE,
@@ -58,9 +59,12 @@
   \item{ctgCensus}{report categorical validation by vote or by probability.}
   \item{classWeight}{proportional weighting of classification
     categories.}
+  \item{discardState}{minimizes storage by discarding primary training
+    output.  Useful for parameter sweeps and cross-validation, in which
+    only validation may be of interest.}
   \item{impPermute}{number of importance permutations:  0 or 1.}
   \item{indexing}{whether to report final index, typically terminal, of
-    tree traversal.}
+    validation tree traversal.}
   \item{maxLeaf}{maximum number of leaves in a tree.  Zero denotes no limit.}
   \item{minInfo}{information ratio with parent below which node does not split.}
   \item{minNode}{minimum number of distinct row references to split a
@@ -88,7 +92,7 @@
     numerical splits}.
   \item{streamline}{whether to streamline sampler contents to save space.}
   \item{thinLeaves}{bypasses creation of leaf state in order to reduce
-    memory footprint.}
+    storage footprint.}
   \item{trapUnobserved}{reports score for nonterminal upon encountering
   values not observed during training, such as missing data.}
   \item{treeBlock}{maximum number of trees to train during a single
@@ -98,8 +102,7 @@
   \item{...}{not currently used.}
 }
 
-\value{an object sharing classes \code{arbTrain}, documented with the
-  command \code{rfTrain}, and \code{rfArb}, a supplementary collection
+\value{an object sharing classes \code{rfArb}, a supplementary collection
   consisting of the following items:
   \itemize{
     \item \code{sampler} an object of class \code{Sampler}, as described in the

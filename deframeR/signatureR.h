@@ -54,10 +54,11 @@ RcppExport SEXP columnOrder(const SEXP sDF,
 /**
    @brief R-language encapsulation of a frame signature.
 
-   Signatures contains front-end annotations not exposed to core.
+   Signatures contain front-end annotations not exposed to core.
    Column and row names stubbed to zero-length vectors if null.
  */
 struct SignatureR {
+  static const string strClassName; ///< Deframer name for signature.
   static const string strColName; ///< Predictor names.  May be null.
   static const string strRowName; ///< Observation names.  Often null.
   static const string strPredLevel; ///< Per-predictor levels.
@@ -83,19 +84,30 @@ struct SignatureR {
 
 
   /**
+     @return contents of named field, if nonempty.
+   */
+  static CharacterVector unwrapName(const List& signature,
+				    const string& name);
 
-     @brief Checks whether new frame coforms to training frame.
+
+  /**
+
+     @brief Checks whether new frame's types coform to training frame.
+
+     @return false iff training signature nonempty and not matching.
   */
-  static SEXP checkTypes(const List& lSigTrain,
+  static bool checkTypes(SEXP sSigTrain,
 			 const CharacterVector& predClass);
 
 
   /**
-     @brief Ensures the passed object has Frame type.
+     @brief Ensures the passed object has Deframe type.
 
-     @param frame is the object to be checked.
+     @param deFrame is the object to be checked.
+
+     @return true iff deFrame has type Deframe.
    */
-  static SEXP checkFrame(const List& frame);
+  static bool checkFrame(const List& deFrame);
 
 
   /**
@@ -107,13 +119,13 @@ struct SignatureR {
 
 
   /**
-     @brief Ensures passed object contains member of class Signature.
+     @brief Ensures deframed object contains Signature.
 
-     @param sParent is the parent object.
+     @param lParent is an object containing signature.
 
      @return signature object. 
    */
-  static SEXP checkSignature(const List& sParent);
+  static List getSignature(const List& lParent);
 
 
   /**
@@ -141,7 +153,27 @@ struct SignatureR {
    */
   static List getLevel(const List& lTrain);
 
+
+  /**
+     @brief lParent is an object containing a Signature member.
+     
+     @return count of factor-valued predictors.
+   */
+  static unsigned int nFactor(const List& lParent);
+
+
+  /**
+     @return mapping from core index to original position.
+   */
+  static IntegerVector predMap(const List& lTrain);
+
   
+  /**
+     @return number of predictors involved in training.
+   */
+  static unsigned int nPred(const List& lTrain);
+
+
   /**
      @brief Provides a signature for a factor-valued matrix.
    */

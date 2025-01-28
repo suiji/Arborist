@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Rborist.  If not, see <http://www.gnu.org/licenses/>.
 
-"predict.arbTrain" <- function(object,
+"predict.rfArb" <- function(object,
                               newdata,
                               sampler = NULL,
                               yTest=NULL,
@@ -29,12 +29,8 @@
                               nThread = 0,
                               verbose = FALSE,
                               ...) {
-  if (is.null(sampler))
-        stop("Sampler state needed for prediction")
+  sampler <- object$sampler
 
-  if (sampler$hash != object$samplerHash)
-        stop("Sampler hashes do not match.")
- 
   forest <- object$forest
   if (is.null(forest))
     stop("Forest state needed for prediction")
@@ -49,7 +45,7 @@
   }
 
   predictVersion <- packageVersion("Rborist")
-  trainVersion <- as.package_version(object$version)
+  trainVersion <- as.package_version(object$training$version)
   if (predictVersion$major != trainVersion$major)
     stop("Mismatched training, prediction major package versions")
   if (predictVersion$minor > trainVersion$minor)

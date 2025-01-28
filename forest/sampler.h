@@ -107,6 +107,7 @@ public:
 	  bool replace_,
 	  const vector<double>& weight,
 	  size_t nHoldout,
+	  unsigned int nFold,
 	  const vector<size_t>& undefined);
 
 

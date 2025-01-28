@@ -44,9 +44,10 @@ SamplerBridge::SamplerBridge(size_t nSamp,
 			     bool replace,
 			     const vector<double>& weight,
 			     size_t nHoldout,
+			     unsigned int nFold,
 			     const vector<size_t>& undefined) {
   SamplerNux::setMasks(nObs);
-  sampler = make_unique<Sampler>(nSamp, nObs, nRep, replace, weight, nHoldout, undefined);
+  sampler = make_unique<Sampler>(nSamp, nObs, nRep, replace, weight, nHoldout, nFold, undefined);
 }
 
 

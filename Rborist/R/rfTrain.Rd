@@ -18,7 +18,7 @@
                  y,
                 autoCompress = 0.25,
                 ctgCensus = "votes",
-                classWeight = NULL,
+                classWeight = numeric(0),
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
@@ -26,8 +26,8 @@
                 nThread = 0,
                 predFixed = 0,
                 predProb = 0.0,
-                predWeight = NULL, 
-                regMono = NULL,
+                predWeight = numeric(0),
+                regMono = numeric(0),
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
@@ -74,8 +74,6 @@
     \item \code{samplerHash} hash value of the \code{Sampler} object used to train.  Recorded for consistency of subsequent commands.
     \item \code{predInfo} a vector of forest-wide Gini (classification) or weighted
       variance (regression), by predictor.
-    \item \code{predMap} a vector of integers mapping internal to front-end
-      predictor indices.
     \item \code{forest} an object of class \code{Forest} containing:
     \itemize{
       \item \code{nTree} the number of trees trained.

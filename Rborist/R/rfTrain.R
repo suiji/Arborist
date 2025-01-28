@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2024   Mark Seligman
+# Copyright (C)  2012-2025   Mark Seligman
 ##
 ## This file is part of Rborist.
 ##
@@ -24,7 +24,7 @@ rfTrain <- function(preFormat, sampler, y, ...) UseMethod("rfTrain")
 rfTrain.default <- function(preFormat, sampler, y,
                 autoCompress = 0.25,
                 ctgCensus = "votes",
-                classWeight = NULL,
+                classWeight = numeric(0),
                 maxLeaf = 0,
                 minInfo = 0.01,
                 minNode = if (is.factor(y)) 2 else 3,
@@ -32,8 +32,8 @@ rfTrain.default <- function(preFormat, sampler, y,
                 nThread = 0,
                 predFixed = 0,
                 predProb = 0.0,
-                predWeight = NULL, 
-                regMono = NULL,
+                predWeight = numeric(0),
+                regMono = numeric(0),
                 splitQuant = NULL,
                 thinLeaves = FALSE,
                 treeBlock = 1,
@@ -43,7 +43,10 @@ rfTrain.default <- function(preFormat, sampler, y,
 
     if (length(y) != preFormat$nRow)
         stop("Nonconforming design matrix and response")
-            
+
+    if (!is.numeric(y) && !is.factor(y))
+        stop("Training expects numeric or factor response")
+
     if (minNode < 1)
         stop("Minimum node population must be positive")
             
@@ -70,7 +73,7 @@ rfTrain.default <- function(preFormat, sampler, y,
     }
     
     nPred <- length(preFormat$signature$predForm)
-    if (is.null(regMono)) {
+    if (length(regMono) == 0) {
         regMono <- rep(0.0, nPred)
     }
     if (length(regMono) != nPred)
@@ -81,7 +84,7 @@ rfTrain.default <- function(preFormat, sampler, y,
         warning("Monotonicity ignored for categorical response")
     }
 
-    if (is.null(splitQuant)) {
+    if (length(splitQuant)==0) {
         splitQuant <- rep(0.5, nPred)
     }
     if (length(splitQuant) != nPred)
@@ -95,7 +98,7 @@ rfTrain.default <- function(preFormat, sampler, y,
   # Class weights
     nCtg <- if (is.factor(y)) length(levels(y)) else 0
     if (is.factor(y)) {
-        if (!is.null(classWeight)) {
+        if (length(classWeight) > 0) {
             if (is.numeric(classWeight)) {
                 if (length(classWeight) != nCtg)
                     stop("class weights must conform to response cardinality")
@@ -118,14 +121,14 @@ rfTrain.default <- function(preFormat, sampler, y,
         }
     }
     else {
-        if (!is.null(classWeight)) {
+        if (length(classWeight) > 0) {
             warning("Class weights only defined for classification:  ignoring")
         }
         classWeight <- rep(1.0, 0)
     }
 
   # Predictor weight constraints
-    if (is.null(predWeight)) {
+    if (length(predWeight) == 0) {
         predWeight <- rep(1.0, nPred)
     }
     if (length(predWeight) != nPred)
@@ -190,5 +193,6 @@ rfTrain.default <- function(preFormat, sampler, y,
 
     if (verbose)
         print("Training completed.")
-    trainOut
+
+    structure(trainOut, class = "arbTrain")
 }

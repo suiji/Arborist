@@ -23,15 +23,15 @@
    @author Mark Seligman
  */
 
+#include "signatureR.h"
 #include "trainR.h"
 #include "trainbridge.h"
 
 // [[Rcpp::export]]
-void TrainR::initPerInvocation(const List& argList,
+void TrainR::initPerInvocation(const List& lDeframe,
+			       const List& argList,
 			       TrainBridge& trainBridge) {
-  vector<unsigned int> pm = trainBridge.getPredMap();
-  // Temporary IntegerVector copy for subscripted access.
-  IntegerVector predMap(pm.begin(), pm.end());
+  IntegerVector predMap(SignatureR::predMap(lDeframe));
 
   verbose = as<bool>(argList[strVerbose]);
   NumericVector probVecNV((SEXP) argList[strProbVec]);

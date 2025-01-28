@@ -12,11 +12,12 @@
 }
 \usage{
 \method{presample}{default}(y,
-                            nHoldout = 0,
                             samplingWeight = numeric(0),
                             nSamp = 0,
                             nRep = 500,
                             withRepl =  TRUE,
+                            nHoldout = 0,
+                            nFold = 1,
                             verbose = FALSE,
                             nTree = 0,
                             ...)
@@ -24,13 +25,15 @@
 
 \arguments{
   \item{y}{A vector to be sampled, typically the response.}
-  \item{nHoldout}{Number of observations to omit from sampling.
-  Augmented by unobserved response values.}
   \item{samplingWeight}{Per-observation sampling weights.  Default is
     uniform.}
   \item{nSamp}{Size of sample draw.  Default draws \code{y} length.}
   \item{nRep}{Number of samples to draw.  Replaces deprecated \code{nTree}.}
   \item{withRepl}{true iff sampling is with replacement.}
+  \item{nHoldout}{Number of observations to omit from sampling.
+    Augmented by unobserved response values.}
+  \item{nFold}{Number of collections into which to partition the
+    respone.}
   \item{verbose}{true iff tracing execution.}
   \item{nTree}{Number of samples to draw.  Deprecated.}
   \item{...}{not currently used.}

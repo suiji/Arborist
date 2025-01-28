@@ -27,12 +27,9 @@
 #include "signatureR.h"
 
 
-List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel, const CharacterVector& predClass) {
-  BEGIN_RCPP
-
+List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel) {
   IntegerMatrix factorRemap;
   if (!Rf_isNull(sSigTrain)) {
-    SignatureR::checkTypes(List(sSigTrain), predClass);
     factorRemap = factorReconcile(df, List(sSigTrain), List(sLevel));
   }
 
@@ -62,26 +59,18 @@ List RLEFrameR::presortDF(const DataFrame& df, SEXP sSigTrain, SEXP sLevel, cons
   rleCresc->encodeFrame(colBase);
 
   return wrap(rleCresc.get());
-
-  END_RCPP
 }
 
 
 bool RLEFrameR::checkKeyable(const DataFrame& df,
 			     const List& sigTrain) {
-  BEGIN_RCPP
-
   return false;
-
-  END_RCPP
 }
 
 
 IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
 					 const List& lSigTrain,
 					 const List& levelTest) {
-  BEGIN_RCPP
-
   List levelTrain(as<List>(lSigTrain["level"]));
   IntegerMatrix mappedFactor(df.nrow(), levelTrain.length());
   unsigned int nFac = 0;
@@ -92,16 +81,12 @@ IntegerMatrix RLEFrameR::factorReconcile(const DataFrame& df,
     }
   }
   return mappedFactor;
-
-  END_RCPP
 }
 
 
 IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
 					 const CharacterVector& levelsTest,
 					 const CharacterVector& levelsTrain) {
-  BEGIN_RCPP
-    
   if (is_true(any(levelsTest != levelsTrain))) {
     IntegerVector colMatch(match(levelsTest, levelsTrain));
     // Rcpp match() implementation does not suppport 'na' subsititute.
@@ -119,15 +104,11 @@ IntegerVector RLEFrameR::columnReconcile(const IntegerVector& dfCol,
   else {
     return dfCol;
   }
-
-  END_RCPP
 }
 
 
 List RLEFrameR::presortIP(const BlockIPCresc<double>* rleCrescIP, size_t nRow, unsigned int nPred) {
-  BEGIN_RCPP
-
-    auto rleCresc = make_unique<RLECresc>(nRow, nPred);
+  auto rleCresc = make_unique<RLECresc>(nRow, nPred);
 
   vector<double> valNum(rleCrescIP->getVal());
   vector<size_t> rowStart(rleCrescIP->getRunStart());
@@ -135,39 +116,27 @@ List RLEFrameR::presortIP(const BlockIPCresc<double>* rleCrescIP, size_t nRow, u
   rleCresc->encodeFrameNum(std::move(valNum), std::move(rowStart), std::move(runLength));
 
   return wrap(rleCresc.get());
-
-  END_RCPP
 }
 
 
 List RLEFrameR::presortNum(const SEXP sX) {
-  BEGIN_RCPP
-
   NumericMatrix x(sX);
   auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
   rleCresc->encodeFrameNum(x.begin());
   return wrap(rleCresc.get());
-
-  END_RCPP
 }
 
 
 List RLEFrameR::presortFac(const SEXP sX) {
-  BEGIN_RCPP
-
   IntegerMatrix x(sX);
   auto rleCresc = make_unique<RLECresc>(x.nrow(), x.ncol());
   rleCresc->encodeFrameFac(reinterpret_cast<uint32_t*>(x.begin()));
 
   return wrap(rleCresc.get());
-
-  END_RCPP
 }
 
 
 List RLEFrameR::wrap(const RLECresc* rleCresc) {
-  BEGIN_RCPP
-
   List setOut = List::create(
                              _["rankedFrame"] =  wrapRF(rleCresc),
                              _["numRanked"] = wrapNum(rleCresc),
@@ -175,14 +144,10 @@ List RLEFrameR::wrap(const RLECresc* rleCresc) {
                              );
   setOut.attr("class") = "RLEFrame";
   return setOut;
-
-  END_RCPP
 }
 
 
 List RLEFrameR::wrapFac(const RLECresc* rleCresc) {
-  BEGIN_RCPP
-
   vector<size_t> facHeight;
   vector<unsigned int> facValOut;
   for (auto facPred : rleCresc->getValFac()) {
@@ -202,13 +167,10 @@ List RLEFrameR::wrapFac(const RLECresc* rleCresc) {
   facRanked.attr("class") = "FacRanked";
 
   return facRanked;
-  END_RCPP
 }
 
 
 List RLEFrameR::wrapNum(const RLECresc* rleCresc) {
-  BEGIN_RCPP
-
   vector<size_t> numHeight;
   vector<double> numValOut;
   for (auto numPred : rleCresc->getValNum()) {
@@ -228,13 +190,10 @@ List RLEFrameR::wrapNum(const RLECresc* rleCresc) {
   numRanked.attr("class") = "NumRanked";
 
   return numRanked;
-  END_RCPP
 }
 
 
 List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
-  BEGIN_RCPP
-
   vector<size_t> rleHeight(rleCresc->getHeight());
   size_t height = rleHeight.back();
   vector<size_t> valOut(height);
@@ -251,7 +210,6 @@ List RLEFrameR::wrapRF(const RLECresc* rleCresc) {
                               );
   rankedFrame.attr("class") = "RankedFrame";
   return rankedFrame;
-  END_RCPP
 }
 
 
@@ -314,8 +272,6 @@ unique_ptr<RLEFrame> RLEFrameR::unwrapFrame(const List& rankedFrame,
 
 
 List RLEFrameR::checkRankedFrame(SEXP sRankedFrame) {
-  BEGIN_RCPP
-
   List rankedFrame(sRankedFrame);
   if (!rankedFrame.inherits("RankedFrame")) {
     stop("Expecting RankedFrame");
@@ -330,34 +286,24 @@ List RLEFrameR::checkRankedFrame(SEXP sRankedFrame) {
   }
                   
   return rankedFrame;
-
- END_RCPP
 }
 
 
 List RLEFrameR::checkNumRanked(SEXP sNumRanked) {
-  BEGIN_RCPP
-
   List numRanked(sNumRanked);
   if (!numRanked.inherits("NumRanked")) {
     stop("Expecting NumRanked");
   }
 
   return numRanked;
-
- END_RCPP
 }
 
 
 List RLEFrameR::checkFacRanked(SEXP sFacRanked) {
-  BEGIN_RCPP
-
   List facRanked(sFacRanked);
   if (!facRanked.inherits("FacRanked")) {
     stop("Expecting FacRanked");
   }
 
   return facRanked;
-
- END_RCPP
 }
