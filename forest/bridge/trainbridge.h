@@ -100,14 +100,6 @@ struct TrainBridge {
 
 
   /**
-     @brief Initializes static OMP thread state.
-
-     @param nThread is a user-specified thread request.
-   */
-  static void initOmp(unsigned int nThread);
-
-  
-  /**
      @brief Registers parameters governing splitting.
      
      @param minNode is the mininal number of sample indices represented by a tree node.

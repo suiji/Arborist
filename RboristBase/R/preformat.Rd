@@ -16,6 +16,7 @@
 
 \usage{
 \method{preformat}{default}(x,
+		   nThread = 0,
                    verbose=FALSE,
                    ...)
 }
@@ -24,6 +25,7 @@
   \item{x}{the design frame expressed as either a \code{data.frame}
     object with numeric and/or \code{factor} columns or as a numeric
     or factor-valued matrix.}
+  \item{nThread}{number of cores to run in parallel, if available.}
   \item{verbose}{indicates whether to output progress of
     preformatting.}
   \item{...}{unused.}

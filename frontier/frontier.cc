@@ -104,7 +104,7 @@ SampleMap Frontier::splitDispatch(const SampleMap& smNonterm) {
 
   SampleMap smNext = surveySplits();
   ObsFrontier* cellFrontier = interLevel->getFront();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < frontierNodes.size(); splitIdx++) {
@@ -205,7 +205,7 @@ void Frontier::updateCompound(const vector<vector<SplitNux>>& nuxMax,
 vector<double> Frontier::sumsAndSquares(vector<vector<double> >& ctgSum) {
   vector<double> sumSquares(frontierNodes.size());
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < frontierNodes.size(); splitIdx++) {

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2024  Mark Seligman
+// Copyright (C)  2012-2025  Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -24,6 +24,7 @@
  */
 
 #include "forestWeightR.h"
+#include "corebridge.h"
 #include "predictbridge.h"
 #include "samplerR.h"
 #include "predictR.h"
@@ -61,7 +62,7 @@ NumericMatrix ForestWeightR::forestWeight(const List& lTrain,
 					  const List& lSampler,
 					  const NumericMatrix& indices,
 					  const List& lArgs) {
-  PredictBridge::initOmp(as<unsigned>(lArgs[PredictR::strNThread]));
+  CoreBridge::init(as<unsigned>(lArgs[PredictR::strNThread]));
   ForestBridge::init(TrainR::nPred(lTrain));
   SamplerBridge samplerBridge(SamplerR::unwrapGeneric(lSampler));
   return transpose(NumericMatrix(SamplerR::countObservations(lSampler),

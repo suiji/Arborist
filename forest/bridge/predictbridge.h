@@ -58,9 +58,6 @@ struct PredictBridge {
   static void initCtgProb(bool doProb);
 
 
-  static void initOmp(unsigned int nThread);
-
-  
   size_t getNObs() const;
 
 

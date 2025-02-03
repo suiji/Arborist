@@ -46,7 +46,7 @@ PredictorFrame::PredictorFrame(unique_ptr<RLEFrame> rleFrame_,
 vector<Layout> PredictorFrame::denseBlock() {
   vector<Layout> implExpl(nPred);
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (PredictorT predIdx = 0; predIdx < nPred; predIdx++) {

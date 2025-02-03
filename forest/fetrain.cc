@@ -14,6 +14,7 @@
 */
 
 #include "fetrain.h"
+#include "fecore.h"
 #include "bv.h"
 #include "booster.h"
 #include "grove.h"
@@ -25,7 +26,6 @@
 #include "splitnux.h"
 #include "sampledobs.h"
 #include "algparam.h"
-#include "ompthread.h"
 #include "coproc.h"
 
 #include <algorithm>
@@ -38,11 +38,6 @@ void FETrain::initProb(PredictorT predFixed,
 
 void FETrain::initTree(IndexT leafMax) {
   PreTree::init(leafMax);
-}
-
-
-void FETrain::initOmp(unsigned int nThread) {
-  OmpThread::init(nThread);
 }
 
 
@@ -121,5 +116,5 @@ void FETrain::deInit() {
   SamplerNux::unsetMasks();
   CandType::deInit();
   SFRegCart::deImmutables();
-  OmpThread::deInit();
+  FECore::deInit();
 }

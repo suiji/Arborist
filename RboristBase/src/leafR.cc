@@ -44,18 +44,22 @@ void LeafR::bridgeConsume(const LeafBridge& bridge,
 			  double scale) {
 
   size_t extentSize = bridge.getExtentSize();
-  if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
-    extent = std::move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
+  if (extentSize > 0) {
+    if (extentTop + extentSize > static_cast<size_t>(extent.length())) {
+      extent = std::move(ResizeR::resize<NumericVector>(extent, extentTop, extentSize, scale));
+    }
+    bridge.dumpExtent(&extent[extentTop]);
+    extentTop += extentSize;
   }
-  bridge.dumpExtent(&extent[extentTop]);
-  extentTop += extentSize;
-
+  
   size_t indexSize = bridge.getIndexSize();
-  if (indexTop + indexSize > static_cast<size_t>(index.length())) {
-    index = std::move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
+  if (indexSize > 0) {
+    if (indexTop + indexSize > static_cast<size_t>(index.length())) {
+      index = std::move(ResizeR::resize<NumericVector>(index, indexTop, indexSize, scale));
+    }
+    bridge.dumpIndex(&index[indexTop]);
+    indexTop += indexSize;
   }
-  bridge.dumpIndex(&index[indexTop]);
-  indexTop += indexSize;
 }
 
 // [[Rcpp::export]]

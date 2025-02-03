@@ -75,13 +75,6 @@ struct FETrain {
   */
   static void initTree(IndexT leafMax);
 
-  /**
-     @brief Initializes static OMP thread state.
-
-     @param nThread is a user-specified thread request.
-   */
-  static void initOmp(unsigned int nThread);
-
 
   /**
      @brief Registers parameters governing splitting.

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2024   Mark Seligman
+// Copyright (C)  2012-2025  Mark Seligman
 //
 // This file is part of Rborist.
 //
@@ -25,6 +25,8 @@
 
 #include "predictR.h"
 #include "predictbridge.h"
+#include "corebridge.h"
+
 
 // [[Rcpp::export]]
 void PredictR::initPerInvocation(const List& lArgs) {
@@ -34,5 +36,5 @@ void PredictR::initPerInvocation(const List& lArgs) {
 			     as<bool>(lArgs[strTrapUnobserved]));
   PredictBridge::initQuant(quantVec(lArgs));
   PredictBridge::initCtgProb(as<bool>(lArgs[strCtgProb]));
-  PredictBridge::initOmp(as<unsigned int>(lArgs[strNThread]));
+  CoreBridge::init(as<unsigned int>(lArgs[strNThread]));
 }

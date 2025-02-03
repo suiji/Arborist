@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2024   Mark Seligman
+// Copyright (C)  2012-2025   Mark Seligman
 //
 // This file is part of Rborist.
 //
@@ -23,6 +23,7 @@
    @author Mark Seligman
  */
 
+#include "corebridge.h"
 #include "signatureR.h"
 #include "trainR.h"
 #include "trainbridge.h"
@@ -52,7 +53,7 @@ void TrainR::initPerInvocation(const List& lDeframe,
   trainBridge.initSamples(as<vector<double>>(argList[strObsWeight]));
   trainBridge.initGrove(as<bool>(argList[strThinLeaves]),
 			as<unsigned int>(argList[strTreeBlock]));
-  trainBridge.initOmp(as<unsigned int>(argList[strNThread]));
+  CoreBridge::init(as<unsigned int>(argList[strNThread]));
   
   if (!Rf_isFactor((SEXP) argList[strY])) {
     NumericVector regMonoNV((SEXP) argList[strRegMono]);

@@ -14,10 +14,10 @@
 */
 
 #include "treenode.h"
+#include "fecore.h"
 #include "fepredict.h"
 #include "predict.h"
 #include "quant.h"
-#include "ompthread.h"
 
 
 void FEPredict::initPredict(bool indexing,
@@ -39,15 +39,10 @@ void FEPredict::initCtgProb(bool doProb) {
 }
 
 
-void FEPredict::initOmp(unsigned int nThread) {
-  OmpThread::init(nThread);
-}
-    
-
 void FEPredict::deInit() {
   Predict::deInit();
   ForestPrediction::deInit();
   Quant::deInit();
   CtgProb::deInit();
-  OmpThread::deInit();
+  FECore::deInit();
 }

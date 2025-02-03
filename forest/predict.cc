@@ -171,7 +171,7 @@ void Predict::predictObs(ForestPrediction* prediction,
   OMPBound rowEnd = static_cast<OMPBound>(blockStart + span);
   OMPBound rowStart = static_cast<OMPBound>(blockStart);
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound row = rowStart; row < rowEnd; row += seqChunk) {

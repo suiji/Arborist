@@ -34,7 +34,7 @@ rfTrain.default <- function(preFormat, sampler, y,
                 predProb = 0.0,
                 predWeight = numeric(0),
                 regMono = numeric(0),
-                splitQuant = NULL,
+                splitQuant = numeric(0),
                 thinLeaves = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,
@@ -164,6 +164,7 @@ rfTrain.default <- function(preFormat, sampler, y,
     # Normalizes vector of pointwise predictor probabilites.
     meanWeight <- if (predProb == 0.0) 1.0 else predProb
     argTrain$probVec <- predWeight * (nPred * meanWeight) / sum(predWeight)
+
     argTrain$predWeight <- NULL
     argTrain$predProb <- NULL
     
@@ -190,9 +191,5 @@ rfTrain.default <- function(preFormat, sampler, y,
     argTrain$version <- as.character(packageVersion("Rborist"))
 
     trainOut <- tryCatch(.Call("trainRF", preFormat, sampler, argTrain), error = function(e){stop(e)})
-
-    if (verbose)
-        print("Training completed.")
-
     structure(trainOut, class = "arbTrain")
 }

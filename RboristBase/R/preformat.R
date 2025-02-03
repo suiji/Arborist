@@ -22,6 +22,7 @@ preformat <- function(x, ...) UseMethod("preformat")
 
 
 preformat.default <- function(x,
+			      nThread = 0,
                               verbose = FALSE,
                               ...) {
     if (inherits(x, "Deframe")) {
@@ -39,7 +40,7 @@ preformat.default <- function(x,
         if (verbose)
             print("Pre-sorting")
 
-        preformat <- deframe(x)
+        preformat <- deframe(x, nThread=nThread)
         if (verbose)
             print("Pre-formatting completed")
     }

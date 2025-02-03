@@ -34,7 +34,7 @@ void RLECresc::encodeFrame(const vector<void*>& colBase) {
   valNum = vector<vector<double>>(nNumeric);
 
   OMPBound nPred = colBase.size();
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {
@@ -63,7 +63,7 @@ void RLECresc::encodeFrameNum(const double* feVal) {
   OMPBound nPred = topIdx.size();
   valFac = vector<vector<unsigned int>>(0);
   valNum = vector<vector<double>>(nPred);
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {
@@ -77,7 +77,7 @@ void RLECresc::encodeFrameFac(const uint32_t*  feVal) {
   OMPBound nPred = topIdx.size();
   valFac = vector<vector<unsigned int>>(nPred);
   valNum = vector<vector<double>>(0);
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < nPred; predIdx++) {

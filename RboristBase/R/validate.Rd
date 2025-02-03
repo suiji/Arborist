@@ -12,8 +12,8 @@
 
 \usage{
 \method{validate}{default}(train, preFormat, sampler = NULL,  ctgCensus
-= "votes", impPermute = 0, quantVec = NULL, quantiles =
-!is.null(quantVec), indexing = FALSE, trapUnobserved = FALSE, nThread = 0, verbose =
+= "votes", impPermute = 0, quantVec = numeric(0), quantiles =
+length(quantVec) > 0, indexing = FALSE, trapUnobserved = FALSE, nThread = 0, verbose =
 FALSE, ...)
 }
 

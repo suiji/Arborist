@@ -28,7 +28,7 @@
                 predProb = 0.0,
                 predWeight = numeric(0),
                 regMono = numeric(0),
-                splitQuant = NULL,
+                splitQuant = numeric(0),
                 thinLeaves = FALSE,
                 treeBlock = 1,
                 verbose = FALSE,

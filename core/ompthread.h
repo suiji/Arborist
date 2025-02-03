@@ -26,21 +26,31 @@ typedef size_t OMPBound;
 /**
    @brief Static members parametrize implementation of thread parallelism.
  */
-struct OmpThread {
+class OmpThread {
+  static constexpr unsigned int nThreadDefault = 0; // Static initialization.
+  static const unsigned int maxThreads;
   static unsigned int nThread;
+
+public:
+
   /**
      @brief Sets number of threads to safe value.
    */
-  static void init(unsigned int nThread_);
+  static void setNThread(unsigned int nThread_);
 
+
+  /**
+     @return count of available threads.
+   */
+  static unsigned int getNThread() {
+    return nThread;
+  }
+
+  
   /**
      @brief Restores static initialization values.
    */
   static void deInit();
-
-private:
-  static constexpr unsigned int nThreadDefault = 0; // Static initialization.
-  static const unsigned int maxThreads;
 };
 
 #endif

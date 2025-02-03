@@ -36,7 +36,7 @@ unsigned int OmpThread::nThread = OmpThread::nThreadDefault;
 const unsigned int OmpThread::maxThreads = 1024; // Cribbed from above.
 
 
-void OmpThread::init(unsigned int nThread_) {
+void OmpThread::setNThread(unsigned int nThread_) {
   unsigned int ompMax = std::min(omp_get_max_threads(), omp_get_thread_limit());
 
   // Guards agains unreasonable value from system calls:

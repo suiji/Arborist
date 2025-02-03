@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2024  Mark Seligman
+// Copyright (C)  2012-2025  Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -95,15 +95,17 @@ void FBTrain::factorConsume(const GroveBridge* bridge,
   for (unsigned int toIdx = tIdx; toIdx < tIdx + fExtents.size(); toIdx++) {
     facExtent[toIdx] = fExtents[fromIdx++];
   }
- 
+
   size_t facBytes = bridge->getFactorBytes();
-  if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
-    facRaw = std::move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
-    facObserved = std::move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
+  if (facBytes > 0) {
+    if (facTop + facBytes > static_cast<size_t>(facRaw.length())) {
+      facRaw = std::move(ResizeR::resize<RawVector>(facRaw, facTop, facBytes, scale));
+      facObserved = std::move(ResizeR::resize<RawVector>(facObserved, facTop, facBytes, scale));
+    }
+    bridge->dumpFactorRaw(&facRaw[facTop]);
+    bridge->dumpFactorObserved(&facObserved[facTop]);
+    facTop += facBytes;
   }
-  bridge->dumpFactorRaw(&facRaw[facTop]);
-  bridge->dumpFactorObserved(&facObserved[facTop]);
-  facTop += facBytes;
 }
 
 

@@ -63,7 +63,7 @@ void SplitFrontier::splitSimple(const CandType& cnd,
     if (splitTop > cand.size())
       splitTop = cand.size();
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
     {
 #pragma omp for schedule(dynamic, 1)
       for (OMPBound splitPos = blockStart; splitPos < splitTop; splitPos++) {
@@ -273,7 +273,7 @@ vector<SplitNux> SplitFrontier::maxCandidates(const vector<vector<SplitNux>>& ca
   vector<SplitNux> argMax(nSplit); // Info initialized to zero.
 
   OMPBound splitTop = nSplit;
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound splitIdx = 0; splitIdx < splitTop; splitIdx++) {

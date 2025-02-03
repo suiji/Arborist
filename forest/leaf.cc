@@ -127,7 +127,7 @@ void Leaf::consumeTerminals(const PreTree* pretree) {
     leafStart[leafIdx] = exchange(startAccum, startAccum + extentCresc[extentStart + leafIdx]);
   }
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
   for (OMPBound rangeIdx = 0; rangeIdx < terminalMap.range.size(); rangeIdx++) {

@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2019  Mark Seligman
+// Copyright (C)  2012-2025  Mark Seligman
 //
 // This file is part of rfR.
 //

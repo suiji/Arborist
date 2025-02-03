@@ -1,4 +1,4 @@
-// Copyright (C)  2012-2024   Mark Seligman
+// Copyright (C)  2012-2025   Mark Seligman
 //
 // This file is part of RboristBase.
 //
@@ -67,22 +67,20 @@ const string TrainR::strClassWeight = "classWeight";
 
 // [[Rcpp::export]]
 List TrainR::train(const List& lDeframe, const List& lSampler, const List& argList) {
-  if (verbose) {
-    Rcout << "Beginning training" << endl;
-  }
-
   vector<string> diag;
   TrainBridge trainBridge(RLEFrameR::unwrap(lDeframe), as<double>(argList[strAutoCompress]), as<bool>(argList[strEnableCoproc]), diag);
   initPerInvocation(lDeframe, argList, trainBridge);
+
+  if (verbose)
+    Rcout << "Training starts" << endl;
 
   TrainR trainR(lSampler);
   trainR.trainGrove(trainBridge);
   List outList = trainR.summarize(trainBridge, lDeframe, lSampler, argList, diag);
 
-  if (verbose) {
-    Rcout << "Training completed" << endl;
-  }
-
+  if (verbose)
+    Rcout << "Training ends" << endl;
+  
   deInit();
   return outList;
 }
@@ -186,7 +184,7 @@ void TrainR::consume(const GroveBridge* grove,
   }
   else {
     predInfo = predInfo + infoGrove;
-  }  
+  }
   if (verbose) {
     Rcout << treeOff + chunkSize << " trees trained" << endl;
   }

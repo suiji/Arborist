@@ -1,8 +1,11 @@
 Package: Rborist
 Title: Extensible, Parallelizable Implementation of the Random Forest Algorithm
-Version: 0.3-8
-Date: 2025-1-28
-Author: Mark Seligman
+Version: 0.3-11
+Date: 2025-2-2
+Authors@R:  person(given = "Mark",
+                   family = "Seligman",
+		   role = c("aut", "cre"),
+		   email = "mseligman@suiji.org")
 Maintainer: Mark Seligman <mseligman@suiji.org>
 BugReports: https://github.com/suiji/Arborist/issues
 Description: Scalable implementation of classification and regression forests, as described by Breiman (2001), <DOI:10.1023/A:1010933404324>.

@@ -19,7 +19,7 @@
 #
 getQuantiles <- function(quantiles, sampler, quantVec) {
     if (!quantiles) {
-        NULL
+        numeric(0)
     }
     else if (!is.null(quantVec)) {
         if (any(quantVec > 1) || any(quantVec < 0))
@@ -30,7 +30,7 @@ getQuantiles <- function(quantiles, sampler, quantVec) {
     }
     else if (is.factor(sampler$yTrain)) {
         warning("Quantiles not supported for classifcation:  ignoring")
-        NULL
+        numeric(0)
     }
     else {
         seq(0.25, 1.0, by = 0.25)

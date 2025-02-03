@@ -10,7 +10,7 @@
 
 \usage{
 \method{predict}{rfArb}(object, newdata, sampler, yTest=NULL,
-keyedFrame = FALSE, quantVec=NULL, quantiles = !is.null(quantVec),
+keyedFrame = FALSE, quantVec=numeric(0), quantiles = length(quantVec) > 0,
 ctgCensus = "votes", indexing = FALSE, trapUnobserved = FALSE,
 bagging = FALSE, nThread = 0, verbose = FALSE, ...)
 }

@@ -49,9 +49,6 @@ struct FEPredict {
   static void initCtgProb(bool doProb);
 
 
-  static void initOmp(unsigned int nThread);
-  
-
   static void deInit();
 };
 

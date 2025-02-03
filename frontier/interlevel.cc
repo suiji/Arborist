@@ -147,7 +147,7 @@ vector<unsigned int> InterLevel::stage() {
   OMPBound predTop = nPred;
   vector<unsigned int> nExtinct(predTop);
 
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound predIdx = 0; predIdx < predTop; predIdx++) {
@@ -164,7 +164,7 @@ vector<unsigned int> InterLevel::restage() {
 
   OMPBound idxTop = ancestor.size();
   vector<unsigned int> nExtinct(idxTop);
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
     for (OMPBound idx = 0; idx < idxTop; idx++) {

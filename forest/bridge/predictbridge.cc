@@ -86,11 +86,6 @@ void PredictBridge::initCtgProb(bool doProb) {
 }
 
 
-void PredictBridge::initOmp(unsigned int nThread) {
-  FEPredict::initOmp(nThread);
-}
-
-
 vector<double> PredictBridge::forestWeight(const ForestBridge& forestBridge,
 					   const SamplerBridge& samplerBridge,
 					   const double indices[],

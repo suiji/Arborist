@@ -20,8 +20,8 @@
                               sampler = NULL,
                               yTest=NULL,
                               keyedFrame = FALSE,
-                              quantVec = NULL,
-                              quantiles = !is.null(quantVec),
+                              quantVec = numeric(0),
+                              quantiles = length(quantVec) > 0,
                               ctgCensus = "votes",
                               indexing = FALSE,
                               trapUnobserved = FALSE,
@@ -83,6 +83,6 @@ ctgProbabilities <- function(sampler, ctgCensus) {
 
 # Glue-layer entry for prediction.
 predictCommon <- function(object, sampler, newdata, yTest, keyedFrame, argList) {
-    deframeNew <- deframe(newdata, object$signature, keyedFrame)
+    deframeNew <- deframe(newdata, object$signature, keyedFrame, nThread = argList$nThread)
     tryCatch(.Call("predictRcpp", deframeNew, object, sampler, yTest, argList), error = function(e) {stop(e)})
 }

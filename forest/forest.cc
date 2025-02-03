@@ -102,7 +102,7 @@ vector<IndexT> Forest::getLeafNodes(unsigned int tIdx,
 vector<vector<IndexRange>> Forest::leafDominators() const {
   vector<vector<IndexRange>> leafDom(nTree);
   
-#pragma omp parallel default(shared) num_threads(OmpThread::nThread)
+#pragma omp parallel default(shared) num_threads(OmpThread::getNThread())
   {
 #pragma omp for schedule(dynamic, 1)
   for (unsigned int tIdx = 0; tIdx < nTree; tIdx++) {

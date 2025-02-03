@@ -20,6 +20,7 @@ cp ../../deframeR/*.{cc,h} Rborist/src/
 cp ../../deframe/*.{cc,h} Rborist/src/
 cp ../../cart/*.{cc,h} Rborist/src/
 cp ../../core/*.{cc,h} Rborist/src/
+cp ../../core/bridge/*.{cc,h} Rborist/src/
 cp ../../forest/*.{cc,h} Rborist/src/
 cp ../../forest/bridge/*.{cc,h} Rborist/src/
 cp ../../obs/*.{cc,h} Rborist/src/

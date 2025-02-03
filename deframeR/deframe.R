@@ -1,4 +1,4 @@
-# Copyright (C)  2012-2024  Mark Seligman
+# Copyright (C)  2012-2025  Mark Seligman
 ##
 ## This file is part of deframeR.
 ##
@@ -19,36 +19,39 @@
 # summaries.
 #
 
-deframe <- function(x, sigTrain = NULL, keyed = FALSE) {
+deframe <- function(x, sigTrain = NULL, keyed = FALSE, nThread = 0) {
+  threadsUsed <- tryCatch(.Call("setThreadCount", nThread))
+
   # Argument checking:
   # For now, only numeric and unordered factor types supported.
   #
   # For now, RLE frame is ranked on both training and prediction.
   if (is.data.frame(x)) {
+      data.table::setDTthreads(threadsUsed)
       dt <- data.table::setDT(x)[,tryCatch(.Call("columnOrder", x, sigTrain, keyed))]
       colSurvey <- sapply(dt, function(col) ifelse(is.numeric(col) || (is.factor(col) && !is.ordered(col)), TRUE, FALSE))
       if (length(which(colSurvey)) != ncol(dt)) {
           stop("Frame columns must be either numeric or unordered factor")
       }
       classVec <- sapply(dt, function(col) class(col))
-      return(tryCatch(.Call("deframeDF", dt, classVec, lapply(dt, levels)[classVec == "factor"], lapply(dt, factor)[classVec == "factor"], sigTrain), error = function(e) {stop(e)} ))
+      ret <- tryCatch(.Call("deframeDF", dt, classVec, lapply(dt, levels)[classVec == "factor"], lapply(dt, factor)[classVec == "factor"], sigTrain), error = function(e) {stop(e)} )
   }
   else {
     if (keyed) {
         warning("Keyed access not yet supported for matrix types:  ignoring.")
     }
     if (inherits(x, "dgCMatrix")) {
-      return(tryCatch(.Call("deframeIP", x), error= print))
+      ret <- tryCatch(.Call("deframeIP", x), error= print)
     }
     else if (is.matrix(x)) {
       if (is.integer(x) && is.factor(x) && !is.ordered(x)) {
-        return(tryCatch(.Call("deframeFac", data.matrix(x) ), error=function(e) {stop(e)} ))
+        ret <- tryCatch(.Call("deframeFac", data.matrix(x) ), error=function(e) {stop(e)} )
       }
       else if (is.integer(x)) {
-        return(tryCatch(.Call("deframeNum", data.matrix(x) ), error=function(e) {stop(e)} ))
+        ret <- tryCatch(.Call("deframeNum", data.matrix(x) ), error=function(e) {stop(e)} )
       }
       else if (is.numeric(x)) {
-        return(tryCatch(.Call("deframeNum", x), error=function(e) {stop(e)}))
+        ret <- tryCatch(.Call("deframeNum", x), error=function(e) {stop(e)})
       }
       else if (is.character(x)) {
         stop("Character data not yet supported")
@@ -61,4 +64,7 @@ deframe <- function(x, sigTrain = NULL, keyed = FALSE) {
       stop("Expecting data frame or matrix")
     }
   }
+
+  dummy <- tryCatch(.Call("setThreadCount", 0))
+  ret
 }

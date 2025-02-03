@@ -83,11 +83,6 @@ void TrainBridge::initNodeScorer(const string& scorer) {
 }
 
 
-void TrainBridge::initOmp(unsigned int nThread) {
-  FETrain::initOmp(nThread);
-}
-
-
 void TrainBridge::initSplit(unsigned int minNode,
                             unsigned int totLevels,
                             double minRatio,

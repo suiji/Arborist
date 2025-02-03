@@ -101,7 +101,7 @@ size_t Sampler::sampleCount(size_t nSpecified,
     nAvail = nObs;
 
   if (nSpecified == 0) {
-    sCount = replace ? nAvail : round(1-exp(-1)*nAvail);
+    sCount = replace ? nAvail : round((1-exp(-1))*nAvail);
   }
   else if (!replace)
     sCount = min(nSpecified, nAvail);
