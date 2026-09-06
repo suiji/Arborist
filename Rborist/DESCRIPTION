@@ -1,7 +1,7 @@
 Package: Rborist
 Title: Extensible, Parallelizable Implementation of the Random Forest Algorithm
-Version: 0.3-11
-Date: 2025-2-2
+Version: 0.3-12
+Date: 2026-9-6
 Authors@R:  person(given = "Mark",
                    family = "Seligman",
 		   role = c("aut", "cre"),

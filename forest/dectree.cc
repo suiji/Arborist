@@ -18,6 +18,8 @@
 
 #include "quant.h" // Inclusion only.
 
+#include <iterator>
+
 DecTree::DecTree(const vector<DecNode>& decNode_,
 		 const BV& facSplit_,
 		 const BV& facObserved_,
